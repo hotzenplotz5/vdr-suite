@@ -29,6 +29,13 @@ JOB_REPOSITORY_SRC := \
 	core/recordings/src/JobService.cpp \
 	core/recordings/src/RecordingActionUtils.cpp
 
+WORKFLOW_SRC := \
+	core/recordings/src/RecordingWorkflowService.cpp \
+	core/recordings/src/ActionService.cpp \
+	core/recordings/src/JobService.cpp \
+	core/recordings/src/JobRepository.cpp \
+	core/recordings/src/RecordingActionUtils.cpp
+
 .PHONY: all test clean prepare-test-db
 
 all: test
@@ -103,7 +110,16 @@ test-job-repository: prepare-test-db
 		-o /tmp/test_job_repository
 	/tmp/test_job_repository
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository
+test-workflow-service: prepare-test-db
+	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(WORKFLOW_SRC) \
+		core/recordings/tests/test_workflow_service.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_workflow_service
+	/tmp/test_workflow_service
+
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-workflow-service
 
 clean:
 	rm -f /tmp/test_database
@@ -115,3 +131,4 @@ clean:
 	rm -f /tmp/test_job_service
 	rm -f /tmp/vdr-suite-test.db
 	rm -f /tmp/test_job_repository
+	rm -f /tmp/test_workflow_service
