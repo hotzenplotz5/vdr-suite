@@ -30,28 +30,13 @@ int main()
             1,
             RecordingActionType::Shrink);
 
-    std::cout
-        << "Recording: "
-        << job.recordingId
-        << std::endl;
+    std::cout << "Recording: " << job.recordingId << std::endl;
+    std::cout << "Type: " << job.jobType << std::endl;
+    std::cout << "Status: " << job.status << std::endl;
 
-    std::cout
-        << "Type: "
-        << job.jobType
-        << std::endl;
+    auto jobs = jobRepository.getAllJobs();
 
-    std::cout
-        << "Status: "
-        << job.status
-        << std::endl;
-
-    auto jobs =
-        jobRepository.getAllJobs();
-
-    std::cout
-        << "Jobs in DB: "
-        << jobs.size()
-        << std::endl;
+    std::cout << "Jobs in DB: " << jobs.size() << std::endl;
 
     return 0;
 }

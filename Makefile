@@ -129,6 +129,6 @@ clean:
 	rm -f /tmp/test_recording_action
 	rm -f /tmp/test_action_service
 	rm -f /tmp/test_job_service
-	rm -f /tmp/vdr-suite-test.db
 	rm -f /tmp/test_job_repository
 	rm -f /tmp/test_workflow_service
+	rm -f /tmp/vdr-suite-test.db

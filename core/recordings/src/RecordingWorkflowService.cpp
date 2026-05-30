@@ -18,15 +18,11 @@ Job RecordingWorkflowService::createActionJob(
     int recordingId,
     RecordingActionType actionType)
 {
-    auto action =
-        actionService_.createAction(
-            recordingId,
-            actionType);
+    auto action = actionService_.createAction(recordingId, actionType);
 
-    auto job =
-        jobService_.createJob(
-            action.recordingId,
-            action.type);
+    auto job = jobService_.createJob(
+        action.recordingId,
+        action.type);
 
     jobRepository_.insertJob(job);
 
