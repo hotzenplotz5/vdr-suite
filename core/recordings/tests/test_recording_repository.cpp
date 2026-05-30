@@ -16,11 +16,22 @@ int main()
     RecordingRepository repository(db);
 
     auto recordings =
-        repository.getRecordingTitles();
+        repository.getAllRecordings();
 
-    for (const auto& title : recordings)
+    if (recordings.empty())
     {
-        std::cout << title << std::endl;
+        std::cerr << "no recordings found\n";
+        return 1;
+    }
+
+    for (const auto& recording : recordings)
+    {
+        std::cout
+            << recording.id << " | "
+            << recording.title << " | "
+            << recording.recordingFormat << " | "
+            << recording.recordingPath
+            << std::endl;
     }
 
     return 0;
