@@ -1,0 +1,25 @@
+name: Phase 0 Documentation Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  docs-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check repository structure
+        run: |
+          test -f README.md
+          test -f docs/project-principles.md
+          test -f docs/phase-0/01-vision.md
+          test -f docs/phase-0/02-architecture.md
+          test -f docs/phase-0/03-data-model.md
+          test -f docs/phase-0/04-service-layer.md
+          test -f docs/adr/ADR-0001-monorepo.md
+          test -f docs/planning/roadmap.md
+          test -f docs/planning/milestones.md
