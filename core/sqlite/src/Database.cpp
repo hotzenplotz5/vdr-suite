@@ -15,6 +15,10 @@ Database::~Database()
 
 bool Database::open(const std::string& filename)
 {
+    if (db_) {
+        close();
+    }
+
     if (sqlite3_open(filename.c_str(), &db_) != SQLITE_OK) {
         std::cerr << "Failed to open database: "
                   << sqlite3_errmsg(db_) << std::endl;
@@ -39,6 +43,11 @@ bool Database::isOpen() const
 
 bool Database::execute(const std::string& sql)
 {
+    if (!db_) {
+        std::cerr << "Database is not open" << std::endl;
+        return false;
+    }
+
     char* error = nullptr;
 
     int rc = sqlite3_exec(
@@ -60,6 +69,7 @@ bool Database::execute(const std::string& sql)
 
     return true;
 }
+
 bool Database::tableExists(const std::string& tableName)
 {
     if (!db_) {
@@ -72,7 +82,7 @@ bool Database::tableExists(const std::string& tableName)
 
     bool found = false;
 
-    auto callback = [](void* data, int argc, char** argv, char** colNames) -> int {
+        auto callback = [](void* data, int, char**, char**) -> int {
         bool* foundPtr = static_cast<bool*>(data);
         *foundPtr = true;
         return 0;
@@ -98,4 +108,9 @@ bool Database::tableExists(const std::string& tableName)
     }
 
     return found;
+}
+
+sqlite3* Database::handle() const
+{
+    return db_;
 }
