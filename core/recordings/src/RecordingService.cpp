@@ -41,3 +41,10 @@ RecordingDetails RecordingService::getRecordingDetails(int id)
 
     return details;
 }
+
+std::vector<Recording>
+RecordingService::findRecordingsByTitle(
+    const std::string& title)
+{
+    return recordingRepository_.findByTitle(title);
+}

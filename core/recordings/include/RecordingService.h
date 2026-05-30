@@ -17,7 +17,11 @@ public:
     );
 
     std::vector<Recording> getAllRecordings();
+
     RecordingDetails getRecordingDetails(int id);
+
+    std::vector<Recording> findRecordingsByTitle(
+        const std::string& title);
 
 private:
     RecordingRepository& recordingRepository_;

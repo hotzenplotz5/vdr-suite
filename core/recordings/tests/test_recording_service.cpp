@@ -11,7 +11,6 @@ int main()
 
     if (!db.open("/tmp/vdr-suite-test.db"))
     {
-        std::cerr << "database open failed\n";
         return 1;
     }
 
@@ -23,27 +22,22 @@ int main()
         metadataRepository
     );
 
-    auto details = service.getRecordingDetails(1);
+    auto results =
+        service.findRecordingsByTitle("Tat");
 
-    if (details.recording.id == 0)
+    if (results.empty())
     {
-        std::cerr << "recording details not found\n";
+        std::cerr << "search failed\n";
         return 1;
     }
 
-    std::cout
-        << details.recording.title << " | "
-        << details.recording.recordingFormat;
-
-    if (details.hasMetadata)
+    for (const auto& recording : results)
     {
         std::cout
-            << " | "
-            << details.metadata.genre << " | "
-            << details.metadata.year;
+            << recording.id << " | "
+            << recording.title
+            << std::endl;
     }
-
-    std::cout << std::endl;
 
     return 0;
 }

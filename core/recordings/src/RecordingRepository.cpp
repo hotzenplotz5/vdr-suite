@@ -130,3 +130,47 @@ std::optional<Recording> RecordingRepository::getRecordingById(int id)
 
     return result;
 }
+
+std::vector<Recording> RecordingRepository::findByTitle(
+    const std::string& title)
+{
+    std::vector<Recording> result;
+
+    sqlite3_stmt* stmt = nullptr;
+
+    const char* sql =
+        "SELECT id, title, subtitle, description, channel, "
+        "recording_path, recording_format "
+        "FROM recordings "
+        "WHERE title LIKE ? "
+        "ORDER BY title;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &stmt,
+            nullptr) != SQLITE_OK)
+    {
+        return result;
+    }
+
+    std::string pattern =
+        "%" + title + "%";
+
+    sqlite3_bind_text(
+        stmt,
+        1,
+        pattern.c_str(),
+        -1,
+        SQLITE_TRANSIENT);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        result.push_back(readRecording(stmt));
+    }
+
+    sqlite3_finalize(stmt);
+
+    return result;
+}
