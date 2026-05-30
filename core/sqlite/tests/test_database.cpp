@@ -21,6 +21,11 @@ int main()
         return 1;
     }
 
+    if (!db.tableExists("test")) {
+        std::cerr << "tableExists failed\n";
+        return 1;
+    }
+
     if (!db.execute("INSERT INTO test (name) VALUES ('VDR-Suite');")) {
         std::cerr << "insert failed\n";
         return 1;

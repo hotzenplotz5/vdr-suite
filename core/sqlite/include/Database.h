@@ -15,6 +15,7 @@ public:
     bool isOpen() const;
 
     bool execute(const std::string& sql);
+    bool tableExists(const std::string& tableName);
 
 private:
     sqlite3* db_;
