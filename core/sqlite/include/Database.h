@@ -17,6 +17,8 @@ public:
     bool execute(const std::string& sql);
     bool tableExists(const std::string& tableName);
 
+    sqlite3* handle() const;
+
 private:
     sqlite3* db_;
 };
