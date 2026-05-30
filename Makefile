@@ -3,7 +3,14 @@ CXXFLAGS := -std=c++17 -Wall -Wextra -Icore/sqlite/include -Icore/recordings/inc
 LDFLAGS := $(shell pkg-config --libs sqlite3)
 
 SQLITE_SRC := core/sqlite/src/Database.cpp
-RECORDINGS_SRC := core/recordings/src/RecordingRepository.cpp core/recordings/src/RecordingService.cpp
+
+RECORDINGS_SRC := \
+	core/recordings/src/RecordingRepository.cpp \
+	core/recordings/src/RecordingService.cpp
+
+METADATA_SRC := \
+	core/recordings/src/MetadataRepository.cpp \
+	core/recordings/src/MetadataService.cpp
 
 .PHONY: all test clean prepare-test-db
 
@@ -40,10 +47,20 @@ test-recording-service: prepare-test-db
 		-o /tmp/test_recording_service
 	/tmp/test_recording_service
 
-test: test-database test-recording-repository test-recording-service
+test-metadata-service: prepare-test-db
+	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(METADATA_SRC) \
+		core/recordings/tests/test_metadata_service.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_metadata_service
+	/tmp/test_metadata_service
+
+test: test-database test-recording-repository test-recording-service test-metadata-service
 
 clean:
 	rm -f /tmp/test_database
 	rm -f /tmp/test_recording_repository
 	rm -f /tmp/test_recording_service
+	rm -f /tmp/test_metadata_service
 	rm -f /tmp/vdr-suite-test.db
