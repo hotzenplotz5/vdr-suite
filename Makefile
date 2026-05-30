@@ -16,6 +16,10 @@ METADATA_SRC := \
 ACTIONS_SRC := \
 	core/recordings/src/RecordingActionUtils.cpp
 
+ACTION_SERVICE_SRC := \
+	core/recordings/src/ActionService.cpp \
+	core/recordings/src/RecordingActionUtils.cpp
+
 .PHONY: all test clean prepare-test-db
 
 all: test
@@ -67,7 +71,14 @@ test-recording-action:
 		-o /tmp/test_recording_action
 	/tmp/test_recording_action
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action
+test-action-service:
+	$(CXX) $(CXXFLAGS) \
+		$(ACTION_SERVICE_SRC) \
+		core/recordings/tests/test_action_service.cpp \
+		-o /tmp/test_action_service
+	/tmp/test_action_service
+
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service
 
 clean:
 	rm -f /tmp/test_database
@@ -76,3 +87,4 @@ clean:
 	rm -f /tmp/test_metadata_service
 	rm -f /tmp/test_recording_action
 	rm -f /tmp/vdr-suite-test.db
+	rm -f /tmp/test_action_service
