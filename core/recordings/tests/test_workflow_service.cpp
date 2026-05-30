@@ -25,18 +25,24 @@ int main()
         jobService,
         jobRepository);
 
-    auto job =
-        workflow.createActionJob(
-            1,
-            RecordingActionType::Shrink);
+    workflow.createCheckJob(1);
+    workflow.createShrinkJob(1);
+    workflow.createRepairJob(1);
+    workflow.createCutJob(1);
+    workflow.createPes2TsJob(1);
+    workflow.createRenameJob(1);
 
-    std::cout << "Recording: " << job.recordingId << std::endl;
-    std::cout << "Type: " << job.jobType << std::endl;
-    std::cout << "Status: " << job.status << std::endl;
+    auto jobs =
+        jobRepository.getAllJobs();
 
-    auto jobs = jobRepository.getAllJobs();
-
-    std::cout << "Jobs in DB: " << jobs.size() << std::endl;
+    for (const auto& job : jobs)
+    {
+        std::cout
+            << job.id << " | "
+            << job.jobType << " | "
+            << job.status
+            << std::endl;
+    }
 
     return 0;
 }

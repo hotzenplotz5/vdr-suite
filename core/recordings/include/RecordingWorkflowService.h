@@ -19,6 +19,13 @@ public:
         int recordingId,
         RecordingActionType actionType);
 
+    Job createCheckJob(int recordingId);
+    Job createShrinkJob(int recordingId);
+    Job createRepairJob(int recordingId);
+    Job createCutJob(int recordingId);
+    Job createPes2TsJob(int recordingId);
+    Job createRenameJob(int recordingId);
+
 private:
     ActionService& actionService_;
     JobService& jobService_;
