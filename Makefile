@@ -20,6 +20,10 @@ ACTION_SERVICE_SRC := \
 	core/recordings/src/ActionService.cpp \
 	core/recordings/src/RecordingActionUtils.cpp
 
+JOB_SERVICE_SRC := \
+	core/recordings/src/JobService.cpp \
+	core/recordings/src/RecordingActionUtils.cpp
+
 .PHONY: all test clean prepare-test-db
 
 all: test
@@ -78,7 +82,14 @@ test-action-service:
 		-o /tmp/test_action_service
 	/tmp/test_action_service
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service
+test-job-service:
+	$(CXX) $(CXXFLAGS) \
+		$(JOB_SERVICE_SRC) \
+		core/recordings/tests/test_job_service.cpp \
+		-o /tmp/test_job_service
+	/tmp/test_job_service
+
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service
 
 clean:
 	rm -f /tmp/test_database
@@ -86,5 +97,6 @@ clean:
 	rm -f /tmp/test_recording_service
 	rm -f /tmp/test_metadata_service
 	rm -f /tmp/test_recording_action
-	rm -f /tmp/vdr-suite-test.db
 	rm -f /tmp/test_action_service
+	rm -f /tmp/test_job_service
+	rm -f /tmp/vdr-suite-test.db
