@@ -1,5 +1,6 @@
 #include "Database.h"
 #include "RecordingRepository.h"
+#include "MetadataRepository.h"
 #include "RecordingService.h"
 
 #include <iostream>
@@ -14,25 +15,35 @@ int main()
         return 1;
     }
 
-    RecordingRepository repository(db);
-    RecordingService service(repository);
+    RecordingRepository recordingRepository(db);
+    MetadataRepository metadataRepository(db);
 
-    auto recordings = service.getAllRecordings();
+    RecordingService service(
+        recordingRepository,
+        metadataRepository
+    );
 
-    if (recordings.empty())
+    auto details = service.getRecordingDetails(1);
+
+    if (details.recording.id == 0)
     {
-        std::cerr << "no recordings found\n";
+        std::cerr << "recording details not found\n";
         return 1;
     }
 
-    for (const auto& recording : recordings)
+    std::cout
+        << details.recording.title << " | "
+        << details.recording.recordingFormat;
+
+    if (details.hasMetadata)
     {
         std::cout
-            << recording.id << " | "
-            << recording.title << " | "
-            << recording.recordingFormat
-            << std::endl;
+            << " | "
+            << details.metadata.genre << " | "
+            << details.metadata.year;
     }
+
+    std::cout << std::endl;
 
     return 0;
 }

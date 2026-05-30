@@ -6,6 +6,7 @@ SQLITE_SRC := core/sqlite/src/Database.cpp
 
 RECORDINGS_SRC := \
 	core/recordings/src/RecordingRepository.cpp \
+	core/recordings/src/MetadataRepository.cpp \
 	core/recordings/src/RecordingService.cpp
 
 METADATA_SRC := \

@@ -16,6 +16,21 @@ namespace
 
         return reinterpret_cast<const char*>(text);
     }
+
+    Recording readRecording(sqlite3_stmt* stmt)
+    {
+        Recording recording;
+
+        recording.id = sqlite3_column_int(stmt, 0);
+        recording.title = columnText(stmt, 1);
+        recording.subtitle = columnText(stmt, 2);
+        recording.description = columnText(stmt, 3);
+        recording.channel = columnText(stmt, 4);
+        recording.recordingPath = columnText(stmt, 5);
+        recording.recordingFormat = columnText(stmt, 6);
+
+        return recording;
+    }
 }
 
 RecordingRepository::RecordingRepository(Database& database)
@@ -75,17 +90,40 @@ std::vector<Recording> RecordingRepository::getAllRecordings()
 
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
-        Recording recording;
+        result.push_back(readRecording(stmt));
+    }
 
-        recording.id = sqlite3_column_int(stmt, 0);
-        recording.title = columnText(stmt, 1);
-        recording.subtitle = columnText(stmt, 2);
-        recording.description = columnText(stmt, 3);
-        recording.channel = columnText(stmt, 4);
-        recording.recordingPath = columnText(stmt, 5);
-        recording.recordingFormat = columnText(stmt, 6);
+    sqlite3_finalize(stmt);
 
-        result.push_back(recording);
+    return result;
+}
+
+std::optional<Recording> RecordingRepository::getRecordingById(int id)
+{
+    sqlite3_stmt* stmt = nullptr;
+
+    const char* sql =
+        "SELECT id, title, subtitle, description, channel, recording_path, recording_format "
+        "FROM recordings "
+        "WHERE id = ?;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &stmt,
+            nullptr) != SQLITE_OK)
+    {
+        return std::nullopt;
+    }
+
+    sqlite3_bind_int(stmt, 1, id);
+
+    std::optional<Recording> result;
+
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        result = readRecording(stmt);
     }
 
     sqlite3_finalize(stmt);

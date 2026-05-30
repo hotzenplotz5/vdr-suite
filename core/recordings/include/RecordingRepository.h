@@ -2,6 +2,7 @@
 
 #include "Recording.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,7 @@ public:
 
     std::vector<std::string> getRecordingTitles();
     std::vector<Recording> getAllRecordings();
+    std::optional<Recording> getRecordingById(int id);
 
 private:
     Database& database_;

@@ -1,18 +1,25 @@
 #pragma once
 
 #include "Recording.h"
+#include "RecordingDetails.h"
 
 #include <vector>
 
 class RecordingRepository;
+class MetadataRepository;
 
 class RecordingService
 {
 public:
-    explicit RecordingService(RecordingRepository& repository);
+    RecordingService(
+        RecordingRepository& recordingRepository,
+        MetadataRepository& metadataRepository
+    );
 
     std::vector<Recording> getAllRecordings();
+    RecordingDetails getRecordingDetails(int id);
 
 private:
-    RecordingRepository& repository_;
+    RecordingRepository& recordingRepository_;
+    MetadataRepository& metadataRepository_;
 };

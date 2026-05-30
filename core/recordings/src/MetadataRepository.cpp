@@ -16,6 +16,26 @@ namespace
 
         return reinterpret_cast<const char*>(text);
     }
+
+    Metadata readMetadata(sqlite3_stmt* stmt)
+    {
+        Metadata metadata;
+
+        metadata.id = sqlite3_column_int(stmt, 0);
+        metadata.recordingId = sqlite3_column_int(stmt, 1);
+        metadata.mediaType = columnText(stmt, 2);
+        metadata.title = columnText(stmt, 3);
+        metadata.originalTitle = columnText(stmt, 4);
+        metadata.year = sqlite3_column_int(stmt, 5);
+        metadata.seasonNumber = sqlite3_column_int(stmt, 6);
+        metadata.episodeNumber = sqlite3_column_int(stmt, 7);
+        metadata.genre = columnText(stmt, 8);
+        metadata.description = columnText(stmt, 9);
+        metadata.source = columnText(stmt, 10);
+        metadata.externalId = columnText(stmt, 11);
+
+        return metadata;
+    }
 }
 
 MetadataRepository::MetadataRepository(Database& database)
@@ -47,22 +67,42 @@ std::vector<Metadata> MetadataRepository::getAllMetadata()
 
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
-        Metadata metadata;
+        result.push_back(readMetadata(stmt));
+    }
 
-        metadata.id = sqlite3_column_int(stmt, 0);
-        metadata.recordingId = sqlite3_column_int(stmt, 1);
-        metadata.mediaType = columnText(stmt, 2);
-        metadata.title = columnText(stmt, 3);
-        metadata.originalTitle = columnText(stmt, 4);
-        metadata.year = sqlite3_column_int(stmt, 5);
-        metadata.seasonNumber = sqlite3_column_int(stmt, 6);
-        metadata.episodeNumber = sqlite3_column_int(stmt, 7);
-        metadata.genre = columnText(stmt, 8);
-        metadata.description = columnText(stmt, 9);
-        metadata.source = columnText(stmt, 10);
-        metadata.externalId = columnText(stmt, 11);
+    sqlite3_finalize(stmt);
 
-        result.push_back(metadata);
+    return result;
+}
+
+std::optional<Metadata> MetadataRepository::getMetadataForRecording(int recordingId)
+{
+    sqlite3_stmt* stmt = nullptr;
+
+    const char* sql =
+        "SELECT id, recording_id, media_type, title, original_title, year, "
+        "season_number, episode_number, genre, description, source, external_id "
+        "FROM metadata "
+        "WHERE recording_id = ? "
+        "LIMIT 1;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &stmt,
+            nullptr) != SQLITE_OK)
+    {
+        return std::nullopt;
+    }
+
+    sqlite3_bind_int(stmt, 1, recordingId);
+
+    std::optional<Metadata> result;
+
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        result = readMetadata(stmt);
     }
 
     sqlite3_finalize(stmt);
