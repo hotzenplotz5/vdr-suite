@@ -1,5 +1,7 @@
 #pragma once
 
+#include "RuntimeConfig.h"
+
 #include <atomic>
 
 class DaemonRuntime
@@ -15,6 +17,8 @@ private:
     static void handleSignal(int signalNumber);
 
     bool initialized_;
+
+    RuntimeConfig config_;
 
     static std::atomic<bool> shutdownRequested_;
 };

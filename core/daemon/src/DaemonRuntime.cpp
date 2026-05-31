@@ -1,7 +1,7 @@
 #include "DaemonRuntime.h"
 
-#include <csignal>
 #include <chrono>
+#include <csignal>
 #include <iostream>
 #include <thread>
 
@@ -16,6 +16,11 @@ bool DaemonRuntime::initialize()
 {
     std::cout
         << "vdr-suite-daemon runtime initializing"
+        << std::endl;
+
+    std::cout
+        << "database path: "
+        << config_.databasePath()
         << std::endl;
 
     std::signal(SIGINT, DaemonRuntime::handleSignal);

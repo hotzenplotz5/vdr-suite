@@ -102,6 +102,7 @@ RECTOOLS_ADAPTER_SRC := \
 	core/recordings/src/RecordingActionUtils.cpp
 
 DAEMON_SRC := \
+        core/daemon/src/RuntimeConfig.cpp \
         core/daemon/src/DaemonRuntime.cpp \
         core/daemon/src/DaemonApp.cpp
 
