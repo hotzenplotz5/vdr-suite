@@ -6,7 +6,7 @@ VDR-Suite
 
 Goal:
 
-Modern service-oriented backend architecture for VDR recordings, metadata management, job processing, dashboard services and future integration of VDR-Rectools.
+Modern service-oriented backend architecture for VDR recordings, metadata management, job processing, dashboard services, JSON export, REST API, Web UI, OSD integration and future integration of VDR-Rectools.
 
 ---
 
@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v0.6-phase3-dashboard
+v0.8-phase5-dashboard-facade
 
 ## Latest Commit
 
-2493ae7
+80045a7
 
-Phase 3: add JobDashboardService
+Phase 5: add DashboardFacade
 
 ---
 
@@ -67,6 +67,8 @@ Implemented:
 ### Dashboard
 
 * DashboardSummary
+* RecordingDashboardSummary
+* DashboardOverview
 
 ---
 
@@ -80,12 +82,14 @@ Features:
 
 * Load recordings
 * Search recordings
+* Load recording by id
 
 ### MetadataRepository
 
 Features:
 
 * Load metadata
+* Load metadata for recording
 
 ### JobRepository
 
@@ -139,6 +143,16 @@ Features:
 * Detect latest job id
 * Detect latest job type
 * Detect latest job status
+
+### RecordingDashboardService
+
+Features:
+
+* Count total recordings
+* Count recordings with metadata
+* Count recordings without metadata
+* Detect latest recording id
+* Detect latest recording title
 
 ---
 
@@ -215,7 +229,7 @@ JobDashboardService
 ↓
 DashboardSummary
 
-Current output model:
+Output model:
 
 * totalJobs
 * pendingJobs
@@ -226,9 +240,55 @@ Current output model:
 * latestJobType
 * latestJobStatus
 
+### RecordingDashboardService
+
+Purpose:
+
+Read-only dashboard service for recording and metadata overview.
+
+Architecture:
+
+RecordingRepository
++
+MetadataRepository
+↓
+RecordingDashboardService
+↓
+RecordingDashboardSummary
+
+Output model:
+
+* recordingsTotal
+* recordingsWithMetadata
+* recordingsWithoutMetadata
+* latestRecordingId
+* latestRecordingTitle
+
+### DashboardFacade
+
+Purpose:
+
+Single read-only facade for future dashboard consumers.
+
+Architecture:
+
+JobDashboardService
++
+RecordingDashboardService
+↓
+DashboardFacade
+↓
+DashboardOverview
+
+Output model:
+
+* jobs
+* recordings
+
 Used for future:
 
 * CLI dashboard
+* JSON export
 * REST API
 * Web UI
 * VDR OSD
@@ -236,6 +296,8 @@ Used for future:
 ---
 
 ## Current Architecture
+
+Execution path:
 
 Recording
 ↓
@@ -251,13 +313,25 @@ WorkerSimulator
 ↓
 DONE
 
-Dashboard:
+Dashboard path:
 
 JobRepository
 ↓
 JobDashboardService
 ↓
 DashboardSummary
++
+RecordingRepository
++
+MetadataRepository
+↓
+RecordingDashboardService
+↓
+RecordingDashboardSummary
+↓
+DashboardFacade
+↓
+DashboardOverview
 
 Future execution path:
 
@@ -275,15 +349,13 @@ RectoolsAdapter
 ↓
 VDR-Rectools
 
-Future dashboard path:
+Future external access path:
 
-JobDashboardService
-+
-RecordingDashboardService
-↓
 DashboardFacade
 ↓
-CLI / REST API / Web UI / OSD
+DashboardJsonSerializer
+↓
+REST API / Web UI / CLI / OSD
 
 ---
 
@@ -313,25 +385,32 @@ v0.6-phase3-dashboard
 
 Job dashboard service.
 
+v0.7-phase4-recording-dashboard
+
+Recording dashboard service.
+
+v0.8-phase5-dashboard-facade
+
+Dashboard facade.
+
 ---
 
 # Last Completed Step
 
-Phase 3
+Phase 5
 
-JobDashboardService
+DashboardFacade
 
 Implemented files:
 
-* core/recordings/include/DashboardSummary.h
-* core/recordings/include/JobDashboardService.h
-* core/recordings/src/JobDashboardService.cpp
-* core/recordings/tests/test_job_dashboard_service.cpp
+* core/recordings/include/DashboardOverview.h
+* core/recordings/include/DashboardFacade.h
+* core/recordings/src/DashboardFacade.cpp
+* core/recordings/tests/test_dashboard_facade.cpp
 
 Updated files:
 
 * Makefile
-* docs/development/current-status.md
 
 Verified:
 
@@ -346,52 +425,47 @@ All tests passed.
 
 # Next Planned Step
 
-Phase 4
+Phase 6.0
 
-RecordingDashboardService
+DashboardJsonSerializer
 
 Goals:
 
-* Recording overview
-* Recording statistics
-* Metadata coverage overview
-* Shared backend service for:
-
-  * CLI
-  * REST API
-  * Web UI
-  * OSD
-
-Potential output:
-
-* recordingsTotal
-* tsRecordings
-* pesRecordings
-* recordingsWithMetadata
-* recordingsWithoutMetadata
-* latestRecordingId
-* latestRecordingTitle
+* Convert DashboardOverview to JSON
+* No HTTP server yet
+* No REST routing yet
+* No external dependencies if possible
+* Stable output for future CLI, REST API, Web UI and OSD
 
 Planned architecture:
 
-RecordingRepository
-+
-MetadataRepository
+DashboardFacade
 ↓
-RecordingDashboardService
+DashboardOverview
 ↓
-RecordingDashboardSummary
+DashboardJsonSerializer
+↓
+JSON string
 
----
+Potential output:
 
-# Long-Term Goals
-
-* Real RectoolsAdapter integration
-* REST API
-* Web Frontend
-* VDR OSD integration
-* Unified recording management
-* Metadata services
-* Background worker processing
-* Dashboard facade
-* Modern VDR Suite architecture
+```json
+{
+  "jobs": {
+    "totalJobs": 12,
+    "pendingJobs": 6,
+    "runningJobs": 0,
+    "doneJobs": 4,
+    "failedJobs": 2,
+    "latestJobId": 12,
+    "latestJobType": "RENAME",
+    "latestJobStatus": "PENDING"
+  },
+  "recordings": {
+    "recordingsTotal": 2,
+    "recordingsWithMetadata": 1,
+    "recordingsWithoutMetadata": 1,
+    "latestRecordingId": 2,
+    "latestRecordingTitle": "Tagesschau"
+  }
+}
