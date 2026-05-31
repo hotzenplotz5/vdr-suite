@@ -16,26 +16,9 @@ int main()
     }
 
     JobRepository repository(db);
-    JobService jobService;
-
-    auto job =
-        jobService.createJob(
-            1,
-            RecordingActionType::Shrink);
-
-    if (!repository.insertJob(job))
-    {
-        std::cerr << "insert failed" << std::endl;
-        return 1;
-    }
-
     WorkerSimulator worker(repository);
 
-    if (!worker.executeJob(3))
-    {
-        std::cerr << "worker failed" << std::endl;
-        return 1;
-    }
+    worker.processNextJob();
 
     auto jobs =
         repository.getAllJobs();

@@ -19,6 +19,8 @@ public:
         int jobId,
         const std::string& status);
 
+    Job getNextPendingJob();
+
 private:
     Database& database_;
 };

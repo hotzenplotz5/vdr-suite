@@ -10,6 +10,8 @@ public:
 
     bool executeJob(int jobId);
 
+    bool processNextJob();
+
 private:
     JobRepository& repository_;
 };

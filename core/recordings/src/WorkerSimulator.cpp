@@ -25,3 +25,16 @@ bool WorkerSimulator::executeJob(int jobId)
 
     return true;
 }
+
+bool WorkerSimulator::processNextJob()
+{
+    auto job =
+        repository_.getNextPendingJob();
+
+    if (job.id == 0)
+    {
+        return false;
+    }
+
+    return executeJob(job.id);
+}
