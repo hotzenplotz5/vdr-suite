@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.4-phase7-recordings-api
+v1.5-phase7-metadata-api
 
 ## Latest Commit
 
-593112e
+30c2365
 
-Phase 7.2: add recordings API route
+Phase 7.3: add metadata API route
 
 ---
 
@@ -304,6 +304,28 @@ DashboardCli
 
 ---
 
+## REST API
+
+Implemented:
+
+* GET /api/dashboard
+* GET /api/jobs
+* GET /api/recordings
+* GET /api/metadata
+
+Controllers:
+
+* DashboardController
+* JobsController
+* RecordingsController
+* MetadataController
+
+Router:
+
+* ApiRouter
+
+---
+
 ## Existing Tags
 
 ### v0.1-phase0
@@ -356,6 +378,9 @@ Jobs API route.
 
 ### v1.4-phase7-recordings-api
 
+### v1.5-phase7-metadata-api
+
+Metadata API route.
 
 ---
 
@@ -386,11 +411,11 @@ GET /api/recordings successfully returns JSON recording data.
 
 # Next Planned Step
 
-Phase 7.3
+Phase 7.4
 
-MetadataController
+Metadata Detail API
 
-GET /api/metadata
+GET /api/metadata/{recordingId}
 
 ---
 
