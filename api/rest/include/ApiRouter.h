@@ -5,13 +5,15 @@
 #include <string>
 
 class JobsController;
+class RecordingsController;
 
 class ApiRouter
 {
 public:
     ApiRouter(
         DashboardController& dashboardController,
-        JobsController& jobsController);
+        JobsController& jobsController,
+        RecordingsController& recordingsController);
 
     ApiResponse handleGet(
         const std::string& path);
@@ -19,4 +21,5 @@ public:
 private:
     DashboardController& dashboardController_;
     JobsController& jobsController_;
+    RecordingsController& recordingsController_;
 };

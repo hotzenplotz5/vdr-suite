@@ -1,12 +1,15 @@
 #include "ApiRouter.h"
 
 #include "JobsController.h"
+#include "RecordingsController.h"
 
 ApiRouter::ApiRouter(
     DashboardController& dashboardController,
-    JobsController& jobsController)
+    JobsController& jobsController,
+    RecordingsController& recordingsController)
     : dashboardController_(dashboardController),
-      jobsController_(jobsController)
+      jobsController_(jobsController),
+      recordingsController_(recordingsController)
 {
 }
 
@@ -21,6 +24,11 @@ ApiResponse ApiRouter::handleGet(
     if (path == "/api/jobs")
     {
         return jobsController_.getJobs();
+    }
+
+    if (path == "/api/recordings")
+    {
+        return recordingsController_.getRecordings();
     }
 
     ApiResponse response;
