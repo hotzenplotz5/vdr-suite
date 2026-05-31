@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -std=c++17 -Wall -Wextra -Icore/sqlite/include -Icore/recordings/include
+CXXFLAGS := -std=c++17 -Wall -Wextra -Icore/sqlite/include -Icore/recordings/include -Iapi/rest/include
 LDFLAGS := $(shell pkg-config --libs sqlite3)
 
 SQLITE_SRC := core/sqlite/src/Database.cpp
@@ -57,6 +57,16 @@ DASHBOARD_CLI_SRC := \
 	core/recordings/src/RecordingDashboardService.cpp \
 	core/recordings/src/DashboardFacade.cpp \
 	core/recordings/src/DashboardJsonSerializer.cpp
+
+REST_DASHBOARD_SRC := \
+	core/recordings/src/JobRepository.cpp \
+	core/recordings/src/JobDashboardService.cpp \
+	core/recordings/src/RecordingRepository.cpp \
+	core/recordings/src/MetadataRepository.cpp \
+	core/recordings/src/RecordingDashboardService.cpp \
+	core/recordings/src/DashboardFacade.cpp \
+	core/recordings/src/DashboardJsonSerializer.cpp \
+	api/rest/src/DashboardController.cpp
 
 WORKFLOW_SRC := \
 	core/recordings/src/RecordingWorkflowService.cpp \
@@ -189,6 +199,15 @@ test-dashboard-json-serializer:
 		-o /tmp/test_dashboard_json_serializer
 	/tmp/test_dashboard_json_serializer
 
+test-dashboard-controller: prepare-test-db
+	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(REST_DASHBOARD_SRC) \
+		api/rest/tests/test_dashboard_controller.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_dashboard_controller
+	/tmp/test_dashboard_controller
+
 test-workflow-service: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -215,7 +234,7 @@ test-rectools-adapter:
 		-o /tmp/test_rectools_adapter
 	/tmp/test_rectools_adapter
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-workflow-service test-worker-simulator test-rectools-adapter
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-workflow-service test-worker-simulator test-rectools-adapter
 
 clean:
 	rm -f /tmp/test_database
@@ -230,6 +249,7 @@ clean:
 	rm -f /tmp/test_recording_dashboard_service
 	rm -f /tmp/test_dashboard_facade
 	rm -f /tmp/test_dashboard_json_serializer
+	rm -f /tmp/test_dashboard_controller
 	rm -f /tmp/test_workflow_service
 	rm -f /tmp/test_worker_simulator
 	rm -f /tmp/test_rectools_adapter
