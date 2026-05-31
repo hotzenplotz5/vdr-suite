@@ -3,10 +3,15 @@ CXXFLAGS := -std=c++17 -Wall -Wextra \
         -Icore/sqlite/include \
         -Icore/recordings/include \
         -Icore/daemon/include \
+        -Icore/vdr/include \
         -Iapi/rest/include
 LDFLAGS := $(shell pkg-config --libs sqlite3)
 
 SQLITE_SRC := core/sqlite/src/Database.cpp
+
+VDR_SRC := \
+        core/vdr/src/VdrConfig.cpp \
+        core/vdr/src/ExternalVdrAdapter.cpp
 
 RECORDINGS_SRC := \
 	core/recordings/src/RecordingRepository.cpp \
@@ -302,6 +307,20 @@ test-rectools-adapter:
 		-o /tmp/test_rectools_adapter
 	/tmp/test_rectools_adapter
 
+test-vdr-config:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/tests/test_vdr_config.cpp \
+		-o /tmp/test_vdr_config
+	/tmp/test_vdr_config
+
+test-external-vdr-adapter:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_external_vdr_adapter.cpp \
+		-o /tmp/test_external_vdr_adapter
+	/tmp/test_external_vdr_adapter
+
 daemon:
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -310,7 +329,7 @@ daemon:
 		$(LDFLAGS) \
 		-o /tmp/vdr-suite-daemon
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter
 
 clean:
 	rm -f /tmp/test_database
@@ -335,3 +354,5 @@ clean:
 	rm -f /tmp/vdr-suite-dashboard
 	rm -f /tmp/vdr-suite-test.db
 	rm -f /tmp/test_metadata_controller
+	rm -f /tmp/test_vdr_config
+	rm -f /tmp/test_external_vdr_adapter

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "VdrConfig.h"
 #include "VdrStatus.h"
 
 #include <string>
@@ -8,6 +9,7 @@ class ExternalVdrAdapter
 {
 public:
     ExternalVdrAdapter();
+    explicit ExternalVdrAdapter(const VdrConfig& config);
 
     VdrStatus getStatus() const;
 

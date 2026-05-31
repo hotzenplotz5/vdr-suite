@@ -16,7 +16,7 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.7-phase8-vdr-adapter-foundation
+v1.8-phase8-vdr-config
 
 ## Latest Commit
 
@@ -359,6 +359,14 @@ Dashboard Services
 ↓
 DashboardFacade
 
+RuntimeConfig
+↓
+VdrConfig
+↓
+ExternalVdrAdapter
+↓
+VdrStatus
+
 Build:
 
 make daemon
@@ -387,6 +395,17 @@ Features:
 * Initial external VDR abstraction
 * Adapter foundation for future integrations
 * Status retrieval API
+* Unit test coverage
+* Configurable adapter initialization
+* VdrConfig integration
+
+### VdrConfig
+
+Features:
+
+* Dedicated VDR configuration object
+* Default VDR runtime configuration
+* Adapter configuration abstraction
 * Unit test coverage
 
 Current Status:
@@ -515,6 +534,22 @@ Goals:
 * Runtime-owned Controllers
 * Long-running REST service
 * Foundation for Web UI and OSD frontend integration
+
+Phase 8.2
+
+VDR Configuration Layer
+
+Implemented:
+
+* VdrConfig
+* Configurable ExternalVdrAdapter
+* VDR test integration in Makefile
+* Dedicated VDR unit tests
+
+Result:
+
+VDR configuration is now separated from the adapter implementation
+and prepared for future SVDRP and RESTfulAPI integrations.
 
 ---
 

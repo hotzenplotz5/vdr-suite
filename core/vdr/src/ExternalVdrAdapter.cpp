@@ -1,10 +1,15 @@
 #include "ExternalVdrAdapter.h"
 
 ExternalVdrAdapter::ExternalVdrAdapter()
-    : enabled_(true),
-      mode_("external"),
-      host_("127.0.0.1"),
-      port_(6419),
+    : ExternalVdrAdapter(VdrConfig())
+{
+}
+
+ExternalVdrAdapter::ExternalVdrAdapter(const VdrConfig& config)
+    : enabled_(config.enabled),
+      mode_(config.mode),
+      host_(config.host),
+      port_(config.port),
       state_("configured")
 {
 }
