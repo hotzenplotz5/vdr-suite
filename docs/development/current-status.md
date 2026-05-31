@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.6-phase8-daemon-foundation
+v1.7-phase8-vdr-adapter-foundation
 
 ## Latest Commit
 
-c72c3cb
+9056486
 
-Phase 8.0: wire dashboard runtime into daemon
+Phase 8.1: add external VDR adapter foundation
 
 ---
 
@@ -367,6 +367,41 @@ Run:
 
 /tmp/vdr-suite-daemon
 
+## VDR Integration Layer
+
+Implemented:
+
+### VdrStatus
+
+Features:
+
+* VDR status model
+* Host information
+* Port information
+* Runtime state information
+
+### ExternalVdrAdapter
+
+Features:
+
+* Initial external VDR abstraction
+* Adapter foundation for future integrations
+* Status retrieval API
+* Unit test coverage
+
+Current Status:
+
+Static configuration placeholder
+
+Planned:
+
+* RuntimeConfig integration
+* SVDRP client
+* RESTfulAPI client
+* Channel management
+* Timer management
+* EPG integration
+
 ---
 
 ## Existing Tags
@@ -428,6 +463,15 @@ Recordings API route.
 Metadata API route.
 
 ### v1.6-phase8-daemon-foundation
+
+### v1.7-phase8-vdr-adapter-foundation
+
+External VDR integration foundation:
+
+* VdrStatus
+* ExternalVdrAdapter
+* Initial VDR domain
+* Adapter unit test
 
 Daemon foundation:
 
