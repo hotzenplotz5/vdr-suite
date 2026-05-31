@@ -49,6 +49,15 @@ DASHBOARD_FACADE_SRC := \
 DASHBOARD_JSON_SRC := \
 	core/recordings/src/DashboardJsonSerializer.cpp
 
+DASHBOARD_CLI_SRC := \
+	core/recordings/src/JobRepository.cpp \
+	core/recordings/src/JobDashboardService.cpp \
+	core/recordings/src/RecordingRepository.cpp \
+	core/recordings/src/MetadataRepository.cpp \
+	core/recordings/src/RecordingDashboardService.cpp \
+	core/recordings/src/DashboardFacade.cpp \
+	core/recordings/src/DashboardJsonSerializer.cpp
+
 WORKFLOW_SRC := \
 	core/recordings/src/RecordingWorkflowService.cpp \
 	core/recordings/src/ActionService.cpp \
@@ -64,7 +73,7 @@ RECTOOLS_ADAPTER_SRC := \
 	core/recordings/src/JobService.cpp \
 	core/recordings/src/RecordingActionUtils.cpp
 
-.PHONY: all test clean prepare-test-db
+.PHONY: all test clean prepare-test-db dashboard-cli
 
 all: test
 
@@ -72,6 +81,14 @@ prepare-test-db:
 	rm -f /tmp/vdr-suite-test.db
 	sqlite3 /tmp/vdr-suite-test.db < database/schema/vdr-suite.sql
 	sqlite3 /tmp/vdr-suite-test.db < database/testdata/sample-data.sql
+
+dashboard-cli: prepare-test-db
+	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(DASHBOARD_CLI_SRC) \
+		apps/dashboard/main.cpp \
+		$(LDFLAGS) \
+		-o /tmp/vdr-suite-dashboard
 
 test-database:
 	$(CXX) $(CXXFLAGS) \
@@ -216,4 +233,5 @@ clean:
 	rm -f /tmp/test_workflow_service
 	rm -f /tmp/test_worker_simulator
 	rm -f /tmp/test_rectools_adapter
+	rm -f /tmp/vdr-suite-dashboard
 	rm -f /tmp/vdr-suite-test.db
