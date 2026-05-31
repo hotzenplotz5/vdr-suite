@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.1-phase6-rest-skeleton
+v1.3-phase7-jobs-api
 
 ## Latest Commit
 
-20d1db3
+e0e1a06
 
-Phase 6.2: add REST dashboard skeleton
+Phase 7.1: add jobs API route
 
 ---
 
@@ -346,19 +346,28 @@ Dashboard JSON serialization.
 
 Dashboard CLI application.
 
+### v1.2-phase7-router
+
+API router.
+
+### v1.3-phase7-jobs-api
+
+Jobs API route.
+
 ---
 
 # Last Completed Step
 
-## Phase 6.2
+## Phase 7.1
 
-REST Skeleton
+Jobs API route
 
 Implemented:
 
-* api/rest/include/DashboardController.h
-* api/rest/src/DashboardController.cpp
-* api/rest/tests/test_dashboard_controller.cpp
+* api/rest/include/JobsController.h
+* api/rest/src/JobsController.cpp
+* api/rest/tests/test_jobs_controller.cpp
+* Updated ApiRouter for GET /api/jobs
 
 Updated:
 
@@ -370,50 +379,29 @@ make clean
 
 make test
 
-make dashboard-cli
-
-/tmp/vdr-suite-dashboard
-
 Result:
 
 All tests passed.
 
-REST dashboard skeleton successfully returns JSON responses.
+GET /api/jobs successfully returns JSON job data.
 
 ---
 
 # Next Planned Step
 
-## Phase 7.0
+## Phase 7.2
 
-ApiRouter
+RecordingsController
 
 Goals:
 
-* Introduce route handling
-* Map URL paths to controllers
-* Reuse DashboardController
-* No HTTP server yet
-* No sockets yet
-* No VDR integration yet
+* Add GET /api/recordings
+* Reuse RecordingRepository
+* Return recordings as JSON
+* Extend ApiRouter
+* Keep implementation testable without HTTP server
 
-Planned architecture:
-
-/api/dashboard
-↓
-ApiRouter
-↓
-DashboardController
-↓
-DashboardFacade
-↓
-JSON
-
-Future routes:
-
-GET /api/dashboard
-
-GET /api/jobs
+Planned route:
 
 GET /api/recordings
 
