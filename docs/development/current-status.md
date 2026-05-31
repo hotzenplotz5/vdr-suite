@@ -386,15 +386,15 @@ Metadata API route.
 
 # Last Completed Step
 
-Phase 7.2
+Phase 7.3
 
-RecordingsController
+MetadataController
 
 Implemented:
 
-* api/rest/include/RecordingsController.h
-* api/rest/src/RecordingsController.cpp
-* api/rest/tests/test_recordings_controller.cpp
+* api/rest/include/MetadataController.h
+* api/rest/src/MetadataController.cpp
+* api/rest/tests/test_metadata_controller.cpp
 
 Updated:
 
@@ -405,7 +405,7 @@ Updated:
 
 Result:
 
-GET /api/recordings successfully returns JSON recording data.
+GET /api/metadata successfully returns JSON metadata data.
 
 ---
 
