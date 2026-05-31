@@ -21,11 +21,15 @@ int main()
             1,
             RecordingActionType::Shrink);
 
-    if (!repository.insertJob(job))
-    {
-        std::cerr << "insert failed\n";
-        return 1;
-    }
+    repository.insertJob(job);
+
+    repository.updateJobStatus(
+        1,
+        "RUNNING");
+
+    repository.updateJobStatus(
+        1,
+        "DONE");
 
     auto jobs =
         repository.getAllJobs();

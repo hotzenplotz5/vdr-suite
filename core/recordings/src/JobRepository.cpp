@@ -106,3 +106,43 @@ std::vector<Job> JobRepository::getAllJobs()
 
     return result;
 }
+bool JobRepository::updateJobStatus(
+    int jobId,
+    const std::string& status)
+{
+    sqlite3_stmt* stmt = nullptr;
+
+    const char* sql =
+        "UPDATE jobs "
+        "SET status = ? "
+        "WHERE id = ?;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &stmt,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    sqlite3_bind_text(
+        stmt,
+        1,
+        status.c_str(),
+        -1,
+        SQLITE_TRANSIENT);
+
+    sqlite3_bind_int(
+        stmt,
+        2,
+        jobId);
+
+    bool success =
+        sqlite3_step(stmt) == SQLITE_DONE;
+
+    sqlite3_finalize(stmt);
+
+    return success;
+}

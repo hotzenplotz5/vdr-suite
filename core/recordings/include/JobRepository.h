@@ -15,6 +15,10 @@ public:
 
     std::vector<Job> getAllJobs();
 
+    bool updateJobStatus(
+        int jobId,
+        const std::string& status);
+
 private:
     Database& database_;
 };
