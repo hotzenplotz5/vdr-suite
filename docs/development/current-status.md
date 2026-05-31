@@ -6,7 +6,7 @@ VDR-Suite
 
 Goal:
 
-Modern service-oriented backend architecture for VDR recordings, metadata management, job processing and future integration of VDR-Rectools.
+Modern service-oriented backend architecture for VDR recordings, metadata management, job processing, dashboard services and future integration of VDR-Rectools.
 
 ---
 
@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v0.5-phase2-queue
+v0.6-phase3-dashboard
 
 ## Latest Commit
 
-f887ebc
+2493ae7
 
-Phase 2: add queue style job processing
+Phase 3: add JobDashboardService
 
 ---
 
@@ -63,6 +63,10 @@ Implemented:
 
 * Job
 * RecordingAction
+
+### Dashboard
+
+* DashboardSummary
 
 ---
 
@@ -123,6 +127,19 @@ Features:
 
 * Create Job objects
 
+### JobDashboardService
+
+Features:
+
+* Count total jobs
+* Count pending jobs
+* Count running jobs
+* Count done jobs
+* Count failed jobs
+* Detect latest job id
+* Detect latest job type
+* Detect latest job status
+
 ---
 
 ## Workflow Layer
@@ -180,6 +197,44 @@ Currently no external execution.
 
 ---
 
+## Dashboard Layer
+
+Implemented:
+
+### JobDashboardService
+
+Purpose:
+
+Read-only dashboard service for queue and job state.
+
+Architecture:
+
+JobRepository
+↓
+JobDashboardService
+↓
+DashboardSummary
+
+Current output model:
+
+* totalJobs
+* pendingJobs
+* runningJobs
+* doneJobs
+* failedJobs
+* latestJobId
+* latestJobType
+* latestJobStatus
+
+Used for future:
+
+* CLI dashboard
+* REST API
+* Web UI
+* VDR OSD
+
+---
+
 ## Current Architecture
 
 Recording
@@ -196,7 +251,15 @@ WorkerSimulator
 ↓
 DONE
 
-Future:
+Dashboard:
+
+JobRepository
+↓
+JobDashboardService
+↓
+DashboardSummary
+
+Future execution path:
 
 Recording
 ↓
@@ -211,6 +274,16 @@ SQLite
 RectoolsAdapter
 ↓
 VDR-Rectools
+
+Future dashboard path:
+
+JobDashboardService
++
+RecordingDashboardService
+↓
+DashboardFacade
+↓
+CLI / REST API / Web UI / OSD
 
 ---
 
@@ -236,19 +309,52 @@ v0.5-phase2-queue
 
 Queue-style processing.
 
+v0.6-phase3-dashboard
+
+Job dashboard service.
+
 ---
 
-# Next Planned Step
+# Last Completed Step
 
 Phase 3
 
 JobDashboardService
 
+Implemented files:
+
+* core/recordings/include/DashboardSummary.h
+* core/recordings/include/JobDashboardService.h
+* core/recordings/src/JobDashboardService.cpp
+* core/recordings/tests/test_job_dashboard_service.cpp
+
+Updated files:
+
+* Makefile
+* docs/development/current-status.md
+
+Verified:
+
+* make clean
+* make test
+
+Result:
+
+All tests passed.
+
+---
+
+# Next Planned Step
+
+Phase 4
+
+RecordingDashboardService
+
 Goals:
 
-* Job overview
-* Queue monitoring
-* Job statistics
+* Recording overview
+* Recording statistics
+* Metadata coverage overview
 * Shared backend service for:
 
   * CLI
@@ -256,13 +362,25 @@ Goals:
   * Web UI
   * OSD
 
-Potential methods:
+Potential output:
 
-* getAllJobs()
-* getPendingJobs()
-* getRunningJobs()
-* getFinishedJobs()
-* getJobStatistics()
+* recordingsTotal
+* tsRecordings
+* pesRecordings
+* recordingsWithMetadata
+* recordingsWithoutMetadata
+* latestRecordingId
+* latestRecordingTitle
+
+Planned architecture:
+
+RecordingRepository
++
+MetadataRepository
+↓
+RecordingDashboardService
+↓
+RecordingDashboardSummary
 
 ---
 
@@ -275,4 +393,5 @@ Potential methods:
 * Unified recording management
 * Metadata services
 * Background worker processing
+* Dashboard facade
 * Modern VDR Suite architecture
