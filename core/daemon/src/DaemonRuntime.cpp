@@ -36,6 +36,33 @@ bool DaemonRuntime::initialize()
         << "database opened"
         << std::endl;
 
+    jobRepository_ =
+        std::make_unique<JobRepository>(database_);
+
+    recordingRepository_ =
+        std::make_unique<RecordingRepository>(database_);
+
+    metadataRepository_ =
+        std::make_unique<MetadataRepository>(database_);
+
+    jobDashboardService_ =
+        std::make_unique<JobDashboardService>(
+            *jobRepository_);
+
+    recordingDashboardService_ =
+        std::make_unique<RecordingDashboardService>(
+            *recordingRepository_,
+            *metadataRepository_);
+
+    dashboardFacade_ =
+        std::make_unique<DashboardFacade>(
+            *jobDashboardService_,
+            *recordingDashboardService_);
+
+    std::cout
+        << "dashboard runtime initialized"
+        << std::endl;
+
     std::signal(SIGINT, DaemonRuntime::handleSignal);
     std::signal(SIGTERM, DaemonRuntime::handleSignal);
 
@@ -83,6 +110,18 @@ void DaemonRuntime::shutdown()
     {
         return;
     }
+
+    dashboardFacade_.reset();
+    recordingDashboardService_.reset();
+    jobDashboardService_.reset();
+
+    metadataRepository_.reset();
+    recordingRepository_.reset();
+    jobRepository_.reset();
+
+    std::cout
+        << "dashboard runtime stopped"
+        << std::endl;
 
     database_.close();
 

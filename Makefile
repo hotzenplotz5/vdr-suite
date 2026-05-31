@@ -103,6 +103,12 @@ RECTOOLS_ADAPTER_SRC := \
 
 DAEMON_SRC := \
         core/daemon/src/RuntimeConfig.cpp \
+        core/recordings/src/JobRepository.cpp \
+        core/recordings/src/JobDashboardService.cpp \
+        core/recordings/src/RecordingRepository.cpp \
+        core/recordings/src/MetadataRepository.cpp \
+        core/recordings/src/RecordingDashboardService.cpp \
+        core/recordings/src/DashboardFacade.cpp \
         core/daemon/src/DaemonRuntime.cpp \
         core/daemon/src/DaemonApp.cpp
 
