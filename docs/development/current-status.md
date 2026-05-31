@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.3-phase7-jobs-api
+v1.4-phase7-recordings-api
 
 ## Latest Commit
 
-e0e1a06
+593112e
 
-Phase 7.1: add jobs API route
+Phase 7.2: add recordings API route
 
 ---
 
@@ -354,56 +354,43 @@ API router.
 
 Jobs API route.
 
+### v1.4-phase7-recordings-api
+
+
 ---
 
 # Last Completed Step
 
-## Phase 7.1
+Phase 7.2
 
-Jobs API route
+RecordingsController
 
 Implemented:
 
-* api/rest/include/JobsController.h
-* api/rest/src/JobsController.cpp
-* api/rest/tests/test_jobs_controller.cpp
-* Updated ApiRouter for GET /api/jobs
+* api/rest/include/RecordingsController.h
+* api/rest/src/RecordingsController.cpp
+* api/rest/tests/test_recordings_controller.cpp
 
 Updated:
 
+* api/rest/include/ApiRouter.h
+* api/rest/src/ApiRouter.cpp
+* api/rest/tests/test_api_router.cpp
 * Makefile
-
-Verified:
-
-make clean
-
-make test
 
 Result:
 
-All tests passed.
-
-GET /api/jobs successfully returns JSON job data.
+GET /api/recordings successfully returns JSON recording data.
 
 ---
 
 # Next Planned Step
 
-## Phase 7.2
+Phase 7.3
 
-RecordingsController
+MetadataController
 
-Goals:
-
-* Add GET /api/recordings
-* Reuse RecordingRepository
-* Return recordings as JSON
-* Extend ApiRouter
-* Keep implementation testable without HTTP server
-
-Planned route:
-
-GET /api/recordings
+GET /api/metadata
 
 ---
 
