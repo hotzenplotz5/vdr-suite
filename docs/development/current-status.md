@@ -378,6 +378,8 @@ Jobs API route.
 
 ### v1.4-phase7-recordings-api
 
+Recordings API route.
+
 ### v1.5-phase7-metadata-api
 
 Metadata API route.
@@ -405,7 +407,7 @@ Updated:
 
 Result:
 
-GET /api/metadata successfully returns JSON metadata data.
+GET /api/metadata successfully returns metadata as JSON.
 
 ---
 
