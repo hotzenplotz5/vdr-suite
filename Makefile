@@ -1,5 +1,9 @@
 CXX := g++
-CXXFLAGS := -std=c++17 -Wall -Wextra -Icore/sqlite/include -Icore/recordings/include -Iapi/rest/include
+CXXFLAGS := -std=c++17 -Wall -Wextra \
+        -Icore/sqlite/include \
+        -Icore/recordings/include \
+        -Icore/daemon/include \
+        -Iapi/rest/include
 LDFLAGS := $(shell pkg-config --libs sqlite3)
 
 SQLITE_SRC := core/sqlite/src/Database.cpp
@@ -97,7 +101,11 @@ RECTOOLS_ADAPTER_SRC := \
 	core/recordings/src/JobService.cpp \
 	core/recordings/src/RecordingActionUtils.cpp
 
-.PHONY: all test clean prepare-test-db dashboard-cli
+DAEMON_SRC := \
+        core/daemon/src/DaemonRuntime.cpp \
+        core/daemon/src/DaemonApp.cpp
+
+.PHONY: all test clean prepare-test-db dashboard-cli daemon
 
 all: test
 
@@ -286,6 +294,12 @@ test-rectools-adapter:
 		core/recordings/tests/test_rectools_adapter.cpp \
 		-o /tmp/test_rectools_adapter
 	/tmp/test_rectools_adapter
+
+daemon:
+	$(CXX) $(CXXFLAGS) \
+		$(DAEMON_SRC) \
+		apps/daemon/main.cpp \
+		-o /tmp/vdr-suite-daemon
 
 test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter
 
