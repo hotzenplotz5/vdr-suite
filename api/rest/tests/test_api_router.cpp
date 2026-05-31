@@ -1,5 +1,6 @@
 #include "ApiRouter.h"
 #include "DashboardController.h"
+#include "JobsController.h"
 
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -44,7 +45,11 @@ int main()
         dashboardFacade,
         jsonSerializer);
 
-    ApiRouter router(dashboardController);
+    JobsController jobsController(jobRepository);
+
+    ApiRouter router(
+        dashboardController,
+        jobsController);
 
     ApiResponse dashboardResponse =
         router.handleGet("/api/dashboard");
@@ -53,6 +58,15 @@ int main()
     assert(dashboardResponse.contentType == "application/json");
     assert(dashboardResponse.body.find("\"jobs\"") != std::string::npos);
     assert(dashboardResponse.body.find("\"recordings\"") != std::string::npos);
+
+    ApiResponse jobsResponse =
+        router.handleGet("/api/jobs");
+
+    assert(jobsResponse.statusCode == 200);
+    assert(jobsResponse.contentType == "application/json");
+    assert(jobsResponse.body.find("\"jobs\"") != std::string::npos);
+    assert(jobsResponse.body.find("\"jobType\"") != std::string::npos);
+    assert(jobsResponse.body.find("\"status\"") != std::string::npos);
 
     ApiResponse missingResponse =
         router.handleGet("/api/unknown");
@@ -65,6 +79,10 @@ int main()
 
     std::cout
         << dashboardResponse.body
+        << std::endl;
+
+    std::cout
+        << jobsResponse.body
         << std::endl;
 
     std::cout
