@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.0-phase6-cli
+v1.1-phase6-rest-skeleton
 
 ## Latest Commit
 
-e31269c
+20d1db3
 
-Phase 6.1: add Dashboard CLI
+Phase 6.2: add REST dashboard skeleton
 
 ---
 
@@ -350,13 +350,15 @@ Dashboard CLI application.
 
 # Last Completed Step
 
-## Phase 6.1
+## Phase 6.2
 
-Dashboard CLI
+REST Skeleton
 
 Implemented:
 
-* apps/dashboard/main.cpp
+* api/rest/include/DashboardController.h
+* api/rest/src/DashboardController.cpp
+* api/rest/tests/test_dashboard_controller.cpp
 
 Updated:
 
@@ -364,55 +366,56 @@ Updated:
 
 Verified:
 
-```bash
 make clean
+
 make test
+
 make dashboard-cli
+
 /tmp/vdr-suite-dashboard
-```
 
 Result:
 
 All tests passed.
 
-Dashboard JSON successfully generated from live database data.
+REST dashboard skeleton successfully returns JSON responses.
 
 ---
 
 # Next Planned Step
 
-## Phase 6.2
+## Phase 7.0
 
-REST Skeleton
+ApiRouter
 
 Goals:
 
-* Introduce API layer
-* Introduce DashboardController
-* Reuse DashboardFacade
-* Reuse DashboardJsonSerializer
-* No external HTTP framework yet
-* No VDR plugin integration yet
+* Introduce route handling
+* Map URL paths to controllers
+* Reuse DashboardController
+* No HTTP server yet
+* No sockets yet
+* No VDR integration yet
 
 Planned architecture:
 
-```text
+/api/dashboard
+↓
+ApiRouter
+↓
 DashboardController
 ↓
 DashboardFacade
 ↓
-DashboardOverview
-↓
-DashboardJsonSerializer
-↓
 JSON
-```
 
-Future:
+Future routes:
 
-```text
 GET /api/dashboard
-```
+
+GET /api/jobs
+
+GET /api/recordings
 
 ---
 
