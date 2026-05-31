@@ -69,17 +69,18 @@ REST_DASHBOARD_SRC := \
 	api/rest/src/DashboardController.cpp
 
 REST_ROUTER_SRC := \
-	core/recordings/src/JobRepository.cpp \
-	core/recordings/src/JobDashboardService.cpp \
-	core/recordings/src/RecordingRepository.cpp \
-	core/recordings/src/MetadataRepository.cpp \
-	core/recordings/src/RecordingDashboardService.cpp \
-	core/recordings/src/DashboardFacade.cpp \
-	core/recordings/src/DashboardJsonSerializer.cpp \
-	api/rest/src/DashboardController.cpp \
-	api/rest/src/JobsController.cpp \
-	api/rest/src/RecordingsController.cpp \
-	api/rest/src/ApiRouter.cpp
+        core/recordings/src/JobRepository.cpp \
+        core/recordings/src/JobDashboardService.cpp \
+        core/recordings/src/RecordingRepository.cpp \
+        core/recordings/src/MetadataRepository.cpp \
+        core/recordings/src/RecordingDashboardService.cpp \
+        core/recordings/src/DashboardFacade.cpp \
+        core/recordings/src/DashboardJsonSerializer.cpp \
+        api/rest/src/DashboardController.cpp \
+        api/rest/src/JobsController.cpp \
+        api/rest/src/RecordingsController.cpp \
+        api/rest/src/MetadataController.cpp \
+        api/rest/src/ApiRouter.cpp
 
 WORKFLOW_SRC := \
 	core/recordings/src/RecordingWorkflowService.cpp \
@@ -241,6 +242,16 @@ test-recordings-controller: prepare-test-db
 		-o /tmp/test_recordings_controller
 	/tmp/test_recordings_controller
 
+test-metadata-controller: prepare-test-db
+	$(CXX) $(CXXFLAGS) \
+        	$(SQLITE_SRC) \
+		core/recordings/src/MetadataRepository.cpp \
+		api/rest/src/MetadataController.cpp \
+		api/rest/tests/test_metadata_controller.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_metadata_controller
+	/tmp/test_metadata_controller
+
 test-api-router: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -276,7 +287,7 @@ test-rectools-adapter:
 		-o /tmp/test_rectools_adapter
 	/tmp/test_rectools_adapter
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter
 
 clean:
 	rm -f /tmp/test_database
@@ -300,3 +311,4 @@ clean:
 	rm -f /tmp/test_rectools_adapter
 	rm -f /tmp/vdr-suite-dashboard
 	rm -f /tmp/vdr-suite-test.db
+	rm -f /tmp/test_metadata_controller

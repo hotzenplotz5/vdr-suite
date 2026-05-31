@@ -1,6 +1,7 @@
 #include "ApiRouter.h"
 #include "DashboardController.h"
 #include "JobsController.h"
+#include "MetadataController.h"
 #include "RecordingsController.h"
 
 #include "DashboardFacade.h"
@@ -51,10 +52,14 @@ int main()
     RecordingsController recordingsController(
         recordingRepository);
 
+    MetadataController metadataController(
+        metadataRepository);
+
     ApiRouter router(
         dashboardController,
         jobsController,
-        recordingsController);
+        recordingsController,
+        metadataController);
 
     ApiResponse dashboardResponse =
         router.handleGet("/api/dashboard");
@@ -82,6 +87,15 @@ int main()
     assert(recordingsResponse.body.find("\"title\":\"Tatort\"") != std::string::npos);
     assert(recordingsResponse.body.find("\"recordingFormat\":\"TS\"") != std::string::npos);
 
+    ApiResponse metadataResponse =
+        router.handleGet("/api/metadata");
+
+    assert(metadataResponse.statusCode == 200);
+    assert(metadataResponse.contentType == "application/json");
+    assert(metadataResponse.body.find("\"metadata\"") != std::string::npos);
+    assert(metadataResponse.body.find("\"title\"") != std::string::npos);
+    assert(metadataResponse.body.find("\"genre\"") != std::string::npos);
+
     ApiResponse missingResponse =
         router.handleGet("/api/unknown");
 
@@ -90,22 +104,6 @@ int main()
     assert(missingResponse.body.find("\"error\"") != std::string::npos);
 
     db.close();
-
-    std::cout
-        << dashboardResponse.body
-        << std::endl;
-
-    std::cout
-        << jobsResponse.body
-        << std::endl;
-
-    std::cout
-        << recordingsResponse.body
-        << std::endl;
-
-    std::cout
-        << missingResponse.body
-        << std::endl;
 
     std::cout
         << "test_api_router passed"

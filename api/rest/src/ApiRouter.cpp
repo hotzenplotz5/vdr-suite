@@ -1,15 +1,18 @@
 #include "ApiRouter.h"
 
 #include "JobsController.h"
+#include "MetadataController.h"
 #include "RecordingsController.h"
 
 ApiRouter::ApiRouter(
     DashboardController& dashboardController,
     JobsController& jobsController,
-    RecordingsController& recordingsController)
+    RecordingsController& recordingsController,
+    MetadataController& metadataController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
-      recordingsController_(recordingsController)
+      recordingsController_(recordingsController),
+      metadataController_(metadataController)
 {
 }
 
@@ -29,6 +32,11 @@ ApiResponse ApiRouter::handleGet(
     if (path == "/api/recordings")
     {
         return recordingsController_.getRecordings();
+    }
+
+    if (path == "/api/metadata")
+    {
+        return metadataController_.getMetadata();
     }
 
     ApiResponse response;
