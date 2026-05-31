@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RuntimeConfig.h"
+#include "Database.h"
 
 #include <atomic>
 
@@ -19,6 +20,7 @@ private:
     bool initialized_;
 
     RuntimeConfig config_;
+    Database database_;
 
     static std::atomic<bool> shutdownRequested_;
 };

@@ -1,7 +1,7 @@
 #include "RuntimeConfig.h"
 
 RuntimeConfig::RuntimeConfig()
-    : databasePath_("/var/lib/vdr-suite/vdr-suite.db")
+    : databasePath_("/tmp/vdr-suite-test.db")
 {
 }
 

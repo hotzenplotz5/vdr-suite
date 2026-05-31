@@ -298,8 +298,10 @@ test-rectools-adapter:
 
 daemon:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(DAEMON_SRC) \
 		apps/daemon/main.cpp \
+		$(LDFLAGS) \
 		-o /tmp/vdr-suite-daemon
 
 test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter

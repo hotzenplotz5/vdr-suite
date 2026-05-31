@@ -23,6 +23,19 @@ bool DaemonRuntime::initialize()
         << config_.databasePath()
         << std::endl;
 
+    if (!database_.open(config_.databasePath()))
+    {
+        std::cerr
+            << "failed to open database"
+            << std::endl;
+
+        return false;
+    }
+
+    std::cout
+        << "database opened"
+        << std::endl;
+
     std::signal(SIGINT, DaemonRuntime::handleSignal);
     std::signal(SIGTERM, DaemonRuntime::handleSignal);
 
@@ -70,6 +83,12 @@ void DaemonRuntime::shutdown()
     {
         return;
     }
+
+    database_.close();
+
+    std::cout
+        << "database closed"
+        << std::endl;
 
     std::cout
         << "vdr-suite-daemon runtime shutting down"
