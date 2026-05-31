@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.5-phase7-metadata-api
+v1.6-phase8-daemon-foundation
 
 ## Latest Commit
 
-30c2365
+c72c3cb
 
-Phase 7.3: add metadata API route
+Phase 8.0: wire dashboard runtime into daemon
 
 ---
 
@@ -274,33 +274,28 @@ Output:
     "recordingsTotal": 2
   }
 }
-```
 
 ---
 
 ## Current Architecture
 
-```text
-SQLite
-↓
-Repositories
-↓
-Services
-↓
-Workflow
-↓
-Worker
-↓
-DashboardServices
-↓
-DashboardFacade
-↓
-DashboardOverview
-↓
-DashboardJsonSerializer
-↓
-DashboardCli
-```
+
+vdr-suite-daemon
+├── RuntimeConfig
+├── Database
+├── Repository Layer
+├── Service Layer
+├── Workflow Layer
+├── Worker Layer
+├── Dashboard Layer
+└── REST Layer
+
+Clients
+
+Dashboard CLI
+Web UI (planned)
+OSD Frontend (planned)
+Mobile Apps (planned)
 
 ---
 
@@ -323,6 +318,54 @@ Controllers:
 Router:
 
 * ApiRouter
+
+---
+
+## Daemon Layer
+
+Implemented:
+
+### RuntimeConfig
+
+Features:
+
+* Central runtime configuration
+* Database path configuration
+
+### DaemonApp
+
+Features:
+
+* Application entry point
+* Runtime startup
+* Runtime shutdown
+
+### DaemonRuntime
+
+Features:
+
+* Runtime lifecycle management
+* Signal handling (SIGINT/SIGTERM)
+* Database lifecycle
+* Dashboard runtime wiring
+
+Current Runtime:
+
+Database
+↓
+Repositories
+↓
+Dashboard Services
+↓
+DashboardFacade
+
+Build:
+
+make daemon
+
+Run:
+
+/tmp/vdr-suite-daemon
 
 ---
 
@@ -384,40 +427,50 @@ Recordings API route.
 
 Metadata API route.
 
+### v1.6-phase8-daemon-foundation
+
+Daemon foundation:
+
+* DaemonApp
+* RuntimeConfig
+* Signal handling
+* Database lifecycle
+* Dashboard runtime wiring
+
 ---
 
 # Last Completed Step
 
-Phase 7.3
+Phase 8.0
 
-MetadataController
+Daemon Foundation
 
 Implemented:
 
-* api/rest/include/MetadataController.h
-* api/rest/src/MetadataController.cpp
-* api/rest/tests/test_metadata_controller.cpp
-
-Updated:
-
-* api/rest/include/ApiRouter.h
-* api/rest/src/ApiRouter.cpp
-* api/rest/tests/test_api_router.cpp
-* Makefile
+* DaemonApp
+* RuntimeConfig
+* DaemonRuntime
+* Signal handling
+* Database lifecycle
+* Dashboard runtime wiring
 
 Result:
 
-GET /api/metadata successfully returns metadata as JSON.
+vdr-suite-daemon now provides a central runtime layer
+responsible for startup, shutdown and lifecycle management.
 
 ---
 
-# Next Planned Step
+Phase 8.1
 
-Phase 7.4
+REST Server Lifecycle
 
-Metadata Detail API
+Goals:
 
-GET /api/metadata/{recordingId}
+* Runtime-owned ApiRouter
+* Runtime-owned Controllers
+* Long-running REST service
+* Foundation for Web UI and OSD frontend integration
 
 ---
 
