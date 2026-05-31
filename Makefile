@@ -39,6 +39,11 @@ WORKFLOW_SRC := \
 WORKER_SRC := \
 	core/recordings/src/WorkerSimulator.cpp
 
+RECTOOLS_ADAPTER_SRC := \
+	core/recordings/src/RectoolsAdapter.cpp \
+	core/recordings/src/JobService.cpp \
+	core/recordings/src/RecordingActionUtils.cpp
+
 .PHONY: all test clean prepare-test-db
 
 all: test
@@ -132,7 +137,14 @@ test-worker-simulator: prepare-test-db
 		-o /tmp/test_worker_simulator
 	/tmp/test_worker_simulator
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-workflow-service test-worker-simulator
+test-rectools-adapter:
+	$(CXX) $(CXXFLAGS) \
+		$(RECTOOLS_ADAPTER_SRC) \
+		core/recordings/tests/test_rectools_adapter.cpp \
+		-o /tmp/test_rectools_adapter
+	/tmp/test_rectools_adapter
+
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-workflow-service test-worker-simulator test-rectools-adapter
 
 clean:
 	rm -f /tmp/test_database
@@ -145,4 +157,5 @@ clean:
 	rm -f /tmp/test_job_repository
 	rm -f /tmp/test_workflow_service
 	rm -f /tmp/test_worker_simulator
+	rm -f /tmp/test_rectools_adapter
 	rm -f /tmp/vdr-suite-test.db
