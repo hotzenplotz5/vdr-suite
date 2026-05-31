@@ -33,6 +33,11 @@ JOB_DASHBOARD_SRC := \
 	core/recordings/src/JobRepository.cpp \
 	core/recordings/src/JobDashboardService.cpp
 
+RECORDING_DASHBOARD_SRC := \
+	core/recordings/src/RecordingRepository.cpp \
+	core/recordings/src/MetadataRepository.cpp \
+	core/recordings/src/RecordingDashboardService.cpp
+
 WORKFLOW_SRC := \
 	core/recordings/src/RecordingWorkflowService.cpp \
 	core/recordings/src/ActionService.cpp \
@@ -131,6 +136,15 @@ test-job-dashboard-service: prepare-test-db
 		-o /tmp/test_job_dashboard_service
 	/tmp/test_job_dashboard_service
 
+test-recording-dashboard-service: prepare-test-db
+	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(RECORDING_DASHBOARD_SRC) \
+		core/recordings/tests/test_recording_dashboard_service.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_recording_dashboard_service
+	/tmp/test_recording_dashboard_service
+
 test-workflow-service: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -157,7 +171,7 @@ test-rectools-adapter:
 		-o /tmp/test_rectools_adapter
 	/tmp/test_rectools_adapter
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-workflow-service test-worker-simulator test-rectools-adapter
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-workflow-service test-worker-simulator test-rectools-adapter
 
 clean:
 	rm -f /tmp/test_database
@@ -169,6 +183,7 @@ clean:
 	rm -f /tmp/test_job_service
 	rm -f /tmp/test_job_repository
 	rm -f /tmp/test_job_dashboard_service
+	rm -f /tmp/test_recording_dashboard_service
 	rm -f /tmp/test_workflow_service
 	rm -f /tmp/test_worker_simulator
 	rm -f /tmp/test_rectools_adapter
