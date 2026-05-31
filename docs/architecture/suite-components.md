@@ -486,3 +486,28 @@ Initial goals:
 Expected result:
 
 A runnable vdr-suite-daemon process that becomes the foundation for all future frontends and integrations.
+
+---
+
+# External VDR Integration Layer
+
+VDR-Suite is designed as an orchestration layer above the existing
+VDR ecosystem.
+
+Preferred integration targets:
+
+- vdr-plugin-restfulapi
+- epgsearch
+- scraper2vdr
+- tvscraper
+- vdr-rectools
+
+The goal is to reuse mature implementations and focus development on:
+
+- workflow management
+- metadata aggregation
+- dashboard services
+- job processing
+- user interfaces
+
+rather than reimplementing existing VDR functionality.
