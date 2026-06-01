@@ -4,7 +4,9 @@ CXXFLAGS := -std=c++17 -Wall -Wextra \
         -Icore/recordings/include \
         -Icore/daemon/include \
         -Icore/vdr/include \
+	-Icore/http/include \
         -Iapi/rest/include
+        
 LDFLAGS := $(shell pkg-config --libs sqlite3)
 
 SQLITE_SRC := core/sqlite/src/Database.cpp
@@ -14,6 +16,9 @@ VDR_SRC := \
         core/vdr/src/ExternalVdrAdapter.cpp \
         core/vdr/src/MockVdrAdapter.cpp \
         core/vdr/src/VdrAdapterFactory.cpp
+
+HTTP_SRC := \
+        core/http/src/MockHttpClient.cpp
 
 RECORDINGS_SRC := \
 	core/recordings/src/RecordingRepository.cpp \
@@ -337,6 +342,25 @@ test-vdr-adapter-factory:
 		-o /tmp/test_vdr_adapter_factory
 	/tmp/test_vdr_adapter_factory
 
+test-http-request:
+	$(CXX) $(CXXFLAGS) \
+		core/http/tests/test_http_request.cpp \
+		-o /tmp/test_http_request
+	/tmp/test_http_request
+
+test-http-response:
+	$(CXX) $(CXXFLAGS) \
+		core/http/tests/test_http_response.cpp \
+		-o /tmp/test_http_response
+	/tmp/test_http_response
+
+test-mock-http-client:
+	$(CXX) $(CXXFLAGS) \
+		$(HTTP_SRC) \
+		core/http/tests/test_mock_http_client.cpp \
+		-o /tmp/test_mock_http_client
+	/tmp/test_mock_http_client
+
 daemon:
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -345,7 +369,7 @@ daemon:
 		$(LDFLAGS) \
 		-o /tmp/vdr-suite-daemon
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-mock-vdr-adapter
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-mock-vdr-adapter test-http-request test-http-response test-mock-http-client
 
 clean:
 	rm -f /tmp/test_database
@@ -374,3 +398,6 @@ clean:
 	rm -f /tmp/test_external_vdr_adapter
 	rm -f /tmp/test_vdr_adapter_factory
 	rm -f /tmp/test_mock_vdr_adapter
+	rm -f /tmp/test_http_request
+	rm -f /tmp/test_http_response
+	rm -f /tmp/test_mock_http_client
