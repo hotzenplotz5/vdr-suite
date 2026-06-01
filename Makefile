@@ -15,6 +15,7 @@ VDR_SRC := \
         core/vdr/src/VdrConfig.cpp \
         core/vdr/src/ExternalVdrAdapter.cpp \
         core/vdr/src/MockVdrAdapter.cpp \
+        core/vdr/src/RestfulApiVdrAdapter.cpp \
         core/vdr/src/VdrAdapterFactory.cpp
 
 HTTP_SRC := \
@@ -361,6 +362,14 @@ test-mock-http-client:
 		-o /tmp/test_mock_http_client
 	/tmp/test_mock_http_client
 
+test-restful-api-vdr-adapter:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		$(HTTP_SRC) \
+		core/vdr/tests/test_restful_api_vdr_adapter.cpp \
+		-o /tmp/test_restful_api_vdr_adapter
+	/tmp/test_restful_api_vdr_adapter
+
 daemon:
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -369,7 +378,7 @@ daemon:
 		$(LDFLAGS) \
 		-o /tmp/vdr-suite-daemon
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-mock-vdr-adapter test-http-request test-http-response test-mock-http-client
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-mock-vdr-adapter test-http-request test-http-response test-mock-http-client test-restful-api-vdr-adapter
 
 clean:
 	rm -f /tmp/test_database
@@ -401,3 +410,4 @@ clean:
 	rm -f /tmp/test_http_request
 	rm -f /tmp/test_http_response
 	rm -f /tmp/test_mock_http_client
+	rm -f /tmp/test_restful_api_vdr_adapter

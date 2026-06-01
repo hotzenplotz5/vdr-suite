@@ -5,7 +5,7 @@ MockHttpClient::MockHttpClient()
     response_.statusCode = 200;
 }
 
-HttpResponse MockHttpClient::execute(const HttpRequest& request)
+HttpResponse MockHttpClient::execute(const HttpRequest& request) const
 {
     requests_.push_back(request);
     return response_;

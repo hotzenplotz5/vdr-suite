@@ -9,7 +9,7 @@ class MockHttpClient : public IHttpClient {
 public:
     MockHttpClient();
 
-    HttpResponse execute(const HttpRequest& request) override;
+    HttpResponse execute(const HttpRequest& request) const override;
 
     void setResponse(const HttpResponse& response);
 
@@ -19,7 +19,7 @@ public:
 
 private:
     HttpResponse response_;
-    std::vector<HttpRequest> requests_;
+    mutable std::vector<HttpRequest> requests_;
 };
 
 #endif

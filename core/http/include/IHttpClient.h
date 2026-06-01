@@ -8,7 +8,7 @@ class IHttpClient {
 public:
     virtual ~IHttpClient() = default;
 
-    virtual HttpResponse execute(const HttpRequest& request) = 0;
+    virtual HttpResponse execute(const HttpRequest& request) const = 0;
 };
 
 #endif
