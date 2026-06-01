@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.18-phase8-vdr-event-domain-object
+v1.19-phase8-vdr-event-adapter-architecture
 
 Latest Commit:
-6f2183f
+latest commit after phase 8.13
 
-Phase 8.12: introduce VDR event domain object
+Phase 8.13: introduce VDR event adapter architecture
 
 ---
 
@@ -605,8 +605,8 @@ Status:
 
 * Implemented as backend-neutral C++ domain object
 * Tested in test_vdr_domain_objects
-* Not yet exposed through IVdrAdapter
-* No RESTfulAPI mapping yet
+* Exposed through IVdrAdapter via getEvents()
+* RESTfulAPI adapter has endpoint boundary stub for /events.json
 * No JSON parsing yet
 
 ### VdrTimer
@@ -793,9 +793,32 @@ Out of scope:
 
 ---
 
+### v1.19-phase8-vdr-event-adapter-architecture
+
+VDR event adapter architecture.
+
+Added:
+
+* IVdrAdapter::getEvents()
+* ExternalVdrAdapter getEvents() stub
+* MockVdrAdapter deterministic event data
+* RestfulApiVdrAdapter /events.json request boundary
+* Event access tests for mock and RESTfulAPI adapters
+
+Out of scope:
+
+* RESTfulAPI JSON event parsing
+* Real HTTP communication
+* EPGSearch implementation
+* SearchTimer logic
+* Timer creation
+* Channel management
+
+---
+
 # Last Completed Step
 
-Phase 8.12: introduce VDR event domain object
+Phase 8.13: introduce VDR event adapter architecture
 
 Completed:
 
@@ -812,6 +835,7 @@ Completed:
 * Phase 8.10: VDR domain model documentation
 * Phase 8.11: VDR domain objects
 * Phase 8.12: VDR event domain object
+* Phase 8.13: VDR event adapter architecture
 
 ---
 
@@ -828,25 +852,26 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.13
+Phase 8.14
 
 Candidate:
 
-Introduce IVdrAdapter event access architecture.
+RESTfulAPI event mapping foundation.
 
 Expected direction:
 
-* Review IVdrAdapter method boundaries
-* Decide whether events are exposed as getEvents() or getEventsForChannel()
-* Keep RESTfulAPI mapping out of scope until the interface is stable
-* Keep JSON parsing out of scope
+* Keep IVdrAdapter event boundary stable
+* Map /events.json responses into VdrEvent domain objects
+* Keep RESTfulAPI JSON behind RestfulApiVdrAdapter
+* Add parser/mapping tests with MockHttpClient
 * Keep real HTTP communication out of scope
-* Prefer MockVdrAdapter-based validation first
+* Keep EPGSearch and SearchTimer logic out of scope
 
 Out of scope:
 
-* Real RESTfulAPI endpoint mapping
-* JSON parser
-* Real HTTP communication
+* Real network communication
+* Timer creation
+* Channel management
+* Recording management
 * EPGSearch implementation
 * SearchTimer logic
