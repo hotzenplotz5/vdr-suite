@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.17-phase8-vdr-domain-objects
+v1.18-phase8-vdr-event-domain-object
 
 Latest Commit:
-438f248
+6f2183f
 
-Phase 8.11: introduce VDR domain objects
+Phase 8.12: introduce VDR event domain object
 
 ---
 
@@ -584,6 +584,31 @@ Out of scope:
 
 Backend-neutral channel model.
 
+### VdrEvent
+
+Backend-neutral EPG event model.
+
+Fields:
+
+* id
+* channelId
+* title
+* subtitle
+* description
+* startTime
+* endTime
+* durationSeconds
+* contentDescriptors
+* parentalRating
+
+Status:
+
+* Implemented as backend-neutral C++ domain object
+* Tested in test_vdr_domain_objects
+* Not yet exposed through IVdrAdapter
+* No RESTfulAPI mapping yet
+* No JSON parsing yet
+
 ### VdrTimer
 
 Backend-neutral timer model.
@@ -745,11 +770,32 @@ Added:
 * Mocked /info.json to VdrStatus mapping
 * Factory support for restfulapi mode
 
+### v1.18-phase8-vdr-event-domain-object
+
+VDR event domain object.
+
+Added:
+
+* VdrEvent
+* EPG event domain fields
+* contentDescriptors as backend-neutral string list
+* parentalRating field
+* Extended VDR domain object tests
+
+Out of scope:
+
+* IVdrAdapter method expansion
+* RESTfulAPI event endpoint mapping
+* JSON parser
+* Real HTTP communication
+* EPGSearch implementation
+* SearchTimer logic
+
 ---
 
 # Last Completed Step
 
-Phase 8.11: introduce VDR domain objects
+Phase 8.12: introduce VDR event domain object
 
 Completed:
 
@@ -764,7 +810,8 @@ Completed:
 * Phase 8.8: HTTP abstraction layer
 * Phase 8.9: RESTfulAPI VDR adapter foundation
 * Phase 8.10: VDR domain model documentation
-* Phase 8.11 VDR domain objects
+* Phase 8.11: VDR domain objects
+* Phase 8.12: VDR event domain object
 
 ---
 
@@ -781,26 +828,25 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.12
+Phase 8.13
 
-Goal:
+Candidate:
 
-Introduce VDR domain object headers.
+Introduce IVdrAdapter event access architecture.
 
-Scope:
+Expected direction:
 
-* Add VdrChannel
-* Add VdrTimer
-* Add VdrRecording
-* Add compile-level domain tests
-* Keep IVdrAdapter unchanged
-* Keep RESTfulAPI adapter unchanged
-* Keep HTTP layer unchanged
+* Review IVdrAdapter method boundaries
+* Decide whether events are exposed as getEvents() or getEventsForChannel()
+* Keep RESTfulAPI mapping out of scope until the interface is stable
+* Keep JSON parsing out of scope
+* Keep real HTTP communication out of scope
+* Prefer MockVdrAdapter-based validation first
 
 Out of scope:
 
-* IVdrAdapter method expansion
+* Real RESTfulAPI endpoint mapping
 * JSON parser
 * Real HTTP communication
-* RESTfulAPI channel/timer/recording mapping
 * EPGSearch implementation
+* SearchTimer logic
