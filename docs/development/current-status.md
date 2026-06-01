@@ -20,9 +20,9 @@ v1.12-phase8-vdr-backend-architecture
 
 ## Latest Commit
 
-efc805d
+8c2d7db
 
-Phase 8.5: add mock VDR adapter backend
+Phase 8.6: define VDR backend architecture
 
 ---
 
@@ -374,10 +374,80 @@ VdrAdapterFactory
 ↓
 IVdrAdapter
 ├── ExternalVdrAdapter
-└── MockVdrAdapter
+├── MockVdrAdapter
+└── future adapters
 ↓
 VdrStatus
 ```
+
+RESTfulAPI Architecture Decision
+
+RESTfulAPI will be integrated as a future IVdrAdapter implementation.
+
+IVdrAdapter
+├── ExternalVdrAdapter
+├── MockVdrAdapter
+├── RestfulApiVdrAdapter
+├── SvdrpVdrAdapter
+└── PluginBridgeVdrAdapter
+
+RESTfulAPI must remain behind the adapter boundary.
+
+The daemon, REST API controllers, dashboard services and recording services must not call RESTfulAPI directly.
+
+RESTfulAPI Boundary
+
+Future target architecture:
+
+RestfulApiVdrAdapter
+↓
+IHttpClient
+↓
+vdr-plugin-restfulapi
+
+HTTP transport must be separated from VDR adapter logic.
+
+The first RESTfulAPI endpoint to map should be:
+
+/info.json
+
+Target mapping:
+
+/info.json
+↓
+RestfulApiVdrAdapter
+↓
+VdrStatus
+Important Phase 8.7 Decision
+
+No HTTP communication was implemented in Phase 8.7.
+
+Phase 8.7 is architecture validation only.
+
+Next Recommended Phase
+Phase 8.8: introduce HTTP client abstraction
+
+Expected scope:
+
+IHttpClient
+HttpRequest
+HttpResponse
+MockHttpClient
+tests
+
+No real network communication yet.
+
+Project Rules
+Prefer complete files.
+Use nano only.
+Never use cat <<EOF.
+Run make test before code commits.
+Update current-status.md after every phase.
+Create milestone tags.
+Keep daemon and service layers backend-independent.
+Do not reinvent existing VDR plugin functionality.
+
+---
 
 Build:
 
@@ -606,23 +676,20 @@ Added:
 
 # Last Completed Step
 
-Phase 8.6
+Phase 8.7: RESTfulAPI integration architecture analysis
 
-VDR Backend Architecture
+Phase 8 Status
 
-Implemented:
+Completed:
 
-* ADR-0006
-* Backend architecture documentation
-* RESTfulAPI backend strategy
-* SVDRP backend strategy
-* Backend independence documentation
-
-Result:
-
-RESTfulAPI is formally defined as an IVdrAdapter backend implementation.
-
-Future transport layers can be added without changing higher-level services.
+Phase 8.0: daemon foundation
+Phase 8.1: external VDR adapter foundation
+Phase 8.2: VdrConfig architecture
+Phase 8.3: IVdrAdapter abstraction layer
+Phase 8.4: VdrAdapterFactory
+Phase 8.5: MockVdrAdapter multi-backend foundation
+Phase 8.6: VDR backend architecture documentation
+Phase 8.7: RESTfulAPI integration architecture analysis
 
 ---
 
@@ -639,22 +706,24 @@ Future transport layers can be added without changing higher-level services.
 
 ## Next Planned Step
 
-Phase 8.7
+Phase 8.8
 
 Goal:
 
-RestfulApiVdrAdapter Skeleton
+HTTP client abstraction layer
 
 Scope:
 
-* RestfulApiVdrAdapter class
-* Factory integration
+* IHttpClient
+* HttpRequest
+* HttpResponse
+* MockHttpClient
 * Unit tests
-* Placeholder status retrieval
 
 Out of scope:
 
 * Real HTTP communication
+* RESTfulAPI network access
 * JSON parsing
 * Authentication
 * Polling
