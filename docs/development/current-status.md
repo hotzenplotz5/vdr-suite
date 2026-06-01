@@ -378,6 +378,9 @@ IVdrAdapter
 └── future adapters
 ↓
 VdrStatus
+VdrChannel
+VdrTimer
+VdrRecording
 ```
 
 RESTfulAPI Architecture Decision
@@ -742,17 +745,18 @@ Phase 8 Status
 
 Completed:
 
-Phase 8.0: daemon foundation
-Phase 8.1: external VDR adapter foundation
-Phase 8.2: VdrConfig architecture
-Phase 8.3: IVdrAdapter abstraction layer
-Phase 8.4: VdrAdapterFactory
-Phase 8.5: MockVdrAdapter multi-backend foundation
-Phase 8.6: VDR backend architecture documentation
-Phase 8.7: RESTfulAPI integration architecture analysis
-Phase 8.8: HTTP abstraction layer
-Phase 8.9: RESTfulAPI VDR adapter foundation
-Phase 8.10: VDR domain model documentation
+* Phase 8.0: daemon foundation
+* Phase 8.1: external VDR adapter foundation
+* Phase 8.2: VdrConfig architecture
+* Phase 8.3: IVdrAdapter abstraction layer
+* Phase 8.4: VdrAdapterFactory
+* Phase 8.5: MockVdrAdapter multi-backend foundation
+* Phase 8.6: VDR backend architecture documentation
+* Phase 8.7: RESTfulAPI integration architecture analysis
+* Phase 8.8: HTTP abstraction layer
+* Phase 8.9: RESTfulAPI VDR adapter foundation
+* Phase 8.10: VDR domain model documentation
+* Phase 8.11 VDR domain objects
 
 ---
 
