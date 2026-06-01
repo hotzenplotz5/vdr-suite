@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.10-phase8-vdr-adapter-factory
+v1.11-phase8-vdr-mock-backend
 
 ## Latest Commit
 
-59cd8cc
+efc805d
 
-Phase 8.4: introduce VDR adapter factory
+Phase 8.5: add mock VDR adapter backend
 
 ---
 
@@ -373,8 +373,8 @@ VdrConfig
 VdrAdapterFactory
 ↓
 IVdrAdapter
-↓
-ExternalVdrAdapter
+├── ExternalVdrAdapter
+└── MockVdrAdapter
 ↓
 VdrStatus
 ```
@@ -461,6 +461,7 @@ Features:
 Supported adapter modes:
 
 * external
+* mock
 
 Future adapter modes:
 
@@ -468,6 +469,21 @@ Future adapter modes:
 * svdrp
 * plugin
 * mock
+
+### MockVdrAdapter
+
+Features:
+
+* Mock backend implementation
+* Deterministic test backend
+* No VDR dependency
+* Multi-backend architecture validation
+* Unit test coverage
+
+Purpose:
+
+Allows testing of higher layers without
+requiring a running VDR instance.
 
 ---
 
@@ -564,13 +580,24 @@ IVdrAdapter abstraction layer.
 
 VdrAdapterFactory implementation.
 
+### v1.11-phase8-vdr-mock-backend
+
+Mock backend implementation.
+
+Added:
+
+* MockVdrAdapter
+* Factory support for mock mode
+* Multi-backend validation
+* Dedicated mock adapter test
+
 ---
 
 # Last Completed Step
 
-Phase 8.4
+Phase 8.5
 
-VDR Adapter Factory
+Mock VDR Adapter Backend
 
 Implemented:
 
@@ -603,22 +630,23 @@ factory without changing consumers.
 
 ## Next Planned Step
 
-Phase 8.5
+Phase 8.6
 
 Goal:
 
-Introduce adapter mode selection strategy.
+RESTfulAPI Adapter Foundation
 
 Scope:
 
-* Centralized backend selection
-* Adapter creation validation
-* Preparation for RESTfulAPI adapter
-* Preparation for SVDRP adapter
+* RestfulApiAdapter introduction
+* Adapter architecture extension
+* Backend registration through factory
+* Preparation for real VDR communication
 
 Out of scope:
 
-* HTTP communication
-* SVDRP communication
+* Channel synchronization
+* Timer synchronization
+* EPG synchronization
 * Polling
 * Reconnect logic
