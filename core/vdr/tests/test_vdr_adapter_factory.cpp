@@ -19,7 +19,7 @@ static void test_factory_creates_external_adapter()
     assert(adapter != nullptr);
 }
 
-static void test_factory_created_adapter_reports_status()
+static void test_factory_created_external_adapter_reports_status()
 {
     VdrConfig config;
     config.enabled = true;
@@ -35,6 +35,23 @@ static void test_factory_created_adapter_reports_status()
     assert(status.host == "127.0.0.1");
     assert(status.port == 6419);
     assert(status.state == "configured");
+}
+
+static void test_factory_creates_mock_adapter()
+{
+    VdrConfig config;
+    config.enabled = true;
+    config.mode = "mock";
+
+    std::unique_ptr<IVdrAdapter> adapter = VdrAdapterFactory::create(config);
+    VdrStatus status = adapter->getStatus();
+
+    assert(adapter != nullptr);
+    assert(status.enabled == true);
+    assert(status.mode == "mock");
+    assert(status.host == "mock");
+    assert(status.port == 0);
+    assert(status.state == "connected");
 }
 
 static void test_factory_rejects_unknown_mode()
@@ -57,7 +74,8 @@ static void test_factory_rejects_unknown_mode()
 int main()
 {
     test_factory_creates_external_adapter();
-    test_factory_created_adapter_reports_status();
+    test_factory_created_external_adapter_reports_status();
+    test_factory_creates_mock_adapter();
     test_factory_rejects_unknown_mode();
 
     return 0;

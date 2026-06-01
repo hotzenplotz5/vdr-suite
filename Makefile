@@ -12,6 +12,7 @@ SQLITE_SRC := core/sqlite/src/Database.cpp
 VDR_SRC := \
         core/vdr/src/VdrConfig.cpp \
         core/vdr/src/ExternalVdrAdapter.cpp \
+        core/vdr/src/MockVdrAdapter.cpp \
         core/vdr/src/VdrAdapterFactory.cpp
 
 RECORDINGS_SRC := \
@@ -322,6 +323,13 @@ test-external-vdr-adapter:
 		-o /tmp/test_external_vdr_adapter
 	/tmp/test_external_vdr_adapter
 
+test-mock-vdr-adapter:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_mock_vdr_adapter.cpp \
+		-o /tmp/test_mock_vdr_adapter
+	/tmp/test_mock_vdr_adapter
+
 test-vdr-adapter-factory:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
@@ -337,7 +345,7 @@ daemon:
 		$(LDFLAGS) \
 		-o /tmp/vdr-suite-daemon
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-mock-vdr-adapter
 
 clean:
 	rm -f /tmp/test_database
@@ -365,3 +373,4 @@ clean:
 	rm -f /tmp/test_vdr_config
 	rm -f /tmp/test_external_vdr_adapter
 	rm -f /tmp/test_vdr_adapter_factory
+	rm -f /tmp/test_mock_vdr_adapter
