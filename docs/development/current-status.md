@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.8-phase8-vdr-config
+v1.9-phase8-vdr-adapter-interface
 
 ## Latest Commit
 
-9056486
+af3642e
 
-Phase 8.1: add external VDR adapter foundation
+Phase 8.3: introduce IVdrAdapter abstraction layer
 
 ---
 
@@ -363,6 +363,8 @@ RuntimeConfig
 ↓
 VdrConfig
 ↓
+VdrAdapterFactory
+↓
 IVdrAdapter
 ↓
 ExternalVdrAdapter
@@ -438,6 +440,26 @@ Supported future backends:
 * SVDRP
 * Plugin Bridge
 * Mock/Test Adapters
+
+### VdrAdapterFactory
+
+Features:
+
+* Central adapter creation
+* Backend selection layer
+* Returns IVdrAdapter instances
+* Foundation for future backend expansion
+
+Supported adapter modes:
+
+* external
+
+Future adapter modes:
+
+* restfulapi
+* svdrp
+* plugin
+* mock
 
 ---
 
@@ -522,76 +544,25 @@ Daemon foundation:
 
 # Last Completed Step
 
-Phase 8.0
+Phase 8.4
 
-Daemon Foundation
-
-Implemented:
-
-* DaemonApp
-* RuntimeConfig
-* DaemonRuntime
-* Signal handling
-* Database lifecycle
-* Dashboard runtime wiring
-
-Result:
-
-vdr-suite-daemon now provides a central runtime layer
-responsible for startup, shutdown and lifecycle management.
-
----
-
-Phase 8.1
-
-REST Server Lifecycle
-
-Goals:
-
-* Runtime-owned ApiRouter
-* Runtime-owned Controllers
-* Long-running REST service
-* Foundation for Web UI and OSD frontend integration
-
-Phase 8.2
-
-VDR Configuration Layer
+VDR Adapter Factory
 
 Implemented:
 
-* VdrConfig
-* Configurable ExternalVdrAdapter
-* VDR test integration in Makefile
-* Dedicated VDR unit tests
+* VdrAdapterFactory
+* Factory-based adapter creation
+* Adapter selection by VdrConfig
+* Factory unit test
+* Makefile integration
 
 Result:
 
-VDR configuration is now separated from the adapter implementation
-and prepared for future SVDRP and RESTfulAPI integrations.
+Higher layers no longer instantiate concrete
+adapter implementations directly.
 
-Phase 8.3
-
-VDR Adapter Abstraction Layer
-
-Implemented:
-
-* IVdrAdapter
-* ExternalVdrAdapter implements IVdrAdapter
-* Interface-based unit tests
-* Backend-independent adapter architecture
-
-Result:
-
-VDR-Suite can now support multiple VDR backends
-through a common abstraction layer.
-
-No network communication has been implemented yet.
-
-Future adapters may use:
-
-* RESTfulAPI
-* SVDRP
-* Plugin Bridge
+Future VDR backends can be added through the
+factory without changing consumers.
 
 ---
 
