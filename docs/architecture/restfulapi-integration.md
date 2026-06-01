@@ -221,12 +221,16 @@ RESTfulAPI requires HTTP transport.
 
 HTTP communication must not be implemented directly inside `RestfulApiVdrAdapter`.
 
-A separate HTTP abstraction is required:
+RestfulApiVdrAdapter must communicate through IHttpClient.
+
+This creates a neutral transport boundary:
 
 ```text
+RestfulApiVdrAdapter
+↓
 IHttpClient
 ├── MockHttpClient
-└── future real HTTP implementation
+└── RealHttpClient (future)
 ```
 
 The adapter should depend on an HTTP interface, not on a concrete transport implementation.

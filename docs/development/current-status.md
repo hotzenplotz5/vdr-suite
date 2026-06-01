@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.12-phase8-vdr-backend-architecture
+v1.14-phase8-http-abstraction
 
 ## Latest Commit
 
-8c2d7db
+d1357a5
 
-Phase 8.6: define VDR backend architecture
+Phase 8.8: introduce HTTP abstraction layer
 
 ---
 
@@ -677,6 +677,7 @@ Added:
 # Last Completed Step
 
 Phase 8.7: RESTfulAPI integration architecture analysis
+Phase 8.8: HTTP abstraction layer
 
 Phase 8 Status
 
@@ -706,24 +707,26 @@ Phase 8.7: RESTfulAPI integration architecture analysis
 
 ## Next Planned Step
 
-Phase 8.8
+Phase 8.9
 
 Goal:
 
-HTTP client abstraction layer
+RestfulApiVdrAdapter foundation
 
 Scope:
 
-* IHttpClient
-* HttpRequest
-* HttpResponse
-* MockHttpClient
-* Unit tests
+* RestfulApiVdrAdapter skeleton
+* IHttpClient integration
+* MockHttpClient integration
+* VdrStatus mapping
+* Mocked /info.json response
 
 Out of scope:
 
 * Real HTTP communication
-* RESTfulAPI network access
-* JSON parsing
+* Recordings API
+* Timers API
+* EPGSearch API
+* SearchTimers API
 * Authentication
 * Polling
