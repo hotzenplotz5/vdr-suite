@@ -16,7 +16,7 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.11-phase8-vdr-mock-backend
+v1.12-phase8-vdr-backend-architecture
 
 ## Latest Commit
 
@@ -591,29 +591,38 @@ Added:
 * Multi-backend validation
 * Dedicated mock adapter test
 
+### v1.12-phase8-vdr-backend-architecture
+
+Backend-independent VDR backend architecture.
+
+Added:
+
+* ADR-0006
+* VDR backend architecture documentation
+* RESTfulAPI backend strategy
+* Future SVDRP backend strategy
+
 ---
 
 # Last Completed Step
 
-Phase 8.5
+Phase 8.6
 
-Mock VDR Adapter Backend
+VDR Backend Architecture
 
 Implemented:
 
-* VdrAdapterFactory
-* Factory-based adapter creation
-* Adapter selection by VdrConfig
-* Factory unit test
-* Makefile integration
+* ADR-0006
+* Backend architecture documentation
+* RESTfulAPI backend strategy
+* SVDRP backend strategy
+* Backend independence documentation
 
 Result:
 
-Higher layers no longer instantiate concrete
-adapter implementations directly.
+RESTfulAPI is formally defined as an IVdrAdapter backend implementation.
 
-Future VDR backends can be added through the
-factory without changing consumers.
+Future transport layers can be added without changing higher-level services.
 
 ---
 
@@ -630,23 +639,22 @@ factory without changing consumers.
 
 ## Next Planned Step
 
-Phase 8.6
+Phase 8.7
 
 Goal:
 
-RESTfulAPI Adapter Foundation
+RestfulApiVdrAdapter Skeleton
 
 Scope:
 
-* RestfulApiAdapter introduction
-* Adapter architecture extension
-* Backend registration through factory
-* Preparation for real VDR communication
+* RestfulApiVdrAdapter class
+* Factory integration
+* Unit tests
+* Placeholder status retrieval
 
 Out of scope:
 
-* Channel synchronization
-* Timer synchronization
-* EPG synchronization
+* Real HTTP communication
+* JSON parsing
+* Authentication
 * Polling
-* Reconnect logic
