@@ -6,6 +6,7 @@
 #include <cassert>
 #include <memory>
 #include <string>
+#include <vector>
 
 int main()
 {
@@ -54,6 +55,21 @@ int main()
     assert(errorStatus.state == "error");
 
     assert(httpClient.requestCount() == 2);
+
+    HttpResponse eventsResponse;
+    eventsResponse.statusCode = 200;
+    eventsResponse.headers["Content-Type"] = "application/json";
+    eventsResponse.body = "{\"events\":[]}";
+
+    httpClient.setResponse(eventsResponse);
+
+    std::vector<VdrEvent> events = adapter.getEvents();
+
+    assert(events.empty() == true);
+    assert(httpClient.requestCount() == 3);
+    assert(httpClient.lastRequest().method == "GET");
+    assert(httpClient.lastRequest().url == "/events.json");
+    assert(httpClient.lastRequest().headers.at("Accept") == "application/json");
 
     std::unique_ptr<IVdrAdapter> interfaceAdapter =
         std::make_unique<RestfulApiVdrAdapter>(config, httpClient);

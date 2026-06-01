@@ -27,3 +27,16 @@ VdrStatus RestfulApiVdrAdapter::getStatus() const
 
     return status;
 }
+
+std::vector<VdrEvent> RestfulApiVdrAdapter::getEvents() const
+{
+    HttpRequest request;
+    request.method = "GET";
+    request.url = "/events.json";
+    request.headers["Accept"] = "application/json";
+
+    HttpResponse response = httpClient_.execute(request);
+    (void)response;
+
+    return {};
+}

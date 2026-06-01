@@ -16,3 +16,8 @@ VdrStatus ExternalVdrAdapter::getStatus() const
 
     return status;
 }
+
+std::vector<VdrEvent> ExternalVdrAdapter::getEvents() const
+{
+    return {};
+}
