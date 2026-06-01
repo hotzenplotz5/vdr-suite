@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.15-phase8-restfulapi-adapter
+v1.16-phase8-vdr-domain-model
 
 ## Latest Commit
 
-19761f0
+pending
 
-Phase 8.9: add RESTfulAPI VDR adapter foundation
+Phase 8.10: document VDR domain model
 
 ---
 
@@ -752,6 +752,7 @@ Phase 8.6: VDR backend architecture documentation
 Phase 8.7: RESTfulAPI integration architecture analysis
 Phase 8.8: HTTP abstraction layer
 Phase 8.9: RESTfulAPI VDR adapter foundation
+Phase 8.10: VDR domain model documentation
 
 ---
 
@@ -768,28 +769,26 @@ Phase 8.9: RESTfulAPI VDR adapter foundation
 
 ## Next Planned Step
 
-Phase 8.10
+Phase 8.11
 
 Goal:
 
-VDR domain model documentation.
+Introduce VDR domain object headers.
 
 Scope:
 
-* Define backend-neutral VDR domain concepts
-* Document VdrStatus boundary
-* Document future VdrChannel
-* Document future VdrEvent
-* Document future VdrTimer
-* Document future VdrSearchTimer
-* Document future VdrRecording
-* Keep RESTfulAPI JSON behind adapter boundary
-* Prepare Phase 8.11 domain object implementation
+* Add VdrChannel
+* Add VdrTimer
+* Add VdrRecording
+* Add compile-level domain tests
+* Keep IVdrAdapter unchanged
+* Keep RESTfulAPI adapter unchanged
+* Keep HTTP layer unchanged
 
 Out of scope:
 
-* New C++ domain headers
 * IVdrAdapter method expansion
 * JSON parser
 * Real HTTP communication
 * RESTfulAPI channel/timer/recording mapping
+* EPGSearch implementation
