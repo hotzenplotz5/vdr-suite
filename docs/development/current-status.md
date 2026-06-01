@@ -363,6 +363,8 @@ RuntimeConfig
 ↓
 VdrConfig
 ↓
+IVdrAdapter
+↓
 ExternalVdrAdapter
 ↓
 VdrStatus
@@ -420,6 +422,22 @@ Planned:
 * Channel management
 * Timer management
 * EPG integration
+
+### IVdrAdapter
+
+Features:
+
+* Backend abstraction layer
+* Common VDR adapter contract
+* Backend-independent integration point
+* Foundation for multiple VDR backends
+
+Supported future backends:
+
+* RESTfulAPI
+* SVDRP
+* Plugin Bridge
+* Mock/Test Adapters
 
 ---
 
@@ -550,6 +568,30 @@ Result:
 
 VDR configuration is now separated from the adapter implementation
 and prepared for future SVDRP and RESTfulAPI integrations.
+
+Phase 8.3
+
+VDR Adapter Abstraction Layer
+
+Implemented:
+
+* IVdrAdapter
+* ExternalVdrAdapter implements IVdrAdapter
+* Interface-based unit tests
+* Backend-independent adapter architecture
+
+Result:
+
+VDR-Suite can now support multiple VDR backends
+through a common abstraction layer.
+
+No network communication has been implemented yet.
+
+Future adapters may use:
+
+* RESTfulAPI
+* SVDRP
+* Plugin Bridge
 
 ---
 

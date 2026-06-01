@@ -1,26 +1,18 @@
 #include "ExternalVdrAdapter.h"
 
-ExternalVdrAdapter::ExternalVdrAdapter()
-    : ExternalVdrAdapter(VdrConfig())
-{
-}
-
-ExternalVdrAdapter::ExternalVdrAdapter(const VdrConfig& config)
-    : enabled_(config.enabled),
-      mode_(config.mode),
-      host_(config.host),
-      port_(config.port),
-      state_("configured")
+ExternalVdrAdapter::ExternalVdrAdapter(VdrConfig config)
+    : config_(config)
 {
 }
 
 VdrStatus ExternalVdrAdapter::getStatus() const
 {
-    return VdrStatus{
-        enabled_,
-        mode_,
-        host_,
-        port_,
-        state_
-    };
+    VdrStatus status;
+    status.enabled = config_.enabled;
+    status.mode = config_.mode;
+    status.host = config_.host;
+    status.port = config_.port;
+    status.state = config_.enabled ? "configured" : "disabled";
+
+    return status;
 }

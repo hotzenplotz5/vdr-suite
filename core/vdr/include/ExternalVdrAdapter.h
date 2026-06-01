@@ -1,22 +1,15 @@
 #pragma once
 
+#include "IVdrAdapter.h"
 #include "VdrConfig.h"
 #include "VdrStatus.h"
 
-#include <string>
-
-class ExternalVdrAdapter
-{
+class ExternalVdrAdapter : public IVdrAdapter {
 public:
-    ExternalVdrAdapter();
-    explicit ExternalVdrAdapter(const VdrConfig& config);
+    explicit ExternalVdrAdapter(VdrConfig config);
 
-    VdrStatus getStatus() const;
+    VdrStatus getStatus() const override;
 
 private:
-    bool enabled_;
-    std::string mode_;
-    std::string host_;
-    int port_;
-    std::string state_;
+    VdrConfig config_;
 };
