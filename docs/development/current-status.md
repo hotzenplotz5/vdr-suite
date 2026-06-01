@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.9-phase8-vdr-adapter-interface
+v1.10-phase8-vdr-adapter-factory
 
 ## Latest Commit
 
-af3642e
+59cd8cc
 
-Phase 8.3: introduce IVdrAdapter abstraction layer
+Phase 8.4: introduce VDR adapter factory
 
 ---
 
@@ -274,12 +274,13 @@ Output:
     "recordingsTotal": 2
   }
 }
+```
 
 ---
 
 ## Current Architecture
 
-
+```text
 vdr-suite-daemon
 ├── RuntimeConfig
 ├── Database
@@ -296,6 +297,7 @@ Dashboard CLI
 Web UI (planned)
 OSD Frontend (planned)
 Mobile Apps (planned)
+```
 
 ---
 
@@ -351,6 +353,7 @@ Features:
 
 Current Runtime:
 
+```text
 Database
 ↓
 Repositories
@@ -358,7 +361,11 @@ Repositories
 Dashboard Services
 ↓
 DashboardFacade
+```
 
+### VDR Integration Architecture
+
+```text
 RuntimeConfig
 ↓
 VdrConfig
@@ -370,6 +377,7 @@ IVdrAdapter
 ExternalVdrAdapter
 ↓
 VdrStatus
+```
 
 Build:
 
@@ -505,6 +513,10 @@ Dashboard JSON serialization.
 
 Dashboard CLI application.
 
+### v1.1-phase6-rest-skeleton
+
+Initial REST API foundation and project structure.
+
 ### v1.2-phase7-router
 
 API router.
@@ -539,6 +551,18 @@ Daemon foundation:
 * Signal handling
 * Database lifecycle
 * Dashboard runtime wiring
+
+### v1.8-phase8-vdr-config
+
+VdrConfig architecture.
+
+### v1.9-phase8-vdr-adapter-interface
+
+IVdrAdapter abstraction layer.
+
+### v1.10-phase8-vdr-adapter-factory
+
+VdrAdapterFactory implementation.
 
 ---
 
@@ -576,3 +600,25 @@ factory without changing consumers.
 * Metadata services
 * Background worker processing
 * Modern VDR Suite architecture
+
+## Next Planned Step
+
+Phase 8.5
+
+Goal:
+
+Introduce adapter mode selection strategy.
+
+Scope:
+
+* Centralized backend selection
+* Adapter creation validation
+* Preparation for RESTfulAPI adapter
+* Preparation for SVDRP adapter
+
+Out of scope:
+
+* HTTP communication
+* SVDRP communication
+* Polling
+* Reconnect logic
