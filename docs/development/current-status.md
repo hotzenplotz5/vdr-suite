@@ -16,13 +16,13 @@ phase-2-actions
 
 ## Latest Tag
 
-v1.14-phase8-http-abstraction
+v1.15-phase8-restfulapi-adapter
 
 ## Latest Commit
 
-d1357a5
+19761f0
 
-Phase 8.8: introduce HTTP abstraction layer
+Phase 8.9: add RESTfulAPI VDR adapter foundation
 
 ---
 
@@ -532,13 +532,12 @@ Supported adapter modes:
 
 * external
 * mock
+* restfulapi
 
 Future adapter modes:
 
-* restfulapi
 * svdrp
 * plugin
-* mock
 
 ### MockVdrAdapter
 
@@ -554,6 +553,31 @@ Purpose:
 
 Allows testing of higher layers without
 requiring a running VDR instance.
+
+### RestfulApiVdrAdapter
+
+Features:
+
+* RESTfulAPI adapter foundation
+* Implements IVdrAdapter
+* Uses IHttpClient boundary
+* Uses MockHttpClient in tests
+* Maps mocked /info.json response into VdrStatus
+* Keeps RESTfulAPI details behind adapter boundary
+
+Status:
+
+Foundation implemented.
+
+Out of scope:
+
+* Real HTTP communication
+* JSON parser
+* Channel mapping
+* Timer mapping
+* Recording mapping
+* EPGSearch mapping
+* SearchTimer mapping
 
 ---
 
@@ -672,12 +696,47 @@ Added:
 * RESTfulAPI backend strategy
 * Future SVDRP backend strategy
 
+### v1.13-phase8-restfulapi-architecture
+
+RESTfulAPI integration architecture.
+
+Added:
+
+* ADR-0007
+* RESTfulAPI adapter boundary documentation
+* RESTfulAPI endpoint classification
+* VdrStatus boundary definition
+* Future domain object mapping strategy
+
+### v1.14-phase8-http-abstraction
+
+HTTP abstraction layer.
+
+Added:
+
+* IHttpClient
+* HttpRequest
+* HttpResponse
+* MockHttpClient
+* HTTP abstraction tests
+
+### v1.15-phase8-restfulapi-adapter
+
+RESTfulAPI VDR adapter foundation.
+
+Added:
+
+* RestfulApiVdrAdapter
+* IHttpClient injection
+* MockHttpClient based adapter test
+* Mocked /info.json to VdrStatus mapping
+* Factory support for restfulapi mode
+
 ---
 
 # Last Completed Step
 
-Phase 8.7: RESTfulAPI integration architecture analysis
-Phase 8.8: HTTP abstraction layer
+Phase 8.9: RESTfulAPI VDR adapter foundation
 
 Phase 8 Status
 
@@ -691,6 +750,8 @@ Phase 8.4: VdrAdapterFactory
 Phase 8.5: MockVdrAdapter multi-backend foundation
 Phase 8.6: VDR backend architecture documentation
 Phase 8.7: RESTfulAPI integration architecture analysis
+Phase 8.8: HTTP abstraction layer
+Phase 8.9: RESTfulAPI VDR adapter foundation
 
 ---
 
@@ -707,26 +768,28 @@ Phase 8.7: RESTfulAPI integration architecture analysis
 
 ## Next Planned Step
 
-Phase 8.9
+Phase 8.10
 
 Goal:
 
-RestfulApiVdrAdapter foundation
+VDR domain model documentation.
 
 Scope:
 
-* RestfulApiVdrAdapter skeleton
-* IHttpClient integration
-* MockHttpClient integration
-* VdrStatus mapping
-* Mocked /info.json response
+* Define backend-neutral VDR domain concepts
+* Document VdrStatus boundary
+* Document future VdrChannel
+* Document future VdrEvent
+* Document future VdrTimer
+* Document future VdrSearchTimer
+* Document future VdrRecording
+* Keep RESTfulAPI JSON behind adapter boundary
+* Prepare Phase 8.11 domain object implementation
 
 Out of scope:
 
+* New C++ domain headers
+* IVdrAdapter method expansion
+* JSON parser
 * Real HTTP communication
-* Recordings API
-* Timers API
-* EPGSearch API
-* SearchTimers API
-* Authentication
-* Polling
+* RESTfulAPI channel/timer/recording mapping
