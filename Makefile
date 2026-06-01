@@ -370,6 +370,12 @@ test-restful-api-vdr-adapter:
 		-o /tmp/test_restful_api_vdr_adapter
 	/tmp/test_restful_api_vdr_adapter
 
+test-vdr-domain-objects:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_vdr_domain_objects.cpp \
+		-o /tmp/test_vdr_domain_objects
+	/tmp/test_vdr_domain_objects
+
 daemon:
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -378,7 +384,7 @@ daemon:
 		$(LDFLAGS) \
 		-o /tmp/vdr-suite-daemon
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-mock-vdr-adapter test-http-request test-http-response test-mock-http-client test-restful-api-vdr-adapter
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-mock-vdr-adapter test-http-request test-http-response test-mock-http-client test-restful-api-vdr-adapter test-vdr-domain-objects
 
 clean:
 	rm -f /tmp/test_database
@@ -411,3 +417,4 @@ clean:
 	rm -f /tmp/test_http_response
 	rm -f /tmp/test_mock_http_client
 	rm -f /tmp/test_restful_api_vdr_adapter
+	rm -f /tmp/test_vdr_domain_objects
