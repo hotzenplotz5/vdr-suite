@@ -14,15 +14,13 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 
 phase-2-actions
 
-## Latest Tag
+Latest Tag:
+v1.17-phase8-vdr-domain-objects
 
-v1.16-phase8-vdr-domain-model
+Latest Commit:
+438f248
 
-## Latest Commit
-
-pending
-
-Phase 8.10: document VDR domain model
+Phase 8.11: introduce VDR domain objects
 
 ---
 
@@ -582,6 +580,18 @@ Out of scope:
 * EPGSearch mapping
 * SearchTimer mapping
 
+### VdrChannel
+
+Backend-neutral channel model.
+
+### VdrTimer
+
+Backend-neutral timer model.
+
+### VdrRecording
+
+Backend-neutral recording model.
+
 ---
 
 ## Existing Tags
@@ -739,9 +749,7 @@ Added:
 
 # Last Completed Step
 
-Phase 8.9: RESTfulAPI VDR adapter foundation
-
-Phase 8 Status
+Phase 8.11: introduce VDR domain objects
 
 Completed:
 
@@ -773,7 +781,7 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.11
+Phase 8.12
 
 Goal:
 
