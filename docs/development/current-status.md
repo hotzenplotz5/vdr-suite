@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.19-phase8-vdr-event-adapter-architecture
+v1.20-phase8-restfulapi-event-mapping
 
 Latest Commit:
-latest commit after phase 8.13
+8acb0d0
 
-Phase 8.13: introduce VDR event adapter architecture
+Phase 8.14: add RESTfulAPI event mapping foundation
 
 ---
 
@@ -606,8 +606,10 @@ Status:
 * Implemented as backend-neutral C++ domain object
 * Tested in test_vdr_domain_objects
 * Exposed through IVdrAdapter via getEvents()
-* RESTfulAPI adapter has endpoint boundary stub for /events.json
-* No JSON parsing yet
+* RESTfulAPI adapter maps /events.json into VdrEvent objects
+* RestfulApiEventMapper implemented
+* MockHttpClient parser tests implemented
+* Event mapping tested against real RESTfulAPI field structure
 
 ### VdrTimer
 
@@ -836,6 +838,7 @@ Completed:
 * Phase 8.11: VDR domain objects
 * Phase 8.12: VDR event domain object
 * Phase 8.13: VDR event adapter architecture
+* Phase 8.14: RESTfulAPI event mapping foundation
 
 ---
 
@@ -852,20 +855,19 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.14
+Phase 8.15
 
 Candidate:
 
-RESTfulAPI event mapping foundation.
+RESTfulAPI status mapping foundation.
 
 Expected direction:
 
-* Keep IVdrAdapter event boundary stable
-* Map /events.json responses into VdrEvent domain objects
-* Keep RESTfulAPI JSON behind RestfulApiVdrAdapter
-* Add parser/mapping tests with MockHttpClient
-* Keep real HTTP communication out of scope
-* Keep EPGSearch and SearchTimer logic out of scope
+* Map /info.json into backend-neutral VdrStatus
+* Keep RESTfulAPI JSON behind adapter layer
+* Reuse mapping architecture introduced in Phase 8.14
+* Extend adapter tests with MockHttpClient
+* Keep IVdrAdapter boundary stable
 
 Out of scope:
 
