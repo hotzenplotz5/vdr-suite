@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.33-phase8-daemon-api-router
+v1.34-phase8-http-server-boundary
 
 Latest Commit:
-457647b
+8f7438c
 
-Phase 8.27: integrate API router into daemon runtime
+Phase 8.28: introduce HTTP server boundary contract
 
 ---
 
@@ -918,7 +918,7 @@ Out of scope:
 
 # Last Completed Step
 
-Phase 8.27: integrate API router into daemon runtime
+Phase 8.28: introduce HTTP server boundary contract
 
 Completed:
 
@@ -950,6 +950,7 @@ Completed:
 * Phase 8.25: REST API runtime architecture
 * Phase 8.26: daemon VDR runtime integration
 * Phase 8.27: daemon API router integration
+* Phase 8.28: HTTP server boundary contract
 
 ---
 
@@ -966,15 +967,15 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.28
+Phase 8.29
 
 Candidate:
 
-HTTP server boundary architecture
+HTTP server boundary architecture documentation.
 
 Expected direction:
 
-* define HttpServer abstraction
-* keep ApiRouter transport-independent
-* prepare daemon REST endpoint runtime
-* no networking implementation yet
+* document IHttpServer role
+* document ApiRouter transport boundary
+* define future HTTP server implementations
+* keep networking implementation out of scope
