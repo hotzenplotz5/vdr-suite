@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.32-phase8-daemon-vdr-runtime
+v1.33-phase8-daemon-api-router
 
 Latest Commit:
-5cb56f0
+457647b
 
-Phase 8.26: integrate VDR runtime components into daemon
+Phase 8.27: integrate API router into daemon runtime
 
 ---
 
@@ -918,7 +918,7 @@ Out of scope:
 
 # Last Completed Step
 
-Phase 8.26: integrate VDR runtime components into daemon
+Phase 8.27: integrate API router into daemon runtime
 
 Completed:
 
@@ -949,6 +949,7 @@ Completed:
 * Phase 8.24: VDR API router integration
 * Phase 8.25: REST API runtime architecture
 * Phase 8.26: daemon VDR runtime integration
+* Phase 8.27: daemon API router integration
 
 ---
 
@@ -965,15 +966,15 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.27
+Phase 8.28
 
 Candidate:
 
-ApiRouter runtime integration.
+HTTP server boundary architecture
 
 Expected direction:
 
-* Add ApiRouter ownership to DaemonRuntime
-* Wire existing controllers into ApiRouter
-* Keep HTTP server out of scope
-* Preserve backend-neutral runtime architecture
+* define HttpServer abstraction
+* keep ApiRouter transport-independent
+* prepare daemon REST endpoint runtime
+* no networking implementation yet
