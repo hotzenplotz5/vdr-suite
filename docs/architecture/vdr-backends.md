@@ -15,7 +15,7 @@ VdrAdapterFactory
 IVdrAdapter
     ├── MockVdrAdapter
     ├── ExternalVdrAdapter
-    ├── RestfulApiVdrAdapter (future)
+    ├── RestfulApiVdrAdapter
     └── SvdrpVdrAdapter (future)
 ```
 
@@ -46,13 +46,30 @@ Acts as the foundation for future communication mechanisms.
 
 ## RestfulApiVdrAdapter
 
-Future backend.
+Implemented backend.
 
 Responsibilities:
 
-- Communicate with vdr-plugin-restfulapi
-- Convert HTTP responses into VdrStatus objects
+- Communicate with vdr-plugin-restfulapi through IHttpClient
+- Convert RESTfulAPI responses into backend-neutral VDR domain objects
 - Hide HTTP implementation details
+- Keep RESTfulAPI JSON outside service and frontend layers
+
+Implemented mappings:
+
+- /info.json -> VdrStatus
+- /events.json -> VdrEvent
+- /channels.json -> VdrChannel
+- /recordings.json -> VdrRecording
+- /timers.json -> VdrTimer
+
+Implemented mappers:
+
+- RestfulApiStatusMapper
+- RestfulApiEventMapper
+- RestfulApiChannelMapper
+- RestfulApiRecordingMapper
+- RestfulApiTimerMapper
 
 The rest of the application must not know whether RESTfulAPI is used.
 
