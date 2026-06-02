@@ -18,9 +18,9 @@ Latest Tag:
 v1.24-phase8-restfulapi-timer-mapping
 
 Latest Commit:
-98ee6a6
+9332701
 
-Phase 8.18: introduce RESTfulAPI timer mapper
+Phase 8.19: introduce VDR service layer foundation
 
 ---
 
@@ -360,6 +360,20 @@ Dashboard Services
 ↓
 DashboardFacade
 ```
+
+### VdrService
+
+Functions:
+
+* getStatus()
+* getChannels()
+* getEvents()
+* getTimers()
+* getRecordings()
+
+Purpose:
+
+Service boundary between consumers and IVdrAdapter implementations.
 
 ### VDR Integration Architecture
 
