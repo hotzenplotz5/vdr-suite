@@ -303,7 +303,9 @@ test-metadata-controller: prepare-test-db
 test-api-router: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(VDR_SRC) \
 		$(REST_ROUTER_SRC) \
+		api/rest/src/VdrController.cpp \
 		api/rest/tests/test_api_router.cpp \
 		$(LDFLAGS) \
 		-o /tmp/test_api_router

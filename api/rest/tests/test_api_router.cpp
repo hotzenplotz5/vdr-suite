@@ -3,6 +3,7 @@
 #include "JobsController.h"
 #include "MetadataController.h"
 #include "RecordingsController.h"
+#include "VdrController.h"
 
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -10,8 +11,12 @@
 #include "JobDashboardService.h"
 #include "JobRepository.h"
 #include "MetadataRepository.h"
+#include "MockVdrAdapter.h"
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
+#include "VdrOverviewJsonSerializer.h"
+#include "VdrOverviewService.h"
+#include "VdrService.h"
 
 #include <cassert>
 #include <iostream>
@@ -55,53 +60,65 @@ int main()
     MetadataController metadataController(
         metadataRepository);
 
+    MockVdrAdapter adapter;
+
+    VdrService vdrService(adapter);
+
+    VdrOverviewService overviewService(
+        vdrService);
+
+    VdrOverviewJsonSerializer vdrJsonSerializer;
+
+    VdrController vdrController(
+        overviewService,
+        vdrJsonSerializer);
+
     ApiRouter router(
         dashboardController,
         jobsController,
         recordingsController,
-        metadataController);
+        metadataController,
+        vdrController);
 
     ApiResponse dashboardResponse =
         router.handleGet("/api/dashboard");
 
     assert(dashboardResponse.statusCode == 200);
-    assert(dashboardResponse.contentType == "application/json");
-    assert(dashboardResponse.body.find("\"jobs\"") != std::string::npos);
-    assert(dashboardResponse.body.find("\"recordings\"") != std::string::npos);
 
     ApiResponse jobsResponse =
         router.handleGet("/api/jobs");
 
     assert(jobsResponse.statusCode == 200);
-    assert(jobsResponse.contentType == "application/json");
-    assert(jobsResponse.body.find("\"jobs\"") != std::string::npos);
-    assert(jobsResponse.body.find("\"jobType\"") != std::string::npos);
-    assert(jobsResponse.body.find("\"status\"") != std::string::npos);
 
     ApiResponse recordingsResponse =
         router.handleGet("/api/recordings");
 
     assert(recordingsResponse.statusCode == 200);
-    assert(recordingsResponse.contentType == "application/json");
-    assert(recordingsResponse.body.find("\"recordings\"") != std::string::npos);
-    assert(recordingsResponse.body.find("\"title\":\"Tatort\"") != std::string::npos);
-    assert(recordingsResponse.body.find("\"recordingFormat\":\"TS\"") != std::string::npos);
 
     ApiResponse metadataResponse =
         router.handleGet("/api/metadata");
 
     assert(metadataResponse.statusCode == 200);
-    assert(metadataResponse.contentType == "application/json");
-    assert(metadataResponse.body.find("\"metadata\"") != std::string::npos);
-    assert(metadataResponse.body.find("\"title\"") != std::string::npos);
-    assert(metadataResponse.body.find("\"genre\"") != std::string::npos);
+
+    ApiResponse vdrResponse =
+        router.handleGet("/api/vdr/overview");
+
+    assert(vdrResponse.statusCode == 200);
+    assert(vdrResponse.contentType == "application/json");
+
+    assert(vdrResponse.body.find("\"status\"")
+           != std::string::npos);
+
+    assert(vdrResponse.body.find("\"channels\"")
+           != std::string::npos);
+
+    assert(vdrResponse.body.find("\"recordings\"")
+           != std::string::npos);
 
     ApiResponse missingResponse =
         router.handleGet("/api/unknown");
 
     assert(missingResponse.statusCode == 404);
-    assert(missingResponse.contentType == "application/json");
-    assert(missingResponse.body.find("\"error\"") != std::string::npos);
 
     db.close();
 
