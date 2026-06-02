@@ -113,6 +113,18 @@ bool DaemonRuntime::initialize()
         << "VDR controller runtime initialized"
         << std::endl;
 
+    apiRouter_ =
+        std::make_unique<ApiRouter>(
+            *dashboardController_,
+            *jobsController_,
+            *recordingsController_,
+            *metadataController_,
+            *vdrController_);
+
+    std::cout
+        << "API router runtime initialized"
+        << std::endl;
+
     std::cout
         << "dashboard runtime initialized"
         << std::endl;
@@ -165,6 +177,8 @@ void DaemonRuntime::shutdown()
         return;
     }
 
+    apiRouter_.reset();
+
     vdrController_.reset();
     vdrOverviewJsonSerializer_.reset();
     vdrOverviewService_.reset();
@@ -184,6 +198,10 @@ void DaemonRuntime::shutdown()
     metadataRepository_.reset();
     recordingRepository_.reset();
     jobRepository_.reset();
+
+    std::cout
+        << "API router runtime stopped"
+        << std::endl;
 
     std::cout
         << "REST controller runtime stopped"

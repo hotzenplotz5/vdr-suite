@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ApiRouter.h"
 #include "DashboardController.h"
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -60,6 +61,8 @@ private:
     std::unique_ptr<VdrOverviewService> vdrOverviewService_;
     std::unique_ptr<VdrOverviewJsonSerializer> vdrOverviewJsonSerializer_;
     std::unique_ptr<VdrController> vdrController_;
+
+    std::unique_ptr<ApiRouter> apiRouter_;
 
     static std::atomic<bool> shutdownRequested_;
 };
