@@ -2,9 +2,13 @@
 
 ## Purpose
 
-This document defines how VDR-Suite should integrate with `vdr-plugin-restfulapi`.
+This document defines how VDR-Suite integrates with `vdr-plugin-restfulapi`.
 
-The goal is to use existing VDR functionality instead of reimplementing it inside VDR-Suite. RESTfulAPI must be treated as one possible VDR backend behind the existing `IVdrAdapter` abstraction.
+The goal is to use existing VDR functionality instead of reimplementing it inside VDR-Suite. RESTfulAPI is one possible VDR backend behind the existing `IVdrAdapter` abstraction.
+
+RESTfulAPI details must stay behind the adapter boundary.
+
+---
 
 ## Current Backend Architecture
 
@@ -18,38 +22,19 @@ VdrAdapterFactory
 IVdrAdapter
 ├── ExternalVdrAdapter
 ├── MockVdrAdapter
+├── RestfulApiVdrAdapter
 └── future adapters
 ↓
-VdrStatus
-```
-
-This architecture remains valid for RESTfulAPI integration.
-
-## Target RESTfulAPI Architecture
-
-```text
-RuntimeConfig
-↓
-VdrConfig
-↓
-VdrAdapterFactory
-↓
-IVdrAdapter
-↓
-RestfulApiVdrAdapter
-↓
-IHttpClient
-↓
-vdr-plugin-restfulapi
+VDR domain objects
 ```
 
 The daemon and service layers must not know whether VDR data comes from RESTfulAPI, SVDRP, a mock backend, a plugin bridge, or another future backend.
 
+---
+
 ## RESTfulAPI Role
 
-RESTfulAPI is not a special daemon dependency.
-
-It is a backend implementation of `IVdrAdapter`.
+RESTfulAPI is one backend implementation of `IVdrAdapter`.
 
 ```text
 IVdrAdapter
@@ -60,6 +45,82 @@ IVdrAdapter
 └── PluginBridgeVdrAdapter
 ```
 
+The daemon, REST API controllers, dashboard services and recording services must never call RESTfulAPI directly.
+
+All communication must pass through the adapter boundary.
+
+---
+
+## RESTfulAPI Adapter Boundary
+
+```text
+RestfulApiVdrAdapter
+↓
+IHttpClient
+↓
+vdr-plugin-restfulapi
+```
+
+`RestfulApiVdrAdapter` is responsible for:
+
+* choosing RESTfulAPI endpoints
+* requesting JSON through `IHttpClient`
+* validating HTTP status codes
+* mapping RESTfulAPI JSON into backend-neutral VDR domain objects
+
+`IHttpClient` is responsible for the transport layer.
+
+Higher layers must never receive RESTfulAPI JSON directly.
+
+---
+
+## Implemented Infrastructure
+
+Implemented:
+
+```text
+IHttpClient
+HttpRequest
+HttpResponse
+MockHttpClient
+RestfulApiVdrAdapter
+```
+
+Future:
+
+```text
+RealHttpClient
+real network communication
+timeout handling
+connection retry logic
+```
+
+---
+
+## Implemented RESTfulAPI Mappings
+
+Implemented as of Phase 8.18:
+
+```text
+/info.json       -> VdrStatus
+/events.json     -> VdrEvent
+/channels.json   -> VdrChannel
+/recordings.json -> VdrRecording
+/timers.json     -> VdrTimer
+```
+
+Implemented mapper classes:
+
+```text
+RestfulApiStatusMapper
+RestfulApiEventMapper
+RestfulApiChannelMapper
+RestfulApiRecordingMapper
+RestfulApiTimerMapper
+```
+
+---
+
 ## Relevant RESTfulAPI Endpoints
 
 ### Status and Capabilities
@@ -68,9 +129,19 @@ IVdrAdapter
 /info.json
 ```
 
+Implemented mapping:
+
+```text
+/info.json
+↓
+RestfulApiStatusMapper
+↓
+VdrStatus
+```
+
 Primary endpoint for VDR availability, current channel, disk usage, available services, plugins, devices and signal information.
 
-This endpoint is the first candidate for mapping into `VdrStatus`.
+---
 
 ### Channels
 
@@ -80,15 +151,21 @@ This endpoint is the first candidate for mapping into `VdrStatus`.
 /channels/image/<channelid>
 ```
 
-Relevant for future channel lists, channel groups and channel logos.
-
-This data should not be stored in `VdrStatus`.
-
-Future domain model:
+Implemented mapping:
 
 ```text
+/channels.json
+↓
+RestfulApiChannelMapper
+↓
 VdrChannel
 ```
+
+Channel groups and channel images remain future work.
+
+Channel data must not be stored in `VdrStatus`.
+
+---
 
 ### Events / EPG
 
@@ -101,13 +178,19 @@ VdrChannel
 /events/image/<eventid>/<imagenumber>
 ```
 
-Relevant for EPG, search, metadata enrichment and frontend program views.
-
-Future domain model:
+Implemented mapping:
 
 ```text
+/events.json
+↓
+RestfulApiEventMapper
+↓
 VdrEvent
 ```
+
+EPGSearch integration remains out of scope.
+
+---
 
 ### Recordings
 
@@ -118,13 +201,21 @@ VdrEvent
 /recordings/play
 ```
 
-Relevant for synchronizing VDR recordings into the VDR-Suite database and for later playback/control operations.
-
-Future domain model:
+Implemented mapping:
 
 ```text
+/recordings.json
+↓
+RestfulApiRecordingMapper
+↓
 VdrRecording
 ```
+
+Recording list mapping is implemented.
+
+Playback control and recording operations remain future work.
+
+---
 
 ### Timers
 
@@ -133,14 +224,21 @@ VdrRecording
 /searchtimers.json
 ```
 
-Relevant for timer overview, timer creation, timer updates, timer deletion and search timers.
-
-Future domain models:
+Implemented mapping:
 
 ```text
+/timers.json
+↓
+RestfulApiTimerMapper
+↓
 VdrTimer
-VdrSearchTimer
 ```
+
+Search timers remain out of scope.
+
+Timer creation, modification and deletion remain future work.
+
+---
 
 ### Remote and OSD
 
@@ -150,9 +248,11 @@ VdrSearchTimer
 /osd.json
 ```
 
-Relevant for future frontend control, remote key handling and OSD mirroring.
+Future work.
 
-This must remain optional and backend-dependent.
+These endpoints may later be used for frontend control, remote key handling and OSD mirroring.
+
+---
 
 ### Scraper Images
 
@@ -160,9 +260,13 @@ This must remain optional and backend-dependent.
 /scraper/image/...
 ```
 
-Relevant for future metadata artwork integration.
+Future work.
 
-This should not be mixed into `VdrStatus`.
+These endpoints may later be used for metadata artwork integration.
+
+They must not be mixed into `VdrStatus`.
+
+---
 
 ### Wirbelscan and Femon
 
@@ -171,15 +275,17 @@ This should not be mixed into `VdrStatus`.
 /femon
 ```
 
-Relevant for later diagnostics and setup tools.
+Future work.
 
-This belongs to future diagnostic or setup services, not to the core dashboard status.
+These endpoints belong to diagnostics and setup services, not to dashboard status.
+
+---
 
 ## VdrStatus Boundary
 
 `VdrStatus` should remain small.
 
-Recommended future fields:
+Current fields:
 
 ```text
 enabled
@@ -187,6 +293,11 @@ mode
 host
 port
 state
+```
+
+Allowed future fields:
+
+```text
 reachable
 backendName
 backendVersion
@@ -208,134 +319,112 @@ full channel list
 full EPG data
 recording list
 timer list
+search timer list
 scraper metadata
 OSD content
 wirbelscan setup data
+femon diagnostics
 ```
 
 These belong into separate domain objects and adapter methods.
 
-## HTTP Boundary
+---
 
-RESTfulAPI requires HTTP transport.
+## Adapter Method Boundary
 
-HTTP communication must not be implemented directly inside `RestfulApiVdrAdapter`.
-
-RestfulApiVdrAdapter must communicate through IHttpClient.
-
-This creates a neutral transport boundary:
+Implemented adapter methods:
 
 ```text
-RestfulApiVdrAdapter
-↓
-IHttpClient
-├── MockHttpClient
-└── RealHttpClient (future)
+IVdrAdapter::getStatus()
+IVdrAdapter::getEvents()
+IVdrAdapter::getChannels()
+IVdrAdapter::getRecordings()
+IVdrAdapter::getTimers()
 ```
 
-The adapter should depend on an HTTP interface, not on a concrete transport implementation.
-
-## Recommended Future HTTP Types
+Current RESTfulAPI request mapping:
 
 ```text
-HttpRequest
-HttpResponse
-IHttpClient
-MockHttpClient
+getStatus()     -> /info.json
+getEvents()     -> /events.json
+getChannels()   -> /channels.json
+getRecordings() -> /recordings.json
+getTimers()     -> /timers.json
 ```
 
-Responsibilities:
+The adapter boundary must remain backend-neutral.
 
-```text
-RestfulApiVdrAdapter:
-- chooses RESTfulAPI endpoint
-- requests JSON through IHttpClient
-- maps response into VDR domain objects
+No service, controller, frontend or daemon component may depend on RESTfulAPI endpoint names.
 
-IHttpClient:
-- handles HTTP method
-- handles URL/path
-- handles status code
-- handles response body
-- handles timeout/error state
-```
+---
 
-## Mapping Strategy
+## Mapper Boundary
 
-RESTfulAPI responses should be mapped into VDR-Suite domain objects.
-
-RESTfulAPI JSON structures must not leak into service layers.
-
-Correct:
+Mapper classes convert RESTfulAPI JSON into VDR-Suite domain objects.
 
 ```text
 RESTfulAPI JSON
 ↓
+RestfulApi*Mapper
+↓
+VDR domain object
+```
+
+Mapper classes must:
+
+* stay below the adapter boundary
+* avoid leaking RESTfulAPI field names upward
+* tolerate invalid JSON by returning empty results where appropriate
+* avoid introducing a shared parser framework until repetition becomes a real maintenance problem
+* avoid introducing an external JSON library before the architecture requires it
+
+Current mapper style:
+
+* small hand-written parsing helpers
+* endpoint-specific mapper classes
+* deterministic unit tests
+* no real network communication
+
+---
+
+## Out of Scope
+
+Still out of scope after Phase 8.18:
+
+```text
+real network communication
+RealHttpClient
+timer creation
+timer modification
+timer deletion
+search timers
+EPGSearch integration
+OSD mirroring
+remote control
+recording control operations
+diagnostic endpoints
+shared parser framework
+external JSON library
+```
+
+---
+
+## Current Architecture Summary
+
+```text
+RESTfulAPI endpoint
+↓
+IHttpClient
+↓
 RestfulApiVdrAdapter
 ↓
-VdrStatus / VdrChannel / VdrEvent / VdrRecording / VdrTimer
+RestfulApi*Mapper
 ↓
-services
-```
-
-Incorrect:
-
-```text
-RESTfulAPI JSON
+VDR domain object
 ↓
-services
+IVdrAdapter
+↓
+future services/frontends
 ```
 
-## Error Handling Strategy
-
-RESTfulAPI integration must represent connection and parsing problems without crashing the daemon.
-
-Expected error categories:
-
-```text
-backend disabled
-host unreachable
-connection timeout
-HTTP error status
-invalid JSON
-missing expected field
-unsupported RESTfulAPI version
-unsupported endpoint
-```
-
-For `VdrStatus`, these should map to:
-
-```text
-reachable = false
-state = "unreachable" or "error"
-lastError = descriptive error text
-```
-
-## Design Decision
-
-Phase 8.7 validates the architecture only.
-
-No HTTP communication is implemented in this phase.
-
-The next implementation phase should introduce HTTP abstractions and tests first, before a real RESTfulAPI adapter performs network requests.
-
-## Future Phase Proposal
-
-```text
-Phase 8.8:
-- introduce IHttpClient
-- introduce HttpRequest
-- introduce HttpResponse
-- introduce MockHttpClient
-- add tests
-
-Phase 8.9:
-- introduce RestfulApiVdrAdapter skeleton
-- inject IHttpClient
-- map mocked /info.json response into VdrStatus
-- no real network dependency yet
-
-Phase 8.10:
-- add real HTTP implementation
-- keep adapter tests based on MockHttpClient
-```
+This keeps VDR-Suite backend-independent and allows future SVDRP, plugin bridge or mock backends to provide the same domain objects without changing higher layers.
