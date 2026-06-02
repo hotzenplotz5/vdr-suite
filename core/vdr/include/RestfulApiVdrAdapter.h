@@ -5,6 +5,7 @@
 #include "VdrChannel.h"
 #include "VdrConfig.h"
 #include "VdrEvent.h"
+#include "VdrRecording.h"
 #include "VdrStatus.h"
 
 #include <vector>
@@ -16,6 +17,7 @@ public:
     VdrStatus getStatus() const override;
     std::vector<VdrEvent> getEvents() const override;
     std::vector<VdrChannel> getChannels() const override;
+    std::vector<VdrRecording> getRecordings() const override;
 
 private:
     VdrConfig config_;

@@ -1,9 +1,5 @@
 #include "MockVdrAdapter.h"
 
-MockVdrAdapter::MockVdrAdapter()
-{
-}
-
 VdrStatus MockVdrAdapter::getStatus() const
 {
     VdrStatus status;
@@ -18,74 +14,85 @@ VdrStatus MockVdrAdapter::getStatus() const
 
 std::vector<VdrChannel> MockVdrAdapter::getChannels() const
 {
-    VdrChannel dasErste;
-    dasErste.id = "mock-channel-1";
-    dasErste.number = 1;
-    dasErste.name = "Das Erste HD";
-    dasErste.provider = "ARD";
-    dasErste.group = "TV";
-    dasErste.radio = false;
-    dasErste.encrypted = false;
-    dasErste.enabled = true;
+    VdrChannel channel1;
+    channel1.id = "mock-channel-1";
+    channel1.number = 1;
+    channel1.name = "Das Erste HD";
+    channel1.provider = "ARD";
+    channel1.group = "TV";
+    channel1.radio = false;
+    channel1.encrypted = false;
+    channel1.enabled = true;
 
-    VdrChannel zdf;
-    zdf.id = "mock-channel-2";
-    zdf.number = 2;
-    zdf.name = "ZDF HD";
-    zdf.provider = "ZDF";
-    zdf.group = "TV";
-    zdf.radio = false;
-    zdf.encrypted = false;
-    zdf.enabled = true;
+    VdrChannel channel2;
+    channel2.id = "mock-channel-2";
+    channel2.number = 2;
+    channel2.name = "ZDF HD";
+    channel2.provider = "ZDF";
+    channel2.group = "TV";
+    channel2.radio = false;
+    channel2.encrypted = false;
+    channel2.enabled = true;
 
-    VdrChannel radio;
-    radio.id = "mock-channel-3";
-    radio.number = 101;
-    radio.name = "Radio Hamburg";
-    radio.provider = "";
-    radio.group = "Radio";
-    radio.radio = true;
-    radio.encrypted = false;
-    radio.enabled = true;
+    VdrChannel channel3;
+    channel3.id = "mock-channel-3";
+    channel3.number = 101;
+    channel3.name = "Radio Hamburg";
+    channel3.provider = "Radio";
+    channel3.group = "Radio";
+    channel3.radio = true;
+    channel3.encrypted = false;
+    channel3.enabled = true;
 
-    std::vector<VdrChannel> channels;
-    channels.push_back(dasErste);
-    channels.push_back(zdf);
-    channels.push_back(radio);
-
-    return channels;
+    return { channel1, channel2, channel3 };
 }
 
 std::vector<VdrEvent> MockVdrAdapter::getEvents() const
 {
-    VdrEvent tagesschau;
-    tagesschau.id = "mock-event-1";
-    tagesschau.channelId = "mock-channel-1";
-    tagesschau.title = "Tagesschau";
-    tagesschau.subtitle = "20 Uhr";
-    tagesschau.description = "Nachrichten des Tages";
-    tagesschau.startTime = "2026-06-01T20:00:00";
-    tagesschau.endTime = "2026-06-01T20:15:00";
-    tagesschau.durationSeconds = 900;
-    tagesschau.contentDescriptors.push_back("news");
-    tagesschau.parentalRating = 0;
+    VdrEvent event1;
+    event1.id = "mock-event-1";
+    event1.channelId = "mock-channel-1";
+    event1.title = "Tagesschau";
+    event1.subtitle = "20 Uhr";
+    event1.description = "Nachrichten des Tages";
+    event1.startTime = "2026-06-01T20:00:00";
+    event1.endTime = "2026-06-01T20:15:00";
+    event1.durationSeconds = 900;
+    event1.contentDescriptors = { "news" };
+    event1.parentalRating = 0;
 
-    VdrEvent tatort;
-    tatort.id = "mock-event-2";
-    tatort.channelId = "mock-channel-1";
-    tatort.title = "Tatort";
-    tatort.subtitle = "Borowski und das Meer";
-    tatort.description = "Kriminalfilm";
-    tatort.startTime = "2026-06-01T20:15:00";
-    tatort.endTime = "2026-06-01T21:45:00";
-    tatort.durationSeconds = 5400;
-    tatort.contentDescriptors.push_back("movie");
-    tatort.contentDescriptors.push_back("crime");
-    tatort.parentalRating = 12;
+    VdrEvent event2;
+    event2.id = "mock-event-2";
+    event2.channelId = "mock-channel-1";
+    event2.title = "Tatort";
+    event2.subtitle = "Borowski und das Meer";
+    event2.description = "Kriminalfilm";
+    event2.startTime = "2026-06-01T20:15:00";
+    event2.endTime = "2026-06-01T21:45:00";
+    event2.durationSeconds = 5400;
+    event2.contentDescriptors = { "movie", "crime" };
+    event2.parentalRating = 12;
 
-    std::vector<VdrEvent> events;
-    events.push_back(tagesschau);
-    events.push_back(tatort);
+    return { event1, event2 };
+}
 
-    return events;
+std::vector<VdrRecording> MockVdrAdapter::getRecordings() const
+{
+    VdrRecording recording1;
+    recording1.id = "mock-recording-1";
+    recording1.title = "Tagesschau";
+    recording1.path = "/Mock/Tagesschau/2026-06-01.20.00.1-0.rec";
+    recording1.startTime = "2026-06-01T20:00:00";
+    recording1.durationSeconds = 900;
+    recording1.sizeMb = 512;
+
+    VdrRecording recording2;
+    recording2.id = "mock-recording-2";
+    recording2.title = "Tatort";
+    recording2.path = "/Mock/Tatort/2026-06-01.20.15.1-0.rec";
+    recording2.startTime = "2026-06-01T20:15:00";
+    recording2.durationSeconds = 5400;
+    recording2.sizeMb = 4096;
+
+    return { recording1, recording2 };
 }

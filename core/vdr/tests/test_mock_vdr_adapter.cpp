@@ -1,6 +1,7 @@
 #include "MockVdrAdapter.h"
 #include "IVdrAdapter.h"
 #include "VdrChannel.h"
+#include "VdrRecording.h"
 
 #include <cassert>
 #include <memory>
@@ -97,6 +98,37 @@ static void test_mock_vdr_adapter_returns_events()
     assert(events[1].parentalRating == 12);
 }
 
+static void test_mock_vdr_adapter_returns_recordings()
+{
+    MockVdrAdapter adapter;
+    std::vector<VdrRecording> recordings = adapter.getRecordings();
+
+    assert(recordings.size() == 2);
+
+    assert(recordings[0].id == "mock-recording-1");
+    assert(recordings[0].title == "Tagesschau");
+    assert(recordings[0].path == "/Mock/Tagesschau/2026-06-01.20.00.1-0.rec");
+    assert(recordings[0].startTime == "2026-06-01T20:00:00");
+    assert(recordings[0].durationSeconds == 900);
+    assert(recordings[0].sizeMb == 512);
+
+    assert(recordings[1].id == "mock-recording-2");
+    assert(recordings[1].title == "Tatort");
+    assert(recordings[1].durationSeconds == 5400);
+    assert(recordings[1].sizeMb == 4096);
+}
+
+static void test_mock_vdr_adapter_returns_recordings_through_interface()
+{
+    std::unique_ptr<IVdrAdapter> adapter =
+        std::make_unique<MockVdrAdapter>();
+
+    std::vector<VdrRecording> recordings = adapter->getRecordings();
+
+    assert(recordings.size() == 2);
+    assert(recordings[0].id == "mock-recording-1");
+}
+
 int main()
 {
     test_mock_vdr_adapter_reports_connected_state();
@@ -104,6 +136,8 @@ int main()
     test_mock_vdr_adapter_returns_channels();
     test_mock_vdr_adapter_returns_channels_through_interface();
     test_mock_vdr_adapter_returns_events();
+    test_mock_vdr_adapter_returns_recordings();
+    test_mock_vdr_adapter_returns_recordings_through_interface();
 
     return 0;
 }

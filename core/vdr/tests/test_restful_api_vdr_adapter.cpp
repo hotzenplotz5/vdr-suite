@@ -4,6 +4,7 @@
 #include "VdrChannel.h"
 #include "VdrConfig.h"
 #include "VdrEvent.h"
+#include "VdrRecording.h"
 #include "VdrStatus.h"
 
 #include <cassert>
@@ -355,6 +356,113 @@ static void test_restful_api_vdr_adapter_tolerates_invalid_json()
     assert(events.empty() == true);
 }
 
+static void test_restful_api_vdr_adapter_requests_recordings_endpoint()
+{
+    VdrConfig config = make_restfulapi_config();
+    MockHttpClient httpClient;
+
+    HttpResponse recordingsResponse;
+    recordingsResponse.statusCode = 200;
+    recordingsResponse.headers["Content-Type"] = "application/json";
+    recordingsResponse.body = "{\"recordings\":[]}";
+
+    httpClient.setResponse(recordingsResponse);
+
+    RestfulApiVdrAdapter adapter(config, httpClient);
+
+    std::vector<VdrRecording> recordings = adapter.getRecordings();
+
+    assert(recordings.empty() == true);
+    assert(httpClient.requestCount() == 1);
+    assert(httpClient.lastRequest().method == "GET");
+    assert(httpClient.lastRequest().url == "/recordings.json");
+    assert(httpClient.lastRequest().headers.at("Accept") == "application/json");
+}
+
+static void test_restful_api_vdr_adapter_maps_recordings_response()
+{
+    VdrConfig config = make_restfulapi_config();
+    MockHttpClient httpClient;
+
+    HttpResponse recordingsResponse;
+    recordingsResponse.statusCode = 200;
+    recordingsResponse.headers["Content-Type"] = "application/json";
+    recordingsResponse.body =
+        "{\"recordings\":["
+        "{\"number\":0,"
+        "\"name\":\"Mystery~The Village - Das Dorf\","
+        "\"file_name\":\"/srv/vdr/video/Mystery/The_Village_-_Das_Dorf/2010-10-31.02.29.10-0.rec\","
+        "\"relative_file_name\":\"/Mystery/The_Village_-_Das_Dorf/2010-10-31.02.29.10-0.rec\","
+        "\"duration\":5835,"
+        "\"filesize_mb\":5555,"
+        "\"event_start_time\":1288488540,"
+        "\"event_duration\":5820"
+        "},"
+        "{\"number\":840,"
+        "\"name\":\"Serien~The Walking Dead~S08E08 Kampf um die Zukunft\","
+        "\"file_name\":\"/srv/vdr/video/Serien/The_Walking_Dead/S08E08_Kampf_um_die_Zukunft/2017-12-11.21.01.4-0.rec\","
+        "\"relative_file_name\":\"/Serien/The_Walking_Dead/S08E08_Kampf_um_die_Zukunft/2017-12-11.21.01.4-0.rec\","
+        "\"duration\":3551,"
+        "\"filesize_mb\":4191,"
+        "\"event_start_time\":1513022400,"
+        "\"event_duration\":3900"
+        "}"
+        "]}";
+
+    httpClient.setResponse(recordingsResponse);
+
+    RestfulApiVdrAdapter adapter(config, httpClient);
+    std::vector<VdrRecording> recordings = adapter.getRecordings();
+
+    assert(recordings.size() == 2);
+
+    assert(recordings[0].id == "0");
+    assert(recordings[0].title == "Mystery~The Village - Das Dorf");
+    assert(recordings[0].path == "/Mystery/The_Village_-_Das_Dorf/2010-10-31.02.29.10-0.rec");
+    assert(recordings[0].startTime == "1288488540");
+    assert(recordings[0].durationSeconds == 5835);
+    assert(recordings[0].sizeMb == 5555);
+
+    assert(recordings[1].id == "840");
+    assert(recordings[1].title == "Serien~The Walking Dead~S08E08 Kampf um die Zukunft");
+    assert(recordings[1].durationSeconds == 3551);
+    assert(recordings[1].sizeMb == 4191);
+}
+
+static void test_restful_api_vdr_adapter_ignores_http_error_for_recordings()
+{
+    VdrConfig config = make_restfulapi_config();
+    MockHttpClient httpClient;
+
+    HttpResponse errorResponse;
+    errorResponse.statusCode = 500;
+    errorResponse.body = "error";
+
+    httpClient.setResponse(errorResponse);
+
+    RestfulApiVdrAdapter adapter(config, httpClient);
+    std::vector<VdrRecording> recordings = adapter.getRecordings();
+
+    assert(recordings.empty() == true);
+}
+
+static void test_restful_api_vdr_adapter_tolerates_invalid_recording_json()
+{
+    VdrConfig config = make_restfulapi_config();
+    MockHttpClient httpClient;
+
+    HttpResponse invalidResponse;
+    invalidResponse.statusCode = 200;
+    invalidResponse.body = "not json";
+
+    httpClient.setResponse(invalidResponse);
+
+    RestfulApiVdrAdapter adapter(config, httpClient);
+    std::vector<VdrRecording> recordings = adapter.getRecordings();
+
+    assert(recordings.empty() == true);
+}
+
 static void test_restful_api_vdr_adapter_can_be_used_through_interface()
 {
     VdrConfig config = make_restfulapi_config();
@@ -387,6 +495,10 @@ int main()
     test_restful_api_vdr_adapter_maps_events_response();
     test_restful_api_vdr_adapter_ignores_http_error_for_events();
     test_restful_api_vdr_adapter_tolerates_invalid_json();
+    test_restful_api_vdr_adapter_requests_recordings_endpoint();
+    test_restful_api_vdr_adapter_maps_recordings_response();
+    test_restful_api_vdr_adapter_ignores_http_error_for_recordings();
+    test_restful_api_vdr_adapter_tolerates_invalid_recording_json();
     test_restful_api_vdr_adapter_can_be_used_through_interface();
 
     return 0;

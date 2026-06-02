@@ -4,6 +4,7 @@
 #include "HttpResponse.h"
 #include "RestfulApiChannelMapper.h"
 #include "RestfulApiEventMapper.h"
+#include "RestfulApiRecordingMapper.h"
 #include "RestfulApiStatusMapper.h"
 
 RestfulApiVdrAdapter::RestfulApiVdrAdapter(VdrConfig config, IHttpClient& httpClient)
@@ -54,4 +55,20 @@ std::vector<VdrEvent> RestfulApiVdrAdapter::getEvents() const
     }
 
     return RestfulApiEventMapper::parseEvents(response.body);
+}
+
+std::vector<VdrRecording> RestfulApiVdrAdapter::getRecordings() const
+{
+    HttpRequest request;
+    request.method = "GET";
+    request.url = "/recordings.json";
+    request.headers["Accept"] = "application/json";
+
+    HttpResponse response = httpClient_.execute(request);
+
+    if (response.statusCode != 200) {
+        return {};
+    }
+
+    return RestfulApiRecordingMapper::parseRecordings(response.body);
 }
