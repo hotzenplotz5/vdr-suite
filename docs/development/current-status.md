@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.24-phase8-restfulapi-timer-mapping
+v1.26-phase8-vdr-overview-service
 
 Latest Commit:
-9332701
+9d69f54
 
-Phase 8.19: introduce VDR service layer foundation
+Phase 8.20: introduce VDR overview service foundation
 
 ---
 
@@ -374,6 +374,28 @@ Functions:
 Purpose:
 
 Service boundary between consumers and IVdrAdapter implementations.
+
+### VdrOverviewService
+
+Functions:
+
+* getOverview()
+
+Purpose:
+
+Provides aggregated VDR dashboard information.
+
+Current Overview Data:
+
+* Status
+* Channel counts
+* Radio channel counts
+* Encrypted channel counts
+* Event counts
+* Timer counts
+* Active timer counts
+* Recording timer counts
+* Recording counts
 
 ### VDR Integration Architecture
 
