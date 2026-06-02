@@ -2,6 +2,7 @@
 
 #include "HttpRequest.h"
 #include "HttpResponse.h"
+#include "RestfulApiChannelMapper.h"
 #include "RestfulApiEventMapper.h"
 #include "RestfulApiStatusMapper.h"
 
@@ -21,6 +22,22 @@ VdrStatus RestfulApiVdrAdapter::getStatus() const
     HttpResponse response = httpClient_.execute(request);
 
     return RestfulApiStatusMapper::parseStatus(response.body, config_, response.statusCode);
+}
+
+std::vector<VdrChannel> RestfulApiVdrAdapter::getChannels() const
+{
+    HttpRequest request;
+    request.method = "GET";
+    request.url = "/channels.json";
+    request.headers["Accept"] = "application/json";
+
+    HttpResponse response = httpClient_.execute(request);
+
+    if (response.statusCode != 200) {
+        return {};
+    }
+
+    return RestfulApiChannelMapper::parseChannels(response.body);
 }
 
 std::vector<VdrEvent> RestfulApiVdrAdapter::getEvents() const

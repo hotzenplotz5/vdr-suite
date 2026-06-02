@@ -1,5 +1,6 @@
 #pragma once
 
+#include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrStatus.h"
 
@@ -11,4 +12,5 @@ public:
 
     virtual VdrStatus getStatus() const = 0;
     virtual std::vector<VdrEvent> getEvents() const = 0;
+    virtual std::vector<VdrChannel> getChannels() const = 0;
 };

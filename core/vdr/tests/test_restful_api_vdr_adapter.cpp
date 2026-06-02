@@ -1,6 +1,7 @@
 #include "IVdrAdapter.h"
 #include "MockHttpClient.h"
 #include "RestfulApiVdrAdapter.h"
+#include "VdrChannel.h"
 #include "VdrConfig.h"
 #include "VdrEvent.h"
 #include "VdrStatus.h"
@@ -88,6 +89,125 @@ static void test_restful_api_vdr_adapter_reports_error_for_invalid_status_json()
     assert(status.host == "127.0.0.1");
     assert(status.port == 8002);
     assert(status.state == "error");
+}
+
+static void test_restful_api_vdr_adapter_requests_channels_endpoint()
+{
+    VdrConfig config = make_restfulapi_config();
+    MockHttpClient httpClient;
+
+    HttpResponse channelsResponse;
+    channelsResponse.statusCode = 200;
+    channelsResponse.headers["Content-Type"] = "application/json";
+    channelsResponse.body = "{\"channels\":[]}";
+
+    httpClient.setResponse(channelsResponse);
+
+    RestfulApiVdrAdapter adapter(config, httpClient);
+
+    std::vector<VdrChannel> channels = adapter.getChannels();
+
+    assert(channels.empty() == true);
+    assert(httpClient.requestCount() == 1);
+    assert(httpClient.lastRequest().method == "GET");
+    assert(httpClient.lastRequest().url == "/channels.json");
+    assert(httpClient.lastRequest().headers.at("Accept") == "application/json");
+}
+
+static void test_restful_api_vdr_adapter_maps_channels_response()
+{
+    VdrConfig config = make_restfulapi_config();
+    MockHttpClient httpClient;
+
+    HttpResponse channelsResponse;
+    channelsResponse.statusCode = 200;
+    channelsResponse.headers["Content-Type"] = "application/json";
+    channelsResponse.body =
+        "{\"channels\":["
+        "{\"name\":\"DF1 HD\","
+        "\"number\":149,"
+        "\"channel_id\":\"C-61441-10006-50021\","
+        "\"image\":false,"
+        "\"group\":\"Rest\","
+        "\"transponder\":498,"
+        "\"stream\":\"C-61441-10006-50021.ts\","
+        "\"is_atsc\":false,"
+        "\"is_cable\":true,"
+        "\"is_terr\":false,"
+        "\"is_sat\":false,"
+        "\"is_radio\":false,"
+        "\"index\":154"
+        "},"
+        "{\"name\":\"Radio Hamburg\","
+        "\"number\":333,"
+        "\"channel_id\":\"C-61441-10000-52876\","
+        "\"image\":false,"
+        "\"group\":\"Rest\","
+        "\"transponder\":466,"
+        "\"stream\":\"C-61441-10000-52876.ts\","
+        "\"is_atsc\":false,"
+        "\"is_cable\":true,"
+        "\"is_terr\":false,"
+        "\"is_sat\":false,"
+        "\"is_radio\":true,"
+        "\"index\":338"
+        "}"
+        "],\"count\":2,\"total\":2}";
+
+    httpClient.setResponse(channelsResponse);
+
+    RestfulApiVdrAdapter adapter(config, httpClient);
+    std::vector<VdrChannel> channels = adapter.getChannels();
+
+    assert(channels.size() == 2);
+
+    assert(channels[0].id == "C-61441-10006-50021");
+    assert(channels[0].number == 149);
+    assert(channels[0].name == "DF1 HD");
+    assert(channels[0].provider == "");
+    assert(channels[0].group == "Rest");
+    assert(channels[0].radio == false);
+    assert(channels[0].encrypted == false);
+    assert(channels[0].enabled == true);
+
+    assert(channels[1].id == "C-61441-10000-52876");
+    assert(channels[1].number == 333);
+    assert(channels[1].name == "Radio Hamburg");
+    assert(channels[1].radio == true);
+}
+
+static void test_restful_api_vdr_adapter_ignores_http_error_for_channels()
+{
+    VdrConfig config = make_restfulapi_config();
+    MockHttpClient httpClient;
+
+    HttpResponse errorResponse;
+    errorResponse.statusCode = 500;
+    errorResponse.body = "error";
+
+    httpClient.setResponse(errorResponse);
+
+    RestfulApiVdrAdapter adapter(config, httpClient);
+    std::vector<VdrChannel> channels = adapter.getChannels();
+
+    assert(channels.empty() == true);
+}
+
+static void test_restful_api_vdr_adapter_tolerates_invalid_channel_json()
+{
+    VdrConfig config = make_restfulapi_config();
+    MockHttpClient httpClient;
+
+    HttpResponse invalidResponse;
+    invalidResponse.statusCode = 200;
+    invalidResponse.body = "not json";
+
+    httpClient.setResponse(invalidResponse);
+
+    RestfulApiVdrAdapter adapter(config, httpClient);
+    std::vector<VdrChannel> channels = adapter.getChannels();
+
+    assert(channels.empty() == true);
 }
 
 static void test_restful_api_vdr_adapter_requests_events_endpoint()
@@ -259,6 +379,10 @@ int main()
     test_restful_api_vdr_adapter_reports_status();
     test_restful_api_vdr_adapter_reports_error_status();
     test_restful_api_vdr_adapter_reports_error_for_invalid_status_json();
+    test_restful_api_vdr_adapter_requests_channels_endpoint();
+    test_restful_api_vdr_adapter_maps_channels_response();
+    test_restful_api_vdr_adapter_ignores_http_error_for_channels();
+    test_restful_api_vdr_adapter_tolerates_invalid_channel_json();
     test_restful_api_vdr_adapter_requests_events_endpoint();
     test_restful_api_vdr_adapter_maps_events_response();
     test_restful_api_vdr_adapter_ignores_http_error_for_events();

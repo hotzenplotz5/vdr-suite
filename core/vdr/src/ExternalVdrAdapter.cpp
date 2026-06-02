@@ -21,3 +21,8 @@ std::vector<VdrEvent> ExternalVdrAdapter::getEvents() const
 {
     return {};
 }
+
+std::vector<VdrChannel> ExternalVdrAdapter::getChannels() const
+{
+    return {};
+}

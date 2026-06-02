@@ -1,5 +1,6 @@
 #include "MockVdrAdapter.h"
 #include "IVdrAdapter.h"
+#include "VdrChannel.h"
 
 #include <cassert>
 #include <memory>
@@ -28,6 +29,39 @@ static void test_mock_vdr_adapter_can_be_used_through_interface()
     assert(status.enabled == true);
     assert(status.mode == "mock");
     assert(status.state == "connected");
+}
+
+static void test_mock_vdr_adapter_returns_channels()
+{
+    MockVdrAdapter adapter;
+    std::vector<VdrChannel> channels = adapter.getChannels();
+
+    assert(channels.size() == 3);
+
+    assert(channels[0].id == "mock-channel-1");
+    assert(channels[0].number == 1);
+    assert(channels[0].name == "Das Erste HD");
+    assert(channels[0].provider == "ARD");
+    assert(channels[0].group == "TV");
+    assert(channels[0].radio == false);
+    assert(channels[0].encrypted == false);
+    assert(channels[0].enabled == true);
+
+    assert(channels[2].id == "mock-channel-3");
+    assert(channels[2].number == 101);
+    assert(channels[2].name == "Radio Hamburg");
+    assert(channels[2].radio == true);
+}
+
+static void test_mock_vdr_adapter_returns_channels_through_interface()
+{
+    std::unique_ptr<IVdrAdapter> adapter =
+        std::make_unique<MockVdrAdapter>();
+
+    std::vector<VdrChannel> channels = adapter->getChannels();
+
+    assert(channels.size() == 3);
+    assert(channels[0].id == "mock-channel-1");
 }
 
 static void test_mock_vdr_adapter_returns_events()
@@ -67,6 +101,8 @@ int main()
 {
     test_mock_vdr_adapter_reports_connected_state();
     test_mock_vdr_adapter_can_be_used_through_interface();
+    test_mock_vdr_adapter_returns_channels();
+    test_mock_vdr_adapter_returns_channels_through_interface();
     test_mock_vdr_adapter_returns_events();
 
     return 0;

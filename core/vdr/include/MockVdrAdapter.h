@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IVdrAdapter.h"
+#include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrStatus.h"
 
@@ -12,4 +13,5 @@ public:
 
     VdrStatus getStatus() const override;
     std::vector<VdrEvent> getEvents() const override;
+    std::vector<VdrChannel> getChannels() const override;
 };
