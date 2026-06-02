@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.22-phase8-restfulapi-channel-mapping
+v1.23-phase8-restfulapi-recording-mapping
 
 Latest Commit:
-latest commit after phase 8.16
+latest commit after phase 8.17
 
-Phase 8.16: introduce RESTfulAPI channel mapper
+Phase 8.17: introduce RESTfulAPI recording mapper
 
 ---
 
@@ -815,7 +815,7 @@ Out of scope:
 * Real HTTP communication
 * EPGSearch implementation
 * SearchTimer logic
-* Timer creation
+* Timer creation or modification
 * Channel management
 
 ---
@@ -843,6 +843,7 @@ Completed:
 * Phase 8.14: RESTfulAPI event mapping foundation
 * Phase 8.15: RESTfulAPI status mapping foundation
 * Phase 8.16: RESTfulAPI channel mapping foundation
+* Phase 8.17: RESTfulAPI recording mapping foundation
 
 ---
 
@@ -859,19 +860,19 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.17
+Phase 8.18
 
 Candidate:
 
-RESTfulAPI recording mapping foundation.
+RESTfulAPI timer mapping foundation.
 
 Expected direction:
 
-* Map /recordings.json into backend-neutral VdrRecording objects
+* Map RESTfulAPI timer data into backend-neutral VdrTimer objects
 * Keep RESTfulAPI JSON behind adapter layer
-* Reuse mapper architecture introduced for events, status and channels
+* Reuse mapper architecture introduced for events, status, channels and recordings
 * Extend adapter tests with MockHttpClient
-* Keep IVdrAdapter boundary stable
+* Keep IVdrAdapter boundary clean and backend-neutral
 
 Out of scope:
 
