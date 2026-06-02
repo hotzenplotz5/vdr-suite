@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.23-phase8-restfulapi-recording-mapping
+v1.24-phase8-restfulapi-timer-mapping
 
 Latest Commit:
-latest commit after phase 8.17
+98ee6a6
 
-Phase 8.17: introduce RESTfulAPI recording mapper
+Phase 8.18: introduce RESTfulAPI timer mapper
 
 ---
 
@@ -576,11 +576,24 @@ Out of scope:
 
 * Real HTTP communication
 * JSON parser
-* Channel mapping
-* Timer mapping
-* Recording mapping
 * EPGSearch mapping
 * SearchTimer mapping
+
+Implemented mappings:
+
+* /info.json → VdrStatus
+* /events.json → VdrEvent
+* /channels.json → VdrChannel
+* /recordings.json → VdrRecording
+* /timers.json → VdrTimer
+
+Implemented mappers:
+
+* RestfulApiStatusMapper
+* RestfulApiEventMapper
+* RestfulApiChannelMapper
+* RestfulApiRecordingMapper
+* RestfulApiTimerMapper
 
 ### VdrChannel
 
@@ -616,6 +629,15 @@ Status:
 ### VdrTimer
 
 Backend-neutral timer model.
+
+Status:
+
+* Implemented as backend-neutral C++ domain object
+* Exposed through IVdrAdapter via getTimers()
+* RESTfulAPI adapter maps /timers.json into VdrTimer objects
+* RestfulApiTimerMapper implemented
+* Dedicated timer mapping tests implemented
+* Timer mapping validated through RestfulApiVdrAdapter
 
 ### VdrRecording
 
@@ -822,7 +844,7 @@ Out of scope:
 
 # Last Completed Step
 
-Phase 8.13: introduce VDR event adapter architecture
+Phase 8.18: introduce RESTfulAPI timer mapper
 
 Completed:
 
@@ -844,6 +866,7 @@ Completed:
 * Phase 8.15: RESTfulAPI status mapping foundation
 * Phase 8.16: RESTfulAPI channel mapping foundation
 * Phase 8.17: RESTfulAPI recording mapping foundation
+* Phase 8.18: RESTfulAPI timer mapping foundation
 
 ---
 
@@ -860,11 +883,11 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.18
+Phase 8.19
 
 Candidate:
 
-RESTfulAPI timer mapping foundation.
+RESTfulAPI integration consolidation and adapter coverage review.
 
 Expected direction:
 
