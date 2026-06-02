@@ -23,6 +23,7 @@ VDR_SRC := \
         core/vdr/src/RestfulApiStatusMapper.cpp \
         core/vdr/src/RestfulApiVdrAdapter.cpp \
         core/vdr/src/VdrOverviewService.cpp \
+        core/vdr/src/VdrOverviewJsonSerializer.cpp \
         core/vdr/src/VdrAdapterFactory.cpp
 
 
@@ -365,6 +366,13 @@ test-vdr-overview-service:
 		-o /tmp/test_vdr_overview_service
 	/tmp/test_vdr_overview_service
 
+test-vdr-overview-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_vdr_overview_json_serializer.cpp \
+		-o /tmp/test_vdr_overview_json_serializer
+	/tmp/test_vdr_overview_json_serializer
+
 test-http-request:
 	$(CXX) $(CXXFLAGS) \
 		core/http/tests/test_http_request.cpp \
@@ -441,7 +449,7 @@ daemon:
 		$(LDFLAGS) \
 		-o /tmp/vdr-suite-daemon
 
-test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-vdr-service test-vdr-overview-service test-mock-vdr-adapter test-http-request test-http-response test-mock-http-client test-restful-api-status-mapper test-restful-api-event-mapper test-restful-api-channel-mapper test-restful-api-recording-mapper test-restful-api-timer-mapper test-restful-api-vdr-adapter test-vdr-domain-objects
+test: test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-vdr-service test-vdr-overview-service test-vdr-overview-json-serializer test-mock-vdr-adapter test-http-request test-http-response test-mock-http-client test-restful-api-status-mapper test-restful-api-event-mapper test-restful-api-channel-mapper test-restful-api-recording-mapper test-restful-api-timer-mapper test-restful-api-vdr-adapter test-vdr-domain-objects
 
 clean:
 	rm -f /tmp/test_database
@@ -480,3 +488,4 @@ clean:
 	rm -f /tmp/test_vdr_domain_objects
 	rm -f /tmp/test_vdr_service
 	rm -f /tmp/test_vdr_overview_service
+	rm -f /tmp/test_vdr_overview_json_serializer
