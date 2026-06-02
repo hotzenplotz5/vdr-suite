@@ -1,6 +1,8 @@
 #pragma once
 
+#include "VdrRecording.h"
 #include "VdrStatus.h"
+#include "VdrTimer.h"
 
 struct VdrOverview
 {
@@ -16,5 +18,11 @@ struct VdrOverview
     int activeTimers = 0;
     int recordingTimers = 0;
 
+    bool hasNextTimer = false;
+    VdrTimer nextTimer;
+
     int totalRecordings = 0;
+
+    bool hasLatestRecording = false;
+    VdrRecording latestRecording;
 };

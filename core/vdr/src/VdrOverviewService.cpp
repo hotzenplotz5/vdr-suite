@@ -1,6 +1,7 @@
 #include "VdrOverviewService.h"
 
 #include "VdrChannel.h"
+#include "VdrRecording.h"
 #include "VdrService.h"
 #include "VdrTimer.h"
 
@@ -50,6 +51,12 @@ VdrOverview VdrOverviewService::getOverview() const
         if (timer.enabled)
         {
             ++overview.activeTimers;
+
+            if (!overview.hasNextTimer)
+            {
+                overview.nextTimer = timer;
+                overview.hasNextTimer = true;
+            }
         }
 
         if (timer.recording)
@@ -58,8 +65,17 @@ VdrOverview VdrOverviewService::getOverview() const
         }
     }
 
+    std::vector<VdrRecording> recordings =
+        vdrService_.getRecordings();
+
     overview.totalRecordings =
-        static_cast<int>(vdrService_.getRecordings().size());
+        static_cast<int>(recordings.size());
+
+    if (!recordings.empty())
+    {
+        overview.latestRecording = recordings.front();
+        overview.hasLatestRecording = true;
+    }
 
     return overview;
 }
