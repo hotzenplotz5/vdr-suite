@@ -2,6 +2,7 @@
 
 #include "HttpRequest.h"
 #include "HttpResponse.h"
+#include "RestfulApiEventMapper.h"
 
 RestfulApiVdrAdapter::RestfulApiVdrAdapter(VdrConfig config, IHttpClient& httpClient)
     : config_(config),
@@ -36,7 +37,10 @@ std::vector<VdrEvent> RestfulApiVdrAdapter::getEvents() const
     request.headers["Accept"] = "application/json";
 
     HttpResponse response = httpClient_.execute(request);
-    (void)response;
 
-    return {};
+    if (response.statusCode != 200) {
+        return {};
+    }
+
+    return RestfulApiEventMapper::parseEvents(response.body);
 }
