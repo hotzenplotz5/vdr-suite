@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.21-phase8-restfulapi-status-mapping
+v1.22-phase8-restfulapi-channel-mapping
 
 Latest Commit:
-latest commit after phase 8.15
+latest commit after phase 8.16
 
-Phase 8.15: introduce RESTfulAPI status mapper
+Phase 8.16: introduce RESTfulAPI channel mapper
 
 ---
 
@@ -842,6 +842,7 @@ Completed:
 * Phase 8.13: VDR event adapter architecture
 * Phase 8.14: RESTfulAPI event mapping foundation
 * Phase 8.15: RESTfulAPI status mapping foundation
+* Phase 8.16: RESTfulAPI channel mapping foundation
 
 ---
 
@@ -858,17 +859,17 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.16
+Phase 8.17
 
 Candidate:
 
-RESTfulAPI channel mapping foundation.
+RESTfulAPI recording mapping foundation.
 
 Expected direction:
 
-* Map /info.json into backend-neutral VdrStatus
+* Map /recordings.json into backend-neutral VdrRecording objects
 * Keep RESTfulAPI JSON behind adapter layer
-* Reuse mapping architecture introduced in Phase 8.14
+* Reuse mapper architecture introduced for events, status and channels
 * Extend adapter tests with MockHttpClient
 * Keep IVdrAdapter boundary stable
 
