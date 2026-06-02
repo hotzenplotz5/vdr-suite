@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.26-phase8-vdr-overview-service
+v1.28-phase8-vdr-overview-json
 
 Latest Commit:
-9d69f54
+baa42da
 
-Phase 8.20: introduce VDR overview service foundation
+Phase 8.22: introduce VDR overview JSON serializer
 
 ---
 
@@ -396,6 +396,32 @@ Current Overview Data:
 * Active timer counts
 * Recording timer counts
 * Recording counts
+
+### VdrOverview
+
+Purpose:
+
+Backend-neutral overview model for VDR dashboard data.
+
+Current data:
+
+* VDR status
+* Channel counts
+* Event counts
+* Timer counts
+* Next timer summary
+* Recording counts
+* Latest recording summary
+
+### VdrOverviewJsonSerializer
+
+Functions:
+
+* serialize()
+
+Purpose:
+
+Converts VdrOverview into JSON for future REST controller and frontend use.
 
 ### VDR Integration Architecture
 
