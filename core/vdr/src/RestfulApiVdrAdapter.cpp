@@ -3,6 +3,7 @@
 #include "HttpRequest.h"
 #include "HttpResponse.h"
 #include "RestfulApiEventMapper.h"
+#include "RestfulApiStatusMapper.h"
 
 RestfulApiVdrAdapter::RestfulApiVdrAdapter(VdrConfig config, IHttpClient& httpClient)
     : config_(config),
@@ -19,14 +20,7 @@ VdrStatus RestfulApiVdrAdapter::getStatus() const
 
     HttpResponse response = httpClient_.execute(request);
 
-    VdrStatus status;
-    status.enabled = config_.enabled;
-    status.mode = config_.mode;
-    status.host = config_.host;
-    status.port = config_.port;
-    status.state = response.statusCode == 200 ? "restfulapi" : "error";
-
-    return status;
+    return RestfulApiStatusMapper::parseStatus(response.body, config_, response.statusCode);
 }
 
 std::vector<VdrEvent> RestfulApiVdrAdapter::getEvents() const

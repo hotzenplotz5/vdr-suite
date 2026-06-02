@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.20-phase8-restfulapi-event-mapping
+v1.21-phase8-restfulapi-status-mapping
 
 Latest Commit:
-8acb0d0
+latest commit after phase 8.15
 
-Phase 8.14: add RESTfulAPI event mapping foundation
+Phase 8.15: introduce RESTfulAPI status mapper
 
 ---
 
@@ -565,6 +565,8 @@ Features:
 * Uses MockHttpClient in tests
 * Maps mocked /info.json response into VdrStatus
 * Keeps RESTfulAPI details behind adapter boundary
+* Uses dedicated RestfulApiStatusMapper
+* Validates /info.json JSON responses
 
 Status:
 
@@ -839,6 +841,7 @@ Completed:
 * Phase 8.12: VDR event domain object
 * Phase 8.13: VDR event adapter architecture
 * Phase 8.14: RESTfulAPI event mapping foundation
+* Phase 8.15: RESTfulAPI status mapping foundation
 
 ---
 
@@ -855,11 +858,11 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.15
+Phase 8.16
 
 Candidate:
 
-RESTfulAPI status mapping foundation.
+RESTfulAPI channel mapping foundation.
 
 Expected direction:
 

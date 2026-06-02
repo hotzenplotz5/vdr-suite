@@ -55,7 +55,7 @@ static void test_restful_api_vdr_adapter_reports_error_status()
 
     HttpResponse errorResponse;
     errorResponse.statusCode = 500;
-    errorResponse.body = "error";
+    errorResponse.body = "{\"status\":\"ok\"}";
 
     httpClient.setResponse(errorResponse);
 
@@ -67,6 +67,27 @@ static void test_restful_api_vdr_adapter_reports_error_status()
     assert(errorStatus.host == "127.0.0.1");
     assert(errorStatus.port == 8002);
     assert(errorStatus.state == "error");
+}
+
+static void test_restful_api_vdr_adapter_reports_error_for_invalid_status_json()
+{
+    VdrConfig config = make_restfulapi_config();
+    MockHttpClient httpClient;
+
+    HttpResponse invalidResponse;
+    invalidResponse.statusCode = 200;
+    invalidResponse.body = "not json";
+
+    httpClient.setResponse(invalidResponse);
+
+    RestfulApiVdrAdapter adapter(config, httpClient);
+    VdrStatus status = adapter.getStatus();
+
+    assert(status.enabled == true);
+    assert(status.mode == "restfulapi");
+    assert(status.host == "127.0.0.1");
+    assert(status.port == 8002);
+    assert(status.state == "error");
 }
 
 static void test_restful_api_vdr_adapter_requests_events_endpoint()
@@ -237,6 +258,7 @@ int main()
 {
     test_restful_api_vdr_adapter_reports_status();
     test_restful_api_vdr_adapter_reports_error_status();
+    test_restful_api_vdr_adapter_reports_error_for_invalid_status_json();
     test_restful_api_vdr_adapter_requests_events_endpoint();
     test_restful_api_vdr_adapter_maps_events_response();
     test_restful_api_vdr_adapter_ignores_http_error_for_events();
