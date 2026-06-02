@@ -76,6 +76,24 @@ std::vector<VdrEvent> MockVdrAdapter::getEvents() const
     return { event1, event2 };
 }
 
+std::vector<VdrTimer> MockVdrAdapter::getTimers() const
+{
+    VdrTimer timer;
+    timer.id = "mock-timer-1";
+    timer.channelId = "mock-channel-1";
+    timer.eventId = "mock-event-1";
+    timer.title = "Tagesschau";
+    timer.subtitle = "20 Uhr";
+    timer.startTime = "2026-06-01T20:00:00";
+    timer.endTime = "2026-06-01T20:15:00";
+    timer.priority = 50;
+    timer.lifetime = 99;
+    timer.enabled = true;
+    timer.recording = false;
+
+    return { timer };
+}
+
 std::vector<VdrRecording> MockVdrAdapter::getRecordings() const
 {
     VdrRecording recording1;

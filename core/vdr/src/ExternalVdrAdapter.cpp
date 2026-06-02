@@ -27,6 +27,11 @@ std::vector<VdrChannel> ExternalVdrAdapter::getChannels() const
     return {};
 }
 
+std::vector<VdrTimer> ExternalVdrAdapter::getTimers() const
+{
+    return {};
+}
+
 std::vector<VdrRecording> ExternalVdrAdapter::getRecordings() const
 {
     return {};

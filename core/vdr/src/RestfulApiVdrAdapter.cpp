@@ -6,6 +6,7 @@
 #include "RestfulApiEventMapper.h"
 #include "RestfulApiRecordingMapper.h"
 #include "RestfulApiStatusMapper.h"
+#include "RestfulApiTimerMapper.h"
 
 RestfulApiVdrAdapter::RestfulApiVdrAdapter(VdrConfig config, IHttpClient& httpClient)
     : config_(config),
@@ -55,6 +56,22 @@ std::vector<VdrEvent> RestfulApiVdrAdapter::getEvents() const
     }
 
     return RestfulApiEventMapper::parseEvents(response.body);
+}
+
+std::vector<VdrTimer> RestfulApiVdrAdapter::getTimers() const
+{
+    HttpRequest request;
+    request.method = "GET";
+    request.url = "/timers.json";
+    request.headers["Accept"] = "application/json";
+
+    HttpResponse response = httpClient_.execute(request);
+
+    if (response.statusCode != 200) {
+        return {};
+    }
+
+    return RestfulApiTimerMapper::parseTimers(response.body);
 }
 
 std::vector<VdrRecording> RestfulApiVdrAdapter::getRecordings() const
