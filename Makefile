@@ -134,6 +134,12 @@ DAEMON_SRC := \
         core/recordings/src/MetadataRepository.cpp \
         core/recordings/src/RecordingDashboardService.cpp \
         core/recordings/src/DashboardFacade.cpp \
+        core/recordings/src/DashboardJsonSerializer.cpp \
+        api/rest/src/DashboardController.cpp \
+        api/rest/src/JobsController.cpp \
+        api/rest/src/RecordingsController.cpp \
+        api/rest/src/MetadataController.cpp \
+        api/rest/src/VdrController.cpp \
         core/daemon/src/DaemonRuntime.cpp \
         core/daemon/src/DaemonApp.cpp
 
@@ -457,6 +463,7 @@ test-vdr-domain-objects:
 daemon:
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(VDR_SRC) \
 		$(DAEMON_SRC) \
 		apps/daemon/main.cpp \
 		$(LDFLAGS) \

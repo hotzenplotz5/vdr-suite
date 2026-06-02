@@ -1,13 +1,24 @@
 #pragma once
 
-#include "Database.h"
+#include "DashboardController.h"
 #include "DashboardFacade.h"
+#include "DashboardJsonSerializer.h"
+#include "Database.h"
+#include "IVdrAdapter.h"
 #include "JobDashboardService.h"
 #include "JobRepository.h"
+#include "JobsController.h"
+#include "MetadataController.h"
 #include "MetadataRepository.h"
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
+#include "RecordingsController.h"
 #include "RuntimeConfig.h"
+#include "VdrConfig.h"
+#include "VdrController.h"
+#include "VdrOverviewJsonSerializer.h"
+#include "VdrOverviewService.h"
+#include "VdrService.h"
 
 #include <atomic>
 #include <memory>
@@ -36,6 +47,19 @@ private:
     std::unique_ptr<JobDashboardService> jobDashboardService_;
     std::unique_ptr<RecordingDashboardService> recordingDashboardService_;
     std::unique_ptr<DashboardFacade> dashboardFacade_;
+
+    std::unique_ptr<DashboardJsonSerializer> dashboardJsonSerializer_;
+    std::unique_ptr<DashboardController> dashboardController_;
+    std::unique_ptr<JobsController> jobsController_;
+    std::unique_ptr<RecordingsController> recordingsController_;
+    std::unique_ptr<MetadataController> metadataController_;
+
+    VdrConfig vdrConfig_;
+    std::unique_ptr<IVdrAdapter> vdrAdapter_;
+    std::unique_ptr<VdrService> vdrService_;
+    std::unique_ptr<VdrOverviewService> vdrOverviewService_;
+    std::unique_ptr<VdrOverviewJsonSerializer> vdrOverviewJsonSerializer_;
+    std::unique_ptr<VdrController> vdrController_;
 
     static std::atomic<bool> shutdownRequested_;
 };
