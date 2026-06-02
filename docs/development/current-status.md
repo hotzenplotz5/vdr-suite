@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.28-phase8-vdr-overview-json
+v1.30-phase8-vdr-router
 
 Latest Commit:
-baa42da
+7539300
 
-Phase 8.22: introduce VDR overview JSON serializer
+Phase 8.24: integrate VDR overview endpoint into API router
 
 ---
 
@@ -307,6 +307,7 @@ Implemented:
 * GET /api/jobs
 * GET /api/recordings
 * GET /api/metadata
+* GET /api/vdr/overview
 
 Controllers:
 
@@ -314,6 +315,7 @@ Controllers:
 * JobsController
 * RecordingsController
 * MetadataController
+* VdrController
 
 Router:
 
@@ -422,6 +424,16 @@ Functions:
 Purpose:
 
 Converts VdrOverview into JSON for future REST controller and frontend use.
+
+### VdrController
+
+Functions:
+
+* getOverview()
+
+Purpose:
+
+REST controller exposing VDR overview data.
 
 ### VDR Integration Architecture
 
@@ -906,7 +918,7 @@ Out of scope:
 
 # Last Completed Step
 
-Phase 8.18: introduce RESTfulAPI timer mapper
+Phase 8.24: integrate VDR overview endpoint into API router
 
 Completed:
 
@@ -929,6 +941,12 @@ Completed:
 * Phase 8.16: RESTfulAPI channel mapping foundation
 * Phase 8.17: RESTfulAPI recording mapping foundation
 * Phase 8.18: RESTfulAPI timer mapping foundation
+* Phase 8.19: VDR service layer foundation
+* Phase 8.20: VDR overview service foundation
+* Phase 8.21: VDR overview enrichment
+* Phase 8.22: VDR overview JSON serializer
+* Phase 8.23: VDR overview controller
+* Phase 8.24: VDR API router integration
 
 ---
 
@@ -945,25 +963,22 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.19
+Phase 8.25
 
 Candidate:
 
-RESTfulAPI integration consolidation and adapter coverage review.
+Daemon integration of VDR services.
 
 Expected direction:
 
-* Map RESTfulAPI timer data into backend-neutral VdrTimer objects
-* Keep RESTfulAPI JSON behind adapter layer
-* Reuse mapper architecture introduced for events, status, channels and recordings
-* Extend adapter tests with MockHttpClient
-* Keep IVdrAdapter boundary clean and backend-neutral
+* Wire VdrService into daemon runtime
+* Wire VdrOverviewService into daemon runtime
+* Prepare controller runtime integration
+* Prepare future frontend consumption
 
 Out of scope:
 
-* Real network communication
-* Timer creation
-* Channel management
-* Recording management
-* EPGSearch implementation
-* SearchTimer logic
+* Windows frontend
+* Real HTTP server
+* Mobile clients
+* OSD integration
