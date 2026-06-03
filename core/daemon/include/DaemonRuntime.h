@@ -5,6 +5,7 @@
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
 #include "Database.h"
+#include "IHttpClient.h"
 #include "IVdrAdapter.h"
 #include "IHttpServer.h"
 #include "JobDashboardService.h"
@@ -57,6 +58,7 @@ private:
     std::unique_ptr<MetadataController> metadataController_;
 
     VdrConfig vdrConfig_;
+    std::unique_ptr<IHttpClient> vdrHttpClient_;
     std::unique_ptr<IVdrAdapter> vdrAdapter_;
     std::unique_ptr<VdrService> vdrService_;
     std::unique_ptr<VdrOverviewService> vdrOverviewService_;
