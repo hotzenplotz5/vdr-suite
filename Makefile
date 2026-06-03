@@ -402,6 +402,7 @@ test-vdr-snapshot-builder:
 		core/vdr/tests/test_vdr_snapshot_builder.cpp \
 		-o /tmp/test_vdr_snapshot_builder
 	/tmp/test_vdr_snapshot_builder
+	/tmp/test_vdr_snapshot_builder
 
 test-http-request:
 	$(CXX) $(CXXFLAGS) \
