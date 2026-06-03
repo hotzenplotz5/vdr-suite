@@ -152,3 +152,7 @@ IHttpServer
 ApiRouter
         ↓
 Controllers
+        ↓
+Services
+        ↓
+Repositories / VDR

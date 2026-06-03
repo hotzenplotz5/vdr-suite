@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.39-phase8-http-server-runtime-ownership
+v1.40-phase8-real-http-server-strategy
 
 Latest Commit:
-latest commit after phase 8.33
+latest commit after phase 8.34
 
-Phase 8.33: introduce IHttpServer runtime ownership
+Phase 8.34: document RealHttpServer strategy
 
 ---
 
@@ -987,9 +987,47 @@ Scope boundary:
 
 ---
 
+
+## Phase 8.34 – RealHttpServer strategy
+
+Implemented:
+
+* ADR-0008 Real HTTP Server Strategy
+* production HTTP server strategy documented
+* TestHttpServer and RealHttpServer roles separated
+* IHttpServer abstraction preserved
+* ApiRouter transport independence documented
+* future HTTP runtime boundaries documented
+
+Files:
+
+* docs/adr/ADR-0008-real-http-server-strategy.md
+
+Architecture decision:
+
+IHttpServer
+        ↑
+   +-------------+
+   |             |
+TestHttpServer   RealHttpServer
+
+Scope boundary:
+
+* no RealHttpServer implementation
+* no TCP
+* no bind()
+* no listen()
+* no accept()
+* no TLS
+* no threading
+* no HTTP parser
+* no HTTP library selection
+
+---
+
 # Last Completed Step
 
-Phase 8.33: introduce IHttpServer runtime ownership
+Phase 8.34: document RealHttpServer strategy
 
 Completed:
 
@@ -1027,6 +1065,7 @@ Completed:
 * Phase 8.31: test HTTP server architecture documentation
 * Phase 8.32: TestHttpServer runtime implementation
 * Phase 8.33: IHttpServer runtime ownership
+* Phase 8.34: RealHttpServer strategy ADR
 
 ---
 
@@ -1043,16 +1082,16 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.34
+Phase 8.35
 
 Candidate:
 
-HTTP runtime integration validation.
+RealHttpServer architecture preparation.
 
 Expected direction:
 
-* verify daemon runtime startup sequence
-* verify HTTP runtime lifecycle
-* review runtime ownership boundaries
-* keep networking out of scope
-* prepare future RealHttpServer integration
+* evaluate HTTP server implementation options
+* preserve IHttpServer abstraction
+* preserve ApiRouter independence
+* preserve controller and service independence
+* avoid premature HTTP library selection
