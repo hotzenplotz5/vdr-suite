@@ -14,9 +14,9 @@ struct VdrTimer
     std::string startTime;
     std::string endTime;
 
-    int priority;
-    int lifetime;
+    int priority = 0;
+    int lifetime = 0;
 
-    bool enabled;
-    bool recording;
+    bool enabled = false;
+    bool recording = false;
 };
