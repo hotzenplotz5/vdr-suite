@@ -14,4 +14,5 @@ VDR_SRC := \
         core/vdr/src/VdrSnapshotBuilder.cpp \
         core/vdr/src/PollingService.cpp \
         core/vdr/src/VdrChangeState.cpp \
+        core/vdr/src/VdrChangeEvent.cpp \
         core/vdr/src/VdrAdapterFactory.cpp
