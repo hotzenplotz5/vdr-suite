@@ -61,6 +61,13 @@ test-polling-service:
 		-o /tmp/test_polling_service
 	/tmp/test_polling_service
 
+test-vdr-change-state:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_vdr_change_state.cpp \
+		-o /tmp/test_vdr_change_state
+	/tmp/test_vdr_change_state
+
 test-restful-api-status-mapper:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
