@@ -390,18 +390,17 @@ test-vdr-overview-service:
 	/tmp/test_vdr_overview_service
 
 test-vdr-overview-json-serializer:
-	0 0CXX) 0 0CXXFLAGS) \
-		0 0VDR_SRC) \
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
 		core/vdr/tests/test_vdr_overview_json_serializer.cpp \
 		-o /tmp/test_vdr_overview_json_serializer
 	/tmp/test_vdr_overview_json_serializer
 
 test-vdr-snapshot-builder:
-	0 0CXX) 0 0CXXFLAGS) \
-		0 0VDR_SRC) \
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
 		core/vdr/tests/test_vdr_snapshot_builder.cpp \
 		-o /tmp/test_vdr_snapshot_builder
-	/tmp/test_vdr_snapshot_builder
 	/tmp/test_vdr_snapshot_builder
 
 test-http-request:
