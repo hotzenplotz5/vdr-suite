@@ -1,5 +1,7 @@
 #include <cassert>
 
+#include "../include/Source.h"
+#include "../include/SourceType.h"
 #include "../include/VdrChannel.h"
 #include "../include/VdrEvent.h"
 #include "../include/VdrTimer.h"
@@ -7,6 +9,35 @@
 
 int main()
 {
+    assert(SourceType::LocalVdr != SourceType::Unknown);
+    assert(SourceType::RemoteVdr != SourceType::Unknown);
+    assert(SourceType::RemoteSuite != SourceType::Unknown);
+    assert(SourceType::Archive != SourceType::Unknown);
+    assert(SourceType::NasImport != SourceType::Unknown);
+    assert(SourceType::Mock != SourceType::Unknown);
+
+    Source source;
+    source.id = "local-vdr";
+    source.name = "Local VDR";
+    source.type = SourceType::LocalVdr;
+    source.enabled = true;
+
+    assert(source.id == "local-vdr");
+    assert(source.name == "Local VDR");
+    assert(source.type == SourceType::LocalVdr);
+    assert(source.enabled == true);
+
+    Source archive;
+    archive.id = "archive-main";
+    archive.name = "Recording Archive";
+    archive.type = SourceType::Archive;
+    archive.enabled = false;
+
+    assert(archive.id == "archive-main");
+    assert(archive.name == "Recording Archive");
+    assert(archive.type == SourceType::Archive);
+    assert(archive.enabled == false);
+
     VdrChannel channel;
     channel.id = "1";
     channel.number = 1;
