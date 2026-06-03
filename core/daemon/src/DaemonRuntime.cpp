@@ -1,6 +1,7 @@
 #include "DaemonRuntime.h"
 
-#include "VdrAdapterFactory.h"
+#include "BasicHttpClient.h"
+#include "RestfulApiVdrAdapter.h"
 #include "TestHttpServer.h"
 
 #include <chrono>
@@ -87,12 +88,19 @@ bool DaemonRuntime::initialize()
         << std::endl;
 
     vdrConfig_.enabled = true;
-    vdrConfig_.mode = "mock";
-    vdrConfig_.host = "mock";
-    vdrConfig_.port = 0;
+    vdrConfig_.mode = "restfulapi";
+    vdrConfig_.host = "127.0.0.1";
+    vdrConfig_.port = 8002;
+
+    vdrHttpClient_ =
+        std::make_unique<BasicHttpClient>(
+            vdrConfig_.host,
+            vdrConfig_.port);
 
     vdrAdapter_ =
-        VdrAdapterFactory::create(vdrConfig_);
+        std::make_unique<RestfulApiVdrAdapter>(
+            vdrConfig_,
+            *vdrHttpClient_);
 
     vdrService_ =
         std::make_unique<VdrService>(
@@ -198,6 +206,7 @@ void DaemonRuntime::shutdown()
     vdrOverviewService_.reset();
     vdrService_.reset();
     vdrAdapter_.reset();
+    vdrHttpClient_.reset();
 
     metadataController_.reset();
     recordingsController_.reset();
