@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.40-phase8-real-http-server-strategy
+v1.41-phase8-http-server-factory-strategy
 
 Latest Commit:
-latest commit after phase 8.34
+latest commit after phase 8.35
 
-Phase 8.34: document RealHttpServer strategy
+Phase 8.35: document HTTP server factory strategy
 
 ---
 
@@ -1025,9 +1025,49 @@ Scope boundary:
 
 ---
 
+
+## Phase 8.35 – HTTP server factory strategy
+
+Implemented:
+
+* ADR-0009 HTTP Server Factory Strategy
+* future HttpServerFactory boundary documented
+* future HttpServerConfig role documented
+* DaemonRuntime HTTP server selection strategy documented
+* symmetry with VdrAdapterFactory architecture documented
+
+Files:
+
+* docs/adr/ADR-0009-http-server-factory-strategy.md
+
+Architecture decision:
+
+RuntimeConfig
+        ↓
+HttpServerConfig
+        ↓
+HttpServerFactory
+        ↓
+IHttpServer
+
+Scope boundary:
+
+* no HttpServerFactory implementation
+* no HttpServerConfig implementation
+* no RealHttpServer implementation
+* no TCP
+* no bind()
+* no listen()
+* no accept()
+* no TLS
+* no threading
+* no HTTP parser
+
+---
+
 # Last Completed Step
 
-Phase 8.34: document RealHttpServer strategy
+Phase 8.35: document HTTP server factory strategy
 
 Completed:
 
@@ -1066,6 +1106,7 @@ Completed:
 * Phase 8.32: TestHttpServer runtime implementation
 * Phase 8.33: IHttpServer runtime ownership
 * Phase 8.34: RealHttpServer strategy ADR
+* Phase 8.35: HTTP server factory strategy ADR
 
 ---
 
@@ -1082,16 +1123,16 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.35
+Phase 8.36
 
 Candidate:
 
-RealHttpServer architecture preparation.
+HttpServerConfig implementation.
 
 Expected direction:
 
-* evaluate HTTP server implementation options
-* preserve IHttpServer abstraction
-* preserve ApiRouter independence
-* preserve controller and service independence
-* avoid premature HTTP library selection
+* introduce HttpServerConfig domain/config object
+* define HTTP server mode
+* define host and port defaults
+* keep networking out of scope
+* prepare HttpServerFactory implementation
