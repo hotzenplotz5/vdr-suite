@@ -8,39 +8,33 @@ VDR remains the primary system and source of truth.
 
 Branch: `phase-2-actions`
 
-Current focus: live VDR integration through `vdr-plugin-restfulapi`.
+Current verified HEAD before this documentation update: `06667cf`
 
-The project is no longer architecture-only. A real VDR system has been reached successfully through the VDR-Suite adapter and service stack.
+Recent completed work:
 
-Validated live stack:
+- Phase 8.69: PollingService interface
+- Phase 8.70: PollingService implementation
+- Phase 8.72: extract VDR source list into make include
+- Phase 8.74: extract VDR test targets into make include
+- Phase 8.75: extract HTTP source list into make include
+- Phase 8.76: extract daemon source list into make include
+- Phase 8.77: extract recording source lists into make include
+- Phase 8.78: extract action and job source lists into make include
+- Phase 8.79: initial root Makefile include conversion
+- Fix 06667cf: Fix modular Makefile include conversion
+
+Current architectural direction:
 
 ```text
-VDR
-vdr-plugin-restfulapi
-BasicHttpClient
-RestfulApiVdrAdapter
+RESTfulAPI
 VdrService
-VdrOverviewService
-VdrOverviewJsonSerializer
-apps/vdr-probe
+VdrSnapshotBuilder
+PollingService
+Snapshot Cache
+API Responses
 ```
 
-Validated with:
-
-```text
-vdr-plugin-restfulapi 0.2.6.6
-127.0.0.1:8002
-```
-
-Observed live result:
-
-```text
-Recordings: 973
-Channels: 342
-Events: 37228+
-Timers: 0
-HTTP status: 200
-```
+API requests should move toward snapshot-backed data instead of repeatedly querying RESTfulAPI directly.
 
 ## Current Capabilities
 
@@ -58,45 +52,51 @@ Implemented and tested:
 - RESTfulAPI mappers for status, channels, events, timers and recordings
 - VDR overview aggregation
 - VDR overview JSON serialization
+- VDR snapshot domain object
+- VDR snapshot builder
+- PollingService foundation
+- modular Makefile include structure
 
-Validated with a live VDR:
+## Snapshot Architecture
 
-- read VDR status
-- read recordings
-- read timers
-- read channels
-- read EPG events
-- build aggregated VDR overview
-- serialize VDR overview as JSON
+The project is moving from direct live access per request to a daemon-owned snapshot architecture.
 
-## VDR Probe
+Current snapshot components:
 
-A diagnostic CLI validates the live RESTfulAPI integration path.
+- VdrSnapshot
+- VdrSnapshotBuilder
+- PollingService
 
-Location:
+Purpose:
+
+- keep RESTfulAPI behind the VDR adapter boundary
+- keep API controllers independent from live RESTfulAPI calls
+- prepare future multi-source and multi-VDR designs
+- allow snapshot refresh cycles inside the daemon
+- allow API responses from cached daemon state
+
+## Build
+
+Common build targets:
+
+```bash
+make daemon
+make test
+make test-vdr-snapshot-builder
+make test-polling-service
+```
+
+Known technical debt before Phase 8.80:
 
 ```text
-apps/vdr-probe
+Duplicate VDR test targets exist in both the root Makefile and mk/vdr-tests.mk.
+The build still works, but make prints duplicate target warnings.
 ```
 
-Build:
+Planned cleanup:
 
-```bash
-cd apps/vdr-probe
-make clean
-make vdr-probe
-```
-
-Run:
-
-```bash
-/tmp/vdr-probe
-```
-
-Run with explicit host and port:
-
-```bash
-/tmp/vdr-probe 127.0.0.1 8002
+```text
+Phase 8.80: remove duplicate VDR test targets from the root Makefile.
 ```
 
 ## Architecture Principles
@@ -105,21 +105,10 @@ Run with explicit host and port:
 - VDR-Suite complements VDR; it does not replace it.
 - RESTfulAPI is currently the most important live integration path.
 - RESTfulAPI details stay behind `RestfulApiVdrAdapter`.
-- Higher layers use `IVdrAdapter`, `VdrService` and domain objects.
+- Higher layers use `IVdrAdapter`, `VdrService`, snapshot builders and domain objects.
 - Source, capability and permission concepts remain separate from VDR configuration.
-- The current implementation may use one local RESTfulAPI backend, but no permanent single-VDR assumption should be introduced.
-
-Current VDR integration boundary:
-
-```text
-Consumer
-VdrService
-IVdrAdapter
-RestfulApiVdrAdapter
-IHttpClient
-RESTfulAPI
-VDR
-```
+- No permanent single-VDR assumption should be introduced.
+- API controllers should move toward snapshot-backed daemon data.
 
 ## Repository Structure
 
@@ -127,11 +116,12 @@ VDR
 core/sqlite        SQLite wrapper and database tests
 core/recordings   recordings, metadata, jobs, actions and dashboard services
 core/http         HTTP abstractions, mock client, basic client and test server
-core/vdr          VDR domain objects, adapters, mappers and overview services
+core/vdr          VDR domain objects, adapters, mappers, overview services and snapshot services
 api/rest          REST controllers and router
 apps/dashboard    dashboard CLI
 apps/daemon       daemon entry point
 apps/vdr-probe    live RESTfulAPI diagnostic CLI
+mk                modular Makefile include files
 ```
 
 ## External Projects
@@ -160,11 +150,11 @@ Planned as metadata and artwork integration points.
 
 ## Near-Term Direction
 
-- continue real RESTfulAPI validation
-- expose live VDR overview through VDR-Suite REST endpoints
-- keep adapter and service boundaries clean
-- improve diagnostics and error handling
-- document live integration behavior as it is validated
+1. Update status documentation after phases 8.69-8.79.
+2. Remove duplicate VDR test targets from the root Makefile.
+3. Integrate PollingService into DaemonRuntime.
+4. Add a snapshot refresh cycle.
+5. Add daemon-owned snapshot cache access for API responses.
 
 ## Documentation
 
