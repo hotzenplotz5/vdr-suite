@@ -1,25 +1,27 @@
 CXX := g++
+ROOT := ../..
+
 CXXFLAGS := -std=c++17 -Wall -Wextra \
-        -Icore/http/include \
-        -Icore/vdr/include
+        -I$(ROOT)/core/http/include \
+        -I$(ROOT)/core/vdr/include
 
 VDR_SRC := \
-        core/vdr/src/VdrConfig.cpp \
-        core/vdr/src/ExternalVdrAdapter.cpp \
-        core/vdr/src/MockVdrAdapter.cpp \
-        core/vdr/src/VdrService.cpp \
-        core/vdr/src/RestfulApiChannelMapper.cpp \
-        core/vdr/src/RestfulApiRecordingMapper.cpp \
-        core/vdr/src/RestfulApiTimerMapper.cpp \
-        core/vdr/src/RestfulApiEventMapper.cpp \
-        core/vdr/src/RestfulApiStatusMapper.cpp \
-        core/vdr/src/RestfulApiVdrAdapter.cpp \
-        core/vdr/src/VdrOverviewService.cpp \
-        core/vdr/src/VdrOverviewJsonSerializer.cpp \
-        core/vdr/src/VdrAdapterFactory.cpp
+        $(ROOT)/core/vdr/src/VdrConfig.cpp \
+        $(ROOT)/core/vdr/src/ExternalVdrAdapter.cpp \
+        $(ROOT)/core/vdr/src/MockVdrAdapter.cpp \
+        $(ROOT)/core/vdr/src/VdrService.cpp \
+        $(ROOT)/core/vdr/src/RestfulApiChannelMapper.cpp \
+        $(ROOT)/core/vdr/src/RestfulApiRecordingMapper.cpp \
+        $(ROOT)/core/vdr/src/RestfulApiTimerMapper.cpp \
+        $(ROOT)/core/vdr/src/RestfulApiEventMapper.cpp \
+        $(ROOT)/core/vdr/src/RestfulApiStatusMapper.cpp \
+        $(ROOT)/core/vdr/src/RestfulApiVdrAdapter.cpp \
+        $(ROOT)/core/vdr/src/VdrOverviewService.cpp \
+        $(ROOT)/core/vdr/src/VdrOverviewJsonSerializer.cpp \
+        $(ROOT)/core/vdr/src/VdrAdapterFactory.cpp
 
 HTTP_SRC := \
-        core/http/src/BasicHttpClient.cpp
+        $(ROOT)/core/http/src/BasicHttpClient.cpp
 
 .PHONY: vdr-probe clean
 
@@ -27,7 +29,7 @@ vdr-probe:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
 		$(HTTP_SRC) \
-		apps/vdr-probe/main.cpp \
+		main.cpp \
 		-o /tmp/vdr-probe
 
 clean:
