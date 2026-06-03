@@ -114,6 +114,11 @@ std::string serializeResponse(const HttpServerResponse& response)
     return stream.str();
 }
 
+bool hasCompleteHeaders(const std::string& rawRequest)
+{
+    return rawRequest.find("\r\n\r\n") != std::string::npos;
+}
+
 void writeAll(int socketFd, const std::string& data)
 {
     std::size_t offset = 0;
@@ -254,17 +259,19 @@ void SimpleHttpListener::handleClient(int clientSocket) const
     std::string rawRequest;
     char buffer[4096];
 
-    const ssize_t received = recv(
-        clientSocket,
-        buffer,
-        sizeof(buffer),
-        0);
+    while (!hasCompleteHeaders(rawRequest)) {
+        const ssize_t received = recv(
+            clientSocket,
+            buffer,
+            sizeof(buffer),
+            0);
 
-    if (received <= 0) {
-        return;
+        if (received <= 0) {
+            return;
+        }
+
+        rawRequest.append(buffer, static_cast<std::size_t>(received));
     }
-
-    rawRequest.append(buffer, static_cast<std::size_t>(received));
 
     const HttpServerRequest request = parseRequest(rawRequest);
     const HttpServerResponse response = server_.handleRequest(request);
