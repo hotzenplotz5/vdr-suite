@@ -1,182 +1,183 @@
 # VDR-Suite
 
-VDR-Suite ist ein langfristiges Architektur- und Entwicklungsprojekt zur Modernisierung des Video Disk Recorders (VDR).
+VDR-Suite modernizes the Video Disk Recorder ecosystem with a backend service layer, REST API foundation and future user interfaces.
 
-Das Projekt verfolgt das Ziel, bestehende VDR-Funktionalität mit einer gemeinsamen Service-Schicht, zentralen Metadaten, modernen APIs und zeitgemäßen Benutzeroberflächen zu erweitern.
+VDR remains the primary system and source of truth.
 
-VDR bleibt dabei das Basissystem.
+## Current Status
 
-Die Suite ergänzt VDR, ersetzt ihn jedoch nicht.
+Branch: `phase-2-actions`
 
----
+Current focus: live VDR integration through `vdr-plugin-restfulapi`.
 
-# Projektstatus
+The project is no longer architecture-only. A real VDR system has been reached successfully through the VDR-Suite adapter and service stack.
 
-Aktuelle Phase:
+Validated live stack:
 
-**Phase 0 – Architektur und Planung**
+```text
+VDR
+vdr-plugin-restfulapi
+BasicHttpClient
+RestfulApiVdrAdapter
+VdrService
+VdrOverviewService
+VdrOverviewJsonSerializer
+apps/vdr-probe
+```
 
-Status:
+Validated with:
 
-- Repository erstellt
-- Architektur definiert
-- Datenmodell definiert
-- Service-Layer definiert
-- ADR-System eingeführt
-- Roadmap erstellt
-- Meilensteine definiert
+```text
+vdr-plugin-restfulapi 0.2.6.6
+127.0.0.1:8002
+```
+
+Observed live result:
+
+```text
+Recordings: 973
+Channels: 342
+Events: 37228+
+Timers: 0
+HTTP status: 200
+```
 
-Aktuell befindet sich das Projekt noch vor der eigentlichen Implementierung.
+## Current Capabilities
 
----
+Implemented and tested:
 
-# Langfristige Ziele
+- SQLite database foundation
+- recording, metadata, job and dashboard services
+- REST controller and router foundation
+- daemon runtime foundation
+- HTTP abstraction layer
+- basic HTTP client
+- VDR adapter abstraction
+- mock VDR backend
+- RESTfulAPI VDR adapter
+- RESTfulAPI mappers for status, channels, events, timers and recordings
+- VDR overview aggregation
+- VDR overview JSON serialization
 
-## Core Services
+Validated with a live VDR:
 
-- RecordingService
-- MetadataService
-- ArtworkService
-- JobService
-- SearchService
+- read VDR status
+- read recordings
+- read timers
+- read channels
+- read EPG events
+- build aggregated VDR overview
+- serialize VDR overview as JSON
 
-## Datenhaltung
+## VDR Probe
 
-- zentrale SQLite-Datenbank
-- gemeinsame Metadatenbasis
-- einheitliche Suchfunktionen
+A diagnostic CLI validates the live RESTfulAPI integration path.
 
-## Schnittstellen
+Location:
 
-- REST API
-- OSD Integration
-- WebUI
-- externe Clients
+```text
+apps/vdr-probe
+```
 
-## Medienbereiche
+Build:
 
-- Live-TV
-- Aufnahmen
-- Filme
-- Serien
-- Musik
-- Bilder
+```bash
+cd apps/vdr-probe
+make clean
+make vdr-probe
+```
 
----
+Run:
 
-# Architekturprinzipien
+```bash
+/tmp/vdr-probe
+```
 
-- VDR bleibt das Basissystem
-- Service Layer vor UI
-- API vor WebUI
-- SQLite als zentrale Metadatenquelle
-- OSD als First-Class Citizen
-- lose Kopplung über Services und Adapter
-- langfristige Wartbarkeit vor kurzfristigen Workarounds
+Run with explicit host and port:
 
-Weitere Details:
+```bash
+/tmp/vdr-probe 127.0.0.1 8002
+```
 
-- docs/project-principles.md
-- docs/phase-0/
-- docs/adr/
+## Architecture Principles
 
----
+- VDR remains the primary backend domain.
+- VDR-Suite complements VDR; it does not replace it.
+- RESTfulAPI is currently the most important live integration path.
+- RESTfulAPI details stay behind `RestfulApiVdrAdapter`.
+- Higher layers use `IVdrAdapter`, `VdrService` and domain objects.
+- Source, capability and permission concepts remain separate from VDR configuration.
+- The current implementation may use one local RESTfulAPI backend, but no permanent single-VDR assumption should be introduced.
 
-# Externe Projekte
+Current VDR integration boundary:
 
-Die VDR-Suite integriert bestehende Projekte soweit sinnvoll.
+```text
+Consumer
+VdrService
+IVdrAdapter
+RestfulApiVdrAdapter
+IHttpClient
+RESTfulAPI
+VDR
+```
 
-Aktuell geplant:
+## Repository Structure
 
-## VDR-Rectools
+```text
+core/sqlite        SQLite wrapper and database tests
+core/recordings   recordings, metadata, jobs, actions and dashboard services
+core/http         HTTP abstractions, mock client, basic client and test server
+core/vdr          VDR domain objects, adapters, mappers and overview services
+api/rest          REST controllers and router
+apps/dashboard    dashboard CLI
+apps/daemon       daemon entry point
+apps/vdr-probe    live RESTfulAPI diagnostic CLI
+```
 
-Eigenständiges Repository.
+## External Projects
 
-Integration über Adapter geplant.
+### vdr-plugin-restfulapi
 
-## TVScraper
+Current primary live VDR integration path.
 
-Eigenständiges Repository.
+Implemented read mappings:
 
-Integration über MetadataService geplant.
+```text
+/info.json        -> VdrStatus
+/recordings.json  -> VdrRecording
+/timers.json      -> VdrTimer
+/channels.json    -> VdrChannel
+/events.json      -> VdrEvent
+```
 
----
+### VDR-Rectools
 
-# Roadmap
+Planned as a stable CLI and worker integration for recording maintenance workflows.
 
-## Phase 0
+### TVScraper and scraper integrations
 
-Architektur und Planung
+Planned as metadata and artwork integration points.
 
-## Phase 1
+## Near-Term Direction
 
-Core Foundation
+- continue real RESTfulAPI validation
+- expose live VDR overview through VDR-Suite REST endpoints
+- keep adapter and service boundaries clean
+- improve diagnostics and error handling
+- document live integration behavior as it is validated
 
-- SQLite
-- Core Services
-- Basis-Infrastruktur
+## Documentation
 
-## Phase 2
+Important documentation areas:
 
-Adapter Layer
+```text
+docs/development/current-status.md
+docs/development/live-restfulapi-validation.md
+docs/architecture/restfulapi-integration.md
+docs/adr/
+docs/planning/
+```
 
-- Rectools
-- TVScraper
+## License
 
-## Phase 3
-
-REST API
-
-## Phase 4
-
-Dashboard
-
-## Phase 5
-
-Modernes OSD
-
-## Phase 6
-
-Media Center
-
-Weitere Details:
-
-- docs/planning/roadmap.md
-- docs/planning/milestones.md
-
----
-
-# Dokumentation
-
-## Einstieg
-
-- docs/phase-0/00-overview.md
-
-## Architektur
-
-- docs/phase-0/01-vision.md
-- docs/phase-0/02-architecture.md
-- docs/phase-0/03-data-model.md
-- docs/phase-0/04-service-layer.md
-
-## Entscheidungen
-
-- docs/adr/
-
-## Planung
-
-- docs/planning/
-
----
-
-# Lizenz
-
-Siehe LICENSE.
-
----
-
-# Projektstatus
-
-Dieses Repository befindet sich derzeit im Aufbau.
-
-Architektur und Dokumentation haben aktuell Priorität vor Implementierungscode.
+See `LICENSE`.
