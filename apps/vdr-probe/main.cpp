@@ -37,6 +37,11 @@ int parsePort(const char* value)
     return std::stoi(std::string(value));
 }
 
+void printStep(const std::string& text)
+{
+    std::cout << text << std::endl;
+}
+
 void printRecordingPreview(const std::vector<VdrRecording>& recordings)
 {
     std::cout << "Recordings: " << recordings.size() << std::endl;
@@ -105,7 +110,9 @@ int main(int argc, char** argv)
         VdrOverviewService overviewService(vdrService);
         VdrOverviewJsonSerializer overviewJsonSerializer;
 
+        printStep("Fetching status through VdrService...");
         VdrStatus status = vdrService.getStatus();
+        printStep("Status fetched.");
 
         std::cout << "Parsed VDR status:" << std::endl;
         std::cout << "enabled: " << (status.enabled ? "true" : "false") << std::endl;
@@ -115,11 +122,23 @@ int main(int argc, char** argv)
         std::cout << "state: " << status.state << std::endl;
         std::cout << std::endl;
 
+        printStep("Fetching recordings through VdrService...");
         std::vector<VdrRecording> recordings = vdrService.getRecordings();
-        std::vector<VdrTimer> timers = vdrService.getTimers();
-        std::vector<VdrChannel> channels = vdrService.getChannels();
-        std::vector<VdrEvent> events = vdrService.getEvents();
+        printStep("Recordings fetched.");
 
+        printStep("Fetching timers through VdrService...");
+        std::vector<VdrTimer> timers = vdrService.getTimers();
+        printStep("Timers fetched.");
+
+        printStep("Fetching channels through VdrService...");
+        std::vector<VdrChannel> channels = vdrService.getChannels();
+        printStep("Channels fetched.");
+
+        printStep("Fetching events through VdrService...");
+        std::vector<VdrEvent> events = vdrService.getEvents();
+        printStep("Events fetched.");
+
+        std::cout << std::endl;
         std::cout << "Parsed VDR data:" << std::endl;
         printRecordingPreview(recordings);
         std::cout << "Timers: " << timers.size() << std::endl;
@@ -127,7 +146,9 @@ int main(int argc, char** argv)
         std::cout << "Events: " << events.size() << std::endl;
         std::cout << std::endl;
 
+        printStep("Building VDR overview through VdrOverviewService...");
         VdrOverview overview = overviewService.getOverview();
+        printStep("VDR overview built.");
 
         std::cout << "VDR overview JSON:" << std::endl;
         std::cout << overviewJsonSerializer.serialize(overview) << std::endl;
