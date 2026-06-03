@@ -2,12 +2,11 @@
 
 #include "BasicHttpClient.h"
 #include "RestfulApiVdrAdapter.h"
+#include "SimpleHttpListener.h"
 #include "TestHttpServer.h"
 
-#include <chrono>
 #include <csignal>
 #include <iostream>
-#include <thread>
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
 
@@ -138,8 +137,14 @@ bool DaemonRuntime::initialize()
         std::make_unique<TestHttpServer>(
             *apiRouter_);
 
+    httpListener_ =
+        std::make_unique<SimpleHttpListener>(
+            "127.0.0.1",
+            18080,
+            *httpServer_);
+
     std::cout
-        << "HTTP server runtime initialized"
+        << "HTTP listener runtime initialized"
         << std::endl;
 
     std::cout
@@ -171,20 +176,10 @@ int DaemonRuntime::run()
         << std::endl;
 
     std::cout
-        << "vdr-suite-daemon waiting for shutdown signal"
+        << "vdr-suite-daemon serving HTTP on 127.0.0.1:18080"
         << std::endl;
 
-    while (!shutdownRequested_)
-    {
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(250));
-    }
-
-    std::cout
-        << "vdr-suite-daemon received shutdown signal"
-        << std::endl;
-
-    return 0;
+    return httpListener_->runUntilStopped();
 }
 
 void DaemonRuntime::shutdown()
@@ -194,6 +189,7 @@ void DaemonRuntime::shutdown()
         return;
     }
 
+    httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
 
