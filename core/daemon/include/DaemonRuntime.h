@@ -22,11 +22,11 @@
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
 #include "VdrService.h"
+#include "SimpleHttpListener.h"
 
 #include <atomic>
 #include <memory>
 
-class SimpleHttpListener;
 
 class DaemonRuntime
 {
