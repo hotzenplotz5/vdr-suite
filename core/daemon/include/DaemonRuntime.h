@@ -26,6 +26,8 @@
 #include <atomic>
 #include <memory>
 
+class SimpleHttpListener;
+
 class DaemonRuntime
 {
 public:
@@ -67,6 +69,7 @@ private:
 
     std::unique_ptr<ApiRouter> apiRouter_;
     std::unique_ptr<IHttpServer> httpServer_;
+    std::unique_ptr<SimpleHttpListener> httpListener_;
 
     static std::atomic<bool> shutdownRequested_;
 };
