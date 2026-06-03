@@ -1,7 +1,9 @@
 #include <cassert>
 
 #include "../include/Source.h"
+#include "../include/SourceFactory.h"
 #include "../include/SourceType.h"
+#include "../include/SourceTypeUtils.h"
 #include "../include/VdrChannel.h"
 #include "../include/VdrEvent.h"
 #include "../include/VdrTimer.h"
@@ -15,6 +17,29 @@ int main()
     assert(SourceType::Archive != SourceType::Unknown);
     assert(SourceType::NasImport != SourceType::Unknown);
     assert(SourceType::Mock != SourceType::Unknown);
+
+    assert(toString(SourceType::LocalVdr) == "local-vdr");
+    assert(toString(SourceType::RemoteVdr) == "remote-vdr");
+    assert(toString(SourceType::RemoteSuite) == "remote-suite");
+    assert(toString(SourceType::Archive) == "archive");
+    assert(toString(SourceType::NasImport) == "nas-import");
+    assert(toString(SourceType::Mock) == "mock");
+    assert(toString(SourceType::Unknown) == "unknown");
+
+    assert(sourceTypeFromString("local-vdr") == SourceType::LocalVdr);
+    assert(sourceTypeFromString("remote-vdr") == SourceType::RemoteVdr);
+    assert(sourceTypeFromString("remote-suite") == SourceType::RemoteSuite);
+    assert(sourceTypeFromString("archive") == SourceType::Archive);
+    assert(sourceTypeFromString("nas-import") == SourceType::NasImport);
+    assert(sourceTypeFromString("mock") == SourceType::Mock);
+    assert(sourceTypeFromString("invalid") == SourceType::Unknown);
+
+    Source localVdr = createLocalVdrSource();
+
+    assert(localVdr.id == "local-vdr");
+    assert(localVdr.name == "Local VDR");
+    assert(localVdr.type == SourceType::LocalVdr);
+    assert(localVdr.enabled == true);
 
     Source source;
     source.id = "local-vdr";
