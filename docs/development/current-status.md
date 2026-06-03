@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.36-phase8-daemon-rest-runtime
+v1.38-phase8-test-http-server
 
 Latest Commit:
-b26b11d
+556a680
 
-Phase 8.30: document daemon REST runtime architecture
+Phase 8.32: introduce TestHttpServer runtime implementation
 
 ---
 
@@ -916,9 +916,40 @@ Out of scope:
 
 ---
 
+## Phase 8.32 – TestHttpServer runtime implementation
+
+Implemented:
+
+* TestHttpServer runtime implementation
+* HttpServerRequest to ApiRouter routing
+* ApiResponse to HttpServerResponse mapping
+* GET request handling
+* 404 propagation through ApiRouter
+* 405 handling for unsupported methods
+* Test coverage for TestHttpServer behavior
+
+Files:
+
+* core/http/include/TestHttpServer.h
+* core/http/src/TestHttpServer.cpp
+* core/http/tests/test_test_http_server.cpp
+
+Scope boundary:
+
+* no real network communication
+* no bind()
+* no listen()
+* no accept()
+* no TCP socket handling
+* no HTTP parser
+* no threading
+* no TLS
+
+---
+
 # Last Completed Step
 
-Phase 8.28: introduce HTTP server boundary contract
+Phase 8.32: introduce TestHttpServer runtime implementation
 
 Completed:
 
@@ -951,6 +982,10 @@ Completed:
 * Phase 8.26: daemon VDR runtime integration
 * Phase 8.27: daemon API router integration
 * Phase 8.28: HTTP server boundary contract
+* Phase 8.29: HTTP server boundary architecture documentation
+* Phase 8.30: daemon REST runtime architecture documentation
+* Phase 8.31: test HTTP server architecture documentation
+* Phase 8.32: TestHttpServer runtime implementation
 * Phase 8.29: HTTP server boundary architecture
 * Phase 8.30: daemon REST runtime architecture
 
@@ -969,15 +1004,16 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.31
+Phase 8.33
 
 Candidate:
 
-Test HTTP server runtime.
+DaemonRuntime HTTP server ownership.
 
 Expected direction:
 
-* introduce TestHttpServer
-* route HttpServerRequest through ApiRouter
-* return HttpServerResponse
-* avoid sockets and networking
+* introduce IHttpServer ownership in DaemonRuntime
+* instantiate TestHttpServer from DaemonRuntime
+* keep ApiRouter as the routing boundary
+* keep networking out of scope
+* prepare later replacement by a real HTTP server
