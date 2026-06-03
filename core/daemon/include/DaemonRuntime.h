@@ -13,6 +13,7 @@
 #include "JobsController.h"
 #include "MetadataController.h"
 #include "MetadataRepository.h"
+#include "PollingService.h"
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
 #include "RecordingsController.h"
@@ -22,6 +23,7 @@
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
 #include "VdrService.h"
+#include "VdrSnapshotBuilder.h"
 #include "SimpleHttpListener.h"
 
 #include <atomic>
@@ -63,6 +65,8 @@ private:
     std::unique_ptr<IHttpClient> vdrHttpClient_;
     std::unique_ptr<IVdrAdapter> vdrAdapter_;
     std::unique_ptr<VdrService> vdrService_;
+    std::unique_ptr<VdrSnapshotBuilder> vdrSnapshotBuilder_;
+    std::unique_ptr<PollingService> pollingService_;
     std::unique_ptr<VdrOverviewService> vdrOverviewService_;
     std::unique_ptr<VdrOverviewJsonSerializer> vdrOverviewJsonSerializer_;
     std::unique_ptr<VdrController> vdrController_;
