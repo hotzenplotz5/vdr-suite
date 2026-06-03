@@ -75,6 +75,13 @@ test-vdr-change-event:
 		-o /tmp/test_vdr_change_event
 	/tmp/test_vdr_change_event
 
+test-change-detection-service:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_change_detection_service.cpp \
+		-o /tmp/test_change_detection_service
+	/tmp/test_change_detection_service
+
 test-restful-api-status-mapper:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
