@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.41-phase8-http-server-factory-strategy
+v1.42-phase8-library-first-vdr-architecture
 
 Latest Commit:
-latest commit after phase 8.35
+latest commit after phase 8.36
 
-Phase 8.35: document HTTP server factory strategy
+Phase 8.36: document media platform and Library First VDR architecture
 
 ---
 
@@ -1065,9 +1065,54 @@ Scope boundary:
 
 ---
 
+
+## Phase 8.36 – Media platform and Library First VDR architecture
+
+Implemented:
+
+* media platform comparison documented
+* Plex, Jellyfin, Kodi, Tvheadend and Emby patterns reviewed
+* Library First direction documented
+* VDR-centered interpretation documented
+* Multi-VDR and federation requirements documented
+* remote permission ideas documented
+* future Source, Capability and Permission concepts identified
+
+Files:
+
+* docs/architecture/media-platform-comparison.md
+* docs/adr/ADR-0010-library-first-vdr-architecture.md
+
+Architecture decision:
+
+User
+        ↓
+Library
+        ↓
+Content
+        ↓
+Source
+        ↓
+Backend
+        ↓
+VDR / Remote VDR-Suite / Archive
+
+VDR remains the primary backend domain.
+
+Scope boundary:
+
+* no Library implementation
+* no Source implementation
+* no permission implementation
+* no federation protocol
+* no database schema changes
+* no frontend navigation changes
+
+---
+
 # Last Completed Step
 
-Phase 8.35: document HTTP server factory strategy
+Phase 8.36: document media platform and Library First VDR architecture
 
 Completed:
 
@@ -1107,6 +1152,7 @@ Completed:
 * Phase 8.33: IHttpServer runtime ownership
 * Phase 8.34: RealHttpServer strategy ADR
 * Phase 8.35: HTTP server factory strategy ADR
+* Phase 8.36: media platform comparison and Library First VDR architecture
 
 ---
 
@@ -1123,16 +1169,16 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.36
+Phase 8.37
 
 Candidate:
 
-HttpServerConfig implementation.
+VDR Source model architecture.
 
 Expected direction:
 
-* introduce HttpServerConfig domain/config object
-* define HTTP server mode
-* define host and port defaults
-* keep networking out of scope
-* prepare HttpServerFactory implementation
+* define Source as a future core domain concept
+* keep VDR as the primary backend type
+* prepare capability and permission model
+* support future multi-VDR and federation use cases
+* avoid premature database schema changes
