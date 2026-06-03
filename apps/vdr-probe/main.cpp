@@ -2,13 +2,18 @@
 #include "HttpRequest.h"
 #include "HttpResponse.h"
 #include "RestfulApiVdrAdapter.h"
+#include "VdrChannel.h"
 #include "VdrConfig.h"
+#include "VdrEvent.h"
+#include "VdrRecording.h"
 #include "VdrStatus.h"
+#include "VdrTimer.h"
 
 #include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -26,6 +31,25 @@ std::string previewBody(const std::string& body)
 int parsePort(const char* value)
 {
     return std::stoi(std::string(value));
+}
+
+void printRecordingPreview(const std::vector<VdrRecording>& recordings)
+{
+    std::cout << "Recordings: " << recordings.size() << std::endl;
+
+    if (recordings.empty()) {
+        return;
+    }
+
+    const VdrRecording& firstRecording = recordings.front();
+
+    std::cout << "First recording:" << std::endl;
+    std::cout << "  id: " << firstRecording.id << std::endl;
+    std::cout << "  title: " << firstRecording.title << std::endl;
+    std::cout << "  path: " << firstRecording.path << std::endl;
+    std::cout << "  startTime: " << firstRecording.startTime << std::endl;
+    std::cout << "  durationSeconds: " << firstRecording.durationSeconds << std::endl;
+    std::cout << "  sizeMb: " << firstRecording.sizeMb << std::endl;
 }
 
 } // namespace
@@ -81,6 +105,18 @@ int main(int argc, char** argv)
         std::cout << "host: " << status.host << std::endl;
         std::cout << "port: " << status.port << std::endl;
         std::cout << "state: " << status.state << std::endl;
+        std::cout << std::endl;
+
+        std::vector<VdrRecording> recordings = adapter.getRecordings();
+        std::vector<VdrTimer> timers = adapter.getTimers();
+        std::vector<VdrChannel> channels = adapter.getChannels();
+        std::vector<VdrEvent> events = adapter.getEvents();
+
+        std::cout << "Parsed VDR data:" << std::endl;
+        printRecordingPreview(recordings);
+        std::cout << "Timers: " << timers.size() << std::endl;
+        std::cout << "Channels: " << channels.size() << std::endl;
+        std::cout << "Events: " << events.size() << std::endl;
 
         return response.statusCode == 200 ? 0 : 2;
     } catch (const std::exception& ex) {
