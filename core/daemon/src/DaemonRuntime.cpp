@@ -105,6 +105,20 @@ bool DaemonRuntime::initialize()
         std::make_unique<VdrService>(
             *vdrAdapter_);
 
+    vdrSnapshotBuilder_ =
+        std::make_unique<VdrSnapshotBuilder>(
+            *vdrService_);
+
+    pollingService_ =
+        std::make_unique<PollingService>(
+            *vdrSnapshotBuilder_);
+
+    pollingService_->poll();
+
+    std::cout
+        << "VDR snapshot runtime initialized"
+        << std::endl;
+
     vdrOverviewService_ =
         std::make_unique<VdrOverviewService>(
             *vdrService_);
@@ -200,6 +214,8 @@ void DaemonRuntime::shutdown()
     vdrController_.reset();
     vdrOverviewJsonSerializer_.reset();
     vdrOverviewService_.reset();
+    pollingService_.reset();
+    vdrSnapshotBuilder_.reset();
     vdrService_.reset();
     vdrAdapter_.reset();
     vdrHttpClient_.reset();
