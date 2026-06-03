@@ -5,7 +5,11 @@
 #include "VdrChannel.h"
 #include "VdrConfig.h"
 #include "VdrEvent.h"
+#include "VdrOverview.h"
+#include "VdrOverviewJsonSerializer.h"
+#include "VdrOverviewService.h"
 #include "VdrRecording.h"
+#include "VdrService.h"
 #include "VdrStatus.h"
 #include "VdrTimer.h"
 
@@ -97,7 +101,11 @@ int main(int argc, char** argv)
         config.port = port;
 
         RestfulApiVdrAdapter adapter(config, httpClient);
-        VdrStatus status = adapter.getStatus();
+        VdrService vdrService(adapter);
+        VdrOverviewService overviewService(vdrService);
+        VdrOverviewJsonSerializer overviewJsonSerializer;
+
+        VdrStatus status = vdrService.getStatus();
 
         std::cout << "Parsed VDR status:" << std::endl;
         std::cout << "enabled: " << (status.enabled ? "true" : "false") << std::endl;
@@ -107,16 +115,22 @@ int main(int argc, char** argv)
         std::cout << "state: " << status.state << std::endl;
         std::cout << std::endl;
 
-        std::vector<VdrRecording> recordings = adapter.getRecordings();
-        std::vector<VdrTimer> timers = adapter.getTimers();
-        std::vector<VdrChannel> channels = adapter.getChannels();
-        std::vector<VdrEvent> events = adapter.getEvents();
+        std::vector<VdrRecording> recordings = vdrService.getRecordings();
+        std::vector<VdrTimer> timers = vdrService.getTimers();
+        std::vector<VdrChannel> channels = vdrService.getChannels();
+        std::vector<VdrEvent> events = vdrService.getEvents();
 
         std::cout << "Parsed VDR data:" << std::endl;
         printRecordingPreview(recordings);
         std::cout << "Timers: " << timers.size() << std::endl;
         std::cout << "Channels: " << channels.size() << std::endl;
         std::cout << "Events: " << events.size() << std::endl;
+        std::cout << std::endl;
+
+        VdrOverview overview = overviewService.getOverview();
+
+        std::cout << "VDR overview JSON:" << std::endl;
+        std::cout << overviewJsonSerializer.serialize(overview) << std::endl;
 
         return response.statusCode == 200 ? 0 : 2;
     } catch (const std::exception& ex) {
