@@ -15,12 +15,12 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 phase-2-actions
 
 Latest Tag:
-v1.38-phase8-test-http-server
+v1.39-phase8-http-server-runtime-ownership
 
 Latest Commit:
-556a680
+latest commit after phase 8.33
 
-Phase 8.32: introduce TestHttpServer runtime implementation
+Phase 8.33: introduce IHttpServer runtime ownership
 
 ---
 
@@ -947,9 +947,49 @@ Scope boundary:
 
 ---
 
+
+## Phase 8.33 – IHttpServer runtime ownership
+
+Implemented:
+
+* IHttpServer ownership in DaemonRuntime
+* TestHttpServer runtime integration
+* Runtime lifecycle integration
+* HTTP runtime startup sequence
+* HTTP runtime shutdown sequence
+* ApiRouter ownership boundary preserved
+
+Files:
+
+* core/daemon/include/DaemonRuntime.h
+* core/daemon/src/DaemonRuntime.cpp
+* Makefile
+
+Architecture:
+
+DaemonRuntime
+        ↓ owns
+IHttpServer
+        ↓
+TestHttpServer
+        ↓
+ApiRouter
+
+Scope boundary:
+
+* no TCP
+* no bind()
+* no listen()
+* no accept()
+* no HTTP parser
+* no TLS
+* no threading
+
+---
+
 # Last Completed Step
 
-Phase 8.32: introduce TestHttpServer runtime implementation
+Phase 8.33: introduce IHttpServer runtime ownership
 
 Completed:
 
@@ -986,8 +1026,7 @@ Completed:
 * Phase 8.30: daemon REST runtime architecture documentation
 * Phase 8.31: test HTTP server architecture documentation
 * Phase 8.32: TestHttpServer runtime implementation
-* Phase 8.29: HTTP server boundary architecture
-* Phase 8.30: daemon REST runtime architecture
+* Phase 8.33: IHttpServer runtime ownership
 
 ---
 
@@ -1004,16 +1043,16 @@ Completed:
 
 ## Next Planned Step
 
-Phase 8.33
+Phase 8.34
 
 Candidate:
 
-DaemonRuntime HTTP server ownership.
+HTTP runtime integration validation.
 
 Expected direction:
 
-* introduce IHttpServer ownership in DaemonRuntime
-* instantiate TestHttpServer from DaemonRuntime
-* keep ApiRouter as the routing boundary
+* verify daemon runtime startup sequence
+* verify HTTP runtime lifecycle
+* review runtime ownership boundaries
 * keep networking out of scope
-* prepare later replacement by a real HTTP server
+* prepare future RealHttpServer integration

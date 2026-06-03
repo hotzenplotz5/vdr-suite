@@ -6,6 +6,7 @@
 #include "DashboardJsonSerializer.h"
 #include "Database.h"
 #include "IVdrAdapter.h"
+#include "IHttpServer.h"
 #include "JobDashboardService.h"
 #include "JobRepository.h"
 #include "JobsController.h"
@@ -63,6 +64,7 @@ private:
     std::unique_ptr<VdrController> vdrController_;
 
     std::unique_ptr<ApiRouter> apiRouter_;
+    std::unique_ptr<IHttpServer> httpServer_;
 
     static std::atomic<bool> shutdownRequested_;
 };

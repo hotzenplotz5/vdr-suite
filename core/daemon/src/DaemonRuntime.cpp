@@ -1,6 +1,7 @@
 #include "DaemonRuntime.h"
 
 #include "VdrAdapterFactory.h"
+#include "TestHttpServer.h"
 
 #include <chrono>
 #include <csignal>
@@ -125,6 +126,14 @@ bool DaemonRuntime::initialize()
         << "API router runtime initialized"
         << std::endl;
 
+    httpServer_ =
+        std::make_unique<TestHttpServer>(
+            *apiRouter_);
+
+    std::cout
+        << "HTTP server runtime initialized"
+        << std::endl;
+
     std::cout
         << "dashboard runtime initialized"
         << std::endl;
@@ -177,7 +186,12 @@ void DaemonRuntime::shutdown()
         return;
     }
 
+    httpServer_.reset();
     apiRouter_.reset();
+
+    std::cout
+        << "HTTP server runtime stopped"
+        << std::endl;
 
     vdrController_.reset();
     vdrOverviewJsonSerializer_.reset();
