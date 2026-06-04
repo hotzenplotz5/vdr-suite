@@ -82,6 +82,13 @@ test-change-detection-service:
 		-o /tmp/test_change_detection_service
 	/tmp/test_change_detection_service
 
+test-snapshot-refresh-decision-service:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_snapshot_refresh_decision_service.cpp \
+		-o /tmp/test_snapshot_refresh_decision_service
+	/tmp/test_snapshot_refresh_decision_service
+
 test-restful-api-status-mapper:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \

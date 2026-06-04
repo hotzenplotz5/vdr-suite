@@ -16,4 +16,6 @@ VDR_SRC := \
         core/vdr/src/VdrChangeState.cpp \
         core/vdr/src/VdrChangeEvent.cpp \
         core/vdr/src/ChangeDetectionService.cpp \
+        core/vdr/src/SnapshotRefreshDecision.cpp \
+        core/vdr/src/SnapshotRefreshDecisionService.cpp \
         core/vdr/src/VdrAdapterFactory.cpp

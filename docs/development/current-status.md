@@ -18,17 +18,18 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 
 ## Current Verified Head
 
-`a1a939d`
+`latest commit after phase 8.92`
 
-Phase 8.90: integrate change-state polling service.
+Phase 8.92: introduce snapshot refresh decision model.
 
 Latest milestone tag:
 
-`v1.90-phase8-change-state-polling-service`
+`v1.92-phase8-snapshot-refresh-decision`
 
 Verified locally with:
 
 ```bash
+make test-snapshot-refresh-decision-service
 make test-polling-service
 make test
 ```
@@ -58,6 +59,8 @@ Latest verified implementation state:
 - Phase 8.88: read RESTfulAPI `/change-state.json` endpoint
 - Phase 8.89: add RESTfulAPI change-state adapter tests and include them in the global test suite
 - Phase 8.90: integrate change-state polling service
+- Phase 8.93: introduce snapshot cache model
+- Phase 8.92: introduce snapshot refresh decision model
 
 ---
 
@@ -111,6 +114,8 @@ Implemented:
 - `VdrChangeState`
 - `VdrChangeEvent`
 - `ChangeDetectionService`
+- `SnapshotRefreshDecision`
+- `SnapshotRefreshDecisionService`
 - `IVdrAdapter::getChangeState()`
 - `VdrService::getChangeState()`
 - `MockVdrAdapter::getChangeState()`
@@ -135,7 +140,10 @@ Polling integration:
 - `PollingService` now reads `VdrService::getChangeState()` before refresh decisions
 - first poll always builds an initial snapshot
 - unchanged change-state keeps the existing snapshot
-- changed change-state triggers a snapshot rebuild through `VdrSnapshotBuilder`
+- changed change-state is converted into `VdrChangeEvent` entries
+- `SnapshotRefreshDecisionService` converts change events into refresh decisions
+- current refresh decisions support `NoRefresh` and `FullRefresh`
+- full refresh decisions trigger a snapshot rebuild through `VdrSnapshotBuilder`
 - `DaemonRuntime` now initializes `PollingService` with `VdrSnapshotBuilder` and `VdrService`
 
 Verified targets include:
@@ -143,9 +151,11 @@ Verified targets include:
 ```bash
 make daemon
 make test-vdr-snapshot-builder
+make test-snapshot-refresh-decision-service
 make test-polling-service
 make test-vdr-change-state
 make test-change-detection-service
+make test-snapshot-refresh-decision-service
 make test-restful-api-vdr-adapter
 make test-restful-api-change-state-adapter
 make test
@@ -207,38 +217,39 @@ The unversioned local directory `vdr-suite-integration-lab/` exists in the worki
 
 ## Next Planned Phase
 
-### Phase 8.91 – Change event generation integration
+### Phase 8.93 – Snapshot cache model
 
 Scope:
 
-- expose or preserve generated `VdrChangeEvent` objects from polling
-- prepare backend-neutral change-event flow for future snapshot cache updates
-- keep the implementation compatible with future BackendId and lifecycle-aware event delivery
-- avoid introducing federation, capability or stream-provider runtime objects prematurely
+- introduce a daemon-owned snapshot cache model
+- keep cache storage separate from refresh decisions
+- prepare future BackendId-aware cache storage
+- avoid introducing federation, SSE or WebSocket runtime objects prematurely
 
 Required verification:
 
 ```bash
+make test-snapshot-refresh-decision-service
+make test-snapshot-refresh-decision-service
 make test-polling-service
-make test-change-detection-service
 make test
 ```
 
 Commit target:
 
 ```text
-Phase 8.91: integrate change event generation
+Phase 8.93: introduce snapshot cache model
 ```
 
 ---
 
 ## Upcoming Phases
 
-### Phase 8.92 – Snapshot refresh decision model
+### Phase 8.94 – Snapshot cache integration
 
-Separate change detection from refresh decisions so later partial snapshot refreshes can be introduced cleanly.
+Integrate snapshot cache access into polling and daemon runtime after the cache model is stable.
 
-### Phase 8.93 – Snapshot cache foundation
+### Phase 8.95 – Snapshot-backed API responses
 
 Introduce daemon-owned snapshot cache access as the basis for snapshot-backed API responses.
 
