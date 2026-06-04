@@ -1,6 +1,9 @@
 #pragma once
 
 #include "IVdrAdapter.h"
+#include "IRuntimeLogger.h"
+#include "RuntimeLogEntry.h"
+#include "RuntimeLogLevel.h"
 #include "VdrChangeState.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
@@ -13,7 +16,7 @@
 class VdrService
 {
 public:
-    explicit VdrService(IVdrAdapter& adapter);
+    explicit VdrService(IVdrAdapter& adapter, IRuntimeLogger* logger = nullptr);
 
     VdrStatus getStatus() const;
     std::vector<VdrChannel> getChannels() const;
@@ -24,4 +27,7 @@ public:
 
 private:
     IVdrAdapter& adapter_;
+    IRuntimeLogger* logger_;
+
+    void log(RuntimeLogLevel level, const std::string& message) const;
 };
