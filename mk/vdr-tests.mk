@@ -192,3 +192,12 @@ test-local-restfulapi-integration:
 		core/vdr/tests/test_local_restfulapi_integration.cpp \
 		-o /tmp/test_local_restfulapi_integration
 	/tmp/test_local_restfulapi_integration
+
+test-local-snapshot-runtime-integration:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/http/src/BasicHttpClient.cpp \
+		core/http/src/MockHttpClient.cpp \
+		core/vdr/tests/test_local_snapshot_runtime_integration.cpp \
+		-o /tmp/test_local_snapshot_runtime_integration
+	/tmp/test_local_snapshot_runtime_integration
