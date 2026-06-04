@@ -58,7 +58,7 @@ Core architecture documents:
 - [Snapshot Architecture](architecture/snapshot-architecture.md)
 - [Snapshot Access Architecture](architecture/snapshot-access-architecture.md)
 - [Internal Event Dispatch Architecture](architecture/internal-event-dispatch-architecture.md)
-- [Partial Snapshot Refresh Architecture](architecture/partial-snapshot-refresh-architecture.md)
+- [Partial Snapshot Refresh Architecture](architecture/partial-snapshot-refresh-architecture.md) – Phase 9 runtime plan integration completed
 - [Media Platform Comparison](architecture/media-platform-comparison.md)
 
 Phase-specific architecture notes:
