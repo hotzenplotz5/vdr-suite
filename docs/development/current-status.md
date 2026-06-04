@@ -24,7 +24,7 @@ Phase 8.92: introduce snapshot refresh decision model.
 
 Latest milestone tag:
 
-`v1.92-phase8-snapshot-refresh-decision`
+`v1.93-phase8-snapshot-cache-model`
 
 Verified locally with:
 
@@ -218,6 +218,15 @@ The unversioned local directory `vdr-suite-integration-lab/` exists in the worki
 ## Next Planned Phase
 
 ### Phase 8.93 – Snapshot cache model
+
+Implemented:
+
+- SnapshotCache
+- SnapshotCacheService
+- snapshot cache tests
+- snapshot cache service tests
+- build integration
+
 
 Scope:
 
