@@ -11,6 +11,7 @@
 #include "VdrStatus.h"
 #include "VdrTimer.h"
 
+#include <string>
 #include <vector>
 
 class VdrService
