@@ -111,7 +111,8 @@ bool DaemonRuntime::initialize()
 
     pollingService_ =
         std::make_unique<PollingService>(
-            *vdrSnapshotBuilder_);
+            *vdrSnapshotBuilder_,
+            *vdrService_);
 
     pollingService_->poll();
 

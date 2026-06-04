@@ -29,3 +29,8 @@ std::vector<VdrRecording> VdrService::getRecordings() const
 {
     return adapter_.getRecordings();
 }
+
+VdrChangeState VdrService::getChangeState() const
+{
+    return adapter_.getChangeState();
+}

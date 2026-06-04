@@ -1,13 +1,16 @@
 #ifndef POLLING_SERVICE_H
 #define POLLING_SERVICE_H
 
+#include "ChangeDetectionService.h"
+#include "VdrChangeState.h"
 #include "VdrSnapshot.h"
 
+class VdrService;
 class VdrSnapshotBuilder;
 
 class PollingService {
 public:
-    explicit PollingService(VdrSnapshotBuilder& snapshotBuilder);
+    PollingService(VdrSnapshotBuilder& snapshotBuilder, VdrService& vdrService);
 
     void poll();
 
@@ -15,6 +18,10 @@ public:
 
 private:
     VdrSnapshotBuilder& snapshotBuilder_;
+    VdrService& vdrService_;
+    ChangeDetectionService changeDetectionService_;
+    VdrChangeState lastChangeState_;
+    bool hasChangeState_;
     VdrSnapshot snapshot_;
 };
 
