@@ -18,13 +18,14 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 
 ## Current Verified Head
 
-`5fab49d`
+`160d9ee`
 
-Phase 8.88: read RESTfulAPI change-state endpoint.
+Phase 8.89: include change-state adapter test in suite.
 
 Verified locally with:
 
 ```bash
+make test-restful-api-change-state-adapter
 make test
 ```
 
@@ -51,6 +52,7 @@ Latest verified implementation state:
 - Phase 8.86: add change-state support to `MockVdrAdapter` and `ExternalVdrAdapter`
 - Phase 8.87: add and stub RESTfulAPI change-state support
 - Phase 8.88: read RESTfulAPI `/change-state.json` endpoint
+- Phase 8.89: add RESTfulAPI change-state adapter tests and include them in the global test suite
 
 ---
 
@@ -111,6 +113,8 @@ RESTfulAPI integration:
 
 - `RestfulApiVdrAdapter` now requests `GET /change-state.json`
 - the response is mapped into `VdrChangeState`
+- dedicated adapter tests verify parsing, endpoint selection, HTTP error handling and invalid/incomplete JSON handling
+- the dedicated change-state adapter test is part of the global `make test` suite
 - supported fields:
   - `statusVersion`
   - `channelsVersion`
@@ -127,6 +131,7 @@ make test-polling-service
 make test-vdr-change-state
 make test-change-detection-service
 make test-restful-api-vdr-adapter
+make test-restful-api-change-state-adapter
 make test
 ```
 
@@ -154,6 +159,26 @@ The adapter tolerates HTTP errors or malformed/missing fields by returning a def
 
 ---
 
+## Architecture Decisions
+
+Accepted ADRs:
+
+- ADR-001 Backend Identity Strategy
+- ADR-002 Backend Federation Strategy
+- ADR-003 Backend Capability Strategy
+- ADR-004 Backend Lifecycle Strategy
+- ADR-005 Stream Provider Strategy
+
+Architectural impact:
+
+- future backends must not be identified by hostnames or IP addresses alone
+- future multi-VDR support requires stable backend identity and backend federation
+- frontends should query backend capabilities instead of checking backend implementation types
+- backend lifecycle states must be considered by future polling, snapshot and event-delivery logic
+- stream handling must remain backend-neutral and must not permanently assume DVB/VDR as the only source
+
+---
+
 ## Current Known Technical Debt
 
 Current change-state parsing inside `RestfulApiVdrAdapter` uses a small local integer-field parser.
@@ -166,35 +191,32 @@ The unversioned local directory `vdr-suite-integration-lab/` exists in the worki
 
 ## Next Planned Phase
 
-### Phase 8.89 – RESTfulAPI change-state adapter tests
+### Phase 8.90 – PollingService change-state integration
 
 Scope:
 
-- add tests for successful `/change-state.json` parsing
-- verify `statusVersion`, `channelsVersion`, `recordingsVersion`, `timersVersion`, and `eventsVersion`
-- verify HTTP error handling returns an empty change state
-- verify invalid or incomplete JSON is tolerated
+- use `IVdrAdapter::getChangeState()` inside `PollingService`
+- compare previous and current `VdrChangeState` snapshots
+- prepare snapshot refresh decisions based on lightweight backend change information
+- keep the implementation compatible with future BackendId and lifecycle-aware polling
 
 Required verification:
 
 ```bash
-make test-restful-api-vdr-adapter
+make test-polling-service
+make test-change-detection-service
 make test
 ```
 
 Commit target:
 
 ```text
-Phase 8.89: add RESTfulAPI change-state adapter tests
+Phase 8.90: integrate change-state polling service
 ```
 
 ---
 
 ## Upcoming Phases
-
-### Phase 8.90 – PollingService change-state integration
-
-Use `IVdrAdapter::getChangeState()` inside `PollingService` so snapshot refreshes can be driven by lightweight backend change information.
 
 ### Phase 8.91 – ChangeDetectionService integration
 
@@ -211,6 +233,8 @@ Generate `VdrChangeEvent` objects from detected backend changes for future live 
 - SSE/WebSocket live update transport
 - multi-VDR backend identity and routing
 - backend-owned capability model for permission-aware frontends
+- backend lifecycle handling for offline/reconnecting/failed/disabled states
+- backend-neutral stream provider integration
 
 ---
 
@@ -223,16 +247,13 @@ See:
 - `docs/development/completed-phases.md`
 - `docs/development/milestones.md`
 - `docs/architecture/snapshot-architecture.md`
+- `docs/adr/adr-001-backend-identity-strategy.md`
+- `docs/adr/adr-002-backend-federation-strategy.md`
+- `docs/adr/adr-003-backend-capability-strategy.md`
+- `docs/adr/adr-004-backend-lifecycle-strategy.md`
+- `docs/adr/adr-005-stream-provider-strategy.md`
 
 ---
-
-
-## Architecture Decisions
-
-- ADR-001 Backend Identity Strategy
-- ADR-002 Backend Federation Strategy
-- ADR-003 Backend Capability Strategy
-- ADR-004 Backend Lifecycle Strategy
 
 ## Project Rules
 
