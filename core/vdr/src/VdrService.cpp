@@ -12,7 +12,7 @@ void VdrService::log(RuntimeLogLevel level, const std::string& message) const
         return;
     }
 
-    logger_->log(RuntimeLogEntry{level, "VdrService", message});
+    logger_->write(RuntimeLogEntry{level, "VdrService", message});
 }
 
 VdrStatus VdrService::getStatus() const
