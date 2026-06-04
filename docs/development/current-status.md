@@ -18,22 +18,21 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 
 ## Current Verified Head
 
-`06667cf`
+`5fab49d`
 
-Fix modular Makefile include conversion.
+Phase 8.88: read RESTfulAPI change-state endpoint.
 
-Documentation split commits after that head:
+Verified locally with:
 
-- `557545e` – Docs: update README after snapshot architecture introduction
-- `dc000eb` – Docs: split completed phase history from current status
-- `15c7e67` – Docs: split milestone history from current status
-- `e668287` – Docs: add snapshot architecture document
+```bash
+make test
+```
 
 ---
 
 ## Last Completed Development State
 
-Latest verified implementation state before the documentation split:
+Latest verified implementation state:
 
 - Phase 8.69: PollingService interface
 - Phase 8.70: PollingService implementation
@@ -44,32 +43,41 @@ Latest verified implementation state before the documentation split:
 - Phase 8.77: extract recording source lists into make include
 - Phase 8.78: extract action and job source lists into make include
 - Phase 8.79: initial root Makefile include conversion
-- Fix: `06667cf` – Fix modular Makefile include conversion
+- Phase 8.80: remove duplicate VDR test targets
+- Phase 8.81: initialize `PollingService` in `DaemonRuntime`
+- Phase 8.82: introduce `VdrChangeState` and `VdrChangeEvent`
+- Phase 8.84: introduce `ChangeDetectionService`
+- Phase 8.85: add change-state contract to `IVdrAdapter`
+- Phase 8.86: add change-state support to `MockVdrAdapter` and `ExternalVdrAdapter`
+- Phase 8.87: add and stub RESTfulAPI change-state support
+- Phase 8.88: read RESTfulAPI `/change-state.json` endpoint
 
 ---
 
 ## Current Architecture Direction
 
-VDR-Suite is moving from live RESTfulAPI access per API request toward a daemon-owned snapshot architecture.
+VDR-Suite is moving from live RESTfulAPI access per API request toward a daemon-owned snapshot and change-detection architecture.
 
 Current target chain:
 
 ```text
 RESTfulAPI
     ↓
+/change-state.json
+    ↓
 RestfulApiVdrAdapter
     ↓
-IVdrAdapter
+VdrChangeState
     ↓
-VdrService
-    ↓
-VdrSnapshotBuilder
+ChangeDetectionService
     ↓
 PollingService
     ↓
+VdrSnapshotBuilder
+    ↓
 Snapshot Cache
     ↓
-API Responses
+API Responses / future live updates
 ```
 
 Purpose:
@@ -77,80 +85,132 @@ Purpose:
 - keep RESTfulAPI behind the adapter boundary
 - avoid repeated live RESTfulAPI calls per API request
 - prepare daemon-owned refresh cycles
+- prepare efficient polling based on lightweight change-state checks
+- prepare future SSE/WebSocket update delivery
 - prepare future multi-VDR and permission-aware designs
 - keep API controllers backend-independent
 
 ---
 
-## Implemented Snapshot Components
+## Implemented Snapshot and Change-State Components
 
 Implemented:
 
 - `VdrSnapshot`
 - `VdrSnapshotBuilder`
 - `PollingService`
+- `VdrChangeState`
+- `VdrChangeEvent`
+- `ChangeDetectionService`
+- `IVdrAdapter::getChangeState()`
+- `MockVdrAdapter::getChangeState()`
+- `ExternalVdrAdapter::getChangeState()`
+- `RestfulApiVdrAdapter::getChangeState()`
 
-Verified targets:
+RESTfulAPI integration:
+
+- `RestfulApiVdrAdapter` now requests `GET /change-state.json`
+- the response is mapped into `VdrChangeState`
+- supported fields:
+  - `statusVersion`
+  - `channelsVersion`
+  - `recordingsVersion`
+  - `timersVersion`
+  - `eventsVersion`
+
+Verified targets include:
 
 ```bash
 make daemon
 make test-vdr-snapshot-builder
 make test-polling-service
+make test-vdr-change-state
+make test-change-detection-service
+make test-restful-api-vdr-adapter
+make test
 ```
+
+---
+
+## RESTfulAPI Patch Dependency
+
+VDR-Suite can consume `/change-state.json` through `RestfulApiVdrAdapter`.
+
+The endpoint is provided by the patched RESTfulAPI fork/branch and has also been submitted upstream as a pull request.
+
+Expected RESTfulAPI response shape:
+
+```json
+{
+  "statusVersion": 0,
+  "channelsVersion": 2,
+  "recordingsVersion": 0,
+  "timersVersion": 0,
+  "eventsVersion": 0
+}
+```
+
+The adapter tolerates HTTP errors or malformed/missing fields by returning a default empty `VdrChangeState`.
 
 ---
 
 ## Current Known Technical Debt
 
-Duplicate target warnings exist because VDR test targets currently exist in two places:
+Current change-state parsing inside `RestfulApiVdrAdapter` uses a small local integer-field parser.
 
-```text
-Makefile
-mk/vdr-tests.mk
-```
+This is acceptable for the current minimal endpoint shape, but may later be replaced by a dedicated mapper if the endpoint grows or more RESTfulAPI JSON parsing is consolidated.
 
-The build works, but the duplicate root Makefile VDR targets must be removed.
+The unversioned local directory `vdr-suite-integration-lab/` exists in the working tree and is intentionally not part of the repository state.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 8.80 – remove duplicate VDR test targets
+### Phase 8.89 – RESTfulAPI change-state adapter tests
 
 Scope:
 
-- remove VDR test targets from root `Makefile`
-- keep canonical VDR test targets in `mk/vdr-tests.mk`
-- keep build functional
+- add tests for successful `/change-state.json` parsing
+- verify `statusVersion`, `channelsVersion`, `recordingsVersion`, `timersVersion`, and `eventsVersion`
+- verify HTTP error handling returns an empty change state
+- verify invalid or incomplete JSON is tolerated
 
 Required verification:
 
 ```bash
-make daemon
+make test-restful-api-vdr-adapter
 make test
 ```
 
 Commit target:
 
 ```text
-Phase 8.80: remove duplicate VDR test targets
+Phase 8.89: add RESTfulAPI change-state adapter tests
 ```
 
 ---
 
 ## Upcoming Phases
 
-### Phase 8.81 – PollingService integration in DaemonRuntime
+### Phase 8.90 – PollingService change-state integration
 
-Integrate `PollingService` into daemon runtime wiring.
+Use `IVdrAdapter::getChangeState()` inside `PollingService` so snapshot refreshes can be driven by lightweight backend change information.
 
-### Phase 8.82 – Snapshot refresh cycle
+### Phase 8.91 – ChangeDetectionService integration
 
-Introduce periodic snapshot refresh.
+Compare previous and current `VdrChangeState` objects and classify which backend domains changed.
 
-### Phase 8.83 – Daemon snapshot cache
+### Phase 8.92 – VdrChangeEvent generation
 
-Introduce daemon-owned snapshot cache access for future API responses.
+Generate `VdrChangeEvent` objects from detected backend changes for future live update delivery.
+
+### Later Phases
+
+- daemon-owned snapshot cache access
+- API responses from daemon snapshot cache
+- SSE/WebSocket live update transport
+- multi-VDR backend identity and routing
+- backend-owned capability model for permission-aware frontends
 
 ---
 
