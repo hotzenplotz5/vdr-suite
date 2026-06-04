@@ -5,6 +5,7 @@ include mk/action-job-sources.mk
 include mk/rest-sources.mk
 include mk/vdr-sources.mk
 include mk/http-sources.mk
+include mk/runtime-sources.mk
 include mk/daemon-sources.mk
 
 
