@@ -6,7 +6,7 @@ This document reviews and defines the architecture direction for partial snapsho
 
 The goal is to avoid rebuilding the complete VDR snapshot when only one backend domain changed.
 
-The Phase 9 foundation is now partially implemented. The runtime already creates `SnapshotUpdatePlan` values during polling, but still executes a full snapshot refresh when the plan contains refresh work.
+The Phase 9 partial refresh runtime is now implemented for the current single-backend snapshot path. The runtime creates `SnapshotUpdatePlan` values during polling and executes them through domain-specific builder reads and cache service updates.
 
 ---
 
@@ -25,16 +25,19 @@ SnapshotRefreshPlanner
     ↓
 SnapshotUpdatePlan
     ↓
-Full snapshot refresh execution
+Plan execution
+        ├─ buildStatus()     -> updateStatus()
+        ├─ buildRecordings() -> updateRecordings()
+        ├─ buildTimers()     -> updateTimers()
+        ├─ buildChannels()   -> updateChannels()
+        └─ buildEvents()     -> updateEvents()
     ↓
-VdrSnapshotBuilder::buildSnapshot()
-    ↓
-SnapshotCacheService::updateSnapshot(snapshot)
+SnapshotCacheService
     ↓
 SnapshotCache
 ```
 
-The current runtime plan model supports domain refresh flags for:
+The runtime plan model supports domain refresh flags for:
 
 ```text
 refreshStatus
@@ -45,7 +48,7 @@ refreshEvents
 requiresFullSnapshot
 ```
 
-Any detected change currently creates a domain-aware `SnapshotUpdatePlan`, but execution still falls back to a full snapshot rebuild.
+Detected backend-domain changes now create a domain-aware `SnapshotUpdatePlan`, and the plan is executed domain-by-domain.
 
 ---
 
@@ -110,20 +113,21 @@ Implemented:
   - `clear()`
 - runtime creation of `SnapshotUpdatePlan` values inside `PollingService`
 - `PollingService::lastUpdatePlan()` for test and diagnostic visibility
+- domain-by-domain execution of generated update plans
+- full snapshot behavior for first poll and future recovery paths
 
 Pending:
 
-- executing generated update plans domain-by-domain
-- keeping full refresh behavior for first poll and future recovery paths
+- optional local VDR integration tests
 - backend-context wrapping for future multi-VDR support
 
 ---
 
 ## Target Direction
 
-The target direction is to execute generated update plans instead of rebuilding the complete snapshot for every backend-domain change.
+The Phase 9 target direction has been reached for the current single-backend runtime path: generated update plans are executed instead of rebuilding the complete snapshot for every backend-domain change.
 
-Conceptual target flow:
+Implemented runtime flow:
 
 ```text
 VdrChangeEvent[]
@@ -138,8 +142,6 @@ SnapshotCacheService domain updates
     ↓
 SnapshotCache
 ```
-
-The plan represents which snapshot domains need to be refreshed.
 
 Example:
 
@@ -221,7 +223,7 @@ These dependency rules should belong to the refresh planner, not to `PollingServ
 
 ## Builder Implications
 
-The builder now supports domain-specific reads while preserving the existing complete build operation.
+The builder supports domain-specific reads while preserving the existing complete build operation.
 
 Implemented operations:
 
@@ -249,7 +251,7 @@ Domain build operations support partial updates.
 
 The cache continues to own one coherent `VdrSnapshot` per backend runtime.
 
-Partial refresh should update selected domains inside the cached snapshot.
+Partial refresh updates selected domains inside the cached snapshot.
 
 Implemented service operations:
 
@@ -271,7 +273,7 @@ The cache service owns these operations rather than letting higher layers mutate
 
 ## Runtime Integration Status
 
-`PollingService` now creates update plans during the productive polling path:
+`PollingService` creates and executes update plans during the productive polling path:
 
 ```text
 PollingService
@@ -283,31 +285,33 @@ VdrChangeEvent[]
 SnapshotRefreshPlanner
     ↓
 SnapshotUpdatePlan
+    ↓
+Domain-specific plan execution
 ```
 
-When the plan contains refresh work, the runtime currently executes:
+When the plan contains refresh work, the runtime executes only the selected domains:
 
 ```text
 SnapshotUpdatePlan
     ↓
-VdrSnapshotBuilder::buildSnapshot()
+VdrSnapshotBuilder::buildStatus()/buildChannels()/...
     ↓
-SnapshotCacheService::updateSnapshot(snapshot)
+SnapshotCacheService::updateStatus()/updateChannels()/...
 ```
 
-This preserves the previous full-refresh behavior while proving that the new plan path is active in runtime code.
+This replaces the previous "any change means full snapshot rebuild" runtime behavior for normal domain changes.
 
-The next implementation phase should execute the plan domain-by-domain.
+Full snapshot rebuild remains preserved for first poll and future recovery paths.
 
 ---
 
 ## PollingService Implications
 
-`PollingService` should not decide domain update details itself.
+`PollingService` coordinates the polling cycle and executes the generated update plan.
 
-It may coordinate the polling cycle, but the mapping from `VdrChangeEvent` values to snapshot update work belongs behind `SnapshotRefreshPlanner` and `SnapshotUpdatePlan`.
+The mapping from `VdrChangeEvent` values to snapshot update work belongs behind `SnapshotRefreshPlanner` and `SnapshotUpdatePlan`.
 
-This keeps `PollingService` from becoming tightly coupled to every snapshot domain.
+This keeps `PollingService` from owning event-to-domain mapping rules directly.
 
 ---
 
@@ -337,7 +341,7 @@ However, the partial refresh design should not block a future dispatcher.
 
 The current snapshot cache owns a single snapshot.
 
-Partial refresh can be introduced for the current single-backend runtime first.
+Partial refresh is implemented for the current single-backend runtime first.
 
 For future multi-VDR support, the same idea should apply per backend:
 
@@ -355,9 +359,9 @@ This remains aligned with the backend identity, federation and lifecycle ADRs.
 
 ## Non-Goals
 
-The current Phase 9.4 runtime state does not yet implement:
+The current Phase 9.5 runtime state does not yet implement:
 
-- domain-by-domain plan execution
+- local VDR integration test automation
 - backend identity envelopes
 - event dispatcher runtime
 - SSE or WebSocket updates
@@ -376,19 +380,20 @@ Implemented sequence so far:
 4. add domain build methods to `VdrSnapshotBuilder`
 5. add domain update methods to `SnapshotCacheService`
 6. update `PollingService` to create update plans at runtime
+7. execute generated `SnapshotUpdatePlan` values through builder domain methods and cache service domain updates
+8. keep full refresh as first-poll and recovery behavior
 
 Next safe implementation step:
 
-7. execute generated `SnapshotUpdatePlan` values through builder domain methods and cache service domain updates
-8. keep full refresh as first-poll and recovery behavior
-9. only later connect this to an internal dispatcher if more consumers appear
+9. introduce optional local VDR/RESTfulAPI integration tests
+10. only later connect this to an internal dispatcher if more consumers appear
 
 ---
 
 ## Architecture Decision
 
-Partial snapshot refresh is architecturally feasible and is now partially integrated into the runtime path.
+Partial snapshot refresh is now implemented for the current single-backend polling runtime.
 
-The existing snapshot model, adapter boundary, builder methods, cache service methods and polling-plan integration are already domain-separated.
+The existing snapshot model, adapter boundary, builder methods, cache service methods, planner and polling execution path are domain-separated.
 
-The next implementation phase may safely execute generated update plans without changing public API behavior.
+The next implementation phase may safely introduce optional local VDR integration tests without changing public API behavior.
