@@ -183,3 +183,12 @@ test-snapshot-access-service:
 		core/vdr/tests/test_snapshot_access_service.cpp \
 		-o /tmp/test_snapshot_access_service
 	/tmp/test_snapshot_access_service
+
+test-local-restfulapi-integration:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/http/src/BasicHttpClient.cpp \
+		core/http/src/MockHttpClient.cpp \
+		core/vdr/tests/test_local_restfulapi_integration.cpp \
+		-o /tmp/test_local_restfulapi_integration
+	/tmp/test_local_restfulapi_integration
