@@ -20,26 +20,26 @@ VDR remains the primary backend domain and source of truth.
 
 ## Current Verified Head
 
-`ad56ba7`
+`a48a28f`
 
 Latest milestone tag:
 
-`v1.95-phase8-snapshot-access-service`
+`v1.96-phase8-runtime-overview-wiring`
 
 Latest completed phase:
 
-Phase 8.96: introduce snapshot-backed VDR overview service support.
+Phase 8.97: runtime overview wiring consistency.
 
 Verified locally with:
 
+- `make clean`
 - `make test`
 
 Important architecture note:
 
-Phase 8.96 introduces the snapshot-backed overview service path and daemon-level ownership for `SnapshotAccessService`.
-The repository is build- and test-clean at `ad56ba7`.
+Phase 8.97 finalizes the API-facing VDR overview runtime path so overview responses are backed by daemon-owned snapshots instead of direct per-request live `VdrService` access.
 
-The next architecture step must explicitly verify and, if required, correct the final runtime overview wiring so API-facing overview responses consistently use the snapshot access boundary instead of direct live `VdrService` access.
+The repository was build- and test-clean at `a48a28f` before this documentation update.
 
 ---
 
@@ -75,7 +75,9 @@ SnapshotCache
     ↓
 SnapshotAccessService
     ↓
-snapshot-backed overview service path
+VdrOverviewService
+    ↓
+VdrController
 
 Purpose:
 
@@ -106,6 +108,8 @@ Implemented:
 - `SnapshotCacheService`
 - `ISnapshotAccessService`
 - `SnapshotAccessService`
+- `VdrOverviewService` snapshot-backed overview path
+- `VdrController` snapshot-backed overview test coverage
 - `IVdrAdapter::getChangeState()`
 - `VdrService::getChangeState()`
 - `MockVdrAdapter::getChangeState()`
@@ -135,8 +139,10 @@ Polling integration:
 - full refresh decisions trigger a snapshot rebuild through `VdrSnapshotBuilder`
 - rebuilt snapshots are written through `SnapshotCacheService`
 - `SnapshotAccessService` provides a read boundary for snapshot-backed API-facing services
-- `VdrOverviewService` can consume `ISnapshotAccessService` for snapshot-backed overview generation
+- `VdrOverviewService` consumes `ISnapshotAccessService` for snapshot-backed overview generation in the daemon runtime
+- `VdrController` remains independent from snapshot cache internals
 - `DaemonRuntime` owns `SnapshotCache`, `SnapshotCacheService`, `SnapshotAccessService`, `VdrSnapshotBuilder` and `PollingService`
+- `DaemonRuntime` wires API-facing overview responses through `SnapshotAccessService`
 
 ---
 
@@ -150,6 +156,7 @@ Polling integration:
 - Phase 8.94.1: daemon runtime wiring correction
 - Phase 8.95: snapshot access service
 - Phase 8.96: snapshot-backed VDR overview service support
+- Phase 8.97: runtime overview wiring consistency
 
 ---
 
@@ -203,44 +210,44 @@ This is acceptable for the current minimal endpoint shape, but may later be repl
 
 The unversioned local directory `vdr-suite-integration-lab/` exists in the working tree and is intentionally not part of the repository state.
 
+The top-level `Makefile` has grown large. It already delegates VDR sources and VDR tests through `mk/vdr-sources.mk` and `mk/vdr-tests.mk`, but REST, recordings, HTTP, daemon and clean targets are still mostly defined in the root `Makefile`. This should be handled as a separate modularization phase after Phase 8.97.
+
 Documentation state:
 
 - `README.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-architecture.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-access-architecture.md` documents the Phase 8.95 access boundary.
-- `docs/development/current-status.md` documents Phase 8.96 and the remaining runtime wiring review requirement.
+- `docs/development/current-status.md` documents Phase 8.97 and the completed runtime overview wiring consistency work.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 8.97 – Runtime overview wiring consistency
+### Phase 8.98 – Makefile modularization
 
 Goal:
 
-Verify and finalize the runtime data path for API-facing VDR overview responses.
+Modularize the current root `Makefile` without changing target names, build behavior or test semantics.
 
 Scope:
 
-- verify whether `DaemonRuntime` constructs `VdrOverviewService` through `ISnapshotAccessService`
-- avoid mixed live and snapshot data paths for API-facing overview responses
-- keep `VdrController` independent from snapshot cache internals
-- preserve the adapter boundary around RESTfulAPI
-- keep future multi-VDR and permission-aware designs possible
+- keep `make test`, `make daemon`, `make dashboard-cli`, `make clean` stable
+- move grouped source and test definitions into `mk/` include files
+- avoid feature work during build-system restructuring
+- preserve the current successful `make clean && make test` behavior
+- avoid renaming public targets during the refactor
 
 Expected result:
 
-A consistent documented and implemented runtime path:
-
-`SnapshotCache` → `SnapshotCacheService` → `SnapshotAccessService` → `VdrOverviewService` → `VdrController`
+A smaller top-level `Makefile` with grouped build/test definitions moved into dedicated `mk/*.mk` files.
 
 ---
 
 ## Upcoming Phases
 
-### Phase 8.97 – Runtime overview wiring consistency
+### Phase 8.98 – Makefile modularization
 
-Finalize the API-facing overview runtime path so it consistently uses the snapshot access boundary.
+Reduce root `Makefile` size and split build/test groups into dedicated include files while preserving current target names and behavior.
 
 ### Later Phases
 
