@@ -20,15 +20,15 @@ VDR remains the primary backend domain and source of truth.
 
 ## Current Verified Head
 
-`f8ceef4`
+`e2e9742`
 
 Latest milestone tag:
 
-`v1.94.1-phase8-daemon-runtime-wiring`
+`v1.95-phase8-snapshot-access-service`
 
 Latest completed phase:
 
-Phase 8.94: integrate snapshot cache into polling and daemon runtime.
+Phase 8.95: introduce snapshot access service.
 
 Verified locally with:
 
@@ -36,6 +36,7 @@ Verified locally with:
 - `make test-polling-service`
 - `make test-snapshot-cache`
 - `make test-snapshot-cache-service`
+- `make test-snapshot-access-service`
 
 ---
 
@@ -69,7 +70,7 @@ SnapshotCacheService
     ↓
 SnapshotCache
     ↓
-DaemonRuntime
+SnapshotAccessService
     ↓
 future snapshot-backed API responses
 
@@ -100,6 +101,8 @@ Implemented:
 - `SnapshotRefreshDecisionService`
 - `SnapshotCache`
 - `SnapshotCacheService`
+- `ISnapshotAccessService`
+- `SnapshotAccessService`
 - `IVdrAdapter::getChangeState()`
 - `VdrService::getChangeState()`
 - `MockVdrAdapter::getChangeState()`
@@ -128,6 +131,7 @@ Polling integration:
 - current refresh decisions support `NoRefresh` and `FullRefresh`
 - full refresh decisions trigger a snapshot rebuild through `VdrSnapshotBuilder`
 - rebuilt snapshots are written through `SnapshotCacheService`
+- `SnapshotAccessService` provides a read boundary for future snapshot-backed API responses
 - `DaemonRuntime` owns `SnapshotCache`, `SnapshotCacheService`, `VdrSnapshotBuilder` and `PollingService`
 
 ---
@@ -140,6 +144,7 @@ Polling integration:
 - Phase 8.93: snapshot cache model
 - Phase 8.94: snapshot cache integration into polling runtime
 - Phase 8.94.1: daemon runtime wiring correction
+- Phase 8.95: snapshot access service
 
 ---
 
@@ -193,27 +198,27 @@ This is acceptable for the current minimal endpoint shape, but may later be repl
 
 The unversioned local directory `vdr-suite-integration-lab/` exists in the working tree and is intentionally not part of the repository state.
 
-Documentation debt remains:
+Documentation state:
 
-- `README.md` is outdated and must be rebuilt for the current Phase 8.94 architecture.
-- `docs/architecture/snapshot-architecture.md` should be updated to mark Phase 8.94 as completed.
+- `README.md` has been rebuilt after Phase 8.94.
+- `docs/architecture/snapshot-architecture.md` has been rebuilt after Phase 8.94.
+- `docs/architecture/snapshot-access-architecture.md` documents the Phase 8.95 access boundary.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 8.95 – Snapshot access architecture
+### Phase 8.96 – Snapshot-backed API responses
 
 Goal:
 
-Define how API-facing layers should access daemon-owned snapshots without coupling controllers directly to cache internals or backend-specific adapters.
+Move selected API-facing VDR responses toward daemon-owned snapshot access through `ISnapshotAccessService` and `SnapshotAccessService`.
 
 Scope:
 
-- define snapshot access boundaries
-- define read-only snapshot access service direction
-- prepare snapshot-backed REST API responses
-- preserve backend neutrality
+- keep controllers independent from direct cache internals
+- use the snapshot access boundary introduced in Phase 8.95
+- prepare backend-neutral API responses
 - preserve future multi-VDR compatibility
 - avoid premature federation runtime
 - avoid premature SSE/WebSocket runtime
