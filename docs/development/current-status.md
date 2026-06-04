@@ -20,15 +20,15 @@ VDR remains the primary backend domain and source of truth.
 
 ## Current Verified Head
 
-`a48a28f`
+`0e4d231`
 
 Latest milestone tag:
 
-`v1.96-phase8-runtime-overview-wiring`
+`v1.97-phase8-makefile-modularization`
 
 Latest completed phase:
 
-Phase 8.97: runtime overview wiring consistency.
+Phase 8.98: Makefile source modularization.
 
 Verified locally with:
 
@@ -37,9 +37,9 @@ Verified locally with:
 
 Important architecture note:
 
-Phase 8.97 finalizes the API-facing VDR overview runtime path so overview responses are backed by daemon-owned snapshots instead of direct per-request live `VdrService` access.
+Phase 8.98 reduces the root `Makefile` by moving source-group definitions into dedicated `mk/*.mk` include files while preserving all public target names and build behavior.
 
-The repository was build- and test-clean at `a48a28f` before this documentation update.
+The repository was build- and test-clean at `0e4d231` before this documentation update.
 
 ---
 
@@ -89,6 +89,31 @@ Purpose:
 - prepare future multi-VDR and permission-aware designs
 - keep API controllers backend-independent
 - avoid premature federation, SSE, WebSocket, user-management or cluster runtime implementation
+
+---
+
+## Build System State
+
+The top-level `Makefile` now delegates source groups to modular include files under `mk/`.
+
+Implemented build modules:
+
+- `mk/common.mk`
+- `mk/recording-sources.mk`
+- `mk/action-job-sources.mk`
+- `mk/rest-sources.mk`
+- `mk/daemon-sources.mk`
+- `mk/http-sources.mk`
+- `mk/vdr-sources.mk`
+- `mk/vdr-tests.mk`
+
+The public targets remain stable:
+
+- `make test`
+- `make clean`
+- `make daemon`
+- `make dashboard-cli`
+- `make prepare-test-db`
 
 ---
 
@@ -157,6 +182,7 @@ Polling integration:
 - Phase 8.95: snapshot access service
 - Phase 8.96: snapshot-backed VDR overview service support
 - Phase 8.97: runtime overview wiring consistency
+- Phase 8.98: Makefile source modularization
 
 ---
 
@@ -210,44 +236,45 @@ This is acceptable for the current minimal endpoint shape, but may later be repl
 
 The unversioned local directory `vdr-suite-integration-lab/` exists in the working tree and is intentionally not part of the repository state.
 
-The top-level `Makefile` has grown large. It already delegates VDR sources and VDR tests through `mk/vdr-sources.mk` and `mk/vdr-tests.mk`, but REST, recordings, HTTP, daemon and clean targets are still mostly defined in the root `Makefile`. This should be handled as a separate modularization phase after Phase 8.97.
+The root `Makefile` still contains many test targets and the `clean` target. Source groups have been modularized in Phase 8.98; moving additional target groups into dedicated `mk/*-tests.mk` or `mk/clean.mk` files can be considered later, but is no longer urgent because the root Makefile no longer owns the large source-definition block.
 
 Documentation state:
 
 - `README.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-architecture.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-access-architecture.md` documents the Phase 8.95 access boundary.
-- `docs/development/current-status.md` documents Phase 8.97 and the completed runtime overview wiring consistency work.
+- `docs/development/current-status.md` documents Phase 8.98 and the completed Makefile source modularization work.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 8.98 – Makefile modularization
+### Phase 8.99 – Architecture continuation planning
 
 Goal:
 
-Modularize the current root `Makefile` without changing target names, build behavior or test semantics.
+Return from build-system cleanup to the next VDR/backend architecture decision point.
 
-Scope:
+Candidate directions:
 
-- keep `make test`, `make daemon`, `make dashboard-cli`, `make clean` stable
-- move grouped source and test definitions into `mk/` include files
-- avoid feature work during build-system restructuring
-- preserve the current successful `make clean && make test` behavior
-- avoid renaming public targets during the refactor
+- partial snapshot refresh decisions
+- event dispatch preparation
+- SSE/WebSocket live update transport
+- backend lifecycle handling
+- backend capability exposure
+- multi-VDR routing preparation
 
 Expected result:
 
-A smaller top-level `Makefile` with grouped build/test definitions moved into dedicated `mk/*.mk` files.
+A focused architecture review selecting the next implementation phase after the completed snapshot and Makefile modularization work.
 
 ---
 
 ## Upcoming Phases
 
-### Phase 8.98 – Makefile modularization
+### Phase 8.99 – Architecture continuation planning
 
-Reduce root `Makefile` size and split build/test groups into dedicated include files while preserving current target names and behavior.
+Select the next backend architecture step after the completed snapshot runtime path and source-level Makefile modularization.
 
 ### Later Phases
 
