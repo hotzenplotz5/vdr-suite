@@ -20,7 +20,7 @@ VDR remains the primary backend domain and source of truth.
 
 ## Current Verified Head
 
-`e2e9742`
+`ad56ba7`
 
 Latest milestone tag:
 
@@ -28,15 +28,18 @@ Latest milestone tag:
 
 Latest completed phase:
 
-Phase 8.95: introduce snapshot access service.
+Phase 8.96: introduce snapshot-backed VDR overview service support.
 
 Verified locally with:
 
-- `make daemon`
-- `make test-polling-service`
-- `make test-snapshot-cache`
-- `make test-snapshot-cache-service`
-- `make test-snapshot-access-service`
+- `make test`
+
+Important architecture note:
+
+Phase 8.96 introduces the snapshot-backed overview service path and daemon-level ownership for `SnapshotAccessService`.
+The repository is build- and test-clean at `ad56ba7`.
+
+The next architecture step must explicitly verify and, if required, correct the final runtime overview wiring so API-facing overview responses consistently use the snapshot access boundary instead of direct live `VdrService` access.
 
 ---
 
@@ -72,7 +75,7 @@ SnapshotCache
     ↓
 SnapshotAccessService
     ↓
-future snapshot-backed API responses
+snapshot-backed overview service path
 
 Purpose:
 
@@ -131,8 +134,9 @@ Polling integration:
 - current refresh decisions support `NoRefresh` and `FullRefresh`
 - full refresh decisions trigger a snapshot rebuild through `VdrSnapshotBuilder`
 - rebuilt snapshots are written through `SnapshotCacheService`
-- `SnapshotAccessService` provides a read boundary for future snapshot-backed API responses
-- `DaemonRuntime` owns `SnapshotCache`, `SnapshotCacheService`, `VdrSnapshotBuilder` and `PollingService`
+- `SnapshotAccessService` provides a read boundary for snapshot-backed API-facing services
+- `VdrOverviewService` can consume `ISnapshotAccessService` for snapshot-backed overview generation
+- `DaemonRuntime` owns `SnapshotCache`, `SnapshotCacheService`, `SnapshotAccessService`, `VdrSnapshotBuilder` and `PollingService`
 
 ---
 
@@ -145,6 +149,7 @@ Polling integration:
 - Phase 8.94: snapshot cache integration into polling runtime
 - Phase 8.94.1: daemon runtime wiring correction
 - Phase 8.95: snapshot access service
+- Phase 8.96: snapshot-backed VDR overview service support
 
 ---
 
@@ -203,38 +208,39 @@ Documentation state:
 - `README.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-architecture.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-access-architecture.md` documents the Phase 8.95 access boundary.
+- `docs/development/current-status.md` documents Phase 8.96 and the remaining runtime wiring review requirement.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 8.96 – Snapshot-backed API responses
+### Phase 8.97 – Runtime overview wiring consistency
 
 Goal:
 
-Move selected API-facing VDR responses toward daemon-owned snapshot access through `ISnapshotAccessService` and `SnapshotAccessService`.
+Verify and finalize the runtime data path for API-facing VDR overview responses.
 
 Scope:
 
-- keep controllers independent from direct cache internals
-- use the snapshot access boundary introduced in Phase 8.95
-- prepare backend-neutral API responses
-- preserve future multi-VDR compatibility
-- avoid premature federation runtime
-- avoid premature SSE/WebSocket runtime
-- avoid user management and permission runtime
+- verify whether `DaemonRuntime` constructs `VdrOverviewService` through `ISnapshotAccessService`
+- avoid mixed live and snapshot data paths for API-facing overview responses
+- keep `VdrController` independent from snapshot cache internals
+- preserve the adapter boundary around RESTfulAPI
+- keep future multi-VDR and permission-aware designs possible
 
 Expected result:
 
-A documented architecture for snapshot-backed API access before modifying REST controllers.
+A consistent documented and implemented runtime path:
+
+`SnapshotCache` → `SnapshotCacheService` → `SnapshotAccessService` → `VdrOverviewService` → `VdrController`
 
 ---
 
 ## Upcoming Phases
 
-### Phase 8.96 – Snapshot-backed API responses
+### Phase 8.97 – Runtime overview wiring consistency
 
-Introduce daemon-owned snapshot access as the basis for VDR API responses.
+Finalize the API-facing overview runtime path so it consistently uses the snapshot access boundary.
 
 ### Later Phases
 
