@@ -2,6 +2,7 @@
 #define POLLING_SERVICE_H
 
 #include "ChangeDetectionService.h"
+#include "SnapshotRefreshDecisionService.h"
 #include "VdrChangeEvent.h"
 #include "VdrChangeState.h"
 #include "VdrSnapshot.h"
@@ -24,6 +25,7 @@ private:
     VdrSnapshotBuilder& snapshotBuilder_;
     VdrService& vdrService_;
     ChangeDetectionService changeDetectionService_;
+    SnapshotRefreshDecisionService snapshotRefreshDecisionService_;
     VdrChangeState lastChangeState_;
     bool hasChangeState_;
     VdrSnapshot snapshot_;
