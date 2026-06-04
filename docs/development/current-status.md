@@ -32,31 +32,22 @@ VDR remains the primary backend domain and source of truth.
 
 ## Current Verified Head
 
-`c9fd04a`
-
-Latest milestone tag:
-
-`v2.8-phase9-local-partial-refresh-validation`
-
-Latest documentation tag:
-
-`v2.8.1-phase9-doc-sync`
+`00f62aa`
 
 Latest completed phase:
 
-Phase 9.8: Local Partial Refresh Validation.
+Phase 10.3: PollingService Runtime Logging.
 
 Verified locally with:
 
-- `make test-local-restfulapi-integration`
-- `make test-local-snapshot-runtime-integration`
-- `make test-local-partial-refresh-validation`
+- `make test-polling-service`
+- `make test`
 
 Important architecture note:
 
-Phase 9 has completed the transition from generated partial refresh plans to a real VDR-backed snapshot runtime validation. A local VDR/RESTfulAPI setup proved that a real timer-domain change is detected through change-state polling, converted into a `SnapshotUpdatePlan`, and executed as a timer-only snapshot refresh without rebuilding the full snapshot.
+Phase 10.3 adds structured runtime progress logging to `PollingService` without making logging mandatory for existing tests or runtime users. The service now accepts an optional `IRuntimeLogger*`, keeps the default `nullptr` path silent and deterministic, and emits high-level polling lifecycle messages for poll start, initial snapshot build, partial refresh execution and poll finish.
 
-The repository was clean and synchronized with `origin/phase-2-actions` before this documentation update.
+The repository was clean and synchronized with `origin/phase-2-actions` after the Phase 10.3 implementation commit.
 
 ---
 
@@ -106,6 +97,7 @@ Purpose:
 - prepare future multi-VDR and permission-aware designs
 - keep API controllers backend-independent
 - avoid premature federation, SSE, WebSocket, user-management or cluster runtime implementation
+- expose runtime progress through an optional logging abstraction instead of ad-hoc `std::cout` output
 
 ---
 
@@ -157,6 +149,40 @@ This proves:
 
 ---
 
+## Runtime Logging State
+
+Phase 10 introduced the runtime logging foundation and the first service-level runtime logs.
+
+Implemented runtime logging components:
+
+- `RuntimeLogLevel`
+- `RuntimeLogEntry`
+- `IRuntimeLogger`
+- `NullRuntimeLogger`
+- `ConsoleRuntimeLogger`
+- runtime log level formatting
+- `mk/runtime-sources.mk`
+
+Current runtime log output format:
+
+```text
+[INFO] [PollingService] Poll started
+[INFO] [PollingService] Initial snapshot build
+[INFO] [PollingService] Executing partial refresh
+[INFO] [PollingService] Poll finished
+```
+
+Current logging design:
+
+- logging stays optional through `IRuntimeLogger* logger = nullptr`
+- existing unit tests remain silent unless they explicitly pass a logger
+- `NullRuntimeLogger` provides a no-op implementation for future dependency wiring
+- `ConsoleRuntimeLogger` provides simple local runtime visibility
+- runtime logging is intentionally not a metrics system yet
+- no timing, HTTP diagnostics, event counters or snapshot domain counters are part of Phase 10.3
+
+---
+
 ## Build System State
 
 The top-level `Makefile` delegates source groups to modular include files under `mk/`.
@@ -169,6 +195,7 @@ Implemented build modules:
 - `mk/rest-sources.mk`
 - `mk/daemon-sources.mk`
 - `mk/http-sources.mk`
+- `mk/runtime-sources.mk`
 - `mk/vdr-sources.mk`
 - `mk/vdr-tests.mk`
 
@@ -241,6 +268,7 @@ Polling integration:
 - channel changes execute `buildChannels()` and `updateChannels()`
 - event changes execute `buildEvents()` and `updateEvents()`
 - full snapshot rebuild remains available for first poll and future recovery paths
+- `PollingService` can emit optional runtime progress logs through `IRuntimeLogger`
 - `SnapshotAccessService` provides a read boundary for snapshot-backed API-facing services
 - `VdrOverviewService` consumes `ISnapshotAccessService` for snapshot-backed overview generation in the daemon runtime
 - `VdrController` remains independent from snapshot cache internals
@@ -277,6 +305,10 @@ Polling integration:
 - Phase 9.7.1: documentation sync after local snapshot runtime integration
 - Phase 9.8: local partial refresh validation
 - Phase 9.8.1: documentation sync after local partial refresh validation
+- Phase 10.0: runtime source module and logging interfaces
+- Phase 10.1: console runtime logger
+- Phase 10.2: runtime log level formatting
+- Phase 10.3: PollingService runtime logging
 
 ---
 
@@ -325,6 +357,7 @@ Architectural impact:
 - `VdrSnapshotBuilder` exposes domain-specific build methods while preserving full snapshot rebuild support
 - `SnapshotCacheService` owns controlled domain update methods
 - `PollingService` now creates and executes `SnapshotUpdatePlan` values during the runtime polling path
+- runtime observability is routed through `IRuntimeLogger` instead of direct service-level console output
 
 ---
 
@@ -336,7 +369,7 @@ This is acceptable for the current minimal endpoint shape, but may later be repl
 
 The root `Makefile` still contains many test targets and the `clean` target. Source groups have been modularized in Phase 8.98; moving additional target groups into dedicated `mk/*-tests.mk` or `mk/clean.mk` files can be considered later, but is no longer urgent because the root Makefile no longer owns the large source-definition block.
 
-Phase 9.8 exposed an observability gap: local runtime tests can spend noticeable time building the first full snapshot, especially while loading large event sets through `/events.json`, but current services do not yet provide structured runtime logs, timings or diagnostics.
+Phase 10.3 improves runtime visibility for the polling lifecycle, but observability is still intentionally minimal. Timing, HTTP request diagnostics, event counters, channel counters, snapshot build counters, structured diagnostics objects and REST diagnostics endpoints are not implemented yet.
 
 Documentation state:
 
@@ -348,58 +381,44 @@ Documentation state:
 - `docs/development/phase-9.6-local-restfulapi-integration.md` documents the local RESTfulAPI validation.
 - `docs/development/phase-9.7-local-snapshot-runtime-integration.md` documents the local snapshot runtime validation.
 - `docs/development/phase-9.8-local-partial-refresh-validation.md` documents the local partial refresh validation.
-- `docs/development/current-status.md` documents Phase 9.8 and the completed real local VDR validation path.
+- `docs/development/current-status.md` documents Phase 10.3 and the current runtime logging foundation.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 10.0 – Runtime Logging & Diagnostics Foundation
+### Phase 10.4 – VdrService Runtime Logging
 
 Goal:
 
-Introduce a minimal, testable runtime logging and diagnostics foundation before adding ad-hoc output to runtime services.
+Extend runtime logging one layer below `PollingService` by adding optional `IRuntimeLogger` support to `VdrService`.
 
 Motivation:
 
-Phase 9 made the snapshot runtime real. With real VDR data, real HTTP calls and large event sets, VDR-Suite now needs observability to understand runtime behavior without scattering `std::cout` statements through services.
-
-Initial architecture questions:
-
-- Where should runtime logs be emitted?
-- How can logging stay optional and testable?
-- How can unit tests remain silent and deterministic?
-- How can local integration tests expose progress during long first snapshot builds?
-- How should later diagnostics for REST/UI reuse the same runtime information?
+`PollingService` now shows the high-level polling lifecycle. The next useful observability boundary is the VDR service layer, where channel, recording, timer, event, status and change-state loads are coordinated through the active backend adapter.
 
 Expected direction:
 
-- small runtime logging abstraction
-- null implementation as default
-- test logger for assertions
-- console logger only for local integration/runtime use
-- no external logging framework yet
-- no REST diagnostics endpoint yet
-- no metrics database yet
-- no multi-VDR diagnostics implementation yet
+- keep logging optional and silent by default
+- do not introduce metrics yet
+- do not add HTTP timing yet
+- do not change existing unit tests unless a test logger is explicitly needed
+- log only coarse service-level lifecycle messages
+- keep adapter-specific and HTTP-specific diagnostics for later phases
 
 ---
 
 ## Upcoming Phases
 
-### Phase 10.0 – Runtime Logging & Diagnostics Foundation
+### Phase 10.4 – VdrService Runtime Logging
 
-Create the minimal architecture boundary for runtime logs and later diagnostics.
+Expose coarse VDR service progress such as refresh start, refresh finish and domain loading steps through the existing runtime logger boundary.
 
-### Phase 10.1 – PollingService Runtime Logging
-
-Expose poll progress, change-state loading, initial full snapshot creation, plan generation and plan execution in a controlled way.
-
-### Phase 10.2 – Snapshot Build Timing
+### Phase 10.5 – Snapshot Build Timing
 
 Measure domain-specific snapshot build durations for status, recordings, timers, channels and events.
 
-### Phase 10.3 – HTTP Request Timing
+### Phase 10.6 – HTTP Request Timing
 
 Measure BasicHttpClient request durations, response status and response size where appropriate.
 
