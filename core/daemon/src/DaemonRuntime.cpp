@@ -116,6 +116,10 @@ bool DaemonRuntime::initialize()
         std::make_unique<SnapshotCacheService>(
             *snapshotCache_);
 
+    snapshotAccessService_ =
+        std::make_unique<SnapshotAccessService>(
+            *snapshotCacheService_);
+
     pollingService_ =
         std::make_unique<PollingService>(
             *vdrSnapshotBuilder_,
@@ -130,7 +134,7 @@ bool DaemonRuntime::initialize()
 
     vdrOverviewService_ =
         std::make_unique<VdrOverviewService>(
-            *vdrService_);
+            *snapshotAccessService_);
 
     vdrOverviewJsonSerializer_ =
         std::make_unique<VdrOverviewJsonSerializer>();
@@ -224,6 +228,7 @@ void DaemonRuntime::shutdown()
     vdrOverviewJsonSerializer_.reset();
     vdrOverviewService_.reset();
     pollingService_.reset();
+    snapshotAccessService_.reset();
     snapshotCacheService_.reset();
     snapshotCache_.reset();
     vdrSnapshotBuilder_.reset();
