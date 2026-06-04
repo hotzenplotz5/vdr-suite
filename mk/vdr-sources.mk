@@ -19,6 +19,7 @@ VDR_SRC := \
         core/vdr/src/SnapshotRefreshDecision.cpp \
         core/vdr/src/SnapshotRefreshDecisionService.cpp \
         core/vdr/src/SnapshotUpdatePlan.cpp \
+        core/vdr/src/SnapshotRefreshPlanner.cpp \
         core/vdr/src/SnapshotCache.cpp \
         core/vdr/src/SnapshotCacheService.cpp \
     core/vdr/src/SnapshotAccessService.cpp \

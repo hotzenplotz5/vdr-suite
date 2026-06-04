@@ -89,6 +89,13 @@ test-snapshot-refresh-decision-service:
 		-o /tmp/test_snapshot_refresh_decision_service
 	/tmp/test_snapshot_refresh_decision_service
 
+test-snapshot-refresh-planner:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_snapshot_refresh_planner.cpp \
+		-o /tmp/test_snapshot_refresh_planner
+	/tmp/test_snapshot_refresh_planner
+
 test-snapshot-update-plan:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
