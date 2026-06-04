@@ -18,6 +18,7 @@
 #include "RecordingRepository.h"
 #include "RecordingsController.h"
 #include "RuntimeConfig.h"
+#include "SnapshotAccessService.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
 #include "VdrConfig.h"
@@ -30,7 +31,6 @@
 
 #include <atomic>
 #include <memory>
-
 
 class DaemonRuntime
 {
@@ -70,6 +70,7 @@ private:
     std::unique_ptr<VdrSnapshotBuilder> vdrSnapshotBuilder_;
     std::unique_ptr<SnapshotCache> snapshotCache_;
     std::unique_ptr<SnapshotCacheService> snapshotCacheService_;
+    std::unique_ptr<SnapshotAccessService> snapshotAccessService_;
     std::unique_ptr<PollingService> pollingService_;
     std::unique_ptr<VdrOverviewService> vdrOverviewService_;
     std::unique_ptr<VdrOverviewJsonSerializer> vdrOverviewJsonSerializer_;
