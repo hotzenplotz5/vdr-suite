@@ -3,7 +3,8 @@
 
 #include "ChangeDetectionService.h"
 #include "SnapshotCacheService.h"
-#include "SnapshotRefreshDecisionService.h"
+#include "SnapshotRefreshPlanner.h"
+#include "SnapshotUpdatePlan.h"
 #include "VdrChangeEvent.h"
 #include "VdrChangeState.h"
 #include "VdrSnapshot.h"
@@ -24,16 +25,18 @@ public:
 
     const VdrSnapshot& snapshot() const;
     const std::vector<VdrChangeEvent>& changeEvents() const;
+    const SnapshotUpdatePlan& lastUpdatePlan() const;
 
 private:
     VdrSnapshotBuilder& snapshotBuilder_;
     VdrService& vdrService_;
     SnapshotCacheService& snapshotCacheService_;
     ChangeDetectionService changeDetectionService_;
-    SnapshotRefreshDecisionService snapshotRefreshDecisionService_;
+    SnapshotRefreshPlanner snapshotRefreshPlanner_;
     VdrChangeState lastChangeState_;
     bool hasChangeState_;
     std::vector<VdrChangeEvent> changeEvents_;
+    SnapshotUpdatePlan lastUpdatePlan_;
 };
 
 #endif

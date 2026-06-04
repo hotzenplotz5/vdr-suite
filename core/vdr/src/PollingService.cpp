@@ -19,20 +19,20 @@ void PollingService::poll()
     const VdrChangeState currentChangeState = vdrService_.getChangeState();
 
     changeEvents_.clear();
+    lastUpdatePlan_ = SnapshotUpdatePlan();
 
     if (!hasChangeState_) {
-        snapshotCacheService_.cache().update(snapshotBuilder_.buildSnapshot());
+        snapshotCacheService_.updateSnapshot(snapshotBuilder_.buildSnapshot());
         lastChangeState_ = currentChangeState;
         hasChangeState_ = true;
         return;
     }
 
     changeEvents_ = changeDetectionService_.detectChanges(lastChangeState_, currentChangeState);
+    lastUpdatePlan_ = snapshotRefreshPlanner_.createPlan(changeEvents_);
 
-    const auto refreshDecision = snapshotRefreshDecisionService_.decide(changeEvents_);
-
-    if (refreshDecision.shouldRefreshSnapshot()) {
-        snapshotCacheService_.cache().update(snapshotBuilder_.buildSnapshot());
+    if (lastUpdatePlan_.hasRefreshWork()) {
+        snapshotCacheService_.updateSnapshot(snapshotBuilder_.buildSnapshot());
         lastChangeState_ = currentChangeState;
     }
 }
@@ -45,4 +45,9 @@ const VdrSnapshot& PollingService::snapshot() const
 const std::vector<VdrChangeEvent>& PollingService::changeEvents() const
 {
     return changeEvents_;
+}
+
+const SnapshotUpdatePlan& PollingService::lastUpdatePlan() const
+{
+    return lastUpdatePlan_;
 }

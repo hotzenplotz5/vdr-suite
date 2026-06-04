@@ -77,6 +77,7 @@ static void test_first_poll_builds_snapshot_without_change_events()
     assert(adapter.snapshotReadCount == 1);
     assert(pollingService.snapshot().status.enabled == true);
     assert(pollingService.changeEvents().empty());
+    assert(pollingService.lastUpdatePlan().hasRefreshWork() == false);
 }
 
 static void test_unchanged_change_state_keeps_existing_snapshot_without_change_events()
@@ -96,6 +97,7 @@ static void test_unchanged_change_state_keeps_existing_snapshot_without_change_e
     assert(cache.hasSnapshot());
     assert(adapter.snapshotReadCount == 1);
     assert(pollingService.changeEvents().empty());
+    assert(pollingService.lastUpdatePlan().hasRefreshWork() == false);
 }
 
 static void test_changed_change_state_refreshes_snapshot_and_exposes_change_events()
@@ -117,6 +119,33 @@ static void test_changed_change_state_refreshes_snapshot_and_exposes_change_even
     assert(adapter.snapshotReadCount == 2);
     assert(pollingService.changeEvents().size() == 1);
     assert(pollingService.changeEvents()[0].type() == VdrChangeType::ChannelsChanged);
+    assert(pollingService.lastUpdatePlan().hasRefreshWork() == true);
+    assert(pollingService.lastUpdatePlan().shouldRefreshChannels() == true);
+    assert(pollingService.lastUpdatePlan().shouldRefreshRecordings() == false);
+}
+
+static void test_multiple_changes_create_combined_update_plan()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+
+    adapter.changeState.channelsVersion = 1;
+    adapter.changeState.recordingsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.channelsVersion = 2;
+    adapter.changeState.recordingsVersion = 2;
+    pollingService.poll();
+
+    assert(pollingService.changeEvents().size() == 2);
+    assert(pollingService.lastUpdatePlan().shouldRefreshChannels() == true);
+    assert(pollingService.lastUpdatePlan().shouldRefreshRecordings() == true);
+    assert(pollingService.lastUpdatePlan().shouldRefreshTimers() == false);
+    assert(pollingService.lastUpdatePlan().shouldRefreshEvents() == false);
 }
 
 static void test_change_events_are_cleared_before_next_poll()
@@ -135,10 +164,12 @@ static void test_change_events_are_cleared_before_next_poll()
     pollingService.poll();
 
     assert(pollingService.changeEvents().size() == 1);
+    assert(pollingService.lastUpdatePlan().hasRefreshWork() == true);
 
     pollingService.poll();
 
     assert(pollingService.changeEvents().empty());
+    assert(pollingService.lastUpdatePlan().hasRefreshWork() == false);
 }
 
 int main()
@@ -146,6 +177,7 @@ int main()
     test_first_poll_builds_snapshot_without_change_events();
     test_unchanged_change_state_keeps_existing_snapshot_without_change_events();
     test_changed_change_state_refreshes_snapshot_and_exposes_change_events();
+    test_multiple_changes_create_combined_update_plan();
     test_change_events_are_cleared_before_next_poll();
 
     std::cout << "test_polling_service passed" << std::endl;
