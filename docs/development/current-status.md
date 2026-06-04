@@ -32,15 +32,15 @@ VDR remains the primary backend domain and source of truth.
 
 ## Current Verified Head
 
-`63ef207`
+`31a94b6`
 
 Latest milestone tag:
 
-`v2.4-phase9-runtime-plan-integration`
+`v2.5-phase9-execute-snapshot-update-plan`
 
 Latest completed phase:
 
-Phase 9.4: Runtime plan integration.
+Phase 9.5: Execute SnapshotUpdatePlan.
 
 Verified locally with:
 
@@ -49,9 +49,9 @@ Verified locally with:
 
 Important architecture note:
 
-Phase 9.4 integrates the Phase 9 snapshot planning path into the productive polling runtime. `PollingService` now creates `SnapshotUpdatePlan` values through `SnapshotRefreshPlanner` after change detection. The runtime still performs a full snapshot rebuild when the plan contains refresh work; partial execution of the generated plan is the next implementation step.
+Phase 9.5 connects generated `SnapshotUpdatePlan` values to domain-specific builder reads and cache service updates. The polling runtime now performs partial snapshot refresh execution for changed domains while preserving full snapshot rebuild behavior for first poll and future recovery paths.
 
-The repository was build- and test-clean at `63ef207` before this documentation update.
+The repository was build- and test-clean at `31a94b6` before this documentation update.
 
 ---
 
@@ -81,22 +81,14 @@ SnapshotRefreshPlanner
     ↓
 SnapshotUpdatePlan
     ↓
-Full snapshot refresh execution
-    ↓
-VdrSnapshotBuilder
-        ├─ buildStatus()
-        ├─ buildRecordings()
-        ├─ buildTimers()
-        ├─ buildChannels()
-        └─ buildEvents()
+Plan execution
+        ├─ buildStatus()     -> updateStatus()
+        ├─ buildRecordings() -> updateRecordings()
+        ├─ buildTimers()     -> updateTimers()
+        ├─ buildChannels()   -> updateChannels()
+        └─ buildEvents()     -> updateEvents()
     ↓
 SnapshotCacheService
-        ├─ updateSnapshot()
-        ├─ updateStatus()
-        ├─ updateRecordings()
-        ├─ updateTimers()
-        ├─ updateChannels()
-        └─ updateEvents()
     ↓
 SnapshotCache
     ↓
@@ -185,14 +177,18 @@ RESTfulAPI integration:
 Polling integration:
 
 - `PollingService` reads `VdrService::getChangeState()` before refresh planning
-- first poll builds an initial snapshot
+- first poll builds an initial full snapshot
 - unchanged change-state keeps the existing cached snapshot
 - changed change-state is converted into `VdrChangeEvent` entries
 - `SnapshotRefreshPlanner` converts change events into `SnapshotUpdatePlan` values
 - `PollingService::lastUpdatePlan()` exposes the most recent generated update plan for tests and diagnostics
-- current runtime execution still performs a full snapshot rebuild when the generated plan has refresh work
-- rebuilt snapshots are written through `SnapshotCacheService::updateSnapshot()`
-- `SnapshotCacheService` now owns controlled domain update methods for status, recordings, timers, channels and events
+- generated update plans are executed domain-by-domain through `VdrSnapshotBuilder` and `SnapshotCacheService`
+- status changes execute `buildStatus()` and `updateStatus()`
+- recording changes execute `buildRecordings()` and `updateRecordings()`
+- timer changes execute `buildTimers()` and `updateTimers()`
+- channel changes execute `buildChannels()` and `updateChannels()`
+- event changes execute `buildEvents()` and `updateEvents()`
+- full snapshot rebuild remains available for first poll and future recovery paths
 - `SnapshotAccessService` provides a read boundary for snapshot-backed API-facing services
 - `VdrOverviewService` consumes `ISnapshotAccessService` for snapshot-backed overview generation in the daemon runtime
 - `VdrController` remains independent from snapshot cache internals
@@ -220,6 +216,8 @@ Polling integration:
 - Phase 9.2.1: documentation sync after builder domain methods
 - Phase 9.3: snapshot cache domain updates
 - Phase 9.4: runtime plan integration
+- Phase 9.4.1: documentation sync after runtime plan integration
+- Phase 9.5: execute snapshot update plans
 
 ---
 
@@ -267,7 +265,7 @@ Architectural impact:
 - partial snapshot refresh planning is represented by `SnapshotUpdatePlan` and `SnapshotRefreshPlanner`
 - `VdrSnapshotBuilder` exposes domain-specific build methods while preserving full snapshot rebuild support
 - `SnapshotCacheService` owns controlled domain update methods
-- `PollingService` now creates `SnapshotUpdatePlan` values through `SnapshotRefreshPlanner` during the runtime polling path
+- `PollingService` now creates and executes `SnapshotUpdatePlan` values during the runtime polling path
 
 ---
 
@@ -286,7 +284,7 @@ Documentation state:
 - `README.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-architecture.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-access-architecture.md` documents the Phase 8.95 access boundary.
-- `docs/development/current-status.md` documents Phase 9.4 and the runtime plan integration work.
+- `docs/development/current-status.md` documents Phase 9.5 and the executed partial refresh runtime path.
 - `docs/architecture/internal-event-dispatch-architecture.md` documents the Phase 8.99 internal event dispatch direction.
 - `docs/architecture/partial-snapshot-refresh-architecture.md` documents the Phase 9 partial snapshot refresh architecture.
 
@@ -294,35 +292,31 @@ Documentation state:
 
 ## Next Planned Phase
 
-### Phase 9.5 – Execute SnapshotUpdatePlan
+### Phase 9.6 – Local VDR integration tests
 
 Goal:
 
-Use the generated `SnapshotUpdatePlan` to execute domain-specific snapshot refresh work instead of rebuilding the complete snapshot for every change.
+Introduce guarded integration checks against a local VDR/RESTfulAPI setup now that runtime partial refresh execution exists.
 
-Candidate execution mapping:
+Candidate checks:
 
-- `refreshStatus` -> `VdrSnapshotBuilder::buildStatus()` -> `SnapshotCacheService::updateStatus()`
-- `refreshRecordings` -> `VdrSnapshotBuilder::buildRecordings()` -> `SnapshotCacheService::updateRecordings()`
-- `refreshTimers` -> `VdrSnapshotBuilder::buildTimers()` -> `SnapshotCacheService::updateTimers()`
-- `refreshChannels` -> `VdrSnapshotBuilder::buildChannels()` -> `SnapshotCacheService::updateChannels()`
-- `refreshEvents` -> `VdrSnapshotBuilder::buildEvents()` -> `SnapshotCacheService::updateEvents()`
+- verify that the daemon can read a real local VDR status
+- verify that channels, recordings, timers and events can be read through the configured adapter
+- verify that `/change-state.json` can drive partial refresh decisions
+- verify that one changed domain refreshes only the corresponding snapshot domain
+- keep integration tests optional and disabled by default unless a local VDR test environment is explicitly configured
 
 Expected result:
 
-The polling runtime should execute generated update plans while preserving full snapshot rebuild behavior for first poll and future recovery paths.
+The first real VDR-backed integration test layer without making unit tests depend on a local VDR installation.
 
 ---
 
 ## Upcoming Phases
 
-### Phase 9.5 – Execute SnapshotUpdatePlan
-
-Connect the generated update plan to builder domain reads and cache domain updates.
-
 ### Phase 9.6 – Local VDR integration tests
 
-Introduce the first guarded integration checks against a local VDR/RESTfulAPI setup after the runtime partial refresh path exists.
+Introduce optional integration checks against a local VDR/RESTfulAPI setup after the runtime partial refresh path exists.
 
 ### Later Phases
 
