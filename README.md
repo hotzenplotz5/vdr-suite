@@ -22,6 +22,18 @@ The vision document explains the long-term goals, architecture philosophy and fu
 
 ---
 
+## Documentation
+
+Start here:
+
+- [Documentation Index](docs/index.md)
+- [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
+- [Current Project Status](docs/development/current-status.md)
+
+The documentation index is the central entry point for project vision, architecture, ADRs, diagrams, development status and planning.
+
+---
+
 ## Current Status
 
 Branch:
