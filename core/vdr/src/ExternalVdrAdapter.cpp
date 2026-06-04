@@ -36,3 +36,9 @@ std::vector<VdrRecording> ExternalVdrAdapter::getRecordings() const
 {
     return {};
 }
+
+VdrChangeState ExternalVdrAdapter::getChangeState() const
+{
+    VdrChangeState state;
+    return state;
+}
