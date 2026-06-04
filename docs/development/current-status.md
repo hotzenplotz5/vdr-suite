@@ -8,6 +8,8 @@ Goal:
 
 Modern service-oriented backend architecture for VDR recordings, metadata management, job processing, dashboard services, JSON export, REST API, Web UI, OSD integration and future integration of VDR-Rectools.
 
+VDR remains the primary backend domain and source of truth.
+
 ---
 
 ## Current Branch
@@ -18,59 +20,31 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 
 ## Current Verified Head
 
-`latest commit after phase 8.92`
-
-Phase 8.92: introduce snapshot refresh decision model.
+`f8ceef4`
 
 Latest milestone tag:
 
-`v1.93-phase8-snapshot-cache-model`
+`v1.94.1-phase8-daemon-runtime-wiring`
+
+Latest completed phase:
+
+Phase 8.94: integrate snapshot cache into polling and daemon runtime.
 
 Verified locally with:
 
-```bash
-make test-snapshot-refresh-decision-service
-make test-polling-service
-make test
-```
+- `make daemon`
+- `make test-polling-service`
+- `make test-snapshot-cache`
+- `make test-snapshot-cache-service`
 
 ---
 
-## Last Completed Development State
+## Current Architecture State
 
-Latest verified implementation state:
+VDR-Suite is moving from direct live RESTfulAPI access per API request toward a daemon-owned snapshot and change-detection architecture.
 
-- Phase 8.69: PollingService interface
-- Phase 8.70: PollingService implementation
-- Phase 8.72: extract VDR source list into make include
-- Phase 8.74: extract VDR test targets into make include
-- Phase 8.75: extract HTTP source list into make include
-- Phase 8.76: extract daemon source list into make include
-- Phase 8.77: extract recording source lists into make include
-- Phase 8.78: extract action and job source lists into make include
-- Phase 8.79: initial root Makefile include conversion
-- Phase 8.80: remove duplicate VDR test targets
-- Phase 8.81: initialize `PollingService` in `DaemonRuntime`
-- Phase 8.82: introduce `VdrChangeState` and `VdrChangeEvent`
-- Phase 8.84: introduce `ChangeDetectionService`
-- Phase 8.85: add change-state contract to `IVdrAdapter`
-- Phase 8.86: add change-state support to `MockVdrAdapter` and `ExternalVdrAdapter`
-- Phase 8.87: add and stub RESTfulAPI change-state support
-- Phase 8.88: read RESTfulAPI `/change-state.json` endpoint
-- Phase 8.89: add RESTfulAPI change-state adapter tests and include them in the global test suite
-- Phase 8.90: integrate change-state polling service
-- Phase 8.93: introduce snapshot cache model
-- Phase 8.92: introduce snapshot refresh decision model
+Current implemented chain:
 
----
-
-## Current Architecture Direction
-
-VDR-Suite is moving from live RESTfulAPI access per API request toward a daemon-owned snapshot and change-detection architecture.
-
-Current target chain:
-
-```text
 RESTfulAPI
     ↓
 /change-state.json
@@ -85,22 +59,30 @@ PollingService
     ↓
 ChangeDetectionService
     ↓
+VdrChangeEvent
+    ↓
+SnapshotRefreshDecisionService
+    ↓
 VdrSnapshotBuilder
     ↓
-Snapshot Cache
+SnapshotCacheService
     ↓
-API Responses / future live updates
-```
+SnapshotCache
+    ↓
+DaemonRuntime
+    ↓
+future snapshot-backed API responses
 
 Purpose:
 
 - keep RESTfulAPI behind the adapter boundary
 - avoid repeated live RESTfulAPI calls per API request
-- prepare daemon-owned refresh cycles
+- keep refresh decisions inside daemon-owned services
+- keep snapshot storage separate from polling logic
 - prepare efficient polling based on lightweight change-state checks
-- prepare future SSE/WebSocket update delivery
 - prepare future multi-VDR and permission-aware designs
 - keep API controllers backend-independent
+- avoid premature federation, SSE, WebSocket, user-management or cluster runtime implementation
 
 ---
 
@@ -116,6 +98,8 @@ Implemented:
 - `ChangeDetectionService`
 - `SnapshotRefreshDecision`
 - `SnapshotRefreshDecisionService`
+- `SnapshotCache`
+- `SnapshotCacheService`
 - `IVdrAdapter::getChangeState()`
 - `VdrService::getChangeState()`
 - `MockVdrAdapter::getChangeState()`
@@ -124,42 +108,38 @@ Implemented:
 
 RESTfulAPI integration:
 
-- `RestfulApiVdrAdapter` now requests `GET /change-state.json`
+- `RestfulApiVdrAdapter` requests `GET /change-state.json`
 - the response is mapped into `VdrChangeState`
-- dedicated adapter tests verify parsing, endpoint selection, HTTP error handling and invalid/incomplete JSON handling
-- the dedicated change-state adapter test is part of the global `make test` suite
 - supported fields:
   - `statusVersion`
   - `channelsVersion`
   - `recordingsVersion`
   - `timersVersion`
   - `eventsVersion`
+- adapter tests verify parsing, endpoint selection, HTTP error handling and invalid/incomplete JSON handling
 
 Polling integration:
 
-- `PollingService` now reads `VdrService::getChangeState()` before refresh decisions
-- first poll always builds an initial snapshot
-- unchanged change-state keeps the existing snapshot
+- `PollingService` reads `VdrService::getChangeState()` before refresh decisions
+- first poll builds an initial snapshot
+- unchanged change-state keeps the existing cached snapshot
 - changed change-state is converted into `VdrChangeEvent` entries
 - `SnapshotRefreshDecisionService` converts change events into refresh decisions
 - current refresh decisions support `NoRefresh` and `FullRefresh`
 - full refresh decisions trigger a snapshot rebuild through `VdrSnapshotBuilder`
-- `DaemonRuntime` now initializes `PollingService` with `VdrSnapshotBuilder` and `VdrService`
+- rebuilt snapshots are written through `SnapshotCacheService`
+- `DaemonRuntime` owns `SnapshotCache`, `SnapshotCacheService`, `VdrSnapshotBuilder` and `PollingService`
 
-Verified targets include:
+---
 
-```bash
-make daemon
-make test-vdr-snapshot-builder
-make test-snapshot-refresh-decision-service
-make test-polling-service
-make test-vdr-change-state
-make test-change-detection-service
-make test-snapshot-refresh-decision-service
-make test-restful-api-vdr-adapter
-make test-restful-api-change-state-adapter
-make test
-```
+## Completed Recent Phases
+
+- Phase 8.90: change-state polling integration
+- Phase 8.91: change event generation
+- Phase 8.92: snapshot refresh decision model
+- Phase 8.93: snapshot cache model
+- Phase 8.94: snapshot cache integration into polling runtime
+- Phase 8.94.1: daemon runtime wiring correction
 
 ---
 
@@ -187,7 +167,7 @@ The adapter tolerates HTTP errors or malformed/missing fields by returning a def
 
 ## Architecture Decisions
 
-Accepted ADRs:
+Accepted ADRs include:
 
 - ADR-001 Backend Identity Strategy
 - ADR-002 Backend Federation Strategy
@@ -213,58 +193,48 @@ This is acceptable for the current minimal endpoint shape, but may later be repl
 
 The unversioned local directory `vdr-suite-integration-lab/` exists in the working tree and is intentionally not part of the repository state.
 
+Documentation debt remains:
+
+- `README.md` is outdated and must be rebuilt for the current Phase 8.94 architecture.
+- `docs/architecture/snapshot-architecture.md` should be updated to mark Phase 8.94 as completed.
+
 ---
 
 ## Next Planned Phase
 
-### Phase 8.93 – Snapshot cache model
+### Phase 8.95 – Snapshot access architecture
 
-Implemented:
+Goal:
 
-- SnapshotCache
-- SnapshotCacheService
-- snapshot cache tests
-- snapshot cache service tests
-- build integration
-
+Define how API-facing layers should access daemon-owned snapshots without coupling controllers directly to cache internals or backend-specific adapters.
 
 Scope:
 
-- introduce a daemon-owned snapshot cache model
-- keep cache storage separate from refresh decisions
-- prepare future BackendId-aware cache storage
-- avoid introducing federation, SSE or WebSocket runtime objects prematurely
+- define snapshot access boundaries
+- define read-only snapshot access service direction
+- prepare snapshot-backed REST API responses
+- preserve backend neutrality
+- preserve future multi-VDR compatibility
+- avoid premature federation runtime
+- avoid premature SSE/WebSocket runtime
+- avoid user management and permission runtime
 
-Required verification:
+Expected result:
 
-```bash
-make test-snapshot-refresh-decision-service
-make test-snapshot-refresh-decision-service
-make test-polling-service
-make test
-```
-
-Commit target:
-
-```text
-Phase 8.93: introduce snapshot cache model
-```
+A documented architecture for snapshot-backed API access before modifying REST controllers.
 
 ---
 
 ## Upcoming Phases
 
-### Phase 8.94 – Snapshot cache integration
+### Phase 8.96 – Snapshot-backed API responses
 
-Integrate snapshot cache access into polling and daemon runtime after the cache model is stable.
-
-### Phase 8.95 – Snapshot-backed API responses
-
-Introduce daemon-owned snapshot cache access as the basis for snapshot-backed API responses.
+Introduce daemon-owned snapshot access as the basis for VDR API responses.
 
 ### Later Phases
 
-- API responses from daemon snapshot cache
+- partial snapshot refresh decisions
+- event dispatch preparation
 - SSE/WebSocket live update transport
 - multi-VDR backend identity and routing
 - backend-owned capability model for permission-aware frontends
@@ -275,18 +245,16 @@ Introduce daemon-owned snapshot cache access as the basis for snapshot-backed AP
 
 ## Split Documentation
 
-Long-running historical sections were moved out of this status file.
+Long-running historical sections are kept out of this status file.
 
 See:
 
 - `docs/development/completed-phases.md`
 - `docs/development/milestones.md`
 - `docs/architecture/snapshot-architecture.md`
-- `docs/adr/adr-001-backend-identity-strategy.md`
-- `docs/adr/adr-002-backend-federation-strategy.md`
-- `docs/adr/adr-003-backend-capability-strategy.md`
-- `docs/adr/adr-004-backend-lifecycle-strategy.md`
-- `docs/adr/adr-005-stream-provider-strategy.md`
+- `docs/architecture/vdr-backends.md`
+- `docs/architecture/vdr-suite-core-platform-model.md`
+- `docs/adr/`
 
 ---
 
@@ -301,4 +269,4 @@ See:
 - Use nano-compatible workflows for local instructions.
 - No `cat <<EOF` blocks in local instructions.
 - Keep builds working after each small change.
-- Run tests before code commits when local build access is available.
+- Run targeted tests before code commits when local build access is available.
