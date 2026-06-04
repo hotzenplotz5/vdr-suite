@@ -159,3 +159,13 @@ test-vdr-domain-objects:
 		core/vdr/tests/test_vdr_domain_objects.cpp \
 		-o /tmp/test_vdr_domain_objects
 	/tmp/test_vdr_domain_objects
+
+
+test-snapshot-access-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SnapshotCache.cpp \
+		core/vdr/src/SnapshotCacheService.cpp \
+		core/vdr/src/SnapshotAccessService.cpp \
+		core/vdr/tests/test_snapshot_access_service.cpp \
+		-o /tmp/test_snapshot_access_service
+	/tmp/test_snapshot_access_service
