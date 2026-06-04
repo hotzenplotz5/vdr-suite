@@ -20,6 +20,7 @@ public:
     std::vector<VdrChannel> getChannels() const override;
     std::vector<VdrTimer> getTimers() const override;
     std::vector<VdrRecording> getRecordings() const override;
+    VdrChangeState getChangeState() const override;
 
 private:
     VdrConfig config_;
