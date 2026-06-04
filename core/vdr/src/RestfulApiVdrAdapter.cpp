@@ -89,3 +89,9 @@ std::vector<VdrRecording> RestfulApiVdrAdapter::getRecordings() const
 
     return RestfulApiRecordingMapper::parseRecordings(response.body);
 }
+
+VdrChangeState RestfulApiVdrAdapter::getChangeState() const
+{
+    VdrChangeState state;
+    return state;
+}
