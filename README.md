@@ -8,6 +8,20 @@ VDR-Suite complements VDR. It does not replace it.
 
 ---
 
+## Start Here
+
+New to VDR-Suite?
+
+Read:
+
+- [VDR-Suite vision](docs/introduction/vdr-suite-vision.md)
+- [Current project status](docs/development/current-status.md)
+- [Core platform model](docs/architecture/vdr-suite-core-platform-model.md)
+
+The vision document explains the long-term goals, architecture philosophy and future direction of the project.
+
+---
+
 ## Current Status
 
 Branch:
@@ -314,6 +328,7 @@ Use `make test` for release, tag, larger refactoring or build-system changes.
 
 Important documentation:
 
+- `docs/introduction/vdr-suite-vision.md`
 - `docs/development/current-status.md`
 - `docs/development/completed-phases.md`
 - `docs/development/milestones.md`
