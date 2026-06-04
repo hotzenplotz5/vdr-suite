@@ -3,9 +3,13 @@
 #include "VdrService.h"
 #include "VdrSnapshotBuilder.h"
 
-PollingService::PollingService(VdrSnapshotBuilder& snapshotBuilder, VdrService& vdrService)
+PollingService::PollingService(
+    VdrSnapshotBuilder& snapshotBuilder,
+    VdrService& vdrService,
+    SnapshotCacheService& snapshotCacheService)
     : snapshotBuilder_(snapshotBuilder),
       vdrService_(vdrService),
+      snapshotCacheService_(snapshotCacheService),
       hasChangeState_(false)
 {
 }
@@ -17,7 +21,7 @@ void PollingService::poll()
     changeEvents_.clear();
 
     if (!hasChangeState_) {
-        snapshot_ = snapshotBuilder_.buildSnapshot();
+        snapshotCacheService_.cache().update(snapshotBuilder_.buildSnapshot());
         lastChangeState_ = currentChangeState;
         hasChangeState_ = true;
         return;
@@ -28,14 +32,14 @@ void PollingService::poll()
     const auto refreshDecision = snapshotRefreshDecisionService_.decide(changeEvents_);
 
     if (refreshDecision.shouldRefreshSnapshot()) {
-        snapshot_ = snapshotBuilder_.buildSnapshot();
+        snapshotCacheService_.cache().update(snapshotBuilder_.buildSnapshot());
         lastChangeState_ = currentChangeState;
     }
 }
 
 const VdrSnapshot& PollingService::snapshot() const
 {
-    return snapshot_;
+    return snapshotCacheService_.cache().snapshot();
 }
 
 const std::vector<VdrChangeEvent>& PollingService::changeEvents() const
