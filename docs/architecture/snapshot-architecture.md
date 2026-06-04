@@ -35,7 +35,11 @@ ChangeDetectionService
     ↓
 VdrChangeEvent[]
     ↓
-Snapshot Cache / Event Dispatch / REST API
+SnapshotCacheService
+    ↓
+SnapshotCache
+    ↓
+REST API / future event dispatch
 ```
 
 ## Current Components
@@ -54,15 +58,35 @@ Aggregates:
 
 Builds a complete snapshot using VdrService.
 
+### SnapshotCache
+
+Owns the latest daemon-visible VDR snapshot.
+
+Responsibilities:
+
+- track whether a snapshot exists
+- expose the current snapshot
+- replace the current snapshot after refresh
+- clear the current snapshot
+
+### SnapshotCacheService
+
+Provides a service boundary around SnapshotCache.
+
+The service exists so later phases can evolve cache access without exposing storage details directly to API controllers or backend-specific adapters.
+
 ### PollingService
 
-Responsible for refreshing snapshots.
+Responsible for deciding when snapshots need to be refreshed.
 
 Current responsibilities:
 
-- poll()
-- hold latest snapshot
-- provide snapshot()
+- poll VdrChangeState
+- detect VdrChangeEvent values
+- ask SnapshotRefreshDecisionService whether a snapshot refresh is needed
+- rebuild snapshots through VdrSnapshotBuilder
+- write refreshed snapshots into SnapshotCacheService
+- expose the current cached snapshot
 
 ### VdrChangeState
 
@@ -105,24 +129,26 @@ current.channelsVersion  = 2
 
 The long-term polling strategy is not based on rebuilding complete snapshots on every polling cycle.
 
-VDR-Suite will require an extended RESTfulAPI implementation that exposes change-state information.
+VDR-Suite requires RESTfulAPI change-state information for efficient polling.
 
 Target architecture:
 
 ```text
 RESTfulAPI
     ↓
-Change-State Endpoint
-    ↓
-PollingService
+/change-state.json
     ↓
 VdrChangeState
     ↓
 ChangeDetectionService
     ↓
-Snapshot Refresh Decision
+SnapshotRefreshDecisionService
     ↓
 VdrSnapshotBuilder
+    ↓
+SnapshotCacheService
+    ↓
+SnapshotCache
 ```
 
 Goals:
@@ -133,23 +159,9 @@ Goals:
 - prepare efficient multi-VDR polling
 - prepare later event dispatch through SSE or WebSocket
 
-Potential future endpoint examples:
-
-```text
-/change-state.json
-/state.json
-/versions.json
-```
-
-The exact endpoint design is intentionally deferred until the RESTfulAPI patch strategy is defined.
-
-Architectural decision:
-
-A patched RESTfulAPI implementation is considered a supported requirement for future VDR-Suite polling optimizations.
-
 ## RESTfulAPI Patch Direction
 
-A future RESTfulAPI patch should expose stable change-state counters or equivalent version information for VDR domains.
+A RESTfulAPI patch exposes stable change-state counters or equivalent version information for VDR domains.
 
 Minimum useful domains:
 
@@ -159,7 +171,7 @@ Minimum useful domains:
 - timers
 - events
 
-The endpoint should allow VDR-Suite to decide whether a full or partial snapshot refresh is required before loading larger data sets.
+The endpoint allows VDR-Suite to decide whether a full or partial snapshot refresh is required before loading larger data sets.
 
 The preferred direction is a lightweight state endpoint rather than repeatedly loading all heavy RESTfulAPI resources.
 
@@ -168,6 +180,10 @@ The preferred direction is a lightweight state endpoint rather than repeatedly l
 ```text
 DaemonRuntime
         ↓
+SnapshotCache
+        ↓
+SnapshotCacheService
+        ↓
 PollingService
         ↓
 VdrChangeState
@@ -175,6 +191,8 @@ VdrChangeState
 ChangeDetectionService
         ↓
 VdrChangeEvent[]
+        ↓
+SnapshotRefreshDecisionService
         ↓
 VdrSnapshotBuilder
         ↓
@@ -205,11 +223,27 @@ Introduce VdrChangeEvent domain object.
 
 Introduce ChangeDetectionService.
 
+### Phase 8.90
+
+Integrate change-state polling service.
+
+### Phase 8.91
+
+Generate backend-neutral VdrChangeEvent values from change-state transitions.
+
+### Phase 8.92
+
+Introduce SnapshotRefreshDecision and SnapshotRefreshDecisionService.
+
+### Phase 8.93
+
+Introduce SnapshotCache and SnapshotCacheService.
+
 ## Planned Phases
 
-### Phase 8.85
+### Phase 8.94
 
-Integrate change detection with PollingService.
+Integrate SnapshotCacheService into PollingService and DaemonRuntime.
 
 ### Future
 
@@ -221,6 +255,9 @@ Move REST endpoints to snapshot-backed responses.
 - Controllers should not call RESTfulAPI directly.
 - Daemon owns refresh logic.
 - Snapshot models remain backend-neutral.
+- PollingService owns refresh decisions, not storage internals.
+- SnapshotCache owns current snapshot storage.
 - Multi-VDR assumptions must remain possible.
 - Polling optimizations may depend on RESTfulAPI change-state support.
 - Event dispatch must be driven by backend-neutral VdrChangeEvent values.
+- No SSE runtime, WebSocket runtime, federation runtime, user management or permission runtime is introduced by the snapshot cache integration phase.
