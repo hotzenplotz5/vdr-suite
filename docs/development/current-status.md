@@ -18,14 +18,18 @@ Modern service-oriented backend architecture for VDR recordings, metadata manage
 
 ## Current Verified Head
 
-`160d9ee`
+`a1a939d`
 
-Phase 8.89: include change-state adapter test in suite.
+Phase 8.90: integrate change-state polling service.
+
+Latest milestone tag:
+
+`v1.90-phase8-change-state-polling-service`
 
 Verified locally with:
 
 ```bash
-make test-restful-api-change-state-adapter
+make test-polling-service
 make test
 ```
 
@@ -53,6 +57,7 @@ Latest verified implementation state:
 - Phase 8.87: add and stub RESTfulAPI change-state support
 - Phase 8.88: read RESTfulAPI `/change-state.json` endpoint
 - Phase 8.89: add RESTfulAPI change-state adapter tests and include them in the global test suite
+- Phase 8.90: integrate change-state polling service
 
 ---
 
@@ -71,9 +76,11 @@ RestfulApiVdrAdapter
     ↓
 VdrChangeState
     ↓
-ChangeDetectionService
+VdrService
     ↓
 PollingService
+    ↓
+ChangeDetectionService
     ↓
 VdrSnapshotBuilder
     ↓
@@ -105,6 +112,7 @@ Implemented:
 - `VdrChangeEvent`
 - `ChangeDetectionService`
 - `IVdrAdapter::getChangeState()`
+- `VdrService::getChangeState()`
 - `MockVdrAdapter::getChangeState()`
 - `ExternalVdrAdapter::getChangeState()`
 - `RestfulApiVdrAdapter::getChangeState()`
@@ -121,6 +129,14 @@ RESTfulAPI integration:
   - `recordingsVersion`
   - `timersVersion`
   - `eventsVersion`
+
+Polling integration:
+
+- `PollingService` now reads `VdrService::getChangeState()` before refresh decisions
+- first poll always builds an initial snapshot
+- unchanged change-state keeps the existing snapshot
+- changed change-state triggers a snapshot rebuild through `VdrSnapshotBuilder`
+- `DaemonRuntime` now initializes `PollingService` with `VdrSnapshotBuilder` and `VdrService`
 
 Verified targets include:
 
@@ -191,14 +207,14 @@ The unversioned local directory `vdr-suite-integration-lab/` exists in the worki
 
 ## Next Planned Phase
 
-### Phase 8.90 – PollingService change-state integration
+### Phase 8.91 – Change event generation integration
 
 Scope:
 
-- use `IVdrAdapter::getChangeState()` inside `PollingService`
-- compare previous and current `VdrChangeState` snapshots
-- prepare snapshot refresh decisions based on lightweight backend change information
-- keep the implementation compatible with future BackendId and lifecycle-aware polling
+- expose or preserve generated `VdrChangeEvent` objects from polling
+- prepare backend-neutral change-event flow for future snapshot cache updates
+- keep the implementation compatible with future BackendId and lifecycle-aware event delivery
+- avoid introducing federation, capability or stream-provider runtime objects prematurely
 
 Required verification:
 
@@ -211,24 +227,23 @@ make test
 Commit target:
 
 ```text
-Phase 8.90: integrate change-state polling service
+Phase 8.91: integrate change event generation
 ```
 
 ---
 
 ## Upcoming Phases
 
-### Phase 8.91 – ChangeDetectionService integration
+### Phase 8.92 – Snapshot refresh decision model
 
-Compare previous and current `VdrChangeState` objects and classify which backend domains changed.
+Separate change detection from refresh decisions so later partial snapshot refreshes can be introduced cleanly.
 
-### Phase 8.92 – VdrChangeEvent generation
+### Phase 8.93 – Snapshot cache foundation
 
-Generate `VdrChangeEvent` objects from detected backend changes for future live update delivery.
+Introduce daemon-owned snapshot cache access as the basis for snapshot-backed API responses.
 
 ### Later Phases
 
-- daemon-owned snapshot cache access
 - API responses from daemon snapshot cache
 - SSE/WebSocket live update transport
 - multi-VDR backend identity and routing
