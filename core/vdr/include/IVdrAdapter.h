@@ -1,5 +1,6 @@
 #pragma once
 
+#include "VdrChangeState.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrRecording.h"
@@ -17,4 +18,5 @@ public:
     virtual std::vector<VdrChannel> getChannels() const = 0;
     virtual std::vector<VdrTimer> getTimers() const = 0;
     virtual std::vector<VdrRecording> getRecordings() const = 0;
+    virtual VdrChangeState getChangeState() const = 0;
 };
