@@ -201,3 +201,12 @@ test-local-snapshot-runtime-integration:
 		core/vdr/tests/test_local_snapshot_runtime_integration.cpp \
 		-o /tmp/test_local_snapshot_runtime_integration
 	/tmp/test_local_snapshot_runtime_integration
+
+test-local-partial-refresh-validation:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/http/src/BasicHttpClient.cpp \
+		core/http/src/MockHttpClient.cpp \
+		core/vdr/tests/test_local_partial_refresh_validation.cpp \
+		-o /tmp/test_local_partial_refresh_validation
+	/tmp/test_local_partial_refresh_validation
