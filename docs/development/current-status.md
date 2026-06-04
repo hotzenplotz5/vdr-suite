@@ -32,26 +32,31 @@ VDR remains the primary backend domain and source of truth.
 
 ## Current Verified Head
 
-`31a94b6`
+`c9fd04a`
 
 Latest milestone tag:
 
-`v2.5-phase9-execute-snapshot-update-plan`
+`v2.8-phase9-local-partial-refresh-validation`
+
+Latest documentation tag:
+
+`v2.8.1-phase9-doc-sync`
 
 Latest completed phase:
 
-Phase 9.5: Execute SnapshotUpdatePlan.
+Phase 9.8: Local Partial Refresh Validation.
 
 Verified locally with:
 
-- `make test-polling-service`
-- `make test`
+- `make test-local-restfulapi-integration`
+- `make test-local-snapshot-runtime-integration`
+- `make test-local-partial-refresh-validation`
 
 Important architecture note:
 
-Phase 9.5 connects generated `SnapshotUpdatePlan` values to domain-specific builder reads and cache service updates. The polling runtime now performs partial snapshot refresh execution for changed domains while preserving full snapshot rebuild behavior for first poll and future recovery paths.
+Phase 9 has completed the transition from generated partial refresh plans to a real VDR-backed snapshot runtime validation. A local VDR/RESTfulAPI setup proved that a real timer-domain change is detected through change-state polling, converted into a `SnapshotUpdatePlan`, and executed as a timer-only snapshot refresh without rebuilding the full snapshot.
 
-The repository was build- and test-clean at `31a94b6` before this documentation update.
+The repository was clean and synchronized with `origin/phase-2-actions` before this documentation update.
 
 ---
 
@@ -59,17 +64,20 @@ The repository was build- and test-clean at `31a94b6` before this documentation 
 
 VDR-Suite is moving from direct live RESTfulAPI access per API request toward a daemon-owned snapshot and change-detection architecture.
 
-Current implemented chain:
+Current implemented and locally validated runtime chain:
 
+```text
+VDR
+    ↓
 RESTfulAPI
     ↓
-/change-state.json
+BasicHttpClient
     ↓
 RestfulApiVdrAdapter
     ↓
-VdrChangeState
-    ↓
 VdrService
+    ↓
+VdrSnapshotBuilder
     ↓
 PollingService
     ↓
@@ -81,22 +89,10 @@ SnapshotRefreshPlanner
     ↓
 SnapshotUpdatePlan
     ↓
-Plan execution
-        ├─ buildStatus()     -> updateStatus()
-        ├─ buildRecordings() -> updateRecordings()
-        ├─ buildTimers()     -> updateTimers()
-        ├─ buildChannels()   -> updateChannels()
-        └─ buildEvents()     -> updateEvents()
-    ↓
 SnapshotCacheService
     ↓
 SnapshotCache
-    ↓
-SnapshotAccessService
-    ↓
-VdrOverviewService
-    ↓
-VdrController
+```
 
 Purpose:
 
@@ -105,15 +101,65 @@ Purpose:
 - keep refresh decisions inside daemon-owned services
 - keep snapshot storage separate from polling logic
 - prepare efficient polling based on lightweight change-state checks
+- update only changed snapshot domains where possible
+- preserve full snapshot rebuild behavior for first poll and recovery paths
 - prepare future multi-VDR and permission-aware designs
 - keep API controllers backend-independent
 - avoid premature federation, SSE, WebSocket, user-management or cluster runtime implementation
 
 ---
 
+## Phase 9 Runtime Validation Result
+
+Phase 9 was validated against a real local VDR/RESTfulAPI setup.
+
+Initial snapshot:
+
+```text
+channels:   342
+recordings: 973
+timers:     0
+events:     36272
+```
+
+After one real timer-domain change, the generated update plan was:
+
+```text
+status:     no
+channels:   no
+recordings: no
+timers:     yes
+events:     no
+full:       no
+```
+
+Updated snapshot:
+
+```text
+channels:   342
+recordings: 973
+timers:     1
+events:     36272
+```
+
+This proves:
+
+- real VDR access works
+- RESTfulAPI access works
+- `BasicHttpClient` works against the real local endpoint
+- `RestfulApiVdrAdapter` maps real backend data into VDR-Suite domain objects
+- the snapshot runtime works against real backend data
+- change-state polling detects a real backend-domain change
+- `ChangeDetectionService` creates the expected change event
+- `SnapshotRefreshPlanner` creates the expected domain-specific plan
+- partial refresh updates only the affected timer domain
+- no full snapshot refresh is triggered for a normal timer change
+
+---
+
 ## Build System State
 
-The top-level `Makefile` now delegates source groups to modular include files under `mk/`.
+The top-level `Makefile` delegates source groups to modular include files under `mk/`.
 
 Implemented build modules:
 
@@ -133,6 +179,12 @@ The public targets remain stable:
 - `make daemon`
 - `make dashboard-cli`
 - `make prepare-test-db`
+
+Local VDR integration targets are intentionally optional and are not part of `make test`:
+
+- `make test-local-restfulapi-integration`
+- `make test-local-snapshot-runtime-integration`
+- `make test-local-partial-refresh-validation`
 
 ---
 
@@ -218,6 +270,13 @@ Polling integration:
 - Phase 9.4: runtime plan integration
 - Phase 9.4.1: documentation sync after runtime plan integration
 - Phase 9.5: execute snapshot update plans
+- Phase 9.5.1: documentation sync after plan execution
+- Phase 9.6: local RESTfulAPI integration
+- Phase 9.6.1: documentation sync after local RESTfulAPI integration
+- Phase 9.7: local snapshot runtime integration
+- Phase 9.7.1: documentation sync after local snapshot runtime integration
+- Phase 9.8: local partial refresh validation
+- Phase 9.8.1: documentation sync after local partial refresh validation
 
 ---
 
@@ -275,51 +334,79 @@ Current change-state parsing inside `RestfulApiVdrAdapter` uses a small local in
 
 This is acceptable for the current minimal endpoint shape, but may later be replaced by a dedicated mapper if the endpoint grows or more RESTfulAPI JSON parsing is consolidated.
 
-The unversioned local directory `vdr-suite-integration-lab/` exists in the working tree and is intentionally not part of the repository state.
-
 The root `Makefile` still contains many test targets and the `clean` target. Source groups have been modularized in Phase 8.98; moving additional target groups into dedicated `mk/*-tests.mk` or `mk/clean.mk` files can be considered later, but is no longer urgent because the root Makefile no longer owns the large source-definition block.
+
+Phase 9.8 exposed an observability gap: local runtime tests can spend noticeable time building the first full snapshot, especially while loading large event sets through `/events.json`, but current services do not yet provide structured runtime logs, timings or diagnostics.
 
 Documentation state:
 
 - `README.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-architecture.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-access-architecture.md` documents the Phase 8.95 access boundary.
-- `docs/development/current-status.md` documents Phase 9.5 and the executed partial refresh runtime path.
 - `docs/architecture/internal-event-dispatch-architecture.md` documents the Phase 8.99 internal event dispatch direction.
 - `docs/architecture/partial-snapshot-refresh-architecture.md` documents the Phase 9 partial snapshot refresh architecture.
+- `docs/development/phase-9.6-local-restfulapi-integration.md` documents the local RESTfulAPI validation.
+- `docs/development/phase-9.7-local-snapshot-runtime-integration.md` documents the local snapshot runtime validation.
+- `docs/development/phase-9.8-local-partial-refresh-validation.md` documents the local partial refresh validation.
+- `docs/development/current-status.md` documents Phase 9.8 and the completed real local VDR validation path.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 9.6 – Local VDR integration tests
+### Phase 10.0 – Runtime Logging & Diagnostics Foundation
 
 Goal:
 
-Introduce guarded integration checks against a local VDR/RESTfulAPI setup now that runtime partial refresh execution exists.
+Introduce a minimal, testable runtime logging and diagnostics foundation before adding ad-hoc output to runtime services.
 
-Candidate checks:
+Motivation:
 
-- verify that the daemon can read a real local VDR status
-- verify that channels, recordings, timers and events can be read through the configured adapter
-- verify that `/change-state.json` can drive partial refresh decisions
-- verify that one changed domain refreshes only the corresponding snapshot domain
-- keep integration tests optional and disabled by default unless a local VDR test environment is explicitly configured
+Phase 9 made the snapshot runtime real. With real VDR data, real HTTP calls and large event sets, VDR-Suite now needs observability to understand runtime behavior without scattering `std::cout` statements through services.
 
-Expected result:
+Initial architecture questions:
 
-The first real VDR-backed integration test layer without making unit tests depend on a local VDR installation.
+- Where should runtime logs be emitted?
+- How can logging stay optional and testable?
+- How can unit tests remain silent and deterministic?
+- How can local integration tests expose progress during long first snapshot builds?
+- How should later diagnostics for REST/UI reuse the same runtime information?
+
+Expected direction:
+
+- small runtime logging abstraction
+- null implementation as default
+- test logger for assertions
+- console logger only for local integration/runtime use
+- no external logging framework yet
+- no REST diagnostics endpoint yet
+- no metrics database yet
+- no multi-VDR diagnostics implementation yet
 
 ---
 
 ## Upcoming Phases
 
-### Phase 9.6 – Local VDR integration tests
+### Phase 10.0 – Runtime Logging & Diagnostics Foundation
 
-Introduce optional integration checks against a local VDR/RESTfulAPI setup after the runtime partial refresh path exists.
+Create the minimal architecture boundary for runtime logs and later diagnostics.
+
+### Phase 10.1 – PollingService Runtime Logging
+
+Expose poll progress, change-state loading, initial full snapshot creation, plan generation and plan execution in a controlled way.
+
+### Phase 10.2 – Snapshot Build Timing
+
+Measure domain-specific snapshot build durations for status, recordings, timers, channels and events.
+
+### Phase 10.3 – HTTP Request Timing
+
+Measure BasicHttpClient request durations, response status and response size where appropriate.
 
 ### Later Phases
 
+- runtime diagnostics object
+- diagnostics REST endpoint
 - event dispatch expansion beyond snapshot refresh
 - SSE/WebSocket live update transport
 - multi-VDR backend identity and routing
