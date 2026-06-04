@@ -6,6 +6,7 @@ New contributors should start with:
 
 - `docs/introduction/vdr-suite-vision.md`
 - `README.md`
+- [Documentation Index](../index.md)
 
 The vision document explains why VDR-Suite exists, the long-term goals of the project, the snapshot architecture philosophy and the future direction of the platform.
 

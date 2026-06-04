@@ -355,6 +355,7 @@ VDR-Suite aims to become a modern and extensible platform around VDR while remai
 
 ## Further Reading
 
+- [Documentation Index](../index.md)
 - [Current project status](../development/current-status.md)
 - [Snapshot architecture](../architecture/snapshot-architecture.md)
 - [Snapshot access architecture](../architecture/snapshot-access-architecture.md)
