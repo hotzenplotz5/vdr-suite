@@ -114,3 +114,9 @@ std::vector<VdrRecording> MockVdrAdapter::getRecordings() const
 
     return { recording1, recording2 };
 }
+
+VdrChangeState MockVdrAdapter::getChangeState() const
+{
+    VdrChangeState state;
+    return state;
+}
