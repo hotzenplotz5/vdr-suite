@@ -226,6 +226,14 @@ See:
 
 ---
 
+
+## Architecture Decisions
+
+- ADR-001 Backend Identity Strategy
+- ADR-002 Backend Federation Strategy
+- ADR-003 Backend Capability Strategy
+- ADR-004 Backend Lifecycle Strategy
+
 ## Project Rules
 
 - Architecture first.
