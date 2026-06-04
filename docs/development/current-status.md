@@ -32,15 +32,15 @@ VDR remains the primary backend domain and source of truth.
 
 ## Current Verified Head
 
-`0e4d231`
+`c4e90ff`
 
 Latest milestone tag:
 
-`v1.97-phase8-makefile-modularization`
+`v2.2-phase9-snapshot-builder-domain-methods`
 
 Latest completed phase:
 
-Phase 8.98: Makefile source modularization.
+Phase 9.2: Snapshot builder domain methods.
 
 Verified locally with:
 
@@ -77,9 +77,16 @@ ChangeDetectionService
     ↓
 VdrChangeEvent
     ↓
-SnapshotRefreshDecisionService
+SnapshotRefreshPlanner
+    ↓
+SnapshotUpdatePlan
     ↓
 VdrSnapshotBuilder
+        ├─ buildStatus()
+        ├─ buildRecordings()
+        ├─ buildTimers()
+        ├─ buildChannels()
+        └─ buildEvents()
     ↓
 SnapshotCacheService
     ↓
@@ -141,6 +148,8 @@ Implemented:
 - `ChangeDetectionService`
 - `SnapshotRefreshDecision`
 - `SnapshotRefreshDecisionService`
+- `SnapshotUpdatePlan`
+- `SnapshotRefreshPlanner`
 - `SnapshotCache`
 - `SnapshotCacheService`
 - `ISnapshotAccessService`
@@ -195,6 +204,10 @@ Polling integration:
 - Phase 8.96: snapshot-backed VDR overview service support
 - Phase 8.97: runtime overview wiring consistency
 - Phase 8.98: Makefile source modularization
+- Phase 8.99: internal event dispatch architecture
+- Phase 9.0: snapshot update plan
+- Phase 9.1: snapshot refresh planner
+- Phase 9.2: snapshot builder domain methods
 
 ---
 
@@ -229,6 +242,7 @@ Accepted ADRs include:
 - ADR-003 Backend Capability Strategy
 - ADR-004 Backend Lifecycle Strategy
 - ADR-005 Stream Provider Strategy
+- ADR-006 Internal Event Dispatch Strategy
 
 Architectural impact:
 
@@ -237,6 +251,9 @@ Architectural impact:
 - frontends should query backend capabilities instead of checking backend implementation types
 - backend lifecycle states must be considered by future polling, snapshot and event-delivery logic
 - stream handling must remain backend-neutral and must not permanently assume DVB/VDR as the only source
+- internal event dispatch keeps `VdrChangeEvent` independent from snapshot refresh, live update transport and future multi-VDR routing
+- partial snapshot refresh planning is now represented by `SnapshotUpdatePlan` and `SnapshotRefreshPlanner`
+- `VdrSnapshotBuilder` now exposes domain-specific build methods while preserving full snapshot rebuild support
 
 ---
 
@@ -255,38 +272,41 @@ Documentation state:
 - `README.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-architecture.md` has been rebuilt after Phase 8.94.
 - `docs/architecture/snapshot-access-architecture.md` documents the Phase 8.95 access boundary.
-- `docs/development/current-status.md` documents Phase 8.98 and the completed Makefile source modularization work.
+- `docs/development/current-status.md` documents Phase 9.2 and the partial snapshot refresh preparation work.
+- `docs/architecture/internal-event-dispatch-architecture.md` documents the Phase 8.99 internal event dispatch direction.
+- `docs/architecture/partial-snapshot-refresh-architecture.md` documents the Phase 9 partial snapshot refresh architecture.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 8.99 – Architecture continuation planning
+### Phase 9.3 – Snapshot cache domain updates
 
 Goal:
 
-Return from build-system cleanup to the next VDR/backend architecture decision point.
+Introduce controlled domain update operations in `SnapshotCacheService` so partial refresh plans can update selected snapshot domains without replacing the complete snapshot.
 
-Candidate directions:
+Candidate operations:
 
-- partial snapshot refresh decisions
-- event dispatch preparation
-- SSE/WebSocket live update transport
-- backend lifecycle handling
-- backend capability exposure
-- multi-VDR routing preparation
+- `updateSnapshot(snapshot)`
+- `updateStatus(status)`
+- `updateRecordings(recordings)`
+- `updateTimers(timers)`
+- `updateChannels(channels)`
+- `updateEvents(events)`
+- `clear()`
 
 Expected result:
 
-A focused architecture review selecting the next implementation phase after the completed snapshot and Makefile modularization work.
+A cache service write boundary that prepares runtime partial refresh execution while keeping `SnapshotCache` a simple storage container.
 
 ---
 
 ## Upcoming Phases
 
-### Phase 8.99 – Architecture continuation planning
+### Phase 9.3 – Snapshot cache domain updates
 
-Select the next backend architecture step after the completed snapshot runtime path and source-level Makefile modularization.
+Add controlled domain update methods to `SnapshotCacheService` as the next step toward runtime partial refresh execution.
 
 ### Later Phases
 

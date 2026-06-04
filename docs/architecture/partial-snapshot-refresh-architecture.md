@@ -226,6 +226,29 @@ Domain build operations support partial updates.
 
 ---
 
+## Implemented Phase 9 Foundation
+
+Implemented:
+
+- `SnapshotUpdatePlan`
+- `SnapshotRefreshPlanner`
+- event-to-plan mapping for status, channels, recordings, timers and events
+- `VdrSnapshotBuilder` domain methods:
+  - `buildStatus()`
+  - `buildRecordings()`
+  - `buildTimers()`
+  - `buildChannels()`
+  - `buildEvents()`
+
+Pending:
+
+- snapshot cache domain update operations
+- polling integration
+- runtime partial refresh execution
+- backend-context wrapping for future multi-VDR support
+
+---
+
 ## Cache Implications
 
 The cache should continue to own one coherent `VdrSnapshot` per backend runtime.

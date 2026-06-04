@@ -57,6 +57,8 @@ Core architecture documents:
 - [RESTfulAPI Integration](architecture/restfulapi-integration.md)
 - [Snapshot Architecture](architecture/snapshot-architecture.md)
 - [Snapshot Access Architecture](architecture/snapshot-access-architecture.md)
+- [Internal Event Dispatch Architecture](architecture/internal-event-dispatch-architecture.md)
+- [Partial Snapshot Refresh Architecture](architecture/partial-snapshot-refresh-architecture.md)
 - [Media Platform Comparison](architecture/media-platform-comparison.md)
 
 Phase-specific architecture notes:
@@ -106,6 +108,7 @@ Future-facing backend ADRs:
 - [ADR-003 Backend Capability Strategy](adr/adr-003-backend-capability-strategy.md)
 - [ADR-004 Backend Lifecycle Strategy](adr/adr-004-backend-lifecycle-strategy.md)
 - [ADR-005 Stream Provider Strategy](adr/adr-005-stream-provider-strategy.md)
+- [ADR-006 Internal Event Dispatch Strategy](adr/adr-006-internal-event-dispatch-strategy.md)
 
 ---
 
