@@ -4,7 +4,8 @@ CXXFLAGS := -std=c++17 -Wall -Wextra \
         -Icore/recordings/include \
         -Icore/daemon/include \
         -Icore/vdr/include \
-	-Icore/http/include \
+        -Icore/http/include \
+        -Icore/runtime/include \
         -Iapi/rest/include
 
 LDFLAGS := $(shell pkg-config --libs sqlite3)
