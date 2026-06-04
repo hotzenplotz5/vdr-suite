@@ -1,31 +1,78 @@
 #include "MockVdrAdapter.h"
+#include "SnapshotAccessService.h"
+#include "SnapshotCache.h"
+#include "SnapshotCacheService.h"
 #include "VdrController.h"
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
 #include "VdrService.h"
+#include "VdrSnapshot.h"
 
 #include <cassert>
 #include <iostream>
 #include <string>
 
-int main()
+static VdrSnapshot makeControllerSnapshot()
 {
-    MockVdrAdapter adapter;
+    VdrSnapshot snapshot;
 
-    VdrService vdrService(adapter);
+    snapshot.status.enabled = true;
+    snapshot.status.mode = "snapshot-controller";
+    snapshot.status.host = "snapshot-controller-host";
+    snapshot.status.port = 1234;
+    snapshot.status.state = "cached";
 
-    VdrOverviewService overviewService(
-        vdrService);
+    VdrChannel channel;
+    channel.id = "snapshot-channel-1";
+    channel.number = 1;
+    channel.name = "Snapshot Channel";
+    channel.provider = "Snapshot Provider";
+    channel.group = "Snapshot Group";
+    channel.radio = true;
+    channel.encrypted = true;
+    channel.enabled = true;
+    snapshot.channels.push_back(channel);
 
-    VdrOverviewJsonSerializer jsonSerializer;
+    VdrEvent event;
+    event.id = "snapshot-event-1";
+    event.channelId = "snapshot-channel-1";
+    event.title = "Snapshot Event";
+    event.subtitle = "Snapshot Event Subtitle";
+    event.description = "Snapshot Event Description";
+    event.startTime = "2026-06-04T20:00:00";
+    event.endTime = "2026-06-04T21:00:00";
+    event.durationSeconds = 3600;
+    event.parentalRating = 0;
+    snapshot.events.push_back(event);
 
-    VdrController controller(
-        overviewService,
-        jsonSerializer);
+    VdrTimer timer;
+    timer.id = "snapshot-timer-1";
+    timer.channelId = "snapshot-channel-1";
+    timer.eventId = "snapshot-event-1";
+    timer.title = "Snapshot Timer";
+    timer.subtitle = "Snapshot Timer Subtitle";
+    timer.startTime = "2026-06-04T20:00:00";
+    timer.endTime = "2026-06-04T21:00:00";
+    timer.priority = 50;
+    timer.lifetime = 99;
+    timer.enabled = true;
+    timer.recording = true;
+    snapshot.timers.push_back(timer);
 
-    ApiResponse response =
-        controller.getOverview();
+    VdrRecording recording;
+    recording.id = "snapshot-recording-1";
+    recording.title = "Snapshot Recording";
+    recording.path = "/srv/vdr/video/Snapshot_Recording/2026-06-04.20.00.1-0.rec";
+    recording.startTime = "2026-06-04T20:00:00";
+    recording.durationSeconds = 3600;
+    recording.sizeMb = 2048;
+    snapshot.recordings.push_back(recording);
 
+    return snapshot;
+}
+
+static void assertCommonOverviewResponse(const ApiResponse& response)
+{
     assert(response.statusCode == 200);
 
     assert(response.contentType
@@ -45,6 +92,27 @@ int main()
 
     assert(response.body.find("\"recordings\"")
            != std::string::npos);
+}
+
+static void test_vdr_controller_returns_live_overview()
+{
+    MockVdrAdapter adapter;
+
+    VdrService vdrService(adapter);
+
+    VdrOverviewService overviewService(
+        vdrService);
+
+    VdrOverviewJsonSerializer jsonSerializer;
+
+    VdrController controller(
+        overviewService,
+        jsonSerializer);
+
+    ApiResponse response =
+        controller.getOverview();
+
+    assertCommonOverviewResponse(response);
 
     assert(response.body.find("\"totalChannels\":3")
            != std::string::npos);
@@ -54,10 +122,79 @@ int main()
 
     assert(response.body.find("\"totalRecordings\":2")
            != std::string::npos);
+}
 
-    std::cout
-        << response.body
-        << std::endl;
+static void test_vdr_controller_returns_snapshot_backed_overview()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot snapshot = makeControllerSnapshot();
+    cache.update(snapshot);
+
+    VdrOverviewService overviewService(accessService);
+    VdrOverviewJsonSerializer jsonSerializer;
+
+    VdrController controller(
+        overviewService,
+        jsonSerializer);
+
+    ApiResponse response =
+        controller.getOverview();
+
+    assertCommonOverviewResponse(response);
+
+    assert(response.body.find("\"mode\":\"snapshot-controller\"")
+           != std::string::npos);
+
+    assert(response.body.find("\"host\":\"snapshot-controller-host\"")
+           != std::string::npos);
+
+    assert(response.body.find("\"state\":\"cached\"")
+           != std::string::npos);
+
+    assert(response.body.find("\"totalChannels\":1")
+           != std::string::npos);
+
+    assert(response.body.find("\"radioChannels\":1")
+           != std::string::npos);
+
+    assert(response.body.find("\"encryptedChannels\":1")
+           != std::string::npos);
+
+    assert(response.body.find("\"totalEvents\":1")
+           != std::string::npos);
+
+    assert(response.body.find("\"totalTimers\":1")
+           != std::string::npos);
+
+    assert(response.body.find("\"activeTimers\":1")
+           != std::string::npos);
+
+    assert(response.body.find("\"recordingTimers\":1")
+           != std::string::npos);
+
+    assert(response.body.find("\"hasNextTimer\":true")
+           != std::string::npos);
+
+    assert(response.body.find("\"id\":\"snapshot-timer-1\"")
+           != std::string::npos);
+
+    assert(response.body.find("\"totalRecordings\":1")
+           != std::string::npos);
+
+    assert(response.body.find("\"hasLatestRecording\":true")
+           != std::string::npos);
+
+    assert(response.body.find("\"title\":\"Snapshot Recording\"")
+           != std::string::npos);
+}
+
+int main()
+{
+    test_vdr_controller_returns_live_overview();
+    test_vdr_controller_returns_snapshot_backed_overview();
 
     std::cout
         << "test_vdr_controller passed"
