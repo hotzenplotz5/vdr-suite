@@ -14,6 +14,8 @@ void PollingService::poll()
 {
     const VdrChangeState currentChangeState = vdrService_.getChangeState();
 
+    changeEvents_.clear();
+
     if (!hasChangeState_) {
         snapshot_ = snapshotBuilder_.buildSnapshot();
         lastChangeState_ = currentChangeState;
@@ -21,9 +23,9 @@ void PollingService::poll()
         return;
     }
 
-    const auto changes = changeDetectionService_.detectChanges(lastChangeState_, currentChangeState);
+    changeEvents_ = changeDetectionService_.detectChanges(lastChangeState_, currentChangeState);
 
-    if (!changes.empty()) {
+    if (!changeEvents_.empty()) {
         snapshot_ = snapshotBuilder_.buildSnapshot();
         lastChangeState_ = currentChangeState;
     }
@@ -32,4 +34,9 @@ void PollingService::poll()
 const VdrSnapshot& PollingService::snapshot() const
 {
     return snapshot_;
+}
+
+const std::vector<VdrChangeEvent>& PollingService::changeEvents() const
+{
+    return changeEvents_;
 }

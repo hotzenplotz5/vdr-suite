@@ -2,8 +2,11 @@
 #define POLLING_SERVICE_H
 
 #include "ChangeDetectionService.h"
+#include "VdrChangeEvent.h"
 #include "VdrChangeState.h"
 #include "VdrSnapshot.h"
+
+#include <vector>
 
 class VdrService;
 class VdrSnapshotBuilder;
@@ -15,6 +18,7 @@ public:
     void poll();
 
     const VdrSnapshot& snapshot() const;
+    const std::vector<VdrChangeEvent>& changeEvents() const;
 
 private:
     VdrSnapshotBuilder& snapshotBuilder_;
@@ -23,6 +27,7 @@ private:
     VdrChangeState lastChangeState_;
     bool hasChangeState_;
     VdrSnapshot snapshot_;
+    std::vector<VdrChangeEvent> changeEvents_;
 };
 
 #endif
