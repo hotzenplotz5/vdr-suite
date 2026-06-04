@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IVdrAdapter.h"
+#include "VdrChangeState.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrRecording.h"
@@ -19,6 +20,7 @@ public:
     std::vector<VdrEvent> getEvents() const;
     std::vector<VdrTimer> getTimers() const;
     std::vector<VdrRecording> getRecordings() const;
+    VdrChangeState getChangeState() const;
 
 private:
     IVdrAdapter& adapter_;
