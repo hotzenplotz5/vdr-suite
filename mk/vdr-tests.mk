@@ -125,6 +125,14 @@ test-restful-api-vdr-adapter:
 		-o /tmp/test_restful_api_vdr_adapter
 	/tmp/test_restful_api_vdr_adapter
 
+test-restful-api-change-state-adapter:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		$(HTTP_SRC) \
+		core/vdr/tests/test_restful_api_change_state_adapter.cpp \
+		-o /tmp/test_restful_api_change_state_adapter
+	/tmp/test_restful_api_change_state_adapter
+
 test-vdr-domain-objects:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_vdr_domain_objects.cpp \
