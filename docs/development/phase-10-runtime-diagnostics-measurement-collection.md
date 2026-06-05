@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document records the current state of the Phase 10 runtime diagnostics work after the snapshot builder measurement collection step.
+This document records the current state of the Phase 10 runtime diagnostics work after the PollingService measurement collection and daemon diagnostics wiring step.
 
 It complements `docs/development/current-status.md` while the runtime diagnostics block is still in progress.
 
@@ -10,23 +10,24 @@ It complements `docs/development/current-status.md` while the runtime diagnostic
 
 ## Verified State
 
-The following steps are implemented and locally verified:
+The following steps are implemented:
 
 - Phase 10.10: `IRuntimeMeasurementSink`
 - Phase 10.11: `RuntimeDiagnosticsService` implements `IRuntimeMeasurementSink`
 - Phase 10.12: `BasicHttpClient` records HTTP runtime measurements
 - Phase 10.13: `VdrSnapshotBuilder` records snapshot-domain runtime measurements
+- Phase 10.14: `PollingService` records polling-cycle and refresh-path runtime measurements
+- Phase 10.14: `DaemonRuntime` owns `RuntimeDiagnosticsService` and wires it into current measurement producers
 
-Local verification completed with:
+Local verification was reported with successful visible output for:
 
 ```text
+make test-polling-service
 make test-vdr-snapshot-builder
 make daemon
-make test
-git status
 ```
 
-The repository was clean and synchronized with `origin/phase-2-actions` after the local verification run.
+The submitted `make test` output was truncated in the chat transcript before the final `git status` result was visible. Full repository cleanliness should therefore be confirmed locally before tagging this phase.
 
 ---
 
@@ -60,6 +61,20 @@ RuntimeDiagnosticsService
 RuntimeDiagnostics
 ```
 
+Implemented polling measurement chain:
+
+```text
+PollingService
+    ↓
+RuntimeMeasurement
+    ↓
+IRuntimeMeasurementSink
+    ↓
+RuntimeDiagnosticsService
+    ↓
+RuntimeDiagnostics
+```
+
 This keeps logging and diagnostics separate.
 
 Runtime logging still writes human-readable log entries through `IRuntimeLogger`.
@@ -81,6 +96,7 @@ Current runtime diagnostics components:
 - `test_runtime_diagnostics`
 - `test_runtime_diagnostics_service`
 - `test_vdr_snapshot_builder` measurement-sink coverage
+- `test_polling_service` measurement-sink coverage
 
 `RuntimeDiagnosticsService` owns an internal `RuntimeDiagnostics` instance and implements:
 
@@ -111,7 +127,7 @@ In addition, after a successful HTTP request it records a structured measurement
 - HTTP status code
 - response body size in bytes
 
-This provides the first real runtime-diagnostics data source.
+This provides the HTTP runtime-diagnostics data source.
 
 ---
 
@@ -152,6 +168,60 @@ The status domain has no collection size and keeps the default measurement size.
 
 ---
 
+## PollingService Measurement Collection
+
+`PollingService` now supports two optional runtime observers:
+
+```text
+IRuntimeLogger* logger
+IRuntimeMeasurementSink* measurementSink
+```
+
+The polling service still preserves existing polling behavior:
+
+- first poll builds a complete initial snapshot
+- unchanged change-state does not refresh cached domains
+- changed change-state is converted into `VdrChangeEvent` entries
+- `SnapshotRefreshPlanner` creates the `SnapshotUpdatePlan`
+- required refresh work is executed through `VdrSnapshotBuilder` and `SnapshotCacheService`
+
+In addition, it records structured measurements for polling and refresh paths:
+
+- `Poll cycle`
+- `Initial snapshot poll`
+- `Detect changes`
+- `Create update plan`
+- `Full snapshot refresh`
+- `Partial refresh`
+- `Status refresh`
+- `Recordings refresh`
+- `Timers refresh`
+- `Channels refresh`
+- `Events refresh`
+
+The polling measurements use:
+
+- component: `PollingService`
+- operation: polling or refresh operation
+- duration in milliseconds
+- change-event count in `sizeBytes` for change detection and update-plan creation
+
+---
+
+## Daemon Runtime Diagnostics Wiring
+
+`DaemonRuntime` now owns a `RuntimeDiagnosticsService` instance.
+
+The same diagnostics service is passed as `IRuntimeMeasurementSink` into:
+
+- `BasicHttpClient`
+- `VdrSnapshotBuilder`
+- `PollingService`
+
+This means the daemon-owned runtime diagnostics service can collect structured measurements from HTTP access, snapshot building and polling execution without parsing log output.
+
+---
+
 ## Test Coverage
 
 Current measurement coverage includes:
@@ -160,8 +230,9 @@ Current measurement coverage includes:
 - `test_runtime_diagnostics_service`
 - `test_mock_http_client`
 - `test_vdr_snapshot_builder`
+- `test_polling_service`
 
-`test_vdr_snapshot_builder` now verifies that:
+`test_vdr_snapshot_builder` verifies that:
 
 - a complete snapshot records five measurements
 - status measurement is recorded
@@ -171,14 +242,21 @@ Current measurement coverage includes:
 - events measurement is recorded
 - collection-domain item counts are captured in `sizeBytes`
 
+`test_polling_service` verifies that existing polling behavior is preserved and that polling measurements are recorded for:
+
+- first poll
+- unchanged poll detection and plan creation
+- channel refresh
+- recordings refresh
+- partial refresh
+- poll cycle
+
 ---
 
 ## What Is Not Implemented Yet
 
 The following are intentionally not implemented yet:
 
-- daemon-owned `RuntimeDiagnosticsService` wiring
-- `PollingService` measurement collection
 - diagnostics JSON serialization
 - diagnostics REST controller
 - `/api/runtime` endpoint
@@ -222,10 +300,9 @@ This preserves a clean boundary between logging and diagnostics.
 Recommended next phases:
 
 ```text
-Phase 10.14: PollingService runtime measurements
-Phase 10.15: daemon-owned RuntimeDiagnosticsService wiring
-Phase 10.16: RuntimeDiagnostics JSON serializer
-Phase 10.17: Runtime diagnostics REST endpoint
+Phase 10.15: RuntimeDiagnostics JSON serializer
+Phase 10.16: Runtime diagnostics REST endpoint
+Phase 10.17: Runtime diagnostics aggregation policy
 ```
 
-The REST endpoint should only be added after HTTP, snapshot and polling measurements are collected in the daemon runtime.
+The REST endpoint should only be added after collection and serialization are stable.
