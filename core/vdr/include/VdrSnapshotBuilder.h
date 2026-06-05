@@ -1,6 +1,9 @@
 #ifndef VDR_SNAPSHOT_BUILDER_H
 #define VDR_SNAPSHOT_BUILDER_H
 
+#include "IRuntimeLogger.h"
+#include "RuntimeLogEntry.h"
+#include "RuntimeLogLevel.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrRecording.h"
@@ -8,13 +11,14 @@
 #include "VdrStatus.h"
 #include "VdrTimer.h"
 
+#include <string>
 #include <vector>
 
 class VdrService;
 
 class VdrSnapshotBuilder {
 public:
-    explicit VdrSnapshotBuilder(VdrService& vdrService);
+    explicit VdrSnapshotBuilder(VdrService& vdrService, IRuntimeLogger* logger = nullptr);
 
     VdrStatus buildStatus() const;
     std::vector<VdrRecording> buildRecordings() const;
@@ -26,6 +30,9 @@ public:
 
 private:
     VdrService& vdrService_;
+    IRuntimeLogger* logger_;
+
+    void log(RuntimeLogLevel level, const std::string& message) const;
 };
 
 #endif
