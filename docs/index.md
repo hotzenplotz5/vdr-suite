@@ -70,6 +70,7 @@ Read these documents first:
 ## Development Status
 
 - [Current Project Status](development/current-status.md)
+- [Runtime Diagnostics Measurement Collection](development/phase-10-runtime-diagnostics-measurement-collection.md)
 - [Completed Phases](development/completed-phases.md)
 - [Development Milestones](development/milestones.md)
 - [Planning Milestones](planning/milestones.md)
@@ -121,6 +122,7 @@ Phase-specific architecture notes:
 - [Phase 8.40 Action Target Architecture](development/phase-8.40-action-target-architecture.md)
 - [Phase 8.41 Platform Action Architecture](development/phase-8.41-platform-action-architecture.md)
 - [Phase 8.42 Capability Resolver Architecture](development/phase-8.42-capability-resolver-architecture.md)
+- [Phase 10 Runtime Diagnostics Measurement Collection](development/phase-10-runtime-diagnostics-measurement-collection.md)
 
 ---
 
@@ -180,11 +182,12 @@ For new contributors:
 
 1. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
 2. [Current Project Status](development/current-status.md)
-3. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
-4. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
-5. [Snapshot Architecture](architecture/snapshot-architecture.md)
-6. [VDR Backends](architecture/vdr-backends.md)
-7. [Architecture Decision Records](#architecture-decision-records)
+3. [Runtime Diagnostics Measurement Collection](development/phase-10-runtime-diagnostics-measurement-collection.md)
+4. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
+5. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
+6. [Snapshot Architecture](architecture/snapshot-architecture.md)
+7. [VDR Backends](architecture/vdr-backends.md)
+8. [Architecture Decision Records](#architecture-decision-records)
 
 ---
 
