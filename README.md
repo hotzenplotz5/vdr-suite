@@ -12,58 +12,30 @@ VDR-Suite complements VDR. It does not replace it.
 
 New to VDR-Suite?
 
-Read:
+Read these documents first:
 
-- [VDR-Suite vision](docs/introduction/vdr-suite-vision.md)
-- [Current project status](docs/development/current-status.md)
-- [Core platform model](docs/architecture/vdr-suite-core-platform-model.md)
-
-The vision document explains the long-term goals, architecture philosophy and future direction of the project.
-
----
-
-## Documentation
-
-Start here:
-
-- [Documentation Index](docs/index.md)
 - [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
+- [Documentation Index](docs/index.md)
 - [Current Project Status](docs/development/current-status.md)
+- [Core Platform Model](docs/architecture/vdr-suite-core-platform-model.md)
 
-The documentation index is the central entry point for project vision, architecture, ADRs, diagrams, development status and planning.
+The documentation index is the central entry point for project vision, architecture documents, ADRs, diagrams, development status and planning.
 
 ---
 
 ## Current Status
 
-Branch:
+The current implementation status changes frequently during active development.
 
-`phase-2-actions`
+Authoritative status lives here:
 
-Latest runtime tag:
+- [Current Project Status](docs/development/current-status.md)
 
-`v1.94.1-phase8-daemon-runtime-wiring`
-
-Current architecture state:
-
-- Phase 8.93 completed: snapshot cache model
-- Phase 8.94 completed: snapshot cache integration
-- Phase 8.94.1 completed: daemon runtime wiring correction
-
-Implemented runtime direction:
-
-- daemon runtime foundation
-- VDR adapter abstraction
-- RESTfulAPI integration
-- change-state polling
-- change event generation
-- snapshot refresh decisions
-- snapshot cache model
-- snapshot cache runtime wiring
+The README intentionally does not duplicate detailed phase history, milestone status or long architecture explanations. This avoids stale information and keeps the README useful as a stable project entry point.
 
 ---
 
-## Architecture Goals
+## Architecture Direction
 
 VDR-Suite is designed to remain:
 
@@ -73,232 +45,41 @@ VDR-Suite is designed to remain:
 - daemon-driven
 - snapshot-oriented
 - prepared for future multi-VDR environments
+- suitable for future API consumers and frontends
 
-The architecture intentionally prepares, but does not yet implement:
+Current architecture details are documented in:
 
-- backend federation runtime
-- cluster runtime
-- user management
-- permission runtime
-- SSE runtime
-- WebSocket runtime
+- [Core Platform Model](docs/architecture/vdr-suite-core-platform-model.md)
+- [VDR Backends](docs/architecture/vdr-backends.md)
+- [Snapshot Architecture](docs/architecture/snapshot-architecture.md)
+- [Snapshot Access Architecture](docs/architecture/snapshot-access-architecture.md)
+- [Internal Event Dispatch Architecture](docs/architecture/internal-event-dispatch-architecture.md)
+- [Partial Snapshot Refresh Architecture](docs/architecture/partial-snapshot-refresh-architecture.md)
 
----
+Long-term architectural decisions are documented in:
 
-## Current Runtime Flow
-
-Current implemented flow:
-
-RESTfulAPI
-  -> /change-state.json
-  -> RestfulApiVdrAdapter
-  -> VdrChangeState
-  -> VdrService
-  -> PollingService
-  -> ChangeDetectionService
-  -> VdrChangeEvent
-  -> SnapshotRefreshDecisionService
-  -> VdrSnapshotBuilder
-  -> SnapshotCacheService
-  -> SnapshotCache
-  -> DaemonRuntime
-  -> future snapshot-backed APIs
-
-Purpose:
-
-- keep RESTfulAPI behind adapter boundaries
-- avoid repeated live RESTfulAPI requests per API request
-- keep polling and refresh decisions inside daemon-owned services
-- keep snapshot storage separate from refresh logic
-- prepare efficient future multi-VDR polling
-- keep API controllers backend-independent
-
----
-
-## Snapshot Architecture
-
-Implemented components:
-
-- `VdrSnapshot`
-- `VdrSnapshotBuilder`
-- `SnapshotCache`
-- `SnapshotCacheService`
-
-Responsibilities:
-
-`VdrSnapshotBuilder`
-
-- builds complete backend-neutral snapshots through `VdrService`
-
-`SnapshotCache`
-
-- owns the current daemon-visible VDR snapshot
-
-`SnapshotCacheService`
-
-- provides the service boundary around snapshot storage
-
-`PollingService`
-
-- reads change-state data
-- detects changes
-- asks for refresh decisions
-- triggers snapshot rebuilds
-- writes refreshed snapshots through `SnapshotCacheService`
-
-`DaemonRuntime`
-
-- owns runtime lifecycle
-- owns `SnapshotCache`
-- owns `SnapshotCacheService`
-- initializes polling and snapshot runtime wiring
-
----
-
-## Change Detection Architecture
-
-Implemented components:
-
-- `VdrChangeState`
-- `VdrChangeEvent`
-- `ChangeDetectionService`
-- `SnapshotRefreshDecision`
-- `SnapshotRefreshDecisionService`
-
-Current model:
-
-/change-state.json
-  -> VdrChangeState
-  -> ChangeDetectionService
-  -> VdrChangeEvent
-  -> SnapshotRefreshDecisionService
-  -> snapshot refresh or no refresh
-
-Goals:
-
-- avoid unnecessary full snapshot rebuilds
-- reduce RESTfulAPI traffic
-- prepare efficient future multi-VDR polling
-- prepare future event delivery without introducing SSE or WebSocket runtime prematurely
-
----
-
-## Backend Architecture
-
-Implemented abstractions:
-
-- `IVdrAdapter`
-- `VdrService`
-- `VdrAdapterFactory`
-
-Implemented backends:
-
-- `MockVdrAdapter`
-- `ExternalVdrAdapter`
-- `RestfulApiVdrAdapter`
-
-Current primary live integration path:
-
-- `vdr-plugin-restfulapi`
-
-Mapped VDR domain objects:
-
-- `VdrStatus`
-- `VdrChannel`
-- `VdrRecording`
-- `VdrTimer`
-- `VdrEvent`
-- `VdrChangeState`
-
-RESTfulAPI endpoints currently used or prepared:
-
-- `/info.json` -> `VdrStatus`
-- `/recordings.json` -> `VdrRecording`
-- `/timers.json` -> `VdrTimer`
-- `/channels.json` -> `VdrChannel`
-- `/events.json` -> `VdrEvent`
-- `/change-state.json` -> `VdrChangeState`
-
----
-
-## ADR Foundation
-
-Accepted ADRs include:
-
-- ADR-001 Backend Identity Strategy
-- ADR-002 Backend Federation Strategy
-- ADR-003 Backend Capability Strategy
-- ADR-004 Backend Lifecycle Strategy
-- ADR-005 Stream Provider Strategy
-
-These ADRs prepare future:
-
-- stable backend identity
-- multi-VDR routing
-- backend federation concepts
-- backend capability negotiation
-- backend lifecycle handling
-- backend-neutral stream provider integration
-
-without forcing those runtime systems into the current implementation too early.
+- [Architecture Decision Records](docs/adr/)
 
 ---
 
 ## Implemented Areas
 
-Database:
+The project currently contains foundations for:
 
-- SQLite wrapper
-- database tests
-- repository foundations
+- SQLite persistence
+- recording, metadata, job and action services
+- dashboard services and JSON serialization
+- REST controllers and API routing
+- HTTP client/server abstractions
+- VDR domain objects and adapter boundaries
+- RESTfulAPI integration
+- daemon-owned VDR snapshots
+- change-state polling and partial snapshot refresh planning
+- runtime logging, timing and diagnostics foundations
 
-Recording domain:
+For the exact current phase state, see:
 
-- recordings
-- metadata
-- jobs
-- actions
-- dashboard services
-
-REST API:
-
-- API router
-- dashboard controller
-- jobs controller
-- recordings controller
-- metadata controller
-- VDR controller
-
-HTTP:
-
-- HTTP request and response abstractions
-- mock HTTP client
-- basic HTTP client
-- test HTTP server
-- simple HTTP listener
-
-VDR:
-
-- domain objects
-- adapter abstraction
-- mock backend
-- RESTfulAPI backend
-- RESTfulAPI mappers
-- VDR overview service
-- VDR overview JSON serializer
-- snapshot builder
-- polling service
-- change detection
-- snapshot refresh decision model
-- snapshot cache model
-
-Daemon:
-
-- runtime configuration
-- database lifecycle
-- REST runtime wiring
-- VDR runtime wiring
-- snapshot cache ownership
+- [Current Project Status](docs/development/current-status.md)
 
 ---
 
@@ -308,6 +89,7 @@ Daemon:
 - `core/recordings` – recordings, metadata, jobs, actions and dashboard services
 - `core/http` – HTTP abstractions, clients, listener and test server
 - `core/vdr` – VDR domain objects, adapters, mappers, overview, polling and snapshot services
+- `core/runtime` – runtime logging and diagnostics foundations
 - `core/daemon` – daemon runtime and lifecycle
 - `api/rest` – REST controllers and API router
 - `apps/dashboard` – dashboard CLI
@@ -321,56 +103,54 @@ Daemon:
 
 Common targets:
 
-- `make daemon`
-- `make test`
-- `make test-polling-service`
-- `make test-snapshot-cache`
-- `make test-snapshot-cache-service`
-- `make test-vdr-snapshot-builder`
-- `make test-restful-api-vdr-adapter`
-- `make test-restful-api-change-state-adapter`
+```bash
+make daemon
+make test
+```
 
-Use targeted tests during local architecture phases.
+Useful targeted tests during local development:
 
-Use `make test` for release, tag, larger refactoring or build-system changes.
+```bash
+make test-vdr-snapshot-builder
+make test-polling-service
+make test-restful-api-vdr-adapter
+make test-restful-api-change-state-adapter
+make test-runtime-diagnostics
+```
+
+Use `make test` for release preparation, tags, larger refactoring, build-system changes and runtime wiring changes.
 
 ---
 
 ## Documentation
 
-Important documentation:
+Important entry points:
 
-- `docs/introduction/vdr-suite-vision.md`
-- `docs/development/current-status.md`
-- `docs/development/completed-phases.md`
-- `docs/development/milestones.md`
-- `docs/architecture/snapshot-architecture.md`
-- `docs/architecture/vdr-backends.md`
-- `docs/architecture/vdr-suite-core-platform-model.md`
-- `docs/adr/`
+- [Documentation Index](docs/index.md)
+- [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
+- [Current Project Status](docs/development/current-status.md)
+- [Completed Phases](docs/development/completed-phases.md)
+- [Development Milestones](docs/development/milestones.md)
+- [Architecture Documents](docs/index.md#architecture)
+- [Architecture Decision Records](docs/index.md#architecture-decision-records)
 
 ---
 
-## Near-Term Direction
+## Development Rules
 
-Next planned phase:
+Project-specific rules are documented and maintained in:
 
-### Phase 8.95 – Snapshot access architecture
+- [Current Project Status](docs/development/current-status.md)
+- [Phase 0 Development Rules](docs/phase-0/07-development-rules.md)
 
-Goal:
+Important working rules include:
 
-Define how API-facing layers should access daemon-owned snapshots without coupling REST controllers directly to cache internals or backend-specific adapters.
-
-Scope:
-
-- define snapshot access boundaries
-- define read-only snapshot access service direction
-- prepare snapshot-backed REST API responses
-- preserve backend neutrality
-- preserve future multi-VDR compatibility
-- avoid premature federation runtime
-- avoid premature SSE or WebSocket runtime
-- avoid user-management and permission runtime
+- read existing code before changes
+- keep architecture decisions documented
+- avoid placeholder implementations
+- keep builds working after small changes
+- run targeted tests before commits
+- run `make test` before larger pushes or runtime changes
 
 ---
 
