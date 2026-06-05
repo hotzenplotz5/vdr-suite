@@ -7,6 +7,7 @@ New contributors should start with:
 - `docs/introduction/vdr-suite-vision.md`
 - `README.md`
 - [Documentation Index](../index.md)
+- [Runtime Diagnostics Measurement Collection](phase-10-runtime-diagnostics-measurement-collection.md)
 
 The vision document explains why VDR-Suite exists, the long-term goals of the project, the snapshot architecture philosophy and the future direction of the platform.
 
@@ -30,35 +31,55 @@ VDR remains the primary backend domain and source of truth.
 
 ---
 
-## Current Verified Head
+## Current Verified State
 
-`547d656`
+Latest verified code state:
 
-Latest completed phase:
+`4f8c1a8`
 
-Phase 10.8: Runtime Logger Wiring.
+Latest documentation sync:
+
+- `76ee2b7`: documentation index links runtime diagnostics measurement collection
+- this status update documents the verified Phase 10.10 to Phase 10.12 runtime diagnostics state
+
+Latest completed implementation phase:
+
+Phase 10.12: HTTP runtime measurement collection.
 
 Verified locally with:
 
-- `make daemon`
-- `make test`
-- real daemon startup against local RESTfulAPI/VDR
+```text
+make test-mock-http-client
+make daemon
+make test
+git status
+```
+
+Local result:
+
+- `make test-mock-http-client` passed
+- `make daemon` passed
+- `make test` passed
+- working tree was clean
+- branch was synchronized with `origin/phase-2-actions`
 
 Important architecture note:
 
-Phase 10.8 wires the existing runtime logging abstraction into the real daemon runtime path. `DaemonRuntime` now owns a `ConsoleRuntimeLogger` and passes it into `BasicHttpClient`, `VdrService`, `VdrSnapshotBuilder` and `PollingService`.
+Phase 10.10 introduced `IRuntimeMeasurementSink` as the structured runtime measurement boundary.
 
-This makes the previously optional runtime logging path active in the real daemon while preserving silent-by-default unit tests through optional `IRuntimeLogger*` constructor parameters.
+Phase 10.11 made `RuntimeDiagnosticsService` implement that boundary.
 
-The daemon build target now links `$(RUNTIME_SRC)` so the runtime logger implementation is available to the daemon executable.
+Phase 10.12 connected `BasicHttpClient` to the measurement sink, so successful HTTP requests now produce structured `RuntimeMeasurement` values in addition to optional human-readable runtime logs.
 
-The repository was clean and synchronized with `origin/phase-2-actions` after the Phase 10.8 implementation, local build/test run and push.
+Detailed status:
+
+- [Runtime Diagnostics Measurement Collection](phase-10-runtime-diagnostics-measurement-collection.md)
 
 ---
 
 ## Current Architecture State
 
-VDR-Suite is moving from direct live RESTfulAPI access per API request toward a daemon-owned snapshot and change-detection architecture.
+VDR-Suite is moving from direct live RESTfulAPI access per API request toward a daemon-owned snapshot, change-detection and runtime-observability architecture.
 
 Current implemented and locally validated runtime chain:
 
@@ -90,6 +111,20 @@ SnapshotCacheService
 SnapshotCache
 ```
 
+Current implemented runtime diagnostics chain:
+
+```text
+BasicHttpClient
+    ↓
+RuntimeMeasurement
+    ↓
+IRuntimeMeasurementSink
+    ↓
+RuntimeDiagnosticsService
+    ↓
+RuntimeDiagnostics
+```
+
 Purpose:
 
 - keep RESTfulAPI behind the adapter boundary
@@ -103,9 +138,8 @@ Purpose:
 - keep API controllers backend-independent
 - avoid premature federation, SSE, WebSocket, user-management or cluster runtime implementation
 - expose runtime progress through an optional logging abstraction instead of ad-hoc `std::cout` output
-- expose snapshot build timing through the same runtime logging abstraction
-- expose HTTP request timing through the same runtime logging abstraction
-- activate the runtime logging chain inside the real daemon runtime
+- expose HTTP request timing through both optional runtime logging and structured runtime measurements
+- keep logging and diagnostics separate
 - keep future third-party or multi-client API consumers possible through a platform-oriented API strategy
 
 ---
@@ -158,51 +192,9 @@ This proves:
 
 ---
 
-## Phase 10 Runtime Logging Validation Result
+## Phase 10 Runtime Logging and Diagnostics State
 
-Phase 10.8 was validated by starting `/tmp/vdr-suite-daemon` against the local RESTfulAPI/VDR setup.
-
-Observed runtime logs included:
-
-```text
-[INFO] [VdrService] Loading change state
-[INFO] [BasicHttpClient] GET /change-state.json finished with status 200 in 5 ms, body 97 bytes
-[INFO] [VdrService] Loading status
-[INFO] [BasicHttpClient] GET /info.json finished with status 200 in 33 ms, body 2955 bytes
-[INFO] [VdrSnapshotBuilder] Build status finished (33 ms)
-[INFO] [VdrService] Loading recordings
-[INFO] [BasicHttpClient] GET /recordings.json finished with status 200 in 10634 ms, body 4343857 bytes
-[INFO] [VdrSnapshotBuilder] Build recordings finished (11047 ms)
-[INFO] [VdrService] Loading timers
-[INFO] [BasicHttpClient] GET /timers.json finished with status 200 in 0 ms, body 33 bytes
-[INFO] [VdrSnapshotBuilder] Build timers finished (0 ms)
-[INFO] [VdrService] Loading channels
-[INFO] [BasicHttpClient] GET /channels.json finished with status 200 in 13 ms, body 82368 bytes
-[INFO] [VdrSnapshotBuilder] Build channels finished (26 ms)
-[INFO] [VdrService] Loading events
-```
-
-This proves:
-
-- `ConsoleRuntimeLogger` is active in the daemon runtime
-- `BasicHttpClient` emits real HTTP request timing logs
-- `VdrService` emits real backend-loading progress logs
-- `VdrSnapshotBuilder` emits real domain build timing logs
-- the logger wiring reaches the real daemon initialization path
-
-Important observed performance signal:
-
-- `GET /recordings.json` returned about 4.3 MB and took about 10.6 seconds
-- the recordings snapshot build took about 11.0 seconds
-- recordings are currently the dominant initial snapshot cost in the tested local setup
-
-This confirms the value of the Phase 10 logging foundation before adding further optimization or diagnostics work.
-
----
-
-## Runtime Logging State
-
-Phase 10 introduced the runtime logging foundation and connected it to the daemon runtime.
+Phase 10 introduced runtime logging first and then started structured runtime diagnostics.
 
 Implemented runtime logging components:
 
@@ -212,14 +204,21 @@ Implemented runtime logging components:
 - `NullRuntimeLogger`
 - `ConsoleRuntimeLogger`
 - runtime log level formatting
-- `RuntimeMeasurement`
-- `RuntimeDiagnostics`
-- `mk/runtime-sources.mk`
 - optional `PollingService` runtime logging
 - optional `VdrService` runtime logging
 - optional `VdrSnapshotBuilder` domain timing logs
 - optional `BasicHttpClient` request timing logs
 - `ConsoleRuntimeLogger` wiring inside `DaemonRuntime`
+
+Implemented runtime diagnostics components:
+
+- `RuntimeMeasurement`
+- `RuntimeDiagnostics`
+- `IRuntimeMeasurementSink`
+- `RuntimeDiagnosticsService`
+- `test_runtime_diagnostics`
+- `test_runtime_diagnostics_service`
+- `BasicHttpClient` structured HTTP measurement recording
 
 Current runtime log output examples:
 
@@ -254,8 +253,24 @@ Current logging design:
 - `IHttpClient` remains unchanged
 - `MockHttpClient` remains unchanged
 - `DaemonRuntime` owns the active console logger for the real daemon path
-- runtime logging is intentionally not a metrics system yet
-- event counters, channel counters, diagnostics aggregation and REST diagnostics endpoints are not implemented yet
+
+Current diagnostics design:
+
+- diagnostics do not parse human-readable log output
+- runtime components create `RuntimeMeasurement` values directly
+- `IRuntimeMeasurementSink` decouples producers from diagnostics storage
+- `RuntimeDiagnosticsService` stores measurements in `RuntimeDiagnostics`
+- `BasicHttpClient` records component, operation, duration, status code and body size for successful requests
+
+Not implemented yet:
+
+- daemon-owned `RuntimeDiagnosticsService` wiring
+- `VdrSnapshotBuilder` measurement collection
+- `PollingService` measurement collection
+- diagnostics JSON serialization
+- diagnostics REST controller
+- `/api/runtime` endpoint
+- rolling windows, averages or aggregation policies
 
 ---
 
@@ -285,12 +300,13 @@ The public targets remain stable:
 
 Daemon target state:
 
-- `make daemon` now links `$(RUNTIME_SRC)` so `ConsoleRuntimeLogger` is available in the daemon executable.
+- `make daemon` links `$(RUNTIME_SRC)` so runtime logger implementations are available in the daemon executable.
 
 Runtime diagnostics test state:
 
 - `make test-runtime-diagnostics` validates the internal `RuntimeDiagnostics` and `RuntimeMeasurement` model.
-- `make test` includes `test-runtime-diagnostics`.
+- `test_runtime_diagnostics_service` validates `RuntimeDiagnosticsService` and `IRuntimeMeasurementSink` usage.
+- `make test` includes the runtime diagnostics tests.
 
 Local VDR integration targets are intentionally optional and are not part of `make test`:
 
@@ -357,6 +373,7 @@ Polling integration:
 - `VdrService` can emit optional coarse backend-loading progress logs through `IRuntimeLogger`
 - `VdrSnapshotBuilder` can emit optional domain-specific timing logs through `IRuntimeLogger`
 - `BasicHttpClient` can emit optional HTTP request timing logs through `IRuntimeLogger`
+- `BasicHttpClient` can emit structured HTTP runtime measurements through `IRuntimeMeasurementSink`
 - `DaemonRuntime` wires `ConsoleRuntimeLogger` into `BasicHttpClient`, `VdrService`, `VdrSnapshotBuilder` and `PollingService`
 - `SnapshotAccessService` provides a read boundary for snapshot-backed API-facing services
 - `VdrOverviewService` consumes `ISnapshotAccessService` for snapshot-backed overview generation in the daemon runtime
@@ -433,6 +450,10 @@ This is only an architectural observation. The current RESTfulAPI and `change-st
 - Phase 10.6: HTTP client timing logs
 - Phase 10.7: runtime diagnostics model
 - Phase 10.8: runtime logger daemon wiring
+- Phase 10.9: runtime diagnostics service
+- Phase 10.10: runtime measurement sink boundary
+- Phase 10.11: diagnostics service implements measurement sink
+- Phase 10.12: HTTP runtime measurement collection
 - ADR-007: Platform API Strategy
 
 ---
@@ -484,6 +505,7 @@ Architectural impact:
 - `SnapshotCacheService` owns controlled domain update methods
 - `PollingService` now creates and executes `SnapshotUpdatePlan` values during the runtime polling path
 - runtime observability is routed through `IRuntimeLogger` instead of direct service-level console output
+- runtime diagnostics are routed through `IRuntimeMeasurementSink` instead of log parsing
 - VDR-Suite API design should remain suitable for multiple clients and integrations instead of being coupled to one frontend
 
 ---
@@ -496,7 +518,7 @@ This is acceptable for the current minimal endpoint shape, but may later be repl
 
 The root `Makefile` still contains many test targets and the `clean` target. Source groups have been modularized in Phase 8.98; moving additional target groups into dedicated `mk/*-tests.mk` or `mk/clean.mk` files can be considered later, but is no longer urgent because the root Makefile no longer owns the large source-definition block.
 
-Phase 10.8 improves runtime visibility for polling, VDR service loading, snapshot domain build timing, HTTP request timing and real daemon runtime logging. Observability is still intentionally minimal. Event counters, channel counters, diagnostics aggregation and REST diagnostics endpoints are not implemented yet.
+Phase 10.12 improves runtime visibility and introduces the first structured runtime measurement collection path. Observability is still intentionally minimal. Snapshot-builder measurements, polling measurements, diagnostics aggregation policies and REST diagnostics endpoints are not implemented yet.
 
 The real daemon test showed that recordings are currently the dominant initial snapshot cost in the tested setup. Future optimization should investigate whether recordings can be refreshed or summarized more incrementally instead of repeatedly fetching large `/recordings.json` responses.
 
@@ -510,44 +532,58 @@ Documentation state:
 - `docs/development/phase-9.6-local-restfulapi-integration.md` documents the local RESTfulAPI validation.
 - `docs/development/phase-9.7-local-snapshot-runtime-integration.md` documents the local snapshot runtime validation.
 - `docs/development/phase-9.8-local-partial-refresh-validation.md` documents the local partial refresh validation.
+- `docs/development/phase-10-runtime-diagnostics-measurement-collection.md` documents the Phase 10.10 to Phase 10.12 diagnostics measurement collection state.
 - `docs/adr/007-platform-api-strategy.md` documents the platform API direction.
-- `docs/development/current-status.md` documents Phase 10.8, ADR-007 and the current runtime logging foundation.
+- `docs/development/current-status.md` documents Phase 10.12 and the current runtime diagnostics foundation.
 
 ---
 
 ## Next Planned Phase
 
-### Documentation Structure Review after Phase 10
+### Phase 10.13: VdrSnapshotBuilder Runtime Measurements
 
 Goal:
 
-Review and consolidate the top-level README and documentation index after the runtime logging and diagnostics foundation.
+Extend `VdrSnapshotBuilder` with optional `IRuntimeMeasurementSink` support so snapshot-domain build durations are captured as structured `RuntimeMeasurement` values.
 
 Motivation:
 
-Phase 10 added important runtime logging, timing and diagnostics concepts. The README may now contain outdated or duplicated architecture material compared with `docs/index.md`, `docs/architecture/*` and ADR files.
+The snapshot builder already measures and logs build durations for status, recordings, timers, channels and events. These timings should become structured diagnostics data without parsing log text.
 
 Expected direction:
 
-- keep `README.md` as a concise project entry point
-- keep detailed architecture in `docs/architecture/*`
-- keep ADRs in `docs/adr/*`
-- keep current implementation status in `docs/development/current-status.md`
-- avoid duplicating long architecture sections in the README
-- update the documentation index if needed
+- keep `IRuntimeLogger` for human-readable runtime logs
+- add optional `IRuntimeMeasurementSink*` to `VdrSnapshotBuilder`
+- record `RuntimeMeasurement` values for `buildStatus`, `buildRecordings`, `buildTimers`, `buildChannels` and `buildEvents`
+- keep unit tests silent by default
+- avoid diagnostics REST API work until HTTP and snapshot measurements are both collected
 
 ---
 
 ## Upcoming Phases
 
-### Documentation Structure Review after Phase 10
+### Phase 10.13: VdrSnapshotBuilder Runtime Measurements
 
-Review `README.md`, `docs/index.md` and relevant architecture links so the README remains an entry point instead of a second architecture document.
+Collect structured runtime measurements for snapshot-domain build durations.
+
+### Phase 10.14: PollingService Runtime Measurements
+
+Collect structured runtime measurements for poll execution and refresh-plan behavior.
+
+### Phase 10.15: Daemon-owned RuntimeDiagnosticsService Wiring
+
+Own the diagnostics service in the daemon runtime and pass it into measurement-producing components.
+
+### Phase 10.16: RuntimeDiagnostics JSON Serializer
+
+Serialize collected diagnostics in a stable backend-facing representation.
+
+### Phase 10.17: Runtime Diagnostics REST Endpoint
+
+Expose runtime diagnostics through an API endpoint after collection and serialization are stable.
 
 ### Later Phases
 
-- diagnostics aggregation
-- diagnostics REST endpoint
 - recordings snapshot optimization or incremental recording refresh strategy
 - event dispatch expansion beyond snapshot refresh
 - optional future event providers such as dbus2vdr
@@ -567,6 +603,7 @@ See:
 
 - `docs/development/completed-phases.md`
 - `docs/development/milestones.md`
+- `docs/development/phase-10-runtime-diagnostics-measurement-collection.md`
 - `docs/architecture/snapshot-architecture.md`
 - `docs/architecture/vdr-backends.md`
 - `docs/architecture/vdr-suite-core-platform-model.md`
