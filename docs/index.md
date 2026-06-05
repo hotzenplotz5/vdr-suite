@@ -6,6 +6,41 @@ It links the project vision, current status, architecture documents, ADRs, devel
 
 ---
 
+## Platform Direction
+
+VDR-Suite is evolving into a VDR-centered platform.
+
+The primary architectural question is not:
+
+```text
+Which frontend should VDR-Suite support?
+```
+
+The primary architectural question is:
+
+```text
+Which VDR-Suite capabilities should be reusable by other programs?
+```
+
+Potential consumers include:
+
+- Web frontends
+- Desktop frontends
+- Mobile frontends
+- VDR plugins
+- OSD integrations
+- Automation tools
+- Monitoring tools
+- External services
+- Third-party management tools
+
+See:
+
+- ADR-007 Platform API Strategy
+- Core Platform Model
+
+---
+
 ## Start Here
 
 Read these documents first:
@@ -109,6 +144,7 @@ Future-facing backend ADRs:
 - [ADR-004 Backend Lifecycle Strategy](adr/adr-004-backend-lifecycle-strategy.md)
 - [ADR-005 Stream Provider Strategy](adr/adr-005-stream-provider-strategy.md)
 - [ADR-006 Internal Event Dispatch Strategy](adr/adr-006-internal-event-dispatch-strategy.md)
+- [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
 
 ---
 
@@ -138,17 +174,10 @@ For new contributors:
 1. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
 2. [Current Project Status](development/current-status.md)
 3. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
-4. [Snapshot Architecture](architecture/snapshot-architecture.md)
-5. [VDR Backends](architecture/vdr-backends.md)
-6. [Architecture Decision Records](#architecture-decision-records)
-
-For architecture reviews:
-
-1. [Current Project Status](development/current-status.md)
-2. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
-3. [Architecture](#architecture)
-4. [Development Architecture Notes](#development-architecture-notes)
-5. [Architecture Decision Records](#architecture-decision-records)
+4. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
+5. [Snapshot Architecture](architecture/snapshot-architecture.md)
+6. [VDR Backends](architecture/vdr-backends.md)
+7. [Architecture Decision Records](#architecture-decision-records)
 
 ---
 
@@ -158,5 +187,5 @@ When adding new documentation:
 
 - add the document to this index
 - link related architecture documents
-- update [Current Project Status](development/current-status.md) after completed phases
+- update Current Project Status after completed phases
 - create or update ADRs for long-term architectural decisions
