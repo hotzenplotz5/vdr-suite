@@ -19,6 +19,7 @@
 #include "RecordingRepository.h"
 #include "RecordingsController.h"
 #include "RuntimeConfig.h"
+#include "RuntimeDiagnosticsService.h"
 #include "SnapshotAccessService.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
@@ -49,6 +50,7 @@ private:
 
     RuntimeConfig config_;
     ConsoleRuntimeLogger runtimeLogger_;
+    RuntimeDiagnosticsService runtimeDiagnosticsService_;
     Database database_;
 
     std::unique_ptr<JobRepository> jobRepository_;
