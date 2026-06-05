@@ -1,5 +1,6 @@
 #include "BasicHttpClient.h"
 
+#include <chrono>
 #include <cerrno>
 #include <cstring>
 #include <netdb.h>
@@ -87,14 +88,25 @@ HttpResponse parseHttpResponse(const std::string& raw)
 
 } // namespace
 
-BasicHttpClient::BasicHttpClient(std::string host, int port)
+BasicHttpClient::BasicHttpClient(std::string host, int port, IRuntimeLogger* logger)
     : host_(std::move(host)),
-      port_(port)
+      port_(port),
+      logger_(logger)
 {
+}
+
+void BasicHttpClient::log(RuntimeLogLevel level, const std::string& message) const
+{
+    if (logger_ == nullptr) {
+        return;
+    }
+
+    logger_->write(RuntimeLogEntry{level, "BasicHttpClient", message});
 }
 
 HttpResponse BasicHttpClient::execute(const HttpRequest& request) const
 {
+    const auto started = std::chrono::steady_clock::now();
     addrinfo hints{};
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -167,5 +179,16 @@ HttpResponse BasicHttpClient::execute(const HttpRequest& request) const
 
     close(socketFd);
 
-    return parseHttpResponse(rawResponse);
+    HttpResponse response = parseHttpResponse(rawResponse);
+
+    const auto finished = std::chrono::steady_clock::now();
+    const auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count();
+    log(
+        RuntimeLogLevel::Info,
+        request.method + " " + request.url + " finished with status " +
+            std::to_string(response.statusCode) + " in " +
+            std::to_string(durationMs) + " ms, body " +
+            std::to_string(response.body.size()) + " bytes");
+
+    return response;
 }
