@@ -32,24 +32,24 @@ VDR remains the primary backend domain and source of truth.
 
 ## Current Verified Head
 
-`bc6a7dd`
+`f4c6213`
 
 Latest completed phase:
 
-Phase 10.5: Snapshot Builder Timing Logs.
+Phase 10.6: HTTP Client Timing Logs.
 
 Verified locally with:
 
-- `make test-vdr-snapshot-builder`
+- `make test-mock-http-client`
 - `make test`
 
 Important architecture note:
 
-Phase 10.5 extends the runtime observability boundary from high-level polling and VDR service loading logs into domain-specific snapshot build timing. `VdrSnapshotBuilder` now accepts an optional `IRuntimeLogger*`, remains silent by default and emits timing logs for status, recordings, timers, channels and events when a runtime logger is provided.
+Phase 10.6 extends runtime observability into the real HTTP client implementation. `BasicHttpClient` now accepts an optional `IRuntimeLogger*`, remains silent by default and emits coarse request timing logs after successful HTTP requests.
 
-The implementation uses `IRuntimeLogger::write(const RuntimeLogEntry&)` consistently with the existing runtime logger interface.
+The implementation keeps `IHttpClient` unchanged and does not add logging to `MockHttpClient`. HTTP timing is treated as an implementation diagnostic of the real client, not as a mandatory interface concern.
 
-The repository was clean and synchronized with `origin/phase-2-actions` after the Phase 10.5 implementation, duplicate-declaration fix and full local test run.
+The repository was clean and synchronized with `origin/phase-2-actions` after the Phase 10.6 implementation and full local test run.
 
 ---
 
@@ -101,6 +101,7 @@ Purpose:
 - avoid premature federation, SSE, WebSocket, user-management or cluster runtime implementation
 - expose runtime progress through an optional logging abstraction instead of ad-hoc `std::cout` output
 - expose snapshot build timing through the same runtime logging abstraction
+- expose HTTP request timing through the same runtime logging abstraction
 - keep future third-party or multi-client API consumers possible through a platform-oriented API strategy
 
 ---
@@ -169,6 +170,7 @@ Implemented runtime logging components:
 - optional `PollingService` runtime logging
 - optional `VdrService` runtime logging
 - optional `VdrSnapshotBuilder` domain timing logs
+- optional `BasicHttpClient` request timing logs
 
 Current runtime log output examples:
 
@@ -188,6 +190,7 @@ Current runtime log output examples:
 [INFO] [VdrSnapshotBuilder] Build timers finished (0 ms)
 [INFO] [VdrSnapshotBuilder] Build channels finished (0 ms)
 [INFO] [VdrSnapshotBuilder] Build events finished (0 ms)
+[INFO] [BasicHttpClient] GET /channels.json finished with status 200 in 12 ms, body 4096 bytes
 ```
 
 Current logging design:
@@ -198,8 +201,11 @@ Current logging design:
 - `ConsoleRuntimeLogger` provides simple local runtime visibility
 - runtime logging uses `IRuntimeLogger::write(const RuntimeLogEntry&)`
 - snapshot builder timings use `std::chrono::steady_clock`
+- HTTP request timings use `std::chrono::steady_clock`
+- `IHttpClient` remains unchanged
+- `MockHttpClient` remains unchanged
 - runtime logging is intentionally not a metrics system yet
-- HTTP diagnostics, event counters, channel counters, structured diagnostics objects and REST diagnostics endpoints are not implemented yet
+- event counters, channel counters, structured diagnostics objects and REST diagnostics endpoints are not implemented yet
 
 ---
 
@@ -291,6 +297,7 @@ Polling integration:
 - `PollingService` can emit optional runtime progress logs through `IRuntimeLogger`
 - `VdrService` can emit optional coarse backend-loading progress logs through `IRuntimeLogger`
 - `VdrSnapshotBuilder` can emit optional domain-specific timing logs through `IRuntimeLogger`
+- `BasicHttpClient` can emit optional HTTP request timing logs through `IRuntimeLogger`
 - `SnapshotAccessService` provides a read boundary for snapshot-backed API-facing services
 - `VdrOverviewService` consumes `ISnapshotAccessService` for snapshot-backed overview generation in the daemon runtime
 - `VdrController` remains independent from snapshot cache internals
@@ -363,6 +370,7 @@ This is only an architectural observation. The current RESTfulAPI and `change-st
 - Phase 10.3: PollingService runtime logging
 - Phase 10.4: VdrService runtime logging
 - Phase 10.5: SnapshotBuilder timing logs
+- Phase 10.6: HTTP client timing logs
 - ADR-007: Platform API Strategy
 
 ---
@@ -426,7 +434,7 @@ This is acceptable for the current minimal endpoint shape, but may later be repl
 
 The root `Makefile` still contains many test targets and the `clean` target. Source groups have been modularized in Phase 8.98; moving additional target groups into dedicated `mk/*-tests.mk` or `mk/clean.mk` files can be considered later, but is no longer urgent because the root Makefile no longer owns the large source-definition block.
 
-Phase 10.5 improves runtime visibility for polling, VDR service loading and snapshot domain build timing, but observability is still intentionally minimal. HTTP request diagnostics, event counters, channel counters, structured diagnostics objects and REST diagnostics endpoints are not implemented yet.
+Phase 10.6 improves runtime visibility for polling, VDR service loading, snapshot domain build timing and HTTP request timing, but observability is still intentionally minimal. Event counters, channel counters, structured diagnostics objects and REST diagnostics endpoints are not implemented yet.
 
 Documentation state:
 
@@ -439,38 +447,34 @@ Documentation state:
 - `docs/development/phase-9.7-local-snapshot-runtime-integration.md` documents the local snapshot runtime validation.
 - `docs/development/phase-9.8-local-partial-refresh-validation.md` documents the local partial refresh validation.
 - `docs/adr/007-platform-api-strategy.md` documents the platform API direction.
-- `docs/development/current-status.md` documents Phase 10.5, ADR-007 and the current runtime logging foundation.
+- `docs/development/current-status.md` documents Phase 10.6, ADR-007 and the current runtime logging foundation.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 10.6 – HTTP Request Timing
+### Phase 10.7 – Runtime Diagnostics Model
 
 Goal:
 
-Measure HTTP request durations and expose coarse HTTP client diagnostics through the runtime logging boundary.
+Introduce an internal runtime diagnostics model after the basic logging and timing signals have been established.
 
 Motivation:
 
-Phase 10.5 measures snapshot domain build durations. The next useful observability step is to distinguish slow snapshot domains caused by VDR data volume from slow snapshot domains caused by HTTP requests to RESTfulAPI.
+Phase 10.3 to Phase 10.6 introduced progress logging, service-level logs, snapshot build timing and HTTP request timing. The next step is to define an internal diagnostics model that can later aggregate these signals without immediately exposing a public REST diagnostics endpoint.
 
 Expected direction:
 
-- keep logging optional and silent by default
+- keep runtime logging optional and silent by default
 - do not introduce a metrics database yet
-- measure BasicHttpClient request durations
-- include coarse request method/path and response status where appropriate
-- avoid leaking sensitive request data into logs
-- keep structured diagnostics objects and REST diagnostics endpoints for later phases
+- do not introduce a public diagnostics REST endpoint yet
+- define a small internal diagnostics data model
+- keep diagnostics backend-neutral and future multi-VDR compatible
+- prepare later diagnostics aggregation and API exposure
 
 ---
 
 ## Upcoming Phases
-
-### Phase 10.6 – HTTP Request Timing
-
-Measure BasicHttpClient request durations, response status and response size where appropriate.
 
 ### Phase 10.7 – Runtime Diagnostics Model
 
@@ -479,6 +483,7 @@ Introduce an internal diagnostics model after logging and timing signals are sta
 ### Later Phases
 
 - diagnostics REST endpoint
+- documentation structure review after Phase 10
 - event dispatch expansion beyond snapshot refresh
 - optional future event providers such as dbus2vdr
 - SSE/WebSocket live update transport
@@ -516,3 +521,4 @@ See:
 - No `cat <<EOF` blocks in local instructions.
 - Keep builds working after each small change.
 - Run targeted tests before code commits when local build access is available.
+- Before every push, run `git fetch` and inspect `git log --oneline --decorate HEAD..origin/phase-2-actions`.
