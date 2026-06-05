@@ -21,9 +21,18 @@ The implemented architecture already contains several platform-like building blo
 - `SnapshotRefreshPlanner`
 - `SnapshotUpdatePlan`
 - runtime logging abstraction
+- runtime diagnostics model
 - backend identity, federation, capability, lifecycle and stream-provider ADRs
 
-These components make VDR-Suite useful not only for its own future frontend, but also as a possible integration layer for other clients and tools.
+These components make VDR-Suite useful not only for its own future frontend, but also as a capability provider for other clients, tools, applications and VDR plugins.
+
+The architectural question is therefore not how VDR-Suite should integrate individual frontends or plugins.
+
+The architectural question is:
+
+```text
+Which VDR-Suite capabilities should be reusable by other programs?
+```
 
 Potential future consumers include:
 
@@ -31,7 +40,7 @@ Potential future consumers include:
 - VDR-Suite desktop clients
 - VDR-Suite mobile clients
 - VDR OSD integration
-- `vdr-plugin-live`
+- VDR plugins such as `vdr-plugin-live`
 - Kodi integrations
 - Android applications
 - Home Assistant integrations
@@ -39,23 +48,38 @@ Potential future consumers include:
 - monitoring tools
 - third-party VDR management tools
 
-Without an explicit strategy, the API could accidentally become shaped only by the first internal frontend implementation. That would make later third-party or multi-client use harder.
+These consumers should use VDR-Suite platform capabilities where appropriate. VDR-Suite must not become coupled to any single consumer.
+
+Without an explicit strategy, the API could accidentally become shaped only by the first internal frontend implementation. That would make later third-party, plugin-based or multi-client use harder.
 
 ## Decision
 
-VDR-Suite shall be treated as a VDR-centered backend platform with a stable integration API, not only as a single frontend application.
+VDR-Suite shall be treated as a VDR-centered backend platform with stable integration boundaries, not only as a single frontend application.
 
 The VDR-Suite API should be designed as a reusable service boundary for multiple clients.
 
-This does not mean that all APIs must be public, versioned or complete immediately. It means that new API design must avoid unnecessary coupling to a single UI, a single frontend technology or one local-only deployment shape.
+The same principle applies to future library boundaries: if VDR-Suite exposes reusable libraries, these libraries should provide platform capabilities, not frontend-specific behavior.
+
+This means:
+
+```text
+Consumers use VDR-Suite capabilities.
+VDR-Suite does not become a special integration layer for one consumer.
+```
+
+For example, a VDR plugin such as `vdr-plugin-live` may later use VDR-Suite APIs or libraries if that becomes useful. That does not mean VDR-Suite integrates Live as a special case. Live would be one possible consumer among many.
+
+This does not mean that all APIs must be public, versioned or complete immediately. It means that new API and library design must avoid unnecessary coupling to a single UI, a single frontend technology, one plugin, one application or one local-only deployment shape.
 
 ## Principles
 
 - VDR remains the primary domain and source of truth.
 - VDR-Suite does not become a Plex clone.
 - VDR-Suite may become a stable middleware layer for VDR-based systems.
+- VDR-Suite capabilities should be reusable by multiple consumers.
 - API controllers should stay backend-independent.
 - API shapes should be stable enough for multiple clients.
+- Future libraries should expose reusable platform capabilities rather than frontend-specific behavior.
 - Frontends should consume capabilities instead of checking concrete backend types.
 - Backend identity must be explicit and stable.
 - Multi-VDR support must remain possible.
@@ -63,15 +87,56 @@ This does not mean that all APIs must be public, versioned or complete immediate
 - Snapshot-backed reads should be preferred over repeated live backend calls.
 - Runtime diagnostics should evolve without leaking internal implementation details into public API contracts.
 
+## Capability Areas
+
+The platform should evolve around reusable capability areas instead of consumer-specific APIs.
+
+Important candidate capability areas include:
+
+```text
+Snapshot access
+Recording access
+Timer access
+Channel access
+Event access
+Metadata access
+Artwork access
+Job and queue access
+Runtime diagnostics
+Backend identity
+Backend capability discovery
+Backend lifecycle state
+Permission-aware operations
+Live update events
+Stream provider access
+```
+
+These areas should be useful to many possible consumers:
+
+```text
+Web frontend
+Desktop frontend
+Mobile frontend
+VDR plugin
+OSD integration
+Automation tool
+Monitoring tool
+External service
+Third-party management tool
+```
+
+The API or library shape may differ by consumer type, but the underlying capability model should remain shared.
+
 ## API Direction
 
 Future API design should distinguish between:
 
 1. Internal service boundaries
 2. Stable client-facing REST API
-3. Future live update transports such as SSE or WebSocket
-4. Future diagnostics or monitoring APIs
-5. Future administrative APIs
+3. Future library boundaries
+4. Future live update transports such as SSE or WebSocket
+5. Future diagnostics or monitoring APIs
+6. Future administrative APIs
 
 Possible long-term API areas include:
 
@@ -116,15 +181,17 @@ Together, these decisions define VDR-Suite as a backend-neutral, capability-awar
 
 Positive consequences:
 
-- future clients can reuse the same backend API
+- future clients can reuse the same backend capabilities
 - frontend development can remain decoupled from backend internals
-- integrations such as Live, Kodi, Android apps or automation tools remain possible
+- integrations such as Live, Kodi, Android apps or automation tools remain possible as consumers
 - API design can be reviewed before it becomes frontend-specific
+- library design can be reviewed before it becomes plugin-specific
 - multi-VDR and permission-aware designs remain aligned with the API direction
 
 Trade-offs:
 
 - API design requires more discipline
+- library boundaries require more discipline
 - backward compatibility becomes more important over time
 - internal service models and public API models may need to remain separate
 - versioning strategy will become necessary later
@@ -141,10 +208,11 @@ This ADR does not implement:
 - diagnostics endpoints
 - multi-VDR routing
 - compatibility with any specific third-party frontend
+- a special integration for `vdr-plugin-live`
 
 ## Current Phase Boundary
 
-For Phase 10, this ADR only documents the strategic direction.
+For Phase 10, this ADR documents the strategic direction.
 
 Runtime logging and diagnostics are still being developed. No new API endpoint is introduced by this ADR.
 
@@ -152,6 +220,7 @@ Runtime logging and diagnostics are still being developed. No new API endpoint i
 
 - Keep current REST API shapes backend-independent.
 - Avoid frontend-specific API coupling.
+- Avoid plugin-specific API coupling.
 - Continue runtime logging and diagnostics work.
 - Revisit API versioning before exposing broader client-facing APIs.
 - Consider a dedicated API architecture document once the next REST API expansion begins.
