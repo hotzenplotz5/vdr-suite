@@ -94,7 +94,8 @@ bool DaemonRuntime::initialize()
     vdrHttpClient_ =
         std::make_unique<BasicHttpClient>(
             vdrConfig_.host,
-            vdrConfig_.port);
+            vdrConfig_.port,
+            &runtimeLogger_);
 
     vdrAdapter_ =
         std::make_unique<RestfulApiVdrAdapter>(
@@ -103,11 +104,13 @@ bool DaemonRuntime::initialize()
 
     vdrService_ =
         std::make_unique<VdrService>(
-            *vdrAdapter_);
+            *vdrAdapter_,
+            &runtimeLogger_);
 
     vdrSnapshotBuilder_ =
         std::make_unique<VdrSnapshotBuilder>(
-            *vdrService_);
+            *vdrService_,
+            &runtimeLogger_);
 
     snapshotCache_ =
         std::make_unique<SnapshotCache>();
@@ -124,7 +127,8 @@ bool DaemonRuntime::initialize()
         std::make_unique<PollingService>(
             *vdrSnapshotBuilder_,
             *vdrService_,
-            *snapshotCacheService_);
+            *snapshotCacheService_,
+            &runtimeLogger_);
 
     pollingService_->poll();
 

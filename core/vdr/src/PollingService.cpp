@@ -6,10 +6,12 @@
 PollingService::PollingService(
     VdrSnapshotBuilder& snapshotBuilder,
     VdrService& vdrService,
-    SnapshotCacheService& snapshotCacheService)
+    SnapshotCacheService& snapshotCacheService,
+    IRuntimeLogger* logger)
     : snapshotBuilder_(snapshotBuilder),
       vdrService_(vdrService),
       snapshotCacheService_(snapshotCacheService),
+      logger_(logger),
       hasChangeState_(false)
 {
 }

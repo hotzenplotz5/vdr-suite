@@ -22,7 +22,8 @@ public:
     PollingService(
         VdrSnapshotBuilder& snapshotBuilder,
         VdrService& vdrService,
-        SnapshotCacheService& snapshotCacheService);
+        SnapshotCacheService& snapshotCacheService,
+        IRuntimeLogger* logger = nullptr);
 
     void poll();
 

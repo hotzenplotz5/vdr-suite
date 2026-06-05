@@ -241,6 +241,7 @@ daemon:
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		$(RUNTIME_SRC) \
 		$(DAEMON_SRC) \
 		apps/daemon/main.cpp \
 		$(LDFLAGS) \

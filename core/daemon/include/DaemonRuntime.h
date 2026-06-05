@@ -4,6 +4,7 @@
 #include "DashboardController.h"
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
+#include "ConsoleRuntimeLogger.h"
 #include "Database.h"
 #include "IHttpClient.h"
 #include "IVdrAdapter.h"
@@ -47,6 +48,7 @@ private:
     bool initialized_;
 
     RuntimeConfig config_;
+    ConsoleRuntimeLogger runtimeLogger_;
     Database database_;
 
     std::unique_ptr<JobRepository> jobRepository_;
