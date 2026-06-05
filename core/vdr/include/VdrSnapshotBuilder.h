@@ -2,7 +2,9 @@
 #define VDR_SNAPSHOT_BUILDER_H
 
 #include "IRuntimeLogger.h"
+#include "IRuntimeMeasurementSink.h"
 #include "RuntimeLogLevel.h"
+#include "RuntimeMeasurement.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrRecording.h"
@@ -17,7 +19,10 @@ class VdrService;
 
 class VdrSnapshotBuilder {
 public:
-    explicit VdrSnapshotBuilder(VdrService& vdrService, IRuntimeLogger* logger = nullptr);
+    explicit VdrSnapshotBuilder(
+        VdrService& vdrService,
+        IRuntimeLogger* logger = nullptr,
+        IRuntimeMeasurementSink* measurementSink = nullptr);
 
     VdrStatus buildStatus() const;
     std::vector<VdrRecording> buildRecordings() const;
@@ -30,8 +35,10 @@ public:
 private:
     VdrService& vdrService_;
     IRuntimeLogger* logger_;
+    IRuntimeMeasurementSink* measurementSink_;
 
     void log(RuntimeLogLevel level, const std::string& message) const;
+    void recordMeasurement(const RuntimeMeasurement& measurement) const;
 };
 
 #endif
