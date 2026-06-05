@@ -88,10 +88,15 @@ HttpResponse parseHttpResponse(const std::string& raw)
 
 } // namespace
 
-BasicHttpClient::BasicHttpClient(std::string host, int port, IRuntimeLogger* logger)
+BasicHttpClient::BasicHttpClient(
+    std::string host,
+    int port,
+    IRuntimeLogger* logger,
+    IRuntimeMeasurementSink* measurementSink)
     : host_(std::move(host)),
       port_(port),
-      logger_(logger)
+      logger_(logger),
+      measurementSink_(measurementSink)
 {
 }
 
@@ -102,6 +107,15 @@ void BasicHttpClient::log(RuntimeLogLevel level, const std::string& message) con
     }
 
     logger_->write(RuntimeLogEntry{level, "BasicHttpClient", message});
+}
+
+void BasicHttpClient::recordMeasurement(const RuntimeMeasurement& measurement) const
+{
+    if (measurementSink_ == nullptr) {
+        return;
+    }
+
+    measurementSink_->recordMeasurement(measurement);
 }
 
 HttpResponse BasicHttpClient::execute(const HttpRequest& request) const
@@ -183,12 +197,21 @@ HttpResponse BasicHttpClient::execute(const HttpRequest& request) const
 
     const auto finished = std::chrono::steady_clock::now();
     const auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count();
+
     log(
         RuntimeLogLevel::Info,
         request.method + " " + request.url + " finished with status " +
             std::to_string(response.statusCode) + " in " +
             std::to_string(durationMs) + " ms, body " +
             std::to_string(response.body.size()) + " bytes");
+
+    RuntimeMeasurement measurement;
+    measurement.component = "BasicHttpClient";
+    measurement.operation = request.method + " " + request.url;
+    measurement.durationMs = durationMs;
+    measurement.statusCode = response.statusCode;
+    measurement.sizeBytes = response.body.size();
+    recordMeasurement(measurement);
 
     return response;
 }
