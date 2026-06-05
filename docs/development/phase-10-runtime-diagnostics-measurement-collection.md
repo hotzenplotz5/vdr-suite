@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This document records the current state of the Phase 10 runtime diagnostics work after the HTTP measurement collection step.
+This document records the current state of the Phase 10 runtime diagnostics work after the snapshot builder measurement collection step.
 
-It complements `docs/development/current-status.md` and avoids rewriting the large status file while the runtime diagnostics block is still in progress.
+It complements `docs/development/current-status.md` while the runtime diagnostics block is still in progress.
 
 ---
 
@@ -15,11 +15,12 @@ The following steps are implemented and locally verified:
 - Phase 10.10: `IRuntimeMeasurementSink`
 - Phase 10.11: `RuntimeDiagnosticsService` implements `IRuntimeMeasurementSink`
 - Phase 10.12: `BasicHttpClient` records HTTP runtime measurements
+- Phase 10.13: `VdrSnapshotBuilder` records snapshot-domain runtime measurements
 
 Local verification completed with:
 
 ```text
-make test-mock-http-client
+make test-vdr-snapshot-builder
 make daemon
 make test
 git status
@@ -29,12 +30,26 @@ The repository was clean and synchronized with `origin/phase-2-actions` after th
 
 ---
 
-## Runtime Measurement Chain
+## Runtime Measurement Chains
 
-Implemented measurement chain:
+Implemented HTTP measurement chain:
 
 ```text
 BasicHttpClient
+    ↓
+RuntimeMeasurement
+    ↓
+IRuntimeMeasurementSink
+    ↓
+RuntimeDiagnosticsService
+    ↓
+RuntimeDiagnostics
+```
+
+Implemented snapshot-builder measurement chain:
+
+```text
+VdrSnapshotBuilder
     ↓
 RuntimeMeasurement
     ↓
@@ -65,6 +80,7 @@ Current runtime diagnostics components:
 - `RuntimeDiagnosticsService`
 - `test_runtime_diagnostics`
 - `test_runtime_diagnostics_service`
+- `test_vdr_snapshot_builder` measurement-sink coverage
 
 `RuntimeDiagnosticsService` owns an internal `RuntimeDiagnostics` instance and implements:
 
@@ -78,7 +94,7 @@ Current runtime diagnostics components:
 
 ## BasicHttpClient Measurement Collection
 
-`BasicHttpClient` now supports two optional runtime observers:
+`BasicHttpClient` supports two optional runtime observers:
 
 ```text
 IRuntimeLogger* logger
@@ -99,44 +115,75 @@ This provides the first real runtime-diagnostics data source.
 
 ---
 
+## VdrSnapshotBuilder Measurement Collection
+
+`VdrSnapshotBuilder` supports two optional runtime observers:
+
+```text
+IRuntimeLogger* logger
+IRuntimeMeasurementSink* measurementSink
+```
+
+The snapshot builder still logs domain build timing information when a logger is provided.
+
+In addition, it records structured measurements for:
+
+- `Build status`
+- `Build recordings`
+- `Build timers`
+- `Build channels`
+- `Build events`
+
+Each emitted measurement contains:
+
+- component: `VdrSnapshotBuilder`
+- operation: snapshot-domain build operation
+- duration in milliseconds
+- item count in `sizeBytes` for collection domains
+
+The following collection domains record their returned item count in `sizeBytes`:
+
+- recordings
+- timers
+- channels
+- events
+
+The status domain has no collection size and keeps the default measurement size.
+
+---
+
+## Test Coverage
+
+Current measurement coverage includes:
+
+- `test_runtime_diagnostics`
+- `test_runtime_diagnostics_service`
+- `test_mock_http_client`
+- `test_vdr_snapshot_builder`
+
+`test_vdr_snapshot_builder` now verifies that:
+
+- a complete snapshot records five measurements
+- status measurement is recorded
+- recordings measurement is recorded
+- timers measurement is recorded
+- channels measurement is recorded
+- events measurement is recorded
+- collection-domain item counts are captured in `sizeBytes`
+
+---
+
 ## What Is Not Implemented Yet
 
 The following are intentionally not implemented yet:
 
 - daemon-owned `RuntimeDiagnosticsService` wiring
-- `VdrSnapshotBuilder` measurement collection
 - `PollingService` measurement collection
 - diagnostics JSON serialization
 - diagnostics REST controller
 - `/api/runtime` endpoint
 - persistence of runtime measurements
 - rolling windows, averages or aggregation policies
-
----
-
-## Attempted Phase 10.13 Direction
-
-The next planned implementation step is:
-
-```text
-VdrSnapshotBuilder
-    ↓
-RuntimeMeasurement
-    ↓
-IRuntimeMeasurementSink
-```
-
-The existing `VdrSnapshotBuilder` already measures and logs domain build durations for:
-
-- status
-- recordings
-- timers
-- channels
-- events
-
-The intended next step is to pass an optional measurement sink into `VdrSnapshotBuilder` and emit structured measurements for these domain build operations.
-
-At the time this document was written, GitHub write operations for the VDR snapshot builder files were blocked by the execution environment before reaching GitHub. Therefore Phase 10.13 was not applied.
 
 ---
 
@@ -175,11 +222,10 @@ This preserves a clean boundary between logging and diagnostics.
 Recommended next phases:
 
 ```text
-Phase 10.13: VdrSnapshotBuilder runtime measurements
 Phase 10.14: PollingService runtime measurements
 Phase 10.15: daemon-owned RuntimeDiagnosticsService wiring
 Phase 10.16: RuntimeDiagnostics JSON serializer
 Phase 10.17: Runtime diagnostics REST endpoint
 ```
 
-The REST endpoint should only be added after at least HTTP and snapshot measurements are collected in the daemon runtime.
+The REST endpoint should only be added after HTTP, snapshot and polling measurements are collected in the daemon runtime.
