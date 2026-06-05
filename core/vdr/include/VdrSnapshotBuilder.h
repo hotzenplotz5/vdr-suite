@@ -4,6 +4,9 @@
 #include "IRuntimeLogger.h"
 #include "RuntimeLogEntry.h"
 #include "RuntimeLogLevel.h"
+#include "IRuntimeLogger.h"
+#include "RuntimeLogEntry.h"
+#include "RuntimeLogLevel.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrRecording.h"
@@ -11,6 +14,7 @@
 #include "VdrStatus.h"
 #include "VdrTimer.h"
 
+#include <string>
 #include <string>
 #include <vector>
 
@@ -30,6 +34,9 @@ public:
 
 private:
     VdrService& vdrService_;
+    IRuntimeLogger* logger_;
+
+    void log(RuntimeLogLevel level, const std::string& message) const;
     IRuntimeLogger* logger_;
 
     void log(RuntimeLogLevel level, const std::string& message) const;
