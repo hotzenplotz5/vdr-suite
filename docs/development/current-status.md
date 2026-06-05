@@ -35,15 +35,16 @@ VDR remains the primary backend domain and source of truth.
 
 Latest verified code state:
 
-`ff895ac`
+`de28625`
 
 Latest completed implementation phase:
 
-Phase 10.13: VdrSnapshotBuilder runtime measurements.
+Phase 10.14: PollingService runtime measurements and daemon diagnostics wiring.
 
 Verified locally with:
 
 ```text
+make test-polling-service
 make test-vdr-snapshot-builder
 make daemon
 make test
@@ -52,11 +53,12 @@ git status
 
 Local result:
 
+- `make test-polling-service` passed
 - `make test-vdr-snapshot-builder` passed
 - `make daemon` passed
 - `make test` passed
 - working tree was clean
-- branch was synchronized with `origin/phase-2-actions`
+- branch was synchronized with `origin/phase-2-actions` before the documentation pull
 
 Important architecture notes:
 
@@ -64,6 +66,8 @@ Important architecture notes:
 - Phase 10.11 made `RuntimeDiagnosticsService` implement that boundary.
 - Phase 10.12 connected `BasicHttpClient` to the measurement sink.
 - Phase 10.13 connected `VdrSnapshotBuilder` to the measurement sink.
+- Phase 10.14 connected `PollingService` to the measurement sink.
+- Phase 10.14 also made `DaemonRuntime` own `RuntimeDiagnosticsService` and pass it into current measurement-producing components.
 
 Detailed status:
 
@@ -127,6 +131,16 @@ IRuntimeMeasurementSink
 RuntimeDiagnosticsService
     ↓
 RuntimeDiagnostics
+
+PollingService
+    ↓
+RuntimeMeasurement
+    ↓
+IRuntimeMeasurementSink
+    ↓
+RuntimeDiagnosticsService
+    ↓
+RuntimeDiagnostics
 ```
 
 Purpose:
@@ -141,6 +155,7 @@ Purpose:
 - expose runtime progress through optional logging instead of direct service-level console output
 - expose HTTP request timing through structured runtime measurements
 - expose snapshot-domain build timing through structured runtime measurements
+- expose polling-cycle and refresh-path timing through structured runtime measurements
 - keep logging and diagnostics separate
 - keep future third-party or multi-client API consumers possible through a platform-oriented API strategy
 
@@ -214,11 +229,14 @@ Implemented runtime diagnostics components:
 - `RuntimeDiagnostics`
 - `IRuntimeMeasurementSink`
 - `RuntimeDiagnosticsService`
+- daemon-owned `RuntimeDiagnosticsService` wiring
 - `test_runtime_diagnostics`
 - `test_runtime_diagnostics_service`
 - `BasicHttpClient` structured HTTP measurement recording
 - `VdrSnapshotBuilder` structured snapshot-domain measurement recording
+- `PollingService` structured poll-cycle and refresh-path measurement recording
 - `test_vdr_snapshot_builder` measurement-sink coverage
+- `test_polling_service` measurement-sink coverage
 
 Current diagnostics design:
 
@@ -228,11 +246,11 @@ Current diagnostics design:
 - `RuntimeDiagnosticsService` stores measurements in `RuntimeDiagnostics`
 - `BasicHttpClient` records component, operation, duration, status code and body size for successful requests
 - `VdrSnapshotBuilder` records component, operation, duration and domain item count for snapshot-domain build operations
+- `PollingService` records component, operation, duration and selected counts for poll-cycle and refresh-path work
+- `DaemonRuntime` owns one `RuntimeDiagnosticsService` and passes it into `BasicHttpClient`, `VdrSnapshotBuilder` and `PollingService`
 
 Not implemented yet:
 
-- daemon-owned `RuntimeDiagnosticsService` wiring
-- `PollingService` measurement collection
 - diagnostics JSON serialization
 - diagnostics REST controller
 - `/api/runtime` endpoint
@@ -269,7 +287,8 @@ Runtime diagnostics test state:
 - `make test-runtime-diagnostics` validates the internal `RuntimeDiagnostics` and `RuntimeMeasurement` model.
 - `test_runtime_diagnostics_service` validates `RuntimeDiagnosticsService` and `IRuntimeMeasurementSink` usage.
 - `test_vdr_snapshot_builder` validates `VdrSnapshotBuilder` measurement-sink recording.
-- `make test` includes the runtime diagnostics and snapshot-builder measurement tests.
+- `test_polling_service` validates `PollingService` measurement-sink recording while preserving existing polling behavior.
+- `make test` includes the runtime diagnostics, snapshot-builder and polling-service measurement tests.
 
 Local VDR integration targets are intentionally optional and are not part of `make test`:
 
@@ -313,10 +332,11 @@ Polling integration:
 - changed change-state is converted into `VdrChangeEvent` entries
 - `SnapshotRefreshPlanner` converts change events into `SnapshotUpdatePlan` values
 - generated update plans are executed domain-by-domain through `VdrSnapshotBuilder` and `SnapshotCacheService`
-- `VdrSnapshotBuilder` can emit structured snapshot-domain runtime measurements through `IRuntimeMeasurementSink`
 - `BasicHttpClient` can emit structured HTTP runtime measurements through `IRuntimeMeasurementSink`
-- `DaemonRuntime` currently wires `ConsoleRuntimeLogger` into runtime components
-- daemon-owned diagnostics service wiring is still pending
+- `VdrSnapshotBuilder` can emit structured snapshot-domain runtime measurements through `IRuntimeMeasurementSink`
+- `PollingService` can emit structured polling and refresh-path runtime measurements through `IRuntimeMeasurementSink`
+- `DaemonRuntime` wires `ConsoleRuntimeLogger` into runtime components
+- `DaemonRuntime` owns `RuntimeDiagnosticsService` and wires it into current measurement producers
 
 ---
 
@@ -362,6 +382,7 @@ Polling integration:
 - Phase 10.11: diagnostics service implements measurement sink
 - Phase 10.12: HTTP runtime measurement collection
 - Phase 10.13: VdrSnapshotBuilder runtime measurements
+- Phase 10.14: PollingService runtime measurements and daemon diagnostics wiring
 - ADR-007: Platform API Strategy
 
 ---
@@ -396,58 +417,52 @@ Current change-state parsing inside `RestfulApiVdrAdapter` uses a small local in
 
 This is acceptable for the current minimal endpoint shape, but may later be replaced by a dedicated mapper if the endpoint grows or more RESTfulAPI JSON parsing is consolidated.
 
-Phase 10.13 improves runtime visibility and introduces the second structured runtime measurement collection path. Observability is still intentionally minimal. Polling measurements, daemon-owned diagnostics wiring, diagnostics aggregation policies and REST diagnostics endpoints are not implemented yet.
+Phase 10.14 extends runtime visibility to the polling cycle and introduces daemon-owned diagnostics collection for current measurement producers. Observability is still intentionally minimal. Diagnostics JSON serialization, aggregation policies and REST diagnostics endpoints are not implemented yet.
 
 The real daemon test showed that recordings are currently the dominant initial snapshot cost in the tested setup. Future optimization should investigate whether recordings can be refreshed or summarized more incrementally instead of repeatedly fetching large `/recordings.json` responses.
 
 Documentation state:
 
-- `docs/development/phase-10-runtime-diagnostics-measurement-collection.md` documents the Phase 10.10 to Phase 10.13 diagnostics measurement collection state.
+- `docs/development/phase-10-runtime-diagnostics-measurement-collection.md` documents the Phase 10.10 to Phase 10.14 diagnostics measurement collection state.
 - `docs/adr/007-platform-api-strategy.md` documents the platform API direction.
-- `docs/development/current-status.md` documents Phase 10.13 and the current runtime diagnostics foundation.
+- `docs/development/current-status.md` documents Phase 10.14 and the current runtime diagnostics foundation.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 10.14: PollingService Runtime Measurements
+### Phase 10.15: RuntimeDiagnostics JSON Serializer
 
 Goal:
 
-Extend `PollingService` with optional `IRuntimeMeasurementSink` support so poll execution and refresh-plan behavior can be captured as structured `RuntimeMeasurement` values.
+Serialize collected runtime diagnostics in a stable backend-facing representation.
 
 Motivation:
 
-The HTTP client and snapshot builder now produce structured runtime measurements. The next observability gap is the polling runtime itself: full snapshot builds, unchanged polls, partial refresh execution and refresh-plan behavior should become visible without parsing log output.
+HTTP, snapshot-builder and polling measurements are now collected through the daemon-owned diagnostics service. The next observability gap is a stable serialization boundary before exposing diagnostics through an API endpoint.
 
 Expected direction:
 
-- keep `IRuntimeLogger` for human-readable runtime progress logs
-- add optional `IRuntimeMeasurementSink*` to `PollingService`
-- record `RuntimeMeasurement` values for poll execution paths
-- preserve existing `lastUpdatePlan()` test behavior
-- keep unit tests silent by default
-- avoid diagnostics REST API work until HTTP, snapshot and polling measurements are collected
+- keep diagnostics collection independent from REST controllers
+- add serializer coverage before adding `/api/runtime`
+- avoid diagnostics aggregation policy until raw serialization is stable
+- preserve logging and diagnostics as separate runtime concerns
 
 ---
 
 ## Upcoming Phases
 
-### Phase 10.14: PollingService Runtime Measurements
-
-Collect structured runtime measurements for poll execution and refresh-plan behavior.
-
-### Phase 10.15: Daemon-owned RuntimeDiagnosticsService Wiring
-
-Own the diagnostics service in the daemon runtime and pass it into measurement-producing components.
-
-### Phase 10.16: RuntimeDiagnostics JSON Serializer
+### Phase 10.15: RuntimeDiagnostics JSON Serializer
 
 Serialize collected diagnostics in a stable backend-facing representation.
 
-### Phase 10.17: Runtime Diagnostics REST Endpoint
+### Phase 10.16: Runtime Diagnostics REST Endpoint
 
 Expose runtime diagnostics through an API endpoint after collection and serialization are stable.
+
+### Phase 10.17: Runtime Diagnostics Aggregation Policy
+
+Define rolling windows, averages or retention behavior only after raw collection and endpoint serialization are stable.
 
 ### Later Phases
 
