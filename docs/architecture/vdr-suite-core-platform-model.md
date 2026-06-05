@@ -9,8 +9,9 @@ It connects the architecture decisions from:
 - ADR-0010: Library First VDR Architecture
 - ADR-0011: VDR Source Model
 - ADR-0012: Source Capability Model
+- ADR-007: Platform API Strategy
 
-The goal is to keep the architecture VDR-centered while preparing VDR-Suite for multiple VDR instances, remote VDR-Suite federation, permissions and future frontends.
+The goal is to keep the architecture VDR-centered while preparing VDR-Suite for multiple VDR instances, remote VDR-Suite federation, permissions, future frontends, VDR plugins and other external consumers.
 
 ---
 
@@ -31,6 +32,78 @@ The platform should expose VDR strengths through a modern architecture:
 - EPG
 - metadata
 - future OSD and remote-control functionality
+- runtime diagnostics
+- backend capabilities
+- future multi-VDR access
+
+The guiding question is:
+
+```text
+Which VDR-Suite capabilities should be reusable by other programs?
+```
+
+This is different from building a special integration for each frontend, app or plugin.
+
+---
+
+## Platform Consumer Model
+
+VDR-Suite should expose reusable platform capabilities.
+
+Consumers may include:
+
+- VDR-Suite Web UI
+- VDR-Suite desktop clients
+- VDR-Suite mobile clients
+- VDR OSD integration
+- VDR plugins
+- API clients
+- automation tools
+- monitoring tools
+- external services
+- third-party VDR management tools
+
+These consumers use VDR-Suite capabilities.
+
+VDR-Suite does not become a special integration layer for one consumer.
+
+Example:
+
+```text
+vdr-plugin-live
+        ↓
+VDR-Suite API or library boundary
+        ↓
+VDR-Suite services
+        ↓
+VDR / RESTfulAPI / remote VDR-Suite
+```
+
+This means that a VDR plugin such as `vdr-plugin-live` may later consume VDR-Suite capabilities. It does not mean that VDR-Suite becomes coupled to Live or implements Live-specific architecture.
+
+The same rule applies to Web UIs, mobile apps, Kodi integrations, automation tools and future desktop frontends.
+
+The architecture should therefore prefer reusable capability areas:
+
+```text
+Snapshot access
+Recording access
+Timer access
+Channel access
+Event access
+Metadata access
+Artwork access
+Job and queue access
+Runtime diagnostics
+Backend identity
+Backend capability discovery
+Backend lifecycle state
+Permission-aware operations
+Live update events
+Stream provider access
+```
+
+Consumer-specific presentation and workflow logic should remain outside the core platform model.
 
 ---
 
@@ -39,7 +112,7 @@ The platform should expose VDR strengths through a modern architecture:
 Long-term conceptual model:
 
 ```text
-Actor
+Consumer / Actor
         ↓
 Permission Layer
         ↓
@@ -56,9 +129,9 @@ Backend Adapter
 VDR / Remote VDR-Suite / Archive
 ```
 
-This model is not yet implemented.
+This model is not yet fully implemented.
 
-It is a guiding architecture for future domain models, APIs, permissions and frontend design.
+It is a guiding architecture for future domain models, APIs, permissions, libraries, plugins and frontend design.
 
 ---
 
@@ -76,10 +149,12 @@ Possible future actors:
 - desktop frontend
 - VDR plugin bridge
 - API client
+- automation tool
+- monitoring tool
 
 Actor is broader than user.
 
-This distinction matters for federation.
+This distinction matters for federation, API clients and plugin consumers.
 
 Example:
 
@@ -294,7 +369,7 @@ Future backend adapters may include:
 
 The Backend Adapter must remain hidden behind service boundaries.
 
-Frontends should not depend directly on backend adapter details.
+Frontends, plugins and other consumers should not depend directly on backend adapter details.
 
 ---
 
@@ -410,6 +485,7 @@ Result:
 The following boundaries should remain separate:
 
 ```text
+Consumer presentation
 Actor identity
 Permission decisions
 Library organization
@@ -420,7 +496,7 @@ Backend adapter execution
 
 These concepts should not be collapsed into one class or one service.
 
-Keeping them separate allows VDR-Suite to grow without making the VDR backend, REST API or frontend architecture too rigid.
+Keeping them separate allows VDR-Suite to grow without making the VDR backend, REST API, plugin or frontend architecture too rigid.
 
 ---
 
@@ -437,6 +513,8 @@ This document does not implement:
 - database schema
 - REST API changes
 - frontend navigation changes
+- plugin API changes
+- a special integration for `vdr-plugin-live`
 
 This document only summarizes the emerging platform architecture.
 
@@ -452,6 +530,7 @@ Likely follow-up architecture decisions:
 - Source Domain Object
 - Capability Domain Object
 - Library Domain Object
+- Platform Consumer API Boundary
 
 Likely future implementation phases:
 
@@ -460,3 +539,4 @@ Likely future implementation phases:
 - permission value object
 - source-aware recording summary
 - source-aware API responses
+- reusable platform capability boundaries
