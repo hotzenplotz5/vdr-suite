@@ -1,10 +1,53 @@
+#include "IRuntimeMeasurementSink.h"
 #include "MockVdrAdapter.h"
+#include "RuntimeMeasurement.h"
 #include "VdrService.h"
 #include "VdrSnapshot.h"
 #include "VdrSnapshotBuilder.h"
 
 #include <cassert>
 #include <iostream>
+#include <string>
+#include <vector>
+
+class RecordingMeasurementSink : public IRuntimeMeasurementSink {
+public:
+    void recordMeasurement(const RuntimeMeasurement& measurement) override
+    {
+        measurements.push_back(measurement);
+    }
+
+    std::vector<RuntimeMeasurement> measurements;
+};
+
+static bool containsMeasurement(
+    const RecordingMeasurementSink& sink,
+    const std::string& component,
+    const std::string& operation)
+{
+    for (const RuntimeMeasurement& measurement : sink.measurements) {
+        if (measurement.component == component && measurement.operation == operation) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static const RuntimeMeasurement& findMeasurement(
+    const RecordingMeasurementSink& sink,
+    const std::string& component,
+    const std::string& operation)
+{
+    for (const RuntimeMeasurement& measurement : sink.measurements) {
+        if (measurement.component == component && measurement.operation == operation) {
+            return measurement;
+        }
+    }
+
+    assert(false);
+    return sink.measurements.front();
+}
 
 static void test_snapshot_builder_collects_complete_vdr_state()
 {
@@ -31,6 +74,34 @@ static void test_snapshot_builder_collects_complete_vdr_state()
     assert(snapshot.events[0].id == "mock-event-1");
 }
 
+static void test_snapshot_builder_records_measurements_for_complete_snapshot()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+
+    VdrSnapshot snapshot = builder.buildSnapshot();
+
+    assert(snapshot.status.enabled == true);
+    assert(snapshot.recordings.size() == 2);
+    assert(snapshot.timers.size() == 1);
+    assert(snapshot.channels.size() == 3);
+    assert(snapshot.events.size() == 2);
+
+    assert(sink.measurements.size() == 5);
+    assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build status"));
+    assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build recordings"));
+    assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build timers"));
+    assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build channels"));
+    assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build events"));
+
+    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build recordings").sizeBytes == 2);
+    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build timers").sizeBytes == 1);
+    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build channels").sizeBytes == 3);
+    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build events").sizeBytes == 2);
+}
+
 static void test_snapshot_builder_can_build_status_domain()
 {
     MockVdrAdapter adapter;
@@ -42,6 +113,21 @@ static void test_snapshot_builder_can_build_status_domain()
     assert(status.enabled == true);
     assert(status.mode == "mock");
     assert(status.state == "connected");
+}
+
+static void test_snapshot_builder_records_status_measurement()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+
+    VdrStatus status = builder.buildStatus();
+
+    assert(status.enabled == true);
+    assert(sink.measurements.size() == 1);
+    assert(sink.measurements[0].component == "VdrSnapshotBuilder");
+    assert(sink.measurements[0].operation == "Build status");
 }
 
 static void test_snapshot_builder_can_build_recordings_domain()
@@ -56,6 +142,22 @@ static void test_snapshot_builder_can_build_recordings_domain()
     assert(recordings[0].id == "mock-recording-1");
 }
 
+static void test_snapshot_builder_records_recordings_measurement()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+
+    auto recordings = builder.buildRecordings();
+
+    assert(recordings.size() == 2);
+    assert(sink.measurements.size() == 1);
+    assert(sink.measurements[0].component == "VdrSnapshotBuilder");
+    assert(sink.measurements[0].operation == "Build recordings");
+    assert(sink.measurements[0].sizeBytes == 2);
+}
+
 static void test_snapshot_builder_can_build_timers_domain()
 {
     MockVdrAdapter adapter;
@@ -66,6 +168,22 @@ static void test_snapshot_builder_can_build_timers_domain()
 
     assert(timers.size() == 1);
     assert(timers[0].id == "mock-timer-1");
+}
+
+static void test_snapshot_builder_records_timers_measurement()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+
+    auto timers = builder.buildTimers();
+
+    assert(timers.size() == 1);
+    assert(sink.measurements.size() == 1);
+    assert(sink.measurements[0].component == "VdrSnapshotBuilder");
+    assert(sink.measurements[0].operation == "Build timers");
+    assert(sink.measurements[0].sizeBytes == 1);
 }
 
 static void test_snapshot_builder_can_build_channels_domain()
@@ -80,6 +198,22 @@ static void test_snapshot_builder_can_build_channels_domain()
     assert(channels[0].id == "mock-channel-1");
 }
 
+static void test_snapshot_builder_records_channels_measurement()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+
+    auto channels = builder.buildChannels();
+
+    assert(channels.size() == 3);
+    assert(sink.measurements.size() == 1);
+    assert(sink.measurements[0].component == "VdrSnapshotBuilder");
+    assert(sink.measurements[0].operation == "Build channels");
+    assert(sink.measurements[0].sizeBytes == 3);
+}
+
 static void test_snapshot_builder_can_build_events_domain()
 {
     MockVdrAdapter adapter;
@@ -92,14 +226,36 @@ static void test_snapshot_builder_can_build_events_domain()
     assert(events[0].id == "mock-event-1");
 }
 
+static void test_snapshot_builder_records_events_measurement()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+
+    auto events = builder.buildEvents();
+
+    assert(events.size() == 2);
+    assert(sink.measurements.size() == 1);
+    assert(sink.measurements[0].component == "VdrSnapshotBuilder");
+    assert(sink.measurements[0].operation == "Build events");
+    assert(sink.measurements[0].sizeBytes == 2);
+}
+
 int main()
 {
     test_snapshot_builder_collects_complete_vdr_state();
+    test_snapshot_builder_records_measurements_for_complete_snapshot();
     test_snapshot_builder_can_build_status_domain();
+    test_snapshot_builder_records_status_measurement();
     test_snapshot_builder_can_build_recordings_domain();
+    test_snapshot_builder_records_recordings_measurement();
     test_snapshot_builder_can_build_timers_domain();
+    test_snapshot_builder_records_timers_measurement();
     test_snapshot_builder_can_build_channels_domain();
+    test_snapshot_builder_records_channels_measurement();
     test_snapshot_builder_can_build_events_domain();
+    test_snapshot_builder_records_events_measurement();
 
     std::cout
         << "test_vdr_snapshot_builder passed"
