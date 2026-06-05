@@ -1,11 +1,12 @@
 #pragma once
 
+#include "IRuntimeMeasurementSink.h"
 #include "RuntimeDiagnostics.h"
 #include "RuntimeMeasurement.h"
 
-class RuntimeDiagnosticsService {
+class RuntimeDiagnosticsService : public IRuntimeMeasurementSink {
 public:
-    void recordMeasurement(const RuntimeMeasurement& measurement)
+    void recordMeasurement(const RuntimeMeasurement& measurement) override
     {
         diagnostics_.addMeasurement(measurement);
     }
