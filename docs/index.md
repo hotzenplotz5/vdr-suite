@@ -95,6 +95,13 @@ Core architecture documents:
 - [Internal Event Dispatch Architecture](architecture/internal-event-dispatch-architecture.md)
 - [Partial Snapshot Refresh Architecture](architecture/partial-snapshot-refresh-architecture.md) – Phase 9 runtime plan integration completed
 - [Media Platform Comparison](architecture/media-platform-comparison.md)
+- [External Project Analysis](architecture/external-project-analysis.md)
+
+---
+
+## Research and Ecosystem Analysis
+
+- [External Project Analysis](architecture/external-project-analysis.md)
 
 Phase-specific architecture notes:
 
