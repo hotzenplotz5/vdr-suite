@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document records the current state of the Phase 10 runtime diagnostics work after the runtime diagnostics REST endpoint step.
+This document records the current state of the Phase 10 runtime diagnostics work after the runtime diagnostics retention and internal measurement summary steps.
 
 It complements `docs/development/current-status.md` while the runtime diagnostics block is still in progress.
 
@@ -20,6 +20,8 @@ The following steps are implemented:
 - Phase 10.14: `DaemonRuntime` owns `RuntimeDiagnosticsService` and wires it into current measurement producers
 - Phase 10.15: `RuntimeDiagnosticsJsonSerializer` serializes collected diagnostics measurements
 - Phase 10.16: `RuntimeDiagnosticsController` exposes collected diagnostics through `GET /api/runtime`
+- Phase 10.17: `RuntimeDiagnosticsService` applies bounded in-memory retention to collected measurements
+- Phase 10.18: `RuntimeDiagnosticsService` exposes internal measurement summaries grouped by component and operation
 
 Local verification was reported with successful visible output for:
 
@@ -32,7 +34,7 @@ make daemon
 git status
 ```
 
-The local result showed successful targeted runtime diagnostics controller, router and HTTP server tests, successful full `make test`, successful `make daemon` and a clean synchronized working tree after the Phase 10.16 implementation commit.
+The local result showed successful targeted runtime diagnostics service, controller, router and HTTP server tests, successful full `make test`, successful `make daemon` and a clean synchronized working tree after the Phase 10.18 implementation commit.
 
 ---
 
@@ -94,6 +96,21 @@ RuntimeDiagnosticsController
 GET /api/runtime
 ```
 
+Implemented internal summary chain:
+
+```text
+RuntimeDiagnosticsService
+    ↓
+RuntimeMeasurementSummary
+    ↓
+count
+minDurationMs
+maxDurationMs
+lastDurationMs
+lastStatusCode
+lastSizeBytes
+```
+
 This keeps logging and diagnostics separate.
 
 Runtime logging still writes human-readable log entries through `IRuntimeLogger`.
@@ -116,6 +133,7 @@ Current runtime diagnostics components:
 - `RuntimeDiagnostics`
 - `IRuntimeMeasurementSink`
 - `RuntimeDiagnosticsService`
+- `RuntimeMeasurementSummary`
 - `RuntimeDiagnosticsJsonSerializer`
 - `RuntimeDiagnosticsController`
 - `GET /api/runtime`
@@ -128,13 +146,52 @@ Current runtime diagnostics components:
 - `test_api_router` `/api/runtime` routing coverage
 - `test_test_http_server` `/api/runtime` HTTP server coverage
 
-`RuntimeDiagnosticsService` owns an internal `RuntimeDiagnostics` instance and implements:
+`RuntimeDiagnosticsService` owns an internal `RuntimeDiagnostics` instance, applies bounded in-memory retention and implements:
 
 - `recordMeasurement(...)`
 - `diagnostics()`
 - `empty()`
 - `size()`
 - `clear()`
+- `measurementSummaries()`
+
+---
+
+## Runtime Diagnostics Retention and Summaries
+
+`RuntimeDiagnosticsService` now keeps collected measurements bounded in memory.
+
+The default retention limit is:
+
+```text
+100 measurements
+```
+
+When the configured limit is exceeded, the oldest measurements are removed first.
+
+This keeps diagnostics memory use bounded while preserving the newest measurements for `/api/runtime`.
+
+`RuntimeDiagnosticsService::measurementSummaries()` provides an internal grouped summary view over the retained measurements.
+
+Summaries are grouped by:
+
+- component
+- operation
+
+Each `RuntimeMeasurementSummary` contains:
+
+- component
+- operation
+- count
+- minDurationMs
+- maxDurationMs
+- lastDurationMs
+- lastStatusCode
+- lastSizeBytes
+
+The summary view is currently internal.
+It does not change the public `/api/runtime` JSON response.
+This preserves the existing REST contract while preparing a future explicit diagnostics summary endpoint or JSON extension.
 
 ---
 
@@ -273,6 +330,14 @@ Current measurement and endpoint coverage includes:
 - `test_api_router`
 - `test_test_http_server`
 
+`test_runtime_diagnostics_service` verifies that:
+
+- measurements are recorded through the diagnostics service
+- retained measurement order is preserved
+- bounded retention removes oldest measurements first
+- internal measurement summaries are grouped by component and operation
+- summary count, minimum duration, maximum duration and last values are calculated from retained measurements
+
 `test_runtime_diagnostics_json_serializer` verifies that:
 
 - empty diagnostics serialize as an empty `measurements` array
@@ -316,7 +381,7 @@ Current measurement and endpoint coverage includes:
 The following are intentionally not implemented yet:
 
 - persistence of runtime measurements
-- rolling windows, averages or aggregation policies
+- public summary JSON or rolling averages
 - runtime diagnostics API hardening beyond the initial read-only endpoint
 
 ---
@@ -358,8 +423,8 @@ This preserves a clean boundary between logging and diagnostics.
 Recommended next phases:
 
 ```text
-Phase 10.17: Runtime diagnostics aggregation policy
-Phase 10.18: Runtime diagnostics API hardening or integration validation
+Phase 10.19: Runtime diagnostics API summary exposure decision
+Phase 10.20: Runtime diagnostics API hardening or integration validation
 ```
 
-The REST endpoint is now implemented as a read-only view on the existing daemon-owned runtime diagnostics state.
+The REST endpoint remains a read-only view on the existing daemon-owned runtime diagnostics measurement state. Internal summaries are available in the service layer but are not yet exposed through a public JSON contract.

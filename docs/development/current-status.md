@@ -35,11 +35,11 @@ VDR remains the primary backend domain and source of truth.
 
 Latest verified code state:
 
-`d15a4d3`
+`b978a87`
 
 Latest completed implementation phase:
 
-Phase 10.16: Runtime diagnostics REST endpoint.
+Phase 10.18: Runtime diagnostics measurement summaries.
 
 Verified locally with:
 
@@ -72,6 +72,8 @@ Important architecture notes:
 - Phase 10.14 also made `DaemonRuntime` own `RuntimeDiagnosticsService` and pass it into current measurement-producing components.
 - Phase 10.15 added runtime diagnostics JSON serialization.
 - Phase 10.16 added the read-only runtime diagnostics REST endpoint at `GET /api/runtime`.
+- Phase 10.17 added bounded in-memory diagnostics measurement retention.
+- Phase 10.18 added internal runtime measurement summaries grouped by component and operation.
 
 Detailed status:
 
@@ -155,6 +157,17 @@ RuntimeDiagnosticsJsonSerializer
 RuntimeDiagnosticsController
     ↓
 GET /api/runtime
+
+RuntimeDiagnosticsService
+    ↓
+RuntimeMeasurementSummary
+    ↓
+count
+minDurationMs
+maxDurationMs
+lastDurationMs
+lastStatusCode
+lastSizeBytes
 ```
 
 Purpose:
@@ -171,6 +184,8 @@ Purpose:
 - expose snapshot-domain build timing through structured runtime measurements
 - expose polling-cycle and refresh-path timing through structured runtime measurements
 - keep logging and diagnostics separate
+- avoid unbounded diagnostics measurement growth through service-owned retention
+- provide internal grouped measurement summaries without changing the public `/api/runtime` JSON format
 - keep future third-party or multi-client API consumers possible through a platform-oriented API strategy
 
 ---
@@ -243,6 +258,7 @@ Implemented runtime diagnostics components:
 - `RuntimeDiagnostics`
 - `IRuntimeMeasurementSink`
 - `RuntimeDiagnosticsService`
+- `RuntimeMeasurementSummary`
 - daemon-owned `RuntimeDiagnosticsService` wiring
 - `test_runtime_diagnostics`
 - `test_runtime_diagnostics_service`
@@ -252,6 +268,8 @@ Implemented runtime diagnostics components:
 - `RuntimeDiagnosticsJsonSerializer`
 - `RuntimeDiagnosticsController`
 - `GET /api/runtime`
+- runtime diagnostics retention policy
+- internal runtime measurement summaries
 - `test_vdr_snapshot_builder` measurement-sink coverage
 - `test_polling_service` measurement-sink coverage
 - `test_runtime_diagnostics_json_serializer`
@@ -265,6 +283,8 @@ Current diagnostics design:
 - runtime components create `RuntimeMeasurement` values directly
 - `IRuntimeMeasurementSink` decouples producers from diagnostics storage
 - `RuntimeDiagnosticsService` stores measurements in `RuntimeDiagnostics`
+- `RuntimeDiagnosticsService` keeps retained measurements bounded in memory
+- `RuntimeDiagnosticsService` can calculate internal measurement summaries grouped by component and operation
 - `BasicHttpClient` records component, operation, duration, status code and body size for successful requests
 - `VdrSnapshotBuilder` records component, operation, duration and domain item count for snapshot-domain build operations
 - `PollingService` records component, operation, duration and selected counts for poll-cycle and refresh-path work
@@ -274,7 +294,7 @@ Current diagnostics design:
 
 Not implemented yet:
 
-- rolling windows, averages or aggregation policies
+- public summary JSON or rolling averages
 - runtime diagnostics persistence
 
 ---
@@ -306,7 +326,7 @@ The public targets remain stable:
 Runtime diagnostics test state:
 
 - `make test-runtime-diagnostics` validates the internal `RuntimeDiagnostics` and `RuntimeMeasurement` model.
-- `test_runtime_diagnostics_service` validates `RuntimeDiagnosticsService` and `IRuntimeMeasurementSink` usage.
+- `test_runtime_diagnostics_service` validates `RuntimeDiagnosticsService`, `IRuntimeMeasurementSink` usage, retention behavior and internal measurement summaries.
 - `test_vdr_snapshot_builder` validates `VdrSnapshotBuilder` measurement-sink recording.
 - `test_polling_service` validates `PollingService` measurement-sink recording while preserving existing polling behavior.
 - `test_runtime_diagnostics_json_serializer` validates diagnostics JSON serialization.
@@ -411,6 +431,8 @@ Polling integration:
 - Phase 10.14: PollingService runtime measurements and daemon diagnostics wiring
 - Phase 10.15: runtime diagnostics JSON serializer
 - Phase 10.16: runtime diagnostics REST endpoint
+- Phase 10.17: runtime diagnostics retention policy
+- Phase 10.18: runtime diagnostics measurement summaries
 - ADR-007: Platform API Strategy
 
 ---
@@ -445,48 +467,48 @@ Current change-state parsing inside `RestfulApiVdrAdapter` uses a small local in
 
 This is acceptable for the current minimal endpoint shape, but may later be replaced by a dedicated mapper if the endpoint grows or more RESTfulAPI JSON parsing is consolidated.
 
-Phase 10.16 extends runtime diagnostics from collection and serialization to a read-only REST endpoint at `GET /api/runtime`. Observability is still intentionally minimal. Aggregation policies, persistence and broader diagnostics API hardening are not implemented yet.
+Phase 10.18 extends runtime diagnostics with bounded in-memory retention and internal measurement summaries. The read-only REST endpoint at `GET /api/runtime` still exposes the existing measurements JSON format. Persistence and broader diagnostics API hardening are not implemented yet.
 
 The real daemon test showed that recordings are currently the dominant initial snapshot cost in the tested setup. Future optimization should investigate whether recordings can be refreshed or summarized more incrementally instead of repeatedly fetching large `/recordings.json` responses.
 
 Documentation state:
 
-- `docs/development/phase-10-runtime-diagnostics-measurement-collection.md` documents the Phase 10.10 to Phase 10.16 diagnostics measurement collection, serialization and REST endpoint state.
+- `docs/development/phase-10-runtime-diagnostics-measurement-collection.md` documents the Phase 10.10 to Phase 10.18 diagnostics measurement collection, retention, internal summaries, serialization and REST endpoint state.
 - `docs/adr/007-platform-api-strategy.md` documents the platform API direction.
-- `docs/development/current-status.md` documents Phase 10.16 and the current runtime diagnostics REST endpoint foundation.
+- `docs/development/current-status.md` documents Phase 10.18 and the current runtime diagnostics retention and internal summary foundation.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 10.17: Runtime Diagnostics Aggregation Policy
+### Phase 10.19: Runtime Diagnostics API Summary Exposure Decision
 
 Goal:
 
-Define explicit retention, rolling window or aggregation behavior for collected runtime measurements.
+Decide whether internal runtime measurement summaries should remain service-internal or become part of a dedicated diagnostics summary API surface.
 
 Motivation:
 
-The raw diagnostics endpoint now exposes collected measurements. Before expanding API consumers, the runtime diagnostics model needs a deliberate policy for how many measurements are retained and whether summary values such as averages should be exposed.
+Phase 10.18 introduced grouped measurement summaries without changing the public `/api/runtime` JSON contract. Before exposing summaries to clients, the API shape should be explicit and should not turn diagnostics into a debug dump.
 
 Expected direction:
 
-- keep raw measurement collection separate from aggregation
-- avoid turning `/api/runtime` into a debug dump
+- keep `/api/runtime` backward compatible unless an explicit API extension is chosen
+- avoid mixing diagnostics summaries with debug-state output
 - preserve logging, diagnostics and debugging as separate runtime concerns
-- keep any retention or rolling-window policy explicit and test-covered
+- keep any public summary JSON explicit and test-covered
 
 ---
 
 ## Upcoming Phases
 
-### Phase 10.17: Runtime Diagnostics Aggregation Policy
+### Phase 10.19: Runtime Diagnostics API Summary Exposure Decision
 
-Define rolling windows, averages or retention behavior only after raw collection and endpoint serialization are stable.
+Decide whether internal measurement summaries should remain service-internal or be exposed through an explicit diagnostics API contract.
 
-### Phase 10.18: Runtime Diagnostics API Hardening or Integration Validation
+### Phase 10.20: Runtime Diagnostics API Hardening or Integration Validation
 
-Validate and harden the runtime diagnostics API surface before expanding diagnostics beyond the initial read-only endpoint.
+Validate and harden the runtime diagnostics API surface before expanding diagnostics beyond the current read-only endpoint.
 
 ### Later Phases
 
