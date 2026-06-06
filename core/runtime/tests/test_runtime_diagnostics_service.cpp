@@ -40,6 +40,30 @@ int main()
     assert(service.diagnostics().measurements.at(1).operation == "Build recordings");
     assert(service.diagnostics().measurements.at(1).durationMs == 11047);
 
+    RuntimeDiagnosticsService limitedService(2);
+
+    RuntimeMeasurement firstMeasurement;
+    firstMeasurement.component = "FirstComponent";
+    firstMeasurement.operation = "First operation";
+
+    RuntimeMeasurement secondMeasurement;
+    secondMeasurement.component = "SecondComponent";
+    secondMeasurement.operation = "Second operation";
+
+    RuntimeMeasurement thirdMeasurement;
+    thirdMeasurement.component = "ThirdComponent";
+    thirdMeasurement.operation = "Third operation";
+
+    limitedService.recordMeasurement(firstMeasurement);
+    limitedService.recordMeasurement(secondMeasurement);
+    limitedService.recordMeasurement(thirdMeasurement);
+
+    assert(limitedService.size() == 2);
+    assert(limitedService.diagnostics().measurements.at(0).component == "SecondComponent");
+    assert(limitedService.diagnostics().measurements.at(0).operation == "Second operation");
+    assert(limitedService.diagnostics().measurements.at(1).component == "ThirdComponent");
+    assert(limitedService.diagnostics().measurements.at(1).operation == "Third operation");
+
     service.clear();
 
     assert(service.empty());
