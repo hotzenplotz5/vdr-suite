@@ -50,6 +50,11 @@ ApiResponse ApiRouter::handleGet(
         return vdrController_.getOverview();
     }
 
+    if (path == "/api/runtime/summary")
+    {
+        return runtimeDiagnosticsController_.getRuntimeDiagnosticsSummary();
+    }
+
     if (path == "/api/runtime")
     {
         return runtimeDiagnosticsController_.getRuntimeDiagnostics();
