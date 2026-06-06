@@ -36,6 +36,7 @@ static void test_runtime_diagnostics_controller_returns_recorded_measurements()
     measurement.durationMs = 42;
     measurement.statusCode = 0;
     measurement.sizeBytes = 0;
+    measurement.itemCount = 5;
 
     diagnosticsService.recordMeasurement(measurement);
 
@@ -59,6 +60,9 @@ static void test_runtime_diagnostics_controller_returns_recorded_measurements()
            != std::string::npos);
 
     assert(response.body.find("\"durationMs\":42")
+           != std::string::npos);
+
+    assert(response.body.find("\"itemCount\":5")
            != std::string::npos);
 }
 
@@ -90,6 +94,7 @@ static void test_runtime_diagnostics_controller_returns_recorded_summary()
     firstMeasurement.durationMs = 30;
     firstMeasurement.statusCode = 0;
     firstMeasurement.sizeBytes = 100;
+    firstMeasurement.itemCount = 4;
 
     RuntimeMeasurement secondMeasurement;
     secondMeasurement.component = "PollingService";
@@ -97,6 +102,7 @@ static void test_runtime_diagnostics_controller_returns_recorded_summary()
     secondMeasurement.durationMs = 10;
     secondMeasurement.statusCode = 0;
     secondMeasurement.sizeBytes = 200;
+    secondMeasurement.itemCount = 12;
 
     diagnosticsService.recordMeasurement(firstMeasurement);
     diagnosticsService.recordMeasurement(secondMeasurement);
@@ -127,6 +133,9 @@ static void test_runtime_diagnostics_controller_returns_recorded_summary()
            != std::string::npos);
 
     assert(response.body.find("\"maxDurationMs\":30")
+           != std::string::npos);
+
+    assert(response.body.find("\"lastItemCount\":12")
            != std::string::npos);
 }
 
