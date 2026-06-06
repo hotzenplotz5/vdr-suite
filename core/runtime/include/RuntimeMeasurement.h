@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 
 struct RuntimeMeasurement {
@@ -8,4 +9,5 @@ struct RuntimeMeasurement {
     long long durationMs = 0;
     int statusCode = 0;
     std::size_t sizeBytes = 0;
+    std::size_t itemCount = 0;
 };
