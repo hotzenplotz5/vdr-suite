@@ -64,7 +64,7 @@ std::vector<VdrRecording> VdrSnapshotBuilder::buildRecordings() const
     measurement.component = "VdrSnapshotBuilder";
     measurement.operation = "Build recordings";
     measurement.durationMs = durationMs;
-    measurement.sizeBytes = result.size();
+    measurement.itemCount = result.size();
     recordMeasurement(measurement);
 
     return result;
@@ -83,7 +83,7 @@ std::vector<VdrTimer> VdrSnapshotBuilder::buildTimers() const
     measurement.component = "VdrSnapshotBuilder";
     measurement.operation = "Build timers";
     measurement.durationMs = durationMs;
-    measurement.sizeBytes = result.size();
+    measurement.itemCount = result.size();
     recordMeasurement(measurement);
 
     return result;
@@ -102,7 +102,7 @@ std::vector<VdrChannel> VdrSnapshotBuilder::buildChannels() const
     measurement.component = "VdrSnapshotBuilder";
     measurement.operation = "Build channels";
     measurement.durationMs = durationMs;
-    measurement.sizeBytes = result.size();
+    measurement.itemCount = result.size();
     recordMeasurement(measurement);
 
     return result;
@@ -121,7 +121,7 @@ std::vector<VdrEvent> VdrSnapshotBuilder::buildEvents() const
     measurement.component = "VdrSnapshotBuilder";
     measurement.operation = "Build events";
     measurement.durationMs = durationMs;
-    measurement.sizeBytes = result.size();
+    measurement.itemCount = result.size();
     recordMeasurement(measurement);
 
     return result;
