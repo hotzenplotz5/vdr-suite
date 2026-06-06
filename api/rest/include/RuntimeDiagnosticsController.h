@@ -13,6 +13,7 @@ public:
         RuntimeDiagnosticsJsonSerializer& jsonSerializer);
 
     ApiResponse getRuntimeDiagnostics();
+    ApiResponse getRuntimeDiagnosticsSummary();
 
 private:
     RuntimeDiagnosticsService& diagnosticsService_;
