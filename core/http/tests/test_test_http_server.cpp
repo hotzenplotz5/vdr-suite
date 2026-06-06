@@ -193,6 +193,18 @@ int main()
     assert(runtimeResponse.headers.at("Content-Type") == "application/json");
     assert(runtimeResponse.body == "{\"measurements\":[]}");
 
+    HttpServerRequest runtimeSummaryRequest;
+    runtimeSummaryRequest.method = "GET";
+    runtimeSummaryRequest.path = "/api/runtime/summary";
+    runtimeSummaryRequest.headers["Accept"] = "application/json";
+
+    HttpServerResponse runtimeSummaryResponse =
+        server.handleRequest(runtimeSummaryRequest);
+
+    assert(runtimeSummaryResponse.statusCode == 200);
+    assert(runtimeSummaryResponse.headers.at("Content-Type") == "application/json");
+    assert(runtimeSummaryResponse.body == "{\"summaries\":[]}");
+
     HttpServerRequest missingRequest;
     missingRequest.method = "GET";
     missingRequest.path = "/api/missing";
