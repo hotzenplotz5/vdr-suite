@@ -1,6 +1,7 @@
 #include "RuntimeDiagnosticsService.h"
 
 #include <cassert>
+#include <vector>
 
 int main()
 {
@@ -63,6 +64,58 @@ int main()
     assert(limitedService.diagnostics().measurements.at(0).operation == "Second operation");
     assert(limitedService.diagnostics().measurements.at(1).component == "ThirdComponent");
     assert(limitedService.diagnostics().measurements.at(1).operation == "Third operation");
+
+    {
+        RuntimeDiagnosticsService aggregationService;
+
+        RuntimeMeasurement firstPollMeasurement;
+        firstPollMeasurement.component = "PollingService";
+        firstPollMeasurement.operation = "Poll cycle";
+        firstPollMeasurement.durationMs = 30;
+        firstPollMeasurement.statusCode = 0;
+        firstPollMeasurement.sizeBytes = 100;
+
+        RuntimeMeasurement secondPollMeasurement;
+        secondPollMeasurement.component = "PollingService";
+        secondPollMeasurement.operation = "Poll cycle";
+        secondPollMeasurement.durationMs = 10;
+        secondPollMeasurement.statusCode = 0;
+        secondPollMeasurement.sizeBytes = 200;
+
+        RuntimeMeasurement httpMeasurement;
+        httpMeasurement.component = "BasicHttpClient";
+        httpMeasurement.operation = "GET /recordings.json";
+        httpMeasurement.durationMs = 50;
+        httpMeasurement.statusCode = 200;
+        httpMeasurement.sizeBytes = 300;
+
+        aggregationService.recordMeasurement(firstPollMeasurement);
+        aggregationService.recordMeasurement(secondPollMeasurement);
+        aggregationService.recordMeasurement(httpMeasurement);
+
+        const std::vector<RuntimeMeasurementSummary> summaries =
+            aggregationService.measurementSummaries();
+
+        assert(summaries.size() == 2);
+
+        assert(summaries.at(0).component == "PollingService");
+        assert(summaries.at(0).operation == "Poll cycle");
+        assert(summaries.at(0).count == 2);
+        assert(summaries.at(0).minDurationMs == 10);
+        assert(summaries.at(0).maxDurationMs == 30);
+        assert(summaries.at(0).lastDurationMs == 10);
+        assert(summaries.at(0).lastStatusCode == 0);
+        assert(summaries.at(0).lastSizeBytes == 200);
+
+        assert(summaries.at(1).component == "BasicHttpClient");
+        assert(summaries.at(1).operation == "GET /recordings.json");
+        assert(summaries.at(1).count == 1);
+        assert(summaries.at(1).minDurationMs == 50);
+        assert(summaries.at(1).maxDurationMs == 50);
+        assert(summaries.at(1).lastDurationMs == 50);
+        assert(summaries.at(1).lastStatusCode == 200);
+        assert(summaries.at(1).lastSizeBytes == 300);
+    }
 
     service.clear();
 
