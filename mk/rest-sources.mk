@@ -11,6 +11,9 @@ REST_DASHBOARD_SRC := \
 REST_VDR_SRC := \
         api/rest/src/VdrController.cpp
 
+REST_RUNTIME_SRC := \
+        api/rest/src/RuntimeDiagnosticsController.cpp
+
 REST_ROUTER_SRC := \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
@@ -23,4 +26,5 @@ REST_ROUTER_SRC := \
         api/rest/src/JobsController.cpp \
         api/rest/src/RecordingsController.cpp \
         api/rest/src/MetadataController.cpp \
+        api/rest/src/RuntimeDiagnosticsController.cpp \
         api/rest/src/ApiRouter.cpp

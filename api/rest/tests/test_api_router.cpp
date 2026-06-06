@@ -3,6 +3,7 @@
 #include "JobsController.h"
 #include "MetadataController.h"
 #include "RecordingsController.h"
+#include "RuntimeDiagnosticsController.h"
 #include "VdrController.h"
 
 #include "DashboardFacade.h"
@@ -14,6 +15,8 @@
 #include "MockVdrAdapter.h"
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
+#include "RuntimeDiagnosticsJsonSerializer.h"
+#include "RuntimeDiagnosticsService.h"
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
 #include "VdrService.h"
@@ -73,12 +76,20 @@ int main()
         overviewService,
         vdrJsonSerializer);
 
+    RuntimeDiagnosticsService runtimeDiagnosticsService;
+    RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
+
+    RuntimeDiagnosticsController runtimeDiagnosticsController(
+        runtimeDiagnosticsService,
+        runtimeJsonSerializer);
+
     ApiRouter router(
         dashboardController,
         jobsController,
         recordingsController,
         metadataController,
-        vdrController);
+        vdrController,
+        runtimeDiagnosticsController);
 
     ApiResponse dashboardResponse =
         router.handleGet("/api/dashboard");
@@ -114,6 +125,13 @@ int main()
 
     assert(vdrResponse.body.find("\"recordings\"")
            != std::string::npos);
+
+    ApiResponse runtimeResponse =
+        router.handleGet("/api/runtime");
+
+    assert(runtimeResponse.statusCode == 200);
+    assert(runtimeResponse.contentType == "application/json");
+    assert(runtimeResponse.body == "{\"measurements\":[]}");
 
     ApiResponse missingResponse =
         router.handleGet("/api/unknown");

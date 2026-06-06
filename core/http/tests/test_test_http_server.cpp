@@ -12,6 +12,9 @@
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
 #include "RecordingsController.h"
+#include "RuntimeDiagnosticsController.h"
+#include "RuntimeDiagnosticsJsonSerializer.h"
+#include "RuntimeDiagnosticsService.h"
 #include "TestHttpServer.h"
 #include "VdrController.h"
 #include "VdrOverviewJsonSerializer.h"
@@ -39,7 +42,10 @@ static ApiRouter createRouter(
     VdrService& vdrService,
     VdrOverviewService& vdrOverviewService,
     VdrOverviewJsonSerializer& vdrJsonSerializer,
-    VdrController& vdrController)
+    VdrController& vdrController,
+    RuntimeDiagnosticsService& runtimeDiagnosticsService,
+    RuntimeDiagnosticsJsonSerializer& runtimeJsonSerializer,
+    RuntimeDiagnosticsController& runtimeDiagnosticsController)
 {
     (void)db;
     (void)adapter;
@@ -53,13 +59,16 @@ static ApiRouter createRouter(
     (void)vdrService;
     (void)vdrOverviewService;
     (void)vdrJsonSerializer;
+    (void)runtimeDiagnosticsService;
+    (void)runtimeJsonSerializer;
 
     return ApiRouter(
         dashboardController,
         jobsController,
         recordingsController,
         metadataController,
-        vdrController);
+        vdrController,
+        runtimeDiagnosticsController);
 }
 
 int main()
@@ -113,6 +122,13 @@ int main()
         vdrOverviewService,
         vdrJsonSerializer);
 
+    RuntimeDiagnosticsService runtimeDiagnosticsService;
+    RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
+
+    RuntimeDiagnosticsController runtimeDiagnosticsController(
+        runtimeDiagnosticsService,
+        runtimeJsonSerializer);
+
     ApiRouter router =
         createRouter(
             db,
@@ -131,7 +147,10 @@ int main()
             vdrService,
             vdrOverviewService,
             vdrJsonSerializer,
-            vdrController);
+            vdrController,
+            runtimeDiagnosticsService,
+            runtimeJsonSerializer,
+            runtimeDiagnosticsController);
 
     TestHttpServer server(router);
 
@@ -161,6 +180,18 @@ int main()
     assert(vdrResponse.body.find("\"status\"") != std::string::npos);
     assert(vdrResponse.body.find("\"channels\"") != std::string::npos);
     assert(vdrResponse.body.find("\"recordings\"") != std::string::npos);
+
+    HttpServerRequest runtimeRequest;
+    runtimeRequest.method = "GET";
+    runtimeRequest.path = "/api/runtime";
+    runtimeRequest.headers["Accept"] = "application/json";
+
+    HttpServerResponse runtimeResponse =
+        server.handleRequest(runtimeRequest);
+
+    assert(runtimeResponse.statusCode == 200);
+    assert(runtimeResponse.headers.at("Content-Type") == "application/json");
+    assert(runtimeResponse.body == "{\"measurements\":[]}");
 
     HttpServerRequest missingRequest;
     missingRequest.method = "GET";

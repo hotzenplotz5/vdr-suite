@@ -7,6 +7,7 @@
 class JobsController;
 class MetadataController;
 class RecordingsController;
+class RuntimeDiagnosticsController;
 class VdrController;
 
 class ApiRouter
@@ -17,7 +18,8 @@ public:
         JobsController& jobsController,
         RecordingsController& recordingsController,
         MetadataController& metadataController,
-        VdrController& vdrController);
+        VdrController& vdrController,
+        RuntimeDiagnosticsController& runtimeDiagnosticsController);
 
     ApiResponse handleGet(
         const std::string& path);
@@ -28,4 +30,5 @@ private:
     RecordingsController& recordingsController_;
     MetadataController& metadataController_;
     VdrController& vdrController_;
+    RuntimeDiagnosticsController& runtimeDiagnosticsController_;
 };

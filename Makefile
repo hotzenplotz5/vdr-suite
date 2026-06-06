@@ -133,6 +133,14 @@ test-vdr-controller:
 		-o /tmp/test_vdr_controller
 	/tmp/test_vdr_controller
 
+test-runtime-diagnostics-controller:
+	$(CXX) $(CXXFLAGS) \
+		$(RUNTIME_SRC) \
+		$(REST_RUNTIME_SRC) \
+		api/rest/tests/test_runtime_diagnostics_controller.cpp \
+		-o /tmp/test_runtime_diagnostics_controller
+	/tmp/test_runtime_diagnostics_controller
+
 test-jobs-controller: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -167,6 +175,7 @@ test-api-router: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
 		api/rest/src/VdrController.cpp \
 		api/rest/tests/test_api_router.cpp \
@@ -222,6 +231,7 @@ test-test-http-server: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
 		api/rest/src/VdrController.cpp \
 		core/http/src/TestHttpServer.cpp \
@@ -262,7 +272,7 @@ test-runtime-diagnostics-json-serializer:
 		-o /tmp/test_runtime_diagnostics_json_serializer
 	/tmp/test_runtime_diagnostics_json_serializer
 
-test: test-runtime-diagnostics test-runtime-diagnostics-json-serializer test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-vdr-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-vdr-service test-vdr-overview-service test-vdr-overview-json-serializer test-vdr-snapshot-builder test-polling-service test-vdr-change-state test-vdr-change-event test-change-detection-service test-snapshot-refresh-decision-service test-snapshot-refresh-planner test-snapshot-update-plan test-snapshot-cache test-snapshot-cache-service test-snapshot-access-service test-mock-vdr-adapter test-http-request test-http-response test-http-server-contract test-test-http-server test-mock-http-client test-restful-api-status-mapper test-restful-api-event-mapper test-restful-api-channel-mapper test-restful-api-recording-mapper test-restful-api-timer-mapper test-restful-api-vdr-adapter test-restful-api-change-state-adapter test-vdr-domain-objects
+test: test-runtime-diagnostics test-runtime-diagnostics-json-serializer test-runtime-diagnostics-controller test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-vdr-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-vdr-service test-vdr-overview-service test-vdr-overview-json-serializer test-vdr-snapshot-builder test-polling-service test-vdr-change-state test-vdr-change-event test-change-detection-service test-snapshot-refresh-decision-service test-snapshot-refresh-planner test-snapshot-update-plan test-snapshot-cache test-snapshot-cache-service test-snapshot-access-service test-mock-vdr-adapter test-http-request test-http-response test-http-server-contract test-test-http-server test-mock-http-client test-restful-api-status-mapper test-restful-api-event-mapper test-restful-api-channel-mapper test-restful-api-recording-mapper test-restful-api-timer-mapper test-restful-api-vdr-adapter test-restful-api-change-state-adapter test-vdr-domain-objects
 
 clean:
 	rm -f /tmp/test_database
@@ -316,3 +326,4 @@ clean:
 	rm -f /tmp/test_test_http_server
 	rm -f /tmp/test_runtime_diagnostics
 	rm -f /tmp/test_runtime_diagnostics_json_serializer
+	rm -f /tmp/test_runtime_diagnostics_controller

@@ -19,6 +19,8 @@
 #include "RecordingRepository.h"
 #include "RecordingsController.h"
 #include "RuntimeConfig.h"
+#include "RuntimeDiagnosticsController.h"
+#include "RuntimeDiagnosticsJsonSerializer.h"
 #include "RuntimeDiagnosticsService.h"
 #include "SnapshotAccessService.h"
 #include "SnapshotCache.h"
@@ -79,6 +81,9 @@ private:
     std::unique_ptr<VdrOverviewService> vdrOverviewService_;
     std::unique_ptr<VdrOverviewJsonSerializer> vdrOverviewJsonSerializer_;
     std::unique_ptr<VdrController> vdrController_;
+
+    std::unique_ptr<RuntimeDiagnosticsJsonSerializer> runtimeDiagnosticsJsonSerializer_;
+    std::unique_ptr<RuntimeDiagnosticsController> runtimeDiagnosticsController_;
 
     std::unique_ptr<ApiRouter> apiRouter_;
     std::unique_ptr<IHttpServer> httpServer_;

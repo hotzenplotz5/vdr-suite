@@ -155,13 +155,26 @@ bool DaemonRuntime::initialize()
         << "VDR controller runtime initialized"
         << std::endl;
 
+    runtimeDiagnosticsJsonSerializer_ =
+        std::make_unique<RuntimeDiagnosticsJsonSerializer>();
+
+    runtimeDiagnosticsController_ =
+        std::make_unique<RuntimeDiagnosticsController>(
+            runtimeDiagnosticsService_,
+            *runtimeDiagnosticsJsonSerializer_);
+
+    std::cout
+        << "runtime diagnostics controller initialized"
+        << std::endl;
+
     apiRouter_ =
         std::make_unique<ApiRouter>(
             *dashboardController_,
             *jobsController_,
             *recordingsController_,
             *metadataController_,
-            *vdrController_);
+            *vdrController_,
+            *runtimeDiagnosticsController_);
 
     std::cout
         << "API router runtime initialized"
@@ -230,6 +243,9 @@ void DaemonRuntime::shutdown()
     std::cout
         << "HTTP server runtime stopped"
         << std::endl;
+
+    runtimeDiagnosticsController_.reset();
+    runtimeDiagnosticsJsonSerializer_.reset();
 
     vdrController_.reset();
     vdrOverviewJsonSerializer_.reset();

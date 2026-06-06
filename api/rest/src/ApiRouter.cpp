@@ -3,6 +3,7 @@
 #include "JobsController.h"
 #include "MetadataController.h"
 #include "RecordingsController.h"
+#include "RuntimeDiagnosticsController.h"
 #include "VdrController.h"
 
 ApiRouter::ApiRouter(
@@ -10,12 +11,14 @@ ApiRouter::ApiRouter(
     JobsController& jobsController,
     RecordingsController& recordingsController,
     MetadataController& metadataController,
-    VdrController& vdrController)
+    VdrController& vdrController,
+    RuntimeDiagnosticsController& runtimeDiagnosticsController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
       recordingsController_(recordingsController),
       metadataController_(metadataController),
-      vdrController_(vdrController)
+      vdrController_(vdrController),
+      runtimeDiagnosticsController_(runtimeDiagnosticsController)
 {
 }
 
@@ -45,6 +48,11 @@ ApiResponse ApiRouter::handleGet(
     if (path == "/api/vdr/overview")
     {
         return vdrController_.getOverview();
+    }
+
+    if (path == "/api/runtime")
+    {
+        return runtimeDiagnosticsController_.getRuntimeDiagnostics();
     }
 
     ApiResponse response;
