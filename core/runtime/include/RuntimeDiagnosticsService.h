@@ -84,6 +84,7 @@ public:
             summary->lastDurationMs = measurement.durationMs;
             summary->lastStatusCode = measurement.statusCode;
             summary->lastSizeBytes = measurement.sizeBytes;
+            summary->lastItemCount = measurement.itemCount;
         }
 
         return summaries;
