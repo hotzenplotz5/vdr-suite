@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document records the current state of the Phase 10 runtime diagnostics work after the PollingService measurement collection and daemon diagnostics wiring step.
+This document records the current state of the Phase 10 runtime diagnostics work after the runtime diagnostics REST endpoint step.
 
 It complements `docs/development/current-status.md` while the runtime diagnostics block is still in progress.
 
@@ -19,16 +19,20 @@ The following steps are implemented:
 - Phase 10.14: `PollingService` records polling-cycle and refresh-path runtime measurements
 - Phase 10.14: `DaemonRuntime` owns `RuntimeDiagnosticsService` and wires it into current measurement producers
 - Phase 10.15: `RuntimeDiagnosticsJsonSerializer` serializes collected diagnostics measurements
+- Phase 10.16: `RuntimeDiagnosticsController` exposes collected diagnostics through `GET /api/runtime`
 
 Local verification was reported with successful visible output for:
 
 ```text
-make test-polling-service
-make test-vdr-snapshot-builder
+make test-runtime-diagnostics-controller
+make test-api-router
+make test-test-http-server
+make test
 make daemon
+git status
 ```
 
-The submitted `make test` output was truncated in the chat transcript before the final `git status` result was visible. Full repository cleanliness should therefore be confirmed locally before tagging this phase.
+The local result showed successful targeted runtime diagnostics controller, router and HTTP server tests, successful full `make test`, successful `make daemon` and a clean synchronized working tree after the Phase 10.16 implementation commit.
 
 ---
 
@@ -76,11 +80,29 @@ RuntimeDiagnosticsService
 RuntimeDiagnostics
 ```
 
+Implemented REST exposure chain:
+
+```text
+RuntimeDiagnosticsService
+    ↓
+RuntimeDiagnostics
+    ↓
+RuntimeDiagnosticsJsonSerializer
+    ↓
+RuntimeDiagnosticsController
+    ↓
+GET /api/runtime
+```
+
 This keeps logging and diagnostics separate.
 
 Runtime logging still writes human-readable log entries through `IRuntimeLogger`.
 
 Runtime diagnostics receive structured `RuntimeMeasurement` values through `IRuntimeMeasurementSink`.
+
+`RuntimeDiagnosticsJsonSerializer` converts the collected diagnostics into JSON.
+
+`RuntimeDiagnosticsController` exposes the current daemon-owned diagnostics state through `GET /api/runtime`.
 
 No log text parsing is required.
 
@@ -94,10 +116,17 @@ Current runtime diagnostics components:
 - `RuntimeDiagnostics`
 - `IRuntimeMeasurementSink`
 - `RuntimeDiagnosticsService`
+- `RuntimeDiagnosticsJsonSerializer`
+- `RuntimeDiagnosticsController`
+- `GET /api/runtime`
 - `test_runtime_diagnostics`
 - `test_runtime_diagnostics_service`
+- `test_runtime_diagnostics_json_serializer`
+- `test_runtime_diagnostics_controller`
 - `test_vdr_snapshot_builder` measurement-sink coverage
 - `test_polling_service` measurement-sink coverage
+- `test_api_router` `/api/runtime` routing coverage
+- `test_test_http_server` `/api/runtime` HTTP server coverage
 
 `RuntimeDiagnosticsService` owns an internal `RuntimeDiagnostics` instance and implements:
 
@@ -219,19 +248,47 @@ The same diagnostics service is passed as `IRuntimeMeasurementSink` into:
 - `VdrSnapshotBuilder`
 - `PollingService`
 
-This means the daemon-owned runtime diagnostics service can collect structured measurements from HTTP access, snapshot building and polling execution without parsing log output.
+`DaemonRuntime` also owns the REST diagnostics view:
+
+```text
+RuntimeDiagnosticsJsonSerializer
+RuntimeDiagnosticsController
+```
+
+This means the daemon-owned runtime diagnostics service can collect structured measurements from HTTP access, snapshot building and polling execution and expose the current diagnostics state through `/api/runtime` without parsing log output.
 
 ---
 
 ## Test Coverage
 
-Current measurement coverage includes:
+Current measurement and endpoint coverage includes:
 
 - `test_runtime_diagnostics`
 - `test_runtime_diagnostics_service`
+- `test_runtime_diagnostics_json_serializer`
+- `test_runtime_diagnostics_controller`
 - `test_mock_http_client`
 - `test_vdr_snapshot_builder`
 - `test_polling_service`
+- `test_api_router`
+- `test_test_http_server`
+
+`test_runtime_diagnostics_json_serializer` verifies that:
+
+- empty diagnostics serialize as an empty `measurements` array
+- recorded measurements are serialized with component, operation, duration, status code and size
+- strings are JSON-escaped
+
+`test_runtime_diagnostics_controller` verifies that:
+
+- the controller returns HTTP status `200`
+- the response content type is `application/json`
+- empty diagnostics are exposed as `{"measurements":[]}`
+- recorded measurements are exposed through the existing diagnostics JSON serializer
+
+`test_api_router` verifies that `/api/runtime` is routed to the runtime diagnostics controller.
+
+`test_test_http_server` verifies that `/api/runtime` is reachable through the HTTP server layer.
 
 `test_vdr_snapshot_builder` verifies that:
 
@@ -258,10 +315,9 @@ Current measurement coverage includes:
 
 The following are intentionally not implemented yet:
 
-- diagnostics REST controller
-- `/api/runtime` endpoint
 - persistence of runtime measurements
 - rolling windows, averages or aggregation policies
+- runtime diagnostics API hardening beyond the initial read-only endpoint
 
 ---
 
@@ -293,6 +349,8 @@ RuntimeMeasurement
 
 This preserves a clean boundary between logging and diagnostics.
 
+`GET /api/runtime` must remain a diagnostics endpoint. It must not become a general debug dump and it must not expose backend-specific VDR state.
+
 ---
 
 ## Next Steps
@@ -300,8 +358,8 @@ This preserves a clean boundary between logging and diagnostics.
 Recommended next phases:
 
 ```text
-Phase 10.16: Runtime diagnostics REST endpoint
 Phase 10.17: Runtime diagnostics aggregation policy
+Phase 10.18: Runtime diagnostics API hardening or integration validation
 ```
 
-The REST endpoint should only be added after collection and serialization are stable.
+The REST endpoint is now implemented as a read-only view on the existing daemon-owned runtime diagnostics state.
