@@ -23,3 +23,16 @@ ApiResponse RuntimeDiagnosticsController::getRuntimeDiagnostics()
 
     return response;
 }
+
+ApiResponse RuntimeDiagnosticsController::getRuntimeDiagnosticsSummary()
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        jsonSerializer_.serialize(
+            diagnosticsService_.measurementSummaries());
+
+    return response;
+}
