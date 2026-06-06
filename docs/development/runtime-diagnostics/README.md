@@ -2,19 +2,19 @@
 
 This directory contains the split runtime diagnostics documentation for VDR-Suite.
 
-The previous single Phase 10 runtime diagnostics document had grown too large and mixed architecture, model, producer, REST, testing and roadmap details in one place. The documentation is now split by topic so each file stays small and focused.
+The previous single Phase 10 runtime diagnostics document mixed architecture, model, producer, REST, testing and roadmap details in one place. The documentation is now split by topic so each file stays small and focused.
 
 ## Documents
 
 - [Architecture](architecture.md)
+- [Architecture Rules](architecture-rules.md)
 - [Measurement Model](measurement-model.md)
 - [Measurement Producers](measurement-producers.md)
 - [Aggregation](aggregation.md)
 - [Serialization](serialization.md)
 - [REST API](rest-api.md)
+- [Daemon Integration](daemon-integration.md)
 - [Testing](testing.md)
-- [Performance](performance.md)
-- [Roadmap](roadmap.md)
 
 ## Current verified state
 
