@@ -133,6 +133,13 @@ int main()
     assert(runtimeResponse.contentType == "application/json");
     assert(runtimeResponse.body == "{\"measurements\":[]}");
 
+    ApiResponse runtimeSummaryResponse =
+        router.handleGet("/api/runtime/summary");
+
+    assert(runtimeSummaryResponse.statusCode == 200);
+    assert(runtimeSummaryResponse.contentType == "application/json");
+    assert(runtimeSummaryResponse.body == "{\"summaries\":[]}");
+
     ApiResponse missingResponse =
         router.handleGet("/api/unknown");
 
