@@ -55,7 +55,8 @@ std::string RuntimeDiagnosticsJsonSerializer::serialize(const RuntimeDiagnostics
             << "\"operation\":\"" << escapeJsonString(measurement.operation) << "\","
             << "\"durationMs\":" << measurement.durationMs << ","
             << "\"statusCode\":" << measurement.statusCode << ","
-            << "\"sizeBytes\":" << measurement.sizeBytes
+            << "\"sizeBytes\":" << measurement.sizeBytes << ","
+            << "\"itemCount\":" << measurement.itemCount
             << "}";
     }
 
@@ -87,7 +88,8 @@ std::string RuntimeDiagnosticsJsonSerializer::serialize(
             << "\"maxDurationMs\":" << summary.maxDurationMs << ","
             << "\"lastDurationMs\":" << summary.lastDurationMs << ","
             << "\"lastStatusCode\":" << summary.lastStatusCode << ","
-            << "\"lastSizeBytes\":" << summary.lastSizeBytes
+            << "\"lastSizeBytes\":" << summary.lastSizeBytes << ","
+            << "\"lastItemCount\":" << summary.lastItemCount
             << "}";
     }
 
