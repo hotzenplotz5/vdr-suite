@@ -35,11 +35,11 @@ VDR remains the primary backend domain and source of truth.
 
 Latest verified code state:
 
-`b978a87`
+`7681984`
 
 Latest completed implementation phase:
 
-Phase 10.18: Runtime diagnostics measurement summaries.
+Phase 10.19: Runtime diagnostics summary endpoint.
 
 Verified locally with:
 
@@ -74,6 +74,7 @@ Important architecture notes:
 - Phase 10.16 added the read-only runtime diagnostics REST endpoint at `GET /api/runtime`.
 - Phase 10.17 added bounded in-memory diagnostics measurement retention.
 - Phase 10.18 added internal runtime measurement summaries grouped by component and operation.
+- Phase 10.19 exposed those summaries through the dedicated `GET /api/runtime/summary` endpoint while keeping `GET /api/runtime` backward compatible.
 
 Detailed status:
 
@@ -185,7 +186,7 @@ Purpose:
 - expose polling-cycle and refresh-path timing through structured runtime measurements
 - keep logging and diagnostics separate
 - avoid unbounded diagnostics measurement growth through service-owned retention
-- provide internal grouped measurement summaries without changing the public `/api/runtime` JSON format
+- provide grouped measurement summaries through a dedicated `/api/runtime/summary` endpoint without changing the public `/api/runtime` JSON format
 - keep future third-party or multi-client API consumers possible through a platform-oriented API strategy
 
 ---
@@ -270,12 +271,13 @@ Implemented runtime diagnostics components:
 - `GET /api/runtime`
 - runtime diagnostics retention policy
 - internal runtime measurement summaries
+- `GET /api/runtime/summary`
 - `test_vdr_snapshot_builder` measurement-sink coverage
 - `test_polling_service` measurement-sink coverage
 - `test_runtime_diagnostics_json_serializer`
 - `test_runtime_diagnostics_controller`
-- `test_api_router` `/api/runtime` routing coverage
-- `test_test_http_server` `/api/runtime` HTTP server coverage
+- `test_api_router` `/api/runtime` and `/api/runtime/summary` routing coverage
+- `test_test_http_server` `/api/runtime` and `/api/runtime/summary` HTTP server coverage
 
 Current diagnostics design:
 
@@ -290,11 +292,11 @@ Current diagnostics design:
 - `PollingService` records component, operation, duration and selected counts for poll-cycle and refresh-path work
 - `DaemonRuntime` owns one `RuntimeDiagnosticsService` and passes it into `BasicHttpClient`, `VdrSnapshotBuilder` and `PollingService`
 - `RuntimeDiagnosticsJsonSerializer` serializes collected measurements as JSON
-- `RuntimeDiagnosticsController` exposes the current diagnostics state through `GET /api/runtime`
+- `RuntimeDiagnosticsController` exposes raw diagnostics through `GET /api/runtime` and grouped summaries through `GET /api/runtime/summary`
 
 Not implemented yet:
 
-- public summary JSON or rolling averages
+- rolling averages
 - runtime diagnostics persistence
 
 ---
@@ -331,9 +333,9 @@ Runtime diagnostics test state:
 - `test_polling_service` validates `PollingService` measurement-sink recording while preserving existing polling behavior.
 - `test_runtime_diagnostics_json_serializer` validates diagnostics JSON serialization.
 - `test_runtime_diagnostics_controller` validates the read-only REST controller response.
-- `test_api_router` validates `/api/runtime` routing.
-- `test_test_http_server` validates `/api/runtime` through the HTTP server layer.
-- `make test` includes the runtime diagnostics, serializer, controller, router, HTTP server, snapshot-builder and polling-service measurement tests.
+- `test_api_router` validates `/api/runtime` and `/api/runtime/summary` routing.
+- `test_test_http_server` validates `/api/runtime` and `/api/runtime/summary` through the HTTP server layer.
+- `make test` includes the runtime diagnostics, serializer, summary endpoint, controller, router, HTTP server, snapshot-builder and polling-service measurement tests.
 
 Local VDR integration targets are intentionally optional and are not part of `make test`:
 
@@ -433,6 +435,7 @@ Polling integration:
 - Phase 10.16: runtime diagnostics REST endpoint
 - Phase 10.17: runtime diagnostics retention policy
 - Phase 10.18: runtime diagnostics measurement summaries
+- Phase 10.19: runtime diagnostics summary endpoint
 - ADR-007: Platform API Strategy
 
 ---
@@ -467,44 +470,40 @@ Current change-state parsing inside `RestfulApiVdrAdapter` uses a small local in
 
 This is acceptable for the current minimal endpoint shape, but may later be replaced by a dedicated mapper if the endpoint grows or more RESTfulAPI JSON parsing is consolidated.
 
-Phase 10.18 extends runtime diagnostics with bounded in-memory retention and internal measurement summaries. The read-only REST endpoint at `GET /api/runtime` still exposes the existing measurements JSON format. Persistence and broader diagnostics API hardening are not implemented yet.
+Phase 10.19 extends runtime diagnostics with a dedicated read-only summary endpoint at `GET /api/runtime/summary`. The existing `GET /api/runtime` endpoint still exposes the existing measurements JSON format. Persistence, rolling averages and broader diagnostics API hardening are not implemented yet.
 
 The real daemon test showed that recordings are currently the dominant initial snapshot cost in the tested setup. Future optimization should investigate whether recordings can be refreshed or summarized more incrementally instead of repeatedly fetching large `/recordings.json` responses.
 
 Documentation state:
 
-- `docs/development/phase-10-runtime-diagnostics-measurement-collection.md` documents the Phase 10.10 to Phase 10.18 diagnostics measurement collection, retention, internal summaries, serialization and REST endpoint state.
+- `docs/development/phase-10-runtime-diagnostics-measurement-collection.md` documents the Phase 10.10 to Phase 10.19 diagnostics measurement collection, retention, summaries, serialization and REST endpoint state.
 - `docs/adr/007-platform-api-strategy.md` documents the platform API direction.
-- `docs/development/current-status.md` documents Phase 10.18 and the current runtime diagnostics retention and internal summary foundation.
+- `docs/development/current-status.md` documents Phase 10.19 and the current runtime diagnostics summary endpoint foundation.
 
 ---
 
 ## Next Planned Phase
 
-### Phase 10.19: Runtime Diagnostics API Summary Exposure Decision
+### Phase 10.20: Runtime Diagnostics API Hardening or Integration Validation
 
 Goal:
 
-Decide whether internal runtime measurement summaries should remain service-internal or become part of a dedicated diagnostics summary API surface.
+Validate the completed runtime diagnostics API surface before adding new diagnostics concepts.
 
 Motivation:
 
-Phase 10.18 introduced grouped measurement summaries without changing the public `/api/runtime` JSON contract. Before exposing summaries to clients, the API shape should be explicit and should not turn diagnostics into a debug dump.
+Phase 10.19 completed the first public runtime diagnostics summary API by adding `GET /api/runtime/summary` while keeping `GET /api/runtime` backward compatible.
 
 Expected direction:
 
-- keep `/api/runtime` backward compatible unless an explicit API extension is chosen
-- avoid mixing diagnostics summaries with debug-state output
+- keep `/api/runtime` focused on retained raw measurements
+- keep `/api/runtime/summary` focused on grouped measurement summaries
+- avoid adding ranking, filtering or dashboards before the existing API surface has been validated against daemon runtime usage
 - preserve logging, diagnostics and debugging as separate runtime concerns
-- keep any public summary JSON explicit and test-covered
 
 ---
 
 ## Upcoming Phases
-
-### Phase 10.19: Runtime Diagnostics API Summary Exposure Decision
-
-Decide whether internal measurement summaries should remain service-internal or be exposed through an explicit diagnostics API contract.
 
 ### Phase 10.20: Runtime Diagnostics API Hardening or Integration Validation
 

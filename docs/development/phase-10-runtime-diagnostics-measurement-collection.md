@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document records the current state of the Phase 10 runtime diagnostics work after the runtime diagnostics retention and internal measurement summary steps.
+This document records the current state of the Phase 10 runtime diagnostics work after the runtime diagnostics retention, measurement summary and public summary endpoint steps.
 
 It complements `docs/development/current-status.md` while the runtime diagnostics block is still in progress.
 
@@ -22,6 +22,7 @@ The following steps are implemented:
 - Phase 10.16: `RuntimeDiagnosticsController` exposes collected diagnostics through `GET /api/runtime`
 - Phase 10.17: `RuntimeDiagnosticsService` applies bounded in-memory retention to collected measurements
 - Phase 10.18: `RuntimeDiagnosticsService` exposes internal measurement summaries grouped by component and operation
+- Phase 10.19: `RuntimeDiagnosticsController` exposes summaries through `GET /api/runtime/summary`
 
 Local verification was reported with successful visible output for:
 
@@ -34,7 +35,7 @@ make daemon
 git status
 ```
 
-The local result showed successful targeted runtime diagnostics service, controller, router and HTTP server tests, successful full `make test`, successful `make daemon` and a clean synchronized working tree after the Phase 10.18 implementation commit.
+The local result showed successful targeted runtime diagnostics serializer, controller, router and HTTP server tests, successful full `make test`, successful `make daemon` and a clean synchronized working tree after the Phase 10.19 implementation.
 
 ---
 
@@ -96,12 +97,18 @@ RuntimeDiagnosticsController
 GET /api/runtime
 ```
 
-Implemented internal summary chain:
+Implemented public summary chain:
 
 ```text
 RuntimeDiagnosticsService
     ↓
 RuntimeMeasurementSummary
+    ↓
+RuntimeDiagnosticsJsonSerializer
+    ↓
+RuntimeDiagnosticsController
+    ↓
+GET /api/runtime/summary
     ↓
 count
 minDurationMs
@@ -111,6 +118,8 @@ lastStatusCode
 lastSizeBytes
 ```
 
+The summary endpoint exposes grouped diagnostics data without changing the raw measurements endpoint.
+
 This keeps logging and diagnostics separate.
 
 Runtime logging still writes human-readable log entries through `IRuntimeLogger`.
@@ -119,7 +128,7 @@ Runtime diagnostics receive structured `RuntimeMeasurement` values through `IRun
 
 `RuntimeDiagnosticsJsonSerializer` converts the collected diagnostics into JSON.
 
-`RuntimeDiagnosticsController` exposes the current daemon-owned diagnostics state through `GET /api/runtime`.
+`RuntimeDiagnosticsController` exposes raw retained diagnostics through `GET /api/runtime` and grouped summaries through `GET /api/runtime/summary`.
 
 No log text parsing is required.
 
@@ -137,14 +146,15 @@ Current runtime diagnostics components:
 - `RuntimeDiagnosticsJsonSerializer`
 - `RuntimeDiagnosticsController`
 - `GET /api/runtime`
+- `GET /api/runtime/summary`
 - `test_runtime_diagnostics`
 - `test_runtime_diagnostics_service`
 - `test_runtime_diagnostics_json_serializer`
 - `test_runtime_diagnostics_controller`
 - `test_vdr_snapshot_builder` measurement-sink coverage
 - `test_polling_service` measurement-sink coverage
-- `test_api_router` `/api/runtime` routing coverage
-- `test_test_http_server` `/api/runtime` HTTP server coverage
+- `test_api_router` `/api/runtime` and `/api/runtime/summary` routing coverage
+- `test_test_http_server` `/api/runtime` and `/api/runtime/summary` HTTP server coverage
 
 `RuntimeDiagnosticsService` owns an internal `RuntimeDiagnostics` instance, applies bounded in-memory retention and implements:
 
@@ -189,9 +199,9 @@ Each `RuntimeMeasurementSummary` contains:
 - lastStatusCode
 - lastSizeBytes
 
-The summary view is currently internal.
+The summary view is exposed through the dedicated `GET /api/runtime/summary` endpoint.
 It does not change the public `/api/runtime` JSON response.
-This preserves the existing REST contract while preparing a future explicit diagnostics summary endpoint or JSON extension.
+This preserves the existing raw-measurement REST contract while providing an explicit diagnostics summary API.
 
 ---
 
