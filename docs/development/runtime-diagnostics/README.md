@@ -15,6 +15,7 @@ The previous single Phase 10 runtime diagnostics document mixed architecture, mo
 - [REST API](rest-api.md)
 - [Daemon Integration](daemon-integration.md)
 - [Testing](testing.md)
+- [Roadmap](roadmap.md)
 
 ## Current verified state
 
