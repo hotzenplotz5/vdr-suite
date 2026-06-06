@@ -63,3 +63,35 @@ std::string RuntimeDiagnosticsJsonSerializer::serialize(const RuntimeDiagnostics
 
     return json.str();
 }
+
+std::string RuntimeDiagnosticsJsonSerializer::serialize(
+    const std::vector<RuntimeMeasurementSummary>& summaries) const
+{
+    std::ostringstream json;
+
+    json << "{\"summaries\":[";
+
+    for (std::size_t index = 0; index < summaries.size(); ++index) {
+        const RuntimeMeasurementSummary& summary = summaries[index];
+
+        if (index > 0) {
+            json << ",";
+        }
+
+        json
+            << "{"
+            << "\"component\":\"" << escapeJsonString(summary.component) << "\","
+            << "\"operation\":\"" << escapeJsonString(summary.operation) << "\","
+            << "\"count\":" << summary.count << ","
+            << "\"minDurationMs\":" << summary.minDurationMs << ","
+            << "\"maxDurationMs\":" << summary.maxDurationMs << ","
+            << "\"lastDurationMs\":" << summary.lastDurationMs << ","
+            << "\"lastStatusCode\":" << summary.lastStatusCode << ","
+            << "\"lastSizeBytes\":" << summary.lastSizeBytes
+            << "}";
+    }
+
+    json << "]}";
+
+    return json.str();
+}
