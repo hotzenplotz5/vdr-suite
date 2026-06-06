@@ -18,6 +18,7 @@ The following steps are implemented:
 - Phase 10.13: `VdrSnapshotBuilder` records snapshot-domain runtime measurements
 - Phase 10.14: `PollingService` records polling-cycle and refresh-path runtime measurements
 - Phase 10.14: `DaemonRuntime` owns `RuntimeDiagnosticsService` and wires it into current measurement producers
+- Phase 10.15: `RuntimeDiagnosticsJsonSerializer` serializes collected diagnostics measurements
 
 Local verification was reported with successful visible output for:
 
@@ -257,7 +258,6 @@ Current measurement coverage includes:
 
 The following are intentionally not implemented yet:
 
-- diagnostics JSON serialization
 - diagnostics REST controller
 - `/api/runtime` endpoint
 - persistence of runtime measurements
@@ -300,7 +300,6 @@ This preserves a clean boundary between logging and diagnostics.
 Recommended next phases:
 
 ```text
-Phase 10.15: RuntimeDiagnostics JSON serializer
 Phase 10.16: Runtime diagnostics REST endpoint
 Phase 10.17: Runtime diagnostics aggregation policy
 ```
