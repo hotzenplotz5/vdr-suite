@@ -12,4 +12,5 @@ struct RuntimeMeasurementSummary {
     long long lastDurationMs = 0;
     int lastStatusCode = 0;
     std::size_t lastSizeBytes = 0;
+    std::size_t lastItemCount = 0;
 };
