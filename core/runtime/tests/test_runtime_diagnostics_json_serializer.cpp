@@ -28,6 +28,7 @@ static void test_diagnostics_serializes_measurements()
     first.durationMs = 12;
     first.statusCode = 0;
     first.sizeBytes = 0;
+    first.itemCount = 3;
     diagnostics.addMeasurement(first);
 
     RuntimeMeasurement second;
@@ -36,6 +37,7 @@ static void test_diagnostics_serializes_measurements()
     second.durationMs = 345;
     second.statusCode = 200;
     second.sizeBytes = 12345;
+    second.itemCount = 27;
     diagnostics.addMeasurement(second);
 
     RuntimeDiagnosticsJsonSerializer serializer;
@@ -47,6 +49,7 @@ static void test_diagnostics_serializes_measurements()
     assert(json.find("\"durationMs\":12") != std::string::npos);
     assert(json.find("\"statusCode\":200") != std::string::npos);
     assert(json.find("\"sizeBytes\":12345") != std::string::npos);
+    assert(json.find("\"itemCount\":27") != std::string::npos);
 }
 
 static void test_summary_serializer_serializes_empty_summary_array()
@@ -70,6 +73,7 @@ static void test_summary_serializer_serializes_measurement_summaries()
     summary.lastDurationMs = 10;
     summary.lastStatusCode = 0;
     summary.lastSizeBytes = 200;
+    summary.lastItemCount = 9;
 
     std::vector<RuntimeMeasurementSummary> summaries;
     summaries.push_back(summary);
@@ -86,6 +90,7 @@ static void test_summary_serializer_serializes_measurement_summaries()
     assert(json.find("\"lastDurationMs\":10") != std::string::npos);
     assert(json.find("\"lastStatusCode\":0") != std::string::npos);
     assert(json.find("\"lastSizeBytes\":200") != std::string::npos);
+    assert(json.find("\"lastItemCount\":9") != std::string::npos);
 }
 
 int main()
