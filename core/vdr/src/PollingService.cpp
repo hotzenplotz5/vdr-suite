@@ -87,7 +87,7 @@ void PollingService::poll()
     changeDetectionMeasurement.component = "PollingService";
     changeDetectionMeasurement.operation = "Detect changes";
     changeDetectionMeasurement.durationMs = elapsedMilliseconds(changeDetectionStarted);
-    changeDetectionMeasurement.sizeBytes = changeEvents_.size();
+    changeDetectionMeasurement.itemCount = changeEvents_.size();
     recordMeasurement(changeDetectionMeasurement);
 
     const auto updatePlanStarted = std::chrono::steady_clock::now();
@@ -97,7 +97,7 @@ void PollingService::poll()
     updatePlanMeasurement.component = "PollingService";
     updatePlanMeasurement.operation = "Create update plan";
     updatePlanMeasurement.durationMs = elapsedMilliseconds(updatePlanStarted);
-    updatePlanMeasurement.sizeBytes = changeEvents_.size();
+    updatePlanMeasurement.itemCount = changeEvents_.size();
     recordMeasurement(updatePlanMeasurement);
 
     if (lastUpdatePlan_.requiresFullSnapshot()) {

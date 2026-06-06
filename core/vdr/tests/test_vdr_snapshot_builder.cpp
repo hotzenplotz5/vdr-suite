@@ -96,10 +96,10 @@ static void test_snapshot_builder_records_measurements_for_complete_snapshot()
     assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build channels"));
     assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build events"));
 
-    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build recordings").sizeBytes == 2);
-    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build timers").sizeBytes == 1);
-    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build channels").sizeBytes == 3);
-    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build events").sizeBytes == 2);
+    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build recordings").itemCount == 2);
+    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build timers").itemCount == 1);
+    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build channels").itemCount == 3);
+    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build events").itemCount == 2);
 }
 
 static void test_snapshot_builder_can_build_status_domain()
@@ -155,7 +155,7 @@ static void test_snapshot_builder_records_recordings_measurement()
     assert(sink.measurements.size() == 1);
     assert(sink.measurements[0].component == "VdrSnapshotBuilder");
     assert(sink.measurements[0].operation == "Build recordings");
-    assert(sink.measurements[0].sizeBytes == 2);
+    assert(sink.measurements[0].itemCount == 2);
 }
 
 static void test_snapshot_builder_can_build_timers_domain()
@@ -183,7 +183,7 @@ static void test_snapshot_builder_records_timers_measurement()
     assert(sink.measurements.size() == 1);
     assert(sink.measurements[0].component == "VdrSnapshotBuilder");
     assert(sink.measurements[0].operation == "Build timers");
-    assert(sink.measurements[0].sizeBytes == 1);
+    assert(sink.measurements[0].itemCount == 1);
 }
 
 static void test_snapshot_builder_can_build_channels_domain()
@@ -211,7 +211,7 @@ static void test_snapshot_builder_records_channels_measurement()
     assert(sink.measurements.size() == 1);
     assert(sink.measurements[0].component == "VdrSnapshotBuilder");
     assert(sink.measurements[0].operation == "Build channels");
-    assert(sink.measurements[0].sizeBytes == 3);
+    assert(sink.measurements[0].itemCount == 3);
 }
 
 static void test_snapshot_builder_can_build_events_domain()
@@ -239,7 +239,7 @@ static void test_snapshot_builder_records_events_measurement()
     assert(sink.measurements.size() == 1);
     assert(sink.measurements[0].component == "VdrSnapshotBuilder");
     assert(sink.measurements[0].operation == "Build events");
-    assert(sink.measurements[0].sizeBytes == 2);
+    assert(sink.measurements[0].itemCount == 2);
 }
 
 int main()

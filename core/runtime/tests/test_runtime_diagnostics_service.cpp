@@ -28,6 +28,7 @@ int main()
     assert(service.diagnostics().measurements.at(0).durationMs == 10634);
     assert(service.diagnostics().measurements.at(0).statusCode == 200);
     assert(service.diagnostics().measurements.at(0).sizeBytes == 4343857);
+    assert(service.diagnostics().measurements.at(0).itemCount == 0);
 
     RuntimeMeasurement snapshotMeasurement;
     snapshotMeasurement.component = "VdrSnapshotBuilder";
@@ -73,14 +74,14 @@ int main()
         firstPollMeasurement.operation = "Poll cycle";
         firstPollMeasurement.durationMs = 30;
         firstPollMeasurement.statusCode = 0;
-        firstPollMeasurement.sizeBytes = 100;
+        firstPollMeasurement.itemCount = 100;
 
         RuntimeMeasurement secondPollMeasurement;
         secondPollMeasurement.component = "PollingService";
         secondPollMeasurement.operation = "Poll cycle";
         secondPollMeasurement.durationMs = 10;
         secondPollMeasurement.statusCode = 0;
-        secondPollMeasurement.sizeBytes = 200;
+        secondPollMeasurement.itemCount = 200;
 
         RuntimeMeasurement httpMeasurement;
         httpMeasurement.component = "BasicHttpClient";
@@ -105,7 +106,8 @@ int main()
         assert(summaries.at(0).maxDurationMs == 30);
         assert(summaries.at(0).lastDurationMs == 10);
         assert(summaries.at(0).lastStatusCode == 0);
-        assert(summaries.at(0).lastSizeBytes == 200);
+        assert(summaries.at(0).lastSizeBytes == 0);
+        assert(summaries.at(0).lastItemCount == 200);
 
         assert(summaries.at(1).component == "BasicHttpClient");
         assert(summaries.at(1).operation == "GET /recordings.json");
@@ -115,6 +117,7 @@ int main()
         assert(summaries.at(1).lastDurationMs == 50);
         assert(summaries.at(1).lastStatusCode == 200);
         assert(summaries.at(1).lastSizeBytes == 300);
+        assert(summaries.at(1).lastItemCount == 0);
     }
 
     service.clear();
