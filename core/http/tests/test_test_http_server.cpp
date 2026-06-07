@@ -15,6 +15,7 @@
 #include "RuntimeDiagnosticsController.h"
 #include "RuntimeDiagnosticsJsonSerializer.h"
 #include "RuntimeDiagnosticsService.h"
+#include "RuntimeMeasurement.h"
 #include "TestHttpServer.h"
 #include "VdrController.h"
 #include "VdrOverviewJsonSerializer.h"
@@ -125,6 +126,25 @@ int main()
     RuntimeDiagnosticsService runtimeDiagnosticsService;
     RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
 
+    RuntimeMeasurement firstMeasurement;
+    firstMeasurement.component = "PollingService";
+    firstMeasurement.operation = "Poll cycle";
+    firstMeasurement.durationMs = 30;
+    firstMeasurement.statusCode = 0;
+    firstMeasurement.sizeBytes = 100;
+    firstMeasurement.itemCount = 4;
+
+    RuntimeMeasurement secondMeasurement;
+    secondMeasurement.component = "PollingService";
+    secondMeasurement.operation = "Poll cycle";
+    secondMeasurement.durationMs = 10;
+    secondMeasurement.statusCode = 0;
+    secondMeasurement.sizeBytes = 200;
+    secondMeasurement.itemCount = 12;
+
+    runtimeDiagnosticsService.recordMeasurement(firstMeasurement);
+    runtimeDiagnosticsService.recordMeasurement(secondMeasurement);
+
     RuntimeDiagnosticsController runtimeDiagnosticsController(
         runtimeDiagnosticsService,
         runtimeJsonSerializer);
@@ -191,7 +211,11 @@ int main()
 
     assert(runtimeResponse.statusCode == 200);
     assert(runtimeResponse.headers.at("Content-Type") == "application/json");
-    assert(runtimeResponse.body == "{\"measurements\":[]}");
+    assert(runtimeResponse.body.find("\"measurements\"") != std::string::npos);
+    assert(runtimeResponse.body.find("\"component\":\"PollingService\"") != std::string::npos);
+    assert(runtimeResponse.body.find("\"operation\":\"Poll cycle\"") != std::string::npos);
+    assert(runtimeResponse.body.find("\"durationMs\":30") != std::string::npos);
+    assert(runtimeResponse.body.find("\"durationMs\":10") != std::string::npos);
 
     HttpServerRequest runtimeSummaryRequest;
     runtimeSummaryRequest.method = "GET";
@@ -203,7 +227,15 @@ int main()
 
     assert(runtimeSummaryResponse.statusCode == 200);
     assert(runtimeSummaryResponse.headers.at("Content-Type") == "application/json");
-    assert(runtimeSummaryResponse.body == "{\"summaries\":[]}");
+    assert(runtimeSummaryResponse.body.find("\"summaries\"") != std::string::npos);
+    assert(runtimeSummaryResponse.body.find("\"component\":\"PollingService\"") != std::string::npos);
+    assert(runtimeSummaryResponse.body.find("\"operation\":\"Poll cycle\"") != std::string::npos);
+    assert(runtimeSummaryResponse.body.find("\"count\":2") != std::string::npos);
+    assert(runtimeSummaryResponse.body.find("\"minDurationMs\":10") != std::string::npos);
+    assert(runtimeSummaryResponse.body.find("\"maxDurationMs\":30") != std::string::npos);
+    assert(runtimeSummaryResponse.body.find("\"lastDurationMs\":10") != std::string::npos);
+    assert(runtimeSummaryResponse.body.find("\"lastSizeBytes\":200") != std::string::npos);
+    assert(runtimeSummaryResponse.body.find("\"lastItemCount\":12") != std::string::npos);
 
     HttpServerRequest missingRequest;
     missingRequest.method = "GET";
