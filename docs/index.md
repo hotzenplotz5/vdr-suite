@@ -1,8 +1,58 @@
 # VDR-Suite Documentation Index
 
-This document is the central entry point for the VDR-Suite documentation.
+This document is the central entry point for VDR-Suite documentation.
 
-It links the project vision, current status, architecture documents, ADRs, development notes, diagrams and planning documents.
+It links the project vision, current status, roadmap, milestones, architecture documents, ADRs, development notes, diagrams and planning documents.
+
+---
+
+## Start Here
+
+Read these documents first:
+
+- [README](../README.md)
+- [VDR-Suite Vision](introduction/vdr-suite-vision.md)
+- [Current Project Status](development/current-status.md)
+- [Roadmap](planning/roadmap.md)
+- [Planning Milestones](planning/milestones.md)
+- [Project Principles](project-principles.md)
+- [Project Glossary](project-glossary.md)
+
+Recommended reading order for new contributors:
+
+1. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
+2. [Current Project Status](development/current-status.md)
+3. [Roadmap](planning/roadmap.md)
+4. [Planning Milestones](planning/milestones.md)
+5. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
+6. [Snapshot Architecture](architecture/snapshot-architecture.md)
+7. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
+8. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
+9. [Architecture Decision Records](#architecture-decision-records)
+
+---
+
+## Current Position
+
+Current completed implementation phase:
+
+```text
+Phase 11.6: Complete snapshot read domain JSON serialization
+```
+
+Current transition:
+
+```text
+Documentation cleanup
+↓
+Phase 12.0 Snapshot Change Feed Architecture
+```
+
+Authoritative current state:
+
+- [Current Project Status](development/current-status.md)
+- [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
+- [Roadmap](planning/roadmap.md)
 
 ---
 
@@ -36,25 +86,16 @@ Potential consumers include:
 
 See:
 
-- ADR-007 Platform API Strategy
-- Core Platform Model
-
----
-
-## Start Here
-
-Read these documents first:
-
-- [VDR-Suite Vision](introduction/vdr-suite-vision.md)
-- [Current Project Status](development/current-status.md)
-- [Project Principles](project-principles.md)
-- [Project Glossary](project-glossary.md)
+- [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
+- [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
 
 ---
 
 ## Project Introduction
 
 - [VDR-Suite Vision](introduction/vdr-suite-vision.md)
+- [Project Principles](project-principles.md)
+- [Project Glossary](project-glossary.md)
 - [Phase 0 Overview](phase-0/00-overview.md)
 - [Phase 0 Vision](phase-0/01-vision.md)
 - [Phase 0 Architecture](phase-0/02-architecture.md)
@@ -67,14 +108,29 @@ Read these documents first:
 
 ---
 
+## Planning
+
+- [Roadmap](planning/roadmap.md)
+- [Planning Milestones](planning/milestones.md)
+
+Planning documents describe direction, upcoming phases and milestone intent.
+
+---
+
 ## Development Status
 
 - [Current Project Status](development/current-status.md)
-- [Runtime Diagnostics Measurement Collection](development/phase-10-runtime-diagnostics-measurement-collection.md)
 - [Completed Phases](development/completed-phases.md)
 - [Development Milestones](development/milestones.md)
-- [Planning Milestones](planning/milestones.md)
-- [Roadmap](planning/roadmap.md)
+- [Build System State](development/build-system-state.md)
+- [Current Architecture State](development/current-architecture-state.md)
+- [Current Technical Debt](development/current-technical-debt.md)
+- [Phase 9 Runtime Validation Result](development/phase-9-runtime-validation-result.md)
+- [Runtime Diagnostics Status](development/runtime-diagnostics-status.md)
+- [Runtime Diagnostics Measurement Collection](development/phase-10-runtime-diagnostics-measurement-collection.md)
+- [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
+
+Development documents describe the current verified code state, implementation history and phase-specific status.
 
 ---
 
@@ -94,14 +150,8 @@ Core architecture documents:
 - [Snapshot Architecture](architecture/snapshot-architecture.md)
 - [Snapshot Access Architecture](architecture/snapshot-access-architecture.md)
 - [Internal Event Dispatch Architecture](architecture/internal-event-dispatch-architecture.md)
-- [Partial Snapshot Refresh Architecture](architecture/partial-snapshot-refresh-architecture.md) – Phase 9 runtime plan integration completed
+- [Partial Snapshot Refresh Architecture](architecture/partial-snapshot-refresh-architecture.md)
 - [Media Platform Comparison](architecture/media-platform-comparison.md)
-- [External Project Analysis](architecture/external-project-analysis.md)
-
----
-
-## Research and Ecosystem Analysis
-
 - [External Project Analysis](architecture/external-project-analysis.md)
 
 Phase-specific architecture notes:
@@ -123,6 +173,7 @@ Phase-specific architecture notes:
 - [Phase 8.41 Platform Action Architecture](development/phase-8.41-platform-action-architecture.md)
 - [Phase 8.42 Capability Resolver Architecture](development/phase-8.42-capability-resolver-architecture.md)
 - [Phase 10 Runtime Diagnostics Measurement Collection](development/phase-10-runtime-diagnostics-measurement-collection.md)
+- [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
 
 ---
 
@@ -155,6 +206,17 @@ Future-facing backend ADRs:
 - [ADR-006 Internal Event Dispatch Strategy](adr/adr-006-internal-event-dispatch-strategy.md)
 - [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
 
+Note:
+
+The ADR directory currently contains two ADR-0011 source-model documents. They are both linked here until a dedicated ADR cleanup decides whether to merge, rename or archive one of them.
+
+---
+
+## Research and Ecosystem Analysis
+
+- [External Project Analysis](architecture/external-project-analysis.md)
+- [Media Platform Comparison](architecture/media-platform-comparison.md)
+
 ---
 
 ## Diagrams
@@ -176,21 +238,6 @@ Mermaid diagrams:
 
 ---
 
-## Recommended Reading Order
-
-For new contributors:
-
-1. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
-2. [Current Project Status](development/current-status.md)
-3. [Runtime Diagnostics Measurement Collection](development/phase-10-runtime-diagnostics-measurement-collection.md)
-4. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
-5. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
-6. [Snapshot Architecture](architecture/snapshot-architecture.md)
-7. [VDR Backends](architecture/vdr-backends.md)
-8. [Architecture Decision Records](#architecture-decision-records)
-
----
-
 ## Documentation Maintenance
 
 When adding new documentation:
@@ -198,4 +245,7 @@ When adding new documentation:
 - add the document to this index
 - link related architecture documents
 - update Current Project Status after completed phases
+- update Roadmap when development direction changes
+- update Planning Milestones when milestone targets change
 - create or update ADRs for long-term architectural decisions
+- avoid duplicating long phase histories in README
