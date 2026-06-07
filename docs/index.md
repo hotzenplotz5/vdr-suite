@@ -20,10 +20,7 @@ Documentation Index
  ├─ Planning
  ├─ Development Status
  ├─ Architecture
- ├─ Architecture Notes
  ├─ ADRs
- ├─ Research
- ├─ Diagrams
  └─ Build / Database
 ```
 
@@ -52,8 +49,8 @@ Recommended reading order for new contributors:
 5. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
 6. [Snapshot Architecture](architecture/snapshot-architecture.md)
 7. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
-8. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
-9. [Architecture Decision Records](#architecture-decision-records)
+8. [ADR Index](adr/index.md)
+9. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
 
 ---
 
@@ -99,6 +96,7 @@ Potential consumers include:
 
 See:
 
+- [ADR Index](adr/index.md)
 - [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
 - [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
 
@@ -165,26 +163,9 @@ See:
 
 ## Architecture Decision Records
 
-- [ADR-0001 Monorepo](adr/ADR-0001-monorepo.md)
-- [ADR-0002 SQLite](adr/ADR-0002-sqlite.md)
-- [ADR-0003 REST API](adr/ADR-0003-rest-api.md)
-- [ADR-0004 C++17](adr/ADR-0004-cpp17.md)
-- [ADR-0005 External VDR Integration Strategy](adr/ADR-0005-external-vdr-integration-strategy.md)
-- [ADR-0006 VDR Backend Architecture](adr/ADR-0006-vdr-backend-architecture.md)
-- [ADR-0007 RESTfulAPI Adapter Boundary](adr/ADR-0007-restfulapi-adapter-boundary.md)
-- [ADR-0008 Real HTTP Server Strategy](adr/ADR-0008-real-http-server-strategy.md)
-- [ADR-0009 HTTP Server Factory Strategy](adr/ADR-0009-http-server-factory-strategy.md)
-- [ADR-0010 Library-First VDR Architecture](adr/ADR-0010-library-first-vdr-architecture.md)
-- [ADR-0011 VDR Source Model Architecture](adr/ADR-0011-vdr-source-model-architecture.md)
-- [ADR-0012 Source Capability Model](adr/ADR-0012-source-capability-model.md)
-- [ADR-0013 Permission Model](adr/ADR-0013-permission-model.md)
-- [ADR-001 Backend Identity Strategy](adr/adr-001-backend-identity-strategy.md)
-- [ADR-002 Backend Federation Strategy](adr/adr-002-backend-federation-strategy.md)
-- [ADR-003 Backend Capability Strategy](adr/adr-003-backend-capability-strategy.md)
-- [ADR-004 Backend Lifecycle Strategy](adr/adr-004-backend-lifecycle-strategy.md)
-- [ADR-005 Stream Provider Strategy](adr/adr-005-stream-provider-strategy.md)
-- [ADR-006 Internal Event Dispatch Strategy](adr/adr-006-internal-event-dispatch-strategy.md)
-- [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
+- [ADR Index](adr/index.md)
+
+The ADR index lists all foundation, future-facing and superseded ADRs.
 
 ---
 
@@ -201,6 +182,7 @@ See:
 When adding new documentation:
 
 - add the document to this index
+- update the ADR index when adding or superseding ADRs
 - keep README and roadmap linked
 - update current status after completed phases
 - avoid duplicate navigation structures
