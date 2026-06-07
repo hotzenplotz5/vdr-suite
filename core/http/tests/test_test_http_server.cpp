@@ -16,15 +16,34 @@
 #include "RuntimeDiagnosticsJsonSerializer.h"
 #include "RuntimeDiagnosticsService.h"
 #include "RuntimeMeasurement.h"
+#include "SnapshotAccessService.h"
+#include "SnapshotCache.h"
+#include "SnapshotCacheService.h"
 #include "TestHttpServer.h"
 #include "VdrController.h"
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
 #include "VdrService.h"
+#include "VdrSnapshot.h"
+#include "VdrSnapshotReadJsonSerializer.h"
+#include "VdrSnapshotReadService.h"
 
 #include <cassert>
 #include <iostream>
 #include <string>
+
+static VdrSnapshot makeHttpServerSnapshot()
+{
+    VdrSnapshot snapshot;
+
+    snapshot.status.enabled = true;
+    snapshot.status.mode = "http-server-snapshot";
+    snapshot.status.host = "http-server-host";
+    snapshot.status.port = 8002;
+    snapshot.status.state = "cached";
+
+    return snapshot;
+}
 
 static ApiRouter createRouter(
     Database& db,
@@ -43,6 +62,11 @@ static ApiRouter createRouter(
     VdrService& vdrService,
     VdrOverviewService& vdrOverviewService,
     VdrOverviewJsonSerializer& vdrJsonSerializer,
+    SnapshotCache& snapshotCache,
+    SnapshotCacheService& snapshotCacheService,
+    SnapshotAccessService& snapshotAccessService,
+    VdrSnapshotReadService& snapshotReadService,
+    VdrSnapshotReadJsonSerializer& snapshotReadJsonSerializer,
     VdrController& vdrController,
     RuntimeDiagnosticsService& runtimeDiagnosticsService,
     RuntimeDiagnosticsJsonSerializer& runtimeJsonSerializer,
@@ -60,6 +84,11 @@ static ApiRouter createRouter(
     (void)vdrService;
     (void)vdrOverviewService;
     (void)vdrJsonSerializer;
+    (void)snapshotCache;
+    (void)snapshotCacheService;
+    (void)snapshotAccessService;
+    (void)snapshotReadService;
+    (void)snapshotReadJsonSerializer;
     (void)runtimeDiagnosticsService;
     (void)runtimeJsonSerializer;
 
@@ -119,9 +148,21 @@ int main()
 
     VdrOverviewJsonSerializer vdrJsonSerializer;
 
+    SnapshotCache snapshotCache;
+    SnapshotCacheService snapshotCacheService(snapshotCache);
+    SnapshotAccessService snapshotAccessService(snapshotCacheService);
+    snapshotCache.update(makeHttpServerSnapshot());
+
+    VdrSnapshotReadService snapshotReadService(
+        snapshotAccessService);
+
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
+
     VdrController vdrController(
         vdrOverviewService,
-        vdrJsonSerializer);
+        vdrJsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
 
     RuntimeDiagnosticsService runtimeDiagnosticsService;
     RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
@@ -167,6 +208,11 @@ int main()
             vdrService,
             vdrOverviewService,
             vdrJsonSerializer,
+            snapshotCache,
+            snapshotCacheService,
+            snapshotAccessService,
+            snapshotReadService,
+            snapshotReadJsonSerializer,
             vdrController,
             runtimeDiagnosticsService,
             runtimeJsonSerializer,
@@ -200,6 +246,20 @@ int main()
     assert(vdrResponse.body.find("\"status\"") != std::string::npos);
     assert(vdrResponse.body.find("\"channels\"") != std::string::npos);
     assert(vdrResponse.body.find("\"recordings\"") != std::string::npos);
+
+    HttpServerRequest vdrStatusRequest;
+    vdrStatusRequest.method = "GET";
+    vdrStatusRequest.path = "/api/vdr/status";
+    vdrStatusRequest.headers["Accept"] = "application/json";
+
+    HttpServerResponse vdrStatusResponse =
+        server.handleRequest(vdrStatusRequest);
+
+    assert(vdrStatusResponse.statusCode == 200);
+    assert(vdrStatusResponse.headers.at("Content-Type") == "application/json");
+    assert(vdrStatusResponse.body.find("\"mode\":\"http-server-snapshot\"") != std::string::npos);
+    assert(vdrStatusResponse.body.find("\"host\":\"http-server-host\"") != std::string::npos);
+    assert(vdrStatusResponse.body.find("\"port\":8002") != std::string::npos);
 
     HttpServerRequest runtimeRequest;
     runtimeRequest.method = "GET";
