@@ -6,6 +6,31 @@ It links the project vision, current status, roadmap, milestones, architecture d
 
 ---
 
+## Documentation Structure
+
+```text
+README
+ ├─ Vision
+ ├─ Current Status
+ ├─ Roadmap
+ └─ Documentation Index
+
+Documentation Index
+ ├─ Introduction
+ ├─ Planning
+ ├─ Development Status
+ ├─ Architecture
+ ├─ Architecture Notes
+ ├─ ADRs
+ ├─ Research
+ ├─ Diagrams
+ └─ Build / Database
+```
+
+Use this index as the authoritative navigation entry for all project documentation.
+
+---
+
 ## Start Here
 
 Read these documents first:
@@ -60,18 +85,6 @@ Authoritative current state:
 
 VDR-Suite is evolving into a VDR-centered platform.
 
-The primary architectural question is not:
-
-```text
-Which frontend should VDR-Suite support?
-```
-
-The primary architectural question is:
-
-```text
-Which VDR-Suite capabilities should be reusable by other programs?
-```
-
 Potential consumers include:
 
 - Web frontends
@@ -113,8 +126,6 @@ See:
 - [Roadmap](planning/roadmap.md)
 - [Planning Milestones](planning/milestones.md)
 
-Planning documents describe direction, upcoming phases and milestone intent.
-
 ---
 
 ## Development Status
@@ -127,16 +138,12 @@ Planning documents describe direction, upcoming phases and milestone intent.
 - [Current Technical Debt](development/current-technical-debt.md)
 - [Phase 9 Runtime Validation Result](development/phase-9-runtime-validation-result.md)
 - [Runtime Diagnostics Status](development/runtime-diagnostics-status.md)
-- [Runtime Diagnostics Measurement Collection](development/phase-10-runtime-diagnostics-measurement-collection.md)
+- [Phase 10 Runtime Diagnostics Measurement Collection](development/phase-10-runtime-diagnostics-measurement-collection.md)
 - [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
-
-Development documents describe the current verified code state, implementation history and phase-specific status.
 
 ---
 
 ## Architecture
-
-Core architecture documents:
 
 - [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
 - [Suite Components](architecture/suite-components.md)
@@ -156,25 +163,7 @@ Core architecture documents:
 
 ---
 
-## Development Architecture Notes
-
-- [Phase 8 Architecture Guardrails](development/phase-8-architecture-guardrails.md)
-- [Phase 8.37 VDR Source Model Status](development/phase-8.37-vdr-source-model-status.md)
-- [Phase 8.38 Minimal Source Domain Object Gate](development/phase-8.38-minimal-source-domain-object-gate.md)
-- [Phase 8.38 Source Registry Architecture](development/phase-8.38-source-registry-architecture.md)
-- [Phase 8.38 Source Type Decision](development/phase-8.38-source-type-decision.md)
-- [Phase 8.39 Content Identity Architecture](development/phase-8.39-content-identity-architecture.md)
-- [Phase 8.40 Action Target Architecture](development/phase-8.40-action-target-architecture.md)
-- [Phase 8.41 Platform Action Architecture](development/phase-8.41-platform-action-architecture.md)
-- [Phase 8.42 Capability Resolver Architecture](development/phase-8.42-capability-resolver-architecture.md)
-- [Phase 10 Runtime Diagnostics Measurement Collection](development/phase-10-runtime-diagnostics-measurement-collection.md)
-- [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
-
----
-
 ## Architecture Decision Records
-
-Foundation ADRs:
 
 - [ADR-0001 Monorepo](adr/ADR-0001-monorepo.md)
 - [ADR-0002 SQLite](adr/ADR-0002-sqlite.md)
@@ -189,9 +178,6 @@ Foundation ADRs:
 - [ADR-0011 VDR Source Model Architecture](adr/ADR-0011-vdr-source-model-architecture.md)
 - [ADR-0012 Source Capability Model](adr/ADR-0012-source-capability-model.md)
 - [ADR-0013 Permission Model](adr/ADR-0013-permission-model.md)
-
-Future-facing backend ADRs:
-
 - [ADR-001 Backend Identity Strategy](adr/adr-001-backend-identity-strategy.md)
 - [ADR-002 Backend Federation Strategy](adr/adr-002-backend-federation-strategy.md)
 - [ADR-003 Backend Capability Strategy](adr/adr-003-backend-capability-strategy.md)
@@ -199,24 +185,6 @@ Future-facing backend ADRs:
 - [ADR-005 Stream Provider Strategy](adr/adr-005-stream-provider-strategy.md)
 - [ADR-006 Internal Event Dispatch Strategy](adr/adr-006-internal-event-dispatch-strategy.md)
 - [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
-
----
-
-## Research and Ecosystem Analysis
-
-- [External Project Analysis](architecture/external-project-analysis.md)
-- [Media Platform Comparison](architecture/media-platform-comparison.md)
-
----
-
-## Diagrams
-
-Mermaid diagrams:
-
-- [System Overview](diagrams/system-overview.mmd)
-- [Service Layer](diagrams/service-layer.mmd)
-- [Database](diagrams/database.mmd)
-- [Plugin Migration](diagrams/plugin-migration.mmd)
 
 ---
 
@@ -233,9 +201,6 @@ Mermaid diagrams:
 When adding new documentation:
 
 - add the document to this index
-- link related architecture documents
-- update Current Project Status after completed phases
-- update Roadmap when development direction changes
-- update Planning Milestones when milestone targets change
-- create or update ADRs for long-term architectural decisions
-- avoid duplicating long phase histories in README
+- keep README and roadmap linked
+- update current status after completed phases
+- avoid duplicate navigation structures
