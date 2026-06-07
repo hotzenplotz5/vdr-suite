@@ -289,7 +289,20 @@ static void test_vdr_controller_returns_snapshot_read_domain_lists()
     ApiResponse recordingsResponse =
         controller.getRecordings();
     assertJsonResponse(recordingsResponse);
-    assert(recordingsResponse.body == "{\"recordings\":[]}");
+    assert(recordingsResponse.body.find("\"recordings\"")
+           != std::string::npos);
+    assert(recordingsResponse.body.find("\"id\":\"snapshot-recording-1\"")
+           != std::string::npos);
+    assert(recordingsResponse.body.find("\"title\":\"Snapshot Recording\"")
+           != std::string::npos);
+    assert(recordingsResponse.body.find("\"path\":\"/srv/vdr/video/Snapshot_Recording/2026-06-04.20.00.1-0.rec\"")
+           != std::string::npos);
+    assert(recordingsResponse.body.find("\"startTime\":\"2026-06-04T20:00:00\"")
+           != std::string::npos);
+    assert(recordingsResponse.body.find("\"durationSeconds\":3600")
+           != std::string::npos);
+    assert(recordingsResponse.body.find("\"sizeMb\":2048")
+           != std::string::npos);
 
     ApiResponse timersResponse =
         controller.getTimers();
