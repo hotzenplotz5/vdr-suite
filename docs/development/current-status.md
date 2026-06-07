@@ -36,33 +36,35 @@ VDR remains the primary backend domain and source of truth.
 
 Latest verified code state:
 
-`aba2e03`
+`67474d4`
 
 Latest GitHub-applied code state:
 
-`aba2e03`
+`67474d4`
 
 Latest completed implementation phase:
 
-Phase 11.2: Snapshot read REST API routing and HTTP coverage.
+Phase 11.3: Snapshot read channel JSON serialization.
 
 Verified locally with:
 
 ```text
+make test-vdr-controller
 make test
 git status
 ```
 
-Local result after Phase 11.2:
+Local result after Phase 11.3 channel serialization:
 
+- `make test-vdr-controller` passed
 - `make test` passed
-- `test_vdr_controller` passed
-- `test_api_router` passed
+- `test_vdr_controller` passed with real snapshot-backed channel JSON
+- `test_api_router` passed with channel serialization coverage
 - `test_test_http_server` passed
 - working tree was clean
 - branch was synchronized with `origin/phase-2-actions`
 
-Phase 11.2 implementation status:
+Phase 11.3 channel serialization status:
 
 - GitHub-applied
 - Locally verified
@@ -88,6 +90,7 @@ Phase 11.2 implementation status:
 - Phase 11.0 introduced `VdrSnapshotReadService` as the frontend-oriented snapshot read boundary.
 - Phase 11.1 introduced `VdrSnapshotReadJsonSerializer` for read-only snapshot API serialization.
 - Phase 11.2 wired frontend-oriented VDR snapshot read paths through `VdrController`, `ApiRouter` and `TestHttpServer` coverage.
+- Phase 11.3 started replacing placeholder list JSON with real snapshot-backed response contracts by implementing channel serialization.
 
 ---
 
@@ -115,12 +118,12 @@ Current status details are intentionally split into focused documents:
 
 Recent completed implementation phases:
 
-- Phase 10.20: runtime diagnostics API hardening
 - Phase 10.21: runtime configuration cleanup
 - Phase 10.21.1: status documentation split
 - Phase 11.0: snapshot read service foundation
 - Phase 11.1: snapshot read JSON serializer foundation
 - Phase 11.2: snapshot read REST API routing and HTTP coverage
+- Phase 11.3: snapshot read channel JSON serialization
 
 Long-running phase history is tracked in:
 
@@ -155,36 +158,36 @@ Architectural impact:
 
 ## Next Planned Phase
 
-### Phase 11.3: Snapshot Read API JSON Expansion
+### Phase 11.4: Snapshot Read Timer JSON Serialization
 
 Goal:
 
-Replace the temporary empty list serializers for snapshot read domains with stable frontend-oriented JSON payloads.
+Replace the temporary empty timer list serializer with a stable frontend-oriented JSON payload.
 
 Motivation:
 
-Phase 11.2 exposes the first snapshot read routes through controller, router and HTTP-server coverage. The current status endpoint already returns real snapshot data. The list endpoints are routed and tested, but still return intentionally minimal empty-list JSON until their response contracts are implemented.
+Phase 11.3 proved the snapshot read list expansion pattern with channels. Timers are the next frontend-critical domain because they expose scheduled, active and recording-related VDR state to Web, Windows and mobile clients.
 
 Expected direction:
 
-- serialize snapshot-backed channels
-- serialize snapshot-backed events
-- serialize snapshot-backed timers
-- serialize snapshot-backed recordings
-- keep JSON formatting inside `VdrSnapshotReadJsonSerializer`
-- keep controller and router logic thin
-- add serializer, controller, router and HTTP tests as each response contract becomes real
+- serialize snapshot-backed timers in `VdrSnapshotReadJsonSerializer`
+- include existing `VdrTimer` fields without inventing new domain data
+- keep `VdrController` and `ApiRouter` thin
+- update controller, router and HTTP tests to assert real timer data where appropriate
+- keep placeholder responses for events and recordings until their dedicated serialization steps
 
 ---
 
 ## Upcoming Phases
 
-### Phase 11.3: Snapshot Read API JSON Expansion
+### Phase 11.4: Snapshot Read Timer JSON Serialization
 
-Implement stable read-only JSON contracts for the snapshot list endpoints.
+Implement stable read-only JSON contracts for the snapshot timer endpoint.
 
 ### Later Phases
 
+- snapshot read event JSON serialization
+- snapshot read recording JSON serialization
 - recordings snapshot optimization or incremental recording refresh strategy
 - event dispatch expansion beyond snapshot refresh
 - optional future event providers such as dbus2vdr
