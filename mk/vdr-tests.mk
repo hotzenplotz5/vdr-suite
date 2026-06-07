@@ -184,6 +184,13 @@ test-snapshot-access-service:
 		-o /tmp/test_snapshot_access_service
 	/tmp/test_snapshot_access_service
 
+test-vdr-snapshot-read-service:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_vdr_snapshot_read_service.cpp \
+		-o /tmp/test_vdr_snapshot_read_service
+	/tmp/test_vdr_snapshot_read_service
+
 test-local-restfulapi-integration:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
