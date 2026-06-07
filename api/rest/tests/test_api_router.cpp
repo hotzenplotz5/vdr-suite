@@ -18,13 +18,53 @@
 #include "RuntimeDiagnosticsJsonSerializer.h"
 #include "RuntimeDiagnosticsService.h"
 #include "RuntimeMeasurement.h"
+#include "SnapshotAccessService.h"
+#include "SnapshotCache.h"
+#include "SnapshotCacheService.h"
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
 #include "VdrService.h"
+#include "VdrSnapshot.h"
+#include "VdrSnapshotReadJsonSerializer.h"
+#include "VdrSnapshotReadService.h"
 
 #include <cassert>
 #include <iostream>
 #include <string>
+
+static VdrSnapshot makeRouterSnapshot()
+{
+    VdrSnapshot snapshot;
+
+    snapshot.status.enabled = true;
+    snapshot.status.mode = "router-snapshot";
+    snapshot.status.host = "router-host";
+    snapshot.status.port = 8002;
+    snapshot.status.state = "cached";
+
+    VdrChannel channel;
+    channel.id = "router-channel-1";
+    channel.name = "Router Channel";
+    snapshot.channels.push_back(channel);
+
+    VdrEvent event;
+    event.id = "router-event-1";
+    event.title = "Router Event";
+    snapshot.events.push_back(event);
+
+    VdrTimer timer;
+    timer.id = "router-timer-1";
+    timer.title = "Router Timer";
+    timer.enabled = true;
+    snapshot.timers.push_back(timer);
+
+    VdrRecording recording;
+    recording.id = "router-recording-1";
+    recording.title = "Router Recording";
+    snapshot.recordings.push_back(recording);
+
+    return snapshot;
+}
 
 int main()
 {
@@ -73,9 +113,21 @@ int main()
 
     VdrOverviewJsonSerializer vdrJsonSerializer;
 
+    SnapshotCache snapshotCache;
+    SnapshotCacheService snapshotCacheService(snapshotCache);
+    SnapshotAccessService snapshotAccessService(snapshotCacheService);
+    snapshotCache.update(makeRouterSnapshot());
+
+    VdrSnapshotReadService snapshotReadService(
+        snapshotAccessService);
+
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
+
     VdrController vdrController(
         overviewService,
-        vdrJsonSerializer);
+        vdrJsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
 
     RuntimeDiagnosticsService runtimeDiagnosticsService;
     RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
@@ -145,6 +197,46 @@ int main()
 
     assert(vdrResponse.body.find("\"recordings\"")
            != std::string::npos);
+
+    ApiResponse vdrStatusResponse =
+        router.handleGet("/api/vdr/status");
+
+    assert(vdrStatusResponse.statusCode == 200);
+    assert(vdrStatusResponse.contentType == "application/json");
+    assert(vdrStatusResponse.body.find("\"mode\":\"router-snapshot\"")
+           != std::string::npos);
+    assert(vdrStatusResponse.body.find("\"host\":\"router-host\"")
+           != std::string::npos);
+    assert(vdrStatusResponse.body.find("\"port\":8002")
+           != std::string::npos);
+
+    ApiResponse vdrRecordingsResponse =
+        router.handleGet("/api/vdr/recordings");
+
+    assert(vdrRecordingsResponse.statusCode == 200);
+    assert(vdrRecordingsResponse.contentType == "application/json");
+    assert(vdrRecordingsResponse.body == "{\"recordings\":[]}");
+
+    ApiResponse vdrTimersResponse =
+        router.handleGet("/api/vdr/timers");
+
+    assert(vdrTimersResponse.statusCode == 200);
+    assert(vdrTimersResponse.contentType == "application/json");
+    assert(vdrTimersResponse.body == "{\"timers\":[]}");
+
+    ApiResponse vdrChannelsResponse =
+        router.handleGet("/api/vdr/channels");
+
+    assert(vdrChannelsResponse.statusCode == 200);
+    assert(vdrChannelsResponse.contentType == "application/json");
+    assert(vdrChannelsResponse.body == "{\"channels\":[]}");
+
+    ApiResponse vdrEventsResponse =
+        router.handleGet("/api/vdr/events");
+
+    assert(vdrEventsResponse.statusCode == 200);
+    assert(vdrEventsResponse.contentType == "application/json");
+    assert(vdrEventsResponse.body == "{\"events\":[]}");
 
     ApiResponse runtimeResponse =
         router.handleGet("/api/runtime");
