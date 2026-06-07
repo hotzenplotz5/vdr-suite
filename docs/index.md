@@ -154,11 +154,6 @@ Core architecture documents:
 - [Media Platform Comparison](architecture/media-platform-comparison.md)
 - [External Project Analysis](architecture/external-project-analysis.md)
 
-Phase-specific architecture notes:
-
-- [Phase 8.94 Snapshot Cache Integration Plan](architecture/phase-8.94-snapshot-cache-integration-plan.md)
-- [Phase 8.94 Runtime Wiring Notes](architecture/phase-8.94-runtime-wiring-notes.md)
-
 ---
 
 ## Development Architecture Notes
@@ -192,7 +187,6 @@ Foundation ADRs:
 - [ADR-0009 HTTP Server Factory Strategy](adr/ADR-0009-http-server-factory-strategy.md)
 - [ADR-0010 Library-First VDR Architecture](adr/ADR-0010-library-first-vdr-architecture.md)
 - [ADR-0011 VDR Source Model Architecture](adr/ADR-0011-vdr-source-model-architecture.md)
-- [ADR-0011 VDR Source Model](adr/ADR-0011-vdr-source-model.md)
 - [ADR-0012 Source Capability Model](adr/ADR-0012-source-capability-model.md)
 - [ADR-0013 Permission Model](adr/ADR-0013-permission-model.md)
 
@@ -205,10 +199,6 @@ Future-facing backend ADRs:
 - [ADR-005 Stream Provider Strategy](adr/adr-005-stream-provider-strategy.md)
 - [ADR-006 Internal Event Dispatch Strategy](adr/adr-006-internal-event-dispatch-strategy.md)
 - [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
-
-Note:
-
-The ADR directory currently contains two ADR-0011 source-model documents. They are both linked here until a dedicated ADR cleanup decides whether to merge, rename or archive one of them.
 
 ---
 
