@@ -1,8 +1,19 @@
-# VDR-Suite – Milestones
+# VDR-Suite – Development Milestones
 
-This file keeps tag and milestone history out of `docs/development/current-status.md`.
+This file keeps implementation milestone and tag history out of `docs/development/current-status.md`.
 
-## Existing milestone tags
+Forward-looking milestone planning is tracked in:
+
+- [Planning Milestones](../planning/milestones.md)
+- [Roadmap](../planning/roadmap.md)
+
+Current verified project state is tracked in:
+
+- [Current Project Status](current-status.md)
+
+---
+
+## Existing Milestone Tags
 
 ### v0.1-phase0
 
@@ -116,22 +127,116 @@ VDR event adapter architecture.
 
 Media platform comparison and Library First VDR architecture.
 
-## Current verified work after v1.42
+---
 
-The repository continued with additional Phase 8 work after the last documented milestone tag.
+## Verified Implementation Milestones After v1.42
 
-Verified current work includes:
+The repository continued with additional implementation phases after the last documented milestone tag.
 
-- PollingService interface
-- PollingService implementation
-- VdrSnapshot
-- VdrSnapshotBuilder
-- modular Makefile include conversion
-- VDR test target extraction into `mk/vdr-tests.mk`
-- duplicate VDR test target cleanup pending as Phase 8.80
+The following milestones are tracked by commit history and current status documentation, even if no dedicated tag exists for each sub-phase.
 
-## Tagging rule
+### Phase 8 – VDR Backend and Architecture Expansion
 
-After code phases, create a milestone tag when the build has been verified.
+Status: Completed foundation
 
-Documentation-only split commits may remain untagged unless they mark a larger architectural milestone.
+Verified work included:
+
+- VDR domain model expansion
+- RESTfulAPI mapper work
+- HTTP abstraction and test server work
+- backend identity and federation ADRs
+- source, capability and permission architecture notes
+- snapshot access architecture preparation
+
+### Phase 9 – Snapshot Runtime Validation
+
+Status: Completed
+
+Verified work included:
+
+- `VdrSnapshot`
+- `VdrSnapshotBuilder`
+- `PollingService`
+- `SnapshotCache`
+- `SnapshotCacheService`
+- `SnapshotAccessService`
+- snapshot-backed overview support
+- change detection foundation
+- snapshot refresh decision model
+- snapshot refresh planner
+- partial snapshot refresh validation
+
+### Phase 10 – Runtime Diagnostics and Runtime Wiring
+
+Status: Completed
+
+Verified work included:
+
+- `IRuntimeMeasurementSink`
+- `RuntimeDiagnosticsService`
+- HTTP client runtime measurement collection
+- snapshot builder runtime measurement collection
+- polling service runtime measurement collection
+- runtime diagnostics JSON serialization
+- `GET /api/runtime`
+- `GET /api/runtime/summary`
+- bounded diagnostics retention
+- runtime configuration cleanup
+- status documentation split
+
+### Phase 11 – Snapshot Read APIs
+
+Status: Completed for current domain set
+
+Verified work included:
+
+- `VdrSnapshotReadService`
+- `VdrSnapshotReadJsonSerializer`
+- snapshot-backed VDR controller methods
+- snapshot read API router paths
+- HTTP server test coverage
+- status JSON serialization
+- channel JSON serialization
+- timer JSON serialization
+- event JSON serialization
+- recording JSON serialization
+- controller and router tests for all current snapshot read domains
+
+Latest verified implementation state:
+
+```text
+Phase 11.6: Complete snapshot read domain JSON serialization
+```
+
+Verified with:
+
+```text
+make test-api-router
+make test
+```
+
+---
+
+## Current Development Transition
+
+Current transition:
+
+```text
+Phase 11 complete
+↓
+Documentation cleanup
+↓
+Phase 12.0 Snapshot Change Feed Architecture
+```
+
+Phase 12 should start with architecture review and documentation before new live-update transport is implemented.
+
+---
+
+## Tagging Rule
+
+After implementation phases, create a milestone tag when the build has been verified and the phase represents a stable project milestone.
+
+Documentation-only cleanup commits may remain untagged unless they mark a larger architectural milestone.
+
+Tag names must not be invented retroactively in this document. Only record tags that actually exist in the repository.
