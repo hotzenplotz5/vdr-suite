@@ -32,9 +32,42 @@ std::string VdrSnapshotReadJsonSerializer::serializeRecordings(
 }
 
 std::string VdrSnapshotReadJsonSerializer::serializeTimers(
-    const std::vector<VdrTimer>&) const
+    const std::vector<VdrTimer>& timers) const
 {
-    return "{\"timers\":[]}";
+    std::ostringstream json;
+
+    json << "{\"timers\":[";
+
+    for (std::size_t index = 0;
+         index < timers.size();
+         ++index)
+    {
+        const auto& timer = timers[index];
+
+        if (index > 0)
+        {
+            json << ",";
+        }
+
+        json
+            << "{"
+            << "\"id\":\"" << timer.id << "\"," 
+            << "\"channelId\":\"" << timer.channelId << "\"," 
+            << "\"eventId\":\"" << timer.eventId << "\"," 
+            << "\"title\":\"" << timer.title << "\"," 
+            << "\"subtitle\":\"" << timer.subtitle << "\"," 
+            << "\"startTime\":\"" << timer.startTime << "\"," 
+            << "\"endTime\":\"" << timer.endTime << "\"," 
+            << "\"priority\":" << timer.priority << ","
+            << "\"lifetime\":" << timer.lifetime << ","
+            << "\"enabled\":" << boolToJson(timer.enabled) << ","
+            << "\"recording\":" << boolToJson(timer.recording)
+            << "}";
+    }
+
+    json << "]}";
+
+    return json.str();
 }
 
 std::string VdrSnapshotReadJsonSerializer::serializeChannels(
