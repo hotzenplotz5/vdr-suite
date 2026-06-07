@@ -107,7 +107,57 @@ std::string VdrSnapshotReadJsonSerializer::serializeChannels(
 }
 
 std::string VdrSnapshotReadJsonSerializer::serializeEvents(
-    const std::vector<VdrEvent>&) const
+    const std::vector<VdrEvent>& events) const
 {
-    return "{\"events\":[]}";
+    std::ostringstream json;
+
+    json << "{\"events\":[";
+
+    for (std::size_t index = 0;
+         index < events.size();
+         ++index)
+    {
+        const auto& event = events[index];
+
+        if (index > 0)
+        {
+            json << ",";
+        }
+
+        json
+            << "{"
+            << "\"id\":\"" << event.id << "\"," 
+            << "\"channelId\":\"" << event.channelId << "\"," 
+            << "\"title\":\"" << event.title << "\"," 
+            << "\"subtitle\":\"" << event.subtitle << "\"," 
+            << "\"description\":\"" << event.description << "\"," 
+            << "\"startTime\":\"" << event.startTime << "\"," 
+            << "\"endTime\":\"" << event.endTime << "\"," 
+            << "\"durationSeconds\":" << event.durationSeconds << ","
+            << "\"contentDescriptors\":[";
+
+        for (std::size_t descriptorIndex = 0;
+             descriptorIndex < event.contentDescriptors.size();
+             ++descriptorIndex)
+        {
+            if (descriptorIndex > 0)
+            {
+                json << ",";
+            }
+
+            json
+                << "\""
+                << event.contentDescriptors[descriptorIndex]
+                << "\"";
+        }
+
+        json
+            << "],"
+            << "\"parentalRating\":" << event.parentalRating
+            << "}";
+    }
+
+    json << "]}";
+
+    return json.str();
 }
