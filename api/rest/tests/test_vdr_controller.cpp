@@ -297,7 +297,24 @@ static void test_vdr_controller_returns_snapshot_read_domain_lists()
     ApiResponse channelsResponse =
         controller.getChannels();
     assertJsonResponse(channelsResponse);
-    assert(channelsResponse.body == "{\"channels\":[]}");
+    assert(channelsResponse.body.find("\"channels\"")
+           != std::string::npos);
+    assert(channelsResponse.body.find("\"id\":\"snapshot-channel-1\"")
+           != std::string::npos);
+    assert(channelsResponse.body.find("\"number\":1")
+           != std::string::npos);
+    assert(channelsResponse.body.find("\"name\":\"Snapshot Channel\"")
+           != std::string::npos);
+    assert(channelsResponse.body.find("\"provider\":\"Snapshot Provider\"")
+           != std::string::npos);
+    assert(channelsResponse.body.find("\"group\":\"Snapshot Group\"")
+           != std::string::npos);
+    assert(channelsResponse.body.find("\"radio\":true")
+           != std::string::npos);
+    assert(channelsResponse.body.find("\"encrypted\":true")
+           != std::string::npos);
+    assert(channelsResponse.body.find("\"enabled\":true")
+           != std::string::npos);
 
     ApiResponse eventsResponse =
         controller.getEvents();
