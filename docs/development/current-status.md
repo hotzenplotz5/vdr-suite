@@ -35,15 +35,15 @@ VDR remains the primary backend domain and source of truth.
 
 Latest verified code state:
 
-`ae3dde8`
+`1018b41`
 
 Latest GitHub-applied code state:
 
-`3083351`
+`1018b41`
 
 Latest completed implementation phase:
 
-Phase 10.21.1: Status documentation split in progress.
+Phase 10.21.1: Status documentation split.
 
 Verified locally with:
 
@@ -66,10 +66,10 @@ Local result after Phase 10.21:
 - working tree was clean
 - branch was synchronized with `origin/phase-2-actions`
 
-Phase 10.21.1 documentation split state:
+Phase 10.21.1 documentation split status:
 
-- GitHub-applied split documents exist.
-- Local verification is still pending after the final `current-status.md` reduction commit.
+- GitHub-applied
+- Locally verified
 
 ---
 
@@ -121,7 +121,7 @@ Recent completed implementation phases:
 - Phase 10.19: runtime diagnostics summary endpoint
 - Phase 10.20: runtime diagnostics API hardening
 - Phase 10.21: runtime configuration cleanup
-- Phase 10.21.1: status documentation split in progress
+- Phase 10.21.1: status documentation split
 
 Long-running phase history is tracked in:
 
@@ -182,7 +182,7 @@ Expected direction:
 
 ### Phase 10.21.1: Status Documentation Split
 
-Finish local verification and mark the documentation split complete.
+Begin Phase 11.0 analysis for frontend-oriented snapshot read APIs.
 
 ### Later Phases
 
