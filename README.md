@@ -30,18 +30,19 @@ The documentation index is the central entry point for all project documentation
 Current implementation status:
 
 ```text
-Phase 11 Snapshot Read APIs completed
+Phase 11.6 Snapshot Read APIs completed for the current domain set
 ```
 
 Next major architecture target:
 
 ```text
-Phase 12 Snapshot Change Feed Architecture
+Phase 12.0 Snapshot Change Feed Architecture
 ```
 
 Authoritative project status:
 
 - [Current Project Status](docs/development/current-status.md)
+- [Phase 11 Snapshot Read APIs](docs/development/phase-11-snapshot-read-apis.md)
 
 ---
 
@@ -82,7 +83,7 @@ Important architecture entry points:
 
 Long-term decisions:
 
-- [Architecture Decision Records](docs/adr/)
+- [Architecture Decision Records](docs/index.md#architecture-decision-records)
 
 ---
 
@@ -152,6 +153,7 @@ Primary documentation entry points:
 - [Current Project Status](docs/development/current-status.md)
 - [Roadmap](docs/planning/roadmap.md)
 - [Planning Milestones](docs/planning/milestones.md)
+- [Development Milestones](docs/development/milestones.md)
 - [Completed Phases](docs/development/completed-phases.md)
 - [Architecture Documents](docs/index.md#architecture)
 - [Architecture Decision Records](docs/index.md#architecture-decision-records)
