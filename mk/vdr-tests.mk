@@ -47,6 +47,13 @@ test-vdr-overview-json-serializer:
 		-o /tmp/test_vdr_overview_json_serializer
 	/tmp/test_vdr_overview_json_serializer
 
+test-vdr-snapshot-read-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_vdr_snapshot_read_json_serializer.cpp \
+		-o /tmp/test_vdr_snapshot_read_json_serializer
+	/tmp/test_vdr_snapshot_read_json_serializer
+
 test-vdr-snapshot-builder:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
