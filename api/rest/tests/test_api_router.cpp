@@ -55,18 +55,39 @@ static VdrSnapshot makeRouterSnapshot()
 
     VdrEvent event;
     event.id = "router-event-1";
+    event.channelId = "router-channel-1";
     event.title = "Router Event";
+    event.subtitle = "Router Event Subtitle";
+    event.description = "Router Event Description";
+    event.startTime = "2026-06-04T20:00:00";
+    event.endTime = "2026-06-04T21:00:00";
+    event.durationSeconds = 3600;
+    event.contentDescriptors.push_back("movie/drama");
+    event.contentDescriptors.push_back("hd");
+    event.parentalRating = 12;
     snapshot.events.push_back(event);
 
     VdrTimer timer;
     timer.id = "router-timer-1";
+    timer.channelId = "router-channel-1";
+    timer.eventId = "router-event-1";
     timer.title = "Router Timer";
+    timer.subtitle = "Router Timer Subtitle";
+    timer.startTime = "2026-06-04T20:00:00";
+    timer.endTime = "2026-06-04T21:00:00";
+    timer.priority = 50;
+    timer.lifetime = 99;
     timer.enabled = true;
+    timer.recording = true;
     snapshot.timers.push_back(timer);
 
     VdrRecording recording;
     recording.id = "router-recording-1";
     recording.title = "Router Recording";
+    recording.path = "/srv/vdr/video/Router_Recording/2026-06-04.20.00.1-0.rec";
+    recording.startTime = "2026-06-04T20:00:00";
+    recording.durationSeconds = 3600;
+    recording.sizeMb = 2048;
     snapshot.recordings.push_back(recording);
 
     return snapshot;
@@ -221,14 +242,50 @@ int main()
 
     assert(vdrRecordingsResponse.statusCode == 200);
     assert(vdrRecordingsResponse.contentType == "application/json");
-    assert(vdrRecordingsResponse.body == "{\"recordings\":[]}");
+    assert(vdrRecordingsResponse.body.find("\"recordings\"")
+           != std::string::npos);
+    assert(vdrRecordingsResponse.body.find("\"id\":\"router-recording-1\"")
+           != std::string::npos);
+    assert(vdrRecordingsResponse.body.find("\"title\":\"Router Recording\"")
+           != std::string::npos);
+    assert(vdrRecordingsResponse.body.find("\"path\":\"/srv/vdr/video/Router_Recording/2026-06-04.20.00.1-0.rec\"")
+           != std::string::npos);
+    assert(vdrRecordingsResponse.body.find("\"startTime\":\"2026-06-04T20:00:00\"")
+           != std::string::npos);
+    assert(vdrRecordingsResponse.body.find("\"durationSeconds\":3600")
+           != std::string::npos);
+    assert(vdrRecordingsResponse.body.find("\"sizeMb\":2048")
+           != std::string::npos);
 
     ApiResponse vdrTimersResponse =
         router.handleGet("/api/vdr/timers");
 
     assert(vdrTimersResponse.statusCode == 200);
     assert(vdrTimersResponse.contentType == "application/json");
-    assert(vdrTimersResponse.body == "{\"timers\":[]}");
+    assert(vdrTimersResponse.body.find("\"timers\"")
+           != std::string::npos);
+    assert(vdrTimersResponse.body.find("\"id\":\"router-timer-1\"")
+           != std::string::npos);
+    assert(vdrTimersResponse.body.find("\"channelId\":\"router-channel-1\"")
+           != std::string::npos);
+    assert(vdrTimersResponse.body.find("\"eventId\":\"router-event-1\"")
+           != std::string::npos);
+    assert(vdrTimersResponse.body.find("\"title\":\"Router Timer\"")
+           != std::string::npos);
+    assert(vdrTimersResponse.body.find("\"subtitle\":\"Router Timer Subtitle\"")
+           != std::string::npos);
+    assert(vdrTimersResponse.body.find("\"startTime\":\"2026-06-04T20:00:00\"")
+           != std::string::npos);
+    assert(vdrTimersResponse.body.find("\"endTime\":\"2026-06-04T21:00:00\"")
+           != std::string::npos);
+    assert(vdrTimersResponse.body.find("\"priority\":50")
+           != std::string::npos);
+    assert(vdrTimersResponse.body.find("\"lifetime\":99")
+           != std::string::npos);
+    assert(vdrTimersResponse.body.find("\"enabled\":true")
+           != std::string::npos);
+    assert(vdrTimersResponse.body.find("\"recording\":true")
+           != std::string::npos);
 
     ApiResponse vdrChannelsResponse =
         router.handleGet("/api/vdr/channels");
@@ -259,7 +316,28 @@ int main()
 
     assert(vdrEventsResponse.statusCode == 200);
     assert(vdrEventsResponse.contentType == "application/json");
-    assert(vdrEventsResponse.body == "{\"events\":[]}");
+    assert(vdrEventsResponse.body.find("\"events\"")
+           != std::string::npos);
+    assert(vdrEventsResponse.body.find("\"id\":\"router-event-1\"")
+           != std::string::npos);
+    assert(vdrEventsResponse.body.find("\"channelId\":\"router-channel-1\"")
+           != std::string::npos);
+    assert(vdrEventsResponse.body.find("\"title\":\"Router Event\"")
+           != std::string::npos);
+    assert(vdrEventsResponse.body.find("\"subtitle\":\"Router Event Subtitle\"")
+           != std::string::npos);
+    assert(vdrEventsResponse.body.find("\"description\":\"Router Event Description\"")
+           != std::string::npos);
+    assert(vdrEventsResponse.body.find("\"startTime\":\"2026-06-04T20:00:00\"")
+           != std::string::npos);
+    assert(vdrEventsResponse.body.find("\"endTime\":\"2026-06-04T21:00:00\"")
+           != std::string::npos);
+    assert(vdrEventsResponse.body.find("\"durationSeconds\":3600")
+           != std::string::npos);
+    assert(vdrEventsResponse.body.find("\"contentDescriptors\":[\"movie/drama\",\"hd\"]")
+           != std::string::npos);
+    assert(vdrEventsResponse.body.find("\"parentalRating\":12")
+           != std::string::npos);
 
     ApiResponse runtimeResponse =
         router.handleGet("/api/runtime");
