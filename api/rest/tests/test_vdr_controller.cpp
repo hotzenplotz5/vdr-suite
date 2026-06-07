@@ -44,7 +44,9 @@ static VdrSnapshot makeControllerSnapshot()
     event.startTime = "2026-06-04T20:00:00";
     event.endTime = "2026-06-04T21:00:00";
     event.durationSeconds = 3600;
-    event.parentalRating = 0;
+    event.contentDescriptors.push_back("movie/drama");
+    event.contentDescriptors.push_back("hd");
+    event.parentalRating = 12;
     snapshot.events.push_back(event);
 
     VdrTimer timer;
@@ -342,7 +344,28 @@ static void test_vdr_controller_returns_snapshot_read_domain_lists()
     ApiResponse eventsResponse =
         controller.getEvents();
     assertJsonResponse(eventsResponse);
-    assert(eventsResponse.body == "{\"events\":[]}");
+    assert(eventsResponse.body.find("\"events\"")
+           != std::string::npos);
+    assert(eventsResponse.body.find("\"id\":\"snapshot-event-1\"")
+           != std::string::npos);
+    assert(eventsResponse.body.find("\"channelId\":\"snapshot-channel-1\"")
+           != std::string::npos);
+    assert(eventsResponse.body.find("\"title\":\"Snapshot Event\"")
+           != std::string::npos);
+    assert(eventsResponse.body.find("\"subtitle\":\"Snapshot Event Subtitle\"")
+           != std::string::npos);
+    assert(eventsResponse.body.find("\"description\":\"Snapshot Event Description\"")
+           != std::string::npos);
+    assert(eventsResponse.body.find("\"startTime\":\"2026-06-04T20:00:00\"")
+           != std::string::npos);
+    assert(eventsResponse.body.find("\"endTime\":\"2026-06-04T21:00:00\"")
+           != std::string::npos);
+    assert(eventsResponse.body.find("\"durationSeconds\":3600")
+           != std::string::npos);
+    assert(eventsResponse.body.find("\"contentDescriptors\":[\"movie/drama\",\"hd\"]")
+           != std::string::npos);
+    assert(eventsResponse.body.find("\"parentalRating\":12")
+           != std::string::npos);
 }
 
 int main()
