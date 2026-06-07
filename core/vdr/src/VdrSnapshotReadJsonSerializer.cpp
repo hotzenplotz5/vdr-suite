@@ -26,9 +26,37 @@ std::string VdrSnapshotReadJsonSerializer::serializeStatus(
 }
 
 std::string VdrSnapshotReadJsonSerializer::serializeRecordings(
-    const std::vector<VdrRecording>&) const
+    const std::vector<VdrRecording>& recordings) const
 {
-    return "{\"recordings\":[]}";
+    std::ostringstream json;
+
+    json << "{\"recordings\":[";
+
+    for (std::size_t index = 0;
+         index < recordings.size();
+         ++index)
+    {
+        const auto& recording = recordings[index];
+
+        if (index > 0)
+        {
+            json << ",";
+        }
+
+        json
+            << "{"
+            << "\"id\":\"" << recording.id << "\"," 
+            << "\"title\":\"" << recording.title << "\"," 
+            << "\"path\":\"" << recording.path << "\"," 
+            << "\"startTime\":\"" << recording.startTime << "\"," 
+            << "\"durationSeconds\":" << recording.durationSeconds << ","
+            << "\"sizeMb\":" << recording.sizeMb
+            << "}";
+    }
+
+    json << "]}";
+
+    return json.str();
 }
 
 std::string VdrSnapshotReadJsonSerializer::serializeTimers(
