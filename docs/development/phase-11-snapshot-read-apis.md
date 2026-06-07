@@ -2,7 +2,7 @@
 
 ## Goal
 
-Phase 11 introduces frontend-oriented read access to the daemon-owned VDR snapshot.
+Phase 11 introduced frontend-oriented read access to the daemon-owned VDR snapshot.
 
 The goal is to make the snapshot usable by future frontends without forcing each API request to call VDR or RESTfulAPI directly.
 
@@ -17,29 +17,62 @@ Future clients include:
 
 ---
 
-## Current Foundation
+## Current Status
 
-The current snapshot foundation already exists:
+Phase 11 snapshot read API work is complete for the current domain set.
+
+Implemented and verified domains:
+
+- status
+- channels
+- timers
+- events
+- recordings
+
+Latest verified implementation phase:
+
+```text
+Phase 11.6: Complete snapshot read domain JSON serialization
+```
+
+Verified locally with:
+
+```text
+make test-api-router
+make test
+```
+
+Result:
+
+- snapshot-backed `VdrController` read methods passed
+- `ApiRouter` routes passed for all snapshot read domains
+- `TestHttpServer` coverage passed
+- full `make test` passed
+
+---
+
+## Snapshot Foundation
+
+The snapshot foundation used by Phase 11 consists of:
 
 - `VdrSnapshot`
 - `SnapshotCache`
 - `SnapshotCacheService`
 - `ISnapshotAccessService`
 - `SnapshotAccessService`
-- `VdrOverviewService` snapshot-backed overview path
-- `VdrController` snapshot-backed overview route
-
-Phase 11.0 adds the first dedicated frontend-read service:
-
 - `VdrSnapshotReadService`
+- `VdrSnapshotReadJsonSerializer`
+- `VdrController`
+- `ApiRouter`
+- `TestHttpServer`
 
-This service reads from `ISnapshotAccessService` and exposes snapshot domains without owning the cache and without polling.
+The `VdrSnapshotReadService` reads from `ISnapshotAccessService` and exposes snapshot domains without owning the cache and without polling.
 
 ---
 
 ## Architecture Direction
 
-The intended read path is:
+The read path is:
 
 ```text
 SnapshotCache
@@ -65,17 +98,18 @@ Responsibilities stay separated:
 - `SnapshotCacheService` updates complete snapshots or individual domains.
 - `SnapshotAccessService` exposes cache access through `ISnapshotAccessService`.
 - `VdrSnapshotReadService` provides frontend-oriented read methods.
-- serializers convert domain objects into JSON.
-- controllers expose read-only API responses.
+- `VdrSnapshotReadJsonSerializer` converts snapshot domain objects into JSON.
+- `VdrController` exposes read-only API responses.
 - `ApiRouter` maps HTTP paths to controller methods.
+- `TestHttpServer` verifies HTTP-level routing behavior.
 
 No RESTfulAPI access should be added to Phase 11 read endpoints.
 
 ---
 
-## Planned Endpoints
+## Implemented Endpoints
 
-The planned read-only snapshot endpoints are:
+The implemented read-only snapshot endpoints are:
 
 ```text
 GET /api/vdr/status
@@ -85,7 +119,7 @@ GET /api/vdr/channels
 GET /api/vdr/events
 ```
 
-The existing endpoint remains:
+The existing overview endpoint remains:
 
 ```text
 GET /api/vdr/overview
@@ -103,36 +137,117 @@ Endpoint design rules:
 
 ---
 
-## Test Strategy
+## Implemented Domain JSON Contracts
 
-Phase 11 starts with service-level tests:
+### Status
 
-- `test-vdr-snapshot-read-service`
+Status is exposed through `GET /api/vdr/status`.
 
-API phases should add:
+The response includes the existing `VdrStatus` fields:
 
-- serializer tests
-- controller tests
-- router tests
-- HTTP server tests through `TestHttpServer`
+- `enabled`
+- `mode`
+- `host`
+- `port`
+- `state`
 
-Later optional real-backend validation should remain separate from `make test` and use explicit local targets, similar to the existing `test-local-*` pattern.
+### Channels
+
+Channels are exposed through `GET /api/vdr/channels`.
+
+The response includes the existing `VdrChannel` fields:
+
+- `id`
+- `number`
+- `name`
+- `provider`
+- `group`
+- `radio`
+- `encrypted`
+- `enabled`
+
+### Timers
+
+Timers are exposed through `GET /api/vdr/timers`.
+
+The response includes the existing `VdrTimer` fields:
+
+- `id`
+- `channelId`
+- `eventId`
+- `title`
+- `subtitle`
+- `startTime`
+- `endTime`
+- `priority`
+- `lifetime`
+- `enabled`
+- `recording`
+
+### Events
+
+Events are exposed through `GET /api/vdr/events`.
+
+The response includes the existing `VdrEvent` fields:
+
+- `id`
+- `channelId`
+- `title`
+- `subtitle`
+- `description`
+- `startTime`
+- `endTime`
+- `durationSeconds`
+- `contentDescriptors`
+- `parentalRating`
+
+### Recordings
+
+Recordings are exposed through `GET /api/vdr/recordings`.
+
+The response includes the existing `VdrRecording` fields:
+
+- `id`
+- `title`
+- `path`
+- `startTime`
+- `durationSeconds`
+- `sizeMb`
 
 ---
 
-## Implementation Order
+## Test Strategy
 
-Recommended implementation order:
+Phase 11 uses layered tests:
+
+- service-level tests for `VdrSnapshotReadService`
+- serializer behavior through controller and router coverage
+- controller tests for snapshot-backed responses
+- router tests for REST path mapping
+- HTTP server tests through `TestHttpServer`
+- full `make test` validation before marking the phase complete
+
+Optional real-backend validation remains separate from `make test` and should use explicit local targets, similar to the existing `test-local-*` pattern.
+
+---
+
+## Completed Implementation Order
+
+Completed implementation order:
 
 1. `VdrSnapshotReadService`
 2. `VdrSnapshotReadService` tests
 3. VDR source and test-target build integration
-4. snapshot read JSON serializer
-5. serializer tests
-6. controller methods
-7. router mappings
-8. HTTP-level tests
-9. status documentation update
+4. `VdrSnapshotReadJsonSerializer`
+5. controller methods
+6. router mappings
+7. HTTP-level tests
+8. channel JSON serialization
+9. timer JSON serialization
+10. event JSON serialization
+11. recording JSON serialization
+12. controller and router test updates
+13. status documentation update
 
 ---
 
@@ -147,3 +262,11 @@ Phase 11 does not implement:
 - SSE/WebSocket event streaming
 - new polling strategies
 - direct RESTfulAPI calls from read endpoints
+
+---
+
+## Next Direction
+
+The next architectural direction is a snapshot change feed.
+
+The change feed should build on existing change-detection domain objects and should not immediately introduce SSE or WebSocket transport. Transport can be added later after the internal feed model is stable.
