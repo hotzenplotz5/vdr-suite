@@ -50,6 +50,31 @@ ApiResponse ApiRouter::handleGet(
         return vdrController_.getOverview();
     }
 
+    if (path == "/api/vdr/status")
+    {
+        return vdrController_.getStatus();
+    }
+
+    if (path == "/api/vdr/recordings")
+    {
+        return vdrController_.getRecordings();
+    }
+
+    if (path == "/api/vdr/timers")
+    {
+        return vdrController_.getTimers();
+    }
+
+    if (path == "/api/vdr/channels")
+    {
+        return vdrController_.getChannels();
+    }
+
+    if (path == "/api/vdr/events")
+    {
+        return vdrController_.getEvents();
+    }
+
     if (path == "/api/runtime/summary")
     {
         return runtimeDiagnosticsController_.getRuntimeDiagnosticsSummary();
