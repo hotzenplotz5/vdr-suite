@@ -20,6 +20,7 @@ Read these documents first:
 4. [Roadmap](docs/planning/roadmap.md)
 5. [Planning Milestones](docs/planning/milestones.md)
 6. [Core Platform Model](docs/architecture/vdr-suite-core-platform-model.md)
+7. [ADR Index](docs/adr/index.md)
 
 The documentation index is the central entry point for all project documentation.
 
@@ -83,6 +84,7 @@ Important architecture entry points:
 
 Long-term decisions:
 
+- [ADR Index](docs/adr/index.md)
 - [Architecture Decision Records](docs/index.md#architecture-decision-records)
 
 ---
@@ -156,6 +158,7 @@ Primary documentation entry points:
 - [Development Milestones](docs/development/milestones.md)
 - [Completed Phases](docs/development/completed-phases.md)
 - [Architecture Documents](docs/index.md#architecture)
+- [ADR Index](docs/adr/index.md)
 - [Architecture Decision Records](docs/index.md#architecture-decision-records)
 
 ---
