@@ -8,6 +8,7 @@ New contributors should start with:
 - `README.md`
 - [Documentation Index](../index.md)
 - [Runtime Diagnostics Measurement Collection](phase-10-runtime-diagnostics-measurement-collection.md)
+- [Phase 11 Snapshot Read APIs](phase-11-snapshot-read-apis.md)
 
 The vision document explains why VDR-Suite exists, the long-term goals of the project, the snapshot architecture philosophy and the future direction of the platform.
 
@@ -35,38 +36,33 @@ VDR remains the primary backend domain and source of truth.
 
 Latest verified code state:
 
-`1018b41`
+`aba2e03`
 
 Latest GitHub-applied code state:
 
-`1018b41`
+`aba2e03`
 
 Latest completed implementation phase:
 
-Phase 10.21.1: Status documentation split.
+Phase 11.2: Snapshot read REST API routing and HTTP coverage.
 
 Verified locally with:
 
 ```text
-make test-runtime-diagnostics-controller
-make test-api-router
-make test-test-http-server
 make test
-make daemon
 git status
 ```
 
-Local result after Phase 10.21:
+Local result after Phase 11.2:
 
-- `make test-runtime-diagnostics-controller` passed
-- `make test-api-router` passed
-- `make test-test-http-server` passed
 - `make test` passed
-- `make daemon` passed
+- `test_vdr_controller` passed
+- `test_api_router` passed
+- `test_test_http_server` passed
 - working tree was clean
 - branch was synchronized with `origin/phase-2-actions`
 
-Phase 10.21.1 documentation split status:
+Phase 11.2 implementation status:
 
 - GitHub-applied
 - Locally verified
@@ -89,6 +85,9 @@ Phase 10.21.1 documentation split status:
 - Phase 10.20 hardened router-level and HTTP-server-level coverage for non-empty runtime diagnostics and summary responses.
 - Phase 10.21 moved daemon runtime wiring values for VDR access and HTTP listener binding into `RuntimeConfig`.
 - Phase 10.21.1 split long-running status, architecture, validation, diagnostics, build and technical-debt sections into dedicated documents.
+- Phase 11.0 introduced `VdrSnapshotReadService` as the frontend-oriented snapshot read boundary.
+- Phase 11.1 introduced `VdrSnapshotReadJsonSerializer` for read-only snapshot API serialization.
+- Phase 11.2 wired frontend-oriented VDR snapshot read paths through `VdrController`, `ApiRouter` and `TestHttpServer` coverage.
 
 ---
 
@@ -104,6 +103,7 @@ Current status details are intentionally split into focused documents:
 - [Completed Phases](completed-phases.md)
 - [Milestones](milestones.md)
 - [Runtime Diagnostics Measurement Collection](phase-10-runtime-diagnostics-measurement-collection.md)
+- [Phase 11 Snapshot Read APIs](phase-11-snapshot-read-apis.md)
 - [Snapshot Architecture](../architecture/snapshot-architecture.md)
 - [VDR Backends](../architecture/vdr-backends.md)
 - [VDR-Suite Core Platform Model](../architecture/vdr-suite-core-platform-model.md)
@@ -115,13 +115,12 @@ Current status details are intentionally split into focused documents:
 
 Recent completed implementation phases:
 
-- Phase 10.16: runtime diagnostics REST endpoint
-- Phase 10.17: runtime diagnostics retention policy
-- Phase 10.18: runtime diagnostics measurement summaries
-- Phase 10.19: runtime diagnostics summary endpoint
 - Phase 10.20: runtime diagnostics API hardening
 - Phase 10.21: runtime configuration cleanup
 - Phase 10.21.1: status documentation split
+- Phase 11.0: snapshot read service foundation
+- Phase 11.1: snapshot read JSON serializer foundation
+- Phase 11.2: snapshot read REST API routing and HTTP coverage
 
 Long-running phase history is tracked in:
 
@@ -156,33 +155,33 @@ Architectural impact:
 
 ## Next Planned Phase
 
-### Phase 10.21.1: Status Documentation Split
+### Phase 11.3: Snapshot Read API JSON Expansion
 
 Goal:
 
-Complete the split of `docs/development/current-status.md` into a compact status index and dedicated detail documents.
+Replace the temporary empty list serializers for snapshot read domains with stable frontend-oriented JSON payloads.
 
 Motivation:
 
-The previous `current-status.md` had grown into a large mixed status, history, architecture, validation, build and technical-debt document. This made GitHub-based edits harder to review and increased the risk of oversized file updates.
+Phase 11.2 exposes the first snapshot read routes through controller, router and HTTP-server coverage. The current status endpoint already returns real snapshot data. The list endpoints are routed and tested, but still return intentionally minimal empty-list JSON until their response contracts are implemented.
 
 Expected direction:
 
-- keep `current-status.md` focused on current branch, current verified state, latest phase and links
-- keep detailed architecture state in `current-architecture-state.md`
-- keep Phase 9 runtime validation data in `phase-9-runtime-validation-result.md`
-- keep runtime diagnostics state in `runtime-diagnostics-status.md`
-- keep build details in `build-system-state.md`
-- keep known debt in `current-technical-debt.md`
-- verify the reduced status file locally before marking Phase 10.21.1 complete
+- serialize snapshot-backed channels
+- serialize snapshot-backed events
+- serialize snapshot-backed timers
+- serialize snapshot-backed recordings
+- keep JSON formatting inside `VdrSnapshotReadJsonSerializer`
+- keep controller and router logic thin
+- add serializer, controller, router and HTTP tests as each response contract becomes real
 
 ---
 
 ## Upcoming Phases
 
-### Phase 10.21.1: Status Documentation Split
+### Phase 11.3: Snapshot Read API JSON Expansion
 
-Begin Phase 11.0 analysis for frontend-oriented snapshot read APIs.
+Implement stable read-only JSON contracts for the snapshot list endpoints.
 
 ### Later Phases
 
