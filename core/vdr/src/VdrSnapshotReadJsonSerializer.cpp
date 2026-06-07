@@ -2,6 +2,12 @@
 
 #include <sstream>
 
+static const char* boolToJson(
+    bool value)
+{
+    return value ? "true" : "false";
+}
+
 std::string VdrSnapshotReadJsonSerializer::serializeStatus(
     const VdrStatus& status) const
 {
@@ -9,7 +15,7 @@ std::string VdrSnapshotReadJsonSerializer::serializeStatus(
 
     json
         << "{" 
-        << "\"enabled\":" << (status.enabled ? "true" : "false") << ","
+        << "\"enabled\":" << boolToJson(status.enabled) << ","
         << "\"mode\":\"" << status.mode << "\"," 
         << "\"host\":\"" << status.host << "\"," 
         << "\"port\":" << status.port << ","
@@ -32,9 +38,39 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimers(
 }
 
 std::string VdrSnapshotReadJsonSerializer::serializeChannels(
-    const std::vector<VdrChannel>&) const
+    const std::vector<VdrChannel>& channels) const
 {
-    return "{\"channels\":[]}";
+    std::ostringstream json;
+
+    json << "{\"channels\":[";
+
+    for (std::size_t index = 0;
+         index < channels.size();
+         ++index)
+    {
+        const auto& channel = channels[index];
+
+        if (index > 0)
+        {
+            json << ",";
+        }
+
+        json
+            << "{"
+            << "\"id\":\"" << channel.id << "\"," 
+            << "\"number\":" << channel.number << ","
+            << "\"name\":\"" << channel.name << "\"," 
+            << "\"provider\":\"" << channel.provider << "\"," 
+            << "\"group\":\"" << channel.group << "\"," 
+            << "\"radio\":" << boolToJson(channel.radio) << ","
+            << "\"encrypted\":" << boolToJson(channel.encrypted) << ","
+            << "\"enabled\":" << boolToJson(channel.enabled)
+            << "}";
+    }
+
+    json << "]}";
+
+    return json.str();
 }
 
 std::string VdrSnapshotReadJsonSerializer::serializeEvents(
