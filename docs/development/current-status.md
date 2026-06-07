@@ -35,15 +35,15 @@ VDR remains the primary backend domain and source of truth.
 
 Latest verified code state:
 
-`7681984`
+`ae3dde8`
 
 Latest GitHub-applied code state:
 
-`e2f033bf`
+`ae3dde8`
 
 Latest completed implementation phase:
 
-Phase 10.20: Runtime diagnostics API hardening.
+Phase 10.21: Runtime configuration cleanup.
 
 Verified locally with:
 
@@ -80,6 +80,7 @@ Important architecture notes:
 - Phase 10.18 added internal runtime measurement summaries grouped by component and operation.
 - Phase 10.19 exposed those summaries through the dedicated `GET /api/runtime/summary` endpoint while keeping `GET /api/runtime` backward compatible.
 - Phase 10.20 hardened router-level and HTTP-server-level coverage for non-empty runtime diagnostics and summary responses.
+- Phase 10.21 moved daemon runtime wiring values for VDR access and HTTP listener binding into `RuntimeConfig`.
 
 Detailed status:
 
@@ -442,6 +443,7 @@ Polling integration:
 - Phase 10.18: runtime diagnostics measurement summaries
 - Phase 10.19: runtime diagnostics summary endpoint
 - Phase 10.20: runtime diagnostics API hardening
+- Phase 10.21: runtime configuration cleanup
 - ADR-007: Platform API Strategy
 
 ---
@@ -490,7 +492,7 @@ Documentation state:
 
 ## Next Planned Phase
 
-### Phase 10.21: Runtime Configuration Cleanup
+### Phase 10.21.1: Status Documentation Split
 
 Goal:
 
@@ -511,9 +513,9 @@ Expected direction:
 
 ## Upcoming Phases
 
-### Phase 10.21: Runtime Configuration Cleanup
+### Phase 10.21.1: Status Documentation Split
 
-Clean up runtime configuration ownership and wiring after completing the first runtime diagnostics API hardening step.
+Split `docs/development/current-status.md` into a smaller status index and dedicated detail documents.
 
 ### Later Phases
 
