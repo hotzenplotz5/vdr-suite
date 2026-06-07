@@ -37,9 +37,13 @@ Latest verified code state:
 
 `7681984`
 
+Latest GitHub-applied code state:
+
+`e2f033bf`
+
 Latest completed implementation phase:
 
-Phase 10.19: Runtime diagnostics summary endpoint.
+Phase 10.20: Runtime diagnostics API hardening.
 
 Verified locally with:
 
@@ -75,6 +79,7 @@ Important architecture notes:
 - Phase 10.17 added bounded in-memory diagnostics measurement retention.
 - Phase 10.18 added internal runtime measurement summaries grouped by component and operation.
 - Phase 10.19 exposed those summaries through the dedicated `GET /api/runtime/summary` endpoint while keeping `GET /api/runtime` backward compatible.
+- Phase 10.20 hardened router-level and HTTP-server-level coverage for non-empty runtime diagnostics and summary responses.
 
 Detailed status:
 
@@ -436,6 +441,7 @@ Polling integration:
 - Phase 10.17: runtime diagnostics retention policy
 - Phase 10.18: runtime diagnostics measurement summaries
 - Phase 10.19: runtime diagnostics summary endpoint
+- Phase 10.20: runtime diagnostics API hardening
 - ADR-007: Platform API Strategy
 
 ---
@@ -484,7 +490,7 @@ Documentation state:
 
 ## Next Planned Phase
 
-### Phase 10.20: Runtime Diagnostics API Hardening or Integration Validation
+### Phase 10.21: Runtime Configuration Cleanup
 
 Goal:
 
@@ -505,9 +511,9 @@ Expected direction:
 
 ## Upcoming Phases
 
-### Phase 10.20: Runtime Diagnostics API Hardening or Integration Validation
+### Phase 10.21: Runtime Configuration Cleanup
 
-Validate and harden the runtime diagnostics API surface before expanding diagnostics beyond the current read-only endpoint.
+Clean up runtime configuration ownership and wiring after completing the first runtime diagnostics API hardening step.
 
 ### Later Phases
 
