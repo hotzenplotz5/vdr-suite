@@ -1,6 +1,6 @@
 # VDR-Suite
 
-VDR-Suite modernizes the Video Disk Recorder ecosystem with a backend service layer, daemon-owned state, REST API foundations and future user interfaces.
+VDR-Suite modernizes the Video Disk Recorder ecosystem with a backend service layer, daemon-owned state, snapshot architecture, REST APIs and future frontend integrations.
 
 VDR remains the primary backend domain and source of truth.
 
@@ -14,24 +14,48 @@ New to VDR-Suite?
 
 Read these documents first:
 
-- [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
-- [Documentation Index](docs/index.md)
-- [Current Project Status](docs/development/current-status.md)
-- [Core Platform Model](docs/architecture/vdr-suite-core-platform-model.md)
+1. [Documentation Index](docs/index.md)
+2. [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
+3. [Current Project Status](docs/development/current-status.md)
+4. [Roadmap](docs/planning/roadmap.md)
+5. [Planning Milestones](docs/planning/milestones.md)
+6. [Core Platform Model](docs/architecture/vdr-suite-core-platform-model.md)
 
-The documentation index is the central entry point for project vision, architecture documents, ADRs, diagrams, development status and planning.
+The documentation index is the central entry point for all project documentation.
 
 ---
 
-## Current Status
+## Current Development Position
 
-The current implementation status changes frequently during active development.
+Current implementation status:
 
-Authoritative status lives here:
+```text
+Phase 11 Snapshot Read APIs completed
+```
+
+Next major architecture target:
+
+```text
+Phase 12 Snapshot Change Feed Architecture
+```
+
+Authoritative project status:
 
 - [Current Project Status](docs/development/current-status.md)
 
-The README intentionally does not duplicate detailed phase history, milestone status or long architecture explanations. This avoids stale information and keeps the README useful as a stable project entry point.
+---
+
+## Planning
+
+Project planning documents:
+
+- [Roadmap](docs/planning/roadmap.md)
+- [Planning Milestones](docs/planning/milestones.md)
+- [Development Milestones](docs/development/milestones.md)
+
+The roadmap defines direction.
+
+Milestones define execution targets.
 
 ---
 
@@ -47,7 +71,7 @@ VDR-Suite is designed to remain:
 - prepared for future multi-VDR environments
 - suitable for future API consumers and frontends
 
-Current architecture details are documented in:
+Important architecture entry points:
 
 - [Core Platform Model](docs/architecture/vdr-suite-core-platform-model.md)
 - [VDR Backends](docs/architecture/vdr-backends.md)
@@ -56,7 +80,7 @@ Current architecture details are documented in:
 - [Internal Event Dispatch Architecture](docs/architecture/internal-event-dispatch-architecture.md)
 - [Partial Snapshot Refresh Architecture](docs/architecture/partial-snapshot-refresh-architecture.md)
 
-Long-term architectural decisions are documented in:
+Long-term decisions:
 
 - [Architecture Decision Records](docs/adr/)
 
@@ -74,12 +98,10 @@ The project currently contains foundations for:
 - VDR domain objects and adapter boundaries
 - RESTfulAPI integration
 - daemon-owned VDR snapshots
+- snapshot cache and snapshot access services
 - change-state polling and partial snapshot refresh planning
 - runtime logging, timing and diagnostics foundations
-
-For the exact current phase state, see:
-
-- [Current Project Status](docs/development/current-status.md)
+- snapshot read APIs and JSON serialization
 
 ---
 
@@ -95,7 +117,7 @@ For the exact current phase state, see:
 - `apps/dashboard` – dashboard CLI
 - `apps/daemon` – daemon entry point
 - `mk` – modular Makefile include files
-- `docs` – project documentation, architecture notes and ADRs
+- `docs` – project documentation, planning, architecture notes and ADRs
 
 ---
 
@@ -108,29 +130,29 @@ make daemon
 make test
 ```
 
-Useful targeted tests during local development:
+Useful targeted tests:
 
 ```bash
+make test-vdr-controller
 make test-vdr-snapshot-builder
 make test-polling-service
 make test-restful-api-vdr-adapter
-make test-restful-api-change-state-adapter
 make test-runtime-diagnostics
 ```
 
-Use `make test` for release preparation, tags, larger refactoring, build-system changes and runtime wiring changes.
+Use `make test` before milestone tags, larger refactoring and runtime architecture changes.
 
 ---
 
-## Documentation
+## Documentation Hub
 
-Important entry points:
+Primary documentation entry points:
 
 - [Documentation Index](docs/index.md)
-- [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
 - [Current Project Status](docs/development/current-status.md)
+- [Roadmap](docs/planning/roadmap.md)
+- [Planning Milestones](docs/planning/milestones.md)
 - [Completed Phases](docs/development/completed-phases.md)
-- [Development Milestones](docs/development/milestones.md)
 - [Architecture Documents](docs/index.md#architecture)
 - [Architecture Decision Records](docs/index.md#architecture-decision-records)
 
@@ -138,19 +160,10 @@ Important entry points:
 
 ## Development Rules
 
-Project-specific rules are documented and maintained in:
+Project-specific rules are documented in:
 
 - [Current Project Status](docs/development/current-status.md)
 - [Phase 0 Development Rules](docs/phase-0/07-development-rules.md)
-
-Important working rules include:
-
-- read existing code before changes
-- keep architecture decisions documented
-- avoid placeholder implementations
-- keep builds working after small changes
-- run targeted tests before commits
-- run `make test` before larger pushes or runtime changes
 
 ---
 
