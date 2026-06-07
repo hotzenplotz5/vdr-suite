@@ -7,6 +7,8 @@
 #include "VdrOverviewService.h"
 #include "VdrService.h"
 #include "VdrSnapshot.h"
+#include "VdrSnapshotReadJsonSerializer.h"
+#include "VdrSnapshotReadService.h"
 
 #include <cassert>
 #include <iostream>
@@ -71,12 +73,17 @@ static VdrSnapshot makeControllerSnapshot()
     return snapshot;
 }
 
-static void assertCommonOverviewResponse(const ApiResponse& response)
+static void assertJsonResponse(const ApiResponse& response)
 {
     assert(response.statusCode == 200);
 
     assert(response.contentType
            == "application/json");
+}
+
+static void assertCommonOverviewResponse(const ApiResponse& response)
+{
+    assertJsonResponse(response);
 
     assert(response.body.find("\"status\"")
            != std::string::npos);
@@ -94,6 +101,19 @@ static void assertCommonOverviewResponse(const ApiResponse& response)
            != std::string::npos);
 }
 
+static VdrController makeLiveController(
+    VdrOverviewService& overviewService,
+    VdrOverviewJsonSerializer& jsonSerializer,
+    VdrSnapshotReadService& snapshotReadService,
+    VdrSnapshotReadJsonSerializer& snapshotReadJsonSerializer)
+{
+    return VdrController(
+        overviewService,
+        jsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
+}
+
 static void test_vdr_controller_returns_live_overview()
 {
     MockVdrAdapter adapter;
@@ -105,9 +125,17 @@ static void test_vdr_controller_returns_live_overview()
 
     VdrOverviewJsonSerializer jsonSerializer;
 
-    VdrController controller(
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+    VdrSnapshotReadService snapshotReadService(accessService);
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
+
+    VdrController controller = makeLiveController(
         overviewService,
-        jsonSerializer);
+        jsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
 
     ApiResponse response =
         controller.getOverview();
@@ -135,10 +163,14 @@ static void test_vdr_controller_returns_snapshot_backed_overview()
 
     VdrOverviewService overviewService(accessService);
     VdrOverviewJsonSerializer jsonSerializer;
+    VdrSnapshotReadService snapshotReadService(accessService);
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
 
-    VdrController controller(
+    VdrController controller = makeLiveController(
         overviewService,
-        jsonSerializer);
+        jsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
 
     ApiResponse response =
         controller.getOverview();
@@ -191,10 +223,94 @@ static void test_vdr_controller_returns_snapshot_backed_overview()
            != std::string::npos);
 }
 
+static void test_vdr_controller_returns_snapshot_read_status()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot snapshot = makeControllerSnapshot();
+    cache.update(snapshot);
+
+    VdrOverviewService overviewService(accessService);
+    VdrOverviewJsonSerializer jsonSerializer;
+    VdrSnapshotReadService snapshotReadService(accessService);
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
+
+    VdrController controller = makeLiveController(
+        overviewService,
+        jsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
+
+    ApiResponse response =
+        controller.getStatus();
+
+    assertJsonResponse(response);
+
+    assert(response.body.find("\"enabled\":true")
+           != std::string::npos);
+
+    assert(response.body.find("\"mode\":\"snapshot-controller\"")
+           != std::string::npos);
+
+    assert(response.body.find("\"host\":\"snapshot-controller-host\"")
+           != std::string::npos);
+
+    assert(response.body.find("\"port\":1234")
+           != std::string::npos);
+
+    assert(response.body.find("\"state\":\"cached\"")
+           != std::string::npos);
+}
+
+static void test_vdr_controller_returns_snapshot_read_domain_lists()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot snapshot = makeControllerSnapshot();
+    cache.update(snapshot);
+
+    VdrOverviewService overviewService(accessService);
+    VdrOverviewJsonSerializer jsonSerializer;
+    VdrSnapshotReadService snapshotReadService(accessService);
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
+
+    VdrController controller = makeLiveController(
+        overviewService,
+        jsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
+
+    ApiResponse recordingsResponse =
+        controller.getRecordings();
+    assertJsonResponse(recordingsResponse);
+    assert(recordingsResponse.body == "{\"recordings\":[]}");
+
+    ApiResponse timersResponse =
+        controller.getTimers();
+    assertJsonResponse(timersResponse);
+    assert(timersResponse.body == "{\"timers\":[]}");
+
+    ApiResponse channelsResponse =
+        controller.getChannels();
+    assertJsonResponse(channelsResponse);
+    assert(channelsResponse.body == "{\"channels\":[]}");
+
+    ApiResponse eventsResponse =
+        controller.getEvents();
+    assertJsonResponse(eventsResponse);
+    assert(eventsResponse.body == "{\"events\":[]}");
+}
+
 int main()
 {
     test_vdr_controller_returns_live_overview();
     test_vdr_controller_returns_snapshot_backed_overview();
+    test_vdr_controller_returns_snapshot_read_status();
+    test_vdr_controller_returns_snapshot_read_domain_lists();
 
     std::cout
         << "test_vdr_controller passed"
