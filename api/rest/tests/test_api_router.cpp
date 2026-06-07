@@ -44,7 +44,13 @@ static VdrSnapshot makeRouterSnapshot()
 
     VdrChannel channel;
     channel.id = "router-channel-1";
+    channel.number = 1;
     channel.name = "Router Channel";
+    channel.provider = "Router Provider";
+    channel.group = "Router Group";
+    channel.radio = true;
+    channel.encrypted = true;
+    channel.enabled = true;
     snapshot.channels.push_back(channel);
 
     VdrEvent event;
@@ -229,7 +235,24 @@ int main()
 
     assert(vdrChannelsResponse.statusCode == 200);
     assert(vdrChannelsResponse.contentType == "application/json");
-    assert(vdrChannelsResponse.body == "{\"channels\":[]}");
+    assert(vdrChannelsResponse.body.find("\"channels\"")
+           != std::string::npos);
+    assert(vdrChannelsResponse.body.find("\"id\":\"router-channel-1\"")
+           != std::string::npos);
+    assert(vdrChannelsResponse.body.find("\"number\":1")
+           != std::string::npos);
+    assert(vdrChannelsResponse.body.find("\"name\":\"Router Channel\"")
+           != std::string::npos);
+    assert(vdrChannelsResponse.body.find("\"provider\":\"Router Provider\"")
+           != std::string::npos);
+    assert(vdrChannelsResponse.body.find("\"group\":\"Router Group\"")
+           != std::string::npos);
+    assert(vdrChannelsResponse.body.find("\"radio\":true")
+           != std::string::npos);
+    assert(vdrChannelsResponse.body.find("\"encrypted\":true")
+           != std::string::npos);
+    assert(vdrChannelsResponse.body.find("\"enabled\":true")
+           != std::string::npos);
 
     ApiResponse vdrEventsResponse =
         router.handleGet("/api/vdr/events");
