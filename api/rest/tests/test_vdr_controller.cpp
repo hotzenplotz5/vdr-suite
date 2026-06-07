@@ -292,7 +292,30 @@ static void test_vdr_controller_returns_snapshot_read_domain_lists()
     ApiResponse timersResponse =
         controller.getTimers();
     assertJsonResponse(timersResponse);
-    assert(timersResponse.body == "{\"timers\":[]}");
+    assert(timersResponse.body.find("\"timers\"")
+           != std::string::npos);
+    assert(timersResponse.body.find("\"id\":\"snapshot-timer-1\"")
+           != std::string::npos);
+    assert(timersResponse.body.find("\"channelId\":\"snapshot-channel-1\"")
+           != std::string::npos);
+    assert(timersResponse.body.find("\"eventId\":\"snapshot-event-1\"")
+           != std::string::npos);
+    assert(timersResponse.body.find("\"title\":\"Snapshot Timer\"")
+           != std::string::npos);
+    assert(timersResponse.body.find("\"subtitle\":\"Snapshot Timer Subtitle\"")
+           != std::string::npos);
+    assert(timersResponse.body.find("\"startTime\":\"2026-06-04T20:00:00\"")
+           != std::string::npos);
+    assert(timersResponse.body.find("\"endTime\":\"2026-06-04T21:00:00\"")
+           != std::string::npos);
+    assert(timersResponse.body.find("\"priority\":50")
+           != std::string::npos);
+    assert(timersResponse.body.find("\"lifetime\":99")
+           != std::string::npos);
+    assert(timersResponse.body.find("\"enabled\":true")
+           != std::string::npos);
+    assert(timersResponse.body.find("\"recording\":true")
+           != std::string::npos);
 
     ApiResponse channelsResponse =
         controller.getChannels();
