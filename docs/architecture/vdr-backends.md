@@ -77,10 +77,69 @@ The rest of the application must not know whether RESTfulAPI is used.
 
 Future backend.
 
+SVDRP is a VDR control and compatibility protocol. It is useful for controlling VDR and for accessing selected VDR state, but it is not the primary internal API of VDR-Suite.
+
 Responsibilities:
 
 - Communicate via SVDRP
-- Convert protocol responses into VdrStatus objects
+- Convert protocol responses into backend-neutral VDR domain objects
+- Hide SVDRP command names, response codes and line formats behind the adapter boundary
+- Provide control-oriented capabilities only where they are explicitly modeled
+
+Appropriate future uses:
+
+- status and availability checks
+- channel switching
+- timer read and write operations
+- selected recording operations
+- remote control compatibility
+- OSD or legacy control fallbacks
+- plugin command fallbacks where no better adapter exists
+
+SVDRP must not leak into:
+
+- service layer code
+- REST API controllers
+- frontend code
+- dashboard logic
+- snapshot domain objects
+
+Destructive SVDRP commands must not be triggered directly from frontend actions. Examples include deleting timers, deleting recordings, moving recordings or simulating remote control sequences that have destructive effects.
+
+Such operations must go through the VDR-Suite action, validation and permission layers before any future SVDRP adapter executes them.
+
+## RESTfulAPI vs SVDRP
+
+RESTfulAPI and SVDRP have different architectural roles.
+
+RESTfulAPI is currently the preferred read-oriented integration path for structured VDR data because it exposes JSON endpoints that can be mapped into VDR-Suite domain objects.
+
+SVDRP is a future control-oriented adapter path. It is especially relevant for operations that are part of VDR's native control model, such as timers, channel switching, remote key input and plugin commands.
+
+Both mechanisms remain transport details below `IVdrAdapter`. Higher layers must depend on domain operations and capabilities, not on whether a backend used RESTfulAPI, SVDRP, a plugin bridge or a mock implementation.
+
+## Remote Control and HITK
+
+Remote control integration is not a general application state model.
+
+Future HITK-style key injection may be useful for:
+
+- legacy OSD operation
+- compatibility with VDR workflows that only exist as remote key sequences
+- diagnostics
+- emergency fallback control
+
+It must not become the basis for normal VDR-Suite UI state management.
+
+Modern UI features should prefer explicit domain operations, snapshot reads, action state and backend capabilities over key-sequence simulation.
+
+## Security Boundary
+
+SVDRP access control in VDR is host-oriented. VDR-Suite must not treat SVDRP host allow rules as a user, role or permission model.
+
+Authentication, authorization, scoped permissions and destructive-operation policy belong to VDR-Suite.
+
+A future SVDRP adapter must therefore be treated as a privileged backend transport that is protected by VDR-Suite service boundaries.
 
 ## Future Expansion
 
