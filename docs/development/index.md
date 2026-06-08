@@ -7,6 +7,12 @@ Navigation:
 
 ---
 
+## Purpose
+
+This section contains the current implementation state, project progress and historical development records.
+
+---
+
 ## Current State
 
 Authoritative project status:
@@ -16,13 +22,16 @@ Authoritative project status:
 - current-technical-debt.md
 - build-system-state.md
 
+These documents describe the verified current state of the project.
+
 ---
 
 ## Progress Tracking
 
 - completed-phases.md
+- milestones.md
 
-Historical implementation progress.
+Implementation history, completed work and milestone tracking.
 
 ---
 
@@ -42,6 +51,8 @@ Future work and long-term direction.
 - phase-11-snapshot-read-apis.md
 - runtime-diagnostics-status.md
 
+Historical phase records and technical reports.
+
 ---
 
 ## Documentation Rules
@@ -51,6 +62,7 @@ Future work and long-term direction.
 - roadmap.md contains future direction
 - milestones.md contains upcoming targets
 - architecture documents belong under docs/architecture
+- ADRs belong under docs/adr
 
 ---
 
