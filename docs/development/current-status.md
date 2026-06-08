@@ -43,25 +43,23 @@ VDR remains the primary backend domain and source of truth.
 Latest completed implementation phase:
 
 ```text
-Phase 11.6: Complete snapshot read domain JSON serialization
+Phase 12.3: Snapshot Change Feed REST controller
 ```
 
 Verified locally with:
 
 ```text
-make test-vdr-controller
-make test-api-router
+make test-snapshot-change-feed-controller
 make test
 ```
 
 Verification summary:
 
-- `make test-vdr-controller` passed
-- `make test-api-router` passed
+- `make test-snapshot-change-feed-controller` passed
 - `make test` passed
-- `test_vdr_controller` passed with snapshot-backed domain JSON
-- `test_api_router` passed with status, channels, timers, events and recordings snapshot read coverage
-- `test_test_http_server` passed
+- `test_snapshot_change_feed_controller` passed
+- `test_api_router` passed with snapshot change feed routing coverage
+- snapshot change feed service and serializer tests passed
 - snapshot cache, access, refresh, polling and RESTfulAPI mapper tests passed
 - runtime diagnostics tests passed
 
@@ -74,6 +72,7 @@ Verification summary:
 - Runtime diagnostics are integrated through structured runtime measurement boundaries.
 - Snapshot cache, snapshot access and partial refresh planning are in place.
 - Snapshot read APIs are available for status, channels, timers, events and recordings.
+- Snapshot change feed service, serializer and read-only REST controller are implemented.
 - Future live updates should build on snapshot change information instead of coupling clients to polling internals.
 - Backend identity, federation, capability and lifecycle strategy are documented through ADRs.
 
@@ -109,6 +108,7 @@ Planning:
 Architecture:
 
 - [Snapshot Architecture](../architecture/snapshot-architecture.md)
+- [Snapshot Change Feed Architecture](../architecture/snapshot-change-feed-architecture.md)
 - [VDR Backends](../architecture/vdr-backends.md)
 - [VDR-Suite Core Platform Model](../architecture/vdr-suite-core-platform-model.md)
 
@@ -116,26 +116,11 @@ Architecture:
 
 ## Next Planned Phase
 
-### Phase 12.0: Snapshot Change Feed Architecture
+### Phase 12.4: Snapshot Change Feed Integration Refinement
 
 Goal:
 
-Introduce a read-oriented change feed concept on top of the existing snapshot and change-detection domain so future frontends can refresh selectively instead of polling every snapshot read endpoint.
-
-Architecture review scope:
-
-- `VdrChangeState`
-- `VdrChangeEvent`
-- `ChangeDetectionService`
-- `SnapshotRefreshDecision`
-- `SnapshotRefreshPlanner`
-- `SnapshotCache`
-- `SnapshotAccessService`
-- `VdrSnapshotReadService`
-- `VdrSnapshotReadJsonSerializer`
-- `VdrController`
-- `ApiRouter`
-- `TestHttpServer`
+Consolidate snapshot change feed integration and prepare follow-up architecture for future transport layers while keeping the feed model transport-independent.
 
 Constraints:
 
@@ -160,7 +145,7 @@ Later planning is tracked in:
 - No permanent single-VDR assumption.
 - Prefer complete files for local changes.
 - Use nano-compatible workflows for local instructions.
-- Avoid shell here-doc blocks in local instructions.
+- No `cat <<EOF` blocks in local instructions.
 - Keep builds working after each small change.
 - Run targeted tests before code commits when local build access is available.
 - Before every push, run `git fetch` and inspect `git log --oneline --decorate HEAD..origin/phase-2-actions`.
