@@ -2,8 +2,10 @@
 
 Navigation:
 
+- ../../README.md
 - ../index.md
 - ../project-overview.md
+- index.md
 
 ---
 
@@ -102,5 +104,7 @@ Retained for historical reference:
 
 ## Return Paths
 
+- ../../README.md
 - ../index.md
 - ../project-overview.md
+- index.md
