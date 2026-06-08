@@ -1,14 +1,39 @@
-# VDR-Suite – Current Architecture State
+# VDR-Suite Current Architecture State
 
-This document contains the current architecture state that was split out of `docs/development/current-status.md` during Phase 10.21.1.
+Navigation:
+
+- ../index.md
+- ../project-overview.md
+- index.md
+- ../architecture/index.md
 
 ---
 
-## Current Architecture State
+## Purpose
 
-VDR-Suite is moving from direct live RESTfulAPI access per API request toward a daemon-owned snapshot, change-detection and runtime-observability architecture.
+This document summarizes the current implemented architecture state of VDR-Suite.
 
-Current implemented and locally validated runtime chain:
+It complements:
+
+- current-status.md
+- ../architecture/index.md
+- ../planning/roadmap.md
+
+---
+
+## Current Architecture Direction
+
+VDR-Suite has moved from direct live RESTfulAPI access per API request toward a daemon-owned snapshot, change-detection, change-feed and runtime-observability architecture.
+
+VDR remains the primary backend domain and source of truth.
+
+RESTfulAPI remains behind the adapter boundary.
+
+API controllers consume service boundaries instead of directly coupling to VDR or RESTfulAPI internals.
+
+---
+
+## Current Runtime Chain
 
 ```text
 VDR
@@ -27,40 +52,50 @@ PollingService
     ↓
 ChangeDetectionService
     ↓
-VdrChangeEvent
-    ↓
 SnapshotRefreshPlanner
-    ↓
-SnapshotUpdatePlan
     ↓
 SnapshotCacheService
     ↓
 SnapshotCache
+    ↓
+SnapshotAccessService
+    ↓
+VdrSnapshotReadService
+    ↓
+VdrSnapshotReadJsonSerializer
+    ↓
+VdrController
 ```
 
-Current implemented runtime diagnostics chains:
+---
+
+## Current Change Feed Chain
+
+```text
+SnapshotCache
+    ↓
+SnapshotChangeFeedService
+    ↓
+SnapshotChangeFeed
+    ↓
+SnapshotChangeFeedJsonSerializer
+    ↓
+SnapshotChangeFeedController
+    ↓
+GET /api/vdr/changes
+```
+
+The change feed is transport-independent.
+
+Live transports in Phase 13 should consume the change feed instead of owning snapshot generation or change detection.
+
+---
+
+## Current Runtime Diagnostics Chain
 
 ```text
 BasicHttpClient
-    ↓
-RuntimeMeasurement
-    ↓
-IRuntimeMeasurementSink
-    ↓
-RuntimeDiagnosticsService
-    ↓
-RuntimeDiagnostics
-
 VdrSnapshotBuilder
-    ↓
-RuntimeMeasurement
-    ↓
-IRuntimeMeasurementSink
-    ↓
-RuntimeDiagnosticsService
-    ↓
-RuntimeDiagnostics
-
 PollingService
     ↓
 RuntimeMeasurement
@@ -69,53 +104,22 @@ IRuntimeMeasurementSink
     ↓
 RuntimeDiagnosticsService
     ↓
-RuntimeDiagnostics
-
-RuntimeDiagnosticsService
-    ↓
-RuntimeDiagnostics
-    ↓
 RuntimeDiagnosticsJsonSerializer
     ↓
 RuntimeDiagnosticsController
-    ↓
-GET /api/runtime
-
-RuntimeDiagnosticsService
-    ↓
-RuntimeMeasurementSummary
-    ↓
-count
-minDurationMs
-maxDurationMs
-lastDurationMs
-lastStatusCode
-lastSizeBytes
 ```
 
-Purpose:
+Implemented diagnostics endpoint:
 
-- keep RESTfulAPI behind the adapter boundary
-- avoid repeated live RESTfulAPI calls per API request
-- keep refresh decisions inside daemon-owned services
-- keep snapshot storage separate from polling logic
-- preserve full snapshot rebuild behavior for first poll and recovery paths
-- prepare future multi-VDR and permission-aware designs
-- keep API controllers backend-independent
-- expose runtime progress through optional logging instead of direct service-level console output
-- expose HTTP request timing through structured runtime measurements
-- expose snapshot-domain build timing through structured runtime measurements
-- expose polling-cycle and refresh-path timing through structured runtime measurements
-- keep logging and diagnostics separate
-- avoid unbounded diagnostics measurement growth through service-owned retention
-- provide grouped measurement summaries through a dedicated `/api/runtime/summary` endpoint without changing the public `/api/runtime` JSON format
-- keep future third-party or multi-client API consumers possible through a platform-oriented API strategy
+```text
+GET /api/runtime/diagnostics
+```
+
+Runtime diagnostics remain separate from logging.
 
 ---
 
-## Implemented Snapshot and Change-State Components
-
-Implemented:
+## Implemented Snapshot Components
 
 - `VdrSnapshot`
 - `VdrSnapshotBuilder`
@@ -131,25 +135,81 @@ Implemented:
 - `SnapshotCacheService`
 - `ISnapshotAccessService`
 - `SnapshotAccessService`
-- `VdrOverviewService` snapshot-backed overview path
-- `VdrController` snapshot-backed overview test coverage
-- `IVdrAdapter::getChangeState()`
-- `VdrService::getChangeState()`
-- `MockVdrAdapter::getChangeState()`
-- `ExternalVdrAdapter::getChangeState()`
-- `RestfulApiVdrAdapter::getChangeState()`
+- `VdrSnapshotReadService`
+- `VdrSnapshotReadJsonSerializer`
 
-Polling integration:
+---
 
-- `PollingService` reads `VdrService::getChangeState()` before refresh planning
-- first poll builds an initial full snapshot
-- unchanged change-state keeps the existing cached snapshot
-- changed change-state is converted into `VdrChangeEvent` entries
-- `SnapshotRefreshPlanner` converts change events into `SnapshotUpdatePlan` values
-- generated update plans are executed domain-by-domain through `VdrSnapshotBuilder` and `SnapshotCacheService`
-- `BasicHttpClient` can emit structured HTTP runtime measurements through `IRuntimeMeasurementSink`
-- `VdrSnapshotBuilder` can emit structured snapshot-domain runtime measurements through `IRuntimeMeasurementSink`
-- `PollingService` can emit structured polling and refresh-path runtime measurements through `IRuntimeMeasurementSink`
-- `DaemonRuntime` wires `ConsoleRuntimeLogger` into runtime components
-- `DaemonRuntime` owns `RuntimeDiagnosticsService` and wires it into current measurement producers
-- `DaemonRuntime` owns `RuntimeDiagnosticsController` and exposes diagnostics through `GET /api/runtime`
+## Implemented Change Feed Components
+
+- `SnapshotChangeFeedEntry`
+- `SnapshotChangeFeed`
+- `SnapshotChangeFeedService`
+- `SnapshotChangeFeedJsonSerializer`
+- `SnapshotChangeFeedController`
+
+---
+
+## Implemented API Areas
+
+Snapshot-backed VDR read APIs:
+
+```text
+GET /api/vdr/status
+GET /api/vdr/channels
+GET /api/vdr/timers
+GET /api/vdr/events
+GET /api/vdr/recordings
+```
+
+Snapshot change feed API:
+
+```text
+GET /api/vdr/changes
+```
+
+Existing application APIs:
+
+```text
+GET /api/dashboard
+GET /api/jobs
+GET /api/recordings
+GET /api/metadata
+GET /api/runtime/diagnostics
+```
+
+---
+
+## Architecture Constraints
+
+- keep RESTfulAPI behind the adapter boundary
+- avoid repeated live RESTfulAPI calls per API request
+- keep refresh decisions inside daemon-owned services
+- keep snapshot storage separate from polling logic
+- keep snapshot read services separate from cache ownership
+- keep change feed generation separate from live transport
+- keep logging and diagnostics separate
+- keep API controllers backend-independent
+- preserve future multi-VDR and permission-aware designs
+- preserve future third-party and multi-client API consumers
+
+---
+
+## Next Architecture Step
+
+```text
+Phase 13 - Live Update Transport
+```
+
+Goal:
+
+Expose snapshot change feed updates through a live transport mechanism.
+
+Candidate transports:
+
+- Server Sent Events
+- WebSocket
+
+Rule:
+
+The live transport layer consumes the change feed and must not own snapshot generation, change detection or feed generation.
