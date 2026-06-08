@@ -1,5 +1,33 @@
 # VDR-Suite
 
+## Quick Links
+
+- [Project Status Dashboard](docs/project-status-dashboard.md)
+- [Current Project Status](docs/development/current-status.md)
+- [Roadmap](docs/planning/roadmap.md)
+- [Architecture](docs/architecture/index.md)
+- [ADR](docs/adr/index.md)
+
+---
+
+## Current Release State
+
+```text
+Backend Foundation        ████████████ 100%
+Snapshot Runtime          ████████████ 100%
+Read API                  ████████████ 100%
+Change Feed               ████████████ 100%
+Live Transport            ░░░░░░░░░░░░   0%
+```
+
+Current Phase: Phase 12 Complete
+
+Next Phase: Phase 13 - Live Update Transport
+
+Roadmap Progress: 76.5%
+
+---
+
 VDR-Suite modernizes the Video Disk Recorder ecosystem with a backend service layer, daemon-owned state, snapshot architecture, REST APIs and future frontend integrations.
 
 VDR remains the primary backend domain and source of truth.
@@ -14,13 +42,14 @@ New to VDR-Suite?
 
 Read these documents first:
 
-1. [Project Overview](docs/project-overview.md)
-2. [Documentation Index](docs/index.md)
-3. [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
-4. [Current Project Status](docs/development/current-status.md)
-5. [Roadmap](docs/planning/roadmap.md)
-6. [Architecture Index](docs/architecture/index.md)
-7. [ADR Index](docs/adr/index.md)
+1. [Project Status Dashboard](docs/project-status-dashboard.md)
+2. [Project Overview](docs/project-overview.md)
+3. [Documentation Index](docs/index.md)
+4. [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
+5. [Current Project Status](docs/development/current-status.md)
+6. [Roadmap](docs/planning/roadmap.md)
+7. [Architecture Index](docs/architecture/index.md)
+8. [ADR Index](docs/adr/index.md)
 
 ---
 
@@ -56,6 +85,7 @@ Phase 13 - Live Update Transport
 
 Authoritative project status:
 
+- [Project Status Dashboard](docs/project-status-dashboard.md)
 - [Project Overview](docs/project-overview.md)
 - [Current Project Status](docs/development/current-status.md)
 - [Completed Phases](docs/development/completed-phases.md)
@@ -126,6 +156,7 @@ make test
 
 Primary entry points:
 
+- [Project Status Dashboard](docs/project-status-dashboard.md)
 - [Project Overview](docs/project-overview.md)
 - [Documentation Index](docs/index.md)
 - [Current Project Status](docs/development/current-status.md)
@@ -136,8 +167,6 @@ Primary entry points:
 - [Architecture Documentation](docs/architecture/index.md)
 - [Architecture Decision Records](docs/adr/index.md)
 - [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
-- [Project Principles](docs/introduction/project-principles.md)
-- [Project Glossary](docs/introduction/project-glossary.md)
 - [Build Requirements](docs/build-requirements.md)
 - [Dependencies](docs/dependencies.md)
 - [Database Design](docs/database-design.md)
