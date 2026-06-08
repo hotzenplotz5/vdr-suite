@@ -1,22 +1,18 @@
-# VDR-Suite – Current Project Status
+# VDR-Suite Current Project Status
 
-This document tracks the current verified state of the VDR-Suite project.
+Navigation:
 
-Detailed implementation history, planning, architecture notes and ADRs are maintained in dedicated documents.
+- ../index.md
+- ../project-overview.md
+- index.md
 
 ---
 
-## Start Here
+## Purpose
 
-New contributors should start with:
+This document tracks the current verified state of the VDR-Suite project.
 
-- [README](../../README.md)
-- [Documentation Index](../index.md)
-- [VDR-Suite Vision](../introduction/vdr-suite-vision.md)
-- [Planning Index](../planning/index.md)
-- [Development Index](index.md)
-- [Architecture Index](../architecture/index.md)
-- [ADR Index](../adr/index.md)
+Detailed implementation history, forward planning, architecture notes and ADRs are maintained in dedicated documents.
 
 ---
 
@@ -34,7 +30,9 @@ VDR remains the primary backend domain and source of truth.
 
 ## Current Branch
 
-`phase-2-actions`
+```text
+phase-2-actions
+```
 
 ---
 
@@ -43,7 +41,13 @@ VDR remains the primary backend domain and source of truth.
 Latest completed implementation phase:
 
 ```text
-Phase 12.3: Snapshot Change Feed REST controller
+Phase 12.3 - Snapshot Change Feed REST Controller
+```
+
+Current major phase status:
+
+```text
+Phase 12 complete
 ```
 
 Verified locally with:
@@ -95,10 +99,6 @@ Development:
 - [Current Architecture State](current-architecture-state.md)
 - [Build System State](build-system-state.md)
 - [Current Technical Debt](current-technical-debt.md)
-- [Phase 9 Runtime Validation Result](phase-9-runtime-validation-result.md)
-- [Runtime Diagnostics Status](runtime-diagnostics-status.md)
-- [Runtime Diagnostics Measurement Collection](phase-10-runtime-diagnostics-measurement-collection.md)
-- [Phase 11 Snapshot Read APIs](phase-11-snapshot-read-apis.md)
 
 Planning:
 
@@ -116,17 +116,26 @@ Architecture:
 
 ## Next Planned Phase
 
-### Phase 12.4: Snapshot Change Feed Integration Refinement
+```text
+Phase 13 - Live Update Transport
+```
 
 Goal:
 
-Consolidate snapshot change feed integration and prepare follow-up architecture for future transport layers while keeping the feed model transport-independent.
+Expose snapshot change feed information through a live transport mechanism while preserving the current transport-independent change feed model.
+
+Candidate transports:
+
+- Server Sent Events
+- WebSocket
 
 Constraints:
 
-- no SSE architecture yet
-- no WebSocket architecture yet
-- no frontend coupling
+- live transport consumes the snapshot change feed
+- live transport must not own snapshot generation
+- live transport must not own change detection
+- live transport must not own feed generation
+- no frontend coupling to polling internals
 - keep multi-VDR and backend identity requirements visible
 
 Later planning is tracked in:
