@@ -1,14 +1,17 @@
 # Planning Documentation
 
-← Back to Documentation Index: ../index.md
+Navigation:
+
+- ../index.md
+- ../project-overview.md
 
 ---
 
 ## Purpose
 
-Planning documents describe where VDR-Suite is going.
+Planning documents describe the future direction of VDR-Suite.
 
-Implementation history belongs to development documentation.
+Implementation details and completed work belong in the development section.
 
 ---
 
@@ -18,42 +21,39 @@ Implementation history belongs to development documentation.
 
 - roadmap.md
 
-Describes long-term direction and major architecture phases.
+Long-term architecture and major project phases.
 
-### Planning Milestones
+### Milestones
 
 - milestones.md
 
-Describes upcoming milestones and completion targets.
+Upcoming goals and planned completion targets.
 
 ---
 
 ## Current Position
 
 ```text
-Current major milestone:
-Phase 12 completed
+Current Major Phase
+Phase 12 complete
 
-Next major milestone:
-Phase 13 Live Update Transport
+Next Major Phase
+Phase 13 - Live Update Transport
 ```
 
 ---
 
-## Navigation
+## Documentation Rules
 
-Back to:
-
-- Documentation Index
-- Project Overview
-- Current Project Status
-- Completed Phases
+- Roadmap = long-term direction
+- Milestones = upcoming targets
+- Development = completed implementation history
+- Avoid duplicate phase tracking across documents
 
 ---
 
-## Rules
+## Return Paths
 
-- Roadmap = direction
-- Milestones = future targets
-- Development = implementation history
-- Avoid duplicate phase tracking across documents
+- ../index.md
+- ../project-overview.md
+- ../development/current-status.md
