@@ -36,6 +36,30 @@ Documentation consolidation and roadmap cleanup
 
 ---
 
+## Phase Ladder
+
+```text
+Phase 0-7   Core backend, database, jobs, REST and daemon foundations
+Phase 8     External VDR and RESTfulAPI integration architecture
+Phase 9     Snapshot architecture foundation
+Phase 10    Runtime diagnostics and measurement architecture
+Phase 11    Snapshot read APIs
+Phase 12    Snapshot change feed foundation
+Phase 13    Live update transport
+Phase 14    Multi-VDR backend routing
+Phase 15    Frontend API hardening
+Phase 16    Image and preview stream validation
+```
+
+Current implementation state:
+
+```text
+Phase 12 complete
+Phase 13 next
+```
+
+---
+
 ## Vision
 
 VDR-Suite modernizes the VDR ecosystem through a service-oriented backend architecture.
