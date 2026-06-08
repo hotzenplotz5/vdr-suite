@@ -1,12 +1,12 @@
 # VDR-Suite Current Architecture State
 
-Navigation:
+## Navigation
 
-- ../../README.md
-- ../index.md
-- ../project-overview.md
-- index.md
-- ../architecture/index.md
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+- [Architecture Index](../architecture/index.md)
 
 ---
 
@@ -16,9 +16,9 @@ This document summarizes the current implemented architecture state of VDR-Suite
 
 It complements:
 
-- current-status.md
-- ../architecture/index.md
-- ../planning/roadmap.md
+- [Current Project Status](current-status.md)
+- [Architecture Documentation](../architecture/index.md)
+- [Roadmap](../planning/roadmap.md)
 
 ---
 
@@ -214,3 +214,11 @@ Candidate transports:
 Rule:
 
 The live transport layer consumes the change feed and must not own snapshot generation, change detection or feed generation.
+
+---
+
+## Back
+
+- [Back to README](../../README.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
