@@ -14,12 +14,12 @@ New to VDR-Suite?
 
 Read these documents first:
 
-1. Documentation Index (docs/index.md)
-2. Project Overview (docs/project-overview.md)
+1. Project Overview (docs/project-overview.md)
+2. Documentation Index (docs/index.md)
 3. VDR-Suite Vision (docs/introduction/vdr-suite-vision.md)
 4. Current Project Status (docs/development/current-status.md)
 5. Roadmap (docs/planning/roadmap.md)
-6. Core Platform Model (docs/architecture/vdr-suite-core-platform-model.md)
+6. Architecture Index (docs/architecture/index.md)
 7. ADR Index (docs/adr/index.md)
 
 ---
@@ -41,10 +41,10 @@ Phase 13 - Live Update Transport
 
 Authoritative project status:
 
-- Project Overview
-- Current Project Status
-- Completed Phases
-- Roadmap
+- docs/project-overview.md
+- docs/development/current-status.md
+- docs/development/completed-phases.md
+- docs/planning/roadmap.md
 
 ---
 
@@ -111,13 +111,13 @@ make test
 
 Primary entry points:
 
-- Documentation Index
-- Project Overview
-- Current Project Status
-- Completed Phases
-- Roadmap
-- Architecture Index
-- ADR Index
+- docs/project-overview.md
+- docs/index.md
+- docs/development/current-status.md
+- docs/development/completed-phases.md
+- docs/planning/roadmap.md
+- docs/architecture/index.md
+- docs/adr/index.md
 
 ---
 
