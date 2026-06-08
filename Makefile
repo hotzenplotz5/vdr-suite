@@ -141,6 +141,14 @@ test-runtime-diagnostics-controller:
 		-o /tmp/test_runtime_diagnostics_controller
 	/tmp/test_runtime_diagnostics_controller
 
+test-snapshot-change-feed-controller:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		$(REST_SNAPSHOT_CHANGE_FEED_SRC) \
+		api/rest/tests/test_snapshot_change_feed_controller.cpp \
+		-o /tmp/test_snapshot_change_feed_controller
+	/tmp/test_snapshot_change_feed_controller
+
 test-jobs-controller: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -163,7 +171,7 @@ test-recordings-controller: prepare-test-db
 
 test-metadata-controller: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
-        	$(SQLITE_SRC) \
+         	$(SQLITE_SRC) \
 		core/recordings/src/MetadataRepository.cpp \
 		api/rest/src/MetadataController.cpp \
 		api/rest/tests/test_metadata_controller.cpp \
@@ -258,79 +266,3 @@ daemon:
 		-o /tmp/vdr-suite-daemon
 
 include mk/vdr-tests.mk
-
-test-runtime-diagnostics:
-	$(CXX) $(CXXFLAGS) \
-		core/runtime/tests/test_runtime_diagnostics.cpp \
-		-o /tmp/test_runtime_diagnostics
-	/tmp/test_runtime_diagnostics
-
-test-runtime-diagnostics-service:
-	$(CXX) $(CXXFLAGS) \
-		core/runtime/tests/test_runtime_diagnostics_service.cpp \
-		-o /tmp/test_runtime_diagnostics_service
-	/tmp/test_runtime_diagnostics_service
-
-test-runtime-diagnostics-json-serializer:
-	$(CXX) $(CXXFLAGS) \
-		$(RUNTIME_SRC) \
-		core/runtime/tests/test_runtime_diagnostics_json_serializer.cpp \
-		-o /tmp/test_runtime_diagnostics_json_serializer
-	/tmp/test_runtime_diagnostics_json_serializer
-
-test: test-runtime-diagnostics test-runtime-diagnostics-service test-runtime-diagnostics-json-serializer test-runtime-diagnostics-controller test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-vdr-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-vdr-service test-vdr-overview-service test-vdr-overview-json-serializer test-vdr-snapshot-builder test-polling-service test-vdr-change-state test-vdr-change-event test-change-detection-service test-snapshot-refresh-decision-service test-snapshot-refresh-planner test-snapshot-update-plan test-snapshot-cache test-snapshot-cache-service test-snapshot-access-service test-mock-vdr-adapter test-http-request test-http-response test-http-server-contract test-test-http-server test-mock-http-client test-restful-api-status-mapper test-restful-api-event-mapper test-restful-api-channel-mapper test-restful-api-recording-mapper test-restful-api-timer-mapper test-restful-api-vdr-adapter test-restful-api-change-state-adapter test-vdr-domain-objects
-
-clean:
-	rm -f /tmp/test_database
-	rm -f /tmp/test_recording_repository
-	rm -f /tmp/test_recording_service
-	rm -f /tmp/test_metadata_service
-	rm -f /tmp/test_recording_action
-	rm -f /tmp/test_action_service
-	rm -f /tmp/test_job_service
-	rm -f /tmp/test_job_repository
-	rm -f /tmp/test_job_dashboard_service
-	rm -f /tmp/test_recording_dashboard_service
-	rm -f /tmp/test_dashboard_facade
-	rm -f /tmp/test_dashboard_json_serializer
-	rm -f /tmp/test_dashboard_controller
-	rm -f /tmp/test_jobs_controller
-	rm -f /tmp/test_recordings_controller
-	rm -f /tmp/test_api_router
-	rm -f /tmp/test_workflow_service
-	rm -f /tmp/test_worker_simulator
-	rm -f /tmp/test_rectools_adapter
-	rm -f /tmp/vdr-suite-dashboard
-	rm -f /tmp/vdr-suite-test.db
-	rm -f /tmp/test_metadata_controller
-	rm -f /tmp/test_vdr_config
-	rm -f /tmp/test_external_vdr_adapter
-	rm -f /tmp/test_vdr_adapter_factory
-	rm -f /tmp/test_mock_vdr_adapter
-	rm -f /tmp/test_http_request
-	rm -f /tmp/test_http_response
-	rm -f /tmp/test_mock_http_client
-	rm -f /tmp/test_restful_api_status_mapper
-	rm -f /tmp/test_restful_api_channel_mapper
-	rm -f /tmp/test_restful_api_recording_mapper
-	rm -f /tmp/test_restful_api_vdr_adapter
-	rm -f /tmp/test_restful_api_change_state_adapter
-	rm -f /tmp/test_vdr_domain_objects
-	rm -f /tmp/test_vdr_service
-	rm -f /tmp/test_vdr_overview_service
-	rm -f /tmp/test_vdr_overview_json_serializer
-	rm -f /tmp/test_vdr_snapshot_builder
-	rm -f /tmp/test_polling_service
-	rm -f /tmp/test_vdr_change_state
-	rm -f /tmp/test_vdr_change_event
-	rm -f /tmp/test_change_detection_service
-	rm -f /tmp/test_snapshot_refresh_decision_service
-	rm -f /tmp/test_snapshot_cache
-	rm -f /tmp/test_snapshot_cache_service
-	rm -f /tmp/test_snapshot_access_service
-	rm -f /tmp/test_http_server_contract
-	rm -f /tmp/test_test_http_server
-	rm -f /tmp/test_runtime_diagnostics
-	rm -f /tmp/test_runtime_diagnostics_service
-	rm -f /tmp/test_runtime_diagnostics_json_serializer
-	rm -f /tmp/test_runtime_diagnostics_controller
