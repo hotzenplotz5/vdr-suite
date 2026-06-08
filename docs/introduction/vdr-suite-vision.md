@@ -1,5 +1,13 @@
 # VDR-Suite Vision
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+
+---
+
 ## What is VDR-Suite?
 
 VDR-Suite is a modern service-oriented platform built around VDR.
@@ -350,6 +358,14 @@ Future stream handling should not permanently assume a single backend technology
 The ultimate goal of VDR-Suite is to provide a modern, maintainable and extensible platform around VDR while preserving the strengths, stability and flexibility that have made VDR successful for many years.
 
 VDR-Suite aims to become a modern and extensible platform around VDR while remaining fully VDR-centric.
+
+---
+
+## Back
+
+- [Back to README](../../README.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
 
 ---
 
