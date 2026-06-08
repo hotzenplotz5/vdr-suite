@@ -1,5 +1,14 @@
 # Snapshot Access Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 SnapshotAccessService provides a dedicated read layer above SnapshotCacheService.
@@ -49,3 +58,12 @@ The abstraction allows future support for:
 - lifecycle-aware snapshot selection
 
 without changing controller code.
+
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)
