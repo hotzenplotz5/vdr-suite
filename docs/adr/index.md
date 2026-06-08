@@ -23,6 +23,7 @@ The central documentation index is:
 - [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md)
 - [ADR-0012: Source Capability Model](ADR-0012-source-capability-model.md)
 - [ADR-0013: Permission Model](ADR-0013-permission-model.md)
+- [ADR-0014: Recording Identity Strategy](ADR-0014-recording-identity-strategy.md)
 
 ---
 
