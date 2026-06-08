@@ -349,3 +349,5 @@ clean:
 .PHONY: test-docs
 test-docs:
 	python3 tools/check_docs.py
+	python3 tools/check_doc_indexes.py
+	python3 tools/check_doc_reachability.py
