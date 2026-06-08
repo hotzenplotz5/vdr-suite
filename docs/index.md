@@ -53,6 +53,7 @@ Recommended reading order for new contributors:
 9. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
 10. [ADR Index](adr/index.md)
 11. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
+12. [ADR-0014 Recording Identity Strategy](adr/ADR-0014-recording-identity-strategy.md)
 
 ---
 
@@ -100,6 +101,7 @@ See:
 - [Architecture Index](architecture/index.md)
 - [ADR Index](adr/index.md)
 - [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
+- [ADR-0014 Recording Identity Strategy](adr/ADR-0014-recording-identity-strategy.md)
 - [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
 
 ---
