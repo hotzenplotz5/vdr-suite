@@ -245,6 +245,26 @@ int main()
     assert(vdrStatusResponse.body.find("\"port\":8002")
            != std::string::npos);
 
+    ApiResponse vdrHealthResponse =
+        router.handleGet("/api/vdr/health");
+
+    assert(vdrHealthResponse.statusCode == 200);
+    assert(vdrHealthResponse.contentType == "application/json");
+    assert(vdrHealthResponse.body.find("\"snapshotAvailable\":true")
+           != std::string::npos);
+    assert(vdrHealthResponse.body.find("\"state\":\"cached\"")
+           != std::string::npos);
+    assert(vdrHealthResponse.body.find("\"mode\":\"router-snapshot\"")
+           != std::string::npos);
+    assert(vdrHealthResponse.body.find("\"channelCount\":1")
+           != std::string::npos);
+    assert(vdrHealthResponse.body.find("\"eventCount\":1")
+           != std::string::npos);
+    assert(vdrHealthResponse.body.find("\"timerCount\":1")
+           != std::string::npos);
+    assert(vdrHealthResponse.body.find("\"recordingCount\":1")
+           != std::string::npos);
+
     ApiResponse vdrRecordingsResponse =
         router.handleGet("/api/vdr/recordings");
 
