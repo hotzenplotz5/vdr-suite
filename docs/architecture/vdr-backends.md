@@ -118,6 +118,35 @@ SVDRP is a future control-oriented adapter path. It is especially relevant for o
 
 Both mechanisms remain transport details below `IVdrAdapter`. Higher layers must depend on domain operations and capabilities, not on whether a backend used RESTfulAPI, SVDRP, a plugin bridge or a mock implementation.
 
+## Plugin API Boundary
+
+VDR plugins are valuable integration points, but they are not a stable VDR-Suite domain layer.
+
+VDR plugins run as dynamic libraries inside the VDR process. They are loaded by VDR through plugin loading mechanisms such as `dlopen` and `dlsym`, and they execute in the same process context as the VDR core.
+
+The VDR plugin API exposes extension points such as:
+
+- `Initialize()`
+- `Start()`
+- `Stop()`
+- `Housekeeping()`
+- `MainThreadHook()`
+- `Service()`
+- `SVDRPHelpPages()`
+- `SVDRPCommand()`
+
+Plugin bridges are therefore privileged integration points. Plugin code is not isolated from VDR. A faulty or blocking plugin can block, destabilize or crash the VDR process.
+
+Plugin commands are not public VDR-Suite APIs. Plugin SVDRP commands may be useful as backend-specific integration mechanisms, but they must not be exposed directly as stable Suite-level operations.
+
+Plugin services must be mapped into backend-neutral VDR-Suite domain objects. `void*` service payloads, plugin ABI details, command names, hook semantics and other plugin-internal contracts must not leak above the adapter boundary.
+
+A future `PluginBridgeVdrAdapter` may exist, but only behind `IVdrAdapter`. Higher layers must continue to depend on backend-neutral domain operations, action state and capabilities instead of raw plugin internals.
+
+The VDR-Suite daemon remains outside the VDR process. Plugin bridges may expose capabilities, but not raw plugin internals.
+
+Any plugin-based write or control operation must still pass through VDR-Suite capability, permission, validation and action boundaries before it reaches a plugin bridge.
+
 ## Remote Control and HITK
 
 Remote control integration is not a general application state model.
