@@ -216,3 +216,24 @@ std::string VdrSnapshotReadJsonSerializer::serializeHealth(
 
     return json.str();
 }
+
+std::string VdrSnapshotReadJsonSerializer::serializeSnapshotSummary(
+    bool snapshotAvailable,
+    std::size_t channelCount,
+    std::size_t eventCount,
+    std::size_t timerCount,
+    std::size_t recordingCount) const
+{
+    std::ostringstream json;
+
+    json
+        << "{"
+        << "\"snapshotAvailable\":" << boolToJson(snapshotAvailable) << ","
+        << "\"channelCount\":" << channelCount << ","
+        << "\"eventCount\":" << eventCount << ","
+        << "\"timerCount\":" << timerCount << ","
+        << "\"recordingCount\":" << recordingCount
+        << "}";
+
+    return json.str();
+}

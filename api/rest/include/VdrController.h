@@ -19,6 +19,7 @@ public:
     ApiResponse getOverview();
     ApiResponse getStatus();
     ApiResponse getHealth();
+    ApiResponse getSnapshotSummary();
     ApiResponse getRecordings();
     ApiResponse getTimers();
     ApiResponse getChannels();
