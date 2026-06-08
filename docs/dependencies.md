@@ -1,5 +1,13 @@
 # Dependencies
 
+## Navigation
+
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Project Overview](project-overview.md)
+
+---
+
 ## Phase 0
 
 Keine Laufzeitabhängigkeiten.
@@ -21,3 +29,11 @@ Keine Laufzeitabhängigkeiten.
 ## Phase 4+
 
 Noch nicht definiert.
+
+---
+
+## Back
+
+- [Back to README](../README.md)
+- [Back to Documentation Index](index.md)
+- [Back to Project Overview](project-overview.md)
