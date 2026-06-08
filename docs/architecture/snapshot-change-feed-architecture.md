@@ -1,5 +1,14 @@
 # VDR-Suite – Snapshot Change Feed Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 Status: Proposed for Phase 12.0
 
 This document defines the architecture direction for a read-oriented snapshot change feed.
@@ -171,3 +180,12 @@ It must remain separate from:
 - frontend behavior
 
 This keeps the architecture compatible with future REST polling, SSE, WebSocket and multi-VDR scenarios.
+
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)
