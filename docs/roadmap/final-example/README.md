@@ -29,6 +29,12 @@ They show how snapshot access, REST APIs, runtime diagnostics, eventing, capabil
 VDR-Suite should not only provide APIs.
 
 It should also provide at least one reference client that proves the APIs are useful, coherent and sufficient for real applications.
+## Additional Examples
+
+
+- [Multi Client Vision](multi-client-vision.md)
+
+
 ---
 
 ## Back

@@ -66,6 +66,25 @@ Archived reports and phase-specific documentation.
 - [Architecture Documentation](../architecture/index.md) = architecture documentation
 - [Architecture Decision Records](../adr/index.md) = architecture decisions
 
+## Additional Development Documents
+
+
+- [Phase 8 – Architecture Guardrails](phase-8-architecture-guardrails.md)
+- [Phase 8.37 – VDR Source Model Architecture Status](phase-8.37-vdr-source-model-status.md)
+- [Phase 8.38 – Minimal Source Domain Object Gate](phase-8.38-minimal-source-domain-object-gate.md)
+- [Phase 8.38 – SourceRegistry Architecture](phase-8.38-source-registry-architecture.md)
+- [Phase 8.38 – SourceType Architecture Decision](phase-8.38-source-type-decision.md)
+- [Phase 8.39 – ContentIdentity Architecture](phase-8.39-content-identity-architecture.md)
+- [Phase 8.40 – Action Target Architecture](phase-8.40-action-target-architecture.md)
+- [Phase 8.41 – Platform Action Architecture](phase-8.41-platform-action-architecture.md)
+- [Phase 8.42 – Capability Resolver Architecture](phase-8.42-capability-resolver-architecture.md)
+- [Phase 9.6 – Local RESTfulAPI Integration Test](phase-9.6-local-restfulapi-integration.md)
+- [Phase 9.7 – Local Snapshot Runtime Integration Test](phase-9.7-local-snapshot-runtime-integration.md)
+- [Phase 9.8 – Local Partial Refresh Validation](phase-9.8-local-partial-refresh-validation.md)
+- [Runtime Diagnostics Documentation](runtime-diagnostics/README.md)
+- [Development Status](status/index.md)
+
+
 ---
 
 ## Back

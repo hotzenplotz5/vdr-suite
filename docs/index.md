@@ -111,6 +111,18 @@ Architects:
 2. [Architecture Documentation](architecture/index.md)
 3. [Architecture Decision Records](adr/index.md)
 4. [Roadmap](planning/roadmap.md)
+## Additional Project Documents
+
+
+- [VDR-Suite Project Status Dashboard](project-status-dashboard.md)
+- [VDR-Suite Glossar](project-glossary.md)
+- [VDR-Suite Projektprinzipien](project-principles.md)
+- [Community Documentation](community/index.md)
+- [Introduction](introduction/index.md)
+- [Phase 0 Documentation](phase-0/index.md)
+- [VDR-Suite Forward Roadmap](roadmap/README.md)
+
+
 ---
 
 ## Back
