@@ -14,15 +14,13 @@ New to VDR-Suite?
 
 Read these documents first:
 
-1. [Documentation Index](docs/index.md)
-2. [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
-3. [Current Project Status](docs/development/current-status.md)
-4. [Roadmap](docs/planning/roadmap.md)
-5. [Planning Milestones](docs/planning/milestones.md)
-6. [Core Platform Model](docs/architecture/vdr-suite-core-platform-model.md)
-7. [ADR Index](docs/adr/index.md)
-
-The documentation index is the central entry point for all project documentation.
+1. Documentation Index (docs/index.md)
+2. Project Overview (docs/project-overview.md)
+3. VDR-Suite Vision (docs/introduction/vdr-suite-vision.md)
+4. Current Project Status (docs/development/current-status.md)
+5. Roadmap (docs/planning/roadmap.md)
+6. Core Platform Model (docs/architecture/vdr-suite-core-platform-model.md)
+7. ADR Index (docs/adr/index.md)
 
 ---
 
@@ -31,33 +29,22 @@ The documentation index is the central entry point for all project documentation
 Current implementation status:
 
 ```text
-Phase 11.6 Snapshot Read APIs completed for the current domain set
+Phase 12 completed
+Snapshot Change Feed Foundation completed
 ```
 
 Next major architecture target:
 
 ```text
-Phase 12.0 Snapshot Change Feed Architecture
+Phase 13 - Live Update Transport
 ```
 
 Authoritative project status:
 
-- [Current Project Status](docs/development/current-status.md)
-- [Phase 11 Snapshot Read APIs](docs/development/phase-11-snapshot-read-apis.md)
-
----
-
-## Planning
-
-Project planning documents:
-
-- [Roadmap](docs/planning/roadmap.md)
-- [Planning Milestones](docs/planning/milestones.md)
-- [Development Milestones](docs/development/milestones.md)
-
-The roadmap defines direction.
-
-Milestones define execution targets.
+- Project Overview
+- Current Project Status
+- Completed Phases
+- Roadmap
 
 ---
 
@@ -72,20 +59,6 @@ VDR-Suite is designed to remain:
 - snapshot-oriented
 - prepared for future multi-VDR environments
 - suitable for future API consumers and frontends
-
-Important architecture entry points:
-
-- [Core Platform Model](docs/architecture/vdr-suite-core-platform-model.md)
-- [VDR Backends](docs/architecture/vdr-backends.md)
-- [Snapshot Architecture](docs/architecture/snapshot-architecture.md)
-- [Snapshot Access Architecture](docs/architecture/snapshot-access-architecture.md)
-- [Internal Event Dispatch Architecture](docs/architecture/internal-event-dispatch-architecture.md)
-- [Partial Snapshot Refresh Architecture](docs/architecture/partial-snapshot-refresh-architecture.md)
-
-Long-term decisions:
-
-- [ADR Index](docs/adr/index.md)
-- [Architecture Decision Records](docs/index.md#architecture-decision-records)
 
 ---
 
@@ -104,74 +77,50 @@ The project currently contains foundations for:
 - snapshot cache and snapshot access services
 - change-state polling and partial snapshot refresh planning
 - runtime logging, timing and diagnostics foundations
-- snapshot read APIs and JSON serialization
+- snapshot read APIs
+- snapshot change feed foundation
 
 ---
 
 ## Repository Structure
 
-- `core/sqlite` – SQLite wrapper and database tests
-- `core/recordings` – recordings, metadata, jobs, actions and dashboard services
-- `core/http` – HTTP abstractions, clients, listener and test server
-- `core/vdr` – VDR domain objects, adapters, mappers, overview, polling and snapshot services
-- `core/runtime` – runtime logging and diagnostics foundations
-- `core/daemon` – daemon runtime and lifecycle
-- `api/rest` – REST controllers and API router
-- `apps/dashboard` – dashboard CLI
-- `apps/daemon` – daemon entry point
-- `mk` – modular Makefile include files
-- `docs` – project documentation, planning, architecture notes and ADRs
+- core/sqlite
+- core/recordings
+- core/http
+- core/vdr
+- core/runtime
+- core/daemon
+- api/rest
+- apps/dashboard
+- apps/daemon
+- mk
+- docs
 
 ---
 
 ## Build
-
-Common targets:
 
 ```bash
 make daemon
 make test
 ```
 
-Useful targeted tests:
-
-```bash
-make test-vdr-controller
-make test-vdr-snapshot-builder
-make test-polling-service
-make test-restful-api-vdr-adapter
-make test-runtime-diagnostics
-```
-
-Use `make test` before milestone tags, larger refactoring and runtime architecture changes.
-
 ---
 
 ## Documentation Hub
 
-Primary documentation entry points:
+Primary entry points:
 
-- [Documentation Index](docs/index.md)
-- [Current Project Status](docs/development/current-status.md)
-- [Roadmap](docs/planning/roadmap.md)
-- [Planning Milestones](docs/planning/milestones.md)
-- [Development Milestones](docs/development/milestones.md)
-- [Completed Phases](docs/development/completed-phases.md)
-- [Architecture Documents](docs/index.md#architecture)
-- [ADR Index](docs/adr/index.md)
-- [Architecture Decision Records](docs/index.md#architecture-decision-records)
-
----
-
-## Development Rules
-
-Project-specific rules are documented in:
-
-- [Current Project Status](docs/development/current-status.md)
-- [Phase 0 Development Rules](docs/phase-0/07-development-rules.md)
+- Documentation Index
+- Project Overview
+- Current Project Status
+- Completed Phases
+- Roadmap
+- Architecture Index
+- ADR Index
 
 ---
 
 ## License
 
-See `LICENSE`.
+See LICENSE.
