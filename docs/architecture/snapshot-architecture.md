@@ -1,5 +1,14 @@
 # Snapshot Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Motivation
 
 The original live integration path queried RESTfulAPI directly through service calls.
@@ -178,3 +187,12 @@ Move selected REST endpoints to snapshot-backed responses.
 - Event dispatch must be driven by backend-neutral VdrChangeEvent values.
 - Snapshot consumers must not depend on VDR internal locking.
 - Snapshots are the primary synchronization boundary between VDR and VDR-Suite.
+
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)
