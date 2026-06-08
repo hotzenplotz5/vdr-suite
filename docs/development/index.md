@@ -1,38 +1,45 @@
 # VDR-Suite Development Documentation Index
 
-This document is the entry point for development status documentation.
+Return:
+
+- ../index.md
+- ../project-overview.md
 
 ---
 
 ## Current State
 
-- Current Project Status
-- Current Architecture State
-- Current Technical Debt
-- Build System State
+Authoritative project state:
+
+- current-status.md
+- current-architecture-state.md
+- current-technical-debt.md
+- build-system-state.md
 
 ---
 
-## Milestones and Progress
+## Progress Tracking
 
-- Development Milestones
-- Completed Phases
-- Phase 11 Snapshot Read APIs
+- completed-phases.md
+- milestones.md
 
 ---
 
-## Runtime Diagnostics History
+## Historical Documents
 
-- Runtime Diagnostics Status
-- Phase 9 Runtime Validation Result
-- Phase 10 Runtime Diagnostics Measurement Collection
+Historical implementation records:
+
+- phase-9-runtime-validation-result.md
+- phase-10-runtime-diagnostics-measurement-collection.md
+- phase-11-snapshot-read-apis.md
+- runtime-diagnostics-status.md
 
 ---
 
 ## Rules
 
-Current status remains the authoritative project status document.
+Current Status is the authoritative status document.
 
-Completed phases contain historical implementation milestones.
+Completed Phases contains historical implementation progress.
 
-Architecture documents belong under docs/architecture.
+Architecture documentation belongs under docs/architecture.
