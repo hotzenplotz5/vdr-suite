@@ -1,5 +1,14 @@
 # VDR Backend Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Overview
 
 ```text
@@ -208,3 +217,12 @@ Additional adapters may be added without changes to:
 - Frontend applications
 
 Only the factory and adapter implementation need to change.
+
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)
