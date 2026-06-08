@@ -123,6 +123,8 @@ The implemented read-only snapshot endpoints are:
 ```text
 GET /api/vdr/status
 GET /api/vdr/health
+GET /api/vdr/snapshot
+GET /api/vdr/capabilities
 GET /api/vdr/recordings
 GET /api/vdr/timers
 GET /api/vdr/channels
