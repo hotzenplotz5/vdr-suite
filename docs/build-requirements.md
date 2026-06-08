@@ -1,5 +1,13 @@
 # Build Requirements
 
+## Navigation
+
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Project Overview](project-overview.md)
+
+---
+
 ## Betriebssystem
 
 - Debian 13+
@@ -22,3 +30,11 @@
 - cmake
 - pkg-config
 - doxygen
+
+---
+
+## Back
+
+- [Back to README](../README.md)
+- [Back to Documentation Index](index.md)
+- [Back to Project Overview](project-overview.md)
