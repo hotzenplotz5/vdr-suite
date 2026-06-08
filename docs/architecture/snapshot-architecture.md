@@ -72,6 +72,51 @@ Goals:
 - prepare efficient multi-VDR polling
 - prepare later event dispatch
 
+## VDR Threading and Locking Boundary
+
+The snapshot architecture is also an architectural isolation boundary.
+
+VDR uses its own internal threading, mutex, read-write locking and state-lock infrastructure.
+
+VDR-Suite must not participate in VDR internal locking.
+
+The daemon, services, controllers and future frontends must never depend on:
+
+- VDR lock ordering
+- VDR list ownership
+- VDR state lock lifetimes
+- VDR thread ownership
+- VDR internal synchronization primitives
+
+Required architecture direction:
+
+```text
+VDR
+  ↓
+Adapter
+  ↓
+Backend-neutral domain objects
+  ↓
+Snapshot builder
+  ↓
+Snapshot cache
+  ↓
+Services and APIs
+```
+
+The snapshot must be treated as the synchronization boundary.
+
+Consumers of snapshots should never require VDR locks.
+
+This rule helps:
+
+- avoid lock-order coupling with VDR
+- reduce deadlock risk
+- reduce race-condition risk
+- isolate backend implementation details
+- support future RESTfulAPI, SVDRP and plugin bridge adapters
+- support future multi-VDR federation
+
 ## RESTfulAPI Patch Direction
 
 A RESTfulAPI patch exposes stable change-state counters or equivalent version information for VDR domains.
@@ -131,3 +176,5 @@ Move selected REST endpoints to snapshot-backed responses.
 - SnapshotCacheService is the service boundary for current snapshot storage.
 - Multi-VDR assumptions must remain possible.
 - Event dispatch must be driven by backend-neutral VdrChangeEvent values.
+- Snapshot consumers must not depend on VDR internal locking.
+- Snapshots are the primary synchronization boundary between VDR and VDR-Suite.
