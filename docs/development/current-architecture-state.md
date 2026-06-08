@@ -157,6 +157,7 @@ Snapshot-backed VDR read APIs:
 
 ```text
 GET /api/vdr/status
+GET /api/vdr/health
 GET /api/vdr/channels
 GET /api/vdr/timers
 GET /api/vdr/events

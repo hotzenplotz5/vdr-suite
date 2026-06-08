@@ -114,6 +114,7 @@ Existing snapshot read endpoints remain the canonical way to fetch data:
 
 ```text
 GET /api/vdr/status
+GET /api/vdr/health
 GET /api/vdr/channels
 GET /api/vdr/timers
 GET /api/vdr/events
