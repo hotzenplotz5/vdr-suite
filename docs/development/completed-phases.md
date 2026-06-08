@@ -2,8 +2,10 @@
 
 Navigation:
 
+- ../../README.md
 - ../index.md
 - ../project-overview.md
+- index.md
 - current-status.md
 - ../planning/roadmap.md
 
