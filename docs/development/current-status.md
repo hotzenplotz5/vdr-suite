@@ -10,9 +10,13 @@ Navigation:
 
 ## Purpose
 
-This document tracks the current verified state of the VDR-Suite project.
+This document tracks the current verified technical state of VDR-Suite.
 
-Detailed implementation history, forward planning, architecture notes and ADRs are maintained in dedicated documents.
+It should stay focused on the present state.
+
+Implementation history belongs in completed-phases.md.
+
+Future planning belongs in ../planning/roadmap.md.
 
 ---
 
@@ -73,44 +77,42 @@ Verification summary:
 
 - VDR remains the primary backend domain and source of truth.
 - Snapshot-based read architecture is completed for the current domain set.
-- Runtime diagnostics are integrated through structured runtime measurement boundaries.
-- Snapshot cache, snapshot access and partial refresh planning are in place.
 - Snapshot read APIs are available for status, channels, timers, events and recordings.
+- Snapshot cache, snapshot access and partial refresh planning are in place.
 - Snapshot change feed service, serializer and read-only REST controller are implemented.
+- Runtime diagnostics are integrated through structured runtime measurement boundaries.
 - Future live updates should build on snapshot change information instead of coupling clients to polling internals.
 - Backend identity, federation, capability and lifecycle strategy are documented through ADRs.
 
 ---
 
-## Detail Documents
+## Current Implemented API Areas
 
-Documentation hubs:
+Snapshot-backed VDR read APIs:
 
-- [Documentation Index](../index.md)
-- [Planning Index](../planning/index.md)
-- [Development Index](index.md)
-- [Architecture Index](../architecture/index.md)
-- [ADR Index](../adr/index.md)
+```text
+GET /api/vdr/status
+GET /api/vdr/channels
+GET /api/vdr/timers
+GET /api/vdr/events
+GET /api/vdr/recordings
+```
 
-Development:
+Snapshot change feed API:
 
-- [Completed Phases](completed-phases.md)
-- [Development Milestones](milestones.md)
-- [Current Architecture State](current-architecture-state.md)
-- [Build System State](build-system-state.md)
-- [Current Technical Debt](current-technical-debt.md)
+```text
+GET /api/vdr/changes
+```
 
-Planning:
+Existing application APIs:
 
-- [Roadmap](../planning/roadmap.md)
-- [Planning Milestones](../planning/milestones.md)
-
-Architecture:
-
-- [Snapshot Architecture](../architecture/snapshot-architecture.md)
-- [Snapshot Change Feed Architecture](../architecture/snapshot-change-feed-architecture.md)
-- [VDR Backends](../architecture/vdr-backends.md)
-- [VDR-Suite Core Platform Model](../architecture/vdr-suite-core-platform-model.md)
+```text
+GET /api/dashboard
+GET /api/jobs
+GET /api/recordings
+GET /api/metadata
+GET /api/runtime/diagnostics
+```
 
 ---
 
@@ -138,10 +140,15 @@ Constraints:
 - no frontend coupling to polling internals
 - keep multi-VDR and backend identity requirements visible
 
-Later planning is tracked in:
+---
 
-- [Roadmap](../planning/roadmap.md)
-- [Planning Milestones](../planning/milestones.md)
+## Documentation Hubs
+
+- ../project-overview.md
+- ../planning/index.md
+- ../development/index.md
+- ../architecture/index.md
+- ../adr/index.md
 
 ---
 
