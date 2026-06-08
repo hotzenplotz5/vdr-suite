@@ -49,11 +49,12 @@ Recommended reading order for new contributors:
 5. [Architecture Index](architecture/index.md)
 6. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
 7. [Snapshot Architecture](architecture/snapshot-architecture.md)
-8. [Development Index](development/index.md)
-9. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
-10. [ADR Index](adr/index.md)
-11. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
-12. [ADR-0014 Recording Identity Strategy](adr/ADR-0014-recording-identity-strategy.md)
+8. [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
+9. [Development Index](development/index.md)
+10. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
+11. [ADR Index](adr/index.md)
+12. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
+13. [ADR-0014 Recording Identity Strategy](adr/ADR-0014-recording-identity-strategy.md)
 
 ---
 
@@ -62,20 +63,21 @@ Recommended reading order for new contributors:
 Current completed implementation phase:
 
 ```text
-Phase 11.6: Complete snapshot read domain JSON serialization
+Phase 12.3: Snapshot Change Feed REST controller
 ```
 
 Current transition:
 
 ```text
-Documentation cleanup
-Phase 12.0 Snapshot Change Feed Architecture
+Phase 12.4 Snapshot Change Feed Integration Refinement
+Future transport layers remain separate from the feed model
 ```
 
 Authoritative current state:
 
 - [Current Project Status](development/current-status.md)
 - [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
+- [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
 - [Roadmap](planning/roadmap.md)
 
 ---
@@ -150,6 +152,7 @@ See:
 ## Architecture
 
 - [Architecture Index](architecture/index.md)
+- [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
 
 The architecture index groups the architecture documentation by platform, VDR backend integration, REST/HTTP runtime, snapshot architecture, event/change architecture and historical architecture notes.
 
