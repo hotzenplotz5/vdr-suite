@@ -2,7 +2,7 @@
 
 This document is the central entry point for VDR-Suite documentation.
 
-It links the project vision, current status, roadmap, milestones, architecture documents, ADRs, development notes, diagrams and planning documents.
+It links the project overview, current status, roadmap, milestones, architecture documents, ADRs, development notes, diagrams and planning documents.
 
 ---
 
@@ -10,12 +10,13 @@ It links the project vision, current status, roadmap, milestones, architecture d
 
 ```text
 README
- ├─ Vision
+ ├─ Project Overview
  ├─ Current Status
  ├─ Roadmap
  └─ Documentation Index
 
 Documentation Index
+ ├─ Project Overview
  ├─ Introduction
  ├─ Planning Index
  ├─ Development Index
@@ -33,6 +34,7 @@ Use this index as the authoritative navigation entry for all project documentati
 Read these documents first:
 
 - [README](../README.md)
+- [Project Overview](project-overview.md)
 - [VDR-Suite Vision](introduction/vdr-suite-vision.md)
 - [Current Project Status](development/current-status.md)
 - [Roadmap](planning/roadmap.md)
@@ -42,19 +44,20 @@ Read these documents first:
 
 Recommended reading order for new contributors:
 
-1. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
-2. [Current Project Status](development/current-status.md)
-3. [Planning Index](planning/index.md)
-4. [Roadmap](planning/roadmap.md)
-5. [Architecture Index](architecture/index.md)
-6. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
-7. [Snapshot Architecture](architecture/snapshot-architecture.md)
-8. [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
-9. [Development Index](development/index.md)
-10. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
-11. [ADR Index](adr/index.md)
-12. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
-13. [ADR-0014 Recording Identity Strategy](adr/ADR-0014-recording-identity-strategy.md)
+1. [Project Overview](project-overview.md)
+2. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
+3. [Current Project Status](development/current-status.md)
+4. [Planning Index](planning/index.md)
+5. [Roadmap](planning/roadmap.md)
+6. [Architecture Index](architecture/index.md)
+7. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
+8. [Snapshot Architecture](architecture/snapshot-architecture.md)
+9. [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
+10. [Development Index](development/index.md)
+11. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
+12. [ADR Index](adr/index.md)
+13. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
+14. [ADR-0014 Recording Identity Strategy](adr/ADR-0014-recording-identity-strategy.md)
 
 ---
 
@@ -69,14 +72,16 @@ Phase 12.3: Snapshot Change Feed REST controller
 Current transition:
 
 ```text
-Phase 12.4 Snapshot Change Feed Integration Refinement
-Future transport layers remain separate from the feed model
+Phase 12 complete
+Roadmap cleanup
+Phase 13 Live Update Transport
 ```
 
 Authoritative current state:
 
+- [Project Overview](project-overview.md)
 - [Current Project Status](development/current-status.md)
-- [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
+- [Completed Phases](development/completed-phases.md)
 - [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
 - [Roadmap](planning/roadmap.md)
 
@@ -100,6 +105,7 @@ Potential consumers include:
 
 See:
 
+- [Project Overview](project-overview.md)
 - [Architecture Index](architecture/index.md)
 - [ADR Index](adr/index.md)
 - [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
