@@ -118,6 +118,33 @@ SVDRP is a future control-oriented adapter path. It is especially relevant for o
 
 Both mechanisms remain transport details below `IVdrAdapter`. Higher layers must depend on domain operations and capabilities, not on whether a backend used RESTfulAPI, SVDRP, a plugin bridge or a mock implementation.
 
+## Recording Operation Strategy
+
+Recording operations are domain operations, not filesystem operations.
+
+Move, delete, rename and other write-oriented recording actions must not be executed directly by frontend code, controller code or service-layer filesystem access.
+
+All recording write operations must pass through:
+
+- capability validation
+- permission validation
+- operation validation
+- action boundaries
+- backend adapter boundaries
+
+VDR-native operations are preferred whenever they are available.
+
+Preferred execution order:
+
+1. VDR-native backend functionality
+2. RESTfulAPI integration
+3. SVDRP integration where appropriate
+4. Filesystem or external tool backends
+
+Filesystem-based tools may remain valuable execution backends for operations such as import, repair, shrink, cut, recovery or batch processing. However, such tools are privileged execution mechanisms and must not become the VDR-Suite recording domain model.
+
+Higher layers must not depend on filesystem layouts, shell commands, recording directory structures or backend-specific implementation details.
+
 ## Plugin API Boundary
 
 VDR plugins are valuable integration points, but they are not a stable VDR-Suite domain layer.
