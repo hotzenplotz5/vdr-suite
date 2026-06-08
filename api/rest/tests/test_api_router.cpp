@@ -210,6 +210,14 @@ int main()
 
     assert(metadataResponse.statusCode == 200);
 
+    ApiResponse vdrAliasResponse =
+        router.handleGet("/api/vdr");
+
+    assert(vdrAliasResponse.statusCode == 200);
+    assert(vdrAliasResponse.contentType == "application/json");
+    assert(vdrAliasResponse.body.find("\"status\"")
+           != std::string::npos);
+
     ApiResponse vdrResponse =
         router.handleGet("/api/vdr/overview");
 
@@ -339,6 +347,14 @@ int main()
     assert(vdrEventsResponse.body.find("\"parentalRating\":12")
            != std::string::npos);
 
+    ApiResponse runtimeAliasResponse =
+        router.handleGet("/api/runtime/diagnostics");
+
+    assert(runtimeAliasResponse.statusCode == 200);
+    assert(runtimeAliasResponse.contentType == "application/json");
+    assert(runtimeAliasResponse.body.find("\"measurements\"")
+           != std::string::npos);
+
     ApiResponse runtimeResponse =
         router.handleGet("/api/runtime");
 
@@ -353,6 +369,14 @@ int main()
     assert(runtimeResponse.body.find("\"durationMs\":30")
            != std::string::npos);
     assert(runtimeResponse.body.find("\"durationMs\":10")
+           != std::string::npos);
+
+    ApiResponse runtimeSummaryAliasResponse =
+        router.handleGet("/api/runtime/diagnostics/summary");
+
+    assert(runtimeSummaryAliasResponse.statusCode == 200);
+    assert(runtimeSummaryAliasResponse.contentType == "application/json");
+    assert(runtimeSummaryAliasResponse.body.find("\"summaries\"")
            != std::string::npos);
 
     ApiResponse runtimeSummaryResponse =
