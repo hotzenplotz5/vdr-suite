@@ -1,13 +1,13 @@
 # VDR-Suite Project Overview
 
-Navigation:
+## Navigation
 
-- ../README.md
-- index.md
-- planning/index.md
-- development/index.md
-- architecture/index.md
-- adr/index.md
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Planning Documentation](planning/index.md)
+- [Development Documentation](development/index.md)
+- [Architecture Documentation](architecture/index.md)
+- [Architecture Decision Records](adr/index.md)
 
 ---
 
@@ -34,6 +34,13 @@ Current activity:
 ```text
 Documentation consolidation and roadmap cleanup
 ```
+
+Authoritative status documents:
+
+- [Current Project Status](development/current-status.md)
+- [Current Architecture State](development/current-architecture-state.md)
+- [Completed Phases](development/completed-phases.md)
+- [Roadmap](planning/roadmap.md)
 
 ---
 
@@ -65,12 +72,53 @@ Phase 13 next
 
 Primary navigation targets:
 
-- README.md
-- docs/index.md
-- planning/index.md
-- development/index.md
-- architecture/index.md
-- adr/index.md
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Planning Documentation](planning/index.md)
+- [Development Documentation](development/index.md)
+- [Architecture Documentation](architecture/index.md)
+- [Architecture Decision Records](adr/index.md)
+
+---
+
+## Documentation Areas
+
+### Introduction
+
+- [VDR-Suite Vision](introduction/vdr-suite-vision.md)
+- [Project Principles](introduction/project-principles.md)
+- [Project Glossary](introduction/project-glossary.md)
+
+### Planning
+
+- [Planning Documentation](planning/index.md)
+- [Roadmap](planning/roadmap.md)
+- [Milestones](planning/milestones.md)
+
+### Development
+
+- [Development Documentation](development/index.md)
+- [Current Project Status](development/current-status.md)
+- [Current Architecture State](development/current-architecture-state.md)
+- [Completed Phases](development/completed-phases.md)
+
+### Architecture
+
+- [Architecture Documentation](architecture/index.md)
+- [VDR Backends](architecture/vdr-backends.md)
+- [Snapshot Architecture](architecture/snapshot-architecture.md)
+- [Snapshot Access Architecture](architecture/snapshot-access-architecture.md)
+- [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
+
+### Architecture Decisions
+
+- [Architecture Decision Records](adr/index.md)
+
+### Build and Runtime Basics
+
+- [Build Requirements](build-requirements.md)
+- [Dependencies](dependencies.md)
+- [Database Design](database-design.md)
 
 ---
 
@@ -129,6 +177,8 @@ Goal:
 
 Expose snapshot change feed updates through a real-time transport.
 
+Candidate transports:
+
 - Server Sent Events (SSE)
 - WebSocket
 
@@ -138,7 +188,7 @@ Expose snapshot change feed updates through a real-time transport.
 
 Every documentation area should provide links back to:
 
-- README.md
-- docs/index.md
-- docs/project-overview.md
-- local section index
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Project Overview](project-overview.md)
+- the local section index when applicable
