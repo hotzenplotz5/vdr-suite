@@ -4,6 +4,7 @@
 #include "VdrOverviewService.h"
 #include "VdrSnapshotReadJsonSerializer.h"
 #include "VdrCapabilitySet.h"
+#include "CapabilityResolver.h"
 #include "VdrSnapshotReadService.h"
 
 VdrController::VdrController(
@@ -68,11 +69,32 @@ ApiResponse VdrController::getCapabilities()
 {
     ApiResponse response;
 
+    const VdrCapabilitySet capabilities =
+        VdrCapabilitySet::snapshotReadOnly();
+
+    const CapabilityResolver resolver(capabilities);
+
+    VdrCapabilitySet resolvedCapabilities;
+    resolvedCapabilities.snapshotRead =
+        resolver.supports("snapshot.read");
+    resolvedCapabilities.statusRead =
+        resolver.supports("status.read");
+    resolvedCapabilities.healthRead =
+        resolver.supports("health.read");
+    resolvedCapabilities.recordingsRead =
+        resolver.supports("recordings.read");
+    resolvedCapabilities.timersRead =
+        resolver.supports("timers.read");
+    resolvedCapabilities.channelsRead =
+        resolver.supports("channels.read");
+    resolvedCapabilities.eventsRead =
+        resolver.supports("events.read");
+
     response.statusCode = 200;
     response.contentType = "application/json";
     response.body =
         snapshotReadJsonSerializer_.serializeCapabilities(
-            VdrCapabilitySet::snapshotReadOnly());
+            resolvedCapabilities);
 
     return response;
 }
