@@ -131,6 +131,13 @@ test-snapshot-change-feed:
 		-o /tmp/test_snapshot_change_feed
 	/tmp/test_snapshot_change_feed
 
+test-snapshot-change-feed-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_snapshot_change_feed_json_serializer.cpp \
+		-o /tmp/test_snapshot_change_feed_json_serializer
+	/tmp/test_snapshot_change_feed_json_serializer
+
 test-restful-api-status-mapper:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
