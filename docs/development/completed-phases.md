@@ -1,13 +1,13 @@
 # VDR-Suite Completed Phases
 
-Navigation:
+## Navigation
 
-- ../../README.md
-- ../index.md
-- ../project-overview.md
-- index.md
-- current-status.md
-- ../planning/roadmap.md
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+- [Current Project Status](current-status.md)
+- [Roadmap](../planning/roadmap.md)
 
 ---
 
@@ -17,12 +17,12 @@ This file tracks completed implementation phases.
 
 Current status belongs to:
 
-- current-status.md
+- [Current Project Status](current-status.md)
 
 Future planning belongs to:
 
-- ../planning/roadmap.md
-- ../planning/milestones.md
+- [Roadmap](../planning/roadmap.md)
+- [Milestones](../planning/milestones.md)
 
 ---
 
@@ -216,4 +216,12 @@ Phase 13 remains part of roadmap planning until implementation starts.
 
 See:
 
-- ../planning/roadmap.md
+- [Roadmap](../planning/roadmap.md)
+
+---
+
+## Back
+
+- [Back to README](../../README.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
