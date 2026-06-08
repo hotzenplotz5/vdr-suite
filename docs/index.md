@@ -1,5 +1,13 @@
 # VDR-Suite Documentation
 
+Navigation:
+
+- project-overview.md
+
+---
+
+## Purpose
+
 Main entry point for the complete project documentation.
 
 ---
@@ -36,25 +44,20 @@ Project goals, scope, architecture and long-term direction.
 ### Introduction
 
 - introduction/vdr-suite-vision.md
-- project-principles.md
-- project-glossary.md
+- introduction/project-principles.md
+- introduction/project-glossary.md
 
 Project vision, terminology and guiding principles.
 
 ### Planning
 
 - planning/index.md
-- planning/roadmap.md
-- planning/milestones.md
 
 Future work and implementation planning.
 
 ### Development
 
 - development/index.md
-- development/current-status.md
-- development/completed-phases.md
-- development/milestones.md
 
 Current implementation state and development history.
 
@@ -82,12 +85,12 @@ Build, dependency and database reference material.
 
 ## Navigation Rules
 
-Every major document should provide navigation back to:
+Every section index should provide return paths to:
 
-- index.md
+- docs/index.md
 - project-overview.md
 
-This prevents dead ends and keeps the documentation easy to explore.
+This prevents documentation dead ends.
 
 ---
 
@@ -96,13 +99,13 @@ This prevents dead ends and keeps the documentation easy to explore.
 New contributors:
 
 1. project-overview.md
-2. vdr-suite-vision.md
-3. current-status.md
-4. roadmap.md
+2. introduction/vdr-suite-vision.md
+3. development/current-status.md
+4. planning/roadmap.md
 
 Developers:
 
-1. current-status.md
+1. development/current-status.md
 2. architecture/index.md
 3. adr/index.md
-4. roadmap.md
+4. planning/roadmap.md
