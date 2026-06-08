@@ -1,5 +1,13 @@
 # Database Design
 
+## Navigation
+
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Project Overview](project-overview.md)
+
+---
+
 ## Version
 
 Schema Version 1
@@ -79,24 +87,10 @@ recordings
     |
     +---- artwork
 
-jobs
-    |
-    +---- recordings
-
 ---
 
-## Geplante Erweiterungen
+## Back
 
-Noch nicht Bestandteil von Schema Version 1:
-
-- recording_actions
-- recording_states
-- providers
-- persons
-- genres
-
----
-
-## Architekturregel
-
-Neue Tabellen werden erst eingeführt, wenn ein konkreter Anwendungsfall existiert.
+- [Back to README](../README.md)
+- [Back to Documentation Index](index.md)
+- [Back to Project Overview](project-overview.md)
