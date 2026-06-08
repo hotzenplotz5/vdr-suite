@@ -86,8 +86,6 @@ Primary navigation targets:
 ### Introduction
 
 - [VDR-Suite Vision](introduction/vdr-suite-vision.md)
-- [Project Principles](introduction/project-principles.md)
-- [Project Glossary](introduction/project-glossary.md)
 
 ### Planning
 
