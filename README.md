@@ -24,6 +24,21 @@ Read these documents first:
 
 ---
 
+## Documentation Navigation Rule
+
+The README is the repository entry point.
+
+Every documentation page should provide navigation back to:
+
+- README.md
+- docs/index.md
+- docs/project-overview.md
+- the local section index when applicable
+
+This prevents documentation dead ends and keeps the documentation usable from GitHub, editors and local checkouts.
+
+---
+
 ## Current Development Position
 
 Current implementation status:
