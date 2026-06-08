@@ -10,6 +10,8 @@ Navigation:
 
 Main entry point for the complete project documentation.
 
+All major documentation areas should be reachable from this page.
+
 ---
 
 ## Start Here
@@ -18,6 +20,8 @@ Main entry point for the complete project documentation.
 2. introduction/vdr-suite-vision.md
 3. development/current-status.md
 4. planning/roadmap.md
+5. architecture/index.md
+6. adr/index.md
 
 ---
 
@@ -39,7 +43,7 @@ Phase 13 - Live Update Transport
 
 - project-overview.md
 
-Project goals, scope, architecture and long-term direction.
+Project goals, scope, architecture direction and overall status.
 
 ### Introduction
 
@@ -52,12 +56,17 @@ Project vision, terminology and guiding principles.
 ### Planning
 
 - planning/index.md
+- planning/roadmap.md
+- planning/milestones.md
 
-Future work and implementation planning.
+Future work, priorities and implementation planning.
 
 ### Development
 
 - development/index.md
+- development/current-status.md
+- development/completed-phases.md
+- development/milestones.md
 
 Current implementation state and development history.
 
@@ -83,14 +92,14 @@ Build, dependency and database reference material.
 
 ---
 
-## Navigation Rules
+## Navigation Standard
 
-Every section index should provide return paths to:
+Every documentation index page should provide navigation links back to:
 
 - docs/index.md
 - project-overview.md
 
-This prevents documentation dead ends.
+This prevents documentation dead ends and keeps navigation consistent.
 
 ---
 
@@ -106,6 +115,13 @@ New contributors:
 Developers:
 
 1. development/current-status.md
+2. architecture/index.md
+3. adr/index.md
+4. planning/roadmap.md
+
+Architects:
+
+1. project-overview.md
 2. architecture/index.md
 3. adr/index.md
 4. planning/roadmap.md
