@@ -40,8 +40,6 @@ Planned Next Major Phase:
 
 - [Project Overview](project-overview.md)
 - [VDR-Suite Vision](introduction/vdr-suite-vision.md)
-- [Project Principles](introduction/project-principles.md)
-- [Project Glossary](introduction/project-glossary.md)
 
 ### Planning
 
