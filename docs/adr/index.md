@@ -1,6 +1,6 @@
-# VDR-Suite Architecture Decision Records
+# Architecture Decision Records (ADR)
 
-Return:
+Navigation:
 
 - ../index.md
 - ../project-overview.md
@@ -9,15 +9,13 @@ Return:
 
 ## Purpose
 
-This index lists accepted architecture decision records.
+This section contains long-term architecture decisions.
 
-ADRs document long-term architecture decisions.
-
-Stable architecture overviews belong in:
+Stable architecture descriptions belong in:
 
 - ../architecture/index.md
 
-Current project state belongs in:
+Current implementation progress belongs in:
 
 - ../development/current-status.md
 
@@ -25,79 +23,84 @@ Current project state belongs in:
 
 ## ADR Numbering Policy
 
-The canonical ADR numbering series is:
+Canonical ADR sequence:
 
-```text
 ADR-0001
 ADR-0002
 ...
 ADR-0016
-```
 
-New ADRs must continue this canonical series.
+Next available ADR:
 
-The older lowercase files `adr-001` through `adr-007` are kept as a historical secondary series because they are already part of repository history and may be linked from older documents or commits.
-
-Do not add new ADRs to the lowercase `adr-00x` series.
-
-Next canonical ADR number:
-
-```text
 ADR-0017
-```
+
+The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
+
+No new ADRs should be created in the lowercase series.
 
 ---
 
 ## Canonical ADRs
 
-- [ADR-0001: Monorepo](ADR-0001-monorepo.md)
-- [ADR-0002: SQLite](ADR-0002-sqlite.md)
-- [ADR-0003: REST API](ADR-0003-rest-api.md)
-- [ADR-0004: C++17](ADR-0004-cpp17.md)
-- [ADR-0005: External VDR Integration Strategy](ADR-0005-external-vdr-integration-strategy.md)
-- [ADR-0006: VDR Backend Architecture](ADR-0006-vdr-backend-architecture.md)
-- [ADR-0007: RESTfulAPI Adapter Boundary](ADR-0007-restfulapi-adapter-boundary.md)
-- [ADR-0008: Real HTTP Server Strategy](ADR-0008-real-http-server-strategy.md)
-- [ADR-0009: HTTP Server Factory Strategy](ADR-0009-http-server-factory-strategy.md)
-- [ADR-0010: Library-First VDR Architecture](ADR-0010-library-first-vdr-architecture.md)
-- [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md)
-- [ADR-0012: Source Capability Model](ADR-0012-source-capability-model.md)
-- [ADR-0013: Permission Model](ADR-0013-permission-model.md)
-- [ADR-0014: Recording Identity Strategy](ADR-0014-recording-identity-strategy.md)
-- [ADR-0015: Timer Operation Boundary](ADR-0015-timer-operation-boundary.md)
-- [ADR-0016: Snapshot Change Feed Architecture](ADR-0016-snapshot-change-feed-architecture.md)
+- ADR-0001 Monorepo
+- ADR-0002 SQLite
+- ADR-0003 REST API
+- ADR-0004 C++17
+- ADR-0005 External VDR Integration Strategy
+- ADR-0006 VDR Backend Architecture
+- ADR-0007 RESTfulAPI Adapter Boundary
+- ADR-0008 Real HTTP Server Strategy
+- ADR-0009 HTTP Server Factory Strategy
+- ADR-0010 Library-First VDR Architecture
+- ADR-0011 VDR Source Model Architecture
+- ADR-0012 Source Capability Model
+- ADR-0013 Permission Model
+- ADR-0014 Recording Identity Strategy
+- ADR-0015 Timer Operation Boundary
+- ADR-0016 Snapshot Change Feed Architecture
 
 ---
 
-## Historical Secondary ADR Series
+## Historical ADR Series
 
-These files are retained for historical context.
+Retained for historical reference:
 
-They should not be used as the numbering model for new ADRs.
-
-- [adr-001: Backend Identity Strategy](adr-001-backend-identity-strategy.md)
-- [adr-002: Backend Federation Strategy](adr-002-backend-federation-strategy.md)
-- [adr-003: Backend Capability Strategy](adr-003-backend-capability-strategy.md)
-- [adr-004: Backend Lifecycle Strategy](adr-004-backend-lifecycle-strategy.md)
-- [adr-005: Stream Provider Strategy](adr-005-stream-provider-strategy.md)
-- [adr-006: Internal Event Dispatch Strategy](adr-006-internal-event-dispatch-strategy.md)
-- [adr-007: Platform API Strategy](007-platform-api-strategy.md)
+- adr-001 Backend Identity Strategy
+- adr-002 Backend Federation Strategy
+- adr-003 Backend Capability Strategy
+- adr-004 Backend Lifecycle Strategy
+- adr-005 Stream Provider Strategy
+- adr-006 Internal Event Dispatch Strategy
+- adr-007 Platform API Strategy
 
 ---
 
 ## Superseded ADRs
 
-- [ADR-0011: VDR Source Model](ADR-0011-vdr-source-model.md) - superseded by [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md)
+- ADR-0011 VDR Source Model (superseded)
+
+---
+
+## Related Documents
+
+- ../architecture/index.md
+- ../development/current-architecture-state.md
+- ../development/current-status.md
+- ../planning/roadmap.md
 
 ---
 
 ## Rules
 
-When adding an ADR:
-
 - use the next canonical ADR number
-- add it to the canonical ADR section
-- link stable architecture summaries from docs/architecture
-- keep superseded ADRs visible for history
-- do not create new lowercase adr-00x files
-- avoid duplicate ADR numbers for unrelated decisions
+- keep historical ADRs available
+- keep superseded ADRs visible
+- avoid duplicate ADR numbers
+- link architecture summaries from docs/architecture
+
+---
+
+## Return Paths
+
+- ../index.md
+- ../project-overview.md
