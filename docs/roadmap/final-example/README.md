@@ -16,7 +16,7 @@ The final roadmap example is a visible reference application that demonstrates h
 
 - [Windows OSD Reference Client](windows-osd-reference-client.md)
 - [VDR Live Reimplementation Study](vdr-live-reimplementation-study.md)
-- [Backend Code Savings](backend-code-savings.md)
+- [Backend Code Savings](community-development-model-v2.md)
 
 ## Purpose
 

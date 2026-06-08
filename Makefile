@@ -345,3 +345,7 @@ clean:
 	rm -f /tmp/test_runtime_diagnostics_service
 	rm -f /tmp/test_runtime_diagnostics_json_serializer
 	rm -f /tmp/test_runtime_diagnostics_controller
+
+.PHONY: test-docs
+test-docs:
+	python3 tools/check_docs.py
