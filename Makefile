@@ -355,3 +355,7 @@ test-docs:
 .PHONY: test-architecture
 test-architecture:
 	python3 tools/check_architecture.py
+
+.PHONY: test-phase
+test-phase:
+	python3 tools/check_phase_consistency.py
