@@ -1,9 +1,9 @@
 # VDR-Suite Documentation
 
-Navigation:
+## Navigation
 
-- ../README.md
-- project-overview.md
+- [README](../README.md)
+- [Project Overview](project-overview.md)
 
 ---
 
@@ -15,10 +15,10 @@ Main entry point for all VDR-Suite documentation.
 
 ## Start Here
 
-1. project-overview.md
-2. introduction/vdr-suite-vision.md
-3. development/current-status.md
-4. planning/roadmap.md
+1. [Project Overview](project-overview.md)
+2. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
+3. [Current Project Status](development/current-status.md)
+4. [Roadmap](planning/roadmap.md)
 
 ---
 
@@ -38,23 +38,45 @@ Planned Next Major Phase:
 
 ### Project
 
-- project-overview.md
+- [Project Overview](project-overview.md)
+- [VDR-Suite Vision](introduction/vdr-suite-vision.md)
+- [Project Principles](introduction/project-principles.md)
+- [Project Glossary](introduction/project-glossary.md)
 
 ### Planning
 
-- planning/index.md
+- [Planning Documentation](planning/index.md)
+- [Roadmap](planning/roadmap.md)
+- [Milestones](planning/milestones.md)
 
 ### Development
 
-- development/index.md
+- [Development Documentation](development/index.md)
+- [Current Project Status](development/current-status.md)
+- [Current Architecture State](development/current-architecture-state.md)
+- [Completed Phases](development/completed-phases.md)
+- [Current Technical Debt](development/current-technical-debt.md)
+- [Build System State](development/build-system-state.md)
 
 ### Architecture
 
-- architecture/index.md
+- [Architecture Documentation](architecture/index.md)
+- [Snapshot Architecture](architecture/snapshot-architecture.md)
+- [Snapshot Access Architecture](architecture/snapshot-access-architecture.md)
+- [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
+- [VDR Backends](architecture/vdr-backends.md)
+- [RESTfulAPI Integration](architecture/restfulapi-integration.md)
+- [REST API Runtime](architecture/rest-api-runtime.md)
 
 ### ADRs
 
-- adr/index.md
+- [Architecture Decision Records](adr/index.md)
+
+### Build and Runtime Basics
+
+- [Build Requirements](build-requirements.md)
+- [Dependencies](dependencies.md)
+- [Database Design](database-design.md)
 
 ---
 
@@ -62,10 +84,10 @@ Planned Next Major Phase:
 
 Every documentation page should provide navigation back to:
 
-- README.md
-- docs/index.md
-- docs/project-overview.md
-- local section index
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Project Overview](project-overview.md)
+- the local section index when applicable
 
 ---
 
@@ -73,21 +95,21 @@ Every documentation page should provide navigation back to:
 
 New contributors:
 
-1. project-overview.md
-2. introduction/vdr-suite-vision.md
-3. development/current-status.md
-4. planning/roadmap.md
+1. [Project Overview](project-overview.md)
+2. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
+3. [Current Project Status](development/current-status.md)
+4. [Roadmap](planning/roadmap.md)
 
 Developers:
 
-1. development/current-status.md
-2. architecture/index.md
-3. adr/index.md
-4. planning/roadmap.md
+1. [Current Project Status](development/current-status.md)
+2. [Architecture Documentation](architecture/index.md)
+3. [Architecture Decision Records](adr/index.md)
+4. [Roadmap](planning/roadmap.md)
 
 Architects:
 
-1. project-overview.md
-2. architecture/index.md
-3. adr/index.md
-4. planning/roadmap.md
+1. [Project Overview](project-overview.md)
+2. [Architecture Documentation](architecture/index.md)
+3. [Architecture Decision Records](adr/index.md)
+4. [Roadmap](planning/roadmap.md)
