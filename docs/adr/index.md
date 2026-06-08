@@ -1,10 +1,25 @@
-# VDR-Suite – Architecture Decision Records
+# VDR-Suite Architecture Decision Records
+
+Return:
+
+- ../index.md
+- ../project-overview.md
+
+---
+
+## Purpose
 
 This index lists accepted architecture decision records.
 
-The central documentation index is:
+ADRs document long-term architecture decisions.
 
-- [Documentation Index](../index.md)
+Stable architecture overviews belong in:
+
+- ../architecture/index.md
+
+Current project state belongs in:
+
+- ../development/current-status.md
 
 ---
 
@@ -16,19 +31,19 @@ The canonical ADR numbering series is:
 ADR-0001
 ADR-0002
 ...
-ADR-0015
+ADR-0016
 ```
 
 New ADRs must continue this canonical series.
 
-The older lowercase files `adr-001` through `adr-007` are kept as a historical secondary series because they are already part of the repository history and may be linked from older documents or commits.
+The older lowercase files `adr-001` through `adr-007` are kept as a historical secondary series because they are already part of repository history and may be linked from older documents or commits.
 
 Do not add new ADRs to the lowercase `adr-00x` series.
 
 Next canonical ADR number:
 
 ```text
-ADR-0016
+ADR-0017
 ```
 
 ---
@@ -50,6 +65,7 @@ ADR-0016
 - [ADR-0013: Permission Model](ADR-0013-permission-model.md)
 - [ADR-0014: Recording Identity Strategy](ADR-0014-recording-identity-strategy.md)
 - [ADR-0015: Timer Operation Boundary](ADR-0015-timer-operation-boundary.md)
+- [ADR-0016: Snapshot Change Feed Architecture](ADR-0016-snapshot-change-feed-architecture.md)
 
 ---
 
@@ -71,17 +87,17 @@ They should not be used as the numbering model for new ADRs.
 
 ## Superseded ADRs
 
-- [ADR-0011: VDR Source Model](ADR-0011-vdr-source-model.md) – superseded by [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md)
+- [ADR-0011: VDR Source Model](ADR-0011-vdr-source-model.md) - superseded by [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md)
 
 ---
 
-## Maintenance Rules
+## Rules
 
 When adding an ADR:
 
-- use the next canonical `ADR-00xx` number
+- use the next canonical ADR number
 - add it to the canonical ADR section
-- link it from [Documentation Index](../index.md) when it is relevant to current architecture
-- keep superseded ADRs visible for history, but mark them clearly
-- do not create new lowercase `adr-00x` files
-- avoid creating duplicate ADR numbers for unrelated decisions
+- link stable architecture summaries from docs/architecture
+- keep superseded ADRs visible for history
+- do not create new lowercase adr-00x files
+- avoid duplicate ADR numbers for unrelated decisions
