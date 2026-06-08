@@ -2,6 +2,7 @@
 
 Navigation:
 
+- ../../README.md
 - ../index.md
 - ../project-overview.md
 - index.md
