@@ -14,6 +14,9 @@ REST_VDR_SRC := \
 REST_RUNTIME_SRC := \
         api/rest/src/RuntimeDiagnosticsController.cpp
 
+REST_SNAPSHOT_CHANGE_FEED_SRC := \
+        api/rest/src/SnapshotChangeFeedController.cpp
+
 REST_ROUTER_SRC := \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
