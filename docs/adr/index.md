@@ -8,7 +8,32 @@ The central documentation index is:
 
 ---
 
-## Foundation ADRs
+## ADR Numbering Policy
+
+The canonical ADR numbering series is:
+
+```text
+ADR-0001
+ADR-0002
+...
+ADR-0014
+```
+
+New ADRs must continue this canonical series.
+
+The older lowercase files `adr-001` through `adr-007` are kept as a historical secondary series because they are already part of the repository history and may be linked from older documents or commits.
+
+Do not add new ADRs to the lowercase `adr-00x` series.
+
+Next canonical ADR number:
+
+```text
+ADR-0015
+```
+
+---
+
+## Canonical ADRs
 
 - [ADR-0001: Monorepo](ADR-0001-monorepo.md)
 - [ADR-0002: SQLite](ADR-0002-sqlite.md)
@@ -27,19 +52,23 @@ The central documentation index is:
 
 ---
 
-## Future-Facing Backend ADRs
+## Historical Secondary ADR Series
 
-- [ADR-001: Backend Identity Strategy](adr-001-backend-identity-strategy.md)
-- [ADR-002: Backend Federation Strategy](adr-002-backend-federation-strategy.md)
-- [ADR-003: Backend Capability Strategy](adr-003-backend-capability-strategy.md)
-- [ADR-004: Backend Lifecycle Strategy](adr-004-backend-lifecycle-strategy.md)
-- [ADR-005: Stream Provider Strategy](adr-005-stream-provider-strategy.md)
-- [ADR-006: Internal Event Dispatch Strategy](adr-006-internal-event-dispatch-strategy.md)
-- [ADR-007: Platform API Strategy](007-platform-api-strategy.md)
+These files are retained for historical context.
+
+They should not be used as the numbering model for new ADRs.
+
+- [adr-001: Backend Identity Strategy](adr-001-backend-identity-strategy.md)
+- [adr-002: Backend Federation Strategy](adr-002-backend-federation-strategy.md)
+- [adr-003: Backend Capability Strategy](adr-003-backend-capability-strategy.md)
+- [adr-004: Backend Lifecycle Strategy](adr-004-backend-lifecycle-strategy.md)
+- [adr-005: Stream Provider Strategy](adr-005-stream-provider-strategy.md)
+- [adr-006: Internal Event Dispatch Strategy](adr-006-internal-event-dispatch-strategy.md)
+- [adr-007: Platform API Strategy](007-platform-api-strategy.md)
 
 ---
 
-## Historical / Superseded ADRs
+## Superseded ADRs
 
 - [ADR-0011: VDR Source Model](ADR-0011-vdr-source-model.md) – superseded by [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md)
 
@@ -49,7 +78,9 @@ The central documentation index is:
 
 When adding an ADR:
 
-- add it to this index
+- use the next canonical `ADR-00xx` number
+- add it to the canonical ADR section
 - link it from [Documentation Index](../index.md) when it is relevant to current architecture
 - keep superseded ADRs visible for history, but mark them clearly
+- do not create new lowercase `adr-00x` files
 - avoid creating duplicate ADR numbers for unrelated decisions
