@@ -94,6 +94,8 @@ Snapshot-backed VDR read APIs:
 ```text
 GET /api/vdr/status
 GET /api/vdr/health
+GET /api/vdr/snapshot
+GET /api/vdr/capabilities
 GET /api/vdr/channels
 GET /api/vdr/timers
 GET /api/vdr/events
@@ -169,6 +171,17 @@ Constraints:
 - Before every push, run `git fetch` and inspect `git log --oneline --decorate HEAD..origin/phase-2-actions`.
 
 ---
+
+### Phase 13.5 / 13.6: Capability Resolver Foundation
+
+Implemented:
+
+- VdrCapabilitySet
+- ICapabilityResolver
+- CapabilityResolver
+- GET /api/vdr/capabilities
+
+The capabilities endpoint now uses the capability resolver instead of directly exposing a raw capability set.
 
 ## Back
 

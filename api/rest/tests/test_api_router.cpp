@@ -245,6 +245,42 @@ int main()
     assert(vdrStatusResponse.body.find("\"port\":8002")
            != std::string::npos);
 
+    ApiResponse vdrCapabilitiesResponse =
+        router.handleGet("/api/vdr/capabilities");
+
+    assert(vdrCapabilitiesResponse.statusCode == 200);
+    assert(vdrCapabilitiesResponse.contentType == "application/json");
+    assert(vdrCapabilitiesResponse.body.find("\"snapshotRead\":true")
+           != std::string::npos);
+    assert(vdrCapabilitiesResponse.body.find("\"statusRead\":true")
+           != std::string::npos);
+    assert(vdrCapabilitiesResponse.body.find("\"healthRead\":true")
+           != std::string::npos);
+    assert(vdrCapabilitiesResponse.body.find("\"recordingsRead\":true")
+           != std::string::npos);
+    assert(vdrCapabilitiesResponse.body.find("\"timersRead\":true")
+           != std::string::npos);
+    assert(vdrCapabilitiesResponse.body.find("\"channelsRead\":true")
+           != std::string::npos);
+    assert(vdrCapabilitiesResponse.body.find("\"eventsRead\":true")
+           != std::string::npos);
+
+    ApiResponse vdrSnapshotResponse =
+        router.handleGet("/api/vdr/snapshot");
+
+    assert(vdrSnapshotResponse.statusCode == 200);
+    assert(vdrSnapshotResponse.contentType == "application/json");
+    assert(vdrSnapshotResponse.body.find("\"snapshotAvailable\":true")
+           != std::string::npos);
+    assert(vdrSnapshotResponse.body.find("\"channelCount\":1")
+           != std::string::npos);
+    assert(vdrSnapshotResponse.body.find("\"eventCount\":1")
+           != std::string::npos);
+    assert(vdrSnapshotResponse.body.find("\"timerCount\":1")
+           != std::string::npos);
+    assert(vdrSnapshotResponse.body.find("\"recordingCount\":1")
+           != std::string::npos);
+
     ApiResponse vdrHealthResponse =
         router.handleGet("/api/vdr/health");
 

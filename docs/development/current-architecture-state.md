@@ -158,6 +158,8 @@ Snapshot-backed VDR read APIs:
 ```text
 GET /api/vdr/status
 GET /api/vdr/health
+GET /api/vdr/snapshot
+GET /api/vdr/capabilities
 GET /api/vdr/channels
 GET /api/vdr/timers
 GET /api/vdr/events
@@ -217,6 +219,16 @@ Rule:
 The live transport layer consumes the change feed and must not own snapshot generation, change detection or feed generation.
 
 ---
+
+### Capability Resolver Foundation
+
+The VDR capability layer now has an implemented foundation:
+
+- VdrCapabilitySet: capability data
+- ICapabilityResolver: resolver boundary
+- CapabilityResolver: supports(capability)
+
+GET /api/vdr/capabilities is wired through CapabilityResolver.
 
 ## Back
 
