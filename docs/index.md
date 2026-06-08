@@ -17,8 +17,8 @@ README
 
 Documentation Index
  ├─ Introduction
- ├─ Planning
- ├─ Development Status
+ ├─ Planning Index
+ ├─ Development Index
  ├─ Architecture Index
  ├─ ADR Index
  └─ Build / Database
@@ -44,14 +44,15 @@ Recommended reading order for new contributors:
 
 1. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
 2. [Current Project Status](development/current-status.md)
-3. [Roadmap](planning/roadmap.md)
-4. [Planning Milestones](planning/milestones.md)
+3. [Planning Index](planning/index.md)
+4. [Roadmap](planning/roadmap.md)
 5. [Architecture Index](architecture/index.md)
 6. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
 7. [Snapshot Architecture](architecture/snapshot-architecture.md)
-8. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
-9. [ADR Index](adr/index.md)
-10. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
+8. [Development Index](development/index.md)
+9. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
+10. [ADR Index](adr/index.md)
+11. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
 
 ---
 
@@ -122,6 +123,7 @@ See:
 
 ## Planning
 
+- [Planning Index](planning/index.md)
 - [Roadmap](planning/roadmap.md)
 - [Planning Milestones](planning/milestones.md)
 
@@ -129,6 +131,7 @@ See:
 
 ## Development Status
 
+- [Development Index](development/index.md)
 - [Current Project Status](development/current-status.md)
 - [Completed Phases](development/completed-phases.md)
 - [Development Milestones](development/milestones.md)
@@ -171,6 +174,8 @@ The ADR index lists all foundation, future-facing and superseded ADRs.
 When adding new documentation:
 
 - add the document to this index
+- update the planning index when adding planning documents
+- update the development index when adding development documents
 - update the architecture index when adding architecture documents
 - update the ADR index when adding or superseding ADRs
 - keep README and roadmap linked
