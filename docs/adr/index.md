@@ -1,11 +1,11 @@
 # Architecture Decision Records (ADR)
 
-Navigation:
+## Navigation
 
-- ../../README.md
-- ../index.md
-- ../project-overview.md
-- index.md
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
 
 ---
 
@@ -15,11 +15,11 @@ This section contains long-term architecture decisions.
 
 Stable architecture descriptions belong in:
 
-- ../architecture/index.md
+- [Architecture Documentation](../architecture/index.md)
 
 Current implementation progress belongs in:
 
-- ../development/current-status.md
+- [Current Project Status](../development/current-status.md)
 
 ---
 
@@ -85,10 +85,10 @@ Retained for historical reference:
 
 ## Related Documents
 
-- ../architecture/index.md
-- ../development/current-architecture-state.md
-- ../development/current-status.md
-- ../planning/roadmap.md
+- [Architecture Documentation](../architecture/index.md)
+- [Current Architecture State](../development/current-architecture-state.md)
+- [Current Project Status](../development/current-status.md)
+- [Roadmap](../planning/roadmap.md)
 
 ---
 
@@ -102,9 +102,8 @@ Retained for historical reference:
 
 ---
 
-## Return Paths
+## Back
 
-- ../../README.md
-- ../index.md
-- ../project-overview.md
-- index.md
+- [Back to README](../../README.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
