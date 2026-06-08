@@ -1,6 +1,7 @@
 #include "VdrSnapshotReadJsonSerializer.h"
 
 #include <sstream>
+#include <cstddef>
 
 static const char* boolToJson(
     bool value)
@@ -186,6 +187,32 @@ std::string VdrSnapshotReadJsonSerializer::serializeEvents(
     }
 
     json << "]}";
+
+    return json.str();
+}
+
+std::string VdrSnapshotReadJsonSerializer::serializeHealth(
+    bool snapshotAvailable,
+    const VdrStatus& status,
+    std::size_t channelCount,
+    std::size_t eventCount,
+    std::size_t timerCount,
+    std::size_t recordingCount) const
+{
+    std::ostringstream json;
+
+    json
+        << "{"
+        << "\"snapshotAvailable\":" << boolToJson(snapshotAvailable) << ","
+        << "\"state\":\"" << status.state << "\","
+        << "\"mode\":\"" << status.mode << "\","
+        << "\"host\":\"" << status.host << "\","
+        << "\"port\":" << status.port << ","
+        << "\"channelCount\":" << channelCount << ","
+        << "\"eventCount\":" << eventCount << ","
+        << "\"timerCount\":" << timerCount << ","
+        << "\"recordingCount\":" << recordingCount
+        << "}";
 
     return json.str();
 }

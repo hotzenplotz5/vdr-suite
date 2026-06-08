@@ -56,6 +56,11 @@ ApiResponse ApiRouter::handleGet(
         return vdrController_.getStatus();
     }
 
+    if (path == "/api/vdr/health")
+    {
+        return vdrController_.getHealth();
+    }
+
     if (path == "/api/vdr/recordings")
     {
         return vdrController_.getRecordings();

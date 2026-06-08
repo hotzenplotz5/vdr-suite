@@ -45,6 +45,24 @@ ApiResponse VdrController::getStatus()
     return response;
 }
 
+ApiResponse VdrController::getHealth()
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        snapshotReadJsonSerializer_.serializeHealth(
+            snapshotReadService_.hasSnapshot(),
+            snapshotReadService_.getStatus(),
+            snapshotReadService_.getChannels().size(),
+            snapshotReadService_.getEvents().size(),
+            snapshotReadService_.getTimers().size(),
+            snapshotReadService_.getRecordings().size());
+
+    return response;
+}
+
 ApiResponse VdrController::getRecordings()
 {
     ApiResponse response;

@@ -26,4 +26,12 @@ public:
 
     std::string serializeEvents(
         const std::vector<VdrEvent>& events) const;
+
+    std::string serializeHealth(
+        bool snapshotAvailable,
+        const VdrStatus& status,
+        std::size_t channelCount,
+        std::size_t eventCount,
+        std::size_t timerCount,
+        std::size_t recordingCount) const;
 };
