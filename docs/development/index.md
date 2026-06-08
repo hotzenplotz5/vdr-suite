@@ -1,6 +1,6 @@
-# VDR-Suite Development Documentation Index
+# Development Documentation
 
-Return:
+Navigation:
 
 - ../index.md
 - ../project-overview.md
@@ -9,7 +9,7 @@ Return:
 
 ## Current State
 
-Authoritative project state:
+Authoritative project status:
 
 - current-status.md
 - current-architecture-state.md
@@ -21,13 +21,21 @@ Authoritative project state:
 ## Progress Tracking
 
 - completed-phases.md
-- milestones.md
+
+Historical implementation progress.
+
+---
+
+## Planning References
+
+- ../planning/roadmap.md
+- ../planning/milestones.md
+
+Future work and long-term direction.
 
 ---
 
 ## Historical Documents
-
-Historical implementation records:
 
 - phase-9-runtime-validation-result.md
 - phase-10-runtime-diagnostics-measurement-collection.md
@@ -36,10 +44,17 @@ Historical implementation records:
 
 ---
 
-## Rules
+## Documentation Rules
 
-Current Status is the authoritative status document.
+- current-status.md is the authoritative project status
+- completed-phases.md contains implementation history
+- roadmap.md contains future direction
+- milestones.md contains upcoming targets
+- architecture documents belong under docs/architecture
 
-Completed Phases contains historical implementation progress.
+---
 
-Architecture documentation belongs under docs/architecture.
+## Return Paths
+
+- ../index.md
+- ../project-overview.md
