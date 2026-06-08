@@ -16,7 +16,7 @@ The canonical ADR numbering series is:
 ADR-0001
 ADR-0002
 ...
-ADR-0014
+ADR-0015
 ```
 
 New ADRs must continue this canonical series.
@@ -28,7 +28,7 @@ Do not add new ADRs to the lowercase `adr-00x` series.
 Next canonical ADR number:
 
 ```text
-ADR-0015
+ADR-0016
 ```
 
 ---
@@ -49,6 +49,7 @@ ADR-0015
 - [ADR-0012: Source Capability Model](ADR-0012-source-capability-model.md)
 - [ADR-0013: Permission Model](ADR-0013-permission-model.md)
 - [ADR-0014: Recording Identity Strategy](ADR-0014-recording-identity-strategy.md)
+- [ADR-0015: Timer Operation Boundary](ADR-0015-timer-operation-boundary.md)
 
 ---
 
