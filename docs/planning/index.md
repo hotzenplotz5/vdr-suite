@@ -1,45 +1,59 @@
-# VDR-Suite Planning Documentation Index
+# Planning Documentation
 
-This document is the entry point for planning documentation.
-
-The central documentation index is:
-
-- [Documentation Index](../index.md)
+← Back to Documentation Index: ../index.md
 
 ---
 
-## Roadmap
+## Purpose
 
-- [Roadmap](roadmap.md)
+Planning documents describe where VDR-Suite is going.
 
-The roadmap describes the current development direction and planned future phases.
-
----
-
-## Planning Milestones
-
-- [Planning Milestones](milestones.md)
-
-Planning milestones describe future milestone targets and completion criteria.
+Implementation history belongs to development documentation.
 
 ---
 
-## Current Planning Position
+## Planning Documents
 
-Current transition:
+### Roadmap
+
+- roadmap.md
+
+Describes long-term direction and major architecture phases.
+
+### Planning Milestones
+
+- milestones.md
+
+Describes upcoming milestones and completion targets.
+
+---
+
+## Current Position
 
 ```text
-Phase 11.6 complete
-Documentation cleanup active
-Phase 12.0 Snapshot Change Feed Architecture planned
+Current major milestone:
+Phase 12 completed
+
+Next major milestone:
+Phase 13 Live Update Transport
 ```
 
 ---
 
-## Planning Rules
+## Navigation
 
-- Keep roadmap focused on direction.
-- Keep planning milestones focused on future targets.
-- Keep implementation history in development documentation.
-- Do not duplicate long phase histories here.
-- Update this index when adding new planning documents.
+Back to:
+
+- Documentation Index
+- Project Overview
+- Current Project Status
+- Completed Phases
+
+---
+
+## Rules
+
+- Roadmap = direction
+- Milestones = future targets
+- Development = implementation history
+- Avoid duplicate phase tracking across documents
