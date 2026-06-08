@@ -91,8 +91,6 @@ Capability System
 Federation Foundations
 ```
 
-```
-
 Authoritative project status:
 
 - [Project Status Dashboard](docs/project-status-dashboard.md)
