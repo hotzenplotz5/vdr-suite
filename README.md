@@ -14,13 +14,13 @@ New to VDR-Suite?
 
 Read these documents first:
 
-1. Project Overview (docs/project-overview.md)
-2. Documentation Index (docs/index.md)
-3. VDR-Suite Vision (docs/introduction/vdr-suite-vision.md)
-4. Current Project Status (docs/development/current-status.md)
-5. Roadmap (docs/planning/roadmap.md)
-6. Architecture Index (docs/architecture/index.md)
-7. ADR Index (docs/adr/index.md)
+1. [Project Overview](docs/project-overview.md)
+2. [Documentation Index](docs/index.md)
+3. [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
+4. [Current Project Status](docs/development/current-status.md)
+5. [Roadmap](docs/planning/roadmap.md)
+6. [Architecture Index](docs/architecture/index.md)
+7. [ADR Index](docs/adr/index.md)
 
 ---
 
@@ -30,9 +30,9 @@ The README is the repository entry point.
 
 Every documentation page should provide navigation back to:
 
-- README.md
-- docs/index.md
-- docs/project-overview.md
+- [README](README.md)
+- [Documentation Index](docs/index.md)
+- [Project Overview](docs/project-overview.md)
 - the local section index when applicable
 
 This prevents documentation dead ends and keeps the documentation usable from GitHub, editors and local checkouts.
@@ -56,10 +56,10 @@ Phase 13 - Live Update Transport
 
 Authoritative project status:
 
-- docs/project-overview.md
-- docs/development/current-status.md
-- docs/development/completed-phases.md
-- docs/planning/roadmap.md
+- [Project Overview](docs/project-overview.md)
+- [Current Project Status](docs/development/current-status.md)
+- [Completed Phases](docs/development/completed-phases.md)
+- [Roadmap](docs/planning/roadmap.md)
 
 ---
 
@@ -99,17 +99,17 @@ The project currently contains foundations for:
 
 ## Repository Structure
 
-- core/sqlite
-- core/recordings
-- core/http
-- core/vdr
-- core/runtime
-- core/daemon
-- api/rest
-- apps/dashboard
-- apps/daemon
-- mk
-- docs
+- `core/sqlite`
+- `core/recordings`
+- `core/http`
+- `core/vdr`
+- `core/runtime`
+- `core/daemon`
+- `api/rest`
+- `apps/dashboard`
+- `apps/daemon`
+- `mk`
+- `docs`
 
 ---
 
@@ -126,16 +126,24 @@ make test
 
 Primary entry points:
 
-- docs/project-overview.md
-- docs/index.md
-- docs/development/current-status.md
-- docs/development/completed-phases.md
-- docs/planning/roadmap.md
-- docs/architecture/index.md
-- docs/adr/index.md
+- [Project Overview](docs/project-overview.md)
+- [Documentation Index](docs/index.md)
+- [Current Project Status](docs/development/current-status.md)
+- [Completed Phases](docs/development/completed-phases.md)
+- [Roadmap](docs/planning/roadmap.md)
+- [Development Documentation](docs/development/index.md)
+- [Planning Documentation](docs/planning/index.md)
+- [Architecture Documentation](docs/architecture/index.md)
+- [Architecture Decision Records](docs/adr/index.md)
+- [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
+- [Project Principles](docs/introduction/project-principles.md)
+- [Project Glossary](docs/introduction/project-glossary.md)
+- [Build Requirements](docs/build-requirements.md)
+- [Dependencies](docs/dependencies.md)
+- [Database Design](docs/database-design.md)
 
 ---
 
 ## License
 
-See LICENSE.
+See [LICENSE](LICENSE).
