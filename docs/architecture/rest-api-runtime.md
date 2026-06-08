@@ -1,5 +1,14 @@
 # REST API Runtime Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Overview
 
 The REST API layer is responsible for exposing VDR-Suite functionality to external clients.
@@ -160,3 +169,12 @@ Possible future implementations:
 * Runtime ownership clarity
 * Future HTTP server flexibility
 * Separation of transport and business logic
+
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)
