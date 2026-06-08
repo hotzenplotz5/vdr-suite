@@ -45,7 +45,8 @@ ApiResponse ApiRouter::handleGet(
         return metadataController_.getMetadata();
     }
 
-    if (path == "/api/vdr/overview")
+    if (path == "/api/vdr" ||
+        path == "/api/vdr/overview")
     {
         return vdrController_.getOverview();
     }
@@ -75,12 +76,14 @@ ApiResponse ApiRouter::handleGet(
         return vdrController_.getEvents();
     }
 
-    if (path == "/api/runtime/summary")
+    if (path == "/api/runtime/summary" ||
+        path == "/api/runtime/diagnostics/summary")
     {
         return runtimeDiagnosticsController_.getRuntimeDiagnosticsSummary();
     }
 
-    if (path == "/api/runtime")
+    if (path == "/api/runtime" ||
+        path == "/api/runtime/diagnostics")
     {
         return runtimeDiagnosticsController_.getRuntimeDiagnostics();
     }
