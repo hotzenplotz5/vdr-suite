@@ -2,6 +2,7 @@
 
 Navigation:
 
+- ../README.md
 - index.md
 - planning/index.md
 - development/index.md
@@ -60,6 +61,19 @@ Phase 13 next
 
 ---
 
+## Documentation Navigation
+
+Primary navigation targets:
+
+- README.md
+- docs/index.md
+- planning/index.md
+- development/index.md
+- architecture/index.md
+- adr/index.md
+
+---
+
 ## Vision
 
 VDR-Suite modernizes the VDR ecosystem through a service-oriented backend architecture.
@@ -107,23 +121,6 @@ VDR remains the authoritative backend.
 
 ---
 
-## Progress Overview
-
-```text
-Backend Foundation        95 percent
-Snapshot Runtime         100 percent
-Snapshot Read APIs        90 percent
-Snapshot Change Feed     100 percent
-Live Update Transport      0 percent
-Multi-VDR Architecture    15 percent
-Frontend Contracts        25 percent
-Authentication             0 percent
-```
-
-These values are orientation estimates only.
-
----
-
 ## Next Major Step
 
 ### Phase 13 - Live Update Transport
@@ -132,42 +129,16 @@ Goal:
 
 Expose snapshot change feed updates through a real-time transport.
 
-Candidate technologies:
-
 - Server Sent Events (SSE)
 - WebSocket
-
-Architecture rule:
-
-The transport layer consumes snapshot change feed events and does not own change detection or snapshot generation.
-
----
-
-## Documentation Hubs
-
-### Planning
-
-- planning/index.md
-
-### Development
-
-- development/index.md
-
-### Architecture
-
-- architecture/index.md
-
-### ADRs
-
-- adr/index.md
 
 ---
 
 ## Documentation Rule
 
-Use:
+Every documentation area should provide links back to:
 
-- project-overview.md for orientation
-- development/current-status.md for verified status
-- development/completed-phases.md for history
-- planning/roadmap.md for future planning
+- README.md
+- docs/index.md
+- docs/project-overview.md
+- local section index
