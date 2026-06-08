@@ -1,5 +1,14 @@
 # VDR Domain Model
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 This document defines the backend-neutral VDR domain model used by VDR-Suite.
@@ -14,32 +23,24 @@ RESTfulAPI JSON structures, SVDRP protocol details and plugin-specific payloads 
 
 ```text
 VDR backend
-↓
-Adapter implementation
-↓
-VDR domain objects
-↓
-IVdrAdapter
-↓
-daemon / services / frontends
+-> Adapter implementation
+-> VDR domain objects
+-> IVdrAdapter
+-> daemon / services / frontends
 ```
 
 Examples:
 
 ```text
 RESTfulAPI JSON
-↓
-RestfulApiVdrAdapter
-↓
-VdrStatus / VdrChannel / VdrEvent / VdrTimer / VdrRecording
+-> RestfulApiVdrAdapter
+-> VdrStatus / VdrChannel / VdrEvent / VdrTimer / VdrRecording
 ```
 
 ```text
 SVDRP response
-↓
-SvdrpVdrAdapter
-↓
-VdrStatus / VdrChannel / VdrTimer / VdrRecording
+-> SvdrpVdrAdapter
+-> VdrStatus / VdrChannel / VdrTimer / VdrRecording
 ```
 
 The domain model is the shared language between adapters and the rest of VDR-Suite.
@@ -329,14 +330,12 @@ Preferred strategy:
 
 ```text
 generic VDR concept
-↓
-core VDR domain object
+-> core VDR domain object
 ```
 
 ```text
 plugin-specific concept
-↓
-plugin-specific service or adapter extension
+-> plugin-specific service or adapter extension
 ```
 
 Examples:
@@ -356,26 +355,22 @@ Allowed:
 
 ```text
 RESTfulAPI JSON
-↓
-RestfulApiVdrAdapter
-↓
-VDR domain object
+-> RestfulApiVdrAdapter
+-> VDR domain object
 ```
 
-Not allowed:
+Forbidden architecture:
 
 ```text
 RESTfulAPI JSON
-↓
-service layer
+-> service layer
 ```
 
-Not allowed:
+Forbidden architecture:
 
 ```text
 RESTfulAPI JSON field names
-↓
-public VDR-Suite domain contract
+-> public VDR-Suite domain contract
 ```
 
 ---
@@ -416,3 +411,12 @@ This document does not implement:
 * frontend APIs
 
 It defines the domain boundary only.
+
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)
