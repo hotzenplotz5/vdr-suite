@@ -1,5 +1,14 @@
 # VDR-Suite Projektprinzipien
 
+## Navigation
+
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Project Overview](project-overview.md)
+- [Section Index](index.md)
+
+---
+
 ## Grundsätze
 
 1. VDR bleibt das Basissystem.
@@ -18,6 +27,8 @@
 14. Architekturentscheidungen werden als ADR dokumentiert.
 15. Langfristige Wartbarkeit ist wichtiger als kurzfristige Feature-Gewinne.
 
+---
+
 ## SVDRP und Remote-Control
 
 SVDRP ist fuer VDR-Suite ein wichtiger Kompatibilitaets- und Steuerkanal, aber nicht die primaere interne API der Suite.
@@ -34,3 +45,12 @@ Grundsaetze:
 8. Authentifizierung, Autorisierung und Berechtigungen liegen in VDR-Suite.
 9. RESTfulAPI, SVDRP, Plugin-Bridges und Dateisystem-Snapshots sind Transport- oder Backend-Quellen, aber keine Domänenmodelle.
 10. Backend-Faehigkeiten muessen als Capabilities modelliert werden, ohne Transportdetails in UI oder Domäne offenzulegen.
+
+---
+
+## Back
+
+- [Back to Section Index](index.md)
+- [Back to Documentation Index](index.md)
+- [Back to Project Overview](project-overview.md)
+- [Back to README](../README.md)

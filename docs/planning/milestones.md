@@ -1,76 +1,263 @@
-# Meilensteine
+# VDR-Suite – Planning Milestones
 
-## M0 – Projektstart
+## Navigation
 
-Status: In Arbeit
-
-Abschlusskriterien:
-
-- Repository erstellt
-- Dokumentationsstruktur vorhanden
-- ADR-System definiert
-- Architektur dokumentiert
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Planning Index](index.md)
 
 ---
 
-## M1 – Core Foundation
+This document describes forward-looking planning milestones.
 
-Abschlusskriterien:
+Historical implementation phases and tag history are tracked in:
 
-- SQLite integriert
-- Core-Bibliothek vorhanden
-- RecordingService implementiert
-- MetadataService implementiert
+- [Development Milestones](../development/milestones.md)
+- [Completed Phases](../development/completed-phases.md)
+- [Current Project Status](../development/current-status.md)
 
----
+The roadmap is tracked in:
 
-## M2 – Erste Integration
-
-Abschlusskriterien:
-
-- Rectools Adapter
-- TVScraper Adapter
-- JobService aktiv
+- [Roadmap](roadmap.md)
 
 ---
 
-## M3 – REST API
+## Current Position
 
-Abschlusskriterien:
+Current completed implementation phase:
 
-- Recording API
-- Metadata API
-- Search API
-- Dokumentation
+```text
+Phase 11.6: Complete snapshot read domain JSON serialization
+```
 
----
+Current transition:
 
-## M4 – Erstes Dashboard
-
-Abschlusskriterien:
-
-- Recording Browser
-- Job Übersicht
-- Systemstatus
+```text
+Documentation cleanup
+↓
+Phase 12.0 Snapshot Change Feed Architecture
+```
 
 ---
 
-## M5 – Modernes OSD
+## Milestone M0 – Project Foundation
 
-Abschlusskriterien:
+Status: Completed
 
-- Dashboard im OSD
-- Serienansicht
-- Filmbibliothek
+Result:
+
+- repository structure established
+- documentation structure created
+- ADR process introduced
+- initial architecture documented
 
 ---
 
-## M6 – VDR-Suite 1.0
+## Milestone M1 – Core Backend Foundation
 
-Abschlusskriterien:
+Status: Completed
 
-- stabile Architektur
-- Kernservices produktiv
-- Adapter produktiv
-- modernes OSD produktiv
-- Dokumentation vollständig
+Result:
+
+- SQLite foundation
+- recording and metadata services
+- job and action foundations
+- dashboard service foundations
+- REST API foundation
+
+---
+
+## Milestone M2 – VDR Backend Foundation
+
+Status: Completed
+
+Result:
+
+- VDR configuration model
+- adapter abstraction
+- mock backend
+- RESTfulAPI integration boundary
+- backend architecture ADRs
+
+---
+
+## Milestone M3 – Snapshot Runtime Foundation
+
+Status: Completed
+
+Result:
+
+- VDR snapshot model
+- snapshot builder
+- polling service
+- snapshot cache
+- snapshot access service
+- partial refresh planning
+- change detection foundation
+
+---
+
+## Milestone M4 – Runtime Diagnostics Foundation
+
+Status: Completed
+
+Result:
+
+- runtime measurement boundary
+- runtime diagnostics service
+- runtime diagnostics JSON serialization
+- runtime diagnostics REST endpoints
+- bounded diagnostics retention
+- runtime configuration cleanup
+
+---
+
+## Milestone M5 – Snapshot Read API Foundation
+
+Status: Completed
+
+Result:
+
+- snapshot read service
+- snapshot read JSON serializer
+- snapshot-backed controller and router paths
+- HTTP server coverage
+- domain JSON for status, channels, timers, events and recordings
+- full `make test` verification after Phase 11.6
+
+---
+
+## Milestone M6 – Documentation Navigation Cleanup
+
+Status: Active
+
+Goal:
+
+Make the documentation easy to navigate from both `README.md` and `docs/index.md`.
+
+Completion criteria:
+
+- README links to current status, roadmap, milestones and documentation index
+- `docs/index.md` links all major documentation areas
+- roadmap reflects the real Phase 11.6 state
+- planning milestones distinguish future planning from implementation history
+- development milestones remain focused on historical tags and verified implementation milestones
+- known ADR duplicates are marked or resolved
+- no intentionally maintained document is unreachable from the documentation index
+
+---
+
+## Milestone M7 – Snapshot Change Feed Architecture
+
+Status: Planned
+
+Goal:
+
+Define the internal architecture for snapshot change feeds before adding live transport.
+
+Completion criteria:
+
+- existing `VdrChangeState`, `VdrChangeEvent` and `ChangeDetectionService` are reviewed
+- change feed responsibilities are documented
+- feed generation is separated from HTTP, SSE and WebSocket transport
+- multi-VDR and backend identity implications are documented
+- first implementation phase is planned without frontend coupling
+
+---
+
+## Milestone M8 – Snapshot Change Feed Implementation
+
+Status: Planned
+
+Goal:
+
+Implement a backend-internal change feed service and expose a first read-only REST endpoint.
+
+Completion criteria:
+
+- change feed service implemented
+- tests verify feed generation
+- REST endpoint added for read-only change access
+- API does not require direct RESTfulAPI calls
+- design remains compatible with future SSE/WebSocket transport
+
+---
+
+## Milestone M9 – Live Update Transport
+
+Status: Planned
+
+Goal:
+
+Expose snapshot change events to future frontends through a live-update transport.
+
+Completion criteria:
+
+- SSE or WebSocket transport selected through architecture review
+- live transport remains a consumer of the change feed, not the generator
+- transport is tested independently from polling
+- future multi-client usage is considered
+
+---
+
+## Milestone M10 – Multi-VDR Read Architecture
+
+Status: Planned
+
+Goal:
+
+Prepare read-side architecture for multiple VDR instances and future federation.
+
+Completion criteria:
+
+- backend identity requirements are reflected in read models where needed
+- snapshot ownership is source/backend aware
+- routing strategy for multiple VDR instances is documented
+- permission-aware future architecture remains possible
+
+---
+
+## Milestone M11 – Frontend Contract Hardening
+
+Status: Planned
+
+Goal:
+
+Stabilize API contracts for future Web, Windows, Android, iOS and OSD frontends.
+
+Completion criteria:
+
+- read API contracts documented
+- error response strategy documented
+- filtering and pagination strategy reviewed
+- capability-aware API strategy considered
+- frontend-independent API behavior verified
+
+---
+
+## Milestone M12 – First Frontend-Oriented Product Layer
+
+Status: Future
+
+Goal:
+
+Start the first real user-facing product layer after backend read, diagnostics and change-feed foundations are stable.
+
+Possible directions:
+
+- Web frontend
+- Windows frontend
+- OSD integration
+- Android frontend
+- iOS frontend
+
+Final frontend ordering should be decided after Phase 12 and API contract hardening.
+---
+
+## Back
+
+- [Back to Planning Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

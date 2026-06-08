@@ -1,5 +1,13 @@
 # Externe Modulstände
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+
+---
+
 ## VDR-Rectools
 
 Stand: Ende Phase Explorer
@@ -49,3 +57,10 @@ Rectools liefert bereits reale Anforderungen für spätere Suite-Komponenten:
 - Format-Erkennung
 - Dateisystem-Adapter
 - Papierkorb-/Rollback-Konzept
+---
+
+## Back
+
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

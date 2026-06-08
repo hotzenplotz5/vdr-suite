@@ -1,5 +1,13 @@
 # VDR-Suite Vision
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+
+---
+
 ## Ziel
 
 VDR-Suite soll VDR zu einem modernen Media-Center-Backend erweitern, ohne den VDR-Kern zu ersetzen.
@@ -40,4 +48,10 @@ Stattdessen stellt die Suite gemeinsame Grundlagen bereit:
 VDR-Suite ist kein Ersatz für VDR.
 
 VDR-Suite ist die moderne Service-, Daten- und UI-Schicht über VDR.
+---
 
+## Back
+
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

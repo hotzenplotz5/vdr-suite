@@ -1,5 +1,14 @@
 # ADR-0001: Monorepo für VDR-Suite
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Angenommen
@@ -51,3 +60,11 @@ Die frühe Struktur dient bewusst als Architekturrahmen für spätere Phasen.
 Das Monorepo bedeutet nicht, dass bestehende VDR-Projekte sofort integriert werden.
 
 Rectools und TVScraper bleiben zunächst eigenständige Projekte.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

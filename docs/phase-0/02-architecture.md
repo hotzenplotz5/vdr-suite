@@ -1,5 +1,13 @@
 # Architektur
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+
+---
+
 ## Überblick
 
 Die VDR-Suite folgt einer klaren Schichtenarchitektur.
@@ -85,4 +93,10 @@ Zielsysteme:
 Module dürfen nicht direkt hart miteinander gekoppelt werden.
 
 Kommunikation erfolgt über Services oder definierte Adapter.
+---
 
+## Back
+
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

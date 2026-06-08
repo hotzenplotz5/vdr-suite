@@ -1,5 +1,14 @@
 # VDR-Suite Glossar
 
+## Navigation
+
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Project Overview](project-overview.md)
+- [Section Index](index.md)
+
+---
+
 ## Recording
 Eine Aufnahme im VDR-System.
 
@@ -35,4 +44,11 @@ Asynchron ausgeführte Aufgabe.
 
 ## Dashboard
 Zentrale Startseite der Suite.
+---
 
+## Back
+
+- [Back to Section Index](index.md)
+- [Back to Documentation Index](index.md)
+- [Back to Project Overview](project-overview.md)
+- [Back to README](../README.md)

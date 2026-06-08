@@ -1,182 +1,178 @@
 # VDR-Suite
 
-VDR-Suite ist ein langfristiges Architektur- und Entwicklungsprojekt zur Modernisierung des Video Disk Recorders (VDR).
+## Quick Links
 
-Das Projekt verfolgt das Ziel, bestehende VDR-Funktionalität mit einer gemeinsamen Service-Schicht, zentralen Metadaten, modernen APIs und zeitgemäßen Benutzeroberflächen zu erweitern.
-
-VDR bleibt dabei das Basissystem.
-
-Die Suite ergänzt VDR, ersetzt ihn jedoch nicht.
-
----
-
-# Projektstatus
-
-Aktuelle Phase:
-
-**Phase 0 – Architektur und Planung**
-
-Status:
-
-- Repository erstellt
-- Architektur definiert
-- Datenmodell definiert
-- Service-Layer definiert
-- ADR-System eingeführt
-- Roadmap erstellt
-- Meilensteine definiert
-
-Aktuell befindet sich das Projekt noch vor der eigentlichen Implementierung.
+- [Project Status Dashboard](docs/project-status-dashboard.md)
+- [Current Project Status](docs/development/current-status.md)
+- [Roadmap](docs/planning/roadmap.md)
+- [Architecture](docs/architecture/index.md)
+- [ADR](docs/adr/index.md)
 
 ---
 
-# Langfristige Ziele
+## Current Release State
 
-## Core Services
+```text
+Backend Foundation        ████████████ 100%
+Snapshot Runtime          ████████████ 100%
+Read API                  ████████████ 100%
+Change Feed               ████████████ 100%
+Live Transport            ░░░░░░░░░░░░   0%
+```
 
-- RecordingService
-- MetadataService
-- ArtworkService
-- JobService
-- SearchService
+Current Phase: Phase 12 Complete
 
-## Datenhaltung
+Next Phase: Phase 13 - Live Update Transport
 
-- zentrale SQLite-Datenbank
-- gemeinsame Metadatenbasis
-- einheitliche Suchfunktionen
-
-## Schnittstellen
-
-- REST API
-- OSD Integration
-- WebUI
-- externe Clients
-
-## Medienbereiche
-
-- Live-TV
-- Aufnahmen
-- Filme
-- Serien
-- Musik
-- Bilder
+Roadmap Progress: 76.5%
 
 ---
 
-# Architekturprinzipien
+VDR-Suite modernizes the Video Disk Recorder ecosystem with a backend service layer, daemon-owned state, snapshot architecture, REST APIs and future frontend integrations.
 
-- VDR bleibt das Basissystem
-- Service Layer vor UI
-- API vor WebUI
-- SQLite als zentrale Metadatenquelle
-- OSD als First-Class Citizen
-- lose Kopplung über Services und Adapter
-- langfristige Wartbarkeit vor kurzfristigen Workarounds
+VDR remains the primary backend domain and source of truth.
 
-Weitere Details:
-
-- docs/project-principles.md
-- docs/phase-0/
-- docs/adr/
+VDR-Suite complements VDR. It does not replace it.
 
 ---
 
-# Externe Projekte
+## Start Here
 
-Die VDR-Suite integriert bestehende Projekte soweit sinnvoll.
+New to VDR-Suite?
 
-Aktuell geplant:
+Read these documents first:
 
-## VDR-Rectools
-
-Eigenständiges Repository.
-
-Integration über Adapter geplant.
-
-## TVScraper
-
-Eigenständiges Repository.
-
-Integration über MetadataService geplant.
+1. [Project Status Dashboard](docs/project-status-dashboard.md)
+2. [Project Overview](docs/project-overview.md)
+3. [Documentation Index](docs/index.md)
+4. [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
+5. [Current Project Status](docs/development/current-status.md)
+6. [Roadmap](docs/planning/roadmap.md)
+7. [Architecture Index](docs/architecture/index.md)
+8. [ADR Index](docs/adr/index.md)
 
 ---
 
-# Roadmap
+## Documentation Navigation Rule
 
-## Phase 0
+The README is the repository entry point.
 
-Architektur und Planung
+Every documentation page should provide navigation back to:
 
-## Phase 1
+- [README](README.md)
+- [Documentation Index](docs/index.md)
+- [Project Overview](docs/project-overview.md)
+- the local section index when applicable
 
-Core Foundation
-
-- SQLite
-- Core Services
-- Basis-Infrastruktur
-
-## Phase 2
-
-Adapter Layer
-
-- Rectools
-- TVScraper
-
-## Phase 3
-
-REST API
-
-## Phase 4
-
-Dashboard
-
-## Phase 5
-
-Modernes OSD
-
-## Phase 6
-
-Media Center
-
-Weitere Details:
-
-- docs/planning/roadmap.md
-- docs/planning/milestones.md
+This prevents documentation dead ends and keeps the documentation usable from GitHub, editors and local checkouts.
 
 ---
 
-# Dokumentation
+## Current Development Position
 
-## Einstieg
+Current implementation status:
 
-- docs/phase-0/00-overview.md
+```text
+Phase 12 completed
+Snapshot Change Feed Foundation completed
+```
 
-## Architektur
+Next major architecture target:
 
-- docs/phase-0/01-vision.md
-- docs/phase-0/02-architecture.md
-- docs/phase-0/03-data-model.md
-- docs/phase-0/04-service-layer.md
+```text
+Phase 13 - Live Update Transport
+```
 
-## Entscheidungen
+Authoritative project status:
 
-- docs/adr/
-
-## Planung
-
-- docs/planning/
-
----
-
-# Lizenz
-
-Siehe LICENSE.
+- [Project Status Dashboard](docs/project-status-dashboard.md)
+- [Project Overview](docs/project-overview.md)
+- [Current Project Status](docs/development/current-status.md)
+- [Completed Phases](docs/development/completed-phases.md)
+- [Roadmap](docs/planning/roadmap.md)
 
 ---
 
-# Projektstatus
+## Architecture Direction
 
-Dieses Repository befindet sich derzeit im Aufbau.
+VDR-Suite is designed to remain:
 
-Architektur und Dokumentation haben aktuell Priorität vor Implementierungscode.
+- VDR-centric
+- backend-neutral
+- service-oriented
+- daemon-driven
+- snapshot-oriented
+- prepared for future multi-VDR environments
+- suitable for future API consumers and frontends
+
+---
+
+## Implemented Areas
+
+The project currently contains foundations for:
+
+- SQLite persistence
+- recording, metadata, job and action services
+- dashboard services and JSON serialization
+- REST controllers and API routing
+- HTTP client/server abstractions
+- VDR domain objects and adapter boundaries
+- RESTfulAPI integration
+- daemon-owned VDR snapshots
+- snapshot cache and snapshot access services
+- change-state polling and partial snapshot refresh planning
+- runtime logging, timing and diagnostics foundations
+- snapshot read APIs
+- snapshot change feed foundation
+
+---
+
+## Repository Structure
+
+- `core/sqlite`
+- `core/recordings`
+- `core/http`
+- `core/vdr`
+- `core/runtime`
+- `core/daemon`
+- `api/rest`
+- `apps/dashboard`
+- `apps/daemon`
+- `mk`
+- `docs`
+
+---
+
+## Build
+
+```bash
+make daemon
+make test
+```
+
+---
+
+## Documentation Hub
+
+Primary entry points:
+
+- [Project Status Dashboard](docs/project-status-dashboard.md)
+- [Project Overview](docs/project-overview.md)
+- [Documentation Index](docs/index.md)
+- [Current Project Status](docs/development/current-status.md)
+- [Completed Phases](docs/development/completed-phases.md)
+- [Roadmap](docs/planning/roadmap.md)
+- [Development Documentation](docs/development/index.md)
+- [Planning Documentation](docs/planning/index.md)
+- [Architecture Documentation](docs/architecture/index.md)
+- [Architecture Decision Records](docs/adr/index.md)
+- [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
+- [Build Requirements](docs/build-requirements.md)
+- [Dependencies](docs/dependencies.md)
+- [Database Design](docs/database-design.md)
+
+---
+
+## License
+
+See [LICENSE](LICENSE).

@@ -1,5 +1,14 @@
 # ADR-0002: SQLite als zentrale Metadaten-Datenbank
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Angenommen
@@ -51,3 +60,11 @@ Medien bleiben dateibasiert:
 ## Konsequenzen
 
 Alle Suite-Komponenten greifen langfristig auf dieselbe Metadatenbasis zu.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)
