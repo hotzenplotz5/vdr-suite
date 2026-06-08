@@ -5,6 +5,7 @@ Navigation:
 - ../index.md
 - ../project-overview.md
 - current-status.md
+- ../planning/roadmap.md
 
 ---
 
@@ -12,13 +13,11 @@ Navigation:
 
 This file tracks completed implementation phases.
 
-It deliberately keeps phase history out of `current-status.md`.
-
 Current status belongs to:
 
 - current-status.md
 
-Forward-looking planning belongs to:
+Future planning belongs to:
 
 - ../planning/roadmap.md
 - ../planning/milestones.md
@@ -34,7 +33,7 @@ Result:
 - repository structure established
 - documentation structure introduced
 - ADR process introduced
-- initial project vision and architecture documented
+- initial project vision documented
 
 ---
 
@@ -46,10 +45,9 @@ Result:
 
 - SQLite wrapper
 - database schema foundation
-- recording repository and service foundations
-- metadata repository and service foundations
+- recording repositories and services
+- metadata repositories and services
 - job and action foundations
-- core tests
 
 ---
 
@@ -63,7 +61,7 @@ Result:
 - job workflow foundation
 - worker simulation
 - Rectools adapter boundary
-- queue-style processing foundation
+- queue processing foundation
 
 ---
 
@@ -73,9 +71,8 @@ Status: Completed
 
 Result:
 
-- job dashboard summary model
-- job dashboard service
-- tests for job dashboard aggregation
+- job dashboard aggregation
+- dashboard service layer
 
 ---
 
@@ -85,9 +82,8 @@ Status: Completed
 
 Result:
 
-- recording dashboard summary model
-- recording dashboard service
-- tests for recording dashboard aggregation
+- recording dashboard aggregation
+- dashboard service layer
 
 ---
 
@@ -97,8 +93,8 @@ Status: Completed
 
 Result:
 
-- dashboard facade combining job and recording summaries
-- service boundary for dashboard consumers
+- unified dashboard facade
+- consumer-facing dashboard boundary
 
 ---
 
@@ -108,9 +104,8 @@ Status: Completed
 
 Result:
 
-- dashboard JSON serializer
-- dashboard CLI application
-- initial command-line dashboard output
+- JSON serialization
+- CLI dashboard application
 
 ---
 
@@ -122,10 +117,7 @@ Result:
 
 - REST controller foundation
 - API router
-- dashboard route
-- jobs route
-- recordings route
-- metadata route
+- dashboard, jobs, recordings and metadata endpoints
 
 ---
 
@@ -136,25 +128,19 @@ Status: Completed
 Result:
 
 - daemon foundation
-- `VdrConfig`
-- external VDR adapter foundation
-- `IVdrAdapter`
-- `VdrAdapterFactory`
-- mock backend
+- VDR adapter architecture
+- backend abstraction layer
 - RESTfulAPI integration boundary
 - HTTP abstraction layer
-- VDR domain objects
-- RESTfulAPI mappers
-- backend identity, federation, capability, lifecycle and stream provider ADRs
-- library-first and platform-oriented architecture direction
+- VDR domain model
+- federation and capability architecture preparation
 
-Selected later Phase 8 work:
+Additional Phase 8 work:
 
-- change-state polling integration
-- backend-neutral `VdrChangeEvent`
-- snapshot refresh decision model
-- snapshot cache model
-- snapshot access architecture preparation
+- change detection foundation
+- snapshot refresh planning
+- snapshot cache preparation
+- snapshot access preparation
 
 ---
 
@@ -164,18 +150,12 @@ Status: Completed
 
 Result:
 
-- `VdrSnapshot`
-- `VdrSnapshotBuilder`
-- `PollingService`
-- `SnapshotCache`
-- `SnapshotCacheService`
-- `SnapshotAccessService`
-- snapshot-backed overview support
-- change detection foundation
-- snapshot refresh decision model
-- snapshot refresh planner
-- partial snapshot refresh validation
-- local runtime validation against RESTfulAPI-oriented flows
+- snapshot builder
+- polling service
+- snapshot cache services
+- snapshot access services
+- change detection validation
+- runtime validation against VDR workflows
 
 ---
 
@@ -185,17 +165,11 @@ Status: Completed
 
 Result:
 
-- `IRuntimeMeasurementSink`
-- `RuntimeDiagnosticsService`
-- runtime diagnostics JSON serialization
-- runtime diagnostics REST endpoint
-- runtime diagnostics summary endpoint
-- bounded diagnostics retention
-- runtime configuration cleanup
-- HTTP client runtime measurements
-- snapshot builder runtime measurements
-- polling service runtime measurements
-- status documentation split into focused documents
+- runtime diagnostics service
+- runtime measurements
+- diagnostics REST endpoints
+- diagnostics serialization
+- runtime cleanup and validation
 
 ---
 
@@ -205,35 +179,10 @@ Status: Completed
 
 Result:
 
-- `VdrSnapshotReadService`
-- `VdrSnapshotReadJsonSerializer`
-- snapshot-backed VDR controller read methods
-- snapshot read API router paths
-- HTTP server coverage
-- JSON serialization for status, channels, timers, events and recordings
-
-Implemented read endpoints:
-
-```text
-GET /api/vdr/status
-GET /api/vdr/channels
-GET /api/vdr/timers
-GET /api/vdr/events
-GET /api/vdr/recordings
-```
-
-Latest completed sub-phase:
-
-```text
-Phase 11.6 - Complete snapshot read domain JSON serialization
-```
-
-Verified with:
-
-```text
-make test-api-router
-make test
-```
+- snapshot read service
+- snapshot JSON serialization
+- snapshot-backed VDR read APIs
+- status, channels, timers, events and recordings endpoints
 
 ---
 
@@ -241,57 +190,27 @@ make test
 
 Status: Completed
 
-Completed through:
-
-```text
-Phase 12.3 - Snapshot Change Feed REST Controller
-```
-
-Goal:
-
-Provide a transport-independent snapshot change feed foundation so future clients can discover changed snapshot domains without directly coupling to polling internals or reloading all snapshot read endpoints.
-
-Completed sub-phases:
-
-```text
-Phase 12.0 - Snapshot Change Feed Architecture
-Phase 12.1 - Snapshot Change Feed Model and Service
-Phase 12.2 - Snapshot Change Feed JSON Serializer
-Phase 12.3 - Snapshot Change Feed REST Controller
-```
-
 Result:
 
-- snapshot change feed architecture documented
-- ADR-0016 added for snapshot change feed architecture
-- `SnapshotChangeFeedEntry`
-- `SnapshotChangeFeed`
-- `SnapshotChangeFeedService`
-- `SnapshotChangeFeedJsonSerializer`
-- `SnapshotChangeFeedController`
-- controller test coverage
-- build integration for feed service, serializer and controller tests
-- full regression verification after Makefile restoration
+- snapshot change feed architecture
+- snapshot change feed model
+- snapshot change feed service
+- snapshot change feed serialization
+- snapshot change feed controller
+- regression-tested implementation
 
-Verified with:
-
-```text
-make test-snapshot-change-feed-controller
-make test
-```
-
-Transport constraints:
+Important:
 
 - no SSE implementation yet
 - no WebSocket implementation yet
 - no frontend coupling yet
-- feed generation remains separate from live transport
+- feed generation remains independent from transport
 
 ---
 
 ## Next Phase
 
-Phase 13 belongs to roadmap planning until implementation starts.
+Phase 13 remains part of roadmap planning until implementation starts.
 
 See:
 
