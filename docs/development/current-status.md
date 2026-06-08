@@ -1,11 +1,11 @@
 # VDR-Suite Current Project Status
 
-Navigation:
+## Navigation
 
-- ../../README.md
-- ../index.md
-- ../project-overview.md
-- index.md
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
 
 ---
 
@@ -15,9 +15,9 @@ This document tracks the current verified technical state of VDR-Suite.
 
 It should stay focused on the present state.
 
-Implementation history belongs in completed-phases.md.
+Implementation history belongs in [Completed Phases](completed-phases.md).
 
-Future planning belongs in ../planning/roadmap.md.
+Future planning belongs in [Roadmap](../planning/roadmap.md).
 
 ---
 
@@ -145,11 +145,11 @@ Constraints:
 
 ## Documentation Hubs
 
-- ../project-overview.md
-- ../planning/index.md
-- ../development/index.md
-- ../architecture/index.md
-- ../adr/index.md
+- [Project Overview](../project-overview.md)
+- [Planning Documentation](../planning/index.md)
+- [Development Documentation](index.md)
+- [Architecture Documentation](../architecture/index.md)
+- [Architecture Decision Records](../adr/index.md)
 
 ---
 
@@ -166,3 +166,11 @@ Constraints:
 - Keep builds working after each small change.
 - Run targeted tests before code commits when local build access is available.
 - Before every push, run `git fetch` and inspect `git log --oneline --decorate HEAD..origin/phase-2-actions`.
+
+---
+
+## Back
+
+- [Back to README](../../README.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
