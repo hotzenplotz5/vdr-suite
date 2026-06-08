@@ -234,12 +234,46 @@ make test
 
 ---
 
-## Current Transition
+## Phase 12 – Snapshot Change Feed Foundation
+
+Status: Completed through Phase 12.3
+
+Goal:
+
+Provide a transport-independent snapshot change feed foundation so future clients can discover changed snapshot domains without directly coupling to polling internals or reloading all snapshot read endpoints.
+
+Completed sub-phases:
 
 ```text
-Phase 11 complete
-Documentation cleanup active
-Phase 12.0 Snapshot Change Feed Architecture planned
+Phase 12.0: Snapshot Change Feed Architecture
+Phase 12.1: Snapshot Change Feed Model and Service
+Phase 12.2: Snapshot Change Feed JSON Serializer
+Phase 12.3: Snapshot Change Feed REST Controller
 ```
 
-Phase 12 should start with architecture review before adding live-update transport.
+Result:
+
+- snapshot change feed architecture documented
+- ADR-0016 added for snapshot change feed architecture
+- `SnapshotChangeFeedEntry`
+- `SnapshotChangeFeed`
+- `SnapshotChangeFeedService`
+- `SnapshotChangeFeedJsonSerializer`
+- `SnapshotChangeFeedController`
+- controller test coverage
+- build integration for feed service, serializer and controller tests
+- full regression verification after Makefile restoration
+
+Verified with:
+
+```text
+make test-snapshot-change-feed-controller
+make test
+```
+
+Transport constraints:
+
+- no SSE implementation yet
+- no WebSocket implementation yet
+- no frontend coupling yet
+- feed generation remains separate from live transport
