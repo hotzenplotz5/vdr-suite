@@ -1,5 +1,14 @@
 # ADR-005 Stream Provider Strategy
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -115,3 +124,11 @@ Tradeoffs:
 - ADR-002 Backend Federation Strategy
 - ADR-003 Backend Capability Strategy
 - ADR-004 Backend Lifecycle Strategy
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

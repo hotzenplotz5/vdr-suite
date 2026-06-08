@@ -1,5 +1,14 @@
 # Phase 8.38 – SourceRegistry Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 ## Status
 
 Architecture decision for future multi-source runtime support.
@@ -222,3 +231,11 @@ SourceRegistry is necessary for future multi-VDR and federation architecture.
 However, the first implementation should remain purely in-memory and domain-level.
 
 The immediate next code phase should still start with SourceType and minimal Source before SourceRegistry is implemented.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

@@ -1,5 +1,13 @@
 # Runtime Diagnostics Daemon Integration
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 ## Purpose
 
 Runtime diagnostics are collected during daemon execution.
@@ -45,3 +53,10 @@ without requiring daemon restart.
 Daemon components must never serialize diagnostics directly.
 
 All diagnostics access must flow through RuntimeDiagnosticsService and RuntimeDiagnosticsController.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

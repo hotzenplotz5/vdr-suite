@@ -1,5 +1,14 @@
 # Daemon REST Runtime Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 This document defines ownership and lifecycle of REST runtime components inside VDR-Suite.
@@ -200,3 +209,11 @@ This document does not introduce:
 * Testability
 * Future frontend support
 * Future HTTP server flexibility
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

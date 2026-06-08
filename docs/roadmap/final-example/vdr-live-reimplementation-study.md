@@ -1,5 +1,13 @@
 # VDR Live Reimplementation Study
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 ## Goal
 
 Evaluate how much code can be eliminated when a Live-like frontend is implemented on top of VDR-Suite.
@@ -49,3 +57,10 @@ Create a small Live-like reference implementation and compare:
 - testing effort
 
 This serves as a practical demonstration of the value of the VDR-Suite backend architecture.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

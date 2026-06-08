@@ -1,5 +1,14 @@
 # Phase 8.38 – SourceType Architecture Decision
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 ## Status
 
 Architecture decision for the next implementation step.
@@ -147,3 +156,11 @@ Do not implement Source without SourceType.
 Proceed with SourceType as a small, strongly typed domain concept before or together with the first minimal Source domain object.
 
 Keep SourceType as a source category, not an adapter mode.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

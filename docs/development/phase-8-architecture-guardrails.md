@@ -1,5 +1,14 @@
 # Phase 8 – Architecture Guardrails
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 ## Status
 
 Architecture guardrail document.
@@ -230,3 +239,11 @@ Use RESTfulAPI as the main practical backend path.
 Keep platform concepts as guardrails, not as immediate generic abstractions.
 
 Introduce Source-related implementation only when it directly reduces future Multi-VDR migration risk.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

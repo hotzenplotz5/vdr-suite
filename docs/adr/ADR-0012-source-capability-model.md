@@ -1,5 +1,14 @@
 # ADR-0012: Source Capability Model
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -265,3 +274,11 @@ Future phases may introduce:
 - permission model ADR
 
 The next architecture step should define the permission model and its relationship to Source capabilities.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

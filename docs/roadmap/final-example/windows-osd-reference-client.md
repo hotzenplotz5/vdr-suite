@@ -1,5 +1,13 @@
 # Windows OSD Reference Client
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 ## Purpose
 
 Demonstrate how a modern Windows client can consume VDR-Suite backend services.
@@ -29,3 +37,10 @@ It acts as:
 The roadmap should end with a visible application that demonstrates the capabilities of the backend.
 
 The Windows OSD Reference Client fulfills that role.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

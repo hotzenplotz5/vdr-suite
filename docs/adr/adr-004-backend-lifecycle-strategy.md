@@ -1,5 +1,14 @@
 # ADR-004 Backend Lifecycle Strategy
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -47,3 +56,11 @@ Benefits:
 - predictable backend behaviour
 - improved monitoring
 - future federation support
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

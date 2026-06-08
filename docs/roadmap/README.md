@@ -1,5 +1,13 @@
 # VDR-Suite Forward Roadmap
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+
+---
+
 This directory contains the forward-looking roadmap after the current Phase 10 runtime diagnostics work.
 
 The roadmap is split into small phase-specific files to avoid large monolithic planning documents.
@@ -27,3 +35,10 @@ If a roadmap document grows beyond roughly 150 to 200 lines, split it into topic
 - `docs/architecture/` describes implemented and target architecture.
 - `docs/adr/` records architectural decisions.
 - `docs/roadmap/` describes planned future implementation phases.
+---
+
+## Back
+
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

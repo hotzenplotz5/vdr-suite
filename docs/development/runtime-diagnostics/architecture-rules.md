@@ -1,5 +1,13 @@
 # Runtime Diagnostics Architecture Rules
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 ## Rule 1
 
 Runtime diagnostics are based on structured RuntimeMeasurement objects.
@@ -43,3 +51,10 @@ Memory usage must remain bounded through central retention control.
 Runtime diagnostics are an observability feature.
 
 They must not become a replacement for business-domain APIs.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

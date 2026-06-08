@@ -1,5 +1,14 @@
 # VDR-Suite – Component Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 This document defines the major runtime components of the VDR-Suite ecosystem and their responsibilities.
@@ -511,3 +520,11 @@ The goal is to reuse mature implementations and focus development on:
 - user interfaces
 
 rather than reimplementing existing VDR functionality.
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

@@ -1,5 +1,13 @@
 # Runtime Diagnostics Measurement Producers
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 Runtime diagnostics measurements are produced by runtime components that already perform work in the daemon path.
 
 All producers send `RuntimeMeasurement` values through `IRuntimeMeasurementSink`.
@@ -95,3 +103,10 @@ Polling measurements use:
 - item counts through `itemCount` where a count is recorded
 
 Phase 10.20 moved count-like values away from `sizeBytes` into `itemCount`.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

@@ -1,5 +1,14 @@
 # ADR-0016: Snapshot Change Feed Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 Status: Accepted
 
 ## Context
@@ -65,3 +74,11 @@ Future implementation phases may introduce:
 - read-only REST feed endpoint
 
 Transport implementations remain separate architecture phases.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

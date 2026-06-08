@@ -1,5 +1,13 @@
 # VDR-Suite – Community Introduction
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+
+---
+
 ## Purpose
 
 This document is an introduction for the VDR community and for technically interested contributors.
@@ -471,3 +479,10 @@ The project is already architecture-heavy by design because several later decisi
 The goal is not to build a large frontend first and fix the architecture later.
 
 The goal is to build the backend and platform model carefully enough that future frontends, plugins, tools and integrations can use the same foundation.
+---
+
+## Back
+
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

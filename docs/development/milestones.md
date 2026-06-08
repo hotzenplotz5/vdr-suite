@@ -1,5 +1,14 @@
 # VDR-Suite – Development Milestones
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 This file keeps implementation milestone and tag history out of `docs/development/current-status.md`.
 
 Forward-looking milestone planning is tracked in:
@@ -240,3 +249,11 @@ After implementation phases, create a milestone tag when the build has been veri
 Documentation-only cleanup commits may remain untagged unless they mark a larger architectural milestone.
 
 Tag names must not be invented retroactively in this document. Only record tags that actually exist in the repository.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

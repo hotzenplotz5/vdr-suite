@@ -1,5 +1,14 @@
 # ADR-0007: RESTfulAPI Adapter Boundary
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -86,3 +95,11 @@ RestfulApiVdrAdapter
 ```
 
 The first RESTfulAPI mapping target should be `/info.json` to `VdrStatus`.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

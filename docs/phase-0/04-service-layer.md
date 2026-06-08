@@ -1,5 +1,13 @@
 # Service Layer
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+
+---
+
 ## Ziel
 
 Der Service Layer bildet die zentrale Fachlogik der VDR-Suite.
@@ -82,3 +90,10 @@ Aufgaben:
 Services kommunizieren untereinander über definierte Schnittstellen.
 
 Direkte Datenbankzugriffe aus UI oder Modulen sind zu vermeiden.
+---
+
+## Back
+
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

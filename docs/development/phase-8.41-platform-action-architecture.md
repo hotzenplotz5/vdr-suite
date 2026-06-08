@@ -1,5 +1,14 @@
 # Phase 8.41 – Platform Action Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 ## Status
 
 Architecture review and decision document.
@@ -292,3 +301,11 @@ VDR-Suite should keep the current recording-specific action model unchanged for 
 A future platform action model should be introduced only after Source, ContentIdentity and ActionTarget are stable.
 
 Capabilities and permissions should eventually align around the platform action vocabulary.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

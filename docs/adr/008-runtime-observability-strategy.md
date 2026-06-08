@@ -1,5 +1,14 @@
 # ADR-008: Runtime Observability Strategy
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -184,3 +193,11 @@ JSON
 without deciding the full debug-state model yet.
 
 Future debugging work should introduce explicit debug-state objects or services only when real troubleshooting needs are known from daemon runtime usage.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

@@ -1,5 +1,13 @@
 # Runtime Diagnostics Documentation
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 This directory contains the split runtime diagnostics documentation for VDR-Suite.
 
 The previous single Phase 10 runtime diagnostics document mixed architecture, model, producer, REST, testing and roadmap details in one place. The documentation is now split by topic so each file stays small and focused.
@@ -57,3 +65,10 @@ git status
 ```
 
 The verified result was green tests, successful daemon build and a clean synchronized branch.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

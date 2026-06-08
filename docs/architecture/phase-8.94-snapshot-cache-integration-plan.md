@@ -1,5 +1,14 @@
 # Phase 8.94 – Snapshot Cache Integration Plan
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Goal
 
 Integrate the existing SnapshotCache and SnapshotCacheService into the polling runtime.
@@ -38,3 +47,11 @@ make test-snapshot-cache
 make test-snapshot-cache-service
 make test-polling-service
 make daemon
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

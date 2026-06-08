@@ -1,5 +1,14 @@
 # Phase 8.39 – ContentIdentity Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 ## Status
 
 Architecture decision for future multi-source content identity.
@@ -229,3 +238,11 @@ It should be documented before source-aware content migration begins.
 The first implementation should still begin with SourceType and Source.
 
 ContentIdentity should follow before any multi-source runtime, destructive remote operation or federation work.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

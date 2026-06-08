@@ -1,5 +1,14 @@
 # Test HTTP Server Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 This document defines the architecture of TestHttpServer.
@@ -200,3 +209,11 @@ This architecture does not introduce:
 * Runtime consistency
 * No networking dependencies
 * Future compatibility with real HTTP servers
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

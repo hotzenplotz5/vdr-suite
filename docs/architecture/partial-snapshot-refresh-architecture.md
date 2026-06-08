@@ -1,5 +1,14 @@
 # Partial Snapshot Refresh Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 This document reviews and defines the architecture direction for partial snapshot refresh support in VDR-Suite.
@@ -397,3 +406,11 @@ Partial snapshot refresh is now implemented for the current single-backend polli
 The existing snapshot model, adapter boundary, builder methods, cache service methods, planner and polling execution path are domain-separated.
 
 The next implementation phase may safely introduce optional local VDR integration tests without changing public API behavior.
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

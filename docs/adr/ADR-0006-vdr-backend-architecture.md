@@ -1,5 +1,14 @@
 # ADR-0006: VDR Backend Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -63,3 +72,11 @@ Tradeoffs:
 RESTfulAPI is treated as a backend implementation and not as a core dependency of VDR-Suite.
 
 HTTP communication will be introduced in a later phase.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

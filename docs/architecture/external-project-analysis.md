@@ -1,5 +1,14 @@
 # External Project Analysis
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 This document records external VDR-related projects that may provide useful domain knowledge, workflow ideas or implementation lessons for VDR-Suite.
@@ -410,3 +419,11 @@ How do we integrate this project directly?
 ```
 
 This distinction keeps VDR-Suite open as a modern platform while still learning from the existing VDR ecosystem.
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

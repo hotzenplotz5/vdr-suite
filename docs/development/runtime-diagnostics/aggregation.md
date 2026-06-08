@@ -1,5 +1,13 @@
 # Runtime Diagnostics Aggregation
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 ## Purpose
 
 Aggregation converts individual RuntimeMeasurement entries into compact RuntimeMeasurementSummary objects.
@@ -60,3 +68,10 @@ Aggregation must remain deterministic.
 Summaries must be derived exclusively from RuntimeMeasurement records.
 
 No external state may participate in aggregation.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

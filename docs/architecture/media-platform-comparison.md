@@ -1,5 +1,14 @@
 # Media Platform Comparison and VDR-Suite Strategy
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 This document compares established media platform architectures and derives early architecture requirements for VDR-Suite.
@@ -513,3 +522,11 @@ Possible later implementation phases:
 - Backend capability model
 - Permission model foundation
 - Remote suite adapter foundation
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

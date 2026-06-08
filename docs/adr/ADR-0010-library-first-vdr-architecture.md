@@ -1,5 +1,14 @@
 # ADR-0010: Library First VDR Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -142,3 +151,11 @@ Future phases may introduce:
 - plugin policy boundary
 
 The next architecture step should clarify the Source model with VDR as the primary backend type.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

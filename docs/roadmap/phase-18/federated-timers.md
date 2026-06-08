@@ -1,5 +1,13 @@
 # Federated Timers
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 Goals:
 
 - timers from multiple backends
@@ -10,3 +18,10 @@ Goals:
 Expected Result:
 
 Clients can inspect and manage timers across configured backends safely.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

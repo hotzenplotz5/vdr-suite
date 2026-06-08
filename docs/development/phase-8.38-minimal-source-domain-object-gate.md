@@ -1,5 +1,14 @@
 # Phase 8.38 – Minimal Source Domain Object Gate
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 ## Status
 
 Architecture gate.
@@ -250,3 +259,11 @@ Do not modify adapters in the same step.
 Do not modify existing VDR content objects in the same step.
 
 The purpose of Phase 8.38 should be to establish a stable Source identity object, not to integrate Source into runtime behavior yet.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

@@ -1,5 +1,13 @@
 # Backend Contribution Guide
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 Purpose:
 
 Keep backend development incremental and reviewable.
@@ -26,3 +34,10 @@ Recommended workflow:
 Goal:
 
 Allow multiple contributors and AI-assisted development without losing architectural consistency.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

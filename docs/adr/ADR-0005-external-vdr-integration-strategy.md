@@ -1,5 +1,14 @@
 # ADR-0005: External VDR Integration Strategy
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -172,3 +181,11 @@ Planned integration points:
 
 Future modules should prefer integration over replacement whenever
 possible.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

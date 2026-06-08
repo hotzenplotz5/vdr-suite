@@ -1,5 +1,14 @@
 # VDR-Suite – Phase 9 Runtime Validation Result
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 This document contains the Phase 9 runtime validation result that was split out of `docs/development/current-status.md` during Phase 10.21.1.
 
 ---
@@ -45,3 +54,11 @@ This proves:
 - change-state polling detects a real backend-domain change
 - partial refresh updates only the affected timer domain
 - no full snapshot refresh is triggered for a normal timer change
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

@@ -1,5 +1,13 @@
 # Community Development Model
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 ## Purpose
 
 VDR-Suite should be structured so that future contributors can work effectively without requiring historical chat logs.
@@ -49,3 +57,10 @@ A phase is only considered complete when:
 Create a repository that remains understandable and maintainable for many years.
 
 Knowledge should live inside the repository rather than inside private conversations.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

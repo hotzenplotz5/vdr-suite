@@ -1,5 +1,13 @@
 # Runtime Diagnostics Test Coverage
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 ## Core Diagnostics
 
 Covered by:
@@ -68,3 +76,10 @@ make daemon
 ```
 
 All diagnostics functionality must continue to pass complete repository validation.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

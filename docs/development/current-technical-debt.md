@@ -1,5 +1,14 @@
 # VDR-Suite – Current Technical Debt
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 This document contains the current technical debt section that was split out of `docs/development/current-status.md` during Phase 10.21.1.
 
 ---
@@ -19,3 +28,11 @@ Documentation state:
 - `docs/development/phase-10-runtime-diagnostics-measurement-collection.md` documents the Phase 10.10 to Phase 10.19 diagnostics measurement collection, retention, summaries, serialization and REST endpoint state.
 - `docs/adr/007-platform-api-strategy.md` documents the platform API direction.
 - `docs/development/current-status.md` documents Phase 10.19 and the current runtime diagnostics summary endpoint foundation.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

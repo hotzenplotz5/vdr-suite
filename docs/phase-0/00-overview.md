@@ -1,5 +1,13 @@
 # Phase 0 – Überblick
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+
+---
+
 Phase 0 definiert die architektonische Grundlage der VDR-Suite.
 
 In dieser Phase entsteht noch keine produktive Implementierung. Ziel ist es, Vision, Struktur, Datenmodell, Service-Schicht, Plugin-Strategie und Architekturentscheidungen sauber zu dokumentieren.
@@ -85,3 +93,10 @@ Siehe:
 Am Ende von Phase 0 existiert ein belastbarer Architekturrahmen für die weitere Entwicklung.
 
 Phase 0 ist abgeschlossen, wenn alle zentralen Dokumente gepflegt, committed und auf GitHub veröffentlicht sind.
+---
+
+## Back
+
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

@@ -1,5 +1,14 @@
 # Phase 8.37 – VDR Source Model Architecture Status
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 ## Status
 
 Completed as architecture documentation.
@@ -144,3 +153,11 @@ Expected Phase 8.38 boundaries:
 `docs/development/current-status.md` still needs to be updated to reference Phase 8.37 and ADR-0011.
 
 Because GitHub connector file replacement requires complete-file writes and large file reads may be truncated by the connector response limit, this separate status file preserves the Phase 8.37 status without risking accidental loss of existing `current-status.md` content.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

@@ -1,5 +1,14 @@
 # ADR-0011: VDR Source Model
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Superseded by [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md).
@@ -95,3 +104,11 @@ The later canonical ADR expanded and clarified:
 - follow-up work
 
 Use [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md) for the accepted current architecture.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

@@ -1,5 +1,13 @@
 # Runtime Diagnostics Roadmap
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 This document tracks runtime diagnostics work that is intentionally not part of the current Phase 10.20 implementation.
 
 ## Not implemented yet
@@ -30,3 +38,10 @@ Phase 10.24: runtime diagnostics export strategy
 The current endpoint remains a read-only view over the daemon-owned runtime diagnostics state.
 
 The diagnostics subsystem must not become a general debug endpoint.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

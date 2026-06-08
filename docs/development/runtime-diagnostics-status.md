@@ -1,5 +1,14 @@
 # VDR-Suite – Runtime Diagnostics Status
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 This document contains the Phase 10 runtime logging and diagnostics state that was split out of `docs/development/current-status.md` during Phase 10.21.1.
 
 ---
@@ -81,3 +90,11 @@ Not implemented yet:
 - `test_api_router` validates `/api/runtime` and `/api/runtime/summary` routing.
 - `test_test_http_server` validates `/api/runtime` and `/api/runtime/summary` through the HTTP server layer.
 - `make test` includes the runtime diagnostics, serializer, summary endpoint, controller, router, HTTP server, snapshot-builder and polling-service measurement tests.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

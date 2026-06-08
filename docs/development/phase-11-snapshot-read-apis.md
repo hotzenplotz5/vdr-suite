@@ -1,5 +1,14 @@
 # VDR-Suite – Phase 11 Snapshot Read APIs
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 ## Goal
 
 Phase 11 introduced frontend-oriented read access to the daemon-owned VDR snapshot.
@@ -270,3 +279,11 @@ Phase 11 does not implement:
 The next architectural direction is a snapshot change feed.
 
 The change feed should build on existing change-detection domain objects and should not immediately introduce SSE or WebSocket transport. Transport can be added later after the internal feed model is stable.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

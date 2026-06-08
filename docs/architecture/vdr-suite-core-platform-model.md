@@ -1,5 +1,14 @@
 # VDR-Suite Core Platform Model
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 This document summarizes the emerging long-term core platform architecture of VDR-Suite.
@@ -638,3 +647,11 @@ Likely future implementation phases:
 - source-aware API responses
 - reusable platform capability boundaries
 - AI provider-neutral capability boundary
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

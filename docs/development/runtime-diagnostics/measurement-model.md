@@ -1,5 +1,13 @@
 # Runtime Diagnostics Measurement Model
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 Runtime diagnostics use structured domain objects instead of log parsing.
 
 ## RuntimeMeasurement
@@ -65,3 +73,10 @@ Phase 10.20 separated the semantics:
 - summary item counts are exposed through `lastItemCount`
 
 This keeps HTTP body sizes and collection sizes distinct and avoids overloading `sizeBytes`.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

@@ -1,5 +1,13 @@
 # Entwicklungsregeln
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+
+---
+
 ## Architektur
 
 - Service Layer vor UI
@@ -37,3 +45,10 @@ Rules:
 * If a patch is needed, it must be generated from an actual repository diff.
 * For large documentation files, prefer scripted replacements using perl or python.
 * Always verify documentation changes with git diff before committing.
+---
+
+## Back
+
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

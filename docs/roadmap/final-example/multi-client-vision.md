@@ -1,5 +1,13 @@
 # Multi Client Vision
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 ## Goal
 
 VDR-Suite should not depend on a single frontend.
@@ -68,3 +76,10 @@ Clients communicate only with VDR-Suite APIs.
 ## Long-Term Goal
 
 Create an ecosystem around a stable backend platform.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

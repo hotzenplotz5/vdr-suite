@@ -1,5 +1,14 @@
 # HTTP Server Boundary Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 This document defines the inbound HTTP server boundary for VDR-Suite.
@@ -196,3 +205,11 @@ This architecture document does not implement:
 * Allow future Windows service integration
 * Keep testing possible without sockets
 * Avoid early dependency on a concrete HTTP library
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

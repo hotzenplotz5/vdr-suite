@@ -1,5 +1,13 @@
 # Runtime Diagnostics REST API
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 ## Overview
 
 Runtime diagnostics are exposed through dedicated read-only REST endpoints.
@@ -84,3 +92,10 @@ They must not become:
 Diagnostics data must originate from structured RuntimeMeasurement objects.
 
 Log parsing is explicitly forbidden.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

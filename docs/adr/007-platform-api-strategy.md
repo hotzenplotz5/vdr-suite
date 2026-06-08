@@ -1,5 +1,14 @@
 # ADR-007: Platform API Strategy
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -224,3 +233,11 @@ Runtime logging and diagnostics are still being developed. No new API endpoint i
 - Continue runtime logging and diagnostics work.
 - Revisit API versioning before exposing broader client-facing APIs.
 - Consider a dedicated API architecture document once the next REST API expansion begins.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

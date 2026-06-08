@@ -1,5 +1,14 @@
 # Phase 8.40 – Action Target Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 ## Status
 
 Architecture decision for future source-aware jobs and actions.
@@ -216,3 +225,11 @@ ActionTarget is required before source-aware destructive operations.
 The existing `int recordingId` job model should remain unchanged until a dedicated source-aware job migration phase.
 
 The immediate next code phase should still stay small and introduce SourceType and Source only.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

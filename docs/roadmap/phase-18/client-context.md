@@ -1,5 +1,13 @@
 # Client Context
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 Goals:
 
 - show selected backend
@@ -10,3 +18,10 @@ Goals:
 Expected Result:
 
 Clients make the active backend context clear to users.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

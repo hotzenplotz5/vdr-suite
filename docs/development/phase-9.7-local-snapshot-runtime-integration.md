@@ -1,5 +1,14 @@
 # Phase 9.7 – Local Snapshot Runtime Integration Test
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 ## Purpose
 
 Phase 9.7 introduces the first optional integration test against a real local VDR/RESTfulAPI setup through the complete snapshot runtime path.
@@ -155,3 +164,11 @@ Milestone tag:
 ```text
 v2.7-phase9-local-snapshot-runtime-integration
 ```
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

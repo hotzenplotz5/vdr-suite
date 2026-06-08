@@ -1,5 +1,13 @@
 # Plugin-Strategie
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+
+---
+
 ## Grundsatz
 
 Bestehende VDR-Plugins sollen möglichst integriert statt ersetzt werden.
@@ -66,3 +74,10 @@ Wenn Daten geteilt werden müssen, geschieht das über:
 - Adapter
 - Datenbank
 - API
+---
+
+## Back
+
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

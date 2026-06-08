@@ -1,5 +1,14 @@
 # ADR-0014: Recording Identity Strategy
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -277,3 +286,11 @@ Future phases may introduce:
 - REST API fields for recording identity diagnostics
 - persistence schema for backend-scoped recording identity
 - safe move/rename inference rules
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

@@ -1,5 +1,14 @@
 # ADR-0011: VDR Source Model Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -353,3 +362,11 @@ Future phases may introduce:
 - federation strategy
 
 The next implementation phase should begin with a minimal Source domain object only after this architecture decision is accepted.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

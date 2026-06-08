@@ -1,5 +1,14 @@
 # Internal Event Dispatch Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 This document defines the internal event dispatch direction for VDR-Suite after the completed snapshot and change-state architecture phases.
@@ -238,3 +247,11 @@ Phase 8.99 establishes the architectural direction only.
 No runtime implementation is required in this phase.
 
 The next implementation step may introduce a minimal internal dispatcher only when there is at least a second real consumer or when refactoring `PollingService` becomes necessary for partial refresh work.
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

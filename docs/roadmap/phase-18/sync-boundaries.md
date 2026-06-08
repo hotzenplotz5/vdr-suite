@@ -1,5 +1,13 @@
 # Sync Boundaries
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 Goals:
 
 - define synchronization limits
@@ -10,3 +18,10 @@ Goals:
 Expected Result:
 
 Federation remains predictable and does not blur backend responsibility.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

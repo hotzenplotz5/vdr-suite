@@ -1,5 +1,13 @@
 # VDR-Suite – Status Overview
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 ## Branch
 
 ```text
@@ -106,3 +114,10 @@ The current implementation may use one local RESTfulAPI backend, but this must r
 No permanent single-VDR assumption should be introduced.
 
 Remote access, multiple houses and later multi-source frontend use remain compatible with the current direction because the VDR backend is reached through host and port configuration rather than hard-coded local-only assumptions.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

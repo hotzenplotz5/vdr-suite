@@ -1,5 +1,14 @@
 # Phase 8.42 – Capability Resolver Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 ## Status
 
 Architecture decision document.
@@ -235,3 +244,11 @@ Capabilities should be interpreted as Source support for PlatformActions.
 Do not bake capabilities directly into Source.
 
 Use SourceType for default assumptions, CapabilitySet for data, and CapabilityResolver for final decision logic when the implementation phase arrives.
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

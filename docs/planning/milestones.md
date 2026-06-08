@@ -1,5 +1,14 @@
 # VDR-Suite – Planning Milestones
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Planning Index](index.md)
+
+---
+
 This document describes forward-looking planning milestones.
 
 Historical implementation phases and tag history are tracked in:
@@ -244,3 +253,11 @@ Possible directions:
 - iOS frontend
 
 Final frontend ordering should be decided after Phase 12 and API contract hardening.
+---
+
+## Back
+
+- [Back to Planning Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

@@ -1,5 +1,14 @@
 # ADR-0013: Permission Model
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -301,3 +310,11 @@ Future phases may introduce:
 - federation trust model
 
 The next implementation-oriented step should not expose destructive remote operations before capability and permission checks exist.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

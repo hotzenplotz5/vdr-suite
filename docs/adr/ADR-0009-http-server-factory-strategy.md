@@ -1,5 +1,14 @@
 # ADR-0009: HTTP Server Factory Strategy
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -103,3 +112,11 @@ Future phases should introduce:
 - DaemonRuntime integration with HttpServerFactory
 
 The next implementation phase should begin with HttpServerConfig.
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

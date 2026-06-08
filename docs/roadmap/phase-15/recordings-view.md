@@ -1,5 +1,13 @@
 # Recordings View
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 Goals:
 
 - recordings list
@@ -10,3 +18,10 @@ Goals:
 Expected Result:
 
 Users can browse recordings through the web frontend.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

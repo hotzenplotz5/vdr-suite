@@ -1,5 +1,13 @@
 # Runtime Diagnostics Serialization
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 ## Overview
 
 Runtime diagnostics JSON generation is implemented by:
@@ -71,3 +79,10 @@ Additional coverage:
 test_runtime_diagnostics_controller
 test_runtime_item_count_serialization
 ```
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

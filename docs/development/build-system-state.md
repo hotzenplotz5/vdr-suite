@@ -1,5 +1,14 @@
 # VDR-Suite – Build System State
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Development Index](index.md)
+
+---
+
 This document contains the build system state that was split out of `docs/development/current-status.md` during Phase 10.21.1.
 
 ---
@@ -45,3 +54,11 @@ Local VDR integration targets are intentionally optional and are not part of `ma
 - `make test-local-restfulapi-integration`
 - `make test-local-snapshot-runtime-integration`
 - `make test-local-partial-refresh-validation`
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)

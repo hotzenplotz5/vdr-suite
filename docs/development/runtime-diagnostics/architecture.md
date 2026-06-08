@@ -1,5 +1,13 @@
 # Runtime Diagnostics Architecture
 
+## Navigation
+
+- [README](../../../README.md)
+- [Documentation Index](../../index.md)
+- [Project Overview](../../project-overview.md)
+
+---
+
 Runtime diagnostics are separate from runtime logging.
 
 Human-readable runtime logging is written through `IRuntimeLogger` and is intended for operators and developers reading daemon output.
@@ -87,3 +95,10 @@ GET /api/runtime/summary
 - REST controllers expose diagnostics, but do not collect measurements.
 - `GET /api/runtime` remains a diagnostics endpoint, not a general debug dump.
 - Backend-specific VDR state must not leak into runtime diagnostics endpoints.
+---
+
+## Back
+
+- [Back to Documentation Index](../../index.md)
+- [Back to Project Overview](../../project-overview.md)
+- [Back to README](../../../README.md)

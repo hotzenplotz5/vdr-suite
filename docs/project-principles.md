@@ -1,5 +1,14 @@
 # VDR-Suite Projektprinzipien
 
+## Navigation
+
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Project Overview](project-overview.md)
+- [Section Index](index.md)
+
+---
+
 ## Grundsätze
 
 1. VDR bleibt das Basissystem.
@@ -17,4 +26,11 @@
 13. TVScraper bleibt zunächst ein eigenständiges Projekt.
 14. Architekturentscheidungen werden als ADR dokumentiert.
 15. Langfristige Wartbarkeit ist wichtiger als kurzfristige Feature-Gewinne.
+---
 
+## Back
+
+- [Back to Section Index](index.md)
+- [Back to Documentation Index](index.md)
+- [Back to Project Overview](project-overview.md)
+- [Back to README](../README.md)
