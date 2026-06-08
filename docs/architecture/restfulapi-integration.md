@@ -1,5 +1,14 @@
 # RESTfulAPI Integration Architecture
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
+
+---
+
 ## Purpose
 
 This document defines how VDR-Suite integrates with `vdr-plugin-restfulapi`.
@@ -428,3 +437,12 @@ future services/frontends
 ```
 
 This keeps VDR-Suite backend-independent and allows future SVDRP, plugin bridge or mock backends to provide the same domain objects without changing higher layers.
+
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to README](../../README.md)
