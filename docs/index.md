@@ -1,25 +1,23 @@
-# VDR-Suite Documentation Index
+# VDR-Suite Documentation
 
-Central entry point for all documentation.
-
----
-
-## Quick Navigation
-
-- project-overview.md
-- development/current-status.md
-- development/completed-phases.md
-- planning/roadmap.md
-- architecture/index.md
-- adr/index.md
+Main entry point for the complete project documentation.
 
 ---
 
-## Current Position
+## Start Here
+
+1. project-overview.md
+2. introduction/vdr-suite-vision.md
+3. development/current-status.md
+4. planning/roadmap.md
+
+---
+
+## Current Project State
 
 ```text
-Current Major Phase
-Phase 12 complete
+Completed Major Phase
+Phase 12 - Snapshot Change Feed Foundation
 
 Next Major Phase
 Phase 13 - Live Update Transport
@@ -27,24 +25,13 @@ Phase 13 - Live Update Transport
 
 ---
 
-## Recommended Reading Order
-
-1. project-overview.md
-2. introduction/vdr-suite-vision.md
-3. development/current-status.md
-4. planning/roadmap.md
-5. architecture/index.md
-6. adr/index.md
-
----
-
-## Documentation Structure
+## Documentation Sections
 
 ### Project
 
 - project-overview.md
 
-High-level explanation of goals, architecture and long-term direction.
+Project goals, scope, architecture and long-term direction.
 
 ### Introduction
 
@@ -52,11 +39,15 @@ High-level explanation of goals, architecture and long-term direction.
 - project-principles.md
 - project-glossary.md
 
+Project vision, terminology and guiding principles.
+
 ### Planning
 
 - planning/index.md
 - planning/roadmap.md
 - planning/milestones.md
+
+Future work and implementation planning.
 
 ### Development
 
@@ -65,13 +56,19 @@ High-level explanation of goals, architecture and long-term direction.
 - development/completed-phases.md
 - development/milestones.md
 
+Current implementation state and development history.
+
 ### Architecture
 
 - architecture/index.md
 
+Technical architecture and subsystem documentation.
+
 ### ADRs
 
 - adr/index.md
+
+Architecture Decision Records.
 
 ### Technical Reference
 
@@ -79,13 +76,33 @@ High-level explanation of goals, architecture and long-term direction.
 - dependencies.md
 - database-design.md
 
+Build, dependency and database reference material.
+
 ---
 
-## Navigation Standard
+## Navigation Rules
 
-Every major document should contain links back to:
+Every major document should provide navigation back to:
 
 - index.md
 - project-overview.md
 
-This keeps the documentation navigable without dead ends.
+This prevents dead ends and keeps the documentation easy to explore.
+
+---
+
+## Recommended Reading
+
+New contributors:
+
+1. project-overview.md
+2. vdr-suite-vision.md
+3. current-status.md
+4. roadmap.md
+
+Developers:
+
+1. current-status.md
+2. architecture/index.md
+3. adr/index.md
+4. roadmap.md
