@@ -19,8 +19,8 @@ Documentation Index
  ├─ Introduction
  ├─ Planning
  ├─ Development Status
- ├─ Architecture
- ├─ ADRs
+ ├─ Architecture Index
+ ├─ ADR Index
  └─ Build / Database
 ```
 
@@ -46,11 +46,12 @@ Recommended reading order for new contributors:
 2. [Current Project Status](development/current-status.md)
 3. [Roadmap](planning/roadmap.md)
 4. [Planning Milestones](planning/milestones.md)
-5. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
-6. [Snapshot Architecture](architecture/snapshot-architecture.md)
-7. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
-8. [ADR Index](adr/index.md)
-9. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
+5. [Architecture Index](architecture/index.md)
+6. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
+7. [Snapshot Architecture](architecture/snapshot-architecture.md)
+8. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
+9. [ADR Index](adr/index.md)
+10. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
 
 ---
 
@@ -66,7 +67,6 @@ Current transition:
 
 ```text
 Documentation cleanup
-↓
 Phase 12.0 Snapshot Change Feed Architecture
 ```
 
@@ -96,6 +96,7 @@ Potential consumers include:
 
 See:
 
+- [Architecture Index](architecture/index.md)
 - [ADR Index](adr/index.md)
 - [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
 - [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
@@ -143,21 +144,9 @@ See:
 
 ## Architecture
 
-- [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
-- [Suite Components](architecture/suite-components.md)
-- [VDR Backends](architecture/vdr-backends.md)
-- [VDR Domain Model](architecture/vdr-domain-model.md)
-- [REST API Runtime](architecture/rest-api-runtime.md)
-- [Daemon REST Runtime](architecture/daemon-rest-runtime.md)
-- [HTTP Server Boundary](architecture/http-server-boundary.md)
-- [Test HTTP Server](architecture/test-http-server.md)
-- [RESTfulAPI Integration](architecture/restfulapi-integration.md)
-- [Snapshot Architecture](architecture/snapshot-architecture.md)
-- [Snapshot Access Architecture](architecture/snapshot-access-architecture.md)
-- [Internal Event Dispatch Architecture](architecture/internal-event-dispatch-architecture.md)
-- [Partial Snapshot Refresh Architecture](architecture/partial-snapshot-refresh-architecture.md)
-- [Media Platform Comparison](architecture/media-platform-comparison.md)
-- [External Project Analysis](architecture/external-project-analysis.md)
+- [Architecture Index](architecture/index.md)
+
+The architecture index groups the architecture documentation by platform, VDR backend integration, REST/HTTP runtime, snapshot architecture, event/change architecture and historical architecture notes.
 
 ---
 
@@ -182,6 +171,7 @@ The ADR index lists all foundation, future-facing and superseded ADRs.
 When adding new documentation:
 
 - add the document to this index
+- update the architecture index when adding architecture documents
 - update the ADR index when adding or superseding ADRs
 - keep README and roadmap linked
 - update current status after completed phases
