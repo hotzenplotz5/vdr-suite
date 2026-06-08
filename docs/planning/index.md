@@ -2,8 +2,10 @@
 
 Navigation:
 
+- ../../README.md
 - ../index.md
 - ../project-overview.md
+- index.md
 
 ---
 
@@ -64,6 +66,8 @@ Current verified state and completed implementation history.
 
 ## Return Paths
 
+- ../../README.md
 - ../index.md
 - ../project-overview.md
+- index.md
 - ../development/current-status.md
