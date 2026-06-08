@@ -221,6 +221,11 @@ Motivation:
 
 Phase 11 made snapshot data readable by future clients. Phase 12 should make it possible for clients to know what changed without reloading every domain endpoint repeatedly.
 
+Architectural prerequisites:
+
+- ADR-0014 Recording Identity Strategy defines the stable recording identity requirements that future snapshot change feeds must preserve.
+- Change detection must remain compatible with future backend federation and multi-VDR routing.
+
 Expected direction:
 
 - review `VdrChangeState`
@@ -229,6 +234,7 @@ Expected direction:
 - define an internal snapshot change feed model
 - keep feed generation separate from HTTP transport
 - keep multi-VDR and backend identity requirements visible
+- align recording change detection with ADR-0014
 - avoid SSE/WebSocket transport in the first step
 
 Expected result:
