@@ -1,9 +1,19 @@
-# VDR-Suite Architecture Index
+# Architecture Documentation
 
-Return:
+Navigation:
 
 - ../index.md
 - ../project-overview.md
+
+---
+
+## Purpose
+
+This section contains the stable architecture of VDR-Suite.
+
+Implementation progress belongs in development documents.
+
+Long-term decisions belong in ADRs.
 
 ---
 
@@ -53,6 +63,8 @@ Return:
 - phase-8.94-snapshot-cache-integration-plan.md
 - phase-8.94-runtime-wiring-notes.md
 
+Historical implementation notes retained for reference.
+
 ---
 
 ## Architecture Decisions
@@ -63,10 +75,23 @@ See:
 
 ---
 
+## Related Documents
+
+- ../development/current-architecture-state.md
+- ../development/current-status.md
+
+---
+
 ## Rules
 
-Stable architecture belongs here.
+- stable architecture belongs here
+- implementation progress belongs in development
+- historical implementation notes belong under Historical Notes
+- long-term decisions belong in ADRs
 
-Phase-specific implementation notes belong under Historical Notes.
+---
 
-Long-term decisions belong in ADRs.
+## Return Paths
+
+- ../index.md
+- ../project-overview.md
