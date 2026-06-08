@@ -8,9 +8,7 @@ Navigation:
 
 ## Purpose
 
-Main entry point for the complete project documentation.
-
-Use this page to reach the major documentation hubs.
+Main entry point for all VDR-Suite documentation.
 
 ---
 
@@ -25,51 +23,51 @@ Use this page to reach the major documentation hubs.
 
 ## Current Project State
 
-```text
-Completed Major Phase
-Phase 12 - Snapshot Change Feed Foundation
+Completed Major Phase:
 
-Next Major Phase
-Phase 13 - Live Update Transport
-```
+- Phase 12 - Snapshot Change Feed Foundation
+
+Planned Next Major Phase:
+
+- Phase 13 - Live Update Transport
 
 ---
 
-## Documentation Hubs
+## Documentation Areas
 
-### Project Overview
+### Project
 
 - project-overview.md
 
-Project goals, scope, architecture direction and overall status.
+Project goals, scope, vision and overall status.
 
 ### Planning
 
 - planning/index.md
 
-Future direction, roadmap and upcoming milestones.
+Roadmap, milestones and future implementation work.
 
 ### Development
 
 - development/index.md
 
-Current implementation state, completed phases and technical status.
+Current implementation state and completed phases.
 
 ### Architecture
 
 - architecture/index.md
 
-Stable architecture and subsystem documentation.
+Architecture and subsystem documentation.
 
 ### ADRs
 
 - adr/index.md
 
-Long-term architecture decisions.
+Architecture decision records.
 
 ---
 
-## Supporting Reference
+## Reference Documentation
 
 - introduction/vdr-suite-vision.md
 - introduction/project-principles.md
@@ -80,36 +78,36 @@ Long-term architecture decisions.
 
 ---
 
-## Navigation Standard
+## Documentation Rules
 
-Every documentation index page should provide navigation links back to:
+Every documentation section should provide links back to:
 
 - docs/index.md
 - project-overview.md
 
-This prevents documentation dead ends and keeps navigation consistent.
+This keeps navigation consistent and avoids dead ends.
 
 ---
 
-## Recommended Reading
+## Suggested Reading Order
 
 New contributors:
 
 1. project-overview.md
-2. introduction/vdr-suite-vision.md
-3. development/current-status.md
-4. planning/roadmap.md
+2. vdr-suite-vision.md
+3. current-status.md
+4. roadmap.md
 
 Developers:
 
-1. development/current-status.md
+1. current-status.md
 2. architecture/index.md
 3. adr/index.md
-4. planning/roadmap.md
+4. roadmap.md
 
 Architects:
 
 1. project-overview.md
 2. architecture/index.md
 3. adr/index.md
-4. planning/roadmap.md
+4. roadmap.md
