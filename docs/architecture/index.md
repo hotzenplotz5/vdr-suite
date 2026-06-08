@@ -1,11 +1,11 @@
 # Architecture Documentation
 
-Navigation:
+## Navigation
 
-- ../../README.md
-- ../index.md
-- ../project-overview.md
-- index.md
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [Architecture Index](index.md)
 
 ---
 
@@ -21,49 +21,49 @@ Long-term decisions belong in ADRs.
 
 ## Core Platform
 
-- vdr-suite-core-platform-model.md
-- suite-components.md
-- media-platform-comparison.md
+- [VDR-Suite Core Platform Model](vdr-suite-core-platform-model.md)
+- [Suite Components](suite-components.md)
+- [Media Platform Comparison](media-platform-comparison.md)
 
 ---
 
 ## Backend Architecture
 
-- vdr-backends.md
-- vdr-domain-model.md
-- restfulapi-integration.md
-- external-project-analysis.md
+- [VDR Backends](vdr-backends.md)
+- [VDR Domain Model](vdr-domain-model.md)
+- [RESTfulAPI Integration](restfulapi-integration.md)
+- [External Project Analysis](external-project-analysis.md)
 
 ---
 
 ## Runtime Architecture
 
-- rest-api-runtime.md
-- daemon-rest-runtime.md
-- http-server-boundary.md
-- test-http-server.md
+- [REST API Runtime](rest-api-runtime.md)
+- [Daemon REST Runtime](daemon-rest-runtime.md)
+- [HTTP Server Boundary](http-server-boundary.md)
+- [Test HTTP Server](test-http-server.md)
 
 ---
 
 ## Snapshot Architecture
 
-- snapshot-architecture.md
-- snapshot-access-architecture.md
-- partial-snapshot-refresh-architecture.md
-- snapshot-change-feed-architecture.md
+- [Snapshot Architecture](snapshot-architecture.md)
+- [Snapshot Access Architecture](snapshot-access-architecture.md)
+- [Partial Snapshot Refresh Architecture](partial-snapshot-refresh-architecture.md)
+- [Snapshot Change Feed Architecture](snapshot-change-feed-architecture.md)
 
 ---
 
 ## Event Architecture
 
-- internal-event-dispatch-architecture.md
+- [Internal Event Dispatch Architecture](internal-event-dispatch-architecture.md)
 
 ---
 
 ## Historical Notes
 
-- phase-8.94-snapshot-cache-integration-plan.md
-- phase-8.94-runtime-wiring-notes.md
+- [Phase 8.94 Snapshot Cache Integration Plan](phase-8.94-snapshot-cache-integration-plan.md)
+- [Phase 8.94 Runtime Wiring Notes](phase-8.94-runtime-wiring-notes.md)
 
 Historical implementation notes retained for reference.
 
@@ -73,14 +73,14 @@ Historical implementation notes retained for reference.
 
 See:
 
-- ../adr/index.md
+- [Architecture Decision Records](../adr/index.md)
 
 ---
 
 ## Related Documents
 
-- ../development/current-architecture-state.md
-- ../development/current-status.md
+- [Current Architecture State](../development/current-architecture-state.md)
+- [Current Project Status](../development/current-status.md)
 
 ---
 
@@ -93,9 +93,8 @@ See:
 
 ---
 
-## Return Paths
+## Back
 
-- ../../README.md
-- ../index.md
-- ../project-overview.md
-- index.md
+- [Back to README](../../README.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
