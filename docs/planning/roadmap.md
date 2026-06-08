@@ -1,6 +1,6 @@
 # VDR-Suite Roadmap
 
-Return:
+Navigation:
 
 - ../index.md
 - ../project-overview.md
@@ -12,14 +12,13 @@ Return:
 
 This roadmap describes the forward direction of VDR-Suite.
 
-Detailed implementation history belongs to:
-
-- ../development/completed-phases.md
-- ../development/milestones.md
-
 Current project status belongs to:
 
 - ../development/current-status.md
+
+Completed implementation history belongs to:
+
+- ../development/completed-phases.md
 
 ---
 
@@ -44,23 +43,23 @@ VDR-Suite complements VDR. It does not replace it.
 ## Current Position
 
 ```text
-Completed:
+Completed Major Phase
 Phase 12 - Snapshot Change Feed Foundation
 
-Current cleanup:
+Current Cleanup
 Documentation and roadmap consolidation
 
-Next major phase:
+Next Major Phase
 Phase 13 - Live Update Transport
 ```
 
 Phase 12 completed the transport-independent change feed foundation.
 
-Phase 13 should add a live-update transport without moving change detection or feed generation into the transport layer.
+Phase 13 should add live update transport without moving change detection or feed generation into the transport layer.
 
 ---
 
-## Next: Phase 13 - Live Update Transport
+## Phase 13 - Live Update Transport
 
 Goal:
 
@@ -91,7 +90,7 @@ Live transport must not become the owner of:
 
 ---
 
-## Future: Phase 14 - Multi-VDR Backend Routing
+## Phase 14 - Multi-VDR Backend Routing
 
 Goal:
 
@@ -106,7 +105,7 @@ Planned direction:
 
 ---
 
-## Future: Phase 15 - Frontend API Hardening
+## Phase 15 - Frontend API Hardening
 
 Goal:
 
@@ -119,6 +118,30 @@ Planned direction:
 - stable response contracts
 - capability-aware responses
 - frontend-independent API behavior
+
+---
+
+## Phase 16 - Image and Preview Stream Validation
+
+Goal:
+
+Validate how VDR-Suite should expose image or preview stream data to future clients.
+
+Planned direction:
+
+- define image and preview stream use cases
+- separate metadata images from live stream previews
+- avoid coupling stream delivery to snapshot change transport
+- evaluate HTTP streaming boundaries
+- prepare frontend-independent preview contracts
+
+Important boundary:
+
+Live update transport is not the same as image or media streaming.
+
+Phase 13 should notify clients that something changed.
+
+Phase 16 should define how clients can request image or preview stream data.
 
 ---
 
@@ -138,6 +161,6 @@ Possible later layers:
 
 ## Roadmap Rule
 
-This file should describe direction, not detailed implementation history.
+This file describes direction, not detailed implementation history.
 
-Completed implementation detail belongs in completed phases.
+Completed implementation detail belongs in completed-phases.md.
