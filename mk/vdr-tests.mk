@@ -124,6 +124,13 @@ test-snapshot-cache-service:
 		-o /tmp/test_snapshot_cache_service
 	/tmp/test_snapshot_cache_service
 
+test-snapshot-change-feed:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_snapshot_change_feed.cpp \
+		-o /tmp/test_snapshot_change_feed
+	/tmp/test_snapshot_change_feed
+
 test-restful-api-status-mapper:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
