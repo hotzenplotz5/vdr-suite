@@ -1,194 +1,104 @@
 # VDR-Suite Documentation Index
 
-This document is the central entry point for VDR-Suite documentation.
-
-It links the project overview, current status, roadmap, milestones, architecture documents, ADRs, development notes, diagrams and planning documents.
-
----
-
-## Documentation Structure
-
-```text
-README
- ├─ Project Overview
- ├─ Current Status
- ├─ Roadmap
- └─ Documentation Index
-
-Documentation Index
- ├─ Project Overview
- ├─ Introduction
- ├─ Planning Index
- ├─ Development Index
- ├─ Architecture Index
- ├─ ADR Index
- └─ Build / Database
-```
-
-Use this index as the authoritative navigation entry for all project documentation.
+This is the central entry point for all project documentation.
 
 ---
 
 ## Start Here
 
-Read these documents first:
+Recommended reading order:
 
-- [README](../README.md)
-- [Project Overview](project-overview.md)
-- [VDR-Suite Vision](introduction/vdr-suite-vision.md)
-- [Current Project Status](development/current-status.md)
-- [Roadmap](planning/roadmap.md)
-- [Planning Milestones](planning/milestones.md)
-- [Project Principles](project-principles.md)
-- [Project Glossary](project-glossary.md)
-
-Recommended reading order for new contributors:
-
-1. [Project Overview](project-overview.md)
-2. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
-3. [Current Project Status](development/current-status.md)
-4. [Planning Index](planning/index.md)
-5. [Roadmap](planning/roadmap.md)
-6. [Architecture Index](architecture/index.md)
-7. [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
-8. [Snapshot Architecture](architecture/snapshot-architecture.md)
-9. [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
-10. [Development Index](development/index.md)
-11. [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
-12. [ADR Index](adr/index.md)
-13. [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
-14. [ADR-0014 Recording Identity Strategy](adr/ADR-0014-recording-identity-strategy.md)
+1. README
+2. Project Overview
+3. VDR-Suite Vision
+4. Current Project Status
+5. Roadmap
+6. Architecture Index
+7. ADR Index
 
 ---
 
 ## Current Position
 
-Current completed implementation phase:
-
 ```text
-Phase 12.3: Snapshot Change Feed REST controller
-```
+Current Major Phase:
+Phase 12 completed
 
-Current transition:
-
-```text
-Phase 12 complete
-Roadmap cleanup
+Next Major Phase:
 Phase 13 Live Update Transport
 ```
 
-Authoritative current state:
+Authoritative sources:
 
-- [Project Overview](project-overview.md)
-- [Current Project Status](development/current-status.md)
-- [Completed Phases](development/completed-phases.md)
-- [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
-- [Roadmap](planning/roadmap.md)
-
----
-
-## Platform Direction
-
-VDR-Suite is evolving into a VDR-centered platform.
-
-Potential consumers include:
-
-- Web frontends
-- Desktop frontends
-- Mobile frontends
-- VDR plugins
-- OSD integrations
-- Automation tools
-- Monitoring tools
-- External services
-- Third-party management tools
-
-See:
-
-- [Project Overview](project-overview.md)
-- [Architecture Index](architecture/index.md)
-- [ADR Index](adr/index.md)
-- [ADR-007 Platform API Strategy](adr/007-platform-api-strategy.md)
-- [ADR-0014 Recording Identity Strategy](adr/ADR-0014-recording-identity-strategy.md)
-- [Core Platform Model](architecture/vdr-suite-core-platform-model.md)
+- Project Overview
+- Current Project Status
+- Completed Phases
+- Roadmap
 
 ---
 
-## Project Introduction
+## Project Overview
 
-- [VDR-Suite Vision](introduction/vdr-suite-vision.md)
-- [Project Principles](project-principles.md)
-- [Project Glossary](project-glossary.md)
-- [Phase 0 Overview](phase-0/00-overview.md)
-- [Phase 0 Vision](phase-0/01-vision.md)
-- [Phase 0 Architecture](phase-0/02-architecture.md)
-- [Phase 0 Data Model](phase-0/03-data-model.md)
-- [Phase 0 Service Layer](phase-0/04-service-layer.md)
-- [Phase 0 Plugin Strategy](phase-0/05-plugin-strategy.md)
-- [Phase 0 UI Concept](phase-0/06-ui-concept.md)
-- [Phase 0 Development Rules](phase-0/07-development-rules.md)
-- [Phase 0 External Module Status](phase-0/08-external-module-status.md)
+- project-overview.md
+
+High-level explanation of goals, architecture and development direction.
+
+---
+
+## Introduction
+
+- introduction/vdr-suite-vision.md
+- project-principles.md
+- project-glossary.md
 
 ---
 
 ## Planning
 
-- [Planning Index](planning/index.md)
-- [Roadmap](planning/roadmap.md)
-- [Planning Milestones](planning/milestones.md)
+- planning/index.md
+- planning/roadmap.md
+- planning/milestones.md
 
 ---
 
-## Development Status
+## Development
 
-- [Development Index](development/index.md)
-- [Current Project Status](development/current-status.md)
-- [Completed Phases](development/completed-phases.md)
-- [Development Milestones](development/milestones.md)
-- [Build System State](development/build-system-state.md)
-- [Current Architecture State](development/current-architecture-state.md)
-- [Current Technical Debt](development/current-technical-debt.md)
-- [Phase 9 Runtime Validation Result](development/phase-9-runtime-validation-result.md)
-- [Runtime Diagnostics Status](development/runtime-diagnostics-status.md)
-- [Phase 10 Runtime Diagnostics Measurement Collection](development/phase-10-runtime-diagnostics-measurement-collection.md)
-- [Phase 11 Snapshot Read APIs](development/phase-11-snapshot-read-apis.md)
+- development/index.md
+- development/current-status.md
+- development/completed-phases.md
+- development/milestones.md
 
 ---
 
 ## Architecture
 
-- [Architecture Index](architecture/index.md)
-- [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
+- architecture/index.md
 
-The architecture index groups the architecture documentation by platform, VDR backend integration, REST/HTTP runtime, snapshot architecture, event/change architecture and historical architecture notes.
+All architecture documents are grouped there.
 
 ---
 
 ## Architecture Decision Records
 
-- [ADR Index](adr/index.md)
+- adr/index.md
 
-The ADR index lists all foundation, future-facing and superseded ADRs.
-
----
-
-## Build, Dependencies and Database
-
-- [Build Requirements](build-requirements.md)
-- [Dependencies](dependencies.md)
-- [Database Design](database-design.md)
+All ADRs are grouped there.
 
 ---
 
-## Documentation Maintenance
+## Build And Database
 
-When adding new documentation:
+- build-requirements.md
+- dependencies.md
+- database-design.md
 
-- add the document to this index
-- update the planning index when adding planning documents
-- update the development index when adding development documents
-- update the architecture index when adding architecture documents
-- update the ADR index when adding or superseding ADRs
-- keep README and roadmap linked
-- update current status after completed phases
-- avoid duplicate navigation structures
+---
+
+## Navigation Rule
+
+Every documentation section should provide a path back to:
+
+- Documentation Index
+- Project Overview
+
+This prevents navigation dead ends.
