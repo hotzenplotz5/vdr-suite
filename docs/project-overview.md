@@ -3,9 +3,8 @@
 Navigation:
 
 - index.md
-- development/current-status.md
-- development/completed-phases.md
-- planning/roadmap.md
+- planning/index.md
+- development/index.md
 - architecture/index.md
 - adr/index.md
 
@@ -13,184 +12,138 @@ Navigation:
 
 ## Purpose
 
-This page gives a compact overview of the current VDR-Suite project state.
+This page is the primary landing page for the VDR-Suite project.
 
-Use this page for orientation before reading detailed status, roadmap, architecture or ADR documents.
-
-Detailed status belongs in development/current-status.md.
-
-Implementation history belongs in development/completed-phases.md.
-
-Future planning belongs in planning/roadmap.md.
+It provides a high-level overview of project status, architecture direction and future development.
 
 ---
 
-## Current Position
-
-Completed major phase:
+## Project Status
 
 ```text
+Current Major Phase
 Phase 12 - Snapshot Change Feed Foundation
-```
 
-Latest completed implementation phase:
-
-```text
-Phase 12.3 - Snapshot Change Feed REST Controller
-```
-
-Next major phase:
-
-```text
+Next Major Phase
 Phase 13 - Live Update Transport
 ```
 
-Current cleanup:
+Current activity:
 
 ```text
-Documentation and roadmap consolidation
+Documentation consolidation and roadmap cleanup
 ```
 
 ---
 
-## Product Direction
+## Vision
 
-VDR-Suite modernizes the Video Disk Recorder ecosystem with a backend service layer, daemon-owned state, snapshot architecture, REST APIs and future frontend integrations.
+VDR-Suite modernizes the VDR ecosystem through a service-oriented backend architecture.
 
-VDR remains the primary backend domain and source of truth.
+The project adds:
 
-VDR-Suite complements VDR. It does not replace it.
+- daemon-owned state
+- snapshot-based data access
+- REST APIs
+- future multi-client support
+- future multi-VDR support
+
+VDR remains the authoritative backend.
 
 ---
 
-## Architecture Direction
-
-VDR-Suite is designed to remain:
+## Architecture Principles
 
 - VDR-centered
 - backend-neutral
 - daemon-driven
 - snapshot-oriented
 - service-oriented
-- prepared for future multi-VDR environments
-- suitable for multiple future clients and integrations
+- multi-client ready
+- multi-VDR ready
 
 ---
 
-## Current Architecture Highlights
-
-- Snapshot-based read architecture is completed for the current domain set.
-- Snapshot read APIs are available for status, channels, timers, events and recordings.
-- Snapshot cache, snapshot access and partial refresh planning are in place.
-- Runtime diagnostics are integrated through structured runtime measurement boundaries.
-- Snapshot change feed service, serializer and read-only REST controller are implemented.
-- Future live updates should build on snapshot change information instead of coupling clients to polling internals.
-- Backend identity, federation, capability and lifecycle strategy are documented through ADRs.
-
----
-
-## Implemented Areas
-
-The project currently contains foundations for:
+## Implemented Foundations
 
 - SQLite persistence
-- recording, metadata, job and action services
-- dashboard services and JSON serialization
-- REST controllers and API routing
-- HTTP client/server abstractions
-- VDR domain objects and adapter boundaries
+- recording and metadata services
+- job and action services
+- dashboard services
+- REST API layer
+- HTTP abstraction layer
+- VDR adapter architecture
 - RESTfulAPI integration
-- daemon-owned VDR snapshots
-- snapshot cache and snapshot access services
-- change-state polling and partial snapshot refresh planning
-- runtime logging, timing and diagnostics foundations
+- snapshot runtime
+- snapshot cache and access services
+- change detection and refresh planning
+- runtime diagnostics
 - snapshot read APIs
-- snapshot change feed foundation
+- snapshot change feed
 
 ---
 
 ## Progress Overview
 
-Planning estimates:
-
 ```text
 Backend Foundation        95 percent
-Snapshot Runtime          100 percent
+Snapshot Runtime         100 percent
 Snapshot Read APIs        90 percent
-Snapshot Change Feed      100 percent
-Live Update Transport     0 percent
+Snapshot Change Feed     100 percent
+Live Update Transport      0 percent
 Multi-VDR Architecture    15 percent
-Capability Model          0 percent
-Authentication            0 percent
 Frontend Contracts        25 percent
-Windows Frontend          0 percent
-Web Frontend              0 percent
-Android Frontend          0 percent
-iOS Frontend              0 percent
+Authentication             0 percent
 ```
 
-These values are orientation estimates, not release promises.
+These values are orientation estimates only.
 
 ---
 
-## Next Phase: Phase 13 - Live Update Transport
+## Next Major Step
+
+### Phase 13 - Live Update Transport
 
 Goal:
 
-Expose snapshot change feed information through a live transport mechanism.
+Expose snapshot change feed updates through a real-time transport.
 
-Candidate transports:
+Candidate technologies:
 
-- Server Sent Events
+- Server Sent Events (SSE)
 - WebSocket
 
 Architecture rule:
 
-Live transport consumes the snapshot change feed.
-
-Live transport must not own:
-
-- snapshot generation
-- change detection
-- feed generation
+The transport layer consumes snapshot change feed events and does not own change detection or snapshot generation.
 
 ---
 
-## Future Major Phases
+## Documentation Hubs
 
-Planned direction:
+### Planning
 
-- Phase 14 - Multi-VDR Backend Routing
-- Phase 15 - Frontend API Hardening
-- Web frontend
-- Windows frontend
-- Android frontend
-- iOS frontend
-- OSD integration
-- stream provider integration
-- media library expansion
+- planning/index.md
 
----
+### Development
 
-## Documentation Entry Points
+- development/index.md
 
-- Documentation Index: index.md
-- Current Status: development/current-status.md
-- Completed Phases: development/completed-phases.md
-- Roadmap: planning/roadmap.md
-- Planning Index: planning/index.md
-- Development Index: development/index.md
-- Architecture Index: architecture/index.md
-- ADR Index: adr/index.md
+### Architecture
+
+- architecture/index.md
+
+### ADRs
+
+- adr/index.md
 
 ---
 
 ## Documentation Rule
 
-Use this page for project orientation.
+Use:
 
-Use current-status.md for the current verified technical state.
-
-Use completed-phases.md for implementation history.
-
-Use roadmap.md for future direction.
+- project-overview.md for orientation
+- development/current-status.md for verified status
+- development/completed-phases.md for history
+- planning/roadmap.md for future planning
