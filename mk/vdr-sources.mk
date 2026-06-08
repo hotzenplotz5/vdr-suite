@@ -25,4 +25,7 @@ VDR_SRC := \
         core/vdr/src/SnapshotAccessService.cpp \
         core/vdr/src/VdrSnapshotReadService.cpp \
         core/vdr/src/VdrSnapshotReadJsonSerializer.cpp \
+        core/vdr/src/SnapshotChangeFeedEntry.cpp \
+        core/vdr/src/SnapshotChangeFeed.cpp \
+        core/vdr/src/SnapshotChangeFeedService.cpp \
         core/vdr/src/VdrAdapterFactory.cpp
