@@ -1,23 +1,31 @@
-# VDR-Suite – Completed Phases
+# VDR-Suite Completed Phases
 
-This file keeps completed implementation phase history out of `docs/development/current-status.md`.
+Navigation:
 
-Current verified state is tracked in:
-
-- [Current Project Status](current-status.md)
-
-Implementation milestone and tag history is tracked in:
-
-- [Development Milestones](milestones.md)
-
-Forward-looking planning is tracked in:
-
-- [Planning Milestones](../planning/milestones.md)
-- [Roadmap](../planning/roadmap.md)
+- ../index.md
+- ../project-overview.md
+- current-status.md
 
 ---
 
-## Phase 0 – Project and Documentation Foundation
+## Purpose
+
+This file tracks completed implementation phases.
+
+It deliberately keeps phase history out of `current-status.md`.
+
+Current status belongs to:
+
+- current-status.md
+
+Forward-looking planning belongs to:
+
+- ../planning/roadmap.md
+- ../planning/milestones.md
+
+---
+
+## Phase 0 - Project and Documentation Foundation
 
 Status: Completed
 
@@ -30,7 +38,7 @@ Result:
 
 ---
 
-## Phase 1 – Persistence and Core Backend Foundation
+## Phase 1 - Persistence and Core Backend Foundation
 
 Status: Completed
 
@@ -45,7 +53,7 @@ Result:
 
 ---
 
-## Phase 2 – Actions, Queue and Worker Foundation
+## Phase 2 - Actions, Queue and Worker Foundation
 
 Status: Completed
 
@@ -59,7 +67,7 @@ Result:
 
 ---
 
-## Phase 3 – Job Dashboard Service
+## Phase 3 - Job Dashboard Service
 
 Status: Completed
 
@@ -71,7 +79,7 @@ Result:
 
 ---
 
-## Phase 4 – Recording Dashboard Service
+## Phase 4 - Recording Dashboard Service
 
 Status: Completed
 
@@ -83,7 +91,7 @@ Result:
 
 ---
 
-## Phase 5 – Dashboard Facade
+## Phase 5 - Dashboard Facade
 
 Status: Completed
 
@@ -94,7 +102,7 @@ Result:
 
 ---
 
-## Phase 6 – Dashboard JSON and CLI
+## Phase 6 - Dashboard JSON and CLI
 
 Status: Completed
 
@@ -106,7 +114,7 @@ Result:
 
 ---
 
-## Phase 7 – REST API Foundation
+## Phase 7 - REST API Foundation
 
 Status: Completed
 
@@ -121,7 +129,7 @@ Result:
 
 ---
 
-## Phase 8 – VDR Backend Architecture Foundation
+## Phase 8 - VDR Backend Architecture Foundation
 
 Status: Completed
 
@@ -150,7 +158,7 @@ Selected later Phase 8 work:
 
 ---
 
-## Phase 9 – Snapshot Runtime Validation
+## Phase 9 - Snapshot Runtime Validation
 
 Status: Completed
 
@@ -171,7 +179,7 @@ Result:
 
 ---
 
-## Phase 10 – Runtime Diagnostics and Runtime Wiring
+## Phase 10 - Runtime Diagnostics and Runtime Wiring
 
 Status: Completed
 
@@ -191,9 +199,9 @@ Result:
 
 ---
 
-## Phase 11 – Snapshot Read APIs
+## Phase 11 - Snapshot Read APIs
 
-Status: Completed for current domain set
+Status: Completed
 
 Result:
 
@@ -202,12 +210,7 @@ Result:
 - snapshot-backed VDR controller read methods
 - snapshot read API router paths
 - HTTP server coverage
-- JSON serialization for:
-  - status
-  - channels
-  - timers
-  - events
-  - recordings
+- JSON serialization for status, channels, timers, events and recordings
 
 Implemented read endpoints:
 
@@ -222,7 +225,7 @@ GET /api/vdr/recordings
 Latest completed sub-phase:
 
 ```text
-Phase 11.6: Complete snapshot read domain JSON serialization
+Phase 11.6 - Complete snapshot read domain JSON serialization
 ```
 
 Verified with:
@@ -234,9 +237,15 @@ make test
 
 ---
 
-## Phase 12 – Snapshot Change Feed Foundation
+## Phase 12 - Snapshot Change Feed Foundation
 
-Status: Completed through Phase 12.3
+Status: Completed
+
+Completed through:
+
+```text
+Phase 12.3 - Snapshot Change Feed REST Controller
+```
 
 Goal:
 
@@ -245,10 +254,10 @@ Provide a transport-independent snapshot change feed foundation so future client
 Completed sub-phases:
 
 ```text
-Phase 12.0: Snapshot Change Feed Architecture
-Phase 12.1: Snapshot Change Feed Model and Service
-Phase 12.2: Snapshot Change Feed JSON Serializer
-Phase 12.3: Snapshot Change Feed REST Controller
+Phase 12.0 - Snapshot Change Feed Architecture
+Phase 12.1 - Snapshot Change Feed Model and Service
+Phase 12.2 - Snapshot Change Feed JSON Serializer
+Phase 12.3 - Snapshot Change Feed REST Controller
 ```
 
 Result:
@@ -277,3 +286,13 @@ Transport constraints:
 - no WebSocket implementation yet
 - no frontend coupling yet
 - feed generation remains separate from live transport
+
+---
+
+## Next Phase
+
+Phase 13 belongs to roadmap planning until implementation starts.
+
+See:
+
+- ../planning/roadmap.md
