@@ -3,6 +3,7 @@
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
 #include "VdrSnapshotReadJsonSerializer.h"
+#include "VdrCapabilitySet.h"
 #include "VdrSnapshotReadService.h"
 
 VdrController::VdrController(
@@ -59,6 +60,19 @@ ApiResponse VdrController::getHealth()
             snapshotReadService_.getEvents().size(),
             snapshotReadService_.getTimers().size(),
             snapshotReadService_.getRecordings().size());
+
+    return response;
+}
+
+ApiResponse VdrController::getCapabilities()
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        snapshotReadJsonSerializer_.serializeCapabilities(
+            VdrCapabilitySet::snapshotReadOnly());
 
     return response;
 }

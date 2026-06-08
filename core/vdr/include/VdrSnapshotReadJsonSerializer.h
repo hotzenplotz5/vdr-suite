@@ -5,6 +5,7 @@
 #include "VdrRecording.h"
 #include "VdrStatus.h"
 #include "VdrTimer.h"
+#include "VdrCapabilitySet.h"
 
 #include <string>
 #include <vector>
@@ -41,4 +42,7 @@ public:
         std::size_t eventCount,
         std::size_t timerCount,
         std::size_t recordingCount) const;
+
+    std::string serializeCapabilities(
+        const VdrCapabilitySet& capabilities) const;
 };

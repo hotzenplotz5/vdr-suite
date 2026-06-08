@@ -237,3 +237,22 @@ std::string VdrSnapshotReadJsonSerializer::serializeSnapshotSummary(
 
     return json.str();
 }
+
+std::string VdrSnapshotReadJsonSerializer::serializeCapabilities(
+    const VdrCapabilitySet& capabilities) const
+{
+    std::ostringstream json;
+
+    json
+        << "{"
+        << "\"snapshotRead\":" << boolToJson(capabilities.snapshotRead) << ","
+        << "\"statusRead\":" << boolToJson(capabilities.statusRead) << ","
+        << "\"healthRead\":" << boolToJson(capabilities.healthRead) << ","
+        << "\"recordingsRead\":" << boolToJson(capabilities.recordingsRead) << ","
+        << "\"timersRead\":" << boolToJson(capabilities.timersRead) << ","
+        << "\"channelsRead\":" << boolToJson(capabilities.channelsRead) << ","
+        << "\"eventsRead\":" << boolToJson(capabilities.eventsRead)
+        << "}";
+
+    return json.str();
+}

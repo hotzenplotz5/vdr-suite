@@ -66,6 +66,11 @@ ApiResponse ApiRouter::handleGet(
         return vdrController_.getSnapshotSummary();
     }
 
+    if (path == "/api/vdr/capabilities")
+    {
+        return vdrController_.getCapabilities();
+    }
+
     if (path == "/api/vdr/recordings")
     {
         return vdrController_.getRecordings();

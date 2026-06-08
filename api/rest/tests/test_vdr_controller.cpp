@@ -267,6 +267,44 @@ static void test_vdr_controller_returns_snapshot_read_status()
 }
 
 
+static void test_vdr_controller_returns_capabilities()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrOverviewService overviewService(accessService);
+    VdrOverviewJsonSerializer jsonSerializer;
+    VdrSnapshotReadService snapshotReadService(accessService);
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
+
+    VdrController controller = makeLiveController(
+        overviewService,
+        jsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
+
+    ApiResponse response =
+        controller.getCapabilities();
+
+    assertJsonResponse(response);
+
+    assert(response.body.find("\"snapshotRead\":true")
+           != std::string::npos);
+    assert(response.body.find("\"statusRead\":true")
+           != std::string::npos);
+    assert(response.body.find("\"healthRead\":true")
+           != std::string::npos);
+    assert(response.body.find("\"recordingsRead\":true")
+           != std::string::npos);
+    assert(response.body.find("\"timersRead\":true")
+           != std::string::npos);
+    assert(response.body.find("\"channelsRead\":true")
+           != std::string::npos);
+    assert(response.body.find("\"eventsRead\":true")
+           != std::string::npos);
+}
+
 static void test_vdr_controller_returns_snapshot_summary()
 {
     SnapshotCache cache;
@@ -481,6 +519,7 @@ int main()
     test_vdr_controller_returns_live_overview();
     test_vdr_controller_returns_snapshot_backed_overview();
     test_vdr_controller_returns_snapshot_read_status();
+    test_vdr_controller_returns_capabilities();
     test_vdr_controller_returns_snapshot_summary();
     test_vdr_controller_returns_snapshot_health();
     test_vdr_controller_returns_snapshot_read_domain_lists();
