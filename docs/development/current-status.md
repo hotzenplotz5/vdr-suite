@@ -172,6 +172,17 @@ Constraints:
 
 ---
 
+### Phase 13.5 / 13.6: Capability Resolver Foundation
+
+Implemented:
+
+- VdrCapabilitySet
+- ICapabilityResolver
+- CapabilityResolver
+- GET /api/vdr/capabilities
+
+The capabilities endpoint now uses the capability resolver instead of directly exposing a raw capability set.
+
 ## Back
 
 - [Back to README](../../README.md)

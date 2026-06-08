@@ -246,6 +246,30 @@ Do not bake capabilities directly into Source.
 Use SourceType for default assumptions, CapabilitySet for data, and CapabilityResolver for final decision logic when the implementation phase arrives.
 ---
 
+## Implementation Status
+
+Implemented foundation:
+
+- VdrCapabilitySet
+- ICapabilityResolver
+- CapabilityResolver
+
+The first REST integration is available through GET /api/vdr/capabilities.
+
+The endpoint currently exposes snapshot-read-only VDR capabilities and uses CapabilityResolver for capability decisions.
+
+## Implementation Status
+
+Implemented foundation:
+
+- VdrCapabilitySet
+- ICapabilityResolver
+- CapabilityResolver
+
+The first REST integration is available through GET /api/vdr/capabilities.
+
+The endpoint currently exposes snapshot-read-only VDR capabilities and uses CapabilityResolver for capability decisions.
+
 ## Back
 
 - [Back to Development Index](index.md)

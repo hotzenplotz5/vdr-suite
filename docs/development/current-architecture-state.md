@@ -220,6 +220,16 @@ The live transport layer consumes the change feed and must not own snapshot gene
 
 ---
 
+### Capability Resolver Foundation
+
+The VDR capability layer now has an implemented foundation:
+
+- VdrCapabilitySet: capability data
+- ICapabilityResolver: resolver boundary
+- CapabilityResolver: supports(capability)
+
+GET /api/vdr/capabilities is wired through CapabilityResolver.
+
 ## Back
 
 - [Back to README](../../README.md)
