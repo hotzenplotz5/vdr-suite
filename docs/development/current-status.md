@@ -49,12 +49,14 @@ Phase 11.6: Complete snapshot read domain JSON serialization
 Verified locally with:
 
 ```text
+make test-vdr-controller
 make test-api-router
 make test
 ```
 
 Verification summary:
 
+- `make test-vdr-controller` passed
 - `make test-api-router` passed
 - `make test` passed
 - `test_vdr_controller` passed with snapshot-backed domain JSON
@@ -120,13 +122,27 @@ Goal:
 
 Introduce a read-oriented change feed concept on top of the existing snapshot and change-detection domain so future frontends can refresh selectively instead of polling every snapshot read endpoint.
 
-Expected direction:
+Architecture review scope:
 
-- review the existing `VdrChangeState`, `VdrChangeEvent` and `ChangeDetectionService` contracts
-- define the internal shape of a snapshot change feed
-- keep feed generation separate from HTTP transport
-- avoid introducing SSE or WebSocket transport in the first step
-- keep multi-VDR and backend identity requirements in mind
+- `VdrChangeState`
+- `VdrChangeEvent`
+- `ChangeDetectionService`
+- `SnapshotRefreshDecision`
+- `SnapshotRefreshPlanner`
+- `SnapshotCache`
+- `SnapshotAccessService`
+- `VdrSnapshotReadService`
+- `VdrSnapshotReadJsonSerializer`
+- `VdrController`
+- `ApiRouter`
+- `TestHttpServer`
+
+Constraints:
+
+- no SSE architecture yet
+- no WebSocket architecture yet
+- no frontend coupling
+- keep multi-VDR and backend identity requirements visible
 
 Later planning is tracked in:
 
@@ -144,7 +160,7 @@ Later planning is tracked in:
 - No permanent single-VDR assumption.
 - Prefer complete files for local changes.
 - Use nano-compatible workflows for local instructions.
-- No `cat <<EOF` blocks in local instructions.
+- Avoid shell here-doc blocks in local instructions.
 - Keep builds working after each small change.
 - Run targeted tests before code commits when local build access is available.
 - Before every push, run `git fetch` and inspect `git log --oneline --decorate HEAD..origin/phase-2-actions`.
