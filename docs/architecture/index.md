@@ -39,16 +39,14 @@ The central documentation index is:
 - [Snapshot Architecture](snapshot-architecture.md)
 - [Snapshot Access Architecture](snapshot-access-architecture.md)
 - [Partial Snapshot Refresh Architecture](partial-snapshot-refresh-architecture.md)
+- [Snapshot Change Feed Architecture](snapshot-change-feed-architecture.md)
 
 ---
 
 ## Event and Change Architecture
 
 - [Internal Event Dispatch Architecture](internal-event-dispatch-architecture.md)
-
-Planned next architecture phase:
-
-- Phase 12.0 Snapshot Change Feed Architecture
+- [Snapshot Change Feed Architecture](snapshot-change-feed-architecture.md)
 
 ---
 
