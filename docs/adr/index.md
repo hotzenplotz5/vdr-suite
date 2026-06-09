@@ -42,6 +42,8 @@ The legacy numeric files 007 and 008 also remain for repository history and comp
 
 No new ADRs should be created in the lowercase or legacy numeric series.
 
+If a canonical ADR is superseded, keep it only in the superseded section and do not list it as an active canonical decision.
+
 ---
 
 ## Canonical ADRs
@@ -85,7 +87,7 @@ Retained for historical reference:
 
 ## Superseded ADRs
 
-- ADR-0011 VDR Source Model (superseded)
+- [ADR-0011: VDR Source Model](ADR-0011-vdr-source-model.md) superseded by [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md)
 
 ---
 
@@ -103,13 +105,13 @@ Retained for historical reference:
 - use the next canonical ADR number
 - keep historical ADRs available
 - keep superseded ADRs visible
-- avoid duplicate ADR numbers
+- avoid duplicate active ADR numbers
 - link architecture summaries from docs/architecture
 
 ## ADR Documents
 
-- [ADR-007: Platform API Strategy](007-platform-api-strategy.md)
-- [ADR-008: Runtime Observability Strategy](008-runtime-observability-strategy.md)
+### Active Canonical ADRs
+
 - [ADR-0001: Monorepo für VDR-Suite](ADR-0001-monorepo.md)
 - [ADR-0002: SQLite als zentrale Metadaten-Datenbank](ADR-0002-sqlite.md)
 - [ADR-0003: REST API als externe Schnittstelle](ADR-0003-rest-api.md)
@@ -121,7 +123,6 @@ Retained for historical reference:
 - [ADR-0009: HTTP Server Factory Strategy](ADR-0009-http-server-factory-strategy.md)
 - [ADR-0010: Library First VDR Architecture](ADR-0010-library-first-vdr-architecture.md)
 - [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md)
-- [ADR-0011: VDR Source Model](ADR-0011-vdr-source-model.md)
 - [ADR-0012: Source Capability Model](ADR-0012-source-capability-model.md)
 - [ADR-0013: Permission Model](ADR-0013-permission-model.md)
 - [ADR-0014: Recording Identity Strategy](ADR-0014-recording-identity-strategy.md)
@@ -129,12 +130,21 @@ Retained for historical reference:
 - [ADR-0016: Snapshot Change Feed Architecture](ADR-0016-snapshot-change-feed-architecture.md)
 - [ADR-0017: Live Transport Boundary](ADR-0017-live-transport-boundary.md)
 - [ADR-0018: Incremental Snapshot Synchronization](ADR-0018-incremental-snapshot-synchronization.md)
+
+### Superseded Canonical ADRs
+
+- [ADR-0011: VDR Source Model](ADR-0011-vdr-source-model.md)
+
+### Historical ADRs
+
 - [ADR-001 Backend Identity Strategy](adr-001-backend-identity-strategy.md)
 - [ADR-002 Backend Federation Strategy](adr-002-backend-federation-strategy.md)
 - [ADR-003 Backend Capability Strategy](adr-003-backend-capability-strategy.md)
 - [ADR-004 Backend Lifecycle Strategy](adr-004-backend-lifecycle-strategy.md)
 - [ADR-005 Stream Provider Strategy](adr-005-stream-provider-strategy.md)
 - [ADR-006 Internal Event Dispatch Strategy](adr-006-internal-event-dispatch-strategy.md)
+- [ADR-007: Platform API Strategy](007-platform-api-strategy.md)
+- [ADR-008: Runtime Observability Strategy](008-runtime-observability-strategy.md)
 
 ---
 
