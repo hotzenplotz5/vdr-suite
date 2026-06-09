@@ -34,14 +34,16 @@ public:
         std::size_t channelCount,
         std::size_t eventCount,
         std::size_t timerCount,
-        std::size_t recordingCount) const;
+        std::size_t recordingCount,
+        const std::string& backendId = "default") const;
 
     std::string serializeSnapshotSummary(
         bool snapshotAvailable,
         std::size_t channelCount,
         std::size_t eventCount,
         std::size_t timerCount,
-        std::size_t recordingCount) const;
+        std::size_t recordingCount,
+        const std::string& backendId = "default") const;
 
     std::string serializeCapabilities(
         const VdrCapabilitySet& capabilities) const;
