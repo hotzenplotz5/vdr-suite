@@ -18,6 +18,11 @@ public:
         int sequenceNumber,
         int snapshotGeneration,
         const std::vector<VdrChangeEvent>& changeEvents) const;
+
+    void appendChanges(
+        SnapshotChangeFeed& feed,
+        int snapshotGeneration,
+        const std::vector<VdrChangeEvent>& changeEvents) const;
 };
 
 #endif
