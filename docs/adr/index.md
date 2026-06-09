@@ -30,11 +30,11 @@ Canonical ADR sequence:
 ADR-0001
 ADR-0002
 ...
-ADR-0016
+ADR-0017
 
 Next available ADR:
 
-ADR-0017
+ADR-0018
 
 The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
 
@@ -60,6 +60,7 @@ No new ADRs should be created in the lowercase series.
 - ADR-0014 Recording Identity Strategy
 - ADR-0015 Timer Operation Boundary
 - ADR-0016 Snapshot Change Feed Architecture
+- ADR-0017 Live Transport Boundary
 
 ---
 
@@ -102,7 +103,6 @@ Retained for historical reference:
 
 ## ADR Documents
 
-
 - [ADR-007: Platform API Strategy](007-platform-api-strategy.md)
 - [ADR-008: Runtime Observability Strategy](008-runtime-observability-strategy.md)
 - [ADR-0001: Monorepo für VDR-Suite](ADR-0001-monorepo.md)
@@ -122,13 +122,13 @@ Retained for historical reference:
 - [ADR-0014: Recording Identity Strategy](ADR-0014-recording-identity-strategy.md)
 - [ADR-0015: Timer Operation Boundary](ADR-0015-timer-operation-boundary.md)
 - [ADR-0016: Snapshot Change Feed Architecture](ADR-0016-snapshot-change-feed-architecture.md)
+- [ADR-0017: Live Transport Boundary](ADR-0017-live-transport-boundary.md)
 - [ADR-001 Backend Identity Strategy](adr-001-backend-identity-strategy.md)
 - [ADR-002 Backend Federation Strategy](adr-002-backend-federation-strategy.md)
 - [ADR-003 Backend Capability Strategy](adr-003-backend-capability-strategy.md)
 - [ADR-004 Backend Lifecycle Strategy](adr-004-backend-lifecycle-strategy.md)
 - [ADR-005 Stream Provider Strategy](adr-005-stream-provider-strategy.md)
 - [ADR-006 Internal Event Dispatch Strategy](adr-006-internal-event-dispatch-strategy.md)
-
 
 ---
 
