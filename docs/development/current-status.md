@@ -36,7 +36,7 @@ VDR remains the primary backend domain and source of truth.
 ## Current Branch
 
 ```text
-phase-2-actions
+main
 ```
 
 ---
@@ -46,31 +46,34 @@ phase-2-actions
 Latest completed implementation phase:
 
 ```text
-Phase 12.3 - Snapshot Change Feed REST Controller
+Phase 13.7e - Snapshot Cache Generation Tracking
 ```
 
 Current major phase status:
 
 ```text
-Phase 12 complete
+Phase 13 live update transport preparation is complete through 13.7e.
 ```
 
 Verified locally with:
 
 ```text
-make test-snapshot-change-feed-controller
+make test-snapshot-cache-service
 make test
+make test-docs
+make test-architecture
 ```
 
 Verification summary:
 
-- `make test-snapshot-change-feed-controller` passed
+- `make test-snapshot-cache-service` passed after generation expectation fixes
 - `make test` passed
-- `test_snapshot_change_feed_controller` passed
-- `test_api_router` passed with snapshot change feed routing coverage
-- snapshot change feed service and serializer tests passed
-- snapshot cache, access, refresh, polling and RESTfulAPI mapper tests passed
-- runtime diagnostics tests passed
+- `make test-docs` passed
+- `make test-architecture` passed
+- daemon-owned snapshot change feed wiring is in place
+- mutable snapshot change feed append support is implemented
+- runtime feed update integration is implemented
+- snapshot cache generation tracking is implemented
 
 ---
 
@@ -80,7 +83,10 @@ Verification summary:
 - Snapshot-based read architecture is completed for the current domain set.
 - Snapshot read APIs are available for status, channels, timers, events and recordings.
 - Snapshot cache, snapshot access and partial refresh planning are in place.
+- Snapshot cache generation tracking is implemented in `SnapshotCacheService`.
 - Snapshot change feed service, serializer and read-only REST controller are implemented.
+- Snapshot change feed entries can now be appended to an existing runtime-owned feed.
+- Daemon runtime owns the snapshot change feed and updates it after VDR polling.
 - Runtime diagnostics are integrated through structured runtime measurement boundaries.
 - Future live updates should build on snapshot change information instead of coupling clients to polling internals.
 - Backend identity, federation, capability and lifecycle strategy are documented through ADRs.
@@ -116,72 +122,28 @@ GET /api/jobs
 GET /api/recordings
 GET /api/metadata
 GET /api/runtime/diagnostics
+GET /api/runtime/summary
 ```
 
 ---
 
-## Next Planned Phase
+## Next Technical Focus
 
 ```text
-Phase 13 - Live Update Transport
+Phase 13.8 - Live Transport Foundation
 ```
 
-Goal:
+The next step is to add a transport layer above the existing snapshot change feed.
 
-Expose snapshot change feed information through a live transport mechanism while preserving the current transport-independent change feed model.
-
-Candidate transports:
-
-- Server Sent Events
-- WebSocket
-
-Constraints:
+Important boundaries:
 
 - live transport consumes the snapshot change feed
+- live transport must not own polling
 - live transport must not own snapshot generation
-- live transport must not own change detection
-- live transport must not own feed generation
-- no frontend coupling to polling internals
-- keep multi-VDR and backend identity requirements visible
+- live transport must not introduce backend-specific logic
+- RESTfulAPI-specific code remains inside the adapter layer
 
 ---
-
-## Documentation Hubs
-
-- [Project Overview](../project-overview.md)
-- [Planning Documentation](../planning/index.md)
-- [Development Documentation](index.md)
-- [Architecture Documentation](../architecture/index.md)
-- [Architecture Decision Records](../adr/index.md)
-
----
-
-## Project Rules
-
-- Architecture first.
-- Read existing code before code changes.
-- No placeholders.
-- No dummy implementations.
-- No permanent single-VDR assumption.
-- Prefer complete files for local changes.
-- Use nano-compatible workflows for local instructions.
-- No `cat <<EOF` blocks in local instructions.
-- Keep builds working after each small change.
-- Run targeted tests before code commits when local build access is available.
-- Before every push, run `git fetch` and inspect `git log --oneline --decorate HEAD..origin/phase-2-actions`.
-
----
-
-### Phase 13.5 / 13.6: Capability Resolver Foundation
-
-Implemented:
-
-- VdrCapabilitySet
-- ICapabilityResolver
-- CapabilityResolver
-- GET /api/vdr/capabilities
-
-The capabilities endpoint now uses the capability resolver instead of directly exposing a raw capability set.
 
 ## Back
 
