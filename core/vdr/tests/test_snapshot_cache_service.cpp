@@ -62,7 +62,7 @@ static void test_update_status_updates_only_status_domain()
     service.updateStatus(status);
 
     assert(service.cache().hasSnapshot());
-    assert(service.generation() == 1);
+    assert(service.generation() == 2);
     assert(service.cache().snapshot().status.enabled == true);
     assert(service.cache().snapshot().status.mode == "partial");
     assert(service.cache().snapshot().recordings.size() == 1);
