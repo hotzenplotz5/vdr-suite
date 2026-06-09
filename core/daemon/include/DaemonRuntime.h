@@ -23,6 +23,8 @@
 #include "RuntimeDiagnosticsJsonSerializer.h"
 #include "RuntimeDiagnosticsService.h"
 #include "SnapshotAccessService.h"
+#include "VdrSnapshotReadJsonSerializer.h"
+#include "VdrSnapshotReadService.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
 #include "VdrConfig.h"
@@ -77,6 +79,8 @@ private:
     std::unique_ptr<SnapshotCache> snapshotCache_;
     std::unique_ptr<SnapshotCacheService> snapshotCacheService_;
     std::unique_ptr<SnapshotAccessService> snapshotAccessService_;
+    std::unique_ptr<VdrSnapshotReadService> vdrSnapshotReadService_;
+    std::unique_ptr<VdrSnapshotReadJsonSerializer> vdrSnapshotReadJsonSerializer_;
     std::unique_ptr<PollingService> pollingService_;
     std::unique_ptr<VdrOverviewService> vdrOverviewService_;
     std::unique_ptr<VdrOverviewJsonSerializer> vdrOverviewJsonSerializer_;

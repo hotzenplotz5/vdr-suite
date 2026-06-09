@@ -1,7 +1,8 @@
 #include "VdrChangeState.h"
 
 VdrChangeState::VdrChangeState()
-    : statusVersion(0),
+    : bootId(""),
+      statusVersion(0),
       channelsVersion(0),
       recordingsVersion(0),
       timersVersion(0),
@@ -11,7 +12,8 @@ VdrChangeState::VdrChangeState()
 
 bool VdrChangeState::hasChangesComparedTo(const VdrChangeState& other) const
 {
-    return statusVersion != other.statusVersion
+    return bootId != other.bootId
+        || statusVersion != other.statusVersion
         || channelsVersion != other.channelsVersion
         || recordingsVersion != other.recordingsVersion
         || timersVersion != other.timersVersion
@@ -20,7 +22,8 @@ bool VdrChangeState::hasChangesComparedTo(const VdrChangeState& other) const
 
 bool VdrChangeState::isEmpty() const
 {
-    return statusVersion == 0
+    return bootId.empty()
+        && statusVersion == 0
         && channelsVersion == 0
         && recordingsVersion == 0
         && timersVersion == 0

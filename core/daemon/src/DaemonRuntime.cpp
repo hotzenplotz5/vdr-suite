@@ -53,6 +53,8 @@ bool DaemonRuntime::initialize()
     snapshotCache_ = std::make_unique<SnapshotCache>();
     snapshotCacheService_ = std::make_unique<SnapshotCacheService>(*snapshotCache_);
     snapshotAccessService_ = std::make_unique<SnapshotAccessService>(*snapshotCacheService_);
+    vdrSnapshotReadService_ = std::make_unique<VdrSnapshotReadService>(*snapshotAccessService_);
+    vdrSnapshotReadJsonSerializer_ = std::make_unique<VdrSnapshotReadJsonSerializer>();
     pollingService_ = std::make_unique<PollingService>(*vdrSnapshotBuilder_, *vdrService_, *snapshotCacheService_, &runtimeLogger_, &runtimeDiagnosticsService_);
 
     pollingService_->poll();
@@ -61,7 +63,7 @@ bool DaemonRuntime::initialize()
 
     vdrOverviewService_ = std::make_unique<VdrOverviewService>(*snapshotAccessService_);
     vdrOverviewJsonSerializer_ = std::make_unique<VdrOverviewJsonSerializer>();
-    vdrController_ = std::make_unique<VdrController>(*vdrOverviewService_, *vdrOverviewJsonSerializer_);
+    vdrController_ = std::make_unique<VdrController>(*vdrOverviewService_, *vdrOverviewJsonSerializer_, *vdrSnapshotReadService_, *vdrSnapshotReadJsonSerializer_);
 
     std::cout << "VDR controller runtime initialized" << std::endl;
 
@@ -120,6 +122,8 @@ void DaemonRuntime::shutdown()
     vdrOverviewJsonSerializer_.reset();
     vdrOverviewService_.reset();
     pollingService_.reset();
+    vdrSnapshotReadJsonSerializer_.reset();
+    vdrSnapshotReadService_.reset();
     snapshotAccessService_.reset();
     snapshotCacheService_.reset();
     snapshotCache_.reset();

@@ -12,7 +12,8 @@
 #include <string>
 
 namespace {
-int parseIntField(const std::string& json, const std::string& fieldName)
+
+long long parseIntegerField(const std::string& json, const std::string& fieldName)
 {
     const std::string quotedField = "\"" + fieldName + "\"";
     const std::size_t fieldPosition = json.find(quotedField);
@@ -44,12 +45,49 @@ int parseIntField(const std::string& json, const std::string& fieldName)
     }
 
     try {
-        return std::stoi(json.substr(valueStart, valueEnd - valueStart));
+        return std::stoll(json.substr(valueStart, valueEnd - valueStart));
     } catch (...) {
         return 0;
     }
 }
+
+std::string parseStringField(const std::string& json, const std::string& fieldName)
+{
+    const std::string quotedField = "\"" + fieldName + "\"";
+    const std::size_t fieldPosition = json.find(quotedField);
+
+    if (fieldPosition == std::string::npos) {
+        return "";
+    }
+
+    const std::size_t colonPosition = json.find(':', fieldPosition + quotedField.size());
+
+    if (colonPosition == std::string::npos) {
+        return "";
+    }
+
+    std::size_t valueStart = colonPosition + 1;
+
+    while (valueStart < json.size() && std::isspace(static_cast<unsigned char>(json[valueStart]))) {
+        ++valueStart;
+    }
+
+    if (valueStart >= json.size() || json[valueStart] != '"') {
+        return "";
+    }
+
+    ++valueStart;
+
+    const std::size_t valueEnd = json.find('"', valueStart);
+
+    if (valueEnd == std::string::npos) {
+        return "";
+    }
+
+    return json.substr(valueStart, valueEnd - valueStart);
 }
+
+} // namespace
 
 RestfulApiVdrAdapter::RestfulApiVdrAdapter(VdrConfig config, IHttpClient& httpClient)
     : config_(config),
@@ -148,11 +186,11 @@ VdrChangeState RestfulApiVdrAdapter::getChangeState() const
         return state;
     }
 
-    state.statusVersion = parseIntField(response.body, "statusVersion");
-    state.channelsVersion = parseIntField(response.body, "channelsVersion");
-    state.recordingsVersion = parseIntField(response.body, "recordingsVersion");
-    state.timersVersion = parseIntField(response.body, "timersVersion");
-    state.eventsVersion = parseIntField(response.body, "eventsVersion");
+    state.bootId = parseStringField(response.body, "bootID");
+    state.channelsVersion = parseIntegerField(response.body, "channelsUpdate");
+    state.recordingsVersion = parseIntegerField(response.body, "recordingsUpdate");
+    state.timersVersion = parseIntegerField(response.body, "timersUpdate");
+    state.eventsVersion = parseIntegerField(response.body, "eventsUpdate");
 
     return state;
 }
