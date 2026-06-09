@@ -102,7 +102,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
 
     snapshotChangeFeedService_->appendChanges(
         *snapshotChangeFeed_,
-        pollingService_->snapshot().status.port,
+        snapshotCacheService_->generation(),
         pollingService_->changeEvents());
 }
 

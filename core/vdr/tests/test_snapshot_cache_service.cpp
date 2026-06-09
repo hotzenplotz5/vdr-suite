@@ -9,6 +9,7 @@ static void test_service_exposes_existing_cache_boundary()
     SnapshotCacheService service(cache);
 
     assert(!service.cache().hasSnapshot());
+    assert(service.generation() == 0);
 
     VdrSnapshot snapshot;
     service.cache().update(snapshot);
@@ -18,6 +19,7 @@ static void test_service_exposes_existing_cache_boundary()
     service.cache().clear();
 
     assert(!service.cache().hasSnapshot());
+    assert(service.generation() == 0);
 }
 
 static void test_update_snapshot_replaces_complete_snapshot()
@@ -33,6 +35,7 @@ static void test_update_snapshot_replaces_complete_snapshot()
     service.updateSnapshot(snapshot);
 
     assert(service.cache().hasSnapshot());
+    assert(service.generation() == 1);
     assert(service.cache().snapshot().status.enabled == true);
     assert(service.cache().snapshot().status.mode == "test");
     assert(service.cache().snapshot().status.state == "connected");
@@ -59,6 +62,7 @@ static void test_update_status_updates_only_status_domain()
     service.updateStatus(status);
 
     assert(service.cache().hasSnapshot());
+    assert(service.generation() == 1);
     assert(service.cache().snapshot().status.enabled == true);
     assert(service.cache().snapshot().status.mode == "partial");
     assert(service.cache().snapshot().recordings.size() == 1);
@@ -82,6 +86,7 @@ static void test_update_recordings_updates_only_recordings_domain()
     service.updateRecordings({ recording });
 
     assert(service.cache().hasSnapshot());
+    assert(service.generation() == 1);
     assert(service.cache().snapshot().status.enabled == true);
     assert(service.cache().snapshot().status.mode == "test");
     assert(service.cache().snapshot().recordings.size() == 1);
@@ -99,6 +104,7 @@ static void test_update_timers_updates_only_timers_domain()
     service.updateTimers({ timer });
 
     assert(service.cache().hasSnapshot());
+    assert(service.generation() == 1);
     assert(service.cache().snapshot().timers.size() == 1);
     assert(service.cache().snapshot().timers[0].id == "timer-1");
 }
@@ -114,6 +120,7 @@ static void test_update_channels_updates_only_channels_domain()
     service.updateChannels({ channel });
 
     assert(service.cache().hasSnapshot());
+    assert(service.generation() == 1);
     assert(service.cache().snapshot().channels.size() == 1);
     assert(service.cache().snapshot().channels[0].id == "channel-1");
 }
@@ -129,6 +136,7 @@ static void test_update_events_updates_only_events_domain()
     service.updateEvents({ event });
 
     assert(service.cache().hasSnapshot());
+    assert(service.generation() == 1);
     assert(service.cache().snapshot().events.size() == 1);
     assert(service.cache().snapshot().events[0].id == "event-1");
 }
@@ -142,10 +150,12 @@ static void test_clear_clears_cache()
     service.updateSnapshot(snapshot);
 
     assert(service.cache().hasSnapshot());
+    assert(service.generation() == 1);
 
     service.clear();
 
     assert(!service.cache().hasSnapshot());
+    assert(service.generation() == 0);
 }
 
 int main()

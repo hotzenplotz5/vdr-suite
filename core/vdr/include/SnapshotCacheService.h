@@ -18,6 +18,8 @@ public:
     SnapshotCache& cache();
     const SnapshotCache& cache() const;
 
+    int generation() const;
+
     void updateSnapshot(const VdrSnapshot& snapshot);
     void updateStatus(const VdrStatus& status);
     void updateRecordings(const std::vector<VdrRecording>& recordings);
@@ -27,7 +29,10 @@ public:
     void clear();
 
 private:
+    void incrementGeneration();
+
     SnapshotCache& cache_;
+    int generation_;
 };
 
 #endif
