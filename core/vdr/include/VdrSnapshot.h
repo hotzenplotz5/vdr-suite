@@ -7,9 +7,11 @@
 #include "VdrStatus.h"
 #include "VdrTimer.h"
 
+#include <string>
 #include <vector>
 
 struct VdrSnapshot {
+    std::string backendId = "default";
     VdrStatus status;
     std::vector<VdrRecording> recordings;
     std::vector<VdrTimer> timers;
