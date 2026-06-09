@@ -3,9 +3,11 @@
 SnapshotChangeFeedEntry::SnapshotChangeFeedEntry(
     int sequenceNumber,
     int snapshotGeneration,
-    const std::vector<std::string>& changedDomains)
+    const std::vector<std::string>& changedDomains,
+    const std::string& backendId)
     : sequenceNumber_(sequenceNumber),
       snapshotGeneration_(snapshotGeneration),
+      backendId_(backendId),
       changedDomains_(changedDomains)
 {
 }
@@ -18,6 +20,11 @@ int SnapshotChangeFeedEntry::sequenceNumber() const
 int SnapshotChangeFeedEntry::snapshotGeneration() const
 {
     return snapshotGeneration_;
+}
+
+const std::string& SnapshotChangeFeedEntry::backendId() const
+{
+    return backendId_;
 }
 
 const std::vector<std::string>& SnapshotChangeFeedEntry::changedDomains() const
