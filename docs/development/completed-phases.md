@@ -210,9 +210,39 @@ Important:
 
 ---
 
+## Phase 13 - Snapshot Change Feed Runtime Integration
+
+Status: Completed through Phase 13.7e
+
+Result:
+
+- RESTfulAPI change-state adapter alignment
+- daemon-owned snapshot change feed wiring
+- mutable snapshot change feed append support
+- runtime feed update integration
+- snapshot cache generation tracking
+- snapshot change feed generation values now come from SnapshotCacheService
+- generation tests corrected and verified
+
+Verified with:
+
+- make test-snapshot-cache-service
+- make test
+- make test-docs
+- make test-architecture
+
+Important:
+
+- no SSE implementation yet
+- no WebSocket implementation yet
+- live transport remains a future layer above the snapshot change feed
+- RESTfulAPI-specific logic remains inside the VDR adapter layer
+
+---
+
 ## Next Phase
 
-Phase 13 remains part of roadmap planning until implementation starts.
+Phase 13.8 should introduce the Live Transport Foundation above the existing snapshot change feed.
 
 See:
 
