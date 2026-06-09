@@ -60,8 +60,7 @@ bool DaemonRuntime::initialize()
     snapshotChangeFeedService_ = std::make_unique<SnapshotChangeFeedService>();
     snapshotChangeFeedJsonSerializer_ = std::make_unique<SnapshotChangeFeedJsonSerializer>();
 
-    pollingService_->poll();
-    *snapshotChangeFeed_ = snapshotChangeFeedService_->createFeed(1, 1, pollingService_->changeEvents());
+    pollVdrAndUpdateChangeFeed();
 
     std::cout << "VDR snapshot runtime initialized" << std::endl;
 
@@ -95,6 +94,16 @@ bool DaemonRuntime::initialize()
     initialized_ = true;
 
     return true;
+}
+
+void DaemonRuntime::pollVdrAndUpdateChangeFeed()
+{
+    pollingService_->poll();
+
+    snapshotChangeFeedService_->appendChanges(
+        *snapshotChangeFeed_,
+        pollingService_->snapshot().status.port,
+        pollingService_->changeEvents());
 }
 
 int DaemonRuntime::run()

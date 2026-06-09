@@ -53,6 +53,7 @@ public:
 
 private:
     static void handleSignal(int signalNumber);
+    void pollVdrAndUpdateChangeFeed();
 
     bool initialized_;
 
