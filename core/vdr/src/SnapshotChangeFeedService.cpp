@@ -53,3 +53,16 @@ SnapshotChangeFeed SnapshotChangeFeedService::createFeed(
 
     return feed;
 }
+
+void SnapshotChangeFeedService::appendChanges(
+    SnapshotChangeFeed& feed,
+    int snapshotGeneration,
+    const std::vector<VdrChangeEvent>& changeEvents) const
+{
+    const int nextSequenceNumber = feed.latestSequenceNumber() + 1;
+    const auto entry = createEntry(nextSequenceNumber, snapshotGeneration, changeEvents);
+
+    if (entry.hasChanges()) {
+        feed.addEntry(entry);
+    }
+}
