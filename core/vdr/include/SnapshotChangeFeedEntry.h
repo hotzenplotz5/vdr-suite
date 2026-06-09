@@ -9,16 +9,19 @@ public:
     SnapshotChangeFeedEntry(
         int sequenceNumber,
         int snapshotGeneration,
-        const std::vector<std::string>& changedDomains);
+        const std::vector<std::string>& changedDomains,
+        const std::string& backendId = "default");
 
     int sequenceNumber() const;
     int snapshotGeneration() const;
+    const std::string& backendId() const;
     const std::vector<std::string>& changedDomains() const;
     bool hasChanges() const;
 
 private:
     int sequenceNumber_;
     int snapshotGeneration_;
+    std::string backendId_;
     std::vector<std::string> changedDomains_;
 };
 
