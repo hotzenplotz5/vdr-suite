@@ -5,7 +5,7 @@
 #include <cassert>
 #include <iostream>
 
-static void test_entry_stores_sequence_generation_and_domains()
+static void test_entry_stores_sequence_generation_backend_and_domains()
 {
     SnapshotChangeFeedEntry entry(
         7,
@@ -14,10 +14,26 @@ static void test_entry_stores_sequence_generation_and_domains()
 
     assert(entry.sequenceNumber() == 7);
     assert(entry.snapshotGeneration() == 3);
+    assert(entry.backendId() == "default");
     assert(entry.hasChanges() == true);
     assert(entry.changedDomains().size() == 2);
     assert(entry.changedDomains()[0] == "status");
     assert(entry.changedDomains()[1] == "recordings");
+}
+
+static void test_entry_stores_explicit_backend_id()
+{
+    SnapshotChangeFeedEntry entry(
+        8,
+        4,
+        {"timers"},
+        "parents-vdr");
+
+    assert(entry.sequenceNumber() == 8);
+    assert(entry.snapshotGeneration() == 4);
+    assert(entry.backendId() == "parents-vdr");
+    assert(entry.changedDomains().size() == 1);
+    assert(entry.changedDomains()[0] == "timers");
 }
 
 static void test_feed_tracks_latest_entry()
@@ -35,6 +51,8 @@ static void test_feed_tracks_latest_entry()
     assert(feed.entries().size() == 2);
     assert(feed.latestSequenceNumber() == 2);
     assert(feed.latestSnapshotGeneration() == 11);
+    assert(feed.entries()[0].backendId() == "default");
+    assert(feed.entries()[1].backendId() == "default");
 }
 
 static void test_service_creates_feed_from_change_events()
@@ -53,6 +71,7 @@ static void test_service_creates_feed_from_change_events()
     assert(feed.entries().size() == 1);
     assert(feed.latestSequenceNumber() == 5);
     assert(feed.latestSnapshotGeneration() == 12);
+    assert(feed.entries()[0].backendId() == "default");
     assert(feed.entries()[0].changedDomains().size() == 2);
     assert(feed.entries()[0].changedDomains()[0] == "channels");
     assert(feed.entries()[0].changedDomains()[1] == "events");
@@ -70,7 +89,8 @@ static void test_service_does_not_add_empty_feed_entry()
 
 int main()
 {
-    test_entry_stores_sequence_generation_and_domains();
+    test_entry_stores_sequence_generation_backend_and_domains();
+    test_entry_stores_explicit_backend_id();
     test_feed_tracks_latest_entry();
     test_service_creates_feed_from_change_events();
     test_service_does_not_add_empty_feed_entry();
