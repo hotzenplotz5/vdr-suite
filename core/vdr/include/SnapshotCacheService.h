@@ -9,6 +9,7 @@
 #include "VdrStatus.h"
 #include "VdrTimer.h"
 
+#include <string>
 #include <vector>
 
 class SnapshotCacheService {
@@ -19,6 +20,7 @@ public:
     const SnapshotCache& cache() const;
 
     int generation() const;
+    std::string backendId() const;
 
     void updateSnapshot(const VdrSnapshot& snapshot);
     void updateStatus(const VdrStatus& status);
