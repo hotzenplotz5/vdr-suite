@@ -4,6 +4,7 @@
 #include "MetadataController.h"
 #include "RecordingsController.h"
 #include "RuntimeDiagnosticsController.h"
+#include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
 
 #include "DashboardFacade.h"
@@ -19,6 +20,9 @@
 #include "RuntimeDiagnosticsService.h"
 #include "RuntimeMeasurement.h"
 #include "SnapshotAccessService.h"
+#include "SnapshotChangeFeed.h"
+#include "SnapshotChangeFeedController.h"
+#include "SnapshotChangeFeedJsonSerializer.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
 #include "VdrOverviewJsonSerializer.h"
@@ -182,13 +186,21 @@ int main()
         runtimeDiagnosticsService,
         runtimeJsonSerializer);
 
+    SnapshotChangeFeed snapshotChangeFeed;
+    snapshotChangeFeed.addEntry(SnapshotChangeFeedEntry(7, 3, {"channels", "recordings"}));
+    SnapshotChangeFeedJsonSerializer snapshotChangeFeedJsonSerializer;
+    SnapshotChangeFeedController snapshotChangeFeedController(
+        snapshotChangeFeed,
+        snapshotChangeFeedJsonSerializer);
+
     ApiRouter router(
         dashboardController,
         jobsController,
         recordingsController,
         metadataController,
         vdrController,
-        runtimeDiagnosticsController);
+        runtimeDiagnosticsController,
+        snapshotChangeFeedController);
 
     ApiResponse dashboardResponse =
         router.handleGet("/api/dashboard");
@@ -299,6 +311,18 @@ int main()
     assert(vdrHealthResponse.body.find("\"timerCount\":1")
            != std::string::npos);
     assert(vdrHealthResponse.body.find("\"recordingCount\":1")
+           != std::string::npos);
+
+    ApiResponse vdrChangesResponse =
+        router.handleGet("/api/vdr/changes");
+
+    assert(vdrChangesResponse.statusCode == 200);
+    assert(vdrChangesResponse.contentType == "application/json");
+    assert(vdrChangesResponse.body.find("\"latestSequenceNumber\":7")
+           != std::string::npos);
+    assert(vdrChangesResponse.body.find("\"channels\"")
+           != std::string::npos);
+    assert(vdrChangesResponse.body.find("\"recordings\"")
            != std::string::npos);
 
     ApiResponse vdrRecordingsResponse =

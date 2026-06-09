@@ -56,8 +56,12 @@ bool DaemonRuntime::initialize()
     vdrSnapshotReadService_ = std::make_unique<VdrSnapshotReadService>(*snapshotAccessService_);
     vdrSnapshotReadJsonSerializer_ = std::make_unique<VdrSnapshotReadJsonSerializer>();
     pollingService_ = std::make_unique<PollingService>(*vdrSnapshotBuilder_, *vdrService_, *snapshotCacheService_, &runtimeLogger_, &runtimeDiagnosticsService_);
+    snapshotChangeFeed_ = std::make_unique<SnapshotChangeFeed>();
+    snapshotChangeFeedService_ = std::make_unique<SnapshotChangeFeedService>();
+    snapshotChangeFeedJsonSerializer_ = std::make_unique<SnapshotChangeFeedJsonSerializer>();
 
     pollingService_->poll();
+    *snapshotChangeFeed_ = snapshotChangeFeedService_->createFeed(1, 1, pollingService_->changeEvents());
 
     std::cout << "VDR snapshot runtime initialized" << std::endl;
 
@@ -69,10 +73,12 @@ bool DaemonRuntime::initialize()
 
     runtimeDiagnosticsJsonSerializer_ = std::make_unique<RuntimeDiagnosticsJsonSerializer>();
     runtimeDiagnosticsController_ = std::make_unique<RuntimeDiagnosticsController>(runtimeDiagnosticsService_, *runtimeDiagnosticsJsonSerializer_);
+    snapshotChangeFeedController_ = std::make_unique<SnapshotChangeFeedController>(*snapshotChangeFeed_, *snapshotChangeFeedJsonSerializer_);
 
     std::cout << "runtime diagnostics controller initialized" << std::endl;
+    std::cout << "snapshot change feed controller initialized" << std::endl;
 
-    apiRouter_ = std::make_unique<ApiRouter>(*dashboardController_, *jobsController_, *recordingsController_, *metadataController_, *vdrController_, *runtimeDiagnosticsController_);
+    apiRouter_ = std::make_unique<ApiRouter>(*dashboardController_, *jobsController_, *recordingsController_, *metadataController_, *vdrController_, *runtimeDiagnosticsController_, *snapshotChangeFeedController_);
 
     std::cout << "API router runtime initialized" << std::endl;
 
@@ -116,11 +122,15 @@ void DaemonRuntime::shutdown()
 
     std::cout << "HTTP server runtime stopped" << std::endl;
 
+    snapshotChangeFeedController_.reset();
     runtimeDiagnosticsController_.reset();
     runtimeDiagnosticsJsonSerializer_.reset();
     vdrController_.reset();
     vdrOverviewJsonSerializer_.reset();
     vdrOverviewService_.reset();
+    snapshotChangeFeedJsonSerializer_.reset();
+    snapshotChangeFeedService_.reset();
+    snapshotChangeFeed_.reset();
     pollingService_.reset();
     vdrSnapshotReadJsonSerializer_.reset();
     vdrSnapshotReadService_.reset();

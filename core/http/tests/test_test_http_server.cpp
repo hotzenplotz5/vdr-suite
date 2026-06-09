@@ -17,6 +17,9 @@
 #include "RuntimeDiagnosticsService.h"
 #include "RuntimeMeasurement.h"
 #include "SnapshotAccessService.h"
+#include "SnapshotChangeFeed.h"
+#include "SnapshotChangeFeedController.h"
+#include "SnapshotChangeFeedJsonSerializer.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
 #include "TestHttpServer.h"
@@ -70,7 +73,10 @@ static ApiRouter createRouter(
     VdrController& vdrController,
     RuntimeDiagnosticsService& runtimeDiagnosticsService,
     RuntimeDiagnosticsJsonSerializer& runtimeJsonSerializer,
-    RuntimeDiagnosticsController& runtimeDiagnosticsController)
+    RuntimeDiagnosticsController& runtimeDiagnosticsController,
+    SnapshotChangeFeed& snapshotChangeFeed,
+    SnapshotChangeFeedJsonSerializer& snapshotChangeFeedJsonSerializer,
+    SnapshotChangeFeedController& snapshotChangeFeedController)
 {
     (void)db;
     (void)adapter;
@@ -91,6 +97,8 @@ static ApiRouter createRouter(
     (void)snapshotReadJsonSerializer;
     (void)runtimeDiagnosticsService;
     (void)runtimeJsonSerializer;
+    (void)snapshotChangeFeed;
+    (void)snapshotChangeFeedJsonSerializer;
 
     return ApiRouter(
         dashboardController,
@@ -98,7 +106,8 @@ static ApiRouter createRouter(
         recordingsController,
         metadataController,
         vdrController,
-        runtimeDiagnosticsController);
+        runtimeDiagnosticsController,
+        snapshotChangeFeedController);
 }
 
 int main()
@@ -190,6 +199,13 @@ int main()
         runtimeDiagnosticsService,
         runtimeJsonSerializer);
 
+    SnapshotChangeFeed snapshotChangeFeed;
+    snapshotChangeFeed.addEntry(SnapshotChangeFeedEntry(3, 1, {"status"}));
+    SnapshotChangeFeedJsonSerializer snapshotChangeFeedJsonSerializer;
+    SnapshotChangeFeedController snapshotChangeFeedController(
+        snapshotChangeFeed,
+        snapshotChangeFeedJsonSerializer);
+
     ApiRouter router =
         createRouter(
             db,
@@ -216,7 +232,10 @@ int main()
             vdrController,
             runtimeDiagnosticsService,
             runtimeJsonSerializer,
-            runtimeDiagnosticsController);
+            runtimeDiagnosticsController,
+            snapshotChangeFeed,
+            snapshotChangeFeedJsonSerializer,
+            snapshotChangeFeedController);
 
     TestHttpServer server(router);
 
