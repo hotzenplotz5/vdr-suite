@@ -30,15 +30,17 @@ Canonical ADR sequence:
 ADR-0001
 ADR-0002
 ...
-ADR-0017
+ADR-0018
 
 Next available ADR:
 
-ADR-0018
+ADR-0019
 
 The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
 
-No new ADRs should be created in the lowercase series.
+The legacy numeric files 007 and 008 also remain for repository history and compatibility.
+
+No new ADRs should be created in the lowercase or legacy numeric series.
 
 ---
 
@@ -61,6 +63,7 @@ No new ADRs should be created in the lowercase series.
 - ADR-0015 Timer Operation Boundary
 - ADR-0016 Snapshot Change Feed Architecture
 - ADR-0017 Live Transport Boundary
+- ADR-0018 Incremental Snapshot Synchronization
 
 ---
 
@@ -75,6 +78,8 @@ Retained for historical reference:
 - adr-005 Stream Provider Strategy
 - adr-006 Internal Event Dispatch Strategy
 - adr-007 Platform API Strategy
+- 007 Platform API Strategy
+- 008 Runtime Observability Strategy
 
 ---
 
@@ -123,6 +128,7 @@ Retained for historical reference:
 - [ADR-0015: Timer Operation Boundary](ADR-0015-timer-operation-boundary.md)
 - [ADR-0016: Snapshot Change Feed Architecture](ADR-0016-snapshot-change-feed-architecture.md)
 - [ADR-0017: Live Transport Boundary](ADR-0017-live-transport-boundary.md)
+- [ADR-0018: Incremental Snapshot Synchronization](ADR-0018-incremental-snapshot-synchronization.md)
 - [ADR-001 Backend Identity Strategy](adr-001-backend-identity-strategy.md)
 - [ADR-002 Backend Federation Strategy](adr-002-backend-federation-strategy.md)
 - [ADR-003 Backend Capability Strategy](adr-003-backend-capability-strategy.md)
