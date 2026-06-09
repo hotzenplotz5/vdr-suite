@@ -86,7 +86,7 @@ static void test_update_recordings_updates_only_recordings_domain()
     service.updateRecordings({ recording });
 
     assert(service.cache().hasSnapshot());
-    assert(service.generation() == 1);
+    assert(service.generation() == 2);
     assert(service.cache().snapshot().status.enabled == true);
     assert(service.cache().snapshot().status.mode == "test");
     assert(service.cache().snapshot().recordings.size() == 1);
