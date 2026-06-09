@@ -197,12 +197,14 @@ std::string VdrSnapshotReadJsonSerializer::serializeHealth(
     std::size_t channelCount,
     std::size_t eventCount,
     std::size_t timerCount,
-    std::size_t recordingCount) const
+    std::size_t recordingCount,
+    const std::string& backendId) const
 {
     std::ostringstream json;
 
     json
         << "{"
+        << "\"backendId\":\"" << backendId << "\","
         << "\"snapshotAvailable\":" << boolToJson(snapshotAvailable) << ","
         << "\"state\":\"" << status.state << "\","
         << "\"mode\":\"" << status.mode << "\","
@@ -222,12 +224,14 @@ std::string VdrSnapshotReadJsonSerializer::serializeSnapshotSummary(
     std::size_t channelCount,
     std::size_t eventCount,
     std::size_t timerCount,
-    std::size_t recordingCount) const
+    std::size_t recordingCount,
+    const std::string& backendId) const
 {
     std::ostringstream json;
 
     json
         << "{"
+        << "\"backendId\":\"" << backendId << "\","
         << "\"snapshotAvailable\":" << boolToJson(snapshotAvailable) << ","
         << "\"channelCount\":" << channelCount << ","
         << "\"eventCount\":" << eventCount << ","
