@@ -21,6 +21,16 @@ int SnapshotCacheService::generation() const
     return generation_;
 }
 
+std::string SnapshotCacheService::backendId() const
+{
+    if (!cache_.hasSnapshot())
+    {
+        return "default";
+    }
+
+    return cache_.snapshot().backendId;
+}
+
 void SnapshotCacheService::incrementGeneration()
 {
     ++generation_;
