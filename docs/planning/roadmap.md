@@ -44,40 +44,49 @@ VDR-Suite complements VDR. It does not replace it.
 ## Current Position
 
 ```text
-Completed Major Phase
-Phase 12 - Snapshot Change Feed Foundation
+Completed implementation state
+Phase 13.7e - Snapshot Cache Generation Tracking
 
-Current Cleanup
-Documentation and roadmap consolidation
+Current cleanup
+Documentation and roadmap synchronization after Phase 13.7e
 
-Next Major Phase
-Phase 13 - Live Update Transport
+Next implementation step
+Phase 13.8 - Live Transport Foundation
 ```
 
-Phase 12 completed the transport-independent change feed foundation.
+Phase 13.7e completed the runtime-owned snapshot change feed chain up to cache generation tracking.
 
-Phase 13 should add live update transport without moving change detection or feed generation into the transport layer.
+Phase 13.8 should introduce a live transport foundation above the existing snapshot change feed without moving polling, change detection, snapshot generation or feed generation into the transport layer.
 
 ---
 
-## Phase 13 - Live Update Transport
+## Phase 13.8 - Live Transport Foundation
 
 Goal:
 
-Expose snapshot change feed information through a live transport mechanism.
+Introduce a transport boundary for live update delivery.
+
+Expected direction:
+
+- define the transport-facing boundary above `SnapshotChangeFeed`
+- keep transport independent from polling internals
+- keep transport independent from RESTfulAPI adapter details
+- preserve daemon ownership of runtime state
+- prepare Server Sent Events without committing WebSocket design too early
 
 Candidate transports:
 
 - Server Sent Events (SSE)
 - WebSocket
+- long polling fallback
 
 Expected result:
 
-- live change delivery
-- frontend-friendly update channel
+- frontend-friendly live update foundation
 - preserved backend neutrality
 - preserved snapshot architecture
 - no direct frontend coupling to polling internals
+- no RESTfulAPI-specific logic outside the VDR adapter layer
 
 Architecture rule:
 
@@ -88,6 +97,7 @@ Live transport must not become the owner of:
 - snapshot generation
 - change detection
 - feed generation
+- backend-specific event parsing
 
 ---
 
@@ -140,9 +150,9 @@ Important boundary:
 
 Live update transport is not the same as image or media streaming.
 
-Phase 13 should notify clients that something changed.
+Live transport should notify clients that something changed.
 
-Phase 16 should define how clients can request image or preview stream data.
+Image, preview stream and media stream handling should define how clients can request media-oriented data.
 
 ---
 
