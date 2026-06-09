@@ -11,6 +11,7 @@ std::string SnapshotChangeFeedJsonSerializer::serializeEntry(
         << "{"
         << "\"sequenceNumber\":" << entry.sequenceNumber() << ","
         << "\"snapshotGeneration\":" << entry.snapshotGeneration() << ","
+        << "\"backendId\":\"" << entry.backendId() << "\","
         << "\"changedDomains\":[";
 
     for (std::size_t index = 0;
