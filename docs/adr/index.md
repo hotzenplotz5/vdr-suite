@@ -30,11 +30,11 @@ Canonical ADR sequence:
 ADR-0001
 ADR-0002
 ...
-ADR-0018
+ADR-0019
 
 Next available ADR:
 
-ADR-0019
+ADR-0020
 
 The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
 
@@ -66,6 +66,7 @@ If a canonical ADR is superseded, keep it only in the superseded section and do 
 - ADR-0016 Snapshot Change Feed Architecture
 - ADR-0017 Live Transport Boundary
 - ADR-0018 Incremental Snapshot Synchronization
+- ADR-0019 SSE Event Stream Transport Strategy
 
 ---
 
@@ -130,6 +131,7 @@ Retained for historical reference:
 - [ADR-0016: Snapshot Change Feed Architecture](ADR-0016-snapshot-change-feed-architecture.md)
 - [ADR-0017: Live Transport Boundary](ADR-0017-live-transport-boundary.md)
 - [ADR-0018: Incremental Snapshot Synchronization](ADR-0018-incremental-snapshot-synchronization.md)
+- [ADR-0019: SSE Event Stream Transport Strategy](ADR-0019-sse-event-stream-transport-strategy.md)
 
 ### Superseded Canonical ADRs
 
