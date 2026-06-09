@@ -41,6 +41,27 @@ static void test_update_snapshot_replaces_complete_snapshot()
     assert(service.cache().snapshot().status.state == "connected");
 }
 
+static void test_service_exposes_backend_identity()
+{
+    SnapshotCache cache;
+    SnapshotCacheService service(cache);
+
+    assert(service.backendId() == "default");
+
+    VdrSnapshot snapshot;
+    snapshot.backendId = "parents-vdr";
+
+    service.updateSnapshot(snapshot);
+
+    assert(service.cache().hasSnapshot());
+    assert(service.backendId() == "parents-vdr");
+
+    service.clear();
+
+    assert(!service.cache().hasSnapshot());
+    assert(service.backendId() == "default");
+}
+
 static void test_update_status_updates_only_status_domain()
 {
     SnapshotCache cache;
@@ -162,6 +183,7 @@ int main()
 {
     test_service_exposes_existing_cache_boundary();
     test_update_snapshot_replaces_complete_snapshot();
+    test_service_exposes_backend_identity();
     test_update_status_updates_only_status_domain();
     test_update_recordings_updates_only_recordings_domain();
     test_update_timers_updates_only_timers_domain();
