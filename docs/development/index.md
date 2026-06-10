@@ -31,9 +31,13 @@ These documents describe the verified state of the project.
 ## Getting Started
 
 - [Developer Onboarding](developer-onboarding.md)
+- [Architecture Map](architecture-map.md)
 - [Testing Guide](testing-guide.md)
 - [Coding Standards](coding-standards.md)
 - [Documentation Standards](documentation-standards.md)
+- [Backend Development Guide](backend-development-guide.md)
+- [Contributor Guide](contributor-guide.md)
+- [Release Process](release-process.md)
 
 ---
 
