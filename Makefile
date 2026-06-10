@@ -274,6 +274,14 @@ daemon:
 		$(LDFLAGS) \
 		-o /tmp/vdr-suite-daemon
 
+
+test-backend-runtime-context:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_backend_runtime_context.cpp \
+		-o /tmp/test_backend_runtime_context
+	/tmp/test_backend_runtime_context
+
 include mk/vdr-tests.mk
 
 test-runtime-diagnostics:
