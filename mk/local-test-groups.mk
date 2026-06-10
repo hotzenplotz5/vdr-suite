@@ -1,0 +1,31 @@
+.PHONY: test-vdr
+
+test-vdr: \
+	test-vdr-config \
+	test-external-vdr-adapter \
+	test-vdr-adapter-factory \
+	test-vdr-service \
+	test-vdr-overview-service \
+	test-vdr-overview-json-serializer \
+	test-vdr-snapshot-builder \
+	test-polling-service \
+	test-vdr-change-state \
+	test-vdr-change-event \
+	test-change-detection-service \
+	test-snapshot-refresh-decision-service \
+	test-snapshot-refresh-planner \
+	test-snapshot-update-plan \
+	test-snapshot-cache \
+	test-snapshot-cache-service \
+	test-snapshot-change-feed \
+	test-snapshot-change-feed-json-serializer \
+	test-snapshot-access-service \
+	test-mock-vdr-adapter \
+	test-restful-api-status-mapper \
+	test-restful-api-event-mapper \
+	test-restful-api-channel-mapper \
+	test-restful-api-recording-mapper \
+	test-restful-api-timer-mapper \
+	test-restful-api-vdr-adapter \
+	test-restful-api-change-state-adapter \
+	test-vdr-domain-objects
