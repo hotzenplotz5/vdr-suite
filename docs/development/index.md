@@ -31,6 +31,9 @@ These documents describe the verified state of the project.
 ## Getting Started
 
 - [Developer Onboarding](developer-onboarding.md)
+- [Testing Guide](testing-guide.md)
+- [Coding Standards](coding-standards.md)
+- [Documentation Standards](documentation-standards.md)
 
 ---
 
