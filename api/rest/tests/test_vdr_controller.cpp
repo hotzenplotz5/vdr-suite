@@ -514,6 +514,146 @@ static void test_vdr_controller_returns_snapshot_read_domain_lists()
            != std::string::npos);
 }
 
+
+static void test_vdr_controller_returns_backend_snapshot_status()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot snapshot = makeControllerSnapshot();
+    snapshot.backendId = "default";
+    cache.update(snapshot);
+
+    VdrOverviewService overviewService(accessService);
+    VdrOverviewJsonSerializer jsonSerializer;
+    VdrSnapshotReadService snapshotReadService(accessService);
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
+
+    VdrController controller = makeLiveController(
+        overviewService,
+        jsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
+
+    ApiResponse response =
+        controller.getStatusForBackend("default");
+
+    assertJsonResponse(response);
+
+    assert(response.body.find("\"mode\":\"snapshot-controller\"")
+           != std::string::npos);
+
+    assert(response.body.find("\"state\":\"cached\"")
+           != std::string::npos);
+}
+
+static void test_vdr_controller_returns_empty_backend_snapshot_status_for_missing_backend()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot snapshot = makeControllerSnapshot();
+    snapshot.backendId = "default";
+    cache.update(snapshot);
+
+    VdrOverviewService overviewService(accessService);
+    VdrOverviewJsonSerializer jsonSerializer;
+    VdrSnapshotReadService snapshotReadService(accessService);
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
+
+    VdrController controller = makeLiveController(
+        overviewService,
+        jsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
+
+    ApiResponse response =
+        controller.getStatusForBackend("ferienhaus");
+
+    assertJsonResponse(response);
+
+    assert(response.body.find("\"enabled\":false")
+           != std::string::npos);
+}
+
+static void test_vdr_controller_returns_backend_snapshot_summary()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot snapshot = makeControllerSnapshot();
+    snapshot.backendId = "default";
+    cache.update(snapshot);
+
+    VdrOverviewService overviewService(accessService);
+    VdrOverviewJsonSerializer jsonSerializer;
+    VdrSnapshotReadService snapshotReadService(accessService);
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
+
+    VdrController controller = makeLiveController(
+        overviewService,
+        jsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
+
+    ApiResponse response =
+        controller.getSnapshotSummaryForBackend("default");
+
+    assertJsonResponse(response);
+
+    assert(response.body.find("\"backendId\":\"default\"")
+           != std::string::npos);
+    assert(response.body.find("\"snapshotAvailable\":true")
+           != std::string::npos);
+    assert(response.body.find("\"channelCount\":1")
+           != std::string::npos);
+    assert(response.body.find("\"eventCount\":1")
+           != std::string::npos);
+    assert(response.body.find("\"timerCount\":1")
+           != std::string::npos);
+    assert(response.body.find("\"recordingCount\":1")
+           != std::string::npos);
+}
+
+static void test_vdr_controller_returns_backend_snapshot_health()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot snapshot = makeControllerSnapshot();
+    snapshot.backendId = "default";
+    cache.update(snapshot);
+
+    VdrOverviewService overviewService(accessService);
+    VdrOverviewJsonSerializer jsonSerializer;
+    VdrSnapshotReadService snapshotReadService(accessService);
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
+
+    VdrController controller = makeLiveController(
+        overviewService,
+        jsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
+
+    ApiResponse response =
+        controller.getHealthForBackend("default");
+
+    assertJsonResponse(response);
+
+    assert(response.body.find("\"backendId\":\"default\"")
+           != std::string::npos);
+    assert(response.body.find("\"snapshotAvailable\":true")
+           != std::string::npos);
+    assert(response.body.find("\"state\":\"cached\"")
+           != std::string::npos);
+    assert(response.body.find("\"mode\":\"snapshot-controller\"")
+           != std::string::npos);
+}
+
 int main()
 {
     test_vdr_controller_returns_live_overview();
@@ -523,6 +663,10 @@ int main()
     test_vdr_controller_returns_snapshot_summary();
     test_vdr_controller_returns_snapshot_health();
     test_vdr_controller_returns_snapshot_read_domain_lists();
+    test_vdr_controller_returns_backend_snapshot_status();
+    test_vdr_controller_returns_empty_backend_snapshot_status_for_missing_backend();
+    test_vdr_controller_returns_backend_snapshot_summary();
+    test_vdr_controller_returns_backend_snapshot_health();
 
     std::cout
         << "test_vdr_controller passed"

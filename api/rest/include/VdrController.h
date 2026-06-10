@@ -2,6 +2,8 @@
 
 #include "DashboardController.h"
 
+#include <string>
+
 class VdrOverviewService;
 class VdrOverviewJsonSerializer;
 class VdrSnapshotReadService;
@@ -18,8 +20,11 @@ public:
 
     ApiResponse getOverview();
     ApiResponse getStatus();
+    ApiResponse getStatusForBackend(const std::string& backendId);
     ApiResponse getHealth();
+    ApiResponse getHealthForBackend(const std::string& backendId);
     ApiResponse getSnapshotSummary();
+    ApiResponse getSnapshotSummaryForBackend(const std::string& backendId);
     ApiResponse getCapabilities();
     ApiResponse getRecordings();
     ApiResponse getTimers();

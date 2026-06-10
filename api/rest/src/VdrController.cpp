@@ -47,6 +47,20 @@ ApiResponse VdrController::getStatus()
     return response;
 }
 
+ApiResponse VdrController::getStatusForBackend(
+    const std::string& backendId)
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        snapshotReadJsonSerializer_.serializeStatus(
+            snapshotReadService_.getStatusForBackend(backendId));
+
+    return response;
+}
+
 ApiResponse VdrController::getHealth()
 {
     ApiResponse response;
@@ -61,6 +75,26 @@ ApiResponse VdrController::getHealth()
             snapshotReadService_.getEvents().size(),
             snapshotReadService_.getTimers().size(),
             snapshotReadService_.getRecordings().size());
+
+    return response;
+}
+
+ApiResponse VdrController::getHealthForBackend(
+    const std::string& backendId)
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        snapshotReadJsonSerializer_.serializeHealth(
+            snapshotReadService_.hasSnapshotForBackend(backendId),
+            snapshotReadService_.getStatusForBackend(backendId),
+            snapshotReadService_.getChannelsForBackend(backendId).size(),
+            snapshotReadService_.getEventsForBackend(backendId).size(),
+            snapshotReadService_.getTimersForBackend(backendId).size(),
+            snapshotReadService_.getRecordingsForBackend(backendId).size(),
+            backendId);
 
     return response;
 }
@@ -112,6 +146,25 @@ ApiResponse VdrController::getSnapshotSummary()
             snapshotReadService_.getEvents().size(),
             snapshotReadService_.getTimers().size(),
             snapshotReadService_.getRecordings().size());
+
+    return response;
+}
+
+ApiResponse VdrController::getSnapshotSummaryForBackend(
+    const std::string& backendId)
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        snapshotReadJsonSerializer_.serializeSnapshotSummary(
+            snapshotReadService_.hasSnapshotForBackend(backendId),
+            snapshotReadService_.getChannelsForBackend(backendId).size(),
+            snapshotReadService_.getEventsForBackend(backendId).size(),
+            snapshotReadService_.getTimersForBackend(backendId).size(),
+            snapshotReadService_.getRecordingsForBackend(backendId).size(),
+            backendId);
 
     return response;
 }
