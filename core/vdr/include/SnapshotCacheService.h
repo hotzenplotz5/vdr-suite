@@ -28,10 +28,19 @@ public:
     void updateTimers(const std::vector<VdrTimer>& timers);
     void updateChannels(const std::vector<VdrChannel>& channels);
     void updateEvents(const std::vector<VdrEvent>& events);
+
+    void updateSnapshotForBackend(const std::string& backendId, const VdrSnapshot& snapshot);
+    void updateStatusForBackend(const std::string& backendId, const VdrStatus& status);
+    void updateRecordingsForBackend(const std::string& backendId, const std::vector<VdrRecording>& recordings);
+    void updateTimersForBackend(const std::string& backendId, const std::vector<VdrTimer>& timers);
+    void updateChannelsForBackend(const std::string& backendId, const std::vector<VdrChannel>& channels);
+    void updateEventsForBackend(const std::string& backendId, const std::vector<VdrEvent>& events);
+
     void clear();
 
 private:
     void incrementGeneration();
+    VdrSnapshot snapshotForBackendOrEmpty(const std::string& backendId) const;
 
     SnapshotCache& cache_;
     int generation_;
