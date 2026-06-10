@@ -87,6 +87,25 @@ static void test_service_does_not_add_empty_feed_entry()
     assert(feed.entries().empty() == true);
 }
 
+
+static void test_change_feed_service_preserves_backend_id()
+{
+    SnapshotChangeFeedService service;
+
+    const auto entry = service.createEntry(
+        1,
+        42,
+        { VdrChangeEvent(VdrChangeType::ChannelsChanged) },
+        "parents-vdr");
+
+    assert(entry.hasChanges());
+    assert(entry.backendId() == "parents-vdr");
+    assert(entry.snapshotGeneration() == 42);
+    assert(entry.changedDomains().size() == 1);
+    assert(entry.changedDomains()[0] == "channels");
+}
+
+
 int main()
 {
     test_entry_stores_sequence_generation_backend_and_domains();

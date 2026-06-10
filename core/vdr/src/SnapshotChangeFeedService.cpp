@@ -21,7 +21,8 @@ static std::string domainNameForChangeType(VdrChangeType type)
 SnapshotChangeFeedEntry SnapshotChangeFeedService::createEntry(
     int sequenceNumber,
     int snapshotGeneration,
-    const std::vector<VdrChangeEvent>& changeEvents) const
+    const std::vector<VdrChangeEvent>& changeEvents,
+    const std::string& backendId) const
 {
     std::vector<std::string> changedDomains;
 
@@ -32,20 +33,23 @@ SnapshotChangeFeedEntry SnapshotChangeFeedService::createEntry(
     return SnapshotChangeFeedEntry(
         sequenceNumber,
         snapshotGeneration,
-        changedDomains);
+        changedDomains,
+        backendId);
 }
 
 SnapshotChangeFeed SnapshotChangeFeedService::createFeed(
     int sequenceNumber,
     int snapshotGeneration,
-    const std::vector<VdrChangeEvent>& changeEvents) const
+    const std::vector<VdrChangeEvent>& changeEvents,
+    const std::string& backendId) const
 {
     SnapshotChangeFeed feed;
 
     const auto entry = createEntry(
         sequenceNumber,
         snapshotGeneration,
-        changeEvents);
+        changeEvents,
+        backendId);
 
     if (entry.hasChanges()) {
         feed.addEntry(entry);
@@ -57,10 +61,11 @@ SnapshotChangeFeed SnapshotChangeFeedService::createFeed(
 void SnapshotChangeFeedService::appendChanges(
     SnapshotChangeFeed& feed,
     int snapshotGeneration,
-    const std::vector<VdrChangeEvent>& changeEvents) const
+    const std::vector<VdrChangeEvent>& changeEvents,
+    const std::string& backendId) const
 {
     const int nextSequenceNumber = feed.latestSequenceNumber() + 1;
-    const auto entry = createEntry(nextSequenceNumber, snapshotGeneration, changeEvents);
+    const auto entry = createEntry(nextSequenceNumber, snapshotGeneration, changeEvents, backendId);
 
     if (entry.hasChanges()) {
         feed.addEntry(entry);
