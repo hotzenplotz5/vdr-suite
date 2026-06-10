@@ -1,14 +1,24 @@
 # ADR-0019: SSE Event Stream Transport Strategy
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
+
+---
 
 ## Context
 
 VDR-Suite already contains snapshot-based state synchronization and a snapshot change feed architecture.
 
-Future clients (Windows, Web, Android and iOS) require low-latency updates without repeatedly requesting complete snapshots.
+Future clients such as Windows, Web, Android and iOS require low-latency updates without repeatedly requesting complete snapshots.
 
 Several transport mechanisms were considered:
 
@@ -18,6 +28,8 @@ Several transport mechanisms were considered:
 - WebSockets
 
 The architecture must remain backend-neutral and must not couple clients directly to a specific VDR backend.
+
+---
 
 ## Decision
 
@@ -31,6 +43,8 @@ Rules:
 - Clients may reconnect at any time.
 - Clients must be able to rebuild state from snapshots plus feed events.
 - WebSocket support may be added later without changing the snapshot architecture.
+
+---
 
 ## Consequences
 
@@ -47,8 +61,18 @@ Trade-offs:
 - Unidirectional transport.
 - Not suitable for bidirectional control channels.
 
+---
+
 ## Related ADRs
 
-- ADR-0016 Snapshot Change Feed Architecture
-- ADR-0017 Live Transport Boundary
-- ADR-0018 Incremental Snapshot Synchronization
+- [ADR-0016 Snapshot Change Feed Architecture](ADR-0016-snapshot-change-feed-architecture.md)
+- [ADR-0017 Live Transport Boundary](ADR-0017-live-transport-boundary.md)
+- [ADR-0018 Incremental Snapshot Synchronization](ADR-0018-incremental-snapshot-synchronization.md)
+
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to README](../../README.md)
