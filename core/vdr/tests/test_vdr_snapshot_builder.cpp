@@ -242,7 +242,6 @@ static void test_snapshot_builder_records_events_measurement()
     assert(sink.measurements[0].itemCount == 2);
 }
 
-
 static void test_snapshot_builder_assigns_backend_id()
 {
     MockVdrAdapter adapter;
@@ -250,14 +249,15 @@ static void test_snapshot_builder_assigns_backend_id()
 
     VdrSnapshotBuilder builder(
         service,
-        "ferienhaus");
+        "ferienhaus",
+        nullptr,
+        nullptr);
 
     VdrSnapshot snapshot =
         builder.buildSnapshot();
 
     assert(snapshot.backendId == "ferienhaus");
 }
-
 
 int main()
 {
