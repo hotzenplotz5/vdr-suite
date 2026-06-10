@@ -113,10 +113,58 @@ static void test_snapshot_access_service_returns_populated_snapshot()
     assert(cachedSnapshot->recordings.front().title == "Snapshot Recording");
 }
 
+static void test_snapshot_access_service_returns_empty_backend_state()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    assert(!accessService.hasSnapshotForBackend("default"));
+    assert(accessService.snapshotForBackend("default") == nullptr);
+}
+
+static void test_snapshot_access_service_returns_matching_backend_snapshot()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot snapshot = makeTestSnapshot();
+    snapshot.backendId = "parents-vdr";
+    cache.update(snapshot);
+
+    assert(accessService.hasSnapshotForBackend("parents-vdr"));
+    assert(accessService.snapshotForBackend("parents-vdr") != nullptr);
+
+    const VdrSnapshot* cachedSnapshot = accessService.snapshotForBackend("parents-vdr");
+
+    assert(cachedSnapshot->backendId == "parents-vdr");
+    assert(cachedSnapshot->status.mode == "snapshot-test");
+    assert(cachedSnapshot->channels.size() == 1);
+    assert(cachedSnapshot->recordings.size() == 1);
+}
+
+static void test_snapshot_access_service_rejects_unknown_backend_snapshot()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot snapshot = makeTestSnapshot();
+    snapshot.backendId = "parents-vdr";
+    cache.update(snapshot);
+
+    assert(!accessService.hasSnapshotForBackend("home-vdr"));
+    assert(accessService.snapshotForBackend("home-vdr") == nullptr);
+}
+
 int main()
 {
     test_snapshot_access_service_returns_empty_state();
     test_snapshot_access_service_returns_populated_snapshot();
+    test_snapshot_access_service_returns_empty_backend_state();
+    test_snapshot_access_service_returns_matching_backend_snapshot();
+    test_snapshot_access_service_rejects_unknown_backend_snapshot();
 
     return 0;
 }
