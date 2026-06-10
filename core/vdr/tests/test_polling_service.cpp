@@ -361,12 +361,15 @@ static void test_change_events_are_cleared_before_next_poll()
     assert(pollingService.lastUpdatePlan().hasRefreshWork() == false);
 }
 
-
 static void test_polling_service_updates_backend_snapshot()
 {
     CountingVdrAdapter adapter;
     VdrService service(adapter);
-    VdrSnapshotBuilder builder(service, "parents-vdr");
+    VdrSnapshotBuilder builder(
+        service,
+        "parents-vdr",
+        nullptr,
+        nullptr);
     SnapshotCache cache;
     SnapshotCacheService snapshotCacheService(cache);
 
@@ -388,7 +391,6 @@ static void test_polling_service_updates_backend_snapshot()
     assert(snapshot->channels.size() == 1);
     assert(snapshot->recordings.size() == 1);
 }
-
 
 int main()
 {
