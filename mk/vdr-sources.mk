@@ -1,5 +1,6 @@
 VDR_SRC := \
         core/vdr/src/VdrConfig.cpp \
+        core/vdr/src/BackendRegistry.cpp \
         core/vdr/src/ExternalVdrAdapter.cpp \
         core/vdr/src/MockVdrAdapter.cpp \
         core/vdr/src/VdrService.cpp \
