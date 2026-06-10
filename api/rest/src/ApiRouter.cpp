@@ -8,6 +8,38 @@
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
 
+#include <string>
+
+
+static bool parseBackendSnapshotRoute(
+    const std::string& path,
+    std::string& backendId,
+    std::string& endpoint)
+{
+    const std::string prefix = "/api/backends/";
+    if (path.rfind(prefix, 0) != 0)
+    {
+        return false;
+    }
+
+    const std::string remainder =
+        path.substr(prefix.size());
+
+    const std::size_t separator =
+        remainder.find('/');
+
+    if (separator == std::string::npos)
+    {
+        return false;
+    }
+
+    backendId = remainder.substr(0, separator);
+    endpoint = remainder.substr(separator + 1);
+
+    return !backendId.empty() && !endpoint.empty();
+}
+
+
 ApiRouter::ApiRouter(
     DashboardController& dashboardController,
     JobsController& jobsController,
@@ -112,19 +144,25 @@ ApiResponse ApiRouter::handleGet(
         return backendRegistryController_.getDefaultBackend();
     }
 
-    if (path == "/api/backends/default/status")
-    {
-        return vdrController_.getStatusForBackend("default");
-    }
+    std::string backendId;
+    std::string backendEndpoint;
 
-    if (path == "/api/backends/default/health")
+    if (parseBackendSnapshotRoute(path, backendId, backendEndpoint))
     {
-        return vdrController_.getHealthForBackend("default");
-    }
+        if (backendEndpoint == "status")
+        {
+            return vdrController_.getStatusForBackend(backendId);
+        }
 
-    if (path == "/api/backends/default/snapshot")
-    {
-        return vdrController_.getSnapshotSummaryForBackend("default");
+        if (backendEndpoint == "health")
+        {
+            return vdrController_.getHealthForBackend(backendId);
+        }
+
+        if (backendEndpoint == "snapshot")
+        {
+            return vdrController_.getSnapshotSummaryForBackend(backendId);
+        }
     }
 
     if (path == "/api/runtime/summary" ||

@@ -293,6 +293,34 @@ int main()
     assert(backendSnapshotResponse.body.find("\"recordingCount\":1")
            != std::string::npos);
 
+    ApiResponse missingBackendStatusResponse =
+        router.handleGet("/api/backends/ferienhaus/status");
+
+    assert(missingBackendStatusResponse.statusCode == 200);
+    assert(missingBackendStatusResponse.contentType == "application/json");
+    assert(missingBackendStatusResponse.body.find("\"enabled\":false")
+           != std::string::npos);
+
+    ApiResponse missingBackendHealthResponse =
+        router.handleGet("/api/backends/ferienhaus/health");
+
+    assert(missingBackendHealthResponse.statusCode == 200);
+    assert(missingBackendHealthResponse.contentType == "application/json");
+    assert(missingBackendHealthResponse.body.find("\"backendId\":\"ferienhaus\"")
+           != std::string::npos);
+    assert(missingBackendHealthResponse.body.find("\"snapshotAvailable\":false")
+           != std::string::npos);
+
+    ApiResponse missingBackendSnapshotResponse =
+        router.handleGet("/api/backends/ferienhaus/snapshot");
+
+    assert(missingBackendSnapshotResponse.statusCode == 200);
+    assert(missingBackendSnapshotResponse.contentType == "application/json");
+    assert(missingBackendSnapshotResponse.body.find("\"backendId\":\"ferienhaus\"")
+           != std::string::npos);
+    assert(missingBackendSnapshotResponse.body.find("\"snapshotAvailable\":false")
+           != std::string::npos);
+
     ApiResponse vdrAliasResponse =
         router.handleGet("/api/vdr");
 
