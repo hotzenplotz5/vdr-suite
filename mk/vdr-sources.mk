@@ -32,4 +32,5 @@ VDR_SRC := \
         core/vdr/src/SnapshotChangeFeed.cpp \
         core/vdr/src/SnapshotChangeFeedService.cpp \
         core/vdr/src/SnapshotChangeFeedJsonSerializer.cpp \
+        core/vdr/src/BackendPollingCoordinator.cpp \
         core/vdr/src/VdrAdapterFactory.cpp
