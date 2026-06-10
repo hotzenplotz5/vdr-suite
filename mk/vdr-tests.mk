@@ -1,3 +1,7 @@
+.PHONY: test-fast
+
+test-fast: test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-vdr-config test-snapshot-access-service test-vdr-domain-objects
+
 test-vdr-config:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
