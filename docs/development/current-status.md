@@ -46,32 +46,30 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 14.3 - Backend-Aware Snapshot Read Routing Boundary
+Phase 15.9 - Backend-aware Snapshot Builder
 ```
 
 Current major phase status:
 
 ```text
-Phase 14 multi-VDR backend identity preparation is complete through 14.3.
+Phase 15 multi-backend read-side and snapshot foundation is complete through 15.9.
 ```
 
 Verified locally with:
 
 ```text
-make test-snapshot-access-service
-make test
+make test-vdr-snapshot-builder
+make test-fast
+make daemon
 ```
 
 Verification summary:
 
-- `make test-snapshot-access-service` passed after backend-aware snapshot access coverage
-- `make test` passed after Phase 14.3 implementation
-- `ISnapshotAccessService` exposes backend-aware snapshot read methods
-- `SnapshotAccessService` implements backend-aware lookup against the current single cached snapshot
-- matching backend identity returns the cached snapshot
-- unknown backend identity returns no snapshot
-- empty cache backend lookup returns no snapshot
-- existing `hasSnapshot()` and `snapshot()` behavior remains unchanged
+- `make test-vdr-snapshot-builder` passed after backend-aware snapshot builder compatibility fixes
+- `make test-fast` passed after backend registry and snapshot access foundation work
+- `make daemon` passed after backend-aware snapshot builder integration
+- GitHub Actions remains the standard full regression path for normal non-VDR-specific changes
+- local full `make test` is not required for ordinary architecture, service, snapshot, registry and documentation changes
 
 ---
 
@@ -83,19 +81,25 @@ Verification summary:
 - Snapshot cache, snapshot access and partial refresh planning are in place.
 - Snapshot cache generation tracking is implemented in `SnapshotCacheService`.
 - Snapshot change feed service, serializer and read-only REST controller are implemented.
-- Snapshot change feed entries can now be appended to an existing runtime-owned feed.
+- Snapshot change feed entries can be appended to an existing runtime-owned feed.
 - Daemon runtime owns the snapshot change feed and updates it after VDR polling.
 - Runtime diagnostics are integrated through structured runtime measurement boundaries.
-- Backend identity is now present in snapshot change feed entries, snapshot read metadata and cached snapshots.
-- Snapshot access now has a backend-aware read boundary while preserving single-backend compatibility.
-- Future multi-VDR read routing can build on backend identity without coupling clients to polling internals.
+- Backend identity is present in snapshot change feed entries, snapshot read metadata and cached snapshots.
+- `BackendNode` and `BackendRegistry` provide the backend identity foundation.
+- `BackendRegistryService`, `BackendRegistryJsonSerializer` and `BackendRegistryController` expose the registry through service and REST boundaries.
+- `ApiRouter` exposes backend registry routes and backend-aware snapshot routes.
+- `SnapshotCache` can store snapshots per backend while preserving the legacy single-snapshot interface.
+- `SnapshotAccessService` resolves snapshots through the multi-backend cache.
+- `VdrSnapshotReadService` and `VdrController` support backend-aware read paths.
+- `VdrSnapshotBuilder` can assign a stable backend ID to generated snapshots.
+- Future multi-VDR runtime polling can build on backend identity without coupling clients to polling internals.
 - Backend identity, federation, capability and lifecycle strategy are documented through ADRs.
 
 ---
 
 ## Current Implemented API Areas
 
-Snapshot-backed VDR read APIs:
+Snapshot-backed default VDR read APIs:
 
 ```text
 GET /api/vdr/status
@@ -106,12 +110,17 @@ GET /api/vdr/channels
 GET /api/vdr/timers
 GET /api/vdr/events
 GET /api/vdr/recordings
+GET /api/vdr/changes
 ```
 
-Snapshot change feed API:
+Backend registry and backend-aware read APIs:
 
 ```text
-GET /api/vdr/changes
+GET /api/backends
+GET /api/backends/default
+GET /api/backends/{backendId}/status
+GET /api/backends/{backendId}/health
+GET /api/backends/{backendId}/snapshot
 ```
 
 Existing application APIs:
@@ -129,30 +138,43 @@ GET /api/runtime/summary
 
 ## Current Test Runtime Observation
 
-The full local regression target currently takes approximately:
+The full local regression target is intentionally no longer the default verification path for normal development work.
+
+Project workflow:
 
 ```text
-17 minutes
+GitHub-first
+CI-first
 ```
 
-This makes cloud-based CI valuable as an immediate infrastructure improvement.
+Targeted local tests remain useful for narrow changes and for real VDR validation.
+
+Real VDR tests are reserved for:
+
+- RESTfulAPI against an actual VDR
+- SSE event streams
+- polling against an actual VDR
+- snapshot runtime against an actual VDR
+- multi-VDR or multi-server scenarios
 
 ---
 
 ## Next Technical Focus
 
 ```text
-Phase 14ci - GitHub Actions CI Foundation
+Phase 16.0 - Multi-Backend Polling Foundation
 ```
 
-The next step is to add a GitHub Actions workflow that runs the full regression test automatically on GitHub.
+The next step is to connect the backend registry and backend-aware snapshot builder to daemon-owned polling and snapshot cache updates.
 
 Important boundaries:
 
-- GitHub CI complements local targeted tests
-- `make test` remains the full regression target
-- local development can use narrower targets while CI runs the long full test
-- no production runtime behavior changes are part of the CI phase
+- polling remains daemon-owned
+- snapshot generation remains backend-neutral
+- default backend behavior must remain compatible
+- `/api/vdr/...` routes must continue to work
+- `/api/backends/{backendId}/...` routes should become backed by runtime data
+- no parallel polling should be introduced before the single-threaded multi-backend model is clear
 
 ---
 
