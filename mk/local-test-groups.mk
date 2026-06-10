@@ -1,7 +1,8 @@
-.PHONY: test-vdr test-backend-node
+.PHONY: test-vdr test-backend-node test-backend-registry
 
 test-vdr: \
 	test-backend-node \
+	test-backend-registry \
 	test-vdr-config \
 	test-external-vdr-adapter \
 	test-vdr-adapter-factory \
@@ -37,3 +38,11 @@ test-backend-node:
 		core/vdr/tests/test_backend_node.cpp \
 		-o /tmp/test_backend_node
 	/tmp/test_backend_node
+
+test-backend-registry:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/tests/test_backend_registry.cpp \
+		-o /tmp/test_backend_registry
+	/tmp/test_backend_registry
