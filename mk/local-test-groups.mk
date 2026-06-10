@@ -1,6 +1,7 @@
-.PHONY: test-vdr
+.PHONY: test-vdr test-backend-node
 
 test-vdr: \
+	test-backend-node \
 	test-vdr-config \
 	test-external-vdr-adapter \
 	test-vdr-adapter-factory \
@@ -29,3 +30,10 @@ test-vdr: \
 	test-restful-api-vdr-adapter \
 	test-restful-api-change-state-adapter \
 	test-vdr-domain-objects
+
+test-backend-node:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/tests/test_backend_node.cpp \
+		-o /tmp/test_backend_node
+	/tmp/test_backend_node
