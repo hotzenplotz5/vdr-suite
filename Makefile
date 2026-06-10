@@ -7,6 +7,7 @@ include mk/vdr-sources.mk
 include mk/http-sources.mk
 include mk/runtime-sources.mk
 include mk/daemon-sources.mk
+include mk/local-test-groups.mk
 
 
 dashboard-cli: prepare-test-db
