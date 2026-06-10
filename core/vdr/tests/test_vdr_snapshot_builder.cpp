@@ -242,6 +242,23 @@ static void test_snapshot_builder_records_events_measurement()
     assert(sink.measurements[0].itemCount == 2);
 }
 
+
+static void test_snapshot_builder_assigns_backend_id()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+
+    VdrSnapshotBuilder builder(
+        service,
+        "ferienhaus");
+
+    VdrSnapshot snapshot =
+        builder.buildSnapshot();
+
+    assert(snapshot.backendId == "ferienhaus");
+}
+
+
 int main()
 {
     test_snapshot_builder_collects_complete_vdr_state();
@@ -256,6 +273,7 @@ int main()
     test_snapshot_builder_records_channels_measurement();
     test_snapshot_builder_can_build_events_domain();
     test_snapshot_builder_records_events_measurement();
+    test_snapshot_builder_assigns_backend_id();
 
     std::cout
         << "test_vdr_snapshot_builder passed"

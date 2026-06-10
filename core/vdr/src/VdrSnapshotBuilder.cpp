@@ -7,9 +7,11 @@
 
 VdrSnapshotBuilder::VdrSnapshotBuilder(
     VdrService& vdrService,
+    const std::string& backendId,
     IRuntimeLogger* logger,
     IRuntimeMeasurementSink* measurementSink)
     : vdrService_(vdrService),
+      backendId_(backendId),
       logger_(logger),
       measurementSink_(measurementSink)
 {
@@ -130,6 +132,8 @@ std::vector<VdrEvent> VdrSnapshotBuilder::buildEvents() const
 VdrSnapshot VdrSnapshotBuilder::buildSnapshot() const
 {
     VdrSnapshot snapshot;
+
+    snapshot.backendId = backendId_;
 
     snapshot.status = buildStatus();
     snapshot.recordings = buildRecordings();

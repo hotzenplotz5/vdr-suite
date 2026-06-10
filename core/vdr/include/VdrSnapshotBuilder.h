@@ -21,6 +21,7 @@ class VdrSnapshotBuilder {
 public:
     explicit VdrSnapshotBuilder(
         VdrService& vdrService,
+        const std::string& backendId = "default",
         IRuntimeLogger* logger = nullptr,
         IRuntimeMeasurementSink* measurementSink = nullptr);
 
@@ -34,6 +35,7 @@ public:
 
 private:
     VdrService& vdrService_;
+    std::string backendId_;
     IRuntimeLogger* logger_;
     IRuntimeMeasurementSink* measurementSink_;
 
