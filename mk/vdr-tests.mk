@@ -1,6 +1,6 @@
 .PHONY: test-fast
 
-test-fast: test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-vdr-config test-snapshot-access-service test-vdr-domain-objects
+test-fast: test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-backend-registry-service test-vdr-config test-snapshot-access-service test-vdr-domain-objects
 
 test-vdr-config:
 	$(CXX) $(CXXFLAGS) \

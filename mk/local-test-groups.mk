@@ -1,4 +1,4 @@
-.PHONY: test-vdr test-backend-node test-backend-registry
+.PHONY: test-vdr test-backend-node test-backend-registry test-backend-registry-service
 
 test-vdr: \
 	test-backend-node \
@@ -46,3 +46,13 @@ test-backend-registry:
 		core/vdr/tests/test_backend_registry.cpp \
 		-o /tmp/test_backend_registry
 	/tmp/test_backend_registry
+
+
+test-backend-registry-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/tests/test_backend_registry_service.cpp \
+		-o /tmp/test_backend_registry_service
+	/tmp/test_backend_registry_service
