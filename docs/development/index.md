@@ -28,6 +28,12 @@ These documents describe the verified state of the project.
 
 ---
 
+## Getting Started
+
+- [Developer Onboarding](developer-onboarding.md)
+
+---
+
 ## Progress Tracking
 
 - [Completed Phases](completed-phases.md)
