@@ -47,6 +47,7 @@
 
 #include <atomic>
 #include <memory>
+#include <vector>
 
 class DaemonRuntime
 {
@@ -87,7 +88,7 @@ private:
     std::unique_ptr<BackendRegistryJsonSerializer> backendRegistryJsonSerializer_;
     std::unique_ptr<BackendRegistryController> backendRegistryController_;
     VdrConfig vdrConfig_;
-    std::unique_ptr<BackendRuntimeContext> defaultBackendContext_;
+    std::vector<std::unique_ptr<BackendRuntimeContext>> backendRuntimeContexts_;
     std::unique_ptr<BackendPollingCoordinator> backendPollingCoordinator_;
     std::unique_ptr<SnapshotCache> snapshotCache_;
     std::unique_ptr<SnapshotCacheService> snapshotCacheService_;

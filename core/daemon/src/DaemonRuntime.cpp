@@ -73,28 +73,33 @@ bool DaemonRuntime::initialize()
     vdrSnapshotReadService_ = std::make_unique<VdrSnapshotReadService>(*snapshotAccessService_);
     vdrSnapshotReadJsonSerializer_ = std::make_unique<VdrSnapshotReadJsonSerializer>();
 
-    defaultBackendContext_ = std::make_unique<BackendRuntimeContext>();
-    defaultBackendContext_->backendId = runtimeBackend->backendId;
-    defaultBackendContext_->httpClient = std::make_unique<BasicHttpClient>(vdrConfig_.host, vdrConfig_.port, &runtimeLogger_, &runtimeDiagnosticsService_);
-    defaultBackendContext_->adapter = std::make_unique<RestfulApiVdrAdapter>(vdrConfig_, *defaultBackendContext_->httpClient);
-    defaultBackendContext_->service = std::make_unique<VdrService>(*defaultBackendContext_->adapter, &runtimeLogger_);
-    defaultBackendContext_->snapshotBuilder = std::make_unique<VdrSnapshotBuilder>(
-        *defaultBackendContext_->service,
-        defaultBackendContext_->backendId,
+    auto defaultBackendContext =
+        std::make_unique<BackendRuntimeContext>();
+
+    defaultBackendContext->backendId = runtimeBackend->backendId;
+    defaultBackendContext->httpClient = std::make_unique<BasicHttpClient>(vdrConfig_.host, vdrConfig_.port, &runtimeLogger_, &runtimeDiagnosticsService_);
+    defaultBackendContext->adapter = std::make_unique<RestfulApiVdrAdapter>(vdrConfig_, *defaultBackendContext->httpClient);
+    defaultBackendContext->service = std::make_unique<VdrService>(*defaultBackendContext->adapter, &runtimeLogger_);
+    defaultBackendContext->snapshotBuilder = std::make_unique<VdrSnapshotBuilder>(
+        *defaultBackendContext->service,
+        defaultBackendContext->backendId,
         &runtimeLogger_,
         &runtimeDiagnosticsService_);
-    defaultBackendContext_->pollingService = std::make_unique<PollingService>(
-        *defaultBackendContext_->snapshotBuilder,
-        *defaultBackendContext_->service,
+    defaultBackendContext->pollingService = std::make_unique<PollingService>(
+        *defaultBackendContext->snapshotBuilder,
+        *defaultBackendContext->service,
         *snapshotCacheService_,
-        defaultBackendContext_->backendId,
+        defaultBackendContext->backendId,
         &runtimeLogger_,
         &runtimeDiagnosticsService_);
 
     backendPollingCoordinator_ = std::make_unique<BackendPollingCoordinator>();
     backendPollingCoordinator_->addPollingService(
-        defaultBackendContext_->backendId,
-        *defaultBackendContext_->pollingService);
+        defaultBackendContext->backendId,
+        *defaultBackendContext->pollingService);
+
+    backendRuntimeContexts_.push_back(
+        std::move(defaultBackendContext));
 
     snapshotChangeFeed_ = std::make_unique<SnapshotChangeFeed>();
     snapshotChangeFeedService_ = std::make_unique<SnapshotChangeFeedService>();
@@ -143,7 +148,7 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
     snapshotChangeFeedService_->appendChanges(
         *snapshotChangeFeed_,
         snapshotCacheService_->generation(),
-        defaultBackendContext_->pollingService->changeEvents());
+        backendRuntimeContexts_.front()->pollingService->changeEvents());
 }
 
 int DaemonRuntime::run()
@@ -184,7 +189,7 @@ void DaemonRuntime::shutdown()
     snapshotChangeFeedService_.reset();
     snapshotChangeFeed_.reset();
     backendPollingCoordinator_.reset();
-    defaultBackendContext_.reset();
+    backendRuntimeContexts_.clear();
     vdrSnapshotReadJsonSerializer_.reset();
     vdrSnapshotReadService_.reset();
     snapshotAccessService_.reset();
