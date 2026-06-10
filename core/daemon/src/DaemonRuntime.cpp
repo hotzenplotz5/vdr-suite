@@ -90,6 +90,12 @@ bool DaemonRuntime::initialize()
         defaultBackendContext_->backendId,
         &runtimeLogger_,
         &runtimeDiagnosticsService_);
+
+    backendPollingCoordinator_ = std::make_unique<BackendPollingCoordinator>();
+    backendPollingCoordinator_->addPollingService(
+        defaultBackendContext_->backendId,
+        *defaultBackendContext_->pollingService);
+
     snapshotChangeFeed_ = std::make_unique<SnapshotChangeFeed>();
     snapshotChangeFeedService_ = std::make_unique<SnapshotChangeFeedService>();
     snapshotChangeFeedJsonSerializer_ = std::make_unique<SnapshotChangeFeedJsonSerializer>();
@@ -132,7 +138,7 @@ bool DaemonRuntime::initialize()
 
 void DaemonRuntime::pollVdrAndUpdateChangeFeed()
 {
-    defaultBackendContext_->pollingService->poll();
+    backendPollingCoordinator_->pollAll();
 
     snapshotChangeFeedService_->appendChanges(
         *snapshotChangeFeed_,
@@ -177,6 +183,7 @@ void DaemonRuntime::shutdown()
     snapshotChangeFeedJsonSerializer_.reset();
     snapshotChangeFeedService_.reset();
     snapshotChangeFeed_.reset();
+    backendPollingCoordinator_.reset();
     defaultBackendContext_.reset();
     vdrSnapshotReadJsonSerializer_.reset();
     vdrSnapshotReadService_.reset();

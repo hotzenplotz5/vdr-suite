@@ -2,6 +2,7 @@
 
 #include "ApiRouter.h"
 #include "BackendRuntimeContext.h"
+#include "BackendPollingCoordinator.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryService.h"
 #include "BackendRegistryJsonSerializer.h"
@@ -87,6 +88,7 @@ private:
     std::unique_ptr<BackendRegistryController> backendRegistryController_;
     VdrConfig vdrConfig_;
     std::unique_ptr<BackendRuntimeContext> defaultBackendContext_;
+    std::unique_ptr<BackendPollingCoordinator> backendPollingCoordinator_;
     std::unique_ptr<SnapshotCache> snapshotCache_;
     std::unique_ptr<SnapshotCacheService> snapshotCacheService_;
     std::unique_ptr<SnapshotAccessService> snapshotAccessService_;
