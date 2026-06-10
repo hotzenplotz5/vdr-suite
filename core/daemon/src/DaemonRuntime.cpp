@@ -15,6 +15,42 @@ DaemonRuntime::DaemonRuntime()
 {
 }
 
+
+std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContext(
+    const BackendNode& backend)
+{
+    VdrConfig backendConfig = backend.connection;
+
+    auto context = std::make_unique<BackendRuntimeContext>();
+
+    context->backendId = backend.backendId;
+    context->httpClient = std::make_unique<BasicHttpClient>(
+        backendConfig.host,
+        backendConfig.port,
+        &runtimeLogger_,
+        &runtimeDiagnosticsService_);
+    context->adapter = std::make_unique<RestfulApiVdrAdapter>(
+        backendConfig,
+        *context->httpClient);
+    context->service = std::make_unique<VdrService>(
+        *context->adapter,
+        &runtimeLogger_);
+    context->snapshotBuilder = std::make_unique<VdrSnapshotBuilder>(
+        *context->service,
+        context->backendId,
+        &runtimeLogger_,
+        &runtimeDiagnosticsService_);
+    context->pollingService = std::make_unique<PollingService>(
+        *context->snapshotBuilder,
+        *context->service,
+        *snapshotCacheService_,
+        context->backendId,
+        &runtimeLogger_,
+        &runtimeDiagnosticsService_);
+
+    return context;
+}
+
 bool DaemonRuntime::initialize()
 {
     std::cout << "vdr-suite-daemon runtime initializing" << std::endl;
@@ -74,24 +110,7 @@ bool DaemonRuntime::initialize()
     vdrSnapshotReadJsonSerializer_ = std::make_unique<VdrSnapshotReadJsonSerializer>();
 
     auto defaultBackendContext =
-        std::make_unique<BackendRuntimeContext>();
-
-    defaultBackendContext->backendId = runtimeBackend->backendId;
-    defaultBackendContext->httpClient = std::make_unique<BasicHttpClient>(vdrConfig_.host, vdrConfig_.port, &runtimeLogger_, &runtimeDiagnosticsService_);
-    defaultBackendContext->adapter = std::make_unique<RestfulApiVdrAdapter>(vdrConfig_, *defaultBackendContext->httpClient);
-    defaultBackendContext->service = std::make_unique<VdrService>(*defaultBackendContext->adapter, &runtimeLogger_);
-    defaultBackendContext->snapshotBuilder = std::make_unique<VdrSnapshotBuilder>(
-        *defaultBackendContext->service,
-        defaultBackendContext->backendId,
-        &runtimeLogger_,
-        &runtimeDiagnosticsService_);
-    defaultBackendContext->pollingService = std::make_unique<PollingService>(
-        *defaultBackendContext->snapshotBuilder,
-        *defaultBackendContext->service,
-        *snapshotCacheService_,
-        defaultBackendContext->backendId,
-        &runtimeLogger_,
-        &runtimeDiagnosticsService_);
+        createBackendRuntimeContext(*runtimeBackend);
 
     backendPollingCoordinator_ = std::make_unique<BackendPollingCoordinator>();
     backendPollingCoordinator_->addPollingService(

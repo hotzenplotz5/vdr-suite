@@ -61,6 +61,8 @@ public:
 private:
     static void handleSignal(int signalNumber);
     void pollVdrAndUpdateChangeFeed();
+    std::unique_ptr<BackendRuntimeContext> createBackendRuntimeContext(
+        const BackendNode& backend);
 
     bool initialized_;
 
