@@ -113,6 +113,7 @@ int main()
     test_feed_tracks_latest_entry();
     test_service_creates_feed_from_change_events();
     test_service_does_not_add_empty_feed_entry();
+    test_change_feed_service_preserves_backend_id();
 
     std::cout
         << "test_snapshot_change_feed passed"
