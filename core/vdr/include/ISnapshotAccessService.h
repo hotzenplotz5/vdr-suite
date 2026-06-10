@@ -3,12 +3,17 @@
 
 #include "VdrSnapshot.h"
 
+#include <string>
+
 class ISnapshotAccessService {
 public:
     virtual ~ISnapshotAccessService() = default;
 
     virtual bool hasSnapshot() const = 0;
     virtual const VdrSnapshot* snapshot() const = 0;
+
+    virtual bool hasSnapshotForBackend(const std::string& backendId) const = 0;
+    virtual const VdrSnapshot* snapshotForBackend(const std::string& backendId) const = 0;
 };
 
 #endif
