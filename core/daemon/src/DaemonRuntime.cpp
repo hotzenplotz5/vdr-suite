@@ -93,15 +93,13 @@ bool DaemonRuntime::initialize()
     backendRegistryJsonSerializer_ = std::make_unique<BackendRegistryJsonSerializer>();
     backendRegistryController_ = std::make_unique<BackendRegistryController>(*backendRegistryService_, *backendRegistryJsonSerializer_);
 
-    const auto runtimeBackend =
-        backendRegistry_.getBackend("default");
+    const auto runtimeBackends =
+        backendRegistry_.listBackends();
 
-    if (!runtimeBackend.has_value()) {
-        std::cerr << "failed to initialize default backend" << std::endl;
+    if (runtimeBackends.empty()) {
+        std::cerr << "failed to initialize VDR backends" << std::endl;
         return false;
     }
-
-    vdrConfig_ = runtimeBackend->connection;
 
     snapshotCache_ = std::make_unique<SnapshotCache>();
     snapshotCacheService_ = std::make_unique<SnapshotCacheService>(*snapshotCache_);
@@ -109,16 +107,19 @@ bool DaemonRuntime::initialize()
     vdrSnapshotReadService_ = std::make_unique<VdrSnapshotReadService>(*snapshotAccessService_);
     vdrSnapshotReadJsonSerializer_ = std::make_unique<VdrSnapshotReadJsonSerializer>();
 
-    auto defaultBackendContext =
-        createBackendRuntimeContext(*runtimeBackend);
-
     backendPollingCoordinator_ = std::make_unique<BackendPollingCoordinator>();
-    backendPollingCoordinator_->addPollingService(
-        defaultBackendContext->backendId,
-        *defaultBackendContext->pollingService);
 
-    backendRuntimeContexts_.push_back(
-        std::move(defaultBackendContext));
+    for (const BackendNode& runtimeBackend : runtimeBackends) {
+        auto backendRuntimeContext =
+            createBackendRuntimeContext(runtimeBackend);
+
+        backendPollingCoordinator_->addPollingService(
+            backendRuntimeContext->backendId,
+            *backendRuntimeContext->pollingService);
+
+        backendRuntimeContexts_.push_back(
+            std::move(backendRuntimeContext));
+    }
 
     snapshotChangeFeed_ = std::make_unique<SnapshotChangeFeed>();
     snapshotChangeFeedService_ = std::make_unique<SnapshotChangeFeedService>();
