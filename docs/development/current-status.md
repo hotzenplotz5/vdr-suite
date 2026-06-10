@@ -46,36 +46,32 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 14.2 - Snapshot Cache Backend Identity Lookup
+Phase 14.3 - Backend-Aware Snapshot Read Routing Boundary
 ```
 
 Current major phase status:
 
 ```text
-Phase 14 multi-VDR backend identity preparation is complete through 14.2.
+Phase 14 multi-VDR backend identity preparation is complete through 14.3.
 ```
 
 Verified locally with:
 
 ```text
-make test-snapshot-cache-service
+make test-snapshot-access-service
 make test
-make test-docs
-make test-architecture
 ```
 
 Verification summary:
 
-- `make test-snapshot-cache-service` passed after backend identity lookup coverage
-- `make test` passed
-- `make test-docs` passed
-- `make test-architecture` passed
-- snapshot change feed entries are backend identity aware
-- snapshot change feed JSON serializes backend identity
-- VDR snapshots carry a backend identity with a default fallback
-- snapshot read metadata can expose backend identity
-- `SnapshotCacheService` exposes the currently cached backend identity
-- cache clear restores the default backend identity boundary
+- `make test-snapshot-access-service` passed after backend-aware snapshot access coverage
+- `make test` passed after Phase 14.3 implementation
+- `ISnapshotAccessService` exposes backend-aware snapshot read methods
+- `SnapshotAccessService` implements backend-aware lookup against the current single cached snapshot
+- matching backend identity returns the cached snapshot
+- unknown backend identity returns no snapshot
+- empty cache backend lookup returns no snapshot
+- existing `hasSnapshot()` and `snapshot()` behavior remains unchanged
 
 ---
 
@@ -91,6 +87,7 @@ Verification summary:
 - Daemon runtime owns the snapshot change feed and updates it after VDR polling.
 - Runtime diagnostics are integrated through structured runtime measurement boundaries.
 - Backend identity is now present in snapshot change feed entries, snapshot read metadata and cached snapshots.
+- Snapshot access now has a backend-aware read boundary while preserving single-backend compatibility.
 - Future multi-VDR read routing can build on backend identity without coupling clients to polling internals.
 - Backend identity, federation, capability and lifecycle strategy are documented through ADRs.
 
@@ -130,22 +127,32 @@ GET /api/runtime/summary
 
 ---
 
+## Current Test Runtime Observation
+
+The full local regression target currently takes approximately:
+
+```text
+17 minutes
+```
+
+This makes cloud-based CI valuable as an immediate infrastructure improvement.
+
+---
+
 ## Next Technical Focus
 
 ```text
-Phase 14.3 - Backend-Aware Snapshot Read Routing Boundary
+Phase 14ci - GitHub Actions CI Foundation
 ```
 
-The next step is to prepare the read-side routing boundary for selecting snapshot data by backend identity.
+The next step is to add a GitHub Actions workflow that runs the full regression test automatically on GitHub.
 
 Important boundaries:
 
-- backend routing consumes backend identity already present in snapshots and change feed metadata
-- backend routing must not own polling
-- backend routing must not own snapshot generation
-- backend routing must not introduce backend-specific adapter logic
-- permission-aware behavior remains architectural preparation unless explicitly implemented
-- RESTfulAPI-specific code remains inside the adapter layer
+- GitHub CI complements local targeted tests
+- `make test` remains the full regression target
+- local development can use narrower targets while CI runs the long full test
+- no production runtime behavior changes are part of the CI phase
 
 ---
 
