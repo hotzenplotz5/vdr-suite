@@ -5,10 +5,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 FILES = {
+    "README": ROOT / "README.md",
     "current-status": ROOT / "docs" / "development" / "current-status.md",
     "project-status-dashboard": ROOT / "docs" / "project-status-dashboard.md",
     "roadmap": ROOT / "docs" / "planning" / "roadmap.md",
     "completed-phases": ROOT / "docs" / "development" / "completed-phases.md",
+    "development-index": ROOT / "docs" / "development" / "index.md",
 }
 
 PHASE = re.compile(r"Phase\s+(\d+(?:\.\d+)?[a-z]?)", re.I)
@@ -42,38 +44,66 @@ def label(value):
     return "Phase " + value if value else "no phase found"
 
 
-def active_phase(name, text):
+def completed_phase(name, text):
+    if name == "README":
+        return phase_after(text, "Latest Completed Implementation Phase")
+    if name == "current-status":
+        return phase_after(text, "Latest completed implementation phase")
     if name == "project-status-dashboard":
         return phase_after(text, "Current Major Phase") or phase_after(text, "Latest Completed Milestone")
     if name == "roadmap":
         return phase_after(text, "Completed implementation state")
+    if name == "development-index":
+        return phase_after(text, "Current completed phase")
     return latest(text)
 
 
-def main():
-    texts = {name: path.read_text(encoding="utf-8") for name, path in FILES.items()}
-    phases = {name: active_phase(name, text) for name, text in texts.items()}
+def next_phase(name, text):
+    if name == "README":
+        return phase_after(text, "Current Implementation Focus")
+    if name == "current-status":
+        return phase_after(text, "Next Technical Focus")
+    if name == "project-status-dashboard":
+        return phase_after(text, "Current Focus")
+    if name == "roadmap":
+        return phase_after(text, "Next implementation step")
+    if name == "development-index":
+        return phase_after(text, "Next implementation focus")
+    return None
 
-    newest = max((value for value in phases.values() if value), key=key, default=None)
+
+def read_files():
+    texts = {}
+    for name, path in FILES.items():
+        if not path.exists():
+            raise FileNotFoundError(str(path))
+        texts[name] = path.read_text(encoding="utf-8")
+    return texts
+
+
+def main():
+    texts = read_files()
+    completed = {name: completed_phase(name, text) for name, text in texts.items()}
+    planned = {name: next_phase(name, text) for name, text in texts.items()}
+
+    newest = max((value for value in completed.values() if value), key=key, default=None)
+    expected_next = max((value for value in planned.values() if value), key=key, default=None)
+
     errors = []
 
     if newest is None:
-        errors.append("No active phase found in documentation")
+        errors.append("No completed phase found in documentation")
     else:
-        for name, value in phases.items():
+        for name, value in completed.items():
             if not value:
-                errors.append(name + " does not mention an active phase")
-            elif key(value) < key(newest):
-                errors.append(name + " is behind: " + label(value) + " < " + label(newest))
+                errors.append(name + " does not mention a completed phase")
+            elif value != newest:
+                errors.append(name + " completed phase differs: " + label(value) + " != " + label(newest))
 
-    dashboard_focus = phase_after(texts["project-status-dashboard"], "Current Focus")
-    roadmap_next = phase_after(texts["roadmap"], "Next implementation step")
-
-    if dashboard_focus and roadmap_next and dashboard_focus != roadmap_next:
-        errors.append(
-            "current focus and roadmap next step disagree: "
-            + label(dashboard_focus) + " != " + label(roadmap_next)
-        )
+    if expected_next is not None:
+        for name, value in planned.items():
+            if value and value != expected_next:
+                errors.append(name + " next phase differs: " + label(value) + " != " + label(expected_next))
 
     if errors:
         print("Phase consistency check failed:")
@@ -82,13 +112,14 @@ def main():
         return 1
 
     print("Phase consistency check passed.")
-    print("Latest active phase: " + label(newest))
-    for name in sorted(phases):
-        print(name + ": " + label(phases[name]))
-    if dashboard_focus:
-        print("project-status-dashboard current focus: " + label(dashboard_focus))
-    if roadmap_next:
-        print("roadmap next implementation step: " + label(roadmap_next))
+    print("Latest completed phase: " + label(newest))
+    for name in sorted(completed):
+        print(name + ": " + label(completed[name]))
+    if expected_next:
+        print("Next implementation focus: " + label(expected_next))
+        for name in sorted(planned):
+            if planned[name]:
+                print(name + " next: " + label(planned[name]))
     return 0
 
 
