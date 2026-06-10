@@ -259,6 +259,40 @@ int main()
     assert(defaultBackendResponse.body.find("\"backendId\":\"default\"")
            != std::string::npos);
 
+    ApiResponse backendStatusResponse =
+        router.handleGet("/api/backends/default/status");
+
+    assert(backendStatusResponse.statusCode == 200);
+    assert(backendStatusResponse.contentType == "application/json");
+    assert(backendStatusResponse.body.find("\"mode\":\"router-snapshot\"")
+           != std::string::npos);
+    assert(backendStatusResponse.body.find("\"state\":\"cached\"")
+           != std::string::npos);
+
+    ApiResponse backendHealthResponse =
+        router.handleGet("/api/backends/default/health");
+
+    assert(backendHealthResponse.statusCode == 200);
+    assert(backendHealthResponse.contentType == "application/json");
+    assert(backendHealthResponse.body.find("\"backendId\":\"default\"")
+           != std::string::npos);
+    assert(backendHealthResponse.body.find("\"snapshotAvailable\":true")
+           != std::string::npos);
+    assert(backendHealthResponse.body.find("\"channelCount\":1")
+           != std::string::npos);
+
+    ApiResponse backendSnapshotResponse =
+        router.handleGet("/api/backends/default/snapshot");
+
+    assert(backendSnapshotResponse.statusCode == 200);
+    assert(backendSnapshotResponse.contentType == "application/json");
+    assert(backendSnapshotResponse.body.find("\"backendId\":\"default\"")
+           != std::string::npos);
+    assert(backendSnapshotResponse.body.find("\"snapshotAvailable\":true")
+           != std::string::npos);
+    assert(backendSnapshotResponse.body.find("\"recordingCount\":1")
+           != std::string::npos);
+
     ApiResponse vdrAliasResponse =
         router.handleGet("/api/vdr");
 

@@ -112,6 +112,21 @@ ApiResponse ApiRouter::handleGet(
         return backendRegistryController_.getDefaultBackend();
     }
 
+    if (path == "/api/backends/default/status")
+    {
+        return vdrController_.getStatusForBackend("default");
+    }
+
+    if (path == "/api/backends/default/health")
+    {
+        return vdrController_.getHealthForBackend("default");
+    }
+
+    if (path == "/api/backends/default/snapshot")
+    {
+        return vdrController_.getSnapshotSummaryForBackend("default");
+    }
+
     if (path == "/api/runtime/summary" ||
         path == "/api/runtime/diagnostics/summary")
     {
