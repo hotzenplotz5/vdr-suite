@@ -7,6 +7,18 @@
 
 VdrSnapshotBuilder::VdrSnapshotBuilder(
     VdrService& vdrService,
+    IRuntimeLogger* logger,
+    IRuntimeMeasurementSink* measurementSink)
+    : VdrSnapshotBuilder(
+          vdrService,
+          "default",
+          logger,
+          measurementSink)
+{
+}
+
+VdrSnapshotBuilder::VdrSnapshotBuilder(
+    VdrService& vdrService,
     const std::string& backendId,
     IRuntimeLogger* logger,
     IRuntimeMeasurementSink* measurementSink)
