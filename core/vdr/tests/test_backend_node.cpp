@@ -13,10 +13,10 @@ int main()
     assert(node.enabled);
     assert(!node.online);
 
-    assert(!node.connection.enabled);
-    assert(node.connection.mode == "mock");
+    assert(node.connection.enabled);
+    assert(node.connection.mode == "external");
     assert(node.connection.host == "127.0.0.1");
-    assert(node.connection.port == 8002);
+    assert(node.connection.port == 6419);
 
     assert(!node.capabilities.snapshotRead);
     assert(!node.capabilities.statusRead);
