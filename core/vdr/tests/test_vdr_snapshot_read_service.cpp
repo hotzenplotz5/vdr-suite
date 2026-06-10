@@ -9,6 +9,7 @@
 static VdrSnapshot makeTestSnapshot()
 {
     VdrSnapshot snapshot;
+    snapshot.backendId = "default";
 
     snapshot.status.enabled = true;
     snapshot.status.mode = "snapshot-read-test";
@@ -78,10 +79,49 @@ static void test_snapshot_read_service_with_snapshot()
     assert(readService.getRecordings()[0].id == "recording-1");
 }
 
+
+static void test_snapshot_read_service_reads_matching_backend()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    cache.update(makeTestSnapshot());
+
+    VdrSnapshotReadService readService(accessService);
+
+    assert(readService.hasSnapshotForBackend("default"));
+    assert(readService.getChannelsForBackend("default").size() == 1);
+    assert(readService.getEventsForBackend("default").size() == 1);
+    assert(readService.getTimersForBackend("default").size() == 1);
+    assert(readService.getRecordingsForBackend("default").size() == 1);
+    assert(readService.getStatusForBackend("default").state == "connected");
+}
+
+static void test_snapshot_read_service_rejects_non_matching_backend()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    cache.update(makeTestSnapshot());
+
+    VdrSnapshotReadService readService(accessService);
+
+    assert(!readService.hasSnapshotForBackend("ferienhaus"));
+    assert(readService.getChannelsForBackend("ferienhaus").empty());
+    assert(readService.getEventsForBackend("ferienhaus").empty());
+    assert(readService.getTimersForBackend("ferienhaus").empty());
+    assert(readService.getRecordingsForBackend("ferienhaus").empty());
+    assert(readService.getStatusForBackend("ferienhaus").enabled == false);
+}
+
 int main()
 {
     test_snapshot_read_service_without_snapshot();
     test_snapshot_read_service_with_snapshot();
+    test_snapshot_read_service_reads_matching_backend();
+    test_snapshot_read_service_rejects_non_matching_backend();
 
     return 0;
 }

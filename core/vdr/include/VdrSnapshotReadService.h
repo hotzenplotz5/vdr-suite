@@ -7,6 +7,7 @@
 #include "VdrStatus.h"
 #include "VdrTimer.h"
 
+#include <string>
 #include <vector>
 
 class VdrSnapshotReadService
@@ -16,11 +17,22 @@ public:
         ISnapshotAccessService& snapshotAccessService);
 
     bool hasSnapshot() const;
+    bool hasSnapshotForBackend(const std::string& backendId) const;
+
     VdrStatus getStatus() const;
+    VdrStatus getStatusForBackend(const std::string& backendId) const;
+
     std::vector<VdrRecording> getRecordings() const;
+    std::vector<VdrRecording> getRecordingsForBackend(const std::string& backendId) const;
+
     std::vector<VdrTimer> getTimers() const;
+    std::vector<VdrTimer> getTimersForBackend(const std::string& backendId) const;
+
     std::vector<VdrChannel> getChannels() const;
+    std::vector<VdrChannel> getChannelsForBackend(const std::string& backendId) const;
+
     std::vector<VdrEvent> getEvents() const;
+    std::vector<VdrEvent> getEventsForBackend(const std::string& backendId) const;
 
 private:
     ISnapshotAccessService& snapshotAccessService_;
