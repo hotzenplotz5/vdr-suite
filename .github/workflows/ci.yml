@@ -1,4 +1,4 @@
-name: Phase 0 Documentation Check
+name: VDR-Suite CI
 
 on:
   push:
@@ -23,3 +23,18 @@ jobs:
           test -f docs/adr/ADR-0001-monorepo.md
           test -f docs/planning/roadmap.md
           test -f docs/planning/milestones.md
+
+  full-regression-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+
+      - name: Run full regression test
+        run: make test
