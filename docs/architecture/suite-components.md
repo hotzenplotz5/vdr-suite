@@ -71,6 +71,10 @@ The daemon can operate independently of VDR.
 * Artwork management
 * REST API
 * Adapter execution
+* Backend registry ownership
+* Snapshot generation and cache ownership
+* Backend-aware read routing
+* Runtime diagnostics
 * System status reporting
 
 ## Owns
@@ -81,6 +85,9 @@ The daemon can operate independently of VDR.
 * Workers
 * REST API
 * Adapters
+* Backend registry
+* Snapshot cache
+* Change feed
 
 ## Must Not Own
 
@@ -327,6 +334,60 @@ Integration point for VDR-Rectools functionality.
 
 ---
 
+# VDR Backend Layer
+
+## Purpose
+
+The VDR backend layer isolates VDR communication and backend identity from API controllers and frontend clients.
+
+Implemented backend-facing components include:
+
+* VdrConfig
+* IVdrAdapter
+* RestfulApiVdrAdapter
+* MockVdrAdapter
+* VdrService
+* BackendNode
+* BackendRegistry
+* BackendRegistryService
+
+## Ownership
+
+The daemon owns backend configuration, backend registry state and backend-aware runtime wiring.
+
+Frontend clients consume backend information through REST API boundaries only.
+
+---
+
+# Snapshot Runtime Layer
+
+## Purpose
+
+The snapshot runtime avoids repeated direct backend calls per API request.
+
+Implemented snapshot-facing components include:
+
+* VdrSnapshot
+* VdrSnapshotBuilder
+* PollingService
+* SnapshotCache
+* SnapshotCacheService
+* SnapshotAccessService
+* VdrSnapshotReadService
+* VdrSnapshotReadJsonSerializer
+* SnapshotChangeFeed
+* SnapshotChangeFeedService
+
+## Current State
+
+The snapshot layer supports default-backend compatibility and multi-backend snapshot storage and lookup.
+
+Backend-aware snapshot generation is implemented through `VdrSnapshotBuilder` assigning a stable backend ID.
+
+The next runtime step is to connect backend registry iteration to daemon-owned polling.
+
+---
+
 # REST API Ownership
 
 The REST API belongs to the daemon.
@@ -337,13 +398,30 @@ Current routes:
 * GET /api/jobs
 * GET /api/recordings
 * GET /api/metadata
+* GET /api/runtime/diagnostics
+* GET /api/runtime/summary
+* GET /api/vdr/status
+* GET /api/vdr/health
+* GET /api/vdr/snapshot
+* GET /api/vdr/capabilities
+* GET /api/vdr/channels
+* GET /api/vdr/timers
+* GET /api/vdr/events
+* GET /api/vdr/recordings
+* GET /api/vdr/changes
+* GET /api/backends
+* GET /api/backends/default
+* GET /api/backends/{backendId}/status
+* GET /api/backends/{backendId}/health
+* GET /api/backends/{backendId}/snapshot
 
 Future routes:
 
 * GET /api/metadata/{recordingId}
 * POST /api/jobs
 * POST /api/recordings/{id}/actions
-* GET /api/system/status
+* permission-aware backend routes
+* live transport routes above the snapshot change feed
 
 ---
 
@@ -380,6 +458,34 @@ Owned by:
 Owned by:
 
 * vdr-plugin-suite
+
+## Backend Registry
+
+Owned by:
+
+* vdr-suite-daemon
+
+Consumed by:
+
+* REST API controllers
+* future clients through REST responses
+
+Not owned by:
+
+* frontend clients
+* VDR plugin frontend
+
+## Snapshot Cache
+
+Owned by:
+
+* vdr-suite-daemon
+
+Not owned by:
+
+* REST controllers
+* frontend clients
+* live transport layer
 
 ## REST API Contract
 
@@ -423,11 +529,11 @@ Services
 
 ↓
 
-Repositories
+Repositories / Backend Registry / Snapshot Read Services
 
 ↓
 
-SQLite
+SQLite / Snapshot Cache / VDR Adapter Boundary
 
 ---
 
@@ -435,7 +541,7 @@ SQLite
 
 ## Decision 1
 
-The daemon is the only backend.
+The daemon is the only backend owner.
 
 Reason:
 
@@ -443,6 +549,8 @@ Reason:
 * reusable by all clients
 * easier testing
 * easier maintenance
+* clear backend registry ownership
+* clear snapshot ownership
 
 ## Decision 2
 
@@ -464,6 +572,7 @@ Reason:
 * common interface
 * multiple clients
 * platform independence
+* backend-aware routing without frontend-owned backend logic
 
 ## Decision 4
 
@@ -475,26 +584,56 @@ Reason:
 * easier migration
 * easier replacement of external tools
 
+## Decision 5
+
+Backend registry and snapshot cache ownership remain inside the daemon.
+
+Reason:
+
+* prevents frontend-controlled polling
+* preserves backend neutrality
+* prepares permission-aware multi-VDR routing
+* keeps runtime state changes centralized
+
+---
+
+# Current Major Milestone
+
+Phase 15.9 is complete.
+
+Implemented result:
+
+* backend registry foundation
+* backend registry service layer
+* backend registry JSON serialization
+* backend registry REST controller
+* backend registry API routing
+* backend-aware snapshot access
+* backend-aware VDR controller methods
+* backend snapshot API routes
+* dynamic backend snapshot route parsing
+* multi-snapshot cache foundation
+* multi-backend snapshot cache access
+* backend-aware snapshot builder
+
 ---
 
 # Next Major Milestone
 
-Phase 8.0
-
-vdr-suite-daemon foundation
+Phase 16.0 – Multi-Backend Polling Foundation
 
 Initial goals:
 
-* daemon bootstrap
-* database initialization
-* repository initialization
-* service initialization
-* REST initialization
-* worker integration preparation
+* connect BackendRegistry to daemon-owned polling
+* preserve default backend behavior
+* build backend-tagged snapshots per backend
+* update SnapshotCache per backend ID
+* keep REST controllers independent from polling ownership
+* avoid parallel polling until the single-threaded multi-backend model is clear
 
 Expected result:
 
-A runnable vdr-suite-daemon process that becomes the foundation for all future frontends and integrations.
+The daemon can prepare runtime snapshot refresh per registered backend while preserving existing `/api/vdr/...` default routes and enabling `/api/backends/{backendId}/...` routes to use runtime data.
 
 ---
 
@@ -520,6 +659,7 @@ The goal is to reuse mature implementations and focus development on:
 - user interfaces
 
 rather than reimplementing existing VDR functionality.
+
 ---
 
 ## Back
