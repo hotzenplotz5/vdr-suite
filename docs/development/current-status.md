@@ -46,13 +46,13 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 13.7e - Snapshot Cache Generation Tracking
+Phase 14.2 - Snapshot Cache Backend Identity Lookup
 ```
 
 Current major phase status:
 
 ```text
-Phase 13 live update transport preparation is complete through 13.7e.
+Phase 14 multi-VDR backend identity preparation is complete through 14.2.
 ```
 
 Verified locally with:
@@ -66,14 +66,16 @@ make test-architecture
 
 Verification summary:
 
-- `make test-snapshot-cache-service` passed after generation expectation fixes
+- `make test-snapshot-cache-service` passed after backend identity lookup coverage
 - `make test` passed
 - `make test-docs` passed
 - `make test-architecture` passed
-- daemon-owned snapshot change feed wiring is in place
-- mutable snapshot change feed append support is implemented
-- runtime feed update integration is implemented
-- snapshot cache generation tracking is implemented
+- snapshot change feed entries are backend identity aware
+- snapshot change feed JSON serializes backend identity
+- VDR snapshots carry a backend identity with a default fallback
+- snapshot read metadata can expose backend identity
+- `SnapshotCacheService` exposes the currently cached backend identity
+- cache clear restores the default backend identity boundary
 
 ---
 
@@ -88,7 +90,8 @@ Verification summary:
 - Snapshot change feed entries can now be appended to an existing runtime-owned feed.
 - Daemon runtime owns the snapshot change feed and updates it after VDR polling.
 - Runtime diagnostics are integrated through structured runtime measurement boundaries.
-- Future live updates should build on snapshot change information instead of coupling clients to polling internals.
+- Backend identity is now present in snapshot change feed entries, snapshot read metadata and cached snapshots.
+- Future multi-VDR read routing can build on backend identity without coupling clients to polling internals.
 - Backend identity, federation, capability and lifecycle strategy are documented through ADRs.
 
 ---
@@ -130,17 +133,18 @@ GET /api/runtime/summary
 ## Next Technical Focus
 
 ```text
-Phase 13.8 - Live Transport Foundation
+Phase 14.3 - Backend-Aware Snapshot Read Routing Boundary
 ```
 
-The next step is to add a transport layer above the existing snapshot change feed.
+The next step is to prepare the read-side routing boundary for selecting snapshot data by backend identity.
 
 Important boundaries:
 
-- live transport consumes the snapshot change feed
-- live transport must not own polling
-- live transport must not own snapshot generation
-- live transport must not introduce backend-specific logic
+- backend routing consumes backend identity already present in snapshots and change feed metadata
+- backend routing must not own polling
+- backend routing must not own snapshot generation
+- backend routing must not introduce backend-specific adapter logic
+- permission-aware behavior remains architectural preparation unless explicitly implemented
 - RESTfulAPI-specific code remains inside the adapter layer
 
 ---
