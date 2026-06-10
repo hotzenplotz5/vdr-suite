@@ -29,15 +29,5 @@ bool SnapshotAccessService::hasSnapshotForBackend(
 const VdrSnapshot* SnapshotAccessService::snapshotForBackend(
     const std::string& backendId) const
 {
-    const VdrSnapshot* cachedSnapshot = snapshot();
-
-    if (cachedSnapshot == nullptr) {
-        return nullptr;
-    }
-
-    if (cachedSnapshot->backendId != backendId) {
-        return nullptr;
-    }
-
-    return cachedSnapshot;
+    return cacheService_.cache().snapshotForBackend(backendId);
 }

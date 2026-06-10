@@ -158,6 +158,43 @@ static void test_snapshot_access_service_rejects_unknown_backend_snapshot()
     assert(accessService.snapshotForBackend("home-vdr") == nullptr);
 }
 
+
+static void test_snapshot_access_service_reads_distinct_backend_snapshots()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot parentsSnapshot = makeTestSnapshot();
+    parentsSnapshot.backendId = "parents-vdr";
+    parentsSnapshot.status.host = "parents-host";
+
+    VdrSnapshot homeSnapshot = makeTestSnapshot();
+    homeSnapshot.backendId = "home-vdr";
+    homeSnapshot.status.host = "home-host";
+
+    cache.updateForBackend("parents-vdr", parentsSnapshot);
+    cache.updateForBackend("home-vdr", homeSnapshot);
+
+    assert(accessService.hasSnapshotForBackend("parents-vdr"));
+    assert(accessService.hasSnapshotForBackend("home-vdr"));
+
+    const VdrSnapshot* parents =
+        accessService.snapshotForBackend("parents-vdr");
+
+    const VdrSnapshot* home =
+        accessService.snapshotForBackend("home-vdr");
+
+    assert(parents != nullptr);
+    assert(home != nullptr);
+
+    assert(parents->backendId == "parents-vdr");
+    assert(parents->status.host == "parents-host");
+
+    assert(home->backendId == "home-vdr");
+    assert(home->status.host == "home-host");
+}
+
 int main()
 {
     test_snapshot_access_service_returns_empty_state();
@@ -165,6 +202,7 @@ int main()
     test_snapshot_access_service_returns_empty_backend_state();
     test_snapshot_access_service_returns_matching_backend_snapshot();
     test_snapshot_access_service_rejects_unknown_backend_snapshot();
+    test_snapshot_access_service_reads_distinct_backend_snapshots();
 
     return 0;
 }
