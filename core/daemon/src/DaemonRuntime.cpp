@@ -53,6 +53,9 @@ bool DaemonRuntime::initialize()
     defaultBackend.online = false;
 
     backendRegistry_.addBackend(defaultBackend);
+    backendRegistryService_ = std::make_unique<BackendRegistryService>(backendRegistry_);
+    backendRegistryJsonSerializer_ = std::make_unique<BackendRegistryJsonSerializer>();
+    backendRegistryController_ = std::make_unique<BackendRegistryController>(*backendRegistryService_, *backendRegistryJsonSerializer_);
 
     const auto runtimeBackend =
         backendRegistry_.getBackend("default");
@@ -95,7 +98,7 @@ bool DaemonRuntime::initialize()
     std::cout << "runtime diagnostics controller initialized" << std::endl;
     std::cout << "snapshot change feed controller initialized" << std::endl;
 
-    apiRouter_ = std::make_unique<ApiRouter>(*dashboardController_, *jobsController_, *recordingsController_, *metadataController_, *vdrController_, *runtimeDiagnosticsController_, *snapshotChangeFeedController_);
+    apiRouter_ = std::make_unique<ApiRouter>(*dashboardController_, *jobsController_, *recordingsController_, *metadataController_, *vdrController_, *backendRegistryController_, *runtimeDiagnosticsController_, *snapshotChangeFeedController_);
 
     std::cout << "API router runtime initialized" << std::endl;
 
@@ -151,6 +154,9 @@ void DaemonRuntime::shutdown()
 
     snapshotChangeFeedController_.reset();
     runtimeDiagnosticsController_.reset();
+    backendRegistryController_.reset();
+    backendRegistryJsonSerializer_.reset();
+    backendRegistryService_.reset();
     runtimeDiagnosticsJsonSerializer_.reset();
     vdrController_.reset();
     vdrOverviewJsonSerializer_.reset();

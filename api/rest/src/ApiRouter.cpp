@@ -1,5 +1,6 @@
 #include "ApiRouter.h"
 
+#include "BackendRegistryController.h"
 #include "JobsController.h"
 #include "MetadataController.h"
 #include "RecordingsController.h"
@@ -13,6 +14,7 @@ ApiRouter::ApiRouter(
     RecordingsController& recordingsController,
     MetadataController& metadataController,
     VdrController& vdrController,
+    BackendRegistryController& backendRegistryController,
     RuntimeDiagnosticsController& runtimeDiagnosticsController,
     SnapshotChangeFeedController& snapshotChangeFeedController)
     : dashboardController_(dashboardController),
@@ -20,6 +22,7 @@ ApiRouter::ApiRouter(
       recordingsController_(recordingsController),
       metadataController_(metadataController),
       vdrController_(vdrController),
+      backendRegistryController_(backendRegistryController),
       runtimeDiagnosticsController_(runtimeDiagnosticsController),
       snapshotChangeFeedController_(snapshotChangeFeedController)
 {
@@ -97,6 +100,16 @@ ApiResponse ApiRouter::handleGet(
     if (path == "/api/vdr/changes")
     {
         return snapshotChangeFeedController_.getFeed();
+    }
+
+    if (path == "/api/backends")
+    {
+        return backendRegistryController_.getBackends();
+    }
+
+    if (path == "/api/backends/default")
+    {
+        return backendRegistryController_.getDefaultBackend();
     }
 
     if (path == "/api/runtime/summary" ||

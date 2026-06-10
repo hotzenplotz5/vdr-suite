@@ -1,4 +1,8 @@
 #include "ApiRouter.h"
+#include "BackendRegistryService.h"
+#include "BackendRegistryJsonSerializer.h"
+#include "BackendRegistryController.h"
+#include "BackendRegistry.h"
 #include "DashboardController.h"
 #include "JobsController.h"
 #include "MetadataController.h"
@@ -160,6 +164,20 @@ int main()
         snapshotReadService,
         snapshotReadJsonSerializer);
 
+    BackendRegistry backendRegistry;
+    BackendNode defaultBackend;
+    defaultBackend.backendId = "default";
+    defaultBackend.backendName = "Default VDR";
+    defaultBackend.backendType = "vdr";
+    defaultBackend.enabled = true;
+    defaultBackend.online = false;
+    backendRegistry.addBackend(defaultBackend);
+    BackendRegistryService backendRegistryService(backendRegistry);
+    BackendRegistryJsonSerializer backendRegistryJsonSerializer;
+    BackendRegistryController backendRegistryController(
+        backendRegistryService,
+        backendRegistryJsonSerializer);
+
     RuntimeDiagnosticsService runtimeDiagnosticsService;
     RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
 
@@ -199,6 +217,7 @@ int main()
         recordingsController,
         metadataController,
         vdrController,
+        backendRegistryController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController);
 
@@ -221,6 +240,24 @@ int main()
         router.handleGet("/api/metadata");
 
     assert(metadataResponse.statusCode == 200);
+
+    ApiResponse backendsResponse =
+        router.handleGet("/api/backends");
+
+    assert(backendsResponse.statusCode == 200);
+    assert(backendsResponse.contentType == "application/json");
+    assert(backendsResponse.body.find("\"backends\":[")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"backendId\":\"default\"")
+           != std::string::npos);
+
+    ApiResponse defaultBackendResponse =
+        router.handleGet("/api/backends/default");
+
+    assert(defaultBackendResponse.statusCode == 200);
+    assert(defaultBackendResponse.contentType == "application/json");
+    assert(defaultBackendResponse.body.find("\"backendId\":\"default\"")
+           != std::string::npos);
 
     ApiResponse vdrAliasResponse =
         router.handleGet("/api/vdr");

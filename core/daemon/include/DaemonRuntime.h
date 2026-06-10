@@ -2,6 +2,9 @@
 
 #include "ApiRouter.h"
 #include "BackendRegistry.h"
+#include "BackendRegistryService.h"
+#include "BackendRegistryJsonSerializer.h"
+#include "BackendRegistryController.h"
 #include "DashboardController.h"
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -78,6 +81,9 @@ private:
     std::unique_ptr<MetadataController> metadataController_;
 
     BackendRegistry backendRegistry_;
+    std::unique_ptr<BackendRegistryService> backendRegistryService_;
+    std::unique_ptr<BackendRegistryJsonSerializer> backendRegistryJsonSerializer_;
+    std::unique_ptr<BackendRegistryController> backendRegistryController_;
     VdrConfig vdrConfig_;
     std::unique_ptr<IHttpClient> vdrHttpClient_;
     std::unique_ptr<IVdrAdapter> vdrAdapter_;
