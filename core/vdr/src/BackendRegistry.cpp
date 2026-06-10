@@ -7,13 +7,23 @@ void BackendRegistry::addBackend(const BackendNode& backend)
 
 bool BackendRegistry::hasBackend(const std::string& backendId) const
 {
+    return getBackend(backendId).has_value();
+}
+
+std::optional<BackendNode> BackendRegistry::getBackend(const std::string& backendId) const
+{
     for (const auto& backend : backends_)
     {
         if (backend.backendId == backendId)
         {
-            return true;
+            return backend;
         }
     }
 
-    return false;
+    return std::nullopt;
+}
+
+std::vector<BackendNode> BackendRegistry::listBackends() const
+{
+    return backends_;
 }
