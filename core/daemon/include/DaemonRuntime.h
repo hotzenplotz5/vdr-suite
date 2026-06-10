@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ApiRouter.h"
+#include "BackendRuntimeContext.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryService.h"
 #include "BackendRegistryJsonSerializer.h"
@@ -85,16 +86,12 @@ private:
     std::unique_ptr<BackendRegistryJsonSerializer> backendRegistryJsonSerializer_;
     std::unique_ptr<BackendRegistryController> backendRegistryController_;
     VdrConfig vdrConfig_;
-    std::unique_ptr<IHttpClient> vdrHttpClient_;
-    std::unique_ptr<IVdrAdapter> vdrAdapter_;
-    std::unique_ptr<VdrService> vdrService_;
-    std::unique_ptr<VdrSnapshotBuilder> vdrSnapshotBuilder_;
+    std::unique_ptr<BackendRuntimeContext> defaultBackendContext_;
     std::unique_ptr<SnapshotCache> snapshotCache_;
     std::unique_ptr<SnapshotCacheService> snapshotCacheService_;
     std::unique_ptr<SnapshotAccessService> snapshotAccessService_;
     std::unique_ptr<VdrSnapshotReadService> vdrSnapshotReadService_;
     std::unique_ptr<VdrSnapshotReadJsonSerializer> vdrSnapshotReadJsonSerializer_;
-    std::unique_ptr<PollingService> pollingService_;
     std::unique_ptr<SnapshotChangeFeed> snapshotChangeFeed_;
     std::unique_ptr<SnapshotChangeFeedService> snapshotChangeFeedService_;
     std::unique_ptr<SnapshotChangeFeedJsonSerializer> snapshotChangeFeedJsonSerializer_;
