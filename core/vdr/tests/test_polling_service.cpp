@@ -361,6 +361,35 @@ static void test_change_events_are_cleared_before_next_poll()
     assert(pollingService.lastUpdatePlan().hasRefreshWork() == false);
 }
 
+
+static void test_polling_service_updates_backend_snapshot()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service, "parents-vdr");
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+
+    PollingService pollingService(
+        builder,
+        service,
+        snapshotCacheService,
+        "parents-vdr");
+
+    pollingService.poll();
+
+    assert(cache.hasSnapshotForBackend("parents-vdr"));
+
+    const VdrSnapshot* snapshot =
+        cache.snapshotForBackend("parents-vdr");
+
+    assert(snapshot != nullptr);
+    assert(snapshot->backendId == "parents-vdr");
+    assert(snapshot->channels.size() == 1);
+    assert(snapshot->recordings.size() == 1);
+}
+
+
 int main()
 {
     test_first_poll_builds_complete_snapshot_without_change_events();
@@ -373,6 +402,7 @@ int main()
     test_recording_change_records_recordings_refresh_measurements();
     test_multiple_changes_refresh_only_selected_domains();
     test_change_events_are_cleared_before_next_poll();
+    test_polling_service_updates_backend_snapshot();
 
     std::cout << "test_polling_service passed" << std::endl;
     return 0;

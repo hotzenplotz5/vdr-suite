@@ -22,9 +22,27 @@ PollingService::PollingService(
     SnapshotCacheService& snapshotCacheService,
     IRuntimeLogger* logger,
     IRuntimeMeasurementSink* measurementSink)
+    : PollingService(
+          snapshotBuilder,
+          vdrService,
+          snapshotCacheService,
+          "default",
+          logger,
+          measurementSink)
+{
+}
+
+PollingService::PollingService(
+    VdrSnapshotBuilder& snapshotBuilder,
+    VdrService& vdrService,
+    SnapshotCacheService& snapshotCacheService,
+    const std::string& backendId,
+    IRuntimeLogger* logger,
+    IRuntimeMeasurementSink* measurementSink)
     : snapshotBuilder_(snapshotBuilder),
       vdrService_(vdrService),
       snapshotCacheService_(snapshotCacheService),
+      backendId_(backendId),
       logger_(logger),
       measurementSink_(measurementSink),
       hasChangeState_(false)
@@ -60,7 +78,7 @@ void PollingService::poll()
 
     if (!hasChangeState_) {
         const auto initialPollStarted = std::chrono::steady_clock::now();
-        snapshotCacheService_.updateSnapshot(snapshotBuilder_.buildSnapshot());
+        snapshotCacheService_.updateSnapshotForBackend(backendId_, snapshotBuilder_.buildSnapshot());
 
         RuntimeMeasurement initialPollMeasurement;
         initialPollMeasurement.component = "PollingService";
@@ -102,7 +120,7 @@ void PollingService::poll()
 
     if (lastUpdatePlan_.requiresFullSnapshot()) {
         const auto fullRefreshStarted = std::chrono::steady_clock::now();
-        snapshotCacheService_.updateSnapshot(snapshotBuilder_.buildSnapshot());
+        snapshotCacheService_.updateSnapshotForBackend(backendId_, snapshotBuilder_.buildSnapshot());
 
         RuntimeMeasurement fullRefreshMeasurement;
         fullRefreshMeasurement.component = "PollingService";
@@ -126,7 +144,7 @@ void PollingService::poll()
 
         if (lastUpdatePlan_.shouldRefreshStatus()) {
             const auto refreshStarted = std::chrono::steady_clock::now();
-            snapshotCacheService_.updateStatus(snapshotBuilder_.buildStatus());
+            snapshotCacheService_.updateStatusForBackend(backendId_, snapshotBuilder_.buildStatus());
 
             RuntimeMeasurement measurement;
             measurement.component = "PollingService";
@@ -137,7 +155,7 @@ void PollingService::poll()
 
         if (lastUpdatePlan_.shouldRefreshRecordings()) {
             const auto refreshStarted = std::chrono::steady_clock::now();
-            snapshotCacheService_.updateRecordings(snapshotBuilder_.buildRecordings());
+            snapshotCacheService_.updateRecordingsForBackend(backendId_, snapshotBuilder_.buildRecordings());
 
             RuntimeMeasurement measurement;
             measurement.component = "PollingService";
@@ -148,7 +166,7 @@ void PollingService::poll()
 
         if (lastUpdatePlan_.shouldRefreshTimers()) {
             const auto refreshStarted = std::chrono::steady_clock::now();
-            snapshotCacheService_.updateTimers(snapshotBuilder_.buildTimers());
+            snapshotCacheService_.updateTimersForBackend(backendId_, snapshotBuilder_.buildTimers());
 
             RuntimeMeasurement measurement;
             measurement.component = "PollingService";
@@ -159,7 +177,7 @@ void PollingService::poll()
 
         if (lastUpdatePlan_.shouldRefreshChannels()) {
             const auto refreshStarted = std::chrono::steady_clock::now();
-            snapshotCacheService_.updateChannels(snapshotBuilder_.buildChannels());
+            snapshotCacheService_.updateChannelsForBackend(backendId_, snapshotBuilder_.buildChannels());
 
             RuntimeMeasurement measurement;
             measurement.component = "PollingService";
@@ -170,7 +188,7 @@ void PollingService::poll()
 
         if (lastUpdatePlan_.shouldRefreshEvents()) {
             const auto refreshStarted = std::chrono::steady_clock::now();
-            snapshotCacheService_.updateEvents(snapshotBuilder_.buildEvents());
+            snapshotCacheService_.updateEventsForBackend(backendId_, snapshotBuilder_.buildEvents());
 
             RuntimeMeasurement measurement;
             measurement.component = "PollingService";

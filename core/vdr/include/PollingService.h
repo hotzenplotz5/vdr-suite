@@ -29,6 +29,14 @@ public:
         IRuntimeLogger* logger = nullptr,
         IRuntimeMeasurementSink* measurementSink = nullptr);
 
+    PollingService(
+        VdrSnapshotBuilder& snapshotBuilder,
+        VdrService& vdrService,
+        SnapshotCacheService& snapshotCacheService,
+        const std::string& backendId,
+        IRuntimeLogger* logger = nullptr,
+        IRuntimeMeasurementSink* measurementSink = nullptr);
+
     void poll();
 
     const VdrSnapshot& snapshot() const;
@@ -39,6 +47,7 @@ private:
     VdrSnapshotBuilder& snapshotBuilder_;
     VdrService& vdrService_;
     SnapshotCacheService& snapshotCacheService_;
+    std::string backendId_;
     IRuntimeLogger* logger_;
     IRuntimeMeasurementSink* measurementSink_;
 
