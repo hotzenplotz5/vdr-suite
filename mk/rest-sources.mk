@@ -29,6 +29,7 @@ REST_ROUTER_SRC := \
         api/rest/src/JobsController.cpp \
         api/rest/src/RecordingsController.cpp \
         api/rest/src/MetadataController.cpp \
+        api/rest/src/BackendRegistryController.cpp \
         api/rest/src/RuntimeDiagnosticsController.cpp \
         api/rest/src/SnapshotChangeFeedController.cpp \
         api/rest/src/ApiRouter.cpp
