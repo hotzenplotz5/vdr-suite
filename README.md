@@ -22,22 +22,23 @@ Backend Foundation        ████████████ 100%
 Snapshot Runtime          ████████████ 100%
 Read API                  ████████████ 100%
 Change Feed               ████████████ 100%
-Backend Identity          ████████████ 100%
+Backend Registry          ████████████ 100%
+Backend-Aware Snapshots   ████████████ 100%
+Multi-Backend Routing     ████████████ 100%
 CI Foundation             ████████████ 100%
+Multi-Backend Polling     ░░░░░░░░░░░░   0%
 Live Transport            ░░░░░░░░░░░░   0%
 ```
 
-Current Phase: Phase 14ci - GitHub Actions CI Foundation
+Latest Completed Implementation Phase: Phase 15.9 - Backend-aware Snapshot Builder
 
-Latest Completed Implementation Phase: Phase 14.3 - Backend-Aware Snapshot Read Routing Boundary
-
-Next Architecture Phase: BackendNode / BackendRegistry preparation
+Current Implementation Focus: Phase 16.0 - Multi-Backend Polling Foundation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
 ---
 
-VDR-Suite modernizes the Video Disk Recorder ecosystem with a backend service layer, daemon-owned state, snapshot architecture, REST APIs and future frontend integrations.
+VDR-Suite modernizes the Video Disk Recorder ecosystem with a backend service layer, daemon-owned state, snapshot architecture, REST APIs, backend registry foundations and future frontend integrations.
 
 VDR remains the primary backend domain and source of truth.
 
@@ -86,7 +87,6 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ Snapshot Architecture
 ✓ Snapshot Cache
 ✓ Snapshot Access Layer
-✓ Backend-Aware Snapshot Access Boundary
 ✓ Snapshot Read APIs
 ✓ Snapshot Change Feed
 ✓ Runtime Diagnostics
@@ -94,15 +94,22 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ VDR Snapshot Summary API
 ✓ VDR Capability API
 ✓ Capability Resolver Foundation
+✓ Backend Registry Foundation
+✓ Backend Registry API
+✓ Backend-Aware Snapshot Access
+✓ Backend-Aware VDR Controller Methods
+✓ Multi-Snapshot Cache Foundation
+✓ Backend-Aware Snapshot Builder
 ✓ GitHub Actions CI
 ```
 
 Current architecture focus:
 
 ```text
-BackendNode / BackendRegistry Preparation
-Multi-VDR Read Routing Preparation
-CI-backed Regression Validation
+Phase 16.0 - Multi-Backend Polling Foundation
+BackendRegistry-driven polling preparation
+Backend-aware snapshot refresh
+Multi-VDR runtime preparation
 ```
 
 Authoritative project status:
@@ -142,7 +149,15 @@ The project currently contains foundations for:
 - RESTfulAPI integration
 - daemon-owned VDR snapshots
 - snapshot cache and snapshot access services
+- backend registry and backend registry service layer
+- backend registry JSON serialization and REST API exposure
 - backend-aware snapshot access routing boundary
+- backend-aware VDR controller methods
+- backend snapshot API routes
+- dynamic backend snapshot route parsing
+- multi-snapshot cache foundation
+- multi-backend snapshot cache access
+- backend-aware snapshot builder
 - change-state polling and partial snapshot refresh planning
 - runtime logging, timing and diagnostics foundations
 - snapshot read APIs
@@ -195,6 +210,7 @@ Primary entry points:
 - [Contributor Guide](docs/development/contributor-guide.md)
 - [Release Process](docs/development/release-process.md)
 - [Current Project Status](docs/development/current-status.md)
+- [Current Architecture State](docs/development/current-architecture-state.md)
 - [Completed Phases](docs/development/completed-phases.md)
 - [Roadmap](docs/planning/roadmap.md)
 - [Planning Documentation](docs/planning/index.md)
