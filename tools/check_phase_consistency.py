@@ -33,6 +33,11 @@ def phase_after(text, marker):
     for index, line in enumerate(lines):
         if marker.lower() not in line.lower():
             continue
+
+        match = PHASE.search(line)
+        if match:
+            return match.group(1)
+
         window = "\n".join(lines[index + 1:index + 8])
         match = PHASE.search(window)
         if match:
