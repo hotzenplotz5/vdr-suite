@@ -1,5 +1,7 @@
 # VDR-Suite
 
+[![VDR-Suite CI](https://github.com/hotzenplotz5/vdr-suite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hotzenplotz5/vdr-suite/actions/workflows/ci.yml)
+
 ## Quick Links
 
 - [Project Status Dashboard](docs/project-status-dashboard.md)
@@ -17,14 +19,18 @@ Backend Foundation        ████████████ 100%
 Snapshot Runtime          ████████████ 100%
 Read API                  ████████████ 100%
 Change Feed               ████████████ 100%
+Backend Identity          ████████████ 100%
+CI Foundation             ████████████ 100%
 Live Transport            ░░░░░░░░░░░░   0%
 ```
 
-Current Phase: Phase 12 Complete
+Current Phase: Phase 14ci - GitHub Actions CI Foundation
 
-Next Phase: Phase 13 - Live Update Transport
+Latest Completed Implementation Phase: Phase 14.3 - Backend-Aware Snapshot Read Routing Boundary
 
-Roadmap Progress: 76.5%
+Next Architecture Phase: BackendNode / BackendRegistry preparation
+
+Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
 ---
 
@@ -74,6 +80,7 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ Snapshot Architecture
 ✓ Snapshot Cache
 ✓ Snapshot Access Layer
+✓ Backend-Aware Snapshot Access Boundary
 ✓ Snapshot Read APIs
 ✓ Snapshot Change Feed
 ✓ Runtime Diagnostics
@@ -81,16 +88,15 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ VDR Snapshot Summary API
 ✓ VDR Capability API
 ✓ Capability Resolver Foundation
+✓ GitHub Actions CI
 ```
 
 Current architecture focus:
 
 ```text
-Live Update Transport
-Capability System
-Federation Foundations
-```
-
+BackendNode / BackendRegistry Preparation
+Multi-VDR Read Routing Preparation
+CI-backed Regression Validation
 ```
 
 Authoritative project status:
@@ -130,10 +136,12 @@ The project currently contains foundations for:
 - RESTfulAPI integration
 - daemon-owned VDR snapshots
 - snapshot cache and snapshot access services
+- backend-aware snapshot access routing boundary
 - change-state polling and partial snapshot refresh planning
 - runtime logging, timing and diagnostics foundations
 - snapshot read APIs
 - snapshot change feed foundation
+- GitHub Actions CI full regression test
 
 ---
 
@@ -159,6 +167,8 @@ The project currently contains foundations for:
 make daemon
 make test
 ```
+
+The full regression test is also executed by GitHub Actions on push and pull request events.
 
 ---
 
