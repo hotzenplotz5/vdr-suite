@@ -1,4 +1,8 @@
 #include "ApiRouter.h"
+#include "BackendRegistryService.h"
+#include "BackendRegistryJsonSerializer.h"
+#include "BackendRegistryController.h"
+#include "BackendRegistry.h"
 #include "DashboardController.h"
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -71,6 +75,10 @@ static ApiRouter createRouter(
     VdrSnapshotReadService& snapshotReadService,
     VdrSnapshotReadJsonSerializer& snapshotReadJsonSerializer,
     VdrController& vdrController,
+    BackendRegistry& backendRegistry,
+    BackendRegistryService& backendRegistryService,
+    BackendRegistryJsonSerializer& backendRegistryJsonSerializer,
+    BackendRegistryController& backendRegistryController,
     RuntimeDiagnosticsService& runtimeDiagnosticsService,
     RuntimeDiagnosticsJsonSerializer& runtimeJsonSerializer,
     RuntimeDiagnosticsController& runtimeDiagnosticsController,
@@ -95,6 +103,9 @@ static ApiRouter createRouter(
     (void)snapshotAccessService;
     (void)snapshotReadService;
     (void)snapshotReadJsonSerializer;
+    (void)backendRegistryJsonSerializer;
+    (void)backendRegistryService;
+    (void)backendRegistry;
     (void)runtimeDiagnosticsService;
     (void)runtimeJsonSerializer;
     (void)snapshotChangeFeed;
@@ -106,6 +117,7 @@ static ApiRouter createRouter(
         recordingsController,
         metadataController,
         vdrController,
+        backendRegistryController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController);
 }
@@ -172,6 +184,21 @@ int main()
         vdrJsonSerializer,
         snapshotReadService,
         snapshotReadJsonSerializer);
+
+    BackendRegistry backendRegistry;
+    BackendNode defaultBackend;
+    defaultBackend.backendId = "default";
+    defaultBackend.backendName = "Default VDR";
+    defaultBackend.backendType = "vdr";
+    defaultBackend.enabled = true;
+    defaultBackend.online = false;
+    backendRegistry.addBackend(defaultBackend);
+
+    BackendRegistryService backendRegistryService(backendRegistry);
+    BackendRegistryJsonSerializer backendRegistryJsonSerializer;
+    BackendRegistryController backendRegistryController(
+        backendRegistryService,
+        backendRegistryJsonSerializer);
 
     RuntimeDiagnosticsService runtimeDiagnosticsService;
     RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
