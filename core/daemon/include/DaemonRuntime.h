@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ApiRouter.h"
+#include "BackendRegistry.h"
 #include "DashboardController.h"
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -76,6 +77,7 @@ private:
     std::unique_ptr<RecordingsController> recordingsController_;
     std::unique_ptr<MetadataController> metadataController_;
 
+    BackendRegistry backendRegistry_;
     VdrConfig vdrConfig_;
     std::unique_ptr<IHttpClient> vdrHttpClient_;
     std::unique_ptr<IVdrAdapter> vdrAdapter_;

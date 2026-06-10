@@ -41,10 +41,28 @@ bool DaemonRuntime::initialize()
 
     std::cout << "REST controller runtime initialized" << std::endl;
 
-    vdrConfig_.enabled = true;
-    vdrConfig_.mode = config_.vdrMode();
-    vdrConfig_.host = config_.vdrHost();
-    vdrConfig_.port = config_.vdrPort();
+    BackendNode defaultBackend;
+    defaultBackend.backendId = "default";
+    defaultBackend.backendName = "Default VDR";
+    defaultBackend.backendType = "vdr";
+    defaultBackend.connection.enabled = true;
+    defaultBackend.connection.mode = config_.vdrMode();
+    defaultBackend.connection.host = config_.vdrHost();
+    defaultBackend.connection.port = config_.vdrPort();
+    defaultBackend.enabled = true;
+    defaultBackend.online = false;
+
+    backendRegistry_.addBackend(defaultBackend);
+
+    const auto runtimeBackend =
+        backendRegistry_.getBackend("default");
+
+    if (!runtimeBackend.has_value()) {
+        std::cerr << "failed to initialize default backend" << std::endl;
+        return false;
+    }
+
+    vdrConfig_ = runtimeBackend->connection;
 
     vdrHttpClient_ = std::make_unique<BasicHttpClient>(vdrConfig_.host, vdrConfig_.port, &runtimeLogger_, &runtimeDiagnosticsService_);
     vdrAdapter_ = std::make_unique<RestfulApiVdrAdapter>(vdrConfig_, *vdrHttpClient_);
