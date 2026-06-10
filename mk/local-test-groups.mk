@@ -1,4 +1,4 @@
-.PHONY: test-vdr test-backend-node test-backend-registry test-backend-registry-service
+.PHONY: test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer
 
 test-vdr: \
 	test-backend-node \
@@ -56,3 +56,12 @@ test-backend-registry-service:
 		core/vdr/tests/test_backend_registry_service.cpp \
 		-o /tmp/test_backend_registry_service
 	/tmp/test_backend_registry_service
+
+
+test-backend-registry-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistryJsonSerializer.cpp \
+		core/vdr/tests/test_backend_registry_json_serializer.cpp \
+		-o /tmp/test_backend_registry_json_serializer
+	/tmp/test_backend_registry_json_serializer
