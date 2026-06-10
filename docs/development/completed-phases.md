@@ -127,7 +127,7 @@ Verified with:
 
 ## Next Phase
 
-Phase 16.0 should introduce the Multi-Backend Polling Foundation.
+The next planned work should introduce the Multi-Backend Polling Foundation.
 
 Goals:
 
