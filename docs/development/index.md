@@ -81,6 +81,7 @@ Archived reports and phase-specific documentation.
 - [Phase 9.6 – Local RESTfulAPI Integration Test](phase-9.6-local-restfulapi-integration.md)
 - [Phase 9.7 – Local Snapshot Runtime Integration Test](phase-9.7-local-snapshot-runtime-integration.md)
 - [Phase 9.8 – Local Partial Refresh Validation](phase-9.8-local-partial-refresh-validation.md)
+- [Phase 14.3 – Backend-Aware Snapshot Routing](phase-14.3-backend-aware-snapshot-routing.md)
 - [Runtime Diagnostics Documentation](runtime-diagnostics/README.md)
 - [Development Status](status/index.md)
 
