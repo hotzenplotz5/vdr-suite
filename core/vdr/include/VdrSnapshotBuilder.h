@@ -21,9 +21,14 @@ class VdrSnapshotBuilder {
 public:
     explicit VdrSnapshotBuilder(
         VdrService& vdrService,
-        const std::string& backendId = "default",
         IRuntimeLogger* logger = nullptr,
         IRuntimeMeasurementSink* measurementSink = nullptr);
+
+    explicit VdrSnapshotBuilder(
+        VdrService& vdrService,
+        const std::string& backendId,
+        IRuntimeLogger* logger,
+        IRuntimeMeasurementSink* measurementSink);
 
     VdrStatus buildStatus() const;
     std::vector<VdrRecording> buildRecordings() const;
