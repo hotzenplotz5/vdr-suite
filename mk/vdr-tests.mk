@@ -2,21 +2,7 @@
 
 test-fast: test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-vdr-config test-snapshot-access-service test-vdr-domain-objects
 
-test-backend-node:
-	$(CXX) $(CXXFLAGS) \
-		core/vdr/tests/test_backend_node.cpp \
-		-o /tmp/test_backend_node
-	/tmp/test_backend_node
-
-test-backend-registry:
-	$(CXX) $(CXXFLAGS) \
-		core/vdr/src/VdrConfig.cpp \
-		core/vdr/src/BackendRegistry.cpp \
-		core/vdr/tests/test_backend_registry.cpp \
-		-o /tmp/test_backend_registry
-	/tmp/test_backend_registry
-
-test-vdr-config: test-backend-node test-backend-registry
+test-vdr-config:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/tests/test_vdr_config.cpp \
