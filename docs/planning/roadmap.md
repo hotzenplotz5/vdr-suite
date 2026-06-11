@@ -61,6 +61,8 @@ Phase 17 completed the initial multi-backend read-side visibility through Phase 
 
 Phase 18 completed opt-in real VDR and RESTfulAPI validation through Phase 18.4. Real RESTfulAPI integration, real snapshot building, real change-state handling, real polling initial snapshot generation and repeated polling stability are validated outside the default fast test set.
 
+Phase 18 completed opt-in real VDR and RESTfulAPI validation through Phase 18.4. Real RESTfulAPI integration, real snapshot building, real change-state handling, real polling initial snapshot generation and repeated polling stability are validated outside the default fast test set.
+
 ---
 
 ## Implemented Foundation Since Phase 14
@@ -219,6 +221,24 @@ Live update transport is not the same as image or media streaming.
 Live transport should notify clients that something changed.
 
 Image, preview stream and media stream handling should define how clients can request media-oriented data.
+
+---
+
+## Phase 22 - Frontend API Hardening
+
+Goal:
+
+Stabilize API contracts for future frontends after the snapshot change feed and live transport foundations are validated.
+
+Planned direction:
+
+- filtering
+- pagination
+- stable response contracts
+- capability-aware responses
+- frontend-independent API behavior
+- backend-aware response contracts
+- frontend-safe error models
 
 ---
 
