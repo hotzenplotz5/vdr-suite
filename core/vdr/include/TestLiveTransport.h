@@ -4,6 +4,7 @@
 #include "ILiveTransport.h"
 #include "LiveUpdateEvent.h"
 
+#include <string>
 #include <vector>
 
 class TestLiveTransport : public ILiveTransport {
@@ -12,8 +13,9 @@ public:
         const LiveUpdateEvent& event) override;
 
     const std::vector<LiveUpdateEvent>& events() const;
-    bool empty() const;
-    void clear();
+    std::string stream() const override;
+    bool empty() const override;
+    void clear() override;
 
 private:
     std::vector<LiveUpdateEvent> events_;

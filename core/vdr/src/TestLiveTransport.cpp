@@ -1,5 +1,7 @@
 #include "TestLiveTransport.h"
 
+#include <sstream>
+
 void TestLiveTransport::publish(
     const LiveUpdateEvent& event)
 {
@@ -9,6 +11,21 @@ void TestLiveTransport::publish(
 const std::vector<LiveUpdateEvent>& TestLiveTransport::events() const
 {
     return events_;
+}
+
+std::string TestLiveTransport::stream() const
+{
+    std::ostringstream output;
+
+    for (const auto& event : events_) {
+        output
+            << event.sequenceNumber()
+            << ":"
+            << event.backendId()
+            << "\n";
+    }
+
+    return output.str();
 }
 
 bool TestLiveTransport::empty() const
