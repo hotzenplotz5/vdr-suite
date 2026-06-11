@@ -290,3 +290,13 @@ test-real-polling-initial-snapshot:
 		core/vdr/tests/test_real_polling_initial_snapshot.cpp \
 		-o /tmp/test_real_polling_initial_snapshot
 	/tmp/test_real_polling_initial_snapshot
+
+
+.PHONY: test-real-polling-stability
+test-real-polling-stability:
+	$(CXX) $(CXXFLAGS) \
+		core/http/src/BasicHttpClient.cpp \
+		$(VDR_SRC) \
+		core/vdr/tests/test_real_polling_stability.cpp \
+		-o /tmp/test_real_polling_stability
+	/tmp/test_real_polling_stability
