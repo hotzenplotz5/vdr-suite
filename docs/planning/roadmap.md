@@ -46,18 +46,18 @@ VDR-Suite complements VDR. It does not replace it.
 
 ```text
 Completed implementation state
-Phase 15.9 - Backend-aware Snapshot Builder
+Phase 17.2 - Multi-Backend Snapshots REST Endpoint
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 15.9
+Documentation and roadmap synchronization after Phase 17.2
 
 Next implementation step
-Phase 16.0 - Multi-Backend Polling Foundation
+Phase 17.3 - Multi-Backend REST Endpoint Tests
 ```
 
-Phase 15 completed the read-side multi-backend foundation. Backend registry, backend registry service, backend registry JSON serialization, backend registry REST exposure, dynamic backend routes, multi-snapshot cache storage, backend-aware snapshot access and backend-aware snapshot building are implemented.
+Phase 16 completed the multi-backend polling and runtime context foundation. Backend-aware polling, backend polling coordination, backend runtime contexts, daemon runtime context migration, registry-driven context creation and backend-aware snapshot change feed support are implemented.
 
-Phase 16 should connect this foundation to runtime polling without weakening daemon ownership, snapshot boundaries or backend neutrality.
+Phase 17 completed the initial multi-backend read-side visibility through Phase 17.2. SnapshotAccessService can return all cached backend snapshots, VdrSnapshotReadService exposes multi-backend snapshot lists, VdrSnapshotReadJsonSerializer serializes multi-backend snapshot summaries and `GET /api/vdr/snapshots` exposes these summaries through REST.
 
 ---
 
@@ -78,58 +78,66 @@ Phase 15.6 - Dynamic backend snapshot route parsing
 Phase 15.7 - Multi-snapshot cache foundation
 Phase 15.8 - Multi-backend snapshot cache access
 Phase 15.9 - Backend-aware snapshot builder
+Phase 16.0 - Backend-aware snapshot cache service updates
+Phase 16.1 - Backend-aware polling service
+Phase 16.2 - Backend polling coordinator
+Phase 16.3 - Backend runtime context foundation
+Phase 16.4 - Daemon runtime context migration
+Phase 16.5 - Coordinator runtime integration
+Phase 16.6 - Runtime context collection
+Phase 16.7 - Runtime context factory
+Phase 16.8 - Runtime context creation from registry
+Phase 16.9 - Backend-aware snapshot change feed
+Phase 17.0 - Multi-backend snapshot read foundation
+Phase 17.1 - Multi-backend snapshot summary serialization
+Phase 17.2 - Multi-backend snapshots REST endpoint
 ```
 
 Completed implementation detail belongs in [Completed Phases](../development/completed-phases.md).
 
 ---
 
-## Phase 16.0 - Multi-Backend Polling Foundation
+## Phase 17.3 - Multi-Backend REST Endpoint Tests
 
 Goal:
 
-Connect `BackendRegistry` to daemon-owned polling and snapshot generation.
+Verify the multi-backend snapshots REST endpoint through automated tests before expanding frontend-facing contracts.
 
 Planned direction:
 
-- keep polling daemon-owned
-- keep snapshot generation backend-neutral
-- introduce backend-aware polling preparation
-- create snapshots with stable backend identity
-- update `SnapshotCache` per backend
-- preserve existing default-backend behavior
-- avoid parallelism until the single-threaded multi-backend model is clear
-- prepare later real-world validation with more than one VDR backend
+- add controller coverage for the multi-backend snapshots response
+- add router coverage for `GET /api/vdr/snapshots`
+- keep existing `/api/vdr/snapshot` default summary behavior compatible
+- verify the JSON contract for multiple backend snapshot summaries
+- avoid adding new API surface before the current endpoint is protected by tests
 
 Expected result:
 
-- runtime can iterate backend registry entries
-- each backend can produce a backend-tagged snapshot
-- snapshot cache can hold runtime snapshots by backend ID
-- existing `/api/vdr/...` default routes remain compatible
-- `/api/backends/{backendId}/...` routes become backed by runtime data
+- `GET /api/vdr/snapshots` is covered by regression tests
+- default snapshot routes remain unchanged
+- multi-backend summary responses are stable enough for future frontend work
 
 Architecture rule:
 
-Polling remains below the daemon runtime boundary.
+REST endpoint tests validate read contracts only.
 
-Frontend routes must not own polling, backend selection or snapshot generation.
+They must not own polling, backend selection or snapshot generation.
 
 ---
 
-## Phase 16.1+ - Multi-Backend Runtime Validation
+## Phase 18 - Real VDR and RESTfulAPI Integration Validation
 
 Goal:
 
-Validate the runtime model before introducing concurrency or production-grade federation behavior.
+Validate the snapshot runtime and RESTfulAPI adapter against an actual VDR system once the multi-backend REST contracts are stable.
 
 Planned direction:
 
-- test default-backend behavior after multi-backend polling preparation
-- add controlled mock multi-backend runtime tests
-- define when a real VDR is required for validation
-- validate RESTfulAPI-backed polling against one real VDR
-- validate two-backend scenarios when a second VDR or controlled mock backend is available
+- validate RESTfulAPI reachability against one local VDR
+- validate status, channels, timers, events and recordings mapping with real data
+- validate snapshot generation from real RESTfulAPI responses
+- validate daemon-owned polling against a real VDR
+- validate multi-backend scenarios when a second VDR or controlled mock backend is available
 
 Real VDR tests should be reserved for:
 
@@ -141,7 +149,25 @@ Real VDR tests should be reserved for:
 
 ---
 
-## Phase 17 - Live Transport Foundation
+## Phase 19 - Frontend API Hardening
+
+Goal:
+
+Stabilize API contracts for future frontends.
+
+Planned direction:
+
+- filtering
+- pagination
+- stable response contracts
+- capability-aware responses
+- frontend-independent API behavior
+- backend-aware response contracts
+- frontend-safe error models
+
+---
+
+## Phase 20 - Live Transport Foundation
 
 Goal:
 
@@ -174,25 +200,7 @@ Live transport must not become the owner of:
 
 ---
 
-## Phase 18 - Frontend API Hardening
-
-Goal:
-
-Stabilize API contracts for future frontends.
-
-Planned direction:
-
-- filtering
-- pagination
-- stable response contracts
-- capability-aware responses
-- frontend-independent API behavior
-- backend-aware response contracts
-- frontend-safe error models
-
----
-
-## Phase 19 - Image and Preview Stream Validation
+## Phase 21 - Image and Preview Stream Validation
 
 Goal:
 
