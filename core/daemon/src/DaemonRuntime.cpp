@@ -139,10 +139,14 @@ bool DaemonRuntime::initialize()
     runtimeDiagnosticsController_ = std::make_unique<RuntimeDiagnosticsController>(runtimeDiagnosticsService_, *runtimeDiagnosticsJsonSerializer_);
     snapshotChangeFeedController_ = std::make_unique<SnapshotChangeFeedController>(*snapshotChangeFeed_, *snapshotChangeFeedJsonSerializer_);
 
+    liveTransport_ = std::make_unique<SseLiveTransport>();
+    liveTransportController_ = std::make_unique<LiveTransportController>(*liveTransport_);
+
     std::cout << "runtime diagnostics controller initialized" << std::endl;
     std::cout << "snapshot change feed controller initialized" << std::endl;
+    std::cout << "live transport controller initialized" << std::endl;
 
-    apiRouter_ = std::make_unique<ApiRouter>(*dashboardController_, *jobsController_, *recordingsController_, *metadataController_, *vdrController_, *backendRegistryController_, *runtimeDiagnosticsController_, *snapshotChangeFeedController_);
+    apiRouter_ = std::make_unique<ApiRouter>(*dashboardController_, *jobsController_, *recordingsController_, *metadataController_, *vdrController_, *backendRegistryController_, *runtimeDiagnosticsController_, *snapshotChangeFeedController_, *liveTransportController_);
 
     std::cout << "API router runtime initialized" << std::endl;
 
@@ -199,6 +203,8 @@ void DaemonRuntime::shutdown()
 
     std::cout << "HTTP server runtime stopped" << std::endl;
 
+    liveTransportController_.reset();
+    liveTransport_.reset();
     snapshotChangeFeedController_.reset();
     runtimeDiagnosticsController_.reset();
     backendRegistryController_.reset();

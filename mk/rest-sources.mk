@@ -35,4 +35,5 @@ REST_ROUTER_SRC := \
         api/rest/src/BackendRegistryController.cpp \
         api/rest/src/RuntimeDiagnosticsController.cpp \
         api/rest/src/SnapshotChangeFeedController.cpp \
+        api/rest/src/LiveTransportController.cpp \
         api/rest/src/ApiRouter.cpp

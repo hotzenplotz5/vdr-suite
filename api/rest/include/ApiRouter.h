@@ -6,6 +6,7 @@
 
 class BackendRegistryController;
 class JobsController;
+class LiveTransportController;
 class MetadataController;
 class RecordingsController;
 class RuntimeDiagnosticsController;
@@ -23,7 +24,8 @@ public:
         VdrController& vdrController,
         BackendRegistryController& backendRegistryController,
         RuntimeDiagnosticsController& runtimeDiagnosticsController,
-        SnapshotChangeFeedController& snapshotChangeFeedController);
+        SnapshotChangeFeedController& snapshotChangeFeedController,
+        LiveTransportController& liveTransportController);
 
     ApiResponse handleGet(
         const std::string& path);
@@ -37,4 +39,5 @@ private:
     BackendRegistryController& backendRegistryController_;
     RuntimeDiagnosticsController& runtimeDiagnosticsController_;
     SnapshotChangeFeedController& snapshotChangeFeedController_;
+    LiveTransportController& liveTransportController_;
 };

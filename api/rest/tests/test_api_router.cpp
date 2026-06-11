@@ -5,6 +5,7 @@
 #include "BackendRegistry.h"
 #include "DashboardController.h"
 #include "JobsController.h"
+#include "LiveTransportController.h"
 #include "MetadataController.h"
 #include "RecordingsController.h"
 #include "RuntimeDiagnosticsController.h"
@@ -27,6 +28,8 @@
 #include "SnapshotChangeFeed.h"
 #include "SnapshotChangeFeedController.h"
 #include "SnapshotChangeFeedJsonSerializer.h"
+#include "SseLiveTransport.h"
+#include "LiveUpdateEvent.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
 #include "VdrOverviewJsonSerializer.h"
@@ -220,6 +223,16 @@ int main()
         snapshotChangeFeed,
         snapshotChangeFeedJsonSerializer);
 
+    SseLiveTransport liveTransport;
+    liveTransport.publish(LiveUpdateEvent(
+        9,
+        5,
+        {"channels"},
+        "home-vdr"));
+
+    LiveTransportController liveTransportController(
+        liveTransport);
+
     ApiRouter router(
         dashboardController,
         jobsController,
@@ -228,7 +241,8 @@ int main()
         vdrController,
         backendRegistryController,
         runtimeDiagnosticsController,
-        snapshotChangeFeedController);
+        snapshotChangeFeedController,
+        liveTransportController);
 
     ApiResponse dashboardResponse =
         router.handleGet("/api/dashboard");
@@ -459,6 +473,20 @@ int main()
     assert(vdrChangesResponse.body.find("\"recordings\"")
            != std::string::npos);
     assert(vdrChangesResponse.body.find("\"timers\"")
+           != std::string::npos);
+
+    ApiResponse vdrLiveResponse =
+        router.handleGet("/api/vdr/live");
+
+    assert(vdrLiveResponse.statusCode == 200);
+    assert(vdrLiveResponse.contentType == "text/event-stream");
+    assert(vdrLiveResponse.body.find("event: update\n")
+           != std::string::npos);
+    assert(vdrLiveResponse.body.find("id: 9\n")
+           != std::string::npos);
+    assert(vdrLiveResponse.body.find("\"backendId\":\"home-vdr\"")
+           != std::string::npos);
+    assert(vdrLiveResponse.body.find("\"changedDomains\":[\"channels\"]")
            != std::string::npos);
 
     ApiResponse vdrRecordingsResponse =

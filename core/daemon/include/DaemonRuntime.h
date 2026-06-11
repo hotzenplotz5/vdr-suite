@@ -18,6 +18,7 @@
 #include "JobDashboardService.h"
 #include "JobRepository.h"
 #include "JobsController.h"
+#include "LiveTransportController.h"
 #include "MetadataController.h"
 #include "MetadataRepository.h"
 #include "PollingService.h"
@@ -33,6 +34,7 @@
 #include "SnapshotChangeFeedController.h"
 #include "SnapshotChangeFeedJsonSerializer.h"
 #include "SnapshotChangeFeedService.h"
+#include "SseLiveTransport.h"
 #include "VdrSnapshotReadJsonSerializer.h"
 #include "VdrSnapshotReadService.h"
 #include "SnapshotCache.h"
@@ -101,6 +103,8 @@ private:
     std::unique_ptr<SnapshotChangeFeedService> snapshotChangeFeedService_;
     std::unique_ptr<SnapshotChangeFeedJsonSerializer> snapshotChangeFeedJsonSerializer_;
     std::unique_ptr<SnapshotChangeFeedController> snapshotChangeFeedController_;
+    std::unique_ptr<SseLiveTransport> liveTransport_;
+    std::unique_ptr<LiveTransportController> liveTransportController_;
     std::unique_ptr<VdrOverviewService> vdrOverviewService_;
     std::unique_ptr<VdrOverviewJsonSerializer> vdrOverviewJsonSerializer_;
     std::unique_ptr<VdrController> vdrController_;
