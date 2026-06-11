@@ -85,20 +85,15 @@ Phase 18.4 - Real Polling Stability Validation
 ## Recently Completed Milestones
 
 ```text
-Phase 16.0 - Backend-aware snapshot cache service updates
-Phase 16.1 - Backend-aware polling service
-Phase 16.2 - Backend polling coordinator
-Phase 16.3 - Backend runtime context foundation
-Phase 16.4 - Daemon runtime context migration
-Phase 16.5 - Coordinator runtime integration
-Phase 16.6 - Runtime context collection
-Phase 16.7 - Runtime context factory
-Phase 16.8 - Runtime context creation from registry
-Phase 16.9 - Backend-aware snapshot change feed
 Phase 17.0 - Multi-backend snapshot read foundation
 Phase 17.1 - Multi-backend snapshot summary serialization
 Phase 17.2 - Multi-backend snapshots REST endpoint
 Phase 17.3 - Multi-backend REST endpoint tests
+Phase 18.0 - Real RESTfulAPI integration validation
+Phase 18.1 - Real snapshot builder validation
+Phase 18.2 - Real change-state validation
+Phase 18.3 - Real polling initial snapshot validation
+Phase 18.4 - Real polling stability validation
 ```
 
 ---
@@ -114,13 +109,13 @@ Phase 0 - Phase 18.4
 Planned Major Phases:
 
 ```text
-Phase 18.0+
+Phase 19.0+
 ```
 
 Overall Roadmap Progress:
 
 ```text
-17 / 18 = 94.4%
+18 / 22 = 81.8%
 ```
 
 Important:
