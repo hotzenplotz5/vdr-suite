@@ -19,6 +19,7 @@
 #include "JobRepository.h"
 #include "JobsController.h"
 #include "LiveTransportController.h"
+#include "LiveTransportService.h"
 #include "MetadataController.h"
 #include "MetadataRepository.h"
 #include "PollingService.h"
@@ -104,6 +105,7 @@ private:
     std::unique_ptr<SnapshotChangeFeedJsonSerializer> snapshotChangeFeedJsonSerializer_;
     std::unique_ptr<SnapshotChangeFeedController> snapshotChangeFeedController_;
     std::unique_ptr<SseLiveTransport> liveTransport_;
+    std::unique_ptr<LiveTransportService> liveTransportService_;
     std::unique_ptr<LiveTransportController> liveTransportController_;
     std::unique_ptr<VdrOverviewService> vdrOverviewService_;
     std::unique_ptr<VdrOverviewJsonSerializer> vdrOverviewJsonSerializer_;
