@@ -40,6 +40,35 @@ static VdrSnapshot makeTestSnapshot()
     return snapshot;
 }
 
+
+static VdrSnapshot makeBackendSnapshot(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& recordingId)
+{
+    VdrSnapshot snapshot;
+    snapshot.backendId = backendId;
+
+    snapshot.status.enabled = true;
+    snapshot.status.mode = "multi-backend-read-test";
+    snapshot.status.host = backendId + "-host";
+    snapshot.status.port = 8002;
+    snapshot.status.state = "connected";
+
+    VdrChannel channel;
+    channel.id = channelId;
+    channel.name = backendId + " Channel";
+    snapshot.channels.push_back(channel);
+
+    VdrRecording recording;
+    recording.id = recordingId;
+    recording.title = backendId + " Recording";
+    snapshot.recordings.push_back(recording);
+
+    return snapshot;
+}
+
+
 static void test_snapshot_read_service_without_snapshot()
 {
     SnapshotCache cache;
@@ -116,12 +145,62 @@ static void test_snapshot_read_service_rejects_non_matching_backend()
     assert(readService.getStatusForBackend("ferienhaus").enabled == false);
 }
 
+
+static void test_snapshot_read_service_returns_all_backend_snapshots()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    cache.updateForBackend(
+        "home-vdr",
+        makeBackendSnapshot("home-vdr", "home-channel", "home-recording"));
+    cache.updateForBackend(
+        "parents-vdr",
+        makeBackendSnapshot("parents-vdr", "parents-channel", "parents-recording"));
+
+    VdrSnapshotReadService readService(accessService);
+
+    const auto snapshots = readService.getSnapshots();
+
+    assert(snapshots.size() == 2);
+
+    bool foundHome = false;
+    bool foundParents = false;
+
+    for (const auto& snapshot : snapshots)
+    {
+        if (snapshot.backendId == "home-vdr")
+        {
+            foundHome = true;
+            assert(snapshot.channels.size() == 1);
+            assert(snapshot.channels[0].id == "home-channel");
+            assert(snapshot.recordings.size() == 1);
+            assert(snapshot.recordings[0].id == "home-recording");
+        }
+
+        if (snapshot.backendId == "parents-vdr")
+        {
+            foundParents = true;
+            assert(snapshot.channels.size() == 1);
+            assert(snapshot.channels[0].id == "parents-channel");
+            assert(snapshot.recordings.size() == 1);
+            assert(snapshot.recordings[0].id == "parents-recording");
+        }
+    }
+
+    assert(foundHome);
+    assert(foundParents);
+}
+
+
 int main()
 {
     test_snapshot_read_service_without_snapshot();
     test_snapshot_read_service_with_snapshot();
     test_snapshot_read_service_reads_matching_backend();
     test_snapshot_read_service_rejects_non_matching_backend();
+    test_snapshot_read_service_returns_all_backend_snapshots();
 
     return 0;
 }

@@ -4,6 +4,7 @@
 #include "VdrSnapshot.h"
 
 #include <string>
+#include <vector>
 
 class ISnapshotAccessService {
 public:
@@ -14,6 +15,7 @@ public:
 
     virtual bool hasSnapshotForBackend(const std::string& backendId) const = 0;
     virtual const VdrSnapshot* snapshotForBackend(const std::string& backendId) const = 0;
+    virtual std::vector<VdrSnapshot> snapshots() const = 0;
 };
 
 #endif

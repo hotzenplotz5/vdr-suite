@@ -11,6 +11,11 @@ bool VdrSnapshotReadService::hasSnapshot() const
     return snapshotAccessService_.hasSnapshot();
 }
 
+std::vector<VdrSnapshot> VdrSnapshotReadService::getSnapshots() const
+{
+    return snapshotAccessService_.snapshots();
+}
+
 bool VdrSnapshotReadService::hasSnapshotForBackend(
     const std::string& backendId) const
 {

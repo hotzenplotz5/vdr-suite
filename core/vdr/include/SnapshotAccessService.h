@@ -5,6 +5,7 @@
 #include "SnapshotCacheService.h"
 
 #include <string>
+#include <vector>
 
 class SnapshotAccessService : public ISnapshotAccessService {
 public:
@@ -15,6 +16,7 @@ public:
 
     bool hasSnapshotForBackend(const std::string& backendId) const override;
     const VdrSnapshot* snapshotForBackend(const std::string& backendId) const override;
+    std::vector<VdrSnapshot> snapshots() const override;
 
 private:
     SnapshotCacheService& cacheService_;

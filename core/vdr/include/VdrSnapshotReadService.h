@@ -18,6 +18,7 @@ public:
 
     bool hasSnapshot() const;
     bool hasSnapshotForBackend(const std::string& backendId) const;
+    std::vector<VdrSnapshot> getSnapshots() const;
 
     VdrStatus getStatus() const;
     VdrStatus getStatusForBackend(const std::string& backendId) const;

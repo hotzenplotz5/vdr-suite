@@ -31,3 +31,21 @@ const VdrSnapshot* SnapshotAccessService::snapshotForBackend(
 {
     return cacheService_.cache().snapshotForBackend(backendId);
 }
+
+std::vector<VdrSnapshot> SnapshotAccessService::snapshots() const
+{
+    std::vector<VdrSnapshot> result;
+
+    for (const std::string& backendId : cacheService_.cache().backendIds())
+    {
+        const VdrSnapshot* backendSnapshot =
+            cacheService_.cache().snapshotForBackend(backendId);
+
+        if (backendSnapshot != nullptr)
+        {
+            result.push_back(*backendSnapshot);
+        }
+    }
+
+    return result;
+}
