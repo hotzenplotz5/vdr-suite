@@ -280,3 +280,13 @@ test-real-change-state:
 		core/vdr/tests/test_real_change_state.cpp \
 		-o /tmp/test_real_change_state
 	/tmp/test_real_change_state
+
+
+.PHONY: test-real-polling-initial-snapshot
+test-real-polling-initial-snapshot:
+	$(CXX) $(CXXFLAGS) \
+		core/http/src/BasicHttpClient.cpp \
+		$(VDR_SRC) \
+		core/vdr/tests/test_real_polling_initial_snapshot.cpp \
+		-o /tmp/test_real_polling_initial_snapshot
+	/tmp/test_real_polling_initial_snapshot
