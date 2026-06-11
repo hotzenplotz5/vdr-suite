@@ -31,9 +31,9 @@ CI Foundation             ████████████ 100%
 Live Transport            ░░░░░░░░░░░░   0%
 ```
 
-Latest Completed Implementation Phase: Phase 17.2 - Multi-Backend Snapshots REST Endpoint
+Latest Completed Implementation Phase: Phase 17.3 - Multi-Backend REST Endpoint Tests
 
-Current Implementation Focus: Phase 17.3 - Multi-Backend REST Endpoint Tests
+Current Implementation Focus: Phase 18.0 - Real VDR and RESTfulAPI Integration Validation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -110,16 +110,17 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ Multi-Backend Snapshot Read Foundation
 ✓ Multi-Backend Snapshot Summary Serialization
 ✓ Multi-Backend Snapshots REST Endpoint
+✓ Multi-Backend Snapshots REST Route Test
 ✓ GitHub Actions CI
 ```
 
 Current architecture focus:
 
 ```text
-Phase 17.3 - Multi-Backend REST Endpoint Tests
-Verify GET /api/vdr/snapshots through controller/router tests
-Keep default backend behavior compatible
-Prepare later real VDR integration validation
+Phase 18.0 - Real VDR and RESTfulAPI Integration Validation
+Validate RestfulApiVdrAdapter against an actual VDR/restfulapi instance
+Keep real VDR tests opt-in and separate from fast unit tests
+Preserve mock-based CI compatibility
 ```
 
 Authoritative project status:
@@ -175,6 +176,7 @@ The project currently contains foundations for:
 - multi-backend snapshot read service
 - multi-backend snapshot summary serialization
 - multi-backend snapshots REST endpoint
+- multi-backend snapshots REST route test coverage
 - change-state polling and partial snapshot refresh planning
 - runtime logging, timing and diagnostics foundations
 - snapshot read APIs
