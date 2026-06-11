@@ -22,7 +22,9 @@ Snapshot Runtime          complete
 Read API                  complete
 Change Feed               complete
 Backend Registry          implemented
-Multi-Backend Routing     foundation implemented
+Multi-Backend Routing     implemented
+Multi-Backend Polling     implemented
+Multi-Backend Read API    implemented
 Live Transport            planned
 ```
 
@@ -33,7 +35,7 @@ Multi-VDR                 foundation implemented
 Backend Registry          runtime + API implemented
 Multi-Snapshot Cache      implemented
 Backend-Aware Snapshots   implemented
-Multi-Backend Polling     planned
+Runtime Contexts          implemented
 Capability System         foundation implemented
 Authentication            planned
 Authorization             planned
@@ -63,19 +65,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 15.9 Complete
+Phase 17.2 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 16.0 - Multi-Backend Polling Foundation
+Phase 17.3 - Multi-Backend REST Endpoint Tests
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 15.9 - Backend-aware Snapshot Builder
+Phase 17.2 - Multi-Backend Snapshots REST Endpoint
 ```
 
 ---
@@ -83,18 +85,19 @@ Phase 15.9 - Backend-aware Snapshot Builder
 ## Recently Completed Milestones
 
 ```text
-Phase 14.8 - BackendRegistry runtime integration
-Phase 14.9 - BackendRegistry service layer
-Phase 15.0 - BackendRegistry JSON serializer
-Phase 15.1 - BackendRegistry controller
-Phase 15.2 - BackendRegistry API routing
-Phase 15.3 - Backend-aware snapshot read service
-Phase 15.4 - Backend-aware VDR controller methods
-Phase 15.5 - Backend snapshot API routes
-Phase 15.6 - Dynamic backend snapshot route parsing
-Phase 15.7 - Multi-snapshot cache foundation
-Phase 15.8 - Multi-backend snapshot cache access
-Phase 15.9 - Backend-aware snapshot builder
+Phase 16.0 - Backend-aware snapshot cache service updates
+Phase 16.1 - Backend-aware polling service
+Phase 16.2 - Backend polling coordinator
+Phase 16.3 - Backend runtime context foundation
+Phase 16.4 - Daemon runtime context migration
+Phase 16.5 - Coordinator runtime integration
+Phase 16.6 - Runtime context collection
+Phase 16.7 - Runtime context factory
+Phase 16.8 - Runtime context creation from registry
+Phase 16.9 - Backend-aware snapshot change feed
+Phase 17.0 - Multi-backend snapshot read foundation
+Phase 17.1 - Multi-backend snapshot summary serialization
+Phase 17.2 - Multi-backend snapshots REST endpoint
 ```
 
 ---
@@ -104,19 +107,19 @@ Phase 15.9 - Backend-aware snapshot builder
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 15.9
+Phase 0 - Phase 17.2
 ```
 
 Planned Major Phases:
 
 ```text
-Phase 16.0+
+Phase 17.3+
 ```
 
 Overall Roadmap Progress:
 
 ```text
-16 / 17 = 94.1%
+17 / 18 = 94.4%
 ```
 
 Important:
@@ -131,13 +134,14 @@ This percentage describes documented roadmap progress by major phase. It is not 
 | --- | --- |
 | Backend Foundation | Core database, services, jobs, dashboard, REST and daemon foundations are implemented. |
 | Snapshot Runtime | Daemon-owned snapshot generation, cache, access boundaries and generation tracking are implemented. |
-| Read API | Snapshot-backed read APIs for current VDR domains are implemented. |
-| Change Feed | Transport-independent snapshot change feed and runtime feed update integration are implemented. |
+| Read API | Snapshot-backed read APIs for current VDR domains and multi-backend snapshot summaries are implemented. |
+| Change Feed | Transport-independent snapshot change feed and backend-aware feed entries are implemented. |
 | Backend Registry | BackendNode, BackendRegistry, service layer, JSON serializer, controller and REST routes are implemented. |
-| Multi-Backend Routing | Backend-aware snapshot routes and dynamic backend route parsing are implemented. |
+| Multi-Backend Routing | Backend-aware snapshot routes, dynamic backend route parsing and multi-backend snapshots REST exposure are implemented. |
 | Multi-Snapshot Cache | SnapshotCache can store and resolve snapshots per backend while keeping the legacy single-snapshot interface compatible. |
-| Backend-Aware Snapshots | Snapshot access, snapshot read service, VDR controller and snapshot builder support backend identity. |
-| Multi-VDR | Backend registry, backend-aware snapshots and routing foundations are implemented. Multi-backend polling remains future work. |
+| Backend-Aware Snapshots | Snapshot access, snapshot read service, VDR controller, snapshot builder and change feed support backend identity. |
+| Multi-Backend Polling | PollingService, BackendPollingCoordinator and DaemonRuntime backend context wiring are implemented for registry-driven runtime preparation. |
+| Multi-VDR | Backend registry, runtime contexts, backend-aware snapshots, polling coordination and multi-backend read summaries are implemented as foundations. |
 | Live Transport | SSE/WebSocket transport remains planned above the snapshot change feed. |
 | Capability System | Capability set and resolver foundations are implemented. |
 | Authentication | Planned future concern, not implemented yet. |
