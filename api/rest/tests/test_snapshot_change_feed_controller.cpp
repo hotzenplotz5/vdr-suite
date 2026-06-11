@@ -44,10 +44,44 @@ static void test_controller_returns_empty_feed()
     assert(response.body == "{\"latestSequenceNumber\":0,\"latestSnapshotGeneration\":0,\"entries\":[]}");
 }
 
+static void test_controller_returns_multi_backend_feed_entries()
+{
+    SnapshotChangeFeed feed;
+
+    feed.addEntry(SnapshotChangeFeedEntry(
+        1,
+        21,
+        {"channels"},
+        "home-vdr"));
+
+    feed.addEntry(SnapshotChangeFeedEntry(
+        2,
+        22,
+        {"recordings"},
+        "ferienhaus-vdr"));
+
+    SnapshotChangeFeedJsonSerializer serializer;
+    SnapshotChangeFeedController controller(
+        feed,
+        serializer);
+
+    const auto response = controller.getFeed();
+
+    assert(response.statusCode == 200);
+    assert(response.contentType == "application/json");
+    assert(response.body.find("\"latestSequenceNumber\":2") != std::string::npos);
+    assert(response.body.find("\"latestSnapshotGeneration\":22") != std::string::npos);
+    assert(response.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(response.body.find("\"backendId\":\"ferienhaus-vdr\"") != std::string::npos);
+    assert(response.body.find("\"changedDomains\":[\"channels\"]") != std::string::npos);
+    assert(response.body.find("\"changedDomains\":[\"recordings\"]") != std::string::npos);
+}
+
 int main()
 {
     test_controller_returns_json_feed();
     test_controller_returns_empty_feed();
+    test_controller_returns_multi_backend_feed_entries();
 
     std::cout
         << "test_snapshot_change_feed_controller passed"

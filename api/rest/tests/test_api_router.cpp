@@ -205,7 +205,16 @@ int main()
         runtimeJsonSerializer);
 
     SnapshotChangeFeed snapshotChangeFeed;
-    snapshotChangeFeed.addEntry(SnapshotChangeFeedEntry(7, 3, {"channels", "recordings"}));
+    snapshotChangeFeed.addEntry(SnapshotChangeFeedEntry(
+        7,
+        3,
+        {"channels", "recordings"},
+        "home-vdr"));
+    snapshotChangeFeed.addEntry(SnapshotChangeFeedEntry(
+        8,
+        4,
+        {"timers"},
+        "ferienhaus-vdr"));
     SnapshotChangeFeedJsonSerializer snapshotChangeFeedJsonSerializer;
     SnapshotChangeFeedController snapshotChangeFeedController(
         snapshotChangeFeed,
@@ -437,11 +446,19 @@ int main()
 
     assert(vdrChangesResponse.statusCode == 200);
     assert(vdrChangesResponse.contentType == "application/json");
-    assert(vdrChangesResponse.body.find("\"latestSequenceNumber\":7")
+    assert(vdrChangesResponse.body.find("\"latestSequenceNumber\":8")
+           != std::string::npos);
+    assert(vdrChangesResponse.body.find("\"latestSnapshotGeneration\":4")
+           != std::string::npos);
+    assert(vdrChangesResponse.body.find("\"backendId\":\"home-vdr\"")
+           != std::string::npos);
+    assert(vdrChangesResponse.body.find("\"backendId\":\"ferienhaus-vdr\"")
            != std::string::npos);
     assert(vdrChangesResponse.body.find("\"channels\"")
            != std::string::npos);
     assert(vdrChangesResponse.body.find("\"recordings\"")
+           != std::string::npos);
+    assert(vdrChangesResponse.body.find("\"timers\"")
            != std::string::npos);
 
     ApiResponse vdrRecordingsResponse =
