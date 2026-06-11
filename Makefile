@@ -158,6 +158,14 @@ test-snapshot-change-feed-controller:
 		-o /tmp/test_snapshot_change_feed_controller
 	/tmp/test_snapshot_change_feed_controller
 
+test-live-transport-controller:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		$(REST_LIVE_TRANSPORT_SRC) \
+		api/rest/tests/test_live_transport_controller.cpp \
+		-o /tmp/test_live_transport_controller
+	/tmp/test_live_transport_controller
+
 test-jobs-controller: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -303,7 +311,7 @@ test-runtime-diagnostics-json-serializer:
 		-o /tmp/test_runtime_diagnostics_json_serializer
 	/tmp/test_runtime_diagnostics_json_serializer
 
-test: test-backend-registry-controller test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-runtime-diagnostics-service test-runtime-diagnostics-json-serializer test-runtime-diagnostics-controller test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-vdr-controller test-snapshot-change-feed-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-vdr-service test-vdr-overview-service test-vdr-overview-json-serializer test-vdr-snapshot-builder test-polling-service test-vdr-change-state test-vdr-change-event test-change-detection-service test-snapshot-refresh-decision-service test-snapshot-refresh-planner test-snapshot-update-plan test-snapshot-cache test-snapshot-cache-service test-snapshot-change-feed test-snapshot-change-feed-json-serializer test-live-update-event test-live-update-event-json-serializer test-live-transport-interface test-test-live-transport test-live-transport-service test-live-transport-factory test-sse-live-transport test-snapshot-access-service test-mock-vdr-adapter test-http-request test-http-response test-http-server-contract test-test-http-server test-mock-http-client test-restful-api-status-mapper test-restful-api-event-mapper test-restful-api-channel-mapper test-restful-api-recording-mapper test-restful-api-timer-mapper test-restful-api-vdr-adapter test-restful-api-change-state-adapter test-vdr-domain-objects
+test: test-backend-registry-controller test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-runtime-diagnostics-service test-runtime-diagnostics-json-serializer test-runtime-diagnostics-controller test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-vdr-controller test-snapshot-change-feed-controller test-live-transport-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-vdr-service test-vdr-overview-service test-vdr-overview-json-serializer test-vdr-snapshot-builder test-polling-service test-vdr-change-state test-vdr-change-event test-change-detection-service test-snapshot-refresh-decision-service test-snapshot-refresh-planner test-snapshot-update-plan test-snapshot-cache test-snapshot-cache-service test-snapshot-change-feed test-snapshot-change-feed-json-serializer test-live-update-event test-live-update-event-json-serializer test-live-transport-interface test-test-live-transport test-live-transport-service test-live-transport-factory test-sse-live-transport test-snapshot-access-service test-mock-vdr-adapter test-http-request test-http-response test-http-server-contract test-test-http-server test-mock-http-client test-restful-api-status-mapper test-restful-api-event-mapper test-restful-api-channel-mapper test-restful-api-recording-mapper test-restful-api-timer-mapper test-restful-api-vdr-adapter test-restful-api-change-state-adapter test-vdr-domain-objects
 
 clean:
 	rm -f /tmp/test_database
@@ -362,6 +370,7 @@ clean:
 	rm -f /tmp/test_live_transport_factory
 	rm -f /tmp/test_sse_live_transport
 	rm -f /tmp/test_snapshot_change_feed_controller
+	rm -f /tmp/test_live_transport_controller
 	rm -f /tmp/test_snapshot_access_service
 	rm -f /tmp/test_http_server_contract
 	rm -f /tmp/test_test_http_server

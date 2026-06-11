@@ -17,6 +17,9 @@ REST_RUNTIME_SRC := \
 REST_SNAPSHOT_CHANGE_FEED_SRC := \
         api/rest/src/SnapshotChangeFeedController.cpp
 
+REST_LIVE_TRANSPORT_SRC := \
+        api/rest/src/LiveTransportController.cpp
+
 REST_ROUTER_SRC := \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
