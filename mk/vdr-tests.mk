@@ -270,3 +270,13 @@ test-real-snapshot-builder:
 		core/vdr/tests/test_real_snapshot_builder.cpp \
 		-o /tmp/test_real_snapshot_builder
 	/tmp/test_real_snapshot_builder
+
+
+.PHONY: test-real-change-state
+test-real-change-state:
+	$(CXX) $(CXXFLAGS) \
+		core/http/src/BasicHttpClient.cpp \
+		$(VDR_SRC) \
+		core/vdr/tests/test_real_change_state.cpp \
+		-o /tmp/test_real_change_state
+	/tmp/test_real_change_state
