@@ -46,22 +46,23 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 17.2 - Multi-Backend Snapshots REST Endpoint
+Phase 17.3 - Multi-Backend REST Endpoint Tests
 ```
 
 Current major phase status:
 
 ```text
-Phase 17 multi-backend read-side REST visibility is complete through 17.2.
+Phase 17 multi-backend read-side REST visibility is complete through 17.3.
 ```
 
 Verified locally with:
 
 ```text
-make test-vdr-snapshot-read-json-serializer
-make test-vdr-snapshot-read-service
-make test-snapshot-access-service
+make test-api-router
 make test-fast
+make test-docs
+make test-architecture
+make test-phase
 make daemon
 ```
 
@@ -70,8 +71,10 @@ Verification summary:
 - multi-backend snapshot read foundation passed targeted tests
 - multi-backend snapshot summary JSON serialization passed targeted tests
 - `GET /api/vdr/snapshots` route was added through controller and router wiring
+- `GET /api/vdr/snapshots` is covered by the API router regression test
+- default `/api/vdr/snapshot` behavior remains compatible
 - `make test-fast` passed during the Phase 17 read-side work
-- `make daemon` passed after the REST endpoint wiring
+- `make daemon` passed after REST route test coverage
 - GitHub Actions remains the standard full regression path for normal non-VDR-specific changes
 
 ---
@@ -96,6 +99,7 @@ Verification summary:
 - `VdrSnapshotReadService` supports backend-aware reads and multi-backend snapshot list reads.
 - `VdrSnapshotReadJsonSerializer` can serialize multi-backend snapshot summary lists.
 - `VdrController` exposes default VDR reads, backend-specific reads and multi-backend snapshot summary reads.
+- `ApiRouter` regression coverage verifies the multi-backend snapshots REST route.
 - `VdrSnapshotBuilder` can assign a stable backend ID to generated snapshots.
 - `PollingService` and `BackendPollingCoordinator` support backend-aware polling coordination.
 - `DaemonRuntime` creates backend runtime contexts from the backend registry.
@@ -180,18 +184,18 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 17.3 - Multi-Backend REST Endpoint Tests
+Phase 18.0 - Real VDR and RESTfulAPI Integration Validation
 ```
 
-The next step is to verify the new multi-backend snapshots REST endpoint through controller, router and test HTTP server coverage.
+The next step is to validate the RESTfulAPI adapter path against an actual VDR while keeping real VDR tests opt-in and outside the fast mock-based test set.
 
 Important boundaries:
 
-- default `/api/vdr/...` behavior must remain compatible
-- multi-backend reads must stay snapshot-backed
-- REST controllers must not own polling or backend selection
-- endpoint tests should validate JSON contracts before adding more API surface
-- real VDR validation should wait until REST contracts are stable
+- real VDR tests must not be required by `make test-fast`
+- GitHub Actions must remain independent from a running VDR
+- RESTfulAPI validation should use explicit opt-in environment variables
+- BasicHttpClient, RestfulApiVdrAdapter and VdrService should be validated before broader runtime integration
+- snapshot runtime validation against real VDR data should build on the opt-in integration test boundary
 
 ---
 
