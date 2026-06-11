@@ -164,6 +164,13 @@ test-live-update-event-json-serializer:
 		-o /tmp/test_live_update_event_json_serializer
 	/tmp/test_live_update_event_json_serializer
 
+test-live-transport-interface:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_live_transport_interface.cpp \
+		-o /tmp/test_live_transport_interface
+	/tmp/test_live_transport_interface
+
 test-restful-api-status-mapper:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
