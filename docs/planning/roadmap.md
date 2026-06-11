@@ -46,13 +46,13 @@ VDR-Suite complements VDR. It does not replace it.
 
 ```text
 Completed implementation state
-Phase 17.3 - Multi-Backend REST Endpoint Tests
+Phase 18.4 - Real Polling Stability Validation
 
 Current cleanup
 Documentation and roadmap synchronization after Phase 17.3
 
 Next implementation step
-Phase 18.0 - Real VDR and RESTfulAPI Integration Validation
+Phase 19.0 - Snapshot Change Feed Validation
 ```
 
 Phase 16 completed the multi-backend polling and runtime context foundation. Backend-aware polling, backend polling coordination, backend runtime contexts, daemon runtime context migration, registry-driven context creation and backend-aware snapshot change feed support are implemented.

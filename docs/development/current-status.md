@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 17.3 - Multi-Backend REST Endpoint Tests
+Phase 18.4 - Real Polling Stability Validation
 ```
 
 Current major phase status:
@@ -184,7 +184,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 18.0 - Real VDR and RESTfulAPI Integration Validation
+Phase 19.0 - Snapshot Change Feed Validation
 ```
 
 The next step is to validate the RESTfulAPI adapter path against an actual VDR while keeping real VDR tests opt-in and outside the fast mock-based test set.

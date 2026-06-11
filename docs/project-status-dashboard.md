@@ -65,19 +65,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 17.3 Complete
+Phase 18.4 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 18.0 - Real VDR and RESTfulAPI Integration Validation
+Phase 19.0 - Snapshot Change Feed Validation
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 17.3 - Multi-Backend REST Endpoint Tests
+Phase 18.4 - Real Polling Stability Validation
 ```
 
 ---
@@ -108,7 +108,7 @@ Phase 17.3 - Multi-backend REST endpoint tests
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 17.3
+Phase 0 - Phase 18.4
 ```
 
 Planned Major Phases:

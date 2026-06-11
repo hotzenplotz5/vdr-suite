@@ -154,7 +154,7 @@ Verified with:
 
 ## Phase 17 - Multi-Backend Snapshot Read and REST Visibility
 
-Status: Completed through Phase 17.3
+Status: Completed through Phase 18.4
 
 Result:
 
@@ -178,15 +178,44 @@ Verified with:
 
 ---
 
+## Phase 18 - Real VDR and RESTfulAPI Integration Validation
+
+Status: Completed through Phase 18.4
+
+Result:
+
+- opt-in real RESTfulAPI integration validation
+- opt-in real snapshot builder validation
+- opt-in real change-state validation
+- opt-in real polling initial snapshot validation
+- opt-in real polling stability validation
+- real VDR data verified through BasicHttpClient, RestfulApiVdrAdapter, VdrService, VdrSnapshotBuilder, PollingService, SnapshotCacheService and SnapshotRefreshPlanner
+- repeated polling without VDR changes produces no change events and no refresh work
+
+Verified with:
+
+- make test-real-restfulapi-integration
+- make test-real-snapshot-builder
+- make test-real-change-state
+- make test-real-polling-initial-snapshot
+- make test-real-polling-stability
+- make test-fast
+- make test-docs
+- make test-architecture
+- make test-phase
+- make daemon
+
+---
+
 ## Next Work
 
-The next planned work should validate the RESTfulAPI adapter against a real VDR.
+The next planned work should validate the snapshot change feed end-to-end before introducing SSE.
 
 Goals:
 
-- keep real VDR tests opt-in and outside `make test-fast`
-- validate BasicHttpClient against a local VDR/restfulapi instance
-- validate RestfulApiVdrAdapter with real channels, events, timers and recordings
+- validate snapshot change feed creation from detected VDR changes
+- keep change feed transport-independent
+- prepare SSE as a consumer of the existing snapshot change feed
 - preserve GitHub Actions compatibility without requiring a running VDR
 
 ---

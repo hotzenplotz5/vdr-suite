@@ -31,9 +31,9 @@ CI Foundation             ████████████ 100%
 Live Transport            ░░░░░░░░░░░░   0%
 ```
 
-Latest Completed Implementation Phase: Phase 17.3 - Multi-Backend REST Endpoint Tests
+Latest Completed Implementation Phase: Phase 18.4 - Real Polling Stability Validation
 
-Current Implementation Focus: Phase 18.0 - Real VDR and RESTfulAPI Integration Validation
+Current Implementation Focus: Phase 19.0 - Snapshot Change Feed Validation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -117,7 +117,7 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 Current architecture focus:
 
 ```text
-Phase 18.0 - Real VDR and RESTfulAPI Integration Validation
+Phase 19.0 - Snapshot Change Feed Validation
 Validate RestfulApiVdrAdapter against an actual VDR/restfulapi instance
 Keep real VDR tests opt-in and separate from fast unit tests
 Preserve mock-based CI compatibility

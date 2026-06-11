@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 17.3 - Multi-Backend REST Endpoint Tests
+Phase 18.4 - Real Polling Stability Validation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 18.0 - Real VDR and RESTfulAPI Integration Validation
+Phase 19.0 - Snapshot Change Feed Validation
 ```
 
 ---
