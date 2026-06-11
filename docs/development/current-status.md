@@ -46,13 +46,13 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 19.0 - Snapshot Change Feed Service Validation
+Phase 19.2 - Multi-Backend Change Feed Aggregation
 ```
 
 Current major phase status:
 
 ```text
-Phase 19 snapshot change feed validation is complete through 19.0.
+Phase 19 snapshot change feed validation is complete through 19.2.
 ```
 
 Verified locally with:
@@ -188,10 +188,10 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 19.1 - Snapshot Change Feed Runtime Validation
+Phase 19.3 - Snapshot Change Feed REST Validation
 ```
 
-The next step is to validate polling-to-change-feed runtime behavior before introducing live transport.
+The next step is to validate REST exposure of aggregated snapshot change feed entries before introducing live transport.
 
 Important boundaries:
 
