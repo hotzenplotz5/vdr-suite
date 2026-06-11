@@ -260,3 +260,13 @@ test-real-restfulapi-integration:
 		core/vdr/tests/test_real_restfulapi_integration.cpp \
 		-o /tmp/test_real_restfulapi_integration
 	/tmp/test_real_restfulapi_integration
+
+
+.PHONY: test-real-snapshot-builder
+test-real-snapshot-builder:
+	$(CXX) $(CXXFLAGS) \
+		core/http/src/BasicHttpClient.cpp \
+		$(VDR_SRC) \
+		core/vdr/tests/test_real_snapshot_builder.cpp \
+		-o /tmp/test_real_snapshot_builder
+	/tmp/test_real_snapshot_builder
