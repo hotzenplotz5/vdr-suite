@@ -4,6 +4,8 @@
 #include "RuntimeMeasurement.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
+#include "SnapshotChangeFeed.h"
+#include "SnapshotChangeFeedService.h"
 #include "VdrService.h"
 #include "VdrSnapshotBuilder.h"
 
@@ -392,6 +394,94 @@ static void test_polling_service_updates_backend_snapshot()
     assert(snapshot->recordings.size() == 1);
 }
 
+
+static void test_polling_change_events_can_feed_snapshot_change_feed()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+    SnapshotChangeFeed feed;
+    SnapshotChangeFeedService feedService;
+
+    adapter.changeState.channelsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.channelsVersion = 2;
+    pollingService.poll();
+
+    feedService.appendChanges(
+        feed,
+        snapshotCacheService.generation(),
+        pollingService.changeEvents(),
+        "default");
+
+    assert(feed.entries().size() == 1);
+    assert(feed.entries()[0].sequenceNumber() == 1);
+    assert(feed.entries()[0].snapshotGeneration() == snapshotCacheService.generation());
+    assert(feed.entries()[0].backendId() == "default");
+    assert(feed.entries()[0].changedDomains().size() == 1);
+    assert(feed.entries()[0].changedDomains()[0] == "channels");
+}
+
+static void test_unchanged_poll_does_not_add_snapshot_change_feed_entry()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+    SnapshotChangeFeed feed;
+    SnapshotChangeFeedService feedService;
+
+    adapter.changeState.channelsVersion = 1;
+    pollingService.poll();
+    pollingService.poll();
+
+    feedService.appendChanges(
+        feed,
+        snapshotCacheService.generation(),
+        pollingService.changeEvents(),
+        "default");
+
+    assert(feed.empty() == true);
+    assert(feed.entries().empty());
+}
+
+static void test_multiple_polling_change_events_feed_multiple_domains()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+    SnapshotChangeFeed feed;
+    SnapshotChangeFeedService feedService;
+
+    adapter.changeState.channelsVersion = 1;
+    adapter.changeState.recordingsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.channelsVersion = 2;
+    adapter.changeState.recordingsVersion = 2;
+    pollingService.poll();
+
+    feedService.appendChanges(
+        feed,
+        snapshotCacheService.generation(),
+        pollingService.changeEvents(),
+        "default");
+
+    assert(feed.entries().size() == 1);
+    assert(feed.entries()[0].changedDomains().size() == 2);
+    assert(feed.entries()[0].changedDomains()[0] == "channels");
+    assert(feed.entries()[0].changedDomains()[1] == "recordings");
+}
+
 int main()
 {
     test_first_poll_builds_complete_snapshot_without_change_events();
@@ -405,6 +495,9 @@ int main()
     test_multiple_changes_refresh_only_selected_domains();
     test_change_events_are_cleared_before_next_poll();
     test_polling_service_updates_backend_snapshot();
+    test_polling_change_events_can_feed_snapshot_change_feed();
+    test_unchanged_poll_does_not_add_snapshot_change_feed_entry();
+    test_multiple_polling_change_events_feed_multiple_domains();
 
     std::cout << "test_polling_service passed" << std::endl;
     return 0;
