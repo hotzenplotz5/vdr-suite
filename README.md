@@ -25,14 +25,15 @@ Change Feed               ████████████ 100%
 Backend Registry          ████████████ 100%
 Backend-Aware Snapshots   ████████████ 100%
 Multi-Backend Routing     ████████████ 100%
+Multi-Backend Polling     ████████████ 100%
+Multi-Backend Read API    ████████████ 100%
 CI Foundation             ████████████ 100%
-Multi-Backend Polling     ░░░░░░░░░░░░   0%
 Live Transport            ░░░░░░░░░░░░   0%
 ```
 
-Latest Completed Implementation Phase: Phase 15.9 - Backend-aware Snapshot Builder
+Latest Completed Implementation Phase: Phase 17.2 - Multi-Backend Snapshots REST Endpoint
 
-Current Implementation Focus: Phase 16.0 - Multi-Backend Polling Foundation
+Current Implementation Focus: Phase 17.3 - Multi-Backend REST Endpoint Tests
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -100,16 +101,25 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ Backend-Aware VDR Controller Methods
 ✓ Multi-Snapshot Cache Foundation
 ✓ Backend-Aware Snapshot Builder
+✓ Backend-Aware Polling Service
+✓ Backend Polling Coordinator
+✓ Backend Runtime Context
+✓ Daemon Runtime Context Collection
+✓ Registry-driven Backend Runtime Context Creation
+✓ Backend-aware Snapshot Change Feed
+✓ Multi-Backend Snapshot Read Foundation
+✓ Multi-Backend Snapshot Summary Serialization
+✓ Multi-Backend Snapshots REST Endpoint
 ✓ GitHub Actions CI
 ```
 
 Current architecture focus:
 
 ```text
-Phase 16.0 - Multi-Backend Polling Foundation
-BackendRegistry-driven polling preparation
-Backend-aware snapshot refresh
-Multi-VDR runtime preparation
+Phase 17.3 - Multi-Backend REST Endpoint Tests
+Verify GET /api/vdr/snapshots through controller/router tests
+Keep default backend behavior compatible
+Prepare later real VDR integration validation
 ```
 
 Authoritative project status:
@@ -158,6 +168,13 @@ The project currently contains foundations for:
 - multi-snapshot cache foundation
 - multi-backend snapshot cache access
 - backend-aware snapshot builder
+- backend-aware polling service and polling coordinator
+- daemon runtime backend context collection
+- registry-driven backend runtime context creation
+- backend-aware snapshot change feed service
+- multi-backend snapshot read service
+- multi-backend snapshot summary serialization
+- multi-backend snapshots REST endpoint
 - change-state polling and partial snapshot refresh planning
 - runtime logging, timing and diagnostics foundations
 - snapshot read APIs
@@ -190,6 +207,16 @@ make test
 ```
 
 The full regression test is also executed by GitHub Actions on push and pull request events.
+
+Recommended local pre-commit verification for architecture work:
+
+```bash
+make test-fast
+make test-docs
+make test-architecture
+make test-phase
+make daemon
+```
 
 ---
 
