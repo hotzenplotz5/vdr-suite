@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 15.9 - Backend-aware Snapshot Builder
+Phase 17.2 - Multi-Backend Snapshots REST Endpoint
 ```
 
 Next implementation focus:
 
 ```text
-Phase 16.0 - Multi-Backend Polling Foundation
+Phase 17.3 - Multi-Backend REST Endpoint Tests
 ```
 
 ---
