@@ -125,16 +125,64 @@ Verified with:
 
 ---
 
-## Next Phase
+## Phase 16 - Multi-Backend Polling Foundation
 
-The next planned work should introduce the Multi-Backend Polling Foundation.
+Status: Completed through Phase 16.9
+
+Result:
+
+- backend-aware snapshot cache service updates
+- backend-aware polling service
+- backend polling coordinator
+- backend runtime context foundation
+- daemon runtime context migration
+- coordinator runtime integration
+- runtime context collection
+- runtime context factory
+- runtime context creation from registry
+- backend-aware snapshot change feed service
+
+Verified with:
+
+- make test-backend-runtime-context
+- make test-backend-polling-coordinator
+- make test-snapshot-change-feed
+- make test-fast
+- make daemon
+
+---
+
+## Phase 17 - Multi-Backend Snapshot Read and REST Visibility
+
+Status: Completed through Phase 17.2
+
+Result:
+
+- multi-backend snapshot read foundation
+- multi-backend snapshot summary serialization
+- multi-backend snapshots REST endpoint
+- `GET /api/vdr/snapshots` exposes snapshot summaries for all cached backend snapshots
+
+Verified with:
+
+- make test-vdr-snapshot-read-service
+- make test-vdr-snapshot-read-json-serializer
+- make test-snapshot-access-service
+- make test-fast
+- make daemon
+
+---
+
+## Next Work
+
+The next planned work should add multi-backend REST endpoint tests.
 
 Goals:
 
-- backend registry driven polling
-- backend-aware snapshot generation
-- backend-aware cache updates
-- multi-VDR runtime preparation
+- verify `GET /api/vdr/snapshots` through controller and router tests
+- preserve default `/api/vdr/...` compatibility
+- stabilize the JSON contract before adding more REST surface
+- prepare later real VDR validation
 
 ---
 
