@@ -46,18 +46,18 @@ VDR-Suite complements VDR. It does not replace it.
 
 ```text
 Completed implementation state
-Phase 17.2 - Multi-Backend Snapshots REST Endpoint
+Phase 17.3 - Multi-Backend REST Endpoint Tests
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 17.2
+Documentation and roadmap synchronization after Phase 17.3
 
 Next implementation step
-Phase 17.3 - Multi-Backend REST Endpoint Tests
+Phase 18.0 - Real VDR and RESTfulAPI Integration Validation
 ```
 
 Phase 16 completed the multi-backend polling and runtime context foundation. Backend-aware polling, backend polling coordination, backend runtime contexts, daemon runtime context migration, registry-driven context creation and backend-aware snapshot change feed support are implemented.
 
-Phase 17 completed the initial multi-backend read-side visibility through Phase 17.2. SnapshotAccessService can return all cached backend snapshots, VdrSnapshotReadService exposes multi-backend snapshot lists, VdrSnapshotReadJsonSerializer serializes multi-backend snapshot summaries and `GET /api/vdr/snapshots` exposes these summaries through REST.
+Phase 17 completed the initial multi-backend read-side visibility through Phase 17.3. SnapshotAccessService can return all cached backend snapshots, VdrSnapshotReadService exposes multi-backend snapshot lists, VdrSnapshotReadJsonSerializer serializes multi-backend snapshot summaries, `GET /api/vdr/snapshots` exposes these summaries through REST and the route is covered by the API router regression test.
 
 ---
 
@@ -91,37 +91,10 @@ Phase 16.9 - Backend-aware snapshot change feed
 Phase 17.0 - Multi-backend snapshot read foundation
 Phase 17.1 - Multi-backend snapshot summary serialization
 Phase 17.2 - Multi-backend snapshots REST endpoint
+Phase 17.3 - Multi-backend REST endpoint tests
 ```
 
 Completed implementation detail belongs in [Completed Phases](../development/completed-phases.md).
-
----
-
-## Phase 17.3 - Multi-Backend REST Endpoint Tests
-
-Goal:
-
-Verify the multi-backend snapshots REST endpoint through automated tests before expanding frontend-facing contracts.
-
-Planned direction:
-
-- add controller coverage for the multi-backend snapshots response
-- add router coverage for `GET /api/vdr/snapshots`
-- keep existing `/api/vdr/snapshot` default summary behavior compatible
-- verify the JSON contract for multiple backend snapshot summaries
-- avoid adding new API surface before the current endpoint is protected by tests
-
-Expected result:
-
-- `GET /api/vdr/snapshots` is covered by regression tests
-- default snapshot routes remain unchanged
-- multi-backend summary responses are stable enough for future frontend work
-
-Architecture rule:
-
-REST endpoint tests validate read contracts only.
-
-They must not own polling, backend selection or snapshot generation.
 
 ---
 
@@ -146,6 +119,12 @@ Real VDR tests should be reserved for:
 - polling against an actual VDR
 - snapshot runtime against an actual VDR
 - multi-VDR or multi-server scenarios
+
+Architecture rule:
+
+Real VDR tests must stay opt-in and outside the default fast test set.
+
+GitHub Actions must remain independent from a running VDR.
 
 ---
 
