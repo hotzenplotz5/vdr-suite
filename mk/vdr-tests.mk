@@ -192,6 +192,13 @@ test-live-transport-factory:
 		-o /tmp/test_live_transport_factory
 	/tmp/test_live_transport_factory
 
+test-sse-live-transport:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_sse_live_transport.cpp \
+		-o /tmp/test_sse_live_transport
+	/tmp/test_sse_live_transport
+
 test-restful-api-status-mapper:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \

@@ -37,5 +37,6 @@ VDR_SRC := \
         core/vdr/src/TestLiveTransport.cpp \
         core/vdr/src/LiveTransportService.cpp \
         core/vdr/src/LiveTransportFactory.cpp \
+        core/vdr/src/SseLiveTransport.cpp \
         core/vdr/src/BackendPollingCoordinator.cpp \
         core/vdr/src/VdrAdapterFactory.cpp

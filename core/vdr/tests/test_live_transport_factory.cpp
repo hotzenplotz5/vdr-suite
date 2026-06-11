@@ -26,7 +26,7 @@ static void test_factory_rejects_unknown_live_transport_mode()
     bool failed = false;
 
     try {
-        LiveTransportFactory::create("sse");
+        LiveTransportFactory::create("websocket");
     } catch (const std::invalid_argument&) {
         failed = true;
     }
