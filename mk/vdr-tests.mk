@@ -171,6 +171,13 @@ test-live-transport-interface:
 		-o /tmp/test_live_transport_interface
 	/tmp/test_live_transport_interface
 
+test-test-live-transport:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_test_live_transport.cpp \
+		-o /tmp/test_test_live_transport
+	/tmp/test_test_live_transport
+
 test-restful-api-status-mapper:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \

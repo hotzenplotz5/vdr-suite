@@ -34,5 +34,6 @@ VDR_SRC := \
         core/vdr/src/SnapshotChangeFeedJsonSerializer.cpp \
         core/vdr/src/LiveUpdateEvent.cpp \
         core/vdr/src/LiveUpdateEventJsonSerializer.cpp \
+        core/vdr/src/TestLiveTransport.cpp \
         core/vdr/src/BackendPollingCoordinator.cpp \
         core/vdr/src/VdrAdapterFactory.cpp
