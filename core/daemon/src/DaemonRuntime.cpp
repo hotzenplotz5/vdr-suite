@@ -165,10 +165,13 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
 {
     backendPollingCoordinator_->pollAll();
 
-    snapshotChangeFeedService_->appendChanges(
-        *snapshotChangeFeed_,
-        snapshotCacheService_->generation(),
-        backendRuntimeContexts_.front()->pollingService->changeEvents());
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        snapshotChangeFeedService_->appendChanges(
+            *snapshotChangeFeed_,
+            snapshotCacheService_->generation(),
+            backendRuntimeContext->pollingService->changeEvents(),
+            backendRuntimeContext->backendId);
+    }
 }
 
 int DaemonRuntime::run()

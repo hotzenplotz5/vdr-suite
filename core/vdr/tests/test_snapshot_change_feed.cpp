@@ -210,6 +210,41 @@ static void test_append_changes_preserves_multiple_changed_domains()
 }
 
 
+static void test_append_changes_preserves_multiple_backend_entries()
+{
+    SnapshotChangeFeed feed;
+    SnapshotChangeFeedService service;
+
+    service.appendChanges(
+        feed,
+        21,
+        { VdrChangeEvent(VdrChangeType::ChannelsChanged) },
+        "home-vdr");
+
+    service.appendChanges(
+        feed,
+        22,
+        { VdrChangeEvent(VdrChangeType::RecordingsChanged) },
+        "ferienhaus-vdr");
+
+    assert(feed.entries().size() == 2);
+
+    assert(feed.entries()[0].sequenceNumber() == 1);
+    assert(feed.entries()[0].snapshotGeneration() == 21);
+    assert(feed.entries()[0].backendId() == "home-vdr");
+    assert(feed.entries()[0].changedDomains().size() == 1);
+    assert(feed.entries()[0].changedDomains()[0] == "channels");
+
+    assert(feed.entries()[1].sequenceNumber() == 2);
+    assert(feed.entries()[1].snapshotGeneration() == 22);
+    assert(feed.entries()[1].backendId() == "ferienhaus-vdr");
+    assert(feed.entries()[1].changedDomains().size() == 1);
+    assert(feed.entries()[1].changedDomains()[0] == "recordings");
+
+    assert(feed.latestSequenceNumber() == 2);
+    assert(feed.latestSnapshotGeneration() == 22);
+}
+
 int main()
 {
     test_entry_stores_sequence_generation_backend_and_domains();
@@ -223,6 +258,7 @@ int main()
     test_append_changes_does_not_add_empty_entry();
     test_append_changes_preserves_backend_id();
     test_append_changes_preserves_multiple_changed_domains();
+    test_append_changes_preserves_multiple_backend_entries();
 
     std::cout
         << "test_snapshot_change_feed passed"
