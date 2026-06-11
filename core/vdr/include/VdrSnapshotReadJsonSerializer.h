@@ -3,6 +3,7 @@
 #include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrRecording.h"
+#include "VdrSnapshot.h"
 #include "VdrStatus.h"
 #include "VdrTimer.h"
 #include "VdrCapabilitySet.h"
@@ -44,6 +45,9 @@ public:
         std::size_t timerCount,
         std::size_t recordingCount,
         const std::string& backendId = "default") const;
+
+    std::string serializeSnapshots(
+        const std::vector<VdrSnapshot>& snapshots) const;
 
     std::string serializeCapabilities(
         const VdrCapabilitySet& capabilities) const;

@@ -242,6 +242,41 @@ std::string VdrSnapshotReadJsonSerializer::serializeSnapshotSummary(
     return json.str();
 }
 
+
+std::string VdrSnapshotReadJsonSerializer::serializeSnapshots(
+    const std::vector<VdrSnapshot>& snapshots) const
+{
+    std::ostringstream json;
+
+    json << "{\"snapshots\":[";
+
+    for (std::size_t index = 0;
+         index < snapshots.size();
+         ++index)
+    {
+        const auto& snapshot = snapshots[index];
+
+        if (index > 0)
+        {
+            json << ",";
+        }
+
+        json
+            << "{"
+            << "\"backendId\":\"" << snapshot.backendId << "\","
+            << "\"snapshotAvailable\":true,"
+            << "\"channelCount\":" << snapshot.channels.size() << ","
+            << "\"eventCount\":" << snapshot.events.size() << ","
+            << "\"timerCount\":" << snapshot.timers.size() << ","
+            << "\"recordingCount\":" << snapshot.recordings.size()
+            << "}";
+    }
+
+    json << "]}";
+
+    return json.str();
+}
+
 std::string VdrSnapshotReadJsonSerializer::serializeCapabilities(
     const VdrCapabilitySet& capabilities) const
 {
