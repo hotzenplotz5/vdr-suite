@@ -392,6 +392,26 @@ int main()
     assert(vdrSnapshotResponse.body.find("\"recordingCount\":1")
            != std::string::npos);
 
+    ApiResponse vdrSnapshotsResponse =
+        router.handleGet("/api/vdr/snapshots");
+
+    assert(vdrSnapshotsResponse.statusCode == 200);
+    assert(vdrSnapshotsResponse.contentType == "application/json");
+    assert(vdrSnapshotsResponse.body.find("\"snapshots\":[")
+           != std::string::npos);
+    assert(vdrSnapshotsResponse.body.find("\"backendId\":\"default\"")
+           != std::string::npos);
+    assert(vdrSnapshotsResponse.body.find("\"snapshotAvailable\":true")
+           != std::string::npos);
+    assert(vdrSnapshotsResponse.body.find("\"channelCount\":1")
+           != std::string::npos);
+    assert(vdrSnapshotsResponse.body.find("\"eventCount\":1")
+           != std::string::npos);
+    assert(vdrSnapshotsResponse.body.find("\"timerCount\":1")
+           != std::string::npos);
+    assert(vdrSnapshotsResponse.body.find("\"recordingCount\":1")
+           != std::string::npos);
+
     ApiResponse vdrHealthResponse =
         router.handleGet("/api/vdr/health");
 
