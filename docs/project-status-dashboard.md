@@ -65,19 +65,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 17.2 Complete
+Phase 17.3 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 17.3 - Multi-Backend REST Endpoint Tests
+Phase 18.0 - Real VDR and RESTfulAPI Integration Validation
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 17.2 - Multi-Backend Snapshots REST Endpoint
+Phase 17.3 - Multi-Backend REST Endpoint Tests
 ```
 
 ---
@@ -98,6 +98,7 @@ Phase 16.9 - Backend-aware snapshot change feed
 Phase 17.0 - Multi-backend snapshot read foundation
 Phase 17.1 - Multi-backend snapshot summary serialization
 Phase 17.2 - Multi-backend snapshots REST endpoint
+Phase 17.3 - Multi-backend REST endpoint tests
 ```
 
 ---
@@ -107,13 +108,13 @@ Phase 17.2 - Multi-backend snapshots REST endpoint
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 17.2
+Phase 0 - Phase 17.3
 ```
 
 Planned Major Phases:
 
 ```text
-Phase 17.3+
+Phase 18.0+
 ```
 
 Overall Roadmap Progress:
@@ -137,7 +138,7 @@ This percentage describes documented roadmap progress by major phase. It is not 
 | Read API | Snapshot-backed read APIs for current VDR domains and multi-backend snapshot summaries are implemented. |
 | Change Feed | Transport-independent snapshot change feed and backend-aware feed entries are implemented. |
 | Backend Registry | BackendNode, BackendRegistry, service layer, JSON serializer, controller and REST routes are implemented. |
-| Multi-Backend Routing | Backend-aware snapshot routes, dynamic backend route parsing and multi-backend snapshots REST exposure are implemented. |
+| Multi-Backend Routing | Backend-aware snapshot routes, dynamic backend route parsing and multi-backend snapshots REST exposure are implemented and covered by router tests. |
 | Multi-Snapshot Cache | SnapshotCache can store and resolve snapshots per backend while keeping the legacy single-snapshot interface compatible. |
 | Backend-Aware Snapshots | Snapshot access, snapshot read service, VDR controller, snapshot builder and change feed support backend identity. |
 | Multi-Backend Polling | PollingService, BackendPollingCoordinator and DaemonRuntime backend context wiring are implemented for registry-driven runtime preparation. |
