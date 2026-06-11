@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 20.0 - Live Update Event Foundation
+Phase 20.9 - Live Transport Publish Bridge
 ```
 
 Next implementation focus:
 
 ```text
-Phase 20.1 - Live Transport Interface
+Phase 21.0 - Live Transport Diagnostics
 ```
 
 ---

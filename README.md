@@ -28,12 +28,12 @@ Multi-Backend Routing     ████████████ 100%
 Multi-Backend Polling     ████████████ 100%
 Multi-Backend Read API    ████████████ 100%
 CI Foundation             ████████████ 100%
-Live Transport            ░░░░░░░░░░░░   0%
+Live Transport            ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 20.0 - Live Update Event Foundation
+Latest Completed Implementation Phase: Phase 20.9 - Live Transport Publish Bridge
 
-Current Implementation Focus: Phase 20.1 - Live Transport Interface
+Current Implementation Focus: Phase 21.0 - Live Transport Diagnostics
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -117,8 +117,8 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 Current architecture focus:
 
 ```text
-Phase 19.3 - Snapshot Change Feed REST Validation
-Introduce the live transport boundary above the validated snapshot change feed
+Phase 21.0 - Live Transport Diagnostics
+Introduce runtime observability for the live transport path
 Keep real VDR tests opt-in and separate from fast unit tests
 Preserve mock-based CI compatibility
 ```

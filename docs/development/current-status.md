@@ -46,13 +46,13 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 20.0 - Live Update Event Foundation
+Phase 20.9 - Live Transport Publish Bridge
 ```
 
 Current major phase status:
 
 ```text
-Phase 19 snapshot change feed validation is complete through 19.3.
+Phase 20 live transport foundation is complete through 20.9.
 ```
 
 Verified locally with:
@@ -127,6 +127,7 @@ GET /api/vdr/timers
 GET /api/vdr/events
 GET /api/vdr/recordings
 GET /api/vdr/changes
+GET /api/vdr/live
 ```
 
 Backend registry and backend-aware read APIs:
@@ -188,10 +189,10 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 20.1 - Live Transport Interface
+Phase 21.0 - Live Transport Diagnostics
 ```
 
-The next step is to introduce the live transport boundary above the validated snapshot change feed.
+The next step is to introduce live transport diagnostics and runtime observability.
 
 Important boundaries:
 

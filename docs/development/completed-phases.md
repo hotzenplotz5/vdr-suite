@@ -242,22 +242,37 @@ Verified with:
 
 ---
 
-## Phase 20 - Live Update Event Foundation
+## Phase 20 - Live Transport Foundation
 
-Status: Completed through Phase 20.0
+Status: Completed through Phase 20.9
 
 Result:
 
 - LiveUpdateEvent introduced
 - SnapshotChangeFeedEntry can be converted into LiveUpdateEvent
 - LiveUpdateEventJsonSerializer introduced
-- transport-neutral live update representation established
-- no transport coupling introduced
+- ILiveTransport introduced with publish and read contract
+- TestLiveTransport introduced for transport-neutral validation
+- LiveTransportService introduced
+- LiveTransportFactory introduced
+- SseLiveTransport introduced
+- LiveTransportController exposes the live transport stream
+- ApiRouter exposes `GET /api/vdr/live`
+- DaemonRuntime owns the SSE live transport and live transport controller
+- DaemonRuntime publishes new snapshot change feed entries into the live transport
+- backend-aware feed entries are converted into live update events during polling-to-feed processing
 
 Verified with:
 
 - make test-live-update-event
 - make test-live-update-event-json-serializer
+- make test-live-transport-interface
+- make test-test-live-transport
+- make test-live-transport-service
+- make test-live-transport-factory
+- make test-sse-live-transport
+- make test-live-transport-controller
+- make test-api-router
 - make test-fast
 - make test-docs
 - make test-phase
@@ -267,14 +282,14 @@ Verified with:
 
 ## Next Work
 
-The next work should introduce the live transport boundary above the validated snapshot change feed.
+The next work should introduce live transport diagnostics and runtime observability.
 
 Goals:
 
-- validate runtime snapshot change feed creation from detected VDR changes
-- validate backend-aware feed entries and snapshot generation references
-- keep change feed validation transport-independent
-- prepare SSE as a later consumer of the existing snapshot change feed
+- expose live transport counters for runtime diagnostics
+- track published live update events
+- track latest live sequence number and backend ID
+- keep diagnostics transport-neutral
 - preserve GitHub Actions compatibility without requiring a running VDR
 
 ---
