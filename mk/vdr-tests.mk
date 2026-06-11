@@ -150,6 +150,20 @@ test-snapshot-change-feed-json-serializer:
 		-o /tmp/test_snapshot_change_feed_json_serializer
 	/tmp/test_snapshot_change_feed_json_serializer
 
+test-live-update-event:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_live_update_event.cpp \
+		-o /tmp/test_live_update_event
+	/tmp/test_live_update_event
+
+test-live-update-event-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_live_update_event_json_serializer.cpp \
+		-o /tmp/test_live_update_event_json_serializer
+	/tmp/test_live_update_event_json_serializer
+
 test-restful-api-status-mapper:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
