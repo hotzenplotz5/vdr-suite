@@ -46,13 +46,13 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 18.4 - Real Polling Stability Validation
+Phase 19.0 - Snapshot Change Feed Service Validation
 ```
 
 Current major phase status:
 
 ```text
-Phase 18 real VDR and RESTfulAPI integration validation is complete through 18.4.
+Phase 19 snapshot change feed validation is complete through 19.0.
 ```
 
 Verified locally with:
@@ -188,10 +188,10 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 19.0 - Snapshot Change Feed Validation
+Phase 19.1 - Snapshot Change Feed Runtime Validation
 ```
 
-The next step is to validate the snapshot change feed end-to-end before introducing live transport.
+The next step is to validate polling-to-change-feed runtime behavior before introducing live transport.
 
 Important boundaries:
 

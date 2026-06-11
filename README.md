@@ -31,9 +31,9 @@ CI Foundation             ████████████ 100%
 Live Transport            ░░░░░░░░░░░░   0%
 ```
 
-Latest Completed Implementation Phase: Phase 18.4 - Real Polling Stability Validation
+Latest Completed Implementation Phase: Phase 19.0 - Snapshot Change Feed Service Validation
 
-Current Implementation Focus: Phase 19.0 - Snapshot Change Feed Validation
+Current Implementation Focus: Phase 19.1 - Snapshot Change Feed Runtime Validation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -117,8 +117,8 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 Current architecture focus:
 
 ```text
-Phase 19.0 - Snapshot Change Feed Validation
-Validate RestfulApiVdrAdapter against an actual VDR/restfulapi instance
+Phase 19.1 - Snapshot Change Feed Runtime Validation
+Validate polling-to-change-feed runtime behavior before live transport
 Keep real VDR tests opt-in and separate from fast unit tests
 Preserve mock-based CI compatibility
 ```

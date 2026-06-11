@@ -46,13 +46,13 @@ VDR-Suite complements VDR. It does not replace it.
 
 ```text
 Completed implementation state
-Phase 18.4 - Real Polling Stability Validation
+Phase 19.0 - Snapshot Change Feed Service Validation
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 18.4
+Documentation and roadmap synchronization after Phase 19.0
 
 Next implementation step
-Phase 19.0 - Snapshot Change Feed Validation
+Phase 19.1 - Snapshot Change Feed Runtime Validation
 ```
 
 Phase 16 completed the multi-backend polling and runtime context foundation. Backend-aware polling, backend polling coordination, backend runtime contexts, daemon runtime context migration, registry-driven context creation and backend-aware snapshot change feed support are implemented.
@@ -99,6 +99,7 @@ Phase 18.1 - Real snapshot builder validation
 Phase 18.2 - Real change-state validation
 Phase 18.3 - Real polling initial snapshot validation
 Phase 18.4 - Real polling stability validation
+Phase 19.0 - Snapshot change feed service validation
 ```
 
 Completed implementation detail belongs in [Completed Phases](../development/completed-phases.md).

@@ -65,19 +65,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 18.4 Complete
+Phase 19.0 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 19.0 - Snapshot Change Feed Validation
+Phase 19.1 - Snapshot Change Feed Runtime Validation
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 18.4 - Real Polling Stability Validation
+Phase 19.0 - Snapshot Change Feed Service Validation
 ```
 
 ---
@@ -94,6 +94,7 @@ Phase 18.1 - Real snapshot builder validation
 Phase 18.2 - Real change-state validation
 Phase 18.3 - Real polling initial snapshot validation
 Phase 18.4 - Real polling stability validation
+Phase 19.0 - Snapshot change feed service validation
 ```
 
 ---
@@ -103,19 +104,19 @@ Phase 18.4 - Real polling stability validation
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 18.4
+Phase 0 - Phase 19.0
 ```
 
 Planned Major Phases:
 
 ```text
-Phase 19.0+
+Phase 19.1+
 ```
 
 Overall Roadmap Progress:
 
 ```text
-18 / 22 = 81.8%
+19 / 22 = 86.4%
 ```
 
 Important:

@@ -207,13 +207,35 @@ Verified with:
 
 ---
 
+## Phase 19 - Snapshot Change Feed Validation
+
+Status: Completed through Phase 19.0
+
+Result:
+
+- snapshot change feed append behavior is covered by service-level validation
+- appendChanges assigns the next sequence number
+- appendChanges preserves snapshot generation values
+- appendChanges skips empty change event lists
+- appendChanges preserves backend identity
+- appendChanges preserves multiple changed domains in order
+
+Verified with:
+
+- make test-snapshot-change-feed
+- make test-fast
+- make test-docs
+- make daemon
+
+---
+
 ## Next Work
 
-Phase 19.0 should validate the snapshot change feed end-to-end before introducing live transport.
+The next work should validate polling-to-change-feed runtime behavior before introducing live transport.
 
 Goals:
 
-- validate snapshot change feed creation from detected VDR changes
+- validate runtime snapshot change feed creation from detected VDR changes
 - validate backend-aware feed entries and snapshot generation references
 - keep change feed validation transport-independent
 - prepare SSE as a later consumer of the existing snapshot change feed

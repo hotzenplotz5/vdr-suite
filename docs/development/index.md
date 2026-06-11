@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 18.4 - Real Polling Stability Validation
+Phase 19.0 - Snapshot Change Feed Service Validation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 19.0 - Snapshot Change Feed Validation
+Phase 19.1 - Snapshot Change Feed Runtime Validation
 ```
 
 ---
