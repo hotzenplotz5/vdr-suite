@@ -250,3 +250,13 @@ test-local-partial-refresh-validation:
 		core/vdr/tests/test_local_partial_refresh_validation.cpp \
 		-o /tmp/test_local_partial_refresh_validation
 	/tmp/test_local_partial_refresh_validation
+
+
+.PHONY: test-real-restfulapi-integration
+test-real-restfulapi-integration:
+	$(CXX) $(CXXFLAGS) \
+		core/http/src/BasicHttpClient.cpp \
+		$(VDR_SRC) \
+		core/vdr/tests/test_real_restfulapi_integration.cpp \
+		-o /tmp/test_real_restfulapi_integration
+	/tmp/test_real_restfulapi_integration
