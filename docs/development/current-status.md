@@ -52,13 +52,17 @@ Phase 18.4 - Real Polling Stability Validation
 Current major phase status:
 
 ```text
-Phase 17 multi-backend read-side REST visibility is complete through 17.3.
+Phase 18 real VDR and RESTfulAPI integration validation is complete through 18.4.
 ```
 
 Verified locally with:
 
 ```text
-make test-api-router
+make test-real-restfulapi-integration
+make test-real-snapshot-builder
+make test-real-change-state
+make test-real-polling-initial-snapshot
+make test-real-polling-stability
 make test-fast
 make test-docs
 make test-architecture
@@ -68,13 +72,13 @@ make daemon
 
 Verification summary:
 
-- multi-backend snapshot read foundation passed targeted tests
-- multi-backend snapshot summary JSON serialization passed targeted tests
-- `GET /api/vdr/snapshots` route was added through controller and router wiring
-- `GET /api/vdr/snapshots` is covered by the API router regression test
-- default `/api/vdr/snapshot` behavior remains compatible
-- `make test-fast` passed during the Phase 17 read-side work
-- `make daemon` passed after REST route test coverage
+- opt-in real RESTfulAPI integration passed
+- opt-in real snapshot builder validation passed
+- opt-in real change-state validation passed
+- opt-in real polling initial snapshot validation passed
+- opt-in real polling stability validation passed
+- real VDR data was validated through BasicHttpClient, RestfulApiVdrAdapter, VdrService, VdrSnapshotBuilder, PollingService, SnapshotCacheService and SnapshotRefreshPlanner
+- repeated polling without VDR changes produced no false change events and no unnecessary refresh work
 - GitHub Actions remains the standard full regression path for normal non-VDR-specific changes
 
 ---
@@ -187,15 +191,15 @@ Real VDR tests are reserved for:
 Phase 19.0 - Snapshot Change Feed Validation
 ```
 
-The next step is to validate the RESTfulAPI adapter path against an actual VDR while keeping real VDR tests opt-in and outside the fast mock-based test set.
+The next step is to validate the snapshot change feed end-to-end before introducing live transport.
 
 Important boundaries:
 
+- snapshot change feed validation must remain transport-independent
 - real VDR tests must not be required by `make test-fast`
 - GitHub Actions must remain independent from a running VDR
-- RESTfulAPI validation should use explicit opt-in environment variables
-- BasicHttpClient, RestfulApiVdrAdapter and VdrService should be validated before broader runtime integration
-- snapshot runtime validation against real VDR data should build on the opt-in integration test boundary
+- RESTfulAPI validation should continue to use explicit opt-in environment variables
+- SSE and WebSocket work must consume the existing snapshot change feed later, not own polling, change detection or feed generation
 
 ---
 
