@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 19.2 - Multi-Backend Change Feed Aggregation
+Phase 19.3 - Snapshot Change Feed REST Validation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 19.3 - Snapshot Change Feed REST Validation
+Phase 20.0 - Live Transport Foundation
 ```
 
 ---

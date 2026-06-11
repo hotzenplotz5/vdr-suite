@@ -46,13 +46,13 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 19.2 - Multi-Backend Change Feed Aggregation
+Phase 19.3 - Snapshot Change Feed REST Validation
 ```
 
 Current major phase status:
 
 ```text
-Phase 19 snapshot change feed validation is complete through 19.2.
+Phase 19 snapshot change feed validation is complete through 19.3.
 ```
 
 Verified locally with:
@@ -188,10 +188,10 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 19.3 - Snapshot Change Feed REST Validation
+Phase 20.0 - Live Transport Foundation
 ```
 
-The next step is to validate REST exposure of aggregated snapshot change feed entries before introducing live transport.
+The next step is to introduce the live transport boundary above the validated snapshot change feed.
 
 Important boundaries:
 

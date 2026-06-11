@@ -174,6 +174,8 @@ Verified with:
 - make test-docs
 - make test-architecture
 - make test-phase
+- make test-snapshot-change-feed-controller
+- make test-api-router
 - make daemon
 
 ---
@@ -203,13 +205,15 @@ Verified with:
 - make test-docs
 - make test-architecture
 - make test-phase
+- make test-snapshot-change-feed-controller
+- make test-api-router
 - make daemon
 
 ---
 
 ## Phase 19 - Snapshot Change Feed Validation
 
-Status: Completed through Phase 19.2
+Status: Completed through Phase 19.3
 
 Result:
 
@@ -222,6 +226,8 @@ Result:
 - polling-to-change-feed runtime flow is validated
 - multi-backend change feed aggregation is implemented in DaemonRuntime
 - all backend runtime contexts can append backend-aware feed entries
+- SnapshotChangeFeedController exposes multi-backend feed entries through JSON
+- ApiRouter validates `GET /api/vdr/changes` for multi-backend feed entries
 
 Verified with:
 
@@ -230,13 +236,15 @@ Verified with:
 - make test-fast
 - make test-docs
 - make test-phase
+- make test-snapshot-change-feed-controller
+- make test-api-router
 - make daemon
 
 ---
 
 ## Next Work
 
-The next work should validate REST exposure of aggregated snapshot change feed entries before introducing live transport.
+The next work should introduce the live transport boundary above the validated snapshot change feed.
 
 Goals:
 

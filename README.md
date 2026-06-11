@@ -31,9 +31,9 @@ CI Foundation             ████████████ 100%
 Live Transport            ░░░░░░░░░░░░   0%
 ```
 
-Latest Completed Implementation Phase: Phase 19.2 - Multi-Backend Change Feed Aggregation
+Latest Completed Implementation Phase: Phase 19.3 - Snapshot Change Feed REST Validation
 
-Current Implementation Focus: Phase 19.3 - Snapshot Change Feed REST Validation
+Current Implementation Focus: Phase 20.0 - Live Transport Foundation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -118,7 +118,7 @@ Current architecture focus:
 
 ```text
 Phase 19.3 - Snapshot Change Feed REST Validation
-Validate REST exposure of aggregated snapshot change feed entries before live transport
+Introduce the live transport boundary above the validated snapshot change feed
 Keep real VDR tests opt-in and separate from fast unit tests
 Preserve mock-based CI compatibility
 ```
