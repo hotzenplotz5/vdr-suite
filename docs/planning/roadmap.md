@@ -49,7 +49,7 @@ Completed implementation state
 Phase 18.4 - Real Polling Stability Validation
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 17.3
+Documentation and roadmap synchronization after Phase 18.4
 
 Next implementation step
 Phase 19.0 - Snapshot Change Feed Validation
@@ -58,6 +58,8 @@ Phase 19.0 - Snapshot Change Feed Validation
 Phase 16 completed the multi-backend polling and runtime context foundation. Backend-aware polling, backend polling coordination, backend runtime contexts, daemon runtime context migration, registry-driven context creation and backend-aware snapshot change feed support are implemented.
 
 Phase 17 completed the initial multi-backend read-side visibility through Phase 17.3. SnapshotAccessService can return all cached backend snapshots, VdrSnapshotReadService exposes multi-backend snapshot lists, VdrSnapshotReadJsonSerializer serializes multi-backend snapshot summaries, `GET /api/vdr/snapshots` exposes these summaries through REST and the route is covered by the API router regression test.
+
+Phase 18 completed opt-in real VDR and RESTfulAPI validation through Phase 18.4. Real RESTfulAPI integration, real snapshot building, real change-state handling, real polling initial snapshot generation and repeated polling stability are validated outside the default fast test set.
 
 ---
 
@@ -92,6 +94,11 @@ Phase 17.0 - Multi-backend snapshot read foundation
 Phase 17.1 - Multi-backend snapshot summary serialization
 Phase 17.2 - Multi-backend snapshots REST endpoint
 Phase 17.3 - Multi-backend REST endpoint tests
+Phase 18.0 - Real RESTfulAPI integration validation
+Phase 18.1 - Real snapshot builder validation
+Phase 18.2 - Real change-state validation
+Phase 18.3 - Real polling initial snapshot validation
+Phase 18.4 - Real polling stability validation
 ```
 
 Completed implementation detail belongs in [Completed Phases](../development/completed-phases.md).
@@ -100,19 +107,24 @@ Completed implementation detail belongs in [Completed Phases](../development/com
 
 ## Phase 18 - Real VDR and RESTfulAPI Integration Validation
 
+Status:
+
+Completed through Phase 18.4.
+
 Goal:
 
 Validate the snapshot runtime and RESTfulAPI adapter against an actual VDR system once the multi-backend REST contracts are stable.
 
-Planned direction:
+Completed validation:
 
-- validate RESTfulAPI reachability against one local VDR
-- validate status, channels, timers, events and recordings mapping with real data
-- validate snapshot generation from real RESTfulAPI responses
-- validate daemon-owned polling against a real VDR
-- validate multi-backend scenarios when a second VDR or controlled mock backend is available
+- RESTfulAPI reachability against one local VDR
+- status, channels, timers, events and recordings mapping with real data
+- snapshot generation from real RESTfulAPI responses
+- real change-state handling
+- daemon-owned polling against a real VDR
+- repeated polling stability without generating false change events
 
-Real VDR tests should be reserved for:
+Real VDR tests remain reserved for:
 
 - RESTfulAPI against an actual VDR
 - SSE event streams
@@ -128,21 +140,27 @@ GitHub Actions must remain independent from a running VDR.
 
 ---
 
-## Phase 19 - Frontend API Hardening
+## Phase 19 - Snapshot Change Feed Validation
 
 Goal:
 
-Stabilize API contracts for future frontends.
+Validate the existing snapshot change feed end-to-end before introducing live transport.
 
 Planned direction:
 
-- filtering
-- pagination
-- stable response contracts
-- capability-aware responses
-- frontend-independent API behavior
-- backend-aware response contracts
-- frontend-safe error models
+- validate snapshot change feed creation from detected VDR changes
+- validate backend-aware feed entries
+- validate sequence number and snapshot generation behavior
+- validate that unchanged polling cycles do not create feed entries
+- validate the REST read boundary for `GET /api/vdr/changes`
+- keep validation transport-independent
+- keep real VDR validation opt-in and outside the default fast test set
+
+Architecture rule:
+
+Snapshot change feed validation must happen before SSE or WebSocket work.
+
+Live transport must consume the snapshot change feed later. It must not become the owner of polling, snapshot generation, change detection or feed generation.
 
 ---
 
@@ -200,6 +218,24 @@ Live update transport is not the same as image or media streaming.
 Live transport should notify clients that something changed.
 
 Image, preview stream and media stream handling should define how clients can request media-oriented data.
+
+---
+
+## Phase 22 - Frontend API Hardening
+
+Goal:
+
+Stabilize API contracts for future frontends after the snapshot change feed and live transport foundations are validated.
+
+Planned direction:
+
+- filtering
+- pagination
+- stable response contracts
+- capability-aware responses
+- frontend-independent API behavior
+- backend-aware response contracts
+- frontend-safe error models
 
 ---
 
