@@ -46,13 +46,13 @@ VDR-Suite complements VDR. It does not replace it.
 
 ```text
 Completed implementation state
-Phase 19.3 - Snapshot Change Feed REST Validation
+Phase 20.0 - Live Update Event Foundation
 
 Current cleanup
 Documentation and roadmap synchronization after Phase 19.3
 
 Next implementation step
-Phase 20.0 - Live Transport Foundation
+Phase 20.1 - Live Transport Interface
 ```
 
 Phase 16 completed the multi-backend polling and runtime context foundation. Backend-aware polling, backend polling coordination, backend runtime contexts, daemon runtime context migration, registry-driven context creation and backend-aware snapshot change feed support are implemented.

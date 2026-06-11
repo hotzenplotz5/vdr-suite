@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 19.3 - Snapshot Change Feed REST Validation
+Phase 20.0 - Live Update Event Foundation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 20.0 - Live Transport Foundation
+Phase 20.1 - Live Transport Interface
 ```
 
 ---

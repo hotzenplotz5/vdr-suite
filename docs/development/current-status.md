@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 19.3 - Snapshot Change Feed REST Validation
+Phase 20.0 - Live Update Event Foundation
 ```
 
 Current major phase status:
@@ -188,7 +188,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 20.0 - Live Transport Foundation
+Phase 20.1 - Live Transport Interface
 ```
 
 The next step is to introduce the live transport boundary above the validated snapshot change feed.

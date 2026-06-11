@@ -31,9 +31,9 @@ CI Foundation             ████████████ 100%
 Live Transport            ░░░░░░░░░░░░   0%
 ```
 
-Latest Completed Implementation Phase: Phase 19.3 - Snapshot Change Feed REST Validation
+Latest Completed Implementation Phase: Phase 20.0 - Live Update Event Foundation
 
-Current Implementation Focus: Phase 20.0 - Live Transport Foundation
+Current Implementation Focus: Phase 20.1 - Live Transport Interface
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

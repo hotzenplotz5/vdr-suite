@@ -65,19 +65,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 19.3 Complete
+Phase 20.0 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 20.0 - Live Transport Foundation
+Phase 20.1 - Live Transport Interface
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 19.3 - Snapshot Change Feed REST Validation
+Phase 20.0 - Live Update Event Foundation
 ```
 
 ---

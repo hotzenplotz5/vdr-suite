@@ -242,6 +242,29 @@ Verified with:
 
 ---
 
+## Phase 20 - Live Update Event Foundation
+
+Status: Completed through Phase 20.0
+
+Result:
+
+- LiveUpdateEvent introduced
+- SnapshotChangeFeedEntry can be converted into LiveUpdateEvent
+- LiveUpdateEventJsonSerializer introduced
+- transport-neutral live update representation established
+- no transport coupling introduced
+
+Verified with:
+
+- make test-live-update-event
+- make test-live-update-event-json-serializer
+- make test-fast
+- make test-docs
+- make test-phase
+- make daemon
+
+---
+
 ## Next Work
 
 The next work should introduce the live transport boundary above the validated snapshot change feed.
