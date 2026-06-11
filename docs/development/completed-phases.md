@@ -154,7 +154,7 @@ Verified with:
 
 ## Phase 17 - Multi-Backend Snapshot Read and REST Visibility
 
-Status: Completed through Phase 18.4
+Status: Completed through Phase 17.3
 
 Result:
 
@@ -209,13 +209,14 @@ Verified with:
 
 ## Next Work
 
-The next planned work should validate the snapshot change feed end-to-end before introducing SSE.
+Phase 19.0 should validate the snapshot change feed end-to-end before introducing live transport.
 
 Goals:
 
 - validate snapshot change feed creation from detected VDR changes
-- keep change feed transport-independent
-- prepare SSE as a consumer of the existing snapshot change feed
+- validate backend-aware feed entries and snapshot generation references
+- keep change feed validation transport-independent
+- prepare SSE as a later consumer of the existing snapshot change feed
 - preserve GitHub Actions compatibility without requiring a running VDR
 
 ---
