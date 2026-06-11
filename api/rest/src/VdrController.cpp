@@ -133,6 +133,20 @@ ApiResponse VdrController::getCapabilities()
     return response;
 }
 
+
+ApiResponse VdrController::getSnapshots()
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        snapshotReadJsonSerializer_.serializeSnapshots(
+            snapshotReadService_.getSnapshots());
+
+    return response;
+}
+
 ApiResponse VdrController::getSnapshotSummary()
 {
     ApiResponse response;

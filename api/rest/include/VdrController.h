@@ -24,6 +24,7 @@ public:
     ApiResponse getHealth();
     ApiResponse getHealthForBackend(const std::string& backendId);
     ApiResponse getSnapshotSummary();
+    ApiResponse getSnapshots();
     ApiResponse getSnapshotSummaryForBackend(const std::string& backendId);
     ApiResponse getCapabilities();
     ApiResponse getRecordings();
