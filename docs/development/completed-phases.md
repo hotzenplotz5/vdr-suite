@@ -154,7 +154,7 @@ Verified with:
 
 ## Phase 17 - Multi-Backend Snapshot Read and REST Visibility
 
-Status: Completed through Phase 17.2
+Status: Completed through Phase 17.3
 
 Result:
 
@@ -162,27 +162,32 @@ Result:
 - multi-backend snapshot summary serialization
 - multi-backend snapshots REST endpoint
 - `GET /api/vdr/snapshots` exposes snapshot summaries for all cached backend snapshots
+- multi-backend snapshots REST endpoint test coverage
 
 Verified with:
 
 - make test-vdr-snapshot-read-service
 - make test-vdr-snapshot-read-json-serializer
 - make test-snapshot-access-service
+- make test-api-router
 - make test-fast
+- make test-docs
+- make test-architecture
+- make test-phase
 - make daemon
 
 ---
 
 ## Next Work
 
-The next planned work should add multi-backend REST endpoint tests.
+The next planned work should validate the RESTfulAPI adapter against a real VDR.
 
 Goals:
 
-- verify `GET /api/vdr/snapshots` through controller and router tests
-- preserve default `/api/vdr/...` compatibility
-- stabilize the JSON contract before adding more REST surface
-- prepare later real VDR validation
+- keep real VDR tests opt-in and outside `make test-fast`
+- validate BasicHttpClient against a local VDR/restfulapi instance
+- validate RestfulApiVdrAdapter with real channels, events, timers and recordings
+- preserve GitHub Actions compatibility without requiring a running VDR
 
 ---
 
