@@ -25,7 +25,7 @@ Backend Registry          implemented
 Multi-Backend Routing     implemented
 Multi-Backend Polling     implemented
 Multi-Backend Read API    implemented
-Live Transport            planned
+Live Transport            implemented
 ```
 
 ### Federation and Security
@@ -65,19 +65,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 20.9 Complete
+Phase 21.0 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 21.0 - Live Transport Diagnostics
+Phase 21.1 - RESTfulAPI Event Stream Strategy
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 20.9 - Live Transport Publish Bridge
+Phase 21.0 - Real VDR Runtime Polling Findings
 ```
 
 ---

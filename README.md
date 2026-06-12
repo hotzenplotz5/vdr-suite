@@ -31,9 +31,9 @@ CI Foundation             ████████████ 100%
 Live Transport            ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 20.9 - Live Transport Publish Bridge
+Latest Completed Implementation Phase: Phase 21.0 - Real VDR Runtime Polling Findings
 
-Current Implementation Focus: Phase 21.0 - Live Transport Diagnostics
+Current Implementation Focus: Phase 21.1 - RESTfulAPI Event Stream Strategy
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -117,8 +117,8 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 Current architecture focus:
 
 ```text
-Phase 21.0 - Live Transport Diagnostics
-Introduce runtime observability for the live transport path
+Phase 21.1 - RESTfulAPI Event Stream Strategy
+Document backend-specific event stream hints without coupling VDR-Suite to RESTfulAPI SSE
 Keep real VDR tests opt-in and separate from fast unit tests
 Preserve mock-based CI compatibility
 ```

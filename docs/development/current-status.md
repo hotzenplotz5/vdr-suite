@@ -46,13 +46,14 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 20.9 - Live Transport Publish Bridge
+Phase 21.0 - Real VDR Runtime Polling Findings
 ```
 
 Current major phase status:
 
 ```text
 Phase 20 live transport foundation is complete through 20.9.
+Phase 21.0 documents real VDR runtime polling and EPG performance findings.
 ```
 
 Verified locally with:
@@ -189,10 +190,10 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 21.0 - Live Transport Diagnostics
+Phase 21.1 - RESTfulAPI Event Stream Strategy
 ```
 
-The next step is to introduce live transport diagnostics and runtime observability.
+The next step is to document how RESTfulAPI event streams can provide backend-specific change hints without making VDR-Suite directly dependent on RESTfulAPI SSE.
 
 Important boundaries:
 

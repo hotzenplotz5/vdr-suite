@@ -280,9 +280,29 @@ Verified with:
 
 ---
 
+## Phase 21 - Real VDR Runtime Polling Findings
+
+Status: Completed through Phase 21.0
+
+Result:
+
+- real VDR runtime polling findings documented
+- `/events.json` identified as a heavy domain on real systems
+- naive cyclic full snapshot polling ruled out
+- Events / EPG classified as a heavy domain
+- future metadata, image and preview data classified as potential heavy domains
+- RESTfulAPI event stream strategy prepared as the next architecture step
+
+Verified with:
+
+- make test-docs
+- make test-phase
+
+---
+
 ## Next Work
 
-The next work should introduce live transport diagnostics and runtime observability.
+The next work should document the RESTfulAPI event stream strategy.
 
 Goals:
 

@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 20.9 - Live Transport Publish Bridge
+Phase 21.0 - Real VDR Runtime Polling Findings
 ```
 
 Next implementation focus:
 
 ```text
-Phase 21.0 - Real VDR Runtime Polling Findings
+Phase 21.1 - RESTfulAPI Event Stream Strategy
 ```
 
 Current architecture validation:
