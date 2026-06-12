@@ -282,7 +282,7 @@ Verified with:
 
 ## Phase 21 - Real VDR Runtime Polling Findings
 
-Status: Completed through Phase 21.0
+Status: Completed through Phase 21.2
 
 Result:
 
@@ -291,27 +291,49 @@ Result:
 - naive cyclic full snapshot polling ruled out
 - Events / EPG classified as a heavy domain
 - future metadata, image and preview data classified as potential heavy domains
-- RESTfulAPI event stream strategy prepared as the next architecture step
+- RESTfulAPI event stream strategy prepared as an architecture step
+- `VdrEventQuery` introduced as a backend-neutral selective event query contract
+- `IVdrAdapter` supports query-based event access while preserving the existing full-event method
+- `VdrService` supports selective event queries
+- `RestfulApiVdrAdapter` maps selective event queries to existing RESTfulAPI event filters
+- test adapters and RESTfulAPI adapter tests validate the new query contract
+
+Architecture rule:
+
+VDR-Suite should prefer selective backend queries over full-domain transfers whenever possible.
+
+Heavy domains such as EPG, metadata, posters, fanart and preview data must not use full-domain runtime refreshes as the default strategy.
+
+Preferred strategies are channel-scoped queries, time-window queries, object-specific queries and change-hint driven refreshes.
+
+Performance goal:
+
+Backend workload should remain comparable to established VDR frontends such as live whenever equivalent information is requested.
 
 Verified with:
 
+- make test-restful-api-vdr-adapter
+- make test-vdr-service
+- make test-backend-polling-coordinator
+- make test-fast
 - make test-docs
 - make test-phase
+- make daemon
 
 ---
 
 ## Next Work
 
-The next work should document the RESTfulAPI event stream strategy.
+The next work should validate selective RESTfulAPI EPG access against a real VDR.
 
 Goals:
 
-- define backend-specific change hint semantics
-- document RESTfulAPI SSE as an optional optimization
+- measure existing RESTfulAPI event filters on a real VDR
+- validate `from`, `timespan`, `chevents`, `channelId`, `eventId`, `start`, `limit` and `only_count`
+- compare response size, HTTP time and returned event count against full `/events.json`
+- determine whether existing RESTfulAPI filters are sufficient for live-like EPG access
+- avoid introducing new RESTfulAPI endpoints before existing selective filters are measured
 - preserve backend-neutral adapter boundaries
-- keep snapshot architecture authoritative
-- define heavy-domain refresh rules for EPG and future metadata domains
-- prepare domain-aware runtime polling foundations
 
 ---
 
