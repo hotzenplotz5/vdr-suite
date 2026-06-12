@@ -10,6 +10,7 @@
 #include "JobDashboardService.h"
 #include "JobRepository.h"
 #include "JobsController.h"
+#include "LiveTransportController.h"
 #include "MetadataController.h"
 #include "MetadataRepository.h"
 #include "MockVdrAdapter.h"
@@ -153,6 +154,9 @@ int main()
         snapshotChangeFeed,
         snapshotChangeFeedJsonSerializer);
 
+    SseLiveTransport liveTransport;
+    LiveTransportController liveTransportController(liveTransport);
+
     ApiRouter router(
         dashboardController,
         jobsController,
@@ -161,7 +165,8 @@ int main()
         vdrController,
         backendRegistryController,
         runtimeDiagnosticsController,
-        snapshotChangeFeedController);
+        snapshotChangeFeedController,
+        liveTransportController);
 
     TestHttpServer server(router);
 
