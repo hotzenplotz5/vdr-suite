@@ -197,6 +197,19 @@ void PollingService::poll()
             recordMeasurement(measurement);
         }
 
+        if (lastUpdatePlan_.hasSelectiveEventRefresh()) {
+            const auto refreshStarted = std::chrono::steady_clock::now();
+            snapshotCacheService_.updateEventsForBackend(
+                backendId_,
+                snapshotBuilder_.buildEvents(lastUpdatePlan_.selectiveEventQuery()));
+
+            RuntimeMeasurement measurement;
+            measurement.component = "PollingService";
+            measurement.operation = "Selective events refresh";
+            measurement.durationMs = elapsedMilliseconds(refreshStarted);
+            recordMeasurement(measurement);
+        }
+
         RuntimeMeasurement partialRefreshMeasurement;
         partialRefreshMeasurement.component = "PollingService";
         partialRefreshMeasurement.operation = "Partial refresh";

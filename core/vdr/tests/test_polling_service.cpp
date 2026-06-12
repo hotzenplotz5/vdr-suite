@@ -45,6 +45,8 @@ public:
     mutable int timersReadCount = 0;
     mutable int channelsReadCount = 0;
     mutable int eventsReadCount = 0;
+    mutable int selectiveEventsReadCount = 0;
+    mutable int lastSelectiveChannelEventLimit = 0;
 
     VdrChangeState changeState;
 
@@ -74,8 +76,13 @@ public:
 
     std::vector<VdrEvent> getEvents(const VdrEventQuery& query) const override
     {
-        (void)query;
-        return getEvents();
+        ++selectiveEventsReadCount;
+        lastSelectiveChannelEventLimit = query.channelEventLimit;
+
+        VdrEvent event;
+        event.id = "event-1";
+
+        return { event };
     }
 
     std::vector<VdrChannel> getChannels() const override
@@ -119,7 +126,8 @@ public:
             + recordingsReadCount
             + timersReadCount
             + channelsReadCount
-            + eventsReadCount;
+            + eventsReadCount
+            + selectiveEventsReadCount;
     }
 };
 
@@ -345,6 +353,51 @@ static void test_multiple_changes_refresh_only_selected_domains()
     assert(adapter.totalDomainReadCount() == 7);
 }
 
+static void test_event_change_refreshes_selective_events_only()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService = createPollingService(builder, service, snapshotCacheService);
+
+    adapter.changeState.eventsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.eventsVersion = 2;
+    pollingService.poll();
+
+    assert(pollingService.changeEvents().size() == 1);
+    assert(pollingService.changeEvents()[0].type() == VdrChangeType::EventsChanged);
+    assert(pollingService.lastUpdatePlan().shouldRefreshEvents() == false);
+    assert(pollingService.lastUpdatePlan().hasSelectiveEventRefresh() == true);
+    assert(adapter.eventsReadCount == 1);
+    assert(adapter.selectiveEventsReadCount == 1);
+    assert(adapter.lastSelectiveChannelEventLimit == 2);
+    assert(adapter.totalDomainReadCount() == 6);
+}
+
+static void test_event_change_records_selective_events_refresh_measurement()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    PollingService pollingService(builder, service, snapshotCacheService, nullptr, &sink);
+
+    adapter.changeState.eventsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.eventsVersion = 2;
+    pollingService.poll();
+
+    assert(containsMeasurement(sink, "PollingService", "Selective events refresh"));
+    assert(containsMeasurement(sink, "PollingService", "Partial refresh"));
+}
+
 static void test_change_events_are_cleared_before_next_poll()
 {
     CountingVdrAdapter adapter;
@@ -499,6 +552,8 @@ int main()
     test_recording_change_refreshes_only_recordings_domain();
     test_recording_change_records_recordings_refresh_measurements();
     test_multiple_changes_refresh_only_selected_domains();
+    test_event_change_refreshes_selective_events_only();
+    test_event_change_records_selective_events_refresh_measurement();
     test_change_events_are_cleared_before_next_poll();
     test_polling_service_updates_backend_snapshot();
     test_polling_change_events_can_feed_snapshot_change_feed();
