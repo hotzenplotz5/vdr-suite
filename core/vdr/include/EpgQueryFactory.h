@@ -1,11 +1,34 @@
 #pragma once
 
+#include "EpgQueryRequest.h"
+#include "EpgQueryScope.h"
 #include "VdrEventQuery.h"
 
 #include <string>
 
 class EpgQueryFactory {
 public:
+    static VdrEventQuery create(const EpgQueryRequest& request)
+    {
+        switch (request.scope) {
+        case EpgQueryScope::NowNext:
+            return forChannelNowNext(request.channelId, request.from);
+        case EpgQueryScope::TimeWindow:
+            return forChannelTimeWindow(
+                request.channelId,
+                request.from,
+                request.timespan);
+        case EpgQueryScope::ChannelWindow:
+            return forChannelWindow(
+                request.channelId,
+                request.from,
+                request.timespan,
+                request.limit);
+        }
+
+        return VdrEventQuery();
+    }
+
     static VdrEventQuery forChannelNowNext(
         const std::string& channelId,
         int from)
