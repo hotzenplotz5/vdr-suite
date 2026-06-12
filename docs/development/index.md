@@ -41,19 +41,20 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 21.0 - Real VDR Runtime Polling Findings
+Phase 21.2 - Selective Event Query Contract
 ```
 
 Next implementation focus:
 
 ```text
-Phase 21.1 - RESTfulAPI Event Stream Strategy
+Phase 21.3 - Selective RESTfulAPI EPG Validation
 ```
 
 Current architecture validation:
 
 - [Phase 21.0 - Real VDR Runtime Polling Findings](phase-21.0-real-vdr-runtime-polling-findings.md)
 - [Phase 21.1 - RESTfulAPI Event Stream Strategy](phase-21.1-restfulapi-event-stream-strategy.md)
+- [ADR-0021: Selective Backend Query Strategy](../adr/ADR-0021-selective-backend-query-strategy.md)
 
 ---
 
@@ -110,6 +111,7 @@ These documents are historical implementation notes or phase-specific architectu
 - [Phase 14.3 - Backend-Aware Snapshot Routing](phase-14.3-backend-aware-snapshot-routing.md)
 - [Phase 21.0 - Real VDR Runtime Polling Findings](phase-21.0-real-vdr-runtime-polling-findings.md)
 - [Phase 21.1 - RESTfulAPI Event Stream Strategy](phase-21.1-restfulapi-event-stream-strategy.md)
+- [ADR-0021: Selective Backend Query Strategy](../adr/ADR-0021-selective-backend-query-strategy.md)
 
 ---
 
