@@ -7,6 +7,7 @@
 #include "RuntimeMeasurement.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
+#include "VdrEventQuery.h"
 #include "VdrRecording.h"
 #include "VdrSnapshot.h"
 #include "VdrStatus.h"
@@ -35,6 +36,7 @@ public:
     std::vector<VdrTimer> buildTimers() const;
     std::vector<VdrChannel> buildChannels() const;
     std::vector<VdrEvent> buildEvents() const;
+    std::vector<VdrEvent> buildEvents(const VdrEventQuery& query) const;
 
     VdrSnapshot buildSnapshot() const;
 

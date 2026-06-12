@@ -242,6 +242,40 @@ static void test_snapshot_builder_records_events_measurement()
     assert(sink.measurements[0].itemCount == 2);
 }
 
+static void test_snapshot_builder_can_build_selective_events_domain()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+
+    VdrEventQuery query;
+    query.channelEventLimit = 1;
+
+    auto events = builder.buildEvents(query);
+
+    assert(events.size() == 2);
+    assert(events[0].id == "mock-event-1");
+}
+
+static void test_snapshot_builder_records_selective_events_measurement()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(service, nullptr, &sink);
+
+    VdrEventQuery query;
+    query.channelEventLimit = 1;
+
+    auto events = builder.buildEvents(query);
+
+    assert(events.size() == 2);
+    assert(sink.measurements.size() == 1);
+    assert(sink.measurements[0].component == "VdrSnapshotBuilder");
+    assert(sink.measurements[0].operation == "Build selective events");
+    assert(sink.measurements[0].itemCount == 2);
+}
+
 static void test_snapshot_builder_assigns_backend_id()
 {
     MockVdrAdapter adapter;
@@ -273,6 +307,8 @@ int main()
     test_snapshot_builder_records_channels_measurement();
     test_snapshot_builder_can_build_events_domain();
     test_snapshot_builder_records_events_measurement();
+    test_snapshot_builder_can_build_selective_events_domain();
+    test_snapshot_builder_records_selective_events_measurement();
     test_snapshot_builder_assigns_backend_id();
 
     std::cout

@@ -141,6 +141,25 @@ std::vector<VdrEvent> VdrSnapshotBuilder::buildEvents() const
     return result;
 }
 
+std::vector<VdrEvent> VdrSnapshotBuilder::buildEvents(const VdrEventQuery& query) const
+{
+    const auto started = std::chrono::steady_clock::now();
+    auto result = vdrService_.getEvents(query);
+    const auto finished = std::chrono::steady_clock::now();
+    const auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count();
+
+    log(RuntimeLogLevel::Info, "Build selective events finished (" + std::to_string(durationMs) + " ms)");
+
+    RuntimeMeasurement measurement;
+    measurement.component = "VdrSnapshotBuilder";
+    measurement.operation = "Build selective events";
+    measurement.durationMs = durationMs;
+    measurement.itemCount = result.size();
+    recordMeasurement(measurement);
+
+    return result;
+}
+
 VdrSnapshot VdrSnapshotBuilder::buildSnapshot() const
 {
     VdrSnapshot snapshot;
