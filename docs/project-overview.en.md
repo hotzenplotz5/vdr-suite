@@ -1,3 +1,13 @@
+# VDR-Suite Project Overview
+
+## Navigation
+
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Project Overview](project-overview.md)
+
+---
+
 VDR-Suite – Modern Platform for VDR
 
 What is VDR-Suite?
@@ -117,3 +127,11 @@ VDR-Suite aims to become a modern platform on top of VDR.
 VDR remains the core system.
 
 VDR-Suite provides the modern services, APIs and client integration around it.
+
+---
+
+## Back
+
+- [Back to README](../README.md)
+- [Back to Documentation Index](index.md)
+- [Back to Project Overview](project-overview.md)

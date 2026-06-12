@@ -1,3 +1,13 @@
+# VDR-Suite Projektübersicht
+
+## Navigation
+
+- [README](../README.md)
+- [Documentation Index](index.md)
+- [Project Overview](project-overview.md)
+
+---
+
 VDR-Suite – Moderne Plattform für den VDR
 
 Was ist VDR-Suite?
@@ -115,3 +125,11 @@ VDR-Suite soll langfristig eine moderne Plattform bilden, auf der verschiedene A
 Der VDR bleibt das Herzstück.
 
 VDR-Suite soll ihn für moderne Anforderungen zugänglich machen.
+
+---
+
+## Back
+
+- [Back to README](../README.md)
+- [Back to Documentation Index](index.md)
+- [Back to Project Overview](project-overview.md)
