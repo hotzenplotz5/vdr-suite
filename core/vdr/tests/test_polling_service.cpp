@@ -396,6 +396,18 @@ static void test_event_change_records_selective_events_refresh_measurement()
 
     assert(containsMeasurement(sink, "PollingService", "Selective events merge refresh"));
     assert(containsMeasurement(sink, "PollingService", "Partial refresh"));
+
+    bool foundSelectiveMeasurement = false;
+
+    for (const auto& measurement : sink.measurements) {
+        if (measurement.component == "PollingService"
+            && measurement.operation == "Selective events merge refresh") {
+            foundSelectiveMeasurement = true;
+            assert(measurement.itemCount == 1);
+        }
+    }
+
+    assert(foundSelectiveMeasurement == true);
 }
 
 static void test_change_events_are_cleared_before_next_poll()

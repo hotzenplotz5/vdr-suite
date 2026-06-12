@@ -199,14 +199,15 @@ void PollingService::poll()
 
         if (lastUpdatePlan_.hasSelectiveEventRefresh()) {
             const auto refreshStarted = std::chrono::steady_clock::now();
-            snapshotCacheService_.mergeEventsForBackend(
-                backendId_,
-                snapshotBuilder_.buildEvents(lastUpdatePlan_.selectiveEventQuery()));
+            const auto events = snapshotBuilder_.buildEvents(lastUpdatePlan_.selectiveEventQuery());
+
+            snapshotCacheService_.mergeEventsForBackend(backendId_, events);
 
             RuntimeMeasurement measurement;
             measurement.component = "PollingService";
             measurement.operation = "Selective events merge refresh";
             measurement.durationMs = elapsedMilliseconds(refreshStarted);
+            measurement.itemCount = events.size();
             recordMeasurement(measurement);
         }
 
