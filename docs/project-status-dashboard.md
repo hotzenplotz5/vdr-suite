@@ -26,6 +26,7 @@ Multi-Backend Routing     implemented
 Multi-Backend Polling     implemented
 Multi-Backend Read API    implemented
 Live Transport            implemented
+Selective Event Queries   implemented
 ```
 
 ### Federation and Security
@@ -65,25 +66,26 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 21.0 Complete
+Phase 21.2 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 21.1 - RESTfulAPI Event Stream Strategy
+Phase 21.3 - Selective RESTfulAPI EPG Validation
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 21.0 - Real VDR Runtime Polling Findings
+Phase 21.2 - Selective Event Query Contract
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 21.1 - RESTfulAPI Event Stream Strategy
+Phase 21.3 - Selective RESTfulAPI EPG Validation
+ADR-0021 - Selective Backend Query Strategy
 ```
 
 ---
@@ -105,6 +107,8 @@ Phase 19.1 - Polling to change feed runtime validation
 Phase 19.2 - Multi-backend change feed aggregation
 Phase 19.3 - Snapshot change feed REST validation
 Phase 21.0 - Real VDR Runtime Polling Findings
+Phase 21.2 - Selective Event Query Contract
+ADR-0021 - Selective Backend Query Strategy
 ```
 
 ---
@@ -114,13 +118,13 @@ Phase 21.0 - Real VDR Runtime Polling Findings
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 21.0
+Phase 0 - Phase 21.2
 ```
 
 Planned Major Phases:
 
 ```text
-Phase 21.1+
+Phase 21.3+
 ```
 
 Overall Roadmap Progress:
@@ -150,6 +154,7 @@ This percentage describes documented roadmap progress by major phase. It is not 
 | Multi-Backend Polling | PollingService, BackendPollingCoordinator and DaemonRuntime backend context wiring are implemented for registry-driven runtime preparation. |
 | Multi-VDR | Backend registry, runtime contexts, backend-aware snapshots, polling coordination and multi-backend read summaries are implemented as foundations. |
 | Live Transport | SSE/WebSocket transport remains planned above the snapshot change feed. |
+| Selective Event Queries | Backend-neutral query contracts allow selective EPG access through adapter boundaries. |
 | Capability System | Capability set and resolver foundations are implemented. |
 | Authentication | Planned future concern, not implemented yet. |
 | Authorization | Planned future concern, not implemented yet. |
