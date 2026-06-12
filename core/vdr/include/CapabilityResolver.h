@@ -52,6 +52,11 @@ public:
             return capabilities_.eventsRead;
         }
 
+        if (capability == "events.read.selective")
+        {
+            return capabilities_.eventsSelectiveRead;
+        }
+
         return false;
     }
 

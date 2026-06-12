@@ -14,6 +14,7 @@ int main()
     assert(!emptyCapabilities.timersRead);
     assert(!emptyCapabilities.channelsRead);
     assert(!emptyCapabilities.eventsRead);
+    assert(!emptyCapabilities.eventsSelectiveRead);
 
     VdrCapabilitySet readOnlyCapabilities =
         VdrCapabilitySet::snapshotReadOnly();
@@ -25,6 +26,7 @@ int main()
     assert(readOnlyCapabilities.timersRead);
     assert(readOnlyCapabilities.channelsRead);
     assert(readOnlyCapabilities.eventsRead);
+    assert(readOnlyCapabilities.eventsSelectiveRead);
 
     std::cout
         << "test_vdr_capability_set passed"

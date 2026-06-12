@@ -10,6 +10,7 @@ public:
     bool timersRead = false;
     bool channelsRead = false;
     bool eventsRead = false;
+    bool eventsSelectiveRead = false;
 
     static VdrCapabilitySet snapshotReadOnly()
     {
@@ -22,6 +23,7 @@ public:
         capabilities.timersRead = true;
         capabilities.channelsRead = true;
         capabilities.eventsRead = true;
+        capabilities.eventsSelectiveRead = true;
 
         return capabilities;
     }

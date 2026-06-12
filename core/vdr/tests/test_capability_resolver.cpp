@@ -16,6 +16,7 @@ int main()
     assert(!emptyResolver.supports("timers.read"));
     assert(!emptyResolver.supports("channels.read"));
     assert(!emptyResolver.supports("events.read"));
+    assert(!emptyResolver.supports("events.read.selective"));
     assert(!emptyResolver.supports("recordings.delete"));
     assert(!emptyResolver.supports("timers.create"));
     assert(!emptyResolver.supports("unknown.capability"));
@@ -32,6 +33,7 @@ int main()
     assert(readOnlyResolver.supports("timers.read"));
     assert(readOnlyResolver.supports("channels.read"));
     assert(readOnlyResolver.supports("events.read"));
+    assert(readOnlyResolver.supports("events.read.selective"));
 
     assert(!readOnlyResolver.supports("recordings.delete"));
     assert(!readOnlyResolver.supports("timers.create"));
