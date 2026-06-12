@@ -410,6 +410,38 @@ static void test_event_change_records_selective_events_refresh_measurement()
     assert(foundSelectiveMeasurement == true);
 }
 
+static void test_event_change_falls_back_to_full_events_when_selective_refresh_is_disabled()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+
+    DomainRefreshPolicy refreshPolicy;
+    refreshPolicy.setAllowSelectiveEventRefresh(false);
+
+    PollingService pollingService(
+        builder,
+        service,
+        snapshotCacheService,
+        "default",
+        refreshPolicy);
+
+    adapter.changeState.eventsVersion = 1;
+    pollingService.poll();
+
+    adapter.changeState.eventsVersion = 2;
+    pollingService.poll();
+
+    assert(pollingService.changeEvents().size() == 1);
+    assert(pollingService.changeEvents()[0].type() == VdrChangeType::EventsChanged);
+    assert(pollingService.lastUpdatePlan().shouldRefreshEvents() == true);
+    assert(pollingService.lastUpdatePlan().hasSelectiveEventRefresh() == false);
+    assert(adapter.eventsReadCount == 2);
+    assert(adapter.selectiveEventsReadCount == 0);
+}
+
 static void test_change_events_are_cleared_before_next_poll()
 {
     CountingVdrAdapter adapter;
@@ -566,6 +598,7 @@ int main()
     test_multiple_changes_refresh_only_selected_domains();
     test_event_change_refreshes_selective_events_only();
     test_event_change_records_selective_events_refresh_measurement();
+    test_event_change_falls_back_to_full_events_when_selective_refresh_is_disabled();
     test_change_events_are_cleared_before_next_poll();
     test_polling_service_updates_backend_snapshot();
     test_polling_change_events_can_feed_snapshot_change_feed();

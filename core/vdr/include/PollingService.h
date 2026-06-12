@@ -2,6 +2,7 @@
 #define POLLING_SERVICE_H
 
 #include "ChangeDetectionService.h"
+#include "DomainRefreshPolicy.h"
 #include "IRuntimeLogger.h"
 #include "IRuntimeMeasurementSink.h"
 #include "RuntimeLogEntry.h"
@@ -34,6 +35,15 @@ public:
         VdrService& vdrService,
         SnapshotCacheService& snapshotCacheService,
         const std::string& backendId,
+        IRuntimeLogger* logger = nullptr,
+        IRuntimeMeasurementSink* measurementSink = nullptr);
+
+    PollingService(
+        VdrSnapshotBuilder& snapshotBuilder,
+        VdrService& vdrService,
+        SnapshotCacheService& snapshotCacheService,
+        const std::string& backendId,
+        DomainRefreshPolicy refreshPolicy,
         IRuntimeLogger* logger = nullptr,
         IRuntimeMeasurementSink* measurementSink = nullptr);
 

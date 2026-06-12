@@ -39,12 +39,33 @@ PollingService::PollingService(
     const std::string& backendId,
     IRuntimeLogger* logger,
     IRuntimeMeasurementSink* measurementSink)
+    : PollingService(
+          snapshotBuilder,
+          vdrService,
+          snapshotCacheService,
+          backendId,
+          DomainRefreshPolicy(),
+          logger,
+          measurementSink)
+{
+}
+
+PollingService::PollingService(
+    VdrSnapshotBuilder& snapshotBuilder,
+    VdrService& vdrService,
+    SnapshotCacheService& snapshotCacheService,
+    const std::string& backendId,
+    DomainRefreshPolicy refreshPolicy,
+    IRuntimeLogger* logger,
+    IRuntimeMeasurementSink* measurementSink)
     : snapshotBuilder_(snapshotBuilder),
       vdrService_(vdrService),
       snapshotCacheService_(snapshotCacheService),
       backendId_(backendId),
       logger_(logger),
       measurementSink_(measurementSink),
+      changeDetectionService_(),
+      snapshotRefreshPlanner_(refreshPolicy),
       hasChangeState_(false)
 {
 }
