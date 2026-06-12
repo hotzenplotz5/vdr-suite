@@ -53,6 +53,7 @@ Phase 21.1 - RESTfulAPI Event Stream Strategy
 Current architecture validation:
 
 - [Phase 21.0 - Real VDR Runtime Polling Findings](phase-21.0-real-vdr-runtime-polling-findings.md)
+- [Phase 21.1 - RESTfulAPI Event Stream Strategy](phase-21.1-restfulapi-event-stream-strategy.md)
 
 ---
 
@@ -108,6 +109,7 @@ These documents are historical implementation notes or phase-specific architectu
 - [Phase 11 Snapshot Read APIs](phase-11-snapshot-read-apis.md)
 - [Phase 14.3 - Backend-Aware Snapshot Routing](phase-14.3-backend-aware-snapshot-routing.md)
 - [Phase 21.0 - Real VDR Runtime Polling Findings](phase-21.0-real-vdr-runtime-polling-findings.md)
+- [Phase 21.1 - RESTfulAPI Event Stream Strategy](phase-21.1-restfulapi-event-stream-strategy.md)
 
 ---
 
