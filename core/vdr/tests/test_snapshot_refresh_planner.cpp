@@ -68,6 +68,23 @@ static void test_events_changed_creates_selective_event_refresh_by_default()
     assert(query.channelEventLimit == 2);
 }
 
+static void test_events_changed_falls_back_to_full_refresh_when_selective_refresh_is_disabled()
+{
+    DomainRefreshPolicy policy;
+    policy.setAllowSelectiveEventRefresh(false);
+
+    SnapshotRefreshPlanner planner(policy);
+
+    const auto plan = planner.createPlan({
+        VdrChangeEvent(VdrChangeType::EventsChanged)
+    });
+
+    assert(plan.hasRefreshWork() == true);
+    assert(plan.requiresFullSnapshot() == false);
+    assert(plan.shouldRefreshEvents() == true);
+    assert(plan.hasSelectiveEventRefresh() == false);
+}
+
 static void test_mixed_events_change_keeps_lightweight_refreshes_only()
 {
     SnapshotRefreshPlanner planner;
@@ -107,6 +124,7 @@ int main()
     test_single_domain_event_creates_matching_domain_refresh();
     test_multiple_lightweight_domain_events_are_merged_into_one_plan();
     test_events_changed_creates_selective_event_refresh_by_default();
+    test_events_changed_falls_back_to_full_refresh_when_selective_refresh_is_disabled();
     test_mixed_events_change_keeps_lightweight_refreshes_only();
     test_status_event_creates_status_refresh();
 

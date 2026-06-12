@@ -20,6 +20,19 @@ static void test_events_domain_is_heavy()
     assert(policy.isHeavyDomain(RefreshDomain::Events) == true);
     assert(policy.allowsAutomaticFullRefresh(RefreshDomain::Events) == false);
     assert(policy.requiresSelectiveRefresh(RefreshDomain::Events) == true);
+    assert(policy.allowsSelectiveEventRefresh() == true);
+}
+
+static void test_events_domain_can_fallback_to_full_refresh()
+{
+    DomainRefreshPolicy policy;
+
+    policy.setAllowSelectiveEventRefresh(false);
+
+    assert(policy.isHeavyDomain(RefreshDomain::Events) == true);
+    assert(policy.allowsAutomaticFullRefresh(RefreshDomain::Events) == true);
+    assert(policy.requiresSelectiveRefresh(RefreshDomain::Events) == false);
+    assert(policy.allowsSelectiveEventRefresh() == false);
 }
 
 static void test_lightweight_domains_are_not_heavy()
@@ -36,6 +49,7 @@ int main()
 {
     test_lightweight_domains_allow_automatic_full_refresh();
     test_events_domain_is_heavy();
+    test_events_domain_can_fallback_to_full_refresh();
     test_lightweight_domains_are_not_heavy();
 
     std::cout

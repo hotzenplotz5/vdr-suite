@@ -20,7 +20,7 @@ public:
         case RefreshDomain::Timers:
             return true;
         case RefreshDomain::Events:
-            return false;
+            return !allowSelectiveEventRefresh_;
         }
 
         return false;
@@ -28,7 +28,21 @@ public:
 
     bool requiresSelectiveRefresh(RefreshDomain domain) const
     {
+        if (domain == RefreshDomain::Events) {
+            return allowSelectiveEventRefresh_;
+        }
+
         return !allowsAutomaticFullRefresh(domain);
+    }
+
+    void setAllowSelectiveEventRefresh(bool allowed)
+    {
+        allowSelectiveEventRefresh_ = allowed;
+    }
+
+    bool allowsSelectiveEventRefresh() const
+    {
+        return allowSelectiveEventRefresh_;
     }
 
     bool isHeavyDomain(RefreshDomain domain) const
@@ -45,6 +59,8 @@ public:
 
         return false;
     }
+private:
+    bool allowSelectiveEventRefresh_ = true;
 };
 
 #endif
