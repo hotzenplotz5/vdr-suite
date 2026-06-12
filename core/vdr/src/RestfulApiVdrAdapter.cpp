@@ -9,7 +9,9 @@
 #include "RestfulApiTimerMapper.h"
 
 #include <cctype>
+#include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -87,6 +89,17 @@ std::string parseStringField(const std::string& json, const std::string& fieldNa
     return json.substr(valueStart, valueEnd - valueStart);
 }
 
+std::string appendQueryOption(const std::string& url, bool& hasQuery, const std::string& name, const std::string& value)
+{
+    std::string result = url;
+    result += hasQuery ? "&" : "?";
+    result += name;
+    result += "=";
+    result += value;
+    hasQuery = true;
+    return result;
+}
+
 } // namespace
 
 RestfulApiVdrAdapter::RestfulApiVdrAdapter(VdrConfig config, IHttpClient& httpClient)
@@ -125,9 +138,15 @@ std::vector<VdrChannel> RestfulApiVdrAdapter::getChannels() const
 
 std::vector<VdrEvent> RestfulApiVdrAdapter::getEvents() const
 {
+    VdrEventQuery query;
+    return getEvents(query);
+}
+
+std::vector<VdrEvent> RestfulApiVdrAdapter::getEvents(const VdrEventQuery& query) const
+{
     HttpRequest request;
     request.method = "GET";
-    request.url = "/events.json";
+    request.url = buildEventsUrl(query);
     request.headers["Accept"] = "application/json";
 
     HttpResponse response = httpClient_.execute(request);
@@ -137,6 +156,51 @@ std::vector<VdrEvent> RestfulApiVdrAdapter::getEvents() const
     }
 
     return RestfulApiEventMapper::parseEvents(response.body);
+}
+
+std::string RestfulApiVdrAdapter::buildEventsUrl(const VdrEventQuery& query)
+{
+    std::string url = "/events";
+
+    if (!query.channelId.empty()) {
+        url += "/";
+        url += query.channelId;
+    }
+
+    if (!query.eventId.empty()) {
+        url += "/";
+        url += query.eventId;
+    }
+
+    url += ".json";
+
+    bool hasQuery = false;
+
+    if (query.from >= 0) {
+        url = appendQueryOption(url, hasQuery, "from", std::to_string(query.from));
+    }
+
+    if (query.timespan > 0) {
+        url = appendQueryOption(url, hasQuery, "timespan", std::to_string(query.timespan));
+    }
+
+    if (query.start >= 0) {
+        url = appendQueryOption(url, hasQuery, "start", std::to_string(query.start));
+    }
+
+    if (query.limit > 0) {
+        url = appendQueryOption(url, hasQuery, "limit", std::to_string(query.limit));
+    }
+
+    if (query.channelEventLimit > 0) {
+        url = appendQueryOption(url, hasQuery, "chevents", std::to_string(query.channelEventLimit));
+    }
+
+    if (query.onlyCount) {
+        url = appendQueryOption(url, hasQuery, "only_count", "true");
+    }
+
+    return url;
 }
 
 std::vector<VdrTimer> RestfulApiVdrAdapter::getTimers() const

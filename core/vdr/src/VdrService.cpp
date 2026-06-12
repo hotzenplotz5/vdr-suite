@@ -33,6 +33,12 @@ std::vector<VdrEvent> VdrService::getEvents() const
     return adapter_.getEvents();
 }
 
+std::vector<VdrEvent> VdrService::getEvents(const VdrEventQuery& query) const
+{
+    log(RuntimeLogLevel::Info, "Loading events with query");
+    return adapter_.getEvents(query);
+}
+
 std::vector<VdrTimer> VdrService::getTimers() const
 {
     log(RuntimeLogLevel::Info, "Loading timers");

@@ -234,6 +234,39 @@ static void test_restful_api_vdr_adapter_requests_events_endpoint()
     assert(httpClient.lastRequest().headers.at("Accept") == "application/json");
 }
 
+static void test_restful_api_vdr_adapter_requests_selective_events_endpoint()
+{
+    VdrConfig config = make_restfulapi_config();
+    MockHttpClient httpClient;
+
+    HttpResponse eventsResponse;
+    eventsResponse.statusCode = 200;
+    eventsResponse.headers["Content-Type"] = "application/json";
+    eventsResponse.body = "{\"events\":[]}";
+
+    httpClient.setResponse(eventsResponse);
+
+    RestfulApiVdrAdapter adapter(config, httpClient);
+
+    VdrEventQuery query;
+    query.channelId = "C-61441-10023-10376";
+    query.eventId = "56748";
+    query.from = 1780450000;
+    query.timespan = 7200;
+    query.start = 5;
+    query.limit = 10;
+    query.channelEventLimit = 2;
+    query.onlyCount = true;
+
+    std::vector<VdrEvent> events = adapter.getEvents(query);
+
+    assert(events.empty() == true);
+    assert(httpClient.requestCount() == 1);
+    assert(httpClient.lastRequest().method == "GET");
+    assert(httpClient.lastRequest().url == "/events/C-61441-10023-10376/56748.json?from=1780450000&timespan=7200&start=5&limit=10&chevents=2&only_count=true");
+    assert(httpClient.lastRequest().headers.at("Accept") == "application/json");
+}
+
 static void test_restful_api_vdr_adapter_maps_events_response()
 {
     VdrConfig config = make_restfulapi_config();
@@ -492,6 +525,7 @@ int main()
     test_restful_api_vdr_adapter_ignores_http_error_for_channels();
     test_restful_api_vdr_adapter_tolerates_invalid_channel_json();
     test_restful_api_vdr_adapter_requests_events_endpoint();
+    test_restful_api_vdr_adapter_requests_selective_events_endpoint();
     test_restful_api_vdr_adapter_maps_events_response();
     test_restful_api_vdr_adapter_ignores_http_error_for_events();
     test_restful_api_vdr_adapter_tolerates_invalid_json();

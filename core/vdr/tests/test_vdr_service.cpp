@@ -52,6 +52,22 @@ static void test_vdr_service_returns_events_from_adapter()
     assert(events[1].parentalRating == 12);
 }
 
+static void test_vdr_service_returns_filtered_events_from_adapter()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+
+    VdrEventQuery query;
+    query.channelId = "mock-channel-1";
+    query.eventId = "mock-event-2";
+
+    std::vector<VdrEvent> events = service.getEvents(query);
+
+    assert(events.size() == 1);
+    assert(events[0].id == "mock-event-2");
+    assert(events[0].title == "Tatort");
+}
+
 static void test_vdr_service_returns_timers_from_adapter()
 {
     MockVdrAdapter adapter;
@@ -86,6 +102,7 @@ int main()
     test_vdr_service_returns_status_from_adapter();
     test_vdr_service_returns_channels_from_adapter();
     test_vdr_service_returns_events_from_adapter();
+    test_vdr_service_returns_filtered_events_from_adapter();
     test_vdr_service_returns_timers_from_adapter();
     test_vdr_service_returns_recordings_from_adapter();
 

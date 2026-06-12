@@ -7,6 +7,7 @@
 #include "VdrChangeState.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
+#include "VdrEventQuery.h"
 #include "VdrRecording.h"
 #include "VdrStatus.h"
 #include "VdrTimer.h"
@@ -22,6 +23,7 @@ public:
     VdrStatus getStatus() const;
     std::vector<VdrChannel> getChannels() const;
     std::vector<VdrEvent> getEvents() const;
+    std::vector<VdrEvent> getEvents(const VdrEventQuery& query) const;
     std::vector<VdrTimer> getTimers() const;
     std::vector<VdrRecording> getRecordings() const;
     VdrChangeState getChangeState() const;

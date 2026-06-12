@@ -76,6 +76,33 @@ std::vector<VdrEvent> MockVdrAdapter::getEvents() const
     return { event1, event2 };
 }
 
+std::vector<VdrEvent> MockVdrAdapter::getEvents(const VdrEventQuery& query) const
+{
+    std::vector<VdrEvent> events = getEvents();
+
+    if (!query.channelId.empty()) {
+        std::vector<VdrEvent> filtered;
+        for (const VdrEvent& event : events) {
+            if (event.channelId == query.channelId) {
+                filtered.push_back(event);
+            }
+        }
+        events = filtered;
+    }
+
+    if (!query.eventId.empty()) {
+        std::vector<VdrEvent> filtered;
+        for (const VdrEvent& event : events) {
+            if (event.id == query.eventId) {
+                filtered.push_back(event);
+            }
+        }
+        events = filtered;
+    }
+
+    return events;
+}
+
 std::vector<VdrTimer> MockVdrAdapter::getTimers() const
 {
     VdrTimer timer;
