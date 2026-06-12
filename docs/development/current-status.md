@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 21.0 - Real VDR Runtime Polling Findings
+Phase 21.2 - Selective Event Query Contract
 ```
 
 Current major phase status:
@@ -55,32 +55,29 @@ Current major phase status:
 Phase 20 live transport foundation is complete through 20.9.
 Phase 21.0 documents real VDR runtime polling and EPG performance findings.
 Phase 21.1 documents RESTfulAPI event streams as optional backend-specific change hint sources.
+Phase 21.2 introduces selective event query support through the VDR adapter boundary.
 ```
 
 Verified locally with:
 
 ```text
-make test-real-restfulapi-integration
-make test-real-snapshot-builder
-make test-real-change-state
-make test-real-polling-initial-snapshot
-make test-real-polling-stability
+make test-restful-api-vdr-adapter
+make test-vdr-service
+make test-backend-polling-coordinator
 make test-fast
 make test-docs
-make test-architecture
 make test-phase
 make daemon
 ```
 
 Verification summary:
 
-- opt-in real RESTfulAPI integration passed
-- opt-in real snapshot builder validation passed
-- opt-in real change-state validation passed
-- opt-in real polling initial snapshot validation passed
-- opt-in real polling stability validation passed
-- real VDR data was validated through BasicHttpClient, RestfulApiVdrAdapter, VdrService, VdrSnapshotBuilder, PollingService, SnapshotCacheService and SnapshotRefreshPlanner
-- repeated polling without VDR changes produced no false change events and no unnecessary refresh work
+- selective event query contract compiles through the adapter, service and test layers
+- `RestfulApiVdrAdapter` can map selective event queries to existing RESTfulAPI event filters
+- test adapters implement the selective event query method
+- `make test-fast` passes with the new adapter contract
+- documentation phase consistency remains green
+- daemon build remains green
 - GitHub Actions remains the standard full regression path for normal non-VDR-specific changes
 
 ---
@@ -111,6 +108,37 @@ Verification summary:
 - `DaemonRuntime` creates backend runtime contexts from the backend registry.
 - Future multi-VDR runtime configuration can build on the registry-driven context creation model.
 - Backend identity, federation, capability and lifecycle strategy are documented through ADRs.
+- `VdrEventQuery` provides the first backend-neutral selective EPG query contract.
+- `IVdrAdapter` and `VdrService` support query-based event access while preserving legacy full-event access.
+- `RestfulApiVdrAdapter` maps selective event queries to existing RESTfulAPI query parameters.
+
+---
+
+## Selective Backend Query Rule
+
+VDR-Suite should prefer selective backend queries over full-domain transfers whenever possible.
+
+Heavy domains must not use full-domain runtime refreshes as the default strategy.
+
+Heavy domains currently include:
+
+- EPG
+- metadata
+- posters
+- fanart
+- preview data
+- scraper-derived data
+
+Preferred runtime strategies are:
+
+- channel-scoped queries
+- time-window queries
+- object-specific queries
+- change-hint driven refreshes
+
+Performance goal:
+
+Backend workload should remain comparable to established VDR frontends such as live whenever equivalent information is requested.
 
 ---
 
@@ -185,28 +213,27 @@ Real VDR tests are reserved for:
 - polling against an actual VDR
 - snapshot runtime against an actual VDR
 - multi-VDR or multi-server scenarios
+- selective RESTfulAPI EPG validation
 
 ---
 
 ## Next Technical Focus
 
 ```text
-Phase 21.1 - RESTfulAPI Event Stream Strategy
+Phase 21.3 - Selective RESTfulAPI EPG Validation
 ```
 
-The next step is to document how RESTfulAPI event streams can provide backend-specific change hints without making VDR-Suite directly dependent on RESTfulAPI SSE.
+The next step is to measure existing RESTfulAPI event filters against a real VDR before adding new RESTfulAPI endpoints or runtime polling behavior.
 
-See:
-
-- [Phase 21.1 - RESTfulAPI Event Stream Strategy](phase-21.1-restfulapi-event-stream-strategy.md)
+Validation should compare selective RESTfulAPI event queries against full `/events.json` in terms of response size, HTTP time and returned event count.
 
 Important boundaries:
 
-- snapshot change feed validation must remain transport-independent
-- real VDR tests must not be required by `make test-fast`
+- existing RESTfulAPI filters must be measured before new endpoints are proposed
+- full EPG refresh must not become the default runtime strategy
+- selective query behavior must remain behind backend-neutral adapter boundaries
+- real VDR validation should continue to use explicit opt-in environment variables
 - GitHub Actions must remain independent from a running VDR
-- RESTfulAPI validation should continue to use explicit opt-in environment variables
-- SSE and WebSocket work must consume the existing snapshot change feed later, not own polling, change detection or feed generation
 
 ---
 
