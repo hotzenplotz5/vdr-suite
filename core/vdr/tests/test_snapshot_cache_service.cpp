@@ -162,6 +162,86 @@ static void test_update_events_updates_only_events_domain()
     assert(service.cache().snapshot().events[0].id == "event-1");
 }
 
+static void test_merge_events_keeps_existing_events_and_replaces_matching_ids()
+{
+    SnapshotCache cache;
+    SnapshotCacheService service(cache);
+
+    VdrEvent existingEvent;
+    existingEvent.id = "event-1";
+    existingEvent.title = "old title";
+
+    VdrEvent untouchedEvent;
+    untouchedEvent.id = "event-2";
+    untouchedEvent.title = "keep title";
+
+    service.updateEvents({ existingEvent, untouchedEvent });
+
+    VdrEvent updatedEvent;
+    updatedEvent.id = "event-1";
+    updatedEvent.title = "new title";
+
+    VdrEvent newEvent;
+    newEvent.id = "event-3";
+    newEvent.title = "added title";
+
+    service.mergeEvents({ updatedEvent, newEvent });
+
+    assert(service.cache().hasSnapshot());
+    assert(service.generation() == 2);
+    assert(service.cache().snapshot().events.size() == 3);
+    assert(service.cache().snapshot().events[0].id == "event-1");
+    assert(service.cache().snapshot().events[0].title == "new title");
+    assert(service.cache().snapshot().events[1].id == "event-2");
+    assert(service.cache().snapshot().events[1].title == "keep title");
+    assert(service.cache().snapshot().events[2].id == "event-3");
+    assert(service.cache().snapshot().events[2].title == "added title");
+}
+
+static void test_merge_events_for_backend_keeps_existing_backend_events()
+{
+    SnapshotCache cache;
+    SnapshotCacheService service(cache);
+
+    VdrSnapshot snapshot;
+    snapshot.backendId = "home-vdr";
+
+    VdrEvent existingEvent;
+    existingEvent.id = "event-1";
+    existingEvent.title = "old title";
+
+    VdrEvent untouchedEvent;
+    untouchedEvent.id = "event-2";
+    untouchedEvent.title = "keep title";
+
+    snapshot.events = { existingEvent, untouchedEvent };
+
+    service.updateSnapshotForBackend("home-vdr", snapshot);
+
+    VdrEvent updatedEvent;
+    updatedEvent.id = "event-1";
+    updatedEvent.title = "new title";
+
+    VdrEvent newEvent;
+    newEvent.id = "event-3";
+    newEvent.title = "added title";
+
+    service.mergeEventsForBackend("home-vdr", { updatedEvent, newEvent });
+
+    const VdrSnapshot* updatedSnapshot =
+        service.cache().snapshotForBackend("home-vdr");
+
+    assert(updatedSnapshot != nullptr);
+    assert(service.generation() == 2);
+    assert(updatedSnapshot->events.size() == 3);
+    assert(updatedSnapshot->events[0].id == "event-1");
+    assert(updatedSnapshot->events[0].title == "new title");
+    assert(updatedSnapshot->events[1].id == "event-2");
+    assert(updatedSnapshot->events[1].title == "keep title");
+    assert(updatedSnapshot->events[2].id == "event-3");
+    assert(updatedSnapshot->events[2].title == "added title");
+}
+
 static void test_clear_clears_cache()
 {
     SnapshotCache cache;
@@ -189,6 +269,8 @@ int main()
     test_update_timers_updates_only_timers_domain();
     test_update_channels_updates_only_channels_domain();
     test_update_events_updates_only_events_domain();
+    test_merge_events_keeps_existing_events_and_replaces_matching_ids();
+    test_merge_events_for_backend_keeps_existing_backend_events();
     test_clear_clears_cache();
 
     return 0;

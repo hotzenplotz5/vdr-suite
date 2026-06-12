@@ -1,5 +1,7 @@
 #include "SnapshotCacheService.h"
 
+#include <algorithm>
+
 SnapshotCacheService::SnapshotCacheService(SnapshotCache& cache)
     : cache_(cache),
       generation_(0)
@@ -112,6 +114,35 @@ void SnapshotCacheService::updateEvents(const std::vector<VdrEvent>& events)
     incrementGeneration();
 }
 
+void SnapshotCacheService::mergeEvents(const std::vector<VdrEvent>& events)
+{
+    VdrSnapshot snapshot = cache_.hasSnapshot()
+        ? cache_.snapshot()
+        : VdrSnapshot{};
+
+    for (const VdrEvent& event : events)
+    {
+        const auto existing = std::find_if(
+            snapshot.events.begin(),
+            snapshot.events.end(),
+            [&event](const VdrEvent& cachedEvent) {
+                return cachedEvent.id == event.id;
+            });
+
+        if (existing == snapshot.events.end())
+        {
+            snapshot.events.push_back(event);
+        }
+        else
+        {
+            *existing = event;
+        }
+    }
+
+    cache_.update(snapshot);
+    incrementGeneration();
+}
+
 void SnapshotCacheService::updateSnapshotForBackend(
     const std::string& backendId,
     const VdrSnapshot& snapshot)
@@ -166,6 +197,35 @@ void SnapshotCacheService::updateEventsForBackend(
 {
     VdrSnapshot snapshot = snapshotForBackendOrEmpty(backendId);
     snapshot.events = events;
+    cache_.updateForBackend(backendId, snapshot);
+    incrementGeneration();
+}
+
+void SnapshotCacheService::mergeEventsForBackend(
+    const std::string& backendId,
+    const std::vector<VdrEvent>& events)
+{
+    VdrSnapshot snapshot = snapshotForBackendOrEmpty(backendId);
+
+    for (const VdrEvent& event : events)
+    {
+        const auto existing = std::find_if(
+            snapshot.events.begin(),
+            snapshot.events.end(),
+            [&event](const VdrEvent& cachedEvent) {
+                return cachedEvent.id == event.id;
+            });
+
+        if (existing == snapshot.events.end())
+        {
+            snapshot.events.push_back(event);
+        }
+        else
+        {
+            *existing = event;
+        }
+    }
+
     cache_.updateForBackend(backendId, snapshot);
     incrementGeneration();
 }
