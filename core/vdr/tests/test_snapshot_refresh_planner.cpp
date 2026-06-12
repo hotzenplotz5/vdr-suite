@@ -30,6 +30,7 @@ static void test_single_domain_event_creates_matching_domain_refresh()
     assert(plan.shouldRefreshRecordings() == false);
     assert(plan.shouldRefreshTimers() == false);
     assert(plan.shouldRefreshEvents() == false);
+    assert(plan.hasSelectiveEventRefresh() == false);
 }
 
 static void test_multiple_lightweight_domain_events_are_merged_into_one_plan()
@@ -50,7 +51,7 @@ static void test_multiple_lightweight_domain_events_are_merged_into_one_plan()
     assert(plan.shouldRefreshEvents() == false);
 }
 
-static void test_events_changed_does_not_create_full_event_refresh_by_default()
+static void test_events_changed_creates_selective_event_refresh_by_default()
 {
     SnapshotRefreshPlanner planner;
 
@@ -58,9 +59,13 @@ static void test_events_changed_does_not_create_full_event_refresh_by_default()
         VdrChangeEvent(VdrChangeType::EventsChanged)
     });
 
-    assert(plan.hasRefreshWork() == false);
+    const auto query = plan.selectiveEventQuery();
+
+    assert(plan.hasRefreshWork() == true);
     assert(plan.requiresFullSnapshot() == false);
     assert(plan.shouldRefreshEvents() == false);
+    assert(plan.hasSelectiveEventRefresh() == true);
+    assert(query.channelEventLimit == 2);
 }
 
 static void test_mixed_events_change_keeps_lightweight_refreshes_only()
@@ -101,7 +106,7 @@ int main()
     test_empty_events_create_empty_plan();
     test_single_domain_event_creates_matching_domain_refresh();
     test_multiple_lightweight_domain_events_are_merged_into_one_plan();
-    test_events_changed_does_not_create_full_event_refresh_by_default();
+    test_events_changed_creates_selective_event_refresh_by_default();
     test_mixed_events_change_keeps_lightweight_refreshes_only();
     test_status_event_creates_status_refresh();
 

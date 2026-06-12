@@ -1,6 +1,8 @@
 #ifndef SNAPSHOT_UPDATE_PLAN_H
 #define SNAPSHOT_UPDATE_PLAN_H
 
+#include "VdrEventQuery.h"
+
 class SnapshotUpdatePlan {
 public:
     SnapshotUpdatePlan();
@@ -10,6 +12,8 @@ public:
     bool shouldRefreshRecordings() const;
     bool shouldRefreshTimers() const;
     bool shouldRefreshEvents() const;
+    bool hasSelectiveEventRefresh() const;
+    VdrEventQuery selectiveEventQuery() const;
     bool requiresFullSnapshot() const;
     bool hasRefreshWork() const;
 
@@ -18,6 +22,7 @@ public:
     void markRecordingsRefresh();
     void markTimersRefresh();
     void markEventsRefresh();
+    void markSelectiveEventRefresh(const VdrEventQuery& query);
     void markFullSnapshotRefresh();
 
 private:
@@ -26,6 +31,8 @@ private:
     bool refreshRecordings_;
     bool refreshTimers_;
     bool refreshEvents_;
+    bool selectiveEventRefresh_;
+    VdrEventQuery selectiveEventQuery_;
     bool fullSnapshotRefresh_;
 };
 

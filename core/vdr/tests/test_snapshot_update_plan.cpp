@@ -14,6 +14,7 @@ static void test_default_plan_has_no_refresh_work()
     assert(plan.shouldRefreshRecordings() == false);
     assert(plan.shouldRefreshTimers() == false);
     assert(plan.shouldRefreshEvents() == false);
+    assert(plan.hasSelectiveEventRefresh() == false);
 }
 
 static void test_domain_refresh_flags_are_independent()
@@ -30,6 +31,31 @@ static void test_domain_refresh_flags_are_independent()
     assert(plan.shouldRefreshRecordings() == true);
     assert(plan.shouldRefreshTimers() == false);
     assert(plan.shouldRefreshEvents() == false);
+    assert(plan.hasSelectiveEventRefresh() == false);
+}
+
+static void test_selective_event_refresh_stores_query_without_full_event_refresh()
+{
+    SnapshotUpdatePlan plan;
+
+    VdrEventQuery query;
+    query.channelId = "channel-1";
+    query.from = 1700000000;
+    query.timespan = 3600;
+    query.limit = 50;
+
+    plan.markSelectiveEventRefresh(query);
+
+    const auto storedQuery = plan.selectiveEventQuery();
+
+    assert(plan.hasRefreshWork() == true);
+    assert(plan.requiresFullSnapshot() == false);
+    assert(plan.shouldRefreshEvents() == false);
+    assert(plan.hasSelectiveEventRefresh() == true);
+    assert(storedQuery.channelId == "channel-1");
+    assert(storedQuery.from == 1700000000);
+    assert(storedQuery.timespan == 3600);
+    assert(storedQuery.limit == 50);
 }
 
 static void test_full_snapshot_refresh_implies_all_domains()
@@ -45,12 +71,14 @@ static void test_full_snapshot_refresh_implies_all_domains()
     assert(plan.shouldRefreshRecordings() == true);
     assert(plan.shouldRefreshTimers() == true);
     assert(plan.shouldRefreshEvents() == true);
+    assert(plan.hasSelectiveEventRefresh() == false);
 }
 
 int main()
 {
     test_default_plan_has_no_refresh_work();
     test_domain_refresh_flags_are_independent();
+    test_selective_event_refresh_stores_query_without_full_event_refresh();
     test_full_snapshot_refresh_implies_all_domains();
 
     std::cout

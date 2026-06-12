@@ -40,6 +40,10 @@ SnapshotUpdatePlan SnapshotRefreshPlanner::createPlan(
         case VdrChangeType::EventsChanged:
             if (refreshPolicy_.allowsAutomaticFullRefresh(RefreshDomain::Events)) {
                 plan.markEventsRefresh();
+            } else if (refreshPolicy_.requiresSelectiveRefresh(RefreshDomain::Events)) {
+                VdrEventQuery query;
+                query.channelEventLimit = 2;
+                plan.markSelectiveEventRefresh(query);
             }
             break;
         }

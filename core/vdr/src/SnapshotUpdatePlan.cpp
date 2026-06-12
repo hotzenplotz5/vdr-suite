@@ -6,6 +6,8 @@ SnapshotUpdatePlan::SnapshotUpdatePlan()
       refreshRecordings_(false),
       refreshTimers_(false),
       refreshEvents_(false),
+      selectiveEventRefresh_(false),
+      selectiveEventQuery_(),
       fullSnapshotRefresh_(false)
 {
 }
@@ -35,6 +37,16 @@ bool SnapshotUpdatePlan::shouldRefreshEvents() const
     return refreshEvents_ || fullSnapshotRefresh_;
 }
 
+bool SnapshotUpdatePlan::hasSelectiveEventRefresh() const
+{
+    return selectiveEventRefresh_;
+}
+
+VdrEventQuery SnapshotUpdatePlan::selectiveEventQuery() const
+{
+    return selectiveEventQuery_;
+}
+
 bool SnapshotUpdatePlan::requiresFullSnapshot() const
 {
     return fullSnapshotRefresh_;
@@ -46,7 +58,8 @@ bool SnapshotUpdatePlan::hasRefreshWork() const
         || shouldRefreshChannels()
         || shouldRefreshRecordings()
         || shouldRefreshTimers()
-        || shouldRefreshEvents();
+        || shouldRefreshEvents()
+        || hasSelectiveEventRefresh();
 }
 
 void SnapshotUpdatePlan::markStatusRefresh()
@@ -72,6 +85,12 @@ void SnapshotUpdatePlan::markTimersRefresh()
 void SnapshotUpdatePlan::markEventsRefresh()
 {
     refreshEvents_ = true;
+}
+
+void SnapshotUpdatePlan::markSelectiveEventRefresh(const VdrEventQuery& query)
+{
+    selectiveEventRefresh_ = true;
+    selectiveEventQuery_ = query;
 }
 
 void SnapshotUpdatePlan::markFullSnapshotRefresh()
