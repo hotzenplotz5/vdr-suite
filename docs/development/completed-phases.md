@@ -389,17 +389,53 @@ Verified with:
 
 ---
 
+## Phase 24 - EPG Query Architecture
+
+Status: Completed through Phase 24.5
+
+Result:
+
+- `EpgQueryFactory` introduced a fachliche EPG query layer above `VdrEventQuery`
+- German and English project overview documents were added for external readers
+- `EpgQueryScope` and `EpgQueryRequest` introduced backend-neutral EPG query intent types
+- `IEpgQueryService` and `EpgQueryService` introduced a service boundary for future clients
+- RESTfulAPI integration tests verify that `EpgQueryService` reaches `RestfulApiVdrAdapter` with the expected selective event URLs
+- live RESTfulAPI verification against VDR confirmed channel-scoped EPG queries with `from`, `timespan`, `chevents` and `limit`
+- live RESTfulAPI verification showed that `only_count=true` returns `count=0`, `total=<full channel total>` and an empty event list, so it must not be used as a reliable fachlicher EPG count path for now
+
+Architecture rule:
+
+Frontends should use `IEpgQueryService` instead of creating `VdrEventQuery` directly.
+
+`only_count=true` must remain adapter-specific and should not be exposed as a fachlicher EPG query feature until its real backend behavior is clarified.
+
+Verified with:
+
+- make test-epg-query-factory
+- make test-epg-query-service
+- make test-epg-query-service-restfulapi
+- make test-fast
+- make test-docs
+- make test-phase
+- live RESTfulAPI `info.json`
+- live RESTfulAPI channel EPG query with `from` and `timespan`
+- live RESTfulAPI channel EPG query with `chevents=2`
+- live RESTfulAPI channel EPG query with `limit=5`
+- live RESTfulAPI channel EPG query with `only_count=true`
+
+---
+
 ## Next Work
 
-The next work should introduce EPG Query Architecture.
+The next work should expose the EPG query service through a REST API boundary.
 
 Goals:
 
-- define backend-neutral EPG query scopes
-- prepare now/next and time-window EPG reads
-- preserve selective backend query behavior
-- avoid full EPG refresh as a default runtime path
-- prepare later SearchTimer and EPG query features
+- add a REST-facing EPG controller boundary
+- keep REST controllers independent from RESTfulAPI query parameters
+- route public EPG requests through `IEpgQueryService`
+- prepare `GET /api/vdr/epg` and channel-scoped EPG routes
+- preserve backend-neutral EPG query behavior
 
 ---
 
