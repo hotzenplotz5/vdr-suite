@@ -25,6 +25,7 @@
 #include "SnapshotChangeFeed.h"
 #include "SnapshotChangeFeedController.h"
 #include "SnapshotChangeFeedJsonSerializer.h"
+#include "SseLiveTransport.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
 #include "TestHttpServer.h"
