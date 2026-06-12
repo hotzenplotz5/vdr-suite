@@ -394,7 +394,7 @@ static void test_event_change_records_selective_events_refresh_measurement()
     adapter.changeState.eventsVersion = 2;
     pollingService.poll();
 
-    assert(containsMeasurement(sink, "PollingService", "Selective events refresh"));
+    assert(containsMeasurement(sink, "PollingService", "Selective events merge refresh"));
     assert(containsMeasurement(sink, "PollingService", "Partial refresh"));
 }
 
