@@ -30,11 +30,11 @@ Canonical ADR sequence:
 ADR-0001
 ADR-0002
 ...
-ADR-0020
+ADR-0021
 
 Next available ADR:
 
-ADR-0021
+ADR-0022
 
 The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
 
@@ -68,6 +68,7 @@ If a canonical ADR is superseded, keep it only in the superseded section and do 
 - ADR-0018 Incremental Snapshot Synchronization
 - ADR-0019 SSE Event Stream Transport Strategy
 - ADR-0020 Multi-Source Federation Architecture
+- ADR-0021 Selective Backend Query Strategy
 
 ---
 
@@ -134,6 +135,7 @@ Retained for historical reference:
 - [ADR-0018: Incremental Snapshot Synchronization](ADR-0018-incremental-snapshot-synchronization.md)
 - [ADR-0019: SSE Event Stream Transport Strategy](ADR-0019-sse-event-stream-transport-strategy.md)
 - [ADR-0020: Multi-Source Federation Architecture](ADR-0020-multi-source-federation-architecture.md)
+- [ADR-0021: Selective Backend Query Strategy](ADR-0021-selective-backend-query-strategy.md)
 
 ### Superseded Canonical ADRs
 
