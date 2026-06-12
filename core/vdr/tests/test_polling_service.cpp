@@ -72,6 +72,12 @@ public:
         return { event };
     }
 
+    std::vector<VdrEvent> getEvents(const VdrEventQuery& query) const override
+    {
+        (void)query;
+        return getEvents();
+    }
+
     std::vector<VdrChannel> getChannels() const override
     {
         ++channelsReadCount;
