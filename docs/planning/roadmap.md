@@ -40,19 +40,23 @@ VDR remains the primary backend domain and source of truth.
 
 VDR-Suite complements VDR. It does not replace it.
 
+VDR-Suite should prefer selective backend queries over full-domain transfers whenever possible.
+
+The runtime performance target is backend workload comparable to established VDR frontends such as `live` when equivalent user-visible information is requested.
+
 ---
 
 ## Current Position
 
 ```text
 Completed implementation state
-Phase 21.0 - Real VDR Runtime Polling Findings
+Phase 21.2 - Selective Event Query Contract
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 21.0
+Documentation and roadmap synchronization after Phase 21.2
 
 Next implementation step
-Phase 21.1 - RESTfulAPI Event Stream Strategy
+Phase 21.3 - Selective RESTfulAPI EPG Validation
 ```
 
 Phase 16 completed the multi-backend polling and runtime context foundation. Backend-aware polling, backend polling coordination, backend runtime contexts, daemon runtime context migration, registry-driven context creation and backend-aware snapshot change feed support are implemented.
@@ -66,6 +70,12 @@ Phase 19 completed snapshot change feed validation through Phase 19.3.
 Phase 20 completed the live transport foundation through Phase 20.9.
 
 Phase 21.0 documented real VDR runtime polling and EPG performance findings.
+
+Phase 21.1 documented RESTfulAPI event streams as optional backend-specific change hint sources and clarified that event streams provide hints, not authoritative domain payloads.
+
+Phase 21.2 introduced the first selective backend query contract through `VdrEventQuery`, `IVdrAdapter`, `VdrService` and `RestfulApiVdrAdapter`.
+
+ADR-0021 documents the long-term selective backend query strategy.
 
 ---
 
@@ -121,6 +131,9 @@ Phase 20.7 - ApiRouter live route
 Phase 20.8 - DaemonRuntime live transport wiring
 Phase 20.9 - Live transport publish bridge
 Phase 21.0 - Real VDR runtime polling findings
+Phase 21.1 - RESTfulAPI event stream strategy
+Phase 21.2 - Selective event query contract
+ADR-0021 - Selective backend query strategy
 ```
 
 Completed implementation detail belongs in [Completed Phases](../development/completed-phases.md).
@@ -153,6 +166,7 @@ Real VDR tests remain reserved for:
 - polling against an actual VDR
 - snapshot runtime against an actual VDR
 - multi-VDR or multi-server scenarios
+- selective RESTfulAPI EPG validation
 
 Architecture rule:
 
@@ -219,38 +233,42 @@ Live transport must not become the owner of:
 
 ---
 
-## Phase 21 - Runtime Change Hint Strategy
+## Phase 21 - Runtime Change Hint and Selective Query Strategy
 
 Goal:
 
-Define how VDR-Suite should use cheap change hints, backend-specific event streams and domain-aware refresh decisions without breaking the snapshot architecture.
+Define how VDR-Suite should use cheap change hints, backend-specific event streams and selective backend queries without breaking the snapshot architecture.
 
 Completed:
 
 - Phase 21.0 documented real VDR runtime polling findings.
 - Phase 21.0 identified Events / EPG as a heavy domain.
 - Phase 21.0 ruled out naive cyclic full snapshot refreshes.
+- Phase 21.1 documented RESTfulAPI event streams as optional backend-specific change hint sources.
+- Phase 21.1 documented that event streams provide hints, not authoritative domain data.
+- Phase 21.2 introduced `VdrEventQuery` as the first backend-neutral selective EPG query contract.
+- Phase 21.2 extended `IVdrAdapter`, `VdrService` and `RestfulApiVdrAdapter` for selective event access.
+- ADR-0021 accepted selective backend queries as a long-term architecture rule.
 
 Current focus:
 
 ```text
-Phase 21.1 - RESTfulAPI Event Stream Strategy
+Phase 21.3 - Selective RESTfulAPI EPG Validation
 ```
 
 Planned direction:
 
-- document RESTfulAPI event streams as optional backend-specific change hint sources
-- keep RESTfulAPI SSE below or beside the backend boundary
-- keep snapshot architecture authoritative
-- ensure event streams provide hints, not domain data
-- ensure live transport consumes snapshot change feed entries only
-- prepare domain-aware runtime polling as a later implementation step
-- keep polling as a fallback
+- validate existing RESTfulAPI event filters against a real VDR
+- compare selective query response size, HTTP time and event count against full `/events.json`
+- measure `from`, `timespan`, `chevents`, channel path, event ID, `start`, `limit` and `only_count`
+- determine whether existing RESTfulAPI filters are sufficient for live-like EPG views
+- avoid proposing new RESTfulAPI endpoints before measuring the existing filters
+- keep selective query construction behind backend-neutral adapter boundaries
 - protect heavy domains such as EPG, metadata, posters, fanart and preview data from naive full refresh behavior
 
 Important boundary:
 
-RESTfulAPI event streams must not replace:
+Selective backend queries must not replace:
 
 - `VdrSnapshotBuilder`
 - `SnapshotRefreshPlanner`
@@ -258,13 +276,15 @@ RESTfulAPI event streams must not replace:
 - `SnapshotChangeFeed`
 - `LiveTransport`
 
+Selective backend queries define how these layers request or refresh data without unnecessary full-domain transfers.
+
 ---
 
 ## Phase 22 - Domain-Aware Runtime Poll Loop Foundation
 
 Goal:
 
-Introduce runtime polling only after change hint strategy and heavy-domain refresh rules are defined.
+Introduce runtime polling only after change hint strategy, selective backend query contracts and heavy-domain refresh rules are defined.
 
 Planned direction:
 
@@ -273,6 +293,7 @@ Planned direction:
 - route changes through refresh planning
 - refresh lightweight domains conservatively
 - treat Events / EPG as a heavy domain
+- use selective queries before full-domain transfers
 - keep heavy domain policy explicit
 - preserve mock-based CI compatibility
 - keep real VDR validation opt-in
@@ -292,6 +313,7 @@ Planned direction:
 - avoid coupling stream delivery to snapshot change transport
 - evaluate HTTP streaming boundaries
 - prepare frontend-independent preview contracts
+- apply ADR-0021 selective backend query rules to metadata, image and preview domains
 
 Important boundary:
 
@@ -307,7 +329,7 @@ Image, preview stream and media stream handling should define how clients can re
 
 Goal:
 
-Stabilize API contracts for future frontends after the snapshot change feed and live transport foundations are validated.
+Stabilize API contracts for future frontends after the snapshot change feed, live transport and selective backend query foundations are validated.
 
 Planned direction:
 
@@ -318,6 +340,7 @@ Planned direction:
 - frontend-independent API behavior
 - backend-aware response contracts
 - frontend-safe error models
+- selective heavy-domain access patterns for frontend views
 
 ---
 
