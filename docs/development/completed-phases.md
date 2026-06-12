@@ -121,6 +121,11 @@ Verified with:
 - make test-vdr-snapshot-builder
 - make test-fast
 - make daemon
+- make test-domain-refresh-policy
+- make test-snapshot-refresh-planner
+- make test-polling-service
+- make test-test-http-server
+- GitHub Actions full regression
 - GitHub Actions validation
 
 ---
@@ -282,7 +287,7 @@ Verified with:
 
 ## Phase 21 - Real VDR Runtime Polling Findings
 
-Status: Completed through Phase 21.2
+Status: Completed through Phase 22.0
 
 Result:
 
@@ -297,6 +302,11 @@ Result:
 - `VdrService` supports selective event queries
 - `RestfulApiVdrAdapter` maps selective event queries to existing RESTfulAPI event filters
 - test adapters and RESTfulAPI adapter tests validate the new query contract
+- real selective RESTfulAPI EPG validation completed
+- selective EPG requests measured about 0.10 to 0.30 seconds instead of about 29.65 seconds for full `/events.json`
+- `DomainRefreshPolicy` introduced as the heavy-domain refresh policy foundation
+- Events / EPG are classified as a heavy domain
+- `SnapshotRefreshPlanner` no longer creates automatic full EPG refresh work for `EventsChanged`
 
 Architecture rule:
 
@@ -324,16 +334,15 @@ Verified with:
 
 ## Next Work
 
-The next work should validate selective RESTfulAPI EPG access against a real VDR.
+The next work should introduce domain-aware selective EPG refresh planning.
 
 Goals:
 
-- measure existing RESTfulAPI event filters on a real VDR
-- validate `from`, `timespan`, `chevents`, `channelId`, `eventId`, `start`, `limit` and `only_count`
-- compare response size, HTTP time and returned event count against full `/events.json`
-- determine whether existing RESTfulAPI filters are sufficient for live-like EPG access
-- avoid introducing new RESTfulAPI endpoints before existing selective filters are measured
+- define how EPG refresh work is represented without full-domain refresh
+- route Events / EPG changes through heavy-domain policy
+- prepare selective query planning for time-window and channel-scoped EPG refreshes
 - preserve backend-neutral adapter boundaries
+- keep GitHub Actions independent from a running VDR
 
 ---
 

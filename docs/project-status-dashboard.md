@@ -27,6 +27,7 @@ Multi-Backend Polling     implemented
 Multi-Backend Read API    implemented
 Live Transport            implemented
 Selective Event Queries   implemented
+Heavy Domain Policy       implemented
 ```
 
 ### Federation and Security
@@ -66,19 +67,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 21.2 Complete
+Phase 22.0 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 21.3 - Selective RESTfulAPI EPG Validation
+Phase 22.1 - Domain-Aware Selective EPG Refresh Planning
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 21.2 - Selective Event Query Contract
+Phase 22.0 - Heavy Domain Refresh Policy
 ```
 
 Architecture Work In Progress:
@@ -118,19 +119,19 @@ ADR-0021 - Selective Backend Query Strategy
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 21.2
+Phase 0 - Phase 22.0
 ```
 
 Planned Major Phases:
 
 ```text
-Phase 21.3+
+Phase 22.1+
 ```
 
 Overall Roadmap Progress:
 
 ```text
-21 / 24
+22 / 24
 ```
 
 Important:
@@ -155,6 +156,7 @@ This percentage describes documented roadmap progress by major phase. It is not 
 | Multi-VDR | Backend registry, runtime contexts, backend-aware snapshots, polling coordination and multi-backend read summaries are implemented as foundations. |
 | Live Transport | SSE/WebSocket transport remains planned above the snapshot change feed. |
 | Selective Event Queries | Backend-neutral query contracts allow selective EPG access through adapter boundaries. |
+| Heavy Domain Policy | Events / EPG are classified as a heavy domain and protected from automatic full refresh behavior. |
 | Capability System | Capability set and resolver foundations are implemented. |
 | Authentication | Planned future concern, not implemented yet. |
 | Authorization | Planned future concern, not implemented yet. |

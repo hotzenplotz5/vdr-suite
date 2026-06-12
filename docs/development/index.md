@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 21.2 - Selective Event Query Contract
+Phase 22.0 - Heavy Domain Refresh Policy
 ```
 
 Next implementation focus:
 
 ```text
-Phase 21.3 - Selective RESTfulAPI EPG Validation
+Phase 22.1 - Domain-Aware Selective EPG Refresh Planning
 ```
 
 Current architecture validation:

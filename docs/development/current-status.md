@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 21.2 - Selective Event Query Contract
+Phase 22.0 - Heavy Domain Refresh Policy
 ```
 
 Current major phase status:
@@ -56,6 +56,8 @@ Phase 20 live transport foundation is complete through 20.9.
 Phase 21.0 documents real VDR runtime polling and EPG performance findings.
 Phase 21.1 documents RESTfulAPI event streams as optional backend-specific change hint sources.
 Phase 21.2 introduces selective event query support through the VDR adapter boundary.
+Phase 21.3 validates selective RESTfulAPI EPG access against a real VDR.
+Phase 22.0 introduces the heavy-domain refresh policy foundation.
 ```
 
 Verified locally with:
@@ -111,6 +113,8 @@ Verification summary:
 - `VdrEventQuery` provides the first backend-neutral selective EPG query contract.
 - `IVdrAdapter` and `VdrService` support query-based event access while preserving legacy full-event access.
 - `RestfulApiVdrAdapter` maps selective event queries to existing RESTfulAPI query parameters.
+`DomainRefreshPolicy` classifies Events / EPG as a heavy domain.
+`SnapshotRefreshPlanner` no longer creates automatic full EPG refresh work for EventsChanged.
 
 ---
 
@@ -220,10 +224,10 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 21.3 - Selective RESTfulAPI EPG Validation
+Phase 22.1 - Domain-Aware Selective EPG Refresh Planning
 ```
 
-The next step is to measure existing RESTfulAPI event filters against a real VDR before adding new RESTfulAPI endpoints or runtime polling behavior.
+The next step is to introduce domain-aware selective EPG refresh planning on top of the heavy-domain policy.
 
 Validation should compare selective RESTfulAPI event queries against full `/events.json` in terms of response size, HTTP time and returned event count.
 

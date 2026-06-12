@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 21.2 - Selective Event Query Contract
+Phase 22.0 - Heavy Domain Refresh Policy
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 21.2
+Documentation and roadmap synchronization after Phase 22.0
 
 Next implementation step
-Phase 21.3 - Selective RESTfulAPI EPG Validation
+Phase 22.1 - Domain-Aware Selective EPG Refresh Planning
 ```
 
 Phase 16 completed the multi-backend polling and runtime context foundation. Backend-aware polling, backend polling coordination, backend runtime contexts, daemon runtime context migration, registry-driven context creation and backend-aware snapshot change feed support are implemented.
@@ -74,6 +74,10 @@ Phase 21.0 documented real VDR runtime polling and EPG performance findings.
 Phase 21.1 documented RESTfulAPI event streams as optional backend-specific change hint sources and clarified that event streams provide hints, not authoritative domain payloads.
 
 Phase 21.2 introduced the first selective backend query contract through `VdrEventQuery`, `IVdrAdapter`, `VdrService` and `RestfulApiVdrAdapter`.
+
+Phase 21.3 validated selective RESTfulAPI EPG access against a real VDR.
+
+Phase 22.0 introduced the heavy-domain refresh policy foundation. Events / EPG no longer create automatic full-domain refresh work through `SnapshotRefreshPlanner`.
 
 ADR-0021 documents the long-term selective backend query strategy.
 
@@ -134,6 +138,8 @@ Phase 21.0 - Real VDR runtime polling findings
 Phase 21.1 - RESTfulAPI event stream strategy
 Phase 21.2 - Selective event query contract
 ADR-0021 - Selective backend query strategy
+Phase 21.3 - Selective RESTfulAPI EPG validation
+Phase 22.0 - Heavy domain refresh policy
 ```
 
 Completed implementation detail belongs in [Completed Phases](../development/completed-phases.md).
@@ -248,6 +254,9 @@ Completed:
 - Phase 21.1 documented that event streams provide hints, not authoritative domain data.
 - Phase 21.2 introduced `VdrEventQuery` as the first backend-neutral selective EPG query contract.
 - Phase 21.2 extended `IVdrAdapter`, `VdrService` and `RestfulApiVdrAdapter` for selective event access.
+- Phase 21.3 validated selective RESTfulAPI EPG access against a real VDR.
+- Phase 22.0 introduced `DomainRefreshPolicy`.
+- Phase 22.0 prevents Events / EPG from creating automatic full-domain refresh work in `SnapshotRefreshPlanner`.
 - ADR-0021 accepted selective backend queries as a long-term architecture rule.
 
 Current focus:

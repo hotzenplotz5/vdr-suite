@@ -30,11 +30,12 @@ Multi-Backend Read API    ████████████ 100%
 CI Foundation             ████████████ 100%
 Live Transport            ████████████ 100%
 Selective Event Queries   ████████████ 100%
+Heavy Domain Policy       ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 21.2 - Selective Event Query Contract
+Latest Completed Implementation Phase: Phase 22.0 - Heavy Domain Refresh Policy
 
-Current Implementation Focus: Phase 21.3 - Selective RESTfulAPI EPG Validation
+Current Implementation Focus: Phase 22.1 - Domain-Aware Selective EPG Refresh Planning
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -128,13 +129,14 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ Multi-Backend Snapshots REST Route Test
 ✓ GitHub Actions CI
 ✓ Selective Event Query Contract
+✓ Heavy Domain Refresh Policy
 ```
 
 Current architecture focus:
 
 ```text
-Phase 21.3 - Selective RESTfulAPI EPG Validation
-Measure existing RESTfulAPI event filters on real VDR systems
-Validate live-like EPG access without full-domain transfers
+Phase 22.1 - Domain-Aware Selective EPG Refresh Planning
+Use heavy-domain policy for refresh decisions
+Keep Events / EPG out of automatic full refresh paths
 Preserve backend-neutral adapter boundaries
 ```
