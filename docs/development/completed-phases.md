@@ -306,11 +306,12 @@ The next work should document the RESTfulAPI event stream strategy.
 
 Goals:
 
-- expose live transport counters for runtime diagnostics
-- track published live update events
-- track latest live sequence number and backend ID
-- keep diagnostics transport-neutral
-- preserve GitHub Actions compatibility without requiring a running VDR
+- define backend-specific change hint semantics
+- document RESTfulAPI SSE as an optional optimization
+- preserve backend-neutral adapter boundaries
+- keep snapshot architecture authoritative
+- define heavy-domain refresh rules for EPG and future metadata domains
+- prepare domain-aware runtime polling foundations
 
 ---
 
