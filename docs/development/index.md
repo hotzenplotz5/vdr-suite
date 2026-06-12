@@ -112,7 +112,7 @@ These documents are historical implementation notes or phase-specific architectu
 - [Phase 21.0 - Real VDR Runtime Polling Findings](phase-21.0-real-vdr-runtime-polling-findings.md)
 - [Phase 21.1 - RESTfulAPI Event Stream Strategy](phase-21.1-restfulapi-event-stream-strategy.md)
 - [ADR-0021: Selective Backend Query Strategy](../adr/ADR-0021-selective-backend-query-strategy.md)
-
+- [Phase 21.3 - Selective RESTfulAPI EPG Validation](phase-21.3-selective-restfulapi-epg-validation.md)
 ---
 
 ## Supporting Development Documents
