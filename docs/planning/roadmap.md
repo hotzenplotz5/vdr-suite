@@ -49,7 +49,7 @@ Completed implementation state
 Phase 21.0 - Real VDR Runtime Polling Findings
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 19.3
+Documentation and roadmap synchronization after Phase 21.0
 
 Next implementation step
 Phase 21.1 - RESTfulAPI Event Stream Strategy
@@ -61,7 +61,11 @@ Phase 17 completed the initial multi-backend read-side visibility through Phase 
 
 Phase 18 completed opt-in real VDR and RESTfulAPI validation through Phase 18.4. Real RESTfulAPI integration, real snapshot building, real change-state handling, real polling initial snapshot generation and repeated polling stability are validated outside the default fast test set.
 
-Phase 18 completed opt-in real VDR and RESTfulAPI validation through Phase 18.4. Real RESTfulAPI integration, real snapshot building, real change-state handling, real polling initial snapshot generation and repeated polling stability are validated outside the default fast test set.
+Phase 19 completed snapshot change feed validation through Phase 19.3.
+
+Phase 20 completed the live transport foundation through Phase 20.9.
+
+Phase 21.0 documented real VDR runtime polling and EPG performance findings.
 
 ---
 
@@ -105,7 +109,18 @@ Phase 19.0 - Snapshot change feed service validation
 Phase 19.1 - Polling to change feed runtime validation
 Phase 19.2 - Multi-backend change feed aggregation
 Phase 19.3 - Snapshot change feed REST validation
-Phase 19.3 - Snapshot change feed REST validation
+Phase 20.0 - LiveUpdateEvent foundation
+Phase 20.1 - ILiveTransport
+Phase 20.2 - TestLiveTransport
+Phase 20.3 - LiveTransportService
+Phase 20.4 - LiveTransportFactory
+Phase 20.5 - SseLiveTransport
+Phase 20.5.1 - ILiveTransport read contract
+Phase 20.6 - LiveTransportController
+Phase 20.7 - ApiRouter live route
+Phase 20.8 - DaemonRuntime live transport wiring
+Phase 20.9 - Live transport publish bridge
+Phase 21.0 - Real VDR runtime polling findings
 ```
 
 Completed implementation detail belongs in [Completed Phases](../development/completed-phases.md).
@@ -204,7 +219,67 @@ Live transport must not become the owner of:
 
 ---
 
-## Phase 21 - Image and Preview Stream Validation
+## Phase 21 - Runtime Change Hint Strategy
+
+Goal:
+
+Define how VDR-Suite should use cheap change hints, backend-specific event streams and domain-aware refresh decisions without breaking the snapshot architecture.
+
+Completed:
+
+- Phase 21.0 documented real VDR runtime polling findings.
+- Phase 21.0 identified Events / EPG as a heavy domain.
+- Phase 21.0 ruled out naive cyclic full snapshot refreshes.
+
+Current focus:
+
+```text
+Phase 21.1 - RESTfulAPI Event Stream Strategy
+```
+
+Planned direction:
+
+- document RESTfulAPI event streams as optional backend-specific change hint sources
+- keep RESTfulAPI SSE below or beside the backend boundary
+- keep snapshot architecture authoritative
+- ensure event streams provide hints, not domain data
+- ensure live transport consumes snapshot change feed entries only
+- prepare domain-aware runtime polling as a later implementation step
+- keep polling as a fallback
+- protect heavy domains such as EPG, metadata, posters, fanart and preview data from naive full refresh behavior
+
+Important boundary:
+
+RESTfulAPI event streams must not replace:
+
+- `VdrSnapshotBuilder`
+- `SnapshotRefreshPlanner`
+- `SnapshotCache`
+- `SnapshotChangeFeed`
+- `LiveTransport`
+
+---
+
+## Phase 22 - Domain-Aware Runtime Poll Loop Foundation
+
+Goal:
+
+Introduce runtime polling only after change hint strategy and heavy-domain refresh rules are defined.
+
+Planned direction:
+
+- poll cheap change-state or hint sources
+- avoid fixed full snapshot rebuild loops
+- route changes through refresh planning
+- refresh lightweight domains conservatively
+- treat Events / EPG as a heavy domain
+- keep heavy domain policy explicit
+- preserve mock-based CI compatibility
+- keep real VDR validation opt-in
+
+---
+
+## Phase 23 - Image and Preview Stream Validation
 
 Goal:
 
@@ -228,25 +303,7 @@ Image, preview stream and media stream handling should define how clients can re
 
 ---
 
-## Phase 22 - Frontend API Hardening
-
-Goal:
-
-Stabilize API contracts for future frontends after the snapshot change feed and live transport foundations are validated.
-
-Planned direction:
-
-- filtering
-- pagination
-- stable response contracts
-- capability-aware responses
-- frontend-independent API behavior
-- backend-aware response contracts
-- frontend-safe error models
-
----
-
-## Phase 22 - Frontend API Hardening
+## Phase 24 - Frontend API Hardening
 
 Goal:
 
