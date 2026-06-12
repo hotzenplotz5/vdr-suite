@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 22.0 - Heavy Domain Refresh Policy
+Phase 23.1 - Runtime Diagnostics Summary Builder
 ```
 
 Current major phase status:
@@ -224,7 +224,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 22.1 - Domain-Aware Selective EPG Refresh Planning
+Phase 24.0 - EPG Query Architecture
 ```
 
 The next step is to introduce domain-aware selective EPG refresh planning on top of the heavy-domain policy.

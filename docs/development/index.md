@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 22.0 - Heavy Domain Refresh Policy
+Phase 23.1 - Runtime Diagnostics Summary Builder
 ```
 
 Next implementation focus:
 
 ```text
-Phase 22.1 - Domain-Aware Selective EPG Refresh Planning
+Phase 24.0 - EPG Query Architecture
 ```
 
 Current architecture validation:

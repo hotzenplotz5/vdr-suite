@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 22.0 - Heavy Domain Refresh Policy
+Phase 23.1 - Runtime Diagnostics Summary Builder
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 22.0
+Documentation and roadmap synchronization after Phase 23.1
 
 Next implementation step
-Phase 22.1 - Domain-Aware Selective EPG Refresh Planning
+Phase 24.0 - EPG Query Architecture
 ```
 
 Phase 16 completed the multi-backend polling and runtime context foundation. Backend-aware polling, backend polling coordination, backend runtime contexts, daemon runtime context migration, registry-driven context creation and backend-aware snapshot change feed support are implemented.

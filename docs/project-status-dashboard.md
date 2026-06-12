@@ -67,19 +67,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 22.0 Complete
+Phase 23.1 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 22.1 - Domain-Aware Selective EPG Refresh Planning
+Phase 24.0 - EPG Query Architecture
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 22.0 - Heavy Domain Refresh Policy
+Phase 23.1 - Runtime Diagnostics Summary Builder
 ```
 
 Architecture Work In Progress:
@@ -119,19 +119,19 @@ ADR-0021 - Selective Backend Query Strategy
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 22.0
+Phase 0 - Phase 23.1
 ```
 
 Planned Major Phases:
 
 ```text
-Phase 22.1+
+Phase 24.0+
 ```
 
 Overall Roadmap Progress:
 
 ```text
-22 / 24
+23 / 24
 ```
 
 Important:

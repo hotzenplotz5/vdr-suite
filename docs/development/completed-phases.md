@@ -332,17 +332,74 @@ Verified with:
 
 ---
 
+## Phase 22 - Selective Event Refresh Runtime Architecture
+
+Status: Completed through Phase 22.9
+
+Result:
+
+- selective event refresh plans introduced
+- `VdrSnapshotBuilder` can build selective event domains
+- `PollingService` can execute selective event refreshes
+- `SnapshotCacheService` can merge selective event updates into existing snapshots
+- selective event polling uses merge behavior instead of full replacement
+- runtime measurements cover selective event refresh behavior
+- `VdrCapabilitySet` and `CapabilityResolver` expose `events.read.selective`
+- `DomainRefreshPolicy` can fall back to full event refresh when selective refresh is disabled
+- `PollingService` accepts injected domain refresh policy
+
+Verified with:
+
+- make test-snapshot-update-plan
+- make test-snapshot-refresh-planner
+- make test-vdr-snapshot-builder
+- make test-polling-service
+- make test-snapshot-cache-service
+- make test-capability-resolver
+- make test-vdr-capability-set
+- make test-fast
+- make test-docs
+- make test-phase
+
+---
+
+## Phase 23 - Capability-Derived Refresh Policy and Runtime Summaries
+
+Status: Completed through Phase 23.1
+
+Result:
+
+- `DomainRefreshPolicy` can be derived from `ICapabilityResolver`
+- selective event refresh decisions can now be capability-based
+- `RuntimeDiagnosticsSummaryBuilder` aggregates runtime measurements by component and operation
+- runtime measurement summaries can be produced without hard-coded selective/full refresh counters
+- RESTfulAPI selective event URL generation, VDR service query forwarding and snapshot builder selective event access are already covered by existing tests
+
+Verified with:
+
+- make test-domain-refresh-policy
+- make test-runtime-diagnostics-summary-builder
+- make test-runtime-diagnostics-json-serializer
+- make test-restful-api-vdr-adapter
+- make test-vdr-service
+- make test-vdr-snapshot-builder
+- make test-fast
+- make test-docs
+- make test-phase
+
+---
+
 ## Next Work
 
-The next work should introduce domain-aware selective EPG refresh planning.
+The next work should introduce EPG Query Architecture.
 
 Goals:
 
-- define how EPG refresh work is represented without full-domain refresh
-- route Events / EPG changes through heavy-domain policy
-- prepare selective query planning for time-window and channel-scoped EPG refreshes
-- preserve backend-neutral adapter boundaries
-- keep GitHub Actions independent from a running VDR
+- define backend-neutral EPG query scopes
+- prepare now/next and time-window EPG reads
+- preserve selective backend query behavior
+- avoid full EPG refresh as a default runtime path
+- prepare later SearchTimer and EPG query features
 
 ---
 
