@@ -2,6 +2,11 @@
 
 [![VDR-Suite CI](https://github.com/hotzenplotz5/vdr-suite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hotzenplotz5/vdr-suite/actions/workflows/ci.yml)
 
+## Project Overview
+
+- German: [Projektübersicht](docs/project-overview.de.md)
+- English: [Project Overview](docs/project-overview.en.md)
+
 ## Quick Links
 
 - [Project Status Dashboard](docs/project-status-dashboard.md)
