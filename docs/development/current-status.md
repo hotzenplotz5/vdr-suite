@@ -54,6 +54,7 @@ Current major phase status:
 ```text
 Phase 20 live transport foundation is complete through 20.9.
 Phase 21.0 documents real VDR runtime polling and EPG performance findings.
+Phase 21.1 documents RESTfulAPI event streams as optional backend-specific change hint sources.
 ```
 
 Verified locally with:
@@ -194,6 +195,10 @@ Phase 21.1 - RESTfulAPI Event Stream Strategy
 ```
 
 The next step is to document how RESTfulAPI event streams can provide backend-specific change hints without making VDR-Suite directly dependent on RESTfulAPI SSE.
+
+See:
+
+- [Phase 21.1 - RESTfulAPI Event Stream Strategy](phase-21.1-restfulapi-event-stream-strategy.md)
 
 Important boundaries:
 
