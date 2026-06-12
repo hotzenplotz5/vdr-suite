@@ -1,6 +1,8 @@
 #ifndef DOMAIN_REFRESH_POLICY_H
 #define DOMAIN_REFRESH_POLICY_H
 
+#include "ICapabilityResolver.h"
+
 enum class RefreshDomain {
     Status,
     Channels,
@@ -43,6 +45,16 @@ public:
     bool allowsSelectiveEventRefresh() const
     {
         return allowSelectiveEventRefresh_;
+    }
+
+    static DomainRefreshPolicy fromCapabilityResolver(
+        const ICapabilityResolver& capabilityResolver)
+    {
+        DomainRefreshPolicy policy;
+        policy.setAllowSelectiveEventRefresh(
+            capabilityResolver.supports("events.read.selective"));
+
+        return policy;
     }
 
     bool isHeavyDomain(RefreshDomain domain) const
