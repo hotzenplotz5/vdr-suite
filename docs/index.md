@@ -4,6 +4,8 @@
 
 - [README](../README.md)
 - [Project Overview](project-overview.md)
+- [Projektübersicht Deutsch](project-overview.de.md)
+- [Project Overview English](project-overview.en.md)
 
 ---
 
