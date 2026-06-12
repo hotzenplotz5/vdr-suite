@@ -1,0 +1,46 @@
+#include "DomainRefreshPolicy.h"
+
+#include <cassert>
+#include <iostream>
+
+static void test_lightweight_domains_allow_automatic_full_refresh()
+{
+    DomainRefreshPolicy policy;
+
+    assert(policy.allowsAutomaticFullRefresh(RefreshDomain::Status) == true);
+    assert(policy.allowsAutomaticFullRefresh(RefreshDomain::Channels) == true);
+    assert(policy.allowsAutomaticFullRefresh(RefreshDomain::Recordings) == true);
+    assert(policy.allowsAutomaticFullRefresh(RefreshDomain::Timers) == true);
+}
+
+static void test_events_domain_is_heavy()
+{
+    DomainRefreshPolicy policy;
+
+    assert(policy.isHeavyDomain(RefreshDomain::Events) == true);
+    assert(policy.allowsAutomaticFullRefresh(RefreshDomain::Events) == false);
+    assert(policy.requiresSelectiveRefresh(RefreshDomain::Events) == true);
+}
+
+static void test_lightweight_domains_are_not_heavy()
+{
+    DomainRefreshPolicy policy;
+
+    assert(policy.isHeavyDomain(RefreshDomain::Status) == false);
+    assert(policy.isHeavyDomain(RefreshDomain::Channels) == false);
+    assert(policy.isHeavyDomain(RefreshDomain::Recordings) == false);
+    assert(policy.isHeavyDomain(RefreshDomain::Timers) == false);
+}
+
+int main()
+{
+    test_lightweight_domains_allow_automatic_full_refresh();
+    test_events_domain_is_heavy();
+    test_lightweight_domains_are_not_heavy();
+
+    std::cout
+        << "test_domain_refresh_policy passed"
+        << std::endl;
+
+    return 0;
+}

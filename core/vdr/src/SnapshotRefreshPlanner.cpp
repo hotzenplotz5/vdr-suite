@@ -1,5 +1,15 @@
 #include "SnapshotRefreshPlanner.h"
 
+SnapshotRefreshPlanner::SnapshotRefreshPlanner()
+    : refreshPolicy_()
+{
+}
+
+SnapshotRefreshPlanner::SnapshotRefreshPlanner(DomainRefreshPolicy refreshPolicy)
+    : refreshPolicy_(refreshPolicy)
+{
+}
+
 SnapshotUpdatePlan SnapshotRefreshPlanner::createPlan(
     const std::vector<VdrChangeEvent>& changeEvents) const
 {
@@ -8,19 +18,29 @@ SnapshotUpdatePlan SnapshotRefreshPlanner::createPlan(
     for (const auto& event : changeEvents) {
         switch (event.type()) {
         case VdrChangeType::StatusChanged:
-            plan.markStatusRefresh();
+            if (refreshPolicy_.allowsAutomaticFullRefresh(RefreshDomain::Status)) {
+                plan.markStatusRefresh();
+            }
             break;
         case VdrChangeType::ChannelsChanged:
-            plan.markChannelsRefresh();
+            if (refreshPolicy_.allowsAutomaticFullRefresh(RefreshDomain::Channels)) {
+                plan.markChannelsRefresh();
+            }
             break;
         case VdrChangeType::RecordingsChanged:
-            plan.markRecordingsRefresh();
+            if (refreshPolicy_.allowsAutomaticFullRefresh(RefreshDomain::Recordings)) {
+                plan.markRecordingsRefresh();
+            }
             break;
         case VdrChangeType::TimersChanged:
-            plan.markTimersRefresh();
+            if (refreshPolicy_.allowsAutomaticFullRefresh(RefreshDomain::Timers)) {
+                plan.markTimersRefresh();
+            }
             break;
         case VdrChangeType::EventsChanged:
-            plan.markEventsRefresh();
+            if (refreshPolicy_.allowsAutomaticFullRefresh(RefreshDomain::Events)) {
+                plan.markEventsRefresh();
+            }
             break;
         }
     }

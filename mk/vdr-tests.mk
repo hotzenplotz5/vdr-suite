@@ -1,6 +1,6 @@
 .PHONY: test-fast
 
-test-fast: test-backend-polling-coordinator test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-vdr-config test-snapshot-access-service test-vdr-snapshot-read-service test-vdr-domain-objects
+test-fast: test-domain-refresh-policy test-backend-polling-coordinator test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-vdr-config test-snapshot-access-service test-vdr-snapshot-read-service test-vdr-domain-objects
 
 
 test-backend-polling-coordinator:
@@ -255,6 +255,13 @@ test-vdr-domain-objects:
 		core/vdr/tests/test_vdr_domain_objects.cpp \
 		-o /tmp/test_vdr_domain_objects
 	/tmp/test_vdr_domain_objects
+
+
+test-domain-refresh-policy:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_domain_refresh_policy.cpp \
+		-o /tmp/test_domain_refresh_policy
+	/tmp/test_domain_refresh_policy
 
 
 test-snapshot-access-service:
