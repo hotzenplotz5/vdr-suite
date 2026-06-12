@@ -80,6 +80,12 @@ Latest Completed Milestone:
 Phase 21.0 - Real VDR Runtime Polling Findings
 ```
 
+Architecture Work In Progress:
+
+```text
+Phase 21.1 - RESTfulAPI Event Stream Strategy
+```
+
 ---
 
 ## Recently Completed Milestones
@@ -98,7 +104,7 @@ Phase 19.0 - Snapshot change feed service validation
 Phase 19.1 - Polling to change feed runtime validation
 Phase 19.2 - Multi-backend change feed aggregation
 Phase 19.3 - Snapshot change feed REST validation
-Phase 19.3 - Snapshot change feed REST validation
+Phase 21.0 - Real VDR Runtime Polling Findings
 ```
 
 ---
@@ -108,19 +114,19 @@ Phase 19.3 - Snapshot change feed REST validation
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 19.3
+Phase 0 - Phase 21.0
 ```
 
 Planned Major Phases:
 
 ```text
-Phase 20.0+
+Phase 21.1+
 ```
 
 Overall Roadmap Progress:
 
 ```text
-19 / 22 = 86.4%
+21 / 24
 ```
 
 Important:
