@@ -47,40 +47,47 @@ void appendQuoted(std::ostringstream& json, const std::string& value)
     json << '"';
 }
 
+void appendKey(std::ostringstream& json, const std::string& key)
+{
+    appendQuoted(json, key);
+    json << ':';
+}
+
 std::string serializeEvents(const std::vector<VdrEvent>& events)
 {
     std::ostringstream json;
 
     json << '{';
-    json << '"' << "events" << '"' << ':' << '[';
+    appendKey(json, "events");
+    json << '[';
 
     for (std::size_t i = 0; i < events.size(); ++i)
     {
         const auto& event = events[i];
 
         json << '{';
-        json << '"' << "id" << '"' << ':';
+        appendKey(json, "id");
         appendQuoted(json, event.id);
         json << ',';
-        json << '"' << "channelId" << '"' << ':';
+        appendKey(json, "channelId");
         appendQuoted(json, event.channelId);
         json << ',';
-        json << '"' << "title" << '"' << ':';
+        appendKey(json, "title");
         appendQuoted(json, event.title);
         json << ',';
-        json << '"' << "subtitle" << '"' << ':';
+        appendKey(json, "subtitle");
         appendQuoted(json, event.subtitle);
         json << ',';
-        json << '"' << "description" << '"' << ':';
+        appendKey(json, "description");
         appendQuoted(json, event.description);
         json << ',';
-        json << '"' << "startTime" << '"' << ':';
+        appendKey(json, "startTime");
         appendQuoted(json, event.startTime);
         json << ',';
-        json << '"' << "endTime" << '"' << ':';
+        appendKey(json, "endTime");
         appendQuoted(json, event.endTime);
         json << ',';
-        json << '"' << "durationSeconds" << '"' << ':';
+        appendKey(json, "durationSeconds");
         json << event.durationSeconds;
         json << '}';
 
@@ -92,7 +99,8 @@ std::string serializeEvents(const std::vector<VdrEvent>& events)
 
     json << ']';
     json << ',';
-    json << '"' << "count" << '"' << ':' << events.size();
+    appendKey(json, "count");
+    json << events.size();
     json << '}';
 
     return json.str();
