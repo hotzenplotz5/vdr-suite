@@ -336,7 +336,134 @@ Architecture rule:
 
 Metadata and jobs enrich VDR-owned recording data. They must not replace VDR as the authoritative source for real recording existence, location or lifecycle.
 
-Phase 30.x and later phase sections will be expanded in the next roadmap update.
+---
+
+## Phase 30.x - Multi-VDR Federation
+
+Goal:
+
+Expose multiple VDR backends through one coherent API model.
+
+Planned direction:
+
+- make multiple backend nodes visible to clients
+- preserve backend identity in all federated read models
+- support default backend behavior where a single backend is configured
+- support backend-specific reads for multi-backend environments
+- prepare cross-backend summaries without hiding backend boundaries
+- keep backend capability information visible
+- avoid unsafe implicit merging of recordings, timers or EPG data
+- prepare federation for later permission-aware access
+
+Architecture rule:
+
+```text
+Federated API -> Backend registry / runtime contexts -> per-backend VDR services
+```
+
+Multi-VDR federation must not make separate VDR systems look like one filesystem or one timer namespace unless an explicit higher-level feature defines safe merge semantics.
+
+---
+
+## Phase 31.x - Permission and Role System
+
+Goal:
+
+Add permission-aware access above the multi-VDR foundation.
+
+Planned direction:
+
+- introduce roles and permissions for API access
+- support backend-specific rights
+- support read-only and view-only backend modes
+- protect recording actions behind explicit permissions
+- protect destructive actions behind stricter permissions
+- store VDR-Suite-owned permission state in SQLite
+- keep authorization independent from a specific frontend
+- prepare API responses that can expose capability and permission state safely
+
+Example target:
+
+```text
+Backend A: editable
+Backend B: view-only
+```
+
+Architecture rule:
+
+Permissions apply above backend discovery and before action execution. A backend may be technically capable of an operation while the current user or client role is not allowed to perform it.
+
+---
+
+## Phase 32.x - Advanced Search
+
+Goal:
+
+Introduce advanced search across recordings, selective EPG views and metadata after the read boundaries are stable.
+
+Planned direction:
+
+- search recording metadata and VDR recording views
+- search selective EPG windows without requiring a persistent full EPG mirror
+- use optional SQLite indexes only for VDR-Suite-owned or explicitly indexed data
+- keep heavy-domain query behavior explicit
+- avoid SearchTimer coupling in this phase
+- support backend-aware search results
+- preserve original backend identity in search responses
+- separate interactive search from scheduled search behavior
+
+Architecture rule:
+
+Advanced search may combine VDR-owned data and VDR-Suite-owned metadata, but search indexes must not silently become the authoritative source for VDR state.
+
+---
+
+## Phase 33.x - SearchTimer Architecture
+
+Goal:
+
+Define SearchTimer support as backend-neutral and capability-based architecture.
+
+Planned direction:
+
+- detect backend SearchTimer capabilities
+- support plugin-specific behavior through adapters
+- keep SearchTimer contracts separate from generic EPG reads
+- avoid making EPG persistence a prerequisite
+- preserve compatibility with backends that do not support SearchTimers
+- separate SearchTimer definition, validation, execution and result views
+- keep backend-specific plugin details out of frontend contracts where possible
+
+Architecture rule:
+
+```text
+SearchTimer API -> capability-aware service -> backend/plugin adapter
+```
+
+SearchTimer support must be optional. It must not make EPG persistence mandatory and must not weaken the backend-neutral EPG query boundary introduced earlier.
+
+---
+
+## Phase 34.x - Windows Client API Stabilization
+
+Goal:
+
+Stabilize API behavior for a future Windows client.
+
+Planned direction:
+
+- harden REST response contracts
+- keep API models frontend-independent
+- preserve backend identity and permission information
+- ensure recording, EPG, metadata, job and action APIs are predictable
+- avoid client-specific backend shortcuts
+- document stable request and response shapes
+- keep transport-specific behavior separated from domain REST contracts
+- prepare API compatibility expectations for later Web, Android, iOS and OSD clients
+
+Architecture rule:
+
+The Windows client must consume stable VDR-Suite API contracts. It must not depend on RESTfulAPI-specific URLs, local filesystem details or undocumented backend behavior.
 
 ---
 
