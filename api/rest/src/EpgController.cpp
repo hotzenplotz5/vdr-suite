@@ -10,7 +10,41 @@ namespace {
 
 void appendQuoted(std::ostringstream& json, const std::string& value)
 {
-    json << '"' << value << '"';
+    json << '"';
+
+    for (const char character : value)
+    {
+        switch (character)
+        {
+        case '"':
+            json << "\\\"";
+            break;
+        case '\\':
+            json << "\\\\";
+            break;
+        case '\n':
+            json << "\\n";
+            break;
+        case '\r':
+            json << "\\r";
+            break;
+        case '\t':
+            json << "\\t";
+            break;
+        default:
+            if (static_cast<unsigned char>(character) < 0x20)
+            {
+                json << ' ';
+            }
+            else
+            {
+                json << character;
+            }
+            break;
+        }
+    }
+
+    json << '"';
 }
 
 std::string serializeEvents(const std::vector<VdrEvent>& events)
