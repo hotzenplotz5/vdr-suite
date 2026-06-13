@@ -85,7 +85,7 @@ Phase 24.5 - Live RESTfulAPI EPG Verification
 Architecture Work In Progress:
 
 ```text
-Phase 21.3 - Selective RESTfulAPI EPG Validation
+Phase 25.0 - EPG REST API Boundary
 ADR-0021 - Selective Backend Query Strategy
 ```
 
@@ -119,24 +119,24 @@ ADR-0021 - Selective Backend Query Strategy
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 23.1
+Phase 0 - Phase 24.5
 ```
 
 Planned Major Phases:
 
 ```text
-Phase 24.0+
+Phase 25.x - Phase 34.x
 ```
 
 Overall Roadmap Progress:
 
 ```text
-23 / 24
+Phase 24.5 completed; mid-term roadmap now covers Phase 25.x - Phase 34.x
 ```
 
 Important:
 
-This percentage describes documented roadmap progress by major phase. It is not a code coverage metric and not a production-readiness guarantee.
+This progress description summarizes documented roadmap direction by major phase. It is not a code coverage metric and not a production-readiness guarantee.
 
 ---
 
@@ -154,7 +154,7 @@ This percentage describes documented roadmap progress by major phase. It is not 
 | Backend-Aware Snapshots | Snapshot access, snapshot read service, VDR controller, snapshot builder and change feed support backend identity. |
 | Multi-Backend Polling | PollingService, BackendPollingCoordinator and DaemonRuntime backend context wiring are implemented for registry-driven runtime preparation. |
 | Multi-VDR | Backend registry, runtime contexts, backend-aware snapshots, polling coordination and multi-backend read summaries are implemented as foundations. |
-| Live Transport | SSE/WebSocket transport remains planned above the snapshot change feed. |
+| Live Transport | Live transport foundation is implemented. Future transport extensions remain possible above the snapshot change feed. |
 | Selective Event Queries | Backend-neutral query contracts allow selective EPG access through adapter boundaries. |
 | Heavy Domain Policy | Events / EPG are classified as a heavy domain and protected from automatic full refresh behavior. |
 | Capability System | Capability set and resolver foundations are implemented. |
