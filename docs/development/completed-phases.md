@@ -488,3 +488,34 @@ Live VDR observations:
 startup /events.json full EPG snapshot      -> about 33 MB, about 34 s
 ```
 
+---
+
+## Phase 26 - EPG Snapshot Decoupling
+
+Status: Completed through Phase 26.0
+
+Result:
+
+- initial polling no longer builds a full EPG snapshot
+- `VdrSnapshotBuilder::buildSnapshotWithoutEvents()` was introduced
+- `PollingService` now uses an event-free initial snapshot
+- `VdrSnapshotBuilder::buildSnapshot()` still builds a complete snapshot when explicitly requested
+- EPG remains available through selective REST APIs
+- the daemon startup path no longer blocks on the legacy full `/events.json` transfer
+- polling tests were updated to treat Events / EPG as absent from the initial snapshot
+- full event refresh remains available for non-selective fallback paths
+- selective event refresh remains available for EventsChanged handling
+
+Verified with:
+
+- make test-polling-service
+- make test-vdr-snapshot-builder
+- make test-backend-polling-coordinator
+- make test-api-router
+- make daemon
+
+Architecture note:
+
+The initial runtime snapshot now contains status, recordings, timers and channels.
+Events / EPG are intentionally excluded from the initial snapshot and should be accessed through selective EPG APIs or explicit refresh paths.
+

@@ -67,25 +67,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 25.5 Complete
+Phase 26.0 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 26.0 - Recording Query Architecture
+Phase 26.1 - EPG Snapshot Decoupling Validation
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 25.5 - Live EPG REST API Verification
+Phase 26.0 - Event-Free Initial Snapshot
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 26.0 - Recording Query Architecture
+Phase 26.1 - EPG Snapshot Decoupling Validation
 ADR-0021 - Selective Backend Query Strategy
 ```
 
@@ -119,7 +119,7 @@ ADR-0021 - Selective Backend Query Strategy
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 25.5
+Phase 0 - Phase 26.0
 ```
 
 Planned Major Phases:
@@ -131,7 +131,7 @@ Phase 25.x - Phase 34.x
 Overall Roadmap Progress:
 
 ```text
-Phase 25.5 completed; mid-term roadmap now continues with Phase 26.x - Phase 34.x
+Phase 26.0 completed; mid-term roadmap now continues with EPG decoupling validation and Phase 26.x - Phase 34.x
 ```
 
 Important:

@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 25.5 - Live EPG REST API Verification
+Phase 26.0 - Event-Free Initial Snapshot
 ```
 
 Next implementation focus:
 
 ```text
-Phase 26.0 - Recording Query Architecture
+Phase 26.1 - EPG Snapshot Decoupling Validation
 ```
 
 Current architecture validation:

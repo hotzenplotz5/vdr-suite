@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 25.5 - Live EPG REST API Verification
+Phase 26.0 - Event-Free Initial Snapshot
 ```
 
 Current major phase status:
@@ -62,7 +62,7 @@ Phase 25.0 through 25.4 implement the EPG REST API boundary, query string bounda
 Phase 25.5 validates the EPG REST API against a real VDR through VDR-Suite HTTP endpoints.
 
 Next implementation focus:
-Phase 26.0 - Recording Query Architecture
+Phase 26.1 - EPG Snapshot Decoupling Validation
 ```
 
 Verified locally with:
@@ -239,12 +239,12 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 26.0 - Recording Query Architecture
+Phase 26.1 - EPG Snapshot Decoupling Validation
 ```
 
-The next step is to introduce domain-aware selective EPG refresh planning on top of the heavy-domain policy.
+The next step is to validate daemon startup behavior after removing the blocking full EPG load from the initial polling path.
 
-Validation should compare selective RESTfulAPI event queries against full `/events.json` in terms of response size, HTTP time and returned event count.
+Validation should compare daemon startup time before and after the event-free initial snapshot and confirm that `/api/epg/...` remains the primary EPG access path.
 
 Important boundaries:
 

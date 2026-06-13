@@ -37,11 +37,12 @@ Live Transport            ████████████ 100%
 Selective Event Queries   ████████████ 100%
 Heavy Domain Policy       ████████████ 100%
 EPG REST API Boundary     ████████████ 100%
+Event-Free Initial Poll   ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 25.5 - Live EPG REST API Verification
+Latest Completed Implementation Phase: Phase 26.0 - Event-Free Initial Snapshot
 
-Current Implementation Focus: Phase 26.0 - Recording Query Architecture
+Current Implementation Focus: Phase 26.1 - EPG Snapshot Decoupling Validation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -138,13 +139,14 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ Heavy Domain Refresh Policy
 ✓ EPG REST API Boundary
 ✓ Live EPG REST API Verification
+✓ Event-Free Initial Snapshot
 ```
 
 Current architecture focus:
 
 ```text
-Phase 26.0 - Recording Query Architecture
-Apply the selective query architecture pattern to recordings
-Keep VDR as source of truth for real recordings
-Keep VDR-Suite metadata complementary
+Phase 26.1 - EPG Snapshot Decoupling Validation
+Validate daemon startup without blocking full EPG transfer
+Keep EPG available through selective REST APIs
+Prepare optional asynchronous EPG loading decisions
 ```
