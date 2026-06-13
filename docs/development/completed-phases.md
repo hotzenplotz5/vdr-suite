@@ -555,3 +555,35 @@ Follow-up:
 
 The next implementation step should fix JSON escaping for EPG REST response strings.
 
+---
+
+## Phase 26.2 - EPG JSON Escaping
+
+Status: Completed
+
+Result:
+
+- EPG REST string serialization now escapes JSON strings
+- quotes, backslashes, newlines, carriage returns and tabs are escaped
+- remaining control characters below 0x20 are replaced with spaces
+- `/api/epg/now-next` now produces jq-compatible JSON
+- EPG REST APIs remain unchanged at the route level
+- the fix is local to the EPG REST controller
+
+Verified with:
+
+- make test-epg-controller
+- make test-api-router
+- make daemon
+- live `/api/epg/now-next` request against a real VDR
+- `jq '.events | length' /tmp/epg-now-next-fixed.json`
+
+Live VDR validation:
+
+- `/api/epg/now-next` returned valid JSON
+- `jq '.events | length'` returned `617`
+
+Follow-up:
+
+The next implementation step should evaluate whether JSON escaping should be shared by VDR REST serializers instead of being local to the EPG controller.
+

@@ -67,25 +67,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 26.1 Complete
+Phase 26.2 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 26.2 - EPG JSON Escaping
+Phase 26.3 - EPG REST Serializer Consolidation
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 26.1 - EPG Snapshot Decoupling Validation
+Phase 26.2 - EPG JSON Escaping
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 26.2 - EPG JSON Escaping
+Phase 26.3 - EPG REST Serializer Consolidation
 ADR-0021 - Selective Backend Query Strategy
 ```
 
@@ -119,7 +119,7 @@ ADR-0021 - Selective Backend Query Strategy
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 26.1
+Phase 0 - Phase 26.2
 ```
 
 Planned Major Phases:
