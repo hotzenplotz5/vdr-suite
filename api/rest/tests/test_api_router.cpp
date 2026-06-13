@@ -373,7 +373,7 @@ int main()
            != std::string::npos);
 
     ApiResponse epgNowNextResponse =
-        router.handleGet("/api/epg/now-next");
+        router.handleGet("/api/epg/now-next?channelId=router-channel&from=123");
 
     assert(epgNowNextResponse.statusCode == 200);
     assert(epgNowNextResponse.contentType == "application/json");
@@ -381,7 +381,7 @@ int main()
            != std::string::npos);
 
     ApiResponse epgTimeWindowResponse =
-        router.handleGet("/api/epg/time-window");
+        router.handleGet("/api/epg/time-window?channelId=router-channel&from=456&timespan=3600");
 
     assert(epgTimeWindowResponse.statusCode == 200);
     assert(epgTimeWindowResponse.contentType == "application/json");
@@ -389,7 +389,7 @@ int main()
            != std::string::npos);
 
     ApiResponse epgChannelWindowResponse =
-        router.handleGet("/api/epg/channel-window");
+        router.handleGet("/api/epg/channel-window?channelId=router-channel&from=789&timespan=1800&limit=10");
 
     assert(epgChannelWindowResponse.statusCode == 200);
     assert(epgChannelWindowResponse.contentType == "application/json");

@@ -6,11 +6,38 @@
 #include "LiveTransportController.h"
 #include "MetadataController.h"
 #include "RecordingsController.h"
+#include "RestQueryParameters.h"
 #include "RuntimeDiagnosticsController.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
 
 #include <string>
+
+namespace {
+
+std::string requestPath(const std::string& requestTarget)
+{
+    const std::size_t queryStart = requestTarget.find('?');
+
+    if (queryStart == std::string::npos)
+    {
+        return requestTarget;
+    }
+
+    return requestTarget.substr(0, queryStart);
+}
+
+std::string requestQueryString(const std::string& requestTarget)
+{
+    const std::size_t queryStart = requestTarget.find('?');
+
+    if (queryStart == std::string::npos)
+    {
+        return "";
+    }
+
+    return requestTarget.substr(queryStart + 1);
+}
 
 
 static bool parseBackendSnapshotRoute(
@@ -41,6 +68,8 @@ static bool parseBackendSnapshotRoute(
     return !backendId.empty() && !endpoint.empty();
 }
 
+}
+
 
 ApiRouter::ApiRouter(
     DashboardController& dashboardController,
@@ -67,8 +96,15 @@ ApiRouter::ApiRouter(
 }
 
 ApiResponse ApiRouter::handleGet(
-    const std::string& path)
+    const std::string& requestTarget)
 {
+    const std::string path =
+        requestPath(requestTarget);
+
+    const RestQueryParameters queryParameters =
+        RestQueryParameters::parse(
+            requestQueryString(requestTarget));
+
     if (path == "/api/dashboard")
     {
         return dashboardController_.getDashboard();
@@ -142,17 +178,26 @@ ApiResponse ApiRouter::handleGet(
 
     if (path == "/api/epg/now-next")
     {
-        return epgController_.getNowNext();
+        return epgController_.getNowNext(
+            queryParameters.get("channelId"),
+            queryParameters.getInt("from", -1));
     }
 
     if (path == "/api/epg/time-window")
     {
-        return epgController_.getTimeWindow();
+        return epgController_.getTimeWindow(
+            queryParameters.get("channelId"),
+            queryParameters.getInt("from", -1),
+            queryParameters.getInt("timespan", 7200));
     }
 
     if (path == "/api/epg/channel-window")
     {
-        return epgController_.getChannelWindow();
+        return epgController_.getChannelWindow(
+            queryParameters.get("channelId"),
+            queryParameters.getInt("from", -1),
+            queryParameters.getInt("timespan", 7200),
+            queryParameters.getInt("limit", 5));
     }
 
     if (path == "/api/vdr/changes")

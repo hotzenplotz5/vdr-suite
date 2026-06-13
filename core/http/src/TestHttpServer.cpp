@@ -3,24 +3,6 @@
 #include "ApiRouter.h"
 #include "DashboardController.h"
 
-#include <string>
-
-namespace {
-
-std::string stripQueryString(const std::string& path)
-{
-    const std::size_t queryStart = path.find('?');
-
-    if (queryStart == std::string::npos)
-    {
-        return path;
-    }
-
-    return path.substr(0, queryStart);
-}
-
-}
-
 TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
     : apiRouter_(apiRouter)
 {
@@ -38,7 +20,7 @@ HttpServerResponse TestHttpServer::handleRequest(
     }
 
     ApiResponse apiResponse =
-        apiRouter_.handleGet(stripQueryString(request.path));
+        apiRouter_.handleGet(request.path);
 
     return mapApiResponse(
         apiResponse.statusCode,
