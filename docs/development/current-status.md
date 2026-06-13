@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 24.5 - Live RESTfulAPI EPG Verification
+Phase 25.5 - Live EPG REST API Verification
 ```
 
 Current major phase status:
@@ -58,6 +58,11 @@ Phase 21.1 documents RESTfulAPI event streams as optional backend-specific chang
 Phase 21.2 introduces selective event query support through the VDR adapter boundary.
 Phase 21.3 validates selective RESTfulAPI EPG access against a real VDR.
 Phase 22.0 introduces the heavy-domain refresh policy foundation.
+Phase 25.0 through 25.4 implement the EPG REST API boundary, query string boundary, controller query parameters, REST query parser and EPG query parameter routing.
+Phase 25.5 validates the EPG REST API against a real VDR through VDR-Suite HTTP endpoints.
+
+Next implementation focus:
+Phase 26.0 - Recording Query Architecture
 ```
 
 Verified locally with:
@@ -74,10 +79,11 @@ make daemon
 
 Verification summary:
 
-- selective event query contract compiles through the adapter, service and test layers
-- `RestfulApiVdrAdapter` can map selective event queries to existing RESTfulAPI event filters
-- test adapters implement the selective event query method
-- `make test-fast` passes with the new adapter contract
+- EPG REST API routes are implemented for Now/Next, TimeWindow and ChannelWindow reads
+- EPG query parameters are routed through `ApiRouter`, `RestQueryParameters`, `EpgController`, `IEpgQueryService`, `VdrService` and `IVdrAdapter`
+- live VDR validation confirmed `/api/epg/now-next`, `/api/epg/time-window` and `/api/epg/channel-window` return real EPG events
+- selective RESTfulAPI query paths were observed through `/events.json?timespan=7200&chevents=2`, `/events.json?from=...&timespan=7200` and `/events.json?from=...&timespan=7200&limit=5`
+- daemon startup still performs a legacy full `/events.json` snapshot load and remains a known heavy-domain follow-up
 - documentation phase consistency remains green
 - daemon build remains green
 - GitHub Actions remains the standard full regression path for normal non-VDR-specific changes
@@ -164,6 +170,15 @@ GET /api/vdr/changes
 GET /api/vdr/live
 ```
 
+Selective EPG REST APIs:
+
+```text
+GET /api/epg/now-next
+GET /api/epg/now-next?channelId={channelId}&from={unixTime}
+GET /api/epg/time-window?channelId={channelId}&from={unixTime}&timespan={seconds}
+GET /api/epg/channel-window?channelId={channelId}&from={unixTime}&timespan={seconds}&limit={count}
+```
+
 Backend registry and backend-aware read APIs:
 
 ```text
@@ -224,7 +239,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 25.0 - EPG REST API Boundary
+Phase 26.0 - Recording Query Architecture
 ```
 
 The next step is to introduce domain-aware selective EPG refresh planning on top of the heavy-domain policy.

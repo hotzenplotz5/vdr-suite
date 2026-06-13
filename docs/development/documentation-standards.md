@@ -65,3 +65,12 @@ Documentation changes are complete only when:
 - [Back to Developer Onboarding](developer-onboarding.md)
 - [Back to Documentation Index](../index.md)
 - [Back to README](../../README.md)
+
+## Script Snippet Safety
+
+- Shell commands should be shown in `bash` code blocks.
+- Python update scripts should be shown in `python` code blocks.
+- A Python code block must never contain raw Markdown fence literals.
+- If a Python script needs to write Markdown code fences, construct them with `FENCE = chr(96) * 3`.
+- No patch or script lines may appear outside the intended code block.
+

@@ -444,3 +444,47 @@ Goals:
 - [Back to README](../../README.md)
 - [Back to Documentation Index](../index.md)
 - [Back to Project Overview](../project-overview.md)
+---
+
+## Phase 25 - EPG REST API Boundary
+
+Status: Completed through Phase 25.5
+
+Result:
+
+- EPG REST controller boundary introduced
+- EPG REST routes added for Now/Next, TimeWindow and ChannelWindow reads
+- REST query string boundary added
+- EPG controller query parameters added
+- REST query parameter parser added
+- EPG query parameters routed through the REST layer
+- live EPG REST validation completed against a real VDR
+- `/api/epg/now-next` returns real EPG events
+- `/api/epg/time-window` returns real EPG events
+- `/api/epg/channel-window` returns real EPG events
+- selective backend query paths are verified through the adapter and service chain
+- daemon startup still loads the legacy full EPG snapshot through `/events.json`; this remains a known heavy-domain follow-up
+
+Verified with:
+
+- make test-rest-query-parameters
+- make test-epg-controller
+- make test-api-router
+- make test-test-http-server
+- make daemon
+- live daemon test on `127.0.0.1:18080`
+- real RESTfulAPI backend on `127.0.0.1:8002`
+
+Live VDR observations:
+
+```text
+/api/epg/now-next       -> real EPG events returned
+/api/epg/time-window    -> real EPG events returned
+/api/epg/channel-window -> real EPG events returned
+
+/events.json?timespan=7200&chevents=2       -> about 440 KB, about 251 ms
+/events.json?from=...&timespan=7200         -> about 778 KB, about 432 ms
+/events.json?from=...&timespan=7200&limit=5 -> accepted, about 778 KB, about 460 ms
+startup /events.json full EPG snapshot      -> about 33 MB, about 34 s
+```
+

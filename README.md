@@ -36,11 +36,12 @@ CI Foundation             ████████████ 100%
 Live Transport            ████████████ 100%
 Selective Event Queries   ████████████ 100%
 Heavy Domain Policy       ████████████ 100%
+EPG REST API Boundary     ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 24.5 - Live RESTfulAPI EPG Verification
+Latest Completed Implementation Phase: Phase 25.5 - Live EPG REST API Verification
 
-Current Implementation Focus: Phase 25.0 - EPG REST API Boundary
+Current Implementation Focus: Phase 26.0 - Recording Query Architecture
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -135,13 +136,15 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ GitHub Actions CI
 ✓ Selective Event Query Contract
 ✓ Heavy Domain Refresh Policy
+✓ EPG REST API Boundary
+✓ Live EPG REST API Verification
 ```
 
 Current architecture focus:
 
 ```text
-Phase 25.0 - EPG REST API Boundary
-Use heavy-domain policy for refresh decisions
-Keep Events / EPG out of automatic full refresh paths
-Preserve backend-neutral adapter boundaries
+Phase 26.0 - Recording Query Architecture
+Apply the selective query architecture pattern to recordings
+Keep VDR as source of truth for real recordings
+Keep VDR-Suite metadata complementary
 ```
