@@ -519,3 +519,39 @@ Architecture note:
 The initial runtime snapshot now contains status, recordings, timers and channels.
 Events / EPG are intentionally excluded from the initial snapshot and should be accessed through selective EPG APIs or explicit refresh paths.
 
+---
+
+## Phase 26.1 - EPG Snapshot Decoupling Validation
+
+Status: Completed
+
+Result:
+
+- event-free initial snapshot was validated against a real VDR
+- daemon startup no longer performs the blocking full `/events.json` load
+- startup now loads status, recordings, timers and channels only
+- EPG remains available through `/api/epg/now-next`, `/api/epg/time-window` and `/api/epg/channel-window`
+- live measurements support treating EPG as a query domain
+- full EPG remains too heavy for daemon startup
+- 24 hour EPG windows remain possible but are significantly heavier than short query windows
+- `limit=5` and `limit=20` are accepted but did not reduce the observed RESTfulAPI response size
+- EPG REST output exposed a JSON escaping defect because `jq` rejected control characters in response strings
+
+Live VDR measurements:
+
+- `now-next`: about 265 KB, about 0.333 s
+- `time-window` 2h: about 469 KB, about 0.587 s
+- `time-window` 24h: about 3.5 MB, about 6.092 s
+- `channel-window` limit 5: about 469 KB, about 0.602 s
+- `channel-window` limit 20: about 469 KB, about 0.588 s
+
+Architecture decision:
+
+EPG / Events should remain outside the initial runtime snapshot.
+EPG should be accessed through selective query APIs by default.
+A global EPG cache should not become the default runtime strategy.
+
+Follow-up:
+
+The next implementation step should fix JSON escaping for EPG REST response strings.
+

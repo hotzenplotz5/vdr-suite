@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 26.0 - Event-Free Initial Snapshot
+Phase 26.1 - EPG Snapshot Decoupling Validation
 ```
 
 Current major phase status:
@@ -62,7 +62,7 @@ Phase 25.0 through 25.4 implement the EPG REST API boundary, query string bounda
 Phase 25.5 validates the EPG REST API against a real VDR through VDR-Suite HTTP endpoints.
 
 Next implementation focus:
-Phase 26.1 - EPG Snapshot Decoupling Validation
+Phase 26.2 - EPG JSON Escaping
 ```
 
 Verified locally with:
@@ -239,7 +239,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 26.1 - EPG Snapshot Decoupling Validation
+Phase 26.2 - EPG JSON Escaping
 ```
 
 The next step is to validate daemon startup behavior after removing the blocking full EPG load from the initial polling path.

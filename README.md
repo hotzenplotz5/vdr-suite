@@ -38,11 +38,12 @@ Selective Event Queries   ████████████ 100%
 Heavy Domain Policy       ████████████ 100%
 EPG REST API Boundary     ████████████ 100%
 Event-Free Initial Poll   ████████████ 100%
+EPG Decoupling Validation ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 26.0 - Event-Free Initial Snapshot
+Latest Completed Implementation Phase: Phase 26.1 - EPG Snapshot Decoupling Validation
 
-Current Implementation Focus: Phase 26.1 - EPG Snapshot Decoupling Validation
+Current Implementation Focus: Phase 26.2 - EPG JSON Escaping
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -140,13 +141,14 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ EPG REST API Boundary
 ✓ Live EPG REST API Verification
 ✓ Event-Free Initial Snapshot
+✓ EPG Snapshot Decoupling Validation
 ```
 
 Current architecture focus:
 
 ```text
-Phase 26.1 - EPG Snapshot Decoupling Validation
-Validate daemon startup without blocking full EPG transfer
-Keep EPG available through selective REST APIs
-Prepare optional asynchronous EPG loading decisions
+Phase 26.2 - EPG JSON Escaping
+Fix JSON escaping for EPG REST response strings
+Ensure jq-compatible output for descriptions with control characters
+Keep EPG REST APIs stable
 ```

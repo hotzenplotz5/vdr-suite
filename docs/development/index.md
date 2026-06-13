@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 26.0 - Event-Free Initial Snapshot
+Phase 26.1 - EPG Snapshot Decoupling Validation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 26.1 - EPG Snapshot Decoupling Validation
+Phase 26.2 - EPG JSON Escaping
 ```
 
 Current architecture validation:
