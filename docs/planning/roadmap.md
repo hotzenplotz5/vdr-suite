@@ -146,210 +146,38 @@ Completed implementation detail belongs in [Completed Phases](../development/com
 
 ---
 
-## Phase 18 - Real VDR and RESTfulAPI Integration Validation
+## Mid-Term Architecture Roadmap
 
-Status:
+This section replaces the older Phase 18 - Phase 24 forward-looking roadmap blocks.
 
-Completed through Phase 18.4.
+Those earlier roadmap blocks now describe completed implementation foundation or superseded direction. Completed implementation detail belongs in [Completed Phases](../development/completed-phases.md), while this file describes the next architecture direction after Phase 24.5.
 
-Goal:
-
-Validate the snapshot runtime and RESTfulAPI adapter against an actual VDR system once the multi-backend REST contracts are stable.
-
-Completed validation:
-
-- RESTfulAPI reachability against one local VDR
-- status, channels, timers, events and recordings mapping with real data
-- snapshot generation from real RESTfulAPI responses
-- real change-state handling
-- daemon-owned polling against a real VDR
-- repeated polling stability without generating false change events
-
-Real VDR tests remain reserved for:
-
-- RESTfulAPI against an actual VDR
-- SSE event streams
-- polling against an actual VDR
-- snapshot runtime against an actual VDR
-- multi-VDR or multi-server scenarios
-- selective RESTfulAPI EPG validation
-
-Architecture rule:
-
-Real VDR tests must stay opt-in and outside the default fast test set.
-
-GitHub Actions must remain independent from a running VDR.
-
----
-
-## Phase 19 - Snapshot Change Feed Validation
-
-Goal:
-
-Validate the existing snapshot change feed end-to-end before introducing live transport.
-
-Planned direction:
-
-- validate snapshot change feed creation from detected VDR changes
-- validate backend-aware feed entries
-- validate sequence number and snapshot generation behavior
-- validate that unchanged polling cycles do not create feed entries
-- validate the REST read boundary for `GET /api/vdr/changes`
-- keep validation transport-independent
-- keep real VDR validation opt-in and outside the default fast test set
-
-Architecture rule:
-
-Snapshot change feed validation must happen before SSE or WebSocket work.
-
-Live transport must consume the snapshot change feed later. It must not become the owner of polling, snapshot generation, change detection or feed generation.
-
----
-
-## Phase 20 - Live Transport Foundation
-
-Goal:
-
-Introduce a transport boundary for live update delivery above the snapshot change feed.
-
-Expected direction:
-
-- define the transport-facing boundary above `SnapshotChangeFeed`
-- keep transport independent from polling internals
-- keep transport independent from RESTfulAPI adapter details
-- preserve daemon ownership of runtime state
-- prepare Server Sent Events without committing WebSocket design too early
-
-Candidate transports:
-
-- Server Sent Events (SSE)
-- WebSocket
-- long polling fallback
-
-Architecture rule:
-
-Live transport consumes the snapshot change feed.
-
-Live transport must not become the owner of:
-
-- snapshot generation
-- change detection
-- feed generation
-- backend-specific event parsing
-
----
-
-## Phase 21 - Runtime Change Hint and Selective Query Strategy
-
-Goal:
-
-Define how VDR-Suite should use cheap change hints, backend-specific event streams and selective backend queries without breaking the snapshot architecture.
-
-Completed:
-
-- Phase 21.0 documented real VDR runtime polling findings.
-- Phase 21.0 identified Events / EPG as a heavy domain.
-- Phase 21.0 ruled out naive cyclic full snapshot refreshes.
-- Phase 21.1 documented RESTfulAPI event streams as optional backend-specific change hint sources.
-- Phase 21.1 documented that event streams provide hints, not authoritative domain data.
-- Phase 21.2 introduced `VdrEventQuery` as the first backend-neutral selective EPG query contract.
-- Phase 21.2 extended `IVdrAdapter`, `VdrService` and `RestfulApiVdrAdapter` for selective event access.
-- Phase 21.3 validated selective RESTfulAPI EPG access against a real VDR.
-- Phase 22.0 introduced `DomainRefreshPolicy`.
-- Phase 22.0 prevents Events / EPG from creating automatic full-domain refresh work in `SnapshotRefreshPlanner`.
-- ADR-0021 accepted selective backend queries as a long-term architecture rule.
-
-Current focus:
+The mid-term roadmap is organized around the following planned phase groups:
 
 ```text
-Phase 21.3 - Selective RESTfulAPI EPG Validation
+Phase 25.x - EPG REST API Boundary
+Phase 26.x - Recording Query Architecture
+Phase 27.x - Recording REST API Modernization
+Phase 28.x - Recording Actions
+Phase 29.x - Recording Metadata and Job Integration
+Phase 30.x - Multi-VDR Federation
+Phase 31.x - Permission and Role System
+Phase 32.x - Advanced Search
+Phase 33.x - SearchTimer Architecture
+Phase 34.x - Windows Client API Stabilization
 ```
 
-Planned direction:
+The following rules guide all phase groups:
 
-- validate existing RESTfulAPI event filters against a real VDR
-- compare selective query response size, HTTP time and event count against full `/events.json`
-- measure `from`, `timespan`, `chevents`, channel path, event ID, `start`, `limit` and `only_count`
-- determine whether existing RESTfulAPI filters are sufficient for live-like EPG views
-- avoid proposing new RESTfulAPI endpoints before measuring the existing filters
-- keep selective query construction behind backend-neutral adapter boundaries
-- protect heavy domains such as EPG, metadata, posters, fanart and preview data from naive full refresh behavior
+- VDR remains the source of truth for channels, timers, EPG, running events, real recordings and device state.
+- VDR-Suite does not persist a full EPG mirror in SQLite.
+- EPG remains a heavy domain and must be read selectively.
+- SQLite is reserved for VDR-Suite-owned application data such as recording metadata, jobs, workflow state, user configuration, permissions, roles and optional search indexes.
+- SearchTimer work remains out of scope until the EPG and recording API boundaries are stable.
+- Multi-VDR and permission work must build on backend-neutral APIs.
+- Frontend-facing APIs must remain backend-aware and client-independent.
 
-Important boundary:
-
-Selective backend queries must not replace:
-
-- `VdrSnapshotBuilder`
-- `SnapshotRefreshPlanner`
-- `SnapshotCache`
-- `SnapshotChangeFeed`
-- `LiveTransport`
-
-Selective backend queries define how these layers request or refresh data without unnecessary full-domain transfers.
-
----
-
-## Phase 22 - Domain-Aware Runtime Poll Loop Foundation
-
-Goal:
-
-Introduce runtime polling only after change hint strategy, selective backend query contracts and heavy-domain refresh rules are defined.
-
-Planned direction:
-
-- poll cheap change-state or hint sources
-- avoid fixed full snapshot rebuild loops
-- route changes through refresh planning
-- refresh lightweight domains conservatively
-- treat Events / EPG as a heavy domain
-- use selective queries before full-domain transfers
-- keep heavy domain policy explicit
-- preserve mock-based CI compatibility
-- keep real VDR validation opt-in
-
----
-
-## Phase 23 - Image and Preview Stream Validation
-
-Goal:
-
-Validate how VDR-Suite should expose image or preview stream data to future clients.
-
-Planned direction:
-
-- define image and preview stream use cases
-- separate metadata images from live stream previews
-- avoid coupling stream delivery to snapshot change transport
-- evaluate HTTP streaming boundaries
-- prepare frontend-independent preview contracts
-- apply ADR-0021 selective backend query rules to metadata, image and preview domains
-
-Important boundary:
-
-Live update transport is not the same as image or media streaming.
-
-Live transport should notify clients that something changed.
-
-Image, preview stream and media stream handling should define how clients can request media-oriented data.
-
----
-
-## Phase 24 - Frontend API Hardening
-
-Goal:
-
-Stabilize API contracts for future frontends after the snapshot change feed, live transport and selective backend query foundations are validated.
-
-Planned direction:
-
-- filtering
-- pagination
-- stable response contracts
-- capability-aware responses
-- frontend-independent API behavior
-- backend-aware response contracts
-- frontend-safe error models
-- selective heavy-domain access patterns for frontend views
+Detailed phase sections will be expanded in the next roadmap updates.
 
 ---
 
