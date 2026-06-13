@@ -12,7 +12,8 @@ REST_VDR_SRC := \
         api/rest/src/VdrController.cpp
 
 REST_EPG_SRC := \
-        api/rest/src/EpgController.cpp
+        api/rest/src/EpgController.cpp \
+        api/rest/src/RestQueryParameters.cpp
 
 REST_RUNTIME_SRC := \
         api/rest/src/RuntimeDiagnosticsController.cpp
