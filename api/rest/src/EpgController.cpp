@@ -85,18 +85,42 @@ EpgController::EpgController(
 
 ApiResponse EpgController::getNowNext()
 {
+    return getNowNext("", -1);
+}
+
+ApiResponse EpgController::getNowNext(
+    const std::string& channelId,
+    int from)
+{
     return makeJsonResponse(
-        epgQueryService_.getNowNext("", -1));
+        epgQueryService_.getNowNext(channelId, from));
 }
 
 ApiResponse EpgController::getTimeWindow()
 {
+    return getTimeWindow("", -1, 7200);
+}
+
+ApiResponse EpgController::getTimeWindow(
+    const std::string& channelId,
+    int from,
+    int timespan)
+{
     return makeJsonResponse(
-        epgQueryService_.getTimeWindow("", -1, 7200));
+        epgQueryService_.getTimeWindow(channelId, from, timespan));
 }
 
 ApiResponse EpgController::getChannelWindow()
 {
+    return getChannelWindow("", -1, 7200, 5);
+}
+
+ApiResponse EpgController::getChannelWindow(
+    const std::string& channelId,
+    int from,
+    int timespan,
+    int limit)
+{
     return makeJsonResponse(
-        epgQueryService_.getChannelWindow("", -1, 7200, 5));
+        epgQueryService_.getChannelWindow(channelId, from, timespan, limit));
 }

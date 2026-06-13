@@ -88,15 +88,39 @@ int main()
     assert(epgQueryService.lastCall == 1);
     assert(epgQueryService.lastFrom == -1);
 
+    ApiResponse nowNextParameterizedResponse =
+        controller.getNowNext("channel-42", 123);
+    assertEventResponse(nowNextParameterizedResponse, "event-now");
+    assert(epgQueryService.lastCall == 1);
+    assert(epgQueryService.lastChannelId == "channel-42");
+    assert(epgQueryService.lastFrom == 123);
+
     ApiResponse timeWindowResponse = controller.getTimeWindow();
     assertEventResponse(timeWindowResponse, "event-time");
     assert(epgQueryService.lastCall == 2);
     assert(epgQueryService.lastTimespan == 7200);
 
+    ApiResponse timeWindowParameterizedResponse =
+        controller.getTimeWindow("channel-43", 456, 3600);
+    assertEventResponse(timeWindowParameterizedResponse, "event-time");
+    assert(epgQueryService.lastCall == 2);
+    assert(epgQueryService.lastChannelId == "channel-43");
+    assert(epgQueryService.lastFrom == 456);
+    assert(epgQueryService.lastTimespan == 3600);
+
     ApiResponse channelWindowResponse = controller.getChannelWindow();
     assertEventResponse(channelWindowResponse, "event-channel");
     assert(epgQueryService.lastCall == 3);
     assert(epgQueryService.lastLimit == 5);
+
+    ApiResponse channelWindowParameterizedResponse =
+        controller.getChannelWindow("channel-44", 789, 1800, 10);
+    assertEventResponse(channelWindowParameterizedResponse, "event-channel");
+    assert(epgQueryService.lastCall == 3);
+    assert(epgQueryService.lastChannelId == "channel-44");
+    assert(epgQueryService.lastFrom == 789);
+    assert(epgQueryService.lastTimespan == 1800);
+    assert(epgQueryService.lastLimit == 10);
 
     std::cout << "test_epg_controller passed" << std::endl;
 
