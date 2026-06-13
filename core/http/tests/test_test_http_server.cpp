@@ -212,6 +212,22 @@ int main()
     assert(runtimeSummaryResponse.body.find("\"summaries\"") != std::string::npos);
     assert(runtimeSummaryResponse.body.find("\"count\":2") != std::string::npos);
 
+    HttpServerRequest dashboardQueryRequest;
+    dashboardQueryRequest.method = "GET";
+    dashboardQueryRequest.path = "/api/dashboard?ignored=true";
+    HttpServerResponse dashboardQueryResponse =
+        server.handleRequest(dashboardQueryRequest);
+    assertJsonResponse(dashboardQueryResponse, 200);
+    assert(dashboardQueryResponse.body.find("\"jobs\"") != std::string::npos);
+
+    HttpServerRequest epgQueryRequest;
+    epgQueryRequest.method = "GET";
+    epgQueryRequest.path = "/api/epg/now-next?channelId=1&from=123";
+    HttpServerResponse epgQueryResponse =
+        server.handleRequest(epgQueryRequest);
+    assertJsonResponse(epgQueryResponse, 200);
+    assert(epgQueryResponse.body.find("\"events\"") != std::string::npos);
+
     HttpServerRequest missingRequest;
     missingRequest.method = "GET";
     missingRequest.path = "/api/missing";
