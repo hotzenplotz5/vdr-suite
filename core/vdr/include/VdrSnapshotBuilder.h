@@ -39,6 +39,7 @@ public:
     std::vector<VdrEvent> buildEvents(const VdrEventQuery& query) const;
 
     VdrSnapshot buildSnapshot() const;
+    VdrSnapshot buildSnapshotWithoutEvents() const;
 
 private:
     VdrService& vdrService_;

@@ -162,6 +162,14 @@ std::vector<VdrEvent> VdrSnapshotBuilder::buildEvents(const VdrEventQuery& query
 
 VdrSnapshot VdrSnapshotBuilder::buildSnapshot() const
 {
+    VdrSnapshot snapshot = buildSnapshotWithoutEvents();
+    snapshot.events = buildEvents();
+
+    return snapshot;
+}
+
+VdrSnapshot VdrSnapshotBuilder::buildSnapshotWithoutEvents() const
+{
     VdrSnapshot snapshot;
 
     snapshot.backendId = backendId_;
@@ -170,7 +178,6 @@ VdrSnapshot VdrSnapshotBuilder::buildSnapshot() const
     snapshot.recordings = buildRecordings();
     snapshot.timers = buildTimers();
     snapshot.channels = buildChannels();
-    snapshot.events = buildEvents();
 
     return snapshot;
 }

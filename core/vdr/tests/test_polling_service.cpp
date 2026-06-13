@@ -139,7 +139,7 @@ static PollingService createPollingService(
     return PollingService(builder, service, snapshotCacheService);
 }
 
-static void test_first_poll_builds_complete_snapshot_without_change_events()
+static void test_first_poll_builds_event_free_initial_snapshot_without_change_events()
 {
     CountingVdrAdapter adapter;
     VdrService service(adapter);
@@ -155,14 +155,14 @@ static void test_first_poll_builds_complete_snapshot_without_change_events()
     assert(adapter.recordingsReadCount == 1);
     assert(adapter.timersReadCount == 1);
     assert(adapter.channelsReadCount == 1);
-    assert(adapter.eventsReadCount == 1);
-    assert(adapter.totalDomainReadCount() == 5);
+    assert(adapter.eventsReadCount == 0);
+    assert(adapter.totalDomainReadCount() == 4);
 
     assert(pollingService.snapshot().status.enabled == true);
     assert(pollingService.snapshot().recordings.size() == 1);
     assert(pollingService.snapshot().timers.size() == 1);
     assert(pollingService.snapshot().channels.size() == 1);
-    assert(pollingService.snapshot().events.size() == 1);
+    assert(pollingService.snapshot().events.empty());
 
     assert(pollingService.changeEvents().empty());
     assert(pollingService.lastUpdatePlan().hasRefreshWork() == false);
@@ -200,7 +200,7 @@ static void test_unchanged_change_state_keeps_existing_snapshot_without_change_e
     pollingService.poll();
 
     assert(cache.hasSnapshot());
-    assert(adapter.totalDomainReadCount() == 5);
+    assert(adapter.totalDomainReadCount() == 4);
     assert(pollingService.changeEvents().empty());
     assert(pollingService.lastUpdatePlan().hasRefreshWork() == false);
 }
@@ -245,8 +245,8 @@ static void test_channel_change_refreshes_only_channels_domain()
     assert(adapter.recordingsReadCount == 1);
     assert(adapter.timersReadCount == 1);
     assert(adapter.channelsReadCount == 2);
-    assert(adapter.eventsReadCount == 1);
-    assert(adapter.totalDomainReadCount() == 6);
+    assert(adapter.eventsReadCount == 0);
+    assert(adapter.totalDomainReadCount() == 5);
 
     assert(pollingService.changeEvents().size() == 1);
     assert(pollingService.changeEvents()[0].type() == VdrChangeType::ChannelsChanged);
@@ -295,8 +295,8 @@ static void test_recording_change_refreshes_only_recordings_domain()
     assert(adapter.recordingsReadCount == 2);
     assert(adapter.timersReadCount == 1);
     assert(adapter.channelsReadCount == 1);
-    assert(adapter.eventsReadCount == 1);
-    assert(adapter.totalDomainReadCount() == 6);
+    assert(adapter.eventsReadCount == 0);
+    assert(adapter.totalDomainReadCount() == 5);
 
     assert(pollingService.lastUpdatePlan().shouldRefreshRecordings() == true);
     assert(pollingService.lastUpdatePlan().shouldRefreshChannels() == false);
@@ -349,8 +349,8 @@ static void test_multiple_changes_refresh_only_selected_domains()
     assert(adapter.recordingsReadCount == 2);
     assert(adapter.timersReadCount == 1);
     assert(adapter.channelsReadCount == 2);
-    assert(adapter.eventsReadCount == 1);
-    assert(adapter.totalDomainReadCount() == 7);
+    assert(adapter.eventsReadCount == 0);
+    assert(adapter.totalDomainReadCount() == 6);
 }
 
 static void test_event_change_refreshes_selective_events_only()
@@ -372,10 +372,10 @@ static void test_event_change_refreshes_selective_events_only()
     assert(pollingService.changeEvents()[0].type() == VdrChangeType::EventsChanged);
     assert(pollingService.lastUpdatePlan().shouldRefreshEvents() == false);
     assert(pollingService.lastUpdatePlan().hasSelectiveEventRefresh() == true);
-    assert(adapter.eventsReadCount == 1);
+    assert(adapter.eventsReadCount == 0);
     assert(adapter.selectiveEventsReadCount == 1);
     assert(adapter.lastSelectiveChannelEventLimit == 2);
-    assert(adapter.totalDomainReadCount() == 6);
+    assert(adapter.totalDomainReadCount() == 5);
 }
 
 static void test_event_change_records_selective_events_refresh_measurement()
@@ -438,7 +438,7 @@ static void test_event_change_falls_back_to_full_events_when_selective_refresh_i
     assert(pollingService.changeEvents()[0].type() == VdrChangeType::EventsChanged);
     assert(pollingService.lastUpdatePlan().shouldRefreshEvents() == true);
     assert(pollingService.lastUpdatePlan().hasSelectiveEventRefresh() == false);
-    assert(adapter.eventsReadCount == 2);
+    assert(adapter.eventsReadCount == 1);
     assert(adapter.selectiveEventsReadCount == 0);
 }
 
@@ -587,7 +587,7 @@ static void test_multiple_polling_change_events_feed_multiple_domains()
 
 int main()
 {
-    test_first_poll_builds_complete_snapshot_without_change_events();
+    test_first_poll_builds_event_free_initial_snapshot_without_change_events();
     test_first_poll_records_initial_poll_measurements();
     test_unchanged_change_state_keeps_existing_snapshot_without_change_events();
     test_unchanged_change_state_records_detection_and_plan_measurements();
