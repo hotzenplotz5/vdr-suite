@@ -177,7 +177,166 @@ The following rules guide all phase groups:
 - Multi-VDR and permission work must build on backend-neutral APIs.
 - Frontend-facing APIs must remain backend-aware and client-independent.
 
-Detailed phase sections will be expanded in the next roadmap updates.
+---
+
+## Phase 25.x - EPG REST API Boundary
+
+Goal:
+
+Expose selective EPG query behavior through a stable REST API boundary for future clients.
+
+Planned direction:
+
+- add an EPG REST boundary above `IEpgQueryService`
+- preserve backend-neutral EPG query contracts
+- expose Now/Next queries through the REST layer
+- expose time-window EPG queries through the REST layer
+- expose channel-window EPG queries through the REST layer
+- keep query construction outside frontend code
+- keep RESTfulAPI-specific query details inside the adapter layer
+- avoid persistent EPG mirroring in SQLite
+- avoid EPG full-text search in this phase
+- avoid SearchTimer architecture in this phase
+
+RESTfulAPI integration rule from Phase 24.5:
+
+```text
+Now/Next       -> chevents=2
+TimeWindow    -> from + timespan
+ChannelWindow -> from + timespan + limit
+only_count    -> not a fachlicher EPG count path for now
+```
+
+Architecture rule:
+
+```text
+EPG REST API -> IEpgQueryService -> VdrService -> IVdrAdapter -> backend-specific adapter
+```
+
+The REST API must expose selective EPG reads without making full EPG refresh the default runtime strategy.
+
+Out of scope:
+
+- SearchTimer support
+- EPG full-text search
+- persistent EPG mirror tables
+- client-side RESTfulAPI URL construction
+- treating `only_count=true` as reliable fachlicher EPG count semantics
+
+---
+
+## Phase 26.x - Recording Query Architecture
+
+Goal:
+
+Modernize recording read access with a dedicated recording query architecture.
+
+Planned direction:
+
+- define recording query requests and query scopes
+- keep real recordings owned by VDR
+- keep SQLite metadata separate from VDR recording truth
+- prepare backend-aware recording reads
+- prepare filtered and paginated recording lists
+- keep metadata enrichment optional and layered above real recording data
+- keep heavy recording-related data optional where needed
+- avoid coupling recording queries directly to frontend-specific views
+
+Architecture rule:
+
+```text
+VDR recording state is authoritative.
+VDR-Suite metadata is complementary.
+```
+
+Expected boundary:
+
+```text
+Recording REST API -> Recording query service -> VdrService / IVdrAdapter
+                                      -> VDR-Suite metadata repositories
+```
+
+SQLite remains appropriate for:
+
+- recording metadata owned by VDR-Suite
+- workflow state
+- job state
+- user state
+- optional indexes
+
+SQLite must not become the source of truth for real VDR recordings.
+
+---
+
+## Phase 27.x - Recording REST API Modernization
+
+Goal:
+
+Stabilize recording REST contracts for future clients.
+
+Planned direction:
+
+- introduce client-safe recording response contracts
+- add filtering and pagination where needed
+- preserve backend identity in multi-backend responses
+- expose metadata-enriched views without hiding original VDR recording data
+- keep API behavior frontend-independent
+- make error models predictable
+- make capability information visible where actions or enriched views depend on backend support
+
+Architecture rule:
+
+Recording REST responses must remain stable for clients while preserving the distinction between VDR-owned recording data and VDR-Suite-owned metadata.
+
+---
+
+## Phase 28.x - Recording Actions
+
+Goal:
+
+Define recording operations as explicit action and job boundaries.
+
+Planned direction:
+
+- model operations such as move, rename, cut, repair and delete as actions
+- route long-running operations through job boundaries
+- keep destructive operations explicit and auditable
+- preserve backend capability checks
+- avoid direct frontend-to-filesystem action coupling
+- prepare dry-run or validation behavior where useful
+- separate synchronous validation from asynchronous execution
+
+Architecture rule:
+
+```text
+Client request -> Action boundary -> Job boundary -> backend/platform adapter
+```
+
+Recording actions must not bypass permission checks, backend capability checks or job lifecycle tracking.
+
+---
+
+## Phase 29.x - Recording Metadata and Job Integration
+
+Goal:
+
+Integrate recording metadata, workflow state and jobs without making VDR-Suite the owner of real recordings.
+
+Planned direction:
+
+- connect recording metadata to recording query results
+- connect recording actions to job lifecycle state
+- track workflow state in SQLite
+- support scraper-derived metadata as optional enrichment
+- keep metadata, posters and preview data as heavy or optional domains
+- expose job state in a client-safe way
+- keep metadata refresh behavior explicit
+
+Architecture rule:
+
+Metadata and jobs enrich VDR-owned recording data. They must not replace VDR as the authoritative source for real recording existence, location or lifecycle.
+
+Phase 30.x and later phase sections will be expanded in the next roadmap update.
 
 ---
 
