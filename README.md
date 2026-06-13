@@ -40,11 +40,12 @@ EPG REST API Boundary     ████████████ 100%
 Event-Free Initial Poll   ████████████ 100%
 EPG Decoupling Validation ████████████ 100%
 EPG JSON Escaping        ████████████ 100%
+EPG JSON Helper Cleanup  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 26.2 - EPG JSON Escaping
+Latest Completed Implementation Phase: Phase 26.3 - EPG JSON Helper Cleanup
 
-Current Implementation Focus: Phase 26.3 - EPG REST Serializer Consolidation
+Current Implementation Focus: Phase 27.0 - Recording Query Architecture
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -144,13 +145,14 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ Event-Free Initial Snapshot
 ✓ EPG Snapshot Decoupling Validation
 ✓ EPG JSON Escaping
+✓ EPG JSON Helper Cleanup
 ```
 
 Current architecture focus:
 
 ```text
-Phase 26.3 - EPG REST Serializer Consolidation
-Avoid duplicate JSON escaping code
-Evaluate shared JSON string writer for VDR REST serializers
-Keep API output jq-compatible
+Phase 27.0 - Recording Query Architecture
+Evaluate selective recording query boundaries
+Keep VDR as source of truth for recordings
+Keep VDR-Suite metadata complementary
 ```

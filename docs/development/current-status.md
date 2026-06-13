@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 26.2 - EPG JSON Escaping
+Phase 26.3 - EPG JSON Helper Cleanup
 ```
 
 Current major phase status:
@@ -62,7 +62,7 @@ Phase 25.0 through 25.4 implement the EPG REST API boundary, query string bounda
 Phase 25.5 validates the EPG REST API against a real VDR through VDR-Suite HTTP endpoints.
 
 Next implementation focus:
-Phase 26.3 - EPG REST Serializer Consolidation
+Phase 27.0 - Recording Query Architecture
 ```
 
 Verified locally with:
@@ -239,7 +239,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 26.3 - EPG REST Serializer Consolidation
+Phase 27.0 - Recording Query Architecture
 ```
 
 The next step is to validate daemon startup behavior after removing the blocking full EPG load from the initial polling path.

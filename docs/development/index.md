@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 26.2 - EPG JSON Escaping
+Phase 26.3 - EPG JSON Helper Cleanup
 ```
 
 Next implementation focus:
 
 ```text
-Phase 26.3 - EPG REST Serializer Consolidation
+Phase 27.0 - Recording Query Architecture
 ```
 
 Current architecture validation:

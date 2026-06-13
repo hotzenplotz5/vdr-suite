@@ -587,3 +587,29 @@ Follow-up:
 
 The next implementation step should evaluate whether JSON escaping should be shared by VDR REST serializers instead of being local to the EPG controller.
 
+---
+
+## Phase 26.3 - EPG JSON Helper Cleanup
+
+Status: Completed
+
+Result:
+
+- EPG REST JSON key serialization was cleaned up
+- `appendKey()` was introduced locally in `EpgController.cpp`
+- repeated manual key output was replaced by a helper
+- existing `appendQuoted()` JSON escaping remains the single local string writer
+- no shared serializer utility was introduced because repository search showed no broad duplication
+- EPG REST API routes and response shape remain unchanged
+
+Verified with:
+
+- make test-epg-controller
+- make test-api-router
+- make daemon
+
+Architecture decision:
+
+Serializer consolidation is not justified yet because the duplicated escaping problem is currently local to the EPG controller.
+The next architectural focus can move back to recording query design instead of introducing premature JSON infrastructure.
+
