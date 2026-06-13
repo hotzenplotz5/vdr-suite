@@ -4,6 +4,8 @@
 #include "BackendRegistryController.h"
 #include "BackendRegistry.h"
 #include "DashboardController.h"
+#include "EpgController.h"
+#include "EpgQueryService.h"
 #include "JobsController.h"
 #include "LiveTransportController.h"
 #include "MetadataController.h"
@@ -145,6 +147,8 @@ int main()
     MockVdrAdapter adapter;
 
     VdrService vdrService(adapter);
+    EpgQueryService epgQueryService(vdrService);
+    EpgController epgController(epgQueryService);
 
     VdrOverviewService overviewService(
         vdrService);
@@ -239,6 +243,7 @@ int main()
         recordingsController,
         metadataController,
         vdrController,
+        epgController,
         backendRegistryController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
@@ -365,6 +370,30 @@ int main()
            != std::string::npos);
 
     assert(vdrResponse.body.find("\"recordings\"")
+           != std::string::npos);
+
+    ApiResponse epgNowNextResponse =
+        router.handleGet("/api/epg/now-next");
+
+    assert(epgNowNextResponse.statusCode == 200);
+    assert(epgNowNextResponse.contentType == "application/json");
+    assert(epgNowNextResponse.body.find("events")
+           != std::string::npos);
+
+    ApiResponse epgTimeWindowResponse =
+        router.handleGet("/api/epg/time-window");
+
+    assert(epgTimeWindowResponse.statusCode == 200);
+    assert(epgTimeWindowResponse.contentType == "application/json");
+    assert(epgTimeWindowResponse.body.find("events")
+           != std::string::npos);
+
+    ApiResponse epgChannelWindowResponse =
+        router.handleGet("/api/epg/channel-window");
+
+    assert(epgChannelWindowResponse.statusCode == 200);
+    assert(epgChannelWindowResponse.contentType == "application/json");
+    assert(epgChannelWindowResponse.body.find("events")
            != std::string::npos);
 
     ApiResponse vdrStatusResponse =

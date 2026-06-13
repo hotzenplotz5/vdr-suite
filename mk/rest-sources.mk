@@ -11,6 +11,9 @@ REST_DASHBOARD_SRC := \
 REST_VDR_SRC := \
         api/rest/src/VdrController.cpp
 
+REST_EPG_SRC := \
+        api/rest/src/EpgController.cpp
+
 REST_RUNTIME_SRC := \
         api/rest/src/RuntimeDiagnosticsController.cpp
 
@@ -32,6 +35,7 @@ REST_ROUTER_SRC := \
         api/rest/src/JobsController.cpp \
         api/rest/src/RecordingsController.cpp \
         api/rest/src/MetadataController.cpp \
+        api/rest/src/EpgController.cpp \
         api/rest/src/BackendRegistryController.cpp \
         api/rest/src/RuntimeDiagnosticsController.cpp \
         api/rest/src/SnapshotChangeFeedController.cpp \

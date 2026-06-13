@@ -4,6 +4,8 @@
 #include "BackendRegistryJsonSerializer.h"
 #include "BackendRegistryService.h"
 #include "DashboardController.h"
+#include "EpgController.h"
+#include "EpgQueryService.h"
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
 #include "Database.h"
@@ -92,6 +94,8 @@ int main()
 
     MockVdrAdapter adapter;
     VdrService vdrService(adapter);
+    EpgQueryService epgQueryService(vdrService);
+    EpgController epgController(epgQueryService);
     VdrOverviewService vdrOverviewService(vdrService);
     VdrOverviewJsonSerializer vdrJsonSerializer;
 
@@ -164,6 +168,7 @@ int main()
         recordingsController,
         metadataController,
         vdrController,
+        epgController,
         backendRegistryController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,

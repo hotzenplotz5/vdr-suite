@@ -12,6 +12,7 @@ DAEMON_SRC := \
         api/rest/src/RecordingsController.cpp \
         api/rest/src/MetadataController.cpp \
         api/rest/src/VdrController.cpp \
+        api/rest/src/EpgController.cpp \
         api/rest/src/BackendRegistryController.cpp \
         api/rest/src/RuntimeDiagnosticsController.cpp \
         api/rest/src/SnapshotChangeFeedController.cpp \

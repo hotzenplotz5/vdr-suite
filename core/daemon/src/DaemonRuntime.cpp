@@ -133,7 +133,12 @@ bool DaemonRuntime::initialize()
     vdrOverviewJsonSerializer_ = std::make_unique<VdrOverviewJsonSerializer>();
     vdrController_ = std::make_unique<VdrController>(*vdrOverviewService_, *vdrOverviewJsonSerializer_, *vdrSnapshotReadService_, *vdrSnapshotReadJsonSerializer_);
 
+    epgQueryService_ = std::make_unique<EpgQueryService>(
+        *backendRuntimeContexts_.front()->service);
+    epgController_ = std::make_unique<EpgController>(*epgQueryService_);
+
     std::cout << "VDR controller runtime initialized" << std::endl;
+    std::cout << "EPG controller runtime initialized" << std::endl;
 
     runtimeDiagnosticsJsonSerializer_ = std::make_unique<RuntimeDiagnosticsJsonSerializer>();
     runtimeDiagnosticsController_ = std::make_unique<RuntimeDiagnosticsController>(runtimeDiagnosticsService_, *runtimeDiagnosticsJsonSerializer_);
@@ -148,7 +153,7 @@ bool DaemonRuntime::initialize()
     std::cout << "live transport service initialized" << std::endl;
     std::cout << "live transport controller initialized" << std::endl;
 
-    apiRouter_ = std::make_unique<ApiRouter>(*dashboardController_, *jobsController_, *recordingsController_, *metadataController_, *vdrController_, *backendRegistryController_, *runtimeDiagnosticsController_, *snapshotChangeFeedController_, *liveTransportController_);
+    apiRouter_ = std::make_unique<ApiRouter>(*dashboardController_, *jobsController_, *recordingsController_, *metadataController_, *vdrController_, *epgController_, *backendRegistryController_, *runtimeDiagnosticsController_, *snapshotChangeFeedController_, *liveTransportController_);
 
     std::cout << "API router runtime initialized" << std::endl;
 

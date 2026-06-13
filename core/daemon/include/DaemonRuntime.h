@@ -10,6 +10,8 @@
 #include "DashboardController.h"
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
+#include "EpgController.h"
+#include "EpgQueryService.h"
 #include "ConsoleRuntimeLogger.h"
 #include "Database.h"
 #include "IHttpClient.h"
@@ -110,6 +112,8 @@ private:
     std::unique_ptr<VdrOverviewService> vdrOverviewService_;
     std::unique_ptr<VdrOverviewJsonSerializer> vdrOverviewJsonSerializer_;
     std::unique_ptr<VdrController> vdrController_;
+    std::unique_ptr<EpgQueryService> epgQueryService_;
+    std::unique_ptr<EpgController> epgController_;
 
     std::unique_ptr<RuntimeDiagnosticsJsonSerializer> runtimeDiagnosticsJsonSerializer_;
     std::unique_ptr<RuntimeDiagnosticsController> runtimeDiagnosticsController_;

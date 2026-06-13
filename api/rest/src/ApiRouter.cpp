@@ -1,6 +1,7 @@
 #include "ApiRouter.h"
 
 #include "BackendRegistryController.h"
+#include "EpgController.h"
 #include "JobsController.h"
 #include "LiveTransportController.h"
 #include "MetadataController.h"
@@ -47,6 +48,7 @@ ApiRouter::ApiRouter(
     RecordingsController& recordingsController,
     MetadataController& metadataController,
     VdrController& vdrController,
+    EpgController& epgController,
     BackendRegistryController& backendRegistryController,
     RuntimeDiagnosticsController& runtimeDiagnosticsController,
     SnapshotChangeFeedController& snapshotChangeFeedController,
@@ -56,6 +58,7 @@ ApiRouter::ApiRouter(
       recordingsController_(recordingsController),
       metadataController_(metadataController),
       vdrController_(vdrController),
+      epgController_(epgController),
       backendRegistryController_(backendRegistryController),
       runtimeDiagnosticsController_(runtimeDiagnosticsController),
       snapshotChangeFeedController_(snapshotChangeFeedController),
@@ -135,6 +138,21 @@ ApiResponse ApiRouter::handleGet(
     if (path == "/api/vdr/events")
     {
         return vdrController_.getEvents();
+    }
+
+    if (path == "/api/epg/now-next")
+    {
+        return epgController_.getNowNext();
+    }
+
+    if (path == "/api/epg/time-window")
+    {
+        return epgController_.getTimeWindow();
+    }
+
+    if (path == "/api/epg/channel-window")
+    {
+        return epgController_.getChannelWindow();
     }
 
     if (path == "/api/vdr/changes")
