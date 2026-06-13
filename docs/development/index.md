@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 23.1 - Runtime Diagnostics Summary Builder
+Phase 24.5 - Live RESTfulAPI EPG Verification
 ```
 
 Next implementation focus:
 
 ```text
-Phase 24.0 - EPG Query Architecture
+Phase 25.0 - EPG REST API Boundary
 ```
 
 Current architecture validation:

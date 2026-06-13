@@ -67,19 +67,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 23.1 Complete
+Phase 24.5 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 24.0 - EPG Query Architecture
+Phase 25.0 - EPG REST API Boundary
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 23.1 - Runtime Diagnostics Summary Builder
+Phase 24.5 - Live RESTfulAPI EPG Verification
 ```
 
 Architecture Work In Progress:

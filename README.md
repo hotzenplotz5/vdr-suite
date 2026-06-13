@@ -38,9 +38,9 @@ Selective Event Queries   ████████████ 100%
 Heavy Domain Policy       ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 23.1 - Runtime Diagnostics Summary Builder
+Latest Completed Implementation Phase: Phase 24.5 - Live RESTfulAPI EPG Verification
 
-Current Implementation Focus: Phase 24.0 - EPG Query Architecture
+Current Implementation Focus: Phase 25.0 - EPG REST API Boundary
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -140,7 +140,7 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 Current architecture focus:
 
 ```text
-Phase 24.0 - EPG Query Architecture
+Phase 25.0 - EPG REST API Boundary
 Use heavy-domain policy for refresh decisions
 Keep Events / EPG out of automatic full refresh paths
 Preserve backend-neutral adapter boundaries

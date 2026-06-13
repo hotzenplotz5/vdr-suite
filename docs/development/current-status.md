@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 23.1 - Runtime Diagnostics Summary Builder
+Phase 24.5 - Live RESTfulAPI EPG Verification
 ```
 
 Current major phase status:
@@ -224,7 +224,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 24.0 - EPG Query Architecture
+Phase 25.0 - EPG REST API Boundary
 ```
 
 The next step is to introduce domain-aware selective EPG refresh planning on top of the heavy-domain policy.

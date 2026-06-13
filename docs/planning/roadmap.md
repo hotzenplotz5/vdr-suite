@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 23.1 - Runtime Diagnostics Summary Builder
+Phase 24.5 - Live RESTfulAPI EPG Verification
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 23.1
+Documentation and roadmap synchronization after Phase 24.5
 
 Next implementation step
-Phase 24.0 - EPG Query Architecture
+Phase 25.0 - EPG REST API Boundary
 ```
 
 Phase 16 completed the multi-backend polling and runtime context foundation. Backend-aware polling, backend polling coordination, backend runtime contexts, daemon runtime context migration, registry-driven context creation and backend-aware snapshot change feed support are implemented.
