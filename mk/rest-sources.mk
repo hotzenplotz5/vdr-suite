@@ -9,7 +9,8 @@ REST_DASHBOARD_SRC := \
         api/rest/src/DashboardController.cpp
 
 REST_VDR_SRC := \
-        api/rest/src/VdrController.cpp
+        api/rest/src/VdrController.cpp \
+        api/rest/src/VdrRecordingQueryController.cpp
 
 REST_EPG_SRC := \
         api/rest/src/EpgController.cpp \
