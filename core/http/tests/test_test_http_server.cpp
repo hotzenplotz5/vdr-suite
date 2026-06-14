@@ -1,6 +1,12 @@
 #include "ApiRouter.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryController.h"
+#include "VdrCapabilitySet.h"
+#include "CapabilityResolver.h"
+#include "CapabilityReportService.h"
+#include "CapabilityReportJsonSerializer.h"
+#include "CapabilityReportBuilder.h"
+#include "CapabilityController.h"
 #include "BackendRegistryJsonSerializer.h"
 #include "BackendRegistryService.h"
 #include "DashboardController.h"
@@ -127,6 +133,19 @@ int main()
         backendRegistryService,
         backendRegistryJsonSerializer);
 
+    VdrCapabilitySet capabilitySet =
+        VdrCapabilitySet::snapshotReadOnly();
+    CapabilityResolver capabilityResolver(capabilitySet);
+    CapabilityReportBuilder capabilityReportBuilder;
+    CapabilityReportService capabilityReportService(
+        "default",
+        capabilityResolver,
+        capabilityReportBuilder);
+    CapabilityReportJsonSerializer capabilityReportJsonSerializer;
+    CapabilityController capabilityController(
+        capabilityReportService,
+        capabilityReportJsonSerializer);
+
     RuntimeDiagnosticsService runtimeDiagnosticsService;
     RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
 
@@ -170,6 +189,7 @@ int main()
         vdrController,
         &epgController,
         backendRegistryController,
+        capabilityController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);
