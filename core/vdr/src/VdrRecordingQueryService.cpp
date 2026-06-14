@@ -29,7 +29,7 @@ VdrRecordingQueryResult VdrRecordingQueryService::queryRecordings(
         }
     }
 
-    if (query.sortField() == VdrRecordingSortField::Title)
+    if (query.hasSort())
     {
         std::sort(
             filteredRecordings.begin(),
@@ -38,12 +38,31 @@ VdrRecordingQueryResult VdrRecordingQueryService::queryRecordings(
                 const VdrRecording& left,
                 const VdrRecording& right)
             {
-                if (query.sortDescending())
+                bool ascendingResult = false;
+
+                if (query.sortField() == VdrRecordingSortField::Title)
                 {
-                    return left.title > right.title;
+                    ascendingResult = left.title < right.title;
+                }
+                else if (query.sortField() == VdrRecordingSortField::StartTime)
+                {
+                    ascendingResult = left.startTime < right.startTime;
+                }
+                else if (query.sortField() == VdrRecordingSortField::Duration)
+                {
+                    ascendingResult = left.durationSeconds < right.durationSeconds;
+                }
+                else if (query.sortField() == VdrRecordingSortField::Size)
+                {
+                    ascendingResult = left.sizeMb < right.sizeMb;
                 }
 
-                return left.title < right.title;
+                if (query.sortDescending())
+                {
+                    return !ascendingResult;
+                }
+
+                return ascendingResult;
             });
     }
 

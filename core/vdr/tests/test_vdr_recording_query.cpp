@@ -68,6 +68,9 @@ int main()
     assert(sorted.hasSort());
     assert(sorted.sortField() == VdrRecordingSortField::Title);
     assert(sorted.sortOrder() == VdrRecordingSortOrder::Descending);
+    assert(VdrRecordingSortField::StartTime != VdrRecordingSortField::None);
+    assert(VdrRecordingSortField::Duration != VdrRecordingSortField::None);
+    assert(VdrRecordingSortField::Size != VdrRecordingSortField::None);
     assert(sorted.sortDescending());
     assert(sorted.limit() == 20);
     assert(sorted.offset() == 3);

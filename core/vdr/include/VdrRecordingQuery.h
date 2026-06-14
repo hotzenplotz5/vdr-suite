@@ -5,7 +5,10 @@
 enum class VdrRecordingSortField
 {
     None,
-    Title
+    Title,
+    StartTime,
+    Duration,
+    Size
 };
 
 enum class VdrRecordingSortOrder

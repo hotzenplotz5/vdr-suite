@@ -603,6 +603,14 @@ int main()
     assert(vdrRecordingSortQueryResponse.body.find("\"title\":\"Tatort\"") <
            vdrRecordingSortQueryResponse.body.find("\"title\":\"Tagesschau\""));
 
+    ApiResponse vdrRecordingStartTimeSortQueryResponse =
+        router.handleGet("/api/vdr/recordings/query?sort=startTime&order=desc");
+
+    assert(vdrRecordingStartTimeSortQueryResponse.statusCode == 200);
+    assert(vdrRecordingStartTimeSortQueryResponse.contentType == "application/json");
+    assert(vdrRecordingStartTimeSortQueryResponse.body.find("\"title\":\"Tatort\"") <
+           vdrRecordingStartTimeSortQueryResponse.body.find("\"title\":\"Tagesschau\""));
+
     ApiResponse vdrRecordingsResponse =
         router.handleGet("/api/vdr/recordings");
 

@@ -15,6 +15,21 @@ VdrRecordingSortField parseSortField(
         return VdrRecordingSortField::Title;
     }
 
+    if (value == "startTime")
+    {
+        return VdrRecordingSortField::StartTime;
+    }
+
+    if (value == "duration")
+    {
+        return VdrRecordingSortField::Duration;
+    }
+
+    if (value == "size")
+    {
+        return VdrRecordingSortField::Size;
+    }
+
     return VdrRecordingSortField::None;
 }
 

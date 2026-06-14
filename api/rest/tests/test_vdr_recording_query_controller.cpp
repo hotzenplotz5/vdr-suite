@@ -89,6 +89,19 @@ int main()
     assert(sortedResponse.body.find("\"title\":\"Tatort\"") <
            sortedResponse.body.find("\"title\":\"Tagesschau\""));
 
+    ApiResponse startTimeSortResponse =
+        controller.getRecordings(
+            "",
+            "",
+            "startTime",
+            "desc",
+            10,
+            0);
+
+    assert(startTimeSortResponse.statusCode == 200);
+    assert(startTimeSortResponse.body.find("\"title\":\"Tatort\"") <
+           startTimeSortResponse.body.find("\"title\":\"Tagesschau\""));
+
     std::cout
         << "test_vdr_recording_query_controller passed"
         << std::endl;

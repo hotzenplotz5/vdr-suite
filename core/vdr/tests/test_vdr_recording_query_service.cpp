@@ -75,6 +75,48 @@ int main()
     assert(sortedDescendingResult.recordings().at(0).title == "Tatort");
     assert(sortedDescendingResult.recordings().at(1).title == "Tagesschau");
 
+    VdrRecordingQueryResult sortedStartTimeDescendingResult =
+        queryService.queryRecordings(
+            VdrRecordingQuery::sorted(
+                "",
+                "",
+                0,
+                0,
+                VdrRecordingSortField::StartTime,
+                VdrRecordingSortOrder::Descending));
+
+    assert(sortedStartTimeDescendingResult.totalCount() == 2);
+    assert(sortedStartTimeDescendingResult.recordings().at(0).title == "Tatort");
+    assert(sortedStartTimeDescendingResult.recordings().at(1).title == "Tagesschau");
+
+    VdrRecordingQueryResult sortedDurationDescendingResult =
+        queryService.queryRecordings(
+            VdrRecordingQuery::sorted(
+                "",
+                "",
+                0,
+                0,
+                VdrRecordingSortField::Duration,
+                VdrRecordingSortOrder::Descending));
+
+    assert(sortedDurationDescendingResult.totalCount() == 2);
+    assert(sortedDurationDescendingResult.recordings().at(0).title == "Tatort");
+    assert(sortedDurationDescendingResult.recordings().at(1).title == "Tagesschau");
+
+    VdrRecordingQueryResult sortedSizeDescendingResult =
+        queryService.queryRecordings(
+            VdrRecordingQuery::sorted(
+                "",
+                "",
+                0,
+                0,
+                VdrRecordingSortField::Size,
+                VdrRecordingSortOrder::Descending));
+
+    assert(sortedSizeDescendingResult.totalCount() == 2);
+    assert(sortedSizeDescendingResult.recordings().at(0).title == "Tatort");
+    assert(sortedSizeDescendingResult.recordings().at(1).title == "Tagesschau");
+
     VdrRecordingQueryResult emptyResult =
         queryService.queryRecordings(
             VdrRecordingQuery::byTitle(
