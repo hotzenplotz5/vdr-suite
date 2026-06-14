@@ -28,11 +28,11 @@ Main entry point for all VDR-Suite documentation.
 
 Completed Major Phase:
 
-- Phase 12 - Snapshot Change Feed Foundation
+- Phase 27.11 - Capability Runtime Validation Documentation
 
 Planned Next Major Phase:
 
-- Phase 13 - Live Update Transport
+- Phase 28.0 - Recording Query Architecture
 
 ---
 

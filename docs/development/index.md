@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 27.0 - Backend Optional Runtime
+Phase 27.11 - Capability Runtime Validation Documentation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 27.0 - Recording Query Architecture
+Phase 28.0 - Recording Query Architecture
 ```
 
 Current architecture validation:

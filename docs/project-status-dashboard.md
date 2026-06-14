@@ -67,25 +67,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 27.0 Complete
+Phase 27.11 Complete
 ```
 
 Current Focus:
 
 ```text
-Backend capability and recording query direction
+Phase 28.0 - Recording Query Architecture
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 27.0 - Backend Optional Runtime
+Phase 27.11 - Capability Runtime Validation Documentation
 ```
 
 Architecture Work In Progress:
 
 ```text
-Backend capability and recording query direction
+Phase 28.0 - Recording Query Architecture
 ADR-0021 - Selective Backend Query Strategy
 ```
 
@@ -119,7 +119,7 @@ ADR-0021 - Selective Backend Query Strategy
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 27.0
+Phase 0 - Phase 27.11
 ```
 
 Planned Major Phases:

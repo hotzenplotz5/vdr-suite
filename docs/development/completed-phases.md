@@ -647,3 +647,31 @@ Follow-up:
 
 The next implementation step should define capability-aware backend and recording query behavior above the backend-optional runtime foundation.
 
+---
+
+## Phase 27.11 - Capability Runtime Validation Documentation
+
+Status: Completed
+
+Result:
+
+- capability-aware runtime foundation documented through Phase 27.11
+- capability stack validated through the real VDR-Suite daemon
+- `/api/vdr/capabilities` confirmed through `127.0.0.1:18080`
+- real RESTfulAPI backend confirmed through `127.0.0.1:8002`
+- real runtime output observed 342 channels and 973 recordings
+- startup observation identified `recordings.json` as the dominant startup payload at about 4.3 MB and about 1.8 seconds
+
+Verified with:
+
+- make daemon
+- curl `/api/vdr/capabilities`
+- curl `/api/vdr/overview`
+- curl `/api/vdr/status`
+- make test-docs
+- make test-phase
+
+Architecture decision:
+
+Phase 27.x completed the capability-aware API foundation. The next implementation focus should move to recording query architecture, because real VDR validation shows recordings are the dominant startup payload and need query-oriented boundaries.
+

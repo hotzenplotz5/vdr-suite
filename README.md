@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 27.0 - Backend Optional Runtime
+Latest Completed Implementation Phase: Phase 27.11 - Capability Runtime Validation Documentation
 
-Current Implementation Focus: Backend capability and recording query direction
+Current Implementation Focus: Phase 28.0 - Recording Query Architecture
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -151,7 +151,7 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 Current architecture focus:
 
 ```text
-Phase 27.0 - Recording Query Architecture
+Phase 28.0 - Recording Query Architecture
 Evaluate selective recording query boundaries
 Keep VDR as source of truth for recordings
 Keep VDR-Suite metadata complementary

@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 27.0 - Backend Optional Runtime
+Phase 27.11 - Capability Runtime Validation Documentation
 ```
 
 Current major phase status:
@@ -61,9 +61,11 @@ Phase 22.0 introduces the heavy-domain refresh policy foundation.
 Phase 25.0 through 25.4 implement the EPG REST API boundary, query string boundary, controller query parameters, REST query parser and EPG query parameter routing.
 Phase 25.5 validates the EPG REST API against a real VDR through VDR-Suite HTTP endpoints.
 Phase 27.0 allows the daemon runtime to start without a configured VDR backend and makes EPG REST routing backend-optional.
+Phase 27.1 through 27.10 implement the capability-aware runtime foundation: capability state, resolver state, report builder, JSON serializers, controller, service, ApiRouter integration and DaemonRuntime wiring.
+Phase 27.11 documents the real VDR validation of the capability-aware runtime through the VDR-Suite daemon.
 
 Next implementation focus:
-The next implementation step should define the backend capability and recording query direction above the backend-optional runtime foundation.
+The next implementation step should start Phase 28.0 and define the recording query architecture above the capability-aware runtime foundation.
 ```
 
 Verified locally with:
@@ -85,6 +87,10 @@ Verification summary:
 - live VDR validation confirmed `/api/epg/now-next`, `/api/epg/time-window` and `/api/epg/channel-window` return real EPG events
 - selective RESTfulAPI query paths were observed through `/events.json?timespan=7200&chevents=2`, `/events.json?from=...&timespan=7200` and `/events.json?from=...&timespan=7200&limit=5`
 - daemon startup no longer requires a configured VDR backend to initialize the REST runtime
+- capability-aware runtime validation confirmed `/api/vdr/capabilities` through the real daemon on `127.0.0.1:18080`
+- real RESTfulAPI backend validation confirmed VDR access through `127.0.0.1:8002`
+- real runtime observation reported 342 channels, 973 recordings and a latest recording payload from the real VDR
+- real startup measurement showed `/recordings.json` as the dominant startup domain with about 4.3 MB transferred and about 1.8 seconds snapshot build time
 - documentation phase consistency remains green
 - daemon build remains green
 - GitHub Actions remains the standard full regression path for normal non-VDR-specific changes
@@ -240,7 +246,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 27.0 - Recording Query Architecture
+Phase 28.0 - Recording Query Architecture
 ```
 
 The next step is to validate daemon startup behavior after removing the blocking full EPG load from the initial polling path.

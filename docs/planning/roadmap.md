@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 27.0 - Backend Optional Runtime
+Phase 27.11 - Capability Runtime Validation Documentation
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 27.0
+Documentation and roadmap synchronization after Phase 27.11
 
 Next implementation step
-Phase 27.0 - Backend Optional Runtime follow-up: define backend capability and recording query direction above the backend-optional runtime foundation.
+Phase 28.0 - Recording Query Architecture: define recording query boundaries above the capability-aware runtime foundation.
 
 Completed foundation summary
 ```
@@ -263,6 +263,17 @@ Implemented foundation:
 - EPG service wiring is optional when no backend-backed EPG service exists
 - EPG REST routes report backend unavailability with HTTP 503 instead of crashing runtime initialization
 - backend registry and REST visibility support empty backend lists
+
+Implemented continuation:
+
+- capability state domain model
+- capability resolver state exposure
+- capability state and report JSON serialization
+- capability report builder and service layer
+- capability controller
+- ApiRouter integration for `/api/vdr/capabilities`
+- DaemonRuntime capability controller wiring
+- real VDR validation through daemon HTTP port `18080` and RESTfulAPI backend port `8002`
 
 Planned direction:
 
