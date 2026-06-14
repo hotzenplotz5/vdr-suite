@@ -134,6 +134,21 @@ bool DaemonRuntime::initialize()
     vdrOverviewJsonSerializer_ = std::make_unique<VdrOverviewJsonSerializer>();
     vdrController_ = std::make_unique<VdrController>(*vdrOverviewService_, *vdrOverviewJsonSerializer_, *vdrSnapshotReadService_, *vdrSnapshotReadJsonSerializer_);
 
+    capabilitySet_ = std::make_unique<VdrCapabilitySet>(
+        VdrCapabilitySet::snapshotReadOnly());
+    capabilityResolver_ = std::make_unique<CapabilityResolver>(*capabilitySet_);
+    capabilityReportBuilder_ = std::make_unique<CapabilityReportBuilder>();
+    capabilityReportService_ = std::make_unique<CapabilityReportService>(
+        "default",
+        *capabilityResolver_,
+        *capabilityReportBuilder_);
+    capabilityReportJsonSerializer_ = std::make_unique<CapabilityReportJsonSerializer>();
+    capabilityController_ = std::make_unique<CapabilityController>(
+        *capabilityReportService_,
+        *capabilityReportJsonSerializer_);
+
+    std::cout << "capability controller runtime initialized" << std::endl;
+
     if (!backendRuntimeContexts_.empty()) {
         epgQueryService_ = std::make_unique<EpgQueryService>(
             *backendRuntimeContexts_.front()->service);
@@ -160,7 +175,7 @@ bool DaemonRuntime::initialize()
     std::cout << "live transport service initialized" << std::endl;
     std::cout << "live transport controller initialized" << std::endl;
 
-    apiRouter_ = std::make_unique<ApiRouter>(*dashboardController_, *jobsController_, *recordingsController_, *metadataController_, *vdrController_, epgController_.get(), *backendRegistryController_, *runtimeDiagnosticsController_, *snapshotChangeFeedController_, *liveTransportController_);
+    apiRouter_ = std::make_unique<ApiRouter>(*dashboardController_, *jobsController_, *recordingsController_, *metadataController_, *vdrController_, epgController_.get(), *backendRegistryController_, *capabilityController_, *runtimeDiagnosticsController_, *snapshotChangeFeedController_, *liveTransportController_);
 
     std::cout << "API router runtime initialized" << std::endl;
 
@@ -231,6 +246,12 @@ void DaemonRuntime::shutdown()
     liveTransport_.reset();
     snapshotChangeFeedController_.reset();
     runtimeDiagnosticsController_.reset();
+    capabilityController_.reset();
+    capabilityReportJsonSerializer_.reset();
+    capabilityReportService_.reset();
+    capabilityReportBuilder_.reset();
+    capabilityResolver_.reset();
+    capabilitySet_.reset();
     backendRegistryController_.reset();
     backendRegistryJsonSerializer_.reset();
     backendRegistryService_.reset();

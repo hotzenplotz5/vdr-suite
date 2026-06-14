@@ -7,6 +7,12 @@
 #include "BackendRegistryService.h"
 #include "BackendRegistryJsonSerializer.h"
 #include "BackendRegistryController.h"
+#include "VdrCapabilitySet.h"
+#include "CapabilityResolver.h"
+#include "CapabilityReportService.h"
+#include "CapabilityReportJsonSerializer.h"
+#include "CapabilityReportBuilder.h"
+#include "CapabilityController.h"
 #include "DashboardController.h"
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -112,6 +118,12 @@ private:
     std::unique_ptr<VdrOverviewService> vdrOverviewService_;
     std::unique_ptr<VdrOverviewJsonSerializer> vdrOverviewJsonSerializer_;
     std::unique_ptr<VdrController> vdrController_;
+    std::unique_ptr<VdrCapabilitySet> capabilitySet_;
+    std::unique_ptr<CapabilityResolver> capabilityResolver_;
+    std::unique_ptr<CapabilityReportBuilder> capabilityReportBuilder_;
+    std::unique_ptr<CapabilityReportService> capabilityReportService_;
+    std::unique_ptr<CapabilityReportJsonSerializer> capabilityReportJsonSerializer_;
+    std::unique_ptr<CapabilityController> capabilityController_;
     std::unique_ptr<EpgQueryService> epgQueryService_;
     std::unique_ptr<EpgController> epgController_;
 
