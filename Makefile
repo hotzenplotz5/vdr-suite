@@ -217,6 +217,7 @@ test-api-router: prepare-test-db
 		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
 		api/rest/src/VdrController.cpp \
+		api/rest/src/VdrRecordingQueryController.cpp \
 		api/rest/tests/test_api_router.cpp \
 		$(LDFLAGS) \
 		-o /tmp/test_api_router

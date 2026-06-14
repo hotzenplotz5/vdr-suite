@@ -11,6 +11,7 @@
 #include "RuntimeDiagnosticsController.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
+#include "VdrRecordingQueryController.h"
 
 #include <string>
 
@@ -89,6 +90,7 @@ ApiRouter::ApiRouter(
     RecordingsController& recordingsController,
     MetadataController& metadataController,
     VdrController& vdrController,
+    VdrRecordingQueryController& vdrRecordingQueryController,
     EpgController* epgController,
     BackendRegistryController& backendRegistryController,
     CapabilityController& capabilityController,
@@ -100,6 +102,7 @@ ApiRouter::ApiRouter(
       recordingsController_(recordingsController),
       metadataController_(metadataController),
       vdrController_(vdrController),
+      vdrRecordingQueryController_(vdrRecordingQueryController),
       epgController_(epgController),
       backendRegistryController_(backendRegistryController),
       capabilityController_(capabilityController),
@@ -173,6 +176,14 @@ ApiResponse ApiRouter::handleGet(
     if (path == "/api/vdr/recordings")
     {
         return vdrController_.getRecordings();
+    }
+
+    if (path == "/api/vdr/recordings/query")
+    {
+        return vdrRecordingQueryController_.getRecordings(
+            queryParameters.get("title"),
+            queryParameters.getInt("limit", 0),
+            queryParameters.getInt("offset", 0));
     }
 
     if (path == "/api/vdr/timers")

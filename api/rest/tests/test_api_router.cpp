@@ -19,6 +19,9 @@
 #include "RuntimeDiagnosticsController.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
+#include "VdrRecordingQueryService.h"
+#include "VdrRecordingQueryResultJsonSerializer.h"
+#include "VdrRecordingQueryController.h"
 
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -177,6 +180,12 @@ int main()
         snapshotReadService,
         snapshotReadJsonSerializer);
 
+    VdrRecordingQueryService vdrRecordingQueryService(vdrService);
+    VdrRecordingQueryResultJsonSerializer vdrRecordingQueryJsonSerializer;
+    VdrRecordingQueryController vdrRecordingQueryController(
+        vdrRecordingQueryService,
+        vdrRecordingQueryJsonSerializer);
+
     BackendRegistry backendRegistry;
     BackendNode defaultBackend;
     defaultBackend.backendId = "default";
@@ -263,6 +272,7 @@ int main()
         recordingsController,
         metadataController,
         vdrController,
+        vdrRecordingQueryController,
         &epgController,
         backendRegistryController,
         capabilityController,
@@ -423,6 +433,7 @@ int main()
         recordingsController,
         metadataController,
         vdrController,
+        vdrRecordingQueryController,
         nullptr,
         backendRegistryController,
         capabilityController,
@@ -555,6 +566,20 @@ int main()
            != std::string::npos);
     assert(vdrLiveResponse.body.find("\"changedDomains\":[\"channels\"]")
            != std::string::npos);
+
+    ApiResponse vdrRecordingQueryResponse =
+        router.handleGet("/api/vdr/recordings/query?title=tatort&limit=10&offset=0");
+
+    assert(vdrRecordingQueryResponse.statusCode == 200);
+    assert(vdrRecordingQueryResponse.contentType == "application/json");
+    assert(vdrRecordingQueryResponse.body.find("\"totalCount\":1")
+           != std::string::npos);
+    assert(vdrRecordingQueryResponse.body.find("\"returnedCount\":1")
+           != std::string::npos);
+    assert(vdrRecordingQueryResponse.body.find("\"title\":\"Tatort\"")
+           != std::string::npos);
+    assert(vdrRecordingQueryResponse.body.find("\"title\":\"Tagesschau\"")
+           == std::string::npos);
 
     ApiResponse vdrRecordingsResponse =
         router.handleGet("/api/vdr/recordings");

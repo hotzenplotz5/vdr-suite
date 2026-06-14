@@ -14,6 +14,7 @@ class RecordingsController;
 class RuntimeDiagnosticsController;
 class SnapshotChangeFeedController;
 class VdrController;
+class VdrRecordingQueryController;
 
 class ApiRouter
 {
@@ -24,6 +25,7 @@ public:
         RecordingsController& recordingsController,
         MetadataController& metadataController,
         VdrController& vdrController,
+        VdrRecordingQueryController& vdrRecordingQueryController,
         EpgController* epgController,
         BackendRegistryController& backendRegistryController,
         CapabilityController& capabilityController,
@@ -40,6 +42,7 @@ private:
     RecordingsController& recordingsController_;
     MetadataController& metadataController_;
     VdrController& vdrController_;
+    VdrRecordingQueryController& vdrRecordingQueryController_;
     EpgController* epgController_;
     BackendRegistryController& backendRegistryController_;
     CapabilityController& capabilityController_;
