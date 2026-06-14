@@ -4,6 +4,29 @@
 #include <cassert>
 #include <iostream>
 
+static void assertUnsupportedState(
+    const CapabilityState& state,
+    const std::string& capabilityName,
+    const std::string& reason)
+{
+    assert(state.capabilityName() == capabilityName);
+    assert(!state.supported());
+    assert(state.availability() == CapabilityAvailability::Unsupported);
+    assert(state.reason() == reason);
+    assert(!state.availableNow());
+}
+
+static void assertAvailableState(
+    const CapabilityState& state,
+    const std::string& capabilityName)
+{
+    assert(state.capabilityName() == capabilityName);
+    assert(state.supported());
+    assert(state.availability() == CapabilityAvailability::Available);
+    assert(state.reason().empty());
+    assert(state.availableNow());
+}
+
 int main()
 {
     VdrCapabilitySet emptyCapabilities;
@@ -21,6 +44,15 @@ int main()
     assert(!emptyResolver.supports("timers.create"));
     assert(!emptyResolver.supports("unknown.capability"));
 
+    assertUnsupportedState(
+        emptyResolver.state("recordings.read"),
+        "recordings.read",
+        "capability unsupported by backend");
+    assertUnsupportedState(
+        emptyResolver.state("unknown.capability"),
+        "unknown.capability",
+        "unknown capability");
+
     VdrCapabilitySet readOnlyCapabilities =
         VdrCapabilitySet::snapshotReadOnly();
 
@@ -35,9 +67,20 @@ int main()
     assert(readOnlyResolver.supports("events.read"));
     assert(readOnlyResolver.supports("events.read.selective"));
 
+    assertAvailableState(
+        readOnlyResolver.state("recordings.read"),
+        "recordings.read");
+    assertAvailableState(
+        readOnlyResolver.state("events.read.selective"),
+        "events.read.selective");
+
     assert(!readOnlyResolver.supports("recordings.delete"));
     assert(!readOnlyResolver.supports("timers.create"));
     assert(!readOnlyResolver.supports("unknown.capability"));
+    assertUnsupportedState(
+        readOnlyResolver.state("unknown.capability"),
+        "unknown.capability",
+        "unknown capability");
 
     std::cout
         << "test_capability_resolver passed"

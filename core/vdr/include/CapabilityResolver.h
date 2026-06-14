@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CapabilityState.h"
 #include "ICapabilityResolver.h"
 #include "VdrCapabilitySet.h"
 
@@ -17,49 +18,71 @@ public:
     bool supports(
         const std::string& capability) const override
     {
+        return state(capability).availableNow();
+    }
+
+    CapabilityState state(
+        const std::string& capability) const override
+    {
         if (capability == "snapshot.read")
         {
-            return capabilities_.snapshotRead;
+            return fromSupportedFlag(capability, capabilities_.snapshotRead);
         }
 
         if (capability == "status.read")
         {
-            return capabilities_.statusRead;
+            return fromSupportedFlag(capability, capabilities_.statusRead);
         }
 
         if (capability == "health.read")
         {
-            return capabilities_.healthRead;
+            return fromSupportedFlag(capability, capabilities_.healthRead);
         }
 
         if (capability == "recordings.read")
         {
-            return capabilities_.recordingsRead;
+            return fromSupportedFlag(capability, capabilities_.recordingsRead);
         }
 
         if (capability == "timers.read")
         {
-            return capabilities_.timersRead;
+            return fromSupportedFlag(capability, capabilities_.timersRead);
         }
 
         if (capability == "channels.read")
         {
-            return capabilities_.channelsRead;
+            return fromSupportedFlag(capability, capabilities_.channelsRead);
         }
 
         if (capability == "events.read")
         {
-            return capabilities_.eventsRead;
+            return fromSupportedFlag(capability, capabilities_.eventsRead);
         }
 
         if (capability == "events.read.selective")
         {
-            return capabilities_.eventsSelectiveRead;
+            return fromSupportedFlag(capability, capabilities_.eventsSelectiveRead);
         }
 
-        return false;
+        return CapabilityState::unsupported(
+            capability,
+            "unknown capability");
     }
 
 private:
+    static CapabilityState fromSupportedFlag(
+        const std::string& capability,
+        bool supported)
+    {
+        if (supported)
+        {
+            return CapabilityState::available(capability);
+        }
+
+        return CapabilityState::unsupported(
+            capability,
+            "capability unsupported by backend");
+    }
+
     const VdrCapabilitySet& capabilities_;
 };
