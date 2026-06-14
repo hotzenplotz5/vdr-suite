@@ -37,10 +37,10 @@ Upcoming goals and planned completion targets.
 
 ```text
 Completed Major Phase
-Phase 12 - Snapshot Change Feed Foundation
+Phase 28.12 - Recording Query API Documentation
 
 Next Major Phase
-Phase 13 - Live Update Transport
+Phase 29.0 - Multi-Backend Recording Identity Foundation
 ```
 
 ---
