@@ -2,6 +2,12 @@
 #include "BackendRegistryService.h"
 #include "BackendRegistryJsonSerializer.h"
 #include "BackendRegistryController.h"
+#include "VdrCapabilitySet.h"
+#include "CapabilityResolver.h"
+#include "CapabilityReportService.h"
+#include "CapabilityReportJsonSerializer.h"
+#include "CapabilityReportBuilder.h"
+#include "CapabilityController.h"
 #include "BackendRegistry.h"
 #include "DashboardController.h"
 #include "EpgController.h"
@@ -237,6 +243,20 @@ int main()
     LiveTransportController liveTransportController(
         liveTransport);
 
+    VdrCapabilitySet capabilitySet =
+        VdrCapabilitySet::snapshotReadOnly();
+
+    CapabilityResolver capabilityResolver(capabilitySet);
+    CapabilityReportBuilder capabilityReportBuilder;
+    CapabilityReportService capabilityReportService(
+        "router-backend",
+        capabilityResolver,
+        capabilityReportBuilder);
+    CapabilityReportJsonSerializer capabilityReportJsonSerializer;
+    CapabilityController capabilityController(
+        capabilityReportService,
+        capabilityReportJsonSerializer);
+
     ApiRouter router(
         dashboardController,
         jobsController,
@@ -245,6 +265,7 @@ int main()
         vdrController,
         &epgController,
         backendRegistryController,
+        capabilityController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);
@@ -404,6 +425,7 @@ int main()
         vdrController,
         nullptr,
         backendRegistryController,
+        capabilityController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);
@@ -433,19 +455,15 @@ int main()
 
     assert(vdrCapabilitiesResponse.statusCode == 200);
     assert(vdrCapabilitiesResponse.contentType == "application/json");
-    assert(vdrCapabilitiesResponse.body.find("\"snapshotRead\":true")
+    assert(vdrCapabilitiesResponse.body.find("\"backendId\":\"router-backend\"")
            != std::string::npos);
-    assert(vdrCapabilitiesResponse.body.find("\"statusRead\":true")
+    assert(vdrCapabilitiesResponse.body.find("\"capabilities\":[")
            != std::string::npos);
-    assert(vdrCapabilitiesResponse.body.find("\"healthRead\":true")
+    assert(vdrCapabilitiesResponse.body.find("\"capability\":\"recordings.read\"")
            != std::string::npos);
-    assert(vdrCapabilitiesResponse.body.find("\"recordingsRead\":true")
+    assert(vdrCapabilitiesResponse.body.find("\"availability\":\"available\"")
            != std::string::npos);
-    assert(vdrCapabilitiesResponse.body.find("\"timersRead\":true")
-           != std::string::npos);
-    assert(vdrCapabilitiesResponse.body.find("\"channelsRead\":true")
-           != std::string::npos);
-    assert(vdrCapabilitiesResponse.body.find("\"eventsRead\":true")
+    assert(vdrCapabilitiesResponse.body.find("\"availableNow\":true")
            != std::string::npos);
 
     ApiResponse vdrSnapshotResponse =

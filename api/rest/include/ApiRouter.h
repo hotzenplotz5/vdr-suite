@@ -5,6 +5,7 @@
 #include <string>
 
 class BackendRegistryController;
+class CapabilityController;
 class EpgController;
 class JobsController;
 class LiveTransportController;
@@ -25,6 +26,7 @@ public:
         VdrController& vdrController,
         EpgController* epgController,
         BackendRegistryController& backendRegistryController,
+        CapabilityController& capabilityController,
         RuntimeDiagnosticsController& runtimeDiagnosticsController,
         SnapshotChangeFeedController& snapshotChangeFeedController,
         LiveTransportController& liveTransportController);
@@ -40,6 +42,7 @@ private:
     VdrController& vdrController_;
     EpgController* epgController_;
     BackendRegistryController& backendRegistryController_;
+    CapabilityController& capabilityController_;
     RuntimeDiagnosticsController& runtimeDiagnosticsController_;
     SnapshotChangeFeedController& snapshotChangeFeedController_;
     LiveTransportController& liveTransportController_;

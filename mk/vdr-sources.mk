@@ -3,6 +3,9 @@ VDR_SRC := \
         core/vdr/src/BackendRegistry.cpp \
         core/vdr/src/BackendRegistryService.cpp \
         core/vdr/src/BackendRegistryJsonSerializer.cpp \
+        core/vdr/src/CapabilityStateJsonSerializer.cpp \
+        core/vdr/src/CapabilityReportJsonSerializer.cpp \
+        core/vdr/src/CapabilityReportService.cpp \
         core/vdr/src/ExternalVdrAdapter.cpp \
         core/vdr/src/MockVdrAdapter.cpp \
         core/vdr/src/VdrService.cpp \

@@ -1,6 +1,7 @@
 #include "ApiRouter.h"
 
 #include "BackendRegistryController.h"
+#include "CapabilityController.h"
 #include "EpgController.h"
 #include "JobsController.h"
 #include "LiveTransportController.h"
@@ -90,6 +91,7 @@ ApiRouter::ApiRouter(
     VdrController& vdrController,
     EpgController* epgController,
     BackendRegistryController& backendRegistryController,
+    CapabilityController& capabilityController,
     RuntimeDiagnosticsController& runtimeDiagnosticsController,
     SnapshotChangeFeedController& snapshotChangeFeedController,
     LiveTransportController& liveTransportController)
@@ -100,6 +102,7 @@ ApiRouter::ApiRouter(
       vdrController_(vdrController),
       epgController_(epgController),
       backendRegistryController_(backendRegistryController),
+      capabilityController_(capabilityController),
       runtimeDiagnosticsController_(runtimeDiagnosticsController),
       snapshotChangeFeedController_(snapshotChangeFeedController),
       liveTransportController_(liveTransportController)
@@ -164,7 +167,7 @@ ApiResponse ApiRouter::handleGet(
 
     if (path == "/api/vdr/capabilities")
     {
-        return vdrController_.getCapabilities();
+        return capabilityController_.getCapabilities();
     }
 
     if (path == "/api/vdr/recordings")
