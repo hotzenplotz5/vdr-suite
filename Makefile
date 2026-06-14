@@ -332,7 +332,7 @@ test-runtime-diagnostics-summary-builder:
 		-o /tmp/test_runtime_diagnostics_summary_builder
 	/tmp/test_runtime_diagnostics_summary_builder
 
-test: test-rest-query-parameters test-epg-controller test-backend-registry-controller test-capability-report-service test-capability-controller test-capability-report-json-serializer test-capability-report-builder test-capability-report test-capability-state-json-serializer test-capability-state test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-runtime-diagnostics-service test-runtime-diagnostics-json-serializer test-runtime-diagnostics-summary-builder test-runtime-diagnostics-controller test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-vdr-controller test-snapshot-change-feed-controller test-live-transport-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-vdr-service test-vdr-overview-service test-vdr-overview-json-serializer test-vdr-snapshot-builder test-polling-service test-vdr-change-state test-vdr-change-event test-change-detection-service test-snapshot-refresh-decision-service test-snapshot-refresh-planner test-snapshot-update-plan test-snapshot-cache test-snapshot-cache-service test-snapshot-change-feed test-snapshot-change-feed-json-serializer test-live-update-event test-live-update-event-json-serializer test-live-transport-interface test-test-live-transport test-live-transport-service test-live-transport-factory test-sse-live-transport test-snapshot-access-service test-mock-vdr-adapter test-http-request test-http-response test-http-server-contract test-test-http-server test-mock-http-client test-restful-api-status-mapper test-restful-api-event-mapper test-restful-api-channel-mapper test-restful-api-recording-mapper test-restful-api-timer-mapper test-restful-api-vdr-adapter test-restful-api-change-state-adapter test-vdr-domain-objects
+test: test-vdr-recording-query test-rest-query-parameters test-epg-controller test-backend-registry-controller test-capability-report-service test-capability-controller test-capability-report-json-serializer test-capability-report-builder test-capability-report test-capability-state-json-serializer test-capability-state test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-runtime-diagnostics-service test-runtime-diagnostics-json-serializer test-runtime-diagnostics-summary-builder test-runtime-diagnostics-controller test-database test-recording-repository test-recording-service test-metadata-service test-recording-action test-action-service test-job-service test-job-repository test-job-dashboard-service test-recording-dashboard-service test-dashboard-facade test-dashboard-json-serializer test-dashboard-controller test-vdr-controller test-snapshot-change-feed-controller test-live-transport-controller test-jobs-controller test-recordings-controller test-metadata-controller test-api-router test-workflow-service test-worker-simulator test-rectools-adapter test-vdr-config test-external-vdr-adapter test-vdr-adapter-factory test-vdr-service test-vdr-overview-service test-vdr-overview-json-serializer test-vdr-snapshot-builder test-polling-service test-vdr-change-state test-vdr-change-event test-change-detection-service test-snapshot-refresh-decision-service test-snapshot-refresh-planner test-snapshot-update-plan test-snapshot-cache test-snapshot-cache-service test-snapshot-change-feed test-snapshot-change-feed-json-serializer test-live-update-event test-live-update-event-json-serializer test-live-transport-interface test-test-live-transport test-live-transport-service test-live-transport-factory test-sse-live-transport test-snapshot-access-service test-mock-vdr-adapter test-http-request test-http-response test-http-server-contract test-test-http-server test-mock-http-client test-restful-api-status-mapper test-restful-api-event-mapper test-restful-api-channel-mapper test-restful-api-recording-mapper test-restful-api-timer-mapper test-restful-api-vdr-adapter test-restful-api-change-state-adapter test-vdr-domain-objects
 
 clean:
 	rm -f /tmp/test_database
@@ -370,6 +370,7 @@ clean:
 	rm -f /tmp/test_restful_api_vdr_adapter
 	rm -f /tmp/test_restful_api_change_state_adapter
 	rm -f /tmp/test_vdr_domain_objects
+	rm -f /tmp/test_vdr_recording_query
 	rm -f /tmp/test_vdr_service
 	rm -f /tmp/test_vdr_overview_service
 	rm -f /tmp/test_vdr_overview_json_serializer
@@ -443,6 +444,14 @@ test-capability-controller:
 		api/rest/tests/test_capability_controller.cpp \
 		-o /tmp/test_capability_controller
 	/tmp/test_capability_controller
+
+
+.PHONY: test-vdr-recording-query
+test-vdr-recording-query:
+	g++ -std=c++17 -Wall -Wextra -Icore/vdr/include \
+		core/vdr/tests/test_vdr_recording_query.cpp \
+		-o /tmp/test_vdr_recording_query
+	/tmp/test_vdr_recording_query
 
 .PHONY: test-capability-report-json-serializer
 test-capability-report-json-serializer:
