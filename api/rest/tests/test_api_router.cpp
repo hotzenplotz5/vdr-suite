@@ -243,7 +243,7 @@ int main()
         recordingsController,
         metadataController,
         vdrController,
-        epgController,
+        &epgController,
         backendRegistryController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
@@ -394,6 +394,26 @@ int main()
     assert(epgChannelWindowResponse.statusCode == 200);
     assert(epgChannelWindowResponse.contentType == "application/json");
     assert(epgChannelWindowResponse.body.find("events")
+           != std::string::npos);
+
+    ApiRouter routerWithoutEpg(
+        dashboardController,
+        jobsController,
+        recordingsController,
+        metadataController,
+        vdrController,
+        nullptr,
+        backendRegistryController,
+        runtimeDiagnosticsController,
+        snapshotChangeFeedController,
+        liveTransportController);
+
+    ApiResponse unavailableEpgResponse =
+        routerWithoutEpg.handleGet("/api/epg/now-next");
+
+    assert(unavailableEpgResponse.statusCode == 503);
+    assert(unavailableEpgResponse.contentType == "application/json");
+    assert(unavailableEpgResponse.body.find("epg backend unavailable")
            != std::string::npos);
 
     ApiResponse vdrStatusResponse =

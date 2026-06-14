@@ -40,6 +40,17 @@ std::string requestQueryString(const std::string& requestTarget)
 }
 
 
+ApiResponse makeEpgUnavailableResponse()
+{
+    ApiResponse response;
+
+    response.statusCode = 503;
+    response.contentType = "application/json";
+    response.body = "{\"error\":\"epg backend unavailable\"}";
+
+    return response;
+}
+
 static bool parseBackendSnapshotRoute(
     const std::string& path,
     std::string& backendId,
@@ -77,7 +88,7 @@ ApiRouter::ApiRouter(
     RecordingsController& recordingsController,
     MetadataController& metadataController,
     VdrController& vdrController,
-    EpgController& epgController,
+    EpgController* epgController,
     BackendRegistryController& backendRegistryController,
     RuntimeDiagnosticsController& runtimeDiagnosticsController,
     SnapshotChangeFeedController& snapshotChangeFeedController,
@@ -178,14 +189,24 @@ ApiResponse ApiRouter::handleGet(
 
     if (path == "/api/epg/now-next")
     {
-        return epgController_.getNowNext(
+        if (epgController_ == nullptr)
+        {
+            return makeEpgUnavailableResponse();
+        }
+
+        return epgController_->getNowNext(
             queryParameters.get("channelId"),
             queryParameters.getInt("from", -1));
     }
 
     if (path == "/api/epg/time-window")
     {
-        return epgController_.getTimeWindow(
+        if (epgController_ == nullptr)
+        {
+            return makeEpgUnavailableResponse();
+        }
+
+        return epgController_->getTimeWindow(
             queryParameters.get("channelId"),
             queryParameters.getInt("from", -1),
             queryParameters.getInt("timespan", 7200));
@@ -193,7 +214,12 @@ ApiResponse ApiRouter::handleGet(
 
     if (path == "/api/epg/channel-window")
     {
-        return epgController_.getChannelWindow(
+        if (epgController_ == nullptr)
+        {
+            return makeEpgUnavailableResponse();
+        }
+
+        return epgController_->getChannelWindow(
             queryParameters.get("channelId"),
             queryParameters.getInt("from", -1),
             queryParameters.getInt("timespan", 7200),

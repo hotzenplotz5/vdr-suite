@@ -23,6 +23,28 @@ static BackendNode makeBackend(
 
 int main()
 {
+    BackendRegistry emptyRegistry;
+    BackendRegistryService emptyService(emptyRegistry);
+    BackendRegistryJsonSerializer emptySerializer;
+
+    BackendRegistryController emptyController(
+        emptyService,
+        emptySerializer);
+
+    ApiResponse emptyListResponse =
+        emptyController.getBackends();
+
+    assert(emptyListResponse.statusCode == 200);
+    assert(emptyListResponse.contentType == "application/json");
+    assert(emptyListResponse.body == "{\"backends\":[]}");
+
+    ApiResponse missingDefaultResponse =
+        emptyController.getDefaultBackend();
+
+    assert(missingDefaultResponse.statusCode == 200);
+    assert(missingDefaultResponse.contentType == "application/json");
+    assert(missingDefaultResponse.body == "{}");
+
     BackendRegistry registry;
 
     registry.addBackend(
