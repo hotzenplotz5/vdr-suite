@@ -63,6 +63,7 @@ static void test_snapshot_builder_collects_complete_vdr_state()
 
     assert(snapshot.recordings.size() == 2);
     assert(snapshot.recordings[0].id == "mock-recording-1");
+    assert(snapshot.recordings[0].backendId == "default");
 
     assert(snapshot.timers.size() == 1);
     assert(snapshot.timers[0].id == "mock-timer-1");
@@ -291,6 +292,9 @@ static void test_snapshot_builder_assigns_backend_id()
         builder.buildSnapshot();
 
     assert(snapshot.backendId == "ferienhaus");
+    assert(snapshot.recordings.size() == 2);
+    assert(snapshot.recordings[0].backendId == "ferienhaus");
+    assert(snapshot.recordings[1].backendId == "ferienhaus");
 }
 
 int main()

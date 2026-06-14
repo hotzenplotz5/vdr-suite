@@ -69,6 +69,13 @@ std::vector<VdrRecording> VdrSnapshotBuilder::buildRecordings() const
 {
     const auto started = std::chrono::steady_clock::now();
     auto result = vdrService_.getRecordings();
+
+    for (VdrRecording& recording : result) {
+        if (recording.backendId.empty()) {
+            recording.backendId = backendId_;
+        }
+    }
+
     const auto finished = std::chrono::steady_clock::now();
     const auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count();
 

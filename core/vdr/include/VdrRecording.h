@@ -5,6 +5,7 @@
 struct VdrRecording
 {
     std::string id;
+    std::string backendId;
 
     std::string title;
     std::string path;

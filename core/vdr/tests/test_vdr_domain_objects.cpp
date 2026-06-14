@@ -135,6 +135,7 @@ int main()
 
     VdrRecording recording;
     recording.id = "500";
+    recording.backendId = "default";
     recording.title = "Tatort";
     recording.path = "/video/Tatort";
     recording.startTime = "2026-06-01T20:15:00";
@@ -142,6 +143,7 @@ int main()
     recording.sizeMb = 4200;
 
     assert(recording.id == "500");
+    assert(recording.backendId == "default");
     assert(recording.title == "Tatort");
     assert(recording.path == "/video/Tatort");
     assert(recording.startTime == "2026-06-01T20:15:00");
