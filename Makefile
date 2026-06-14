@@ -438,6 +438,7 @@ test-capability-controller:
 	g++ -std=c++17 -Wall -Wextra -Icore/vdr/include -Iapi/rest/include \
 		core/vdr/src/CapabilityStateJsonSerializer.cpp \
 		core/vdr/src/CapabilityReportJsonSerializer.cpp \
+		core/vdr/src/CapabilityReportService.cpp \
 		api/rest/src/CapabilityController.cpp \
 		api/rest/tests/test_capability_controller.cpp \
 		-o /tmp/test_capability_controller

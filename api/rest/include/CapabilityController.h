@@ -2,19 +2,19 @@
 
 #include "DashboardController.h"
 
-class CapabilityReport;
 class CapabilityReportJsonSerializer;
+class CapabilityReportService;
 
 class CapabilityController
 {
 public:
     CapabilityController(
-        CapabilityReport& report,
+        CapabilityReportService& reportService,
         CapabilityReportJsonSerializer& jsonSerializer);
 
     ApiResponse getCapabilities();
 
 private:
-    CapabilityReport& report_;
+    CapabilityReportService& reportService_;
     CapabilityReportJsonSerializer& jsonSerializer_;
 };

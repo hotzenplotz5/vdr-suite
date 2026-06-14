@@ -1,12 +1,12 @@
 #include "CapabilityController.h"
 
-#include "CapabilityReport.h"
 #include "CapabilityReportJsonSerializer.h"
+#include "CapabilityReportService.h"
 
 CapabilityController::CapabilityController(
-    CapabilityReport& report,
+    CapabilityReportService& reportService,
     CapabilityReportJsonSerializer& jsonSerializer)
-    : report_(report),
+    : reportService_(reportService),
       jsonSerializer_(jsonSerializer)
 {
 }
@@ -17,7 +17,9 @@ ApiResponse CapabilityController::getCapabilities()
 
     response.statusCode = 200;
     response.contentType = "application/json";
-    response.body = jsonSerializer_.serialize(report_);
+    response.body =
+        jsonSerializer_.serialize(
+            reportService_.getReport());
 
     return response;
 }

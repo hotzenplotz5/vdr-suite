@@ -1,28 +1,29 @@
 #include "CapabilityController.h"
 
-#include "CapabilityReport.h"
 #include "CapabilityReportJsonSerializer.h"
+#include "CapabilityReportService.h"
+#include "CapabilityReportBuilder.h"
+#include "CapabilityResolver.h"
+#include "VdrCapabilitySet.h"
 
 #include <cassert>
 #include <iostream>
-#include <vector>
 
 int main()
 {
-    std::vector<CapabilityState> states;
-    states.push_back(CapabilityState::available("recordings.read"));
-    states.push_back(
-        CapabilityState::unsupported(
-            "timers.create",
-            "capability unsupported by backend"));
+    VdrCapabilitySet capabilities =
+        VdrCapabilitySet::snapshotReadOnly();
 
-    CapabilityReport report(
+    CapabilityResolver resolver(capabilities);
+    CapabilityReportBuilder builder;
+    CapabilityReportService service(
         "living-room",
-        states);
+        resolver,
+        builder);
 
     CapabilityReportJsonSerializer serializer;
     CapabilityController controller(
-        report,
+        service,
         serializer);
 
     ApiResponse response =
@@ -33,8 +34,7 @@ int main()
     assert(response.body.find("\"backendId\":\"living-room\"") != std::string::npos);
     assert(response.body.find("\"capability\":\"recordings.read\"") != std::string::npos);
     assert(response.body.find("\"availability\":\"available\"") != std::string::npos);
-    assert(response.body.find("\"capability\":\"timers.create\"") != std::string::npos);
-    assert(response.body.find("\"availability\":\"unsupported\"") != std::string::npos);
+    assert(response.body.find("\"availableNow\":true") != std::string::npos);
 
     std::cout
         << "test_capability_controller passed"
