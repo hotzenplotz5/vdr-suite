@@ -619,6 +619,14 @@ int main()
     assert(vdrRecordingRangeQueryResponse.body.find("\"totalCount\":2")
            != std::string::npos);
 
+    ApiResponse vdrRecordingDurationQueryResponse =
+        router.handleGet("/api/vdr/recordings/query?durationMin=900&durationMax=7200");
+
+    assert(vdrRecordingDurationQueryResponse.statusCode == 200);
+    assert(vdrRecordingDurationQueryResponse.contentType == "application/json");
+    assert(vdrRecordingDurationQueryResponse.body.find("\"totalCount\":2")
+           != std::string::npos);
+
     ApiResponse vdrRecordingsResponse =
         router.handleGet("/api/vdr/recordings");
 

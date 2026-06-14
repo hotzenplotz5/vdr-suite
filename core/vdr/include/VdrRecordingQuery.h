@@ -82,6 +82,31 @@ public:
         return query;
     }
 
+    static VdrRecordingQuery durationRanged(
+        const std::string& titleFilter,
+        const std::string& pathFilter,
+        const std::string& fromStartTime,
+        const std::string& toStartTime,
+        int minDurationSeconds,
+        int maxDurationSeconds,
+        int limit,
+        int offset)
+    {
+        VdrRecordingQuery query =
+            ranged(
+                titleFilter,
+                pathFilter,
+                fromStartTime,
+                toStartTime,
+                limit,
+                offset);
+
+        query.minDurationSeconds_ = minDurationSeconds;
+        query.maxDurationSeconds_ = maxDurationSeconds;
+
+        return query;
+    }
+
     static VdrRecordingQuery sorted(
         const std::string& titleFilter,
         const std::string& pathFilter,
@@ -116,11 +141,42 @@ public:
         VdrRecordingSortOrder sortOrder)
     {
         VdrRecordingQuery query =
-            ranged(
+            durationRanged(
                 titleFilter,
                 pathFilter,
                 fromStartTime,
                 toStartTime,
+                0,
+                0,
+                limit,
+                offset);
+
+        query.sortField_ = sortField;
+        query.sortOrder_ = sortOrder;
+
+        return query;
+    }
+
+    static VdrRecordingQuery sortedDurationRanged(
+        const std::string& titleFilter,
+        const std::string& pathFilter,
+        const std::string& fromStartTime,
+        const std::string& toStartTime,
+        int minDurationSeconds,
+        int maxDurationSeconds,
+        int limit,
+        int offset,
+        VdrRecordingSortField sortField,
+        VdrRecordingSortOrder sortOrder)
+    {
+        VdrRecordingQuery query =
+            durationRanged(
+                titleFilter,
+                pathFilter,
+                fromStartTime,
+                toStartTime,
+                minDurationSeconds,
+                maxDurationSeconds,
                 limit,
                 offset);
 
@@ -170,6 +226,26 @@ public:
         return !toStartTime_.empty();
     }
 
+    int minDurationSeconds() const
+    {
+        return minDurationSeconds_;
+    }
+
+    int maxDurationSeconds() const
+    {
+        return maxDurationSeconds_;
+    }
+
+    bool hasMinDurationSeconds() const
+    {
+        return minDurationSeconds_ > 0;
+    }
+
+    bool hasMaxDurationSeconds() const
+    {
+        return maxDurationSeconds_ > 0;
+    }
+
     int limit() const
     {
         return limit_;
@@ -210,6 +286,8 @@ private:
     std::string pathFilter_;
     std::string fromStartTime_;
     std::string toStartTime_;
+    int minDurationSeconds_ = 0;
+    int maxDurationSeconds_ = 0;
     int limit_ = 0;
     int offset_ = 0;
     VdrRecordingSortField sortField_ = VdrRecordingSortField::None;

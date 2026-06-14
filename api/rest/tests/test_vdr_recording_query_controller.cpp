@@ -38,6 +38,8 @@ int main()
             "",
             "",
             "",
+            0,
+            0,
             1,
             1);
 
@@ -56,6 +58,8 @@ int main()
             "",
             "",
             "",
+            0,
+            0,
             10,
             0);
 
@@ -73,6 +77,8 @@ int main()
             "",
             "",
             "",
+            0,
+            0,
             10,
             0);
 
@@ -90,6 +96,8 @@ int main()
             "desc",
             "",
             "",
+            0,
+            0,
             10,
             0);
 
@@ -105,6 +113,8 @@ int main()
             "desc",
             "",
             "",
+            0,
+            0,
             10,
             0);
 
@@ -120,11 +130,29 @@ int main()
             "",
             "2026-06-01T20:00:00",
             "2026-06-01T21:00:00",
+            0,
+            0,
             10,
             0);
 
     assert(rangeResponse.statusCode == 200);
     assert(rangeResponse.body.find("\"totalCount\":2") != std::string::npos);
+
+    ApiResponse durationResponse =
+        controller.getRecordings(
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            900,
+            7200,
+            10,
+            0);
+
+    assert(durationResponse.statusCode == 200);
+    assert(durationResponse.body.find("\"totalCount\":2") != std::string::npos);
 
     std::cout
         << "test_vdr_recording_query_controller passed"

@@ -23,6 +23,8 @@ public:
         const std::string& order,
         const std::string& from,
         const std::string& to,
+        int durationMin,
+        int durationMax,
         int limit,
         int offset);
 

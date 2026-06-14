@@ -65,5 +65,17 @@ bool VdrRecordingQueryMatcher::matches(
         return false;
     }
 
+    if (query.hasMinDurationSeconds() &&
+        recording.durationSeconds < query.minDurationSeconds())
+    {
+        return false;
+    }
+
+    if (query.hasMaxDurationSeconds() &&
+        recording.durationSeconds > query.maxDurationSeconds())
+    {
+        return false;
+    }
+
     return true;
 }

@@ -102,6 +102,30 @@ int main()
             10,
             0)));
 
+    assert(matcher.matches(
+        tatort,
+        VdrRecordingQuery::durationRanged(
+            "",
+            "",
+            "",
+            "",
+            900,
+            7200,
+            10,
+            0)));
+
+    assert(!matcher.matches(
+        tatort,
+        VdrRecordingQuery::durationRanged(
+            "",
+            "",
+            "",
+            "",
+            7200,
+            0,
+            10,
+            0)));
+
     std::cout
         << "test_vdr_recording_query_matcher passed"
         << std::endl;

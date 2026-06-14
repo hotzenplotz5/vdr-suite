@@ -143,6 +143,36 @@ int main()
     assert(futureResult.empty());
     assert(futureResult.totalCount() == 0);
 
+    VdrRecordingQueryResult durationResult =
+        queryService.queryRecordings(
+            VdrRecordingQuery::durationRanged(
+                "",
+                "",
+                "",
+                "",
+                900,
+                7200,
+                10,
+                0));
+
+    assert(durationResult.totalCount() == 2);
+    assert(durationResult.returnedCount() == 2);
+
+    VdrRecordingQueryResult longDurationResult =
+        queryService.queryRecordings(
+            VdrRecordingQuery::durationRanged(
+                "",
+                "",
+                "",
+                "",
+                7200,
+                0,
+                10,
+                0));
+
+    assert(longDurationResult.empty());
+    assert(longDurationResult.totalCount() == 0);
+
     VdrRecordingQueryResult emptyResult =
         queryService.queryRecordings(
             VdrRecordingQuery::byTitle(

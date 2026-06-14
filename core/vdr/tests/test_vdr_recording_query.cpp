@@ -72,6 +72,24 @@ int main()
     assert(ranged.limit() == 20);
     assert(ranged.offset() == 2);
 
+    VdrRecordingQuery durationRanged =
+        VdrRecordingQuery::durationRanged(
+            "",
+            "",
+            "",
+            "",
+            1800,
+            7200,
+            20,
+            2);
+
+    assert(durationRanged.hasMinDurationSeconds());
+    assert(durationRanged.hasMaxDurationSeconds());
+    assert(durationRanged.minDurationSeconds() == 1800);
+    assert(durationRanged.maxDurationSeconds() == 7200);
+    assert(durationRanged.limit() == 20);
+    assert(durationRanged.offset() == 2);
+
     VdrRecordingQuery sorted =
         VdrRecordingQuery::sorted(
             "",

@@ -187,6 +187,8 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.get("order"),
             queryParameters.get("from"),
             queryParameters.get("to"),
+            queryParameters.getInt("durationMin", 0),
+            queryParameters.getInt("durationMax", 0),
             queryParameters.getInt("limit", 0),
             queryParameters.getInt("offset", 0));
     }
