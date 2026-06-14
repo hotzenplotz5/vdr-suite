@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 27.11 - Capability Runtime Validation Documentation
+Phase 28.12 - Recording Query API Documentation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 28.0 - Recording Query Architecture
+Phase 29.0 - Multi-Backend Recording Identity Foundation
 ```
 
 Current architecture validation:

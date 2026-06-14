@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 27.11 - Capability Runtime Validation Documentation
+Phase 28.12 - Recording Query API Documentation
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 27.11
+Documentation and roadmap synchronization after Phase 28.12
 
 Next implementation step
-Phase 28.0 - Recording Query Architecture: define recording query boundaries above the capability-aware runtime foundation.
+Phase 29.0 - Multi-Backend Recording Identity Foundation: define recording query boundaries above the capability-aware runtime foundation.
 
 Completed foundation summary
 ```
@@ -80,6 +80,8 @@ Phase 21.2 introduced the first selective backend query contract through `VdrEve
 Phase 21.3 validated selective RESTfulAPI EPG access against a real VDR.
 
 Phase 22.0 introduced the heavy-domain refresh policy foundation. Events / EPG no longer create automatic full-domain refresh work through `SnapshotRefreshPlanner`.
+
+Phase 28 completed the recording query API foundation with title, path, start-time, duration, sorting and paging support through `GET /api/vdr/recordings/query`.
 
 ADR-0021 documents the long-term selective backend query strategy.
 

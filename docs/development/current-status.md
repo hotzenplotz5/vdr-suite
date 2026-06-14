@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 27.11 - Capability Runtime Validation Documentation
+Phase 28.12 - Recording Query API Documentation
 ```
 
 Current major phase status:
@@ -63,9 +63,10 @@ Phase 25.5 validates the EPG REST API against a real VDR through VDR-Suite HTTP 
 Phase 27.0 allows the daemon runtime to start without a configured VDR backend and makes EPG REST routing backend-optional.
 Phase 27.1 through 27.10 implement the capability-aware runtime foundation: capability state, resolver state, report builder, JSON serializers, controller, service, ApiRouter integration and DaemonRuntime wiring.
 Phase 27.11 documents the real VDR validation of the capability-aware runtime through the VDR-Suite daemon.
+Phase 28.0 through 28.12 complete the recording query API foundation: query model, result model, service, matcher, JSON serializer, controller, router integration, title/path filters, start-time filters, duration filters, sorting and documentation.
 
 Next implementation focus:
-The next implementation step should start Phase 28.0 and define the recording query architecture above the capability-aware runtime foundation.
+The next implementation step should start Phase 29.0 and define backend identity for recordings before backend-specific recording filters are added.
 ```
 
 Verified locally with:
@@ -91,6 +92,7 @@ Verification summary:
 - real RESTfulAPI backend validation confirmed VDR access through `127.0.0.1:8002`
 - real runtime observation reported 342 channels, 973 recordings and a latest recording payload from the real VDR
 - real startup measurement showed `/recordings.json` as the dominant startup domain with about 4.3 MB transferred and about 1.8 seconds snapshot build time
+- recording query API supports title, path, start time, duration, sorting and paging
 - documentation phase consistency remains green
 - daemon build remains green
 - GitHub Actions remains the standard full regression path for normal non-VDR-specific changes
@@ -173,6 +175,7 @@ GET /api/vdr/channels
 GET /api/vdr/timers
 GET /api/vdr/events
 GET /api/vdr/recordings
+GET /api/vdr/recordings/query
 GET /api/vdr/changes
 GET /api/vdr/live
 ```
@@ -246,7 +249,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 28.0 - Recording Query Architecture
+Phase 29.0 - Multi-Backend Recording Identity Foundation
 ```
 
 The next step is to validate daemon startup behavior after removing the blocking full EPG load from the initial polling path.

@@ -649,7 +649,7 @@ The next implementation step should define capability-aware backend and recordin
 
 ---
 
-## Phase 27.11 - Capability Runtime Validation Documentation
+## Phase 28.12 - Recording Query API Documentation
 
 Status: Completed
 
@@ -674,4 +674,42 @@ Verified with:
 Architecture decision:
 
 Phase 27.x completed the capability-aware API foundation. The next implementation focus should move to recording query architecture, because real VDR validation shows recordings are the dominant startup payload and need query-oriented boundaries.
+---
+
+## Phase 28 - Recording Query API
+
+Status: Completed through Phase 28.12
+
+Result:
+
+- `VdrRecordingQuery` introduced a backend-neutral recording query contract
+- `VdrRecordingQueryResult` introduced a result boundary with total count, returned count, limit and offset
+- `VdrRecordingQueryService` provides the service boundary above `VdrService`
+- `VdrRecordingQueryMatcher` centralizes title, path, start-time and duration filtering
+- `VdrRecordingQueryResultJsonSerializer` serializes query results for REST use
+- `VdrRecordingQueryController` exposes recording query reads through REST
+- `ApiRouter` routes `GET /api/vdr/recordings/query`
+- query parameters include `title`, `path`, `from`, `to`, `durationMin`, `durationMax`, `sort`, `order`, `limit` and `offset`
+- sort fields include `title`, `startTime`, `duration` and `size`
+- backend-specific recording filtering was intentionally deferred because `VdrRecording` does not yet carry backend identity
+
+Verified with:
+
+- make test-vdr-recording-query
+- make test-vdr-recording-query-result
+- make test-vdr-recording-query-service
+- make test-vdr-recording-query-matcher
+- make test-vdr-recording-query-result-json-serializer
+- make test-vdr-recording-query-controller
+- make test-api-router
+- make test-docs
+- make test-phase
+
+Architecture decision:
+
+Recording query behavior is now a backend-neutral API layer. Backend-specific recording filters must wait until backend identity is represented in the `VdrRecording` domain model.
+
+Follow-up:
+
+The next implementation step should define multi-backend recording identity before adding `backend=` query filters.
 
