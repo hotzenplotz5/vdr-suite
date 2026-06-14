@@ -28,11 +28,11 @@ Main entry point for all VDR-Suite documentation.
 
 Completed Major Phase:
 
-- Phase 27.11 - Capability Runtime Validation Documentation
+- Phase 28.12 - Recording Query API Documentation
 
 Planned Next Major Phase:
 
-- Phase 28.0 - Recording Query Architecture
+- Phase 29.0 - Multi-Backend Recording Identity Foundation
 
 ---
 
@@ -113,6 +113,7 @@ Architects:
 2. [Architecture Documentation](architecture/index.md)
 3. [Architecture Decision Records](adr/index.md)
 4. [Roadmap](planning/roadmap.md)
+
 ## Additional Project Documents
 
 

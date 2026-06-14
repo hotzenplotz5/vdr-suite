@@ -89,3 +89,12 @@ Primary navigation targets:
 - [Development Documentation](development/index.md)
 - [Architecture Documentation](architecture/index.md)
 - [Architecture Decision Records](adr/index.md)
+
+---
+
+## Back
+
+- [Back to README](../README.md)
+- [Back to Documentation Index](index.md)
+- [Back to Planning Documentation](planning/index.md)
+- [Back to Development Documentation](development/index.md)

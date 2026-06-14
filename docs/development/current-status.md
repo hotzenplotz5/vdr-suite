@@ -252,15 +252,15 @@ Real VDR tests are reserved for:
 Phase 29.0 - Multi-Backend Recording Identity Foundation
 ```
 
-The next step is to validate daemon startup behavior after removing the blocking full EPG load from the initial polling path.
-
-Validation should compare daemon startup time before and after the event-free initial snapshot and confirm that `/api/epg/...` remains the primary EPG access path.
+The next step is to define backend identity for recordings before backend-specific recording filters are added.
 
 Important boundaries:
 
-- existing RESTfulAPI filters must be measured before new endpoints are proposed
-- full EPG refresh must not become the default runtime strategy
-- selective query behavior must remain behind backend-neutral adapter boundaries
+- do not add `backend=` query parameters before recording identity exists
+- keep VDR as the source of truth for real recordings
+- keep VDR-Suite metadata complementary
+- keep existing single-backend behavior compatible
+- avoid changing existing `/api/vdr/recordings` output unless explicitly planned
 - real VDR validation should continue to use explicit opt-in environment variables
 - GitHub Actions must remain independent from a running VDR
 

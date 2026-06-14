@@ -28,6 +28,8 @@ Multi-Backend Read API    implemented
 Live Transport            implemented
 Selective Event Queries   implemented
 Heavy Domain Policy       implemented
+EPG REST API Boundary     implemented
+Recording Query API       implemented
 ```
 
 ### Federation and Security
@@ -125,13 +127,13 @@ Phase 0 - Phase 28.12
 Planned Major Phases:
 
 ```text
-Phase 25.x - Phase 34.x
+Phase 29.x - Phase 36.x
 ```
 
 Overall Roadmap Progress:
 
 ```text
-Phase 26.0 completed; mid-term roadmap now continues with EPG decoupling validation and Phase 26.x - Phase 34.x
+Phase 28 recording query API is complete. Phase 29 starts the multi-backend recording identity foundation before backend-specific recording filters are added.
 ```
 
 Important:
@@ -157,7 +159,9 @@ This progress description summarizes documented roadmap direction by major phase
 | Live Transport | Live transport foundation is implemented. Future transport extensions remain possible above the snapshot change feed. |
 | Selective Event Queries | Backend-neutral query contracts allow selective EPG access through adapter boundaries. |
 | Heavy Domain Policy | Events / EPG are classified as a heavy domain and protected from automatic full refresh behavior. |
-| Capability System | Capability set and resolver foundations are implemented. |
+| EPG REST API Boundary | Selective EPG reads are exposed through backend-neutral REST routes. |
+| Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
+| Capability System | Capability set, resolver state and capability report foundations are implemented. |
 | Authentication | Planned future concern, not implemented yet. |
 | Authorization | Planned future concern, not implemented yet. |
 | Client Platforms | Future frontend work, not implemented yet. |

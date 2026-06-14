@@ -28,15 +28,15 @@ The roadmap is tracked in:
 Current completed implementation phase:
 
 ```text
-Phase 11.6: Complete snapshot read domain JSON serialization
+Phase 28.12 - Recording Query API Documentation
 ```
 
 Current transition:
 
 ```text
-Documentation cleanup
+Recording query API complete
 ↓
-Phase 12.0 Snapshot Change Feed Architecture
+Phase 29.0 - Multi-Backend Recording Identity Foundation
 ```
 
 ---
@@ -252,7 +252,7 @@ Possible directions:
 - Android frontend
 - iOS frontend
 
-Final frontend ordering should be decided after Phase 12 and API contract hardening.
+Final frontend ordering should be decided after recording API contract hardening.
 ---
 
 ## Back
