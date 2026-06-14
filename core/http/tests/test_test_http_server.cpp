@@ -40,6 +40,9 @@
 #include "VdrController.h"
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
+#include "VdrRecordingQueryController.h"
+#include "VdrRecordingQueryResultJsonSerializer.h"
+#include "VdrRecordingQueryService.h"
 #include "VdrService.h"
 #include "VdrSnapshot.h"
 #include "VdrSnapshotReadJsonSerializer.h"
@@ -104,6 +107,11 @@ int main()
     EpgController epgController(epgQueryService);
     VdrOverviewService vdrOverviewService(vdrService);
     VdrOverviewJsonSerializer vdrJsonSerializer;
+    VdrRecordingQueryService vdrRecordingQueryService(vdrService);
+    VdrRecordingQueryResultJsonSerializer vdrRecordingQueryJsonSerializer;
+    VdrRecordingQueryController vdrRecordingQueryController(
+        vdrRecordingQueryService,
+        vdrRecordingQueryJsonSerializer);
 
     SnapshotCache snapshotCache;
     SnapshotCacheService snapshotCacheService(snapshotCache);
@@ -187,6 +195,7 @@ int main()
         recordingsController,
         metadataController,
         vdrController,
+        vdrRecordingQueryController,
         &epgController,
         backendRegistryController,
         capabilityController,

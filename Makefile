@@ -274,6 +274,7 @@ test-test-http-server: prepare-test-db
 		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
 		api/rest/src/VdrController.cpp \
+		api/rest/src/VdrRecordingQueryController.cpp \
 		core/http/src/TestHttpServer.cpp \
 		core/http/tests/test_test_http_server.cpp \
 		$(LDFLAGS) \
