@@ -56,6 +56,22 @@ int main()
     assert(filtered.limit() == 10);
     assert(filtered.offset() == 5);
 
+    VdrRecordingQuery sorted =
+        VdrRecordingQuery::sorted(
+            "",
+            "",
+            20,
+            3,
+            VdrRecordingSortField::Title,
+            VdrRecordingSortOrder::Descending);
+
+    assert(sorted.hasSort());
+    assert(sorted.sortField() == VdrRecordingSortField::Title);
+    assert(sorted.sortOrder() == VdrRecordingSortOrder::Descending);
+    assert(sorted.sortDescending());
+    assert(sorted.limit() == 20);
+    assert(sorted.offset() == 3);
+
     std::cout
         << "test_vdr_recording_query passed"
         << std::endl;

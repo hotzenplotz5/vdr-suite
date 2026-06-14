@@ -47,6 +47,34 @@ int main()
     assert(titleResult.returnedCount() == 1);
     assert(titleResult.recordings().at(0).title == "Tatort");
 
+    VdrRecordingQueryResult sortedAscendingResult =
+        queryService.queryRecordings(
+            VdrRecordingQuery::sorted(
+                "",
+                "",
+                0,
+                0,
+                VdrRecordingSortField::Title,
+                VdrRecordingSortOrder::Ascending));
+
+    assert(sortedAscendingResult.totalCount() == 2);
+    assert(sortedAscendingResult.recordings().at(0).title == "Tagesschau");
+    assert(sortedAscendingResult.recordings().at(1).title == "Tatort");
+
+    VdrRecordingQueryResult sortedDescendingResult =
+        queryService.queryRecordings(
+            VdrRecordingQuery::sorted(
+                "",
+                "",
+                0,
+                0,
+                VdrRecordingSortField::Title,
+                VdrRecordingSortOrder::Descending));
+
+    assert(sortedDescendingResult.totalCount() == 2);
+    assert(sortedDescendingResult.recordings().at(0).title == "Tatort");
+    assert(sortedDescendingResult.recordings().at(1).title == "Tagesschau");
+
     VdrRecordingQueryResult emptyResult =
         queryService.queryRecordings(
             VdrRecordingQuery::byTitle(

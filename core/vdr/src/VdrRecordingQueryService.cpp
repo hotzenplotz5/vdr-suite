@@ -3,6 +3,8 @@
 #include "VdrService.h"
 #include "VdrRecordingQueryMatcher.h"
 
+#include <algorithm>
+
 VdrRecordingQueryService::VdrRecordingQueryService(
     VdrService& vdrService)
     : vdrService_(vdrService)
@@ -25,6 +27,24 @@ VdrRecordingQueryResult VdrRecordingQueryService::queryRecordings(
         {
             filteredRecordings.push_back(recording);
         }
+    }
+
+    if (query.sortField() == VdrRecordingSortField::Title)
+    {
+        std::sort(
+            filteredRecordings.begin(),
+            filteredRecordings.end(),
+            [&query](
+                const VdrRecording& left,
+                const VdrRecording& right)
+            {
+                if (query.sortDescending())
+                {
+                    return left.title > right.title;
+                }
+
+                return left.title < right.title;
+            });
     }
 
     const int totalCount =

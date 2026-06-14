@@ -2,6 +2,18 @@
 
 #include <string>
 
+enum class VdrRecordingSortField
+{
+    None,
+    Title
+};
+
+enum class VdrRecordingSortOrder
+{
+    Ascending,
+    Descending
+};
+
 class VdrRecordingQuery
 {
 public:
@@ -46,6 +58,27 @@ public:
         return query;
     }
 
+    static VdrRecordingQuery sorted(
+        const std::string& titleFilter,
+        const std::string& pathFilter,
+        int limit,
+        int offset,
+        VdrRecordingSortField sortField,
+        VdrRecordingSortOrder sortOrder)
+    {
+        VdrRecordingQuery query =
+            filtered(
+                titleFilter,
+                pathFilter,
+                limit,
+                offset);
+
+        query.sortField_ = sortField;
+        query.sortOrder_ = sortOrder;
+
+        return query;
+    }
+
     const std::string& titleFilter() const
     {
         return titleFilter_;
@@ -81,9 +114,31 @@ public:
         return limit_ > 0;
     }
 
+    VdrRecordingSortField sortField() const
+    {
+        return sortField_;
+    }
+
+    VdrRecordingSortOrder sortOrder() const
+    {
+        return sortOrder_;
+    }
+
+    bool hasSort() const
+    {
+        return sortField_ != VdrRecordingSortField::None;
+    }
+
+    bool sortDescending() const
+    {
+        return sortOrder_ == VdrRecordingSortOrder::Descending;
+    }
+
 private:
     std::string titleFilter_;
     std::string pathFilter_;
     int limit_ = 0;
     int offset_ = 0;
+    VdrRecordingSortField sortField_ = VdrRecordingSortField::None;
+    VdrRecordingSortOrder sortOrder_ = VdrRecordingSortOrder::Ascending;
 };

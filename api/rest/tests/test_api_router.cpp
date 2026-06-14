@@ -595,6 +595,14 @@ int main()
     assert(vdrRecordingPathQueryResponse.body.find("\"title\":\"Tatort\"")
            == std::string::npos);
 
+    ApiResponse vdrRecordingSortQueryResponse =
+        router.handleGet("/api/vdr/recordings/query?sort=title&order=desc");
+
+    assert(vdrRecordingSortQueryResponse.statusCode == 200);
+    assert(vdrRecordingSortQueryResponse.contentType == "application/json");
+    assert(vdrRecordingSortQueryResponse.body.find("\"title\":\"Tatort\"") <
+           vdrRecordingSortQueryResponse.body.find("\"title\":\"Tagesschau\""));
+
     ApiResponse vdrRecordingsResponse =
         router.handleGet("/api/vdr/recordings");
 
