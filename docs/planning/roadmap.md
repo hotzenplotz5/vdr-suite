@@ -158,15 +158,17 @@ The mid-term roadmap is organized around the following planned phase groups:
 
 ```text
 Phase 25.x - EPG REST API Boundary
-Phase 26.x - Recording Query Architecture
-Phase 27.x - Recording REST API Modernization
-Phase 28.x - Recording Actions
-Phase 29.x - Recording Metadata and Job Integration
-Phase 30.x - Multi-VDR Federation
-Phase 31.x - Permission and Role System
-Phase 32.x - Advanced Search
-Phase 33.x - SearchTimer Architecture
-Phase 34.x - Windows Client API Stabilization
+Phase 26.x - EPG Startup Decoupling and JSON Cleanup
+Phase 27.x - Backend Optional Runtime and Capability-Aware API Foundation
+Phase 28.x - Recording Query Architecture
+Phase 29.x - Recording REST API Modernization
+Phase 30.x - Recording Actions
+Phase 31.x - Recording Metadata and Job Integration
+Phase 32.x - Multi-VDR Federation
+Phase 33.x - Permission and Role System
+Phase 34.x - Advanced Search
+Phase 35.x - SearchTimer Architecture
+Phase 36.x - Windows Client API Stabilization
 ```
 
 The following rules guide all phase groups:
@@ -227,7 +229,56 @@ Out of scope:
 
 ---
 
-## Phase 26.x - Recording Query Architecture
+## Phase 26.x - EPG Startup Decoupling and JSON Cleanup
+
+Goal:
+
+Keep EPG outside blocking daemon startup paths and harden the EPG REST boundary.
+
+Implemented direction:
+
+- remove full EPG loading from the initial runtime snapshot
+- keep Events / EPG outside the initial daemon startup path
+- validate selective EPG query behavior against a real VDR
+- keep EPG available through query-oriented REST APIs
+- harden EPG JSON serialization and escaping
+- avoid premature shared JSON infrastructure while duplication remains local
+
+Architecture rule:
+
+EPG remains a query domain. The daemon must not require full EPG data before HTTP APIs can become available.
+
+---
+
+## Phase 27.x - Backend Optional Runtime and Capability-Aware API Foundation
+
+Goal:
+
+Allow VDR-Suite to start as an empty runtime platform and prepare client-safe capability-aware behavior.
+
+Implemented foundation:
+
+- daemon runtime can initialize without a configured VDR backend
+- backend polling is skipped when no backend runtime contexts exist
+- EPG service wiring is optional when no backend-backed EPG service exists
+- EPG REST routes report backend unavailability with HTTP 503 instead of crashing runtime initialization
+- backend registry and REST visibility support empty backend lists
+
+Planned direction:
+
+- define backend capability models for channels, timers, recordings, EPG, live transport and actions
+- expose backend capabilities through stable REST contracts
+- make frontend behavior capability-aware instead of platform-specific
+- keep optional backend domains explicit and visible to clients
+- prepare capability-aware routing and dashboard summaries
+
+Architecture rule:
+
+Clients must be able to connect to the API before a backend is configured or available. Backend-specific domains must be represented through explicit capability and availability state.
+
+---
+
+## Phase 28.x - Recording Query Architecture
 
 Goal:
 
@@ -270,7 +321,7 @@ SQLite must not become the source of truth for real VDR recordings.
 
 ---
 
-## Phase 27.x - Recording REST API Modernization
+## Phase 29.x - Recording REST API Modernization
 
 Goal:
 
@@ -292,7 +343,7 @@ Recording REST responses must remain stable for clients while preserving the dis
 
 ---
 
-## Phase 28.x - Recording Actions
+## Phase 30.x - Recording Actions
 
 Goal:
 
@@ -318,7 +369,7 @@ Recording actions must not bypass permission checks, backend capability checks o
 
 ---
 
-## Phase 29.x - Recording Metadata and Job Integration
+## Phase 31.x - Recording Metadata and Job Integration
 
 Goal:
 
@@ -340,7 +391,7 @@ Metadata and jobs enrich VDR-owned recording data. They must not replace VDR as 
 
 ---
 
-## Phase 30.x - Multi-VDR Federation
+## Phase 32.x - Multi-VDR Federation
 
 Goal:
 
@@ -367,7 +418,7 @@ Multi-VDR federation must not make separate VDR systems look like one filesystem
 
 ---
 
-## Phase 31.x - Permission and Role System
+## Phase 33.x - Permission and Role System
 
 Goal:
 
@@ -397,7 +448,7 @@ Permissions apply above backend discovery and before action execution. A backend
 
 ---
 
-## Phase 32.x - Advanced Search
+## Phase 34.x - Advanced Search
 
 Goal:
 
@@ -420,7 +471,7 @@ Advanced search may combine VDR-owned data and VDR-Suite-owned metadata, but sea
 
 ---
 
-## Phase 33.x - SearchTimer Architecture
+## Phase 35.x - SearchTimer Architecture
 
 Goal:
 
@@ -446,7 +497,7 @@ SearchTimer support must be optional. It must not make EPG persistence mandatory
 
 ---
 
-## Phase 34.x - Windows Client API Stabilization
+## Phase 36.x - Windows Client API Stabilization
 
 Goal:
 
