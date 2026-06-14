@@ -168,7 +168,7 @@ int main()
         recordingsController,
         metadataController,
         vdrController,
-        epgController,
+        &epgController,
         backendRegistryController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
