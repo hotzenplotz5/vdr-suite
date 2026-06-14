@@ -41,7 +41,7 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 26.3 - EPG JSON Helper Cleanup
+Phase 27.0 - Backend Optional Runtime
 ```
 
 Next implementation focus:

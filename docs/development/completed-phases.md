@@ -613,3 +613,37 @@ Architecture decision:
 Serializer consolidation is not justified yet because the duplicated escaping problem is currently local to the EPG controller.
 The next architectural focus can move back to recording query design instead of introducing premature JSON infrastructure.
 
+---
+
+## Phase 27.0 - Backend Optional Runtime
+
+Status: Completed
+
+Result:
+
+- daemon runtime no longer fails initialization only because no VDR backend is available
+- backend polling is skipped when no backend runtime contexts exist
+- EPG query service and EPG controller wiring are skipped when no backend runtime context exists
+- `ApiRouter` accepts an optional `EpgController`
+- `/api/epg/...` routes return HTTP 503 with a JSON error when no backend-backed EPG service is available
+- backend registry controller coverage now includes an empty backend registry
+- test HTTP server wiring was updated for the optional EPG controller contract
+
+Verified with:
+
+- make test-api-router
+- make test-backend-registry-controller
+- make test-test-http-server
+- make daemon
+- GitHub Actions full regression
+
+Architecture decision:
+
+The daemon must be able to start as an empty runtime platform before a VDR backend is configured or available.
+
+Backend-specific domains such as EPG must be represented as unavailable instead of crashing runtime initialization.
+
+Follow-up:
+
+The next implementation step should define capability-aware backend and recording query behavior above the backend-optional runtime foundation.
+

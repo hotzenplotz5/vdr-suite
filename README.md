@@ -40,12 +40,12 @@ EPG REST API Boundary     ████████████ 100%
 Event-Free Initial Poll   ████████████ 100%
 EPG Decoupling Validation ████████████ 100%
 EPG JSON Escaping        ████████████ 100%
-EPG JSON Helper Cleanup  ████████████ 100%
+Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 26.3 - EPG JSON Helper Cleanup
+Latest Completed Implementation Phase: Phase 27.0 - Backend Optional Runtime
 
-Current Implementation Focus: Phase 27.0 - Recording Query Architecture
+Current Implementation Focus: Backend capability and recording query direction
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -145,7 +145,7 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ Event-Free Initial Snapshot
 ✓ EPG Snapshot Decoupling Validation
 ✓ EPG JSON Escaping
-✓ EPG JSON Helper Cleanup
+✓ Backend Optional Runtime
 ```
 
 Current architecture focus:

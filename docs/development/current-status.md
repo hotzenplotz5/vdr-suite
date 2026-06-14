@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 26.3 - EPG JSON Helper Cleanup
+Phase 27.0 - Backend Optional Runtime
 ```
 
 Current major phase status:
@@ -60,9 +60,10 @@ Phase 21.3 validates selective RESTfulAPI EPG access against a real VDR.
 Phase 22.0 introduces the heavy-domain refresh policy foundation.
 Phase 25.0 through 25.4 implement the EPG REST API boundary, query string boundary, controller query parameters, REST query parser and EPG query parameter routing.
 Phase 25.5 validates the EPG REST API against a real VDR through VDR-Suite HTTP endpoints.
+Phase 27.0 allows the daemon runtime to start without a configured VDR backend and makes EPG REST routing backend-optional.
 
 Next implementation focus:
-Phase 27.0 - Recording Query Architecture
+The next implementation step should define the backend capability and recording query direction above the backend-optional runtime foundation.
 ```
 
 Verified locally with:
@@ -83,7 +84,7 @@ Verification summary:
 - EPG query parameters are routed through `ApiRouter`, `RestQueryParameters`, `EpgController`, `IEpgQueryService`, `VdrService` and `IVdrAdapter`
 - live VDR validation confirmed `/api/epg/now-next`, `/api/epg/time-window` and `/api/epg/channel-window` return real EPG events
 - selective RESTfulAPI query paths were observed through `/events.json?timespan=7200&chevents=2`, `/events.json?from=...&timespan=7200` and `/events.json?from=...&timespan=7200&limit=5`
-- daemon startup still performs a legacy full `/events.json` snapshot load and remains a known heavy-domain follow-up
+- daemon startup no longer requires a configured VDR backend to initialize the REST runtime
 - documentation phase consistency remains green
 - daemon build remains green
 - GitHub Actions remains the standard full regression path for normal non-VDR-specific changes

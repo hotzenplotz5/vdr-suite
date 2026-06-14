@@ -67,25 +67,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 26.3 Complete
+Phase 27.0 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 27.0 - Recording Query Architecture
+Backend capability and recording query direction
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 26.2 - EPG JSON Escaping
+Phase 27.0 - Backend Optional Runtime
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 27.0 - Recording Query Architecture
+Backend capability and recording query direction
 ADR-0021 - Selective Backend Query Strategy
 ```
 
@@ -119,7 +119,7 @@ ADR-0021 - Selective Backend Query Strategy
 Completed Major Phases:
 
 ```text
-Phase 0 - Phase 26.3
+Phase 0 - Phase 27.0
 ```
 
 Planned Major Phases:
