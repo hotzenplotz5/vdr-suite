@@ -1,43 +1,7 @@
 #include "VdrRecordingQueryService.h"
 
 #include "VdrService.h"
-
-#include <algorithm>
-#include <cctype>
-
-namespace
-{
-std::string lowerCopy(
-    const std::string& value)
-{
-    std::string result = value;
-
-    std::transform(
-        result.begin(),
-        result.end(),
-        result.begin(),
-        [](unsigned char character)
-        {
-            return static_cast<char>(
-                std::tolower(character));
-        });
-
-    return result;
-}
-
-bool titleMatches(
-    const VdrRecording& recording,
-    const VdrRecordingQuery& query)
-{
-    if (!query.hasTitleFilter())
-    {
-        return true;
-    }
-
-    return lowerCopy(recording.title).find(
-               lowerCopy(query.titleFilter())) != std::string::npos;
-}
-}
+#include "VdrRecordingQueryMatcher.h"
 
 VdrRecordingQueryService::VdrRecordingQueryService(
     VdrService& vdrService)
@@ -55,7 +19,9 @@ VdrRecordingQueryResult VdrRecordingQueryService::queryRecordings(
 
     for (const auto& recording : allRecordings)
     {
-        if (titleMatches(recording, query))
+        VdrRecordingQueryMatcher matcher;
+
+        if (matcher.matches(recording, query))
         {
             filteredRecordings.push_back(recording);
         }
