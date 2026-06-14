@@ -18,6 +18,7 @@ public:
 
     ApiResponse getRecordings(
         const std::string& title,
+        const std::string& path,
         int limit,
         int offset);
 

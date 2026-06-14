@@ -58,6 +58,30 @@ int main()
             10,
             0)));
 
+    assert(matcher.matches(
+        tatort,
+        VdrRecordingQuery::filtered(
+            "",
+            "Tatort",
+            10,
+            0)));
+
+    assert(matcher.matches(
+        tatort,
+        VdrRecordingQuery::filtered(
+            "tat",
+            "mock",
+            10,
+            0)));
+
+    assert(!matcher.matches(
+        tatort,
+        VdrRecordingQuery::filtered(
+            "tat",
+            "Tagesschau",
+            10,
+            0)));
+
     std::cout
         << "test_vdr_recording_query_matcher passed"
         << std::endl;

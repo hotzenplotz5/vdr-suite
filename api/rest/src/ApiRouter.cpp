@@ -182,6 +182,7 @@ ApiResponse ApiRouter::handleGet(
     {
         return vdrRecordingQueryController_.getRecordings(
             queryParameters.get("title"),
+            queryParameters.get("path"),
             queryParameters.getInt("limit", 0),
             queryParameters.getInt("offset", 0));
     }

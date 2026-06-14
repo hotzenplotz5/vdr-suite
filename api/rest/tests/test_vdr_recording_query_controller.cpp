@@ -33,6 +33,7 @@ int main()
     ApiResponse limitedResponse =
         controller.getRecordings(
             "",
+            "",
             1,
             1);
 
@@ -46,6 +47,7 @@ int main()
     ApiResponse titleResponse =
         controller.getRecordings(
             "tator",
+            "",
             10,
             0);
 
@@ -54,6 +56,19 @@ int main()
     assert(titleResponse.body.find("\"returnedCount\":1") != std::string::npos);
     assert(titleResponse.body.find("\"title\":\"Tatort\"") != std::string::npos);
     assert(titleResponse.body.find("\"title\":\"Tagesschau\"") == std::string::npos);
+
+    ApiResponse pathResponse =
+        controller.getRecordings(
+            "",
+            "Tagesschau",
+            10,
+            0);
+
+    assert(pathResponse.statusCode == 200);
+    assert(pathResponse.body.find("\"totalCount\":1") != std::string::npos);
+    assert(pathResponse.body.find("\"returnedCount\":1") != std::string::npos);
+    assert(pathResponse.body.find("\"title\":\"Tagesschau\"") != std::string::npos);
+    assert(pathResponse.body.find("\"title\":\"Tatort\"") == std::string::npos);
 
     std::cout
         << "test_vdr_recording_query_controller passed"

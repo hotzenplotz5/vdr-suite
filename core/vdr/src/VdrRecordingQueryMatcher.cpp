@@ -45,5 +45,13 @@ bool VdrRecordingQueryMatcher::matches(
         return false;
     }
 
+    if (query.hasPathFilter() &&
+        !containsCaseInsensitive(
+            recording.path,
+            query.pathFilter()))
+    {
+        return false;
+    }
+
     return true;
 }

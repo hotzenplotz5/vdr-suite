@@ -17,22 +17,25 @@ ApiResponse VdrRecordingQueryController::getRecordings()
 {
     return getRecordings(
         "",
+        "",
         0,
         0);
 }
 
 ApiResponse VdrRecordingQueryController::getRecordings(
     const std::string& title,
+    const std::string& path,
     int limit,
     int offset)
 {
     VdrRecordingQuery query =
-        title.empty()
+        (title.empty() && path.empty())
             ? VdrRecordingQuery::limited(
                   limit,
                   offset)
-            : VdrRecordingQuery::byTitle(
+            : VdrRecordingQuery::filtered(
                   title,
+                  path,
                   limit,
                   offset);
 

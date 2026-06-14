@@ -581,6 +581,20 @@ int main()
     assert(vdrRecordingQueryResponse.body.find("\"title\":\"Tagesschau\"")
            == std::string::npos);
 
+    ApiResponse vdrRecordingPathQueryResponse =
+        router.handleGet("/api/vdr/recordings/query?path=Tagesschau&limit=10&offset=0");
+
+    assert(vdrRecordingPathQueryResponse.statusCode == 200);
+    assert(vdrRecordingPathQueryResponse.contentType == "application/json");
+    assert(vdrRecordingPathQueryResponse.body.find("\"totalCount\":1")
+           != std::string::npos);
+    assert(vdrRecordingPathQueryResponse.body.find("\"returnedCount\":1")
+           != std::string::npos);
+    assert(vdrRecordingPathQueryResponse.body.find("\"title\":\"Tagesschau\"")
+           != std::string::npos);
+    assert(vdrRecordingPathQueryResponse.body.find("\"title\":\"Tatort\"")
+           == std::string::npos);
+
     ApiResponse vdrRecordingsResponse =
         router.handleGet("/api/vdr/recordings");
 
