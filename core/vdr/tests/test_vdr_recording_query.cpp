@@ -56,6 +56,22 @@ int main()
     assert(filtered.limit() == 10);
     assert(filtered.offset() == 5);
 
+    VdrRecordingQuery ranged =
+        VdrRecordingQuery::ranged(
+            "",
+            "",
+            "2026-01-01T00:00:00",
+            "2026-12-31T23:59:59",
+            20,
+            2);
+
+    assert(ranged.hasFromStartTime());
+    assert(ranged.hasToStartTime());
+    assert(ranged.fromStartTime() == "2026-01-01T00:00:00");
+    assert(ranged.toStartTime() == "2026-12-31T23:59:59");
+    assert(ranged.limit() == 20);
+    assert(ranged.offset() == 2);
+
     VdrRecordingQuery sorted =
         VdrRecordingQuery::sorted(
             "",

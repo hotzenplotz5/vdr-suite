@@ -36,6 +36,8 @@ int main()
             "",
             "",
             "",
+            "",
+            "",
             1,
             1);
 
@@ -49,6 +51,8 @@ int main()
     ApiResponse titleResponse =
         controller.getRecordings(
             "tator",
+            "",
+            "",
             "",
             "",
             "",
@@ -67,6 +71,8 @@ int main()
             "Tagesschau",
             "",
             "",
+            "",
+            "",
             10,
             0);
 
@@ -82,6 +88,8 @@ int main()
             "",
             "title",
             "desc",
+            "",
+            "",
             10,
             0);
 
@@ -95,12 +103,28 @@ int main()
             "",
             "startTime",
             "desc",
+            "",
+            "",
             10,
             0);
 
     assert(startTimeSortResponse.statusCode == 200);
     assert(startTimeSortResponse.body.find("\"title\":\"Tatort\"") <
            startTimeSortResponse.body.find("\"title\":\"Tagesschau\""));
+
+    ApiResponse rangeResponse =
+        controller.getRecordings(
+            "",
+            "",
+            "",
+            "",
+            "2026-06-01T20:00:00",
+            "2026-06-01T21:00:00",
+            10,
+            0);
+
+    assert(rangeResponse.statusCode == 200);
+    assert(rangeResponse.body.find("\"totalCount\":2") != std::string::npos);
 
     std::cout
         << "test_vdr_recording_query_controller passed"

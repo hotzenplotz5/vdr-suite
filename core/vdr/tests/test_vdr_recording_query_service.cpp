@@ -117,6 +117,32 @@ int main()
     assert(sortedSizeDescendingResult.recordings().at(0).title == "Tatort");
     assert(sortedSizeDescendingResult.recordings().at(1).title == "Tagesschau");
 
+    VdrRecordingQueryResult rangedResult =
+        queryService.queryRecordings(
+            VdrRecordingQuery::ranged(
+                "",
+                "",
+                "2026-06-01T20:00:00",
+                "2026-06-01T21:00:00",
+                10,
+                0));
+
+    assert(rangedResult.totalCount() == 2);
+    assert(rangedResult.returnedCount() == 2);
+
+    VdrRecordingQueryResult futureResult =
+        queryService.queryRecordings(
+            VdrRecordingQuery::ranged(
+                "",
+                "",
+                "2027-01-01T00:00:00",
+                "",
+                10,
+                0));
+
+    assert(futureResult.empty());
+    assert(futureResult.totalCount() == 0);
+
     VdrRecordingQueryResult emptyResult =
         queryService.queryRecordings(
             VdrRecordingQuery::byTitle(

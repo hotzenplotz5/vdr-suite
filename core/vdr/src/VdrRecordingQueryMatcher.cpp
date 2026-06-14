@@ -53,5 +53,17 @@ bool VdrRecordingQueryMatcher::matches(
         return false;
     }
 
+    if (query.hasFromStartTime() &&
+        recording.startTime < query.fromStartTime())
+    {
+        return false;
+    }
+
+    if (query.hasToStartTime() &&
+        recording.startTime > query.toStartTime())
+    {
+        return false;
+    }
+
     return true;
 }

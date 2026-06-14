@@ -60,6 +60,8 @@ ApiResponse VdrRecordingQueryController::getRecordings()
         "",
         "",
         "",
+        "",
+        "",
         0,
         0);
 }
@@ -69,6 +71,8 @@ ApiResponse VdrRecordingQueryController::getRecordings(
     const std::string& path,
     const std::string& sort,
     const std::string& order,
+    const std::string& from,
+    const std::string& to,
     int limit,
     int offset)
 {
@@ -76,13 +80,15 @@ ApiResponse VdrRecordingQueryController::getRecordings(
         parseSortField(sort);
 
     VdrRecordingQuery query =
-        (title.empty() && path.empty() && sortField == VdrRecordingSortField::None)
+        (title.empty() && path.empty() && from.empty() && to.empty() && sortField == VdrRecordingSortField::None)
             ? VdrRecordingQuery::limited(
                   limit,
                   offset)
-            : VdrRecordingQuery::sorted(
+            : VdrRecordingQuery::sortedRanged(
                   title,
                   path,
+                  from,
+                  to,
                   limit,
                   offset,
                   sortField,

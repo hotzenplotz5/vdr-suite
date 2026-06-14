@@ -82,6 +82,26 @@ int main()
             10,
             0)));
 
+    assert(matcher.matches(
+        tatort,
+        VdrRecordingQuery::ranged(
+            "",
+            "",
+            "2026-01-01T00:00:00",
+            "2026-12-31T23:59:59",
+            10,
+            0)));
+
+    assert(!matcher.matches(
+        tatort,
+        VdrRecordingQuery::ranged(
+            "",
+            "",
+            "2027-01-01T00:00:00",
+            "",
+            10,
+            0)));
+
     std::cout
         << "test_vdr_recording_query_matcher passed"
         << std::endl;

@@ -611,6 +611,14 @@ int main()
     assert(vdrRecordingStartTimeSortQueryResponse.body.find("\"title\":\"Tatort\"") <
            vdrRecordingStartTimeSortQueryResponse.body.find("\"title\":\"Tagesschau\""));
 
+    ApiResponse vdrRecordingRangeQueryResponse =
+        router.handleGet("/api/vdr/recordings/query?from=2026-06-01T20:00:00&to=2026-06-01T21:00:00");
+
+    assert(vdrRecordingRangeQueryResponse.statusCode == 200);
+    assert(vdrRecordingRangeQueryResponse.contentType == "application/json");
+    assert(vdrRecordingRangeQueryResponse.body.find("\"totalCount\":2")
+           != std::string::npos);
+
     ApiResponse vdrRecordingsResponse =
         router.handleGet("/api/vdr/recordings");
 

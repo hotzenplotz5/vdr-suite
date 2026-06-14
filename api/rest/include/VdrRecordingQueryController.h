@@ -21,6 +21,8 @@ public:
         const std::string& path,
         const std::string& sort,
         const std::string& order,
+        const std::string& from,
+        const std::string& to,
         int limit,
         int offset);
 
