@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 30.4 - Recording Action Job Payload Model
+Latest Completed Implementation Phase: Phase 30.5 - Recording Action Capability Requirements Model
 
-Current Implementation Focus: Phase 30.5 - Recording Action Capability Requirements Model
+Current Implementation Focus: Phase 30.6 - Recording Action Capability Evaluation Model
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

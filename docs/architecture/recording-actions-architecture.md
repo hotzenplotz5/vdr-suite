@@ -240,6 +240,21 @@ The job payload carries:
 
 The model prepares the later job creation boundary without mutating recordings, metadata, filesystems or Rectools state.
 
+## Phase 30.5 Capability Requirements Model
+
+Phase 30.5 introduces the first recording action capability requirements domain model.
+
+The capability requirements model is intentionally not an evaluator and not an execution model.
+It describes what a backend must support before an action can be considered executable.
+
+The capability requirements model carries:
+
+- action type
+- required backend capabilities
+- whether write access is required
+- whether dry-run support is required
+
+The model prepares later capability evaluation without querying backends, mutating recordings, changing metadata, touching filesystems or calling Rectools.
 ## Non-Goals
 
 Phase 30.0 does not:

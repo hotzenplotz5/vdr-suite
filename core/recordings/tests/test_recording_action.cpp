@@ -3,6 +3,7 @@
 #include "RecordingActionValidationResult.h"
 #include "RecordingActionPlan.h"
 #include "RecordingActionJobPayload.h"
+#include "RecordingActionCapabilityRequirements.h"
 
 #include <cassert>
 #include <iostream>
@@ -142,7 +143,31 @@ int main()
     assert(payload.requiredPermissions.size() == 1);
     assert(payload.warnings.empty());
 
-    std::cout << "Recording action job payload model OK" << std::endl;
+    RecordingActionCapabilityRequirements moveRequirements;
+    moveRequirements.type = RecordingActionType::Move;
+    moveRequirements.requiredCapabilities.push_back("recordings.action.move");
+    moveRequirements.requiresWriteAccess = true;
+    moveRequirements.requiresDryRunSupport = true;
+
+    assert(moveRequirements.type == RecordingActionType::Move);
+    assert(moveRequirements.requiredCapabilities.size() == 1);
+    assert(moveRequirements.requiredCapabilities.at(0) == "recordings.action.move");
+    assert(moveRequirements.requiresWriteAccess);
+    assert(moveRequirements.requiresDryRunSupport);
+
+    RecordingActionCapabilityRequirements metadataRequirements;
+    metadataRequirements.type = RecordingActionType::MetadataRefresh;
+    metadataRequirements.requiredCapabilities.push_back("recordings.action.metadata.refresh");
+    metadataRequirements.requiresWriteAccess = false;
+    metadataRequirements.requiresDryRunSupport = true;
+
+    assert(metadataRequirements.type == RecordingActionType::MetadataRefresh);
+    assert(metadataRequirements.requiredCapabilities.size() == 1);
+    assert(metadataRequirements.requiredCapabilities.at(0) == "recordings.action.metadata.refresh");
+    assert(!metadataRequirements.requiresWriteAccess);
+    assert(metadataRequirements.requiresDryRunSupport);
+
+    std::cout << "Recording action capability requirements model OK" << std::endl;
 
     return 0;
 }
