@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 34.3 - Recording Action RestfulAPI VDR Folder Target Encoding
+Phase 34.5 - Recording Name Normalization
 ```
 
 Current Focus:
 
 ```text
-Phase 34.4 - Recording Action RestfulAPI Real Move Test Recording Probe
+Phase 35.0 - Recording Identity Data Exposure
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 34.3 - Recording Action RestfulAPI VDR Folder Target Encoding
+Phase 34.5 - Recording Name Normalization
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 34.4 - Recording Action RestfulAPI Real Move Test Recording Probe
+Phase 35.0 - Recording Identity Data Exposure
 ADR-0021 - Selective Backend Query Strategy
 ```
 

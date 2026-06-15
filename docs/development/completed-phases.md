@@ -26,6 +26,28 @@ Future planning belongs to:
 
 ---
 
+## Phase 34.5: Recording Name Normalization
+
+Status: Completed
+
+Summary:
+
+- Normalized RESTfulAPI recording names at the RESTfulAPI mapping boundary.
+- Converted VDR folder separators in `recording.name` from `~` to `/` for VDR-Suite domain usage.
+- Preserved `file_name`, `relative_file_name` and domain `recording.path` unchanged.
+- Aligned mapper and adapter tests with the normalized domain title semantics.
+
+Commits:
+
+- `a6eee54` Phase 34.5: normalize RestfulAPI recording names
+- `7d16cc7` Phase 34.5: align adapter recording title normalization
+
+Next:
+
+- Recording Identity Data Exposure
+
+---
+
 ## Phase 0 - Project and Documentation Foundation
 
 Status: Completed
@@ -80,7 +102,7 @@ Status: Completed
 
 ## Phase 13 - Snapshot Change Feed Runtime Integration
 
-Status: Completed through Phase 34.3
+Status: Completed through Phase 34.5
 
 ---
 

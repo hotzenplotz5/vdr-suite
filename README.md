@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 34.3 - Recording Action RestfulAPI VDR Folder Target Encoding
+Latest Completed Implementation Phase: Phase 34.5 - Recording Name Normalization
 
-Current Implementation Focus: Phase 34.4 - Recording Action RestfulAPI Real Move Test Recording Probe
+Current Implementation Focus: Phase 35.0 - Recording Identity Data Exposure
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
