@@ -19,6 +19,7 @@
 #include "RecordingActionPermissionDispatchRule.h"
 #include "RecordingActionExecutorResolutionService.h"
 #include "RecordingActionDispatchService.h"
+#include "IRecordingActionBackendExecutorAdapter.h"
 
 #include <cassert>
 #include <iostream>
@@ -402,9 +403,48 @@ int main()
     assert(dispatchServiceResult.executionResult.recordingId == payload.recordingId);
     assert(dispatchServiceResult.reason == "action dispatched");
 
+
+    struct TestBackendExecutorAdapter final
+        : IRecordingActionBackendExecutorAdapter
+    {
+        std::string backendId() const override
+        {
+            return "default";
+        }
+
+        std::string backendType() const override
+        {
+            return "mock";
+        }
+
+        RecordingActionExecutionResult execute(
+            const RecordingActionJobPayload& payload) override
+        {
+            RecordingActionExecutionResult result;
+            result.type = payload.type;
+            result.success = true;
+            result.backendId = payload.backendId;
+            result.recordingId = payload.recordingId;
+            result.message = "backend adapter accepted payload";
+            return result;
+        }
+    };
+
+    TestBackendExecutorAdapter backendAdapter;
+
+    auto backendAdapterResult = backendAdapter.execute(payload);
+
+    assert(backendAdapter.backendId() == "default");
+    assert(backendAdapter.backendType() == "mock");
+    assert(backendAdapterResult.success);
+    assert(backendAdapterResult.backendId == payload.backendId);
+    assert(backendAdapterResult.recordingId == payload.recordingId);
+    assert(backendAdapterResult.message == "backend adapter accepted payload");
+
     std::cout
-        << "Recording action dispatch service OK"
+        << "Recording action backend executor adapter foundation OK"
         << std::endl;
+
 
 
 

@@ -544,3 +544,20 @@ The dispatch service receives a selected executor and a recording action job pay
 It returns a dispatch result that contains the backend executor execution result.
 
 The service does not know whether the selected executor is backed by RestfulAPI, SVDRP, Rectools, native VDR integration or another backend.
+
+
+## Phase 32.0 Backend Executor Adapter Foundation
+
+Phase 32.0 introduces the backend-neutral recording action backend executor adapter boundary.
+
+The adapter boundary extends the recording action executor interface with backend identity and backend type metadata.
+
+The boundary prepares backend-specific executor implementations such as:
+
+- RestfulAPI
+- SVDRP
+- Rectools
+- native VDR integration
+- mock/test backends
+
+The recording action dispatch service remains backend-neutral.
