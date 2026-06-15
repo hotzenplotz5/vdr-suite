@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 30.5 - Recording Action Capability Requirements Model
+Phase 30.6 - Recording Action Capability Evaluation Model
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 30.6 - Recording Action Capability Evaluation Model.
+Phase 30.7 - Recording Action Permission Evaluation Model.
 
 Completed foundation summary
 ```

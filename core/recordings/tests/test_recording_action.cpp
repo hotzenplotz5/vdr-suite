@@ -4,6 +4,7 @@
 #include "RecordingActionPlan.h"
 #include "RecordingActionJobPayload.h"
 #include "RecordingActionCapabilityRequirements.h"
+#include "RecordingActionCapabilityEvaluationResult.h"
 
 #include <cassert>
 #include <iostream>
@@ -167,7 +168,20 @@ int main()
     assert(!metadataRequirements.requiresWriteAccess);
     assert(metadataRequirements.requiresDryRunSupport);
 
-    std::cout << "Recording action capability requirements model OK" << std::endl;
+
+    RecordingActionCapabilityEvaluationResult evaluation;
+    evaluation.type = RecordingActionType::Move;
+    evaluation.allowed = true;
+    evaluation.availableCapabilities.push_back("recordings.action.move");
+
+    assert(evaluation.type == RecordingActionType::Move);
+    assert(evaluation.allowed);
+    assert(evaluation.availableCapabilities.size() == 1);
+    assert(evaluation.availableCapabilities.at(0) == "recordings.action.move");
+    assert(evaluation.missingCapabilities.empty());
+
+    std::cout << "Recording action capability evaluation model OK" << std::endl;
+
 
     return 0;
 }

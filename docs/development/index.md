@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 30.5 - Recording Action Capability Requirements Model
+Phase 30.6 - Recording Action Capability Evaluation Model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 30.6 - Recording Action Capability Evaluation Model
+Phase 30.7 - Recording Action Permission Evaluation Model
 ```
 
 Current architecture validation:

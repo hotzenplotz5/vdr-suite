@@ -276,3 +276,20 @@ Phase 30.0 does not:
 - [Back to README](../../README.md)
 - [Back to Documentation Index](../index.md)
 - [Back to Project Overview](../project-overview.md)
+
+
+## Phase 30.6 Capability Evaluation Model
+
+Phase 30.6 introduces the recording action capability evaluation model.
+
+The evaluation result describes whether the capability requirements of a recording action are satisfied.
+
+The model carries:
+
+- action type
+- evaluation result
+- available capabilities
+- missing capabilities
+
+The model does not perform evaluation itself and does not call backends.
+
