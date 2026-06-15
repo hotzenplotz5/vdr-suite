@@ -402,6 +402,23 @@ Guard behavior:
 - the result contains a clear unsupported-action message and error
 
 This preserves the backend boundary and prevents unmapped actions from accidentally reaching a RESTfulAPI backend.
+\n
+## Phase 33.4 RestfulAPI Payload Parameter Validation
+
+Phase 33.4 adds payload parameter validation to the RESTfulAPI recording action backend executor adapter.
+
+Validation happens after unsupported-action guarding and before request building or HTTP execution.
+
+Validation rules:
+
+- every supported action requires a backend-owned recording identity
+- move requires `targetPath`
+- rename requires `newName`
+- delete requires only the recording identity
+
+Invalid payloads are rejected before any `HttpRequest` is built or sent through `IHttpClient`.
+
+This keeps malformed move, rename and delete actions from reaching the RESTfulAPI backend.
 \n## Non-Goals
 
 Phase 30.0 does not:

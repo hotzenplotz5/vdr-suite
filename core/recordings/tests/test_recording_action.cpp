@@ -805,8 +805,72 @@ int main()
         unsupportedResult.errors.at(0) ==
         "unsupported recording action type for restfulapi backend executor");
 
+    TestRestfulApiHttpClient missingRecordingIdHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter missingRecordingIdAdapter(
+        restfulApiConfig,
+        missingRecordingIdHttpClient);
+
+    RecordingActionJobPayload missingRecordingIdPayload = deletePayload;
+    missingRecordingIdPayload.recordingId = "";
+
+    auto missingRecordingIdResult =
+        missingRecordingIdAdapter.execute(missingRecordingIdPayload);
+
+    assert(!missingRecordingIdHttpClient.called);
+    assert(!missingRecordingIdResult.success);
+    assert(
+        missingRecordingIdResult.message ==
+        "restfulapi backend executor payload invalid");
+    assert(missingRecordingIdResult.errors.size() == 1);
+    assert(missingRecordingIdResult.errors.at(0) == "recordingId is required");
+
+    TestRestfulApiHttpClient missingMoveTargetHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter missingMoveTargetAdapter(
+        restfulApiConfig,
+        missingMoveTargetHttpClient);
+
+    RecordingActionJobPayload missingMoveTargetPayload = movePayload;
+    missingMoveTargetPayload.parameters.erase("targetPath");
+
+    auto missingMoveTargetResult =
+        missingMoveTargetAdapter.execute(missingMoveTargetPayload);
+
+    assert(!missingMoveTargetHttpClient.called);
+    assert(!missingMoveTargetResult.success);
+    assert(
+        missingMoveTargetResult.message ==
+        "restfulapi backend executor payload invalid");
+    assert(missingMoveTargetResult.errors.size() == 1);
+    assert(
+        missingMoveTargetResult.errors.at(0) ==
+        "targetPath is required for move");
+
+    TestRestfulApiHttpClient missingRenameNameHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter missingRenameNameAdapter(
+        restfulApiConfig,
+        missingRenameNameHttpClient);
+
+    RecordingActionJobPayload missingRenameNamePayload = renamePayload;
+    missingRenameNamePayload.parameters.erase("newName");
+
+    auto missingRenameNameResult =
+        missingRenameNameAdapter.execute(missingRenameNamePayload);
+
+    assert(!missingRenameNameHttpClient.called);
+    assert(!missingRenameNameResult.success);
+    assert(
+        missingRenameNameResult.message ==
+        "restfulapi backend executor payload invalid");
+    assert(missingRenameNameResult.errors.size() == 1);
+    assert(
+        missingRenameNameResult.errors.at(0) ==
+        "newName is required for rename");
+
     std::cout
-        << "Recording action RestfulAPI unsupported action guard OK"
+        << "Recording action RestfulAPI payload parameter validation OK"
         << std::endl;
 
 

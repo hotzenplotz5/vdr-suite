@@ -6,6 +6,7 @@
 #include "RestfulApiRecordingActionBackendConfig.h"
 #include "RestfulApiRecordingActionRequestBuilder.h"
 
+#include <map>
 #include <string>
 #include <utility>
 
@@ -34,6 +35,10 @@ public:
             result.message = "restfulapi backend executor action not supported";
             result.errors.push_back(
                 "unsupported recording action type for restfulapi backend executor");
+            return result;
+        }
+
+        if (!validatePayload(payload, result)) {
             return result;
         }
 
@@ -82,6 +87,45 @@ private:
             type == RecordingActionType::Move ||
             type == RecordingActionType::Rename ||
             type == RecordingActionType::Delete;
+    }
+
+    static bool hasParameter(
+        const std::map<std::string, std::string>& parameters,
+        const std::string& name)
+    {
+        const auto it = parameters.find(name);
+
+        return it != parameters.end() && !it->second.empty();
+    }
+
+    static bool validatePayload(
+        const RecordingActionJobPayload& payload,
+        RecordingActionExecutionResult& result)
+    {
+        if (payload.recordingId.empty()) {
+            result.success = false;
+            result.message = "restfulapi backend executor payload invalid";
+            result.errors.push_back("recordingId is required");
+            return false;
+        }
+
+        if (payload.type == RecordingActionType::Move &&
+            !hasParameter(payload.parameters, "targetPath")) {
+            result.success = false;
+            result.message = "restfulapi backend executor payload invalid";
+            result.errors.push_back("targetPath is required for move");
+            return false;
+        }
+
+        if (payload.type == RecordingActionType::Rename &&
+            !hasParameter(payload.parameters, "newName")) {
+            result.success = false;
+            result.message = "restfulapi backend executor payload invalid";
+            result.errors.push_back("newName is required for rename");
+            return false;
+        }
+
+        return true;
     }
 
     HttpRequest buildRequest(
