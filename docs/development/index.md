@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 32.8 - Recording Action RestfulAPI Move Request Mapping
+Phase 32.9 - Recording Action RestfulAPI Rename Request Mapping
 ```
 
 Next implementation focus:
 
 ```text
-Phase 32.9 - Recording Action RestfulAPI Rename Request Mapping
+Phase 33.0 - Recording Action RestfulAPI Delete Request Mapping
 ```
 
 Current architecture validation:

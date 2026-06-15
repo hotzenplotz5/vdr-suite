@@ -24,6 +24,19 @@ public:
         return request;
     }
 
+    HttpRequest buildRenameRequest(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload) const
+    {
+        HttpRequest request;
+        request.method = "POST";
+        request.url = buildUrl(config.basePath, "/recordings/actions/rename");
+        request.headers["Accept"] = "application/json";
+        request.headers["Content-Type"] = "application/json";
+        request.body = buildRenameBody(payload);
+        return request;
+    }
+
 private:
     static std::string buildUrl(
         const std::string& basePath,
@@ -84,6 +97,22 @@ private:
         body += ",\"dryRun\":";
         body += payload.dryRun ? "true" : "false";
         body += ",\"targetPath\":" + jsonQuote(targetPath);
+        body += "}";
+
+        return body;
+    }
+
+    static std::string buildRenameBody(
+        const RecordingActionJobPayload& payload)
+    {
+        const std::string newName =
+            findParameter(payload.parameters, "newName");
+
+        std::string body = "{";
+        body += "\"recordingId\":" + jsonQuote(payload.recordingId);
+        body += ",\"dryRun\":";
+        body += payload.dryRun ? "true" : "false";
+        body += ",\"newName\":" + jsonQuote(newName);
         body += "}";
 
         return body;

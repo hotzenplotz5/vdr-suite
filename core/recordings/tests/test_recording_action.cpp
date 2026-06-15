@@ -612,8 +612,40 @@ int main()
 
     assert(prefixedMoveRequest.url == "/api/recordings/actions/move");
 
+    restfulApiConfig.basePath = "";
+
+    RecordingActionJobPayload renamePayload;
+    renamePayload.backendId = "restfulapi-default";
+    renamePayload.recordingId = "recording-001";
+    renamePayload.type = RecordingActionType::Rename;
+    renamePayload.jobType = "RENAME";
+    renamePayload.dryRun = true;
+    renamePayload.parameters["newName"] = "Evening News";
+
+    auto renameRequest =
+        requestBuilder.buildRenameRequest(
+            restfulApiConfig,
+            renamePayload);
+
+    assert(renameRequest.method == "POST");
+    assert(renameRequest.url == "/recordings/actions/rename");
+    assert(renameRequest.headers.at("Accept") == "application/json");
+    assert(renameRequest.headers.at("Content-Type") == "application/json");
+    assert(
+        renameRequest.body ==
+        "{\"recordingId\":\"recording-001\",\"dryRun\":true,\"newName\":\"Evening News\"}");
+
+    restfulApiConfig.basePath = "/api";
+
+    auto prefixedRenameRequest =
+        requestBuilder.buildRenameRequest(
+            restfulApiConfig,
+            renamePayload);
+
+    assert(prefixedRenameRequest.url == "/api/recordings/actions/rename");
+
     std::cout
-        << "Recording action RestfulAPI move request mapping OK"
+        << "Recording action RestfulAPI rename request mapping OK"
         << std::endl;
 
 

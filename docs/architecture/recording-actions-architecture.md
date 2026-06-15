@@ -298,6 +298,28 @@ Host and port remain part of `RestfulApiRecordingActionBackendConfig` and are no
 
 This phase does not perform a real move.
 It only defines the request object that later adapter execution phases can send through `IHttpClient`.
+\n
+## Phase 32.9 RestfulAPI Rename Request Mapping
+
+Phase 32.9 adds the recording rename request mapping to the existing RESTfulAPI recording action request builder.
+
+The mapping converts a `RecordingActionJobPayload` into an `HttpRequest` without executing the request.
+It follows the same boundary as the move mapping and remains safe for unit tests.
+
+The rename request mapping carries:
+
+- backend-owned recording identity
+- dry-run state
+- new recording name from action parameters
+- JSON request body
+- JSON request headers
+- a RESTfulAPI action path below the configured backend base path
+
+The mapping must not hardcode the VDR-Suite daemon port or any concrete RESTfulAPI backend port.
+The request remains a relative backend path and is not sent to a real VDR in this phase.
+
+This phase does not perform a real rename.
+It only defines the request object that later adapter execution phases can send through `IHttpClient`.
 \n## Non-Goals
 
 Phase 30.0 does not:
