@@ -327,3 +327,25 @@ The model carries:
 
 The model does not execute actions and does not call backend services.
 
+
+
+## Phase 30.9 Execution Boundary Model
+
+Phase 30.9 introduces the first backend-neutral recording action execution boundary model.
+
+The execution boundary separates recording action domain decisions from backend-specific execution.
+
+The boundary carries:
+
+- action type
+- backend identity
+- backend-owned recording identity
+- execution success state
+- execution message
+- warnings
+- errors
+
+The executor interface accepts a recording action job payload and returns an execution result.
+
+The boundary intentionally does not bind recording actions to RESTfulAPI, SVDRP, Rectools, VDR internals or filesystem operations. Backend-specific executors remain future work.
+

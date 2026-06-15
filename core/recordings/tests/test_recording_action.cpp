@@ -7,6 +7,8 @@
 #include "RecordingActionCapabilityEvaluationResult.h"
 #include "RecordingActionPermissionEvaluationResult.h"
 #include "RecordingActionExecutionReadinessResult.h"
+#include "RecordingActionExecutionResult.h"
+#include "IRecordingActionExecutor.h"
 
 #include <cassert>
 #include <iostream>
@@ -206,7 +208,49 @@ int main()
     assert(readiness.readinessChecksPassed.size() == 2);
     assert(readiness.readinessChecksFailed.empty());
 
-    std::cout << "Recording action execution readiness model OK" << std::endl;
+
+    RecordingActionExecutionResult execution;
+    execution.type = RecordingActionType::Move;
+    execution.success = true;
+    execution.backendId = "default";
+    execution.recordingId = "recording-001";
+    execution.message = "execution accepted";
+    execution.warnings.push_back("placeholder boundary only");
+
+    assert(execution.type == RecordingActionType::Move);
+    assert(execution.success);
+    assert(execution.backendId == "default");
+    assert(execution.recordingId == "recording-001");
+    assert(execution.message == "execution accepted");
+    assert(execution.warnings.size() == 1);
+    assert(execution.errors.empty());
+
+    struct TestRecordingActionExecutor final : IRecordingActionExecutor
+    {
+        RecordingActionExecutionResult execute(
+            const RecordingActionJobPayload& payload) override
+        {
+            RecordingActionExecutionResult result;
+            result.type = payload.type;
+            result.success = true;
+            result.backendId = payload.backendId;
+            result.recordingId = payload.recordingId;
+            result.message = "test executor accepted payload";
+            return result;
+        }
+    };
+
+    TestRecordingActionExecutor executor;
+    auto executorResult = executor.execute(payload);
+
+    assert(executorResult.type == payload.type);
+    assert(executorResult.success);
+    assert(executorResult.backendId == payload.backendId);
+    assert(executorResult.recordingId == payload.recordingId);
+    assert(executorResult.message == "test executor accepted payload");
+
+    std::cout << "Recording action execution boundary model OK" << std::endl;
+
 
 
 
