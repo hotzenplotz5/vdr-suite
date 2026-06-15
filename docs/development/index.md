@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 31.1 - Recording Action Executor Registration Model
+Phase 31.2 - Recording Action Executor Lookup Result Model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 31.2 - Recording Action Executor Lookup Result Model
+Phase 31.3 - Recording Action Backend Executor Selection Model
 ```
 
 Current architecture validation:

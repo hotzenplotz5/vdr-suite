@@ -2,6 +2,7 @@
 
 #include "IRecordingActionExecutor.h"
 #include "RecordingActionExecutorRegistration.h"
+#include "RecordingActionExecutorLookupResult.h"
 
 #include <map>
 #include <memory>
@@ -17,17 +18,26 @@ public:
             registration.executor;
     }
 
-    std::shared_ptr<IRecordingActionExecutor> findExecutor(
+    RecordingActionExecutorLookupResult findExecutor(
         const std::string& backendId) const
     {
         auto iterator = executors_.find(backendId);
 
         if (iterator == executors_.end())
         {
-            return nullptr;
+            RecordingActionExecutorLookupResult result;
+            result.found = false;
+            result.backendId = backendId;
+            result.message = "executor not found";
+            return result;
         }
 
-        return iterator->second;
+        RecordingActionExecutorLookupResult result;
+        result.found = true;
+        result.backendId = backendId;
+        result.executor = iterator->second;
+        result.message = "executor found";
+        return result;
     }
 
 private:

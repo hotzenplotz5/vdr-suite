@@ -389,3 +389,20 @@ Future phases may extend registrations with:
 
 without changing registry interfaces.
 
+
+
+## Phase 31.2 Executor Lookup Result Model
+
+Phase 31.2 introduces a backend-neutral executor lookup result model.
+
+The lookup result replaces raw null-pointer based registry lookup with an explicit result object.
+
+The result carries:
+
+- lookup success state
+- backend identity
+- executor instance
+- lookup message
+
+This prepares later backend executor selection and dispatch phases without coupling recording actions to a specific backend implementation.
+

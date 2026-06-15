@@ -11,6 +11,7 @@
 #include "IRecordingActionExecutor.h"
 #include "RecordingActionExecutorRegistry.h"
 #include "RecordingActionExecutorRegistration.h"
+#include "RecordingActionExecutorLookupResult.h"
 
 #include <cassert>
 #include <iostream>
@@ -264,10 +265,17 @@ int main()
     auto foundExecutor = registry.findExecutor("default");
     auto missingExecutor = registry.findExecutor("missing");
 
-    assert(foundExecutor != nullptr);
-    assert(missingExecutor == nullptr);
+    assert(foundExecutor.found);
+    assert(foundExecutor.backendId == "default");
+    assert(foundExecutor.executor != nullptr);
+    assert(foundExecutor.message == "executor found");
 
-    auto registryResult = foundExecutor->execute(payload);
+    assert(!missingExecutor.found);
+    assert(missingExecutor.backendId == "missing");
+    assert(missingExecutor.executor == nullptr);
+    assert(missingExecutor.message == "executor not found");
+
+    auto registryResult = foundExecutor.executor->execute(payload);
 
     assert(registryResult.success);
     assert(registryResult.backendId == payload.backendId);
@@ -277,7 +285,7 @@ int main()
     assert(registration.backendId == "default");
     assert(registration.executor != nullptr);
 
-    std::cout << "Recording action executor registration model OK" << std::endl;
+    std::cout << "Recording action executor lookup result model OK" << std::endl;
 
 
 
