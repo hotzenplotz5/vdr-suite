@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 33.7 - Recording Action RestfulAPI Read Only Backend Guard
+Phase 33.8 - Recording Action RestfulAPI Backend Config Documentation
 ```
 
 Current Focus:
 
 ```text
-Phase 33.8 - Recording Action RestfulAPI Backend Config Documentation
+Phase 33.9 - Recording Action Real RESTfulAPI Endpoint Discovery
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 33.7 - Recording Action RestfulAPI Read Only Backend Guard
+Phase 33.8 - Recording Action RestfulAPI Backend Config Documentation
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 33.8 - Recording Action RestfulAPI Backend Config Documentation
+Phase 33.9 - Recording Action Real RESTfulAPI Endpoint Discovery
 ADR-0021 - Selective Backend Query Strategy
 ```
 

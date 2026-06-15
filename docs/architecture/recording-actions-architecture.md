@@ -474,6 +474,49 @@ Read-only backend behavior:
 - the result contains a clear read-only backend error
 
 This supports future multi-backend deployments where one VDR backend can be view-only while another backend allows recording actions.
+\n
+## Phase 33.8 RestfulAPI Backend Config Documentation
+
+Phase 33.8 documents the RESTfulAPI recording action backend configuration boundary.
+
+The configuration is intentionally separate from `VdrConfig`.
+It describes the backend action execution endpoint and execution policy for recording actions.
+
+Fields:
+
+- `backendId`
+  - stable backend identity used by the recording action pipeline
+  - must match the backend owning the recording
+- `host`
+  - RESTfulAPI backend host
+  - must refer to the VDR RESTfulAPI backend, not the VDR-Suite daemon
+- `port`
+  - RESTfulAPI backend port
+  - must not be confused with the VDR-Suite daemon API port
+- `basePath`
+  - optional RESTfulAPI backend base path
+  - request mappings build relative action paths below this base path
+- `allowExecution`
+  - default: `false`
+  - controls whether non-dry-run recording actions may reach the HTTP boundary
+- `readOnly`
+  - default: `false`
+  - blocks move, rename and delete even when execution is otherwise enabled
+
+Safety rules:
+
+- `readOnly=true` always blocks write actions before HTTP execution
+- `allowExecution=false` blocks non-dry-run actions before HTTP execution
+- dry-run actions may reach the fake HTTP boundary during unit tests
+- no real VDR write validation is performed by this configuration phase
+
+Port separation rule:
+
+- VDR-Suite daemon/API port: user/frontend/API access to VDR-Suite
+- RESTfulAPI backend port: VDR-Suite access to a VDR backend
+
+The recording action backend config must describe the backend RESTfulAPI endpoint.
+It must not hardcode the VDR-Suite daemon port or a single backend port.
 \n## Non-Goals
 
 Phase 30.0 does not:
