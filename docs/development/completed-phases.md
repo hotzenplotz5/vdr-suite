@@ -80,7 +80,7 @@ Status: Completed
 
 ## Phase 13 - Snapshot Change Feed Runtime Integration
 
-Status: Completed through Phase 32.4
+Status: Completed through Phase 32.5
 
 ---
 
@@ -467,7 +467,7 @@ Architecture decision:
 Recording actions must remain backend-aware request, validation, plan and job-payload models until capability checks, permission checks and execution boundaries are implemented.
 
 Follow-up:
-The next implementation step is the recording Action Backend Executor Adapter Dispatch Integration.
+The next implementation step is the recording Action RestfulAPI Backend Executor Adapter Foundation.
 
 ## Back
 

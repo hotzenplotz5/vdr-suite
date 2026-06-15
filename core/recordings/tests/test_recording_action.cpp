@@ -24,6 +24,7 @@
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
 #include "RecordingActionBackendExecutorAdapterLookupResult.h"
 #include "RecordingActionBackendExecutorAdapterResolutionService.h"
+#include "RecordingActionBackendExecutorAdapterDispatchService.h"
 
 #include <cassert>
 #include <iostream>
@@ -507,9 +508,36 @@ int main()
         unresolvedAdapter.message ==
         "backend executor adapter resolution failed");
 
+
+    RecordingActionBackendExecutorAdapterDispatchService adapterDispatchService;
+
+    auto adapterDispatchResult =
+        adapterDispatchService.dispatch(
+            resolvedAdapter,
+            payload);
+
+    auto missingAdapterDispatchResult =
+        adapterDispatchService.dispatch(
+            unresolvedAdapter,
+            payload);
+
+    assert(adapterDispatchResult.dispatched);
+    assert(adapterDispatchResult.executionResult.success);
+    assert(adapterDispatchResult.executionResult.backendId == "mock");
+    assert(adapterDispatchResult.executionResult.recordingId == payload.recordingId);
+    assert(
+        adapterDispatchResult.reason ==
+        "action dispatched to backend executor adapter");
+
+    assert(!missingAdapterDispatchResult.dispatched);
+    assert(
+        missingAdapterDispatchResult.reason ==
+        "no backend executor adapter resolved");
+
     std::cout
-        << "Recording action backend executor adapter resolution service OK"
+        << "Recording action backend executor adapter dispatch integration OK"
         << std::endl;
+
 
 
 

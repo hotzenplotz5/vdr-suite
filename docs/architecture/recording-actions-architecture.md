@@ -606,3 +606,14 @@ The resolution service consumes backend executor adapter lookup results and retu
 For Phase 32.4 the service preserves successful lookups and turns missing lookups into explicit resolution failures.
 
 This keeps backend adapter resolution independent from concrete backend implementations such as RestfulAPI, SVDRP, Rectools or native VDR integration.
+
+
+## Phase 32.5 Backend Executor Adapter Dispatch Integration
+
+Phase 32.5 introduces backend executor adapter dispatch integration.
+
+The adapter dispatch service receives a resolved backend executor adapter and a recording action job payload.
+
+It dispatches the payload to the resolved backend adapter and returns a recording action dispatch result.
+
+The service keeps recording action dispatch independent from concrete backend implementations such as Mock, RestfulAPI, SVDRP, Rectools or native VDR integration.
