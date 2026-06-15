@@ -10,6 +10,7 @@
 #include "RecordingActionExecutionResult.h"
 #include "IRecordingActionExecutor.h"
 #include "RecordingActionExecutorRegistry.h"
+#include "RecordingActionExecutorRegistration.h"
 
 #include <cassert>
 #include <iostream>
@@ -254,7 +255,11 @@ int main()
     RecordingActionExecutorRegistry registry;
     auto sharedExecutor = std::make_shared<TestRecordingActionExecutor>();
 
-    registry.registerExecutor("default", sharedExecutor);
+    RecordingActionExecutorRegistration registration;
+    registration.backendId = "default";
+    registration.executor = sharedExecutor;
+
+    registry.registerExecutor(registration);
 
     auto foundExecutor = registry.findExecutor("default");
     auto missingExecutor = registry.findExecutor("missing");
@@ -268,7 +273,12 @@ int main()
     assert(registryResult.backendId == payload.backendId);
     assert(registryResult.recordingId == payload.recordingId);
 
-    std::cout << "Recording action executor registry foundation OK" << std::endl;
+
+    assert(registration.backendId == "default");
+    assert(registration.executor != nullptr);
+
+    std::cout << "Recording action executor registration model OK" << std::endl;
+
 
 
 

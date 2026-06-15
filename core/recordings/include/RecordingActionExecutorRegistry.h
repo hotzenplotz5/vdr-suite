@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IRecordingActionExecutor.h"
+#include "RecordingActionExecutorRegistration.h"
 
 #include <map>
 #include <memory>
@@ -10,10 +11,10 @@ class RecordingActionExecutorRegistry
 {
 public:
     void registerExecutor(
-        const std::string& backendId,
-        std::shared_ptr<IRecordingActionExecutor> executor)
+        const RecordingActionExecutorRegistration& registration)
     {
-        executors_[backendId] = executor;
+        executors_[registration.backendId] =
+            registration.executor;
     }
 
     std::shared_ptr<IRecordingActionExecutor> findExecutor(

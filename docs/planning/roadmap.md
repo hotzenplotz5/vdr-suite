@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 31.0 - Recording Action Executor Registry Foundation
+Phase 31.1 - Recording Action Executor Registration Model
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 31.1 - Recording Action Executor Registration Model.
+Phase 31.2 - Recording Action Executor Lookup Result Model.
 
 Completed foundation summary
 ```

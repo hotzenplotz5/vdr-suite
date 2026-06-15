@@ -367,3 +367,25 @@ The foundation supports:
 
 The registry does not dispatch actions and does not execute backend operations.
 
+
+
+## Phase 31.1 Executor Registration Model
+
+Phase 31.1 introduces a backend-neutral executor registration model.
+
+The registration model separates executor metadata from registry implementation details.
+
+The registration currently contains:
+
+- backend identity
+- executor instance
+
+Future phases may extend registrations with:
+
+- backend type
+- capability metadata
+- read-only state
+- supported recording actions
+
+without changing registry interfaces.
+
