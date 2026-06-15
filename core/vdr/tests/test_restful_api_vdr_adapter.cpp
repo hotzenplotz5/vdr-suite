@@ -450,14 +450,14 @@ static void test_restful_api_vdr_adapter_maps_recordings_response()
     assert(recordings.size() == 2);
 
     assert(recordings[0].id == "0");
-    assert(recordings[0].title == "Mystery~The Village - Das Dorf");
+    assert(recordings[0].title == "Mystery/The Village - Das Dorf");
     assert(recordings[0].path == "/Mystery/The_Village_-_Das_Dorf/2010-10-31.02.29.10-0.rec");
     assert(recordings[0].startTime == "1288488540");
     assert(recordings[0].durationSeconds == 5835);
     assert(recordings[0].sizeMb == 5555);
 
     assert(recordings[1].id == "840");
-    assert(recordings[1].title == "Serien~The Walking Dead~S08E08 Kampf um die Zukunft");
+    assert(recordings[1].title == "Serien/The Walking Dead/S08E08 Kampf um die Zukunft");
     assert(recordings[1].durationSeconds == 3551);
     assert(recordings[1].sizeMb == 4191);
 }
