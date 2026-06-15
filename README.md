@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 34.0 - Recording Action RestfulAPI Real Endpoint Alignment
+Latest Completed Implementation Phase: Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping
 
-Current Implementation Focus: Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping
+Current Implementation Focus: Phase 34.2 - Recording Action RestfulAPI Real Test Recording Probe
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

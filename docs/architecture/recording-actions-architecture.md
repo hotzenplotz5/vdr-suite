@@ -588,6 +588,28 @@ Only the RESTfulAPI transport maps it through the plugin move service because no
 
 This phase remains unit-test-only.
 It does not execute a real move, rename or delete against a VDR backend.
+\n
+## Phase 34.1 RestfulAPI Recording Path Identity Mapping
+
+Phase 34.1 defines how VDR-Suite maps recording identity to the real RESTfulAPI recording services.
+
+The `vdr-plugin-restfulapi` recording write services resolve recordings through backend-owned recording paths.
+They do not use a VDR-Suite-internal opaque identifier.
+
+Mapping rule:
+
+- `payload.parameters["recordingPath"]` is used when present
+- otherwise `payload.recordingId` is used as the fallback backend-owned recording identity
+
+This keeps the existing recording action pipeline compatible while allowing real RESTfulAPI execution to send the path expected by the plugin.
+
+RESTfulAPI request fields after this phase:
+
+- move source: recording path
+- rename source: recording path
+- delete file: recording path
+
+This phase remains unit-test-only and does not execute a real move, rename or delete.
 \n## Non-Goals
 
 Phase 30.0 does not:

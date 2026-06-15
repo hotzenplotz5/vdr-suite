@@ -688,6 +688,46 @@ int main()
     assert(prefixedDeleteRequest.url == "/api/recordings/delete.json");
 
     restfulApiConfig.basePath = "";
+
+    RecordingActionJobPayload pathMovePayload = movePayload;
+    pathMovePayload.parameters["recordingPath"] =
+        "Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec";
+
+    auto pathMoveRequest =
+        requestBuilder.buildMoveRequest(
+            restfulApiConfig,
+            pathMovePayload);
+
+    assert(
+        pathMoveRequest.body ==
+        "{\"source\":\"Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec\",\"target\":\"/srv/vdr/video/archive\",\"copy_only\":false}");
+
+    RecordingActionJobPayload pathRenamePayload = renamePayload;
+    pathRenamePayload.parameters["recordingPath"] =
+        "Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec";
+
+    auto pathRenameRequest =
+        requestBuilder.buildRenameRequest(
+            restfulApiConfig,
+            pathRenamePayload);
+
+    assert(
+        pathRenameRequest.body ==
+        "{\"source\":\"Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec\",\"target\":\"Evening News\",\"copy_only\":false}");
+
+    RecordingActionJobPayload pathDeletePayload = deletePayload;
+    pathDeletePayload.parameters["recordingPath"] =
+        "Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec";
+
+    auto pathDeleteRequest =
+        requestBuilder.buildDeleteRequest(
+            restfulApiConfig,
+            pathDeletePayload);
+
+    assert(
+        pathDeleteRequest.body ==
+        "{\"file\":\"Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec\"}");
+
     TestRestfulApiHttpClient moveExecutionHttpClient;
 
     RestfulApiRecordingActionBackendExecutorAdapter moveExecutionAdapter(
@@ -1004,7 +1044,7 @@ int main()
         "restfulapi backend executor backend is read-only");
 
     std::cout
-        << "Recording action RestfulAPI read-only backend guard OK"
+        << "Recording action RestfulAPI recording path identity mapping OK"
         << std::endl;
 
 

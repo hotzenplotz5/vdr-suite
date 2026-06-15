@@ -83,6 +83,19 @@ private:
         return it->second;
     }
 
+    static std::string recordingPath(
+        const RecordingActionJobPayload& payload)
+    {
+        const std::string path =
+            findParameter(payload.parameters, "recordingPath");
+
+        if (!path.empty()) {
+            return path;
+        }
+
+        return payload.recordingId;
+    }
+
     static std::string jsonQuote(const std::string& value)
     {
         std::string quoted = "\"";
@@ -106,7 +119,7 @@ private:
             findParameter(payload.parameters, "targetPath");
 
         std::string body = "{";
-        body += "\"source\":" + jsonQuote(payload.recordingId);
+        body += "\"source\":" + jsonQuote(recordingPath(payload));
         body += ",\"target\":" + jsonQuote(targetPath);
         body += ",\"copy_only\":false";
         body += "}";
@@ -121,7 +134,7 @@ private:
             findParameter(payload.parameters, "newName");
 
         std::string body = "{";
-        body += "\"source\":" + jsonQuote(payload.recordingId);
+        body += "\"source\":" + jsonQuote(recordingPath(payload));
         body += ",\"target\":" + jsonQuote(newName);
         body += ",\"copy_only\":false";
         body += "}";
@@ -133,7 +146,7 @@ private:
         const RecordingActionJobPayload& payload)
     {
         std::string body = "{";
-        body += "\"file\":" + jsonQuote(payload.recordingId);
+        body += "\"file\":" + jsonQuote(recordingPath(payload));
         body += "}";
 
         return body;

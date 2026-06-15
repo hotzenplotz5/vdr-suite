@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 34.0 - Recording Action RestfulAPI Real Endpoint Alignment
+Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping.
+Phase 34.2 - Recording Action RestfulAPI Real Test Recording Probe.
 
 Completed foundation summary
 ```

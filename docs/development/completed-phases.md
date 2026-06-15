@@ -80,7 +80,7 @@ Status: Completed
 
 ## Phase 13 - Snapshot Change Feed Runtime Integration
 
-Status: Completed through Phase 34.0
+Status: Completed through Phase 34.1
 
 ---
 
@@ -467,7 +467,7 @@ Architecture decision:
 Recording actions must remain backend-aware request, validation, plan and job-payload models until capability checks, permission checks and execution boundaries are implemented.
 
 Follow-up:
-The next implementation step is the Recording Action RestfulAPI Recording Path Identity Mapping.
+The next implementation step is the Recording Action RestfulAPI Real Test Recording Probe.
 
 ## Back
 

@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 34.0 - Recording Action RestfulAPI Real Endpoint Alignment
+Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping
 ```
 
 Next implementation focus:
 
 ```text
-Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping
+Phase 34.2 - Recording Action RestfulAPI Real Test Recording Probe
 ```
 
 Current architecture validation:
