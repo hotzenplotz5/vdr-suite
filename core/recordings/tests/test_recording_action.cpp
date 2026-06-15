@@ -12,6 +12,8 @@
 #include "RecordingActionExecutorRegistry.h"
 #include "RecordingActionExecutorRegistration.h"
 #include "RecordingActionExecutorLookupResult.h"
+#include "RecordingActionExecutorSelectionResult.h"
+#include "RecordingActionDispatchResult.h"
 
 #include <cassert>
 #include <iostream>
@@ -285,7 +287,37 @@ int main()
     assert(registration.backendId == "default");
     assert(registration.executor != nullptr);
 
-    std::cout << "Recording action executor lookup result model OK" << std::endl;
+
+    RecordingActionExecutorSelectionResult selection;
+    selection.selected = foundExecutor.found;
+    selection.backendId = foundExecutor.backendId;
+    selection.executor = foundExecutor.executor;
+    selection.reason = "executor selected from registry lookup result";
+
+    assert(selection.selected);
+    assert(selection.backendId == "default");
+    assert(selection.executor != nullptr);
+    assert(selection.reason == "executor selected from registry lookup result");
+
+    auto selectionResult = selection.executor->execute(payload);
+
+    assert(selectionResult.success);
+    assert(selectionResult.backendId == payload.backendId);
+    assert(selectionResult.recordingId == payload.recordingId);
+
+
+    RecordingActionDispatchResult dispatch;
+    dispatch.dispatched = selection.selected;
+    dispatch.executionResult = selectionResult;
+    dispatch.reason = "action dispatched to selected executor";
+
+    assert(dispatch.dispatched);
+    assert(dispatch.executionResult.success);
+    assert(dispatch.reason == "action dispatched to selected executor");
+
+    std::cout << "Recording action dispatch foundation OK" << std::endl;
+
+
 
 
 

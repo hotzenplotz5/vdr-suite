@@ -406,3 +406,38 @@ The result carries:
 
 This prepares later backend executor selection and dispatch phases without coupling recording actions to a specific backend implementation.
 
+
+
+## Phase 31.3 Backend Executor Selection Model
+
+Phase 31.3 introduces a backend-neutral executor selection result model.
+
+The selection result separates executor lookup from executor selection.
+
+The result carries:
+
+- selection state
+- backend identity
+- selected executor
+- selection reason
+
+This prepares later dispatch phases where executor selection may consider backend type, capability metadata, read-only state and supported recording actions.
+
+The model does not dispatch actions and does not execute backend operations.
+
+
+
+## Phase 31.4 Dispatch Foundation
+
+Phase 31.4 introduces a dispatch result model.
+
+The dispatch layer sits between executor selection and executor execution.
+
+Responsibilities:
+
+- receive selected executor
+- dispatch action
+- collect execution result
+- provide dispatch outcome
+
+This remains backend-neutral and prepares future backend specific executors.
