@@ -453,6 +453,27 @@ This phase still uses fake `IHttpClient` tests only.
 It does not validate real VDR RESTfulAPI behavior and does not modify real recordings.
 
 The flag makes future write enablement an explicit backend configuration decision instead of an accidental code-path change.
+\n
+## Phase 33.7 RestfulAPI Read-Only Backend Guard
+
+Phase 33.7 adds a read-only backend guard to the RESTfulAPI recording action backend executor adapter.
+
+The guard is controlled through the backend action configuration:
+
+- `readOnly=false` keeps the normal execution policy
+- `readOnly=true` blocks move, rename and delete execution before request building or HTTP execution
+
+The guard runs after payload validation and before execution enablement.
+
+Read-only backend behavior:
+
+- no `HttpRequest` is built
+- no `IHttpClient` call occurs
+- the result keeps backend identity and recording identity
+- the result reports `success=false`
+- the result contains a clear read-only backend error
+
+This supports future multi-backend deployments where one VDR backend can be view-only while another backend allows recording actions.
 \n## Non-Goals
 
 Phase 30.0 does not:

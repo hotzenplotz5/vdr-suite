@@ -42,6 +42,10 @@ public:
             return result;
         }
 
+        if (!enforceReadOnlyPolicy(result)) {
+            return result;
+        }
+
         if (!enforceExecutionPolicy(payload, result)) {
             return result;
         }
@@ -130,6 +134,20 @@ private:
         }
 
         return true;
+    }
+
+    bool enforceReadOnlyPolicy(
+        RecordingActionExecutionResult& result) const
+    {
+        if (!config_.readOnly) {
+            return true;
+        }
+
+        result.success = false;
+        result.message = "restfulapi backend executor backend is read-only";
+        result.errors.push_back(
+            "recording action execution is blocked by read-only backend config");
+        return false;
     }
 
     bool enforceExecutionPolicy(

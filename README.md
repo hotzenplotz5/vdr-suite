@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 33.6 - Recording Action RestfulAPI Execution Enablement Flag
+Latest Completed Implementation Phase: Phase 33.7 - Recording Action RestfulAPI Read Only Backend Guard
 
-Current Implementation Focus: Phase 33.7 - Recording Action RestfulAPI Read Only Backend Guard
+Current Implementation Focus: Phase 33.8 - Recording Action RestfulAPI Backend Config Documentation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

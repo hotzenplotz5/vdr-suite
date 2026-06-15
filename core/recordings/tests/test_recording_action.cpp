@@ -578,6 +578,7 @@ int main()
     assert(restfulApiAdapter.config().port == 8002);
     assert(restfulApiAdapter.config().basePath == "");
     assert(!restfulApiAdapter.config().allowExecution);
+    assert(!restfulApiAdapter.config().readOnly);
     assert(!restfulApiUnsupportedResult.success);
     assert(!restfulApiHttpClient.called);
     assert(restfulApiUnsupportedResult.backendId == "restfulapi-default");
@@ -956,8 +957,54 @@ int main()
         enabledExecutionResult.message ==
         "restfulapi backend executor request accepted");
 
+    TestRestfulApiHttpClient readOnlyHttpClient;
+
+    RestfulApiRecordingActionBackendConfig readOnlyConfig =
+        enabledExecutionConfig;
+    readOnlyConfig.readOnly = true;
+
+    RestfulApiRecordingActionBackendExecutorAdapter readOnlyAdapter(
+        readOnlyConfig,
+        readOnlyHttpClient);
+
+    RecordingActionJobPayload readOnlyPayload = movePayload;
+    readOnlyPayload.dryRun = false;
+
+    auto readOnlyResult =
+        readOnlyAdapter.execute(readOnlyPayload);
+
+    assert(!readOnlyHttpClient.called);
+    assert(!readOnlyResult.success);
+    assert(readOnlyResult.backendId == "restfulapi-default");
+    assert(readOnlyResult.recordingId == readOnlyPayload.recordingId);
+    assert(
+        readOnlyResult.message ==
+        "restfulapi backend executor backend is read-only");
+    assert(readOnlyResult.errors.size() == 1);
+    assert(
+        readOnlyResult.errors.at(0) ==
+        "recording action execution is blocked by read-only backend config");
+
+    TestRestfulApiHttpClient readOnlyDryRunHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter readOnlyDryRunAdapter(
+        readOnlyConfig,
+        readOnlyDryRunHttpClient);
+
+    RecordingActionJobPayload readOnlyDryRunPayload = renamePayload;
+    readOnlyDryRunPayload.dryRun = true;
+
+    auto readOnlyDryRunResult =
+        readOnlyDryRunAdapter.execute(readOnlyDryRunPayload);
+
+    assert(!readOnlyDryRunHttpClient.called);
+    assert(!readOnlyDryRunResult.success);
+    assert(
+        readOnlyDryRunResult.message ==
+        "restfulapi backend executor backend is read-only");
+
     std::cout
-        << "Recording action RestfulAPI execution enablement flag OK"
+        << "Recording action RestfulAPI read-only backend guard OK"
         << std::endl;
 
 
