@@ -21,6 +21,7 @@
 #include "RecordingActionDispatchService.h"
 #include "IRecordingActionBackendExecutorAdapter.h"
 #include "MockRecordingActionBackendExecutorAdapter.h"
+#include "RecordingActionBackendExecutorAdapterRegistry.h"
 
 #include <cassert>
 #include <iostream>
@@ -454,9 +455,31 @@ int main()
     assert(mockBackendResult.recordingId == payload.recordingId);
     assert(mockBackendResult.message == "mock backend executor accepted payload");
 
+
+    RecordingActionBackendExecutorAdapterRegistry adapterRegistry;
+    auto registeredMockAdapter =
+        std::make_shared<MockRecordingActionBackendExecutorAdapter>();
+
+    adapterRegistry.registerAdapter(registeredMockAdapter);
+
+    auto foundMockAdapter = adapterRegistry.findAdapter("mock");
+    auto missingMockAdapter = adapterRegistry.findAdapter("missing");
+
+    assert(foundMockAdapter != nullptr);
+    assert(foundMockAdapter->backendId() == "mock");
+    assert(foundMockAdapter->backendType() == "mock");
+    assert(missingMockAdapter == nullptr);
+
+    auto registryMockResult = foundMockAdapter->execute(payload);
+
+    assert(registryMockResult.success);
+    assert(registryMockResult.backendId == "mock");
+    assert(registryMockResult.recordingId == payload.recordingId);
+
     std::cout
-        << "Recording action mock backend executor adapter OK"
+        << "Recording action backend executor adapter registry OK"
         << std::endl;
+
 
 
 

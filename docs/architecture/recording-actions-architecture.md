@@ -570,3 +570,12 @@ Phase 32.1 introduces a concrete mock backend executor adapter.
 The mock adapter implements the backend executor adapter boundary and provides a deterministic backend-neutral test adapter.
 
 The mock adapter prepares later real backend adapters such as RestfulAPI, SVDRP, Rectools and native VDR integration without coupling dispatch logic to those implementations.
+
+
+## Phase 32.2 Backend Executor Adapter Registry
+
+Phase 32.2 introduces a backend-neutral recording action backend executor adapter registry.
+
+The adapter registry maps backend identities to backend executor adapters.
+
+It allows dispatch infrastructure to locate concrete backend adapters such as mock, RestfulAPI, SVDRP, Rectools or native VDR adapters without depending on a specific backend implementation.
