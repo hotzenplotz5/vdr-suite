@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 30.2 - Recording Action Validation Model
+Phase 30.3 - Recording Action Plan Domain Model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 30.2 - Recording Action Validation Model
+Phase 30.4 - Recording Action Job Payload Model
 ```
 
 Current architecture validation:

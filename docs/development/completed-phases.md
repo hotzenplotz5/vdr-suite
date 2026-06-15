@@ -442,15 +442,17 @@ Goals:
 ---
 
 ## Phase 30 - Recording Actions
-Status: Completed through Phase 30.2
+Status: Completed through Phase 30.3
 
 Result:
 - Phase 30.0 documented the recording actions architecture boundary
 - Phase 30.1 introduced the backend-aware recording action request domain model
 - Phase 30.2 introduced the recording action validation result domain model
+- Phase 30.3 introduced the recording action plan domain model
 - destructive execution remains out of scope
 - action requests carry backend identity, backend-owned recording identity, action type, dry-run flag and parameters
 - validation results carry validity state, dry-run state, job planning intent, required capabilities, required permissions, warnings and errors
+- action plans carry backend identity, recording identity, action type, dry-run state, execution allowance, job creation intent and planned job type
 - move, delete and metadata refresh action types are now represented in the action type model
 - Rectools execution remains behind future adapter or job boundaries
 
@@ -460,10 +462,10 @@ Verified with:
 - make test-phase
 
 Architecture decision:
-Recording actions must remain backend-aware request and validation models until action plans, capability checks, permission checks and job payload boundaries are implemented.
+Recording actions must remain backend-aware request, validation and plan models until capability checks, permission checks and job payload boundaries are implemented.
 
 Follow-up:
-The next implementation step is the recording action plan domain model.
+The next implementation step is the recording action job payload model.
 
 ## Back
 

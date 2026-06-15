@@ -197,6 +197,28 @@ The validation result carries:
 The model is designed for later validation services, capability checks, permission checks and job planning.
 It does not execute actions and does not mutate recordings, metadata, filesystems or Rectools state.
 
+## Phase 30.3 Action Plan Model
+
+Phase 30.3 introduces the first recording action plan domain model.
+
+The action plan model is intentionally not an execution model.
+It represents the planned result after request modeling and validation, but before job payload creation or backend adapter execution.
+
+The action plan carries:
+
+- backend identity
+- backend-owned recording identity
+- action type
+- dry-run state
+- whether execution is allowed
+- whether a later job should be created
+- planned job type
+- required backend capabilities
+- required permissions
+- warnings
+
+The model prepares the later job payload boundary without mutating recordings, metadata, filesystems or Rectools state.
+
 ## Non-Goals
 
 Phase 30.0 does not:

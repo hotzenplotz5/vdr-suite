@@ -1,6 +1,7 @@
 #include "RecordingActionRequest.h"
 #include "RecordingActionUtils.h"
 #include "RecordingActionValidationResult.h"
+#include "RecordingActionPlan.h"
 
 #include <cassert>
 #include <iostream>
@@ -73,7 +74,53 @@ int main()
     assert(failedValidation.errors.size() == 1);
     assert(failedValidation.errors.at(0) == "recordingId is required");
 
-    std::cout << "Recording action validation model OK" << std::endl;
+    RecordingActionPlan dryRunPlan;
+    dryRunPlan.backendId = validation.backendId;
+    dryRunPlan.recordingId = validation.recordingId;
+    dryRunPlan.type = RecordingActionType::Move;
+    dryRunPlan.dryRun = true;
+    dryRunPlan.executionAllowed = false;
+    dryRunPlan.createJob = false;
+    dryRunPlan.plannedJobType = "MOVE";
+    dryRunPlan.requiredCapabilities = validation.requiredCapabilities;
+    dryRunPlan.requiredPermissions = validation.requiredPermissions;
+    dryRunPlan.warnings = validation.warnings;
+
+    assert(dryRunPlan.backendId == "default");
+    assert(dryRunPlan.recordingId == "recording-001");
+    assert(dryRunPlan.type == RecordingActionType::Move);
+    assert(dryRunPlan.dryRun);
+    assert(!dryRunPlan.executionAllowed);
+    assert(!dryRunPlan.createJob);
+    assert(dryRunPlan.plannedJobType == "MOVE");
+    assert(dryRunPlan.requiredCapabilities.size() == 1);
+    assert(dryRunPlan.requiredCapabilities.at(0) == "recordings.action.move");
+    assert(dryRunPlan.requiredPermissions.size() == 1);
+    assert(dryRunPlan.requiredPermissions.at(0) == "recordings.action.move");
+    assert(dryRunPlan.warnings.size() == 1);
+
+    RecordingActionPlan executionPlan;
+    executionPlan.backendId = "default";
+    executionPlan.recordingId = "recording-001";
+    executionPlan.type = RecordingActionType::MetadataRefresh;
+    executionPlan.dryRun = false;
+    executionPlan.executionAllowed = true;
+    executionPlan.createJob = true;
+    executionPlan.plannedJobType = "METADATA_REFRESH";
+    executionPlan.requiredCapabilities.push_back("recordings.action.metadata.refresh");
+    executionPlan.requiredPermissions.push_back("recordings.action.metadata.refresh");
+
+    assert(executionPlan.backendId == "default");
+    assert(executionPlan.recordingId == "recording-001");
+    assert(executionPlan.type == RecordingActionType::MetadataRefresh);
+    assert(!executionPlan.dryRun);
+    assert(executionPlan.executionAllowed);
+    assert(executionPlan.createJob);
+    assert(executionPlan.plannedJobType == "METADATA_REFRESH");
+    assert(executionPlan.requiredCapabilities.size() == 1);
+    assert(executionPlan.requiredPermissions.size() == 1);
+
+    std::cout << "Recording action plan model OK" << std::endl;
 
     return 0;
 }
