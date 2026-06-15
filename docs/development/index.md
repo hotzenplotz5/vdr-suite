@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 31.4 - Recording Action Dispatch Foundation
+Phase 31.5 - Recording Action Default Executor Resolution
 ```
 
 Next implementation focus:
 
 ```text
-Phase 31.5 - Recording Action Default Executor Resolution
+Phase 31.6 - Recording Action Backend Capability Dispatch Rules
 ```
 
 Current architecture validation:

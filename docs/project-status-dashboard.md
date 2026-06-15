@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 31.4 - Recording Action Dispatch Foundation
+Phase 31.5 - Recording Action Default Executor Resolution
 ```
 
 Current Focus:
 
 ```text
-Phase 31.5 - Recording Action Default Executor Resolution
+Phase 31.6 - Recording Action Backend Capability Dispatch Rules
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 31.4 - Recording Action Dispatch Foundation
+Phase 31.5 - Recording Action Default Executor Resolution
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 31.5 - Recording Action Default Executor Resolution
+Phase 31.6 - Recording Action Backend Capability Dispatch Rules
 ADR-0021 - Selective Backend Query Strategy
 ```
 

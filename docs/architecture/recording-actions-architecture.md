@@ -441,3 +441,21 @@ Responsibilities:
 - provide dispatch outcome
 
 This remains backend-neutral and prepares future backend specific executors.
+
+
+## Phase 31.5 Default Executor Resolution
+
+Phase 31.5 introduces a backend-neutral default executor
+resolution result model.
+
+Resolution rules:
+
+- explicit backend id -> exact executor resolution
+- unknown backend id -> error
+- empty backend id -> default executor resolution
+- missing default executor -> error
+
+No implicit fallback to another backend is allowed.
+
+This protects multi-backend installations from accidental
+cross-backend execution.

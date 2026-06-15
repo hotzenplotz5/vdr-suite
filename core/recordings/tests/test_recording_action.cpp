@@ -14,6 +14,7 @@
 #include "RecordingActionExecutorLookupResult.h"
 #include "RecordingActionExecutorSelectionResult.h"
 #include "RecordingActionDispatchResult.h"
+#include "RecordingActionDefaultExecutorResolutionResult.h"
 
 #include <cassert>
 #include <iostream>
@@ -315,7 +316,27 @@ int main()
     assert(dispatch.executionResult.success);
     assert(dispatch.reason == "action dispatched to selected executor");
 
-    std::cout << "Recording action dispatch foundation OK" << std::endl;
+
+    RecordingActionDefaultExecutorResolutionResult resolution;
+
+    resolution.resolved = true;
+    resolution.usedDefaultExecutor = false;
+    resolution.backendId = payload.backendId;
+    resolution.executor = selection.executor;
+    resolution.reason = "resolved by explicit backend id";
+
+    assert(resolution.resolved);
+    assert(!resolution.usedDefaultExecutor);
+    assert(resolution.backendId == payload.backendId);
+    assert(resolution.executor != nullptr);
+    assert(
+        resolution.reason ==
+        "resolved by explicit backend id");
+
+    std::cout
+        << "Recording action default executor resolution OK"
+        << std::endl;
+
 
 
 
