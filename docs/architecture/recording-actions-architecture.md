@@ -379,6 +379,29 @@ Failure mapping rules:
 
 This phase does not interpret real RESTfulAPI error schemas.
 It only preserves the backend status and response body at the action execution boundary.
+\n
+## Phase 33.3 RestfulAPI Unsupported Action Guard
+
+Phase 33.3 makes the RESTfulAPI backend executor adapter unsupported-action guard explicit.
+
+The adapter only supports recording action types that have request mappings:
+
+- move
+- rename
+- delete
+
+Unsupported actions are rejected before any HTTP request is built or sent.
+
+Guard behavior:
+
+- no `IHttpClient` call occurs
+- the result keeps the original action type
+- the result keeps backend identity
+- the result keeps recording identity
+- the result reports `success=false`
+- the result contains a clear unsupported-action message and error
+
+This preserves the backend boundary and prevents unmapped actions from accidentally reaching a RESTfulAPI backend.
 \n## Non-Goals
 
 Phase 30.0 does not:

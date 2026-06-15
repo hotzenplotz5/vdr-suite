@@ -32,7 +32,8 @@ public:
         if (!isSupportedAction(payload.type)) {
             result.success = false;
             result.message = "restfulapi backend executor action not supported";
-            result.errors.push_back("unsupported recording action type");
+            result.errors.push_back(
+                "unsupported recording action type for restfulapi backend executor");
             return result;
         }
 

@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 33.2 - Recording Action RestfulAPI HTTP Failure Mapping
+Phase 33.3 - Recording Action RestfulAPI Unsupported Action Guard
 ```
 
 Current Focus:
 
 ```text
-Phase 33.3 - Recording Action RestfulAPI Unsupported Action Guard
+Phase 33.4 - Recording Action RestfulAPI Payload Parameter Validation
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 33.2 - Recording Action RestfulAPI HTTP Failure Mapping
+Phase 33.3 - Recording Action RestfulAPI Unsupported Action Guard
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 33.3 - Recording Action RestfulAPI Unsupported Action Guard
+Phase 33.4 - Recording Action RestfulAPI Payload Parameter Validation
 ADR-0021 - Selective Backend Query Strategy
 ```
 

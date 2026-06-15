@@ -584,7 +584,11 @@ int main()
     assert(
         restfulApiUnsupportedResult.message ==
         "restfulapi backend executor action not supported");
+    assert(restfulApiUnsupportedResult.type == payload.type);
     assert(restfulApiUnsupportedResult.errors.size() == 1);
+    assert(
+        restfulApiUnsupportedResult.errors.at(0) ==
+        "unsupported recording action type for restfulapi backend executor");
 
     RecordingActionJobPayload movePayload;
     movePayload.backendId = "restfulapi-default";
@@ -772,8 +776,37 @@ int main()
         emptyFailureResult.errors.at(0) ==
         "restfulapi backend returned HTTP status 404");
 
+    TestRestfulApiHttpClient unsupportedHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter unsupportedAdapter(
+        restfulApiConfig,
+        unsupportedHttpClient);
+
+    RecordingActionJobPayload unsupportedPayload;
+    unsupportedPayload.backendId = "restfulapi-default";
+    unsupportedPayload.recordingId = "recording-unsupported";
+    unsupportedPayload.type = RecordingActionType::MetadataRefresh;
+    unsupportedPayload.jobType = "METADATA_REFRESH";
+    unsupportedPayload.dryRun = true;
+
+    auto unsupportedResult =
+        unsupportedAdapter.execute(unsupportedPayload);
+
+    assert(!unsupportedHttpClient.called);
+    assert(!unsupportedResult.success);
+    assert(unsupportedResult.type == RecordingActionType::MetadataRefresh);
+    assert(unsupportedResult.backendId == "restfulapi-default");
+    assert(unsupportedResult.recordingId == "recording-unsupported");
+    assert(
+        unsupportedResult.message ==
+        "restfulapi backend executor action not supported");
+    assert(unsupportedResult.errors.size() == 1);
+    assert(
+        unsupportedResult.errors.at(0) ==
+        "unsupported recording action type for restfulapi backend executor");
+
     std::cout
-        << "Recording action RestfulAPI HTTP failure mapping OK"
+        << "Recording action RestfulAPI unsupported action guard OK"
         << std::endl;
 
 

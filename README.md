@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 33.2 - Recording Action RestfulAPI HTTP Failure Mapping
+Latest Completed Implementation Phase: Phase 33.3 - Recording Action RestfulAPI Unsupported Action Guard
 
-Current Implementation Focus: Phase 33.3 - Recording Action RestfulAPI Unsupported Action Guard
+Current Implementation Focus: Phase 33.4 - Recording Action RestfulAPI Payload Parameter Validation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
