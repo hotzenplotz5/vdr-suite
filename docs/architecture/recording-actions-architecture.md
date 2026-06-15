@@ -362,6 +362,23 @@ Unsupported action types are rejected before any HTTP request is sent.
 
 This phase does not validate real RESTfulAPI endpoint semantics and does not mutate recordings.
 Real VDR validation remains future work.
+\n
+## Phase 33.2 RestfulAPI HTTP Failure Mapping
+
+Phase 33.2 refines the RESTfulAPI recording action HTTP execution boundary by mapping non-2xx HTTP responses into explicit action execution errors.
+
+The adapter still uses an injected fake `IHttpClient` in tests and does not contact a real VDR backend.
+
+Failure mapping rules:
+
+- non-2xx HTTP responses produce `success=false`
+- the result message identifies the request as failed
+- the first error records the HTTP status code
+- a non-empty backend response body is preserved as an additional error detail
+- empty response bodies do not create an extra error entry
+
+This phase does not interpret real RESTfulAPI error schemas.
+It only preserves the backend status and response body at the action execution boundary.
 \n## Non-Goals
 
 Phase 30.0 does not:

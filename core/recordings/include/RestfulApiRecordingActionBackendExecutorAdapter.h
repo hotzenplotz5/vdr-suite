@@ -47,7 +47,13 @@ public:
                 : "restfulapi backend executor request failed";
 
         if (!result.success) {
-            result.errors.push_back("restfulapi backend returned non-success status");
+            result.errors.push_back(
+                "restfulapi backend returned HTTP status " +
+                std::to_string(response.statusCode));
+
+            if (!response.body.empty()) {
+                result.errors.push_back(response.body);
+            }
         }
 
         return result;

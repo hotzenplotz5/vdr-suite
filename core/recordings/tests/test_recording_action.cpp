@@ -547,13 +547,14 @@ int main()
 
             HttpResponse response;
             response.statusCode = statusCode;
-            response.body = "{}";
+            response.body = responseBody;
             return response;
         }
 
         mutable bool called = false;
         mutable HttpRequest lastRequest;
         int statusCode = 200;
+        std::string responseBody = "{}";
     };
 
     TestRestfulApiHttpClient restfulApiHttpClient;
@@ -727,8 +728,52 @@ int main()
     assert(deleteExecutionHttpClient.lastRequest.url == "/recordings/actions/delete");
     assert(deleteExecutionResult.success);
 
+    TestRestfulApiHttpClient failureHttpClient;
+    failureHttpClient.statusCode = 500;
+    failureHttpClient.responseBody = "{\"error\":\"backend failure\"}";
+
+    RestfulApiRecordingActionBackendExecutorAdapter failureAdapter(
+        restfulApiConfig,
+        failureHttpClient);
+
+    auto failureResult =
+        failureAdapter.execute(movePayload);
+
+    assert(failureHttpClient.called);
+    assert(!failureResult.success);
+    assert(failureResult.backendId == "restfulapi-default");
+    assert(failureResult.recordingId == movePayload.recordingId);
+    assert(
+        failureResult.message ==
+        "restfulapi backend executor request failed");
+    assert(failureResult.errors.size() == 2);
+    assert(
+        failureResult.errors.at(0) ==
+        "restfulapi backend returned HTTP status 500");
+    assert(
+        failureResult.errors.at(1) ==
+        "{\"error\":\"backend failure\"}");
+
+    TestRestfulApiHttpClient emptyFailureHttpClient;
+    emptyFailureHttpClient.statusCode = 404;
+    emptyFailureHttpClient.responseBody = "";
+
+    RestfulApiRecordingActionBackendExecutorAdapter emptyFailureAdapter(
+        restfulApiConfig,
+        emptyFailureHttpClient);
+
+    auto emptyFailureResult =
+        emptyFailureAdapter.execute(deletePayload);
+
+    assert(emptyFailureHttpClient.called);
+    assert(!emptyFailureResult.success);
+    assert(emptyFailureResult.errors.size() == 1);
+    assert(
+        emptyFailureResult.errors.at(0) ==
+        "restfulapi backend returned HTTP status 404");
+
     std::cout
-        << "Recording action RestfulAPI HTTP execution boundary OK"
+        << "Recording action RestfulAPI HTTP failure mapping OK"
         << std::endl;
 
 
