@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 31.6 - Recording Action Backend Capability Dispatch Rules
+Phase 31.7 - Recording Action Backend Permission Dispatch Rules
 ```
 
 Current Focus:
 
 ```text
-Phase 31.7 - Recording Action Backend Permission Dispatch Rules
+Phase 31.8 - Recording Action Executor Resolution Service
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 31.6 - Recording Action Backend Capability Dispatch Rules
+Phase 31.7 - Recording Action Backend Permission Dispatch Rules
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 31.7 - Recording Action Backend Permission Dispatch Rules
+Phase 31.8 - Recording Action Executor Resolution Service
 ADR-0021 - Selective Backend Query Strategy
 ```
 

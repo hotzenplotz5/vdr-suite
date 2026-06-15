@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 31.6 - Recording Action Backend Capability Dispatch Rules
+Phase 31.7 - Recording Action Backend Permission Dispatch Rules
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 31.7 - Recording Action Backend Permission Dispatch Rules.
+Phase 31.8 - Recording Action Executor Resolution Service.
 
 Completed foundation summary
 ```

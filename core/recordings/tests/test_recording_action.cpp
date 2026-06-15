@@ -16,6 +16,7 @@
 #include "RecordingActionDispatchResult.h"
 #include "RecordingActionDefaultExecutorResolutionResult.h"
 #include "RecordingActionCapabilityDispatchRule.h"
+#include "RecordingActionPermissionDispatchRule.h"
 
 #include <cassert>
 #include <iostream>
@@ -353,9 +354,29 @@ int main()
     assert(deleteRule.requiredCapability == "deleteRecording");
     assert(deleteRule.capabilityRequired);
 
+
+    RecordingActionPermissionDispatchRule permissionMoveRule;
+    permissionMoveRule.action = "move";
+    permissionMoveRule.requiredPermission = "moveRecording";
+    permissionMoveRule.permissionRequired = true;
+
+    assert(permissionMoveRule.action == "move");
+    assert(permissionMoveRule.requiredPermission == "moveRecording");
+    assert(permissionMoveRule.permissionRequired);
+
+    RecordingActionPermissionDispatchRule permissionDeleteRule;
+    permissionDeleteRule.action = "delete";
+    permissionDeleteRule.requiredPermission = "deleteRecording";
+    permissionDeleteRule.permissionRequired = true;
+
+    assert(permissionDeleteRule.action == "delete");
+    assert(permissionDeleteRule.requiredPermission == "deleteRecording");
+    assert(permissionDeleteRule.permissionRequired);
+
     std::cout
-        << "Recording action capability dispatch rules OK"
+        << "Recording action permission dispatch rules OK"
         << std::endl;
+
 
 
 

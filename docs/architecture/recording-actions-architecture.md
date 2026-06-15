@@ -484,3 +484,30 @@ Examples:
 
 The dispatch layer consumes capabilities but does not
 depend on a specific backend implementation.
+
+
+## Phase 31.7 Backend Permission Dispatch Rules
+
+Phase 31.7 introduces backend-neutral permission dispatch rules.
+
+Permission rules define which permission is required
+for a recording action before dispatch may occur.
+
+Examples:
+
+- move -> moveRecording
+- delete -> deleteRecording
+- rename -> renameRecording
+
+Permission evaluation is independent from capability evaluation.
+
+A backend may support an action technically while policy,
+configuration or backend role prohibits execution.
+
+Examples:
+
+- full-access backend
+- read-only backend
+- maintenance backend
+
+Dispatch requires both capability and permission approval.
