@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 32.3 - Recording Action Backend Executor Adapter Lookup
+Latest Completed Implementation Phase: Phase 32.4 - Recording Action Backend Executor Adapter Resolution Service
 
-Current Implementation Focus: Phase 32.4 - Recording Action Backend Executor Adapter Resolution Service
+Current Implementation Focus: Phase 32.5 - Recording Action Backend Executor Adapter Dispatch Integration
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

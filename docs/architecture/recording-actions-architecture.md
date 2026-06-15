@@ -595,3 +595,14 @@ The result carries:
 - lookup message
 
 This prepares later backend adapter resolution and dispatch integration without coupling recording actions to a specific backend implementation.
+
+
+## Phase 32.4 Backend Executor Adapter Resolution Service
+
+Phase 32.4 introduces a backend-neutral backend executor adapter resolution service.
+
+The resolution service consumes backend executor adapter lookup results and returns a resolved backend adapter result.
+
+For Phase 32.4 the service preserves successful lookups and turns missing lookups into explicit resolution failures.
+
+This keeps backend adapter resolution independent from concrete backend implementations such as RestfulAPI, SVDRP, Rectools or native VDR integration.

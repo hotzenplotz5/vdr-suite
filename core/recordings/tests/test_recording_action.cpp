@@ -23,6 +23,7 @@
 #include "MockRecordingActionBackendExecutorAdapter.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
 #include "RecordingActionBackendExecutorAdapterLookupResult.h"
+#include "RecordingActionBackendExecutorAdapterResolutionService.h"
 
 #include <cassert>
 #include <iostream>
@@ -485,9 +486,31 @@ int main()
     assert(registryMockResult.backendId == "mock");
     assert(registryMockResult.recordingId == payload.recordingId);
 
+
+    RecordingActionBackendExecutorAdapterResolutionService adapterResolutionService;
+
+    auto resolvedAdapter =
+        adapterResolutionService.resolve(foundMockAdapter);
+
+    auto unresolvedAdapter =
+        adapterResolutionService.resolve(missingMockAdapter);
+
+    assert(resolvedAdapter.found);
+    assert(resolvedAdapter.backendId == "mock");
+    assert(resolvedAdapter.adapter != nullptr);
+    assert(resolvedAdapter.message == "backend executor adapter found");
+
+    assert(!unresolvedAdapter.found);
+    assert(unresolvedAdapter.backendId == "missing");
+    assert(unresolvedAdapter.adapter == nullptr);
+    assert(
+        unresolvedAdapter.message ==
+        "backend executor adapter resolution failed");
+
     std::cout
-        << "Recording action backend executor adapter lookup OK"
+        << "Recording action backend executor adapter resolution service OK"
         << std::endl;
+
 
 
 
