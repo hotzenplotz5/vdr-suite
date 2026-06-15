@@ -610,6 +610,37 @@ RESTfulAPI request fields after this phase:
 - delete file: recording path
 
 This phase remains unit-test-only and does not execute a real move, rename or delete.
+\n
+## Phase 34.2 Real RESTfulAPI Test Recording Probe
+
+Phase 34.2 validates recording identity lookup against a real running VDR RESTfulAPI backend.
+
+Observed real backend result:
+
+- `GET /recordings/0.json` returned HTTP 200
+- `GET /recordings/<url-encoded-recording-path>.json` returned HTTP 200
+
+Observed test recording path:
+
+- `/srv/vdr/video/Mystery/The_Village_-_Das_Dorf/2010-10-31.02.29.10-0.rec`
+
+Conclusion:
+
+- RESTfulAPI can resolve recordings by numeric index
+- RESTfulAPI can also resolve recordings by full backend-owned recording path
+- the recording path is suitable for the VDR-Suite RESTfulAPI action identity mapping
+- numeric recording indexes remain volatile and should not be preferred for write actions
+
+Safety boundary:
+
+- no move request was executed
+- no rename request was executed
+- no delete request was executed
+- no real recording was modified
+
+Next implementation step:
+
+A real move probe must use an explicitly disposable test recording only.
 \n## Non-Goals
 
 Phase 30.0 does not:

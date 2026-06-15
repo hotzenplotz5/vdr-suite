@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping
+Phase 34.2 - Recording Action RestfulAPI Real Test Recording Probe
 ```
 
 Next implementation focus:
 
 ```text
-Phase 34.2 - Recording Action RestfulAPI Real Test Recording Probe
+Phase 34.3 - Recording Action RestfulAPI Real Move Test Recording Probe
 ```
 
 Current architecture validation:

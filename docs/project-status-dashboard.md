@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping
+Phase 34.2 - Recording Action RestfulAPI Real Test Recording Probe
 ```
 
 Current Focus:
 
 ```text
-Phase 34.2 - Recording Action RestfulAPI Real Test Recording Probe
+Phase 34.3 - Recording Action RestfulAPI Real Move Test Recording Probe
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping
+Phase 34.2 - Recording Action RestfulAPI Real Test Recording Probe
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 34.2 - Recording Action RestfulAPI Real Test Recording Probe
+Phase 34.3 - Recording Action RestfulAPI Real Move Test Recording Probe
 ADR-0021 - Selective Backend Query Strategy
 ```
 
