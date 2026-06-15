@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 31.8 - Recording Action Executor Resolution Service
+Phase 31.9 - Recording Action Dispatch Service
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 31.9 - Recording Action Dispatch Service.
+Phase 32.0 - Recording Action Backend Executor Adapter Foundation.
 
 Completed foundation summary
 ```

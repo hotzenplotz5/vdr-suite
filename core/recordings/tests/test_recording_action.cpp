@@ -18,6 +18,7 @@
 #include "RecordingActionCapabilityDispatchRule.h"
 #include "RecordingActionPermissionDispatchRule.h"
 #include "RecordingActionExecutorResolutionService.h"
+#include "RecordingActionDispatchService.h"
 
 #include <cassert>
 #include <iostream>
@@ -387,9 +388,24 @@ int main()
     assert(resolvedSelection.backendId == "default");
     assert(resolvedSelection.reason == "resolved by lookup");
 
+
+    RecordingActionDispatchService dispatchService;
+
+    auto dispatchServiceResult =
+        dispatchService.dispatch(
+            resolvedSelection,
+            payload);
+
+    assert(dispatchServiceResult.dispatched);
+    assert(dispatchServiceResult.executionResult.success);
+    assert(dispatchServiceResult.executionResult.backendId == payload.backendId);
+    assert(dispatchServiceResult.executionResult.recordingId == payload.recordingId);
+    assert(dispatchServiceResult.reason == "action dispatched");
+
     std::cout
-        << "Recording action executor resolution service OK"
+        << "Recording action dispatch service OK"
         << std::endl;
+
 
 
 

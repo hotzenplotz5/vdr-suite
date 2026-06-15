@@ -533,3 +533,14 @@ Future implementations may resolve:
 - additional backend implementations
 
 without changing caller behavior.
+
+
+## Phase 31.9 Dispatch Service
+
+Phase 31.9 introduces the backend-neutral recording action dispatch service.
+
+The dispatch service receives a selected executor and a recording action job payload.
+
+It returns a dispatch result that contains the backend executor execution result.
+
+The service does not know whether the selected executor is backed by RestfulAPI, SVDRP, Rectools, native VDR integration or another backend.
