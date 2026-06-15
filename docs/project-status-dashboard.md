@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 30.6 - Recording Action Capability Evaluation Model
+Phase 30.7 - Recording Action Permission Evaluation Model
 ```
 
 Current Focus:
 
 ```text
-Phase 30.7 - Recording Action Permission Evaluation Model
+Phase 30.8 - Recording Action Execution Readiness Model
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 30.6 - Recording Action Capability Evaluation Model
+Phase 30.7 - Recording Action Permission Evaluation Model
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 30.7 - Recording Action Permission Evaluation Model
+Phase 30.8 - Recording Action Execution Readiness Model
 ADR-0021 - Selective Backend Query Strategy
 ```
 

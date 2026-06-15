@@ -5,6 +5,7 @@
 #include "RecordingActionJobPayload.h"
 #include "RecordingActionCapabilityRequirements.h"
 #include "RecordingActionCapabilityEvaluationResult.h"
+#include "RecordingActionPermissionEvaluationResult.h"
 
 #include <cassert>
 #include <iostream>
@@ -180,7 +181,20 @@ int main()
     assert(evaluation.availableCapabilities.at(0) == "recordings.action.move");
     assert(evaluation.missingCapabilities.empty());
 
-    std::cout << "Recording action capability evaluation model OK" << std::endl;
+
+    RecordingActionPermissionEvaluationResult permissionEvaluation;
+    permissionEvaluation.type = RecordingActionType::Move;
+    permissionEvaluation.allowed = true;
+    permissionEvaluation.grantedPermissions.push_back("recordings.move");
+
+    assert(permissionEvaluation.type == RecordingActionType::Move);
+    assert(permissionEvaluation.allowed);
+    assert(permissionEvaluation.grantedPermissions.size() == 1);
+    assert(permissionEvaluation.grantedPermissions.at(0) == "recordings.move");
+    assert(permissionEvaluation.missingPermissions.empty());
+
+    std::cout << "Recording action permission evaluation model OK" << std::endl;
+
 
 
     return 0;

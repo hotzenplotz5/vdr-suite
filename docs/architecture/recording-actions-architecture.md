@@ -293,3 +293,20 @@ The model carries:
 
 The model does not perform evaluation itself and does not call backends.
 
+
+
+## Phase 30.7 Permission Evaluation Model
+
+Phase 30.7 introduces the recording action permission evaluation model.
+
+The permission evaluation result describes whether a caller has the required permissions to execute a recording action.
+
+The model carries:
+
+- action type
+- evaluation result
+- granted permissions
+- missing permissions
+
+The model does not evaluate permissions and does not execute actions.
+
