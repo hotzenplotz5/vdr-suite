@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 32.0 - Recording Action Backend Executor Adapter Foundation
+Phase 32.1 - Recording Action Mock Backend Executor Adapter
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 32.1 - Recording Action Mock Backend Executor Adapter.
+Phase 32.2 - Recording Action Backend Executor Adapter Registry.
 
 Completed foundation summary
 ```

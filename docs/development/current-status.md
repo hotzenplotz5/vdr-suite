@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 32.0 - Recording Action Backend Executor Adapter Foundation
+Phase 32.1 - Recording Action Mock Backend Executor Adapter
 ```
 
 Current major phase status:
@@ -70,7 +70,7 @@ Phase 29.1 exposes recording backend identity in recording query JSON responses.
 Phase 29.2 adds backend-aware recording query filtering through the recording query API.
 
 Next implementation focus:
-The next implementation step is Phase 32.1 - Recording Action Mock Backend Executor Adapter.
+The next implementation step is Phase 32.2 - Recording Action Backend Executor Adapter Registry.
 ```
 
 Verified locally with:
@@ -253,7 +253,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 32.1 - Recording Action Mock Backend Executor Adapter
+Phase 32.2 - Recording Action Backend Executor Adapter Registry
 ```
 
 The next step is to introduce recording action capability requirements before destructive operations are implemented.

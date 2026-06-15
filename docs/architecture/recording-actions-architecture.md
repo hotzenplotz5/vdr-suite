@@ -561,3 +561,12 @@ The boundary prepares backend-specific executor implementations such as:
 - mock/test backends
 
 The recording action dispatch service remains backend-neutral.
+
+
+## Phase 32.1 Mock Backend Executor Adapter
+
+Phase 32.1 introduces a concrete mock backend executor adapter.
+
+The mock adapter implements the backend executor adapter boundary and provides a deterministic backend-neutral test adapter.
+
+The mock adapter prepares later real backend adapters such as RestfulAPI, SVDRP, Rectools and native VDR integration without coupling dispatch logic to those implementations.

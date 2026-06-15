@@ -20,6 +20,7 @@
 #include "RecordingActionExecutorResolutionService.h"
 #include "RecordingActionDispatchService.h"
 #include "IRecordingActionBackendExecutorAdapter.h"
+#include "MockRecordingActionBackendExecutorAdapter.h"
 
 #include <cassert>
 #include <iostream>
@@ -441,9 +442,22 @@ int main()
     assert(backendAdapterResult.recordingId == payload.recordingId);
     assert(backendAdapterResult.message == "backend adapter accepted payload");
 
+
+    MockRecordingActionBackendExecutorAdapter mockBackendAdapter;
+
+    auto mockBackendResult = mockBackendAdapter.execute(payload);
+
+    assert(mockBackendAdapter.backendId() == "mock");
+    assert(mockBackendAdapter.backendType() == "mock");
+    assert(mockBackendResult.success);
+    assert(mockBackendResult.backendId == "mock");
+    assert(mockBackendResult.recordingId == payload.recordingId);
+    assert(mockBackendResult.message == "mock backend executor accepted payload");
+
     std::cout
-        << "Recording action backend executor adapter foundation OK"
+        << "Recording action mock backend executor adapter OK"
         << std::endl;
+
 
 
 
