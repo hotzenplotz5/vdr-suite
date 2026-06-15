@@ -17,7 +17,7 @@ public:
     {
         HttpRequest request;
         request.method = "POST";
-        request.url = buildUrl(config.basePath, "/recordings/actions/move");
+        request.url = buildUrl(config.basePath, "/recordings/move.json");
         request.headers["Accept"] = "application/json";
         request.headers["Content-Type"] = "application/json";
         request.body = buildMoveBody(payload);
@@ -30,7 +30,7 @@ public:
     {
         HttpRequest request;
         request.method = "POST";
-        request.url = buildUrl(config.basePath, "/recordings/actions/rename");
+        request.url = buildUrl(config.basePath, "/recordings/move.json");
         request.headers["Accept"] = "application/json";
         request.headers["Content-Type"] = "application/json";
         request.body = buildRenameBody(payload);
@@ -43,7 +43,7 @@ public:
     {
         HttpRequest request;
         request.method = "POST";
-        request.url = buildUrl(config.basePath, "/recordings/actions/delete");
+        request.url = buildUrl(config.basePath, "/recordings/delete.json");
         request.headers["Accept"] = "application/json";
         request.headers["Content-Type"] = "application/json";
         request.body = buildDeleteBody(payload);
@@ -106,10 +106,9 @@ private:
             findParameter(payload.parameters, "targetPath");
 
         std::string body = "{";
-        body += "\"recordingId\":" + jsonQuote(payload.recordingId);
-        body += ",\"dryRun\":";
-        body += payload.dryRun ? "true" : "false";
-        body += ",\"targetPath\":" + jsonQuote(targetPath);
+        body += "\"source\":" + jsonQuote(payload.recordingId);
+        body += ",\"target\":" + jsonQuote(targetPath);
+        body += ",\"copy_only\":false";
         body += "}";
 
         return body;
@@ -122,10 +121,9 @@ private:
             findParameter(payload.parameters, "newName");
 
         std::string body = "{";
-        body += "\"recordingId\":" + jsonQuote(payload.recordingId);
-        body += ",\"dryRun\":";
-        body += payload.dryRun ? "true" : "false";
-        body += ",\"newName\":" + jsonQuote(newName);
+        body += "\"source\":" + jsonQuote(payload.recordingId);
+        body += ",\"target\":" + jsonQuote(newName);
+        body += ",\"copy_only\":false";
         body += "}";
 
         return body;
@@ -135,9 +133,7 @@ private:
         const RecordingActionJobPayload& payload)
     {
         std::string body = "{";
-        body += "\"recordingId\":" + jsonQuote(payload.recordingId);
-        body += ",\"dryRun\":";
-        body += payload.dryRun ? "true" : "false";
+        body += "\"file\":" + jsonQuote(payload.recordingId);
         body += "}";
 
         return body;

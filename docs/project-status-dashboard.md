@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 33.9 - Recording Action Real RESTfulAPI Endpoint Discovery
+Phase 34.0 - Recording Action RestfulAPI Real Endpoint Alignment
 ```
 
 Current Focus:
 
 ```text
-Phase 34.0 - Recording Action RestfulAPI Delete Endpoint Alignment
+Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 33.9 - Recording Action Real RESTfulAPI Endpoint Discovery
+Phase 34.0 - Recording Action RestfulAPI Real Endpoint Alignment
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 34.0 - Recording Action RestfulAPI Delete Endpoint Alignment
+Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping
 ADR-0021 - Selective Backend Query Strategy
 ```
 

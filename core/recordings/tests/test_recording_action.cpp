@@ -608,12 +608,12 @@ int main()
             movePayload);
 
     assert(moveRequest.method == "POST");
-    assert(moveRequest.url == "/recordings/actions/move");
+    assert(moveRequest.url == "/recordings/move.json");
     assert(moveRequest.headers.at("Accept") == "application/json");
     assert(moveRequest.headers.at("Content-Type") == "application/json");
     assert(
         moveRequest.body ==
-        "{\"recordingId\":\"recording-001\",\"dryRun\":true,\"targetPath\":\"/srv/vdr/video/archive\"}");
+        "{\"source\":\"recording-001\",\"target\":\"/srv/vdr/video/archive\",\"copy_only\":false}");
 
     restfulApiConfig.basePath = "/api";
 
@@ -622,7 +622,7 @@ int main()
             restfulApiConfig,
             movePayload);
 
-    assert(prefixedMoveRequest.url == "/api/recordings/actions/move");
+    assert(prefixedMoveRequest.url == "/api/recordings/move.json");
 
     restfulApiConfig.basePath = "";
 
@@ -640,12 +640,12 @@ int main()
             renamePayload);
 
     assert(renameRequest.method == "POST");
-    assert(renameRequest.url == "/recordings/actions/rename");
+    assert(renameRequest.url == "/recordings/move.json");
     assert(renameRequest.headers.at("Accept") == "application/json");
     assert(renameRequest.headers.at("Content-Type") == "application/json");
     assert(
         renameRequest.body ==
-        "{\"recordingId\":\"recording-001\",\"dryRun\":true,\"newName\":\"Evening News\"}");
+        "{\"source\":\"recording-001\",\"target\":\"Evening News\",\"copy_only\":false}");
 
     restfulApiConfig.basePath = "/api";
 
@@ -654,7 +654,7 @@ int main()
             restfulApiConfig,
             renamePayload);
 
-    assert(prefixedRenameRequest.url == "/api/recordings/actions/rename");
+    assert(prefixedRenameRequest.url == "/api/recordings/move.json");
 
     restfulApiConfig.basePath = "";
 
@@ -671,12 +671,12 @@ int main()
             deletePayload);
 
     assert(deleteRequest.method == "POST");
-    assert(deleteRequest.url == "/recordings/actions/delete");
+    assert(deleteRequest.url == "/recordings/delete.json");
     assert(deleteRequest.headers.at("Accept") == "application/json");
     assert(deleteRequest.headers.at("Content-Type") == "application/json");
     assert(
         deleteRequest.body ==
-        "{\"recordingId\":\"recording-001\",\"dryRun\":true}");
+        "{\"file\":\"recording-001\"}");
 
     restfulApiConfig.basePath = "/api";
 
@@ -685,7 +685,7 @@ int main()
             restfulApiConfig,
             deletePayload);
 
-    assert(prefixedDeleteRequest.url == "/api/recordings/actions/delete");
+    assert(prefixedDeleteRequest.url == "/api/recordings/delete.json");
 
     restfulApiConfig.basePath = "";
     TestRestfulApiHttpClient moveExecutionHttpClient;
@@ -699,7 +699,7 @@ int main()
 
     assert(moveExecutionHttpClient.called);
     assert(moveExecutionHttpClient.lastRequest.method == "POST");
-    assert(moveExecutionHttpClient.lastRequest.url == "/recordings/actions/move");
+    assert(moveExecutionHttpClient.lastRequest.url == "/recordings/move.json");
     assert(moveExecutionResult.success);
     assert(moveExecutionResult.backendId == "restfulapi-default");
     assert(moveExecutionResult.recordingId == movePayload.recordingId);
@@ -718,7 +718,7 @@ int main()
         renameExecutionAdapter.execute(renamePayload);
 
     assert(renameExecutionHttpClient.called);
-    assert(renameExecutionHttpClient.lastRequest.url == "/recordings/actions/rename");
+    assert(renameExecutionHttpClient.lastRequest.url == "/recordings/move.json");
     assert(renameExecutionResult.success);
 
     TestRestfulApiHttpClient deleteExecutionHttpClient;
@@ -731,7 +731,7 @@ int main()
         deleteExecutionAdapter.execute(deletePayload);
 
     assert(deleteExecutionHttpClient.called);
-    assert(deleteExecutionHttpClient.lastRequest.url == "/recordings/actions/delete");
+    assert(deleteExecutionHttpClient.lastRequest.url == "/recordings/delete.json");
     assert(deleteExecutionResult.success);
 
     TestRestfulApiHttpClient failureHttpClient;
@@ -949,9 +949,9 @@ int main()
 
     assert(enabledExecutionHttpClient.called);
     assert(enabledExecutionHttpClient.lastRequest.method == "POST");
-    assert(enabledExecutionHttpClient.lastRequest.url == "/recordings/actions/move");
+    assert(enabledExecutionHttpClient.lastRequest.url == "/recordings/move.json");
     assert(enabledExecutionHttpClient.lastRequest.body ==
-        "{\"recordingId\":\"recording-001\",\"dryRun\":false,\"targetPath\":\"/srv/vdr/video/archive\"}");
+        "{\"source\":\"recording-001\",\"target\":\"/srv/vdr/video/archive\",\"copy_only\":false}");
     assert(enabledExecutionResult.success);
     assert(
         enabledExecutionResult.message ==

@@ -557,7 +557,38 @@ Next implementation implication:
 The delete request mapping should be aligned first, because a real delete service has been observed.
 Move and rename must remain discovery targets until real services are proven or a backend extension path is selected.
 
-## Non-Goals
+
+## Phase 34.0 RestfulAPI Real Endpoint Alignment
+
+Phase 34.0 aligns the VDR-Suite recording action request builder with the real `vdr-plugin-restfulapi` recording services.
+
+The plugin source confirms these real endpoints:
+
+- `POST /recordings/move.json`
+- `POST /recordings/delete.json`
+- `DELETE /recordings/delete.json`
+
+The plugin does not provide a dedicated recording rename endpoint.
+
+Request mapping after this phase:
+
+- move uses `POST /recordings/move.json`
+  - `source` is the backend-owned recording identity
+  - `target` is the requested target path
+  - `copy_only=false`
+- rename also uses `POST /recordings/move.json`
+  - `source` is the backend-owned recording identity
+  - `target` is the requested new name or target path
+  - `copy_only=false`
+- delete uses `POST /recordings/delete.json`
+  - `file` is the backend-owned recording identity
+
+Rename remains a VDR-Suite domain action.
+Only the RESTfulAPI transport maps it through the plugin move service because no separate RESTfulAPI rename service exists.
+
+This phase remains unit-test-only.
+It does not execute a real move, rename or delete against a VDR backend.
+\n## Non-Goals
 
 Phase 30.0 does not:
 

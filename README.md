@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 33.9 - Recording Action Real RESTfulAPI Endpoint Discovery
+Latest Completed Implementation Phase: Phase 34.0 - Recording Action RestfulAPI Real Endpoint Alignment
 
-Current Implementation Focus: Phase 34.0 - Recording Action RestfulAPI Delete Endpoint Alignment
+Current Implementation Focus: Phase 34.1 - Recording Action RestfulAPI Recording Path Identity Mapping
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
