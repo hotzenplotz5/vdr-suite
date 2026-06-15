@@ -182,6 +182,7 @@ ApiResponse ApiRouter::handleGet(
     {
         return vdrRecordingQueryController_.getRecordings(
             queryParameters.get("title"),
+            queryParameters.get("backend"),
             queryParameters.get("path"),
             queryParameters.get("sort"),
             queryParameters.get("order"),

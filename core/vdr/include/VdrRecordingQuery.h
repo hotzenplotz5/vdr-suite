@@ -196,6 +196,11 @@ public:
         return pathFilter_;
     }
 
+    const std::string& backendFilter() const
+    {
+        return backendFilter_;
+    }
+
     bool hasTitleFilter() const
     {
         return !titleFilter_.empty();
@@ -204,6 +209,11 @@ public:
     bool hasPathFilter() const
     {
         return !pathFilter_.empty();
+    }
+
+    bool hasBackendFilter() const
+    {
+        return !backendFilter_.empty();
     }
 
     const std::string& fromStartTime() const
@@ -281,9 +291,16 @@ public:
         return sortOrder_ == VdrRecordingSortOrder::Descending;
     }
 
+    void setBackendFilter(
+        const std::string& backendFilter)
+    {
+        backendFilter_ = backendFilter;
+    }
+
 private:
     std::string titleFilter_;
     std::string pathFilter_;
+    std::string backendFilter_;
     std::string fromStartTime_;
     std::string toStartTime_;
     int minDurationSeconds_ = 0;

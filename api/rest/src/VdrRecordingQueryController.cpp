@@ -62,6 +62,7 @@ ApiResponse VdrRecordingQueryController::getRecordings()
         "",
         "",
         "",
+        "",
         0,
         0,
         0,
@@ -80,11 +81,38 @@ ApiResponse VdrRecordingQueryController::getRecordings(
     int limit,
     int offset)
 {
+    return getRecordings(
+        title,
+        "",
+        path,
+        sort,
+        order,
+        from,
+        to,
+        durationMin,
+        durationMax,
+        limit,
+        offset);
+}
+
+ApiResponse VdrRecordingQueryController::getRecordings(
+    const std::string& title,
+    const std::string& backend,
+    const std::string& path,
+    const std::string& sort,
+    const std::string& order,
+    const std::string& from,
+    const std::string& to,
+    int durationMin,
+    int durationMax,
+    int limit,
+    int offset)
+{
     const VdrRecordingSortField sortField =
         parseSortField(sort);
 
     VdrRecordingQuery query =
-        (title.empty() && path.empty() && from.empty() && to.empty() && durationMin <= 0 && durationMax <= 0 && sortField == VdrRecordingSortField::None)
+        (title.empty() && backend.empty() && path.empty() && from.empty() && to.empty() && durationMin <= 0 && durationMax <= 0 && sortField == VdrRecordingSortField::None)
             ? VdrRecordingQuery::limited(
                   limit,
                   offset)
@@ -99,6 +127,8 @@ ApiResponse VdrRecordingQueryController::getRecordings(
                   offset,
                   sortField,
                   parseSortOrder(order));
+
+    query.setBackendFilter(backend);
 
     VdrRecordingQueryResult result =
         queryService_.queryRecordings(query);

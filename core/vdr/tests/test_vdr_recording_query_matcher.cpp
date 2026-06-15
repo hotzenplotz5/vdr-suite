@@ -9,6 +9,7 @@ static VdrRecording makeRecording(
 {
     VdrRecording recording;
     recording.id = id;
+    recording.backendId = "default";
     recording.title = title;
     recording.path = "/Mock/" + title + ".rec";
     recording.startTime = "2026-06-01T20:00:00";
@@ -81,6 +82,20 @@ int main()
             "Tagesschau",
             10,
             0)));
+
+    VdrRecordingQuery backendQuery = VdrRecordingQuery::all();
+    backendQuery.setBackendFilter("default");
+
+    assert(matcher.matches(
+        tatort,
+        backendQuery));
+
+    VdrRecordingQuery otherBackendQuery = VdrRecordingQuery::all();
+    otherBackendQuery.setBackendFilter("ferienhaus");
+
+    assert(!matcher.matches(
+        tatort,
+        otherBackendQuery));
 
     assert(matcher.matches(
         tatort,

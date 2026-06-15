@@ -53,6 +53,19 @@ bool VdrRecordingQueryMatcher::matches(
         return false;
     }
 
+    if (query.hasBackendFilter())
+    {
+        const bool legacyDefaultMatch =
+            query.backendFilter() == "default" &&
+            recording.backendId.empty();
+
+        if (!legacyDefaultMatch &&
+            recording.backendId != query.backendFilter())
+        {
+            return false;
+        }
+    }
+
     if (query.hasFromStartTime() &&
         recording.startTime < query.fromStartTime())
     {

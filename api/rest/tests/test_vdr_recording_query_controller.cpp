@@ -58,6 +58,7 @@ int main()
             "",
             "",
             "",
+            "",
             0,
             0,
             10,
@@ -68,6 +69,25 @@ int main()
     assert(titleResponse.body.find("\"returnedCount\":1") != std::string::npos);
     assert(titleResponse.body.find("\"title\":\"Tatort\"") != std::string::npos);
     assert(titleResponse.body.find("\"title\":\"Tagesschau\"") == std::string::npos);
+
+    ApiResponse backendResponse =
+        controller.getRecordings(
+            "",
+            "default",
+            "",
+            "",
+            "",
+            "",
+            "",
+            0,
+            0,
+            10,
+            0);
+
+    assert(backendResponse.statusCode == 200);
+    assert(backendResponse.body.find("\"totalCount\":2") != std::string::npos);
+    assert(backendResponse.body.find("\"title\":\"Tagesschau\"") != std::string::npos);
+    assert(backendResponse.body.find("\"title\":\"Tatort\"") != std::string::npos);
 
     ApiResponse pathResponse =
         controller.getRecordings(
