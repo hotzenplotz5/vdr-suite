@@ -26,6 +26,7 @@
 #include "RecordingActionBackendExecutorAdapterResolutionService.h"
 #include "RecordingActionBackendExecutorAdapterDispatchService.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
+#include "RestfulApiRecordingActionBackendConfig.h"
 
 #include <cassert>
 #include <iostream>
@@ -553,23 +554,33 @@ int main()
 
     TestRestfulApiHttpClient restfulApiHttpClient;
 
+    RestfulApiRecordingActionBackendConfig restfulApiConfig;
+    restfulApiConfig.backendId = "restfulapi-default";
+    restfulApiConfig.host = "127.0.0.1";
+    restfulApiConfig.port = 8002;
+    restfulApiConfig.basePath = "";
+
     RestfulApiRecordingActionBackendExecutorAdapter restfulApiAdapter(
-        "restfulapi-default",
+        restfulApiConfig,
         restfulApiHttpClient);
 
     auto restfulApiFoundationResult = restfulApiAdapter.execute(payload);
 
     assert(restfulApiAdapter.backendId() == "restfulapi-default");
     assert(restfulApiAdapter.backendType() == "restfulapi");
+    assert(restfulApiAdapter.config().backendId == "restfulapi-default");
+    assert(restfulApiAdapter.config().host == "127.0.0.1");
+    assert(restfulApiAdapter.config().port == 8002);
+    assert(restfulApiAdapter.config().basePath == "");
     assert(!restfulApiFoundationResult.success);
     assert(restfulApiFoundationResult.backendId == "restfulapi-default");
     assert(restfulApiFoundationResult.recordingId == payload.recordingId);
     assert(
         restfulApiFoundationResult.message ==
-        "restfulapi backend executor adapter foundation only");
+        "restfulapi backend executor adapter endpoint configuration only");
 
     std::cout
-        << "Recording action RestfulAPI backend executor adapter foundation OK"
+        << "Recording action RestfulAPI backend endpoint configuration OK"
         << std::endl;
 
 

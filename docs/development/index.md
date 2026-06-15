@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 32.6 - Recording Action RestfulAPI Backend Executor Adapter Foundation
+Phase 32.7 - Recording Action RestfulAPI Backend Endpoint Configuration
 ```
 
 Next implementation focus:
 
 ```text
-Phase 32.7 - Recording Action RestfulAPI Move Request Mapping
+Phase 32.8 - Recording Action RestfulAPI Move Request Mapping
 ```
 
 Current architecture validation:

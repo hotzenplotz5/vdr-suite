@@ -2,6 +2,7 @@
 
 #include "IHttpClient.h"
 #include "IRecordingActionBackendExecutorAdapter.h"
+#include "RestfulApiRecordingActionBackendConfig.h"
 
 #include <string>
 #include <utility>
@@ -11,9 +12,9 @@ class RestfulApiRecordingActionBackendExecutorAdapter final
 {
 public:
     RestfulApiRecordingActionBackendExecutorAdapter(
-        std::string backendId,
+        RestfulApiRecordingActionBackendConfig config,
         IHttpClient& httpClient)
-        : backendId_(std::move(backendId)),
+        : config_(std::move(config)),
           httpClient_(httpClient)
     {
     }
@@ -27,13 +28,13 @@ public:
         result.backendId = backendId();
         result.recordingId = payload.recordingId;
         result.message =
-            "restfulapi backend executor adapter foundation only";
+            "restfulapi backend executor adapter endpoint configuration only";
         return result;
     }
 
     std::string backendId() const override
     {
-        return backendId_;
+        return config_.backendId;
     }
 
     std::string backendType() const override
@@ -41,7 +42,12 @@ public:
         return "restfulapi";
     }
 
+    const RestfulApiRecordingActionBackendConfig& config() const
+    {
+        return config_;
+    }
+
 private:
-    std::string backendId_;
+    RestfulApiRecordingActionBackendConfig config_;
     IHttpClient& httpClient_;
 };

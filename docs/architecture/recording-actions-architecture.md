@@ -255,6 +255,26 @@ The capability requirements model carries:
 - whether dry-run support is required
 
 The model prepares later capability evaluation without querying backends, mutating recordings, changing metadata, touching filesystems or calling Rectools.
+
+## Phase 32.7 RestfulAPI Backend Endpoint Configuration
+
+Phase 32.7 introduces a small recording-action-specific RESTfulAPI backend endpoint configuration.
+
+The configuration is intentionally separate from `VdrConfig`.
+It carries only the backend execution endpoint identity needed by the recording-action RESTfulAPI backend executor adapter:
+
+- backend identity
+- backend host
+- backend port
+- backend base path
+
+The configuration must describe the VDR RESTfulAPI backend endpoint, not the VDR-Suite daemon endpoint.
+It must not hardcode either the VDR-Suite daemon port or a specific RESTfulAPI backend port.
+
+The adapter remains a foundation boundary in this phase.
+It does not execute move, rename or delete HTTP requests yet.
+Those request mappings remain later phases.
+
 ## Non-Goals
 
 Phase 30.0 does not:

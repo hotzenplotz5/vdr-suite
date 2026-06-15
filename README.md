@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 32.6 - Recording Action RestfulAPI Backend Executor Adapter Foundation
+Latest Completed Implementation Phase: Phase 32.7 - Recording Action RestfulAPI Backend Endpoint Configuration
 
-Current Implementation Focus: Phase 32.7 - Recording Action RestfulAPI Move Request Mapping
+Current Implementation Focus: Phase 32.8 - Recording Action RestfulAPI Move Request Mapping
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
