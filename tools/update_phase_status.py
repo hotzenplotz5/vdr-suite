@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-PHASE_RE = re.compile(r"Phase\s+\d+(?:\.\d+)?[a-z]?\s+-\s+[^\n`]+")
+PHASE_RE = re.compile(r"Phase\s+\d+(?:\.\d+)?[a-z]?\s+-\s+[^.\n`]+")
 
 STATUS_FILES = {
     "README": ROOT / "README.md",
@@ -68,7 +68,7 @@ def replace_phase_after_marker(path, marker, new_phase, apply_changes):
     old_line = lines[index]
     new_line = PHASE_RE.sub(new_phase, old_line, count=1)
 
-    if old_line == new_line:
+    if old_line.strip() == new_line.strip():
         return False
 
     print(f"{path.relative_to(ROOT)}: {old_line.strip()} -> {new_line.strip()}")
@@ -85,9 +85,13 @@ def replace_completed_phases_status(completed, next_text, apply_changes):
     text = path.read_text(encoding="utf-8")
     original = text
 
+    completed_prefix = completed.split(" - ", 1)[0]
+    desired_status = "Status: Completed through " + completed_prefix
+    desired_next = "The next implementation step is " + next_text + "."
+
     text, status_count = re.subn(
         r"Status: Completed through Phase\s+\d+(?:\.\d+)?[a-z]?",
-        "Status: Completed through " + completed.split(" - ", 1)[0],
+        desired_status,
         text,
         count=1,
     )
@@ -96,8 +100,8 @@ def replace_completed_phases_status(completed, next_text, apply_changes):
         raise SystemExit("completed-phases: expected exactly one completed status marker")
 
     text, next_count = re.subn(
-        r"The next implementation step is [^.]+\.",
-        "The next implementation step is " + next_text + ".",
+        r"The next implementation step is .*\.",
+        desired_next,
         text,
         count=1,
     )
@@ -114,7 +118,6 @@ def replace_completed_phases_status(completed, next_text, apply_changes):
         path.write_text(text, encoding="utf-8")
 
     return True
-
 
 def derive_next_text(next_phase):
     if " - " not in next_phase:
