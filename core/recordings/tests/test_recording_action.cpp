@@ -613,7 +613,7 @@ int main()
     assert(moveRequest.headers.at("Content-Type") == "application/json");
     assert(
         moveRequest.body ==
-        "{\"source\":\"recording-001\",\"target\":\"/srv/vdr/video/archive\",\"copy_only\":false}");
+        "{\"source\":\"recording-001\",\"target\":\"~srv~vdr~video~archive\",\"copy_only\":false}");
 
     restfulApiConfig.basePath = "/api";
 
@@ -700,7 +700,7 @@ int main()
 
     assert(
         pathMoveRequest.body ==
-        "{\"source\":\"Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec\",\"target\":\"/srv/vdr/video/archive\",\"copy_only\":false}");
+        "{\"source\":\"Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec\",\"target\":\"~srv~vdr~video~archive\",\"copy_only\":false}");
 
     RecordingActionJobPayload pathRenamePayload = renamePayload;
     pathRenamePayload.parameters["recordingPath"] =
@@ -714,6 +714,30 @@ int main()
     assert(
         pathRenameRequest.body ==
         "{\"source\":\"Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec\",\"target\":\"Evening News\",\"copy_only\":false}");
+
+    RecordingActionJobPayload folderMovePayload = movePayload;
+    folderMovePayload.parameters["targetPath"] = "Oskar/Tagesschau";
+
+    auto folderMoveRequest =
+        requestBuilder.buildMoveRequest(
+            restfulApiConfig,
+            folderMovePayload);
+
+    assert(
+        folderMoveRequest.body ==
+        "{\"source\":\"recording-001\",\"target\":\"Oskar~Tagesschau\",\"copy_only\":false}");
+
+    RecordingActionJobPayload folderRenamePayload = renamePayload;
+    folderRenamePayload.parameters["newName"] = "Oskar/Tagesschau";
+
+    auto folderRenameRequest =
+        requestBuilder.buildRenameRequest(
+            restfulApiConfig,
+            folderRenamePayload);
+
+    assert(
+        folderRenameRequest.body ==
+        "{\"source\":\"recording-001\",\"target\":\"Oskar~Tagesschau\",\"copy_only\":false}");
 
     RecordingActionJobPayload pathDeletePayload = deletePayload;
     pathDeletePayload.parameters["recordingPath"] =
@@ -991,7 +1015,7 @@ int main()
     assert(enabledExecutionHttpClient.lastRequest.method == "POST");
     assert(enabledExecutionHttpClient.lastRequest.url == "/recordings/move.json");
     assert(enabledExecutionHttpClient.lastRequest.body ==
-        "{\"source\":\"recording-001\",\"target\":\"/srv/vdr/video/archive\",\"copy_only\":false}");
+        "{\"source\":\"recording-001\",\"target\":\"~srv~vdr~video~archive\",\"copy_only\":false}");
     assert(enabledExecutionResult.success);
     assert(
         enabledExecutionResult.message ==
@@ -1044,7 +1068,7 @@ int main()
         "restfulapi backend executor backend is read-only");
 
     std::cout
-        << "Recording action RestfulAPI recording path identity mapping OK"
+        << "Recording action RestfulAPI VDR folder target encoding OK"
         << std::endl;
 
 

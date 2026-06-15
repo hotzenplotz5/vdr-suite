@@ -641,6 +641,33 @@ Safety boundary:
 Next implementation step:
 
 A real move probe must use an explicitly disposable test recording only.
+\n
+## Phase 34.3 RestfulAPI VDR Folder Target Encoding
+
+Phase 34.3 adds VDR folder target encoding for RESTfulAPI move and rename requests.
+
+The real move/copy probe showed that RESTfulAPI interprets recording targets as VDR recording folder names, not as raw filesystem paths.
+The `vdr-plugin-live` edit recording form also documents this convention: recording directories are separated with `~`.
+
+Mapping rule:
+
+- domain/UI target: `Oskar/Tagesschau`
+- RESTfulAPI target: `Oskar~Tagesschau`
+
+The conversion is performed in the RESTfulAPI recording action request builder before the HTTP request body is created.
+
+Affected request bodies:
+
+- move target
+- rename target
+
+Unaffected fields:
+
+- source recording path
+- delete file path
+
+This phase remains unit-test-only.
+The next real probe should use a disposable test recording and confirm that encoded targets behave as intended against a running VDR.
 \n## Non-Goals
 
 Phase 30.0 does not:

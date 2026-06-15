@@ -96,6 +96,22 @@ private:
         return payload.recordingId;
     }
 
+    static std::string encodeVdrFolderTarget(
+        const std::string& target)
+    {
+        std::string encoded;
+
+        for (char c : target) {
+            if (c == '/') {
+                encoded += '~';
+            } else {
+                encoded += c;
+            }
+        }
+
+        return encoded;
+    }
+
     static std::string jsonQuote(const std::string& value)
     {
         std::string quoted = "\"";
@@ -120,7 +136,7 @@ private:
 
         std::string body = "{";
         body += "\"source\":" + jsonQuote(recordingPath(payload));
-        body += ",\"target\":" + jsonQuote(targetPath);
+        body += ",\"target\":" + jsonQuote(encodeVdrFolderTarget(targetPath));
         body += ",\"copy_only\":false";
         body += "}";
 
@@ -135,7 +151,7 @@ private:
 
         std::string body = "{";
         body += "\"source\":" + jsonQuote(recordingPath(payload));
-        body += ",\"target\":" + jsonQuote(newName);
+        body += ",\"target\":" + jsonQuote(encodeVdrFolderTarget(newName));
         body += ",\"copy_only\":false";
         body += "}";
 
