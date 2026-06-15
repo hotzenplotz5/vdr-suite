@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 32.2 - Recording Action Backend Executor Adapter Registry
+Phase 32.3 - Recording Action Backend Executor Adapter Lookup
 ```
 
 Next implementation focus:
 
 ```text
-Phase 32.3 - Recording Action Backend Executor Adapter Lookup
+Phase 32.4 - Recording Action Backend Executor Adapter Resolution Service
 ```
 
 Current architecture validation:

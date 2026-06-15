@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 32.2 - Recording Action Backend Executor Adapter Registry
+Phase 32.3 - Recording Action Backend Executor Adapter Lookup
 ```
 
 Current Focus:
 
 ```text
-Phase 32.3 - Recording Action Backend Executor Adapter Lookup
+Phase 32.4 - Recording Action Backend Executor Adapter Resolution Service
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 32.2 - Recording Action Backend Executor Adapter Registry
+Phase 32.3 - Recording Action Backend Executor Adapter Lookup
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 32.3 - Recording Action Backend Executor Adapter Lookup
+Phase 32.4 - Recording Action Backend Executor Adapter Resolution Service
 ADR-0021 - Selective Backend Query Strategy
 ```
 

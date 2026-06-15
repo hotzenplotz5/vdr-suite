@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IRecordingActionBackendExecutorAdapter.h"
+#include "RecordingActionBackendExecutorAdapterLookupResult.h"
 
 #include <map>
 #include <memory>
@@ -20,17 +21,26 @@ public:
         adapters_[adapter->backendId()] = adapter;
     }
 
-    std::shared_ptr<IRecordingActionBackendExecutorAdapter> findAdapter(
+    RecordingActionBackendExecutorAdapterLookupResult findAdapter(
         const std::string& backendId) const
     {
         auto iterator = adapters_.find(backendId);
 
         if (iterator == adapters_.end())
         {
-            return nullptr;
+            RecordingActionBackendExecutorAdapterLookupResult result;
+            result.found = false;
+            result.backendId = backendId;
+            result.message = "backend executor adapter not found";
+            return result;
         }
 
-        return iterator->second;
+        RecordingActionBackendExecutorAdapterLookupResult result;
+        result.found = true;
+        result.backendId = backendId;
+        result.adapter = iterator->second;
+        result.message = "backend executor adapter found";
+        return result;
     }
 
 private:

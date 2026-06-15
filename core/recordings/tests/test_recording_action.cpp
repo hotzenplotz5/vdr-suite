@@ -22,6 +22,7 @@
 #include "IRecordingActionBackendExecutorAdapter.h"
 #include "MockRecordingActionBackendExecutorAdapter.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
+#include "RecordingActionBackendExecutorAdapterLookupResult.h"
 
 #include <cassert>
 #include <iostream>
@@ -465,19 +466,27 @@ int main()
     auto foundMockAdapter = adapterRegistry.findAdapter("mock");
     auto missingMockAdapter = adapterRegistry.findAdapter("missing");
 
-    assert(foundMockAdapter != nullptr);
-    assert(foundMockAdapter->backendId() == "mock");
-    assert(foundMockAdapter->backendType() == "mock");
-    assert(missingMockAdapter == nullptr);
+    assert(foundMockAdapter.found);
+    assert(foundMockAdapter.backendId == "mock");
+    assert(foundMockAdapter.adapter != nullptr);
+    assert(foundMockAdapter.message == "backend executor adapter found");
 
-    auto registryMockResult = foundMockAdapter->execute(payload);
+    assert(!missingMockAdapter.found);
+    assert(missingMockAdapter.backendId == "missing");
+    assert(missingMockAdapter.adapter == nullptr);
+    assert(missingMockAdapter.message == "backend executor adapter not found");
+
+    assert(foundMockAdapter.adapter->backendId() == "mock");
+    assert(foundMockAdapter.adapter->backendType() == "mock");
+
+    auto registryMockResult = foundMockAdapter.adapter->execute(payload);
 
     assert(registryMockResult.success);
     assert(registryMockResult.backendId == "mock");
     assert(registryMockResult.recordingId == payload.recordingId);
 
     std::cout
-        << "Recording action backend executor adapter registry OK"
+        << "Recording action backend executor adapter lookup OK"
         << std::endl;
 
 
