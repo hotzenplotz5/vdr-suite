@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 32.7 - Recording Action RestfulAPI Backend Endpoint Configuration
+Phase 32.8 - Recording Action RestfulAPI Move Request Mapping
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 32.8 - Recording Action RestfulAPI Move Request Mapping.
+Phase 32.9 - Recording Action RestfulAPI Rename Request Mapping.
 
 Completed foundation summary
 ```

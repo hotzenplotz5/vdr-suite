@@ -275,7 +275,30 @@ The adapter remains a foundation boundary in this phase.
 It does not execute move, rename or delete HTTP requests yet.
 Those request mappings remain later phases.
 
-## Non-Goals
+
+## Phase 32.8 RestfulAPI Move Request Mapping
+
+Phase 32.8 introduces the first HTTP request mapping boundary for recording move actions.
+
+The mapping converts a `RecordingActionJobPayload` into an `HttpRequest` without executing the request.
+It remains a unit-test-only boundary and does not contact a real VDR backend.
+
+The move request mapping carries:
+
+- backend-owned recording identity
+- dry-run state
+- target path from action parameters
+- JSON request body
+- JSON request headers
+- a RESTfulAPI action path below the configured backend base path
+
+The mapping must not hardcode the VDR-Suite daemon port.
+It must also not hardcode a concrete RESTfulAPI backend port.
+Host and port remain part of `RestfulApiRecordingActionBackendConfig` and are not embedded into the relative `HttpRequest` path.
+
+This phase does not perform a real move.
+It only defines the request object that later adapter execution phases can send through `IHttpClient`.
+\n## Non-Goals
 
 Phase 30.0 does not:
 

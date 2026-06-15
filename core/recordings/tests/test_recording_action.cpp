@@ -27,6 +27,7 @@
 #include "RecordingActionBackendExecutorAdapterDispatchService.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiRecordingActionBackendConfig.h"
+#include "RestfulApiRecordingActionRequestBuilder.h"
 
 #include <cassert>
 #include <iostream>
@@ -579,8 +580,40 @@ int main()
         restfulApiFoundationResult.message ==
         "restfulapi backend executor adapter endpoint configuration only");
 
+    RecordingActionJobPayload movePayload;
+    movePayload.backendId = "restfulapi-default";
+    movePayload.recordingId = "recording-001";
+    movePayload.type = RecordingActionType::Move;
+    movePayload.jobType = "MOVE";
+    movePayload.dryRun = true;
+    movePayload.parameters["targetPath"] = "/srv/vdr/video/archive";
+
+    RestfulApiRecordingActionRequestBuilder requestBuilder;
+
+    auto moveRequest =
+        requestBuilder.buildMoveRequest(
+            restfulApiConfig,
+            movePayload);
+
+    assert(moveRequest.method == "POST");
+    assert(moveRequest.url == "/recordings/actions/move");
+    assert(moveRequest.headers.at("Accept") == "application/json");
+    assert(moveRequest.headers.at("Content-Type") == "application/json");
+    assert(
+        moveRequest.body ==
+        "{\"recordingId\":\"recording-001\",\"dryRun\":true,\"targetPath\":\"/srv/vdr/video/archive\"}");
+
+    restfulApiConfig.basePath = "/api";
+
+    auto prefixedMoveRequest =
+        requestBuilder.buildMoveRequest(
+            restfulApiConfig,
+            movePayload);
+
+    assert(prefixedMoveRequest.url == "/api/recordings/actions/move");
+
     std::cout
-        << "Recording action RestfulAPI backend endpoint configuration OK"
+        << "Recording action RestfulAPI move request mapping OK"
         << std::endl;
 
 
