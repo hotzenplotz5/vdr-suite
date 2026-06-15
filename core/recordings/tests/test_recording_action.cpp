@@ -17,6 +17,7 @@
 #include "RecordingActionDefaultExecutorResolutionResult.h"
 #include "RecordingActionCapabilityDispatchRule.h"
 #include "RecordingActionPermissionDispatchRule.h"
+#include "RecordingActionExecutorResolutionService.h"
 
 #include <cassert>
 #include <iostream>
@@ -373,9 +374,23 @@ int main()
     assert(permissionDeleteRule.requiredPermission == "deleteRecording");
     assert(permissionDeleteRule.permissionRequired);
 
+
+    RecordingActionExecutorResolutionService service;
+
+    auto resolvedSelection =
+        service.resolve(
+            foundExecutor,
+            resolution);
+
+    assert(resolvedSelection.selected);
+    assert(resolvedSelection.executor != nullptr);
+    assert(resolvedSelection.backendId == "default");
+    assert(resolvedSelection.reason == "resolved by lookup");
+
     std::cout
-        << "Recording action permission dispatch rules OK"
+        << "Recording action executor resolution service OK"
         << std::endl;
+
 
 
 

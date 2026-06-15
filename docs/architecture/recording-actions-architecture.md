@@ -511,3 +511,25 @@ Examples:
 - maintenance backend
 
 Dispatch requires both capability and permission approval.
+
+
+## Phase 31.8 Executor Resolution Service
+
+The executor resolution service combines:
+
+- executor registry
+- executor lookup
+- backend selection
+- default executor resolution
+
+The caller requests an executor and receives
+a backend-neutral selection result.
+
+Future implementations may resolve:
+
+- RestfulAPI executors
+- SVDRP executors
+- Rectools executors
+- additional backend implementations
+
+without changing caller behavior.
