@@ -11,6 +11,7 @@ static VdrRecording makeRecording(
 {
     VdrRecording recording;
     recording.id = id;
+    recording.backendId = "ferienhaus";
     recording.title = title;
     recording.path = "/Mock/" + title + ".rec";
     recording.startTime = "2026-06-01T20:00:00";
@@ -41,6 +42,7 @@ int main()
     assert(json.find("\"offset\":10") != std::string::npos);
     assert(json.find("\"recordings\":[") != std::string::npos);
     assert(json.find("\"id\":\"1\"") != std::string::npos);
+    assert(json.find("\"backendId\":\"ferienhaus\"") != std::string::npos);
     assert(json.find("\"title\":\"Tatort\"") != std::string::npos);
     assert(json.find("\"path\":\"/Mock/Tatort.rec\"") != std::string::npos);
     assert(json.find("\"durationSeconds\":900") != std::string::npos);

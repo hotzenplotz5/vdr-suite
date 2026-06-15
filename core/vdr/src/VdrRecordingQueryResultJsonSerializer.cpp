@@ -30,6 +30,7 @@ std::string VdrRecordingQueryResultJsonSerializer::serialize(
         json
             << "{"
             << "\"id\":\"" << recording.id << "\","
+            << "\"backendId\":\"" << recording.backendId << "\","
             << "\"title\":\"" << recording.title << "\","
             << "\"path\":\"" << recording.path << "\","
             << "\"startTime\":\"" << recording.startTime << "\","
