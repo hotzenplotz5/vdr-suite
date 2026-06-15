@@ -45,7 +45,7 @@ Backend Optional Runtime  ████████████ 100%
 
 Latest Completed Implementation Phase: Phase 29.2 - Backend Recording Query Filter
 
-Current Implementation Focus: Phase 29.3 - Backend Recording Query Documentation
+Current Implementation Focus: Phase 30.0 - Recording Actions Architecture
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

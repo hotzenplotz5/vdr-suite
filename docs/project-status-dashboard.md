@@ -75,7 +75,7 @@ Phase 29.2 Complete
 Current Focus:
 
 ```text
-Phase 29.3 - Backend Recording Query Documentation
+Phase 30.0 - Recording Actions Architecture
 ```
 
 Latest Completed Milestone:
@@ -87,7 +87,7 @@ Phase 28.12 - Recording Query API Documentation
 Architecture Work In Progress:
 
 ```text
-Phase 29.3 - Backend Recording Query Documentation
+Phase 30.0 - Recording Actions Architecture
 ADR-0021 - Selective Backend Query Strategy
 ```
 
@@ -133,7 +133,7 @@ Phase 29.x - Phase 36.x
 Overall Roadmap Progress:
 
 ```text
-Phase 28 recording query API is complete. Phase 29 starts the multi-backend recording identity foundation before backend-specific recording filters are added.
+Phase 28 recording query API is complete. Phase 29 completed the backend-aware recording query foundation. Phase 30 starts the recording action architecture boundary before destructive operations are implemented.
 ```
 
 Important:

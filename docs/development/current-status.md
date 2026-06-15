@@ -70,7 +70,7 @@ Phase 29.1 exposes recording backend identity in recording query JSON responses.
 Phase 29.2 adds backend-aware recording query filtering through the recording query API.
 
 Next implementation focus:
-The next implementation step should document backend-aware recording query behavior and prepare the transition toward Phase 30 recording actions.
+The next implementation step is Phase 30.0 - Recording Actions Architecture.
 ```
 
 Verified locally with:
@@ -253,10 +253,10 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 29.3 - Backend Recording Query Documentation
+Phase 30.0 - Recording Actions Architecture
 ```
 
-The next step is to document backend-aware recording query behavior.
+The next step is to define the backend-aware recording action boundary before destructive operations are implemented.
 
 Important boundaries:
 
