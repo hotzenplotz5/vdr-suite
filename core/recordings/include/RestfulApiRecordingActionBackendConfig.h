@@ -8,4 +8,5 @@ struct RestfulApiRecordingActionBackendConfig
     std::string host;
     int port = 0;
     std::string basePath;
+    bool allowExecution = false;
 };

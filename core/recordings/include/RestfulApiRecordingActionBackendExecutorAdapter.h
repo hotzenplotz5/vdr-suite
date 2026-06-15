@@ -42,7 +42,7 @@ public:
             return result;
         }
 
-        if (!enforceDryRun(payload, result)) {
+        if (!enforceExecutionPolicy(payload, result)) {
             return result;
         }
 
@@ -132,18 +132,22 @@ private:
         return true;
     }
 
-    static bool enforceDryRun(
+    bool enforceExecutionPolicy(
         const RecordingActionJobPayload& payload,
-        RecordingActionExecutionResult& result)
+        RecordingActionExecutionResult& result) const
     {
         if (payload.dryRun) {
             return true;
         }
 
+        if (config_.allowExecution) {
+            return true;
+        }
+
         result.success = false;
-        result.message = "restfulapi backend executor dry-run required";
+        result.message = "restfulapi backend executor execution disabled";
         result.errors.push_back(
-            "real recording action execution is not enabled for restfulapi backend executor");
+            "real recording action execution is disabled by restfulapi backend config");
         return false;
     }
 

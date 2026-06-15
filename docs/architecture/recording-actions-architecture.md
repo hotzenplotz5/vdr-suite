@@ -434,6 +434,25 @@ Rules:
 
 This preserves the safety boundary while request mapping and HTTP result handling are still being built.
 Real write execution requires a later explicit enablement boundary and backend permission strategy.
+\n
+## Phase 33.6 RestfulAPI Execution Enablement Flag
+
+Phase 33.6 adds an explicit execution enablement flag to the RESTfulAPI recording action backend configuration.
+
+The default remains safe:
+
+- `allowExecution=false`
+
+Execution policy:
+
+- dry-run payloads may reach the request builder and fake HTTP client boundary
+- non-dry-run payloads are blocked while `allowExecution=false`
+- non-dry-run payloads may reach the HTTP boundary only when `allowExecution=true`
+
+This phase still uses fake `IHttpClient` tests only.
+It does not validate real VDR RESTfulAPI behavior and does not modify real recordings.
+
+The flag makes future write enablement an explicit backend configuration decision instead of an accidental code-path change.
 \n## Non-Goals
 
 Phase 30.0 does not:

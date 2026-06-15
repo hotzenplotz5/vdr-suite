@@ -577,6 +577,7 @@ int main()
     assert(restfulApiAdapter.config().host == "127.0.0.1");
     assert(restfulApiAdapter.config().port == 8002);
     assert(restfulApiAdapter.config().basePath == "");
+    assert(!restfulApiAdapter.config().allowExecution);
     assert(!restfulApiUnsupportedResult.success);
     assert(!restfulApiHttpClient.called);
     assert(restfulApiUnsupportedResult.backendId == "restfulapi-default");
@@ -887,11 +888,11 @@ int main()
     assert(realMoveResult.recordingId == realMovePayload.recordingId);
     assert(
         realMoveResult.message ==
-        "restfulapi backend executor dry-run required");
+        "restfulapi backend executor execution disabled");
     assert(realMoveResult.errors.size() == 1);
     assert(
         realMoveResult.errors.at(0) ==
-        "real recording action execution is not enabled for restfulapi backend executor");
+        "real recording action execution is disabled by restfulapi backend config");
 
     TestRestfulApiHttpClient realRenameHttpClient;
 
@@ -909,7 +910,7 @@ int main()
     assert(!realRenameResult.success);
     assert(
         realRenameResult.message ==
-        "restfulapi backend executor dry-run required");
+        "restfulapi backend executor execution disabled");
 
     TestRestfulApiHttpClient realDeleteHttpClient;
 
@@ -927,10 +928,36 @@ int main()
     assert(!realDeleteResult.success);
     assert(
         realDeleteResult.message ==
-        "restfulapi backend executor dry-run required");
+        "restfulapi backend executor execution disabled");
+
+    TestRestfulApiHttpClient enabledExecutionHttpClient;
+
+    RestfulApiRecordingActionBackendConfig enabledExecutionConfig =
+        restfulApiConfig;
+    enabledExecutionConfig.allowExecution = true;
+
+    RestfulApiRecordingActionBackendExecutorAdapter enabledExecutionAdapter(
+        enabledExecutionConfig,
+        enabledExecutionHttpClient);
+
+    RecordingActionJobPayload enabledExecutionPayload = movePayload;
+    enabledExecutionPayload.dryRun = false;
+
+    auto enabledExecutionResult =
+        enabledExecutionAdapter.execute(enabledExecutionPayload);
+
+    assert(enabledExecutionHttpClient.called);
+    assert(enabledExecutionHttpClient.lastRequest.method == "POST");
+    assert(enabledExecutionHttpClient.lastRequest.url == "/recordings/actions/move");
+    assert(enabledExecutionHttpClient.lastRequest.body ==
+        "{\"recordingId\":\"recording-001\",\"dryRun\":false,\"targetPath\":\"/srv/vdr/video/archive\"}");
+    assert(enabledExecutionResult.success);
+    assert(
+        enabledExecutionResult.message ==
+        "restfulapi backend executor request accepted");
 
     std::cout
-        << "Recording action RestfulAPI dry-run enforcement OK"
+        << "Recording action RestfulAPI execution enablement flag OK"
         << std::endl;
 
 
