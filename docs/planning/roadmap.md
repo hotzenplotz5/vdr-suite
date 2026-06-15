@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 32.9 - Recording Action RestfulAPI Rename Request Mapping
+Phase 33.0 - Recording Action RestfulAPI Delete Request Mapping
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 33.0 - Recording Action RestfulAPI Delete Request Mapping.
+Phase 33.1 - Recording Action RestfulAPI HTTP Execution Boundary.
 
 Completed foundation summary
 ```

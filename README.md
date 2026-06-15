@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 32.9 - Recording Action RestfulAPI Rename Request Mapping
+Latest Completed Implementation Phase: Phase 33.0 - Recording Action RestfulAPI Delete Request Mapping
 
-Current Implementation Focus: Phase 33.0 - Recording Action RestfulAPI Delete Request Mapping
+Current Implementation Focus: Phase 33.1 - Recording Action RestfulAPI HTTP Execution Boundary
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

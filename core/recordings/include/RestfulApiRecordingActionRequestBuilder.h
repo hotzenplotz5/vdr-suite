@@ -37,6 +37,19 @@ public:
         return request;
     }
 
+    HttpRequest buildDeleteRequest(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload) const
+    {
+        HttpRequest request;
+        request.method = "POST";
+        request.url = buildUrl(config.basePath, "/recordings/actions/delete");
+        request.headers["Accept"] = "application/json";
+        request.headers["Content-Type"] = "application/json";
+        request.body = buildDeleteBody(payload);
+        return request;
+    }
+
 private:
     static std::string buildUrl(
         const std::string& basePath,
@@ -113,6 +126,18 @@ private:
         body += ",\"dryRun\":";
         body += payload.dryRun ? "true" : "false";
         body += ",\"newName\":" + jsonQuote(newName);
+        body += "}";
+
+        return body;
+    }
+
+    static std::string buildDeleteBody(
+        const RecordingActionJobPayload& payload)
+    {
+        std::string body = "{";
+        body += "\"recordingId\":" + jsonQuote(payload.recordingId);
+        body += ",\"dryRun\":";
+        body += payload.dryRun ? "true" : "false";
         body += "}";
 
         return body;

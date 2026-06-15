@@ -644,8 +644,39 @@ int main()
 
     assert(prefixedRenameRequest.url == "/api/recordings/actions/rename");
 
+    restfulApiConfig.basePath = "";
+
+    RecordingActionJobPayload deletePayload;
+    deletePayload.backendId = "restfulapi-default";
+    deletePayload.recordingId = "recording-001";
+    deletePayload.type = RecordingActionType::Delete;
+    deletePayload.jobType = "DELETE";
+    deletePayload.dryRun = true;
+
+    auto deleteRequest =
+        requestBuilder.buildDeleteRequest(
+            restfulApiConfig,
+            deletePayload);
+
+    assert(deleteRequest.method == "POST");
+    assert(deleteRequest.url == "/recordings/actions/delete");
+    assert(deleteRequest.headers.at("Accept") == "application/json");
+    assert(deleteRequest.headers.at("Content-Type") == "application/json");
+    assert(
+        deleteRequest.body ==
+        "{\"recordingId\":\"recording-001\",\"dryRun\":true}");
+
+    restfulApiConfig.basePath = "/api";
+
+    auto prefixedDeleteRequest =
+        requestBuilder.buildDeleteRequest(
+            restfulApiConfig,
+            deletePayload);
+
+    assert(prefixedDeleteRequest.url == "/api/recordings/actions/delete");
+
     std::cout
-        << "Recording action RestfulAPI rename request mapping OK"
+        << "Recording action RestfulAPI delete request mapping OK"
         << std::endl;
 
 

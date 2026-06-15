@@ -320,6 +320,27 @@ The request remains a relative backend path and is not sent to a real VDR in thi
 
 This phase does not perform a real rename.
 It only defines the request object that later adapter execution phases can send through `IHttpClient`.
+\n
+## Phase 33.0 RestfulAPI Delete Request Mapping
+
+Phase 33.0 adds the recording delete request mapping to the existing RESTfulAPI recording action request builder.
+
+The mapping converts a `RecordingActionJobPayload` into an `HttpRequest` without executing the request.
+It follows the same request-object boundary as move and rename.
+
+The delete request mapping carries:
+
+- backend-owned recording identity
+- dry-run state
+- JSON request body
+- JSON request headers
+- a RESTfulAPI action path below the configured backend base path
+
+The mapping must not hardcode the VDR-Suite daemon port or any concrete RESTfulAPI backend port.
+The request remains a relative backend path and is not sent to a real VDR in this phase.
+
+This phase does not perform a real delete.
+It only defines the request object that later adapter execution phases can send through `IHttpClient`.
 \n## Non-Goals
 
 Phase 30.0 does not:

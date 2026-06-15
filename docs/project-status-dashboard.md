@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 32.9 - Recording Action RestfulAPI Rename Request Mapping
+Phase 33.0 - Recording Action RestfulAPI Delete Request Mapping
 ```
 
 Current Focus:
 
 ```text
-Phase 33.0 - Recording Action RestfulAPI Delete Request Mapping
+Phase 33.1 - Recording Action RestfulAPI HTTP Execution Boundary
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 32.9 - Recording Action RestfulAPI Rename Request Mapping
+Phase 33.0 - Recording Action RestfulAPI Delete Request Mapping
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 33.0 - Recording Action RestfulAPI Delete Request Mapping
+Phase 33.1 - Recording Action RestfulAPI HTTP Execution Boundary
 ADR-0021 - Selective Backend Query Strategy
 ```
 
