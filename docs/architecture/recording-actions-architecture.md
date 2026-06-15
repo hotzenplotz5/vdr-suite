@@ -517,7 +517,47 @@ Port separation rule:
 
 The recording action backend config must describe the backend RESTfulAPI endpoint.
 It must not hardcode the VDR-Suite daemon port or a single backend port.
-\n## Non-Goals
+\n
+## Phase 33.9 Real RESTfulAPI Endpoint Discovery
+
+Phase 33.9 records the first discovery results against a real VDR RESTfulAPI backend.
+
+Observed backend:
+
+- RESTfulAPI reachable on the backend port
+- `recordings.json` returns real recording data
+- `OPTIONS` responses are generic and must not be used as endpoint proof
+
+Observed action endpoint results:
+
+- `/recordings/delete.json`
+  - service exists
+  - `GET` is rejected with: `Only POST and DELETE methods are supported by the /recordings/delete service.`
+  - this proves the delete service exists, but no destructive request was executed
+- `/recordings/actions/move`
+  - not proven as a real action endpoint
+  - `GET` reports missing format selection
+- `/recordings/actions/rename`
+  - not proven as a real action endpoint
+  - `GET` reports missing format selection
+- `/recordings/actions/delete`
+  - not proven as the real delete action endpoint
+  - `GET` reports missing format selection
+
+Discovery conclusions:
+
+- the current VDR-Suite placeholder action paths are not yet aligned with the real RESTfulAPI delete service
+- real delete endpoint alignment must use `/recordings/delete.json`
+- real move and rename endpoints are not yet proven
+- no real move, rename or delete request was executed
+- no real recording was modified
+
+Next implementation implication:
+
+The delete request mapping should be aligned first, because a real delete service has been observed.
+Move and rename must remain discovery targets until real services are proven or a backend extension path is selected.
+
+## Non-Goals
 
 Phase 30.0 does not:
 
