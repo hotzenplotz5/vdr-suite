@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 30.9 - Recording Action Execution Boundary Model
+Phase 31.0 - Recording Action Executor Registry Foundation
 ```
 
 Current Focus:
 
 ```text
-Phase 31.0 - Recording Action Executor Registry Foundation
+Phase 31.1 - Recording Action Executor Registration Model
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 30.9 - Recording Action Execution Boundary Model
+Phase 31.0 - Recording Action Executor Registry Foundation
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 31.0 - Recording Action Executor Registry Foundation
+Phase 31.1 - Recording Action Executor Registration Model
 ADR-0021 - Selective Backend Query Strategy
 ```
 

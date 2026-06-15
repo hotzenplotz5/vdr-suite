@@ -349,3 +349,21 @@ The executor interface accepts a recording action job payload and returns an exe
 
 The boundary intentionally does not bind recording actions to RESTfulAPI, SVDRP, Rectools, VDR internals or filesystem operations. Backend-specific executors remain future work.
 
+
+
+## Phase 31.0 Executor Registry Foundation
+
+Phase 31.0 introduces the recording action executor registry foundation.
+
+The registry maps backend identities to backend-neutral recording action executors.
+
+The registry allows later phases to select an executor by backend id without coupling recording actions to RESTfulAPI, SVDRP, Rectools, VDR internals or filesystem operations.
+
+The foundation supports:
+
+- backend id based executor registration
+- backend id based executor lookup
+- missing executor handling
+
+The registry does not dispatch actions and does not execute backend operations.
+

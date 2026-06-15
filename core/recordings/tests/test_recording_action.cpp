@@ -9,6 +9,7 @@
 #include "RecordingActionExecutionReadinessResult.h"
 #include "RecordingActionExecutionResult.h"
 #include "IRecordingActionExecutor.h"
+#include "RecordingActionExecutorRegistry.h"
 
 #include <cassert>
 #include <iostream>
@@ -249,7 +250,26 @@ int main()
     assert(executorResult.recordingId == payload.recordingId);
     assert(executorResult.message == "test executor accepted payload");
 
-    std::cout << "Recording action execution boundary model OK" << std::endl;
+
+    RecordingActionExecutorRegistry registry;
+    auto sharedExecutor = std::make_shared<TestRecordingActionExecutor>();
+
+    registry.registerExecutor("default", sharedExecutor);
+
+    auto foundExecutor = registry.findExecutor("default");
+    auto missingExecutor = registry.findExecutor("missing");
+
+    assert(foundExecutor != nullptr);
+    assert(missingExecutor == nullptr);
+
+    auto registryResult = foundExecutor->execute(payload);
+
+    assert(registryResult.success);
+    assert(registryResult.backendId == payload.backendId);
+    assert(registryResult.recordingId == payload.recordingId);
+
+    std::cout << "Recording action executor registry foundation OK" << std::endl;
+
 
 
 

@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 30.9 - Recording Action Execution Boundary Model
+Phase 31.0 - Recording Action Executor Registry Foundation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 31.0 - Recording Action Executor Registry Foundation
+Phase 31.1 - Recording Action Executor Registration Model
 ```
 
 Current architecture validation:

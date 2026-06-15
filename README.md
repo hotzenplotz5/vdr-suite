@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 30.9 - Recording Action Execution Boundary Model
+Latest Completed Implementation Phase: Phase 31.0 - Recording Action Executor Registry Foundation
 
-Current Implementation Focus: Phase 31.0 - Recording Action Executor Registry Foundation
+Current Implementation Focus: Phase 31.1 - Recording Action Executor Registration Model
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
