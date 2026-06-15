@@ -50,7 +50,7 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 30.1 - Recording Action Request Domain Model
+Phase 30.2 - Recording Action Validation Model
 
 Current cleanup
 Documentation synchronization after Phase 29.2

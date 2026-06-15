@@ -41,7 +41,7 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 30.1 - Recording Action Request Domain Model
+Phase 30.2 - Recording Action Validation Model
 ```
 
 Next implementation focus:

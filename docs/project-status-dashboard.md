@@ -69,7 +69,7 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 30.1 - Recording Action Request Domain Model
+Phase 30.2 - Recording Action Validation Model
 ```
 
 Current Focus:
@@ -81,7 +81,7 @@ Phase 30.2 - Recording Action Validation Model
 Latest Completed Milestone:
 
 ```text
-Phase 30.1 - Recording Action Request Domain Model
+Phase 30.2 - Recording Action Validation Model
 ```
 
 Architecture Work In Progress:

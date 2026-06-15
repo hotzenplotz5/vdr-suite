@@ -175,6 +175,28 @@ The request model carries:
 The default request behavior is dry-run oriented.
 Real execution remains out of scope until a later phase defines validation results, action plans and job payload boundaries.
 
+## Phase 30.2 Validation Model
+
+Phase 30.2 introduces the first recording action validation result domain model.
+
+The validation model is intentionally not an execution model.
+It represents validation and dry-run results before a destructive action can create a job or reach a backend adapter.
+
+The validation result carries:
+
+- validity state
+- dry-run state
+- whether a job would be created
+- backend identity
+- backend-owned recording identity
+- required backend capabilities
+- required permissions
+- warnings
+- errors
+
+The model is designed for later validation services, capability checks, permission checks and job planning.
+It does not execute actions and does not mutate recordings, metadata, filesystems or Rectools state.
+
 ## Non-Goals
 
 Phase 30.0 does not:
