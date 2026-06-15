@@ -30,11 +30,11 @@ Canonical ADR sequence:
 ADR-0001
 ADR-0002
 ...
-ADR-0022
+ADR-0023
 
 Next available ADR:
 
-ADR-0023
+ADR-0024
 
 The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
 
@@ -70,6 +70,7 @@ If a canonical ADR is superseded, keep it only in the superseded section and do 
 - ADR-0020 Multi-Source Federation Architecture
 - ADR-0021 Selective Backend Query Strategy
 - ADR-0022 LIVE Functional Reference Strategy
+- ADR-0023 LIVE Superset Strategy
 
 ---
 
@@ -138,6 +139,7 @@ Retained for historical reference:
 - [ADR-0020: Multi-Source Federation Architecture](ADR-0020-multi-source-federation-architecture.md)
 - [ADR-0021: Selective Backend Query Strategy](ADR-0021-selective-backend-query-strategy.md)
 - [ADR-0022: LIVE Functional Reference Strategy](ADR-0022-live-functional-reference-strategy.md)
+- [ADR-0023: LIVE Superset Strategy](ADR-0023-live-superset-strategy.md)
 
 ### Superseded Canonical ADRs
 
