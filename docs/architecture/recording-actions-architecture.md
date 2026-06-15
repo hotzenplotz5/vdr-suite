@@ -341,6 +341,27 @@ The request remains a relative backend path and is not sent to a real VDR in thi
 
 This phase does not perform a real delete.
 It only defines the request object that later adapter execution phases can send through `IHttpClient`.
+\n
+## Phase 33.1 RestfulAPI HTTP Execution Boundary
+
+Phase 33.1 connects the RESTfulAPI recording action backend executor adapter to the request builder and `IHttpClient`.
+
+The adapter can now map supported recording action payloads to `HttpRequest` objects and execute them through the injected HTTP client boundary.
+
+Supported action mappings in this phase:
+
+- move
+- rename
+- delete
+
+The execution boundary remains unit-test-only.
+Tests use a fake `IHttpClient` and do not contact a real VDR backend.
+
+A successful 2xx HTTP response is mapped to a successful `RecordingActionExecutionResult`.
+Unsupported action types are rejected before any HTTP request is sent.
+
+This phase does not validate real RESTfulAPI endpoint semantics and does not mutate recordings.
+Real VDR validation remains future work.
 \n## Non-Goals
 
 Phase 30.0 does not:

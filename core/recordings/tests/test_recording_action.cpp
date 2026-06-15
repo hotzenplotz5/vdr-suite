@@ -542,15 +542,18 @@ int main()
     {
         HttpResponse execute(const HttpRequest& request) const override
         {
+            called = true;
             lastRequest = request;
 
             HttpResponse response;
-            response.statusCode = 200;
+            response.statusCode = statusCode;
             response.body = "{}";
             return response;
         }
 
+        mutable bool called = false;
         mutable HttpRequest lastRequest;
+        int statusCode = 200;
     };
 
     TestRestfulApiHttpClient restfulApiHttpClient;
@@ -565,7 +568,7 @@ int main()
         restfulApiConfig,
         restfulApiHttpClient);
 
-    auto restfulApiFoundationResult = restfulApiAdapter.execute(payload);
+    auto restfulApiUnsupportedResult = restfulApiAdapter.execute(payload);
 
     assert(restfulApiAdapter.backendId() == "restfulapi-default");
     assert(restfulApiAdapter.backendType() == "restfulapi");
@@ -573,12 +576,14 @@ int main()
     assert(restfulApiAdapter.config().host == "127.0.0.1");
     assert(restfulApiAdapter.config().port == 8002);
     assert(restfulApiAdapter.config().basePath == "");
-    assert(!restfulApiFoundationResult.success);
-    assert(restfulApiFoundationResult.backendId == "restfulapi-default");
-    assert(restfulApiFoundationResult.recordingId == payload.recordingId);
+    assert(!restfulApiUnsupportedResult.success);
+    assert(!restfulApiHttpClient.called);
+    assert(restfulApiUnsupportedResult.backendId == "restfulapi-default");
+    assert(restfulApiUnsupportedResult.recordingId == payload.recordingId);
     assert(
-        restfulApiFoundationResult.message ==
-        "restfulapi backend executor adapter endpoint configuration only");
+        restfulApiUnsupportedResult.message ==
+        "restfulapi backend executor action not supported");
+    assert(restfulApiUnsupportedResult.errors.size() == 1);
 
     RecordingActionJobPayload movePayload;
     movePayload.backendId = "restfulapi-default";
@@ -675,8 +680,55 @@ int main()
 
     assert(prefixedDeleteRequest.url == "/api/recordings/actions/delete");
 
+    restfulApiConfig.basePath = "";
+    TestRestfulApiHttpClient moveExecutionHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter moveExecutionAdapter(
+        restfulApiConfig,
+        moveExecutionHttpClient);
+
+    auto moveExecutionResult =
+        moveExecutionAdapter.execute(movePayload);
+
+    assert(moveExecutionHttpClient.called);
+    assert(moveExecutionHttpClient.lastRequest.method == "POST");
+    assert(moveExecutionHttpClient.lastRequest.url == "/recordings/actions/move");
+    assert(moveExecutionResult.success);
+    assert(moveExecutionResult.backendId == "restfulapi-default");
+    assert(moveExecutionResult.recordingId == movePayload.recordingId);
+    assert(
+        moveExecutionResult.message ==
+        "restfulapi backend executor request accepted");
+    assert(moveExecutionResult.errors.empty());
+
+    TestRestfulApiHttpClient renameExecutionHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter renameExecutionAdapter(
+        restfulApiConfig,
+        renameExecutionHttpClient);
+
+    auto renameExecutionResult =
+        renameExecutionAdapter.execute(renamePayload);
+
+    assert(renameExecutionHttpClient.called);
+    assert(renameExecutionHttpClient.lastRequest.url == "/recordings/actions/rename");
+    assert(renameExecutionResult.success);
+
+    TestRestfulApiHttpClient deleteExecutionHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter deleteExecutionAdapter(
+        restfulApiConfig,
+        deleteExecutionHttpClient);
+
+    auto deleteExecutionResult =
+        deleteExecutionAdapter.execute(deletePayload);
+
+    assert(deleteExecutionHttpClient.called);
+    assert(deleteExecutionHttpClient.lastRequest.url == "/recordings/actions/delete");
+    assert(deleteExecutionResult.success);
+
     std::cout
-        << "Recording action RestfulAPI delete request mapping OK"
+        << "Recording action RestfulAPI HTTP execution boundary OK"
         << std::endl;
 
 

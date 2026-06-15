@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 33.0 - Recording Action RestfulAPI Delete Request Mapping
+Phase 33.1 - Recording Action RestfulAPI HTTP Execution Boundary
 ```
 
 Next implementation focus:
 
 ```text
-Phase 33.1 - Recording Action RestfulAPI HTTP Execution Boundary
+Phase 33.2 - Recording Action RestfulAPI HTTP Failure Mapping
 ```
 
 Current architecture validation:
