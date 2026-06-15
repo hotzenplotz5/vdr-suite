@@ -1,5 +1,6 @@
 #include "RestfulApiRecordingMapper.h"
 
+#include <algorithm>
 #include <cctype>
 #include <string>
 #include <vector>
@@ -189,6 +190,19 @@ int getIntField(const std::string& objectText, const std::string& fieldName, int
     return negative ? -value : value;
 }
 
+std::string normalizeRecordingName(const std::string& name)
+{
+    std::string normalized = name;
+
+    std::replace(
+        normalized.begin(),
+        normalized.end(),
+        '~',
+        '/');
+
+    return normalized;
+}
+
 long long getLongLongField(const std::string& objectText, const std::string& fieldName, long long fallback = 0)
 {
     const std::string key = "\"" + fieldName + "\"";
@@ -264,7 +278,7 @@ VdrRecording mapObjectToRecording(const std::string& objectText)
     std::string relativePath = getStringField(objectText, "relative_file_name");
 
     recording.id = number >= 0 ? std::to_string(number) : "";
-    recording.title = getStringField(objectText, "name");
+    recording.title = normalizeRecordingName(getStringField(objectText, "name"));
     recording.path = relativePath.empty() ? getStringField(objectText, "file_name") : relativePath;
     recording.startTime = std::to_string(getIntField(objectText, "event_start_time", 0));
     recording.durationSeconds = getIntField(objectText, "duration", 0);
