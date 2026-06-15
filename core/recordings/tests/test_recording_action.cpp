@@ -15,6 +15,7 @@
 #include "RecordingActionExecutorSelectionResult.h"
 #include "RecordingActionDispatchResult.h"
 #include "RecordingActionDefaultExecutorResolutionResult.h"
+#include "RecordingActionCapabilityDispatchRule.h"
 
 #include <cassert>
 #include <iostream>
@@ -333,9 +334,29 @@ int main()
         resolution.reason ==
         "resolved by explicit backend id");
 
+
+    RecordingActionCapabilityDispatchRule moveRule;
+    moveRule.action = "move";
+    moveRule.requiredCapability = "moveRecording";
+    moveRule.capabilityRequired = true;
+
+    assert(moveRule.action == "move");
+    assert(moveRule.requiredCapability == "moveRecording");
+    assert(moveRule.capabilityRequired);
+
+    RecordingActionCapabilityDispatchRule deleteRule;
+    deleteRule.action = "delete";
+    deleteRule.requiredCapability = "deleteRecording";
+    deleteRule.capabilityRequired = true;
+
+    assert(deleteRule.action == "delete");
+    assert(deleteRule.requiredCapability == "deleteRecording");
+    assert(deleteRule.capabilityRequired);
+
     std::cout
-        << "Recording action default executor resolution OK"
+        << "Recording action capability dispatch rules OK"
         << std::endl;
+
 
 
 

@@ -459,3 +459,28 @@ No implicit fallback to another backend is allowed.
 
 This protects multi-backend installations from accidental
 cross-backend execution.
+
+
+## Phase 31.6 Backend Capability Dispatch Rules
+
+Phase 31.6 introduces backend-neutral capability dispatch rules.
+
+Dispatch rules define which capability is required
+for a recording action before dispatch may occur.
+
+Examples:
+
+- move -> moveRecording
+- delete -> deleteRecording
+- rename -> renameRecording
+
+Capability sources remain backend specific.
+
+Examples:
+
+- RestfulAPI capabilities.json
+- SVDRP capability provider
+- Rectools capability provider
+
+The dispatch layer consumes capabilities but does not
+depend on a specific backend implementation.

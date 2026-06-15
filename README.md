@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 31.5 - Recording Action Default Executor Resolution
+Latest Completed Implementation Phase: Phase 31.6 - Recording Action Backend Capability Dispatch Rules
 
-Current Implementation Focus: Phase 31.6 - Recording Action Backend Capability Dispatch Rules
+Current Implementation Focus: Phase 31.7 - Recording Action Backend Permission Dispatch Rules
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
