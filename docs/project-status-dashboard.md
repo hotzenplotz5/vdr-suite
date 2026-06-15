@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 33.4 - Recording Action RestfulAPI Payload Parameter Validation
+Phase 33.5 - Recording Action RestfulAPI Dry Run Enforcement
 ```
 
 Current Focus:
 
 ```text
-Phase 33.5 - Recording Action RestfulAPI Dry Run Enforcement
+Phase 33.6 - Recording Action RestfulAPI Execution Enablement Flag
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 33.4 - Recording Action RestfulAPI Payload Parameter Validation
+Phase 33.5 - Recording Action RestfulAPI Dry Run Enforcement
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 33.5 - Recording Action RestfulAPI Dry Run Enforcement
+Phase 33.6 - Recording Action RestfulAPI Execution Enablement Flag
 ADR-0021 - Selective Backend Query Strategy
 ```
 

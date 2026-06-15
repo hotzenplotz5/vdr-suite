@@ -42,6 +42,10 @@ public:
             return result;
         }
 
+        if (!enforceDryRun(payload, result)) {
+            return result;
+        }
+
         RestfulApiRecordingActionRequestBuilder requestBuilder;
         const HttpRequest request = buildRequest(requestBuilder, payload);
         const HttpResponse response = httpClient_.execute(request);
@@ -126,6 +130,21 @@ private:
         }
 
         return true;
+    }
+
+    static bool enforceDryRun(
+        const RecordingActionJobPayload& payload,
+        RecordingActionExecutionResult& result)
+    {
+        if (payload.dryRun) {
+            return true;
+        }
+
+        result.success = false;
+        result.message = "restfulapi backend executor dry-run required";
+        result.errors.push_back(
+            "real recording action execution is not enabled for restfulapi backend executor");
+        return false;
     }
 
     HttpRequest buildRequest(

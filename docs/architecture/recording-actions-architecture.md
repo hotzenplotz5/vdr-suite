@@ -419,6 +419,21 @@ Validation rules:
 Invalid payloads are rejected before any `HttpRequest` is built or sent through `IHttpClient`.
 
 This keeps malformed move, rename and delete actions from reaching the RESTfulAPI backend.
+\n
+## Phase 33.5 RestfulAPI Dry Run Enforcement
+
+Phase 33.5 adds a dry-run enforcement guard to the RESTfulAPI recording action backend executor adapter.
+
+The guard runs after payload validation and before request building or HTTP execution.
+
+Rules:
+
+- dry-run payloads may reach the request builder and fake HTTP client boundary
+- non-dry-run payloads are rejected before any `HttpRequest` is built or sent
+- move, rename and delete real execution remain disabled in this phase
+
+This preserves the safety boundary while request mapping and HTTP result handling are still being built.
+Real write execution requires a later explicit enablement boundary and backend permission strategy.
 \n## Non-Goals
 
 Phase 30.0 does not:

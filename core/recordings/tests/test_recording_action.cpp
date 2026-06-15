@@ -869,8 +869,68 @@ int main()
         missingRenameNameResult.errors.at(0) ==
         "newName is required for rename");
 
+    TestRestfulApiHttpClient realMoveHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter realMoveAdapter(
+        restfulApiConfig,
+        realMoveHttpClient);
+
+    RecordingActionJobPayload realMovePayload = movePayload;
+    realMovePayload.dryRun = false;
+
+    auto realMoveResult =
+        realMoveAdapter.execute(realMovePayload);
+
+    assert(!realMoveHttpClient.called);
+    assert(!realMoveResult.success);
+    assert(realMoveResult.backendId == "restfulapi-default");
+    assert(realMoveResult.recordingId == realMovePayload.recordingId);
+    assert(
+        realMoveResult.message ==
+        "restfulapi backend executor dry-run required");
+    assert(realMoveResult.errors.size() == 1);
+    assert(
+        realMoveResult.errors.at(0) ==
+        "real recording action execution is not enabled for restfulapi backend executor");
+
+    TestRestfulApiHttpClient realRenameHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter realRenameAdapter(
+        restfulApiConfig,
+        realRenameHttpClient);
+
+    RecordingActionJobPayload realRenamePayload = renamePayload;
+    realRenamePayload.dryRun = false;
+
+    auto realRenameResult =
+        realRenameAdapter.execute(realRenamePayload);
+
+    assert(!realRenameHttpClient.called);
+    assert(!realRenameResult.success);
+    assert(
+        realRenameResult.message ==
+        "restfulapi backend executor dry-run required");
+
+    TestRestfulApiHttpClient realDeleteHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter realDeleteAdapter(
+        restfulApiConfig,
+        realDeleteHttpClient);
+
+    RecordingActionJobPayload realDeletePayload = deletePayload;
+    realDeletePayload.dryRun = false;
+
+    auto realDeleteResult =
+        realDeleteAdapter.execute(realDeletePayload);
+
+    assert(!realDeleteHttpClient.called);
+    assert(!realDeleteResult.success);
+    assert(
+        realDeleteResult.message ==
+        "restfulapi backend executor dry-run required");
+
     std::cout
-        << "Recording action RestfulAPI payload parameter validation OK"
+        << "Recording action RestfulAPI dry-run enforcement OK"
         << std::endl;
 
 
