@@ -649,6 +649,39 @@ The next implementation step should define capability-aware backend and recordin
 
 ---
 
+## Phase 29 - Backend Recording Query Support
+
+Status: Completed through Phase 29.2
+
+Result:
+
+- `VdrRecording` now carries backend identity.
+- `VdrSnapshotBuilder` propagates backend identity into recording domain objects.
+- recording query JSON responses expose `backendId`.
+- `GET /api/vdr/recordings/query` supports backend filtering through the `backend` query parameter.
+- `backend=default` remains compatible with legacy single-backend recordings that do not yet carry an explicit backend ID.
+
+Verified with:
+
+- make test-vdr-domain-objects
+- make test-vdr-snapshot-builder
+- make test-vdr-recording-query-result-json-serializer
+- make test-vdr-recording-query-matcher
+- make test-vdr-recording-query-controller
+- make test-api-router
+- make test-docs
+- make test-phase
+
+Architecture decision:
+
+Recording query behavior is now backend-aware without changing the legacy `/api/vdr/recordings` output. Backend-aware recording filters are implemented at the recording query boundary and preserve single-backend compatibility.
+
+Follow-up:
+
+The next implementation step should document backend-aware recording query behavior before moving toward recording actions.
+
+---
+
 ## Phase 28.12 - Recording Query API Documentation
 
 Status: Completed
@@ -678,7 +711,7 @@ Phase 27.x completed the capability-aware API foundation. The next implementatio
 
 ## Phase 28 - Recording Query API
 
-Status: Completed through Phase 28.12
+Status: Completed through Phase 29.2
 
 Result:
 

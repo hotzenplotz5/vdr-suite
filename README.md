@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 28.12 - Recording Query API Documentation
+Latest Completed Implementation Phase: Phase 29.2 - Backend Recording Query Filter
 
-Current Implementation Focus: Phase 29.0 - Multi-Backend Recording Identity Foundation
+Current Implementation Focus: Phase 29.3 - Backend Recording Query Documentation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

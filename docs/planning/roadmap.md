@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 28.12 - Recording Query API Documentation
+Phase 29.2 - Backend Recording Query Filter
 
 Current cleanup
-Documentation and roadmap synchronization after Phase 28.12
+Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 29.0 - Multi-Backend Recording Identity Foundation: define recording query boundaries above the capability-aware runtime foundation.
+Phase 29.3 - Backend Recording Query Documentation.
 
 Completed foundation summary
 ```

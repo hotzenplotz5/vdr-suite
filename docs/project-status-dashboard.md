@@ -69,13 +69,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 28.12 Complete
+Phase 29.2 Complete
 ```
 
 Current Focus:
 
 ```text
-Phase 29.0 - Multi-Backend Recording Identity Foundation
+Phase 29.3 - Backend Recording Query Documentation
 ```
 
 Latest Completed Milestone:
@@ -87,7 +87,7 @@ Phase 28.12 - Recording Query API Documentation
 Architecture Work In Progress:
 
 ```text
-Phase 29.0 - Multi-Backend Recording Identity Foundation
+Phase 29.3 - Backend Recording Query Documentation
 ADR-0021 - Selective Backend Query Strategy
 ```
 
