@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 30.3 - Recording Action Plan Domain Model
+Phase 30.4 - Recording Action Job Payload Model
 ```
 
 Current Focus:
 
 ```text
-Phase 30.4 - Recording Action Job Payload Model
+Phase 30.5 - Recording Action Capability Requirements Model
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 30.3 - Recording Action Plan Domain Model
+Phase 30.4 - Recording Action Job Payload Model
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 30.4 - Recording Action Job Payload Model
+Phase 30.5 - Recording Action Capability Requirements Model
 ADR-0021 - Selective Backend Query Strategy
 ```
 

@@ -2,6 +2,7 @@
 #include "RecordingActionUtils.h"
 #include "RecordingActionValidationResult.h"
 #include "RecordingActionPlan.h"
+#include "RecordingActionJobPayload.h"
 
 #include <cassert>
 #include <iostream>
@@ -120,7 +121,28 @@ int main()
     assert(executionPlan.requiredCapabilities.size() == 1);
     assert(executionPlan.requiredPermissions.size() == 1);
 
-    std::cout << "Recording action plan model OK" << std::endl;
+    RecordingActionJobPayload payload;
+    payload.backendId = executionPlan.backendId;
+    payload.recordingId = executionPlan.recordingId;
+    payload.type = executionPlan.type;
+    payload.jobType = executionPlan.plannedJobType;
+    payload.dryRun = executionPlan.dryRun;
+    payload.parameters["refreshMode"] = "metadata";
+    payload.requiredCapabilities = executionPlan.requiredCapabilities;
+    payload.requiredPermissions = executionPlan.requiredPermissions;
+    payload.warnings = executionPlan.warnings;
+
+    assert(payload.backendId == "default");
+    assert(payload.recordingId == "recording-001");
+    assert(payload.type == RecordingActionType::MetadataRefresh);
+    assert(payload.jobType == "METADATA_REFRESH");
+    assert(!payload.dryRun);
+    assert(payload.parameters.at("refreshMode") == "metadata");
+    assert(payload.requiredCapabilities.size() == 1);
+    assert(payload.requiredPermissions.size() == 1);
+    assert(payload.warnings.empty());
+
+    std::cout << "Recording action job payload model OK" << std::endl;
 
     return 0;
 }

@@ -219,6 +219,27 @@ The action plan carries:
 
 The model prepares the later job payload boundary without mutating recordings, metadata, filesystems or Rectools state.
 
+## Phase 30.4 Job Payload Model
+
+Phase 30.4 introduces the first recording action job payload domain model.
+
+The job payload model is intentionally not an execution model and not a persisted job.
+It represents the data that a later job boundary can receive after request modeling, validation and action planning.
+
+The job payload carries:
+
+- backend identity
+- backend-owned recording identity
+- action type
+- job type
+- dry-run state
+- action parameters
+- required backend capabilities
+- required permissions
+- warnings
+
+The model prepares the later job creation boundary without mutating recordings, metadata, filesystems or Rectools state.
+
 ## Non-Goals
 
 Phase 30.0 does not:
