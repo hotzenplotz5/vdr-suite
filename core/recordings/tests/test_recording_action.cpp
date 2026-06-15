@@ -6,6 +6,7 @@
 #include "RecordingActionCapabilityRequirements.h"
 #include "RecordingActionCapabilityEvaluationResult.h"
 #include "RecordingActionPermissionEvaluationResult.h"
+#include "RecordingActionExecutionReadinessResult.h"
 
 #include <cassert>
 #include <iostream>
@@ -193,7 +194,20 @@ int main()
     assert(permissionEvaluation.grantedPermissions.at(0) == "recordings.move");
     assert(permissionEvaluation.missingPermissions.empty());
 
-    std::cout << "Recording action permission evaluation model OK" << std::endl;
+
+    RecordingActionExecutionReadinessResult readiness;
+    readiness.type = RecordingActionType::Move;
+    readiness.ready = true;
+    readiness.readinessChecksPassed.push_back("capabilities");
+    readiness.readinessChecksPassed.push_back("permissions");
+
+    assert(readiness.type == RecordingActionType::Move);
+    assert(readiness.ready);
+    assert(readiness.readinessChecksPassed.size() == 2);
+    assert(readiness.readinessChecksFailed.empty());
+
+    std::cout << "Recording action execution readiness model OK" << std::endl;
+
 
 
 

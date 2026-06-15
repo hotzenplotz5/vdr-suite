@@ -310,3 +310,20 @@ The model carries:
 
 The model does not evaluate permissions and does not execute actions.
 
+
+
+## Phase 30.8 Execution Readiness Model
+
+Phase 30.8 introduces the recording action execution readiness model.
+
+The readiness result aggregates prior validation, capability and permission decisions.
+
+The model carries:
+
+- action type
+- readiness result
+- passed readiness checks
+- failed readiness checks
+
+The model does not execute actions and does not call backend services.
+
