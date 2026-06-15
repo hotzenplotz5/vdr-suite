@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 29.2 - Backend Recording Query Filter
+Latest Completed Implementation Phase: Phase 30.1 - Recording Action Request Domain Model
 
-Current Implementation Focus: Phase 30.0 - Recording Actions Architecture
+Current Implementation Focus: Phase 30.2 - Recording Action Validation Model
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

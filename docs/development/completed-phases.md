@@ -439,6 +439,32 @@ Goals:
 
 ---
 
+---
+
+## Phase 30 - Recording Actions
+Status: Completed through Phase 30.1
+
+Result:
+- Phase 30.0 documented the recording actions architecture boundary
+- Phase 30.1 introduced the backend-aware recording action request domain model
+- destructive execution remains out of scope
+- action requests carry backend identity, backend-owned recording identity, action type, dry-run flag and parameters
+- move, delete and metadata refresh action types are now represented in the action type model
+- Rectools execution remains behind future adapter or job boundaries
+
+Verified with:
+- make test-recording-action
+- make test-action-service
+- make test-job-service
+- make test-docs
+- make test-phase
+
+Architecture decision:
+Recording actions must remain backend-aware request models until validation, capability, permission and job payload boundaries are implemented.
+
+Follow-up:
+The next implementation step is the recording action validation model.
+
 ## Back
 
 - [Back to README](../../README.md)

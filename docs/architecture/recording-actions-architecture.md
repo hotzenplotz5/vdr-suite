@@ -157,6 +157,24 @@ Possible future endpoints may include:
 
 Exact routes remain future work.
 
+## Phase 30.1 Request Model
+
+Phase 30.1 introduces the first backend-aware recording action request domain model.
+
+The request model is intentionally not an execution model.
+It describes the requested action intent and keeps execution behind later validation, capability, permission and job boundaries.
+
+The request model carries:
+
+- backend identity
+- backend-owned recording identity
+- action type
+- dry-run flag
+- action parameters
+
+The default request behavior is dry-run oriented.
+Real execution remains out of scope until a later phase defines validation results, action plans and job payload boundaries.
+
 ## Non-Goals
 
 Phase 30.0 does not:

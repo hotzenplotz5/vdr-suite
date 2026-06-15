@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 29.2 - Backend Recording Query Filter
+Phase 30.1 - Recording Action Request Domain Model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 30.0 - Recording Actions Architecture
+Phase 30.2 - Recording Action Validation Model
 ```
 
 Current architecture validation:

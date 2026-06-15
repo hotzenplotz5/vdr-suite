@@ -10,15 +10,16 @@ enum class RecordingActionType
     Cut,
     Pes2Ts,
     Rename,
+    Move,
+    Delete,
+    MetadataRefresh,
     Unknown
 };
 
 struct RecordingAction
 {
     int recordingId = 0;
-
     RecordingActionType type = RecordingActionType::Unknown;
-
     std::string status;
     std::string message;
 };

@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 29.2 - Backend Recording Query Filter
+Phase 30.1 - Recording Action Request Domain Model
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 30.0 - Recording Actions Architecture.
+Phase 30.2 - Recording Action Validation Model.
 
 Completed foundation summary
 ```
