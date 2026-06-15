@@ -617,3 +617,14 @@ The adapter dispatch service receives a resolved backend executor adapter and a 
 It dispatches the payload to the resolved backend adapter and returns a recording action dispatch result.
 
 The service keeps recording action dispatch independent from concrete backend implementations such as Mock, RestfulAPI, SVDRP, Rectools or native VDR integration.
+
+
+## Phase 32.6 RestfulAPI Backend Executor Adapter Foundation
+
+Phase 32.6 introduces the RestfulAPI recording action backend executor adapter foundation.
+
+The adapter follows the existing VDR RestfulAPI adapter boundary by accepting VdrConfig and IHttpClient.
+
+This phase does not execute real recording actions yet.
+
+It establishes backend identity, backend type and execution-result boundaries for later RestfulAPI move, rename and delete dispatch phases.

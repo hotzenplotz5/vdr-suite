@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 32.5 - Recording Action Backend Executor Adapter Dispatch Integration
+Phase 32.6 - Recording Action RestfulAPI Backend Executor Adapter Foundation
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 32.6 - Recording Action RestfulAPI Backend Executor Adapter Foundation.
+Phase 32.7 - Recording Action RestfulAPI Move Request Mapping.
 
 Completed foundation summary
 ```

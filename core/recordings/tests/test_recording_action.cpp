@@ -25,6 +25,7 @@
 #include "RecordingActionBackendExecutorAdapterLookupResult.h"
 #include "RecordingActionBackendExecutorAdapterResolutionService.h"
 #include "RecordingActionBackendExecutorAdapterDispatchService.h"
+#include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 
 #include <cassert>
 #include <iostream>
@@ -534,9 +535,43 @@ int main()
         missingAdapterDispatchResult.reason ==
         "no backend executor adapter resolved");
 
+
+    struct TestRestfulApiHttpClient final : IHttpClient
+    {
+        HttpResponse execute(const HttpRequest& request) const override
+        {
+            lastRequest = request;
+
+            HttpResponse response;
+            response.statusCode = 200;
+            response.body = "{}";
+            return response;
+        }
+
+        mutable HttpRequest lastRequest;
+    };
+
+    TestRestfulApiHttpClient restfulApiHttpClient;
+
+    RestfulApiRecordingActionBackendExecutorAdapter restfulApiAdapter(
+        "restfulapi-default",
+        restfulApiHttpClient);
+
+    auto restfulApiFoundationResult = restfulApiAdapter.execute(payload);
+
+    assert(restfulApiAdapter.backendId() == "restfulapi-default");
+    assert(restfulApiAdapter.backendType() == "restfulapi");
+    assert(!restfulApiFoundationResult.success);
+    assert(restfulApiFoundationResult.backendId == "restfulapi-default");
+    assert(restfulApiFoundationResult.recordingId == payload.recordingId);
+    assert(
+        restfulApiFoundationResult.message ==
+        "restfulapi backend executor adapter foundation only");
+
     std::cout
-        << "Recording action backend executor adapter dispatch integration OK"
+        << "Recording action RestfulAPI backend executor adapter foundation OK"
         << std::endl;
+
 
 
 

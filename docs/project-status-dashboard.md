@@ -69,25 +69,25 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 32.5 - Recording Action Backend Executor Adapter Dispatch Integration
+Phase 32.6 - Recording Action RestfulAPI Backend Executor Adapter Foundation
 ```
 
 Current Focus:
 
 ```text
-Phase 32.6 - Recording Action RestfulAPI Backend Executor Adapter Foundation
+Phase 32.7 - Recording Action RestfulAPI Move Request Mapping
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 32.5 - Recording Action Backend Executor Adapter Dispatch Integration
+Phase 32.6 - Recording Action RestfulAPI Backend Executor Adapter Foundation
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 32.6 - Recording Action RestfulAPI Backend Executor Adapter Foundation
+Phase 32.7 - Recording Action RestfulAPI Move Request Mapping
 ADR-0021 - Selective Backend Query Strategy
 ```
 
