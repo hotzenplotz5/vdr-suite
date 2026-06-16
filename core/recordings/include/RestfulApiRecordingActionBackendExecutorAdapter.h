@@ -4,6 +4,7 @@
 #include "IHttpClient.h"
 #include "IRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiRecordingActionBackendConfig.h"
+#include "RecordingActionCapabilityContract.h"
 #include "RestfulApiRecordingActionRequestBuilder.h"
 
 #include <map>
@@ -81,6 +82,21 @@ public:
     std::string backendType() const override
     {
         return "restfulapi";
+    }
+
+    RecordingActionCapabilitySet capabilities() const
+    {
+        RecordingActionCapabilityContract contract;
+        return contract.restfulApiDefaultCapabilities();
+    }
+
+    bool supportsAction(
+        RecordingActionType type) const
+    {
+        RecordingActionCapabilityContract contract;
+        const RecordingActionCapabilityCheckResult result =
+            contract.check(type, capabilities());
+        return result.supported;
     }
 
     const RestfulApiRecordingActionBackendConfig& config() const
