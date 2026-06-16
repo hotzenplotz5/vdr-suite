@@ -1,7 +1,8 @@
 ACTIONS_SRC := \
         core/recordings/src/RecordingActionUtils.cpp \
         core/recordings/src/RecordingActionValidationResultJsonSerializer.cpp \
-        core/recordings/src/RecordingActionValidationService.cpp
+        core/recordings/src/RecordingActionValidationService.cpp \
+        api/rest/src/RecordingActionValidationRequestParser.cpp
 
 ACTION_SERVICE_SRC := \
         core/recordings/src/ActionService.cpp \

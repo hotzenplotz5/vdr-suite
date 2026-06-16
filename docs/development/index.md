@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 35.4 - Recording Action Validation Request Parser
+Phase 35.5 - Recording Action Validation Controller Body Entry Point
 ```
 
 Next implementation focus:
 
 ```text
-Phase 35.4 - Recording Action Validation Request Parser
+Phase 35.5 - Recording Action Validation Controller Body Entry Point
 ```
 
 Current architecture validation:

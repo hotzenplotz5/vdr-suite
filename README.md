@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 35.4 - Recording Action Validation Request Parser
+Latest Completed Implementation Phase: Phase 35.5 - Recording Action Validation Controller Body Entry Point
 
-Current Implementation Focus: Phase 35.4 - Recording Action Validation Request Parser
+Current Implementation Focus: Phase 35.5 - Recording Action Validation Controller Body Entry Point
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

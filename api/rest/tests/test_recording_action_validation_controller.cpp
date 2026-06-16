@@ -1,5 +1,6 @@
 #include "RecordingActionValidationController.h"
 
+#include "RecordingActionValidationRequestParser.h"
 #include "RecordingActionValidationResultJsonSerializer.h"
 #include "RecordingActionValidationService.h"
 
@@ -11,6 +12,7 @@ int main()
 {
     RecordingActionValidationService validationService;
     RecordingActionValidationResultJsonSerializer jsonSerializer;
+    RecordingActionValidationRequestParser requestParser;
 
     RecordingActionValidationController controller(
         validationService,
@@ -51,6 +53,34 @@ int main()
     assert(invalidResponse.contentType == "application/json");
     assert(invalidResponse.body.find("\"valid\":false") != std::string::npos);
     assert(invalidResponse.body.find("\"errors\":[\"recordingId is required\"]") != std::string::npos);
+
+    RecordingActionValidationController bodyController(
+        validationService,
+        jsonSerializer,
+        requestParser);
+
+    ApiResponse bodyResponse =
+        bodyController.validateBody(
+            "{"
+            "\"backendId\":\"default\","
+            "\"recordingId\":\"recording-005\","
+            "\"action\":\"MOVE\","
+            "\"dryRun\":true,"
+            "\"targetPath\":\"/srv/vdr/video/archive\""
+            "}");
+
+    assert(bodyResponse.statusCode == 200);
+    assert(bodyResponse.contentType == "application/json");
+    assert(bodyResponse.body.find("\"valid\":true") != std::string::npos);
+    assert(bodyResponse.body.find("\"recordingId\":\"recording-005\"") != std::string::npos);
+    assert(bodyResponse.body.find("\"requiredCapabilities\":[\"recordings.action.move\"]") != std::string::npos);
+
+    ApiResponse missingParserResponse =
+        controller.validateBody("{}");
+
+    assert(missingParserResponse.statusCode == 500);
+    assert(missingParserResponse.contentType == "application/json");
+    assert(missingParserResponse.body.find("request parser unavailable") != std::string::npos);
 
     std::cout
         << "test_recording_action_validation_controller passed"

@@ -26,6 +26,32 @@ Future planning belongs to:
 
 ---
 
+## Phase 35.5: Recording Action Validation Controller Body Entry Point
+
+Status: Completed
+
+Summary:
+
+- Extended `RecordingActionValidationController` with an optional request parser dependency.
+- Added `validateBody()` to parse request bodies before validation.
+- Preserved the existing `validate(RecordingActionRequest)` entry point for direct domain tests.
+- Added controller test coverage for body-based validation.
+- Added an explicit unavailable-parser error response.
+- Registered the validation request parser in the shared action source set.
+- Removed duplicate parser linking from the parser-specific test target.
+
+Verified with:
+
+- make test-recording-action-validation-controller
+- make test-recording-action-validation-request-parser
+- make test-recording-action-validation-service
+
+Next:
+
+- ApiRouter POST foundation for recording action validation
+
+---
+
 ## Phase 35.4: Recording Action Validation Request Parser
 
 Status: Completed

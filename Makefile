@@ -56,7 +56,6 @@ test-metadata-service: prepare-test-db
 test-recording-action-validation-request-parser:
 	$(CXX) $(CXXFLAGS) \
 		$(ACTIONS_SRC) \
-		api/rest/src/RecordingActionValidationRequestParser.cpp \
 		api/rest/tests/test_recording_action_validation_request_parser.cpp \
 		-o /tmp/test_recording_action_validation_request_parser
 	/tmp/test_recording_action_validation_request_parser
