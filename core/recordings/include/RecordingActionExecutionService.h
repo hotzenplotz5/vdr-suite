@@ -19,6 +19,17 @@ public:
         return safetyService_.evaluate(action, context);
     }
 
+    RecordingActionSafetyResult evaluateSafety(
+        RecordingActionType action,
+        const RecordingActionSafetyContext& context,
+        const RecordingActionCapabilitySet& capabilitySet) const
+    {
+        return safetyService_.evaluateWithCapabilities(
+            action,
+            context,
+            capabilitySet);
+    }
+
     RecordingActionExecutionResult execute(
         const RecordingActionRequest& request,
         IRecordingActionExecutor& executor) const
