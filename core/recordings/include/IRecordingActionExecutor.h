@@ -1,7 +1,7 @@
 #pragma once
 
 #include "RecordingActionExecutionResult.h"
-#include "RecordingActionRequest.h"
+#include "RecordingActionJobPayload.h"
 
 class IRecordingActionExecutor
 {
@@ -9,5 +9,5 @@ public:
     virtual ~IRecordingActionExecutor() = default;
 
     virtual RecordingActionExecutionResult execute(
-        const RecordingActionRequest& request) = 0;
+        const RecordingActionJobPayload& payload) = 0;
 };

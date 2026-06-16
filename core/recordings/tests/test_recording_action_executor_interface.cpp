@@ -9,16 +9,16 @@ class FakeRecordingActionExecutor : public IRecordingActionExecutor
 {
 public:
     RecordingActionExecutionResult execute(
-        const RecordingActionRequest& request) override
+        const RecordingActionJobPayload& payload) override
     {
         RecordingActionExecutionResult result;
 
-        result.success = !request.dryRun;
-        result.type = request.type;
-        result.backendId = request.backendId;
-        result.recordingId = request.recordingId;
+        result.success = !payload.dryRun;
+        result.type = payload.type;
+        result.backendId = payload.backendId;
+        result.recordingId = payload.recordingId;
 
-        if (request.dryRun)
+        if (payload.dryRun)
         {
             result.message = "dry-run execution skipped";
             result.warnings.push_back("dry-run only");
@@ -37,15 +37,15 @@ int main()
 {
     FakeRecordingActionExecutor executor;
 
-    RecordingActionRequest dryRunRequest;
-    dryRunRequest.backendId = "living-room";
-    dryRunRequest.recordingId = "recording-1";
-    dryRunRequest.type = RecordingActionType::Move;
-    dryRunRequest.dryRun = true;
-    dryRunRequest.parameters["targetPath"] = "/video/archive";
+    RecordingActionJobPayload dryRunPayload;
+    dryRunPayload.backendId = "living-room";
+    dryRunPayload.recordingId = "recording-1";
+    dryRunPayload.type = RecordingActionType::Move;
+    dryRunPayload.dryRun = true;
+    dryRunPayload.parameters["targetPath"] = "/video/archive";
 
     const RecordingActionExecutionResult dryRunResult =
-        executor.execute(dryRunRequest);
+        executor.execute(dryRunPayload);
 
     assert(!dryRunResult.success);
     assert(dryRunResult.type == RecordingActionType::Move);
@@ -55,14 +55,14 @@ int main()
     assert(dryRunResult.hasWarnings());
     assert(!dryRunResult.hasErrors());
 
-    RecordingActionRequest executeRequest;
-    executeRequest.backendId = "living-room";
-    executeRequest.recordingId = "recording-2";
-    executeRequest.type = RecordingActionType::Delete;
-    executeRequest.dryRun = false;
+    RecordingActionJobPayload executePayload;
+    executePayload.backendId = "living-room";
+    executePayload.recordingId = "recording-2";
+    executePayload.type = RecordingActionType::Delete;
+    executePayload.dryRun = false;
 
     const RecordingActionExecutionResult executeResult =
-        executor.execute(executeRequest);
+        executor.execute(executePayload);
 
     assert(executeResult.success);
     assert(executeResult.type == RecordingActionType::Delete);
