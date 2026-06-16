@@ -113,11 +113,9 @@ int main()
         "{"
         "\"backendId\":\"living-room\","
         "\"recordingId\":\"recording-2\","
-        "\"type\":\"MOVE\","
+        "\"action\":\"MOVE\","
         "\"dryRun\":true,"
-        "\"parameters\":{"
         "\"targetPath\":\"/video/archive\""
-        "}"
         "}";
 
     const ApiResponse bodyResponse =
