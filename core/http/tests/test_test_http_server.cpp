@@ -268,10 +268,19 @@ int main()
     HttpServerRequest postRequest;
     postRequest.method = "POST";
     postRequest.path = "/api/dashboard";
+    postRequest.body = "{\"ignored\":true}";
     HttpServerResponse postResponse =
         server.handleRequest(postRequest);
-    assertJsonResponse(postResponse, 405);
-    assert(postResponse.body == "{\"error\":\"method not allowed\"}");
+    assertJsonResponse(postResponse, 404);
+    assert(postResponse.body == "{\"error\":\"not found\"}");
+
+    HttpServerRequest unsupportedMethodRequest;
+    unsupportedMethodRequest.method = "PUT";
+    unsupportedMethodRequest.path = "/api/dashboard";
+    HttpServerResponse unsupportedMethodResponse =
+        server.handleRequest(unsupportedMethodRequest);
+    assertJsonResponse(unsupportedMethodResponse, 405);
+    assert(unsupportedMethodResponse.body == "{\"error\":\"method not allowed\"}");
 
     db.close();
 

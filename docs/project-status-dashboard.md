@@ -69,13 +69,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 35.5 - Recording Action Validation Controller Body Entry Point
+Phase 35.6 - ApiRouter POST Foundation
 ```
 
 Current Focus:
 
 ```text
-Phase 35.5 - Recording Action Validation Controller Body Entry Point
+Phase 35.6 - ApiRouter POST Foundation
 ```
 
 Latest Completed Milestone:
@@ -87,7 +87,7 @@ Phase 34.5 - Recording Name Normalization
 Architecture Work In Progress:
 
 ```text
-Phase 35.5 - Recording Action Validation Controller Body Entry Point
+Phase 35.6 - ApiRouter POST Foundation
 ADR-0021 - Selective Backend Query Strategy
 ```
 

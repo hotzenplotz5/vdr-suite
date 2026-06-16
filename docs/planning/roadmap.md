@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 35.5 - Recording Action Validation Controller Body Entry Point
+Phase 35.6 - ApiRouter POST Foundation
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 35.5 - Recording Action Validation Controller Body Entry Point.
+Phase 35.6 - ApiRouter POST Foundation.
 
 Completed foundation summary
 ```

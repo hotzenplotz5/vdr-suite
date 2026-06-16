@@ -26,6 +26,31 @@ Future planning belongs to:
 
 ---
 
+## Phase 35.6: ApiRouter POST Foundation
+
+Status: Completed
+
+Summary:
+
+- Added `ApiRouter::handlePost()`.
+- Preserved existing GET routing behavior.
+- Added POST fallback behavior returning JSON 404 for unknown POST routes.
+- Updated `TestHttpServer` to forward POST requests to `ApiRouter::handlePost()`.
+- Preserved 405 handling for unsupported HTTP methods.
+- Added router-level POST fallback test coverage.
+- Added HTTP server POST dispatch test coverage.
+
+Verified with:
+
+- make test-api-router
+- make test-test-http-server
+
+Next:
+
+- Recording Action Validation Route Wiring
+
+---
+
 ## Phase 35.5: Recording Action Validation Controller Body Entry Point
 
 Status: Completed

@@ -36,6 +36,10 @@ public:
     ApiResponse handleGet(
         const std::string& path);
 
+    ApiResponse handlePost(
+        const std::string& path,
+        const std::string& body);
+
 private:
     DashboardController& dashboardController_;
     JobsController& jobsController_;

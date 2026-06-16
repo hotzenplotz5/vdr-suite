@@ -112,6 +112,25 @@ ApiRouter::ApiRouter(
 {
 }
 
+
+ApiResponse ApiRouter::handlePost(
+    const std::string& requestTarget,
+    const std::string& body)
+{
+    (void)body;
+
+    const std::string path =
+        requestPath(requestTarget);
+
+    ApiResponse response;
+
+    response.statusCode = 404;
+    response.contentType = "application/json";
+    response.body = "{\"error\":\"not found\"}";
+
+    return response;
+}
+
 ApiResponse ApiRouter::handleGet(
     const std::string& requestTarget)
 {

@@ -11,16 +11,27 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
 HttpServerResponse TestHttpServer::handleRequest(
     const HttpServerRequest& request) const
 {
-    if (request.method != "GET")
+    ApiResponse apiResponse;
+
+    if (request.method == "GET")
+    {
+        apiResponse =
+            apiRouter_.handleGet(request.path);
+    }
+    else if (request.method == "POST")
+    {
+        apiResponse =
+            apiRouter_.handlePost(
+                request.path,
+                request.body);
+    }
+    else
     {
         return mapApiResponse(
             405,
             "application/json",
             "{\"error\":\"method not allowed\"}");
     }
-
-    ApiResponse apiResponse =
-        apiRouter_.handleGet(request.path);
 
     return mapApiResponse(
         apiResponse.statusCode,

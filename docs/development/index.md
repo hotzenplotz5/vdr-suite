@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 35.5 - Recording Action Validation Controller Body Entry Point
+Phase 35.6 - ApiRouter POST Foundation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 35.5 - Recording Action Validation Controller Body Entry Point
+Phase 35.6 - ApiRouter POST Foundation
 ```
 
 Current architecture validation:
