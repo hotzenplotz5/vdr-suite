@@ -1,5 +1,7 @@
 #pragma once
 
+#include "RecordingActionSafetyReason.h"
+
 #include <string>
 #include <vector>
 
@@ -15,11 +17,25 @@ struct RecordingActionSafetyResult
     bool unsupportedAction = false;
 
     std::vector<std::string> blockers;
+    std::vector<RecordingActionSafetyReason> reasons;
     std::vector<std::string> warnings;
 
     bool hasBlockers() const
     {
         return !blockers.empty();
+    }
+
+    bool hasReasons() const
+    {
+        return !reasons.empty();
+    }
+
+    void addBlocker(
+        RecordingActionSafetyReason reason,
+        const std::string& blocker)
+    {
+        reasons.push_back(reason);
+        blockers.push_back(blocker);
     }
 
     bool hasWarnings() const
@@ -48,7 +64,9 @@ struct RecordingActionSafetyResult
         RecordingActionSafetyResult result;
         result.canExecute = false;
         result.dryRun = dryRunValue;
-        result.blockers.push_back(blocker);
+        result.addBlocker(
+            RecordingActionSafetyReason::UnsupportedAction,
+            blocker);
         return result;
     }
 };

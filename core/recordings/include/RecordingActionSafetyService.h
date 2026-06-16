@@ -66,37 +66,43 @@ public:
         if (action == RecordingActionType::Unknown ||
             !context.actionSupported) {
             result.unsupportedAction = true;
-            result.blockers.push_back(
+            result.addBlocker(
+                RecordingActionSafetyReason::UnsupportedAction,
                 "recording action is not supported by backend");
         }
 
         if (!context.backendAvailable) {
             result.backendUnavailable = true;
-            result.blockers.push_back(
+            result.addBlocker(
+                RecordingActionSafetyReason::BackendUnavailable,
                 "recording action backend is unavailable");
         }
 
         if (context.backendReadOnly) {
             result.readOnlyBlocked = true;
-            result.blockers.push_back(
+            result.addBlocker(
+                RecordingActionSafetyReason::BackendReadOnly,
                 "recording action execution is blocked by read-only backend config");
         }
 
         if (!context.capabilityAvailable) {
             result.missingCapability = true;
-            result.blockers.push_back(
+            result.addBlocker(
+                RecordingActionSafetyReason::MissingCapability,
                 "recording action capability is missing");
         }
 
         if (context.recordingInUse) {
             result.recordingInUse = true;
-            result.blockers.push_back(
+            result.addBlocker(
+                RecordingActionSafetyReason::RecordingInUse,
                 "recording is currently in use");
         }
 
         if (!context.dryRun && !context.executionAllowed) {
             result.executionDisabled = true;
-            result.blockers.push_back(
+            result.addBlocker(
+                RecordingActionSafetyReason::ExecutionDisabled,
                 "real recording action execution is disabled");
         }
 
