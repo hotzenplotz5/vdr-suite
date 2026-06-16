@@ -69,13 +69,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 35.0 - Recording Name Normalization
+Phase 35.1 - Recording Action Validation Result JSON Serializer
 ```
 
 Current Focus:
 
 ```text
-Phase 35.0 - Recording Identity Data Exposure
+Phase 35.1 - Recording Action Validation Result JSON Serializer
 ```
 
 Latest Completed Milestone:
@@ -87,7 +87,7 @@ Phase 34.5 - Recording Name Normalization
 Architecture Work In Progress:
 
 ```text
-Phase 35.0 - Recording Identity Data Exposure
+Phase 35.1 - Recording Action Validation Result JSON Serializer
 ADR-0021 - Selective Backend Query Strategy
 ```
 

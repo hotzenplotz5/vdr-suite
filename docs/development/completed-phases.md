@@ -26,6 +26,29 @@ Future planning belongs to:
 
 ---
 
+## Phase 35.1: Recording Action Validation Result JSON Serializer
+
+Status: Completed
+
+Summary:
+
+- Added `RecordingActionValidationResultJsonSerializer`.
+- Serialized validation result state, backend identity, recording identity, required capabilities, required permissions, warnings and errors.
+- Added JSON string escaping for validation result string fields.
+- Added a focused serializer test with valid, invalid and escaped-string cases.
+- Registered the serializer source in the action job source group.
+- Added the focused serializer test target to the main test target.
+
+Verified with:
+
+- make test-recording-action-validation-result-json-serializer
+
+Next:
+
+- Recording Action Validation API
+
+---
+
 ## Phase 35.0: Recording Identity Data Exposure
 
 Status: Completed

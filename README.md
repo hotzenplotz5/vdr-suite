@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 35.0 - Recording Identity Data Exposure
+Latest Completed Implementation Phase: Phase 35.1 - Recording Action Validation Result JSON Serializer
 
-Current Implementation Focus: Phase 35.0 - Recording Identity Data Exposure
+Current Implementation Focus: Phase 35.1 - Recording Action Validation Result JSON Serializer
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
