@@ -27,4 +27,10 @@ public:
     {
         return "mock";
     }
+
+    RecordingActionCapabilitySet capabilities() const override
+    {
+        RecordingActionCapabilityContract contract;
+        return contract.restfulApiDefaultCapabilities();
+    }
 };

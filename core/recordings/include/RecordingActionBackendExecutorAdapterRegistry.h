@@ -21,6 +21,30 @@ public:
         adapters_[adapter->backendId()] = adapter;
     }
 
+    RecordingActionCapabilitySet capabilitiesForBackend(
+        const std::string& backendId) const
+    {
+        const RecordingActionBackendExecutorAdapterLookupResult result =
+            findAdapter(backendId);
+
+        if (!result.found || !result.adapter)
+        {
+            return RecordingActionCapabilitySet();
+        }
+
+        return result.adapter->capabilities();
+    }
+
+    bool backendSupportsAction(
+        const std::string& backendId,
+        RecordingActionType action) const
+    {
+        RecordingActionCapabilityContract contract;
+        const RecordingActionCapabilityCheckResult result =
+            contract.check(action, capabilitiesForBackend(backendId));
+        return result.supported;
+    }
+
     RecordingActionBackendExecutorAdapterLookupResult findAdapter(
         const std::string& backendId) const
     {
