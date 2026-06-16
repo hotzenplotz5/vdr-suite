@@ -287,6 +287,47 @@ int main()
     assertJsonResponse(postResponse, 404);
     assert(postResponse.body == "{\"error\":\"not found\"}");
 
+    HttpServerRequest validationRequest;
+    validationRequest.method = "POST";
+    validationRequest.path = "/api/recordings/actions/validate";
+    validationRequest.body =
+        "{"
+        "\"backendId\":\"default\","
+        "\"recordingId\":\"http-recording-1\","
+        "\"action\":\"MOVE\","
+        "\"dryRun\":true,"
+        "\"targetPath\":\"/srv/vdr/video/archive\""
+        "}";
+    HttpServerResponse validationResponse =
+        server.handleRequest(validationRequest);
+    assertJsonResponse(validationResponse, 200);
+    assert(validationResponse.body.find("\"valid\":true") != std::string::npos);
+    assert(validationResponse.body.find("\"dryRun\":true") != std::string::npos);
+    assert(validationResponse.body.find("\"wouldCreateJob\":false") != std::string::npos);
+    assert(validationResponse.body.find("\"recordingId\":\"http-recording-1\"") != std::string::npos);
+    assert(validationResponse.body.find("\"requiredCapabilities\":[\"recordings.action.move\"]")
+           != std::string::npos);
+    assert(validationResponse.body.find("\"warnings\":[\"dry-run only\"]")
+           != std::string::npos);
+
+    HttpServerRequest vdrValidationRequest;
+    vdrValidationRequest.method = "POST";
+    vdrValidationRequest.path = "/api/vdr/recordings/actions/validate";
+    vdrValidationRequest.body =
+        "{"
+        "\"backendId\":\"default\","
+        "\"recordingId\":\"http-recording-2\","
+        "\"action\":\"DELETE\","
+        "\"dryRun\":true"
+        "}";
+    HttpServerResponse vdrValidationResponse =
+        server.handleRequest(vdrValidationRequest);
+    assertJsonResponse(vdrValidationResponse, 200);
+    assert(vdrValidationResponse.body.find("\"valid\":true") != std::string::npos);
+    assert(vdrValidationResponse.body.find("\"recordingId\":\"http-recording-2\"") != std::string::npos);
+    assert(vdrValidationResponse.body.find("\"requiredCapabilities\":[\"recordings.action.delete\"]")
+           != std::string::npos);
+
     HttpServerRequest unsupportedMethodRequest;
     unsupportedMethodRequest.method = "PUT";
     unsupportedMethodRequest.path = "/api/dashboard";

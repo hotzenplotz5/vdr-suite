@@ -26,6 +26,31 @@ Future planning belongs to:
 
 ---
 
+## Phase 35.8: Recording Action Validation HTTP Contract
+
+Status: Completed
+
+Summary:
+
+- Added HTTP server contract coverage for `POST /api/recordings/actions/validate`.
+- Added HTTP server contract coverage for `POST /api/vdr/recordings/actions/validate`.
+- Verified move validation responses over the full `TestHttpServer` path.
+- Verified delete validation responses over the full `TestHttpServer` path.
+- Confirmed dry-run validation remains non-mutating at the HTTP boundary.
+- Confirmed validation response fields include validity, dry-run state, job intent, recording id, required capabilities and warnings.
+
+Verified with:
+
+- make test-test-http-server
+- make test-api-router
+- make test-recording-action-validation-controller
+
+Next:
+
+- Recording Action Validation API Documentation
+
+---
+
 ## Phase 35.7: Recording Action Validation Route Wiring
 
 Status: Completed
