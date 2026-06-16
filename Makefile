@@ -136,6 +136,7 @@ test-recording-action-execution-service-safety:
 
 test-recording-action-backend-registry-policy-mapping:
 	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrConfig.cpp \
 		core/recordings/tests/test_recording_action_backend_registry_policy_mapping.cpp \
 		-o /tmp/test_recording_action_backend_registry_policy_mapping
 	/tmp/test_recording_action_backend_registry_policy_mapping
