@@ -7,6 +7,7 @@
 #include "LiveTransportController.h"
 #include "MetadataController.h"
 #include "RecordingsController.h"
+#include "RecordingActionValidationController.h"
 #include "RestQueryParameters.h"
 #include "RuntimeDiagnosticsController.h"
 #include "SnapshotChangeFeedController.h"
@@ -94,6 +95,7 @@ ApiRouter::ApiRouter(
     EpgController* epgController,
     BackendRegistryController& backendRegistryController,
     CapabilityController& capabilityController,
+    RecordingActionValidationController& recordingActionValidationController,
     RuntimeDiagnosticsController& runtimeDiagnosticsController,
     SnapshotChangeFeedController& snapshotChangeFeedController,
     LiveTransportController& liveTransportController)
@@ -106,6 +108,7 @@ ApiRouter::ApiRouter(
       epgController_(epgController),
       backendRegistryController_(backendRegistryController),
       capabilityController_(capabilityController),
+      recordingActionValidationController_(recordingActionValidationController),
       runtimeDiagnosticsController_(runtimeDiagnosticsController),
       snapshotChangeFeedController_(snapshotChangeFeedController),
       liveTransportController_(liveTransportController)
@@ -121,6 +124,12 @@ ApiResponse ApiRouter::handlePost(
 
     const std::string path =
         requestPath(requestTarget);
+
+    if (path == "/api/recordings/actions/validate" ||
+        path == "/api/vdr/recordings/actions/validate")
+    {
+        return recordingActionValidationController_.validateBody(body);
+    }
 
     ApiResponse response;
 

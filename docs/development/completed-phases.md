@@ -26,6 +26,32 @@ Future planning belongs to:
 
 ---
 
+## Phase 35.7: Recording Action Validation Route Wiring
+
+Status: Completed
+
+Summary:
+
+- Wired `RecordingActionValidationController` into `ApiRouter`.
+- Added POST routing for `/api/recordings/actions/validate`.
+- Added POST routing for `/api/vdr/recordings/actions/validate`.
+- Connected validation request body handling to the router layer.
+- Added router-level validation route test coverage.
+- Updated `test-test-http-server` wiring for the new router dependency.
+- Registered recording action validation router dependencies in `mk/rest-sources.mk`.
+
+Verified with:
+
+- make test-test-http-server
+- make test-api-router
+- make test-recording-action-validation-controller
+
+Next:
+
+- Recording Action Validation HTTP Contract
+
+---
+
 ## Phase 35.6: ApiRouter POST Foundation
 
 Status: Completed

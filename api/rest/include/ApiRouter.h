@@ -11,6 +11,7 @@ class JobsController;
 class LiveTransportController;
 class MetadataController;
 class RecordingsController;
+class RecordingActionValidationController;
 class RuntimeDiagnosticsController;
 class SnapshotChangeFeedController;
 class VdrController;
@@ -29,6 +30,7 @@ public:
         EpgController* epgController,
         BackendRegistryController& backendRegistryController,
         CapabilityController& capabilityController,
+        RecordingActionValidationController& recordingActionValidationController,
         RuntimeDiagnosticsController& runtimeDiagnosticsController,
         SnapshotChangeFeedController& snapshotChangeFeedController,
         LiveTransportController& liveTransportController);
@@ -50,6 +52,7 @@ private:
     EpgController* epgController_;
     BackendRegistryController& backendRegistryController_;
     CapabilityController& capabilityController_;
+    RecordingActionValidationController& recordingActionValidationController_;
     RuntimeDiagnosticsController& runtimeDiagnosticsController_;
     SnapshotChangeFeedController& snapshotChangeFeedController_;
     LiveTransportController& liveTransportController_;

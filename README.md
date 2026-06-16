@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 35.6 - ApiRouter POST Foundation
+Latest Completed Implementation Phase: Phase 35.7 - Recording Action Validation Route Wiring
 
-Current Implementation Focus: Phase 35.6 - ApiRouter POST Foundation
+Current Implementation Focus: Phase 35.7 - Recording Action Validation Route Wiring
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

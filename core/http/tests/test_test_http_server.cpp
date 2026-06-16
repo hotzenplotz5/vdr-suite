@@ -25,6 +25,10 @@
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
 #include "RecordingsController.h"
+#include "RecordingActionValidationController.h"
+#include "RecordingActionValidationRequestParser.h"
+#include "RecordingActionValidationResultJsonSerializer.h"
+#include "RecordingActionValidationService.h"
 #include "RuntimeDiagnosticsController.h"
 #include "RuntimeDiagnosticsJsonSerializer.h"
 #include "RuntimeDiagnosticsService.h"
@@ -154,6 +158,14 @@ int main()
         capabilityReportService,
         capabilityReportJsonSerializer);
 
+    RecordingActionValidationService recordingActionValidationService;
+    RecordingActionValidationResultJsonSerializer recordingActionValidationJsonSerializer;
+    RecordingActionValidationRequestParser recordingActionValidationRequestParser;
+    RecordingActionValidationController recordingActionValidationController(
+        recordingActionValidationService,
+        recordingActionValidationJsonSerializer,
+        recordingActionValidationRequestParser);
+
     RuntimeDiagnosticsService runtimeDiagnosticsService;
     RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
 
@@ -199,6 +211,7 @@ int main()
         &epgController,
         backendRegistryController,
         capabilityController,
+        recordingActionValidationController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);

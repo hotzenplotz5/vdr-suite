@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 35.6 - ApiRouter POST Foundation
+Phase 35.7 - Recording Action Validation Route Wiring
 ```
 
 Next implementation focus:
 
 ```text
-Phase 35.6 - ApiRouter POST Foundation
+Phase 35.7 - Recording Action Validation Route Wiring
 ```
 
 Current architecture validation:

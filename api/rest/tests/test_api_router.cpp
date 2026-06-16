@@ -16,6 +16,10 @@
 #include "LiveTransportController.h"
 #include "MetadataController.h"
 #include "RecordingsController.h"
+#include "RecordingActionValidationController.h"
+#include "RecordingActionValidationRequestParser.h"
+#include "RecordingActionValidationResultJsonSerializer.h"
+#include "RecordingActionValidationService.h"
 #include "RuntimeDiagnosticsController.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
@@ -266,6 +270,14 @@ int main()
         capabilityReportService,
         capabilityReportJsonSerializer);
 
+    RecordingActionValidationService recordingActionValidationService;
+    RecordingActionValidationResultJsonSerializer recordingActionValidationJsonSerializer;
+    RecordingActionValidationRequestParser recordingActionValidationRequestParser;
+    RecordingActionValidationController recordingActionValidationController(
+        recordingActionValidationService,
+        recordingActionValidationJsonSerializer,
+        recordingActionValidationRequestParser);
+
     ApiRouter router(
         dashboardController,
         jobsController,
@@ -276,6 +288,7 @@ int main()
         &epgController,
         backendRegistryController,
         capabilityController,
+        recordingActionValidationController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);
@@ -437,6 +450,7 @@ int main()
         nullptr,
         backendRegistryController,
         capabilityController,
+        recordingActionValidationController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);
