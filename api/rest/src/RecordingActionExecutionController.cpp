@@ -43,6 +43,24 @@ ApiResponse RecordingActionExecutionController::execute(
     return response;
 }
 
+ApiResponse RecordingActionExecutionController::safety(
+    const RecordingActionRequest& request,
+    const RecordingActionSafetyContext& context)
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        safetyJsonSerializer_.serialize(
+            executionService_.evaluateSafety(
+                request,
+                context,
+                backendExecutorAdapterRegistry_));
+
+    return response;
+}
+
 ApiResponse RecordingActionExecutionController::executeBody(
     const std::string& body)
 {

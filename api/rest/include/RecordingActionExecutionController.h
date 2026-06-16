@@ -3,6 +3,8 @@
 #include "DashboardController.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
 #include "RecordingActionRequest.h"
+#include "RecordingActionSafetyResultJsonSerializer.h"
+#include "RecordingActionSafetyService.h"
 
 #include <string>
 
@@ -27,12 +29,17 @@ public:
     ApiResponse execute(
         const RecordingActionRequest& request);
 
+    ApiResponse safety(
+        const RecordingActionRequest& request,
+        const RecordingActionSafetyContext& context);
+
     ApiResponse executeBody(
         const std::string& body);
 
 private:
     RecordingActionExecutionService& executionService_;
     RecordingActionExecutionResultJsonSerializer& jsonSerializer_;
+    RecordingActionSafetyResultJsonSerializer safetyJsonSerializer_;
     RecordingActionBackendExecutorAdapterRegistry& backendExecutorAdapterRegistry_;
     RecordingActionValidationRequestParser* requestParser_;
 };
