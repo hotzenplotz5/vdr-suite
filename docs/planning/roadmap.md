@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 35.8 - Recording Action Validation HTTP Contract
+Phase 35.9 - Recording Action Validation API Documentation
 
 Current cleanup
 Documentation synchronization after Phase 29.2
 
 Next implementation step
-Phase 35.8 - Recording Action Validation HTTP Contract.
+Phase 35.9 - Recording Action Validation API Documentation.
 
 Completed foundation summary
 ```

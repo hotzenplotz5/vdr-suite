@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 35.8 - Recording Action Validation HTTP Contract
+Latest Completed Implementation Phase: Phase 35.9 - Recording Action Validation API Documentation
 
-Current Implementation Focus: Phase 35.8 - Recording Action Validation HTTP Contract
+Current Implementation Focus: Phase 35.9 - Recording Action Validation API Documentation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

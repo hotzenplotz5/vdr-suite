@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 35.8 - Recording Action Validation HTTP Contract
+Phase 35.9 - Recording Action Validation API Documentation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 35.8 - Recording Action Validation HTTP Contract
+Phase 35.9 - Recording Action Validation API Documentation
 ```
 
 Current architecture validation:

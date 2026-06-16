@@ -26,6 +26,31 @@ Future planning belongs to:
 
 ---
 
+## Phase 35.9: Recording Action Validation API Documentation
+
+Status: Completed
+
+Summary:
+
+- Added Recording Action Validation API documentation under architecture documentation.
+- Documented validation endpoints, request fields and response fields.
+- Documented dry-run and non-mutating validation semantics.
+- Documented multi-backend `backendId` requirements.
+- Documented RESTfulAPI compatibility strategy for future action execution.
+- Documented LIVE superset positioning for recording action validation.
+- Kept execution behavior out of scope.
+
+Verified with:
+
+- make test-docs
+- make test-phase
+
+Next:
+
+- Recording Action Execution Contract
+
+---
+
 ## Phase 35.8: Recording Action Validation HTTP Contract
 
 Status: Completed
