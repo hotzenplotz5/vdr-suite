@@ -1,5 +1,7 @@
 #include "RecordingActionSafetyResultJsonSerializer.h"
 
+#include "RecordingActionSafetyReason.h"
+
 #include <sstream>
 #include <string>
 #include <vector>
@@ -52,6 +54,28 @@ std::string serializeStringArray(
     return json.str();
 }
 
+std::string serializeReasonArray(
+    const std::vector<RecordingActionSafetyReason>& values)
+{
+    std::ostringstream json;
+
+    json << "[";
+
+    for (std::size_t index = 0; index < values.size(); ++index)
+    {
+        if (index > 0)
+        {
+            json << ",";
+        }
+
+        json << "\"" << escapeJson(toString(values.at(index))) << "\"";
+    }
+
+    json << "]";
+
+    return json.str();
+}
+
 const char* boolText(
     bool value)
 {
@@ -75,6 +99,7 @@ std::string RecordingActionSafetyResultJsonSerializer::serialize(
         << "\"missingCapability\":" << boolText(result.missingCapability) << ","
         << "\"unsupportedAction\":" << boolText(result.unsupportedAction) << ","
         << "\"blockers\":" << serializeStringArray(result.blockers) << ","
+        << "\"reasons\":" << serializeReasonArray(result.reasons) << ","
         << "\"warnings\":" << serializeStringArray(result.warnings)
         << "}";
 

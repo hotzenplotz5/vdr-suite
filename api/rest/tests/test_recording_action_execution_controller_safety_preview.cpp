@@ -60,6 +60,7 @@ int main()
         assert(response.body.find("\"dryRun\":true") != std::string::npos);
         assert(response.body.find("\"missingCapability\":false") != std::string::npos);
         assert(response.body.find("\"blockers\":[]") != std::string::npos);
+        assert(response.body.find("\"reasons\":[]") != std::string::npos);
         assert(response.body.find("\"warnings\":[\"dry-run only\"]") != std::string::npos);
     }
 
@@ -81,6 +82,7 @@ int main()
         assert(response.contentType == "application/json");
         assert(response.body.find("\"canExecute\":false") != std::string::npos);
         assert(response.body.find("\"missingCapability\":true") != std::string::npos);
+        assert(response.body.find("\"reasons\":[\"missing_capability\"]") != std::string::npos);
         assert(response.body.find("missing capability: recording.action.cut") != std::string::npos);
     }
 
