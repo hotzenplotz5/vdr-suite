@@ -45,8 +45,10 @@ REST_ROUTER_SRC := \
         api/rest/src/LiveTransportController.cpp \
         api/rest/src/CapabilityController.cpp \
         api/rest/src/RecordingActionValidationController.cpp \
+        api/rest/src/RecordingActionExecutionController.cpp \
         core/recordings/src/RecordingActionUtils.cpp \
         core/recordings/src/RecordingActionValidationResultJsonSerializer.cpp \
+        core/recordings/src/RecordingActionExecutionResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionValidationService.cpp \
         api/rest/src/RecordingActionValidationRequestParser.cpp \
         api/rest/src/ApiRouter.cpp

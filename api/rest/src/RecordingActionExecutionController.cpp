@@ -52,7 +52,7 @@ ApiResponse RecordingActionExecutionController::executeBody(
 
         response.statusCode = 500;
         response.contentType = "application/json";
-        response.body = "{"error":"recording action execution request parser unavailable"}";
+        response.body = "{\"error\":\"recording action execution request parser unavailable\"}";
 
         return response;
     }

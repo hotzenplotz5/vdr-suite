@@ -83,11 +83,11 @@ int main()
 
     assert(response.statusCode == 200);
     assert(response.contentType == "application/json");
-    assert(response.body.find(""success":true") != std::string::npos);
-    assert(response.body.find(""type":"delete"") != std::string::npos);
-    assert(response.body.find(""backendId":"living-room"") != std::string::npos);
-    assert(response.body.find(""recordingId":"recording-1"") != std::string::npos);
-    assert(response.body.find(""message":"backend execution completed"") != std::string::npos);
+    assert(response.body.find("\"success\":true") != std::string::npos);
+    assert(response.body.find("\"type\":\"delete\"") != std::string::npos);
+    assert(response.body.find("\"backendId\":\"living-room\"") != std::string::npos);
+    assert(response.body.find("\"recordingId\":\"recording-1\"") != std::string::npos);
+    assert(response.body.find("\"message\":\"backend execution completed\"") != std::string::npos);
 
     RecordingActionExecutionController controllerWithoutParser(
         executionService,
@@ -125,12 +125,12 @@ int main()
 
     assert(bodyResponse.statusCode == 200);
     assert(bodyResponse.contentType == "application/json");
-    assert(bodyResponse.body.find(""success":false") != std::string::npos);
-    assert(bodyResponse.body.find(""type":"move"") != std::string::npos);
-    assert(bodyResponse.body.find(""backendId":"living-room"") != std::string::npos);
-    assert(bodyResponse.body.find(""recordingId":"recording-2"") != std::string::npos);
-    assert(bodyResponse.body.find(""message":"dry-run backend execution skipped"") != std::string::npos);
-    assert(bodyResponse.body.find(""dry-run only"") != std::string::npos);
+    assert(bodyResponse.body.find("\"success\":false") != std::string::npos);
+    assert(bodyResponse.body.find("\"type\":\"move\"") != std::string::npos);
+    assert(bodyResponse.body.find("\"backendId\":\"living-room\"") != std::string::npos);
+    assert(bodyResponse.body.find("\"recordingId\":\"recording-2\"") != std::string::npos);
+    assert(bodyResponse.body.find("\"message\":\"dry-run backend execution skipped\"") != std::string::npos);
+    assert(bodyResponse.body.find("\"dry-run only\"") != std::string::npos);
 
     return 0;
 }
