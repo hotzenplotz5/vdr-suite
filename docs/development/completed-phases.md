@@ -26,6 +26,32 @@ Future planning belongs to:
 
 ---
 
+## Phase 35.4: Recording Action Validation Request Parser
+
+Status: Completed
+
+Summary:
+
+- Added `RecordingActionValidationRequestParser`.
+- Parses validation request bodies into `RecordingActionRequest`.
+- Supports `backendId`, `recordingId`, `action`, `dryRun`, `targetPath`, `newName` and `recordingPath`.
+- Defaults validation requests to dry-run mode when `dryRun` is omitted.
+- Maps unknown actions to `RecordingActionType::Unknown`.
+- Added parser test coverage for move, rename, delete, unknown action and missing fields.
+- Kept router and HTTP endpoint integration out of scope for this phase.
+
+Verified with:
+
+- make test-recording-action-validation-request-parser
+- make test-recording-action-validation-controller
+- make test-recording-action-validation-service
+
+Next:
+
+- Recording Action Validation Endpoint Wiring
+
+---
+
 ## Phase 35.3: Recording Action Validation Controller
 
 Status: Completed

@@ -69,13 +69,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 35.3 - Recording Action Validation Controller
+Phase 35.4 - Recording Action Validation Request Parser
 ```
 
 Current Focus:
 
 ```text
-Phase 35.3 - Recording Action Validation Controller
+Phase 35.4 - Recording Action Validation Request Parser
 ```
 
 Latest Completed Milestone:
@@ -87,7 +87,7 @@ Phase 34.5 - Recording Name Normalization
 Architecture Work In Progress:
 
 ```text
-Phase 35.3 - Recording Action Validation Controller
+Phase 35.4 - Recording Action Validation Request Parser
 ADR-0021 - Selective Backend Query Strategy
 ```
 
