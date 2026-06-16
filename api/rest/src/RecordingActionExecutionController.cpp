@@ -50,6 +50,23 @@ ApiResponse RecordingActionExecutionController::execute(
 
     response.statusCode = 200;
     response.contentType = "application/json";
+    if (backendRegistry_ != nullptr)
+    {
+        const RecordingActionBackendPolicyLookupResult lookup =
+            backendPolicyProvider_.policyForBackend(
+                *backendRegistry_,
+                request.backendId);
+
+        response.body =
+            jsonSerializer_.serialize(
+                executionService_.execute(
+                    request,
+                    backendExecutorAdapterRegistry_,
+                    lookup.policy));
+
+        return response;
+    }
+
     response.body =
         jsonSerializer_.serialize(
             executionService_.execute(
