@@ -1,5 +1,13 @@
 # ADR-0024: Recording Action Transport Mapping
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [ADR Index](index.md)
+
+---
+
 ## Status
 
 Accepted
@@ -81,3 +89,11 @@ Before real delete execution is enabled against a live VDR, VDR-Suite must provi
 Phase 36.x should add adapter-level contract tests for RESTfulAPI mapping.
 
 A later implementation phase should verify the behavior against a real VDR with dry-run first.
+
+---
+
+## Back
+
+- [Back to ADR Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to README](../../README.md)
