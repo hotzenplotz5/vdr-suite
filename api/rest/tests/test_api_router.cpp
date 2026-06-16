@@ -814,7 +814,7 @@ int main()
         "{"
         "\"backendId\":\"router-backend\","
         "\"recordingId\":\"router-recording-1\","
-        "\"type\":\"delete\","
+        "\"action\":\"DELETE\","
         "\"dryRun\":true"
         "}";
 

@@ -25,9 +25,13 @@
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
 #include "RecordingsController.h"
+#include "RecordingActionExecutionController.h"
 #include "RecordingActionValidationController.h"
 #include "RecordingActionValidationRequestParser.h"
+#include "RecordingActionExecutionResultJsonSerializer.h"
 #include "RecordingActionValidationResultJsonSerializer.h"
+#include "RecordingActionBackendExecutorAdapterRegistry.h"
+#include "RecordingActionExecutionService.h"
 #include "RecordingActionValidationService.h"
 #include "RuntimeDiagnosticsController.h"
 #include "RuntimeDiagnosticsJsonSerializer.h"
@@ -166,6 +170,15 @@ int main()
         recordingActionValidationJsonSerializer,
         recordingActionValidationRequestParser);
 
+    RecordingActionExecutionService recordingActionExecutionService;
+    RecordingActionExecutionResultJsonSerializer recordingActionExecutionJsonSerializer;
+    RecordingActionBackendExecutorAdapterRegistry recordingActionBackendExecutorAdapterRegistry;
+    RecordingActionExecutionController recordingActionExecutionController(
+        recordingActionExecutionService,
+        recordingActionExecutionJsonSerializer,
+        recordingActionBackendExecutorAdapterRegistry,
+        recordingActionValidationRequestParser);
+
     RuntimeDiagnosticsService runtimeDiagnosticsService;
     RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
 
@@ -212,6 +225,7 @@ int main()
         backendRegistryController,
         capabilityController,
         recordingActionValidationController,
+        recordingActionExecutionController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);
