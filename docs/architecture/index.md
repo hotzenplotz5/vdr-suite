@@ -37,6 +37,7 @@ Long-term decisions belong in ADRs.
 - [Recording Action Validation API](recording-action-validation-api.md)
 - [Recording Action Execution API](recording-action-execution-api.md)
 - [Recording Action Safety and Capability Model](recording-action-safety-capability-model.md)
+- [Recording Action Source Constraints](recording-action-source-constraints.md)
 
 
 ---
