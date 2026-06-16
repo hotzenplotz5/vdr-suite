@@ -1,11 +1,13 @@
 #pragma once
 
+#include "RecordingAction.h"
+
 #include <string>
 #include <vector>
 
 struct RecordingActionExecutionResult {
     bool success = false;
-    std::string action;
+    RecordingActionType type = RecordingActionType::Unknown;
     std::string recordingId;
     std::string backendId;
     std::string message;
@@ -13,14 +15,14 @@ struct RecordingActionExecutionResult {
     std::vector<std::string> errors;
 
     static RecordingActionExecutionResult ok(
-        const std::string& action,
+        RecordingActionType type,
         const std::string& recordingId,
         const std::string& backendId,
         const std::string& message
     ) {
         RecordingActionExecutionResult result;
         result.success = true;
-        result.action = action;
+        result.type = type;
         result.recordingId = recordingId;
         result.backendId = backendId;
         result.message = message;
@@ -28,7 +30,7 @@ struct RecordingActionExecutionResult {
     }
 
     static RecordingActionExecutionResult failed(
-        const std::string& action,
+        RecordingActionType type,
         const std::string& recordingId,
         const std::string& backendId,
         const std::string& message,
@@ -36,7 +38,7 @@ struct RecordingActionExecutionResult {
     ) {
         RecordingActionExecutionResult result;
         result.success = false;
-        result.action = action;
+        result.type = type;
         result.recordingId = recordingId;
         result.backendId = backendId;
         result.message = message;

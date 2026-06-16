@@ -6,14 +6,14 @@
 
 int main() {
     auto success = RecordingActionExecutionResult::ok(
-        "delete",
+        RecordingActionType::Delete,
         "recording-1",
         "living-room",
         "Recording action executed"
     );
 
     assert(success.success);
-    assert(success.action == "delete");
+    assert(success.type == RecordingActionType::Delete);
     assert(success.recordingId == "recording-1");
     assert(success.backendId == "living-room");
     assert(success.message == "Recording action executed");
@@ -21,7 +21,7 @@ int main() {
     assert(!success.hasErrors());
 
     auto failure = RecordingActionExecutionResult::failed(
-        "delete",
+        RecordingActionType::Delete,
         "recording-2",
         "remote-house",
         "Recording action rejected",
@@ -29,7 +29,7 @@ int main() {
     );
 
     assert(!failure.success);
-    assert(failure.action == "delete");
+    assert(failure.type == RecordingActionType::Delete);
     assert(failure.recordingId == "recording-2");
     assert(failure.backendId == "remote-house");
     assert(failure.message == "Recording action rejected");
