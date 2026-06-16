@@ -160,6 +160,7 @@ test-recording-action-execution-controller:
 	$(CXX) $(CXXFLAGS) \
 		$(ACTIONS_SRC) \
 		api/rest/src/RecordingActionExecutionController.cpp \
+		core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
 		api/rest/tests/test_recording_action_execution_controller.cpp \
 		-o /tmp/test_recording_action_execution_controller
 	/tmp/test_recording_action_execution_controller
