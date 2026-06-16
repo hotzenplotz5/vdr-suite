@@ -30,6 +30,17 @@ public:
             capabilitySet);
     }
 
+    RecordingActionSafetyResult evaluateSafety(
+        const RecordingActionRequest& request,
+        const RecordingActionSafetyContext& context,
+        const RecordingActionBackendExecutorAdapterRegistry& registry) const
+    {
+        return evaluateSafety(
+            request.type,
+            context,
+            registry.capabilitiesForBackend(request.backendId));
+    }
+
     RecordingActionExecutionResult execute(
         const RecordingActionRequest& request,
         IRecordingActionExecutor& executor) const
