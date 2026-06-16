@@ -455,9 +455,10 @@ clean:
 	rm -f /tmp/test_capability_report_service
 
 .PHONY: test-recording-action-execution-result
-test-recording-action-execution-result: g++ -std=c++17 -Wall -Wextra -Icore/recordings/include \
-	core/recordings/tests/test_recording_action_execution_result.cpp \
-	-o /tmp/test_recording_action_execution_result
+test-recording-action-execution-result:
+	g++ -std=c++17 -Wall -Wextra -Icore/recordings/include \
+		core/recordings/tests/test_recording_action_execution_result.cpp \
+		-o /tmp/test_recording_action_execution_result
 	/tmp/test_recording_action_execution_result
 
 .PHONY: test-docs
