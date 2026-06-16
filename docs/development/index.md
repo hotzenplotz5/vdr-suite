@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 35.1 - Recording Action Validation Result JSON Serializer
+Phase 35.2 - Recording Action Validation Service
 ```
 
 Next implementation focus:
 
 ```text
-Phase 35.1 - Recording Action Validation Result JSON Serializer
+Phase 35.2 - Recording Action Validation Service
 ```
 
 Current architecture validation:

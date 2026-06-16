@@ -43,9 +43,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 35.1 - Recording Action Validation Result JSON Serializer
+Latest Completed Implementation Phase: Phase 35.2 - Recording Action Validation Service
 
-Current Implementation Focus: Phase 35.1 - Recording Action Validation Result JSON Serializer
+Current Implementation Focus: Phase 35.2 - Recording Action Validation Service
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

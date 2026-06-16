@@ -26,6 +26,31 @@ Future planning belongs to:
 
 ---
 
+## Phase 35.2: Recording Action Validation Service
+
+Status: Completed
+
+Summary:
+
+- Added `RecordingActionValidationService`.
+- Validates `backendId`, `recordingId` and action type presence.
+- Adds action-specific capability and permission requirements.
+- Validates move `targetPath` and rename `newName` request parameters.
+- Marks dry-run requests with a `dry-run only` warning.
+- Distinguishes dry-run validation from execution-intent validation through `wouldCreateJob`.
+- Added a focused validation service test for move, rename, delete, missing fields and unknown action type.
+
+Verified with:
+
+- make test-recording-action-validation-service
+- make test-recording-action-validation-result-json-serializer
+
+Next:
+
+- Recording Action Validation Controller
+
+---
+
 ## Phase 35.1: Recording Action Validation Result JSON Serializer
 
 Status: Completed
