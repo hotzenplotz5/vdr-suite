@@ -2,6 +2,7 @@
 
 #include "RecordingAction.h"
 #include "RecordingActionCapabilityContract.h"
+#include "RecordingActionPermissionContract.h"
 #include "RecordingActionSafetyResult.h"
 
 #include <string>
@@ -44,6 +45,67 @@ public:
             {
                 result.blockers.push_back(
                     "missing capability: " + missingCapability);
+            }
+
+            result.canExecute = false;
+        }
+
+        return result;
+    }
+
+    RecordingActionSafetyResult evaluateWithPermissions(
+        RecordingActionType action,
+        const RecordingActionSafetyContext& context,
+        const RecordingActionPermissionSet& permissionSet) const
+    {
+        const RecordingActionPermissionCheckResult permissionCheck =
+            permissionContract_.check(action, permissionSet);
+
+        RecordingActionSafetyResult result =
+            evaluate(action, context);
+
+        if (!permissionCheck.allowed)
+        {
+            result.addBlocker(
+                RecordingActionSafetyReason::PermissionDenied,
+                "recording action permission is denied");
+
+            for (const std::string& missingPermission :
+                 permissionCheck.missingPermissions)
+            {
+                result.blockers.push_back(
+                    "missing permission: " + missingPermission);
+            }
+
+            result.canExecute = false;
+        }
+
+        return result;
+    }
+
+    RecordingActionSafetyResult evaluateWithCapabilitiesAndPermissions(
+        RecordingActionType action,
+        const RecordingActionSafetyContext& context,
+        const RecordingActionCapabilitySet& capabilitySet,
+        const RecordingActionPermissionSet& permissionSet) const
+    {
+        const RecordingActionPermissionCheckResult permissionCheck =
+            permissionContract_.check(action, permissionSet);
+
+        RecordingActionSafetyResult result =
+            evaluateWithCapabilities(action, context, capabilitySet);
+
+        if (!permissionCheck.allowed)
+        {
+            result.addBlocker(
+                RecordingActionSafetyReason::PermissionDenied,
+                "recording action permission is denied");
+
+            for (const std::string& missingPermission :
+                 permissionCheck.missingPermissions)
+            {
+                result.blockers.push_back(
+                    "missing permission: " + missingPermission);
             }
 
             result.canExecute = false;
@@ -113,4 +175,5 @@ public:
 
 private:
     RecordingActionCapabilityContract capabilityContract_;
+    RecordingActionPermissionContract permissionContract_;
 };

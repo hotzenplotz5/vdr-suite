@@ -9,6 +9,7 @@ enum class RecordingActionSafetyReason
     BackendUnavailable,
     BackendReadOnly,
     MissingCapability,
+    PermissionDenied,
     RecordingInUse,
     ExecutionDisabled
 };
@@ -28,6 +29,8 @@ inline std::string toString(
         return "backend_read_only";
     case RecordingActionSafetyReason::MissingCapability:
         return "missing_capability";
+    case RecordingActionSafetyReason::PermissionDenied:
+        return "permission_denied";
     case RecordingActionSafetyReason::RecordingInUse:
         return "recording_in_use";
     case RecordingActionSafetyReason::ExecutionDisabled:
