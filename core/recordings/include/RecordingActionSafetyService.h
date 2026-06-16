@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RecordingAction.h"
+#include "RecordingActionCapabilityContract.h"
 #include "RecordingActionSafetyResult.h"
 
 #include <string>
@@ -14,11 +15,45 @@ struct RecordingActionSafetyContext
     bool capabilityAvailable = true;
     bool recordingInUse = false;
     bool actionSupported = true;
+private:
+    RecordingActionCapabilityContract capabilityContract_;
 };
 
 class RecordingActionSafetyService
 {
 public:
+    RecordingActionSafetyResult evaluateWithCapabilities(
+        RecordingActionType action,
+        const RecordingActionSafetyContext& context,
+        const RecordingActionCapabilitySet& capabilitySet) const
+    {
+        RecordingActionSafetyContext capabilityAwareContext = context;
+
+        const RecordingActionCapabilityCheckResult capabilityCheck =
+            capabilityContract_.check(action, capabilitySet);
+
+        capabilityAwareContext.capabilityAvailable =
+            capabilityAwareContext.capabilityAvailable &&
+            capabilityCheck.supported;
+
+        RecordingActionSafetyResult result =
+            evaluate(action, capabilityAwareContext);
+
+        if (!capabilityCheck.supported)
+        {
+            for (const std::string& missingCapability :
+                 capabilityCheck.missingCapabilities)
+            {
+                result.blockers.push_back(
+                    "missing capability: " + missingCapability);
+            }
+
+            result.canExecute = false;
+        }
+
+        return result;
+    }
+
     RecordingActionSafetyResult evaluate(
         RecordingActionType action,
         const RecordingActionSafetyContext& context) const
