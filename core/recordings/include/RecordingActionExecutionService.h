@@ -3,6 +3,7 @@
 #include "IRecordingActionExecutor.h"
 #include "RecordingActionBackendExecutorAdapterDispatchService.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
+#include "RecordingActionBackendPolicy.h"
 #include "RecordingActionExecutionResult.h"
 #include "RecordingActionJobPayloadFactory.h"
 #include "RecordingActionRequest.h"
@@ -39,6 +40,23 @@ public:
             request.type,
             context,
             registry.capabilitiesForBackend(request.backendId));
+    }
+
+    RecordingActionSafetyResult evaluateSafety(
+        const RecordingActionRequest& request,
+        const RecordingActionBackendPolicy& policy) const
+    {
+        RecordingActionSafetyContext context;
+        context.dryRun = request.dryRun;
+        context.backendAvailable = policy.backendAvailable;
+        context.backendReadOnly = policy.readOnly;
+        context.executionAllowed = policy.executionAllowed;
+
+        return safetyService_.evaluateWithCapabilitiesAndPermissions(
+            request.type,
+            context,
+            policy.capabilities,
+            policy.permissions);
     }
 
     RecordingActionExecutionResult execute(
