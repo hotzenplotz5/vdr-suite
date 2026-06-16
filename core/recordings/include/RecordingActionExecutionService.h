@@ -84,6 +84,36 @@ public:
 
     RecordingActionExecutionResult execute(
         const RecordingActionRequest& request,
+        const RecordingActionBackendExecutorAdapterRegistry& registry,
+        const RecordingActionBackendPolicy& policy) const
+    {
+        const RecordingActionSafetyResult safety =
+            evaluateSafety(request, policy);
+
+        if (!safety.canExecute)
+        {
+            std::vector<std::string> errors =
+                safety.blockers;
+
+            if (errors.empty())
+            {
+                errors.push_back(
+                    "recording action execution blocked by safety policy");
+            }
+
+            return RecordingActionExecutionResult::failed(
+                request.type,
+                request.recordingId,
+                request.backendId,
+                "recording action execution blocked by safety policy",
+                errors);
+        }
+
+        return execute(request, registry);
+    }
+
+    RecordingActionExecutionResult execute(
+        const RecordingActionRequest& request,
         const RecordingActionBackendExecutorAdapterRegistry& registry) const
     {
         const RecordingActionValidationResult validation =
