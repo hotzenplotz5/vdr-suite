@@ -1,7 +1,9 @@
 #pragma once
 
+#include "BackendRegistry.h"
 #include "DashboardController.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
+#include "RecordingActionBackendPolicyProvider.h"
 #include "RecordingActionRequest.h"
 #include "RecordingActionSafetyResultJsonSerializer.h"
 #include "RecordingActionSafetyService.h"
@@ -26,6 +28,13 @@ public:
         RecordingActionBackendExecutorAdapterRegistry& backendExecutorAdapterRegistry,
         RecordingActionValidationRequestParser& requestParser);
 
+    RecordingActionExecutionController(
+        RecordingActionExecutionService& executionService,
+        RecordingActionExecutionResultJsonSerializer& jsonSerializer,
+        RecordingActionBackendExecutorAdapterRegistry& backendExecutorAdapterRegistry,
+        BackendRegistry& backendRegistry,
+        RecordingActionValidationRequestParser& requestParser);
+
     ApiResponse execute(
         const RecordingActionRequest& request);
 
@@ -41,5 +50,7 @@ private:
     RecordingActionExecutionResultJsonSerializer& jsonSerializer_;
     RecordingActionSafetyResultJsonSerializer safetyJsonSerializer_;
     RecordingActionBackendExecutorAdapterRegistry& backendExecutorAdapterRegistry_;
+    RecordingActionBackendPolicyProvider backendPolicyProvider_;
+    BackendRegistry* backendRegistry_;
     RecordingActionValidationRequestParser* requestParser_;
 };

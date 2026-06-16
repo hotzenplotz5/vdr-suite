@@ -11,6 +11,7 @@ RecordingActionExecutionController::RecordingActionExecutionController(
     : executionService_(executionService),
       jsonSerializer_(jsonSerializer),
       backendExecutorAdapterRegistry_(backendExecutorAdapterRegistry),
+      backendRegistry_(nullptr),
       requestParser_(nullptr)
 {
 }
@@ -23,6 +24,21 @@ RecordingActionExecutionController::RecordingActionExecutionController(
     : executionService_(executionService),
       jsonSerializer_(jsonSerializer),
       backendExecutorAdapterRegistry_(backendExecutorAdapterRegistry),
+      backendRegistry_(nullptr),
+      requestParser_(&requestParser)
+{
+}
+
+RecordingActionExecutionController::RecordingActionExecutionController(
+    RecordingActionExecutionService& executionService,
+    RecordingActionExecutionResultJsonSerializer& jsonSerializer,
+    RecordingActionBackendExecutorAdapterRegistry& backendExecutorAdapterRegistry,
+    BackendRegistry& backendRegistry,
+    RecordingActionValidationRequestParser& requestParser)
+    : executionService_(executionService),
+      jsonSerializer_(jsonSerializer),
+      backendExecutorAdapterRegistry_(backendExecutorAdapterRegistry),
+      backendRegistry_(&backendRegistry),
       requestParser_(&requestParser)
 {
 }
@@ -51,6 +67,22 @@ ApiResponse RecordingActionExecutionController::safety(
 
     response.statusCode = 200;
     response.contentType = "application/json";
+    if (backendRegistry_ != nullptr)
+    {
+        const RecordingActionBackendPolicyLookupResult lookup =
+            backendPolicyProvider_.policyForBackend(
+                *backendRegistry_,
+                request.backendId);
+
+        response.body =
+            safetyJsonSerializer_.serialize(
+                executionService_.evaluateSafety(
+                    request,
+                    lookup.policy));
+
+        return response;
+    }
+
     response.body =
         safetyJsonSerializer_.serialize(
             executionService_.evaluateSafety(
