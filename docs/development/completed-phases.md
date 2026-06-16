@@ -26,6 +26,33 @@ Future planning belongs to:
 
 ---
 
+## Phase 36.0: Recording Action Execution Result JSON Serializer
+
+Status: Completed
+
+Summary:
+
+- Added `RecordingActionExecutionResultJsonSerializer`.
+- Kept the existing `RecordingActionExecutionResult` domain object unchanged.
+- Serialized execution result `success`, `type`, `backendId`, `recordingId`, `message`, `warnings` and `errors`.
+- Added JSON escaping coverage for backend id, recording id and error messages.
+- Registered the serializer in `ACTIONS_SRC`.
+- Added dedicated serializer test coverage.
+- Kept execution service, routing and backend mutation out of scope.
+
+Verified with:
+
+- make test-recording-action-execution-result-json-serializer
+- make test-recording-action-validation-result-json-serializer
+- make test-recording-action-validation-controller
+- make test
+
+Next:
+
+- Recording Action Execution Service
+
+---
+
 ## Phase 35.9: Recording Action Validation API Documentation
 
 Status: Completed
