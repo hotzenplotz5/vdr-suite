@@ -71,8 +71,7 @@ int main()
         RecordingActionRequest request;
         request.backendId = "living-room";
         request.recordingId = "recording-1";
-        request.type = RecordingActionType::Move;
-        request.target = "Archive";
+        request.type = RecordingActionType::Delete;
         request.dryRun = false;
 
         const RecordingActionBackendPolicy policy =
@@ -86,7 +85,7 @@ int main()
         assert(adapter->executed);
         assert(adapter->lastRecordingId == "recording-1");
         assert(adapter->lastBackendId == "living-room");
-        assert(adapter->lastType == RecordingActionType::Move);
+        assert(adapter->lastType == RecordingActionType::Delete);
     }
 
     {
@@ -95,8 +94,7 @@ int main()
         RecordingActionRequest request;
         request.backendId = "living-room";
         request.recordingId = "recording-2";
-        request.type = RecordingActionType::Move;
-        request.target = "Archive";
+        request.type = RecordingActionType::Delete;
         request.dryRun = true;
 
         const RecordingActionBackendPolicy policy =
@@ -115,7 +113,7 @@ int main()
         assert(result.errors.at(1) ==
                "recording action permission is denied");
         assert(result.errors.at(2) ==
-               "missing permission: recording.permission.move");
+               "missing permission: recording.permission.delete");
     }
 
     {
