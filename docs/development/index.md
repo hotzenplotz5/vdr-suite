@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 35.2 - Recording Action Validation Service
+Phase 35.3 - Recording Action Validation Controller
 ```
 
 Next implementation focus:
 
 ```text
-Phase 35.2 - Recording Action Validation Service
+Phase 35.3 - Recording Action Validation Controller
 ```
 
 Current architecture validation:

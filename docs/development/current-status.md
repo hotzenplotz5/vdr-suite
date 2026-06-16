@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 35.2 - Recording Action Validation Service
+Phase 35.3 - Recording Action Validation Controller
 ```
 
 Current major phase status:
@@ -70,7 +70,7 @@ Phase 29.1 exposes recording backend identity in recording query JSON responses.
 Phase 29.2 adds backend-aware recording query filtering through the recording query API.
 
 Next implementation focus:
-The next implementation step is Phase 35.2 - Recording Action Validation Service.
+The next implementation step is Phase 35.3 - Recording Action Validation Controller.
 ```
 
 Verified locally with:
@@ -254,7 +254,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 35.2 - Recording Action Validation Service
+Phase 35.3 - Recording Action Validation Controller
 ```
 
 The next step is to introduce recording action capability requirements before destructive operations are implemented.

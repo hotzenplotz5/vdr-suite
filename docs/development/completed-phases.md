@@ -26,6 +26,31 @@ Future planning belongs to:
 
 ---
 
+## Phase 35.3: Recording Action Validation Controller
+
+Status: Completed
+
+Summary:
+
+- Added `RecordingActionValidationController`.
+- Connected `RecordingActionValidationService` to REST response generation.
+- Connected `RecordingActionValidationResultJsonSerializer` to controller output.
+- Returns validation results as JSON `ApiResponse`.
+- Added controller-level validation test coverage.
+- Established the controller layer before router and endpoint integration.
+
+Verified with:
+
+- make test-recording-action-validation-controller
+- make test-recording-action-validation-service
+- make test-recording-action-validation-result-json-serializer
+
+Next:
+
+- Recording Action Validation Endpoint
+
+---
+
 ## Phase 35.2: Recording Action Validation Service
 
 Status: Completed
