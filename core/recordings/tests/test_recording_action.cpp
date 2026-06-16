@@ -425,6 +425,12 @@ int main()
             return "mock";
         }
 
+        RecordingActionCapabilitySet capabilities() const override
+        {
+            RecordingActionCapabilityContract contract;
+            return contract.restfulApiDefaultCapabilities();
+        }
+
         RecordingActionExecutionResult execute(
             const RecordingActionJobPayload& payload) override
         {
