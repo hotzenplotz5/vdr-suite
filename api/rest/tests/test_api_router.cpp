@@ -16,9 +16,13 @@
 #include "LiveTransportController.h"
 #include "MetadataController.h"
 #include "RecordingsController.h"
+#include "RecordingActionExecutionController.h"
 #include "RecordingActionValidationController.h"
 #include "RecordingActionValidationRequestParser.h"
+#include "RecordingActionExecutionResultJsonSerializer.h"
 #include "RecordingActionValidationResultJsonSerializer.h"
+#include "RecordingActionBackendExecutorAdapterRegistry.h"
+#include "RecordingActionExecutionService.h"
 #include "RecordingActionValidationService.h"
 #include "RuntimeDiagnosticsController.h"
 #include "SnapshotChangeFeedController.h"
@@ -57,6 +61,55 @@
 #include <cassert>
 #include <iostream>
 #include <string>
+
+
+namespace
+{
+class RouterRecordingActionBackendExecutorAdapter final
+    : public IRecordingActionBackendExecutorAdapter
+{
+public:
+    explicit RouterRecordingActionBackendExecutorAdapter(
+        std::string backendIdValue)
+        : backendIdValue_(backendIdValue)
+    {
+    }
+
+    std::string backendId() const override
+    {
+        return backendIdValue_;
+    }
+
+    std::string backendType() const override
+    {
+        return "router-test-backend";
+    }
+
+    RecordingActionExecutionResult execute(
+        const RecordingActionJobPayload& payload) override
+    {
+        RecordingActionExecutionResult result;
+        result.success = !payload.dryRun;
+        result.type = payload.type;
+        result.backendId = payload.backendId;
+        result.recordingId = payload.recordingId;
+
+        if (payload.dryRun)
+        {
+            result.message = "router dry-run execution skipped";
+        }
+        else
+        {
+            result.message = "router backend execution completed";
+        }
+
+        return result;
+    }
+
+private:
+    std::string backendIdValue_;
+};
+}
 
 static VdrSnapshot makeRouterSnapshot()
 {
@@ -278,6 +331,17 @@ int main()
         recordingActionValidationJsonSerializer,
         recordingActionValidationRequestParser);
 
+    RecordingActionExecutionService recordingActionExecutionService;
+    RecordingActionExecutionResultJsonSerializer recordingActionExecutionJsonSerializer;
+    RecordingActionBackendExecutorAdapterRegistry recordingActionBackendExecutorAdapterRegistry;
+    recordingActionBackendExecutorAdapterRegistry.registerAdapter(
+        std::make_shared<RouterRecordingActionBackendExecutorAdapter>("router-backend"));
+    RecordingActionExecutionController recordingActionExecutionController(
+        recordingActionExecutionService,
+        recordingActionExecutionJsonSerializer,
+        recordingActionBackendExecutorAdapterRegistry,
+        recordingActionValidationRequestParser);
+
     ApiRouter router(
         dashboardController,
         jobsController,
@@ -289,6 +353,7 @@ int main()
         backendRegistryController,
         capabilityController,
         recordingActionValidationController,
+        recordingActionExecutionController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);
@@ -451,6 +516,7 @@ int main()
         backendRegistryController,
         capabilityController,
         recordingActionValidationController,
+        recordingActionExecutionController,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);
@@ -741,6 +807,43 @@ int main()
     assert(vdrEventsResponse.body.find("\"contentDescriptors\":[\"movie/drama\",\"hd\"]")
            != std::string::npos);
     assert(vdrEventsResponse.body.find("\"parentalRating\":12")
+           != std::string::npos);
+
+
+    const std::string executeBody =
+        "{"
+        "\"backendId\":\"router-backend\","
+        "\"recordingId\":\"router-recording-1\","
+        "\"type\":\"delete\","
+        "\"dryRun\":true"
+        "}";
+
+    ApiResponse actionExecuteResponse =
+        router.handlePost(
+            "/api/recordings/actions/execute",
+            executeBody);
+
+    assert(actionExecuteResponse.statusCode == 200);
+    assert(actionExecuteResponse.contentType == "application/json");
+    assert(actionExecuteResponse.body.find("\"success\":false")
+           != std::string::npos);
+    assert(actionExecuteResponse.body.find("\"type\":\"DELETE\"")
+           != std::string::npos);
+    assert(actionExecuteResponse.body.find("\"backendId\":\"router-backend\"")
+           != std::string::npos);
+    assert(actionExecuteResponse.body.find("\"recordingId\":\"router-recording-1\"")
+           != std::string::npos);
+    assert(actionExecuteResponse.body.find("\"message\":\"router dry-run execution skipped\"")
+           != std::string::npos);
+
+    ApiResponse actionExecuteAliasResponse =
+        router.handlePost(
+            "/api/vdr/recordings/actions/execute",
+            executeBody);
+
+    assert(actionExecuteAliasResponse.statusCode == 200);
+    assert(actionExecuteAliasResponse.contentType == "application/json");
+    assert(actionExecuteAliasResponse.body.find("\"type\":\"DELETE\"")
            != std::string::npos);
 
     ApiResponse runtimeAliasResponse =

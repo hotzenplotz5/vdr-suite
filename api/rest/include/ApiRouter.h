@@ -11,6 +11,7 @@ class JobsController;
 class LiveTransportController;
 class MetadataController;
 class RecordingsController;
+class RecordingActionExecutionController;
 class RecordingActionValidationController;
 class RuntimeDiagnosticsController;
 class SnapshotChangeFeedController;
@@ -31,6 +32,7 @@ public:
         BackendRegistryController& backendRegistryController,
         CapabilityController& capabilityController,
         RecordingActionValidationController& recordingActionValidationController,
+        RecordingActionExecutionController& recordingActionExecutionController,
         RuntimeDiagnosticsController& runtimeDiagnosticsController,
         SnapshotChangeFeedController& snapshotChangeFeedController,
         LiveTransportController& liveTransportController);
@@ -53,6 +55,7 @@ private:
     BackendRegistryController& backendRegistryController_;
     CapabilityController& capabilityController_;
     RecordingActionValidationController& recordingActionValidationController_;
+    RecordingActionExecutionController& recordingActionExecutionController_;
     RuntimeDiagnosticsController& runtimeDiagnosticsController_;
     SnapshotChangeFeedController& snapshotChangeFeedController_;
     LiveTransportController& liveTransportController_;

@@ -7,6 +7,7 @@
 #include "LiveTransportController.h"
 #include "MetadataController.h"
 #include "RecordingsController.h"
+#include "RecordingActionExecutionController.h"
 #include "RecordingActionValidationController.h"
 #include "RestQueryParameters.h"
 #include "RuntimeDiagnosticsController.h"
@@ -96,6 +97,7 @@ ApiRouter::ApiRouter(
     BackendRegistryController& backendRegistryController,
     CapabilityController& capabilityController,
     RecordingActionValidationController& recordingActionValidationController,
+    RecordingActionExecutionController& recordingActionExecutionController,
     RuntimeDiagnosticsController& runtimeDiagnosticsController,
     SnapshotChangeFeedController& snapshotChangeFeedController,
     LiveTransportController& liveTransportController)
@@ -109,6 +111,7 @@ ApiRouter::ApiRouter(
       backendRegistryController_(backendRegistryController),
       capabilityController_(capabilityController),
       recordingActionValidationController_(recordingActionValidationController),
+      recordingActionExecutionController_(recordingActionExecutionController),
       runtimeDiagnosticsController_(runtimeDiagnosticsController),
       snapshotChangeFeedController_(snapshotChangeFeedController),
       liveTransportController_(liveTransportController)
@@ -129,6 +132,12 @@ ApiResponse ApiRouter::handlePost(
         path == "/api/vdr/recordings/actions/validate")
     {
         return recordingActionValidationController_.validateBody(body);
+    }
+
+    if (path == "/api/recordings/actions/execute" ||
+        path == "/api/vdr/recordings/actions/execute")
+    {
+        return recordingActionExecutionController_.executeBody(body);
     }
 
     ApiResponse response;
