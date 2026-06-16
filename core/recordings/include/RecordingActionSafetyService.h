@@ -15,8 +15,6 @@ struct RecordingActionSafetyContext
     bool capabilityAvailable = true;
     bool recordingInUse = false;
     bool actionSupported = true;
-private:
-    RecordingActionCapabilityContract capabilityContract_;
 };
 
 class RecordingActionSafetyService
@@ -106,4 +104,7 @@ public:
 
         return result;
     }
+
+private:
+    RecordingActionCapabilityContract capabilityContract_;
 };
