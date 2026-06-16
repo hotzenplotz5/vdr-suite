@@ -6,11 +6,19 @@
 #include "RecordingActionExecutionResult.h"
 #include "RecordingActionJobPayloadFactory.h"
 #include "RecordingActionRequest.h"
+#include "RecordingActionSafetyService.h"
 #include "RecordingActionValidationService.h"
 
 class RecordingActionExecutionService
 {
 public:
+    RecordingActionSafetyResult evaluateSafety(
+        RecordingActionType action,
+        const RecordingActionSafetyContext& context) const
+    {
+        return safetyService_.evaluate(action, context);
+    }
+
     RecordingActionExecutionResult execute(
         const RecordingActionRequest& request,
         IRecordingActionExecutor& executor) const
@@ -123,6 +131,7 @@ private:
         }
     }
 
+    RecordingActionSafetyService safetyService_;
     RecordingActionValidationService validationService_;
     RecordingActionJobPayloadFactory payloadFactory_;
     RecordingActionBackendExecutorAdapterDispatchService backendDispatchService_;
