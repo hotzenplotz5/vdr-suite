@@ -1,6 +1,8 @@
 #pragma once
 
 #include "IRecordingActionExecutor.h"
+#include "RecordingActionBackendExecutorAdapterDispatchService.h"
+#include "RecordingActionBackendExecutorAdapterRegistry.h"
 #include "RecordingActionExecutionResult.h"
 #include "RecordingActionJobPayloadFactory.h"
 #include "RecordingActionRequest.h"
@@ -18,13 +20,7 @@ public:
 
         if (!validation.valid)
         {
-            return RecordingActionExecutionResult::failed(
-                request.type,
-                request.recordingId,
-                request.backendId,
-                "recording action validation failed",
-                validation.errors
-            );
+            return validationFailure(request, validation);
         }
 
         const RecordingActionJobPayload payload =
@@ -33,6 +29,90 @@ public:
         RecordingActionExecutionResult result =
             executor.execute(payload);
 
+        appendValidationWarnings(result, validation);
+
+        return result;
+    }
+
+    RecordingActionExecutionResult execute(
+        const RecordingActionRequest& request,
+        const RecordingActionBackendExecutorAdapterRegistry& registry) const
+    {
+        const RecordingActionValidationResult validation =
+            validationService_.validate(request);
+
+        if (!validation.valid)
+        {
+            return validationFailure(request, validation);
+        }
+
+        const RecordingActionJobPayload payload =
+            payloadFactory_.create(request, validation);
+
+        const RecordingActionBackendExecutorAdapterLookupResult resolvedAdapter =
+            registry.findAdapter(payload.backendId);
+
+        if (!resolvedAdapter.found || !resolvedAdapter.adapter)
+        {
+            RecordingActionExecutionResult result =
+                RecordingActionExecutionResult::failed(
+                    payload.type,
+                    payload.recordingId,
+                    payload.backendId,
+                    resolvedAdapter.message,
+                    {resolvedAdapter.message}
+                );
+
+            appendValidationWarnings(result, validation);
+
+            return result;
+        }
+
+        const RecordingActionDispatchResult dispatchResult =
+            backendDispatchService_.dispatch(resolvedAdapter, payload);
+
+        if (!dispatchResult.dispatched)
+        {
+            RecordingActionExecutionResult result =
+                RecordingActionExecutionResult::failed(
+                    payload.type,
+                    payload.recordingId,
+                    payload.backendId,
+                    dispatchResult.reason,
+                    {dispatchResult.reason}
+                );
+
+            appendValidationWarnings(result, validation);
+
+            return result;
+        }
+
+        RecordingActionExecutionResult result =
+            dispatchResult.executionResult;
+
+        appendValidationWarnings(result, validation);
+
+        return result;
+    }
+
+private:
+    static RecordingActionExecutionResult validationFailure(
+        const RecordingActionRequest& request,
+        const RecordingActionValidationResult& validation)
+    {
+        return RecordingActionExecutionResult::failed(
+            request.type,
+            request.recordingId,
+            request.backendId,
+            "recording action validation failed",
+            validation.errors
+        );
+    }
+
+    static void appendValidationWarnings(
+        RecordingActionExecutionResult& result,
+        const RecordingActionValidationResult& validation)
+    {
         if (!validation.warnings.empty())
         {
             result.warnings.insert(
@@ -41,11 +121,9 @@ public:
                 validation.warnings.end()
             );
         }
-
-        return result;
     }
 
-private:
     RecordingActionValidationService validationService_;
     RecordingActionJobPayloadFactory payloadFactory_;
+    RecordingActionBackendExecutorAdapterDispatchService backendDispatchService_;
 };
