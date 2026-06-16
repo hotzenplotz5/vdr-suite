@@ -70,6 +70,8 @@ test-recording-action-validation-request-parser:
 test-recording-action-execution-controller-safety-preview:
 	$(CXX) $(CXXFLAGS) \
 		$(ACTIONS_SRC) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
 		core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
 		core/http/src/MockHttpClient.cpp \
 		api/rest/src/RecordingActionExecutionController.cpp \

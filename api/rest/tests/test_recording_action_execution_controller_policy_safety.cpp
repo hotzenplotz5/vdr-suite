@@ -39,11 +39,13 @@ public:
     RecordingActionExecutionResult execute(
         const RecordingActionJobPayload& payload) override
     {
-        return RecordingActionExecutionResult::completed(
-            payload.type,
-            payload.recordingId,
-            payload.backendId,
-            "noop");
+        RecordingActionExecutionResult result;
+        result.type = payload.type;
+        result.recordingId = payload.recordingId;
+        result.backendId = payload.backendId;
+        result.status = RecordingActionExecutionStatus::Accepted;
+        result.message = "noop";
+        return result;
     }
 
 private:
