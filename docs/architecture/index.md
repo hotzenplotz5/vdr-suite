@@ -32,8 +32,10 @@ Long-term decisions belong in ADRs.
 - [VDR Backends](vdr-backends.md)
 - [VDR Domain Model](vdr-domain-model.md)
 - [RESTfulAPI Integration](restfulapi-integration.md)
-- [External Project Analysis](external-project-analysis.md)- [Recording Actions Architecture](recording-actions-architecture.md)
+- [External Project Analysis](external-project-analysis.md)
+- [Recording Actions Architecture](recording-actions-architecture.md)
 - [Recording Action Validation API](recording-action-validation-api.md)
+- [Recording Action Execution API](recording-action-execution-api.md)
 
 
 ---
