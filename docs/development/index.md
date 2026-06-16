@@ -41,7 +41,7 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 34.5 - Recording Name Normalization
+Phase 35.0 - Recording Identity Data Exposure
 ```
 
 Next implementation focus:

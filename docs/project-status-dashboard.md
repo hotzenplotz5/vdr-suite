@@ -69,7 +69,7 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 34.5 - Recording Name Normalization
+Phase 35.0 - Recording Name Normalization
 ```
 
 Current Focus:

@@ -50,7 +50,7 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 34.5 - Recording Name Normalization
+Phase 35.0 - Recording Identity Data Exposure
 
 Current cleanup
 Documentation synchronization after Phase 29.2

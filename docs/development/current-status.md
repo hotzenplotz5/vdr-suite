@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 34.5 - Recording Name Normalization
+Phase 35.0 - Recording Identity Data Exposure
 ```
 
 Current major phase status:
@@ -97,6 +97,7 @@ Verification summary:
 - real runtime observation reported 342 channels, 973 recordings and a latest recording payload from the real VDR
 - real startup measurement showed `/recordings.json` as the dominant startup domain with about 4.3 MB transferred and about 1.8 seconds snapshot build time
 - recording query API supports title, path, start time, duration, sorting and paging
+- recording query JSON exposes explicit `recordingId` and `recordingPath` aliases for future recording actions
 - documentation phase consistency remains green
 - daemon build remains green
 - GitHub Actions remains the standard full regression path for normal non-VDR-specific changes

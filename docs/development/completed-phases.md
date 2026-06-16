@@ -26,6 +26,30 @@ Future planning belongs to:
 
 ---
 
+## Phase 35.0: Recording Identity Data Exposure
+
+Status: Completed
+
+Summary:
+
+- Exposed explicit `recordingId` in recording query JSON responses.
+- Exposed explicit `recordingPath` in recording query JSON responses.
+- Kept existing `id` and `path` fields for backwards compatibility.
+- Mapped `recordingId` to the backend-owned recording `id`.
+- Mapped `recordingPath` to the backend-owned recording `path`.
+- Prepared the REST API contract for future recording action validation without introducing mutation behavior.
+
+Verified with:
+
+- make test-vdr-recording-query-result-json-serializer
+- make test
+
+Next:
+
+- Recording Action Validation API
+
+---
+
 ## Phase 34.5: Recording Name Normalization
 
 Status: Completed
