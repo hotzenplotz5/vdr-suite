@@ -94,7 +94,7 @@ int main()
     {
         const ApiResponse response =
             controller.executeBody(
-                "{\"type\":\"DELETE\","
+                "{\"action\":\"DELETE\","
                 "\"recordingId\":\"recording-1\","
                 "\"backendId\":\"living-room\","
                 "\"dryRun\":false}");
@@ -111,7 +111,7 @@ int main()
 
         const ApiResponse response =
             controller.executeBody(
-                "{\"type\":\"DELETE\","
+                "{\"action\":\"DELETE\","
                 "\"recordingId\":\"recording-2\","
                 "\"backendId\":\"remote-house\","
                 "\"dryRun\":false}");
