@@ -189,6 +189,52 @@ Safety answers: may this request execute now?
 
 ---
 
+## Policy-Gated Execution
+
+Recording action execution now uses the same backend policy chain as safety preview.
+
+The shared chain is:
+
+1. `BackendRegistry`
+2. `RecordingActionBackendPolicyProvider`
+3. `RecordingActionBackendPolicyMapper`
+4. `RecordingActionBackendPolicy`
+5. `RecordingActionExecutionService::evaluateSafety(request, policy)`
+6. `RecordingActionExecutionService::execute(request, registry, policy)`
+
+This means the following paths must remain behaviorally aligned:
+
+| Path | Requirement |
+| --- | --- |
+| `RecordingActionExecutionController::safety()` | Returns policy-derived safety JSON. |
+| `RecordingActionExecutionController::execute()` | Blocks execution when policy safety is not executable. |
+| `RecordingActionExecutionController::executeBody()` | Parses the body and then uses the same policy-gated execute path. |
+
+No controller entry point may bypass backend policy evaluation when a backend registry is available.
+
+The legacy registry-only execution path remains available for tests and non-policy callers, but real backend mutation should use the policy-aware controller construction.
+
+---
+
+## Execute Body Contract
+
+`executeBody()` delegates to `RecordingActionValidationRequestParser`.
+
+The request body uses domain-level fields:
+
+| JSON field | Meaning |
+| --- | --- |
+| `action` | Recording action name, for example `DELETE`. |
+| `recordingId` | VDR-Suite recording identifier. |
+| `backendId` | Backend selected for the action. |
+| `dryRun` | Whether the request is a dry-run. |
+
+`executeBody()` must not interpret `type` as the action field.
+
+This keeps body parsing aligned with the validation request parser and avoids transport-specific naming drift.
+
+---
+
 ## API Exposure
 
 The model is prepared for later HTTP API exposure.
