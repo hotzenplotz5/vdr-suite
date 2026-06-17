@@ -1,1 +1,158 @@
-# VDR-Suite\n\n[![VDR-Suite CI](https://github.com/hotzenplotz5/vdr-suite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hotzenplotz5/vdr-suite/actions/workflows/ci.yml)\n\n## Project Overview\n\n- German: [Projektübersicht](docs/project-overview.de.md)\n- English: [Project Overview](docs/project-overview.en.md)\n\n## Quick Links\n\n- [Project Status Dashboard](docs/project-status-dashboard.md)\n- [Current Project Status](docs/development/current-status.md)\n- [Developer Documentation](docs/development/index.md)\n- [Developer Onboarding](docs/development/developer-onboarding.md)\n- [Architecture Map](docs/development/architecture-map.md)\n- [Roadmap](docs/planning/roadmap.md)\n- [Architecture](docs/architecture/index.md)\n- [ADR](docs/adr/index.md)\n\n---\n\n## Current Release State\n\n```text\nBackend Foundation        ████████████ 100%\nSnapshot Runtime          ████████████ 100%\nRead API                  ████████████ 100%\nChange Feed               ████████████ 100%\nBackend Registry          ████████████ 100%\nBackend-Aware Snapshots   ████████████ 100%\nMulti-Backend Routing     ████████████ 100%\nMulti-Backend Polling     ████████████ 100%\nMulti-Backend Read API    ████████████ 100%\nCI Foundation             ████████████ 100%\nLive Transport            ████████████ 100%\nSelective Event Queries   ████████████ 100%\nHeavy Domain Policy       ████████████ 100%\nEPG REST API Boundary     ████████████ 100%\nEvent-Free Initial Poll   ████████████ 100%\nEPG Decoupling Validation ████████████ 100%\nEPG JSON Escaping        ████████████ 100%\nBackend Optional Runtime  ████████████ 100%\n```\n\nLatest Completed Implementation Phase: Phase 43.1 - Recording Action Execution Result JSON Serializer\n\nCurrent Implementation Focus: Phase 36.0 - Recording Action Execution Result JSON Serializer\n\nRoadmap Progress: see [Roadmap](docs/planning/roadmap.md)\n\n---\n\nVDR-Suite modernizes the Video Disk Recorder ecosystem with a backend service layer, daemon-owned state, snapshot architecture, REST APIs, backend registry foundations and future frontend integrations.\n\nVDR remains the primary backend domain and source of truth.\n\nVDR-Suite complements VDR. It does not replace it.\n\n---\n\n## Architecture Highlight\n\nADR-0021 defines a core runtime rule:\n\n```text\nPrefer selective backend queries\nbefore full-domain transfers.\n```\n\nThe performance target is backend workload comparable to established VDR frontends such as `live` when equivalent user-visible information is requested.\n\n---\n\n## Start Here\n\nNew to VDR-Suite?\n\nRead these documents first:\n\n1. [Project Status Dashboard](docs/project-status-dashboard.md)\n2. [Project Overview](docs/project-overview.md)\n3. [Documentation Index](docs/index.md)\n4. [Developer Documentation](docs/development/index.md)\n5. [Developer Onboarding](docs/development/developer-onboarding.md)\n6. [Architecture Map](docs/development/architecture-map.md)\n7. [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)\n8. [Current Project Status](docs/development/current-status.md)\n9. [Roadmap](docs/planning/roadmap.md)\n10. [Architecture Index](docs/architecture/index.md)\n11. [ADR Index](docs/adr/index.md)\n12. [ADR-0021 Selective Backend Query Strategy](docs/adr/ADR-0021-selective-backend-query-strategy.md)\n\n---\n\n## Documentation Navigation Rule\n\nThe README is the repository entry point.\n\nEvery documentation page should provide navigation back to:\n\n- [README](README.md)\n- [Documentation Index](docs/index.md)\n- [Project Overview](docs/project-overview.md)\n- the local section index when applicable\n\nThis prevents documentation dead ends and keeps the documentation usable from GitHub, editors and local checkouts.\n\n---\n\n## Current Architecture State\n\n```text\n✓ Snapshot Architecture\n✓ Snapshot Cache\n✓ Snapshot Access Layer\n✓ Snapshot Read APIs\n✓ Snapshot Change Feed\n✓ Runtime Diagnostics\n✓ VDR Health API\n✓ VDR Snapshot Summary API\n✓ VDR Capability API\n✓ Capability Resolver Foundation\n✓ Backend Registry Foundation\n✓ Backend Registry API\n✓ Backend-Aware Snapshot Access\n✓ Backend-Aware VDR Controller Methods\n✓ Multi-Snapshot Cache Foundation\n✓ Backend-Aware Snapshot Builder\n✓ Backend-Aware Polling Service\n✓ Backend Polling Coordinator\n✓ Backend Runtime Context\n✓ Daemon Runtime Context Collection\n✓ Registry-driven Backend Runtime Context Creation\n✓ Backend-aware Snapshot Change Feed\n✓ Multi-Backend Snapshot Read Foundation\n✓ Multi-Backend Snapshot Summary Serialization\n✓ Multi-Backend Snapshots REST Endpoint\n✓ Multi-Backend Snapshots REST Route Test\n✓ GitHub Actions CI\n✓ Selective Event Query Contract\n✓ Heavy Domain Refresh Policy\n✓ EPG REST API Boundary\n✓ Live EPG REST API Verification\n✓ Event-Free Initial Snapshot\n✓ EPG Snapshot Decoupling Validation\n✓ EPG JSON Escaping\n✓ Backend Optional Runtime\n```\n\nCurrent architecture focus:\n\n```text\nPhase 29.0 - Multi-Backend Recording Identity Foundation\nEvaluate selective recording query boundaries\nKeep VDR as source of truth for recordings\nKeep VDR-Suite metadata complementary\n```\n\n
+# VDR-Suite
+
+[![VDR-Suite CI](https://github.com/hotzenplotz5/vdr-suite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hotzenplotz5/vdr-suite/actions/workflows/ci.yml)
+
+## Project Overview
+
+- German: [Projektübersicht](docs/project-overview.de.md)
+- English: [Project Overview](docs/project-overview.en.md)
+
+## Quick Links
+
+- [Project Status Dashboard](docs/project-status-dashboard.md)
+- [Current Project Status](docs/development/current-status.md)
+- [Developer Documentation](docs/development/index.md)
+- [Developer Onboarding](docs/development/developer-onboarding.md)
+- [Architecture Map](docs/development/architecture-map.md)
+- [Roadmap](docs/planning/roadmap.md)
+- [Architecture](docs/architecture/index.md)
+- [ADR](docs/adr/index.md)
+
+---
+
+## Current Release State
+
+```text
+Backend Foundation        ████████████ 100%
+Snapshot Runtime          ████████████ 100%
+Read API                  ████████████ 100%
+Change Feed               ████████████ 100%
+Backend Registry          ████████████ 100%
+Backend-Aware Snapshots   ████████████ 100%
+Multi-Backend Routing     ████████████ 100%
+Multi-Backend Polling     ████████████ 100%
+Multi-Backend Read API    ████████████ 100%
+CI Foundation             ████████████ 100%
+Live Transport            ████████████ 100%
+Selective Event Queries   ████████████ 100%
+Heavy Domain Policy       ████████████ 100%
+EPG REST API Boundary     ████████████ 100%
+Event-Free Initial Poll   ████████████ 100%
+EPG Decoupling Validation ████████████ 100%
+EPG JSON Escaping        ████████████ 100%
+Backend Optional Runtime  ████████████ 100%
+```
+
+Latest Completed Implementation Phase: Phase 36.0 - Recording Action Execution Result JSON Serializer
+
+Current Implementation Focus: Phase 36.0 - Recording Action Execution Result JSON Serializer
+
+Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
+
+---
+
+VDR-Suite modernizes the Video Disk Recorder ecosystem with a backend service layer, daemon-owned state, snapshot architecture, REST APIs, backend registry foundations and future frontend integrations.
+
+VDR remains the primary backend domain and source of truth.
+
+VDR-Suite complements VDR. It does not replace it.
+
+---
+
+## Architecture Highlight
+
+ADR-0021 defines a core runtime rule:
+
+```text
+Prefer selective backend queries
+before full-domain transfers.
+```
+
+The performance target is backend workload comparable to established VDR frontends such as `live` when equivalent user-visible information is requested.
+
+---
+
+## Start Here
+
+New to VDR-Suite?
+
+Read these documents first:
+
+1. [Project Status Dashboard](docs/project-status-dashboard.md)
+2. [Project Overview](docs/project-overview.md)
+3. [Documentation Index](docs/index.md)
+4. [Developer Documentation](docs/development/index.md)
+5. [Developer Onboarding](docs/development/developer-onboarding.md)
+6. [Architecture Map](docs/development/architecture-map.md)
+7. [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
+8. [Current Project Status](docs/development/current-status.md)
+9. [Roadmap](docs/planning/roadmap.md)
+10. [Architecture Index](docs/architecture/index.md)
+11. [ADR Index](docs/adr/index.md)
+12. [ADR-0021 Selective Backend Query Strategy](docs/adr/ADR-0021-selective-backend-query-strategy.md)
+
+---
+
+## Documentation Navigation Rule
+
+The README is the repository entry point.
+
+Every documentation page should provide navigation back to:
+
+- [README](README.md)
+- [Documentation Index](docs/index.md)
+- [Project Overview](docs/project-overview.md)
+- the local section index when applicable
+
+This prevents documentation dead ends and keeps the documentation usable from GitHub, editors and local checkouts.
+
+---
+
+## Current Architecture State
+
+```text
+✓ Snapshot Architecture
+✓ Snapshot Cache
+✓ Snapshot Access Layer
+✓ Snapshot Read APIs
+✓ Snapshot Change Feed
+✓ Runtime Diagnostics
+✓ VDR Health API
+✓ VDR Snapshot Summary API
+✓ VDR Capability API
+✓ Capability Resolver Foundation
+✓ Backend Registry Foundation
+✓ Backend Registry API
+✓ Backend-Aware Snapshot Access
+✓ Backend-Aware VDR Controller Methods
+✓ Multi-Snapshot Cache Foundation
+✓ Backend-Aware Snapshot Builder
+✓ Backend-Aware Polling Service
+✓ Backend Polling Coordinator
+✓ Backend Runtime Context
+✓ Daemon Runtime Context Collection
+✓ Registry-driven Backend Runtime Context Creation
+✓ Backend-aware Snapshot Change Feed
+✓ Multi-Backend Snapshot Read Foundation
+✓ Multi-Backend Snapshot Summary Serialization
+✓ Multi-Backend Snapshots REST Endpoint
+✓ Multi-Backend Snapshots REST Route Test
+✓ GitHub Actions CI
+✓ Selective Event Query Contract
+✓ Heavy Domain Refresh Policy
+✓ EPG REST API Boundary
+✓ Live EPG REST API Verification
+✓ Event-Free Initial Snapshot
+✓ EPG Snapshot Decoupling Validation
+✓ EPG JSON Escaping
+✓ Backend Optional Runtime
+```
+
+Current architecture focus:
+
+```text
+Phase 29.0 - Multi-Backend Recording Identity Foundation
+Evaluate selective recording query boundaries
+Keep VDR as source of truth for recordings
+Keep VDR-Suite metadata complementary
+```

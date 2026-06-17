@@ -1073,4 +1073,5 @@ Recording query behavior is now a backend-neutral API layer. Backend-specific re
 
 Follow-up:
 
-The next implementation step should define multi-backend recording identity before adding `backend=` query filters.\n## Phase 43.0 - Real RESTfulAPI recording move verified\n\nStatus: Completed.\n\nSummary:\n- Verified the guarded real RESTfulAPI move smoke helper against a live yaVDR backend.\n- Confirmed preview-only mode builds `POST /recordings/move.json` with `source`, `target`, and `copy_only`.\n- Confirmed the live RESTfulAPI move endpoint rejects invalid sources with `504 Path is invalid!`.\n- Executed a real move of the Tagesschau test recording from `Oskar~Tagesschau` to `SmokeTest~Tagesschau`.\n- Verified the moved recording via `/recordings.json` at `/srv/vdr/video/SmokeTest/Tagesschau/2026-06-15.19.58.1-0.rec`.\n\nNext phase: Phase 43.1 - Document and harden real RESTfulAPI move verification workflow.\n\n
+The next implementation step should define multi-backend recording identity before adding `backend=` query filters.
+
