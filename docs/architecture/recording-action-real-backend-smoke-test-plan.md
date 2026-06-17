@@ -198,6 +198,35 @@ This verifies that a real-client recording action path can be configured against
 
 ---
 
+## RESTfulAPI Action Dry-Run Safety Gap
+
+The current RESTfulAPI recording action executor treats `dryRun=true` as an execution policy gate.
+
+This means:
+
+- `dryRun=true` may pass `allowExecution=false`
+- `readOnly=false` may allow request construction
+- the executor may still dispatch an HTTP request to RESTfulAPI
+
+Therefore `dryRun=true` is not a guaranteed non-mutating transport mode.
+
+Real-backend action tests must not rely on `dryRun=true` alone.
+
+Before any real mutation-adjacent RESTfulAPI action request is sent, VDR-Suite needs a preview-only transport path that can build and inspect the `HttpRequest` without calling `IHttpClient::execute()`.
+
+Required next architecture step:
+
+| Need | Reason |
+| --- | --- |
+| Build action `HttpRequest` | verify URL, headers and body |
+| Do not send action request | avoid accidental mutation |
+| Keep read-only gate | protect real backend |
+| Keep allowExecution default false | mutation must remain opt-in |
+
+This gap blocks real delete, move and rename smoke tests until a preview-only transport path exists.
+
+---
+
 ## Transition to Phase 40.1
 
 Phase 40.1 may add an executable local smoke-test helper.
