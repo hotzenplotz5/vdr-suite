@@ -33,7 +33,7 @@ int main()
 
     const ApiResponse response =
         controller.previewBody(
-            "{\"action\":\"move\","
+            "{\"action\":\"MOVE\","
             "\"backendId\":\"local-vdr\","
             "\"recordingId\":\"Tagesschau/2026-06-17.20.00.10-0.rec\","
             "\"recordingPath\":\"Tagesschau/2026-06-17.20.00.10-0.rec\","
