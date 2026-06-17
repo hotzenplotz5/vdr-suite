@@ -262,6 +262,8 @@ test-restfulapi-recording-action-mapping-contract:
 test-recording-action-execution-controller:
 	$(CXX) $(CXXFLAGS) \
 		$(ACTIONS_SRC) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
 		api/rest/src/RecordingActionExecutionController.cpp \
 		core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
 		api/rest/tests/test_recording_action_execution_controller.cpp \
