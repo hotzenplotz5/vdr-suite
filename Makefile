@@ -10,6 +10,13 @@ include mk/daemon-sources.mk
 include mk/local-test-groups.mk
 
 
+restfulapi-connectivity-smoke:
+	$(CXX) $(CXXFLAGS) \
+		core/http/src/BasicHttpClient.cpp \
+		apps/tools/restfulapi_connectivity_smoke.cpp \
+		-o /tmp/restfulapi_connectivity_smoke
+	/tmp/restfulapi_connectivity_smoke
+
 dashboard-cli: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
