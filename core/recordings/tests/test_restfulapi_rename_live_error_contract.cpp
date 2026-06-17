@@ -52,6 +52,7 @@ int main()
     assert(result.recordingId == "__vdr_suite_nonexistent_source__.rec");
     assert(result.message == "RESTfulAPI recording action request failed");
     assert(result.errors.size() == 1);
+    assert(result.errors[0].find("504") != std::string::npos);
 
     return 0;
 }
