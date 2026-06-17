@@ -69,7 +69,6 @@ RecordingActionBackendPolicy makeBlockedPolicy()
 
     RecordingActionBackendPolicy policy;
     policy.backendId = "local-vdr";
-    policy.backendType = "restfulapi";
     policy.backendAvailable = true;
     policy.readOnly = true;
     policy.executionAllowed = false;
