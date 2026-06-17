@@ -133,6 +133,39 @@ Expected result shape:
 
 ---
 
+## Verified Real RESTfulAPI Read Endpoint Result
+
+A manual smoke test against the local yaVDR RESTfulAPI backend verified that the service is reachable through `BasicHttpClient`.
+
+Observed local endpoint behavior:
+
+| Path | Result |
+| --- | --- |
+| `/api/recordings.json` | HTTP 404 |
+| `/api/channels.json` | HTTP 404 |
+| `/api/timers.json` | HTTP 404 |
+| `/api/events.json` | HTTP 404 |
+| `/recordings.json` | HTTP 200 |
+| `/channels.json` | HTTP 200 |
+| `/timers.json` | HTTP 200 |
+| `/events.json` | HTTP 200 |
+
+Therefore the real local RESTfulAPI backend uses an empty base path.
+
+Required real-backend config for this yaVDR system:
+
+| Field | Value |
+| --- | --- |
+| host | `127.0.0.1` |
+| port | `8002` |
+| basePath | empty string |
+| readOnly | `true` for first mutation-adjacent tests |
+| allowExecution | `false` for first mutation-adjacent tests |
+
+This result is also covered by the empty-base-path request-builder contract.
+
+---
+
 ## Transition to Phase 40.1
 
 Phase 40.1 may add an executable local smoke-test helper.
