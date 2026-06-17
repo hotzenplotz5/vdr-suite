@@ -38,6 +38,7 @@ Long-term decisions belong in ADRs.
 - [Recording Action Execution API](recording-action-execution-api.md)
 - [Recording Action Safety and Capability Model](recording-action-safety-capability-model.md)
 - [Recording Action Source Constraints](recording-action-source-constraints.md)
+- [Recording Action Real Backend Smoke Test Plan](recording-action-real-backend-smoke-test-plan.md)
 
 
 ---
