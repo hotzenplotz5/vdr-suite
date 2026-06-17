@@ -307,6 +307,15 @@ test-recording-action-request-preview-service:
 		-o /tmp/test_recording_action_request_preview_service
 	/tmp/test_recording_action_request_preview_service
 
+test-restfulapi-rename-live-error-contract:
+	$(CXX) $(CXXFLAGS) \
+		$(ACTIONS_SRC) \
+		core/http/src/BasicHttpClient.cpp \
+		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
+		core/recordings/tests/test_restfulapi_rename_live_error_contract.cpp \
+		-o /tmp/test_restfulapi_rename_live_error_contract
+	/tmp/test_restfulapi_rename_live_error_contract
+
 test-restfulapi-delete-live-error-contract:
 	$(CXX) $(CXXFLAGS) \
 		$(ACTIONS_SRC) \
