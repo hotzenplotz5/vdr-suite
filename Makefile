@@ -268,6 +268,7 @@ test-real-client-readonly-recording-action-executor-gate:
 
 test-recording-action-request-preview-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
+		core/recordings/src/RecordingActionUtils.cpp \
 		core/recordings/src/RecordingActionRequestPreviewResultJsonSerializer.cpp \
 		core/recordings/tests/test_recording_action_request_preview_result_json_serializer.cpp \
 		-o /tmp/test_recording_action_request_preview_result_json_serializer
