@@ -128,6 +128,15 @@ test-restfulapi-recording-action-executor-capabilities:
 		-o /tmp/test_restfulapi_recording_action_executor_capabilities
 	/tmp/test_restfulapi_recording_action_executor_capabilities
 
+test-restfulapi-executor-preserves-http-error-status:
+	$(CXX) $(CXXFLAGS) \
+		$(ACTIONS_SRC) \
+		core/http/src/MockHttpClient.cpp \
+		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
+		core/recordings/tests/test_restfulapi_executor_preserves_http_error_status.cpp \
+		-o /tmp/test_restfulapi_executor_preserves_http_error_status
+	/tmp/test_restfulapi_executor_preserves_http_error_status
+
 test-recording-action-execution-service-capability-safety:
 	$(CXX) $(CXXFLAGS) \
 		$(ACTIONS_SRC) \

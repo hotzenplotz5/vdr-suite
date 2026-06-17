@@ -1,5 +1,7 @@
 #include "RestfulApiRecordingActionExecutor.h"
 
+#include <string>
+
 RestfulApiRecordingActionExecutor::RestfulApiRecordingActionExecutor(
     std::string backendId,
     std::string backendType,
@@ -75,12 +77,18 @@ RecordingActionExecutionResult RestfulApiRecordingActionExecutor::executeBuiltRe
             "RESTfulAPI recording action request executed");
     }
 
+    std::string error =
+        "RESTfulAPI returned HTTP status " + std::to_string(response.statusCode);
+
+    if (!response.body.empty())
+    {
+        error += ": " + response.body;
+    }
+
     return RecordingActionExecutionResult::failed(
         payload.type,
         payload.recordingId,
         payload.backendId,
         "RESTfulAPI recording action request failed",
-        {response.body.empty()
-            ? "RESTfulAPI returned non-success status"
-            : response.body});
+        {error});
 }
