@@ -166,6 +166,38 @@ This result is also covered by the empty-base-path request-builder contract.
 
 ---
 
+## Verified Real-Client Read-Only Execution Gate
+
+A mutation-adjacent executor test now instantiates the real RESTfulAPI executor with the real `BasicHttpClient`.
+
+The test configuration uses:
+
+| Field | Value |
+| --- | --- |
+| backendId | `local-vdr` |
+| host | `127.0.0.1` |
+| port | `8002` |
+| basePath | empty string |
+| readOnly | `true` |
+| allowExecution | `false` |
+
+The requested action is a delete request, but the safety policy blocks execution before the backend adapter can dispatch an HTTP request.
+
+Expected blocking result:
+
+    {
+      "success": false,
+      "message": "recording action execution blocked by safety policy",
+      "errors": [
+        "recording action execution is blocked by read-only backend config",
+        "missing permission: recording.permission.delete"
+      ]
+    }
+
+This verifies that a real-client recording action path can be configured against the local RESTfulAPI backend without risking mutation.
+
+---
+
 ## Transition to Phase 40.1
 
 Phase 40.1 may add an executable local smoke-test helper.
