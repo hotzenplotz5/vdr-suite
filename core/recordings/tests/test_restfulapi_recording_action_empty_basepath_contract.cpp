@@ -55,7 +55,7 @@ int main()
         assert(request.method == "POST");
         assert(request.url == "/recordings/delete.json");
         assert(request.url.find("/api/") == std::string::npos);
-        assert(request.body.find(""file"") != std::string::npos);
+        assert(request.body.find("\"file\"") != std::string::npos);
     }
 
     {
@@ -65,8 +65,8 @@ int main()
         assert(request.method == "POST");
         assert(request.url == "/recordings/move.json");
         assert(request.url.find("/api/") == std::string::npos);
-        assert(request.body.find(""source"") != std::string::npos);
-        assert(request.body.find(""target":"Archive~Mystery"") != std::string::npos);
+        assert(request.body.find("\"source\"") != std::string::npos);
+        assert(request.body.find("\"target\":\"Archive~Mystery\"") != std::string::npos);
     }
 
     return 0;
