@@ -1,19 +1,30 @@
 #pragma once
 
-#include "BasicHttpClientConfig.h"
 #include "IHttpClient.h"
+#include "IRuntimeLogger.h"
+#include "IRuntimeMeasurementSink.h"
+#include "RuntimeLogEntry.h"
+#include "RuntimeLogLevel.h"
+#include "RuntimeMeasurement.h"
 
-class BasicHttpClient final : public IHttpClient
-{
+#include <string>
+
+class BasicHttpClient : public IHttpClient {
 public:
-    explicit BasicHttpClient(
-        BasicHttpClientConfig config);
+    BasicHttpClient(
+        std::string host,
+        int port,
+        IRuntimeLogger* logger = nullptr,
+        IRuntimeMeasurementSink* measurementSink = nullptr);
 
-    const BasicHttpClientConfig& config() const;
-
-    HttpResponse execute(
-        const HttpRequest& request) const override;
+    HttpResponse execute(const HttpRequest& request) const override;
 
 private:
-    BasicHttpClientConfig config_;
+    std::string host_;
+    int port_;
+    IRuntimeLogger* logger_;
+    IRuntimeMeasurementSink* measurementSink_;
+
+    void log(RuntimeLogLevel level, const std::string& message) const;
+    void recordMeasurement(const RuntimeMeasurement& measurement) const;
 };
