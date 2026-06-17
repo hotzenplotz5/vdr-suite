@@ -10,6 +10,15 @@ include mk/daemon-sources.mk
 include mk/local-test-groups.mk
 
 
+restfulapi-real-delete-smoke-helper:
+	$(CXX) $(CXXFLAGS) \
+		$(ACTIONS_SRC) \
+		core/http/src/BasicHttpClient.cpp \
+		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
+		apps/tools/restfulapi_recording_action_real_delete_smoke.cpp \
+		-o /tmp/restfulapi_recording_action_real_delete_smoke
+	/tmp/restfulapi_recording_action_real_delete_smoke --help
+
 restfulapi-real-move-smoke-helper:
 	$(CXX) $(CXXFLAGS) \
 		$(ACTIONS_SRC) \
