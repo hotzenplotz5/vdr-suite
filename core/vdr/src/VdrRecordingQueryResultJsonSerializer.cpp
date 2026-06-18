@@ -35,6 +35,7 @@ std::string VdrRecordingQueryResultJsonSerializer::serialize(
             << "\"title\":\"" << recording.title << "\","
             << "\"path\":\"" << recording.path << "\","
             << "\"recordingPath\":\"" << recording.path << "\","
+            << "\"backendNativeId\":\"" << recording.backendNativeId << "\","
             << "\"startTime\":\"" << recording.startTime << "\","
             << "\"durationSeconds\":" << recording.durationSeconds << ","
             << "\"sizeMb\":" << recording.sizeMb

@@ -275,11 +275,13 @@ VdrRecording mapObjectToRecording(const std::string& objectText)
     VdrRecording recording;
 
     int number = getIntField(objectText, "number", -1);
+    std::string fileName = getStringField(objectText, "file_name");
     std::string relativePath = getStringField(objectText, "relative_file_name");
 
     recording.id = number >= 0 ? std::to_string(number) : "";
     recording.title = normalizeRecordingName(getStringField(objectText, "name"));
-    recording.path = relativePath.empty() ? getStringField(objectText, "file_name") : relativePath;
+    recording.path = relativePath.empty() ? fileName : relativePath;
+    recording.backendNativeId = fileName;
     recording.startTime = std::to_string(getIntField(objectText, "event_start_time", 0));
     recording.durationSeconds = getIntField(objectText, "duration", 0);
     recording.sizeMb = getLongLongField(objectText, "filesize_mb", 0);

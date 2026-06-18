@@ -9,6 +9,7 @@ struct VdrRecording
 
     std::string title;
     std::string path;
+    std::string backendNativeId;
 
     std::string startTime;
 
