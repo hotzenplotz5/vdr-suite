@@ -274,6 +274,13 @@ test-vdr-timer-action-result-json-serializer:
 		-o /tmp/test_vdr_timer_action_result_json_serializer
 	/tmp/test_vdr_timer_action_result_json_serializer
 
+test-vdr-timer-action-executor-adapter-registry:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/MockVdrTimerActionExecutor.cpp \
+		core/vdr/tests/test_vdr_timer_action_executor_adapter_registry.cpp \
+		-o /tmp/test_vdr_timer_action_executor_adapter_registry
+	/tmp/test_vdr_timer_action_executor_adapter_registry
+
 test-vdr-timer-action-executor-interface:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_vdr_timer_action_executor_interface.cpp \
