@@ -92,6 +92,14 @@ test-recording-action-validation-request-parser:
 		-o /tmp/test_recording_action_validation_request_parser
 	/tmp/test_recording_action_validation_request_parser
 
+test-vdr-timer-action-request-parser:
+	$(CXX) $(CXXFLAGS) \
+		$(ACTIONS_SRC) \
+		api/rest/src/VdrTimerActionRequestParser.cpp \
+		api/rest/tests/test_vdr_timer_action_request_parser.cpp \
+		-o /tmp/test_vdr_timer_action_request_parser
+	/tmp/test_vdr_timer_action_request_parser
+
 test-recording-action-execution-controller-safety-preview:
 	$(CXX) $(CXXFLAGS) \
 		$(ACTIONS_SRC) \
