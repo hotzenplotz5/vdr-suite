@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 36.0 - Recording Action Execution Result JSON Serializer
+Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
 ```
 
 Current major phase status:
@@ -68,6 +68,10 @@ Phase 28.0 through 28.12 complete the recording query API foundation: query mode
 Phase 29.0 introduces backend identity for recordings.
 Phase 29.1 exposes recording backend identity in recording query JSON responses.
 Phase 29.2 adds backend-aware recording query filtering through the recording query API.
+
+Phase 37 through Phase 43 completed the recording action execution path from validation and request preview through RESTfulAPI execution, guarded live smoke helpers, HTTP error status preservation, and live success contract checks.
+
+Phase 44.0 synchronizes the documentation after the live recording action verification work and records ADR-0025 as the configurable metadata provider architecture decision.
 
 Next implementation focus:
 The next implementation step is Phase 36.0 - Recording Action Execution Result JSON Serializer.
@@ -254,7 +258,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 36.0 - Recording Action Execution Result JSON Serializer
+Phase 44.1 - Timer Foundation Planning
 ```
 
 The next step is to introduce recording action capability requirements before destructive operations are implemented.

@@ -41,13 +41,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 36.0 - Recording Action Execution Result JSON Serializer
+Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
 ```
 
 Next implementation focus:
 
 ```text
-Phase 36.0 - Recording Action Execution Result JSON Serializer
+Phase 44.1 - Timer Foundation Planning
 ```
 
 Current architecture validation:
@@ -55,6 +55,7 @@ Current architecture validation:
 - [Phase 21.0 - Real VDR Runtime Polling Findings](phase-21.0-real-vdr-runtime-polling-findings.md)
 - [Phase 21.1 - RESTfulAPI Event Stream Strategy](phase-21.1-restfulapi-event-stream-strategy.md)
 - [ADR-0021: Selective Backend Query Strategy](../adr/ADR-0021-selective-backend-query-strategy.md)
+- [ADR-0025: Configurable Metadata Provider Architecture](../adr/ADR-0025-configurable-metadata-provider-architecture.md)
 
 ---
 

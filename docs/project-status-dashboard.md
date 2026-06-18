@@ -69,26 +69,26 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 36.0 - Recording Action Execution Result JSON Serializer
+Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
 ```
 
 Current Focus:
 
 ```text
-Phase 36.0 - Recording Action Execution Result JSON Serializer
+Phase 44.1 - Timer Foundation Planning
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 34.5 - Recording Name Normalization
+Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 36.0 - Recording Action Execution Result JSON Serializer
-ADR-0021 - Selective Backend Query Strategy
+Phase 44.1 - Timer Foundation Planning
+ADR-0025 - Configurable Metadata Provider Architecture
 ```
 
 ---

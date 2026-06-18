@@ -26,6 +26,93 @@ Future planning belongs to:
 
 ---
 
+## Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
+
+Status: Completed.
+
+Summary:
+- Synchronized status, roadmap, milestone and index documentation after the recording action live verification work.
+- Registered ADR-0025 in the ADR index and moved the next available ADR number to ADR-0026.
+- Documented that recording action execution now preserves RESTfulAPI HTTP status details for live error diagnostics.
+- Documented that guarded real RESTfulAPI move and delete smoke helpers require both `--execute` and `VDR_SUITE_ALLOW_REAL_RECORDING_ACTION=YES`.
+- Kept VDR as source of truth and VDR-Suite as a complementary service layer.
+- Kept future technical planning out of this completed-phase history so phase consistency checks do not treat future work as completed.
+
+## Phase 43.6 - Guard Real RESTfulAPI Delete Success Contract
+
+Status: Completed.
+
+Summary:
+- Hardened the guarded real RESTfulAPI delete smoke helper success contract.
+- A successful live delete execution must return `success == true`.
+- The success message must be `RESTfulAPI recording action request executed`.
+- Successful execution must not return errors.
+
+## Phase 43.5 - Guard Real RESTfulAPI Move Success Contract
+
+Status: Completed.
+
+Summary:
+- Hardened the guarded real RESTfulAPI move smoke helper success contract.
+- A successful live move execution must return `success == true`.
+- The success message must be `RESTfulAPI recording action request executed`.
+- Successful execution must not return errors.
+
+## Phase 43.4 - Verify Live RESTfulAPI HTTP Error Status Propagation
+
+Status: Completed.
+
+Summary:
+- Extended live RESTfulAPI error contract tests to verify propagated HTTP status details.
+- Delete live error contract expects the propagated `404` status.
+- Rename live error contract expects the propagated `504` status.
+
+## Phase 43.3 - Preserve RESTfulAPI HTTP Error Status
+
+Status: Completed.
+
+Summary:
+- Changed RESTfulAPI recording action execution failures to preserve the HTTP status code.
+- Empty HTTP error bodies now produce `RESTfulAPI returned HTTP status <code>`.
+- Non-empty HTTP error bodies now produce `RESTfulAPI returned HTTP status <code>: <body>`.
+- Added the `test-restfulapi-executor-preserves-http-error-status` target.
+
+## Phase 43.2 - Guarded Real RESTfulAPI Delete Smoke Helper
+
+Status: Completed.
+
+Summary:
+- Added a guarded real RESTfulAPI delete smoke helper.
+- Default mode is preview-only.
+- Real execution requires both `--execute` and `VDR_SUITE_ALLOW_REAL_RECORDING_ACTION=YES`.
+
+## Phase 43.1 - Rename Live Error Contract
+
+Status: Completed.
+
+Summary:
+- Added a live RESTfulAPI rename error contract test.
+- Rename is executed through the RESTfulAPI move endpoint with a renamed target.
+- The test verifies failed execution for an invalid source while preserving type, backend identity, recording identity, failure message and error list.
+
+## Phase 43.0 - Delete Live Error Contract
+
+Status: Completed.
+
+Summary:
+- Added a live RESTfulAPI delete error contract test.
+- The test verifies failed execution for an invalid source while preserving type, backend identity, recording identity, failure message and error list.
+
+## Phase 42.8 - Guarded Real RESTfulAPI Move Smoke Helper
+
+Status: Completed.
+
+Summary:
+- Added a guarded real RESTfulAPI move smoke helper.
+- Default mode is preview-only.
+- Real execution requires both `--execute` and `VDR_SUITE_ALLOW_REAL_RECORDING_ACTION=YES`.
+- The helper previews and executes RESTfulAPI move requests through the same request-building path.
+
 ## Phase 36.0: Recording Action Execution Result JSON Serializer
 
 Status: Completed

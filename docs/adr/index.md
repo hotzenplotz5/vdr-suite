@@ -34,7 +34,7 @@ ADR-0023
 
 Next available ADR:
 
-ADR-0025
+ADR-0026
 
 The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
 
@@ -72,6 +72,7 @@ If a canonical ADR is superseded, keep it only in the superseded section and do 
 - ADR-0022 LIVE Functional Reference Strategy
 - ADR-0023 LIVE Superset Strategy
 - ADR-0024 Recording Action Transport Mapping
+- ADR-0025 Configurable Metadata Provider Architecture
 
 ---
 
@@ -142,6 +143,7 @@ Retained for historical reference:
 - [ADR-0022: LIVE Functional Reference Strategy](ADR-0022-live-functional-reference-strategy.md)
 - [ADR-0023: LIVE Superset Strategy](ADR-0023-live-superset-strategy.md)
 - [ADR-0024: Recording Action Transport Mapping](ADR-0024-recording-action-transport-mapping.md)
+- [ADR-0025: Configurable Metadata Provider Architecture](ADR-0025-configurable-metadata-provider-architecture.md)
 
 ### Superseded Canonical ADRs
 
