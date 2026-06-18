@@ -28,6 +28,7 @@ test-vdr: \
 	test-restful-api-channel-mapper \
 	test-restful-api-recording-mapper \
 	test-restful-api-timer-mapper \
+	test-vdr-timer-operation-request \
 	test-restful-api-vdr-adapter \
 	test-restful-api-change-state-adapter \
 	test-vdr-domain-objects

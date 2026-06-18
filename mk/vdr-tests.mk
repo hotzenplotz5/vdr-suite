@@ -255,6 +255,12 @@ test-restful-api-timer-mapper:
 		-o /tmp/test_restful_api_timer_mapper
 	/tmp/test_restful_api_timer_mapper
 
+test-vdr-timer-operation-request:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_vdr_timer_operation_request.cpp \
+		-o /tmp/test_vdr_timer_operation_request
+	/tmp/test_vdr_timer_operation_request
+
 test-restful-api-vdr-adapter:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \

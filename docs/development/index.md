@@ -56,6 +56,7 @@ Current architecture validation:
 - [Phase 21.1 - RESTfulAPI Event Stream Strategy](phase-21.1-restfulapi-event-stream-strategy.md)
 - [ADR-0021: Selective Backend Query Strategy](../adr/ADR-0021-selective-backend-query-strategy.md)
 - [ADR-0025: Configurable Metadata Provider Architecture](../adr/ADR-0025-configurable-metadata-provider-architecture.md)
+- [Timer Contract Gap Analysis](timer-contract-gap-analysis.md)
 
 ---
 
