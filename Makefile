@@ -100,6 +100,17 @@ test-vdr-timer-action-request-parser:
 		-o /tmp/test_vdr_timer_action_request_parser
 	/tmp/test_vdr_timer_action_request_parser
 
+test-vdr-timer-action-controller:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/MockVdrTimerActionExecutor.cpp \
+		core/vdr/src/VdrTimerActionService.cpp \
+		core/vdr/src/VdrTimerActionResultJsonSerializer.cpp \
+		api/rest/src/VdrTimerActionRequestParser.cpp \
+		api/rest/src/VdrTimerActionController.cpp \
+		api/rest/tests/test_vdr_timer_action_controller.cpp \
+		-o /tmp/test_vdr_timer_action_controller
+	/tmp/test_vdr_timer_action_controller
+
 test-recording-action-execution-controller-safety-preview:
 	$(CXX) $(CXXFLAGS) \
 		$(ACTIONS_SRC) \
