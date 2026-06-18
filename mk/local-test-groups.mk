@@ -39,6 +39,7 @@ test-vdr: \
 	test-vdr-timer-action-request-parser \
 	test-vdr-timer-action-controller \
 	test-vdr-timer-action-executor-adapter-registry \
+	test-restful-api-vdr-timer-action-executor-adapter \
 	test-restful-api-vdr-adapter \
 	test-restful-api-change-state-adapter \
 	test-vdr-domain-objects
