@@ -280,6 +280,14 @@ test-mock-vdr-timer-action-executor:
 		-o /tmp/test_mock_vdr_timer_action_executor
 	/tmp/test_mock_vdr_timer_action_executor
 
+test-vdr-timer-action-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/MockVdrTimerActionExecutor.cpp \
+		core/vdr/src/VdrTimerActionService.cpp \
+		core/vdr/tests/test_vdr_timer_action_service.cpp \
+		-o /tmp/test_vdr_timer_action_service
+	/tmp/test_vdr_timer_action_service
+
 test-restful-api-vdr-adapter:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
