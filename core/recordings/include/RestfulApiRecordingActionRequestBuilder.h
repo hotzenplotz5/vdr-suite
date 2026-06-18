@@ -86,6 +86,13 @@ private:
     static std::string recordingPath(
         const RecordingActionJobPayload& payload)
     {
+        const std::string backendNativeId =
+            findParameter(payload.parameters, "backendNativeId");
+
+        if (!backendNativeId.empty()) {
+            return backendNativeId;
+        }
+
         const std::string path =
             findParameter(payload.parameters, "recordingPath");
 

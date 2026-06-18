@@ -189,5 +189,13 @@ RecordingActionRequest RecordingActionValidationRequestParser::parse(
         request.parameters["recordingPath"] = recordingPath;
     }
 
+    const std::string backendNativeId =
+        getValue(values, "backendNativeId");
+
+    if (!backendNativeId.empty())
+    {
+        request.parameters["backendNativeId"] = backendNativeId;
+    }
+
     return request;
 }
