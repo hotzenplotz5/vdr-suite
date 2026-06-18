@@ -10,6 +10,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <cstdlib>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -36,7 +37,15 @@ HttpServerRequest parseRequest(const std::string& rawRequest)
 {
     HttpServerRequest request;
 
-    std::istringstream stream(rawRequest);
+    const std::size_t headerEnd = rawRequest.find("\r\n\r\n");
+
+    std::string headerBlock = rawRequest;
+    if (headerEnd != std::string::npos) {
+        headerBlock = rawRequest.substr(0, headerEnd);
+        request.body = rawRequest.substr(headerEnd + 4);
+    }
+
+    std::istringstream stream(headerBlock);
     std::string requestLine;
 
     if (!std::getline(stream, requestLine)) {
@@ -117,6 +126,31 @@ std::string serializeResponse(const HttpServerResponse& response)
 bool hasCompleteHeaders(const std::string& rawRequest)
 {
     return rawRequest.find("\r\n\r\n") != std::string::npos;
+}
+
+std::size_t contentLength(const HttpServerRequest& request)
+{
+    auto iterator = request.headers.find("Content-Length");
+    if (iterator == request.headers.end()) {
+        return 0;
+    }
+
+    char* end = nullptr;
+    const unsigned long value =
+        std::strtoul(iterator->second.c_str(), &end, 10);
+
+    if (end == iterator->second.c_str()) {
+        return 0;
+    }
+
+    return static_cast<std::size_t>(value);
+}
+
+bool hasCompleteBody(
+    const HttpServerRequest& request,
+    const std::size_t expectedContentLength)
+{
+    return request.body.size() >= expectedContentLength;
 }
 
 void writeAll(int socketFd, const std::string& data)
@@ -273,7 +307,25 @@ void SimpleHttpListener::handleClient(int clientSocket) const
         rawRequest.append(buffer, static_cast<std::size_t>(received));
     }
 
-    const HttpServerRequest request = parseRequest(rawRequest);
+    HttpServerRequest request = parseRequest(rawRequest);
+    const std::size_t expectedContentLength =
+        contentLength(request);
+
+    while (!hasCompleteBody(request, expectedContentLength)) {
+        const ssize_t received = recv(
+            clientSocket,
+            buffer,
+            sizeof(buffer),
+            0);
+
+        if (received <= 0) {
+            return;
+        }
+
+        rawRequest.append(buffer, static_cast<std::size_t>(received));
+        request = parseRequest(rawRequest);
+    }
+
     const HttpServerResponse response = server_.handleRequest(request);
     const std::string rawResponse = serializeResponse(response);
 
