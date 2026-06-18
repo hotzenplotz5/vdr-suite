@@ -119,6 +119,50 @@ private:
         return encoded;
     }
 
+    static std::string recordingLeafName(
+        const std::string& source)
+    {
+        const std::size_t recSeparator =
+            source.find_last_of('/');
+
+        if (recSeparator == std::string::npos || recSeparator == 0) {
+            return "";
+        }
+
+        const std::size_t leafEnd =
+            recSeparator - 1;
+
+        const std::size_t leafStart =
+            source.find_last_of('/', leafEnd);
+
+        if (leafStart == std::string::npos) {
+            return source.substr(0, leafEnd + 1);
+        }
+
+        return source.substr(leafStart + 1, leafEnd - leafStart);
+    }
+
+    static std::string moveTarget(
+        const std::string& targetPath,
+        const RecordingActionJobPayload& payload)
+    {
+        const std::string source =
+            recordingPath(payload);
+
+        const std::string leaf =
+            recordingLeafName(source);
+
+        if (targetPath.empty() || leaf.empty()) {
+            return targetPath;
+        }
+
+        if (targetPath.back() == '/') {
+            return targetPath + leaf;
+        }
+
+        return targetPath + "/" + leaf;
+    }
+
     static std::string jsonQuote(const std::string& value)
     {
         std::string quoted = "\"";
@@ -143,7 +187,7 @@ private:
 
         std::string body = "{";
         body += "\"source\":" + jsonQuote(recordingPath(payload));
-        body += ",\"target\":" + jsonQuote(encodeVdrFolderTarget(targetPath));
+        body += ",\"target\":" + jsonQuote(encodeVdrFolderTarget(moveTarget(targetPath, payload)));
         body += ",\"copy_only\":false";
         body += "}";
 
