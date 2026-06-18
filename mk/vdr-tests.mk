@@ -288,6 +288,12 @@ test-vdr-timer-action-service:
 		-o /tmp/test_vdr_timer_action_service
 	/tmp/test_vdr_timer_action_service
 
+test-restful-api-vdr-timer-action-request-builder:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_restful_api_vdr_timer_action_request_builder.cpp \
+		-o /tmp/test_restful_api_vdr_timer_action_request_builder
+	/tmp/test_restful_api_vdr_timer_action_request_builder
+
 test-restful-api-vdr-adapter:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
