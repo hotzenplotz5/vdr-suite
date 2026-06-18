@@ -3,6 +3,7 @@
 #include "BasicHttpClient.h"
 #include "RestfulApiVdrAdapter.h"
 #include "RestfulApiVdrTimerActionExecutorAdapter.h"
+#include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "SimpleHttpListener.h"
 #include "TestHttpServer.h"
 
@@ -197,6 +198,20 @@ bool DaemonRuntime::initialize()
     recordingActionExecutionService_ = std::make_unique<RecordingActionExecutionService>();
     recordingActionExecutionResultJsonSerializer_ = std::make_unique<RecordingActionExecutionResultJsonSerializer>();
     recordingActionBackendExecutorAdapterRegistry_ = std::make_unique<RecordingActionBackendExecutorAdapterRegistry>();
+
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        RestfulApiRecordingActionBackendConfig recordingActionConfig;
+        recordingActionConfig.backendId = backendRuntimeContext->backendId;
+        recordingActionConfig.basePath = "";
+        recordingActionConfig.allowExecution = true;
+        recordingActionConfig.readOnly = false;
+
+        recordingActionBackendExecutorAdapterRegistry_->registerAdapter(
+            std::make_shared<RestfulApiRecordingActionBackendExecutorAdapter>(
+                recordingActionConfig,
+                *backendRuntimeContext->httpClient));
+    }
+
     recordingActionExecutionController_ = std::make_unique<RecordingActionExecutionController>(
         *recordingActionExecutionService_,
         *recordingActionExecutionResultJsonSerializer_,
