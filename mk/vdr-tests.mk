@@ -294,6 +294,14 @@ test-restful-api-vdr-timer-action-request-builder:
 		-o /tmp/test_restful_api_vdr_timer_action_request_builder
 	/tmp/test_restful_api_vdr_timer_action_request_builder
 
+test-restful-api-vdr-timer-action-executor:
+	$(CXX) $(CXXFLAGS) \
+		core/http/src/MockHttpClient.cpp \
+		core/vdr/src/RestfulApiVdrTimerActionExecutor.cpp \
+		core/vdr/tests/test_restful_api_vdr_timer_action_executor.cpp \
+		-o /tmp/test_restful_api_vdr_timer_action_executor
+	/tmp/test_restful_api_vdr_timer_action_executor
+
 test-restful-api-vdr-adapter:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \

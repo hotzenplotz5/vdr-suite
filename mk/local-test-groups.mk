@@ -34,6 +34,7 @@ test-vdr: \
 	test-mock-vdr-timer-action-executor \
 	test-vdr-timer-action-service \
 	test-restful-api-vdr-timer-action-request-builder \
+	test-restful-api-vdr-timer-action-executor \
 	test-restful-api-vdr-adapter \
 	test-restful-api-change-state-adapter \
 	test-vdr-domain-objects
