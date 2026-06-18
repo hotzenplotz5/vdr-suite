@@ -30,6 +30,12 @@
 #include "VdrRecordingQueryService.h"
 #include "VdrRecordingQueryResultJsonSerializer.h"
 #include "VdrRecordingQueryController.h"
+#include "VdrTimerActionController.h"
+#include "VdrTimerActionExecutionService.h"
+#include "VdrTimerActionExecutorAdapterRegistry.h"
+#include "VdrTimerActionRequestParser.h"
+#include "VdrTimerActionResultJsonSerializer.h"
+#include "MockVdrTimerActionExecutor.h"
 
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -116,6 +122,31 @@ private:
     std::string backendIdValue_;
 };
 }
+
+class RouterVdrTimerActionExecutorAdapter final
+    : public IVdrTimerActionExecutorAdapter
+{
+public:
+    explicit RouterVdrTimerActionExecutorAdapter(
+        std::string backendIdValue)
+        : backendIdValue_(backendIdValue)
+    {
+    }
+
+    std::string backendId() const override
+    {
+        return backendIdValue_;
+    }
+
+    IVdrTimerActionExecutor& executor() override
+    {
+        return executor_;
+    }
+
+private:
+    std::string backendIdValue_;
+    MockVdrTimerActionExecutor executor_;
+};
 
 static VdrSnapshot makeRouterSnapshot()
 {
@@ -348,6 +379,17 @@ int main()
         recordingActionBackendExecutorAdapterRegistry,
         recordingActionValidationRequestParser);
 
+    VdrTimerActionExecutionService vdrTimerActionExecutionService;
+    VdrTimerActionResultJsonSerializer vdrTimerActionResultJsonSerializer;
+    VdrTimerActionRequestParser vdrTimerActionRequestParser;
+    VdrTimerActionController vdrTimerActionController(
+        vdrTimerActionExecutionService,
+        vdrTimerActionResultJsonSerializer,
+        vdrTimerActionRequestParser);
+    VdrTimerActionExecutorAdapterRegistry vdrTimerActionExecutorAdapterRegistry;
+    vdrTimerActionExecutorAdapterRegistry.registerAdapter(
+        std::make_shared<RouterVdrTimerActionExecutorAdapter>("router-backend"));
+
     ApiRouter router(
         dashboardController,
         jobsController,
@@ -360,6 +402,8 @@ int main()
         capabilityController,
         recordingActionValidationController,
         recordingActionExecutionController,
+        vdrTimerActionController,
+        vdrTimerActionExecutorAdapterRegistry,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);
@@ -523,6 +567,8 @@ int main()
         capabilityController,
         recordingActionValidationController,
         recordingActionExecutionController,
+        vdrTimerActionController,
+        vdrTimerActionExecutorAdapterRegistry,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);
@@ -850,6 +896,73 @@ int main()
     assert(actionExecuteAliasResponse.statusCode == 200);
     assert(actionExecuteAliasResponse.contentType == "application/json");
     assert(actionExecuteAliasResponse.body.find("\"type\":\"DELETE\"")
+           != std::string::npos);
+
+    const std::string timerCreateBody =
+        "{"
+        "\"backendId\":\"router-backend\","
+        "\"timerId\":\"router-timer-2\","
+        "\"channelId\":\"router-channel-1\","
+        "\"title\":\"Router Timer Create\""
+        "}";
+
+    ApiResponse timerCreateResponse =
+        router.handlePost(
+            "/api/vdr/timers/actions/create",
+            timerCreateBody);
+
+    assert(timerCreateResponse.statusCode == 200);
+    assert(timerCreateResponse.contentType == "application/json");
+    assert(timerCreateResponse.body.find("\"success\":true")
+           != std::string::npos);
+    assert(timerCreateResponse.body.find("\"type\":\"create\"")
+           != std::string::npos);
+    assert(timerCreateResponse.body.find("\"backendId\":\"router-backend\"")
+           != std::string::npos);
+
+    const std::string timerUpdateBody =
+        "{"
+        "\"backendId\":\"router-backend\","
+        "\"timerId\":\"router-timer-1\","
+        "\"title\":\"Router Timer Update\""
+        "}";
+
+    ApiResponse timerUpdateResponse =
+        router.handlePost(
+            "/api/vdr/timers/actions/update",
+            timerUpdateBody);
+
+    assert(timerUpdateResponse.statusCode == 200);
+    assert(timerUpdateResponse.contentType == "application/json");
+    assert(timerUpdateResponse.body.find("\"type\":\"update\"")
+           != std::string::npos);
+
+    const std::string timerDeleteBody =
+        "{"
+        "\"backendId\":\"router-backend\","
+        "\"timerId\":\"router-timer-1\""
+        "}";
+
+    ApiResponse timerDeleteResponse =
+        router.handlePost(
+            "/api/vdr/timers/actions/delete",
+            timerDeleteBody);
+
+    assert(timerDeleteResponse.statusCode == 200);
+    assert(timerDeleteResponse.contentType == "application/json");
+    assert(timerDeleteResponse.body.find("\"type\":\"delete\"")
+           != std::string::npos);
+
+    ApiResponse timerMissingBackendResponse =
+        router.handlePost(
+            "/api/vdr/timers/actions/delete",
+            "{\"backendId\":\"missing-backend\",\"timerId\":\"router-timer-1\"}");
+
+    assert(timerMissingBackendResponse.statusCode == 200);
+    assert(timerMissingBackendResponse.contentType == "application/json");
+    assert(timerMissingBackendResponse.body.find("\"success\":false")
+           != std::string::npos);
+    assert(timerMissingBackendResponse.body.find("timer action executor adapter not found")
            != std::string::npos);
 
     ApiResponse runtimeAliasResponse =

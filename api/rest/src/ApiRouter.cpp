@@ -14,6 +14,8 @@
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
 #include "VdrRecordingQueryController.h"
+#include "VdrTimerActionController.h"
+#include "VdrTimerActionExecutorAdapterRegistry.h"
 
 #include <string>
 
@@ -98,6 +100,8 @@ ApiRouter::ApiRouter(
     CapabilityController& capabilityController,
     RecordingActionValidationController& recordingActionValidationController,
     RecordingActionExecutionController& recordingActionExecutionController,
+    VdrTimerActionController& vdrTimerActionController,
+    VdrTimerActionExecutorAdapterRegistry& vdrTimerActionExecutorAdapterRegistry,
     RuntimeDiagnosticsController& runtimeDiagnosticsController,
     SnapshotChangeFeedController& snapshotChangeFeedController,
     LiveTransportController& liveTransportController)
@@ -112,6 +116,8 @@ ApiRouter::ApiRouter(
       capabilityController_(capabilityController),
       recordingActionValidationController_(recordingActionValidationController),
       recordingActionExecutionController_(recordingActionExecutionController),
+      vdrTimerActionController_(vdrTimerActionController),
+      vdrTimerActionExecutorAdapterRegistry_(vdrTimerActionExecutorAdapterRegistry),
       runtimeDiagnosticsController_(runtimeDiagnosticsController),
       snapshotChangeFeedController_(snapshotChangeFeedController),
       liveTransportController_(liveTransportController)
@@ -138,6 +144,27 @@ ApiResponse ApiRouter::handlePost(
         path == "/api/vdr/recordings/actions/execute")
     {
         return recordingActionExecutionController_.executeBody(body);
+    }
+
+    if (path == "/api/vdr/timers/actions/create")
+    {
+        return vdrTimerActionController_.createBody(
+            body,
+            vdrTimerActionExecutorAdapterRegistry_);
+    }
+
+    if (path == "/api/vdr/timers/actions/update")
+    {
+        return vdrTimerActionController_.updateBody(
+            body,
+            vdrTimerActionExecutorAdapterRegistry_);
+    }
+
+    if (path == "/api/vdr/timers/actions/delete")
+    {
+        return vdrTimerActionController_.removeBody(
+            body,
+            vdrTimerActionExecutorAdapterRegistry_);
     }
 
     ApiResponse response;

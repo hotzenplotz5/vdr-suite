@@ -17,6 +17,8 @@ class RuntimeDiagnosticsController;
 class SnapshotChangeFeedController;
 class VdrController;
 class VdrRecordingQueryController;
+class VdrTimerActionController;
+class VdrTimerActionExecutorAdapterRegistry;
 
 class ApiRouter
 {
@@ -33,6 +35,8 @@ public:
         CapabilityController& capabilityController,
         RecordingActionValidationController& recordingActionValidationController,
         RecordingActionExecutionController& recordingActionExecutionController,
+        VdrTimerActionController& vdrTimerActionController,
+        VdrTimerActionExecutorAdapterRegistry& vdrTimerActionExecutorAdapterRegistry,
         RuntimeDiagnosticsController& runtimeDiagnosticsController,
         SnapshotChangeFeedController& snapshotChangeFeedController,
         LiveTransportController& liveTransportController);
@@ -56,6 +60,8 @@ private:
     CapabilityController& capabilityController_;
     RecordingActionValidationController& recordingActionValidationController_;
     RecordingActionExecutionController& recordingActionExecutionController_;
+    VdrTimerActionController& vdrTimerActionController_;
+    VdrTimerActionExecutorAdapterRegistry& vdrTimerActionExecutorAdapterRegistry_;
     RuntimeDiagnosticsController& runtimeDiagnosticsController_;
     SnapshotChangeFeedController& snapshotChangeFeedController_;
     LiveTransportController& liveTransportController_;
