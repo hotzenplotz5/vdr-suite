@@ -30,6 +30,7 @@ test-vdr: \
 	test-restful-api-timer-mapper \
 	test-vdr-timer-operation-request \
 	test-vdr-timer-action-result \
+	test-vdr-timer-action-result-json-serializer \
 	test-vdr-timer-action-executor-interface \
 	test-mock-vdr-timer-action-executor \
 	test-vdr-timer-action-service \
