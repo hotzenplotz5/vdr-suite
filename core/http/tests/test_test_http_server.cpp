@@ -49,6 +49,11 @@
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
 #include "VdrRecordingQueryController.h"
+#include "VdrTimerActionController.h"
+#include "VdrTimerActionExecutionService.h"
+#include "VdrTimerActionExecutorAdapterRegistry.h"
+#include "VdrTimerActionRequestParser.h"
+#include "VdrTimerActionResultJsonSerializer.h"
 #include "VdrRecordingQueryResultJsonSerializer.h"
 #include "VdrRecordingQueryService.h"
 #include "VdrService.h"
@@ -179,6 +184,15 @@ int main()
         recordingActionBackendExecutorAdapterRegistry,
         recordingActionValidationRequestParser);
 
+    VdrTimerActionExecutionService vdrTimerActionExecutionService;
+    VdrTimerActionResultJsonSerializer vdrTimerActionResultJsonSerializer;
+    VdrTimerActionRequestParser vdrTimerActionRequestParser;
+    VdrTimerActionController vdrTimerActionController(
+        vdrTimerActionExecutionService,
+        vdrTimerActionResultJsonSerializer,
+        vdrTimerActionRequestParser);
+    VdrTimerActionExecutorAdapterRegistry vdrTimerActionExecutorAdapterRegistry;
+
     RuntimeDiagnosticsService runtimeDiagnosticsService;
     RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
 
@@ -226,6 +240,8 @@ int main()
         capabilityController,
         recordingActionValidationController,
         recordingActionExecutionController,
+        vdrTimerActionController,
+        vdrTimerActionExecutorAdapterRegistry,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         liveTransportController);
