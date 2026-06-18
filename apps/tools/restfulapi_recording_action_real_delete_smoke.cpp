@@ -185,5 +185,23 @@ int main(int argc, char** argv)
         std::cerr << "Error: " << error << "\n";
     }
 
-    return result.success ? 0 : 5;
+    if (!result.success)
+    {
+        return 5;
+    }
+
+    if (result.message != "RESTfulAPI recording action request executed")
+    {
+        std::cerr << "Unexpected success message: "
+                  << result.message << "\n";
+        return 6;
+    }
+
+    if (!result.errors.empty())
+    {
+        std::cerr << "Successful execution returned unexpected errors.\n";
+        return 7;
+    }
+
+    return 0;
 }
