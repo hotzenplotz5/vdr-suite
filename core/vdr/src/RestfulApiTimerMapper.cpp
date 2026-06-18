@@ -256,34 +256,56 @@ VdrTimer mapObjectToTimer(const std::string& objectText)
         }
     }
 
-    timer.channelId = getStringField(objectText, "channel_id");
+    timer.channelId = getStringField(objectText, "channel");
+    if (timer.channelId.empty()) {
+        timer.channelId = getStringField(objectText, "channel_id");
+    }
     if (timer.channelId.empty()) {
         timer.channelId = getStringField(objectText, "channelid");
     }
 
-    timer.eventId = getStringField(objectText, "event_id");
+    timer.channelName = getStringField(objectText, "channel_name");
+
+    int eventId = getIntField(objectText, "event_id", -1);
+    if (eventId >= 0) {
+        timer.eventId = std::to_string(eventId);
+    }
+    if (timer.eventId.empty()) {
+        timer.eventId = getStringField(objectText, "event_id");
+    }
+    if (timer.eventId.empty()) {
+        eventId = getIntField(objectText, "eventid", -1);
+        if (eventId >= 0) {
+            timer.eventId = std::to_string(eventId);
+        }
+    }
     if (timer.eventId.empty()) {
         timer.eventId = getStringField(objectText, "eventid");
     }
 
-    timer.title = getStringField(objectText, "title");
+    timer.title = getStringField(objectText, "filename");
+    if (timer.title.empty()) {
+        timer.title = getStringField(objectText, "title");
+    }
     if (timer.title.empty()) {
         timer.title = getStringField(objectText, "file");
     }
 
     timer.subtitle = getStringField(objectText, "short_text");
+    timer.aux = getStringField(objectText, "aux");
     if (timer.subtitle.empty()) {
-        timer.subtitle = getStringField(objectText, "aux");
+        timer.subtitle = timer.aux;
     }
 
-    timer.startTime = std::to_string(getIntField(objectText, "start_time", getIntField(objectText, "starttime", 0)));
-    timer.endTime = std::to_string(getIntField(objectText, "stop_time", getIntField(objectText, "stoptime", 0)));
+    timer.startTime = std::to_string(getIntField(objectText, "start", getIntField(objectText, "start_time", getIntField(objectText, "starttime", 0))));
+    timer.endTime = std::to_string(getIntField(objectText, "stop", getIntField(objectText, "stop_time", getIntField(objectText, "stoptime", 0))));
 
     timer.priority = getIntField(objectText, "priority", 0);
     timer.lifetime = getIntField(objectText, "lifetime", 0);
 
-    timer.enabled = getBoolField(objectText, "active", true);
-    timer.recording = getBoolField(objectText, "recording", false);
+    timer.enabled = getBoolField(objectText, "is_active", getBoolField(objectText, "active", true));
+    timer.recording = getBoolField(objectText, "is_recording", getBoolField(objectText, "recording", false));
+    timer.pending = getBoolField(objectText, "is_pending", false);
 
     return timer;
 }

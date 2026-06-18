@@ -6,10 +6,12 @@ struct VdrTimer
 {
     std::string id;
     std::string channelId;
+    std::string channelName;
     std::string eventId;
 
     std::string title;
     std::string subtitle;
+    std::string aux;
 
     std::string startTime;
     std::string endTime;
@@ -19,4 +21,5 @@ struct VdrTimer
 
     bool enabled = false;
     bool recording = false;
+    bool pending = false;
 };

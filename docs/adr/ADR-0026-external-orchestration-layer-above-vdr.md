@@ -122,3 +122,13 @@ Rejected because:
 - ADR-0020 Multi-Source Federation Architecture
 - ADR-0021 Selective Backend Query Strategy
 - ADR-0025 Configurable Metadata Provider Architecture
+
+
+## Navigation
+
+- [ADR Index](index.md)
+- [Development Index](../development/index.md)
+
+## Back
+
+- [Documentation Index](../index.md)
