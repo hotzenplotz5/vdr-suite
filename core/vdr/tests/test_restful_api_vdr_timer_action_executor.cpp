@@ -153,6 +153,35 @@ static void test_http_error_without_body_preserves_status()
     assert(result.errors.at(0) == "RESTfulAPI returned HTTP status 502");
 }
 
+
+static void test_timer_conflict_error_is_preserved_for_frontend()
+{
+    MockHttpClient httpClient;
+
+    HttpResponse response;
+    response.statusCode = 409;
+    response.body = "timer conflict: overlaps with existing timer 123";
+    httpClient.setResponse(response);
+
+    RestfulApiVdrTimerActionExecutor executor(
+        "living-room",
+        "/api",
+        httpClient);
+
+    const VdrTimerOperationRequest request = makeRequest();
+
+    const VdrTimerActionResult result =
+        executor.execute(VdrTimerActionType::Create, request);
+
+    assert(result.success == false);
+    assert(result.type == VdrTimerActionType::Create);
+    assert(result.backendId == "living-room");
+    assert(result.timerId == "42");
+    assert(result.message == "RESTfulAPI timer action request failed");
+    assert(result.errors.size() == 1);
+    assert(result.errors.at(0) == "RESTfulAPI returned HTTP status 409: timer conflict: overlaps with existing timer 123");
+}
+
 static void test_toggle_is_not_supported_yet()
 {
     MockHttpClient httpClient;
@@ -187,6 +216,7 @@ int main()
     test_delete_success_executes_delete_request();
     test_http_error_preserves_status_and_body();
     test_http_error_without_body_preserves_status();
+    test_timer_conflict_error_is_preserved_for_frontend();
     test_toggle_is_not_supported_yet();
 
     return 0;

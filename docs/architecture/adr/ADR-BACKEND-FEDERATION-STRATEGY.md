@@ -78,3 +78,11 @@ VDR-Suite:
 ## Long-term Vision
 
 VDR-Suite evolves into a backend-agnostic TV management platform while maintaining first-class support for VDR.
+
+## Navigation
+
+- [Project README](../../../README.md)
+
+## Back
+
+

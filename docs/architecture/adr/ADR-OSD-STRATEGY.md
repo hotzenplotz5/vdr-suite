@@ -56,3 +56,11 @@ VDR-Suite provides:
 - Future mobile and TV experiences
 
 The OSD becomes a VDR-Suite capability rather than a mirrored VDR capability.
+
+## Navigation
+
+- [Project README](../../../README.md)
+
+## Back
+
+
