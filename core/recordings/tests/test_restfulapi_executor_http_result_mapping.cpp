@@ -81,7 +81,7 @@ int main()
         assert(!result.success);
         assert(result.message == "RESTfulAPI recording action request failed");
         assert(result.errors.size() == 1);
-        assert(result.errors.at(0) == "Recording not found!");
+        assert(result.errors.at(0) == "RESTfulAPI returned HTTP status 404: Recording not found!");
         assert(httpClient.requestCount() == 1);
     }
 
@@ -96,7 +96,7 @@ int main()
         assert(!result.success);
         assert(result.message == "RESTfulAPI recording action request failed");
         assert(result.errors.size() == 1);
-        assert(result.errors.at(0) == "RESTfulAPI returned non-success status");
+        assert(result.errors.at(0) == "RESTfulAPI returned HTTP status 500");
         assert(httpClient.requestCount() == 1);
     }
 
