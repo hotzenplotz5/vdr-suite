@@ -57,6 +57,7 @@ Current architecture validation:
 - [ADR-0021: Selective Backend Query Strategy](../adr/ADR-0021-selective-backend-query-strategy.md)
 - [ADR-0025: Configurable Metadata Provider Architecture](../adr/ADR-0025-configurable-metadata-provider-architecture.md)
 - [Timer Contract Gap Analysis](timer-contract-gap-analysis.md)
+- [Real Recording Action End-to-End Validation](real-recording-action-e2e-validation.md)
 
 ---
 
@@ -119,27 +120,13 @@ These documents are historical implementation notes or phase-specific architectu
 
 ## Supporting Development Documents
 
-- [Runtime Diagnostics Status](runtime-diagnostics-status.md)
-- [Runtime Diagnostics Documentation](runtime-diagnostics/README.md)
-- [Development Status Archive](status/index.md)
-
----
-
-## Documentation Ownership
-
-- [Current Project Status](current-status.md) = current project state
-- [Current Architecture State](current-architecture-state.md) = current implemented architecture state
-- [Project Status Dashboard](../project-status-dashboard.md) = compact project overview
-- [Completed Phases](completed-phases.md) = implementation history
-- [Roadmap](../planning/roadmap.md) = future planning
-- [Milestones](milestones.md) = milestone and tag history
-- [Architecture Documentation](../architecture/index.md) = architecture documentation
-- [Architecture Decision Records](../adr/index.md) = architecture decisions
-
----
-
-## Back
-
-- [Back to README](../../README.md)
-- [Back to Documentation Index](../index.md)
-- [Back to Project Overview](../project-overview.md)
+- [Architecture Map](architecture-map.md)
+- [Current Architecture State](current-architecture-state.md)
+- [Current Technical Debt](current-technical-debt.md)
+- [Build System State](build-system-state.md)
+- [Testing Guide](testing-guide.md)
+- [Coding Standards](coding-standards.md)
+- [Documentation Standards](documentation-standards.md)
+- [Backend Development Guide](backend-development-guide.md)
+- [Contributor Guide](contributor-guide.md)
+- [Release Process](release-process.md)
