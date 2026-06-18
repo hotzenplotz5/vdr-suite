@@ -267,6 +267,12 @@ test-vdr-timer-action-result:
 		-o /tmp/test_vdr_timer_action_result
 	/tmp/test_vdr_timer_action_result
 
+test-vdr-timer-action-executor-interface:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_vdr_timer_action_executor_interface.cpp \
+		-o /tmp/test_vdr_timer_action_executor_interface
+	/tmp/test_vdr_timer_action_executor_interface
+
 test-restful-api-vdr-adapter:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
