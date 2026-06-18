@@ -2,6 +2,7 @@
 
 #include "BasicHttpClient.h"
 #include "RestfulApiVdrAdapter.h"
+#include "RestfulApiVdrTimerActionExecutorAdapter.h"
 #include "SimpleHttpListener.h"
 #include "TestHttpServer.h"
 
@@ -32,6 +33,14 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
     context->adapter = std::make_unique<RestfulApiVdrAdapter>(
         backendConfig,
         *context->httpClient);
+
+    if (vdrTimerActionExecutorAdapterRegistry_) {
+        vdrTimerActionExecutorAdapterRegistry_->registerAdapter(
+            std::make_shared<RestfulApiVdrTimerActionExecutorAdapter>(
+                context->backendId,
+                "",
+                *context->httpClient));
+    }
     context->service = std::make_unique<VdrService>(
         *context->adapter,
         &runtimeLogger_);
@@ -107,6 +116,7 @@ bool DaemonRuntime::initialize()
     vdrSnapshotReadJsonSerializer_ = std::make_unique<VdrSnapshotReadJsonSerializer>();
 
     backendPollingCoordinator_ = std::make_unique<BackendPollingCoordinator>();
+    vdrTimerActionExecutorAdapterRegistry_ = std::make_unique<VdrTimerActionExecutorAdapterRegistry>();
 
     for (const BackendNode& runtimeBackend : runtimeBackends) {
         auto backendRuntimeContext =
@@ -133,6 +143,20 @@ bool DaemonRuntime::initialize()
     vdrOverviewService_ = std::make_unique<VdrOverviewService>(*snapshotAccessService_);
     vdrOverviewJsonSerializer_ = std::make_unique<VdrOverviewJsonSerializer>();
     vdrController_ = std::make_unique<VdrController>(*vdrOverviewService_, *vdrOverviewJsonSerializer_, *vdrSnapshotReadService_, *vdrSnapshotReadJsonSerializer_);
+
+    if (!backendRuntimeContexts_.empty()) {
+        vdrRecordingQueryService_ = std::make_unique<VdrRecordingQueryService>(
+            *backendRuntimeContexts_.front()->service);
+    }
+    else {
+        std::cerr << "failed to initialize VDR recording query controller: no VDR backend configured" << std::endl;
+        return false;
+    }
+
+    vdrRecordingQueryResultJsonSerializer_ = std::make_unique<VdrRecordingQueryResultJsonSerializer>();
+    vdrRecordingQueryController_ = std::make_unique<VdrRecordingQueryController>(
+        *vdrRecordingQueryService_,
+        *vdrRecordingQueryResultJsonSerializer_);
 
     capabilitySet_ = std::make_unique<VdrCapabilitySet>(
         VdrCapabilitySet::snapshotReadOnly());
@@ -162,6 +186,35 @@ bool DaemonRuntime::initialize()
 
     std::cout << "VDR controller runtime initialized" << std::endl;
 
+    recordingActionValidationService_ = std::make_unique<RecordingActionValidationService>();
+    recordingActionValidationResultJsonSerializer_ = std::make_unique<RecordingActionValidationResultJsonSerializer>();
+    recordingActionValidationRequestParser_ = std::make_unique<RecordingActionValidationRequestParser>();
+    recordingActionValidationController_ = std::make_unique<RecordingActionValidationController>(
+        *recordingActionValidationService_,
+        *recordingActionValidationResultJsonSerializer_,
+        *recordingActionValidationRequestParser_);
+
+    recordingActionExecutionService_ = std::make_unique<RecordingActionExecutionService>();
+    recordingActionExecutionResultJsonSerializer_ = std::make_unique<RecordingActionExecutionResultJsonSerializer>();
+    recordingActionBackendExecutorAdapterRegistry_ = std::make_unique<RecordingActionBackendExecutorAdapterRegistry>();
+    recordingActionExecutionController_ = std::make_unique<RecordingActionExecutionController>(
+        *recordingActionExecutionService_,
+        *recordingActionExecutionResultJsonSerializer_,
+        *recordingActionBackendExecutorAdapterRegistry_,
+        *recordingActionValidationRequestParser_);
+
+    vdrTimerActionService_ = std::make_unique<VdrTimerActionService>();
+    vdrTimerActionExecutionService_ = std::make_unique<VdrTimerActionExecutionService>();
+    vdrTimerActionResultJsonSerializer_ = std::make_unique<VdrTimerActionResultJsonSerializer>();
+    vdrTimerActionRequestParser_ = std::make_unique<VdrTimerActionRequestParser>();
+    vdrTimerActionController_ = std::make_unique<VdrTimerActionController>(
+        *vdrTimerActionExecutionService_,
+        *vdrTimerActionResultJsonSerializer_,
+        *vdrTimerActionRequestParser_);
+
+    std::cout << "recording action controller runtime initialized" << std::endl;
+    std::cout << "VDR timer action controller runtime initialized" << std::endl;
+
     runtimeDiagnosticsJsonSerializer_ = std::make_unique<RuntimeDiagnosticsJsonSerializer>();
     runtimeDiagnosticsController_ = std::make_unique<RuntimeDiagnosticsController>(runtimeDiagnosticsService_, *runtimeDiagnosticsJsonSerializer_);
     snapshotChangeFeedController_ = std::make_unique<SnapshotChangeFeedController>(*snapshotChangeFeed_, *snapshotChangeFeedJsonSerializer_);
@@ -175,7 +228,23 @@ bool DaemonRuntime::initialize()
     std::cout << "live transport service initialized" << std::endl;
     std::cout << "live transport controller initialized" << std::endl;
 
-    apiRouter_ = std::make_unique<ApiRouter>(*dashboardController_, *jobsController_, *recordingsController_, *metadataController_, *vdrController_, epgController_.get(), *backendRegistryController_, *capabilityController_, *runtimeDiagnosticsController_, *snapshotChangeFeedController_, *liveTransportController_);
+    apiRouter_ = std::make_unique<ApiRouter>(
+        *dashboardController_,
+        *jobsController_,
+        *recordingsController_,
+        *metadataController_,
+        *vdrController_,
+        *vdrRecordingQueryController_,
+        epgController_.get(),
+        *backendRegistryController_,
+        *capabilityController_,
+        *recordingActionValidationController_,
+        *recordingActionExecutionController_,
+        *vdrTimerActionController_,
+        *vdrTimerActionExecutorAdapterRegistry_,
+        *runtimeDiagnosticsController_,
+        *snapshotChangeFeedController_,
+        *liveTransportController_);
 
     std::cout << "API router runtime initialized" << std::endl;
 
@@ -246,6 +315,20 @@ void DaemonRuntime::shutdown()
     liveTransport_.reset();
     snapshotChangeFeedController_.reset();
     runtimeDiagnosticsController_.reset();
+    vdrTimerActionController_.reset();
+    vdrTimerActionExecutorAdapterRegistry_.reset();
+    vdrTimerActionRequestParser_.reset();
+    vdrTimerActionResultJsonSerializer_.reset();
+    vdrTimerActionExecutionService_.reset();
+    vdrTimerActionService_.reset();
+    recordingActionExecutionController_.reset();
+    recordingActionBackendExecutorAdapterRegistry_.reset();
+    recordingActionExecutionResultJsonSerializer_.reset();
+    recordingActionExecutionService_.reset();
+    recordingActionValidationController_.reset();
+    recordingActionValidationRequestParser_.reset();
+    recordingActionValidationResultJsonSerializer_.reset();
+    recordingActionValidationService_.reset();
     capabilityController_.reset();
     capabilityReportJsonSerializer_.reset();
     capabilityReportService_.reset();
@@ -256,6 +339,9 @@ void DaemonRuntime::shutdown()
     backendRegistryJsonSerializer_.reset();
     backendRegistryService_.reset();
     runtimeDiagnosticsJsonSerializer_.reset();
+    vdrRecordingQueryController_.reset();
+    vdrRecordingQueryResultJsonSerializer_.reset();
+    vdrRecordingQueryService_.reset();
     vdrController_.reset();
     vdrOverviewJsonSerializer_.reset();
     vdrOverviewService_.reset();

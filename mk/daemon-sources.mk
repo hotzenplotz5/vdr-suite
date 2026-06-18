@@ -12,6 +12,7 @@ DAEMON_SRC := \
         api/rest/src/RecordingsController.cpp \
         api/rest/src/MetadataController.cpp \
         api/rest/src/VdrController.cpp \
+        api/rest/src/VdrRecordingQueryController.cpp \
         api/rest/src/EpgController.cpp \
         api/rest/src/RestQueryParameters.cpp \
         api/rest/src/BackendRegistryController.cpp \
@@ -19,6 +20,21 @@ DAEMON_SRC := \
         api/rest/src/SnapshotChangeFeedController.cpp \
         api/rest/src/LiveTransportController.cpp \
         api/rest/src/CapabilityController.cpp \
+        api/rest/src/RecordingActionValidationController.cpp \
+        api/rest/src/RecordingActionExecutionController.cpp \
+        api/rest/src/VdrTimerActionController.cpp \
+        core/recordings/src/RecordingActionUtils.cpp \
+        core/recordings/src/RecordingActionValidationResultJsonSerializer.cpp \
+        core/recordings/src/RecordingActionExecutionResultJsonSerializer.cpp \
+        core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
+        core/recordings/src/RecordingActionValidationService.cpp \
+        api/rest/src/RecordingActionValidationRequestParser.cpp \
+        core/vdr/src/VdrTimerActionService.cpp \
+        core/vdr/src/VdrTimerActionExecutionService.cpp \
+        core/vdr/src/VdrTimerActionResultJsonSerializer.cpp \
+        core/vdr/src/RestfulApiVdrTimerActionExecutor.cpp \
+        core/vdr/src/RestfulApiVdrTimerActionExecutorAdapter.cpp \
+        api/rest/src/VdrTimerActionRequestParser.cpp \
         api/rest/src/ApiRouter.cpp \
         core/http/src/BasicHttpClient.cpp \
         core/http/src/SimpleHttpListener.cpp \

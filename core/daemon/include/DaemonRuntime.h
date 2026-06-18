@@ -33,6 +33,14 @@
 #include "PollingService.h"
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
+#include "RecordingActionBackendExecutorAdapterRegistry.h"
+#include "RecordingActionExecutionController.h"
+#include "RecordingActionExecutionResultJsonSerializer.h"
+#include "RecordingActionExecutionService.h"
+#include "RecordingActionValidationController.h"
+#include "RecordingActionValidationRequestParser.h"
+#include "RecordingActionValidationResultJsonSerializer.h"
+#include "RecordingActionValidationService.h"
 #include "RecordingsController.h"
 #include "RuntimeConfig.h"
 #include "RuntimeDiagnosticsController.h"
@@ -50,6 +58,15 @@
 #include "SnapshotCacheService.h"
 #include "VdrConfig.h"
 #include "VdrController.h"
+#include "VdrRecordingQueryController.h"
+#include "VdrRecordingQueryResultJsonSerializer.h"
+#include "VdrRecordingQueryService.h"
+#include "VdrTimerActionController.h"
+#include "VdrTimerActionExecutionService.h"
+#include "VdrTimerActionExecutorAdapterRegistry.h"
+#include "VdrTimerActionRequestParser.h"
+#include "VdrTimerActionResultJsonSerializer.h"
+#include "VdrTimerActionService.h"
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
 #include "VdrService.h"
@@ -118,6 +135,9 @@ private:
     std::unique_ptr<VdrOverviewService> vdrOverviewService_;
     std::unique_ptr<VdrOverviewJsonSerializer> vdrOverviewJsonSerializer_;
     std::unique_ptr<VdrController> vdrController_;
+    std::unique_ptr<VdrRecordingQueryService> vdrRecordingQueryService_;
+    std::unique_ptr<VdrRecordingQueryResultJsonSerializer> vdrRecordingQueryResultJsonSerializer_;
+    std::unique_ptr<VdrRecordingQueryController> vdrRecordingQueryController_;
     std::unique_ptr<VdrCapabilitySet> capabilitySet_;
     std::unique_ptr<CapabilityResolver> capabilityResolver_;
     std::unique_ptr<CapabilityReportBuilder> capabilityReportBuilder_;
@@ -126,6 +146,22 @@ private:
     std::unique_ptr<CapabilityController> capabilityController_;
     std::unique_ptr<EpgQueryService> epgQueryService_;
     std::unique_ptr<EpgController> epgController_;
+
+    std::unique_ptr<RecordingActionValidationService> recordingActionValidationService_;
+    std::unique_ptr<RecordingActionValidationResultJsonSerializer> recordingActionValidationResultJsonSerializer_;
+    std::unique_ptr<RecordingActionValidationRequestParser> recordingActionValidationRequestParser_;
+    std::unique_ptr<RecordingActionValidationController> recordingActionValidationController_;
+    std::unique_ptr<RecordingActionExecutionService> recordingActionExecutionService_;
+    std::unique_ptr<RecordingActionExecutionResultJsonSerializer> recordingActionExecutionResultJsonSerializer_;
+    std::unique_ptr<RecordingActionBackendExecutorAdapterRegistry> recordingActionBackendExecutorAdapterRegistry_;
+    std::unique_ptr<RecordingActionExecutionController> recordingActionExecutionController_;
+
+    std::unique_ptr<VdrTimerActionService> vdrTimerActionService_;
+    std::unique_ptr<VdrTimerActionExecutionService> vdrTimerActionExecutionService_;
+    std::unique_ptr<VdrTimerActionResultJsonSerializer> vdrTimerActionResultJsonSerializer_;
+    std::unique_ptr<VdrTimerActionRequestParser> vdrTimerActionRequestParser_;
+    std::unique_ptr<VdrTimerActionExecutorAdapterRegistry> vdrTimerActionExecutorAdapterRegistry_;
+    std::unique_ptr<VdrTimerActionController> vdrTimerActionController_;
 
     std::unique_ptr<RuntimeDiagnosticsJsonSerializer> runtimeDiagnosticsJsonSerializer_;
     std::unique_ptr<RuntimeDiagnosticsController> runtimeDiagnosticsController_;
