@@ -82,6 +82,7 @@ Historical implementation notes retained for reference.
 See:
 
 - [Architecture Decision Records](../adr/index.md)
+- [Architecture-scoped Decision Records](adr/index.md)
 
 ---
 
