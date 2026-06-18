@@ -8,7 +8,8 @@
 VdrTimerActionController::VdrTimerActionController(
     VdrTimerActionService& actionService,
     VdrTimerActionResultJsonSerializer& jsonSerializer)
-    : actionService_(actionService),
+    : actionService_(&actionService),
+      executionService_(nullptr),
       jsonSerializer_(jsonSerializer),
       requestParser_(nullptr)
 {
@@ -18,7 +19,19 @@ VdrTimerActionController::VdrTimerActionController(
     VdrTimerActionService& actionService,
     VdrTimerActionResultJsonSerializer& jsonSerializer,
     VdrTimerActionRequestParser& requestParser)
-    : actionService_(actionService),
+    : actionService_(&actionService),
+      executionService_(nullptr),
+      jsonSerializer_(jsonSerializer),
+      requestParser_(&requestParser)
+{
+}
+
+VdrTimerActionController::VdrTimerActionController(
+    VdrTimerActionExecutionService& executionService,
+    VdrTimerActionResultJsonSerializer& jsonSerializer,
+    VdrTimerActionRequestParser& requestParser)
+    : actionService_(nullptr),
+      executionService_(&executionService),
       jsonSerializer_(jsonSerializer),
       requestParser_(&requestParser)
 {
@@ -96,6 +109,51 @@ ApiResponse VdrTimerActionController::removeBody(
         executor);
 }
 
+ApiResponse VdrTimerActionController::createBody(
+    const std::string& body,
+    const VdrTimerActionExecutorAdapterRegistry& registry)
+{
+    if (requestParser_ == nullptr)
+    {
+        return parserUnavailableResponse();
+    }
+
+    return execute(
+        VdrTimerActionType::Create,
+        requestParser_->parse(body),
+        registry);
+}
+
+ApiResponse VdrTimerActionController::updateBody(
+    const std::string& body,
+    const VdrTimerActionExecutorAdapterRegistry& registry)
+{
+    if (requestParser_ == nullptr)
+    {
+        return parserUnavailableResponse();
+    }
+
+    return execute(
+        VdrTimerActionType::Update,
+        requestParser_->parse(body),
+        registry);
+}
+
+ApiResponse VdrTimerActionController::removeBody(
+    const std::string& body,
+    const VdrTimerActionExecutorAdapterRegistry& registry)
+{
+    if (requestParser_ == nullptr)
+    {
+        return parserUnavailableResponse();
+    }
+
+    return execute(
+        VdrTimerActionType::Delete,
+        requestParser_->parse(body),
+        registry);
+}
+
 ApiResponse VdrTimerActionController::execute(
     VdrTimerActionType type,
     const VdrTimerOperationRequest& request,
@@ -105,11 +163,19 @@ ApiResponse VdrTimerActionController::execute(
 
     response.statusCode = 200;
     response.contentType = "application/json";
+
+    if (actionService_ == nullptr)
+    {
+        response.statusCode = 500;
+        response.body = "{\"error\":\"vdr timer action service unavailable\"}";
+        return response;
+    }
+
     if (type == VdrTimerActionType::Create)
     {
         response.body =
             jsonSerializer_.serialize(
-                actionService_.create(
+                actionService_->create(
                     request,
                     executor));
 
@@ -120,7 +186,7 @@ ApiResponse VdrTimerActionController::execute(
     {
         response.body =
             jsonSerializer_.serialize(
-                actionService_.update(
+                actionService_->update(
                     request,
                     executor));
 
@@ -131,7 +197,7 @@ ApiResponse VdrTimerActionController::execute(
     {
         response.body =
             jsonSerializer_.serialize(
-                actionService_.remove(
+                actionService_->remove(
                     request,
                     executor));
 
@@ -140,9 +206,36 @@ ApiResponse VdrTimerActionController::execute(
 
     response.body =
         jsonSerializer_.serialize(
-            actionService_.toggle(
+            actionService_->toggle(
                 request,
                 executor));
+
+    return response;
+}
+
+ApiResponse VdrTimerActionController::execute(
+    VdrTimerActionType type,
+    const VdrTimerOperationRequest& request,
+    const VdrTimerActionExecutorAdapterRegistry& registry)
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+
+    if (executionService_ == nullptr)
+    {
+        response.statusCode = 500;
+        response.body = "{\"error\":\"vdr timer action execution service unavailable\"}";
+        return response;
+    }
+
+    response.body =
+        jsonSerializer_.serialize(
+            executionService_->execute(
+                type,
+                request,
+                registry));
 
     return response;
 }

@@ -1,12 +1,39 @@
 #include "VdrTimerActionController.h"
 
 #include "MockVdrTimerActionExecutor.h"
+#include "VdrTimerActionExecutionService.h"
+#include "VdrTimerActionExecutorAdapterRegistry.h"
 #include "VdrTimerActionRequestParser.h"
 #include "VdrTimerActionResultJsonSerializer.h"
 #include "VdrTimerActionService.h"
 
 #include <cassert>
+#include <memory>
 #include <string>
+
+class TestTimerActionExecutorAdapter final : public IVdrTimerActionExecutorAdapter
+{
+public:
+    explicit TestTimerActionExecutorAdapter(
+        std::string backendId)
+        : backendId_(backendId)
+    {
+    }
+
+    std::string backendId() const override
+    {
+        return backendId_;
+    }
+
+    IVdrTimerActionExecutor& executor() override
+    {
+        return executor_;
+    }
+
+private:
+    std::string backendId_;
+    MockVdrTimerActionExecutor executor_;
+};
 
 static VdrTimerOperationRequest makeRequest()
 {
@@ -24,6 +51,17 @@ static VdrTimerOperationRequest makeRequest()
     request.lifetime = 99;
     request.active = true;
     return request;
+}
+
+static VdrTimerActionExecutorAdapterRegistry makeRegistry()
+{
+    VdrTimerActionExecutorAdapterRegistry registry;
+
+    registry.registerAdapter(
+        std::make_shared<TestTimerActionExecutorAdapter>(
+            "living-room"));
+
+    return registry;
 }
 
 static void test_create_request_returns_json_response()
@@ -153,6 +191,108 @@ static void test_body_request_without_parser_returns_500()
     assert(response.body == "{\"error\":\"vdr timer action request parser unavailable\"}");
 }
 
+static void test_create_body_uses_registry()
+{
+    VdrTimerActionExecutionService executionService;
+    VdrTimerActionResultJsonSerializer serializer;
+    VdrTimerActionRequestParser parser;
+    VdrTimerActionController controller(
+        executionService,
+        serializer,
+        parser);
+
+    VdrTimerActionExecutorAdapterRegistry registry =
+        makeRegistry();
+
+    const ApiResponse response =
+        controller.createBody(
+            "{"
+            "\"backendId\":\"living-room\","
+            "\"timerId\":\"42\""
+            "}",
+            registry);
+
+    assert(response.statusCode == 200);
+    assert(response.contentType == "application/json");
+    assert(response.body.find("\"success\":true") != std::string::npos);
+    assert(response.body.find("\"type\":\"create\"") != std::string::npos);
+}
+
+static void test_update_body_uses_registry()
+{
+    VdrTimerActionExecutionService executionService;
+    VdrTimerActionResultJsonSerializer serializer;
+    VdrTimerActionRequestParser parser;
+    VdrTimerActionController controller(
+        executionService,
+        serializer,
+        parser);
+
+    VdrTimerActionExecutorAdapterRegistry registry =
+        makeRegistry();
+
+    const ApiResponse response =
+        controller.updateBody(
+            "{"
+            "\"backendId\":\"living-room\","
+            "\"timerId\":\"42\""
+            "}",
+            registry);
+
+    assert(response.statusCode == 200);
+    assert(response.body.find("\"type\":\"update\"") != std::string::npos);
+}
+
+static void test_remove_body_uses_registry()
+{
+    VdrTimerActionExecutionService executionService;
+    VdrTimerActionResultJsonSerializer serializer;
+    VdrTimerActionRequestParser parser;
+    VdrTimerActionController controller(
+        executionService,
+        serializer,
+        parser);
+
+    VdrTimerActionExecutorAdapterRegistry registry =
+        makeRegistry();
+
+    const ApiResponse response =
+        controller.removeBody(
+            "{"
+            "\"backendId\":\"living-room\","
+            "\"timerId\":\"42\""
+            "}",
+            registry);
+
+    assert(response.statusCode == 200);
+    assert(response.body.find("\"type\":\"delete\"") != std::string::npos);
+}
+
+static void test_missing_registry_adapter_returns_json_failure()
+{
+    VdrTimerActionExecutionService executionService;
+    VdrTimerActionResultJsonSerializer serializer;
+    VdrTimerActionRequestParser parser;
+    VdrTimerActionController controller(
+        executionService,
+        serializer,
+        parser);
+
+    VdrTimerActionExecutorAdapterRegistry registry;
+
+    const ApiResponse response =
+        controller.removeBody(
+            "{"
+            "\"backendId\":\"missing-backend\","
+            "\"timerId\":\"42\""
+            "}",
+            registry);
+
+    assert(response.statusCode == 200);
+    assert(response.body.find("\"success\":false") != std::string::npos);
+    assert(response.body.find("timer action executor adapter not found") != std::string::npos);
+}
+
 int main()
 {
     test_create_request_returns_json_response();
@@ -162,6 +302,10 @@ int main()
     test_update_body_uses_parser();
     test_remove_body_uses_parser();
     test_body_request_without_parser_returns_500();
+    test_create_body_uses_registry();
+    test_update_body_uses_registry();
+    test_remove_body_uses_registry();
+    test_missing_registry_adapter_returns_json_failure();
 
     return 0;
 }

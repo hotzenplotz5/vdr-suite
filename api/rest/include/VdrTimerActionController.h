@@ -1,8 +1,10 @@
 #pragma once
 
 #include "DashboardController.h"
-#include "VdrTimerOperationRequest.h"
+#include "VdrTimerActionExecutorAdapterRegistry.h"
+#include "VdrTimerActionExecutionService.h"
 #include "VdrTimerActionResult.h"
+#include "VdrTimerOperationRequest.h"
 
 #include <string>
 
@@ -20,6 +22,11 @@ public:
 
     VdrTimerActionController(
         VdrTimerActionService& actionService,
+        VdrTimerActionResultJsonSerializer& jsonSerializer,
+        VdrTimerActionRequestParser& requestParser);
+
+    VdrTimerActionController(
+        VdrTimerActionExecutionService& executionService,
         VdrTimerActionResultJsonSerializer& jsonSerializer,
         VdrTimerActionRequestParser& requestParser);
 
@@ -47,15 +54,33 @@ public:
         const std::string& body,
         IVdrTimerActionExecutor& executor);
 
+    ApiResponse createBody(
+        const std::string& body,
+        const VdrTimerActionExecutorAdapterRegistry& registry);
+
+    ApiResponse updateBody(
+        const std::string& body,
+        const VdrTimerActionExecutorAdapterRegistry& registry);
+
+    ApiResponse removeBody(
+        const std::string& body,
+        const VdrTimerActionExecutorAdapterRegistry& registry);
+
 private:
     ApiResponse execute(
         VdrTimerActionType type,
         const VdrTimerOperationRequest& request,
         IVdrTimerActionExecutor& executor);
 
+    ApiResponse execute(
+        VdrTimerActionType type,
+        const VdrTimerOperationRequest& request,
+        const VdrTimerActionExecutorAdapterRegistry& registry);
+
     ApiResponse parserUnavailableResponse() const;
 
-    VdrTimerActionService& actionService_;
+    VdrTimerActionService* actionService_;
+    VdrTimerActionExecutionService* executionService_;
     VdrTimerActionResultJsonSerializer& jsonSerializer_;
     VdrTimerActionRequestParser* requestParser_;
 };

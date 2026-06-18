@@ -104,6 +104,7 @@ test-vdr-timer-action-controller:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/MockVdrTimerActionExecutor.cpp \
 		core/vdr/src/VdrTimerActionService.cpp \
+		core/vdr/src/VdrTimerActionExecutionService.cpp \
 		core/vdr/src/VdrTimerActionResultJsonSerializer.cpp \
 		api/rest/src/VdrTimerActionRequestParser.cpp \
 		api/rest/src/VdrTimerActionController.cpp \
