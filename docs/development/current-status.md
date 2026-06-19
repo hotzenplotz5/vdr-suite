@@ -46,81 +46,34 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 45.7 - EPG Search REST Validation
+Phase 46.0 - Content Classification Architecture ADR
 ```
 
 Current major phase status:
 
 ```text
-Phase 20 live transport foundation is complete through 20.9.
-Phase 21.0 documents real VDR runtime polling and EPG performance findings.
-Phase 21.1 documents RESTfulAPI event streams as optional backend-specific change hint sources.
-Phase 21.2 introduces selective event query support through the VDR adapter boundary.
-Phase 21.3 validates selective RESTfulAPI EPG access against a real VDR.
-Phase 22.0 introduces the heavy-domain refresh policy foundation.
-Phase 25.0 through 25.4 implement the EPG REST API boundary, query string boundary, controller query parameters, REST query parser and EPG query parameter routing.
-Phase 25.5 validates the EPG REST API against a real VDR through VDR-Suite HTTP endpoints.
-Phase 27.0 allows the daemon runtime to start without a configured VDR backend and makes EPG REST routing backend-optional.
-Phase 27.1 through 27.10 implement the capability-aware runtime foundation: capability state, resolver state, report builder, JSON serializers, controller, service, ApiRouter integration and DaemonRuntime wiring.
-Phase 27.11 documents the real VDR validation of the capability-aware runtime through the VDR-Suite daemon.
-Phase 28.0 through 28.12 complete the recording query API foundation: query model, result model, service, matcher, JSON serializer, controller, router integration, title/path filters, start-time filters, duration filters, sorting and documentation.
+Phase 45 completed the EPG search API block through architecture, request, matcher, result, JSON contract, service, controller, REST validation and API documentation.
 
-Phase 29.0 introduces backend identity for recordings.
-Phase 29.1 exposes recording backend identity in recording query JSON responses.
-Phase 29.2 adds backend-aware recording query filtering through the recording query API.
-
-Phase 37 through Phase 43 completed the recording action execution path from validation and request preview through RESTfulAPI execution, guarded live smoke helpers, HTTP error status preservation, and live success contract checks.
-
-Phase 44.0 synchronizes the documentation after the live recording action verification work and records ADR-0025 as the configurable metadata provider architecture decision.
+Phase 46.0 adds ADR-0028 as the content classification architecture decision.
 
 Next implementation focus:
-Phase 45.8 - EPG Search Documentation
+Phase 46.1 - Genre Domain Foundation
 ```
 
-Verified locally with:
-
-```text
-make test-restful-api-vdr-adapter
-make test-vdr-service
-make test-backend-polling-coordinator
-make test-fast
-make test-docs
-make test-phase
-make daemon
-```
+Verified locally in the preceding implementation phases with targeted EPG search tests, documentation checks, phase consistency checks and daemon build validation. Direct GitHub documentation synchronization should still be followed by local `make test-docs` and `make test-phase` after pulling.
 
 Verification summary:
 
-- EPG REST API routes are implemented for Now/Next, TimeWindow and ChannelWindow reads
-- EPG query parameters are routed through `ApiRouter`, `RestQueryParameters`, `EpgController`, `IEpgQueryService`, `VdrService` and `IVdrAdapter`
-- live VDR validation confirmed `/api/epg/now-next`, `/api/epg/time-window` and `/api/epg/channel-window` return real EPG events
-- selective RESTfulAPI query paths were observed through `/events.json?timespan=7200&chevents=2`, `/events.json?from=...&timespan=7200` and `/events.json?from=...&timespan=7200&limit=5`
-- daemon startup no longer requires a configured VDR backend to initialize the REST runtime
-- capability-aware runtime validation confirmed `/api/vdr/capabilities` through the real daemon on `127.0.0.1:18080`
-- real RESTfulAPI backend validation confirmed VDR access through `127.0.0.1:8002`
-- real runtime observation reported 342 channels, 973 recordings and a latest recording payload from the real VDR
-- real startup measurement showed `/recordings.json` as the dominant startup domain with about 4.3 MB transferred and about 1.8 seconds snapshot build time
-- recording query API supports title, path, start time, duration, sorting and paging
-- recording query JSON exposes explicit `recordingId` and `recordingPath` aliases for future recording actions
-- recording query JSON exposes `backendNativeId` for backend-native recording action execution
-- real VDR validation confirmed recording rename, delete and move through VDR-Suite action execution
-- recording move preserves the source recording leaf name when targeting a folder
-- detailed validation notes are documented in [Real Recording Action End-to-End Validation](./real-recording-action-e2e-validation.md)
-- phase 44 runtime completion is documented in [Phase 44 Recording Action Runtime Completion](./phase-44-recording-action-runtime-completion.md)
-- documentation phase consistency remains green
-- daemon build remains green
-- GitHub Actions remains the standard full regression path for normal non-VDR-specific changes
-- recording action execution results now expose `backendNativeId`, `recordingPath`, `snapshotRefreshed`, `upstreamHttpStatus`, `upstreamEndpoint` and `upstreamResponseBody`
-- Phase 45 should begin with EPG search architecture and classification planning
-- Phase 45.0 architecture planning is documented in [Phase 45 EPG Search Architecture](./phase-45-epg-search-architecture.md)
-- Phase 45.1 introduced the backend-neutral `EpgSearchRequest` foundation for future EPG text search, selective time windows, backend identity, field selection and sorting.
-- Phase 45.2 introduced the isolated `EpgSearchMatcher` foundation for text, channel and selective time-window matching over `VdrEvent` objects.
-- Phase 45.3 introduced `EpgSearchMatch` and `EpgSearchResult` as backend-aware result foundations with pagination counters and match metadata.
-- Phase 45.4 introduced `EpgSearchResultJsonSerializer` as the escaped JSON contract for future EPG search REST responses.
-- Phase 45.5 introduced `EpgSearchService` as the selector over already provided `VdrEvent` windows with matching, sorting, pagination and result construction.
-- Phase 45.6 introduced the EPG search controller foundation and `/api/epg/search` router wiring over selective EPG time windows.
-- Phase 45.7 added REST validation for EPG search timespan, limit, offset, sort and order parameters.
-- Phase 45.8 documents the implemented [EPG Search API](./epg-search-api.md).
+- VDR remains the primary backend domain and source of truth.
+- Selective EPG REST APIs are implemented for Now/Next, TimeWindow and ChannelWindow reads.
+- `/api/epg/search` is implemented as an additive search endpoint over selective EPG windows.
+- EPG search has backend-neutral request, matcher, service, result and JSON contract foundations.
+- EPG search REST validation rejects invalid `timespan`, `limit`, `offset`, `sort` and `order` values.
+- The implemented EPG Search API is documented in [EPG Search API](./epg-search-api.md).
+- ADR-0028 documents the future content classification architecture and explicitly avoids modeling genre as a single plain string.
+- Content classification is planned as source-aware evidence for genres, content ratings, keywords, collections, user tags and folder hints.
+- Future genre, FSK/content-rating, profile, policy and TV frontend work should build on ADR-0028.
+- Documentation phase consistency should remain aligned around Phase 46.0 as latest completed phase and Phase 46.1 as next focus.
 
 ---
 
@@ -155,8 +108,10 @@ Verification summary:
 - `RestfulApiVdrAdapter` maps selective event queries to existing RESTfulAPI query parameters.
 - Recording actions use backend-native recording identity through `backendNativeId`.
 - Recording rename, delete and move are validated end-to-end against a real VDR.
-`DomainRefreshPolicy` classifies Events / EPG as a heavy domain.
-`SnapshotRefreshPlanner` no longer creates automatic full EPG refresh work for EventsChanged.
+- `DomainRefreshPolicy` classifies Events / EPG as a heavy domain.
+- `SnapshotRefreshPlanner` no longer creates automatic full EPG refresh work for EventsChanged.
+- EPG search operates over selective event windows and does not require a persistent full EPG mirror.
+- ADR-0028 defines source-aware content classification for future genre, rating, metadata and policy work.
 
 ---
 
@@ -214,6 +169,7 @@ GET /api/epg/now-next
 GET /api/epg/now-next?channelId={channelId}&from={unixTime}
 GET /api/epg/time-window?channelId={channelId}&from={unixTime}&timespan={seconds}
 GET /api/epg/channel-window?channelId={channelId}&from={unixTime}&timespan={seconds}&limit={count}
+GET /api/epg/search?query={text}&channelId={channelId}&from={unixTime}&timespan={seconds}&limit={count}&offset={count}&sort={field}&order={asc|desc}
 ```
 
 Backend registry and backend-aware read APIs:
@@ -246,18 +202,9 @@ The full local regression target is intentionally no longer the default verifica
 Recommended local pre-commit verification for architecture work:
 
 ```text
-make test-fast
 make test-docs
-make test-architecture
 make test-phase
 make daemon
-```
-
-Project workflow:
-
-```text
-GitHub-first
-CI-first
 ```
 
 Targeted local tests remain useful for narrow changes and for real VDR validation.
@@ -276,20 +223,19 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 45.8 - EPG Search Documentation
+Phase 46.1 - Genre Domain Foundation
 ```
 
-The next step is to introduce recording action capability requirements before destructive operations are implemented.
+The next step is to implement the first small source-aware genre domain foundation based on ADR-0028.
 
 Important boundaries:
 
-- keep VDR as the source of truth for real recordings
-- keep VDR-Suite metadata complementary
-- preserve single-backend compatibility
-- preserve backend-aware query behavior
-- avoid changing existing `/api/vdr/recordings` output unless explicitly planned
-- real VDR validation should continue to use explicit opt-in environment variables
-- GitHub Actions must remain independent from a running VDR
+- keep VDR as the source of truth for VDR-owned state
+- keep classification as enrichment and evidence, not a replacement for VDR data
+- preserve source identity for genres and later content ratings
+- avoid persistent full EPG mirroring
+- avoid policy enforcement before a dedicated policy architecture exists
+- keep metadata provider details behind provider boundaries
 
 ---
 
