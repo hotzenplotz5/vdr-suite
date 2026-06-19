@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.5 - Genre Localization Layer
+Phase 46.6 - Genre Resolution Localization JSON
 ```
 
 Current major phase status:
@@ -57,7 +57,7 @@ Phase 45 completed the EPG search API block through architecture, request, match
 Phase 46.0 adds ADR-0028 as the content classification architecture decision.
 
 Next implementation focus:
-Phase 46.6 - Genre Resolution Localization JSON
+Phase 46.7 - Genre Architecture Documentation
 ```
 
 Verified locally in the preceding implementation phases with targeted EPG search tests, documentation checks, phase consistency checks and daemon build validation. Direct GitHub documentation synchronization should still be followed by local `make test-docs` and `make test-phase` after pulling.
@@ -76,6 +76,7 @@ Verification summary:
 - Phase 46.3 introduces the genre resolution JSON contract with canonical genre IDs, original provider values and evidence serialization.
 - Phase 46.4 introduces `CanonicalGenreRegistry` as the first mapping layer from multilingual provider labels to stable canonical genre IDs.
 - Phase 46.5 introduces `GenreLocalization` as the first German and English label layer for canonical genre IDs.
+- Phase 46.6 introduces localized genre resolution JSON while preserving stable canonical IDs.
 - Content classification is planned as source-aware evidence for genres, content ratings, keywords, collections, user tags and folder hints.
 - Future genre, FSK/content-rating, profile, policy and TV frontend work should build on ADR-0028.
 - Documentation phase consistency should remain aligned around Phase 46.1 as latest completed phase and Phase 46.2 as next focus.
@@ -228,7 +229,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.6 - Genre Resolution Localization JSON
+Phase 46.7 - Genre Architecture Documentation
 ```
 
 The next step is to implement the first small source-aware genre domain foundation based on ADR-0028.

@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.5 - Genre Localization Layer
+Phase 46.6 - Genre Resolution Localization JSON
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.6 - Genre Resolution Localization JSON
+Phase 46.7 - Genre Architecture Documentation
 ```
 
 Current architecture validation:

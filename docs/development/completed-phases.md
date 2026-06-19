@@ -26,6 +26,18 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.6 - Genre Resolution Localization JSON
+
+Status: Completed.
+
+Summary:
+- Added localized JSON serialization for genre resolution results.
+- Added `serializeLocalized(result, locale)` to `GenreResolutionJsonSerializer`.
+- Preserved the existing non-localized JSON contract.
+- Added `label` and `locale` fields while keeping stable `canonicalId` values.
+- Verified German and English labels for canonical genre IDs.
+- Kept REST, database, external language files, provider integration, SearchTimer and policy enforcement out of scope.
+
 ## Phase 46.5 - Genre Localization Layer
 
 Status: Completed.

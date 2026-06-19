@@ -1,5 +1,7 @@
 #include "GenreResolutionJsonSerializer.h"
 
+#include "GenreLocalization.h"
+
 #include <sstream>
 
 namespace
@@ -70,13 +72,34 @@ void appendQuoted(
 
 void appendGenre(
     std::ostringstream& json,
-    const GenreClassification& genre)
+    const GenreClassification& genre,
+    const std::string& locale,
+    bool localized)
 {
+    GenreLocalization localization;
+
     json << '{';
 
     appendQuoted(json, "canonicalId");
     json << ':';
     appendQuoted(json, genre.normalizedValue());
+
+    if (localized)
+    {
+        json << ',';
+        appendQuoted(json, "label");
+        json << ':';
+        appendQuoted(
+            json,
+            localization.label(
+                genre.normalizedValue(),
+                locale));
+
+        json << ',';
+        appendQuoted(json, "locale");
+        json << ':';
+        appendQuoted(json, locale);
+    }
 
     json << ',';
     appendQuoted(json, "source");
@@ -105,10 +128,11 @@ void appendGenre(
 
     json << '}';
 }
-}
 
-std::string GenreResolutionJsonSerializer::serialize(
-    const GenreResolutionResult& result) const
+std::string serializeInternal(
+    const GenreResolutionResult& result,
+    const std::string& locale,
+    bool localized)
 {
     std::ostringstream json;
 
@@ -124,7 +148,11 @@ std::string GenreResolutionJsonSerializer::serialize(
 
     if (result.isResolved())
     {
-        appendGenre(json, result.primaryGenre());
+        appendGenre(
+            json,
+            result.primaryGenre(),
+            locale,
+            localized);
     }
     else
     {
@@ -145,7 +173,11 @@ std::string GenreResolutionJsonSerializer::serialize(
             json << ',';
         }
 
-        appendGenre(json, evidence[index]);
+        appendGenre(
+            json,
+            evidence[index],
+            locale,
+            localized);
     }
 
     json << ']';
@@ -153,4 +185,24 @@ std::string GenreResolutionJsonSerializer::serialize(
     json << '}';
 
     return json.str();
+}
+}
+
+std::string GenreResolutionJsonSerializer::serialize(
+    const GenreResolutionResult& result) const
+{
+    return serializeInternal(
+        result,
+        "",
+        false);
+}
+
+std::string GenreResolutionJsonSerializer::serializeLocalized(
+    const GenreResolutionResult& result,
+    const std::string& locale) const
+{
+    return serializeInternal(
+        result,
+        locale,
+        true);
 }

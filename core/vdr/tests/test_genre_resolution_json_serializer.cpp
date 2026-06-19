@@ -62,6 +62,23 @@ int main()
 
     assert(escapedJson.find("Krimi \\\"Nord\\\"") != std::string::npos);
 
+    std::string localizedGermanJson =
+        serializer.serializeLocalized(
+            resolved,
+            "de_DE");
+
+    assert(localizedGermanJson.find("\"label\":\"Krimi\"") != std::string::npos);
+    assert(localizedGermanJson.find("\"locale\":\"de_DE\"") != std::string::npos);
+    assert(localizedGermanJson.find("\"canonicalId\":\"crime\"") != std::string::npos);
+
+    std::string localizedEnglishJson =
+        serializer.serializeLocalized(
+            resolved,
+            "en_US");
+
+    assert(localizedEnglishJson.find("\"label\":\"Crime\"") != std::string::npos);
+    assert(localizedEnglishJson.find("\"locale\":\"en_US\"") != std::string::npos);
+
     std::cout << "test_genre_resolution_json_serializer passed" << std::endl;
     return 0;
 }

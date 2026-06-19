@@ -50,10 +50,10 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 46.5 - Genre Localization Layer
+Phase 46.6 - Genre Resolution Localization JSON
 
 Next implementation step
-Phase 46.6 - Genre Resolution Localization JSON
+Phase 46.7 - Genre Architecture Documentation
 ```
 
 Phase 45 completed the EPG search API block:
@@ -164,6 +164,7 @@ Planned direction:
 - expose genre resolution through a JSON contract with canonical IDs and source evidence
 - map multilingual genre labels to stable canonical genre IDs before localization
 - provide localized labels for canonical genre IDs without changing the stable IDs
+- expose localized genre labels in JSON while preserving canonical IDs and source evidence
 - preserve original provider values
 - define normalized genre values for search and grouping
 - support multiple genre facts per content item
