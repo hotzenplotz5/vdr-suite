@@ -706,7 +706,7 @@ int main()
 
     assert(
         pathMoveRequest.body ==
-        "{\"source\":\"Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec\",\"target\":\"~srv~vdr~video~archive\",\"copy_only\":false}");
+        "{\"source\":\"Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec\",\"target\":\"~srv~vdr~video~archive~The_Village_-_Das_Dorf\",\"copy_only\":false}");
 
     RecordingActionJobPayload pathRenamePayload = renamePayload;
     pathRenamePayload.parameters["recordingPath"] =
@@ -719,7 +719,7 @@ int main()
 
     assert(
         pathRenameRequest.body ==
-        "{\"source\":\"Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec\",\"target\":\"Evening News\",\"copy_only\":false}");
+        "{\"source\":\"Mystery/The_Village_-_Das_Dorf/2026-06-15.20.15.1-0.rec\",\"target\":\"Evening_News\",\"copy_only\":false}");
 
     RecordingActionJobPayload folderMovePayload = movePayload;
     folderMovePayload.parameters["targetPath"] = "Oskar/Tagesschau";
