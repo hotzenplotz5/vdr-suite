@@ -48,7 +48,7 @@ int main()
     assert(response.body.find("\"backendId\":\"local-vdr\"") != std::string::npos);
     assert(response.body.find("\"method\":\"POST\"") != std::string::npos);
     assert(response.body.find("\"url\":\"/recordings/move.json\"") != std::string::npos);
-    assert(response.body.find("\\\"target\\\":\\\"Archiv~Tagesschau\\\"") != std::string::npos);
+    assert(response.body.find("\\\"target\\\":\\\"Archiv~Tagesschau~Tagesschau\\\"") != std::string::npos);
     assert(response.body.find("Archiv/Tagesschau") == std::string::npos);
     assert(response.body.find("/api/") == std::string::npos);
 
