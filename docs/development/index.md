@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.0 - Content Classification Architecture ADR
+Phase 46.1 - Genre Domain Foundation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.1 - Genre Domain Foundation
+Phase 46.2 - Genre Source Resolution Model
 ```
 
 Current architecture validation:

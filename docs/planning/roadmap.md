@@ -50,10 +50,10 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 46.0 - Content Classification Architecture ADR
+Phase 46.1 - Genre Domain Foundation
 
 Next implementation step
-Phase 46.1 - Genre Domain Foundation
+Phase 46.2 - Genre Source Resolution Model
 ```
 
 Phase 45 completed the EPG search API block:
@@ -159,6 +159,7 @@ Implement the first domain foundation based on ADR-0028.
 Planned direction:
 
 - define source-aware genre/domain objects
+- implement the first isolated genre classification test
 - preserve original provider values
 - define normalized genre values for search and grouping
 - support multiple genre facts per content item

@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.0 - Content Classification Architecture ADR
+Phase 46.1 - Genre Domain Foundation
 ```
 
 Current major phase status:
@@ -57,7 +57,7 @@ Phase 45 completed the EPG search API block through architecture, request, match
 Phase 46.0 adds ADR-0028 as the content classification architecture decision.
 
 Next implementation focus:
-Phase 46.1 - Genre Domain Foundation
+Phase 46.2 - Genre Source Resolution Model
 ```
 
 Verified locally in the preceding implementation phases with targeted EPG search tests, documentation checks, phase consistency checks and daemon build validation. Direct GitHub documentation synchronization should still be followed by local `make test-docs` and `make test-phase` after pulling.
@@ -71,9 +71,10 @@ Verification summary:
 - EPG search REST validation rejects invalid `timespan`, `limit`, `offset`, `sort` and `order` values.
 - The implemented EPG Search API is documented in [EPG Search API](./epg-search-api.md).
 - ADR-0028 documents the future content classification architecture and explicitly avoids modeling genre as a single plain string.
+- Phase 46.1 introduces the first source-aware genre domain foundation with `GenreClassification`, `GenreCollection` and `ContentClassificationSource`.
 - Content classification is planned as source-aware evidence for genres, content ratings, keywords, collections, user tags and folder hints.
 - Future genre, FSK/content-rating, profile, policy and TV frontend work should build on ADR-0028.
-- Documentation phase consistency should remain aligned around Phase 46.0 as latest completed phase and Phase 46.1 as next focus.
+- Documentation phase consistency should remain aligned around Phase 46.1 as latest completed phase and Phase 46.2 as next focus.
 
 ---
 
@@ -223,7 +224,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.1 - Genre Domain Foundation
+Phase 46.2 - Genre Source Resolution Model
 ```
 
 The next step is to implement the first small source-aware genre domain foundation based on ADR-0028.

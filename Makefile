@@ -634,6 +634,12 @@ test-epg-controller:
 		-o /tmp/test_epg_controller
 	/tmp/test_epg_controller
 
+test-genre-classification:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_genre_classification.cpp \
+		-o /tmp/test_genre_classification
+	/tmp/test_genre_classification
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \

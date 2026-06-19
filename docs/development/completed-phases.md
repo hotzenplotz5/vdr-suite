@@ -26,6 +26,17 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.1 - Genre Domain Foundation
+
+Status: Completed.
+
+Summary:
+- Added the source-aware `GenreClassification` domain foundation.
+- Added `ContentClassificationSource` values for EPG, DVB, tvscraper, scraper2vdr, TMDb, TVDb, IMDb, user, folder and derived sources.
+- Added `GenreCollection` as a multi-evidence container.
+- Preserved original provider values, normalized values, optional confidence and optional provider references.
+- Kept REST, database, metadata provider integration, SearchTimer and policy enforcement out of scope.
+
 ## Phase 46.0 - Content Classification Architecture ADR
 
 Status: Completed.

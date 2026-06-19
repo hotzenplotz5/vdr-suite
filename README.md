@@ -47,9 +47,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.0 - Content Classification Architecture ADR
+Latest Completed Implementation Phase: Phase 46.1 - Genre Domain Foundation
 
-Current Implementation Focus: Phase 46.1 - Genre Domain Foundation
+Current Implementation Focus: Phase 46.2 - Genre Source Resolution Model
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

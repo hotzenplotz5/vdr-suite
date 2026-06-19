@@ -43,6 +43,7 @@ test-vdr: \
 	test-vdr-timer-action-execution-service \
 	test-restful-api-vdr-adapter \
 	test-restful-api-change-state-adapter \
+	test-genre-classification \
 	test-epg-search-request \
 	test-epg-search-matcher \
 	test-epg-search-result \
