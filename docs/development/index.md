@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 45.7 - EPG Search REST Validation
+Phase 46.0 - Content Classification Architecture ADR
 ```
 
 Next implementation focus:
 
 ```text
-Phase 45.8 - EPG Search Documentation
+Phase 46.1 - Genre Domain Foundation
 ```
 
 Current architecture validation:
@@ -59,6 +59,7 @@ Current architecture validation:
 - [Phase 21.1 - RESTfulAPI Event Stream Strategy](phase-21.1-restfulapi-event-stream-strategy.md)
 - [ADR-0021: Selective Backend Query Strategy](../adr/ADR-0021-selective-backend-query-strategy.md)
 - [ADR-0025: Configurable Metadata Provider Architecture](../adr/ADR-0025-configurable-metadata-provider-architecture.md)
+- [ADR-0028: Content Classification Architecture](../adr/ADR-0028-content-classification-architecture.md)
 - [Timer Contract Gap Analysis](timer-contract-gap-analysis.md)
 - [Real Recording Action End-to-End Validation](real-recording-action-e2e-validation.md)
 - [Phase 44 Recording Action Runtime Completion](phase-44-recording-action-runtime-completion.md)
@@ -122,6 +123,7 @@ These documents are historical implementation notes or phase-specific architectu
 - [Phase 21.1 - RESTfulAPI Event Stream Strategy](phase-21.1-restfulapi-event-stream-strategy.md)
 - [ADR-0021: Selective Backend Query Strategy](../adr/ADR-0021-selective-backend-query-strategy.md)
 - [Phase 21.3 - Selective RESTfulAPI EPG Validation](phase-21.3-selective-restfulapi-epg-validation.md)
+
 ---
 
 ## Supporting Development Documents
@@ -136,6 +138,7 @@ These documents are historical implementation notes or phase-specific architectu
 - [Backend Development Guide](backend-development-guide.md)
 - [Contributor Guide](contributor-guide.md)
 - [Release Process](release-process.md)
+
 ---
 
 ## Back
