@@ -70,11 +70,18 @@ RecordingActionExecutionResult RestfulApiRecordingActionExecutor::executeBuiltRe
     if (response.statusCode >= 200 &&
         response.statusCode < 300)
     {
-        return RecordingActionExecutionResult::ok(
-            payload.type,
-            payload.recordingId,
-            payload.backendId,
-            "RESTfulAPI recording action request executed");
+        RecordingActionExecutionResult result =
+            RecordingActionExecutionResult::ok(
+                payload.type,
+                payload.recordingId,
+                payload.backendId,
+                "RESTfulAPI recording action request executed");
+
+        result.upstreamHttpStatus = response.statusCode;
+        result.upstreamEndpoint = request.url;
+        result.upstreamResponseBody = response.body;
+
+        return result;
     }
 
     std::string error =
@@ -85,10 +92,17 @@ RecordingActionExecutionResult RestfulApiRecordingActionExecutor::executeBuiltRe
         error += ": " + response.body;
     }
 
-    return RecordingActionExecutionResult::failed(
-        payload.type,
-        payload.recordingId,
-        payload.backendId,
-        "RESTfulAPI recording action request failed",
-        {error});
+    RecordingActionExecutionResult result =
+        RecordingActionExecutionResult::failed(
+            payload.type,
+            payload.recordingId,
+            payload.backendId,
+            "RESTfulAPI recording action request failed",
+            {error});
+
+    result.upstreamHttpStatus = response.statusCode;
+    result.upstreamEndpoint = request.url;
+    result.upstreamResponseBody = response.body;
+
+    return result;
 }

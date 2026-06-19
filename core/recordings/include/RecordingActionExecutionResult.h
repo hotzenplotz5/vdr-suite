@@ -13,6 +13,9 @@ struct RecordingActionExecutionResult {
     std::string backendNativeId;
     std::string recordingPath;
     bool snapshotRefreshed = false;
+    int upstreamHttpStatus = 0;
+    std::string upstreamEndpoint;
+    std::string upstreamResponseBody;
     std::string message;
     std::vector<std::string> warnings;
     std::vector<std::string> errors;

@@ -64,6 +64,9 @@ int main()
         assert(result.success);
         assert(result.message == "RESTfulAPI recording action request executed");
         assert(result.errors.empty());
+        assert(result.upstreamHttpStatus == 200);
+        assert(result.upstreamEndpoint == "/recordings/delete.json");
+        assert(result.upstreamResponseBody == "Recording deleted!");
         assert(httpClient.requestCount() == 1);
         assert(httpClient.lastRequest().method == "POST");
         assert(httpClient.lastRequest().url == "/recordings/delete.json");
@@ -82,6 +85,9 @@ int main()
         assert(result.message == "RESTfulAPI recording action request failed");
         assert(result.errors.size() == 1);
         assert(result.errors.at(0) == "RESTfulAPI returned HTTP status 404: Recording not found!");
+        assert(result.upstreamHttpStatus == 404);
+        assert(result.upstreamEndpoint == "/recordings/delete.json");
+        assert(result.upstreamResponseBody == "Recording not found!");
         assert(httpClient.requestCount() == 1);
     }
 
@@ -97,6 +103,9 @@ int main()
         assert(result.message == "RESTfulAPI recording action request failed");
         assert(result.errors.size() == 1);
         assert(result.errors.at(0) == "RESTfulAPI returned HTTP status 500");
+        assert(result.upstreamHttpStatus == 500);
+        assert(result.upstreamEndpoint == "/recordings/delete.json");
+        assert(result.upstreamResponseBody.empty());
         assert(httpClient.requestCount() == 1);
     }
 

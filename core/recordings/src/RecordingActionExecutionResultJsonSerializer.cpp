@@ -75,6 +75,9 @@ std::string RecordingActionExecutionResultJsonSerializer::serialize(
         << "\"backendNativeId\":\"" << escapeJson(result.backendNativeId) << "\","
         << "\"recordingPath\":\"" << escapeJson(result.recordingPath) << "\","
         << "\"snapshotRefreshed\":" << boolText(result.snapshotRefreshed) << ","
+        << "\"upstreamHttpStatus\":" << result.upstreamHttpStatus << ","
+        << "\"upstreamEndpoint\":\"" << escapeJson(result.upstreamEndpoint) << "\","
+        << "\"upstreamResponseBody\":\"" << escapeJson(result.upstreamResponseBody) << "\","
         << "\"message\":\"" << escapeJson(result.message) << "\","
         << "\"warnings\":" << serializeStringArray(result.warnings) << ","
         << "\"errors\":" << serializeStringArray(result.errors)
