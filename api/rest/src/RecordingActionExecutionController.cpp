@@ -70,20 +70,45 @@ void RecordingActionExecutionController::setAfterSuccessfulExecutionCallback(
     afterSuccessfulExecution_ = std::move(callback);
 }
 
-void RecordingActionExecutionController::refreshAfterSuccessfulExecution(
+bool RecordingActionExecutionController::refreshAfterSuccessfulExecution(
     const RecordingActionExecutionResult& result) const
 {
     if (!result.success)
     {
-        return;
+        return false;
     }
 
     if (!afterSuccessfulExecution_)
     {
-        return;
+        return false;
     }
 
     afterSuccessfulExecution_();
+    return true;
+}
+
+RecordingActionExecutionResult RecordingActionExecutionController::enrichExecutionResult(
+    RecordingActionExecutionResult result,
+    const RecordingActionRequest& resolvedRequest,
+    bool snapshotRefreshed) const
+{
+    const auto backendNativeId =
+        resolvedRequest.parameters.find("backendNativeId");
+    if (backendNativeId != resolvedRequest.parameters.end())
+    {
+        result.backendNativeId = backendNativeId->second;
+    }
+
+    const auto recordingPath =
+        resolvedRequest.parameters.find("recordingPath");
+    if (recordingPath != resolvedRequest.parameters.end())
+    {
+        result.recordingPath = recordingPath->second;
+    }
+
+    result.snapshotRefreshed = snapshotRefreshed;
+
+    return result;
 }
 
 RecordingActionRequest RecordingActionExecutionController::resolveBackendNativeId(
@@ -138,13 +163,19 @@ ApiResponse RecordingActionExecutionController::execute(
                 *backendRegistry_,
                 request.backendId);
 
-        const RecordingActionExecutionResult result =
+        RecordingActionExecutionResult result =
             executionService_.execute(
                 resolvedRequest,
                 backendExecutorAdapterRegistry_,
                 lookup.policy);
 
-        refreshAfterSuccessfulExecution(result);
+        const bool snapshotRefreshed =
+            refreshAfterSuccessfulExecution(result);
+        result =
+            enrichExecutionResult(
+                result,
+                resolvedRequest,
+                snapshotRefreshed);
 
         response.body =
             jsonSerializer_.serialize(result);
@@ -152,12 +183,18 @@ ApiResponse RecordingActionExecutionController::execute(
         return response;
     }
 
-    const RecordingActionExecutionResult result =
+    RecordingActionExecutionResult result =
         executionService_.execute(
             resolvedRequest,
             backendExecutorAdapterRegistry_);
 
-    refreshAfterSuccessfulExecution(result);
+    const bool snapshotRefreshed =
+        refreshAfterSuccessfulExecution(result);
+    result =
+        enrichExecutionResult(
+            result,
+            resolvedRequest,
+            snapshotRefreshed);
 
     response.body =
         jsonSerializer_.serialize(result);

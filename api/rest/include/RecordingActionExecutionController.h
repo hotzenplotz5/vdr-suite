@@ -74,6 +74,11 @@ private:
     VdrSnapshotReadService* snapshotReadService_;
     std::function<void()> afterSuccessfulExecution_;
 
-    void refreshAfterSuccessfulExecution(
+    bool refreshAfterSuccessfulExecution(
         const RecordingActionExecutionResult& result) const;
+
+    RecordingActionExecutionResult enrichExecutionResult(
+        RecordingActionExecutionResult result,
+        const RecordingActionRequest& resolvedRequest,
+        bool snapshotRefreshed) const;
 };

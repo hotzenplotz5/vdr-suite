@@ -10,6 +10,9 @@ struct RecordingActionExecutionResult {
     RecordingActionType type = RecordingActionType::Unknown;
     std::string recordingId;
     std::string backendId;
+    std::string backendNativeId;
+    std::string recordingPath;
+    bool snapshotRefreshed = false;
     std::string message;
     std::vector<std::string> warnings;
     std::vector<std::string> errors;

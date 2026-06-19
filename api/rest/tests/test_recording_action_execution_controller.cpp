@@ -278,6 +278,8 @@ int main()
     assert(resolvedBodyResponse.contentType == "application/json");
     assert(resolvedBodyResponse.body.find("\"success\":true") != std::string::npos);
     assert(resolvedBodyResponse.body.find("\"type\":\"DELETE\"") != std::string::npos);
+    assert(resolvedBodyResponse.body.find("\"backendNativeId\":\"" + recording.backendNativeId + "\"") != std::string::npos);
+    assert(resolvedBodyResponse.body.find("\"snapshotRefreshed\":true") != std::string::npos);
     assert(capturingAdapter->lastPayload.parameters.at("backendNativeId") == recording.backendNativeId);
     assert(refreshCount == 1);
 
