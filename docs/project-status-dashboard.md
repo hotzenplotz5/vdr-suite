@@ -89,6 +89,7 @@ Architecture Work In Progress:
 ```text
 Phase 44.1 - Timer Foundation Planning
 ADR-0025 - Configurable Metadata Provider Architecture
+Real recording action validation documented
 ```
 
 ---

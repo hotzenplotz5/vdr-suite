@@ -102,6 +102,10 @@ Verification summary:
 - real startup measurement showed `/recordings.json` as the dominant startup domain with about 4.3 MB transferred and about 1.8 seconds snapshot build time
 - recording query API supports title, path, start time, duration, sorting and paging
 - recording query JSON exposes explicit `recordingId` and `recordingPath` aliases for future recording actions
+- recording query JSON exposes `backendNativeId` for backend-native recording action execution
+- real VDR validation confirmed recording rename, delete and move through VDR-Suite action execution
+- recording move preserves the source recording leaf name when targeting a folder
+- detailed validation notes are documented in [Real Recording Action End-to-End Validation](./real-recording-action-e2e-validation.md)
 - documentation phase consistency remains green
 - daemon build remains green
 - GitHub Actions remains the standard full regression path for normal non-VDR-specific changes
@@ -137,6 +141,8 @@ Verification summary:
 - `VdrEventQuery` provides the first backend-neutral selective EPG query contract.
 - `IVdrAdapter` and `VdrService` support query-based event access while preserving legacy full-event access.
 - `RestfulApiVdrAdapter` maps selective event queries to existing RESTfulAPI query parameters.
+- Recording actions use backend-native recording identity through `backendNativeId`.
+- Recording rename, delete and move are validated end-to-end against a real VDR.
 `DomainRefreshPolicy` classifies Events / EPG as a heavy domain.
 `SnapshotRefreshPlanner` no longer creates automatic full EPG refresh work for EventsChanged.
 

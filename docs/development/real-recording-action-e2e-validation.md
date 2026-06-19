@@ -247,3 +247,11 @@ backendNativeId = absolute VDR recording file name
 For future backends this can map to backend-native stable identifiers such as TVHeadend recording UUIDs or other DVR-native item identifiers.
 
 VDR remains the source of truth for recording state. VDR-Suite exposes and routes the backend-native identity without inventing a separate mutable recording identity.
+---
+
+## Back
+
+- [Back to README](../../README.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
+- [Back to Development Index](index.md)

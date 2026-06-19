@@ -26,6 +26,9 @@ Authoritative sources:
 - [Project Status Dashboard](../project-status-dashboard.md)
 - [Current Technical Debt](current-technical-debt.md)
 - [Build System State](build-system-state.md)
+- [Runtime Diagnostics Status](runtime-diagnostics-status.md)
+- [Runtime Diagnostics Documentation](runtime-diagnostics/README.md)
+- [Development Status Documentation](status/index.md)
 
 These documents describe the verified current state of the project.
 
@@ -130,3 +133,10 @@ These documents are historical implementation notes or phase-specific architectu
 - [Backend Development Guide](backend-development-guide.md)
 - [Contributor Guide](contributor-guide.md)
 - [Release Process](release-process.md)
+---
+
+## Back
+
+- [Back to README](../../README.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
