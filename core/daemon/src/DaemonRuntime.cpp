@@ -216,7 +216,9 @@ bool DaemonRuntime::initialize()
         *recordingActionExecutionService_,
         *recordingActionExecutionResultJsonSerializer_,
         *recordingActionBackendExecutorAdapterRegistry_,
-        *recordingActionValidationRequestParser_);
+        backendRegistry_,
+        *recordingActionValidationRequestParser_,
+        *vdrSnapshotReadService_);
 
     vdrTimerActionService_ = std::make_unique<VdrTimerActionService>();
     vdrTimerActionExecutionService_ = std::make_unique<VdrTimerActionExecutionService>();

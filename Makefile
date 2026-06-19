@@ -478,6 +478,7 @@ test-recording-action-execution-controller:
 		$(ACTIONS_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/VdrSnapshotReadService.cpp \
 		api/rest/src/RecordingActionExecutionController.cpp \
 		core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
 		api/rest/tests/test_recording_action_execution_controller.cpp \

@@ -13,6 +13,7 @@
 class RecordingActionExecutionResultJsonSerializer;
 class RecordingActionExecutionService;
 class RecordingActionValidationRequestParser;
+class VdrSnapshotReadService;
 
 class RecordingActionExecutionController
 {
@@ -35,8 +36,19 @@ public:
         BackendRegistry& backendRegistry,
         RecordingActionValidationRequestParser& requestParser);
 
+    RecordingActionExecutionController(
+        RecordingActionExecutionService& executionService,
+        RecordingActionExecutionResultJsonSerializer& jsonSerializer,
+        RecordingActionBackendExecutorAdapterRegistry& backendExecutorAdapterRegistry,
+        BackendRegistry& backendRegistry,
+        RecordingActionValidationRequestParser& requestParser,
+        VdrSnapshotReadService& snapshotReadService);
+
     ApiResponse execute(
         const RecordingActionRequest& request);
+
+    RecordingActionRequest resolveBackendNativeId(
+        const RecordingActionRequest& request) const;
 
     ApiResponse safety(
         const RecordingActionRequest& request,
@@ -53,4 +65,5 @@ private:
     RecordingActionBackendPolicyProvider backendPolicyProvider_;
     BackendRegistry* backendRegistry_;
     RecordingActionValidationRequestParser* requestParser_;
+    VdrSnapshotReadService* snapshotReadService_;
 };

@@ -3,6 +3,7 @@
 #include "RecordingActionExecutionResultJsonSerializer.h"
 #include "RecordingActionExecutionService.h"
 #include "RecordingActionValidationRequestParser.h"
+#include "VdrSnapshotReadService.h"
 
 RecordingActionExecutionController::RecordingActionExecutionController(
     RecordingActionExecutionService& executionService,
@@ -12,7 +13,8 @@ RecordingActionExecutionController::RecordingActionExecutionController(
       jsonSerializer_(jsonSerializer),
       backendExecutorAdapterRegistry_(backendExecutorAdapterRegistry),
       backendRegistry_(nullptr),
-      requestParser_(nullptr)
+      requestParser_(nullptr),
+      snapshotReadService_(nullptr)
 {
 }
 
@@ -25,7 +27,8 @@ RecordingActionExecutionController::RecordingActionExecutionController(
       jsonSerializer_(jsonSerializer),
       backendExecutorAdapterRegistry_(backendExecutorAdapterRegistry),
       backendRegistry_(nullptr),
-      requestParser_(&requestParser)
+      requestParser_(&requestParser),
+      snapshotReadService_(nullptr)
 {
 }
 
@@ -39,14 +42,69 @@ RecordingActionExecutionController::RecordingActionExecutionController(
       jsonSerializer_(jsonSerializer),
       backendExecutorAdapterRegistry_(backendExecutorAdapterRegistry),
       backendRegistry_(&backendRegistry),
-      requestParser_(&requestParser)
+      requestParser_(&requestParser),
+      snapshotReadService_(nullptr)
 {
+}
+
+RecordingActionExecutionController::RecordingActionExecutionController(
+    RecordingActionExecutionService& executionService,
+    RecordingActionExecutionResultJsonSerializer& jsonSerializer,
+    RecordingActionBackendExecutorAdapterRegistry& backendExecutorAdapterRegistry,
+    BackendRegistry& backendRegistry,
+    RecordingActionValidationRequestParser& requestParser,
+    VdrSnapshotReadService& snapshotReadService)
+    : executionService_(executionService),
+      jsonSerializer_(jsonSerializer),
+      backendExecutorAdapterRegistry_(backendExecutorAdapterRegistry),
+      backendRegistry_(&backendRegistry),
+      requestParser_(&requestParser),
+      snapshotReadService_(&snapshotReadService)
+{
+}
+
+RecordingActionRequest RecordingActionExecutionController::resolveBackendNativeId(
+    const RecordingActionRequest& request) const
+{
+    if (snapshotReadService_ == nullptr)
+    {
+        return request;
+    }
+
+    if (request.parameters.find("backendNativeId") != request.parameters.end())
+    {
+        return request;
+    }
+
+    if (request.backendId.empty() || request.recordingId.empty())
+    {
+        return request;
+    }
+
+    RecordingActionRequest resolved = request;
+
+    const std::vector<VdrRecording> recordings =
+        snapshotReadService_->getRecordingsForBackend(request.backendId);
+
+    for (const VdrRecording& recording : recordings)
+    {
+        if (recording.id == request.recordingId && !recording.backendNativeId.empty())
+        {
+            resolved.parameters["backendNativeId"] = recording.backendNativeId;
+            return resolved;
+        }
+    }
+
+    return resolved;
 }
 
 ApiResponse RecordingActionExecutionController::execute(
     const RecordingActionRequest& request)
 {
     ApiResponse response;
+
+    const RecordingActionRequest resolvedRequest =
+        resolveBackendNativeId(request);
 
     response.statusCode = 200;
     response.contentType = "application/json";
@@ -60,7 +118,7 @@ ApiResponse RecordingActionExecutionController::execute(
         response.body =
             jsonSerializer_.serialize(
                 executionService_.execute(
-                    request,
+                    resolvedRequest,
                     backendExecutorAdapterRegistry_,
                     lookup.policy));
 
@@ -70,7 +128,7 @@ ApiResponse RecordingActionExecutionController::execute(
     response.body =
         jsonSerializer_.serialize(
             executionService_.execute(
-                request,
+                resolvedRequest,
                 backendExecutorAdapterRegistry_));
 
     return response;
