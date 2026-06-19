@@ -26,6 +26,43 @@ Future planning belongs to:
 
 ---
 
+## Phase 45.7 - EPG Search REST Validation
+
+Status: Completed.
+
+Summary:
+- Added REST validation for `/api/epg/search`.
+- Rejected non-positive `timespan` values.
+- Rejected negative `limit` and `offset` values.
+- Rejected unsupported `sort` and `order` values.
+- Returned JSON 400 responses for invalid EPG search parameters.
+- Kept genres, SearchTimer and advanced policy work out of scope.
+
+
+## Phase 45.6 - EPG Search Controller Foundation
+
+Status: Completed.
+
+Summary:
+- Added EPG search controller wiring through `EpgController::search`.
+- Added `/api/epg/search` router support.
+- Kept existing EPG routes intact.
+- Routed search over selective EPG time-window data through `EpgSearchService`.
+- Updated runtime and test wiring for the EPG search controller.
+
+
+## Phase 45.5 - EPG Search Service Foundation
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchService`.
+- Searched already provided `VdrEvent` windows instead of introducing full EPG loading.
+- Combined request, matcher, match and result foundations.
+- Added sorting, offset and limit handling.
+- Kept REST routing, backend fetch orchestration, genres and SearchTimer work out of scope.
+
+
 ## Phase 45.4 - EPG Search JSON Contract
 
 Status: Completed.

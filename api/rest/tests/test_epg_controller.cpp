@@ -167,6 +167,82 @@ int main()
     assert(epgQueryService.lastFrom == 1780000000);
     assert(epgQueryService.lastTimespan == 7200);
 
+    ApiResponse invalidTimespanResponse =
+        controller.search(
+            "tatort",
+            "",
+            "",
+            -1,
+            0,
+            10,
+            0,
+            "",
+            "");
+
+    assert(invalidTimespanResponse.statusCode == 400);
+    assert(invalidTimespanResponse.contentType == "application/json");
+    assert(invalidTimespanResponse.body.find("timespan") != std::string::npos);
+
+    ApiResponse invalidLimitResponse =
+        controller.search(
+            "tatort",
+            "",
+            "",
+            -1,
+            7200,
+            -1,
+            0,
+            "",
+            "");
+
+    assert(invalidLimitResponse.statusCode == 400);
+    assert(invalidLimitResponse.body.find("limit") != std::string::npos);
+
+    ApiResponse invalidOffsetResponse =
+        controller.search(
+            "tatort",
+            "",
+            "",
+            -1,
+            7200,
+            10,
+            -1,
+            "",
+            "");
+
+    assert(invalidOffsetResponse.statusCode == 400);
+    assert(invalidOffsetResponse.body.find("offset") != std::string::npos);
+
+    ApiResponse invalidSortResponse =
+        controller.search(
+            "tatort",
+            "",
+            "",
+            -1,
+            7200,
+            10,
+            0,
+            "invalid",
+            "");
+
+    assert(invalidSortResponse.statusCode == 400);
+    assert(invalidSortResponse.body.find("sort") != std::string::npos);
+
+    ApiResponse invalidOrderResponse =
+        controller.search(
+            "tatort",
+            "",
+            "",
+            -1,
+            7200,
+            10,
+            0,
+            "",
+            "sideways");
+
+    assert(invalidOrderResponse.statusCode == 400);
+    assert(invalidOrderResponse.body.find("order") != std::string::npos);
+
     std::cout << "test_epg_controller passed" << std::endl;
 
     return 0;

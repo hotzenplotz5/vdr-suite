@@ -74,19 +74,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 45.6 - EPG Search Controller Foundation
+Phase 45.7 - EPG Search REST Validation
 ```
 
 Current Focus:
 
 ```text
-Phase 45.7 - EPG Search REST Validation
+Phase 45.8 - EPG Search Documentation
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 45.6 - EPG Search Controller Foundation
+Phase 45.7 - EPG Search REST Validation
 ```
 
 Architecture Work In Progress:

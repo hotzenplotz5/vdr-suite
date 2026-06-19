@@ -133,6 +133,35 @@ ApiResponse makeSearchJsonResponse(
     return response;
 }
 
+ApiResponse makeBadRequestResponse(
+    const std::string& message)
+{
+    ApiResponse response;
+
+    response.statusCode = 400;
+    response.contentType = "application/json";
+    response.body = "{\"error\":\"" + message + "\"}";
+
+    return response;
+}
+
+bool validSearchSort(
+    const std::string& value)
+{
+    return value.empty() ||
+           value == "title" ||
+           value == "startTime" ||
+           value == "duration";
+}
+
+bool validSearchOrder(
+    const std::string& value)
+{
+    return value.empty() ||
+           value == "asc" ||
+           value == "desc";
+}
+
 EpgSearchSortField parseSearchSortField(
     const std::string& value)
 {
@@ -230,6 +259,31 @@ ApiResponse EpgController::search(
     const std::string& sort,
     const std::string& order)
 {
+    if (timespan <= 0)
+    {
+        return makeBadRequestResponse("timespan must be greater than zero");
+    }
+
+    if (limit < 0)
+    {
+        return makeBadRequestResponse("limit must not be negative");
+    }
+
+    if (offset < 0)
+    {
+        return makeBadRequestResponse("offset must not be negative");
+    }
+
+    if (!validSearchSort(sort))
+    {
+        return makeBadRequestResponse("invalid sort field");
+    }
+
+    if (!validSearchOrder(order))
+    {
+        return makeBadRequestResponse("invalid sort order");
+    }
+
     const std::vector<VdrEvent> events =
         epgQueryService_.getTimeWindow(
             channelId,
