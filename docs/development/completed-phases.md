@@ -26,6 +26,18 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.5 - Genre Localization Layer
+
+Status: Completed.
+
+Summary:
+- Added `GenreLocalization`.
+- Added first German and English labels for canonical genre IDs.
+- Added locale prefix handling for values such as `de_DE` and `en_US`.
+- Added English fallback for unsupported locales.
+- Preserved canonical IDs as stable internal keys.
+- Kept REST, database, external language files, provider integration, SearchTimer and policy enforcement out of scope.
+
 ## Phase 46.4 - Canonical Genre Registry
 
 Status: Completed.

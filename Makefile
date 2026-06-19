@@ -652,6 +652,12 @@ test-canonical-genre-registry:
 		-o /tmp/test_canonical_genre_registry
 	/tmp/test_canonical_genre_registry
 
+test-genre-localization:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_genre_localization.cpp \
+		-o /tmp/test_genre_localization
+	/tmp/test_genre_localization
+
 test-genre-resolution-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/GenreResolutionJsonSerializer.cpp \

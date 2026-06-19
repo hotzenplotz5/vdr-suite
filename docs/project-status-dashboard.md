@@ -68,6 +68,7 @@ Genre Foundation          implemented foundation
 Genre Resolution          implemented foundation
 Genre JSON Contract       implemented
 Canonical Genre Registry implemented
+Genre Localization       implemented foundation
 Content Rating / FSK      planned
 Image Validation          planned
 Preview Streams           planned
@@ -81,19 +82,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.4 - Canonical Genre Registry
+Phase 46.5 - Genre Localization Layer
 ```
 
 Current Focus:
 
 ```text
-Phase 46.5 - Genre Localization Layer
+Phase 46.6 - Genre Resolution Localization JSON
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 46.4 - Canonical Genre Registry
+Phase 46.5 - Genre Localization Layer
 ```
 
 Architecture Work In Progress:
