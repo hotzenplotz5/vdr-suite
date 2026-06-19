@@ -29,12 +29,10 @@ Live Transport            implemented
 Selective Event Queries   implemented
 Heavy Domain Policy       implemented
 EPG REST API Boundary     implemented
-EPG Search Request       implemented
-EPG Search Matcher       implemented
-EPG Search Result        implemented
-EPG Search JSON          implemented
+EPG Search API            implemented
 Recording Query API       implemented
 Recording Actions         implemented + diagnostics
+Content Classification    ADR accepted/proposed foundation
 ```
 
 ### Federation and Security
@@ -48,6 +46,7 @@ Runtime Contexts          implemented
 Capability System         foundation implemented
 Authentication            planned
 Authorization             planned
+Profile / Policy          planned after classification
 ```
 
 ### Client Platforms
@@ -57,11 +56,16 @@ Web Frontend              planned
 Windows Frontend          planned
 Android Frontend          planned
 iOS Frontend              planned
+TV Frontend               planned
+Hisense / VIDAA Strategy  future evaluation
 ```
 
 ### Media Extensions
 
 ```text
+Content Classification    ADR-0028 documented
+Genre Foundation          next
+Content Rating / FSK      planned
 Image Validation          planned
 Preview Streams           planned
 Media Streaming           planned
@@ -74,28 +78,27 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 45.7 - EPG Search REST Validation
+Phase 46.0 - Content Classification Architecture ADR
 ```
 
 Current Focus:
 
 ```text
-Phase 45.8 - EPG Search Documentation
+Phase 46.1 - Genre Domain Foundation
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 45.7 - EPG Search REST Validation
+Phase 46.0 - Content Classification Architecture ADR
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 45.0 - EPG Search Architecture
-Phase 45.0 - Multi-source EPG genre planning
-ADR-0025 - Configurable Metadata Provider Architecture
-Recording action runtime diagnostics completed
+ADR-0028 - Content Classification Architecture
+Phase 46.1 - Genre Domain Foundation
+Future: profiles, content rating, policy and TV frontend strategy
 ```
 
 ---
@@ -103,44 +106,43 @@ Recording action runtime diagnostics completed
 ## Recently Completed Milestones
 
 ```text
-Phase 17.0 - Multi-backend snapshot read foundation
-Phase 17.1 - Multi-backend snapshot summary serialization
-Phase 17.2 - Multi-backend snapshots REST endpoint
-Phase 17.3 - Multi-backend REST endpoint tests
-Phase 18.0 - Real RESTfulAPI integration validation
-Phase 18.1 - Real snapshot builder validation
-Phase 18.2 - Real change-state validation
-Phase 18.3 - Real polling initial snapshot validation
-Phase 18.4 - Real polling stability validation
-Phase 19.0 - Snapshot change feed service validation
-Phase 19.1 - Polling to change feed runtime validation
-Phase 19.2 - Multi-backend change feed aggregation
-Phase 19.3 - Snapshot change feed REST validation
-Phase 21.0 - Real VDR Runtime Polling Findings
-Phase 21.2 - Selective Event Query Contract
-ADR-0021 - Selective Backend Query Strategy
+Phase 45.1 - EPG Search Request Foundation
+Phase 45.2 - EPG Search Matcher Foundation
+Phase 45.3 - EPG Search Result Foundation
+Phase 45.4 - EPG Search JSON Contract
+Phase 45.5 - EPG Search Service Foundation
+Phase 45.6 - EPG Search Controller Foundation
+Phase 45.7 - EPG Search REST Validation
+Phase 45.8 - EPG Search Documentation
+Phase 46.0 - Content Classification Architecture ADR
+ADR-0028 - Content Classification Architecture
 ```
 
 ---
 
 ## Roadmap Progress
 
-Completed Major Phases:
+Completed Major Foundation:
 
 ```text
-Phase 0 - Phase 28.12
+Multi-backend runtime foundation
+Selective EPG query foundation
+Recording query foundation
+Recording action runtime diagnostics
+EPG search API foundation
+Content classification ADR
 ```
 
-Planned Major Phases:
+Planned Major Direction:
 
 ```text
-Phase 29.x - Phase 36.x
-```
-
-Overall Roadmap Progress:
-
-```text
-Phase 28 recording query API is complete. Phase 29 completed the backend-aware recording query foundation. Phase 30 starts the recording action architecture boundary before destructive operations are implemented.
+Phase 46.x - Content Classification and Genre Foundation
+Phase 47.x - SearchTimer Foundation
+Phase 48.x - Multi-Backend Unified Search
+Phase 49.x - User Profiles, Policy and Content Rating
+Phase 50.x - Streaming API Foundation
+Phase 51.x - TV Frontend Strategy
+Phase 52.x - Rectools Integration Layer
 ```
 
 Important:
@@ -167,16 +169,14 @@ This progress description summarizes documented roadmap direction by major phase
 | Selective Event Queries | Backend-neutral query contracts allow selective EPG access through adapter boundaries. |
 | Heavy Domain Policy | Events / EPG are classified as a heavy domain and protected from automatic full refresh behavior. |
 | EPG REST API Boundary | Selective EPG reads are exposed through backend-neutral REST routes. |
-| EPG Search Request | Backend-neutral EPG search request foundation is implemented for future text search and filtering. |
-| EPG Search Matcher | Isolated EPG matcher foundation is implemented for text, channel and selective time-window matching. |
-| EPG Search Result | Backend-aware EPG search result foundation is implemented with pagination counters and match metadata. |
-| EPG Search JSON | Escaped JSON contract foundation is implemented for future EPG search REST responses. |
+| EPG Search API | `/api/epg/search` is implemented and documented over selective EPG windows. |
+| Content Classification | ADR-0028 defines source-aware classification for genre, rating, keywords, collections, user tags and folder hints. |
 | Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
 | Capability System | Capability set, resolver state and capability report foundations are implemented. |
 | Authentication | Planned future concern, not implemented yet. |
 | Authorization | Planned future concern, not implemented yet. |
 | Client Platforms | Future frontend work, not implemented yet. |
-| Media Extensions | Image, preview stream and media stream validation remain future work. |
+| Media Extensions | Content classification, images, preview streams and media stream validation remain future work. |
 
 ---
 
