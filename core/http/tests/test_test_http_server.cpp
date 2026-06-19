@@ -11,6 +11,8 @@
 #include "BackendRegistryService.h"
 #include "DashboardController.h"
 #include "EpgController.h"
+#include "EpgSearchResultJsonSerializer.h"
+#include "EpgSearchService.h"
 #include "EpgQueryService.h"
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -117,7 +119,12 @@ int main()
     MockVdrAdapter adapter;
     VdrService vdrService(adapter);
     EpgQueryService epgQueryService(vdrService);
-    EpgController epgController(epgQueryService);
+    EpgSearchService epgSearchService;
+    EpgSearchResultJsonSerializer epgSearchResultJsonSerializer;
+    EpgController epgController(
+        epgQueryService,
+        epgSearchService,
+        epgSearchResultJsonSerializer);
     VdrOverviewService vdrOverviewService(vdrService);
     VdrOverviewJsonSerializer vdrJsonSerializer;
     VdrRecordingQueryService vdrRecordingQueryService(vdrService);
