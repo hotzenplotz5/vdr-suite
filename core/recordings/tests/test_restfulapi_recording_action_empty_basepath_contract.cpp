@@ -66,7 +66,7 @@ int main()
         assert(request.url == "/recordings/move.json");
         assert(request.url.find("/api/") == std::string::npos);
         assert(request.body.find("\"source\"") != std::string::npos);
-        assert(request.body.find("\"target\":\"Archive~Mystery\"") != std::string::npos);
+        assert(request.body.find("\"target\":\"Archive~Mystery~The_Village_-_Das_Dorf\"") != std::string::npos);
     }
 
     return 0;
