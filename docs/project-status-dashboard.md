@@ -31,6 +31,7 @@ Heavy Domain Policy       implemented
 EPG REST API Boundary     implemented
 EPG Search Request       implemented
 EPG Search Matcher       implemented
+EPG Search Result        implemented
 Recording Query API       implemented
 Recording Actions         implemented + diagnostics
 ```
@@ -72,13 +73,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 45.3 - EPG Search Result Foundation
+Phase 45.4 - EPG Search JSON Contract
 ```
 
 Current Focus:
 
 ```text
-Phase 45.2 - EPG Search Matcher Foundation
+Phase 45.3 - EPG Search Result Foundation
 ```
 
 Latest Completed Milestone:
@@ -167,6 +168,7 @@ This progress description summarizes documented roadmap direction by major phase
 | EPG REST API Boundary | Selective EPG reads are exposed through backend-neutral REST routes. |
 | EPG Search Request | Backend-neutral EPG search request foundation is implemented for future text search and filtering. |
 | EPG Search Matcher | Isolated EPG matcher foundation is implemented for text, channel and selective time-window matching. |
+| EPG Search Result | Backend-aware EPG search result foundation is implemented with pagination counters and match metadata. |
 | Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
 | Capability System | Capability set, resolver state and capability report foundations are implemented. |
 | Authentication | Planned future concern, not implemented yet. |

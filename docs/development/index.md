@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 45.3 - EPG Search Result Foundation
+Phase 45.4 - EPG Search JSON Contract
 ```
 
 Next implementation focus:
 
 ```text
-Phase 45.2 - EPG Search Matcher Foundation
+Phase 45.3 - EPG Search Result Foundation
 ```
 
 Current architecture validation:

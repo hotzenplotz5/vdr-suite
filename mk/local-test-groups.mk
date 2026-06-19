@@ -45,6 +45,7 @@ test-vdr: \
 	test-restful-api-change-state-adapter \
 	test-epg-search-request \
 	test-epg-search-matcher \
+	test-epg-search-result \
 	test-vdr-domain-objects
 
 test-backend-node:

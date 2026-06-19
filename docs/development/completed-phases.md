@@ -26,6 +26,18 @@ Future planning belongs to:
 
 ---
 
+## Phase 45.3 - EPG Search Result Foundation
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchMatch` as the per-event search match wrapper.
+- Added `EpgSearchResult` as the backend-aware EPG search result foundation.
+- Preserved event payloads while preparing backend identity and match metadata for future JSON and REST contracts.
+- Added total, returned, limit and offset counters for future paged search responses.
+- Added isolated result contract coverage through `test-epg-search-result`.
+- Kept JSON serialization, REST routing, genres and SearchTimer work out of scope.
+
 ## Phase 45.2 - EPG Search Matcher Foundation
 
 Status: Completed.
