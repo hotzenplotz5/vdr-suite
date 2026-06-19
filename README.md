@@ -16,6 +16,7 @@
 - [Phase 44 Recording Action Runtime Completion](docs/development/phase-44-recording-action-runtime-completion.md)
 - [Phase 45 EPG Search Architecture](docs/development/phase-45-epg-search-architecture.md)
 - [EPG Search API](docs/development/epg-search-api.md)
+- [ADR-0028 Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md)
 - [Developer Onboarding](docs/development/developer-onboarding.md)
 - [Architecture Map](docs/development/architecture-map.md)
 - [Roadmap](docs/planning/roadmap.md)
@@ -41,15 +42,14 @@ Live Transport            ████████████ 100%
 Selective Event Queries   ████████████ 100%
 Heavy Domain Policy       ████████████ 100%
 EPG REST API Boundary     ████████████ 100%
-Event-Free Initial Poll   ████████████ 100%
-EPG Decoupling Validation ████████████ 100%
-EPG JSON Escaping        ████████████ 100%
+EPG Search API            ████████████ 100%
+Content Classification ADR ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 45.7 - EPG Search REST Validation
+Latest Completed Implementation Phase: Phase 46.0 - Content Classification Architecture ADR
 
-Current Implementation Focus: Phase 45.8 - EPG Search Documentation
+Current Implementation Focus: Phase 46.1 - Genre Domain Foundation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -70,6 +70,13 @@ ADR-0021 defines a core runtime rule:
 ```text
 Prefer selective backend queries
 before full-domain transfers.
+```
+
+ADR-0028 defines the content classification rule:
+
+```text
+Do not model genre as a single plain string.
+Preserve source-aware classification evidence.
 ```
 
 The performance target is backend workload comparable to established VDR frontends such as `live` when equivalent user-visible information is requested.
@@ -95,6 +102,7 @@ Read these documents first:
 10. [Architecture Index](docs/architecture/index.md)
 11. [ADR Index](docs/adr/index.md)
 12. [ADR-0021 Selective Backend Query Strategy](docs/adr/ADR-0021-selective-backend-query-strategy.md)
+13. [ADR-0028 Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md)
 
 ---
 
@@ -146,18 +154,15 @@ This prevents documentation dead ends and keeps the documentation usable from Gi
 ✓ Selective Event Query Contract
 ✓ Heavy Domain Refresh Policy
 ✓ EPG REST API Boundary
-✓ Live EPG REST API Verification
-✓ Event-Free Initial Snapshot
-✓ EPG Snapshot Decoupling Validation
-✓ EPG JSON Escaping
+✓ EPG Search API
+✓ Content Classification Architecture ADR
 ✓ Backend Optional Runtime
 ```
 
 Current architecture focus:
 
 ```text
-Phase 29.0 - Multi-Backend Recording Identity Foundation
-Evaluate selective recording query boundaries
-Keep VDR as source of truth for recordings
-Keep VDR-Suite metadata complementary
+Phase 46.1 - Genre Domain Foundation
+Build on ADR-0028 without reducing genre to a single plain string.
+Keep VDR as source of truth and classification as enrichment.
 ```
