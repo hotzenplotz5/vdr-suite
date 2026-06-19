@@ -711,6 +711,10 @@ test-api-router: prepare-test-db
 		$(VDR_SRC) \
 		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
+		core/vdr/src/EpgSearchMatcher.cpp \
+		core/vdr/src/EpgSearchService.cpp \
+		core/vdr/src/EpgSearchResultJsonSerializer.cpp \
+		api/rest/src/EpgController.cpp \
 		api/rest/src/VdrController.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
 		api/rest/tests/test_api_router.cpp \

@@ -11,6 +11,8 @@
 #include "BackendRegistry.h"
 #include "DashboardController.h"
 #include "EpgController.h"
+#include "EpgSearchResultJsonSerializer.h"
+#include "EpgSearchService.h"
 #include "EpgQueryService.h"
 #include "JobsController.h"
 #include "LiveTransportController.h"
@@ -251,7 +253,12 @@ int main()
 
     VdrService vdrService(adapter);
     EpgQueryService epgQueryService(vdrService);
-    EpgController epgController(epgQueryService);
+    EpgSearchService epgSearchService;
+    EpgSearchResultJsonSerializer epgSearchResultJsonSerializer;
+    EpgController epgController(
+        epgQueryService,
+        epgSearchService,
+        epgSearchResultJsonSerializer);
 
     VdrOverviewService overviewService(
         vdrService);
