@@ -50,7 +50,7 @@ int main()
     assert(json.find("\"Accept\":\"application/json\"") != std::string::npos);
     assert(json.find("\"Content-Type\":\"application/json\"") != std::string::npos);
     assert(json.find("\\\"source\\\":\\\"Tagesschau/2026-06-17.20.00.10-0.rec\\\"") != std::string::npos);
-    assert(json.find("\\\"target\\\":\\\"Archiv~Tagesschau\\\"") != std::string::npos);
+    assert(json.find("\\\"target\\\":\\\"Archiv~Tagesschau~Tagesschau\\\"") != std::string::npos);
     assert(json.find("Archiv/Tagesschau") == std::string::npos);
     assert(json.find("/api/") == std::string::npos);
 
