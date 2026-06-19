@@ -15,6 +15,7 @@
 - [Real Recording Action End-to-End Validation](docs/development/real-recording-action-e2e-validation.md)
 - [Phase 44 Recording Action Runtime Completion](docs/development/phase-44-recording-action-runtime-completion.md)
 - [Phase 45 EPG Search Architecture](docs/development/phase-45-epg-search-architecture.md)
+- [EPG Search API](docs/development/epg-search-api.md)
 - [Developer Onboarding](docs/development/developer-onboarding.md)
 - [Architecture Map](docs/development/architecture-map.md)
 - [Roadmap](docs/planning/roadmap.md)

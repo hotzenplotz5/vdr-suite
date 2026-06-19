@@ -117,6 +117,10 @@ Verification summary:
 - Phase 45.2 introduced the isolated `EpgSearchMatcher` foundation for text, channel and selective time-window matching over `VdrEvent` objects.
 - Phase 45.3 introduced `EpgSearchMatch` and `EpgSearchResult` as backend-aware result foundations with pagination counters and match metadata.
 - Phase 45.4 introduced `EpgSearchResultJsonSerializer` as the escaped JSON contract for future EPG search REST responses.
+- Phase 45.5 introduced `EpgSearchService` as the selector over already provided `VdrEvent` windows with matching, sorting, pagination and result construction.
+- Phase 45.6 introduced the EPG search controller foundation and `/api/epg/search` router wiring over selective EPG time windows.
+- Phase 45.7 added REST validation for EPG search timespan, limit, offset, sort and order parameters.
+- Phase 45.8 documents the implemented [EPG Search API](./epg-search-api.md).
 
 ---
 

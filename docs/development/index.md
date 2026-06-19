@@ -63,6 +63,7 @@ Current architecture validation:
 - [Real Recording Action End-to-End Validation](real-recording-action-e2e-validation.md)
 - [Phase 44 Recording Action Runtime Completion](phase-44-recording-action-runtime-completion.md)
 - [Phase 45.0 - EPG Search Architecture](phase-45-epg-search-architecture.md)
+- [EPG Search API](epg-search-api.md)
 
 ---
 

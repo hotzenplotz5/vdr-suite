@@ -190,9 +190,11 @@ Existing EPG endpoints must not be broken:
 
 A future search endpoint should be additive.
 
-Candidate future endpoint:
+Implemented endpoint:
 
 - GET /api/epg/search
+
+The implemented contract is documented in [EPG Search API](./epg-search-api.md).
 
 Search implementation must prefer selective backend access.
 
