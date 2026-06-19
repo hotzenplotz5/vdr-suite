@@ -646,6 +646,20 @@ test-genre-resolver:
 		-o /tmp/test_genre_resolver
 	/tmp/test_genre_resolver
 
+test-genre-resolution-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/GenreResolutionJsonSerializer.cpp \
+		core/vdr/tests/test_genre_resolution_json_serializer.cpp \
+		-o /tmp/test_genre_resolution_json_serializer
+	/tmp/test_genre_resolution_json_serializer
+
+test-genre-resolution-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/GenreResolutionJsonSerializer.cpp \
+		core/vdr/tests/test_genre_resolution_json_serializer.cpp \
+		-o /tmp/test_genre_resolution_json_serializer
+	/tmp/test_genre_resolution_json_serializer
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \

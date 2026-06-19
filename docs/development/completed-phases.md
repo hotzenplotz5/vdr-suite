@@ -26,6 +26,17 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.3 - Genre JSON Contract
+
+Status: Completed.
+
+Summary:
+- Added `GenreResolutionJsonSerializer`.
+- Serialized resolved state, primary genre and genre evidence.
+- Exposed `canonicalId`, `source`, `originalValue`, `normalizedValue`, `confidence` and `providerReference`.
+- Prepared genre JSON for future localization by keeping canonical IDs separate from source display values.
+- Kept REST, database, metadata provider integration, SearchTimer, localization files and policy enforcement out of scope.
+
 ## Phase 46.2 - Genre Source Resolution Model
 
 Status: Completed.
