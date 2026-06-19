@@ -117,6 +117,7 @@ test-recording-action-execution-controller-safety-preview:
 		$(ACTIONS_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/VdrSnapshotReadService.cpp \
 		core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
 		core/http/src/MockHttpClient.cpp \
 		api/rest/src/RecordingActionExecutionController.cpp \
