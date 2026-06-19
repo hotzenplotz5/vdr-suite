@@ -44,7 +44,7 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 45.1 - EPG Search Request Foundation
+Phase 45.3 - EPG Search Result Foundation
 ```
 
 Next implementation focus:

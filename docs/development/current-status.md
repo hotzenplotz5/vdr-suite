@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 45.1 - EPG Search Request Foundation
+Phase 45.3 - EPG Search Result Foundation
 ```
 
 Current major phase status:
@@ -74,7 +74,7 @@ Phase 37 through Phase 43 completed the recording action execution path from val
 Phase 44.0 synchronizes the documentation after the live recording action verification work and records ADR-0025 as the configurable metadata provider architecture decision.
 
 Next implementation focus:
-The next implementation step is Phase 45.2 - EPG Search Matcher Foundation.
+The next implementation step is Phase 45.3 - EPG Search Result Foundation.
 ```
 
 Verified locally with:
@@ -114,6 +114,7 @@ Verification summary:
 - Phase 45 should begin with EPG search architecture and classification planning
 - Phase 45.0 architecture planning is documented in [Phase 45 EPG Search Architecture](./phase-45-epg-search-architecture.md)
 - Phase 45.1 introduced the backend-neutral `EpgSearchRequest` foundation for future EPG text search, selective time windows, backend identity, field selection and sorting.
+- Phase 45.2 introduced the isolated `EpgSearchMatcher` foundation for text, channel and selective time-window matching over `VdrEvent` objects.
 
 ---
 

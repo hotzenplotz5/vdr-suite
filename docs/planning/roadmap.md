@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 45.1 - EPG Search Request Foundation
+Phase 45.2 - EPG Search Matcher Foundation
 
 Current cleanup
 Recording action runtime diagnostics completed
 
 Next implementation step
-Phase 45.2 - EPG Search Matcher Foundation.
+Phase 45.3 - EPG Search Result Foundation.
 
 Completed foundation summary
 ```
@@ -85,7 +85,7 @@ Phase 28 completed the recording query API foundation with title, path, start-ti
 
 Phase 44 completed recording action runtime hardening. Recording actions now resolve backend-native recording identifiers, normalize RESTfulAPI action targets, refresh snapshots after successful mutations and expose structured upstream diagnostics.
 
-Phase 45 starts with EPG search architecture. Phase 45.1 introduces the backend-neutral EPG search request foundation for text search, selective time windows, backend identity, field selection and sorting before matcher implementation begins.
+Phase 45 starts with EPG search architecture. Phase 45.1 introduced the backend-neutral request foundation and Phase 45.2 adds isolated event matching for text, channel and selective time windows before result modeling begins.
 
 ADR-0021 documents the long-term selective backend query strategy.
 

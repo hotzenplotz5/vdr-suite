@@ -637,6 +637,13 @@ test-epg-search-request:
 		-o /tmp/test_epg_search_request
 	/tmp/test_epg_search_request
 
+test-epg-search-matcher:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/EpgSearchMatcher.cpp \
+		core/vdr/tests/test_epg_search_matcher.cpp \
+		-o /tmp/test_epg_search_matcher
+	/tmp/test_epg_search_matcher
+
 test-rest-query-parameters:
 	$(CXX) $(CXXFLAGS) \
 		api/rest/src/RestQueryParameters.cpp \

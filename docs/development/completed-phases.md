@@ -26,6 +26,18 @@ Future planning belongs to:
 
 ---
 
+## Phase 45.2 - EPG Search Matcher Foundation
+
+Status: Completed.
+
+Summary:
+- Added the isolated `EpgSearchMatcher` foundation.
+- Matched `VdrEvent` objects against `EpgSearchRequest` without RESTfulAPI-specific URL semantics.
+- Supported case-insensitive text matching across title, subtitle and description according to selected search fields.
+- Supported channel matching and selective numeric time-window matching.
+- Added isolated matcher contract coverage through `test-epg-search-matcher`.
+- Kept sorting, REST routing, result modeling, genres and SearchTimer work out of scope.
+
 ## Phase 45.1 - EPG Search Request Foundation
 
 Status: Completed.
