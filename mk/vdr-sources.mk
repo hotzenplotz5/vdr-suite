@@ -14,6 +14,7 @@ VDR_SRC := \
         core/vdr/src/VdrRecordingQueryResultJsonSerializer.cpp \
         core/vdr/src/EpgQueryService.cpp \
         core/vdr/src/EpgSearchMatcher.cpp \
+        core/vdr/src/EpgSearchResultJsonSerializer.cpp \
         core/vdr/src/RestfulApiChannelMapper.cpp \
         core/vdr/src/RestfulApiRecordingMapper.cpp \
         core/vdr/src/RestfulApiTimerMapper.cpp \

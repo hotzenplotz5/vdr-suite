@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 45.3 - EPG Search Result Foundation
+Phase 45.4 - EPG Search JSON Contract
 
 Current cleanup
 Recording action runtime diagnostics completed
 
 Next implementation step
-Phase 45.4 - EPG Search JSON Contract.
+Phase 45.5 - EPG Search Service Foundation
 
 Completed foundation summary
 ```
@@ -85,7 +85,7 @@ Phase 28 completed the recording query API foundation with title, path, start-ti
 
 Phase 44 completed recording action runtime hardening. Recording actions now resolve backend-native recording identifiers, normalize RESTfulAPI action targets, refresh snapshots after successful mutations and expose structured upstream diagnostics.
 
-Phase 45 starts with EPG search architecture. Phase 45.1 introduced the backend-neutral request foundation, Phase 45.2 added isolated event matching and Phase 45.3 adds backend-aware result modeling before JSON contract work begins.
+Phase 45 starts with EPG search architecture. Phase 45.1 introduced the backend-neutral request foundation, Phase 45.2 added isolated event matching, Phase 45.3 added backend-aware result modeling and Phase 45.4 adds the escaped JSON contract before service wiring begins.
 
 ADR-0021 documents the long-term selective backend query strategy.
 

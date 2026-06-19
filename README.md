@@ -46,9 +46,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 45.3 - EPG Search Result Foundation
+Latest Completed Implementation Phase: Phase 45.4 - EPG Search JSON Contract
 
-Current Implementation Focus: Phase 45.4 - EPG Search JSON Contract
+Current Implementation Focus: Phase 45.5 - EPG Search Service Foundation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

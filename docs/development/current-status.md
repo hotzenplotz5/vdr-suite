@@ -74,7 +74,7 @@ Phase 37 through Phase 43 completed the recording action execution path from val
 Phase 44.0 synchronizes the documentation after the live recording action verification work and records ADR-0025 as the configurable metadata provider architecture decision.
 
 Next implementation focus:
-The next implementation step is Phase 45.4 - EPG Search JSON Contract.
+Phase 45.5 - EPG Search Service Foundation
 ```
 
 Verified locally with:
@@ -116,6 +116,7 @@ Verification summary:
 - Phase 45.1 introduced the backend-neutral `EpgSearchRequest` foundation for future EPG text search, selective time windows, backend identity, field selection and sorting.
 - Phase 45.2 introduced the isolated `EpgSearchMatcher` foundation for text, channel and selective time-window matching over `VdrEvent` objects.
 - Phase 45.3 introduced `EpgSearchMatch` and `EpgSearchResult` as backend-aware result foundations with pagination counters and match metadata.
+- Phase 45.4 introduced `EpgSearchResultJsonSerializer` as the escaped JSON contract for future EPG search REST responses.
 
 ---
 
@@ -271,7 +272,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 45.3 - EPG Search Result Foundation
+Phase 45.5 - EPG Search Service Foundation
 ```
 
 The next step is to introduce recording action capability requirements before destructive operations are implemented.

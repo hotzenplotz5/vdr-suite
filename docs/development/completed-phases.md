@@ -26,6 +26,18 @@ Future planning belongs to:
 
 ---
 
+## Phase 45.4 - EPG Search JSON Contract
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchResultJsonSerializer`.
+- Serialized EPG search totals, returned count, limit, offset and result entries.
+- Serialized event identity, backend identity, channel identity, title, subtitle, description, time fields, duration and matched fields.
+- Added JSON escaping coverage for quotes, newlines and backslashes in EPG payload text.
+- Added isolated serializer contract coverage through `test-epg-search-result-json-serializer`.
+- Kept service wiring, REST routing, genres and SearchTimer work out of scope.
+
 ## Phase 45.3 - EPG Search Result Foundation
 
 Status: Completed.
