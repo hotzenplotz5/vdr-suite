@@ -1,5 +1,6 @@
 #include "RecordingActionExecutionController.h"
 
+#include "RecordingActionExecutionResult.h"
 #include "RecordingActionExecutionResultJsonSerializer.h"
 #include "RecordingActionExecutionService.h"
 #include "RecordingActionValidationRequestParser.h"
@@ -63,6 +64,28 @@ RecordingActionExecutionController::RecordingActionExecutionController(
 {
 }
 
+void RecordingActionExecutionController::setAfterSuccessfulExecutionCallback(
+    std::function<void()> callback)
+{
+    afterSuccessfulExecution_ = std::move(callback);
+}
+
+void RecordingActionExecutionController::refreshAfterSuccessfulExecution(
+    const RecordingActionExecutionResult& result) const
+{
+    if (!result.success)
+    {
+        return;
+    }
+
+    if (!afterSuccessfulExecution_)
+    {
+        return;
+    }
+
+    afterSuccessfulExecution_();
+}
+
 RecordingActionRequest RecordingActionExecutionController::resolveBackendNativeId(
     const RecordingActionRequest& request) const
 {
@@ -115,21 +138,29 @@ ApiResponse RecordingActionExecutionController::execute(
                 *backendRegistry_,
                 request.backendId);
 
+        const RecordingActionExecutionResult result =
+            executionService_.execute(
+                resolvedRequest,
+                backendExecutorAdapterRegistry_,
+                lookup.policy);
+
+        refreshAfterSuccessfulExecution(result);
+
         response.body =
-            jsonSerializer_.serialize(
-                executionService_.execute(
-                    resolvedRequest,
-                    backendExecutorAdapterRegistry_,
-                    lookup.policy));
+            jsonSerializer_.serialize(result);
 
         return response;
     }
 
+    const RecordingActionExecutionResult result =
+        executionService_.execute(
+            resolvedRequest,
+            backendExecutorAdapterRegistry_);
+
+    refreshAfterSuccessfulExecution(result);
+
     response.body =
-        jsonSerializer_.serialize(
-            executionService_.execute(
-                resolvedRequest,
-                backendExecutorAdapterRegistry_));
+        jsonSerializer_.serialize(result);
 
     return response;
 }

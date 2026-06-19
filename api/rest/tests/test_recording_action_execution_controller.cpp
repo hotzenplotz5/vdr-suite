@@ -257,6 +257,12 @@ int main()
         resolvedRequestParser,
         snapshotReadService);
 
+    int refreshCount = 0;
+    resolvedBodyController.setAfterSuccessfulExecutionCallback(
+        [&refreshCount]() {
+            ++refreshCount;
+        });
+
     const std::string resolvedBody =
         "{"
         "\"backendId\":\"living-room\","
@@ -273,6 +279,7 @@ int main()
     assert(resolvedBodyResponse.body.find("\"success\":true") != std::string::npos);
     assert(resolvedBodyResponse.body.find("\"type\":\"DELETE\"") != std::string::npos);
     assert(capturingAdapter->lastPayload.parameters.at("backendNativeId") == recording.backendNativeId);
+    assert(refreshCount == 1);
 
     return 0;
 }

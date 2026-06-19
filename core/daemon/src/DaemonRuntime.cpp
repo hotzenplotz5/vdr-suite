@@ -219,6 +219,10 @@ bool DaemonRuntime::initialize()
         backendRegistry_,
         *recordingActionValidationRequestParser_,
         *vdrSnapshotReadService_);
+    recordingActionExecutionController_->setAfterSuccessfulExecutionCallback(
+        [this]() {
+            pollVdrAndUpdateChangeFeed();
+        });
 
     vdrTimerActionService_ = std::make_unique<VdrTimerActionService>();
     vdrTimerActionExecutionService_ = std::make_unique<VdrTimerActionExecutionService>();

@@ -8,7 +8,10 @@
 #include "RecordingActionSafetyResultJsonSerializer.h"
 #include "RecordingActionSafetyService.h"
 
+#include <functional>
 #include <string>
+
+struct RecordingActionExecutionResult;
 
 class RecordingActionExecutionResultJsonSerializer;
 class RecordingActionExecutionService;
@@ -47,6 +50,9 @@ public:
     ApiResponse execute(
         const RecordingActionRequest& request);
 
+    void setAfterSuccessfulExecutionCallback(
+        std::function<void()> callback);
+
     RecordingActionRequest resolveBackendNativeId(
         const RecordingActionRequest& request) const;
 
@@ -66,4 +72,8 @@ private:
     BackendRegistry* backendRegistry_;
     RecordingActionValidationRequestParser* requestParser_;
     VdrSnapshotReadService* snapshotReadService_;
+    std::function<void()> afterSuccessfulExecution_;
+
+    void refreshAfterSuccessfulExecution(
+        const RecordingActionExecutionResult& result) const;
 };
