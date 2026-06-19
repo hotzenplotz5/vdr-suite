@@ -195,6 +195,7 @@ test-recording-action-execution-controller-execute-body-policy-gate:
 		$(ACTIONS_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/VdrSnapshotReadService.cpp \
 		core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
 		api/rest/src/RecordingActionExecutionController.cpp \
 		api/rest/tests/test_recording_action_execution_controller_execute_body_policy_gate.cpp \
@@ -206,6 +207,7 @@ test-recording-action-execution-controller-policy-execute:
 		$(ACTIONS_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/VdrSnapshotReadService.cpp \
 		core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
 		api/rest/src/RecordingActionExecutionController.cpp \
 		api/rest/tests/test_recording_action_execution_controller_policy_execute.cpp \
@@ -224,6 +226,7 @@ test-recording-action-execution-controller-policy-safety:
 		$(ACTIONS_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/VdrSnapshotReadService.cpp \
 		core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
 		api/rest/src/RecordingActionExecutionController.cpp \
 		api/rest/tests/test_recording_action_execution_controller_policy_safety.cpp \
