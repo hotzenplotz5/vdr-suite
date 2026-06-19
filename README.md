@@ -43,7 +43,7 @@ Selective Event Queries   ████████████ 100%
 Heavy Domain Policy       ████████████ 100%
 EPG REST API Boundary     ████████████ 100%
 EPG Search API            ████████████ 100%
-Content Classification ADR ████████████ 100%
+Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
