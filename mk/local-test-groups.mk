@@ -47,6 +47,7 @@ test-vdr: \
 	test-epg-search-matcher \
 	test-epg-search-result \
 	test-epg-search-result-json-serializer \
+	test-epg-search-service \
 	test-vdr-domain-objects
 
 test-backend-node:
