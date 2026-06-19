@@ -651,7 +651,7 @@ int main()
     assert(renameRequest.headers.at("Content-Type") == "application/json");
     assert(
         renameRequest.body ==
-        "{\"source\":\"recording-001\",\"target\":\"Evening News\",\"copy_only\":false}");
+        "{\"source\":\"recording-001\",\"target\":\"Evening_News\",\"copy_only\":false}");
 
     restfulApiConfig.basePath = "/api";
 
