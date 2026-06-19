@@ -94,7 +94,7 @@ int main()
     assert(executionRequest.body == preview.body);
 
     assert(preview.body.find("\"source\":\"Tagesschau/2026-06-17.20.00.10-0.rec\"") != std::string::npos);
-    assert(preview.body.find("\"target\":\"Archiv~Tagesschau\"") != std::string::npos);
+    assert(preview.body.find("\"target\":\"Archiv~Tagesschau~Tagesschau\"") != std::string::npos);
     assert(preview.body.find("\"copy_only\":false") != std::string::npos);
     assert(preview.body.find("Archiv/Tagesschau") == std::string::npos);
 
