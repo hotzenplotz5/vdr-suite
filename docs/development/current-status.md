@@ -227,7 +227,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.3 - Genre JSON Contract
+Phase 46.5 - Genre Localization Layer
 ```
 
 The next step is to implement the first small source-aware genre domain foundation based on ADR-0028.
