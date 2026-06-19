@@ -631,6 +631,12 @@ test-epg-controller:
 		-o /tmp/test_epg_controller
 	/tmp/test_epg_controller
 
+test-epg-search-request:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_epg_search_request.cpp \
+		-o /tmp/test_epg_search_request
+	/tmp/test_epg_search_request
+
 test-rest-query-parameters:
 	$(CXX) $(CXXFLAGS) \
 		api/rest/src/RestQueryParameters.cpp \

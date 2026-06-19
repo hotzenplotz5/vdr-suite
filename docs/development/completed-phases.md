@@ -26,6 +26,18 @@ Future planning belongs to:
 
 ---
 
+## Phase 45.1 - EPG Search Request Foundation
+
+Status: Completed.
+
+Summary:
+- Added the backend-neutral `EpgSearchRequest` domain foundation.
+- Prepared future EPG text search across title, subtitle and description fields.
+- Added selective channel, time-window, limit, offset and backend identity fields without RESTfulAPI-specific URL semantics.
+- Added sort field and sort order foundations for future EPG search result ordering.
+- Added isolated request contract coverage through `test-epg-search-request`.
+- Kept VDR as source of truth and avoided persistent full EPG mirroring.
+
 ## Phase 44.30 - Recording Action Runtime Diagnostics Completion
 
 Status: Completed.

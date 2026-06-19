@@ -29,6 +29,7 @@ Live Transport            implemented
 Selective Event Queries   implemented
 Heavy Domain Policy       implemented
 EPG REST API Boundary     implemented
+EPG Search Request       implemented
 Recording Query API       implemented
 Recording Actions         implemented + diagnostics
 ```
@@ -70,13 +71,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 44.30 - Recording Action Runtime Diagnostics Completion
+Phase 45.1 - EPG Search Request Foundation
 ```
 
 Current Focus:
 
 ```text
-Phase 45.0 - EPG Search Architecture
+Phase 45.2 - EPG Search Matcher Foundation
 ```
 
 Latest Completed Milestone:
@@ -163,6 +164,7 @@ This progress description summarizes documented roadmap direction by major phase
 | Selective Event Queries | Backend-neutral query contracts allow selective EPG access through adapter boundaries. |
 | Heavy Domain Policy | Events / EPG are classified as a heavy domain and protected from automatic full refresh behavior. |
 | EPG REST API Boundary | Selective EPG reads are exposed through backend-neutral REST routes. |
+| EPG Search Request | Backend-neutral EPG search request foundation is implemented for future text search and filtering. |
 | Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
 | Capability System | Capability set, resolver state and capability report foundations are implemented. |
 | Authentication | Planned future concern, not implemented yet. |

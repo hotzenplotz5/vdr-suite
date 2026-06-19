@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 44.30 - Recording Action Runtime Diagnostics Completion
+Phase 45.1 - EPG Search Request Foundation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 45.0 - EPG Search Architecture
+Phase 45.2 - EPG Search Matcher Foundation
 ```
 
 Current architecture validation:

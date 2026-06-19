@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 44.30 - Recording Action Runtime Diagnostics Completion
+Phase 45.1 - EPG Search Request Foundation
 ```
 
 Current major phase status:
@@ -74,7 +74,7 @@ Phase 37 through Phase 43 completed the recording action execution path from val
 Phase 44.0 synchronizes the documentation after the live recording action verification work and records ADR-0025 as the configurable metadata provider architecture decision.
 
 Next implementation focus:
-The next implementation step is Phase 45.0 - EPG Search Architecture.
+The next implementation step is Phase 45.2 - EPG Search Matcher Foundation.
 ```
 
 Verified locally with:
@@ -113,6 +113,7 @@ Verification summary:
 - recording action execution results now expose `backendNativeId`, `recordingPath`, `snapshotRefreshed`, `upstreamHttpStatus`, `upstreamEndpoint` and `upstreamResponseBody`
 - Phase 45 should begin with EPG search architecture and classification planning
 - Phase 45.0 architecture planning is documented in [Phase 45 EPG Search Architecture](./phase-45-epg-search-architecture.md)
+- Phase 45.1 introduced the backend-neutral `EpgSearchRequest` foundation for future EPG text search, selective time windows, backend identity, field selection and sorting.
 
 ---
 
@@ -268,7 +269,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 45.0 - EPG Search Architecture
+Phase 45.2 - EPG Search Matcher Foundation
 ```
 
 The next step is to introduce recording action capability requirements before destructive operations are implemented.

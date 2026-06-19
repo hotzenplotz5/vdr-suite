@@ -43,6 +43,7 @@ test-vdr: \
 	test-vdr-timer-action-execution-service \
 	test-restful-api-vdr-adapter \
 	test-restful-api-change-state-adapter \
+	test-epg-search-request \
 	test-vdr-domain-objects
 
 test-backend-node:
