@@ -640,6 +640,12 @@ test-genre-classification:
 		-o /tmp/test_genre_classification
 	/tmp/test_genre_classification
 
+test-genre-resolver:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_genre_resolver.cpp \
+		-o /tmp/test_genre_resolver
+	/tmp/test_genre_resolver
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \

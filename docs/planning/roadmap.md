@@ -50,10 +50,10 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 46.1 - Genre Domain Foundation
+Phase 46.2 - Genre Source Resolution Model
 
 Next implementation step
-Phase 46.2 - Genre Source Resolution Model
+Phase 46.3 - Genre JSON Contract
 ```
 
 Phase 45 completed the EPG search API block:
@@ -160,6 +160,7 @@ Planned direction:
 
 - define source-aware genre/domain objects
 - implement the first isolated genre classification test
+- resolve a primary genre from source-aware evidence while preserving all evidence
 - preserve original provider values
 - define normalized genre values for search and grouping
 - support multiple genre facts per content item

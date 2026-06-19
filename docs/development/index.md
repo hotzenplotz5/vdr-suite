@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.1 - Genre Domain Foundation
+Phase 46.2 - Genre Source Resolution Model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.2 - Genre Source Resolution Model
+Phase 46.3 - Genre JSON Contract
 ```
 
 Current architecture validation:

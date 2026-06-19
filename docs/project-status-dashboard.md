@@ -65,6 +65,7 @@ Hisense / VIDAA Strategy  future evaluation
 ```text
 Content Classification    ADR-0028 documented
 Genre Foundation          implemented foundation
+Genre Resolution          implemented foundation
 Content Rating / FSK      planned
 Image Validation          planned
 Preview Streams           planned
@@ -78,19 +79,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.1 - Genre Domain Foundation
+Phase 46.2 - Genre Source Resolution Model
 ```
 
 Current Focus:
 
 ```text
-Phase 46.2 - Genre Source Resolution Model
+Phase 46.3 - Genre JSON Contract
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 46.1 - Genre Domain Foundation
+Phase 46.2 - Genre Source Resolution Model
 ```
 
 Architecture Work In Progress:

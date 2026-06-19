@@ -26,6 +26,18 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.2 - Genre Source Resolution Model
+
+Status: Completed.
+
+Summary:
+- Added `GenreResolver` as the first deterministic genre resolution boundary.
+- Added `GenreResolutionResult` to preserve both the primary resolved genre and all source evidence.
+- Preferred higher confidence when present.
+- Used source priority as a deterministic tie-breaker.
+- Preserved provider evidence instead of deleting lower-priority classifications.
+- Kept REST, database, metadata provider integration, SearchTimer and policy enforcement out of scope.
+
 ## Phase 46.1 - Genre Domain Foundation
 
 Status: Completed.
