@@ -74,19 +74,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 45.4 - EPG Search JSON Contract
+Phase 45.6 - EPG Search Controller Foundation
 ```
 
 Current Focus:
 
 ```text
-Phase 45.5 - EPG Search Service Foundation
+Phase 45.7 - EPG Search REST Validation
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 45.4 - EPG Search JSON Contract
+Phase 45.6 - EPG Search Controller Foundation
 ```
 
 Architecture Work In Progress:

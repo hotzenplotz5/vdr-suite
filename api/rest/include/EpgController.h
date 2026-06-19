@@ -4,13 +4,17 @@
 
 #include <string>
 
+class EpgSearchResultJsonSerializer;
+class EpgSearchService;
 class IEpgQueryService;
 
 class EpgController
 {
 public:
-    explicit EpgController(
-        IEpgQueryService& epgQueryService);
+    EpgController(
+        IEpgQueryService& epgQueryService,
+        EpgSearchService& epgSearchService,
+        EpgSearchResultJsonSerializer& epgSearchResultJsonSerializer);
 
     ApiResponse getNowNext();
     ApiResponse getNowNext(
@@ -30,6 +34,19 @@ public:
         int timespan,
         int limit);
 
+    ApiResponse search(
+        const std::string& query,
+        const std::string& backend,
+        const std::string& channelId,
+        int from,
+        int timespan,
+        int limit,
+        int offset,
+        const std::string& sort,
+        const std::string& order);
+
 private:
     IEpgQueryService& epgQueryService_;
+    EpgSearchService& epgSearchService_;
+    EpgSearchResultJsonSerializer& epgSearchResultJsonSerializer_;
 };

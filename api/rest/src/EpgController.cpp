@@ -1,5 +1,9 @@
 #include "EpgController.h"
 
+#include "EpgSearchRequest.h"
+#include "EpgSearchResult.h"
+#include "EpgSearchResultJsonSerializer.h"
+#include "EpgSearchService.h"
 #include "IEpgQueryService.h"
 #include "VdrEvent.h"
 
@@ -117,11 +121,59 @@ ApiResponse makeJsonResponse(const std::vector<VdrEvent>& events)
     return response;
 }
 
+ApiResponse makeSearchJsonResponse(
+    const std::string& body)
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body = body;
+
+    return response;
+}
+
+EpgSearchSortField parseSearchSortField(
+    const std::string& value)
+{
+    if (value == "title")
+    {
+        return EpgSearchSortField::Title;
+    }
+
+    if (value == "startTime")
+    {
+        return EpgSearchSortField::StartTime;
+    }
+
+    if (value == "duration")
+    {
+        return EpgSearchSortField::Duration;
+    }
+
+    return EpgSearchSortField::None;
+}
+
+EpgSearchSortOrder parseSearchSortOrder(
+    const std::string& value)
+{
+    if (value == "desc")
+    {
+        return EpgSearchSortOrder::Descending;
+    }
+
+    return EpgSearchSortOrder::Ascending;
+}
+
 }
 
 EpgController::EpgController(
-    IEpgQueryService& epgQueryService)
-    : epgQueryService_(epgQueryService)
+    IEpgQueryService& epgQueryService,
+    EpgSearchService& epgSearchService,
+    EpgSearchResultJsonSerializer& epgSearchResultJsonSerializer)
+    : epgQueryService_(epgQueryService),
+      epgSearchService_(epgSearchService),
+      epgSearchResultJsonSerializer_(epgSearchResultJsonSerializer)
 {
 }
 
@@ -165,4 +217,42 @@ ApiResponse EpgController::getChannelWindow(
 {
     return makeJsonResponse(
         epgQueryService_.getChannelWindow(channelId, from, timespan, limit));
+}
+
+ApiResponse EpgController::search(
+    const std::string& query,
+    const std::string& backend,
+    const std::string& channelId,
+    int from,
+    int timespan,
+    int limit,
+    int offset,
+    const std::string& sort,
+    const std::string& order)
+{
+    const std::vector<VdrEvent> events =
+        epgQueryService_.getTimeWindow(
+            channelId,
+            from,
+            timespan);
+
+    const EpgSearchRequest request =
+        EpgSearchRequest::sorted(
+            backend,
+            query,
+            channelId,
+            from,
+            timespan,
+            limit,
+            offset,
+            parseSearchSortField(sort),
+            parseSearchSortOrder(order));
+
+    const EpgSearchResult result =
+        epgSearchService_.search(
+            events,
+            request);
+
+    return makeSearchJsonResponse(
+        epgSearchResultJsonSerializer_.serialize(result));
 }

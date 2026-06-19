@@ -1,4 +1,6 @@
 #include "EpgController.h"
+#include "EpgSearchResultJsonSerializer.h"
+#include "EpgSearchService.h"
 #include "IEpgQueryService.h"
 #include "VdrEvent.h"
 
@@ -29,7 +31,10 @@ public:
         lastFrom = from;
         lastTimespan = timespan;
         lastCall = 2;
-        return makeEvents("event-time");
+        return {
+            makeEvent("event-time", "channel-1", "Tagesschau"),
+            makeEvent("event-search", "channel-1", "Tatort")
+        };
     }
 
     std::vector<VdrEvent> getChannelWindow(
@@ -53,17 +58,27 @@ public:
     mutable int lastLimit = 0;
 
 private:
-    static std::vector<VdrEvent> makeEvents(const std::string& id)
+    static VdrEvent makeEvent(
+        const std::string& id,
+        const std::string& channelId,
+        const std::string& title)
     {
         VdrEvent event;
         event.id = id;
-        event.channelId = "channel-1";
-        event.title = "Title";
-        event.startTime = "2026-06-13T20:00:00";
-        event.endTime = "2026-06-13T21:00:00";
+        event.channelId = channelId;
+        event.title = title;
+        event.subtitle = "Subtitle";
+        event.description = "Description";
+        event.startTime = "1780000000";
+        event.endTime = "1780003600";
         event.durationSeconds = 3600;
 
-        return {event};
+        return event;
+    }
+
+    static std::vector<VdrEvent> makeEvents(const std::string& id)
+    {
+        return {makeEvent(id, "channel-1", "Title")};
     }
 };
 
@@ -81,7 +96,13 @@ static void assertEventResponse(
 int main()
 {
     TestEpgQueryService epgQueryService;
-    EpgController controller(epgQueryService);
+    EpgSearchService epgSearchService;
+    EpgSearchResultJsonSerializer epgSearchResultJsonSerializer;
+
+    EpgController controller(
+        epgQueryService,
+        epgSearchService,
+        epgSearchResultJsonSerializer);
 
     ApiResponse nowNextResponse = controller.getNowNext();
     assertEventResponse(nowNextResponse, "event-now");
@@ -121,6 +142,30 @@ int main()
     assert(epgQueryService.lastFrom == 789);
     assert(epgQueryService.lastTimespan == 1800);
     assert(epgQueryService.lastLimit == 10);
+
+    ApiResponse searchResponse =
+        controller.search(
+            "tatort",
+            "living-room",
+            "channel-1",
+            1780000000,
+            7200,
+            10,
+            0,
+            "title",
+            "asc");
+
+    assert(searchResponse.statusCode == 200);
+    assert(searchResponse.contentType == "application/json");
+    assert(searchResponse.body.find("\"results\":[") != std::string::npos);
+    assert(searchResponse.body.find("\"eventId\":\"event-search\"") != std::string::npos);
+    assert(searchResponse.body.find("\"backendId\":\"living-room\"") != std::string::npos);
+    assert(searchResponse.body.find("\"matchedFields\":[\"title\"]") != std::string::npos);
+    assert(searchResponse.body.find("event-time") == std::string::npos);
+    assert(epgQueryService.lastCall == 2);
+    assert(epgQueryService.lastChannelId == "channel-1");
+    assert(epgQueryService.lastFrom == 1780000000);
+    assert(epgQueryService.lastTimespan == 7200);
 
     std::cout << "test_epg_controller passed" << std::endl;
 

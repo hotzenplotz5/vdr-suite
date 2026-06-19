@@ -177,7 +177,12 @@ bool DaemonRuntime::initialize()
     if (!backendRuntimeContexts_.empty()) {
         epgQueryService_ = std::make_unique<EpgQueryService>(
             *backendRuntimeContexts_.front()->service);
-        epgController_ = std::make_unique<EpgController>(*epgQueryService_);
+        epgSearchService_ = std::make_unique<EpgSearchService>();
+        epgSearchResultJsonSerializer_ = std::make_unique<EpgSearchResultJsonSerializer>();
+        epgController_ = std::make_unique<EpgController>(
+            *epgQueryService_,
+            *epgSearchService_,
+            *epgSearchResultJsonSerializer_);
 
         std::cout << "EPG controller runtime initialized" << std::endl;
     }

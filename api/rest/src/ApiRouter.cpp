@@ -273,6 +273,25 @@ ApiResponse ApiRouter::handleGet(
         return vdrController_.getEvents();
     }
 
+    if (path == "/api/epg/search")
+    {
+        if (epgController_ == nullptr)
+        {
+            return makeEpgUnavailableResponse();
+        }
+
+        return epgController_->search(
+            queryParameters.get("query"),
+            queryParameters.get("backend"),
+            queryParameters.get("channelId"),
+            queryParameters.getInt("from", -1),
+            queryParameters.getInt("timespan", 7200),
+            queryParameters.getInt("limit", 0),
+            queryParameters.getInt("offset", 0),
+            queryParameters.get("sort"),
+            queryParameters.get("order"));
+    }
+
     if (path == "/api/epg/now-next")
     {
         if (epgController_ == nullptr)

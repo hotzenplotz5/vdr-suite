@@ -18,6 +18,8 @@
 #include "DashboardJsonSerializer.h"
 #include "EpgController.h"
 #include "EpgQueryService.h"
+#include "EpgSearchResultJsonSerializer.h"
+#include "EpgSearchService.h"
 #include "ConsoleRuntimeLogger.h"
 #include "Database.h"
 #include "IHttpClient.h"
@@ -145,6 +147,8 @@ private:
     std::unique_ptr<CapabilityReportJsonSerializer> capabilityReportJsonSerializer_;
     std::unique_ptr<CapabilityController> capabilityController_;
     std::unique_ptr<EpgQueryService> epgQueryService_;
+    std::unique_ptr<EpgSearchService> epgSearchService_;
+    std::unique_ptr<EpgSearchResultJsonSerializer> epgSearchResultJsonSerializer_;
     std::unique_ptr<EpgController> epgController_;
 
     std::unique_ptr<RecordingActionValidationService> recordingActionValidationService_;
