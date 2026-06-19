@@ -208,7 +208,7 @@ int main()
     assert(rawRequest.find("Content-Type: application/json") != std::string::npos);
     assert(rawRequest.find("Content-Length: ") != std::string::npos);
     assert(rawRequest.find("\"source\":\"Tagesschau/2026-06-17.20.00.10-0.rec\"") != std::string::npos);
-    assert(rawRequest.find("\"target\":\"Archiv~Tagesschau\"") != std::string::npos);
+    assert(rawRequest.find("\"target\":\"Archiv~Tagesschau~Tagesschau\"") != std::string::npos);
     assert(rawRequest.find("\"copy_only\":false") != std::string::npos);
     assert(rawRequest.find("Archiv/Tagesschau") == std::string::npos);
 

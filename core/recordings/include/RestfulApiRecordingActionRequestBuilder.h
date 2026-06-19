@@ -119,6 +119,24 @@ private:
         return encoded;
     }
 
+    static std::string encodeVdrRecordingNameTarget(
+        const std::string& target)
+    {
+        std::string encoded;
+
+        for (char c : target) {
+            if (c == '/') {
+                encoded += '~';
+            } else if (c == ' ') {
+                encoded += '_';
+            } else {
+                encoded += c;
+            }
+        }
+
+        return encoded;
+    }
+
     static std::string recordingLeafName(
         const std::string& source)
     {
@@ -202,7 +220,7 @@ private:
 
         std::string body = "{";
         body += "\"source\":" + jsonQuote(recordingPath(payload));
-        body += ",\"target\":" + jsonQuote(encodeVdrFolderTarget(newName));
+        body += ",\"target\":" + jsonQuote(encodeVdrRecordingNameTarget(newName));
         body += ",\"copy_only\":false";
         body += "}";
 
