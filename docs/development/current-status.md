@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
+Phase 44.30 - Recording Action Runtime Diagnostics Completion
 ```
 
 Current major phase status:
@@ -74,7 +74,7 @@ Phase 37 through Phase 43 completed the recording action execution path from val
 Phase 44.0 synchronizes the documentation after the live recording action verification work and records ADR-0025 as the configurable metadata provider architecture decision.
 
 Next implementation focus:
-The next implementation step is Phase 36.0 - Recording Action Execution Result JSON Serializer.
+The next implementation step is Phase 45.0 - EPG Search Architecture.
 ```
 
 Verified locally with:
@@ -106,9 +106,12 @@ Verification summary:
 - real VDR validation confirmed recording rename, delete and move through VDR-Suite action execution
 - recording move preserves the source recording leaf name when targeting a folder
 - detailed validation notes are documented in [Real Recording Action End-to-End Validation](./real-recording-action-e2e-validation.md)
+- phase 44 runtime completion is documented in [Phase 44 Recording Action Runtime Completion](./phase-44-recording-action-runtime-completion.md)
 - documentation phase consistency remains green
 - daemon build remains green
 - GitHub Actions remains the standard full regression path for normal non-VDR-specific changes
+- recording action execution results now expose `backendNativeId`, `recordingPath`, `snapshotRefreshed`, `upstreamHttpStatus`, `upstreamEndpoint` and `upstreamResponseBody`
+- Phase 45 should begin with EPG search architecture and classification planning
 
 ---
 
@@ -264,7 +267,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 44.1 - Timer Foundation Planning
+Phase 45.0 - EPG Search Architecture
 ```
 
 The next step is to introduce recording action capability requirements before destructive operations are implemented.

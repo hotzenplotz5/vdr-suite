@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
+Phase 44.30 - Recording Action Runtime Diagnostics Completion
 ```
 
 Next implementation focus:
 
 ```text
-Phase 44.1 - Timer Foundation Planning
+Phase 45.0 - EPG Search Architecture
 ```
 
 Current architecture validation:
@@ -61,6 +61,7 @@ Current architecture validation:
 - [ADR-0025: Configurable Metadata Provider Architecture](../adr/ADR-0025-configurable-metadata-provider-architecture.md)
 - [Timer Contract Gap Analysis](timer-contract-gap-analysis.md)
 - [Real Recording Action End-to-End Validation](real-recording-action-e2e-validation.md)
+- [Phase 44 Recording Action Runtime Completion](phase-44-recording-action-runtime-completion.md)
 
 ---
 

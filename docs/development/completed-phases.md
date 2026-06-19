@@ -26,6 +26,52 @@ Future planning belongs to:
 
 ---
 
+## Phase 44.30 - Recording Action Runtime Diagnostics Completion
+
+Status: Completed.
+
+Summary:
+- Added structured upstream diagnostics to recording action execution results.
+- Exposed `upstreamHttpStatus`, `upstreamEndpoint` and `upstreamResponseBody` in the execution result JSON contract.
+- Preserved RESTfulAPI HTTP status, endpoint and response body for successful and failed upstream requests.
+- Verified HTTP result mapping, recording action execution controller, recording action contract, daemon build, documentation checks and phase consistency.
+
+## Phase 44.29 - Enrich Recording Action Execution Result
+
+Status: Completed.
+
+Summary:
+- Added `backendNativeId`, `recordingPath` and `snapshotRefreshed` to the recording action execution result contract.
+- Enriched controller responses from the resolved request and snapshot refresh outcome.
+- Kept VDR snapshot state as the read-side source of truth.
+
+## Phase 44.28 - Refresh Snapshot After Recording Action
+
+Status: Completed.
+
+Summary:
+- Added a daemon runtime callback to refresh VDR snapshot state after successful recording action execution.
+- Fixed the immediate second-rename problem after a successful rename changed the backend-native recording path.
+- Verified successful back-to-back rename behavior against the real VDR runtime.
+
+## Phase 44.27 - Normalize RESTfulAPI Rename Targets
+
+Status: Completed.
+
+Summary:
+- Normalized RESTfulAPI rename targets to VDR folder-name semantics.
+- Converted slashes to VDR folder separators and spaces to underscores where required by the RESTfulAPI move endpoint.
+- Updated request-builder and contract tests for move and rename target behavior.
+
+## Phase 44.25 - Resolve Recording Native ID From Snapshot
+
+Status: Completed.
+
+Summary:
+- Resolved `backendNativeId` from the current VDR snapshot when action clients provide only `backendId` and `recordingId`.
+- Wired the resolver into the recording action execution controller.
+- Added controller coverage for resolved backend-native recording action execution.
+
 ## Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
 
 Status: Completed.

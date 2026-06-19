@@ -13,6 +13,7 @@
 - [Current Project Status](docs/development/current-status.md)
 - [Developer Documentation](docs/development/index.md)
 - [Real Recording Action End-to-End Validation](docs/development/real-recording-action-e2e-validation.md)
+- [Phase 44 Recording Action Runtime Completion](docs/development/phase-44-recording-action-runtime-completion.md)
 - [Developer Onboarding](docs/development/developer-onboarding.md)
 - [Architecture Map](docs/development/architecture-map.md)
 - [Roadmap](docs/planning/roadmap.md)
@@ -44,9 +45,9 @@ EPG JSON Escaping        ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
+Latest Completed Implementation Phase: Phase 44.30 - Recording Action Runtime Diagnostics Completion
 
-Current Implementation Focus: Phase 44.1 - Timer Foundation Planning
+Current Implementation Focus: Phase 45.0 - EPG Search Architecture
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

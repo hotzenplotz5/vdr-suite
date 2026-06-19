@@ -30,6 +30,7 @@ Selective Event Queries   implemented
 Heavy Domain Policy       implemented
 EPG REST API Boundary     implemented
 Recording Query API       implemented
+Recording Actions         implemented + diagnostics
 ```
 
 ### Federation and Security
@@ -69,27 +70,27 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
+Phase 44.30 - Recording Action Runtime Diagnostics Completion
 ```
 
 Current Focus:
 
 ```text
-Phase 44.1 - Timer Foundation Planning
+Phase 45.0 - EPG Search Architecture
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
+Phase 44.30 - Recording Action Runtime Diagnostics Completion
 ```
 
 Architecture Work In Progress:
 
 ```text
-Phase 44.1 - Timer Foundation Planning
+Phase 45.0 - EPG Search Architecture
 ADR-0025 - Configurable Metadata Provider Architecture
-Real recording action validation documented
+Recording action runtime diagnostics completed
 ```
 
 ---

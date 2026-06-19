@@ -50,13 +50,13 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 44.0 - Documentation Synchronization After Recording Action Live Verification
+Phase 44.30 - Recording Action Runtime Diagnostics Completion
 
 Current cleanup
-Documentation synchronization after recording action live verification
+Recording action runtime diagnostics completed
 
 Next implementation step
-Phase 44.1 - Timer Foundation Planning.
+Phase 45.0 - EPG Search Architecture.
 
 Completed foundation summary
 ```
@@ -82,6 +82,8 @@ Phase 21.3 validated selective RESTfulAPI EPG access against a real VDR.
 Phase 22.0 introduced the heavy-domain refresh policy foundation. Events / EPG no longer create automatic full-domain refresh work through `SnapshotRefreshPlanner`.
 
 Phase 28 completed the recording query API foundation with title, path, start-time, duration, sorting and paging support through `GET /api/vdr/recordings/query`.
+
+Phase 44 completed recording action runtime hardening. Recording actions now resolve backend-native recording identifiers, normalize RESTfulAPI action targets, refresh snapshots after successful mutations and expose structured upstream diagnostics.
 
 ADR-0021 documents the long-term selective backend query strategy.
 
