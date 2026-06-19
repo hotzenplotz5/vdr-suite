@@ -65,7 +65,7 @@ int main()
         assert(request.headers.at("Accept") == "application/json");
         assert(request.headers.at("Content-Type") == "application/json");
         assert(request.body.find("\"source\"") != std::string::npos);
-        assert(request.body.find("\"target\":\"Archive~Mystery\"") != std::string::npos);
+        assert(request.body.find("\"target\":\"Archive~Mystery~The_Village_-_Das_Dorf\"") != std::string::npos);
         assert(request.body.find("\"copy_only\":false") != std::string::npos);
     }
 
@@ -82,7 +82,7 @@ int main()
         assert(request.headers.at("Accept") == "application/json");
         assert(request.headers.at("Content-Type") == "application/json");
         assert(request.body.find("\"source\"") != std::string::npos);
-        assert(request.body.find("\"target\":\"Mystery~The Village - Das Dorf HD\"") != std::string::npos);
+        assert(request.body.find("\"target\":\"Mystery~The_Village_-_Das_Dorf_HD\"") != std::string::npos);
         assert(request.body.find("\"copy_only\":false") != std::string::npos);
     }
 
