@@ -90,13 +90,13 @@ bool DaemonRuntime::initialize()
     BackendNode defaultBackend;
     defaultBackend.backendId = "default";
     defaultBackend.backendName = "Default VDR";
-    defaultBackend.backendType = "vdr";
+    defaultBackend.backendType = "restfulapi";
     defaultBackend.connection.enabled = true;
     defaultBackend.connection.mode = config_.vdrMode();
     defaultBackend.connection.host = config_.vdrHost();
     defaultBackend.connection.port = config_.vdrPort();
     defaultBackend.enabled = true;
-    defaultBackend.online = false;
+    defaultBackend.online = true;
 
     backendRegistry_.addBackend(defaultBackend);
     backendRegistryService_ = std::make_unique<BackendRegistryService>(backendRegistry_);
