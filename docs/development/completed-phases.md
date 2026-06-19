@@ -26,6 +26,18 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.4 - Canonical Genre Registry
+
+Status: Completed.
+
+Summary:
+- Added `CanonicalGenreRegistry`.
+- Added first canonical IDs for crime, comedy, action, drama, documentary, children, sports, news, movie and series.
+- Mapped German and English aliases such as `Krimi`, `Crime`, `Komödie`, `Comedy`, `Spielfilm` and `Movie`.
+- Preserved unknown genres by normalizing them into stable fallback IDs.
+- Prepared the future localization layer by separating canonical IDs from display labels.
+- Kept REST, database, provider integration, SearchTimer and policy enforcement out of scope.
+
 ## Phase 46.3 - Genre JSON Contract
 
 Status: Completed.

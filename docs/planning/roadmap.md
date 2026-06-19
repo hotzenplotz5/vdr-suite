@@ -50,10 +50,10 @@ The runtime performance target is backend workload comparable to established VDR
 
 ```text
 Completed implementation state
-Phase 46.3 - Genre JSON Contract
+Phase 46.4 - Canonical Genre Registry
 
 Next implementation step
-Phase 46.4 - Canonical Genre Registry
+Phase 46.5 - Genre Localization Layer
 ```
 
 Phase 45 completed the EPG search API block:
@@ -162,6 +162,7 @@ Planned direction:
 - implement the first isolated genre classification test
 - resolve a primary genre from source-aware evidence while preserving all evidence
 - expose genre resolution through a JSON contract with canonical IDs and source evidence
+- map multilingual genre labels to stable canonical genre IDs before localization
 - preserve original provider values
 - define normalized genre values for search and grouping
 - support multiple genre facts per content item

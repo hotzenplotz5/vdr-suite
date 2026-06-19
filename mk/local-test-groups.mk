@@ -46,6 +46,7 @@ test-vdr: \
 	test-genre-classification \
 	test-genre-resolver \
 	test-genre-resolution-json-serializer \
+	test-canonical-genre-registry \
 	test-epg-search-request \
 	test-epg-search-matcher \
 	test-epg-search-result \

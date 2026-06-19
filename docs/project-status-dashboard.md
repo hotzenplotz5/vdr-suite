@@ -67,6 +67,7 @@ Content Classification    ADR-0028 documented
 Genre Foundation          implemented foundation
 Genre Resolution          implemented foundation
 Genre JSON Contract       implemented
+Canonical Genre Registry implemented
 Content Rating / FSK      planned
 Image Validation          planned
 Preview Streams           planned
@@ -80,19 +81,19 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.3 - Genre JSON Contract
+Phase 46.4 - Canonical Genre Registry
 ```
 
 Current Focus:
 
 ```text
-Phase 46.4 - Canonical Genre Registry
+Phase 46.5 - Genre Localization Layer
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 46.3 - Genre JSON Contract
+Phase 46.4 - Canonical Genre Registry
 ```
 
 Architecture Work In Progress:

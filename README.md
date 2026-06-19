@@ -47,9 +47,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.3 - Genre JSON Contract
+Latest Completed Implementation Phase: Phase 46.4 - Canonical Genre Registry
 
-Current Implementation Focus: Phase 46.4 - Canonical Genre Registry
+Current Implementation Focus: Phase 46.5 - Genre Localization Layer
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

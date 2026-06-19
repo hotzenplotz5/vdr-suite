@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.3 - Genre JSON Contract
+Phase 46.4 - Canonical Genre Registry
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.4 - Canonical Genre Registry
+Phase 46.5 - Genre Localization Layer
 ```
 
 Current architecture validation:
