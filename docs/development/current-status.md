@@ -112,6 +112,7 @@ Verification summary:
 - GitHub Actions remains the standard full regression path for normal non-VDR-specific changes
 - recording action execution results now expose `backendNativeId`, `recordingPath`, `snapshotRefreshed`, `upstreamHttpStatus`, `upstreamEndpoint` and `upstreamResponseBody`
 - Phase 45 should begin with EPG search architecture and classification planning
+- Phase 45.0 architecture planning is documented in [Phase 45 EPG Search Architecture](./phase-45-epg-search-architecture.md)
 
 ---
 

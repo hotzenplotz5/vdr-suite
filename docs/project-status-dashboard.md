@@ -89,6 +89,7 @@ Architecture Work In Progress:
 
 ```text
 Phase 45.0 - EPG Search Architecture
+Phase 45.0 - Multi-source EPG genre planning
 ADR-0025 - Configurable Metadata Provider Architecture
 Recording action runtime diagnostics completed
 ```

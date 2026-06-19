@@ -85,6 +85,8 @@ Phase 28 completed the recording query API foundation with title, path, start-ti
 
 Phase 44 completed recording action runtime hardening. Recording actions now resolve backend-native recording identifiers, normalize RESTfulAPI action targets, refresh snapshots after successful mutations and expose structured upstream diagnostics.
 
+Phase 45 starts with EPG search architecture. The first step is to define backend-neutral EPG search, multi-source genre classification and future SearchTimer preparation before implementation begins.
+
 ADR-0021 documents the long-term selective backend query strategy.
 
 ---
