@@ -30,7 +30,7 @@ int main()
     assert(moveRequest.body.find(
         "\"source\":\"Movies/Tatort/2026-06-16.20.15.1-0.rec\"")
         != std::string::npos);
-    assert(moveRequest.body.find("\"target\":\"Archive~Crime\"")
+    assert(moveRequest.body.find("\"target\":\"Archive~Crime~Tatort\"")
         != std::string::npos);
     assert(moveRequest.body.find("\"copy_only\":false")
         != std::string::npos);
