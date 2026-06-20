@@ -151,12 +151,31 @@ def update(completed, next_phase, summary_lines):
     validate_completed_phases_file(next_phase)
 
 
-def run_checker():
+def run_command(command):
     result = subprocess.run(
-        [sys.executable, str(ROOT / "tools/check_phase_consistency.py")],
+        command,
         cwd=str(ROOT),
     )
-    return result.returncode
+    if result.returncode != 0:
+        return result.returncode
+
+    return 0
+
+
+def run_validation():
+    commands = [
+        [sys.executable, str(ROOT / "tools/check_phase_consistency.py")],
+        [sys.executable, str(ROOT / "tools/check_docs.py")],
+        [sys.executable, str(ROOT / "tools/check_doc_indexes.py")],
+        [sys.executable, str(ROOT / "tools/check_doc_reachability.py")],
+    ]
+
+    for command in commands:
+        code = run_command(command)
+        if code != 0:
+            return code
+
+    return 0
 
 
 def main():
@@ -169,11 +188,24 @@ def main():
         default=[],
         help="Summary line for completed-phases.md. Can be passed multiple times.",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate arguments without modifying files.",
+    )
     args = parser.parse_args()
+
+    if args.dry_run:
+        print("Dry run:")
+        print(f"  completed: {args.completed}")
+        print(f"  next: {args.next}")
+        for line in normalize_summary_lines(args.summary):
+            print(f"  summary: {line}")
+        return 0
 
     update(args.completed, args.next, args.summary)
 
-    return run_checker()
+    return run_validation()
 
 
 if __name__ == "__main__":
