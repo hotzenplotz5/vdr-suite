@@ -108,6 +108,46 @@ static void test_parse_recordings_ignores_objects_without_number()
     assert(recordings.empty() == true);
 }
 
+
+static void test_parse_recordings_imports_additional_media_actors()
+{
+    const std::string json =
+        "{\"recordings\":["
+        "{\"number\":1,"
+        "\"name\":\"Movies~Forrest Gump\","
+        "\"file_name\":\"/srv/vdr/video/Movies/Forrest_Gump/2026-01-01.20.15.1-0.rec\","
+        "\"duration\":8000,"
+        "\"filesize_mb\":7000,"
+        "\"event_start_time\":1780000000,"
+        "\"additional_media\":{"
+        "\"scraper\":\"movie\","
+        "\"movie_id\":13,"
+        "\"movie_title\":\"Forrest Gump\","
+        "\"actors\":["
+        "{\"name\":\"Tom Hanks\",\"role\":\"Forrest Gump\",\"thumb\":\"tom.jpg\"},"
+        "{\"name\":\"Robin Wright\",\"role\":\"Jenny Curran\",\"thumb\":\"robin.jpg\"}"
+        "]"
+        "}"
+        "}"
+        "]}";
+
+    std::vector<VdrRecording> recordings =
+        RestfulApiRecordingMapper::parseRecordings(json);
+
+    assert(recordings.size() == 1);
+    assert(recordings[0].persons.size() == 2);
+    assert(recordings[0].persons.hasRole(PersonRole::Actor));
+    assert(recordings[0].persons.hasNormalizedName("tom-hanks"));
+    assert(recordings[0].persons.hasNormalizedName("robin-wright"));
+
+    const Person& firstActor = recordings[0].persons.all().at(0);
+    assert(firstActor.source() == ContentClassificationSource::Tvscraper);
+    assert(firstActor.role() == PersonRole::Actor);
+    assert(firstActor.originalName() == "Tom Hanks");
+    assert(firstActor.normalizedName() == "tom-hanks");
+    assert(firstActor.characterName() == "Forrest Gump");
+}
+
 static void test_parse_recordings_tolerates_invalid_json()
 {
     std::vector<VdrRecording> recordings =
@@ -122,6 +162,7 @@ int main()
     test_parse_recordings_maps_real_restfulapi_shape();
     test_parse_recordings_falls_back_to_absolute_file_name();
     test_parse_recordings_ignores_objects_without_number();
+    test_parse_recordings_imports_additional_media_actors();
     test_parse_recordings_tolerates_invalid_json();
 
     return 0;

@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.26 - Recording Additional Media Person Import
+
+Status: Completed.
+
+Summary:
+- Imports RESTfulAPI additional_media actors into VdrRecording person collections as scraper-sourced actor metadata.
+
 ## Phase 46.25 - Real VDR Person Metadata Validation
 
 Status: Completed.

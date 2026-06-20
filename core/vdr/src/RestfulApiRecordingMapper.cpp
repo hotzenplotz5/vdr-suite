@@ -203,6 +203,133 @@ std::string normalizeRecordingName(const std::string& name)
     return normalized;
 }
 
+std::string normalizePersonName(const std::string& name)
+{
+    std::string normalized;
+    bool previousWasSeparator = false;
+
+    for (char c : name) {
+        unsigned char uc = static_cast<unsigned char>(c);
+
+        if (std::isalnum(uc)) {
+            normalized.push_back(
+                static_cast<char>(std::tolower(uc)));
+            previousWasSeparator = false;
+        } else if (!previousWasSeparator && !normalized.empty()) {
+            normalized.push_back('-');
+            previousWasSeparator = true;
+        }
+    }
+
+    while (!normalized.empty() && normalized.back() == '-') {
+        normalized.pop_back();
+    }
+
+    return normalized;
+}
+
+std::string getObjectField(
+    const std::string& objectText,
+    const std::string& fieldName)
+{
+    const std::string key = "\"" + fieldName + "\"";
+    std::size_t keyPos = objectText.find(key);
+    if (keyPos == std::string::npos) {
+        return "";
+    }
+
+    std::size_t colon = objectText.find(':', keyPos + key.size());
+    if (colon == std::string::npos) {
+        return "";
+    }
+
+    std::size_t objectStart = objectText.find('{', colon + 1);
+    if (objectStart == std::string::npos) {
+        return "";
+    }
+
+    std::size_t objectEnd = findMatching(objectText, objectStart, '{', '}');
+    if (objectEnd == std::string::npos) {
+        return "";
+    }
+
+    return objectText.substr(objectStart, objectEnd - objectStart + 1);
+}
+
+std::string getArrayField(
+    const std::string& objectText,
+    const std::string& fieldName)
+{
+    const std::string key = "\"" + fieldName + "\"";
+    std::size_t keyPos = objectText.find(key);
+    if (keyPos == std::string::npos) {
+        return "";
+    }
+
+    std::size_t colon = objectText.find(':', keyPos + key.size());
+    if (colon == std::string::npos) {
+        return "";
+    }
+
+    std::size_t arrayStart = objectText.find('[', colon + 1);
+    if (arrayStart == std::string::npos) {
+        return "";
+    }
+
+    std::size_t arrayEnd = findMatching(objectText, arrayStart, '[', ']');
+    if (arrayEnd == std::string::npos) {
+        return "";
+    }
+
+    return objectText.substr(arrayStart + 1, arrayEnd - arrayStart - 1);
+}
+
+PersonCollection parseAdditionalMediaActors(
+    const std::string& objectText)
+{
+    PersonCollection persons =
+        PersonCollection::createEmpty();
+
+    const std::string additionalMedia =
+        getObjectField(objectText, "additional_media");
+
+    if (additionalMedia.empty()) {
+        return persons;
+    }
+
+    const std::string actorsArray =
+        getArrayField(additionalMedia, "actors");
+
+    if (actorsArray.empty()) {
+        return persons;
+    }
+
+    const std::vector<std::string> actorObjects =
+        splitTopLevelObjects(actorsArray);
+
+    for (const std::string& actorObject : actorObjects) {
+        const std::string name =
+            getStringField(actorObject, "name");
+
+        if (name.empty()) {
+            continue;
+        }
+
+        const std::string characterName =
+            getStringField(actorObject, "role");
+
+        persons.add(
+            Person::withCharacterName(
+                ContentClassificationSource::Tvscraper,
+                PersonRole::Actor,
+                name,
+                normalizePersonName(name),
+                characterName));
+    }
+
+    return persons;
+}
+
 long long getLongLongField(const std::string& objectText, const std::string& fieldName, long long fallback = 0)
 {
     const std::string key = "\"" + fieldName + "\"";
@@ -285,6 +412,7 @@ VdrRecording mapObjectToRecording(const std::string& objectText)
     recording.startTime = std::to_string(getIntField(objectText, "event_start_time", 0));
     recording.durationSeconds = getIntField(objectText, "duration", 0);
     recording.sizeMb = getLongLongField(objectText, "filesize_mb", 0);
+    recording.persons = parseAdditionalMediaActors(objectText);
 
     return recording;
 }

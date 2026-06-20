@@ -84,13 +84,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.25 - Real VDR Person Metadata Validation
+Phase 46.26 - Recording Additional Media Person Import
 ```
 
 Current Focus:
 
 ```text
-Phase 46.26 - Recording Additional Media Person Import
+Phase 46.27 - Recording Person Search Result Model
 ```
 
 Latest Completed Milestone:

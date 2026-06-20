@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.25 - Real VDR Person Metadata Validation
+Phase 46.26 - Recording Additional Media Person Import
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.26 - Recording Additional Media Person Import
+Phase 46.27 - Recording Person Search Result Model
 ```
 
 Current architecture validation:

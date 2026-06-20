@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Person.h"
+
 #include <string>
 
 struct VdrRecording
@@ -15,4 +17,6 @@ struct VdrRecording
 
     int durationSeconds;
     long long sizeMb;
+
+    PersonCollection persons = PersonCollection::createEmpty();
 };
