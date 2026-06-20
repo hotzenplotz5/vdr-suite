@@ -84,13 +84,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.29 - Recording Person Search JSON Contract
+Phase 46.30 - Recording Person Search REST Boundary
 ```
 
 Current Focus:
 
 ```text
-Phase 46.30 - Recording Person Search REST Boundary
+Phase 46.31 - Recording Person Search Router Wiring
 ```
 
 Latest Completed Milestone:

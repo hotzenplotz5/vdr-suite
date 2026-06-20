@@ -787,6 +787,16 @@ test-recording-person-search-result-json-serializer:
 		-o /tmp/test_recording_person_search_result_json_serializer
 	/tmp/test_recording_person_search_result_json_serializer
 
+test-recording-person-search-controller:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/PersonQueryMatcher.cpp \
+		core/vdr/src/RecordingPersonSearchService.cpp \
+		core/vdr/src/RecordingPersonSearchResultJsonSerializer.cpp \
+		api/rest/src/RecordingPersonSearchController.cpp \
+		api/rest/tests/test_recording_person_search_controller.cpp \
+		-o /tmp/test_recording_person_search_controller
+	/tmp/test_recording_person_search_controller
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \

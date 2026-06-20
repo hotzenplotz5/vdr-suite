@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.30 - Recording Person Search REST Boundary
+
+Status: Completed.
+
+Summary:
+- Adds a REST-facing controller boundary for recording-person search without wiring it into ApiRouter yet.
+
 ## Phase 46.29 - Recording Person Search JSON Contract
 
 Status: Completed.
