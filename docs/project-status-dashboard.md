@@ -18,7 +18,7 @@
 
 Overall project progress:
 
-    ███████░░░ 72%
+    ███████░░░ 73%
 
 Milestone progress:
 
@@ -28,7 +28,7 @@ Milestone progress:
     Action Foundation         ██████████ 100%  completed
     Metadata Foundation       ██████████ 100%  completed
     Documentation Foundation  ██████████ 100%  completed
-    SearchTimer Foundation    █████░░░░░  50%  in progress
+    SearchTimer Foundation    ██████░░░░  60%  in progress
     Automation Foundation     ░░░░░░░░░░   0%  planned
     Federation Foundation     ░░░░░░░░░░   0%  planned
     Frontend Foundation       ░░░░░░░░░░   0%  planned
@@ -122,7 +122,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.6 - SearchTimer RESTfulAPI mapper
+Phase 47.7 - SearchTimer RESTfulAPI list adapter
 ```
 
 Current Documentation Consolidation:
@@ -134,7 +134,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.7 - SearchTimer RESTfulAPI list adapter
+Phase 47.8 - SearchTimer JSON serializer
 ```
 
 Latest Completed Milestones:

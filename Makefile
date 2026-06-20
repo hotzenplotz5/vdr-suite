@@ -816,6 +816,15 @@ test-epg-search-result:
 		-o /tmp/test_epg_search_result
 	/tmp/test_epg_search_result
 
+test-restful-api-search-timer-adapter:
+	$(CXX) $(CXXFLAGS) \
+		core/http/src/MockHttpClient.cpp \
+		core/vdr/src/RestfulApiSearchTimerMapper.cpp \
+		core/vdr/src/SearchTimerService.cpp \
+		core/vdr/src/RestfulApiSearchTimerAdapter.cpp \
+		core/vdr/tests/test_restful_api_search_timer_adapter.cpp \
+		-o /tmp/test_restful_api_search_timer_adapter
+	/tmp/test_restful_api_search_timer_adapter
 test-restful-api-search-timer-mapper:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/RestfulApiSearchTimerMapper.cpp \

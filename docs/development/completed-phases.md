@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.7 - SearchTimer RESTfulAPI list adapter
+
+Status: Completed.
+
+Summary:
+- Adds RestfulApiSearchTimerAdapter for loading /searchtimers.json via IHttpClient, mapping epgsearch payloads and applying backend-neutral SearchTimer queries.
+
 ## Phase 47.6 - SearchTimer RESTfulAPI mapper
 
 Status: Completed.
