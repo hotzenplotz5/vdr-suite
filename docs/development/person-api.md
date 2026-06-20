@@ -218,6 +218,7 @@ The /api/vdr/persons alias exists to keep person search close to the VDR-facing 
 | --- | --- | --- | --- |
 | name | string | empty | Case-insensitive partial match against originalName. |
 | normalizedName | string | empty | Exact match against normalizedName. |
+| characterName | string | empty | Case-insensitive partial match against characterName. |
 | role | string | empty | Optional role filter. |
 | source | string | empty | Optional source filter. |
 | providerReference | string | empty | Exact provider reference filter. |
@@ -398,6 +399,49 @@ Successful response shape:
 The recording-person search does not inspect recording titles, paths or descriptions as fallback person sources.
 
 It only searches structured Person entries attached to VdrRecording.persons.
+
+---
+
+## Recording Character Search
+
+Recording character search uses the same recording-person endpoint.
+
+The characterName parameter searches the character name stored in matched actor metadata.
+
+This differs from name:
+
+| Parameter | Meaning | Example |
+| --- | --- | --- |
+| name | Actor or person name | Jim Carrey |
+| characterName | Played character or role name | Ace Ventura |
+
+Example requests:
+
+    GET /api/recordings/persons/search?name=Jim%20Carrey
+
+    GET /api/recordings/persons/search?characterName=Ace
+
+    GET /api/recordings/persons/search?characterName=Ventura
+
+    GET /api/recordings/persons/search?characterName=Forrest
+
+    GET /api/vdr/recordings/persons/search?characterName=Jenny&backend=default
+
+Matching semantics:
+
+- characterName is optional.
+- characterName uses case-insensitive partial matching.
+- characterName can be combined with role=actor.
+- characterName can be combined with backend filtering.
+- characterName does not search recording titles, recording paths or EPG descriptions.
+
+Real VDR implication:
+
+The inspected yaVDR RESTfulAPI payload exposes TVScraper actor entries with a role field that represents the played character.
+
+VDR-Suite maps that role field to Person.characterName.
+
+This makes character lookup immediately useful for real recording metadata, even though director, writer and producer metadata were not present in the inspected RESTfulAPI payload.
 
 ---
 

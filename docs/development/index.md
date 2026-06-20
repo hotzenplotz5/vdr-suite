@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.35 - Recording Character Search
+Phase 46.36 - Recording Character Search API Documentation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.36 - Recording Character Search API Documentation
+Phase 46.37 - EPG Person Search Result Model
 ```
 
 Current architecture validation:

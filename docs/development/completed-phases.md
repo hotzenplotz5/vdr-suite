@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.36 - Recording Character Search API Documentation
+
+Status: Completed.
+
+Summary:
+- Documents recording character search through the characterName query parameter, including actor-versus-character semantics, examples, matching rules, and real VDR metadata implications.
+
 ## Phase 46.35 - Recording Character Search
 
 Status: Completed.

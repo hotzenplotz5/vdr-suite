@@ -13,10 +13,10 @@
 
 ```text
 Completed implementation state
-Phase 46.35 - Recording Character Search
+Phase 46.36 - Recording Character Search API Documentation
 
 Next implementation step
-Phase 46.36 - Recording Character Search API Documentation
+Phase 46.37 - EPG Person Search Result Model
 ```
 
 ---

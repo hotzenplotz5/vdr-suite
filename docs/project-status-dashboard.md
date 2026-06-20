@@ -84,13 +84,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.35 - Recording Character Search
+Phase 46.36 - Recording Character Search API Documentation
 ```
 
 Current Focus:
 
 ```text
-Phase 46.36 - Recording Character Search API Documentation
+Phase 46.37 - EPG Person Search Result Model
 ```
 
 Latest Completed Milestone:
