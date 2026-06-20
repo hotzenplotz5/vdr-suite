@@ -19,6 +19,7 @@ class RuntimeDiagnosticsController;
 class SnapshotChangeFeedController;
 class VdrController;
 class VdrRecordingQueryController;
+class VdrSnapshotReadService;
 class VdrTimerActionController;
 class VdrTimerActionExecutorAdapterRegistry;
 
@@ -32,6 +33,7 @@ public:
         MetadataController& metadataController,
         VdrController& vdrController,
         VdrRecordingQueryController& vdrRecordingQueryController,
+        VdrSnapshotReadService& vdrSnapshotReadService,
         EpgController* epgController,
         PersonController* personController,
         RecordingPersonSearchController* recordingPersonSearchController,
@@ -59,6 +61,7 @@ private:
     MetadataController& metadataController_;
     VdrController& vdrController_;
     VdrRecordingQueryController& vdrRecordingQueryController_;
+    VdrSnapshotReadService& vdrSnapshotReadService_;
     EpgController* epgController_;
     PersonController* personController_;
     RecordingPersonSearchController* recordingPersonSearchController_;

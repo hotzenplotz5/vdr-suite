@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.32 - Snapshot-backed Recording Person Search Wiring
+
+Status: Completed.
+
+Summary:
+- Connects the routed recording-person search endpoint to snapshot-backed recordings, including optional backend filtering.
+
 ## Phase 46.31 - Recording Person Search Router Wiring
 
 Status: Completed.

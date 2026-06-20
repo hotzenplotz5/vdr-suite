@@ -84,13 +84,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.31 - Recording Person Search Router Wiring
+Phase 46.32 - Snapshot-backed Recording Person Search Wiring
 ```
 
 Current Focus:
 
 ```text
-Phase 46.32 - Snapshot-backed Recording Person Search Wiring
+Phase 46.33 - Recording Person Search API Documentation
 ```
 
 Latest Completed Milestone:

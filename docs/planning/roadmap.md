@@ -13,10 +13,10 @@
 
 ```text
 Completed implementation state
-Phase 46.31 - Recording Person Search Router Wiring
+Phase 46.32 - Snapshot-backed Recording Person Search Wiring
 
 Next implementation step
-Phase 46.32 - Snapshot-backed Recording Person Search Wiring
+Phase 46.33 - Recording Person Search API Documentation
 ```
 
 ---

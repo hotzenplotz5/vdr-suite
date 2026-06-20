@@ -208,11 +208,28 @@ static VdrSnapshot makeRouterSnapshot()
 
     VdrRecording recording;
     recording.id = "router-recording-1";
+    recording.backendId = "default";
     recording.title = "Router Recording";
     recording.path = "/srv/vdr/video/Router_Recording/2026-06-04.20.00.1-0.rec";
     recording.startTime = "2026-06-04T20:00:00";
     recording.durationSeconds = 3600;
     recording.sizeMb = 2048;
+    recording.persons.add(Person::withProviderReference(
+        ContentClassificationSource::Tvscraper,
+        PersonRole::Actor,
+        "Router Actor",
+        "router-actor",
+        "Router Character",
+        95,
+        "tvscraper:router-actor"));
+    recording.persons.add(Person::withProviderReference(
+        ContentClassificationSource::Tvscraper,
+        PersonRole::Director,
+        "Router Director",
+        "router-director",
+        "",
+        90,
+        "tvscraper:router-director"));
     snapshot.recordings.push_back(recording);
 
     return snapshot;
@@ -425,6 +442,7 @@ int main()
         metadataController,
         vdrController,
         vdrRecordingQueryController,
+        snapshotReadService,
         &epgController,
         &personController,
         &recordingPersonSearchController,
@@ -590,15 +608,23 @@ int main()
 
     assert(recordingPersonSearchResponse.statusCode == 200);
     assert(recordingPersonSearchResponse.contentType == "application/json");
-    assert(recordingPersonSearchResponse.body.find("\"matches\":[]")
+    assert(recordingPersonSearchResponse.body.find("\"totalCount\":1")
+           != std::string::npos);
+    assert(recordingPersonSearchResponse.body.find("\"normalizedName\":\"router-actor\"")
+           != std::string::npos);
+    assert(recordingPersonSearchResponse.body.find("\"title\":\"Router Recording\"")
            != std::string::npos);
 
     ApiResponse vdrRecordingPersonSearchResponse =
-        router.handleGet("/api/vdr/recordings/persons/search?normalizedName=tom-hanks");
+        router.handleGet("/api/vdr/recordings/persons/search?normalizedName=router-director&backend=default");
 
     assert(vdrRecordingPersonSearchResponse.statusCode == 200);
     assert(vdrRecordingPersonSearchResponse.contentType == "application/json");
-    assert(vdrRecordingPersonSearchResponse.body.find("\"matches\":[]")
+    assert(vdrRecordingPersonSearchResponse.body.find("\"totalCount\":1")
+           != std::string::npos);
+    assert(vdrRecordingPersonSearchResponse.body.find("\"role\":\"director\"")
+           != std::string::npos);
+    assert(vdrRecordingPersonSearchResponse.body.find("\"backendId\":\"default\"")
            != std::string::npos);
 
     ApiRouter routerWithoutEpg(
@@ -608,6 +634,7 @@ int main()
         metadataController,
         vdrController,
         vdrRecordingQueryController,
+        snapshotReadService,
         nullptr,
         nullptr,
         nullptr,

@@ -242,6 +242,7 @@ int main()
         metadataController,
         vdrController,
         vdrRecordingQueryController,
+        snapshotReadService,
         &epgController,
         nullptr,
         nullptr,

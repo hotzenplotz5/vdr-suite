@@ -283,6 +283,7 @@ bool DaemonRuntime::initialize()
         *metadataController_,
         *vdrController_,
         *vdrRecordingQueryController_,
+        *vdrSnapshotReadService_,
         epgController_.get(),
         personController_.get(),
         recordingPersonSearchController_.get(),

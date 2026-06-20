@@ -17,6 +17,7 @@
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
 #include "VdrRecordingQueryController.h"
+#include "VdrSnapshotReadService.h"
 #include "VdrTimerActionController.h"
 #include "VdrTimerActionExecutorAdapterRegistry.h"
 
@@ -120,6 +121,7 @@ ApiRouter::ApiRouter(
     MetadataController& metadataController,
     VdrController& vdrController,
     VdrRecordingQueryController& vdrRecordingQueryController,
+    VdrSnapshotReadService& vdrSnapshotReadService,
     EpgController* epgController,
     PersonController* personController,
     RecordingPersonSearchController* recordingPersonSearchController,
@@ -138,6 +140,7 @@ ApiRouter::ApiRouter(
       metadataController_(metadataController),
       vdrController_(vdrController),
       vdrRecordingQueryController_(vdrRecordingQueryController),
+      vdrSnapshotReadService_(vdrSnapshotReadService),
       epgController_(epgController),
       personController_(personController),
       recordingPersonSearchController_(recordingPersonSearchController),
@@ -314,8 +317,16 @@ ApiResponse ApiRouter::handleGet(
             return makeRecordingPersonSearchUnavailableResponse();
         }
 
+        const std::string backendId =
+            queryParameters.get("backend");
+
+        const std::vector<VdrRecording> recordings =
+            backendId.empty()
+                ? vdrSnapshotReadService_.getRecordings()
+                : vdrSnapshotReadService_.getRecordingsForBackend(backendId);
+
         return recordingPersonSearchController_->searchRecordingPersons(
-            {},
+            recordings,
             queryParameters.get("name"),
             queryParameters.get("normalizedName"),
             queryParameters.get("role"),

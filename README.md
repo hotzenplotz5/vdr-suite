@@ -50,9 +50,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.31 - Recording Person Search Router Wiring
+Latest Completed Implementation Phase: Phase 46.32 - Snapshot-backed Recording Person Search Wiring
 
-Current Implementation Focus: Phase 46.32 - Snapshot-backed Recording Person Search Wiring
+Current Implementation Focus: Phase 46.33 - Recording Person Search API Documentation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
