@@ -26,6 +26,17 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.14 - Person Resolution Model
+
+Status: Completed.
+
+Summary:
+- Added PersonResolver.
+- Added PersonResolutionResult.
+- Preserved all person evidence while selecting a primary person.
+- Preferred confidence, manual user entries, provider references and deterministic source priority.
+- Kept JSON, REST, provider integration and search out of scope.
+
 ## Phase 46.13 - Person Domain Foundation
 
 Status: Completed.

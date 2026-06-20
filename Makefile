@@ -698,6 +698,12 @@ test-person:
 		-o /tmp/test_person
 	/tmp/test_person
 
+test-person-resolver:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_person_resolver.cpp \
+		-o /tmp/test_person_resolver
+	/tmp/test_person_resolver
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \

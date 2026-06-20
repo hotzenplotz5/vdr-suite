@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.13 - Person Domain Foundation
+Phase 46.14 - Person Resolution Model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.14 - Person Resolution Model
+Phase 46.15 - Person JSON Contract
 ```
 
 Current architecture validation:
