@@ -44,7 +44,7 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.7 - Genre Architecture Documentation
+Phase 46.9 - Content Rating Resolution Model
 ```
 
 Next implementation focus:

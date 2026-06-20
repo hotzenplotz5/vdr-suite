@@ -13,7 +13,7 @@
 
 ```text
 Completed implementation state
-Phase 46.7 - Genre Architecture Documentation
+Phase 46.9 - Content Rating Resolution Model
 
 Next implementation step
 Phase 46.8 - Content Rating Domain Foundation

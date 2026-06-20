@@ -26,6 +26,17 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.8 - Content Rating Domain Foundation
+
+Status: Completed.
+
+Summary:
+- Added `ContentRating` as the first content rating evidence domain object.
+- Added `ContentRatingSystem` for FSK, USK, TV parental guideline, provider-specific and user-defined rating systems.
+- Added `ContentRatingCollection` as a multi-evidence container.
+- Preserved original provider values, minimum age, optional confidence and optional provider references.
+- Kept resolver, JSON, REST, database, profile policy and enforcement out of scope.
+
 ## Phase 46.7 - Genre Architecture Documentation
 
 Status: Completed.

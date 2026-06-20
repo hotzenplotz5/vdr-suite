@@ -84,7 +84,7 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.7 - Genre Architecture Documentation
+Phase 46.9 - Content Rating Resolution Model
 ```
 
 Current Focus:
@@ -96,7 +96,7 @@ Phase 46.8 - Content Rating Domain Foundation
 Latest Completed Milestone:
 
 ```text
-Phase 46.7 - Genre Architecture Documentation
+Phase 46.8 - Content Rating Domain Foundation
 ```
 
 Architecture Work In Progress:
@@ -121,7 +121,7 @@ Phase 45.6 - EPG Search Controller Foundation
 Phase 45.7 - EPG Search REST Validation
 Phase 45.8 - EPG Search Documentation
 Phase 46.0 - Content Classification Architecture ADR
-Phase 46.7 - Genre Architecture Documentation
+Phase 46.8 - Content Rating Domain Foundation
 ADR-0028 - Content Classification Architecture
 ```
 
