@@ -816,6 +816,13 @@ test-epg-search-result:
 		-o /tmp/test_epg_search_result
 	/tmp/test_epg_search_result
 
+test-search-timer-controller:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
+		api/rest/src/SearchTimerController.cpp \
+		api/rest/tests/test_search_timer_controller.cpp \
+		-o /tmp/test_search_timer_controller
+	/tmp/test_search_timer_controller
 test-search-timer-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerResultJsonSerializer.cpp \

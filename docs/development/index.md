@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.8 - SearchTimer JSON serializer
+Phase 47.9 - SearchTimer controller
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.9 - SearchTimer controller
+Phase 47.10 - SearchTimer router integration
 ```
 
 Current architecture validation:

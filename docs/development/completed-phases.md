@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.9 - SearchTimer controller
+
+Status: Completed.
+
+Summary:
+- Adds SearchTimerController for returning backend-neutral SearchTimer JSON responses from SearchTimerResult data.
+
 ## Phase 47.8 - SearchTimer JSON serializer
 
 Status: Completed.
