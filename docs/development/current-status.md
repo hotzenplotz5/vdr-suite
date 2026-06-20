@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.30 - Recording Person Search REST Boundary
+Phase 46.31 - Recording Person Search Router Wiring
 ```
 
 Current major phase status:
@@ -235,7 +235,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.31 - Recording Person Search Router Wiring
+Phase 46.32 - Snapshot-backed Recording Person Search Wiring
 ```
 
 The next step is to extend content classification from genres toward content ratings such as FSK-style age classification.

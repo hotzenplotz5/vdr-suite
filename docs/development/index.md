@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.30 - Recording Person Search REST Boundary
+Phase 46.31 - Recording Person Search Router Wiring
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.31 - Recording Person Search Router Wiring
+Phase 46.32 - Snapshot-backed Recording Person Search Wiring
 ```
 
 Current architecture validation:

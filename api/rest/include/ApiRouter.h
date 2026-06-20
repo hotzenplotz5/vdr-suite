@@ -13,6 +13,7 @@ class MetadataController;
 class PersonController;
 class RecordingsController;
 class RecordingActionExecutionController;
+class RecordingPersonSearchController;
 class RecordingActionValidationController;
 class RuntimeDiagnosticsController;
 class SnapshotChangeFeedController;
@@ -33,6 +34,7 @@ public:
         VdrRecordingQueryController& vdrRecordingQueryController,
         EpgController* epgController,
         PersonController* personController,
+        RecordingPersonSearchController* recordingPersonSearchController,
         BackendRegistryController& backendRegistryController,
         CapabilityController& capabilityController,
         RecordingActionValidationController& recordingActionValidationController,
@@ -59,6 +61,7 @@ private:
     VdrRecordingQueryController& vdrRecordingQueryController_;
     EpgController* epgController_;
     PersonController* personController_;
+    RecordingPersonSearchController* recordingPersonSearchController_;
     BackendRegistryController& backendRegistryController_;
     CapabilityController& capabilityController_;
     RecordingActionValidationController& recordingActionValidationController_;

@@ -48,6 +48,9 @@
 #include "RecordingActionValidationResultJsonSerializer.h"
 #include "RecordingActionValidationService.h"
 #include "RecordingsController.h"
+#include "RecordingPersonSearchService.h"
+#include "RecordingPersonSearchResultJsonSerializer.h"
+#include "RecordingPersonSearchController.h"
 #include "RuntimeConfig.h"
 #include "RuntimeDiagnosticsController.h"
 #include "RuntimeDiagnosticsJsonSerializer.h"
@@ -158,6 +161,9 @@ private:
     std::unique_ptr<PersonSearchService> personSearchService_;
     std::unique_ptr<PersonQueryResultJsonSerializer> personQueryResultJsonSerializer_;
     std::unique_ptr<PersonController> personController_;
+    std::unique_ptr<RecordingPersonSearchService> recordingPersonSearchService_;
+    std::unique_ptr<RecordingPersonSearchResultJsonSerializer> recordingPersonSearchResultJsonSerializer_;
+    std::unique_ptr<RecordingPersonSearchController> recordingPersonSearchController_;
 
     std::unique_ptr<RecordingActionValidationService> recordingActionValidationService_;
     std::unique_ptr<RecordingActionValidationResultJsonSerializer> recordingActionValidationResultJsonSerializer_;

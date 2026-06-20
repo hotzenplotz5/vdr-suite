@@ -38,6 +38,9 @@ REST_ROUTER_SRC := \
         api/rest/src/RecordingsController.cpp \
         api/rest/src/MetadataController.cpp \
         api/rest/src/PersonController.cpp \
+        api/rest/src/RecordingPersonSearchController.cpp \
+        core/vdr/src/RecordingPersonSearchService.cpp \
+        core/vdr/src/RecordingPersonSearchResultJsonSerializer.cpp \
         core/vdr/src/PersonQueryMatcher.cpp \
         core/vdr/src/PersonQueryResultJsonSerializer.cpp \
         core/vdr/src/PersonResolutionJsonSerializer.cpp \

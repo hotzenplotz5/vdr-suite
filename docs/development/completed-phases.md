@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.31 - Recording Person Search Router Wiring
+
+Status: Completed.
+
+Summary:
+- Wires recording-person search into ApiRouter and daemon runtime while keeping the routed collection empty until snapshot-backed search is connected.
+
 ## Phase 46.30 - Recording Person Search REST Boundary
 
 Status: Completed.

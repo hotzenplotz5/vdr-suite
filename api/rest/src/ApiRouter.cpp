@@ -11,6 +11,7 @@
 #include "RecordingsController.h"
 #include "RecordingActionExecutionController.h"
 #include "RecordingActionValidationController.h"
+#include "RecordingPersonSearchController.h"
 #include "RestQueryParameters.h"
 #include "RuntimeDiagnosticsController.h"
 #include "SnapshotChangeFeedController.h"
@@ -70,6 +71,17 @@ ApiResponse makePersonUnavailableResponse()
     return response;
 }
 
+ApiResponse makeRecordingPersonSearchUnavailableResponse()
+{
+    ApiResponse response;
+
+    response.statusCode = 503;
+    response.contentType = "application/json";
+    response.body = "{\"error\":\"recording person search unavailable\"}";
+
+    return response;
+}
+
 static bool parseBackendSnapshotRoute(
     const std::string& path,
     std::string& backendId,
@@ -110,6 +122,7 @@ ApiRouter::ApiRouter(
     VdrRecordingQueryController& vdrRecordingQueryController,
     EpgController* epgController,
     PersonController* personController,
+    RecordingPersonSearchController* recordingPersonSearchController,
     BackendRegistryController& backendRegistryController,
     CapabilityController& capabilityController,
     RecordingActionValidationController& recordingActionValidationController,
@@ -127,6 +140,7 @@ ApiRouter::ApiRouter(
       vdrRecordingQueryController_(vdrRecordingQueryController),
       epgController_(epgController),
       personController_(personController),
+      recordingPersonSearchController_(recordingPersonSearchController),
       backendRegistryController_(backendRegistryController),
       capabilityController_(capabilityController),
       recordingActionValidationController_(recordingActionValidationController),
@@ -283,6 +297,25 @@ ApiResponse ApiRouter::handleGet(
 
         return personController_->searchPersons(
             PersonCollection::createEmpty(),
+            queryParameters.get("name"),
+            queryParameters.get("normalizedName"),
+            queryParameters.get("role"),
+            queryParameters.get("source"),
+            queryParameters.get("providerReference"),
+            queryParameters.getInt("limit", 0),
+            queryParameters.getInt("offset", 0));
+    }
+
+    if (path == "/api/recordings/persons/search" ||
+        path == "/api/vdr/recordings/persons/search")
+    {
+        if (recordingPersonSearchController_ == nullptr)
+        {
+            return makeRecordingPersonSearchUnavailableResponse();
+        }
+
+        return recordingPersonSearchController_->searchRecordingPersons(
+            {},
             queryParameters.get("name"),
             queryParameters.get("normalizedName"),
             queryParameters.get("role"),

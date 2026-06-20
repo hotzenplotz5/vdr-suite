@@ -24,6 +24,9 @@
 #include "RecordingsController.h"
 #include "RecordingActionExecutionController.h"
 #include "RecordingActionValidationController.h"
+#include "RecordingPersonSearchService.h"
+#include "RecordingPersonSearchResultJsonSerializer.h"
+#include "RecordingPersonSearchController.h"
 #include "RecordingActionValidationRequestParser.h"
 #include "RecordingActionExecutionResultJsonSerializer.h"
 #include "RecordingActionValidationResultJsonSerializer.h"
@@ -272,6 +275,12 @@ int main()
         personSearchService,
         personQueryResultJsonSerializer);
 
+    RecordingPersonSearchService recordingPersonSearchService;
+    RecordingPersonSearchResultJsonSerializer recordingPersonSearchResultJsonSerializer;
+    RecordingPersonSearchController recordingPersonSearchController(
+        recordingPersonSearchService,
+        recordingPersonSearchResultJsonSerializer);
+
     VdrOverviewService overviewService(
         vdrService);
 
@@ -418,6 +427,7 @@ int main()
         vdrRecordingQueryController,
         &epgController,
         &personController,
+        &recordingPersonSearchController,
         backendRegistryController,
         capabilityController,
         recordingActionValidationController,
@@ -575,6 +585,22 @@ int main()
     assert(epgChannelWindowResponse.body.find("events")
            != std::string::npos);
 
+    ApiResponse recordingPersonSearchResponse =
+        router.handleGet("/api/recordings/persons/search?role=actor&limit=10&offset=0");
+
+    assert(recordingPersonSearchResponse.statusCode == 200);
+    assert(recordingPersonSearchResponse.contentType == "application/json");
+    assert(recordingPersonSearchResponse.body.find("\"matches\":[]")
+           != std::string::npos);
+
+    ApiResponse vdrRecordingPersonSearchResponse =
+        router.handleGet("/api/vdr/recordings/persons/search?normalizedName=tom-hanks");
+
+    assert(vdrRecordingPersonSearchResponse.statusCode == 200);
+    assert(vdrRecordingPersonSearchResponse.contentType == "application/json");
+    assert(vdrRecordingPersonSearchResponse.body.find("\"matches\":[]")
+           != std::string::npos);
+
     ApiRouter routerWithoutEpg(
         dashboardController,
         jobsController,
@@ -582,6 +608,7 @@ int main()
         metadataController,
         vdrController,
         vdrRecordingQueryController,
+        nullptr,
         nullptr,
         nullptr,
         backendRegistryController,
