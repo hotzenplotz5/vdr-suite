@@ -665,6 +665,12 @@ test-genre-resolution-json-serializer:
 		-o /tmp/test_genre_resolution_json_serializer
 	/tmp/test_genre_resolution_json_serializer
 
+test-content-rating:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_content_rating.cpp \
+		-o /tmp/test_content_rating
+	/tmp/test_content_rating
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \
