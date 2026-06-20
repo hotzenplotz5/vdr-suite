@@ -84,13 +84,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.14 - Person Resolution Model
+Phase 46.15 - Person JSON Contract
 ```
 
 Current Focus:
 
 ```text
-Phase 46.15 - Person JSON Contract
+Phase 46.16 - Person REST Boundary
 ```
 
 Latest Completed Milestone:

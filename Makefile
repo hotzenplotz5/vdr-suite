@@ -704,6 +704,13 @@ test-person-resolver:
 		-o /tmp/test_person_resolver
 	/tmp/test_person_resolver
 
+test-person-resolution-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/PersonResolutionJsonSerializer.cpp \
+		core/vdr/tests/test_person_resolution_json_serializer.cpp \
+		-o /tmp/test_person_resolution_json_serializer
+	/tmp/test_person_resolution_json_serializer
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \

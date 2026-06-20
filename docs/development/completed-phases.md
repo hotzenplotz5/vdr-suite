@@ -26,6 +26,16 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.15 - Person JSON Contract
+
+Status: Completed.
+
+Summary:
+- Added PersonResolutionJsonSerializer.
+- Serialized resolved state, primary person and all person evidence.
+- Exposed source, role, original name, normalized name, character name, confidence and provider reference.
+- Kept REST, provider integration and search out of scope.
+
 ## Phase 46.14 - Person Resolution Model
 
 Status: Completed.
