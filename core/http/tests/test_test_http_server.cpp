@@ -243,6 +243,7 @@ int main()
         vdrController,
         vdrRecordingQueryController,
         &epgController,
+        nullptr,
         backendRegistryController,
         capabilityController,
         recordingActionValidationController,
