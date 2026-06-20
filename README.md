@@ -49,9 +49,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.15 - Person JSON Contract
+Latest Completed Implementation Phase: Phase 46.16 - Person REST Boundary
 
-Current Implementation Focus: Phase 46.16 - Person REST Boundary
+Current Implementation Focus: Phase 46.17 - Person API Documentation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

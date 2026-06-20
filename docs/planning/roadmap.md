@@ -13,10 +13,10 @@
 
 ```text
 Completed implementation state
-Phase 46.15 - Person JSON Contract
+Phase 46.16 - Person REST Boundary
 
 Next implementation step
-Phase 46.16 - Person REST Boundary
+Phase 46.17 - Person API Documentation
 ```
 
 ---

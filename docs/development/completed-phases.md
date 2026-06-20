@@ -26,6 +26,16 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.16 - Person REST Boundary
+
+Status: Completed.
+
+Summary:
+- Added PersonController as the first REST-facing person metadata boundary.
+- Returned person resolution results as ApiResponse.
+- Preserved the existing JSON contract through PersonResolutionJsonSerializer.
+- Added isolated controller coverage without routing or provider integration.
+
 ## Phase 46.15 - Person JSON Contract
 
 Status: Completed.

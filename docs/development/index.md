@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.15 - Person JSON Contract
+Phase 46.16 - Person REST Boundary
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.16 - Person REST Boundary
+Phase 46.17 - Person API Documentation
 ```
 
 Current architecture validation:
