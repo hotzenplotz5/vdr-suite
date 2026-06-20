@@ -434,7 +434,6 @@ ApiResponse ApiRouter::handleGet(
         }
 
         return searchTimerController_->searchSearchTimers(
-            SearchTimerResult::empty(0, 0),
             queryParameters.get("backend"),
             queryParameters.get("state"),
             queryParameters.get("text"),

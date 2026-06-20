@@ -2,6 +2,7 @@
 
 #include "SearchTimerQuery.h"
 #include "SearchTimerResult.h"
+#include "ISearchTimerDataSource.h"
 #include "SearchTimerService.h"
 #include "SearchTimerResultJsonSerializer.h"
 
@@ -39,7 +40,18 @@ SearchTimerController::SearchTimerController(
     SearchTimerService& searchTimerService,
     SearchTimerResultJsonSerializer& jsonSerializer)
     : searchTimerService_(searchTimerService),
-      jsonSerializer_(jsonSerializer)
+      jsonSerializer_(jsonSerializer),
+      dataSource_(nullptr)
+{
+}
+
+SearchTimerController::SearchTimerController(
+    SearchTimerService& searchTimerService,
+    SearchTimerResultJsonSerializer& jsonSerializer,
+    ISearchTimerDataSource& dataSource)
+    : searchTimerService_(searchTimerService),
+      jsonSerializer_(jsonSerializer),
+      dataSource_(&dataSource)
 {
 }
 
@@ -64,6 +76,31 @@ ApiResponse SearchTimerController::searchSearchTimers(
 {
     SearchTimerResult result = searchTimerService_.list(
         source.items(),
+        buildSearchTimerQuery(
+            backend,
+            state,
+            text,
+            limit,
+            offset));
+
+    return getSearchTimers(result);
+}
+ApiResponse SearchTimerController::searchSearchTimers(
+    const std::string& backend,
+    const std::string& state,
+    const std::string& text,
+    int limit,
+    int offset)
+{
+    if (dataSource_ == nullptr) {
+        ApiResponse response;
+        response.statusCode = 503;
+        response.contentType = "application/json";
+        response.body = "{\"error\":\"searchtimer data source unavailable\"}";
+        return response;
+    }
+
+    SearchTimerResult result = dataSource_->list(
         buildSearchTimerQuery(
             backend,
             state,

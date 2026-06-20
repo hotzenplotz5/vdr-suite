@@ -17,6 +17,7 @@
 #include "JobsController.h"
 #include "LiveTransportController.h"
 #include "MetadataController.h"
+#include "ISearchTimerDataSource.h"
 #include "PersonSearchService.h"
 #include "PersonResolutionJsonSerializer.h"
 #include "PersonQueryResultJsonSerializer.h"
@@ -134,6 +135,35 @@ private:
     std::string backendIdValue_;
 };
 }
+
+
+class RouterSearchTimerDataSource final : public ISearchTimerDataSource
+{
+public:
+    RouterSearchTimerDataSource()
+    {
+        timers_.push_back(SearchTimer::create(
+            SearchTimerId::fromBackendNativeId("default", "1"),
+            "Router SearchTimer Terra X",
+            "Terra X",
+            SearchTimerState::Active));
+        timers_.push_back(SearchTimer::create(
+            SearchTimerId::fromBackendNativeId("ferienhaus", "2"),
+            "Router SearchTimer Inactive",
+            "Inactive",
+            SearchTimerState::Inactive));
+    }
+
+    SearchTimerResult list(
+        const SearchTimerQuery& query) const override
+    {
+        SearchTimerService service;
+        return service.list(timers_, query);
+    }
+
+private:
+    std::vector<SearchTimer> timers_;
+};
 
 class RouterVdrTimerActionExecutorAdapter final
     : public IVdrTimerActionExecutorAdapter
@@ -396,9 +426,11 @@ int main()
 
     SearchTimerService searchTimerService;
     SearchTimerResultJsonSerializer searchTimerResultJsonSerializer;
+    RouterSearchTimerDataSource searchTimerDataSource;
     SearchTimerController searchTimerController(
         searchTimerService,
-        searchTimerResultJsonSerializer);
+        searchTimerResultJsonSerializer,
+        searchTimerDataSource);
 
     VdrCapabilitySet capabilitySet =
         VdrCapabilitySet::snapshotReadOnly();
@@ -764,11 +796,13 @@ int main()
            != std::string::npos);
 
     ApiResponse vdrSearchTimersResponse =
-        router.handleGet("/api/vdr/searchtimers");
+        router.handleGet("/api/vdr/searchtimers?backend=ferienhaus&state=inactive");
 
     assert(vdrSearchTimersResponse.statusCode == 200);
     assert(vdrSearchTimersResponse.contentType == "application/json");
-    assert(vdrSearchTimersResponse.body.find("\"searchtimers\":[]")
+    assert(vdrSearchTimersResponse.body.find("\"backendId\":\"ferienhaus\"")
+           != std::string::npos);
+    assert(vdrSearchTimersResponse.body.find("\"state\":\"inactive\"")
            != std::string::npos);
 
     ApiResponse unavailableSearchTimersResponse =
