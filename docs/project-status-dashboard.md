@@ -67,6 +67,9 @@ Person Metadata                 implemented foundation
 Recording Person Search         implemented foundation
 Recording Character Search      implemented foundation
 EPG Person Search               started
+SearchTimer Route               implemented
+SearchTimer Daemon Provider     implemented
+SearchTimer Backend Contract    documented
 ```
 
 ### Federation and Security
@@ -122,7 +125,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.11 - SearchTimer endpoint contract
+Phase 47.14 - SearchTimer backend contract documentation
 ```
 
 Current Documentation Consolidation:
@@ -134,7 +137,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.12 - SearchTimer route data source wiring
+Phase 47.15 - SearchTimer real payload validation
 ```
 
 Latest Completed Milestones:

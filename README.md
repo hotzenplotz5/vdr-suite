@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.11 - SearchTimer endpoint contract
+    Phase 47.14 - SearchTimer backend contract documentation
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.12 - SearchTimer route data source wiring
+    Phase 47.15 - SearchTimer real payload validation
 
 Completed foundations:
 

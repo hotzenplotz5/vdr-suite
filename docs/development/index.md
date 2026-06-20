@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.11 - SearchTimer endpoint contract
+Phase 47.14 - SearchTimer backend contract documentation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.12 - SearchTimer route data source wiring
+Phase 47.15 - SearchTimer real payload validation
 ```
 
 Current architecture validation:
@@ -65,6 +65,7 @@ Current architecture validation:
 - [Phase 44 Recording Action Runtime Completion](phase-44-recording-action-runtime-completion.md)
 - [Phase 45.0 - EPG Search Architecture](phase-45-epg-search-architecture.md)
 - [EPG Search API](epg-search-api.md)
+- [SearchTimer Backend Contract](searchtimer-backend-contract.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)
 - [Person API](person-api.md)

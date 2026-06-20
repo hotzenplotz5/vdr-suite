@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 47.11 - SearchTimer endpoint contract
+Phase 47.14 - SearchTimer backend contract documentation
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.12 - SearchTimer route data source wiring
+Phase 47.15 - SearchTimer real payload validation
 ```
 
 ---

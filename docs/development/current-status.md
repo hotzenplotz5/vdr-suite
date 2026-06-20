@@ -60,7 +60,7 @@ Milestone progress:
 
 Current milestone:
 
-    Phase 47.0 - SearchTimer Foundation
+    Phase 47.15 - SearchTimer real payload validation
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -72,7 +72,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 47.11 - SearchTimer endpoint contract
+Phase 47.14 - SearchTimer backend contract documentation
 ```
 
 Current documentation consolidation state:
@@ -135,6 +135,8 @@ make test-phase
 - Recording character search is implemented through characterName filtering.
 - Real yaVDR validation confirms RESTfulAPI additional_media actor availability.
 - EPG person search has started with the result model foundation.
+- SearchTimer route and daemon backend provider wiring are implemented.
+- SearchTimer backend contract documentation defines the current minimal domain and known epgsearch and Live-style expansion gaps.
 
 ---
 
@@ -230,7 +232,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 47.12 - SearchTimer route data source wiring
+Phase 47.15 - SearchTimer real payload validation
 ```
 
 The next major implementation milestone is SearchTimer. It should turn existing EPG search, recording search and metadata search foundations into persistent search rules and later automation.

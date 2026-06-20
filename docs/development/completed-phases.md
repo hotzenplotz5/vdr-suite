@@ -52,6 +52,42 @@ Remaining planned documentation work:
 - Current status refresh.
 - README refresh.
 
+## Phase 47.12 - SearchTimer route data source wiring
+
+Status: Completed.
+
+Summary:
+- Added SearchTimer route data source wiring.
+- Introduced a backend-neutral SearchTimer data source boundary.
+- Changed the router path away from an empty SearchTimerResult placeholder.
+- Verified SearchTimer route behavior through API router tests.
+
+---
+
+## Phase 47.13 - SearchTimer daemon backend provider
+
+Status: Completed.
+
+Summary:
+- Added daemon-side SearchTimer backend provider wiring.
+- Attached RestfulApiSearchTimerAdapter to BackendRuntimeContext.
+- Created SearchTimerService, SearchTimerResultJsonSerializer and SearchTimerController in DaemonRuntime.
+- Linked SearchTimer runtime sources into the daemon build.
+
+---
+
+## Phase 47.14 - SearchTimer backend contract documentation
+
+Status: Completed.
+
+Summary:
+- Documented the current SearchTimer backend contract.
+- Captured the implemented route, controller, data-source and RESTfulAPI adapter chain.
+- Defined the current minimal SearchTimer domain model.
+- Listed known epgsearch and Live-style SearchTimer expansion gaps.
+- Deferred domain expansion until real backend payload validation.
+
+---
 ---
 
 ### Person Metadata Foundation
