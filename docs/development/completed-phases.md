@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.3 - SearchTimer result model
+
+Status: Completed.
+
+Summary:
+- Adds SearchTimerResult for backend-neutral SearchTimer listing with returned count, total count, limit and offset.
+
 ## Phase 47.2 - SearchTimer query model
 
 Status: Completed.
