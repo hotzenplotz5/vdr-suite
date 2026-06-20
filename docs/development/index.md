@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.12 - Content Rating API Documentation
+Phase 46.13 - Person Domain Foundation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.13 - Person Domain Foundation
+Phase 46.14 - Person Resolution Model
 ```
 
 Current architecture validation:

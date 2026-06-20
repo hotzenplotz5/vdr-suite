@@ -13,10 +13,10 @@
 
 ```text
 Completed implementation state
-Phase 46.12 - Content Rating API Documentation
+Phase 46.13 - Person Domain Foundation
 
 Next implementation step
-Phase 46.13 - Person Domain Foundation
+Phase 46.14 - Person Resolution Model
 ```
 
 ---

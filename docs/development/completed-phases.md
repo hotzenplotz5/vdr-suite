@@ -26,6 +26,16 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.13 - Person Domain Foundation
+
+Status: Completed.
+
+Summary:
+- Added  as the first source-aware person metadata domain object.
+- Added  for actor, director, writer, producer, moderator, guest, composer and generic roles.
+- Added  as a multi-evidence container for future cast and crew metadata.
+- Kept resolver, JSON, REST, provider integration and search out of scope.
+
 ## Phase 46.12 - Content Rating API Documentation
 
 Status: Completed.

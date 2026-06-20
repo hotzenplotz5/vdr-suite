@@ -49,9 +49,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.12 - Content Rating API Documentation
+Latest Completed Implementation Phase: Phase 46.13 - Person Domain Foundation
 
-Current Implementation Focus: Phase 46.13 - Person Domain Foundation
+Current Implementation Focus: Phase 46.14 - Person Resolution Model
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

@@ -692,6 +692,12 @@ test-content-rating-controller:
 		-o /tmp/test_content_rating_controller
 	/tmp/test_content_rating_controller
 
+test-person:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_person.cpp \
+		-o /tmp/test_person
+	/tmp/test_person
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \
