@@ -70,6 +70,7 @@ Genre JSON Contract       implemented
 Canonical Genre Registry implemented
 Genre Localization       implemented foundation
 Localized Genre JSON     implemented
+Genre Architecture Docs   complete
 Content Rating / FSK      planned
 Image Validation          planned
 Preview Streams           planned
@@ -83,26 +84,26 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.6 - Genre Resolution Localization JSON
+Phase 46.7 - Genre Architecture Documentation
 ```
 
 Current Focus:
 
 ```text
-Phase 46.7 - Genre Architecture Documentation
+Phase 46.8 - Content Rating Domain Foundation
 ```
 
 Latest Completed Milestone:
 
 ```text
-Phase 46.6 - Genre Resolution Localization JSON
+Phase 46.7 - Genre Architecture Documentation
 ```
 
 Architecture Work In Progress:
 
 ```text
 ADR-0028 - Content Classification Architecture
-Phase 46.1 - Genre Domain Foundation
+Phase 46.x - Genre Architecture Foundation
 Future: profiles, content rating, policy and TV frontend strategy
 ```
 
@@ -120,6 +121,7 @@ Phase 45.6 - EPG Search Controller Foundation
 Phase 45.7 - EPG Search REST Validation
 Phase 45.8 - EPG Search Documentation
 Phase 46.0 - Content Classification Architecture ADR
+Phase 46.7 - Genre Architecture Documentation
 ADR-0028 - Content Classification Architecture
 ```
 
@@ -136,6 +138,7 @@ Recording query foundation
 Recording action runtime diagnostics
 EPG search API foundation
 Content classification ADR
+Genre architecture foundation
 ```
 
 Planned Major Direction:
