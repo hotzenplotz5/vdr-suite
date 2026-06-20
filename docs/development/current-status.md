@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.6 - Genre Resolution Localization JSON
+Phase 46.7 - Genre Architecture Documentation
 ```
 
 Current major phase status:
@@ -56,8 +56,10 @@ Phase 45 completed the EPG search API block through architecture, request, match
 
 Phase 46.0 adds ADR-0028 as the content classification architecture decision.
 
+Phase 46.7 documents the current genre architecture.
+
 Next implementation focus:
-Phase 46.7 - Genre Architecture Documentation
+Phase 46.8 - Content Rating Domain Foundation
 ```
 
 Verified locally in the preceding implementation phases with targeted EPG search tests, documentation checks, phase consistency checks and daemon build validation. Direct GitHub documentation synchronization should still be followed by local `make test-docs` and `make test-phase` after pulling.
@@ -77,9 +79,10 @@ Verification summary:
 - Phase 46.4 introduces `CanonicalGenreRegistry` as the first mapping layer from multilingual provider labels to stable canonical genre IDs.
 - Phase 46.5 introduces `GenreLocalization` as the first German and English label layer for canonical genre IDs.
 - Phase 46.6 introduces localized genre resolution JSON while preserving stable canonical IDs.
+- Phase 46.7 documents the complete genre architecture, including canonical IDs, localized labels and future language file layout.
 - Content classification is planned as source-aware evidence for genres, content ratings, keywords, collections, user tags and folder hints.
 - Future genre, FSK/content-rating, profile, policy and TV frontend work should build on ADR-0028.
-- Documentation phase consistency should remain aligned around Phase 46.1 as latest completed phase and Phase 46.2 as next focus.
+- Documentation phase consistency should remain aligned around Phase 46.7 as latest completed phase and Phase 46.8 as next focus.
 
 ---
 
@@ -118,6 +121,7 @@ Verification summary:
 - `SnapshotRefreshPlanner` no longer creates automatic full EPG refresh work for EventsChanged.
 - EPG search operates over selective event windows and does not require a persistent full EPG mirror.
 - ADR-0028 defines source-aware content classification for future genre, rating, metadata and policy work.
+- Genre architecture now uses stable canonical IDs, source evidence and localized labels.
 
 ---
 
@@ -229,10 +233,10 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.7 - Genre Architecture Documentation
+Phase 46.8 - Content Rating Domain Foundation
 ```
 
-The next step is to implement the first small source-aware genre domain foundation based on ADR-0028.
+The next step is to extend content classification from genres toward content ratings such as FSK-style age classification.
 
 Important boundaries:
 
