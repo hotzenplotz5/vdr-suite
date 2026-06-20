@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.25 - Real VDR Person Metadata Validation
+
+Status: Completed.
+
+Summary:
+- Documents real VDR person metadata findings and identifies RESTfulAPI additional_media actors and modern TVScraper characters as the validated import path.
+
 ## Phase 46.24 - Person Query Documentation
 
 Status: Completed.

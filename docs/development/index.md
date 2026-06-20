@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.24 - Person Query Documentation
+Phase 46.25 - Real VDR Person Metadata Validation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.25 - Real VDR Person Metadata Validation
+Phase 46.26 - Recording Additional Media Person Import
 ```
 
 Current architecture validation:
@@ -68,6 +68,7 @@ Current architecture validation:
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)
 - [Person API](person-api.md)
+- [Real VDR Person Metadata Validation](real-vdr-person-metadata-validation.md)
 
 ---
 
