@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.2 - SearchTimer query model
+
+Status: Completed.
+
+Summary:
+- Adds SearchTimerQuery with backend, state, text, limit and offset filters for backend-neutral SearchTimer listing.
+
 ## Phase 47.1 - SearchTimer domain model
 
 Status: Completed.
