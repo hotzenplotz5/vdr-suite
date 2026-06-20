@@ -60,6 +60,64 @@ def replace_readme_line(path, prefix, value):
     path.write_text(text, encoding="utf-8")
 
 
+def completed_phase_heading(completed):
+    return "## " + completed
+
+
+def normalize_summary_lines(summary_lines):
+    normalized = []
+    for line in summary_lines:
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("- "):
+            normalized.append(line)
+        else:
+            normalized.append("- " + line)
+    return normalized
+
+
+def insert_completed_phase(completed, summary_lines):
+    path = ROOT / "docs/development/completed-phases.md"
+    text = path.read_text(encoding="utf-8")
+
+    heading = completed_phase_heading(completed)
+
+    if heading in text:
+        return
+
+    if not summary_lines:
+        raise SystemExit(
+            "completed-phases.md does not contain the completed phase yet. "
+            "Pass at least one --summary line so the tool can create the entry."
+        )
+
+    if completed in text:
+        raise SystemExit(
+            "Refusing ambiguous update: completed phase appears in completed-phases.md "
+            "but not as the expected phase heading."
+        )
+
+    summary = "\n".join(normalize_summary_lines(summary_lines))
+
+    entry = (
+        heading
+        + "\n\n"
+        + "Status: Completed.\n\n"
+        + "Summary:\n"
+        + summary
+        + "\n\n"
+    )
+
+    marker = "\n## Phase "
+    index = text.find(marker)
+    if index < 0:
+        raise SystemExit("Could not find insertion point in completed-phases.md")
+
+    text = text[: index + 1] + entry + text[index + 1 :]
+    path.write_text(text, encoding="utf-8")
+
+
 def validate_completed_phases_file(next_phase):
     path = ROOT / "docs/development/completed-phases.md"
     text = path.read_text(encoding="utf-8")
@@ -70,7 +128,9 @@ def validate_completed_phases_file(next_phase):
         )
 
 
-def update(completed, next_phase):
+def update(completed, next_phase, summary_lines):
+    insert_completed_phase(completed, summary_lines)
+
     replace_readme_line(
         FILES["README"],
         "Latest Completed Implementation Phase: ",
@@ -103,9 +163,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--completed", required=True)
     parser.add_argument("--next", required=True)
+    parser.add_argument(
+        "--summary",
+        action="append",
+        default=[],
+        help="Summary line for completed-phases.md. Can be passed multiple times.",
+    )
     args = parser.parse_args()
 
-    update(args.completed, args.next)
+    update(args.completed, args.next, args.summary)
 
     return run_checker()
 
