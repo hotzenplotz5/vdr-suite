@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.21 - Person Search Service
+Phase 46.22 - Person Query REST Boundary
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.22 - Person Query REST Boundary
+Phase 46.23 - Person Query Router Wiring
 ```
 
 Current architecture validation:

@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.22 - Person Query REST Boundary
+
+Status: Completed.
+
+Summary:
+- Extends the person REST controller with validated person query parameters backed by PersonSearchService and PersonQueryResultJsonSerializer.
+
 ## Phase 46.21 - Person Search Service
 
 Status: Completed.

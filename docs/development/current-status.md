@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.21 - Person Search Service
+Phase 46.22 - Person Query REST Boundary
 ```
 
 Current major phase status:
@@ -235,7 +235,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.22 - Person Query REST Boundary
+Phase 46.23 - Person Query Router Wiring
 ```
 
 The next step is to extend content classification from genres toward content ratings such as FSK-style age classification.

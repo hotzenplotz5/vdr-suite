@@ -745,11 +745,26 @@ test-person-resolution-json-serializer:
 
 test-person-controller:
 	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/PersonQueryMatcher.cpp \
+		core/vdr/src/PersonQueryResultJsonSerializer.cpp \
 		core/vdr/src/PersonResolutionJsonSerializer.cpp \
+		core/vdr/src/PersonSearchService.cpp \
 		api/rest/src/PersonController.cpp \
 		api/rest/tests/test_person_controller.cpp \
 		-o /tmp/test_person_controller
 	/tmp/test_person_controller
+
+
+test-person-query-controller:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/PersonQueryMatcher.cpp \
+		core/vdr/src/PersonQueryResultJsonSerializer.cpp \
+		core/vdr/src/PersonResolutionJsonSerializer.cpp \
+		core/vdr/src/PersonSearchService.cpp \
+		api/rest/src/PersonController.cpp \
+		api/rest/tests/test_person_query_controller.cpp \
+		-o /tmp/test_person_query_controller
+	/tmp/test_person_query_controller
 
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \

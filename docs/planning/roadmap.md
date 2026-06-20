@@ -13,10 +13,10 @@
 
 ```text
 Completed implementation state
-Phase 46.21 - Person Search Service
+Phase 46.22 - Person Query REST Boundary
 
 Next implementation step
-Phase 46.22 - Person Query REST Boundary
+Phase 46.23 - Person Query Router Wiring
 ```
 
 ---
