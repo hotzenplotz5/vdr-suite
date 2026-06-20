@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 46.42 - README Refresh
+Phase 47.0 - Document backend-neutral SearchTimer architecture
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.0 - SearchTimer Foundation
+Phase 47.1 - SearchTimer domain model
 ```
 
 ---

@@ -30,11 +30,11 @@ Canonical ADR sequence:
 ADR-0001
 ADR-0002
 ...
-ADR-0028
+ADR-0029
 
 Next available ADR:
 
-ADR-0029
+ADR-0030
 
 The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
 
@@ -76,6 +76,7 @@ If a canonical ADR is superseded, keep it only in the superseded section and do 
 - ADR-0026 External Orchestration Layer Above VDR
 - ADR-0027 VDR-First Implementation With Future Media Federation
 - ADR-0028 Content Classification Architecture
+- ADR-0029 Backend-Neutral SearchTimer Architecture
 
 ---
 
@@ -150,6 +151,7 @@ Retained for historical reference:
 - [ADR-0026: External Orchestration Layer Above VDR](ADR-0026-external-orchestration-layer-above-vdr.md)
 - [ADR-0027: VDR-First Implementation With Future Media Federation](ADR-0027-vdr-first-implementation-with-future-media-federation.md)
 - [ADR-0028: Content Classification Architecture](ADR-0028-content-classification-architecture.md)
+- [ADR-0029: Backend-Neutral SearchTimer Architecture](ADR-0029-backend-neutral-searchtimer-architecture.md)
 
 ### Superseded Canonical ADRs
 

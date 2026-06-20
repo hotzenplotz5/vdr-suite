@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.0 - Document backend-neutral SearchTimer architecture
+
+Status: Completed.
+
+Summary:
+- Adds ADR-0029 for backend-neutral SearchTimer architecture and documents the RESTfulAPI epgsearch capability baseline.
+
 ## Phase 46.42 - README Refresh
 
 Status: Completed.
