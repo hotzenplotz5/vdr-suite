@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 47.5 - SearchTimer in-memory service
+Phase 47.6 - SearchTimer RESTfulAPI mapper
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.6 - SearchTimer RESTfulAPI mapper
+Phase 47.7 - SearchTimer RESTfulAPI list adapter
 ```
 
 ---

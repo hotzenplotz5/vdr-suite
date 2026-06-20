@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.6 - SearchTimer RESTfulAPI mapper
+
+Status: Completed.
+
+Summary:
+- Adds RestfulApiSearchTimerMapper for mapping RESTfulAPI epgsearch searchtimers JSON into backend-neutral SearchTimer objects.
+
 ## Phase 47.5 - SearchTimer in-memory service
 
 Status: Completed.
