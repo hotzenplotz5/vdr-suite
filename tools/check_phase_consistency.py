@@ -14,6 +14,7 @@ FILES = {
 }
 
 PHASE = re.compile(r"Phase\s+(\d+(?:\.\d+)?[a-z]?)", re.I)
+PHASE_HEADING = re.compile(r"^##\s+Phase\s+(\d+(?:\.\d+)?[a-z]?)\b", re.I | re.M)
 
 
 def key(value):
@@ -28,6 +29,11 @@ def latest(text):
     return sorted(values, key=key)[-1] if values else None
 
 
+def latest_completed_heading(text):
+    values = [m.group(1) for m in PHASE_HEADING.finditer(text)]
+    return sorted(values, key=key)[-1] if values else None
+
+
 def phase_after(text, marker):
     lines = text.splitlines()
     for index, line in enumerate(lines):
@@ -38,10 +44,18 @@ def phase_after(text, marker):
         if match:
             return match.group(1)
 
-        window = "\n".join(lines[index + 1:index + 8])
+        window = "\n".join(lines[index + 1:index + 10])
         match = PHASE.search(window)
         if match:
             return match.group(1)
+    return None
+
+
+def first_phase_after_any(text, markers):
+    for marker in markers:
+        value = phase_after(text, marker)
+        if value:
+            return value
     return None
 
 
@@ -51,29 +65,60 @@ def label(value):
 
 def completed_phase(name, text):
     if name == "README":
-        return phase_after(text, "Latest Completed Implementation Phase")
+        return first_phase_after_any(text, [
+            "Latest completed implementation phase",
+            "Latest Completed Implementation Phase",
+        ])
     if name == "current-status":
-        return phase_after(text, "Latest completed implementation phase")
+        return first_phase_after_any(text, [
+            "Latest completed implementation phase",
+        ])
     if name == "project-status-dashboard":
-        return phase_after(text, "Current Major Phase") or phase_after(text, "Latest Completed Milestone")
+        return first_phase_after_any(text, [
+            "Current Major Phase",
+            "Latest completed implementation phase",
+            "Latest Completed Milestone",
+            "Latest Completed Milestones",
+        ])
     if name == "roadmap":
-        return phase_after(text, "Completed implementation state")
+        return first_phase_after_any(text, [
+            "Completed implementation state",
+        ])
     if name == "development-index":
-        return phase_after(text, "Current completed phase")
+        return first_phase_after_any(text, [
+            "Current completed phase",
+        ])
+    if name == "completed-phases":
+        return latest_completed_heading(text)
     return latest(text)
 
 
 def next_phase(name, text):
     if name == "README":
-        return phase_after(text, "Current Implementation Focus")
+        return first_phase_after_any(text, [
+            "Next major implementation milestone",
+            "Next Major Implementation Milestone",
+            "Current Implementation Focus",
+        ])
     if name == "current-status":
-        return phase_after(text, "Next Technical Focus")
+        return first_phase_after_any(text, [
+            "Next Technical Focus",
+            "Next major implementation milestone",
+        ])
     if name == "project-status-dashboard":
-        return phase_after(text, "Current Focus")
+        return first_phase_after_any(text, [
+            "Next Major Implementation Milestone",
+            "Current Focus",
+        ])
     if name == "roadmap":
-        return phase_after(text, "Next implementation step")
+        return first_phase_after_any(text, [
+            "Next major implementation milestone",
+            "Next implementation step",
+        ])
     if name == "development-index":
-        return phase_after(text, "Next implementation focus")
+        return first_phase_after_any(text, [
+            "Next implementation focus",
+        ])
     return None
 
 

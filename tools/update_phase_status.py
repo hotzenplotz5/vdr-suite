@@ -16,7 +16,7 @@ FILES = {
 }
 
 COMPLETED_MARKERS = {
-    "README": "Latest Completed Implementation Phase",
+    "README": "Latest completed implementation phase",
     "current-status": "Latest completed implementation phase",
     "project-status-dashboard": "Current Major Phase",
     "roadmap": "Completed implementation state",
@@ -24,10 +24,10 @@ COMPLETED_MARKERS = {
 }
 
 NEXT_MARKERS = {
-    "README": "Current Implementation Focus",
+    "README": "Next major implementation milestone",
     "current-status": "Next Technical Focus",
-    "project-status-dashboard": "Current Focus",
-    "roadmap": "Next implementation step",
+    "project-status-dashboard": "Next Major Implementation Milestone",
+    "roadmap": "Next major implementation milestone",
     "development-index": "Next implementation focus",
 }
 
@@ -42,22 +42,13 @@ def replace_phase_after_marker(path, marker, value):
         if marker.lower() not in line.lower():
             continue
 
-        for phase_index in range(index, min(len(lines), index + 8)):
+        for phase_index in range(index, min(len(lines), index + 10)):
             if PHASE_LINE.search(lines[phase_index]):
                 lines[phase_index] = PHASE_LINE.sub(value, lines[phase_index], count=1)
                 path.write_text("\n".join(lines) + "\n", encoding="utf-8")
                 return
 
     raise SystemExit(f"Could not find phase after marker {marker!r} in {path}")
-
-
-def replace_readme_line(path, prefix, value):
-    text = path.read_text(encoding="utf-8")
-    pattern = re.compile(r"^" + re.escape(prefix) + r".*$", re.MULTILINE)
-    text, count = pattern.subn(prefix + value, text, count=1)
-    if count != 1:
-        raise SystemExit(f"Could not find README line prefix {prefix!r}")
-    path.write_text(text, encoding="utf-8")
 
 
 def completed_phase_heading(completed):
@@ -109,8 +100,15 @@ def insert_completed_phase(completed, summary_lines):
         + "\n\n"
     )
 
-    marker = "\n## Phase "
-    index = text.find(marker)
+    preferred_marker = "\n## Detailed Phase History\n\n"
+    if preferred_marker in text:
+        index = text.find(preferred_marker) + len(preferred_marker)
+        text = text[:index] + entry + text[index:]
+        path.write_text(text, encoding="utf-8")
+        return
+
+    legacy_marker = "\n## Phase "
+    index = text.find(legacy_marker)
     if index < 0:
         raise SystemExit("Could not find insertion point in completed-phases.md")
 
@@ -121,30 +119,23 @@ def insert_completed_phase(completed, summary_lines):
 def validate_completed_phases_file(next_phase):
     path = ROOT / "docs/development/completed-phases.md"
     text = path.read_text(encoding="utf-8")
-    if next_phase in text:
+
+    detailed_marker = "## Detailed Phase History"
+    if detailed_marker in text:
+        text = text.split(detailed_marker, 1)[1]
+
+    heading = "## " + next_phase
+    if heading in text:
         raise SystemExit(
-            "Refusing to continue: completed-phases.md contains the next phase. "
-            "check_phase_consistency.py treats the highest phase in that file as completed."
+            "Refusing to continue: completed-phases.md contains the next phase "
+            "as a completed phase heading."
         )
 
 
 def update(completed, next_phase, summary_lines):
     insert_completed_phase(completed, summary_lines)
 
-    replace_readme_line(
-        FILES["README"],
-        "Latest Completed Implementation Phase: ",
-        completed,
-    )
-    replace_readme_line(
-        FILES["README"],
-        "Current Implementation Focus: ",
-        next_phase,
-    )
-
     for name, path in FILES.items():
-        if name == "README":
-            continue
         replace_phase_after_marker(path, COMPLETED_MARKERS[name], completed)
         replace_phase_after_marker(path, NEXT_MARKERS[name], next_phase)
 
