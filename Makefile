@@ -816,6 +816,11 @@ test-epg-search-result:
 		-o /tmp/test_epg_search_result
 	/tmp/test_epg_search_result
 
+test-search-timer-service-interface:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_search_timer_service_interface.cpp \
+		-o /tmp/test_search_timer_service_interface
+	/tmp/test_search_timer_service_interface
 test-search-timer-result:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_search_timer_result.cpp \

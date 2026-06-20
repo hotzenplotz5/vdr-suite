@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.3 - SearchTimer result model
+Phase 47.4 - SearchTimer service interface
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.4 - SearchTimer service interface
+Phase 47.5 - SearchTimer in-memory service
 ```
 
 Current architecture validation:

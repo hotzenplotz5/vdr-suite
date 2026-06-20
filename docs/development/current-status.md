@@ -43,7 +43,7 @@ main
 
 Overall project progress:
 
-    ███████░░░ 69%
+    ███████░░░ 70%
 
 Milestone progress:
 
@@ -53,7 +53,7 @@ Milestone progress:
     Action Foundation         ██████████ 100%  completed
     Metadata Foundation       ██████████ 100%  completed
     Documentation Foundation  ██████████ 100%  completed
-    SearchTimer Foundation    ██░░░░░░░░  25%  in progress
+    SearchTimer Foundation    ███░░░░░░░  30%  in progress
     Automation Foundation     ░░░░░░░░░░   0%  planned
     Federation Foundation     ░░░░░░░░░░   0%  planned
     Frontend Foundation       ░░░░░░░░░░   0%  planned
@@ -72,7 +72,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 47.3 - SearchTimer result model
+Phase 47.4 - SearchTimer service interface
 ```
 
 Current documentation consolidation state:
@@ -230,7 +230,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 47.4 - SearchTimer service interface
+Phase 47.5 - SearchTimer in-memory service
 ```
 
 The next major implementation milestone is SearchTimer. It should turn existing EPG search, recording search and metadata search foundations into persistent search rules and later automation.

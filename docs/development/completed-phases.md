@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.4 - SearchTimer service interface
+
+Status: Completed.
+
+Summary:
+- Adds SearchTimerService as the backend-neutral service boundary for listing SearchTimers from a supplied collection.
+
 ## Phase 47.3 - SearchTimer result model
 
 Status: Completed.

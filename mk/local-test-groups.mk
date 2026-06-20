@@ -62,6 +62,7 @@ test-vdr: \
 	test-search-timer \
 	test-search-timer-query \
 	test-search-timer-result \
+	test-search-timer-service-interface \
 	test-epg-person-search-result \
 	test-epg-search-result-json-serializer \
 	test-epg-search-service \
