@@ -36,6 +36,7 @@
 #include "RuntimeDiagnosticsController.h"
 #include "SearchTimerController.h"
 #include "SearchTimerResultJsonSerializer.h"
+#include "SearchTimerService.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
 #include "VdrRecordingQueryService.h"
@@ -393,8 +394,10 @@ int main()
     LiveTransportController liveTransportController(
         liveTransport);
 
+    SearchTimerService searchTimerService;
     SearchTimerResultJsonSerializer searchTimerResultJsonSerializer;
     SearchTimerController searchTimerController(
+        searchTimerService,
         searchTimerResultJsonSerializer);
 
     VdrCapabilitySet capabilitySet =

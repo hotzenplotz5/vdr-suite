@@ -2,6 +2,7 @@
 
 #include "SearchTimerResult.h"
 #include "SearchTimerResultJsonSerializer.h"
+#include "SearchTimerService.h"
 
 #include <cassert>
 #include <iostream>
@@ -10,8 +11,9 @@
 
 int main()
 {
+    SearchTimerService searchTimerService;
     SearchTimerResultJsonSerializer serializer;
-    SearchTimerController controller(serializer);
+    SearchTimerController controller(searchTimerService, serializer);
 
     std::vector<SearchTimer> timers;
     timers.push_back(SearchTimer::create(

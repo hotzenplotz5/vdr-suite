@@ -433,10 +433,13 @@ ApiResponse ApiRouter::handleGet(
             return makeSearchTimerUnavailableResponse();
         }
 
-        return searchTimerController_->getSearchTimers(
-            SearchTimerResult::empty(
-                queryParameters.getInt("limit", 0),
-                queryParameters.getInt("offset", 0)));
+        return searchTimerController_->searchSearchTimers(
+            SearchTimerResult::empty(0, 0),
+            queryParameters.get("backend"),
+            queryParameters.get("state"),
+            queryParameters.get("text"),
+            queryParameters.getInt("limit", 0),
+            queryParameters.getInt("offset", 0));
     }
 
     if (path == "/api/vdr/changes")

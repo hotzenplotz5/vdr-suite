@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.11 - SearchTimer endpoint contract
+
+Status: Completed.
+
+Summary:
+- Extends SearchTimerController and ApiRouter with backend, state, text, limit and offset query contract for SearchTimer endpoints.
+
 ## Phase 47.10 - SearchTimer router integration
 
 Status: Completed.

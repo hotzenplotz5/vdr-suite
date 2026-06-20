@@ -819,6 +819,7 @@ test-epg-search-result:
 test-search-timer-controller:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
+                core/vdr/src/SearchTimerService.cpp \
 		api/rest/src/SearchTimerController.cpp \
 		api/rest/tests/test_search_timer_controller.cpp \
 		-o /tmp/test_search_timer_controller
@@ -937,6 +938,7 @@ test-api-router: prepare-test-db
 		$(REST_ROUTER_SRC) \
                 api/rest/src/SearchTimerController.cpp \
                 core/vdr/src/SearchTimerResultJsonSerializer.cpp \
+                core/vdr/src/SearchTimerService.cpp \
 		api/rest/src/VdrController.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
 		api/rest/tests/test_api_router.cpp \
