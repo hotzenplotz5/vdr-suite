@@ -37,7 +37,7 @@ Current milestone:
 
     Phase 47.0 - SearchTimer Foundation
 
-Progress source: [Project Progress](docs/planning/project-progress.md)
+Progress source: [Project Progress](planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
 
 ---

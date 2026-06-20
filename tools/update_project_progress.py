@@ -62,7 +62,17 @@ def bar(percent):
     empty = 10 - filled
     return '█' * filled + '░' * empty
 
-def render_block(overall, items, current):
+def progress_link_for(path):
+    if path.name == 'README.md':
+        return 'docs/planning/project-progress.md'
+    if path.name == 'current-status.md':
+        return '../planning/project-progress.md'
+    if path.name == 'project-status-dashboard.md':
+        return 'planning/project-progress.md'
+    raise SystemExit('No progress link rule for ' + str(path))
+
+
+def render_block(overall, items, current, source_link):
     lines = []
     lines.append(START)
     lines.append('## Project Progress')
@@ -82,7 +92,7 @@ def render_block(overall, items, current):
     lines.append('')
     lines.append('    ' + current)
     lines.append('')
-    lines.append('Progress source: [Project Progress](docs/planning/project-progress.md)')
+    lines.append('Progress source: [Project Progress](' + source_link + ')')
     lines.append(END)
     return '\n'.join(lines)
 
@@ -109,8 +119,8 @@ def ensure_block(path, block):
 
 def main():
     overall, items, current = parse_source()
-    block = render_block(overall, items, current)
     for target in TARGETS:
+        block = render_block(overall, items, current, progress_link_for(target))
         ensure_block(target, block)
     print('project progress blocks updated')
     return 0
