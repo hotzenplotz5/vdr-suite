@@ -125,6 +125,7 @@ Future phases may expand it after real backend payload validation.
 Recommended next steps:
 
     Phase 47.15 - SearchTimer real payload validation
+    Phase 47.15 - Capture and validate real RESTfulAPI SearchTimer payloads before domain expansion
     Phase 47.16 - SearchTimer domain model expansion
     Phase 47.17 - SearchTimer mapper expansion
     Phase 47.18 - SearchTimer JSON contract expansion

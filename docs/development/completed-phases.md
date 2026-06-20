@@ -88,6 +88,17 @@ Summary:
 - Deferred domain expansion until real backend payload validation.
 
 ---
+## Phase 47.15 - SearchTimer real payload validation
+
+Status: Completed.
+
+Summary:
+- Added a local SearchTimer payload capture helper.
+- Documented the real payload validation workflow.
+- Kept SearchTimer domain expansion gated behind real backend payload review.
+- Linked SearchTimer payload validation from the development index.
+
+---
 ---
 
 ### Person Metadata Foundation

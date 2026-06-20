@@ -60,7 +60,7 @@ Milestone progress:
 
 Current milestone:
 
-    Phase 47.15 - SearchTimer real payload validation
+    Phase 47.16 - SearchTimer domain model expansion
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -72,7 +72,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 47.14 - SearchTimer backend contract documentation
+Phase 47.15 - SearchTimer real payload validation
 ```
 
 Current documentation consolidation state:
@@ -137,6 +137,7 @@ make test-phase
 - EPG person search has started with the result model foundation.
 - SearchTimer route and daemon backend provider wiring are implemented.
 - SearchTimer backend contract documentation defines the current minimal domain and known epgsearch and Live-style expansion gaps.
+- SearchTimer real payload validation workflow is documented and supported by a local capture helper.
 
 ---
 
@@ -232,7 +233,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 47.15 - SearchTimer real payload validation
+Phase 47.16 - SearchTimer domain model expansion
 ```
 
 The next major implementation milestone is SearchTimer. It should turn existing EPG search, recording search and metadata search foundations into persistent search rules and later automation.

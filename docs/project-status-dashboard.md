@@ -70,6 +70,7 @@ EPG Person Search               started
 SearchTimer Route               implemented
 SearchTimer Daemon Provider     implemented
 SearchTimer Backend Contract    documented
+SearchTimer Payload Validation  documented
 ```
 
 ### Federation and Security
@@ -125,7 +126,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.14 - SearchTimer backend contract documentation
+Phase 47.15 - SearchTimer real payload validation
 ```
 
 Current Documentation Consolidation:
@@ -137,7 +138,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.15 - SearchTimer real payload validation
+Phase 47.16 - SearchTimer domain model expansion
 ```
 
 Latest Completed Milestones:

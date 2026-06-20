@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.14 - SearchTimer backend contract documentation
+Phase 47.15 - SearchTimer real payload validation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.15 - SearchTimer real payload validation
+Phase 47.16 - SearchTimer domain model expansion
 ```
 
 Current architecture validation:
@@ -66,6 +66,7 @@ Current architecture validation:
 - [Phase 45.0 - EPG Search Architecture](phase-45-epg-search-architecture.md)
 - [EPG Search API](epg-search-api.md)
 - [SearchTimer Backend Contract](searchtimer-backend-contract.md)
+- [SearchTimer Real Payload Validation](searchtimer-real-payload-validation.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)
 - [Person API](person-api.md)
