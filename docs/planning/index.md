@@ -22,6 +22,7 @@ Implementation details and completed work belong in the development section.
 ### Roadmap
 
 - [Roadmap](roadmap.md)
+- [Project Progress](project-progress.md)
 
 Long-term architecture direction and major project phases.
 

@@ -13,6 +13,35 @@
 
 ---
 
+<!-- PROJECT_PROGRESS_START -->
+## Project Progress
+
+Overall project progress:
+
+    ██████░░░░ 65%
+
+Milestone progress:
+
+    Core Runtime Foundation   ██████████ 100%  completed
+    Multi-Backend Foundation  ██████████ 100%  completed
+    Query Foundation          ██████████ 100%  completed
+    Action Foundation         ██████████ 100%  completed
+    Metadata Foundation       ██████████ 100%  completed
+    Documentation Foundation  ██████████ 100%  completed
+    SearchTimer Foundation    ░░░░░░░░░░   0%  planned
+    Automation Foundation     ░░░░░░░░░░   0%  planned
+    Federation Foundation     ░░░░░░░░░░   0%  planned
+    Frontend Foundation       ░░░░░░░░░░   0%  planned
+
+Current milestone:
+
+    Phase 47.0 - SearchTimer Foundation
+
+Progress source: [Project Progress](docs/planning/project-progress.md)
+<!-- PROJECT_PROGRESS_END -->
+
+---
+
 ## Current Release State
 
 ### Core Platform
