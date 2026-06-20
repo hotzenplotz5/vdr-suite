@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 47.0 - Document backend-neutral SearchTimer architecture
+Phase 47.1 - SearchTimer domain model
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.1 - SearchTimer domain model
+Phase 47.2 - SearchTimer query model
 ```
 
 ---

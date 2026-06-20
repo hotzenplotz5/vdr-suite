@@ -18,7 +18,7 @@
 
 Overall project progress:
 
-    ███████░░░ 66%
+    ███████░░░ 67%
 
 Milestone progress:
 
@@ -28,7 +28,7 @@ Milestone progress:
     Action Foundation         ██████████ 100%  completed
     Metadata Foundation       ██████████ 100%  completed
     Documentation Foundation  ██████████ 100%  completed
-    SearchTimer Foundation    █░░░░░░░░░  10%  in progress
+    SearchTimer Foundation    ██░░░░░░░░  15%  in progress
     Automation Foundation     ░░░░░░░░░░   0%  planned
     Federation Foundation     ░░░░░░░░░░   0%  planned
     Frontend Foundation       ░░░░░░░░░░   0%  planned
@@ -122,7 +122,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.0 - Document backend-neutral SearchTimer architecture
+Phase 47.1 - SearchTimer domain model
 ```
 
 Current Documentation Consolidation:
@@ -134,7 +134,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.1 - SearchTimer domain model
+Phase 47.2 - SearchTimer query model
 ```
 
 Latest Completed Milestones:

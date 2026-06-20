@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.0 - Document backend-neutral SearchTimer architecture
+Phase 47.1 - SearchTimer domain model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.1 - SearchTimer domain model
+Phase 47.2 - SearchTimer query model
 ```
 
 Current architecture validation:

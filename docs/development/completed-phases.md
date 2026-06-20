@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.1 - SearchTimer domain model
+
+Status: Completed.
+
+Summary:
+- Adds backend-aware SearchTimerId, SearchTimerState and SearchTimer as the first backend-neutral SearchTimer domain model.
+
 ## Phase 47.0 - Document backend-neutral SearchTimer architecture
 
 Status: Completed.
