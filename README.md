@@ -7,106 +7,175 @@
 - German: [Projektübersicht](docs/project-overview.de.md)
 - English: [Project Overview](docs/project-overview.en.md)
 
-## Quick Links
-
-- [Project Status Dashboard](docs/project-status-dashboard.md)
-- [Current Project Status](docs/development/current-status.md)
-- [Developer Documentation](docs/development/index.md)
-- [Real Recording Action End-to-End Validation](docs/development/real-recording-action-e2e-validation.md)
-- [Phase 44 Recording Action Runtime Completion](docs/development/phase-44-recording-action-runtime-completion.md)
-- [Phase 45 EPG Search Architecture](docs/development/phase-45-epg-search-architecture.md)
-- [EPG Search API](docs/development/epg-search-api.md)
-- [Genre Architecture](docs/development/genre-architecture.md)
-- [Content Rating API](docs/development/content-rating-api.md)
-- [Person API](docs/development/person-api.md)
-- [ADR-0028 Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md)
-- [Developer Onboarding](docs/development/developer-onboarding.md)
-- [Architecture Map](docs/development/architecture-map.md)
-- [Roadmap](docs/planning/roadmap.md)
-- [Architecture](docs/architecture/index.md)
-- [ADR](docs/adr/index.md)
-
 ---
 
-## Current Release State
+## What is VDR-Suite?
 
-```text
-Backend Foundation        ████████████ 100%
-Snapshot Runtime          ████████████ 100%
-Read API                  ████████████ 100%
-Change Feed               ████████████ 100%
-Backend Registry          ████████████ 100%
-Backend-Aware Snapshots   ████████████ 100%
-Multi-Backend Routing     ████████████ 100%
-Multi-Backend Polling     ████████████ 100%
-Multi-Backend Read API    ████████████ 100%
-CI Foundation             ████████████ 100%
-Live Transport            ████████████ 100%
-Selective Event Queries   ████████████ 100%
-Heavy Domain Policy       ████████████ 100%
-EPG REST API Boundary     ████████████ 100%
-EPG Search API            ████████████ 100%
-Content Classific. ADR.   ████████████ 100%
-Backend Optional Runtime  ████████████ 100%
-```
+VDR-Suite is a modern multi-backend platform for VDR.
 
-Latest Completed Implementation Phase: Phase 46.37 - EPG Person Search Result Model
+It provides a snapshot-based runtime, backend-neutral services, REST APIs, metadata foundations, search foundations and future automation features for VDR environments.
 
-Current Implementation Focus: Phase 46.38 - EPG Person Search Service
-
-Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
-
----
-
-VDR-Suite modernizes the Video Disk Recorder ecosystem with a backend service layer, daemon-owned state, snapshot architecture, REST APIs, backend registry foundations and future frontend integrations.
-
-VDR remains the primary backend domain and source of truth.
+VDR remains the source of truth.
 
 VDR-Suite complements VDR. It does not replace it.
 
 ---
 
-## Architecture Highlight
+## Current Project State
+
+Latest completed implementation phase:
+
+    Phase 46.37 - EPG Person Search Result Model
+
+Current documentation consolidation:
+
+    Phase 46.42 - README Refresh
+
+Next major implementation milestone:
+
+    Phase 47.0 - SearchTimer Foundation
+
+Completed foundations:
+
+- Core Platform Foundation
+- VDR Backend Foundation
+- Multi-Backend Foundation
+- Snapshot Runtime Foundation
+- Change Feed Foundation
+- Live Transport Foundation
+- Capability Foundation
+- Recording Query Foundation
+- Recording Action Foundation
+- EPG Search Foundation
+- Content Classification Foundation
+- Person Metadata Foundation
+- Recording Person Search Foundation
+- Recording Character Search Foundation
+
+Current foundation in progress:
+
+- EPG Person Search Foundation
+
+---
+
+## Major Implemented Areas
+
+Runtime:
+
+- Snapshot cache
+- Snapshot access services
+- Snapshot change feed
+- Live transport foundation
+- Runtime diagnostics
+
+Multi-backend:
+
+- Backend registry
+- Backend-aware snapshots
+- Backend-aware routing
+- Backend-aware polling
+- Multi-backend snapshot APIs
+
+EPG:
+
+- Selective EPG query architecture
+- EPG search API
+- Backend-neutral EPG services
+
+Recordings:
+
+- Recording query API
+- Recording actions
+- Validation and execution services
+- Backend-aware recording handling
+
+Metadata:
+
+- Content classification architecture
+- Genre foundations
+- Person metadata foundations
+- Recording person search
+- Recording character search
+
+---
+
+## Architecture Principles
 
 ADR-0021 defines a core runtime rule:
 
-```text
-Prefer selective backend queries
-before full-domain transfers.
-```
+    Prefer selective backend queries
+    before full-domain transfers.
 
 ADR-0028 defines the content classification rule:
 
-```text
-Do not model genre as a single plain string.
-Preserve source-aware classification evidence.
-```
+    Do not model genre as a single plain string.
+    Preserve source-aware classification evidence.
 
-The performance target is backend workload comparable to established VDR frontends such as `live` when equivalent user-visible information is requested.
+Performance target:
+
+Backend workload should be comparable to established VDR frontends such as live when equivalent information is requested.
+
+---
+
+## Roadmap Snapshot
+
+- Phase 47 - SearchTimer Foundation
+- Phase 48 - Unified Search Foundation
+- Phase 49 - Profiles, Permissions and Policy
+- Phase 50 - Backend Management Foundation
+- Phase 51 - Live Plugin Parity Foundation
+- Phase 52 - SearchTimer Automation
+- Phase 53 - Recommendation Foundation
+- Phase 54 - Cross Backend Search and Federation
+- Phase 55 - Content Knowledge Graph
+
+---
+
+## Documentation
+
+Project status:
+
+- [Project Status Dashboard](docs/project-status-dashboard.md)
+- [Current Project Status](docs/development/current-status.md)
+- [Roadmap](docs/planning/roadmap.md)
+- [Completed Phases](docs/development/completed-phases.md)
+
+Developer documentation:
+
+- [Developer Documentation](docs/development/index.md)
+- [Developer Onboarding](docs/development/developer-onboarding.md)
+- [Architecture Map](docs/development/architecture-map.md)
+
+Architecture:
+
+- [Architecture Index](docs/architecture/index.md)
+- [ADR Index](docs/adr/index.md)
+- [ADR-0021 Selective Backend Query Strategy](docs/adr/ADR-0021-selective-backend-query-strategy.md)
+- [ADR-0028 Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md)
+
+Metadata:
+
+- [Person API](docs/development/person-api.md)
+- [Genre Architecture](docs/development/genre-architecture.md)
+- [Content Rating API](docs/development/content-rating-api.md)
+
+Search:
+
+- [EPG Search API](docs/development/epg-search-api.md)
 
 ---
 
 ## Start Here
 
-New to VDR-Suite?
-
-Read these documents first:
-
 1. [Project Status Dashboard](docs/project-status-dashboard.md)
-2. [Project Overview](docs/project-overview.md)
-3. [Documentation Index](docs/index.md)
-4. [Developer Documentation](docs/development/index.md)
-5. [Real Recording Action End-to-End Validation](docs/development/real-recording-action-e2e-validation.md)
-5. [Developer Onboarding](docs/development/developer-onboarding.md)
-6. [Architecture Map](docs/development/architecture-map.md)
-7. [VDR-Suite Vision](docs/introduction/vdr-suite-vision.md)
-8. [Current Project Status](docs/development/current-status.md)
-9. [Roadmap](docs/planning/roadmap.md)
-10. [Architecture Index](docs/architecture/index.md)
-11. [ADR Index](docs/adr/index.md)
-12. [ADR-0021 Selective Backend Query Strategy](docs/adr/ADR-0021-selective-backend-query-strategy.md)
-13. [ADR-0028 Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md)
-14. [Genre Architecture](docs/development/genre-architecture.md)
+2. [Current Project Status](docs/development/current-status.md)
+3. [Roadmap](docs/planning/roadmap.md)
+4. [Completed Phases](docs/development/completed-phases.md)
+5. [Project Overview](docs/project-overview.md)
+6. [Documentation Index](docs/index.md)
+7. [Developer Documentation](docs/development/index.md)
+8. [Architecture Index](docs/architecture/index.md)
+9. [ADR Index](docs/adr/index.md)
 
 ---
 
@@ -120,5 +189,3 @@ Every documentation page should provide navigation back to:
 - [Documentation Index](docs/index.md)
 - [Project Overview](docs/project-overview.md)
 - the local section index when applicable
-
-This prevents documentation dead ends and keeps the documentation usable from GitHub, editors and local checkouts.
