@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.29 - Recording Person Search JSON Contract
+
+Status: Completed.
+
+Summary:
+- Adds a JSON serializer for recording-person search results with recording context and matched person metadata.
+
 ## Phase 46.28 - Recording Person Search Service
 
 Status: Completed.

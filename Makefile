@@ -780,6 +780,13 @@ test-recording-person-search-service:
 		-o /tmp/test_recording_person_search_service
 	/tmp/test_recording_person_search_service
 
+test-recording-person-search-result-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/RecordingPersonSearchResultJsonSerializer.cpp \
+		core/vdr/tests/test_recording_person_search_result_json_serializer.cpp \
+		-o /tmp/test_recording_person_search_result_json_serializer
+	/tmp/test_recording_person_search_result_json_serializer
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \

@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.28 - Recording Person Search Service
+Phase 46.29 - Recording Person Search JSON Contract
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.29 - Recording Person Search JSON Contract
+Phase 46.30 - Recording Person Search REST Boundary
 ```
 
 Current architecture validation:
