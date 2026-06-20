@@ -16,6 +16,7 @@
 - [Phase 44 Recording Action Runtime Completion](docs/development/phase-44-recording-action-runtime-completion.md)
 - [Phase 45 EPG Search Architecture](docs/development/phase-45-epg-search-architecture.md)
 - [EPG Search API](docs/development/epg-search-api.md)
+- [Genre Architecture](docs/development/genre-architecture.md)
 - [ADR-0028 Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md)
 - [Developer Onboarding](docs/development/developer-onboarding.md)
 - [Architecture Map](docs/development/architecture-map.md)
@@ -47,9 +48,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.6 - Genre Resolution Localization JSON
+Latest Completed Implementation Phase: Phase 46.7 - Genre Architecture Documentation
 
-Current Implementation Focus: Phase 46.7 - Genre Architecture Documentation
+Current Implementation Focus: Phase 46.8 - Content Rating Domain Foundation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
@@ -103,6 +104,7 @@ Read these documents first:
 11. [ADR Index](docs/adr/index.md)
 12. [ADR-0021 Selective Backend Query Strategy](docs/adr/ADR-0021-selective-backend-query-strategy.md)
 13. [ADR-0028 Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md)
+14. [Genre Architecture](docs/development/genre-architecture.md)
 
 ---
 
@@ -118,51 +120,3 @@ Every documentation page should provide navigation back to:
 - the local section index when applicable
 
 This prevents documentation dead ends and keeps the documentation usable from GitHub, editors and local checkouts.
-
----
-
-## Current Architecture State
-
-```text
-✓ Snapshot Architecture
-✓ Snapshot Cache
-✓ Snapshot Access Layer
-✓ Snapshot Read APIs
-✓ Snapshot Change Feed
-✓ Runtime Diagnostics
-✓ VDR Health API
-✓ VDR Snapshot Summary API
-✓ VDR Capability API
-✓ Capability Resolver Foundation
-✓ Backend Registry Foundation
-✓ Backend Registry API
-✓ Backend-Aware Snapshot Access
-✓ Backend-Aware VDR Controller Methods
-✓ Multi-Snapshot Cache Foundation
-✓ Backend-Aware Snapshot Builder
-✓ Backend-Aware Polling Service
-✓ Backend Polling Coordinator
-✓ Backend Runtime Context
-✓ Daemon Runtime Context Collection
-✓ Registry-driven Backend Runtime Context Creation
-✓ Backend-aware Snapshot Change Feed
-✓ Multi-Backend Snapshot Read Foundation
-✓ Multi-Backend Snapshot Summary Serialization
-✓ Multi-Backend Snapshots REST Endpoint
-✓ Multi-Backend Snapshots REST Route Test
-✓ GitHub Actions CI
-✓ Selective Event Query Contract
-✓ Heavy Domain Refresh Policy
-✓ EPG REST API Boundary
-✓ EPG Search API
-✓ Content Classification Architecture ADR
-✓ Backend Optional Runtime
-```
-
-Current architecture focus:
-
-```text
-Phase 46.1 - Genre Domain Foundation
-Build on ADR-0028 without reducing genre to a single plain string.
-Keep VDR as source of truth and classification as enrichment.
-```
