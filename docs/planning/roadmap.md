@@ -13,10 +13,10 @@
 
 ```text
 Completed implementation state
-Phase 46.32 - Snapshot-backed Recording Person Search Wiring
+Phase 46.33 - Recording Person Search API Documentation
 
 Next implementation step
-Phase 46.33 - Recording Person Search API Documentation
+Phase 46.34 - Real VDR Person Metadata Validation
 ```
 
 ---

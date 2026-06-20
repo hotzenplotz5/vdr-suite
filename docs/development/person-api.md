@@ -27,10 +27,17 @@ The implementation provides:
 - person query result JSON contract
 - REST-facing person controller
 - ApiRouter wiring for routed person search endpoints
+- recording-person search result model
+- recording-person search service
+- recording-person search JSON contract
+- REST-facing recording-person search controller
+- snapshot-backed recording-person search routing
 
-The routed person query endpoints currently expose the query contract and return a valid paged person result shape.
+The routed person query endpoints expose the query contract and return a valid paged person result shape.
 
-Real VDR, recording, EPG, TVScraper, scraper2vdr, TMDB and IMDb person metadata sources are not connected yet.
+The routed recording-person search endpoints search recording-attached person metadata from the current VDR snapshot.
+
+EPG, full TVScraper character export, scraper2vdr, TMDB and IMDb person metadata sources are not fully connected yet.
 
 ---
 
@@ -52,22 +59,29 @@ Implemented:
 - PersonController
 - ApiRouter wiring
 - DaemonRuntime wiring
+- RecordingPersonSearchResult
+- RecordingPersonSearchService
+- RecordingPersonSearchResultJsonSerializer
+- RecordingPersonSearchController
+- snapshot-backed recording-person search routing
 
 Implemented routed endpoints:
 
 - GET /api/persons
 - GET /api/vdr/persons
+- GET /api/recordings/persons/search
+- GET /api/vdr/recordings/persons/search
 
 Not implemented yet:
 
-- real recording person metadata extraction
+- full TVScraper character and crew metadata export
 - real EPG person metadata extraction
 - TVScraper integration
 - scraper2vdr integration
 - TMDB integration
 - IMDb integration
 - persistent person index
-- full cast and crew search over recordings
+- EPG person search
 - real VDR metadata validation
 
 ---
@@ -212,7 +226,9 @@ The /api/vdr/persons alias exists to keep person search close to the VDR-facing 
 
 An empty query matches all supplied person facts.
 
-At the current routing stage, no real metadata source is connected yet, so the router supplies an empty person collection.
+For the standalone person endpoints, the router still supplies an empty person collection.
+
+For recording-person search endpoints, the router supplies snapshot-backed recordings from VdrSnapshotReadService.
 
 ---
 
@@ -302,7 +318,7 @@ A limit of zero means no explicit limit.
 
 ## Current Source of Truth
 
-The current routed API path is:
+The standalone person API path is:
 
     ApiRouter
     -> PersonController
@@ -310,29 +326,78 @@ The current routed API path is:
     -> PersonQueryMatcher
     -> PersonQueryResultJsonSerializer
 
-At this stage, the router supplies an empty PersonCollection.
+The router still supplies an empty PersonCollection for the standalone person API.
 
-This means the API contract, validation, routing and serialization are implemented, but real data sources are intentionally still out of scope.
+The recording-person search API path is:
+
+    ApiRouter
+    -> VdrSnapshotReadService
+    -> RecordingPersonSearchController
+    -> RecordingPersonSearchService
+    -> PersonQueryMatcher
+    -> RecordingPersonSearchResultJsonSerializer
+
+For recording-person search, the router supplies snapshot-backed recordings from the current VDR snapshot.
+
+If the backend parameter is empty, all default snapshot recordings are used.
+
+If the backend parameter is set, recordings are read from the matching backend snapshot.
 
 ---
 
-## Recording Search Status
+## Recording Person Search Endpoints
 
-Recordings are not included in person search yet.
+Recording-person search is routed through:
 
-The current person search does not inspect:
+    GET /api/recordings/persons/search
+    GET /api/vdr/recordings/persons/search
 
-- recording titles
-- recording descriptions
-- recording paths
-- recording metadata
-- EPG events behind recordings
-- TVScraper metadata
-- scraper2vdr metadata
-- TMDB metadata
-- IMDb metadata
+These endpoints search person metadata attached to recordings in the current VDR snapshot.
 
-Future phases must validate which person metadata is available from real VDR installations before connecting recordings to person search.
+Supported parameters:
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| name | string | empty | Case-insensitive partial match against originalName. |
+| normalizedName | string | empty | Exact match against normalizedName. |
+| role | string | empty | Optional role filter. |
+| source | string | empty | Optional source filter. |
+| providerReference | string | empty | Exact provider reference filter. |
+| backend | string | empty | Optional backend filter. Empty uses default snapshot recordings. |
+| limit | integer | 0 | Maximum number of returned matches. Zero means no explicit limit. |
+| offset | integer | 0 | Number of matching entries to skip. |
+
+Successful response shape:
+
+    {
+      "totalCount": 1,
+      "returnedCount": 1,
+      "limit": 10,
+      "offset": 0,
+      "matches": [
+        {
+          "recording": {
+            "id": "router-recording-1",
+            "backendId": "default",
+            "title": "Router Recording",
+            "path": "/srv/vdr/video/Router_Recording/2026-06-04.20.00.1-0.rec"
+          },
+          "person": {
+            "source": "tvscraper",
+            "role": "actor",
+            "originalName": "Router Actor",
+            "normalizedName": "router-actor",
+            "characterName": "Router Character",
+            "confidence": 95,
+            "providerReference": "tvscraper:router-actor"
+          }
+        }
+      ]
+    }
+
+The recording-person search does not inspect recording titles, paths or descriptions as fallback person sources.
+
+It only searches structured Person entries attached to VdrRecording.persons.
 
 ---
 
@@ -341,7 +406,7 @@ Future phases must validate which person metadata is available from real VDR ins
 The following are intentionally out of scope for the current person query API:
 
 - real VDR person metadata extraction
-- recording person metadata extraction
+- additional recording person metadata extraction
 - EPG person metadata extraction
 - persistent person index
 - external provider lookup
@@ -349,8 +414,6 @@ The following are intentionally out of scope for the current person query API:
 - IMDb identity resolution
 - TVScraper integration
 - scraper2vdr integration
-- actor-to-recording reverse lookup
-- director-to-recording reverse lookup
 - SearchTimer integration
 
 ---
@@ -365,8 +428,7 @@ Future phases may add:
 - TVScraper person import
 - scraper2vdr person import
 - TMDB and IMDb provider references
-- actor search over recordings
-- director search over recordings
+- additional actor and director search validation over real recordings
 - cast and crew filters
 - persistent person index
 - multi-backend person search

@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.33 - Recording Person Search API Documentation
+
+Status: Completed.
+
+Summary:
+- Documents the snapshot-backed recording-person search API, query parameters, response shape, backend filter, and current source limitations.
+
 ## Phase 46.32 - Snapshot-backed Recording Person Search Wiring
 
 Status: Completed.
