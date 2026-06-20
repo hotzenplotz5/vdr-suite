@@ -26,6 +26,17 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.7 - Genre Architecture Documentation
+
+Status: Completed.
+
+Summary:
+- Added genre architecture documentation.
+- Documented canonical genre IDs, source evidence, resolver behavior, JSON contract and localized labels.
+- Documented the future `resources/i18n/<locale>/genres.json` direction.
+- Clarified that clients should use canonical IDs for filtering and labels only for display.
+- Kept REST, database, provider integration, SearchTimer and policy enforcement out of scope.
+
 ## Phase 46.6 - Genre Resolution Localization JSON
 
 Status: Completed.
@@ -255,4 +266,3 @@ Summary:
 - [Back to Documentation Index](../index.md)
 - [Back to Development Index](index.md)
 - [Back to Current Project Status](current-status.md)
-
