@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.24 - Person Query Documentation
+
+Status: Completed.
+
+Summary:
+- Documents the routed person query API, parameters, validation, response contract, current empty data source, and recording-search limitations.
+
 ## Phase 46.23 - Person Query Router Wiring
 
 Status: Completed.

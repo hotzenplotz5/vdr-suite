@@ -84,13 +84,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.23 - Person Query Router Wiring
+Phase 46.24 - Person Query Documentation
 ```
 
 Current Focus:
 
 ```text
-Phase 46.24 - Person Query Documentation
+Phase 46.25 - Real VDR Person Metadata Validation
 ```
 
 Latest Completed Milestone:

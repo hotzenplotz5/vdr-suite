@@ -50,9 +50,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.23 - Person Query Router Wiring
+Latest Completed Implementation Phase: Phase 46.24 - Person Query Documentation
 
-Current Implementation Focus: Phase 46.24 - Person Query Documentation
+Current Implementation Focus: Phase 46.25 - Real VDR Person Metadata Validation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

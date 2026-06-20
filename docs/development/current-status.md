@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.23 - Person Query Router Wiring
+Phase 46.24 - Person Query Documentation
 ```
 
 Current major phase status:
@@ -235,7 +235,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.24 - Person Query Documentation
+Phase 46.25 - Real VDR Person Metadata Validation
 ```
 
 The next step is to extend content classification from genres toward content ratings such as FSK-style age classification.

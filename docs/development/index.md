@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.23 - Person Query Router Wiring
+Phase 46.24 - Person Query Documentation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.24 - Person Query Documentation
+Phase 46.25 - Real VDR Person Metadata Validation
 ```
 
 Current architecture validation:
