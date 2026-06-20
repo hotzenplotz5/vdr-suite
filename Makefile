@@ -772,7 +772,8 @@ test-recording-person-search-result:
 		-o /tmp/test_recording_person_search_result
 	/tmp/test_recording_person_search_result
 
-test-epg-search-request:\n	$(CXX) $(CXXFLAGS) \
+test-epg-search-request:
+	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \
 		-o /tmp/test_epg_search_request
 	/tmp/test_epg_search_request
