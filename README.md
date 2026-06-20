@@ -50,9 +50,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.26 - Recording Additional Media Person Import
+Latest Completed Implementation Phase: Phase 46.27 - Recording Person Search Result Model
 
-Current Implementation Focus: Phase 46.27 - Recording Person Search Result Model
+Current Implementation Focus: Phase 46.28 - Recording Person Search Service
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

@@ -13,10 +13,10 @@
 
 ```text
 Completed implementation state
-Phase 46.26 - Recording Additional Media Person Import
+Phase 46.27 - Recording Person Search Result Model
 
 Next implementation step
-Phase 46.27 - Recording Person Search Result Model
+Phase 46.28 - Recording Person Search Service
 ```
 
 ---

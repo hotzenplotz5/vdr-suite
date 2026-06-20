@@ -766,8 +766,13 @@ test-person-query-controller:
 		-o /tmp/test_person_query_controller
 	/tmp/test_person_query_controller
 
-test-epg-search-request:
+test-recording-person-search-result:
 	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_recording_person_search_result.cpp \
+		-o /tmp/test_recording_person_search_result
+	/tmp/test_recording_person_search_result
+
+test-epg-search-request:\n	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \
 		-o /tmp/test_epg_search_request
 	/tmp/test_epg_search_request

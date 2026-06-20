@@ -84,13 +84,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.26 - Recording Additional Media Person Import
+Phase 46.27 - Recording Person Search Result Model
 ```
 
 Current Focus:
 
 ```text
-Phase 46.27 - Recording Person Search Result Model
+Phase 46.28 - Recording Person Search Service
 ```
 
 Latest Completed Milestone:

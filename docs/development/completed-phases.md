@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.27 - Recording Person Search Result Model
+
+Status: Completed.
+
+Summary:
+- Adds a recording-person search result model that preserves both matched person metadata and the recording context.
+
 ## Phase 46.26 - Recording Additional Media Person Import
 
 Status: Completed.
