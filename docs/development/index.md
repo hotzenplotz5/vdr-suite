@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.33 - Recording Person Search API Documentation
+Phase 46.34 - Real VDR Person Metadata Validation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.34 - Real VDR Person Metadata Validation
+Phase 46.35 - Recording Character Search
 ```
 
 Current architecture validation:

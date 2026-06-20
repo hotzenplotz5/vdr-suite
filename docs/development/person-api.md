@@ -76,7 +76,7 @@ Not implemented yet:
 
 - full TVScraper character and crew metadata export
 - real EPG person metadata extraction
-- TVScraper integration
+- full TVScraper cast and crew export integration
 - scraper2vdr integration
 - TMDB integration
 - IMDb integration
@@ -401,11 +401,59 @@ It only searches structured Person entries attached to VdrRecording.persons.
 
 ---
 
+## Real VDR Recording Metadata Validation
+
+A real yaVDR / RESTfulAPI recording metadata snapshot was inspected during Phase 46.34.
+
+Observed dataset:
+
+| Metric | Observed value |
+| --- | --- |
+| Total recordings | 978 |
+| JSON occurrences of actors | 457 |
+| JSON occurrences of director | 0 |
+| JSON occurrences of writer | 0 |
+| JSON occurrences of producer | 0 |
+
+Observed recording metadata shape:
+
+    "additional_media": {
+      "type": "movie",
+      "movie_id": 9273,
+      "title": "Ace Ventura - Jetzt wird's wild",
+      "original_title": "Ace Ventura: When Nature Calls",
+      "actors": [
+        {
+          "name": "Jim Carrey",
+          "role": "Ace Ventura",
+          "thumb": "var/cache/vdr/plugins/tvscraper/movies/actors/actor_206.jpg"
+        }
+      ]
+    }
+
+Validation result:
+
+- RESTfulAPI currently exposes TVScraper movie cast data through additional_media.actors.
+- Actor entries contain a person name.
+- Actor entries contain a character or role name.
+- Actor entries may contain a thumbnail path.
+- Director, writer and producer fields were not present in the inspected recordings.json payload.
+- Recording-person search is therefore immediately useful for actor and character lookup.
+- Crew search requires additional RESTfulAPI / TVScraper character export work before VDR-Suite can consume those roles from real recordings.
+
+Implication:
+
+The current VDR-Suite recording-person search pipeline is validated for actor metadata from real recordings.
+
+The current limitation for director, writer and producer lookup is upstream metadata availability in the exported RESTfulAPI payload, not the VDR-Suite search model.
+
+---
+
 ## Out of Scope
 
 The following are intentionally out of scope for the current person query API:
 
-- real VDR person metadata extraction
+- full crew metadata extraction from real VDR payloads
 - additional recording person metadata extraction
 - EPG person metadata extraction
 - persistent person index
