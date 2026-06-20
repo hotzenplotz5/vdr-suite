@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.8 - Content Rating Domain Foundation
+Phase 46.9 - Content Rating Resolution Model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.9 - Content Rating Resolution Model
+Phase 46.10 - Content Rating JSON Contract
 ```
 
 Current architecture validation:

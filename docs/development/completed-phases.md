@@ -26,6 +26,18 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.9 - Content Rating Resolution Model
+
+Status: Completed.
+
+Summary:
+- Added `ContentRatingResolver`.
+- Added `ContentRatingResolutionResult`.
+- Preserved all content rating evidence while selecting a primary rating.
+- Preferred user ratings as explicit manual overrides.
+- Otherwise preferred explicit confidence, higher confidence, conservative minimum age and deterministic source priority.
+- Kept JSON, REST, database, profile policy and enforcement out of scope.
+
 ## Phase 46.8 - Content Rating Domain Foundation
 
 Status: Completed.

@@ -48,9 +48,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.8 - Content Rating Domain Foundation
+Latest Completed Implementation Phase: Phase 46.9 - Content Rating Resolution Model
 
-Current Implementation Focus: Phase 46.9 - Content Rating Resolution Model
+Current Implementation Focus: Phase 46.10 - Content Rating JSON Contract
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

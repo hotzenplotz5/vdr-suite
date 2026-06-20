@@ -84,13 +84,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.8 - Content Rating Domain Foundation
+Phase 46.9 - Content Rating Resolution Model
 ```
 
 Current Focus:
 
 ```text
-Phase 46.9 - Content Rating Resolution Model
+Phase 46.10 - Content Rating JSON Contract
 ```
 
 Latest Completed Milestone:

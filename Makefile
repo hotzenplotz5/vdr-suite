@@ -671,6 +671,12 @@ test-content-rating:
 		-o /tmp/test_content_rating
 	/tmp/test_content_rating
 
+test-content-rating-resolver:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_content_rating_resolver.cpp \
+		-o /tmp/test_content_rating_resolver
+	/tmp/test_content_rating_resolver
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \

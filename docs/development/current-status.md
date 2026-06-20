@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.8 - Content Rating Domain Foundation
+Phase 46.9 - Content Rating Resolution Model
 ```
 
 Current major phase status:
@@ -233,7 +233,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.9 - Content Rating Resolution Model
+Phase 46.10 - Content Rating JSON Contract
 ```
 
 The next step is to extend content classification from genres toward content ratings such as FSK-style age classification.
