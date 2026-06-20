@@ -50,7 +50,7 @@ Backend Optional Runtime  ████████████ 100%
 
 Latest Completed Implementation Phase: Phase 46.8 - Content Rating Domain Foundation
 
-Current Implementation Focus: Phase 46.8 - Content Rating Domain Foundation
+Current Implementation Focus: Phase 46.9 - Content Rating Resolution Model
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
