@@ -18,11 +18,18 @@ int main()
     assert(emptyJson.find("\"searchtimers\":[]") != std::string::npos);
 
     std::vector<SearchTimer> timers;
-    timers.push_back(SearchTimer::create(
+    SearchTimer terraX = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "1"),
         "Terra X",
         "Terra X",
-        SearchTimerState::Active));
+        SearchTimerState::Active);
+    terraX.recordingOptions().setDirectory("Doku");
+    terraX.recordingOptions().setPriority(50);
+    terraX.recordingOptions().setLifetime(99);
+    terraX.scheduleOptions().setMarginStartMinutes(5);
+    terraX.scheduleOptions().setMarginStopMinutes(10);
+    terraX.scheduleOptions().setUseVps(true);
+    timers.push_back(terraX);
     timers.push_back(SearchTimer::create(
         SearchTimerId::fromBackendNativeId("bedroom", "2"),
         "Bob \"Marley\"",
@@ -46,6 +53,14 @@ int main()
     assert(json.find("\"name\":\"Terra X\"") != std::string::npos);
     assert(json.find("\"query\":\"Terra X\"") != std::string::npos);
     assert(json.find("\"state\":\"active\"") != std::string::npos);
+    assert(json.find("\"recordingOptions\":{") != std::string::npos);
+    assert(json.find("\"directory\":\"Doku\"") != std::string::npos);
+    assert(json.find("\"priority\":50") != std::string::npos);
+    assert(json.find("\"lifetime\":99") != std::string::npos);
+    assert(json.find("\"scheduleOptions\":{") != std::string::npos);
+    assert(json.find("\"marginStartMinutes\":5") != std::string::npos);
+    assert(json.find("\"marginStopMinutes\":10") != std::string::npos);
+    assert(json.find("\"useVps\":true") != std::string::npos);
     assert(json.find("\"backendId\":\"bedroom\"") != std::string::npos);
     assert(json.find("\"name\":\"Bob \\\"Marley\\\"\"") != std::string::npos);
     assert(json.find("\"query\":\"Bob\\\\Marley\"") != std::string::npos);

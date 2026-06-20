@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.15 - SearchTimer real payload validation
+    Phase 47.16 - SearchTimer domain model expansion
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.16 - SearchTimer domain model expansion
+    Phase 47.17 - SearchTimer mapper expansion
 
 Completed foundations:
 

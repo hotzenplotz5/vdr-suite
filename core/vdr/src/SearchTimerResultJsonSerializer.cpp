@@ -81,7 +81,17 @@ std::string SearchTimerResultJsonSerializer::serialize(
             << "\"backendNativeId\":\"" << escapeJsonString(timer.backendNativeId()) << "\","
             << "\"name\":\"" << escapeJsonString(timer.name()) << "\","
             << "\"query\":\"" << escapeJsonString(timer.query()) << "\","
-            << "\"state\":\"" << stateToJson(timer.state()) << "\""
+            << "\"state\":\"" << stateToJson(timer.state()) << "\","
+            << "\"recordingOptions\":{"
+            << "\"directory\":\"" << escapeJsonString(timer.recordingOptions().directory()) << "\","
+            << "\"priority\":" << timer.recordingOptions().priority() << ","
+            << "\"lifetime\":" << timer.recordingOptions().lifetime()
+            << "},"
+            << "\"scheduleOptions\":{"
+            << "\"marginStartMinutes\":" << timer.scheduleOptions().marginStartMinutes() << ","
+            << "\"marginStopMinutes\":" << timer.scheduleOptions().marginStopMinutes() << ","
+            << "\"useVps\":" << (timer.scheduleOptions().useVps() ? "true" : "false")
+            << "}"
             << "}";
     }
 

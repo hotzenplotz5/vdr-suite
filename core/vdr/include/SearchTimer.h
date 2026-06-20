@@ -57,6 +57,88 @@ enum class SearchTimerState {
     Inactive
 };
 
+class SearchTimerRecordingOptions {
+public:
+    const std::string& directory() const
+    {
+        return directory_;
+    }
+
+    int priority() const
+    {
+        return priority_;
+    }
+
+    int lifetime() const
+    {
+        return lifetime_;
+    }
+
+    void setDirectory(
+        const std::string& directory)
+    {
+        directory_ = directory;
+    }
+
+    void setPriority(
+        int priority)
+    {
+        priority_ = priority;
+    }
+
+    void setLifetime(
+        int lifetime)
+    {
+        lifetime_ = lifetime;
+    }
+
+private:
+    std::string directory_;
+    int priority_ = 0;
+    int lifetime_ = 0;
+};
+
+class SearchTimerScheduleOptions {
+public:
+    int marginStartMinutes() const
+    {
+        return marginStartMinutes_;
+    }
+
+    int marginStopMinutes() const
+    {
+        return marginStopMinutes_;
+    }
+
+    bool useVps() const
+    {
+        return useVps_;
+    }
+
+    void setMarginStartMinutes(
+        int marginStartMinutes)
+    {
+        marginStartMinutes_ = marginStartMinutes;
+    }
+
+    void setMarginStopMinutes(
+        int marginStopMinutes)
+    {
+        marginStopMinutes_ = marginStopMinutes;
+    }
+
+    void setUseVps(
+        bool useVps)
+    {
+        useVps_ = useVps;
+    }
+
+private:
+    int marginStartMinutes_ = 0;
+    int marginStopMinutes_ = 0;
+    bool useVps_ = false;
+};
+
 class SearchTimer {
 public:
     static SearchTimer create(
@@ -103,6 +185,26 @@ public:
         return state_;
     }
 
+    const SearchTimerRecordingOptions& recordingOptions() const
+    {
+        return recordingOptions_;
+    }
+
+    SearchTimerRecordingOptions& recordingOptions()
+    {
+        return recordingOptions_;
+    }
+
+    const SearchTimerScheduleOptions& scheduleOptions() const
+    {
+        return scheduleOptions_;
+    }
+
+    SearchTimerScheduleOptions& scheduleOptions()
+    {
+        return scheduleOptions_;
+    }
+
     bool isActive() const
     {
         return state_ == SearchTimerState::Active;
@@ -118,4 +220,6 @@ private:
     std::string name_;
     std::string query_;
     SearchTimerState state_ = SearchTimerState::Unknown;
+    SearchTimerRecordingOptions recordingOptions_;
+    SearchTimerScheduleOptions scheduleOptions_;
 };

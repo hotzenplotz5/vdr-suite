@@ -242,14 +242,28 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
             continue;
         }
 
-        timers.push_back(
-            SearchTimer::create(
-                SearchTimerId::fromBackendNativeId(
-                    backendId,
-                    std::to_string(id)),
-                search,
-                search,
-                mapState(objectText)));
+        SearchTimer timer = SearchTimer::create(
+            SearchTimerId::fromBackendNativeId(
+                backendId,
+                std::to_string(id)),
+            search,
+            search,
+            mapState(objectText));
+
+        timer.recordingOptions().setDirectory(
+            getStringField(objectText, "directory"));
+        timer.recordingOptions().setPriority(
+            getIntField(objectText, "priority", 0));
+        timer.recordingOptions().setLifetime(
+            getIntField(objectText, "lifetime", 0));
+        timer.scheduleOptions().setMarginStartMinutes(
+            getIntField(objectText, "margin_start", 0));
+        timer.scheduleOptions().setMarginStopMinutes(
+            getIntField(objectText, "margin_stop", 0));
+        timer.scheduleOptions().setUseVps(
+            getIntField(objectText, "use_vps", 0) != 0);
+
+        timers.push_back(timer);
     }
 
     return timers;

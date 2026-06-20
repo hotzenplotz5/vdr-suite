@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.15 - SearchTimer real payload validation
+Phase 47.16 - SearchTimer domain model expansion
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.16 - SearchTimer domain model expansion
+Phase 47.17 - SearchTimer mapper expansion
 ```
 
 Current architecture validation:

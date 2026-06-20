@@ -36,6 +36,27 @@ int main()
     assert(activeTimer.isActive());
     assert(!activeTimer.isInactive());
 
+    assert(activeTimer.recordingOptions().directory().empty());
+    assert(activeTimer.recordingOptions().priority() == 0);
+    assert(activeTimer.recordingOptions().lifetime() == 0);
+    assert(activeTimer.scheduleOptions().marginStartMinutes() == 0);
+    assert(activeTimer.scheduleOptions().marginStopMinutes() == 0);
+    assert(!activeTimer.scheduleOptions().useVps());
+
+    activeTimer.recordingOptions().setDirectory("Doku");
+    activeTimer.recordingOptions().setPriority(50);
+    activeTimer.recordingOptions().setLifetime(99);
+    activeTimer.scheduleOptions().setMarginStartMinutes(5);
+    activeTimer.scheduleOptions().setMarginStopMinutes(10);
+    activeTimer.scheduleOptions().setUseVps(true);
+
+    assert(activeTimer.recordingOptions().directory() == "Doku");
+    assert(activeTimer.recordingOptions().priority() == 50);
+    assert(activeTimer.recordingOptions().lifetime() == 99);
+    assert(activeTimer.scheduleOptions().marginStartMinutes() == 5);
+    assert(activeTimer.scheduleOptions().marginStopMinutes() == 10);
+    assert(activeTimer.scheduleOptions().useVps());
+
     SearchTimer inactiveTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "43"),
         "Tatort",

@@ -8,7 +8,9 @@ int main()
 {
     const std::string json =
         "{\"searchtimers\":["
-        "{\"id\":1,\"search\":\"Terra X\",\"use_as_searchtimer\":1},"
+        "{\"id\":1,\"search\":\"Terra X\",\"use_as_searchtimer\":1,"
+        "\"directory\":\"Doku\",\"priority\":50,\"lifetime\":99,"
+        "\"margin_start\":5,\"margin_stop\":10,\"use_vps\":1},"
         "{\"id\":2,\"search\":\"Tatort\",\"use_as_searchtimer\":0}"
         "],\"count\":2,\"total\":2}";
 
@@ -23,6 +25,12 @@ int main()
     assert(timers.at(0).name() == "Terra X");
     assert(timers.at(0).query() == "Terra X");
     assert(timers.at(0).isActive());
+    assert(timers.at(0).recordingOptions().directory() == "Doku");
+    assert(timers.at(0).recordingOptions().priority() == 50);
+    assert(timers.at(0).recordingOptions().lifetime() == 99);
+    assert(timers.at(0).scheduleOptions().marginStartMinutes() == 5);
+    assert(timers.at(0).scheduleOptions().marginStopMinutes() == 10);
+    assert(timers.at(0).scheduleOptions().useVps());
 
     assert(timers.at(1).backendId() == "livingroom");
     assert(timers.at(1).backendNativeId() == "2");

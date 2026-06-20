@@ -71,6 +71,7 @@ SearchTimer Route               implemented
 SearchTimer Daemon Provider     implemented
 SearchTimer Backend Contract    documented
 SearchTimer Payload Validation  documented
+SearchTimer Domain Model        expanded
 ```
 
 ### Federation and Security
@@ -126,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.15 - SearchTimer real payload validation
+Phase 47.16 - SearchTimer domain model expansion
 ```
 
 Current Documentation Consolidation:
@@ -138,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.16 - SearchTimer domain model expansion
+Phase 47.17 - SearchTimer mapper expansion
 ```
 
 Latest Completed Milestones:

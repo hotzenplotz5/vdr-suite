@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.16 - SearchTimer domain model expansion
+
+Status: Completed.
+
+Summary:
+- Expanded SearchTimer with recording options for directory, priority and lifetime.
+- Added schedule options for start margin, stop margin and VPS usage.
+- Mapped stable real RESTfulAPI payload fields into the SearchTimer domain.
+- Kept complex filter, repeat and blacklist fields for later typed phases.
+
+---
+
 ## Phase 47.11 - SearchTimer endpoint contract
 
 Status: Completed.
