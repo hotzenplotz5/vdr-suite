@@ -262,6 +262,16 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
             getIntField(objectText, "margin_stop", 0));
         timer.scheduleOptions().setUseVps(
             getIntField(objectText, "use_vps", 0) != 0);
+        timer.filterOptions().setUseChannel(
+            getIntField(objectText, "use_channel", 0) != 0);
+        timer.filterOptions().setUseDayOfWeek(
+            getIntField(objectText, "use_dayofweek", 0) != 0);
+        timer.filterOptions().setUseDuration(
+            getIntField(objectText, "use_duration", 0) != 0);
+        timer.filterOptions().setDurationMinMinutes(
+            getIntField(objectText, "duration_min", 0));
+        timer.filterOptions().setDurationMaxMinutes(
+            getIntField(objectText, "duration_max", 0));
 
         timers.push_back(timer);
     }

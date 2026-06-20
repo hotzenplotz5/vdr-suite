@@ -91,6 +91,13 @@ std::string SearchTimerResultJsonSerializer::serialize(
             << "\"marginStartMinutes\":" << timer.scheduleOptions().marginStartMinutes() << ","
             << "\"marginStopMinutes\":" << timer.scheduleOptions().marginStopMinutes() << ","
             << "\"useVps\":" << (timer.scheduleOptions().useVps() ? "true" : "false")
+            << "},"
+            << "\"filterOptions\":{"
+            << "\"useChannel\":" << (timer.filterOptions().useChannel() ? "true" : "false") << ","
+            << "\"useDayOfWeek\":" << (timer.filterOptions().useDayOfWeek() ? "true" : "false") << ","
+            << "\"useDuration\":" << (timer.filterOptions().useDuration() ? "true" : "false") << ","
+            << "\"durationMinMinutes\":" << timer.filterOptions().durationMinMinutes() << ","
+            << "\"durationMaxMinutes\":" << timer.filterOptions().durationMaxMinutes()
             << "}"
             << "}";
     }

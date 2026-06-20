@@ -10,7 +10,9 @@ int main()
         "{\"searchtimers\":["
         "{\"id\":1,\"search\":\"Terra X\",\"use_as_searchtimer\":1,"
         "\"directory\":\"Doku\",\"priority\":50,\"lifetime\":99,"
-        "\"margin_start\":5,\"margin_stop\":10,\"use_vps\":1},"
+        "\"margin_start\":5,\"margin_stop\":10,\"use_vps\":1,"
+        "\"use_channel\":1,\"use_dayofweek\":1,\"use_duration\":1,"
+        "\"duration_min\":30,\"duration_max\":120},"
         "{\"id\":2,\"search\":\"Tatort\",\"use_as_searchtimer\":0}"
         "],\"count\":2,\"total\":2}";
 
@@ -31,6 +33,11 @@ int main()
     assert(timers.at(0).scheduleOptions().marginStartMinutes() == 5);
     assert(timers.at(0).scheduleOptions().marginStopMinutes() == 10);
     assert(timers.at(0).scheduleOptions().useVps());
+    assert(timers.at(0).filterOptions().useChannel());
+    assert(timers.at(0).filterOptions().useDayOfWeek());
+    assert(timers.at(0).filterOptions().useDuration());
+    assert(timers.at(0).filterOptions().durationMinMinutes() == 30);
+    assert(timers.at(0).filterOptions().durationMaxMinutes() == 120);
 
     assert(timers.at(1).backendId() == "livingroom");
     assert(timers.at(1).backendNativeId() == "2");

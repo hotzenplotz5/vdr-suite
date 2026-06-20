@@ -57,6 +57,24 @@ int main()
     assert(activeTimer.scheduleOptions().marginStopMinutes() == 10);
     assert(activeTimer.scheduleOptions().useVps());
 
+    assert(!activeTimer.filterOptions().useChannel());
+    assert(!activeTimer.filterOptions().useDayOfWeek());
+    assert(!activeTimer.filterOptions().useDuration());
+    assert(activeTimer.filterOptions().durationMinMinutes() == 0);
+    assert(activeTimer.filterOptions().durationMaxMinutes() == 0);
+
+    activeTimer.filterOptions().setUseChannel(true);
+    activeTimer.filterOptions().setUseDayOfWeek(true);
+    activeTimer.filterOptions().setUseDuration(true);
+    activeTimer.filterOptions().setDurationMinMinutes(30);
+    activeTimer.filterOptions().setDurationMaxMinutes(120);
+
+    assert(activeTimer.filterOptions().useChannel());
+    assert(activeTimer.filterOptions().useDayOfWeek());
+    assert(activeTimer.filterOptions().useDuration());
+    assert(activeTimer.filterOptions().durationMinMinutes() == 30);
+    assert(activeTimer.filterOptions().durationMaxMinutes() == 120);
+
     SearchTimer inactiveTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "43"),
         "Tatort",

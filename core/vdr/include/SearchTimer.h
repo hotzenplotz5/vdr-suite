@@ -139,6 +139,71 @@ private:
     bool useVps_ = false;
 };
 
+class SearchTimerFilterOptions {
+public:
+    bool useChannel() const
+    {
+        return useChannel_;
+    }
+
+    bool useDayOfWeek() const
+    {
+        return useDayOfWeek_;
+    }
+
+    bool useDuration() const
+    {
+        return useDuration_;
+    }
+
+    int durationMinMinutes() const
+    {
+        return durationMinMinutes_;
+    }
+
+    int durationMaxMinutes() const
+    {
+        return durationMaxMinutes_;
+    }
+
+    void setUseChannel(
+        bool useChannel)
+    {
+        useChannel_ = useChannel;
+    }
+
+    void setUseDayOfWeek(
+        bool useDayOfWeek)
+    {
+        useDayOfWeek_ = useDayOfWeek;
+    }
+
+    void setUseDuration(
+        bool useDuration)
+    {
+        useDuration_ = useDuration;
+    }
+
+    void setDurationMinMinutes(
+        int durationMinMinutes)
+    {
+        durationMinMinutes_ = durationMinMinutes;
+    }
+
+    void setDurationMaxMinutes(
+        int durationMaxMinutes)
+    {
+        durationMaxMinutes_ = durationMaxMinutes;
+    }
+
+private:
+    bool useChannel_ = false;
+    bool useDayOfWeek_ = false;
+    bool useDuration_ = false;
+    int durationMinMinutes_ = 0;
+    int durationMaxMinutes_ = 0;
+};
+
 class SearchTimer {
 public:
     static SearchTimer create(
@@ -205,6 +270,16 @@ public:
         return scheduleOptions_;
     }
 
+    const SearchTimerFilterOptions& filterOptions() const
+    {
+        return filterOptions_;
+    }
+
+    SearchTimerFilterOptions& filterOptions()
+    {
+        return filterOptions_;
+    }
+
     bool isActive() const
     {
         return state_ == SearchTimerState::Active;
@@ -222,4 +297,5 @@ private:
     SearchTimerState state_ = SearchTimerState::Unknown;
     SearchTimerRecordingOptions recordingOptions_;
     SearchTimerScheduleOptions scheduleOptions_;
+    SearchTimerFilterOptions filterOptions_;
 };

@@ -29,6 +29,11 @@ int main()
     terraX.scheduleOptions().setMarginStartMinutes(5);
     terraX.scheduleOptions().setMarginStopMinutes(10);
     terraX.scheduleOptions().setUseVps(true);
+    terraX.filterOptions().setUseChannel(true);
+    terraX.filterOptions().setUseDayOfWeek(true);
+    terraX.filterOptions().setUseDuration(true);
+    terraX.filterOptions().setDurationMinMinutes(30);
+    terraX.filterOptions().setDurationMaxMinutes(120);
     timers.push_back(terraX);
     timers.push_back(SearchTimer::create(
         SearchTimerId::fromBackendNativeId("bedroom", "2"),
@@ -61,6 +66,12 @@ int main()
     assert(json.find("\"marginStartMinutes\":5") != std::string::npos);
     assert(json.find("\"marginStopMinutes\":10") != std::string::npos);
     assert(json.find("\"useVps\":true") != std::string::npos);
+    assert(json.find("\"filterOptions\":{") != std::string::npos);
+    assert(json.find("\"useChannel\":true") != std::string::npos);
+    assert(json.find("\"useDayOfWeek\":true") != std::string::npos);
+    assert(json.find("\"useDuration\":true") != std::string::npos);
+    assert(json.find("\"durationMinMinutes\":30") != std::string::npos);
+    assert(json.find("\"durationMaxMinutes\":120") != std::string::npos);
     assert(json.find("\"backendId\":\"bedroom\"") != std::string::npos);
     assert(json.find("\"name\":\"Bob \\\"Marley\\\"\"") != std::string::npos);
     assert(json.find("\"query\":\"Bob\\\\Marley\"") != std::string::npos);
