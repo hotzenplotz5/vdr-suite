@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.37 - EPG Person Search Result Model
+
+Status: Completed.
+
+Summary:
+- Adds the EPG person search result model that preserves matched person metadata together with EPG event and backend context.
+
 ## Phase 46.36 - Recording Character Search API Documentation
 
 Status: Completed.

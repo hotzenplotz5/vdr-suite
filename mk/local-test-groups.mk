@@ -59,6 +59,7 @@ test-vdr: \
 	test-epg-search-request \
 	test-epg-search-matcher \
 	test-epg-search-result \
+	test-epg-person-search-result \
 	test-epg-search-result-json-serializer \
 	test-epg-search-service \
 	test-vdr-domain-objects

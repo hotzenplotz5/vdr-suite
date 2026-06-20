@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.36 - Recording Character Search API Documentation
+Phase 46.37 - EPG Person Search Result Model
 ```
 
 Current major phase status:
@@ -235,7 +235,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.37 - EPG Person Search Result Model
+Phase 46.38 - EPG Person Search Service
 ```
 
 The next step is to extend content classification from genres toward content ratings such as FSK-style age classification.

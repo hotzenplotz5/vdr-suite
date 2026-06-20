@@ -50,9 +50,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.36 - Recording Character Search API Documentation
+Latest Completed Implementation Phase: Phase 46.37 - EPG Person Search Result Model
 
-Current Implementation Focus: Phase 46.37 - EPG Person Search Result Model
+Current Implementation Focus: Phase 46.38 - EPG Person Search Service
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 
