@@ -26,6 +26,17 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.11 - Content Rating REST Boundary
+
+Status: Completed.
+
+Summary:
+- Added `ContentRatingController` as the first REST-facing content rating boundary.
+- Returned content rating resolution results as `ApiResponse`.
+- Preserved the existing JSON contract through `ContentRatingResolutionJsonSerializer`.
+- Added isolated controller coverage without routing or backend integration.
+- Kept ApiRouter wiring, database, provider integration, profile policy and enforcement out of scope.
+
 ## Phase 46.10 - Content Rating JSON Contract
 
 Status: Completed.
