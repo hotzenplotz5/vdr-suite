@@ -4,6 +4,7 @@
 #include "RestfulApiVdrAdapter.h"
 #include "RestfulApiVdrTimerActionExecutorAdapter.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
+#include "RestfulApiSearchTimerAdapter.h"
 #include "SimpleHttpListener.h"
 #include "TestHttpServer.h"
 
@@ -33,6 +34,10 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         &runtimeDiagnosticsService_);
     context->adapter = std::make_unique<RestfulApiVdrAdapter>(
         backendConfig,
+        *context->httpClient);
+
+    context->searchTimerAdapter = std::make_unique<RestfulApiSearchTimerAdapter>(
+        context->backendId,
         *context->httpClient);
 
     if (vdrTimerActionExecutorAdapterRegistry_) {
@@ -192,6 +197,22 @@ bool DaemonRuntime::initialize()
 
     std::cout << "VDR controller runtime initialized" << std::endl;
 
+    searchTimerService_ = std::make_unique<SearchTimerService>();
+    searchTimerResultJsonSerializer_ = std::make_unique<SearchTimerResultJsonSerializer>();
+
+    if (!backendRuntimeContexts_.empty()
+        && backendRuntimeContexts_.front()->searchTimerAdapter) {
+        searchTimerController_ = std::make_unique<SearchTimerController>(
+            *searchTimerService_,
+            *searchTimerResultJsonSerializer_,
+            *backendRuntimeContexts_.front()->searchTimerAdapter);
+
+        std::cout << "SearchTimer controller runtime initialized" << std::endl;
+    }
+    else {
+        std::cout << "SearchTimer controller runtime skipped: no VDR backend configured" << std::endl;
+    }
+
     personResolutionJsonSerializer_ = std::make_unique<PersonResolutionJsonSerializer>();
     personSearchService_ = std::make_unique<PersonSearchService>();
     personQueryResultJsonSerializer_ = std::make_unique<PersonQueryResultJsonSerializer>();
@@ -295,6 +316,7 @@ bool DaemonRuntime::initialize()
         *vdrTimerActionExecutorAdapterRegistry_,
         *runtimeDiagnosticsController_,
         *snapshotChangeFeedController_,
+        searchTimerController_.get(),
         *liveTransportController_);
 
     std::cout << "API router runtime initialized" << std::endl;
@@ -366,6 +388,9 @@ void DaemonRuntime::shutdown()
     liveTransport_.reset();
     snapshotChangeFeedController_.reset();
     runtimeDiagnosticsController_.reset();
+    searchTimerController_.reset();
+    searchTimerResultJsonSerializer_.reset();
+    searchTimerService_.reset();
     vdrTimerActionController_.reset();
     recordingPersonSearchController_.reset();
     recordingPersonSearchResultJsonSerializer_.reset();
