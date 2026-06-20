@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.6 - Genre Resolution Localization JSON
+Phase 46.7 - Genre Architecture Documentation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.7 - Genre Architecture Documentation
+Phase 46.8 - Content Rating Domain Foundation
 ```
 
 Current architecture validation:
@@ -65,6 +65,7 @@ Current architecture validation:
 - [Phase 44 Recording Action Runtime Completion](phase-44-recording-action-runtime-completion.md)
 - [Phase 45.0 - EPG Search Architecture](phase-45-epg-search-architecture.md)
 - [EPG Search API](epg-search-api.md)
+- [Genre Architecture](genre-architecture.md)
 
 ---
 
@@ -138,11 +139,3 @@ These documents are historical implementation notes or phase-specific architectu
 - [Backend Development Guide](backend-development-guide.md)
 - [Contributor Guide](contributor-guide.md)
 - [Release Process](release-process.md)
-
----
-
-## Back
-
-- [Back to README](../../README.md)
-- [Back to Documentation Index](../index.md)
-- [Back to Project Overview](../project-overview.md)
