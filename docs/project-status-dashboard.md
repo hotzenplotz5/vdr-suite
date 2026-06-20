@@ -9,6 +9,7 @@
 - [Roadmap](planning/roadmap.md)
 - [Architecture](architecture/index.md)
 - [ADR](adr/index.md)
+- [Completed Phases](development/completed-phases.md)
 
 ---
 
@@ -17,64 +18,72 @@
 ### Core Platform
 
 ```text
-Backend Foundation        complete
-Snapshot Runtime          complete
-Read API                  complete
-Change Feed               complete
-Backend Registry          implemented
-Multi-Backend Routing     implemented
-Multi-Backend Polling     implemented
-Multi-Backend Read API    implemented
-Live Transport            implemented
-Selective Event Queries   implemented
-Heavy Domain Policy       implemented
-EPG REST API Boundary     implemented
-EPG Search API            implemented
-Recording Query API       implemented
-Recording Actions         implemented + diagnostics
-Content Classification    ADR accepted/proposed foundation
+Backend Foundation              complete
+Snapshot Runtime                complete
+Read API                        complete
+Change Feed                     complete
+Backend Registry                implemented
+Multi-Backend Routing           implemented
+Multi-Backend Polling           implemented
+Multi-Backend Read API          implemented
+Live Transport                  implemented
+Selective Event Queries         implemented
+Heavy Domain Policy             implemented
+EPG REST API Boundary           implemented
+EPG Search API                  implemented
+Recording Query API             implemented
+Recording Actions               implemented + diagnostics
+Content Classification          ADR + foundation implemented
+Person Metadata                 implemented foundation
+Recording Person Search         implemented foundation
+Recording Character Search      implemented foundation
+EPG Person Search               started
 ```
 
 ### Federation and Security
 
 ```text
-Multi-VDR                 foundation implemented
-Backend Registry          runtime + API implemented
-Multi-Snapshot Cache      implemented
-Backend-Aware Snapshots   implemented
-Runtime Contexts          implemented
-Capability System         foundation implemented
-Authentication            planned
-Authorization             planned
-Profile / Policy          planned after classification
+Multi-VDR                       foundation implemented
+Backend Registry                runtime + API implemented
+Multi-Snapshot Cache            implemented
+Backend-Aware Snapshots         implemented
+Runtime Contexts                implemented
+Capability System               foundation implemented
+Authentication                  planned
+Authorization                   planned
+Profiles / Policy               planned for Phase 49
 ```
 
 ### Client Platforms
 
 ```text
-Web Frontend              planned
-Windows Frontend          planned
-Android Frontend          planned
-iOS Frontend              planned
-TV Frontend               planned
-Hisense / VIDAA Strategy  future evaluation
+Web Frontend                    planned
+Windows Frontend                planned
+Android Frontend                planned
+iOS Frontend                    planned
+TV Frontend                     planned
+Hisense / VIDAA Strategy        future evaluation
 ```
 
 ### Media Extensions
 
 ```text
-Content Classification    ADR-0028 documented
-Genre Foundation          implemented foundation
-Genre Resolution          implemented foundation
-Genre JSON Contract       implemented
-Canonical Genre Registry implemented
-Genre Localization       implemented foundation
-Localized Genre JSON     implemented
-Genre Architecture Docs   complete
-Content Rating / FSK      planned
-Image Validation          planned
-Preview Streams           planned
-Media Streaming           planned
+Content Classification          ADR-0028 documented
+Genre Foundation                implemented foundation
+Genre Resolution                implemented foundation
+Genre JSON Contract             implemented
+Canonical Genre Registry        implemented
+Genre Localization              implemented foundation
+Localized Genre JSON            implemented
+Genre Architecture Docs         complete
+Person Metadata                 implemented foundation
+Recording Person Metadata       implemented foundation
+Recording Character Search      implemented foundation
+EPG Person Search               started
+Content Rating / FSK            planned
+Image Validation                planned
+Preview Streams                 planned
+Media Streaming                 planned
 ```
 
 ---
@@ -87,24 +96,30 @@ Current Major Phase:
 Phase 46.37 - EPG Person Search Result Model
 ```
 
-Current Focus:
+Current Documentation Consolidation:
 
 ```text
-Phase 46.38 - EPG Person Search Service
+Phase 46.39 - Project Status Dashboard Refresh
 ```
 
-Latest Completed Milestone:
+Next Major Implementation Milestone:
 
 ```text
-Phase 46.8 - Content Rating Domain Foundation
+Phase 47.0 - SearchTimer Foundation
 ```
 
-Architecture Work In Progress:
+Latest Completed Milestones:
 
 ```text
-ADR-0028 - Content Classification Architecture
-Phase 46.x - Genre Architecture Foundation
-Future: profiles, content rating, policy and TV frontend strategy
+Person Metadata Foundation
+Recording Person Search Foundation
+Recording Character Search Foundation
+```
+
+Current Milestone In Progress:
+
+```text
+EPG Person Search Foundation
 ```
 
 ---
@@ -112,50 +127,78 @@ Future: profiles, content rating, policy and TV frontend strategy
 ## Recently Completed Milestones
 
 ```text
-Phase 45.1 - EPG Search Request Foundation
-Phase 45.2 - EPG Search Matcher Foundation
-Phase 45.3 - EPG Search Result Foundation
-Phase 45.4 - EPG Search JSON Contract
-Phase 45.5 - EPG Search Service Foundation
-Phase 45.6 - EPG Search Controller Foundation
-Phase 45.7 - EPG Search REST Validation
-Phase 45.8 - EPG Search Documentation
-Phase 46.0 - Content Classification Architecture ADR
-Phase 46.8 - Content Rating Domain Foundation
-ADR-0028 - Content Classification Architecture
+EPG Search Foundation
+Recording Query Foundation
+Recording Action Foundation
+Content Classification Foundation
+Person Metadata Foundation
+Recording Person Search Foundation
+Recording Character Search Foundation
+```
+
+Representative completed phases:
+
+```text
+Phase 45.x  - EPG Search Foundation
+Phase 46.0  - Content Classification Architecture ADR
+Phase 46.16 - Person REST Boundary
+Phase 46.18 - Person Query Model
+Phase 46.24 - Person Query Documentation
+Phase 46.26 - Recording Additional Media Person Import
+Phase 46.32 - Snapshot-backed Recording Person Search Wiring
+Phase 46.34 - Real VDR Person Metadata Validation
+Phase 46.35 - Recording Character Search
+Phase 46.36 - Recording Character Search API Documentation
+Phase 46.37 - EPG Person Search Result Model
 ```
 
 ---
 
 ## Roadmap Progress
 
-Completed Major Foundation:
+Completed Major Foundations:
 
 ```text
+Core platform foundation
+VDR backend foundation
 Multi-backend runtime foundation
+Snapshot runtime foundation
+Change feed foundation
+Live transport foundation
+Capability foundation
 Selective EPG query foundation
-Recording query foundation
-Recording action runtime diagnostics
 EPG search API foundation
-Content classification ADR
-Genre architecture foundation
+Recording query foundation
+Recording action foundation
+Content classification foundation
+Person metadata foundation
+Recording person search foundation
+Recording character search foundation
+```
+
+Current Foundation:
+
+```text
+EPG person search foundation
 ```
 
 Planned Major Direction:
 
 ```text
-Phase 46.x - Content Classification and Genre Foundation
 Phase 47.x - SearchTimer Foundation
-Phase 48.x - Multi-Backend Unified Search
-Phase 49.x - User Profiles, Policy and Content Rating
-Phase 50.x - Streaming API Foundation
-Phase 51.x - TV Frontend Strategy
-Phase 52.x - Rectools Integration Layer
+Phase 48.x - Unified Search Foundation
+Phase 49.x - Profiles, Permissions and Policy
+Phase 50.x - Backend Management Foundation
+Phase 51.x - Live Plugin Parity Foundation
+Phase 52.x - SearchTimer Automation
+Phase 53.x - Recommendation Foundation
+Phase 54.x - Cross Backend Search and Federation
+Phase 55.x - Content Knowledge Graph
 ```
 
 Important:
 
-This progress description summarizes documented roadmap direction by major phase. It is not a code coverage metric and not a production-readiness guarantee.
+This progress description summarizes documented roadmap direction by major milestone. It is not a code coverage metric and not a production-readiness guarantee.
 
 ---
 
@@ -177,9 +220,14 @@ This progress description summarizes documented roadmap direction by major phase
 | Selective Event Queries | Backend-neutral query contracts allow selective EPG access through adapter boundaries. |
 | Heavy Domain Policy | Events / EPG are classified as a heavy domain and protected from automatic full refresh behavior. |
 | EPG REST API Boundary | Selective EPG reads are exposed through backend-neutral REST routes. |
-| EPG Search API | `/api/epg/search` is implemented and documented over selective EPG windows. |
-| Content Classification | ADR-0028 defines source-aware classification for genre, rating, keywords, collections, user tags and folder hints. |
+| EPG Search API | The EPG search API is implemented and documented over selective EPG windows. |
 | Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
+| Recording Actions | Recording action validation and execution foundations are implemented with diagnostics. |
+| Content Classification | ADR-0028 defines source-aware classification for genre, rating, keywords, collections, user tags and folder hints. |
+| Person Metadata | Person domain, roles, sources, query, matching, service, JSON and REST boundaries are implemented. |
+| Recording Person Search | Recording-attached person metadata is searchable with recording and backend context. |
+| Recording Character Search | TVScraper actor role data is exposed as characterName and searchable. |
+| EPG Person Search | The result model foundation is implemented; service and API wiring remain planned. |
 | Capability System | Capability set, resolver state and capability report foundations are implemented. |
 | Authentication | Planned future concern, not implemented yet. |
 | Authorization | Planned future concern, not implemented yet. |
@@ -195,6 +243,7 @@ This progress description summarizes documented roadmap direction by major phase
 - [Project Overview](project-overview.md)
 - [Current Status](development/current-status.md)
 - [Roadmap](planning/roadmap.md)
+- [Completed Phases](development/completed-phases.md)
 - [Architecture](architecture/index.md)
 - [ADR](adr/index.md)
 
