@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.34 - Real VDR Person Metadata Validation
+Phase 46.35 - Recording Character Search
 ```
 
 Current major phase status:
@@ -235,7 +235,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.35 - Recording Character Search
+Phase 46.36 - Recording Character Search API Documentation
 ```
 
 The next step is to extend content classification from genres toward content ratings such as FSK-style age classification.

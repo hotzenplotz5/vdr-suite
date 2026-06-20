@@ -162,6 +162,7 @@ ApiResponse RecordingPersonSearchController::searchRecordingPersons(
     const std::vector<VdrRecording>& recordings,
     const std::string& name,
     const std::string& normalizedName,
+    const std::string& characterName,
     const std::string& role,
     const std::string& source,
     const std::string& providerReference,
@@ -185,6 +186,10 @@ ApiResponse RecordingPersonSearchController::searchRecordingPersons(
 
     if (!normalizedName.empty()) {
         query.withNormalizedName(normalizedName);
+    }
+
+    if (!characterName.empty()) {
+        query.withCharacterName(characterName);
     }
 
     if (!providerReference.empty()) {

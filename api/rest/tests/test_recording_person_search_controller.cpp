@@ -112,6 +112,7 @@ int main()
             "",
             "",
             "",
+            "",
             10,
             0);
 
@@ -124,6 +125,7 @@ int main()
     ApiResponse actorResponse =
         controller.searchRecordingPersons(
             recordings,
+            "",
             "",
             "",
             "actor",
@@ -143,6 +145,7 @@ int main()
             recordings,
             "",
             "",
+            "",
             "director",
             "",
             "",
@@ -156,6 +159,7 @@ int main()
     ApiResponse composerResponse =
         controller.searchRecordingPersons(
             recordings,
+            "",
             "",
             "",
             "composer",
@@ -176,6 +180,7 @@ int main()
             "",
             "",
             "",
+            "",
             10,
             0);
 
@@ -187,6 +192,7 @@ int main()
     ApiResponse sourceResponse =
         controller.searchRecordingPersons(
             recordings,
+            "",
             "",
             "",
             "",
@@ -206,6 +212,7 @@ int main()
             "",
             "",
             "",
+            "",
             "tvscraper:example",
             10,
             0);
@@ -216,6 +223,7 @@ int main()
     ApiResponse pagedResponse =
         controller.searchRecordingPersons(
             recordings,
+            "",
             "",
             "",
             "",
@@ -235,6 +243,7 @@ int main()
             recordings,
             "",
             "",
+            "",
             "hero",
             "",
             "",
@@ -247,6 +256,7 @@ int main()
     ApiResponse invalidSourceResponse =
         controller.searchRecordingPersons(
             recordings,
+            "",
             "",
             "",
             "",
@@ -266,6 +276,7 @@ int main()
             "",
             "",
             "",
+            "",
             -1,
             0);
 
@@ -275,6 +286,7 @@ int main()
     ApiResponse negativeOffsetResponse =
         controller.searchRecordingPersons(
             recordings,
+            "",
             "",
             "",
             "",

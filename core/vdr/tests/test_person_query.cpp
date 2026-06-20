@@ -30,6 +30,11 @@ int main()
     assert(normalizedNameQuery.hasNormalizedName());
     assert(normalizedNameQuery.normalizedName() == "tom-hanks");
 
+    PersonQuery characterNameQuery =
+        PersonQuery::byCharacterName("ace ventura");
+    assert(characterNameQuery.hasCharacterName());
+    assert(characterNameQuery.characterName() == "ace ventura");
+
     PersonQuery providerReferenceQuery =
         PersonQuery::byProviderReference("tmdb:31");
     assert(providerReferenceQuery.hasProviderReference());
@@ -37,6 +42,7 @@ int main()
 
     PersonQuery combinedQuery = PersonQuery::byName("Tom Hanks")
         .withNormalizedName("tom-hanks")
+        .withCharacterName("Forrest Gump")
         .withRole(PersonRole::Actor)
         .withSource(ContentClassificationSource::Tmdb)
         .withProviderReference("tmdb:31");
@@ -45,6 +51,8 @@ int main()
     assert(combinedQuery.name() == "Tom Hanks");
     assert(combinedQuery.hasNormalizedName());
     assert(combinedQuery.normalizedName() == "tom-hanks");
+    assert(combinedQuery.hasCharacterName());
+    assert(combinedQuery.characterName() == "Forrest Gump");
     assert(combinedQuery.hasRole());
     assert(combinedQuery.role() == PersonRole::Actor);
     assert(combinedQuery.hasSource());

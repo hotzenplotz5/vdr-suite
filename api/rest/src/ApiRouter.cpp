@@ -329,6 +329,7 @@ ApiResponse ApiRouter::handleGet(
             recordings,
             queryParameters.get("name"),
             queryParameters.get("normalizedName"),
+            queryParameters.get("characterName"),
             queryParameters.get("role"),
             queryParameters.get("source"),
             queryParameters.get("providerReference"),

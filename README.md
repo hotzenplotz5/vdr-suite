@@ -50,9 +50,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.34 - Real VDR Person Metadata Validation
+Latest Completed Implementation Phase: Phase 46.35 - Recording Character Search
 
-Current Implementation Focus: Phase 46.35 - Recording Character Search
+Current Implementation Focus: Phase 46.36 - Recording Character Search API Documentation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

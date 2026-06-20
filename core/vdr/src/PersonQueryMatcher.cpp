@@ -47,6 +47,13 @@ bool PersonQueryMatcher::matches(
         return false;
     }
 
+    if (query.hasCharacterName()
+        && !containsCaseInsensitive(
+            person.characterName(),
+            query.characterName())) {
+        return false;
+    }
+
     if (query.hasRole()
         && person.role() != query.role()) {
         return false;

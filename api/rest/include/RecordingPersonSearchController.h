@@ -20,6 +20,7 @@ public:
         const std::vector<VdrRecording>& recordings,
         const std::string& name,
         const std::string& normalizedName,
+        const std::string& characterName,
         const std::string& role,
         const std::string& source,
         const std::string& providerReference,

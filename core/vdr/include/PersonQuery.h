@@ -27,6 +27,14 @@ public:
         return query;
     }
 
+    static PersonQuery byCharacterName(
+        const std::string& characterName)
+    {
+        PersonQuery query;
+        query.characterName_ = characterName;
+        return query;
+    }
+
     static PersonQuery byRole(
         PersonRole role)
     {
@@ -83,6 +91,13 @@ public:
         return *this;
     }
 
+    PersonQuery& withCharacterName(
+        const std::string& characterName)
+    {
+        characterName_ = characterName;
+        return *this;
+    }
+
     PersonQuery& withProviderReference(
         const std::string& providerReference)
     {
@@ -94,6 +109,7 @@ public:
     {
         return !hasName()
             && !hasNormalizedName()
+            && !hasCharacterName()
             && !hasRole()
             && !hasSource()
             && !hasProviderReference();
@@ -122,6 +138,16 @@ public:
     const std::string& normalizedName() const
     {
         return normalizedName_;
+    }
+
+    bool hasCharacterName() const
+    {
+        return !characterName_.empty();
+    }
+
+    const std::string& characterName() const
+    {
+        return characterName_;
     }
 
     bool hasRole() const
@@ -157,6 +183,7 @@ public:
 private:
     std::string name_;
     std::string normalizedName_;
+    std::string characterName_;
     PersonRole role_ = PersonRole::Unknown;
     bool hasRole_ = false;
     ContentClassificationSource source_ = ContentClassificationSource::Derived;

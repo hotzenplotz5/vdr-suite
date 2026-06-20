@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.35 - Recording Character Search
+
+Status: Completed.
+
+Summary:
+- Adds characterName filtering to person queries and routes it through recording-person search for character lookup over real recording actor metadata.
+
 ## Phase 46.34 - Real VDR Person Metadata Validation
 
 Status: Completed.
