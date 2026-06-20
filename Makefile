@@ -707,6 +707,15 @@ test-person-query:
 
 
 
+
+test-person-search-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/PersonQueryMatcher.cpp \
+		core/vdr/src/PersonSearchService.cpp \
+		core/vdr/tests/test_person_search_service.cpp \
+		-o /tmp/test_person_search_service
+	/tmp/test_person_search_service
+
 test-person-query-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/PersonQueryResultJsonSerializer.cpp \

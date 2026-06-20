@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.21 - Person Search Service
+
+Status: Completed.
+
+Summary:
+- Adds a person search service that filters person collections with PersonQueryMatcher and returns paged query results.
+
 ## Phase 46.20 - Person Query JSON Contract
 
 Status: Completed.
