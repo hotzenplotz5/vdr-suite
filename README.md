@@ -18,6 +18,7 @@
 - [EPG Search API](docs/development/epg-search-api.md)
 - [Genre Architecture](docs/development/genre-architecture.md)
 - [Content Rating API](docs/development/content-rating-api.md)
+- [Person API](docs/development/person-api.md)
 - [ADR-0028 Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md)
 - [Developer Onboarding](docs/development/developer-onboarding.md)
 - [Architecture Map](docs/development/architecture-map.md)
@@ -49,9 +50,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.16 - Person REST Boundary
+Latest Completed Implementation Phase: Phase 46.17 - Person API Documentation
 
-Current Implementation Focus: Phase 46.17 - Person API Documentation
+Current Implementation Focus: Phase 46.18 - Person Query Model
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

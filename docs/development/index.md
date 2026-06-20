@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.16 - Person REST Boundary
+Phase 46.17 - Person API Documentation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.17 - Person API Documentation
+Phase 46.18 - Person Query Model
 ```
 
 Current architecture validation:
@@ -67,6 +67,7 @@ Current architecture validation:
 - [EPG Search API](epg-search-api.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)
+- [Person API](person-api.md)
 
 ---
 

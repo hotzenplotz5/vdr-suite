@@ -26,6 +26,15 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.17 - Person API Documentation
+
+Status: Completed.
+
+Summary:
+- Added person API documentation.
+- Documented the person JSON contract and REST-facing controller boundary.
+- Clarified that ApiRouter wiring, provider integration, persistence and search remain out of scope.
+
 ## Phase 46.16 - Person REST Boundary
 
 Status: Completed.
