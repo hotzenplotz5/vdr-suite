@@ -50,9 +50,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.18 - Person Query Model
+Latest Completed Implementation Phase: Phase 46.19 - Person Query Matcher
 
-Current Implementation Focus: Phase 46.19 - Person Query Matcher
+Current Implementation Focus: Phase 46.20 - Person Query JSON Contract
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

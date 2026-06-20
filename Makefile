@@ -705,6 +705,14 @@ test-person-query:
 		-o /tmp/test_person_query
 	/tmp/test_person_query
 
+
+test-person-query-matcher:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/PersonQueryMatcher.cpp \
+		core/vdr/tests/test_person_query_matcher.cpp \
+		-o /tmp/test_person_query_matcher
+	/tmp/test_person_query_matcher
+
 test-person-resolver:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_person_resolver.cpp \

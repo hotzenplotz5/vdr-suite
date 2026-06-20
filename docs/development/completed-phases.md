@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.19 - Person Query Matcher
+
+Status: Completed.
+
+Summary:
+- Adds a person query matcher for optional name, normalized name, role, source, and provider reference filters.
+
 ## Phase 46.18 - Person Query Model
 
 Status: Completed.

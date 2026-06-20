@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.18 - Person Query Model
+Phase 46.19 - Person Query Matcher
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.19 - Person Query Matcher
+Phase 46.20 - Person Query JSON Contract
 ```
 
 Current architecture validation:

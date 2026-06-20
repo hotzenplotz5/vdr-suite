@@ -43,7 +43,8 @@ test-vdr: \
 	test-vdr-timer-action-execution-service \
 	test-restful-api-vdr-adapter \
 	test-restful-api-change-state-adapter \
-	test-genre-classification \
+	test-person-query-matcher \
+		test-genre-classification \
 	test-genre-resolver \
 	test-genre-resolution-json-serializer \
 	test-canonical-genre-registry \
