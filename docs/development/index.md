@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.7 - SearchTimer RESTfulAPI list adapter
+Phase 47.8 - SearchTimer JSON serializer
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.8 - SearchTimer JSON serializer
+Phase 47.9 - SearchTimer controller
 ```
 
 Current architecture validation:

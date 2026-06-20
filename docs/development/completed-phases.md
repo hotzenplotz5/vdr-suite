@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.8 - SearchTimer JSON serializer
+
+Status: Completed.
+
+Summary:
+- Adds SearchTimerResultJsonSerializer for backend-neutral SearchTimer list JSON output.
+
 ## Phase 47.7 - SearchTimer RESTfulAPI list adapter
 
 Status: Completed.

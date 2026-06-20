@@ -816,6 +816,13 @@ test-epg-search-result:
 		-o /tmp/test_epg_search_result
 	/tmp/test_epg_search_result
 
+test-search-timer-result-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
+		core/vdr/tests/test_search_timer_result_json_serializer.cpp \
+		-o /tmp/test_search_timer_result_json_serializer
+	/tmp/test_search_timer_result_json_serializer
+
 test-restful-api-search-timer-adapter:
 	$(CXX) $(CXXFLAGS) \
 		core/http/src/MockHttpClient.cpp \

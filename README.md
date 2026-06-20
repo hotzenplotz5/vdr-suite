@@ -26,7 +26,7 @@ VDR-Suite complements VDR. It does not replace it.
 
 Overall project progress:
 
-    ███████░░░ 73%
+    ███████░░░ 74%
 
 Milestone progress:
 
@@ -36,7 +36,7 @@ Milestone progress:
     Action Foundation         ██████████ 100%  completed
     Metadata Foundation       ██████████ 100%  completed
     Documentation Foundation  ██████████ 100%  completed
-    SearchTimer Foundation    ██████░░░░  60%  in progress
+    SearchTimer Foundation    ███████░░░  70%  in progress
     Automation Foundation     ░░░░░░░░░░   0%  planned
     Federation Foundation     ░░░░░░░░░░   0%  planned
     Frontend Foundation       ░░░░░░░░░░   0%  planned
@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.7 - SearchTimer RESTfulAPI list adapter
+    Phase 47.8 - SearchTimer JSON serializer
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.8 - SearchTimer JSON serializer
+    Phase 47.9 - SearchTimer controller
 
 Completed foundations:
 
