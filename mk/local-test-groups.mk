@@ -47,6 +47,7 @@ test-vdr: \
 		test-person-query-result-json-serializer \\
 		test-person-search-service \\
 		test-recording-person-search-result \\
+	test-recording-person-search-service \\
 		test-person-query-controller \\
 		test-genre-classification \
 	test-genre-resolver \

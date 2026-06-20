@@ -13,10 +13,10 @@
 
 ```text
 Completed implementation state
-Phase 46.27 - Recording Person Search Result Model
+Phase 46.28 - Recording Person Search Service
 
 Next implementation step
-Phase 46.28 - Recording Person Search Service
+Phase 46.29 - Recording Person Search JSON Contract
 ```
 
 ---

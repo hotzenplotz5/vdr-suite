@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.28 - Recording Person Search Service
+
+Status: Completed.
+
+Summary:
+- Adds a generic recording person search service that matches person queries against recording-attached person metadata while preserving recording context.
+
 ## Phase 46.27 - Recording Person Search Result Model
 
 Status: Completed.

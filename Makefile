@@ -772,6 +772,14 @@ test-recording-person-search-result:
 		-o /tmp/test_recording_person_search_result
 	/tmp/test_recording_person_search_result
 
+test-recording-person-search-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/PersonQueryMatcher.cpp \
+		core/vdr/src/RecordingPersonSearchService.cpp \
+		core/vdr/tests/test_recording_person_search_service.cpp \
+		-o /tmp/test_recording_person_search_service
+	/tmp/test_recording_person_search_service
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \
