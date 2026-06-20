@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.5 - SearchTimer in-memory service
+
+Status: Completed.
+
+Summary:
+- Implements SearchTimerService::list with backend, state, text and pagination filtering over in-memory SearchTimer collections.
+
 ## Phase 47.4 - SearchTimer service interface
 
 Status: Completed.
