@@ -10,6 +10,7 @@ class EpgController;
 class JobsController;
 class LiveTransportController;
 class MetadataController;
+class PersonController;
 class RecordingsController;
 class RecordingActionExecutionController;
 class RecordingActionValidationController;
@@ -31,6 +32,7 @@ public:
         VdrController& vdrController,
         VdrRecordingQueryController& vdrRecordingQueryController,
         EpgController* epgController,
+        PersonController* personController,
         BackendRegistryController& backendRegistryController,
         CapabilityController& capabilityController,
         RecordingActionValidationController& recordingActionValidationController,
@@ -56,6 +58,7 @@ private:
     VdrController& vdrController_;
     VdrRecordingQueryController& vdrRecordingQueryController_;
     EpgController* epgController_;
+    PersonController* personController_;
     BackendRegistryController& backendRegistryController_;
     CapabilityController& capabilityController_;
     RecordingActionValidationController& recordingActionValidationController_;

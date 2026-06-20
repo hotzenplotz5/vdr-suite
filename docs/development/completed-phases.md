@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.23 - Person Query Router Wiring
+
+Status: Completed.
+
+Summary:
+- Wires person query routing through ApiRouter and DaemonRuntime with empty result data until real metadata sources are connected.
+
 ## Phase 46.22 - Person Query REST Boundary
 
 Status: Completed.

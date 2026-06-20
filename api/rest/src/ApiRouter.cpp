@@ -6,6 +6,8 @@
 #include "JobsController.h"
 #include "LiveTransportController.h"
 #include "MetadataController.h"
+#include "PersonController.h"
+#include "Person.h"
 #include "RecordingsController.h"
 #include "RecordingActionExecutionController.h"
 #include "RecordingActionValidationController.h"
@@ -57,6 +59,17 @@ ApiResponse makeEpgUnavailableResponse()
     return response;
 }
 
+ApiResponse makePersonUnavailableResponse()
+{
+    ApiResponse response;
+
+    response.statusCode = 503;
+    response.contentType = "application/json";
+    response.body = "{\"error\":\"person search unavailable\"}";
+
+    return response;
+}
+
 static bool parseBackendSnapshotRoute(
     const std::string& path,
     std::string& backendId,
@@ -96,6 +109,7 @@ ApiRouter::ApiRouter(
     VdrController& vdrController,
     VdrRecordingQueryController& vdrRecordingQueryController,
     EpgController* epgController,
+    PersonController* personController,
     BackendRegistryController& backendRegistryController,
     CapabilityController& capabilityController,
     RecordingActionValidationController& recordingActionValidationController,
@@ -112,6 +126,7 @@ ApiRouter::ApiRouter(
       vdrController_(vdrController),
       vdrRecordingQueryController_(vdrRecordingQueryController),
       epgController_(epgController),
+      personController_(personController),
       backendRegistryController_(backendRegistryController),
       capabilityController_(capabilityController),
       recordingActionValidationController_(recordingActionValidationController),
@@ -254,6 +269,25 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.get("to"),
             queryParameters.getInt("durationMin", 0),
             queryParameters.getInt("durationMax", 0),
+            queryParameters.getInt("limit", 0),
+            queryParameters.getInt("offset", 0));
+    }
+
+    if (path == "/api/persons" ||
+        path == "/api/vdr/persons")
+    {
+        if (personController_ == nullptr)
+        {
+            return makePersonUnavailableResponse();
+        }
+
+        return personController_->searchPersons(
+            PersonCollection::createEmpty(),
+            queryParameters.get("name"),
+            queryParameters.get("normalizedName"),
+            queryParameters.get("role"),
+            queryParameters.get("source"),
+            queryParameters.get("providerReference"),
             queryParameters.getInt("limit", 0),
             queryParameters.getInt("offset", 0));
     }

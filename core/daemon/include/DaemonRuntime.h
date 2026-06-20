@@ -33,6 +33,10 @@
 #include "MetadataController.h"
 #include "MetadataRepository.h"
 #include "PollingService.h"
+#include "PersonSearchService.h"
+#include "PersonResolutionJsonSerializer.h"
+#include "PersonQueryResultJsonSerializer.h"
+#include "PersonController.h"
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
@@ -150,6 +154,10 @@ private:
     std::unique_ptr<EpgSearchService> epgSearchService_;
     std::unique_ptr<EpgSearchResultJsonSerializer> epgSearchResultJsonSerializer_;
     std::unique_ptr<EpgController> epgController_;
+    std::unique_ptr<PersonResolutionJsonSerializer> personResolutionJsonSerializer_;
+    std::unique_ptr<PersonSearchService> personSearchService_;
+    std::unique_ptr<PersonQueryResultJsonSerializer> personQueryResultJsonSerializer_;
+    std::unique_ptr<PersonController> personController_;
 
     std::unique_ptr<RecordingActionValidationService> recordingActionValidationService_;
     std::unique_ptr<RecordingActionValidationResultJsonSerializer> recordingActionValidationResultJsonSerializer_;

@@ -17,6 +17,10 @@
 #include "JobsController.h"
 #include "LiveTransportController.h"
 #include "MetadataController.h"
+#include "PersonSearchService.h"
+#include "PersonResolutionJsonSerializer.h"
+#include "PersonQueryResultJsonSerializer.h"
+#include "PersonController.h"
 #include "RecordingsController.h"
 #include "RecordingActionExecutionController.h"
 #include "RecordingActionValidationController.h"
@@ -260,6 +264,14 @@ int main()
         epgSearchService,
         epgSearchResultJsonSerializer);
 
+    PersonResolutionJsonSerializer personResolutionJsonSerializer;
+    PersonSearchService personSearchService;
+    PersonQueryResultJsonSerializer personQueryResultJsonSerializer;
+    PersonController personController(
+        personResolutionJsonSerializer,
+        personSearchService,
+        personQueryResultJsonSerializer);
+
     VdrOverviewService overviewService(
         vdrService);
 
@@ -405,6 +417,7 @@ int main()
         vdrController,
         vdrRecordingQueryController,
         &epgController,
+        &personController,
         backendRegistryController,
         capabilityController,
         recordingActionValidationController,
@@ -570,6 +583,7 @@ int main()
         vdrController,
         vdrRecordingQueryController,
         nullptr,
+        nullptr,
         backendRegistryController,
         capabilityController,
         recordingActionValidationController,
@@ -704,6 +718,40 @@ int main()
     assert(vdrLiveResponse.body.find("\"backendId\":\"home-vdr\"")
            != std::string::npos);
     assert(vdrLiveResponse.body.find("\"changedDomains\":[\"channels\"]")
+           != std::string::npos);
+
+    ApiResponse personQueryResponse =
+        router.handleGet("/api/persons?role=actor&limit=10&offset=0");
+
+    assert(personQueryResponse.statusCode == 200);
+    assert(personQueryResponse.contentType == "application/json");
+    assert(personQueryResponse.body.find("\"totalCount\":0")
+           != std::string::npos);
+    assert(personQueryResponse.body.find("\"returnedCount\":0")
+           != std::string::npos);
+    assert(personQueryResponse.body.find("\"persons\":[]")
+           != std::string::npos);
+
+    ApiResponse vdrPersonQueryResponse =
+        router.handleGet("/api/vdr/persons?source=tmdb");
+
+    assert(vdrPersonQueryResponse.statusCode == 200);
+    assert(vdrPersonQueryResponse.contentType == "application/json");
+    assert(vdrPersonQueryResponse.body.find("\"persons\":[]")
+           != std::string::npos);
+
+    ApiResponse invalidPersonQueryResponse =
+        router.handleGet("/api/persons?role=hero");
+
+    assert(invalidPersonQueryResponse.statusCode == 400);
+    assert(invalidPersonQueryResponse.body.find("invalid person role")
+           != std::string::npos);
+
+    ApiResponse unavailablePersonQueryResponse =
+        routerWithoutEpg.handleGet("/api/persons");
+
+    assert(unavailablePersonQueryResponse.statusCode == 503);
+    assert(unavailablePersonQueryResponse.body.find("person search unavailable")
            != std::string::npos);
 
     ApiResponse vdrRecordingQueryResponse =

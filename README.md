@@ -50,9 +50,9 @@ Content Classific. ADR.   ████████████ 100%
 Backend Optional Runtime  ████████████ 100%
 ```
 
-Latest Completed Implementation Phase: Phase 46.22 - Person Query REST Boundary
+Latest Completed Implementation Phase: Phase 46.23 - Person Query Router Wiring
 
-Current Implementation Focus: Phase 46.23 - Person Query Router Wiring
+Current Implementation Focus: Phase 46.24 - Person Query Documentation
 
 Roadmap Progress: see [Roadmap](docs/planning/roadmap.md)
 

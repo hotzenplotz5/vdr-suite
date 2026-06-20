@@ -37,6 +37,11 @@ REST_ROUTER_SRC := \
         api/rest/src/JobsController.cpp \
         api/rest/src/RecordingsController.cpp \
         api/rest/src/MetadataController.cpp \
+        api/rest/src/PersonController.cpp \
+        core/vdr/src/PersonQueryMatcher.cpp \
+        core/vdr/src/PersonQueryResultJsonSerializer.cpp \
+        core/vdr/src/PersonResolutionJsonSerializer.cpp \
+        core/vdr/src/PersonSearchService.cpp \
         api/rest/src/EpgController.cpp \
         api/rest/src/RestQueryParameters.cpp \
         api/rest/src/BackendRegistryController.cpp \

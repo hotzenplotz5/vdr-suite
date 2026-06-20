@@ -192,6 +192,16 @@ bool DaemonRuntime::initialize()
 
     std::cout << "VDR controller runtime initialized" << std::endl;
 
+    personResolutionJsonSerializer_ = std::make_unique<PersonResolutionJsonSerializer>();
+    personSearchService_ = std::make_unique<PersonSearchService>();
+    personQueryResultJsonSerializer_ = std::make_unique<PersonQueryResultJsonSerializer>();
+    personController_ = std::make_unique<PersonController>(
+        *personResolutionJsonSerializer_,
+        *personSearchService_,
+        *personQueryResultJsonSerializer_);
+
+    std::cout << "person controller runtime initialized" << std::endl;
+
     recordingActionValidationService_ = std::make_unique<RecordingActionValidationService>();
     recordingActionValidationResultJsonSerializer_ = std::make_unique<RecordingActionValidationResultJsonSerializer>();
     recordingActionValidationRequestParser_ = std::make_unique<RecordingActionValidationRequestParser>();
@@ -266,6 +276,7 @@ bool DaemonRuntime::initialize()
         *vdrController_,
         *vdrRecordingQueryController_,
         epgController_.get(),
+        personController_.get(),
         *backendRegistryController_,
         *capabilityController_,
         *recordingActionValidationController_,
@@ -346,6 +357,10 @@ void DaemonRuntime::shutdown()
     snapshotChangeFeedController_.reset();
     runtimeDiagnosticsController_.reset();
     vdrTimerActionController_.reset();
+    personController_.reset();
+    personQueryResultJsonSerializer_.reset();
+    personSearchService_.reset();
+    personResolutionJsonSerializer_.reset();
     vdrTimerActionExecutorAdapterRegistry_.reset();
     vdrTimerActionRequestParser_.reset();
     vdrTimerActionResultJsonSerializer_.reset();

@@ -84,13 +84,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.22 - Person Query REST Boundary
+Phase 46.23 - Person Query Router Wiring
 ```
 
 Current Focus:
 
 ```text
-Phase 46.23 - Person Query Router Wiring
+Phase 46.24 - Person Query Documentation
 ```
 
 Latest Completed Milestone:
