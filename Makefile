@@ -684,6 +684,14 @@ test-content-rating-resolution-json-serializer:
 		-o /tmp/test_content_rating_resolution_json_serializer
 	/tmp/test_content_rating_resolution_json_serializer
 
+test-content-rating-controller:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/ContentRatingResolutionJsonSerializer.cpp \
+		api/rest/src/ContentRatingController.cpp \
+		api/rest/tests/test_content_rating_controller.cpp \
+		-o /tmp/test_content_rating_controller
+	/tmp/test_content_rating_controller
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \

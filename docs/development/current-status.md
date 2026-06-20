@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.10 - Content Rating JSON Contract
+Phase 46.11 - Content Rating REST Boundary
 ```
 
 Current major phase status:
@@ -233,7 +233,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.11 - Content Rating REST Boundary
+Phase 46.12 - Content Rating API Documentation
 ```
 
 The next step is to extend content classification from genres toward content ratings such as FSK-style age classification.

@@ -84,13 +84,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.10 - Content Rating JSON Contract
+Phase 46.11 - Content Rating REST Boundary
 ```
 
 Current Focus:
 
 ```text
-Phase 46.11 - Content Rating REST Boundary
+Phase 46.12 - Content Rating API Documentation
 ```
 
 Latest Completed Milestone:
