@@ -154,6 +154,13 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.10 - SearchTimer router integration
+
+Status: Completed.
+
+Summary:
+- Adds /api/searchtimers and /api/vdr/searchtimers router paths with optional SearchTimerController handling and unavailable-response semantics.
+
 ## Phase 47.9 - SearchTimer controller
 
 Status: Completed.

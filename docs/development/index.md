@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.9 - SearchTimer controller
+Phase 47.10 - SearchTimer router integration
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.10 - SearchTimer router integration
+Phase 47.11 - SearchTimer route data source wiring
 ```
 
 Current architecture validation:

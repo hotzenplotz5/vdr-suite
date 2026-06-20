@@ -14,6 +14,8 @@
 #include "RecordingPersonSearchController.h"
 #include "RestQueryParameters.h"
 #include "RuntimeDiagnosticsController.h"
+#include "SearchTimerController.h"
+#include "SearchTimerResult.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
 #include "VdrRecordingQueryController.h"
@@ -83,6 +85,17 @@ ApiResponse makeRecordingPersonSearchUnavailableResponse()
     return response;
 }
 
+ApiResponse makeSearchTimerUnavailableResponse()
+{
+    ApiResponse response;
+
+    response.statusCode = 503;
+    response.contentType = "application/json";
+    response.body = "{\"error\":\"searchtimer backend unavailable\"}";
+
+    return response;
+}
+
 static bool parseBackendSnapshotRoute(
     const std::string& path,
     std::string& backendId,
@@ -133,6 +146,7 @@ ApiRouter::ApiRouter(
     VdrTimerActionExecutorAdapterRegistry& vdrTimerActionExecutorAdapterRegistry,
     RuntimeDiagnosticsController& runtimeDiagnosticsController,
     SnapshotChangeFeedController& snapshotChangeFeedController,
+    SearchTimerController* searchTimerController,
     LiveTransportController& liveTransportController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
@@ -152,6 +166,7 @@ ApiRouter::ApiRouter(
       vdrTimerActionExecutorAdapterRegistry_(vdrTimerActionExecutorAdapterRegistry),
       runtimeDiagnosticsController_(runtimeDiagnosticsController),
       snapshotChangeFeedController_(snapshotChangeFeedController),
+      searchTimerController_(searchTimerController),
       liveTransportController_(liveTransportController)
 {
 }
@@ -408,6 +423,20 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.getInt("from", -1),
             queryParameters.getInt("timespan", 7200),
             queryParameters.getInt("limit", 5));
+    }
+
+    if (path == "/api/searchtimers" ||
+        path == "/api/vdr/searchtimers")
+    {
+        if (searchTimerController_ == nullptr)
+        {
+            return makeSearchTimerUnavailableResponse();
+        }
+
+        return searchTimerController_->getSearchTimers(
+            SearchTimerResult::empty(
+                queryParameters.getInt("limit", 0),
+                queryParameters.getInt("offset", 0)));
     }
 
     if (path == "/api/vdr/changes")

@@ -935,6 +935,8 @@ test-api-router: prepare-test-db
 		$(VDR_SRC) \
 		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
+                api/rest/src/SearchTimerController.cpp \
+                core/vdr/src/SearchTimerResultJsonSerializer.cpp \
 		api/rest/src/VdrController.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
 		api/rest/tests/test_api_router.cpp \

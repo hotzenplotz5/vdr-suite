@@ -34,6 +34,8 @@
 #include "RecordingActionExecutionService.h"
 #include "RecordingActionValidationService.h"
 #include "RuntimeDiagnosticsController.h"
+#include "SearchTimerController.h"
+#include "SearchTimerResultJsonSerializer.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
 #include "VdrRecordingQueryService.h"
@@ -391,6 +393,10 @@ int main()
     LiveTransportController liveTransportController(
         liveTransport);
 
+    SearchTimerResultJsonSerializer searchTimerResultJsonSerializer;
+    SearchTimerController searchTimerController(
+        searchTimerResultJsonSerializer);
+
     VdrCapabilitySet capabilitySet =
         VdrCapabilitySet::snapshotReadOnly();
 
@@ -454,6 +460,7 @@ int main()
         vdrTimerActionExecutorAdapterRegistry,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
+        &searchTimerController,
         liveTransportController);
 
     ApiResponse dashboardResponse =
@@ -646,6 +653,7 @@ int main()
         vdrTimerActionExecutorAdapterRegistry,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
+        nullptr,
         liveTransportController);
 
     ApiResponse unavailableEpgResponse =
@@ -738,6 +746,34 @@ int main()
     assert(vdrHealthResponse.body.find("\"timerCount\":1")
            != std::string::npos);
     assert(vdrHealthResponse.body.find("\"recordingCount\":1")
+           != std::string::npos);
+
+    ApiResponse searchTimersResponse =
+        router.handleGet("/api/searchtimers?limit=25&offset=5");
+
+    assert(searchTimersResponse.statusCode == 200);
+    assert(searchTimersResponse.contentType == "application/json");
+    assert(searchTimersResponse.body.find("\"searchtimers\":[]")
+           != std::string::npos);
+    assert(searchTimersResponse.body.find("\"limit\":25")
+           != std::string::npos);
+    assert(searchTimersResponse.body.find("\"offset\":5")
+           != std::string::npos);
+
+    ApiResponse vdrSearchTimersResponse =
+        router.handleGet("/api/vdr/searchtimers");
+
+    assert(vdrSearchTimersResponse.statusCode == 200);
+    assert(vdrSearchTimersResponse.contentType == "application/json");
+    assert(vdrSearchTimersResponse.body.find("\"searchtimers\":[]")
+           != std::string::npos);
+
+    ApiResponse unavailableSearchTimersResponse =
+        routerWithoutEpg.handleGet("/api/searchtimers");
+
+    assert(unavailableSearchTimersResponse.statusCode == 503);
+    assert(unavailableSearchTimersResponse.contentType == "application/json");
+    assert(unavailableSearchTimersResponse.body.find("searchtimer backend unavailable")
            != std::string::npos);
 
     ApiResponse vdrChangesResponse =

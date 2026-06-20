@@ -17,6 +17,7 @@ class RecordingPersonSearchController;
 class RecordingActionValidationController;
 class RuntimeDiagnosticsController;
 class SnapshotChangeFeedController;
+class SearchTimerController;
 class VdrController;
 class VdrRecordingQueryController;
 class VdrSnapshotReadService;
@@ -45,6 +46,7 @@ public:
         VdrTimerActionExecutorAdapterRegistry& vdrTimerActionExecutorAdapterRegistry,
         RuntimeDiagnosticsController& runtimeDiagnosticsController,
         SnapshotChangeFeedController& snapshotChangeFeedController,
+        SearchTimerController* searchTimerController,
         LiveTransportController& liveTransportController);
 
     ApiResponse handleGet(
@@ -73,5 +75,6 @@ private:
     VdrTimerActionExecutorAdapterRegistry& vdrTimerActionExecutorAdapterRegistry_;
     RuntimeDiagnosticsController& runtimeDiagnosticsController_;
     SnapshotChangeFeedController& snapshotChangeFeedController_;
+    SearchTimerController* searchTimerController_;
     LiveTransportController& liveTransportController_;
 };
