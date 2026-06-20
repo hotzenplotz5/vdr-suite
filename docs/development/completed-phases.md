@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.18 - Person Query Model
+
+Status: Completed.
+
+Summary:
+- Adds the first person query domain model with optional filters for name, normalized name, role, source, and provider reference.
+
 ## Phase 46.17 - Person API Documentation
 
 Status: Completed.

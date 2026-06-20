@@ -698,6 +698,13 @@ test-person:
 		-o /tmp/test_person
 	/tmp/test_person
 
+
+test-person-query:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_person_query.cpp \
+		-o /tmp/test_person_query
+	/tmp/test_person_query
+
 test-person-resolver:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_person_resolver.cpp \

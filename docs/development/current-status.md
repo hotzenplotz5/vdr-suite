@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.17 - Person API Documentation
+Phase 46.18 - Person Query Model
 ```
 
 Current major phase status:
@@ -235,7 +235,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.18 - Person Query Model
+Phase 46.19 - Person Query Matcher
 ```
 
 The next step is to extend content classification from genres toward content ratings such as FSK-style age classification.

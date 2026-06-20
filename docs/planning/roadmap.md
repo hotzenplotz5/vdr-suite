@@ -13,10 +13,10 @@
 
 ```text
 Completed implementation state
-Phase 46.17 - Person API Documentation
+Phase 46.18 - Person Query Model
 
 Next implementation step
-Phase 46.18 - Person Query Model
+Phase 46.19 - Person Query Matcher
 ```
 
 ---
