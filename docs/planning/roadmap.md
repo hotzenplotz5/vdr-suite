@@ -13,10 +13,10 @@
 
 ```text
 Completed implementation state
-Phase 46.9 - Content Rating Resolution Model
+Phase 46.10 - Content Rating JSON Contract
 
 Next implementation step
-Phase 46.10 - Content Rating JSON Contract
+Phase 46.11 - Content Rating REST Boundary
 ```
 
 ---

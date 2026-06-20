@@ -677,6 +677,13 @@ test-content-rating-resolver:
 		-o /tmp/test_content_rating_resolver
 	/tmp/test_content_rating_resolver
 
+test-content-rating-resolution-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/ContentRatingResolutionJsonSerializer.cpp \
+		core/vdr/tests/test_content_rating_resolution_json_serializer.cpp \
+		-o /tmp/test_content_rating_resolution_json_serializer
+	/tmp/test_content_rating_resolution_json_serializer
+
 test-epg-search-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_request.cpp \

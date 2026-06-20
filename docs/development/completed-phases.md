@@ -26,6 +26,17 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.10 - Content Rating JSON Contract
+
+Status: Completed.
+
+Summary:
+- Added `ContentRatingResolutionJsonSerializer`.
+- Serialized resolved state, primary rating and all rating evidence.
+- Exposed source, rating system, original value, minimum age, confidence and provider reference.
+- Preserved all rating evidence while exposing the selected primary rating.
+- Kept REST, database, profile policy and enforcement out of scope.
+
 ## Phase 46.9 - Content Rating Resolution Model
 
 Status: Completed.
