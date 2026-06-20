@@ -25,7 +25,7 @@ VDR-Suite complements VDR. It does not replace it.
 
 Latest completed implementation phase:
 
-    Phase 46.37 - EPG Person Search Result Model
+    Phase 46.42 - README Refresh
 
 Current documentation consolidation:
 

@@ -93,7 +93,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 46.37 - EPG Person Search Result Model
+Phase 46.42 - README Refresh
 ```
 
 Current Documentation Consolidation:

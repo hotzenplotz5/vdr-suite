@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.37 - EPG Person Search Result Model
+Phase 46.42 - README Refresh
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.38 - EPG Person Search Service
+Phase 47.0 - SearchTimer Foundation
 ```
 
 Current architecture validation:

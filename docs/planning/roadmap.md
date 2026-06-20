@@ -16,7 +16,7 @@
 
 ```text
 Completed implementation state
-Phase 46.37 - EPG Person Search Result Model
+Phase 46.42 - README Refresh
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh

@@ -39,7 +39,7 @@ Future planning belongs to:
 Status: In Progress.
 
 Purpose:
-- Refresh the high-level project documentation before starting Phase 47.
+- Refresh the high-level project documentation before starting the next major milestone.
 - Make completed foundations visible as milestones instead of only as individual phases.
 - Align roadmap, dashboard and completed phase history.
 
@@ -153,6 +153,27 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+
+## Phase 46.42 - README Refresh
+
+Status: Completed.
+
+Summary:
+- Refreshes the repository README as the project entry point and aligns it with the current milestone-oriented documentation structure.
+
+## Phase 46.41 - Current Project Status Refresh
+
+Status: Completed.
+
+Summary:
+- Refreshes the current project status document to reflect completed person metadata, recording-person search, recording character search and the next SearchTimer milestone.
+
+## Phase 46.40 - Completed Phase Milestone Overview
+
+Status: Completed.
+
+Summary:
+- Adds a milestone-oriented overview to completed-phases.md while preserving the detailed phase history.
 
 ## Phase 46.39 - Project Status Dashboard Refresh
 
@@ -360,3 +381,11 @@ Summary:
 - Kept resolver, JSON, REST, provider integration and search out of scope.
 
 ## Phase 46.12 - Content Rating API Documentation
+
+---
+
+## Back
+
+- [Back to README](../../README.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Development Index](index.md)
