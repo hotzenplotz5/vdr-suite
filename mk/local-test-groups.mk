@@ -44,6 +44,7 @@ test-vdr: \
 	test-restful-api-vdr-adapter \
 	test-restful-api-change-state-adapter \
 	test-person-query-matcher \
+		test-person-query-result-json-serializer \
 		test-genre-classification \
 	test-genre-resolver \
 	test-genre-resolution-json-serializer \

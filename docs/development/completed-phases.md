@@ -26,6 +26,13 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.20 - Person Query JSON Contract
+
+Status: Completed.
+
+Summary:
+- Adds a person query result model and JSON serializer for paged person search results.
+
 ## Phase 46.19 - Person Query Matcher
 
 Status: Completed.
