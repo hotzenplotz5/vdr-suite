@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 46.11 - Content Rating REST Boundary
+Phase 46.12 - Content Rating API Documentation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 46.12 - Content Rating API Documentation
+Phase 46.13 - Person Domain Foundation
 ```
 
 Current architecture validation:
@@ -66,6 +66,7 @@ Current architecture validation:
 - [Phase 45.0 - EPG Search Architecture](phase-45-epg-search-architecture.md)
 - [EPG Search API](epg-search-api.md)
 - [Genre Architecture](genre-architecture.md)
+- [Content Rating API](content-rating-api.md)
 
 ---
 

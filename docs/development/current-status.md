@@ -46,7 +46,7 @@ main
 Latest completed implementation phase:
 
 ```text
-Phase 46.11 - Content Rating REST Boundary
+Phase 46.12 - Content Rating API Documentation
 ```
 
 Current major phase status:
@@ -80,6 +80,7 @@ Verification summary:
 - Phase 46.5 introduces `GenreLocalization` as the first German and English label layer for canonical genre IDs.
 - Phase 46.6 introduces localized genre resolution JSON while preserving stable canonical IDs.
 - Phase 46.7 documents the complete genre architecture, including canonical IDs, localized labels and future language file layout.
+- Phase 46.12 documents the current content rating API and JSON contract.
 - Content classification is planned as source-aware evidence for genres, content ratings, keywords, collections, user tags and folder hints.
 - Future genre, FSK/content-rating, profile, policy and TV frontend work should build on ADR-0028.
 - Documentation phase consistency should remain aligned around Phase 46.7 as latest completed phase and Phase 46.8 as next focus.
@@ -233,7 +234,7 @@ Real VDR tests are reserved for:
 ## Next Technical Focus
 
 ```text
-Phase 46.12 - Content Rating API Documentation
+Phase 46.13 - Person Domain Foundation
 ```
 
 The next step is to extend content classification from genres toward content ratings such as FSK-style age classification.

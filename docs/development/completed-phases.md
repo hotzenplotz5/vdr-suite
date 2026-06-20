@@ -26,6 +26,15 @@ Future planning belongs to:
 
 ---
 
+## Phase 46.12 - Content Rating API Documentation
+
+Status: Completed.
+
+Summary:
+- Added content rating API documentation.
+- Documented the content rating JSON contract and REST-facing controller boundary.
+- Clarified that ApiRouter wiring, persistence, provider integration, profile policy and enforcement remain out of scope.
+
 ## Phase 46.11 - Content Rating REST Boundary
 
 Status: Completed.

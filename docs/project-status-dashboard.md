@@ -84,13 +84,13 @@ Media Streaming           planned
 Current Major Phase:
 
 ```text
-Phase 46.11 - Content Rating REST Boundary
+Phase 46.12 - Content Rating API Documentation
 ```
 
 Current Focus:
 
 ```text
-Phase 46.12 - Content Rating API Documentation
+Phase 46.13 - Person Domain Foundation
 ```
 
 Latest Completed Milestone:
