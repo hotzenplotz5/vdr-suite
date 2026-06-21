@@ -795,6 +795,36 @@ int main()
     assert(searchTimersResponse.body.find("\"offset\":5")
            != std::string::npos);
 
+    ApiResponse searchTimerPreviewResponse =
+        router.handleGet("/api/searchtimers/preview?query=Router&backend=default&limit=10&offset=0");
+
+    assert(searchTimerPreviewResponse.statusCode == 200);
+    assert(searchTimerPreviewResponse.contentType == "application/json");
+    assert(searchTimerPreviewResponse.body.find("\"searchTimer\":{")
+           != std::string::npos);
+    assert(searchTimerPreviewResponse.body.find("\"backendId\":\"default\"")
+           != std::string::npos);
+    assert(searchTimerPreviewResponse.body.find("\"backendNativeId\":\"preview\"")
+           != std::string::npos);
+    assert(searchTimerPreviewResponse.body.find("\"query\":\"Router\"")
+           != std::string::npos);
+    assert(searchTimerPreviewResponse.body.find("\"preview\":{")
+           != std::string::npos);
+    assert(searchTimerPreviewResponse.body.find("\"totalCount\":1")
+           != std::string::npos);
+    assert(searchTimerPreviewResponse.body.find("\"eventId\":\"router-event-1\"")
+           != std::string::npos);
+
+    ApiResponse vdrSearchTimerPreviewResponse =
+        router.handleGet("/api/vdr/searchtimers/preview?text=Router&limit=5");
+
+    assert(vdrSearchTimerPreviewResponse.statusCode == 200);
+    assert(vdrSearchTimerPreviewResponse.contentType == "application/json");
+    assert(vdrSearchTimerPreviewResponse.body.find("\"query\":\"Router\"")
+           != std::string::npos);
+    assert(vdrSearchTimerPreviewResponse.body.find("\"returnedCount\":1")
+           != std::string::npos);
+
     ApiResponse vdrSearchTimersResponse =
         router.handleGet("/api/vdr/searchtimers?backend=ferienhaus&state=inactive");
 

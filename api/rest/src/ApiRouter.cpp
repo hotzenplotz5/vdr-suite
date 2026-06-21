@@ -425,6 +425,50 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.getInt("limit", 5));
     }
 
+    if (path == "/api/searchtimers/preview" ||
+        path == "/api/vdr/searchtimers/preview")
+    {
+        if (searchTimerController_ == nullptr)
+        {
+            return makeSearchTimerUnavailableResponse();
+        }
+
+        const std::string backendId =
+            queryParameters.get("backend").empty()
+                ? "default"
+                : queryParameters.get("backend");
+
+        const std::string queryText =
+            queryParameters.get("query").empty()
+                ? queryParameters.get("text")
+                : queryParameters.get("query");
+
+        const std::string name =
+            queryParameters.get("name").empty()
+                ? "Preview SearchTimer"
+                : queryParameters.get("name");
+
+        const SearchTimer previewSearchTimer =
+            SearchTimer::create(
+                SearchTimerId::fromBackendNativeId(
+                    backendId,
+                    "preview"),
+                name,
+                queryText,
+                SearchTimerState::Active);
+
+        const std::vector<VdrEvent> events =
+            queryParameters.get("backend").empty()
+                ? vdrSnapshotReadService_.getEvents()
+                : vdrSnapshotReadService_.getEventsForBackend(backendId);
+
+        return searchTimerController_->previewSearchTimer(
+            previewSearchTimer,
+            events,
+            queryParameters.getInt("limit", 0),
+            queryParameters.getInt("offset", 0));
+    }
+
     if (path == "/api/searchtimers" ||
         path == "/api/vdr/searchtimers")
     {
