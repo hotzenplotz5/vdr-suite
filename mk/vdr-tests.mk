@@ -82,6 +82,20 @@ test-search-timer-update-result-json-serializer:
 		-o /tmp/test_search_timer_update_result_json_serializer
 	/tmp/test_search_timer_update_result_json_serializer
 
+test-search-timer-delete-result-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerDeleteResultJsonSerializer.cpp \
+		core/vdr/tests/test_search_timer_delete_result_json_serializer.cpp \
+		-o /tmp/test_search_timer_delete_result_json_serializer
+	/tmp/test_search_timer_delete_result_json_serializer
+
+test-search-timer-delete-request-parser:
+	$(CXX) $(CXXFLAGS) \
+		api/rest/src/SearchTimerDeleteRequestParser.cpp \
+		api/rest/tests/test_search_timer_delete_request_parser.cpp \
+		-o /tmp/test_search_timer_delete_request_parser
+	/tmp/test_search_timer_delete_request_parser
+
 test-search-timer-update-request-parser:
 	$(CXX) $(CXXFLAGS) \
 		api/rest/src/SearchTimerUpdateRequestParser.cpp \

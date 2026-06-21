@@ -8,6 +8,9 @@
 #include "SearchTimerCreateRequestParser.h"
 #include "SearchTimerCreateResultJsonSerializer.h"
 #include "SearchTimerCreateService.h"
+#include "SearchTimerDeleteRequestParser.h"
+#include "SearchTimerDeleteResultJsonSerializer.h"
+#include "SearchTimerDeleteService.h"
 #include "SearchTimerUpdateRequestParser.h"
 #include "SearchTimerUpdateResultJsonSerializer.h"
 #include "SearchTimerUpdateService.h"
@@ -56,7 +59,10 @@ SearchTimerController::SearchTimerController(
       createRequestParser_(nullptr),
       updateService_(nullptr),
       updateJsonSerializer_(nullptr),
-      updateRequestParser_(nullptr)
+      updateRequestParser_(nullptr),
+      deleteService_(nullptr),
+      deleteJsonSerializer_(nullptr),
+      deleteRequestParser_(nullptr)
 {
 }
 
@@ -72,7 +78,10 @@ SearchTimerController::SearchTimerController(
       createRequestParser_(nullptr),
       updateService_(nullptr),
       updateJsonSerializer_(nullptr),
-      updateRequestParser_(nullptr)
+      updateRequestParser_(nullptr),
+      deleteService_(nullptr),
+      deleteJsonSerializer_(nullptr),
+      deleteRequestParser_(nullptr)
 {
 }
 
@@ -85,7 +94,10 @@ SearchTimerController::SearchTimerController(
     SearchTimerCreateRequestParser& createRequestParser,
     SearchTimerUpdateService* updateService,
     SearchTimerUpdateResultJsonSerializer* updateJsonSerializer,
-    SearchTimerUpdateRequestParser* updateRequestParser)
+    SearchTimerUpdateRequestParser* updateRequestParser,
+    SearchTimerDeleteService* deleteService,
+    SearchTimerDeleteResultJsonSerializer* deleteJsonSerializer,
+    SearchTimerDeleteRequestParser* deleteRequestParser)
     : searchTimerService_(searchTimerService),
       jsonSerializer_(jsonSerializer),
       dataSource_(&dataSource),
@@ -94,7 +106,10 @@ SearchTimerController::SearchTimerController(
       createRequestParser_(&createRequestParser),
       updateService_(updateService),
       updateJsonSerializer_(updateJsonSerializer),
-      updateRequestParser_(updateRequestParser)
+      updateRequestParser_(updateRequestParser),
+      deleteService_(deleteService),
+      deleteJsonSerializer_(deleteJsonSerializer),
+      deleteRequestParser_(deleteRequestParser)
 {
 }
 
@@ -176,6 +191,32 @@ ApiResponse SearchTimerController::updateSearchTimer(
         updateJsonSerializer_->serialize(
             updateService_->update(
                 updateRequestParser_->parse(body),
+                executor));
+
+    return response;
+}
+
+ApiResponse SearchTimerController::deleteSearchTimer(
+    const std::string& body,
+    ISearchTimerCommandExecutor& executor)
+{
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+
+    if (deleteService_ == nullptr ||
+        deleteJsonSerializer_ == nullptr ||
+        deleteRequestParser_ == nullptr)
+    {
+        response.statusCode = 500;
+        response.body = "{\"error\":\"searchtimer delete service unavailable\"}";
+        return response;
+    }
+
+    response.body =
+        deleteJsonSerializer_->serialize(
+            deleteService_->remove(
+                deleteRequestParser_->parse(body),
                 executor));
 
     return response;

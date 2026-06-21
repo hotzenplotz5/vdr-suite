@@ -6,6 +6,9 @@
 #include "SearchTimerCreateRequestParser.h"
 #include "SearchTimerCreateResultJsonSerializer.h"
 #include "SearchTimerCreateService.h"
+#include "SearchTimerDeleteRequestParser.h"
+#include "SearchTimerDeleteResultJsonSerializer.h"
+#include "SearchTimerDeleteService.h"
 #include "SearchTimerUpdateRequestParser.h"
 #include "SearchTimerUpdateResultJsonSerializer.h"
 #include "SearchTimerUpdateService.h"
@@ -80,6 +83,8 @@ public:
     SearchTimerDeleteResult remove(
         const SearchTimerDeleteRequest& request) override
     {
+        ++removeCallCount_;
+
         return SearchTimerDeleteResult::ok(
             request.backendId,
             request.backendNativeId,
@@ -96,9 +101,15 @@ public:
         return updateCallCount_;
     }
 
+    int removeCallCount() const
+    {
+        return removeCallCount_;
+    }
+
 private:
     int callCount_ = 0;
     int updateCallCount_ = 0;
+    int removeCallCount_ = 0;
 };
 
 int main()
@@ -112,6 +123,9 @@ int main()
     SearchTimerUpdateService updateService;
     SearchTimerUpdateResultJsonSerializer updateJsonSerializer;
     SearchTimerUpdateRequestParser updateRequestParser;
+    SearchTimerDeleteService deleteService;
+    SearchTimerDeleteResultJsonSerializer deleteJsonSerializer;
+    SearchTimerDeleteRequestParser deleteRequestParser;
     SearchTimerController controller(
         searchTimerService,
         serializer,
@@ -121,7 +135,10 @@ int main()
         createRequestParser,
         &updateService,
         &updateJsonSerializer,
-        &updateRequestParser);
+        &updateRequestParser,
+        &deleteService,
+        &deleteJsonSerializer,
+        &deleteRequestParser);
 
     std::vector<SearchTimer> timers;
     timers.push_back(SearchTimer::create(
