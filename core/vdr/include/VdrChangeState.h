@@ -15,6 +15,7 @@ public:
     long long channelsVersion;
     long long recordingsVersion;
     long long timersVersion;
+    long long searchTimersVersion;
     long long eventsVersion;
 };
 

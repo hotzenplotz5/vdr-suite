@@ -22,6 +22,14 @@ int main()
     auto multipleChanges = service.detectChanges(oldState, newState);
     assert(multipleChanges.size() == 2);
 
+    VdrChangeState searchTimerState;
+    searchTimerState.searchTimersVersion = 1;
+
+    auto searchTimerChanges = service.detectChanges(oldState, searchTimerState);
+    assert(searchTimerChanges.size() == 1);
+    assert(searchTimerChanges[0].type() == VdrChangeType::SearchTimersChanged);
+    assert(searchTimerChanges[0].typeName() == "SearchTimersChanged");
+
     std::cout << "test_change_detection_service passed" << std::endl;
     return 0;
 }

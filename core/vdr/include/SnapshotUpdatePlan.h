@@ -11,6 +11,7 @@ public:
     bool shouldRefreshChannels() const;
     bool shouldRefreshRecordings() const;
     bool shouldRefreshTimers() const;
+    bool shouldRefreshSearchTimers() const;
     bool shouldRefreshEvents() const;
     bool hasSelectiveEventRefresh() const;
     VdrEventQuery selectiveEventQuery() const;
@@ -21,6 +22,7 @@ public:
     void markChannelsRefresh();
     void markRecordingsRefresh();
     void markTimersRefresh();
+    void markSearchTimersRefresh();
     void markEventsRefresh();
     void markSelectiveEventRefresh(const VdrEventQuery& query);
     void markFullSnapshotRefresh();
@@ -30,6 +32,7 @@ private:
     bool refreshChannels_;
     bool refreshRecordings_;
     bool refreshTimers_;
+    bool refreshSearchTimers_;
     bool refreshEvents_;
     bool selectiveEventRefresh_;
     VdrEventQuery selectiveEventQuery_;

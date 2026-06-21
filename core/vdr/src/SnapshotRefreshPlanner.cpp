@@ -37,6 +37,9 @@ SnapshotUpdatePlan SnapshotRefreshPlanner::createPlan(
                 plan.markTimersRefresh();
             }
             break;
+        case VdrChangeType::SearchTimersChanged:
+            plan.markSearchTimersRefresh();
+            break;
         case VdrChangeType::EventsChanged:
             if (refreshPolicy_.allowsAutomaticFullRefresh(RefreshDomain::Events)) {
                 plan.markEventsRefresh();

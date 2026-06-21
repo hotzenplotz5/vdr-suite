@@ -22,6 +22,10 @@ std::vector<VdrChangeEvent> ChangeDetectionService::detectChanges(
         events.emplace_back(VdrChangeType::TimersChanged);
     }
 
+    if (previous.searchTimersVersion != current.searchTimersVersion) {
+        events.emplace_back(VdrChangeType::SearchTimersChanged);
+    }
+
     if (previous.eventsVersion != current.eventsVersion) {
         events.emplace_back(VdrChangeType::EventsChanged);
     }
