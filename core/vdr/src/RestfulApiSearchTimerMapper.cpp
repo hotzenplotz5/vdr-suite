@@ -298,6 +298,15 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.channelOptions().setChannelMax(
             getIntField(objectText, "channel_max", 0));
 
+        timer.seriesOptions().setUseSeriesRecording(
+            getIntField(objectText, "use_series_recording", 0) != 0);
+        timer.seriesOptions().setKeepRecordings(
+            getIntField(objectText, "keep_recs", 0));
+        timer.seriesOptions().setDeleteMode(
+            getIntField(objectText, "del_mode", 0));
+        timer.seriesOptions().setSearchTimerAction(
+            getIntField(objectText, "search_timer_action", 0));
+
         timers.push_back(timer);
     }
 

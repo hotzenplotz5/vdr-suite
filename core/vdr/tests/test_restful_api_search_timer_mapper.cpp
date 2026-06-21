@@ -16,7 +16,9 @@ int main()
         "\"compare_title\":1,\"compare_subtitle\":1,\"compare_summary\":1,"
         "\"compare_categories\":1,\"compare_time\":1,"
         "\"avoid_repeats\":1,\"allowed_repeats\":3,\"repeats_within_days\":14,"
-        "\"channels\":\"1,2,3\",\"channel_min\":1,\"channel_max\":99},"
+        "\"channels\":\"1,2,3\",\"channel_min\":1,\"channel_max\":99,"
+        "\"use_series_recording\":1,\"keep_recs\":10,"
+        "\"del_mode\":2,\"search_timer_action\":1},"
         "{\"id\":2,\"search\":\"Tatort\",\"use_as_searchtimer\":0}"
         "],\"count\":2,\"total\":2}";
 
@@ -53,6 +55,10 @@ int main()
     assert(timers.at(0).channelOptions().channels() == "1,2,3");
     assert(timers.at(0).channelOptions().channelMin() == 1);
     assert(timers.at(0).channelOptions().channelMax() == 99);
+    assert(timers.at(0).seriesOptions().useSeriesRecording());
+    assert(timers.at(0).seriesOptions().keepRecordings() == 10);
+    assert(timers.at(0).seriesOptions().deleteMode() == 2);
+    assert(timers.at(0).seriesOptions().searchTimerAction() == 1);
 
     assert(timers.at(1).backendId() == "livingroom");
     assert(timers.at(1).backendNativeId() == "2");

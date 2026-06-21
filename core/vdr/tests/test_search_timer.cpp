@@ -117,6 +117,21 @@ int main()
     assert(activeTimer.channelOptions().channelMin() == 1);
     assert(activeTimer.channelOptions().channelMax() == 99);
 
+    assert(!activeTimer.seriesOptions().useSeriesRecording());
+    assert(activeTimer.seriesOptions().keepRecordings() == 0);
+    assert(activeTimer.seriesOptions().deleteMode() == 0);
+    assert(activeTimer.seriesOptions().searchTimerAction() == 0);
+
+    activeTimer.seriesOptions().setUseSeriesRecording(true);
+    activeTimer.seriesOptions().setKeepRecordings(10);
+    activeTimer.seriesOptions().setDeleteMode(2);
+    activeTimer.seriesOptions().setSearchTimerAction(1);
+
+    assert(activeTimer.seriesOptions().useSeriesRecording());
+    assert(activeTimer.seriesOptions().keepRecordings() == 10);
+    assert(activeTimer.seriesOptions().deleteMode() == 2);
+    assert(activeTimer.seriesOptions().searchTimerAction() == 1);
+
     SearchTimer inactiveTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "43"),
         "Tatort",

@@ -45,6 +45,10 @@ int main()
     terraX.channelOptions().setChannels("1,2,3");
     terraX.channelOptions().setChannelMin(1);
     terraX.channelOptions().setChannelMax(99);
+    terraX.seriesOptions().setUseSeriesRecording(true);
+    terraX.seriesOptions().setKeepRecordings(10);
+    terraX.seriesOptions().setDeleteMode(2);
+    terraX.seriesOptions().setSearchTimerAction(1);
     timers.push_back(terraX);
     timers.push_back(SearchTimer::create(
         SearchTimerId::fromBackendNativeId("bedroom", "2"),
@@ -97,6 +101,11 @@ int main()
     assert(json.find("\"channels\":\"1,2,3\"") != std::string::npos);
     assert(json.find("\"channelMin\":1") != std::string::npos);
     assert(json.find("\"channelMax\":99") != std::string::npos);
+    assert(json.find("\"seriesOptions\":{") != std::string::npos);
+    assert(json.find("\"useSeriesRecording\":true") != std::string::npos);
+    assert(json.find("\"keepRecordings\":10") != std::string::npos);
+    assert(json.find("\"deleteMode\":2") != std::string::npos);
+    assert(json.find("\"searchTimerAction\":1") != std::string::npos);
     assert(json.find("\"backendId\":\"bedroom\"") != std::string::npos);
     assert(json.find("\"name\":\"Bob \\\"Marley\\\"\"") != std::string::npos);
     assert(json.find("\"query\":\"Bob\\\\Marley\"") != std::string::npos);

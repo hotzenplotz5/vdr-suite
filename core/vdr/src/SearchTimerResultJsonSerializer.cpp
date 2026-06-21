@@ -115,6 +115,12 @@ std::string SearchTimerResultJsonSerializer::serialize(
             << "\"channels\":\"" << escapeJsonString(timer.channelOptions().channels()) << "\","
             << "\"channelMin\":" << timer.channelOptions().channelMin() << ","
             << "\"channelMax\":" << timer.channelOptions().channelMax()
+            << "},"
+            << "\"seriesOptions\":{"
+            << "\"useSeriesRecording\":" << (timer.seriesOptions().useSeriesRecording() ? "true" : "false") << ","
+            << "\"keepRecordings\":" << timer.seriesOptions().keepRecordings() << ","
+            << "\"deleteMode\":" << timer.seriesOptions().deleteMode() << ","
+            << "\"searchTimerAction\":" << timer.seriesOptions().searchTimerAction()
             << "}"
             << "}";
     }

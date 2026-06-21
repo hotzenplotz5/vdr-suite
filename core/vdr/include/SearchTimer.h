@@ -340,6 +340,55 @@ private:
     int channelMax_ = 0;
 };
 
+class SearchTimerSeriesOptions {
+public:
+    bool useSeriesRecording() const
+    {
+        return useSeriesRecording_;
+    }
+
+    int keepRecordings() const
+    {
+        return keepRecordings_;
+    }
+
+    int deleteMode() const
+    {
+        return deleteMode_;
+    }
+
+    int searchTimerAction() const
+    {
+        return searchTimerAction_;
+    }
+
+    void setUseSeriesRecording(bool value)
+    {
+        useSeriesRecording_ = value;
+    }
+
+    void setKeepRecordings(int value)
+    {
+        keepRecordings_ = value;
+    }
+
+    void setDeleteMode(int value)
+    {
+        deleteMode_ = value;
+    }
+
+    void setSearchTimerAction(int value)
+    {
+        searchTimerAction_ = value;
+    }
+
+private:
+    bool useSeriesRecording_ = false;
+    int keepRecordings_ = 0;
+    int deleteMode_ = 0;
+    int searchTimerAction_ = 0;
+};
+
 class SearchTimer {
 public:
     static SearchTimer create(
@@ -446,6 +495,16 @@ public:
         return channelOptions_;
     }
 
+    const SearchTimerSeriesOptions& seriesOptions() const
+    {
+        return seriesOptions_;
+    }
+
+    SearchTimerSeriesOptions& seriesOptions()
+    {
+        return seriesOptions_;
+    }
+
     bool isActive() const
     {
         return state_ == SearchTimerState::Active;
@@ -467,4 +526,5 @@ private:
     SearchTimerComparisonOptions comparisonOptions_;
     SearchTimerRepeatOptions repeatOptions_;
     SearchTimerChannelOptions channelOptions_;
+    SearchTimerSeriesOptions seriesOptions_;
 };
