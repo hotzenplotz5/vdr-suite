@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.16 - SearchTimer domain model expansion
+Phase 47.39 - SearchTimer foundation progress
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.17 - SearchTimer mapper expansion
+Phase 47.40 - SearchTimer documentation synchronization
 ```
 
 Latest Completed Milestones:

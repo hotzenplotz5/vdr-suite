@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.16 - SearchTimer domain model expansion
+    Phase 47.39 - SearchTimer foundation progress
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.17 - SearchTimer mapper expansion
+    Phase 47.40 - SearchTimer documentation synchronization
 
 Completed foundations:
 
