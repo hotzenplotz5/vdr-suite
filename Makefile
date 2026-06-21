@@ -996,6 +996,9 @@ test-test-http-server: prepare-test-db
 		$(VDR_SRC) \
 		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
+		api/rest/src/SearchTimerController.cpp \
+		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
+		core/vdr/src/SearchTimerService.cpp \
 		api/rest/src/VdrController.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
 		core/http/src/TestHttpServer.cpp \
