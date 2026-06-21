@@ -121,6 +121,10 @@ std::string SearchTimerResultJsonSerializer::serialize(
             << "\"keepRecordings\":" << timer.seriesOptions().keepRecordings() << ","
             << "\"deleteMode\":" << timer.seriesOptions().deleteMode() << ","
             << "\"searchTimerAction\":" << timer.seriesOptions().searchTimerAction()
+            << "},"
+            << "\"blacklistOptions\":{"
+            << "\"blacklistMode\":" << timer.blacklistOptions().blacklistMode() << ","
+            << "\"blacklistIds\":\"" << escapeJsonString(timer.blacklistOptions().blacklistIds()) << "\""
             << "}"
             << "}";
     }

@@ -307,6 +307,11 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.seriesOptions().setSearchTimerAction(
             getIntField(objectText, "search_timer_action", 0));
 
+        timer.blacklistOptions().setBlacklistMode(
+            getIntField(objectText, "blacklist_mode", 0));
+        timer.blacklistOptions().setBlacklistIds(
+            getStringField(objectText, "blacklist_ids"));
+
         timers.push_back(timer);
     }
 

@@ -132,6 +132,15 @@ int main()
     assert(activeTimer.seriesOptions().deleteMode() == 2);
     assert(activeTimer.seriesOptions().searchTimerAction() == 1);
 
+    assert(activeTimer.blacklistOptions().blacklistMode() == 0);
+    assert(activeTimer.blacklistOptions().blacklistIds().empty());
+
+    activeTimer.blacklistOptions().setBlacklistMode(2);
+    activeTimer.blacklistOptions().setBlacklistIds("4,5");
+
+    assert(activeTimer.blacklistOptions().blacklistMode() == 2);
+    assert(activeTimer.blacklistOptions().blacklistIds() == "4,5");
+
     SearchTimer inactiveTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "43"),
         "Tatort",

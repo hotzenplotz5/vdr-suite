@@ -49,6 +49,8 @@ int main()
     terraX.seriesOptions().setKeepRecordings(10);
     terraX.seriesOptions().setDeleteMode(2);
     terraX.seriesOptions().setSearchTimerAction(1);
+    terraX.blacklistOptions().setBlacklistMode(2);
+    terraX.blacklistOptions().setBlacklistIds("4,5");
     timers.push_back(terraX);
     timers.push_back(SearchTimer::create(
         SearchTimerId::fromBackendNativeId("bedroom", "2"),
@@ -106,6 +108,9 @@ int main()
     assert(json.find("\"keepRecordings\":10") != std::string::npos);
     assert(json.find("\"deleteMode\":2") != std::string::npos);
     assert(json.find("\"searchTimerAction\":1") != std::string::npos);
+    assert(json.find("\"blacklistOptions\":{") != std::string::npos);
+    assert(json.find("\"blacklistMode\":2") != std::string::npos);
+    assert(json.find("\"blacklistIds\":\"4,5\"") != std::string::npos);
     assert(json.find("\"backendId\":\"bedroom\"") != std::string::npos);
     assert(json.find("\"name\":\"Bob \\\"Marley\\\"\"") != std::string::npos);
     assert(json.find("\"query\":\"Bob\\\\Marley\"") != std::string::npos);

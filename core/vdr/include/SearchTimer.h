@@ -389,6 +389,33 @@ private:
     int searchTimerAction_ = 0;
 };
 
+class SearchTimerBlacklistOptions {
+public:
+    int blacklistMode() const
+    {
+        return blacklistMode_;
+    }
+
+    const std::string& blacklistIds() const
+    {
+        return blacklistIds_;
+    }
+
+    void setBlacklistMode(int value)
+    {
+        blacklistMode_ = value;
+    }
+
+    void setBlacklistIds(const std::string& value)
+    {
+        blacklistIds_ = value;
+    }
+
+private:
+    int blacklistMode_ = 0;
+    std::string blacklistIds_;
+};
+
 class SearchTimer {
 public:
     static SearchTimer create(
@@ -505,6 +532,16 @@ public:
         return seriesOptions_;
     }
 
+    const SearchTimerBlacklistOptions& blacklistOptions() const
+    {
+        return blacklistOptions_;
+    }
+
+    SearchTimerBlacklistOptions& blacklistOptions()
+    {
+        return blacklistOptions_;
+    }
+
     bool isActive() const
     {
         return state_ == SearchTimerState::Active;
@@ -527,4 +564,5 @@ private:
     SearchTimerRepeatOptions repeatOptions_;
     SearchTimerChannelOptions channelOptions_;
     SearchTimerSeriesOptions seriesOptions_;
+    SearchTimerBlacklistOptions blacklistOptions_;
 };
