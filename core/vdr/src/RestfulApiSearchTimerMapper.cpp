@@ -321,6 +321,15 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.matchOptions().setSummaryMatch(
             getIntField(objectText, "summary_match", 0));
 
+        timer.extendedEpgOptions().setUseExtendedEpgInfo(
+            getIntField(objectText, "use_ext_epg_info", 0) != 0);
+        timer.extendedEpgOptions().setExtendedEpgInfo(
+            getStringField(objectText, "ext_epg_info"));
+        timer.extendedEpgOptions().setIgnoreMissingEpgCategories(
+            getIntField(objectText, "ignore_missing_epg_cats", 0) != 0);
+        timer.extendedEpgOptions().setContentDescriptors(
+            getStringField(objectText, "content_descriptors"));
+
         timers.push_back(timer);
     }
 

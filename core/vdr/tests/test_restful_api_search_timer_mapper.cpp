@@ -20,7 +20,9 @@ int main()
         "\"use_series_recording\":1,\"keep_recs\":10,"
         "\"del_mode\":2,\"search_timer_action\":1,"
         "\"blacklist_mode\":2,\"blacklist_ids\":\"4,5\","
-        "\"mode\":2,\"match_case\":1,\"tolerance\":1,\"summary_match\":3},"
+        "\"mode\":2,\"match_case\":1,\"tolerance\":1,\"summary_match\":3,"
+        "\"use_ext_epg_info\":1,\"ext_epg_info\":\"category=movie\","
+        "\"ignore_missing_epg_cats\":1,\"content_descriptors\":\"16,32\"},"
         "{\"id\":2,\"search\":\"Tatort\",\"use_as_searchtimer\":0}"
         "],\"count\":2,\"total\":2}";
 
@@ -67,6 +69,10 @@ int main()
     assert(timers.at(0).matchOptions().matchCase());
     assert(timers.at(0).matchOptions().tolerance() == 1);
     assert(timers.at(0).matchOptions().summaryMatch() == 3);
+    assert(timers.at(0).extendedEpgOptions().useExtendedEpgInfo());
+    assert(timers.at(0).extendedEpgOptions().extendedEpgInfo() == "category=movie");
+    assert(timers.at(0).extendedEpgOptions().ignoreMissingEpgCategories());
+    assert(timers.at(0).extendedEpgOptions().contentDescriptors() == "16,32");
 
     assert(timers.at(1).backendId() == "livingroom");
     assert(timers.at(1).backendNativeId() == "2");

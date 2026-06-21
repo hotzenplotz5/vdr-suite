@@ -465,6 +465,55 @@ private:
     int summaryMatch_ = 0;
 };
 
+class SearchTimerExtendedEpgOptions {
+public:
+    bool useExtendedEpgInfo() const
+    {
+        return useExtendedEpgInfo_;
+    }
+
+    const std::string& extendedEpgInfo() const
+    {
+        return extendedEpgInfo_;
+    }
+
+    bool ignoreMissingEpgCategories() const
+    {
+        return ignoreMissingEpgCategories_;
+    }
+
+    const std::string& contentDescriptors() const
+    {
+        return contentDescriptors_;
+    }
+
+    void setUseExtendedEpgInfo(bool value)
+    {
+        useExtendedEpgInfo_ = value;
+    }
+
+    void setExtendedEpgInfo(const std::string& value)
+    {
+        extendedEpgInfo_ = value;
+    }
+
+    void setIgnoreMissingEpgCategories(bool value)
+    {
+        ignoreMissingEpgCategories_ = value;
+    }
+
+    void setContentDescriptors(const std::string& value)
+    {
+        contentDescriptors_ = value;
+    }
+
+private:
+    bool useExtendedEpgInfo_ = false;
+    std::string extendedEpgInfo_;
+    bool ignoreMissingEpgCategories_ = false;
+    std::string contentDescriptors_;
+};
+
 class SearchTimer {
 public:
     static SearchTimer create(
@@ -601,6 +650,16 @@ public:
         return matchOptions_;
     }
 
+    const SearchTimerExtendedEpgOptions& extendedEpgOptions() const
+    {
+        return extendedEpgOptions_;
+    }
+
+    SearchTimerExtendedEpgOptions& extendedEpgOptions()
+    {
+        return extendedEpgOptions_;
+    }
+
     bool isActive() const
     {
         return state_ == SearchTimerState::Active;
@@ -625,4 +684,5 @@ private:
     SearchTimerSeriesOptions seriesOptions_;
     SearchTimerBlacklistOptions blacklistOptions_;
     SearchTimerMatchOptions matchOptions_;
+    SearchTimerExtendedEpgOptions extendedEpgOptions_;
 };

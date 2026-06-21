@@ -156,6 +156,21 @@ int main()
     assert(activeTimer.matchOptions().tolerance() == 1);
     assert(activeTimer.matchOptions().summaryMatch() == 3);
 
+    assert(!activeTimer.extendedEpgOptions().useExtendedEpgInfo());
+    assert(activeTimer.extendedEpgOptions().extendedEpgInfo().empty());
+    assert(!activeTimer.extendedEpgOptions().ignoreMissingEpgCategories());
+    assert(activeTimer.extendedEpgOptions().contentDescriptors().empty());
+
+    activeTimer.extendedEpgOptions().setUseExtendedEpgInfo(true);
+    activeTimer.extendedEpgOptions().setExtendedEpgInfo("category=movie");
+    activeTimer.extendedEpgOptions().setIgnoreMissingEpgCategories(true);
+    activeTimer.extendedEpgOptions().setContentDescriptors("16,32");
+
+    assert(activeTimer.extendedEpgOptions().useExtendedEpgInfo());
+    assert(activeTimer.extendedEpgOptions().extendedEpgInfo() == "category=movie");
+    assert(activeTimer.extendedEpgOptions().ignoreMissingEpgCategories());
+    assert(activeTimer.extendedEpgOptions().contentDescriptors() == "16,32");
+
     SearchTimer inactiveTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "43"),
         "Tatort",

@@ -131,6 +131,12 @@ std::string SearchTimerResultJsonSerializer::serialize(
             << "\"matchCase\":" << (timer.matchOptions().matchCase() ? "true" : "false") << ","
             << "\"tolerance\":" << timer.matchOptions().tolerance() << ","
             << "\"summaryMatch\":" << timer.matchOptions().summaryMatch()
+            << "},"
+            << "\"extendedEpgOptions\":{"
+            << "\"useExtendedEpgInfo\":" << (timer.extendedEpgOptions().useExtendedEpgInfo() ? "true" : "false") << ","
+            << "\"extendedEpgInfo\":\"" << escapeJsonString(timer.extendedEpgOptions().extendedEpgInfo()) << "\","
+            << "\"ignoreMissingEpgCategories\":" << (timer.extendedEpgOptions().ignoreMissingEpgCategories() ? "true" : "false") << ","
+            << "\"contentDescriptors\":\"" << escapeJsonString(timer.extendedEpgOptions().contentDescriptors()) << "\""
             << "}"
             << "}";
     }
