@@ -47,6 +47,13 @@ test-search-timer-create-service:
 		-o /tmp/test_search_timer_create_service
 	/tmp/test_search_timer_create_service
 
+test-search-timer-update-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerUpdateService.cpp \
+		core/vdr/tests/test_search_timer_update_service.cpp \
+		-o /tmp/test_search_timer_update_service
+	/tmp/test_search_timer_update_service
+
 test-search-timer-create-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerCreateResultJsonSerializer.cpp \

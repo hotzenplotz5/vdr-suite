@@ -1,8 +1,7 @@
-#include "SearchTimerCreateService.h"
+#include "SearchTimerUpdateService.h"
 
 #include <cassert>
 #include <iostream>
-#include <string>
 
 class TestSearchTimerCommandExecutor final : public ISearchTimerCommandExecutor
 {
@@ -10,12 +9,7 @@ public:
     SearchTimerCreateResult create(
         const SearchTimerCreateRequest& request) override
     {
-        ++callCount_;
-
-        SearchTimerState state =
-            request.active
-                ? SearchTimerState::Active
-                : SearchTimerState::Inactive;
+        ++createCallCount_;
 
         return SearchTimerCreateResult::ok(
             SearchTimer::create(
@@ -24,13 +18,15 @@ public:
                     "created-searchtimer-1"),
                 request.name,
                 request.query,
-                state),
+                request.active ? SearchTimerState::Active : SearchTimerState::Inactive),
             "searchtimer created");
     }
 
     SearchTimerUpdateResult update(
         const SearchTimerUpdateRequest& request) override
     {
+        ++updateCallCount_;
+
         return SearchTimerUpdateResult::ok(
             SearchTimer::create(
                 SearchTimerId::fromBackendNativeId(
@@ -42,71 +38,79 @@ public:
             "searchtimer updated");
     }
 
-    int callCount() const
+    int createCallCount() const
     {
-        return callCount_;
+        return createCallCount_;
+    }
+
+    int updateCallCount() const
+    {
+        return updateCallCount_;
     }
 
 private:
-    int callCount_ = 0;
+    int createCallCount_ = 0;
+    int updateCallCount_ = 0;
 };
 
-static SearchTimerCreateRequest makeRequest()
+static SearchTimerUpdateRequest makeRequest()
 {
-    SearchTimerCreateRequest request;
+    SearchTimerUpdateRequest request;
     request.backendId = "home-vdr";
+    request.backendNativeId = "searchtimer-42";
     request.name = "Terra X Suche";
     request.query = "Terra X";
     request.active = true;
     return request;
 }
 
-static void test_create_delegates_valid_request_to_executor()
+static void test_update_delegates_valid_request_to_executor()
 {
-    SearchTimerCreateService service;
+    SearchTimerUpdateService service;
     TestSearchTimerCommandExecutor executor;
 
-    const SearchTimerCreateResult result =
-        service.create(
+    const SearchTimerUpdateResult result =
+        service.update(
             makeRequest(),
             executor);
 
     assert(result.success == true);
-    assert(result.message == "searchtimer created");
+    assert(result.message == "searchtimer updated");
     assert(result.searchTimer.backendId() == "home-vdr");
-    assert(result.searchTimer.backendNativeId() == "created-searchtimer-1");
+    assert(result.searchTimer.backendNativeId() == "searchtimer-42");
     assert(result.searchTimer.name() == "Terra X Suche");
     assert(result.searchTimer.query() == "Terra X");
     assert(result.searchTimer.state() == SearchTimerState::Active);
-    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.createCallCount() == 0);
 }
 
-static void test_create_preserves_inactive_state()
+static void test_update_preserves_inactive_state()
 {
-    SearchTimerCreateService service;
+    SearchTimerUpdateService service;
     TestSearchTimerCommandExecutor executor;
-    SearchTimerCreateRequest request = makeRequest();
+    SearchTimerUpdateRequest request = makeRequest();
     request.active = false;
 
-    const SearchTimerCreateResult result =
-        service.create(
+    const SearchTimerUpdateResult result =
+        service.update(
             request,
             executor);
 
     assert(result.success == true);
     assert(result.searchTimer.state() == SearchTimerState::Inactive);
-    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
 }
 
-static void test_create_requires_backend_id()
+static void test_update_requires_backend_id()
 {
-    SearchTimerCreateService service;
+    SearchTimerUpdateService service;
     TestSearchTimerCommandExecutor executor;
-    SearchTimerCreateRequest request = makeRequest();
+    SearchTimerUpdateRequest request = makeRequest();
     request.backendId = "";
 
-    const SearchTimerCreateResult result =
-        service.create(
+    const SearchTimerUpdateResult result =
+        service.update(
             request,
             executor);
 
@@ -114,18 +118,37 @@ static void test_create_requires_backend_id()
     assert(result.message == "searchtimer backend id is required");
     assert(result.errors.size() == 1);
     assert(result.errors.at(0) == "backendId is required");
-    assert(executor.callCount() == 0);
+    assert(executor.updateCallCount() == 0);
 }
 
-static void test_create_requires_name()
+static void test_update_requires_backend_native_id()
 {
-    SearchTimerCreateService service;
+    SearchTimerUpdateService service;
     TestSearchTimerCommandExecutor executor;
-    SearchTimerCreateRequest request = makeRequest();
+    SearchTimerUpdateRequest request = makeRequest();
+    request.backendNativeId = "";
+
+    const SearchTimerUpdateResult result =
+        service.update(
+            request,
+            executor);
+
+    assert(result.success == false);
+    assert(result.message == "searchtimer backend native id is required");
+    assert(result.errors.size() == 1);
+    assert(result.errors.at(0) == "backendNativeId is required");
+    assert(executor.updateCallCount() == 0);
+}
+
+static void test_update_requires_name()
+{
+    SearchTimerUpdateService service;
+    TestSearchTimerCommandExecutor executor;
+    SearchTimerUpdateRequest request = makeRequest();
     request.name = "";
 
-    const SearchTimerCreateResult result =
-        service.create(
+    const SearchTimerUpdateResult result =
+        service.update(
             request,
             executor);
 
@@ -133,18 +156,18 @@ static void test_create_requires_name()
     assert(result.message == "searchtimer name is required");
     assert(result.errors.size() == 1);
     assert(result.errors.at(0) == "name is required");
-    assert(executor.callCount() == 0);
+    assert(executor.updateCallCount() == 0);
 }
 
-static void test_create_requires_query()
+static void test_update_requires_query()
 {
-    SearchTimerCreateService service;
+    SearchTimerUpdateService service;
     TestSearchTimerCommandExecutor executor;
-    SearchTimerCreateRequest request = makeRequest();
+    SearchTimerUpdateRequest request = makeRequest();
     request.query = "";
 
-    const SearchTimerCreateResult result =
-        service.create(
+    const SearchTimerUpdateResult result =
+        service.update(
             request,
             executor);
 
@@ -152,19 +175,20 @@ static void test_create_requires_query()
     assert(result.message == "searchtimer query is required");
     assert(result.errors.size() == 1);
     assert(result.errors.at(0) == "query is required");
-    assert(executor.callCount() == 0);
+    assert(executor.updateCallCount() == 0);
 }
 
 int main()
 {
-    test_create_delegates_valid_request_to_executor();
-    test_create_preserves_inactive_state();
-    test_create_requires_backend_id();
-    test_create_requires_name();
-    test_create_requires_query();
+    test_update_delegates_valid_request_to_executor();
+    test_update_preserves_inactive_state();
+    test_update_requires_backend_id();
+    test_update_requires_backend_native_id();
+    test_update_requires_name();
+    test_update_requires_query();
 
     std::cout
-        << "test_search_timer_create_service passed"
+        << "test_search_timer_update_service passed"
         << std::endl;
 
     return 0;

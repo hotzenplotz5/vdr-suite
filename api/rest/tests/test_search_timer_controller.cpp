@@ -57,6 +57,20 @@ public:
             "searchtimer created");
     }
 
+    SearchTimerUpdateResult update(
+        const SearchTimerUpdateRequest& request) override
+    {
+        return SearchTimerUpdateResult::ok(
+            SearchTimer::create(
+                SearchTimerId::fromBackendNativeId(
+                    request.backendId,
+                    request.backendNativeId),
+                request.name,
+                request.query,
+                request.active ? SearchTimerState::Active : SearchTimerState::Inactive),
+            "searchtimer updated");
+    }
+
     int callCount() const
     {
         return callCount_;
