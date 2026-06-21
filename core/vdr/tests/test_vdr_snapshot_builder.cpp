@@ -1,5 +1,8 @@
 #include "IRuntimeMeasurementSink.h"
+#include "ISearchTimerDataSource.h"
 #include "MockVdrAdapter.h"
+#include "SearchTimerQuery.h"
+#include "SearchTimerResult.h"
 #include "RuntimeMeasurement.h"
 #include "VdrService.h"
 #include "VdrSnapshot.h"
@@ -9,6 +12,25 @@
 #include <iostream>
 #include <string>
 #include <vector>
+
+class TestSearchTimerDataSource : public ISearchTimerDataSource {
+public:
+    SearchTimerResult list(
+        const SearchTimerQuery& query) const override
+    {
+        lastQuery = query;
+
+        SearchTimer searchTimer = SearchTimer::create(
+            SearchTimerId::fromBackendNativeId("default", "searchtimer-1"),
+            "Snapshot SearchTimer",
+            "Terra X",
+            SearchTimerState::Active);
+
+        return SearchTimerResult::from({searchTimer}, 1, query.limit(), query.offset());
+    }
+
+    mutable SearchTimerQuery lastQuery;
+};
 
 class RecordingMeasurementSink : public IRuntimeMeasurementSink {
 public:
@@ -68,6 +90,8 @@ static void test_snapshot_builder_collects_complete_vdr_state()
     assert(snapshot.timers.size() == 1);
     assert(snapshot.timers[0].id == "mock-timer-1");
 
+    assert(snapshot.searchTimers.empty());
+
     assert(snapshot.channels.size() == 3);
     assert(snapshot.channels[0].id == "mock-channel-1");
 
@@ -87,18 +111,21 @@ static void test_snapshot_builder_records_measurements_for_complete_snapshot()
     assert(snapshot.status.enabled == true);
     assert(snapshot.recordings.size() == 2);
     assert(snapshot.timers.size() == 1);
+    assert(snapshot.searchTimers.empty());
     assert(snapshot.channels.size() == 3);
     assert(snapshot.events.size() == 2);
 
-    assert(sink.measurements.size() == 5);
+    assert(sink.measurements.size() == 6);
     assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build status"));
     assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build recordings"));
     assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build timers"));
+    assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build search timers"));
     assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build channels"));
     assert(containsMeasurement(sink, "VdrSnapshotBuilder", "Build events"));
 
     assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build recordings").itemCount == 2);
     assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build timers").itemCount == 1);
+    assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build search timers").itemCount == 0);
     assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build channels").itemCount == 3);
     assert(findMeasurement(sink, "VdrSnapshotBuilder", "Build events").itemCount == 2);
 }
@@ -185,6 +212,66 @@ static void test_snapshot_builder_records_timers_measurement()
     assert(sink.measurements[0].component == "VdrSnapshotBuilder");
     assert(sink.measurements[0].operation == "Build timers");
     assert(sink.measurements[0].itemCount == 1);
+}
+
+static void test_snapshot_builder_can_build_search_timers_domain()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+    TestSearchTimerDataSource dataSource;
+    VdrSnapshotBuilder builder(
+        service,
+        nullptr,
+        nullptr,
+        &dataSource);
+
+    auto searchTimers = builder.buildSearchTimers();
+
+    assert(searchTimers.size() == 1);
+    assert(searchTimers[0].backendNativeId() == "searchtimer-1");
+    assert(searchTimers[0].name() == "Snapshot SearchTimer");
+    assert(searchTimers[0].query() == "Terra X");
+    assert(searchTimers[0].isActive());
+    assert(dataSource.lastQuery.limit() == 0);
+    assert(dataSource.lastQuery.offset() == 0);
+}
+
+static void test_snapshot_builder_records_search_timers_measurement()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+    TestSearchTimerDataSource dataSource;
+    RecordingMeasurementSink sink;
+    VdrSnapshotBuilder builder(
+        service,
+        nullptr,
+        &sink,
+        &dataSource);
+
+    auto searchTimers = builder.buildSearchTimers();
+
+    assert(searchTimers.size() == 1);
+    assert(sink.measurements.size() == 1);
+    assert(sink.measurements[0].component == "VdrSnapshotBuilder");
+    assert(sink.measurements[0].operation == "Build search timers");
+    assert(sink.measurements[0].itemCount == 1);
+}
+
+static void test_snapshot_builder_populates_search_timers_in_snapshot()
+{
+    MockVdrAdapter adapter;
+    VdrService service(adapter);
+    TestSearchTimerDataSource dataSource;
+    VdrSnapshotBuilder builder(
+        service,
+        nullptr,
+        nullptr,
+        &dataSource);
+
+    VdrSnapshot snapshot = builder.buildSnapshotWithoutEvents();
+
+    assert(snapshot.searchTimers.size() == 1);
+    assert(snapshot.searchTimers[0].backendNativeId() == "searchtimer-1");
 }
 
 static void test_snapshot_builder_can_build_channels_domain()
@@ -307,6 +394,9 @@ int main()
     test_snapshot_builder_records_recordings_measurement();
     test_snapshot_builder_can_build_timers_domain();
     test_snapshot_builder_records_timers_measurement();
+    test_snapshot_builder_can_build_search_timers_domain();
+    test_snapshot_builder_records_search_timers_measurement();
+    test_snapshot_builder_populates_search_timers_in_snapshot();
     test_snapshot_builder_can_build_channels_domain();
     test_snapshot_builder_records_channels_measurement();
     test_snapshot_builder_can_build_events_domain();

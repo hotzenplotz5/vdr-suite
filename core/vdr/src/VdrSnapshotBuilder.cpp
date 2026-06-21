@@ -1,5 +1,8 @@
 #include "VdrSnapshotBuilder.h"
 
+#include "ISearchTimerDataSource.h"
+#include "SearchTimerQuery.h"
+#include "SearchTimerResult.h"
 #include "VdrService.h"
 
 #include <chrono>
@@ -8,12 +11,14 @@
 VdrSnapshotBuilder::VdrSnapshotBuilder(
     VdrService& vdrService,
     IRuntimeLogger* logger,
-    IRuntimeMeasurementSink* measurementSink)
+    IRuntimeMeasurementSink* measurementSink,
+    ISearchTimerDataSource* searchTimerDataSource)
     : VdrSnapshotBuilder(
           vdrService,
           "default",
           logger,
-          measurementSink)
+          measurementSink,
+          searchTimerDataSource)
 {
 }
 
@@ -21,11 +26,13 @@ VdrSnapshotBuilder::VdrSnapshotBuilder(
     VdrService& vdrService,
     const std::string& backendId,
     IRuntimeLogger* logger,
-    IRuntimeMeasurementSink* measurementSink)
+    IRuntimeMeasurementSink* measurementSink,
+    ISearchTimerDataSource* searchTimerDataSource)
     : vdrService_(vdrService),
       backendId_(backendId),
       logger_(logger),
-      measurementSink_(measurementSink)
+      measurementSink_(measurementSink),
+      searchTimerDataSource_(searchTimerDataSource)
 {
 }
 
@@ -110,6 +117,33 @@ std::vector<VdrTimer> VdrSnapshotBuilder::buildTimers() const
     return result;
 }
 
+std::vector<SearchTimer> VdrSnapshotBuilder::buildSearchTimers() const
+{
+    const auto started = std::chrono::steady_clock::now();
+
+    std::vector<SearchTimer> result;
+
+    if (searchTimerDataSource_ != nullptr) {
+        SearchTimerQuery query = SearchTimerQuery::all();
+
+        result = searchTimerDataSource_->list(query).items();
+    }
+
+    const auto finished = std::chrono::steady_clock::now();
+    const auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count();
+
+    log(RuntimeLogLevel::Info, "Build search timers finished (" + std::to_string(durationMs) + " ms)");
+
+    RuntimeMeasurement measurement;
+    measurement.component = "VdrSnapshotBuilder";
+    measurement.operation = "Build search timers";
+    measurement.durationMs = durationMs;
+    measurement.itemCount = result.size();
+    recordMeasurement(measurement);
+
+    return result;
+}
+
 std::vector<VdrChannel> VdrSnapshotBuilder::buildChannels() const
 {
     const auto started = std::chrono::steady_clock::now();
@@ -184,6 +218,7 @@ VdrSnapshot VdrSnapshotBuilder::buildSnapshotWithoutEvents() const
     snapshot.status = buildStatus();
     snapshot.recordings = buildRecordings();
     snapshot.timers = buildTimers();
+    snapshot.searchTimers = buildSearchTimers();
     snapshot.channels = buildChannels();
 
     return snapshot;

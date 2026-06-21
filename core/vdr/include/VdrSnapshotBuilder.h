@@ -5,6 +5,7 @@
 #include "IRuntimeMeasurementSink.h"
 #include "RuntimeLogLevel.h"
 #include "RuntimeMeasurement.h"
+#include "SearchTimer.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrEventQuery.h"
@@ -16,6 +17,7 @@
 #include <string>
 #include <vector>
 
+class ISearchTimerDataSource;
 class VdrService;
 
 class VdrSnapshotBuilder {
@@ -23,17 +25,20 @@ public:
     explicit VdrSnapshotBuilder(
         VdrService& vdrService,
         IRuntimeLogger* logger = nullptr,
-        IRuntimeMeasurementSink* measurementSink = nullptr);
+        IRuntimeMeasurementSink* measurementSink = nullptr,
+        ISearchTimerDataSource* searchTimerDataSource = nullptr);
 
     explicit VdrSnapshotBuilder(
         VdrService& vdrService,
         const std::string& backendId,
         IRuntimeLogger* logger,
-        IRuntimeMeasurementSink* measurementSink);
+        IRuntimeMeasurementSink* measurementSink,
+        ISearchTimerDataSource* searchTimerDataSource = nullptr);
 
     VdrStatus buildStatus() const;
     std::vector<VdrRecording> buildRecordings() const;
     std::vector<VdrTimer> buildTimers() const;
+    std::vector<SearchTimer> buildSearchTimers() const;
     std::vector<VdrChannel> buildChannels() const;
     std::vector<VdrEvent> buildEvents() const;
     std::vector<VdrEvent> buildEvents(const VdrEventQuery& query) const;
@@ -46,6 +51,7 @@ private:
     std::string backendId_;
     IRuntimeLogger* logger_;
     IRuntimeMeasurementSink* measurementSink_;
+    ISearchTimerDataSource* searchTimerDataSource_;
 
     void log(RuntimeLogLevel level, const std::string& message) const;
     void recordMeasurement(const RuntimeMeasurement& measurement) const;
