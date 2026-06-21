@@ -1363,3 +1363,10 @@ test-vdr-capability-set:
 		core/vdr/tests/test_vdr_capability_set.cpp \
 		-o /tmp/test_vdr_capability_set
 	/tmp/test_vdr_capability_set
+
+test-restfulapi-search-timer-command-executor:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/RestfulApiSearchTimerCommandExecutor.cpp \
+		core/vdr/tests/test_restfulapi_search_timer_command_executor.cpp \
+		-o /tmp/test_restfulapi_search_timer_command_executor
+	/tmp/test_restfulapi_search_timer_command_executor
