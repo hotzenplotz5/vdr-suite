@@ -27,7 +27,6 @@ test-epg-query-factory:
 test-search-timer-preview-service:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
-		core/vdr/src/SearchTimerPreviewService.cpp \
 		core/vdr/tests/test_search_timer_preview_service.cpp \
 		-o /tmp/test_search_timer_preview_service
 	/tmp/test_search_timer_preview_service
