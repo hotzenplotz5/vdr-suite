@@ -820,6 +820,11 @@ test-search-timer-controller:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
                 core/vdr/src/SearchTimerService.cpp \
+		core/vdr/src/EpgSearchMatcher.cpp \
+		core/vdr/src/EpgSearchService.cpp \
+		core/vdr/src/EpgSearchResultJsonSerializer.cpp \
+		core/vdr/src/SearchTimerPreviewService.cpp \
+		core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
 		api/rest/src/SearchTimerController.cpp \
 		api/rest/tests/test_search_timer_controller.cpp \
 		-o /tmp/test_search_timer_controller
@@ -939,6 +944,8 @@ test-api-router: prepare-test-db
                 api/rest/src/SearchTimerController.cpp \
                 core/vdr/src/SearchTimerResultJsonSerializer.cpp \
                 core/vdr/src/SearchTimerService.cpp \
+                core/vdr/src/SearchTimerPreviewService.cpp \
+                core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
 		api/rest/src/VdrController.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
 		api/rest/tests/test_api_router.cpp \
@@ -999,6 +1006,8 @@ test-test-http-server: prepare-test-db
 		api/rest/src/SearchTimerController.cpp \
 		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
 		core/vdr/src/SearchTimerService.cpp \
+		core/vdr/src/SearchTimerPreviewService.cpp \
+		core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
 		api/rest/src/VdrController.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
 		core/http/src/TestHttpServer.cpp \

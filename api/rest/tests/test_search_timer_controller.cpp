@@ -3,6 +3,7 @@
 #include "SearchTimerResult.h"
 #include "SearchTimerResultJsonSerializer.h"
 #include "SearchTimerService.h"
+#include "VdrEvent.h"
 
 #include <cassert>
 #include <iostream>
@@ -37,6 +38,28 @@ int main()
     assert(response.body.find("\"backendNativeId\":\"1\"") != std::string::npos);
     assert(response.body.find("\"name\":\"Terra X\"") != std::string::npos);
     assert(response.body.find("\"state\":\"active\"") != std::string::npos);
+
+    VdrEvent event;
+    event.id = "event-1";
+    event.channelId = "channel-1";
+    event.title = "Terra X";
+    event.startTime = "1000";
+    event.endTime = "1100";
+    event.durationSeconds = 3600;
+
+    ApiResponse previewResponse =
+        controller.previewSearchTimer(
+            timers[0],
+            {event},
+            10,
+            0);
+
+    assert(previewResponse.statusCode == 200);
+    assert(previewResponse.contentType == "application/json");
+    assert(previewResponse.body.find("\"searchTimer\":{") != std::string::npos);
+    assert(previewResponse.body.find("\"preview\":{") != std::string::npos);
+    assert(previewResponse.body.find("\"totalCount\":1") != std::string::npos);
+    assert(previewResponse.body.find("\"eventId\":\"event-1\"") != std::string::npos);
 
     std::cout << "test_search_timer_controller passed" << std::endl;
     return 0;

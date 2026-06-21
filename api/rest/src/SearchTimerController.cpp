@@ -5,6 +5,8 @@
 #include "ISearchTimerDataSource.h"
 #include "SearchTimerService.h"
 #include "SearchTimerResultJsonSerializer.h"
+#include "SearchTimerPreviewResultJsonSerializer.h"
+#include "SearchTimerPreviewService.h"
 
 namespace {
 
@@ -84,6 +86,30 @@ ApiResponse SearchTimerController::searchSearchTimers(
             offset));
 
     return getSearchTimers(result);
+}
+
+ApiResponse SearchTimerController::previewSearchTimer(
+    const SearchTimer& searchTimer,
+    const std::vector<VdrEvent>& events,
+    int limit,
+    int offset)
+{
+    SearchTimerPreviewService previewService;
+    SearchTimerPreviewResultJsonSerializer serializer;
+
+    const SearchTimerPreviewResult result =
+        previewService.preview(
+            searchTimer,
+            events,
+            limit,
+            offset);
+
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body = serializer.serialize(result);
+
+    return response;
 }
 ApiResponse SearchTimerController::searchSearchTimers(
     const std::string& backend,

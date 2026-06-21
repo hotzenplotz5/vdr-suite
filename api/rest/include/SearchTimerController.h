@@ -3,6 +3,10 @@
 #include "DashboardController.h"
 
 #include <string>
+#include <vector>
+
+#include "SearchTimer.h"
+#include "VdrEvent.h"
 
 class ISearchTimerDataSource;
 class SearchTimerResult;
@@ -36,6 +40,12 @@ public:
         const std::string& backend,
         const std::string& state,
         const std::string& text,
+        int limit,
+        int offset);
+
+    ApiResponse previewSearchTimer(
+        const SearchTimer& searchTimer,
+        const std::vector<VdrEvent>& events,
         int limit,
         int offset);
 
