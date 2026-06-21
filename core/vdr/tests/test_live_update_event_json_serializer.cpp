@@ -24,6 +24,22 @@ static void test_serializer_writes_live_update_event_json()
     assert(json.find("\"changedDomains\":[\"channels\",\"recordings\"]") != std::string::npos);
 }
 
+static void test_serializer_writes_searchtimer_changed_domain()
+{
+    LiveUpdateEvent event(
+        9,
+        44,
+        {"searchtimers"},
+        "home-vdr");
+
+    LiveUpdateEventJsonSerializer serializer;
+
+    const std::string json =
+        serializer.serializeEvent(event);
+
+    assert(json.find("\"changedDomains\":[\"searchtimers\"]") != std::string::npos);
+}
+
 static void test_serializer_writes_empty_changed_domains()
 {
     LiveUpdateEvent event(
@@ -43,6 +59,7 @@ static void test_serializer_writes_empty_changed_domains()
 int main()
 {
     test_serializer_writes_live_update_event_json();
+    test_serializer_writes_searchtimer_changed_domain();
     test_serializer_writes_empty_changed_domains();
 
     std::cout

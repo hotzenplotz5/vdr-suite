@@ -48,6 +48,20 @@ static void test_event_can_be_created_from_snapshot_change_feed_entry()
     assert(event.changedDomains()[0] == "timers");
 }
 
+static void test_event_can_carry_searchtimer_domain()
+{
+    SnapshotChangeFeedEntry entry(
+        9,
+        44,
+        {"searchtimers"},
+        "home-vdr");
+
+    LiveUpdateEvent event(entry);
+
+    assert(event.changedDomains().size() == 1);
+    assert(event.changedDomains()[0] == "searchtimers");
+}
+
 static void test_empty_event_has_no_changes()
 {
     LiveUpdateEvent event(
@@ -64,6 +78,7 @@ int main()
     test_event_stores_live_update_fields();
     test_event_uses_default_backend_id();
     test_event_can_be_created_from_snapshot_change_feed_entry();
+    test_event_can_carry_searchtimer_domain();
     test_empty_event_has_no_changes();
 
     std::cout

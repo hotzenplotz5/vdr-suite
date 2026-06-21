@@ -38,6 +38,23 @@ static void test_transport_serializes_live_update_event_as_sse_frame()
     assert(frame.substr(frame.size() - 2) == "\n\n");
 }
 
+static void test_transport_serializes_searchtimer_update_as_sse_frame()
+{
+    SseLiveTransport transport;
+
+    transport.publish(LiveUpdateEvent(
+        9,
+        44,
+        {"searchtimers"},
+        "home-vdr"));
+
+    const std::string frame = transport.frames()[0];
+
+    assert(frame.find("event: update\n") != std::string::npos);
+    assert(frame.find("id: 9\n") != std::string::npos);
+    assert(frame.find("\"changedDomains\":[\"searchtimers\"]") != std::string::npos);
+}
+
 static void test_transport_preserves_multiple_frames_in_stream()
 {
     SseLiveTransport transport;
@@ -87,6 +104,7 @@ int main()
 {
     test_transport_starts_empty();
     test_transport_serializes_live_update_event_as_sse_frame();
+    test_transport_serializes_searchtimer_update_as_sse_frame();
     test_transport_preserves_multiple_frames_in_stream();
     test_transport_can_be_cleared();
 
