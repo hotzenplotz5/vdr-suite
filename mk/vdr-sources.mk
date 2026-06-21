@@ -22,6 +22,15 @@ VDR_SRC := \
         core/vdr/src/RestfulApiEventMapper.cpp \
         core/vdr/src/RestfulApiStatusMapper.cpp \
         core/vdr/src/RestfulApiVdrAdapter.cpp \
+        core/vdr/src/SearchTimerCreateService.cpp \
+        core/vdr/src/SearchTimerCreateResultJsonSerializer.cpp \
+        core/vdr/src/SearchTimerUpdateService.cpp \
+        core/vdr/src/SearchTimerUpdateResultJsonSerializer.cpp \
+        core/vdr/src/SearchTimerDeleteService.cpp \
+        core/vdr/src/SearchTimerDeleteResultJsonSerializer.cpp \
+        core/vdr/src/SearchTimerPreviewService.cpp \
+        core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
+        core/vdr/src/RestfulApiSearchTimerCommandExecutor.cpp \
         core/vdr/src/VdrOverviewService.cpp \
         core/vdr/src/VdrOverviewJsonSerializer.cpp \
         core/vdr/src/VdrSnapshotBuilder.cpp \

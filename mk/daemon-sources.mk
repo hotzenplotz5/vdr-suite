@@ -53,4 +53,7 @@ DAEMON_SRC := \
         core/http/src/SimpleHttpListener.cpp \
         core/http/src/TestHttpServer.cpp \
         core/daemon/src/DaemonRuntime.cpp \
-        core/daemon/src/DaemonApp.cpp
+        core/daemon/src/DaemonApp.cpp \
+        api/rest/src/SearchTimerCreateRequestParser.cpp \
+        api/rest/src/SearchTimerUpdateRequestParser.cpp \
+        api/rest/src/SearchTimerDeleteRequestParser.cpp \

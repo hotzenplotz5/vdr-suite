@@ -206,8 +206,11 @@ bool DaemonRuntime::initialize()
             *searchTimerService_,
             *searchTimerResultJsonSerializer_,
             *backendRuntimeContexts_.front()->searchTimerAdapter);
+        searchTimerCommandExecutor_ = std::make_unique<RestfulApiSearchTimerCommandExecutor>(
+            *backendRuntimeContexts_.front()->httpClient);
 
         std::cout << "SearchTimer controller runtime initialized" << std::endl;
+        std::cout << "SearchTimer command executor runtime initialized" << std::endl;
     }
     else {
         std::cout << "SearchTimer controller runtime skipped: no VDR backend configured" << std::endl;
@@ -317,7 +320,8 @@ bool DaemonRuntime::initialize()
         *runtimeDiagnosticsController_,
         *snapshotChangeFeedController_,
         searchTimerController_.get(),
-        *liveTransportController_);
+        *liveTransportController_,
+        searchTimerCommandExecutor_.get());
 
     std::cout << "API router runtime initialized" << std::endl;
 
@@ -388,6 +392,7 @@ void DaemonRuntime::shutdown()
     liveTransport_.reset();
     snapshotChangeFeedController_.reset();
     runtimeDiagnosticsController_.reset();
+    searchTimerCommandExecutor_.reset();
     searchTimerController_.reset();
     searchTimerResultJsonSerializer_.reset();
     searchTimerService_.reset();
