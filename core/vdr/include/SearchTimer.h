@@ -302,6 +302,44 @@ private:
     int repeatsWithinDays_ = 0;
 };
 
+class SearchTimerChannelOptions {
+public:
+    const std::string& channels() const
+    {
+        return channels_;
+    }
+
+    int channelMin() const
+    {
+        return channelMin_;
+    }
+
+    int channelMax() const
+    {
+        return channelMax_;
+    }
+
+    void setChannels(const std::string& value)
+    {
+        channels_ = value;
+    }
+
+    void setChannelMin(int value)
+    {
+        channelMin_ = value;
+    }
+
+    void setChannelMax(int value)
+    {
+        channelMax_ = value;
+    }
+
+private:
+    std::string channels_;
+    int channelMin_ = 0;
+    int channelMax_ = 0;
+};
+
 class SearchTimer {
 public:
     static SearchTimer create(
@@ -398,6 +436,16 @@ public:
         return repeatOptions_;
     }
 
+    const SearchTimerChannelOptions& channelOptions() const
+    {
+        return channelOptions_;
+    }
+
+    SearchTimerChannelOptions& channelOptions()
+    {
+        return channelOptions_;
+    }
+
     bool isActive() const
     {
         return state_ == SearchTimerState::Active;
@@ -418,4 +466,5 @@ private:
     SearchTimerFilterOptions filterOptions_;
     SearchTimerComparisonOptions comparisonOptions_;
     SearchTimerRepeatOptions repeatOptions_;
+    SearchTimerChannelOptions channelOptions_;
 };

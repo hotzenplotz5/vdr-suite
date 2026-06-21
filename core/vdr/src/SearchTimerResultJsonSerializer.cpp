@@ -110,6 +110,11 @@ std::string SearchTimerResultJsonSerializer::serialize(
             << "\"avoidRepeats\":" << (timer.repeatOptions().avoidRepeats() ? "true" : "false") << ","
             << "\"allowedRepeats\":" << timer.repeatOptions().allowedRepeats() << ","
             << "\"repeatsWithinDays\":" << timer.repeatOptions().repeatsWithinDays()
+            << "},"
+            << "\"channelOptions\":{"
+            << "\"channels\":\"" << escapeJsonString(timer.channelOptions().channels()) << "\","
+            << "\"channelMin\":" << timer.channelOptions().channelMin() << ","
+            << "\"channelMax\":" << timer.channelOptions().channelMax()
             << "}"
             << "}";
     }

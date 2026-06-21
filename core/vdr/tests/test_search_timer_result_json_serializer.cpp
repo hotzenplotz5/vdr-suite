@@ -42,6 +42,9 @@ int main()
     terraX.repeatOptions().setAvoidRepeats(true);
     terraX.repeatOptions().setAllowedRepeats(3);
     terraX.repeatOptions().setRepeatsWithinDays(14);
+    terraX.channelOptions().setChannels("1,2,3");
+    terraX.channelOptions().setChannelMin(1);
+    terraX.channelOptions().setChannelMax(99);
     timers.push_back(terraX);
     timers.push_back(SearchTimer::create(
         SearchTimerId::fromBackendNativeId("bedroom", "2"),
@@ -90,6 +93,10 @@ int main()
     assert(json.find("\"avoidRepeats\":true") != std::string::npos);
     assert(json.find("\"allowedRepeats\":3") != std::string::npos);
     assert(json.find("\"repeatsWithinDays\":14") != std::string::npos);
+    assert(json.find("\"channelOptions\":{") != std::string::npos);
+    assert(json.find("\"channels\":\"1,2,3\"") != std::string::npos);
+    assert(json.find("\"channelMin\":1") != std::string::npos);
+    assert(json.find("\"channelMax\":99") != std::string::npos);
     assert(json.find("\"backendId\":\"bedroom\"") != std::string::npos);
     assert(json.find("\"name\":\"Bob \\\"Marley\\\"\"") != std::string::npos);
     assert(json.find("\"query\":\"Bob\\\\Marley\"") != std::string::npos);

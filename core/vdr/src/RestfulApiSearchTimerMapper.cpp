@@ -291,6 +291,13 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.repeatOptions().setRepeatsWithinDays(
             getIntField(objectText, "repeats_within_days", 0));
 
+        timer.channelOptions().setChannels(
+            getStringField(objectText, "channels"));
+        timer.channelOptions().setChannelMin(
+            getIntField(objectText, "channel_min", 0));
+        timer.channelOptions().setChannelMax(
+            getIntField(objectText, "channel_max", 0));
+
         timers.push_back(timer);
     }
 

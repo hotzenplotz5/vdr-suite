@@ -105,6 +105,18 @@ int main()
     assert(activeTimer.repeatOptions().allowedRepeats() == 3);
     assert(activeTimer.repeatOptions().repeatsWithinDays() == 14);
 
+    assert(activeTimer.channelOptions().channels().empty());
+    assert(activeTimer.channelOptions().channelMin() == 0);
+    assert(activeTimer.channelOptions().channelMax() == 0);
+
+    activeTimer.channelOptions().setChannels("1,2,3");
+    activeTimer.channelOptions().setChannelMin(1);
+    activeTimer.channelOptions().setChannelMax(99);
+
+    assert(activeTimer.channelOptions().channels() == "1,2,3");
+    assert(activeTimer.channelOptions().channelMin() == 1);
+    assert(activeTimer.channelOptions().channelMax() == 99);
+
     SearchTimer inactiveTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "43"),
         "Tatort",
