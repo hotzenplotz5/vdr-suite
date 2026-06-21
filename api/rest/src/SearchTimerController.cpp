@@ -5,8 +5,12 @@
 #include "ISearchTimerDataSource.h"
 #include "SearchTimerService.h"
 #include "SearchTimerResultJsonSerializer.h"
+#include "SearchTimerCreateRequestParser.h"
+#include "SearchTimerCreateResultJsonSerializer.h"
+#include "SearchTimerCreateService.h"
 #include "SearchTimerPreviewResultJsonSerializer.h"
 #include "SearchTimerPreviewService.h"
+#include "ISearchTimerCommandExecutor.h"
 
 namespace {
 
@@ -43,7 +47,10 @@ SearchTimerController::SearchTimerController(
     SearchTimerResultJsonSerializer& jsonSerializer)
     : searchTimerService_(searchTimerService),
       jsonSerializer_(jsonSerializer),
-      dataSource_(nullptr)
+      dataSource_(nullptr),
+      createService_(nullptr),
+      createJsonSerializer_(nullptr),
+      createRequestParser_(nullptr)
 {
 }
 
@@ -53,7 +60,26 @@ SearchTimerController::SearchTimerController(
     ISearchTimerDataSource& dataSource)
     : searchTimerService_(searchTimerService),
       jsonSerializer_(jsonSerializer),
-      dataSource_(&dataSource)
+      dataSource_(&dataSource),
+      createService_(nullptr),
+      createJsonSerializer_(nullptr),
+      createRequestParser_(nullptr)
+{
+}
+
+SearchTimerController::SearchTimerController(
+    SearchTimerService& searchTimerService,
+    SearchTimerResultJsonSerializer& jsonSerializer,
+    ISearchTimerDataSource& dataSource,
+    SearchTimerCreateService& createService,
+    SearchTimerCreateResultJsonSerializer& createJsonSerializer,
+    SearchTimerCreateRequestParser& createRequestParser)
+    : searchTimerService_(searchTimerService),
+      jsonSerializer_(jsonSerializer),
+      dataSource_(&dataSource),
+      createService_(&createService),
+      createJsonSerializer_(&createJsonSerializer),
+      createRequestParser_(&createRequestParser)
 {
 }
 
@@ -86,6 +112,32 @@ ApiResponse SearchTimerController::searchSearchTimers(
             offset));
 
     return getSearchTimers(result);
+}
+
+ApiResponse SearchTimerController::createSearchTimer(
+    const std::string& body,
+    ISearchTimerCommandExecutor& executor)
+{
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+
+    if (createService_ == nullptr ||
+        createJsonSerializer_ == nullptr ||
+        createRequestParser_ == nullptr)
+    {
+        response.statusCode = 500;
+        response.body = "{\"error\":\"searchtimer create service unavailable\"}";
+        return response;
+    }
+
+    response.body =
+        createJsonSerializer_->serialize(
+            createService_->create(
+                createRequestParser_->parse(body),
+                executor));
+
+    return response;
 }
 
 ApiResponse SearchTimerController::previewSearchTimer(

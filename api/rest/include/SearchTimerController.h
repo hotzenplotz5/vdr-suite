@@ -8,7 +8,11 @@
 #include "SearchTimer.h"
 #include "VdrEvent.h"
 
+class ISearchTimerCommandExecutor;
 class ISearchTimerDataSource;
+class SearchTimerCreateRequestParser;
+class SearchTimerCreateResultJsonSerializer;
+class SearchTimerCreateService;
 class SearchTimerResult;
 class SearchTimerResultJsonSerializer;
 class SearchTimerService;
@@ -24,6 +28,14 @@ public:
         SearchTimerService& searchTimerService,
         SearchTimerResultJsonSerializer& jsonSerializer,
         ISearchTimerDataSource& dataSource);
+
+    SearchTimerController(
+        SearchTimerService& searchTimerService,
+        SearchTimerResultJsonSerializer& jsonSerializer,
+        ISearchTimerDataSource& dataSource,
+        SearchTimerCreateService& createService,
+        SearchTimerCreateResultJsonSerializer& createJsonSerializer,
+        SearchTimerCreateRequestParser& createRequestParser);
 
     ApiResponse getSearchTimers(
         const SearchTimerResult& result);
@@ -49,8 +61,15 @@ public:
         int limit,
         int offset);
 
+    ApiResponse createSearchTimer(
+        const std::string& body,
+        ISearchTimerCommandExecutor& executor);
+
 private:
     SearchTimerService& searchTimerService_;
     SearchTimerResultJsonSerializer& jsonSerializer_;
     ISearchTimerDataSource* dataSource_;
+    SearchTimerCreateService* createService_;
+    SearchTimerCreateResultJsonSerializer* createJsonSerializer_;
+    SearchTimerCreateRequestParser* createRequestParser_;
 };
