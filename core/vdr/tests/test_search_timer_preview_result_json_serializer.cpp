@@ -55,6 +55,10 @@ int main()
     assert(json.find("\"name\":\"Terra X Suche\"") != std::string::npos);
     assert(json.find("\"query\":\"Terra X\"") != std::string::npos);
     assert(json.find("\"state\":\"active\"") != std::string::npos);
+    assert(json.find("\"statistics\":{") != std::string::npos);
+    assert(json.find("\"channelCount\":1") != std::string::npos);
+    assert(json.find("\"nextStartTime\":\"1000\"") != std::string::npos);
+    assert(json.find("\"latestStartTime\":\"1000\"") != std::string::npos);
     assert(json.find("\"preview\":{") != std::string::npos);
     assert(json.find("\"totalCount\":1") != std::string::npos);
     assert(json.find("\"returnedCount\":1") != std::string::npos);

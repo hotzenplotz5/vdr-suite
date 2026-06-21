@@ -2,6 +2,7 @@
 
 #include "EpgSearchResultJsonSerializer.h"
 
+#include <set>
 #include <sstream>
 
 namespace
@@ -85,6 +86,42 @@ std::string SearchTimerPreviewResultJsonSerializer::serialize(
     appendQuoted(json, searchTimer.query());
     json << ",\"state\":";
     appendQuoted(json, stateToJson(searchTimer.state()));
+    json << "},";
+
+    std::set<std::string> channelIds;
+    std::string nextStartTime;
+    std::string latestStartTime;
+
+    for (const auto& match : result.searchResult().matches())
+    {
+        const VdrEvent& event = match.event();
+
+        if (!event.channelId.empty())
+        {
+            channelIds.insert(event.channelId);
+        }
+
+        if (!event.startTime.empty() &&
+            (nextStartTime.empty() || event.startTime < nextStartTime))
+        {
+            nextStartTime = event.startTime;
+        }
+
+        if (!event.startTime.empty() &&
+            (latestStartTime.empty() || event.startTime > latestStartTime))
+        {
+            latestStartTime = event.startTime;
+        }
+    }
+
+    json << "\"statistics\":{";
+    json << "\"totalCount\":" << result.totalCount();
+    json << ",\"returnedCount\":" << result.returnedCount();
+    json << ",\"channelCount\":" << channelIds.size();
+    json << ",\"nextStartTime\":";
+    appendQuoted(json, nextStartTime);
+    json << ",\"latestStartTime\":";
+    appendQuoted(json, latestStartTime);
     json << "},";
 
     json << "\"preview\":";
