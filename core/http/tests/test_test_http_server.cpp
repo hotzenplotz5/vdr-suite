@@ -254,6 +254,7 @@ int main()
         vdrTimerActionExecutorAdapterRegistry,
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
+        nullptr,
         liveTransportController);
 
     TestHttpServer server(router);
