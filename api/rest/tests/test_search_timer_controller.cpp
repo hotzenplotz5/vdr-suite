@@ -6,6 +6,9 @@
 #include "SearchTimerCreateRequestParser.h"
 #include "SearchTimerCreateResultJsonSerializer.h"
 #include "SearchTimerCreateService.h"
+#include "SearchTimerUpdateRequestParser.h"
+#include "SearchTimerUpdateResultJsonSerializer.h"
+#include "SearchTimerUpdateService.h"
 #include "SearchTimerResultJsonSerializer.h"
 #include "SearchTimerService.h"
 #include "VdrEvent.h"
@@ -60,6 +63,8 @@ public:
     SearchTimerUpdateResult update(
         const SearchTimerUpdateRequest& request) override
     {
+        ++updateCallCount_;
+
         return SearchTimerUpdateResult::ok(
             SearchTimer::create(
                 SearchTimerId::fromBackendNativeId(
@@ -76,8 +81,14 @@ public:
         return callCount_;
     }
 
+    int updateCallCount() const
+    {
+        return updateCallCount_;
+    }
+
 private:
     int callCount_ = 0;
+    int updateCallCount_ = 0;
 };
 
 int main()
@@ -88,13 +99,19 @@ int main()
     SearchTimerCreateService createService;
     SearchTimerCreateResultJsonSerializer createJsonSerializer;
     SearchTimerCreateRequestParser createRequestParser;
+    SearchTimerUpdateService updateService;
+    SearchTimerUpdateResultJsonSerializer updateJsonSerializer;
+    SearchTimerUpdateRequestParser updateRequestParser;
     SearchTimerController controller(
         searchTimerService,
         serializer,
         dataSource,
         createService,
         createJsonSerializer,
-        createRequestParser);
+        createRequestParser,
+        &updateService,
+        &updateJsonSerializer,
+        &updateRequestParser);
 
     std::vector<SearchTimer> timers;
     timers.push_back(SearchTimer::create(
@@ -160,6 +177,27 @@ int main()
     assert(createResponse.body.find("\"name\":\"Terra X Suche\"") != std::string::npos);
     assert(createResponse.body.find("\"query\":\"Terra X\"") != std::string::npos);
     assert(executor.callCount() == 1);
+
+    ApiResponse updateResponse =
+        controller.updateSearchTimer(
+            "{"
+            "\"backendId\":\"home-vdr\","
+            "\"backendNativeId\":\"searchtimer-42\","
+            "\"name\":\"Terra X Suche aktualisiert\","
+            "\"query\":\"Terra X aktualisiert\","
+            "\"active\":false"
+            "}",
+            executor);
+
+    assert(updateResponse.statusCode == 200);
+    assert(updateResponse.contentType == "application/json");
+    assert(updateResponse.body.find("\"success\":true") != std::string::npos);
+    assert(updateResponse.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(updateResponse.body.find("\"backendNativeId\":\"searchtimer-42\"") != std::string::npos);
+    assert(updateResponse.body.find("\"name\":\"Terra X Suche aktualisiert\"") != std::string::npos);
+    assert(updateResponse.body.find("\"query\":\"Terra X aktualisiert\"") != std::string::npos);
+    assert(updateResponse.body.find("\"state\":\"inactive\"") != std::string::npos);
+    assert(executor.updateCallCount() == 1);
 
     std::cout << "test_search_timer_controller passed" << std::endl;
     return 0;

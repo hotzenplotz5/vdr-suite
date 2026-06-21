@@ -16,6 +16,9 @@ class SearchTimerCreateService;
 class SearchTimerResult;
 class SearchTimerResultJsonSerializer;
 class SearchTimerService;
+class SearchTimerUpdateRequestParser;
+class SearchTimerUpdateResultJsonSerializer;
+class SearchTimerUpdateService;
 
 class SearchTimerController
 {
@@ -35,7 +38,10 @@ public:
         ISearchTimerDataSource& dataSource,
         SearchTimerCreateService& createService,
         SearchTimerCreateResultJsonSerializer& createJsonSerializer,
-        SearchTimerCreateRequestParser& createRequestParser);
+        SearchTimerCreateRequestParser& createRequestParser,
+        SearchTimerUpdateService* updateService = nullptr,
+        SearchTimerUpdateResultJsonSerializer* updateJsonSerializer = nullptr,
+        SearchTimerUpdateRequestParser* updateRequestParser = nullptr);
 
     ApiResponse getSearchTimers(
         const SearchTimerResult& result);
@@ -65,6 +71,10 @@ public:
         const std::string& body,
         ISearchTimerCommandExecutor& executor);
 
+    ApiResponse updateSearchTimer(
+        const std::string& body,
+        ISearchTimerCommandExecutor& executor);
+
 private:
     SearchTimerService& searchTimerService_;
     SearchTimerResultJsonSerializer& jsonSerializer_;
@@ -72,4 +82,7 @@ private:
     SearchTimerCreateService* createService_;
     SearchTimerCreateResultJsonSerializer* createJsonSerializer_;
     SearchTimerCreateRequestParser* createRequestParser_;
+    SearchTimerUpdateService* updateService_;
+    SearchTimerUpdateResultJsonSerializer* updateJsonSerializer_;
+    SearchTimerUpdateRequestParser* updateRequestParser_;
 };

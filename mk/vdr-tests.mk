@@ -68,6 +68,20 @@ test-search-timer-create-request-parser:
 		-o /tmp/test_search_timer_create_request_parser
 	/tmp/test_search_timer_create_request_parser
 
+test-search-timer-update-result-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerUpdateResultJsonSerializer.cpp \
+		core/vdr/tests/test_search_timer_update_result_json_serializer.cpp \
+		-o /tmp/test_search_timer_update_result_json_serializer
+	/tmp/test_search_timer_update_result_json_serializer
+
+test-search-timer-update-request-parser:
+	$(CXX) $(CXXFLAGS) \
+		api/rest/src/SearchTimerUpdateRequestParser.cpp \
+		api/rest/tests/test_search_timer_update_request_parser.cpp \
+		-o /tmp/test_search_timer_update_request_parser
+	/tmp/test_search_timer_update_request_parser
+
 test-backend-polling-coordinator:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \

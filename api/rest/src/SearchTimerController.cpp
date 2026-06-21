@@ -8,6 +8,9 @@
 #include "SearchTimerCreateRequestParser.h"
 #include "SearchTimerCreateResultJsonSerializer.h"
 #include "SearchTimerCreateService.h"
+#include "SearchTimerUpdateRequestParser.h"
+#include "SearchTimerUpdateResultJsonSerializer.h"
+#include "SearchTimerUpdateService.h"
 #include "SearchTimerPreviewResultJsonSerializer.h"
 #include "SearchTimerPreviewService.h"
 #include "ISearchTimerCommandExecutor.h"
@@ -50,7 +53,10 @@ SearchTimerController::SearchTimerController(
       dataSource_(nullptr),
       createService_(nullptr),
       createJsonSerializer_(nullptr),
-      createRequestParser_(nullptr)
+      createRequestParser_(nullptr),
+      updateService_(nullptr),
+      updateJsonSerializer_(nullptr),
+      updateRequestParser_(nullptr)
 {
 }
 
@@ -63,7 +69,10 @@ SearchTimerController::SearchTimerController(
       dataSource_(&dataSource),
       createService_(nullptr),
       createJsonSerializer_(nullptr),
-      createRequestParser_(nullptr)
+      createRequestParser_(nullptr),
+      updateService_(nullptr),
+      updateJsonSerializer_(nullptr),
+      updateRequestParser_(nullptr)
 {
 }
 
@@ -73,13 +82,19 @@ SearchTimerController::SearchTimerController(
     ISearchTimerDataSource& dataSource,
     SearchTimerCreateService& createService,
     SearchTimerCreateResultJsonSerializer& createJsonSerializer,
-    SearchTimerCreateRequestParser& createRequestParser)
+    SearchTimerCreateRequestParser& createRequestParser,
+    SearchTimerUpdateService* updateService,
+    SearchTimerUpdateResultJsonSerializer* updateJsonSerializer,
+    SearchTimerUpdateRequestParser* updateRequestParser)
     : searchTimerService_(searchTimerService),
       jsonSerializer_(jsonSerializer),
       dataSource_(&dataSource),
       createService_(&createService),
       createJsonSerializer_(&createJsonSerializer),
-      createRequestParser_(&createRequestParser)
+      createRequestParser_(&createRequestParser),
+      updateService_(updateService),
+      updateJsonSerializer_(updateJsonSerializer),
+      updateRequestParser_(updateRequestParser)
 {
 }
 
@@ -135,6 +150,32 @@ ApiResponse SearchTimerController::createSearchTimer(
         createJsonSerializer_->serialize(
             createService_->create(
                 createRequestParser_->parse(body),
+                executor));
+
+    return response;
+}
+
+ApiResponse SearchTimerController::updateSearchTimer(
+    const std::string& body,
+    ISearchTimerCommandExecutor& executor)
+{
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+
+    if (updateService_ == nullptr ||
+        updateJsonSerializer_ == nullptr ||
+        updateRequestParser_ == nullptr)
+    {
+        response.statusCode = 500;
+        response.body = "{\"error\":\"searchtimer update service unavailable\"}";
+        return response;
+    }
+
+    response.body =
+        updateJsonSerializer_->serialize(
+            updateService_->update(
+                updateRequestParser_->parse(body),
                 executor));
 
     return response;

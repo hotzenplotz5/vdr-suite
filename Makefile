@@ -826,6 +826,9 @@ test-search-timer-controller:
 		core/vdr/src/SearchTimerCreateService.cpp \
 		core/vdr/src/SearchTimerCreateResultJsonSerializer.cpp \
 		api/rest/src/SearchTimerCreateRequestParser.cpp \
+                core/vdr/src/SearchTimerUpdateService.cpp \
+                core/vdr/src/SearchTimerUpdateResultJsonSerializer.cpp \
+                api/rest/src/SearchTimerUpdateRequestParser.cpp \
 		core/vdr/src/SearchTimerPreviewService.cpp \
 		core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
 		api/rest/src/SearchTimerController.cpp \
@@ -950,6 +953,9 @@ test-api-router: prepare-test-db
                 core/vdr/src/SearchTimerCreateService.cpp \
                 core/vdr/src/SearchTimerCreateResultJsonSerializer.cpp \
                 api/rest/src/SearchTimerCreateRequestParser.cpp \
+                core/vdr/src/SearchTimerUpdateService.cpp \
+                core/vdr/src/SearchTimerUpdateResultJsonSerializer.cpp \
+                api/rest/src/SearchTimerUpdateRequestParser.cpp \
                 core/vdr/src/SearchTimerPreviewService.cpp \
                 core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
 		api/rest/src/VdrController.cpp \
@@ -1015,6 +1021,9 @@ test-test-http-server: prepare-test-db
                 core/vdr/src/SearchTimerCreateService.cpp \
                 core/vdr/src/SearchTimerCreateResultJsonSerializer.cpp \
                 api/rest/src/SearchTimerCreateRequestParser.cpp \
+                core/vdr/src/SearchTimerUpdateService.cpp \
+                core/vdr/src/SearchTimerUpdateResultJsonSerializer.cpp \
+                api/rest/src/SearchTimerUpdateRequestParser.cpp \
 		core/vdr/src/SearchTimerPreviewService.cpp \
 		core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
 		api/rest/src/VdrController.cpp \
