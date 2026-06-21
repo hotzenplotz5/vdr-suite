@@ -273,6 +273,17 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.filterOptions().setDurationMaxMinutes(
             getIntField(objectText, "duration_max", 0));
 
+        timer.comparisonOptions().setCompareTitle(
+            getIntField(objectText, "compare_title", 0) != 0);
+        timer.comparisonOptions().setCompareSubtitle(
+            getIntField(objectText, "compare_subtitle", 0) != 0);
+        timer.comparisonOptions().setCompareSummary(
+            getIntField(objectText, "compare_summary", 0) != 0);
+        timer.comparisonOptions().setCompareCategories(
+            getIntField(objectText, "compare_categories", 0) != 0);
+        timer.comparisonOptions().setCompareTime(
+            getIntField(objectText, "compare_time", 0) != 0);
+
         timers.push_back(timer);
     }
 

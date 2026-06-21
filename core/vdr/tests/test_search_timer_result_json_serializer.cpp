@@ -34,6 +34,11 @@ int main()
     terraX.filterOptions().setUseDuration(true);
     terraX.filterOptions().setDurationMinMinutes(30);
     terraX.filterOptions().setDurationMaxMinutes(120);
+    terraX.comparisonOptions().setCompareTitle(true);
+    terraX.comparisonOptions().setCompareSubtitle(true);
+    terraX.comparisonOptions().setCompareSummary(true);
+    terraX.comparisonOptions().setCompareCategories(true);
+    terraX.comparisonOptions().setCompareTime(true);
     timers.push_back(terraX);
     timers.push_back(SearchTimer::create(
         SearchTimerId::fromBackendNativeId("bedroom", "2"),
@@ -72,6 +77,12 @@ int main()
     assert(json.find("\"useDuration\":true") != std::string::npos);
     assert(json.find("\"durationMinMinutes\":30") != std::string::npos);
     assert(json.find("\"durationMaxMinutes\":120") != std::string::npos);
+    assert(json.find("\"comparisonOptions\":{") != std::string::npos);
+    assert(json.find("\"compareTitle\":true") != std::string::npos);
+    assert(json.find("\"compareSubtitle\":true") != std::string::npos);
+    assert(json.find("\"compareSummary\":true") != std::string::npos);
+    assert(json.find("\"compareCategories\":true") != std::string::npos);
+    assert(json.find("\"compareTime\":true") != std::string::npos);
     assert(json.find("\"backendId\":\"bedroom\"") != std::string::npos);
     assert(json.find("\"name\":\"Bob \\\"Marley\\\"\"") != std::string::npos);
     assert(json.find("\"query\":\"Bob\\\\Marley\"") != std::string::npos);

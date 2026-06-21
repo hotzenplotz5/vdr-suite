@@ -98,6 +98,13 @@ std::string SearchTimerResultJsonSerializer::serialize(
             << "\"useDuration\":" << (timer.filterOptions().useDuration() ? "true" : "false") << ","
             << "\"durationMinMinutes\":" << timer.filterOptions().durationMinMinutes() << ","
             << "\"durationMaxMinutes\":" << timer.filterOptions().durationMaxMinutes()
+            << "},"
+            << "\"comparisonOptions\":{"
+            << "\"compareTitle\":" << (timer.comparisonOptions().compareTitle() ? "true" : "false") << ","
+            << "\"compareSubtitle\":" << (timer.comparisonOptions().compareSubtitle() ? "true" : "false") << ","
+            << "\"compareSummary\":" << (timer.comparisonOptions().compareSummary() ? "true" : "false") << ","
+            << "\"compareCategories\":" << (timer.comparisonOptions().compareCategories() ? "true" : "false") << ","
+            << "\"compareTime\":" << (timer.comparisonOptions().compareTime() ? "true" : "false")
             << "}"
             << "}";
     }

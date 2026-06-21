@@ -75,6 +75,24 @@ int main()
     assert(activeTimer.filterOptions().durationMinMinutes() == 30);
     assert(activeTimer.filterOptions().durationMaxMinutes() == 120);
 
+    assert(!activeTimer.comparisonOptions().compareTitle());
+    assert(!activeTimer.comparisonOptions().compareSubtitle());
+    assert(!activeTimer.comparisonOptions().compareSummary());
+    assert(!activeTimer.comparisonOptions().compareCategories());
+    assert(!activeTimer.comparisonOptions().compareTime());
+
+    activeTimer.comparisonOptions().setCompareTitle(true);
+    activeTimer.comparisonOptions().setCompareSubtitle(true);
+    activeTimer.comparisonOptions().setCompareSummary(true);
+    activeTimer.comparisonOptions().setCompareCategories(true);
+    activeTimer.comparisonOptions().setCompareTime(true);
+
+    assert(activeTimer.comparisonOptions().compareTitle());
+    assert(activeTimer.comparisonOptions().compareSubtitle());
+    assert(activeTimer.comparisonOptions().compareSummary());
+    assert(activeTimer.comparisonOptions().compareCategories());
+    assert(activeTimer.comparisonOptions().compareTime());
+
     SearchTimer inactiveTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "43"),
         "Tatort",

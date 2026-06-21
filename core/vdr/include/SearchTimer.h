@@ -204,6 +204,66 @@ private:
     int durationMaxMinutes_ = 0;
 };
 
+class SearchTimerComparisonOptions {
+public:
+    bool compareTitle() const
+    {
+        return compareTitle_;
+    }
+
+    bool compareSubtitle() const
+    {
+        return compareSubtitle_;
+    }
+
+    bool compareSummary() const
+    {
+        return compareSummary_;
+    }
+
+    bool compareCategories() const
+    {
+        return compareCategories_;
+    }
+
+    bool compareTime() const
+    {
+        return compareTime_;
+    }
+
+    void setCompareTitle(bool value)
+    {
+        compareTitle_ = value;
+    }
+
+    void setCompareSubtitle(bool value)
+    {
+        compareSubtitle_ = value;
+    }
+
+    void setCompareSummary(bool value)
+    {
+        compareSummary_ = value;
+    }
+
+    void setCompareCategories(bool value)
+    {
+        compareCategories_ = value;
+    }
+
+    void setCompareTime(bool value)
+    {
+        compareTime_ = value;
+    }
+
+private:
+    bool compareTitle_ = false;
+    bool compareSubtitle_ = false;
+    bool compareSummary_ = false;
+    bool compareCategories_ = false;
+    bool compareTime_ = false;
+};
+
 class SearchTimer {
 public:
     static SearchTimer create(
@@ -280,6 +340,16 @@ public:
         return filterOptions_;
     }
 
+    const SearchTimerComparisonOptions& comparisonOptions() const
+    {
+        return comparisonOptions_;
+    }
+
+    SearchTimerComparisonOptions& comparisonOptions()
+    {
+        return comparisonOptions_;
+    }
+
     bool isActive() const
     {
         return state_ == SearchTimerState::Active;
@@ -298,4 +368,5 @@ private:
     SearchTimerRecordingOptions recordingOptions_;
     SearchTimerScheduleOptions scheduleOptions_;
     SearchTimerFilterOptions filterOptions_;
+    SearchTimerComparisonOptions comparisonOptions_;
 };

@@ -12,7 +12,9 @@ int main()
         "\"directory\":\"Doku\",\"priority\":50,\"lifetime\":99,"
         "\"margin_start\":5,\"margin_stop\":10,\"use_vps\":1,"
         "\"use_channel\":1,\"use_dayofweek\":1,\"use_duration\":1,"
-        "\"duration_min\":30,\"duration_max\":120},"
+        "\"duration_min\":30,\"duration_max\":120,"
+        "\"compare_title\":1,\"compare_subtitle\":1,\"compare_summary\":1,"
+        "\"compare_categories\":1,\"compare_time\":1},"
         "{\"id\":2,\"search\":\"Tatort\",\"use_as_searchtimer\":0}"
         "],\"count\":2,\"total\":2}";
 
@@ -38,6 +40,11 @@ int main()
     assert(timers.at(0).filterOptions().useDuration());
     assert(timers.at(0).filterOptions().durationMinMinutes() == 30);
     assert(timers.at(0).filterOptions().durationMaxMinutes() == 120);
+    assert(timers.at(0).comparisonOptions().compareTitle());
+    assert(timers.at(0).comparisonOptions().compareSubtitle());
+    assert(timers.at(0).comparisonOptions().compareSummary());
+    assert(timers.at(0).comparisonOptions().compareCategories());
+    assert(timers.at(0).comparisonOptions().compareTime());
 
     assert(timers.at(1).backendId() == "livingroom");
     assert(timers.at(1).backendNativeId() == "2");
