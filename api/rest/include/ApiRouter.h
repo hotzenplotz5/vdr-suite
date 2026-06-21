@@ -17,6 +17,7 @@ class RecordingPersonSearchController;
 class RecordingActionValidationController;
 class RuntimeDiagnosticsController;
 class SnapshotChangeFeedController;
+class ISearchTimerCommandExecutor;
 class SearchTimerController;
 class VdrController;
 class VdrRecordingQueryController;
@@ -47,7 +48,8 @@ public:
         RuntimeDiagnosticsController& runtimeDiagnosticsController,
         SnapshotChangeFeedController& snapshotChangeFeedController,
         SearchTimerController* searchTimerController,
-        LiveTransportController& liveTransportController);
+        LiveTransportController& liveTransportController,
+        ISearchTimerCommandExecutor* searchTimerCommandExecutor = nullptr);
 
     ApiResponse handleGet(
         const std::string& path);
@@ -77,4 +79,5 @@ private:
     SnapshotChangeFeedController& snapshotChangeFeedController_;
     SearchTimerController* searchTimerController_;
     LiveTransportController& liveTransportController_;
+    ISearchTimerCommandExecutor* searchTimerCommandExecutor_;
 };

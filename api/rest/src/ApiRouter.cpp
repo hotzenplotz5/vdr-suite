@@ -3,6 +3,7 @@
 #include "BackendRegistryController.h"
 #include "CapabilityController.h"
 #include "EpgController.h"
+#include "ISearchTimerCommandExecutor.h"
 #include "JobsController.h"
 #include "LiveTransportController.h"
 #include "MetadataController.h"
@@ -147,7 +148,8 @@ ApiRouter::ApiRouter(
     RuntimeDiagnosticsController& runtimeDiagnosticsController,
     SnapshotChangeFeedController& snapshotChangeFeedController,
     SearchTimerController* searchTimerController,
-    LiveTransportController& liveTransportController)
+    LiveTransportController& liveTransportController,
+    ISearchTimerCommandExecutor* searchTimerCommandExecutor)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
       recordingsController_(recordingsController),
@@ -167,7 +169,8 @@ ApiRouter::ApiRouter(
       runtimeDiagnosticsController_(runtimeDiagnosticsController),
       snapshotChangeFeedController_(snapshotChangeFeedController),
       searchTimerController_(searchTimerController),
-      liveTransportController_(liveTransportController)
+      liveTransportController_(liveTransportController),
+      searchTimerCommandExecutor_(searchTimerCommandExecutor)
 {
 }
 
@@ -212,6 +215,24 @@ ApiResponse ApiRouter::handlePost(
         return vdrTimerActionController_.removeBody(
             body,
             vdrTimerActionExecutorAdapterRegistry_);
+    }
+
+    if (path == "/api/searchtimers" ||
+        path == "/api/vdr/searchtimers")
+    {
+        if (searchTimerController_ == nullptr)
+        {
+            return makeSearchTimerUnavailableResponse();
+        }
+
+        if (searchTimerCommandExecutor_ == nullptr)
+        {
+            return makeSearchTimerUnavailableResponse();
+        }
+
+        return searchTimerController_->createSearchTimer(
+            body,
+            *searchTimerCommandExecutor_);
     }
 
     ApiResponse response;
