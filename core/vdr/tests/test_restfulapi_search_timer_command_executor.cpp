@@ -44,6 +44,17 @@ static SearchTimerCreateRequest makeCreateRequest()
     return request;
 }
 
+static SearchTimerUpdateRequest makeUpdateRequest()
+{
+    SearchTimerUpdateRequest request;
+    request.backendId = "home-vdr";
+    request.backendNativeId = "42";
+    request.name = "Tatort updated";
+    request.query = "Tatort updated";
+    request.active = true;
+    return request;
+}
+
 static void test_create_posts_to_restfulapi_searchtimers()
 {
     HttpResponse response;
@@ -62,9 +73,10 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(result.searchTimer.query() == "Tatort");
     assert(httpClient.requests.size() == 1);
     assert(httpClient.requests.at(0).method == "POST");
-    assert(httpClient.requests.at(0).url.find("/searchtimers?") == 0);
-    assert(httpClient.requests.at(0).url.find("search=Tatort") != std::string::npos);
-    assert(httpClient.requests.at(0).url.find("use_as_searchtimer=1") != std::string::npos);
+    assert(httpClient.requests.at(0).url == "/searchtimers");
+    assert(httpClient.requests.at(0).headers.at("Content-Type") == "application/json");
+    assert(httpClient.requests.at(0).body.find("\"search\":\"Tatort\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
 static void test_create_fails_without_created_id()
@@ -84,28 +96,46 @@ static void test_create_fails_without_created_id()
     assert(result.errors.size() == 1);
 }
 
-static void test_update_returns_unsupported_without_http_call()
+static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
 {
     HttpResponse response;
     response.statusCode = 200;
+    response.body = "OK, Id:42";
 
     TestHttpClient httpClient(response);
     RestfulApiSearchTimerCommandExecutor executor(httpClient);
 
-    SearchTimerUpdateRequest request;
-    request.backendId = "home-vdr";
-    request.backendNativeId = "42";
-    request.name = "Tatort";
-    request.query = "Tatort";
-    request.active = true;
+    const SearchTimerUpdateResult result =
+        executor.update(makeUpdateRequest());
+
+    assert(result.success == true);
+    assert(result.searchTimer.id().backendId() == "home-vdr");
+    assert(result.searchTimer.id().nativeId() == "42");
+    assert(result.searchTimer.name() == "Tatort updated");
+    assert(result.searchTimer.query() == "Tatort updated");
+    assert(httpClient.requests.size() == 1);
+    assert(httpClient.requests.at(0).method == "PUT");
+    assert(httpClient.requests.at(0).url == "/searchtimers/42");
+    assert(httpClient.requests.at(0).headers.at("Content-Type") == "application/json");
+    assert(httpClient.requests.at(0).body.find("\"search\":\"Tatort updated\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
+}
+
+static void test_update_fails_without_returned_id()
+{
+    HttpResponse response;
+    response.statusCode = 200;
+    response.body = "OK";
+
+    TestHttpClient httpClient(response);
+    RestfulApiSearchTimerCommandExecutor executor(httpClient);
 
     const SearchTimerUpdateResult result =
-        executor.update(request);
+        executor.update(makeUpdateRequest());
 
     assert(result.success == false);
-    assert(result.message == "RESTfulAPI searchtimer update is not supported");
+    assert(result.message == "RESTfulAPI searchtimer update did not return an id");
     assert(result.errors.size() == 1);
-    assert(httpClient.requests.empty());
 }
 
 static void test_remove_deletes_restfulapi_searchtimer_by_native_id()
@@ -136,7 +166,8 @@ int main()
 {
     test_create_posts_to_restfulapi_searchtimers();
     test_create_fails_without_created_id();
-    test_update_returns_unsupported_without_http_call();
+    test_update_puts_to_restfulapi_searchtimer_by_native_id();
+    test_update_fails_without_returned_id();
     test_remove_deletes_restfulapi_searchtimer_by_native_id();
 
     std::cout

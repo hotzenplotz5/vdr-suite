@@ -44,25 +44,59 @@ std::string urlEncode(
     return encoded.str();
 }
 
-std::string buildCreateUrl(
-    const SearchTimerCreateRequest& request)
+std::string jsonEscape(
+    const std::string& value)
 {
-    std::string url = "/searchtimers";
+    std::ostringstream escaped;
 
-    url += "?search=";
-    url += urlEncode(request.query);
+    for (const char character : value)
+    {
+        switch (character)
+        {
+            case '\\':
+                escaped << "\\\\";
+                break;
+            case '"':
+                escaped << "\\\"";
+                break;
+            case '\n':
+                escaped << "\\n";
+                break;
+            case '\r':
+                escaped << "\\r";
+                break;
+            case '\t':
+                escaped << "\\t";
+                break;
+            default:
+                escaped << character;
+                break;
+        }
+    }
 
-    url += "&use_title=1";
-    url += "&use_subtitle=1";
-    url += "&use_description=1";
-    url += "&use_channel=0";
-    url += "&use_as_searchtimer=";
-    url += request.active ? "1" : "0";
-
-    return url;
+    return escaped.str();
 }
 
-std::string extractCreatedId(
+std::string buildSearchTimerBody(
+    const std::string& query,
+    const bool active)
+{
+    std::ostringstream body;
+
+    body
+        << "{"
+        << "\"search\":\"" << jsonEscape(query) << "\","
+        << "\"use_title\":true,"
+        << "\"use_subtitle\":true,"
+        << "\"use_description\":true,"
+        << "\"use_channel\":0,"
+        << "\"use_as_searchtimer\":" << (active ? "1" : "0")
+        << "}";
+
+    return body.str();
+}
+
+std::string extractReturnedId(
     const std::string& body)
 {
     const std::string marker = "Id:";
@@ -106,8 +140,13 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
 {
     HttpRequest httpRequest;
     httpRequest.method = "POST";
-    httpRequest.url = buildCreateUrl(request);
+    httpRequest.url = "/searchtimers";
     httpRequest.headers["Accept"] = "text/plain";
+    httpRequest.headers["Content-Type"] = "application/json";
+    httpRequest.body =
+        buildSearchTimerBody(
+            request.query,
+            request.active);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);
@@ -120,7 +159,7 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
     }
 
     const std::string createdId =
-        extractCreatedId(response.body);
+        extractReturnedId(response.body);
 
     if (createdId.empty())
     {
@@ -145,11 +184,48 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
 SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
     const SearchTimerUpdateRequest& request)
 {
-    (void)request;
+    HttpRequest httpRequest;
+    httpRequest.method = "PUT";
+    httpRequest.url = "/searchtimers/";
+    httpRequest.url += urlEncode(request.backendNativeId);
+    httpRequest.headers["Accept"] = "text/plain";
+    httpRequest.headers["Content-Type"] = "application/json";
+    httpRequest.body =
+        buildSearchTimerBody(
+            request.query,
+            request.active);
 
-    return SearchTimerUpdateResult::failed(
-        "RESTfulAPI searchtimer update is not supported",
-        {"RESTfulAPI POST /searchtimers/update only triggers epgsearch update and does not edit an existing searchtimer"});
+    const HttpResponse response =
+        httpClient_.execute(httpRequest);
+
+    if (response.statusCode != 200)
+    {
+        return SearchTimerUpdateResult::failed(
+            "RESTfulAPI searchtimer update failed",
+            {response.body});
+    }
+
+    const std::string updatedId =
+        extractReturnedId(response.body);
+
+    if (updatedId.empty())
+    {
+        return SearchTimerUpdateResult::failed(
+            "RESTfulAPI searchtimer update did not return an id",
+            {response.body});
+    }
+
+    return SearchTimerUpdateResult::ok(
+        SearchTimer::create(
+            SearchTimerId::fromBackendNativeId(
+                request.backendId,
+                updatedId),
+            request.name,
+            request.query,
+            request.active
+                ? SearchTimerState::Active
+                : SearchTimerState::Inactive),
+        "searchtimer updated through RESTfulAPI");
 }
 
 SearchTimerDeleteResult RestfulApiSearchTimerCommandExecutor::remove(
