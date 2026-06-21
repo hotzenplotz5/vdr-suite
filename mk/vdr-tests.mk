@@ -40,6 +40,13 @@ test-search-timer-preview-result-json-serializer:
 		-o /tmp/test_search_timer_preview_result_json_serializer
 	/tmp/test_search_timer_preview_result_json_serializer
 
+test-search-timer-create-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerCreateService.cpp \
+		core/vdr/tests/test_search_timer_create_service.cpp \
+		-o /tmp/test_search_timer_create_service
+	/tmp/test_search_timer_create_service
+
 test-backend-polling-coordinator:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
