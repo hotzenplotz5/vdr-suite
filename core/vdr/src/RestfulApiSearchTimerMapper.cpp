@@ -337,6 +337,19 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.validityOptions().setActiveUntil(
             getStringField(objectText, "use_as_searchtimer_til"));
 
+        timer.actionOptions().setPauseOnRecordings(
+            getIntField(objectText, "pause_on_recs", 0) != 0);
+        timer.actionOptions().setSwitchMinutesBefore(
+            getIntField(objectText, "switch_min_before", 0));
+        timer.actionOptions().setUnmuteSoundOnSwitch(
+            getIntField(objectText, "unmute_sound_on_switch", 0) != 0);
+        timer.actionOptions().setDeleteRecordingsAfterDays(
+            getIntField(objectText, "del_recs_after_days", 0));
+        timer.actionOptions().setDeleteAfterCountRecordings(
+            getIntField(objectText, "del_after_count_recs", 0));
+        timer.actionOptions().setDeleteAfterDaysOfFirstRecording(
+            getIntField(objectText, "del_after_days_of_first_rec", 0));
+
         timers.push_back(timer);
     }
 

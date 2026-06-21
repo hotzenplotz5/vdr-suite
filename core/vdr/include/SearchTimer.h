@@ -552,6 +552,77 @@ private:
     std::string activeUntil_;
 };
 
+class SearchTimerActionOptions {
+public:
+    bool pauseOnRecordings() const
+    {
+        return pauseOnRecordings_;
+    }
+
+    int switchMinutesBefore() const
+    {
+        return switchMinutesBefore_;
+    }
+
+    bool unmuteSoundOnSwitch() const
+    {
+        return unmuteSoundOnSwitch_;
+    }
+
+    int deleteRecordingsAfterDays() const
+    {
+        return deleteRecordingsAfterDays_;
+    }
+
+    int deleteAfterCountRecordings() const
+    {
+        return deleteAfterCountRecordings_;
+    }
+
+    int deleteAfterDaysOfFirstRecording() const
+    {
+        return deleteAfterDaysOfFirstRecording_;
+    }
+
+    void setPauseOnRecordings(bool value)
+    {
+        pauseOnRecordings_ = value;
+    }
+
+    void setSwitchMinutesBefore(int value)
+    {
+        switchMinutesBefore_ = value;
+    }
+
+    void setUnmuteSoundOnSwitch(bool value)
+    {
+        unmuteSoundOnSwitch_ = value;
+    }
+
+    void setDeleteRecordingsAfterDays(int value)
+    {
+        deleteRecordingsAfterDays_ = value;
+    }
+
+    void setDeleteAfterCountRecordings(int value)
+    {
+        deleteAfterCountRecordings_ = value;
+    }
+
+    void setDeleteAfterDaysOfFirstRecording(int value)
+    {
+        deleteAfterDaysOfFirstRecording_ = value;
+    }
+
+private:
+    bool pauseOnRecordings_ = false;
+    int switchMinutesBefore_ = 0;
+    bool unmuteSoundOnSwitch_ = false;
+    int deleteRecordingsAfterDays_ = 0;
+    int deleteAfterCountRecordings_ = 0;
+    int deleteAfterDaysOfFirstRecording_ = 0;
+};
+
 class SearchTimer {
 public:
     static SearchTimer create(
@@ -708,6 +779,16 @@ public:
         return validityOptions_;
     }
 
+    const SearchTimerActionOptions& actionOptions() const
+    {
+        return actionOptions_;
+    }
+
+    SearchTimerActionOptions& actionOptions()
+    {
+        return actionOptions_;
+    }
+
     bool isActive() const
     {
         return state_ == SearchTimerState::Active;
@@ -734,4 +815,5 @@ private:
     SearchTimerMatchOptions matchOptions_;
     SearchTimerExtendedEpgOptions extendedEpgOptions_;
     SearchTimerValidityOptions validityOptions_;
+    SearchTimerActionOptions actionOptions_;
 };

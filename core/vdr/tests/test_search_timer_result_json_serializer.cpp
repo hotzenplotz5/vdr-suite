@@ -62,6 +62,12 @@ int main()
     terraX.validityOptions().setUseInFavorites(true);
     terraX.validityOptions().setActiveFrom("2026-06-01");
     terraX.validityOptions().setActiveUntil("2026-12-31");
+    terraX.actionOptions().setPauseOnRecordings(true);
+    terraX.actionOptions().setSwitchMinutesBefore(5);
+    terraX.actionOptions().setUnmuteSoundOnSwitch(true);
+    terraX.actionOptions().setDeleteRecordingsAfterDays(30);
+    terraX.actionOptions().setDeleteAfterCountRecordings(10);
+    terraX.actionOptions().setDeleteAfterDaysOfFirstRecording(90);
     timers.push_back(terraX);
     timers.push_back(SearchTimer::create(
         SearchTimerId::fromBackendNativeId("bedroom", "2"),
@@ -136,6 +142,13 @@ int main()
     assert(json.find("\"useInFavorites\":true") != std::string::npos);
     assert(json.find("\"activeFrom\":\"2026-06-01\"") != std::string::npos);
     assert(json.find("\"activeUntil\":\"2026-12-31\"") != std::string::npos);
+    assert(json.find("\"actionOptions\":{") != std::string::npos);
+    assert(json.find("\"pauseOnRecordings\":true") != std::string::npos);
+    assert(json.find("\"switchMinutesBefore\":5") != std::string::npos);
+    assert(json.find("\"unmuteSoundOnSwitch\":true") != std::string::npos);
+    assert(json.find("\"deleteRecordingsAfterDays\":30") != std::string::npos);
+    assert(json.find("\"deleteAfterCountRecordings\":10") != std::string::npos);
+    assert(json.find("\"deleteAfterDaysOfFirstRecording\":90") != std::string::npos);
     assert(json.find("\"backendId\":\"bedroom\"") != std::string::npos);
     assert(json.find("\"name\":\"Bob \\\"Marley\\\"\"") != std::string::npos);
     assert(json.find("\"query\":\"Bob\\\\Marley\"") != std::string::npos);

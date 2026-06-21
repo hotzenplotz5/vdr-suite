@@ -142,6 +142,14 @@ std::string SearchTimerResultJsonSerializer::serialize(
             << "\"useInFavorites\":" << (timer.validityOptions().useInFavorites() ? "true" : "false") << ","
             << "\"activeFrom\":\"" << escapeJsonString(timer.validityOptions().activeFrom()) << "\","
             << "\"activeUntil\":\"" << escapeJsonString(timer.validityOptions().activeUntil()) << "\""
+            << "},"
+            << "\"actionOptions\":{"
+            << "\"pauseOnRecordings\":" << (timer.actionOptions().pauseOnRecordings() ? "true" : "false") << ","
+            << "\"switchMinutesBefore\":" << timer.actionOptions().switchMinutesBefore() << ","
+            << "\"unmuteSoundOnSwitch\":" << (timer.actionOptions().unmuteSoundOnSwitch() ? "true" : "false") << ","
+            << "\"deleteRecordingsAfterDays\":" << timer.actionOptions().deleteRecordingsAfterDays() << ","
+            << "\"deleteAfterCountRecordings\":" << timer.actionOptions().deleteAfterCountRecordings() << ","
+            << "\"deleteAfterDaysOfFirstRecording\":" << timer.actionOptions().deleteAfterDaysOfFirstRecording()
             << "}"
             << "}";
     }

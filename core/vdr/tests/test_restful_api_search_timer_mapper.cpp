@@ -24,7 +24,10 @@ int main()
         "\"use_ext_epg_info\":1,\"ext_epg_info\":\"category=movie\","
         "\"ignore_missing_epg_cats\":1,\"content_descriptors\":\"16,32\","
         "\"use_in_favorites\":1,\"use_as_searchtimer_from\":\"2026-06-01\","
-        "\"use_as_searchtimer_til\":\"2026-12-31\"},"
+        "\"use_as_searchtimer_til\":\"2026-12-31\","
+        "\"pause_on_recs\":1,\"switch_min_before\":5,\"unmute_sound_on_switch\":1,"
+        "\"del_recs_after_days\":30,\"del_after_count_recs\":10,"
+        "\"del_after_days_of_first_rec\":90},"
         "{\"id\":2,\"search\":\"Tatort\",\"use_as_searchtimer\":0}"
         "],\"count\":2,\"total\":2}";
 
@@ -78,6 +81,12 @@ int main()
     assert(timers.at(0).validityOptions().useInFavorites());
     assert(timers.at(0).validityOptions().activeFrom() == "2026-06-01");
     assert(timers.at(0).validityOptions().activeUntil() == "2026-12-31");
+    assert(timers.at(0).actionOptions().pauseOnRecordings());
+    assert(timers.at(0).actionOptions().switchMinutesBefore() == 5);
+    assert(timers.at(0).actionOptions().unmuteSoundOnSwitch());
+    assert(timers.at(0).actionOptions().deleteRecordingsAfterDays() == 30);
+    assert(timers.at(0).actionOptions().deleteAfterCountRecordings() == 10);
+    assert(timers.at(0).actionOptions().deleteAfterDaysOfFirstRecording() == 90);
 
     assert(timers.at(1).backendId() == "livingroom");
     assert(timers.at(1).backendNativeId() == "2");

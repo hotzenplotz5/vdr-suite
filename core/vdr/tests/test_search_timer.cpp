@@ -183,6 +183,27 @@ int main()
     assert(activeTimer.validityOptions().activeFrom() == "2026-06-01");
     assert(activeTimer.validityOptions().activeUntil() == "2026-12-31");
 
+    assert(!activeTimer.actionOptions().pauseOnRecordings());
+    assert(activeTimer.actionOptions().switchMinutesBefore() == 0);
+    assert(!activeTimer.actionOptions().unmuteSoundOnSwitch());
+    assert(activeTimer.actionOptions().deleteRecordingsAfterDays() == 0);
+    assert(activeTimer.actionOptions().deleteAfterCountRecordings() == 0);
+    assert(activeTimer.actionOptions().deleteAfterDaysOfFirstRecording() == 0);
+
+    activeTimer.actionOptions().setPauseOnRecordings(true);
+    activeTimer.actionOptions().setSwitchMinutesBefore(5);
+    activeTimer.actionOptions().setUnmuteSoundOnSwitch(true);
+    activeTimer.actionOptions().setDeleteRecordingsAfterDays(30);
+    activeTimer.actionOptions().setDeleteAfterCountRecordings(10);
+    activeTimer.actionOptions().setDeleteAfterDaysOfFirstRecording(90);
+
+    assert(activeTimer.actionOptions().pauseOnRecordings());
+    assert(activeTimer.actionOptions().switchMinutesBefore() == 5);
+    assert(activeTimer.actionOptions().unmuteSoundOnSwitch());
+    assert(activeTimer.actionOptions().deleteRecordingsAfterDays() == 30);
+    assert(activeTimer.actionOptions().deleteAfterCountRecordings() == 10);
+    assert(activeTimer.actionOptions().deleteAfterDaysOfFirstRecording() == 90);
+
     SearchTimer inactiveTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "43"),
         "Tatort",
