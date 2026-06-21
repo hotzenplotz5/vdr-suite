@@ -99,6 +99,39 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimers(
     return json.str();
 }
 
+std::string VdrSnapshotReadJsonSerializer::serializeSearchTimers(
+    const std::vector<SearchTimer>& searchTimers) const
+{
+    std::ostringstream json;
+
+    json << "{\"searchTimers\":[";
+
+    for (std::size_t index = 0;
+         index < searchTimers.size();
+         ++index)
+    {
+        const auto& searchTimer = searchTimers[index];
+
+        if (index > 0)
+        {
+            json << ",";
+        }
+
+        json
+            << "{"
+            << "\"backendId\":\"" << searchTimer.backendId() << "\","
+            << "\"backendNativeId\":\"" << searchTimer.backendNativeId() << "\","
+            << "\"name\":\"" << searchTimer.name() << "\","
+            << "\"query\":\"" << searchTimer.query() << "\","
+            << "\"active\":" << boolToJson(searchTimer.isActive())
+            << "}";
+    }
+
+    json << "]}";
+
+    return json.str();
+}
+
 std::string VdrSnapshotReadJsonSerializer::serializeChannels(
     const std::vector<VdrChannel>& channels) const
 {

@@ -1,4 +1,5 @@
 #include "MockVdrAdapter.h"
+#include "SearchTimer.h"
 #include "SnapshotAccessService.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
@@ -48,6 +49,13 @@ static VdrSnapshot makeControllerSnapshot()
     event.contentDescriptors.push_back("hd");
     event.parentalRating = 12;
     snapshot.events.push_back(event);
+
+    SearchTimer searchTimer = SearchTimer::create(
+        SearchTimerId::fromBackendNativeId("default", "searchtimer-1"),
+        "Snapshot SearchTimer",
+        "Terra X",
+        SearchTimerState::Active);
+    snapshot.searchTimers.push_back(searchTimer);
 
     VdrTimer timer;
     timer.id = "snapshot-timer-1";
@@ -463,6 +471,20 @@ static void test_vdr_controller_returns_snapshot_read_domain_lists()
     assert(timersResponse.body.find("\"enabled\":true")
            != std::string::npos);
     assert(timersResponse.body.find("\"recording\":true")
+           != std::string::npos);
+
+    ApiResponse searchTimersResponse =
+        controller.getSearchTimers();
+    assertJsonResponse(searchTimersResponse);
+    assert(searchTimersResponse.body.find("\"searchTimers\"")
+           != std::string::npos);
+    assert(searchTimersResponse.body.find("\"backendNativeId\":\"searchtimer-1\"")
+           != std::string::npos);
+    assert(searchTimersResponse.body.find("\"name\":\"Snapshot SearchTimer\"")
+           != std::string::npos);
+    assert(searchTimersResponse.body.find("\"query\":\"Terra X\"")
+           != std::string::npos);
+    assert(searchTimersResponse.body.find("\"active\":true")
            != std::string::npos);
 
     ApiResponse channelsResponse =

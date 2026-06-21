@@ -1,4 +1,5 @@
 #include "VdrSnapshotReadJsonSerializer.h"
+#include "SearchTimer.h"
 #include "VdrSnapshot.h"
 
 #include <cassert>
@@ -94,12 +95,34 @@ static void test_snapshot_read_serializer_serializes_status()
     std::cout << json << std::endl;
 }
 
+static void test_snapshot_read_serializer_serializes_search_timers()
+{
+    VdrSnapshotReadJsonSerializer serializer;
+
+    SearchTimer searchTimer = SearchTimer::create(
+        SearchTimerId::fromBackendNativeId("home-vdr", "searchtimer-1"),
+        "Terra X Suche",
+        "Terra X",
+        SearchTimerState::Active);
+
+    const std::string json =
+        serializer.serializeSearchTimers({searchTimer});
+
+    assert(json.find("\"searchTimers\":[") != std::string::npos);
+    assert(json.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(json.find("\"backendNativeId\":\"searchtimer-1\"") != std::string::npos);
+    assert(json.find("\"name\":\"Terra X Suche\"") != std::string::npos);
+    assert(json.find("\"query\":\"Terra X\"") != std::string::npos);
+    assert(json.find("\"active\":true") != std::string::npos);
+}
+
 static void test_snapshot_read_serializer_serializes_empty_domain_lists()
 {
     VdrSnapshotReadJsonSerializer serializer;
 
     assert(serializer.serializeRecordings({}) == "{\"recordings\":[]}");
     assert(serializer.serializeTimers({}) == "{\"timers\":[]}");
+    assert(serializer.serializeSearchTimers({}) == "{\"searchTimers\":[]}");
     assert(serializer.serializeChannels({}) == "{\"channels\":[]}");
     assert(serializer.serializeEvents({}) == "{\"events\":[]}");
 }
@@ -108,6 +131,7 @@ int main()
 {
     test_snapshot_read_serializer_serializes_status();
     test_snapshot_read_serializer_serializes_empty_domain_lists();
+    test_snapshot_read_serializer_serializes_search_timers();
     test_snapshot_read_serializer_serializes_multiple_snapshot_summaries();
 
     std::cout

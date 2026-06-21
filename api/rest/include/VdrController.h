@@ -29,6 +29,7 @@ public:
     ApiResponse getCapabilities();
     ApiResponse getRecordings();
     ApiResponse getTimers();
+    ApiResponse getSearchTimers();
     ApiResponse getChannels();
     ApiResponse getEvents();
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SearchTimer.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrRecording.h"
@@ -22,6 +23,9 @@ public:
 
     std::string serializeTimers(
         const std::vector<VdrTimer>& timers) const;
+
+    std::string serializeSearchTimers(
+        const std::vector<SearchTimer>& searchTimers) const;
 
     std::string serializeChannels(
         const std::vector<VdrChannel>& channels) const;

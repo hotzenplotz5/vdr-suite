@@ -209,6 +209,19 @@ ApiResponse VdrController::getTimers()
     return response;
 }
 
+ApiResponse VdrController::getSearchTimers()
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        snapshotReadJsonSerializer_.serializeSearchTimers(
+            snapshotReadService_.getSearchTimers());
+
+    return response;
+}
+
 ApiResponse VdrController::getChannels()
 {
     ApiResponse response;
