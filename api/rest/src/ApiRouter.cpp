@@ -235,6 +235,24 @@ ApiResponse ApiRouter::handlePost(
             *searchTimerCommandExecutor_);
     }
 
+    if (path == "/api/searchtimers/delete" ||
+        path == "/api/vdr/searchtimers/delete")
+    {
+        if (searchTimerController_ == nullptr)
+        {
+            return makeSearchTimerUnavailableResponse();
+        }
+
+        if (searchTimerCommandExecutor_ == nullptr)
+        {
+            return makeSearchTimerUnavailableResponse();
+        }
+
+        return searchTimerController_->deleteSearchTimer(
+            body,
+            *searchTimerCommandExecutor_);
+    }
+
     if (path == "/api/searchtimers" ||
         path == "/api/vdr/searchtimers")
     {
