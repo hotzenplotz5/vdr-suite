@@ -1,5 +1,14 @@
 # ADR-0030: Domain-First UI Over OSD Proxy
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [ADR Index](index.md)
+- [Architecture Documentation](../architecture/index.md)
+
+---
+
 ## Status
 
 Accepted

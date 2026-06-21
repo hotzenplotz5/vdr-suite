@@ -67,6 +67,7 @@ Current architecture validation:
 - [EPG Search API](epg-search-api.md)
 - [SearchTimer Backend Contract](searchtimer-backend-contract.md)
 - [SearchTimer Real Payload Validation](searchtimer-real-payload-validation.md)
+- [SearchTimer Completeness Audit](searchtimer-completeness-audit.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)
 - [Person API](person-api.md)
