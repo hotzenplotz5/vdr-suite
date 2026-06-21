@@ -54,6 +54,13 @@ test-search-timer-update-service:
 		-o /tmp/test_search_timer_update_service
 	/tmp/test_search_timer_update_service
 
+test-search-timer-delete-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerDeleteService.cpp \
+		core/vdr/tests/test_search_timer_delete_service.cpp \
+		-o /tmp/test_search_timer_delete_service
+	/tmp/test_search_timer_delete_service
+
 test-search-timer-create-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerCreateResultJsonSerializer.cpp \

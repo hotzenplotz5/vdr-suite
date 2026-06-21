@@ -42,6 +42,16 @@ public:
             "searchtimer updated");
     }
 
+
+    SearchTimerDeleteResult remove(
+        const SearchTimerDeleteRequest& request) override
+    {
+        return SearchTimerDeleteResult::ok(
+            request.backendId,
+            request.backendNativeId,
+            "searchtimer deleted");
+    }
+
     int callCount() const
     {
         return callCount_;
