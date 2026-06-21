@@ -39,6 +39,9 @@ int main()
     terraX.comparisonOptions().setCompareSummary(true);
     terraX.comparisonOptions().setCompareCategories(true);
     terraX.comparisonOptions().setCompareTime(true);
+    terraX.repeatOptions().setAvoidRepeats(true);
+    terraX.repeatOptions().setAllowedRepeats(3);
+    terraX.repeatOptions().setRepeatsWithinDays(14);
     timers.push_back(terraX);
     timers.push_back(SearchTimer::create(
         SearchTimerId::fromBackendNativeId("bedroom", "2"),
@@ -83,6 +86,10 @@ int main()
     assert(json.find("\"compareSummary\":true") != std::string::npos);
     assert(json.find("\"compareCategories\":true") != std::string::npos);
     assert(json.find("\"compareTime\":true") != std::string::npos);
+    assert(json.find("\"repeatOptions\":{") != std::string::npos);
+    assert(json.find("\"avoidRepeats\":true") != std::string::npos);
+    assert(json.find("\"allowedRepeats\":3") != std::string::npos);
+    assert(json.find("\"repeatsWithinDays\":14") != std::string::npos);
     assert(json.find("\"backendId\":\"bedroom\"") != std::string::npos);
     assert(json.find("\"name\":\"Bob \\\"Marley\\\"\"") != std::string::npos);
     assert(json.find("\"query\":\"Bob\\\\Marley\"") != std::string::npos);

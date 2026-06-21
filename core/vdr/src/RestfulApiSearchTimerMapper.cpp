@@ -284,6 +284,13 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.comparisonOptions().setCompareTime(
             getIntField(objectText, "compare_time", 0) != 0);
 
+        timer.repeatOptions().setAvoidRepeats(
+            getIntField(objectText, "avoid_repeats", 0) != 0);
+        timer.repeatOptions().setAllowedRepeats(
+            getIntField(objectText, "allowed_repeats", 0));
+        timer.repeatOptions().setRepeatsWithinDays(
+            getIntField(objectText, "repeats_within_days", 0));
+
         timers.push_back(timer);
     }
 

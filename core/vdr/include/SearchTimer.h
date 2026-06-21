@@ -264,6 +264,44 @@ private:
     bool compareTime_ = false;
 };
 
+class SearchTimerRepeatOptions {
+public:
+    bool avoidRepeats() const
+    {
+        return avoidRepeats_;
+    }
+
+    int allowedRepeats() const
+    {
+        return allowedRepeats_;
+    }
+
+    int repeatsWithinDays() const
+    {
+        return repeatsWithinDays_;
+    }
+
+    void setAvoidRepeats(bool value)
+    {
+        avoidRepeats_ = value;
+    }
+
+    void setAllowedRepeats(int value)
+    {
+        allowedRepeats_ = value;
+    }
+
+    void setRepeatsWithinDays(int value)
+    {
+        repeatsWithinDays_ = value;
+    }
+
+private:
+    bool avoidRepeats_ = false;
+    int allowedRepeats_ = 0;
+    int repeatsWithinDays_ = 0;
+};
+
 class SearchTimer {
 public:
     static SearchTimer create(
@@ -350,6 +388,16 @@ public:
         return comparisonOptions_;
     }
 
+    const SearchTimerRepeatOptions& repeatOptions() const
+    {
+        return repeatOptions_;
+    }
+
+    SearchTimerRepeatOptions& repeatOptions()
+    {
+        return repeatOptions_;
+    }
+
     bool isActive() const
     {
         return state_ == SearchTimerState::Active;
@@ -369,4 +417,5 @@ private:
     SearchTimerScheduleOptions scheduleOptions_;
     SearchTimerFilterOptions filterOptions_;
     SearchTimerComparisonOptions comparisonOptions_;
+    SearchTimerRepeatOptions repeatOptions_;
 };

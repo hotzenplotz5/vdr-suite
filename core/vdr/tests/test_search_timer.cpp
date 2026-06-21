@@ -93,6 +93,18 @@ int main()
     assert(activeTimer.comparisonOptions().compareCategories());
     assert(activeTimer.comparisonOptions().compareTime());
 
+    assert(!activeTimer.repeatOptions().avoidRepeats());
+    assert(activeTimer.repeatOptions().allowedRepeats() == 0);
+    assert(activeTimer.repeatOptions().repeatsWithinDays() == 0);
+
+    activeTimer.repeatOptions().setAvoidRepeats(true);
+    activeTimer.repeatOptions().setAllowedRepeats(3);
+    activeTimer.repeatOptions().setRepeatsWithinDays(14);
+
+    assert(activeTimer.repeatOptions().avoidRepeats());
+    assert(activeTimer.repeatOptions().allowedRepeats() == 3);
+    assert(activeTimer.repeatOptions().repeatsWithinDays() == 14);
+
     SearchTimer inactiveTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "43"),
         "Tatort",

@@ -105,6 +105,11 @@ std::string SearchTimerResultJsonSerializer::serialize(
             << "\"compareSummary\":" << (timer.comparisonOptions().compareSummary() ? "true" : "false") << ","
             << "\"compareCategories\":" << (timer.comparisonOptions().compareCategories() ? "true" : "false") << ","
             << "\"compareTime\":" << (timer.comparisonOptions().compareTime() ? "true" : "false")
+            << "},"
+            << "\"repeatOptions\":{"
+            << "\"avoidRepeats\":" << (timer.repeatOptions().avoidRepeats() ? "true" : "false") << ","
+            << "\"allowedRepeats\":" << timer.repeatOptions().allowedRepeats() << ","
+            << "\"repeatsWithinDays\":" << timer.repeatOptions().repeatsWithinDays()
             << "}"
             << "}";
     }
