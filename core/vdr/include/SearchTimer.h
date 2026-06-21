@@ -514,6 +514,44 @@ private:
     std::string contentDescriptors_;
 };
 
+class SearchTimerValidityOptions {
+public:
+    bool useInFavorites() const
+    {
+        return useInFavorites_;
+    }
+
+    const std::string& activeFrom() const
+    {
+        return activeFrom_;
+    }
+
+    const std::string& activeUntil() const
+    {
+        return activeUntil_;
+    }
+
+    void setUseInFavorites(bool value)
+    {
+        useInFavorites_ = value;
+    }
+
+    void setActiveFrom(const std::string& value)
+    {
+        activeFrom_ = value;
+    }
+
+    void setActiveUntil(const std::string& value)
+    {
+        activeUntil_ = value;
+    }
+
+private:
+    bool useInFavorites_ = false;
+    std::string activeFrom_;
+    std::string activeUntil_;
+};
+
 class SearchTimer {
 public:
     static SearchTimer create(
@@ -660,6 +698,16 @@ public:
         return extendedEpgOptions_;
     }
 
+    const SearchTimerValidityOptions& validityOptions() const
+    {
+        return validityOptions_;
+    }
+
+    SearchTimerValidityOptions& validityOptions()
+    {
+        return validityOptions_;
+    }
+
     bool isActive() const
     {
         return state_ == SearchTimerState::Active;
@@ -685,4 +733,5 @@ private:
     SearchTimerBlacklistOptions blacklistOptions_;
     SearchTimerMatchOptions matchOptions_;
     SearchTimerExtendedEpgOptions extendedEpgOptions_;
+    SearchTimerValidityOptions validityOptions_;
 };

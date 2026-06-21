@@ -22,7 +22,9 @@ int main()
         "\"blacklist_mode\":2,\"blacklist_ids\":\"4,5\","
         "\"mode\":2,\"match_case\":1,\"tolerance\":1,\"summary_match\":3,"
         "\"use_ext_epg_info\":1,\"ext_epg_info\":\"category=movie\","
-        "\"ignore_missing_epg_cats\":1,\"content_descriptors\":\"16,32\"},"
+        "\"ignore_missing_epg_cats\":1,\"content_descriptors\":\"16,32\","
+        "\"use_in_favorites\":1,\"use_as_searchtimer_from\":\"2026-06-01\","
+        "\"use_as_searchtimer_til\":\"2026-12-31\"},"
         "{\"id\":2,\"search\":\"Tatort\",\"use_as_searchtimer\":0}"
         "],\"count\":2,\"total\":2}";
 
@@ -73,6 +75,9 @@ int main()
     assert(timers.at(0).extendedEpgOptions().extendedEpgInfo() == "category=movie");
     assert(timers.at(0).extendedEpgOptions().ignoreMissingEpgCategories());
     assert(timers.at(0).extendedEpgOptions().contentDescriptors() == "16,32");
+    assert(timers.at(0).validityOptions().useInFavorites());
+    assert(timers.at(0).validityOptions().activeFrom() == "2026-06-01");
+    assert(timers.at(0).validityOptions().activeUntil() == "2026-12-31");
 
     assert(timers.at(1).backendId() == "livingroom");
     assert(timers.at(1).backendNativeId() == "2");

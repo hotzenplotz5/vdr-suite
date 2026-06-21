@@ -171,6 +171,18 @@ int main()
     assert(activeTimer.extendedEpgOptions().ignoreMissingEpgCategories());
     assert(activeTimer.extendedEpgOptions().contentDescriptors() == "16,32");
 
+    assert(!activeTimer.validityOptions().useInFavorites());
+    assert(activeTimer.validityOptions().activeFrom().empty());
+    assert(activeTimer.validityOptions().activeUntil().empty());
+
+    activeTimer.validityOptions().setUseInFavorites(true);
+    activeTimer.validityOptions().setActiveFrom("2026-06-01");
+    activeTimer.validityOptions().setActiveUntil("2026-12-31");
+
+    assert(activeTimer.validityOptions().useInFavorites());
+    assert(activeTimer.validityOptions().activeFrom() == "2026-06-01");
+    assert(activeTimer.validityOptions().activeUntil() == "2026-12-31");
+
     SearchTimer inactiveTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "43"),
         "Tatort",

@@ -330,6 +330,13 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.extendedEpgOptions().setContentDescriptors(
             getStringField(objectText, "content_descriptors"));
 
+        timer.validityOptions().setUseInFavorites(
+            getIntField(objectText, "use_in_favorites", 0) != 0);
+        timer.validityOptions().setActiveFrom(
+            getStringField(objectText, "use_as_searchtimer_from"));
+        timer.validityOptions().setActiveUntil(
+            getStringField(objectText, "use_as_searchtimer_til"));
+
         timers.push_back(timer);
     }
 
