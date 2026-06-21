@@ -78,6 +78,21 @@ std::vector<VdrTimer> VdrSnapshotReadService::getTimersForBackend(
     return snapshot ? snapshot->timers : std::vector<VdrTimer>{};
 }
 
+std::vector<SearchTimer> VdrSnapshotReadService::getSearchTimers() const
+{
+    const auto snapshot = snapshotAccessService_.snapshot();
+    return snapshot ? snapshot->searchTimers : std::vector<SearchTimer>{};
+}
+
+std::vector<SearchTimer> VdrSnapshotReadService::getSearchTimersForBackend(
+    const std::string& backendId) const
+{
+    const auto snapshot =
+        snapshotAccessService_.snapshotForBackend(backendId);
+
+    return snapshot ? snapshot->searchTimers : std::vector<SearchTimer>{};
+}
+
 std::vector<VdrChannel> VdrSnapshotReadService::getChannels() const
 {
     const auto snapshot = snapshotAccessService_.snapshot();

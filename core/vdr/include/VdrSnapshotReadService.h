@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ISnapshotAccessService.h"
+#include "SearchTimer.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrRecording.h"
@@ -28,6 +29,9 @@ public:
 
     std::vector<VdrTimer> getTimers() const;
     std::vector<VdrTimer> getTimersForBackend(const std::string& backendId) const;
+
+    std::vector<SearchTimer> getSearchTimers() const;
+    std::vector<SearchTimer> getSearchTimersForBackend(const std::string& backendId) const;
 
     std::vector<VdrChannel> getChannels() const;
     std::vector<VdrChannel> getChannelsForBackend(const std::string& backendId) const;

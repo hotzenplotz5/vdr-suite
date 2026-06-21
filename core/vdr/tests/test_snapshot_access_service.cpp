@@ -1,3 +1,4 @@
+#include "SearchTimer.h"
 #include "SnapshotAccessService.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
@@ -51,6 +52,13 @@ static VdrSnapshot makeTestSnapshot()
     timer.enabled = true;
     timer.recording = false;
     snapshot.timers.push_back(timer);
+
+    SearchTimer searchTimer = SearchTimer::create(
+        SearchTimerId::fromBackendNativeId("default", "searchtimer-1"),
+        "Snapshot SearchTimer",
+        "Terra X",
+        SearchTimerState::Active);
+    snapshot.searchTimers.push_back(searchTimer);
 
     VdrRecording recording;
     recording.id = "snapshot-recording-1";
@@ -108,6 +116,12 @@ static void test_snapshot_access_service_returns_populated_snapshot()
     assert(cachedSnapshot->timers.front().enabled == true);
     assert(cachedSnapshot->timers.front().recording == false);
 
+    assert(cachedSnapshot->searchTimers.size() == 1);
+    assert(cachedSnapshot->searchTimers.front().backendNativeId() == "searchtimer-1");
+    assert(cachedSnapshot->searchTimers.front().name() == "Snapshot SearchTimer");
+    assert(cachedSnapshot->searchTimers.front().query() == "Terra X");
+    assert(cachedSnapshot->searchTimers.front().isActive());
+
     assert(cachedSnapshot->recordings.size() == 1);
     assert(cachedSnapshot->recordings.front().id == "snapshot-recording-1");
     assert(cachedSnapshot->recordings.front().title == "Snapshot Recording");
@@ -141,6 +155,8 @@ static void test_snapshot_access_service_returns_matching_backend_snapshot()
     assert(cachedSnapshot->backendId == "parents-vdr");
     assert(cachedSnapshot->status.mode == "snapshot-test");
     assert(cachedSnapshot->channels.size() == 1);
+    assert(cachedSnapshot->searchTimers.size() == 1);
+    assert(cachedSnapshot->searchTimers.front().name() == "Snapshot SearchTimer");
     assert(cachedSnapshot->recordings.size() == 1);
 }
 
