@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.39 - SearchTimer foundation progress
+    Phase 47.48 - SearchTimer preview service test
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.40 - SearchTimer documentation synchronization
+    Phase 47.49 - SearchTimer documentation synchronization
 
 Completed foundations:
 

@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.39 - SearchTimer foundation progress
+Phase 47.48 - SearchTimer preview service test
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.40 - SearchTimer documentation synchronization
+Phase 47.49 - SearchTimer documentation synchronization
 ```
 
 Latest Completed Milestones:

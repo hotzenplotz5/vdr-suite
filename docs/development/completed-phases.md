@@ -201,6 +201,105 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.48 - SearchTimer preview service test
+
+Status: Completed.
+
+Summary:
+- Strengthened SearchTimer preview service regression coverage.
+- Verified SearchTimer preview matching, limit handling and JSON statistics output.
+- Removed duplicate SearchTimerPreviewService source linkage from the preview test target.
+
+---
+
+## Phase 47.47 - SearchTimer command executor runtime wiring
+
+Status: Completed.
+
+Summary:
+- Wired RestfulApiSearchTimerCommandExecutor into DaemonRuntime.
+- Linked SearchTimer command, parser and preview sources into the daemon build.
+- Verified daemon build with SearchTimer command execution sources.
+
+---
+
+## Phase 47.46 - RESTfulAPI SearchTimer update executor
+
+Status: Completed.
+
+Summary:
+- Added RESTfulAPI-backed SearchTimer update execution.
+- Sent PUT requests to /searchtimers/<id> with JSON request bodies.
+- Preserved backend-aware SearchTimer result creation after successful updates.
+
+---
+
+## Phase 47.45 - RESTfulAPI SearchTimer command executor
+
+Status: Completed.
+
+Summary:
+- Added RESTfulAPI SearchTimer command executor foundation.
+- Implemented create, update and delete command execution through RESTfulAPI.
+- Added isolated command executor coverage for HTTP method, URL and JSON body contracts.
+
+---
+
+## Phase 47.44 - SearchTimer delete route
+
+Status: Completed.
+
+Summary:
+- Routed SearchTimer delete operations through the REST API layer.
+- Connected delete requests to the SearchTimer command execution boundary.
+- Preserved backend-native SearchTimer identity for deletion.
+
+---
+
+## Phase 47.43 - SearchTimer delete API foundation
+
+Status: Completed.
+
+Summary:
+- Added backend-neutral SearchTimer delete request, service and result model foundation.
+- Added JSON response handling for delete execution results.
+- Prepared the route layer for SearchTimer deletion.
+
+---
+
+## Phase 47.42 - SearchTimer update API foundation
+
+Status: Completed.
+
+Summary:
+- Added backend-neutral SearchTimer update request, service and result model foundation.
+- Added request parsing and JSON response handling for updates.
+- Prepared RESTfulAPI-backed SearchTimer update execution.
+
+---
+
+## Phase 47.41 - SearchTimer create API foundation
+
+Status: Completed.
+
+Summary:
+- Added backend-neutral SearchTimer create request, service and result model foundation.
+- Added request parsing and JSON response handling for create operations.
+- Prepared RESTfulAPI-backed SearchTimer creation.
+
+---
+
+## Phase 47.40 - SearchTimer documentation synchronization
+
+Status: Completed.
+
+Summary:
+- Synchronized SearchTimer implementation documentation after the initial foundation phases.
+- Kept the SearchTimer milestone aligned with backend-neutral architecture and RESTfulAPI integration.
+- Established the follow-up path for SearchTimer create, update, delete and runtime execution.
+
+---
+
 ## Phase 47.16 - SearchTimer domain model expansion
 
 Status: Completed.

@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.39 - SearchTimer foundation progress
+Phase 47.48 - SearchTimer preview service test
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.40 - SearchTimer documentation synchronization
+Phase 47.49 - SearchTimer documentation synchronization
 ```
 
 Current architecture validation:
