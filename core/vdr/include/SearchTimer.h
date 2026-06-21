@@ -416,6 +416,55 @@ private:
     std::string blacklistIds_;
 };
 
+class SearchTimerMatchOptions {
+public:
+    int mode() const
+    {
+        return mode_;
+    }
+
+    bool matchCase() const
+    {
+        return matchCase_;
+    }
+
+    int tolerance() const
+    {
+        return tolerance_;
+    }
+
+    int summaryMatch() const
+    {
+        return summaryMatch_;
+    }
+
+    void setMode(int value)
+    {
+        mode_ = value;
+    }
+
+    void setMatchCase(bool value)
+    {
+        matchCase_ = value;
+    }
+
+    void setTolerance(int value)
+    {
+        tolerance_ = value;
+    }
+
+    void setSummaryMatch(int value)
+    {
+        summaryMatch_ = value;
+    }
+
+private:
+    int mode_ = 0;
+    bool matchCase_ = false;
+    int tolerance_ = 0;
+    int summaryMatch_ = 0;
+};
+
 class SearchTimer {
 public:
     static SearchTimer create(
@@ -542,6 +591,16 @@ public:
         return blacklistOptions_;
     }
 
+    const SearchTimerMatchOptions& matchOptions() const
+    {
+        return matchOptions_;
+    }
+
+    SearchTimerMatchOptions& matchOptions()
+    {
+        return matchOptions_;
+    }
+
     bool isActive() const
     {
         return state_ == SearchTimerState::Active;
@@ -565,4 +624,5 @@ private:
     SearchTimerChannelOptions channelOptions_;
     SearchTimerSeriesOptions seriesOptions_;
     SearchTimerBlacklistOptions blacklistOptions_;
+    SearchTimerMatchOptions matchOptions_;
 };

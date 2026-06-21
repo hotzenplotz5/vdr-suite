@@ -125,6 +125,12 @@ std::string SearchTimerResultJsonSerializer::serialize(
             << "\"blacklistOptions\":{"
             << "\"blacklistMode\":" << timer.blacklistOptions().blacklistMode() << ","
             << "\"blacklistIds\":\"" << escapeJsonString(timer.blacklistOptions().blacklistIds()) << "\""
+            << "},"
+            << "\"matchOptions\":{"
+            << "\"mode\":" << timer.matchOptions().mode() << ","
+            << "\"matchCase\":" << (timer.matchOptions().matchCase() ? "true" : "false") << ","
+            << "\"tolerance\":" << timer.matchOptions().tolerance() << ","
+            << "\"summaryMatch\":" << timer.matchOptions().summaryMatch()
             << "}"
             << "}";
     }

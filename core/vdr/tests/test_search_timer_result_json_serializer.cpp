@@ -51,6 +51,10 @@ int main()
     terraX.seriesOptions().setSearchTimerAction(1);
     terraX.blacklistOptions().setBlacklistMode(2);
     terraX.blacklistOptions().setBlacklistIds("4,5");
+    terraX.matchOptions().setMode(2);
+    terraX.matchOptions().setMatchCase(true);
+    terraX.matchOptions().setTolerance(1);
+    terraX.matchOptions().setSummaryMatch(3);
     timers.push_back(terraX);
     timers.push_back(SearchTimer::create(
         SearchTimerId::fromBackendNativeId("bedroom", "2"),
@@ -111,6 +115,11 @@ int main()
     assert(json.find("\"blacklistOptions\":{") != std::string::npos);
     assert(json.find("\"blacklistMode\":2") != std::string::npos);
     assert(json.find("\"blacklistIds\":\"4,5\"") != std::string::npos);
+    assert(json.find("\"matchOptions\":{") != std::string::npos);
+    assert(json.find("\"mode\":2") != std::string::npos);
+    assert(json.find("\"matchCase\":true") != std::string::npos);
+    assert(json.find("\"tolerance\":1") != std::string::npos);
+    assert(json.find("\"summaryMatch\":3") != std::string::npos);
     assert(json.find("\"backendId\":\"bedroom\"") != std::string::npos);
     assert(json.find("\"name\":\"Bob \\\"Marley\\\"\"") != std::string::npos);
     assert(json.find("\"query\":\"Bob\\\\Marley\"") != std::string::npos);

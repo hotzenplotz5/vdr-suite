@@ -19,7 +19,8 @@ int main()
         "\"channels\":\"1,2,3\",\"channel_min\":1,\"channel_max\":99,"
         "\"use_series_recording\":1,\"keep_recs\":10,"
         "\"del_mode\":2,\"search_timer_action\":1,"
-        "\"blacklist_mode\":2,\"blacklist_ids\":\"4,5\"},"
+        "\"blacklist_mode\":2,\"blacklist_ids\":\"4,5\","
+        "\"mode\":2,\"match_case\":1,\"tolerance\":1,\"summary_match\":3},"
         "{\"id\":2,\"search\":\"Tatort\",\"use_as_searchtimer\":0}"
         "],\"count\":2,\"total\":2}";
 
@@ -62,6 +63,10 @@ int main()
     assert(timers.at(0).seriesOptions().searchTimerAction() == 1);
     assert(timers.at(0).blacklistOptions().blacklistMode() == 2);
     assert(timers.at(0).blacklistOptions().blacklistIds() == "4,5");
+    assert(timers.at(0).matchOptions().mode() == 2);
+    assert(timers.at(0).matchOptions().matchCase());
+    assert(timers.at(0).matchOptions().tolerance() == 1);
+    assert(timers.at(0).matchOptions().summaryMatch() == 3);
 
     assert(timers.at(1).backendId() == "livingroom");
     assert(timers.at(1).backendNativeId() == "2");

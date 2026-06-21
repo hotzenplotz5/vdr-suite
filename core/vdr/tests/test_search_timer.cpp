@@ -141,6 +141,21 @@ int main()
     assert(activeTimer.blacklistOptions().blacklistMode() == 2);
     assert(activeTimer.blacklistOptions().blacklistIds() == "4,5");
 
+    assert(activeTimer.matchOptions().mode() == 0);
+    assert(!activeTimer.matchOptions().matchCase());
+    assert(activeTimer.matchOptions().tolerance() == 0);
+    assert(activeTimer.matchOptions().summaryMatch() == 0);
+
+    activeTimer.matchOptions().setMode(2);
+    activeTimer.matchOptions().setMatchCase(true);
+    activeTimer.matchOptions().setTolerance(1);
+    activeTimer.matchOptions().setSummaryMatch(3);
+
+    assert(activeTimer.matchOptions().mode() == 2);
+    assert(activeTimer.matchOptions().matchCase());
+    assert(activeTimer.matchOptions().tolerance() == 1);
+    assert(activeTimer.matchOptions().summaryMatch() == 3);
+
     SearchTimer inactiveTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("livingroom", "43"),
         "Tatort",
