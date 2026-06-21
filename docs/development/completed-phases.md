@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.50 - SearchTimer epgsearch Live compatibility analysis
+
+Status: Completed.
+
+Summary:
+- Documented the compatibility boundary between VDR, epgsearch, Live-derived SearchTimer semantics, RESTfulAPI and VDR-Suite.
+- Captured why SearchTimer create/update enrichment must be phased by safe rule groups instead of implemented as one broad JSON-body patch.
+- Identified safe first write-side enrichment fields for the next implementation phase.
+- Established Phase 47.51 as SearchTimer create/update safe body enrichment foundation.
+
+---
+
 ## Phase 47.48 - SearchTimer preview service test
 
 Status: Completed.

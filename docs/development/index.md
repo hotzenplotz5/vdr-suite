@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.48 - SearchTimer preview service test
+Phase 47.50 - SearchTimer epgsearch Live compatibility analysis
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.49 - SearchTimer documentation synchronization
+Phase 47.51 - SearchTimer create/update safe body enrichment foundation
 ```
 
 Current architecture validation:
@@ -68,6 +68,7 @@ Current architecture validation:
 - [SearchTimer Backend Contract](searchtimer-backend-contract.md)
 - [SearchTimer Real Payload Validation](searchtimer-real-payload-validation.md)
 - [SearchTimer Completeness Audit](searchtimer-completeness-audit.md)
+- [SearchTimer epgsearch / Live Compatibility Analysis](searchtimer-epgsearch-live-compatibility-analysis.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)
 - [Person API](person-api.md)

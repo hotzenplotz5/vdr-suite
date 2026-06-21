@@ -174,13 +174,15 @@ Before snapshot, change feed and SSE are implemented, VDR-Suite should add the r
 3. SearchTimerValidityOptions
 4. SearchTimerActionOptions
 
-After these groups exist, SearchTimer should move from field-completion work to runtime integration:
+After the real RESTfulAPI create/update/delete validation, SearchTimer write-side enrichment must be handled as a separate compatibility track before broader runtime integration:
 
-1. SearchTimer snapshot
-2. SearchTimer change detection
-3. SearchTimer change feed
-4. SearchTimer SSE events
-5. SearchTimer create/update/delete/toggle/trigger
+1. SearchTimer epgsearch / Live compatibility analysis.
+2. Safe create/update body enrichment.
+3. Conditional rule groups for channel, time, duration, repeat, blacklist and extended EPG behavior.
+4. SearchTimer snapshot.
+5. SearchTimer change detection.
+6. SearchTimer change feed.
+7. SearchTimer SSE events.
 
 ---
 

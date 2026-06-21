@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.48 - SearchTimer preview service test
+    Phase 47.50 - SearchTimer epgsearch Live compatibility analysis
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.49 - SearchTimer documentation synchronization
+    Phase 47.51 - SearchTimer create/update safe body enrichment foundation
 
 Completed foundations:
 
