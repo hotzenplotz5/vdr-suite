@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 48.2 - Backend-neutral EPGSearch query model
+
+Status: Completed.
+
+Summary:
+- Added a backend-neutral EPGSearch query model.
+- Covered search modes, fuzzy tolerance, field selection, channel scopes, time/duration/day filters, extended EPG info, content descriptors and favorites-only scope.
+- Added a focused unit test for the query model.
+- Kept the phase intentionally domain-only with no REST endpoint or adapter execution.
+
+---
 ## Phase 48.1 - EPGSearch capability matrix
 
 Status: Completed.

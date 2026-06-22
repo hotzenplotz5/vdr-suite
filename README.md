@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 48.1 - EPGSearch capability matrix
+    Phase 48.2 - Backend-neutral EPGSearch query model
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 48.2 - Backend-neutral EPGSearch query model
+    Phase 48.3 - EPGSearch result semantics
 
 Completed foundations:
 

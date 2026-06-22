@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 48.1 - EPGSearch capability matrix
+Phase 48.2 - Backend-neutral EPGSearch query model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 48.2 - Backend-neutral EPGSearch query model
+Phase 48.3 - EPGSearch result semantics
 ```
 
 Current architecture validation:

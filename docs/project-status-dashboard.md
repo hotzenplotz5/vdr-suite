@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 48.1 - EPGSearch capability matrix
+Phase 48.2 - Backend-neutral EPGSearch query model
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 48.2 - Backend-neutral EPGSearch query model
+Phase 48.3 - EPGSearch result semantics
 ```
 
 Latest Completed Milestones:

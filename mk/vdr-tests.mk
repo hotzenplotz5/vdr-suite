@@ -1,3 +1,10 @@
+.PHONY: test-epgsearch-query
+test-epgsearch-query:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_epgsearch_query.cpp \
+		-o /tmp/test_epgsearch_query
+	/tmp/test_epgsearch_query
+
 .PHONY: test-fast
 
 test-fast: test-epg-query-service-restfulapi test-epg-query-service test-epg-query-factory test-domain-refresh-policy test-backend-polling-coordinator test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-vdr-config test-snapshot-access-service test-vdr-snapshot-read-service test-vdr-domain-objects

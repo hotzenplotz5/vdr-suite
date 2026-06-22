@@ -165,3 +165,24 @@ The safest and highest-value continuation is a backend-neutral EPGSearch query m
 
 - [Back to Development Index](index.md)
 - [Back to Live / EPGSearch Feature Inventory](live-feature-inventory.md)
+
+## Phase 48.2 Query Model Result
+
+Phase 48.2 introduced a backend-neutral EPGSearch query model.
+
+The model covers:
+
+- search text
+- search mode
+- fuzzy tolerance
+- title/subtitle/description field selection
+- case sensitivity
+- channel interval, channel group and free-to-air scopes
+- time window
+- duration window
+- day-of-week filter
+- extended EPG info values
+- content descriptors
+- favorites-only scope
+
+No REST endpoint, adapter or backend execution was added in this phase.
