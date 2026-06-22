@@ -953,17 +953,9 @@ test-api-router: prepare-test-db
                 api/rest/src/SearchTimerController.cpp \
                 core/vdr/src/SearchTimerResultJsonSerializer.cpp \
                 core/vdr/src/SearchTimerService.cpp \
-                core/vdr/src/SearchTimerCreateService.cpp \
-                core/vdr/src/SearchTimerCreateResultJsonSerializer.cpp \
                 api/rest/src/SearchTimerCreateRequestParser.cpp \
-                core/vdr/src/SearchTimerUpdateService.cpp \
-                core/vdr/src/SearchTimerUpdateResultJsonSerializer.cpp \
                 api/rest/src/SearchTimerUpdateRequestParser.cpp \
-                core/vdr/src/SearchTimerDeleteService.cpp \
-                core/vdr/src/SearchTimerDeleteResultJsonSerializer.cpp \
                 api/rest/src/SearchTimerDeleteRequestParser.cpp \
-                core/vdr/src/SearchTimerPreviewService.cpp \
-                core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
 		api/rest/src/VdrController.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
 		api/rest/tests/test_api_router.cpp \
