@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -115,6 +116,59 @@ RecordingActionJobPayload makePayload(
     return payload;
 }
 
+
+bool contains(
+    const std::string& text,
+    const std::string& needle)
+{
+    return text.find(needle) != std::string::npos;
+}
+
+bool hasTestMarker(
+    const std::string& path)
+{
+    return contains(path, "VDR-SUITE-TEST");
+}
+
+std::string readRecordings(
+    BasicHttpClient& httpClient)
+{
+    HttpRequest request;
+    request.method = "GET";
+    request.url = "/recordings.json";
+    request.headers["Accept"] = "application/json";
+
+    const HttpResponse response =
+        httpClient.execute(request);
+
+    if (response.statusCode < 200 || response.statusCode >= 300)
+    {
+        return "";
+    }
+
+    return response.body;
+}
+
+void printCheck(
+    bool& allPassed,
+    const std::string& name,
+    const bool passed,
+    const std::string& details = "")
+{
+    allPassed = allPassed && passed;
+
+    std::cout
+        << (passed ? "PASS " : "FAIL ")
+        << name;
+
+    if (!details.empty())
+    {
+        std::cout << " - " << details;
+    }
+
+    std::cout << "\n";
+}
+
 bool realExecutionAllowedByEnvironment()
 {
     const char* value =
@@ -142,6 +196,14 @@ int main(
     {
         printUsage();
         return 2;
+    }
+
+    if (!hasTestMarker(options.source) || !hasTestMarker(options.target))
+    {
+        std::cerr
+            << "Refusing move smoke without VDR-SUITE-TEST marker "
+            << "in both --source and --target.\n";
+        return 8;
     }
 
     const RestfulApiRecordingActionBackendConfig config =
@@ -185,6 +247,29 @@ int main(
         options.host,
         options.port);
 
+    bool checksPassed = true;
+
+    const std::string beforeRecordings =
+        readRecordings(httpClient);
+
+    printCheck(
+        checksPassed,
+        "READBACK before move",
+        !beforeRecordings.empty(),
+        "recordingsBytes=" + std::to_string(beforeRecordings.size()));
+
+    printCheck(
+        checksPassed,
+        "SOURCE exists before move",
+        contains(beforeRecordings, options.source),
+        options.source);
+
+    if (!checksPassed)
+    {
+        std::cerr << "Pre-move verification failed. Refusing execution.\n";
+        return 9;
+    }
+
     RestfulApiRecordingActionExecutor executor(
         "real-vdr",
         "restfulapi",
@@ -206,6 +291,32 @@ int main(
     if (!result.success)
     {
         return 5;
+    }
+
+    const std::string afterRecordings =
+        readRecordings(httpClient);
+
+    printCheck(
+        checksPassed,
+        "READBACK after move",
+        !afterRecordings.empty(),
+        "recordingsBytes=" + std::to_string(afterRecordings.size()));
+
+    printCheck(
+        checksPassed,
+        "SOURCE gone after move",
+        !contains(afterRecordings, options.source),
+        options.source);
+
+    printCheck(
+        checksPassed,
+        "TARGET present after move",
+        contains(afterRecordings, options.target),
+        options.target);
+
+    if (!checksPassed)
+    {
+        return 10;
     }
 
     if (result.message != "RESTfulAPI recording action request executed")

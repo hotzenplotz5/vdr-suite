@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.70 - Harden real recording action smoke helpers
+
+Status: Completed.
+
+Summary:
+- Hardened real recording move/delete smoke helpers with VDR-SUITE-TEST marker enforcement.
+- Added /recordings.json readback checks before destructive execution.
+- Added /recordings.json readback checks after execution to verify source disappearance and target presence.
+- Kept explicit --execute plus VDR_SUITE_ALLOW_REAL_RECORDING_ACTION=YES gates for real mutations.
+- Moved the next focus to a unified real VDR regression command.
+
+---
 ## Phase 47.69 - Real recording action regression audit
 
 Status: Completed.

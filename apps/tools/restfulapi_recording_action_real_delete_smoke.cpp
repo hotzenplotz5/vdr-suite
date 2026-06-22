@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -102,6 +103,59 @@ RecordingActionJobPayload makePayload(const Options& options)
     return payload;
 }
 
+
+bool contains(
+    const std::string& text,
+    const std::string& needle)
+{
+    return text.find(needle) != std::string::npos;
+}
+
+bool hasTestMarker(
+    const std::string& path)
+{
+    return contains(path, "VDR-SUITE-TEST");
+}
+
+std::string readRecordings(
+    BasicHttpClient& httpClient)
+{
+    HttpRequest request;
+    request.method = "GET";
+    request.url = "/recordings.json";
+    request.headers["Accept"] = "application/json";
+
+    const HttpResponse response =
+        httpClient.execute(request);
+
+    if (response.statusCode < 200 || response.statusCode >= 300)
+    {
+        return "";
+    }
+
+    return response.body;
+}
+
+void printCheck(
+    bool& allPassed,
+    const std::string& name,
+    const bool passed,
+    const std::string& details = "")
+{
+    allPassed = allPassed && passed;
+
+    std::cout
+        << (passed ? "PASS " : "FAIL ")
+        << name;
+
+    if (!details.empty())
+    {
+        std::cout << " - " << details;
+    }
+
+    std::cout << "\n";
+}
+
 bool realExecutionAllowedByEnvironment()
 {
     const char* value =
@@ -126,6 +180,14 @@ int main(int argc, char** argv)
     {
         printUsage();
         return 2;
+    }
+
+    if (!hasTestMarker(options.source))
+    {
+        std::cerr
+            << "Refusing delete smoke without VDR-SUITE-TEST marker "
+            << "in --source.\n";
+        return 8;
     }
 
     const RestfulApiRecordingActionBackendConfig config =
@@ -167,6 +229,29 @@ int main(int argc, char** argv)
 
     BasicHttpClient httpClient(options.host, options.port);
 
+    bool checksPassed = true;
+
+    const std::string beforeRecordings =
+        readRecordings(httpClient);
+
+    printCheck(
+        checksPassed,
+        "READBACK before delete",
+        !beforeRecordings.empty(),
+        "recordingsBytes=" + std::to_string(beforeRecordings.size()));
+
+    printCheck(
+        checksPassed,
+        "SOURCE exists before delete",
+        contains(beforeRecordings, options.source),
+        options.source);
+
+    if (!checksPassed)
+    {
+        std::cerr << "Pre-delete verification failed. Refusing execution.\n";
+        return 9;
+    }
+
     RestfulApiRecordingActionExecutor executor(
         "real-vdr",
         "restfulapi",
@@ -188,6 +273,26 @@ int main(int argc, char** argv)
     if (!result.success)
     {
         return 5;
+    }
+
+    const std::string afterRecordings =
+        readRecordings(httpClient);
+
+    printCheck(
+        checksPassed,
+        "READBACK after delete",
+        !afterRecordings.empty(),
+        "recordingsBytes=" + std::to_string(afterRecordings.size()));
+
+    printCheck(
+        checksPassed,
+        "SOURCE gone after delete",
+        !contains(afterRecordings, options.source),
+        options.source);
+
+    if (!checksPassed)
+    {
+        return 10;
     }
 
     if (result.message != "RESTfulAPI recording action request executed")

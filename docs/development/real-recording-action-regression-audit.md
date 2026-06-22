@@ -108,7 +108,7 @@ Before recording-action helpers become part of a unified real VDR regression sui
 
 ## Recommended Next Phase
 
-Phase 47.70 - Harden real recording action smoke helpers
+Phase 47.71 - Unified real VDR regression command
 
 Scope:
 
@@ -125,3 +125,20 @@ Scope:
 
 - [Back to Development Index](index.md)
 - [Back to Real VDR Regression Coverage Audit](real-vdr-regression-coverage-audit.md)
+
+## Phase 47.70 Hardening Result
+
+Phase 47.70 hardened the existing real recording action smoke helpers.
+
+Implemented safeguards:
+
+- mandatory VDR-SUITE-TEST marker in destructive source paths
+- mandatory VDR-SUITE-TEST marker in move target paths
+- /recordings.json readback before execution
+- source existence verification before execution
+- /recordings.json readback after execution
+- source disappearance verification after delete
+- source disappearance and target presence verification after move
+- structured PASS/FAIL output for real recording action readbacks
+
+The helpers remain excluded from automatic unified regression until a safe test-recording fixture strategy exists.

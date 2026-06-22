@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.69 - Real recording action regression audit
+    Phase 47.70 - Harden real recording action smoke helpers
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.70 - Harden real recording action smoke helpers
+    Phase 47.71 - Unified real VDR regression command
 
 Completed foundations:
 

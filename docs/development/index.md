@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.69 - Real recording action regression audit
+Phase 47.70 - Harden real recording action smoke helpers
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.70 - Harden real recording action smoke helpers
+Phase 47.71 - Unified real VDR regression command
 ```
 
 Current architecture validation:
