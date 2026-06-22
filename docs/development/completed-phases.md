@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.56 - SearchTimer real VDR compatibility report
+
+Status: Completed.
+
+Summary:
+- Documented the first successful real VDR SearchTimer end-to-end validation.
+- Captured RESTfulAPI runtime behavior where create and update do not reliably return ids in the response body.
+- Recorded the production update behavior that preserves the requested backend-native id when RESTfulAPI returns HTTP 200 without an id.
+- Documented validated SearchTimer fields and the invalid dayofweek value discovered during real testing.
+
+---
 ## Phase 47.55 - SearchTimer real VDR smoke test tool
 
 Status: Completed.

@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.55 - SearchTimer real VDR smoke test tool
+Phase 47.56 - SearchTimer real VDR compatibility report
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.56 - SearchTimer series recording enrichment
+Phase 47.57 - SearchTimer series recording enrichment
 ```
 
 Current architecture validation:
@@ -69,6 +69,7 @@ Current architecture validation:
 - [SearchTimer Real Payload Validation](searchtimer-real-payload-validation.md)
 - [SearchTimer Completeness Audit](searchtimer-completeness-audit.md)
 - [SearchTimer epgsearch / Live Compatibility Analysis](searchtimer-epgsearch-live-compatibility-analysis.md)
+- [SearchTimer Real VDR Compatibility Report](searchtimer-real-vdr-compatibility-report.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)
 - [Person API](person-api.md)

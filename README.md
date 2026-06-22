@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.55 - SearchTimer real VDR smoke test tool
+    Phase 47.56 - SearchTimer real VDR compatibility report
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.56 - SearchTimer series recording enrichment
+    Phase 47.57 - SearchTimer series recording enrichment
 
 Completed foundations:
 
