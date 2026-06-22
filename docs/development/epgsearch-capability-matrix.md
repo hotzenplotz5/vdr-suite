@@ -186,3 +186,15 @@ The model covers:
 - favorites-only scope
 
 No REST endpoint, adapter or backend execution was added in this phase.
+
+## Phase 48.3 Result Model Audit
+
+Phase 48.3 audited the existing EPGSearch result domain model.
+
+Finding:
+
+- `EpgSearchMatch` already wraps a `VdrEvent`, optional backend identity and matched fields.
+- `EpgSearchResult` already provides matches, total count, returned count, limit and offset.
+- No replacement model is needed before introducing the EPGSearch service interface.
+
+The next missing abstraction is a backend-neutral service boundary.

@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 48.2 - Backend-neutral EPGSearch query model
+Phase 48.3 - EPGSearch result model audit
 ```
 
 Next implementation focus:
 
 ```text
-Phase 48.3 - EPGSearch result semantics
+Phase 48.4 - EPGSearch service interface
 ```
 
 Current architecture validation:
@@ -76,6 +76,7 @@ Current architecture validation:
 - [Real Recording Action Regression Audit](real-recording-action-regression-audit.md)
 - [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
+- [EPGSearch Result Model Audit](epgsearch-result-model-audit.md)
 - [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)

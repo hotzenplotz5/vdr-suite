@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 48.2 - Backend-neutral EPGSearch query model
+Phase 48.3 - EPGSearch result model audit
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 48.3 - EPGSearch result semantics
+Phase 48.4 - EPGSearch service interface
 ```
 
 ---

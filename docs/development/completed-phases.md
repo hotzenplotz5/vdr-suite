@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 48.3 - EPGSearch result model audit
+
+Status: Completed.
+
+Summary:
+- Audited the existing EPGSearch result domain model.
+- Confirmed that `EpgSearchMatch` already wraps `VdrEvent`, backend identity and matched fields.
+- Confirmed that `EpgSearchResult` already provides matches, total count, returned count, limit and offset.
+- Avoided duplicate model creation and moved the next focus to a backend-neutral EPGSearch service interface.
+
+---
 ## Phase 48.2 - Backend-neutral EPGSearch query model
 
 Status: Completed.
