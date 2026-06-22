@@ -58,6 +58,16 @@ real-vdr-readonly-regression-helper:
 		-o /tmp/vdr_suite_real_readonly_regression
 	/tmp/vdr_suite_real_readonly_regression --help
 
+real-vdr-regression: real-vdr-readonly-regression-helper searchtimer-real-vdr-smoke-helper vdr-timer-real-lifecycle-smoke-helper
+	@if [ -z "$$VDR_SUITE_TIMER_CHANNEL" ]; then \
+		echo "VDR_SUITE_TIMER_CHANNEL must be set to a real VDR channel id for timer lifecycle regression."; \
+		echo "Example: VDR_SUITE_TIMER_CHANNEL='C-1-1051-10301' make real-vdr-regression"; \
+		exit 2; \
+	fi
+	/tmp/vdr_suite_real_readonly_regression --run
+	/tmp/vdr_suite_searchtimer_real_smoke --run
+	/tmp/vdr_suite_timer_lifecycle_smoke --run
+
 dashboard-cli: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \

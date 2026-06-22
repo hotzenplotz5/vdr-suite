@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 47.70 - Harden real recording action smoke helpers
+Phase 47.71 - Unified real VDR regression command
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.71 - Unified real VDR regression command
+Phase 47.72 - Real VDR regression documentation and usage guide
 ```
 
 ---

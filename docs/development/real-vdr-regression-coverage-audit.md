@@ -128,3 +128,26 @@ Scope:
 - [Back to Development Index](index.md)
 - [Back to SearchTimer Real VDR Compatibility Report](searchtimer-real-vdr-compatibility-report.md)
 - [Back to SearchTimer Completeness Re-Audit](searchtimer-completeness-reaudit.md)
+
+## Phase 47.71 Unified Real VDR Regression Command
+
+Phase 47.71 added a unified `make real-vdr-regression` command.
+
+Included helpers:
+
+- real VDR read-only regression
+- SearchTimer real VDR smoke test
+- Timer lifecycle real VDR smoke test
+
+Excluded by design:
+
+- recording move smoke
+- recording delete smoke
+
+Recording actions are excluded from the unified command until a safe, reproducible test-recording fixture exists. Their helpers remain available manually and protected by marker and execution gates.
+
+Required environment:
+
+- VDR_SUITE_RESTFULAPI_HOST, optional, default 127.0.0.1
+- VDR_SUITE_RESTFULAPI_PORT, optional, default 8002
+- VDR_SUITE_TIMER_CHANNEL, required, real VDR channel id for timer lifecycle validation

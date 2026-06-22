@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.71 - Unified real VDR regression command
+
+Status: Completed.
+
+Summary:
+- Added `make real-vdr-regression` as a unified real VDR regression command.
+- The command builds and runs read-only regression, SearchTimer real smoke and Timer lifecycle real smoke.
+- Required `VDR_SUITE_TIMER_CHANNEL` to avoid unsafe or invalid timer lifecycle runs.
+- Kept recording move/delete helpers excluded from the unified command until a safe test-recording fixture exists.
+
+---
 ## Phase 47.70 - Harden real recording action smoke helpers
 
 Status: Completed.
