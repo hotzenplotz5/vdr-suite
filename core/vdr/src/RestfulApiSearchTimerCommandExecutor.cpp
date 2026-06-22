@@ -97,7 +97,15 @@ std::string buildSearchTimerBody(
     const int durationMinMinutes,
     const int durationMaxMinutes,
     const bool useDayOfWeek,
-    const int dayOfWeek)
+    const int dayOfWeek,
+    const bool avoidRepeats,
+    const int allowedRepeats,
+    const int repeatsWithinDays,
+    const bool compareTitle,
+    const bool compareSubtitle,
+    const bool compareSummary,
+    const bool compareCategories,
+    const bool compareTime)
 {
     std::ostringstream body;
 
@@ -119,6 +127,14 @@ std::string buildSearchTimerBody(
         << "\"duration_max\":" << durationMaxMinutes << ","
         << "\"use_dayofweek\":" << (useDayOfWeek ? "1" : "0") << ","
         << "\"dayofweek\":" << dayOfWeek << ","
+        << "\"avoid_repeats\":" << (avoidRepeats ? "1" : "0") << ","
+        << "\"allowed_repeats\":" << allowedRepeats << ","
+        << "\"repeats_within_days\":" << repeatsWithinDays << ","
+        << "\"compare_title\":" << (compareTitle ? "1" : "0") << ","
+        << "\"compare_subtitle\":" << (compareSubtitle ? "1" : "0") << ","
+        << "\"compare_summary\":" << (compareSummary ? "1" : "0") << ","
+        << "\"compare_categories\":" << (compareCategories ? "1" : "0") << ","
+        << "\"compare_time\":" << (compareTime ? "1" : "0") << ","
         << "\"directory\":\"" << jsonEscape(directory) << "\","
         << "\"priority\":" << priority << ","
         << "\"lifetime\":" << lifetime << ","
@@ -199,7 +215,15 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             request.durationMinMinutes,
             request.durationMaxMinutes,
             request.useDayOfWeek,
-            request.dayOfWeek);
+            request.dayOfWeek,
+            request.avoidRepeats,
+            request.allowedRepeats,
+            request.repeatsWithinDays,
+            request.compareTitle,
+            request.compareSubtitle,
+            request.compareSummary,
+            request.compareCategories,
+            request.compareTime);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);
@@ -264,7 +288,15 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
             request.durationMinMinutes,
             request.durationMaxMinutes,
             request.useDayOfWeek,
-            request.dayOfWeek);
+            request.dayOfWeek,
+            request.avoidRepeats,
+            request.allowedRepeats,
+            request.repeatsWithinDays,
+            request.compareTitle,
+            request.compareSubtitle,
+            request.compareSummary,
+            request.compareCategories,
+            request.compareTime);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);

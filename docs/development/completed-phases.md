@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.54 - SearchTimer repeat handling enrichment
+
+Status: Completed.
+
+Summary:
+- Added SearchTimer create/update request fields for repeat suppression and repeat comparison behavior.
+- Preserved RESTfulAPI epgsearch field names for avoid_repeats, allowed_repeats, repeats_within_days and compare_* options.
+- Covered parser and command executor JSON body behavior with targeted tests.
+- Kept series recording, action cleanup, blacklist and extended EPG behavior deferred to later phases.
+
+---
+
 ## Phase 47.53 - SearchTimer time and duration constraint enrichment
 
 Status: Completed.

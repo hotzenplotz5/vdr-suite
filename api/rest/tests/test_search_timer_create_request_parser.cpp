@@ -31,7 +31,15 @@ int main()
             "\"durationMinMinutes\":45,"
             "\"durationMaxMinutes\":120,"
             "\"useDayOfWeek\":true,"
-            "\"dayOfWeek\":62"
+            "\"dayOfWeek\":62,"
+            "\"avoidRepeats\":true,"
+            "\"allowedRepeats\":2,"
+            "\"repeatsWithinDays\":14,"
+            "\"compareTitle\":true,"
+            "\"compareSubtitle\":true,"
+            "\"compareSummary\":true,"
+            "\"compareCategories\":true,"
+            "\"compareTime\":true"
             "}");
 
     assert(request.backendId == "home-vdr");
@@ -56,6 +64,14 @@ int main()
     assert(request.durationMaxMinutes == 120);
     assert(request.useDayOfWeek == true);
     assert(request.dayOfWeek == 62);
+    assert(request.avoidRepeats == true);
+    assert(request.allowedRepeats == 2);
+    assert(request.repeatsWithinDays == 14);
+    assert(request.compareTitle == true);
+    assert(request.compareSubtitle == true);
+    assert(request.compareSummary == true);
+    assert(request.compareCategories == true);
+    assert(request.compareTime == true);
 
     const SearchTimerCreateRequest defaultBackendRequest =
         parser.parse(
@@ -87,6 +103,14 @@ int main()
     assert(defaultBackendRequest.durationMaxMinutes == 0);
     assert(defaultBackendRequest.useDayOfWeek == false);
     assert(defaultBackendRequest.dayOfWeek == 0);
+    assert(defaultBackendRequest.avoidRepeats == false);
+    assert(defaultBackendRequest.allowedRepeats == 0);
+    assert(defaultBackendRequest.repeatsWithinDays == 0);
+    assert(defaultBackendRequest.compareTitle == false);
+    assert(defaultBackendRequest.compareSubtitle == false);
+    assert(defaultBackendRequest.compareSummary == false);
+    assert(defaultBackendRequest.compareCategories == false);
+    assert(defaultBackendRequest.compareTime == false);
 
     std::cout
         << "test_search_timer_create_request_parser passed"

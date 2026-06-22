@@ -59,6 +59,14 @@ static SearchTimerCreateRequest makeCreateRequest()
     request.durationMaxMinutes = 120;
     request.useDayOfWeek = true;
     request.dayOfWeek = 62;
+    request.avoidRepeats = true;
+    request.allowedRepeats = 2;
+    request.repeatsWithinDays = 14;
+    request.compareTitle = true;
+    request.compareSubtitle = true;
+    request.compareSummary = true;
+    request.compareCategories = true;
+    request.compareTime = true;
     return request;
 }
 
@@ -88,6 +96,14 @@ static SearchTimerUpdateRequest makeUpdateRequest()
     request.durationMaxMinutes = 90;
     request.useDayOfWeek = true;
     request.dayOfWeek = 31;
+    request.avoidRepeats = true;
+    request.allowedRepeats = 3;
+    request.repeatsWithinDays = 21;
+    request.compareTitle = true;
+    request.compareSubtitle = false;
+    request.compareSummary = true;
+    request.compareCategories = false;
+    request.compareTime = true;
     return request;
 }
 
@@ -130,6 +146,14 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(httpClient.requests.at(0).body.find("\"duration_max\":120") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_dayofweek\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"dayofweek\":62") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"avoid_repeats\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"allowed_repeats\":2") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"repeats_within_days\":14") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"compare_title\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"compare_subtitle\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"compare_summary\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"compare_categories\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"compare_time\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
@@ -189,6 +213,14 @@ static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
     assert(httpClient.requests.at(0).body.find("\"duration_max\":90") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_dayofweek\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"dayofweek\":31") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"avoid_repeats\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"allowed_repeats\":3") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"repeats_within_days\":21") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"compare_title\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"compare_subtitle\":0") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"compare_summary\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"compare_categories\":0") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"compare_time\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 

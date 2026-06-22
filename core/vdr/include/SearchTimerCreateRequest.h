@@ -26,6 +26,14 @@ struct SearchTimerCreateRequest
     int durationMaxMinutes = 0;
     bool useDayOfWeek = false;
     int dayOfWeek = 0;
+    bool avoidRepeats = false;
+    int allowedRepeats = 0;
+    int repeatsWithinDays = 0;
+    bool compareTitle = false;
+    bool compareSubtitle = false;
+    bool compareSummary = false;
+    bool compareCategories = false;
+    bool compareTime = false;
 
     bool hasBackendId() const
     {

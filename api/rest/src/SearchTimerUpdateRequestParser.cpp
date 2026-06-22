@@ -237,5 +237,29 @@ SearchTimerUpdateRequest SearchTimerUpdateRequestParser::parse(
     request.dayOfWeek =
         parseInt(values, "dayOfWeek", 0);
 
+    request.avoidRepeats =
+        parseBool(values, "avoidRepeats", false);
+
+    request.allowedRepeats =
+        parseInt(values, "allowedRepeats", 0);
+
+    request.repeatsWithinDays =
+        parseInt(values, "repeatsWithinDays", 0);
+
+    request.compareTitle =
+        parseBool(values, "compareTitle", false);
+
+    request.compareSubtitle =
+        parseBool(values, "compareSubtitle", false);
+
+    request.compareSummary =
+        parseBool(values, "compareSummary", false);
+
+    request.compareCategories =
+        parseBool(values, "compareCategories", false);
+
+    request.compareTime =
+        parseBool(values, "compareTime", false);
+
     return request;
 }
