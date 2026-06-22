@@ -73,6 +73,10 @@ static SearchTimerCreateRequest makeCreateRequest()
     request.searchTimerAction = 2;
     request.blacklistMode = 1;
     request.blacklistIds = "3,7";
+    request.matchMode = 2;
+    request.matchCase = true;
+    request.matchTolerance = 4;
+    request.summaryMatch = 1;
     return request;
 }
 
@@ -116,6 +120,10 @@ static SearchTimerUpdateRequest makeUpdateRequest()
     request.searchTimerAction = 1;
     request.blacklistMode = 2;
     request.blacklistIds = "4";
+    request.matchMode = 3;
+    request.matchCase = false;
+    request.matchTolerance = 5;
+    request.summaryMatch = 2;
     return request;
 }
 
@@ -172,6 +180,10 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(httpClient.requests.at(0).body.find("\"search_timer_action\":2") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"blacklist_mode\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"blacklist_ids\":\"3,7\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"mode\":2") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"match_case\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"tolerance\":4") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"summary_match\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
@@ -245,6 +257,10 @@ static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
     assert(httpClient.requests.at(0).body.find("\"search_timer_action\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"blacklist_mode\":2") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"blacklist_ids\":\"4\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"mode\":3") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"match_case\":0") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"tolerance\":5") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"summary_match\":2") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 

@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.59 - SearchTimer feature gap analysis
+Phase 47.60 - SearchTimer match option write enrichment
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.60 - SearchTimer match option write enrichment
+Phase 47.61 - SearchTimer extended EPG write enrichment
 ```
 
 Current architecture validation:

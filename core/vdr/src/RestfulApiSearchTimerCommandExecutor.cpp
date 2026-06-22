@@ -111,7 +111,11 @@ std::string buildSearchTimerBody(
     const int deleteMode,
     const int searchTimerAction,
     const int blacklistMode,
-    const std::string& blacklistIds)
+    const std::string& blacklistIds,
+    const int matchMode,
+    const bool matchCase,
+    const int matchTolerance,
+    const int summaryMatch)
 {
     std::ostringstream body;
 
@@ -147,6 +151,10 @@ std::string buildSearchTimerBody(
         << "\"search_timer_action\":" << searchTimerAction << ","
         << "\"blacklist_mode\":" << blacklistMode << ","
         << "\"blacklist_ids\":\"" << jsonEscape(blacklistIds) << "\","
+        << "\"mode\":" << matchMode << ","
+        << "\"match_case\":" << (matchCase ? "1" : "0") << ","
+        << "\"tolerance\":" << matchTolerance << ","
+        << "\"summary_match\":" << summaryMatch << ","
         << "\"directory\":\"" << jsonEscape(directory) << "\","
         << "\"priority\":" << priority << ","
         << "\"lifetime\":" << lifetime << ","
@@ -241,7 +249,11 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             request.deleteMode,
             request.searchTimerAction,
             request.blacklistMode,
-            request.blacklistIds);
+            request.blacklistIds,
+            request.matchMode,
+            request.matchCase,
+            request.matchTolerance,
+            request.summaryMatch);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);
@@ -324,7 +336,11 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
             request.deleteMode,
             request.searchTimerAction,
             request.blacklistMode,
-            request.blacklistIds);
+            request.blacklistIds,
+            request.matchMode,
+            request.matchCase,
+            request.matchTolerance,
+            request.summaryMatch);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);

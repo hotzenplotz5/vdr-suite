@@ -95,9 +95,13 @@ Suggested VDR-Suite request field names:
 - matchTolerance
 - summaryMatch
 
-Recommended phase:
+Implemented in:
 
 - Phase 47.60 - SearchTimer match option write enrichment
+
+Recommended next phase:
+
+- Phase 47.61 - SearchTimer extended EPG write enrichment
 
 ### Extended EPG options
 
@@ -115,7 +119,11 @@ Suggested VDR-Suite request field names:
 - ignoreMissingEpgCategories
 - contentDescriptors
 
-Recommended phase:
+Implemented in:
+
+- Phase 47.60 - SearchTimer match option write enrichment
+
+Recommended next phase:
 
 - Phase 47.61 - SearchTimer extended EPG write enrichment
 
@@ -197,7 +205,7 @@ For future write-enrichment phases, the recommended sequence is:
 
 ## Recommended Next Phase
 
-Phase 47.60 - SearchTimer match option write enrichment
+Phase 47.61 - SearchTimer extended EPG write enrichment
 
 Rationale:
 

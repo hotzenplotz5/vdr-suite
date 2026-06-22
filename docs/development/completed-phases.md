@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.60 - SearchTimer match option write enrichment
+
+Status: Completed.
+
+Summary:
+- Added SearchTimer create/update request fields for match mode, case handling, tolerance and summary match behavior.
+- Extended create/update parsers for match option request fields.
+- Extended the RESTfulAPI command executor JSON body with mode, match_case, tolerance and summary_match.
+- Covered parser defaults and command executor body generation with targeted tests.
+
+---
 ## Phase 47.59 - SearchTimer feature gap analysis
 
 Status: Completed.

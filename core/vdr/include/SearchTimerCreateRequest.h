@@ -40,6 +40,10 @@ struct SearchTimerCreateRequest
     int searchTimerAction = 0;
     int blacklistMode = 0;
     std::string blacklistIds;
+    int matchMode = 0;
+    bool matchCase = false;
+    int matchTolerance = 0;
+    int summaryMatch = 0;
 
     bool hasBackendId() const
     {

@@ -46,7 +46,11 @@ int main()
             "\"deleteMode\":1,"
             "\"searchTimerAction\":2,"
             "\"blacklistMode\":1,"
-            "\"blacklistIds\":\"3,7\""
+            "\"blacklistIds\":\"3,7\","
+            "\"matchMode\":2,"
+            "\"matchCase\":true,"
+            "\"matchTolerance\":4,"
+            "\"summaryMatch\":1"
             "}");
 
     assert(request.backendId == "home-vdr");
@@ -86,6 +90,10 @@ int main()
     assert(request.searchTimerAction == 2);
     assert(request.blacklistMode == 1);
     assert(request.blacklistIds == "3,7");
+    assert(request.matchMode == 2);
+    assert(request.matchCase == true);
+    assert(request.matchTolerance == 4);
+    assert(request.summaryMatch == 1);
 
     const SearchTimerUpdateRequest defaultBackendRequest =
         parser.parse(
@@ -133,6 +141,10 @@ int main()
     assert(defaultBackendRequest.searchTimerAction == 0);
     assert(defaultBackendRequest.blacklistMode == 0);
     assert(defaultBackendRequest.blacklistIds.empty());
+    assert(defaultBackendRequest.matchMode == 0);
+    assert(defaultBackendRequest.matchCase == false);
+    assert(defaultBackendRequest.matchTolerance == 0);
+    assert(defaultBackendRequest.summaryMatch == 0);
 
     std::cout
         << "test_search_timer_update_request_parser passed"

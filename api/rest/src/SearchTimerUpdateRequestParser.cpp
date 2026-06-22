@@ -304,5 +304,17 @@ SearchTimerUpdateRequest SearchTimerUpdateRequestParser::parse(
     request.blacklistIds =
         getValue(values, "blacklistIds");
 
+    request.matchMode =
+        parseInt(values, "matchMode", 0);
+
+    request.matchCase =
+        parseBool(values, "matchCase", false);
+
+    request.matchTolerance =
+        parseInt(values, "matchTolerance", 0);
+
+    request.summaryMatch =
+        parseInt(values, "summaryMatch", 0);
+
     return request;
 }

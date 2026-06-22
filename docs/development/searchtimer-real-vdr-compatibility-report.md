@@ -143,7 +143,7 @@ The next implementation phases should prefer real VDR behavioral validation over
 
 ## Next Recommended Phase
 
-Phase 47.60 - SearchTimer match option write enrichment
+Phase 47.61 - SearchTimer extended EPG write enrichment
 
 
 ## Back
