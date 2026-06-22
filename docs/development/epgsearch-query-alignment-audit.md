@@ -39,7 +39,7 @@ Supported HTTP parameters include:
 
 ## Existing Controller
 
-`EpgController::search(...)` already:
+``EpgController::search(...)` already:
 
 - validates `timespan`
 - validates `limit`
@@ -53,7 +53,7 @@ Supported HTTP parameters include:
 
 ## Model Boundary Finding
 
-`EpgSearchRequest` and `EpgSearchQuery` should not be treated as duplicates.
+``EpgSearchRequest` and `EpgSearchQuery` should not be treated as duplicates.
 
 They represent different layers.
 
@@ -131,4 +131,4 @@ No new route is needed.
 
 The planned explicit mapper was implemented after this audit.
 
-`EpgSearchRequestMapper` now separates API/controller request concerns from backend-neutral domain query semantics.
+``EpgSearchRequestMapper` now separates API/controller request concerns from backend-neutral domain query semantics.

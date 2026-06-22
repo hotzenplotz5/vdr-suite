@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.0 - EPGSearch test coverage audit
+
+Status: Completed.
+
+Summary:
+- Audited the EPGSearch test landscape after the request-to-query mapper.
+- Identified old underscore-style EPGSearch tests and newer compact epgsearch-style tests.
+- Confirmed that endpoint regression should wait until test consolidation avoids duplicate coverage.
+- Moved the next focus to EPGSearch test consolidation.
+
+---
 ## Phase 48.9 - EPGSearch request-to-query mapper
 
 Status: Completed.

@@ -312,3 +312,18 @@ Intentionally not mapped yet:
 - request window metadata
 
 Those remain API/request concerns and should not be forced into the domain query.
+
+## Phase 49.0 Test Coverage Audit
+
+Phase 49.0 audited EPGSearch test coverage after the request-to-query mapper was introduced.
+
+Finding:
+
+- old underscore-style EPGSearch tests still exist
+- newer compact epgsearch-style tests now cover the query, mapper, matcher, service and serializer path
+- `GET /api/epg/search` is routed, but explicit router regression coverage should wait until test consolidation
+
+Decision:
+
+- do not add another endpoint test yet
+- consolidate the EPGSearch tests first

@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 48.9 - EPGSearch request-to-query mapper
+    Phase 49.0 - EPGSearch test coverage audit
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.0 - EPGSearch endpoint regression
+    Phase 49.1 - EPGSearch test consolidation
 
 Completed foundations:
 

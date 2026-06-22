@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 48.9 - EPGSearch request-to-query mapper
+Phase 49.0 - EPGSearch test coverage audit
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.0 - EPGSearch endpoint regression
+Phase 49.1 - EPGSearch test consolidation
 ```
 
 Current architecture validation:
@@ -78,6 +78,7 @@ Current architecture validation:
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Result Model Audit](epgsearch-result-model-audit.md)
 - [EPGSearch Query Alignment Audit](epgsearch-query-alignment-audit.md)
+- [EPGSearch Test Coverage Audit](epgsearch-test-coverage-audit.md)
 - [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)

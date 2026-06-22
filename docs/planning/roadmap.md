@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 48.9 - EPGSearch request-to-query mapper
+Phase 49.0 - EPGSearch test coverage audit
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 49.0 - EPGSearch endpoint regression
+Phase 49.1 - EPGSearch test consolidation
 ```
 
 ---
