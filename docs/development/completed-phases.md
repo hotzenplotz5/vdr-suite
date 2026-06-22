@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.57 - SearchTimer series recording enrichment
+
+Status: Completed.
+
+Summary:
+- Added SearchTimer create/update request fields for series recording and retention behavior.
+- Preserved RESTfulAPI epgsearch field names for use_series_recording, keep_recs, del_mode and search_timer_action.
+- Covered parser and command executor JSON body behavior with targeted tests.
+- Deferred blacklist, extended EPG and cleanup action behavior to later phases.
+
+---
 ## Phase 47.56 - SearchTimer real VDR compatibility report
 
 Status: Completed.

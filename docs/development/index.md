@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.56 - SearchTimer real VDR compatibility report
+Phase 47.57 - SearchTimer series recording enrichment
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.57 - SearchTimer series recording enrichment
+Phase 47.58 - SearchTimer blacklist enrichment
 ```
 
 Current architecture validation:

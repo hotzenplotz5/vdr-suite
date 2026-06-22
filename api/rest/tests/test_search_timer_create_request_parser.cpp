@@ -39,7 +39,11 @@ int main()
             "\"compareSubtitle\":true,"
             "\"compareSummary\":true,"
             "\"compareCategories\":true,"
-            "\"compareTime\":true"
+            "\"compareTime\":true,"
+            "\"useSeriesRecording\":true,"
+            "\"keepRecordings\":5,"
+            "\"deleteMode\":1,"
+            "\"searchTimerAction\":2"
             "}");
 
     assert(request.backendId == "home-vdr");
@@ -72,6 +76,10 @@ int main()
     assert(request.compareSummary == true);
     assert(request.compareCategories == true);
     assert(request.compareTime == true);
+    assert(request.useSeriesRecording == true);
+    assert(request.keepRecordings == 5);
+    assert(request.deleteMode == 1);
+    assert(request.searchTimerAction == 2);
 
     const SearchTimerCreateRequest defaultBackendRequest =
         parser.parse(
@@ -111,6 +119,10 @@ int main()
     assert(defaultBackendRequest.compareSummary == false);
     assert(defaultBackendRequest.compareCategories == false);
     assert(defaultBackendRequest.compareTime == false);
+    assert(defaultBackendRequest.useSeriesRecording == false);
+    assert(defaultBackendRequest.keepRecordings == 0);
+    assert(defaultBackendRequest.deleteMode == 0);
+    assert(defaultBackendRequest.searchTimerAction == 0);
 
     std::cout
         << "test_search_timer_create_request_parser passed"

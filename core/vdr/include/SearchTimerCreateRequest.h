@@ -34,6 +34,10 @@ struct SearchTimerCreateRequest
     bool compareSummary = false;
     bool compareCategories = false;
     bool compareTime = false;
+    bool useSeriesRecording = false;
+    int keepRecordings = 0;
+    int deleteMode = 0;
+    int searchTimerAction = 0;
 
     bool hasBackendId() const
     {

@@ -105,7 +105,11 @@ std::string buildSearchTimerBody(
     const bool compareSubtitle,
     const bool compareSummary,
     const bool compareCategories,
-    const bool compareTime)
+    const bool compareTime,
+    const bool useSeriesRecording,
+    const int keepRecordings,
+    const int deleteMode,
+    const int searchTimerAction)
 {
     std::ostringstream body;
 
@@ -135,6 +139,10 @@ std::string buildSearchTimerBody(
         << "\"compare_summary\":" << (compareSummary ? "1" : "0") << ","
         << "\"compare_categories\":" << (compareCategories ? "1" : "0") << ","
         << "\"compare_time\":" << (compareTime ? "1" : "0") << ","
+        << "\"use_series_recording\":" << (useSeriesRecording ? "1" : "0") << ","
+        << "\"keep_recs\":" << keepRecordings << ","
+        << "\"del_mode\":" << deleteMode << ","
+        << "\"search_timer_action\":" << searchTimerAction << ","
         << "\"directory\":\"" << jsonEscape(directory) << "\","
         << "\"priority\":" << priority << ","
         << "\"lifetime\":" << lifetime << ","
@@ -223,7 +231,11 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             request.compareSubtitle,
             request.compareSummary,
             request.compareCategories,
-            request.compareTime);
+            request.compareTime,
+            request.useSeriesRecording,
+            request.keepRecordings,
+            request.deleteMode,
+            request.searchTimerAction);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);
@@ -300,7 +312,11 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
             request.compareSubtitle,
             request.compareSummary,
             request.compareCategories,
-            request.compareTime);
+            request.compareTime,
+            request.useSeriesRecording,
+            request.keepRecordings,
+            request.deleteMode,
+            request.searchTimerAction);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);

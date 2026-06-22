@@ -67,6 +67,10 @@ static SearchTimerCreateRequest makeCreateRequest()
     request.compareSummary = true;
     request.compareCategories = true;
     request.compareTime = true;
+    request.useSeriesRecording = true;
+    request.keepRecordings = 5;
+    request.deleteMode = 1;
+    request.searchTimerAction = 2;
     return request;
 }
 
@@ -104,6 +108,10 @@ static SearchTimerUpdateRequest makeUpdateRequest()
     request.compareSummary = true;
     request.compareCategories = false;
     request.compareTime = true;
+    request.useSeriesRecording = true;
+    request.keepRecordings = 7;
+    request.deleteMode = 2;
+    request.searchTimerAction = 1;
     return request;
 }
 
@@ -154,6 +162,10 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(httpClient.requests.at(0).body.find("\"compare_summary\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"compare_categories\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"compare_time\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_series_recording\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"keep_recs\":5") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"del_mode\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"search_timer_action\":2") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
@@ -221,10 +233,14 @@ static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
     assert(httpClient.requests.at(0).body.find("\"compare_summary\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"compare_categories\":0") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"compare_time\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_series_recording\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"keep_recs\":7") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"del_mode\":2") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"search_timer_action\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
-static void test_update_fails_without_returned_id()
+static void test_update_accepts_missing_returned_id()
 {
     HttpResponse response;
     response.statusCode = 200;
@@ -233,12 +249,15 @@ static void test_update_fails_without_returned_id()
     TestHttpClient httpClient(response);
     RestfulApiSearchTimerCommandExecutor executor(httpClient);
 
-    const SearchTimerUpdateResult result =
-        executor.update(makeUpdateRequest());
+    const SearchTimerUpdateRequest request =
+        makeUpdateRequest();
 
-    assert(result.success == false);
-    assert(result.message == "RESTfulAPI searchtimer update did not return an id");
-    assert(result.errors.size() == 1);
+    const SearchTimerUpdateResult result =
+        executor.update(request);
+
+    assert(result.success == true);
+    assert(result.searchTimer.id().backendId() == request.backendId);
+    assert(result.searchTimer.id().nativeId() == request.backendNativeId);
 }
 
 static void test_remove_deletes_restfulapi_searchtimer_by_native_id()
@@ -270,7 +289,7 @@ int main()
     test_create_posts_to_restfulapi_searchtimers();
     test_create_fails_without_created_id();
     test_update_puts_to_restfulapi_searchtimer_by_native_id();
-    test_update_fails_without_returned_id();
+    test_update_accepts_missing_returned_id();
     test_remove_deletes_restfulapi_searchtimer_by_native_id();
 
     std::cout

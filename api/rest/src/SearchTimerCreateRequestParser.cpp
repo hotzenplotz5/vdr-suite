@@ -258,5 +258,17 @@ SearchTimerCreateRequest SearchTimerCreateRequestParser::parse(
     request.compareTime =
         parseBool(values, "compareTime", false);
 
+    request.useSeriesRecording =
+        parseBool(values, "useSeriesRecording", false);
+
+    request.keepRecordings =
+        parseInt(values, "keepRecordings", 0);
+
+    request.deleteMode =
+        parseInt(values, "deleteMode", 0);
+
+    request.searchTimerAction =
+        parseInt(values, "searchTimerAction", 0);
+
     return request;
 }
