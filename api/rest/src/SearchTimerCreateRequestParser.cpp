@@ -325,5 +325,14 @@ SearchTimerCreateRequest SearchTimerCreateRequestParser::parse(
     request.contentDescriptors =
         getValue(values, "contentDescriptors");
 
+    request.useInFavorites =
+        parseBool(values, "useInFavorites", false);
+
+    request.activeFrom =
+        getValue(values, "activeFrom");
+
+    request.activeUntil =
+        getValue(values, "activeUntil");
+
     return request;
 }

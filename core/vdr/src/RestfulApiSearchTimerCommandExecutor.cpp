@@ -119,7 +119,10 @@ std::string buildSearchTimerBody(
     const bool useExtendedEpgInfo,
     const std::string& extendedEpgInfo,
     const bool ignoreMissingEpgCategories,
-    const std::string& contentDescriptors)
+    const std::string& contentDescriptors,
+    const bool useInFavorites,
+    const std::string& activeFrom,
+    const std::string& activeUntil)
 {
     std::ostringstream body;
 
@@ -163,6 +166,9 @@ std::string buildSearchTimerBody(
         << "\"ext_epg_info\":\"" << jsonEscape(extendedEpgInfo) << "\","
         << "\"ignore_missing_epg_cats\":" << (ignoreMissingEpgCategories ? "1" : "0") << ","
         << "\"content_descriptors\":\"" << jsonEscape(contentDescriptors) << "\","
+        << "\"use_in_favorites\":" << (useInFavorites ? "1" : "0") << ","
+        << "\"use_as_searchtimer_from\":\"" << jsonEscape(activeFrom) << "\","
+        << "\"use_as_searchtimer_til\":\"" << jsonEscape(activeUntil) << "\","
         << "\"directory\":\"" << jsonEscape(directory) << "\","
         << "\"priority\":" << priority << ","
         << "\"lifetime\":" << lifetime << ","
@@ -265,7 +271,10 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             request.useExtendedEpgInfo,
             request.extendedEpgInfo,
             request.ignoreMissingEpgCategories,
-            request.contentDescriptors);
+            request.contentDescriptors,
+            request.useInFavorites,
+            request.activeFrom,
+            request.activeUntil);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);
@@ -356,7 +365,10 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
             request.useExtendedEpgInfo,
             request.extendedEpgInfo,
             request.ignoreMissingEpgCategories,
-            request.contentDescriptors);
+            request.contentDescriptors,
+            request.useInFavorites,
+            request.activeFrom,
+            request.activeUntil);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);

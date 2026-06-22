@@ -81,6 +81,9 @@ static SearchTimerCreateRequest makeCreateRequest()
     request.extendedEpgInfo = "category=movie";
     request.ignoreMissingEpgCategories = true;
     request.contentDescriptors = "0x10,0x11";
+    request.useInFavorites = true;
+    request.activeFrom = "2026-06-01";
+    request.activeUntil = "2026-12-31";
     return request;
 }
 
@@ -132,6 +135,9 @@ static SearchTimerUpdateRequest makeUpdateRequest()
     request.extendedEpgInfo = "category=sports";
     request.ignoreMissingEpgCategories = false;
     request.contentDescriptors = "0x20";
+    request.useInFavorites = false;
+    request.activeFrom = "2026-07-01";
+    request.activeUntil = "2026-08-31";
     return request;
 }
 
@@ -196,6 +202,9 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(httpClient.requests.at(0).body.find("\"ext_epg_info\":\"category=movie\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"ignore_missing_epg_cats\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"content_descriptors\":\"0x10,0x11\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_in_favorites\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer_from\":\"2026-06-01\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer_til\":\"2026-12-31\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
@@ -277,6 +286,9 @@ static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
     assert(httpClient.requests.at(0).body.find("\"ext_epg_info\":\"category=sports\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"ignore_missing_epg_cats\":0") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"content_descriptors\":\"0x20\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_in_favorites\":0") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer_from\":\"2026-07-01\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer_til\":\"2026-08-31\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 

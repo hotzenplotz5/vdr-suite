@@ -53,7 +53,10 @@ int main()
             "\"useExtendedEpgInfo\":true,"
             "\"extendedEpgInfo\":\"category=movie\","
             "\"ignoreMissingEpgCategories\":true,"
-            "\"contentDescriptors\":\"0x10,0x11\""
+            "\"contentDescriptors\":\"0x10,0x11\","
+            "\"useInFavorites\":true,"
+            "\"activeFrom\":\"2026-06-01\","
+            "\"activeUntil\":\"2026-12-31\""
             "}");
 
     assert(request.backendId == "home-vdr");
@@ -100,6 +103,9 @@ int main()
     assert(request.extendedEpgInfo == "category=movie");
     assert(request.ignoreMissingEpgCategories == true);
     assert(request.contentDescriptors == "0x10,0x11");
+    assert(request.useInFavorites == true);
+    assert(request.activeFrom == "2026-06-01");
+    assert(request.activeUntil == "2026-12-31");
 
     const SearchTimerCreateRequest defaultBackendRequest =
         parser.parse(
@@ -153,6 +159,9 @@ int main()
     assert(defaultBackendRequest.extendedEpgInfo.empty());
     assert(defaultBackendRequest.ignoreMissingEpgCategories == false);
     assert(defaultBackendRequest.contentDescriptors.empty());
+    assert(defaultBackendRequest.useInFavorites == false);
+    assert(defaultBackendRequest.activeFrom.empty());
+    assert(defaultBackendRequest.activeUntil.empty());
 
     std::cout
         << "test_search_timer_create_request_parser passed"

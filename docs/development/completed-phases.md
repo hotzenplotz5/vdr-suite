@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.62 - SearchTimer validity window write enrichment
+
+Status: Completed.
+
+Summary:
+- Added SearchTimer create/update request fields for use-in-favorites and active validity windows.
+- Extended create/update parsers for validity-window request fields.
+- Extended the RESTfulAPI command executor JSON body with use_in_favorites, use_as_searchtimer_from and use_as_searchtimer_til.
+- Covered parser defaults and command executor body generation with targeted tests.
+
+---
 ## Phase 47.61 - SearchTimer extended EPG write enrichment
 
 Status: Completed.

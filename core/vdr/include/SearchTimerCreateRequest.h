@@ -48,6 +48,9 @@ struct SearchTimerCreateRequest
     std::string extendedEpgInfo;
     bool ignoreMissingEpgCategories = false;
     std::string contentDescriptors;
+    bool useInFavorites = false;
+    std::string activeFrom;
+    std::string activeUntil;
 
     bool hasBackendId() const
     {
