@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
 std::string lowerCopy(
@@ -39,11 +41,10 @@ bool containsText(
 
     return lowerCopy(haystack).find(lowerCopy(needle)) != std::string::npos;
 }
-}
 
-bool EpgSearchMatcher::matches(
+bool matchesText(
     const VdrEvent& event,
-    const EpgSearchQuery& query) const
+    const EpgSearchQuery& query)
 {
     if (!query.hasText())
     {
@@ -81,4 +82,97 @@ bool EpgSearchMatcher::matches(
     }
 
     return matched;
+}
+
+bool matchesChannel(
+    const VdrEvent& event,
+    const EpgSearchQuery& query)
+{
+    if (!query.hasChannelScope())
+    {
+        return true;
+    }
+
+    if (query.channelScope() == EpgSearchChannelScope::Interval)
+    {
+        return event.channelId >= query.channelMin()
+            && event.channelId <= query.channelMax();
+    }
+
+    return true;
+}
+
+bool matchesDuration(
+    const VdrEvent& event,
+    const EpgSearchQuery& query)
+{
+    if (!query.hasDurationWindow())
+    {
+        return true;
+    }
+
+    const int durationMinutes =
+        event.durationSeconds / 60;
+
+    return durationMinutes >= query.durationMinMinutes()
+        && durationMinutes <= query.durationMaxMinutes();
+}
+
+std::vector<std::string> splitCommaSeparated(
+    const std::string& value)
+{
+    std::vector<std::string> result;
+    std::stringstream stream(value);
+    std::string item;
+
+    while (std::getline(stream, item, ','))
+    {
+        if (!item.empty())
+        {
+            result.push_back(item);
+        }
+    }
+
+    return result;
+}
+
+bool matchesContentDescriptors(
+    const VdrEvent& event,
+    const EpgSearchQuery& query)
+{
+    if (!query.hasContentDescriptors())
+    {
+        return true;
+    }
+
+    const std::vector<std::string> expected =
+        splitCommaSeparated(query.contentDescriptors());
+
+    for (const std::string& descriptor : expected)
+    {
+        const bool found =
+            std::find(
+                event.contentDescriptors.begin(),
+                event.contentDescriptors.end(),
+                descriptor)
+            != event.contentDescriptors.end();
+
+        if (!found)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+}
+
+bool EpgSearchMatcher::matches(
+    const VdrEvent& event,
+    const EpgSearchQuery& query) const
+{
+    return matchesText(event, query)
+        && matchesChannel(event, query)
+        && matchesDuration(event, query)
+        && matchesContentDescriptors(event, query);
 }

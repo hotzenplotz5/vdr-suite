@@ -243,3 +243,24 @@ Not implemented in this phase:
 - fuzzy matching semantics
 
 Those belong to later matcher expansion phases.
+
+## Phase 48.6 Matcher Filter Expansion Result
+
+Phase 48.6 expanded `EpgSearchMatcher` beyond text matching.
+
+Implemented with existing `VdrEvent` fields:
+
+- channel interval matching through event channel id
+- duration window matching through event duration seconds
+- content descriptor matching through event content descriptors
+
+Intentionally not implemented yet:
+
+- extended EPG category filtering
+- channel group semantics
+- favorites semantics
+- time-window semantics
+- day-of-week semantics
+- fuzzy matching semantics
+
+Those require additional domain fields or exact backend semantics before implementation.

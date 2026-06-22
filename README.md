@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 48.5 - EPGSearch matcher extraction
+    Phase 48.6 - EPGSearch matcher filter expansion
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 48.6 - EPGSearch matcher filter expansion
+    Phase 48.7 - EPGSearch result serializer
 
 Completed foundations:
 

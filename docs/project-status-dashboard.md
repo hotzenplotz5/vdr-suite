@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 48.5 - EPGSearch matcher extraction
+Phase 48.6 - EPGSearch matcher filter expansion
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 48.6 - EPGSearch matcher filter expansion
+Phase 48.7 - EPGSearch result serializer
 ```
 
 Latest Completed Milestones:

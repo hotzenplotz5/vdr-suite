@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 48.6 - EPGSearch matcher filter expansion
+
+Status: Completed.
+
+Summary:
+- Expanded `EpgSearchMatcher` with backend-neutral filters supported by current `VdrEvent` fields.
+- Added channel interval filtering, duration-window filtering and content-descriptor filtering.
+- Kept extended EPG categories, channel groups, favorites, time windows, day-of-week and fuzzy semantics out of scope until their backend semantics are audited.
+- Moved the next focus to EPGSearch result serialization.
+
+---
 ## Phase 48.5 - EPGSearch matcher extraction
 
 Status: Completed.
