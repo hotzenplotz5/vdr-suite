@@ -338,3 +338,15 @@ Result:
 - obsolete request-based matcher tests were identified
 - no-search-field behavior is now covered in the compact matcher test
 - fuzzy tolerance remains modeled but not implemented in the matcher
+
+## Phase 49.2 Service Test Consolidation
+
+Phase 49.2 consolidated active service coverage.
+
+Result:
+
+- active service tests use `EpgSearchQuery`
+- backend-scoped query metadata is covered
+- channel interval filtering is covered
+- duration-window filtering is covered
+- paging and sorting remain API/request concerns

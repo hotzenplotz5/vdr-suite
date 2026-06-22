@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.2 - EPGSearch service test consolidation
+
+Status: Completed.
+
+Summary:
+- Consolidated active EPGSearch service coverage around `EpgSearchQuery`.
+- Added channel interval and duration-window service coverage.
+- Covered backend-scoped query metadata without asserting match backend propagation.
+- Kept paging and sorting out of the domain service test because they are API/request concerns.
+- Moved the next focus to legacy EPGSearch test retirement.
+
+---
 ## Phase 49.1 - EPGSearch matcher test consolidation
 
 Status: Completed.

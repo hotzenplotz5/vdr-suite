@@ -110,3 +110,36 @@ Decision:
 
 - old underscore-style matcher test is obsolete as an executable test in its current form
 - its remaining useful cases must be migrated only when their domain semantics are implemented
+
+## Phase 49.2 Service Test Consolidation Result
+
+Phase 49.2 continued consolidation of the old and new EPGSearch test tracks.
+
+Observed test state:
+
+- `test-epg-search-service` is request-era coverage
+- the current service boundary is `EpgSearchQuery`
+- `test-epgsearch-service` is the active service test for the new architecture
+
+Migrated coverage:
+
+- backend-scoped query metadata is covered without asserting match backend propagation
+- channel interval filtering is covered
+- duration-window filtering is covered
+
+Intentionally not migrated:
+
+- paging
+- sorting
+- request window metadata
+
+Reason:
+
+- paging and sorting are API/request concerns of `EpgSearchRequest`
+- the current `EpgSearchService` receives only `EpgSearchQuery`
+- backend id is currently query metadata and not match backend propagation in this service
+
+Decision:
+
+- old underscore-style service test is obsolete as an executable service test in its current form
+- its API/request-specific cases should move to mapper/controller/router tests instead of the domain service test
