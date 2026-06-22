@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 48.0 - Live / EPGSearch feature inventory
+Phase 48.1 - EPGSearch capability matrix
 ```
 
 Next implementation focus:
 
 ```text
-Phase 48.1 - EPGSearch capability matrix
+Phase 48.2 - Backend-neutral EPGSearch query model
 ```
 
 Current architecture validation:
@@ -75,6 +75,7 @@ Current architecture validation:
 - [Real VDR Regression Coverage Audit](real-vdr-regression-coverage-audit.md)
 - [Real Recording Action Regression Audit](real-recording-action-regression-audit.md)
 - [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
+- [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)

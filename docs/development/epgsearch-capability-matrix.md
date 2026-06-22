@@ -1,0 +1,167 @@
+# EPGSearch Capability Matrix
+
+## Navigation
+
+- [README](../../README.md)
+- [Development Index](index.md)
+- [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
+- [Current Status](current-status.md)
+- [Roadmap](../planning/roadmap.md)
+
+---
+
+## Purpose
+
+Phase 48.1 maps Live/EPGSearch capabilities to RESTfulAPI and VDR-Suite.
+
+The goal is to decide which Live goldstandard features should become first-class VDR-Suite capabilities.
+
+---
+
+## Source Findings
+
+EPGSearch service capabilities include:
+
+- Epgsearch-search-v1.0
+- Epgsearch-searchresults-v1.0
+- SearchTimerList
+- AddSearchTimer
+- ModSearchTimer
+- DelSearchTimer
+- QuerySearchTimer
+- QuerySearch
+- ExtEPGInfoList
+- ChanGrpList
+- BlackList
+- DirectoryList
+- TimerConflictList
+- IsConflictCheckAdvised
+- ShortDirectoryList
+- Evaluate
+
+RESTfulAPI epgsearch exposes rich SearchTimer fields and validation rules, including:
+
+- search
+- mode
+- tolerance
+- match_case
+- use_title
+- use_subtitle
+- use_description
+- content_descriptors
+- use_ext_epg_info
+- ext_epg_info
+- use_in_favorites
+- time filters
+- channel filters
+- duration filters
+- day-of-week filters
+- blacklist mode and ids
+- repeat avoidance
+- comparison flags
+- recording retention and deletion policy
+
+---
+
+## Capability Matrix
+
+| Capability | Live / EPGSearch | RESTfulAPI | VDR-Suite Status | Priority |
+| --- | --- | --- | --- | --- |
+| Basic EPG search | yes | likely via events/search capabilities | partial | high |
+| Search result list | yes | available through EPG/event output | partial | high |
+| Search modes | phrase/and/or/regex plus RESTfulAPI fuzzy support | mode 0-5 | partial | high |
+| Title/subtitle/description flags | yes | yes | present in SearchTimer, unclear in EPG query | high |
+| Channel filter | channel number / channel id / group semantics | use_channel, channel_min/max, channels | partial | high |
+| Time filter | yes | start_time/stop_time | partial | medium |
+| Duration filter | yes | duration_min/max | present in SearchTimer | medium |
+| Day-of-week filter | yes | dayofweek | present in SearchTimer | medium |
+| Extended EPG categories | ExtEPGInfoList | ext_epg_info | not first-class | high |
+| Content descriptors | yes | content_descriptors | present in SearchTimer write/read | medium |
+| Favorites | use_in_favorites | yes | present in SearchTimer | medium |
+| Blacklists | BlackList | blacklist_mode / blacklist_ids | fields present, list capability missing | high |
+| Channel groups | ChanGrpList | channels when use_channel group | not first-class | high |
+| Directories | DirectoryList / ShortDirectoryList | directory fields | partial | medium |
+| SearchTimer CRUD | SearchTimerList/Add/Mod/Del | yes | implemented and real-VDR tested | done |
+| SearchTimer query preview | QuerySearchTimer | likely not first-class | partial | high |
+| Ad-hoc query search | QuerySearch | likely not first-class | partial | high |
+| Timer conflicts | TimerConflictList | unclear | missing | high |
+| Conflict-check advice | IsConflictCheckAdvised | unclear | missing | high |
+| Expression evaluation | Evaluate(expr,event) | unclear | missing | low/advanced |
+
+---
+
+## Gap Classification
+
+### Already strong
+
+- SearchTimer read/write model
+- SearchTimer real VDR validation
+- Timer lifecycle real VDR validation
+- RESTfulAPI read-only regression
+- unified real VDR regression command
+
+### Needs mapping before implementation
+
+- EPG search modes
+- EPG result semantics
+- channel-group semantics
+- extended EPG category semantics
+- blacklist discovery
+- SearchTimer query preview
+- ad-hoc EPGSearch query
+- timer conflict reporting
+
+### Should not be implemented blindly
+
+- conflict detection
+- expression evaluation
+- TVScraper-related enrichment
+- series/episode semantics
+
+These need exact upstream source and real-backend behavior validation first.
+
+---
+
+## Recommended Next Phases
+
+### Phase 48.2 - Backend-neutral EPGSearch query model
+
+Define a domain model for EPGSearch-like query capabilities without binding it to one backend.
+
+Required fields:
+
+- query
+- search mode
+- target fields
+- channel scope
+- time scope
+- duration scope
+- day-of-week scope
+- extended EPG categories
+- content descriptors
+- favorite scope
+
+### Phase 48.3 - EPGSearch result semantics
+
+Define a backend-neutral result object for EPGSearch-style query results.
+
+### Phase 48.4 - EPGSearch real VDR query smoke
+
+Add a safe real-VDR read-only query smoke for ad-hoc searches.
+
+### Phase 48.5 - Timer conflict capability analysis
+
+Audit EPGSearch conflict service and determine whether RESTfulAPI can expose it or needs extension.
+
+---
+
+## Decision
+
+The next implementation should not start with conflicts or TVScraper.
+
+The safest and highest-value continuation is a backend-neutral EPGSearch query model followed by a real VDR ad-hoc EPGSearch query smoke.
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Live / EPGSearch Feature Inventory](live-feature-inventory.md)

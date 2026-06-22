@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 48.1 - EPGSearch capability matrix
+
+Status: Completed.
+
+Summary:
+- Mapped Live/EPGSearch service capabilities to RESTfulAPI and VDR-Suite capability areas.
+- Identified high-priority gaps: EPGSearch query semantics, extended EPG categories, channel groups, blacklists, SearchTimer query preview and timer conflict reporting.
+- Confirmed that SearchTimer CRUD is already strong and real-VDR tested.
+- Moved the next focus to a backend-neutral EPGSearch query model.
+
+---
 ## Phase 48.0 - Live / EPGSearch feature inventory
 
 Status: Completed.
