@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.53 - SearchTimer time and duration constraint enrichment
+
+Status: Completed.
+
+Summary:
+- Added SearchTimer create/update request fields for time, duration and day-of-week constraints.
+- Preserved RESTfulAPI epgsearch field names for use_time, start_time, stop_time, use_duration, duration_min, duration_max, use_dayofweek and dayofweek.
+- Covered parser and command executor JSON body behavior with targeted tests.
+- Kept repeat handling, blacklist behavior and extended EPG behavior deferred to later phases.
+
+---
+
 ## Phase 47.52 - SearchTimer channel constraint enrichment
 
 Status: Completed.

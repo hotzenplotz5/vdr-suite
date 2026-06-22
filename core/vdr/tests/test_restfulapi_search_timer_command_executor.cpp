@@ -51,6 +51,14 @@ static SearchTimerCreateRequest makeCreateRequest()
     request.channels = "ZDF";
     request.channelMin = "S19.2E-1-1011-11110";
     request.channelMax = "S19.2E-1-1011-11120";
+    request.useTime = true;
+    request.startTime = 2015;
+    request.stopTime = 2230;
+    request.useDuration = true;
+    request.durationMinMinutes = 45;
+    request.durationMaxMinutes = 120;
+    request.useDayOfWeek = true;
+    request.dayOfWeek = 62;
     return request;
 }
 
@@ -72,6 +80,14 @@ static SearchTimerUpdateRequest makeUpdateRequest()
     request.channels = "";
     request.channelMin = "S19.2E-1-1011-11110";
     request.channelMax = "S19.2E-1-1011-11120";
+    request.useTime = true;
+    request.startTime = 2100;
+    request.stopTime = 2300;
+    request.useDuration = true;
+    request.durationMinMinutes = 30;
+    request.durationMaxMinutes = 90;
+    request.useDayOfWeek = true;
+    request.dayOfWeek = 31;
     return request;
 }
 
@@ -106,6 +122,14 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(httpClient.requests.at(0).body.find("\"channels\":\"ZDF\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"channel_min\":\"S19.2E-1-1011-11110\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"channel_max\":\"S19.2E-1-1011-11120\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_time\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"start_time\":2015") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"stop_time\":2230") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_duration\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"duration_min\":45") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"duration_max\":120") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_dayofweek\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"dayofweek\":62") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
@@ -157,6 +181,14 @@ static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
     assert(httpClient.requests.at(0).body.find("\"use_channel\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"channel_min\":\"S19.2E-1-1011-11110\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"channel_max\":\"S19.2E-1-1011-11120\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_time\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"start_time\":2100") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"stop_time\":2300") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_duration\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"duration_min\":30") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"duration_max\":90") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_dayofweek\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"dayofweek\":31") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 

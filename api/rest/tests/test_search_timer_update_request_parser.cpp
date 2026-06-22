@@ -24,7 +24,15 @@ int main()
             "\"useChannel\":2,"
             "\"channels\":\"ZDF\","
             "\"channelMin\":\"S19.2E-1-1011-11110\","
-            "\"channelMax\":\"S19.2E-1-1011-11120\""
+            "\"channelMax\":\"S19.2E-1-1011-11120\","
+            "\"useTime\":true,"
+            "\"startTime\":2015,"
+            "\"stopTime\":2230,"
+            "\"useDuration\":true,"
+            "\"durationMinMinutes\":45,"
+            "\"durationMaxMinutes\":120,"
+            "\"useDayOfWeek\":true,"
+            "\"dayOfWeek\":62"
             "}");
 
     assert(request.backendId == "home-vdr");
@@ -42,6 +50,14 @@ int main()
     assert(request.channels == "ZDF");
     assert(request.channelMin == "S19.2E-1-1011-11110");
     assert(request.channelMax == "S19.2E-1-1011-11120");
+    assert(request.useTime == true);
+    assert(request.startTime == 2015);
+    assert(request.stopTime == 2230);
+    assert(request.useDuration == true);
+    assert(request.durationMinMinutes == 45);
+    assert(request.durationMaxMinutes == 120);
+    assert(request.useDayOfWeek == true);
+    assert(request.dayOfWeek == 62);
 
     const SearchTimerUpdateRequest defaultBackendRequest =
         parser.parse(
@@ -67,6 +83,14 @@ int main()
     assert(defaultBackendRequest.channels.empty());
     assert(defaultBackendRequest.channelMin.empty());
     assert(defaultBackendRequest.channelMax.empty());
+    assert(defaultBackendRequest.useTime == false);
+    assert(defaultBackendRequest.startTime == 0);
+    assert(defaultBackendRequest.stopTime == 0);
+    assert(defaultBackendRequest.useDuration == false);
+    assert(defaultBackendRequest.durationMinMinutes == 0);
+    assert(defaultBackendRequest.durationMaxMinutes == 0);
+    assert(defaultBackendRequest.useDayOfWeek == false);
+    assert(defaultBackendRequest.dayOfWeek == 0);
 
     std::cout
         << "test_search_timer_update_request_parser passed"

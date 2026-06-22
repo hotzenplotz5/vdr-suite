@@ -19,6 +19,14 @@ struct SearchTimerUpdateRequest
     std::string channels;
     std::string channelMin;
     std::string channelMax;
+    bool useTime = false;
+    int startTime = 0;
+    int stopTime = 0;
+    bool useDuration = false;
+    int durationMinMinutes = 0;
+    int durationMaxMinutes = 0;
+    bool useDayOfWeek = false;
+    int dayOfWeek = 0;
 
     bool hasBackendId() const
     {

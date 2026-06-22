@@ -210,5 +210,29 @@ SearchTimerCreateRequest SearchTimerCreateRequestParser::parse(
     request.channelMax =
         getValue(values, "channelMax");
 
+    request.useTime =
+        parseBool(values, "useTime", false);
+
+    request.startTime =
+        parseInt(values, "startTime", 0);
+
+    request.stopTime =
+        parseInt(values, "stopTime", 0);
+
+    request.useDuration =
+        parseBool(values, "useDuration", false);
+
+    request.durationMinMinutes =
+        parseInt(values, "durationMinMinutes", 0);
+
+    request.durationMaxMinutes =
+        parseInt(values, "durationMaxMinutes", 0);
+
+    request.useDayOfWeek =
+        parseBool(values, "useDayOfWeek", false);
+
+    request.dayOfWeek =
+        parseInt(values, "dayOfWeek", 0);
+
     return request;
 }

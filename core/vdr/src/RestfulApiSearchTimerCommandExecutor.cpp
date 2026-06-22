@@ -89,7 +89,15 @@ std::string buildSearchTimerBody(
     const int useChannel,
     const std::string& channels,
     const std::string& channelMin,
-    const std::string& channelMax)
+    const std::string& channelMax,
+    const bool useTime,
+    const int startTime,
+    const int stopTime,
+    const bool useDuration,
+    const int durationMinMinutes,
+    const int durationMaxMinutes,
+    const bool useDayOfWeek,
+    const int dayOfWeek)
 {
     std::ostringstream body;
 
@@ -103,6 +111,14 @@ std::string buildSearchTimerBody(
         << "\"channels\":\"" << jsonEscape(channels) << "\","
         << "\"channel_min\":\"" << jsonEscape(channelMin) << "\","
         << "\"channel_max\":\"" << jsonEscape(channelMax) << "\","
+        << "\"use_time\":" << (useTime ? "1" : "0") << ","
+        << "\"start_time\":" << startTime << ","
+        << "\"stop_time\":" << stopTime << ","
+        << "\"use_duration\":" << (useDuration ? "1" : "0") << ","
+        << "\"duration_min\":" << durationMinMinutes << ","
+        << "\"duration_max\":" << durationMaxMinutes << ","
+        << "\"use_dayofweek\":" << (useDayOfWeek ? "1" : "0") << ","
+        << "\"dayofweek\":" << dayOfWeek << ","
         << "\"directory\":\"" << jsonEscape(directory) << "\","
         << "\"priority\":" << priority << ","
         << "\"lifetime\":" << lifetime << ","
@@ -175,7 +191,15 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             request.useChannel,
             request.channels,
             request.channelMin,
-            request.channelMax);
+            request.channelMax,
+            request.useTime,
+            request.startTime,
+            request.stopTime,
+            request.useDuration,
+            request.durationMinMinutes,
+            request.durationMaxMinutes,
+            request.useDayOfWeek,
+            request.dayOfWeek);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);
@@ -232,7 +256,15 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
             request.useChannel,
             request.channels,
             request.channelMin,
-            request.channelMax);
+            request.channelMax,
+            request.useTime,
+            request.startTime,
+            request.stopTime,
+            request.useDuration,
+            request.durationMinMinutes,
+            request.durationMaxMinutes,
+            request.useDayOfWeek,
+            request.dayOfWeek);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);
