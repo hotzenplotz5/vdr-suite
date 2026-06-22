@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.65 - SearchTimer full payload real VDR validation
+Phase 47.66 - Real VDR regression coverage audit
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.66 - SearchTimer real VDR compatibility findings
+Phase 47.67 - Add real VDR read-only regression helper
 ```
 
 Current architecture validation:
@@ -72,6 +72,7 @@ Current architecture validation:
 - [SearchTimer Real VDR Compatibility Report](searchtimer-real-vdr-compatibility-report.md)
 - [SearchTimer Feature Gap Analysis](searchtimer-feature-gap-analysis.md)
 - [SearchTimer Completeness Re-Audit](searchtimer-completeness-reaudit.md)
+- [Real VDR Regression Coverage Audit](real-vdr-regression-coverage-audit.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)
 - [Person API](person-api.md)

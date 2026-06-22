@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.65 - SearchTimer full payload real VDR validation
+Phase 47.66 - Real VDR regression coverage audit
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.66 - SearchTimer real VDR compatibility findings
+Phase 47.67 - Add real VDR read-only regression helper
 ```
 
 Latest Completed Milestones:

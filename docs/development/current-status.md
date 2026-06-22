@@ -60,7 +60,7 @@ Milestone progress:
 
 Current milestone:
 
-    Phase 47.65 - SearchTimer full payload real VDR validation
+    Phase 47.66 - Real VDR regression coverage audit
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -72,7 +72,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 47.65 - SearchTimer full payload real VDR validation
+Phase 47.66 - Real VDR regression coverage audit
 ```
 
 Current documentation consolidation state:
@@ -84,7 +84,7 @@ Phase 46.41 - Current Project Status Refresh
 Next major implementation milestone:
 
 ```text
-Phase 47.66 - SearchTimer real VDR compatibility findings
+Phase 47.67 - Add real VDR read-only regression helper
 ```
 
 Completed foundations:
@@ -234,7 +234,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 47.66 - SearchTimer real VDR compatibility findings
+Phase 47.67 - Add real VDR read-only regression helper
 ```
 
 The next major implementation milestone is SearchTimer. It should turn existing EPG search, recording search and metadata search foundations into persistent search rules and later automation.

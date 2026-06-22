@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 47.65 - SearchTimer full payload real VDR validation
+Phase 47.66 - Real VDR regression coverage audit
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.66 - SearchTimer real VDR compatibility findings
+Phase 47.67 - Add real VDR read-only regression helper
 ```
 
 ---

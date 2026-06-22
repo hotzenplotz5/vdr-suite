@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.66 - Real VDR regression coverage audit
+
+Status: Completed.
+
+Summary:
+- Audited existing real VDR smoke helpers and identified non-SearchTimer VDR coverage gaps.
+- Confirmed that connectivity and SearchTimer have helper coverage, while status, channels, events, recordings and timers need a dedicated read-only regression helper.
+- Documented safety rules for read-only, write and destructive recording-action real VDR tests.
+- Moved the next focus to a safe read-only real VDR regression helper.
+
+---
 ## Phase 47.65 - SearchTimer full payload real VDR validation
 
 Status: Completed.

@@ -176,7 +176,7 @@ Implemented in:
 
 Recommended next implementation phase:
 
-- Phase 47.66 - SearchTimer real VDR compatibility findings
+- Phase 47.67 - Add real VDR read-only regression helper
 
 ---
 

@@ -161,7 +161,7 @@ The next implementation focus should move from adding individual fields to valid
 
 Recommended next phase:
 
-Phase 47.66 - SearchTimer real VDR compatibility findings
+Phase 47.67 - Add real VDR read-only regression helper
 
 Purpose:
 

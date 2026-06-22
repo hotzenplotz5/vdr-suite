@@ -143,7 +143,7 @@ The next implementation phases should prefer real VDR behavioral validation over
 
 ## Next Recommended Phase
 
-Phase 47.66 - SearchTimer real VDR compatibility findings
+Phase 47.67 - Add real VDR read-only regression helper
 
 
 ## Back

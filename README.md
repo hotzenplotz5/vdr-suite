@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.65 - SearchTimer full payload real VDR validation
+    Phase 47.66 - Real VDR regression coverage audit
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.66 - SearchTimer real VDR compatibility findings
+    Phase 47.67 - Add real VDR read-only regression helper
 
 Completed foundations:
 
