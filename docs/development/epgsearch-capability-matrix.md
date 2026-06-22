@@ -327,3 +327,14 @@ Decision:
 
 - do not add another endpoint test yet
 - consolidate the EPGSearch tests first
+
+## Phase 49.1 Matcher Test Consolidation
+
+Phase 49.1 consolidated active matcher coverage.
+
+Result:
+
+- active matcher tests use `EpgSearchQuery`
+- obsolete request-based matcher tests were identified
+- no-search-field behavior is now covered in the compact matcher test
+- fuzzy tolerance remains modeled but not implemented in the matcher

@@ -70,6 +70,13 @@ int main()
             .searchInSubtitle(true)
             .searchInDescription(true)));
 
+    assert(!matcher.matches(
+        event,
+        EpgSearchQuery::byText("Terra")
+            .searchInTitle(false)
+            .searchInSubtitle(false)
+            .searchInDescription(false)));
+
     assert(matcher.matches(
         event,
         EpgSearchQuery::all()

@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 49.0 - EPGSearch test coverage audit
+Phase 49.1 - EPGSearch matcher test consolidation
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 49.1 - EPGSearch test consolidation
+Phase 49.2 - EPGSearch service test consolidation
 ```
 
 Latest Completed Milestones:

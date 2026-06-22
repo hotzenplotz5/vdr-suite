@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.0 - EPGSearch test coverage audit
+Phase 49.1 - EPGSearch matcher test consolidation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.1 - EPGSearch test consolidation
+Phase 49.2 - EPGSearch service test consolidation
 ```
 
 Current architecture validation:

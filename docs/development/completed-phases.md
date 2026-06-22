@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.1 - EPGSearch matcher test consolidation
+
+Status: Completed.
+
+Summary:
+- Ran the old underscore-style matcher test and confirmed it no longer matches the current architecture.
+- Identified that `EpgSearchMatcher` now uses `EpgSearchQuery`, not `EpgSearchRequest`.
+- Migrated the no-search-field regression into the active compact matcher test.
+- Kept fuzzy matching out of scope because fuzzy semantics are modeled but not implemented yet.
+- Moved the next focus to service test consolidation.
+
+---
 ## Phase 49.0 - EPGSearch test coverage audit
 
 Status: Completed.

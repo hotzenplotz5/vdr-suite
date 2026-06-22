@@ -80,3 +80,33 @@ Expected work:
 
 - [Back to Development Index](index.md)
 - [Back to EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
+
+## Phase 49.1 Matcher Test Consolidation Result
+
+Phase 49.1 started consolidation of the old and new EPGSearch test tracks.
+
+Observed test state:
+
+- `test-epg-search-request` still passes
+- `test-epg-search-matcher` no longer compiles because it still uses `EpgSearchRequest` directly against `EpgSearchMatcher`
+- the current matcher boundary is `EpgSearchQuery`
+- `test-epgsearch-matcher` is the active matcher test for the new architecture
+
+Migrated coverage:
+
+- no-search-field behavior was added to `test_epgsearch_matcher.cpp`
+
+Intentionally not migrated:
+
+- old fuzzy example `tator` matching `Tatort`
+
+Reason:
+
+- `EpgSearchQuery` models search mode and fuzzy tolerance
+- `EpgSearchMatcher` does not implement fuzzy semantics yet
+- the capability matrix already marks fuzzy matching semantics as intentionally not implemented yet
+
+Decision:
+
+- old underscore-style matcher test is obsolete as an executable test in its current form
+- its remaining useful cases must be migrated only when their domain semantics are implemented
