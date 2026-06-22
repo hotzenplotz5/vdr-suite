@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 48.7 - EPGSearch result serializer
+Phase 48.8 - EPGSearch query alignment audit
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 48.8 - EPGSearch controller
+Phase 48.9 - EPGSearch request-to-query mapper
 ```
 
 Latest Completed Milestones:

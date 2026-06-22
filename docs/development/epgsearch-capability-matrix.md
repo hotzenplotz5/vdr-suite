@@ -280,3 +280,14 @@ Implemented:
 - JSON string escaping test coverage
 
 No REST controller or route was added in this phase.
+
+## Phase 48.8 Query Alignment Audit
+
+Phase 48.8 audited the relationship between `EpgSearchRequest` and `EpgSearchQuery`.
+
+Finding:
+
+- controller and route already exist
+- `EpgSearchRequest` represents API/controller request concerns
+- `EpgSearchQuery` represents backend-neutral search semantics
+- they should be connected through an explicit mapper, not merged blindly

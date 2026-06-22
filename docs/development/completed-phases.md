@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 48.8 - EPGSearch query alignment audit
+
+Status: Completed.
+
+Summary:
+- Audited the existing EPGSearch controller and router integration.
+- Confirmed that `GET /api/epg/search` and `EpgController::search(...)` already exist.
+- Clarified the boundary between API-facing `EpgSearchRequest` and backend-neutral `EpgSearchQuery`.
+- Moved the next focus to an explicit request-to-query mapper.
+
+---
 ## Phase 48.7 - EPGSearch result serializer
 
 Status: Completed.
