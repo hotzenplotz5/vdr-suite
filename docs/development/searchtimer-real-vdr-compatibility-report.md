@@ -143,7 +143,7 @@ The next implementation phases should prefer real VDR behavioral validation over
 
 ## Next Recommended Phase
 
-Phase 47.58 - SearchTimer blacklist enrichment
+Phase 47.59 - SearchTimer extended EPG enrichment
 
 
 ## Back

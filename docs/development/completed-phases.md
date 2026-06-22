@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.58 - SearchTimer blacklist enrichment
+
+Status: Completed.
+
+Summary:
+- Added SearchTimer create/update request fields for blacklist mode and blacklist ids.
+- Preserved RESTfulAPI epgsearch field names for blacklist_mode and blacklist_ids.
+- Covered parser and command executor JSON body behavior with targeted tests.
+- Deferred extended EPG and cleanup action behavior to later phases.
+
+---
 ## Phase 47.57 - SearchTimer series recording enrichment
 
 Status: Completed.

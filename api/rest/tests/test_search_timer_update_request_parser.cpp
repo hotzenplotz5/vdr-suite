@@ -44,7 +44,9 @@ int main()
             "\"useSeriesRecording\":true,"
             "\"keepRecordings\":5,"
             "\"deleteMode\":1,"
-            "\"searchTimerAction\":2"
+            "\"searchTimerAction\":2,"
+            "\"blacklistMode\":1,"
+            "\"blacklistIds\":\"3,7\""
             "}");
 
     assert(request.backendId == "home-vdr");
@@ -82,6 +84,8 @@ int main()
     assert(request.keepRecordings == 5);
     assert(request.deleteMode == 1);
     assert(request.searchTimerAction == 2);
+    assert(request.blacklistMode == 1);
+    assert(request.blacklistIds == "3,7");
 
     const SearchTimerUpdateRequest defaultBackendRequest =
         parser.parse(
@@ -127,6 +131,8 @@ int main()
     assert(defaultBackendRequest.keepRecordings == 0);
     assert(defaultBackendRequest.deleteMode == 0);
     assert(defaultBackendRequest.searchTimerAction == 0);
+    assert(defaultBackendRequest.blacklistMode == 0);
+    assert(defaultBackendRequest.blacklistIds.empty());
 
     std::cout
         << "test_search_timer_update_request_parser passed"

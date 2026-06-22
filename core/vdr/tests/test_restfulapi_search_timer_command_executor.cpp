@@ -71,6 +71,8 @@ static SearchTimerCreateRequest makeCreateRequest()
     request.keepRecordings = 5;
     request.deleteMode = 1;
     request.searchTimerAction = 2;
+    request.blacklistMode = 1;
+    request.blacklistIds = "3,7";
     return request;
 }
 
@@ -112,6 +114,8 @@ static SearchTimerUpdateRequest makeUpdateRequest()
     request.keepRecordings = 7;
     request.deleteMode = 2;
     request.searchTimerAction = 1;
+    request.blacklistMode = 2;
+    request.blacklistIds = "4";
     return request;
 }
 
@@ -166,6 +170,8 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(httpClient.requests.at(0).body.find("\"keep_recs\":5") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"del_mode\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"search_timer_action\":2") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"blacklist_mode\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"blacklist_ids\":\"3,7\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
@@ -237,6 +243,8 @@ static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
     assert(httpClient.requests.at(0).body.find("\"keep_recs\":7") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"del_mode\":2") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"search_timer_action\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"blacklist_mode\":2") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"blacklist_ids\":\"4\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 

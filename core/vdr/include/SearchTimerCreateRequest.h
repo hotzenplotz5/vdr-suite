@@ -38,6 +38,8 @@ struct SearchTimerCreateRequest
     int keepRecordings = 0;
     int deleteMode = 0;
     int searchTimerAction = 0;
+    int blacklistMode = 0;
+    std::string blacklistIds;
 
     bool hasBackendId() const
     {

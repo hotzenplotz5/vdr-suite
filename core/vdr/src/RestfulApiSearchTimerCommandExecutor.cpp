@@ -109,7 +109,9 @@ std::string buildSearchTimerBody(
     const bool useSeriesRecording,
     const int keepRecordings,
     const int deleteMode,
-    const int searchTimerAction)
+    const int searchTimerAction,
+    const int blacklistMode,
+    const std::string& blacklistIds)
 {
     std::ostringstream body;
 
@@ -143,6 +145,8 @@ std::string buildSearchTimerBody(
         << "\"keep_recs\":" << keepRecordings << ","
         << "\"del_mode\":" << deleteMode << ","
         << "\"search_timer_action\":" << searchTimerAction << ","
+        << "\"blacklist_mode\":" << blacklistMode << ","
+        << "\"blacklist_ids\":\"" << jsonEscape(blacklistIds) << "\","
         << "\"directory\":\"" << jsonEscape(directory) << "\","
         << "\"priority\":" << priority << ","
         << "\"lifetime\":" << lifetime << ","
@@ -235,7 +239,9 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             request.useSeriesRecording,
             request.keepRecordings,
             request.deleteMode,
-            request.searchTimerAction);
+            request.searchTimerAction,
+            request.blacklistMode,
+            request.blacklistIds);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);
@@ -316,7 +322,9 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
             request.useSeriesRecording,
             request.keepRecordings,
             request.deleteMode,
-            request.searchTimerAction);
+            request.searchTimerAction,
+            request.blacklistMode,
+            request.blacklistIds);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);

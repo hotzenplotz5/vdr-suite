@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.57 - SearchTimer series recording enrichment
+Phase 47.58 - SearchTimer blacklist enrichment
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.58 - SearchTimer blacklist enrichment
+Phase 47.59 - SearchTimer extended EPG enrichment
 ```
 
 Current architecture validation:

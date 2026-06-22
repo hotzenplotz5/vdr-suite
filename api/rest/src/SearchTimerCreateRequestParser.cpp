@@ -34,6 +34,47 @@ std::string trim(const std::string& value)
     return value.substr(first, last - first + 1);
 }
 
+std::size_t findValueEnd(
+    const std::string& body,
+    const std::size_t valueStart)
+{
+    bool insideString = false;
+    bool escaped = false;
+
+    for (std::size_t index = valueStart; index < body.size(); ++index)
+    {
+        const char current =
+            body[index];
+
+        if (escaped)
+        {
+            escaped = false;
+            continue;
+        }
+
+        if (current == '\\' &&
+            insideString)
+        {
+            escaped = true;
+            continue;
+        }
+
+        if (current == '"')
+        {
+            insideString = !insideString;
+            continue;
+        }
+
+        if (!insideString &&
+            (current == ',' || current == '}'))
+        {
+            return index;
+        }
+    }
+
+    return body.size();
+}
+
 std::map<std::string, std::string> parseFlatObject(
     const std::string& body)
 {
@@ -69,25 +110,8 @@ std::map<std::string, std::string> parseFlatObject(
         const std::string key =
             body.substr(keyStart + 1, keyEnd - keyStart - 1);
 
-        const std::size_t comma =
-            body.find(',', colon + 1);
-
-        const std::size_t objectEnd =
-            body.find('}', colon + 1);
-
-        std::size_t valueEnd =
-            body.size();
-
-        if (comma != std::string::npos)
-        {
-            valueEnd = comma;
-        }
-
-        if (objectEnd != std::string::npos &&
-            objectEnd < valueEnd)
-        {
-            valueEnd = objectEnd;
-        }
+        const std::size_t valueEnd =
+            findValueEnd(body, colon + 1);
 
         const std::string rawValue =
             trim(body.substr(colon + 1, valueEnd - colon - 1));
@@ -97,12 +121,13 @@ std::map<std::string, std::string> parseFlatObject(
             values[key] = unquote(rawValue);
         }
 
-        if (comma == std::string::npos)
+        if (valueEnd >= body.size() ||
+            body[valueEnd] == '}')
         {
             break;
         }
 
-        position = comma + 1;
+        position = valueEnd + 1;
     }
 
     return values;
@@ -269,6 +294,12 @@ SearchTimerCreateRequest SearchTimerCreateRequestParser::parse(
 
     request.searchTimerAction =
         parseInt(values, "searchTimerAction", 0);
+
+    request.blacklistMode =
+        parseInt(values, "blacklistMode", 0);
+
+    request.blacklistIds =
+        getValue(values, "blacklistIds");
 
     return request;
 }

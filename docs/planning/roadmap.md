@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 47.57 - SearchTimer series recording enrichment
+Phase 47.58 - SearchTimer blacklist enrichment
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.58 - SearchTimer blacklist enrichment
+Phase 47.59 - SearchTimer extended EPG enrichment
 ```
 
 ---
