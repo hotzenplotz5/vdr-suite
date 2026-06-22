@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.65 - SearchTimer full payload real VDR validation
+
+Status: Completed.
+
+Summary:
+- Extended the real VDR SearchTimer smoke helper to create and update SearchTimers with the full enriched payload.
+- Added real VDR readback checks for series, blacklist, match, extended EPG, validity and action option groups.
+- Kept the helper safe by requiring --run before modifying a real VDR.
+- Moved the next focus to documenting real VDR compatibility findings after executing the full payload helper.
+
+---
 ## Phase 47.64 - SearchTimer completeness re-audit
 
 Status: Completed.

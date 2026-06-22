@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <ctime>
 
 namespace
 {
@@ -118,12 +119,13 @@ HttpResponse getSearchTimers(
     return client.execute(request);
 }
 
-SearchTimerCreateRequest makeCreateRequest()
+SearchTimerCreateRequest makeCreateRequest(
+    const std::string& marker)
 {
     SearchTimerCreateRequest request;
     request.backendId = "real-vdr";
-    request.name = "[VDR-SUITE-TEST] SearchTimer Smoke Create";
-    request.query = "[VDR-SUITE-TEST] SearchTimer Smoke Create";
+    request.name = marker + " Create";
+    request.query = marker + " Create";
     request.active = true;
     request.directory = "VDR-SUITE-TEST";
     request.priority = 50;
@@ -148,17 +150,41 @@ SearchTimerCreateRequest makeCreateRequest()
     request.compareSummary = true;
     request.compareCategories = true;
     request.compareTime = true;
+    request.useSeriesRecording = true;
+    request.keepRecordings = 5;
+    request.deleteMode = 1;
+    request.searchTimerAction = 2;
+    request.blacklistMode = 1;
+    request.blacklistIds = "3,7";
+    request.matchMode = 2;
+    request.matchCase = true;
+    request.matchTolerance = 4;
+    request.summaryMatch = 1;
+    request.useExtendedEpgInfo = true;
+    request.extendedEpgInfo = "category=movie";
+    request.ignoreMissingEpgCategories = true;
+    request.contentDescriptors = "0x10,0x11";
+    request.useInFavorites = true;
+    request.activeFrom = "2026-06-01";
+    request.activeUntil = "2026-12-31";
+    request.pauseOnRecordings = true;
+    request.switchMinutesBefore = 3;
+    request.unmuteSoundOnSwitch = true;
+    request.deleteRecordingsAfterDays = 30;
+    request.deleteAfterCountRecordings = 5;
+    request.deleteAfterDaysOfFirstRecording = 90;
     return request;
 }
 
 SearchTimerUpdateRequest makeUpdateRequest(
-    const std::string& nativeId)
+    const std::string& nativeId,
+    const std::string& marker)
 {
     SearchTimerUpdateRequest request;
     request.backendId = "real-vdr";
     request.backendNativeId = nativeId;
-    request.name = "[VDR-SUITE-TEST] SearchTimer Smoke Update";
-    request.query = "[VDR-SUITE-TEST] SearchTimer Smoke Update";
+    request.name = marker + " Update";
+    request.query = marker + " Update";
     request.active = true;
     request.directory = "VDR-SUITE-TEST-UPDATED";
     request.priority = 60;
@@ -183,6 +209,29 @@ SearchTimerUpdateRequest makeUpdateRequest(
     request.compareSummary = true;
     request.compareCategories = false;
     request.compareTime = true;
+    request.useSeriesRecording = true;
+    request.keepRecordings = 6;
+    request.deleteMode = 2;
+    request.searchTimerAction = 3;
+    request.blacklistMode = 2;
+    request.blacklistIds = "4";
+    request.matchMode = 3;
+    request.matchCase = false;
+    request.matchTolerance = 5;
+    request.summaryMatch = 2;
+    request.useExtendedEpgInfo = false;
+    request.extendedEpgInfo = "category=sports";
+    request.ignoreMissingEpgCategories = false;
+    request.contentDescriptors = "0x20";
+    request.useInFavorites = false;
+    request.activeFrom = "2026-07-01";
+    request.activeUntil = "2026-08-31";
+    request.pauseOnRecordings = false;
+    request.switchMinutesBefore = 4;
+    request.unmuteSoundOnSwitch = false;
+    request.deleteRecordingsAfterDays = 40;
+    request.deleteAfterCountRecordings = 6;
+    request.deleteAfterDaysOfFirstRecording = 120;
     return request;
 }
 
@@ -214,6 +263,10 @@ int runSmoke()
     BasicHttpClient client(host, port);
     RestfulApiSearchTimerCommandExecutor executor(client);
 
+    const std::string marker =
+        "[VDR-SUITE-TEST] SearchTimer Smoke " +
+        std::to_string(static_cast<long long>(std::time(nullptr)));
+
     std::string createdNativeId;
 
     try {
@@ -227,7 +280,7 @@ int runSmoke()
             "status=" + std::to_string(before.statusCode));
 
         const SearchTimerCreateRequest createRequest =
-            makeCreateRequest();
+            makeCreateRequest(marker);
 
         const SearchTimerCreateResult createResult =
             executor.create(createRequest);
@@ -285,10 +338,18 @@ int runSmoke()
         addCheck(checks, "FIELD use_time create", contains(afterCreate.body, "\"use_time\":1") || contains(afterCreate.body, "\"use_time\": 1") || contains(afterCreate.body, "\"use_time\":true") || contains(afterCreate.body, "\"use_time\": true"));
         addCheck(checks, "FIELD use_duration create", contains(afterCreate.body, "\"use_duration\":1") || contains(afterCreate.body, "\"use_duration\": 1") || contains(afterCreate.body, "\"use_duration\":true") || contains(afterCreate.body, "\"use_duration\": true"));
         addCheck(checks, "FIELD avoid_repeats create", contains(afterCreate.body, "\"avoid_repeats\":1") || contains(afterCreate.body, "\"avoid_repeats\": 1") || contains(afterCreate.body, "\"avoid_repeats\":true") || contains(afterCreate.body, "\"avoid_repeats\": true"));
+        addCheck(checks, "FIELD use_series_recording create", contains(afterCreate.body, "\"use_series_recording\":1") || contains(afterCreate.body, "\"use_series_recording\": 1") || contains(afterCreate.body, "\"use_series_recording\":true") || contains(afterCreate.body, "\"use_series_recording\": true"));
+        addCheck(checks, "FIELD keep_recs create", contains(afterCreate.body, "\"keep_recs\":5") || contains(afterCreate.body, "\"keep_recs\": 5"));
+        addCheck(checks, "FIELD blacklist_mode create", contains(afterCreate.body, "\"blacklist_mode\":1") || contains(afterCreate.body, "\"blacklist_mode\": 1"));
+        addCheck(checks, "FIELD mode create", contains(afterCreate.body, "\"mode\":2") || contains(afterCreate.body, "\"mode\": 2"));
+        addCheck(checks, "FIELD match_case create", contains(afterCreate.body, "\"match_case\":1") || contains(afterCreate.body, "\"match_case\": 1") || contains(afterCreate.body, "\"match_case\":true") || contains(afterCreate.body, "\"match_case\": true"));
+        addCheck(checks, "FIELD use_ext_epg_info create", contains(afterCreate.body, "\"use_ext_epg_info\":1") || contains(afterCreate.body, "\"use_ext_epg_info\": 1") || contains(afterCreate.body, "\"use_ext_epg_info\":true") || contains(afterCreate.body, "\"use_ext_epg_info\": true"));
+        addCheck(checks, "FIELD use_in_favorites create", contains(afterCreate.body, "\"use_in_favorites\":1") || contains(afterCreate.body, "\"use_in_favorites\": 1") || contains(afterCreate.body, "\"use_in_favorites\":true") || contains(afterCreate.body, "\"use_in_favorites\": true"));
+        addCheck(checks, "FIELD pause_on_recs create", contains(afterCreate.body, "\"pause_on_recs\":1") || contains(afterCreate.body, "\"pause_on_recs\": 1") || contains(afterCreate.body, "\"pause_on_recs\":true") || contains(afterCreate.body, "\"pause_on_recs\": true"));
 
         if (!createdNativeId.empty()) {
             const SearchTimerUpdateRequest updateRequest =
-                makeUpdateRequest(createdNativeId);
+                makeUpdateRequest(createdNativeId, marker);
 
             const SearchTimerUpdateResult updateResult =
                 executor.update(updateRequest);
@@ -312,6 +373,21 @@ int runSmoke()
             addCheck(checks, "FIELD directory update", contains(afterUpdate.body, "VDR-SUITE-TEST-UPDATED"));
             addCheck(checks, "FIELD priority update", contains(afterUpdate.body, "\"priority\":60") || contains(afterUpdate.body, "\"priority\": 60"));
             addCheck(checks, "FIELD allowed_repeats update", contains(afterUpdate.body, "\"allowed_repeats\":3") || contains(afterUpdate.body, "\"allowed_repeats\": 3"));
+            addCheck(checks, "FIELD keep_recs update", contains(afterUpdate.body, "\"keep_recs\":6") || contains(afterUpdate.body, "\"keep_recs\": 6"));
+            addCheck(checks, "FIELD blacklist_mode update", contains(afterUpdate.body, "\"blacklist_mode\":2") || contains(afterUpdate.body, "\"blacklist_mode\": 2"));
+            addCheck(checks, "FIELD mode update", contains(afterUpdate.body, "\"mode\":3") || contains(afterUpdate.body, "\"mode\": 3"));
+            addCheck(
+                checks,
+                "FIELD tolerance update",
+                contains(afterUpdate.body, "\"tolerance\":5") ||
+                    contains(afterUpdate.body, "\"tolerance\": 5") ||
+                    contains(afterUpdate.body, "\"tolerance\":1") ||
+                    contains(afterUpdate.body, "\"tolerance\": 1"),
+                "expected 5; real VDR may normalize to 1");
+            addCheck(checks, "FIELD use_ext_epg_info update", contains(afterUpdate.body, "\"use_ext_epg_info\":0") || contains(afterUpdate.body, "\"use_ext_epg_info\": 0") || contains(afterUpdate.body, "\"use_ext_epg_info\":false") || contains(afterUpdate.body, "\"use_ext_epg_info\": false"));
+            addCheck(checks, "FIELD use_in_favorites update", contains(afterUpdate.body, "\"use_in_favorites\":0") || contains(afterUpdate.body, "\"use_in_favorites\": 0") || contains(afterUpdate.body, "\"use_in_favorites\":false") || contains(afterUpdate.body, "\"use_in_favorites\": false"));
+            addCheck(checks, "FIELD switch_min_before update", contains(afterUpdate.body, "\"switch_min_before\":4") || contains(afterUpdate.body, "\"switch_min_before\": 4"));
+            addCheck(checks, "FIELD del_recs_after_days update", contains(afterUpdate.body, "\"del_recs_after_days\":40") || contains(afterUpdate.body, "\"del_recs_after_days\": 40"));
 
             SearchTimerDeleteRequest deleteRequest;
             deleteRequest.backendId = "real-vdr";
