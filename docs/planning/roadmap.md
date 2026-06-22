@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 47.68 - Add real VDR read-only regression helper
+Phase 47.69 - Real recording action regression audit
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.69 - Recording action safety validation
+Phase 47.70 - Harden real recording action smoke helpers
 ```
 
 ---

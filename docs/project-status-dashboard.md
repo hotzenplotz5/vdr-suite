@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.68 - Add real VDR read-only regression helper
+Phase 47.69 - Real recording action regression audit
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.69 - Recording action safety validation
+Phase 47.70 - Harden real recording action smoke helpers
 ```
 
 Latest Completed Milestones:

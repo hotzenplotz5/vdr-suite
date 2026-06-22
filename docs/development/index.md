@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.68 - Add real VDR read-only regression helper
+Phase 47.69 - Real recording action regression audit
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.69 - Recording action safety validation
+Phase 47.70 - Harden real recording action smoke helpers
 ```
 
 Current architecture validation:
@@ -73,6 +73,7 @@ Current architecture validation:
 - [SearchTimer Feature Gap Analysis](searchtimer-feature-gap-analysis.md)
 - [SearchTimer Completeness Re-Audit](searchtimer-completeness-reaudit.md)
 - [Real VDR Regression Coverage Audit](real-vdr-regression-coverage-audit.md)
+- [Real Recording Action Regression Audit](real-recording-action-regression-audit.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)
 - [Person API](person-api.md)

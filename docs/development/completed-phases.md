@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.69 - Real recording action regression audit
+
+Status: Completed.
+
+Summary:
+- Audited existing real VDR recording action smoke helpers for move and delete.
+- Confirmed that both helpers already have preview-only defaults and explicit real-execution safety gates.
+- Identified missing regression checks for source disappearance, target appearance and marker-restricted execution.
+- Moved the next focus to hardening the real recording action smoke helpers before including them in a unified real VDR regression suite.
+
+---
 ## Phase 47.68 - Add real VDR read-only regression helper
 
 Status: Completed.
