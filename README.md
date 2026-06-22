@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.67 - Real VDR Timer lifecycle validation
+    Phase 47.68 - Add real VDR read-only regression helper
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.68 - Add real VDR read-only regression helper
+    Phase 47.69 - Recording action safety validation
 
 Completed foundations:
 

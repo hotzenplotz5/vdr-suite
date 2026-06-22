@@ -51,6 +51,13 @@ vdr-timer-real-lifecycle-smoke-helper:
 		-o /tmp/vdr_suite_timer_lifecycle_smoke
 	/tmp/vdr_suite_timer_lifecycle_smoke --help
 
+real-vdr-readonly-regression-helper:
+	$(CXX) $(CXXFLAGS) \
+		core/http/src/BasicHttpClient.cpp \
+		apps/tools/vdr_real_readonly_regression.cpp \
+		-o /tmp/vdr_suite_real_readonly_regression
+	/tmp/vdr_suite_real_readonly_regression --help
+
 dashboard-cli: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \

@@ -201,6 +201,16 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.68 - Add real VDR read-only regression helper
+
+Status: Completed.
+
+Summary:
+- Added a read-only real VDR regression helper for core RESTfulAPI endpoints.
+- The helper verifies info, status, channels, events, recordings, timers and searchtimers without modifying the VDR.
+- Added a Makefile target for building and help-checking the read-only real VDR regression helper.
+
+---
 ## Phase 47.67 - Real VDR Timer lifecycle validation
 
 Status: Completed.

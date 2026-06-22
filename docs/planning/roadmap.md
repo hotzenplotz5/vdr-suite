@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 47.67 - Real VDR Timer lifecycle validation
+Phase 47.68 - Add real VDR read-only regression helper
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.68 - Add real VDR read-only regression helper
+Phase 47.69 - Recording action safety validation
 ```
 
 ---
