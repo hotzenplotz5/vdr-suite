@@ -41,6 +41,12 @@ static SearchTimerCreateRequest makeCreateRequest()
     request.name = "Tatort";
     request.query = "Tatort";
     request.active = true;
+    request.directory = "Doku";
+    request.priority = 50;
+    request.lifetime = 99;
+    request.marginStartMinutes = 5;
+    request.marginStopMinutes = 10;
+    request.useVps = true;
     return request;
 }
 
@@ -52,6 +58,12 @@ static SearchTimerUpdateRequest makeUpdateRequest()
     request.name = "Tatort updated";
     request.query = "Tatort updated";
     request.active = true;
+    request.directory = "Serien";
+    request.priority = 60;
+    request.lifetime = 88;
+    request.marginStartMinutes = 7;
+    request.marginStopMinutes = 12;
+    request.useVps = true;
     return request;
 }
 
@@ -76,6 +88,12 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(httpClient.requests.at(0).url == "/searchtimers");
     assert(httpClient.requests.at(0).headers.at("Content-Type") == "application/json");
     assert(httpClient.requests.at(0).body.find("\"search\":\"Tatort\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"directory\":\"Doku\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"priority\":50") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"lifetime\":99") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"margin_start\":5") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"margin_stop\":10") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_vps\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
@@ -118,6 +136,12 @@ static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
     assert(httpClient.requests.at(0).url == "/searchtimers/42");
     assert(httpClient.requests.at(0).headers.at("Content-Type") == "application/json");
     assert(httpClient.requests.at(0).body.find("\"search\":\"Tatort updated\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"directory\":\"Serien\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"priority\":60") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"lifetime\":88") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"margin_start\":7") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"margin_stop\":12") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_vps\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 

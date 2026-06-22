@@ -210,7 +210,7 @@ This keeps each phase testable against RESTfulAPI and real VDR behavior.
 
 The next implementation phase should be:
 
-Phase 47.51 - SearchTimer create/update safe body enrichment foundation
+Phase 47.52 - SearchTimer channel constraint enrichment
 
 Scope:
 

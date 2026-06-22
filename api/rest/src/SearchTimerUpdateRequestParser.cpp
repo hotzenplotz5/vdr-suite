@@ -1,5 +1,6 @@
 #include "SearchTimerUpdateRequestParser.h"
 
+#include <cstdlib>
 #include <map>
 #include <string>
 
@@ -138,6 +139,23 @@ bool parseBool(
     return iterator->second == "true" ||
            iterator->second == "1";
 }
+
+int parseInt(
+    const std::map<std::string, std::string>& values,
+    const std::string& key,
+    int defaultValue)
+{
+    const auto iterator =
+        values.find(key);
+
+    if (iterator == values.end() ||
+        iterator->second.empty())
+    {
+        return defaultValue;
+    }
+
+    return std::atoi(iterator->second.c_str());
+}
 }
 
 SearchTimerUpdateRequest SearchTimerUpdateRequestParser::parse(
@@ -164,6 +182,24 @@ SearchTimerUpdateRequest SearchTimerUpdateRequestParser::parse(
 
     request.active =
         parseBool(values, "active", true);
+
+    request.directory =
+        getValue(values, "directory");
+
+    request.priority =
+        parseInt(values, "priority", 0);
+
+    request.lifetime =
+        parseInt(values, "lifetime", 0);
+
+    request.marginStartMinutes =
+        parseInt(values, "marginStartMinutes", 0);
+
+    request.marginStopMinutes =
+        parseInt(values, "marginStopMinutes", 0);
+
+    request.useVps =
+        parseBool(values, "useVps", false);
 
     return request;
 }

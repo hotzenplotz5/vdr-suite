@@ -16,7 +16,7 @@
 
 ```text
 Completed implementation state
-Phase 47.50 - SearchTimer epgsearch Live compatibility analysis
+Phase 47.51 - SearchTimer create/update safe body enrichment foundation
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh

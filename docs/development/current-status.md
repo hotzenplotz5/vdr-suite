@@ -72,7 +72,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 47.50 - SearchTimer epgsearch Live compatibility analysis
+Phase 47.51 - SearchTimer create/update safe body enrichment foundation
 ```
 
 Current documentation consolidation state:
@@ -84,7 +84,7 @@ Phase 46.41 - Current Project Status Refresh
 Next major implementation milestone:
 
 ```text
-Phase 47.51 - SearchTimer create/update safe body enrichment foundation
+Phase 47.52 - SearchTimer channel constraint enrichment
 ```
 
 Completed foundations:
@@ -234,7 +234,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 47.51 - SearchTimer create/update safe body enrichment foundation
+Phase 47.52 - SearchTimer channel constraint enrichment
 ```
 
 The next major implementation milestone is SearchTimer. It should turn existing EPG search, recording search and metadata search foundations into persistent search rules and later automation.

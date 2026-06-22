@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.51 - SearchTimer create/update safe body enrichment foundation
+
+Status: Completed.
+
+Summary:
+- Added safe scalar SearchTimer create/update request fields for directory, priority, lifetime, margins and VPS.
+- Extended create/update request parsers for the safe enrichment fields.
+- Included the safe fields in RESTfulAPI SearchTimer POST and PUT JSON bodies.
+- Covered parser and command executor JSON body behavior with targeted tests.
+
+---
+
 ## Phase 47.50 - SearchTimer epgsearch Live compatibility analysis
 
 Status: Completed.

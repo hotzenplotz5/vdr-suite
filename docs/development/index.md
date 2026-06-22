@@ -44,7 +44,7 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.50 - SearchTimer epgsearch Live compatibility analysis
+Phase 47.51 - SearchTimer create/update safe body enrichment foundation
 ```
 
 Next implementation focus:
