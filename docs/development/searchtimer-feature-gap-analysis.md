@@ -99,9 +99,13 @@ Implemented in:
 
 - Phase 47.60 - SearchTimer match option write enrichment
 
-Recommended next phase:
+Implemented in:
 
 - Phase 47.61 - SearchTimer extended EPG write enrichment
+
+Recommended next phase:
+
+- Phase 47.62 - SearchTimer validity window write enrichment
 
 ### Extended EPG options
 
@@ -123,9 +127,13 @@ Implemented in:
 
 - Phase 47.60 - SearchTimer match option write enrichment
 
-Recommended next phase:
+Implemented in:
 
 - Phase 47.61 - SearchTimer extended EPG write enrichment
+
+Recommended next phase:
+
+- Phase 47.62 - SearchTimer validity window write enrichment
 
 ### Validity options
 
@@ -205,7 +213,7 @@ For future write-enrichment phases, the recommended sequence is:
 
 ## Recommended Next Phase
 
-Phase 47.61 - SearchTimer extended EPG write enrichment
+Phase 47.62 - SearchTimer validity window write enrichment
 
 Rationale:
 

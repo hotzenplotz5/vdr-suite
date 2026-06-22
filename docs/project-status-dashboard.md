@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.60 - SearchTimer match option write enrichment
+Phase 47.61 - SearchTimer extended EPG write enrichment
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.61 - SearchTimer extended EPG write enrichment
+Phase 47.62 - SearchTimer validity window write enrichment
 ```
 
 Latest Completed Milestones:

@@ -49,7 +49,11 @@ int main()
             "\"matchMode\":2,"
             "\"matchCase\":true,"
             "\"matchTolerance\":4,"
-            "\"summaryMatch\":1"
+            "\"summaryMatch\":1,"
+            "\"useExtendedEpgInfo\":true,"
+            "\"extendedEpgInfo\":\"category=movie\","
+            "\"ignoreMissingEpgCategories\":true,"
+            "\"contentDescriptors\":\"0x10,0x11\""
             "}");
 
     assert(request.backendId == "home-vdr");
@@ -92,6 +96,10 @@ int main()
     assert(request.matchCase == true);
     assert(request.matchTolerance == 4);
     assert(request.summaryMatch == 1);
+    assert(request.useExtendedEpgInfo == true);
+    assert(request.extendedEpgInfo == "category=movie");
+    assert(request.ignoreMissingEpgCategories == true);
+    assert(request.contentDescriptors == "0x10,0x11");
 
     const SearchTimerCreateRequest defaultBackendRequest =
         parser.parse(
@@ -141,6 +149,10 @@ int main()
     assert(defaultBackendRequest.matchCase == false);
     assert(defaultBackendRequest.matchTolerance == 0);
     assert(defaultBackendRequest.summaryMatch == 0);
+    assert(defaultBackendRequest.useExtendedEpgInfo == false);
+    assert(defaultBackendRequest.extendedEpgInfo.empty());
+    assert(defaultBackendRequest.ignoreMissingEpgCategories == false);
+    assert(defaultBackendRequest.contentDescriptors.empty());
 
     std::cout
         << "test_search_timer_create_request_parser passed"

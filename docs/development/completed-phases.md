@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.61 - SearchTimer extended EPG write enrichment
+
+Status: Completed.
+
+Summary:
+- Added SearchTimer create/update request fields for extended EPG usage, extended EPG info payload, missing category behavior and content descriptors.
+- Extended create/update parsers for extended EPG request fields.
+- Extended the RESTfulAPI command executor JSON body with use_ext_epg_info, ext_epg_info, ignore_missing_epg_cats and content_descriptors.
+- Covered parser defaults and command executor body generation with targeted tests.
+
+---
 ## Phase 47.60 - SearchTimer match option write enrichment
 
 Status: Completed.

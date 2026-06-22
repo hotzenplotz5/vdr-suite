@@ -115,7 +115,11 @@ std::string buildSearchTimerBody(
     const int matchMode,
     const bool matchCase,
     const int matchTolerance,
-    const int summaryMatch)
+    const int summaryMatch,
+    const bool useExtendedEpgInfo,
+    const std::string& extendedEpgInfo,
+    const bool ignoreMissingEpgCategories,
+    const std::string& contentDescriptors)
 {
     std::ostringstream body;
 
@@ -155,6 +159,10 @@ std::string buildSearchTimerBody(
         << "\"match_case\":" << (matchCase ? "1" : "0") << ","
         << "\"tolerance\":" << matchTolerance << ","
         << "\"summary_match\":" << summaryMatch << ","
+        << "\"use_ext_epg_info\":" << (useExtendedEpgInfo ? "1" : "0") << ","
+        << "\"ext_epg_info\":\"" << jsonEscape(extendedEpgInfo) << "\","
+        << "\"ignore_missing_epg_cats\":" << (ignoreMissingEpgCategories ? "1" : "0") << ","
+        << "\"content_descriptors\":\"" << jsonEscape(contentDescriptors) << "\","
         << "\"directory\":\"" << jsonEscape(directory) << "\","
         << "\"priority\":" << priority << ","
         << "\"lifetime\":" << lifetime << ","
@@ -253,7 +261,11 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             request.matchMode,
             request.matchCase,
             request.matchTolerance,
-            request.summaryMatch);
+            request.summaryMatch,
+            request.useExtendedEpgInfo,
+            request.extendedEpgInfo,
+            request.ignoreMissingEpgCategories,
+            request.contentDescriptors);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);
@@ -340,7 +352,11 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
             request.matchMode,
             request.matchCase,
             request.matchTolerance,
-            request.summaryMatch);
+            request.summaryMatch,
+            request.useExtendedEpgInfo,
+            request.extendedEpgInfo,
+            request.ignoreMissingEpgCategories,
+            request.contentDescriptors);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);

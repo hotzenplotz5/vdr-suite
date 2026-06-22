@@ -77,6 +77,10 @@ static SearchTimerCreateRequest makeCreateRequest()
     request.matchCase = true;
     request.matchTolerance = 4;
     request.summaryMatch = 1;
+    request.useExtendedEpgInfo = true;
+    request.extendedEpgInfo = "category=movie";
+    request.ignoreMissingEpgCategories = true;
+    request.contentDescriptors = "0x10,0x11";
     return request;
 }
 
@@ -124,6 +128,10 @@ static SearchTimerUpdateRequest makeUpdateRequest()
     request.matchCase = false;
     request.matchTolerance = 5;
     request.summaryMatch = 2;
+    request.useExtendedEpgInfo = false;
+    request.extendedEpgInfo = "category=sports";
+    request.ignoreMissingEpgCategories = false;
+    request.contentDescriptors = "0x20";
     return request;
 }
 
@@ -184,6 +192,10 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(httpClient.requests.at(0).body.find("\"match_case\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"tolerance\":4") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"summary_match\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_ext_epg_info\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"ext_epg_info\":\"category=movie\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"ignore_missing_epg_cats\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"content_descriptors\":\"0x10,0x11\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
@@ -261,6 +273,10 @@ static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
     assert(httpClient.requests.at(0).body.find("\"match_case\":0") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"tolerance\":5") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"summary_match\":2") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_ext_epg_info\":0") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"ext_epg_info\":\"category=sports\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"ignore_missing_epg_cats\":0") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"content_descriptors\":\"0x20\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 

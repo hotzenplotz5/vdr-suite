@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 47.60 - SearchTimer match option write enrichment
+Phase 47.61 - SearchTimer extended EPG write enrichment
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.61 - SearchTimer extended EPG write enrichment
+Phase 47.62 - SearchTimer validity window write enrichment
 ```
 
 ---

@@ -44,6 +44,10 @@ struct SearchTimerCreateRequest
     bool matchCase = false;
     int matchTolerance = 0;
     int summaryMatch = 0;
+    bool useExtendedEpgInfo = false;
+    std::string extendedEpgInfo;
+    bool ignoreMissingEpgCategories = false;
+    std::string contentDescriptors;
 
     bool hasBackendId() const
     {

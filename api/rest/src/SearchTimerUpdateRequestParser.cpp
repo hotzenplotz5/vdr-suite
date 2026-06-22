@@ -316,5 +316,17 @@ SearchTimerUpdateRequest SearchTimerUpdateRequestParser::parse(
     request.summaryMatch =
         parseInt(values, "summaryMatch", 0);
 
+    request.useExtendedEpgInfo =
+        parseBool(values, "useExtendedEpgInfo", false);
+
+    request.extendedEpgInfo =
+        getValue(values, "extendedEpgInfo");
+
+    request.ignoreMissingEpgCategories =
+        parseBool(values, "ignoreMissingEpgCategories", false);
+
+    request.contentDescriptors =
+        getValue(values, "contentDescriptors");
+
     return request;
 }
