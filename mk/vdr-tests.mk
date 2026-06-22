@@ -1,3 +1,11 @@
+test-epgsearch-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/EpgSearchService.cpp \
+		core/vdr/tests/test_epgsearch_service.cpp \
+		-o /tmp/test_epgsearch_service
+	/tmp/test_epgsearch_service
+
+.PHONY: test-epgsearch-service
 .PHONY: test-epgsearch-query
 test-epgsearch-query:
 	$(CXX) $(CXXFLAGS) \

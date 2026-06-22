@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 48.4 - EPGSearch service interface
+
+Status: Completed.
+
+Summary:
+- Added a backend-neutral `EpgSearchService` boundary.
+- Implemented `search(events, query) -> EpgSearchResult` for in-memory event lists.
+- Covered basic text matching, field selection and case-sensitive matching.
+- Kept the phase intentionally free of REST endpoints, adapters and real backend execution.
+
+---
 ## Phase 48.3 - EPGSearch result model audit
 
 Status: Completed.

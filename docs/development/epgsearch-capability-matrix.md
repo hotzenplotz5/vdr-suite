@@ -198,3 +198,25 @@ Finding:
 - No replacement model is needed before introducing the EPGSearch service interface.
 
 The next missing abstraction is a backend-neutral service boundary.
+
+## Phase 48.4 Service Boundary Result
+
+Phase 48.4 introduced a backend-neutral EPGSearch service boundary.
+
+Implemented:
+
+- `EpgSearchService`
+- `search(events, query) -> EpgSearchResult`
+- text matching across title/subtitle/description
+- explicit field selection support
+- case-sensitive and case-insensitive matching behavior
+
+Not implemented in this phase:
+
+- REST endpoint
+- RESTfulAPI adapter
+- real VDR EPGSearch execution
+- fuzzy matching semantics
+- channel/time/duration/day/category filtering
+
+Those belong to later matcher and adapter phases.

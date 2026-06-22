@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 48.3 - EPGSearch result model audit
+    Phase 48.4 - EPGSearch service interface
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 48.4 - EPGSearch service interface
+    Phase 48.5 - EPGSearch matcher expansion
 
 Completed foundations:
 

@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 48.3 - EPGSearch result model audit
+Phase 48.4 - EPGSearch service interface
 ```
 
 Next implementation focus:
 
 ```text
-Phase 48.4 - EPGSearch service interface
+Phase 48.5 - EPGSearch matcher expansion
 ```
 
 Current architecture validation:

@@ -1,187 +1,109 @@
 #include "EpgSearchService.h"
 
-#include "EpgSearchMatcher.h"
+#include "EpgSearchMatch.h"
 
 #include <algorithm>
+#include <cctype>
+#include <string>
+#include <vector>
 
-namespace
+namespace {
+std::string lowerCopy(
+    const std::string& value)
 {
-std::vector<std::string> determineMatchedFields(
-    const VdrEvent& event,
-    const EpgSearchRequest& request)
-{
-    std::vector<std::string> fields;
+    std::string lowered = value;
 
-    if (!request.hasQueryText() ||
-        !request.hasSearchField())
-    {
-        return fields;
-    }
+    std::transform(
+        lowered.begin(),
+        lowered.end(),
+        lowered.begin(),
+        [](unsigned char character) {
+            return static_cast<char>(
+                std::tolower(character));
+        });
 
-    EpgSearchRequest titleOnly =
-        EpgSearchRequest::text(
-            request.queryText(),
-            0,
-            0);
-    titleOnly.setSearchFields(
-        true,
-        false,
-        false);
-
-    EpgSearchRequest subtitleOnly =
-        EpgSearchRequest::text(
-            request.queryText(),
-            0,
-            0);
-    subtitleOnly.setSearchFields(
-        false,
-        true,
-        false);
-
-    EpgSearchRequest descriptionOnly =
-        EpgSearchRequest::text(
-            request.queryText(),
-            0,
-            0);
-    descriptionOnly.setSearchFields(
-        false,
-        false,
-        true);
-
-    EpgSearchMatcher matcher;
-
-    if (request.searchTitle() &&
-        matcher.matches(
-            event,
-            titleOnly))
-    {
-        fields.push_back("title");
-    }
-
-    if (request.searchSubtitle() &&
-        matcher.matches(
-            event,
-            subtitleOnly))
-    {
-        fields.push_back("subtitle");
-    }
-
-    if (request.searchDescription() &&
-        matcher.matches(
-            event,
-            descriptionOnly))
-    {
-        fields.push_back("description");
-    }
-
-    return fields;
+    return lowered;
 }
 
-bool sortAscending(
-    const EpgSearchMatch& left,
-    const EpgSearchMatch& right,
-    EpgSearchSortField sortField)
+bool containsText(
+    const std::string& haystack,
+    const std::string& needle,
+    bool matchCase)
 {
-    if (sortField == EpgSearchSortField::Title)
+    if (needle.empty())
     {
-        return left.event().title < right.event().title;
+        return true;
     }
 
-    if (sortField == EpgSearchSortField::StartTime)
+    if (matchCase)
     {
-        return left.event().startTime < right.event().startTime;
+        return haystack.find(needle) != std::string::npos;
     }
 
-    if (sortField == EpgSearchSortField::Duration)
+    return lowerCopy(haystack).find(lowerCopy(needle)) != std::string::npos;
+}
+
+bool matchesQuery(
+    const VdrEvent& event,
+    const EpgSearchQuery& query)
+{
+    if (!query.hasText())
     {
-        return left.event().durationSeconds < right.event().durationSeconds;
+        return true;
     }
 
-    return false;
+    const bool matchCase =
+        query.hasMatchCase() && query.matchCase();
+
+    if (!query.hasFieldSelection())
+    {
+        return containsText(event.title, query.text(), matchCase)
+            || containsText(event.subtitle, query.text(), matchCase)
+            || containsText(event.description, query.text(), matchCase);
+    }
+
+    bool matched = false;
+
+    if (query.useTitle())
+    {
+        matched = matched
+            || containsText(event.title, query.text(), matchCase);
+    }
+
+    if (query.useSubtitle())
+    {
+        matched = matched
+            || containsText(event.subtitle, query.text(), matchCase);
+    }
+
+    if (query.useDescription())
+    {
+        matched = matched
+            || containsText(event.description, query.text(), matchCase);
+    }
+
+    return matched;
 }
 }
 
 EpgSearchResult EpgSearchService::search(
     const std::vector<VdrEvent>& events,
-    const EpgSearchRequest& request) const
+    const EpgSearchQuery& query) const
 {
-    std::vector<EpgSearchMatch> filteredMatches;
-    EpgSearchMatcher matcher;
+    std::vector<EpgSearchMatch> matches;
 
-    for (const auto& event : events)
+    for (const VdrEvent& event : events)
     {
-        if (matcher.matches(
-                event,
-                request))
+        if (matchesQuery(event, query))
         {
-            filteredMatches.emplace_back(
-                event,
-                request.backendId(),
-                determineMatchedFields(
-                    event,
-                    request));
-        }
-    }
-
-    if (request.hasSort())
-    {
-        std::sort(
-            filteredMatches.begin(),
-            filteredMatches.end(),
-            [&request](
-                const EpgSearchMatch& left,
-                const EpgSearchMatch& right)
-            {
-                const bool ascendingResult =
-                    sortAscending(
-                        left,
-                        right,
-                        request.sortField());
-
-                if (request.sortDescending())
-                {
-                    return !ascendingResult;
-                }
-
-                return ascendingResult;
-            });
-    }
-
-    const int totalCount =
-        static_cast<int>(filteredMatches.size());
-
-    std::vector<EpgSearchMatch> page;
-
-    const int offset =
-        std::max(
-            0,
-            request.offset());
-
-    const int limit =
-        request.limit();
-
-    if (offset < totalCount)
-    {
-        const int end =
-            request.hasLimit()
-                ? std::min(
-                      totalCount,
-                      offset + limit)
-                : totalCount;
-
-        for (int index = offset;
-             index < end;
-             ++index)
-        {
-            page.push_back(
-                filteredMatches.at(
-                    static_cast<std::size_t>(index)));
+            matches.push_back(
+                EpgSearchMatch::fromEvent(event));
         }
     }
 
     return EpgSearchResult(
-        page,
-        totalCount,
-        limit,
-        offset);
+        matches,
+        static_cast<int>(matches.size()),
+        0,
+        0);
 }

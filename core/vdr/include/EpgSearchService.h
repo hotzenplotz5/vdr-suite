@@ -1,15 +1,14 @@
 #pragma once
 
-#include "EpgSearchRequest.h"
+#include "EpgSearchQuery.h"
 #include "EpgSearchResult.h"
 #include "VdrEvent.h"
 
 #include <vector>
 
-class EpgSearchService
-{
+class EpgSearchService {
 public:
     EpgSearchResult search(
         const std::vector<VdrEvent>& events,
-        const EpgSearchRequest& request) const;
+        const EpgSearchQuery& query) const;
 };
