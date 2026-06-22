@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.58 - SearchTimer blacklist enrichment
+Phase 47.59 - SearchTimer feature gap analysis
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.59 - SearchTimer extended EPG enrichment
+Phase 47.60 - SearchTimer match option write enrichment
 ```
 
 Latest Completed Milestones:

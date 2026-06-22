@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.59 - SearchTimer feature gap analysis
+
+Status: Completed.
+
+Summary:
+- Documented the SearchTimer read/write feature gap after blacklist enrichment.
+- Confirmed that match, extended EPG, validity and action option groups are already present on the read side.
+- Confirmed that those groups are still missing from create/update requests and the command executor write body.
+- Established Phase 47.60 as match option write enrichment before extended EPG, validity and action option write phases.
+
+---
 ## Phase 47.58 - SearchTimer blacklist enrichment
 
 Status: Completed.
