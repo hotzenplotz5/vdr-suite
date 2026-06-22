@@ -60,7 +60,7 @@ Milestone progress:
 
 Current milestone:
 
-    Phase 47.63 - SearchTimer action option write enrichment
+    Phase 47.64 - SearchTimer completeness re-audit
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -72,7 +72,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 47.63 - SearchTimer action option write enrichment
+Phase 47.64 - SearchTimer completeness re-audit
 ```
 
 Current documentation consolidation state:
@@ -84,7 +84,7 @@ Phase 46.41 - Current Project Status Refresh
 Next major implementation milestone:
 
 ```text
-Phase 47.64 - SearchTimer completeness re-audit
+Phase 47.65 - SearchTimer full payload real VDR validation
 ```
 
 Completed foundations:
@@ -234,7 +234,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 47.64 - SearchTimer completeness re-audit
+Phase 47.65 - SearchTimer full payload real VDR validation
 ```
 
 The next major implementation milestone is SearchTimer. It should turn existing EPG search, recording search and metadata search foundations into persistent search rules and later automation.

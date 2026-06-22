@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.63 - SearchTimer action option write enrichment
+Phase 47.64 - SearchTimer completeness re-audit
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.64 - SearchTimer completeness re-audit
+Phase 47.65 - SearchTimer full payload real VDR validation
 ```
 
 Current architecture validation:
@@ -71,6 +71,7 @@ Current architecture validation:
 - [SearchTimer epgsearch / Live Compatibility Analysis](searchtimer-epgsearch-live-compatibility-analysis.md)
 - [SearchTimer Real VDR Compatibility Report](searchtimer-real-vdr-compatibility-report.md)
 - [SearchTimer Feature Gap Analysis](searchtimer-feature-gap-analysis.md)
+- [SearchTimer Completeness Re-Audit](searchtimer-completeness-reaudit.md)
 - [Genre Architecture](genre-architecture.md)
 - [Content Rating API](content-rating-api.md)
 - [Person API](person-api.md)

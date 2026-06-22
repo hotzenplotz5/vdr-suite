@@ -5,6 +5,7 @@
 - [README](../../README.md)
 - [Development Index](index.md)
 - [SearchTimer Real VDR Compatibility Report](searchtimer-real-vdr-compatibility-report.md)
+- [SearchTimer Completeness Re-Audit](searchtimer-completeness-reaudit.md)
 - [SearchTimer epgsearch / Live Compatibility Analysis](searchtimer-epgsearch-live-compatibility-analysis.md)
 - [SearchTimer Completeness Audit](searchtimer-completeness-audit.md)
 
@@ -12,17 +13,21 @@
 
 ## Purpose
 
-This document records the SearchTimer feature gap after Phase 47.58.
+This document records the SearchTimer feature gap that was identified after Phase 47.58.
 
-The goal is to decide the next implementation phases from verified architecture rather than adding fields blindly.
+It is preserved as the historical analysis that drove the write-enrichment sequence from Phase 47.60 through Phase 47.63.
+
+For the current post-enrichment status, use:
+
+- [SearchTimer Completeness Re-Audit](searchtimer-completeness-reaudit.md)
 
 ---
 
-## Current Architecture Summary
+## Original Gap Summary
 
-The SearchTimer read-side domain model is already broad.
+The SearchTimer read-side domain model was already broad.
 
-It includes:
+It included:
 
 - recording options
 - schedule options
@@ -37,47 +42,27 @@ It includes:
 - validity options
 - action options
 
-The write path is intentionally narrower.
+After Phase 47.58, create/update write support still missed four groups:
 
-Create and update requests currently cover:
-
-- base identity and query fields
-- recording target fields
-- schedule fields
-- channel constraints
-- time, duration and day-of-week constraints
-- repeat handling
-- comparison behavior
-- series recording behavior
-- blacklist behavior
+- match options
+- extended EPG options
+- validity options
+- action options
 
 ---
 
-## Field Matrix
+## Resolution Matrix
 
-| Feature group | Domain read model | RESTfulAPI read mapper | Result JSON | Create/Update request | Command executor write body | Status |
-| --- | --- | --- | --- | --- | --- | --- |
-| Base SearchTimer identity | yes | yes | yes | yes | yes | complete |
-| Recording options | yes | yes | yes | yes | yes | complete |
-| Schedule options | yes | yes | yes | yes | yes | complete |
-| Channel options | yes | yes | yes | yes | yes | complete |
-| Time and duration options | partial read model | yes | partial | yes | yes | write supported; read model still minimal for start/stop/day-of-week details |
-| Repeat options | yes | yes | yes | yes | yes | complete |
-| Comparison options | yes | yes | yes | yes | yes | complete |
-| Series recording options | yes | yes | yes | yes | yes | complete |
-| Blacklist options | yes | yes | yes | yes | yes | complete after Phase 47.58 |
-| Match options | yes | yes | yes | no | no | write gap |
-| Extended EPG options | yes | yes | yes | no | no | write gap |
-| Validity options | yes | yes | yes | no | no | write gap |
-| Action options | yes | yes | yes | no | no | write gap |
+| Feature group | Original status after Phase 47.58 | Resolution |
+| --- | --- | --- |
+| Match options | write gap | implemented in Phase 47.60 |
+| Extended EPG options | write gap | implemented in Phase 47.61 |
+| Validity options | write gap | implemented in Phase 47.62 |
+| Action options | write gap | implemented in Phase 47.63 |
 
 ---
 
-## Confirmed Write Gaps
-
-The following groups are already read, mapped into the domain and serialized back to REST clients.
-
-They are not yet accepted in create/update requests and are not yet written to RESTfulAPI:
+## Implemented Field Groups
 
 ### Match options
 
@@ -88,7 +73,7 @@ RESTfulAPI field names:
 - tolerance
 - summary_match
 
-Suggested VDR-Suite request field names:
+VDR-Suite request field names:
 
 - matchMode
 - matchCase
@@ -99,22 +84,6 @@ Implemented in:
 
 - Phase 47.60 - SearchTimer match option write enrichment
 
-Implemented in:
-
-- Phase 47.61 - SearchTimer extended EPG write enrichment
-
-Implemented in:
-
-- Phase 47.62 - SearchTimer validity window write enrichment
-
-Implemented in:
-
-- Phase 47.63 - SearchTimer action option write enrichment
-
-Recommended next phase:
-
-- Phase 47.64 - SearchTimer completeness re-audit
-
 ### Extended EPG options
 
 RESTfulAPI field names:
@@ -124,7 +93,7 @@ RESTfulAPI field names:
 - ignore_missing_epg_cats
 - content_descriptors
 
-Suggested VDR-Suite request field names:
+VDR-Suite request field names:
 
 - useExtendedEpgInfo
 - extendedEpgInfo
@@ -133,23 +102,7 @@ Suggested VDR-Suite request field names:
 
 Implemented in:
 
-- Phase 47.60 - SearchTimer match option write enrichment
-
-Implemented in:
-
 - Phase 47.61 - SearchTimer extended EPG write enrichment
-
-Implemented in:
-
-- Phase 47.62 - SearchTimer validity window write enrichment
-
-Implemented in:
-
-- Phase 47.63 - SearchTimer action option write enrichment
-
-Recommended next phase:
-
-- Phase 47.64 - SearchTimer completeness re-audit
 
 ### Validity options
 
@@ -159,15 +112,15 @@ RESTfulAPI field names:
 - use_as_searchtimer_from
 - use_as_searchtimer_til
 
-Suggested VDR-Suite request field names:
+VDR-Suite request field names:
 
 - useInFavorites
 - activeFrom
 - activeUntil
 
-Recommended phase:
+Implemented in:
 
-- Phase 47.64 - SearchTimer completeness re-audit
+- Phase 47.62 - SearchTimer validity window write enrichment
 
 ### Action options
 
@@ -180,7 +133,7 @@ RESTfulAPI field names:
 - del_after_count_recs
 - del_after_days_of_first_rec
 
-Suggested VDR-Suite request field names:
+VDR-Suite request field names:
 
 - pauseOnRecordings
 - switchMinutesBefore
@@ -189,13 +142,13 @@ Suggested VDR-Suite request field names:
 - deleteAfterCountRecordings
 - deleteAfterDaysOfFirstRecording
 
-Recommended phase:
+Implemented in:
 
-- Phase 47.64 - SearchTimer completeness re-audit
+- Phase 47.63 - SearchTimer action option write enrichment
 
 ---
 
-## Important Parser Finding
+## Parser Finding
 
 Phase 47.58 uncovered a real parser limitation.
 
@@ -203,40 +156,23 @@ The request parsers originally treated commas inside quoted strings as field sep
 
 The parser now preserves quoted commas so values such as blacklistIds = 3,7 remain intact.
 
-This is relevant for future fields because several epgsearch options may use comma-separated or encoded value lists.
+This remains important for fields that carry comma-separated or encoded value lists.
 
 ---
 
-## Real VDR Validation Strategy
+## Current Recommendation
 
-Real VDR validation should remain part of the SearchTimer workflow.
+The original write gaps have been closed.
 
-Unit tests prove request parsing and executor body generation.
+The next step is no longer another blind field-enrichment phase.
 
-The real VDR smoke helper proves that RESTfulAPI and epgsearch accept the payload and persist expected values.
+Recommended next document:
 
-For future write-enrichment phases, the recommended sequence is:
+- [SearchTimer Completeness Re-Audit](searchtimer-completeness-reaudit.md)
 
-1. Extend request structs.
-2. Extend create/update parsers.
-3. Extend the command executor body.
-4. Add parser tests.
-5. Add command executor body tests.
-6. Run daemon and API router tests.
-7. Validate selected fields with the real VDR smoke helper when feasible.
+Recommended next implementation phase:
 
----
-
-## Recommended Next Phase
-
-Phase 47.64 - SearchTimer completeness re-audit
-
-Rationale:
-
-- Match options are already present in the domain.
-- Match options are already read by the RESTfulAPI mapper.
-- Match options are already serialized in SearchTimerResult JSON.
-- Match options are a compact field group and a good next candidate after blacklist support.
+- Phase 47.65 - SearchTimer full payload real VDR validation
 
 ---
 
@@ -244,5 +180,5 @@ Rationale:
 
 - [Back to Development Index](index.md)
 - [Back to SearchTimer Real VDR Compatibility Report](searchtimer-real-vdr-compatibility-report.md)
-- [Back to SearchTimer epgsearch / Live Compatibility Analysis](searchtimer-epgsearch-live-compatibility-analysis.md)
+- [Back to SearchTimer Completeness Re-Audit](searchtimer-completeness-reaudit.md)
 - [Back to SearchTimer Completeness Audit](searchtimer-completeness-audit.md)
