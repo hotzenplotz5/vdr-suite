@@ -60,7 +60,7 @@ Milestone progress:
 
 Current milestone:
 
-    Phase 48.6 - EPGSearch matcher filter expansion
+    Phase 48.7 - EPGSearch result serializer
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -72,7 +72,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 48.6 - EPGSearch matcher filter expansion
+Phase 48.7 - EPGSearch result serializer
 ```
 
 Current documentation consolidation state:
@@ -84,7 +84,7 @@ Phase 46.41 - Current Project Status Refresh
 Next major implementation milestone:
 
 ```text
-Phase 48.7 - EPGSearch result serializer
+Phase 48.8 - EPGSearch controller
 ```
 
 Completed foundations:
@@ -234,7 +234,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 48.7 - EPGSearch result serializer
+Phase 48.8 - EPGSearch controller
 ```
 
 The next major implementation milestone is SearchTimer. It should turn existing EPG search, recording search and metadata search foundations into persistent search rules and later automation.

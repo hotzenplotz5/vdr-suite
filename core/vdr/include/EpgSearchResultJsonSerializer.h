@@ -4,8 +4,7 @@
 
 #include <string>
 
-class EpgSearchResultJsonSerializer
-{
+class EpgSearchResultJsonSerializer {
 public:
     std::string serialize(
         const EpgSearchResult& result) const;

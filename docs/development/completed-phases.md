@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 48.7 - EPGSearch result serializer
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchResultJsonSerializer`.
+- Serialized result metadata, matches, backend identity, matched fields and nested event details.
+- Added focused serializer tests including JSON escaping and content descriptor arrays.
+- Moved the next focus to the EPGSearch controller.
+
+---
 ## Phase 48.6 - EPGSearch matcher filter expansion
 
 Status: Completed.

@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 48.6 - EPGSearch matcher filter expansion
+Phase 48.7 - EPGSearch result serializer
 ```
 
 Next implementation focus:
 
 ```text
-Phase 48.7 - EPGSearch result serializer
+Phase 48.8 - EPGSearch controller
 ```
 
 Current architecture validation:

@@ -1,3 +1,11 @@
+test-epgsearch-result-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/EpgSearchResultJsonSerializer.cpp \
+		core/vdr/tests/test_epgsearch_result_json_serializer.cpp \
+		-o /tmp/test_epgsearch_result_json_serializer
+	/tmp/test_epgsearch_result_json_serializer
+
+.PHONY: test-epgsearch-result-json-serializer
 test-epgsearch-matcher:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/EpgSearchMatcher.cpp \
