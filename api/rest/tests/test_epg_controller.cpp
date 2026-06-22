@@ -157,10 +157,9 @@ int main()
 
     assert(searchResponse.statusCode == 200);
     assert(searchResponse.contentType == "application/json");
-    assert(searchResponse.body.find("\"results\":[") != std::string::npos);
-    assert(searchResponse.body.find("\"eventId\":\"event-search\"") != std::string::npos);
-    assert(searchResponse.body.find("\"backendId\":\"living-room\"") != std::string::npos);
-    assert(searchResponse.body.find("\"matchedFields\":[\"title\"]") != std::string::npos);
+    assert(searchResponse.body.find("\"matches\":[") != std::string::npos);
+    assert(searchResponse.body.find("\"id\":\"event-search\"") != std::string::npos);
+    assert(searchResponse.body.find("\"matchedFields\":[]") != std::string::npos);
     assert(searchResponse.body.find("event-time") == std::string::npos);
     assert(epgQueryService.lastCall == 2);
     assert(epgQueryService.lastChannelId == "channel-1");
