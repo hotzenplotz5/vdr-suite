@@ -122,7 +122,13 @@ std::string buildSearchTimerBody(
     const std::string& contentDescriptors,
     const bool useInFavorites,
     const std::string& activeFrom,
-    const std::string& activeUntil)
+    const std::string& activeUntil,
+    const bool pauseOnRecordings,
+    const int switchMinutesBefore,
+    const bool unmuteSoundOnSwitch,
+    const int deleteRecordingsAfterDays,
+    const int deleteAfterCountRecordings,
+    const int deleteAfterDaysOfFirstRecording)
 {
     std::ostringstream body;
 
@@ -169,6 +175,12 @@ std::string buildSearchTimerBody(
         << "\"use_in_favorites\":" << (useInFavorites ? "1" : "0") << ","
         << "\"use_as_searchtimer_from\":\"" << jsonEscape(activeFrom) << "\","
         << "\"use_as_searchtimer_til\":\"" << jsonEscape(activeUntil) << "\","
+        << "\"pause_on_recs\":" << (pauseOnRecordings ? "1" : "0") << ","
+        << "\"switch_min_before\":" << switchMinutesBefore << ","
+        << "\"unmute_sound_on_switch\":" << (unmuteSoundOnSwitch ? "1" : "0") << ","
+        << "\"del_recs_after_days\":" << deleteRecordingsAfterDays << ","
+        << "\"del_after_count_recs\":" << deleteAfterCountRecordings << ","
+        << "\"del_after_days_of_first_rec\":" << deleteAfterDaysOfFirstRecording << ","
         << "\"directory\":\"" << jsonEscape(directory) << "\","
         << "\"priority\":" << priority << ","
         << "\"lifetime\":" << lifetime << ","
@@ -274,7 +286,13 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             request.contentDescriptors,
             request.useInFavorites,
             request.activeFrom,
-            request.activeUntil);
+            request.activeUntil,
+            request.pauseOnRecordings,
+            request.switchMinutesBefore,
+            request.unmuteSoundOnSwitch,
+            request.deleteRecordingsAfterDays,
+            request.deleteAfterCountRecordings,
+            request.deleteAfterDaysOfFirstRecording);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);
@@ -368,7 +386,13 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
             request.contentDescriptors,
             request.useInFavorites,
             request.activeFrom,
-            request.activeUntil);
+            request.activeUntil,
+            request.pauseOnRecordings,
+            request.switchMinutesBefore,
+            request.unmuteSoundOnSwitch,
+            request.deleteRecordingsAfterDays,
+            request.deleteAfterCountRecordings,
+            request.deleteAfterDaysOfFirstRecording);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);

@@ -334,5 +334,23 @@ SearchTimerCreateRequest SearchTimerCreateRequestParser::parse(
     request.activeUntil =
         getValue(values, "activeUntil");
 
+    request.pauseOnRecordings =
+        parseBool(values, "pauseOnRecordings", false);
+
+    request.switchMinutesBefore =
+        parseInt(values, "switchMinutesBefore", 0);
+
+    request.unmuteSoundOnSwitch =
+        parseBool(values, "unmuteSoundOnSwitch", false);
+
+    request.deleteRecordingsAfterDays =
+        parseInt(values, "deleteRecordingsAfterDays", 0);
+
+    request.deleteAfterCountRecordings =
+        parseInt(values, "deleteAfterCountRecordings", 0);
+
+    request.deleteAfterDaysOfFirstRecording =
+        parseInt(values, "deleteAfterDaysOfFirstRecording", 0);
+
     return request;
 }

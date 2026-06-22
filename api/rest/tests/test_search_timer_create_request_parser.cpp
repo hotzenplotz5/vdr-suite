@@ -56,7 +56,13 @@ int main()
             "\"contentDescriptors\":\"0x10,0x11\","
             "\"useInFavorites\":true,"
             "\"activeFrom\":\"2026-06-01\","
-            "\"activeUntil\":\"2026-12-31\""
+            "\"activeUntil\":\"2026-12-31\","
+            "\"pauseOnRecordings\":true,"
+            "\"switchMinutesBefore\":3,"
+            "\"unmuteSoundOnSwitch\":true,"
+            "\"deleteRecordingsAfterDays\":30,"
+            "\"deleteAfterCountRecordings\":5,"
+            "\"deleteAfterDaysOfFirstRecording\":90"
             "}");
 
     assert(request.backendId == "home-vdr");
@@ -106,6 +112,12 @@ int main()
     assert(request.useInFavorites == true);
     assert(request.activeFrom == "2026-06-01");
     assert(request.activeUntil == "2026-12-31");
+    assert(request.pauseOnRecordings == true);
+    assert(request.switchMinutesBefore == 3);
+    assert(request.unmuteSoundOnSwitch == true);
+    assert(request.deleteRecordingsAfterDays == 30);
+    assert(request.deleteAfterCountRecordings == 5);
+    assert(request.deleteAfterDaysOfFirstRecording == 90);
 
     const SearchTimerCreateRequest defaultBackendRequest =
         parser.parse(
@@ -162,6 +174,12 @@ int main()
     assert(defaultBackendRequest.useInFavorites == false);
     assert(defaultBackendRequest.activeFrom.empty());
     assert(defaultBackendRequest.activeUntil.empty());
+    assert(defaultBackendRequest.pauseOnRecordings == false);
+    assert(defaultBackendRequest.switchMinutesBefore == 0);
+    assert(defaultBackendRequest.unmuteSoundOnSwitch == false);
+    assert(defaultBackendRequest.deleteRecordingsAfterDays == 0);
+    assert(defaultBackendRequest.deleteAfterCountRecordings == 0);
+    assert(defaultBackendRequest.deleteAfterDaysOfFirstRecording == 0);
 
     std::cout
         << "test_search_timer_create_request_parser passed"

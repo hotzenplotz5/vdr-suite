@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.62 - SearchTimer validity window write enrichment
+    Phase 47.63 - SearchTimer action option write enrichment
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.63 - SearchTimer action option write enrichment
+    Phase 47.64 - SearchTimer completeness re-audit
 
 Completed foundations:
 

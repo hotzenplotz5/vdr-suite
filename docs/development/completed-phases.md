@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.63 - SearchTimer action option write enrichment
+
+Status: Completed.
+
+Summary:
+- Added SearchTimer create/update request fields for pause-on-recordings, switch timing, sound unmute behavior and automatic deletion limits.
+- Extended create/update parsers for SearchTimer action option request fields.
+- Extended the RESTfulAPI command executor JSON body with pause_on_recs, switch_min_before, unmute_sound_on_switch, del_recs_after_days, del_after_count_recs and del_after_days_of_first_rec.
+- Covered parser defaults and command executor body generation with targeted tests.
+
+---
 ## Phase 47.62 - SearchTimer validity window write enrichment
 
 Status: Completed.

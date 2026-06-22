@@ -84,6 +84,12 @@ static SearchTimerCreateRequest makeCreateRequest()
     request.useInFavorites = true;
     request.activeFrom = "2026-06-01";
     request.activeUntil = "2026-12-31";
+    request.pauseOnRecordings = true;
+    request.switchMinutesBefore = 3;
+    request.unmuteSoundOnSwitch = true;
+    request.deleteRecordingsAfterDays = 30;
+    request.deleteAfterCountRecordings = 5;
+    request.deleteAfterDaysOfFirstRecording = 90;
     return request;
 }
 
@@ -138,6 +144,12 @@ static SearchTimerUpdateRequest makeUpdateRequest()
     request.useInFavorites = false;
     request.activeFrom = "2026-07-01";
     request.activeUntil = "2026-08-31";
+    request.pauseOnRecordings = false;
+    request.switchMinutesBefore = 4;
+    request.unmuteSoundOnSwitch = false;
+    request.deleteRecordingsAfterDays = 40;
+    request.deleteAfterCountRecordings = 6;
+    request.deleteAfterDaysOfFirstRecording = 120;
     return request;
 }
 
@@ -205,6 +217,12 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(httpClient.requests.at(0).body.find("\"use_in_favorites\":1") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer_from\":\"2026-06-01\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer_til\":\"2026-12-31\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"pause_on_recs\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"switch_min_before\":3") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"unmute_sound_on_switch\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"del_recs_after_days\":30") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"del_after_count_recs\":5") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"del_after_days_of_first_rec\":90") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
@@ -289,6 +307,12 @@ static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
     assert(httpClient.requests.at(0).body.find("\"use_in_favorites\":0") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer_from\":\"2026-07-01\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer_til\":\"2026-08-31\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"pause_on_recs\":0") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"switch_min_before\":4") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"unmute_sound_on_switch\":0") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"del_recs_after_days\":40") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"del_after_count_recs\":6") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"del_after_days_of_first_rec\":120") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 

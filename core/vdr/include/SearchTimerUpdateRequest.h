@@ -52,6 +52,12 @@ struct SearchTimerUpdateRequest
     bool useInFavorites = false;
     std::string activeFrom;
     std::string activeUntil;
+    bool pauseOnRecordings = false;
+    int switchMinutesBefore = 0;
+    bool unmuteSoundOnSwitch = false;
+    int deleteRecordingsAfterDays = 0;
+    int deleteAfterCountRecordings = 0;
+    int deleteAfterDaysOfFirstRecording = 0;
 
     bool hasBackendId() const
     {

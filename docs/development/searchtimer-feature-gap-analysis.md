@@ -107,9 +107,13 @@ Implemented in:
 
 - Phase 47.62 - SearchTimer validity window write enrichment
 
-Recommended next phase:
+Implemented in:
 
 - Phase 47.63 - SearchTimer action option write enrichment
+
+Recommended next phase:
+
+- Phase 47.64 - SearchTimer completeness re-audit
 
 ### Extended EPG options
 
@@ -139,9 +143,13 @@ Implemented in:
 
 - Phase 47.62 - SearchTimer validity window write enrichment
 
-Recommended next phase:
+Implemented in:
 
 - Phase 47.63 - SearchTimer action option write enrichment
+
+Recommended next phase:
+
+- Phase 47.64 - SearchTimer completeness re-audit
 
 ### Validity options
 
@@ -159,7 +167,7 @@ Suggested VDR-Suite request field names:
 
 Recommended phase:
 
-- Phase 47.63 - SearchTimer action option write enrichment
+- Phase 47.64 - SearchTimer completeness re-audit
 
 ### Action options
 
@@ -183,7 +191,7 @@ Suggested VDR-Suite request field names:
 
 Recommended phase:
 
-- Phase 47.63 - SearchTimer action option write enrichment
+- Phase 47.64 - SearchTimer completeness re-audit
 
 ---
 
@@ -221,7 +229,7 @@ For future write-enrichment phases, the recommended sequence is:
 
 ## Recommended Next Phase
 
-Phase 47.63 - SearchTimer action option write enrichment
+Phase 47.64 - SearchTimer completeness re-audit
 
 Rationale:
 
