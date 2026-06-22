@@ -1,6 +1,7 @@
 #include "EpgController.h"
 
 #include "EpgSearchRequest.h"
+#include "EpgSearchRequestMapper.h"
 #include "EpgSearchResult.h"
 #include "EpgSearchResultJsonSerializer.h"
 #include "EpgSearchService.h"
@@ -302,10 +303,12 @@ ApiResponse EpgController::search(
             parseSearchSortField(sort),
             parseSearchSortOrder(order));
 
+    const EpgSearchRequestMapper requestMapper;
+
     const EpgSearchResult result =
         epgSearchService_.search(
             events,
-            request);
+            requestMapper.map(request));
 
     return makeSearchJsonResponse(
         epgSearchResultJsonSerializer_.serialize(result));

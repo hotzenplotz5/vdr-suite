@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 48.8 - EPGSearch query alignment audit
+Phase 48.9 - EPGSearch request-to-query mapper
 ```
 
 Next implementation focus:
 
 ```text
-Phase 48.9 - EPGSearch request-to-query mapper
+Phase 49.0 - EPGSearch endpoint regression
 ```
 
 Current architecture validation:

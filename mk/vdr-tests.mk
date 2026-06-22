@@ -1,3 +1,11 @@
+test-epgsearch-request-mapper:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/EpgSearchRequestMapper.cpp \
+		core/vdr/tests/test_epgsearch_request_mapper.cpp \
+		-o /tmp/test_epgsearch_request_mapper
+	/tmp/test_epgsearch_request_mapper
+
+.PHONY: test-epgsearch-request-mapper
 test-epgsearch-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/EpgSearchResultJsonSerializer.cpp \

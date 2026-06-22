@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 48.9 - EPGSearch request-to-query mapper
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchRequestMapper`.
+- Mapped API-facing `EpgSearchRequest` into backend-neutral `EpgSearchQuery`.
+- Mapped query text, backend id, single-channel scope and field selection.
+- Updated `EpgController::search(...)` so `EpgSearchService` receives the domain query.
+- Kept paging, sorting and request-window metadata outside the domain query.
+
+---
 ## Phase 48.8 - EPGSearch query alignment audit
 
 Status: Completed.

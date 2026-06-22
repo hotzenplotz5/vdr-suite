@@ -660,7 +660,7 @@ test-live-transport-controller:
 test-epg-controller:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/EpgSearchMatcher.cpp \
-		core/vdr/src/EpgSearchService.cpp \
+		core/vdr/src/EpgSearchRequestMapper.cpp core/vdr/src/EpgSearchService.cpp \
 		core/vdr/src/EpgSearchResultJsonSerializer.cpp \
 		api/rest/src/EpgController.cpp \
 		api/rest/tests/test_epg_controller.cpp \
@@ -854,7 +854,7 @@ test-search-timer-controller:
 		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
                 core/vdr/src/SearchTimerService.cpp \
 		core/vdr/src/EpgSearchMatcher.cpp \
-		core/vdr/src/EpgSearchService.cpp \
+		core/vdr/src/EpgSearchRequestMapper.cpp core/vdr/src/EpgSearchService.cpp \
 		core/vdr/src/EpgSearchResultJsonSerializer.cpp \
 		api/rest/src/SearchTimerCreateRequestParser.cpp \
                 api/rest/src/SearchTimerUpdateRequestParser.cpp \
@@ -927,7 +927,7 @@ test-epg-search-result-json-serializer:
 test-epg-search-service:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/EpgSearchMatcher.cpp \
-		core/vdr/src/EpgSearchService.cpp \
+		core/vdr/src/EpgSearchRequestMapper.cpp core/vdr/src/EpgSearchService.cpp \
 		core/vdr/tests/test_epg_search_service.cpp \
 		-o /tmp/test_epg_search_service
 	/tmp/test_epg_search_service

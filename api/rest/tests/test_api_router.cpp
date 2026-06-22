@@ -812,7 +812,7 @@ int main()
            != std::string::npos);
     assert(searchTimerPreviewResponse.body.find("\"totalCount\":1")
            != std::string::npos);
-    assert(searchTimerPreviewResponse.body.find("\"eventId\":\"router-event-1\"")
+    assert(searchTimerPreviewResponse.body.find("\"id\":\"router-event-1\"")
            != std::string::npos);
 
     ApiResponse vdrSearchTimerPreviewResponse =

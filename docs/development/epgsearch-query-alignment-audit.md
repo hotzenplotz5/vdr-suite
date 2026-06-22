@@ -126,3 +126,9 @@ No new route is needed.
 
 - [Back to Development Index](index.md)
 - [Back to EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
+
+## Phase 48.9 Mapper Follow-up
+
+The planned explicit mapper was implemented after this audit.
+
+`EpgSearchRequestMapper` now separates API/controller request concerns from backend-neutral domain query semantics.

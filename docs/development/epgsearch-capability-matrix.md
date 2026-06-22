@@ -291,3 +291,24 @@ Finding:
 - `EpgSearchRequest` represents API/controller request concerns
 - `EpgSearchQuery` represents backend-neutral search semantics
 - they should be connected through an explicit mapper, not merged blindly
+
+## Phase 48.9 Request Mapper Result
+
+Phase 48.9 introduced an explicit mapper from `EpgSearchRequest` to `EpgSearchQuery`.
+
+Implemented:
+
+- `EpgSearchRequestMapper`
+- request text to domain search text
+- backend id mapping
+- channel id to single-channel interval mapping
+- title/subtitle/description field selection mapping
+- controller alignment so `EpgSearchService` receives `EpgSearchQuery`
+
+Intentionally not mapped yet:
+
+- paging
+- sorting
+- request window metadata
+
+Those remain API/request concerns and should not be forced into the domain query.

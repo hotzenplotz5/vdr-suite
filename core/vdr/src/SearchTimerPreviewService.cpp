@@ -1,6 +1,7 @@
 #include "SearchTimerPreviewService.h"
 
 #include "EpgSearchRequest.h"
+#include "EpgSearchRequestMapper.h"
 #include "EpgSearchService.h"
 
 SearchTimerPreviewResult SearchTimerPreviewService::preview(
@@ -27,10 +28,11 @@ SearchTimerPreviewResult SearchTimerPreviewService::preview(
         EpgSearchSortOrder::Ascending);
 
     EpgSearchService service;
+    EpgSearchRequestMapper requestMapper;
 
     return SearchTimerPreviewResult(
         searchTimer,
         service.search(
             events,
-            request));
+            requestMapper.map(request)));
 }
