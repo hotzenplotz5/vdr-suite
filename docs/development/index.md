@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.66 - Real VDR regression coverage audit
+Phase 47.67 - Real VDR Timer lifecycle validation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.67 - Add real VDR read-only regression helper
+Phase 47.68 - Add real VDR read-only regression helper
 ```
 
 Current architecture validation:

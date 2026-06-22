@@ -201,6 +201,28 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.67 - Real VDR Timer lifecycle validation
+
+Status: Completed.
+
+Summary:
+- Added a real VDR Timer lifecycle smoke helper for create, readback, update, delete and delete verification.
+- The helper creates only an inactive marked test Timer and refuses to run without --run.
+- The helper supports configurable host, port, channel and day through environment variables.
+- Added a Makefile target for building and help-checking the real Timer lifecycle helper.
+
+---
+## Phase 47.67 - Real VDR Timer lifecycle validation
+
+Status: Completed.
+
+Summary:
+- Added a real VDR Timer lifecycle smoke helper for create, readback, update, delete and delete verification.
+- The helper creates only an inactive marked test Timer and refuses to run without --run.
+- The helper supports configurable host, port, channel and day through environment variables.
+- Added a Makefile target for building and help-checking the real Timer lifecycle helper.
+
+---
 ## Phase 47.66 - Real VDR regression coverage audit
 
 Status: Completed.

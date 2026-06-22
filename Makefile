@@ -43,6 +43,14 @@ searchtimer-real-vdr-smoke-helper:
 		-o /tmp/vdr_suite_searchtimer_real_smoke
 	/tmp/vdr_suite_searchtimer_real_smoke --help
 
+vdr-timer-real-lifecycle-smoke-helper:
+	$(CXX) $(CXXFLAGS) \
+		core/http/src/BasicHttpClient.cpp \
+		core/vdr/src/RestfulApiVdrTimerActionExecutor.cpp \
+		apps/tools/vdr_timer_real_lifecycle_smoke.cpp \
+		-o /tmp/vdr_suite_timer_lifecycle_smoke
+	/tmp/vdr_suite_timer_lifecycle_smoke --help
+
 dashboard-cli: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \

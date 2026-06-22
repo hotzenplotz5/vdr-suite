@@ -66,9 +66,17 @@ VdrTimerActionResult RestfulApiVdrTimerActionExecutor::executeBuiltRequest(
     std::string error =
         "RESTfulAPI returned HTTP status " + std::to_string(response.statusCode);
 
+    error += " method=" + httpRequest.method;
+    error += " url=" + httpRequest.url;
+
+    if (!httpRequest.body.empty())
+    {
+        error += " requestBody=" + httpRequest.body;
+    }
+
     if (!response.body.empty())
     {
-        error += ": " + response.body;
+        error += " responseBody=" + response.body;
     }
 
     return VdrTimerActionResult::failed(
