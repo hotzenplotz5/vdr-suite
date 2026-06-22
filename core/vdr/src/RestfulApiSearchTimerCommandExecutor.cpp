@@ -232,7 +232,11 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
     {
         return SearchTimerCreateResult::failed(
             "RESTfulAPI searchtimer create failed",
-            {response.body});
+            {
+                "status=" + std::to_string(response.statusCode),
+                "requestBody=" + httpRequest.body,
+                "responseBody=" + response.body
+            });
     }
 
     const std::string createdId =
@@ -311,18 +315,16 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
     const std::string updatedId =
         extractReturnedId(response.body);
 
-    if (updatedId.empty())
-    {
-        return SearchTimerUpdateResult::failed(
-            "RESTfulAPI searchtimer update did not return an id",
-            {response.body});
-    }
+    const std::string effectiveUpdatedId =
+        updatedId.empty()
+            ? request.backendNativeId
+            : updatedId;
 
     return SearchTimerUpdateResult::ok(
         SearchTimer::create(
             SearchTimerId::fromBackendNativeId(
                 request.backendId,
-                updatedId),
+                effectiveUpdatedId),
             request.name,
             request.query,
             request.active

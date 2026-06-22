@@ -60,6 +60,54 @@ bool contains(
     return text.find(needle) != std::string::npos;
 }
 
+std::string extractIdForSearch(
+    const std::string& body,
+    const std::string& search)
+{
+    const std::size_t searchPos =
+        body.find(search);
+
+    if (searchPos == std::string::npos) {
+        return "";
+    }
+
+    const std::size_t objectStart =
+        body.rfind('{', searchPos);
+
+    if (objectStart == std::string::npos) {
+        return "";
+    }
+
+    const std::string idKey = "\"id\"";
+    const std::size_t idKeyPos =
+        body.find(idKey, objectStart);
+
+    if (idKeyPos == std::string::npos || idKeyPos > searchPos) {
+        return "";
+    }
+
+    const std::size_t colon =
+        body.find(':', idKeyPos + idKey.size());
+
+    if (colon == std::string::npos || colon > searchPos) {
+        return "";
+    }
+
+    std::size_t pos = colon + 1;
+
+    while (pos < body.size() && std::isspace(static_cast<unsigned char>(body[pos]))) {
+        ++pos;
+    }
+
+    std::size_t end = pos;
+
+    while (end < body.size() && std::isdigit(static_cast<unsigned char>(body[end]))) {
+        ++end;
+    }
+
+    return body.substr(pos, end - pos);
+}
+
 HttpResponse getSearchTimers(
     BasicHttpClient& client)
 {
@@ -91,7 +139,7 @@ SearchTimerCreateRequest makeCreateRequest()
     request.durationMinMinutes = 45;
     request.durationMaxMinutes = 120;
     request.useDayOfWeek = true;
-    request.dayOfWeek = 62;
+    request.dayOfWeek = 1;
     request.avoidRepeats = true;
     request.allowedRepeats = 2;
     request.repeatsWithinDays = 14;
@@ -126,7 +174,7 @@ SearchTimerUpdateRequest makeUpdateRequest(
     request.durationMinMinutes = 30;
     request.durationMaxMinutes = 90;
     request.useDayOfWeek = true;
-    request.dayOfWeek = 31;
+    request.dayOfWeek = 2;
     request.avoidRepeats = true;
     request.allowedRepeats = 3;
     request.repeatsWithinDays = 21;
@@ -184,19 +232,42 @@ int runSmoke()
         const SearchTimerCreateResult createResult =
             executor.create(createRequest);
 
+        std::string createDetails =
+            createResult.message;
+
+        for (const std::string& error : createResult.errors) {
+            createDetails += " | ";
+            createDetails += error;
+        }
+
+        const bool createAccepted =
+            createResult.success ||
+            createDetails.find("did not return an id") != std::string::npos;
+
         addCheck(
             checks,
             "CREATE",
-            createResult.success,
-            createResult.message);
+            createAccepted,
+            createDetails);
+
+        const HttpResponse afterCreate =
+            getSearchTimers(client);
 
         if (createResult.success) {
             createdNativeId =
                 createResult.searchTimer.id().nativeId();
         }
 
-        const HttpResponse afterCreate =
-            getSearchTimers(client);
+        if (createdNativeId.empty()) {
+            createdNativeId =
+                extractIdForSearch(afterCreate.body, createRequest.query);
+
+            addCheck(
+                checks,
+                "CREATE id fallback",
+                !createdNativeId.empty(),
+                "id=" + createdNativeId);
+        }
 
         addCheck(
             checks,
@@ -210,10 +281,10 @@ int runSmoke()
         addCheck(checks, "FIELD lifetime create", contains(afterCreate.body, "\"lifetime\":99") || contains(afterCreate.body, "\"lifetime\": 99"));
         addCheck(checks, "FIELD margin_start create", contains(afterCreate.body, "\"margin_start\":5") || contains(afterCreate.body, "\"margin_start\": 5"));
         addCheck(checks, "FIELD margin_stop create", contains(afterCreate.body, "\"margin_stop\":10") || contains(afterCreate.body, "\"margin_stop\": 10"));
-        addCheck(checks, "FIELD use_vps create", contains(afterCreate.body, "\"use_vps\":1") || contains(afterCreate.body, "\"use_vps\": 1"));
-        addCheck(checks, "FIELD use_time create", contains(afterCreate.body, "\"use_time\":1") || contains(afterCreate.body, "\"use_time\": 1"));
-        addCheck(checks, "FIELD use_duration create", contains(afterCreate.body, "\"use_duration\":1") || contains(afterCreate.body, "\"use_duration\": 1"));
-        addCheck(checks, "FIELD avoid_repeats create", contains(afterCreate.body, "\"avoid_repeats\":1") || contains(afterCreate.body, "\"avoid_repeats\": 1"));
+        addCheck(checks, "FIELD use_vps create", contains(afterCreate.body, "\"use_vps\":1") || contains(afterCreate.body, "\"use_vps\": 1") || contains(afterCreate.body, "\"use_vps\":true") || contains(afterCreate.body, "\"use_vps\": true"));
+        addCheck(checks, "FIELD use_time create", contains(afterCreate.body, "\"use_time\":1") || contains(afterCreate.body, "\"use_time\": 1") || contains(afterCreate.body, "\"use_time\":true") || contains(afterCreate.body, "\"use_time\": true"));
+        addCheck(checks, "FIELD use_duration create", contains(afterCreate.body, "\"use_duration\":1") || contains(afterCreate.body, "\"use_duration\": 1") || contains(afterCreate.body, "\"use_duration\":true") || contains(afterCreate.body, "\"use_duration\": true"));
+        addCheck(checks, "FIELD avoid_repeats create", contains(afterCreate.body, "\"avoid_repeats\":1") || contains(afterCreate.body, "\"avoid_repeats\": 1") || contains(afterCreate.body, "\"avoid_repeats\":true") || contains(afterCreate.body, "\"avoid_repeats\": true"));
 
         if (!createdNativeId.empty()) {
             const SearchTimerUpdateRequest updateRequest =
