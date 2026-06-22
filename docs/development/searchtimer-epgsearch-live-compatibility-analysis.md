@@ -210,7 +210,7 @@ This keeps each phase testable against RESTfulAPI and real VDR behavior.
 
 The next implementation phase should be:
 
-Phase 47.55 - SearchTimer series recording enrichment
+Phase 47.56 - SearchTimer series recording enrichment
 
 Scope:
 

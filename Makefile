@@ -35,6 +35,14 @@ restfulapi-connectivity-smoke:
 		-o /tmp/restfulapi_connectivity_smoke
 	/tmp/restfulapi_connectivity_smoke
 
+searchtimer-real-vdr-smoke-helper:
+	$(CXX) $(CXXFLAGS) \
+		core/http/src/BasicHttpClient.cpp \
+		core/vdr/src/RestfulApiSearchTimerCommandExecutor.cpp \
+		apps/tools/searchtimer_real_vdr_smoke.cpp \
+		-o /tmp/vdr_suite_searchtimer_real_smoke
+	/tmp/vdr_suite_searchtimer_real_smoke --help
+
 dashboard-cli: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \

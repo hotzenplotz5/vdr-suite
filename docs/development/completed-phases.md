@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.55 - SearchTimer real VDR smoke test tool
+
+Status: Completed.
+
+Summary:
+- Added a real VDR SearchTimer smoke-test helper under apps/tools.
+- The helper creates, reads back, updates and deletes a temporary SearchTimer through RESTfulAPI when explicitly run with --run.
+- The Makefile target only builds the helper and prints --help, so normal tests do not modify a real VDR.
+- The tool prints a PASS/FAIL report for create, readback, field checks, update and cleanup.
+
+---
+
 ## Phase 47.54 - SearchTimer repeat handling enrichment
 
 Status: Completed.
