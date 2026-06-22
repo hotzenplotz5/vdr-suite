@@ -201,6 +201,17 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 48.5 - EPGSearch matcher extraction
+
+Status: Completed.
+
+Summary:
+- Extracted EPGSearch text matching from `EpgSearchService` into `EpgSearchMatcher`.
+- Added focused matcher tests for title, subtitle, description and case sensitivity.
+- Kept `EpgSearchService` as a thin orchestration layer over event lists and query results.
+- Moved the next focus to matcher filter expansion.
+
+---
 ## Phase 48.4 - EPGSearch service interface
 
 Status: Completed.

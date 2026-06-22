@@ -220,3 +220,26 @@ Not implemented in this phase:
 - channel/time/duration/day/category filtering
 
 Those belong to later matcher and adapter phases.
+
+## Phase 48.5 Matcher Extraction Result
+
+Phase 48.5 extracted EPGSearch text matching into `EpgSearchMatcher`.
+
+Implemented:
+
+- dedicated matcher class
+- title/subtitle/description matching
+- field-selection aware matching
+- case-sensitive and case-insensitive matching
+- service delegation from `EpgSearchService` to `EpgSearchMatcher`
+
+Not implemented in this phase:
+
+- channel filtering
+- time filtering
+- duration filtering
+- day-of-week filtering
+- extended EPG category filtering
+- fuzzy matching semantics
+
+Those belong to later matcher expansion phases.

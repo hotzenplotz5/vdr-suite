@@ -1,5 +1,14 @@
+test-epgsearch-matcher:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/EpgSearchMatcher.cpp \
+		core/vdr/tests/test_epgsearch_matcher.cpp \
+		-o /tmp/test_epgsearch_matcher
+	/tmp/test_epgsearch_matcher
+
+.PHONY: test-epgsearch-matcher
 test-epgsearch-service:
 	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/EpgSearchMatcher.cpp \
 		core/vdr/src/EpgSearchService.cpp \
 		core/vdr/tests/test_epgsearch_service.cpp \
 		-o /tmp/test_epgsearch_service

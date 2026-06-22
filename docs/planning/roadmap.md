@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 48.4 - EPGSearch service interface
+Phase 48.5 - EPGSearch matcher extraction
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 48.5 - EPGSearch matcher expansion
+Phase 48.6 - EPGSearch matcher filter expansion
 ```
 
 ---

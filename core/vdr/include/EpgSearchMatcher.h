@@ -1,12 +1,11 @@
 #pragma once
 
-#include "EpgSearchRequest.h"
+#include "EpgSearchQuery.h"
 #include "VdrEvent.h"
 
-class EpgSearchMatcher
-{
+class EpgSearchMatcher {
 public:
     bool matches(
         const VdrEvent& event,
-        const EpgSearchRequest& request) const;
+        const EpgSearchQuery& query) const;
 };
