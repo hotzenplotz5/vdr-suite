@@ -14,6 +14,10 @@ struct SearchTimerCreateRequest
     int marginStartMinutes = 0;
     int marginStopMinutes = 0;
     bool useVps = false;
+    int useChannel = 0;
+    std::string channels;
+    std::string channelMin;
+    std::string channelMax;
 
     bool hasBackendId() const
     {

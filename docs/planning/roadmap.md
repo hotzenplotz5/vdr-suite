@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 47.51 - SearchTimer create/update safe body enrichment foundation
+Phase 47.52 - SearchTimer channel constraint enrichment
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.51 - SearchTimer create/update safe body enrichment foundation
+Phase 47.53 - SearchTimer time and duration constraint enrichment
 ```
 
 ---

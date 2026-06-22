@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 47.52 - SearchTimer channel constraint enrichment
+
+Status: Completed.
+
+Summary:
+- Added SearchTimer create/update request fields for channel constraint transport.
+- Preserved RESTfulAPI epgsearch field names for use_channel, channels, channel_min and channel_max.
+- Kept channel_min and channel_max as request strings because RESTfulAPI resolves backend channel identifiers.
+- Covered parser and command executor JSON body behavior with targeted tests.
+
+---
+
 ## Phase 47.51 - SearchTimer create/update safe body enrichment foundation
 
 Status: Completed.

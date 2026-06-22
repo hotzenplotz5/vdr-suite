@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.51 - SearchTimer create/update safe body enrichment foundation
+    Phase 47.52 - SearchTimer channel constraint enrichment
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.52 - SearchTimer channel constraint enrichment
+    Phase 47.53 - SearchTimer time and duration constraint enrichment
 
 Completed foundations:
 

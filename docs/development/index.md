@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 47.51 - SearchTimer create/update safe body enrichment foundation
+Phase 47.52 - SearchTimer channel constraint enrichment
 ```
 
 Next implementation focus:
 
 ```text
-Phase 47.51 - SearchTimer create/update safe body enrichment foundation
+Phase 47.53 - SearchTimer time and duration constraint enrichment
 ```
 
 Current architecture validation:

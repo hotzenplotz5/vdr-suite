@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.51 - SearchTimer create/update safe body enrichment foundation
+Phase 47.52 - SearchTimer channel constraint enrichment
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.52 - SearchTimer channel constraint enrichment
+Phase 47.53 - SearchTimer time and duration constraint enrichment
 ```
 
 Latest Completed Milestones:

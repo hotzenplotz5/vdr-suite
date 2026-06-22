@@ -47,6 +47,10 @@ static SearchTimerCreateRequest makeCreateRequest()
     request.marginStartMinutes = 5;
     request.marginStopMinutes = 10;
     request.useVps = true;
+    request.useChannel = 2;
+    request.channels = "ZDF";
+    request.channelMin = "S19.2E-1-1011-11110";
+    request.channelMax = "S19.2E-1-1011-11120";
     return request;
 }
 
@@ -64,6 +68,10 @@ static SearchTimerUpdateRequest makeUpdateRequest()
     request.marginStartMinutes = 7;
     request.marginStopMinutes = 12;
     request.useVps = true;
+    request.useChannel = 1;
+    request.channels = "";
+    request.channelMin = "S19.2E-1-1011-11110";
+    request.channelMax = "S19.2E-1-1011-11120";
     return request;
 }
 
@@ -94,6 +102,10 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(httpClient.requests.at(0).body.find("\"margin_start\":5") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"margin_stop\":10") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_vps\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_channel\":2") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"channels\":\"ZDF\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"channel_min\":\"S19.2E-1-1011-11110\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"channel_max\":\"S19.2E-1-1011-11120\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
@@ -142,6 +154,9 @@ static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
     assert(httpClient.requests.at(0).body.find("\"margin_start\":7") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"margin_stop\":12") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_vps\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"use_channel\":1") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"channel_min\":\"S19.2E-1-1011-11110\"") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"channel_max\":\"S19.2E-1-1011-11120\"") != std::string::npos);
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 

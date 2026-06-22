@@ -201,5 +201,17 @@ SearchTimerUpdateRequest SearchTimerUpdateRequestParser::parse(
     request.useVps =
         parseBool(values, "useVps", false);
 
+    request.useChannel =
+        parseInt(values, "useChannel", 0);
+
+    request.channels =
+        getValue(values, "channels");
+
+    request.channelMin =
+        getValue(values, "channelMin");
+
+    request.channelMax =
+        getValue(values, "channelMax");
+
     return request;
 }

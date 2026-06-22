@@ -85,7 +85,11 @@ std::string buildSearchTimerBody(
     const int lifetime,
     const int marginStartMinutes,
     const int marginStopMinutes,
-    const bool useVps)
+    const bool useVps,
+    const int useChannel,
+    const std::string& channels,
+    const std::string& channelMin,
+    const std::string& channelMax)
 {
     std::ostringstream body;
 
@@ -95,7 +99,10 @@ std::string buildSearchTimerBody(
         << "\"use_title\":true,"
         << "\"use_subtitle\":true,"
         << "\"use_description\":true,"
-        << "\"use_channel\":0,"
+        << "\"use_channel\":" << useChannel << ","
+        << "\"channels\":\"" << jsonEscape(channels) << "\","
+        << "\"channel_min\":\"" << jsonEscape(channelMin) << "\","
+        << "\"channel_max\":\"" << jsonEscape(channelMax) << "\","
         << "\"directory\":\"" << jsonEscape(directory) << "\","
         << "\"priority\":" << priority << ","
         << "\"lifetime\":" << lifetime << ","
@@ -164,7 +171,11 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             request.lifetime,
             request.marginStartMinutes,
             request.marginStopMinutes,
-            request.useVps);
+            request.useVps,
+            request.useChannel,
+            request.channels,
+            request.channelMin,
+            request.channelMax);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);
@@ -217,7 +228,11 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
             request.lifetime,
             request.marginStartMinutes,
             request.marginStopMinutes,
-            request.useVps);
+            request.useVps,
+            request.useChannel,
+            request.channels,
+            request.channelMin,
+            request.channelMax);
 
     const HttpResponse response =
         httpClient_.execute(httpRequest);

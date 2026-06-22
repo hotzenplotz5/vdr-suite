@@ -20,7 +20,11 @@ int main()
             "\"lifetime\":99,"
             "\"marginStartMinutes\":5,"
             "\"marginStopMinutes\":10,"
-            "\"useVps\":true"
+            "\"useVps\":true,"
+            "\"useChannel\":2,"
+            "\"channels\":\"ZDF\","
+            "\"channelMin\":\"S19.2E-1-1011-11110\","
+            "\"channelMax\":\"S19.2E-1-1011-11120\""
             "}");
 
     assert(request.backendId == "home-vdr");
@@ -34,6 +38,10 @@ int main()
     assert(request.marginStartMinutes == 5);
     assert(request.marginStopMinutes == 10);
     assert(request.useVps == true);
+    assert(request.useChannel == 2);
+    assert(request.channels == "ZDF");
+    assert(request.channelMin == "S19.2E-1-1011-11110");
+    assert(request.channelMax == "S19.2E-1-1011-11120");
 
     const SearchTimerUpdateRequest defaultBackendRequest =
         parser.parse(
@@ -55,6 +63,10 @@ int main()
     assert(defaultBackendRequest.marginStartMinutes == 0);
     assert(defaultBackendRequest.marginStopMinutes == 0);
     assert(defaultBackendRequest.useVps == false);
+    assert(defaultBackendRequest.useChannel == 0);
+    assert(defaultBackendRequest.channels.empty());
+    assert(defaultBackendRequest.channelMin.empty());
+    assert(defaultBackendRequest.channelMax.empty());
 
     std::cout
         << "test_search_timer_update_request_parser passed"
