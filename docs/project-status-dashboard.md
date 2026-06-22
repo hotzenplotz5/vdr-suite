@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 47.71 - Unified real VDR regression command
+Phase 48.0 - Live / EPGSearch feature inventory
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 47.72 - Real VDR regression documentation and usage guide
+Phase 48.1 - EPGSearch capability matrix
 ```
 
 Latest Completed Milestones:

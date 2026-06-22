@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 47.71 - Unified real VDR regression command
+    Phase 48.0 - Live / EPGSearch feature inventory
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 47.72 - Real VDR regression documentation and usage guide
+    Phase 48.1 - EPGSearch capability matrix
 
 Completed foundations:
 

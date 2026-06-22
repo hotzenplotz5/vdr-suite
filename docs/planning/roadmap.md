@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 47.71 - Unified real VDR regression command
+Phase 48.0 - Live / EPGSearch feature inventory
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 47.72 - Real VDR regression documentation and usage guide
+Phase 48.1 - EPGSearch capability matrix
 ```
 
 ---

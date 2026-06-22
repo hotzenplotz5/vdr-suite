@@ -201,6 +201,28 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 48.0 - Live / EPGSearch feature inventory
+
+Status: Completed.
+
+Summary:
+- Started the Live goldstandard analysis after completing the real VDR regression foundation.
+- Inventoried EPGSearch service capabilities used by Live, including search, SearchTimer CRUD, query preview, extended EPG categories, channel groups, blacklists, directories, timer conflicts and expression evaluation.
+- Identified the highest-value remaining gaps after Phase 47: EPGSearch semantics, extended EPG metadata, conflict visibility and SearchTimer query preview parity.
+- Moved the next focus to an EPGSearch capability matrix.
+
+---
+## Phase 48.0 - Live / EPGSearch feature inventory
+
+Status: Completed.
+
+Summary:
+- Started the Live goldstandard analysis after completing the real VDR regression foundation.
+- Inventoried EPGSearch service capabilities used by Live, including search, SearchTimer CRUD, query preview, extended EPG categories, channel groups, blacklists, directories, timer conflicts and expression evaluation.
+- Identified the highest-value remaining gaps after Phase 47: EPGSearch semantics, extended EPG metadata, conflict visibility and SearchTimer query preview parity.
+- Moved the next focus to an EPGSearch capability matrix.
+
+---
 ## Phase 47.71 - Unified real VDR regression command
 
 Status: Completed.
