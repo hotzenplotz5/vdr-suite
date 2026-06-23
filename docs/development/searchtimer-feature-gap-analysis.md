@@ -164,19 +164,17 @@ This remains important for fields that carry comma-separated or encoded value li
 
 The original write gaps have been closed.
 
-The next step is no longer another blind field-enrichment phase.
+The document is preserved as the historical feature-gap analysis that drove the write-enrichment sequence.
 
-Recommended next document:
+Relevant follow-up documents:
 
 - [SearchTimer Completeness Re-Audit](searchtimer-completeness-reaudit.md)
+- [SearchTimer Real VDR Compatibility Report](searchtimer-real-vdr-compatibility-report.md)
+- [EPGSearch Native Fuzzy Real Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 
-Implemented in:
+Current implementation direction:
 
-- Phase 47.65 - SearchTimer full payload real VDR validation
-
-Recommended next implementation phase:
-
-- Phase 47.67 - Add real VDR read-only regression helper
+- Phase 50.0 - SearchTimer user workflow foundation
 
 ---
 

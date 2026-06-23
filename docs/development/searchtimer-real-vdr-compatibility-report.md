@@ -139,11 +139,13 @@ Further field enrichment should be validated with the real smoke helper or an ex
 
 The next implementation phases should prefer real VDR behavioral validation over mock-only assumptions.
 
+The real VDR create, readback, update and delete path is validated enough to move from backend compatibility probing to user workflow design.
+
 ---
 
 ## Next Recommended Phase
 
-Phase 47.67 - Add real VDR read-only regression helper
+Phase 50.0 - SearchTimer user workflow foundation
 
 
 ## Back
