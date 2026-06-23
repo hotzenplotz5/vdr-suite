@@ -166,3 +166,22 @@ Reason:
 - old matcher/service tests used `EpgSearchRequest` directly against `EpgSearchMatcher` and `EpgSearchService`
 - current matcher/service boundaries use `EpgSearchQuery`
 - equivalent active coverage now lives in compact `test_epgsearch_*` tests
+
+## Phase 49.4 Endpoint Regression Result
+
+Phase 49.4 added explicit router-level coverage for `GET /api/epg/search`.
+
+Covered route:
+
+- `/api/epg/search?query=Router&backend=living-room&channelId=router-channel-1&from=123&timespan=3600&limit=10&offset=0&sort=title&order=asc`
+
+Covered assertions:
+
+- HTTP 200
+- JSON content type
+- `matches` response array
+- nested event id
+- nested channel id
+- nested title
+
+This verifies the router-to-controller-to-query-mapper-to-service-to-serializer path.

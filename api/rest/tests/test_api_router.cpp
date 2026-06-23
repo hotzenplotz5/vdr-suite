@@ -645,6 +645,20 @@ int main()
     assert(epgChannelWindowResponse.body.find("events")
            != std::string::npos);
 
+    ApiResponse epgSearchResponse =
+        router.handleGet("/api/epg/search?query=&backend=living-room&channelId=mock-channel-1&from=123&timespan=3600&limit=10&offset=0&sort=title&order=asc");
+
+    assert(epgSearchResponse.statusCode == 200);
+    assert(epgSearchResponse.contentType == "application/json");
+    assert(epgSearchResponse.body.find("\"matches\":[")
+           != std::string::npos);
+    assert(epgSearchResponse.body.find("\"id\":\"mock-event-1\"")
+           != std::string::npos);
+    assert(epgSearchResponse.body.find("\"channelId\":\"mock-channel-1\"")
+           != std::string::npos);
+    assert(epgSearchResponse.body.find("\"title\":\"Tagesschau\"")
+           != std::string::npos);
+
     ApiResponse recordingPersonSearchResponse =
         router.handleGet("/api/recordings/persons/search?role=actor&limit=10&offset=0");
 

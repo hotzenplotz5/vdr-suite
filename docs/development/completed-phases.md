@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.4 - EPGSearch endpoint regression
+
+Status: Completed.
+
+Summary:
+- Added explicit router-level regression coverage for `GET /api/epg/search`.
+- Covered query, backend, channel, time-window, paging and sort/order parameters at the route boundary.
+- Verified the current nested `matches[].event` JSON structure.
+- Confirmed the route flows through router, controller, request mapper, query service and serializer.
+- Moved the next focus to EPGSearch parameter regression expansion.
+
+---
 ## Phase 49.3 - EPGSearch legacy test retirement
 
 Status: Completed.

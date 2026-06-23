@@ -361,3 +361,13 @@ Result:
 - active matcher coverage remains available through `test-epgsearch-matcher`
 - active service coverage remains available through `test-epgsearch-service`
 - obsolete direct `EpgSearchRequest` to matcher/service tests were removed
+
+## Phase 49.4 Endpoint Regression
+
+Phase 49.4 added explicit regression coverage for the EPGSearch HTTP endpoint.
+
+Result:
+
+- `/api/epg/search` is now covered in `test_api_router.cpp`
+- query/backend/channel/time-window/sort/order parameters are routed
+- response JSON shape is verified through the nested `matches[].event` structure
