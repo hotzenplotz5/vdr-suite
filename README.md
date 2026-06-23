@@ -43,7 +43,7 @@ Milestone progress:
 
 Current milestone:
 
-    Phase 47.0 - SearchTimer Foundation
+    Phase 50.0 - SearchTimer user workflow foundation
 
 Progress source: [Project Progress](docs/planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -58,7 +58,7 @@ Latest completed implementation phase:
 
 Current documentation consolidation:
 
-    Phase 46.42 - README Refresh
+    Pre-Phase-50 documentation cleanup
 
 Next major implementation milestone:
 
@@ -80,10 +80,12 @@ Completed foundations:
 - Person Metadata Foundation
 - Recording Person Search Foundation
 - Recording Character Search Foundation
+- SearchTimer Backend Foundation
+- Native Fuzzy SearchTimer Capability Validation
 
 Current foundation in progress:
 
-- EPG Person Search Foundation
+- SearchTimer User Workflow Foundation
 
 ---
 
@@ -110,6 +112,14 @@ EPG:
 - Selective EPG query architecture
 - EPG search API
 - Backend-neutral EPG services
+
+SearchTimer:
+
+- SearchTimer backend provider and route foundation
+- SearchTimer real payload validation
+- SearchTimer real VDR compatibility validation
+- Native fuzzy SearchTimer capability validation
+- Phase 50 user workflow foundation in progress
 
 Recordings:
 
@@ -148,15 +158,15 @@ Backend workload should be comparable to established VDR frontends such as live 
 
 ## Roadmap Snapshot
 
-- Phase 47 - SearchTimer Foundation
-- Phase 48 - Unified Search Foundation
-- Phase 49 - Profiles, Permissions and Policy
-- Phase 50 - Backend Management Foundation
+- Phase 50 - SearchTimer User Workflow Foundation
 - Phase 51 - Live Plugin Parity Foundation
-- Phase 52 - SearchTimer Automation
+- Phase 52 - SearchTimer Automation Foundation
 - Phase 53 - Recommendation Foundation
 - Phase 54 - Cross Backend Search and Federation
-- Phase 55 - Content Knowledge Graph
+- Phase 55 - Backend Management and Client Administration Foundation
+- Later - Profiles, Permissions and Policy
+- Later - Unified Search Foundation
+- Later - Content Knowledge Graph
 
 ---
 
@@ -191,6 +201,9 @@ Metadata:
 Search:
 
 - [EPG Search API](docs/development/epg-search-api.md)
+- [SearchTimer Backend Contract](docs/development/searchtimer-backend-contract.md)
+- [SearchTimer Real Payload Validation](docs/development/searchtimer-real-payload-validation.md)
+- [EPGSearch Native Fuzzy Real Backend Validation](docs/development/epgsearch-native-fuzzy-real-backend-validation.md)
 
 ---
 
