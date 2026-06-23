@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.29 - EPGSearch native fuzzy persisted capability restore validation
+    Phase 49.30 - EPGSearch native fuzzy validation consolidation
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.30 - EPGSearch native fuzzy validation consolidation
+    Phase 50.0 - SearchTimer user workflow foundation
 
 Completed foundations:
 

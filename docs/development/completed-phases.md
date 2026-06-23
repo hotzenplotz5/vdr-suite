@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.30 - EPGSearch native fuzzy validation consolidation
+
+Status: Completed.
+
+Summary:
+- Added a consolidated Makefile helper target for the native fuzzy validation helper set.
+- Consolidated the native fuzzy validation sequence into one documented operational flow.
+- Documented the operator refresh, capability report and persisted restore helper order.
+- Clarified the mutation boundary: only operator refresh creates a temporary SearchTimer probe.
+- Confirmed capability report and persisted restore validation are read-only after refresh/restart.
+- Captured the current native fuzzy backend capability conclusion.
+- Listed remaining scope outside the validated backend capability path, including UI/client workflow, full Live-style option surface, conflict/result views and multi-backend frontend polish.
+
+---
+
 ## Phase 49.29 - EPGSearch native fuzzy persisted capability restore validation
 
 Status: Completed.
