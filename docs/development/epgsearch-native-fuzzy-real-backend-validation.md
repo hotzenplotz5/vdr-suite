@@ -298,6 +298,42 @@ The helper defaults to the daemon endpoint:
 The RESTfulAPI empty-body create response is now part of the supported behavior. The command executor treats HTTP 200 without an Id body as accepted only when a unique created SearchTimer can be read back by the exact probe query.
 
 
+## Capability report validation
+
+Phase 49.28 validates that the native fuzzy operator refresh result is visible through the public VDR-Suite capability report.
+
+The validated capability report endpoint is:
+
+    GET /api/vdr/capabilities
+
+The validated capability is:
+
+    epg.search.fuzzy.native
+
+The validation sequence is:
+
+    run operator refresh through /api/epgsearch/native-fuzzy/refresh
+    update backend capability state from the successful probe result
+    read /api/vdr/capabilities
+    verify epg.search.fuzzy.native supported=true
+    verify epg.search.fuzzy.native availability=available
+    verify epg.search.fuzzy.native availableNow=true
+
+The helper is:
+
+    tools/validate_vdr_suite_native_fuzzy_capability_report.py
+
+Safe dry-run:
+
+    python3 tools/validate_vdr_suite_native_fuzzy_capability_report.py
+
+Real execution:
+
+    python3 tools/validate_vdr_suite_native_fuzzy_capability_report.py --execute
+
+The daemon capability report now resolves capability state dynamically from the backend registry. This prevents the report from staying stale after an operator-triggered native fuzzy refresh updates backend capability state.
+
+
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.
@@ -316,7 +352,7 @@ If cleanup fails, manually delete the temporary SearchTimer named with the confi
 
 ## Phase status
 
-Phase 49.27 validates the full operator-triggered native fuzzy refresh against real yaVDR through VDR-Suite and documents the supported RESTfulAPI empty-body create fallback.
+Phase 49.28 validates that the refreshed native fuzzy capability is visible through /api/vdr/capabilities and that the report resolves capability state dynamically from the backend registry.
 
 ## Back
 

@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.28 - EPGSearch native fuzzy capability report validation
+
+Status: Completed.
+
+Summary:
+- Added `BackendRegistryCapabilityResolver` so capability reports read the current backend capability state dynamically.
+- Switched daemon capability report generation away from a startup-only capability snapshot.
+- Added regression coverage proving that backend capability updates are reflected in capability resolution.
+- Added a safe VDR-Suite capability report validation helper for `/api/vdr/capabilities`.
+- Verified the real operator refresh followed by `GET /api/vdr/capabilities`.
+- Confirmed that `epg.search.fuzzy.native` reports `supported=true`, `availability=available` and `availableNow=true` after a successful native fuzzy refresh.
+- Preserved unavailable behavior for missing backends.
+
+---
+
 ## Phase 49.27 - EPGSearch native fuzzy operator refresh operational validation
 
 Status: Completed.

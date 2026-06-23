@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.27 - EPGSearch native fuzzy operator refresh operational validation
+    Phase 49.28 - EPGSearch native fuzzy capability report validation
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.28 - EPGSearch native fuzzy capability report validation
+    Phase 49.29 - EPGSearch native fuzzy persisted capability restore validation
 
 Completed foundations:
 
