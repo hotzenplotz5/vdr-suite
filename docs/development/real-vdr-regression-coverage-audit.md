@@ -109,17 +109,19 @@ Allowed only with explicit test fixtures:
 
 ---
 
-## Recommended Next Phase
+## Historical Recommendation
 
-Phase 47.67 - Add real VDR read-only regression helper
+Phase 47.67 originally recommended adding a real VDR read-only regression helper.
 
-Scope:
+That recommendation is complete.
 
-- Create a dedicated read-only tool.
-- Add a Makefile target.
-- Verify status, channels, events, recordings and timers.
-- Keep it safe enough to run on a production VDR.
-- Do not test write operations yet.
+Current state:
+
+- The read-only real VDR regression helper exists.
+- The SearchTimer real VDR smoke path exists.
+- The Timer lifecycle real VDR smoke path exists.
+- Phase 47.71 added the unified `make real-vdr-regression` command.
+- Phase 50.0 can build on this validation foundation for SearchTimer user workflow work.
 
 ---
 
