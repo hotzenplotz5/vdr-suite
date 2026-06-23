@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 49.2 - EPGSearch service test consolidation
+Phase 49.3 - EPGSearch legacy test retirement
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 49.3 - EPGSearch legacy test retirement
+Phase 49.4 - EPGSearch endpoint regression
 ```
 
 ---

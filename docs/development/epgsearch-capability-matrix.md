@@ -350,3 +350,14 @@ Result:
 - channel interval filtering is covered
 - duration-window filtering is covered
 - paging and sorting remain API/request concerns
+
+## Phase 49.3 Legacy Test Retirement
+
+Phase 49.3 retired obsolete request-era matcher and service tests.
+
+Result:
+
+- request model coverage remains available through `test-epg-search-request`
+- active matcher coverage remains available through `test-epgsearch-matcher`
+- active service coverage remains available through `test-epgsearch-service`
+- obsolete direct `EpgSearchRequest` to matcher/service tests were removed

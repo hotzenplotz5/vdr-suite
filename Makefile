@@ -836,13 +836,6 @@ test-epg-search-request:
 		-o /tmp/test_epg_search_request
 	/tmp/test_epg_search_request
 
-test-epg-search-matcher:
-	$(CXX) $(CXXFLAGS) \
-		core/vdr/src/EpgSearchMatcher.cpp \
-		core/vdr/tests/test_epg_search_matcher.cpp \
-		-o /tmp/test_epg_search_matcher
-	/tmp/test_epg_search_matcher
-
 test-epg-search-result:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_search_result.cpp \
@@ -923,14 +916,6 @@ test-epg-search-result-json-serializer:
 		core/vdr/tests/test_epg_search_result_json_serializer.cpp \
 		-o /tmp/test_epg_search_result_json_serializer
 	/tmp/test_epg_search_result_json_serializer
-
-test-epg-search-service:
-	$(CXX) $(CXXFLAGS) \
-		core/vdr/src/EpgSearchMatcher.cpp \
-		core/vdr/src/EpgSearchRequestMapper.cpp core/vdr/src/EpgSearchService.cpp \
-		core/vdr/tests/test_epg_search_service.cpp \
-		-o /tmp/test_epg_search_service
-	/tmp/test_epg_search_service
 
 test-rest-query-parameters:
 	$(CXX) $(CXXFLAGS) \

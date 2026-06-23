@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.3 - EPGSearch legacy test retirement
+
+Status: Completed.
+
+Summary:
+- Removed obsolete request-era EPGSearch matcher and service tests.
+- Removed their Makefile targets.
+- Kept `test-epg-search-request` because `EpgSearchRequest` remains the API/controller request model.
+- Preserved active matcher and service coverage through compact `test_epgsearch_*` tests.
+- Moved the next focus to explicit EPGSearch endpoint regression.
+
+---
 ## Phase 49.2 - EPGSearch service test consolidation
 
 Status: Completed.

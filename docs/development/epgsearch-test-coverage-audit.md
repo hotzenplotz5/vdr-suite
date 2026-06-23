@@ -143,3 +143,26 @@ Decision:
 
 - old underscore-style service test is obsolete as an executable service test in its current form
 - its API/request-specific cases should move to mapper/controller/router tests instead of the domain service test
+
+## Phase 49.3 Legacy Test Retirement Result
+
+Phase 49.3 retired obsolete underscore-style EPGSearch matcher and service tests.
+
+Retired:
+
+- `test-epg-search-matcher`
+- `test-epg-search-service`
+- `core/vdr/tests/test_epg_search_matcher.cpp`
+- `core/vdr/tests/test_epg_search_service.cpp`
+
+Kept:
+
+- `test-epg-search-request`
+- `core/vdr/tests/test_epg_search_request.cpp`
+
+Reason:
+
+- `EpgSearchRequest` still exists as API/controller request model
+- old matcher/service tests used `EpgSearchRequest` directly against `EpgSearchMatcher` and `EpgSearchService`
+- current matcher/service boundaries use `EpgSearchQuery`
+- equivalent active coverage now lives in compact `test_epgsearch_*` tests

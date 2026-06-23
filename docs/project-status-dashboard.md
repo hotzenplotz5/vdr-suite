@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 49.2 - EPGSearch service test consolidation
+Phase 49.3 - EPGSearch legacy test retirement
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 49.3 - EPGSearch legacy test retirement
+Phase 49.4 - EPGSearch endpoint regression
 ```
 
 Latest Completed Milestones:

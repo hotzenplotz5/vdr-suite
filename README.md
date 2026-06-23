@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.2 - EPGSearch service test consolidation
+    Phase 49.3 - EPGSearch legacy test retirement
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.3 - EPGSearch legacy test retirement
+    Phase 49.4 - EPGSearch endpoint regression
 
 Completed foundations:
 
