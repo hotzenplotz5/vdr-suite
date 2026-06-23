@@ -10,6 +10,10 @@ include mk/daemon-sources.mk
 include mk/local-test-groups.mk
 
 
+
+vdr-suite-native-fuzzy-operator-refresh-helper:
+	python3 tools/validate_vdr_suite_native_fuzzy_operator_refresh.py --help
+
 restfulapi-real-delete-smoke-helper:
 	$(CXX) $(CXXFLAGS) \
 		$(ACTIONS_SRC) \
@@ -878,6 +882,13 @@ test-restful-api-search-timer-adapter:
 		core/vdr/tests/test_restful_api_search_timer_adapter.cpp \
 		-o /tmp/test_restful_api_search_timer_adapter
 	/tmp/test_restful_api_search_timer_adapter
+test-restful-api-search-timer-command-executor:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/RestfulApiSearchTimerCommandExecutor.cpp \
+		core/vdr/tests/test_restful_api_search_timer_command_executor.cpp \
+		-o /tmp/test_restful_api_search_timer_command_executor
+	/tmp/test_restful_api_search_timer_command_executor
+
 test-restful-api-search-timer-mapper:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/RestfulApiSearchTimerMapper.cpp \

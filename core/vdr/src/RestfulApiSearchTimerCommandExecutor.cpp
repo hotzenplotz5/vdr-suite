@@ -224,6 +224,261 @@ std::string extractReturnedId(
 
     return body.substr(idStart, idEnd - idStart);
 }
+
+std::string extractJsonStringField(
+    const std::string& object,
+    const std::string& fieldName)
+{
+    const std::string fieldMarker =
+        "\"" + fieldName + "\"";
+
+    const std::size_t fieldPosition =
+        object.find(fieldMarker);
+
+    if (fieldPosition == std::string::npos)
+    {
+        return "";
+    }
+
+    const std::size_t colonPosition =
+        object.find(':', fieldPosition + fieldMarker.size());
+
+    if (colonPosition == std::string::npos)
+    {
+        return "";
+    }
+
+    std::size_t valuePosition =
+        object.find_first_not_of(" \t\n\r", colonPosition + 1);
+
+    if (valuePosition == std::string::npos ||
+        object[valuePosition] != '"')
+    {
+        return "";
+    }
+
+    std::ostringstream value;
+    bool escaped = false;
+
+    for (++valuePosition; valuePosition < object.size(); ++valuePosition)
+    {
+        const char character = object[valuePosition];
+
+        if (escaped)
+        {
+            switch (character)
+            {
+                case 'n':
+                    value << '\n';
+                    break;
+                case 'r':
+                    value << '\r';
+                    break;
+                case 't':
+                    value << '\t';
+                    break;
+                default:
+                    value << character;
+                    break;
+            }
+
+            escaped = false;
+            continue;
+        }
+
+        if (character == '\\')
+        {
+            escaped = true;
+            continue;
+        }
+
+        if (character == '"')
+        {
+            return value.str();
+        }
+
+        value << character;
+    }
+
+    return "";
+}
+
+std::string extractJsonIntegerField(
+    const std::string& object,
+    const std::string& fieldName)
+{
+    const std::string fieldMarker =
+        "\"" + fieldName + "\"";
+
+    const std::size_t fieldPosition =
+        object.find(fieldMarker);
+
+    if (fieldPosition == std::string::npos)
+    {
+        return "";
+    }
+
+    const std::size_t colonPosition =
+        object.find(':', fieldPosition + fieldMarker.size());
+
+    if (colonPosition == std::string::npos)
+    {
+        return "";
+    }
+
+    std::size_t valuePosition =
+        object.find_first_not_of(" \t\n\r", colonPosition + 1);
+
+    if (valuePosition == std::string::npos)
+    {
+        return "";
+    }
+
+    if (object[valuePosition] == '"')
+    {
+        ++valuePosition;
+    }
+
+    const std::size_t valueStart = valuePosition;
+
+    while (valuePosition < object.size() &&
+           std::isdigit(static_cast<unsigned char>(object[valuePosition])))
+    {
+        ++valuePosition;
+    }
+
+    if (valuePosition == valueStart)
+    {
+        return "";
+    }
+
+    return object.substr(valueStart, valuePosition - valueStart);
+}
+
+bool findNextJsonObject(
+    const std::string& body,
+    std::size_t& position,
+    std::string& object)
+{
+    const std::size_t start =
+        body.find('{', position);
+
+    if (start == std::string::npos)
+    {
+        return false;
+    }
+
+    int depth = 0;
+    bool insideString = false;
+    bool escaped = false;
+
+    for (std::size_t index = start; index < body.size(); ++index)
+    {
+        const char character = body[index];
+
+        if (escaped)
+        {
+            escaped = false;
+            continue;
+        }
+
+        if (character == '\\' && insideString)
+        {
+            escaped = true;
+            continue;
+        }
+
+        if (character == '"')
+        {
+            insideString = !insideString;
+            continue;
+        }
+
+        if (insideString)
+        {
+            continue;
+        }
+
+        if (character == '{')
+        {
+            ++depth;
+            continue;
+        }
+
+        if (character == '}')
+        {
+            --depth;
+
+            if (depth == 0)
+            {
+                object = body.substr(start, index - start + 1);
+                position = start + 1;
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+std::string extractUniqueSearchTimerIdByExactQuery(
+    const std::string& body,
+    const std::string& query)
+{
+    std::size_t position = 0;
+    std::string object;
+    std::string foundId;
+    int matches = 0;
+
+    while (findNextJsonObject(body, position, object))
+    {
+        if (object.find("\"searchtimers\"") != std::string::npos)
+        {
+            continue;
+        }
+
+        if (extractJsonStringField(object, "search") != query)
+        {
+            continue;
+        }
+
+        const std::string id =
+            extractJsonIntegerField(object, "id");
+
+        if (id.empty())
+        {
+            continue;
+        }
+
+        foundId = id;
+        ++matches;
+    }
+
+    return matches == 1 ? foundId : "";
+}
+
+std::string readBackCreatedIdByExactQuery(
+    IHttpClient& httpClient,
+    const std::string& query)
+{
+    HttpRequest readbackRequest;
+    readbackRequest.method = "GET";
+    readbackRequest.url = "/searchtimers.json";
+    readbackRequest.headers["Accept"] = "application/json";
+
+    const HttpResponse readbackResponse =
+        httpClient.execute(readbackRequest);
+
+    if (readbackResponse.statusCode != 200)
+    {
+        return "";
+    }
+
+    return extractUniqueSearchTimerIdByExactQuery(
+        readbackResponse.body,
+        query);
+}
+
 }
 
 RestfulApiSearchTimerCommandExecutor::RestfulApiSearchTimerCommandExecutor(
@@ -308,14 +563,26 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             });
     }
 
-    const std::string createdId =
+    std::string createdId =
         extractReturnedId(response.body);
+
+    if (createdId.empty())
+    {
+        createdId =
+            readBackCreatedIdByExactQuery(
+                httpClient_,
+                request.query);
+    }
 
     if (createdId.empty())
     {
         return SearchTimerCreateResult::failed(
             "RESTfulAPI searchtimer create did not return an id",
-            {response.body});
+            {
+                response.body,
+                "readback did not find a unique created searchtimer id for query: "
+                    + request.query
+            });
     }
 
     return SearchTimerCreateResult::ok(
