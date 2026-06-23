@@ -471,3 +471,14 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | RESTfulAPI command passthrough | Implemented | Create/update bodies pass `mode` and `tolerance` to RESTfulAPI. |
 | RESTfulAPI readback mapping | Covered | Native `mode=5` and `tolerance` are parsed into SearchTimer match options. |
 | Real-backend validation | Deferred | Follow-up phase. |
+
+## Phase 49.14 Native Fuzzy Real-Backend Validation
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Real-backend validation harness | Implemented | `tools/validate_real_epgsearch_native_fuzzy.py`. |
+| Dry-run safety | Implemented | Default mode sends no request. |
+| Native create validation | Implemented | Optional `--execute` creates one temporary SearchTimer with `mode=5`. |
+| Native readback validation | Implemented | Verifies `mode=5` and requested `tolerance`. |
+| Cleanup validation | Implemented | Deletes the created SearchTimer unless `--keep-created` is used. |
+| Capability autodetection | Deferred | Follow-up phase. |

@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.14 - EPGSearch native fuzzy real-backend validation
+
+Status: Completed.
+
+Summary:
+- Added a safe real-backend validation harness for native fuzzy SearchTimer passthrough.
+- Validator defaults to dry-run and sends no request unless `--execute` is provided.
+- Validator can create a temporary SearchTimer with native epgsearch `mode=5` and `tolerance=<int>`.
+- Validator reads the SearchTimer back from `/searchtimers.json` and verifies native mode and tolerance.
+- Validator deletes the temporary SearchTimer after validation unless `--keep-created` is explicitly provided.
+- Added a runbook for dry-run, execution, authentication, success output and failure interpretation.
+- Deferred runtime capability autodetection to Phase 49.15.
+
+---
 ## Phase 49.13 - EPGSearch native fuzzy adapter passthrough
 
 Status: Completed.

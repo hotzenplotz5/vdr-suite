@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.13 - EPGSearch native fuzzy adapter passthrough
+Phase 49.14 - EPGSearch native fuzzy real-backend validation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.14 - EPGSearch native fuzzy real-backend validation
+Phase 49.15 - EPGSearch native fuzzy capability autodetection
 ```
 
 Current architecture validation:
@@ -79,6 +79,7 @@ Current architecture validation:
 - [Real Recording Action Regression Audit](real-recording-action-regression-audit.md)
 - [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
+- [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [EPGSearch Result Model Audit](epgsearch-result-model-audit.md)
 - [EPGSearch Query Alignment Audit](epgsearch-query-alignment-audit.md)
 - [EPGSearch Test Coverage Audit](epgsearch-test-coverage-audit.md)

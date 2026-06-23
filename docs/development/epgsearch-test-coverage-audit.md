@@ -345,3 +345,23 @@ Deferred behavior:
 
 - real-backend validation against an installed epgsearch backend.
 - backend-specific native fuzzy capability detection beyond the static capability flag.
+
+## Phase 49.14 Native Fuzzy Real-Backend Validation
+
+Phase 49.14 adds a real-backend validation harness for native fuzzy SearchTimer passthrough.
+
+Covered behavior:
+
+- dry-run mode shows the exact payload without sending requests.
+- execution mode creates a temporary SearchTimer with `mode=5`.
+- execution mode sends a configurable `tolerance`.
+- readback mode verifies native `mode=5`.
+- readback mode verifies the configured tolerance.
+- cleanup mode deletes the temporary SearchTimer by native id.
+- basic-auth parameters are available for protected RESTfulAPI endpoints.
+
+Deferred behavior:
+
+- automatic native fuzzy capability detection.
+- permanent capability state changes based on validation outcome.
+- CI execution against a real VDR instance.

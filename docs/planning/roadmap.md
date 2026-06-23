@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 49.13 - EPGSearch native fuzzy adapter passthrough
+Phase 49.14 - EPGSearch native fuzzy real-backend validation
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 49.14 - EPGSearch native fuzzy real-backend validation
+Phase 49.15 - EPGSearch native fuzzy capability autodetection
 ```
 
 ---
