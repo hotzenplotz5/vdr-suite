@@ -371,3 +371,15 @@ Result:
 - `/api/epg/search` is now covered in `test_api_router.cpp`
 - query/backend/channel/time-window/sort/order parameters are routed
 - response JSON shape is verified through the nested `matches[].event` structure
+
+## Phase 49.5 Parameter Regression
+
+Phase 49.5 extended endpoint regression coverage with invalid parameter handling for `/api/epg/search`.
+
+Result:
+
+- invalid `timespan` is rejected
+- invalid `limit` is rejected
+- invalid `offset` is rejected
+- invalid `sort` is rejected
+- invalid `order` is rejected

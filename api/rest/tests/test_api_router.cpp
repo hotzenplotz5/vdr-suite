@@ -659,6 +659,46 @@ int main()
     assert(epgSearchResponse.body.find("\"title\":\"Tagesschau\"")
            != std::string::npos);
 
+    ApiResponse epgSearchInvalidTimespanResponse =
+        router.handleGet("/api/epg/search?query=&channelId=mock-channel-1&from=123&timespan=0");
+
+    assert(epgSearchInvalidTimespanResponse.statusCode == 400);
+    assert(epgSearchInvalidTimespanResponse.contentType == "application/json");
+    assert(epgSearchInvalidTimespanResponse.body.find("timespan must be greater than zero")
+           != std::string::npos);
+
+    ApiResponse epgSearchInvalidLimitResponse =
+        router.handleGet("/api/epg/search?query=&channelId=mock-channel-1&from=123&timespan=3600&limit=-1");
+
+    assert(epgSearchInvalidLimitResponse.statusCode == 400);
+    assert(epgSearchInvalidLimitResponse.contentType == "application/json");
+    assert(epgSearchInvalidLimitResponse.body.find("limit must not be negative")
+           != std::string::npos);
+
+    ApiResponse epgSearchInvalidOffsetResponse =
+        router.handleGet("/api/epg/search?query=&channelId=mock-channel-1&from=123&timespan=3600&offset=-1");
+
+    assert(epgSearchInvalidOffsetResponse.statusCode == 400);
+    assert(epgSearchInvalidOffsetResponse.contentType == "application/json");
+    assert(epgSearchInvalidOffsetResponse.body.find("offset must not be negative")
+           != std::string::npos);
+
+    ApiResponse epgSearchInvalidSortResponse =
+        router.handleGet("/api/epg/search?query=&channelId=mock-channel-1&from=123&timespan=3600&sort=unknown");
+
+    assert(epgSearchInvalidSortResponse.statusCode == 400);
+    assert(epgSearchInvalidSortResponse.contentType == "application/json");
+    assert(epgSearchInvalidSortResponse.body.find("invalid sort field")
+           != std::string::npos);
+
+    ApiResponse epgSearchInvalidOrderResponse =
+        router.handleGet("/api/epg/search?query=&channelId=mock-channel-1&from=123&timespan=3600&order=sideways");
+
+    assert(epgSearchInvalidOrderResponse.statusCode == 400);
+    assert(epgSearchInvalidOrderResponse.contentType == "application/json");
+    assert(epgSearchInvalidOrderResponse.body.find("invalid sort order")
+           != std::string::npos);
+
     ApiResponse recordingPersonSearchResponse =
         router.handleGet("/api/recordings/persons/search?role=actor&limit=10&offset=0");
 

@@ -185,3 +185,17 @@ Covered assertions:
 - nested title
 
 This verifies the router-to-controller-to-query-mapper-to-service-to-serializer path.
+
+## Phase 49.5 Parameter Regression Result
+
+Phase 49.5 added explicit router-level regression coverage for invalid `/api/epg/search` parameters.
+
+Covered invalid cases:
+
+- `timespan=0` returns HTTP 400.
+- `limit=-1` returns HTTP 400.
+- `offset=-1` returns HTTP 400.
+- `sort=unknown` returns HTTP 400.
+- `order=sideways` returns HTTP 400.
+
+The positive endpoint regression from Phase 49.4 remains in place.

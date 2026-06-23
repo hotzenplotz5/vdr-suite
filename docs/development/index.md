@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.4 - EPGSearch endpoint regression
+Phase 49.5 - EPGSearch parameter regression expansion
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.5 - EPGSearch parameter regression expansion
+Phase 49.6 - EPGSearch search-mode regression
 ```
 
 Current architecture validation:

@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.5 - EPGSearch parameter regression expansion
+
+Status: Completed.
+
+Summary:
+- Added router-level regression coverage for invalid `/api/epg/search` parameters.
+- Verified `timespan <= 0` returns HTTP 400.
+- Verified negative `limit` and `offset` return HTTP 400.
+- Verified invalid `sort` and `order` values return HTTP 400.
+- Preserved the positive endpoint regression from Phase 49.4.
+- Moved the next focus to EPGSearch search-mode regression.
+
+---
 ## Phase 49.4 - EPGSearch endpoint regression
 
 Status: Completed.
