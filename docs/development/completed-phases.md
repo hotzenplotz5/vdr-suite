@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.8 - EPGSearch regex mode safety decision
+
+Status: Completed.
+
+Summary:
+- Added ADR-0032 for EPGSearch regex mode safety.
+- Decided that regex is only enabled explicitly via `mode=regex`.
+- Decided that invalid regex input must return HTTP 400.
+- Decided that invalid regex input must not crash the process or fall back to phrase matching.
+- Kept default phrase/contains behavior and deterministic exact/all/any modes stable.
+- Deferred regex execution implementation to Phase 49.9.
+- Kept fuzzy search as a separate future decision.
+
+---
 ## Phase 49.7 - deterministic EPGSearch modes
 
 Status: Completed.

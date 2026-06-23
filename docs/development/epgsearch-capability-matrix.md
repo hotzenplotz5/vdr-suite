@@ -407,3 +407,15 @@ Phase 49.6 confirms the currently implemented EPGSearch text behavior.
 | Any-word mode | Implemented | `mode=any` and `mode=anyWord`. |
 | Regular-expression mode | Deferred | Requires safety and invalid-pattern decision. |
 | Fuzzy mode | Deferred | Requires tolerance and ranking decision. |
+
+## Phase 49.8 Regex Mode Safety Decision
+
+Phase 49.8 defines the safety contract for future regex search mode.
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Regex public mode name | Decided | `mode=regex`. |
+| Regex implicit activation | Rejected | Regex must never be enabled by default. |
+| Invalid regex handling | Decided | Must return HTTP 400 and must not fall back to phrase matching. |
+| Regex execution | Deferred | Implementation follows in a later phase. |
+| Fuzzy search | Deferred | Remains a separate scoring and tolerance decision. |

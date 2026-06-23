@@ -72,7 +72,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 49.7 - deterministic EPGSearch modes
+Phase 49.8 - EPGSearch regex mode safety decision
 ```
 
 Current documentation consolidation state:
@@ -84,7 +84,7 @@ Phase 46.41 - Current Project Status Refresh
 Next major implementation milestone:
 
 ```text
-Phase 49.8 - EPGSearch regex mode safety decision
+Phase 49.9 - EPGSearch regex mode implementation
 ```
 
 Completed foundations:
@@ -234,7 +234,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 49.8 - EPGSearch regex mode safety decision
+Phase 49.9 - EPGSearch regex mode implementation
 ```
 
 The next major implementation milestone is SearchTimer. It should turn existing EPG search, recording search and metadata search foundations into persistent search rules and later automation.

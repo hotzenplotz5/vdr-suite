@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.7 - deterministic EPGSearch modes
+Phase 49.8 - EPGSearch regex mode safety decision
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.8 - EPGSearch regex mode safety decision
+Phase 49.9 - EPGSearch regex mode implementation
 ```
 
 Current architecture validation:
@@ -61,6 +61,7 @@ Current architecture validation:
 - [ADR-0025: Configurable Metadata Provider Architecture](../adr/ADR-0025-configurable-metadata-provider-architecture.md)
 - [ADR-0028: Content Classification Architecture](../adr/ADR-0028-content-classification-architecture.md)
 - [ADR-0031: Person Catalog and External Filmography Architecture](../adr/ADR-0031-person-catalog-and-external-filmography.md)
+- [ADR-0032: EPGSearch Regex Mode Safety](../adr/ADR-0032-epgsearch-regex-mode-safety.md)
 - [Timer Contract Gap Analysis](timer-contract-gap-analysis.md)
 - [Real Recording Action End-to-End Validation](real-recording-action-e2e-validation.md)
 - [Phase 44 Recording Action Runtime Completion](phase-44-recording-action-runtime-completion.md)

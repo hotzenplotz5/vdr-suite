@@ -235,3 +235,19 @@ Deferred behavior:
 
 - regular-expression mode remains a separate safety decision.
 - fuzzy mode remains a separate scoring/tolerance decision.
+
+## Phase 49.8 Regex Mode Safety Decision
+
+Phase 49.8 records the regex-mode safety contract before enabling regex execution.
+
+Decision coverage:
+
+- `mode=regex` is the intended public mode name.
+- invalid regex input must become a stable HTTP 400 contract.
+- invalid regex input must not crash the process.
+- invalid regex input must not fall back to phrase matching.
+- default phrase/contains search remains unchanged.
+- exact/all/any deterministic modes remain independent from regex.
+- fuzzy search remains a future decision.
+
+Implementation coverage is intentionally deferred to the follow-up regex implementation phase.
