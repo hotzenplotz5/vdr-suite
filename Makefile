@@ -966,6 +966,10 @@ test-api-router: prepare-test-db
 		$(VDR_SRC) \
 		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityFreshnessPolicy.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyStaleProbeAdministrationService.cpp \
+		api/rest/src/EpgSearchNativeFuzzyStaleProbeAdministrationController.cpp \
                 api/rest/src/SearchTimerController.cpp \
                 core/vdr/src/SearchTimerResultJsonSerializer.cpp \
                 core/vdr/src/SearchTimerService.cpp \
