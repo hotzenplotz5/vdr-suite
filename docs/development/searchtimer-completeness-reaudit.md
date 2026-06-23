@@ -155,20 +155,22 @@ The remaining gaps are not simple field-enrichment gaps. They are integration an
 
 ## Recommendation
 
-The write-enrichment sequence should be considered complete after Phase 47.64.
+The write-enrichment sequence is complete.
 
-The next implementation focus should move from adding individual fields to validating the full SearchTimer lifecycle.
+The real VDR compatibility and native fuzzy capability validation path has moved SearchTimer beyond simple field completeness.
 
 Recommended next phase:
 
-Phase 47.67 - Add real VDR read-only regression helper
+Phase 50.0 - SearchTimer user workflow foundation
 
 Purpose:
 
-- run the real VDR smoke helper with the enriched full payload
-- verify create, readback, update and delete behavior
-- document which advanced fields persist exactly and which RESTfulAPI/epgsearch normalizes
-- prepare the transition from field completeness to lifecycle completeness
+- move from backend field completeness to user workflow completeness
+- define the operator-facing create, list, update and delete semantics
+- expose only validated options as stable workflow surface
+- keep unsupported epgsearch and Live-style options explicit future scope
+- preserve backend identity for later multi-backend SearchTimer behavior
+- prepare later automation only after the manual workflow foundation is stable
 
 ---
 
