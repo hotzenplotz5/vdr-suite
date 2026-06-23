@@ -47,9 +47,9 @@ int main()
             "\"searchTimerAction\":2,"
             "\"blacklistMode\":1,"
             "\"blacklistIds\":\"3,7\","
-            "\"matchMode\":2,"
+            "\"mode\":\"fuzzy\","
             "\"matchCase\":true,"
-            "\"matchTolerance\":4,"
+            "\"tolerance\":2,"
             "\"summaryMatch\":1,"
             "\"useExtendedEpgInfo\":true,"
             "\"extendedEpgInfo\":\"category=movie\","
@@ -103,9 +103,9 @@ int main()
     assert(request.searchTimerAction == 2);
     assert(request.blacklistMode == 1);
     assert(request.blacklistIds == "3,7");
-    assert(request.matchMode == 2);
+    assert(request.matchMode == 5);
     assert(request.matchCase == true);
-    assert(request.matchTolerance == 4);
+    assert(request.matchTolerance == 2);
     assert(request.summaryMatch == 1);
     assert(request.useExtendedEpgInfo == true);
     assert(request.extendedEpgInfo == "category=movie");

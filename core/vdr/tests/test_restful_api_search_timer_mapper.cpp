@@ -20,7 +20,7 @@ int main()
         "\"use_series_recording\":1,\"keep_recs\":10,"
         "\"del_mode\":2,\"search_timer_action\":1,"
         "\"blacklist_mode\":2,\"blacklist_ids\":\"4,5\","
-        "\"mode\":2,\"match_case\":1,\"tolerance\":1,\"summary_match\":3,"
+        "\"mode\":5,\"match_case\":1,\"tolerance\":2,\"summary_match\":3,"
         "\"use_ext_epg_info\":1,\"ext_epg_info\":\"category=movie\","
         "\"ignore_missing_epg_cats\":1,\"content_descriptors\":\"16,32\","
         "\"use_in_favorites\":1,\"use_as_searchtimer_from\":\"2026-06-01\","
@@ -70,9 +70,9 @@ int main()
     assert(timers.at(0).seriesOptions().searchTimerAction() == 1);
     assert(timers.at(0).blacklistOptions().blacklistMode() == 2);
     assert(timers.at(0).blacklistOptions().blacklistIds() == "4,5");
-    assert(timers.at(0).matchOptions().mode() == 2);
+    assert(timers.at(0).matchOptions().mode() == 5);
     assert(timers.at(0).matchOptions().matchCase());
-    assert(timers.at(0).matchOptions().tolerance() == 1);
+    assert(timers.at(0).matchOptions().tolerance() == 2);
     assert(timers.at(0).matchOptions().summaryMatch() == 3);
     assert(timers.at(0).extendedEpgOptions().useExtendedEpgInfo());
     assert(timers.at(0).extendedEpgOptions().extendedEpgInfo() == "category=movie");

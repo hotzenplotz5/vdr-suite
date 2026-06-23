@@ -461,3 +461,13 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Capability report distinction | Implemented | Fallback and native fuzzy support are reported separately. |
 | Snapshot read-only capability set | Updated | Provides fallback fuzzy support, not native epgsearch fuzzy support. |
 | Native adapter passthrough | Deferred | Follow-up phase. |
+
+## Phase 49.13 Native Fuzzy Adapter Passthrough
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Public SearchTimer mode alias | Implemented | `mode=fuzzy` maps to native mode 5. |
+| Public SearchTimer tolerance alias | Implemented | `tolerance=<int>` maps to native tolerance. |
+| RESTfulAPI command passthrough | Implemented | Create/update bodies pass `mode` and `tolerance` to RESTfulAPI. |
+| RESTfulAPI readback mapping | Covered | Native `mode=5` and `tolerance` are parsed into SearchTimer match options. |
+| Real-backend validation | Deferred | Follow-up phase. |

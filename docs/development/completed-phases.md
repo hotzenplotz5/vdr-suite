@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.13 - EPGSearch native fuzzy adapter passthrough
+
+Status: Completed.
+
+Summary:
+- Added public SearchTimer body aliases for `mode` and `tolerance`.
+- Mapped `mode=fuzzy` to the epgsearch-compatible numeric mode 5.
+- Mapped `tolerance=<int>` to SearchTimer match tolerance.
+- Preserved existing numeric `matchMode` and `matchTolerance` compatibility.
+- Verified RESTfulAPI SearchTimer mapper readback of native fuzzy mode 5 plus tolerance.
+- Verified RESTfulAPI SearchTimer command executor passthrough for create and update.
+- Deferred real-backend native fuzzy validation to Phase 49.14.
+
+---
 ## Phase 49.12 - EPGSearch native fuzzy capability mapping
 
 Status: Completed.

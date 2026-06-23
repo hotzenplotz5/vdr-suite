@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 49.12 - EPGSearch native fuzzy capability mapping
+Phase 49.13 - EPGSearch native fuzzy adapter passthrough
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 49.13 - EPGSearch native fuzzy adapter passthrough
+Phase 49.14 - EPGSearch native fuzzy real-backend validation
 ```
 
 Latest Completed Milestones:

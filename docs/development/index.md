@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.12 - EPGSearch native fuzzy capability mapping
+Phase 49.13 - EPGSearch native fuzzy adapter passthrough
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.13 - EPGSearch native fuzzy adapter passthrough
+Phase 49.14 - EPGSearch native fuzzy real-backend validation
 ```
 
 Current architecture validation:

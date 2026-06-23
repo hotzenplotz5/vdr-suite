@@ -181,6 +181,80 @@ int parseInt(
 
     return std::atoi(iterator->second.c_str());
 }
+
+int parseModeValue(
+    const std::string& value,
+    int defaultValue)
+{
+    if (value == "phrase")
+    {
+        return 0;
+    }
+
+    if (value == "all" ||
+        value == "allWords")
+    {
+        return 1;
+    }
+
+    if (value == "any" ||
+        value == "anyWord")
+    {
+        return 2;
+    }
+
+    if (value == "exact")
+    {
+        return 3;
+    }
+
+    if (value == "regex")
+    {
+        return 4;
+    }
+
+    if (value == "fuzzy")
+    {
+        return 5;
+    }
+
+    if (value.empty())
+    {
+        return defaultValue;
+    }
+
+    return std::atoi(value.c_str());
+}
+
+int parseSearchTimerMode(
+    const std::map<std::string, std::string>& values,
+    int defaultValue)
+{
+    const std::string publicMode =
+        getValue(values, "mode");
+
+    if (!publicMode.empty())
+    {
+        return parseModeValue(publicMode, defaultValue);
+    }
+
+    return parseInt(values, "matchMode", defaultValue);
+}
+
+int parseSearchTimerTolerance(
+    const std::map<std::string, std::string>& values,
+    int defaultValue)
+{
+    const std::string publicTolerance =
+        getValue(values, "tolerance");
+
+    if (!publicTolerance.empty())
+    {
+        return std::atoi(publicTolerance.c_str());
+    }
+
+    return parseInt(values, "matchTolerance", defaultValue);
+}
 }
 
 SearchTimerCreateRequest SearchTimerCreateRequestParser::parse(
@@ -302,13 +376,13 @@ SearchTimerCreateRequest SearchTimerCreateRequestParser::parse(
         getValue(values, "blacklistIds");
 
     request.matchMode =
-        parseInt(values, "matchMode", 0);
+        parseSearchTimerMode(values, 0);
 
     request.matchCase =
         parseBool(values, "matchCase", false);
 
     request.matchTolerance =
-        parseInt(values, "matchTolerance", 0);
+        parseSearchTimerTolerance(values, 0);
 
     request.summaryMatch =
         parseInt(values, "summaryMatch", 0);

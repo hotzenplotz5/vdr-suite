@@ -325,3 +325,23 @@ Deferred behavior:
 - native RESTfulAPI/epgsearch fuzzy passthrough.
 - real-backend native fuzzy detection.
 - runtime capability merging between fallback and native execution paths.
+
+## Phase 49.13 Native Fuzzy Adapter Passthrough
+
+Phase 49.13 covers native fuzzy passthrough at the SearchTimer/RESTfulAPI boundary.
+
+Covered behavior:
+
+- create request parser accepts `mode=fuzzy`.
+- update request parser accepts `mode=fuzzy`.
+- create request parser accepts `tolerance=<int>`.
+- update request parser accepts `tolerance=<int>`.
+- `mode=fuzzy` maps to native epgsearch mode 5.
+- RESTfulAPI mapper reads native `mode=5` and `tolerance` into SearchTimer match options.
+- RESTfulAPI command executor sends native `mode=5` and `tolerance` during create.
+- RESTfulAPI command executor sends native `mode=5` and `tolerance` during update.
+
+Deferred behavior:
+
+- real-backend validation against an installed epgsearch backend.
+- backend-specific native fuzzy capability detection beyond the static capability flag.

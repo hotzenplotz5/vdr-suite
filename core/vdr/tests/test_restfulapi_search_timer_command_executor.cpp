@@ -226,6 +226,30 @@ static void test_create_posts_to_restfulapi_searchtimers()
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
+static void test_create_passes_native_fuzzy_mode_to_restfulapi()
+{
+    HttpResponse response;
+    response.statusCode = 200;
+    response.body = "OK, Id:43";
+
+    TestHttpClient httpClient(response);
+    RestfulApiSearchTimerCommandExecutor executor(httpClient);
+
+    SearchTimerCreateRequest request =
+        makeCreateRequest();
+
+    request.matchMode = 5;
+    request.matchTolerance = 2;
+
+    const SearchTimerCreateResult result =
+        executor.create(request);
+
+    assert(result.success == true);
+    assert(httpClient.requests.size() == 1);
+    assert(httpClient.requests.at(0).body.find("\"mode\":5") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"tolerance\":2") != std::string::npos);
+}
+
 static void test_create_fails_without_created_id()
 {
     HttpResponse response;
@@ -316,6 +340,30 @@ static void test_update_puts_to_restfulapi_searchtimer_by_native_id()
     assert(httpClient.requests.at(0).body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
+static void test_update_passes_native_fuzzy_mode_to_restfulapi()
+{
+    HttpResponse response;
+    response.statusCode = 200;
+    response.body = "OK, Id:42";
+
+    TestHttpClient httpClient(response);
+    RestfulApiSearchTimerCommandExecutor executor(httpClient);
+
+    SearchTimerUpdateRequest request =
+        makeUpdateRequest();
+
+    request.matchMode = 5;
+    request.matchTolerance = 3;
+
+    const SearchTimerUpdateResult result =
+        executor.update(request);
+
+    assert(result.success == true);
+    assert(httpClient.requests.size() == 1);
+    assert(httpClient.requests.at(0).body.find("\"mode\":5") != std::string::npos);
+    assert(httpClient.requests.at(0).body.find("\"tolerance\":3") != std::string::npos);
+}
+
 static void test_update_accepts_missing_returned_id()
 {
     HttpResponse response;
@@ -363,8 +411,10 @@ static void test_remove_deletes_restfulapi_searchtimer_by_native_id()
 int main()
 {
     test_create_posts_to_restfulapi_searchtimers();
+    test_create_passes_native_fuzzy_mode_to_restfulapi();
     test_create_fails_without_created_id();
     test_update_puts_to_restfulapi_searchtimer_by_native_id();
+    test_update_passes_native_fuzzy_mode_to_restfulapi();
     test_update_accepts_missing_returned_id();
     test_remove_deletes_restfulapi_searchtimer_by_native_id();
 
