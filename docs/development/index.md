@@ -60,6 +60,7 @@ Current architecture validation:
 - [ADR-0021: Selective Backend Query Strategy](../adr/ADR-0021-selective-backend-query-strategy.md)
 - [ADR-0025: Configurable Metadata Provider Architecture](../adr/ADR-0025-configurable-metadata-provider-architecture.md)
 - [ADR-0028: Content Classification Architecture](../adr/ADR-0028-content-classification-architecture.md)
+- [ADR-0031: Person Catalog and External Filmography Architecture](../adr/ADR-0031-person-catalog-and-external-filmography.md)
 - [Timer Contract Gap Analysis](timer-contract-gap-analysis.md)
 - [Real Recording Action End-to-End Validation](real-recording-action-e2e-validation.md)
 - [Phase 44 Recording Action Runtime Completion](phase-44-recording-action-runtime-completion.md)
@@ -165,4 +166,3 @@ These documents are historical implementation notes or phase-specific architectu
 - [Back to README](../../README.md)
 - [Back to Documentation Index](../index.md)
 - [Back to Project Overview](../project-overview.md)
-
