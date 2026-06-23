@@ -5,14 +5,25 @@
 - [README](../../README.md)
 - [Documentation Index](../index.md)
 - [Project Overview](../project-overview.md)
+- [Current Roadmap](../planning/roadmap.md)
 
 ---
 
-This directory contains the forward-looking roadmap after the current Phase 10 runtime diagnostics work.
+## Status
 
-The roadmap is split into small phase-specific files to avoid large monolithic planning documents.
+This directory contains older forward-looking roadmap sketches from the early runtime-diagnostics period.
 
-## Phase Groups
+The current authoritative roadmap is:
+
+- [Planning Roadmap](../planning/roadmap.md)
+- [Project Progress](../planning/project-progress.md)
+- [Current Project Status](../development/current-status.md)
+
+The files in this directory are kept for historical planning traceability only.
+
+---
+
+## Historical Phase Groups
 
 - [Phase 11 – Runtime API Hardening](phase-11/overview.md)
 - [Phase 12 – Eventing and Realtime Backend](phase-12/overview.md)
@@ -23,20 +34,18 @@ The roadmap is split into small phase-specific files to avoid large monolithic p
 - [Phase 17 – Mobile Frontends](phase-17/overview.md)
 - [Phase 18 – Multi-VDR Federation](phase-18/overview.md)
 
-## Documentation Rule
-
-Each roadmap topic should stay small and focused.
-
-If a roadmap document grows beyond roughly 150 to 200 lines, split it into topic-specific files within the same phase directory.
+---
 
 ## Relationship to Other Docs
 
+- `docs/planning/roadmap.md` describes current planned direction.
 - `docs/development/` describes current development state.
 - `docs/architecture/` describes implemented and target architecture.
 - `docs/adr/` records architectural decisions.
-- `docs/roadmap/` describes planned future implementation phases.
-## Roadmap Sections
 
+---
+
+## Roadmap Sections
 
 - [Contribution Guides](contribution-guides/index.md)
 - [Final Roadmap Example](final-example/README.md)
@@ -49,7 +58,6 @@ If a roadmap document grows beyond roughly 150 to 200 lines, split it into topic
 - [Roadmap Phase 17](phase-17/index.md)
 - [Roadmap Phase 18](phase-18/index.md)
 - [Roadmap Phases](phases/index.md)
-
 
 ---
 
