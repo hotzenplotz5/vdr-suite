@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 49.15 - EPGSearch native fuzzy capability autodetection
+Phase 49.16 - EPGSearch native fuzzy runtime capability wiring
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 49.16 - EPGSearch native fuzzy runtime capability wiring
+Phase 49.17 - EPGSearch native fuzzy capability persistence
 ```
 
 ---

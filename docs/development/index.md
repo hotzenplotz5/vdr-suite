@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.15 - EPGSearch native fuzzy capability autodetection
+Phase 49.16 - EPGSearch native fuzzy runtime capability wiring
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.16 - EPGSearch native fuzzy runtime capability wiring
+Phase 49.17 - EPGSearch native fuzzy capability persistence
 ```
 
 Current architecture validation:

@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.16 - EPGSearch native fuzzy runtime capability wiring
+
+Status: Completed.
+
+Summary:
+- Added backend capability update support to `BackendRegistry`.
+- Added service-level capability update support to `BackendRegistryService`.
+- Wired successful native fuzzy probe results into existing backend runtime capability state.
+- Confirmed `epg.search.fuzzy.native` becomes available only when the successful probe result is applied.
+- Confirmed failed probe results keep native fuzzy disabled.
+- Confirmed missing backend updates fail safely and do not create new backends.
+- Confirmed backend identity and runtime flags are preserved during capability updates.
+- Deferred persistence of probe results to Phase 49.17.
+
+---
 ## Phase 49.15 - EPGSearch native fuzzy capability autodetection
 
 Status: Completed.

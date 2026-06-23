@@ -80,6 +80,21 @@ This signal is valid only when the complete validation lifecycle succeeded:
 - cleanup succeeded
 
 The C++ capability detector introduced in Phase 49.15 maps this probe result onto `VdrCapabilitySet::epgSearchFuzzyNative`.
+## Runtime capability wiring
+
+Phase 49.16 wires the successful native fuzzy probe result into backend runtime capability state.
+
+The runtime wiring does not run an automatic VDR mutation probe by itself.
+
+The intended flow is:
+
+    real validation succeeds
+    capability probe result is complete
+    detector computes native fuzzy capability
+    BackendRegistryService updates the backend capability set
+    capability report can expose epg.search.fuzzy.native as available
+
+A missing backend is never created by a capability update.
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.

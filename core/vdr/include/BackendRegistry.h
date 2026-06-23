@@ -12,6 +12,9 @@ public:
     void addBackend(const BackendNode& backend);
     bool hasBackend(const std::string& backendId) const;
     std::optional<BackendNode> getBackend(const std::string& backendId) const;
+    bool updateBackendCapabilities(
+        const std::string& backendId,
+        const VdrCapabilitySet& capabilities);
     std::vector<BackendNode> listBackends() const;
 
 private:

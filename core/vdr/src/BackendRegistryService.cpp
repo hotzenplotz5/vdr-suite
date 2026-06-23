@@ -16,6 +16,15 @@ std::optional<BackendNode> BackendRegistryService::getBackend(
     return registry_.getBackend(backendId);
 }
 
+bool BackendRegistryService::updateBackendCapabilities(
+    const std::string& backendId,
+    const VdrCapabilitySet& capabilities)
+{
+    return registry_.updateBackendCapabilities(
+        backendId,
+        capabilities);
+}
+
 std::vector<BackendNode> BackendRegistryService::listBackends() const
 {
     return registry_.listBackends();

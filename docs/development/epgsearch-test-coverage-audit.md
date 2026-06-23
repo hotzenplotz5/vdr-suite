@@ -383,3 +383,21 @@ Deferred behavior:
 - automatic runtime storage of probe results.
 - automatic backend registry capability mutation.
 - scheduled or startup probing.
+
+## Phase 49.16 Native Fuzzy Runtime Capability Wiring
+
+Phase 49.16 adds runtime capability wiring for successful native fuzzy probe results.
+
+Covered behavior:
+
+- successful probe updates an existing backend so `epg.search.fuzzy.native` becomes available.
+- failed probe keeps native fuzzy disabled.
+- fallback fuzzy capability remains independent.
+- missing backend update fails safely and does not create a backend.
+- backend identity, enabled state and online state are preserved by capability updates.
+
+Deferred behavior:
+
+- automatic probe execution at daemon startup.
+- persistence of probe results across daemon restarts.
+- multi-backend scheduling of capability probes.

@@ -492,3 +492,13 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Fallback preservation | Implemented | `epg.search.fuzzy.fallback` remains independent. |
 | Native fuzzy success signal | Implemented | Validator emits `capability: epg.search.fuzzy.native=true` on successful real validation. |
 | Runtime wiring | Deferred | Follow-up phase wires detector output into runtime/backend capability construction. |
+
+## Phase 49.16 Native Fuzzy Runtime Capability Wiring
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Backend capability update | Implemented | `BackendRegistry::updateBackendCapabilities`. |
+| Service-level capability update | Implemented | `BackendRegistryService::updateBackendCapabilities`. |
+| Native fuzzy runtime wiring | Implemented | Successful probe result can update an existing backend to native fuzzy support. |
+| Missing backend safety | Implemented | Capability update returns false and does not create a backend. |
+| Automatic startup probing | Deferred | Follow-up phase. |
