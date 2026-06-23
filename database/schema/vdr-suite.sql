@@ -73,3 +73,13 @@ CREATE INDEX IF NOT EXISTS idx_metadata_title ON metadata(title);
 CREATE INDEX IF NOT EXISTS idx_metadata_type ON metadata(media_type);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs(job_type);
+
+CREATE TABLE IF NOT EXISTS epgsearch_native_fuzzy_capability_probes (
+    backend_id TEXT PRIMARY KEY,
+    create_accepted INTEGER NOT NULL DEFAULT 0,
+    readback_available INTEGER NOT NULL DEFAULT 0,
+    mode_preserved INTEGER NOT NULL DEFAULT 0,
+    tolerance_preserved INTEGER NOT NULL DEFAULT 0,
+    cleanup_succeeded INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);

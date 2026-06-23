@@ -48,9 +48,19 @@ test-epgsearch-native-fuzzy-runtime-capability-wiring:
 		-o /tmp/test_epgsearch_native_fuzzy_runtime_capability_wiring
 	/tmp/test_epgsearch_native_fuzzy_runtime_capability_wiring
 
+.PHONY: test-epgsearch-native-fuzzy-capability-repository
+test-epgsearch-native-fuzzy-capability-repository:
+	$(CXX) $(CXXFLAGS) \
+		core/sqlite/src/Database.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
+		core/vdr/tests/test_epgsearch_native_fuzzy_capability_repository.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_epgsearch_native_fuzzy_capability_repository
+	/tmp/test_epgsearch_native_fuzzy_capability_repository
+
 .PHONY: test-fast
 
-test-fast: test-epg-query-service-restfulapi test-epg-query-service test-epg-query-factory test-domain-refresh-policy test-backend-polling-coordinator test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-backend-registry-service test-epgsearch-native-fuzzy-runtime-capability-wiring test-backend-registry-json-serializer test-vdr-config test-snapshot-access-service test-vdr-snapshot-read-service test-vdr-domain-objects
+test-fast: test-epg-query-service-restfulapi test-epg-query-service test-epg-query-factory test-domain-refresh-policy test-backend-polling-coordinator test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-backend-registry-service test-epgsearch-native-fuzzy-capability-repository test-epgsearch-native-fuzzy-runtime-capability-wiring test-backend-registry-json-serializer test-vdr-config test-snapshot-access-service test-vdr-snapshot-read-service test-vdr-domain-objects
 
 
 test-epg-query-service-restfulapi:

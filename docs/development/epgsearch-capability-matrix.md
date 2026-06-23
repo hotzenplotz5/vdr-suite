@@ -502,3 +502,14 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Native fuzzy runtime wiring | Implemented | Successful probe result can update an existing backend to native fuzzy support. |
 | Missing backend safety | Implemented | Capability update returns false and does not create a backend. |
 | Automatic startup probing | Deferred | Follow-up phase. |
+
+## Phase 49.17 Native Fuzzy Capability Persistence
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| SQLite table | Implemented | `epgsearch_native_fuzzy_capability_probes`. |
+| Repository | Implemented | Save/load native fuzzy probe results per backend id. |
+| Successful probe roundtrip | Implemented | Reloaded result enables detector outcome. |
+| Failed probe roundtrip | Implemented | Reloaded incomplete result keeps native fuzzy disabled. |
+| Multiple backend separation | Implemented | Probe results are keyed by backend id. |
+| Startup restore | Deferred | Follow-up phase reloads persisted result into runtime capability state. |

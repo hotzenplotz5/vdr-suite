@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.17 - EPGSearch native fuzzy capability persistence
+
+Status: Completed.
+
+Summary:
+- Added SQLite schema support for persisted native fuzzy probe results.
+- Added `EpgSearchNativeFuzzyCapabilityRepository`.
+- Persisted probe results are keyed by backend id.
+- Successful probe results roundtrip through SQLite and still enable the detector outcome.
+- Failed/incomplete probe results roundtrip through SQLite and keep native fuzzy unavailable.
+- Multiple backend probe results are isolated from each other.
+- Deferred persisted runtime restore to Phase 49.18.
+
+---
 ## Phase 49.16 - EPGSearch native fuzzy runtime capability wiring
 
 Status: Completed.

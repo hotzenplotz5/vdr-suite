@@ -401,3 +401,21 @@ Deferred behavior:
 - automatic probe execution at daemon startup.
 - persistence of probe results across daemon restarts.
 - multi-backend scheduling of capability probes.
+
+## Phase 49.17 Native Fuzzy Capability Persistence
+
+Phase 49.17 adds persistence coverage for native fuzzy capability probe results.
+
+Covered behavior:
+
+- repository creates its SQLite table.
+- missing backend probe result returns empty.
+- successful probe result can be saved and reloaded.
+- failed probe result overwrites a previous success and keeps native fuzzy unavailable.
+- multiple backend probe results remain independent.
+
+Deferred behavior:
+
+- daemon startup reload of persisted probe results.
+- backend registry restore from persisted probe results.
+- expiry/refresh policy for stale probe results.

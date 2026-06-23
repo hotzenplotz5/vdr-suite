@@ -95,6 +95,23 @@ The intended flow is:
     capability report can expose epg.search.fuzzy.native as available
 
 A missing backend is never created by a capability update.
+## Capability persistence
+
+Phase 49.17 adds persistence for native fuzzy capability probe results.
+
+Persisted probe results are stored per backend id in SQLite.
+
+Persisted values are not treated as an automatic permission to run a new probe.
+
+The intended flow is:
+
+    real validation succeeds
+    capability probe result is persisted for the backend id
+    a later runtime phase can reload the persisted result
+    the detector can recompute epg.search.fuzzy.native
+    backend runtime capabilities can be updated without repeating the mutation probe
+
+A failed or incomplete probe may also be persisted and must keep native fuzzy disabled when reloaded.
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.
