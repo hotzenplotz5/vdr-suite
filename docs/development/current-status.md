@@ -60,7 +60,7 @@ Milestone progress:
 
 Current milestone:
 
-    Phase 49.5 - EPGSearch parameter regression expansion
+    Phase 50.0 - SearchTimer user workflow foundation
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -109,7 +109,7 @@ Recording Character Search Foundation
 Current foundation in progress:
 
 ```text
-EPG Person Search Foundation
+SearchTimer User Workflow Foundation
 ```
 
 Direct GitHub documentation synchronization should still be followed locally by:
@@ -134,11 +134,12 @@ make test-phase
 - Recording-person search is implemented over recording-attached person metadata.
 - Recording character search is implemented through characterName filtering.
 - Real yaVDR validation confirms RESTfulAPI additional_media actor availability.
-- EPG person search has started with the result model foundation.
+- EPG person search has the result model foundation and still needs service, JSON, REST and real metadata validation.
 - SearchTimer route and daemon backend provider wiring are implemented.
 - SearchTimer backend contract documentation defines the current minimal domain and known epgsearch and Live-style expansion gaps.
 - SearchTimer real payload validation workflow is documented and supported by a local capture helper.
 - SearchTimer domain now models stable recording and schedule options from real RESTfulAPI payloads.
+- Native fuzzy SearchTimer backend capability validation is complete through operator refresh, capability report and persisted restore.
 
 ---
 
@@ -202,6 +203,7 @@ Implemented API areas include:
 - backend registry and backend-aware read APIs
 - selective EPG read APIs
 - EPG search API
+- SearchTimer backend provider and route foundations
 - recording query API
 - recording action validation and execution APIs
 - person query APIs
@@ -237,7 +239,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 Phase 50.0 - SearchTimer user workflow foundation
 ```
 
-The next major implementation milestone is SearchTimer. It should turn existing EPG search, recording search and metadata search foundations into persistent search rules and later automation.
+The next major implementation milestone is SearchTimer user workflow work. It should turn the existing EPG search, recording search, metadata and native fuzzy backend capability foundations into persistent SearchTimer rules and later automation.
 
 Important boundaries:
 
