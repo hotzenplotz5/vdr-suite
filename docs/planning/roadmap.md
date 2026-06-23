@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 49.19 - EPGSearch native fuzzy startup restore integration
+Phase 49.20 - EPGSearch native fuzzy restore diagnostics
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 49.20 - EPGSearch native fuzzy restore diagnostics
+Phase 49.21 - EPGSearch native fuzzy restore freshness policy
 ```
 
 ---

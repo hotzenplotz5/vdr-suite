@@ -456,3 +456,23 @@ Deferred behavior:
 - freshness/expiry policy for stale persisted probe results.
 - explicit operator endpoint to refresh or clear persisted probe results.
 - multi-backend external configuration loading beyond the current default backend.
+
+## Phase 49.20 Restore Diagnostics
+
+Phase 49.20 adds diagnostics coverage for persisted native fuzzy startup restore.
+
+Covered behavior:
+
+- schema-unavailable diagnostics.
+- no-persisted-results diagnostics.
+- restored-native-available diagnostics.
+- restored-native-unavailable diagnostics.
+- runtime measurement conversion.
+- JSON serialization of restore counters, status and reason.
+- daemon compile integration with runtime diagnostics recording.
+
+Deferred behavior:
+
+- user-facing restore diagnostics endpoint.
+- stale persisted probe expiry policy.
+- operator-triggered refresh/clear workflow.

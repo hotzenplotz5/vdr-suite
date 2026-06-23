@@ -139,6 +139,31 @@ Startup restore is intentionally non-mutating:
     build the capability report from the restored backend capability set
 
 No SearchTimer is created, modified or deleted during startup restore.
+## Restore diagnostics
+
+Phase 49.20 adds structured diagnostics for persisted native fuzzy startup restore.
+
+Diagnostics expose:
+
+    schemaReady
+    backendsSeen
+    persistedResultsFound
+    backendsUpdated
+    nativeFuzzyAvailable
+    nativeFuzzyUnavailable
+    status
+    reason
+
+The daemon also records a runtime diagnostics measurement:
+
+    component=epgsearch-native-fuzzy
+    operation=startup-restore
+    statusCode=200 when restore was processed
+    statusCode=204 when no persisted result was available
+    statusCode=503 when the persistence schema was unavailable
+    itemCount=persistedResultsFound
+
+This keeps startup restore observable without running a new SearchTimer mutation probe.
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.

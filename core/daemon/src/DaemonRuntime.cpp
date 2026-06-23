@@ -7,6 +7,7 @@
 #include "RestfulApiSearchTimerAdapter.h"
 #include "SimpleHttpListener.h"
 #include "TestHttpServer.h"
+#include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 
 #include <csignal>
 #include <iostream>
@@ -122,19 +123,29 @@ bool DaemonRuntime::initialize()
 
     const auto nativeFuzzyStartupRestoreSummary =
         epgSearchNativeFuzzyStartupRestoreService_->restoreAllBackends();
+    const auto nativeFuzzyStartupRestoreDiagnostics =
+        EpgSearchNativeFuzzyStartupRestoreDiagnostics::fromSummary(
+            nativeFuzzyStartupRestoreSummary);
 
-    if (nativeFuzzyStartupRestoreSummary.schemaReady) {
+    runtimeDiagnosticsService_.recordMeasurement(
+        nativeFuzzyStartupRestoreDiagnostics.toRuntimeMeasurement());
+
+    if (nativeFuzzyStartupRestoreDiagnostics.schemaReady) {
         std::cout
             << "EPGSearch native fuzzy persisted capability restore: "
-            << "backends=" << nativeFuzzyStartupRestoreSummary.backendsSeen
-            << ", persisted=" << nativeFuzzyStartupRestoreSummary.persistedResultsFound
-            << ", updated=" << nativeFuzzyStartupRestoreSummary.backendsUpdated
-            << ", native=" << nativeFuzzyStartupRestoreSummary.nativeFuzzyAvailable
+            << "status=" << nativeFuzzyStartupRestoreDiagnostics.status()
+            << ", reason=\"" << nativeFuzzyStartupRestoreDiagnostics.reason() << "\""
+            << ", backends=" << nativeFuzzyStartupRestoreDiagnostics.backendsSeen
+            << ", persisted=" << nativeFuzzyStartupRestoreDiagnostics.persistedResultsFound
+            << ", updated=" << nativeFuzzyStartupRestoreDiagnostics.backendsUpdated
+            << ", nativeAvailable=" << nativeFuzzyStartupRestoreDiagnostics.nativeFuzzyAvailable
+            << ", nativeUnavailable=" << nativeFuzzyStartupRestoreDiagnostics.nativeFuzzyUnavailable
             << std::endl;
     }
     else {
         std::cerr
-            << "EPGSearch native fuzzy persisted capability restore skipped: schema unavailable"
+            << "EPGSearch native fuzzy persisted capability restore skipped: "
+            << nativeFuzzyStartupRestoreDiagnostics.reason()
             << std::endl;
     }
     const auto runtimeBackends =

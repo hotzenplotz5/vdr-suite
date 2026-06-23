@@ -534,3 +534,13 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Baseline capabilities | Implemented | Default backend starts with `snapshotReadOnly()` capabilities before restore. |
 | Capability report visibility | Implemented | Default report uses restored backend capability state. |
 | Automatic mutation probe | Not implemented | Startup restore is read-only/non-mutating. |
+
+## Phase 49.20 Restore Diagnostics
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Structured restore status | Implemented | `status()` and `reason()` describe restore outcome. |
+| Restore counters | Implemented | Tracks backend, persisted, updated and native true/false counts. |
+| Runtime diagnostics measurement | Implemented | Records `epgsearch-native-fuzzy/startup-restore`. |
+| JSON serialization | Implemented | Serializes restore diagnostics for future API exposure. |
+| Automatic mutation probe | Not implemented | Diagnostics remain read-only/non-mutating. |

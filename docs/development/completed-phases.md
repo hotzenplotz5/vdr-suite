@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.20 - EPGSearch native fuzzy restore diagnostics
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchNativeFuzzyStartupRestoreDiagnostics`.
+- Added JSON serialization for startup restore diagnostics.
+- Restore diagnostics expose schema readiness, backend count, persisted result count, update count and native true/false counts.
+- Restore diagnostics provide machine-readable status and human-readable reason strings.
+- Daemon startup restore now records a runtime diagnostics measurement.
+- Runtime measurement uses component `epgsearch-native-fuzzy` and operation `startup-restore`.
+- Startup restore diagnostics remain read-only and do not create SearchTimer probe objects.
+- Deferred freshness/expiry policy to Phase 49.21.
+
+---
 ## Phase 49.19 - EPGSearch native fuzzy startup restore integration
 
 Status: Completed.

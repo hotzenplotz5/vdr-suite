@@ -48,7 +48,7 @@ test-epgsearch-native-fuzzy-runtime-capability-wiring:
 		-o /tmp/test_epgsearch_native_fuzzy_runtime_capability_wiring
 	/tmp/test_epgsearch_native_fuzzy_runtime_capability_wiring
 
-.PHONY: test-epgsearch-native-fuzzy-capability-repository test-epgsearch-native-fuzzy-capability-restore-service test-epgsearch-native-fuzzy-startup-restore-service
+.PHONY: test-epgsearch-native-fuzzy-capability-repository test-epgsearch-native-fuzzy-capability-restore-service test-epgsearch-native-fuzzy-startup-restore-service test-epgsearch-native-fuzzy-startup-restore-diagnostics
 test-epgsearch-native-fuzzy-capability-repository:
 	$(CXX) $(CXXFLAGS) \
 		core/sqlite/src/Database.cpp \
@@ -85,6 +85,15 @@ test-epgsearch-native-fuzzy-startup-restore-service:
 		$(LDFLAGS) \
 		-o /tmp/test_epgsearch_native_fuzzy_startup_restore_service
 	/tmp/test_epgsearch_native_fuzzy_startup_restore_service
+
+.PHONY: test-epgsearch-native-fuzzy-startup-restore-diagnostics
+test-epgsearch-native-fuzzy-startup-restore-diagnostics:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/EpgSearchNativeFuzzyStartupRestoreDiagnostics.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyStartupRestoreDiagnosticsJsonSerializer.cpp \
+		core/vdr/tests/test_epgsearch_native_fuzzy_startup_restore_diagnostics.cpp \
+		-o /tmp/test_epgsearch_native_fuzzy_startup_restore_diagnostics
+	/tmp/test_epgsearch_native_fuzzy_startup_restore_diagnostics
 
 .PHONY: test-fast
 

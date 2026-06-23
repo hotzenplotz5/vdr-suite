@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.19 - EPGSearch native fuzzy startup restore integration
+    Phase 49.20 - EPGSearch native fuzzy restore diagnostics
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.20 - EPGSearch native fuzzy restore diagnostics
+    Phase 49.21 - EPGSearch native fuzzy restore freshness policy
 
 Completed foundations:
 

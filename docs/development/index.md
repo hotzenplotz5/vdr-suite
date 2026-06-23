@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.19 - EPGSearch native fuzzy startup restore integration
+Phase 49.20 - EPGSearch native fuzzy restore diagnostics
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.20 - EPGSearch native fuzzy restore diagnostics
+Phase 49.21 - EPGSearch native fuzzy restore freshness policy
 ```
 
 Current architecture validation:
