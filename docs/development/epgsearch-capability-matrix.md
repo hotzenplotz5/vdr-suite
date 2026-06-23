@@ -440,3 +440,14 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Fuzzy fallback matcher | Decided | VDR-Suite may provide a backend-neutral boolean fallback. |
 | Fuzzy ranking | Deferred | No public score/ranking contract yet. |
 | Capability distinction | Required | Native and fallback fuzzy support must be exposed separately if needed. |
+
+## Phase 49.11 Fuzzy Fallback Matcher
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Fuzzy public mode name | Implemented | `mode=fuzzy`. |
+| Fuzzy tolerance parameter | Implemented | `tolerance=<int>`, default 1 when omitted. |
+| Invalid tolerance handling | Implemented | Negative and non-integer tolerance values return HTTP 400. |
+| Backend-neutral fallback matcher | Implemented | Conservative boolean word-distance matcher. |
+| Native epgsearch passthrough | Deferred | Later adapter/capability phase. |
+| Fuzzy ranking | Deferred | No public score/ranking contract yet. |

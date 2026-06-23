@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.11 - EPGSearch fuzzy fallback matcher
+
+Status: Completed.
+
+Summary:
+- Enabled explicit `mode=fuzzy` at the REST/controller boundary.
+- Added `tolerance=<int>` forwarding from the router to the controller.
+- Rejected negative and non-integer fuzzy tolerance values with HTTP 400.
+- Added fuzzy tolerance transport from `EpgSearchRequest` to `EpgSearchQuery`.
+- Implemented a deterministic backend-neutral boolean fuzzy fallback matcher.
+- Kept fuzzy ranking and native epgsearch passthrough as later capability work.
+- Added request, matcher, controller and router regression coverage.
+
+---
 ## Phase 49.10 - EPGSearch fuzzy mode decision
 
 Status: Completed.

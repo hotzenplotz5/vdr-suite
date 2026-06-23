@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 49.10 - EPGSearch fuzzy mode decision
+Phase 49.11 - EPGSearch fuzzy fallback matcher
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 49.11 - EPGSearch fuzzy fallback matcher
+Phase 49.12 - EPGSearch native fuzzy capability mapping
 ```
 
 ---

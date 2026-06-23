@@ -251,6 +251,116 @@ bool matchesRegexText(
     return false;
 }
 
+int levenshteinDistance(
+    const std::string& left,
+    const std::string& right)
+{
+    std::vector<int> previous(right.size() + 1);
+    std::vector<int> current(right.size() + 1);
+
+    for (std::size_t column = 0; column <= right.size(); ++column)
+    {
+        previous[column] = static_cast<int>(column);
+    }
+
+    for (std::size_t row = 1; row <= left.size(); ++row)
+    {
+        current[0] = static_cast<int>(row);
+
+        for (std::size_t column = 1; column <= right.size(); ++column)
+        {
+            const int cost =
+                left[row - 1] == right[column - 1] ? 0 : 1;
+
+            current[column] =
+                std::min(
+                    std::min(
+                        previous[column] + 1,
+                        current[column - 1] + 1),
+                    previous[column - 1] + cost);
+        }
+
+        previous.swap(current);
+    }
+
+    return previous[right.size()];
+}
+
+bool fuzzyWordMatches(
+    const std::string& candidate,
+    const std::string& queryWord,
+    int tolerance,
+    bool matchCase)
+{
+    return levenshteinDistance(
+        comparableText(candidate, matchCase),
+        comparableText(queryWord, matchCase))
+        <= tolerance;
+}
+
+bool matchesFuzzyText(
+    const VdrEvent& event,
+    const EpgSearchQuery& query,
+    bool matchCase)
+{
+    const int tolerance =
+        query.hasFuzzyTolerance()
+            ? query.fuzzyTolerance()
+            : 1;
+
+    if (tolerance < 0)
+    {
+        return false;
+    }
+
+    const std::vector<std::string> queryWords =
+        splitWords(query.text());
+
+    if (queryWords.empty())
+    {
+        return false;
+    }
+
+    const std::vector<std::string> fields =
+        searchableFields(event, query);
+
+    for (const std::string& queryWord : queryWords)
+    {
+        bool found = false;
+
+        for (const std::string& field : fields)
+        {
+            const std::vector<std::string> fieldWords =
+                splitWords(field);
+
+            for (const std::string& fieldWord : fieldWords)
+            {
+                if (fuzzyWordMatches(
+                        fieldWord,
+                        queryWord,
+                        tolerance,
+                        matchCase))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (found)
+            {
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool matchesText(
     const VdrEvent& event,
     const EpgSearchQuery& query)
@@ -278,8 +388,9 @@ bool matchesText(
         return matchesAnyWordText(event, query, matchCase);
     case EpgSearchMode::RegularExpression:
         return matchesRegexText(event, query, matchCase);
-    case EpgSearchMode::Phrase:
     case EpgSearchMode::Fuzzy:
+        return matchesFuzzyText(event, query, matchCase);
+    case EpgSearchMode::Phrase:
         return matchesPhraseText(event, query, matchCase);
     }
 

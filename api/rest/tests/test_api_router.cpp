@@ -709,6 +709,40 @@ int main()
     assert(epgSearchInvalidRegexResponse.body.find("invalid regex pattern")
            != std::string::npos);
 
+    ApiResponse epgSearchFuzzyModeResponse =
+        router.handleGet("/api/epg/search?query=Tatorr&mode=fuzzy&tolerance=1&channelId=mock-channel-1&from=123&timespan=3600&limit=10&offset=0&sort=title&order=asc");
+
+    assert(epgSearchFuzzyModeResponse.statusCode == 200);
+    assert(epgSearchFuzzyModeResponse.contentType == "application/json");
+    assert(epgSearchFuzzyModeResponse.body.find("\"id\":\"mock-event-2\"")
+           != std::string::npos);
+    assert(epgSearchFuzzyModeResponse.body.find("\"id\":\"mock-event-1\"")
+           == std::string::npos);
+
+    ApiResponse epgSearchFuzzyToleranceZeroResponse =
+        router.handleGet("/api/epg/search?query=Tatorr&mode=fuzzy&tolerance=0&channelId=mock-channel-1&from=123&timespan=3600&limit=10&offset=0&sort=title&order=asc");
+
+    assert(epgSearchFuzzyToleranceZeroResponse.statusCode == 200);
+    assert(epgSearchFuzzyToleranceZeroResponse.contentType == "application/json");
+    assert(epgSearchFuzzyToleranceZeroResponse.body.find("\"id\":\"mock-event-2\"")
+           == std::string::npos);
+
+    ApiResponse epgSearchInvalidFuzzyToleranceResponse =
+        router.handleGet("/api/epg/search?query=Tatort&mode=fuzzy&tolerance=-1&channelId=mock-channel-1&from=123&timespan=3600");
+
+    assert(epgSearchInvalidFuzzyToleranceResponse.statusCode == 400);
+    assert(epgSearchInvalidFuzzyToleranceResponse.contentType == "application/json");
+    assert(epgSearchInvalidFuzzyToleranceResponse.body.find("invalid fuzzy tolerance")
+           != std::string::npos);
+
+    ApiResponse epgSearchInvalidFuzzyToleranceTextResponse =
+        router.handleGet("/api/epg/search?query=Tatort&mode=fuzzy&tolerance=abc&channelId=mock-channel-1&from=123&timespan=3600");
+
+    assert(epgSearchInvalidFuzzyToleranceTextResponse.statusCode == 400);
+    assert(epgSearchInvalidFuzzyToleranceTextResponse.contentType == "application/json");
+    assert(epgSearchInvalidFuzzyToleranceTextResponse.body.find("invalid fuzzy tolerance")
+           != std::string::npos);
+
     ApiResponse epgSearchInvalidTimespanResponse =
         router.handleGet("/api/epg/search?query=&channelId=mock-channel-1&from=123&timespan=0");
 

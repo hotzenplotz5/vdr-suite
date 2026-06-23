@@ -441,7 +441,8 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.getInt("offset", 0),
             queryParameters.get("sort"),
             queryParameters.get("order"),
-            queryParameters.get("mode"));
+            queryParameters.get("mode"),
+            queryParameters.get("tolerance"));
     }
 
     if (path == "/api/epg/now-next")

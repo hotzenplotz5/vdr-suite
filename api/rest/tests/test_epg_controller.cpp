@@ -261,6 +261,78 @@ int main()
     assert(invalidRegexPatternResponse.contentType == "application/json");
     assert(invalidRegexPatternResponse.body.find("invalid regex pattern") != std::string::npos);
 
+    ApiResponse fuzzyModeSearchResponse =
+        controller.search(
+            "Tatorr",
+            "living-room",
+            "channel-1",
+            1780000000,
+            7200,
+            10,
+            0,
+            "title",
+            "asc",
+            "fuzzy");
+
+    assert(fuzzyModeSearchResponse.statusCode == 200);
+    assert(fuzzyModeSearchResponse.contentType == "application/json");
+    assert(fuzzyModeSearchResponse.body.find("\"id\":\"event-search\"") != std::string::npos);
+    assert(fuzzyModeSearchResponse.body.find("event-time") == std::string::npos);
+
+    ApiResponse fuzzyModeToleranceZeroResponse =
+        controller.search(
+            "Tatorr",
+            "living-room",
+            "channel-1",
+            1780000000,
+            7200,
+            10,
+            0,
+            "title",
+            "asc",
+            "fuzzy",
+            "0");
+
+    assert(fuzzyModeToleranceZeroResponse.statusCode == 200);
+    assert(fuzzyModeToleranceZeroResponse.contentType == "application/json");
+    assert(fuzzyModeToleranceZeroResponse.body.find("\"id\":\"event-search\"") == std::string::npos);
+
+    ApiResponse invalidFuzzyToleranceResponse =
+        controller.search(
+            "tatort",
+            "",
+            "",
+            -1,
+            7200,
+            10,
+            0,
+            "",
+            "",
+            "fuzzy",
+            "-1");
+
+    assert(invalidFuzzyToleranceResponse.statusCode == 400);
+    assert(invalidFuzzyToleranceResponse.contentType == "application/json");
+    assert(invalidFuzzyToleranceResponse.body.find("invalid fuzzy tolerance") != std::string::npos);
+
+    ApiResponse invalidFuzzyToleranceTextResponse =
+        controller.search(
+            "tatort",
+            "",
+            "",
+            -1,
+            7200,
+            10,
+            0,
+            "",
+            "",
+            "fuzzy",
+            "abc");
+
+    assert(invalidFuzzyToleranceTextResponse.statusCode == 400);
+    assert(invalidFuzzyToleranceTextResponse.contentType == "application/json");
+    assert(invalidFuzzyToleranceTextResponse.body.find("invalid fuzzy tolerance") != std::string::npos);
+
     ApiResponse timeWindowParameterizedResponse =
         controller.getTimeWindow("channel-43", 456, 3600);
     assertEventResponse(timeWindowParameterizedResponse, "event-time");

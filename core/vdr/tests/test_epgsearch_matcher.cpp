@@ -50,6 +50,32 @@ int main()
 
     assert(matcher.matches(
         event,
+        EpgSearchQuery::byText("Tera")
+            .withMode(EpgSearchMode::Fuzzy)
+            .withFuzzyTolerance(1)));
+
+    assert(!matcher.matches(
+        event,
+        EpgSearchQuery::byText("Tera")
+            .withMode(EpgSearchMode::Fuzzy)
+            .withFuzzyTolerance(0)));
+
+    assert(matcher.matches(
+        event,
+        EpgSearchQuery::byText("Faszinasion")
+            .withMode(EpgSearchMode::Fuzzy)
+            .withFuzzyTolerance(1)
+            .searchInSubtitle(true)));
+
+    assert(!matcher.matches(
+        event,
+        EpgSearchQuery::byText("Faszinasion")
+            .withMode(EpgSearchMode::Fuzzy)
+            .withFuzzyTolerance(1)
+            .searchInTitle(true)));
+
+    assert(matcher.matches(
+        event,
         EpgSearchQuery::byText("Faszination")
             .searchInSubtitle(true)));
 

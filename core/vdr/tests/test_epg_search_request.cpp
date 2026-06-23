@@ -22,6 +22,8 @@ int main()
     assert(all.searchDescription());
     assert(all.hasSearchField());
     assert(!all.hasSort());
+    assert(!all.hasSearchMode());
+    assert(!all.hasFuzzyTolerance());
 
     EpgSearchRequest text =
         EpgSearchRequest::text(
@@ -106,6 +108,14 @@ int main()
         false);
 
     assert(!sorted.hasSearchField());
+
+    sorted.setSearchMode(EpgSearchMode::Fuzzy);
+    sorted.setFuzzyTolerance(2);
+
+    assert(sorted.hasSearchMode());
+    assert(sorted.searchMode() == EpgSearchMode::Fuzzy);
+    assert(sorted.hasFuzzyTolerance());
+    assert(sorted.fuzzyTolerance() == 2);
 
     std::cout
         << "test_epg_search_request passed"

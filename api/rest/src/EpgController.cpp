@@ -8,6 +8,8 @@
 #include "IEpgQueryService.h"
 #include "VdrEvent.h"
 
+#include <cstdlib>
+#include <limits>
 #include <regex>
 #include <sstream>
 #include <vector>
@@ -174,7 +176,8 @@ bool validSearchMode(
            value == "allWords" ||
            value == "any" ||
            value == "anyWord" ||
-           value == "regex";
+           value == "regex" ||
+           value == "fuzzy";
 }
 
 bool validRegexPattern(
@@ -190,6 +193,35 @@ bool validRegexPattern(
     {
         return false;
     }
+}
+
+bool parseFuzzyTolerance(
+    const std::string& value,
+    int& tolerance)
+{
+    if (value.empty())
+    {
+        tolerance = 1;
+        return true;
+    }
+
+    char* end = nullptr;
+    const long parsed =
+        std::strtol(value.c_str(), &end, 10);
+
+    if (end == value.c_str() || *end != '\0')
+    {
+        return false;
+    }
+
+    if (parsed < 0 ||
+        parsed > std::numeric_limits<int>::max())
+    {
+        return false;
+    }
+
+    tolerance = static_cast<int>(parsed);
+    return true;
 }
 
 EpgSearchSortField parseSearchSortField(
@@ -245,6 +277,11 @@ EpgSearchMode parseSearchMode(
     if (value == "regex")
     {
         return EpgSearchMode::RegularExpression;
+    }
+
+    if (value == "fuzzy")
+    {
+        return EpgSearchMode::Fuzzy;
     }
 
     return EpgSearchMode::Phrase;
@@ -340,6 +377,33 @@ ApiResponse EpgController::search(
     const std::string& order,
     const std::string& mode)
 {
+    return search(
+        query,
+        backend,
+        channelId,
+        from,
+        timespan,
+        limit,
+        offset,
+        sort,
+        order,
+        mode,
+        "");
+}
+
+ApiResponse EpgController::search(
+    const std::string& query,
+    const std::string& backend,
+    const std::string& channelId,
+    int from,
+    int timespan,
+    int limit,
+    int offset,
+    const std::string& sort,
+    const std::string& order,
+    const std::string& mode,
+    const std::string& tolerance)
+{
     if (timespan <= 0)
     {
         return makeBadRequestResponse("timespan must be greater than zero");
@@ -375,6 +439,14 @@ ApiResponse EpgController::search(
         return makeBadRequestResponse("invalid regex pattern");
     }
 
+    int fuzzyTolerance = 0;
+
+    if (mode == "fuzzy" &&
+        !parseFuzzyTolerance(tolerance, fuzzyTolerance))
+    {
+        return makeBadRequestResponse("invalid fuzzy tolerance");
+    }
+
     const std::vector<VdrEvent> events =
         epgQueryService_.getTimeWindow(
             channelId,
@@ -396,6 +468,11 @@ ApiResponse EpgController::search(
     if (!mode.empty())
     {
         request.setSearchMode(parseSearchMode(mode));
+    }
+
+    if (mode == "fuzzy")
+    {
+        request.setFuzzyTolerance(fuzzyTolerance);
     }
 
     const EpgSearchRequestMapper requestMapper;

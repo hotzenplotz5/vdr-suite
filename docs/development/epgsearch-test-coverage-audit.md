@@ -285,3 +285,24 @@ Decision coverage:
 - invalid tolerance handling is required for the implementation phase.
 
 Implementation coverage is intentionally deferred to the follow-up fuzzy implementation phase.
+
+## Phase 49.11 Fuzzy Fallback Matcher
+
+Phase 49.11 implements and tests the backend-neutral fuzzy fallback path.
+
+Covered behavior:
+
+- `mode=fuzzy` is accepted by the REST/controller boundary.
+- `tolerance=<int>` is forwarded from router to controller.
+- omitted tolerance defaults to 1.
+- negative tolerance is rejected with HTTP 400.
+- non-integer tolerance is rejected with HTTP 400.
+- fuzzy fallback is deterministic and boolean.
+- fuzzy fallback does not introduce public ranking or score output.
+- request and mapper transport fuzzy tolerance to the domain query.
+
+Deferred behavior:
+
+- native epgsearch fuzzy passthrough.
+- backend capability distinction between native and fallback fuzzy.
+- public fuzzy score/ranking semantics.

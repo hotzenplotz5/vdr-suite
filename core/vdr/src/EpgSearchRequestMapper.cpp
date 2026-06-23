@@ -32,5 +32,10 @@ EpgSearchQuery EpgSearchRequestMapper::map(
         query.withMode(request.searchMode());
     }
 
+    if (request.hasFuzzyTolerance())
+    {
+        query.withFuzzyTolerance(request.fuzzyTolerance());
+    }
+
     return query;
 }

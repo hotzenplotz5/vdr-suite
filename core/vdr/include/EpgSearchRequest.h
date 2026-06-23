@@ -216,6 +216,23 @@ public:
         return searchMode_;
     }
 
+    void setFuzzyTolerance(
+        int tolerance)
+    {
+        fuzzyTolerance_ = tolerance;
+        hasFuzzyTolerance_ = true;
+    }
+
+    bool hasFuzzyTolerance() const
+    {
+        return hasFuzzyTolerance_;
+    }
+
+    int fuzzyTolerance() const
+    {
+        return fuzzyTolerance_;
+    }
+
     bool hasSearchField() const
     {
         return searchTitle_ || searchSubtitle_ || searchDescription_;
@@ -257,6 +274,9 @@ private:
 
     EpgSearchMode searchMode_ = EpgSearchMode::Phrase;
     bool hasSearchMode_ = false;
+
+    int fuzzyTolerance_ = 0;
+    bool hasFuzzyTolerance_ = false;
 
     EpgSearchSortField sortField_ = EpgSearchSortField::None;
     EpgSearchSortOrder sortOrder_ = EpgSearchSortOrder::Ascending;
