@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.0 - SearchTimer user workflow foundation
+
+Status: Completed.
+
+Summary:
+- Documented the SearchTimer user workflow foundation as the start of the Phase 50 milestone.
+- Defined the stable manual workflow for list, preview, create, readback, update and delete behavior.
+- Established safety rules around explicit operator intent, backend identity, real VDR readback and capability visibility.
+- Kept automation, conflict resolution, profile policy and full Live UI parity out of the initial workflow scope.
+- Set Phase 50.1 as the SearchTimer workflow request model follow-up.
+
+---
+
 ## Phase 49.30 - EPGSearch native fuzzy validation consolidation
 
 Status: Completed.

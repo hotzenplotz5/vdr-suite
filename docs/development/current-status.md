@@ -73,19 +73,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 49.30 - EPGSearch native fuzzy validation consolidation
+Phase 50.0 - SearchTimer user workflow foundation
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 46.41 - Current Project Status Refresh
+Phase 50.0 - SearchTimer user workflow foundation
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 50.0 - SearchTimer user workflow foundation
+Phase 50.1 - SearchTimer workflow request model
 ```
 
 Completed foundations:
@@ -141,6 +141,7 @@ make test-phase
 - SearchTimer real payload validation workflow is documented and supported by a local capture helper.
 - SearchTimer domain now models stable recording and schedule options from real RESTfulAPI payloads.
 - Native fuzzy SearchTimer backend capability validation is complete through operator refresh, capability report and persisted restore.
+- Phase 50.0 defines the SearchTimer user workflow foundation for manual list, preview, create, readback, update and delete behavior.
 
 ---
 
@@ -205,6 +206,7 @@ Implemented API areas include:
 - selective EPG read APIs
 - EPG search API
 - SearchTimer backend provider and route foundations
+- SearchTimer user workflow foundation
 - recording query API
 - recording action validation and execution APIs
 - person query APIs
@@ -237,10 +239,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.0 - SearchTimer user workflow foundation
+Phase 50.1 - SearchTimer workflow request model
 ```
 
-The next major implementation milestone is SearchTimer user workflow work. It should turn the existing EPG search, recording search, metadata and native fuzzy backend capability foundations into persistent SearchTimer rules and later automation.
+The next implementation phase should define the SearchTimer workflow request model. It should separate user workflow intent from raw RESTfulAPI transport fields while preserving backend identity and validated native fuzzy capability behavior.
 
 Important boundaries:
 

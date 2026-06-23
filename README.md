@@ -55,15 +55,15 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.30 - EPGSearch native fuzzy validation consolidation
+    Phase 50.0 - SearchTimer user workflow foundation
 
 Current documentation consolidation:
 
-    Pre-Phase-50 documentation cleanup
+    Phase 50.0 - SearchTimer user workflow foundation
 
 Next major implementation milestone:
 
-    Phase 50.0 - SearchTimer user workflow foundation
+    Phase 50.1 - SearchTimer workflow request model
 
 Completed foundations:
 
@@ -204,6 +204,7 @@ Search:
 - [EPG Search API](docs/development/epg-search-api.md)
 - [SearchTimer Backend Contract](docs/development/searchtimer-backend-contract.md)
 - [SearchTimer Real Payload Validation](docs/development/searchtimer-real-payload-validation.md)
+- [SearchTimer User Workflow Foundation](docs/development/searchtimer-user-workflow-foundation.md)
 - [EPGSearch Native Fuzzy Real Backend Validation](docs/development/epgsearch-native-fuzzy-real-backend-validation.md)
 
 ---
