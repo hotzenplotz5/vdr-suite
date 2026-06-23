@@ -23,16 +23,16 @@ It provides a high-level overview of project status, architecture direction and 
 
 ```text
 Current Completed Phase
-Phase 28.12 - Recording Query API Documentation
+Phase 49.30 - EPGSearch native fuzzy validation consolidation
 
 Current Implementation Focus
-Phase 29.0 - Multi-Backend Recording Identity Foundation
+Phase 50.0 - SearchTimer user workflow foundation
 ```
 
 Current activity:
 
 ```text
-Prepare backend identity for recording domain objects before adding backend-specific recording query filters.
+Turn the validated SearchTimer backend and native fuzzy capability foundation into a coherent user workflow foundation.
 ```
 
 Authoritative status documents:
@@ -47,22 +47,23 @@ Authoritative status documents:
 ## Phase Ladder
 
 ```text
-Phase 0-7    Core backend, database, jobs, REST and daemon foundations
-Phase 8      VDR backend architecture foundation
-Phase 9-13   Snapshot runtime, diagnostics, read APIs and change feed
-Phase 14-17  Backend registry and multi-backend snapshot visibility
-Phase 18-21  Real VDR validation and selective EPG query foundation
-Phase 22-24  Heavy-domain policy and EPG query architecture
-Phase 25-27  EPG REST boundary, startup decoupling and capability-aware runtime
-Phase 28     Recording query API foundation
-Phase 29     Multi-backend recording identity foundation
+Phase 0-7     Core backend, database, jobs, REST and daemon foundations
+Phase 8       VDR backend architecture foundation
+Phase 9-13    Snapshot runtime, diagnostics, read APIs and change feed
+Phase 14-29   Backend registry, multi-backend reads, selective EPG and recording query foundations
+Phase 30-36   Recording action validation and execution foundation
+Phase 45      EPG search foundation
+Phase 46      Content classification and person metadata foundations
+Phase 47      SearchTimer backend foundation and domain expansion
+Phase 49      EPGSearch native fuzzy capability validation
+Phase 50      SearchTimer user workflow foundation
 ```
 
 Current implementation state:
 
 ```text
-Phase 28.12 complete
-Phase 29.0 next
+Phase 49.30 complete
+Phase 50.0 next
 ```
 
 ---
@@ -73,9 +74,9 @@ VDR remains the primary backend domain and source of truth.
 
 VDR-Suite complements VDR with daemon-owned runtime state, backend-neutral service boundaries, REST APIs, capability-aware runtime behavior and future client-facing contracts.
 
-The current recording query API supports title, path, start-time, duration, sorting and paging through `GET /api/vdr/recordings/query`.
+The current architecture has working foundations for snapshot-backed VDR reads, backend registry, backend-aware snapshots, selective EPG reads, recording query, recording actions, SearchTimer backend access and native fuzzy capability reporting.
 
-Backend-specific recording filters are intentionally deferred until backend identity is represented in the `VdrRecording` domain model.
+The next useful step is to turn SearchTimer backend capability and contract work into a practical user workflow foundation.
 
 ---
 
