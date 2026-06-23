@@ -419,3 +419,13 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Invalid regex handling | Decided | Must return HTTP 400 and must not fall back to phrase matching. |
 | Regex execution | Deferred | Implementation follows in a later phase. |
 | Fuzzy search | Deferred | Remains a separate scoring and tolerance decision. |
+
+## Phase 49.9 Regex Mode Implementation
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Regex public mode name | Implemented | `mode=regex`. |
+| Valid regex execution | Implemented | Uses explicit regex mode only. |
+| Invalid regex handling | Implemented | Returns HTTP 400 with `invalid regex pattern`. |
+| Regex fallback behavior | Rejected | Invalid regex does not fall back to phrase matching. |
+| Fuzzy search | Deferred | Remains a separate scoring and tolerance decision. |

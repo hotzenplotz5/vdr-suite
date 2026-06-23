@@ -691,6 +691,24 @@ int main()
     assert(epgSearchInvalidModeResponse.body.find("invalid search mode")
            != std::string::npos);
 
+    ApiResponse epgSearchRegexModeResponse =
+        router.handleGet("/api/epg/search?query=Tat.*&mode=regex&channelId=mock-channel-1&from=123&timespan=3600&limit=10&offset=0&sort=title&order=asc");
+
+    assert(epgSearchRegexModeResponse.statusCode == 200);
+    assert(epgSearchRegexModeResponse.contentType == "application/json");
+    assert(epgSearchRegexModeResponse.body.find("\"id\":\"mock-event-2\"")
+           != std::string::npos);
+    assert(epgSearchRegexModeResponse.body.find("\"id\":\"mock-event-1\"")
+           == std::string::npos);
+
+    ApiResponse epgSearchInvalidRegexResponse =
+        router.handleGet("/api/epg/search?query=[&mode=regex&channelId=mock-channel-1&from=123&timespan=3600");
+
+    assert(epgSearchInvalidRegexResponse.statusCode == 400);
+    assert(epgSearchInvalidRegexResponse.contentType == "application/json");
+    assert(epgSearchInvalidRegexResponse.body.find("invalid regex pattern")
+           != std::string::npos);
+
     ApiResponse epgSearchInvalidTimespanResponse =
         router.handleGet("/api/epg/search?query=&channelId=mock-channel-1&from=123&timespan=0");
 

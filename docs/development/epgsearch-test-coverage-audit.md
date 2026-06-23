@@ -251,3 +251,21 @@ Decision coverage:
 - fuzzy search remains a future decision.
 
 Implementation coverage is intentionally deferred to the follow-up regex implementation phase.
+
+## Phase 49.9 Regex Mode Implementation
+
+Phase 49.9 implements and tests explicit regex search mode.
+
+Covered behavior:
+
+- `mode=regex` is accepted by the REST/controller boundary.
+- valid regex patterns are evaluated by `EpgSearchMatcher`.
+- invalid regex patterns return HTTP 400.
+- invalid regex patterns do not fall back to phrase matching.
+- default phrase/contains behavior remains unchanged.
+- exact/all/any deterministic modes remain independent from regex.
+
+Deferred behavior:
+
+- fuzzy search remains a separate scoring and tolerance decision.
+- performance limits for complex real-world regex patterns may be refined after real VDR validation.

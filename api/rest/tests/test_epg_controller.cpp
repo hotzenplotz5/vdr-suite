@@ -226,6 +226,41 @@ int main()
     assert(invalidModeResponse.statusCode == 400);
     assert(invalidModeResponse.body.find("invalid search mode") != std::string::npos);
 
+    ApiResponse regexModeSearchResponse =
+        controller.search(
+            "Tat.*",
+            "living-room",
+            "channel-1",
+            1780000000,
+            7200,
+            10,
+            0,
+            "title",
+            "asc",
+            "regex");
+
+    assert(regexModeSearchResponse.statusCode == 200);
+    assert(regexModeSearchResponse.contentType == "application/json");
+    assert(regexModeSearchResponse.body.find("\"id\":\"event-search\"") != std::string::npos);
+    assert(regexModeSearchResponse.body.find("event-time") == std::string::npos);
+
+    ApiResponse invalidRegexPatternResponse =
+        controller.search(
+            "[",
+            "living-room",
+            "channel-1",
+            1780000000,
+            7200,
+            10,
+            0,
+            "title",
+            "asc",
+            "regex");
+
+    assert(invalidRegexPatternResponse.statusCode == 400);
+    assert(invalidRegexPatternResponse.contentType == "application/json");
+    assert(invalidRegexPatternResponse.body.find("invalid regex pattern") != std::string::npos);
+
     ApiResponse timeWindowParameterizedResponse =
         controller.getTimeWindow("channel-43", 456, 3600);
     assertEventResponse(timeWindowParameterizedResponse, "event-time");

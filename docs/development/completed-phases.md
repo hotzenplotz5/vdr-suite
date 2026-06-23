@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.9 - EPGSearch regex mode implementation
+
+Status: Completed.
+
+Summary:
+- Enabled explicit `mode=regex` at the REST/controller boundary.
+- Mapped `mode=regex` to `EpgSearchMode::RegularExpression`.
+- Implemented regex matching in `EpgSearchMatcher`.
+- Returned HTTP 400 for invalid regex patterns.
+- Preserved default phrase/contains behavior.
+- Added router and controller regressions for valid and invalid regex mode.
+- Kept fuzzy mode as a separate future decision.
+
+---
 ## Phase 49.8 - EPGSearch regex mode safety decision
 
 Status: Completed.

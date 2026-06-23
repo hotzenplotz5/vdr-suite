@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.8 - EPGSearch regex mode safety decision
+Phase 49.9 - EPGSearch regex mode implementation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.9 - EPGSearch regex mode implementation
+Phase 49.10 - EPGSearch fuzzy mode decision
 ```
 
 Current architecture validation:

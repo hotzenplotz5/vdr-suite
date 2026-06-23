@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.8 - EPGSearch regex mode safety decision
+    Phase 49.9 - EPGSearch regex mode implementation
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.9 - EPGSearch regex mode implementation
+    Phase 49.10 - EPGSearch fuzzy mode decision
 
 Completed foundations:
 

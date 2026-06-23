@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -216,6 +217,40 @@ bool matchesAnyWordText(
     return false;
 }
 
+bool matchesRegexText(
+    const VdrEvent& event,
+    const EpgSearchQuery& query,
+    bool matchCase)
+{
+    const std::vector<std::string> fields =
+        searchableFields(event, query);
+
+    const auto flags =
+        matchCase
+            ? std::regex::ECMAScript
+            : static_cast<std::regex::flag_type>(
+                std::regex::ECMAScript | std::regex::icase);
+
+    try
+    {
+        const std::regex pattern(query.text(), flags);
+
+        for (const std::string& field : fields)
+        {
+            if (std::regex_search(field, pattern))
+            {
+                return true;
+            }
+        }
+    }
+    catch (const std::regex_error&)
+    {
+        return false;
+    }
+
+    return false;
+}
+
 bool matchesText(
     const VdrEvent& event,
     const EpgSearchQuery& query)
@@ -241,8 +276,9 @@ bool matchesText(
         return matchesAllWordsText(event, query, matchCase);
     case EpgSearchMode::AnyWord:
         return matchesAnyWordText(event, query, matchCase);
-    case EpgSearchMode::Phrase:
     case EpgSearchMode::RegularExpression:
+        return matchesRegexText(event, query, matchCase);
+    case EpgSearchMode::Phrase:
     case EpgSearchMode::Fuzzy:
         return matchesPhraseText(event, query, matchCase);
     }

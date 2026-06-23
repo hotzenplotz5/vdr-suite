@@ -8,6 +8,7 @@
 #include "IEpgQueryService.h"
 #include "VdrEvent.h"
 
+#include <regex>
 #include <sstream>
 #include <vector>
 
@@ -172,7 +173,23 @@ bool validSearchMode(
            value == "all" ||
            value == "allWords" ||
            value == "any" ||
-           value == "anyWord";
+           value == "anyWord" ||
+           value == "regex";
+}
+
+bool validRegexPattern(
+    const std::string& value)
+{
+    try
+    {
+        std::regex pattern(value);
+        (void)pattern;
+        return true;
+    }
+    catch (const std::regex_error&)
+    {
+        return false;
+    }
 }
 
 EpgSearchSortField parseSearchSortField(
@@ -223,6 +240,11 @@ EpgSearchMode parseSearchMode(
     if (value == "any" || value == "anyWord")
     {
         return EpgSearchMode::AnyWord;
+    }
+
+    if (value == "regex")
+    {
+        return EpgSearchMode::RegularExpression;
     }
 
     return EpgSearchMode::Phrase;
@@ -346,6 +368,11 @@ ApiResponse EpgController::search(
     if (!validSearchMode(mode))
     {
         return makeBadRequestResponse("invalid search mode");
+    }
+
+    if (mode == "regex" && !validRegexPattern(query))
+    {
+        return makeBadRequestResponse("invalid regex pattern");
     }
 
     const std::vector<VdrEvent> events =
