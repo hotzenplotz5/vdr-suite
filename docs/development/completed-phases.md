@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.27 - EPGSearch native fuzzy operator refresh operational validation
+
+Status: Completed.
+
+Summary:
+- Added a VDR-Suite operator refresh validation helper for the native fuzzy refresh endpoint.
+- Verified the real VDR-Suite operator refresh endpoint against yaVDR through /api/epgsearch/native-fuzzy/refresh.
+- Confirmed that RESTfulAPI accepts native fuzzy SearchTimer mode=5 and tolerance=2, preserves both values on readback and deletes the temporary probe cleanly.
+- Fixed RESTfulAPI SearchTimer create handling for HTTP 200 responses with an empty body by falling back to /searchtimers.json readback and exact query matching.
+- Added isolated command executor regression coverage for direct Id responses, empty-body readback fallback and ambiguous readback failure.
+- Confirmed the operator refresh result persists the probe result, updates backend capability state and reports epg.search.fuzzy.native=true.
+- Added a safe dry-run-by-default operator refresh helper for future real-backend validation.
+
+---
+
 ## Phase 49.26 - EPGSearch native fuzzy operator refresh routing validation
 
 Status: Completed.

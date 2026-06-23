@@ -72,7 +72,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 49.26 - EPGSearch native fuzzy operator refresh routing validation
+Phase 49.27 - EPGSearch native fuzzy operator refresh operational validation
 ```
 
 Current documentation consolidation state:
@@ -234,7 +234,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 49.27 - EPGSearch native fuzzy operator refresh operational validation
+Phase 49.28 - EPGSearch native fuzzy capability report validation
 ```
 
 The next major implementation milestone is SearchTimer. It should turn existing EPG search, recording search and metadata search foundations into persistent search rules and later automation.

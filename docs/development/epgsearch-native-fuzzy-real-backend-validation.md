@@ -258,6 +258,46 @@ A failed probe is persisted as an unavailable native fuzzy capability and update
 
 The workflow is prepared for a later REST/operator endpoint.
 
+## Operator refresh operational validation
+
+Phase 49.27 validates the operator refresh workflow against a real yaVDR backend through VDR-Suite itself.
+
+The validated path is:
+
+    POST /api/epgsearch/native-fuzzy/refresh
+
+The validation confirmed:
+
+    create temporary native fuzzy SearchTimer
+    RESTfulAPI returns HTTP 200 with an empty create body
+    VDR-Suite falls back to /searchtimers.json readback
+    exact probe query resolves the created backend-native id
+    readback preserves mode=5
+    readback preserves tolerance=2
+    cleanup deletes the temporary SearchTimer
+    probe result is persisted
+    backend capability state is updated
+    epg.search.fuzzy.native=true is reported by the refresh result
+
+The operational helper is:
+
+    tools/validate_vdr_suite_native_fuzzy_operator_refresh.py
+
+Safe dry-run:
+
+    python3 tools/validate_vdr_suite_native_fuzzy_operator_refresh.py
+
+Real execution:
+
+    python3 tools/validate_vdr_suite_native_fuzzy_operator_refresh.py --execute --unique-query
+
+The helper defaults to the daemon endpoint:
+
+    http://127.0.0.1:18080/api/epgsearch/native-fuzzy/refresh
+
+The RESTfulAPI empty-body create response is now part of the supported behavior. The command executor treats HTTP 200 without an Id body as accepted only when a unique created SearchTimer can be read back by the exact probe query.
+
+
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.
@@ -276,7 +316,7 @@ If cleanup fails, manually delete the temporary SearchTimer named with the confi
 
 ## Phase status
 
-Phase 49.14 adds the safe validation harness and runbook. It does not yet make runtime capability decisions based on live validation results.
+Phase 49.27 validates the full operator-triggered native fuzzy refresh against real yaVDR through VDR-Suite and documents the supported RESTfulAPI empty-body create fallback.
 
 ## Back
 

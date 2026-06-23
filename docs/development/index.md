@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.26 - EPGSearch native fuzzy operator refresh routing validation
+Phase 49.27 - EPGSearch native fuzzy operator refresh operational validation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.27 - EPGSearch native fuzzy operator refresh operational validation
+Phase 49.28 - EPGSearch native fuzzy capability report validation
 ```
 
 Current architecture validation:
