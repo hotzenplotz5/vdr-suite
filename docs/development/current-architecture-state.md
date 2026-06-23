@@ -32,7 +32,7 @@ RESTfulAPI remains behind the adapter boundary.
 
 API controllers consume service boundaries instead of directly coupling to VDR or RESTfulAPI internals.
 
-The current architecture is prepared for multi-backend read routing. Multi-backend polling is the next runtime step.
+The current architecture has implemented multi-backend read routing, backend-aware polling foundations, capability reporting and SearchTimer backend access foundations.
 
 ---
 
@@ -137,7 +137,7 @@ GET /api/vdr/changes
 
 The change feed is transport-independent.
 
-Live transports remain future work and should consume the change feed instead of owning snapshot generation or change detection.
+Live transports consume the change feed instead of owning snapshot generation or change detection.
 
 ---
 
@@ -244,6 +244,7 @@ GET /api/dashboard
 GET /api/jobs
 GET /api/recordings
 GET /api/metadata
+GET /api/searchtimers
 GET /api/runtime/diagnostics
 GET /api/runtime/summary
 ```
@@ -269,20 +270,20 @@ GET /api/runtime/summary
 ## Next Architecture Step
 
 ```text
-Phase 16.0 - Multi-Backend Polling Foundation
+Phase 50.0 - SearchTimer user workflow foundation
 ```
 
 Goal:
 
-Connect `BackendRegistry` to daemon-owned polling and backend-aware snapshot cache updates.
+Turn the validated SearchTimer backend access, real payload validation and native fuzzy capability reporting into a coherent user workflow foundation.
 
 Rules:
 
-- polling remains daemon-owned
-- snapshot generation remains backend-neutral
-- default backend behavior remains compatible
-- no parallel polling until the single-threaded multi-backend model is clear
-- frontend routes must not own polling, backend selection or snapshot generation
+- VDR remains the source of truth for VDR-owned SearchTimer state
+- SearchTimer workflow APIs must preserve backend identity
+- unsupported epgsearch and Live-style options must remain explicit future scope
+- automatic SearchTimer evaluation remains out of scope until the user workflow foundation is stable
+- frontend routes must not own backend polling, backend selection or snapshot generation
 
 ---
 
