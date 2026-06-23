@@ -451,3 +451,13 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Backend-neutral fallback matcher | Implemented | Conservative boolean word-distance matcher. |
 | Native epgsearch passthrough | Deferred | Later adapter/capability phase. |
 | Fuzzy ranking | Deferred | No public score/ranking contract yet. |
+
+## Phase 49.12 Native Fuzzy Capability Mapping
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Fuzzy fallback capability | Implemented | Exposed as `epg.search.fuzzy.fallback`. |
+| Native fuzzy capability | Implemented as capability flag | Exposed as `epg.search.fuzzy.native`; unavailable unless a backend advertises it. |
+| Capability report distinction | Implemented | Fallback and native fuzzy support are reported separately. |
+| Snapshot read-only capability set | Updated | Provides fallback fuzzy support, not native epgsearch fuzzy support. |
+| Native adapter passthrough | Deferred | Follow-up phase. |

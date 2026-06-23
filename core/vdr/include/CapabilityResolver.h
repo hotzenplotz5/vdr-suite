@@ -64,6 +64,16 @@ public:
             return fromSupportedFlag(capability, capabilities_.eventsSelectiveRead);
         }
 
+        if (capability == "epg.search.fuzzy.fallback")
+        {
+            return fromSupportedFlag(capability, capabilities_.epgSearchFuzzyFallback);
+        }
+
+        if (capability == "epg.search.fuzzy.native")
+        {
+            return fromSupportedFlag(capability, capabilities_.epgSearchFuzzyNative);
+        }
+
         return CapabilityState::unsupported(
             capability,
             "unknown capability");

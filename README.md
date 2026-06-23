@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.11 - EPGSearch fuzzy fallback matcher
+    Phase 49.12 - EPGSearch native fuzzy capability mapping
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.12 - EPGSearch native fuzzy capability mapping
+    Phase 49.13 - EPGSearch native fuzzy adapter passthrough
 
 Completed foundations:
 

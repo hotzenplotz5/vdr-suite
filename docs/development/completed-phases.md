@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.12 - EPGSearch native fuzzy capability mapping
+
+Status: Completed.
+
+Summary:
+- Added explicit fallback and native fuzzy EPGSearch capabilities.
+- Added `epg.search.fuzzy.fallback` to the default capability report.
+- Added `epg.search.fuzzy.native` to the default capability report.
+- Exposed fallback fuzzy support separately from native epgsearch fuzzy support.
+- Marked the snapshot read-only capability set as fallback-fuzzy capable.
+- Kept native fuzzy unavailable unless a backend explicitly advertises it.
+- Added resolver, report builder, report service, capability set and controller coverage.
+
+---
 ## Phase 49.11 - EPGSearch fuzzy fallback matcher
 
 Status: Completed.

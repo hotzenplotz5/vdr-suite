@@ -18,7 +18,7 @@ int main()
 
     assert(emptyReport.backendId() == "empty-backend");
     assert(!emptyReport.empty());
-    assert(emptyReport.size() == 8);
+    assert(emptyReport.size() == 10);
 
     for (const auto& state : emptyReport.capabilities())
     {
@@ -39,18 +39,31 @@ int main()
 
     assert(readOnlyReport.backendId() == "mock-backend");
     assert(!readOnlyReport.empty());
-    assert(readOnlyReport.size() == 8);
+    assert(readOnlyReport.size() == 10);
 
-    for (const auto& state : readOnlyReport.capabilities())
+    for (std::size_t index = 0; index < readOnlyReport.capabilities().size(); ++index)
     {
-        assert(state.supported());
-        assert(state.availableNow());
-        assert(state.availability() == CapabilityAvailability::Available);
+        const auto& state = readOnlyReport.capabilities().at(index);
+
+        if (state.capabilityName() == "epg.search.fuzzy.native")
+        {
+            assert(!state.supported());
+            assert(!state.availableNow());
+            assert(state.availability() == CapabilityAvailability::Unsupported);
+        }
+        else
+        {
+            assert(state.supported());
+            assert(state.availableNow());
+            assert(state.availability() == CapabilityAvailability::Available);
+        }
     }
 
     assert(readOnlyReport.capabilities().at(0).capabilityName() == "snapshot.read");
     assert(readOnlyReport.capabilities().at(3).capabilityName() == "recordings.read");
     assert(readOnlyReport.capabilities().at(7).capabilityName() == "events.read.selective");
+    assert(readOnlyReport.capabilities().at(8).capabilityName() == "epg.search.fuzzy.fallback");
+    assert(readOnlyReport.capabilities().at(9).capabilityName() == "epg.search.fuzzy.native");
 
     std::cout
         << "test_capability_report_builder passed"

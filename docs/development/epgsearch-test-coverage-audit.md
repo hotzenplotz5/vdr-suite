@@ -306,3 +306,22 @@ Deferred behavior:
 - native epgsearch fuzzy passthrough.
 - backend capability distinction between native and fallback fuzzy.
 - public fuzzy score/ranking semantics.
+
+## Phase 49.12 Native Fuzzy Capability Mapping
+
+Phase 49.12 covers the capability distinction introduced after the fuzzy fallback matcher.
+
+Covered behavior:
+
+- `epg.search.fuzzy.fallback` is part of the default capability report.
+- `epg.search.fuzzy.native` is part of the default capability report.
+- empty backends report both fuzzy capabilities as unsupported.
+- snapshot read-only capability sets report fallback fuzzy as available.
+- snapshot read-only capability sets keep native fuzzy unsupported.
+- the capability controller serializes both fuzzy capability names.
+
+Deferred behavior:
+
+- native RESTfulAPI/epgsearch fuzzy passthrough.
+- real-backend native fuzzy detection.
+- runtime capability merging between fallback and native execution paths.

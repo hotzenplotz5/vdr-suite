@@ -36,7 +36,9 @@ private:
             "timers.read",
             "channels.read",
             "events.read",
-            "events.read.selective"
+            "events.read.selective",
+            "epg.search.fuzzy.fallback",
+            "epg.search.fuzzy.native"
         };
 
         return capabilities;

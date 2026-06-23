@@ -40,6 +40,8 @@ int main()
     assert(!emptyResolver.supports("channels.read"));
     assert(!emptyResolver.supports("events.read"));
     assert(!emptyResolver.supports("events.read.selective"));
+    assert(!emptyResolver.supports("epg.search.fuzzy.fallback"));
+    assert(!emptyResolver.supports("epg.search.fuzzy.native"));
     assert(!emptyResolver.supports("recordings.delete"));
     assert(!emptyResolver.supports("timers.create"));
     assert(!emptyResolver.supports("unknown.capability"));
@@ -66,6 +68,8 @@ int main()
     assert(readOnlyResolver.supports("channels.read"));
     assert(readOnlyResolver.supports("events.read"));
     assert(readOnlyResolver.supports("events.read.selective"));
+    assert(readOnlyResolver.supports("epg.search.fuzzy.fallback"));
+    assert(!readOnlyResolver.supports("epg.search.fuzzy.native"));
 
     assertAvailableState(
         readOnlyResolver.state("recordings.read"),
@@ -73,6 +77,13 @@ int main()
     assertAvailableState(
         readOnlyResolver.state("events.read.selective"),
         "events.read.selective");
+    assertAvailableState(
+        readOnlyResolver.state("epg.search.fuzzy.fallback"),
+        "epg.search.fuzzy.fallback");
+    assertUnsupportedState(
+        readOnlyResolver.state("epg.search.fuzzy.native"),
+        "epg.search.fuzzy.native",
+        "capability unsupported by backend");
 
     assert(!readOnlyResolver.supports("recordings.delete"));
     assert(!readOnlyResolver.supports("timers.create"));

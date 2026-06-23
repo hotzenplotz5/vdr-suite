@@ -11,6 +11,8 @@ public:
     bool channelsRead = false;
     bool eventsRead = false;
     bool eventsSelectiveRead = false;
+    bool epgSearchFuzzyFallback = false;
+    bool epgSearchFuzzyNative = false;
 
     static VdrCapabilitySet snapshotReadOnly()
     {
@@ -24,6 +26,8 @@ public:
         capabilities.channelsRead = true;
         capabilities.eventsRead = true;
         capabilities.eventsSelectiveRead = true;
+        capabilities.epgSearchFuzzyFallback = true;
+        capabilities.epgSearchFuzzyNative = false;
 
         return capabilities;
     }

@@ -23,13 +23,22 @@ int main()
 
     assert(report.backendId() == "mock-backend");
     assert(!report.empty());
-    assert(report.size() == 8);
+    assert(report.size() == 10);
 
     for (const auto& state : report.capabilities())
     {
-        assert(state.supported());
-        assert(state.availableNow());
-        assert(state.availability() == CapabilityAvailability::Available);
+        if (state.capabilityName() == "epg.search.fuzzy.native")
+        {
+            assert(!state.supported());
+            assert(!state.availableNow());
+            assert(state.availability() == CapabilityAvailability::Unsupported);
+        }
+        else
+        {
+            assert(state.supported());
+            assert(state.availableNow());
+            assert(state.availability() == CapabilityAvailability::Available);
+        }
     }
 
     VdrCapabilitySet emptyCapabilities;
@@ -45,7 +54,7 @@ int main()
 
     assert(emptyReport.backendId() == "empty-backend");
     assert(!emptyReport.empty());
-    assert(emptyReport.size() == 8);
+    assert(emptyReport.size() == 10);
 
     for (const auto& state : emptyReport.capabilities())
     {

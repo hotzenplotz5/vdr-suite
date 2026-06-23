@@ -15,6 +15,8 @@ int main()
     assert(!emptyCapabilities.channelsRead);
     assert(!emptyCapabilities.eventsRead);
     assert(!emptyCapabilities.eventsSelectiveRead);
+    assert(!emptyCapabilities.epgSearchFuzzyFallback);
+    assert(!emptyCapabilities.epgSearchFuzzyNative);
 
     VdrCapabilitySet readOnlyCapabilities =
         VdrCapabilitySet::snapshotReadOnly();
@@ -27,6 +29,8 @@ int main()
     assert(readOnlyCapabilities.channelsRead);
     assert(readOnlyCapabilities.eventsRead);
     assert(readOnlyCapabilities.eventsSelectiveRead);
+    assert(readOnlyCapabilities.epgSearchFuzzyFallback);
+    assert(!readOnlyCapabilities.epgSearchFuzzyNative);
 
     std::cout
         << "test_vdr_capability_set passed"
