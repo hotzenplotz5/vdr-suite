@@ -201,6 +201,22 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.24 - EPGSearch native fuzzy operator refresh workflow
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchNativeFuzzyOperatorRefreshService`.
+- Operator refresh creates a temporary native fuzzy SearchTimer probe.
+- Operator refresh reads the probe SearchTimer back and validates native mode/tolerance preservation.
+- Operator refresh deletes the temporary probe SearchTimer by default.
+- Probe result is persisted in the native fuzzy capability repository.
+- Backend native fuzzy capability is updated from the probe result.
+- Missing backends do not trigger a probe.
+- Deferred public REST/operator trigger endpoint to Phase 49.25.
+
+---
+
 ## Phase 49.23 - EPGSearch native fuzzy stale probe administration API
 
 Status: Completed.

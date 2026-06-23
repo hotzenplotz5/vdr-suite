@@ -218,6 +218,25 @@ POST delete removes only stale or future-timestamp persisted rows and keeps fres
 
 The API does not contact VDR and does not create, modify or delete SearchTimer objects.
 
+## Operator refresh workflow
+
+Phase 49.24 adds a core service for an operator-triggered native fuzzy refresh workflow.
+
+The workflow performs an explicit temporary SearchTimer probe:
+
+    create temporary SearchTimer with native fuzzy mode=5
+    read back the temporary SearchTimer
+    verify preserved mode and tolerance
+    delete the temporary SearchTimer
+    persist the resulting native fuzzy capability probe
+    update backend capability state
+
+This is intentionally not run during daemon startup.
+
+A failed probe is persisted as an unavailable native fuzzy capability and updates the backend capability to false.
+
+The workflow is prepared for a later REST/operator endpoint.
+
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.

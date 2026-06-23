@@ -534,3 +534,20 @@ Deferred behavior:
 - authenticated/authorized operator policy.
 - explicit native fuzzy reprobe trigger.
 - configurable freshness window endpoint.
+
+## Phase 49.24 Operator Refresh Workflow
+
+Phase 49.24 adds unit coverage for the operator-triggered native fuzzy refresh workflow.
+
+Covered behavior:
+
+- successful probe creates, reads back, deletes and persists native fuzzy availability.
+- successful probe updates backend capabilities.
+- mode downgrade/readback mismatch disables native fuzzy.
+- missing backend prevents probe creation.
+
+Deferred behavior:
+
+- REST/operator trigger endpoint.
+- authentication and permission checks.
+- multi-backend bulk refresh orchestration.

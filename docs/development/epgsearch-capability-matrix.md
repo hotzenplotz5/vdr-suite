@@ -576,3 +576,13 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Stale probe delete endpoint | Implemented | POST endpoint deletes stale/future persisted rows. |
 | Fresh row safety | Implemented | Fresh persisted results are not deleted. |
 | VDR mutation | Not implemented | API is local persistence administration only. |
+
+## Phase 49.24 Operator Refresh Workflow
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Operator-triggered refresh service | Implemented | Core workflow exists without automatic startup execution. |
+| Temporary SearchTimer probe | Implemented | Creates, reads back and deletes a probe SearchTimer. |
+| Native fuzzy result persistence | Implemented | Probe result is saved into the native fuzzy capability repository. |
+| Backend capability update | Implemented | Backend native fuzzy capability is updated from the probe result. |
+| REST trigger | Deferred | Public/operator trigger endpoint remains a later phase. |
