@@ -201,6 +201,22 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.26 - EPGSearch native fuzzy operator refresh routing validation
+
+Status: Completed.
+
+Summary:
+- Added router-level validation for explicit native fuzzy operator refresh routes.
+- Validated `/api/epgsearch/native-fuzzy/refresh`.
+- Validated `/api/vdr/epgsearch/native-fuzzy/refresh`.
+- Added a fake SearchTimer command/data runtime for API router validation.
+- Verified that an operator-triggered refresh creates a temporary probe SearchTimer, reads it back, deletes it again and leaves no probe timer behind.
+- Verified that native fuzzy capability state is updated from the refresh result.
+- Verified the unavailable-controller safety path returns HTTP 503.
+- Kept validation local and deterministic without contacting a real VDR.
+
+---
+
 ## Phase 49.25 - EPGSearch native fuzzy operator refresh API
 
 Status: Completed.
