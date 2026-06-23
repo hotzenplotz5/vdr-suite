@@ -125,6 +125,20 @@ Restore is backend-scoped and safe:
     do not execute a new VDR mutation probe
 
 A persisted failed or incomplete probe restores `epg.search.fuzzy.native=false`.
+## Startup restore integration
+
+Phase 49.19 integrates persisted native fuzzy capability restore into daemon startup.
+
+Startup restore is intentionally non-mutating:
+
+    open database
+    create backend registry
+    assign baseline snapshot-read capabilities
+    load persisted native fuzzy probe results
+    update existing backend capability state
+    build the capability report from the restored backend capability set
+
+No SearchTimer is created, modified or deleted during startup restore.
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.

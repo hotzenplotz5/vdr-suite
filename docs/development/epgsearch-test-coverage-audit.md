@@ -437,3 +437,22 @@ Deferred behavior:
 - automatic daemon startup invocation.
 - probe result freshness and expiry policy.
 - user-visible administration endpoint for clearing stale probe results.
+
+## Phase 49.19 Startup Restore Integration
+
+Phase 49.19 adds startup restore integration coverage.
+
+Covered behavior:
+
+- startup restore creates the persistence table if needed.
+- startup restore with no persisted probe result does not update backend state.
+- successful persisted probe result restores native fuzzy availability.
+- failed persisted probe result restores native fuzzy as unavailable.
+- restore is backend-scoped and does not create missing backends.
+- daemon startup path uses restored default backend capabilities for the capability report.
+
+Deferred behavior:
+
+- freshness/expiry policy for stale persisted probe results.
+- explicit operator endpoint to refresh or clear persisted probe results.
+- multi-backend external configuration loading beyond the current default backend.

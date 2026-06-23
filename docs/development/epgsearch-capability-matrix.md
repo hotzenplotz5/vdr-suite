@@ -524,3 +524,13 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Missing persisted result | Implemented | No backend update. |
 | Missing backend safety | Implemented | No backend is created from persisted data. |
 | Automatic startup invocation | Deferred | Follow-up phase. |
+
+## Phase 49.19 Startup Restore Integration
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Startup restore service | Implemented | Restores persisted results for all existing backends. |
+| Daemon integration | Implemented | Restore runs after backend registry creation and before capability report construction. |
+| Baseline capabilities | Implemented | Default backend starts with `snapshotReadOnly()` capabilities before restore. |
+| Capability report visibility | Implemented | Default report uses restored backend capability state. |
+| Automatic mutation probe | Not implemented | Startup restore is read-only/non-mutating. |

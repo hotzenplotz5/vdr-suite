@@ -1167,6 +1167,7 @@ clean:
 	rm -f /tmp/test_epgsearch_native_fuzzy_runtime_capability_wiring
 	rm -f /tmp/test_epgsearch_native_fuzzy_capability_repository
 	rm -f /tmp/test_epgsearch_native_fuzzy_capability_restore_service
+	rm -f /tmp/test_epgsearch_native_fuzzy_startup_restore_service
 	rm -f /tmp/test_rest_query_parameters
 	rm -f /tmp/test_snapshot_access_service
 	rm -f /tmp/test_http_server_contract

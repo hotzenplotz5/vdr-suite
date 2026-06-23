@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 49.18 - EPGSearch native fuzzy persisted capability restore
+Phase 49.19 - EPGSearch native fuzzy startup restore integration
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 49.19 - EPGSearch native fuzzy startup restore integration
+Phase 49.20 - EPGSearch native fuzzy restore diagnostics
 ```
 
 Latest Completed Milestones:

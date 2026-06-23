@@ -102,12 +102,41 @@ bool DaemonRuntime::initialize()
     defaultBackend.connection.port = config_.vdrPort();
     defaultBackend.enabled = true;
     defaultBackend.online = true;
+    defaultBackend.capabilities = VdrCapabilitySet::snapshotReadOnly();
 
     backendRegistry_.addBackend(defaultBackend);
     backendRegistryService_ = std::make_unique<BackendRegistryService>(backendRegistry_);
     backendRegistryJsonSerializer_ = std::make_unique<BackendRegistryJsonSerializer>();
     backendRegistryController_ = std::make_unique<BackendRegistryController>(*backendRegistryService_, *backendRegistryJsonSerializer_);
 
+    epgSearchNativeFuzzyCapabilityRepository_ =
+        std::make_unique<EpgSearchNativeFuzzyCapabilityRepository>(
+            database_);
+    epgSearchNativeFuzzyCapabilityDetector_ =
+        std::make_unique<EpgSearchNativeFuzzyCapabilityDetector>();
+    epgSearchNativeFuzzyStartupRestoreService_ =
+        std::make_unique<EpgSearchNativeFuzzyStartupRestoreService>(
+            *epgSearchNativeFuzzyCapabilityRepository_,
+            *epgSearchNativeFuzzyCapabilityDetector_,
+            *backendRegistryService_);
+
+    const auto nativeFuzzyStartupRestoreSummary =
+        epgSearchNativeFuzzyStartupRestoreService_->restoreAllBackends();
+
+    if (nativeFuzzyStartupRestoreSummary.schemaReady) {
+        std::cout
+            << "EPGSearch native fuzzy persisted capability restore: "
+            << "backends=" << nativeFuzzyStartupRestoreSummary.backendsSeen
+            << ", persisted=" << nativeFuzzyStartupRestoreSummary.persistedResultsFound
+            << ", updated=" << nativeFuzzyStartupRestoreSummary.backendsUpdated
+            << ", native=" << nativeFuzzyStartupRestoreSummary.nativeFuzzyAvailable
+            << std::endl;
+    }
+    else {
+        std::cerr
+            << "EPGSearch native fuzzy persisted capability restore skipped: schema unavailable"
+            << std::endl;
+    }
     const auto runtimeBackends =
         backendRegistry_.listBackends();
 
@@ -164,8 +193,18 @@ bool DaemonRuntime::initialize()
         *vdrRecordingQueryService_,
         *vdrRecordingQueryResultJsonSerializer_);
 
+    VdrCapabilitySet effectiveCapabilitySet =
+        VdrCapabilitySet::snapshotReadOnly();
+
+    const auto defaultCapabilityBackend =
+        backendRegistryService_->getBackend("default");
+
+    if (defaultCapabilityBackend.has_value()) {
+        effectiveCapabilitySet = defaultCapabilityBackend->capabilities;
+    }
+
     capabilitySet_ = std::make_unique<VdrCapabilitySet>(
-        VdrCapabilitySet::snapshotReadOnly());
+        effectiveCapabilitySet);
     capabilityResolver_ = std::make_unique<CapabilityResolver>(*capabilitySet_);
     capabilityReportBuilder_ = std::make_unique<CapabilityReportBuilder>();
     capabilityReportService_ = std::make_unique<CapabilityReportService>(

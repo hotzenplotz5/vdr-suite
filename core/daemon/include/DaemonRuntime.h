@@ -20,6 +20,9 @@
 #include "EpgQueryService.h"
 #include "EpgSearchResultJsonSerializer.h"
 #include "EpgSearchService.h"
+#include "EpgSearchNativeFuzzyCapabilityDetector.h"
+#include "EpgSearchNativeFuzzyCapabilityRepository.h"
+#include "EpgSearchNativeFuzzyStartupRestoreService.h"
 #include "ConsoleRuntimeLogger.h"
 #include "Database.h"
 #include "IHttpClient.h"
@@ -157,6 +160,9 @@ private:
     std::unique_ptr<CapabilityReportService> capabilityReportService_;
     std::unique_ptr<CapabilityReportJsonSerializer> capabilityReportJsonSerializer_;
     std::unique_ptr<CapabilityController> capabilityController_;
+    std::unique_ptr<EpgSearchNativeFuzzyCapabilityRepository> epgSearchNativeFuzzyCapabilityRepository_;
+    std::unique_ptr<EpgSearchNativeFuzzyCapabilityDetector> epgSearchNativeFuzzyCapabilityDetector_;
+    std::unique_ptr<EpgSearchNativeFuzzyStartupRestoreService> epgSearchNativeFuzzyStartupRestoreService_;
     std::unique_ptr<EpgQueryService> epgQueryService_;
     std::unique_ptr<EpgSearchService> epgSearchService_;
     std::unique_ptr<EpgSearchResultJsonSerializer> epgSearchResultJsonSerializer_;

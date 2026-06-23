@@ -201,6 +201,23 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.19 - EPGSearch native fuzzy startup restore integration
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchNativeFuzzyStartupRestoreService`.
+- Startup restore creates the persistence schema if needed.
+- Startup restore reloads persisted probe results for existing backends.
+- Successful persisted results restore native fuzzy capability availability.
+- Failed persisted results restore native fuzzy as unavailable.
+- Missing persisted results leave backend capabilities unchanged.
+- Persisted results for missing backends do not create backend nodes.
+- Daemon startup applies persisted restore before capability report construction.
+- Capability report now uses restored default backend capabilities.
+- Startup restore remains read-only/non-mutating and does not create SearchTimer probe objects.
+
+---
 ## Phase 49.18 - EPGSearch native fuzzy persisted capability restore
 
 Status: Completed.
