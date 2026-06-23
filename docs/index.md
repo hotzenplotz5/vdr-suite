@@ -28,11 +28,11 @@ Main entry point for all VDR-Suite documentation.
 
 Completed Major Phase:
 
-- Phase 28.12 - Recording Query API Documentation
+- Phase 49.30 - EPGSearch native fuzzy validation consolidation
 
 Planned Next Major Phase:
 
-- Phase 29.0 - Multi-Backend Recording Identity Foundation
+- Phase 50.0 - SearchTimer user workflow foundation
 
 ---
 
