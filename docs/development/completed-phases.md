@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.29 - EPGSearch native fuzzy persisted capability restore validation
+
+Status: Completed.
+
+Summary:
+- Added startup-restore validation coverage for persisted native fuzzy capability probe results.
+- Added a safe VDR-Suite persisted-restore helper that checks startup restore diagnostics and the public capability report.
+- Verified that a successful operator refresh persists the native fuzzy probe result.
+- Verified that a daemon restart restores the persisted native fuzzy capability state.
+- Confirmed `/api/runtime/diagnostics` reports the `epgsearch-native-fuzzy` startup-restore measurement with `statusCode=200` and persisted item count.
+- Confirmed `/api/vdr/capabilities` still reports `epg.search.fuzzy.native` as supported, available and availableNow after daemon restart.
+- Preserved missing-persisted-result behavior without enabling native fuzzy support.
+
+---
+
 ## Phase 49.28 - EPGSearch native fuzzy capability report validation
 
 Status: Completed.

@@ -334,6 +334,55 @@ Real execution:
 The daemon capability report now resolves capability state dynamically from the backend registry. This prevents the report from staying stale after an operator-triggered native fuzzy refresh updates backend capability state.
 
 
+## Persisted restore validation
+
+Phase 49.29 validates that the native fuzzy capability survives a daemon restart.
+
+The validated sequence is:
+
+    run operator refresh through /api/epgsearch/native-fuzzy/refresh
+    persist the successful native fuzzy probe result in SQLite
+    stop the daemon
+    restart the daemon with the same database
+    verify startup restore diagnostics
+    verify /api/vdr/capabilities still reports native fuzzy support
+
+The startup restore runtime measurement is exposed through:
+
+    GET /api/runtime/diagnostics
+
+The relevant runtime measurement is:
+
+    component=epgsearch-native-fuzzy
+    operation=startup-restore
+    statusCode=200
+    itemCount>=1
+
+The public capability report is checked through:
+
+    GET /api/vdr/capabilities
+
+The validated capability state is:
+
+    epg.search.fuzzy.native supported=true
+    epg.search.fuzzy.native availability=available
+    epg.search.fuzzy.native availableNow=true
+
+The helper is:
+
+    tools/validate_vdr_suite_native_fuzzy_persisted_restore.py
+
+Safe dry-run:
+
+    python3 tools/validate_vdr_suite_native_fuzzy_persisted_restore.py
+
+Real execution after daemon restart:
+
+    python3 tools/validate_vdr_suite_native_fuzzy_persisted_restore.py --execute
+
+This proves that native fuzzy support is not only detected during the current daemon lifetime, but also restored from persisted probe state on the next daemon startup.
+
+
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.
@@ -352,7 +401,7 @@ If cleanup fails, manually delete the temporary SearchTimer named with the confi
 
 ## Phase status
 
-Phase 49.28 validates that the refreshed native fuzzy capability is visible through /api/vdr/capabilities and that the report resolves capability state dynamically from the backend registry.
+Phase 49.29 validates that a persisted native fuzzy capability probe result is restored after daemon restart and remains visible through /api/vdr/capabilities.
 
 ## Back
 
