@@ -295,107 +295,54 @@ Completed phases:
 
 ---
 
+### SearchTimer Backend and Capability Foundation
+
+Status: Completed.
+
+Primary result:
+- Establishes the backend-facing SearchTimer foundation and validates native fuzzy backend capability behavior through real VDR-Suite and RESTfulAPI workflows.
+
+Key outcomes:
+- SearchTimer route and daemon backend provider wiring.
+- SearchTimer backend contract documentation.
+- Real payload capture and validation workflow.
+- Expanded SearchTimer domain model for stable recording and schedule options.
+- Native fuzzy operator refresh validation.
+- Capability report validation for epg.search.fuzzy.native.
+- Persisted native fuzzy restore validation after daemon restart.
+- Consolidated native fuzzy validation helper workflow and mutation boundaries.
+
+Representative phase range:
+- Phase 47.x through Phase 49.x.
+
+---
 ## Current Milestone
 
-### EPG Person Search Foundation
+### Phase 50 - SearchTimer User Workflow Foundation
 
 Status: In Progress.
 
 Goal:
-- Reuse the person metadata search architecture for EPG events.
+- Turn the backend-facing SearchTimer and native fuzzy capability foundation into a practical user workflow foundation.
 
-Current result:
-- The first EPG person search result model exists and preserves matched person metadata together with EPG event and backend context.
+Expected outcomes:
+- User-facing SearchTimer workflow contracts.
+- Clear create, list, update and delete semantics above the current backend provider foundation.
+- Validation path from EPG search criteria to persistent SearchTimer rules.
+- Documentation for which epgsearch and Live-style options are supported now and which remain future scope.
+- Client-ready API shape for later web and TV frontend work.
 
-Completed phases:
-- Phase 46.37 - EPG Person Search Result Model.
+Reason for priority:
+- The native fuzzy backend capability path is now validated.
+- The next useful step is no longer more capability probing, but turning SearchTimer into a coherent operator and client workflow.
 
-Planned next implementation steps:
-- EPG person search service.
-- EPG person search JSON contract.
-- EPG person search REST boundary.
-- Snapshot-backed or query-backed EPG person search routing.
-- Documentation and validation against real EPG metadata availability.
-
-Open design questions:
-- Whether real EPG person metadata is available from current adapters.
-- Whether EPG person search should initially use structured metadata only or derive candidates from event descriptions.
-- Whether derived person extraction belongs in VDR-Suite core or a future metadata enrichment layer.
+Important boundaries:
+- Keep VDR as the source of truth for VDR-owned SearchTimer state.
+- Preserve backend identity for future multi-backend SearchTimer behavior.
+- Keep automatic evaluation and recording actions out until the SearchTimer workflow foundation is stable.
 
 ---
-
 ## Planned Major Milestones
-
-### Phase 47 - SearchTimer Foundation
-
-Status: Planned.
-
-Goal:
-- Add persistent search rules that can evaluate EPG data and later trigger recording-oriented actions.
-
-Expected outcomes:
-- SearchTimer domain model.
-- SearchTimer repository and persistence.
-- SearchTimer query and matching engine.
-- REST API for creating, listing, updating and deleting search timers.
-- Validation contracts and tests.
-- Foundation for epgsearch-style workflows.
-
-Reason for priority:
-- SearchTimer is the next major step after EPG search, recording query and person search because it turns search from a manual API into an automation foundation.
-
----
-
-### Phase 48 - Unified Search Foundation
-
-Status: Planned.
-
-Goal:
-- Provide one search surface across recordings, EPG events, people, characters, genres and backend identity.
-
-Expected outcomes:
-- Unified search request model.
-- Unified search result model.
-- Search domains for recordings, EPG, people, characters and classifications.
-- Backend-aware query behavior.
-- API contract suitable for future web and TV clients.
-
----
-
-### Phase 49 - Profiles, Permissions and Policy Foundation
-
-Status: Planned.
-
-Goal:
-- Add user-facing policy foundations for multi-backend and multi-client use.
-
-Expected outcomes:
-- Profile domain model.
-- Backend permission model.
-- Read-only and full-control backend policy.
-- Content rating / FSK policy integration.
-- Foundation for user preferences and parental controls.
-
-Reason for priority:
-- Multi-backend support already exists technically, but user-level policy is required before exposing destructive operations broadly.
-
----
-
-### Phase 50 - Backend Management Foundation
-
-Status: Planned.
-
-Goal:
-- Turn backend configuration from a static foundation into a manageable runtime concept.
-
-Expected outcomes:
-- Backend management API.
-- Backend capability visibility.
-- Backend health and diagnostics.
-- Backend connection validation.
-- Preparation for frontend backend administration.
-
----
 
 ### Phase 51 - Live Plugin Parity Foundation
 
@@ -459,6 +406,21 @@ Expected outcomes:
 
 ---
 
+### Phase 55 - Backend Management and Client Administration Foundation
+
+Status: Planned.
+
+Goal:
+- Turn backend configuration, capability visibility and backend health into manageable client-facing concepts.
+
+Expected outcomes:
+- Backend management API.
+- Backend capability visibility.
+- Backend health and diagnostics.
+- Backend connection validation.
+- Preparation for frontend backend administration.
+
+---
 ## Long-Term Vision
 
 ### Content Knowledge Graph
