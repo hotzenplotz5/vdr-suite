@@ -16,9 +16,11 @@
 
 ## Purpose
 
-This document defines the Phase 47.15 validation workflow for real RESTfulAPI and epgsearch SearchTimer payloads.
+This document records the Phase 47.15 validation workflow for real RESTfulAPI and epgsearch SearchTimer payloads.
 
-The goal is to validate backend payload shape before expanding the VDR-Suite SearchTimer domain model.
+The original gate was to validate backend payload shape before expanding the VDR-Suite SearchTimer domain model.
+
+That gate has passed. The document remains as the historical payload-capture reference for later Phase 50 user workflow work.
 
 ---
 
@@ -34,15 +36,15 @@ The script stores the captured payload here:
 
 ---
 
-## Current Expected Minimal Fields
+## Original Expected Minimal Fields
 
-The current mapper requires:
+The original mapper required:
 
     id
     search
     use_as_searchtimer
 
-The current mapper ignores all additional backend fields.
+The original mapper ignored all additional backend fields until real payload evidence justified domain expansion.
 
 ---
 
@@ -60,9 +62,11 @@ The captured payload should answer:
 
 ## Domain Expansion Gate
 
-No SearchTimer domain expansion should happen before a real payload is captured and reviewed.
+This gate is complete.
 
-Phase 47.16 may expand the domain only for fields proven by real payloads.
+Real payload validation enabled later SearchTimer domain expansion, real VDR compatibility checks and native fuzzy backend capability validation.
+
+Current follow-up direction is Phase 50.0 - SearchTimer user workflow foundation.
 
 ---
 
