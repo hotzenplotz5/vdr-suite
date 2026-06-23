@@ -482,3 +482,13 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Native readback validation | Implemented | Verifies `mode=5` and requested `tolerance`. |
 | Cleanup validation | Implemented | Deletes the created SearchTimer unless `--keep-created` is used. |
 | Capability autodetection | Deferred | Follow-up phase. |
+
+## Phase 49.15 Native Fuzzy Capability Autodetection
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Probe model | Implemented | `EpgSearchNativeFuzzyCapabilityProbeResult`. |
+| Capability detector | Implemented | Enables native fuzzy only after a complete successful probe lifecycle. |
+| Fallback preservation | Implemented | `epg.search.fuzzy.fallback` remains independent. |
+| Native fuzzy success signal | Implemented | Validator emits `capability: epg.search.fuzzy.native=true` on successful real validation. |
+| Runtime wiring | Deferred | Follow-up phase wires detector output into runtime/backend capability construction. |

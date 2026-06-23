@@ -423,6 +423,14 @@ def run_validation(args):
         return 1
 
     print("")
+    print("capabilityProbe=" + json.dumps({
+        "createAccepted": True,
+        "readbackAvailable": True,
+        "modePreserved": True,
+        "tolerancePreserved": True,
+        "cleanupSucceeded": True,
+    }, sort_keys=True))
+    print("capability: epg.search.fuzzy.native=true")
     print("PASS: native fuzzy real-backend validation completed")
     return 0
 

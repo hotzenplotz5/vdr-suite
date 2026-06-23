@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.15 - EPGSearch native fuzzy capability autodetection
+
+Status: Completed.
+
+Summary:
+- Added a deterministic native fuzzy capability probe result model.
+- Added `EpgSearchNativeFuzzyCapabilityDetector`.
+- Detector enables `epg.search.fuzzy.native` only when create, readback, mode preservation, tolerance preservation and cleanup all succeeded.
+- Detector preserves unrelated base capabilities and keeps fallback capability independent.
+- Added unit coverage for successful and failed probe outcomes.
+- Extended the real-backend validator to emit a machine-readable capability probe result and native fuzzy capability signal after successful validation.
+- Deferred runtime/backend registry capability wiring to Phase 49.16.
+
+---
 ## Phase 49.14 - EPGSearch native fuzzy real-backend validation
 
 Status: Completed.

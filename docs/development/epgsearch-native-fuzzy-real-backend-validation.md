@@ -61,8 +61,25 @@ A successful validation includes:
 
     PASS: readback mode=5
     PASS: readback tolerance=2
+    capabilityProbe={"cleanupSucceeded": true, "createAccepted": true, "modePreserved": true, "readbackAvailable": true, "tolerancePreserved": true}
+    capability: epg.search.fuzzy.native=true
     PASS: native fuzzy real-backend validation completed
 
+## Capability signal
+
+A successful execution emits a deterministic capability signal:
+
+    capability: epg.search.fuzzy.native=true
+
+This signal is valid only when the complete validation lifecycle succeeded:
+
+- create accepted
+- readback available
+- native fuzzy mode preserved
+- tolerance preserved
+- cleanup succeeded
+
+The C++ capability detector introduced in Phase 49.15 maps this probe result onto `VdrCapabilitySet::epgSearchFuzzyNative`.
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.

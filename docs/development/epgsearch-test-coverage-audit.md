@@ -365,3 +365,21 @@ Deferred behavior:
 - automatic native fuzzy capability detection.
 - permanent capability state changes based on validation outcome.
 - CI execution against a real VDR instance.
+
+## Phase 49.15 Native Fuzzy Capability Autodetection
+
+Phase 49.15 adds deterministic native fuzzy capability detection rules.
+
+Covered behavior:
+
+- successful complete probe enables `epg.search.fuzzy.native`.
+- failed tolerance preservation keeps native fuzzy disabled.
+- failed cleanup keeps native fuzzy disabled.
+- detector preserves unrelated base capabilities.
+- validator emits a machine-readable capability probe result on successful real-backend validation.
+
+Deferred behavior:
+
+- automatic runtime storage of probe results.
+- automatic backend registry capability mutation.
+- scheduled or startup probing.

@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.14 - EPGSearch native fuzzy real-backend validation
+    Phase 49.15 - EPGSearch native fuzzy capability autodetection
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.15 - EPGSearch native fuzzy capability autodetection
+    Phase 49.16 - EPGSearch native fuzzy runtime capability wiring
 
 Completed foundations:
 
