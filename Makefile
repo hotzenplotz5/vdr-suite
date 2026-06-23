@@ -11,6 +11,9 @@ include mk/local-test-groups.mk
 
 
 
+vdr-suite-native-fuzzy-persisted-restore-helper:
+	python3 tools/validate_vdr_suite_native_fuzzy_persisted_restore.py --help
+
 vdr-suite-native-fuzzy-capability-report-helper:
 	python3 tools/validate_vdr_suite_native_fuzzy_capability_report.py --help
 
@@ -672,6 +675,20 @@ test-live-transport-controller:
 		api/rest/tests/test_live_transport_controller.cpp \
 		-o /tmp/test_live_transport_controller
 	/tmp/test_live_transport_controller
+
+test-epgsearch-native-fuzzy-startup-restore-validation: prepare-test-db
+	$(CXX) $(CXXFLAGS) \
+		core/sqlite/src/Database.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityFreshnessPolicy.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyStartupRestoreService.cpp \
+		core/vdr/tests/test_epgsearch_native_fuzzy_startup_restore_validation.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_epgsearch_native_fuzzy_startup_restore_validation
+	/tmp/test_epgsearch_native_fuzzy_startup_restore_validation
 
 test-epgsearch-native-fuzzy-capability-detector:
 	$(CXX) $(CXXFLAGS) -Icore/vdr/include \
