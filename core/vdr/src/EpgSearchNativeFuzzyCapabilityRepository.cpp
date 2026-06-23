@@ -131,6 +131,7 @@ EpgSearchNativeFuzzyCapabilityRepository::loadPersistedProbeResult(
     if (sqlite3_step(stmt) == SQLITE_ROW)
     {
         EpgSearchNativeFuzzyPersistedCapabilityProbeResult persisted;
+        persisted.backendId = backendId;
         persisted.probeResult.createAccepted = intToBool(stmt, 0);
         persisted.probeResult.readbackAvailable = intToBool(stmt, 1);
         persisted.probeResult.modePreserved = intToBool(stmt, 2);
@@ -157,4 +158,80 @@ std::optional<EpgSearchNativeFuzzyCapabilityProbeResult> EpgSearchNativeFuzzyCap
     }
 
     return persisted->probeResult;
+}
+
+std::vector<EpgSearchNativeFuzzyPersistedCapabilityProbeResult>
+EpgSearchNativeFuzzyCapabilityRepository::listPersistedProbeResults() const
+{
+    sqlite3_stmt* stmt = nullptr;
+
+    const char* sql =
+        "SELECT "
+        "backend_id, "
+        "create_accepted, "
+        "readback_available, "
+        "mode_preserved, "
+        "tolerance_preserved, "
+        "cleanup_succeeded, "
+        "updated_at, "
+        "CAST(strftime('%s','now') - strftime('%s', updated_at) AS INTEGER) "
+        "FROM epgsearch_native_fuzzy_capability_probes "
+        "ORDER BY backend_id;";
+
+    std::vector<EpgSearchNativeFuzzyPersistedCapabilityProbeResult> results;
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &stmt,
+            nullptr) != SQLITE_OK)
+    {
+        return results;
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        EpgSearchNativeFuzzyPersistedCapabilityProbeResult persisted;
+        persisted.backendId = columnText(stmt, 0);
+        persisted.probeResult.createAccepted = intToBool(stmt, 1);
+        persisted.probeResult.readbackAvailable = intToBool(stmt, 2);
+        persisted.probeResult.modePreserved = intToBool(stmt, 3);
+        persisted.probeResult.tolerancePreserved = intToBool(stmt, 4);
+        persisted.probeResult.cleanupSucceeded = intToBool(stmt, 5);
+        persisted.updatedAt = columnText(stmt, 6);
+        persisted.ageSeconds = sqlite3_column_int64(stmt, 7);
+        results.push_back(persisted);
+    }
+
+    sqlite3_finalize(stmt);
+
+    return results;
+}
+
+bool EpgSearchNativeFuzzyCapabilityRepository::deleteProbeResult(
+    const std::string& backendId)
+{
+    sqlite3_stmt* stmt = nullptr;
+
+    const char* sql =
+        "DELETE FROM epgsearch_native_fuzzy_capability_probes "
+        "WHERE backend_id = ?;";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &stmt,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, backendId.c_str(), -1, SQLITE_TRANSIENT);
+
+    const int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    return rc == SQLITE_DONE;
 }

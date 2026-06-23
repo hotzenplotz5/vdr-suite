@@ -497,3 +497,23 @@ Deferred behavior:
 - operator-facing configuration for max age.
 - endpoint to clear stale persisted probe results.
 - explicit refresh workflow.
+
+
+## Phase 49.22 Stale Probe Administration
+
+Phase 49.22 adds coverage for stale persisted probe administration.
+
+Covered behavior:
+
+- stale persisted probe results can be listed.
+- future timestamps are listed as untrusted stale entries.
+- stale persisted probe results can be deleted.
+- fresh persisted probe results are kept.
+- administration safely creates the persistence schema when missing.
+- administration performs no VDR or SearchTimer mutation.
+
+Deferred behavior:
+
+- REST endpoint for stale probe administration.
+- operator-triggered native fuzzy reprobe workflow.
+- configurable freshness max age.

@@ -187,6 +187,20 @@ Stale result:
     forces epg.search.fuzzy.native=false for the existing backend
     does not create or mutate any SearchTimer probe object
 
+## Stale probe administration
+
+Phase 49.22 adds a read-only/non-mutating administration service for stale persisted native fuzzy probe results.
+
+Administration supports:
+
+    list stale persisted probe results
+    delete stale persisted probe results
+    keep fresh persisted probe results untouched
+    treat future timestamps as untrusted/stale
+    create the persistence schema safely when missing
+
+This administration service does not contact VDR and does not create, modify or delete SearchTimer objects.
+
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.

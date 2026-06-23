@@ -201,6 +201,23 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.22 - EPGSearch native fuzzy stale probe administration
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchNativeFuzzyStaleProbeAdministrationService`.
+- Repository can now list all persisted native fuzzy probe results.
+- Repository can delete a persisted probe result by backend id.
+- Administration service can list stale and future-timestamp probe results.
+- Administration service can delete stale and future-timestamp probe results.
+- Fresh persisted probe results are kept untouched.
+- Administration is schema-safe and creates the persistence schema when missing.
+- Administration does not contact VDR and does not mutate SearchTimer objects.
+- Deferred REST administration endpoint to Phase 49.23.
+
+---
+
 ## Phase 49.21 - EPGSearch native fuzzy restore freshness policy
 
 Status: Completed.

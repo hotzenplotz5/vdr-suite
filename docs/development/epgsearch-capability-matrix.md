@@ -556,3 +556,14 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Stale persisted result | Implemented | Ignored for native enablement and restores native fuzzy as unavailable. |
 | Future timestamp | Implemented | Not trusted. |
 | Automatic mutation probe | Not implemented | Freshness remains non-mutating. |
+
+
+## Phase 49.22 Stale Probe Administration
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| List stale probe results | Implemented | Returns backend id, updated time, age, max age, status and reason. |
+| Delete stale probe results | Implemented | Deletes only stale/future persisted results. |
+| Keep fresh probe results | Implemented | Fresh persisted results remain untouched. |
+| Missing schema safety | Implemented | Administration creates schema safely when needed. |
+| VDR mutation | Not implemented | No VDR/SearchTimer operation is performed. |

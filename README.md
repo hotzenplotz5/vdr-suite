@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.21 - EPGSearch native fuzzy restore freshness policy
+    Phase 49.22 - EPGSearch native fuzzy stale probe administration
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.22 - EPGSearch native fuzzy stale probe administration
+    Phase 49.23 - EPGSearch native fuzzy stale probe administration API
 
 Completed foundations:
 

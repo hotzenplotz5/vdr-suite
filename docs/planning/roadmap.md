@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 49.21 - EPGSearch native fuzzy restore freshness policy
+Phase 49.22 - EPGSearch native fuzzy stale probe administration
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 49.22 - EPGSearch native fuzzy stale probe administration
+Phase 49.23 - EPGSearch native fuzzy stale probe administration API
 ```
 
 ---

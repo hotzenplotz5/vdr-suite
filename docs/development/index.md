@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.21 - EPGSearch native fuzzy restore freshness policy
+Phase 49.22 - EPGSearch native fuzzy stale probe administration
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.22 - EPGSearch native fuzzy stale probe administration
+Phase 49.23 - EPGSearch native fuzzy stale probe administration API
 ```
 
 Current architecture validation:

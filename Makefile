@@ -1170,6 +1170,7 @@ clean:
 	rm -f /tmp/test_epgsearch_native_fuzzy_startup_restore_service
 	rm -f /tmp/test_epgsearch_native_fuzzy_startup_restore_diagnostics
 	rm -f /tmp/test_epgsearch_native_fuzzy_capability_freshness_policy
+	rm -f /tmp/test_epgsearch_native_fuzzy_stale_probe_administration_service
 	rm -f /tmp/test_rest_query_parameters
 	rm -f /tmp/test_snapshot_access_service
 	rm -f /tmp/test_http_server_contract
