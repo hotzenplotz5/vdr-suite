@@ -396,3 +396,14 @@ Phase 49.6 confirms the currently implemented EPGSearch text behavior.
 | Exact mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
 | Regular-expression mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
 | Fuzzy mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
+
+## Phase 49.7 Deterministic Mode Implementation
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Phrase/default contains search | Implemented | Default behavior remains unchanged. |
+| Exact mode | Implemented | `mode=exact`. |
+| All-words mode | Implemented | `mode=all` and `mode=allWords`. |
+| Any-word mode | Implemented | `mode=any` and `mode=anyWord`. |
+| Regular-expression mode | Deferred | Requires safety and invalid-pattern decision. |
+| Fuzzy mode | Deferred | Requires tolerance and ranking decision. |

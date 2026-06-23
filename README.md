@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.6 - EPGSearch search-mode baseline regression
+    Phase 49.7 - deterministic EPGSearch modes
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.7 - EPGSearch search-mode implementation decision
+    Phase 49.8 - EPGSearch regex mode safety decision
 
 Completed foundations:
 

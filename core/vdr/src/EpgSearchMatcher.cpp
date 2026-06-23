@@ -24,6 +24,13 @@ std::string lowerCopy(
     return lowered;
 }
 
+std::string comparableText(
+    const std::string& value,
+    bool matchCase)
+{
+    return matchCase ? value : lowerCopy(value);
+}
+
 bool containsText(
     const std::string& haystack,
     const std::string& needle,
@@ -34,12 +41,179 @@ bool containsText(
         return true;
     }
 
-    if (matchCase)
+    return comparableText(haystack, matchCase).find(
+        comparableText(needle, matchCase))
+        != std::string::npos;
+}
+
+bool equalsText(
+    const std::string& haystack,
+    const std::string& needle,
+    bool matchCase)
+{
+    return comparableText(haystack, matchCase)
+        == comparableText(needle, matchCase);
+}
+
+std::vector<std::string> splitWords(
+    const std::string& value)
+{
+    std::vector<std::string> words;
+    std::stringstream stream(value);
+    std::string word;
+
+    while (stream >> word)
     {
-        return haystack.find(needle) != std::string::npos;
+        words.push_back(word);
     }
 
-    return lowerCopy(haystack).find(lowerCopy(needle)) != std::string::npos;
+    return words;
+}
+
+std::vector<std::string> searchableFields(
+    const VdrEvent& event,
+    const EpgSearchQuery& query)
+{
+    std::vector<std::string> fields;
+
+    if (!query.hasFieldSelection())
+    {
+        fields.push_back(event.title);
+        fields.push_back(event.subtitle);
+        fields.push_back(event.description);
+        return fields;
+    }
+
+    if (query.useTitle())
+    {
+        fields.push_back(event.title);
+    }
+
+    if (query.useSubtitle())
+    {
+        fields.push_back(event.subtitle);
+    }
+
+    if (query.useDescription())
+    {
+        fields.push_back(event.description);
+    }
+
+    return fields;
+}
+
+std::string joinedSearchableText(
+    const VdrEvent& event,
+    const EpgSearchQuery& query)
+{
+    const std::vector<std::string> fields =
+        searchableFields(event, query);
+
+    std::string joined;
+
+    for (const std::string& field : fields)
+    {
+        if (!joined.empty())
+        {
+            joined += " ";
+        }
+
+        joined += field;
+    }
+
+    return joined;
+}
+
+bool matchesPhraseText(
+    const VdrEvent& event,
+    const EpgSearchQuery& query,
+    bool matchCase)
+{
+    const std::vector<std::string> fields =
+        searchableFields(event, query);
+
+    for (const std::string& field : fields)
+    {
+        if (containsText(field, query.text(), matchCase))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool matchesExactText(
+    const VdrEvent& event,
+    const EpgSearchQuery& query,
+    bool matchCase)
+{
+    const std::vector<std::string> fields =
+        searchableFields(event, query);
+
+    for (const std::string& field : fields)
+    {
+        if (equalsText(field, query.text(), matchCase))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool matchesAllWordsText(
+    const VdrEvent& event,
+    const EpgSearchQuery& query,
+    bool matchCase)
+{
+    const std::vector<std::string> words =
+        splitWords(query.text());
+
+    if (words.empty())
+    {
+        return false;
+    }
+
+    const std::string joined =
+        joinedSearchableText(event, query);
+
+    for (const std::string& word : words)
+    {
+        if (!containsText(joined, word, matchCase))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool matchesAnyWordText(
+    const VdrEvent& event,
+    const EpgSearchQuery& query,
+    bool matchCase)
+{
+    const std::vector<std::string> words =
+        splitWords(query.text());
+
+    if (words.empty())
+    {
+        return false;
+    }
+
+    const std::string joined =
+        joinedSearchableText(event, query);
+
+    for (const std::string& word : words)
+    {
+        if (containsText(joined, word, matchCase))
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool matchesText(
@@ -54,34 +228,26 @@ bool matchesText(
     const bool matchCase =
         query.hasMatchCase() && query.matchCase();
 
-    if (!query.hasFieldSelection())
+    if (!query.hasMode())
     {
-        return containsText(event.title, query.text(), matchCase)
-            || containsText(event.subtitle, query.text(), matchCase)
-            || containsText(event.description, query.text(), matchCase);
+        return matchesPhraseText(event, query, matchCase);
     }
 
-    bool matched = false;
-
-    if (query.useTitle())
+    switch (query.mode())
     {
-        matched = matched
-            || containsText(event.title, query.text(), matchCase);
+    case EpgSearchMode::Exact:
+        return matchesExactText(event, query, matchCase);
+    case EpgSearchMode::AllWords:
+        return matchesAllWordsText(event, query, matchCase);
+    case EpgSearchMode::AnyWord:
+        return matchesAnyWordText(event, query, matchCase);
+    case EpgSearchMode::Phrase:
+    case EpgSearchMode::RegularExpression:
+    case EpgSearchMode::Fuzzy:
+        return matchesPhraseText(event, query, matchCase);
     }
 
-    if (query.useSubtitle())
-    {
-        matched = matched
-            || containsText(event.subtitle, query.text(), matchCase);
-    }
-
-    if (query.useDescription())
-    {
-        matched = matched
-            || containsText(event.description, query.text(), matchCase);
-    }
-
-    return matched;
+    return matchesPhraseText(event, query, matchCase);
 }
 
 bool matchesChannel(

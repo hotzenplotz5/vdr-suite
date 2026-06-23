@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.7 - deterministic EPGSearch modes
+
+Status: Completed.
+
+Summary:
+- Implemented deterministic EPGSearch modes for exact, all-words and any-word matching.
+- Added REST/controller handling for `mode=exact`, `mode=all`/`mode=allWords` and `mode=any`/`mode=anyWord`.
+- Kept default phrase/contains behavior unchanged.
+- Added controller regressions for exact, all-words, any-word and invalid mode handling.
+- Added router regression for `mode=exact` and invalid `mode` handling.
+- Deferred regular-expression and fuzzy modes to separate decisions.
+
+---
 ## Phase 49.6 - EPGSearch search-mode baseline regression
 
 Status: Completed.

@@ -218,3 +218,20 @@ Known gap:
 - `EpgSearchMatcher` currently does not evaluate the mode field.
 - `EpgSearchRequestMapper` currently does not map a search-mode request parameter.
 - Advanced search-mode implementation remains a future phase.
+
+## Phase 49.7 Deterministic Search Modes
+
+Phase 49.7 implemented and tested deterministic EPGSearch modes.
+
+Covered behavior:
+
+- `mode=exact` matches a complete selected field value.
+- `mode=all` requires all query words to be present across the selected search fields.
+- `mode=any` requires at least one query word to be present across the selected search fields.
+- default behavior remains case-insensitive phrase/contains search.
+- unsupported modes are rejected at the REST/controller boundary.
+
+Deferred behavior:
+
+- regular-expression mode remains a separate safety decision.
+- fuzzy mode remains a separate scoring/tolerance decision.

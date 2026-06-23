@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.6 - EPGSearch search-mode baseline regression
+Phase 49.7 - deterministic EPGSearch modes
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.7 - EPGSearch search-mode implementation decision
+Phase 49.8 - EPGSearch regex mode safety decision
 ```
 
 Current architecture validation:

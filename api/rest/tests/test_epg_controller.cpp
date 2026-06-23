@@ -139,6 +139,93 @@ int main()
     assert(caseInsensitiveSearchResponse.body.find("\"id\":\"event-search\"") != std::string::npos);
     assert(caseInsensitiveSearchResponse.body.find("event-time") == std::string::npos);
 
+    ApiResponse exactModeSearchResponse =
+        controller.search(
+            "Tatort",
+            "living-room",
+            "channel-1",
+            1780000000,
+            7200,
+            10,
+            0,
+            "title",
+            "asc",
+            "exact");
+
+    assert(exactModeSearchResponse.statusCode == 200);
+    assert(exactModeSearchResponse.contentType == "application/json");
+    assert(exactModeSearchResponse.body.find("\"id\":\"event-search\"") != std::string::npos);
+    assert(exactModeSearchResponse.body.find("event-time") == std::string::npos);
+
+    ApiResponse exactModeNoMatchResponse =
+        controller.search(
+            "Tat",
+            "living-room",
+            "channel-1",
+            1780000000,
+            7200,
+            10,
+            0,
+            "title",
+            "asc",
+            "exact");
+
+    assert(exactModeNoMatchResponse.statusCode == 200);
+    assert(exactModeNoMatchResponse.contentType == "application/json");
+    assert(exactModeNoMatchResponse.body.find("\"id\":\"event-search\"") == std::string::npos);
+
+    ApiResponse allWordsModeSearchResponse =
+        controller.search(
+            "Tatort Subtitle",
+            "living-room",
+            "channel-1",
+            1780000000,
+            7200,
+            10,
+            0,
+            "title",
+            "asc",
+            "all");
+
+    assert(allWordsModeSearchResponse.statusCode == 200);
+    assert(allWordsModeSearchResponse.contentType == "application/json");
+    assert(allWordsModeSearchResponse.body.find("\"id\":\"event-search\"") != std::string::npos);
+    assert(allWordsModeSearchResponse.body.find("event-time") == std::string::npos);
+
+    ApiResponse anyWordModeSearchResponse =
+        controller.search(
+            "Tatort Tagesschau",
+            "living-room",
+            "channel-1",
+            1780000000,
+            7200,
+            10,
+            0,
+            "title",
+            "asc",
+            "any");
+
+    assert(anyWordModeSearchResponse.statusCode == 200);
+    assert(anyWordModeSearchResponse.contentType == "application/json");
+    assert(anyWordModeSearchResponse.body.find("\"id\":\"event-search\"") != std::string::npos);
+    assert(anyWordModeSearchResponse.body.find("\"id\":\"event-time\"") != std::string::npos);
+
+    ApiResponse invalidModeResponse =
+        controller.search(
+            "tatort",
+            "",
+            "",
+            -1,
+            7200,
+            10,
+            0,
+            "",
+            "",
+            "sideways");
+
+    assert(invalidModeResponse.statusCode == 400);
+    assert(invalidModeResponse.body.find("invalid search mode") != std::string::npos);
+
     ApiResponse timeWindowParameterizedResponse =
         controller.getTimeWindow("channel-43", 456, 3600);
     assertEventResponse(timeWindowParameterizedResponse, "event-time");

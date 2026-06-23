@@ -45,6 +45,18 @@ public:
         const std::string& sort,
         const std::string& order);
 
+    ApiResponse search(
+        const std::string& query,
+        const std::string& backend,
+        const std::string& channelId,
+        int from,
+        int timespan,
+        int limit,
+        int offset,
+        const std::string& sort,
+        const std::string& order,
+        const std::string& mode);
+
 private:
     IEpgQueryService& epgQueryService_;
     EpgSearchService& epgSearchService_;

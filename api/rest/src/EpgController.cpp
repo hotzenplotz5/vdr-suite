@@ -163,6 +163,18 @@ bool validSearchOrder(
            value == "desc";
 }
 
+bool validSearchMode(
+    const std::string& value)
+{
+    return value.empty() ||
+           value == "phrase" ||
+           value == "exact" ||
+           value == "all" ||
+           value == "allWords" ||
+           value == "any" ||
+           value == "anyWord";
+}
+
 EpgSearchSortField parseSearchSortField(
     const std::string& value)
 {
@@ -193,6 +205,27 @@ EpgSearchSortOrder parseSearchSortOrder(
     }
 
     return EpgSearchSortOrder::Ascending;
+}
+
+EpgSearchMode parseSearchMode(
+    const std::string& value)
+{
+    if (value == "exact")
+    {
+        return EpgSearchMode::Exact;
+    }
+
+    if (value == "all" || value == "allWords")
+    {
+        return EpgSearchMode::AllWords;
+    }
+
+    if (value == "any" || value == "anyWord")
+    {
+        return EpgSearchMode::AnyWord;
+    }
+
+    return EpgSearchMode::Phrase;
 }
 
 }
@@ -260,6 +293,31 @@ ApiResponse EpgController::search(
     const std::string& sort,
     const std::string& order)
 {
+    return search(
+        query,
+        backend,
+        channelId,
+        from,
+        timespan,
+        limit,
+        offset,
+        sort,
+        order,
+        "");
+}
+
+ApiResponse EpgController::search(
+    const std::string& query,
+    const std::string& backend,
+    const std::string& channelId,
+    int from,
+    int timespan,
+    int limit,
+    int offset,
+    const std::string& sort,
+    const std::string& order,
+    const std::string& mode)
+{
     if (timespan <= 0)
     {
         return makeBadRequestResponse("timespan must be greater than zero");
@@ -285,13 +343,18 @@ ApiResponse EpgController::search(
         return makeBadRequestResponse("invalid sort order");
     }
 
+    if (!validSearchMode(mode))
+    {
+        return makeBadRequestResponse("invalid search mode");
+    }
+
     const std::vector<VdrEvent> events =
         epgQueryService_.getTimeWindow(
             channelId,
             from,
             timespan);
 
-    const EpgSearchRequest request =
+    EpgSearchRequest request =
         EpgSearchRequest::sorted(
             backend,
             query,
@@ -302,6 +365,11 @@ ApiResponse EpgController::search(
             offset,
             parseSearchSortField(sort),
             parseSearchSortOrder(order));
+
+    if (!mode.empty())
+    {
+        request.setSearchMode(parseSearchMode(mode));
+    }
 
     const EpgSearchRequestMapper requestMapper;
 

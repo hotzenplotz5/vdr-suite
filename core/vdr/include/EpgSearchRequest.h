@@ -1,5 +1,7 @@
 #pragma once
 
+#include "EpgSearchQuery.h"
+
 #include <string>
 
 enum class EpgSearchSortField
@@ -197,6 +199,23 @@ public:
         searchDescription_ = description;
     }
 
+    void setSearchMode(
+        EpgSearchMode mode)
+    {
+        searchMode_ = mode;
+        hasSearchMode_ = true;
+    }
+
+    bool hasSearchMode() const
+    {
+        return hasSearchMode_;
+    }
+
+    EpgSearchMode searchMode() const
+    {
+        return searchMode_;
+    }
+
     bool hasSearchField() const
     {
         return searchTitle_ || searchSubtitle_ || searchDescription_;
@@ -235,6 +254,9 @@ private:
     bool searchTitle_ = true;
     bool searchSubtitle_ = true;
     bool searchDescription_ = true;
+
+    EpgSearchMode searchMode_ = EpgSearchMode::Phrase;
+    bool hasSearchMode_ = false;
 
     EpgSearchSortField sortField_ = EpgSearchSortField::None;
     EpgSearchSortOrder sortOrder_ = EpgSearchSortOrder::Ascending;

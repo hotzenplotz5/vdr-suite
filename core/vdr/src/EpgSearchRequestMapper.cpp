@@ -27,5 +27,10 @@ EpgSearchQuery EpgSearchRequestMapper::map(
         query.searchInDescription(request.searchDescription());
     }
 
+    if (request.hasSearchMode())
+    {
+        query.withMode(request.searchMode());
+    }
+
     return query;
 }
