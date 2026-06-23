@@ -30,11 +30,11 @@ Canonical ADR sequence:
 ADR-0001
 ADR-0002
 ...
-ADR-0030
+ADR-0031
 
 Next available ADR:
 
-ADR-0031
+ADR-0032
 
 The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
 
@@ -78,6 +78,7 @@ If a canonical ADR is superseded, keep it only in the superseded section and do 
 - ADR-0028 Content Classification Architecture
 - ADR-0029 Backend-Neutral SearchTimer Architecture
 - ADR-0030 Domain-First UI Over OSD Proxy
+- ADR-0031 Person Catalog and External Filmography Architecture
 
 ---
 
@@ -154,6 +155,7 @@ Retained for historical reference:
 - [ADR-0028: Content Classification Architecture](ADR-0028-content-classification-architecture.md)
 - [ADR-0029: Backend-Neutral SearchTimer Architecture](ADR-0029-backend-neutral-searchtimer-architecture.md)
 - [ADR-0030: Domain-First UI Over OSD Proxy](ADR-0030-domain-first-ui-over-osd-proxy.md)
+- [ADR-0031: Person Catalog and External Filmography Architecture](ADR-0031-person-catalog-and-external-filmography.md)
 
 ### Superseded Canonical ADRs
 
