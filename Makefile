@@ -11,6 +11,11 @@ include mk/local-test-groups.mk
 
 
 
+vdr-suite-native-fuzzy-validation-helpers:
+	python3 tools/validate_vdr_suite_native_fuzzy_operator_refresh.py --help
+	python3 tools/validate_vdr_suite_native_fuzzy_capability_report.py --help
+	python3 tools/validate_vdr_suite_native_fuzzy_persisted_restore.py --help
+
 vdr-suite-native-fuzzy-persisted-restore-helper:
 	python3 tools/validate_vdr_suite_native_fuzzy_persisted_restore.py --help
 
