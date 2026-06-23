@@ -10,6 +10,15 @@ include mk/daemon-sources.mk
 include mk/local-test-groups.mk
 
 
+.PHONY: audit-doc-sync audit-doc-sync-tests
+
+audit-doc-sync:
+	python3 tools/audit_recent_doc_sync.py --commits 20
+
+audit-doc-sync-tests:
+	python3 tools/audit_recent_doc_sync.py --commits 20 --run-tests
+
+
 
 vdr-suite-native-fuzzy-validation-helpers:
 	python3 tools/validate_vdr_suite_native_fuzzy_operator_refresh.py --help
