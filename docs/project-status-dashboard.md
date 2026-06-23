@@ -35,7 +35,7 @@ Milestone progress:
 
 Current milestone:
 
-    Phase 47.0 - SearchTimer Foundation
+    Phase 50.0 - SearchTimer user workflow foundation
 
 Progress source: [Project Progress](planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -66,12 +66,13 @@ Content Classification          ADR + foundation implemented
 Person Metadata                 implemented foundation
 Recording Person Search         implemented foundation
 Recording Character Search      implemented foundation
-EPG Person Search               started
+EPG Person Search               result model foundation
 SearchTimer Route               implemented
 SearchTimer Daemon Provider     implemented
 SearchTimer Backend Contract    documented
 SearchTimer Payload Validation  documented
 SearchTimer Domain Model        expanded
+Native Fuzzy Capability         validated end-to-end
 ```
 
 ### Federation and Security
@@ -85,7 +86,7 @@ Runtime Contexts                implemented
 Capability System               foundation implemented
 Authentication                  planned
 Authorization                   planned
-Profiles / Policy               planned for Phase 49
+Profiles / Policy               planned future concern
 ```
 
 ### Client Platforms
@@ -113,7 +114,7 @@ Genre Architecture Docs         complete
 Person Metadata                 implemented foundation
 Recording Person Metadata       implemented foundation
 Recording Character Search      implemented foundation
-EPG Person Search               started
+EPG Person Search               result model foundation
 Content Rating / FSK            planned
 Image Validation                planned
 Preview Streams                 planned
@@ -148,12 +149,13 @@ Latest Completed Milestones:
 Person Metadata Foundation
 Recording Person Search Foundation
 Recording Character Search Foundation
+EPGSearch Native Fuzzy Capability Validation
 ```
 
 Current Milestone In Progress:
 
 ```text
-EPG Person Search Foundation
+SearchTimer User Workflow Foundation
 ```
 
 ---
@@ -168,6 +170,7 @@ Content Classification Foundation
 Person Metadata Foundation
 Recording Person Search Foundation
 Recording Character Search Foundation
+EPGSearch Native Fuzzy Capability Validation
 ```
 
 Representative completed phases:
@@ -184,6 +187,8 @@ Phase 46.34 - Real VDR Person Metadata Validation
 Phase 46.35 - Recording Character Search
 Phase 46.36 - Recording Character Search API Documentation
 Phase 46.37 - EPG Person Search Result Model
+Phase 47.x  - SearchTimer backend foundation
+Phase 49.x  - EPGSearch native fuzzy capability validation
 ```
 
 ---
@@ -208,26 +213,24 @@ Content classification foundation
 Person metadata foundation
 Recording person search foundation
 Recording character search foundation
+Native fuzzy backend capability validation
 ```
 
 Current Foundation:
 
 ```text
-EPG person search foundation
+SearchTimer user workflow foundation
 ```
 
 Planned Major Direction:
 
 ```text
-Phase 47.x - SearchTimer Foundation
-Phase 48.x - Unified Search Foundation
-Phase 49.x - Profiles, Permissions and Policy
-Phase 50.x - Backend Management Foundation
-Phase 51.x - Live Plugin Parity Foundation
-Phase 52.x - SearchTimer Automation
-Phase 53.x - Recommendation Foundation
-Phase 54.x - Cross Backend Search and Federation
-Phase 55.x - Content Knowledge Graph
+Phase 50.x - SearchTimer user workflow and client/API polish
+Phase 51.x - Live plugin parity foundation
+Phase 52.x - SearchTimer automation
+Phase 53.x - Recommendation foundation
+Phase 54.x - Cross-backend search and federation
+Phase 55.x - Content knowledge graph
 ```
 
 Important:
@@ -255,6 +258,7 @@ This progress description summarizes documented roadmap direction by major miles
 | Heavy Domain Policy | Events / EPG are classified as a heavy domain and protected from automatic full refresh behavior. |
 | EPG REST API Boundary | Selective EPG reads are exposed through backend-neutral REST routes. |
 | EPG Search API | The EPG search API is implemented and documented over selective EPG windows. |
+| SearchTimer | Backend route, daemon provider, domain model expansion, real payload validation and native fuzzy capability validation are implemented; user workflow foundation starts next. |
 | Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
 | Recording Actions | Recording action validation and execution foundations are implemented with diagnostics. |
 | Content Classification | ADR-0028 defines source-aware classification for genre, rating, keywords, collections, user tags and folder hints. |
