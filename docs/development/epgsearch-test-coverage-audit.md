@@ -517,3 +517,20 @@ Deferred behavior:
 - REST endpoint for stale probe administration.
 - operator-triggered native fuzzy reprobe workflow.
 - configurable freshness max age.
+
+## Phase 49.23 Stale Probe Administration API
+
+Phase 49.23 adds API coverage for stale persisted probe administration.
+
+Covered behavior:
+
+- REST controller list response.
+- REST controller delete response.
+- delete endpoint keeps fresh persisted rows.
+- daemon compile integration with router and controller wiring.
+
+Deferred behavior:
+
+- authenticated/authorized operator policy.
+- explicit native fuzzy reprobe trigger.
+- configurable freshness window endpoint.

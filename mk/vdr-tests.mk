@@ -116,9 +116,22 @@ test-epgsearch-native-fuzzy-stale-probe-administration-service:
 		-o /tmp/test_epgsearch_native_fuzzy_stale_probe_administration_service
 	/tmp/test_epgsearch_native_fuzzy_stale_probe_administration_service
 
+.PHONY: test-epgsearch-native-fuzzy-stale-probe-administration-controller
+test-epgsearch-native-fuzzy-stale-probe-administration-controller:
+	$(CXX) $(CXXFLAGS) \
+		core/sqlite/src/Database.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityFreshnessPolicy.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyStaleProbeAdministrationService.cpp \
+		api/rest/src/EpgSearchNativeFuzzyStaleProbeAdministrationController.cpp \
+		api/rest/tests/test_epgsearch_native_fuzzy_stale_probe_administration_controller.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_epgsearch_native_fuzzy_stale_probe_administration_controller
+	/tmp/test_epgsearch_native_fuzzy_stale_probe_administration_controller
+
 .PHONY: test-fast
 
-test-fast: test-epg-query-service-restfulapi test-epg-query-service test-epg-query-factory test-domain-refresh-policy test-backend-polling-coordinator test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-backend-registry-service test-epgsearch-native-fuzzy-capability-repository test-epgsearch-native-fuzzy-runtime-capability-wiring test-backend-registry-json-serializer test-vdr-config test-snapshot-access-service test-vdr-snapshot-read-service test-vdr-domain-objects test-epgsearch-native-fuzzy-stale-probe-administration-service
+test-fast: test-epg-query-service-restfulapi test-epg-query-service test-epg-query-factory test-domain-refresh-policy test-backend-polling-coordinator test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-backend-registry-service test-epgsearch-native-fuzzy-capability-repository test-epgsearch-native-fuzzy-runtime-capability-wiring test-backend-registry-json-serializer test-vdr-config test-snapshot-access-service test-vdr-snapshot-read-service test-vdr-domain-objects test-epgsearch-native-fuzzy-stale-probe-administration-service test-epgsearch-native-fuzzy-stale-probe-administration-controller
 
 
 test-epg-query-service-restfulapi:

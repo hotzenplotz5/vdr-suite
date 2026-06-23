@@ -201,6 +201,23 @@ Administration supports:
 
 This administration service does not contact VDR and does not create, modify or delete SearchTimer objects.
 
+## Stale probe administration API
+
+Phase 49.23 exposes stale native fuzzy probe administration through REST.
+
+Endpoints:
+
+    GET  /api/vdr/epgsearch/native-fuzzy/stale-probes
+    GET  /api/epgsearch/native-fuzzy/stale-probes
+    POST /api/vdr/epgsearch/native-fuzzy/stale-probes/delete
+    POST /api/epgsearch/native-fuzzy/stale-probes/delete
+
+GET returns stale or future-timestamp persisted probe rows.
+
+POST delete removes only stale or future-timestamp persisted rows and keeps fresh rows untouched.
+
+The API does not contact VDR and does not create, modify or delete SearchTimer objects.
+
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.

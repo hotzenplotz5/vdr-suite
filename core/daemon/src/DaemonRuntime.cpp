@@ -341,6 +341,14 @@ bool DaemonRuntime::initialize()
     std::cout << "recording action controller runtime initialized" << std::endl;
     std::cout << "VDR timer action controller runtime initialized" << std::endl;
 
+    epgSearchNativeFuzzyStaleProbeAdministrationService_ =
+        std::make_unique<EpgSearchNativeFuzzyStaleProbeAdministrationService>(
+            *epgSearchNativeFuzzyCapabilityRepository_,
+            *epgSearchNativeFuzzyCapabilityFreshnessPolicy_);
+    epgSearchNativeFuzzyStaleProbeAdministrationController_ =
+        std::make_unique<EpgSearchNativeFuzzyStaleProbeAdministrationController>(
+            *epgSearchNativeFuzzyStaleProbeAdministrationService_);
+
     runtimeDiagnosticsJsonSerializer_ = std::make_unique<RuntimeDiagnosticsJsonSerializer>();
     runtimeDiagnosticsController_ = std::make_unique<RuntimeDiagnosticsController>(runtimeDiagnosticsService_, *runtimeDiagnosticsJsonSerializer_);
     snapshotChangeFeedController_ = std::make_unique<SnapshotChangeFeedController>(*snapshotChangeFeed_, *snapshotChangeFeedJsonSerializer_);
@@ -375,7 +383,8 @@ bool DaemonRuntime::initialize()
         *snapshotChangeFeedController_,
         searchTimerController_.get(),
         *liveTransportController_,
-        searchTimerCommandExecutor_.get());
+        searchTimerCommandExecutor_.get(),
+        epgSearchNativeFuzzyStaleProbeAdministrationController_.get());
 
     std::cout << "API router runtime initialized" << std::endl;
 
@@ -446,6 +455,8 @@ void DaemonRuntime::shutdown()
     liveTransport_.reset();
     snapshotChangeFeedController_.reset();
     runtimeDiagnosticsController_.reset();
+    epgSearchNativeFuzzyStaleProbeAdministrationController_.reset();
+    epgSearchNativeFuzzyStaleProbeAdministrationService_.reset();
     searchTimerCommandExecutor_.reset();
     searchTimerController_.reset();
     searchTimerResultJsonSerializer_.reset();

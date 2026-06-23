@@ -3,6 +3,7 @@
 #include "BackendRegistryController.h"
 #include "CapabilityController.h"
 #include "EpgController.h"
+#include "EpgSearchNativeFuzzyStaleProbeAdministrationController.h"
 #include "ISearchTimerCommandExecutor.h"
 #include "JobsController.h"
 #include "LiveTransportController.h"
@@ -97,6 +98,18 @@ ApiResponse makeSearchTimerUnavailableResponse()
     return response;
 }
 
+ApiResponse makeNativeFuzzyStaleProbeAdministrationUnavailableResponse()
+{
+    ApiResponse response;
+
+    response.statusCode = 503;
+    response.contentType = "application/json";
+    response.body =
+        "{\"error\":\"native fuzzy stale probe administration unavailable\"}";
+
+    return response;
+}
+
 static bool parseBackendSnapshotRoute(
     const std::string& path,
     std::string& backendId,
@@ -149,7 +162,8 @@ ApiRouter::ApiRouter(
     SnapshotChangeFeedController& snapshotChangeFeedController,
     SearchTimerController* searchTimerController,
     LiveTransportController& liveTransportController,
-    ISearchTimerCommandExecutor* searchTimerCommandExecutor)
+    ISearchTimerCommandExecutor* searchTimerCommandExecutor,
+    EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
       recordingsController_(recordingsController),
@@ -170,7 +184,9 @@ ApiRouter::ApiRouter(
       snapshotChangeFeedController_(snapshotChangeFeedController),
       searchTimerController_(searchTimerController),
       liveTransportController_(liveTransportController),
-      searchTimerCommandExecutor_(searchTimerCommandExecutor)
+      searchTimerCommandExecutor_(searchTimerCommandExecutor),
+      nativeFuzzyStaleProbeAdministrationController_(
+          nativeFuzzyStaleProbeAdministrationController)
 {
 }
 
@@ -269,6 +285,18 @@ ApiResponse ApiRouter::handlePost(
         return searchTimerController_->createSearchTimer(
             body,
             *searchTimerCommandExecutor_);
+    }
+
+    if (path == "/api/epgsearch/native-fuzzy/stale-probes/delete" ||
+        path == "/api/vdr/epgsearch/native-fuzzy/stale-probes/delete")
+    {
+        if (nativeFuzzyStaleProbeAdministrationController_ == nullptr)
+        {
+            return makeNativeFuzzyStaleProbeAdministrationUnavailableResponse();
+        }
+
+        return nativeFuzzyStaleProbeAdministrationController_
+            ->deleteStaleProbeResults();
     }
 
     ApiResponse response;

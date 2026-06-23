@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.23 - EPGSearch native fuzzy stale probe administration API
+
+Status: Completed.
+
+Summary:
+- Added REST controller for stale native fuzzy probe administration.
+- Added GET endpoints for listing stale persisted native fuzzy probe results.
+- Added POST endpoints for deleting stale persisted native fuzzy probe results.
+- Fresh persisted probe results remain untouched.
+- API is local persistence administration only and performs no VDR/SearchTimer mutation.
+- Wired controller through `ApiRouter` and daemon runtime.
+- Deferred operator refresh/reprobe workflow to Phase 49.24.
+
+---
+
 ## Phase 49.22 - EPGSearch native fuzzy stale probe administration
 
 Status: Completed.

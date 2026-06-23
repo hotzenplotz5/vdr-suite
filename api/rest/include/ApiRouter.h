@@ -7,6 +7,7 @@
 class BackendRegistryController;
 class CapabilityController;
 class EpgController;
+class EpgSearchNativeFuzzyStaleProbeAdministrationController;
 class JobsController;
 class LiveTransportController;
 class MetadataController;
@@ -49,7 +50,8 @@ public:
         SnapshotChangeFeedController& snapshotChangeFeedController,
         SearchTimerController* searchTimerController,
         LiveTransportController& liveTransportController,
-        ISearchTimerCommandExecutor* searchTimerCommandExecutor = nullptr);
+        ISearchTimerCommandExecutor* searchTimerCommandExecutor = nullptr,
+        EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController = nullptr);
 
     ApiResponse handleGet(
         const std::string& path);
@@ -80,4 +82,5 @@ private:
     SearchTimerController* searchTimerController_;
     LiveTransportController& liveTransportController_;
     ISearchTimerCommandExecutor* searchTimerCommandExecutor_;
+    EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController_;
 };

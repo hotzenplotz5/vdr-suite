@@ -567,3 +567,12 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Keep fresh probe results | Implemented | Fresh persisted results remain untouched. |
 | Missing schema safety | Implemented | Administration creates schema safely when needed. |
 | VDR mutation | Not implemented | No VDR/SearchTimer operation is performed. |
+
+## Phase 49.23 Stale Probe Administration API
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Stale probe list endpoint | Implemented | GET endpoint returns stale/future persisted rows. |
+| Stale probe delete endpoint | Implemented | POST endpoint deletes stale/future persisted rows. |
+| Fresh row safety | Implemented | Fresh persisted results are not deleted. |
+| VDR mutation | Not implemented | API is local persistence administration only. |
