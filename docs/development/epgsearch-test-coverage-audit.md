@@ -419,3 +419,21 @@ Deferred behavior:
 - daemon startup reload of persisted probe results.
 - backend registry restore from persisted probe results.
 - expiry/refresh policy for stale probe results.
+
+## Phase 49.18 Persisted Native Fuzzy Capability Restore
+
+Phase 49.18 adds restore coverage for persisted native fuzzy probe results.
+
+Covered behavior:
+
+- successful persisted probe restores native fuzzy availability for an existing backend.
+- failed persisted probe restores native fuzzy as unavailable.
+- missing persisted result does not update the backend.
+- persisted result for a missing backend does not create a backend.
+- restore is backend-scoped across multiple backends.
+
+Deferred behavior:
+
+- automatic daemon startup invocation.
+- probe result freshness and expiry policy.
+- user-visible administration endpoint for clearing stale probe results.

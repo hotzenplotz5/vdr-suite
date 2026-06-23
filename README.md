@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.17 - EPGSearch native fuzzy capability persistence
+    Phase 49.18 - EPGSearch native fuzzy persisted capability restore
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.18 - EPGSearch native fuzzy persisted capability restore
+    Phase 49.19 - EPGSearch native fuzzy startup restore integration
 
 Completed foundations:
 

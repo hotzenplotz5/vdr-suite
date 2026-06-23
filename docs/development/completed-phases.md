@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.18 - EPGSearch native fuzzy persisted capability restore
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchNativeFuzzyCapabilityRestoreService`.
+- Restore service loads persisted probe results by backend id.
+- Successful persisted probe results restore `epg.search.fuzzy.native=true` for existing backends.
+- Failed/incomplete persisted probe results restore native fuzzy as unavailable.
+- Missing persisted results do not update backend state.
+- Persisted results for missing backends do not create backend nodes.
+- Restore behavior is backend-scoped for multi-backend operation.
+- Deferred automatic daemon startup invocation to Phase 49.19.
+
+---
 ## Phase 49.17 - EPGSearch native fuzzy capability persistence
 
 Status: Completed.

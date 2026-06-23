@@ -513,3 +513,14 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Failed probe roundtrip | Implemented | Reloaded incomplete result keeps native fuzzy disabled. |
 | Multiple backend separation | Implemented | Probe results are keyed by backend id. |
 | Startup restore | Deferred | Follow-up phase reloads persisted result into runtime capability state. |
+
+## Phase 49.18 Persisted Native Fuzzy Capability Restore
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Restore service | Implemented | Loads persisted probe result and updates an existing backend. |
+| Successful restore | Implemented | Restores `epg.search.fuzzy.native=true`. |
+| Failed restore | Implemented | Restores `epg.search.fuzzy.native=false`. |
+| Missing persisted result | Implemented | No backend update. |
+| Missing backend safety | Implemented | No backend is created from persisted data. |
+| Automatic startup invocation | Deferred | Follow-up phase. |

@@ -112,6 +112,19 @@ The intended flow is:
     backend runtime capabilities can be updated without repeating the mutation probe
 
 A failed or incomplete probe may also be persisted and must keep native fuzzy disabled when reloaded.
+## Persisted capability restore
+
+Phase 49.18 restores persisted native fuzzy capability probe results into runtime backend capabilities.
+
+Restore is backend-scoped and safe:
+
+    load persisted probe result by backend id
+    compute native fuzzy availability using the detector
+    update only an existing backend capability set
+    do not create missing backends
+    do not execute a new VDR mutation probe
+
+A persisted failed or incomplete probe restores `epg.search.fuzzy.native=false`.
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.

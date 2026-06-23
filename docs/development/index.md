@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.17 - EPGSearch native fuzzy capability persistence
+Phase 49.18 - EPGSearch native fuzzy persisted capability restore
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.18 - EPGSearch native fuzzy persisted capability restore
+Phase 49.19 - EPGSearch native fuzzy startup restore integration
 ```
 
 Current architecture validation:
