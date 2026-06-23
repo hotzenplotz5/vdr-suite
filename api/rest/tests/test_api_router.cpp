@@ -11,12 +11,17 @@
 #include "BackendRegistry.h"
 #include "DashboardController.h"
 #include "EpgController.h"
+#include "EpgSearchNativeFuzzyCapabilityDetector.h"
+#include "EpgSearchNativeFuzzyCapabilityRepository.h"
+#include "EpgSearchNativeFuzzyOperatorRefreshController.h"
+#include "EpgSearchNativeFuzzyOperatorRefreshService.h"
 #include "EpgSearchResultJsonSerializer.h"
 #include "EpgSearchService.h"
 #include "EpgQueryService.h"
 #include "JobsController.h"
 #include "LiveTransportController.h"
 #include "MetadataController.h"
+#include "ISearchTimerCommandExecutor.h"
 #include "ISearchTimerDataSource.h"
 #include "PersonSearchService.h"
 #include "PersonResolutionJsonSerializer.h"
@@ -77,9 +82,11 @@
 #include "VdrSnapshotReadJsonSerializer.h"
 #include "VdrSnapshotReadService.h"
 
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <string>
+#include <vector>
 
 
 namespace
@@ -163,6 +170,78 @@ public:
 
 private:
     std::vector<SearchTimer> timers_;
+};
+
+class RouterNativeFuzzySearchTimerRuntime final
+    : public ISearchTimerCommandExecutor,
+      public ISearchTimerDataSource
+{
+public:
+    int createCalls = 0;
+    int deleteCalls = 0;
+    std::vector<SearchTimer> timers;
+
+    SearchTimerCreateResult create(
+        const SearchTimerCreateRequest& request) override
+    {
+        ++createCalls;
+
+        SearchTimer timer = SearchTimer::create(
+            SearchTimerId::fromBackendNativeId(
+                request.backendId,
+                "router-native-fuzzy-probe"),
+            request.name,
+            request.query,
+            SearchTimerState::Active);
+
+        timer.matchOptions().setMode(request.matchMode);
+        timer.matchOptions().setTolerance(request.matchTolerance);
+
+        timers.push_back(timer);
+
+        return SearchTimerCreateResult::ok(
+            timer,
+            "router native fuzzy probe created");
+    }
+
+    SearchTimerUpdateResult update(
+        const SearchTimerUpdateRequest& request) override
+    {
+        (void)request;
+        return SearchTimerUpdateResult::failed(
+            "not implemented",
+            {"not implemented"});
+    }
+
+    SearchTimerDeleteResult remove(
+        const SearchTimerDeleteRequest& request) override
+    {
+        ++deleteCalls;
+
+        timers.erase(
+            std::remove_if(
+                timers.begin(),
+                timers.end(),
+                [&](const SearchTimer& timer) {
+                    return timer.backendNativeId()
+                        == request.backendNativeId;
+                }),
+            timers.end());
+
+        return SearchTimerDeleteResult::ok(
+            request.backendId,
+            request.backendNativeId,
+            "router native fuzzy probe deleted");
+    }
+
+    SearchTimerResult list(
+        const SearchTimerQuery& query) const override
+    {
+        SearchTimerService service;
+        return service.list(
+            timers,
+            query);
+    }
 };
 
 class RouterVdrTimerActionExecutorAdapter final
@@ -372,6 +451,21 @@ int main()
         backendRegistryService,
         backendRegistryJsonSerializer);
 
+    EpgSearchNativeFuzzyCapabilityRepository nativeFuzzyCapabilityRepository(
+        db);
+    EpgSearchNativeFuzzyCapabilityDetector nativeFuzzyCapabilityDetector;
+    RouterNativeFuzzySearchTimerRuntime nativeFuzzyRuntime;
+    EpgSearchNativeFuzzyOperatorRefreshService
+        nativeFuzzyOperatorRefreshService(
+            nativeFuzzyRuntime,
+            nativeFuzzyRuntime,
+            nativeFuzzyCapabilityRepository,
+            nativeFuzzyCapabilityDetector,
+            backendRegistryService);
+    EpgSearchNativeFuzzyOperatorRefreshController
+        nativeFuzzyOperatorRefreshController(
+            nativeFuzzyOperatorRefreshService);
+
     RuntimeDiagnosticsService runtimeDiagnosticsService;
     RuntimeDiagnosticsJsonSerializer runtimeJsonSerializer;
 
@@ -496,7 +590,10 @@ int main()
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         &searchTimerController,
-        liveTransportController);
+        liveTransportController,
+        nullptr,
+        nullptr,
+        &nativeFuzzyOperatorRefreshController);
 
     ApiResponse dashboardResponse =
         router.handleGet("/api/dashboard");
@@ -835,6 +932,18 @@ int main()
     assert(unavailableEpgResponse.statusCode == 503);
     assert(unavailableEpgResponse.contentType == "application/json");
     assert(unavailableEpgResponse.body.find("epg backend unavailable")
+           != std::string::npos);
+
+
+    ApiResponse unavailableNativeFuzzyRefreshResponse =
+        routerWithoutEpg.handlePost(
+            "/api/epgsearch/native-fuzzy/refresh",
+            "{}");
+
+    assert(unavailableNativeFuzzyRefreshResponse.statusCode == 503);
+    assert(unavailableNativeFuzzyRefreshResponse.contentType == "application/json");
+    assert(unavailableNativeFuzzyRefreshResponse.body.find(
+               "native fuzzy operator refresh unavailable")
            != std::string::npos);
 
     ApiResponse vdrStatusResponse =
@@ -1314,6 +1423,52 @@ int main()
            != std::string::npos);
     assert(timerMissingBackendResponse.body.find("timer action executor adapter not found")
            != std::string::npos);
+
+
+    ApiResponse nativeFuzzyRefreshResponse =
+        router.handlePost(
+            "/api/epgsearch/native-fuzzy/refresh",
+            "{"
+            "\"backendId\":\"default\","
+            "\"probeQuery\":\"router native fuzzy probe\","
+            "\"tolerance\":2"
+            "}");
+
+    assert(nativeFuzzyRefreshResponse.statusCode == 200);
+    assert(nativeFuzzyRefreshResponse.contentType == "application/json");
+    assert(nativeFuzzyRefreshResponse.body.find(
+               "\"status\":\"refreshed-native-available\"")
+           != std::string::npos);
+    assert(nativeFuzzyRefreshResponse.body.find("\"backendId\":\"default\"")
+           != std::string::npos);
+    assert(nativeFuzzyRefreshResponse.body.find("\"cleanupSucceeded\":true")
+           != std::string::npos);
+    assert(nativeFuzzyRefreshResponse.body.find("\"nativeFuzzyAvailable\":true")
+           != std::string::npos);
+    assert(nativeFuzzyRefreshResponse.body.find(
+               "\"backendCapabilitiesUpdated\":true")
+           != std::string::npos);
+    assert(nativeFuzzyRuntime.createCalls == 1);
+    assert(nativeFuzzyRuntime.deleteCalls == 1);
+    assert(nativeFuzzyRuntime.timers.empty());
+
+    ApiResponse nativeFuzzyRefreshAliasResponse =
+        router.handlePost(
+            "/api/vdr/epgsearch/native-fuzzy/refresh",
+            "{"
+            "\"backend\":\"default\","
+            "\"query\":\"router native fuzzy alias probe\","
+            "\"tolerance\":2"
+            "}");
+
+    assert(nativeFuzzyRefreshAliasResponse.statusCode == 200);
+    assert(nativeFuzzyRefreshAliasResponse.contentType == "application/json");
+    assert(nativeFuzzyRefreshAliasResponse.body.find(
+               "\"status\":\"refreshed-native-available\"")
+           != std::string::npos);
+    assert(nativeFuzzyRuntime.createCalls == 2);
+    assert(nativeFuzzyRuntime.deleteCalls == 2);
+    assert(nativeFuzzyRuntime.timers.empty());
 
     ApiResponse runtimeAliasResponse =
         router.handleGet("/api/runtime/diagnostics");
