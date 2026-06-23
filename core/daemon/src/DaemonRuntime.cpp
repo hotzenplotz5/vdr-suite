@@ -208,19 +208,10 @@ bool DaemonRuntime::initialize()
         *vdrRecordingQueryService_,
         *vdrRecordingQueryResultJsonSerializer_);
 
-    VdrCapabilitySet effectiveCapabilitySet =
-        VdrCapabilitySet::snapshotReadOnly();
-
-    const auto defaultCapabilityBackend =
-        backendRegistryService_->getBackend("default");
-
-    if (defaultCapabilityBackend.has_value()) {
-        effectiveCapabilitySet = defaultCapabilityBackend->capabilities;
-    }
-
-    capabilitySet_ = std::make_unique<VdrCapabilitySet>(
-        effectiveCapabilitySet);
-    capabilityResolver_ = std::make_unique<CapabilityResolver>(*capabilitySet_);
+    capabilityResolver_ =
+        std::make_unique<BackendRegistryCapabilityResolver>(
+            *backendRegistryService_,
+            "default");
     capabilityReportBuilder_ = std::make_unique<CapabilityReportBuilder>();
     capabilityReportService_ = std::make_unique<CapabilityReportService>(
         "default",

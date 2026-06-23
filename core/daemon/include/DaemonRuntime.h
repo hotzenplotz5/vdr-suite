@@ -7,6 +7,7 @@
 #include "BackendRegistryService.h"
 #include "BackendRegistryJsonSerializer.h"
 #include "BackendRegistryController.h"
+#include "BackendRegistryCapabilityResolver.h"
 #include "VdrCapabilitySet.h"
 #include "CapabilityResolver.h"
 #include "CapabilityReportService.h"
@@ -160,7 +161,7 @@ private:
     std::unique_ptr<VdrRecordingQueryResultJsonSerializer> vdrRecordingQueryResultJsonSerializer_;
     std::unique_ptr<VdrRecordingQueryController> vdrRecordingQueryController_;
     std::unique_ptr<VdrCapabilitySet> capabilitySet_;
-    std::unique_ptr<CapabilityResolver> capabilityResolver_;
+    std::unique_ptr<ICapabilityResolver> capabilityResolver_;
     std::unique_ptr<CapabilityReportBuilder> capabilityReportBuilder_;
     std::unique_ptr<CapabilityReportService> capabilityReportService_;
     std::unique_ptr<CapabilityReportJsonSerializer> capabilityReportJsonSerializer_;

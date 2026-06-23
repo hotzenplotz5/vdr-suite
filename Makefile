@@ -11,6 +11,9 @@ include mk/local-test-groups.mk
 
 
 
+vdr-suite-native-fuzzy-capability-report-helper:
+	python3 tools/validate_vdr_suite_native_fuzzy_capability_report.py --help
+
 vdr-suite-native-fuzzy-operator-refresh-helper:
 	python3 tools/validate_vdr_suite_native_fuzzy_operator_refresh.py --help
 
@@ -628,6 +631,15 @@ test-vdr-controller:
 		api/rest/tests/test_vdr_controller.cpp \
 		-o /tmp/test_vdr_controller
 	/tmp/test_vdr_controller
+
+test-backend-registry-capability-resolver:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/tests/test_backend_registry_capability_resolver.cpp \
+		-o /tmp/test_backend_registry_capability_resolver
+	/tmp/test_backend_registry_capability_resolver
 
 test-backend-registry-controller:
 	$(CXX) $(CXXFLAGS) \
