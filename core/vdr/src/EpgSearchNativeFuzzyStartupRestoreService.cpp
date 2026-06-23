@@ -3,15 +3,18 @@
 #include "BackendNode.h"
 #include "BackendRegistryService.h"
 #include "EpgSearchNativeFuzzyCapabilityDetector.h"
+#include "EpgSearchNativeFuzzyCapabilityFreshnessPolicy.h"
 #include "EpgSearchNativeFuzzyCapabilityRepository.h"
 
 EpgSearchNativeFuzzyStartupRestoreService::EpgSearchNativeFuzzyStartupRestoreService(
     EpgSearchNativeFuzzyCapabilityRepository& repository,
     EpgSearchNativeFuzzyCapabilityDetector& detector,
-    BackendRegistryService& backendRegistryService)
+    BackendRegistryService& backendRegistryService,
+    EpgSearchNativeFuzzyCapabilityFreshnessPolicy& freshnessPolicy)
     : repository_(repository),
       detector_(detector),
-      backendRegistryService_(backendRegistryService)
+      backendRegistryService_(backendRegistryService),
+      freshnessPolicy_(freshnessPolicy)
 {
 }
 
@@ -33,7 +36,7 @@ EpgSearchNativeFuzzyStartupRestoreService::restoreAllBackends()
     {
         ++summary.backendsSeen;
 
-        const auto persistedProbeResult = repository_.load(
+        const auto persistedProbeResult = repository_.loadPersistedProbeResult(
             backend.backendId);
 
         if (!persistedProbeResult.has_value())
@@ -43,8 +46,28 @@ EpgSearchNativeFuzzyStartupRestoreService::restoreAllBackends()
 
         ++summary.persistedResultsFound;
 
+        const auto freshnessDecision = freshnessPolicy_.decide(
+            persistedProbeResult->ageSeconds);
+
+        if (!freshnessDecision.fresh)
+        {
+            ++summary.staleResultsIgnored;
+
+            VdrCapabilitySet staleSafeCapabilities = backend.capabilities;
+            staleSafeCapabilities.epgSearchFuzzyNative = false;
+
+            if (backendRegistryService_.updateBackendCapabilities(
+                    backend.backendId,
+                    staleSafeCapabilities))
+            {
+                ++summary.backendsUpdated;
+            }
+
+            continue;
+        }
+
         const bool nativeAvailable = detector_.nativeFuzzyAvailable(
-            *persistedProbeResult);
+            persistedProbeResult->probeResult);
 
         if (nativeAvailable)
         {
@@ -53,7 +76,7 @@ EpgSearchNativeFuzzyStartupRestoreService::restoreAllBackends()
 
         const auto detectedCapabilities = detector_.apply(
             backend.capabilities,
-            *persistedProbeResult);
+            persistedProbeResult->probeResult);
 
         if (backendRegistryService_.updateBackendCapabilities(
                 backend.backendId,

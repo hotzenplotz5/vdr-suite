@@ -201,6 +201,24 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.21 - EPGSearch native fuzzy restore freshness policy
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchNativeFuzzyCapabilityFreshnessPolicy`.
+- Repository now exposes persisted probe metadata including `updatedAt` and computed `ageSeconds`.
+- Startup restore now applies persisted results only when they are fresh.
+- Default freshness window is seven days.
+- Stale persisted positive results cannot enable native fuzzy capability.
+- Stale persisted results restore native fuzzy as unavailable for the existing backend.
+- Future timestamps are not trusted.
+- Restore diagnostics now expose stale ignored result count.
+- Freshness policy remains read-only and does not create SearchTimer probe objects.
+- Deferred stale probe administration to Phase 49.22.
+
+---
+
 ## Phase 49.20 - EPGSearch native fuzzy restore diagnostics
 
 Status: Completed.

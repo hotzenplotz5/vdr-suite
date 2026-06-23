@@ -544,3 +544,15 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Runtime diagnostics measurement | Implemented | Records `epgsearch-native-fuzzy/startup-restore`. |
 | JSON serialization | Implemented | Serializes restore diagnostics for future API exposure. |
 | Automatic mutation probe | Not implemented | Diagnostics remain read-only/non-mutating. |
+
+
+## Phase 49.21 Restore Freshness Policy
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Persisted result age | Implemented | Repository exposes `updatedAt` and `ageSeconds`. |
+| Freshness policy | Implemented | Default max age is seven days. |
+| Fresh persisted result | Implemented | May restore native fuzzy availability. |
+| Stale persisted result | Implemented | Ignored for native enablement and restores native fuzzy as unavailable. |
+| Future timestamp | Implemented | Not trusted. |
+| Automatic mutation probe | Not implemented | Freshness remains non-mutating. |

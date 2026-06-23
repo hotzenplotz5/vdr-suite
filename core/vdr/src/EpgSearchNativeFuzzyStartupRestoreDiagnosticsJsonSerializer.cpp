@@ -23,6 +23,7 @@ std::string EpgSearchNativeFuzzyStartupRestoreDiagnosticsJsonSerializer::seriali
         << "\"backendsUpdated\":" << diagnostics.backendsUpdated << ","
         << "\"nativeFuzzyAvailable\":" << diagnostics.nativeFuzzyAvailable << ","
         << "\"nativeFuzzyUnavailable\":" << diagnostics.nativeFuzzyUnavailable << ","
+        << "\"staleResultsIgnored\":" << diagnostics.staleResultsIgnored << ","
         << "\"status\":\"" << diagnostics.status() << "\","
         << "\"reason\":\"" << diagnostics.reason() << "\""
         << "}";

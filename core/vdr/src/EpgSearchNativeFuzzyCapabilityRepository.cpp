@@ -6,6 +6,18 @@
 
 namespace
 {
+    std::string columnText(sqlite3_stmt* stmt, int column)
+    {
+        const unsigned char* text = sqlite3_column_text(stmt, column);
+
+        if (!text)
+        {
+            return {};
+        }
+
+        return reinterpret_cast<const char*>(text);
+    }
+
     int boolToInt(bool value)
     {
         return value ? 1 : 0;
@@ -84,7 +96,8 @@ bool EpgSearchNativeFuzzyCapabilityRepository::save(
     return rc == SQLITE_DONE;
 }
 
-std::optional<EpgSearchNativeFuzzyCapabilityProbeResult> EpgSearchNativeFuzzyCapabilityRepository::load(
+std::optional<EpgSearchNativeFuzzyPersistedCapabilityProbeResult>
+EpgSearchNativeFuzzyCapabilityRepository::loadPersistedProbeResult(
     const std::string& backendId) const
 {
     sqlite3_stmt* stmt = nullptr;
@@ -95,7 +108,9 @@ std::optional<EpgSearchNativeFuzzyCapabilityProbeResult> EpgSearchNativeFuzzyCap
         "readback_available, "
         "mode_preserved, "
         "tolerance_preserved, "
-        "cleanup_succeeded "
+        "cleanup_succeeded, "
+        "updated_at, "
+        "CAST(strftime('%s','now') - strftime('%s', updated_at) AS INTEGER) "
         "FROM epgsearch_native_fuzzy_capability_probes "
         "WHERE backend_id = ?;";
 
@@ -111,20 +126,35 @@ std::optional<EpgSearchNativeFuzzyCapabilityProbeResult> EpgSearchNativeFuzzyCap
 
     sqlite3_bind_text(stmt, 1, backendId.c_str(), -1, SQLITE_TRANSIENT);
 
-    std::optional<EpgSearchNativeFuzzyCapabilityProbeResult> result;
+    std::optional<EpgSearchNativeFuzzyPersistedCapabilityProbeResult> result;
 
     if (sqlite3_step(stmt) == SQLITE_ROW)
     {
-        EpgSearchNativeFuzzyCapabilityProbeResult probeResult;
-        probeResult.createAccepted = intToBool(stmt, 0);
-        probeResult.readbackAvailable = intToBool(stmt, 1);
-        probeResult.modePreserved = intToBool(stmt, 2);
-        probeResult.tolerancePreserved = intToBool(stmt, 3);
-        probeResult.cleanupSucceeded = intToBool(stmt, 4);
-        result = probeResult;
+        EpgSearchNativeFuzzyPersistedCapabilityProbeResult persisted;
+        persisted.probeResult.createAccepted = intToBool(stmt, 0);
+        persisted.probeResult.readbackAvailable = intToBool(stmt, 1);
+        persisted.probeResult.modePreserved = intToBool(stmt, 2);
+        persisted.probeResult.tolerancePreserved = intToBool(stmt, 3);
+        persisted.probeResult.cleanupSucceeded = intToBool(stmt, 4);
+        persisted.updatedAt = columnText(stmt, 5);
+        persisted.ageSeconds = sqlite3_column_int64(stmt, 6);
+        result = persisted;
     }
 
     sqlite3_finalize(stmt);
 
     return result;
+}
+
+std::optional<EpgSearchNativeFuzzyCapabilityProbeResult> EpgSearchNativeFuzzyCapabilityRepository::load(
+    const std::string& backendId) const
+{
+    const auto persisted = loadPersistedProbeResult(backendId);
+
+    if (!persisted.has_value())
+    {
+        return std::nullopt;
+    }
+
+    return persisted->probeResult;
 }

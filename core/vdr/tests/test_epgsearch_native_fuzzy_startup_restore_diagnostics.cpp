@@ -73,6 +73,24 @@ static void test_restored_native_unavailable_diagnostic()
     assert(diagnostics.nativeFuzzyUnavailable == 2);
 }
 
+static void test_stale_results_ignored_diagnostic()
+{
+    EpgSearchNativeFuzzyStartupRestoreSummary summary;
+    summary.schemaReady = true;
+    summary.backendsSeen = 1;
+    summary.persistedResultsFound = 1;
+    summary.backendsUpdated = 1;
+    summary.nativeFuzzyAvailable = 0;
+    summary.staleResultsIgnored = 1;
+
+    const auto diagnostics =
+        EpgSearchNativeFuzzyStartupRestoreDiagnostics::fromSummary(summary);
+
+    assert(diagnostics.status() == "stale-results-ignored");
+    assert(diagnostics.staleResultsIgnored == 1);
+    assert(diagnostics.nativeFuzzyUnavailable == 1);
+}
+
 static void test_json_serializer()
 {
     EpgSearchNativeFuzzyStartupRestoreSummary summary;
@@ -93,6 +111,7 @@ static void test_json_serializer()
     assert(json.find("\"persistedResultsFound\":2") != std::string::npos);
     assert(json.find("\"nativeFuzzyAvailable\":1") != std::string::npos);
     assert(json.find("\"nativeFuzzyUnavailable\":1") != std::string::npos);
+    assert(json.find("\"staleResultsIgnored\":0") != std::string::npos);
     assert(json.find("\"status\":\"restored-native-available\"") != std::string::npos);
 }
 
@@ -102,6 +121,7 @@ int main()
     test_no_persisted_results_diagnostic();
     test_restored_native_available_diagnostic();
     test_restored_native_unavailable_diagnostic();
+    test_stale_results_ignored_diagnostic();
     test_json_serializer();
 
     std::cout

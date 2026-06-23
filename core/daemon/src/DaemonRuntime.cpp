@@ -115,11 +115,14 @@ bool DaemonRuntime::initialize()
             database_);
     epgSearchNativeFuzzyCapabilityDetector_ =
         std::make_unique<EpgSearchNativeFuzzyCapabilityDetector>();
+    epgSearchNativeFuzzyCapabilityFreshnessPolicy_ =
+        std::make_unique<EpgSearchNativeFuzzyCapabilityFreshnessPolicy>();
     epgSearchNativeFuzzyStartupRestoreService_ =
         std::make_unique<EpgSearchNativeFuzzyStartupRestoreService>(
             *epgSearchNativeFuzzyCapabilityRepository_,
             *epgSearchNativeFuzzyCapabilityDetector_,
-            *backendRegistryService_);
+            *backendRegistryService_,
+            *epgSearchNativeFuzzyCapabilityFreshnessPolicy_);
 
     const auto nativeFuzzyStartupRestoreSummary =
         epgSearchNativeFuzzyStartupRestoreService_->restoreAllBackends();
@@ -140,6 +143,7 @@ bool DaemonRuntime::initialize()
             << ", updated=" << nativeFuzzyStartupRestoreDiagnostics.backendsUpdated
             << ", nativeAvailable=" << nativeFuzzyStartupRestoreDiagnostics.nativeFuzzyAvailable
             << ", nativeUnavailable=" << nativeFuzzyStartupRestoreDiagnostics.nativeFuzzyUnavailable
+            << ", staleIgnored=" << nativeFuzzyStartupRestoreDiagnostics.staleResultsIgnored
             << std::endl;
     }
     else {

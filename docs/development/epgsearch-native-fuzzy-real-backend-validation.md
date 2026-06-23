@@ -164,6 +164,29 @@ The daemon also records a runtime diagnostics measurement:
     itemCount=persistedResultsFound
 
 This keeps startup restore observable without running a new SearchTimer mutation probe.
+## Restore freshness policy
+
+Phase 49.21 adds a freshness policy for persisted native fuzzy probe results.
+
+Default policy:
+
+    maxAgeSeconds = 604800
+    maxAge = 7 days
+
+A persisted result is trusted only when its SQLite `updated_at` age is within the freshness window.
+
+Fresh result:
+
+    may restore epg.search.fuzzy.native=true when the detector result is complete
+
+Stale result:
+
+    is counted as persisted
+    is counted as stale ignored
+    must not enable epg.search.fuzzy.native
+    forces epg.search.fuzzy.native=false for the existing backend
+    does not create or mutate any SearchTimer probe object
+
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.

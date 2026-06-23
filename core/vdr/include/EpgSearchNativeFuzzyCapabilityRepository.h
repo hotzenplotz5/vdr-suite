@@ -7,6 +7,13 @@
 
 class Database;
 
+struct EpgSearchNativeFuzzyPersistedCapabilityProbeResult
+{
+    EpgSearchNativeFuzzyCapabilityProbeResult probeResult;
+    std::string updatedAt;
+    long long ageSeconds = 0;
+};
+
 class EpgSearchNativeFuzzyCapabilityRepository
 {
 public:
@@ -17,6 +24,9 @@ public:
     bool save(
         const std::string& backendId,
         const EpgSearchNativeFuzzyCapabilityProbeResult& result);
+
+    std::optional<EpgSearchNativeFuzzyPersistedCapabilityProbeResult> loadPersistedProbeResult(
+        const std::string& backendId) const;
 
     std::optional<EpgSearchNativeFuzzyCapabilityProbeResult> load(
         const std::string& backendId) const;

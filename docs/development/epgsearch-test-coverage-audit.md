@@ -476,3 +476,24 @@ Deferred behavior:
 - user-facing restore diagnostics endpoint.
 - stale persisted probe expiry policy.
 - operator-triggered refresh/clear workflow.
+
+
+## Phase 49.21 Restore Freshness Policy
+
+Phase 49.21 adds freshness coverage for persisted native fuzzy startup restore.
+
+Covered behavior:
+
+- fresh persisted result remains eligible for restore.
+- stale persisted positive result cannot enable native fuzzy.
+- stale persisted result is counted in restore summary.
+- stale persisted result restores native fuzzy as unavailable.
+- future timestamps are not trusted.
+- repository exposes persisted metadata and computed age.
+- diagnostics expose stale ignored count and stale status.
+
+Deferred behavior:
+
+- operator-facing configuration for max age.
+- endpoint to clear stale persisted probe results.
+- explicit refresh workflow.

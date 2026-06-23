@@ -24,6 +24,11 @@ std::string EpgSearchNativeFuzzyStartupRestoreDiagnostics::status() const
         return "restored-native-available";
     }
 
+    if (staleResultsIgnored > 0)
+    {
+        return "stale-results-ignored";
+    }
+
     return "restored-native-unavailable";
 }
 
@@ -47,6 +52,11 @@ std::string EpgSearchNativeFuzzyStartupRestoreDiagnostics::reason() const
     if (nativeFuzzyAvailable > 0)
     {
         return "persisted native fuzzy probe results restored at least one native-capable backend";
+    }
+
+    if (staleResultsIgnored > 0)
+    {
+        return "all persisted native fuzzy probe results were stale and ignored for native enablement";
     }
 
     return "persisted native fuzzy probe results were found, but none restored native fuzzy availability";
@@ -84,6 +94,7 @@ EpgSearchNativeFuzzyStartupRestoreDiagnostics::fromSummary(
     diagnostics.nativeFuzzyUnavailable = std::max(
         0,
         summary.persistedResultsFound - summary.nativeFuzzyAvailable);
+    diagnostics.staleResultsIgnored = summary.staleResultsIgnored;
 
     return diagnostics;
 }

@@ -13,6 +13,7 @@ struct EpgSearchNativeFuzzyStartupRestoreDiagnostics
     int backendsUpdated = 0;
     int nativeFuzzyAvailable = 0;
     int nativeFuzzyUnavailable = 0;
+    int staleResultsIgnored = 0;
 
     std::string status() const;
     std::string reason() const;
