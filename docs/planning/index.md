@@ -30,7 +30,7 @@ Long-term architecture direction and major project phases.
 
 - [Milestones](milestones.md)
 
-Upcoming goals and planned completion targets.
+Current planning entry point and milestone pointers.
 
 ---
 
@@ -38,10 +38,10 @@ Upcoming goals and planned completion targets.
 
 ```text
 Completed Major Phase
-Phase 28.12 - Recording Query API Documentation
+Phase 49.30 - EPGSearch native fuzzy validation consolidation
 
 Next Major Phase
-Phase 29.0 - Multi-Backend Recording Identity Foundation
+Phase 50.0 - SearchTimer user workflow foundation
 ```
 
 ---
@@ -58,7 +58,8 @@ Current verified state and completed implementation history.
 ## Documentation Rules
 
 - [Roadmap](roadmap.md) contains long-term direction.
-- [Milestones](milestones.md) contains upcoming targets.
+- [Project Progress](project-progress.md) contains high-level progress percentages and the active milestone.
+- [Milestones](milestones.md) remains a lightweight planning pointer document.
 - [Current Project Status](../development/current-status.md) contains the current verified project status.
 - [Completed Phases](../development/completed-phases.md) contains completed implementation history.
 - Avoid duplicate phase tracking across documents.
