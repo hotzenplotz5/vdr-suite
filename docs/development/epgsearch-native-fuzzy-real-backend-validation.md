@@ -383,6 +383,56 @@ Real execution after daemon restart:
 This proves that native fuzzy support is not only detected during the current daemon lifetime, but also restored from persisted probe state on the next daemon startup.
 
 
+## Validation consolidation
+
+Phase 49.30 consolidates the native fuzzy validation chain into one documented operational sequence.
+
+The complete VDR-Suite native fuzzy validation flow is:
+
+    operator refresh validation
+    capability report validation
+    persisted restore validation
+
+The helper sequence is:
+
+    python3 tools/validate_vdr_suite_native_fuzzy_operator_refresh.py --execute --unique-query
+    python3 tools/validate_vdr_suite_native_fuzzy_capability_report.py --execute
+    restart the daemon
+    python3 tools/validate_vdr_suite_native_fuzzy_persisted_restore.py --execute
+
+The helper availability can be checked together with:
+
+    make vdr-suite-native-fuzzy-validation-helpers
+
+Validation meaning:
+
+    operator refresh proves that the real backend accepts native fuzzy SearchTimer mode and tolerance
+    capability report proves that the runtime capability report reflects the refreshed backend state
+    persisted restore proves that the capability survives daemon restart through SQLite-backed restore
+
+Mutation boundary:
+
+    only the operator refresh helper creates a temporary SearchTimer probe
+    capability report validation is read-only
+    persisted restore validation is read-only after daemon restart
+    daemon startup restore never creates, modifies or deletes SearchTimer objects
+
+Current native fuzzy backend capability conclusion:
+
+    epg.search.fuzzy.native is available when the real backend accepts mode=5 and tolerance,
+    the temporary probe can be read back and deleted,
+    the probe result is persisted,
+    the backend registry is updated,
+    and the capability report exposes the refreshed or restored backend state.
+
+Known remaining scope outside this native fuzzy validation chain:
+
+    full SearchTimer UI/client workflow
+    complete Live-style SearchTimer option surface
+    conflict/result views
+    multi-backend frontend selection and permission polish
+
+
 ## Safety behavior
 
 By default, the created SearchTimer is deleted at the end of the validation run.
@@ -401,7 +451,7 @@ If cleanup fails, manually delete the temporary SearchTimer named with the confi
 
 ## Phase status
 
-Phase 49.29 validates that a persisted native fuzzy capability probe result is restored after daemon restart and remains visible through /api/vdr/capabilities.
+Phase 49.30 consolidates the native fuzzy validation chain, its helper sequence, mutation boundaries and remaining scope outside the validated backend capability path.
 
 ## Back
 
