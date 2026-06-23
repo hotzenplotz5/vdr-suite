@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 49.5 - EPGSearch parameter regression expansion
+Phase 49.6 - EPGSearch search-mode baseline regression
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 49.6 - EPGSearch search-mode regression
+Phase 49.7 - EPGSearch search-mode implementation decision
 ```
 
 ---

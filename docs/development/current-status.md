@@ -72,7 +72,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 49.5 - EPGSearch parameter regression expansion
+Phase 49.6 - EPGSearch search-mode baseline regression
 ```
 
 Current documentation consolidation state:
@@ -84,7 +84,7 @@ Phase 46.41 - Current Project Status Refresh
 Next major implementation milestone:
 
 ```text
-Phase 49.6 - EPGSearch search-mode regression
+Phase 49.7 - EPGSearch search-mode implementation decision
 ```
 
 Completed foundations:
@@ -234,7 +234,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 49.6 - EPGSearch search-mode regression
+Phase 49.7 - EPGSearch search-mode implementation decision
 ```
 
 The next major implementation milestone is SearchTimer. It should turn existing EPG search, recording search and metadata search foundations into persistent search rules and later automation.

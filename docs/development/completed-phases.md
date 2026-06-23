@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.6 - EPGSearch search-mode baseline regression
+
+Status: Completed.
+
+Summary:
+- Added router-level regression coverage for current EPGSearch default text search behavior.
+- Added controller-level regression coverage for current EPGSearch default text search behavior.
+- Verified that uppercase `TATORT` matches the local `Tatort` EPG event.
+- Verified that unrelated EPG events are excluded by the text query.
+- Documented that advanced modes already exist in the query model but are not yet mapped or executed.
+- Moved the next focus to EPGSearch search-mode implementation decision.
+
+---
 ## Phase 49.5 - EPGSearch parameter regression expansion
 
 Status: Completed.

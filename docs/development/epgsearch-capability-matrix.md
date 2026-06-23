@@ -383,3 +383,16 @@ Result:
 - invalid `offset` is rejected
 - invalid `sort` is rejected
 - invalid `order` is rejected
+
+## Phase 49.6 Search Mode Baseline
+
+Phase 49.6 confirms the currently implemented EPGSearch text behavior.
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Case-insensitive phrase/contains search | Covered | Verified through router and controller regression tests. |
+| All-words mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
+| Any-word mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
+| Exact mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
+| Regular-expression mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |
+| Fuzzy mode | Not implemented yet | Query model exists, matcher mapping/execution still pending. |

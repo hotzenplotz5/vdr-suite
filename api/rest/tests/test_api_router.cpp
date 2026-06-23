@@ -659,6 +659,20 @@ int main()
     assert(epgSearchResponse.body.find("\"title\":\"Tagesschau\"")
            != std::string::npos);
 
+    ApiResponse epgSearchCaseInsensitiveResponse =
+        router.handleGet("/api/epg/search?query=TATORT&channelId=mock-channel-1&from=123&timespan=3600&limit=10&offset=0&sort=title&order=asc");
+
+    assert(epgSearchCaseInsensitiveResponse.statusCode == 200);
+    assert(epgSearchCaseInsensitiveResponse.contentType == "application/json");
+    assert(epgSearchCaseInsensitiveResponse.body.find("\"matches\":[")
+           != std::string::npos);
+    assert(epgSearchCaseInsensitiveResponse.body.find("\"id\":\"mock-event-2\"")
+           != std::string::npos);
+    assert(epgSearchCaseInsensitiveResponse.body.find("\"title\":\"Tatort\"")
+           != std::string::npos);
+    assert(epgSearchCaseInsensitiveResponse.body.find("\"id\":\"mock-event-1\"")
+           == std::string::npos);
+
     ApiResponse epgSearchInvalidTimespanResponse =
         router.handleGet("/api/epg/search?query=&channelId=mock-channel-1&from=123&timespan=0");
 

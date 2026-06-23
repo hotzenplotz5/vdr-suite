@@ -199,3 +199,22 @@ Covered invalid cases:
 - `order=sideways` returns HTTP 400.
 
 The positive endpoint regression from Phase 49.4 remains in place.
+
+## Phase 49.6 Search Mode Baseline Regression
+
+Phase 49.6 added explicit baseline regression coverage for the current `/api/epg/search` search behavior.
+
+Verified behavior:
+
+- default text search is case-insensitive
+- default text search behaves as phrase/contains matching
+- router-level search for `TATORT` matches the local `Tatort` EPG event
+- controller-level search for `TATORT` matches the local `Tatort` EPG event
+- unrelated `Tagesschau`/`event-time` results are excluded by the text query
+
+Known gap:
+
+- `EpgSearchQuery` defines search modes such as phrase, all words, any word, exact, regular expression and fuzzy.
+- `EpgSearchMatcher` currently does not evaluate the mode field.
+- `EpgSearchRequestMapper` currently does not map a search-mode request parameter.
+- Advanced search-mode implementation remains a future phase.

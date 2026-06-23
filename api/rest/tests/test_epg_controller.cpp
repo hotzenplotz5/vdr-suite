@@ -121,6 +121,24 @@ int main()
     assert(epgQueryService.lastCall == 2);
     assert(epgQueryService.lastTimespan == 7200);
 
+    ApiResponse caseInsensitiveSearchResponse =
+        controller.search(
+            "TATORT",
+            "living-room",
+            "channel-1",
+            1780000000,
+            7200,
+            10,
+            0,
+            "title",
+            "asc");
+
+    assert(caseInsensitiveSearchResponse.statusCode == 200);
+    assert(caseInsensitiveSearchResponse.contentType == "application/json");
+    assert(caseInsensitiveSearchResponse.body.find("\"matches\":[") != std::string::npos);
+    assert(caseInsensitiveSearchResponse.body.find("\"id\":\"event-search\"") != std::string::npos);
+    assert(caseInsensitiveSearchResponse.body.find("event-time") == std::string::npos);
+
     ApiResponse timeWindowParameterizedResponse =
         controller.getTimeWindow("channel-43", 456, 3600);
     assertEventResponse(timeWindowParameterizedResponse, "event-time");

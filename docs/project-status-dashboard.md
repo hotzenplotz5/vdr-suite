@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 49.5 - EPGSearch parameter regression expansion
+Phase 49.6 - EPGSearch search-mode baseline regression
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 49.6 - EPGSearch search-mode regression
+Phase 49.7 - EPGSearch search-mode implementation decision
 ```
 
 Latest Completed Milestones:
