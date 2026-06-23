@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 49.9 - EPGSearch regex mode implementation
+Phase 49.10 - EPGSearch fuzzy mode decision
 ```
 
 Next implementation focus:
 
 ```text
-Phase 49.10 - EPGSearch fuzzy mode decision
+Phase 49.11 - EPGSearch fuzzy fallback matcher
 ```
 
 Current architecture validation:
@@ -62,6 +62,7 @@ Current architecture validation:
 - [ADR-0028: Content Classification Architecture](../adr/ADR-0028-content-classification-architecture.md)
 - [ADR-0031: Person Catalog and External Filmography Architecture](../adr/ADR-0031-person-catalog-and-external-filmography.md)
 - [ADR-0032: EPGSearch Regex Mode Safety](../adr/ADR-0032-epgsearch-regex-mode-safety.md)
+- [ADR-0033: EPGSearch Fuzzy Mode Decision](../adr/ADR-0033-epgsearch-fuzzy-mode-decision.md)
 - [Timer Contract Gap Analysis](timer-contract-gap-analysis.md)
 - [Real Recording Action End-to-End Validation](real-recording-action-e2e-validation.md)
 - [Phase 44 Recording Action Runtime Completion](phase-44-recording-action-runtime-completion.md)

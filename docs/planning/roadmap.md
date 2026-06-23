@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 49.9 - EPGSearch regex mode implementation
+Phase 49.10 - EPGSearch fuzzy mode decision
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 49.10 - EPGSearch fuzzy mode decision
+Phase 49.11 - EPGSearch fuzzy fallback matcher
 ```
 
 ---

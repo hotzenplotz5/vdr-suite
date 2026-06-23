@@ -30,11 +30,11 @@ Canonical ADR sequence:
 ADR-0001
 ADR-0002
 ...
-ADR-0032
+ADR-0033
 
 Next available ADR:
 
-ADR-0033
+ADR-0034
 
 The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
 
@@ -80,6 +80,7 @@ If a canonical ADR is superseded, keep it only in the superseded section and do 
 - ADR-0030 Domain-First UI Over OSD Proxy
 - ADR-0031 Person Catalog and External Filmography Architecture
 - ADR-0032 EPGSearch Regex Mode Safety
+- ADR-0033 EPGSearch Fuzzy Mode Decision
 
 ---
 
@@ -158,6 +159,7 @@ Retained for historical reference:
 - [ADR-0030: Domain-First UI Over OSD Proxy](ADR-0030-domain-first-ui-over-osd-proxy.md)
 - [ADR-0031: Person Catalog and External Filmography Architecture](ADR-0031-person-catalog-and-external-filmography.md)
 - [ADR-0032: EPGSearch Regex Mode Safety](ADR-0032-epgsearch-regex-mode-safety.md)
+- [ADR-0033: EPGSearch Fuzzy Mode Decision](ADR-0033-epgsearch-fuzzy-mode-decision.md)
 
 ### Superseded Canonical ADRs
 

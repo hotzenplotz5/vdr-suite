@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.10 - EPGSearch fuzzy mode decision
+
+Status: Completed.
+
+Summary:
+- Added ADR-0033 for EPGSearch fuzzy mode semantics.
+- Decided that public fuzzy search uses mode=fuzzy plus tolerance=<int>.
+- Aligned fuzzy mode with the LIVE/epgsearch SearchTimer model.
+- Decided that native epgsearch adapters may map fuzzy to mode 5 plus tolerance.
+- Decided that VDR-Suite may provide a backend-neutral boolean fallback matcher.
+- Deferred public ranking/scoring semantics.
+- Deferred implementation to Phase 49.11.
+
+---
 ## Phase 49.9 - EPGSearch regex mode implementation
 
 Status: Completed.

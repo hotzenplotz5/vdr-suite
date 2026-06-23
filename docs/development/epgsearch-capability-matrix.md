@@ -429,3 +429,14 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Invalid regex handling | Implemented | Returns HTTP 400 with `invalid regex pattern`. |
 | Regex fallback behavior | Rejected | Invalid regex does not fall back to phrase matching. |
 | Fuzzy search | Deferred | Remains a separate scoring and tolerance decision. |
+
+## Phase 49.10 Fuzzy Mode Decision
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Fuzzy public mode name | Decided | mode=fuzzy. |
+| Fuzzy tolerance parameter | Decided | tolerance=<int>, default 1 if omitted in future implementation. |
+| Native epgsearch mapping | Decided | Native adapters may map fuzzy to epgsearch-compatible mode 5 plus tolerance. |
+| Fuzzy fallback matcher | Decided | VDR-Suite may provide a backend-neutral boolean fallback. |
+| Fuzzy ranking | Deferred | No public score/ranking contract yet. |
+| Capability distinction | Required | Native and fallback fuzzy support must be exposed separately if needed. |

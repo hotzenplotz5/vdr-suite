@@ -269,3 +269,19 @@ Deferred behavior:
 
 - fuzzy search remains a separate scoring and tolerance decision.
 - performance limits for complex real-world regex patterns may be refined after real VDR validation.
+
+## Phase 49.10 Fuzzy Mode Decision
+
+Phase 49.10 records the fuzzy-mode decision before enabling fuzzy execution.
+
+Decision coverage:
+
+- mode=fuzzy is the intended public mode name.
+- fuzzy uses a numeric tolerance parameter.
+- native epgsearch adapters may map fuzzy to mode 5 plus tolerance.
+- VDR-Suite may implement a backend-neutral fallback matcher.
+- fallback fuzzy initially remains boolean match/no-match.
+- ranking/scoring is intentionally deferred.
+- invalid tolerance handling is required for the implementation phase.
+
+Implementation coverage is intentionally deferred to the follow-up fuzzy implementation phase.

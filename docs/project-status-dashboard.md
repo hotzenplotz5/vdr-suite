@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 49.9 - EPGSearch regex mode implementation
+Phase 49.10 - EPGSearch fuzzy mode decision
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 49.10 - EPGSearch fuzzy mode decision
+Phase 49.11 - EPGSearch fuzzy fallback matcher
 ```
 
 Latest Completed Milestones:
