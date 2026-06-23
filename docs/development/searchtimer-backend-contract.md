@@ -22,13 +22,14 @@
 
 This document records the backend contract for SearchTimer integration.
 
-Phase 47.14 documents the contract before expanding the SearchTimer domain model.
+This document records the backend contract before Phase 50 user workflow work.
 
 The contract keeps SearchTimer work aligned with the VDR-Suite architecture rule:
 
 - Prefer backend-neutral boundaries.
 - Keep VDR and RESTfulAPI as backend sources of truth.
 - Avoid modelling backend-specific data blindly.
+- Preserve backend identity for future multi-backend SearchTimer behavior.
 
 ---
 
@@ -49,7 +50,7 @@ The daemon creates a SearchTimer adapter from the per-backend runtime context.
 
 ## Current Domain Model Scope
 
-The current SearchTimer foundation models the minimal stable contract:
+The SearchTimer foundation is no longer only the minimal list contract. Current implemented scope includes:
 
     backendId
     backendNativeId
@@ -66,6 +67,8 @@ This is sufficient for:
 - filtering by text
 - limit and offset pagination
 - JSON serialization for client-facing API responses
+- create and update request modelling for validated option groups
+- real VDR smoke validation of SearchTimer create, readback, update and delete
 
 ---
 
@@ -112,23 +115,19 @@ They should be added only after validating real RESTfulAPI and epgsearch payload
 
 ## Contract Decision
 
-Phase 47.14 keeps the SearchTimer domain intentionally minimal.
+The backend-facing SearchTimer foundation and native fuzzy capability validation are complete enough to start Phase 50 user workflow work.
 
-The current model is the stable list/query contract.
+Phase 50 should not add fields blindly.
 
-Future phases may expand it after real backend payload validation.
+It should turn the validated backend contract into a coherent operator and client workflow surface.
 
 ---
 
 ## Follow-up Implementation Direction
 
-Recommended next steps:
+Recommended next step:
 
-    Phase 47.15 - SearchTimer real payload validation
-    Phase 47.15 - Capture and validate real RESTfulAPI SearchTimer payloads before domain expansion
-    Phase 47.16 - SearchTimer domain model expansion
-    Phase 47.17 - SearchTimer mapper expansion
-    Phase 47.18 - SearchTimer JSON contract expansion
+    Phase 50.0 - SearchTimer user workflow foundation
 
 ---
 
