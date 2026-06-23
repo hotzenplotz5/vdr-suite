@@ -46,7 +46,7 @@ Frontend Foundation|0|planned
 
 ## Current Milestone
 
-Phase 47.0 - SearchTimer Foundation
+Phase 50.0 - SearchTimer user workflow foundation
 
 ---
 
