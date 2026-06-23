@@ -6,20 +6,30 @@
 - [Documentation Index](../index.md)
 - [Project Overview](../project-overview.md)
 - [Planning Index](index.md)
+- [Roadmap](roadmap.md)
+- [Project Progress](project-progress.md)
+- [Current Project Status](../development/current-status.md)
+- [Completed Phases](../development/completed-phases.md)
 
 ---
 
-This document describes forward-looking planning milestones.
+## Purpose
 
-Historical implementation phases and tag history are tracked in:
+This document is a lightweight planning entry point.
 
-- [Development Milestones](../development/milestones.md)
-- [Completed Phases](../development/completed-phases.md)
-- [Current Project Status](../development/current-status.md)
-
-The roadmap is tracked in:
+The authoritative current planning state is maintained in:
 
 - [Roadmap](roadmap.md)
+- [Project Progress](project-progress.md)
+- [Current Project Status](../development/current-status.md)
+- [Project Status Dashboard](../project-status-dashboard.md)
+
+Historical implementation phase history is maintained in:
+
+- [Completed Phases](../development/completed-phases.md)
+- [Development Milestones](../development/milestones.md)
+
+Older milestone sketches that described Phase 28 through early multi-backend work have been replaced by the current roadmap and completed-phase records.
 
 ---
 
@@ -28,231 +38,71 @@ The roadmap is tracked in:
 Current completed implementation phase:
 
 ```text
-Phase 28.12 - Recording Query API Documentation
+Phase 49.30 - EPGSearch native fuzzy validation consolidation
 ```
 
-Current transition:
+Next major implementation milestone:
 
 ```text
-Recording query API complete
-↓
-Phase 29.0 - Multi-Backend Recording Identity Foundation
+Phase 50.0 - SearchTimer user workflow foundation
+```
+
+Current planning focus:
+
+```text
+SearchTimer user workflow foundation
 ```
 
 ---
 
-## Milestone M0 – Project Foundation
+## Active Planning Source
 
-Status: Completed
+Use [Roadmap](roadmap.md) for the current milestone order and long-term direction.
 
-Result:
+Use [Project Progress](project-progress.md) for high-level progress percentages and the active major milestone.
 
-- repository structure established
-- documentation structure created
-- ADR process introduced
-- initial architecture documented
+Use [Current Project Status](../development/current-status.md) for the verified technical state before starting a new implementation phase.
 
 ---
 
-## Milestone M1 – Core Backend Foundation
+## Current Implementation Direction
 
-Status: Completed
+Phase 50.0 should move from backend capability validation into user-facing SearchTimer workflow foundations.
 
-Result:
+The next planning questions are:
 
-- SQLite foundation
-- recording and metadata services
-- job and action foundations
-- dashboard service foundations
-- REST API foundation
-
----
-
-## Milestone M2 – VDR Backend Foundation
-
-Status: Completed
-
-Result:
-
-- VDR configuration model
-- adapter abstraction
-- mock backend
-- RESTfulAPI integration boundary
-- backend architecture ADRs
+- Which SearchTimer create/list/update/delete workflow contract is the minimum useful operator surface?
+- Which epgsearch and Live-style options are supported now?
+- Which unsupported options must stay explicit future scope?
+- Which parts are read-only validation and which parts mutate VDR-owned SearchTimer state?
+- How should backend identity remain visible for later multi-backend SearchTimer behavior?
 
 ---
 
-## Milestone M3 – Snapshot Runtime Foundation
+## Deferred Planning Areas
 
-Status: Completed
+The following remain planned after the SearchTimer user workflow foundation:
 
-Result:
-
-- VDR snapshot model
-- snapshot builder
-- polling service
-- snapshot cache
-- snapshot access service
-- partial refresh planning
-- change detection foundation
+- Live-style information parity and frontend-ready API polish.
+- SearchTimer automation and scheduled evaluation.
+- Recommendation primitives.
+- Cross-backend search and federation.
+- Backend management and client administration.
+- Web, TV and mobile frontend product layers.
 
 ---
 
-## Milestone M4 – Runtime Diagnostics Foundation
+## Maintenance Rule
 
-Status: Completed
+Keep this file short. Detailed planning belongs in [Roadmap](roadmap.md), and completed implementation history belongs in [Completed Phases](../development/completed-phases.md).
 
-Result:
+When the active milestone changes, update the current position here and then run:
 
-- runtime measurement boundary
-- runtime diagnostics service
-- runtime diagnostics JSON serialization
-- runtime diagnostics REST endpoints
-- bounded diagnostics retention
-- runtime configuration cleanup
+```text
+make test-docs
+make test-phase
+```
 
----
-
-## Milestone M5 – Snapshot Read API Foundation
-
-Status: Completed
-
-Result:
-
-- snapshot read service
-- snapshot read JSON serializer
-- snapshot-backed controller and router paths
-- HTTP server coverage
-- domain JSON for status, channels, timers, events and recordings
-- full `make test` verification after Phase 11.6
-
----
-
-## Milestone M6 – Documentation Navigation Cleanup
-
-Status: Active
-
-Goal:
-
-Make the documentation easy to navigate from both `README.md` and `docs/index.md`.
-
-Completion criteria:
-
-- README links to current status, roadmap, milestones and documentation index
-- `docs/index.md` links all major documentation areas
-- roadmap reflects the real Phase 11.6 state
-- planning milestones distinguish future planning from implementation history
-- development milestones remain focused on historical tags and verified implementation milestones
-- known ADR duplicates are marked or resolved
-- no intentionally maintained document is unreachable from the documentation index
-
----
-
-## Milestone M7 – Snapshot Change Feed Architecture
-
-Status: Planned
-
-Goal:
-
-Define the internal architecture for snapshot change feeds before adding live transport.
-
-Completion criteria:
-
-- existing `VdrChangeState`, `VdrChangeEvent` and `ChangeDetectionService` are reviewed
-- change feed responsibilities are documented
-- feed generation is separated from HTTP, SSE and WebSocket transport
-- multi-VDR and backend identity implications are documented
-- first implementation phase is planned without frontend coupling
-
----
-
-## Milestone M8 – Snapshot Change Feed Implementation
-
-Status: Planned
-
-Goal:
-
-Implement a backend-internal change feed service and expose a first read-only REST endpoint.
-
-Completion criteria:
-
-- change feed service implemented
-- tests verify feed generation
-- REST endpoint added for read-only change access
-- API does not require direct RESTfulAPI calls
-- design remains compatible with future SSE/WebSocket transport
-
----
-
-## Milestone M9 – Live Update Transport
-
-Status: Planned
-
-Goal:
-
-Expose snapshot change events to future frontends through a live-update transport.
-
-Completion criteria:
-
-- SSE or WebSocket transport selected through architecture review
-- live transport remains a consumer of the change feed, not the generator
-- transport is tested independently from polling
-- future multi-client usage is considered
-
----
-
-## Milestone M10 – Multi-VDR Read Architecture
-
-Status: Planned
-
-Goal:
-
-Prepare read-side architecture for multiple VDR instances and future federation.
-
-Completion criteria:
-
-- backend identity requirements are reflected in read models where needed
-- snapshot ownership is source/backend aware
-- routing strategy for multiple VDR instances is documented
-- permission-aware future architecture remains possible
-
----
-
-## Milestone M11 – Frontend Contract Hardening
-
-Status: Planned
-
-Goal:
-
-Stabilize API contracts for future Web, Windows, Android, iOS and OSD frontends.
-
-Completion criteria:
-
-- read API contracts documented
-- error response strategy documented
-- filtering and pagination strategy reviewed
-- capability-aware API strategy considered
-- frontend-independent API behavior verified
-
----
-
-## Milestone M12 – First Frontend-Oriented Product Layer
-
-Status: Future
-
-Goal:
-
-Start the first real user-facing product layer after backend read, diagnostics and change-feed foundations are stable.
-
-Possible directions:
-
-- Web frontend
-- Windows frontend
-- OSD integration
-- Android frontend
-- iOS frontend
-
-Final frontend ordering should be decided after recording API contract hardening.
 ---
 
 ## Back
