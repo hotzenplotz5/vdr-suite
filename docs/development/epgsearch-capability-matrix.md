@@ -586,3 +586,12 @@ Phase 49.8 defines the safety contract for future regex search mode.
 | Native fuzzy result persistence | Implemented | Probe result is saved into the native fuzzy capability repository. |
 | Backend capability update | Implemented | Backend native fuzzy capability is updated from the probe result. |
 | REST trigger | Deferred | Public/operator trigger endpoint remains a later phase. |
+
+## Phase 49.25 Operator Refresh API
+
+| Capability | Current State | Notes |
+| --- | --- | --- |
+| Operator refresh REST endpoint | Implemented | POST endpoint triggers the Phase 49.24 workflow. |
+| Request body parsing | Implemented | Supports backend/backendId, query/probeQuery and tolerance. |
+| JSON summary response | Implemented | Returns probe, persistence and backend capability update status. |
+| Automatic startup execution | Not implemented | Operator refresh remains explicit only. |

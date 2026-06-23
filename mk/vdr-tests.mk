@@ -144,9 +144,25 @@ test-epgsearch-native-fuzzy-operator-refresh-service:
 		-o /tmp/test_epgsearch_native_fuzzy_operator_refresh_service
 	/tmp/test_epgsearch_native_fuzzy_operator_refresh_service
 
+.PHONY: test-epgsearch-native-fuzzy-operator-refresh-controller
+test-epgsearch-native-fuzzy-operator-refresh-controller:
+	$(CXX) $(CXXFLAGS) \
+		core/sqlite/src/Database.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/src/SearchTimerService.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyOperatorRefreshService.cpp \
+		api/rest/src/EpgSearchNativeFuzzyOperatorRefreshController.cpp \
+		api/rest/tests/test_epgsearch_native_fuzzy_operator_refresh_controller.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_epgsearch_native_fuzzy_operator_refresh_controller
+	/tmp/test_epgsearch_native_fuzzy_operator_refresh_controller
+
 .PHONY: test-fast
 
-test-fast: test-epg-query-service-restfulapi test-epg-query-service test-epg-query-factory test-domain-refresh-policy test-backend-polling-coordinator test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-backend-registry-service test-epgsearch-native-fuzzy-capability-repository test-epgsearch-native-fuzzy-runtime-capability-wiring test-backend-registry-json-serializer test-vdr-config test-snapshot-access-service test-vdr-snapshot-read-service test-vdr-domain-objects test-epgsearch-native-fuzzy-stale-probe-administration-service test-epgsearch-native-fuzzy-stale-probe-administration-controller test-epgsearch-native-fuzzy-operator-refresh-service
+test-fast: test-epg-query-service-restfulapi test-epg-query-service test-epg-query-factory test-domain-refresh-policy test-backend-polling-coordinator test-capability-resolver test-vdr-capability-set test-runtime-diagnostics test-http-request test-http-response test-backend-node test-backend-registry test-backend-registry-service test-epgsearch-native-fuzzy-capability-repository test-epgsearch-native-fuzzy-runtime-capability-wiring test-backend-registry-json-serializer test-vdr-config test-snapshot-access-service test-vdr-snapshot-read-service test-vdr-domain-objects test-epgsearch-native-fuzzy-stale-probe-administration-service test-epgsearch-native-fuzzy-stale-probe-administration-controller test-epgsearch-native-fuzzy-operator-refresh-service test-epgsearch-native-fuzzy-operator-refresh-controller
 
 
 test-epg-query-service-restfulapi:

@@ -218,6 +218,27 @@ POST delete removes only stale or future-timestamp persisted rows and keeps fres
 
 The API does not contact VDR and does not create, modify or delete SearchTimer objects.
 
+## Operator refresh API
+
+Phase 49.25 exposes the operator-triggered native fuzzy refresh workflow through REST.
+
+Endpoints:
+
+    POST /api/vdr/epgsearch/native-fuzzy/refresh
+    POST /api/epgsearch/native-fuzzy/refresh
+
+Accepted JSON fields:
+
+    backend or backendId
+    query or probeQuery
+    tolerance
+    keepProbeSearchTimer
+    updateBackendCapabilities
+
+The endpoint intentionally performs a real temporary SearchTimer probe.
+
+It is not executed automatically during startup.
+
 ## Operator refresh workflow
 
 Phase 49.24 adds a core service for an operator-triggered native fuzzy refresh workflow.

@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 49.24 - EPGSearch native fuzzy operator refresh workflow
+Phase 49.25 - EPGSearch native fuzzy operator refresh API
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 49.25 - EPGSearch native fuzzy operator refresh API
+Phase 49.26 - EPGSearch native fuzzy operator refresh API validation
 ```
 
 ---

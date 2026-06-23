@@ -54,7 +54,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 49.24 - EPGSearch native fuzzy operator refresh workflow
+    Phase 49.25 - EPGSearch native fuzzy operator refresh API
 
 Current documentation consolidation:
 
@@ -62,7 +62,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 49.25 - EPGSearch native fuzzy operator refresh API
+    Phase 49.26 - EPGSearch native fuzzy operator refresh API validation
 
 Completed foundations:
 

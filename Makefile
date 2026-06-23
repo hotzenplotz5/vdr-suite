@@ -970,6 +970,8 @@ test-api-router: prepare-test-db
 		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyStaleProbeAdministrationService.cpp \
 		api/rest/src/EpgSearchNativeFuzzyStaleProbeAdministrationController.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyOperatorRefreshService.cpp \
+		api/rest/src/EpgSearchNativeFuzzyOperatorRefreshController.cpp \
                 api/rest/src/SearchTimerController.cpp \
                 core/vdr/src/SearchTimerResultJsonSerializer.cpp \
                 core/vdr/src/SearchTimerService.cpp \
@@ -1177,6 +1179,7 @@ clean:
 	rm -f /tmp/test_epgsearch_native_fuzzy_stale_probe_administration_service
 	rm -f /tmp/test_epgsearch_native_fuzzy_stale_probe_administration_controller
 	rm -f /tmp/test_epgsearch_native_fuzzy_operator_refresh_service
+	rm -f /tmp/test_epgsearch_native_fuzzy_operator_refresh_controller
 	rm -f /tmp/test_rest_query_parameters
 	rm -f /tmp/test_snapshot_access_service
 	rm -f /tmp/test_http_server_contract

@@ -349,6 +349,27 @@ bool DaemonRuntime::initialize()
         std::make_unique<EpgSearchNativeFuzzyStaleProbeAdministrationController>(
             *epgSearchNativeFuzzyStaleProbeAdministrationService_);
 
+    if (searchTimerCommandExecutor_ != nullptr
+        && !backendRuntimeContexts_.empty()
+        && backendRuntimeContexts_.front()->searchTimerAdapter)
+    {
+        epgSearchNativeFuzzyOperatorRefreshService_ =
+            std::make_unique<EpgSearchNativeFuzzyOperatorRefreshService>(
+                *searchTimerCommandExecutor_,
+                *backendRuntimeContexts_.front()->searchTimerAdapter,
+                *epgSearchNativeFuzzyCapabilityRepository_,
+                *epgSearchNativeFuzzyCapabilityDetector_,
+                *backendRegistryService_);
+        epgSearchNativeFuzzyOperatorRefreshController_ =
+            std::make_unique<EpgSearchNativeFuzzyOperatorRefreshController>(
+                *epgSearchNativeFuzzyOperatorRefreshService_);
+        std::cout << "EPGSearch native fuzzy operator refresh API runtime initialized" << std::endl;
+    }
+    else
+    {
+        std::cout << "EPGSearch native fuzzy operator refresh API runtime skipped: SearchTimer backend unavailable" << std::endl;
+    }
+
     runtimeDiagnosticsJsonSerializer_ = std::make_unique<RuntimeDiagnosticsJsonSerializer>();
     runtimeDiagnosticsController_ = std::make_unique<RuntimeDiagnosticsController>(runtimeDiagnosticsService_, *runtimeDiagnosticsJsonSerializer_);
     snapshotChangeFeedController_ = std::make_unique<SnapshotChangeFeedController>(*snapshotChangeFeed_, *snapshotChangeFeedJsonSerializer_);
@@ -384,7 +405,8 @@ bool DaemonRuntime::initialize()
         searchTimerController_.get(),
         *liveTransportController_,
         searchTimerCommandExecutor_.get(),
-        epgSearchNativeFuzzyStaleProbeAdministrationController_.get());
+        epgSearchNativeFuzzyStaleProbeAdministrationController_.get(),
+        epgSearchNativeFuzzyOperatorRefreshController_.get());
 
     std::cout << "API router runtime initialized" << std::endl;
 
@@ -455,6 +477,8 @@ void DaemonRuntime::shutdown()
     liveTransport_.reset();
     snapshotChangeFeedController_.reset();
     runtimeDiagnosticsController_.reset();
+    epgSearchNativeFuzzyOperatorRefreshController_.reset();
+    epgSearchNativeFuzzyOperatorRefreshService_.reset();
     epgSearchNativeFuzzyStaleProbeAdministrationController_.reset();
     epgSearchNativeFuzzyStaleProbeAdministrationService_.reset();
     searchTimerCommandExecutor_.reset();

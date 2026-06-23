@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 49.25 - EPGSearch native fuzzy operator refresh API
+
+Status: Completed.
+
+Summary:
+- Added `EpgSearchNativeFuzzyOperatorRefreshController`.
+- Added POST API endpoint for explicit native fuzzy operator refresh.
+- Added JSON body parsing for backend/backendId, query/probeQuery, tolerance and safety flags.
+- Added JSON response summary for probe, persistence and backend capability update state.
+- Wired operator refresh controller through `ApiRouter` and daemon runtime.
+- Added controller and router linkage tests.
+- Deferred runtime validation/front-end operator action to Phase 49.26.
+
+---
+
 ## Phase 49.24 - EPGSearch native fuzzy operator refresh workflow
 
 Status: Completed.

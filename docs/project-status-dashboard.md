@@ -127,7 +127,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 49.24 - EPGSearch native fuzzy operator refresh workflow
+Phase 49.25 - EPGSearch native fuzzy operator refresh API
 ```
 
 Current Documentation Consolidation:
@@ -139,7 +139,7 @@ Phase 46.39 - Project Status Dashboard Refresh
 Next Major Implementation Milestone:
 
 ```text
-Phase 49.25 - EPGSearch native fuzzy operator refresh API
+Phase 49.26 - EPGSearch native fuzzy operator refresh API validation
 ```
 
 Latest Completed Milestones:

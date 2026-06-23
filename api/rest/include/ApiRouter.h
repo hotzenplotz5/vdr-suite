@@ -8,6 +8,7 @@ class BackendRegistryController;
 class CapabilityController;
 class EpgController;
 class EpgSearchNativeFuzzyStaleProbeAdministrationController;
+class EpgSearchNativeFuzzyOperatorRefreshController;
 class JobsController;
 class LiveTransportController;
 class MetadataController;
@@ -51,7 +52,8 @@ public:
         SearchTimerController* searchTimerController,
         LiveTransportController& liveTransportController,
         ISearchTimerCommandExecutor* searchTimerCommandExecutor = nullptr,
-        EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController = nullptr);
+        EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController = nullptr,
+        EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController = nullptr);
 
     ApiResponse handleGet(
         const std::string& path);
@@ -83,4 +85,5 @@ private:
     LiveTransportController& liveTransportController_;
     ISearchTimerCommandExecutor* searchTimerCommandExecutor_;
     EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController_;
+    EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController_;
 };

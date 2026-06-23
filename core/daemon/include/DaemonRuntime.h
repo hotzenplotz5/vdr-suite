@@ -26,6 +26,8 @@
 #include "EpgSearchNativeFuzzyStartupRestoreService.h"
 #include "EpgSearchNativeFuzzyStaleProbeAdministrationController.h"
 #include "EpgSearchNativeFuzzyStaleProbeAdministrationService.h"
+#include "EpgSearchNativeFuzzyOperatorRefreshController.h"
+#include "EpgSearchNativeFuzzyOperatorRefreshService.h"
 #include "ConsoleRuntimeLogger.h"
 #include "Database.h"
 #include "IHttpClient.h"
@@ -169,6 +171,8 @@ private:
     std::unique_ptr<EpgSearchNativeFuzzyStartupRestoreService> epgSearchNativeFuzzyStartupRestoreService_;
     std::unique_ptr<EpgSearchNativeFuzzyStaleProbeAdministrationService> epgSearchNativeFuzzyStaleProbeAdministrationService_;
     std::unique_ptr<EpgSearchNativeFuzzyStaleProbeAdministrationController> epgSearchNativeFuzzyStaleProbeAdministrationController_;
+    std::unique_ptr<EpgSearchNativeFuzzyOperatorRefreshService> epgSearchNativeFuzzyOperatorRefreshService_;
+    std::unique_ptr<EpgSearchNativeFuzzyOperatorRefreshController> epgSearchNativeFuzzyOperatorRefreshController_;
     std::unique_ptr<EpgQueryService> epgQueryService_;
     std::unique_ptr<EpgSearchService> epgSearchService_;
     std::unique_ptr<EpgSearchResultJsonSerializer> epgSearchResultJsonSerializer_;

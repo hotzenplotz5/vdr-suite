@@ -551,3 +551,21 @@ Deferred behavior:
 - REST/operator trigger endpoint.
 - authentication and permission checks.
 - multi-backend bulk refresh orchestration.
+
+## Phase 49.25 Operator Refresh API
+
+Phase 49.25 adds REST controller coverage for the native fuzzy operator refresh workflow.
+
+Covered behavior:
+
+- empty request body uses default backend/query/tolerance.
+- request body parses backend/query/tolerance aliases.
+- missing backend returns 404 and does not create a probe timer.
+- API router links the operator refresh controller.
+- daemon compile wiring includes the operator refresh API.
+
+Deferred behavior:
+
+- authentication and permission checks.
+- multi-backend bulk refresh endpoint.
+- frontend operator action.

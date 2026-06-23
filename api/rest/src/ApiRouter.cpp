@@ -4,6 +4,7 @@
 #include "CapabilityController.h"
 #include "EpgController.h"
 #include "EpgSearchNativeFuzzyStaleProbeAdministrationController.h"
+#include "EpgSearchNativeFuzzyOperatorRefreshController.h"
 #include "ISearchTimerCommandExecutor.h"
 #include "JobsController.h"
 #include "LiveTransportController.h"
@@ -110,6 +111,18 @@ ApiResponse makeNativeFuzzyStaleProbeAdministrationUnavailableResponse()
     return response;
 }
 
+ApiResponse makeNativeFuzzyOperatorRefreshUnavailableResponse()
+{
+    ApiResponse response;
+
+    response.statusCode = 503;
+    response.contentType = "application/json";
+    response.body =
+        "{\"error\":\"native fuzzy operator refresh unavailable\"}";
+
+    return response;
+}
+
 static bool parseBackendSnapshotRoute(
     const std::string& path,
     std::string& backendId,
@@ -163,7 +176,8 @@ ApiRouter::ApiRouter(
     SearchTimerController* searchTimerController,
     LiveTransportController& liveTransportController,
     ISearchTimerCommandExecutor* searchTimerCommandExecutor,
-    EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController)
+    EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController,
+    EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
       recordingsController_(recordingsController),
@@ -186,7 +200,8 @@ ApiRouter::ApiRouter(
       liveTransportController_(liveTransportController),
       searchTimerCommandExecutor_(searchTimerCommandExecutor),
       nativeFuzzyStaleProbeAdministrationController_(
-          nativeFuzzyStaleProbeAdministrationController)
+          nativeFuzzyStaleProbeAdministrationController),
+      nativeFuzzyOperatorRefreshController_(nativeFuzzyOperatorRefreshController)
 {
 }
 
@@ -285,6 +300,17 @@ ApiResponse ApiRouter::handlePost(
         return searchTimerController_->createSearchTimer(
             body,
             *searchTimerCommandExecutor_);
+    }
+
+    if (path == "/api/epgsearch/native-fuzzy/refresh" ||
+        path == "/api/vdr/epgsearch/native-fuzzy/refresh")
+    {
+        if (nativeFuzzyOperatorRefreshController_ == nullptr)
+        {
+            return makeNativeFuzzyOperatorRefreshUnavailableResponse();
+        }
+
+        return nativeFuzzyOperatorRefreshController_->refreshBody(body);
     }
 
     if (path == "/api/epgsearch/native-fuzzy/stale-probes/delete" ||

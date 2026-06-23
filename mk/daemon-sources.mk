@@ -23,6 +23,7 @@ DAEMON_SRC := \
         api/rest/src/VdrRecordingQueryController.cpp \
         api/rest/src/EpgController.cpp \
         api/rest/src/EpgSearchNativeFuzzyStaleProbeAdministrationController.cpp \
+        api/rest/src/EpgSearchNativeFuzzyOperatorRefreshController.cpp \
         api/rest/src/SearchTimerController.cpp \
         core/vdr/src/SearchTimerResultJsonSerializer.cpp \
         core/vdr/src/SearchTimerService.cpp \
@@ -33,6 +34,7 @@ DAEMON_SRC := \
         core/vdr/src/EpgSearchNativeFuzzyStartupRestoreService.cpp \
         core/vdr/src/EpgSearchNativeFuzzyStartupRestoreDiagnostics.cpp \
         core/vdr/src/EpgSearchNativeFuzzyStaleProbeAdministrationService.cpp \
+        core/vdr/src/EpgSearchNativeFuzzyOperatorRefreshService.cpp \
         api/rest/src/RestQueryParameters.cpp \
         api/rest/src/BackendRegistryController.cpp \
         api/rest/src/RuntimeDiagnosticsController.cpp \
