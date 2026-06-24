@@ -55,7 +55,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 50.0 - SearchTimer user workflow foundation
+    Phase 50.1 - SearchTimer workflow request model
 
 Current documentation consolidation:
 
@@ -63,7 +63,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 50.1 - SearchTimer workflow request model
+    Phase 50.2 - SearchTimer workflow validation service
 
 Completed foundations:
 

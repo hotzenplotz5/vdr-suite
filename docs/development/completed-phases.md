@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.1 - SearchTimer workflow request model
+
+Status: Completed.
+
+Summary:
+- Added a backend-neutral SearchTimerWorkflowRequest model for manual user workflow intent.
+- Represented list, preview, create, readback, update and delete operations independently from raw RESTfulAPI transport fields.
+- Added validation helpers for required backend identity, backend-native identity, name and query fields.
+- Distinguished read-only workflow steps from write operations and marked create/update as requiring readback after write.
+- Covered the workflow request model with a targeted unit test.
+
+---
+
 ## Phase 50.0 - SearchTimer user workflow foundation
 
 Status: Completed.

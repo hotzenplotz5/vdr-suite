@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.0 - SearchTimer user workflow foundation
+Phase 50.1 - SearchTimer workflow request model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.1 - SearchTimer workflow request model
+Phase 50.2 - SearchTimer workflow validation service
 ```
 
 Current architecture validation:

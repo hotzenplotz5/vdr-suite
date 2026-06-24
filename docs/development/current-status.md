@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.0 - SearchTimer user workflow foundation
+Phase 50.1 - SearchTimer workflow request model
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.1 - SearchTimer workflow request model
+Phase 50.2 - SearchTimer workflow validation service
 ```
 
 Completed foundations:
@@ -142,6 +142,7 @@ make test-phase
 - SearchTimer domain now models stable recording and schedule options from real RESTfulAPI payloads.
 - Native fuzzy SearchTimer backend capability validation is complete through operator refresh, capability report and persisted restore.
 - Phase 50.0 defines the SearchTimer user workflow foundation for manual list, preview, create, readback, update and delete behavior.
+- Phase 50.1 adds the backend-neutral SearchTimerWorkflowRequest model for user workflow intent.
 
 ---
 
@@ -239,10 +240,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.1 - SearchTimer workflow request model
+Phase 50.2 - SearchTimer workflow validation service
 ```
 
-The next implementation phase should define the SearchTimer workflow request model. It should separate user workflow intent from raw RESTfulAPI transport fields while preserving backend identity and validated native fuzzy capability behavior.
+The next implementation phase should add SearchTimer workflow validation. It should validate user workflow intent before transport mapping and before real backend writes are attempted.
 
 Important boundaries:
 
