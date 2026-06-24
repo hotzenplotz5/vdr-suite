@@ -29,12 +29,32 @@ std::string commandNameForStep(
     return "none";
 }
 
+SearchTimerWorkflowExecutionResult applyDispatchOptions(
+    SearchTimerWorkflowExecutionResult result,
+    const SearchTimerWorkflowCommandDispatchOptions& options)
+{
+    result.executorOptInProvided =
+        options.executorOptInEnabled();
+    return result;
+}
+
 } // namespace
 
 SearchTimerWorkflowExecutionResult
 SearchTimerWorkflowCommandDispatchService::dispatchPlan(
     const SearchTimerWorkflowExecutionPlan& plan,
     bool explicitOperatorConfirmation) const
+{
+    return dispatchPlan(
+        plan,
+        SearchTimerWorkflowCommandDispatchOptions::confirmed(
+            explicitOperatorConfirmation));
+}
+
+SearchTimerWorkflowExecutionResult
+SearchTimerWorkflowCommandDispatchService::dispatchPlan(
+    const SearchTimerWorkflowExecutionPlan& plan,
+    const SearchTimerWorkflowCommandDispatchOptions& options) const
 {
     if (!plan.valid() || !plan.hasExecutionWork())
     {
@@ -44,11 +64,11 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                 "workflow plan is not executable",
                 {"workflow plan is not executable"});
         result.dispatchStage = "validation-blocked";
-        return result;
+        return applyDispatchOptions(result, options);
     }
 
     if (plan.requiresExplicitOperatorConfirmation() &&
-        !explicitOperatorConfirmation)
+        !options.explicitOperatorConfirmation())
     {
         SearchTimerWorkflowExecutionResult result =
             SearchTimerWorkflowExecutionResult::blockedResult(
@@ -56,7 +76,7 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                 "explicit operator confirmation is required",
                 {"explicit operator confirmation is required"});
         result.dispatchStage = "confirmation-required";
-        return result;
+        return applyDispatchOptions(result, options);
     }
 
     if (!plan.writeOperation())
@@ -64,11 +84,11 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
         SearchTimerWorkflowExecutionResult result =
             SearchTimerWorkflowExecutionResult::acceptedSkeleton(
                 plan,
-                explicitOperatorConfirmation,
+                options.explicitOperatorConfirmation(),
                 "read-only workflow plan has no command dispatch work",
                 {"no command request is required for read-only workflow step"});
         result.dispatchStage = "read-only-no-dispatch";
-        return result;
+        return applyDispatchOptions(result, options);
     }
 
     if (plan.executionMode() == SearchTimerWorkflowExecutionMode::DryRun)
@@ -76,13 +96,13 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
         SearchTimerWorkflowExecutionResult result =
             SearchTimerWorkflowExecutionResult::acceptedSkeleton(
                 plan,
-                explicitOperatorConfirmation,
+                options.explicitOperatorConfirmation(),
                 "write workflow accepted by dry-run execution mode",
                 {"execution mode dryRun does not map command requests"});
         result.commandRequestMapped = false;
         result.realExecutionEnabled = false;
         result.dispatchStage = "dry-run";
-        return result;
+        return applyDispatchOptions(result, options);
     }
 
     SearchTimerWorkflowCommandRequestMapper mapper;
@@ -115,7 +135,21 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                 "workflow plan cannot be mapped to a command request",
                 {"workflow plan cannot be mapped to a command request"});
         result.dispatchStage = "command-request-mapping-failed";
-        return result;
+        return applyDispatchOptions(result, options);
+    }
+
+    if (plan.executionMode() == SearchTimerWorkflowExecutionMode::Execute &&
+        !options.executorOptInEnabled())
+    {
+        SearchTimerWorkflowExecutionResult result =
+            SearchTimerWorkflowExecutionResult::blockedResult(
+                plan,
+                "real execution mode requires executor opt-in",
+                {"real execution mode requires executor opt-in"});
+        result.commandRequestMapped = true;
+        result.realExecutionEnabled = false;
+        result.dispatchStage = "executor-opt-in-required";
+        return applyDispatchOptions(result, options);
     }
 
     if (plan.executionMode() == SearchTimerWorkflowExecutionMode::Execute)
@@ -123,12 +157,12 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
         SearchTimerWorkflowExecutionResult result =
             SearchTimerWorkflowExecutionResult::blockedResult(
                 plan,
-                "real execution mode requested but backend command dispatch is not enabled",
-                {"real execution mode requested but backend command dispatch is not enabled"});
+                "executor opt-in accepted but real backend command dispatch is not wired",
+                {"executor opt-in accepted but real backend command dispatch is not wired"});
         result.commandRequestMapped = true;
         result.realExecutionEnabled = false;
         result.dispatchStage = "real-execution-disabled";
-        return result;
+        return applyDispatchOptions(result, options);
     }
 
     std::vector<std::string> warnings;
@@ -146,11 +180,11 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
     SearchTimerWorkflowExecutionResult result =
         SearchTimerWorkflowExecutionResult::acceptedSkeleton(
             plan,
-            explicitOperatorConfirmation,
+            options.explicitOperatorConfirmation(),
             commandName + " command request accepted by dispatch skeleton",
             warnings);
     result.commandRequestMapped = true;
     result.realExecutionEnabled = false;
     result.dispatchStage = "command-request-mapped";
-    return result;
+    return applyDispatchOptions(result, options);
 }

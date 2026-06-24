@@ -629,6 +629,7 @@ Additional response fields:
 
 - commandRequestMapped
 - realExecutionEnabled
+- executorOptInProvided
 - dispatchStage
 
 The dispatchStage field helps clients distinguish:
@@ -680,6 +681,34 @@ Current safety guarantees:
 - executed=false
 - dryRunOnly=true
 - ISearchTimerCommandExecutor is not called
+- backend mutation is not performed
+
+### Executor Opt-In Boundary
+
+Phase 50.20 adds an explicit executor opt-in boundary.
+
+The internal command dispatch service now accepts dispatch options.
+
+For executionMode=execute:
+
+- without executor opt-in, the dispatch stage is executor-opt-in-required
+- with executor opt-in, the dispatch stage is real-execution-disabled until a real executor is wired
+
+The executor opt-in boundary is intentionally separate from operator confirmation.
+
+This means real backend mutation requires all of the following in a later phase:
+
+- a valid write workflow plan
+- explicit operator confirmation
+- executionMode=execute
+- executor opt-in enabled
+- a deliberately wired backend command executor
+
+Current safety guarantees remain unchanged:
+
+- realExecutionEnabled=false
+- executed=false
+- dryRunOnly=true
 - backend mutation is not performed
 
 ### Typical Client Flow

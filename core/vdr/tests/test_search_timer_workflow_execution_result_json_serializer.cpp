@@ -35,6 +35,7 @@ int main()
     assert(blockedJson.find("\"requiresBackendReadback\":true") != std::string::npos);
     assert(blockedJson.find("\"commandRequestMapped\":false") != std::string::npos);
     assert(blockedJson.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(blockedJson.find("\"executorOptInProvided\":false") != std::string::npos);
     assert(blockedJson.find("\"dispatchStage\":\"blocked\"") != std::string::npos);
     assert(blockedJson.find("\"executionMode\":\"prepare\"") != std::string::npos);
     assert(blockedJson.find("\"operation\":\"create\"") != std::string::npos);
@@ -60,6 +61,7 @@ int main()
     assert(acceptedJson.find("\"confirmationProvided\":true") != std::string::npos);
     assert(acceptedJson.find("\"commandRequestMapped\":false") != std::string::npos);
     assert(acceptedJson.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(acceptedJson.find("\"executorOptInProvided\":false") != std::string::npos);
     assert(acceptedJson.find("\"dispatchStage\":\"skeleton-accepted\"") != std::string::npos);
     assert(acceptedJson.find("\"executionMode\":\"prepare\"") != std::string::npos);
     assert(acceptedJson.find("\"message\":\"accepted quote message\"") != std::string::npos);

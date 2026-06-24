@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SearchTimerWorkflowCommandDispatchOptions.h"
 #include "SearchTimerWorkflowExecutionPlan.h"
 #include "SearchTimerWorkflowExecutionResult.h"
 
@@ -9,4 +10,8 @@ public:
     SearchTimerWorkflowExecutionResult dispatchPlan(
         const SearchTimerWorkflowExecutionPlan& plan,
         bool explicitOperatorConfirmation = false) const;
+
+    SearchTimerWorkflowExecutionResult dispatchPlan(
+        const SearchTimerWorkflowExecutionPlan& plan,
+        const SearchTimerWorkflowCommandDispatchOptions& options) const;
 };

@@ -1174,6 +1174,8 @@ int main()
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"realExecutionEnabled\":false")
            != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executorOptInProvided\":false")
+           != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"dispatchStage\":\"command-request-mapped\"")
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executionMode\":\"prepare\"")

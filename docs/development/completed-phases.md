@@ -201,6 +201,22 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.20 - SearchTimer workflow executor opt-in boundary
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowCommandDispatchOptions as an explicit dispatch option boundary.
+- Added executorOptInProvided to SearchTimerWorkflowExecutionResult and the execution-result JSON contract.
+- Kept the existing bool confirmation dispatch entry point while adding an options-based dispatch entry point.
+- Changed executionMode=execute without opt-in to block at executor-opt-in-required.
+- Preserved realExecutionEnabled=false, executed=false and dryRunOnly=true even when executor opt-in is provided.
+- Kept ISearchTimerCommandExecutor calls and backend mutation out of scope.
+- Updated dispatch, serializer, controller and router coverage for executor opt-in semantics.
+- Documented the executor opt-in boundary before future real execution wiring.
+
+---
+
 ## Phase 50.19 - SearchTimer workflow execution mode contract
 
 Status: Completed.

@@ -16,6 +16,7 @@ struct SearchTimerWorkflowExecutionResult
     bool requiresBackendReadback = false;
     bool commandRequestMapped = false;
     bool realExecutionEnabled = false;
+    bool executorOptInProvided = false;
     std::string dispatchStage = "none";
     SearchTimerWorkflowExecutionMode executionMode =
         SearchTimerWorkflowExecutionMode::Prepare;
@@ -48,6 +49,7 @@ struct SearchTimerWorkflowExecutionResult
             plan.requiresBackendReadback();
         result.commandRequestMapped = false;
         result.realExecutionEnabled = false;
+        result.executorOptInProvided = false;
         result.dispatchStage = "blocked";
         result.executionMode = plan.executionMode();
         result.operation = plan.operation();
@@ -78,6 +80,7 @@ struct SearchTimerWorkflowExecutionResult
             plan.requiresBackendReadback();
         result.commandRequestMapped = false;
         result.realExecutionEnabled = false;
+        result.executorOptInProvided = false;
         result.dispatchStage = "skeleton-accepted";
         result.executionMode = plan.executionMode();
         result.operation = plan.operation();

@@ -29,6 +29,7 @@ int main()
     assert(blockedCreate.requiresExplicitOperatorConfirmation);
     assert(!blockedCreate.commandRequestMapped);
     assert(!blockedCreate.realExecutionEnabled);
+    assert(!blockedCreate.executorOptInProvided);
     assert(blockedCreate.dispatchStage == "confirmation-required");
     assert(blockedCreate.executionMode == SearchTimerWorkflowExecutionMode::Prepare);
     assert(blockedCreate.operation == SearchTimerWorkflowOperation::Create);
@@ -47,6 +48,7 @@ int main()
     assert(acceptedCreate.requiresBackendReadback);
     assert(acceptedCreate.commandRequestMapped);
     assert(!acceptedCreate.realExecutionEnabled);
+    assert(!acceptedCreate.executorOptInProvided);
     assert(acceptedCreate.dispatchStage == "command-request-mapped");
     assert(acceptedCreate.executionMode == SearchTimerWorkflowExecutionMode::Prepare);
     assert(acceptedCreate.backendId == "home-vdr");
@@ -71,6 +73,7 @@ int main()
     assert(dryRunCreate.dryRunOnly);
     assert(!dryRunCreate.commandRequestMapped);
     assert(!dryRunCreate.realExecutionEnabled);
+    assert(!dryRunCreate.executorOptInProvided);
     assert(dryRunCreate.dispatchStage == "dry-run");
     assert(dryRunCreate.executionMode == SearchTimerWorkflowExecutionMode::DryRun);
     assert(dryRunCreate.message == "write workflow accepted by dry-run execution mode");
@@ -83,18 +86,35 @@ int main()
                 "Terra X")
                 .withExecutionMode(SearchTimerWorkflowExecutionMode::Execute));
 
-    const SearchTimerWorkflowExecutionResult executeCreate =
+    const SearchTimerWorkflowExecutionResult executeCreateWithoutOptIn =
         dispatchService.dispatchPlan(executeCreatePlan, true);
 
-    assert(!executeCreate.success);
-    assert(!executeCreate.executed);
-    assert(executeCreate.blocked);
-    assert(executeCreate.dryRunOnly);
-    assert(executeCreate.commandRequestMapped);
-    assert(!executeCreate.realExecutionEnabled);
-    assert(executeCreate.dispatchStage == "real-execution-disabled");
-    assert(executeCreate.executionMode == SearchTimerWorkflowExecutionMode::Execute);
-    assert(executeCreate.hasErrors());
+    assert(!executeCreateWithoutOptIn.success);
+    assert(!executeCreateWithoutOptIn.executed);
+    assert(executeCreateWithoutOptIn.blocked);
+    assert(executeCreateWithoutOptIn.dryRunOnly);
+    assert(executeCreateWithoutOptIn.commandRequestMapped);
+    assert(!executeCreateWithoutOptIn.realExecutionEnabled);
+    assert(!executeCreateWithoutOptIn.executorOptInProvided);
+    assert(executeCreateWithoutOptIn.dispatchStage == "executor-opt-in-required");
+    assert(executeCreateWithoutOptIn.executionMode == SearchTimerWorkflowExecutionMode::Execute);
+    assert(executeCreateWithoutOptIn.hasErrors());
+
+    const SearchTimerWorkflowExecutionResult executeCreateWithOptIn =
+        dispatchService.dispatchPlan(
+            executeCreatePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithExecutorOptIn(true));
+
+    assert(!executeCreateWithOptIn.success);
+    assert(!executeCreateWithOptIn.executed);
+    assert(executeCreateWithOptIn.blocked);
+    assert(executeCreateWithOptIn.dryRunOnly);
+    assert(executeCreateWithOptIn.commandRequestMapped);
+    assert(!executeCreateWithOptIn.realExecutionEnabled);
+    assert(executeCreateWithOptIn.executorOptInProvided);
+    assert(executeCreateWithOptIn.dispatchStage == "real-execution-disabled");
+    assert(executeCreateWithOptIn.executionMode == SearchTimerWorkflowExecutionMode::Execute);
+    assert(executeCreateWithOptIn.hasErrors());
 
     const auto updatePlan =
         planningService.plan(
@@ -113,6 +133,7 @@ int main()
     assert(acceptedUpdate.dryRunOnly);
     assert(acceptedUpdate.commandRequestMapped);
     assert(!acceptedUpdate.realExecutionEnabled);
+    assert(!acceptedUpdate.executorOptInProvided);
     assert(acceptedUpdate.dispatchStage == "command-request-mapped");
     assert(acceptedUpdate.requiresBackendReadback);
     assert(acceptedUpdate.backendId == "remote-vdr");
@@ -138,6 +159,7 @@ int main()
     assert(acceptedDelete.confirmationProvided);
     assert(acceptedDelete.commandRequestMapped);
     assert(!acceptedDelete.realExecutionEnabled);
+    assert(!acceptedDelete.executorOptInProvided);
     assert(acceptedDelete.dispatchStage == "command-request-mapped");
     assert(!acceptedDelete.requiresBackendReadback);
     assert(acceptedDelete.backendId == "archive-vdr");
@@ -160,6 +182,7 @@ int main()
     assert(!listResult.requiresExplicitOperatorConfirmation);
     assert(!listResult.commandRequestMapped);
     assert(!listResult.realExecutionEnabled);
+    assert(!listResult.executorOptInProvided);
     assert(listResult.dispatchStage == "read-only-no-dispatch");
     assert(listResult.operation == SearchTimerWorkflowOperation::List);
     assert(listResult.primaryStep == SearchTimerWorkflowExecutionStep::List);
@@ -183,6 +206,7 @@ int main()
     assert(invalidResult.dryRunOnly);
     assert(!invalidResult.commandRequestMapped);
     assert(!invalidResult.realExecutionEnabled);
+    assert(!invalidResult.executorOptInProvided);
     assert(invalidResult.dispatchStage == "validation-blocked");
     assert(invalidResult.operation == SearchTimerWorkflowOperation::Update);
     assert(invalidResult.primaryStep == SearchTimerWorkflowExecutionStep::None);
