@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.9 - SearchTimer workflow planning JSON contract
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowExecutionPlanJsonSerializer to serialize workflow execution plans for clients.
+- Exposed planned operation, primary step, follow-up step, execution-work flags and read-only/write classifications.
+- Exposed explicit operator confirmation and backend readback requirements.
+- Preserved backend identity, backend-native identity, name, query and active state in the JSON contract.
+- Kept the contract planning-only without executing backend writes.
+- Covered the serializer with a targeted unit test.
+
+---
+
 ## Phase 50.8 - SearchTimer workflow planning service
 
 Status: Completed.

@@ -965,6 +965,15 @@ test-search-timer-result:
 		core/vdr/tests/test_search_timer_result.cpp \
 		-o /tmp/test_search_timer_result
 	/tmp/test_search_timer_result
+test-search-timer-workflow-execution-plan-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
+		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
+		core/vdr/src/SearchTimerWorkflowExecutionPlanJsonSerializer.cpp \
+		core/vdr/tests/test_search_timer_workflow_execution_plan_json_serializer.cpp \
+		-o /tmp/test_search_timer_workflow_execution_plan_json_serializer
+	/tmp/test_search_timer_workflow_execution_plan_json_serializer
+
 test-search-timer-workflow-planning-service:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \

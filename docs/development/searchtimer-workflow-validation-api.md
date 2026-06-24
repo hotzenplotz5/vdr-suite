@@ -355,6 +355,31 @@ Valid create and update requests produce plans with a readback follow-up step.
 
 ---
 
+## Planning JSON Contract
+
+Phase 50.9 adds SearchTimerWorkflowExecutionPlanJsonSerializer so clients can inspect planned workflow steps before execution.
+
+The planning JSON includes:
+- valid
+- operation
+- primaryStep
+- followUpStep
+- hasExecutionWork
+- hasFollowUpStep
+- readOnly
+- writeOperation
+- requiresExplicitOperatorConfirmation
+- requiresBackendReadback
+- backendId
+- backendNativeId
+- name
+- query
+- active
+
+The contract remains planning-only and does not execute backend operations.
+
+---
+
 ## Client Behavior
 
 Recommended client behavior:
