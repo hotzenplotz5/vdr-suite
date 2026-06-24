@@ -15,6 +15,7 @@
 - [SearchTimer yaVDR Smoke-Test Execution Report](searchtimer-yavdr-smoke-test-execution-report.md)
 - [SearchTimer yaVDR Local API Smoke Harness](searchtimer-yavdr-api-smoke-harness.md)
 - [SearchTimer yaVDR Local API Smoke Harness Execution Report](searchtimer-yavdr-api-smoke-harness-execution-report.md)
+- [SearchTimer Mandatory Backend Readback Verification Plan](searchtimer-backend-readback-verification-plan.md)
 
 ---
 
@@ -998,6 +999,19 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### Mandatory Backend Readback Verification Plan
+
+Phase 50.40 defines the mandatory backend readback verification plan for future production SearchTimer write execution.
+
+The current dispatch skeleton can map write commands and already reports that backend readback will be required after real execution.
+
+The next implementation step is to turn that warning into an explicit verification result model and later into enforced create/update readback behavior.
+
+Full plan:
+
+- [SearchTimer Mandatory Backend Readback Verification Plan](searchtimer-backend-readback-verification-plan.md)
+
+---
 ### yaVDR Local API Smoke Harness Execution Report
 
 Phase 50.39 records the successful execution of the Phase 50.38 local VDR-Suite API smoke harness.

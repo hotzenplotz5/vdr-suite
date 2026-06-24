@@ -55,7 +55,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 50.39 - SearchTimer workflow local API smoke harness execution report
+    Phase 50.40 - SearchTimer workflow mandatory backend readback verification plan
 
 Current documentation consolidation:
 
@@ -63,7 +63,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 50.40 - SearchTimer workflow mandatory backend readback verification plan
+    Phase 50.41 - SearchTimer workflow backend readback verification result model
 
 Completed foundations:
 

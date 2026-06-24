@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.40 - SearchTimer workflow mandatory backend readback verification plan
+
+Status: Completed.
+
+Summary:
+- Defined the mandatory backend readback verification plan for future SearchTimer production write execution.
+- Established that a successful backend executor result alone is not enough when `requiresBackendReadback=true`.
+- Defined create readback expectations for backend identity, backend-native id, query, state and relevant match options.
+- Defined update readback expectations for missing, unchanged, partially applied or wrong-backend results.
+- Deferred delete absence verification to a separate follow-up because it needs different ambiguity and timing rules.
+- Identified the next required implementation step: a backend readback verification result model.
+
+---
 ## Phase 50.39 - SearchTimer workflow local API smoke harness execution report
 
 Status: Completed.
