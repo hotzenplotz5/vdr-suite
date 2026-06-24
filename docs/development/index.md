@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.4 - SearchTimer workflow validation REST endpoint
+Phase 50.5 - SearchTimer workflow validation request documentation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.5 - SearchTimer workflow validation request documentation
+Phase 50.6 - SearchTimer workflow validation request parser extraction
 ```
 
 Current architecture validation:
@@ -81,6 +81,7 @@ Current architecture validation:
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)
+- [SearchTimer Workflow Validation API](searchtimer-workflow-validation-api.md)
 - [EPGSearch Result Model Audit](epgsearch-result-model-audit.md)
 - [EPGSearch Query Alignment Audit](epgsearch-query-alignment-audit.md)
 - [EPGSearch Test Coverage Audit](epgsearch-test-coverage-audit.md)

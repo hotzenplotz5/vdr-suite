@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.5 - SearchTimer workflow validation request documentation
+
+Status: Completed.
+
+Summary:
+- Added SearchTimer workflow validation API documentation for request fields, operation names and response fields.
+- Documented POST /api/searchtimers/validate and POST /api/vdr/searchtimers/validate.
+- Added examples for list, preview, create, readback, update, delete and invalid update validation.
+- Documented the validate-only safety boundary and client behavior before real create, update or delete execution.
+- Linked the new API contract from the development documentation index.
+
+---
+
 ## Phase 50.4 - SearchTimer workflow validation REST endpoint
 
 Status: Completed.
