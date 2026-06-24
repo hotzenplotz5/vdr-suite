@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 50.36 - SearchTimer workflow yaVDR smoke-test script
+Phase 50.37 - SearchTimer workflow yaVDR smoke-test execution report
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 50.37 - SearchTimer workflow yaVDR smoke-test execution report
+Phase 50.38 - SearchTimer workflow local VDR-Suite API smoke harness
 ```
 
 ---

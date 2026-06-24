@@ -12,6 +12,7 @@
 - [SearchTimer Backend Contract](searchtimer-backend-contract.md)
 - [SearchTimer Real Payload Validation](searchtimer-real-payload-validation.md)
 - [SearchTimer Real VDR Compatibility Report](searchtimer-real-vdr-compatibility-report.md)
+- [SearchTimer yaVDR Smoke-Test Execution Report](searchtimer-yavdr-smoke-test-execution-report.md)
 
 ---
 
@@ -995,6 +996,33 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### yaVDR Smoke-Test Execution Report
+
+Phase 50.37 records the first successful yaVDR-side SearchTimer real smoke-test execution.
+
+Verified direct RESTfulAPI path:
+
+- RESTfulAPI reachable on `127.0.0.1:8002`
+- `/searchtimers.json` returned HTTP 200
+- create succeeded
+- readback after create succeeded
+- update succeeded
+- readback after update succeeded
+- delete cleanup succeeded
+- readback after delete succeeded
+- final `/searchtimers.json` returned an empty list again
+
+Observed environment boundary:
+
+- `127.0.0.1:8080` was the VDR-Rectools/PHP dashboard, not VDR-Suite
+- no VDR-Suite API process was observed during the smoke run
+- the VDR-Suite real-test endpoint therefore still requires a local API harness or daemon process before it can be tested live
+
+Full report:
+
+- [SearchTimer yaVDR Smoke-Test Execution Report](searchtimer-yavdr-smoke-test-execution-report.md)
+
+---
 ### yaVDR Smoke-Test Script
 
 Phase 50.36 adds an operator-facing smoke-test script for the non-mutating SearchTimer real-test endpoint.

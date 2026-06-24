@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.37 - SearchTimer workflow yaVDR smoke-test execution report
+
+Status: Completed.
+
+Summary:
+- Documented the first successful yaVDR-side direct RESTfulAPI SearchTimer real lifecycle smoke test.
+- Recorded that RESTfulAPI on 127.0.0.1:8002 accepted SearchTimer create, readback, update, readback, delete and cleanup readback.
+- Recorded that final cleanup returned an empty SearchTimer list.
+- Documented that 127.0.0.1:8080 was VDR-Rectools/PHP, not the VDR-Suite API.
+- Clarified that the VDR-Suite real-test endpoint still requires a local API harness or daemon runtime before live endpoint testing.
+
+---
 ## Phase 50.36 - SearchTimer workflow yaVDR smoke-test script
 
 Status: Completed.
