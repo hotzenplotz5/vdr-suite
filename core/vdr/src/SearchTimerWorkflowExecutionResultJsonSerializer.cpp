@@ -139,6 +139,12 @@ std::string SearchTimerWorkflowExecutionResultJsonSerializer::serialize(
          << boolText(result.requiresExplicitOperatorConfirmation);
     json << ",\"requiresBackendReadback\":"
          << boolText(result.requiresBackendReadback);
+    json << ",\"commandRequestMapped\":"
+         << boolText(result.commandRequestMapped);
+    json << ",\"realExecutionEnabled\":"
+         << boolText(result.realExecutionEnabled);
+    json << ",\"dispatchStage\":";
+    appendQuoted(json, result.dispatchStage);
     json << ",\"operation\":";
     appendQuoted(json, operationText(result.operation));
     json << ",\"primaryStep\":";

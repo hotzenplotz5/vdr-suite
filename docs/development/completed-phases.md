@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.18 - SearchTimer workflow dispatch result semantics
+
+Status: Completed.
+
+Summary:
+- Added explicit dispatch result semantics to SearchTimerWorkflowExecutionResult.
+- Added commandRequestMapped, realExecutionEnabled and dispatchStage fields.
+- Serialized the new fields in the execution-result JSON contract.
+- Marked dispatch stages for validation blocking, confirmation blocking, read-only no-dispatch, command-request mapping and mapping failure.
+- Preserved executed=false and dryRunOnly=true for the guarded dispatch skeleton.
+- Updated dispatch, serializer, controller and router coverage for the new result semantics.
+- Documented the dispatch result semantics for client behavior.
+
+---
+
 ## Phase 50.17 - SearchTimer workflow dispatch REST wiring
 
 Status: Completed.

@@ -324,6 +324,9 @@ int main()
     assert(blockedExecuteResponse.body.find("\"blocked\":true") != std::string::npos);
     assert(blockedExecuteResponse.body.find("\"dryRunOnly\":true") != std::string::npos);
     assert(blockedExecuteResponse.body.find("\"operation\":\"create\"") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"commandRequestMapped\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"dispatchStage\":\"confirmation-required\"") != std::string::npos);
     assert(blockedExecuteResponse.body.find("explicit operator confirmation is required") != std::string::npos);
     assert(executor.callCount() == 1);
     assert(executor.updateCallCount() == 1);
@@ -345,6 +348,9 @@ int main()
     assert(acceptedExecuteResponse.body.find("\"executed\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"blocked\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"confirmationProvided\":true") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"commandRequestMapped\":true") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"dispatchStage\":\"command-request-mapped\"") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("create command request accepted by dispatch skeleton") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("backend command dispatch is not enabled in this skeleton") != std::string::npos);
     assert(executor.callCount() == 1);
@@ -365,6 +371,9 @@ int main()
     assert(invalidExecuteResponse.body.find("\"success\":false") != std::string::npos);
     assert(invalidExecuteResponse.body.find("\"operation\":\"update\"") != std::string::npos);
     assert(invalidExecuteResponse.body.find("\"primaryStep\":\"none\"") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("\"commandRequestMapped\":false") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("\"dispatchStage\":\"validation-blocked\"") != std::string::npos);
     assert(invalidExecuteResponse.body.find("workflow plan is not executable") != std::string::npos);
     assert(executor.callCount() == 1);
     assert(executor.updateCallCount() == 1);

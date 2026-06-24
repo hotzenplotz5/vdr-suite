@@ -621,6 +621,33 @@ Accepted write-operation results continue to report:
 
 This makes the REST execution path follow the future real-dispatch architecture while keeping the current runtime safe.
 
+### Dispatch Result Semantics
+
+Phase 50.18 adds explicit result semantics for the guarded dispatch path.
+
+Additional response fields:
+
+- commandRequestMapped
+- realExecutionEnabled
+- dispatchStage
+
+The dispatchStage field helps clients distinguish:
+
+- validation-blocked
+- confirmation-required
+- read-only-no-dispatch
+- command-request-mapped
+- command-request-mapping-failed
+- skeleton-accepted
+- blocked
+
+For the current guarded dispatch path:
+
+- commandRequestMapped=true means a create, update or delete command request was built from the workflow plan.
+- realExecutionEnabled=false means the backend command executor was not called.
+- executed=false confirms that no backend mutation was performed.
+- dryRunOnly=true confirms that the response belongs to the safe skeleton path.
+
 ### Typical Client Flow
 
 Recommended client flow:

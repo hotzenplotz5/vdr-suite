@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 50.17 - SearchTimer workflow dispatch REST wiring
+Phase 50.18 - SearchTimer workflow dispatch result semantics
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 50.18 - SearchTimer workflow dispatch result semantics
+Phase 50.19 - SearchTimer workflow execution mode contract
 ```
 
 ---

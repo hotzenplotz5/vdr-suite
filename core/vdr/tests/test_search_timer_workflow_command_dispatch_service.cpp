@@ -27,6 +27,9 @@ int main()
     assert(blockedCreate.dryRunOnly);
     assert(!blockedCreate.confirmationProvided);
     assert(blockedCreate.requiresExplicitOperatorConfirmation);
+    assert(!blockedCreate.commandRequestMapped);
+    assert(!blockedCreate.realExecutionEnabled);
+    assert(blockedCreate.dispatchStage == "confirmation-required");
     assert(blockedCreate.operation == SearchTimerWorkflowOperation::Create);
     assert(blockedCreate.primaryStep == SearchTimerWorkflowExecutionStep::Create);
     assert(blockedCreate.hasErrors());
@@ -41,6 +44,9 @@ int main()
     assert(acceptedCreate.confirmationProvided);
     assert(acceptedCreate.requiresExplicitOperatorConfirmation);
     assert(acceptedCreate.requiresBackendReadback);
+    assert(acceptedCreate.commandRequestMapped);
+    assert(!acceptedCreate.realExecutionEnabled);
+    assert(acceptedCreate.dispatchStage == "command-request-mapped");
     assert(acceptedCreate.backendId == "home-vdr");
     assert(acceptedCreate.message == "create command request accepted by dispatch skeleton");
     assert(acceptedCreate.hasWarnings());
@@ -61,6 +67,9 @@ int main()
     assert(!acceptedUpdate.executed);
     assert(!acceptedUpdate.blocked);
     assert(acceptedUpdate.dryRunOnly);
+    assert(acceptedUpdate.commandRequestMapped);
+    assert(!acceptedUpdate.realExecutionEnabled);
+    assert(acceptedUpdate.dispatchStage == "command-request-mapped");
     assert(acceptedUpdate.requiresBackendReadback);
     assert(acceptedUpdate.backendId == "remote-vdr");
     assert(acceptedUpdate.backendNativeId == "searchtimer-42");
@@ -83,6 +92,9 @@ int main()
     assert(!acceptedDelete.blocked);
     assert(acceptedDelete.dryRunOnly);
     assert(acceptedDelete.confirmationProvided);
+    assert(acceptedDelete.commandRequestMapped);
+    assert(!acceptedDelete.realExecutionEnabled);
+    assert(acceptedDelete.dispatchStage == "command-request-mapped");
     assert(!acceptedDelete.requiresBackendReadback);
     assert(acceptedDelete.backendId == "archive-vdr");
     assert(acceptedDelete.backendNativeId == "searchtimer-99");
@@ -102,6 +114,9 @@ int main()
     assert(!listResult.blocked);
     assert(listResult.dryRunOnly);
     assert(!listResult.requiresExplicitOperatorConfirmation);
+    assert(!listResult.commandRequestMapped);
+    assert(!listResult.realExecutionEnabled);
+    assert(listResult.dispatchStage == "read-only-no-dispatch");
     assert(listResult.operation == SearchTimerWorkflowOperation::List);
     assert(listResult.primaryStep == SearchTimerWorkflowExecutionStep::List);
     assert(listResult.message == "read-only workflow plan has no command dispatch work");
@@ -122,6 +137,9 @@ int main()
     assert(!invalidResult.executed);
     assert(invalidResult.blocked);
     assert(invalidResult.dryRunOnly);
+    assert(!invalidResult.commandRequestMapped);
+    assert(!invalidResult.realExecutionEnabled);
+    assert(invalidResult.dispatchStage == "validation-blocked");
     assert(invalidResult.operation == SearchTimerWorkflowOperation::Update);
     assert(invalidResult.primaryStep == SearchTimerWorkflowExecutionStep::None);
     assert(invalidResult.hasErrors());

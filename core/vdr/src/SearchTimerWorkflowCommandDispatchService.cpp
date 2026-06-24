@@ -38,28 +38,37 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
 {
     if (!plan.valid() || !plan.hasExecutionWork())
     {
-        return SearchTimerWorkflowExecutionResult::blockedResult(
-            plan,
-            "workflow plan is not executable",
-            {"workflow plan is not executable"});
+        SearchTimerWorkflowExecutionResult result =
+            SearchTimerWorkflowExecutionResult::blockedResult(
+                plan,
+                "workflow plan is not executable",
+                {"workflow plan is not executable"});
+        result.dispatchStage = "validation-blocked";
+        return result;
     }
 
     if (plan.requiresExplicitOperatorConfirmation() &&
         !explicitOperatorConfirmation)
     {
-        return SearchTimerWorkflowExecutionResult::blockedResult(
-            plan,
-            "explicit operator confirmation is required",
-            {"explicit operator confirmation is required"});
+        SearchTimerWorkflowExecutionResult result =
+            SearchTimerWorkflowExecutionResult::blockedResult(
+                plan,
+                "explicit operator confirmation is required",
+                {"explicit operator confirmation is required"});
+        result.dispatchStage = "confirmation-required";
+        return result;
     }
 
     if (!plan.writeOperation())
     {
-        return SearchTimerWorkflowExecutionResult::acceptedSkeleton(
-            plan,
-            explicitOperatorConfirmation,
-            "read-only workflow plan has no command dispatch work",
-            {"no command request is required for read-only workflow step"});
+        SearchTimerWorkflowExecutionResult result =
+            SearchTimerWorkflowExecutionResult::acceptedSkeleton(
+                plan,
+                explicitOperatorConfirmation,
+                "read-only workflow plan has no command dispatch work",
+                {"no command request is required for read-only workflow step"});
+        result.dispatchStage = "read-only-no-dispatch";
+        return result;
     }
 
     SearchTimerWorkflowCommandRequestMapper mapper;
@@ -86,10 +95,13 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
     }
     else
     {
-        return SearchTimerWorkflowExecutionResult::blockedResult(
-            plan,
-            "workflow plan cannot be mapped to a command request",
-            {"workflow plan cannot be mapped to a command request"});
+        SearchTimerWorkflowExecutionResult result =
+            SearchTimerWorkflowExecutionResult::blockedResult(
+                plan,
+                "workflow plan cannot be mapped to a command request",
+                {"workflow plan cannot be mapped to a command request"});
+        result.dispatchStage = "command-request-mapping-failed";
+        return result;
     }
 
     std::vector<std::string> warnings;
@@ -104,9 +116,14 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
             "backend readback will be required after real execution");
     }
 
-    return SearchTimerWorkflowExecutionResult::acceptedSkeleton(
-        plan,
-        explicitOperatorConfirmation,
-        commandName + " command request accepted by dispatch skeleton",
-        warnings);
+    SearchTimerWorkflowExecutionResult result =
+        SearchTimerWorkflowExecutionResult::acceptedSkeleton(
+            plan,
+            explicitOperatorConfirmation,
+            commandName + " command request accepted by dispatch skeleton",
+            warnings);
+    result.commandRequestMapped = true;
+    result.realExecutionEnabled = false;
+    result.dispatchStage = "command-request-mapped";
+    return result;
 }

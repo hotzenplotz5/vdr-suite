@@ -33,6 +33,9 @@ int main()
     assert(blockedJson.find("\"confirmationProvided\":false") != std::string::npos);
     assert(blockedJson.find("\"requiresExplicitOperatorConfirmation\":true") != std::string::npos);
     assert(blockedJson.find("\"requiresBackendReadback\":true") != std::string::npos);
+    assert(blockedJson.find("\"commandRequestMapped\":false") != std::string::npos);
+    assert(blockedJson.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(blockedJson.find("\"dispatchStage\":\"blocked\"") != std::string::npos);
     assert(blockedJson.find("\"operation\":\"create\"") != std::string::npos);
     assert(blockedJson.find("\"primaryStep\":\"create\"") != std::string::npos);
     assert(blockedJson.find("\"followUpStep\":\"readback\"") != std::string::npos);
@@ -54,6 +57,9 @@ int main()
     assert(acceptedJson.find("\"executed\":false") != std::string::npos);
     assert(acceptedJson.find("\"blocked\":false") != std::string::npos);
     assert(acceptedJson.find("\"confirmationProvided\":true") != std::string::npos);
+    assert(acceptedJson.find("\"commandRequestMapped\":false") != std::string::npos);
+    assert(acceptedJson.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(acceptedJson.find("\"dispatchStage\":\"skeleton-accepted\"") != std::string::npos);
     assert(acceptedJson.find("\"message\":\"accepted quote message\"") != std::string::npos);
     assert(acceptedJson.find("backend execution is not implemented in this skeleton") != std::string::npos);
     assert(acceptedJson.find("backend readback will be required after real execution") != std::string::npos);
@@ -83,6 +89,7 @@ int main()
     assert(invalidJson.find("\"success\":false") != std::string::npos);
     assert(invalidJson.find("\"operation\":\"update\"") != std::string::npos);
     assert(invalidJson.find("\"primaryStep\":\"none\"") != std::string::npos);
+    assert(invalidJson.find("\"dispatchStage\":\"blocked\"") != std::string::npos);
     assert(invalidJson.find("workflow plan is not executable") != std::string::npos);
 
     std::cout

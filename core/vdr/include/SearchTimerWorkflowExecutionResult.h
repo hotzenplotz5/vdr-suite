@@ -14,6 +14,9 @@ struct SearchTimerWorkflowExecutionResult
     bool confirmationProvided = false;
     bool requiresExplicitOperatorConfirmation = false;
     bool requiresBackendReadback = false;
+    bool commandRequestMapped = false;
+    bool realExecutionEnabled = false;
+    std::string dispatchStage = "none";
     SearchTimerWorkflowOperation operation =
         SearchTimerWorkflowOperation::Unknown;
     SearchTimerWorkflowExecutionStep primaryStep =
@@ -41,6 +44,9 @@ struct SearchTimerWorkflowExecutionResult
             plan.requiresExplicitOperatorConfirmation();
         result.requiresBackendReadback =
             plan.requiresBackendReadback();
+        result.commandRequestMapped = false;
+        result.realExecutionEnabled = false;
+        result.dispatchStage = "blocked";
         result.operation = plan.operation();
         result.primaryStep = plan.primaryStep();
         result.followUpStep = plan.followUpStep();
@@ -67,6 +73,9 @@ struct SearchTimerWorkflowExecutionResult
             plan.requiresExplicitOperatorConfirmation();
         result.requiresBackendReadback =
             plan.requiresBackendReadback();
+        result.commandRequestMapped = false;
+        result.realExecutionEnabled = false;
+        result.dispatchStage = "skeleton-accepted";
         result.operation = plan.operation();
         result.primaryStep = plan.primaryStep();
         result.followUpStep = plan.followUpStep();
