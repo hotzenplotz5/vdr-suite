@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.8 - SearchTimer workflow planning service
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowPlanningService to turn SearchTimerWorkflowRequest instances into SearchTimerWorkflowExecutionPlan instances.
+- Reused the workflow validation service before planning executable steps.
+- Preserved non-executable plans for invalid requests.
+- Preserved read-only versus write-operation classification and explicit operator confirmation requirements.
+- Kept backend writes out of scope.
+- Covered planning behavior with a targeted unit test.
+
+---
+
 ## Phase 50.7 - SearchTimer workflow execution plan model
 
 Status: Completed.

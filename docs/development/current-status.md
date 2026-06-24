@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.7 - SearchTimer workflow execution plan model
+Phase 50.8 - SearchTimer workflow planning service
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.8 - SearchTimer workflow planning service
+Phase 50.9 - SearchTimer workflow planning JSON contract
 ```
 
 Completed foundations:
@@ -149,6 +149,7 @@ make test-phase
 - Phase 50.5 documents the SearchTimer workflow validation request and response contract for operators and clients.
 - Phase 50.6 extracts SearchTimer workflow validation body parsing into a dedicated request parser boundary.
 - Phase 50.7 adds a backend-neutral SearchTimer workflow execution plan model without executing backend writes.
+- Phase 50.8 adds a planning service that turns workflow requests into execution plans without executing backend writes.
 
 ---
 
@@ -246,10 +247,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.8 - SearchTimer workflow planning service
+Phase 50.9 - SearchTimer workflow planning JSON contract
 ```
 
-The next implementation phase should introduce a SearchTimer workflow planning service that turns validated requests into execution plans.
+The next implementation phase should add a JSON contract for SearchTimer workflow planning results so clients can inspect planned steps before execution.
 
 Important boundaries:
 

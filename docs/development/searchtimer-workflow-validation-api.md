@@ -341,6 +341,20 @@ Invalid requests produce no executable primary step.
 
 ---
 
+## Planning Service Boundary
+
+Phase 50.8 adds SearchTimerWorkflowPlanningService as the first service boundary above validation and plan modeling.
+
+The planning service accepts a SearchTimerWorkflowRequest and returns a SearchTimerWorkflowExecutionPlan.
+
+It still does not execute backend operations.
+
+Invalid requests produce a non-executable plan.
+
+Valid create and update requests produce plans with a readback follow-up step.
+
+---
+
 ## Client Behavior
 
 Recommended client behavior:

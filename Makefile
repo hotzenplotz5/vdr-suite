@@ -965,6 +965,14 @@ test-search-timer-result:
 		core/vdr/tests/test_search_timer_result.cpp \
 		-o /tmp/test_search_timer_result
 	/tmp/test_search_timer_result
+test-search-timer-workflow-planning-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
+		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
+		core/vdr/tests/test_search_timer_workflow_planning_service.cpp \
+		-o /tmp/test_search_timer_workflow_planning_service
+	/tmp/test_search_timer_workflow_planning_service
+
 test-search-timer-workflow-execution-plan:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_search_timer_workflow_execution_plan.cpp \
