@@ -1,6 +1,7 @@
 #include "SearchTimerWorkflowRealExecutionReadinessReview.h"
 
 #include "SearchTimerWorkflowBackendWriteAllowlist.h"
+#include "SearchTimerWorkflowBackendWritePermissionGate.h"
 
 namespace
 {
@@ -54,6 +55,16 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
         allowlistDecision.configured;
     result.backendWriteAllowed =
         allowlistDecision.allowed;
+
+    const SearchTimerWorkflowBackendWritePermissionGateDecision permissionDecision =
+        SearchTimerWorkflowBackendWritePermissionGate().evaluate(
+            plan,
+            options);
+
+    result.backendWritePermissionConfigured =
+        permissionDecision.configured;
+    result.backendWritePermitted =
+        permissionDecision.permitted;
 
     result.productionRealExecutionPolicyAvailable = false;
 
@@ -184,6 +195,32 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
             allowlistDecision.message);
     }
 
+    if (result.backendWritePermissionConfigured)
+    {
+        addCondition(
+            result.satisfiedConditions,
+            "backend write permission gate is configured");
+    }
+    else
+    {
+        addBlocker(
+            result.blockers,
+            "backend write permission gate is not configured");
+    }
+
+    if (result.backendWritePermitted)
+    {
+        addCondition(
+            result.satisfiedConditions,
+            "backend write is permitted");
+    }
+    else
+    {
+        addBlocker(
+            result.blockers,
+            permissionDecision.message);
+    }
+
     if (!result.productionRealExecutionPolicyAvailable)
     {
         addBlocker(
@@ -202,6 +239,8 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
         result.productionRealExecutionEnabled &&
         result.backendWriteAllowlistConfigured &&
         result.backendWriteAllowed &&
+        result.backendWritePermissionConfigured &&
+        result.backendWritePermitted &&
         result.productionRealExecutionPolicyAvailable &&
         result.blockers.empty();
 

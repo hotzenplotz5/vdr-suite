@@ -181,6 +181,8 @@ int main()
     assert(productionEnabledResult.productionRealExecutionEnabled);
     assert(!productionEnabledResult.backendWriteAllowlistConfigured);
     assert(!productionEnabledResult.backendWriteAllowed);
+    assert(!productionEnabledResult.backendWritePermissionConfigured);
+    assert(!productionEnabledResult.backendWritePermitted);
     assert(!productionEnabledResult.productionRealExecutionPolicyAvailable);
     assert(contains(
         productionEnabledResult.satisfiedConditions,
@@ -207,6 +209,8 @@ int main()
     assert(allowlistedResult.productionRealExecutionEnabled);
     assert(allowlistedResult.backendWriteAllowlistConfigured);
     assert(allowlistedResult.backendWriteAllowed);
+    assert(!allowlistedResult.backendWritePermissionConfigured);
+    assert(!allowlistedResult.backendWritePermitted);
     assert(!allowlistedResult.productionRealExecutionPolicyAvailable);
     assert(contains(
         allowlistedResult.satisfiedConditions,
@@ -216,6 +220,35 @@ int main()
         "backend write is allowed"));
     assert(contains(
         allowlistedResult.blockers,
+        "backend write permission gate is not configured"));
+    assert(contains(
+        allowlistedResult.blockers,
+        "backend write permission gate is required"));
+
+    const SearchTimerWorkflowRealExecutionReadinessReviewResult permittedResult =
+        review.review(
+            executePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlistAndPermission(
+                true,
+                &executor,
+                std::vector<std::string>{"home-vdr"},
+                std::vector<std::string>{"home-vdr"}));
+
+    assert(!permittedResult.readyForRealBackendExecution);
+    assert(permittedResult.productionRealExecutionEnabled);
+    assert(permittedResult.backendWriteAllowlistConfigured);
+    assert(permittedResult.backendWriteAllowed);
+    assert(permittedResult.backendWritePermissionConfigured);
+    assert(permittedResult.backendWritePermitted);
+    assert(!permittedResult.productionRealExecutionPolicyAvailable);
+    assert(contains(
+        permittedResult.satisfiedConditions,
+        "backend write permission gate is configured"));
+    assert(contains(
+        permittedResult.satisfiedConditions,
+        "backend write is permitted"));
+    assert(contains(
+        permittedResult.blockers,
         "production real execution policy gate is not available"));
     assert(executor.callCount() == 0);
 

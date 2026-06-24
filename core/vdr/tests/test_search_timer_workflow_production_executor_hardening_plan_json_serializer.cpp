@@ -27,6 +27,7 @@ int main()
     assert(json.find("production enable switch contract exists and is disabled by default") != std::string::npos);
     assert(json.find("production real-execution policy gate is not available") != std::string::npos);
 
+    assert(json.find("per-backend write permission gate contract exists") != std::string::npos);
     std::cout
         << "test_search_timer_workflow_production_executor_hardening_plan_json_serializer passed"
         << std::endl;

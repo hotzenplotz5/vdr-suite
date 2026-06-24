@@ -65,6 +65,7 @@ test-vdr: \
 	test-search-timer-workflow-real-execution-policy \
 	test-search-timer-workflow-real-execution-enablement-switch \
 	test-search-timer-workflow-backend-write-allowlist \
+	test-search-timer-workflow-backend-write-permission-gate \
 	test-search-timer-workflow-production-executor-hardening-plan \
 	test-search-timer-workflow-production-executor-hardening-plan-json-serializer \
 	test-search-timer-workflow-real-execution-readiness-review \

@@ -86,6 +86,25 @@ public:
         return options;
     }
 
+    static SearchTimerWorkflowCommandDispatchOptions confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlistAndPermission(
+        bool explicitOperatorConfirmation,
+        ISearchTimerCommandExecutor* executor,
+        const std::vector<std::string>& allowedBackendIds,
+        const std::vector<std::string>& permittedBackendIds)
+    {
+        SearchTimerWorkflowCommandDispatchOptions options;
+        options.explicitOperatorConfirmation_ =
+            explicitOperatorConfirmation;
+        options.executorOptInEnabled_ = true;
+        options.commandExecutor_ = executor;
+        options.productionRealExecutionEnabled_ = true;
+        options.backendWriteAllowlistEnabled_ = true;
+        options.backendWriteAllowedBackendIds_ = allowedBackendIds;
+        options.backendWritePermissionGateEnabled_ = true;
+        options.backendWritePermittedBackendIds_ = permittedBackendIds;
+        return options;
+    }
+
     bool explicitOperatorConfirmation() const
     {
         return explicitOperatorConfirmation_;
@@ -126,6 +145,16 @@ public:
         return backendWriteAllowedBackendIds_;
     }
 
+    bool backendWritePermissionGateEnabled() const
+    {
+        return backendWritePermissionGateEnabled_;
+    }
+
+    const std::vector<std::string>& backendWritePermittedBackendIds() const
+    {
+        return backendWritePermittedBackendIds_;
+    }
+
 private:
     bool explicitOperatorConfirmation_ = false;
     bool executorOptInEnabled_ = false;
@@ -134,4 +163,6 @@ private:
     bool productionRealExecutionEnabled_ = false;
     bool backendWriteAllowlistEnabled_ = false;
     std::vector<std::string> backendWriteAllowedBackendIds_;
+    bool backendWritePermissionGateEnabled_ = false;
+    std::vector<std::string> backendWritePermittedBackendIds_;
 };

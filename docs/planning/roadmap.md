@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 50.32 - SearchTimer workflow backend write allowlist
+Phase 50.33 - SearchTimer workflow per-backend write permission gate
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 50.33 - SearchTimer workflow per-backend write permission gate
+Phase 50.34 - SearchTimer workflow production policy gate
 ```
 
 ---

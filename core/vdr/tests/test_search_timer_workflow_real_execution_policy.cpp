@@ -148,9 +148,23 @@ int main()
                 std::vector<std::string>{"home-vdr"}));
 
     assert(!allowlistedDecision.allowed);
-    assert(allowlistedDecision.dispatchStage == "real-execution-policy-denied");
-    assert(allowlistedDecision.message == "real execution policy denies backend command dispatch");
+    assert(allowlistedDecision.dispatchStage == "backend-write-permission-required");
+    assert(allowlistedDecision.message == "backend write permission gate is required");
     assert(!allowlistedDecision.errors.empty());
+
+    const SearchTimerWorkflowRealExecutionPolicyDecision permittedDecision =
+        policy.evaluate(
+            executePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlistAndPermission(
+                true,
+                &executor,
+                std::vector<std::string>{"home-vdr"},
+                std::vector<std::string>{"home-vdr"}));
+
+    assert(!permittedDecision.allowed);
+    assert(permittedDecision.dispatchStage == "real-execution-policy-denied");
+    assert(permittedDecision.message == "real execution policy denies backend command dispatch");
+    assert(!permittedDecision.errors.empty());
 
     std::cout
         << "test_search_timer_workflow_real_execution_policy passed"

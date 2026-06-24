@@ -995,6 +995,22 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### Per-Backend Write Permission Gate
+
+Phase 50.33 adds a per-backend write permission gate.
+
+This is stricter than the backend write allowlist.
+
+Current behavior:
+
+- read-only workflows do not require write permission
+- write workflows without a configured permission gate are blocked
+- write workflows with a backend not present in the permitted backend set are blocked
+- write workflows with a permitted backend can advance to the next production gate
+- backend mutation is still not enabled
+
+The permission gate is part of the production execution gate chain and remains separate from the controlled test executor path.
+
 ### Backend Write Allowlist
 
 Phase 50.32 adds a backend write allowlist gate.

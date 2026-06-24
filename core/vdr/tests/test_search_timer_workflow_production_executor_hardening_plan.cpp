@@ -86,7 +86,7 @@ int main()
     assert(hasRequirement(
         result.requirements,
         "per-backend-permission",
-        false));
+        true));
     assert(hasRequirement(
         result.requirements,
         "production-policy-gate",

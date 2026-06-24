@@ -136,9 +136,9 @@ SearchTimerWorkflowProductionExecutorHardeningPlan::build() const
             "per-backend-permission",
             "Per-backend write permission",
             true,
-            false,
-            "missing",
-            "no per-backend write permission gate exists yet"));
+            true,
+            "satisfied",
+            "per-backend write permission gate contract exists"));
 
     addRequirement(
         result,

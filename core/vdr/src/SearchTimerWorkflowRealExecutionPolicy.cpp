@@ -1,6 +1,7 @@
 #include "SearchTimerWorkflowRealExecutionPolicy.h"
 
 #include "SearchTimerWorkflowBackendWriteAllowlist.h"
+#include "SearchTimerWorkflowBackendWritePermissionGate.h"
 
 SearchTimerWorkflowRealExecutionPolicyDecision
 SearchTimerWorkflowRealExecutionPolicy::evaluate(
@@ -69,6 +70,21 @@ SearchTimerWorkflowRealExecutionPolicy::evaluate(
         decision.dispatchStage = allowlistDecision.dispatchStage;
         decision.message = allowlistDecision.message;
         decision.errors = allowlistDecision.errors;
+        return decision;
+    }
+
+    const SearchTimerWorkflowBackendWritePermissionGateDecision permissionDecision =
+        SearchTimerWorkflowBackendWritePermissionGate().evaluate(
+            plan,
+            options);
+
+    if (!permissionDecision.permitted)
+    {
+        SearchTimerWorkflowRealExecutionPolicyDecision decision;
+        decision.allowed = false;
+        decision.dispatchStage = permissionDecision.dispatchStage;
+        decision.message = permissionDecision.message;
+        decision.errors = permissionDecision.errors;
         return decision;
     }
 
