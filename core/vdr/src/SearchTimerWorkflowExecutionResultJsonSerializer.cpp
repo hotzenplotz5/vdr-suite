@@ -163,6 +163,8 @@ std::string SearchTimerWorkflowExecutionResultJsonSerializer::serialize(
          << boolText(result.realExecutionPolicyAllowed);
     json << ",\"executorOptInProvided\":"
          << boolText(result.executorOptInProvided);
+    json << ",\"executorInjected\":"
+         << boolText(result.executorInjected);
     json << ",\"dispatchStage\":";
     appendQuoted(json, result.dispatchStage);
     json << ",\"executionMode\":";

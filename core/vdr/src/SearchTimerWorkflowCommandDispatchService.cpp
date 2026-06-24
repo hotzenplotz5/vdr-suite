@@ -36,6 +36,8 @@ SearchTimerWorkflowExecutionResult applyDispatchOptions(
 {
     result.executorOptInProvided =
         options.executorOptInEnabled();
+    result.executorInjected =
+        options.hasCommandExecutor();
     return result;
 }
 

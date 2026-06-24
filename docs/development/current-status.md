@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.22 - SearchTimer workflow real executor policy boundary
+Phase 50.23 - SearchTimer workflow real executor injection skeleton
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.23 - SearchTimer workflow real executor injection skeleton
+Phase 50.24 - SearchTimer workflow guarded executor invocation contract
 ```
 
 Completed foundations:
@@ -164,6 +164,7 @@ make test-phase
 - Phase 50.20 adds an explicit executor opt-in boundary before future real backend execution can be wired.
 - Phase 50.21 exposes executor opt-in parsing through the REST execution contract while preserving dry-run safety.
 - Phase 50.22 adds a central real-execution policy boundary before any future backend mutation can be wired.
+- Phase 50.23 adds a real executor injection skeleton while keeping the policy denied and backend mutation impossible.
 
 ---
 
@@ -261,10 +262,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.23 - SearchTimer workflow real executor injection skeleton
+Phase 50.24 - SearchTimer workflow guarded executor invocation contract
 ```
 
-The next implementation phase should introduce a real-executor injection skeleton while keeping the policy disabled and backend mutation impossible by default.
+The next implementation phase should define a guarded executor invocation contract while keeping the policy denied and backend mutation disabled by default.
 
 Important boundaries:
 

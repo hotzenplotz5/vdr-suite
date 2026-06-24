@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ISearchTimerCommandExecutor.h"
+
 class SearchTimerWorkflowCommandDispatchOptions
 {
 public:
@@ -27,6 +29,18 @@ public:
         return options;
     }
 
+    static SearchTimerWorkflowCommandDispatchOptions confirmedWithExecutorOptInAndExecutor(
+        bool explicitOperatorConfirmation,
+        ISearchTimerCommandExecutor* executor)
+    {
+        SearchTimerWorkflowCommandDispatchOptions options;
+        options.explicitOperatorConfirmation_ =
+            explicitOperatorConfirmation;
+        options.executorOptInEnabled_ = true;
+        options.commandExecutor_ = executor;
+        return options;
+    }
+
     bool explicitOperatorConfirmation() const
     {
         return explicitOperatorConfirmation_;
@@ -37,7 +51,18 @@ public:
         return executorOptInEnabled_;
     }
 
+    bool hasCommandExecutor() const
+    {
+        return commandExecutor_ != nullptr;
+    }
+
+    ISearchTimerCommandExecutor* commandExecutor() const
+    {
+        return commandExecutor_;
+    }
+
 private:
     bool explicitOperatorConfirmation_ = false;
     bool executorOptInEnabled_ = false;
+    ISearchTimerCommandExecutor* commandExecutor_ = nullptr;
 };

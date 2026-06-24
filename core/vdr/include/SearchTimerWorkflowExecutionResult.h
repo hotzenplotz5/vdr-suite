@@ -18,6 +18,7 @@ struct SearchTimerWorkflowExecutionResult
     bool realExecutionEnabled = false;
     bool realExecutionPolicyAllowed = false;
     bool executorOptInProvided = false;
+    bool executorInjected = false;
     std::string dispatchStage = "none";
     SearchTimerWorkflowExecutionMode executionMode =
         SearchTimerWorkflowExecutionMode::Prepare;
@@ -52,6 +53,7 @@ struct SearchTimerWorkflowExecutionResult
         result.realExecutionEnabled = false;
         result.realExecutionPolicyAllowed = false;
         result.executorOptInProvided = false;
+        result.executorInjected = false;
         result.dispatchStage = "blocked";
         result.executionMode = plan.executionMode();
         result.operation = plan.operation();
@@ -84,6 +86,7 @@ struct SearchTimerWorkflowExecutionResult
         result.realExecutionEnabled = false;
         result.realExecutionPolicyAllowed = false;
         result.executorOptInProvided = false;
+        result.executorInjected = false;
         result.dispatchStage = "skeleton-accepted";
         result.executionMode = plan.executionMode();
         result.operation = plan.operation();

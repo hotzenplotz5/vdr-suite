@@ -4,6 +4,51 @@
 
 #include <cassert>
 #include <iostream>
+
+class FakeSearchTimerCommandExecutor : public ISearchTimerCommandExecutor
+{
+public:
+    SearchTimerCreateResult create(
+        const SearchTimerCreateRequest& request) override
+    {
+        (void)request;
+        ++createCalls_;
+        return SearchTimerCreateResult::failed(
+            "unexpected create call",
+            {"unexpected create call"});
+    }
+
+    SearchTimerUpdateResult update(
+        const SearchTimerUpdateRequest& request) override
+    {
+        (void)request;
+        ++updateCalls_;
+        return SearchTimerUpdateResult::failed(
+            "unexpected update call",
+            {"unexpected update call"});
+    }
+
+    SearchTimerDeleteResult remove(
+        const SearchTimerDeleteRequest& request) override
+    {
+        (void)request;
+        ++deleteCalls_;
+        return SearchTimerDeleteResult::failed(
+            "unexpected delete call",
+            {"unexpected delete call"});
+    }
+
+    int callCount() const
+    {
+        return createCalls_ + updateCalls_ + deleteCalls_;
+    }
+
+private:
+    int createCalls_ = 0;
+    int updateCalls_ = 0;
+    int deleteCalls_ = 0;
+};
+
 #include <string>
 
 int main()
@@ -31,6 +76,7 @@ int main()
     assert(!blockedCreate.realExecutionEnabled);
     assert(!blockedCreate.realExecutionPolicyAllowed);
     assert(!blockedCreate.executorOptInProvided);
+    assert(!blockedCreate.executorInjected);
     assert(blockedCreate.dispatchStage == "confirmation-required");
     assert(blockedCreate.executionMode == SearchTimerWorkflowExecutionMode::Prepare);
     assert(blockedCreate.operation == SearchTimerWorkflowOperation::Create);
@@ -51,6 +97,7 @@ int main()
     assert(!acceptedCreate.realExecutionEnabled);
     assert(!acceptedCreate.realExecutionPolicyAllowed);
     assert(!acceptedCreate.executorOptInProvided);
+    assert(!acceptedCreate.executorInjected);
     assert(acceptedCreate.dispatchStage == "command-request-mapped");
     assert(acceptedCreate.executionMode == SearchTimerWorkflowExecutionMode::Prepare);
     assert(acceptedCreate.backendId == "home-vdr");
@@ -77,6 +124,7 @@ int main()
     assert(!dryRunCreate.realExecutionEnabled);
     assert(!dryRunCreate.realExecutionPolicyAllowed);
     assert(!dryRunCreate.executorOptInProvided);
+    assert(!dryRunCreate.executorInjected);
     assert(dryRunCreate.dispatchStage == "dry-run");
     assert(dryRunCreate.executionMode == SearchTimerWorkflowExecutionMode::DryRun);
     assert(dryRunCreate.message == "write workflow accepted by dry-run execution mode");
@@ -100,6 +148,7 @@ int main()
     assert(!executeCreateWithoutOptIn.realExecutionEnabled);
     assert(!executeCreateWithoutOptIn.realExecutionPolicyAllowed);
     assert(!executeCreateWithoutOptIn.executorOptInProvided);
+    assert(!executeCreateWithoutOptIn.executorInjected);
     assert(executeCreateWithoutOptIn.dispatchStage == "executor-opt-in-required");
     assert(executeCreateWithoutOptIn.executionMode == SearchTimerWorkflowExecutionMode::Execute);
     assert(executeCreateWithoutOptIn.hasErrors());
@@ -117,10 +166,35 @@ int main()
     assert(!executeCreateWithOptIn.realExecutionEnabled);
     assert(!executeCreateWithOptIn.realExecutionPolicyAllowed);
     assert(executeCreateWithOptIn.executorOptInProvided);
-    assert(executeCreateWithOptIn.dispatchStage == "real-execution-policy-denied");
-    assert(executeCreateWithOptIn.message == "real execution policy denies backend command dispatch");
+    assert(!executeCreateWithOptIn.executorInjected);
+    assert(executeCreateWithOptIn.dispatchStage == "real-executor-injection-required");
+    assert(executeCreateWithOptIn.message == "real execution mode requires an injected command executor");
     assert(executeCreateWithOptIn.executionMode == SearchTimerWorkflowExecutionMode::Execute);
     assert(executeCreateWithOptIn.hasErrors());
+
+    FakeSearchTimerCommandExecutor injectedExecutor;
+
+    const SearchTimerWorkflowExecutionResult executeCreateWithInjectedExecutor =
+        dispatchService.dispatchPlan(
+            executeCreatePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithExecutorOptInAndExecutor(
+                true,
+                &injectedExecutor));
+
+    assert(!executeCreateWithInjectedExecutor.success);
+    assert(!executeCreateWithInjectedExecutor.executed);
+    assert(executeCreateWithInjectedExecutor.blocked);
+    assert(executeCreateWithInjectedExecutor.dryRunOnly);
+    assert(executeCreateWithInjectedExecutor.commandRequestMapped);
+    assert(!executeCreateWithInjectedExecutor.realExecutionEnabled);
+    assert(!executeCreateWithInjectedExecutor.realExecutionPolicyAllowed);
+    assert(executeCreateWithInjectedExecutor.executorOptInProvided);
+    assert(executeCreateWithInjectedExecutor.executorInjected);
+    assert(executeCreateWithInjectedExecutor.dispatchStage == "real-execution-policy-denied");
+    assert(executeCreateWithInjectedExecutor.message == "real execution policy denies backend command dispatch");
+    assert(executeCreateWithInjectedExecutor.executionMode == SearchTimerWorkflowExecutionMode::Execute);
+    assert(executeCreateWithInjectedExecutor.hasErrors());
+    assert(injectedExecutor.callCount() == 0);
 
     const auto updatePlan =
         planningService.plan(
@@ -141,6 +215,7 @@ int main()
     assert(!acceptedUpdate.realExecutionEnabled);
     assert(!acceptedUpdate.realExecutionPolicyAllowed);
     assert(!acceptedUpdate.executorOptInProvided);
+    assert(!acceptedUpdate.executorInjected);
     assert(acceptedUpdate.dispatchStage == "command-request-mapped");
     assert(acceptedUpdate.requiresBackendReadback);
     assert(acceptedUpdate.backendId == "remote-vdr");
@@ -168,6 +243,7 @@ int main()
     assert(!acceptedDelete.realExecutionEnabled);
     assert(!acceptedDelete.realExecutionPolicyAllowed);
     assert(!acceptedDelete.executorOptInProvided);
+    assert(!acceptedDelete.executorInjected);
     assert(acceptedDelete.dispatchStage == "command-request-mapped");
     assert(!acceptedDelete.requiresBackendReadback);
     assert(acceptedDelete.backendId == "archive-vdr");
@@ -192,6 +268,7 @@ int main()
     assert(!listResult.realExecutionEnabled);
     assert(!listResult.realExecutionPolicyAllowed);
     assert(!listResult.executorOptInProvided);
+    assert(!listResult.executorInjected);
     assert(listResult.dispatchStage == "read-only-no-dispatch");
     assert(listResult.operation == SearchTimerWorkflowOperation::List);
     assert(listResult.primaryStep == SearchTimerWorkflowExecutionStep::List);
@@ -217,6 +294,7 @@ int main()
     assert(!invalidResult.realExecutionEnabled);
     assert(!invalidResult.realExecutionPolicyAllowed);
     assert(!invalidResult.executorOptInProvided);
+    assert(!invalidResult.executorInjected);
     assert(invalidResult.dispatchStage == "validation-blocked");
     assert(invalidResult.operation == SearchTimerWorkflowOperation::Update);
     assert(invalidResult.primaryStep == SearchTimerWorkflowExecutionStep::None);

@@ -631,6 +631,7 @@ Additional response fields:
 - realExecutionEnabled
 - realExecutionPolicyAllowed
 - executorOptInProvided
+- executorInjected
 - dispatchStage
 
 The dispatchStage field helps clients distinguish:
@@ -771,6 +772,29 @@ The result includes:
 - dryRunOnly=true
 
 This keeps all backend mutation disabled until a later phase deliberately changes both policy and executor wiring.
+
+### Real Executor Injection Skeleton
+
+Phase 50.23 adds an injectable command executor skeleton to the workflow dispatch options.
+
+The skeleton accepts an ISearchTimerCommandExecutor pointer internally but does not call it.
+
+Execution-mode behavior:
+
+- execute without executor opt-in blocks at executor-opt-in-required
+- execute with executor opt-in but without an injected executor blocks at real-executor-injection-required
+- execute with executor opt-in and an injected executor still blocks at real-execution-policy-denied
+
+The result includes:
+
+- executorInjected=true when an executor pointer is present
+- executorInjected=false when REST calls do not inject an executor
+- realExecutionPolicyAllowed=false
+- realExecutionEnabled=false
+- executed=false
+- dryRunOnly=true
+
+This phase prepares dependency injection only. It does not perform backend mutation.
 
 ### Typical Client Flow
 

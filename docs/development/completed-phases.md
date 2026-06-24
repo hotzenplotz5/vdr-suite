@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.23 - SearchTimer workflow real executor injection skeleton
+
+Status: Completed.
+
+Summary:
+- Added an injectable ISearchTimerCommandExecutor pointer to SearchTimerWorkflowCommandDispatchOptions.
+- Added executorInjected to SearchTimerWorkflowExecutionResult and the execution-result JSON contract.
+- Extended the real-execution policy to require both executor opt-in and an injected executor before reaching the policy-denied stage.
+- Changed REST execute-with-opt-in behavior to stop at real-executor-injection-required because REST does not inject a real executor.
+- Verified that an injected executor is detected but never called while policy remains denied.
+- Preserved realExecutionPolicyAllowed=false, realExecutionEnabled=false, executed=false and dryRunOnly=true.
+- Kept backend mutation out of scope.
+
+---
+
 ## Phase 50.22 - SearchTimer workflow real executor policy boundary
 
 Status: Completed.

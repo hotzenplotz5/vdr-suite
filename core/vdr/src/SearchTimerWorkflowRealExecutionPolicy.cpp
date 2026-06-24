@@ -25,6 +25,16 @@ SearchTimerWorkflowRealExecutionPolicy::evaluate(
         return decision;
     }
 
+    if (!options.hasCommandExecutor())
+    {
+        SearchTimerWorkflowRealExecutionPolicyDecision decision;
+        decision.allowed = false;
+        decision.dispatchStage = "real-executor-injection-required";
+        decision.message = "real execution mode requires an injected command executor";
+        decision.errors = {"real execution mode requires an injected command executor"};
+        return decision;
+    }
+
     SearchTimerWorkflowRealExecutionPolicyDecision decision;
     decision.allowed = false;
     decision.dispatchStage = "real-execution-policy-denied";
