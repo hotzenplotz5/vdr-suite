@@ -55,7 +55,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 50.35 - SearchTimer workflow yaVDR real-test mode
+    Phase 50.36 - SearchTimer workflow yaVDR smoke-test script
 
 Current documentation consolidation:
 
@@ -63,7 +63,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 50.36 - SearchTimer workflow yaVDR smoke-test script
+    Phase 50.37 - SearchTimer workflow yaVDR smoke-test execution report
 
 Completed foundations:
 

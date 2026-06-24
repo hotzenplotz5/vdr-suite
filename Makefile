@@ -10,7 +10,7 @@ include mk/daemon-sources.mk
 include mk/local-test-groups.mk
 
 
-.PHONY: audit-doc-sync audit-doc-sync-tests
+.PHONY: audit-doc-sync audit-doc-sync-tests searchtimer-yavdr-real-test-smoke-helper
 
 audit-doc-sync:
 	python3 tools/audit_recent_doc_sync.py --commits 20
@@ -19,6 +19,11 @@ audit-doc-sync-tests:
 	python3 tools/audit_recent_doc_sync.py --commits 20 --run-tests
 
 
+
+searchtimer-yavdr-real-test-smoke-helper:
+	python3 -m py_compile tools/run_searchtimer_yavdr_real_test.py
+	python3 tools/run_searchtimer_yavdr_real_test.py --help
+	python3 tools/run_searchtimer_yavdr_real_test.py --self-test
 
 vdr-suite-native-fuzzy-validation-helpers:
 	python3 tools/validate_vdr_suite_native_fuzzy_operator_refresh.py --help

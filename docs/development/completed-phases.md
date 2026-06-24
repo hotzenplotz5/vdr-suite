@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.36 - SearchTimer workflow yaVDR smoke-test script
+
+Status: Completed.
+
+Summary:
+- Added tools/run_searchtimer_yavdr_real_test.py.
+- Added a local self-test mode that validates expected response semantics without contacting a server.
+- Added a run mode for POST /api/searchtimers/real-test.
+- Added operator-visible output for status, final dispatch stage, warnings and audit trail.
+- Added Makefile helper target searchtimer-yavdr-real-test-smoke-helper.
+- Kept the script non-mutating by targeting the VDR-Suite real-test endpoint.
+
+---
+
 ## Phase 50.35 - SearchTimer workflow yaVDR real-test mode
 
 Status: Completed.

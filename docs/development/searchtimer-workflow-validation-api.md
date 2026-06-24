@@ -995,6 +995,42 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### yaVDR Smoke-Test Script
+
+Phase 50.36 adds an operator-facing smoke-test script for the non-mutating SearchTimer real-test endpoint.
+
+Script:
+
+- `tools/run_searchtimer_yavdr_real_test.py`
+
+Local validation:
+
+- `python3 tools/run_searchtimer_yavdr_real_test.py --self-test`
+
+Example against a running VDR-Suite API:
+
+- `python3 tools/run_searchtimer_yavdr_real_test.py --run --base-url http://127.0.0.1:8080 --backend home-vdr --print-json`
+
+Environment variables:
+
+- `VDR_SUITE_API_BASE_URL`
+- `VDR_SUITE_SEARCHTIMER_TEST_BACKEND`
+- `VDR_SUITE_SEARCHTIMER_TEST_OPERATION`
+- `VDR_SUITE_SEARCHTIMER_TEST_NATIVE_ID`
+- `VDR_SUITE_SEARCHTIMER_TEST_NAME`
+- `VDR_SUITE_SEARCHTIMER_TEST_QUERY`
+- `VDR_SUITE_SMOKE_TIMEOUT`
+
+Safety behavior:
+
+- the script calls the VDR-Suite real-test endpoint, not RESTfulAPI directly
+- the endpoint remains non-mutating
+- expected final stage is `production-policy-gate-closed`
+- expected `executorInvocationAttempted` is `false`
+- the script prints warnings and audit trail entries for operator review
+
+---
+
 ### yaVDR Real-Test Mode
 
 Phase 50.35 adds a controlled yaVDR real-test mode endpoint.

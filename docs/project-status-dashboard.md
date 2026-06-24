@@ -130,7 +130,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 50.35 - SearchTimer workflow yaVDR real-test mode
+Phase 50.36 - SearchTimer workflow yaVDR smoke-test script
 ```
 
 Current Documentation Consolidation:
@@ -142,7 +142,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next Major Implementation Milestone:
 
 ```text
-Phase 50.36 - SearchTimer workflow yaVDR smoke-test script
+Phase 50.37 - SearchTimer workflow yaVDR smoke-test execution report
 ```
 
 Latest Completed Milestones:

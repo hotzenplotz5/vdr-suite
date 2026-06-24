@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.35 - SearchTimer workflow yaVDR real-test mode
+Phase 50.36 - SearchTimer workflow yaVDR smoke-test script
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.36 - SearchTimer workflow yaVDR smoke-test script
+Phase 50.37 - SearchTimer workflow yaVDR smoke-test execution report
 ```
 
 Current architecture validation:
