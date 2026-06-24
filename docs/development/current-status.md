@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.41 - SearchTimer workflow backend readback verification result model
+Phase 50.42 - SearchTimer workflow create readback verification service
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.42 - SearchTimer workflow create readback verification service
+Phase 50.43 - SearchTimer workflow update readback verification service
 ```
 
 Completed foundations:
@@ -275,7 +275,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.42 - SearchTimer workflow create readback verification service
+Phase 50.43 - SearchTimer workflow update readback verification service
 ```
 
 The next implementation phase should add a controlled yaVDR real-test mode with operator-visible output.

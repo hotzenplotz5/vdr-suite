@@ -17,6 +17,7 @@
 - [SearchTimer yaVDR Local API Smoke Harness Execution Report](searchtimer-yavdr-api-smoke-harness-execution-report.md)
 - [SearchTimer Mandatory Backend Readback Verification Plan](searchtimer-backend-readback-verification-plan.md)
 - [SearchTimer Backend Readback Verification Result Model](searchtimer-backend-readback-verification-result-model.md)
+- [SearchTimer Create Readback Verification Service](searchtimer-create-readback-verification-service.md)
 
 ---
 
@@ -1000,6 +1001,17 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### Create Readback Verification Service
+
+Phase 50.42 adds the create-readback verification service for future verified SearchTimer write execution.
+
+The service checks whether a successful create result is actually visible in backend state through `ISearchTimerDataSource`.
+
+Full service documentation:
+
+- [SearchTimer Create Readback Verification Service](searchtimer-create-readback-verification-service.md)
+
+---
 ### Backend Readback Verification Result Model
 
 Phase 50.41 adds the first explicit domain result model for future mandatory backend readback verification.

@@ -9,6 +9,7 @@
 - [Completed Phases](completed-phases.md)
 - [SearchTimer Workflow Validation API](searchtimer-workflow-validation-api.md)
 - [SearchTimer Mandatory Backend Readback Verification Plan](searchtimer-backend-readback-verification-plan.md)
+- [SearchTimer Create Readback Verification Service](searchtimer-create-readback-verification-service.md)
 
 ---
 
@@ -83,6 +84,15 @@ This keeps executor success separate from verified backend state.
 
 ---
 
+## Create Readback Service
+
+Phase 50.42 adds the create-readback verification service that produces this result model.
+
+Full service documentation:
+
+- [SearchTimer Create Readback Verification Service](searchtimer-create-readback-verification-service.md)
+
+---
 ## Follow-Up
 
 The next phase should add the create-readback verification service that consumes backend SearchTimer state and produces this result model.
