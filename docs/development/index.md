@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.26 - SearchTimer workflow executor invocation kill-switch contract
+Phase 50.27 - SearchTimer workflow controlled test executor invocation path
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.27 - SearchTimer workflow controlled test executor invocation path
+Phase 50.28 - SearchTimer workflow controlled invocation audit trail
 ```
 
 Current architecture validation:

@@ -113,6 +113,20 @@ int main()
     assert(!withOptInAndExecutor.errors.empty());
     assert(executor.callCount() == 0);
 
+
+    const auto withControlledTestInvocation =
+        policy.evaluate(
+            executePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocation(
+                true,
+                &executor));
+
+    assert(withControlledTestInvocation.allowed);
+    assert(withControlledTestInvocation.dispatchStage == "real-execution-policy-controlled-test-allowed");
+    assert(withControlledTestInvocation.message == "real execution policy allows controlled test executor invocation");
+    assert(withControlledTestInvocation.errors.empty());
+    assert(executor.callCount() == 0);
+
     std::cout
         << "test_search_timer_workflow_real_execution_policy passed"
         << std::endl;

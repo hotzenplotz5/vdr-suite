@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.26 - SearchTimer workflow executor invocation kill-switch contract
+Phase 50.27 - SearchTimer workflow controlled test executor invocation path
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.27 - SearchTimer workflow controlled test executor invocation path
+Phase 50.28 - SearchTimer workflow controlled invocation audit trail
 ```
 
 Completed foundations:
@@ -168,6 +168,7 @@ make test-phase
 - Phase 50.24 adds a guarded executor invocation contract while keeping invocationAttempted=false in all paths.
 - Phase 50.25 adds executor-result mapping so a future successful executor result can be represented as executed=true without enabling mutation.
 - Phase 50.26 adds the final executor invocation kill-switch contract while keeping the standard path non-mutating.
+- Phase 50.27 adds a controlled test executor invocation path that proves the success chain without exposing REST or real backend mutation.
 - Phase 50.24 adds a guarded executor invocation contract while keeping invocationAttempted=false in all paths.
 
 ---
@@ -266,10 +267,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.27 - SearchTimer workflow controlled test executor invocation path
+Phase 50.28 - SearchTimer workflow controlled invocation audit trail
 ```
 
-The next implementation phase should introduce a controlled test executor invocation path that can prove the full success chain without touching a real backend.
+The next implementation phase should add an audit trail for controlled executor invocation decisions before any real backend path is considered.
 
 Important boundaries:
 

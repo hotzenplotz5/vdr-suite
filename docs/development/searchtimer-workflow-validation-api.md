@@ -872,6 +872,32 @@ A direct unit test proves the intended future path:
 
 The direct mapper test keeps synthetic successful executor results mapped to executed=true, but only as a representation of a future controlled path.
 
+### Controlled Test Executor Invocation Path
+
+Phase 50.27 adds a controlled test-only executor invocation path.
+
+This path is not exposed through REST.
+
+It requires:
+
+- executionMode=execute
+- explicit operator confirmation
+- executor opt-in
+- an injected command executor
+- controlledTestExecutorInvocationEnabled=true
+- policy approval for the controlled test path
+- guard pass
+- open kill-switch
+
+The controlled test path invokes a fake/test executor in unit tests only and maps the result through SearchTimerWorkflowExecutorResultMapper.
+
+The standard REST path remains non-mutating:
+
+- executorInvocationAttempted=false
+- executorInvocationKillSwitchOpen=false
+- executorResultMapped=false
+- executed=false
+
 ### Typical Client Flow
 
 Recommended client flow:

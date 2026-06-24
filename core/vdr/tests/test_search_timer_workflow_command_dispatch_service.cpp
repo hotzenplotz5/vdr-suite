@@ -232,6 +232,35 @@ int main()
     assert(executeCreateWithInjectedExecutor.hasErrors());
     assert(injectedExecutor.callCount() == 0);
 
+    FakeSearchTimerCommandExecutor controlledExecutor;
+
+    const SearchTimerWorkflowExecutionResult controlledCreate =
+        dispatchService.dispatchPlan(
+            executeCreatePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocation(
+                true,
+                &controlledExecutor));
+
+    assert(!controlledCreate.success);
+    assert(!controlledCreate.executed);
+    assert(controlledCreate.blocked);
+    assert(!controlledCreate.dryRunOnly);
+    assert(controlledCreate.commandRequestMapped);
+    assert(controlledCreate.realExecutionEnabled);
+    assert(controlledCreate.realExecutionPolicyAllowed);
+    assert(controlledCreate.executorOptInProvided);
+    assert(controlledCreate.executorInjected);
+    assert(controlledCreate.executorInvocationGuardPassed);
+    assert(controlledCreate.executorInvocationAttempted);
+    assert(controlledCreate.executorInvocationKillSwitchOpen);
+    assert(controlledCreate.executorInvocationKillSwitchPassed);
+    assert(controlledCreate.executorResultMapped);
+    assert(!controlledCreate.executorResultSuccessful);
+    assert(controlledCreate.dispatchStage == "executor-result-failed");
+    assert(controlledCreate.message == "unexpected create call");
+    assert(controlledExecutor.callCount() == 1);
+
+
     const auto updatePlan =
         planningService.plan(
             SearchTimerWorkflowRequest::update(

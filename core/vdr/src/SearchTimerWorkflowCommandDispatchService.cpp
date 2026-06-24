@@ -2,6 +2,7 @@
 
 #include "SearchTimerWorkflowCommandRequestMapper.h"
 #include "SearchTimerWorkflowExecutorInvocationKillSwitch.h"
+#include "SearchTimerWorkflowExecutorResultMapper.h"
 #include "SearchTimerWorkflowGuardedExecutorInvocation.h"
 #include "SearchTimerWorkflowRealExecutionPolicy.h"
 
@@ -175,7 +176,9 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                     true);
 
         SearchTimerWorkflowExecutorInvocationKillSwitch killSwitch =
-            SearchTimerWorkflowExecutorInvocationKillSwitch::closed();
+            options.controlledTestExecutorInvocationEnabled()
+                ? SearchTimerWorkflowExecutorInvocationKillSwitch::openedForControlledExecution()
+                : SearchTimerWorkflowExecutorInvocationKillSwitch::closed();
         const SearchTimerWorkflowExecutorInvocationKillSwitchDecision
             killSwitchDecision =
                 killSwitch.evaluate(invocationDecision);
@@ -197,6 +200,48 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
         result.executorInvocationKillSwitchPassed =
             killSwitchDecision.allowed;
         result.dispatchStage = killSwitchDecision.dispatchStage;
+
+        if (killSwitchDecision.allowed)
+        {
+            SearchTimerWorkflowExecutorResultMapper resultMapper;
+
+            if (mapper.canBuildCreateRequest(plan))
+            {
+                SearchTimerCreateResult executorResult =
+                    options.commandExecutor()->create(
+                        mapper.buildCreateRequest(plan));
+                return applyDispatchOptions(
+                    resultMapper.mapCreateResult(
+                        plan,
+                        executorResult),
+                    options);
+            }
+
+            if (mapper.canBuildUpdateRequest(plan))
+            {
+                SearchTimerUpdateResult executorResult =
+                    options.commandExecutor()->update(
+                        mapper.buildUpdateRequest(plan));
+                return applyDispatchOptions(
+                    resultMapper.mapUpdateResult(
+                        plan,
+                        executorResult),
+                    options);
+            }
+
+            if (mapper.canBuildDeleteRequest(plan))
+            {
+                SearchTimerDeleteResult executorResult =
+                    options.commandExecutor()->remove(
+                        mapper.buildDeleteRequest(plan));
+                return applyDispatchOptions(
+                    resultMapper.mapDeleteResult(
+                        plan,
+                        executorResult),
+                    options);
+            }
+        }
+
         return applyDispatchOptions(result, options);
     }
 

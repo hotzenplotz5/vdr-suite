@@ -915,6 +915,7 @@ test-search-timer-controller:
 		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
 		core/vdr/src/SearchTimerWorkflowGuardedExecutorInvocation.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
+		core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \
 		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutionService.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutionResultJsonSerializer.cpp \
@@ -990,6 +991,7 @@ test-search-timer-workflow-command-dispatch-service:
 		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
 		core/vdr/src/SearchTimerWorkflowGuardedExecutorInvocation.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
+		core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \
 		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
 		core/vdr/tests/test_search_timer_workflow_command_dispatch_service.cpp \
 		-o /tmp/test_search_timer_workflow_command_dispatch_service
@@ -1003,6 +1005,19 @@ test-search-timer-workflow-real-execution-policy:
 		core/vdr/tests/test_search_timer_workflow_real_execution_policy.cpp \
 		-o /tmp/test_search_timer_workflow_real_execution_policy
 	/tmp/test_search_timer_workflow_real_execution_policy
+
+test-search-timer-workflow-controlled-test-executor-invocation:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
+		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
+		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
+		core/vdr/src/SearchTimerWorkflowGuardedExecutorInvocation.cpp \
+		core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
+		core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \
+		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
+		core/vdr/tests/test_search_timer_workflow_controlled_test_executor_invocation.cpp \
+		-o /tmp/test_search_timer_workflow_controlled_test_executor_invocation
+	/tmp/test_search_timer_workflow_controlled_test_executor_invocation
 
 test-search-timer-workflow-executor-invocation-kill-switch:
 	$(CXX) $(CXXFLAGS) \

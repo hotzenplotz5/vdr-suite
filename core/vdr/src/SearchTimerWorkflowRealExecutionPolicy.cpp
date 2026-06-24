@@ -35,6 +35,16 @@ SearchTimerWorkflowRealExecutionPolicy::evaluate(
         return decision;
     }
 
+    if (options.controlledTestExecutorInvocationEnabled())
+    {
+        SearchTimerWorkflowRealExecutionPolicyDecision decision;
+        decision.allowed = true;
+        decision.dispatchStage = "real-execution-policy-controlled-test-allowed";
+        decision.message = "real execution policy allows controlled test executor invocation";
+        decision.errors.clear();
+        return decision;
+    }
+
     SearchTimerWorkflowRealExecutionPolicyDecision decision;
     decision.allowed = false;
     decision.dispatchStage = "real-execution-policy-denied";

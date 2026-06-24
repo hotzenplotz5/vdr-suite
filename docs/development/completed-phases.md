@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.27 - SearchTimer workflow controlled test executor invocation path
+
+Status: Completed.
+
+Summary:
+- Added controlledTestExecutorInvocationEnabled to SearchTimerWorkflowCommandDispatchOptions.
+- Added a controlled test-only dispatch path that can open the policy and kill-switch for an injected fake executor.
+- Verified that create, update and delete workflow plans can invoke a controlled test executor and map the result to executed=true.
+- Verified that the ordinary injected executor path remains policy-denied and does not call the executor.
+- Kept the controlled test path out of REST.
+- Preserved the standard REST path as non-mutating with executorInvocationAttempted=false, executorResultMapped=false and executed=false.
+- Kept real VDR backend mutation out of scope.
+
+---
+
 ## Phase 50.26 - SearchTimer workflow executor invocation kill-switch contract
 
 Status: Completed.

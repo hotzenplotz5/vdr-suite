@@ -41,6 +41,19 @@ public:
         return options;
     }
 
+    static SearchTimerWorkflowCommandDispatchOptions confirmedWithControlledTestExecutorInvocation(
+        bool explicitOperatorConfirmation,
+        ISearchTimerCommandExecutor* executor)
+    {
+        SearchTimerWorkflowCommandDispatchOptions options;
+        options.explicitOperatorConfirmation_ =
+            explicitOperatorConfirmation;
+        options.executorOptInEnabled_ = true;
+        options.commandExecutor_ = executor;
+        options.controlledTestExecutorInvocationEnabled_ = true;
+        return options;
+    }
+
     bool explicitOperatorConfirmation() const
     {
         return explicitOperatorConfirmation_;
@@ -61,8 +74,14 @@ public:
         return commandExecutor_;
     }
 
+    bool controlledTestExecutorInvocationEnabled() const
+    {
+        return controlledTestExecutorInvocationEnabled_;
+    }
+
 private:
     bool explicitOperatorConfirmation_ = false;
     bool executorOptInEnabled_ = false;
     ISearchTimerCommandExecutor* commandExecutor_ = nullptr;
+    bool controlledTestExecutorInvocationEnabled_ = false;
 };
