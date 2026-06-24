@@ -396,6 +396,24 @@ Invalid requests return HTTP 200 with valid=false and hasExecutionWork=false in 
 
 ---
 
+## Execution Skeleton Boundary
+
+Phase 50.11 adds a SearchTimerWorkflowExecutionService skeleton.
+
+The skeleton consumes SearchTimerWorkflowExecutionPlan objects and returns SearchTimerWorkflowExecutionResult objects.
+
+The skeleton does not call a SearchTimer command executor.
+
+The skeleton does not mutate a backend.
+
+Invalid or non-executable plans are blocked.
+
+Write plans require explicit operator confirmation before they are accepted by the skeleton.
+
+Accepted skeleton results are dry-run-only and have executed=false.
+
+---
+
 ## Client Behavior
 
 Recommended client behavior:

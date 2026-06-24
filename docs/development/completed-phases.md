@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.11 - SearchTimer workflow execution skeleton
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowExecutionResult as the first execution-result model for workflow plans.
+- Added SearchTimerWorkflowExecutionService as a guarded skeleton that consumes execution plans.
+- Blocked invalid and non-executable plans.
+- Required explicit operator confirmation before accepting write-operation plans.
+- Kept all accepted skeleton results dry-run-only with executed=false.
+- Kept real backend mutation and command execution out of scope.
+- Covered read-only, write-confirmation and invalid-plan behavior with a targeted unit test.
+
+---
+
 ## Phase 50.10 - SearchTimer workflow planning REST endpoint
 
 Status: Completed.
