@@ -60,6 +60,7 @@ test-vdr: \
 	test-epg-search-matcher \
 	test-epg-search-result \
 	test-search-timer \
+	test-search-timer-workflow-validation-result-json-serializer \
 	test-search-timer-workflow-validation-service \
 	test-search-timer-workflow-request \
 	test-search-timer-query \

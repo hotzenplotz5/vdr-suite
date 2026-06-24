@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.2 - SearchTimer workflow validation service
+Phase 50.3 - SearchTimer workflow validation JSON contract
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.3 - SearchTimer workflow validation JSON contract
+Phase 50.4 - SearchTimer workflow validation REST endpoint
 ```
 
 Current architecture validation:
