@@ -36,6 +36,8 @@ VDR_SRC := \
         core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \
         core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
         core/vdr/src/SearchTimerWorkflowGuardedExecutorInvocation.cpp \
+        core/vdr/src/SearchTimerWorkflowProductionExecutorHardeningPlan.cpp \
+        core/vdr/src/SearchTimerWorkflowProductionExecutorHardeningPlanJsonSerializer.cpp \
         core/vdr/src/SearchTimerWorkflowRealExecutionReadinessReview.cpp \
         core/vdr/src/SearchTimerWorkflowRealExecutionReadinessReviewJsonSerializer.cpp \
         core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \

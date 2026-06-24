@@ -997,6 +997,21 @@ test-search-timer-workflow-command-dispatch-service:
 		-o /tmp/test_search_timer_workflow_command_dispatch_service
 	/tmp/test_search_timer_workflow_command_dispatch_service
 
+test-search-timer-workflow-production-executor-hardening-plan:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowProductionExecutorHardeningPlan.cpp \
+		core/vdr/tests/test_search_timer_workflow_production_executor_hardening_plan.cpp \
+		-o /tmp/test_search_timer_workflow_production_executor_hardening_plan
+	/tmp/test_search_timer_workflow_production_executor_hardening_plan
+
+test-search-timer-workflow-production-executor-hardening-plan-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowProductionExecutorHardeningPlan.cpp \
+		core/vdr/src/SearchTimerWorkflowProductionExecutorHardeningPlanJsonSerializer.cpp \
+		core/vdr/tests/test_search_timer_workflow_production_executor_hardening_plan_json_serializer.cpp \
+		-o /tmp/test_search_timer_workflow_production_executor_hardening_plan_json_serializer
+	/tmp/test_search_timer_workflow_production_executor_hardening_plan_json_serializer
+
 test-search-timer-workflow-real-execution-readiness-review:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
