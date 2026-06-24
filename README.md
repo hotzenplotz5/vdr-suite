@@ -55,7 +55,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 50.25 - SearchTimer workflow executor invocation result mapping skeleton
+    Phase 50.26 - SearchTimer workflow executor invocation kill-switch contract
 
 Current documentation consolidation:
 
@@ -63,7 +63,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 50.26 - SearchTimer workflow executor invocation kill-switch contract
+    Phase 50.27 - SearchTimer workflow controlled test executor invocation path
 
 Completed foundations:
 

@@ -201,6 +201,22 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.26 - SearchTimer workflow executor invocation kill-switch contract
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowExecutorInvocationKillSwitch as the final contract boundary before any future executor invocation.
+- Added executorInvocationKillSwitchOpen and executorInvocationKillSwitchPassed to SearchTimerWorkflowExecutionResult and the execution-result JSON contract.
+- Integrated the closed kill-switch into execute-mode dispatch after guarded invocation evaluation.
+- Verified that the closed kill-switch blocks a guard-passed decision.
+- Verified that an explicitly opened kill-switch can allow the next step in a direct unit test without invoking a real executor.
+- Kept standard REST and dispatch paths non-mutating with executorInvocationAttempted=false, executorResultMapped=false and executed=false.
+- Preserved the synthetic mapper path for representing a future successful executor result.
+- Kept backend mutation out of scope.
+
+---
+
 ## Phase 50.25 - SearchTimer workflow executor invocation result mapping skeleton
 
 Status: Completed.

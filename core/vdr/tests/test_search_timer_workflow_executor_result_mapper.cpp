@@ -45,6 +45,8 @@ int main()
     assert(mappedCreate.executorInjected);
     assert(mappedCreate.executorInvocationGuardPassed);
     assert(mappedCreate.executorInvocationAttempted);
+    assert(mappedCreate.executorInvocationKillSwitchOpen);
+    assert(mappedCreate.executorInvocationKillSwitchPassed);
     assert(mappedCreate.executorResultMapped);
     assert(mappedCreate.executorResultSuccessful);
     assert(mappedCreate.dispatchStage == "executor-result-mapped");
@@ -77,6 +79,8 @@ int main()
     assert(mappedUpdateFailure.realExecutionPolicyAllowed);
     assert(mappedUpdateFailure.executorInvocationGuardPassed);
     assert(mappedUpdateFailure.executorInvocationAttempted);
+    assert(mappedUpdateFailure.executorInvocationKillSwitchOpen);
+    assert(mappedUpdateFailure.executorInvocationKillSwitchPassed);
     assert(mappedUpdateFailure.executorResultMapped);
     assert(!mappedUpdateFailure.executorResultSuccessful);
     assert(mappedUpdateFailure.dispatchStage == "executor-result-failed");

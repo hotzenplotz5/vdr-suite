@@ -1,6 +1,7 @@
 #include "SearchTimerWorkflowCommandDispatchService.h"
 
 #include "SearchTimerWorkflowCommandRequestMapper.h"
+#include "SearchTimerWorkflowExecutorInvocationKillSwitch.h"
 #include "SearchTimerWorkflowGuardedExecutorInvocation.h"
 #include "SearchTimerWorkflowRealExecutionPolicy.h"
 
@@ -173,11 +174,17 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                     decision,
                     true);
 
+        SearchTimerWorkflowExecutorInvocationKillSwitch killSwitch =
+            SearchTimerWorkflowExecutorInvocationKillSwitch::closed();
+        const SearchTimerWorkflowExecutorInvocationKillSwitchDecision
+            killSwitchDecision =
+                killSwitch.evaluate(invocationDecision);
+
         SearchTimerWorkflowExecutionResult result =
             SearchTimerWorkflowExecutionResult::blockedResult(
                 plan,
-                invocationDecision.message,
-                invocationDecision.errors);
+                killSwitchDecision.message,
+                killSwitchDecision.errors);
         result.commandRequestMapped = true;
         result.realExecutionPolicyAllowed = decision.allowed;
         result.realExecutionEnabled = false;
@@ -185,7 +192,11 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
             invocationDecision.guardPassed;
         result.executorInvocationAttempted =
             invocationDecision.invocationAttempted;
-        result.dispatchStage = invocationDecision.dispatchStage;
+        result.executorInvocationKillSwitchOpen =
+            killSwitchDecision.killSwitchOpen;
+        result.executorInvocationKillSwitchPassed =
+            killSwitchDecision.allowed;
+        result.dispatchStage = killSwitchDecision.dispatchStage;
         return applyDispatchOptions(result, options);
     }
 

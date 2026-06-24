@@ -26,6 +26,8 @@ SearchTimerWorkflowExecutionResult mappedSuccessBase(
     result.executorInjected = true;
     result.executorInvocationGuardPassed = true;
     result.executorInvocationAttempted = true;
+    result.executorInvocationKillSwitchOpen = true;
+    result.executorInvocationKillSwitchPassed = true;
     result.executorResultMapped = true;
     result.executorResultSuccessful = true;
     result.dispatchStage = "executor-result-mapped";
@@ -55,6 +57,8 @@ SearchTimerWorkflowExecutionResult mappedFailureBase(
     result.executorInjected = true;
     result.executorInvocationGuardPassed = true;
     result.executorInvocationAttempted = true;
+    result.executorInvocationKillSwitchOpen = true;
+    result.executorInvocationKillSwitchPassed = true;
     result.executorResultMapped = true;
     result.executorResultSuccessful = false;
     result.dispatchStage = "executor-result-failed";

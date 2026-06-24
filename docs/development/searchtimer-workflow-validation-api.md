@@ -634,6 +634,8 @@ Additional response fields:
 - executorInjected
 - executorInvocationGuardPassed
 - executorInvocationAttempted
+- executorInvocationKillSwitchOpen
+- executorInvocationKillSwitchPassed
 - executorResultMapped
 - executorResultSuccessful
 - dispatchStage
@@ -847,6 +849,28 @@ The standard REST and dispatch paths still do not invoke the executor:
 - dryRunOnly=true
 
 This phase proves that the future result path is representable without enabling backend mutation.
+
+### Executor Invocation Kill-Switch Contract
+
+Phase 50.26 adds the final kill-switch contract before any future executor invocation.
+
+The kill-switch is evaluated after the guarded executor invocation contract.
+
+Current standard behavior:
+
+- executorInvocationKillSwitchOpen=false
+- executorInvocationKillSwitchPassed=false
+- executorInvocationAttempted=false
+- executorResultMapped=false
+- executed=false
+
+A direct unit test proves the intended future path:
+
+- guard passed
+- kill-switch open
+- kill-switch decision allowed
+
+The direct mapper test keeps synthetic successful executor results mapped to executed=true, but only as a representation of a future controlled path.
 
 ### Typical Client Flow
 

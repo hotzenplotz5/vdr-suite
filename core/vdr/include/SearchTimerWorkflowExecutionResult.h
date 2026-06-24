@@ -21,6 +21,8 @@ struct SearchTimerWorkflowExecutionResult
     bool executorInjected = false;
     bool executorInvocationGuardPassed = false;
     bool executorInvocationAttempted = false;
+    bool executorInvocationKillSwitchOpen = false;
+    bool executorInvocationKillSwitchPassed = false;
     bool executorResultMapped = false;
     bool executorResultSuccessful = false;
     std::string dispatchStage = "none";
@@ -60,6 +62,8 @@ struct SearchTimerWorkflowExecutionResult
         result.executorInjected = false;
         result.executorInvocationGuardPassed = false;
         result.executorInvocationAttempted = false;
+        result.executorInvocationKillSwitchOpen = false;
+        result.executorInvocationKillSwitchPassed = false;
         result.executorResultMapped = false;
         result.executorResultSuccessful = false;
         result.dispatchStage = "blocked";
@@ -97,6 +101,8 @@ struct SearchTimerWorkflowExecutionResult
         result.executorInjected = false;
         result.executorInvocationGuardPassed = false;
         result.executorInvocationAttempted = false;
+        result.executorInvocationKillSwitchOpen = false;
+        result.executorInvocationKillSwitchPassed = false;
         result.executorResultMapped = false;
         result.executorResultSuccessful = false;
         result.dispatchStage = "skeleton-accepted";

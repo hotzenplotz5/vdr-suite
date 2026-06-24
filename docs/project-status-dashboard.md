@@ -74,7 +74,7 @@ SearchTimer Backend Contract    documented
 SearchTimer Payload Validation  documented
 SearchTimer Domain Model        expanded
 Native Fuzzy Capability         validated end-to-end
-SearchTimer User Workflow       executor result mapping skeleton implemented
+SearchTimer User Workflow       executor invocation kill-switch contract implemented
 ```
 
 ### Federation and Security
@@ -130,7 +130,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 50.25 - SearchTimer workflow executor invocation result mapping skeleton
+Phase 50.26 - SearchTimer workflow executor invocation kill-switch contract
 ```
 
 Current Documentation Consolidation:
@@ -142,7 +142,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next Major Implementation Milestone:
 
 ```text
-Phase 50.26 - SearchTimer workflow executor invocation kill-switch contract
+Phase 50.27 - SearchTimer workflow controlled test executor invocation path
 ```
 
 Latest Completed Milestones:

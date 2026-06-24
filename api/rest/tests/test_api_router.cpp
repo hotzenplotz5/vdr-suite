@@ -1184,6 +1184,10 @@ int main()
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executorInvocationAttempted\":false")
            != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executorInvocationKillSwitchOpen\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executorInvocationKillSwitchPassed\":false")
+           != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executorResultMapped\":false")
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executorResultSuccessful\":false")
@@ -1230,6 +1234,10 @@ int main()
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executorInvocationGuardPassed\":false")
            != std::string::npos);
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executorInvocationAttempted\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executorInvocationKillSwitchOpen\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executorInvocationKillSwitchPassed\":false")
            != std::string::npos);
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executorResultMapped\":false")
            != std::string::npos);

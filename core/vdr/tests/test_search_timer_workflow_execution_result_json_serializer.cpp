@@ -40,6 +40,8 @@ int main()
     assert(blockedJson.find("\"executorInjected\":false") != std::string::npos);
     assert(blockedJson.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(blockedJson.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(blockedJson.find("\"executorInvocationKillSwitchOpen\":false") != std::string::npos);
+    assert(blockedJson.find("\"executorInvocationKillSwitchPassed\":false") != std::string::npos);
     assert(blockedJson.find("\"executorResultMapped\":false") != std::string::npos);
     assert(blockedJson.find("\"executorResultSuccessful\":false") != std::string::npos);
     assert(blockedJson.find("\"dispatchStage\":\"blocked\"") != std::string::npos);
@@ -72,6 +74,8 @@ int main()
     assert(acceptedJson.find("\"executorInjected\":false") != std::string::npos);
     assert(acceptedJson.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(acceptedJson.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(acceptedJson.find("\"executorInvocationKillSwitchOpen\":false") != std::string::npos);
+    assert(acceptedJson.find("\"executorInvocationKillSwitchPassed\":false") != std::string::npos);
     assert(acceptedJson.find("\"executorResultMapped\":false") != std::string::npos);
     assert(acceptedJson.find("\"executorResultSuccessful\":false") != std::string::npos);
     assert(acceptedJson.find("\"dispatchStage\":\"skeleton-accepted\"") != std::string::npos);

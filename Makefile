@@ -914,6 +914,7 @@ test-search-timer-controller:
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
 		core/vdr/src/SearchTimerWorkflowGuardedExecutorInvocation.cpp \
+		core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
 		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutionService.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutionResultJsonSerializer.cpp \
@@ -988,6 +989,7 @@ test-search-timer-workflow-command-dispatch-service:
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
 		core/vdr/src/SearchTimerWorkflowGuardedExecutorInvocation.cpp \
+		core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
 		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
 		core/vdr/tests/test_search_timer_workflow_command_dispatch_service.cpp \
 		-o /tmp/test_search_timer_workflow_command_dispatch_service
@@ -1001,6 +1003,13 @@ test-search-timer-workflow-real-execution-policy:
 		core/vdr/tests/test_search_timer_workflow_real_execution_policy.cpp \
 		-o /tmp/test_search_timer_workflow_real_execution_policy
 	/tmp/test_search_timer_workflow_real_execution_policy
+
+test-search-timer-workflow-executor-invocation-kill-switch:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
+		core/vdr/tests/test_search_timer_workflow_executor_invocation_kill_switch.cpp \
+		-o /tmp/test_search_timer_workflow_executor_invocation_kill_switch
+	/tmp/test_search_timer_workflow_executor_invocation_kill_switch
 
 test-search-timer-workflow-executor-result-mapper:
 	$(CXX) $(CXXFLAGS) \
