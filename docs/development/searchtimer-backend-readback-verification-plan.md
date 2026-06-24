@@ -11,6 +11,7 @@
 - [SearchTimer Workflow Validation API](searchtimer-workflow-validation-api.md)
 - [SearchTimer yaVDR Local API Smoke Harness](searchtimer-yavdr-api-smoke-harness.md)
 - [SearchTimer yaVDR Local API Smoke Harness Execution Report](searchtimer-yavdr-api-smoke-harness-execution-report.md)
+- [SearchTimer Backend Readback Verification Result Model](searchtimer-backend-readback-verification-result-model.md)
 
 ---
 
@@ -151,6 +152,17 @@ Phase 50.40 does not:
 
 ---
 
+## Result Model
+
+Phase 50.41 adds the first backend readback verification result model.
+
+The model records whether readback was required, attempted, successful, matched and ambiguous.
+
+Full model documentation:
+
+- [SearchTimer Backend Readback Verification Result Model](searchtimer-backend-readback-verification-result-model.md)
+
+---
 ## Follow-Up Phases
 
 Recommended next phases:

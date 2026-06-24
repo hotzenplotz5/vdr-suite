@@ -1009,6 +1009,12 @@ test-search-timer-result:
 		core/vdr/tests/test_search_timer_result.cpp \
 		-o /tmp/test_search_timer_result
 	/tmp/test_search_timer_result
+test-search-timer-workflow-backend-readback-verification-result:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_search_timer_workflow_backend_readback_verification_result.cpp \
+		-o /tmp/test_search_timer_workflow_backend_readback_verification_result
+	/tmp/test_search_timer_workflow_backend_readback_verification_result
+
 test-search-timer-workflow-execution-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
