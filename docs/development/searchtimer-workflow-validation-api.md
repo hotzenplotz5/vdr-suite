@@ -441,6 +441,31 @@ It does not imply that a backend command was executed.
 
 ---
 
+## Execution REST Skeleton
+
+Phase 50.13 exposes the guarded workflow execution skeleton through REST:
+
+- POST /api/searchtimers/execute
+- POST /api/vdr/searchtimers/execute
+
+The endpoint parses the same workflow request shape as validation and planning.
+
+Write operations are only accepted by the skeleton when one of these boolean fields is true:
+
+- explicitOperatorConfirmation
+- operatorConfirmed
+- confirmed
+
+The endpoint does not call ISearchTimerCommandExecutor.
+
+The endpoint does not mutate a backend.
+
+The endpoint always returns the Phase 50.12 execution-result JSON contract.
+
+Accepted skeleton results still have executed=false and dryRunOnly=true.
+
+---
+
 ## Client Behavior
 
 Recommended client behavior:

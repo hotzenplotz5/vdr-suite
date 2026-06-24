@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.13 - SearchTimer workflow execution REST skeleton
+
+Status: Completed.
+
+Summary:
+- Added controller support for executing SearchTimer workflow plans through the guarded skeleton.
+- Added POST /api/searchtimers/execute and POST /api/vdr/searchtimers/execute routes.
+- Reused the workflow request parser, planning service, execution skeleton and execution-result JSON serializer.
+- Required explicit operator confirmation before write plans are accepted by the skeleton.
+- Kept ISearchTimerCommandExecutor and real backend mutation out of the REST skeleton.
+- Covered blocked, accepted and invalid execution skeleton responses in controller tests.
+- Covered both canonical and /api/vdr execution routes in router tests.
+
+---
+
 ## Phase 50.12 - SearchTimer workflow execution result JSON contract
 
 Status: Completed.

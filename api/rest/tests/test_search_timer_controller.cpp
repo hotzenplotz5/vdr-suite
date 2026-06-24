@@ -306,6 +306,69 @@ int main()
     assert(invalidPlanResponse.body.find("\"writeOperation\":true") != std::string::npos);
     assert(executor.callCount() == 1);
     assert(executor.updateCallCount() == 1);
+
+    ApiResponse blockedExecuteResponse =
+        controller.executeSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche\","
+            "\"query\":\"Terra X\","
+            "\"active\":true"
+            "}");
+
+    assert(blockedExecuteResponse.statusCode == 200);
+    assert(blockedExecuteResponse.contentType == "application/json");
+    assert(blockedExecuteResponse.body.find("\"success\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executed\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"blocked\":true") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"dryRunOnly\":true") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"operation\":\"create\"") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("explicit operator confirmation is required") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
+    ApiResponse acceptedExecuteResponse =
+        controller.executeSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche\","
+            "\"query\":\"Terra X\","
+            "\"explicitOperatorConfirmation\":true"
+            "}");
+
+    assert(acceptedExecuteResponse.statusCode == 200);
+    assert(acceptedExecuteResponse.contentType == "application/json");
+    assert(acceptedExecuteResponse.body.find("\"success\":true") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executed\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"blocked\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"confirmationProvided\":true") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("backend execution is not implemented in this skeleton") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
+    ApiResponse invalidExecuteResponse =
+        controller.executeSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"update\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche aktualisiert\","
+            "\"query\":\"Terra X aktualisiert\""
+            "}");
+
+    assert(invalidExecuteResponse.statusCode == 200);
+    assert(invalidExecuteResponse.contentType == "application/json");
+    assert(invalidExecuteResponse.body.find("\"success\":false") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("\"operation\":\"update\"") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("\"primaryStep\":\"none\"") != std::string::npos);
+    assert(invalidExecuteResponse.body.find("workflow plan is not executable") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
     std::cout << "test_search_timer_controller passed" << std::endl;
     return 0;
 }

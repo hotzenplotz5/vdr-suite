@@ -18,6 +18,8 @@
 #include "SearchTimerPreviewService.h"
 #include "SearchTimerWorkflowValidationRequestParser.h"
 #include "SearchTimerWorkflowExecutionPlanJsonSerializer.h"
+#include "SearchTimerWorkflowExecutionResultJsonSerializer.h"
+#include "SearchTimerWorkflowExecutionService.h"
 #include "SearchTimerWorkflowPlanningService.h"
 #include "SearchTimerWorkflowValidationResultJsonSerializer.h"
 #include "SearchTimerWorkflowValidationService.h"
@@ -51,6 +53,75 @@ SearchTimerQuery buildSearchTimerQuery(
     }
 
     return query;
+}
+
+
+bool parseExecutionConfirmationField(
+    const std::string& body,
+    const std::string& key)
+{
+    const std::string keyToken =
+        "\"" + key + "\"";
+
+    const std::size_t keyPosition =
+        body.find(keyToken);
+
+    if (keyPosition == std::string::npos)
+    {
+        return false;
+    }
+
+    const std::size_t colonPosition =
+        body.find(':', keyPosition + keyToken.size());
+
+    if (colonPosition == std::string::npos)
+    {
+        return false;
+    }
+
+    const std::size_t valuePosition =
+        body.find_first_not_of(" \t\n\r", colonPosition + 1);
+
+    if (valuePosition == std::string::npos)
+    {
+        return false;
+    }
+
+    if (body.compare(valuePosition, 4, "true") == 0)
+    {
+        return true;
+    }
+
+    if (body.compare(valuePosition, 1, "1") == 0)
+    {
+        return true;
+    }
+
+    if (body.compare(valuePosition, 6, "\"true\"") == 0)
+    {
+        return true;
+    }
+
+    if (body.compare(valuePosition, 3, "\"1\"") == 0)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+bool parseExecutionConfirmation(
+    const std::string& body)
+{
+    return parseExecutionConfirmationField(
+               body,
+               "explicitOperatorConfirmation") ||
+           parseExecutionConfirmationField(
+               body,
+               "operatorConfirmed") ||
+           parseExecutionConfirmationField(
+               body,
+               "confirmed");
 }
 
 } // namespace
@@ -266,6 +337,33 @@ ApiResponse SearchTimerController::planSearchTimerWorkflow(
     response.contentType = "application/json";
     response.body =
         planJsonSerializer.serialize(plan);
+
+    return response;
+}
+
+
+ApiResponse SearchTimerController::executeSearchTimerWorkflow(
+    const std::string& body)
+{
+    SearchTimerWorkflowPlanningService planningService;
+    SearchTimerWorkflowValidationRequestParser requestParser;
+    SearchTimerWorkflowExecutionService executionService;
+    SearchTimerWorkflowExecutionResultJsonSerializer resultJsonSerializer;
+
+    const SearchTimerWorkflowExecutionPlan plan =
+        planningService.plan(
+            requestParser.parse(body));
+
+    const SearchTimerWorkflowExecutionResult result =
+        executionService.executePlan(
+            plan,
+            parseExecutionConfirmation(body));
+
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        resultJsonSerializer.serialize(result);
 
     return response;
 }

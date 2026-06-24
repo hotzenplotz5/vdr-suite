@@ -1126,6 +1126,53 @@ int main()
            != std::string::npos);
     assert(vdrSearchTimerPlanResponse.body.find("\"requiresExplicitOperatorConfirmation\":true")
            != std::string::npos);
+
+    ApiResponse searchTimerExecuteBlockedResponse =
+        router.handlePost(
+            "/api/searchtimers/execute",
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"default\","
+            "\"name\":\"Router Execute SearchTimer\","
+            "\"query\":\"Router\""
+            "}");
+
+    assert(searchTimerExecuteBlockedResponse.statusCode == 200);
+    assert(searchTimerExecuteBlockedResponse.contentType == "application/json");
+    assert(searchTimerExecuteBlockedResponse.body.find("\"success\":false")
+           != std::string::npos);
+    assert(searchTimerExecuteBlockedResponse.body.find("\"blocked\":true")
+           != std::string::npos);
+    assert(searchTimerExecuteBlockedResponse.body.find("\"executed\":false")
+           != std::string::npos);
+    assert(searchTimerExecuteBlockedResponse.body.find("explicit operator confirmation is required")
+           != std::string::npos);
+
+    ApiResponse vdrSearchTimerExecuteAcceptedResponse =
+        router.handlePost(
+            "/api/vdr/searchtimers/execute",
+            "{"
+            "\"operation\":\"delete\","
+            "\"backendId\":\"default\","
+            "\"backendNativeId\":\"searchtimer-42\","
+            "\"explicitOperatorConfirmation\":true"
+            "}");
+
+    assert(vdrSearchTimerExecuteAcceptedResponse.statusCode == 200);
+    assert(vdrSearchTimerExecuteAcceptedResponse.contentType == "application/json");
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"success\":true")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"blocked\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executed\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"operation\":\"delete\"")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"primaryStep\":\"delete\"")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("backend execution is not implemented in this skeleton")
+           != std::string::npos);
+
     ApiResponse unavailableSearchTimersResponse =
         routerWithoutEpg.handleGet("/api/searchtimers");
 

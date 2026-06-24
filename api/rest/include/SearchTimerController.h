@@ -91,6 +91,9 @@ public:
     ApiResponse planSearchTimerWorkflow(
         const std::string& body);
 
+    ApiResponse executeSearchTimerWorkflow(
+        const std::string& body);
+
 private:
     SearchTimerService& searchTimerService_;
     SearchTimerResultJsonSerializer& jsonSerializer_;

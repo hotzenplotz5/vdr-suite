@@ -55,7 +55,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 50.12 - SearchTimer workflow execution result JSON contract
+    Phase 50.13 - SearchTimer workflow execution REST skeleton
 
 Current documentation consolidation:
 
@@ -63,7 +63,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 50.13 - SearchTimer workflow execution REST skeleton
+    Phase 50.14 - SearchTimer workflow execution REST documentation
 
 Completed foundations:
 
