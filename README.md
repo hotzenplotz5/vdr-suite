@@ -55,7 +55,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 50.18 - SearchTimer workflow dispatch result semantics
+    Phase 50.19 - SearchTimer workflow execution mode contract
 
 Current documentation consolidation:
 
@@ -63,7 +63,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 50.19 - SearchTimer workflow execution mode contract
+    Phase 50.20 - SearchTimer workflow executor opt-in boundary
 
 Completed foundations:
 

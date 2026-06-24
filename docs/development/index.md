@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.18 - SearchTimer workflow dispatch result semantics
+Phase 50.19 - SearchTimer workflow execution mode contract
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.19 - SearchTimer workflow execution mode contract
+Phase 50.20 - SearchTimer workflow executor opt-in boundary
 ```
 
 Current architecture validation:

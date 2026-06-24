@@ -34,6 +34,7 @@ public:
         plan.name_ = request.name();
         plan.query_ = request.query();
         plan.active_ = request.active();
+        plan.executionMode_ = request.executionMode();
         plan.valid_ = request.isValid();
         plan.readOnly_ = request.isReadOnly();
         plan.writeOperation_ = request.isWriteOperation();
@@ -124,6 +125,11 @@ public:
         return followUpStep_ == SearchTimerWorkflowExecutionStep::Readback;
     }
 
+    SearchTimerWorkflowExecutionMode executionMode() const
+    {
+        return executionMode_;
+    }
+
     const std::string& backendId() const
     {
         return backendId_;
@@ -154,6 +160,8 @@ private:
     bool readOnly_ = true;
     bool writeOperation_ = false;
     bool active_ = true;
+    SearchTimerWorkflowExecutionMode executionMode_ =
+        SearchTimerWorkflowExecutionMode::Prepare;
     SearchTimerWorkflowOperation operation_ =
         SearchTimerWorkflowOperation::Unknown;
     SearchTimerWorkflowExecutionStep primaryStep_ =

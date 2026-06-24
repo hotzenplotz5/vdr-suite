@@ -17,6 +17,8 @@ struct SearchTimerWorkflowExecutionResult
     bool commandRequestMapped = false;
     bool realExecutionEnabled = false;
     std::string dispatchStage = "none";
+    SearchTimerWorkflowExecutionMode executionMode =
+        SearchTimerWorkflowExecutionMode::Prepare;
     SearchTimerWorkflowOperation operation =
         SearchTimerWorkflowOperation::Unknown;
     SearchTimerWorkflowExecutionStep primaryStep =
@@ -47,6 +49,7 @@ struct SearchTimerWorkflowExecutionResult
         result.commandRequestMapped = false;
         result.realExecutionEnabled = false;
         result.dispatchStage = "blocked";
+        result.executionMode = plan.executionMode();
         result.operation = plan.operation();
         result.primaryStep = plan.primaryStep();
         result.followUpStep = plan.followUpStep();
@@ -76,6 +79,7 @@ struct SearchTimerWorkflowExecutionResult
         result.commandRequestMapped = false;
         result.realExecutionEnabled = false;
         result.dispatchStage = "skeleton-accepted";
+        result.executionMode = plan.executionMode();
         result.operation = plan.operation();
         result.primaryStep = plan.primaryStep();
         result.followUpStep = plan.followUpStep();

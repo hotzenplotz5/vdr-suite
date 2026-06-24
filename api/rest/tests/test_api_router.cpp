@@ -1176,6 +1176,8 @@ int main()
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"dispatchStage\":\"command-request-mapped\"")
            != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executionMode\":\"prepare\"")
+           != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("delete command request accepted by dispatch skeleton")
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("backend command dispatch is not enabled in this skeleton")

@@ -71,6 +71,20 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
         return result;
     }
 
+    if (plan.executionMode() == SearchTimerWorkflowExecutionMode::DryRun)
+    {
+        SearchTimerWorkflowExecutionResult result =
+            SearchTimerWorkflowExecutionResult::acceptedSkeleton(
+                plan,
+                explicitOperatorConfirmation,
+                "write workflow accepted by dry-run execution mode",
+                {"execution mode dryRun does not map command requests"});
+        result.commandRequestMapped = false;
+        result.realExecutionEnabled = false;
+        result.dispatchStage = "dry-run";
+        return result;
+    }
+
     SearchTimerWorkflowCommandRequestMapper mapper;
     std::string commandName =
         commandNameForStep(plan.primaryStep());
@@ -101,6 +115,19 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                 "workflow plan cannot be mapped to a command request",
                 {"workflow plan cannot be mapped to a command request"});
         result.dispatchStage = "command-request-mapping-failed";
+        return result;
+    }
+
+    if (plan.executionMode() == SearchTimerWorkflowExecutionMode::Execute)
+    {
+        SearchTimerWorkflowExecutionResult result =
+            SearchTimerWorkflowExecutionResult::blockedResult(
+                plan,
+                "real execution mode requested but backend command dispatch is not enabled",
+                {"real execution mode requested but backend command dispatch is not enabled"});
+        result.commandRequestMapped = true;
+        result.realExecutionEnabled = false;
+        result.dispatchStage = "real-execution-disabled";
         return result;
     }
 

@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.18 - SearchTimer workflow dispatch result semantics
+Phase 50.19 - SearchTimer workflow execution mode contract
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.19 - SearchTimer workflow execution mode contract
+Phase 50.20 - SearchTimer workflow executor opt-in boundary
 ```
 
 Completed foundations:
@@ -160,6 +160,7 @@ make test-phase
 - Phase 50.16 adds a guarded command dispatch skeleton that maps command requests without calling the executor.
 - Phase 50.17 wires the guarded command dispatch skeleton into the REST execution path while preserving dry-run behavior.
 - Phase 50.18 adds explicit dispatch result semantics for command request mapping, real execution state and dispatch stage.
+- Phase 50.19 adds an explicit execution mode contract for dryRun, prepare and future execute behavior.
 
 ---
 
@@ -257,10 +258,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.19 - SearchTimer workflow execution mode contract
+Phase 50.20 - SearchTimer workflow executor opt-in boundary
 ```
 
-The next implementation phase should define an explicit execution mode contract so clients and operators can distinguish dry-run preparation from any future opt-in real backend execution.
+The next implementation phase should introduce an explicit executor opt-in boundary so real backend mutation cannot happen unless both the execution mode and service wiring deliberately enable it.
 
 Important boundaries:
 

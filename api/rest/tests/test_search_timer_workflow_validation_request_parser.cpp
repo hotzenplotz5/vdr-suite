@@ -48,7 +48,37 @@ int main()
     assert(!createRequest.active());
     assert(createRequest.isWriteOperation());
     assert(createRequest.wantsReadbackAfterWrite());
+    assert(createRequest.executionMode() == SearchTimerWorkflowExecutionMode::Prepare);
     assert(createRequest.isValid());
+
+    SearchTimerWorkflowRequest dryRunCreateRequest =
+        parser.parse(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Dry\","
+            "\"query\":\"Terra X\","
+            "\"executionMode\":\"dryRun\""
+            "}");
+
+    assert(dryRunCreateRequest.operation() == SearchTimerWorkflowOperation::Create);
+    assert(dryRunCreateRequest.executionMode() == SearchTimerWorkflowExecutionMode::DryRun);
+    assert(dryRunCreateRequest.dryRunMode());
+    assert(dryRunCreateRequest.isValid());
+
+    SearchTimerWorkflowRequest executeDeleteRequest =
+        parser.parse(
+            "{"
+            "\"operation\":\"delete\","
+            "\"backendId\":\"home-vdr\","
+            "\"backendNativeId\":\"searchtimer-42\","
+            "\"mode\":\"execute\""
+            "}");
+
+    assert(executeDeleteRequest.operation() == SearchTimerWorkflowOperation::Delete);
+    assert(executeDeleteRequest.executionMode() == SearchTimerWorkflowExecutionMode::Execute);
+    assert(executeDeleteRequest.executeMode());
+    assert(executeDeleteRequest.isValid());
 
     SearchTimerWorkflowRequest readbackRequest =
         parser.parse(

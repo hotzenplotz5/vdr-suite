@@ -36,6 +36,7 @@ int main()
     assert(blockedJson.find("\"commandRequestMapped\":false") != std::string::npos);
     assert(blockedJson.find("\"realExecutionEnabled\":false") != std::string::npos);
     assert(blockedJson.find("\"dispatchStage\":\"blocked\"") != std::string::npos);
+    assert(blockedJson.find("\"executionMode\":\"prepare\"") != std::string::npos);
     assert(blockedJson.find("\"operation\":\"create\"") != std::string::npos);
     assert(blockedJson.find("\"primaryStep\":\"create\"") != std::string::npos);
     assert(blockedJson.find("\"followUpStep\":\"readback\"") != std::string::npos);
@@ -60,6 +61,7 @@ int main()
     assert(acceptedJson.find("\"commandRequestMapped\":false") != std::string::npos);
     assert(acceptedJson.find("\"realExecutionEnabled\":false") != std::string::npos);
     assert(acceptedJson.find("\"dispatchStage\":\"skeleton-accepted\"") != std::string::npos);
+    assert(acceptedJson.find("\"executionMode\":\"prepare\"") != std::string::npos);
     assert(acceptedJson.find("\"message\":\"accepted quote message\"") != std::string::npos);
     assert(acceptedJson.find("backend execution is not implemented in this skeleton") != std::string::npos);
     assert(acceptedJson.find("backend readback will be required after real execution") != std::string::npos);

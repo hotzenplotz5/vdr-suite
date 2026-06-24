@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 50.18 - SearchTimer workflow dispatch result semantics
+Phase 50.19 - SearchTimer workflow execution mode contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 50.19 - SearchTimer workflow execution mode contract
+Phase 50.20 - SearchTimer workflow executor opt-in boundary
 ```
 
 ---

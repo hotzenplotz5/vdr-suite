@@ -648,6 +648,40 @@ For the current guarded dispatch path:
 - executed=false confirms that no backend mutation was performed.
 - dryRunOnly=true confirms that the response belongs to the safe skeleton path.
 
+### Execution Mode Contract
+
+Phase 50.19 adds an explicit execution mode contract.
+
+Accepted request fields:
+
+- executionMode
+- mode
+
+Supported values:
+
+- dryRun
+- dry-run
+- dryrun
+- prepare
+- execute
+- real
+
+Default behavior is prepare.
+
+Mode semantics:
+
+- dryRun accepts the workflow as a dry-run only and does not map a command request.
+- prepare maps command requests where possible but still does not call a backend executor.
+- execute is reserved for future real backend execution and is currently blocked by the guarded dispatch path.
+
+Current safety guarantees:
+
+- realExecutionEnabled=false
+- executed=false
+- dryRunOnly=true
+- ISearchTimerCommandExecutor is not called
+- backend mutation is not performed
+
 ### Typical Client Flow
 
 Recommended client flow:

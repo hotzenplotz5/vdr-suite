@@ -97,6 +97,22 @@ const char* operationText(
     return "unknown";
 }
 
+const char* executionModeText(
+    SearchTimerWorkflowExecutionMode executionMode)
+{
+    switch (executionMode)
+    {
+    case SearchTimerWorkflowExecutionMode::DryRun:
+        return "dryRun";
+    case SearchTimerWorkflowExecutionMode::Prepare:
+        return "prepare";
+    case SearchTimerWorkflowExecutionMode::Execute:
+        return "execute";
+    }
+
+    return "prepare";
+}
+
 const char* stepText(
     SearchTimerWorkflowExecutionStep step)
 {
@@ -145,6 +161,8 @@ std::string SearchTimerWorkflowExecutionResultJsonSerializer::serialize(
          << boolText(result.realExecutionEnabled);
     json << ",\"dispatchStage\":";
     appendQuoted(json, result.dispatchStage);
+    json << ",\"executionMode\":";
+    appendQuoted(json, executionModeText(result.executionMode));
     json << ",\"operation\":";
     appendQuoted(json, operationText(result.operation));
     json << ",\"primaryStep\":";

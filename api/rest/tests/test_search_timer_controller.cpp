@@ -351,8 +351,33 @@ int main()
     assert(acceptedExecuteResponse.body.find("\"commandRequestMapped\":true") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"realExecutionEnabled\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"dispatchStage\":\"command-request-mapped\"") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executionMode\":\"prepare\"") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("create command request accepted by dispatch skeleton") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("backend command dispatch is not enabled in this skeleton") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
+    ApiResponse executeModeResponse =
+        controller.executeSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Execute\","
+            "\"query\":\"Terra X\","
+            "\"executionMode\":\"execute\","
+            "\"explicitOperatorConfirmation\":true"
+            "}");
+
+    assert(executeModeResponse.statusCode == 200);
+    assert(executeModeResponse.contentType == "application/json");
+    assert(executeModeResponse.body.find("\"success\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"blocked\":true") != std::string::npos);
+    assert(executeModeResponse.body.find("\"commandRequestMapped\":true") != std::string::npos);
+    assert(executeModeResponse.body.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"dispatchStage\":\"real-execution-disabled\"") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executionMode\":\"execute\"") != std::string::npos);
+    assert(executeModeResponse.body.find("real execution mode requested but backend command dispatch is not enabled") != std::string::npos);
     assert(executor.callCount() == 1);
     assert(executor.updateCallCount() == 1);
     assert(executor.removeCallCount() == 0);

@@ -74,7 +74,7 @@ SearchTimer Backend Contract    documented
 SearchTimer Payload Validation  documented
 SearchTimer Domain Model        expanded
 Native Fuzzy Capability         validated end-to-end
-SearchTimer User Workflow       dispatch result semantics implemented
+SearchTimer User Workflow       execution mode contract implemented
 ```
 
 ### Federation and Security
@@ -130,7 +130,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 50.18 - SearchTimer workflow dispatch result semantics
+Phase 50.19 - SearchTimer workflow execution mode contract
 ```
 
 Current Documentation Consolidation:
@@ -142,7 +142,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next Major Implementation Milestone:
 
 ```text
-Phase 50.19 - SearchTimer workflow execution mode contract
+Phase 50.20 - SearchTimer workflow executor opt-in boundary
 ```
 
 Latest Completed Milestones:

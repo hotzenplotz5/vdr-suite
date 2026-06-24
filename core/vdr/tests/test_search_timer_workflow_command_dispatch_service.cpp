@@ -30,6 +30,7 @@ int main()
     assert(!blockedCreate.commandRequestMapped);
     assert(!blockedCreate.realExecutionEnabled);
     assert(blockedCreate.dispatchStage == "confirmation-required");
+    assert(blockedCreate.executionMode == SearchTimerWorkflowExecutionMode::Prepare);
     assert(blockedCreate.operation == SearchTimerWorkflowOperation::Create);
     assert(blockedCreate.primaryStep == SearchTimerWorkflowExecutionStep::Create);
     assert(blockedCreate.hasErrors());
@@ -47,10 +48,53 @@ int main()
     assert(acceptedCreate.commandRequestMapped);
     assert(!acceptedCreate.realExecutionEnabled);
     assert(acceptedCreate.dispatchStage == "command-request-mapped");
+    assert(acceptedCreate.executionMode == SearchTimerWorkflowExecutionMode::Prepare);
     assert(acceptedCreate.backendId == "home-vdr");
     assert(acceptedCreate.message == "create command request accepted by dispatch skeleton");
     assert(acceptedCreate.hasWarnings());
     assert(!acceptedCreate.hasErrors());
+
+    const auto dryRunCreatePlan =
+        planningService.plan(
+            SearchTimerWorkflowRequest::create(
+                "home-vdr",
+                "Terra X Dry",
+                "Terra X")
+                .withExecutionMode(SearchTimerWorkflowExecutionMode::DryRun));
+
+    const SearchTimerWorkflowExecutionResult dryRunCreate =
+        dispatchService.dispatchPlan(dryRunCreatePlan, true);
+
+    assert(dryRunCreate.success);
+    assert(!dryRunCreate.executed);
+    assert(!dryRunCreate.blocked);
+    assert(dryRunCreate.dryRunOnly);
+    assert(!dryRunCreate.commandRequestMapped);
+    assert(!dryRunCreate.realExecutionEnabled);
+    assert(dryRunCreate.dispatchStage == "dry-run");
+    assert(dryRunCreate.executionMode == SearchTimerWorkflowExecutionMode::DryRun);
+    assert(dryRunCreate.message == "write workflow accepted by dry-run execution mode");
+
+    const auto executeCreatePlan =
+        planningService.plan(
+            SearchTimerWorkflowRequest::create(
+                "home-vdr",
+                "Terra X Execute",
+                "Terra X")
+                .withExecutionMode(SearchTimerWorkflowExecutionMode::Execute));
+
+    const SearchTimerWorkflowExecutionResult executeCreate =
+        dispatchService.dispatchPlan(executeCreatePlan, true);
+
+    assert(!executeCreate.success);
+    assert(!executeCreate.executed);
+    assert(executeCreate.blocked);
+    assert(executeCreate.dryRunOnly);
+    assert(executeCreate.commandRequestMapped);
+    assert(!executeCreate.realExecutionEnabled);
+    assert(executeCreate.dispatchStage == "real-execution-disabled");
+    assert(executeCreate.executionMode == SearchTimerWorkflowExecutionMode::Execute);
+    assert(executeCreate.hasErrors());
 
     const auto updatePlan =
         planningService.plan(

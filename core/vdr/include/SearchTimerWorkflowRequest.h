@@ -13,6 +13,13 @@ enum class SearchTimerWorkflowOperation
     Delete
 };
 
+enum class SearchTimerWorkflowExecutionMode
+{
+    DryRun,
+    Prepare,
+    Execute
+};
+
 class SearchTimerWorkflowRequest
 {
 public:
@@ -92,6 +99,14 @@ public:
         return request;
     }
 
+    SearchTimerWorkflowRequest withExecutionMode(
+        SearchTimerWorkflowExecutionMode executionMode) const
+    {
+        SearchTimerWorkflowRequest request = *this;
+        request.executionMode_ = executionMode;
+        return request;
+    }
+
     SearchTimerWorkflowOperation operation() const
     {
         return operation_;
@@ -145,6 +160,26 @@ public:
     bool active() const
     {
         return active_;
+    }
+
+    SearchTimerWorkflowExecutionMode executionMode() const
+    {
+        return executionMode_;
+    }
+
+    bool dryRunMode() const
+    {
+        return executionMode_ == SearchTimerWorkflowExecutionMode::DryRun;
+    }
+
+    bool prepareMode() const
+    {
+        return executionMode_ == SearchTimerWorkflowExecutionMode::Prepare;
+    }
+
+    bool executeMode() const
+    {
+        return executionMode_ == SearchTimerWorkflowExecutionMode::Execute;
     }
 
     bool isReadOnly() const
@@ -228,6 +263,8 @@ public:
     }
 
 private:
+    SearchTimerWorkflowExecutionMode executionMode_ =
+        SearchTimerWorkflowExecutionMode::Prepare;
     SearchTimerWorkflowOperation operation_ =
         SearchTimerWorkflowOperation::Unknown;
     std::string backendId_;

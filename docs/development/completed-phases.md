@@ -201,6 +201,23 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.19 - SearchTimer workflow execution mode contract
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowExecutionMode with dryRun, prepare and execute semantics.
+- Added execution mode storage to workflow requests, execution plans and execution results.
+- Parsed executionMode and mode request fields in the workflow request parser.
+- Serialized executionMode in execution-plan and execution-result JSON.
+- Kept prepare as the default mode to preserve existing guarded dispatch behavior.
+- Made dryRun avoid command-request mapping while remaining successful and dry-run-only.
+- Made execute remain blocked while real backend command dispatch is disabled.
+- Preserved realExecutionEnabled=false, executed=false and dryRunOnly=true for the guarded path.
+- Updated parser, plan JSON, dispatch, result JSON, controller and router coverage.
+
+---
+
 ## Phase 50.18 - SearchTimer workflow dispatch result semantics
 
 Status: Completed.

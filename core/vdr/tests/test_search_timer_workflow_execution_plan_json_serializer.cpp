@@ -18,6 +18,7 @@ int main()
 
     assert(listJson.find("\"valid\":true") != std::string::npos);
     assert(listJson.find("\"operation\":\"list\"") != std::string::npos);
+    assert(listJson.find("\"executionMode\":\"prepare\"") != std::string::npos);
     assert(listJson.find("\"primaryStep\":\"list\"") != std::string::npos);
     assert(listJson.find("\"followUpStep\":\"none\"") != std::string::npos);
     assert(listJson.find("\"hasExecutionWork\":true") != std::string::npos);
@@ -38,6 +39,7 @@ int main()
 
     assert(createJson.find("\"valid\":true") != std::string::npos);
     assert(createJson.find("\"operation\":\"create\"") != std::string::npos);
+    assert(createJson.find("\"executionMode\":\"prepare\"") != std::string::npos);
     assert(createJson.find("\"primaryStep\":\"create\"") != std::string::npos);
     assert(createJson.find("\"followUpStep\":\"readback\"") != std::string::npos);
     assert(createJson.find("\"hasFollowUpStep\":true") != std::string::npos);
@@ -49,6 +51,18 @@ int main()
     assert(createJson.find("\"name\":\"Terra X \\\"Spezial\\\"\"") != std::string::npos);
     assert(createJson.find("\"query\":\"Terra X\\\\HD\"") != std::string::npos);
     assert(createJson.find("\"active\":false") != std::string::npos);
+
+    const std::string dryRunCreateJson =
+        serializer.serialize(
+            planningService.plan(
+                SearchTimerWorkflowRequest::create(
+                    "home-vdr",
+                    "Terra X Dry",
+                    "Terra X")
+                    .withExecutionMode(SearchTimerWorkflowExecutionMode::DryRun)));
+
+    assert(dryRunCreateJson.find("\"operation\":\"create\"") != std::string::npos);
+    assert(dryRunCreateJson.find("\"executionMode\":\"dryRun\"") != std::string::npos);
 
     const std::string readbackJson =
         serializer.serialize(

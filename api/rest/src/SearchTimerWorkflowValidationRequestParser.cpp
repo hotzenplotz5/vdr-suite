@@ -167,6 +167,34 @@ bool parseBool(
            iterator->second == "1";
 }
 
+SearchTimerWorkflowExecutionMode parseExecutionMode(
+    const std::map<std::string, std::string>& values)
+{
+    std::string mode =
+        getValue(values, "executionMode");
+
+    if (mode.empty())
+    {
+        mode =
+            getValue(values, "mode");
+    }
+
+    if (mode == "dryRun" ||
+        mode == "dry-run" ||
+        mode == "dryrun")
+    {
+        return SearchTimerWorkflowExecutionMode::DryRun;
+    }
+
+    if (mode == "execute" ||
+        mode == "real")
+    {
+        return SearchTimerWorkflowExecutionMode::Execute;
+    }
+
+    return SearchTimerWorkflowExecutionMode::Prepare;
+}
+
 } // namespace
 
 SearchTimerWorkflowRequest SearchTimerWorkflowValidationRequestParser::parse(
@@ -199,9 +227,13 @@ SearchTimerWorkflowRequest SearchTimerWorkflowValidationRequestParser::parse(
     const bool active =
         parseBool(values, "active", true);
 
+    const SearchTimerWorkflowExecutionMode executionMode =
+        parseExecutionMode(values);
+
     if (operation == "list")
     {
-        return SearchTimerWorkflowRequest::list(backendId);
+        return SearchTimerWorkflowRequest::list(backendId)
+            .withExecutionMode(executionMode);
     }
 
     if (operation == "preview")
@@ -209,7 +241,8 @@ SearchTimerWorkflowRequest SearchTimerWorkflowValidationRequestParser::parse(
         return SearchTimerWorkflowRequest::preview(
             backendId,
             name,
-            query);
+            query)
+            .withExecutionMode(executionMode);
     }
 
     if (operation == "create")
@@ -218,14 +251,16 @@ SearchTimerWorkflowRequest SearchTimerWorkflowValidationRequestParser::parse(
             backendId,
             name,
             query,
-            active);
+            active)
+            .withExecutionMode(executionMode);
     }
 
     if (operation == "readback")
     {
         return SearchTimerWorkflowRequest::readback(
             backendId,
-            backendNativeId);
+            backendNativeId)
+            .withExecutionMode(executionMode);
     }
 
     if (operation == "update")
@@ -235,7 +270,8 @@ SearchTimerWorkflowRequest SearchTimerWorkflowValidationRequestParser::parse(
             backendNativeId,
             name,
             query,
-            active);
+            active)
+            .withExecutionMode(executionMode);
     }
 
     if (operation == "delete" ||
@@ -243,8 +279,10 @@ SearchTimerWorkflowRequest SearchTimerWorkflowValidationRequestParser::parse(
     {
         return SearchTimerWorkflowRequest::remove(
             backendId,
-            backendNativeId);
+            backendNativeId)
+            .withExecutionMode(executionMode);
     }
 
-    return SearchTimerWorkflowRequest();
+    return SearchTimerWorkflowRequest()
+        .withExecutionMode(executionMode);
 }
