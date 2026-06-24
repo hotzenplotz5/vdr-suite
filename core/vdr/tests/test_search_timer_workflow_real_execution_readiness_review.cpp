@@ -87,7 +87,7 @@ int main()
     assert(!prepareResult.executorInjected);
     assert(!prepareResult.controlledTestInvocationOnly);
     assert(!prepareResult.productionRealExecutionEnabled);
-    assert(!prepareResult.productionRealExecutionPolicyAvailable);
+    assert(prepareResult.productionRealExecutionPolicyAvailable);
     assert(prepareResult.readinessStage == "real-backend-execution-not-ready");
     assert(prepareResult.hasBlockers());
     assert(contains(
@@ -99,9 +99,6 @@ int main()
     assert(contains(
         prepareResult.blockers,
         "command executor is not injected"));
-    assert(contains(
-        prepareResult.blockers,
-        "production real execution policy gate is not available"));
 
     const SearchTimerWorkflowExecutionPlan executePlan =
         planningService.plan(

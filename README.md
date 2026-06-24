@@ -55,7 +55,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 50.33 - SearchTimer workflow per-backend write permission gate
+    Phase 50.34 - SearchTimer workflow production policy gate
 
 Current documentation consolidation:
 
@@ -63,7 +63,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 50.34 - SearchTimer workflow production policy gate
+    Phase 50.35 - SearchTimer workflow yaVDR real-test mode
 
 Completed foundations:
 

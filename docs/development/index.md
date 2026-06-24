@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.33 - SearchTimer workflow per-backend write permission gate
+Phase 50.34 - SearchTimer workflow production policy gate
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.34 - SearchTimer workflow production policy gate
+Phase 50.35 - SearchTimer workflow yaVDR real-test mode
 ```
 
 Current architecture validation:

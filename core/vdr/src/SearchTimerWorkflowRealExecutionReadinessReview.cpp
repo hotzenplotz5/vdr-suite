@@ -2,6 +2,7 @@
 
 #include "SearchTimerWorkflowBackendWriteAllowlist.h"
 #include "SearchTimerWorkflowBackendWritePermissionGate.h"
+#include "SearchTimerWorkflowProductionPolicyGate.h"
 
 namespace
 {
@@ -66,7 +67,15 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
     result.backendWritePermitted =
         permissionDecision.permitted;
 
-    result.productionRealExecutionPolicyAvailable = false;
+    const SearchTimerWorkflowProductionPolicyGateDecision productionPolicyDecision =
+        SearchTimerWorkflowProductionPolicyGate().evaluate(
+            plan,
+            options);
+
+    result.productionRealExecutionPolicyAvailable =
+        productionPolicyDecision.configured;
+    result.productionRealExecutionPolicyAllowed =
+        productionPolicyDecision.allowed;
 
     if (result.planExecutable)
     {
@@ -221,11 +230,30 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
             permissionDecision.message);
     }
 
-    if (!result.productionRealExecutionPolicyAvailable)
+    if (result.productionRealExecutionPolicyAvailable)
+    {
+        addCondition(
+            result.satisfiedConditions,
+            "production real execution policy gate is available");
+    }
+    else
     {
         addBlocker(
             result.blockers,
             "production real execution policy gate is not available");
+    }
+
+    if (result.productionRealExecutionPolicyAllowed)
+    {
+        addCondition(
+            result.satisfiedConditions,
+            "production real execution policy gate is open");
+    }
+    else
+    {
+        addBlocker(
+            result.blockers,
+            productionPolicyDecision.message);
     }
 
     result.readyForRealBackendExecution =
@@ -242,6 +270,7 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
         result.backendWritePermissionConfigured &&
         result.backendWritePermitted &&
         result.productionRealExecutionPolicyAvailable &&
+        result.productionRealExecutionPolicyAllowed &&
         result.blockers.empty();
 
     if (result.readyForRealBackendExecution)

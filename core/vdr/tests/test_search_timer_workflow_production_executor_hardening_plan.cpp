@@ -90,7 +90,7 @@ int main()
     assert(hasRequirement(
         result.requirements,
         "production-policy-gate",
-        false));
+        true));
     assert(hasRequirement(
         result.requirements,
         "mandatory-readback-verification",
@@ -104,9 +104,6 @@ int main()
         "rest-production-boundary",
         false));
 
-    assert(hasBlockerContaining(
-        result.blockers,
-        "production real-execution policy gate is not available"));
 
     std::cout
         << "test_search_timer_workflow_production_executor_hardening_plan passed"

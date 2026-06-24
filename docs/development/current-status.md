@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.33 - SearchTimer workflow per-backend write permission gate
+Phase 50.34 - SearchTimer workflow production policy gate
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.34 - SearchTimer workflow production policy gate
+Phase 50.35 - SearchTimer workflow yaVDR real-test mode
 ```
 
 Completed foundations:
@@ -175,6 +175,7 @@ make test-phase
 - Phase 50.31 adds a disabled-by-default production real execution enablement switch contract.
 - Phase 50.32 adds a backend write allowlist gate for production SearchTimer writes.
 - Phase 50.33 adds a per-backend write permission gate after the allowlist.
+- Phase 50.34 adds a closed-by-default production policy gate as the final safety gate before real yaVDR testing.
 - Phase 50.29 adds a non-mutating real backend execution readiness review and keeps production readiness false.
 - Phase 50.24 adds a guarded executor invocation contract while keeping invocationAttempted=false in all paths.
 
@@ -274,10 +275,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.34 - SearchTimer workflow production policy gate
+Phase 50.35 - SearchTimer workflow yaVDR real-test mode
 ```
 
-The next implementation phase should add the production policy gate before any production backend mutation path is considered.
+The next implementation phase should add a controlled yaVDR real-test mode with operator-visible output.
 
 Important boundaries:
 

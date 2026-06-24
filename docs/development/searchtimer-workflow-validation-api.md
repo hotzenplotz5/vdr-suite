@@ -995,6 +995,20 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### Production Policy Gate
+
+Phase 50.34 adds the production policy gate.
+
+Current behavior:
+
+- the production policy gate contract exists
+- the gate is closed by default
+- requests that pass switch, allowlist and per-backend permission are still blocked by the closed production policy gate
+- real VDR backend mutation remains out of scope
+- the next practical step is a controlled yaVDR real-test mode
+
+This completes the current safety gate chain before real environment testing.
+
 ### Per-Backend Write Permission Gate
 
 Phase 50.33 adds a per-backend write permission gate.

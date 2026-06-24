@@ -74,7 +74,7 @@ SearchTimer Backend Contract    documented
 SearchTimer Payload Validation  documented
 SearchTimer Domain Model        expanded
 Native Fuzzy Capability         validated end-to-end
-SearchTimer User Workflow       per-backend write permission gate implemented
+SearchTimer User Workflow       production policy gate implemented
 ```
 
 ### Federation and Security
@@ -130,7 +130,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 50.33 - SearchTimer workflow per-backend write permission gate
+Phase 50.34 - SearchTimer workflow production policy gate
 ```
 
 Current Documentation Consolidation:
@@ -142,7 +142,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next Major Implementation Milestone:
 
 ```text
-Phase 50.34 - SearchTimer workflow production policy gate
+Phase 50.35 - SearchTimer workflow yaVDR real-test mode
 ```
 
 Latest Completed Milestones:

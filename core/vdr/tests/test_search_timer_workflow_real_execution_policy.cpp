@@ -162,9 +162,23 @@ int main()
                 std::vector<std::string>{"home-vdr"}));
 
     assert(!permittedDecision.allowed);
-    assert(permittedDecision.dispatchStage == "real-execution-policy-denied");
-    assert(permittedDecision.message == "real execution policy denies backend command dispatch");
+    assert(permittedDecision.dispatchStage == "production-policy-gate-required");
+    assert(permittedDecision.message == "production policy gate is required");
     assert(!permittedDecision.errors.empty());
+
+    const SearchTimerWorkflowRealExecutionPolicyDecision policyGateClosedDecision =
+        policy.evaluate(
+            executePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlistAndPermissionAndProductionPolicyGate(
+                true,
+                &executor,
+                std::vector<std::string>{"home-vdr"},
+                std::vector<std::string>{"home-vdr"}));
+
+    assert(!policyGateClosedDecision.allowed);
+    assert(policyGateClosedDecision.dispatchStage == "production-policy-gate-closed");
+    assert(policyGateClosedDecision.message == "production policy gate is closed for real backend mutation");
+    assert(!policyGateClosedDecision.errors.empty());
 
     std::cout
         << "test_search_timer_workflow_real_execution_policy passed"

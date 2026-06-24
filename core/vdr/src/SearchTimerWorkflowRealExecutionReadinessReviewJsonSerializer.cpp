@@ -94,6 +94,8 @@ SearchTimerWorkflowRealExecutionReadinessReviewJsonSerializer::serialize(
          << boolText(result.backendWritePermitted);
     json << ",\"productionRealExecutionPolicyAvailable\":"
          << boolText(result.productionRealExecutionPolicyAvailable);
+    json << ",\"productionRealExecutionPolicyAllowed\":"
+         << boolText(result.productionRealExecutionPolicyAllowed);
     json << ",\"readinessStage\":";
     appendQuoted(json, result.readinessStage);
     json << ",\"message\":";

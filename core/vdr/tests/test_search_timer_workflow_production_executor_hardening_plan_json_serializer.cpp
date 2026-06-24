@@ -22,10 +22,10 @@ int main()
     assert(json.find("\"id\":\"backend-write-allowlist\"") != std::string::npos);
     assert(json.find("backend write allowlist contract exists") != std::string::npos);
     assert(json.find("\"id\":\"production-policy-gate\"") != std::string::npos);
+    assert(json.find("production policy gate contract exists and remains closed by default") != std::string::npos);
     assert(json.find("\"status\":\"satisfied\"") != std::string::npos);
     assert(json.find("\"status\":\"missing\"") != std::string::npos);
     assert(json.find("production enable switch contract exists and is disabled by default") != std::string::npos);
-    assert(json.find("production real-execution policy gate is not available") != std::string::npos);
 
     assert(json.find("per-backend write permission gate contract exists") != std::string::npos);
     std::cout

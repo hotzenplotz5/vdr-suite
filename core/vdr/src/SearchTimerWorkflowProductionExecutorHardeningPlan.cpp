@@ -146,9 +146,9 @@ SearchTimerWorkflowProductionExecutorHardeningPlan::build() const
             "production-policy-gate",
             "Production real-execution policy gate",
             true,
-            false,
-            "missing",
-            "production real-execution policy gate is not available"));
+            true,
+            "satisfied",
+            "production policy gate contract exists and remains closed by default"));
 
     addRequirement(
         result,

@@ -72,6 +72,7 @@ int main()
     assert(json.find("\"backendWritePermissionConfigured\":false") != std::string::npos);
     assert(json.find("\"backendWritePermitted\":false") != std::string::npos);
     assert(json.find("\"productionRealExecutionPolicyAvailable\":false") != std::string::npos);
+    assert(json.find("\"productionRealExecutionPolicyAllowed\":false") != std::string::npos);
     assert(json.find("\"readinessStage\":\"real-backend-execution-not-ready\"") != std::string::npos);
     assert(json.find("controlled test invocation is not production real execution") != std::string::npos);
     assert(json.find("production real execution policy gate is not available") != std::string::npos);
