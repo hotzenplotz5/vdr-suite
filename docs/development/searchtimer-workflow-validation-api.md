@@ -574,6 +574,29 @@ The mapper does not mutate a backend.
 
 The mapper is therefore a command boundary preparation step only.
 
+### Command Dispatch Skeleton
+
+Phase 50.16 adds a guarded workflow command dispatch skeleton.
+
+The dispatch skeleton consumes executable workflow plans and uses the command request mapper from Phase 50.15.
+
+For write-operation plans it verifies that a command request can be mapped for:
+
+- create
+- update
+- delete
+
+The dispatch skeleton still does not call ISearchTimerCommandExecutor.
+
+The dispatch skeleton still does not mutate a backend.
+
+Accepted dispatch skeleton results still have:
+
+- executed=false
+- dryRunOnly=true
+
+The dispatch skeleton is therefore a preparation boundary for a later opt-in real command dispatcher.
+
 ### Typical Client Flow
 
 Recommended client flow:

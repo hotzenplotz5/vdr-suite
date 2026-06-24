@@ -74,7 +74,7 @@ SearchTimer Backend Contract    documented
 SearchTimer Payload Validation  documented
 SearchTimer Domain Model        expanded
 Native Fuzzy Capability         validated end-to-end
-SearchTimer User Workflow       command request boundary implemented
+SearchTimer User Workflow       command dispatch skeleton implemented
 ```
 
 ### Federation and Security
@@ -130,7 +130,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 50.15 - SearchTimer workflow execution command boundary
+Phase 50.16 - SearchTimer workflow execution command dispatch skeleton
 ```
 
 Current Documentation Consolidation:
@@ -142,7 +142,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next Major Implementation Milestone:
 
 ```text
-Phase 50.16 - SearchTimer workflow execution command dispatch skeleton
+Phase 50.17 - SearchTimer workflow dispatch REST wiring
 ```
 
 Latest Completed Milestones:

@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 50.15 - SearchTimer workflow execution command boundary
+Phase 50.16 - SearchTimer workflow execution command dispatch skeleton
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 50.16 - SearchTimer workflow execution command dispatch skeleton
+Phase 50.17 - SearchTimer workflow dispatch REST wiring
 ```
 
 ---

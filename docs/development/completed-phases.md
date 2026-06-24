@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.16 - SearchTimer workflow execution command dispatch skeleton
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowCommandDispatchService as a guarded command dispatch skeleton.
+- Used SearchTimerWorkflowCommandRequestMapper to map write-operation plans to command requests.
+- Preserved explicit operator confirmation before accepting write-operation dispatch plans.
+- Kept ISearchTimerCommandExecutor calls and backend mutation out of scope.
+- Kept accepted dispatch skeleton results dry-run-only with executed=false.
+- Covered create, update, delete, read-only and invalid dispatch-plan behavior with a targeted test.
+- Linked the dispatch skeleton target into the local VDR test group.
+
+---
+
 ## Phase 50.15 - SearchTimer workflow execution command boundary
 
 Status: Completed.
