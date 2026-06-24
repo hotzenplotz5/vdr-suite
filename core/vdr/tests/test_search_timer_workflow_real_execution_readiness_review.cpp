@@ -179,12 +179,43 @@ int main()
     assert(productionEnabledResult.executorInjected);
     assert(!productionEnabledResult.controlledTestInvocationOnly);
     assert(productionEnabledResult.productionRealExecutionEnabled);
+    assert(!productionEnabledResult.backendWriteAllowlistConfigured);
+    assert(!productionEnabledResult.backendWriteAllowed);
     assert(!productionEnabledResult.productionRealExecutionPolicyAvailable);
     assert(contains(
         productionEnabledResult.satisfiedConditions,
         "production real execution enable switch is enabled"));
     assert(contains(
         productionEnabledResult.blockers,
+        "backend write allowlist is not configured"));
+    assert(contains(
+        productionEnabledResult.blockers,
+        "backend write allowlist is required"));
+    assert(contains(
+        productionEnabledResult.blockers,
+        "production real execution policy gate is not available"));
+
+    const SearchTimerWorkflowRealExecutionReadinessReviewResult allowlistedResult =
+        review.review(
+            executePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlist(
+                true,
+                &executor,
+                std::vector<std::string>{"home-vdr"}));
+
+    assert(!allowlistedResult.readyForRealBackendExecution);
+    assert(allowlistedResult.productionRealExecutionEnabled);
+    assert(allowlistedResult.backendWriteAllowlistConfigured);
+    assert(allowlistedResult.backendWriteAllowed);
+    assert(!allowlistedResult.productionRealExecutionPolicyAvailable);
+    assert(contains(
+        allowlistedResult.satisfiedConditions,
+        "backend write allowlist is configured"));
+    assert(contains(
+        allowlistedResult.satisfiedConditions,
+        "backend write is allowed"));
+    assert(contains(
+        allowlistedResult.blockers,
         "production real execution policy gate is not available"));
     assert(executor.callCount() == 0);
 

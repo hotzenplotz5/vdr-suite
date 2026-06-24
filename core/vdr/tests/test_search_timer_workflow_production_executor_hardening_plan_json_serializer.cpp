@@ -20,6 +20,7 @@ int main()
     assert(json.find("\"id\":\"dry-run-prepare-execute-separation\"") != std::string::npos);
     assert(json.find("\"id\":\"production-enable-switch\"") != std::string::npos);
     assert(json.find("\"id\":\"backend-write-allowlist\"") != std::string::npos);
+    assert(json.find("backend write allowlist contract exists") != std::string::npos);
     assert(json.find("\"id\":\"production-policy-gate\"") != std::string::npos);
     assert(json.find("\"status\":\"satisfied\"") != std::string::npos);
     assert(json.find("\"status\":\"missing\"") != std::string::npos);

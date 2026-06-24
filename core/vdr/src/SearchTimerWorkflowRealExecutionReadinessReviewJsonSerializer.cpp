@@ -84,6 +84,10 @@ SearchTimerWorkflowRealExecutionReadinessReviewJsonSerializer::serialize(
          << boolText(result.controlledTestInvocationOnly);
     json << ",\"productionRealExecutionEnabled\":"
          << boolText(result.productionRealExecutionEnabled);
+    json << ",\"backendWriteAllowlistConfigured\":"
+         << boolText(result.backendWriteAllowlistConfigured);
+    json << ",\"backendWriteAllowed\":"
+         << boolText(result.backendWriteAllowed);
     json << ",\"productionRealExecutionPolicyAvailable\":"
          << boolText(result.productionRealExecutionPolicyAvailable);
     json << ",\"readinessStage\":";

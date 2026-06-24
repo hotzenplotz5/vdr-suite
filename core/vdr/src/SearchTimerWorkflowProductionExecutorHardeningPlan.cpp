@@ -126,9 +126,9 @@ SearchTimerWorkflowProductionExecutorHardeningPlan::build() const
             "backend-write-allowlist",
             "Backend write allowlist",
             true,
-            false,
-            "missing",
-            "no backend write allowlist exists yet"));
+            true,
+            "satisfied",
+            "backend write allowlist contract exists"));
 
     addRequirement(
         result,

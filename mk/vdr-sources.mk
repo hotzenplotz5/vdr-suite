@@ -40,6 +40,7 @@ VDR_SRC := \
         core/vdr/src/SearchTimerWorkflowProductionExecutorHardeningPlanJsonSerializer.cpp \
         core/vdr/src/SearchTimerWorkflowRealExecutionReadinessReview.cpp \
         core/vdr/src/SearchTimerWorkflowRealExecutionReadinessReviewJsonSerializer.cpp \
+        core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
         core/vdr/src/SearchTimerWorkflowRealExecutionEnablementSwitch.cpp \
         core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
         core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \

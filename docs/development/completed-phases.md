@@ -201,6 +201,22 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.32 - SearchTimer workflow backend write allowlist
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowBackendWriteAllowlist.
+- Added backendWriteAllowlistEnabled and allowed backend IDs to SearchTimerWorkflowCommandDispatchOptions.
+- Updated real execution policy to require a backend write allowlist after the production enablement switch.
+- Updated real execution readiness review and JSON output with backend write allowlist state.
+- Updated production executor hardening plan to mark backend write allowlist as satisfied.
+- Verified that non-allowlisted backend writes are blocked.
+- Verified that allowlisted backend writes advance only to the next production gate.
+- Kept real VDR backend mutation out of scope.
+
+---
+
 ## Phase 50.31 - SearchTimer workflow real execution enablement switch
 
 Status: Completed.

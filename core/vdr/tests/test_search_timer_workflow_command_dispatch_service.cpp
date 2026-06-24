@@ -226,8 +226,8 @@ int main()
     assert(!executeCreateWithInjectedExecutor.executorInvocationAttempted);
     assert(!executeCreateWithInjectedExecutor.executorInvocationKillSwitchOpen);
     assert(!executeCreateWithInjectedExecutor.executorInvocationKillSwitchPassed);
-    assert(executeCreateWithInjectedExecutor.dispatchStage == "real-execution-policy-denied");
-    assert(executeCreateWithInjectedExecutor.message == "real execution policy denies backend command dispatch");
+    assert(executeCreateWithInjectedExecutor.dispatchStage == "real-execution-enable-switch-required");
+    assert(executeCreateWithInjectedExecutor.message == "production real execution enable switch is required");
     assert(executeCreateWithInjectedExecutor.executionMode == SearchTimerWorkflowExecutionMode::Execute);
     assert(executeCreateWithInjectedExecutor.hasErrors());
     assert(injectedExecutor.callCount() == 0);

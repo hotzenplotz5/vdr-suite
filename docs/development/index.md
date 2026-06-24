@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.31 - SearchTimer workflow real execution enablement switch
+Phase 50.32 - SearchTimer workflow backend write allowlist
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.32 - SearchTimer workflow backend write allowlist
+Phase 50.33 - SearchTimer workflow per-backend write permission gate
 ```
 
 Current architecture validation:

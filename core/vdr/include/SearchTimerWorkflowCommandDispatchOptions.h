@@ -2,6 +2,9 @@
 
 #include "ISearchTimerCommandExecutor.h"
 
+#include <string>
+#include <vector>
+
 class SearchTimerWorkflowCommandDispatchOptions
 {
 public:
@@ -67,6 +70,22 @@ public:
         return options;
     }
 
+    static SearchTimerWorkflowCommandDispatchOptions confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlist(
+        bool explicitOperatorConfirmation,
+        ISearchTimerCommandExecutor* executor,
+        const std::vector<std::string>& allowedBackendIds)
+    {
+        SearchTimerWorkflowCommandDispatchOptions options;
+        options.explicitOperatorConfirmation_ =
+            explicitOperatorConfirmation;
+        options.executorOptInEnabled_ = true;
+        options.commandExecutor_ = executor;
+        options.productionRealExecutionEnabled_ = true;
+        options.backendWriteAllowlistEnabled_ = true;
+        options.backendWriteAllowedBackendIds_ = allowedBackendIds;
+        return options;
+    }
+
     bool explicitOperatorConfirmation() const
     {
         return explicitOperatorConfirmation_;
@@ -97,10 +116,22 @@ public:
         return productionRealExecutionEnabled_;
     }
 
+    bool backendWriteAllowlistEnabled() const
+    {
+        return backendWriteAllowlistEnabled_;
+    }
+
+    const std::vector<std::string>& backendWriteAllowedBackendIds() const
+    {
+        return backendWriteAllowedBackendIds_;
+    }
+
 private:
     bool explicitOperatorConfirmation_ = false;
     bool executorOptInEnabled_ = false;
     ISearchTimerCommandExecutor* commandExecutor_ = nullptr;
     bool controlledTestExecutorInvocationEnabled_ = false;
     bool productionRealExecutionEnabled_ = false;
+    bool backendWriteAllowlistEnabled_ = false;
+    std::vector<std::string> backendWriteAllowedBackendIds_;
 };

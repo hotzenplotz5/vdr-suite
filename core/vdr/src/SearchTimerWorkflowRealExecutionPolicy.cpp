@@ -1,5 +1,7 @@
 #include "SearchTimerWorkflowRealExecutionPolicy.h"
 
+#include "SearchTimerWorkflowBackendWriteAllowlist.h"
+
 SearchTimerWorkflowRealExecutionPolicyDecision
 SearchTimerWorkflowRealExecutionPolicy::evaluate(
     const SearchTimerWorkflowExecutionPlan& plan,
@@ -52,6 +54,21 @@ SearchTimerWorkflowRealExecutionPolicy::evaluate(
         decision.dispatchStage = "real-execution-enable-switch-required";
         decision.message = "production real execution enable switch is required";
         decision.errors = {"production real execution enable switch is required"};
+        return decision;
+    }
+
+    const SearchTimerWorkflowBackendWriteAllowlistDecision allowlistDecision =
+        SearchTimerWorkflowBackendWriteAllowlist().evaluate(
+            plan,
+            options);
+
+    if (!allowlistDecision.allowed)
+    {
+        SearchTimerWorkflowRealExecutionPolicyDecision decision;
+        decision.allowed = false;
+        decision.dispatchStage = allowlistDecision.dispatchStage;
+        decision.message = allowlistDecision.message;
+        decision.errors = allowlistDecision.errors;
         return decision;
     }
 

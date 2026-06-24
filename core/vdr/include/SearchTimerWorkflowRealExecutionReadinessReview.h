@@ -17,6 +17,8 @@ struct SearchTimerWorkflowRealExecutionReadinessReviewResult
     bool executorInjected = false;
     bool controlledTestInvocationOnly = false;
     bool productionRealExecutionEnabled = false;
+    bool backendWriteAllowlistConfigured = false;
+    bool backendWriteAllowed = false;
     bool productionRealExecutionPolicyAvailable = false;
     std::string readinessStage = "real-backend-execution-not-ready";
     std::string message = "real backend execution is not ready";

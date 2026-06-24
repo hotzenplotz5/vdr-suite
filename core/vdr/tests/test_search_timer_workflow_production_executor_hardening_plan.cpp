@@ -82,7 +82,7 @@ int main()
     assert(hasRequirement(
         result.requirements,
         "backend-write-allowlist",
-        false));
+        true));
     assert(hasRequirement(
         result.requirements,
         "per-backend-permission",
@@ -104,9 +104,6 @@ int main()
         "rest-production-boundary",
         false));
 
-    assert(hasBlockerContaining(
-        result.blockers,
-        "no backend write allowlist exists yet"));
     assert(hasBlockerContaining(
         result.blockers,
         "production real-execution policy gate is not available"));

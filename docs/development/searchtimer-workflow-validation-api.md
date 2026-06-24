@@ -995,6 +995,22 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### Backend Write Allowlist
+
+Phase 50.32 adds a backend write allowlist gate.
+
+The allowlist is required for production SearchTimer write execution.
+
+Current behavior:
+
+- read-only workflows do not require the write allowlist
+- write workflows without a configured allowlist are blocked
+- write workflows with a backend not present in the allowlist are blocked
+- write workflows with an allowlisted backend can advance to the next production gate
+- backend mutation is still not enabled
+
+The allowlist is part of the production execution gate chain and remains separate from the controlled test executor path.
+
 ### Typical Client Flow
 
 Recommended client flow:

@@ -135,9 +135,22 @@ int main()
                 &executor));
 
     assert(!productionEnabledDecision.allowed);
-    assert(productionEnabledDecision.dispatchStage == "real-execution-policy-denied");
-    assert(productionEnabledDecision.message == "real execution policy denies backend command dispatch");
+    assert(productionEnabledDecision.dispatchStage == "backend-write-allowlist-required");
+    assert(productionEnabledDecision.message == "backend write allowlist is required");
     assert(!productionEnabledDecision.errors.empty());
+
+    const SearchTimerWorkflowRealExecutionPolicyDecision allowlistedDecision =
+        policy.evaluate(
+            executePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlist(
+                true,
+                &executor,
+                std::vector<std::string>{"home-vdr"}));
+
+    assert(!allowlistedDecision.allowed);
+    assert(allowlistedDecision.dispatchStage == "real-execution-policy-denied");
+    assert(allowlistedDecision.message == "real execution policy denies backend command dispatch");
+    assert(!allowlistedDecision.errors.empty());
 
     std::cout
         << "test_search_timer_workflow_real_execution_policy passed"

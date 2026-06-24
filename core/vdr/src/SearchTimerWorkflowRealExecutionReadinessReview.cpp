@@ -1,5 +1,7 @@
 #include "SearchTimerWorkflowRealExecutionReadinessReview.h"
 
+#include "SearchTimerWorkflowBackendWriteAllowlist.h"
+
 namespace
 {
 
@@ -42,6 +44,17 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
         options.controlledTestExecutorInvocationEnabled();
     result.productionRealExecutionEnabled =
         options.productionRealExecutionEnabled();
+
+    const SearchTimerWorkflowBackendWriteAllowlistDecision allowlistDecision =
+        SearchTimerWorkflowBackendWriteAllowlist().evaluate(
+            plan,
+            options);
+
+    result.backendWriteAllowlistConfigured =
+        allowlistDecision.configured;
+    result.backendWriteAllowed =
+        allowlistDecision.allowed;
+
     result.productionRealExecutionPolicyAvailable = false;
 
     if (result.planExecutable)
@@ -145,6 +158,32 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
             "production real execution enable switch is disabled");
     }
 
+    if (result.backendWriteAllowlistConfigured)
+    {
+        addCondition(
+            result.satisfiedConditions,
+            "backend write allowlist is configured");
+    }
+    else
+    {
+        addBlocker(
+            result.blockers,
+            "backend write allowlist is not configured");
+    }
+
+    if (result.backendWriteAllowed)
+    {
+        addCondition(
+            result.satisfiedConditions,
+            "backend write is allowed");
+    }
+    else
+    {
+        addBlocker(
+            result.blockers,
+            allowlistDecision.message);
+    }
+
     if (!result.productionRealExecutionPolicyAvailable)
     {
         addBlocker(
@@ -161,6 +200,8 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
         result.executorInjected &&
         !result.controlledTestInvocationOnly &&
         result.productionRealExecutionEnabled &&
+        result.backendWriteAllowlistConfigured &&
+        result.backendWriteAllowed &&
         result.productionRealExecutionPolicyAvailable &&
         result.blockers.empty();
 
