@@ -77,6 +77,8 @@ int main()
     assert(!blockedCreate.realExecutionPolicyAllowed);
     assert(!blockedCreate.executorOptInProvided);
     assert(!blockedCreate.executorInjected);
+    assert(!blockedCreate.executorInvocationGuardPassed);
+    assert(!blockedCreate.executorInvocationAttempted);
     assert(blockedCreate.dispatchStage == "confirmation-required");
     assert(blockedCreate.executionMode == SearchTimerWorkflowExecutionMode::Prepare);
     assert(blockedCreate.operation == SearchTimerWorkflowOperation::Create);
@@ -98,6 +100,8 @@ int main()
     assert(!acceptedCreate.realExecutionPolicyAllowed);
     assert(!acceptedCreate.executorOptInProvided);
     assert(!acceptedCreate.executorInjected);
+    assert(!acceptedCreate.executorInvocationGuardPassed);
+    assert(!acceptedCreate.executorInvocationAttempted);
     assert(acceptedCreate.dispatchStage == "command-request-mapped");
     assert(acceptedCreate.executionMode == SearchTimerWorkflowExecutionMode::Prepare);
     assert(acceptedCreate.backendId == "home-vdr");
@@ -125,6 +129,8 @@ int main()
     assert(!dryRunCreate.realExecutionPolicyAllowed);
     assert(!dryRunCreate.executorOptInProvided);
     assert(!dryRunCreate.executorInjected);
+    assert(!dryRunCreate.executorInvocationGuardPassed);
+    assert(!dryRunCreate.executorInvocationAttempted);
     assert(dryRunCreate.dispatchStage == "dry-run");
     assert(dryRunCreate.executionMode == SearchTimerWorkflowExecutionMode::DryRun);
     assert(dryRunCreate.message == "write workflow accepted by dry-run execution mode");
@@ -149,6 +155,8 @@ int main()
     assert(!executeCreateWithoutOptIn.realExecutionPolicyAllowed);
     assert(!executeCreateWithoutOptIn.executorOptInProvided);
     assert(!executeCreateWithoutOptIn.executorInjected);
+    assert(!executeCreateWithoutOptIn.executorInvocationGuardPassed);
+    assert(!executeCreateWithoutOptIn.executorInvocationAttempted);
     assert(executeCreateWithoutOptIn.dispatchStage == "executor-opt-in-required");
     assert(executeCreateWithoutOptIn.executionMode == SearchTimerWorkflowExecutionMode::Execute);
     assert(executeCreateWithoutOptIn.hasErrors());
@@ -167,6 +175,8 @@ int main()
     assert(!executeCreateWithOptIn.realExecutionPolicyAllowed);
     assert(executeCreateWithOptIn.executorOptInProvided);
     assert(!executeCreateWithOptIn.executorInjected);
+    assert(!executeCreateWithOptIn.executorInvocationGuardPassed);
+    assert(!executeCreateWithOptIn.executorInvocationAttempted);
     assert(executeCreateWithOptIn.dispatchStage == "real-executor-injection-required");
     assert(executeCreateWithOptIn.message == "real execution mode requires an injected command executor");
     assert(executeCreateWithOptIn.executionMode == SearchTimerWorkflowExecutionMode::Execute);
@@ -190,6 +200,8 @@ int main()
     assert(!executeCreateWithInjectedExecutor.realExecutionPolicyAllowed);
     assert(executeCreateWithInjectedExecutor.executorOptInProvided);
     assert(executeCreateWithInjectedExecutor.executorInjected);
+    assert(!executeCreateWithInjectedExecutor.executorInvocationGuardPassed);
+    assert(!executeCreateWithInjectedExecutor.executorInvocationAttempted);
     assert(executeCreateWithInjectedExecutor.dispatchStage == "real-execution-policy-denied");
     assert(executeCreateWithInjectedExecutor.message == "real execution policy denies backend command dispatch");
     assert(executeCreateWithInjectedExecutor.executionMode == SearchTimerWorkflowExecutionMode::Execute);
@@ -216,6 +228,8 @@ int main()
     assert(!acceptedUpdate.realExecutionPolicyAllowed);
     assert(!acceptedUpdate.executorOptInProvided);
     assert(!acceptedUpdate.executorInjected);
+    assert(!acceptedUpdate.executorInvocationGuardPassed);
+    assert(!acceptedUpdate.executorInvocationAttempted);
     assert(acceptedUpdate.dispatchStage == "command-request-mapped");
     assert(acceptedUpdate.requiresBackendReadback);
     assert(acceptedUpdate.backendId == "remote-vdr");
@@ -244,6 +258,8 @@ int main()
     assert(!acceptedDelete.realExecutionPolicyAllowed);
     assert(!acceptedDelete.executorOptInProvided);
     assert(!acceptedDelete.executorInjected);
+    assert(!acceptedDelete.executorInvocationGuardPassed);
+    assert(!acceptedDelete.executorInvocationAttempted);
     assert(acceptedDelete.dispatchStage == "command-request-mapped");
     assert(!acceptedDelete.requiresBackendReadback);
     assert(acceptedDelete.backendId == "archive-vdr");
@@ -269,6 +285,8 @@ int main()
     assert(!listResult.realExecutionPolicyAllowed);
     assert(!listResult.executorOptInProvided);
     assert(!listResult.executorInjected);
+    assert(!listResult.executorInvocationGuardPassed);
+    assert(!listResult.executorInvocationAttempted);
     assert(listResult.dispatchStage == "read-only-no-dispatch");
     assert(listResult.operation == SearchTimerWorkflowOperation::List);
     assert(listResult.primaryStep == SearchTimerWorkflowExecutionStep::List);
@@ -295,6 +313,8 @@ int main()
     assert(!invalidResult.realExecutionPolicyAllowed);
     assert(!invalidResult.executorOptInProvided);
     assert(!invalidResult.executorInjected);
+    assert(!invalidResult.executorInvocationGuardPassed);
+    assert(!invalidResult.executorInvocationAttempted);
     assert(invalidResult.dispatchStage == "validation-blocked");
     assert(invalidResult.operation == SearchTimerWorkflowOperation::Update);
     assert(invalidResult.primaryStep == SearchTimerWorkflowExecutionStep::None);

@@ -55,7 +55,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 50.23 - SearchTimer workflow real executor injection skeleton
+    Phase 50.24 - SearchTimer workflow guarded executor invocation contract
 
 Current documentation consolidation:
 
@@ -63,7 +63,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 50.24 - SearchTimer workflow guarded executor invocation contract
+    Phase 50.25 - SearchTimer workflow executor invocation result mapping skeleton
 
 Completed foundations:
 

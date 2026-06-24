@@ -201,6 +201,22 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.24 - SearchTimer workflow guarded executor invocation contract
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowGuardedExecutorInvocation as the contract boundary before any future executor call.
+- Added executorInvocationGuardPassed and executorInvocationAttempted to SearchTimerWorkflowExecutionResult and the execution-result JSON contract.
+- Integrated guarded invocation evaluation into execute-mode dispatch after command request mapping and real-execution policy evaluation.
+- Kept executorInvocationAttempted=false in all paths.
+- Verified the guard rejects non-execute, unmapped, missing opt-in, missing executor and policy-denied states.
+- Verified a synthetic allowed policy decision can satisfy the guard contract without calling the executor.
+- Preserved realExecutionEnabled=false, executed=false and dryRunOnly=true.
+- Kept backend mutation out of scope.
+
+---
+
 ## Phase 50.23 - SearchTimer workflow real executor injection skeleton
 
 Status: Completed.

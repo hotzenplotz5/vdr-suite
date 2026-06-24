@@ -1,6 +1,7 @@
 #include "SearchTimerWorkflowCommandDispatchService.h"
 
 #include "SearchTimerWorkflowCommandRequestMapper.h"
+#include "SearchTimerWorkflowGuardedExecutorInvocation.h"
 #include "SearchTimerWorkflowRealExecutionPolicy.h"
 
 #include <string>
@@ -163,15 +164,28 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                 plan,
                 options);
 
+        SearchTimerWorkflowGuardedExecutorInvocation invocationGuard;
+        const SearchTimerWorkflowGuardedExecutorInvocationDecision
+            invocationDecision =
+                invocationGuard.evaluate(
+                    plan,
+                    options,
+                    decision,
+                    true);
+
         SearchTimerWorkflowExecutionResult result =
             SearchTimerWorkflowExecutionResult::blockedResult(
                 plan,
-                decision.message,
-                decision.errors);
+                invocationDecision.message,
+                invocationDecision.errors);
         result.commandRequestMapped = true;
         result.realExecutionPolicyAllowed = decision.allowed;
         result.realExecutionEnabled = false;
-        result.dispatchStage = decision.dispatchStage;
+        result.executorInvocationGuardPassed =
+            invocationDecision.guardPassed;
+        result.executorInvocationAttempted =
+            invocationDecision.invocationAttempted;
+        result.dispatchStage = invocationDecision.dispatchStage;
         return applyDispatchOptions(result, options);
     }
 

@@ -632,6 +632,8 @@ Additional response fields:
 - realExecutionPolicyAllowed
 - executorOptInProvided
 - executorInjected
+- executorInvocationGuardPassed
+- executorInvocationAttempted
 - dispatchStage
 
 The dispatchStage field helps clients distinguish:
@@ -795,6 +797,31 @@ The result includes:
 - dryRunOnly=true
 
 This phase prepares dependency injection only. It does not perform backend mutation.
+
+### Guarded Executor Invocation Contract
+
+Phase 50.24 adds a guarded executor invocation contract.
+
+The guard evaluates whether a future executor invocation would be allowed.
+
+Required conditions include:
+
+- executionMode=execute
+- a write workflow plan
+- a mapped command request
+- executor opt-in
+- an injected command executor
+- real-execution policy approval
+
+Current behavior remains intentionally non-mutating:
+
+- executorInvocationGuardPassed=false in REST-visible paths
+- executorInvocationAttempted=false in all paths
+- realExecutionEnabled=false
+- executed=false
+- dryRunOnly=true
+
+A direct unit test also verifies that even when a synthetic policy decision would satisfy the guard, invocationAttempted remains false and the fake executor is not called.
 
 ### Typical Client Flow
 

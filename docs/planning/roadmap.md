@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 50.23 - SearchTimer workflow real executor injection skeleton
+Phase 50.24 - SearchTimer workflow guarded executor invocation contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 50.24 - SearchTimer workflow guarded executor invocation contract
+Phase 50.25 - SearchTimer workflow executor invocation result mapping skeleton
 ```
 
 ---
