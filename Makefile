@@ -954,6 +954,13 @@ test-search-timer-result:
 		core/vdr/tests/test_search_timer_result.cpp \
 		-o /tmp/test_search_timer_result
 	/tmp/test_search_timer_result
+test-search-timer-workflow-validation-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
+		core/vdr/tests/test_search_timer_workflow_validation_service.cpp \
+		-o /tmp/test_search_timer_workflow_validation_service
+	/tmp/test_search_timer_workflow_validation_service
+
 test-search-timer-workflow-request:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_search_timer_workflow_request.cpp \

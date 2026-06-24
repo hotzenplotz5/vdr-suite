@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.2 - SearchTimer workflow validation service
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowValidationResult as a structured validation result for user workflow intent.
+- Added SearchTimerWorkflowValidationService to validate SearchTimer workflow requests before transport mapping or backend writes.
+- Preserved backend identity, backend-native identity, read-only/write classification and readback-after-write intent in the validation result.
+- Added errors for missing workflow operation, backend id, backend-native id, name and query according to the selected workflow operation.
+- Added warnings for write operations and create/update readback recommendations.
+- Covered the validation service with a targeted unit test.
+
+---
+
 ## Phase 50.1 - SearchTimer workflow request model
 
 Status: Completed.
