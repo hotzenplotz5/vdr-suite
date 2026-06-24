@@ -1009,6 +1009,14 @@ test-search-timer-result:
 		core/vdr/tests/test_search_timer_result.cpp \
 		-o /tmp/test_search_timer_result
 	/tmp/test_search_timer_result
+test-search-timer-workflow-update-readback-verification-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerService.cpp \
+		core/vdr/src/SearchTimerWorkflowUpdateReadbackVerificationService.cpp \
+		core/vdr/tests/test_search_timer_workflow_update_readback_verification_service.cpp \
+		-o /tmp/test_search_timer_workflow_update_readback_verification_service
+	/tmp/test_search_timer_workflow_update_readback_verification_service
+
 test-search-timer-workflow-create-readback-verification-service:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerService.cpp \

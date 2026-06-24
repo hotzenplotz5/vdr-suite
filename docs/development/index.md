@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.42 - SearchTimer workflow create readback verification service
+Phase 50.43 - SearchTimer workflow update readback verification service
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.43 - SearchTimer workflow update readback verification service
+Phase 50.44 - SearchTimer workflow verified execution result integration
 ```
 
 Current architecture validation:
@@ -88,6 +88,7 @@ Current architecture validation:
 - [SearchTimer Mandatory Backend Readback Verification Plan](searchtimer-backend-readback-verification-plan.md)
 - [SearchTimer Backend Readback Verification Result Model](searchtimer-backend-readback-verification-result-model.md)
 - [SearchTimer Create Readback Verification Service](searchtimer-create-readback-verification-service.md)
+- [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
 - [EPGSearch Result Model Audit](epgsearch-result-model-audit.md)
 - [EPGSearch Query Alignment Audit](epgsearch-query-alignment-audit.md)
 - [EPGSearch Test Coverage Audit](epgsearch-test-coverage-audit.md)

@@ -9,6 +9,7 @@
 - [Completed Phases](completed-phases.md)
 - [SearchTimer Mandatory Backend Readback Verification Plan](searchtimer-backend-readback-verification-plan.md)
 - [SearchTimer Backend Readback Verification Result Model](searchtimer-backend-readback-verification-result-model.md)
+- [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
 
 ---
 
@@ -78,6 +79,15 @@ It is preparation for future verified write execution.
 
 ---
 
+## Update Readback Service
+
+Phase 50.43 adds the sibling update-readback verification service.
+
+Full service documentation:
+
+- [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
+
+---
 ## Back
 
 - [Back to SearchTimer Backend Readback Verification Result Model](searchtimer-backend-readback-verification-result-model.md)

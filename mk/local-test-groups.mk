@@ -63,6 +63,7 @@ test-vdr: \
 	test-search-timer-workflow-execution-result-json-serializer \
 	test-search-timer-workflow-backend-readback-verification-result \
 	test-search-timer-workflow-create-readback-verification-service \
+	test-search-timer-workflow-update-readback-verification-service \
 	test-search-timer-workflow-command-dispatch-service \
 	test-search-timer-workflow-real-execution-policy \
 	test-search-timer-workflow-real-execution-enablement-switch \

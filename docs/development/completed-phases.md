@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.43 - SearchTimer workflow update readback verification service
+
+Status: Completed.
+
+Summary:
+- Added `SearchTimerWorkflowUpdateReadbackVerificationService`.
+- Verified successful update readback through `ISearchTimerDataSource`.
+- Matched updated SearchTimers by backend id, backend-native id, name, query and state.
+- Reported unavailable data source, missing readback, missing backend-native id, unchanged content, wrong native id and ambiguous matches through the backend readback verification result model.
+- Added a focused unit test and local test target.
+- Added the target to the VDR local test group.
+- Kept the service readback-only and independent from production mutation.
+
+---
 ## Phase 50.42 - SearchTimer workflow create readback verification service
 
 Status: Completed.

@@ -18,6 +18,7 @@
 - [SearchTimer Mandatory Backend Readback Verification Plan](searchtimer-backend-readback-verification-plan.md)
 - [SearchTimer Backend Readback Verification Result Model](searchtimer-backend-readback-verification-result-model.md)
 - [SearchTimer Create Readback Verification Service](searchtimer-create-readback-verification-service.md)
+- [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
 
 ---
 
@@ -1001,6 +1002,17 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### Update Readback Verification Service
+
+Phase 50.43 adds the update-readback verification service for future verified SearchTimer write execution.
+
+The service checks whether a successful update result is visible in backend state with the expected backend-native id and updated content.
+
+Full service documentation:
+
+- [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
+
+---
 ### Create Readback Verification Service
 
 Phase 50.42 adds the create-readback verification service for future verified SearchTimer write execution.
