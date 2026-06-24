@@ -64,6 +64,16 @@ This allows clients to show operator-facing validation results before the real w
 
 ---
 
+## Request Parser Boundary
+
+Phase 50.6 extracts workflow validation body parsing into SearchTimerWorkflowValidationRequestParser.
+
+The controller should use this parser boundary instead of owning request-body parsing helpers directly.
+
+This keeps the REST controller focused on orchestration and response construction while the parser remains separately testable.
+
+---
+
 ## Request Fields
 
 The request is a flat JSON object.

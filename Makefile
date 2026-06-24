@@ -915,6 +915,7 @@ test-search-timer-controller:
 		api/rest/src/SearchTimerCreateRequestParser.cpp \
                 api/rest/src/SearchTimerUpdateRequestParser.cpp \
                 api/rest/src/SearchTimerDeleteRequestParser.cpp \
+		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
 		api/rest/src/SearchTimerController.cpp \
 		api/rest/tests/test_search_timer_controller.cpp \
 		-o /tmp/test_search_timer_controller
@@ -964,6 +965,13 @@ test-search-timer-result:
 		core/vdr/tests/test_search_timer_result.cpp \
 		-o /tmp/test_search_timer_result
 	/tmp/test_search_timer_result
+test-search-timer-workflow-validation-request-parser:
+	$(CXX) $(CXXFLAGS) \
+		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
+		api/rest/tests/test_search_timer_workflow_validation_request_parser.cpp \
+		-o /tmp/test_search_timer_workflow_validation_request_parser
+	/tmp/test_search_timer_workflow_validation_request_parser
+
 test-search-timer-workflow-validation-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
@@ -1063,6 +1071,7 @@ test-api-router: prepare-test-db
                 api/rest/src/SearchTimerCreateRequestParser.cpp \
                 api/rest/src/SearchTimerUpdateRequestParser.cpp \
                 api/rest/src/SearchTimerDeleteRequestParser.cpp \
+		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
 		api/rest/src/VdrController.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
 		api/rest/tests/test_api_router.cpp \

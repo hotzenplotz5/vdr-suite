@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.6 - SearchTimer workflow validation request parser extraction
+
+Status: Completed.
+
+Summary:
+- Extracted SearchTimer workflow validation request-body parsing from SearchTimerController into SearchTimerWorkflowValidationRequestParser.
+- Added a dedicated parser header, implementation and targeted unit test.
+- Preserved operation/action aliases, backend identity, backend-native identity, name, query and active field parsing.
+- Kept SearchTimerController responsible for validation orchestration and JSON response construction.
+- Linked the parser into SearchTimer controller and API router tests.
+
+---
+
 ## Phase 50.5 - SearchTimer workflow validation request documentation
 
 Status: Completed.
