@@ -711,6 +711,38 @@ Current safety guarantees remain unchanged:
 - dryRunOnly=true
 - backend mutation is not performed
 
+### Executor Opt-In REST Contract
+
+Phase 50.21 exposes the executor opt-in boundary through the REST execution contract.
+
+Accepted request fields:
+
+- executorOptIn
+- executorOptInEnabled
+- executorOptInProvided
+- enableExecutor
+- allowExecutor
+
+These fields are accepted by:
+
+- POST /api/searchtimers/execute
+- POST /api/vdr/searchtimers/execute
+
+When executionMode=execute and executor opt-in is not present, the result remains blocked with:
+
+- executorOptInProvided=false
+- dispatchStage=executor-opt-in-required
+
+When executionMode=execute and executor opt-in is present, the result still remains blocked until a real executor is deliberately wired:
+
+- executorOptInProvided=true
+- realExecutionEnabled=false
+- executed=false
+- dryRunOnly=true
+- dispatchStage=real-execution-disabled
+
+This REST contract does not enable backend mutation.
+
 ### Typical Client Flow
 
 Recommended client flow:

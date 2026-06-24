@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.20 - SearchTimer workflow executor opt-in boundary
+Phase 50.21 - SearchTimer workflow executor opt-in REST contract
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.21 - SearchTimer workflow executor opt-in REST contract
+Phase 50.22 - SearchTimer workflow real executor policy boundary
 ```
 
 Completed foundations:
@@ -162,6 +162,7 @@ make test-phase
 - Phase 50.18 adds explicit dispatch result semantics for command request mapping, real execution state and dispatch stage.
 - Phase 50.19 adds an explicit execution mode contract for dryRun, prepare and future execute behavior.
 - Phase 50.20 adds an explicit executor opt-in boundary before future real backend execution can be wired.
+- Phase 50.21 exposes executor opt-in parsing through the REST execution contract while preserving dry-run safety.
 
 ---
 
@@ -259,10 +260,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.21 - SearchTimer workflow executor opt-in REST contract
+Phase 50.22 - SearchTimer workflow real executor policy boundary
 ```
 
-The next implementation phase should expose the executor opt-in boundary through the REST execution contract without enabling real backend mutation by default.
+The next implementation phase should define the policy boundary for any future real executor wiring before backend mutation is introduced.
 
 Important boundaries:
 

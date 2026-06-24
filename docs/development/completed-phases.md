@@ -201,6 +201,22 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.21 - SearchTimer workflow executor opt-in REST contract
+
+Status: Completed.
+
+Summary:
+- Exposed the executor opt-in boundary through the REST execution contract.
+- Added REST parsing for executorOptIn, executorOptInEnabled, executorOptInProvided, enableExecutor and allowExecutor.
+- Wired parsed REST opt-in into SearchTimerWorkflowCommandDispatchOptions.
+- Preserved the existing explicit operator confirmation parsing.
+- Verified that executionMode=execute without opt-in blocks at executor-opt-in-required.
+- Verified that executionMode=execute with opt-in reaches real-execution-disabled while still not executing backend writes.
+- Preserved realExecutionEnabled=false, executed=false and dryRunOnly=true.
+- Kept ISearchTimerCommandExecutor calls and backend mutation out of scope.
+
+---
+
 ## Phase 50.20 - SearchTimer workflow executor opt-in boundary
 
 Status: Completed.

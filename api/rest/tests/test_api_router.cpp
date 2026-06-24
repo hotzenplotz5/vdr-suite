@@ -1185,6 +1185,39 @@ int main()
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("backend command dispatch is not enabled in this skeleton")
            != std::string::npos);
 
+    ApiResponse vdrSearchTimerExecuteOptInResponse =
+        router.handlePost(
+            "/api/vdr/searchtimers/execute",
+            "{"
+            "\"operation\":\"delete\","
+            "\"backendId\":\"default\","
+            "\"backendNativeId\":\"searchtimer-42\","
+            "\"executionMode\":\"execute\","
+            "\"explicitOperatorConfirmation\":true,"
+            "\"executorOptInEnabled\":true"
+            "}");
+
+    assert(vdrSearchTimerExecuteOptInResponse.statusCode == 200);
+    assert(vdrSearchTimerExecuteOptInResponse.contentType == "application/json");
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"success\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"blocked\":true")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executed\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"commandRequestMapped\":true")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"realExecutionEnabled\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executorOptInProvided\":true")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"dispatchStage\":\"real-execution-disabled\"")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executionMode\":\"execute\"")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("executor opt-in accepted but real backend command dispatch is not wired")
+           != std::string::npos);
+
     ApiResponse unavailableSearchTimersResponse =
         routerWithoutEpg.handleGet("/api/searchtimers");
 

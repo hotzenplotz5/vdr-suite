@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.20 - SearchTimer workflow executor opt-in boundary
+Phase 50.21 - SearchTimer workflow executor opt-in REST contract
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.21 - SearchTimer workflow executor opt-in REST contract
+Phase 50.22 - SearchTimer workflow real executor policy boundary
 ```
 
 Current architecture validation:

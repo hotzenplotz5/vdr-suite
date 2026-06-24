@@ -124,6 +124,26 @@ bool parseExecutionConfirmation(
                "confirmed");
 }
 
+bool parseExecutorOptIn(
+    const std::string& body)
+{
+    return parseExecutionConfirmationField(
+               body,
+               "executorOptIn") ||
+           parseExecutionConfirmationField(
+               body,
+               "executorOptInEnabled") ||
+           parseExecutionConfirmationField(
+               body,
+               "executorOptInProvided") ||
+           parseExecutionConfirmationField(
+               body,
+               "enableExecutor") ||
+           parseExecutionConfirmationField(
+               body,
+               "allowExecutor");
+}
+
 } // namespace
 
 SearchTimerController::SearchTimerController(
@@ -354,10 +374,23 @@ ApiResponse SearchTimerController::executeSearchTimerWorkflow(
         planningService.plan(
             requestParser.parse(body));
 
+    const bool explicitOperatorConfirmation =
+        parseExecutionConfirmation(body);
+
+    const bool executorOptIn =
+        parseExecutorOptIn(body);
+
+    const SearchTimerWorkflowCommandDispatchOptions dispatchOptions =
+        executorOptIn
+            ? SearchTimerWorkflowCommandDispatchOptions::confirmedWithExecutorOptIn(
+                  explicitOperatorConfirmation)
+            : SearchTimerWorkflowCommandDispatchOptions::confirmed(
+                  explicitOperatorConfirmation);
+
     const SearchTimerWorkflowExecutionResult result =
         dispatchService.dispatchPlan(
             plan,
-            parseExecutionConfirmation(body));
+            dispatchOptions);
 
     ApiResponse response;
     response.statusCode = 200;

@@ -385,6 +385,32 @@ int main()
     assert(executor.updateCallCount() == 1);
     assert(executor.removeCallCount() == 0);
 
+    ApiResponse executeModeWithOptInResponse =
+        controller.executeSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Execute OptIn\","
+            "\"query\":\"Terra X\","
+            "\"executionMode\":\"execute\","
+            "\"explicitOperatorConfirmation\":true,"
+            "\"executorOptIn\":true"
+            "}");
+
+    assert(executeModeWithOptInResponse.statusCode == 200);
+    assert(executeModeWithOptInResponse.contentType == "application/json");
+    assert(executeModeWithOptInResponse.body.find("\"success\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"blocked\":true") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"commandRequestMapped\":true") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"realExecutionEnabled\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorOptInProvided\":true") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"dispatchStage\":\"real-execution-disabled\"") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executionMode\":\"execute\"") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("executor opt-in accepted but real backend command dispatch is not wired") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
     ApiResponse invalidExecuteResponse =
         controller.executeSearchTimerWorkflow(
             "{"
