@@ -13,6 +13,7 @@
 - [SearchTimer Real Payload Validation](searchtimer-real-payload-validation.md)
 - [SearchTimer Real VDR Compatibility Report](searchtimer-real-vdr-compatibility-report.md)
 - [SearchTimer yaVDR Smoke-Test Execution Report](searchtimer-yavdr-smoke-test-execution-report.md)
+- [SearchTimer yaVDR Local API Smoke Harness](searchtimer-yavdr-api-smoke-harness.md)
 
 ---
 
@@ -996,6 +997,37 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### yaVDR Local API Smoke Harness
+
+Phase 50.38 adds a local HTTP harness for the VDR-Suite SearchTimer real-test endpoint.
+
+Tool:
+
+- `apps/tools/searchtimer_yavdr_api_smoke_harness.cpp`
+
+Make targets:
+
+- `make searchtimer-yavdr-api-smoke-harness-helper`
+- `make searchtimer-yavdr-api-smoke-harness-run`
+
+The harness serves:
+
+- `POST /api/searchtimers/real-test`
+- `POST /api/vdr/searchtimers/real-test`
+
+The run target starts the local harness on `127.0.0.1:18080` and runs the Phase 50.36 smoke script against that local endpoint.
+
+Expected outcome remains non-mutating:
+
+- `dispatchStage=production-policy-gate-closed`
+- `executorInvocationAttempted=false`
+- `RESULT: OK`
+
+Full documentation:
+
+- [SearchTimer yaVDR Local API Smoke Harness](searchtimer-yavdr-api-smoke-harness.md)
+
+---
 ### yaVDR Smoke-Test Execution Report
 
 Phase 50.37 records the first successful yaVDR-side SearchTimer real smoke-test execution.

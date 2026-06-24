@@ -10,7 +10,7 @@ include mk/daemon-sources.mk
 include mk/local-test-groups.mk
 
 
-.PHONY: audit-doc-sync audit-doc-sync-tests searchtimer-yavdr-real-test-smoke-helper
+.PHONY: audit-doc-sync audit-doc-sync-tests searchtimer-yavdr-real-test-smoke-helper searchtimer-yavdr-api-smoke-harness-helper searchtimer-yavdr-api-smoke-harness-run
 
 audit-doc-sync:
 	python3 tools/audit_recent_doc_sync.py --commits 20
@@ -19,6 +19,33 @@ audit-doc-sync-tests:
 	python3 tools/audit_recent_doc_sync.py --commits 20 --run-tests
 
 
+
+searchtimer-yavdr-api-smoke-harness-helper:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/src/SearchTimerService.cpp \
+		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
+		api/rest/src/SearchTimerCreateRequestParser.cpp \
+		api/rest/src/SearchTimerUpdateRequestParser.cpp \
+		api/rest/src/SearchTimerDeleteRequestParser.cpp \
+		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
+		api/rest/src/SearchTimerController.cpp \
+		core/http/src/SimpleHttpListener.cpp \
+		apps/tools/searchtimer_yavdr_api_smoke_harness.cpp \
+		-o /tmp/vdr_suite_searchtimer_yavdr_api_smoke_harness
+	/tmp/vdr_suite_searchtimer_yavdr_api_smoke_harness --help
+
+searchtimer-yavdr-api-smoke-harness-run: searchtimer-yavdr-api-smoke-harness-helper
+	rm -f /tmp/vdr_suite_searchtimer_yavdr_api_smoke_harness.log
+	/tmp/vdr_suite_searchtimer_yavdr_api_smoke_harness --host 127.0.0.1 --port 18080 > /tmp/vdr_suite_searchtimer_yavdr_api_smoke_harness.log 2>&1 & \
+		harness_pid=$$!; \
+		sleep 1; \
+		python3 tools/run_searchtimer_yavdr_real_test.py --run --base-url http://127.0.0.1:18080 --backend home-vdr --print-json; \
+		smoke_status=$$?; \
+		kill $$harness_pid >/dev/null 2>&1 || true; \
+		wait $$harness_pid >/dev/null 2>&1 || true; \
+		cat /tmp/vdr_suite_searchtimer_yavdr_api_smoke_harness.log; \
+		exit $$smoke_status
 
 searchtimer-yavdr-real-test-smoke-helper:
 	python3 -m py_compile tools/run_searchtimer_yavdr_real_test.py

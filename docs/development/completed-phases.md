@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.38 - SearchTimer workflow local VDR-Suite API smoke harness
+
+Status: Completed.
+
+Summary:
+- Added a local HTTP harness for the VDR-Suite SearchTimer real-test safety endpoint.
+- Added a helper build target for the harness.
+- Added an end-to-end local harness run target that starts the harness on 127.0.0.1:18080 and runs the Phase 50.36 smoke script against it.
+- Kept backend mutation blocked through the production policy gate.
+- Documented the distinction between direct RESTfulAPI lifecycle testing and VDR-Suite API safety-endpoint testing.
+
+---
 ## Phase 50.37 - SearchTimer workflow yaVDR smoke-test execution report
 
 Status: Completed.

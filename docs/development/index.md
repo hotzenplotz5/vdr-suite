@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.37 - SearchTimer workflow yaVDR smoke-test execution report
+Phase 50.38 - SearchTimer workflow local VDR-Suite API smoke harness
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.38 - SearchTimer workflow local VDR-Suite API smoke harness
+Phase 50.39 - SearchTimer workflow local API smoke harness execution report
 ```
 
 Current architecture validation:
@@ -83,6 +83,7 @@ Current architecture validation:
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)
 - [SearchTimer Workflow Validation API](searchtimer-workflow-validation-api.md)
 - [SearchTimer yaVDR Smoke-Test Execution Report](searchtimer-yavdr-smoke-test-execution-report.md)
+- [SearchTimer yaVDR Local API Smoke Harness](searchtimer-yavdr-api-smoke-harness.md)
 - [EPGSearch Result Model Audit](epgsearch-result-model-audit.md)
 - [EPGSearch Query Alignment Audit](epgsearch-query-alignment-audit.md)
 - [EPGSearch Test Coverage Audit](epgsearch-test-coverage-audit.md)
