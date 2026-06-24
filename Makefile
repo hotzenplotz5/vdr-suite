@@ -997,6 +997,25 @@ test-search-timer-workflow-command-dispatch-service:
 		-o /tmp/test_search_timer_workflow_command_dispatch_service
 	/tmp/test_search_timer_workflow_command_dispatch_service
 
+test-search-timer-workflow-real-execution-readiness-review:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
+		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
+		core/vdr/src/SearchTimerWorkflowRealExecutionReadinessReview.cpp \
+		core/vdr/tests/test_search_timer_workflow_real_execution_readiness_review.cpp \
+		-o /tmp/test_search_timer_workflow_real_execution_readiness_review
+	/tmp/test_search_timer_workflow_real_execution_readiness_review
+
+test-search-timer-workflow-real-execution-readiness-review-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
+		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
+		core/vdr/src/SearchTimerWorkflowRealExecutionReadinessReview.cpp \
+		core/vdr/src/SearchTimerWorkflowRealExecutionReadinessReviewJsonSerializer.cpp \
+		core/vdr/tests/test_search_timer_workflow_real_execution_readiness_review_json_serializer.cpp \
+		-o /tmp/test_search_timer_workflow_real_execution_readiness_review_json_serializer
+	/tmp/test_search_timer_workflow_real_execution_readiness_review_json_serializer
+
 test-search-timer-workflow-real-execution-policy:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
