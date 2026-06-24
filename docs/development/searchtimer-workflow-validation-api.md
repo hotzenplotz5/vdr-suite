@@ -629,6 +629,7 @@ Additional response fields:
 
 - commandRequestMapped
 - realExecutionEnabled
+- realExecutionPolicyAllowed
 - executorOptInProvided
 - dispatchStage
 
@@ -742,6 +743,34 @@ When executionMode=execute and executor opt-in is present, the result still rema
 - dispatchStage=real-execution-disabled
 
 This REST contract does not enable backend mutation.
+
+### Real Executor Policy Boundary
+
+Phase 50.22 adds a central real-execution policy boundary.
+
+The policy is evaluated after:
+
+- workflow validation
+- execution planning
+- explicit operator confirmation
+- command request mapping
+- executionMode=execute
+- executor opt-in
+
+Current policy behavior:
+
+- non-execute modes do not require the real-execution policy
+- execute mode without opt-in still blocks at executor-opt-in-required
+- execute mode with opt-in blocks at real-execution-policy-denied
+
+The result includes:
+
+- realExecutionPolicyAllowed=false
+- realExecutionEnabled=false
+- executed=false
+- dryRunOnly=true
+
+This keeps all backend mutation disabled until a later phase deliberately changes both policy and executor wiring.
 
 ### Typical Client Flow
 

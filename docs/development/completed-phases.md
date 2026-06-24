@@ -201,6 +201,22 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.22 - SearchTimer workflow real executor policy boundary
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowRealExecutionPolicy as a central policy boundary before any future real backend execution.
+- Added SearchTimerWorkflowRealExecutionPolicyDecision for explicit allowed, stage, message and error semantics.
+- Added realExecutionPolicyAllowed to SearchTimerWorkflowExecutionResult and the execution-result JSON contract.
+- Routed executionMode=execute with executor opt-in through the policy boundary.
+- Changed opt-in execute responses from real-execution-disabled to real-execution-policy-denied while real execution remains disabled.
+- Preserved realExecutionEnabled=false, executed=false and dryRunOnly=true.
+- Kept ISearchTimerCommandExecutor calls and backend mutation out of scope.
+- Added direct policy coverage plus dispatch, serializer, controller and router assertions.
+
+---
+
 ## Phase 50.21 - SearchTimer workflow executor opt-in REST contract
 
 Status: Completed.

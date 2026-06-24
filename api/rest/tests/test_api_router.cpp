@@ -1174,6 +1174,8 @@ int main()
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"realExecutionEnabled\":false")
            != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"realExecutionPolicyAllowed\":false")
+           != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executorOptInProvided\":false")
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"dispatchStage\":\"command-request-mapped\"")
@@ -1209,13 +1211,15 @@ int main()
            != std::string::npos);
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"realExecutionEnabled\":false")
            != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"realExecutionPolicyAllowed\":false")
+           != std::string::npos);
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executorOptInProvided\":true")
            != std::string::npos);
-    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"dispatchStage\":\"real-execution-disabled\"")
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"dispatchStage\":\"real-execution-policy-denied\"")
            != std::string::npos);
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executionMode\":\"execute\"")
            != std::string::npos);
-    assert(vdrSearchTimerExecuteOptInResponse.body.find("executor opt-in accepted but real backend command dispatch is not wired")
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("real execution policy denies backend command dispatch")
            != std::string::npos);
 
     ApiResponse unavailableSearchTimersResponse =

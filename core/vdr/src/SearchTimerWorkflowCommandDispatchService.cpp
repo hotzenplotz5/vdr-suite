@@ -1,6 +1,7 @@
 #include "SearchTimerWorkflowCommandDispatchService.h"
 
 #include "SearchTimerWorkflowCommandRequestMapper.h"
+#include "SearchTimerWorkflowRealExecutionPolicy.h"
 
 #include <string>
 #include <vector>
@@ -154,14 +155,21 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
 
     if (plan.executionMode() == SearchTimerWorkflowExecutionMode::Execute)
     {
+        SearchTimerWorkflowRealExecutionPolicy policy;
+        const SearchTimerWorkflowRealExecutionPolicyDecision decision =
+            policy.evaluate(
+                plan,
+                options);
+
         SearchTimerWorkflowExecutionResult result =
             SearchTimerWorkflowExecutionResult::blockedResult(
                 plan,
-                "executor opt-in accepted but real backend command dispatch is not wired",
-                {"executor opt-in accepted but real backend command dispatch is not wired"});
+                decision.message,
+                decision.errors);
         result.commandRequestMapped = true;
+        result.realExecutionPolicyAllowed = decision.allowed;
         result.realExecutionEnabled = false;
-        result.dispatchStage = "real-execution-disabled";
+        result.dispatchStage = decision.dispatchStage;
         return applyDispatchOptions(result, options);
     }
 

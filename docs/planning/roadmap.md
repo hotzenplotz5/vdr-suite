@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 50.21 - SearchTimer workflow executor opt-in REST contract
+Phase 50.22 - SearchTimer workflow real executor policy boundary
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 50.22 - SearchTimer workflow real executor policy boundary
+Phase 50.23 - SearchTimer workflow real executor injection skeleton
 ```
 
 ---

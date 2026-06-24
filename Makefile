@@ -984,10 +984,20 @@ test-search-timer-workflow-command-dispatch-service:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
+		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
 		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
 		core/vdr/tests/test_search_timer_workflow_command_dispatch_service.cpp \
 		-o /tmp/test_search_timer_workflow_command_dispatch_service
 	/tmp/test_search_timer_workflow_command_dispatch_service
+
+test-search-timer-workflow-real-execution-policy:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
+		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
+		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
+		core/vdr/tests/test_search_timer_workflow_real_execution_policy.cpp \
+		-o /tmp/test_search_timer_workflow_real_execution_policy
+	/tmp/test_search_timer_workflow_real_execution_policy
 
 test-search-timer-workflow-command-request-mapper:
 	$(CXX) $(CXXFLAGS) \

@@ -29,6 +29,7 @@ int main()
     assert(blockedCreate.requiresExplicitOperatorConfirmation);
     assert(!blockedCreate.commandRequestMapped);
     assert(!blockedCreate.realExecutionEnabled);
+    assert(!blockedCreate.realExecutionPolicyAllowed);
     assert(!blockedCreate.executorOptInProvided);
     assert(blockedCreate.dispatchStage == "confirmation-required");
     assert(blockedCreate.executionMode == SearchTimerWorkflowExecutionMode::Prepare);
@@ -48,6 +49,7 @@ int main()
     assert(acceptedCreate.requiresBackendReadback);
     assert(acceptedCreate.commandRequestMapped);
     assert(!acceptedCreate.realExecutionEnabled);
+    assert(!acceptedCreate.realExecutionPolicyAllowed);
     assert(!acceptedCreate.executorOptInProvided);
     assert(acceptedCreate.dispatchStage == "command-request-mapped");
     assert(acceptedCreate.executionMode == SearchTimerWorkflowExecutionMode::Prepare);
@@ -73,6 +75,7 @@ int main()
     assert(dryRunCreate.dryRunOnly);
     assert(!dryRunCreate.commandRequestMapped);
     assert(!dryRunCreate.realExecutionEnabled);
+    assert(!dryRunCreate.realExecutionPolicyAllowed);
     assert(!dryRunCreate.executorOptInProvided);
     assert(dryRunCreate.dispatchStage == "dry-run");
     assert(dryRunCreate.executionMode == SearchTimerWorkflowExecutionMode::DryRun);
@@ -95,6 +98,7 @@ int main()
     assert(executeCreateWithoutOptIn.dryRunOnly);
     assert(executeCreateWithoutOptIn.commandRequestMapped);
     assert(!executeCreateWithoutOptIn.realExecutionEnabled);
+    assert(!executeCreateWithoutOptIn.realExecutionPolicyAllowed);
     assert(!executeCreateWithoutOptIn.executorOptInProvided);
     assert(executeCreateWithoutOptIn.dispatchStage == "executor-opt-in-required");
     assert(executeCreateWithoutOptIn.executionMode == SearchTimerWorkflowExecutionMode::Execute);
@@ -111,8 +115,10 @@ int main()
     assert(executeCreateWithOptIn.dryRunOnly);
     assert(executeCreateWithOptIn.commandRequestMapped);
     assert(!executeCreateWithOptIn.realExecutionEnabled);
+    assert(!executeCreateWithOptIn.realExecutionPolicyAllowed);
     assert(executeCreateWithOptIn.executorOptInProvided);
-    assert(executeCreateWithOptIn.dispatchStage == "real-execution-disabled");
+    assert(executeCreateWithOptIn.dispatchStage == "real-execution-policy-denied");
+    assert(executeCreateWithOptIn.message == "real execution policy denies backend command dispatch");
     assert(executeCreateWithOptIn.executionMode == SearchTimerWorkflowExecutionMode::Execute);
     assert(executeCreateWithOptIn.hasErrors());
 
@@ -133,6 +139,7 @@ int main()
     assert(acceptedUpdate.dryRunOnly);
     assert(acceptedUpdate.commandRequestMapped);
     assert(!acceptedUpdate.realExecutionEnabled);
+    assert(!acceptedUpdate.realExecutionPolicyAllowed);
     assert(!acceptedUpdate.executorOptInProvided);
     assert(acceptedUpdate.dispatchStage == "command-request-mapped");
     assert(acceptedUpdate.requiresBackendReadback);
@@ -159,6 +166,7 @@ int main()
     assert(acceptedDelete.confirmationProvided);
     assert(acceptedDelete.commandRequestMapped);
     assert(!acceptedDelete.realExecutionEnabled);
+    assert(!acceptedDelete.realExecutionPolicyAllowed);
     assert(!acceptedDelete.executorOptInProvided);
     assert(acceptedDelete.dispatchStage == "command-request-mapped");
     assert(!acceptedDelete.requiresBackendReadback);
@@ -182,6 +190,7 @@ int main()
     assert(!listResult.requiresExplicitOperatorConfirmation);
     assert(!listResult.commandRequestMapped);
     assert(!listResult.realExecutionEnabled);
+    assert(!listResult.realExecutionPolicyAllowed);
     assert(!listResult.executorOptInProvided);
     assert(listResult.dispatchStage == "read-only-no-dispatch");
     assert(listResult.operation == SearchTimerWorkflowOperation::List);
@@ -206,6 +215,7 @@ int main()
     assert(invalidResult.dryRunOnly);
     assert(!invalidResult.commandRequestMapped);
     assert(!invalidResult.realExecutionEnabled);
+    assert(!invalidResult.realExecutionPolicyAllowed);
     assert(!invalidResult.executorOptInProvided);
     assert(invalidResult.dispatchStage == "validation-blocked");
     assert(invalidResult.operation == SearchTimerWorkflowOperation::Update);
