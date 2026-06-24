@@ -39,6 +39,7 @@ struct SearchTimerWorkflowExecutionResult
     std::string message;
     std::vector<std::string> warnings;
     std::vector<std::string> errors;
+    std::vector<std::string> executorInvocationAuditTrail;
 
     static SearchTimerWorkflowExecutionResult blockedResult(
         const SearchTimerWorkflowExecutionPlan& plan,

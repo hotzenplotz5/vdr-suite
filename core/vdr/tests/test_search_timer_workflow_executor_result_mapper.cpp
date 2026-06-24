@@ -50,6 +50,7 @@ int main()
     assert(mappedCreate.executorResultMapped);
     assert(mappedCreate.executorResultSuccessful);
     assert(mappedCreate.dispatchStage == "executor-result-mapped");
+    assert(!mappedCreate.executorInvocationAuditTrail.empty());
     assert(mappedCreate.backendId == "home-vdr");
     assert(mappedCreate.backendNativeId == "created-42");
     assert(mappedCreate.message == "create executor result mapped");
@@ -84,6 +85,7 @@ int main()
     assert(mappedUpdateFailure.executorResultMapped);
     assert(!mappedUpdateFailure.executorResultSuccessful);
     assert(mappedUpdateFailure.dispatchStage == "executor-result-failed");
+    assert(!mappedUpdateFailure.executorInvocationAuditTrail.empty());
     assert(mappedUpdateFailure.message == "update executor result failed");
     assert(mappedUpdateFailure.hasErrors());
 

@@ -638,6 +638,7 @@ Additional response fields:
 - executorInvocationKillSwitchPassed
 - executorResultMapped
 - executorResultSuccessful
+- executorInvocationAuditTrail
 - dispatchStage
 
 The dispatchStage field helps clients distinguish:
@@ -897,6 +898,30 @@ The standard REST path remains non-mutating:
 - executorInvocationKillSwitchOpen=false
 - executorResultMapped=false
 - executed=false
+
+### Controlled Invocation Audit Trail
+
+Phase 50.28 adds executorInvocationAuditTrail to the workflow execution result.
+
+The audit trail records the decision chain for controlled executor invocation:
+
+- execution mode
+- command request mapping state
+- explicit confirmation
+- executor opt-in
+- executor injection
+- controlled test invocation flag
+- policy stage and policy decision
+- guard stage and guard decision
+- kill-switch stage and kill-switch decision
+- executor invocation attempt state
+- executor result mapping state
+
+The controlled test path must show a complete success audit trail.
+
+The normal denied path must show why execution did not proceed.
+
+REST remains non-mutating.
 
 ### Typical Client Flow
 

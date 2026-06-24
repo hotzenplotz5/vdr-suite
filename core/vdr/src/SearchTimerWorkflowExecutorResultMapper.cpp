@@ -31,6 +31,11 @@ SearchTimerWorkflowExecutionResult mappedSuccessBase(
     result.executorResultMapped = true;
     result.executorResultSuccessful = true;
     result.dispatchStage = "executor-result-mapped";
+    result.executorInvocationAuditTrail = {
+        "executorInvocationAttempted=true",
+        "executorResultMapped=true",
+        "executorResultSuccessful=true",
+        "finalDispatchStage=executor-result-mapped"};
 
     return result;
 }
@@ -62,6 +67,11 @@ SearchTimerWorkflowExecutionResult mappedFailureBase(
     result.executorResultMapped = true;
     result.executorResultSuccessful = false;
     result.dispatchStage = "executor-result-failed";
+    result.executorInvocationAuditTrail = {
+        "executorInvocationAttempted=true",
+        "executorResultMapped=true",
+        "executorResultSuccessful=false",
+        "finalDispatchStage=executor-result-failed"};
 
     return result;
 }

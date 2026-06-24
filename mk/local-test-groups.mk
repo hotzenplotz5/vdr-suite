@@ -66,6 +66,7 @@ test-vdr: \
 	test-search-timer-workflow-guarded-executor-invocation \
 	test-search-timer-workflow-executor-invocation-kill-switch \
 	test-search-timer-workflow-controlled-test-executor-invocation \
+	test-search-timer-workflow-controlled-invocation-audit-trail \
 	test-search-timer-workflow-executor-result-mapper \
 	test-search-timer-workflow-command-request-mapper \
 	test-search-timer-workflow-execution-service \

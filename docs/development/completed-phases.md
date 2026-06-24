@@ -201,6 +201,22 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.28 - SearchTimer workflow controlled invocation audit trail
+
+Status: Completed.
+
+Summary:
+- Added executorInvocationAuditTrail to SearchTimerWorkflowExecutionResult and the execution-result JSON contract.
+- Added audit trail construction to execute-mode command dispatch.
+- Recorded policy, guard, kill-switch, invocation-attempt and result-mapping decisions.
+- Added a controlled invocation audit trail unit test.
+- Verified the controlled test executor path records a complete successful audit trail.
+- Verified the ordinary denied executor path records why execution did not proceed.
+- Preserved REST as non-mutating.
+- Kept real VDR backend mutation out of scope.
+
+---
+
 ## Phase 50.27 - SearchTimer workflow controlled test executor invocation path
 
 Status: Completed.

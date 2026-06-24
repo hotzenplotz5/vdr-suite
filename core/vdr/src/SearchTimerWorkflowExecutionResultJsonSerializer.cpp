@@ -197,6 +197,8 @@ std::string SearchTimerWorkflowExecutionResultJsonSerializer::serialize(
     appendStringArray(json, result.warnings);
     json << ",\"errors\":";
     appendStringArray(json, result.errors);
+    json << ",\"executorInvocationAuditTrail\":";
+    appendStringArray(json, result.executorInvocationAuditTrail);
     json << "}";
 
     return json.str();

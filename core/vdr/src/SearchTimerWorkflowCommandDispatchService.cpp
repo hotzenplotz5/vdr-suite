@@ -44,6 +44,110 @@ SearchTimerWorkflowExecutionResult applyDispatchOptions(
     return result;
 }
 
+const char* auditBoolText(
+    bool value)
+{
+    return value ? "true" : "false";
+}
+
+void appendAuditEntry(
+    std::vector<std::string>& auditTrail,
+    const std::string& key,
+    const std::string& value)
+{
+    auditTrail.push_back(key + "=" + value);
+}
+
+void appendAuditEntry(
+    std::vector<std::string>& auditTrail,
+    const std::string& key,
+    const char* value)
+{
+    appendAuditEntry(
+        auditTrail,
+        key,
+        std::string(value));
+}
+
+void appendAuditEntry(
+    std::vector<std::string>& auditTrail,
+    const std::string& key,
+    bool value)
+{
+    appendAuditEntry(
+        auditTrail,
+        key,
+        std::string(auditBoolText(value)));
+}
+
+std::vector<std::string> buildExecutorInvocationAuditTrail(
+    const SearchTimerWorkflowExecutionPlan& plan,
+    const SearchTimerWorkflowCommandDispatchOptions& options,
+    const SearchTimerWorkflowRealExecutionPolicyDecision& policyDecision,
+    const SearchTimerWorkflowGuardedExecutorInvocationDecision& guardDecision,
+    const SearchTimerWorkflowExecutorInvocationKillSwitchDecision& killSwitchDecision)
+{
+    std::vector<std::string> auditTrail;
+
+    appendAuditEntry(
+        auditTrail,
+        "executionMode",
+        plan.executionMode() == SearchTimerWorkflowExecutionMode::Execute
+            ? "execute"
+            : "non-execute");
+    appendAuditEntry(
+        auditTrail,
+        "commandRequestMapped",
+        true);
+    appendAuditEntry(
+        auditTrail,
+        "explicitOperatorConfirmation",
+        options.explicitOperatorConfirmation());
+    appendAuditEntry(
+        auditTrail,
+        "executorOptInProvided",
+        options.executorOptInEnabled());
+    appendAuditEntry(
+        auditTrail,
+        "executorInjected",
+        options.hasCommandExecutor());
+    appendAuditEntry(
+        auditTrail,
+        "controlledTestExecutorInvocation",
+        options.controlledTestExecutorInvocationEnabled());
+    appendAuditEntry(
+        auditTrail,
+        "policyStage",
+        policyDecision.dispatchStage);
+    appendAuditEntry(
+        auditTrail,
+        "policyAllowed",
+        policyDecision.allowed);
+    appendAuditEntry(
+        auditTrail,
+        "guardStage",
+        guardDecision.dispatchStage);
+    appendAuditEntry(
+        auditTrail,
+        "guardPassed",
+        guardDecision.guardPassed);
+    appendAuditEntry(
+        auditTrail,
+        "killSwitchStage",
+        killSwitchDecision.dispatchStage);
+    appendAuditEntry(
+        auditTrail,
+        "killSwitchOpen",
+        killSwitchDecision.killSwitchOpen);
+    appendAuditEntry(
+        auditTrail,
+        "killSwitchPassed",
+        killSwitchDecision.allowed);
+
+    return auditTrail;
+}
+
+
 } // namespace
 
 SearchTimerWorkflowExecutionResult
@@ -183,6 +287,14 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
             killSwitchDecision =
                 killSwitch.evaluate(invocationDecision);
 
+        std::vector<std::string> auditTrail =
+            buildExecutorInvocationAuditTrail(
+                plan,
+                options,
+                decision,
+                invocationDecision,
+                killSwitchDecision);
+
         SearchTimerWorkflowExecutionResult result =
             SearchTimerWorkflowExecutionResult::blockedResult(
                 plan,
@@ -200,6 +312,9 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
         result.executorInvocationKillSwitchPassed =
             killSwitchDecision.allowed;
         result.dispatchStage = killSwitchDecision.dispatchStage;
+        auditTrail.push_back("executorInvocationAttempted=false");
+        auditTrail.push_back("executorResultMapped=false");
+        result.executorInvocationAuditTrail = auditTrail;
 
         if (killSwitchDecision.allowed)
         {
@@ -210,10 +325,20 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                 SearchTimerCreateResult executorResult =
                     options.commandExecutor()->create(
                         mapper.buildCreateRequest(plan));
-                return applyDispatchOptions(
+                SearchTimerWorkflowExecutionResult mappedResult =
                     resultMapper.mapCreateResult(
                         plan,
-                        executorResult),
+                        executorResult);
+                auditTrail.push_back("executorInvocationAttempted=true");
+                auditTrail.push_back("executorResultMapped=true");
+                auditTrail.push_back(
+                    mappedResult.executorResultSuccessful
+                        ? "executorResultSuccessful=true"
+                        : "executorResultSuccessful=false");
+                auditTrail.push_back("finalDispatchStage=" + mappedResult.dispatchStage);
+                mappedResult.executorInvocationAuditTrail = auditTrail;
+                return applyDispatchOptions(
+                    mappedResult,
                     options);
             }
 
@@ -222,10 +347,20 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                 SearchTimerUpdateResult executorResult =
                     options.commandExecutor()->update(
                         mapper.buildUpdateRequest(plan));
-                return applyDispatchOptions(
+                SearchTimerWorkflowExecutionResult mappedResult =
                     resultMapper.mapUpdateResult(
                         plan,
-                        executorResult),
+                        executorResult);
+                auditTrail.push_back("executorInvocationAttempted=true");
+                auditTrail.push_back("executorResultMapped=true");
+                auditTrail.push_back(
+                    mappedResult.executorResultSuccessful
+                        ? "executorResultSuccessful=true"
+                        : "executorResultSuccessful=false");
+                auditTrail.push_back("finalDispatchStage=" + mappedResult.dispatchStage);
+                mappedResult.executorInvocationAuditTrail = auditTrail;
+                return applyDispatchOptions(
+                    mappedResult,
                     options);
             }
 
@@ -234,10 +369,20 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                 SearchTimerDeleteResult executorResult =
                     options.commandExecutor()->remove(
                         mapper.buildDeleteRequest(plan));
-                return applyDispatchOptions(
+                SearchTimerWorkflowExecutionResult mappedResult =
                     resultMapper.mapDeleteResult(
                         plan,
-                        executorResult),
+                        executorResult);
+                auditTrail.push_back("executorInvocationAttempted=true");
+                auditTrail.push_back("executorResultMapped=true");
+                auditTrail.push_back(
+                    mappedResult.executorResultSuccessful
+                        ? "executorResultSuccessful=true"
+                        : "executorResultSuccessful=false");
+                auditTrail.push_back("finalDispatchStage=" + mappedResult.dispatchStage);
+                mappedResult.executorInvocationAuditTrail = auditTrail;
+                return applyDispatchOptions(
+                    mappedResult,
                     options);
             }
         }

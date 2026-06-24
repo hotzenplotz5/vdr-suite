@@ -5,6 +5,7 @@
 #include <cassert>
 #include <iostream>
 #include <string>
+#include <vector>
 
 class ControlledTestSearchTimerCommandExecutor : public ISearchTimerCommandExecutor
 {
@@ -100,6 +101,22 @@ private:
     std::string lastQuery_;
 };
 
+
+bool hasAuditEntry(
+    const std::vector<std::string>& auditTrail,
+    const std::string& expected)
+{
+    for (const std::string& entry : auditTrail)
+    {
+        if (entry == expected)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 int main()
 {
     SearchTimerWorkflowPlanningService planningService;
@@ -140,6 +157,12 @@ int main()
     assert(createResult.backendId == "controlled-test-vdr");
     assert(createResult.backendNativeId == "controlled-created-1");
     assert(createResult.message == "controlled test executor create result mapped");
+    assert(hasAuditEntry(
+        createResult.executorInvocationAuditTrail,
+        "controlledTestExecutorInvocation=true"));
+    assert(hasAuditEntry(
+        createResult.executorInvocationAuditTrail,
+        "executorResultSuccessful=true"));
     assert(executor.createCalls() == 1);
     assert(executor.updateCalls() == 0);
     assert(executor.deleteCalls() == 0);
