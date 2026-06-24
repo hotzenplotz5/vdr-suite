@@ -248,6 +248,17 @@ ApiResponse ApiRouter::handlePost(
             vdrTimerActionExecutorAdapterRegistry_);
     }
 
+    if (path == "/api/searchtimers/real-test" ||
+        path == "/api/vdr/searchtimers/real-test")
+    {
+        if (searchTimerController_ == nullptr)
+        {
+            return makeSearchTimerUnavailableResponse();
+        }
+
+        return searchTimerController_->realTestSearchTimerWorkflow(body);
+    }
+
     if (path == "/api/searchtimers/execute" ||
         path == "/api/vdr/searchtimers/execute")
     {

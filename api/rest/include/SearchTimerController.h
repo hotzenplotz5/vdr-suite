@@ -94,6 +94,9 @@ public:
     ApiResponse executeSearchTimerWorkflow(
         const std::string& body);
 
+    ApiResponse realTestSearchTimerWorkflow(
+        const std::string& body);
+
 private:
     SearchTimerService& searchTimerService_;
     SearchTimerResultJsonSerializer& jsonSerializer_;

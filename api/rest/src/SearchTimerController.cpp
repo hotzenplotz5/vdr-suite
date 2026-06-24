@@ -144,6 +144,36 @@ bool parseExecutorOptIn(
                "allowExecutor");
 }
 
+
+class SearchTimerWorkflowRealTestModeExecutor final
+    : public ISearchTimerCommandExecutor
+{
+public:
+    SearchTimerCreateResult create(
+        const SearchTimerCreateRequest&) override
+    {
+        return SearchTimerCreateResult::failed(
+            "yaVDR real-test mode prevents backend mutation",
+            {"yaVDR real-test mode prevents backend mutation"});
+    }
+
+    SearchTimerUpdateResult update(
+        const SearchTimerUpdateRequest&) override
+    {
+        return SearchTimerUpdateResult::failed(
+            "yaVDR real-test mode prevents backend mutation",
+            {"yaVDR real-test mode prevents backend mutation"});
+    }
+
+    SearchTimerDeleteResult remove(
+        const SearchTimerDeleteRequest&) override
+    {
+        return SearchTimerDeleteResult::failed(
+            "yaVDR real-test mode prevents backend mutation",
+            {"yaVDR real-test mode prevents backend mutation"});
+    }
+};
+
 } // namespace
 
 SearchTimerController::SearchTimerController(
@@ -391,6 +421,54 @@ ApiResponse SearchTimerController::executeSearchTimerWorkflow(
         dispatchService.dispatchPlan(
             plan,
             dispatchOptions);
+
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        resultJsonSerializer.serialize(result);
+
+    return response;
+}
+
+
+ApiResponse SearchTimerController::realTestSearchTimerWorkflow(
+    const std::string& body)
+{
+    SearchTimerWorkflowPlanningService planningService;
+    SearchTimerWorkflowValidationRequestParser requestParser;
+    SearchTimerWorkflowCommandDispatchService dispatchService;
+    SearchTimerWorkflowExecutionResultJsonSerializer resultJsonSerializer;
+    SearchTimerWorkflowRealTestModeExecutor executor;
+
+    const SearchTimerWorkflowExecutionPlan plan =
+        planningService.plan(
+            requestParser.parse(body));
+
+    std::vector<std::string> backendIds;
+    if (!plan.backendId().empty())
+    {
+        backendIds.push_back(plan.backendId());
+    }
+
+    const SearchTimerWorkflowCommandDispatchOptions dispatchOptions =
+        SearchTimerWorkflowCommandDispatchOptions::confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlistAndPermissionAndProductionPolicyGate(
+            true,
+            &executor,
+            backendIds,
+            backendIds);
+
+    SearchTimerWorkflowExecutionResult result =
+        dispatchService.dispatchPlan(
+            plan,
+            dispatchOptions);
+
+    result.warnings.push_back(
+        "yaVDR real-test mode: no real backend mutation is performed");
+    result.warnings.push_back(
+        "yaVDR real-test mode: result shows the final production gate or blocker");
+    result.warnings.push_back(
+        "yaVDR real-test mode: use this output before enabling any future production mutation path");
 
     ApiResponse response;
     response.statusCode = 200;

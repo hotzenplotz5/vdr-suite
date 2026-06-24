@@ -451,6 +451,38 @@ int main()
     assert(executor.updateCallCount() == 1);
     assert(executor.removeCallCount() == 0);
 
+    ApiResponse realTestResponse =
+        controller.realTestSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Real Test\","
+            "\"query\":\"Terra X\","
+            "\"executionMode\":\"execute\","
+            "\"explicitOperatorConfirmation\":true,"
+            "\"executorOptIn\":true"
+            "}");
+
+    assert(realTestResponse.statusCode == 200);
+    assert(realTestResponse.contentType == "application/json");
+    assert(realTestResponse.body.find("\"success\":false") != std::string::npos);
+    assert(realTestResponse.body.find("\"executed\":false") != std::string::npos);
+    assert(realTestResponse.body.find("\"blocked\":true") != std::string::npos);
+    assert(realTestResponse.body.find("\"dryRunOnly\":true") != std::string::npos);
+    assert(realTestResponse.body.find("\"executionMode\":\"execute\"") != std::string::npos);
+    assert(realTestResponse.body.find("\"operation\":\"create\"") != std::string::npos);
+    assert(realTestResponse.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(realTestResponse.body.find("\"executorOptInProvided\":true") != std::string::npos);
+    assert(realTestResponse.body.find("\"executorInjected\":true") != std::string::npos);
+    assert(realTestResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(realTestResponse.body.find("\"dispatchStage\":\"production-policy-gate-closed\"") != std::string::npos);
+    assert(realTestResponse.body.find("production policy gate is closed for real backend mutation") != std::string::npos);
+    assert(realTestResponse.body.find("yaVDR real-test mode: no real backend mutation is performed") != std::string::npos);
+    assert(realTestResponse.body.find("policyStage=production-policy-gate-closed") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+    assert(executor.removeCallCount() == 0);
+
     ApiResponse invalidExecuteResponse =
         controller.executeSearchTimerWorkflow(
             "{"
