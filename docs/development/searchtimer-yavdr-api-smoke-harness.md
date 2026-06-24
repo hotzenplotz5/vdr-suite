@@ -9,6 +9,7 @@
 - [Completed Phases](completed-phases.md)
 - [SearchTimer Workflow Validation API](searchtimer-workflow-validation-api.md)
 - [SearchTimer yaVDR Smoke-Test Execution Report](searchtimer-yavdr-smoke-test-execution-report.md)
+- [SearchTimer yaVDR Local API Smoke Harness Execution Report](searchtimer-yavdr-api-smoke-harness-execution-report.md)
 
 ---
 
@@ -75,6 +76,23 @@ These are intentionally separate tests.
 
 ---
 
+## Execution Report
+
+Phase 50.39 records a successful local harness execution.
+
+Observed result:
+
+    baseUrl=http://127.0.0.1:18080
+    httpStatus=200
+    dispatchStage=production-policy-gate-closed
+    executorInvocationAttempted=false
+    RESULT: OK
+
+Full report:
+
+- [SearchTimer yaVDR Local API Smoke Harness Execution Report](searchtimer-yavdr-api-smoke-harness-execution-report.md)
+
+---
 ## Back
 
 - [Back to SearchTimer Workflow Validation API](searchtimer-workflow-validation-api.md)

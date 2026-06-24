@@ -130,7 +130,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 50.38 - SearchTimer workflow local VDR-Suite API smoke harness
+Phase 50.39 - SearchTimer workflow local API smoke harness execution report
 ```
 
 Current Documentation Consolidation:
@@ -142,7 +142,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next Major Implementation Milestone:
 
 ```text
-Phase 50.39 - SearchTimer workflow local API smoke harness execution report
+Phase 50.40 - SearchTimer workflow mandatory backend readback verification plan
 ```
 
 Latest Completed Milestones:
