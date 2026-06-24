@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 50.34 - SearchTimer workflow production policy gate
+Phase 50.35 - SearchTimer workflow yaVDR real-test mode
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 50.35 - SearchTimer workflow yaVDR real-test mode
+Phase 50.36 - SearchTimer workflow yaVDR smoke-test script
 ```
 
 ---

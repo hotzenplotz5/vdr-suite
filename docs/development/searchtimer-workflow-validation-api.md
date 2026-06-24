@@ -995,6 +995,27 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### yaVDR Real-Test Mode
+
+Phase 50.35 adds a controlled yaVDR real-test mode endpoint.
+
+Routes:
+
+- `POST /api/searchtimers/real-test`
+- `POST /api/vdr/searchtimers/real-test`
+
+The endpoint parses the same workflow body as validate/plan/execute, injects a non-mutating real-test executor and returns normal workflow execution JSON with operator-visible warnings and audit trail entries.
+
+Current behavior:
+
+- real backend mutation is not performed
+- the production policy gate remains closed
+- the response exposes the final blocker
+- the response keeps `executorInvocationAttempted=false`
+- this endpoint is intended for controlled yaVDR-side smoke tests before any future production mutation path exists
+
+---
+
 ### Production Policy Gate
 
 Phase 50.34 adds the production policy gate.

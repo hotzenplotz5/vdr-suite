@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.35 - SearchTimer workflow yaVDR real-test mode
+
+Status: Completed.
+
+Summary:
+- Added the non-mutating SearchTimer workflow yaVDR real-test endpoint.
+- Added POST /api/searchtimers/real-test and POST /api/vdr/searchtimers/real-test.
+- Reused the production safety chain while keeping the production policy gate closed.
+- Returned normal workflow execution JSON with operator-visible warnings.
+- Preserved executorInvocationAttempted=false in real-test mode.
+- Preserved the audit trail so operators can see the final blocker.
+- Kept real VDR backend mutation out of scope.
+
+---
+
 ## Phase 50.34 - SearchTimer workflow production policy gate
 
 Status: Completed.
