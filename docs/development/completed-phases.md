@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.25 - SearchTimer workflow executor invocation result mapping skeleton
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowExecutorResultMapper for future create, update and delete executor results.
+- Added executorResultMapped and executorResultSuccessful to SearchTimerWorkflowExecutionResult and the execution-result JSON contract.
+- Verified that a synthetic successful executor result can map to executed=true outside the standard dispatch path.
+- Verified failed executor results map to executor-result-failed.
+- Kept standard dispatch and REST paths non-mutating with executorInvocationAttempted=false, executorResultMapped=false and executed=false.
+- Preserved realExecutionEnabled=false and dryRunOnly=true in normal workflow execution.
+- Kept backend mutation out of scope.
+
+---
+
 ## Phase 50.24 - SearchTimer workflow guarded executor invocation contract
 
 Status: Completed.

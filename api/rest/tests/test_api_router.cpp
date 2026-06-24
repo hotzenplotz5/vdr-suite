@@ -1184,6 +1184,10 @@ int main()
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executorInvocationAttempted\":false")
            != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executorResultMapped\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executorResultSuccessful\":false")
+           != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"dispatchStage\":\"command-request-mapped\"")
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"executionMode\":\"prepare\"")
@@ -1226,6 +1230,10 @@ int main()
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executorInvocationGuardPassed\":false")
            != std::string::npos);
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executorInvocationAttempted\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executorResultMapped\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executorResultSuccessful\":false")
            != std::string::npos);
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"dispatchStage\":\"real-executor-injection-required\"")
            != std::string::npos);

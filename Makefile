@@ -1002,6 +1002,15 @@ test-search-timer-workflow-real-execution-policy:
 		-o /tmp/test_search_timer_workflow_real_execution_policy
 	/tmp/test_search_timer_workflow_real_execution_policy
 
+test-search-timer-workflow-executor-result-mapper:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
+		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
+		core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \
+		core/vdr/tests/test_search_timer_workflow_executor_result_mapper.cpp \
+		-o /tmp/test_search_timer_workflow_executor_result_mapper
+	/tmp/test_search_timer_workflow_executor_result_mapper
+
 test-search-timer-workflow-guarded-executor-invocation:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \

@@ -634,6 +634,8 @@ Additional response fields:
 - executorInjected
 - executorInvocationGuardPassed
 - executorInvocationAttempted
+- executorResultMapped
+- executorResultSuccessful
 - dispatchStage
 
 The dispatchStage field helps clients distinguish:
@@ -822,6 +824,29 @@ Current behavior remains intentionally non-mutating:
 - dryRunOnly=true
 
 A direct unit test also verifies that even when a synthetic policy decision would satisfy the guard, invocationAttempted remains false and the fake executor is not called.
+
+### Executor Result Mapping Skeleton
+
+Phase 50.25 adds a result mapper for future executor invocation results.
+
+The mapper can translate synthetic executor results into SearchTimerWorkflowExecutionResult values:
+
+- create result
+- update result
+- delete result
+
+The mapper can produce executed=true for a synthetic successful executor result in direct unit tests.
+
+The standard REST and dispatch paths still do not invoke the executor:
+
+- executorInvocationAttempted=false
+- executorResultMapped=false
+- executorResultSuccessful=false
+- realExecutionEnabled=false
+- executed=false
+- dryRunOnly=true
+
+This phase proves that the future result path is representable without enabling backend mutation.
 
 ### Typical Client Flow
 

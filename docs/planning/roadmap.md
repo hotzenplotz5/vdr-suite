@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 50.24 - SearchTimer workflow guarded executor invocation contract
+Phase 50.25 - SearchTimer workflow executor invocation result mapping skeleton
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 50.25 - SearchTimer workflow executor invocation result mapping skeleton
+Phase 50.26 - SearchTimer workflow executor invocation kill-switch contract
 ```
 
 ---

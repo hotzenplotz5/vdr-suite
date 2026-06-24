@@ -331,6 +331,8 @@ int main()
     assert(blockedExecuteResponse.body.find("\"executorInjected\":false") != std::string::npos);
     assert(blockedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(blockedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorResultMapped\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorResultSuccessful\":false") != std::string::npos);
     assert(blockedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(blockedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
     assert(blockedExecuteResponse.body.find("\"dispatchStage\":\"confirmation-required\"") != std::string::npos);
@@ -362,6 +364,8 @@ int main()
     assert(acceptedExecuteResponse.body.find("\"executorInjected\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorResultMapped\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorResultSuccessful\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"dispatchStage\":\"command-request-mapped\"") != std::string::npos);
@@ -394,6 +398,8 @@ int main()
     assert(executeModeResponse.body.find("\"executorInjected\":false") != std::string::npos);
     assert(executeModeResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(executeModeResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorResultMapped\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorResultSuccessful\":false") != std::string::npos);
     assert(executeModeResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(executeModeResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
     assert(executeModeResponse.body.find("\"dispatchStage\":\"executor-opt-in-required\"") != std::string::npos);
@@ -426,6 +432,8 @@ int main()
     assert(executeModeWithOptInResponse.body.find("\"executorInjected\":false") != std::string::npos);
     assert(executeModeWithOptInResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(executeModeWithOptInResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorResultMapped\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorResultSuccessful\":false") != std::string::npos);
     assert(executeModeWithOptInResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(executeModeWithOptInResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
     assert(executeModeWithOptInResponse.body.find("\"dispatchStage\":\"real-executor-injection-required\"") != std::string::npos);
