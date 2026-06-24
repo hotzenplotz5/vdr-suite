@@ -116,9 +116,9 @@ SearchTimerWorkflowProductionExecutorHardeningPlan::build() const
             "production-enable-switch",
             "Production execution enable switch",
             true,
-            false,
-            "missing",
-            "no production enable switch exists yet"));
+            true,
+            "satisfied",
+            "production enable switch contract exists and is disabled by default"));
 
     addRequirement(
         result,

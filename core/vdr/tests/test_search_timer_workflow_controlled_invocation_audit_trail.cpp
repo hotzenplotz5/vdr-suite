@@ -191,7 +191,7 @@ int main()
         "controlledTestExecutorInvocation=false"));
     assert(hasAuditEntry(
         deniedResult.executorInvocationAuditTrail,
-        "policyStage=real-execution-policy-denied"));
+        "policyStage=real-execution-enable-switch-required"));
     assert(hasAuditEntry(
         deniedResult.executorInvocationAuditTrail,
         "policyAllowed=false"));

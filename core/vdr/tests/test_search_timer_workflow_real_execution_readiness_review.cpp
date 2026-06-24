@@ -86,6 +86,7 @@ int main()
     assert(!prepareResult.executorOptInProvided);
     assert(!prepareResult.executorInjected);
     assert(!prepareResult.controlledTestInvocationOnly);
+    assert(!prepareResult.productionRealExecutionEnabled);
     assert(!prepareResult.productionRealExecutionPolicyAvailable);
     assert(prepareResult.readinessStage == "real-backend-execution-not-ready");
     assert(prepareResult.hasBlockers());
@@ -125,6 +126,7 @@ int main()
     assert(productionLikeResult.executorOptInProvided);
     assert(productionLikeResult.executorInjected);
     assert(!productionLikeResult.controlledTestInvocationOnly);
+    assert(!productionLikeResult.productionRealExecutionEnabled);
     assert(!productionLikeResult.productionRealExecutionPolicyAvailable);
     assert(productionLikeResult.hasBlockers());
     assert(contains(
@@ -149,6 +151,7 @@ int main()
     assert(controlledTestResult.executorOptInProvided);
     assert(controlledTestResult.executorInjected);
     assert(controlledTestResult.controlledTestInvocationOnly);
+    assert(!controlledTestResult.productionRealExecutionEnabled);
     assert(!controlledTestResult.productionRealExecutionPolicyAvailable);
     assert(contains(
         controlledTestResult.satisfiedConditions,
@@ -158,6 +161,30 @@ int main()
         "controlled test invocation is not production real execution"));
     assert(contains(
         controlledTestResult.blockers,
+        "production real execution policy gate is not available"));
+    assert(executor.callCount() == 0);
+
+    const SearchTimerWorkflowRealExecutionReadinessReviewResult productionEnabledResult =
+        review.review(
+            executePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithProductionRealExecutionEnabled(
+                true,
+                &executor));
+
+    assert(!productionEnabledResult.readyForRealBackendExecution);
+    assert(productionEnabledResult.planExecutable);
+    assert(productionEnabledResult.writeOperation);
+    assert(productionEnabledResult.executeModeRequested);
+    assert(productionEnabledResult.executorOptInProvided);
+    assert(productionEnabledResult.executorInjected);
+    assert(!productionEnabledResult.controlledTestInvocationOnly);
+    assert(productionEnabledResult.productionRealExecutionEnabled);
+    assert(!productionEnabledResult.productionRealExecutionPolicyAvailable);
+    assert(contains(
+        productionEnabledResult.satisfiedConditions,
+        "production real execution enable switch is enabled"));
+    assert(contains(
+        productionEnabledResult.blockers,
         "production real execution policy gate is not available"));
     assert(executor.callCount() == 0);
 

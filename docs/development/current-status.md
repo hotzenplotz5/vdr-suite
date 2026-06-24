@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.30 - SearchTimer workflow production executor hardening plan
+Phase 50.31 - SearchTimer workflow real execution enablement switch
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.31 - SearchTimer workflow real execution enablement switch
+Phase 50.32 - SearchTimer workflow backend write allowlist
 ```
 
 Completed foundations:
@@ -172,6 +172,7 @@ make test-phase
 - Phase 50.28 adds an executor invocation audit trail for policy, guard, kill-switch, invocation and result-mapping decisions.
 - Phase 50.29 adds a non-mutating real backend execution readiness review and keeps production readiness false.
 - Phase 50.30 adds a machine-readable production executor hardening plan and keeps readyForProductionExecution=false.
+- Phase 50.31 adds a disabled-by-default production real execution enablement switch contract.
 - Phase 50.29 adds a non-mutating real backend execution readiness review and keeps production readiness false.
 - Phase 50.24 adds a guarded executor invocation contract while keeping invocationAttempted=false in all paths.
 
@@ -271,10 +272,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.31 - SearchTimer workflow real execution enablement switch
+Phase 50.32 - SearchTimer workflow backend write allowlist
 ```
 
-The next implementation phase should add a disabled-by-default real execution enablement switch.
+The next implementation phase should add a backend write allowlist before any production backend mutation path is considered.
 
 Important boundaries:
 

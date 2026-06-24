@@ -997,6 +997,13 @@ test-search-timer-workflow-command-dispatch-service:
 		-o /tmp/test_search_timer_workflow_command_dispatch_service
 	/tmp/test_search_timer_workflow_command_dispatch_service
 
+test-search-timer-workflow-real-execution-enablement-switch:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowRealExecutionEnablementSwitch.cpp \
+		core/vdr/tests/test_search_timer_workflow_real_execution_enablement_switch.cpp \
+		-o /tmp/test_search_timer_workflow_real_execution_enablement_switch
+	/tmp/test_search_timer_workflow_real_execution_enablement_switch
+
 test-search-timer-workflow-production-executor-hardening-plan:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerWorkflowProductionExecutorHardeningPlan.cpp \

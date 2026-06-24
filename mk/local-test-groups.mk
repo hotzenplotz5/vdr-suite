@@ -63,6 +63,7 @@ test-vdr: \
 	test-search-timer-workflow-execution-result-json-serializer \
 	test-search-timer-workflow-command-dispatch-service \
 	test-search-timer-workflow-real-execution-policy \
+	test-search-timer-workflow-real-execution-enablement-switch \
 	test-search-timer-workflow-production-executor-hardening-plan \
 	test-search-timer-workflow-production-executor-hardening-plan-json-serializer \
 	test-search-timer-workflow-real-execution-readiness-review \

@@ -40,6 +40,8 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
         options.hasCommandExecutor();
     result.controlledTestInvocationOnly =
         options.controlledTestExecutorInvocationEnabled();
+    result.productionRealExecutionEnabled =
+        options.productionRealExecutionEnabled();
     result.productionRealExecutionPolicyAvailable = false;
 
     if (result.planExecutable)
@@ -130,6 +132,19 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
             "controlled test invocation is not production real execution");
     }
 
+    if (result.productionRealExecutionEnabled)
+    {
+        addCondition(
+            result.satisfiedConditions,
+            "production real execution enable switch is enabled");
+    }
+    else
+    {
+        addBlocker(
+            result.blockers,
+            "production real execution enable switch is disabled");
+    }
+
     if (!result.productionRealExecutionPolicyAvailable)
     {
         addBlocker(
@@ -145,6 +160,7 @@ SearchTimerWorkflowRealExecutionReadinessReview::review(
         result.executorOptInProvided &&
         result.executorInjected &&
         !result.controlledTestInvocationOnly &&
+        result.productionRealExecutionEnabled &&
         result.productionRealExecutionPolicyAvailable &&
         result.blockers.empty();
 

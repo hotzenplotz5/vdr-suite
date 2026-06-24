@@ -55,7 +55,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 50.30 - SearchTimer workflow production executor hardening plan
+    Phase 50.31 - SearchTimer workflow real execution enablement switch
 
 Current documentation consolidation:
 
@@ -63,7 +63,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 50.31 - SearchTimer workflow real execution enablement switch
+    Phase 50.32 - SearchTimer workflow backend write allowlist
 
 Completed foundations:
 

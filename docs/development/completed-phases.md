@@ -201,6 +201,23 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.31 - SearchTimer workflow real execution enablement switch
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowRealExecutionEnablementSwitch.
+- Added a disabled-by-default production real execution enablement switch contract.
+- Added productionRealExecutionEnabled to SearchTimerWorkflowCommandDispatchOptions.
+- Updated real execution policy to require the production enablement switch for non-controlled production execution.
+- Updated real execution readiness review and JSON output with productionRealExecutionEnabled.
+- Updated production executor hardening plan to mark the enable switch contract as satisfied.
+- Kept production real execution blocked by remaining hardening requirements.
+- Kept REST production execution out of scope.
+- Kept real VDR backend mutation out of scope.
+
+---
+
 ## Phase 50.30 - SearchTimer workflow production executor hardening plan
 
 Status: Completed.

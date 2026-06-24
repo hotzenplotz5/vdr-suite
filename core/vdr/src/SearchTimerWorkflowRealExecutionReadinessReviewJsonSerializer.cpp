@@ -82,6 +82,8 @@ SearchTimerWorkflowRealExecutionReadinessReviewJsonSerializer::serialize(
          << boolText(result.executorInjected);
     json << ",\"controlledTestInvocationOnly\":"
          << boolText(result.controlledTestInvocationOnly);
+    json << ",\"productionRealExecutionEnabled\":"
+         << boolText(result.productionRealExecutionEnabled);
     json << ",\"productionRealExecutionPolicyAvailable\":"
          << boolText(result.productionRealExecutionPolicyAvailable);
     json << ",\"readinessStage\":";

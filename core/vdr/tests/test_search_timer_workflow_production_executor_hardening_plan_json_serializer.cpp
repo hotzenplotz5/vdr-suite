@@ -23,7 +23,7 @@ int main()
     assert(json.find("\"id\":\"production-policy-gate\"") != std::string::npos);
     assert(json.find("\"status\":\"satisfied\"") != std::string::npos);
     assert(json.find("\"status\":\"missing\"") != std::string::npos);
-    assert(json.find("no production enable switch exists yet") != std::string::npos);
+    assert(json.find("production enable switch contract exists and is disabled by default") != std::string::npos);
     assert(json.find("production real-execution policy gate is not available") != std::string::npos);
 
     std::cout

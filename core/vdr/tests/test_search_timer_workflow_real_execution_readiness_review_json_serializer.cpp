@@ -66,6 +66,7 @@ int main()
     assert(json.find("\"executorOptInProvided\":true") != std::string::npos);
     assert(json.find("\"executorInjected\":true") != std::string::npos);
     assert(json.find("\"controlledTestInvocationOnly\":true") != std::string::npos);
+    assert(json.find("\"productionRealExecutionEnabled\":false") != std::string::npos);
     assert(json.find("\"productionRealExecutionPolicyAvailable\":false") != std::string::npos);
     assert(json.find("\"readinessStage\":\"real-backend-execution-not-ready\"") != std::string::npos);
     assert(json.find("controlled test invocation is not production real execution") != std::string::npos);

@@ -108,8 +108,8 @@ int main()
                 &executor));
 
     assert(!withOptInAndExecutor.allowed);
-    assert(withOptInAndExecutor.dispatchStage == "real-execution-policy-denied");
-    assert(withOptInAndExecutor.message == "real execution policy denies backend command dispatch");
+    assert(withOptInAndExecutor.dispatchStage == "real-execution-enable-switch-required");
+    assert(withOptInAndExecutor.message == "production real execution enable switch is required");
     assert(!withOptInAndExecutor.errors.empty());
     assert(executor.callCount() == 0);
 
@@ -126,6 +126,18 @@ int main()
     assert(withControlledTestInvocation.message == "real execution policy allows controlled test executor invocation");
     assert(withControlledTestInvocation.errors.empty());
     assert(executor.callCount() == 0);
+
+    const SearchTimerWorkflowRealExecutionPolicyDecision productionEnabledDecision =
+        policy.evaluate(
+            executePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithProductionRealExecutionEnabled(
+                true,
+                &executor));
+
+    assert(!productionEnabledDecision.allowed);
+    assert(productionEnabledDecision.dispatchStage == "real-execution-policy-denied");
+    assert(productionEnabledDecision.message == "real execution policy denies backend command dispatch");
+    assert(!productionEnabledDecision.errors.empty());
 
     std::cout
         << "test_search_timer_workflow_real_execution_policy passed"

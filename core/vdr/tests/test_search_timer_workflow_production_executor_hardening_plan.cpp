@@ -78,7 +78,7 @@ int main()
     assert(hasRequirement(
         result.requirements,
         "production-enable-switch",
-        false));
+        true));
     assert(hasRequirement(
         result.requirements,
         "backend-write-allowlist",
@@ -104,9 +104,6 @@ int main()
         "rest-production-boundary",
         false));
 
-    assert(hasBlockerContaining(
-        result.blockers,
-        "no production enable switch exists yet"));
     assert(hasBlockerContaining(
         result.blockers,
         "no backend write allowlist exists yet"));

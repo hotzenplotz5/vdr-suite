@@ -45,6 +45,16 @@ SearchTimerWorkflowRealExecutionPolicy::evaluate(
         return decision;
     }
 
+    if (!options.productionRealExecutionEnabled())
+    {
+        SearchTimerWorkflowRealExecutionPolicyDecision decision;
+        decision.allowed = false;
+        decision.dispatchStage = "real-execution-enable-switch-required";
+        decision.message = "production real execution enable switch is required";
+        decision.errors = {"production real execution enable switch is required"};
+        return decision;
+    }
+
     SearchTimerWorkflowRealExecutionPolicyDecision decision;
     decision.allowed = false;
     decision.dispatchStage = "real-execution-policy-denied";

@@ -976,6 +976,25 @@ The plan intentionally reports readyForProductionExecution=false.
 
 This is the final planning boundary before implementing a real execution enablement switch.
 
+### Real Execution Enablement Switch
+
+Phase 50.31 adds a disabled-by-default production real execution enablement switch.
+
+The switch is a contract boundary only.
+
+It does not expose REST production execution and it does not bypass the remaining production hardening requirements.
+
+The controlled test executor path remains separate from production execution.
+
+Production execution still requires later phases for:
+
+- backend write allowlist
+- per-backend write permission
+- production policy gate
+- mandatory backend readback verification
+- failure compensation behavior
+- REST production execution boundary
+
 ### Typical Client Flow
 
 Recommended client flow:

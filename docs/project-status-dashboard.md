@@ -74,7 +74,7 @@ SearchTimer Backend Contract    documented
 SearchTimer Payload Validation  documented
 SearchTimer Domain Model        expanded
 Native Fuzzy Capability         validated end-to-end
-SearchTimer User Workflow       production executor hardening plan implemented
+SearchTimer User Workflow       real execution enablement switch implemented
 ```
 
 ### Federation and Security
@@ -130,7 +130,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 50.30 - SearchTimer workflow production executor hardening plan
+Phase 50.31 - SearchTimer workflow real execution enablement switch
 ```
 
 Current Documentation Consolidation:
@@ -142,7 +142,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next Major Implementation Milestone:
 
 ```text
-Phase 50.31 - SearchTimer workflow real execution enablement switch
+Phase 50.32 - SearchTimer workflow backend write allowlist
 ```
 
 Latest Completed Milestones:
