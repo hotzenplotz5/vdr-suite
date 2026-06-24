@@ -1399,6 +1399,7 @@ test-test-http-server: prepare-test-db
                 api/rest/src/SearchTimerCreateRequestParser.cpp \
                 api/rest/src/SearchTimerUpdateRequestParser.cpp \
                 api/rest/src/SearchTimerDeleteRequestParser.cpp \
+		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
 		api/rest/src/VdrController.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
 		core/http/src/TestHttpServer.cpp \
