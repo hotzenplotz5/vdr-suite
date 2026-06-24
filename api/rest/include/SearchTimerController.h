@@ -85,6 +85,9 @@ public:
         const std::string& body,
         ISearchTimerCommandExecutor& executor);
 
+    ApiResponse validateSearchTimerWorkflow(
+        const std::string& body);
+
 private:
     SearchTimerService& searchTimerService_;
     SearchTimerResultJsonSerializer& jsonSerializer_;

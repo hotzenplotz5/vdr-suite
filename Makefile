@@ -902,6 +902,16 @@ test-search-timer-controller:
 		core/vdr/src/EpgSearchMatcher.cpp \
 		core/vdr/src/EpgSearchRequestMapper.cpp core/vdr/src/EpgSearchService.cpp \
 		core/vdr/src/EpgSearchResultJsonSerializer.cpp \
+		core/vdr/src/SearchTimerCreateService.cpp \
+		core/vdr/src/SearchTimerCreateResultJsonSerializer.cpp \
+		core/vdr/src/SearchTimerUpdateService.cpp \
+		core/vdr/src/SearchTimerUpdateResultJsonSerializer.cpp \
+		core/vdr/src/SearchTimerDeleteService.cpp \
+		core/vdr/src/SearchTimerDeleteResultJsonSerializer.cpp \
+		core/vdr/src/SearchTimerPreviewService.cpp \
+		core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
+		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
+		core/vdr/src/SearchTimerWorkflowValidationResultJsonSerializer.cpp \
 		api/rest/src/SearchTimerCreateRequestParser.cpp \
                 api/rest/src/SearchTimerUpdateRequestParser.cpp \
                 api/rest/src/SearchTimerDeleteRequestParser.cpp \

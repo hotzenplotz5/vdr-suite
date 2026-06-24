@@ -183,7 +183,7 @@ int main()
     assert(previewResponse.body.find("\"searchTimer\":{") != std::string::npos);
     assert(previewResponse.body.find("\"preview\":{") != std::string::npos);
     assert(previewResponse.body.find("\"totalCount\":1") != std::string::npos);
-    assert(previewResponse.body.find("\"eventId\":\"event-1\"") != std::string::npos);
+    assert(previewResponse.body.find("\"id\":\"event-1\"") != std::string::npos);
 
     TestSearchTimerCommandExecutor executor;
     ApiResponse createResponse =
@@ -224,6 +224,43 @@ int main()
     assert(updateResponse.body.find("\"name\":\"Terra X Suche aktualisiert\"") != std::string::npos);
     assert(updateResponse.body.find("\"query\":\"Terra X aktualisiert\"") != std::string::npos);
     assert(updateResponse.body.find("\"state\":\"inactive\"") != std::string::npos);
+    assert(executor.updateCallCount() == 1);
+
+
+    ApiResponse validateResponse =
+        controller.validateSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche\","
+            "\"query\":\"Terra X\","
+            "\"active\":true"
+            "}");
+
+    assert(validateResponse.statusCode == 200);
+    assert(validateResponse.contentType == "application/json");
+    assert(validateResponse.body.find("\"valid\":true") != std::string::npos);
+    assert(validateResponse.body.find("\"operation\":\"create\"") != std::string::npos);
+    assert(validateResponse.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(validateResponse.body.find("\"writeOperation\":true") != std::string::npos);
+    assert(validateResponse.body.find("\"wantsReadbackAfterWrite\":true") != std::string::npos);
+    assert(validateResponse.body.find("\"errors\":[]") != std::string::npos);
+    assert(executor.callCount() == 1);
+
+    ApiResponse invalidValidateResponse =
+        controller.validateSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"update\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche aktualisiert\","
+            "\"query\":\"Terra X aktualisiert\""
+            "}");
+
+    assert(invalidValidateResponse.statusCode == 200);
+    assert(invalidValidateResponse.contentType == "application/json");
+    assert(invalidValidateResponse.body.find("\"valid\":false") != std::string::npos);
+    assert(invalidValidateResponse.body.find("\"operation\":\"update\"") != std::string::npos);
+    assert(invalidValidateResponse.body.find("\"backendNativeId is required\"") != std::string::npos);
     assert(executor.updateCallCount() == 1);
 
     std::cout << "test_search_timer_controller passed" << std::endl;

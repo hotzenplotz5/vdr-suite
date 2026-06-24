@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.4 - SearchTimer workflow validation REST endpoint
+
+Status: Completed.
+
+Summary:
+- Added a SearchTimer workflow validation controller entry point for JSON request bodies.
+- Wired POST /api/searchtimers/validate and POST /api/vdr/searchtimers/validate in ApiRouter.
+- Accepted workflow operation, backend identity, backend-native identity, name, query and active intent fields.
+- Returned the stable SearchTimer workflow validation JSON contract without executing create, update or delete writes.
+- Covered controller-level and router-level validation behavior with targeted tests.
+
+---
+
 ## Phase 50.3 - SearchTimer workflow validation JSON contract
 
 Status: Completed.

@@ -1533,6 +1533,39 @@ int main()
 
     db.close();
 
+    ApiResponse searchTimerValidationResponse =
+        router.handlePost(
+            "/api/searchtimers/validate",
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche\","
+            "\"query\":\"Terra X\""
+            "}");
+
+    assert(searchTimerValidationResponse.statusCode == 200);
+    assert(searchTimerValidationResponse.contentType == "application/json");
+    assert(searchTimerValidationResponse.body.find("\"valid\":true") != std::string::npos);
+    assert(searchTimerValidationResponse.body.find("\"operation\":\"create\"") != std::string::npos);
+    assert(searchTimerValidationResponse.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(searchTimerValidationResponse.body.find("\"errors\":[]") != std::string::npos);
+
+    ApiResponse searchTimerValidationAliasResponse =
+        router.handlePost(
+            "/api/vdr/searchtimers/validate",
+            "{"
+            "\"operation\":\"update\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche\","
+            "\"query\":\"Terra X\""
+            "}");
+
+    assert(searchTimerValidationAliasResponse.statusCode == 200);
+    assert(searchTimerValidationAliasResponse.contentType == "application/json");
+    assert(searchTimerValidationAliasResponse.body.find("\"valid\":false") != std::string::npos);
+    assert(searchTimerValidationAliasResponse.body.find("\"operation\":\"update\"") != std::string::npos);
+    assert(searchTimerValidationAliasResponse.body.find("\"backendNativeId is required\"") != std::string::npos);
+
     std::cout
         << "test_api_router passed"
         << std::endl;

@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.3 - SearchTimer workflow validation JSON contract
+Phase 50.4 - SearchTimer workflow validation REST endpoint
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.4 - SearchTimer workflow validation REST endpoint
+Phase 50.5 - SearchTimer workflow validation request documentation
 ```
 
 Completed foundations:
@@ -145,6 +145,7 @@ make test-phase
 - Phase 50.1 adds the backend-neutral SearchTimerWorkflowRequest model for user workflow intent.
 - Phase 50.2 adds SearchTimer workflow validation before transport mapping or backend writes.
 - Phase 50.3 adds a stable JSON contract for SearchTimer workflow validation results.
+- Phase 50.4 exposes SearchTimer workflow validation through POST /api/searchtimers/validate without executing writes.
 
 ---
 
@@ -242,10 +243,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.4 - SearchTimer workflow validation REST endpoint
+Phase 50.5 - SearchTimer workflow validation request documentation
 ```
 
-The next implementation phase should expose SearchTimer workflow validation through a REST endpoint so clients can validate user intent before create, update or delete workflows are executed.
+The next implementation phase should document the SearchTimer workflow validation request and response contract for clients and operators.
 
 Important boundaries:
 
