@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import base64
 import json
 import os
 import sys
@@ -29,18 +30,26 @@ def make_payload(args):
     return payload
 
 
-def post_json(base_url, endpoint, payload, timeout_seconds):
+def post_json(base_url, endpoint, payload, timeout_seconds, username="", password=""):
     url = base_url.rstrip("/") + endpoint
     body = json.dumps(payload).encode("utf-8")
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    if username or password:
+        token = f"{username}:{password}".encode("utf-8")
+        headers["Authorization"] = (
+            "Basic " + base64.b64encode(token).decode("ascii")
+        )
 
     request = urllib.request.Request(
         url,
         data=body,
         method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
+        headers=headers,
     )
 
     try:
@@ -271,6 +280,16 @@ def parse_args(argv):
         help="HTTP timeout in seconds.",
     )
     parser.add_argument(
+        "--username",
+        default=os.environ.get("VDR_SUITE_API_USERNAME", ""),
+        help="HTTP Basic Auth username. Default: env VDR_SUITE_API_USERNAME.",
+    )
+    parser.add_argument(
+        "--password",
+        default=os.environ.get("VDR_SUITE_API_PASSWORD", ""),
+        help="HTTP Basic Auth password. Default: env VDR_SUITE_API_PASSWORD.",
+    )
+    parser.add_argument(
         "--print-json",
         action="store_true",
         help="Print parsed response JSON.",
@@ -302,6 +321,8 @@ def main(argv):
         args.endpoint,
         payload,
         args.timeout,
+        args.username,
+        args.password,
     )
 
     checks, data = validate_response(status_code, response_text)
