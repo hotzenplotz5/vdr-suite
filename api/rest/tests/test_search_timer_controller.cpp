@@ -331,6 +331,8 @@ int main()
     assert(blockedExecuteResponse.body.find("\"executorInjected\":false") != std::string::npos);
     assert(blockedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(blockedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(blockedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
     assert(blockedExecuteResponse.body.find("\"dispatchStage\":\"confirmation-required\"") != std::string::npos);
     assert(blockedExecuteResponse.body.find("explicit operator confirmation is required") != std::string::npos);
     assert(executor.callCount() == 1);
@@ -358,6 +360,8 @@ int main()
     assert(acceptedExecuteResponse.body.find("\"realExecutionPolicyAllowed\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"executorOptInProvided\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"executorInjected\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"dispatchStage\":\"command-request-mapped\"") != std::string::npos);
@@ -390,6 +394,8 @@ int main()
     assert(executeModeResponse.body.find("\"executorInjected\":false") != std::string::npos);
     assert(executeModeResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(executeModeResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(executeModeResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
     assert(executeModeResponse.body.find("\"dispatchStage\":\"executor-opt-in-required\"") != std::string::npos);
     assert(executeModeResponse.body.find("\"executionMode\":\"execute\"") != std::string::npos);
     assert(executeModeResponse.body.find("real execution mode requires executor opt-in") != std::string::npos);
@@ -418,6 +424,8 @@ int main()
     assert(executeModeWithOptInResponse.body.find("\"realExecutionPolicyAllowed\":false") != std::string::npos);
     assert(executeModeWithOptInResponse.body.find("\"executorOptInProvided\":true") != std::string::npos);
     assert(executeModeWithOptInResponse.body.find("\"executorInjected\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
+    assert(executeModeWithOptInResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
     assert(executeModeWithOptInResponse.body.find("\"executorInvocationGuardPassed\":false") != std::string::npos);
     assert(executeModeWithOptInResponse.body.find("\"executorInvocationAttempted\":false") != std::string::npos);
     assert(executeModeWithOptInResponse.body.find("\"dispatchStage\":\"real-executor-injection-required\"") != std::string::npos);
