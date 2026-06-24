@@ -380,6 +380,22 @@ The contract remains planning-only and does not execute backend operations.
 
 ---
 
+## Planning REST Endpoint
+
+Phase 50.10 exposes the planning JSON through REST:
+- POST /api/searchtimers/plan
+- POST /api/vdr/searchtimers/plan
+
+The endpoint parses the workflow request body, builds a SearchTimerWorkflowExecutionPlan and returns the planning JSON.
+
+It does not call a SearchTimer command executor.
+
+It does not create, update or delete SearchTimers.
+
+Invalid requests return HTTP 200 with valid=false and hasExecutionWork=false in the planning JSON.
+
+---
+
 ## Client Behavior
 
 Recommended client behavior:

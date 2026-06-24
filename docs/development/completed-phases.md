@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.10 - SearchTimer workflow planning REST endpoint
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerController::planSearchTimerWorkflow as a planning-only REST boundary.
+- Added POST /api/searchtimers/plan and POST /api/vdr/searchtimers/plan router wiring.
+- Returned SearchTimerWorkflowExecutionPlan JSON without executing backend writes.
+- Preserved HTTP 200 planning responses for invalid workflow requests with non-executable plans.
+- Covered controller and router behavior with targeted tests.
+
+---
+
 ## Phase 50.9 - SearchTimer workflow planning JSON contract
 
 Status: Completed.

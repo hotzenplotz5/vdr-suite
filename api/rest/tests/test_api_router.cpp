@@ -1082,6 +1082,50 @@ int main()
     assert(vdrSearchTimersResponse.body.find("\"state\":\"inactive\"")
            != std::string::npos);
 
+
+    ApiResponse searchTimerPlanResponse =
+        router.handlePost(
+            "/api/searchtimers/plan",
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"default\","
+            "\"name\":\"Router Plan SearchTimer\","
+            "\"query\":\"Router\","
+            "\"active\":true"
+            "}");
+
+    assert(searchTimerPlanResponse.statusCode == 200);
+    assert(searchTimerPlanResponse.contentType == "application/json");
+    assert(searchTimerPlanResponse.body.find("\"valid\":true")
+           != std::string::npos);
+    assert(searchTimerPlanResponse.body.find("\"operation\":\"create\"")
+           != std::string::npos);
+    assert(searchTimerPlanResponse.body.find("\"primaryStep\":\"create\"")
+           != std::string::npos);
+    assert(searchTimerPlanResponse.body.find("\"followUpStep\":\"readback\"")
+           != std::string::npos);
+    assert(searchTimerPlanResponse.body.find("\"requiresBackendReadback\":true")
+           != std::string::npos);
+
+    ApiResponse vdrSearchTimerPlanResponse =
+        router.handlePost(
+            "/api/vdr/searchtimers/plan",
+            "{"
+            "\"operation\":\"delete\","
+            "\"backendId\":\"default\","
+            "\"backendNativeId\":\"searchtimer-42\""
+            "}");
+
+    assert(vdrSearchTimerPlanResponse.statusCode == 200);
+    assert(vdrSearchTimerPlanResponse.contentType == "application/json");
+    assert(vdrSearchTimerPlanResponse.body.find("\"operation\":\"delete\"")
+           != std::string::npos);
+    assert(vdrSearchTimerPlanResponse.body.find("\"primaryStep\":\"delete\"")
+           != std::string::npos);
+    assert(vdrSearchTimerPlanResponse.body.find("\"followUpStep\":\"none\"")
+           != std::string::npos);
+    assert(vdrSearchTimerPlanResponse.body.find("\"requiresExplicitOperatorConfirmation\":true")
+           != std::string::npos);
     ApiResponse unavailableSearchTimersResponse =
         routerWithoutEpg.handleGet("/api/searchtimers");
 

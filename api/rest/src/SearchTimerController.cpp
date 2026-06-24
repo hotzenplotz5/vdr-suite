@@ -17,6 +17,8 @@
 #include "SearchTimerPreviewResultJsonSerializer.h"
 #include "SearchTimerPreviewService.h"
 #include "SearchTimerWorkflowValidationRequestParser.h"
+#include "SearchTimerWorkflowExecutionPlanJsonSerializer.h"
+#include "SearchTimerWorkflowPlanningService.h"
 #include "SearchTimerWorkflowValidationResultJsonSerializer.h"
 #include "SearchTimerWorkflowValidationService.h"
 #include "ISearchTimerCommandExecutor.h"
@@ -244,6 +246,26 @@ ApiResponse SearchTimerController::validateSearchTimerWorkflow(
     response.contentType = "application/json";
     response.body =
         validationJsonSerializer.serialize(result);
+
+    return response;
+}
+
+ApiResponse SearchTimerController::planSearchTimerWorkflow(
+    const std::string& body)
+{
+    SearchTimerWorkflowPlanningService planningService;
+    SearchTimerWorkflowValidationRequestParser requestParser;
+    SearchTimerWorkflowExecutionPlanJsonSerializer planJsonSerializer;
+
+    const SearchTimerWorkflowExecutionPlan plan =
+        planningService.plan(
+            requestParser.parse(body));
+
+    ApiResponse response;
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        planJsonSerializer.serialize(plan);
 
     return response;
 }

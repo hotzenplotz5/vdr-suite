@@ -263,6 +263,49 @@ int main()
     assert(invalidValidateResponse.body.find("\"backendNativeId is required\"") != std::string::npos);
     assert(executor.updateCallCount() == 1);
 
+
+    ApiResponse planResponse =
+        controller.planSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche\","
+            "\"query\":\"Terra X\","
+            "\"active\":true"
+            "}");
+
+    assert(planResponse.statusCode == 200);
+    assert(planResponse.contentType == "application/json");
+    assert(planResponse.body.find("\"valid\":true") != std::string::npos);
+    assert(planResponse.body.find("\"operation\":\"create\"") != std::string::npos);
+    assert(planResponse.body.find("\"primaryStep\":\"create\"") != std::string::npos);
+    assert(planResponse.body.find("\"followUpStep\":\"readback\"") != std::string::npos);
+    assert(planResponse.body.find("\"requiresBackendReadback\":true") != std::string::npos);
+    assert(planResponse.body.find("\"requiresExplicitOperatorConfirmation\":true") != std::string::npos);
+    assert(planResponse.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
+    assert(planResponse.body.find("\"name\":\"Terra X Suche\"") != std::string::npos);
+    assert(planResponse.body.find("\"query\":\"Terra X\"") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
+
+    ApiResponse invalidPlanResponse =
+        controller.planSearchTimerWorkflow(
+            "{"
+            "\"operation\":\"update\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Terra X Suche aktualisiert\","
+            "\"query\":\"Terra X aktualisiert\""
+            "}");
+
+    assert(invalidPlanResponse.statusCode == 200);
+    assert(invalidPlanResponse.contentType == "application/json");
+    assert(invalidPlanResponse.body.find("\"valid\":false") != std::string::npos);
+    assert(invalidPlanResponse.body.find("\"operation\":\"update\"") != std::string::npos);
+    assert(invalidPlanResponse.body.find("\"primaryStep\":\"none\"") != std::string::npos);
+    assert(invalidPlanResponse.body.find("\"hasExecutionWork\":false") != std::string::npos);
+    assert(invalidPlanResponse.body.find("\"writeOperation\":true") != std::string::npos);
+    assert(executor.callCount() == 1);
+    assert(executor.updateCallCount() == 1);
     std::cout << "test_search_timer_controller passed" << std::endl;
     return 0;
 }
