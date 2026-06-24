@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.15 - SearchTimer workflow execution command boundary
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowCommandRequestMapper as the first workflow-to-command request boundary.
+- Mapped executable create plans to SearchTimerCreateRequest.
+- Mapped executable update plans to SearchTimerUpdateRequest.
+- Mapped executable delete plans to SearchTimerDeleteRequest.
+- Preserved backend identity, backend-native identity, name, query and active state according to operation needs.
+- Kept ISearchTimerCommandExecutor calls and backend mutation out of scope.
+- Added targeted command-request mapper coverage and linked the target into the local VDR test group.
+
+---
+
 ## Phase 50.14 - SearchTimer workflow execution REST documentation
 
 Status: Completed.

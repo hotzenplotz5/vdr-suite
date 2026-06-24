@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.14 - SearchTimer workflow execution REST documentation
+Phase 50.15 - SearchTimer workflow execution command boundary
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.15 - SearchTimer workflow execution command boundary
+Phase 50.16 - SearchTimer workflow execution command dispatch skeleton
 ```
 
 Completed foundations:
@@ -156,6 +156,7 @@ make test-phase
 - Phase 50.12 adds a JSON contract for guarded SearchTimer workflow execution results.
 - Phase 50.13 exposes the guarded execution skeleton through REST without backend mutation.
 - Phase 50.14 documents the guarded execution REST contract, confirmation semantics and dry-run safety boundary.
+- Phase 50.15 adds the workflow-to-command request mapping boundary without executing backend mutations.
 
 ---
 
@@ -253,10 +254,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.15 - SearchTimer workflow execution command boundary
+Phase 50.16 - SearchTimer workflow execution command dispatch skeleton
 ```
 
-The next implementation phase should define the SearchTimer workflow execution command boundary while preserving explicit confirmation, backend identity, readback and no-implicit-mutation guarantees.
+The next implementation phase should add a guarded command dispatch skeleton that can use the command-request boundary without enabling real backend mutation by default.
 
 Important boundaries:
 

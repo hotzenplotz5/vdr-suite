@@ -979,6 +979,14 @@ test-search-timer-workflow-execution-result-json-serializer:
 		-o /tmp/test_search_timer_workflow_execution_result_json_serializer
 	/tmp/test_search_timer_workflow_execution_result_json_serializer
 
+test-search-timer-workflow-command-request-mapper:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
+		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
+		core/vdr/tests/test_search_timer_workflow_command_request_mapper.cpp \
+		-o /tmp/test_search_timer_workflow_command_request_mapper
+	/tmp/test_search_timer_workflow_command_request_mapper
+
 test-search-timer-workflow-execution-service:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \

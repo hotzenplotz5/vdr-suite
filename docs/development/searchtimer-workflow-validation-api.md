@@ -550,6 +550,30 @@ Accepted skeleton results still have:
 
 The endpoint is therefore safe for clients to use as a preview of execution behavior before real backend mutation is implemented.
 
+### Command Request Boundary
+
+Phase 50.15 adds a workflow command request mapper.
+
+The mapper converts executable write-operation plans into existing command request objects:
+
+- create plans map to SearchTimerCreateRequest
+- update plans map to SearchTimerUpdateRequest
+- delete plans map to SearchTimerDeleteRequest
+
+The mapper preserves:
+
+- backendId
+- backendNativeId for update and delete
+- name for create and update
+- query for create and update
+- active for create and update
+
+The mapper does not call ISearchTimerCommandExecutor.
+
+The mapper does not mutate a backend.
+
+The mapper is therefore a command boundary preparation step only.
+
 ### Typical Client Flow
 
 Recommended client flow:
