@@ -414,6 +414,33 @@ Accepted skeleton results are dry-run-only and have executed=false.
 
 ---
 
+## Execution Result JSON Contract
+
+Phase 50.12 adds SearchTimerWorkflowExecutionResultJsonSerializer.
+
+The execution result JSON includes:
+- success
+- executed
+- blocked
+- dryRunOnly
+- confirmationProvided
+- requiresExplicitOperatorConfirmation
+- requiresBackendReadback
+- operation
+- primaryStep
+- followUpStep
+- backendId
+- backendNativeId
+- message
+- warnings
+- errors
+
+The JSON contract represents the guarded execution skeleton only.
+
+It does not imply that a backend command was executed.
+
+---
+
 ## Client Behavior
 
 Recommended client behavior:

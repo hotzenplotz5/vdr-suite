@@ -34,6 +34,7 @@ VDR_SRC := \
         core/vdr/src/SearchTimerWorkflowValidationService.cpp \
         core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
         core/vdr/src/SearchTimerWorkflowExecutionService.cpp \
+        core/vdr/src/SearchTimerWorkflowExecutionResultJsonSerializer.cpp \
         core/vdr/src/SearchTimerWorkflowExecutionPlanJsonSerializer.cpp \
         core/vdr/src/SearchTimerWorkflowValidationResultJsonSerializer.cpp \
         core/vdr/src/RestfulApiSearchTimerCommandExecutor.cpp \

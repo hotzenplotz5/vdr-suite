@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.12 - SearchTimer workflow execution result JSON contract
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowExecutionResultJsonSerializer for guarded workflow execution results.
+- Serialized success, executed, blocked, dry-run, confirmation and readback flags.
+- Serialized operation, primary step, follow-up step, backend identity, message, warnings and errors.
+- Preserved the safety distinction between accepted skeleton results and real backend execution.
+- Covered blocked, accepted and invalid result JSON with a targeted unit test.
+
+---
+
 ## Phase 50.11 - SearchTimer workflow execution skeleton
 
 Status: Completed.

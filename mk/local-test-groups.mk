@@ -60,6 +60,7 @@ test-vdr: \
 	test-epg-search-matcher \
 	test-epg-search-result \
 	test-search-timer \
+	test-search-timer-workflow-execution-result-json-serializer \
 	test-search-timer-workflow-execution-service \
 	test-search-timer-workflow-execution-plan-json-serializer \
 	test-search-timer-workflow-planning-service \
