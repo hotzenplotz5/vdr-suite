@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.16 - SearchTimer workflow execution command dispatch skeleton
+Phase 50.17 - SearchTimer workflow dispatch REST wiring
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.17 - SearchTimer workflow dispatch REST wiring
+Phase 50.18 - SearchTimer workflow dispatch result semantics
 ```
 
 Current architecture validation:

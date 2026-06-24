@@ -1170,7 +1170,9 @@ int main()
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"primaryStep\":\"delete\"")
            != std::string::npos);
-    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("backend execution is not implemented in this skeleton")
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("delete command request accepted by dispatch skeleton")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("backend command dispatch is not enabled in this skeleton")
            != std::string::npos);
 
     ApiResponse unavailableSearchTimersResponse =

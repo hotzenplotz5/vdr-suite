@@ -19,7 +19,7 @@
 #include "SearchTimerWorkflowValidationRequestParser.h"
 #include "SearchTimerWorkflowExecutionPlanJsonSerializer.h"
 #include "SearchTimerWorkflowExecutionResultJsonSerializer.h"
-#include "SearchTimerWorkflowExecutionService.h"
+#include "SearchTimerWorkflowCommandDispatchService.h"
 #include "SearchTimerWorkflowPlanningService.h"
 #include "SearchTimerWorkflowValidationResultJsonSerializer.h"
 #include "SearchTimerWorkflowValidationService.h"
@@ -347,7 +347,7 @@ ApiResponse SearchTimerController::executeSearchTimerWorkflow(
 {
     SearchTimerWorkflowPlanningService planningService;
     SearchTimerWorkflowValidationRequestParser requestParser;
-    SearchTimerWorkflowExecutionService executionService;
+    SearchTimerWorkflowCommandDispatchService dispatchService;
     SearchTimerWorkflowExecutionResultJsonSerializer resultJsonSerializer;
 
     const SearchTimerWorkflowExecutionPlan plan =
@@ -355,7 +355,7 @@ ApiResponse SearchTimerController::executeSearchTimerWorkflow(
             requestParser.parse(body));
 
     const SearchTimerWorkflowExecutionResult result =
-        executionService.executePlan(
+        dispatchService.dispatchPlan(
             plan,
             parseExecutionConfirmation(body));
 

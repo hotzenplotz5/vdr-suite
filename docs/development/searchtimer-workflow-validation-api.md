@@ -597,6 +597,30 @@ Accepted dispatch skeleton results still have:
 
 The dispatch skeleton is therefore a preparation boundary for a later opt-in real command dispatcher.
 
+### Dispatch REST Wiring
+
+Phase 50.17 wires the guarded command dispatch skeleton into the REST execution path.
+
+POST /api/searchtimers/execute and POST /api/vdr/searchtimers/execute now use:
+
+1. SearchTimerWorkflowValidationRequestParser
+2. SearchTimerWorkflowPlanningService
+3. SearchTimerWorkflowCommandDispatchService
+4. SearchTimerWorkflowExecutionResultJsonSerializer
+
+The endpoint still returns the same execution-result JSON contract.
+
+The endpoint still does not call ISearchTimerCommandExecutor.
+
+The endpoint still does not mutate a backend.
+
+Accepted write-operation results continue to report:
+
+- executed=false
+- dryRunOnly=true
+
+This makes the REST execution path follow the future real-dispatch architecture while keeping the current runtime safe.
+
 ### Typical Client Flow
 
 Recommended client flow:

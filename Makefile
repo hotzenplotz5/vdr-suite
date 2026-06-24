@@ -912,6 +912,7 @@ test-search-timer-controller:
 		core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
+		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutionService.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutionResultJsonSerializer.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutionPlanJsonSerializer.cpp \

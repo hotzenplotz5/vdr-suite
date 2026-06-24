@@ -55,7 +55,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 50.16 - SearchTimer workflow execution command dispatch skeleton
+    Phase 50.17 - SearchTimer workflow dispatch REST wiring
 
 Current documentation consolidation:
 
@@ -63,7 +63,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 50.17 - SearchTimer workflow dispatch REST wiring
+    Phase 50.18 - SearchTimer workflow dispatch result semantics
 
 Completed foundations:
 

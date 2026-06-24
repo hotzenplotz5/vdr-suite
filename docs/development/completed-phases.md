@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.17 - SearchTimer workflow dispatch REST wiring
+
+Status: Completed.
+
+Summary:
+- Wired the guarded SearchTimerWorkflowCommandDispatchService into the REST execution path.
+- Kept POST /api/searchtimers/execute and POST /api/vdr/searchtimers/execute on the same execution-result JSON contract.
+- Preserved explicit operator confirmation handling from the existing REST execution boundary.
+- Preserved dry-run-only execution semantics with executed=false.
+- Kept ISearchTimerCommandExecutor calls and backend mutation out of the REST path.
+- Updated controller and router coverage to verify dispatch skeleton messages.
+- Added the dispatch service to the VDR source set used by router builds.
+
+---
+
 ## Phase 50.16 - SearchTimer workflow execution command dispatch skeleton
 
 Status: Completed.

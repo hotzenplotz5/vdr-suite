@@ -345,7 +345,8 @@ int main()
     assert(acceptedExecuteResponse.body.find("\"executed\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"blocked\":false") != std::string::npos);
     assert(acceptedExecuteResponse.body.find("\"confirmationProvided\":true") != std::string::npos);
-    assert(acceptedExecuteResponse.body.find("backend execution is not implemented in this skeleton") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("create command request accepted by dispatch skeleton") != std::string::npos);
+    assert(acceptedExecuteResponse.body.find("backend command dispatch is not enabled in this skeleton") != std::string::npos);
     assert(executor.callCount() == 1);
     assert(executor.updateCallCount() == 1);
     assert(executor.removeCallCount() == 0);
