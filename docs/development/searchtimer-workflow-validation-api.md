@@ -441,28 +441,127 @@ It does not imply that a backend command was executed.
 
 ---
 
-## Execution REST Skeleton
+## Execution REST Contract
 
-Phase 50.13 exposes the guarded workflow execution skeleton through REST:
+Phase 50.13 exposes the guarded workflow execution skeleton through REST.
+
+Phase 50.14 documents the endpoint contract, confirmation fields, result semantics and safety boundary.
+
+Endpoints:
 
 - POST /api/searchtimers/execute
 - POST /api/vdr/searchtimers/execute
 
 The endpoint parses the same workflow request shape as validation and planning.
 
-Write operations are only accepted by the skeleton when one of these boolean fields is true:
+### Request Fields
+
+Supported request fields:
+
+- operation or action
+- backendId
+- backendNativeId
+- name
+- query
+- active
+- explicitOperatorConfirmation
+- operatorConfirmed
+- confirmed
+
+Supported operations:
+
+- list
+- preview
+- create
+- readback
+- update
+- delete
+- remove as alias for delete
+
+Write operations are:
+
+- create
+- update
+- delete
+
+Read-only operations are:
+
+- list
+- preview
+- readback
+
+### Confirmation Semantics
+
+Write operations are only accepted by the skeleton when one of these fields is truthy:
 
 - explicitOperatorConfirmation
 - operatorConfirmed
 - confirmed
 
+Accepted truthy values are:
+
+- true
+- 1
+- "true"
+- "1"
+
+Missing, false or unknown confirmation values block write-operation plans.
+
+Read-only operations do not require explicit operator confirmation.
+
+### Response Semantics
+
+The endpoint always returns HTTP 200 with application/json when the controller is available.
+
+Invalid workflow requests are represented in the JSON result instead of using HTTP error codes.
+
+The endpoint returns the Phase 50.12 execution-result JSON contract.
+
+Important response fields:
+
+- success
+- executed
+- blocked
+- dryRunOnly
+- confirmationProvided
+- requiresExplicitOperatorConfirmation
+- requiresBackendReadback
+- operation
+- primaryStep
+- followUpStep
+- backendId
+- backendNativeId
+- message
+- warnings
+- errors
+
+### Safety Boundary
+
 The endpoint does not call ISearchTimerCommandExecutor.
 
 The endpoint does not mutate a backend.
 
-The endpoint always returns the Phase 50.12 execution-result JSON contract.
+The endpoint does not create, update or delete a SearchTimer.
 
-Accepted skeleton results still have executed=false and dryRunOnly=true.
+Accepted skeleton results still have:
+
+- executed=false
+- dryRunOnly=true
+
+The endpoint is therefore safe for clients to use as a preview of execution behavior before real backend mutation is implemented.
+
+### Typical Client Flow
+
+Recommended client flow:
+
+1. Build a workflow request from the operator action.
+2. Submit it to POST /api/searchtimers/validate.
+3. Submit it to POST /api/searchtimers/plan.
+4. Display the planned operation, primary step, follow-up step and confirmation requirements.
+5. Require explicit operator confirmation when writeOperation is true.
+6. Submit the confirmed request to POST /api/searchtimers/execute.
+7. Treat executed=false and dryRunOnly=true as proof that no backend mutation happened.
+8. Wait for a later real execution phase before using the endpoint for actual backend writes.
 
 ---
 

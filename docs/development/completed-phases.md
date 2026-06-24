@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.14 - SearchTimer workflow execution REST documentation
+
+Status: Completed.
+
+Summary:
+- Expanded the SearchTimer workflow execution REST documentation for the guarded /execute skeleton.
+- Documented canonical and /api/vdr execution endpoints.
+- Documented request fields, operation aliases, read-only operations and write operations.
+- Documented explicit operator confirmation aliases and accepted truthy values.
+- Documented execution-result JSON semantics for blocked, invalid and accepted skeleton results.
+- Documented the safety boundary that /execute does not call ISearchTimerCommandExecutor and does not mutate a backend.
+- Moved the next focus to the SearchTimer workflow execution command boundary.
+
+---
+
 ## Phase 50.13 - SearchTimer workflow execution REST skeleton
 
 Status: Completed.
