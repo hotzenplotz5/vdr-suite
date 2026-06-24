@@ -327,6 +327,20 @@ The validation state is represented by the valid field and the errors array.
 
 ---
 
+## Execution Plan Boundary
+
+Phase 50.7 adds SearchTimerWorkflowExecutionPlan as a backend-neutral planning model after request parsing and validation.
+
+The plan describes intended workflow steps such as list, preview, create, readback, update and delete without executing backend writes.
+
+Create and update plans include a readback follow-up step.
+
+Write plans require explicit operator confirmation.
+
+Invalid requests produce no executable primary step.
+
+---
+
 ## Client Behavior
 
 Recommended client behavior:

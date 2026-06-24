@@ -201,6 +201,20 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.7 - SearchTimer workflow execution plan model
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerWorkflowExecutionPlan as a backend-neutral planning model for SearchTimer user workflow intent.
+- Added execution steps for list, preview, create, readback, update and delete.
+- Preserved backend identity, backend-native identity, name, query and active state in the plan.
+- Marked write plans as requiring explicit operator confirmation.
+- Added readback follow-up steps for create and update plans without executing backend writes.
+- Covered the model with a targeted unit test.
+
+---
+
 ## Phase 50.6 - SearchTimer workflow validation request parser extraction
 
 Status: Completed.
