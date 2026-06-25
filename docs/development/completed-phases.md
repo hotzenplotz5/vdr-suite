@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 51.9 - Live parity discovery RESTfulAPI provider contract
+
+Status: Completed.
+
+Summary:
+- Added RestfulApiSearchTimerDiscoveryProvider as the RESTfulAPI-facing discovery provider contract.
+- Defined /searchtimers/discovery.json as the upstream endpoint contract.
+- Implemented safe pre-transport empty catalog behavior.
+- Verified configured backend fallback and explicit backend override.
+- Preserved the no-IHttpClient, no-HTTP-execute, no-JSON-parsing, no-epgsearch-fetching and no-mutation boundary.
+
+---
+
 ## Phase 51.8 - Live parity discovery HTTP smoke contract
 
 Status: Completed.

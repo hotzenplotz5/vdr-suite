@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 51.8 - Live parity discovery HTTP smoke contract
+Phase 51.9 - Live parity discovery RESTfulAPI provider contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 51.9 - Live parity discovery RESTfulAPI provider contract
+Phase 51.10 - Live parity discovery foundation completion
 ```
 
 ---
@@ -399,8 +399,15 @@ Phase 51.8 result:
 - Verified POST /api/searchtimers/discovery remains unavailable through the generic not-found response.
 - Kept the phase free of RESTfulAPI transport, epgsearch fetching and backend mutation.
 
+Phase 51.9 result:
+- Added RestfulApiSearchTimerDiscoveryProvider as the RESTfulAPI-facing discovery provider contract.
+- Defined /searchtimers/discovery.json as the upstream endpoint contract.
+- Preserved safe empty pre-transport discovery behavior.
+- Verified configured backend fallback and explicit backend override.
+- Kept the phase free of IHttpClient, HTTP execution, JSON parsing, epgsearch fetching and backend mutation.
+
 Next implementation step:
-- Phase 51.9 - Live parity discovery RESTfulAPI provider contract.
+- Phase 51.10 - Live parity discovery foundation completion.
 
 Expected outcomes:
 - Broader EPG detail coverage.

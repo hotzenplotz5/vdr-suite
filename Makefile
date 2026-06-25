@@ -1359,6 +1359,13 @@ test-search-timer-discovery-static-provider:
 		core/vdr/tests/test_search_timer_discovery_static_provider.cpp \
 		-o /tmp/test_search_timer_discovery_static_provider
 	/tmp/test_search_timer_discovery_static_provider
+
+test-restfulapi-search-timer-discovery-provider-contract:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/RestfulApiSearchTimerDiscoveryProvider.cpp \
+		core/vdr/tests/test_restfulapi_search_timer_discovery_provider_contract.cpp \
+		-o /tmp/test_restfulapi_search_timer_discovery_provider_contract
+	/tmp/test_restfulapi_search_timer_discovery_provider_contract
 test-epg-person-search-result:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_person_search_result.cpp \
@@ -1567,6 +1574,7 @@ clean:
 	rm -f /tmp/test_search_timer_discovery
 	rm -f /tmp/test_search_timer_discovery_service
 	rm -f /tmp/test_search_timer_discovery_static_provider
+	rm -f /tmp/test_restfulapi_search_timer_discovery_provider_contract
 	rm -f /tmp/test_search_timer_discovery_json_serializer
 	rm -f /tmp/test_search_timer_discovery_controller
 	rm -f /tmp/test_database

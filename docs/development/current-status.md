@@ -43,7 +43,7 @@ main
 
 Overall project progress:
 
-    █████████░ 89%
+    █████████░ 90%
 
 Milestone progress:
 
@@ -55,14 +55,14 @@ Milestone progress:
     Documentation Foundation        ██████████ 100%  completed
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
-    Live Plugin Parity Foundation   █████████░  90%  in progress
+    Live Plugin Parity Foundation   ██████████  95%  in progress
     Automation Foundation           ░░░░░░░░░░   0%  planned
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 51.9 - Live parity discovery RESTfulAPI provider contract
+    Phase 51.10 - Live parity discovery foundation completion
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -74,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 51.8 - Live parity discovery HTTP smoke contract
+Phase 51.9 - Live parity discovery RESTfulAPI provider contract
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 51.8 - Live parity discovery HTTP smoke contract
+Phase 51.9 - Live parity discovery RESTfulAPI provider contract
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 51.9 - Live parity discovery RESTfulAPI provider contract
+Phase 51.10 - Live parity discovery foundation completion
 ```
 
 Completed foundations:
@@ -191,6 +191,7 @@ make test-phase
 - Phase 51.6 adds the read-only Live parity discovery ApiRouter contract with optional backend query parameter and missing-controller 503 behavior.
 - Phase 51.7 wires Live parity discovery into the daemon runtime with a safe static empty provider and HTTP server smoke coverage.
 - Phase 51.8 strengthens the HTTP smoke contract for SearchTimer discovery aliases, default backend handling and read-only POST rejection.
+- Phase 51.9 defines the RESTfulAPI-facing provider contract and upstream endpoint boundary without enabling HTTP transport.
 
 ---
 
@@ -288,10 +289,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 51.9 - Live parity discovery RESTfulAPI provider contract
+Phase 51.10 - Live parity discovery foundation completion
 ```
 
-The next implementation phase should define the RESTfulAPI-facing discovery provider contract while still avoiding live HTTP transport and backend mutation.
+The next implementation phase should close the Live parity discovery foundation and freeze the pre-transport boundary before Phase 52 begins.
 
 Important boundaries:
 

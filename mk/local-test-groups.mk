@@ -63,6 +63,7 @@ test-vdr: \
 	test-search-timer-discovery \
 	test-search-timer-discovery-service \
 	test-search-timer-discovery-static-provider \
+	test-restfulapi-search-timer-discovery-provider-contract \
 	test-search-timer-discovery-json-serializer \
 	test-search-timer-discovery-controller \
 	test-search-timer-workflow-execution-result-json-serializer \
