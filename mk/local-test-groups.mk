@@ -66,6 +66,7 @@ test-vdr: \
 	test-restfulapi-search-timer-discovery-provider-contract \
 	test-search-timer-automation-evaluation-plan \
 	test-search-timer-automation-match-candidate \
+	test-search-timer-automation-duplicate-detection \
 	test-search-timer-discovery-json-serializer \
 	test-search-timer-discovery-controller \
 	test-search-timer-workflow-execution-result-json-serializer \

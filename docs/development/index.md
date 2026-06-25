@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 52.2 - SearchTimer automation match candidate model
+Phase 52.3 - SearchTimer automation duplicate detection model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 52.3 - SearchTimer automation duplicate detection model
+Phase 52.4 - SearchTimer automation candidate timer proposal model
 ```
 
 Current architecture validation:
@@ -92,6 +92,7 @@ Current architecture validation:
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
+- [SearchTimer Automation Duplicate Detection Model](searchtimer-automation-duplicate-detection-model.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)

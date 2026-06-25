@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 52.2 - SearchTimer automation match candidate model
+Phase 52.3 - SearchTimer automation duplicate detection model
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 52.3 - SearchTimer automation duplicate detection model
+Phase 52.4 - SearchTimer automation candidate timer proposal model
 ```
 
 ---
@@ -460,6 +460,13 @@ Phase 52.2 result:
 - Preserved dry-run-only, no-mutation, no-timer-proposal and duplicate-check-required invariants.
 - Covered validation, clamping and safety behavior with a targeted unit test.
 - Kept the phase free of matching execution, duplicate decisions, candidate timer creation, REST endpoints, daemon scheduling and mutation.
+
+Phase 52.3 result:
+- Added SearchTimerAutomationDuplicateDetection as the read-only duplicate risk model.
+- Modeled duplicate risk level, existing timer reference, existing recording reference, title similarity, overlap and duplicate reasons.
+- Preserved dry-run-only, no-mutation, no-automatic-decision and no-timer-proposal invariants.
+- Covered validation, risk behavior, clamping and safety behavior with a targeted unit test.
+- Kept the phase free of duplicate services, automatic decisions, candidate timer creation, REST endpoints, daemon scheduling and mutation.
 
 Expected outcomes:
 - Scheduled SearchTimer evaluation.

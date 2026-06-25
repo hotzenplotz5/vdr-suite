@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 52.3 - SearchTimer automation duplicate detection model
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerAutomationDuplicateDetection as the read-only SearchTimer automation duplicate risk model.
+- Modeled duplicate risk level, existing timer reference, existing recording reference, title similarity, overlap and duplicate reasons.
+- Enforced dry-run-only, no-mutation, no-automatic-decision and no-timer-proposal invariants.
+- Covered validation, risk behavior, clamping and safety behavior with a targeted unit test.
+- Kept the phase free of duplicate services, automatic decisions, candidate timer creation, REST endpoints, daemon scheduling and backend mutation.
+
+---
+
 ## Phase 52.2 - SearchTimer automation match candidate model
 
 Status: Completed.

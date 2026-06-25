@@ -43,7 +43,7 @@ main
 
 Overall project progress:
 
-    █████████░ 94%
+    ██████████ 95%
 
 Milestone progress:
 
@@ -56,13 +56,13 @@ Milestone progress:
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
     Live Plugin Parity Foundation   ██████████ 100%  completed
-    Automation Foundation           ██░░░░░░░░  20%  in progress
+    Automation Foundation           ██░░░░░░░░  25%  in progress
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 52.3 - SearchTimer automation duplicate detection model
+    Phase 52.4 - SearchTimer automation candidate timer proposal model
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -74,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 52.2 - SearchTimer automation match candidate model
+Phase 52.3 - SearchTimer automation duplicate detection model
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 52.2 - SearchTimer automation match candidate model
+Phase 52.3 - SearchTimer automation duplicate detection model
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 52.3 - SearchTimer automation duplicate detection model
+Phase 52.4 - SearchTimer automation candidate timer proposal model
 ```
 
 Completed foundations:
@@ -196,6 +196,7 @@ make test-phase
 - Phase 52.0 starts SearchTimer automation with a planning-only architecture boundary and explicit no-mutation safety rules.
 - Phase 52.1 adds the read-only SearchTimer automation evaluation plan model with dry-run-only and no-mutation guarantees.
 - Phase 52.2 adds the read-only SearchTimer automation match candidate model without matching execution, timer proposal creation or backend mutation.
+- Phase 52.3 adds the read-only SearchTimer automation duplicate detection model without automatic duplicate decisions, timer proposals or backend mutation.
 
 ---
 
@@ -293,10 +294,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 52.3 - SearchTimer automation duplicate detection model
+Phase 52.4 - SearchTimer automation candidate timer proposal model
 ```
 
-The next implementation phase should add the SearchTimer automation duplicate detection model without making automatic execution decisions.
+The next implementation phase should add the SearchTimer automation candidate timer proposal model without creating timers or executing backend mutation.
 
 Important boundaries:
 
