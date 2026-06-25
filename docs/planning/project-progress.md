@@ -39,6 +39,7 @@ Metadata Foundation|100|completed
 Documentation Foundation|100|completed
 SearchTimer Backend Foundation|100|completed
 SearchTimer User Workflow|100|completed
+SearchTimer Runtime Mutation Policy|100|completed
 Live Plugin Parity Foundation|100|completed
 Automation Foundation|100|completed
 Federation Foundation|0|planned
@@ -48,7 +49,7 @@ Frontend Foundation|0|planned
 
 ## Current Milestone
 
-Phase 54.0 - Cross-backend search and federation foundation planning
+Phase 54.1 - SearchTimer operator-controlled runtime mutation enablement
 
 ---
 

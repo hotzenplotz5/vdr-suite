@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 53.8 - SearchTimer title-only workflow completion audit
+Phase 54.0 - SearchTimer runtime mutation policy wiring
 ```
 
 Next implementation focus:
 
 ```text
-Phase 54.0 - Cross-backend search and federation foundation planning
+Phase 54.1 - SearchTimer operator-controlled runtime mutation enablement
 ```
 
 Current architecture validation:
@@ -214,3 +214,5 @@ These documents are historical implementation notes or phase-specific architectu
 - [Back to README](../../README.md)
 - [Back to Documentation Index](../index.md)
 - [Back to Project Overview](../project-overview.md)
+
+- [SearchTimer runtime mutation policy wiring](searchtimer-runtime-mutation-policy-wiring.md)

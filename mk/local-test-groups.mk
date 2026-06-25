@@ -74,6 +74,7 @@ test-vdr: \
 	test-search-timer-automation-daemon-scheduling-plan \
 	test-search-timer-automation-safety-review \
 	test-restful-api-search-timer-command-executor \
+	test-search-timer-runtime-mutation-policy-executor \
 	test-search-timer-create-request-parser \
 	test-search-timer-discovery-json-serializer \
 	test-search-timer-discovery-controller \

@@ -37,7 +37,7 @@ Milestone progress:
 
 Current milestone:
 
-    Phase 54.0 - Cross-backend search and federation foundation planning
+    Phase 54.1 - SearchTimer operator-controlled runtime mutation enablement
 
 Progress source: [Project Progress](planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -131,19 +131,19 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 53.8 - SearchTimer title-only workflow completion audit
+Phase 54.0 - SearchTimer runtime mutation policy wiring
 ```
 
 Current Documentation Consolidation:
 
 ```text
-Phase 53.8 - SearchTimer title-only workflow completion audit
+Phase 54.0 - SearchTimer runtime mutation policy wiring
 ```
 
 Next Major Implementation Milestone:
 
 ```text
-Phase 54.0 - Cross-backend search and federation foundation planning
+Phase 54.1 - SearchTimer operator-controlled runtime mutation enablement
 ```
 
 Latest Completed Milestones:

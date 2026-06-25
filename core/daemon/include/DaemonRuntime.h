@@ -73,6 +73,16 @@
 #include "SearchTimerAutomationPreviewController.h"
 #include "SearchTimerAutomationReadOnlyService.h"
 #include "RestfulApiSearchTimerCommandExecutor.h"
+#include "SearchTimerCreateRequestParser.h"
+#include "SearchTimerCreateResultJsonSerializer.h"
+#include "SearchTimerCreateService.h"
+#include "SearchTimerDeleteRequestParser.h"
+#include "SearchTimerDeleteResultJsonSerializer.h"
+#include "SearchTimerDeleteService.h"
+#include "SearchTimerRuntimeMutationPolicyExecutor.h"
+#include "SearchTimerUpdateRequestParser.h"
+#include "SearchTimerUpdateResultJsonSerializer.h"
+#include "SearchTimerUpdateService.h"
 #include "SearchTimerResultJsonSerializer.h"
 #include "SearchTimerService.h"
 #include "SnapshotAccessService.h"
@@ -195,7 +205,17 @@ private:
     std::unique_ptr<SearchTimerAutomationReadOnlyService> searchTimerAutomationReadOnlyService_;
     std::unique_ptr<SearchTimerAutomationDryRunResultJsonSerializer> searchTimerAutomationDryRunResultJsonSerializer_;
     std::unique_ptr<SearchTimerAutomationPreviewController> searchTimerAutomationPreviewController_;
+    std::unique_ptr<SearchTimerCreateService> searchTimerCreateService_;
+    std::unique_ptr<SearchTimerCreateResultJsonSerializer> searchTimerCreateResultJsonSerializer_;
+    std::unique_ptr<SearchTimerCreateRequestParser> searchTimerCreateRequestParser_;
+    std::unique_ptr<SearchTimerUpdateService> searchTimerUpdateService_;
+    std::unique_ptr<SearchTimerUpdateResultJsonSerializer> searchTimerUpdateResultJsonSerializer_;
+    std::unique_ptr<SearchTimerUpdateRequestParser> searchTimerUpdateRequestParser_;
+    std::unique_ptr<SearchTimerDeleteService> searchTimerDeleteService_;
+    std::unique_ptr<SearchTimerDeleteResultJsonSerializer> searchTimerDeleteResultJsonSerializer_;
+    std::unique_ptr<SearchTimerDeleteRequestParser> searchTimerDeleteRequestParser_;
     std::unique_ptr<RestfulApiSearchTimerCommandExecutor> searchTimerCommandExecutor_;
+    std::unique_ptr<SearchTimerRuntimeMutationPolicyExecutor> searchTimerRuntimeMutationPolicyExecutor_;
     std::unique_ptr<PersonResolutionJsonSerializer> personResolutionJsonSerializer_;
     std::unique_ptr<PersonSearchService> personSearchService_;
     std::unique_ptr<PersonQueryResultJsonSerializer> personQueryResultJsonSerializer_;

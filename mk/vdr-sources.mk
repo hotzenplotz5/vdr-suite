@@ -61,6 +61,7 @@ VDR_SRC := \
         core/vdr/src/SearchTimerWorkflowExecutionPlanJsonSerializer.cpp \
         core/vdr/src/SearchTimerWorkflowValidationResultJsonSerializer.cpp \
         core/vdr/src/RestfulApiSearchTimerCommandExecutor.cpp \
+        core/vdr/src/SearchTimerRuntimeMutationPolicyExecutor.cpp \
         core/vdr/src/VdrOverviewService.cpp \
         core/vdr/src/VdrOverviewJsonSerializer.cpp \
         core/vdr/src/VdrSnapshotBuilder.cpp \

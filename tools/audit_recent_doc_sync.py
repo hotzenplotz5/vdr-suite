@@ -157,7 +157,7 @@ def check_progress_source():
         "overall|100",
         "SearchTimer Backend Foundation|100|completed",
         "SearchTimer User Workflow|100|completed",
-        "Phase 54.0 - Cross-backend search and federation foundation planning",
+        "Phase 54.1 - SearchTimer operator-controlled runtime mutation enablement",
     ]
 
     forbidden = [

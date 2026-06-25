@@ -247,15 +247,50 @@ bool DaemonRuntime::initialize()
 
     if (!backendRuntimeContexts_.empty()
         && backendRuntimeContexts_.front()->searchTimerAdapter) {
+        searchTimerCreateService_ =
+            std::make_unique<SearchTimerCreateService>();
+        searchTimerCreateResultJsonSerializer_ =
+            std::make_unique<SearchTimerCreateResultJsonSerializer>();
+        searchTimerCreateRequestParser_ =
+            std::make_unique<SearchTimerCreateRequestParser>();
+        searchTimerUpdateService_ =
+            std::make_unique<SearchTimerUpdateService>();
+        searchTimerUpdateResultJsonSerializer_ =
+            std::make_unique<SearchTimerUpdateResultJsonSerializer>();
+        searchTimerUpdateRequestParser_ =
+            std::make_unique<SearchTimerUpdateRequestParser>();
+        searchTimerDeleteService_ =
+            std::make_unique<SearchTimerDeleteService>();
+        searchTimerDeleteResultJsonSerializer_ =
+            std::make_unique<SearchTimerDeleteResultJsonSerializer>();
+        searchTimerDeleteRequestParser_ =
+            std::make_unique<SearchTimerDeleteRequestParser>();
+
+        searchTimerCommandExecutor_ =
+            std::make_unique<RestfulApiSearchTimerCommandExecutor>(
+                *backendRuntimeContexts_.front()->httpClient);
+        searchTimerRuntimeMutationPolicyExecutor_ =
+            std::make_unique<SearchTimerRuntimeMutationPolicyExecutor>(
+                *searchTimerCommandExecutor_,
+                false);
+
         searchTimerController_ = std::make_unique<SearchTimerController>(
             *searchTimerService_,
             *searchTimerResultJsonSerializer_,
-            *backendRuntimeContexts_.front()->searchTimerAdapter);
-        searchTimerCommandExecutor_ = std::make_unique<RestfulApiSearchTimerCommandExecutor>(
-            *backendRuntimeContexts_.front()->httpClient);
+            *backendRuntimeContexts_.front()->searchTimerAdapter,
+            *searchTimerCreateService_,
+            *searchTimerCreateResultJsonSerializer_,
+            *searchTimerCreateRequestParser_,
+            searchTimerUpdateService_.get(),
+            searchTimerUpdateResultJsonSerializer_.get(),
+            searchTimerUpdateRequestParser_.get(),
+            searchTimerDeleteService_.get(),
+            searchTimerDeleteResultJsonSerializer_.get(),
+            searchTimerDeleteRequestParser_.get());
 
         std::cout << "SearchTimer controller runtime initialized" << std::endl;
         std::cout << "SearchTimer command executor runtime initialized" << std::endl;
+        std::cout << "SearchTimer runtime mutation policy executor initialized closed" << std::endl;
     }
     else {
         std::cout << "SearchTimer controller runtime skipped: no VDR backend configured" << std::endl;
@@ -420,7 +455,7 @@ bool DaemonRuntime::initialize()
         *snapshotChangeFeedController_,
         searchTimerController_.get(),
         *liveTransportController_,
-        searchTimerCommandExecutor_.get(),
+        searchTimerRuntimeMutationPolicyExecutor_.get(),
         epgSearchNativeFuzzyStaleProbeAdministrationController_.get(),
         epgSearchNativeFuzzyOperatorRefreshController_.get(),
         searchTimerDiscoveryController_.get(),
@@ -499,7 +534,17 @@ void DaemonRuntime::shutdown()
     epgSearchNativeFuzzyOperatorRefreshService_.reset();
     epgSearchNativeFuzzyStaleProbeAdministrationController_.reset();
     epgSearchNativeFuzzyStaleProbeAdministrationService_.reset();
+    searchTimerRuntimeMutationPolicyExecutor_.reset();
     searchTimerCommandExecutor_.reset();
+    searchTimerDeleteRequestParser_.reset();
+    searchTimerDeleteResultJsonSerializer_.reset();
+    searchTimerDeleteService_.reset();
+    searchTimerUpdateRequestParser_.reset();
+    searchTimerUpdateResultJsonSerializer_.reset();
+    searchTimerUpdateService_.reset();
+    searchTimerCreateRequestParser_.reset();
+    searchTimerCreateResultJsonSerializer_.reset();
+    searchTimerCreateService_.reset();
     searchTimerDiscoveryController_.reset();
     searchTimerDiscoveryJsonSerializer_.reset();
     searchTimerDiscoveryService_.reset();

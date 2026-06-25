@@ -200,6 +200,13 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 54.0 - SearchTimer runtime mutation policy wiring
+
+- SearchTimer Create/Update/Delete services are now wired into the daemon runtime.
+- Public direct SearchTimer mutation is still blocked by a closed runtime mutation policy executor.
+- The API path can now distinguish service wiring from production mutation enablement.
+- This phase intentionally does not enable real backend SearchTimer mutation.
+
 ## Phase 53.8 - SearchTimer title-only workflow completion audit
 
 Status: Completed.

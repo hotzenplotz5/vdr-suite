@@ -201,6 +201,14 @@ test-search-timer-preview-result-json-serializer:
 		-o /tmp/test_search_timer_preview_result_json_serializer
 	/tmp/test_search_timer_preview_result_json_serializer
 
+.PHONY: test-search-timer-runtime-mutation-policy-executor
+test-search-timer-runtime-mutation-policy-executor:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerRuntimeMutationPolicyExecutor.cpp \
+		core/vdr/tests/test_search_timer_runtime_mutation_policy_executor.cpp \
+		-o /tmp/test_search_timer_runtime_mutation_policy_executor
+	/tmp/test_search_timer_runtime_mutation_policy_executor
+
 test-search-timer-create-service:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerCreateService.cpp \
