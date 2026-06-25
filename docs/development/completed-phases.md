@@ -200,6 +200,21 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 51.8 - Live parity discovery HTTP smoke contract
+
+Status: Completed.
+
+Summary:
+- Strengthened TestHttpServer coverage for the daemon-exposed SearchTimer discovery route.
+- Verified /api/searchtimers/discovery?backend=http-server.
+- Verified /api/vdr/searchtimers/discovery default backend fallback.
+- Verified /api/vdr/searchtimers/discovery?backend=ferienhaus backend propagation.
+- Verified the exact safe empty-provider JSON response body.
+- Verified POST /api/searchtimers/discovery remains unavailable through the generic not-found response.
+- Preserved the no-RESTfulAPI-transport, no-epgsearch-fetching, no-mutation boundary.
+
+---
+
 ## Phase 51.7 - Live parity discovery daemon wiring
 
 Status: Completed.

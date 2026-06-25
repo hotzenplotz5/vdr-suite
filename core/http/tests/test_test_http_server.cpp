@@ -91,6 +91,30 @@ static void assertJsonResponse(
     assert(response.headers.at("Content-Type") == "application/json");
 }
 
+static void assertEmptyDiscoveryResponse(
+    const HttpServerResponse& response,
+    const std::string& expectedBackendId)
+{
+    assertJsonResponse(response, 200);
+
+    const std::string expectedBody =
+        "{"
+        "\"backendId\":\"" + expectedBackendId + "\","
+        "\"counts\":{"
+        "\"extendedEpgInfo\":0,"
+        "\"channelGroups\":0,"
+        "\"blacklists\":0,"
+        "\"recordingDirectories\":0"
+        "},"
+        "\"extendedEpgInfo\":[],"
+        "\"channelGroups\":[],"
+        "\"blacklists\":[],"
+        "\"recordingDirectories\":[]"
+        "}";
+
+    assert(response.body == expectedBody);
+}
+
 int main()
 {
     Database db;
@@ -332,14 +356,36 @@ int main()
     discoveryRequest.path = "/api/searchtimers/discovery?backend=http-server";
     HttpServerResponse discoveryResponse =
         server.handleRequest(discoveryRequest);
-    assertJsonResponse(discoveryResponse, 200);
-    assert(discoveryResponse.body.find("\"backendId\":\"http-server\"") != std::string::npos);
-    assert(discoveryResponse.body.find("\"extendedEpgInfo\":0") != std::string::npos);
-    assert(discoveryResponse.body.find("\"channelGroups\":0") != std::string::npos);
-    assert(discoveryResponse.body.find("\"blacklists\":0") != std::string::npos);
-    assert(discoveryResponse.body.find("\"recordingDirectories\":0") != std::string::npos);
-    assert(discoveryResponse.body.find("\"extendedEpgInfo\":[]") != std::string::npos);
-    assert(discoveryResponse.body.find("\"channelGroups\":[]") != std::string::npos);
+    assertEmptyDiscoveryResponse(
+        discoveryResponse,
+        "http-server");
+
+    HttpServerRequest vdrDiscoveryDefaultRequest;
+    vdrDiscoveryDefaultRequest.method = "GET";
+    vdrDiscoveryDefaultRequest.path = "/api/vdr/searchtimers/discovery";
+    HttpServerResponse vdrDiscoveryDefaultResponse =
+        server.handleRequest(vdrDiscoveryDefaultRequest);
+    assertEmptyDiscoveryResponse(
+        vdrDiscoveryDefaultResponse,
+        "default");
+
+    HttpServerRequest vdrDiscoveryBackendRequest;
+    vdrDiscoveryBackendRequest.method = "GET";
+    vdrDiscoveryBackendRequest.path = "/api/vdr/searchtimers/discovery?backend=ferienhaus";
+    HttpServerResponse vdrDiscoveryBackendResponse =
+        server.handleRequest(vdrDiscoveryBackendRequest);
+    assertEmptyDiscoveryResponse(
+        vdrDiscoveryBackendResponse,
+        "ferienhaus");
+
+    HttpServerRequest discoveryPostRequest;
+    discoveryPostRequest.method = "POST";
+    discoveryPostRequest.path = "/api/searchtimers/discovery";
+    discoveryPostRequest.body = "{\"ignored\":true}";
+    HttpServerResponse discoveryPostResponse =
+        server.handleRequest(discoveryPostRequest);
+    assertJsonResponse(discoveryPostResponse, 404);
+    assert(discoveryPostResponse.body == "{\"error\":\"not found\"}");
 
     HttpServerRequest missingRequest;
     missingRequest.method = "GET";

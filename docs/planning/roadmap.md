@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 51.7 - Live parity discovery daemon wiring
+Phase 51.8 - Live parity discovery HTTP smoke contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 51.8 - Live parity discovery HTTP smoke contract
+Phase 51.9 - Live parity discovery RESTfulAPI provider contract
 ```
 
 ---
@@ -392,8 +392,15 @@ Phase 51.7 result:
 - Added TestHttpServer smoke coverage for /api/searchtimers/discovery.
 - Kept the phase free of RESTfulAPI transport, epgsearch fetching and backend mutation.
 
+Phase 51.8 result:
+- Strengthened TestHttpServer smoke coverage for /api/searchtimers/discovery and /api/vdr/searchtimers/discovery.
+- Verified explicit backend query propagation and default backend fallback.
+- Verified the exact empty-provider JSON response body.
+- Verified POST /api/searchtimers/discovery remains unavailable through the generic not-found response.
+- Kept the phase free of RESTfulAPI transport, epgsearch fetching and backend mutation.
+
 Next implementation step:
-- Phase 51.8 - Live parity discovery HTTP smoke contract.
+- Phase 51.9 - Live parity discovery RESTfulAPI provider contract.
 
 Expected outcomes:
 - Broader EPG detail coverage.

@@ -43,7 +43,7 @@ main
 
 Overall project progress:
 
-    █████████░ 88%
+    █████████░ 89%
 
 Milestone progress:
 
@@ -55,14 +55,14 @@ Milestone progress:
     Documentation Foundation        ██████████ 100%  completed
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
-    Live Plugin Parity Foundation   ████████░░  80%  in progress
+    Live Plugin Parity Foundation   █████████░  90%  in progress
     Automation Foundation           ░░░░░░░░░░   0%  planned
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 51.8 - Live parity discovery HTTP smoke contract
+    Phase 51.9 - Live parity discovery RESTfulAPI provider contract
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -74,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 51.7 - Live parity discovery daemon wiring
+Phase 51.8 - Live parity discovery HTTP smoke contract
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 51.7 - Live parity discovery daemon wiring
+Phase 51.8 - Live parity discovery HTTP smoke contract
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 51.8 - Live parity discovery HTTP smoke contract
+Phase 51.9 - Live parity discovery RESTfulAPI provider contract
 ```
 
 Completed foundations:
@@ -190,6 +190,7 @@ make test-phase
 - Phase 51.5 connects the Live parity discovery controller to the service contract while keeping router wiring and backend transport out.
 - Phase 51.6 adds the read-only Live parity discovery ApiRouter contract with optional backend query parameter and missing-controller 503 behavior.
 - Phase 51.7 wires Live parity discovery into the daemon runtime with a safe static empty provider and HTTP server smoke coverage.
+- Phase 51.8 strengthens the HTTP smoke contract for SearchTimer discovery aliases, default backend handling and read-only POST rejection.
 
 ---
 
@@ -287,10 +288,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 51.8 - Live parity discovery HTTP smoke contract
+Phase 51.9 - Live parity discovery RESTfulAPI provider contract
 ```
 
-The next implementation phase should strengthen and document the HTTP smoke contract for the daemon-exposed discovery route while still avoiding real RESTfulAPI transport.
+The next implementation phase should define the RESTfulAPI-facing discovery provider contract while still avoiding live HTTP transport and backend mutation.
 
 Important boundaries:
 
