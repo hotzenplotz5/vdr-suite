@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 52.3 - SearchTimer automation duplicate detection model
+Phase 52.4 - SearchTimer automation candidate timer proposal model
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 52.4 - SearchTimer automation candidate timer proposal model
+Phase 52.5 - SearchTimer automation dry-run result serializer
 ```
 
 ---
@@ -467,6 +467,13 @@ Phase 52.3 result:
 - Preserved dry-run-only, no-mutation, no-automatic-decision and no-timer-proposal invariants.
 - Covered validation, risk behavior, clamping and safety behavior with a targeted unit test.
 - Kept the phase free of duplicate services, automatic decisions, candidate timer creation, REST endpoints, daemon scheduling and mutation.
+
+Phase 52.4 result:
+- Added SearchTimerAutomationCandidateTimerProposal as the read-only timer proposal model.
+- Modeled proposed start/end time, margins, directory, priority, lifetime, duplicate risk and block reasons.
+- Preserved dry-run-only, no-mutation, no-timer-creation, no-backend-write and no-automatic-execution invariants.
+- Covered proposal construction, duplicate blocking, validation, clamping and safety behavior with a targeted unit test.
+- Kept the phase free of proposal services, serializers, REST endpoints, daemon scheduling and backend mutation.
 
 Expected outcomes:
 - Scheduled SearchTimer evaluation.

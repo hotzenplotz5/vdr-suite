@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 52.4 - SearchTimer automation candidate timer proposal model
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerAutomationCandidateTimerProposal as the read-only SearchTimer automation timer proposal model.
+- Modeled proposed start/end time, margins, directory, priority, lifetime, duplicate risk, existing timer/recording references and block reasons.
+- Enforced dry-run-only, no-mutation, no-timer-creation, no-backend-write, no-automatic-execution and explicit handoff invariants.
+- Covered proposal construction, duplicate blocking, validation, clamping and safety behavior with a targeted unit test.
+- Kept the phase free of proposal services, serializers, REST endpoints, daemon scheduling and backend mutation.
+
+---
+
 ## Phase 52.3 - SearchTimer automation duplicate detection model
 
 Status: Completed.

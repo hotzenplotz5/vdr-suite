@@ -26,7 +26,7 @@ VDR-Suite complements VDR. It does not replace it.
 
 Overall project progress:
 
-    ██████████ 95%
+    ██████████ 96%
 
 Milestone progress:
 
@@ -39,13 +39,13 @@ Milestone progress:
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
     Live Plugin Parity Foundation   ██████████ 100%  completed
-    Automation Foundation           ██░░░░░░░░  25%  in progress
+    Automation Foundation           ███░░░░░░░  30%  in progress
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 52.4 - SearchTimer automation candidate timer proposal model
+    Phase 52.5 - SearchTimer automation dry-run result serializer
 
 Progress source: [Project Progress](docs/planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -56,15 +56,15 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 52.3 - SearchTimer automation duplicate detection model
+    Phase 52.4 - SearchTimer automation candidate timer proposal model
 
 Current documentation consolidation:
 
-    Phase 52.3 - SearchTimer automation duplicate detection model
+    Phase 52.4 - SearchTimer automation candidate timer proposal model
 
 Next major implementation milestone:
 
-    Phase 52.4 - SearchTimer automation candidate timer proposal model
+    Phase 52.5 - SearchTimer automation dry-run result serializer
 
 Completed foundations:
 

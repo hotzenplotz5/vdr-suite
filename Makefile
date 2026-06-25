@@ -1384,6 +1384,12 @@ test-search-timer-automation-duplicate-detection:
 		core/vdr/tests/test_search_timer_automation_duplicate_detection.cpp \
 		-o /tmp/test_search_timer_automation_duplicate_detection
 	/tmp/test_search_timer_automation_duplicate_detection
+
+test-search-timer-automation-candidate-timer-proposal:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_search_timer_automation_candidate_timer_proposal.cpp \
+		-o /tmp/test_search_timer_automation_candidate_timer_proposal
+	/tmp/test_search_timer_automation_candidate_timer_proposal
 test-epg-person-search-result:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_person_search_result.cpp \
@@ -1596,6 +1602,7 @@ clean:
 	rm -f /tmp/test_search_timer_automation_evaluation_plan
 	rm -f /tmp/test_search_timer_automation_match_candidate
 	rm -f /tmp/test_search_timer_automation_duplicate_detection
+	rm -f /tmp/test_search_timer_automation_candidate_timer_proposal
 	rm -f /tmp/test_search_timer_discovery_json_serializer
 	rm -f /tmp/test_search_timer_discovery_controller
 	rm -f /tmp/test_database
