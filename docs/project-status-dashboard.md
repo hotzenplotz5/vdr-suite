@@ -130,7 +130,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 50.47 - SearchTimer workflow readback services dispatch integration
+Phase 50.48 - SearchTimer workflow verified execution REST contract
 ```
 
 Current Documentation Consolidation:
@@ -142,7 +142,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next Major Implementation Milestone:
 
 ```text
-Phase 50.48 - SearchTimer workflow verified execution REST contract
+Phase 50.49 - SearchTimer workflow end-to-end verified execution test
 ```
 
 Latest Completed Milestones:

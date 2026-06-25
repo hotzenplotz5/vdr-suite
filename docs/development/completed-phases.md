@@ -201,6 +201,18 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.48 - SearchTimer workflow verified execution REST contract
+
+Status: Completed.
+
+Summary:
+- Updated REST/router test expectations for delete readback follow-up semantics.
+- Asserted REST-visible verified execution fields in controller and router execution responses.
+- Documented `executorResultSuccessful`, `backendReadbackVerificationAttached`, `backendReadbackVerified`, nested `backendReadbackVerification`, final `success` and `dispatchStage` semantics.
+- Kept production mutation closed.
+
+---
+
 ## Phase 50.47 - SearchTimer workflow readback services dispatch integration
 
 Status: Completed.

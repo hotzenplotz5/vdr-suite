@@ -11,6 +11,7 @@
 - [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
 - [SearchTimer Delete Absence Verification Service](searchtimer-delete-absence-verification-service.md)
 - [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
+- [SearchTimer Verified Execution REST Contract](searchtimer-verified-execution-rest-contract.md)
 
 ---
 
@@ -63,6 +64,16 @@ When a write operation requires backend readback and the executor succeeds:
 Delete now has a readback follow-up step like create and update.
 
 For delete, the follow-up verifies absence of the deleted backend-native id.
+
+---
+
+## REST Contract
+
+Phase 50.48 adds REST-facing assertions and documentation for the verified execution response fields.
+
+Full contract documentation:
+
+- [SearchTimer Verified Execution REST Contract](searchtimer-verified-execution-rest-contract.md)
 
 ---
 

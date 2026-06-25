@@ -1122,7 +1122,9 @@ int main()
            != std::string::npos);
     assert(vdrSearchTimerPlanResponse.body.find("\"primaryStep\":\"delete\"")
            != std::string::npos);
-    assert(vdrSearchTimerPlanResponse.body.find("\"followUpStep\":\"none\"")
+    assert(vdrSearchTimerPlanResponse.body.find("\"followUpStep\":\"readback\"")
+           != std::string::npos);
+    assert(vdrSearchTimerPlanResponse.body.find("\"requiresBackendReadback\":true")
            != std::string::npos);
     assert(vdrSearchTimerPlanResponse.body.find("\"requiresExplicitOperatorConfirmation\":true")
            != std::string::npos);
@@ -1144,6 +1146,12 @@ int main()
     assert(searchTimerExecuteBlockedResponse.body.find("\"blocked\":true")
            != std::string::npos);
     assert(searchTimerExecuteBlockedResponse.body.find("\"executed\":false")
+           != std::string::npos);
+    assert(searchTimerExecuteBlockedResponse.body.find("\"backendReadbackVerificationAttached\":false")
+           != std::string::npos);
+    assert(searchTimerExecuteBlockedResponse.body.find("\"backendReadbackVerified\":false")
+           != std::string::npos);
+    assert(searchTimerExecuteBlockedResponse.body.find("\"backendReadbackVerification\":{")
            != std::string::npos);
     assert(searchTimerExecuteBlockedResponse.body.find("explicit operator confirmation is required")
            != std::string::npos);
@@ -1169,6 +1177,16 @@ int main()
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"operation\":\"delete\"")
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"primaryStep\":\"delete\"")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"followUpStep\":\"readback\"")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"requiresBackendReadback\":true")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"backendReadbackVerificationAttached\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"backendReadbackVerified\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"backendReadbackVerification\":{")
            != std::string::npos);
     assert(vdrSearchTimerExecuteAcceptedResponse.body.find("\"commandRequestMapped\":true")
            != std::string::npos);
@@ -1220,6 +1238,12 @@ int main()
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"blocked\":true")
            != std::string::npos);
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"executed\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"backendReadbackVerificationAttached\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"backendReadbackVerified\":false")
+           != std::string::npos);
+    assert(vdrSearchTimerExecuteOptInResponse.body.find("\"backendReadbackVerification\":{")
            != std::string::npos);
     assert(vdrSearchTimerExecuteOptInResponse.body.find("\"commandRequestMapped\":true")
            != std::string::npos);

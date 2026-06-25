@@ -23,6 +23,7 @@
 - [SearchTimer Delete Absence Verification Plan](searchtimer-delete-absence-verification-plan.md)
 - [SearchTimer Delete Absence Verification Service](searchtimer-delete-absence-verification-service.md)
 - [SearchTimer Readback Services Dispatch Integration](searchtimer-readback-services-dispatch-integration.md)
+- [SearchTimer Verified Execution REST Contract](searchtimer-verified-execution-rest-contract.md)
 
 ---
 
@@ -1005,6 +1006,16 @@ Production execution still requires later phases for:
 - mandatory backend readback verification
 - failure compensation behavior
 - REST production execution boundary
+
+### Verified Execution REST Contract
+
+Phase 50.48 makes the verified execution response fields explicit in REST-facing tests and documentation.
+
+Full contract documentation:
+
+- [SearchTimer Verified Execution REST Contract](searchtimer-verified-execution-rest-contract.md)
+
+---
 
 ### Readback Services Dispatch Integration
 
