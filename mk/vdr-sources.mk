@@ -33,6 +33,7 @@ VDR_SRC := \
         core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
         core/vdr/src/SearchTimerDiscoveryJsonSerializer.cpp \
         core/vdr/src/SearchTimerDiscoveryService.cpp \
+        core/vdr/src/SearchTimerDiscoveryStaticProvider.cpp \
         core/vdr/src/SearchTimerWorkflowValidationService.cpp \
         core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
         core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \

@@ -261,6 +261,20 @@ bool DaemonRuntime::initialize()
         std::cout << "SearchTimer controller runtime skipped: no VDR backend configured" << std::endl;
     }
 
+    searchTimerDiscoveryProvider_ =
+        std::make_unique<SearchTimerDiscoveryStaticProvider>();
+    searchTimerDiscoveryService_ =
+        std::make_unique<SearchTimerDiscoveryService>(
+            *searchTimerDiscoveryProvider_);
+    searchTimerDiscoveryJsonSerializer_ =
+        std::make_unique<SearchTimerDiscoveryJsonSerializer>();
+    searchTimerDiscoveryController_ =
+        std::make_unique<SearchTimerDiscoveryController>(
+            *searchTimerDiscoveryService_,
+            *searchTimerDiscoveryJsonSerializer_);
+
+    std::cout << "SearchTimer discovery controller runtime initialized" << std::endl;
+
     personResolutionJsonSerializer_ = std::make_unique<PersonResolutionJsonSerializer>();
     personSearchService_ = std::make_unique<PersonSearchService>();
     personQueryResultJsonSerializer_ = std::make_unique<PersonQueryResultJsonSerializer>();
@@ -397,7 +411,8 @@ bool DaemonRuntime::initialize()
         *liveTransportController_,
         searchTimerCommandExecutor_.get(),
         epgSearchNativeFuzzyStaleProbeAdministrationController_.get(),
-        epgSearchNativeFuzzyOperatorRefreshController_.get());
+        epgSearchNativeFuzzyOperatorRefreshController_.get(),
+        searchTimerDiscoveryController_.get());
 
     std::cout << "API router runtime initialized" << std::endl;
 
@@ -473,6 +488,10 @@ void DaemonRuntime::shutdown()
     epgSearchNativeFuzzyStaleProbeAdministrationController_.reset();
     epgSearchNativeFuzzyStaleProbeAdministrationService_.reset();
     searchTimerCommandExecutor_.reset();
+    searchTimerDiscoveryController_.reset();
+    searchTimerDiscoveryJsonSerializer_.reset();
+    searchTimerDiscoveryService_.reset();
+    searchTimerDiscoveryProvider_.reset();
     searchTimerController_.reset();
     searchTimerResultJsonSerializer_.reset();
     searchTimerService_.reset();

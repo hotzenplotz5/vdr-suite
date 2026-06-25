@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 51.7 - Live parity discovery daemon wiring
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerDiscoveryStaticProvider as a safe empty discovery provider for daemon wiring.
+- Wired SearchTimerDiscoveryStaticProvider, SearchTimerDiscoveryService, SearchTimerDiscoveryJsonSerializer and SearchTimerDiscoveryController into DaemonRuntime.
+- Injected SearchTimerDiscoveryController into ApiRouter during daemon initialization.
+- Added TestHttpServer smoke coverage for /api/searchtimers/discovery with backend query propagation and zero discovery counts.
+- Preserved the no-RESTfulAPI-transport, no-epgsearch-fetching, no-mutation boundary.
+
+---
+
 ## Phase 51.6 - Live parity discovery router contract
 
 Status: Completed.

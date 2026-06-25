@@ -65,6 +65,10 @@
 #include "RuntimeDiagnosticsJsonSerializer.h"
 #include "RuntimeDiagnosticsService.h"
 #include "SearchTimerController.h"
+#include "SearchTimerDiscoveryController.h"
+#include "SearchTimerDiscoveryJsonSerializer.h"
+#include "SearchTimerDiscoveryService.h"
+#include "SearchTimerDiscoveryStaticProvider.h"
 #include "RestfulApiSearchTimerCommandExecutor.h"
 #include "SearchTimerResultJsonSerializer.h"
 #include "SearchTimerService.h"
@@ -181,6 +185,10 @@ private:
     std::unique_ptr<SearchTimerService> searchTimerService_;
     std::unique_ptr<SearchTimerResultJsonSerializer> searchTimerResultJsonSerializer_;
     std::unique_ptr<SearchTimerController> searchTimerController_;
+    std::unique_ptr<SearchTimerDiscoveryStaticProvider> searchTimerDiscoveryProvider_;
+    std::unique_ptr<SearchTimerDiscoveryService> searchTimerDiscoveryService_;
+    std::unique_ptr<SearchTimerDiscoveryJsonSerializer> searchTimerDiscoveryJsonSerializer_;
+    std::unique_ptr<SearchTimerDiscoveryController> searchTimerDiscoveryController_;
     std::unique_ptr<RestfulApiSearchTimerCommandExecutor> searchTimerCommandExecutor_;
     std::unique_ptr<PersonResolutionJsonSerializer> personResolutionJsonSerializer_;
     std::unique_ptr<PersonSearchService> personSearchService_;

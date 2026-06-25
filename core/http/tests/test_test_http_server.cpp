@@ -39,6 +39,10 @@
 #include "RuntimeDiagnosticsJsonSerializer.h"
 #include "RuntimeDiagnosticsService.h"
 #include "RuntimeMeasurement.h"
+#include "SearchTimerDiscoveryController.h"
+#include "SearchTimerDiscoveryJsonSerializer.h"
+#include "SearchTimerDiscoveryService.h"
+#include "SearchTimerDiscoveryStaticProvider.h"
 #include "SnapshotAccessService.h"
 #include "SnapshotChangeFeed.h"
 #include "SnapshotChangeFeedController.h"
@@ -235,6 +239,14 @@ int main()
     SseLiveTransport liveTransport;
     LiveTransportController liveTransportController(liveTransport);
 
+    SearchTimerDiscoveryStaticProvider searchTimerDiscoveryProvider;
+    SearchTimerDiscoveryService searchTimerDiscoveryService(
+        searchTimerDiscoveryProvider);
+    SearchTimerDiscoveryJsonSerializer searchTimerDiscoveryJsonSerializer;
+    SearchTimerDiscoveryController searchTimerDiscoveryController(
+        searchTimerDiscoveryService,
+        searchTimerDiscoveryJsonSerializer);
+
     ApiRouter router(
         dashboardController,
         jobsController,
@@ -255,7 +267,11 @@ int main()
         runtimeDiagnosticsController,
         snapshotChangeFeedController,
         nullptr,
-        liveTransportController);
+        liveTransportController,
+        nullptr,
+        nullptr,
+        nullptr,
+        &searchTimerDiscoveryController);
 
     TestHttpServer server(router);
 
@@ -310,6 +326,20 @@ int main()
         server.handleRequest(epgQueryRequest);
     assertJsonResponse(epgQueryResponse, 200);
     assert(epgQueryResponse.body.find("\"events\"") != std::string::npos);
+
+    HttpServerRequest discoveryRequest;
+    discoveryRequest.method = "GET";
+    discoveryRequest.path = "/api/searchtimers/discovery?backend=http-server";
+    HttpServerResponse discoveryResponse =
+        server.handleRequest(discoveryRequest);
+    assertJsonResponse(discoveryResponse, 200);
+    assert(discoveryResponse.body.find("\"backendId\":\"http-server\"") != std::string::npos);
+    assert(discoveryResponse.body.find("\"extendedEpgInfo\":0") != std::string::npos);
+    assert(discoveryResponse.body.find("\"channelGroups\":0") != std::string::npos);
+    assert(discoveryResponse.body.find("\"blacklists\":0") != std::string::npos);
+    assert(discoveryResponse.body.find("\"recordingDirectories\":0") != std::string::npos);
+    assert(discoveryResponse.body.find("\"extendedEpgInfo\":[]") != std::string::npos);
+    assert(discoveryResponse.body.find("\"channelGroups\":[]") != std::string::npos);
 
     HttpServerRequest missingRequest;
     missingRequest.method = "GET";

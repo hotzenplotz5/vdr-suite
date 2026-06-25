@@ -26,7 +26,7 @@ VDR-Suite complements VDR. It does not replace it.
 
 Overall project progress:
 
-    █████████░ 87%
+    █████████░ 88%
 
 Milestone progress:
 
@@ -38,14 +38,14 @@ Milestone progress:
     Documentation Foundation        ██████████ 100%  completed
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
-    Live Plugin Parity Foundation   ███████░░░  70%  in progress
+    Live Plugin Parity Foundation   ████████░░  80%  in progress
     Automation Foundation           ░░░░░░░░░░   0%  planned
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 51.7 - Live parity discovery daemon wiring
+    Phase 51.8 - Live parity discovery HTTP smoke contract
 
 Progress source: [Project Progress](docs/planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -56,15 +56,15 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 51.6 - Live parity discovery router contract
+    Phase 51.7 - Live parity discovery daemon wiring
 
 Current documentation consolidation:
 
-    Phase 51.6 - Live parity discovery router contract
+    Phase 51.7 - Live parity discovery daemon wiring
 
 Next major implementation milestone:
 
-    Phase 51.7 - Live parity discovery daemon wiring
+    Phase 51.8 - Live parity discovery HTTP smoke contract
 
 Completed foundations:
 

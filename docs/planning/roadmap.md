@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 51.6 - Live parity discovery router contract
+Phase 51.7 - Live parity discovery daemon wiring
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 51.7 - Live parity discovery daemon wiring
+Phase 51.8 - Live parity discovery HTTP smoke contract
 ```
 
 ---
@@ -385,8 +385,15 @@ Phase 51.6 result:
 - Covered the route through test-api-router with an in-memory discovery provider.
 - Kept the phase free of daemon provider wiring, backend transport and backend mutation.
 
+Phase 51.7 result:
+- Added SearchTimerDiscoveryStaticProvider as a safe empty daemon provider.
+- Wired provider, service, serializer and controller into DaemonRuntime.
+- Injected SearchTimerDiscoveryController into ApiRouter during daemon initialization.
+- Added TestHttpServer smoke coverage for /api/searchtimers/discovery.
+- Kept the phase free of RESTfulAPI transport, epgsearch fetching and backend mutation.
+
 Next implementation step:
-- Phase 51.7 - Live parity discovery daemon wiring.
+- Phase 51.8 - Live parity discovery HTTP smoke contract.
 
 Expected outcomes:
 - Broader EPG detail coverage.

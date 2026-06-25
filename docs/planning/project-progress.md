@@ -25,7 +25,7 @@ The generated progress blocks are written by:
 
 ## Overall Progress
 
-overall|87
+overall|88
 
 ---
 
@@ -39,7 +39,7 @@ Metadata Foundation|100|completed
 Documentation Foundation|100|completed
 SearchTimer Backend Foundation|100|completed
 SearchTimer User Workflow|100|completed
-Live Plugin Parity Foundation|70|in progress
+Live Plugin Parity Foundation|80|in progress
 Automation Foundation|0|planned
 Federation Foundation|0|planned
 Frontend Foundation|0|planned
@@ -48,7 +48,7 @@ Frontend Foundation|0|planned
 
 ## Current Milestone
 
-Phase 51.7 - Live parity discovery daemon wiring
+Phase 51.8 - Live parity discovery HTTP smoke contract
 
 ---
 

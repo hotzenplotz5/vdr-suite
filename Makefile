@@ -1352,6 +1352,13 @@ test-search-timer-discovery-json-serializer:
 		core/vdr/tests/test_search_timer_discovery_json_serializer.cpp \
 		-o /tmp/test_search_timer_discovery_json_serializer
 	/tmp/test_search_timer_discovery_json_serializer
+
+test-search-timer-discovery-static-provider:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerDiscoveryStaticProvider.cpp \
+		core/vdr/tests/test_search_timer_discovery_static_provider.cpp \
+		-o /tmp/test_search_timer_discovery_static_provider
+	/tmp/test_search_timer_discovery_static_provider
 test-epg-person-search-result:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_person_search_result.cpp \
@@ -1486,6 +1493,7 @@ test-test-http-server: prepare-test-db
 		core/vdr/src/EpgSearchNativeFuzzyOperatorRefreshService.cpp \
 		api/rest/src/EpgSearchNativeFuzzyOperatorRefreshController.cpp \
 		api/rest/src/SearchTimerController.cpp \
+		api/rest/src/SearchTimerDiscoveryController.cpp \
 		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
 		core/vdr/src/SearchTimerService.cpp \
                 api/rest/src/SearchTimerCreateRequestParser.cpp \
@@ -1558,6 +1566,7 @@ test: test-restfulapi-executor-basic-http-client-socket-smoke test-preview-execu
 clean:
 	rm -f /tmp/test_search_timer_discovery
 	rm -f /tmp/test_search_timer_discovery_service
+	rm -f /tmp/test_search_timer_discovery_static_provider
 	rm -f /tmp/test_search_timer_discovery_json_serializer
 	rm -f /tmp/test_search_timer_discovery_controller
 	rm -f /tmp/test_database
