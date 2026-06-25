@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 52.6 - SearchTimer automation read-only service boundary
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerAutomationReadOnlyService as the read-only SearchTimer automation service boundary.
+- Aggregated supplied evaluation plans, match candidates, duplicate detections and candidate timer proposals into dry-run results.
+- Added warnings and audit entries for boundary-level validation and count mismatches.
+- Preserved dry-run-only, no-mutation, no-timer-creation, no-backend-write, no-automatic-execution and explicit handoff invariants.
+- Kept the phase free of matching execution, REST endpoints, daemon scheduling and backend mutation.
+
+---
+
 ## Phase 52.5 - SearchTimer automation dry-run result serializer
 
 Status: Completed.
