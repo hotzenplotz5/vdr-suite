@@ -200,6 +200,18 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 53.6 - SearchTimer title-only workflow command mapper contract
+
+Status: Completed.
+
+Summary:
+- Mapped preserved workflow plan compare fields into SearchTimerCreateRequest.
+- Mapped preserved workflow plan compare fields into SearchTimerUpdateRequest.
+- Added title-only command request mapper coverage for workflow create and update.
+- Kept the phase free of runtime behavior, scheduler and backend write policy changes.
+
+---
+
 ## Phase 53.5 - SearchTimer title-only workflow request contract
 
 Status: Completed.

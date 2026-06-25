@@ -40,6 +40,10 @@ public:
         request.name = plan.name();
         request.query = plan.query();
         request.active = plan.active();
+        request.compareTitle = plan.compareTitle();
+        request.compareSubtitle = plan.compareSubtitle();
+        request.compareSummary = plan.compareSummary();
+        request.compareCategories = plan.compareCategories();
         return request;
     }
 
@@ -52,6 +56,10 @@ public:
         request.name = plan.name();
         request.query = plan.query();
         request.active = plan.active();
+        request.compareTitle = plan.compareTitle();
+        request.compareSubtitle = plan.compareSubtitle();
+        request.compareSummary = plan.compareSummary();
+        request.compareCategories = plan.compareCategories();
         return request;
     }
 

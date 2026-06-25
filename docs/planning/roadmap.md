@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 53.5 - SearchTimer title-only workflow request contract
+Phase 53.6 - SearchTimer title-only workflow command mapper contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 53.6 - SearchTimer title-only workflow command mapper contract
+Phase 53.7 - SearchTimer title-only workflow execution dispatch contract
 ```
 
 ---
@@ -547,6 +547,12 @@ Phase 53.5 result:
 - Added title-only compare-field preservation to SearchTimerWorkflowRequest.
 - Parsed compareTitle/compareSubtitle/compareSummary/compareCategories in workflow validation requests.
 - Preserved compare fields in SearchTimerWorkflowExecutionPlan::fromRequest.
+- Kept the phase free of runtime behavior, scheduler and backend write policy changes.
+
+Phase 53.6 result:
+- Mapped preserved workflow plan compare fields into SearchTimerCreateRequest.
+- Mapped preserved workflow plan compare fields into SearchTimerUpdateRequest.
+- Added title-only command request mapper coverage for workflow create and update.
 - Kept the phase free of runtime behavior, scheduler and backend write policy changes.
 
 Expected outcomes:

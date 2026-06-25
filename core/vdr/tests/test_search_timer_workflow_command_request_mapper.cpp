@@ -29,6 +29,10 @@ int main()
     assert(createRequest.name == "Terra X Suche");
     assert(createRequest.query == "Terra X");
     assert(!createRequest.active);
+    assert(!createRequest.compareTitle);
+    assert(!createRequest.compareSubtitle);
+    assert(!createRequest.compareSummary);
+    assert(!createRequest.compareCategories);
 
     const auto updatePlan =
         planningService.plan(
@@ -51,6 +55,67 @@ int main()
     assert(updateRequest.name == "Terra X Aktualisiert");
     assert(updateRequest.query == "Terra X neu");
     assert(updateRequest.active);
+    assert(!updateRequest.compareTitle);
+    assert(!updateRequest.compareSubtitle);
+    assert(!updateRequest.compareSummary);
+    assert(!updateRequest.compareCategories);
+
+
+    const auto titleOnlyWorkflowCreatePlan =
+        planningService.plan(
+            SearchTimerWorkflowRequest::create(
+                "home-vdr",
+                "Amerika",
+                "Amerika",
+                true)
+                .withCompareFields(
+                    true,
+                    false,
+                    false,
+                    false));
+
+    assert(mapper.canBuildCreateRequest(titleOnlyWorkflowCreatePlan));
+
+    const SearchTimerCreateRequest titleOnlyWorkflowCreateRequest =
+        mapper.buildCreateRequest(titleOnlyWorkflowCreatePlan);
+
+    assert(titleOnlyWorkflowCreateRequest.backendId == "home-vdr");
+    assert(titleOnlyWorkflowCreateRequest.name == "Amerika");
+    assert(titleOnlyWorkflowCreateRequest.query == "Amerika");
+    assert(titleOnlyWorkflowCreateRequest.active);
+    assert(titleOnlyWorkflowCreateRequest.compareTitle);
+    assert(!titleOnlyWorkflowCreateRequest.compareSubtitle);
+    assert(!titleOnlyWorkflowCreateRequest.compareSummary);
+    assert(!titleOnlyWorkflowCreateRequest.compareCategories);
+
+    const auto titleOnlyWorkflowUpdatePlan =
+        planningService.plan(
+            SearchTimerWorkflowRequest::update(
+                "home-vdr",
+                "searchtimer-amerika",
+                "Amerika",
+                "Amerika",
+                true)
+                .withCompareFields(
+                    true,
+                    false,
+                    false,
+                    false));
+
+    assert(mapper.canBuildUpdateRequest(titleOnlyWorkflowUpdatePlan));
+
+    const SearchTimerUpdateRequest titleOnlyWorkflowUpdateRequest =
+        mapper.buildUpdateRequest(titleOnlyWorkflowUpdatePlan);
+
+    assert(titleOnlyWorkflowUpdateRequest.backendId == "home-vdr");
+    assert(titleOnlyWorkflowUpdateRequest.backendNativeId == "searchtimer-amerika");
+    assert(titleOnlyWorkflowUpdateRequest.name == "Amerika");
+    assert(titleOnlyWorkflowUpdateRequest.query == "Amerika");
+    assert(titleOnlyWorkflowUpdateRequest.active);
+    assert(titleOnlyWorkflowUpdateRequest.compareTitle);
+    assert(!titleOnlyWorkflowUpdateRequest.compareSubtitle);
+    assert(!titleOnlyWorkflowUpdateRequest.compareSummary);
+    assert(!titleOnlyWorkflowUpdateRequest.compareCategories);
 
     const auto deletePlan =
         planningService.plan(
