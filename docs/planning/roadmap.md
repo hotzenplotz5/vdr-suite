@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 51.0 - Live plugin parity source audit and gap matrix
+Phase 51.1 - Live parity discovery domain foundation
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 51.1 - Live parity discovery API domain foundation
+Phase 51.2 - Live parity discovery JSON contract
 ```
 
 ---
@@ -348,8 +348,14 @@ Phase 51.0 result:
 - Confirmed that RESTfulAPI integration and extension remains the preferred path over a VDR fork.
 - Kept production mutation closed.
 
+Phase 51.1 result:
+- Added the read-only Live parity discovery domain foundation.
+- Modeled Extended EPG info, channel groups, blacklists and recording directories as backend-neutral domain objects.
+- Fixed daemon source wiring for SearchTimerWorkflowValidationRequestParser.
+- Kept the phase domain-only with no REST route, no adapter transport and no backend mutation.
+
 Next implementation step:
-- Phase 51.1 - Live parity discovery API domain foundation.
+- Phase 51.2 - Live parity discovery JSON contract.
 
 Expected outcomes:
 - Broader EPG detail coverage.

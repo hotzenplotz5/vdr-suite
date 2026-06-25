@@ -200,6 +200,23 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 51.1 - Live parity discovery domain foundation
+
+Status: Completed.
+
+Summary:
+- Added the first read-only Live parity discovery domain foundation.
+- Introduced SearchTimerDiscoveryExtendedEpgInfo for epgsearch extended EPG info lists.
+- Introduced SearchTimerDiscoveryChannelGroup for epgsearch channel group discovery.
+- Introduced SearchTimerDiscoveryBlacklist for epgsearch blacklist discovery.
+- Introduced SearchTimerDiscoveryRecordingDirectory for SearchTimer recording directory discovery.
+- Introduced SearchTimerDiscoveryCatalog to preserve backend identity and aggregate discovery lists.
+- Added a targeted unit test and Makefile target.
+- Fixed daemon source wiring for SearchTimerWorkflowValidationRequestParser.
+- Kept the phase domain-only with no REST route, no adapter transport and no backend mutation.
+
+---
+
 ## Phase 51.0 - Live plugin parity source audit and gap matrix
 
 Status: Completed.

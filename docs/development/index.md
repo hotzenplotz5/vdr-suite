@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 51.0 - Live plugin parity source audit and gap matrix
+Phase 51.1 - Live parity discovery domain foundation
 ```
 
 Next implementation focus:
 
 ```text
-Phase 51.1 - Live parity discovery API domain foundation
+Phase 51.2 - Live parity discovery JSON contract
 ```
 
 Current architecture validation:
@@ -79,6 +79,7 @@ Current architecture validation:
 - [Real Recording Action Regression Audit](real-recording-action-regression-audit.md)
 - [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
 - [Live Plugin Parity Source Audit](live-plugin-parity-source-audit.md)
+- [Live Parity Discovery Domain Foundation](live-parity-discovery-domain-foundation.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)

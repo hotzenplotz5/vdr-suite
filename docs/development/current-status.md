@@ -43,7 +43,7 @@ main
 
 Overall project progress:
 
-    ████████░░ 81%
+    ████████░░ 82%
 
 Milestone progress:
 
@@ -55,14 +55,14 @@ Milestone progress:
     Documentation Foundation        ██████████ 100%  completed
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
-    Live Plugin Parity Foundation   █░░░░░░░░░  10%  in progress
+    Live Plugin Parity Foundation   ██░░░░░░░░  20%  in progress
     Automation Foundation           ░░░░░░░░░░   0%  planned
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 51.1 - Live parity discovery API domain foundation
+    Phase 51.2 - Live parity discovery JSON contract
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -74,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 51.0 - Live plugin parity source audit and gap matrix
+Phase 51.1 - Live parity discovery domain foundation
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 51.0 - Live plugin parity source audit and gap matrix
+Phase 51.1 - Live parity discovery domain foundation
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 51.1 - Live parity discovery API domain foundation
+Phase 51.2 - Live parity discovery JSON contract
 ```
 
 Completed foundations:
@@ -182,6 +182,8 @@ make test-phase
 - Phase 50.24 adds a guarded executor invocation contract while keeping invocationAttempted=false in all paths.
 - Phase 50.50 closes the SearchTimer user workflow foundation while keeping production mutation closed.
 - Phase 51.0 starts the Live plugin parity foundation with a source-audited gap matrix for VDR, epgsearch, RESTfulAPI, Live and VDR-Suite.
+- Phase 51.1 adds the read-only Live parity discovery domain foundation for Extended EPG info, channel groups, blacklists and recording directories.
+- Phase 51.1 also fixes daemon source wiring for SearchTimerWorkflowValidationRequestParser.
 
 ---
 
@@ -279,10 +281,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 51.1 - Live parity discovery API domain foundation
+Phase 51.2 - Live parity discovery JSON contract
 ```
 
-The next implementation phase should add the first read-only Live parity discovery API domain foundation on top of the completed source audit.
+The next implementation phase should add the Live parity discovery JSON contract on top of the read-only discovery domain foundation.
 
 Important boundaries:
 

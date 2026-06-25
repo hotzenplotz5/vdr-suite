@@ -154,10 +154,10 @@ def check_progress_source():
     problems = []
 
     required = [
-        "overall|81",
+        "overall|82",
         "SearchTimer Backend Foundation|100|completed",
         "SearchTimer User Workflow|100|completed",
-        "Phase 51.1 - Live parity discovery API domain foundation",
+        "Phase 51.2 - Live parity discovery JSON contract",
     ]
 
     forbidden = [

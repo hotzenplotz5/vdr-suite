@@ -65,3 +65,4 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerCreateRequestParser.cpp \
         api/rest/src/SearchTimerUpdateRequestParser.cpp \
         api/rest/src/SearchTimerDeleteRequestParser.cpp \
+        api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
