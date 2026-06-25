@@ -39,13 +39,13 @@ Milestone progress:
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
     Live Plugin Parity Foundation   ██████████ 100%  completed
-    Automation Foundation           ██████░░░░  60%  in progress
+    Automation Foundation           ██████░░░░  65%  in progress
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
+    Phase 53.1 - SearchTimer title-only request parser contract
 
 Progress source: [Project Progress](docs/planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -56,15 +56,15 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 52.9 - SearchTimer automation safety review
+    Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
 
 Current documentation consolidation:
 
-    Phase 52.9 - SearchTimer automation safety review
+    Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
 
 Next major implementation milestone:
 
-    Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
+    Phase 53.1 - SearchTimer title-only request parser contract
 
 Completed foundations:
 

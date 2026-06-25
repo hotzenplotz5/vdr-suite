@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 52.9 - SearchTimer automation safety review
+Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
+Phase 53.1 - SearchTimer title-only request parser contract
 ```
 
 ---
@@ -509,6 +509,14 @@ Phase 52.9 result:
 - Confirmed preview-only safety while keeping scheduling runtime, automatic execution and backend mutation explicitly blocked.
 - Covered safe preview and invalid-review paths with a targeted unit test.
 - Kept the phase free of daemon scheduler runtime, background loops, RESTfulAPI writes and epgsearch mutation.
+
+Phase 53.0 result:
+- Fixed RESTfulAPI SearchTimer field mapping for title/subtitle/description search flags.
+- Mapped compareTitle to use_title.
+- Mapped compareSubtitle to use_subtitle.
+- Mapped compareSummary to use_description.
+- Added executor-level request body tests for title-only and subtitle/summary search field combinations.
+- Kept the phase free of scheduler, automation execution and backend write policy changes.
 
 Expected outcomes:
 - Scheduled SearchTimer evaluation.

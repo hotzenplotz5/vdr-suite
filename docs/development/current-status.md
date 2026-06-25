@@ -56,13 +56,13 @@ Milestone progress:
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
     Live Plugin Parity Foundation   ██████████ 100%  completed
-    Automation Foundation           ██████░░░░  60%  in progress
+    Automation Foundation           ██████░░░░  65%  in progress
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
+    Phase 53.1 - SearchTimer title-only request parser contract
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -74,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 52.9 - SearchTimer automation safety review
+Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 52.9 - SearchTimer automation safety review
+Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
+Phase 53.1 - SearchTimer title-only request parser contract
 ```
 
 Completed foundations:
@@ -203,6 +203,7 @@ make test-phase
 - Phase 52.7 adds the SearchTimer automation REST preview contract and daemon wiring without scheduling or backend mutation.
 - Phase 52.8 adds the SearchTimer automation daemon scheduling plan model without enabling a scheduler, background loop or backend mutation.
 - Phase 52.9 adds the SearchTimer automation safety review and confirms that automation is currently preview-only, not scheduler-safe, not execution-safe and not mutation-safe.
+- Phase 53.0 fixes RESTfulAPI SearchTimer field mapping so title-only requests map compareTitle/compareSubtitle/compareSummary to use_title/use_subtitle/use_description correctly.
 
 ---
 
@@ -300,10 +301,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
+Phase 53.1 - SearchTimer title-only request parser contract
 ```
 
-The next implementation phase should fix the SearchTimer title/subtitle/description field mapping so title-only searches are represented correctly in RESTfulAPI requests.
+The next implementation phase should strengthen the SearchTimer title-only request parser contract before the executor mapping.
 
 Important boundaries:
 

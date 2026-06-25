@@ -132,6 +132,75 @@ void createFallsBackToReadbackWhenCreateBodyHasNoId()
     assert(httpClient.requests()[1].url == "/searchtimers.json");
 }
 
+void createMapsTitleOnlySearchFieldsToRestfulApiBody()
+{
+    HttpResponse createResponse;
+    createResponse.statusCode = 200;
+    createResponse.body = "Id: 77";
+
+    SequencedHttpClient httpClient({createResponse});
+    RestfulApiSearchTimerCommandExecutor executor(httpClient);
+
+    SearchTimerCreateRequest request =
+        makeCreateRequest("Amerika");
+
+    request.compareTitle = true;
+    request.compareSubtitle = false;
+    request.compareSummary = false;
+    request.compareCategories = false;
+
+    const auto result =
+        executor.create(request);
+
+    assert(result.success);
+    assert(httpClient.requests().size() == 1);
+
+    const std::string& body =
+        httpClient.requests()[0].body;
+
+    assert(body.find("\"search\":\"Amerika\"") != std::string::npos);
+    assert(body.find("\"use_title\":1") != std::string::npos);
+    assert(body.find("\"use_subtitle\":0") != std::string::npos);
+    assert(body.find("\"use_description\":0") != std::string::npos);
+    assert(body.find("\"compare_title\":1") != std::string::npos);
+    assert(body.find("\"compare_subtitle\":0") != std::string::npos);
+    assert(body.find("\"compare_summary\":0") != std::string::npos);
+}
+
+void createMapsSubtitleAndSummarySearchFieldsToRestfulApiBody()
+{
+    HttpResponse createResponse;
+    createResponse.statusCode = 200;
+    createResponse.body = "Id: 78";
+
+    SequencedHttpClient httpClient({createResponse});
+    RestfulApiSearchTimerCommandExecutor executor(httpClient);
+
+    SearchTimerCreateRequest request =
+        makeCreateRequest("Amerika");
+
+    request.compareTitle = false;
+    request.compareSubtitle = true;
+    request.compareSummary = true;
+
+    const auto result =
+        executor.create(request);
+
+    assert(result.success);
+    assert(httpClient.requests().size() == 1);
+
+    const std::string& body =
+        httpClient.requests()[0].body;
+
+    assert(body.find("\"use_title\":0") != std::string::npos);
+    assert(body.find("\"use_subtitle\":1") != std::string::npos);
+    assert(body.find("\"use_description\":1") != std::string::npos);
+    assert(body.find("\"compare_title\":0") != std::string::npos);
+    assert(body.find("\"compare_subtitle\":1") != std::string::npos);
+    assert(body.find("\"compare_summary\":1") != std::string::npos);
+}
+
+
 void createFailsWhenReadbackCannotFindUniqueCreatedId()
 {
     const std::string query =
@@ -178,6 +247,8 @@ int main()
 {
     createUsesReturnedTextIdWhenAvailable();
     createFallsBackToReadbackWhenCreateBodyHasNoId();
+    createMapsTitleOnlySearchFieldsToRestfulApiBody();
+    createMapsSubtitleAndSummarySearchFieldsToRestfulApiBody();
     createFailsWhenReadbackCannotFindUniqueCreatedId();
 
     std::cout

@@ -135,9 +135,9 @@ std::string buildSearchTimerBody(
     body
         << "{"
         << "\"search\":\"" << jsonEscape(query) << "\","
-        << "\"use_title\":true,"
-        << "\"use_subtitle\":true,"
-        << "\"use_description\":true,"
+        << "\"use_title\":" << (compareTitle ? "1" : "0") << ","
+        << "\"use_subtitle\":" << (compareSubtitle ? "1" : "0") << ","
+        << "\"use_description\":" << (compareSummary ? "1" : "0") << ","
         << "\"use_channel\":" << useChannel << ","
         << "\"channels\":\"" << jsonEscape(channels) << "\","
         << "\"channel_min\":\"" << jsonEscape(channelMin) << "\","

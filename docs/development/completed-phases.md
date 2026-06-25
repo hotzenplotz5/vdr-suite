@@ -200,6 +200,20 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
+
+Status: Completed.
+
+Summary:
+- Fixed RESTfulAPI SearchTimer field mapping for title/subtitle/description search flags.
+- Mapped compareTitle to use_title.
+- Mapped compareSubtitle to use_subtitle.
+- Mapped compareSummary to use_description.
+- Added executor-level request body tests for title-only and subtitle/summary search field combinations.
+- Kept the phase free of scheduler, automation execution and backend write policy changes.
+
+---
+
 ## Phase 52.9 - SearchTimer automation safety review
 
 Status: Completed.
