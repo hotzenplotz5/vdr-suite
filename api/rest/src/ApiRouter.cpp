@@ -18,6 +18,7 @@
 #include "RestQueryParameters.h"
 #include "RuntimeDiagnosticsController.h"
 #include "SearchTimerController.h"
+#include "SearchTimerDiscoveryController.h"
 #include "SearchTimerResult.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
@@ -95,6 +96,17 @@ ApiResponse makeSearchTimerUnavailableResponse()
     response.statusCode = 503;
     response.contentType = "application/json";
     response.body = "{\"error\":\"searchtimer backend unavailable\"}";
+
+    return response;
+}
+
+ApiResponse makeSearchTimerDiscoveryUnavailableResponse()
+{
+    ApiResponse response;
+
+    response.statusCode = 503;
+    response.contentType = "application/json";
+    response.body = "{\"error\":\"searchtimer discovery unavailable\"}";
 
     return response;
 }
@@ -177,7 +189,8 @@ ApiRouter::ApiRouter(
     LiveTransportController& liveTransportController,
     ISearchTimerCommandExecutor* searchTimerCommandExecutor,
     EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController,
-    EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController)
+    EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController,
+    SearchTimerDiscoveryController* searchTimerDiscoveryController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
       recordingsController_(recordingsController),
@@ -197,6 +210,7 @@ ApiRouter::ApiRouter(
       runtimeDiagnosticsController_(runtimeDiagnosticsController),
       snapshotChangeFeedController_(snapshotChangeFeedController),
       searchTimerController_(searchTimerController),
+      searchTimerDiscoveryController_(searchTimerDiscoveryController),
       liveTransportController_(liveTransportController),
       searchTimerCommandExecutor_(searchTimerCommandExecutor),
       nativeFuzzyStaleProbeAdministrationController_(
@@ -580,6 +594,22 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.getInt("from", -1),
             queryParameters.getInt("timespan", 7200),
             queryParameters.getInt("limit", 5));
+    }
+
+    if (path == "/api/searchtimers/discovery" ||
+        path == "/api/vdr/searchtimers/discovery")
+    {
+        if (searchTimerDiscoveryController_ == nullptr)
+        {
+            return makeSearchTimerDiscoveryUnavailableResponse();
+        }
+
+        const std::string backendId =
+            queryParameters.get("backend").empty()
+                ? "default"
+                : queryParameters.get("backend");
+
+        return searchTimerDiscoveryController_->getDiscovery(backendId);
     }
 
     if (path == "/api/searchtimers/preview" ||

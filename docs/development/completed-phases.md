@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 51.6 - Live parity discovery router contract
+
+Status: Completed.
+
+Summary:
+- Added read-only ApiRouter route handling for /api/searchtimers/discovery and /api/vdr/searchtimers/discovery.
+- Added backend query parameter handling with default backend fallback.
+- Added missing SearchTimerDiscoveryController 503 behavior.
+- Added test-api-router coverage with an in-memory discovery provider.
+- Wired SearchTimerDiscoveryController into the daemon link set while preserving the no-daemon-provider, no-transport, no-mutation boundary.
+
+---
+
 ## Phase 51.5 - Live parity discovery controller service integration
 
 Status: Completed.

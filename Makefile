@@ -1415,6 +1415,7 @@ test-api-router: prepare-test-db
 		core/vdr/src/EpgSearchNativeFuzzyOperatorRefreshService.cpp \
 		api/rest/src/EpgSearchNativeFuzzyOperatorRefreshController.cpp \
                 api/rest/src/SearchTimerController.cpp \
+                api/rest/src/SearchTimerDiscoveryController.cpp \
                 core/vdr/src/SearchTimerResultJsonSerializer.cpp \
                 core/vdr/src/SearchTimerService.cpp \
                 api/rest/src/SearchTimerCreateRequestParser.cpp \

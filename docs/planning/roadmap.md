@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 51.5 - Live parity discovery controller service integration
+Phase 51.6 - Live parity discovery router contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 51.6 - Live parity discovery router contract
+Phase 51.7 - Live parity discovery daemon wiring
 ```
 
 ---
@@ -378,8 +378,15 @@ Phase 51.5 result:
 - Covered catalog path, service path and missing-service behavior with the controller test.
 - Kept the phase free of ApiRouter wiring, backend transport and backend mutation.
 
+Phase 51.6 result:
+- Added read-only ApiRouter route contract for /api/searchtimers/discovery and /api/vdr/searchtimers/discovery.
+- Added optional backend query parameter handling with default backend fallback.
+- Added missing discovery controller 503 behavior.
+- Covered the route through test-api-router with an in-memory discovery provider.
+- Kept the phase free of daemon provider wiring, backend transport and backend mutation.
+
 Next implementation step:
-- Phase 51.6 - Live parity discovery router contract.
+- Phase 51.7 - Live parity discovery daemon wiring.
 
 Expected outcomes:
 - Broader EPG detail coverage.

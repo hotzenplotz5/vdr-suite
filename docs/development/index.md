@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 51.5 - Live parity discovery controller service integration
+Phase 51.6 - Live parity discovery router contract
 ```
 
 Next implementation focus:
 
 ```text
-Phase 51.6 - Live parity discovery router contract
+Phase 51.7 - Live parity discovery daemon wiring
 ```
 
 Current architecture validation:
@@ -84,6 +84,7 @@ Current architecture validation:
 - [Live Parity Discovery REST Controller Contract](live-parity-discovery-rest-controller-contract.md)
 - [Live Parity Discovery Service Contract](live-parity-discovery-service-contract.md)
 - [Live Parity Discovery Controller Service Integration](live-parity-discovery-controller-service-integration.md)
+- [Live Parity Discovery Router Contract](live-parity-discovery-router-contract.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)

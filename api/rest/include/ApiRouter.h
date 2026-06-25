@@ -21,6 +21,7 @@ class RuntimeDiagnosticsController;
 class SnapshotChangeFeedController;
 class ISearchTimerCommandExecutor;
 class SearchTimerController;
+class SearchTimerDiscoveryController;
 class VdrController;
 class VdrRecordingQueryController;
 class VdrSnapshotReadService;
@@ -53,7 +54,8 @@ public:
         LiveTransportController& liveTransportController,
         ISearchTimerCommandExecutor* searchTimerCommandExecutor = nullptr,
         EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController = nullptr,
-        EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController = nullptr);
+        EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController = nullptr,
+        SearchTimerDiscoveryController* searchTimerDiscoveryController = nullptr);
 
     ApiResponse handleGet(
         const std::string& path);
@@ -82,6 +84,7 @@ private:
     RuntimeDiagnosticsController& runtimeDiagnosticsController_;
     SnapshotChangeFeedController& snapshotChangeFeedController_;
     SearchTimerController* searchTimerController_;
+    SearchTimerDiscoveryController* searchTimerDiscoveryController_;
     LiveTransportController& liveTransportController_;
     ISearchTimerCommandExecutor* searchTimerCommandExecutor_;
     EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController_;

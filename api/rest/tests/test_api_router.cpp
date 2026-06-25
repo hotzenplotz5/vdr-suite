@@ -41,6 +41,10 @@
 #include "RecordingActionValidationService.h"
 #include "RuntimeDiagnosticsController.h"
 #include "SearchTimerController.h"
+#include "SearchTimerDiscoveryController.h"
+#include "SearchTimerDiscoveryJsonSerializer.h"
+#include "SearchTimerDiscoveryService.h"
+#include "ISearchTimerDiscoveryProvider.h"
 #include "SearchTimerResultJsonSerializer.h"
 #include "SearchTimerService.h"
 #include "SnapshotChangeFeedController.h"
@@ -241,6 +245,38 @@ public:
         return service.list(
             timers,
             query);
+    }
+};
+
+class RouterSearchTimerDiscoveryProvider final
+    : public ISearchTimerDiscoveryProvider
+{
+public:
+    SearchTimerDiscoveryCatalog discover(
+        const std::string& backendId) const override
+    {
+        SearchTimerDiscoveryCatalog catalog;
+        catalog.setBackendId(backendId);
+
+        catalog.addExtendedEpgInfo(
+            SearchTimerDiscoveryExtendedEpgInfo::create(
+                7,
+                "Category",
+                std::vector<std::string>{"Movie", "Series"},
+                "7|Category|Movie,Series"));
+
+        catalog.addChannelGroup(
+            SearchTimerDiscoveryChannelGroup::create("HD Channels"));
+
+        catalog.addBlacklist(
+            SearchTimerDiscoveryBlacklist::create(
+                4,
+                "Teleshopping"));
+
+        catalog.addRecordingDirectory(
+            SearchTimerDiscoveryRecordingDirectory::create("Doku/Natur"));
+
+        return catalog;
     }
 };
 
@@ -526,6 +562,14 @@ int main()
         searchTimerResultJsonSerializer,
         searchTimerDataSource);
 
+    RouterSearchTimerDiscoveryProvider searchTimerDiscoveryProvider;
+    SearchTimerDiscoveryService searchTimerDiscoveryService(
+        searchTimerDiscoveryProvider);
+    SearchTimerDiscoveryJsonSerializer searchTimerDiscoveryJsonSerializer;
+    SearchTimerDiscoveryController searchTimerDiscoveryController(
+        searchTimerDiscoveryService,
+        searchTimerDiscoveryJsonSerializer);
+
     VdrCapabilitySet capabilitySet =
         VdrCapabilitySet::snapshotReadOnly();
 
@@ -593,7 +637,8 @@ int main()
         liveTransportController,
         nullptr,
         nullptr,
-        &nativeFuzzyOperatorRefreshController);
+        &nativeFuzzyOperatorRefreshController,
+        &searchTimerDiscoveryController);
 
     ApiResponse dashboardResponse =
         router.handleGet("/api/dashboard");
@@ -935,6 +980,14 @@ int main()
            != std::string::npos);
 
 
+    ApiResponse unavailableSearchTimerDiscoveryResponse =
+        routerWithoutEpg.handleGet("/api/searchtimers/discovery");
+
+    assert(unavailableSearchTimerDiscoveryResponse.statusCode == 503);
+    assert(unavailableSearchTimerDiscoveryResponse.contentType == "application/json");
+    assert(unavailableSearchTimerDiscoveryResponse.body.find("searchtimer discovery unavailable")
+           != std::string::npos);
+
     ApiResponse unavailableNativeFuzzyRefreshResponse =
         routerWithoutEpg.handlePost(
             "/api/epgsearch/native-fuzzy/refresh",
@@ -1040,6 +1093,34 @@ int main()
     assert(searchTimersResponse.body.find("\"limit\":25")
            != std::string::npos);
     assert(searchTimersResponse.body.find("\"offset\":5")
+           != std::string::npos);
+
+    ApiResponse searchTimerDiscoveryResponse =
+        router.handleGet("/api/searchtimers/discovery?backend=ferienhaus");
+
+    assert(searchTimerDiscoveryResponse.statusCode == 200);
+    assert(searchTimerDiscoveryResponse.contentType == "application/json");
+    assert(searchTimerDiscoveryResponse.body.find("\"backendId\":\"ferienhaus\"")
+           != std::string::npos);
+    assert(searchTimerDiscoveryResponse.body.find("\"extendedEpgInfo\":1")
+           != std::string::npos);
+    assert(searchTimerDiscoveryResponse.body.find("\"channelGroups\":1")
+           != std::string::npos);
+    assert(searchTimerDiscoveryResponse.body.find("\"blacklists\":1")
+           != std::string::npos);
+    assert(searchTimerDiscoveryResponse.body.find("\"recordingDirectories\":1")
+           != std::string::npos);
+    assert(searchTimerDiscoveryResponse.body.find("\"name\":\"Category\"")
+           != std::string::npos);
+
+    ApiResponse vdrSearchTimerDiscoveryResponse =
+        router.handleGet("/api/vdr/searchtimers/discovery");
+
+    assert(vdrSearchTimerDiscoveryResponse.statusCode == 200);
+    assert(vdrSearchTimerDiscoveryResponse.contentType == "application/json");
+    assert(vdrSearchTimerDiscoveryResponse.body.find("\"backendId\":\"default\"")
+           != std::string::npos);
+    assert(vdrSearchTimerDiscoveryResponse.body.find("\"channelGroups\":[{\"name\":\"HD Channels\"}]")
            != std::string::npos);
 
     ApiResponse searchTimerPreviewResponse =
