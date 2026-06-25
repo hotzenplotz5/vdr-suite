@@ -34,6 +34,10 @@ public:
         plan.name_ = request.name();
         plan.query_ = request.query();
         plan.active_ = request.active();
+        plan.compareTitle_ = request.compareTitle();
+        plan.compareSubtitle_ = request.compareSubtitle();
+        plan.compareSummary_ = request.compareSummary();
+        plan.compareCategories_ = request.compareCategories();
         plan.executionMode_ = request.executionMode();
         plan.valid_ = request.isValid();
         plan.readOnly_ = request.isReadOnly();
@@ -156,11 +160,35 @@ public:
         return active_;
     }
 
+    bool compareTitle() const
+    {
+        return compareTitle_;
+    }
+
+    bool compareSubtitle() const
+    {
+        return compareSubtitle_;
+    }
+
+    bool compareSummary() const
+    {
+        return compareSummary_;
+    }
+
+    bool compareCategories() const
+    {
+        return compareCategories_;
+    }
+
 private:
     bool valid_ = false;
     bool readOnly_ = true;
     bool writeOperation_ = false;
     bool active_ = true;
+    bool compareTitle_ = false;
+    bool compareSubtitle_ = false;
+    bool compareSummary_ = false;
+    bool compareCategories_ = false;
     SearchTimerWorkflowExecutionMode executionMode_ =
         SearchTimerWorkflowExecutionMode::Prepare;
     SearchTimerWorkflowOperation operation_ =

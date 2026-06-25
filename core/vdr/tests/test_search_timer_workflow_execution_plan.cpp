@@ -63,6 +63,26 @@ int main()
     assert(!createPlan.readOnly());
     assert(!createPlan.active());
 
+
+    SearchTimerWorkflowExecutionPlan titleOnlyCreatePlan =
+        SearchTimerWorkflowExecutionPlan::fromRequest(
+            SearchTimerWorkflowRequest::create(
+                "home-vdr",
+                "Amerika",
+                "Amerika")
+                .withCompareFields(
+                    true,
+                    false,
+                    false,
+                    false));
+
+    assert(titleOnlyCreatePlan.valid());
+    assert(titleOnlyCreatePlan.primaryStep() == SearchTimerWorkflowExecutionStep::Create);
+    assert(titleOnlyCreatePlan.compareTitle());
+    assert(!titleOnlyCreatePlan.compareSubtitle());
+    assert(!titleOnlyCreatePlan.compareSummary());
+    assert(!titleOnlyCreatePlan.compareCategories());
+
     SearchTimerWorkflowExecutionPlan readbackPlan =
         SearchTimerWorkflowExecutionPlan::fromRequest(
             SearchTimerWorkflowRequest::readback(
@@ -92,6 +112,27 @@ int main()
     assert(updatePlan.requiresExplicitOperatorConfirmation());
     assert(updatePlan.writeOperation());
     assert(!updatePlan.readOnly());
+
+
+    SearchTimerWorkflowExecutionPlan titleOnlyUpdatePlan =
+        SearchTimerWorkflowExecutionPlan::fromRequest(
+            SearchTimerWorkflowRequest::update(
+                "home-vdr",
+                "searchtimer-amerika",
+                "Amerika",
+                "Amerika")
+                .withCompareFields(
+                    true,
+                    false,
+                    false,
+                    false));
+
+    assert(titleOnlyUpdatePlan.valid());
+    assert(titleOnlyUpdatePlan.primaryStep() == SearchTimerWorkflowExecutionStep::Update);
+    assert(titleOnlyUpdatePlan.compareTitle());
+    assert(!titleOnlyUpdatePlan.compareSubtitle());
+    assert(!titleOnlyUpdatePlan.compareSummary());
+    assert(!titleOnlyUpdatePlan.compareCategories());
 
     SearchTimerWorkflowExecutionPlan deletePlan =
         SearchTimerWorkflowExecutionPlan::fromRequest(

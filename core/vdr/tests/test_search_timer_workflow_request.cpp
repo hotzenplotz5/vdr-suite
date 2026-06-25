@@ -69,6 +69,25 @@ int main()
     assert(create.wantsReadbackAfterWrite());
     assert(create.isValid());
 
+
+    SearchTimerWorkflowRequest titleOnlyWorkflowCreate =
+        SearchTimerWorkflowRequest::create(
+            "livingroom",
+            "Amerika",
+            "Amerika")
+            .withCompareFields(
+                true,
+                false,
+                false,
+                false);
+
+    assert(titleOnlyWorkflowCreate.operation() == SearchTimerWorkflowOperation::Create);
+    assert(titleOnlyWorkflowCreate.compareTitle());
+    assert(!titleOnlyWorkflowCreate.compareSubtitle());
+    assert(!titleOnlyWorkflowCreate.compareSummary());
+    assert(!titleOnlyWorkflowCreate.compareCategories());
+    assert(titleOnlyWorkflowCreate.isValid());
+
     SearchTimerWorkflowRequest inactiveCreate =
         SearchTimerWorkflowRequest::create(
             "livingroom",
@@ -116,6 +135,27 @@ int main()
     assert(!update.active());
     assert(update.wantsReadbackAfterWrite());
     assert(update.isValid());
+
+
+    SearchTimerWorkflowRequest titleOnlyWorkflowUpdate =
+        SearchTimerWorkflowRequest::update(
+            "livingroom",
+            "searchtimer-amerika",
+            "Amerika",
+            "Amerika")
+            .withCompareFields(
+                true,
+                false,
+                false,
+                false);
+
+    assert(titleOnlyWorkflowUpdate.operation() == SearchTimerWorkflowOperation::Update);
+    assert(titleOnlyWorkflowUpdate.backendNativeId() == "searchtimer-amerika");
+    assert(titleOnlyWorkflowUpdate.compareTitle());
+    assert(!titleOnlyWorkflowUpdate.compareSubtitle());
+    assert(!titleOnlyWorkflowUpdate.compareSummary());
+    assert(!titleOnlyWorkflowUpdate.compareCategories());
+    assert(titleOnlyWorkflowUpdate.isValid());
 
     SearchTimerWorkflowRequest invalidUpdate =
         SearchTimerWorkflowRequest::update(

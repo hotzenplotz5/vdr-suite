@@ -1,4 +1,5 @@
 #include "SearchTimerWorkflowValidationRequestParser.h"
+#include "SearchTimerWorkflowExecutionPlan.h"
 
 #include <cassert>
 #include <iostream>
@@ -143,6 +144,76 @@ int main()
     assert(unknownRequest.operation() == SearchTimerWorkflowOperation::Unknown);
     assert(!unknownRequest.hasOperation());
     assert(!unknownRequest.isValid());
+
+
+    SearchTimerWorkflowRequest titleOnlyWorkflowCreateRequest =
+        parser.parse(
+            "{"
+            "\"operation\":\"create\","
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Amerika\","
+            "\"query\":\"Amerika\","
+            "\"active\":true,"
+            "\"compareTitle\":true,"
+            "\"compareSubtitle\":false,"
+            "\"compareSummary\":false,"
+            "\"compareCategories\":false"
+            "}");
+
+    assert(titleOnlyWorkflowCreateRequest.operation() == SearchTimerWorkflowOperation::Create);
+    assert(titleOnlyWorkflowCreateRequest.backendId() == "home-vdr");
+    assert(titleOnlyWorkflowCreateRequest.name() == "Amerika");
+    assert(titleOnlyWorkflowCreateRequest.query() == "Amerika");
+    assert(titleOnlyWorkflowCreateRequest.compareTitle());
+    assert(!titleOnlyWorkflowCreateRequest.compareSubtitle());
+    assert(!titleOnlyWorkflowCreateRequest.compareSummary());
+    assert(!titleOnlyWorkflowCreateRequest.compareCategories());
+    assert(titleOnlyWorkflowCreateRequest.isValid());
+
+    SearchTimerWorkflowExecutionPlan titleOnlyWorkflowCreatePlan =
+        SearchTimerWorkflowExecutionPlan::fromRequest(
+            titleOnlyWorkflowCreateRequest);
+
+    assert(titleOnlyWorkflowCreatePlan.valid());
+    assert(titleOnlyWorkflowCreatePlan.primaryStep() == SearchTimerWorkflowExecutionStep::Create);
+    assert(titleOnlyWorkflowCreatePlan.compareTitle());
+    assert(!titleOnlyWorkflowCreatePlan.compareSubtitle());
+    assert(!titleOnlyWorkflowCreatePlan.compareSummary());
+    assert(!titleOnlyWorkflowCreatePlan.compareCategories());
+
+    SearchTimerWorkflowRequest titleOnlyWorkflowUpdateRequest =
+        parser.parse(
+            "{"
+            "\"operation\":\"update\","
+            "\"backendId\":\"home-vdr\","
+            "\"backendNativeId\":\"searchtimer-amerika\","
+            "\"name\":\"Amerika\","
+            "\"query\":\"Amerika\","
+            "\"active\":true,"
+            "\"compareTitle\":true,"
+            "\"compareSubtitle\":false,"
+            "\"compareSummary\":false,"
+            "\"compareCategories\":false"
+            "}");
+
+    assert(titleOnlyWorkflowUpdateRequest.operation() == SearchTimerWorkflowOperation::Update);
+    assert(titleOnlyWorkflowUpdateRequest.backendNativeId() == "searchtimer-amerika");
+    assert(titleOnlyWorkflowUpdateRequest.compareTitle());
+    assert(!titleOnlyWorkflowUpdateRequest.compareSubtitle());
+    assert(!titleOnlyWorkflowUpdateRequest.compareSummary());
+    assert(!titleOnlyWorkflowUpdateRequest.compareCategories());
+    assert(titleOnlyWorkflowUpdateRequest.isValid());
+
+    SearchTimerWorkflowExecutionPlan titleOnlyWorkflowUpdatePlan =
+        SearchTimerWorkflowExecutionPlan::fromRequest(
+            titleOnlyWorkflowUpdateRequest);
+
+    assert(titleOnlyWorkflowUpdatePlan.valid());
+    assert(titleOnlyWorkflowUpdatePlan.primaryStep() == SearchTimerWorkflowExecutionStep::Update);
+    assert(titleOnlyWorkflowUpdatePlan.compareTitle());
+    assert(!titleOnlyWorkflowUpdatePlan.compareSubtitle());
+    assert(!titleOnlyWorkflowUpdatePlan.compareSummary());
+    assert(!titleOnlyWorkflowUpdatePlan.compareCategories());
 
     std::cout
         << "test_search_timer_workflow_validation_request_parser passed"

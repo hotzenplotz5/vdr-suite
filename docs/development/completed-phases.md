@@ -200,6 +200,18 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 53.5 - SearchTimer title-only workflow request contract
+
+Status: Completed.
+
+Summary:
+- Added title-only compare-field preservation to SearchTimerWorkflowRequest.
+- Parsed compareTitle/compareSubtitle/compareSummary/compareCategories in workflow validation requests.
+- Preserved compare fields in SearchTimerWorkflowExecutionPlan::fromRequest.
+- Kept the phase free of runtime behavior, scheduler and backend write policy changes.
+
+---
+
 ## Phase 53.4 - SearchTimer title-only update controller contract
 
 Status: Completed.

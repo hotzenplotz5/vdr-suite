@@ -107,6 +107,20 @@ public:
         return request;
     }
 
+    SearchTimerWorkflowRequest withCompareFields(
+        bool compareTitle,
+        bool compareSubtitle,
+        bool compareSummary,
+        bool compareCategories) const
+    {
+        SearchTimerWorkflowRequest request = *this;
+        request.compareTitle_ = compareTitle;
+        request.compareSubtitle_ = compareSubtitle;
+        request.compareSummary_ = compareSummary;
+        request.compareCategories_ = compareCategories;
+        return request;
+    }
+
     SearchTimerWorkflowOperation operation() const
     {
         return operation_;
@@ -160,6 +174,26 @@ public:
     bool active() const
     {
         return active_;
+    }
+
+    bool compareTitle() const
+    {
+        return compareTitle_;
+    }
+
+    bool compareSubtitle() const
+    {
+        return compareSubtitle_;
+    }
+
+    bool compareSummary() const
+    {
+        return compareSummary_;
+    }
+
+    bool compareCategories() const
+    {
+        return compareCategories_;
     }
 
     SearchTimerWorkflowExecutionMode executionMode() const
@@ -272,4 +306,8 @@ private:
     std::string name_;
     std::string query_;
     bool active_ = true;
+    bool compareTitle_ = false;
+    bool compareSubtitle_ = false;
+    bool compareSummary_ = false;
+    bool compareCategories_ = false;
 };

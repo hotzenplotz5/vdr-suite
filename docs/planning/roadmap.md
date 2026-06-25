@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 53.4 - SearchTimer title-only update controller contract
+Phase 53.5 - SearchTimer title-only workflow request contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 53.5 - SearchTimer title-only workflow request contract
+Phase 53.6 - SearchTimer title-only workflow command mapper contract
 ```
 
 ---
@@ -541,6 +541,12 @@ Phase 53.4 result:
 - Strengthened SearchTimer REST controller update-path coverage for title-only JSON bodies.
 - Captured the update request handed to the test command executor.
 - Verified compareTitle=true, compareSubtitle=false and compareSummary=false survive the controller handoff.
+- Kept the phase free of runtime behavior, scheduler and backend write policy changes.
+
+Phase 53.5 result:
+- Added title-only compare-field preservation to SearchTimerWorkflowRequest.
+- Parsed compareTitle/compareSubtitle/compareSummary/compareCategories in workflow validation requests.
+- Preserved compare fields in SearchTimerWorkflowExecutionPlan::fromRequest.
 - Kept the phase free of runtime behavior, scheduler and backend write policy changes.
 
 Expected outcomes:

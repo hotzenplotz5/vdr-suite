@@ -227,6 +227,18 @@ SearchTimerWorkflowRequest SearchTimerWorkflowValidationRequestParser::parse(
     const bool active =
         parseBool(values, "active", true);
 
+    const bool compareTitle =
+        parseBool(values, "compareTitle", false);
+
+    const bool compareSubtitle =
+        parseBool(values, "compareSubtitle", false);
+
+    const bool compareSummary =
+        parseBool(values, "compareSummary", false);
+
+    const bool compareCategories =
+        parseBool(values, "compareCategories", false);
+
     const SearchTimerWorkflowExecutionMode executionMode =
         parseExecutionMode(values);
 
@@ -252,6 +264,11 @@ SearchTimerWorkflowRequest SearchTimerWorkflowValidationRequestParser::parse(
             name,
             query,
             active)
+            .withCompareFields(
+                compareTitle,
+                compareSubtitle,
+                compareSummary,
+                compareCategories)
             .withExecutionMode(executionMode);
     }
 
@@ -271,6 +288,11 @@ SearchTimerWorkflowRequest SearchTimerWorkflowValidationRequestParser::parse(
             name,
             query,
             active)
+            .withCompareFields(
+                compareTitle,
+                compareSubtitle,
+                compareSummary,
+                compareCategories)
             .withExecutionMode(executionMode);
     }
 

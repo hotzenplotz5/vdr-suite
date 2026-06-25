@@ -56,13 +56,13 @@ Milestone progress:
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
     Live Plugin Parity Foundation   ██████████ 100%  completed
-    Automation Foundation           ████████░░  85%  in progress
+    Automation Foundation           █████████░  90%  in progress
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 53.5 - SearchTimer title-only workflow request contract
+    Phase 53.6 - SearchTimer title-only workflow command mapper contract
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -74,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 53.4 - SearchTimer title-only update controller contract
+Phase 53.5 - SearchTimer title-only workflow request contract
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 53.4 - SearchTimer title-only update controller contract
+Phase 53.5 - SearchTimer title-only workflow request contract
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 53.5 - SearchTimer title-only workflow request contract
+Phase 53.6 - SearchTimer title-only workflow command mapper contract
 ```
 
 Completed foundations:
@@ -208,6 +208,7 @@ make test-phase
 - Phase 53.2 verifies the SearchTimer REST controller create path preserves title-only flags into the create service/executor handoff.
 - Phase 53.3 strengthens the SearchTimer update request parser contract for title-only and subtitle/summary search flag preservation.
 - Phase 53.4 verifies the SearchTimer REST controller update path preserves title-only flags into the update service/executor handoff.
+- Phase 53.5 preserves title-only flags in workflow request parsing and execution plan construction.
 
 ---
 
@@ -305,10 +306,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 53.5 - SearchTimer title-only workflow request contract
+Phase 53.6 - SearchTimer title-only workflow command mapper contract
 ```
 
-The next implementation phase should verify that workflow validation and planning preserve title-only flags before automation remains preview-only.
+The next implementation phase should verify that workflow command request mapping preserves title-only flags into concrete create/update command requests.
 
 Important boundaries:
 
