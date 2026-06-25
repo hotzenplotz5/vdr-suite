@@ -11,6 +11,7 @@
 - [SearchTimer Backend Readback Verification Result Model](searchtimer-backend-readback-verification-result-model.md)
 - [SearchTimer Create Readback Verification Service](searchtimer-create-readback-verification-service.md)
 - [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
+- [SearchTimer Delete Absence Verification Plan](searchtimer-delete-absence-verification-plan.md)
 
 ---
 
@@ -60,6 +61,17 @@ This gives clients a single response object that can distinguish:
 
 ---
 
+## Delete Absence Verification Plan
+
+Phase 50.45 defines the delete absence verification plan.
+
+Delete verification differs from create/update verification because it proves absence of the backend-native id after a successful delete.
+
+Full plan:
+
+- [SearchTimer Delete Absence Verification Plan](searchtimer-delete-absence-verification-plan.md)
+
+---
 ## Follow-Up
 
 The next phase should document delete absence verification before delete readback is integrated.

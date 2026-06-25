@@ -130,7 +130,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 50.44 - SearchTimer workflow verified execution result integration
+Phase 50.45 - SearchTimer workflow delete absence verification plan
 ```
 
 Current Documentation Consolidation:
@@ -142,7 +142,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next Major Implementation Milestone:
 
 ```text
-Phase 50.45 - SearchTimer workflow delete absence verification plan
+Phase 50.46 - SearchTimer workflow delete absence verification service
 ```
 
 Latest Completed Milestones:
