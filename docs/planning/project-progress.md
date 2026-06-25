@@ -40,7 +40,7 @@ Documentation Foundation|100|completed
 SearchTimer Backend Foundation|100|completed
 SearchTimer User Workflow|100|completed
 Live Plugin Parity Foundation|100|completed
-Automation Foundation|65|in progress
+Automation Foundation|70|in progress
 Federation Foundation|0|planned
 Frontend Foundation|0|planned
 
@@ -48,7 +48,7 @@ Frontend Foundation|0|planned
 
 ## Current Milestone
 
-Phase 53.1 - SearchTimer title-only request parser contract
+Phase 53.2 - SearchTimer title-only REST controller contract
 
 ---
 

@@ -1645,6 +1645,7 @@ clean:
 	rm -f /tmp/test_search_timer_automation_daemon_scheduling_plan
 	rm -f /tmp/test_search_timer_automation_safety_review
 	rm -f /tmp/test_restful_api_search_timer_command_executor
+	rm -f /tmp/test_search_timer_create_request_parser
 	rm -f /tmp/test_search_timer_discovery_json_serializer
 	rm -f /tmp/test_search_timer_discovery_controller
 	rm -f /tmp/test_database

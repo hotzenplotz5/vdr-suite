@@ -181,6 +181,55 @@ int main()
     assert(defaultBackendRequest.deleteAfterCountRecordings == 0);
     assert(defaultBackendRequest.deleteAfterDaysOfFirstRecording == 0);
 
+
+    const SearchTimerCreateRequest titleOnlyRequest =
+        parser.parse(
+            "{"
+            "\"backendId\":\"default\","
+            "\"name\":\"Amerika\","
+            "\"query\":\"Amerika\","
+            "\"active\":true,"
+            "\"mode\":\"phrase\","
+            "\"compareTitle\":true,"
+            "\"compareSubtitle\":false,"
+            "\"compareSummary\":false,"
+            "\"compareCategories\":false"
+            "}");
+
+    assert(titleOnlyRequest.backendId == "default");
+    assert(titleOnlyRequest.name == "Amerika");
+    assert(titleOnlyRequest.query == "Amerika");
+    assert(titleOnlyRequest.active == true);
+    assert(titleOnlyRequest.matchMode == 0);
+    assert(titleOnlyRequest.compareTitle == true);
+    assert(titleOnlyRequest.compareSubtitle == false);
+    assert(titleOnlyRequest.compareSummary == false);
+    assert(titleOnlyRequest.compareCategories == false);
+
+    const SearchTimerCreateRequest subtitleSummaryRequest =
+        parser.parse(
+            "{"
+            "\"backendId\":\"default\","
+            "\"name\":\"Amerika Zusatzfelder\","
+            "\"query\":\"Amerika\","
+            "\"active\":true,"
+            "\"mode\":\"phrase\","
+            "\"compareTitle\":false,"
+            "\"compareSubtitle\":true,"
+            "\"compareSummary\":true,"
+            "\"compareCategories\":false"
+            "}");
+
+    assert(subtitleSummaryRequest.backendId == "default");
+    assert(subtitleSummaryRequest.name == "Amerika Zusatzfelder");
+    assert(subtitleSummaryRequest.query == "Amerika");
+    assert(subtitleSummaryRequest.active == true);
+    assert(subtitleSummaryRequest.matchMode == 0);
+    assert(subtitleSummaryRequest.compareTitle == false);
+    assert(subtitleSummaryRequest.compareSubtitle == true);
+    assert(subtitleSummaryRequest.compareSummary == true);
+    assert(subtitleSummaryRequest.compareCategories == false);
+
     std::cout
         << "test_search_timer_create_request_parser passed"
         << std::endl;

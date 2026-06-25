@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 53.1 - SearchTimer title-only request parser contract
+
+Status: Completed.
+
+Summary:
+- Strengthened SearchTimer create request parser coverage for title-only JSON bodies.
+- Verified compareTitle=true, compareSubtitle=false and compareSummary=false are preserved.
+- Verified subtitle/summary search flag combinations are preserved.
+- Added a dedicated parser test target to the local test group.
+- Kept the phase free of runtime behavior, scheduler and backend write policy changes.
+
+---
+
 ## Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
 
 Status: Completed.
