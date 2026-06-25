@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 51.9 - Live parity discovery RESTfulAPI provider contract
+Phase 51.10 - Live parity discovery foundation completion
 ```
 
 Next implementation focus:
 
 ```text
-Phase 51.10 - Live parity discovery foundation completion
+Phase 52.0 - SearchTimer automation foundation planning
 ```
 
 Current architecture validation:
@@ -88,6 +88,7 @@ Current architecture validation:
 - [Live Parity Discovery Daemon Wiring](live-parity-discovery-daemon-wiring.md)
 - [Live Parity Discovery HTTP Smoke Contract](live-parity-discovery-http-smoke-contract.md)
 - [Live Parity Discovery RESTfulAPI Provider Contract](live-parity-discovery-restfulapi-provider-contract.md)
+- [Live Parity Discovery Foundation Completion](live-parity-discovery-foundation-completion.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)

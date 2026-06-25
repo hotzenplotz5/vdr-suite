@@ -43,7 +43,7 @@ main
 
 Overall project progress:
 
-    █████████░ 90%
+    █████████░ 91%
 
 Milestone progress:
 
@@ -55,14 +55,14 @@ Milestone progress:
     Documentation Foundation        ██████████ 100%  completed
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
-    Live Plugin Parity Foundation   ██████████  95%  in progress
-    Automation Foundation           ░░░░░░░░░░   0%  planned
+    Live Plugin Parity Foundation   ██████████ 100%  completed
+    Automation Foundation           ░░░░░░░░░░   5%  in progress
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 51.10 - Live parity discovery foundation completion
+    Phase 52.0 - SearchTimer automation foundation planning
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -74,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 51.9 - Live parity discovery RESTfulAPI provider contract
+Phase 51.10 - Live parity discovery foundation completion
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 51.9 - Live parity discovery RESTfulAPI provider contract
+Phase 51.10 - Live parity discovery foundation completion
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 51.10 - Live parity discovery foundation completion
+Phase 52.0 - SearchTimer automation foundation planning
 ```
 
 Completed foundations:
@@ -192,6 +192,7 @@ make test-phase
 - Phase 51.7 wires Live parity discovery into the daemon runtime with a safe static empty provider and HTTP server smoke coverage.
 - Phase 51.8 strengthens the HTTP smoke contract for SearchTimer discovery aliases, default backend handling and read-only POST rejection.
 - Phase 51.9 defines the RESTfulAPI-facing provider contract and upstream endpoint boundary without enabling HTTP transport.
+- Phase 51.10 closes the Live parity discovery foundation and freezes the pre-transport, read-only boundary before SearchTimer automation begins.
 
 ---
 
@@ -289,10 +290,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 51.10 - Live parity discovery foundation completion
+Phase 52.0 - SearchTimer automation foundation planning
 ```
 
-The next implementation phase should close the Live parity discovery foundation and freeze the pre-transport boundary before Phase 52 begins.
+The next implementation phase should start SearchTimer automation planning with a read-only architecture and policy review before any automated execution work.
 
 Important boundaries:
 

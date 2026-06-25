@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 51.9 - Live parity discovery RESTfulAPI provider contract
+Phase 51.10 - Live parity discovery foundation completion
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 51.10 - Live parity discovery foundation completion
+Phase 52.0 - SearchTimer automation foundation planning
 ```
 
 ---
@@ -337,7 +337,7 @@ Representative phase range:
 
 ### Phase 51 - Live Plugin Parity Foundation
 
-Status: In Progress.
+Status: Completed.
 
 Goal:
 - Approach the practical information quality of the VDR Live plugin while keeping VDR-Suite multi-backend and API-first.
@@ -406,16 +406,23 @@ Phase 51.9 result:
 - Verified configured backend fallback and explicit backend override.
 - Kept the phase free of IHttpClient, HTTP execution, JSON parsing, epgsearch fetching and backend mutation.
 
-Next implementation step:
-- Phase 51.10 - Live parity discovery foundation completion.
+Phase 51.10 result:
+- Closed the Live parity discovery foundation.
+- Froze the pre-transport read-only discovery boundary before Phase 52.
+- Confirmed the stable discovery API surface and JSON response shape.
+- Preserved the no-HTTP-execute, no-epgsearch-fetching and no-mutation boundary.
+- Handed off to SearchTimer automation planning.
 
-Expected outcomes:
-- Broader EPG detail coverage.
-- Timer and SearchTimer helper discovery surfaces.
-- SearchTimer preview parity analysis.
-- Timer conflict visibility.
-- Recording metadata visibility.
-- Backend-aware frontend-ready API surfaces.
+Next implementation step:
+- Phase 52.0 - SearchTimer automation foundation planning.
+
+Completed outcomes:
+- Broader EPG detail coverage prepared through explicit discovery catalog fields.
+- Timer and SearchTimer helper discovery surfaces prepared.
+- SearchTimer preview parity analysis remains separated from mutation.
+- Timer conflict visibility remains a later read-only surface.
+- Recording metadata visibility remains aligned with backend-aware frontend-ready APIs.
+- Backend-aware frontend-ready discovery API surface established.
 
 Important boundaries:
 - Keep VDR as the source of truth for VDR-owned state.

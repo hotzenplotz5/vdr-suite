@@ -200,6 +200,20 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 51.10 - Live parity discovery foundation completion
+
+Status: Completed.
+
+Summary:
+- Closed the Live parity discovery foundation.
+- Documented the completed Phase 51 discovery stack from source audit through RESTfulAPI provider contract.
+- Froze the pre-transport read-only discovery boundary before Phase 52.
+- Confirmed the stable discovery API surface and JSON response shape.
+- Preserved the no-HTTP-execute, no-epgsearch-fetching and no-mutation boundary.
+- Handed off to Phase 52.0 SearchTimer automation foundation planning.
+
+---
+
 ## Phase 51.9 - Live parity discovery RESTfulAPI provider contract
 
 Status: Completed.
