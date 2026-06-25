@@ -40,7 +40,7 @@ Documentation Foundation|100|completed
 SearchTimer Backend Foundation|100|completed
 SearchTimer User Workflow|100|completed
 Live Plugin Parity Foundation|100|completed
-Automation Foundation|50|in progress
+Automation Foundation|60|in progress
 Federation Foundation|0|planned
 Frontend Foundation|0|planned
 
@@ -48,7 +48,7 @@ Frontend Foundation|0|planned
 
 ## Current Milestone
 
-Phase 52.9 - SearchTimer automation safety review
+Phase 53.0 - SearchTimer title-only RESTfulAPI field mapping
 
 ---
 

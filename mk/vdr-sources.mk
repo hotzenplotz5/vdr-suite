@@ -34,6 +34,7 @@ VDR_SRC := \
         core/vdr/src/SearchTimerDiscoveryJsonSerializer.cpp \
         core/vdr/src/SearchTimerAutomationDryRunResultJsonSerializer.cpp \
         core/vdr/src/SearchTimerAutomationReadOnlyService.cpp \
+        core/vdr/src/SearchTimerAutomationSafetyReview.cpp \
         core/vdr/src/SearchTimerDiscoveryService.cpp \
         core/vdr/src/SearchTimerDiscoveryStaticProvider.cpp \
         core/vdr/src/RestfulApiSearchTimerDiscoveryProvider.cpp \

@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 52.9 - SearchTimer automation safety review
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerAutomationSafetyReview and SearchTimerAutomationSafetyReviewResult.
+- Consolidated dry-run, scheduling, execution and mutation safety boundaries.
+- Confirmed preview-only safety while keeping scheduling runtime, automatic execution and backend mutation explicitly blocked.
+- Covered safe preview and invalid-review paths with a targeted unit test.
+- Kept the phase free of daemon scheduler runtime, background loops, RESTfulAPI writes and epgsearch mutation.
+
+---
+
 ## Phase 52.8 - SearchTimer automation daemon scheduling plan
 
 Status: Completed.
