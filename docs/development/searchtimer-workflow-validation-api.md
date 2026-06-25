@@ -25,6 +25,7 @@
 - [SearchTimer Readback Services Dispatch Integration](searchtimer-readback-services-dispatch-integration.md)
 - [SearchTimer Verified Execution REST Contract](searchtimer-verified-execution-rest-contract.md)
 - [SearchTimer End-to-End Verified Execution Test](searchtimer-end-to-end-verified-execution-test.md)
+- [SearchTimer User Workflow Foundation Completion](searchtimer-workflow-foundation-completion.md)
 
 ---
 
@@ -1007,6 +1008,16 @@ Production execution still requires later phases for:
 - mandatory backend readback verification
 - failure compensation behavior
 - REST production execution boundary
+
+### Workflow Foundation Completion
+
+Phase 50.50 closes the SearchTimer User Workflow Foundation milestone.
+
+Full completion documentation:
+
+- [SearchTimer User Workflow Foundation Completion](searchtimer-workflow-foundation-completion.md)
+
+---
 
 ### End-to-End Verified Execution Test
 
