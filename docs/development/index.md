@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 52.0 - SearchTimer automation foundation planning
+Phase 52.1 - SearchTimer automation evaluation plan model
 ```
 
 Next implementation focus:
 
 ```text
-Phase 52.1 - SearchTimer automation evaluation plan model
+Phase 52.2 - SearchTimer automation match candidate model
 ```
 
 Current architecture validation:
@@ -90,6 +90,7 @@ Current architecture validation:
 - [Live Parity Discovery RESTfulAPI Provider Contract](live-parity-discovery-restfulapi-provider-contract.md)
 - [Live Parity Discovery Foundation Completion](live-parity-discovery-foundation-completion.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
+- [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)

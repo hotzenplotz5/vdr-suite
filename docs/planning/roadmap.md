@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 52.0 - SearchTimer automation foundation planning
+Phase 52.1 - SearchTimer automation evaluation plan model
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 52.1 - SearchTimer automation evaluation plan model
+Phase 52.2 - SearchTimer automation match candidate model
 ```
 
 ---
@@ -446,6 +446,13 @@ Phase 52.0 result:
 - Defined evaluation planning, matching, duplicate analysis, proposal, validation and execution handoff as separate steps.
 - Preserved the no-real-timer-mutation and no-epgsearch-mutation boundary.
 - Set Phase 52.1 as the first read-only model phase.
+
+Phase 52.1 result:
+- Added SearchTimerAutomationEvaluationPlan as the read-only automation planning model.
+- Defined backend id, candidate limit and read-only inclusion flags.
+- Hard-coded dry-run-only, no-mutation and no-scheduled-execution guarantees.
+- Covered validation and safety invariants with a targeted unit test.
+- Kept the phase free of EPG matching, duplicate detection, candidate creation, REST endpoints, daemon scheduling and mutation.
 
 Expected outcomes:
 - Scheduled SearchTimer evaluation.

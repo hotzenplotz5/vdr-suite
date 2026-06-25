@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 52.1 - SearchTimer automation evaluation plan model
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerAutomationEvaluationPlan as the first read-only SearchTimer automation model.
+- Modeled backend id, candidate limit and read-only inclusion flags.
+- Enforced dry-run-only, no-mutation, no-scheduled-execution and explicit execution handoff invariants.
+- Covered validation and safety behavior with a targeted unit test.
+- Kept the phase free of EPG matching, duplicate detection, candidate timer creation, REST endpoints, daemon scheduling and backend mutation.
+
+---
+
 ## Phase 52.0 - SearchTimer automation foundation planning
 
 Status: Completed.
