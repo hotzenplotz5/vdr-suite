@@ -12,6 +12,7 @@
 - [SearchTimer Delete Absence Verification Service](searchtimer-delete-absence-verification-service.md)
 - [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
 - [SearchTimer Verified Execution REST Contract](searchtimer-verified-execution-rest-contract.md)
+- [SearchTimer End-to-End Verified Execution Test](searchtimer-end-to-end-verified-execution-test.md)
 
 ---
 
@@ -64,6 +65,18 @@ When a write operation requires backend readback and the executor succeeds:
 Delete now has a readback follow-up step like create and update.
 
 For delete, the follow-up verifies absence of the deleted backend-native id.
+
+---
+
+## End-to-End Verified Execution Test
+
+Phase 50.49 adds a dedicated end-to-end test for verified SearchTimer execution.
+
+The test follows request planning, controlled executor invocation, readback verification and final execution-result semantics for create, update and delete.
+
+Full test documentation:
+
+- [SearchTimer End-to-End Verified Execution Test](searchtimer-end-to-end-verified-execution-test.md)
 
 ---
 

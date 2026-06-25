@@ -10,6 +10,7 @@
 - [SearchTimer Readback Services Dispatch Integration](searchtimer-readback-services-dispatch-integration.md)
 - [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
 - [SearchTimer Workflow Validation API](searchtimer-workflow-validation-api.md)
+- [SearchTimer End-to-End Verified Execution Test](searchtimer-end-to-end-verified-execution-test.md)
 
 ---
 
@@ -51,6 +52,16 @@ Final `success` remains the client-facing workflow success and may be false when
 Delete workflows now expose `followUpStep` as `readback` and `requiresBackendReadback` as true.
 
 The delete readback contract verifies absence of the deleted backend-native id.
+
+---
+
+## End-to-End Test Coverage
+
+Phase 50.49 adds a dedicated end-to-end verified execution test for the REST-visible execution semantics.
+
+Full test documentation:
+
+- [SearchTimer End-to-End Verified Execution Test](searchtimer-end-to-end-verified-execution-test.md)
 
 ---
 

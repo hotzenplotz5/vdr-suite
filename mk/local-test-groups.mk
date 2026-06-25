@@ -66,6 +66,7 @@ test-vdr: \
 	test-search-timer-workflow-update-readback-verification-service \
 	test-search-timer-workflow-delete-absence-verification-service \
 	test-search-timer-workflow-command-dispatch-service \
+	test-search-timer-workflow-end-to-end-verified-execution \
 	test-search-timer-workflow-real-execution-policy \
 	test-search-timer-workflow-real-execution-enablement-switch \
 	test-search-timer-workflow-backend-write-allowlist \

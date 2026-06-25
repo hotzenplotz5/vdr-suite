@@ -1052,6 +1052,26 @@ test-search-timer-workflow-execution-result-json-serializer:
 		-o /tmp/test_search_timer_workflow_execution_result_json_serializer
 	/tmp/test_search_timer_workflow_execution_result_json_serializer
 
+test-search-timer-workflow-end-to-end-verified-execution:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerService.cpp \
+		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
+		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
+		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
+		core/vdr/src/SearchTimerWorkflowBackendWritePermissionGate.cpp \
+		core/vdr/src/SearchTimerWorkflowProductionPolicyGate.cpp \
+		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
+		core/vdr/src/SearchTimerWorkflowGuardedExecutorInvocation.cpp \
+		core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
+		core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \
+		core/vdr/src/SearchTimerWorkflowCreateReadbackVerificationService.cpp \
+		core/vdr/src/SearchTimerWorkflowUpdateReadbackVerificationService.cpp \
+		core/vdr/src/SearchTimerWorkflowDeleteAbsenceVerificationService.cpp \
+		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
+		core/vdr/tests/test_search_timer_workflow_end_to_end_verified_execution.cpp \
+		-o /tmp/test_search_timer_workflow_end_to_end_verified_execution
+	/tmp/test_search_timer_workflow_end_to_end_verified_execution
+
 test-search-timer-workflow-command-dispatch-service:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerService.cpp \

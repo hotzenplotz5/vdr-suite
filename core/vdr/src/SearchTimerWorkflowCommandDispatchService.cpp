@@ -152,12 +152,12 @@ std::vector<std::string> buildExecutorInvocationAuditTrail(
 
 
 void appendReadbackAuditEntry(
-    SearchTimerWorkflowExecutionResult& result,
+    std::vector<std::string>& auditTrail,
     bool readbackVerified)
 {
-    result.executorInvocationAuditTrail.push_back(
+    auditTrail.push_back(
         "backendReadbackVerificationAttached=true");
-    result.executorInvocationAuditTrail.push_back(
+    auditTrail.push_back(
         readbackVerified
             ? "backendReadbackVerified=true"
             : "backendReadbackVerified=false");
@@ -167,7 +167,8 @@ void attachCreateReadbackVerificationIfRequired(
     SearchTimerWorkflowExecutionResult& result,
     const SearchTimerWorkflowExecutionPlan& plan,
     const SearchTimerCreateResult& executorResult,
-    const SearchTimerWorkflowCommandDispatchOptions& options)
+    const SearchTimerWorkflowCommandDispatchOptions& options,
+    std::vector<std::string>& auditTrail)
 {
     if (!executorResult.success || !plan.requiresBackendReadback())
     {
@@ -182,7 +183,7 @@ void attachCreateReadbackVerificationIfRequired(
 
     result.attachBackendReadbackVerification(verification);
     appendReadbackAuditEntry(
-        result,
+        auditTrail,
         verification.passed());
 
     if (!verification.passed())
@@ -196,7 +197,8 @@ void attachUpdateReadbackVerificationIfRequired(
     SearchTimerWorkflowExecutionResult& result,
     const SearchTimerWorkflowExecutionPlan& plan,
     const SearchTimerUpdateResult& executorResult,
-    const SearchTimerWorkflowCommandDispatchOptions& options)
+    const SearchTimerWorkflowCommandDispatchOptions& options,
+    std::vector<std::string>& auditTrail)
 {
     if (!executorResult.success || !plan.requiresBackendReadback())
     {
@@ -211,7 +213,7 @@ void attachUpdateReadbackVerificationIfRequired(
 
     result.attachBackendReadbackVerification(verification);
     appendReadbackAuditEntry(
-        result,
+        auditTrail,
         verification.passed());
 
     if (!verification.passed())
@@ -225,7 +227,8 @@ void attachDeleteReadbackVerificationIfRequired(
     SearchTimerWorkflowExecutionResult& result,
     const SearchTimerWorkflowExecutionPlan& plan,
     const SearchTimerDeleteResult& executorResult,
-    const SearchTimerWorkflowCommandDispatchOptions& options)
+    const SearchTimerWorkflowCommandDispatchOptions& options,
+    std::vector<std::string>& auditTrail)
 {
     if (!executorResult.success || !plan.requiresBackendReadback())
     {
@@ -240,7 +243,7 @@ void attachDeleteReadbackVerificationIfRequired(
 
     result.attachBackendReadbackVerification(verification);
     appendReadbackAuditEntry(
-        result,
+        auditTrail,
         verification.passed());
 
     if (!verification.passed())
@@ -435,7 +438,8 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                     mappedResult,
                     plan,
                     executorResult,
-                    options);
+                    options,
+                    auditTrail);
                 auditTrail.push_back("executorInvocationAttempted=true");
                 auditTrail.push_back("executorResultMapped=true");
                 auditTrail.push_back(
@@ -462,7 +466,8 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                     mappedResult,
                     plan,
                     executorResult,
-                    options);
+                    options,
+                    auditTrail);
                 auditTrail.push_back("executorInvocationAttempted=true");
                 auditTrail.push_back("executorResultMapped=true");
                 auditTrail.push_back(
@@ -489,7 +494,8 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                     mappedResult,
                     plan,
                     executorResult,
-                    options);
+                    options,
+                    auditTrail);
                 auditTrail.push_back("executorInvocationAttempted=true");
                 auditTrail.push_back("executorResultMapped=true");
                 auditTrail.push_back(
