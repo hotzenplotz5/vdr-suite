@@ -37,7 +37,7 @@ Milestone progress:
 
 Current milestone:
 
-    Phase 53.8 - SearchTimer title-only workflow completion audit
+    Phase 54.0 - Cross-backend search and federation foundation planning
 
 Progress source: [Project Progress](planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -131,19 +131,19 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 53.7 - SearchTimer title-only workflow execution dispatch contract
+Phase 53.8 - SearchTimer title-only workflow completion audit
 ```
 
 Current Documentation Consolidation:
 
 ```text
-Phase 53.7 - SearchTimer title-only workflow execution dispatch contract
+Phase 53.8 - SearchTimer title-only workflow completion audit
 ```
 
 Next Major Implementation Milestone:
 
 ```text
-Phase 53.8 - SearchTimer title-only workflow completion audit
+Phase 54.0 - Cross-backend search and federation foundation planning
 ```
 
 Latest Completed Milestones:
@@ -262,7 +262,7 @@ This progress description summarizes documented roadmap direction by major miles
 | EPG Search API | The EPG search API is implemented and documented over selective EPG windows. |
 | SearchTimer | Backend route, daemon provider, domain model expansion, real payload validation, native fuzzy capability validation and user workflow foundation are implemented; production mutation remains closed. |
 | Live Plugin Parity | Source audit, gap matrix, read-only discovery domain foundation, JSON contract, REST controller contract, service contract, controller-service integration, router contract, daemon wiring, HTTP smoke contract, RESTfulAPI provider contract and foundation completion are documented and implemented. |
-| SearchTimer Automation | Planning-only foundation, read-only models, dry-run JSON serializer, read-only service boundary, REST preview contract, daemon scheduling plan and safety review are implemented; RESTfulAPI title-only field mapping, create/update parser preservation, controller create/update handoff, workflow request preservation, workflow command mapping and controlled dispatch preservation are covered while automation remains preview-only and mutation-gated. |
+| SearchTimer Automation | Completed title-only repair and workflow audit; RESTfulAPI field mapping, create/update parser preservation, controller create/update handoff, workflow request preservation, workflow command mapping and controlled dispatch preservation are covered while automation remains preview-only and mutation-gated. |
 | Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
 | Recording Actions | Recording action validation and execution foundations are implemented with diagnostics. |
 | Content Classification | ADR-0028 defines source-aware classification for genre, rating, keywords, collections, user tags and folder hints. |

@@ -45,7 +45,7 @@ Milestone progress:
 
 Current milestone:
 
-    Phase 53.8 - SearchTimer title-only workflow completion audit
+    Phase 54.0 - Cross-backend search and federation foundation planning
 
 Progress source: [Project Progress](docs/planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -56,15 +56,15 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 53.7 - SearchTimer title-only workflow execution dispatch contract
+    Phase 53.8 - SearchTimer title-only workflow completion audit
 
 Current documentation consolidation:
 
-    Phase 53.7 - SearchTimer title-only workflow execution dispatch contract
+    Phase 53.8 - SearchTimer title-only workflow completion audit
 
 Next major implementation milestone:
 
-    Phase 53.8 - SearchTimer title-only workflow completion audit
+    Phase 54.0 - Cross-backend search and federation foundation planning
 
 Completed foundations:
 

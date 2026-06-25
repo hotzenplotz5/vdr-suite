@@ -48,7 +48,7 @@ Frontend Foundation|0|planned
 
 ## Current Milestone
 
-Phase 53.8 - SearchTimer title-only workflow completion audit
+Phase 54.0 - Cross-backend search and federation foundation planning
 
 ---
 
