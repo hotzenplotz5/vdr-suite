@@ -275,6 +275,17 @@ bool DaemonRuntime::initialize()
 
     std::cout << "SearchTimer discovery controller runtime initialized" << std::endl;
 
+    searchTimerAutomationReadOnlyService_ =
+        std::make_unique<SearchTimerAutomationReadOnlyService>();
+    searchTimerAutomationDryRunResultJsonSerializer_ =
+        std::make_unique<SearchTimerAutomationDryRunResultJsonSerializer>();
+    searchTimerAutomationPreviewController_ =
+        std::make_unique<SearchTimerAutomationPreviewController>(
+            *searchTimerAutomationReadOnlyService_,
+            *searchTimerAutomationDryRunResultJsonSerializer_);
+
+    std::cout << "SearchTimer automation preview controller runtime initialized" << std::endl;
+
     personResolutionJsonSerializer_ = std::make_unique<PersonResolutionJsonSerializer>();
     personSearchService_ = std::make_unique<PersonSearchService>();
     personQueryResultJsonSerializer_ = std::make_unique<PersonQueryResultJsonSerializer>();
@@ -412,7 +423,8 @@ bool DaemonRuntime::initialize()
         searchTimerCommandExecutor_.get(),
         epgSearchNativeFuzzyStaleProbeAdministrationController_.get(),
         epgSearchNativeFuzzyOperatorRefreshController_.get(),
-        searchTimerDiscoveryController_.get());
+        searchTimerDiscoveryController_.get(),
+        searchTimerAutomationPreviewController_.get());
 
     std::cout << "API router runtime initialized" << std::endl;
 

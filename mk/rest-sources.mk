@@ -66,4 +66,5 @@ REST_ROUTER_SRC := \
         core/vdr/src/VdrTimerActionResultJsonSerializer.cpp \
         core/vdr/src/MockVdrTimerActionExecutor.cpp \
         api/rest/src/VdrTimerActionRequestParser.cpp \
+        api/rest/src/SearchTimerAutomationPreviewController.cpp \
         api/rest/src/ApiRouter.cpp

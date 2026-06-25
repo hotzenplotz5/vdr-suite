@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 52.6 - SearchTimer automation read-only service boundary
+Phase 52.7 - SearchTimer automation REST preview contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 52.7 - SearchTimer automation REST preview contract
+Phase 52.8 - SearchTimer automation daemon scheduling plan
 ```
 
 ---
@@ -488,6 +488,13 @@ Phase 52.6 result:
 - Added warnings and audit entries for boundary-level validation and count mismatches.
 - Preserved dry-run-only, no-mutation, no-timer-creation, no-backend-write and no-automatic-execution invariants.
 - Kept the phase free of matching execution, REST endpoints, daemon scheduling and backend mutation.
+
+Phase 52.7 result:
+- Added SearchTimerAutomationPreviewController.
+- Added read-only REST preview endpoints for SearchTimer automation dry-runs.
+- Wired the preview controller into ApiRouter and DaemonRuntime.
+- Preserved dry-run-only, no-mutation, no-timer-creation, no-backend-write and no-automatic-execution invariants.
+- Kept the phase free of matching execution, scheduling and backend mutation.
 
 Expected outcomes:
 - Scheduled SearchTimer evaluation.

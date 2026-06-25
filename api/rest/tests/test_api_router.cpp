@@ -44,6 +44,9 @@
 #include "SearchTimerDiscoveryController.h"
 #include "SearchTimerDiscoveryJsonSerializer.h"
 #include "SearchTimerDiscoveryService.h"
+#include "SearchTimerAutomationDryRunResultJsonSerializer.h"
+#include "SearchTimerAutomationPreviewController.h"
+#include "SearchTimerAutomationReadOnlyService.h"
 #include "ISearchTimerDiscoveryProvider.h"
 #include "SearchTimerResultJsonSerializer.h"
 #include "SearchTimerService.h"
@@ -570,6 +573,14 @@ int main()
         searchTimerDiscoveryService,
         searchTimerDiscoveryJsonSerializer);
 
+    SearchTimerAutomationReadOnlyService searchTimerAutomationReadOnlyService;
+    SearchTimerAutomationDryRunResultJsonSerializer
+        searchTimerAutomationDryRunResultJsonSerializer;
+    SearchTimerAutomationPreviewController
+        searchTimerAutomationPreviewController(
+            searchTimerAutomationReadOnlyService,
+            searchTimerAutomationDryRunResultJsonSerializer);
+
     VdrCapabilitySet capabilitySet =
         VdrCapabilitySet::snapshotReadOnly();
 
@@ -638,7 +649,37 @@ int main()
         nullptr,
         nullptr,
         &nativeFuzzyOperatorRefreshController,
-        &searchTimerDiscoveryController);
+        &searchTimerDiscoveryController,
+        &searchTimerAutomationPreviewController);
+
+    ApiResponse automationPreviewResponse =
+        router.handleGet(
+            "/api/searchtimers/automation/preview?backend=router-backend&limit=12");
+
+    assert(automationPreviewResponse.statusCode == 200);
+    assert(automationPreviewResponse.contentType == "application/json");
+    assert(automationPreviewResponse.body.find("\"backendId\":\"router-backend\"")
+           != std::string::npos);
+    assert(automationPreviewResponse.body.find("\"candidateLimit\":12")
+           != std::string::npos);
+    assert(automationPreviewResponse.body.find("\"dryRunOnly\":true")
+           != std::string::npos);
+    assert(automationPreviewResponse.body.find("\"mutationAllowed\":false")
+           != std::string::npos);
+    assert(automationPreviewResponse.body.find("\"timerCreationAllowed\":false")
+           != std::string::npos);
+    assert(automationPreviewResponse.body.find("\"matchedCandidateCount\":0")
+           != std::string::npos);
+
+    ApiResponse automationPreviewAliasResponse =
+        router.handleGet("/api/vdr/searchtimers/automation/preview");
+
+    assert(automationPreviewAliasResponse.statusCode == 200);
+    assert(automationPreviewAliasResponse.contentType == "application/json");
+    assert(automationPreviewAliasResponse.body.find("\"backendId\":\"default\"")
+           != std::string::npos);
+    assert(automationPreviewAliasResponse.body.find("\"candidateLimit\":50")
+           != std::string::npos);
 
     ApiResponse dashboardResponse =
         router.handleGet("/api/dashboard");

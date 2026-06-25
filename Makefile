@@ -975,6 +975,15 @@ test-search-timer-discovery-controller:
 		api/rest/tests/test_search_timer_discovery_controller.cpp \
 		-o /tmp/test_search_timer_discovery_controller
 	/tmp/test_search_timer_discovery_controller
+
+test-search-timer-automation-preview-controller:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerAutomationDryRunResultJsonSerializer.cpp \
+		core/vdr/src/SearchTimerAutomationReadOnlyService.cpp \
+		api/rest/src/SearchTimerAutomationPreviewController.cpp \
+		api/rest/tests/test_search_timer_automation_preview_controller.cpp \
+		-o /tmp/test_search_timer_automation_preview_controller
+	/tmp/test_search_timer_automation_preview_controller
 test-search-timer-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
@@ -1619,6 +1628,7 @@ clean:
 	rm -f /tmp/test_search_timer_automation_candidate_timer_proposal
 	rm -f /tmp/test_search_timer_automation_dry_run_result_json_serializer
 	rm -f /tmp/test_search_timer_automation_read_only_service
+	rm -f /tmp/test_search_timer_automation_preview_controller
 	rm -f /tmp/test_search_timer_discovery_json_serializer
 	rm -f /tmp/test_search_timer_discovery_controller
 	rm -f /tmp/test_database

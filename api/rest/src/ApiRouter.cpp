@@ -19,6 +19,7 @@
 #include "RuntimeDiagnosticsController.h"
 #include "SearchTimerController.h"
 #include "SearchTimerDiscoveryController.h"
+#include "SearchTimerAutomationPreviewController.h"
 #include "SearchTimerResult.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
@@ -111,6 +112,17 @@ ApiResponse makeSearchTimerDiscoveryUnavailableResponse()
     return response;
 }
 
+ApiResponse makeSearchTimerAutomationPreviewUnavailableResponse()
+{
+    ApiResponse response;
+
+    response.statusCode = 503;
+    response.contentType = "application/json";
+    response.body = "{\"error\":\"searchtimer automation preview unavailable\"}";
+
+    return response;
+}
+
 ApiResponse makeNativeFuzzyStaleProbeAdministrationUnavailableResponse()
 {
     ApiResponse response;
@@ -190,7 +202,8 @@ ApiRouter::ApiRouter(
     ISearchTimerCommandExecutor* searchTimerCommandExecutor,
     EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController,
     EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController,
-    SearchTimerDiscoveryController* searchTimerDiscoveryController)
+    SearchTimerDiscoveryController* searchTimerDiscoveryController,
+    SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
       recordingsController_(recordingsController),
@@ -211,6 +224,7 @@ ApiRouter::ApiRouter(
       snapshotChangeFeedController_(snapshotChangeFeedController),
       searchTimerController_(searchTimerController),
       searchTimerDiscoveryController_(searchTimerDiscoveryController),
+      searchTimerAutomationPreviewController_(searchTimerAutomationPreviewController),
       liveTransportController_(liveTransportController),
       searchTimerCommandExecutor_(searchTimerCommandExecutor),
       nativeFuzzyStaleProbeAdministrationController_(
@@ -610,6 +624,24 @@ ApiResponse ApiRouter::handleGet(
                 : queryParameters.get("backend");
 
         return searchTimerDiscoveryController_->getDiscovery(backendId);
+    }
+
+    if (path == "/api/searchtimers/automation/preview" ||
+        path == "/api/vdr/searchtimers/automation/preview")
+    {
+        if (searchTimerAutomationPreviewController_ == nullptr)
+        {
+            return makeSearchTimerAutomationPreviewUnavailableResponse();
+        }
+
+        const std::string backendId =
+            queryParameters.get("backend").empty()
+                ? "default"
+                : queryParameters.get("backend");
+
+        return searchTimerAutomationPreviewController_->getPreview(
+            backendId,
+            queryParameters.getInt("limit", 50));
     }
 
     if (path == "/api/searchtimers/preview" ||

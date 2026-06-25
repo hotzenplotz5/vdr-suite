@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 52.6 - SearchTimer automation read-only service boundary
+Phase 52.7 - SearchTimer automation REST preview contract
 ```
 
 Next implementation focus:
 
 ```text
-Phase 52.7 - SearchTimer automation REST preview contract
+Phase 52.8 - SearchTimer automation daemon scheduling plan
 ```
 
 Current architecture validation:
@@ -96,6 +96,7 @@ Current architecture validation:
 - [SearchTimer Automation Candidate Timer Proposal Model](searchtimer-automation-candidate-timer-proposal-model.md)
 - [SearchTimer Automation Dry-Run Result Serializer](searchtimer-automation-dry-run-result-serializer.md)
 - [SearchTimer Automation Read-Only Service Boundary](searchtimer-automation-read-only-service-boundary.md)
+- [SearchTimer Automation REST Preview Contract](searchtimer-automation-rest-preview-contract.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)

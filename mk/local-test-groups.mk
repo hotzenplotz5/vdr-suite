@@ -70,6 +70,7 @@ test-vdr: \
 	test-search-timer-automation-candidate-timer-proposal \
 	test-search-timer-automation-dry-run-result-json-serializer \
 	test-search-timer-automation-read-only-service \
+	test-search-timer-automation-preview-controller \
 	test-search-timer-discovery-json-serializer \
 	test-search-timer-discovery-controller \
 	test-search-timer-workflow-execution-result-json-serializer \

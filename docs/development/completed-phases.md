@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 52.7 - SearchTimer automation REST preview contract
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerAutomationPreviewController for read-only automation dry-run previews.
+- Added GET /api/searchtimers/automation/preview and /api/vdr/searchtimers/automation/preview routing.
+- Wired the preview controller into ApiRouter and DaemonRuntime.
+- Preserved dry-run-only, no-mutation, no-timer-creation, no-backend-write, no-automatic-execution and explicit handoff invariants.
+- Kept the phase free of matching execution, scheduling and backend mutation.
+
+---
+
 ## Phase 52.6 - SearchTimer automation read-only service boundary
 
 Status: Completed.
