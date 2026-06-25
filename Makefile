@@ -1330,6 +1330,13 @@ test-search-timer-discovery:
 		core/vdr/tests/test_search_timer_discovery.cpp \
 		-o /tmp/test_search_timer_discovery
 	/tmp/test_search_timer_discovery
+
+test-search-timer-discovery-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerDiscoveryJsonSerializer.cpp \
+		core/vdr/tests/test_search_timer_discovery_json_serializer.cpp \
+		-o /tmp/test_search_timer_discovery_json_serializer
+	/tmp/test_search_timer_discovery_json_serializer
 test-epg-person-search-result:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_person_search_result.cpp \
@@ -1534,6 +1541,7 @@ test: test-restfulapi-executor-basic-http-client-socket-smoke test-preview-execu
 
 clean:
 	rm -f /tmp/test_search_timer_discovery
+	rm -f /tmp/test_search_timer_discovery_json_serializer
 	rm -f /tmp/test_database
 	rm -f /tmp/test_recording_repository
 	rm -f /tmp/test_recording_service

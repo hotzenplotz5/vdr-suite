@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 51.1 - Live parity discovery domain foundation
+Phase 51.2 - Live parity discovery JSON contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 51.2 - Live parity discovery JSON contract
+Phase 51.3 - Live parity discovery REST controller contract
 ```
 
 ---
@@ -354,8 +354,13 @@ Phase 51.1 result:
 - Fixed daemon source wiring for SearchTimerWorkflowValidationRequestParser.
 - Kept the phase domain-only with no REST route, no adapter transport and no backend mutation.
 
+Phase 51.2 result:
+- Added a stable JSON serializer for the Live parity discovery catalog.
+- Serialized backendId, counts, Extended EPG info, channel groups, blacklists and recording directories.
+- Kept the phase read-only with no REST route, no backend transport and no backend mutation.
+
 Next implementation step:
-- Phase 51.2 - Live parity discovery JSON contract.
+- Phase 51.3 - Live parity discovery REST controller contract.
 
 Expected outcomes:
 - Broader EPG detail coverage.

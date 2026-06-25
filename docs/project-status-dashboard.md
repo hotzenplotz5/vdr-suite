@@ -18,7 +18,7 @@
 
 Overall project progress:
 
-    ████████░░ 82%
+    ████████░░ 83%
 
 Milestone progress:
 
@@ -30,14 +30,14 @@ Milestone progress:
     Documentation Foundation        ██████████ 100%  completed
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
-    Live Plugin Parity Foundation   ██░░░░░░░░  20%  in progress
+    Live Plugin Parity Foundation   ███░░░░░░░  30%  in progress
     Automation Foundation           ░░░░░░░░░░   0%  planned
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 51.2 - Live parity discovery JSON contract
+    Phase 51.3 - Live parity discovery REST controller contract
 
 Progress source: [Project Progress](planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -131,19 +131,19 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 51.1 - Live parity discovery domain foundation
+Phase 51.2 - Live parity discovery JSON contract
 ```
 
 Current Documentation Consolidation:
 
 ```text
-Phase 51.1 - Live parity discovery domain foundation
+Phase 51.2 - Live parity discovery JSON contract
 ```
 
 Next Major Implementation Milestone:
 
 ```text
-Phase 51.2 - Live parity discovery JSON contract
+Phase 51.3 - Live parity discovery REST controller contract
 ```
 
 Latest Completed Milestones:
@@ -261,7 +261,7 @@ This progress description summarizes documented roadmap direction by major miles
 | EPG REST API Boundary | Selective EPG reads are exposed through backend-neutral REST routes. |
 | EPG Search API | The EPG search API is implemented and documented over selective EPG windows. |
 | SearchTimer | Backend route, daemon provider, domain model expansion, real payload validation, native fuzzy capability validation and user workflow foundation are implemented; production mutation remains closed. |
-| Live Plugin Parity | Source audit, gap matrix and read-only discovery domain foundation are documented and implemented; JSON contract is planned next. |
+| Live Plugin Parity | Source audit, gap matrix, read-only discovery domain foundation and JSON contract are documented and implemented; REST controller contract is planned next. |
 | Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
 | Recording Actions | Recording action validation and execution foundations are implemented with diagnostics. |
 | Content Classification | ADR-0028 defines source-aware classification for genre, rating, keywords, collections, user tags and folder hints. |

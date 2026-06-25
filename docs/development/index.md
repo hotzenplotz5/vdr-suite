@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 51.1 - Live parity discovery domain foundation
+Phase 51.2 - Live parity discovery JSON contract
 ```
 
 Next implementation focus:
 
 ```text
-Phase 51.2 - Live parity discovery JSON contract
+Phase 51.3 - Live parity discovery REST controller contract
 ```
 
 Current architecture validation:
@@ -80,6 +80,7 @@ Current architecture validation:
 - [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
 - [Live Plugin Parity Source Audit](live-plugin-parity-source-audit.md)
 - [Live Parity Discovery Domain Foundation](live-parity-discovery-domain-foundation.md)
+- [Live Parity Discovery JSON Contract](live-parity-discovery-json-contract.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)

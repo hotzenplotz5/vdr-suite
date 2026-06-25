@@ -43,7 +43,7 @@ main
 
 Overall project progress:
 
-    ████████░░ 82%
+    ████████░░ 83%
 
 Milestone progress:
 
@@ -55,14 +55,14 @@ Milestone progress:
     Documentation Foundation        ██████████ 100%  completed
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
-    Live Plugin Parity Foundation   ██░░░░░░░░  20%  in progress
+    Live Plugin Parity Foundation   ███░░░░░░░  30%  in progress
     Automation Foundation           ░░░░░░░░░░   0%  planned
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 51.2 - Live parity discovery JSON contract
+    Phase 51.3 - Live parity discovery REST controller contract
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -74,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 51.1 - Live parity discovery domain foundation
+Phase 51.2 - Live parity discovery JSON contract
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 51.1 - Live parity discovery domain foundation
+Phase 51.2 - Live parity discovery JSON contract
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 51.2 - Live parity discovery JSON contract
+Phase 51.3 - Live parity discovery REST controller contract
 ```
 
 Completed foundations:
@@ -184,6 +184,7 @@ make test-phase
 - Phase 51.0 starts the Live plugin parity foundation with a source-audited gap matrix for VDR, epgsearch, RESTfulAPI, Live and VDR-Suite.
 - Phase 51.1 adds the read-only Live parity discovery domain foundation for Extended EPG info, channel groups, blacklists and recording directories.
 - Phase 51.1 also fixes daemon source wiring for SearchTimerWorkflowValidationRequestParser.
+- Phase 51.2 adds the read-only Live parity discovery JSON contract for Extended EPG info, channel groups, blacklists and recording directories.
 
 ---
 
@@ -281,10 +282,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 51.2 - Live parity discovery JSON contract
+Phase 51.3 - Live parity discovery REST controller contract
 ```
 
-The next implementation phase should add the Live parity discovery JSON contract on top of the read-only discovery domain foundation.
+The next implementation phase should expose the Live parity discovery JSON contract through a read-only controller boundary without adding backend transport yet.
 
 Important boundaries:
 

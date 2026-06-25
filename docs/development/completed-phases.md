@@ -200,6 +200,20 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 51.2 - Live parity discovery JSON contract
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerDiscoveryJsonSerializer.
+- Serialized backendId, counts, Extended EPG info, channel groups, blacklists and recording directories.
+- Added a targeted serializer unit test.
+- Wired the serializer into VDR_SRC and local VDR test grouping.
+- Documented the JSON contract and preserved the read-only phase boundary.
+- Kept the phase free of REST routes, backend transport and backend mutation.
+
+---
+
 ## Phase 51.1 - Live parity discovery domain foundation
 
 Status: Completed.
