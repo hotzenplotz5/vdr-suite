@@ -79,4 +79,3 @@ It only wires already-existing readback verification services into controlled di
 - [Back to SearchTimer Delete Absence Verification Service](searchtimer-delete-absence-verification-service.md)
 - [Back to SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
 - [Back to Development Index](index.md)
-
