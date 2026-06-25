@@ -16,6 +16,10 @@ public:
         ++createCalls_;
         lastName_ = request.name;
         lastQuery_ = request.query;
+        lastCompareTitle_ = request.compareTitle;
+        lastCompareSubtitle_ = request.compareSubtitle;
+        lastCompareSummary_ = request.compareSummary;
+        lastCompareCategories_ = request.compareCategories;
 
         const SearchTimer created =
             SearchTimer::create(
@@ -37,6 +41,10 @@ public:
         ++updateCalls_;
         lastName_ = request.name;
         lastQuery_ = request.query;
+        lastCompareTitle_ = request.compareTitle;
+        lastCompareSubtitle_ = request.compareSubtitle;
+        lastCompareSummary_ = request.compareSummary;
+        lastCompareCategories_ = request.compareCategories;
 
         const SearchTimer updated =
             SearchTimer::create(
@@ -93,12 +101,36 @@ public:
         return lastQuery_;
     }
 
+    bool lastCompareTitle() const
+    {
+        return lastCompareTitle_;
+    }
+
+    bool lastCompareSubtitle() const
+    {
+        return lastCompareSubtitle_;
+    }
+
+    bool lastCompareSummary() const
+    {
+        return lastCompareSummary_;
+    }
+
+    bool lastCompareCategories() const
+    {
+        return lastCompareCategories_;
+    }
+
 private:
     int createCalls_ = 0;
     int updateCalls_ = 0;
     int deleteCalls_ = 0;
     std::string lastName_;
     std::string lastQuery_;
+    bool lastCompareTitle_ = false;
+    bool lastCompareSubtitle_ = false;
+    bool lastCompareSummary_ = false;
+    bool lastCompareCategories_ = false;
 };
 
 
@@ -127,8 +159,13 @@ int main()
         planningService.plan(
             SearchTimerWorkflowRequest::create(
                 "controlled-test-vdr",
-                "Terra X Controlled",
-                "Terra X")
+                "Amerika",
+                "Amerika")
+                .withCompareFields(
+                    true,
+                    false,
+                    false,
+                    false)
                 .withExecutionMode(SearchTimerWorkflowExecutionMode::Execute));
 
     const SearchTimerWorkflowExecutionResult createResult =
@@ -166,16 +203,25 @@ int main()
     assert(executor.createCalls() == 1);
     assert(executor.updateCalls() == 0);
     assert(executor.deleteCalls() == 0);
-    assert(executor.lastName() == "Terra X Controlled");
-    assert(executor.lastQuery() == "Terra X");
+    assert(executor.lastName() == "Amerika");
+    assert(executor.lastQuery() == "Amerika");
+    assert(executor.lastCompareTitle());
+    assert(!executor.lastCompareSubtitle());
+    assert(!executor.lastCompareSummary());
+    assert(!executor.lastCompareCategories());
 
     const SearchTimerWorkflowExecutionPlan updatePlan =
         planningService.plan(
             SearchTimerWorkflowRequest::update(
                 "controlled-test-vdr",
                 "controlled-updated-7",
-                "Terra X Updated",
-                "Terra X neu")
+                "Amerika",
+                "Amerika")
+                .withCompareFields(
+                    true,
+                    false,
+                    false,
+                    false)
                 .withExecutionMode(SearchTimerWorkflowExecutionMode::Execute));
 
     const SearchTimerWorkflowExecutionResult updateResult =
@@ -195,6 +241,12 @@ int main()
     assert(executor.createCalls() == 1);
     assert(executor.updateCalls() == 1);
     assert(executor.deleteCalls() == 0);
+    assert(executor.lastName() == "Amerika");
+    assert(executor.lastQuery() == "Amerika");
+    assert(executor.lastCompareTitle());
+    assert(!executor.lastCompareSubtitle());
+    assert(!executor.lastCompareSummary());
+    assert(!executor.lastCompareCategories());
 
     const SearchTimerWorkflowExecutionPlan deletePlan =
         planningService.plan(

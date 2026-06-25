@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 53.6 - SearchTimer title-only workflow command mapper contract
+Phase 53.7 - SearchTimer title-only workflow execution dispatch contract
 ```
 
 Next implementation focus:
 
 ```text
-Phase 53.7 - SearchTimer title-only workflow execution dispatch contract
+Phase 53.8 - SearchTimer title-only workflow completion audit
 ```
 
 Current architecture validation:
@@ -106,6 +106,7 @@ Current architecture validation:
 - [SearchTimer Title-Only Update Controller Contract](searchtimer-title-only-update-controller-contract.md)
 - [SearchTimer Title-Only Workflow Request Contract](searchtimer-title-only-workflow-request-contract.md)
 - [SearchTimer Title-Only Workflow Command Mapper Contract](searchtimer-title-only-workflow-command-mapper-contract.md)
+- [SearchTimer Title-Only Workflow Execution Dispatch Contract](searchtimer-title-only-workflow-execution-dispatch-contract.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)

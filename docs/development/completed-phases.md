@@ -200,6 +200,17 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 53.7 - SearchTimer title-only workflow execution dispatch contract
+
+Status: Completed.
+
+Summary:
+- Verified controlled workflow create dispatch preserves title-only compare fields into the injected command executor.
+- Verified controlled workflow update dispatch preserves title-only compare fields into the injected command executor.
+- Kept production backend mutation gated by execution mode, policy, guard and kill switch controls.
+
+---
+
 ## Phase 53.6 - SearchTimer title-only workflow command mapper contract
 
 Status: Completed.
