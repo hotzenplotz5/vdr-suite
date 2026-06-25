@@ -200,6 +200,18 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 53.4 - SearchTimer title-only update controller contract
+
+Status: Completed.
+
+Summary:
+- Strengthened SearchTimer REST controller update-path coverage for title-only JSON bodies.
+- Captured the update request handed to the test command executor.
+- Verified compareTitle=true, compareSubtitle=false and compareSummary=false survive the controller handoff.
+- Kept the phase free of runtime behavior, scheduler and backend write policy changes.
+
+---
+
 ## Phase 53.3 - SearchTimer title-only update parser contract
 
 Status: Completed.

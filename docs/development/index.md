@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 53.3 - SearchTimer title-only update parser contract
+Phase 53.4 - SearchTimer title-only update controller contract
 ```
 
 Next implementation focus:
 
 ```text
-Phase 53.4 - SearchTimer title-only update controller contract
+Phase 53.5 - SearchTimer title-only workflow request contract
 ```
 
 Current architecture validation:
@@ -103,6 +103,7 @@ Current architecture validation:
 - [SearchTimer Title-Only Request Parser Contract](searchtimer-title-only-request-parser-contract.md)
 - [SearchTimer Title-Only REST Controller Contract](searchtimer-title-only-rest-controller-contract.md)
 - [SearchTimer Title-Only Update Parser Contract](searchtimer-title-only-update-parser-contract.md)
+- [SearchTimer Title-Only Update Controller Contract](searchtimer-title-only-update-controller-contract.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)

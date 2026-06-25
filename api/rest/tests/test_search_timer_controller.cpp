@@ -4,6 +4,7 @@
 #include "ISearchTimerCommandExecutor.h"
 #include "ISearchTimerDataSource.h"
 #include "SearchTimerCreateRequest.h"
+#include "SearchTimerUpdateRequest.h"
 #include "SearchTimerCreateRequestParser.h"
 #include "SearchTimerCreateResultJsonSerializer.h"
 #include "SearchTimerCreateService.h"
@@ -70,6 +71,8 @@ public:
         const SearchTimerUpdateRequest& request) override
     {
         ++updateCallCount_;
+        lastUpdateRequest_ = request;
+        hasLastUpdateRequest_ = true;
 
         return SearchTimerUpdateResult::ok(
             SearchTimer::create(
@@ -114,6 +117,16 @@ public:
         return updateCallCount_;
     }
 
+    bool hasLastUpdateRequest() const
+    {
+        return hasLastUpdateRequest_;
+    }
+
+    const SearchTimerUpdateRequest& lastUpdateRequest() const
+    {
+        return lastUpdateRequest_;
+    }
+
     int removeCallCount() const
     {
         return removeCallCount_;
@@ -124,7 +137,9 @@ private:
     int updateCallCount_ = 0;
     int removeCallCount_ = 0;
     bool hasLastCreateRequest_ = false;
+    bool hasLastUpdateRequest_ = false;
     SearchTimerCreateRequest lastCreateRequest_;
+    SearchTimerUpdateRequest lastUpdateRequest_;
 };
 
 int main()
@@ -568,6 +583,52 @@ int main()
     assert(titleOnlyControllerRequest.compareSubtitle == false);
     assert(titleOnlyControllerRequest.compareSummary == false);
     assert(titleOnlyControllerRequest.compareCategories == false);
+
+
+    ApiResponse titleOnlyControllerUpdateResponse =
+        controller.updateSearchTimer(
+            "{"
+            "\"backendId\":\"home-vdr\","
+            "\"backendNativeId\":\"searchtimer-amerika\","
+            "\"name\":\"Amerika\","
+            "\"query\":\"Amerika\","
+            "\"active\":true,"
+            "\"mode\":\"phrase\","
+            "\"compareTitle\":true,"
+            "\"compareSubtitle\":false,"
+            "\"compareSummary\":false,"
+            "\"compareCategories\":false"
+            "}",
+            executor);
+
+    assert(titleOnlyControllerUpdateResponse.statusCode == 200);
+    assert(titleOnlyControllerUpdateResponse.contentType == "application/json");
+    assert(titleOnlyControllerUpdateResponse.body.find("\"success\":true")
+           != std::string::npos);
+    assert(titleOnlyControllerUpdateResponse.body.find("\"backendId\":\"home-vdr\"")
+           != std::string::npos);
+    assert(titleOnlyControllerUpdateResponse.body.find("\"backendNativeId\":\"searchtimer-amerika\"")
+           != std::string::npos);
+    assert(titleOnlyControllerUpdateResponse.body.find("\"name\":\"Amerika\"")
+           != std::string::npos);
+    assert(titleOnlyControllerUpdateResponse.body.find("\"query\":\"Amerika\"")
+           != std::string::npos);
+    assert(executor.updateCallCount() == 2);
+    assert(executor.hasLastUpdateRequest());
+
+    const SearchTimerUpdateRequest& titleOnlyControllerUpdateRequest =
+        executor.lastUpdateRequest();
+
+    assert(titleOnlyControllerUpdateRequest.backendId == "home-vdr");
+    assert(titleOnlyControllerUpdateRequest.backendNativeId == "searchtimer-amerika");
+    assert(titleOnlyControllerUpdateRequest.name == "Amerika");
+    assert(titleOnlyControllerUpdateRequest.query == "Amerika");
+    assert(titleOnlyControllerUpdateRequest.active == true);
+    assert(titleOnlyControllerUpdateRequest.matchMode == 0);
+    assert(titleOnlyControllerUpdateRequest.compareTitle == true);
+    assert(titleOnlyControllerUpdateRequest.compareSubtitle == false);
+    assert(titleOnlyControllerUpdateRequest.compareSummary == false);
+    assert(titleOnlyControllerUpdateRequest.compareCategories == false);
 
     std::cout << "test_search_timer_controller passed" << std::endl;
     return 0;
