@@ -73,6 +73,34 @@ const char* boolText(
     return value ? "true" : "false";
 }
 
+
+void appendBackendReadbackVerification(
+    std::ostringstream& json,
+    const SearchTimerWorkflowBackendReadbackVerificationResult& result)
+{
+    json << "{";
+    json << "\"required\":" << boolText(result.required);
+    json << ",\"attempted\":" << boolText(result.attempted);
+    json << ",\"successful\":" << boolText(result.successful);
+    json << ",\"matched\":" << boolText(result.matched);
+    json << ",\"ambiguous\":" << boolText(result.ambiguous);
+    json << ",\"expectedBackendId\":";
+    appendQuoted(json, result.expectedBackendId);
+    json << ",\"expectedBackendNativeId\":";
+    appendQuoted(json, result.expectedBackendNativeId);
+    json << ",\"observedBackendNativeId\":";
+    appendQuoted(json, result.observedBackendNativeId);
+    json << ",\"message\":";
+    appendQuoted(json, result.message);
+    json << ",\"warnings\":";
+    appendStringArray(json, result.warnings);
+    json << ",\"errors\":";
+    appendStringArray(json, result.errors);
+    json << ",\"auditTrail\":";
+    appendStringArray(json, result.auditTrail);
+    json << "}";
+}
+
 const char* operationText(
     SearchTimerWorkflowOperation operation)
 {
@@ -155,6 +183,14 @@ std::string SearchTimerWorkflowExecutionResultJsonSerializer::serialize(
          << boolText(result.requiresExplicitOperatorConfirmation);
     json << ",\"requiresBackendReadback\":"
          << boolText(result.requiresBackendReadback);
+    json << ",\"backendReadbackVerificationAttached\":"
+         << boolText(result.backendReadbackVerificationAttached);
+    json << ",\"backendReadbackVerified\":"
+         << boolText(result.backendReadbackVerified());
+    json << ",\"backendReadbackVerification\":";
+    appendBackendReadbackVerification(
+        json,
+        result.backendReadbackVerification);
     json << ",\"commandRequestMapped\":"
          << boolText(result.commandRequestMapped);
     json << ",\"realExecutionEnabled\":"

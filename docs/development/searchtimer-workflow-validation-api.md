@@ -19,6 +19,7 @@
 - [SearchTimer Backend Readback Verification Result Model](searchtimer-backend-readback-verification-result-model.md)
 - [SearchTimer Create Readback Verification Service](searchtimer-create-readback-verification-service.md)
 - [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
+- [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
 
 ---
 
@@ -1002,6 +1003,17 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### Verified Execution Result Integration
+
+Phase 50.44 integrates backend readback verification into the SearchTimer workflow execution result.
+
+A workflow result can now expose whether readback verification is attached and whether it passed.
+
+Full integration documentation:
+
+- [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
+
+---
 ### Update Readback Verification Service
 
 Phase 50.43 adds the update-readback verification service for future verified SearchTimer write execution.

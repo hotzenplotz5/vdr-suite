@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SearchTimerWorkflowExecutionPlan.h"
+#include "SearchTimerWorkflowBackendReadbackVerificationResult.h"
 
 #include <string>
 #include <vector>
@@ -40,6 +41,8 @@ struct SearchTimerWorkflowExecutionResult
     std::vector<std::string> warnings;
     std::vector<std::string> errors;
     std::vector<std::string> executorInvocationAuditTrail;
+    bool backendReadbackVerificationAttached = false;
+    SearchTimerWorkflowBackendReadbackVerificationResult backendReadbackVerification;
 
     static SearchTimerWorkflowExecutionResult blockedResult(
         const SearchTimerWorkflowExecutionPlan& plan,
@@ -116,6 +119,47 @@ struct SearchTimerWorkflowExecutionResult
         result.message = message;
         result.warnings = warnings;
         return result;
+    }
+
+    void attachBackendReadbackVerification(
+        const SearchTimerWorkflowBackendReadbackVerificationResult& verification)
+    {
+        backendReadbackVerification = verification;
+        backendReadbackVerificationAttached = true;
+
+        warnings.insert(
+            warnings.end(),
+            verification.warnings.begin(),
+            verification.warnings.end());
+
+        if (requiresBackendReadback && !verification.passed())
+        {
+            success = false;
+
+            if (verification.errors.empty())
+            {
+                errors.push_back(
+                    "backend readback verification failed");
+            }
+            else
+            {
+                errors.insert(
+                    errors.end(),
+                    verification.errors.begin(),
+                    verification.errors.end());
+            }
+        }
+    }
+
+    bool backendReadbackVerified() const
+    {
+        if (!requiresBackendReadback)
+        {
+            return true;
+        }
+
+        return backendReadbackVerificationAttached
+            && backendReadbackVerification.passed();
     }
 
     bool hasWarnings() const

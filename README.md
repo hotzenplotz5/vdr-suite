@@ -55,7 +55,7 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 50.43 - SearchTimer workflow update readback verification service
+    Phase 50.44 - SearchTimer workflow verified execution result integration
 
 Current documentation consolidation:
 
@@ -63,7 +63,7 @@ Current documentation consolidation:
 
 Next major implementation milestone:
 
-    Phase 50.44 - SearchTimer workflow verified execution result integration
+    Phase 50.45 - SearchTimer workflow delete absence verification plan
 
 Completed foundations:
 

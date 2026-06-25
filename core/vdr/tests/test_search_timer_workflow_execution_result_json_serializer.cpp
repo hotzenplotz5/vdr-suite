@@ -33,6 +33,9 @@ int main()
     assert(blockedJson.find("\"confirmationProvided\":false") != std::string::npos);
     assert(blockedJson.find("\"requiresExplicitOperatorConfirmation\":true") != std::string::npos);
     assert(blockedJson.find("\"requiresBackendReadback\":true") != std::string::npos);
+    assert(blockedJson.find("\"backendReadbackVerificationAttached\":false") != std::string::npos);
+    assert(blockedJson.find("\"backendReadbackVerified\":false") != std::string::npos);
+    assert(blockedJson.find("\"backendReadbackVerification\":{\"required\":false") != std::string::npos);
     assert(blockedJson.find("\"commandRequestMapped\":false") != std::string::npos);
     assert(blockedJson.find("\"realExecutionEnabled\":false") != std::string::npos);
     assert(blockedJson.find("\"realExecutionPolicyAllowed\":false") != std::string::npos);
@@ -68,6 +71,8 @@ int main()
     assert(acceptedJson.find("\"executed\":false") != std::string::npos);
     assert(acceptedJson.find("\"blocked\":false") != std::string::npos);
     assert(acceptedJson.find("\"confirmationProvided\":true") != std::string::npos);
+    assert(acceptedJson.find("\"backendReadbackVerificationAttached\":false") != std::string::npos);
+    assert(acceptedJson.find("\"backendReadbackVerified\":false") != std::string::npos);
     assert(acceptedJson.find("\"commandRequestMapped\":false") != std::string::npos);
     assert(acceptedJson.find("\"realExecutionEnabled\":false") != std::string::npos);
     assert(acceptedJson.find("\"realExecutionPolicyAllowed\":false") != std::string::npos);
@@ -95,6 +100,54 @@ int main()
         serializer.serialize(escapedResult);
 
     assert(escapedJson.find("accepted \\\"quote\\\" message") != std::string::npos);
+
+
+    SearchTimerWorkflowExecutionResult verifiedReadbackResult =
+        acceptedResult;
+    verifiedReadbackResult.attachBackendReadbackVerification(
+        SearchTimerWorkflowBackendReadbackVerificationResult::verified(
+            "home-vdr",
+            "native-42",
+            "native-42",
+            "backend readback verified"));
+
+    assert(verifiedReadbackResult.success);
+    assert(verifiedReadbackResult.backendReadbackVerified());
+    assert(verifiedReadbackResult.backendReadbackVerificationAttached);
+
+    const std::string verifiedReadbackJson =
+        serializer.serialize(verifiedReadbackResult);
+
+    assert(verifiedReadbackJson.find("\"backendReadbackVerificationAttached\":true") != std::string::npos);
+    assert(verifiedReadbackJson.find("\"backendReadbackVerified\":true") != std::string::npos);
+    assert(verifiedReadbackJson.find("\"expectedBackendId\":\"home-vdr\"") != std::string::npos);
+    assert(verifiedReadbackJson.find("\"expectedBackendNativeId\":\"native-42\"") != std::string::npos);
+    assert(verifiedReadbackJson.find("\"observedBackendNativeId\":\"native-42\"") != std::string::npos);
+    assert(verifiedReadbackJson.find("backend readback verified") != std::string::npos);
+
+    SearchTimerWorkflowExecutionResult failedReadbackResult =
+        acceptedResult;
+    failedReadbackResult.attachBackendReadbackVerification(
+        SearchTimerWorkflowBackendReadbackVerificationResult::failed(
+            "home-vdr",
+            "native-42",
+            "",
+            "backend readback mismatch",
+            {"backend readback mismatch"}));
+
+    assert(!failedReadbackResult.success);
+    assert(!failedReadbackResult.backendReadbackVerified());
+    assert(failedReadbackResult.backendReadbackVerificationAttached);
+    assert(failedReadbackResult.hasErrors());
+
+    const std::string failedReadbackJson =
+        serializer.serialize(failedReadbackResult);
+
+    assert(failedReadbackJson.find("\"success\":false") != std::string::npos);
+    assert(failedReadbackJson.find("\"backendReadbackVerificationAttached\":true") != std::string::npos);
+    assert(failedReadbackJson.find("\"backendReadbackVerified\":false") != std::string::npos);
+    assert(failedReadbackJson.find("\"matched\":false") != std::string::npos);
+    assert(failedReadbackJson.find("backend readback mismatch") != std::string::npos);
 
     const SearchTimerWorkflowExecutionResult invalidResult =
         executionService.executePlan(
