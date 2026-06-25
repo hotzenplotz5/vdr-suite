@@ -157,7 +157,7 @@ def check_progress_source():
         "overall|100",
         "SearchTimer Backend Foundation|100|completed",
         "SearchTimer User Workflow|100|completed",
-        "Phase 53.3 - SearchTimer title-only update parser contract",
+        "Phase 53.4 - SearchTimer title-only update controller contract",
     ]
 
     forbidden = [

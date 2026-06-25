@@ -185,6 +185,59 @@ int main()
     assert(defaultBackendRequest.deleteAfterCountRecordings == 0);
     assert(defaultBackendRequest.deleteAfterDaysOfFirstRecording == 0);
 
+
+    const SearchTimerUpdateRequest titleOnlyUpdateRequest =
+        parser.parse(
+            "{"
+            "\"backendId\":\"home-vdr\","
+            "\"backendNativeId\":\"searchtimer-amerika\","
+            "\"name\":\"Amerika\","
+            "\"query\":\"Amerika\","
+            "\"active\":true,"
+            "\"mode\":\"phrase\","
+            "\"compareTitle\":true,"
+            "\"compareSubtitle\":false,"
+            "\"compareSummary\":false,"
+            "\"compareCategories\":false"
+            "}");
+
+    assert(titleOnlyUpdateRequest.backendId == "home-vdr");
+    assert(titleOnlyUpdateRequest.backendNativeId == "searchtimer-amerika");
+    assert(titleOnlyUpdateRequest.name == "Amerika");
+    assert(titleOnlyUpdateRequest.query == "Amerika");
+    assert(titleOnlyUpdateRequest.active == true);
+    assert(titleOnlyUpdateRequest.matchMode == 0);
+    assert(titleOnlyUpdateRequest.compareTitle == true);
+    assert(titleOnlyUpdateRequest.compareSubtitle == false);
+    assert(titleOnlyUpdateRequest.compareSummary == false);
+    assert(titleOnlyUpdateRequest.compareCategories == false);
+
+    const SearchTimerUpdateRequest subtitleSummaryUpdateRequest =
+        parser.parse(
+            "{"
+            "\"backendId\":\"home-vdr\","
+            "\"backendNativeId\":\"searchtimer-amerika-extra\","
+            "\"name\":\"Amerika Zusatzfelder\","
+            "\"query\":\"Amerika\","
+            "\"active\":true,"
+            "\"mode\":\"phrase\","
+            "\"compareTitle\":false,"
+            "\"compareSubtitle\":true,"
+            "\"compareSummary\":true,"
+            "\"compareCategories\":false"
+            "}");
+
+    assert(subtitleSummaryUpdateRequest.backendId == "home-vdr");
+    assert(subtitleSummaryUpdateRequest.backendNativeId == "searchtimer-amerika-extra");
+    assert(subtitleSummaryUpdateRequest.name == "Amerika Zusatzfelder");
+    assert(subtitleSummaryUpdateRequest.query == "Amerika");
+    assert(subtitleSummaryUpdateRequest.active == true);
+    assert(subtitleSummaryUpdateRequest.matchMode == 0);
+    assert(subtitleSummaryUpdateRequest.compareTitle == false);
+    assert(subtitleSummaryUpdateRequest.compareSubtitle == true);
+    assert(subtitleSummaryUpdateRequest.compareSummary == true);
+    assert(subtitleSummaryUpdateRequest.compareCategories == false);
+
     std::cout
         << "test_search_timer_update_request_parser passed"
         << std::endl;

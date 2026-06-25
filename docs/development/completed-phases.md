@@ -200,6 +200,18 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 53.3 - SearchTimer title-only update parser contract
+
+Status: Completed.
+
+Summary:
+- Strengthened SearchTimer update request parser coverage for title-only JSON bodies.
+- Verified compareTitle=true, compareSubtitle=false and compareSummary=false are preserved.
+- Verified subtitle/summary search flag combinations are preserved.
+- Kept the phase free of runtime behavior, scheduler and backend write policy changes.
+
+---
+
 ## Phase 53.2 - SearchTimer title-only REST controller contract
 
 Status: Completed.

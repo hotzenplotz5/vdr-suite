@@ -56,13 +56,13 @@ Milestone progress:
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
     Live Plugin Parity Foundation   ██████████ 100%  completed
-    Automation Foundation           ████████░░  75%  in progress
+    Automation Foundation           ████████░░  80%  in progress
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 53.3 - SearchTimer title-only update parser contract
+    Phase 53.4 - SearchTimer title-only update controller contract
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -74,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 53.2 - SearchTimer title-only REST controller contract
+Phase 53.3 - SearchTimer title-only update parser contract
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 53.2 - SearchTimer title-only REST controller contract
+Phase 53.3 - SearchTimer title-only update parser contract
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 53.3 - SearchTimer title-only update parser contract
+Phase 53.4 - SearchTimer title-only update controller contract
 ```
 
 Completed foundations:
@@ -206,6 +206,7 @@ make test-phase
 - Phase 53.0 fixes RESTfulAPI SearchTimer field mapping so title-only requests map compareTitle/compareSubtitle/compareSummary to use_title/use_subtitle/use_description correctly.
 - Phase 53.1 strengthens the SearchTimer create request parser contract for title-only and subtitle/summary search flag preservation.
 - Phase 53.2 verifies the SearchTimer REST controller create path preserves title-only flags into the create service/executor handoff.
+- Phase 53.3 strengthens the SearchTimer update request parser contract for title-only and subtitle/summary search flag preservation.
 
 ---
 
@@ -303,10 +304,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 53.3 - SearchTimer title-only update parser contract
+Phase 53.4 - SearchTimer title-only update controller contract
 ```
 
-The next implementation phase should verify the SearchTimer title-only update parser contract.
+The next implementation phase should verify that the REST controller preserves parsed title-only flags on the update path.
 
 Important boundaries:
 
