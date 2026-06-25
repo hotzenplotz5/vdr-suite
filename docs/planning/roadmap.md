@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 51.10 - Live parity discovery foundation completion
+Phase 52.0 - SearchTimer automation foundation planning
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 52.0 - SearchTimer automation foundation planning
+Phase 52.1 - SearchTimer automation evaluation plan model
 ```
 
 ---
@@ -436,10 +436,16 @@ Important boundaries:
 
 ### Phase 52 - SearchTimer Automation Foundation
 
-Status: Planned.
+Status: In Progress.
 
 Goal:
 - Extend SearchTimer from stored search rules to automated evaluation and action preparation.
+
+Phase 52.0 result:
+- Started SearchTimer automation as a planning-only foundation.
+- Defined evaluation planning, matching, duplicate analysis, proposal, validation and execution handoff as separate steps.
+- Preserved the no-real-timer-mutation and no-epgsearch-mutation boundary.
+- Set Phase 52.1 as the first read-only model phase.
 
 Expected outcomes:
 - Scheduled SearchTimer evaluation.

@@ -43,7 +43,7 @@ main
 
 Overall project progress:
 
-    █████████░ 91%
+    █████████░ 92%
 
 Milestone progress:
 
@@ -56,13 +56,13 @@ Milestone progress:
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
     Live Plugin Parity Foundation   ██████████ 100%  completed
-    Automation Foundation           ░░░░░░░░░░   5%  in progress
+    Automation Foundation           █░░░░░░░░░  10%  in progress
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 52.0 - SearchTimer automation foundation planning
+    Phase 52.1 - SearchTimer automation evaluation plan model
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -74,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 51.10 - Live parity discovery foundation completion
+Phase 52.0 - SearchTimer automation foundation planning
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 51.10 - Live parity discovery foundation completion
+Phase 52.0 - SearchTimer automation foundation planning
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 52.0 - SearchTimer automation foundation planning
+Phase 52.1 - SearchTimer automation evaluation plan model
 ```
 
 Completed foundations:
@@ -193,6 +193,7 @@ make test-phase
 - Phase 51.8 strengthens the HTTP smoke contract for SearchTimer discovery aliases, default backend handling and read-only POST rejection.
 - Phase 51.9 defines the RESTfulAPI-facing provider contract and upstream endpoint boundary without enabling HTTP transport.
 - Phase 51.10 closes the Live parity discovery foundation and freezes the pre-transport, read-only boundary before SearchTimer automation begins.
+- Phase 52.0 starts SearchTimer automation with a planning-only architecture boundary and explicit no-mutation safety rules.
 
 ---
 
@@ -290,10 +291,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 52.0 - SearchTimer automation foundation planning
+Phase 52.1 - SearchTimer automation evaluation plan model
 ```
 
-The next implementation phase should start SearchTimer automation planning with a read-only architecture and policy review before any automated execution work.
+The next implementation phase should add the SearchTimer automation evaluation plan model without running scheduled evaluation or performing mutation.
 
 Important boundaries:
 

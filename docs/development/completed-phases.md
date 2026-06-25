@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 52.0 - SearchTimer automation foundation planning
+
+Status: Completed.
+
+Summary:
+- Started SearchTimer automation as a planning-only architecture phase.
+- Defined the automation boundary before scheduled evaluation, matching, duplicate analysis, candidate timer proposal or execution.
+- Separated evaluation planning, candidate matching, duplicate analysis, candidate proposal, validation and execution handoff.
+- Preserved the no-real-timer-create, no-real-timer-update, no-real-timer-delete, no-epgsearch-mutation and no-hidden-production-enablement boundary.
+- Handed off to Phase 52.1 SearchTimer automation evaluation plan model.
+
+---
+
 ## Phase 51.10 - Live parity discovery foundation completion
 
 Status: Completed.
