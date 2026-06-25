@@ -1413,6 +1413,12 @@ test-search-timer-automation-read-only-service:
 		core/vdr/tests/test_search_timer_automation_read_only_service.cpp \
 		-o /tmp/test_search_timer_automation_read_only_service
 	/tmp/test_search_timer_automation_read_only_service
+
+test-search-timer-automation-daemon-scheduling-plan:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_search_timer_automation_daemon_scheduling_plan.cpp \
+		-o /tmp/test_search_timer_automation_daemon_scheduling_plan
+	/tmp/test_search_timer_automation_daemon_scheduling_plan
 test-epg-person-search-result:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_person_search_result.cpp \
@@ -1629,6 +1635,7 @@ clean:
 	rm -f /tmp/test_search_timer_automation_dry_run_result_json_serializer
 	rm -f /tmp/test_search_timer_automation_read_only_service
 	rm -f /tmp/test_search_timer_automation_preview_controller
+	rm -f /tmp/test_search_timer_automation_daemon_scheduling_plan
 	rm -f /tmp/test_search_timer_discovery_json_serializer
 	rm -f /tmp/test_search_timer_discovery_controller
 	rm -f /tmp/test_database

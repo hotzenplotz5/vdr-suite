@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 52.7 - SearchTimer automation REST preview contract
+Phase 52.8 - SearchTimer automation daemon scheduling plan
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 52.8 - SearchTimer automation daemon scheduling plan
+Phase 52.9 - SearchTimer automation safety review
 ```
 
 ---
@@ -495,6 +495,13 @@ Phase 52.7 result:
 - Wired the preview controller into ApiRouter and DaemonRuntime.
 - Preserved dry-run-only, no-mutation, no-timer-creation, no-backend-write and no-automatic-execution invariants.
 - Kept the phase free of matching execution, scheduling and backend mutation.
+
+Phase 52.8 result:
+- Added SearchTimerAutomationDaemonSchedulingPlan.
+- Captured disabled and preview-only scheduling plans for future daemon automation.
+- Preserved scheduler-disabled, dry-run-only, no-mutation, no-timer-creation, no-backend-write and no-automatic-execution invariants.
+- Covered interval, candidate limit, snapshot freshness and safety audit behavior with a targeted unit test.
+- Kept the phase free of daemon scheduler runtime, background loops, RESTfulAPI writes and epgsearch mutation.
 
 Expected outcomes:
 - Scheduled SearchTimer evaluation.

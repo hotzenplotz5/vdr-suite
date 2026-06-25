@@ -18,7 +18,7 @@
 
 Overall project progress:
 
-    ██████████ 99%
+    ██████████ 100%
 
 Milestone progress:
 
@@ -31,13 +31,13 @@ Milestone progress:
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
     Live Plugin Parity Foundation   ██████████ 100%  completed
-    Automation Foundation           ████░░░░░░  45%  in progress
+    Automation Foundation           █████░░░░░  50%  in progress
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 52.8 - SearchTimer automation daemon scheduling plan
+    Phase 52.9 - SearchTimer automation safety review
 
 Progress source: [Project Progress](planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -131,19 +131,19 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 52.7 - SearchTimer automation REST preview contract
+Phase 52.8 - SearchTimer automation daemon scheduling plan
 ```
 
 Current Documentation Consolidation:
 
 ```text
-Phase 52.7 - SearchTimer automation REST preview contract
+Phase 52.8 - SearchTimer automation daemon scheduling plan
 ```
 
 Next Major Implementation Milestone:
 
 ```text
-Phase 52.8 - SearchTimer automation daemon scheduling plan
+Phase 52.9 - SearchTimer automation safety review
 ```
 
 Latest Completed Milestones:
@@ -262,7 +262,7 @@ This progress description summarizes documented roadmap direction by major miles
 | EPG Search API | The EPG search API is implemented and documented over selective EPG windows. |
 | SearchTimer | Backend route, daemon provider, domain model expansion, real payload validation, native fuzzy capability validation and user workflow foundation are implemented; production mutation remains closed. |
 | Live Plugin Parity | Source audit, gap matrix, read-only discovery domain foundation, JSON contract, REST controller contract, service contract, controller-service integration, router contract, daemon wiring, HTTP smoke contract, RESTfulAPI provider contract and foundation completion are documented and implemented. |
-| SearchTimer Automation | Planning-only foundation, read-only models, dry-run JSON serializer, read-only service boundary and REST preview contract are implemented; daemon scheduling and execution handoff remain separated before any mutation work. |
+| SearchTimer Automation | Planning-only foundation, read-only models, dry-run JSON serializer, read-only service boundary, REST preview contract and daemon scheduling plan are implemented; safety review and execution handoff remain separated before any mutation work. |
 | Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
 | Recording Actions | Recording action validation and execution foundations are implemented with diagnostics. |
 | Content Classification | ADR-0028 defines source-aware classification for genre, rating, keywords, collections, user tags and folder hints. |

@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 52.8 - SearchTimer automation daemon scheduling plan
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerAutomationDaemonSchedulingPlan for future daemon automation scheduling boundaries.
+- Modeled disabled and preview-only scheduling plans, intervals, candidate limits, snapshot freshness, duplicate review requirements, safety reasons and audit trail.
+- Enforced scheduler-disabled, dry-run-only, no-mutation, no-timer-creation, no-backend-write, no-automatic-execution and explicit handoff invariants.
+- Covered clamping, validation, audit trail and safety invariants with a targeted unit test.
+- Kept the phase free of daemon scheduler runtime, background loops, RESTfulAPI writes and epgsearch mutation.
+
+---
+
 ## Phase 52.7 - SearchTimer automation REST preview contract
 
 Status: Completed.

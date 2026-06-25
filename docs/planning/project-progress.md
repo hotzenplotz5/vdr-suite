@@ -25,7 +25,7 @@ The generated progress blocks are written by:
 
 ## Overall Progress
 
-overall|99
+overall|100
 
 ---
 
@@ -40,7 +40,7 @@ Documentation Foundation|100|completed
 SearchTimer Backend Foundation|100|completed
 SearchTimer User Workflow|100|completed
 Live Plugin Parity Foundation|100|completed
-Automation Foundation|45|in progress
+Automation Foundation|50|in progress
 Federation Foundation|0|planned
 Frontend Foundation|0|planned
 
@@ -48,7 +48,7 @@ Frontend Foundation|0|planned
 
 ## Current Milestone
 
-Phase 52.8 - SearchTimer automation daemon scheduling plan
+Phase 52.9 - SearchTimer automation safety review
 
 ---
 
