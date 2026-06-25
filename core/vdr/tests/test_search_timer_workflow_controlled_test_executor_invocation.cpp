@@ -1,6 +1,7 @@
 #include "SearchTimerWorkflowCommandDispatchService.h"
 
 #include "SearchTimerWorkflowPlanningService.h"
+#include "ISearchTimerDataSource.h"
 
 #include <cassert>
 #include <iostream>
@@ -134,6 +135,43 @@ private:
 };
 
 
+class ControlledTestSearchTimerReadbackDataSource : public ISearchTimerDataSource
+{
+public:
+    SearchTimerResult list(
+        const SearchTimerQuery& query) const override
+    {
+        (void)query;
+
+        std::vector<SearchTimer> items;
+
+        items.push_back(
+            SearchTimer::create(
+                SearchTimerId::fromBackendNativeId(
+                    "controlled-test-vdr",
+                    "controlled-created-1"),
+                "Amerika",
+                "Amerika",
+                SearchTimerState::Active));
+
+        items.push_back(
+            SearchTimer::create(
+                SearchTimerId::fromBackendNativeId(
+                    "controlled-test-vdr",
+                    "controlled-updated-7"),
+                "Amerika",
+                "Amerika",
+                SearchTimerState::Active));
+
+        return SearchTimerResult::from(
+            items,
+            static_cast<int>(items.size()),
+            100,
+            0);
+    }
+};
+
+
 bool hasAuditEntry(
     const std::vector<std::string>& auditTrail,
     const std::string& expected)
@@ -154,6 +192,7 @@ int main()
     SearchTimerWorkflowPlanningService planningService;
     SearchTimerWorkflowCommandDispatchService dispatchService;
     ControlledTestSearchTimerCommandExecutor executor;
+    ControlledTestSearchTimerReadbackDataSource readbackDataSource;
 
     const SearchTimerWorkflowExecutionPlan createPlan =
         planningService.plan(
@@ -171,9 +210,10 @@ int main()
     const SearchTimerWorkflowExecutionResult createResult =
         dispatchService.dispatchPlan(
             createPlan,
-            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocation(
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocationAndReadbackDataSource(
                 true,
-                &executor));
+                &executor,
+                &readbackDataSource));
 
     assert(createResult.success);
     assert(createResult.executed);
@@ -227,9 +267,10 @@ int main()
     const SearchTimerWorkflowExecutionResult updateResult =
         dispatchService.dispatchPlan(
             updatePlan,
-            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocation(
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocationAndReadbackDataSource(
                 true,
-                &executor));
+                &executor,
+                &readbackDataSource));
 
     assert(updateResult.success);
     assert(updateResult.executed);
@@ -258,9 +299,10 @@ int main()
     const SearchTimerWorkflowExecutionResult deleteResult =
         dispatchService.dispatchPlan(
             deletePlan,
-            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocation(
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocationAndReadbackDataSource(
                 true,
-                &executor));
+                &executor,
+                &readbackDataSource));
 
     assert(deleteResult.success);
     assert(deleteResult.executed);
