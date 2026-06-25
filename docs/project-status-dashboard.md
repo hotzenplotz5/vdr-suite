@@ -18,7 +18,7 @@
 
 Overall project progress:
 
-    ████████░░ 80%
+    ████████░░ 81%
 
 Milestone progress:
 
@@ -30,13 +30,14 @@ Milestone progress:
     Documentation Foundation        ██████████ 100%  completed
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
+    Live Plugin Parity Foundation   █░░░░░░░░░  10%  in progress
     Automation Foundation           ░░░░░░░░░░   0%  planned
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 51.0 - Live plugin parity foundation kickoff
+    Phase 51.1 - Live parity discovery API domain foundation
 
 Progress source: [Project Progress](planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -130,19 +131,19 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 50.50 - SearchTimer workflow foundation completion documentation
+Phase 51.0 - Live plugin parity source audit and gap matrix
 ```
 
 Current Documentation Consolidation:
 
 ```text
-Phase 50.50 - SearchTimer workflow foundation completion documentation
+Phase 51.0 - Live plugin parity source audit and gap matrix
 ```
 
 Next Major Implementation Milestone:
 
 ```text
-Phase 51.0 - Live plugin parity foundation kickoff
+Phase 51.1 - Live parity discovery API domain foundation
 ```
 
 Latest Completed Milestones:
@@ -221,14 +222,13 @@ Native fuzzy backend capability validation
 Current Foundation:
 
 ```text
-SearchTimer user workflow foundation
+Live plugin parity foundation
 ```
 
 Planned Major Direction:
 
 ```text
-Phase 50.x - SearchTimer user workflow and client/API polish
-Phase 51.x - Live plugin parity foundation
+Phase 51.x - Live plugin parity foundation in progress
 Phase 52.x - SearchTimer automation
 Phase 53.x - Recommendation foundation
 Phase 54.x - Cross-backend search and federation
@@ -260,7 +260,8 @@ This progress description summarizes documented roadmap direction by major miles
 | Heavy Domain Policy | Events / EPG are classified as a heavy domain and protected from automatic full refresh behavior. |
 | EPG REST API Boundary | Selective EPG reads are exposed through backend-neutral REST routes. |
 | EPG Search API | The EPG search API is implemented and documented over selective EPG windows. |
-| SearchTimer | Backend route, daemon provider, domain model expansion, real payload validation and native fuzzy capability validation are implemented; user workflow foundation starts next. |
+| SearchTimer | Backend route, daemon provider, domain model expansion, real payload validation, native fuzzy capability validation and user workflow foundation are implemented; production mutation remains closed. |
+| Live Plugin Parity | Source audit and gap matrix are documented; first read-only discovery API domain foundation is planned next. |
 | Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
 | Recording Actions | Recording action validation and execution foundations are implemented with diagnostics. |
 | Content Classification | ADR-0028 defines source-aware classification for genre, rating, keywords, collections, user tags and folder hints. |

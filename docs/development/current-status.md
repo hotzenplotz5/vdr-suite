@@ -43,7 +43,7 @@ main
 
 Overall project progress:
 
-    ████████░░ 80%
+    ████████░░ 81%
 
 Milestone progress:
 
@@ -55,13 +55,14 @@ Milestone progress:
     Documentation Foundation        ██████████ 100%  completed
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
+    Live Plugin Parity Foundation   █░░░░░░░░░  10%  in progress
     Automation Foundation           ░░░░░░░░░░   0%  planned
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 51.0 - Live plugin parity foundation kickoff
+    Phase 51.1 - Live parity discovery API domain foundation
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -73,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.50 - SearchTimer workflow foundation completion documentation
+Phase 51.0 - Live plugin parity source audit and gap matrix
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 50.50 - SearchTimer workflow foundation completion documentation
+Phase 51.0 - Live plugin parity source audit and gap matrix
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 51.0 - Live plugin parity foundation kickoff
+Phase 51.1 - Live parity discovery API domain foundation
 ```
 
 Completed foundations:
@@ -179,6 +180,8 @@ make test-phase
 - Phase 50.34 adds a closed-by-default production policy gate as the final safety gate before real yaVDR testing.
 - Phase 50.29 adds a non-mutating real backend execution readiness review and keeps production readiness false.
 - Phase 50.24 adds a guarded executor invocation contract while keeping invocationAttempted=false in all paths.
+- Phase 50.50 closes the SearchTimer user workflow foundation while keeping production mutation closed.
+- Phase 51.0 starts the Live plugin parity foundation with a source-audited gap matrix for VDR, epgsearch, RESTfulAPI, Live and VDR-Suite.
 
 ---
 
@@ -276,10 +279,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 51.0 - Live plugin parity foundation kickoff
+Phase 51.1 - Live parity discovery API domain foundation
 ```
 
-The next implementation phase should start the Live plugin parity foundation on top of the completed SearchTimer user workflow foundation.
+The next implementation phase should add the first read-only Live parity discovery API domain foundation on top of the completed source audit.
 
 Important boundaries:
 

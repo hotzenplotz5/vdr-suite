@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.50 - SearchTimer workflow foundation completion documentation
+Phase 51.0 - Live plugin parity source audit and gap matrix
 ```
 
 Next implementation focus:
 
 ```text
-Phase 51.0 - Live plugin parity foundation kickoff
+Phase 51.1 - Live parity discovery API domain foundation
 ```
 
 Current architecture validation:
@@ -78,6 +78,7 @@ Current architecture validation:
 - [Real VDR Regression Coverage Audit](real-vdr-regression-coverage-audit.md)
 - [Real Recording Action Regression Audit](real-recording-action-regression-audit.md)
 - [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
+- [Live Plugin Parity Source Audit](live-plugin-parity-source-audit.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)

@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 50.50 - SearchTimer workflow foundation completion documentation
+Phase 51.0 - Live plugin parity source audit and gap matrix
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 51.0 - Live plugin parity foundation kickoff
+Phase 51.1 - Live parity discovery API domain foundation
 ```
 
 ---
@@ -316,54 +316,58 @@ Representative phase range:
 - Phase 47.x through Phase 49.x.
 
 ---
-## Current Milestone
-
-### Phase 50 - SearchTimer User Workflow Foundation
+### SearchTimer User Workflow Foundation
 
 Status: Completed.
 
-Goal:
-- Turn the backend-facing SearchTimer and native fuzzy capability foundation into a practical user workflow foundation.
+Primary result:
+- Turns the backend-facing SearchTimer and native fuzzy capability foundation into a practical, tested user workflow foundation.
 
-Expected outcomes:
-- User-facing SearchTimer workflow contracts.
-- Clear create, list, update and delete semantics above the current backend provider foundation.
-- Validation path from EPG search criteria to persistent SearchTimer rules.
-- Documentation for which epgsearch and Live-style options are supported now and which remain future scope.
-- Client-ready API shape for later web and TV frontend work.
-
-Completion result:
-- SearchTimer workflow request, validation, planning, dispatch, controlled execution and readback verification are implemented as a tested foundation.
+Key outcomes:
+- SearchTimer workflow request, validation, planning, dispatch, controlled execution and readback verification are implemented.
 - REST-facing verified execution response contracts are documented and tested.
 - Production mutation remains closed until a later explicitly gated phase.
+- Phase 50.50 closes the foundation cleanly before Live parity work starts.
 
-Reason for priority:
-- The native fuzzy backend capability path is now validated.
-- The next useful step is no longer more capability probing, but turning SearchTimer into a coherent operator and client workflow.
-
-Important boundaries:
-- Keep VDR as the source of truth for VDR-owned SearchTimer state.
-- Preserve backend identity for future multi-backend SearchTimer behavior.
-- Keep automatic evaluation and recording actions out until the SearchTimer workflow foundation is stable.
+Representative phase range:
+- Phase 50.0 through Phase 50.50.
 
 ---
-## Planned Major Milestones
+## Current Milestone
 
 ### Phase 51 - Live Plugin Parity Foundation
 
-Status: Planned.
+Status: In Progress.
 
 Goal:
 - Approach the practical information quality of the VDR Live plugin while keeping VDR-Suite multi-backend and API-first.
 
+Phase 51.0 result:
+- Source-audited the ownership split between VDR core, epgsearch, RESTfulAPI, Live and VDR-Suite.
+- Established a Live parity gap matrix for information quality, helper lists, timer conflicts and SearchTimer preview parity.
+- Confirmed that RESTfulAPI integration and extension remains the preferred path over a VDR fork.
+- Kept production mutation closed.
+
+Next implementation step:
+- Phase 51.1 - Live parity discovery API domain foundation.
+
 Expected outcomes:
 - Broader EPG detail coverage.
-- Timer creation workflows.
-- SearchTimer workflows.
+- Timer and SearchTimer helper discovery surfaces.
+- SearchTimer preview parity analysis.
+- Timer conflict visibility.
 - Recording metadata visibility.
 - Backend-aware frontend-ready API surfaces.
 
+Important boundaries:
+- Keep VDR as the source of truth for VDR-owned state.
+- Keep epgsearch semantics behind explicit SearchTimer and EPGSearch boundaries.
+- Prefer RESTfulAPI integration and extension over a VDR fork.
+- Keep automatic SearchTimer evaluation out until Phase 52.
+- Keep production mutation closed until explicitly reopened by a dedicated gated phase.
+
 ---
+## Planned Major Milestones
 
 ### Phase 52 - SearchTimer Automation Foundation
 

@@ -200,6 +200,20 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 51.0 - Live plugin parity source audit and gap matrix
+
+Status: Completed.
+
+Summary:
+- Started the Live Plugin Parity Foundation milestone.
+- Audited the ownership split between VDR core, epgsearch, RESTfulAPI, Live and VDR-Suite.
+- Confirmed that RESTfulAPI integration and extension remains preferred over a VDR fork.
+- Documented the first Live parity gap matrix for SearchTimer workflow semantics, helper lists, timer conflicts, EPG details, timer details and recording details.
+- Kept production mutation closed.
+- Set Phase 51.1 as the next implementation focus for a read-only Live parity discovery API domain foundation.
+
+---
+
 
 ## Phase 50.50 - SearchTimer workflow foundation completion documentation
 
