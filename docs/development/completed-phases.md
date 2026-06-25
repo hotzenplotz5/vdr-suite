@@ -200,6 +200,18 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 53.2 - SearchTimer title-only REST controller contract
+
+Status: Completed.
+
+Summary:
+- Strengthened SearchTimer REST controller create-path coverage for title-only JSON bodies.
+- Captured the create request handed to the test command executor.
+- Verified compareTitle=true, compareSubtitle=false and compareSummary=false survive the controller handoff.
+- Kept the phase free of runtime behavior, scheduler and backend write policy changes.
+
+---
+
 ## Phase 53.1 - SearchTimer title-only request parser contract
 
 Status: Completed.

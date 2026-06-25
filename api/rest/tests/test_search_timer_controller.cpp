@@ -3,6 +3,7 @@
 #include "SearchTimerResult.h"
 #include "ISearchTimerCommandExecutor.h"
 #include "ISearchTimerDataSource.h"
+#include "SearchTimerCreateRequest.h"
 #include "SearchTimerCreateRequestParser.h"
 #include "SearchTimerCreateResultJsonSerializer.h"
 #include "SearchTimerCreateService.h"
@@ -51,6 +52,8 @@ public:
         const SearchTimerCreateRequest& request) override
     {
         ++callCount_;
+        lastCreateRequest_ = request;
+        hasLastCreateRequest_ = true;
 
         return SearchTimerCreateResult::ok(
             SearchTimer::create(
@@ -96,6 +99,16 @@ public:
         return callCount_;
     }
 
+    bool hasLastCreateRequest() const
+    {
+        return hasLastCreateRequest_;
+    }
+
+    const SearchTimerCreateRequest& lastCreateRequest() const
+    {
+        return lastCreateRequest_;
+    }
+
     int updateCallCount() const
     {
         return updateCallCount_;
@@ -110,6 +123,8 @@ private:
     int callCount_ = 0;
     int updateCallCount_ = 0;
     int removeCallCount_ = 0;
+    bool hasLastCreateRequest_ = false;
+    SearchTimerCreateRequest lastCreateRequest_;
 };
 
 int main()
@@ -513,6 +528,46 @@ int main()
     assert(executor.callCount() == 1);
     assert(executor.updateCallCount() == 1);
     assert(executor.removeCallCount() == 0);
+
+
+    ApiResponse titleOnlyControllerCreateResponse =
+        controller.createSearchTimer(
+            "{"
+            "\"backendId\":\"home-vdr\","
+            "\"name\":\"Amerika\","
+            "\"query\":\"Amerika\","
+            "\"active\":true,"
+            "\"mode\":\"phrase\","
+            "\"compareTitle\":true,"
+            "\"compareSubtitle\":false,"
+            "\"compareSummary\":false,"
+            "\"compareCategories\":false"
+            "}",
+            executor);
+
+    assert(titleOnlyControllerCreateResponse.statusCode == 200);
+    assert(titleOnlyControllerCreateResponse.contentType == "application/json");
+    assert(titleOnlyControllerCreateResponse.body.find("\"success\":true")
+           != std::string::npos);
+    assert(titleOnlyControllerCreateResponse.body.find("\"name\":\"Amerika\"")
+           != std::string::npos);
+    assert(titleOnlyControllerCreateResponse.body.find("\"query\":\"Amerika\"")
+           != std::string::npos);
+    assert(executor.callCount() == 2);
+    assert(executor.hasLastCreateRequest());
+
+    const SearchTimerCreateRequest& titleOnlyControllerRequest =
+        executor.lastCreateRequest();
+
+    assert(titleOnlyControllerRequest.backendId == "home-vdr");
+    assert(titleOnlyControllerRequest.name == "Amerika");
+    assert(titleOnlyControllerRequest.query == "Amerika");
+    assert(titleOnlyControllerRequest.active == true);
+    assert(titleOnlyControllerRequest.matchMode == 0);
+    assert(titleOnlyControllerRequest.compareTitle == true);
+    assert(titleOnlyControllerRequest.compareSubtitle == false);
+    assert(titleOnlyControllerRequest.compareSummary == false);
+    assert(titleOnlyControllerRequest.compareCategories == false);
 
     std::cout << "test_search_timer_controller passed" << std::endl;
     return 0;

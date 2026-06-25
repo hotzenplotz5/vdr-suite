@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 53.1 - SearchTimer title-only request parser contract
+Phase 53.2 - SearchTimer title-only REST controller contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 53.2 - SearchTimer title-only REST controller contract
+Phase 53.3 - SearchTimer title-only update parser contract
 ```
 
 ---
@@ -523,6 +523,12 @@ Phase 53.1 result:
 - Verified compareTitle=true, compareSubtitle=false and compareSummary=false are preserved.
 - Verified subtitle/summary search flag combinations are preserved.
 - Added a dedicated parser test target to the local test group.
+- Kept the phase free of runtime behavior, scheduler and backend write policy changes.
+
+Phase 53.2 result:
+- Strengthened SearchTimer REST controller create-path coverage for title-only JSON bodies.
+- Captured the create request handed to the test command executor.
+- Verified compareTitle=true, compareSubtitle=false and compareSummary=false survive the controller handoff.
 - Kept the phase free of runtime behavior, scheduler and backend write policy changes.
 
 Expected outcomes:
