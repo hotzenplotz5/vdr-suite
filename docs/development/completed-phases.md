@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 51.4 - Live parity discovery service contract
+
+Status: Completed.
+
+Summary:
+- Added ISearchTimerDiscoveryProvider as the read-only provider boundary for discovery catalogs.
+- Added SearchTimerDiscoveryService to delegate backend-aware discovery to an injected provider.
+- Added a targeted in-memory provider unit test for backendId propagation and discovery list preservation.
+- Wired the service into VDR_SRC and local VDR test grouping.
+- Documented the service/provider contract and preserved the no-controller-rewire, no-router, no-transport, no-mutation boundary.
+
+---
+
 ## Phase 51.3 - Live parity discovery REST controller contract
 
 Status: Completed.

@@ -61,6 +61,7 @@ test-vdr: \
 	test-epg-search-result \
 	test-search-timer \
 	test-search-timer-discovery \
+	test-search-timer-discovery-service \
 	test-search-timer-discovery-json-serializer \
 	test-search-timer-discovery-controller \
 	test-search-timer-workflow-execution-result-json-serializer \

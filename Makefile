@@ -1338,6 +1338,13 @@ test-search-timer-discovery:
 		-o /tmp/test_search_timer_discovery
 	/tmp/test_search_timer_discovery
 
+test-search-timer-discovery-service:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerDiscoveryService.cpp \
+		core/vdr/tests/test_search_timer_discovery_service.cpp \
+		-o /tmp/test_search_timer_discovery_service
+	/tmp/test_search_timer_discovery_service
+
 test-search-timer-discovery-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerDiscoveryJsonSerializer.cpp \
@@ -1548,6 +1555,7 @@ test: test-restfulapi-executor-basic-http-client-socket-smoke test-preview-execu
 
 clean:
 	rm -f /tmp/test_search_timer_discovery
+	rm -f /tmp/test_search_timer_discovery_service
 	rm -f /tmp/test_search_timer_discovery_json_serializer
 	rm -f /tmp/test_search_timer_discovery_controller
 	rm -f /tmp/test_database

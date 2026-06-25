@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 51.3 - Live parity discovery REST controller contract
+Phase 51.4 - Live parity discovery service contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 51.4 - Live parity discovery service contract
+Phase 51.5 - Live parity discovery controller service integration
 ```
 
 ---
@@ -365,8 +365,14 @@ Phase 51.3 result:
 - Covered statusCode, contentType and JSON body contract with a targeted controller test.
 - Kept the phase free of ApiRouter wiring, backend transport and backend mutation.
 
+Phase 51.4 result:
+- Added ISearchTimerDiscoveryProvider as the read-only discovery provider boundary.
+- Added SearchTimerDiscoveryService to delegate backend-aware discovery to the provider.
+- Covered the service contract with an in-memory provider unit test.
+- Kept the phase free of controller rewiring, ApiRouter wiring, backend transport and backend mutation.
+
 Next implementation step:
-- Phase 51.4 - Live parity discovery service contract.
+- Phase 51.5 - Live parity discovery controller service integration.
 
 Expected outcomes:
 - Broader EPG detail coverage.
