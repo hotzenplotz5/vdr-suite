@@ -970,6 +970,7 @@ test-search-timer-controller:
 test-search-timer-discovery-controller:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerDiscoveryJsonSerializer.cpp \
+		core/vdr/src/SearchTimerDiscoveryService.cpp \
 		api/rest/src/SearchTimerDiscoveryController.cpp \
 		api/rest/tests/test_search_timer_discovery_controller.cpp \
 		-o /tmp/test_search_timer_discovery_controller

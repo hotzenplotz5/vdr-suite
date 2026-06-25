@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 51.5 - Live parity discovery controller service integration
+
+Status: Completed.
+
+Summary:
+- Added a service-backed SearchTimerDiscoveryController constructor.
+- Added getDiscovery(backendId) to delegate read-only discovery to SearchTimerDiscoveryService.
+- Preserved the direct catalog-based getDiscovery path for tests and compatibility.
+- Added controller coverage for catalog path, service path and missing-service behavior.
+- Documented the controller/service integration and preserved the no-router, no-transport, no-mutation boundary.
+
+---
+
 ## Phase 51.4 - Live parity discovery service contract
 
 Status: Completed.

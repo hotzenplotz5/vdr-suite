@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 51.4 - Live parity discovery service contract
+Phase 51.5 - Live parity discovery controller service integration
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 51.5 - Live parity discovery controller service integration
+Phase 51.6 - Live parity discovery router contract
 ```
 
 ---
@@ -371,8 +371,15 @@ Phase 51.4 result:
 - Covered the service contract with an in-memory provider unit test.
 - Kept the phase free of controller rewiring, ApiRouter wiring, backend transport and backend mutation.
 
+Phase 51.5 result:
+- Added a service-backed SearchTimerDiscoveryController constructor.
+- Added getDiscovery(backendId) to delegate discovery to SearchTimerDiscoveryService.
+- Preserved the direct catalog-based controller path.
+- Covered catalog path, service path and missing-service behavior with the controller test.
+- Kept the phase free of ApiRouter wiring, backend transport and backend mutation.
+
 Next implementation step:
-- Phase 51.5 - Live parity discovery controller service integration.
+- Phase 51.6 - Live parity discovery router contract.
 
 Expected outcomes:
 - Broader EPG detail coverage.

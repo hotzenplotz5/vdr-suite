@@ -43,7 +43,7 @@ main
 
 Overall project progress:
 
-    ████████░░ 85%
+    █████████░ 86%
 
 Milestone progress:
 
@@ -55,14 +55,14 @@ Milestone progress:
     Documentation Foundation        ██████████ 100%  completed
     SearchTimer Backend Foundation  ██████████ 100%  completed
     SearchTimer User Workflow       ██████████ 100%  completed
-    Live Plugin Parity Foundation   █████░░░░░  50%  in progress
+    Live Plugin Parity Foundation   ██████░░░░  60%  in progress
     Automation Foundation           ░░░░░░░░░░   0%  planned
     Federation Foundation           ░░░░░░░░░░   0%  planned
     Frontend Foundation             ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 51.5 - Live parity discovery controller service integration
+    Phase 51.6 - Live parity discovery router contract
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -74,19 +74,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 51.4 - Live parity discovery service contract
+Phase 51.5 - Live parity discovery controller service integration
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 51.4 - Live parity discovery service contract
+Phase 51.5 - Live parity discovery controller service integration
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 51.5 - Live parity discovery controller service integration
+Phase 51.6 - Live parity discovery router contract
 ```
 
 Completed foundations:
@@ -187,6 +187,7 @@ make test-phase
 - Phase 51.2 adds the read-only Live parity discovery JSON contract for Extended EPG info, channel groups, blacklists and recording directories.
 - Phase 51.3 adds the read-only Live parity discovery REST controller contract without router wiring or backend transport.
 - Phase 51.4 adds the read-only Live parity discovery service/provider contract without backend transport.
+- Phase 51.5 connects the Live parity discovery controller to the service contract while keeping router wiring and backend transport out.
 
 ---
 
@@ -284,10 +285,10 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 51.5 - Live parity discovery controller service integration
+Phase 51.6 - Live parity discovery router contract
 ```
 
-The next implementation phase should connect the Live parity discovery controller to the service contract without adding router wiring or backend transport yet.
+The next implementation phase should add read-only Live parity discovery router wiring while still avoiding real backend transport.
 
 Important boundaries:
 
