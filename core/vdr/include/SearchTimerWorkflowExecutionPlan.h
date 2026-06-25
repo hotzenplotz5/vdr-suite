@@ -69,6 +69,7 @@ public:
         else if (request.operation() == SearchTimerWorkflowOperation::Delete)
         {
             plan.primaryStep_ = SearchTimerWorkflowExecutionStep::Delete;
+            plan.followUpStep_ = SearchTimerWorkflowExecutionStep::Readback;
         }
 
         return plan;

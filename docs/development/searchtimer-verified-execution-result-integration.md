@@ -12,6 +12,7 @@
 - [SearchTimer Create Readback Verification Service](searchtimer-create-readback-verification-service.md)
 - [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
 - [SearchTimer Delete Absence Verification Plan](searchtimer-delete-absence-verification-plan.md)
+- [SearchTimer Readback Services Dispatch Integration](searchtimer-readback-services-dispatch-integration.md)
 
 ---
 
@@ -58,6 +59,16 @@ This gives clients a single response object that can distinguish:
 - readback attachment
 - readback verification status
 - nested readback verification details
+
+---
+
+## Dispatch Readback Integration
+
+Phase 50.47 wires create, update and delete readback verification into the SearchTimer command dispatch path.
+
+Full integration documentation:
+
+- [SearchTimer Readback Services Dispatch Integration](searchtimer-readback-services-dispatch-integration.md)
 
 ---
 

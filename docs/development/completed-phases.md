@@ -201,6 +201,21 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.47 - SearchTimer workflow readback services dispatch integration
+
+Status: Completed.
+
+Summary:
+- Integrated SearchTimer create, update and delete readback verification services into the command dispatch path.
+- Added readback data source injection to `SearchTimerWorkflowCommandDispatchOptions`.
+- Attached backend readback verification results after successful controlled executor results.
+- Forced final workflow success to false when required backend readback verification fails.
+- Made delete workflows require a readback follow-up step.
+- Extended command dispatch, execution plan and execution service tests.
+- Kept production mutation closed.
+
+---
+
 ## Phase 50.46 - SearchTimer workflow delete absence verification service
 
 Status: Completed.

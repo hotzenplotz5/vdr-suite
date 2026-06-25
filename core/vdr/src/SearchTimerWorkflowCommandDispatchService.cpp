@@ -1,6 +1,9 @@
 #include "SearchTimerWorkflowCommandDispatchService.h"
 
 #include "SearchTimerWorkflowCommandRequestMapper.h"
+#include "SearchTimerWorkflowCreateReadbackVerificationService.h"
+#include "SearchTimerWorkflowDeleteAbsenceVerificationService.h"
+#include "SearchTimerWorkflowUpdateReadbackVerificationService.h"
 #include "SearchTimerWorkflowExecutorInvocationKillSwitch.h"
 #include "SearchTimerWorkflowExecutorResultMapper.h"
 #include "SearchTimerWorkflowGuardedExecutorInvocation.h"
@@ -147,6 +150,105 @@ std::vector<std::string> buildExecutorInvocationAuditTrail(
     return auditTrail;
 }
 
+
+void appendReadbackAuditEntry(
+    SearchTimerWorkflowExecutionResult& result,
+    bool readbackVerified)
+{
+    result.executorInvocationAuditTrail.push_back(
+        "backendReadbackVerificationAttached=true");
+    result.executorInvocationAuditTrail.push_back(
+        readbackVerified
+            ? "backendReadbackVerified=true"
+            : "backendReadbackVerified=false");
+}
+
+void attachCreateReadbackVerificationIfRequired(
+    SearchTimerWorkflowExecutionResult& result,
+    const SearchTimerWorkflowExecutionPlan& plan,
+    const SearchTimerCreateResult& executorResult,
+    const SearchTimerWorkflowCommandDispatchOptions& options)
+{
+    if (!executorResult.success || !plan.requiresBackendReadback())
+    {
+        return;
+    }
+
+    SearchTimerWorkflowCreateReadbackVerificationService verifier;
+    const SearchTimerWorkflowBackendReadbackVerificationResult verification =
+        verifier.verify(
+            executorResult,
+            options.readbackDataSource());
+
+    result.attachBackendReadbackVerification(verification);
+    appendReadbackAuditEntry(
+        result,
+        verification.passed());
+
+    if (!verification.passed())
+    {
+        result.dispatchStage =
+            "backend-readback-verification-failed";
+    }
+}
+
+void attachUpdateReadbackVerificationIfRequired(
+    SearchTimerWorkflowExecutionResult& result,
+    const SearchTimerWorkflowExecutionPlan& plan,
+    const SearchTimerUpdateResult& executorResult,
+    const SearchTimerWorkflowCommandDispatchOptions& options)
+{
+    if (!executorResult.success || !plan.requiresBackendReadback())
+    {
+        return;
+    }
+
+    SearchTimerWorkflowUpdateReadbackVerificationService verifier;
+    const SearchTimerWorkflowBackendReadbackVerificationResult verification =
+        verifier.verify(
+            executorResult,
+            options.readbackDataSource());
+
+    result.attachBackendReadbackVerification(verification);
+    appendReadbackAuditEntry(
+        result,
+        verification.passed());
+
+    if (!verification.passed())
+    {
+        result.dispatchStage =
+            "backend-readback-verification-failed";
+    }
+}
+
+void attachDeleteReadbackVerificationIfRequired(
+    SearchTimerWorkflowExecutionResult& result,
+    const SearchTimerWorkflowExecutionPlan& plan,
+    const SearchTimerDeleteResult& executorResult,
+    const SearchTimerWorkflowCommandDispatchOptions& options)
+{
+    if (!executorResult.success || !plan.requiresBackendReadback())
+    {
+        return;
+    }
+
+    SearchTimerWorkflowDeleteAbsenceVerificationService verifier;
+    const SearchTimerWorkflowBackendReadbackVerificationResult verification =
+        verifier.verify(
+            executorResult,
+            options.readbackDataSource());
+
+    result.attachBackendReadbackVerification(verification);
+    appendReadbackAuditEntry(
+        result,
+        verification.passed());
+
+    if (!verification.passed())
+    {
+        result.dispatchStage =
+            "backend-readback-verification-failed";
+    }
+}
 
 } // namespace
 
@@ -329,6 +431,11 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                     resultMapper.mapCreateResult(
                         plan,
                         executorResult);
+                attachCreateReadbackVerificationIfRequired(
+                    mappedResult,
+                    plan,
+                    executorResult,
+                    options);
                 auditTrail.push_back("executorInvocationAttempted=true");
                 auditTrail.push_back("executorResultMapped=true");
                 auditTrail.push_back(
@@ -351,6 +458,11 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                     resultMapper.mapUpdateResult(
                         plan,
                         executorResult);
+                attachUpdateReadbackVerificationIfRequired(
+                    mappedResult,
+                    plan,
+                    executorResult,
+                    options);
                 auditTrail.push_back("executorInvocationAttempted=true");
                 auditTrail.push_back("executorResultMapped=true");
                 auditTrail.push_back(
@@ -373,6 +485,11 @@ SearchTimerWorkflowCommandDispatchService::dispatchPlan(
                     resultMapper.mapDeleteResult(
                         plan,
                         executorResult);
+                attachDeleteReadbackVerificationIfRequired(
+                    mappedResult,
+                    plan,
+                    executorResult,
+                    options);
                 auditTrail.push_back("executorInvocationAttempted=true");
                 auditTrail.push_back("executorResultMapped=true");
                 auditTrail.push_back(

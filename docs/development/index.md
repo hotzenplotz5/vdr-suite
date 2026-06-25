@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 50.46 - SearchTimer workflow delete absence verification service
+Phase 50.47 - SearchTimer workflow readback services dispatch integration
 ```
 
 Next implementation focus:
 
 ```text
-Phase 50.47 - SearchTimer workflow readback services dispatch integration
+Phase 50.48 - SearchTimer workflow verified execution REST contract
 ```
 
 Current architecture validation:
@@ -92,6 +92,7 @@ Current architecture validation:
 - [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
 - [SearchTimer Delete Absence Verification Plan](searchtimer-delete-absence-verification-plan.md)
 - [SearchTimer Delete Absence Verification Service](searchtimer-delete-absence-verification-service.md)
+- [SearchTimer Readback Services Dispatch Integration](searchtimer-readback-services-dispatch-integration.md)
 - [EPGSearch Result Model Audit](epgsearch-result-model-audit.md)
 - [EPGSearch Query Alignment Audit](epgsearch-query-alignment-audit.md)
 - [EPGSearch Test Coverage Audit](epgsearch-test-coverage-audit.md)

@@ -1,9 +1,121 @@
 #include "SearchTimerWorkflowCommandDispatchService.h"
 
+#include "ISearchTimerDataSource.h"
+#include "SearchTimer.h"
+#include "SearchTimerQuery.h"
+#include "SearchTimerResult.h"
+#include "SearchTimerService.h"
 #include "SearchTimerWorkflowPlanningService.h"
 
 #include <cassert>
 #include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
+
+SearchTimer makeTimer(
+    const std::string& backendId,
+    const std::string& nativeId,
+    const std::string& name,
+    const std::string& query,
+    SearchTimerState state)
+{
+    return SearchTimer::create(
+        SearchTimerId::fromBackendNativeId(
+            backendId,
+            nativeId),
+        name,
+        query,
+        state);
+}
+
+class StaticSearchTimerDataSource final : public ISearchTimerDataSource
+{
+public:
+    explicit StaticSearchTimerDataSource(
+        std::vector<SearchTimer> timers)
+        : timers_(std::move(timers))
+    {
+    }
+
+    SearchTimerResult list(
+        const SearchTimerQuery& query) const override
+    {
+        return service_.list(
+            timers_,
+            query);
+    }
+
+private:
+    std::vector<SearchTimer> timers_;
+    SearchTimerService service_;
+};
+
+class SuccessfulSearchTimerCommandExecutor : public ISearchTimerCommandExecutor
+{
+public:
+    SearchTimerCreateResult create(
+        const SearchTimerCreateRequest& request) override
+    {
+        ++createCalls_;
+        return SearchTimerCreateResult::ok(
+            makeTimer(
+                request.backendId,
+                "created-native-1",
+                request.name,
+                request.query,
+                request.active
+                    ? SearchTimerState::Active
+                    : SearchTimerState::Inactive),
+            "create ok");
+    }
+
+    SearchTimerUpdateResult update(
+        const SearchTimerUpdateRequest& request) override
+    {
+        ++updateCalls_;
+        return SearchTimerUpdateResult::ok(
+            makeTimer(
+                request.backendId,
+                request.backendNativeId,
+                request.name,
+                request.query,
+                request.active
+                    ? SearchTimerState::Active
+                    : SearchTimerState::Inactive),
+            "update ok");
+    }
+
+    SearchTimerDeleteResult remove(
+        const SearchTimerDeleteRequest& request) override
+    {
+        ++deleteCalls_;
+        return SearchTimerDeleteResult::ok(
+            request.backendId,
+            request.backendNativeId,
+            "delete ok");
+    }
+
+    int createCalls() const
+    {
+        return createCalls_;
+    }
+
+    int updateCalls() const
+    {
+        return updateCalls_;
+    }
+
+    int deleteCalls() const
+    {
+        return deleteCalls_;
+    }
+
+private:
+    int createCalls_ = 0;
+    int updateCalls_ = 0;
+    int deleteCalls_ = 0;
+};
 
 class FakeSearchTimerCommandExecutor : public ISearchTimerCommandExecutor
 {
@@ -48,8 +160,6 @@ private:
     int updateCalls_ = 0;
     int deleteCalls_ = 0;
 };
-
-#include <string>
 
 int main()
 {
@@ -322,12 +432,150 @@ int main()
     assert(!acceptedDelete.executorInvocationKillSwitchOpen);
     assert(!acceptedDelete.executorInvocationKillSwitchPassed);
     assert(acceptedDelete.dispatchStage == "command-request-mapped");
-    assert(!acceptedDelete.requiresBackendReadback);
+    assert(acceptedDelete.requiresBackendReadback);
     assert(acceptedDelete.backendId == "archive-vdr");
     assert(acceptedDelete.backendNativeId == "searchtimer-99");
     assert(acceptedDelete.operation == SearchTimerWorkflowOperation::Delete);
     assert(acceptedDelete.primaryStep == SearchTimerWorkflowExecutionStep::Delete);
+    assert(acceptedDelete.followUpStep == SearchTimerWorkflowExecutionStep::Readback);
     assert(acceptedDelete.message == "delete command request accepted by dispatch skeleton");
+
+    SuccessfulSearchTimerCommandExecutor successfulExecutor;
+
+    const auto controlledReadbackCreatePlan =
+        planningService.plan(
+            SearchTimerWorkflowRequest::create(
+                "home-vdr",
+                "Terra X Execute Verified",
+                "Terra X")
+                .withExecutionMode(SearchTimerWorkflowExecutionMode::Execute));
+
+    StaticSearchTimerDataSource createReadbackDataSource({
+        makeTimer(
+            "home-vdr",
+            "created-native-1",
+            "Terra X Execute Verified",
+            "Terra X",
+            SearchTimerState::Active)
+    });
+
+    const SearchTimerWorkflowExecutionResult controlledCreateWithReadback =
+        dispatchService.dispatchPlan(
+            controlledReadbackCreatePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocationAndReadbackDataSource(
+                true,
+                &successfulExecutor,
+                &createReadbackDataSource));
+
+    assert(controlledCreateWithReadback.success);
+    assert(controlledCreateWithReadback.executed);
+    assert(!controlledCreateWithReadback.blocked);
+    assert(!controlledCreateWithReadback.dryRunOnly);
+    assert(controlledCreateWithReadback.requiresBackendReadback);
+    assert(controlledCreateWithReadback.backendReadbackVerificationAttached);
+    assert(controlledCreateWithReadback.backendReadbackVerified());
+    assert(controlledCreateWithReadback.backendReadbackVerification.passed());
+    assert(controlledCreateWithReadback.backendNativeId == "created-native-1");
+    assert(controlledCreateWithReadback.dispatchStage == "executor-result-mapped");
+    assert(successfulExecutor.createCalls() == 1);
+
+    SuccessfulSearchTimerCommandExecutor updateExecutor;
+
+    const auto controlledReadbackUpdatePlan =
+        planningService.plan(
+            SearchTimerWorkflowRequest::update(
+                "remote-vdr",
+                "searchtimer-42",
+                "Terra X Aktualisiert",
+                "Terra X neu")
+                .withExecutionMode(SearchTimerWorkflowExecutionMode::Execute));
+
+    StaticSearchTimerDataSource updateReadbackDataSource({
+        makeTimer(
+            "remote-vdr",
+            "searchtimer-42",
+            "Terra X Aktualisiert",
+            "Terra X neu",
+            SearchTimerState::Active)
+    });
+
+    const SearchTimerWorkflowExecutionResult controlledUpdateWithReadback =
+        dispatchService.dispatchPlan(
+            controlledReadbackUpdatePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocationAndReadbackDataSource(
+                true,
+                &updateExecutor,
+                &updateReadbackDataSource));
+
+    assert(controlledUpdateWithReadback.success);
+    assert(controlledUpdateWithReadback.executed);
+    assert(controlledUpdateWithReadback.requiresBackendReadback);
+    assert(controlledUpdateWithReadback.backendReadbackVerificationAttached);
+    assert(controlledUpdateWithReadback.backendReadbackVerified());
+    assert(controlledUpdateWithReadback.backendReadbackVerification.passed());
+    assert(controlledUpdateWithReadback.backendNativeId == "searchtimer-42");
+    assert(controlledUpdateWithReadback.dispatchStage == "executor-result-mapped");
+    assert(updateExecutor.updateCalls() == 1);
+
+    SuccessfulSearchTimerCommandExecutor deleteExecutor;
+
+    const auto controlledReadbackDeletePlan =
+        planningService.plan(
+            SearchTimerWorkflowRequest::remove(
+                "archive-vdr",
+                "searchtimer-99")
+                .withExecutionMode(SearchTimerWorkflowExecutionMode::Execute));
+
+    StaticSearchTimerDataSource deleteReadbackDataSource({
+        makeTimer(
+            "archive-vdr",
+            "other-native",
+            "Other SearchTimer",
+            "Other",
+            SearchTimerState::Active)
+    });
+
+    const SearchTimerWorkflowExecutionResult controlledDeleteWithReadback =
+        dispatchService.dispatchPlan(
+            controlledReadbackDeletePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocationAndReadbackDataSource(
+                true,
+                &deleteExecutor,
+                &deleteReadbackDataSource));
+
+    assert(controlledDeleteWithReadback.success);
+    assert(controlledDeleteWithReadback.executed);
+    assert(controlledDeleteWithReadback.requiresBackendReadback);
+    assert(controlledDeleteWithReadback.backendReadbackVerificationAttached);
+    assert(controlledDeleteWithReadback.backendReadbackVerified());
+    assert(controlledDeleteWithReadback.backendReadbackVerification.passed());
+    assert(controlledDeleteWithReadback.backendNativeId == "searchtimer-99");
+    assert(controlledDeleteWithReadback.dispatchStage == "executor-result-mapped");
+    assert(deleteExecutor.deleteCalls() == 1);
+
+    SuccessfulSearchTimerCommandExecutor failedReadbackExecutor;
+
+    const auto failedReadbackCreatePlan =
+        planningService.plan(
+            SearchTimerWorkflowRequest::create(
+                "home-vdr",
+                "Missing Readback",
+                "Missing")
+                .withExecutionMode(SearchTimerWorkflowExecutionMode::Execute));
+
+    const SearchTimerWorkflowExecutionResult createWithoutReadbackDataSource =
+        dispatchService.dispatchPlan(
+            failedReadbackCreatePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocation(
+                true,
+                &failedReadbackExecutor));
+
+    assert(!createWithoutReadbackDataSource.success);
+    assert(createWithoutReadbackDataSource.executed);
+    assert(createWithoutReadbackDataSource.backendReadbackVerificationAttached);
+    assert(!createWithoutReadbackDataSource.backendReadbackVerified());
+    assert(createWithoutReadbackDataSource.hasErrors());
+    assert(createWithoutReadbackDataSource.dispatchStage == "backend-readback-verification-failed");
 
     const auto listPlan =
         planningService.plan(

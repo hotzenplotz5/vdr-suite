@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ISearchTimerCommandExecutor.h"
+#include "ISearchTimerDataSource.h"
 
 #include <string>
 #include <vector>
@@ -54,6 +55,21 @@ public:
         options.executorOptInEnabled_ = true;
         options.commandExecutor_ = executor;
         options.controlledTestExecutorInvocationEnabled_ = true;
+        return options;
+    }
+
+    static SearchTimerWorkflowCommandDispatchOptions confirmedWithControlledTestExecutorInvocationAndReadbackDataSource(
+        bool explicitOperatorConfirmation,
+        ISearchTimerCommandExecutor* executor,
+        const ISearchTimerDataSource* readbackDataSource)
+    {
+        SearchTimerWorkflowCommandDispatchOptions options;
+        options.explicitOperatorConfirmation_ =
+            explicitOperatorConfirmation;
+        options.executorOptInEnabled_ = true;
+        options.commandExecutor_ = executor;
+        options.controlledTestExecutorInvocationEnabled_ = true;
+        options.readbackDataSource_ = readbackDataSource;
         return options;
     }
 
@@ -145,6 +161,16 @@ public:
         return commandExecutor_;
     }
 
+    bool hasReadbackDataSource() const
+    {
+        return readbackDataSource_ != nullptr;
+    }
+
+    const ISearchTimerDataSource* readbackDataSource() const
+    {
+        return readbackDataSource_;
+    }
+
     bool controlledTestExecutorInvocationEnabled() const
     {
         return controlledTestExecutorInvocationEnabled_;
@@ -184,6 +210,7 @@ private:
     bool explicitOperatorConfirmation_ = false;
     bool executorOptInEnabled_ = false;
     ISearchTimerCommandExecutor* commandExecutor_ = nullptr;
+    const ISearchTimerDataSource* readbackDataSource_ = nullptr;
     bool controlledTestExecutorInvocationEnabled_ = false;
     bool productionRealExecutionEnabled_ = false;
     bool backendWriteAllowlistEnabled_ = false;

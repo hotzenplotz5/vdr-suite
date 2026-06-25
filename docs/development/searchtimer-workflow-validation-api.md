@@ -22,6 +22,7 @@
 - [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
 - [SearchTimer Delete Absence Verification Plan](searchtimer-delete-absence-verification-plan.md)
 - [SearchTimer Delete Absence Verification Service](searchtimer-delete-absence-verification-service.md)
+- [SearchTimer Readback Services Dispatch Integration](searchtimer-readback-services-dispatch-integration.md)
 
 ---
 
@@ -1004,6 +1005,16 @@ Production execution still requires later phases for:
 - mandatory backend readback verification
 - failure compensation behavior
 - REST production execution boundary
+
+### Readback Services Dispatch Integration
+
+Phase 50.47 integrates create, update and delete readback services into controlled SearchTimer command dispatch.
+
+Full integration documentation:
+
+- [SearchTimer Readback Services Dispatch Integration](searchtimer-readback-services-dispatch-integration.md)
+
+---
 
 ### Delete Absence Verification Service
 

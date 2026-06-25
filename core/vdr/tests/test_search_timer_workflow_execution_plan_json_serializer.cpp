@@ -100,8 +100,8 @@ int main()
 
     assert(deleteJson.find("\"operation\":\"delete\"") != std::string::npos);
     assert(deleteJson.find("\"primaryStep\":\"delete\"") != std::string::npos);
-    assert(deleteJson.find("\"followUpStep\":\"none\"") != std::string::npos);
-    assert(deleteJson.find("\"requiresBackendReadback\":false") != std::string::npos);
+    assert(deleteJson.find("\"followUpStep\":\"readback\"") != std::string::npos);
+    assert(deleteJson.find("\"requiresBackendReadback\":true") != std::string::npos);
     assert(deleteJson.find("\"requiresExplicitOperatorConfirmation\":true") != std::string::npos);
 
     const std::string invalidJson =

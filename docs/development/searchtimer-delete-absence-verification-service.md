@@ -9,6 +9,7 @@
 - [Completed Phases](completed-phases.md)
 - [SearchTimer Delete Absence Verification Plan](searchtimer-delete-absence-verification-plan.md)
 - [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
+- [SearchTimer Readback Services Dispatch Integration](searchtimer-readback-services-dispatch-integration.md)
 
 ---
 
@@ -68,6 +69,18 @@ Important audit keys:
 - `readbackReturnedCount`
 - `sameNativeIdCount`
 - `absenceVerified`
+
+---
+
+## Dispatch Integration
+
+Phase 50.47 integrates this service into the SearchTimer command dispatch path.
+
+Successful delete executor results can now be followed by absence verification and attached to the workflow execution result.
+
+Full integration documentation:
+
+- [SearchTimer Readback Services Dispatch Integration](searchtimer-readback-services-dispatch-integration.md)
 
 ---
 

@@ -77,10 +77,10 @@ int main()
     assert(!deleteResult.blocked);
     assert(deleteResult.confirmationProvided);
     assert(deleteResult.requiresExplicitOperatorConfirmation);
-    assert(!deleteResult.requiresBackendReadback);
+    assert(deleteResult.requiresBackendReadback);
     assert(deleteResult.operation == SearchTimerWorkflowOperation::Delete);
     assert(deleteResult.primaryStep == SearchTimerWorkflowExecutionStep::Delete);
-    assert(deleteResult.followUpStep == SearchTimerWorkflowExecutionStep::None);
+    assert(deleteResult.followUpStep == SearchTimerWorkflowExecutionStep::Readback);
     assert(deleteResult.backendNativeId == "searchtimer-42");
 
     const auto invalidPlan =

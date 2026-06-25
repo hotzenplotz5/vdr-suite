@@ -951,6 +951,9 @@ test-search-timer-controller:
 		core/vdr/src/SearchTimerWorkflowGuardedExecutorInvocation.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \
+		core/vdr/src/SearchTimerWorkflowCreateReadbackVerificationService.cpp \
+		core/vdr/src/SearchTimerWorkflowUpdateReadbackVerificationService.cpp \
+		core/vdr/src/SearchTimerWorkflowDeleteAbsenceVerificationService.cpp \
 		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutionService.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutionResultJsonSerializer.cpp \
@@ -1051,6 +1054,7 @@ test-search-timer-workflow-execution-result-json-serializer:
 
 test-search-timer-workflow-command-dispatch-service:
 	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerService.cpp \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
@@ -1060,6 +1064,9 @@ test-search-timer-workflow-command-dispatch-service:
 		core/vdr/src/SearchTimerWorkflowGuardedExecutorInvocation.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \
+		core/vdr/src/SearchTimerWorkflowCreateReadbackVerificationService.cpp \
+		core/vdr/src/SearchTimerWorkflowUpdateReadbackVerificationService.cpp \
+		core/vdr/src/SearchTimerWorkflowDeleteAbsenceVerificationService.cpp \
 		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
 		core/vdr/tests/test_search_timer_workflow_command_dispatch_service.cpp \
 		-o /tmp/test_search_timer_workflow_command_dispatch_service
@@ -1163,6 +1170,9 @@ test-search-timer-workflow-controlled-invocation-audit-trail:
 		core/vdr/src/SearchTimerWorkflowGuardedExecutorInvocation.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \
+		core/vdr/src/SearchTimerWorkflowCreateReadbackVerificationService.cpp \
+		core/vdr/src/SearchTimerWorkflowUpdateReadbackVerificationService.cpp \
+		core/vdr/src/SearchTimerWorkflowDeleteAbsenceVerificationService.cpp \
 		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
 		core/vdr/tests/test_search_timer_workflow_controlled_invocation_audit_trail.cpp \
 		-o /tmp/test_search_timer_workflow_controlled_invocation_audit_trail
@@ -1179,6 +1189,9 @@ test-search-timer-workflow-controlled-test-executor-invocation:
 		core/vdr/src/SearchTimerWorkflowGuardedExecutorInvocation.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutorInvocationKillSwitch.cpp \
 		core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \
+		core/vdr/src/SearchTimerWorkflowCreateReadbackVerificationService.cpp \
+		core/vdr/src/SearchTimerWorkflowUpdateReadbackVerificationService.cpp \
+		core/vdr/src/SearchTimerWorkflowDeleteAbsenceVerificationService.cpp \
 		core/vdr/src/SearchTimerWorkflowCommandDispatchService.cpp \
 		core/vdr/tests/test_search_timer_workflow_controlled_test_executor_invocation.cpp \
 		-o /tmp/test_search_timer_workflow_controlled_test_executor_invocation
