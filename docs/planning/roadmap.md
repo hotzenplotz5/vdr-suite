@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 51.2 - Live parity discovery JSON contract
+Phase 51.3 - Live parity discovery REST controller contract
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 51.3 - Live parity discovery REST controller contract
+Phase 51.4 - Live parity discovery service contract
 ```
 
 ---
@@ -359,8 +359,14 @@ Phase 51.2 result:
 - Serialized backendId, counts, Extended EPG info, channel groups, blacklists and recording directories.
 - Kept the phase read-only with no REST route, no backend transport and no backend mutation.
 
+Phase 51.3 result:
+- Added SearchTimerDiscoveryController as a read-only ApiResponse boundary.
+- Exposed a supplied SearchTimerDiscoveryCatalog through the stable discovery JSON serializer.
+- Covered statusCode, contentType and JSON body contract with a targeted controller test.
+- Kept the phase free of ApiRouter wiring, backend transport and backend mutation.
+
 Next implementation step:
-- Phase 51.3 - Live parity discovery REST controller contract.
+- Phase 51.4 - Live parity discovery service contract.
 
 Expected outcomes:
 - Broader EPG detail coverage.

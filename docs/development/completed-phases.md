@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 51.3 - Live parity discovery REST controller contract
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerDiscoveryController as a read-only REST response boundary.
+- Returned ApiResponse with statusCode 200, contentType application/json and SearchTimerDiscoveryJsonSerializer body.
+- Added a targeted controller unit test for status, content type and JSON body contract.
+- Wired the test into Makefile and local VDR test grouping.
+- Documented the controller contract and preserved the no-router, no-transport, no-mutation boundary.
+
+---
+
 ## Phase 51.2 - Live parity discovery JSON contract
 
 Status: Completed.

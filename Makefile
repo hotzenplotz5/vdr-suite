@@ -967,6 +967,13 @@ test-search-timer-controller:
 		api/rest/tests/test_search_timer_controller.cpp \
 		-o /tmp/test_search_timer_controller
 	/tmp/test_search_timer_controller
+test-search-timer-discovery-controller:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerDiscoveryJsonSerializer.cpp \
+		api/rest/src/SearchTimerDiscoveryController.cpp \
+		api/rest/tests/test_search_timer_discovery_controller.cpp \
+		-o /tmp/test_search_timer_discovery_controller
+	/tmp/test_search_timer_discovery_controller
 test-search-timer-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
@@ -1542,6 +1549,7 @@ test: test-restfulapi-executor-basic-http-client-socket-smoke test-preview-execu
 clean:
 	rm -f /tmp/test_search_timer_discovery
 	rm -f /tmp/test_search_timer_discovery_json_serializer
+	rm -f /tmp/test_search_timer_discovery_controller
 	rm -f /tmp/test_database
 	rm -f /tmp/test_recording_repository
 	rm -f /tmp/test_recording_service
