@@ -117,4 +117,3 @@ The next major direction is Live plugin parity: improving information quality, E
 
 - [Back to Development Index](index.md)
 - [Back to Roadmap](../planning/roadmap.md)
-

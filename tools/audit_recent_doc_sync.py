@@ -154,16 +154,19 @@ def check_progress_source():
     problems = []
 
     required = [
-        "overall|78",
+        "overall|80",
         "SearchTimer Backend Foundation|100|completed",
-        "SearchTimer User Workflow|0|in progress",
-        "Phase 50.0 - SearchTimer user workflow foundation",
+        "SearchTimer User Workflow|100|completed",
+        "Phase 51.0 - Live plugin parity foundation kickoff",
     ]
 
     forbidden = [
         "overall|77",
+        "overall|78",
         "SearchTimer Foundation|95|in progress",
+        "SearchTimer User Workflow|0|in progress",
         "Phase 47.0 - SearchTimer Foundation",
+        "Phase 50.0 - SearchTimer user workflow foundation",
     ]
 
     for marker in required:
