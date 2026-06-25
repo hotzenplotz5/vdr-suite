@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 52.2 - SearchTimer automation match candidate model
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerAutomationMatchCandidate as the read-only SearchTimer automation candidate model.
+- Modeled backend id, SearchTimer id, EPG event id, event metadata, match score and match reasons.
+- Enforced dry-run-only, no-mutation, no-timer-proposal and duplicate-check-required invariants.
+- Covered validation, score clamping, time clamping and safety behavior with a targeted unit test.
+- Kept the phase free of matching execution, duplicate decisions, candidate timer creation, REST endpoints, daemon scheduling and backend mutation.
+
+---
+
 ## Phase 52.1 - SearchTimer automation evaluation plan model
 
 Status: Completed.

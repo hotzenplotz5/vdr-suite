@@ -25,7 +25,7 @@ The generated progress blocks are written by:
 
 ## Overall Progress
 
-overall|93
+overall|94
 
 ---
 
@@ -40,7 +40,7 @@ Documentation Foundation|100|completed
 SearchTimer Backend Foundation|100|completed
 SearchTimer User Workflow|100|completed
 Live Plugin Parity Foundation|100|completed
-Automation Foundation|15|in progress
+Automation Foundation|20|in progress
 Federation Foundation|0|planned
 Frontend Foundation|0|planned
 
@@ -48,7 +48,7 @@ Frontend Foundation|0|planned
 
 ## Current Milestone
 
-Phase 52.2 - SearchTimer automation match candidate model
+Phase 52.3 - SearchTimer automation duplicate detection model
 
 ---
 

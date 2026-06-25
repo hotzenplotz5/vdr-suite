@@ -154,10 +154,10 @@ def check_progress_source():
     problems = []
 
     required = [
-        "overall|93",
+        "overall|94",
         "SearchTimer Backend Foundation|100|completed",
         "SearchTimer User Workflow|100|completed",
-        "Phase 52.2 - SearchTimer automation match candidate model",
+        "Phase 52.3 - SearchTimer automation duplicate detection model",
     ]
 
     forbidden = [

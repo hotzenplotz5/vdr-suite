@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 52.1 - SearchTimer automation evaluation plan model
+Phase 52.2 - SearchTimer automation match candidate model
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 52.2 - SearchTimer automation match candidate model
+Phase 52.3 - SearchTimer automation duplicate detection model
 ```
 
 ---
@@ -453,6 +453,13 @@ Phase 52.1 result:
 - Hard-coded dry-run-only, no-mutation and no-scheduled-execution guarantees.
 - Covered validation and safety invariants with a targeted unit test.
 - Kept the phase free of EPG matching, duplicate detection, candidate creation, REST endpoints, daemon scheduling and mutation.
+
+Phase 52.2 result:
+- Added SearchTimerAutomationMatchCandidate as the read-only candidate model.
+- Modeled backend id, SearchTimer id, EPG event id, event metadata, score and match reasons.
+- Preserved dry-run-only, no-mutation, no-timer-proposal and duplicate-check-required invariants.
+- Covered validation, clamping and safety behavior with a targeted unit test.
+- Kept the phase free of matching execution, duplicate decisions, candidate timer creation, REST endpoints, daemon scheduling and mutation.
 
 Expected outcomes:
 - Scheduled SearchTimer evaluation.

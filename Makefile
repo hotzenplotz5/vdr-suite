@@ -1372,6 +1372,12 @@ test-search-timer-automation-evaluation-plan:
 		core/vdr/tests/test_search_timer_automation_evaluation_plan.cpp \
 		-o /tmp/test_search_timer_automation_evaluation_plan
 	/tmp/test_search_timer_automation_evaluation_plan
+
+test-search-timer-automation-match-candidate:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_search_timer_automation_match_candidate.cpp \
+		-o /tmp/test_search_timer_automation_match_candidate
+	/tmp/test_search_timer_automation_match_candidate
 test-epg-person-search-result:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_person_search_result.cpp \
@@ -1582,6 +1588,7 @@ clean:
 	rm -f /tmp/test_search_timer_discovery_static_provider
 	rm -f /tmp/test_restfulapi_search_timer_discovery_provider_contract
 	rm -f /tmp/test_search_timer_automation_evaluation_plan
+	rm -f /tmp/test_search_timer_automation_match_candidate
 	rm -f /tmp/test_search_timer_discovery_json_serializer
 	rm -f /tmp/test_search_timer_discovery_controller
 	rm -f /tmp/test_database
