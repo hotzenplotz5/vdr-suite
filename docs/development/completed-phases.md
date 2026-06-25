@@ -200,6 +200,19 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+## Phase 52.5 - SearchTimer automation dry-run result serializer
+
+Status: Completed.
+
+Summary:
+- Added SearchTimerAutomationDryRunResult as the read-only SearchTimer automation dry-run aggregate.
+- Added SearchTimerAutomationDryRunResultJsonSerializer for frontend-visible dry-run JSON.
+- Serialized evaluation plan state, match candidates, duplicate detections, candidate timer proposals, warnings, errors and audit trail.
+- Enforced dry-run-only, no-mutation, no-timer-creation, no-backend-write, no-automatic-execution and explicit handoff invariants.
+- Kept the phase free of services, REST endpoints, daemon scheduling and backend mutation.
+
+---
+
 ## Phase 52.4 - SearchTimer automation candidate timer proposal model
 
 Status: Completed.

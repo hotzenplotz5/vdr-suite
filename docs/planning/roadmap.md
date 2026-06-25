@@ -16,13 +16,13 @@
 
 ```text
 Completed implementation state
-Phase 52.4 - SearchTimer automation candidate timer proposal model
+Phase 52.5 - SearchTimer automation dry-run result serializer
 
 Documentation consolidation step
 Phase 46.38 - Roadmap and Milestone Refresh
 
 Next major implementation milestone
-Phase 52.5 - SearchTimer automation dry-run result serializer
+Phase 52.6 - SearchTimer automation read-only service boundary
 ```
 
 ---
@@ -474,6 +474,13 @@ Phase 52.4 result:
 - Preserved dry-run-only, no-mutation, no-timer-creation, no-backend-write and no-automatic-execution invariants.
 - Covered proposal construction, duplicate blocking, validation, clamping and safety behavior with a targeted unit test.
 - Kept the phase free of proposal services, serializers, REST endpoints, daemon scheduling and backend mutation.
+
+Phase 52.5 result:
+- Added SearchTimerAutomationDryRunResult as the read-only dry-run aggregate.
+- Added SearchTimerAutomationDryRunResultJsonSerializer for frontend-visible dry-run JSON.
+- Serialized evaluation plan state, match candidates, duplicate detections, candidate timer proposals, warnings, errors and audit trail.
+- Preserved dry-run-only, no-mutation, no-timer-creation, no-backend-write and no-automatic-execution invariants.
+- Kept the phase free of services, REST endpoints, daemon scheduling and backend mutation.
 
 Expected outcomes:
 - Scheduled SearchTimer evaluation.

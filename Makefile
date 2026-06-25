@@ -1390,6 +1390,13 @@ test-search-timer-automation-candidate-timer-proposal:
 		core/vdr/tests/test_search_timer_automation_candidate_timer_proposal.cpp \
 		-o /tmp/test_search_timer_automation_candidate_timer_proposal
 	/tmp/test_search_timer_automation_candidate_timer_proposal
+
+test-search-timer-automation-dry-run-result-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerAutomationDryRunResultJsonSerializer.cpp \
+		core/vdr/tests/test_search_timer_automation_dry_run_result_json_serializer.cpp \
+		-o /tmp/test_search_timer_automation_dry_run_result_json_serializer
+	/tmp/test_search_timer_automation_dry_run_result_json_serializer
 test-epg-person-search-result:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_person_search_result.cpp \
@@ -1603,6 +1610,7 @@ clean:
 	rm -f /tmp/test_search_timer_automation_match_candidate
 	rm -f /tmp/test_search_timer_automation_duplicate_detection
 	rm -f /tmp/test_search_timer_automation_candidate_timer_proposal
+	rm -f /tmp/test_search_timer_automation_dry_run_result_json_serializer
 	rm -f /tmp/test_search_timer_discovery_json_serializer
 	rm -f /tmp/test_search_timer_discovery_controller
 	rm -f /tmp/test_database

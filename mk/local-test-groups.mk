@@ -68,6 +68,7 @@ test-vdr: \
 	test-search-timer-automation-match-candidate \
 	test-search-timer-automation-duplicate-detection \
 	test-search-timer-automation-candidate-timer-proposal \
+	test-search-timer-automation-dry-run-result-json-serializer \
 	test-search-timer-discovery-json-serializer \
 	test-search-timer-discovery-controller \
 	test-search-timer-workflow-execution-result-json-serializer \

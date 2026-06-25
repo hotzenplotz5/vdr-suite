@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 52.4 - SearchTimer automation candidate timer proposal model
+Phase 52.5 - SearchTimer automation dry-run result serializer
 ```
 
 Next implementation focus:
 
 ```text
-Phase 52.5 - SearchTimer automation dry-run result serializer
+Phase 52.6 - SearchTimer automation read-only service boundary
 ```
 
 Current architecture validation:
@@ -94,6 +94,7 @@ Current architecture validation:
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
 - [SearchTimer Automation Duplicate Detection Model](searchtimer-automation-duplicate-detection-model.md)
 - [SearchTimer Automation Candidate Timer Proposal Model](searchtimer-automation-candidate-timer-proposal-model.md)
+- [SearchTimer Automation Dry-Run Result Serializer](searchtimer-automation-dry-run-result-serializer.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)
