@@ -12,6 +12,7 @@
 - [SearchTimer Create Readback Verification Service](searchtimer-create-readback-verification-service.md)
 - [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
 - [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
+- [SearchTimer Delete Absence Verification Service](searchtimer-delete-absence-verification-service.md)
 
 ---
 
@@ -130,6 +131,15 @@ The service should produce:
 
 ---
 
+## Implemented Service
+
+Phase 50.46 implements the delete absence verification service planned here.
+
+Full service documentation:
+
+- [SearchTimer Delete Absence Verification Service](searchtimer-delete-absence-verification-service.md)
+
+---
 ## Non-Goals
 
 Phase 50.45 does not:

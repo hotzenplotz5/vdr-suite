@@ -49,6 +49,7 @@ VDR_SRC := \
         core/vdr/src/SearchTimerWorkflowExecutionService.cpp \
         core/vdr/src/SearchTimerWorkflowCreateReadbackVerificationService.cpp \
         core/vdr/src/SearchTimerWorkflowUpdateReadbackVerificationService.cpp \
+        core/vdr/src/SearchTimerWorkflowDeleteAbsenceVerificationService.cpp \
         core/vdr/src/SearchTimerWorkflowExecutionResultJsonSerializer.cpp \
         core/vdr/src/SearchTimerWorkflowExecutionPlanJsonSerializer.cpp \
         core/vdr/src/SearchTimerWorkflowValidationResultJsonSerializer.cpp \

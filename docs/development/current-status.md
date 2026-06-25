@@ -73,7 +73,7 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 50.45 - SearchTimer workflow delete absence verification plan
+Phase 50.46 - SearchTimer workflow delete absence verification service
 ```
 
 Current documentation consolidation state:
@@ -85,7 +85,7 @@ Phase 50.0 - SearchTimer user workflow foundation
 Next major implementation milestone:
 
 ```text
-Phase 50.46 - SearchTimer workflow delete absence verification service
+Phase 50.47 - SearchTimer workflow readback services dispatch integration
 ```
 
 Completed foundations:
@@ -275,7 +275,7 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 ## Next Technical Focus
 
 ```text
-Phase 50.46 - SearchTimer workflow delete absence verification service
+Phase 50.47 - SearchTimer workflow readback services dispatch integration
 ```
 
 The next implementation phase should add a controlled yaVDR real-test mode with operator-visible output.

@@ -21,6 +21,7 @@
 - [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
 - [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
 - [SearchTimer Delete Absence Verification Plan](searchtimer-delete-absence-verification-plan.md)
+- [SearchTimer Delete Absence Verification Service](searchtimer-delete-absence-verification-service.md)
 
 ---
 
@@ -1004,6 +1005,17 @@ Production execution still requires later phases for:
 - failure compensation behavior
 - REST production execution boundary
 
+### Delete Absence Verification Service
+
+Phase 50.46 adds the delete absence verification service.
+
+The service verifies that a successfully deleted backend-native SearchTimer id is no longer visible through backend readback.
+
+Full service documentation:
+
+- [SearchTimer Delete Absence Verification Service](searchtimer-delete-absence-verification-service.md)
+
+---
 ### Delete Absence Verification Plan
 
 Phase 50.45 defines the delete absence verification plan for future verified SearchTimer delete execution.

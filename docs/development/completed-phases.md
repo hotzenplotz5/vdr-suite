@@ -201,6 +201,19 @@ Planned next steps:
 
 ## Detailed Phase History
 
+## Phase 50.46 - SearchTimer workflow delete absence verification service
+
+Status: Completed.
+
+Summary:
+- Added `SearchTimerWorkflowDeleteAbsenceVerificationService`.
+- Verified delete success by proving backend-native id absence through `ISearchTimerDataSource`.
+- Reported failed delete, missing backend id, missing backend-native id, unavailable data source, still-visible deleted id and ambiguous deleted-id candidates.
+- Added focused unit coverage and a local Make target.
+- Added the target to the VDR local test group.
+- Kept production mutation closed.
+
+---
 ## Phase 50.45 - SearchTimer workflow delete absence verification plan
 
 Status: Completed.
