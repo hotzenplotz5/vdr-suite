@@ -40,6 +40,7 @@ Milestone progress:
     SearchTimer User Workflow           ██████████ 100%  completed
     SearchTimer Runtime Mutation Policy ██████████ 100%  completed
     SearchTimer Preview EPG Performance █░░░░░░░░░  10%  in progress
+    Lazy Recording Loading              ░░░░░░░░░░   0%  planned
     Live Plugin Parity Foundation       ██████████ 100%  completed
     Automation Foundation               ██████████ 100%  completed
     Federation Foundation               ░░░░░░░░░░   0%  planned
@@ -67,6 +68,10 @@ Current documentation consolidation:
 Next major implementation milestone:
 
     Phase 54.3 - SearchTimer warm EPG cache implementation
+
+Required planned follow-up:
+
+    Lazy Recording Loading and Backend-Scoped Recording Refresh
 
 Completed foundations:
 
@@ -135,6 +140,7 @@ Recordings:
 - Recording actions
 - Validation and execution services
 - Backend-aware recording handling
+- Lazy recording loading planned through ADR-0035
 
 Metadata:
 
@@ -163,6 +169,11 @@ ADR-0034 defines the SearchTimer preview EPG input rule:
     Do not fetch the full EPG dump during each interactive SearchTimer preview.
     Use a warm backend-scoped EPG cache with explicit readiness metadata.
 
+ADR-0035 defines the lazy recording loading rule:
+
+    Do not synchronously load recordings for all backends during daemon startup.
+    Load recordings backend-by-backend on demand with explicit loading state.
+
 Performance target:
 
 Backend workload should be comparable to established VDR frontends such as live when equivalent information is requested.
@@ -176,6 +187,7 @@ Backend workload should be comparable to established VDR frontends such as live 
 - Phase 52 - SearchTimer Automation Foundation
 - Phase 53 - Recommendation Foundation
 - Phase 54 - SearchTimer Preview Runtime and EPG Input Performance
+- Lazy Recording Loading - no startup recording load, backend-scoped on-demand refresh
 - Phase 55 - Backend Management and Client Administration Foundation
 - Later - Profiles, Permissions and Policy
 - Later - Unified Search Foundation
@@ -190,6 +202,7 @@ Project status:
 - [Project Status Dashboard](docs/project-status-dashboard.md)
 - [Current Project Status](docs/development/current-status.md)
 - [Roadmap](docs/planning/roadmap.md)
+- [Lazy Recording Loading](docs/planning/lazy-recording-loading.md)
 - [Completed Phases](docs/development/completed-phases.md)
 
 Developer documentation:
@@ -205,6 +218,7 @@ Architecture:
 - [ADR-0021 Selective Backend Query Strategy](docs/adr/ADR-0021-selective-backend-query-strategy.md)
 - [ADR-0028 Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md)
 - [ADR-0034 SearchTimer Warm EPG Cache and Change Invalidation](docs/adr/ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
+- [ADR-0035 Lazy Recording Loading and Backend-Scoped Refresh](docs/adr/ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
 
 Metadata:
 
@@ -218,32 +232,3 @@ Search:
 - [SearchTimer Backend Contract](docs/development/searchtimer-backend-contract.md)
 - [SearchTimer Real Payload Validation](docs/development/searchtimer-real-payload-validation.md)
 - [SearchTimer User Workflow Foundation](docs/development/searchtimer-user-workflow-foundation.md)
-- [SearchTimer Preview EPG Cache Strategy](docs/development/searchtimer-preview-epg-cache-strategy.md)
-- [EPGSearch Native Fuzzy Real Backend Validation](docs/development/epgsearch-native-fuzzy-real-backend-validation.md)
-
----
-
-## Start Here
-
-1. [Project Status Dashboard](docs/project-status-dashboard.md)
-2. [Current Project Status](docs/development/current-status.md)
-3. [Roadmap](docs/planning/roadmap.md)
-4. [Completed Phases](docs/development/completed-phases.md)
-5. [Project Overview](docs/project-overview.md)
-6. [Documentation Index](docs/index.md)
-7. [Developer Documentation](docs/development/index.md)
-8. [Architecture Index](docs/architecture/index.md)
-9. [ADR Index](docs/adr/index.md)
-
----
-
-## Documentation Navigation Rule
-
-The README is the repository entry point.
-
-Every documentation page should provide navigation back to:
-
-- [README](README.md)
-- [Documentation Index](docs/index.md)
-- [Project Overview](docs/project-overview.md)
-- the local section index when applicable
