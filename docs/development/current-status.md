@@ -8,6 +8,7 @@
 - [Development Index](index.md)
 - [Roadmap](../planning/roadmap.md)
 - [Lazy Recording Loading](../planning/lazy-recording-loading.md)
+- [Startup Snapshot Runtime Rule](startup-snapshot-runtime.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
 - [Completed Phases](completed-phases.md)
 
@@ -154,6 +155,7 @@ make test-phase
 - Phase 54.2 accepts ADR-0034 for warm EPG cache input, change-state invalidation and future SSE-triggered refresh.
 - Phase 54.3e verifies and documents the SearchTimer preview `epgInput` contract so non-ready EPG input is not hidden as a normal zero-match result.
 - ADR-0035 records that recordings are a heavy on-demand domain and must not be loaded synchronously for all backends during daemon startup.
+- Startup snapshot runtime is implemented for the initial poll: status, timers, SearchTimer metadata and channels may load, while recordings and full EPG events remain excluded from startup.
 
 ---
 
@@ -169,9 +171,10 @@ make test-phase
 - Snapshot access and snapshot read services support backend-aware reads.
 - VDR controller exposes default VDR reads, backend-specific reads and multi-backend snapshot summary reads.
 - PollingService and BackendPollingCoordinator support backend-aware polling coordination.
+- Initial PollingService startup snapshots intentionally skip recordings and full events so daemon startup remains lightweight.
 - VdrEventQuery provides the first backend-neutral selective EPG query contract.
 - Events and EPG are treated as heavy domains and are not automatically full-refreshed by default.
-- Recordings are also a heavy domain for startup and multi-backend runtime planning; future startup snapshots must not synchronously load recordings for every backend.
+- Recordings are also a heavy domain for startup and multi-backend runtime planning; startup snapshots must not synchronously load recordings for every backend.
 - EPG search operates over selective event windows and does not require a persistent full EPG mirror.
 - SearchTimer preview exposes `epgInput.status`, `epgInput.available` and `epgInput.warnings`: ready empty input is a valid zero-result preview, while warming, stale, unknown and unavailable input is non-authoritative.
 - Recording pages must eventually render before recordings are loaded and show backend-scoped loading state until the selected backend is ready.
@@ -199,6 +202,7 @@ Heavy domains currently include:
 
 Preferred runtime strategies are:
 
+- startup snapshots that exclude heavy domains
 - channel-scoped queries
 - time-window queries
 - object-specific queries
