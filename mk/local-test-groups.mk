@@ -135,6 +135,7 @@ test-backend-node:
 		-o /tmp/test_backend_node
 	/tmp/test_backend_node
 
+
 test-backend-registry:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
@@ -185,11 +186,14 @@ test-vdr-snapshot-read-service-searchtimer-preview-epg-cache:
 
 test-api-router-searchtimer-preview-epg-cache:
 	$(CXX) $(CXXFLAGS) \
-		core/vdr/src/SnapshotCache.cpp \
-		core/vdr/src/SnapshotCacheService.cpp \
-		core/vdr/src/SnapshotAccessService.cpp \
-		core/vdr/src/VdrSnapshotReadService.cpp \
-		core/vdr/src/SearchTimerPreviewEpgCache.cpp \
+		$(VDR_SRC) \
+		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
+		core/vdr/src/SearchTimerService.cpp \
+		api/rest/src/SearchTimerCreateRequestParser.cpp \
+		api/rest/src/SearchTimerUpdateRequestParser.cpp \
+		api/rest/src/SearchTimerDeleteRequestParser.cpp \
+		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
+		api/rest/src/SearchTimerController.cpp \
 		api/rest/tests/test_api_router_searchtimer_preview_epg_cache.cpp \
 		-o /tmp/test_api_router_searchtimer_preview_epg_cache
 	/tmp/test_api_router_searchtimer_preview_epg_cache
