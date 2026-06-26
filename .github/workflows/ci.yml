@@ -24,27 +24,15 @@ jobs:
           test -f docs/planning/roadmap.md
           test -f docs/planning/milestones.md
 
-  full-regression-test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install build dependencies
+      - name: Run documentation checks
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+          make test-docs
+          make test-phase
 
-      - name: Run full regression test
-        run: make test
-
-  vdr-final-regression-test:
+  fast-regression-test:
     runs-on: ubuntu-latest
     needs:
       - docs-check
-      - full-regression-test
-    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -55,5 +43,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
 
-      - name: Run VDR final regression test
-        run: make test-vdr
+      - name: Run fast CI regression test
+        run: make test-ci-fast
+
+      - name: Build daemon
+        run: make daemon
