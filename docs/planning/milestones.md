@@ -7,6 +7,7 @@
 - [Project Overview](../project-overview.md)
 - [Planning Index](index.md)
 - [Roadmap](roadmap.md)
+- [Lazy Recording Loading](lazy-recording-loading.md)
 - [Project Progress](project-progress.md)
 - [Current Project Status](../development/current-status.md)
 - [Completed Phases](../development/completed-phases.md)
@@ -20,6 +21,7 @@ This document is a lightweight planning entry point.
 The authoritative current planning state is maintained in:
 
 - [Roadmap](roadmap.md)
+- [Lazy Recording Loading](lazy-recording-loading.md)
 - [Project Progress](project-progress.md)
 - [Current Project Status](../development/current-status.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
@@ -35,22 +37,22 @@ Older milestone sketches that described Phase 28 through early multi-backend wor
 
 ## Current Position
 
-Current completed implementation phase:
+Current implementation focus:
 
 ```text
-Phase 49.30 - EPGSearch native fuzzy validation consolidation
+Phase 54.3 - SearchTimer warm EPG cache implementation
 ```
 
-Next major implementation milestone:
+Required planned follow-up:
 
 ```text
-Phase 50.0 - SearchTimer user workflow foundation
+Lazy Recording Loading and Backend-Scoped Recording Refresh
 ```
 
 Current planning focus:
 
 ```text
-SearchTimer user workflow foundation
+SearchTimer preview performance first; recording startup performance must remain tracked as a required follow-up.
 ```
 
 ---
@@ -58,6 +60,8 @@ SearchTimer user workflow foundation
 ## Active Planning Source
 
 Use [Roadmap](roadmap.md) for the current milestone order and long-term direction.
+
+Use [Lazy Recording Loading](lazy-recording-loading.md) for the mandatory no-startup-recording-load requirement.
 
 Use [Project Progress](project-progress.md) for high-level progress percentages and the active major milestone.
 
@@ -67,22 +71,23 @@ Use [Current Project Status](../development/current-status.md) for the verified 
 
 ## Current Implementation Direction
 
-Phase 50.0 should move from backend capability validation into user-facing SearchTimer workflow foundations.
+Phase 54.3 should finish the SearchTimer preview warm EPG cache and cache-status semantics.
 
-The next planning questions are:
+The required recording follow-up must ensure:
 
-- Which SearchTimer create/list/update/delete workflow contract is the minimum useful operator surface?
-- Which epgsearch and Live-style options are supported now?
-- Which unsupported options must stay explicit future scope?
-- Which parts are read-only validation and which parts mutate VDR-owned SearchTimer state?
-- How should backend identity remain visible for later multi-backend SearchTimer behavior?
+- daemon startup does not synchronously load recordings for all configured backends
+- recording lists are loaded backend-by-backend on demand
+- the recording page can render before recording data is available
+- the UI exposes loading, ready, stale and error states per backend
+- recording actions refresh only the affected backend after execution
 
 ---
 
 ## Deferred Planning Areas
 
-The following remain planned after the SearchTimer user workflow foundation:
+The following remain planned after the active SearchTimer preview performance work:
 
+- Lazy recording loading and backend-scoped recording refresh.
 - Live-style information parity and frontend-ready API polish.
 - SearchTimer automation and scheduled evaluation.
 - Recommendation primitives.
@@ -94,7 +99,7 @@ The following remain planned after the SearchTimer user workflow foundation:
 
 ## Maintenance Rule
 
-Keep this file short. Detailed planning belongs in [Roadmap](roadmap.md), and completed implementation history belongs in [Completed Phases](../development/completed-phases.md).
+Keep this file short. Detailed planning belongs in [Roadmap](roadmap.md), [Lazy Recording Loading](lazy-recording-loading.md), and completed implementation history belongs in [Completed Phases](../development/completed-phases.md).
 
 When the active milestone changes, update the current position here and then run:
 
