@@ -99,7 +99,7 @@ void PollingService::poll()
 
     if (!hasChangeState_) {
         const auto initialPollStarted = std::chrono::steady_clock::now();
-        snapshotCacheService_.updateSnapshotForBackend(backendId_, snapshotBuilder_.buildSnapshotWithoutEvents());
+        snapshotCacheService_.updateSnapshotForBackend(backendId_, snapshotBuilder_.buildStartupSnapshot());
 
         RuntimeMeasurement initialPollMeasurement;
         initialPollMeasurement.component = "PollingService";
