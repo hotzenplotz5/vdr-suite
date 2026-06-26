@@ -7,6 +7,7 @@
 - [Project Overview](../project-overview.md)
 - [Development Index](index.md)
 - [Architecture Index](../architecture/index.md)
+- [Lazy Recording Loading](../planning/lazy-recording-loading.md)
 
 ---
 
@@ -19,6 +20,7 @@ It complements:
 - [Current Project Status](current-status.md)
 - [Architecture Documentation](../architecture/index.md)
 - [Roadmap](../planning/roadmap.md)
+- [ADR-0035](../adr/ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
 
 ---
 
@@ -33,6 +35,8 @@ RESTfulAPI remains behind the adapter boundary.
 API controllers consume service boundaries instead of directly coupling to VDR or RESTfulAPI internals.
 
 The current architecture has implemented multi-backend read routing, backend-aware polling foundations, capability reporting and SearchTimer backend access foundations.
+
+Recordings are now explicitly classified as a heavy on-demand domain for future startup and frontend work: startup must not synchronously load recordings for all configured backends.
 
 ---
 
@@ -117,6 +121,12 @@ VdrController backend-aware methods
 
 The cache and access boundaries are ready for multiple backend snapshots while preserving default single-backend compatibility.
 
+Known architecture correction:
+
+- the future startup snapshot path must be lightweight
+- it must not use a full recording read for every backend
+- recording lists must move behind backend-scoped on-demand refresh and explicit cache status
+
 ---
 
 ## Current Change Feed Chain
@@ -167,6 +177,8 @@ GET /api/runtime/summary
 ```
 
 Runtime diagnostics remain separate from logging.
+
+Recording load measurements must remain visible because large archives and remote backends can make recording reads expensive.
 
 ---
 
@@ -249,6 +261,14 @@ GET /api/runtime/diagnostics
 GET /api/runtime/summary
 ```
 
+Planned recording loading APIs:
+
+```text
+GET  /api/backends/{backendId}/recordings/status
+POST /api/backends/{backendId}/recordings/refresh
+GET  /api/backends/{backendId}/recordings
+```
+
 ---
 
 ## Architecture Constraints
@@ -264,26 +284,34 @@ GET /api/runtime/summary
 - preserve default-backend compatibility
 - preserve future multi-VDR and permission-aware designs
 - preserve future third-party and multi-client API consumers
+- do not synchronously load recordings for all backends during daemon startup
+- do not treat unknown/loading recording state as a valid empty recording list
 
 ---
 
 ## Next Architecture Step
 
 ```text
-Phase 50.0 - SearchTimer user workflow foundation
+Phase 54.3 - SearchTimer warm EPG cache implementation
 ```
 
 Goal:
 
-Turn the validated SearchTimer backend access, real payload validation and native fuzzy capability reporting into a coherent user workflow foundation.
+Finish interactive SearchTimer preview performance and correctness without full EPG transfers per preview request.
+
+Required follow-up:
+
+```text
+Lazy Recording Loading and Backend-Scoped Recording Refresh
+```
 
 Rules:
 
-- VDR remains the source of truth for VDR-owned SearchTimer state
+- VDR remains the source of truth for VDR-owned state
 - SearchTimer workflow APIs must preserve backend identity
 - unsupported epgsearch and Live-style options must remain explicit future scope
-- automatic SearchTimer evaluation remains out of scope until the user workflow foundation is stable
 - frontend routes must not own backend polling, backend selection or snapshot generation
+- recording frontend routes must support backend-scoped loading state and must not assume recordings are preloaded
 
 ---
 
