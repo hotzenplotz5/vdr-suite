@@ -30,11 +30,11 @@ Canonical ADR sequence:
 ADR-0001
 ADR-0002
 ...
-ADR-0034
+ADR-0035
 
 Next available ADR:
 
-ADR-0035
+ADR-0036
 
 The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
 
@@ -82,6 +82,7 @@ If a canonical ADR is superseded, keep it only in the superseded section and do 
 - ADR-0032 EPGSearch Regex Mode Safety
 - ADR-0033 EPGSearch Fuzzy Mode Decision
 - ADR-0034 SearchTimer Warm EPG Cache and Change Invalidation
+- ADR-0035 Lazy Recording Loading and Backend-Scoped Refresh
 
 ---
 
@@ -162,6 +163,7 @@ Retained for historical reference:
 - [ADR-0032: EPGSearch Regex Mode Safety](ADR-0032-epgsearch-regex-mode-safety.md)
 - [ADR-0033: EPGSearch Fuzzy Mode Decision](ADR-0033-epgsearch-fuzzy-mode-decision.md)
 - [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
+- [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
 
 ### Superseded Canonical ADRs
 
