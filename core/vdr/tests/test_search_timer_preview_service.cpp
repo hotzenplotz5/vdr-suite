@@ -1,4 +1,6 @@
 #include "SearchTimer.h"
+#include "SearchTimerPreviewEpgCache.h"
+#include "SearchTimerPreviewEpgInputContext.h"
 #include "SearchTimerPreviewResultJsonSerializer.h"
 #include "SearchTimerPreviewService.h"
 #include "VdrEvent.h"
@@ -85,6 +87,8 @@ static void test_preview_matches_events_by_search_timer_query()
     assert(result.returnedCount() == 1);
     assert(result.searchTimer().query() == "Tatort");
     assert(result.searchResult().matches().at(0).event().title == "Tatort");
+    assert(result.epgInputStatus() == "ready");
+    assert(result.epgInputAvailable() == true);
 }
 
 static void test_preview_respects_limit()
@@ -320,11 +324,46 @@ static void test_preview_json_contains_statistics_and_preview()
                 0));
 
     assert(json.find("\"searchTimer\"") != std::string::npos);
+    assert(json.find("\"epgInput\"") != std::string::npos);
+    assert(json.find("\"status\":\"ready\"") != std::string::npos);
+    assert(json.find("\"available\":true") != std::string::npos);
     assert(json.find("\"statistics\"") != std::string::npos);
     assert(json.find("\"preview\"") != std::string::npos);
     assert(json.find("\"totalCount\":1") != std::string::npos);
     assert(json.find("\"returnedCount\":1") != std::string::npos);
     assert(json.find("\"channelCount\":1") != std::string::npos);
+}
+
+static void test_preview_uses_non_ready_epg_input_context_once()
+{
+    SearchTimerPreviewEpgInputContext::setCacheStatus(
+        SearchTimerPreviewEpgCacheStatus::Warming,
+        "home-vdr");
+
+    SearchTimerPreviewService service;
+
+    const SearchTimerPreviewResult firstResult =
+        service.preview(
+            makeSearchTimer(),
+            {},
+            0,
+            0);
+
+    assert(firstResult.totalCount() == 0);
+    assert(firstResult.epgInputStatus() == "warming");
+    assert(firstResult.epgInputAvailable() == false);
+    assert(firstResult.warnings().size() == 1);
+
+    const SearchTimerPreviewResult secondResult =
+        service.preview(
+            makeSearchTimer(),
+            {},
+            0,
+            0);
+
+    assert(secondResult.epgInputStatus() == "ready");
+    assert(secondResult.epgInputAvailable() == true);
+    assert(secondResult.warnings().empty());
 }
 
 int main()
@@ -336,6 +375,7 @@ int main()
     test_preview_respects_subtitle_only_comparison_options();
     test_preview_respects_summary_only_comparison_options();
     test_preview_json_contains_statistics_and_preview();
+    test_preview_uses_non_ready_epg_input_context_once();
 
     std::cout << "test_search_timer_preview_service passed" << std::endl;
     return 0;
