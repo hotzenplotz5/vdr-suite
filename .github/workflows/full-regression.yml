@@ -1,0 +1,39 @@
+name: VDR-Suite Full Regression
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * *"
+
+jobs:
+  full-regression-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+
+      - name: Run full regression test
+        run: make test
+
+  vdr-final-regression-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+
+      - name: Run VDR final regression test
+        run: make test-vdr
