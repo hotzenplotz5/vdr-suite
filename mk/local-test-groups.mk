@@ -1,4 +1,4 @@
-.PHONY: test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache
+.PHONY: test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache
 
 test-vdr: \
 	test-backend-node \
@@ -61,6 +61,7 @@ test-vdr: \
 	test-epg-search-result \
 	test-search-timer \
 	test-search-timer-preview-epg-cache \
+	test-vdr-snapshot-read-service-searchtimer-preview-epg-cache \
 	test-search-timer-discovery \
 	test-search-timer-discovery-service \
 	test-search-timer-discovery-static-provider \
@@ -158,6 +159,18 @@ test-search-timer-preview-epg-cache:
 		core/vdr/tests/test_search_timer_preview_epg_cache.cpp \
 		-o /tmp/test_search_timer_preview_epg_cache
 	/tmp/test_search_timer_preview_epg_cache
+
+
+test-vdr-snapshot-read-service-searchtimer-preview-epg-cache:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SnapshotCache.cpp \
+		core/vdr/src/SnapshotCacheService.cpp \
+		core/vdr/src/SnapshotAccessService.cpp \
+		core/vdr/src/SearchTimerPreviewEpgCache.cpp \
+		core/vdr/src/VdrSnapshotReadService.cpp \
+		core/vdr/tests/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache.cpp \
+		-o /tmp/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache
+	/tmp/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache
 
 
 test-api-router-searchtimer-preview-epg-cache:
