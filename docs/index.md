@@ -21,18 +21,19 @@ Main entry point for all VDR-Suite documentation.
 2. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
 3. [Current Project Status](development/current-status.md)
 4. [Roadmap](planning/roadmap.md)
+5. [Lazy Recording Loading](planning/lazy-recording-loading.md)
 
 ---
 
 ## Current Project State
 
-Completed Major Phase:
+Current Major Phase:
 
-- Phase 49.30 - EPGSearch native fuzzy validation consolidation
+- Phase 54.3 - SearchTimer warm EPG cache implementation
 
-Planned Next Major Phase:
+Required Planned Follow-Up:
 
-- Phase 50.0 - SearchTimer user workflow foundation
+- Lazy Recording Loading and Backend-Scoped Recording Refresh
 
 ---
 
@@ -47,6 +48,7 @@ Planned Next Major Phase:
 
 - [Planning Documentation](planning/index.md)
 - [Roadmap](planning/roadmap.md)
+- [Lazy Recording Loading](planning/lazy-recording-loading.md)
 - [Milestones](planning/milestones.md)
 
 ### Development
@@ -99,6 +101,7 @@ New contributors:
 2. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
 3. [Current Project Status](development/current-status.md)
 4. [Roadmap](planning/roadmap.md)
+5. [Lazy Recording Loading](planning/lazy-recording-loading.md)
 
 Developers:
 
@@ -106,6 +109,7 @@ Developers:
 2. [Architecture Documentation](architecture/index.md)
 3. [Architecture Decision Records](adr/index.md)
 4. [Roadmap](planning/roadmap.md)
+5. [Lazy Recording Loading](planning/lazy-recording-loading.md)
 
 Architects:
 
@@ -113,9 +117,9 @@ Architects:
 2. [Architecture Documentation](architecture/index.md)
 3. [Architecture Decision Records](adr/index.md)
 4. [Roadmap](planning/roadmap.md)
+5. [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](adr/ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
 
 ## Additional Project Documents
-
 
 - [VDR-Suite Project Status Dashboard](project-status-dashboard.md)
 - [VDR-Suite Glossar](project-glossary.md)
@@ -124,7 +128,6 @@ Architects:
 - [Introduction](introduction/index.md)
 - [Phase 0 Documentation](phase-0/index.md)
 - [VDR-Suite Forward Roadmap](roadmap/README.md)
-
 
 ---
 
