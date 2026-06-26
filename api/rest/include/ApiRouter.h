@@ -22,6 +22,7 @@ class RecordingActionExecutionController;
 class RecordingPersonSearchController;
 class RecordingActionValidationController;
 class RuntimeDiagnosticsController;
+class SearchTimerPreviewEpgCacheRefreshController;
 class SnapshotChangeFeedController;
 class ISearchTimerCommandExecutor;
 class SearchTimerController;
@@ -124,7 +125,8 @@ public:
         EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController = nullptr,
         EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController = nullptr,
         SearchTimerDiscoveryController* searchTimerDiscoveryController = nullptr,
-        SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController = nullptr);
+        SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController = nullptr,
+        SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController = nullptr);
 
     void setSearchTimerPreviewEpgCache(
         SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
@@ -162,6 +164,7 @@ private:
     SearchTimerController* searchTimerController_;
     SearchTimerDiscoveryController* searchTimerDiscoveryController_;
     SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController_;
+    SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController_;
     LiveTransportController& liveTransportController_;
     ISearchTimerCommandExecutor* searchTimerCommandExecutor_;
     EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController_;
