@@ -17,7 +17,9 @@
 
 This file is the single source for high-level project progress percentages.
 
-The values are intentionally milestone-oriented. They are not code coverage values and not production readiness guarantees.
+The values are intentionally milestone-oriented. They are not code coverage values, not production readiness guarantees and not product-completion percentages.
+
+The top-level value describes foundation progress across the planned architecture, including completed backend foundations and still-open product areas such as frontend, federation, permissions and client work.
 
 The generated progress blocks are written by:
 
@@ -25,9 +27,13 @@ The generated progress blocks are written by:
 
 ---
 
-## Overall Progress
+## Overall Foundation Progress
 
-overall|100
+The overall value is foundation progress, not final product completion.
+
+```text
+overall|70
+```
 
 ---
 
@@ -43,7 +49,7 @@ SearchTimer Backend Foundation|100|completed
 SearchTimer User Workflow|100|completed
 SearchTimer Runtime Mutation Policy|100|completed
 SearchTimer Preview EPG Performance|10|in progress
-Lazy Recording Loading|0|planned
+Lazy Recording Loading|10|in progress
 Live Plugin Parity Foundation|100|completed
 Automation Foundation|100|completed
 Federation Foundation|0|planned
