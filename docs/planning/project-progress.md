@@ -40,6 +40,7 @@ Documentation Foundation|100|completed
 SearchTimer Backend Foundation|100|completed
 SearchTimer User Workflow|100|completed
 SearchTimer Runtime Mutation Policy|100|completed
+SearchTimer Preview EPG Performance|10|in progress
 Live Plugin Parity Foundation|100|completed
 Automation Foundation|100|completed
 Federation Foundation|0|planned
@@ -49,7 +50,7 @@ Frontend Foundation|0|planned
 
 ## Current Milestone
 
-Phase 54.1 - SearchTimer operator-controlled runtime mutation enablement
+Phase 54.3 - SearchTimer warm EPG cache implementation
 
 ---
 
