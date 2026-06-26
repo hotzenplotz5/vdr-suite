@@ -64,6 +64,37 @@ static void test_ready_cache_is_used_for_default_backend()
     SearchTimerPreviewEpgInputContext::resetReady();
 }
 
+static void test_ready_empty_cache_is_authoritative_zero_events()
+{
+    SearchTimerPreviewEpgInputContext::resetReady();
+
+    SnapshotCache snapshotCache;
+    SnapshotCacheService snapshotCacheService(snapshotCache);
+    SnapshotAccessService snapshotAccessService(snapshotCacheService);
+    VdrSnapshotReadService snapshotReadService(snapshotAccessService);
+
+    snapshotCache.update(make_snapshot("default", "snapshot-event", "Snapshot Event"));
+
+    SearchTimerPreviewSnapshotReadFacade facade(snapshotReadService);
+    SearchTimerPreviewEpgCache previewCache;
+    previewCache.updateReady(
+        "default",
+        std::vector<VdrEvent>{});
+
+    facade.setSearchTimerPreviewEpgCache(&previewCache);
+
+    const std::vector<VdrEvent> events = facade.getEvents();
+    const SearchTimerPreviewEpgInputContextState epgInput =
+        SearchTimerPreviewEpgInputContext::current();
+
+    assert(events.empty());
+    assert(epgInput.status == "ready");
+    assert(epgInput.available == true);
+    assert(epgInput.warnings.empty());
+
+    SearchTimerPreviewEpgInputContext::resetReady();
+}
+
 static void test_stale_cache_falls_back_to_snapshot_and_marks_input_not_authoritative()
 {
     SearchTimerPreviewEpgInputContext::resetReady();
@@ -204,6 +235,7 @@ static void test_backend_cache_is_backend_scoped()
 int main()
 {
     test_ready_cache_is_used_for_default_backend();
+    test_ready_empty_cache_is_authoritative_zero_events();
     test_stale_cache_falls_back_to_snapshot_and_marks_input_not_authoritative();
     test_warming_cache_falls_back_to_snapshot_and_marks_input_not_authoritative();
     test_unknown_cache_falls_back_to_snapshot_and_marks_input_not_authoritative();
