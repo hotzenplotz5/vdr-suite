@@ -32,6 +32,7 @@ VDR_SRC := \
         core/vdr/src/SearchTimerPreviewService.cpp \
         core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
         core/vdr/src/SearchTimerPreviewEpgCache.cpp \
+        core/vdr/src/SearchTimerPreviewEpgCacheRefreshService.cpp \
         core/vdr/src/SearchTimerDiscoveryJsonSerializer.cpp \
         core/vdr/src/SearchTimerAutomationDryRunResultJsonSerializer.cpp \
         core/vdr/src/SearchTimerAutomationReadOnlyService.cpp \
