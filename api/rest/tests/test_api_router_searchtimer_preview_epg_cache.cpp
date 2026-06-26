@@ -1,5 +1,6 @@
 #include "ApiRouter.h"
 #include "SearchTimerPreviewEpgCache.h"
+#include "SearchTimerPreviewEpgInputContext.h"
 #include "SnapshotAccessService.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
@@ -33,6 +34,8 @@ static VdrSnapshot make_snapshot(
 
 static void test_ready_cache_is_used_for_default_backend()
 {
+    SearchTimerPreviewEpgInputContext::resetReady();
+
     SnapshotCache snapshotCache;
     SnapshotCacheService snapshotCacheService(snapshotCache);
     SnapshotAccessService snapshotAccessService(snapshotCacheService);
@@ -49,13 +52,22 @@ static void test_ready_cache_is_used_for_default_backend()
     facade.setSearchTimerPreviewEpgCache(&previewCache);
 
     const std::vector<VdrEvent> events = facade.getEvents();
+    const SearchTimerPreviewEpgInputContextState epgInput =
+        SearchTimerPreviewEpgInputContext::current();
 
     assert(events.size() == 1);
     assert(events.at(0).id == "cache-event");
+    assert(epgInput.status == "ready");
+    assert(epgInput.available == true);
+    assert(epgInput.warnings.empty());
+
+    SearchTimerPreviewEpgInputContext::resetReady();
 }
 
-static void test_stale_cache_falls_back_to_snapshot()
+static void test_stale_cache_falls_back_to_snapshot_and_marks_input_not_authoritative()
 {
+    SearchTimerPreviewEpgInputContext::resetReady();
+
     SnapshotCache snapshotCache;
     SnapshotCacheService snapshotCacheService(snapshotCache);
     SnapshotAccessService snapshotAccessService(snapshotCacheService);
@@ -73,13 +85,81 @@ static void test_stale_cache_falls_back_to_snapshot()
     facade.setSearchTimerPreviewEpgCache(&previewCache);
 
     const std::vector<VdrEvent> events = facade.getEvents();
+    const SearchTimerPreviewEpgInputContextState epgInput =
+        SearchTimerPreviewEpgInputContext::current();
 
     assert(events.size() == 1);
     assert(events.at(0).id == "snapshot-event");
+    assert(epgInput.status == "stale");
+    assert(epgInput.available == false);
+    assert(epgInput.warnings.empty() == false);
+
+    SearchTimerPreviewEpgInputContext::resetReady();
+}
+
+static void test_warming_cache_falls_back_to_snapshot_and_marks_input_not_authoritative()
+{
+    SearchTimerPreviewEpgInputContext::resetReady();
+
+    SnapshotCache snapshotCache;
+    SnapshotCacheService snapshotCacheService(snapshotCache);
+    SnapshotAccessService snapshotAccessService(snapshotCacheService);
+    VdrSnapshotReadService snapshotReadService(snapshotAccessService);
+
+    snapshotCache.update(make_snapshot("default", "snapshot-event", "Snapshot Event"));
+
+    SearchTimerPreviewSnapshotReadFacade facade(snapshotReadService);
+    SearchTimerPreviewEpgCache previewCache;
+    previewCache.markWarming("default");
+
+    facade.setSearchTimerPreviewEpgCache(&previewCache);
+
+    const std::vector<VdrEvent> events = facade.getEvents();
+    const SearchTimerPreviewEpgInputContextState epgInput =
+        SearchTimerPreviewEpgInputContext::current();
+
+    assert(events.size() == 1);
+    assert(events.at(0).id == "snapshot-event");
+    assert(epgInput.status == "warming");
+    assert(epgInput.available == false);
+    assert(epgInput.warnings.empty() == false);
+
+    SearchTimerPreviewEpgInputContext::resetReady();
+}
+
+static void test_unknown_cache_falls_back_to_snapshot_and_marks_input_not_authoritative()
+{
+    SearchTimerPreviewEpgInputContext::resetReady();
+
+    SnapshotCache snapshotCache;
+    SnapshotCacheService snapshotCacheService(snapshotCache);
+    SnapshotAccessService snapshotAccessService(snapshotCacheService);
+    VdrSnapshotReadService snapshotReadService(snapshotAccessService);
+
+    snapshotCache.update(make_snapshot("default", "snapshot-event", "Snapshot Event"));
+
+    SearchTimerPreviewSnapshotReadFacade facade(snapshotReadService);
+    SearchTimerPreviewEpgCache previewCache;
+
+    facade.setSearchTimerPreviewEpgCache(&previewCache);
+
+    const std::vector<VdrEvent> events = facade.getEvents();
+    const SearchTimerPreviewEpgInputContextState epgInput =
+        SearchTimerPreviewEpgInputContext::current();
+
+    assert(events.size() == 1);
+    assert(events.at(0).id == "snapshot-event");
+    assert(epgInput.status == "unknown");
+    assert(epgInput.available == false);
+    assert(epgInput.warnings.empty() == false);
+
+    SearchTimerPreviewEpgInputContext::resetReady();
 }
 
 static void test_backend_cache_is_backend_scoped()
 {
+    SearchTimerPreviewEpgInputContext::resetReady();
+
     SnapshotCache snapshotCache;
     SnapshotCacheService snapshotCacheService(snapshotCache);
     SnapshotAccessService snapshotAccessService(snapshotCacheService);
@@ -101,19 +181,32 @@ static void test_backend_cache_is_backend_scoped()
     facade.setSearchTimerPreviewEpgCache(&previewCache);
 
     const std::vector<VdrEvent> defaultEvents = facade.getEventsForBackend("default");
+    const SearchTimerPreviewEpgInputContextState defaultEpgInput =
+        SearchTimerPreviewEpgInputContext::current();
+
     const std::vector<VdrEvent> remoteEvents = facade.getEventsForBackend("remote");
+    const SearchTimerPreviewEpgInputContextState remoteEpgInput =
+        SearchTimerPreviewEpgInputContext::current();
 
     assert(defaultEvents.size() == 1);
     assert(defaultEvents.at(0).id == "snapshot-default");
+    assert(defaultEpgInput.status == "unknown");
+    assert(defaultEpgInput.available == false);
 
     assert(remoteEvents.size() == 1);
     assert(remoteEvents.at(0).id == "cache-remote");
+    assert(remoteEpgInput.status == "ready");
+    assert(remoteEpgInput.available == true);
+
+    SearchTimerPreviewEpgInputContext::resetReady();
 }
 
 int main()
 {
     test_ready_cache_is_used_for_default_backend();
-    test_stale_cache_falls_back_to_snapshot();
+    test_stale_cache_falls_back_to_snapshot_and_marks_input_not_authoritative();
+    test_warming_cache_falls_back_to_snapshot_and_marks_input_not_authoritative();
+    test_unknown_cache_falls_back_to_snapshot_and_marks_input_not_authoritative();
     test_backend_cache_is_backend_scoped();
     return 0;
 }
