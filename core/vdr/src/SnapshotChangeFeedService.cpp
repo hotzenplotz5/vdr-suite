@@ -1,5 +1,7 @@
 #include "SnapshotChangeFeedService.h"
 
+#include "SearchTimerPreviewEpgCacheChangeInvalidator.h"
+
 static std::string domainNameForChangeType(VdrChangeType type)
 {
     switch (type) {
@@ -66,6 +68,10 @@ void SnapshotChangeFeedService::appendChanges(
     const std::vector<VdrChangeEvent>& changeEvents,
     const std::string& backendId) const
 {
+    SearchTimerPreviewEpgCacheChangeInvalidator::invalidateRegisteredRuntimeCacheForChangeEvents(
+        backendId,
+        changeEvents);
+
     const int nextSequenceNumber = feed.latestSequenceNumber() + 1;
     const auto entry = createEntry(nextSequenceNumber, snapshotGeneration, changeEvents, backendId);
 
