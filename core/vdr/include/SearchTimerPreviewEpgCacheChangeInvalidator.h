@@ -25,6 +25,34 @@ public:
             backendId);
     }
 
+    static void registerRuntimeCache(
+        SearchTimerPreviewEpgCache& cache)
+    {
+        runtimeCache() = &cache;
+    }
+
+    static void clearRuntimeCache()
+    {
+        runtimeCache() = nullptr;
+    }
+
+    static bool invalidateRegisteredRuntimeCacheForChangeEvents(
+        const std::string& backendId,
+        const std::vector<VdrChangeEvent>& changeEvents)
+    {
+        SearchTimerPreviewEpgCache* cache = runtimeCache();
+
+        if (cache == nullptr)
+        {
+            return false;
+        }
+
+        return invalidateForChangeEvents(
+            *cache,
+            backendId,
+            changeEvents);
+    }
+
 private:
     static bool hasEventDomainChange(
         const std::vector<VdrChangeEvent>& changeEvents)
@@ -38,5 +66,11 @@ private:
         }
 
         return false;
+    }
+
+    static SearchTimerPreviewEpgCache*& runtimeCache()
+    {
+        static SearchTimerPreviewEpgCache* cache = nullptr;
+        return cache;
     }
 };
