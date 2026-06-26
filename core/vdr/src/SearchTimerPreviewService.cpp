@@ -8,11 +8,17 @@
 #include "SearchTimerPreviewEpgInputContext.h"
 
 #include <algorithm>
+#include <cctype>
+#include <sstream>
+#include <string>
 #include <vector>
 
 namespace {
 
 constexpr int previewTypoFallbackTolerance = 2;
+constexpr int fallbackDescriptionPenalty = 20;
+constexpr int fallbackSubtitlePenalty = 10;
+constexpr int fallbackNoMatchRank = 1000000;
 
 bool hasExplicitComparisonOptions(
     const SearchTimer& searchTimer)
@@ -49,6 +55,169 @@ bool shouldApplyPreviewTypoFallback(
     return result.totalCount() == 0 &&
            !searchTimer.query().empty() &&
            searchTimer.matchOptions().mode() == 0;
+}
+
+std::string normalizedWord(
+    const std::string& value)
+{
+    std::string normalized;
+
+    for (const unsigned char character : value)
+    {
+        if (std::isalnum(character))
+        {
+            normalized.push_back(
+                static_cast<char>(std::tolower(character)));
+        }
+    }
+
+    return normalized;
+}
+
+std::vector<std::string> splitNormalizedWords(
+    const std::string& value)
+{
+    std::vector<std::string> words;
+    std::stringstream stream(value);
+    std::string word;
+
+    while (stream >> word)
+    {
+        const std::string normalized = normalizedWord(word);
+        if (!normalized.empty())
+        {
+            words.push_back(normalized);
+        }
+    }
+
+    return words;
+}
+
+int levenshteinDistance(
+    const std::string& left,
+    const std::string& right)
+{
+    std::vector<int> previous(right.size() + 1);
+    std::vector<int> current(right.size() + 1);
+
+    for (std::size_t column = 0; column <= right.size(); ++column)
+    {
+        previous[column] = static_cast<int>(column);
+    }
+
+    for (std::size_t row = 1; row <= left.size(); ++row)
+    {
+        current[0] = static_cast<int>(row);
+
+        for (std::size_t column = 1; column <= right.size(); ++column)
+        {
+            const int cost =
+                left[row - 1] == right[column - 1] ? 0 : 1;
+
+            current[column] =
+                std::min(
+                    std::min(
+                        previous[column] + 1,
+                        current[column - 1] + 1),
+                    previous[column - 1] + cost);
+        }
+
+        previous.swap(current);
+    }
+
+    return previous[right.size()];
+}
+
+int bestFieldDistance(
+    const std::string& queryWord,
+    const std::string& field)
+{
+    int best = fallbackNoMatchRank;
+
+    for (const std::string& fieldWord : splitNormalizedWords(field))
+    {
+        best = std::min(
+            best,
+            levenshteinDistance(fieldWord, queryWord));
+    }
+
+    return best;
+}
+
+int fallbackRankForEvent(
+    const std::string& query,
+    const VdrEvent& event)
+{
+    const std::vector<std::string> queryWords =
+        splitNormalizedWords(query);
+
+    if (queryWords.empty())
+    {
+        return fallbackNoMatchRank;
+    }
+
+    int rank = 0;
+
+    for (const std::string& queryWord : queryWords)
+    {
+        const int titleRank =
+            bestFieldDistance(queryWord, event.title);
+        const int subtitleRank =
+            bestFieldDistance(queryWord, event.subtitle) +
+            fallbackSubtitlePenalty;
+        const int descriptionRank =
+            bestFieldDistance(queryWord, event.description) +
+            fallbackDescriptionPenalty;
+
+        rank += std::min(
+            titleRank,
+            std::min(
+                subtitleRank,
+                descriptionRank));
+    }
+
+    return rank;
+}
+
+EpgSearchResult rankTypoFallbackResult(
+    const SearchTimer& searchTimer,
+    const EpgSearchResult& result)
+{
+    std::vector<EpgSearchMatch> rankedMatches = result.matches();
+
+    std::stable_sort(
+        rankedMatches.begin(),
+        rankedMatches.end(),
+        [&searchTimer](
+            const EpgSearchMatch& left,
+            const EpgSearchMatch& right) {
+            const int leftRank =
+                fallbackRankForEvent(
+                    searchTimer.query(),
+                    left.event());
+            const int rightRank =
+                fallbackRankForEvent(
+                    searchTimer.query(),
+                    right.event());
+
+            if (leftRank != rightRank)
+            {
+                return leftRank < rightRank;
+            }
+
+            if (left.event().startTime != right.event().startTime)
+            {
+                return left.event().startTime < right.event().startTime;
+            }
+
+            return left.event().title < right.event().title;
+        });
+
+    return EpgSearchResult(
+        rankedMatches,
+        result.totalCount(),
+        result.limit(),
+        result.offset());
 }
 
 void applySearchTimerOptions(
@@ -164,10 +333,12 @@ SearchTimerPreviewResult SearchTimerPreviewService::preview(
 
     const EpgSearchResult unpagedResult =
         shouldApplyPreviewTypoFallback(searchTimer, initialResult)
-            ? service.search(
-                  events,
-                  requestMapper.map(
-                      createPreviewTypoFallbackRequest(searchTimer)))
+            ? rankTypoFallbackResult(
+                  searchTimer,
+                  service.search(
+                      events,
+                      requestMapper.map(
+                          createPreviewTypoFallbackRequest(searchTimer))))
             : initialResult;
 
     return SearchTimerPreviewResult(
