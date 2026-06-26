@@ -44,13 +44,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 54.0 - SearchTimer runtime mutation policy wiring
+Phase 54.2 - SearchTimer warm EPG cache architecture
 ```
 
 Next implementation focus:
 
 ```text
-Phase 54.1 - SearchTimer operator-controlled runtime mutation enablement
+Phase 54.3 - SearchTimer warm EPG cache implementation
 ```
 
 Current architecture validation:
@@ -63,6 +63,7 @@ Current architecture validation:
 - [ADR-0031: Person Catalog and External Filmography Architecture](../adr/ADR-0031-person-catalog-and-external-filmography.md)
 - [ADR-0032: EPGSearch Regex Mode Safety](../adr/ADR-0032-epgsearch-regex-mode-safety.md)
 - [ADR-0033: EPGSearch Fuzzy Mode Decision](../adr/ADR-0033-epgsearch-fuzzy-mode-decision.md)
+- [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](../adr/ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
 - [Timer Contract Gap Analysis](timer-contract-gap-analysis.md)
 - [Real Recording Action End-to-End Validation](real-recording-action-e2e-validation.md)
 - [Phase 44 Recording Action Runtime Completion](phase-44-recording-action-runtime-completion.md)
@@ -108,6 +109,7 @@ Current architecture validation:
 - [SearchTimer Title-Only Workflow Command Mapper Contract](searchtimer-title-only-workflow-command-mapper-contract.md)
 - [SearchTimer Title-Only Workflow Execution Dispatch Contract](searchtimer-title-only-workflow-execution-dispatch-contract.md)
 - [SearchTimer Title-Only Workflow Completion Audit](searchtimer-title-only-workflow-completion-audit.md)
+- [SearchTimer Preview EPG Cache Strategy](searchtimer-preview-epg-cache-strategy.md)
 - [EPGSearch Capability Matrix](epgsearch-capability-matrix.md)
 - [EPGSearch Native Fuzzy Real-Backend Validation](epgsearch-native-fuzzy-real-backend-validation.md)
 - [SearchTimer User Workflow Foundation](searchtimer-user-workflow-foundation.md)
