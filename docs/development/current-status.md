@@ -78,13 +78,13 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 54.2 - SearchTimer warm EPG cache architecture
+Phase 54.3e - SearchTimer preview EPG input status contract
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 54.2 - SearchTimer warm EPG cache architecture
+Phase 54.3e - SearchTimer preview EPG input status contract
 ```
 
 Next major implementation milestone:
@@ -119,6 +119,7 @@ Recording Character Search Foundation
 SearchTimer User Workflow Foundation
 SearchTimer Runtime Mutation Policy
 SearchTimer Warm EPG Cache Architecture
+SearchTimer Preview EPG Input Status Contract
 ```
 
 Current foundation in progress:
@@ -151,6 +152,7 @@ make test-phase
 - Phase 53.x preserves title-only SearchTimer compare fields across REST, workflow planning and command dispatch.
 - Phase 54.1 fixes SearchTimer preview comparison-option handling and verifies title-only preview behavior against live VDR EPG input.
 - Phase 54.2 accepts ADR-0034 for warm EPG cache input, change-state invalidation and future SSE-triggered refresh.
+- Phase 54.3e verifies and documents the SearchTimer preview `epgInput` contract so non-ready EPG input is not hidden as a normal zero-match result.
 - ADR-0035 records that recordings are a heavy on-demand domain and must not be loaded synchronously for all backends during daemon startup.
 
 ---
@@ -171,122 +173,10 @@ make test-phase
 - Events and EPG are treated as heavy domains and are not automatically full-refreshed by default.
 - Recordings are also a heavy domain for startup and multi-backend runtime planning; future startup snapshots must not synchronously load recordings for every backend.
 - EPG search operates over selective event windows and does not require a persistent full EPG mirror.
-- SearchTimer preview must use warm EPG input for interactive operation and must not hide missing EPG input as a normal zero-match result.
+- SearchTimer preview exposes `epgInput.status`, `epgInput.available` and `epgInput.warnings`: ready empty input is a valid zero-result preview, while warming, stale, unknown and unavailable input is non-authoritative.
 - Recording pages must eventually render before recordings are loaded and show backend-scoped loading state until the selected backend is ready.
 - Recording actions use backend-native recording identity.
 - Content classification uses source-aware evidence for genre, rating, metadata and policy work.
 - Person architecture uses source-aware evidence, roles, confidence, normalized names, character names and provider references.
 
 ---
-
-## Selective Backend Query Rule
-
-VDR-Suite should prefer selective backend queries over full-domain transfers whenever possible.
-
-Heavy domains must not use full-domain runtime refreshes as the default strategy.
-
-Heavy domains currently include:
-
-- EPG
-- recordings
-- metadata
-- posters
-- fanart
-- preview data
-- scraper-derived data
-
-Preferred runtime strategies are:
-
-- channel-scoped queries
-- time-window queries
-- object-specific queries
-- backend-scoped on-demand recording refreshes
-- change-hint driven refreshes
-- warm backend-scoped caches for interactive preview paths
-
-Performance goal:
-
-Backend workload should remain comparable to established VDR frontends such as live whenever equivalent information is requested.
-
-Recording-specific startup rule:
-
-- daemon startup must not synchronously load recordings for all configured backends
-- recording pages must show backend-scoped loading state instead of assuming data is already available
-- a ready empty recording cache is a valid empty list, but unknown/loading/unavailable/error is not
-
----
-
-## Current Implemented API Areas
-
-Implemented API areas include:
-
-- snapshot-backed VDR read APIs
-- backend registry and backend-aware read APIs
-- selective EPG read APIs
-- EPG search API
-- SearchTimer backend provider and route foundations
-- SearchTimer user workflow foundation
-- recording query API
-- recording action validation and execution APIs
-- person query APIs
-- recording-person search APIs
-- recording character search through characterName
-- dashboard, jobs, metadata and runtime diagnostics APIs
-
-Detailed route contracts belong in the domain-specific API documentation files.
-
----
-
-## Current Test Runtime Observation
-
-The full local regression target is intentionally no longer the default verification path for normal development work.
-
-Recommended local verification for architecture and documentation work:
-
-```text
-make test-docs
-make test-phase
-make daemon
-```
-
-Targeted local tests remain useful for narrow changes and for real VDR validation.
-
-Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE streams, polling, snapshot runtime, multi-VDR scenarios and real metadata availability checks.
-
----
-
-## Next Technical Focus
-
-```text
-Phase 54.3 - SearchTimer warm EPG cache implementation
-```
-
-The next implementation phase should implement a backend-scoped warm EPG cache for SearchTimer preview so interactive preview requests do not fetch the full RESTfulAPI EPG dump.
-
-Required planned follow-up:
-
-```text
-Lazy Recording Loading and Backend-Scoped Recording Refresh
-```
-
-This follow-up must ensure daemon startup remains lightweight and recordings are loaded only on demand for the selected backend with explicit loading/status feedback.
-
-Important boundaries:
-
-- keep VDR as the source of truth for VDR-owned state
-- prefer selective EPG queries and warm cache refresh over full EPG transfers in interactive request paths
-- do not synchronously load recordings for all backends during daemon startup
-- keep backend-scoped recording refresh independent per backend
-- keep metadata provider details behind provider boundaries
-- keep policy enforcement out until dedicated profile and permission architecture exists
-- build SearchTimer on top of existing EPG search and recording metadata foundations
-- preserve backend identity for future multi-backend SearchTimer behavior
-- treat SSE as a future invalidation signal, not as a full EPG payload stream
-
----
-
-## Back
-
-- [Back to README](../../README.md)
-- [Back to Documentation Index](../index.md)
-- [Back to Development Index](index.md)
