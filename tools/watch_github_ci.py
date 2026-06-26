@@ -94,6 +94,39 @@ def status_message(sha, run):
     return f"⏳ CI läuft noch für {short_sha} ({status})", 2
 
 
+def chat_copy_block(message, run, code):
+    url = ""
+    if run is not None and run.get("url"):
+        url = run["url"]
+
+    if code == 0:
+        instruction = "weiter"
+    elif code == 1:
+        instruction = "CI ist rot. Bitte Fehler auswerten und den nächsten minimalen Fix machen."
+    else:
+        instruction = "CI läuft noch. Noch keine Codeänderung machen."
+
+    lines = [
+        "",
+        "----- CHATGPT COPY BLOCK -----",
+        message,
+    ]
+
+    if url:
+        lines.append(url)
+
+    lines.extend(
+        [
+            "",
+            instruction,
+            "----- END -----",
+            "",
+        ]
+    )
+
+    return "\n".join(lines)
+
+
 def check_once(args):
     sha = latest_commit(args.repo, args.branch)
     run = latest_run(args.repo, args.branch, sha, args.workflow)
@@ -103,6 +136,9 @@ def check_once(args):
 
     if args.url and run is not None and run.get("url"):
         print(run["url"])
+
+    if args.chat:
+        print(chat_copy_block(message, run, code))
 
     return code
 
@@ -117,6 +153,7 @@ def parse_args():
     parser.add_argument("--interval", type=int, default=DEFAULT_INTERVAL)
     parser.add_argument("--watch", action="store_true")
     parser.add_argument("--url", action="store_true")
+    parser.add_argument("--chat", action="store_true")
     return parser.parse_args()
 
 
