@@ -38,7 +38,6 @@ Database
 Repositories
     ├── JobRepository
     ├── RecordingRepository
-    ├── MetadataRepository
     └── MetadataRepository
         │
         ▼
