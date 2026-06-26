@@ -22,7 +22,7 @@ def parse_source():
 
     for raw in text.splitlines():
         line = raw.strip()
-        if line == '## Overall Progress':
+        if line in ('## Overall Progress', '## Overall Foundation Progress'):
             section = 'overall'
             continue
         if line == '## Progress Items':
@@ -30,6 +30,8 @@ def parse_source():
             continue
         if line == '## Current Milestone':
             section = 'current'
+            continue
+        if line.startswith('```'):
             continue
         if line.startswith('## ') or line == '---':
             if section != 'current':
@@ -77,7 +79,7 @@ def render_block(overall, items, current, source_link):
     lines.append(START)
     lines.append('## Project Progress')
     lines.append('')
-    lines.append('Overall project progress:')
+    lines.append('Overall foundation progress, not product completion:')
     lines.append('')
     lines.append('    ' + bar(overall) + ' ' + str(overall) + '%')
     lines.append('')
