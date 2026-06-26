@@ -4,6 +4,11 @@
 #include <cassert>
 #include <string>
 
+static bool contains(const std::string& haystack, const std::string& needle)
+{
+    return haystack.find(needle) != std::string::npos;
+}
+
 static VdrTimerOperationRequest makeRequest()
 {
     VdrTimerOperationRequest request;
@@ -126,7 +131,10 @@ static void test_http_error_preserves_status_and_body()
     assert(result.type == VdrTimerActionType::Delete);
     assert(result.message == "RESTfulAPI timer action request failed");
     assert(result.errors.size() == 1);
-    assert(result.errors.at(0) == "RESTfulAPI returned HTTP status 404: Timer id invalid!");
+    assert(contains(result.errors.at(0), "RESTfulAPI returned HTTP status 404"));
+    assert(contains(result.errors.at(0), "method=DELETE"));
+    assert(contains(result.errors.at(0), "url=/api/timers/42"));
+    assert(contains(result.errors.at(0), "responseBody=Timer id invalid!"));
 }
 
 static void test_http_error_without_body_preserves_status()
@@ -150,9 +158,11 @@ static void test_http_error_without_body_preserves_status()
     assert(result.success == false);
     assert(result.type == VdrTimerActionType::Create);
     assert(result.errors.size() == 1);
-    assert(result.errors.at(0) == "RESTfulAPI returned HTTP status 502");
+    assert(contains(result.errors.at(0), "RESTfulAPI returned HTTP status 502"));
+    assert(contains(result.errors.at(0), "method=POST"));
+    assert(contains(result.errors.at(0), "url=/api/timers"));
+    assert(result.errors.at(0).find("responseBody=") == std::string::npos);
 }
-
 
 static void test_timer_conflict_error_is_preserved_for_frontend()
 {
@@ -179,7 +189,11 @@ static void test_timer_conflict_error_is_preserved_for_frontend()
     assert(result.timerId == "42");
     assert(result.message == "RESTfulAPI timer action request failed");
     assert(result.errors.size() == 1);
-    assert(result.errors.at(0) == "RESTfulAPI returned HTTP status 409: timer conflict: overlaps with existing timer 123");
+    assert(contains(result.errors.at(0), "RESTfulAPI returned HTTP status 409"));
+    assert(contains(result.errors.at(0), "method=POST"));
+    assert(contains(result.errors.at(0), "url=/api/timers"));
+    assert(contains(result.errors.at(0), "requestBody="));
+    assert(contains(result.errors.at(0), "responseBody=timer conflict: overlaps with existing timer 123"));
 }
 
 static void test_toggle_is_not_supported_yet()
