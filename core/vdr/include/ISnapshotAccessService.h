@@ -18,8 +18,17 @@ public:
     virtual const VdrSnapshot* snapshotForBackend(const std::string& backendId) const = 0;
     virtual std::vector<VdrSnapshot> snapshots() const = 0;
 
-    virtual SearchTimerPreviewEpgCache& searchTimerPreviewEpgCache() = 0;
-    virtual const SearchTimerPreviewEpgCache& searchTimerPreviewEpgCache() const = 0;
+    virtual SearchTimerPreviewEpgCache& searchTimerPreviewEpgCache()
+    {
+        static SearchTimerPreviewEpgCache fallbackCache;
+        return fallbackCache;
+    }
+
+    virtual const SearchTimerPreviewEpgCache& searchTimerPreviewEpgCache() const
+    {
+        static SearchTimerPreviewEpgCache fallbackCache;
+        return fallbackCache;
+    }
 };
 
 #endif
