@@ -154,6 +154,7 @@ make test-phase
 - Phase 54.1 fixes SearchTimer preview comparison-option handling and verifies title-only preview behavior against live VDR EPG input.
 - Phase 54.2 accepts ADR-0034 for warm EPG cache input, change-state invalidation and future SSE-triggered refresh.
 - Phase 54.3e verifies and documents the SearchTimer preview `epgInput` contract so non-ready EPG input is not hidden as a normal zero-match result.
+- Phase 54.3 now has a runtime cache refresh foundation: backend-scoped refresh service, refresh service registry, refresh controller, explicit REST refresh route, daemon wiring and router regression coverage are implemented.
 - ADR-0035 records that recordings are a heavy on-demand domain and must not be loaded synchronously for all backends during daemon startup.
 - Startup snapshot runtime is implemented for the initial poll: status, timers, SearchTimer metadata and channels may load, while recordings and full EPG events remain excluded from startup.
 
@@ -177,6 +178,7 @@ make test-phase
 - Recordings are also a heavy domain for startup and multi-backend runtime planning; startup snapshots must not synchronously load recordings for every backend.
 - EPG search operates over selective event windows and does not require a persistent full EPG mirror.
 - SearchTimer preview exposes `epgInput.status`, `epgInput.available` and `epgInput.warnings`: ready empty input is a valid zero-result preview, while warming, stale, unknown and unavailable input is non-authoritative.
+- SearchTimer preview EPG cache refresh uses backend-scoped selective event queries and is exposed through an explicit read-only refresh endpoint.
 - Recording pages must eventually render before recordings are loaded and show backend-scoped loading state until the selected backend is ready.
 - Recording actions use backend-native recording identity.
 - Content classification uses source-aware evidence for genre, rating, metadata and policy work.
@@ -233,6 +235,7 @@ Implemented API areas include:
 - SearchTimer backend provider and route foundations
 - SearchTimer user workflow foundation
 - SearchTimer preview EPG input status contract
+- SearchTimer preview EPG cache explicit refresh API
 - recording query API
 - recording action validation and execution APIs
 - person query APIs
@@ -268,7 +271,17 @@ Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE 
 Phase 54.3 - SearchTimer warm EPG cache implementation
 ```
 
-The next implementation phase should implement a backend-scoped warm EPG cache for SearchTimer preview so interactive preview requests do not fetch the full RESTfulAPI EPG dump.
+The next implementation phase should continue the backend-scoped warm EPG cache for SearchTimer preview so interactive preview requests do not fetch the full RESTfulAPI EPG dump.
+
+Implemented so far:
+
+```text
+SearchTimerPreviewEpgCacheRefreshService
+SearchTimerPreviewEpgCacheRefreshServiceRegistry
+SearchTimerPreviewEpgCacheRefreshController
+POST /api/searchtimers/preview/cache/refresh
+POST /api/vdr/searchtimers/preview/cache/refresh
+```
 
 Required planned follow-up:
 
