@@ -4,6 +4,7 @@
 #include "IVdrAdapter.h"
 #include "PollingService.h"
 #include "RestfulApiSearchTimerAdapter.h"
+#include "SearchTimerPreviewEpgCacheRefreshService.h"
 #include "VdrService.h"
 #include "VdrSnapshotBuilder.h"
 
@@ -19,5 +20,6 @@ struct BackendRuntimeContext
     std::unique_ptr<VdrService> service;
     std::unique_ptr<RestfulApiSearchTimerAdapter> searchTimerAdapter;
     std::unique_ptr<VdrSnapshotBuilder> snapshotBuilder;
+    std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
     std::unique_ptr<PollingService> pollingService;
 };
