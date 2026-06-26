@@ -3,7 +3,8 @@ ACTIONS_SRC := \
         core/recordings/src/RecordingActionValidationResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionExecutionResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionValidationService.cpp \
-        api/rest/src/RecordingActionValidationRequestParser.cpp
+        api/rest/src/RecordingActionValidationRequestParser.cpp \
+        core/vdr/src/SearchTimerPreviewEpgCache.cpp
 
 ACTION_SERVICE_SRC := \
         core/recordings/src/ActionService.cpp \
