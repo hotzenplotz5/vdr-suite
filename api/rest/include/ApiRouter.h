@@ -1,8 +1,11 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "SearchTimerPreviewEpgCache.h"
+#include "VdrSnapshotReadService.h"
 
 #include <string>
+#include <vector>
 
 class BackendRegistryController;
 class CapabilityController;
@@ -25,9 +28,71 @@ class SearchTimerDiscoveryController;
 class SearchTimerAutomationPreviewController;
 class VdrController;
 class VdrRecordingQueryController;
-class VdrSnapshotReadService;
 class VdrTimerActionController;
 class VdrTimerActionExecutorAdapterRegistry;
+
+class SearchTimerPreviewSnapshotReadFacade
+{
+public:
+    explicit SearchTimerPreviewSnapshotReadFacade(
+        VdrSnapshotReadService& snapshotReadService)
+        : snapshotReadService_(snapshotReadService),
+          searchTimerPreviewEpgCache_(nullptr)
+    {
+    }
+
+    void setSearchTimerPreviewEpgCache(
+        SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
+    {
+        searchTimerPreviewEpgCache_ = searchTimerPreviewEpgCache;
+    }
+
+    std::vector<VdrRecording> getRecordings() const
+    {
+        return snapshotReadService_.getRecordings();
+    }
+
+    std::vector<VdrRecording> getRecordingsForBackend(
+        const std::string& backendId) const
+    {
+        return snapshotReadService_.getRecordingsForBackend(backendId);
+    }
+
+    std::vector<VdrEvent> getEvents() const
+    {
+        const std::vector<VdrEvent>* cachedEvents =
+            searchTimerPreviewEpgCache_ == nullptr
+                ? nullptr
+                : searchTimerPreviewEpgCache_->eventsForBackend("default");
+
+        if (cachedEvents != nullptr)
+        {
+            return *cachedEvents;
+        }
+
+        return snapshotReadService_.getEvents();
+    }
+
+    std::vector<VdrEvent> getEventsForBackend(
+        const std::string& backendId) const
+    {
+        const std::vector<VdrEvent>* cachedEvents =
+            searchTimerPreviewEpgCache_ == nullptr
+                ? nullptr
+                : searchTimerPreviewEpgCache_->eventsForBackend(backendId);
+
+        if (cachedEvents != nullptr)
+        {
+            return *cachedEvents;
+        }
+
+        return snapshotReadService_.getEventsForBackend(backendId);
+    }
+
+private:
+    VdrSnapshotReadService& snapshotReadService_;
+    SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache_;
+};
 
 class ApiRouter
 {
@@ -59,6 +124,13 @@ public:
         SearchTimerDiscoveryController* searchTimerDiscoveryController = nullptr,
         SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController = nullptr);
 
+    void setSearchTimerPreviewEpgCache(
+        SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
+    {
+        vdrSnapshotReadService_.setSearchTimerPreviewEpgCache(
+            searchTimerPreviewEpgCache);
+    }
+
     ApiResponse handleGet(
         const std::string& path);
 
@@ -73,7 +145,7 @@ private:
     MetadataController& metadataController_;
     VdrController& vdrController_;
     VdrRecordingQueryController& vdrRecordingQueryController_;
-    VdrSnapshotReadService& vdrSnapshotReadService_;
+    SearchTimerPreviewSnapshotReadFacade vdrSnapshotReadService_;
     EpgController* epgController_;
     PersonController* personController_;
     RecordingPersonSearchController* recordingPersonSearchController_;
