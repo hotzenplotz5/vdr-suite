@@ -72,7 +72,7 @@ static void test_default_result_reports_ready_epg_input()
     assert(json.find("\"preview\":{") != std::string::npos);
     assert(json.find("\"totalCount\":1") != std::string::npos);
     assert(json.find("\"returnedCount\":1") != std::string::npos);
-    assert(json.find("\"eventId\":\"event-1\"") != std::string::npos);
+    assert(json.find("\"event\":{\"id\":\"event-1\"") != std::string::npos);
     assert(json.find("\"matchedFields\":[\"title\"]") != std::string::npos);
 }
 
