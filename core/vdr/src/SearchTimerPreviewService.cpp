@@ -5,6 +5,7 @@
 #include "EpgSearchRequestMapper.h"
 #include "EpgSearchResult.h"
 #include "EpgSearchService.h"
+#include "SearchTimerPreviewEpgInputContext.h"
 
 #include <algorithm>
 #include <vector>
@@ -65,6 +66,11 @@ SearchTimerPreviewResult SearchTimerPreviewService::preview(
     int limit,
     int offset) const
 {
+    const SearchTimerPreviewEpgInputContextState epgInputContext =
+        SearchTimerPreviewEpgInputContext::current();
+
+    SearchTimerPreviewEpgInputContext::resetReady();
+
     EpgSearchRequest request =
         EpgSearchRequest::sorted(
             searchTimer.backendId(),
@@ -98,5 +104,8 @@ SearchTimerPreviewResult SearchTimerPreviewService::preview(
         paginateResult(
             unpagedResult,
             limit,
-            offset));
+            offset),
+        epgInputContext.status,
+        epgInputContext.available,
+        epgInputContext.warnings);
 }
