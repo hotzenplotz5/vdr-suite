@@ -30,22 +30,24 @@ Overall project progress:
 
 Milestone progress:
 
-    Core Runtime Foundation         ██████████ 100%  completed
-    Multi-Backend Foundation        ██████████ 100%  completed
-    Query Foundation                ██████████ 100%  completed
-    Action Foundation               ██████████ 100%  completed
-    Metadata Foundation             ██████████ 100%  completed
-    Documentation Foundation        ██████████ 100%  completed
-    SearchTimer Backend Foundation  ██████████ 100%  completed
-    SearchTimer User Workflow       ██████████ 100%  completed
-    Live Plugin Parity Foundation   ██████████ 100%  completed
-    Automation Foundation           ██████████ 100%  completed
-    Federation Foundation           ░░░░░░░░░░   0%  planned
-    Frontend Foundation             ░░░░░░░░░░   0%  planned
+    Core Runtime Foundation             ██████████ 100%  completed
+    Multi-Backend Foundation            ██████████ 100%  completed
+    Query Foundation                    ██████████ 100%  completed
+    Action Foundation                   ██████████ 100%  completed
+    Metadata Foundation                 ██████████ 100%  completed
+    Documentation Foundation            ██████████ 100%  completed
+    SearchTimer Backend Foundation      ██████████ 100%  completed
+    SearchTimer User Workflow           ██████████ 100%  completed
+    SearchTimer Runtime Mutation Policy ██████████ 100%  completed
+    SearchTimer Preview EPG Performance █░░░░░░░░░  10%  in progress
+    Live Plugin Parity Foundation       ██████████ 100%  completed
+    Automation Foundation               ██████████ 100%  completed
+    Federation Foundation               ░░░░░░░░░░   0%  planned
+    Frontend Foundation                 ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 54.1 - SearchTimer operator-controlled runtime mutation enablement
+    Phase 54.3 - SearchTimer warm EPG cache implementation
 
 Progress source: [Project Progress](docs/planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -56,15 +58,15 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 54.0 - SearchTimer runtime mutation policy wiring
+    Phase 54.2 - SearchTimer warm EPG cache architecture
 
 Current documentation consolidation:
 
-    Phase 54.0 - SearchTimer runtime mutation policy wiring
+    Phase 54.2 - SearchTimer warm EPG cache architecture
 
 Next major implementation milestone:
 
-    Phase 54.1 - SearchTimer operator-controlled runtime mutation enablement
+    Phase 54.3 - SearchTimer warm EPG cache implementation
 
 Completed foundations:
 
@@ -85,10 +87,11 @@ Completed foundations:
 - SearchTimer Backend Foundation
 - Native Fuzzy SearchTimer Capability Validation
 - SearchTimer User Workflow Foundation
+- SearchTimer Runtime Mutation Policy
 
 Current foundation in progress:
 
-- Live Plugin Parity Foundation
+- SearchTimer Preview EPG Performance
 
 ---
 
@@ -115,6 +118,7 @@ EPG:
 - Selective EPG query architecture
 - EPG search API
 - Backend-neutral EPG services
+- SearchTimer preview EPG cache strategy documented through ADR-0034
 
 SearchTimer:
 
@@ -123,6 +127,7 @@ SearchTimer:
 - SearchTimer real VDR compatibility validation
 - Native fuzzy SearchTimer capability validation
 - SearchTimer user workflow foundation completed with verified execution and production mutation closed
+- SearchTimer preview comparison options verified against live VDR EPG input
 
 Recordings:
 
@@ -153,6 +158,11 @@ ADR-0028 defines the content classification rule:
     Do not model genre as a single plain string.
     Preserve source-aware classification evidence.
 
+ADR-0034 defines the SearchTimer preview EPG input rule:
+
+    Do not fetch the full EPG dump during each interactive SearchTimer preview.
+    Use a warm backend-scoped EPG cache with explicit readiness metadata.
+
 Performance target:
 
 Backend workload should be comparable to established VDR frontends such as live when equivalent information is requested.
@@ -165,7 +175,7 @@ Backend workload should be comparable to established VDR frontends such as live 
 - Phase 51 - Live Plugin Parity Foundation
 - Phase 52 - SearchTimer Automation Foundation
 - Phase 53 - Recommendation Foundation
-- Phase 54 - Cross Backend Search and Federation
+- Phase 54 - SearchTimer Preview Runtime and EPG Input Performance
 - Phase 55 - Backend Management and Client Administration Foundation
 - Later - Profiles, Permissions and Policy
 - Later - Unified Search Foundation
@@ -194,6 +204,7 @@ Architecture:
 - [ADR Index](docs/adr/index.md)
 - [ADR-0021 Selective Backend Query Strategy](docs/adr/ADR-0021-selective-backend-query-strategy.md)
 - [ADR-0028 Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md)
+- [ADR-0034 SearchTimer Warm EPG Cache and Change Invalidation](docs/adr/ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
 
 Metadata:
 
@@ -207,6 +218,7 @@ Search:
 - [SearchTimer Backend Contract](docs/development/searchtimer-backend-contract.md)
 - [SearchTimer Real Payload Validation](docs/development/searchtimer-real-payload-validation.md)
 - [SearchTimer User Workflow Foundation](docs/development/searchtimer-user-workflow-foundation.md)
+- [SearchTimer Preview EPG Cache Strategy](docs/development/searchtimer-preview-epg-cache-strategy.md)
 - [EPGSearch Native Fuzzy Real Backend Validation](docs/development/epgsearch-native-fuzzy-real-backend-validation.md)
 
 ---
