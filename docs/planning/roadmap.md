@@ -602,8 +602,19 @@ Completed results:
 - Phase 54.1 fixes SearchTimer preview comparison options and verifies title-only matching against live VDR EPG input.
 - Phase 54.2 accepts ADR-0034 for warm EPG cache input, change-state invalidation and future SSE-triggered refresh.
 
+Phase 54.3 progress:
+- Added backend-scoped SearchTimerPreviewEpgCacheRefreshService.
+- Added SearchTimerPreviewEpgCacheRefreshServiceRegistry for backend-specific refresh service lookup.
+- Added SearchTimerPreviewEpgCacheRefreshController as the explicit read-only refresh boundary.
+- Added explicit refresh endpoints:
+  - POST /api/searchtimers/preview/cache/refresh
+  - POST /api/vdr/searchtimers/preview/cache/refresh
+- Wired the refresh controller into ApiRouter and DaemonRuntime.
+- Added router regression coverage for refresh route and refresh-then-preview behavior.
+- Verified that preview refresh uses bounded selective EPG queries and does not trigger full EPG dumps.
+
 Next implementation step:
-- Phase 54.3 - SearchTimer warm EPG cache implementation.
+- Continue Phase 54.3 with cache invalidation, refresh-state behavior and operational diagnostics.
 
 Expected outcomes:
 - Backend-scoped warm EPG cache for SearchTimer preview.
