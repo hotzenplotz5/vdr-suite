@@ -4,7 +4,8 @@
 
 SnapshotCacheService::SnapshotCacheService(SnapshotCache& cache)
     : cache_(cache),
-      generation_(0)
+      generation_(0),
+      searchTimerPreviewEpgCache_()
 {
 }
 
@@ -16,6 +17,16 @@ SnapshotCache& SnapshotCacheService::cache()
 const SnapshotCache& SnapshotCacheService::cache() const
 {
     return cache_;
+}
+
+SearchTimerPreviewEpgCache& SnapshotCacheService::searchTimerPreviewEpgCache()
+{
+    return searchTimerPreviewEpgCache_;
+}
+
+const SearchTimerPreviewEpgCache& SnapshotCacheService::searchTimerPreviewEpgCache() const
+{
+    return searchTimerPreviewEpgCache_;
 }
 
 int SnapshotCacheService::generation() const
@@ -53,9 +64,24 @@ VdrSnapshot SnapshotCacheService::snapshotForBackendOrEmpty(
     return *snapshot;
 }
 
+void SnapshotCacheService::updatePreviewCacheFromSnapshotIfEventsPresent(
+    const std::string& backendId,
+    const VdrSnapshot& snapshot)
+{
+    if (!snapshot.events.empty())
+    {
+        searchTimerPreviewEpgCache_.updateReady(
+            backendId,
+            snapshot.events);
+    }
+}
+
 void SnapshotCacheService::updateSnapshot(const VdrSnapshot& snapshot)
 {
     cache_.update(snapshot);
+    updatePreviewCacheFromSnapshotIfEventsPresent(
+        snapshot.backendId,
+        snapshot);
     incrementGeneration();
 }
 
@@ -111,6 +137,9 @@ void SnapshotCacheService::updateEvents(const std::vector<VdrEvent>& events)
 
     snapshot.events = events;
     cache_.update(snapshot);
+    searchTimerPreviewEpgCache_.updateReady(
+        snapshot.backendId,
+        events);
     incrementGeneration();
 }
 
@@ -140,6 +169,9 @@ void SnapshotCacheService::mergeEvents(const std::vector<VdrEvent>& events)
     }
 
     cache_.update(snapshot);
+    searchTimerPreviewEpgCache_.updateReady(
+        snapshot.backendId,
+        snapshot.events);
     incrementGeneration();
 }
 
@@ -148,6 +180,9 @@ void SnapshotCacheService::updateSnapshotForBackend(
     const VdrSnapshot& snapshot)
 {
     cache_.updateForBackend(backendId, snapshot);
+    updatePreviewCacheFromSnapshotIfEventsPresent(
+        backendId,
+        snapshot);
     incrementGeneration();
 }
 
@@ -198,6 +233,9 @@ void SnapshotCacheService::updateEventsForBackend(
     VdrSnapshot snapshot = snapshotForBackendOrEmpty(backendId);
     snapshot.events = events;
     cache_.updateForBackend(backendId, snapshot);
+    searchTimerPreviewEpgCache_.updateReady(
+        backendId,
+        events);
     incrementGeneration();
 }
 
@@ -227,11 +265,15 @@ void SnapshotCacheService::mergeEventsForBackend(
     }
 
     cache_.updateForBackend(backendId, snapshot);
+    searchTimerPreviewEpgCache_.updateReady(
+        backendId,
+        snapshot.events);
     incrementGeneration();
 }
 
 void SnapshotCacheService::clear()
 {
     cache_.clear();
+    searchTimerPreviewEpgCache_.clear();
     generation_ = 0;
 }
