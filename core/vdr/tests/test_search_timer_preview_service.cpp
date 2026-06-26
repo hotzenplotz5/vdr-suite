@@ -40,6 +40,18 @@ static SearchTimer makeSearchTimer()
         SearchTimerState::Active);
 }
 
+static SearchTimer makeSearchTimerWithQuery(
+    const std::string& query)
+{
+    return SearchTimer::create(
+        SearchTimerId::fromBackendNativeId(
+            "home-vdr",
+            "preview"),
+        query + " Preview",
+        query,
+        SearchTimerState::Active);
+}
+
 static void test_preview_matches_events_by_search_timer_query()
 {
     const std::vector<VdrEvent> events = {
@@ -107,6 +119,183 @@ static void test_preview_respects_limit()
     assert(result.returnedCount() == 1);
 }
 
+static void test_preview_respects_offset()
+{
+    const std::vector<VdrEvent> events = {
+        makeEvent(
+            "1",
+            "channel-a",
+            "Tatort",
+            "Episode A",
+            "Krimi",
+            "2026-06-21T20:15:00"),
+        makeEvent(
+            "2",
+            "channel-b",
+            "Tatort",
+            "Episode B",
+            "Krimi",
+            "2026-06-22T20:15:00")
+    };
+
+    SearchTimerPreviewService service;
+
+    const SearchTimerPreviewResult result =
+        service.preview(
+            makeSearchTimer(),
+            events,
+            1,
+            1);
+
+    assert(result.totalCount() == 2);
+    assert(result.returnedCount() == 1);
+    assert(result.searchResult().matches().at(0).event().subtitle == "Episode B");
+}
+
+static void test_preview_respects_title_only_comparison_options()
+{
+    const std::vector<VdrEvent> events = {
+        makeEvent(
+            "1",
+            "channel-a",
+            "Amerika Spezial",
+            "",
+            "",
+            "2026-06-21T20:15:00"),
+        makeEvent(
+            "2",
+            "channel-b",
+            "Reisebericht",
+            "",
+            "Amerika steht nur in der Beschreibung",
+            "2026-06-21T21:15:00"),
+        makeEvent(
+            "3",
+            "channel-c",
+            "Weltpolitik",
+            "Amerika im Untertitel",
+            "",
+            "2026-06-21T22:15:00")
+    };
+
+    SearchTimer searchTimer =
+        makeSearchTimerWithQuery("Amerika");
+
+    searchTimer.comparisonOptions().setCompareTitle(true);
+    searchTimer.comparisonOptions().setCompareSubtitle(false);
+    searchTimer.comparisonOptions().setCompareSummary(false);
+    searchTimer.comparisonOptions().setCompareCategories(false);
+
+    SearchTimerPreviewService service;
+
+    const SearchTimerPreviewResult result =
+        service.preview(
+            searchTimer,
+            events,
+            0,
+            0);
+
+    assert(result.totalCount() == 1);
+    assert(result.returnedCount() == 1);
+    assert(result.searchResult().matches().at(0).event().title == "Amerika Spezial");
+}
+
+static void test_preview_respects_subtitle_only_comparison_options()
+{
+    const std::vector<VdrEvent> events = {
+        makeEvent(
+            "1",
+            "channel-a",
+            "Amerika Spezial",
+            "",
+            "",
+            "2026-06-21T20:15:00"),
+        makeEvent(
+            "2",
+            "channel-b",
+            "Weltpolitik",
+            "Amerika im Untertitel",
+            "",
+            "2026-06-21T21:15:00"),
+        makeEvent(
+            "3",
+            "channel-c",
+            "Reisebericht",
+            "",
+            "Amerika steht nur in der Beschreibung",
+            "2026-06-21T22:15:00")
+    };
+
+    SearchTimer searchTimer =
+        makeSearchTimerWithQuery("Amerika");
+
+    searchTimer.comparisonOptions().setCompareTitle(false);
+    searchTimer.comparisonOptions().setCompareSubtitle(true);
+    searchTimer.comparisonOptions().setCompareSummary(false);
+    searchTimer.comparisonOptions().setCompareCategories(false);
+
+    SearchTimerPreviewService service;
+
+    const SearchTimerPreviewResult result =
+        service.preview(
+            searchTimer,
+            events,
+            0,
+            0);
+
+    assert(result.totalCount() == 1);
+    assert(result.returnedCount() == 1);
+    assert(result.searchResult().matches().at(0).event().subtitle == "Amerika im Untertitel");
+}
+
+static void test_preview_respects_summary_only_comparison_options()
+{
+    const std::vector<VdrEvent> events = {
+        makeEvent(
+            "1",
+            "channel-a",
+            "Amerika Spezial",
+            "",
+            "",
+            "2026-06-21T20:15:00"),
+        makeEvent(
+            "2",
+            "channel-b",
+            "Weltpolitik",
+            "Amerika im Untertitel",
+            "",
+            "2026-06-21T21:15:00"),
+        makeEvent(
+            "3",
+            "channel-c",
+            "Reisebericht",
+            "",
+            "Amerika steht nur in der Beschreibung",
+            "2026-06-21T22:15:00")
+    };
+
+    SearchTimer searchTimer =
+        makeSearchTimerWithQuery("Amerika");
+
+    searchTimer.comparisonOptions().setCompareTitle(false);
+    searchTimer.comparisonOptions().setCompareSubtitle(false);
+    searchTimer.comparisonOptions().setCompareSummary(true);
+    searchTimer.comparisonOptions().setCompareCategories(false);
+
+    SearchTimerPreviewService service;
+
+    const SearchTimerPreviewResult result =
+        service.preview(
+            searchTimer,
+            events,
+            0,
+            0);
+
+    assert(result.totalCount() == 1);
+    assert(result.returnedCount() == 1);
+    assert(result.searchResult().matches().at(0).event().description == "Amerika steht nur in der Beschreibung");
+}
+
 static void test_preview_json_contains_statistics_and_preview()
 {
     const std::vector<VdrEvent> events = {
@@ -142,6 +331,10 @@ int main()
 {
     test_preview_matches_events_by_search_timer_query();
     test_preview_respects_limit();
+    test_preview_respects_offset();
+    test_preview_respects_title_only_comparison_options();
+    test_preview_respects_subtitle_only_comparison_options();
+    test_preview_respects_summary_only_comparison_options();
     test_preview_json_contains_statistics_and_preview();
 
     std::cout << "test_search_timer_preview_service passed" << std::endl;
