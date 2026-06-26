@@ -1,6 +1,9 @@
 #include "ApiRouter.h"
+#include "SearchTimerController.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
+#include "SearchTimerResultJsonSerializer.h"
+#include "SearchTimerService.h"
 #include "SnapshotAccessService.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
@@ -158,6 +161,71 @@ static void test_warming_cache_falls_back_to_snapshot_and_marks_input_not_author
     SearchTimerPreviewEpgInputContext::resetReady();
 }
 
+static void test_controller_json_preserves_non_ready_epg_input_context()
+{
+    SearchTimerPreviewEpgInputContext::resetReady();
+
+    SnapshotCache snapshotCache;
+    SnapshotCacheService snapshotCacheService(snapshotCache);
+    SnapshotAccessService snapshotAccessService(snapshotCacheService);
+    VdrSnapshotReadService snapshotReadService(snapshotAccessService);
+
+    snapshotCache.update(make_snapshot("default", "snapshot-event", "Snapshot Event"));
+
+    SearchTimerPreviewSnapshotReadFacade facade(snapshotReadService);
+    SearchTimerPreviewEpgCache previewCache;
+    previewCache.markWarming("default");
+
+    facade.setSearchTimerPreviewEpgCache(&previewCache);
+
+    const std::vector<VdrEvent> events = facade.getEvents();
+
+    SearchTimerService searchTimerService;
+    SearchTimerResultJsonSerializer searchTimerJsonSerializer;
+    SearchTimerController searchTimerController(
+        searchTimerService,
+        searchTimerJsonSerializer);
+
+    const SearchTimer previewSearchTimer =
+        SearchTimer::create(
+            SearchTimerId::fromBackendNativeId(
+                "default",
+                "preview"),
+            "Preview SearchTimer",
+            "Snapshot",
+            SearchTimerState::Active);
+
+    const ApiResponse response =
+        searchTimerController.previewSearchTimer(
+            previewSearchTimer,
+            events,
+            10,
+            0);
+
+    assert(response.statusCode == 200);
+    assert(response.contentType == "application/json");
+    assert(response.body.find("\"epgInput\":{\"status\":\"warming\",\"available\":false")
+           != std::string::npos);
+    assert(response.body.find("match counts are not authoritative")
+           != std::string::npos);
+    assert(response.body.find("\"totalCount\":1")
+           != std::string::npos);
+    assert(response.body.find("\"id\":\"snapshot-event\"")
+           != std::string::npos);
+
+    const ApiResponse nextResponse =
+        searchTimerController.previewSearchTimer(
+            previewSearchTimer,
+            events,
+            10,
+            0);
+
+    assert(nextResponse.body.find("\"epgInput\":{\"status\":\"ready\",\"available\":true,\"warnings\":[]}")
+           != std::string::npos);
+
+    SearchTimerPreviewEpgInputContext::resetReady();
+}
+
 static void test_unknown_cache_falls_back_to_snapshot_and_marks_input_not_authoritative()
 {
     SearchTimerPreviewEpgInputContext::resetReady();
@@ -238,6 +306,7 @@ int main()
     test_ready_empty_cache_is_authoritative_zero_events();
     test_stale_cache_falls_back_to_snapshot_and_marks_input_not_authoritative();
     test_warming_cache_falls_back_to_snapshot_and_marks_input_not_authoritative();
+    test_controller_json_preserves_non_ready_epg_input_context();
     test_unknown_cache_falls_back_to_snapshot_and_marks_input_not_authoritative();
     test_backend_cache_is_backend_scoped();
     return 0;
