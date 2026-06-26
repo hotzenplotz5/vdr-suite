@@ -56,6 +56,14 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         context->backendId,
         &runtimeLogger_,
         &runtimeDiagnosticsService_);
+
+    if (searchTimerPreviewEpgCache_) {
+        context->searchTimerPreviewEpgCacheRefreshService =
+            std::make_unique<SearchTimerPreviewEpgCacheRefreshService>(
+                *searchTimerPreviewEpgCache_,
+                *context->snapshotBuilder);
+    }
+
     context->pollingService = std::make_unique<PollingService>(
         *context->snapshotBuilder,
         *context->service,
@@ -167,6 +175,7 @@ bool DaemonRuntime::initialize()
 
     backendPollingCoordinator_ = std::make_unique<BackendPollingCoordinator>();
     vdrTimerActionExecutorAdapterRegistry_ = std::make_unique<VdrTimerActionExecutorAdapterRegistry>();
+    searchTimerPreviewEpgCache_ = std::make_unique<SearchTimerPreviewEpgCache>();
 
     for (const BackendNode& runtimeBackend : runtimeBackends) {
         auto backendRuntimeContext =
@@ -461,7 +470,11 @@ bool DaemonRuntime::initialize()
         searchTimerDiscoveryController_.get(),
         searchTimerAutomationPreviewController_.get());
 
+    apiRouter_->setSearchTimerPreviewEpgCache(
+        searchTimerPreviewEpgCache_.get());
+
     std::cout << "API router runtime initialized" << std::endl;
+    std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;
 
     httpServer_ = std::make_unique<TestHttpServer>(*apiRouter_);
     httpListener_ = std::make_unique<SimpleHttpListener>(config_.httpListenHost(), config_.httpListenPort(), *httpServer_);
@@ -594,6 +607,7 @@ void DaemonRuntime::shutdown()
     snapshotChangeFeed_.reset();
     backendPollingCoordinator_.reset();
     backendRuntimeContexts_.clear();
+    searchTimerPreviewEpgCache_.reset();
     vdrSnapshotReadJsonSerializer_.reset();
     vdrSnapshotReadService_.reset();
     snapshotAccessService_.reset();
