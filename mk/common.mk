@@ -12,13 +12,13 @@ LDFLAGS := $(shell pkg-config --libs sqlite3)
 
 SQLITE_SRC := core/sqlite/src/Database.cpp
 
-.PHONY: all test clean prepare-test-db dashboard-cli daemon test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service
+.PHONY: all test clean prepare-test-db dashboard-cli daemon test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller
 
 all: test
 
-test-ci-fast: test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service
+test-ci-fast: test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller
 
-test-vdr: test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service
+test-vdr: test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller
 
 test-vdr-snapshot-builder-startup-snapshot:
 	$(CXX) $(CXXFLAGS) \
@@ -34,6 +34,15 @@ test-search-timer-preview-epg-cache-refresh-service:
 		core/vdr/tests/test_search_timer_preview_epg_cache_refresh_service.cpp \
 		-o /tmp/test_search_timer_preview_epg_cache_refresh_service
 	/tmp/test_search_timer_preview_epg_cache_refresh_service
+
+
+test-search-timer-preview-epg-cache-refresh-controller:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		api/rest/src/SearchTimerPreviewEpgCacheRefreshController.cpp \
+		api/rest/tests/test_search_timer_preview_epg_cache_refresh_controller.cpp \
+		-o /tmp/test_search_timer_preview_epg_cache_refresh_controller
+	/tmp/test_search_timer_preview_epg_cache_refresh_controller
 
 prepare-test-db:
 	rm -f /tmp/vdr-suite-test.db
