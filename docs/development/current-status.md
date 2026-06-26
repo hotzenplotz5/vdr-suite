@@ -48,21 +48,21 @@ Overall project progress:
 
 Milestone progress:
 
-    Core Runtime Foundation             ██████████ 100%  completed
-    Multi-Backend Foundation            ██████████ 100%  completed
-    Query Foundation                    ██████████ 100%  completed
-    Action Foundation                   ██████████ 100%  completed
-    Metadata Foundation                 ██████████ 100%  completed
-    Documentation Foundation            ██████████ 100%  completed
-    SearchTimer Backend Foundation      ██████████ 100%  completed
-    SearchTimer User Workflow           ██████████ 100%  completed
-    SearchTimer Runtime Mutation Policy ██████████ 100%  completed
-    SearchTimer Preview EPG Performance █░░░░░░░░░  10%  in progress
-    Lazy Recording Loading              ░░░░░░░░░░   0%  planned
-    Live Plugin Parity Foundation       ██████████ 100%  completed
-    Automation Foundation               ██████████ 100%  completed
-    Federation Foundation               ░░░░░░░░░░   0%  planned
-    Frontend Foundation                 ░░░░░░░░░░   0%  planned
+    Core Runtime Foundation              ██████████ 100%  completed
+    Multi-Backend Foundation             ██████████ 100%  completed
+    Query Foundation                     ██████████ 100%  completed
+    Action Foundation                    ██████████ 100%  completed
+    Metadata Foundation                  ██████████ 100%  completed
+    Documentation Foundation             ██████████ 100%  completed
+    SearchTimer Backend Foundation       ██████████ 100%  completed
+    SearchTimer User Workflow            ██████████ 100%  completed
+    SearchTimer Runtime Mutation Policy  ██████████ 100%  completed
+    SearchTimer Preview EPG Performance  █░░░░░░░░░  10%  in progress
+    Lazy Recording Loading               ░░░░░░░░░░   0%  planned
+    Live Plugin Parity Foundation        ██████████ 100%  completed
+    Automation Foundation                ██████████ 100%  completed
+    Federation Foundation                ░░░░░░░░░░   0%  planned
+    Frontend Foundation                  ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
