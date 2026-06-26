@@ -196,7 +196,6 @@ test-search-timer-preview-service:
 test-search-timer-preview-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
-		core/vdr/src/SearchTimerPreviewResultJsonSerializer.cpp \
 		core/vdr/tests/test_search_timer_preview_result_json_serializer.cpp \
 		-o /tmp/test_search_timer_preview_result_json_serializer
 	/tmp/test_search_timer_preview_result_json_serializer
