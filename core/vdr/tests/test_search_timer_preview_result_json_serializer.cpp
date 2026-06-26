@@ -21,15 +21,18 @@ static VdrEvent makeEvent()
     return event;
 }
 
-int main()
+static SearchTimer makeSearchTimer()
 {
-    SearchTimer searchTimer = SearchTimer::create(
+    return SearchTimer::create(
         SearchTimerId::fromBackendNativeId("home-vdr", "searchtimer-1"),
         "Terra X Suche",
         "Terra X",
         SearchTimerState::Active);
+}
 
-    EpgSearchResult searchResult(
+static EpgSearchResult makeSearchResult()
+{
+    return EpgSearchResult(
         {
             EpgSearchMatch(
                 makeEvent(),
@@ -39,10 +42,13 @@ int main()
         1,
         10,
         0);
+}
 
+static void test_default_result_reports_ready_epg_input()
+{
     SearchTimerPreviewResult previewResult(
-        searchTimer,
-        searchResult);
+        makeSearchTimer(),
+        makeSearchResult());
 
     SearchTimerPreviewResultJsonSerializer serializer;
 
@@ -55,6 +61,10 @@ int main()
     assert(json.find("\"name\":\"Terra X Suche\"") != std::string::npos);
     assert(json.find("\"query\":\"Terra X\"") != std::string::npos);
     assert(json.find("\"state\":\"active\"") != std::string::npos);
+    assert(json.find("\"epgInput\":{") != std::string::npos);
+    assert(json.find("\"status\":\"ready\"") != std::string::npos);
+    assert(json.find("\"available\":true") != std::string::npos);
+    assert(json.find("\"warnings\":[]") != std::string::npos);
     assert(json.find("\"statistics\":{") != std::string::npos);
     assert(json.find("\"channelCount\":1") != std::string::npos);
     assert(json.find("\"nextStartTime\":\"1000\"") != std::string::npos);
@@ -64,6 +74,34 @@ int main()
     assert(json.find("\"returnedCount\":1") != std::string::npos);
     assert(json.find("\"eventId\":\"event-1\"") != std::string::npos);
     assert(json.find("\"matchedFields\":[\"title\"]") != std::string::npos);
+}
+
+static void test_warming_epg_input_is_explicit()
+{
+    SearchTimerPreviewResult previewResult(
+        makeSearchTimer(),
+        EpgSearchResult::empty(10, 0),
+        "warming",
+        false,
+        {"SearchTimer preview EPG input is warming."});
+
+    SearchTimerPreviewResultJsonSerializer serializer;
+
+    const std::string json =
+        serializer.serialize(previewResult);
+
+    assert(json.find("\"epgInput\":{") != std::string::npos);
+    assert(json.find("\"status\":\"warming\"") != std::string::npos);
+    assert(json.find("\"available\":false") != std::string::npos);
+    assert(json.find("SearchTimer preview EPG input is warming") != std::string::npos);
+    assert(json.find("\"totalCount\":0") != std::string::npos);
+    assert(json.find("\"returnedCount\":0") != std::string::npos);
+}
+
+int main()
+{
+    test_default_result_reports_ready_epg_input();
+    test_warming_epg_input_is_explicit();
 
     std::cout
         << "test_search_timer_preview_result_json_serializer passed"
