@@ -45,5 +45,4 @@ public:
 
 private:
     ISnapshotAccessService& snapshotAccessService_;
-    SearchTimerPreviewEpgCache searchTimerPreviewEpgCache_;
 };
