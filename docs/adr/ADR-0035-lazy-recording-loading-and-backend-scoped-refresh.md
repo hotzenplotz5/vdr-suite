@@ -1,5 +1,15 @@
 # ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Project Overview](../project-overview.md)
+- [ADR Index](index.md)
+- [Lazy Recording Loading Planning](../planning/lazy-recording-loading.md)
+
+---
+
 Status: Accepted
 
 Date: 2026-06-26
@@ -182,3 +192,11 @@ Runtime measurements for recording loading must remain visible so large archives
 - ADR-0018: Incremental Snapshot Synchronization
 - ADR-0021: Selective Backend Query Strategy
 - ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation
+
+---
+
+## Back
+
+- [Back to README](../../README.md)
+- [Back to Documentation Index](../index.md)
+- [Back to ADR Index](index.md)
