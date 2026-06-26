@@ -58,7 +58,7 @@ Milestone progress:
     SearchTimer Backend Foundation       ██████████ 100%  completed
     SearchTimer User Workflow            ██████████ 100%  completed
     SearchTimer Runtime Mutation Policy  ██████████ 100%  completed
-    SearchTimer Preview EPG Performance  █░░░░░░░░░  10%  in progress
+    SearchTimer Preview EPG Performance  ███░░░░░░░  30%  in progress
     Lazy Recording Loading               █░░░░░░░░░  10%  in progress
     Live Plugin Parity Foundation        ██████████ 100%  completed
     Automation Foundation                ██████████ 100%  completed
