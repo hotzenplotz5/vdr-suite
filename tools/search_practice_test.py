@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+import base64
 import json
+import os
 import sys
 import urllib.error
 import urllib.parse
@@ -48,13 +50,32 @@ def build_url(base_url, path, query):
     return f"{normalize_base_url(base_url)}{path}"
 
 
-def http_json(method, base_url, path, query=None, timeout=DEFAULT_TIMEOUT):
+def build_auth_header(args):
+    if args.auth_header:
+        return args.auth_header
+
+    user = args.user or os.environ.get("VDR_SUITE_USER", "")
+    password = args.password or os.environ.get("VDR_SUITE_PASSWORD", "")
+
+    if not user and not password:
+        return ""
+
+    token = base64.b64encode(
+        f"{user}:{password}".encode("utf-8")
+    ).decode("ascii")
+    return f"Basic {token}"
+
+
+def http_json(method, base_url, path, query=None, timeout=DEFAULT_TIMEOUT, auth_header=""):
     if query is None:
         query = {}
 
     url = build_url(base_url, path, query)
     data = None
     headers = {"Accept": "application/json"}
+
+    if auth_header:
+        headers["Authorization"] = auth_header
 
     if method == "POST":
         data = b"{}"
@@ -197,6 +218,9 @@ def print_result(label, term, result):
     state = "OK" if result.ok() else "FAIL"
     print(f"[{state}] {label}: {result.method} {short_url(result.url)} -> {status}")
 
+    if result.status == 401:
+        print("      auth: 401 unauthorized; pass --user/--password or set VDR_SUITE_USER/VDR_SUITE_PASSWORD")
+
     if result.error and not result.body:
         print(f"      error: {result.error}")
         return
@@ -285,7 +309,7 @@ def practice_endpoints(args, term):
     ]
 
 
-def refresh_cache(args):
+def refresh_cache(args, auth_header):
     query = {
         "backend": args.backend,
         "from": args.from_time,
@@ -300,6 +324,7 @@ def refresh_cache(args):
         "/api/vdr/searchtimers/preview/cache/refresh",
         query,
         args.timeout,
+        auth_header,
     )
 
     print_result("preview-cache-refresh", "", result)
@@ -307,15 +332,18 @@ def refresh_cache(args):
 
 
 def run_practice(args):
+    auth_header = build_auth_header(args)
+
     print("VDR-Suite Search Practice Test")
     print(f"base-url: {normalize_base_url(args.base_url)}")
     print(f"backend:  {args.backend}")
     print(f"window:   from={args.from_time} timespan={args.timespan}")
+    print(f"auth:     {'enabled' if auth_header else 'disabled'}")
     print("")
 
     if args.refresh_cache:
         print("== Cache refresh ==")
-        refresh_cache(args)
+        refresh_cache(args, auth_header)
         print("")
 
     exit_code = 0
@@ -323,7 +351,7 @@ def run_practice(args):
     for term in args.terms:
         print(f"== Query: {term} ==")
         for label, method, path, query in practice_endpoints(args, term):
-            result = http_json(method, args.base_url, path, query, args.timeout)
+            result = http_json(method, args.base_url, path, query, args.timeout, auth_header)
             print_result(label, term, result)
             if not result.ok():
                 exit_code = 1
@@ -348,6 +376,9 @@ def parse_args():
     parser.add_argument("--tolerance", default="2")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)
     parser.add_argument("--refresh-cache", action="store_true")
+    parser.add_argument("--user", default="")
+    parser.add_argument("--password", default="")
+    parser.add_argument("--auth-header", default="")
 
     args = parser.parse_args()
 
