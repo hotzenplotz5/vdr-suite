@@ -2,6 +2,7 @@
 
 #include "DashboardController.h"
 #include "SearchTimerPreviewEpgCache.h"
+#include "SearchTimerPreviewEpgInputContext.h"
 #include "VdrSnapshotReadService.h"
 
 #include <string>
@@ -60,26 +61,27 @@ public:
 
     std::vector<VdrEvent> getEvents() const
     {
-        const std::vector<VdrEvent>* cachedEvents =
-            searchTimerPreviewEpgCache_ == nullptr
-                ? nullptr
-                : searchTimerPreviewEpgCache_->eventsForBackend("default");
-
-        if (cachedEvents != nullptr)
-        {
-            return *cachedEvents;
-        }
-
-        return snapshotReadService_.getEvents();
+        return getEventsForBackend("default");
     }
 
     std::vector<VdrEvent> getEventsForBackend(
         const std::string& backendId) const
     {
+        if (searchTimerPreviewEpgCache_ == nullptr)
+        {
+            SearchTimerPreviewEpgInputContext::resetReady();
+            return snapshotReadService_.getEventsForBackend(backendId);
+        }
+
+        const SearchTimerPreviewEpgCacheStatus status =
+            searchTimerPreviewEpgCache_->statusForBackend(backendId);
+
+        SearchTimerPreviewEpgInputContext::setCacheStatus(
+            status,
+            backendId);
+
         const std::vector<VdrEvent>* cachedEvents =
-            searchTimerPreviewEpgCache_ == nullptr
-                ? nullptr
-                : searchTimerPreviewEpgCache_->eventsForBackend(backendId);
+            searchTimerPreviewEpgCache_->eventsForBackend(backendId);
 
         if (cachedEvents != nullptr)
         {
