@@ -2,6 +2,7 @@
 
 #include "ISnapshotAccessService.h"
 #include "SearchTimer.h"
+#include "SearchTimerPreviewEpgCache.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
 #include "VdrRecording.h"
@@ -39,6 +40,10 @@ public:
     std::vector<VdrEvent> getEvents() const;
     std::vector<VdrEvent> getEventsForBackend(const std::string& backendId) const;
 
+    SearchTimerPreviewEpgCache& searchTimerPreviewEpgCache();
+    const SearchTimerPreviewEpgCache& searchTimerPreviewEpgCache() const;
+
 private:
     ISnapshotAccessService& snapshotAccessService_;
+    SearchTimerPreviewEpgCache searchTimerPreviewEpgCache_;
 };
