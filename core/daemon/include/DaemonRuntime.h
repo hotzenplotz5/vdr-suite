@@ -79,6 +79,7 @@
 #include "SearchTimerDeleteRequestParser.h"
 #include "SearchTimerDeleteResultJsonSerializer.h"
 #include "SearchTimerDeleteService.h"
+#include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerRuntimeMutationPolicyExecutor.h"
 #include "SearchTimerUpdateRequestParser.h"
 #include "SearchTimerUpdateResultJsonSerializer.h"
@@ -159,6 +160,7 @@ private:
     VdrConfig vdrConfig_;
     std::vector<std::unique_ptr<BackendRuntimeContext>> backendRuntimeContexts_;
     std::unique_ptr<BackendPollingCoordinator> backendPollingCoordinator_;
+    std::unique_ptr<SearchTimerPreviewEpgCache> searchTimerPreviewEpgCache_;
     std::unique_ptr<SnapshotCache> snapshotCache_;
     std::unique_ptr<SnapshotCacheService> snapshotCacheService_;
     std::unique_ptr<SnapshotAccessService> snapshotAccessService_;
