@@ -4,6 +4,7 @@ test-ci-fast: \
 	test-fast \
 	test-api-router \
 	test-restful-api-vdr-timer-action-executor \
+	test-search-timer-preview-result-json-serializer \
 	test-search-timer-preview-epg-cache \
 	test-vdr-snapshot-read-service-searchtimer-preview-epg-cache \
 	test-api-router-searchtimer-preview-epg-cache
