@@ -1,5 +1,16 @@
 # Startup Snapshot Runtime Rule
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Development Index](index.md)
+- [Current Project Status](current-status.md)
+- [Lazy Recording Loading](../planning/lazy-recording-loading.md)
+- [ADR-0035 Lazy Recording Loading and Backend-Scoped Refresh](../adr/ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
+
+---
+
 ## Purpose
 
 This document records the runtime rule for the initial daemon polling snapshot.
@@ -85,3 +96,11 @@ Targeted tests verify that the startup snapshot reads only status, timers and ch
 - [Lazy Recording Loading](../planning/lazy-recording-loading.md)
 - [ADR-0035 Lazy Recording Loading and Backend-Scoped Refresh](../adr/ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
 - [SearchTimer Backend Contract](searchtimer-backend-contract.md)
+
+---
+
+## Back
+
+- [Back to Current Project Status](current-status.md)
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
