@@ -20,6 +20,7 @@
 #include "SearchTimerController.h"
 #include "SearchTimerDiscoveryController.h"
 #include "SearchTimerAutomationPreviewController.h"
+#include "SearchTimerPreviewEpgCacheRefreshController.h"
 #include "SearchTimerResult.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
@@ -123,6 +124,17 @@ ApiResponse makeSearchTimerAutomationPreviewUnavailableResponse()
     return response;
 }
 
+ApiResponse makeSearchTimerPreviewEpgCacheRefreshUnavailableResponse()
+{
+    ApiResponse response;
+
+    response.statusCode = 503;
+    response.contentType = "application/json";
+    response.body = "{\"error\":\"searchtimer preview epg cache refresh unavailable\"}";
+
+    return response;
+}
+
 ApiResponse makeNativeFuzzyStaleProbeAdministrationUnavailableResponse()
 {
     ApiResponse response;
@@ -203,7 +215,8 @@ ApiRouter::ApiRouter(
     EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController,
     EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController,
     SearchTimerDiscoveryController* searchTimerDiscoveryController,
-    SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController)
+    SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController,
+    SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
       recordingsController_(recordingsController),
@@ -225,6 +238,8 @@ ApiRouter::ApiRouter(
       searchTimerController_(searchTimerController),
       searchTimerDiscoveryController_(searchTimerDiscoveryController),
       searchTimerAutomationPreviewController_(searchTimerAutomationPreviewController),
+      searchTimerPreviewEpgCacheRefreshController_(
+          searchTimerPreviewEpgCacheRefreshController),
       liveTransportController_(liveTransportController),
       searchTimerCommandExecutor_(searchTimerCommandExecutor),
       nativeFuzzyStaleProbeAdministrationController_(
@@ -242,6 +257,10 @@ ApiResponse ApiRouter::handlePost(
 
     const std::string path =
         requestPath(requestTarget);
+
+    const RestQueryParameters queryParameters =
+        RestQueryParameters::parse(
+            requestQueryString(requestTarget));
 
     if (path == "/api/recordings/actions/validate" ||
         path == "/api/vdr/recordings/actions/validate")
@@ -274,6 +293,30 @@ ApiResponse ApiRouter::handlePost(
         return vdrTimerActionController_.removeBody(
             body,
             vdrTimerActionExecutorAdapterRegistry_);
+    }
+
+    if (path == "/api/searchtimers/preview/cache/refresh" ||
+        path == "/api/vdr/searchtimers/preview/cache/refresh")
+    {
+        if (searchTimerPreviewEpgCacheRefreshController_ == nullptr)
+        {
+            return makeSearchTimerPreviewEpgCacheRefreshUnavailableResponse();
+        }
+
+        const std::string backendId =
+            queryParameters.get("backend").empty()
+                ? "default"
+                : queryParameters.get("backend");
+
+        return searchTimerPreviewEpgCacheRefreshController_->refreshBackend(
+            backendId,
+            queryParameters.getInt("from", -1),
+            queryParameters.getInt("timespan", 7200),
+            queryParameters.getInt("start", -1),
+            queryParameters.getInt("limit", 0),
+            queryParameters.getInt(
+                "channelEventLimit",
+                queryParameters.getInt("chevents", 50)));
     }
 
     if (path == "/api/searchtimers/real-test" ||
