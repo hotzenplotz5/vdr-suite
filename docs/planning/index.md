@@ -23,6 +23,7 @@ Implementation details and completed work belong in the development section.
 
 - [Roadmap](roadmap.md)
 - [Project Progress](project-progress.md)
+- [Lazy Recording Loading](lazy-recording-loading.md)
 
 Long-term architecture direction and major project phases.
 
@@ -37,11 +38,11 @@ Current planning entry point and milestone pointers.
 ## Current Position
 
 ```text
-Completed Major Phase
-Phase 49.30 - EPGSearch native fuzzy validation consolidation
+Current major implementation milestone
+Phase 54.3 - SearchTimer warm EPG cache implementation
 
-Next Major Phase
-Phase 50.0 - SearchTimer user workflow foundation
+Required planned follow-up
+Lazy Recording Loading and Backend-Scoped Recording Refresh
 ```
 
 ---
@@ -59,6 +60,7 @@ Current verified state and completed implementation history.
 
 - [Roadmap](roadmap.md) contains long-term direction.
 - [Project Progress](project-progress.md) contains high-level progress percentages and the active milestone.
+- [Lazy Recording Loading](lazy-recording-loading.md) keeps the no-startup-recording-load requirement visible until implementation.
 - [Milestones](milestones.md) remains a lightweight planning pointer document.
 - [Current Project Status](../development/current-status.md) contains the current verified project status.
 - [Completed Phases](../development/completed-phases.md) contains completed implementation history.
