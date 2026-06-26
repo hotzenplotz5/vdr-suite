@@ -7,6 +7,7 @@
 - [Project Overview](../project-overview.md)
 - [Development Index](index.md)
 - [Roadmap](../planning/roadmap.md)
+- [Lazy Recording Loading](../planning/lazy-recording-loading.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
 - [Completed Phases](completed-phases.md)
 
@@ -57,6 +58,7 @@ Milestone progress:
     SearchTimer User Workflow           ██████████ 100%  completed
     SearchTimer Runtime Mutation Policy ██████████ 100%  completed
     SearchTimer Preview EPG Performance █░░░░░░░░░  10%  in progress
+    Lazy Recording Loading              ░░░░░░░░░░   0%  planned
     Live Plugin Parity Foundation       ██████████ 100%  completed
     Automation Foundation               ██████████ 100%  completed
     Federation Foundation               ░░░░░░░░░░   0%  planned
@@ -89,6 +91,12 @@ Next major implementation milestone:
 
 ```text
 Phase 54.3 - SearchTimer warm EPG cache implementation
+```
+
+Required planned follow-up:
+
+```text
+Lazy Recording Loading and Backend-Scoped Recording Refresh
 ```
 
 Completed foundations:
@@ -143,6 +151,7 @@ make test-phase
 - Phase 53.x preserves title-only SearchTimer compare fields across REST, workflow planning and command dispatch.
 - Phase 54.1 fixes SearchTimer preview comparison-option handling and verifies title-only preview behavior against live VDR EPG input.
 - Phase 54.2 accepts ADR-0034 for warm EPG cache input, change-state invalidation and future SSE-triggered refresh.
+- ADR-0035 records that recordings are a heavy on-demand domain and must not be loaded synchronously for all backends during daemon startup.
 
 ---
 
@@ -160,8 +169,10 @@ make test-phase
 - PollingService and BackendPollingCoordinator support backend-aware polling coordination.
 - VdrEventQuery provides the first backend-neutral selective EPG query contract.
 - Events and EPG are treated as heavy domains and are not automatically full-refreshed by default.
+- Recordings are also a heavy domain for startup and multi-backend runtime planning; future startup snapshots must not synchronously load recordings for every backend.
 - EPG search operates over selective event windows and does not require a persistent full EPG mirror.
 - SearchTimer preview must use warm EPG input for interactive operation and must not hide missing EPG input as a normal zero-match result.
+- Recording pages must eventually render before recordings are loaded and show backend-scoped loading state until the selected backend is ready.
 - Recording actions use backend-native recording identity.
 - Content classification uses source-aware evidence for genre, rating, metadata and policy work.
 - Person architecture uses source-aware evidence, roles, confidence, normalized names, character names and provider references.
@@ -177,6 +188,7 @@ Heavy domains must not use full-domain runtime refreshes as the default strategy
 Heavy domains currently include:
 
 - EPG
+- recordings
 - metadata
 - posters
 - fanart
@@ -188,12 +200,19 @@ Preferred runtime strategies are:
 - channel-scoped queries
 - time-window queries
 - object-specific queries
+- backend-scoped on-demand recording refreshes
 - change-hint driven refreshes
 - warm backend-scoped caches for interactive preview paths
 
 Performance goal:
 
 Backend workload should remain comparable to established VDR frontends such as live whenever equivalent information is requested.
+
+Recording-specific startup rule:
+
+- daemon startup must not synchronously load recordings for all configured backends
+- recording pages must show backend-scoped loading state instead of assuming data is already available
+- a ready empty recording cache is a valid empty list, but unknown/loading/unavailable/error is not
 
 ---
 
@@ -244,10 +263,20 @@ Phase 54.3 - SearchTimer warm EPG cache implementation
 
 The next implementation phase should implement a backend-scoped warm EPG cache for SearchTimer preview so interactive preview requests do not fetch the full RESTfulAPI EPG dump.
 
+Required planned follow-up:
+
+```text
+Lazy Recording Loading and Backend-Scoped Recording Refresh
+```
+
+This follow-up must ensure daemon startup remains lightweight and recordings are loaded only on demand for the selected backend with explicit loading/status feedback.
+
 Important boundaries:
 
 - keep VDR as the source of truth for VDR-owned state
 - prefer selective EPG queries and warm cache refresh over full EPG transfers in interactive request paths
+- do not synchronously load recordings for all backends during daemon startup
+- keep backend-scoped recording refresh independent per backend
 - keep metadata provider details behind provider boundaries
 - keep policy enforcement out until dedicated profile and permission architecture exists
 - build SearchTimer on top of existing EPG search and recording metadata foundations
@@ -260,6 +289,4 @@ Important boundaries:
 
 - [Back to README](../../README.md)
 - [Back to Documentation Index](../index.md)
-- [Back to Project Overview](../project-overview.md)
-- SearchTimer foundation work is synchronized through the latest verified implementation phase.
-- Documentation synchronization now tracks the real implementation state before real integration testing starts.
+- [Back to Development Index](index.md)
