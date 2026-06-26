@@ -1,4 +1,4 @@
-.PHONY: test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer
+.PHONY: test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache
 
 test-vdr: \
 	test-backend-node \
@@ -44,13 +44,13 @@ test-vdr: \
 	test-restful-api-vdr-adapter \
 	test-restful-api-change-state-adapter \
 	test-person-query-matcher \
-		test-person-query-result-json-serializer \\
-		test-person-search-service \\
-		test-recording-person-search-result \\
-	test-recording-person-search-service \\
-	test-recording-person-search-result-json-serializer \\
-	test-recording-person-search-controller \\
-		test-person-query-controller \\
+		test-person-query-result-json-serializer \
+		test-person-search-service \
+		test-recording-person-search-result \
+	test-recording-person-search-service \
+	test-recording-person-search-result-json-serializer \
+	test-recording-person-search-controller \
+		test-person-query-controller \
 		test-genre-classification \
 	test-genre-resolver \
 	test-genre-resolution-json-serializer \
@@ -60,6 +60,7 @@ test-vdr: \
 	test-epg-search-matcher \
 	test-epg-search-result \
 	test-search-timer \
+	test-search-timer-preview-epg-cache \
 	test-search-timer-discovery \
 	test-search-timer-discovery-service \
 	test-search-timer-discovery-static-provider \
@@ -149,3 +150,11 @@ test-backend-registry-json-serializer:
 		core/vdr/tests/test_backend_registry_json_serializer.cpp \
 		-o /tmp/test_backend_registry_json_serializer
 	/tmp/test_backend_registry_json_serializer
+
+
+test-search-timer-preview-epg-cache:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerPreviewEpgCache.cpp \
+		core/vdr/tests/test_search_timer_preview_epg_cache.cpp \
+		-o /tmp/test_search_timer_preview_epg_cache
+	/tmp/test_search_timer_preview_epg_cache
