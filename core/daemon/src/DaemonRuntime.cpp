@@ -176,10 +176,18 @@ bool DaemonRuntime::initialize()
     backendPollingCoordinator_ = std::make_unique<BackendPollingCoordinator>();
     vdrTimerActionExecutorAdapterRegistry_ = std::make_unique<VdrTimerActionExecutorAdapterRegistry>();
     searchTimerPreviewEpgCache_ = std::make_unique<SearchTimerPreviewEpgCache>();
+    searchTimerPreviewEpgCacheRefreshServiceRegistry_ =
+        std::make_unique<SearchTimerPreviewEpgCacheRefreshServiceRegistry>();
 
     for (const BackendNode& runtimeBackend : runtimeBackends) {
         auto backendRuntimeContext =
             createBackendRuntimeContext(runtimeBackend);
+
+        if (backendRuntimeContext->searchTimerPreviewEpgCacheRefreshService) {
+            searchTimerPreviewEpgCacheRefreshServiceRegistry_->registerService(
+                backendRuntimeContext->backendId,
+                *backendRuntimeContext->searchTimerPreviewEpgCacheRefreshService);
+        }
 
         backendPollingCoordinator_->addPollingService(
             backendRuntimeContext->backendId,
@@ -330,6 +338,12 @@ bool DaemonRuntime::initialize()
 
     std::cout << "SearchTimer automation preview controller runtime initialized" << std::endl;
 
+    searchTimerPreviewEpgCacheRefreshController_ =
+        std::make_unique<SearchTimerPreviewEpgCacheRefreshController>(
+            *searchTimerPreviewEpgCacheRefreshServiceRegistry_);
+
+    std::cout << "SearchTimer preview EPG cache refresh controller runtime initialized" << std::endl;
+
     personResolutionJsonSerializer_ = std::make_unique<PersonResolutionJsonSerializer>();
     personSearchService_ = std::make_unique<PersonSearchService>();
     personQueryResultJsonSerializer_ = std::make_unique<PersonQueryResultJsonSerializer>();
@@ -468,7 +482,8 @@ bool DaemonRuntime::initialize()
         epgSearchNativeFuzzyStaleProbeAdministrationController_.get(),
         epgSearchNativeFuzzyOperatorRefreshController_.get(),
         searchTimerDiscoveryController_.get(),
-        searchTimerAutomationPreviewController_.get());
+        searchTimerAutomationPreviewController_.get(),
+        searchTimerPreviewEpgCacheRefreshController_.get());
 
     apiRouter_->setSearchTimerPreviewEpgCache(
         searchTimerPreviewEpgCache_.get());
@@ -547,6 +562,7 @@ void DaemonRuntime::shutdown()
     epgSearchNativeFuzzyOperatorRefreshService_.reset();
     epgSearchNativeFuzzyStaleProbeAdministrationController_.reset();
     epgSearchNativeFuzzyStaleProbeAdministrationService_.reset();
+    searchTimerPreviewEpgCacheRefreshController_.reset();
     searchTimerRuntimeMutationPolicyExecutor_.reset();
     searchTimerCommandExecutor_.reset();
     searchTimerDeleteRequestParser_.reset();
@@ -607,6 +623,7 @@ void DaemonRuntime::shutdown()
     snapshotChangeFeed_.reset();
     backendPollingCoordinator_.reset();
     backendRuntimeContexts_.clear();
+    searchTimerPreviewEpgCacheRefreshServiceRegistry_.reset();
     searchTimerPreviewEpgCache_.reset();
     vdrSnapshotReadJsonSerializer_.reset();
     vdrSnapshotReadService_.reset();
