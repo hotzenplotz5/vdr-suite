@@ -91,6 +91,40 @@ static void test_preview_matches_events_by_search_timer_query()
     assert(result.epgInputAvailable() == true);
 }
 
+static void test_preview_applies_typo_fallback_when_exact_preview_has_no_matches()
+{
+    const std::vector<VdrEvent> events = {
+        makeEvent(
+            "1",
+            "channel-a",
+            "Protest gegen Trump",
+            "",
+            "Donald Trump steht unter Druck",
+            "2026-06-21T20:15:00"),
+        makeEvent(
+            "2",
+            "channel-b",
+            "Tagesschau",
+            "",
+            "Nachrichten",
+            "2026-06-21T20:00:00")
+    };
+
+    SearchTimerPreviewService service;
+
+    const SearchTimerPreviewResult result =
+        service.preview(
+            makeSearchTimerWithQuery("Trumb"),
+            events,
+            0,
+            0);
+
+    assert(result.empty() == false);
+    assert(result.totalCount() == 1);
+    assert(result.returnedCount() == 1);
+    assert(result.searchResult().matches().at(0).event().title == "Protest gegen Trump");
+}
+
 static void test_preview_respects_limit()
 {
     const std::vector<VdrEvent> events = {
@@ -369,6 +403,7 @@ static void test_preview_uses_non_ready_epg_input_context_once()
 int main()
 {
     test_preview_matches_events_by_search_timer_query();
+    test_preview_applies_typo_fallback_when_exact_preview_has_no_matches();
     test_preview_respects_limit();
     test_preview_respects_offset();
     test_preview_respects_title_only_comparison_options();

@@ -12,12 +12,95 @@
 
 namespace {
 
+constexpr int previewTypoFallbackTolerance = 2;
+
 bool hasExplicitComparisonOptions(
     const SearchTimer& searchTimer)
 {
     return searchTimer.comparisonOptions().compareTitle() ||
            searchTimer.comparisonOptions().compareSubtitle() ||
            searchTimer.comparisonOptions().compareSummary();
+}
+
+EpgSearchMode searchModeForSearchTimerMode(
+    int mode)
+{
+    switch (mode)
+    {
+    case 1:
+        return EpgSearchMode::AllWords;
+    case 2:
+        return EpgSearchMode::AnyWord;
+    case 3:
+        return EpgSearchMode::Exact;
+    case 4:
+        return EpgSearchMode::RegularExpression;
+    case 5:
+        return EpgSearchMode::Fuzzy;
+    default:
+        return EpgSearchMode::Phrase;
+    }
+}
+
+bool shouldApplyPreviewTypoFallback(
+    const SearchTimer& searchTimer,
+    const EpgSearchResult& result)
+{
+    return result.totalCount() == 0 &&
+           !searchTimer.query().empty() &&
+           searchTimer.matchOptions().mode() == 0;
+}
+
+void applySearchTimerOptions(
+    EpgSearchRequest& request,
+    const SearchTimer& searchTimer)
+{
+    if (hasExplicitComparisonOptions(searchTimer))
+    {
+        request.setSearchFields(
+            searchTimer.comparisonOptions().compareTitle(),
+            searchTimer.comparisonOptions().compareSubtitle(),
+            searchTimer.comparisonOptions().compareSummary());
+    }
+
+    const EpgSearchMode searchMode =
+        searchModeForSearchTimerMode(searchTimer.matchOptions().mode());
+
+    request.setSearchMode(searchMode);
+
+    if (searchMode == EpgSearchMode::Fuzzy)
+    {
+        request.setFuzzyTolerance(searchTimer.matchOptions().tolerance());
+    }
+}
+
+EpgSearchRequest createPreviewRequest(
+    const SearchTimer& searchTimer)
+{
+    EpgSearchRequest request =
+        EpgSearchRequest::sorted(
+            searchTimer.backendId(),
+            searchTimer.query(),
+            "",
+            -1,
+            0,
+            0,
+            0,
+            EpgSearchSortField::StartTime,
+            EpgSearchSortOrder::Ascending);
+
+    applySearchTimerOptions(request, searchTimer);
+
+    return request;
+}
+
+EpgSearchRequest createPreviewTypoFallbackRequest(
+    const SearchTimer& searchTimer)
+{
+    EpgSearchRequest request = createPreviewRequest(searchTimer);
+    request.setSearchMode(EpgSearchMode::Fuzzy);
+    request.setFuzzyTolerance(previewTypoFallbackTolerance);
+    return request;
 }
 
 EpgSearchResult paginateResult(
@@ -71,33 +154,21 @@ SearchTimerPreviewResult SearchTimerPreviewService::preview(
 
     SearchTimerPreviewEpgInputContext::resetReady();
 
-    EpgSearchRequest request =
-        EpgSearchRequest::sorted(
-            searchTimer.backendId(),
-            searchTimer.query(),
-            "",
-            -1,
-            0,
-            0,
-            0,
-            EpgSearchSortField::StartTime,
-            EpgSearchSortOrder::Ascending);
-
-    if (hasExplicitComparisonOptions(searchTimer))
-    {
-        request.setSearchFields(
-            searchTimer.comparisonOptions().compareTitle(),
-            searchTimer.comparisonOptions().compareSubtitle(),
-            searchTimer.comparisonOptions().compareSummary());
-    }
-
     EpgSearchService service;
     EpgSearchRequestMapper requestMapper;
 
-    const EpgSearchResult unpagedResult =
+    const EpgSearchResult initialResult =
         service.search(
             events,
-            requestMapper.map(request));
+            requestMapper.map(createPreviewRequest(searchTimer)));
+
+    const EpgSearchResult unpagedResult =
+        shouldApplyPreviewTypoFallback(searchTimer, initialResult)
+            ? service.search(
+                  events,
+                  requestMapper.map(
+                      createPreviewTypoFallbackRequest(searchTimer)))
+            : initialResult;
 
     return SearchTimerPreviewResult(
         searchTimer,
