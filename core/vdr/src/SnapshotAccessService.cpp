@@ -49,3 +49,13 @@ std::vector<VdrSnapshot> SnapshotAccessService::snapshots() const
 
     return result;
 }
+
+SearchTimerPreviewEpgCache& SnapshotAccessService::searchTimerPreviewEpgCache()
+{
+    return cacheService_.searchTimerPreviewEpgCache();
+}
+
+const SearchTimerPreviewEpgCache& SnapshotAccessService::searchTimerPreviewEpgCache() const
+{
+    return cacheService_.searchTimerPreviewEpgCache();
+}
