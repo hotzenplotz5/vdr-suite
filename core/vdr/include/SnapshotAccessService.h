@@ -18,6 +18,9 @@ public:
     const VdrSnapshot* snapshotForBackend(const std::string& backendId) const override;
     std::vector<VdrSnapshot> snapshots() const override;
 
+    SearchTimerPreviewEpgCache& searchTimerPreviewEpgCache() override;
+    const SearchTimerPreviewEpgCache& searchTimerPreviewEpgCache() const override;
+
 private:
     SnapshotCacheService& cacheService_;
 };
