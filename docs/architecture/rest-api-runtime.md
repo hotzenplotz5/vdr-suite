@@ -38,6 +38,7 @@ Database
 Repositories
     ├── JobRepository
     ├── RecordingRepository
+    ├── MetadataRepository
     └── MetadataRepository
         │
         ▼
@@ -106,6 +107,69 @@ GET /api/vdr/overview
 ApiRouter selects the responsible controller.
 
 Business logic must remain outside the router.
+
+---
+
+## SearchTimer Preview API Contract
+
+SearchTimer preview routes:
+
+```text
+GET /api/searchtimers/preview
+GET /api/vdr/searchtimers/preview
+```
+
+Relevant query parameters:
+
+```text
+backend=<backend-id>
+query=<search-text>
+text=<search-text fallback>
+name=<display-name>
+limit=<max-results>
+offset=<result-offset>
+```
+
+The preview response contains three important top-level sections:
+
+```text
+searchTimer
+preview
+statistics
+epgInput
+```
+
+The `epgInput` object describes whether the EPG input used by the preview is authoritative:
+
+```json
+{
+  "epgInput": {
+    "status": "ready",
+    "available": true,
+    "warnings": []
+  }
+}
+```
+
+Supported `epgInput.status` values:
+
+```text
+ready
+warming
+stale
+unknown
+unavailable
+```
+
+Client semantics:
+
+* `ready` with `available=true` means the preview input is authoritative.
+* `ready` with zero returned matches is a valid zero-result preview.
+* `warming`, `stale`, `unknown` and `unavailable` with `available=false` mean the preview input is not authoritative.
+* Non-authoritative preview results must not be presented as a final valid "0 matches" result.
+* Clients should surface `warnings` when `available=false`.
+
+This contract prevents a missing or warming warm EPG cache from being hidden as a normal empty SearchTimer preview result.
 
 ---
 
