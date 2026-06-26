@@ -41,6 +41,19 @@ static void test_update_snapshot_replaces_complete_snapshot()
     assert(service.cache().snapshot().status.state == "connected");
 }
 
+static void test_event_free_snapshot_does_not_mark_preview_cache_ready()
+{
+    SnapshotCache cache;
+    SnapshotCacheService service(cache);
+
+    VdrSnapshot snapshot;
+    snapshot.backendId = "default";
+
+    service.updateSnapshot(snapshot);
+
+    assert(service.searchTimerPreviewEpgCache().eventsForBackend("default") == nullptr);
+}
+
 static void test_service_exposes_backend_identity()
 {
     SnapshotCache cache;
@@ -162,6 +175,38 @@ static void test_update_events_updates_only_events_domain()
     assert(service.cache().snapshot().events[0].id == "event-1");
 }
 
+static void test_update_events_marks_preview_cache_ready()
+{
+    SnapshotCache cache;
+    SnapshotCacheService service(cache);
+
+    VdrEvent event;
+    event.id = "event-1";
+
+    service.updateEvents({ event });
+
+    const std::vector<VdrEvent>* cachedEvents =
+        service.searchTimerPreviewEpgCache().eventsForBackend("default");
+
+    assert(cachedEvents != nullptr);
+    assert(cachedEvents->size() == 1);
+    assert(cachedEvents->at(0).id == "event-1");
+}
+
+static void test_update_empty_events_marks_preview_cache_ready_with_zero_events()
+{
+    SnapshotCache cache;
+    SnapshotCacheService service(cache);
+
+    service.updateEvents({});
+
+    const std::vector<VdrEvent>* cachedEvents =
+        service.searchTimerPreviewEpgCache().eventsForBackend("default");
+
+    assert(cachedEvents != nullptr);
+    assert(cachedEvents->empty());
+}
+
 static void test_merge_events_keeps_existing_events_and_replaces_matching_ids()
 {
     SnapshotCache cache;
@@ -196,6 +241,12 @@ static void test_merge_events_keeps_existing_events_and_replaces_matching_ids()
     assert(service.cache().snapshot().events[1].title == "keep title");
     assert(service.cache().snapshot().events[2].id == "event-3");
     assert(service.cache().snapshot().events[2].title == "added title");
+
+    const std::vector<VdrEvent>* cachedEvents =
+        service.searchTimerPreviewEpgCache().eventsForBackend("default");
+
+    assert(cachedEvents != nullptr);
+    assert(cachedEvents->size() == 3);
 }
 
 static void test_merge_events_for_backend_keeps_existing_backend_events()
@@ -240,6 +291,12 @@ static void test_merge_events_for_backend_keeps_existing_backend_events()
     assert(updatedSnapshot->events[1].title == "keep title");
     assert(updatedSnapshot->events[2].id == "event-3");
     assert(updatedSnapshot->events[2].title == "added title");
+
+    const std::vector<VdrEvent>* cachedEvents =
+        service.searchTimerPreviewEpgCache().eventsForBackend("home-vdr");
+
+    assert(cachedEvents != nullptr);
+    assert(cachedEvents->size() == 3);
 }
 
 static void test_clear_clears_cache()
@@ -257,18 +314,22 @@ static void test_clear_clears_cache()
 
     assert(!service.cache().hasSnapshot());
     assert(service.generation() == 0);
+    assert(service.searchTimerPreviewEpgCache().eventsForBackend("default") == nullptr);
 }
 
 int main()
 {
     test_service_exposes_existing_cache_boundary();
     test_update_snapshot_replaces_complete_snapshot();
+    test_event_free_snapshot_does_not_mark_preview_cache_ready();
     test_service_exposes_backend_identity();
     test_update_status_updates_only_status_domain();
     test_update_recordings_updates_only_recordings_domain();
     test_update_timers_updates_only_timers_domain();
     test_update_channels_updates_only_channels_domain();
     test_update_events_updates_only_events_domain();
+    test_update_events_marks_preview_cache_ready();
+    test_update_empty_events_marks_preview_cache_ready_with_zero_events();
     test_merge_events_keeps_existing_events_and_replaces_matching_ids();
     test_merge_events_for_backend_keeps_existing_backend_events();
     test_clear_clears_cache();
