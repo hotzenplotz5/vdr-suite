@@ -135,7 +135,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 54.3 - SearchTimer warm EPG cache implementation
+Phase 54.2 - SearchTimer warm EPG cache architecture
 ```
 
 Current Documentation Consolidation:
