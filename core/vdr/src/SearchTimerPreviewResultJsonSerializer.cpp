@@ -48,6 +48,25 @@ void appendQuoted(
     json << '"';
 }
 
+void appendStringArray(
+    std::ostringstream& json,
+    const std::vector<std::string>& values)
+{
+    json << "[";
+
+    for (std::size_t index = 0; index < values.size(); ++index)
+    {
+        if (index > 0)
+        {
+            json << ",";
+        }
+
+        appendQuoted(json, values.at(index));
+    }
+
+    json << "]";
+}
+
 const char* stateToJson(
     SearchTimerState state)
 {
@@ -86,6 +105,14 @@ std::string SearchTimerPreviewResultJsonSerializer::serialize(
     appendQuoted(json, searchTimer.query());
     json << ",\"state\":";
     appendQuoted(json, stateToJson(searchTimer.state()));
+    json << "},";
+
+    json << "\"epgInput\":{";
+    json << "\"status\":";
+    appendQuoted(json, result.epgInputStatus());
+    json << ",\"available\":" << (result.epgInputAvailable() ? "true" : "false");
+    json << ",\"warnings\":";
+    appendStringArray(json, result.warnings());
     json << "},";
 
     std::set<std::string> channelIds;
