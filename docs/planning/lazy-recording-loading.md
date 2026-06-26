@@ -143,3 +143,11 @@ action on backend A:
 - [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](../adr/ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
 - [Current Project Status](../development/current-status.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
+
+---
+
+## Back
+
+- [Back to README](../../README.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Planning Index](index.md)
