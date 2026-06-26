@@ -1,5 +1,6 @@
 #include "SearchTimerPreviewEpgCacheRefreshService.h"
 
+#include "SearchTimerPreviewEpgCacheChangeInvalidator.h"
 #include "VdrSnapshotBuilder.h"
 
 #include <string>
@@ -11,6 +12,7 @@ SearchTimerPreviewEpgCacheRefreshService::SearchTimerPreviewEpgCacheRefreshServi
     : cache_(cache),
       snapshotBuilder_(snapshotBuilder)
 {
+    SearchTimerPreviewEpgCacheChangeInvalidator::registerRuntimeCache(cache_);
 }
 
 SearchTimerPreviewEpgCacheRefreshResult
