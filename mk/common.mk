@@ -12,13 +12,13 @@ LDFLAGS := $(shell pkg-config --libs sqlite3)
 
 SQLITE_SRC := core/sqlite/src/Database.cpp
 
-.PHONY: all test clean prepare-test-db dashboard-cli daemon test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
+.PHONY: all test clean prepare-test-db dashboard-cli daemon test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
 
 all: test
 
-test-ci-fast: test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
+test-ci-fast: test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
 
-test-vdr: test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
+test-vdr: test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
 
 test-vdr-snapshot-builder-startup-snapshot:
 	$(CXX) $(CXXFLAGS) \
@@ -43,6 +43,14 @@ test-search-timer-preview-epg-cache-refresh-controller:
 		api/rest/tests/test_search_timer_preview_epg_cache_refresh_controller.cpp \
 		-o /tmp/test_search_timer_preview_epg_cache_refresh_controller
 	/tmp/test_search_timer_preview_epg_cache_refresh_controller
+
+
+test-search-timer-preview-epg-cache-stale-guard:
+	$(CXX) $(CXXFLAGS) \
+		$(VDR_SRC) \
+		core/vdr/tests/test_search_timer_preview_epg_cache_stale_guard.cpp \
+		-o /tmp/test_search_timer_preview_epg_cache_stale_guard
+	/tmp/test_search_timer_preview_epg_cache_stale_guard
 
 
 test-api-router-searchtimer-preview-epg-cache-refresh-route: prepare-test-db
