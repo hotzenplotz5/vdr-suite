@@ -22,22 +22,24 @@ Overall project progress:
 
 Milestone progress:
 
-    Core Runtime Foundation         ██████████ 100%  completed
-    Multi-Backend Foundation        ██████████ 100%  completed
-    Query Foundation                ██████████ 100%  completed
-    Action Foundation               ██████████ 100%  completed
-    Metadata Foundation             ██████████ 100%  completed
-    Documentation Foundation        ██████████ 100%  completed
-    SearchTimer Backend Foundation  ██████████ 100%  completed
-    SearchTimer User Workflow       ██████████ 100%  completed
-    Live Plugin Parity Foundation   ██████████ 100%  completed
-    Automation Foundation           ██████████ 100%  completed
-    Federation Foundation           ░░░░░░░░░░   0%  planned
-    Frontend Foundation             ░░░░░░░░░░   0%  planned
+    Core Runtime Foundation             ██████████ 100%  completed
+    Multi-Backend Foundation            ██████████ 100%  completed
+    Query Foundation                    ██████████ 100%  completed
+    Action Foundation                   ██████████ 100%  completed
+    Metadata Foundation                 ██████████ 100%  completed
+    Documentation Foundation            ██████████ 100%  completed
+    SearchTimer Backend Foundation      ██████████ 100%  completed
+    SearchTimer User Workflow           ██████████ 100%  completed
+    SearchTimer Runtime Mutation Policy ██████████ 100%  completed
+    SearchTimer Preview EPG Performance █░░░░░░░░░  10%  in progress
+    Live Plugin Parity Foundation       ██████████ 100%  completed
+    Automation Foundation               ██████████ 100%  completed
+    Federation Foundation               ░░░░░░░░░░   0%  planned
+    Frontend Foundation                 ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 54.1 - SearchTimer operator-controlled runtime mutation enablement
+    Phase 54.3 - SearchTimer warm EPG cache implementation
 
 Progress source: [Project Progress](planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -76,6 +78,7 @@ SearchTimer Payload Validation  documented
 SearchTimer Domain Model        expanded
 Native Fuzzy Capability         validated end-to-end
 SearchTimer User Workflow       completed foundation + verified execution
+SearchTimer Preview EPG Cache   ADR-0034 documented
 ```
 
 ### Federation and Security
@@ -131,19 +134,19 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 54.0 - SearchTimer runtime mutation policy wiring
+Phase 54.2 - SearchTimer warm EPG cache architecture
 ```
 
 Current Documentation Consolidation:
 
 ```text
-Phase 54.0 - SearchTimer runtime mutation policy wiring
+Phase 54.2 - SearchTimer warm EPG cache architecture
 ```
 
 Next Major Implementation Milestone:
 
 ```text
-Phase 54.1 - SearchTimer operator-controlled runtime mutation enablement
+Phase 54.3 - SearchTimer warm EPG cache implementation
 ```
 
 Latest Completed Milestones:
@@ -153,12 +156,14 @@ Person Metadata Foundation
 Recording Person Search Foundation
 Recording Character Search Foundation
 EPGSearch Native Fuzzy Capability Validation
+SearchTimer Runtime Mutation Policy
+SearchTimer Warm EPG Cache Architecture
 ```
 
 Current Milestone In Progress:
 
 ```text
-Live Plugin Parity Foundation
+SearchTimer Preview EPG Performance
 ```
 
 ---
@@ -174,24 +179,20 @@ Person Metadata Foundation
 Recording Person Search Foundation
 Recording Character Search Foundation
 EPGSearch Native Fuzzy Capability Validation
+SearchTimer Warm EPG Cache Architecture
 ```
 
 Representative completed phases:
 
 ```text
 Phase 45.x  - EPG Search Foundation
-Phase 46.0  - Content Classification Architecture ADR
-Phase 46.16 - Person REST Boundary
-Phase 46.18 - Person Query Model
-Phase 46.24 - Person Query Documentation
-Phase 46.26 - Recording Additional Media Person Import
-Phase 46.32 - Snapshot-backed Recording Person Search Wiring
-Phase 46.34 - Real VDR Person Metadata Validation
-Phase 46.35 - Recording Character Search
-Phase 46.36 - Recording Character Search API Documentation
-Phase 46.37 - EPG Person Search Result Model
+Phase 46.x  - Metadata and person foundations
 Phase 47.x  - SearchTimer backend foundation
 Phase 49.x  - EPGSearch native fuzzy capability validation
+Phase 50.x  - SearchTimer user workflow foundation
+Phase 53.x  - SearchTimer title-only workflow preservation
+Phase 54.1  - SearchTimer preview comparison-option fix
+Phase 54.2  - SearchTimer warm EPG cache architecture
 ```
 
 ---
@@ -217,22 +218,21 @@ Person metadata foundation
 Recording person search foundation
 Recording character search foundation
 Native fuzzy backend capability validation
+SearchTimer warm EPG cache architecture
 ```
 
 Current Foundation:
 
 ```text
-Live plugin parity foundation
+SearchTimer Preview EPG Performance
 ```
 
 Planned Major Direction:
 
 ```text
-Phase 51.x - Live plugin parity foundation in progress
-Phase 52.x - SearchTimer automation
-Phase 53.x - Recommendation foundation
-Phase 54.x - Cross-backend search and federation
-Phase 55.x - Content knowledge graph
+Phase 54.3 - SearchTimer warm EPG cache implementation
+Phase 54.x - RESTfulAPI SSE change-state stream evaluation
+Phase 55.x - Backend management and client administration
 ```
 
 Important:
@@ -260,9 +260,10 @@ This progress description summarizes documented roadmap direction by major miles
 | Heavy Domain Policy | Events / EPG are classified as a heavy domain and protected from automatic full refresh behavior. |
 | EPG REST API Boundary | Selective EPG reads are exposed through backend-neutral REST routes. |
 | EPG Search API | The EPG search API is implemented and documented over selective EPG windows. |
-| SearchTimer | Backend route, daemon provider, domain model expansion, real payload validation, native fuzzy capability validation and user workflow foundation are implemented; production mutation remains closed. |
-| Live Plugin Parity | Source audit, gap matrix, read-only discovery domain foundation, JSON contract, REST controller contract, service contract, controller-service integration, router contract, daemon wiring, HTTP smoke contract, RESTfulAPI provider contract and foundation completion are documented and implemented. |
-| SearchTimer Automation | Completed title-only repair and workflow audit; RESTfulAPI field mapping, create/update parser preservation, controller create/update handoff, workflow request preservation, workflow command mapping and controlled dispatch preservation are covered while automation remains preview-only and mutation-gated. |
+| SearchTimer | Backend route, daemon provider, domain model expansion, real payload validation, native fuzzy capability validation and user workflow foundation are implemented; production mutation remains gated. |
+| SearchTimer Preview EPG Cache | ADR-0034 requires warm backend-scoped EPG input for interactive preview and forbids full EPG dumps per preview request. |
+| Live Plugin Parity | Source audit, gap matrix, read-only discovery domain foundation and completion are documented and implemented. |
+| SearchTimer Automation | Completed title-only repair and workflow audit while automation remains preview-only and mutation-gated. |
 | Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
 | Recording Actions | Recording action validation and execution foundations are implemented with diagnostics. |
 | Content Classification | ADR-0028 defines source-aware classification for genre, rating, keywords, collections, user tags and folder hints. |
