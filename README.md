@@ -59,11 +59,11 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 54.2 - SearchTimer warm EPG cache architecture
+    Phase 54.3e - SearchTimer preview EPG input status contract
 
 Current documentation consolidation:
 
-    Phase 54.2 - SearchTimer warm EPG cache architecture
+    Phase 54.3e - SearchTimer preview EPG input status contract
 
 Next major implementation milestone:
 

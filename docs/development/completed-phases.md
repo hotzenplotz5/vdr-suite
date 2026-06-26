@@ -201,7 +201,7 @@ Planned next steps:
 
 ## Detailed Phase History
 
-## Phase 54.2 - SearchTimer warm EPG cache architecture
+## Phase 54.3e - SearchTimer preview EPG input status contract
 
 Status: Completed.
 
