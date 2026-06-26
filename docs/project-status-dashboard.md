@@ -17,9 +17,9 @@
 <!-- PROJECT_PROGRESS_START -->
 ## Project Progress
 
-Overall project progress:
+Overall foundation progress, not product completion:
 
-    ██████████ 100%
+    ███████░░░ 70%
 
 Milestone progress:
 
@@ -33,7 +33,7 @@ Milestone progress:
     SearchTimer User Workflow            ██████████ 100%  completed
     SearchTimer Runtime Mutation Policy  ██████████ 100%  completed
     SearchTimer Preview EPG Performance  █░░░░░░░░░  10%  in progress
-    Lazy Recording Loading               ░░░░░░░░░░   0%  planned
+    Lazy Recording Loading               █░░░░░░░░░  10%  in progress
     Live Plugin Parity Foundation        ██████████ 100%  completed
     Automation Foundation                ██████████ 100%  completed
     Federation Foundation                ░░░░░░░░░░   0%  planned
