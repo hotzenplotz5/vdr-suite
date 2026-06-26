@@ -1,4 +1,12 @@
-.PHONY: test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache
+.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache
+
+test-ci-fast: \
+	test-fast \
+	test-api-router \
+	test-restful-api-vdr-timer-action-executor \
+	test-search-timer-preview-epg-cache \
+	test-vdr-snapshot-read-service-searchtimer-preview-epg-cache \
+	test-api-router-searchtimer-preview-epg-cache
 
 test-vdr: \
 	test-backend-node \
