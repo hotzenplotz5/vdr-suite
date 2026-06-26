@@ -7,6 +7,7 @@
 - [Project Overview](project-overview.md)
 - [Current Status](development/current-status.md)
 - [Roadmap](planning/roadmap.md)
+- [Lazy Recording Loading](planning/lazy-recording-loading.md)
 - [Architecture](architecture/index.md)
 - [ADR](adr/index.md)
 - [Completed Phases](development/completed-phases.md)
@@ -32,6 +33,7 @@ Milestone progress:
     SearchTimer User Workflow           ██████████ 100%  completed
     SearchTimer Runtime Mutation Policy ██████████ 100%  completed
     SearchTimer Preview EPG Performance █░░░░░░░░░  10%  in progress
+    Lazy Recording Loading              ░░░░░░░░░░   0%  planned
     Live Plugin Parity Foundation       ██████████ 100%  completed
     Automation Foundation               ██████████ 100%  completed
     Federation Foundation               ░░░░░░░░░░   0%  planned
@@ -66,6 +68,7 @@ EPG REST API Boundary           implemented
 EPG Search API                  implemented
 Recording Query API             implemented
 Recording Actions               implemented + diagnostics
+Lazy Recording Loading          planned
 Content Classification          ADR + foundation implemented
 Person Metadata                 implemented foundation
 Recording Person Search         implemented foundation
@@ -116,11 +119,9 @@ Genre JSON Contract             implemented
 Canonical Genre Registry        implemented
 Genre Localization              implemented foundation
 Localized Genre JSON            implemented
-Genre Architecture Docs         complete
 Person Metadata                 implemented foundation
 Recording Person Metadata       implemented foundation
 Recording Character Search      implemented foundation
-EPG Person Search               result model foundation
 Content Rating / FSK            planned
 Image Validation                planned
 Preview Streams                 planned
@@ -134,7 +135,7 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 54.2 - SearchTimer warm EPG cache architecture
+Phase 54.3 - SearchTimer warm EPG cache implementation
 ```
 
 Current Documentation Consolidation:
@@ -147,6 +148,12 @@ Next Major Implementation Milestone:
 
 ```text
 Phase 54.3 - SearchTimer warm EPG cache implementation
+```
+
+Required Planned Follow-Up:
+
+```text
+Lazy Recording Loading and Backend-Scoped Recording Refresh
 ```
 
 Latest Completed Milestones:
@@ -232,6 +239,7 @@ Planned Major Direction:
 ```text
 Phase 54.3 - SearchTimer warm EPG cache implementation
 Phase 54.x - RESTfulAPI SSE change-state stream evaluation
+Lazy Recording Loading - no startup recording load, backend-scoped on-demand refresh
 Phase 55.x - Backend management and client administration
 ```
 
@@ -257,15 +265,16 @@ This progress description summarizes documented roadmap direction by major miles
 | Multi-VDR | Backend registry, runtime contexts, backend-aware snapshots, polling coordination and multi-backend read summaries are implemented as foundations. |
 | Live Transport | Live transport foundation is implemented. Future transport extensions remain possible above the snapshot change feed. |
 | Selective Event Queries | Backend-neutral query contracts allow selective EPG access through adapter boundaries. |
-| Heavy Domain Policy | Events / EPG are classified as a heavy domain and protected from automatic full refresh behavior. |
+| Heavy Domain Policy | Events / EPG and recordings are classified as heavy domains and protected from automatic full refresh behavior. |
 | EPG REST API Boundary | Selective EPG reads are exposed through backend-neutral REST routes. |
 | EPG Search API | The EPG search API is implemented and documented over selective EPG windows. |
 | SearchTimer | Backend route, daemon provider, domain model expansion, real payload validation, native fuzzy capability validation and user workflow foundation are implemented; production mutation remains gated. |
 | SearchTimer Preview EPG Cache | ADR-0034 requires warm backend-scoped EPG input for interactive preview and forbids full EPG dumps per preview request. |
+| Lazy Recording Loading | ADR-0035 requires startup to avoid synchronous full recording loads and requires backend-scoped on-demand recording refresh with explicit loading state. |
 | Live Plugin Parity | Source audit, gap matrix, read-only discovery domain foundation and completion are documented and implemented. |
 | SearchTimer Automation | Completed title-only repair and workflow audit while automation remains preview-only and mutation-gated. |
-| Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging. |
-| Recording Actions | Recording action validation and execution foundations are implemented with diagnostics. |
+| Recording Query API | Recording query reads support title, path, start-time, duration, sorting and paging; future runtime must respect recording cache status. |
+| Recording Actions | Recording action validation and execution foundations are implemented with diagnostics; future readback must refresh only the affected backend. |
 | Content Classification | ADR-0028 defines source-aware classification for genre, rating, keywords, collections, user tags and folder hints. |
 | Person Metadata | Person domain, roles, sources, query, matching, service, JSON and REST boundaries are implemented. |
 | Recording Person Search | Recording-attached person metadata is searchable with recording and backend context. |
@@ -286,6 +295,7 @@ This progress description summarizes documented roadmap direction by major miles
 - [Project Overview](project-overview.md)
 - [Current Status](development/current-status.md)
 - [Roadmap](planning/roadmap.md)
+- [Lazy Recording Loading](planning/lazy-recording-loading.md)
 - [Completed Phases](development/completed-phases.md)
 - [Architecture](architecture/index.md)
 - [ADR](adr/index.md)
