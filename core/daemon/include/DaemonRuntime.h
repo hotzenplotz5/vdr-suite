@@ -80,6 +80,8 @@
 #include "SearchTimerDeleteResultJsonSerializer.h"
 #include "SearchTimerDeleteService.h"
 #include "SearchTimerPreviewEpgCache.h"
+#include "SearchTimerPreviewEpgCacheRefreshController.h"
+#include "SearchTimerPreviewEpgCacheRefreshServiceRegistry.h"
 #include "SearchTimerRuntimeMutationPolicyExecutor.h"
 #include "SearchTimerUpdateRequestParser.h"
 #include "SearchTimerUpdateResultJsonSerializer.h"
@@ -161,6 +163,8 @@ private:
     std::vector<std::unique_ptr<BackendRuntimeContext>> backendRuntimeContexts_;
     std::unique_ptr<BackendPollingCoordinator> backendPollingCoordinator_;
     std::unique_ptr<SearchTimerPreviewEpgCache> searchTimerPreviewEpgCache_;
+    std::unique_ptr<SearchTimerPreviewEpgCacheRefreshServiceRegistry> searchTimerPreviewEpgCacheRefreshServiceRegistry_;
+    std::unique_ptr<SearchTimerPreviewEpgCacheRefreshController> searchTimerPreviewEpgCacheRefreshController_;
     std::unique_ptr<SnapshotCache> snapshotCache_;
     std::unique_ptr<SnapshotCacheService> snapshotCacheService_;
     std::unique_ptr<SnapshotAccessService> snapshotAccessService_;
