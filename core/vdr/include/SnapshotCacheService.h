@@ -1,6 +1,7 @@
 #ifndef SNAPSHOT_CACHE_SERVICE_H
 #define SNAPSHOT_CACHE_SERVICE_H
 
+#include "SearchTimerPreviewEpgCache.h"
 #include "SnapshotCache.h"
 #include "VdrChannel.h"
 #include "VdrEvent.h"
@@ -18,6 +19,9 @@ public:
 
     SnapshotCache& cache();
     const SnapshotCache& cache() const;
+
+    SearchTimerPreviewEpgCache& searchTimerPreviewEpgCache();
+    const SearchTimerPreviewEpgCache& searchTimerPreviewEpgCache() const;
 
     int generation() const;
     std::string backendId() const;
@@ -43,9 +47,13 @@ public:
 private:
     void incrementGeneration();
     VdrSnapshot snapshotForBackendOrEmpty(const std::string& backendId) const;
+    void updatePreviewCacheFromSnapshotIfEventsPresent(
+        const std::string& backendId,
+        const VdrSnapshot& snapshot);
 
     SnapshotCache& cache_;
     int generation_;
+    SearchTimerPreviewEpgCache searchTimerPreviewEpgCache_;
 };
 
 #endif
