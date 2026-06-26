@@ -43,7 +43,19 @@ public:
     std::vector<VdrEvent> buildEvents() const;
     std::vector<VdrEvent> buildEvents(const VdrEventQuery& query) const;
 
-    VdrSnapshot buildStartupSnapshot() const;
+    VdrSnapshot buildStartupSnapshot() const
+    {
+        VdrSnapshot snapshot;
+
+        snapshot.backendId = backendId_;
+        snapshot.status = buildStatus();
+        snapshot.timers = buildTimers();
+        snapshot.searchTimers = buildSearchTimers();
+        snapshot.channels = buildChannels();
+
+        return snapshot;
+    }
+
     VdrSnapshot buildSnapshot() const;
     VdrSnapshot buildSnapshotWithoutEvents() const;
 
