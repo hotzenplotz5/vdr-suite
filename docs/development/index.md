@@ -29,6 +29,7 @@ Authoritative sources:
 - [CI Test Strategy](ci-test-strategy.md)
 - [Runtime Diagnostics Status](runtime-diagnostics-status.md)
 - [Runtime Diagnostics Documentation](runtime-diagnostics/README.md)
+- [Startup Snapshot Runtime Rule](startup-snapshot-runtime.md)
 - [Development Status Documentation](status/index.md)
 
 These documents describe the verified current state of the project.
