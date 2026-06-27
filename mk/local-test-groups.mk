@@ -1,4 +1,4 @@
-.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache
+.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder
 
 test-ci-fast: \
 	test-fast \
@@ -33,6 +33,7 @@ test-vdr: \
 	test-snapshot-change-feed-json-serializer \
 	test-snapshot-access-service \
 	test-mock-vdr-adapter \
+	test-json-string-decoder \
 	test-restful-api-status-mapper \
 	test-restful-api-event-mapper \
 	test-restful-api-channel-mapper \
@@ -127,6 +128,14 @@ test-vdr: \
 	test-epg-search-result-json-serializer \
 	test-epg-search-service \
 	test-vdr-domain-objects
+
+
+test-json-string-decoder:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/tests/test_json_string_decoder.cpp \
+		-o /tmp/test_json_string_decoder
+	/tmp/test_json_string_decoder
+
 
 test-backend-node:
 	$(CXX) $(CXXFLAGS) \
