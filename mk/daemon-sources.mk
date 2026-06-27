@@ -32,6 +32,7 @@ DAEMON_SRC := \
         core/vdr/src/SearchTimerService.cpp \
         core/vdr/src/RestfulApiSearchTimerMapper.cpp \
         core/vdr/src/RestfulApiSearchTimerAdapter.cpp \
+        core/vdr/src/RestfulApiSearchTimerDiscoveryProvider.cpp \
         core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
         core/vdr/src/EpgSearchNativeFuzzyCapabilityFreshnessPolicy.cpp \
         core/vdr/src/EpgSearchNativeFuzzyStartupRestoreService.cpp \
@@ -45,8 +46,6 @@ DAEMON_SRC := \
         api/rest/src/LiveTransportController.cpp \
         api/rest/src/CapabilityController.cpp \
         api/rest/src/RecordingActionValidationController.cpp \
-        api/rest/src/RecordingActionExecutionController.cpp \
-        api/rest/src/VdrTimerActionController.cpp \
         core/recordings/src/RecordingActionUtils.cpp \
         core/recordings/src/RecordingActionValidationResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionExecutionResultJsonSerializer.cpp \
