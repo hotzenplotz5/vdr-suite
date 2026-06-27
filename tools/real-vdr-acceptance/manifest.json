@@ -186,6 +186,35 @@
         "backendId": "default",
         "writeOperation": true
       }
+    },
+    {
+      "id": "searchtimer.workflow.plan",
+      "title": "SearchTimer workflow planning accepts dry-run payloads",
+      "risk": "dry-run",
+      "method": "POST",
+      "path": "/api/vdr/searchtimers/plan",
+      "expectedStatus": 200,
+      "body": {
+        "operation": "create",
+        "backendId": "default",
+        "name": "Acceptance Dry Run",
+        "query": "Tatort",
+        "executionMode": "dry-run"
+      },
+      "requiredJsonKeys": [],
+      "expectedJsonValues": {
+        "valid": true,
+        "operation": "create",
+        "executionMode": "dryRun",
+        "primaryStep": "create",
+        "followUpStep": "readback",
+        "hasExecutionWork": true,
+        "hasFollowUpStep": true,
+        "writeOperation": true,
+        "requiresExplicitOperatorConfirmation": true,
+        "requiresBackendReadback": true,
+        "backendId": "default"
+      }
     }
   ]
 }
