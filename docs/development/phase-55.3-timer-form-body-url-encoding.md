@@ -12,7 +12,7 @@
 
 ## Status
 
-Implemented. Awaiting GitHub Actions verification.
+Completed. GitHub Actions passed for commit `ca74848f`.
 
 ## Purpose
 
@@ -88,19 +88,23 @@ Potential follow-up work:
 
 ## Verification
 
-No local test was run by this change author.
+GitHub Actions passed for commit:
 
-Expected GitHub Actions/local narrow target:
+```text
+ca74848f
+```
+
+Validated gates included:
+
+```text
+make test-docs
+make test-phase
+```
+
+Narrow implementation target:
 
 ```bash
 make test-restful-api-vdr-timer-action-executor
-```
-
-Expected documentation gates:
-
-```bash
-make test-docs
-make test-phase
 ```
 
 ## Back
