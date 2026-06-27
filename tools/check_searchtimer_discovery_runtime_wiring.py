@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_CPP = ROOT / "core" / "daemon" / "src" / "DaemonRuntime.cpp"
 RUNTIME_HEADER = ROOT / "core" / "daemon" / "include" / "DaemonRuntime.h"
 DAEMON_SOURCES = ROOT / "mk" / "daemon-sources.mk"
+VDR_SOURCES = ROOT / "mk" / "vdr-sources.mk"
+DISCOVERY_PROVIDER_SOURCE = "core/vdr/src/RestfulApiSearchTimerDiscoveryProvider.cpp"
 
 
 def require(condition: bool, message: str) -> None:
@@ -19,6 +21,7 @@ def main() -> int:
     runtime_cpp = RUNTIME_CPP.read_text(encoding="utf-8")
     runtime_header = RUNTIME_HEADER.read_text(encoding="utf-8")
     daemon_sources = DAEMON_SOURCES.read_text(encoding="utf-8")
+    vdr_sources = VDR_SOURCES.read_text(encoding="utf-8")
 
     require(
         "#include \"RestfulApiSearchTimerDiscoveryProvider.h\"" in runtime_cpp,
@@ -41,8 +44,12 @@ def main() -> int:
         "DaemonRuntime should retain static discovery fallback for no-backend cases",
     )
     require(
-        "core/vdr/src/RestfulApiSearchTimerDiscoveryProvider.cpp" in daemon_sources,
-        "daemon source list must compile RestfulApiSearchTimerDiscoveryProvider.cpp",
+        DISCOVERY_PROVIDER_SOURCE in vdr_sources,
+        "VDR source list must compile RestfulApiSearchTimerDiscoveryProvider.cpp",
+    )
+    require(
+        DISCOVERY_PROVIDER_SOURCE not in daemon_sources,
+        "daemon source list must not duplicate RestfulApiSearchTimerDiscoveryProvider.cpp",
     )
 
     print("check_searchtimer_discovery_runtime_wiring passed")
