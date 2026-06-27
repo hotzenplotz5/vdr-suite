@@ -233,6 +233,46 @@ static void test_vdr_controller_returns_snapshot_backed_overview()
            != std::string::npos);
 }
 
+static void test_vdr_controller_returns_empty_snapshot_overview_defaults()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    VdrSnapshot snapshot = makeControllerSnapshot();
+    snapshot.recordings.clear();
+    cache.update(snapshot);
+
+    VdrOverviewService overviewService(accessService);
+    VdrOverviewJsonSerializer jsonSerializer;
+    VdrSnapshotReadService snapshotReadService(accessService);
+    VdrSnapshotReadJsonSerializer snapshotReadJsonSerializer;
+
+    VdrController controller = makeLiveController(
+        overviewService,
+        jsonSerializer,
+        snapshotReadService,
+        snapshotReadJsonSerializer);
+
+    ApiResponse response =
+        controller.getOverview();
+
+    assertCommonOverviewResponse(response);
+
+    assert(response.body.find("\"totalRecordings\":0")
+           != std::string::npos);
+
+    assert(response.body.find("\"hasLatestRecording\":false")
+           != std::string::npos);
+
+    const std::string expectedLatestRecording =
+        "\"latestRecording\":{\"id\":\"\",\"title\":\"\",\"path\":\"\","
+        "\"startTime\":\"\",\"durationSeconds\":0,\"sizeMb\":0}";
+
+    assert(response.body.find(expectedLatestRecording)
+           != std::string::npos);
+}
+
 static void test_vdr_controller_returns_snapshot_read_status()
 {
     SnapshotCache cache;
@@ -680,6 +720,7 @@ int main()
 {
     test_vdr_controller_returns_live_overview();
     test_vdr_controller_returns_snapshot_backed_overview();
+    test_vdr_controller_returns_empty_snapshot_overview_defaults();
     test_vdr_controller_returns_snapshot_read_status();
     test_vdr_controller_returns_capabilities();
     test_vdr_controller_returns_snapshot_summary();
