@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "name": "VDR-Suite Real VDR Acceptance Manifest",
+  "description": "Safe and opt-in acceptance probes for validating VDR-Suite against a real VDR-backed daemon.",
+  "defaults": {
+    "baseUrlEnvironment": "VDR_SUITE_ACCEPTANCE_BASE_URL",
+    "defaultBaseUrl": "http://127.0.0.1:8080",
+    "timeoutSeconds": 5,
+    "allowedRiskLevels": [
+      "safe",
+      "dry-run",
+      "destructive"
+    ]
+  },
+  "probes": [
+    {
+      "id": "daemon.dashboard",
+      "title": "Dashboard API is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/dashboard",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "jobs",
+        "recordings"
+      ]
+    },
+    {
+      "id": "vdr.overview",
+      "title": "VDR overview is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/overview",
+      "expectedStatus": 200,
+      "requiredJsonKeys": []
+    },
+    {
+      "id": "vdr.status",
+      "title": "VDR status is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/status",
+      "expectedStatus": 200,
+      "requiredJsonKeys": []
+    },
+    {
+      "id": "vdr.health",
+      "title": "VDR health is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/health",
+      "expectedStatus": 200,
+      "requiredJsonKeys": []
+    },
+    {
+      "id": "backend.registry",
+      "title": "Backend registry is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/backends",
+      "expectedStatus": 200,
+      "requiredJsonKeys": []
+    },
+    {
+      "id": "capabilities.default",
+      "title": "Capability report is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/capabilities",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "backendId",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "runtime.summary",
+      "title": "Runtime diagnostics summary is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/runtime/summary",
+      "expectedStatus": 200,
+      "requiredJsonKeys": []
+    },
+    {
+      "id": "searchtimer.discovery",
+      "title": "SearchTimer discovery is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/searchtimers/discovery?backend=default",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "backendId"
+      ]
+    },
+    {
+      "id": "searchtimer.preview.safe",
+      "title": "SearchTimer preview returns a non-mutating result",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/searchtimers/preview?backend=default&query=Tatort&limit=5",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "searchTimer",
+        "previewEngine",
+        "epgInput",
+        "statistics",
+        "preview"
+      ]
+    },
+    {
+      "id": "searchtimer.workflow.validate",
+      "title": "SearchTimer workflow validation accepts dry-run payloads",
+      "risk": "dry-run",
+      "method": "POST",
+      "path": "/api/vdr/searchtimers/validate",
+      "expectedStatus": 200,
+      "body": {
+        "backendId": "default",
+        "name": "Acceptance Dry Run",
+        "query": "Tatort"
+      },
+      "requiredJsonKeys": []
+    }
+  ]
+}
