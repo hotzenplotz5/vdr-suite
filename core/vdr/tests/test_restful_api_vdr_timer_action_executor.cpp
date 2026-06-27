@@ -83,6 +83,63 @@ static void test_update_success_executes_put_request()
     assert(httpClient.lastRequest().body.find("timer_id=42") != std::string::npos);
 }
 
+static void test_create_form_body_url_encodes_reserved_characters()
+{
+    MockHttpClient httpClient;
+    HttpResponse response;
+    response.statusCode = 201;
+    response.body = "timer created";
+    httpClient.setResponse(response);
+
+    RestfulApiVdrTimerActionExecutor executor(
+        "living-room",
+        "/api",
+        httpClient);
+
+    VdrTimerOperationRequest request = makeRequest();
+    request.title = "Film & Serie + Bonus = 100%";
+    request.directory = "Doku Archiv";
+    request.aux = "<vdr>foo=bar&baz+</vdr>";
+
+    const VdrTimerActionResult result =
+        executor.execute(VdrTimerActionType::Create, request);
+
+    assert(result.success == true);
+    assert(httpClient.requestCount() == 1);
+
+    const std::string& body =
+        httpClient.lastRequest().body;
+
+    assert(contains(body, "file=Doku+Archiv~Film+%26+Serie+%2B+Bonus+%3D+100%25"));
+    assert(contains(body, "aux=%3Cvdr%3Efoo%3Dbar%26baz%2B%3C%2Fvdr%3E"));
+    assert(!contains(body, "Film & Serie"));
+    assert(!contains(body, "foo=bar&baz+"));
+}
+
+static void test_update_form_body_url_encodes_timer_id()
+{
+    MockHttpClient httpClient;
+    HttpResponse response;
+    response.statusCode = 200;
+    response.body = "timer updated";
+    httpClient.setResponse(response);
+
+    RestfulApiVdrTimerActionExecutor executor(
+        "living-room",
+        "/api",
+        httpClient);
+
+    VdrTimerOperationRequest request = makeRequest();
+    request.timerId = "timer 42+7";
+
+    const VdrTimerActionResult result =
+        executor.execute(VdrTimerActionType::Update, request);
+
+    assert(result.success == true);
+    assert(httpClient.requestCount() == 1);
+    assert(contains(httpClient.lastRequest().body, "timer_id=timer+42%2B7"));
+}
+
 static void test_delete_success_executes_delete_request()
 {
     MockHttpClient httpClient;
@@ -227,6 +284,8 @@ int main()
 {
     test_create_success_executes_post_request();
     test_update_success_executes_put_request();
+    test_create_form_body_url_encodes_reserved_characters();
+    test_update_form_body_url_encodes_timer_id();
     test_delete_success_executes_delete_request();
     test_http_error_preserves_status_and_body();
     test_http_error_without_body_preserves_status();
