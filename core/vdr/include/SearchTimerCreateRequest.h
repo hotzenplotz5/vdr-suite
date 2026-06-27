@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 struct SearchTimerCreateRequest
 {
@@ -40,12 +41,14 @@ struct SearchTimerCreateRequest
     int searchTimerAction = 0;
     int blacklistMode = 0;
     std::string blacklistIds;
+    std::vector<std::string> blacklistIdList;
     int matchMode = 0;
     bool matchCase = false;
     int matchTolerance = 0;
     int summaryMatch = 0;
     bool useExtendedEpgInfo = false;
     std::string extendedEpgInfo;
+    std::vector<std::string> extendedEpgInfoList;
     bool ignoreMissingEpgCategories = false;
     std::string contentDescriptors;
     bool useInFavorites = false;
