@@ -10,7 +10,7 @@
 
 ## Status
 
-Implemented. Awaiting GitHub Actions verification.
+Completed. GitHub Actions passed for commit `7c260bb8`.
 
 ## Purpose
 
@@ -44,7 +44,7 @@ Additional mapper-level coverage:
 test-restful-api-event-mapper
 ```
 
-Expected gates:
+Validated gates included:
 
 ```bash
 make test-docs
