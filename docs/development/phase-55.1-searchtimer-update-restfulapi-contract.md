@@ -10,7 +10,7 @@
 
 ## Status
 
-Implemented. Awaiting GitHub Actions verification.
+Completed. GitHub Actions passed for commit `5bb0ba4b`.
 
 ## Purpose
 
@@ -92,9 +92,20 @@ That remains a separate implementation phase because it touches request models a
 
 ## Verification
 
-No local test was run by this change author.
+GitHub Actions passed for commit:
 
-Expected GitHub Actions/local target:
+```text
+5bb0ba4b
+```
+
+Validated targets included the documentation gate and phase consistency gate before downstream checks:
+
+```text
+make test-docs
+make test-phase
+```
+
+Expected narrow local target for this phase remains:
 
 ```bash
 make test-restful-api-search-timer-command-executor
