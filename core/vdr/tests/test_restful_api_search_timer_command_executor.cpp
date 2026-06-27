@@ -4,6 +4,7 @@
 #include "HttpResponse.h"
 #include "IHttpClient.h"
 #include "SearchTimerCreateRequest.h"
+#include "SearchTimerUpdateRequest.h"
 
 #include <cassert>
 #include <iostream>
@@ -47,6 +48,25 @@ SearchTimerCreateRequest makeCreateRequest(
 {
     SearchTimerCreateRequest request;
     request.backendId = "default";
+    request.name = query;
+    request.query = query;
+    request.active = true;
+    request.directory = "VDR-Suite-Validation";
+    request.compareTitle = true;
+    request.compareSubtitle = true;
+    request.compareSummary = true;
+    request.matchMode = 5;
+    request.matchTolerance = 2;
+    return request;
+}
+
+SearchTimerUpdateRequest makeUpdateRequest(
+    const std::string& nativeId,
+    const std::string& query)
+{
+    SearchTimerUpdateRequest request;
+    request.backendId = "default";
+    request.backendNativeId = nativeId;
     request.name = query;
     request.query = query;
     request.active = true;
@@ -200,6 +220,40 @@ void createMapsSubtitleAndSummarySearchFieldsToRestfulApiBody()
     assert(body.find("\"compare_summary\":1") != std::string::npos);
 }
 
+void updateUsesRestfulApiPostContractWithNumericIdInBody()
+{
+    HttpResponse updateResponse;
+    updateResponse.statusCode = 200;
+    updateResponse.body = "OK, Id:17";
+
+    SequencedHttpClient httpClient({updateResponse});
+    RestfulApiSearchTimerCommandExecutor executor(httpClient);
+
+    const auto result =
+        executor.update(
+            makeUpdateRequest(
+                "17",
+                "VDR-Suite Native Fuzzy Updated"));
+
+    assert(result.success);
+    assert(result.searchTimer.backendId() == "default");
+    assert(result.searchTimer.backendNativeId() == "17");
+    assert(result.searchTimer.query() == "VDR-Suite Native Fuzzy Updated");
+
+    assert(httpClient.requests().size() == 1);
+    assert(httpClient.requests()[0].method == "POST");
+    assert(httpClient.requests()[0].url == "/searchtimers");
+    assert(httpClient.requests()[0].headers.at("Accept") == "text/plain");
+    assert(httpClient.requests()[0].headers.at("Content-Type") == "application/json");
+
+    const std::string& body =
+        httpClient.requests()[0].body;
+
+    assert(body.find("\"id\":17") != std::string::npos);
+    assert(body.find("\"search\":\"VDR-Suite Native Fuzzy Updated\"")
+           != std::string::npos);
+    assert(body.find("\"use_as_searchtimer\":1") != std::string::npos);
+}
 
 void createFailsWhenReadbackCannotFindUniqueCreatedId()
 {
@@ -249,6 +303,7 @@ int main()
     createFallsBackToReadbackWhenCreateBodyHasNoId();
     createMapsTitleOnlySearchFieldsToRestfulApiBody();
     createMapsSubtitleAndSummarySearchFieldsToRestfulApiBody();
+    updateUsesRestfulApiPostContractWithNumericIdInBody();
     createFailsWhenReadbackCannotFindUniqueCreatedId();
 
     std::cout
