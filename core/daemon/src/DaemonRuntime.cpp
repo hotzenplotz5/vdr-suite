@@ -573,11 +573,19 @@ void DaemonRuntime::shutdown()
     liveTransport_.reset();
     snapshotChangeFeedController_.reset();
     runtimeDiagnosticsController_.reset();
+    runtimeDiagnosticsJsonSerializer_.reset();
     epgSearchNativeFuzzyOperatorRefreshController_.reset();
     epgSearchNativeFuzzyOperatorRefreshService_.reset();
     epgSearchNativeFuzzyStaleProbeAdministrationController_.reset();
     epgSearchNativeFuzzyStaleProbeAdministrationService_.reset();
+    epgSearchNativeFuzzyStartupRestoreService_.reset();
+    epgSearchNativeFuzzyCapabilityFreshnessPolicy_.reset();
+    epgSearchNativeFuzzyCapabilityDetector_.reset();
+    epgSearchNativeFuzzyCapabilityRepository_.reset();
     searchTimerPreviewEpgCacheRefreshController_.reset();
+    searchTimerAutomationPreviewController_.reset();
+    searchTimerAutomationDryRunResultJsonSerializer_.reset();
+    searchTimerAutomationReadOnlyService_.reset();
     searchTimerRuntimeMutationPolicyExecutor_.reset();
     searchTimerCommandExecutor_.reset();
     searchTimerDeleteRequestParser_.reset();
@@ -596,6 +604,10 @@ void DaemonRuntime::shutdown()
     searchTimerController_.reset();
     searchTimerResultJsonSerializer_.reset();
     searchTimerService_.reset();
+    epgController_.reset();
+    epgSearchResultJsonSerializer_.reset();
+    epgSearchService_.reset();
+    epgQueryService_.reset();
     vdrTimerActionController_.reset();
     recordingPersonSearchController_.reset();
     recordingPersonSearchResultJsonSerializer_.reset();
@@ -626,7 +638,6 @@ void DaemonRuntime::shutdown()
     backendRegistryController_.reset();
     backendRegistryJsonSerializer_.reset();
     backendRegistryService_.reset();
-    runtimeDiagnosticsJsonSerializer_.reset();
     vdrRecordingQueryController_.reset();
     vdrRecordingQueryResultJsonSerializer_.reset();
     vdrRecordingQueryService_.reset();
