@@ -92,6 +92,7 @@ Current architecture validation:
 - [Live Parity Discovery HTTP Smoke Contract](live-parity-discovery-http-smoke-contract.md)
 - [Live Parity Discovery RESTfulAPI Provider Contract](live-parity-discovery-restfulapi-provider-contract.md)
 - [Live Parity Discovery Foundation Completion](live-parity-discovery-foundation-completion.md)
+- [Phase 55.0 - VDR-Suite Feature-Parity and Adapter Audit](phase-55-vdr-parity-adapter-audit.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
