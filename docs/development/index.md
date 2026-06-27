@@ -97,6 +97,7 @@ Current architecture validation:
 - [Phase 55.2 - SearchTimer JSON Array Payload Parity](phase-55.2-searchtimer-json-array-payload-parity.md)
 - [Phase 55.3 - Timer Form Body URL Encoding](phase-55.3-timer-form-body-url-encoding.md)
 - [Phase 55.4 - RESTfulAPI SearchTimer Discovery Provider](phase-55.4-searchtimer-discovery-restfulapi-provider.md)
+- [Phase 55.4b - Shared JSON String Decoder](phase-55.4b-shared-json-string-decoder.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
