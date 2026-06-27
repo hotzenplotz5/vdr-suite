@@ -40,6 +40,7 @@ These documents describe the verified current state of the project.
 
 - [Roadmap](../planning/roadmap.md)
 - [Planning Milestones](../planning/milestones.md)
+- [TVScraper and Recording Metadata Roadmap](../planning/tvscraper-recording-metadata-roadmap.md)
 - [Completed Phases](completed-phases.md)
 - [Milestones](milestones.md)
 
@@ -66,6 +67,7 @@ Current architecture validation:
 - [ADR-0032: EPGSearch Regex Mode Safety](../adr/ADR-0032-epgsearch-regex-mode-safety.md)
 - [ADR-0033: EPGSearch Fuzzy Mode Decision](../adr/ADR-0033-epgsearch-fuzzy-mode-decision.md)
 - [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](../adr/ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
+- [ADR-0036: TVScraper Recording Metadata Integration Strategy](../adr/ADR-0036-tvscraper-recording-metadata-integration.md)
 - [Timer Contract Gap Analysis](timer-contract-gap-analysis.md)
 - [Real Recording Action End-to-End Validation](real-recording-action-e2e-validation.md)
 - [Phase 44 Recording Action Runtime Completion](phase-44-recording-action-runtime-completion.md)
@@ -130,7 +132,6 @@ Current architecture validation:
 - [SearchTimer Backend Readback Verification Result Model](searchtimer-backend-readback-verification-result-model.md)
 - [SearchTimer Create Readback Verification Service](searchtimer-create-readback-verification-service.md)
 - [SearchTimer Update Readback Verification Service](searchtimer-update-readback-verification-service.md)
-- [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
 - [SearchTimer Delete Absence Verification Plan](searchtimer-delete-absence-verification-plan.md)
 - [SearchTimer Delete Absence Verification Service](searchtimer-delete-absence-verification-service.md)
 - [SearchTimer Readback Services Dispatch Integration](searchtimer-readback-services-dispatch-integration.md)
@@ -174,6 +175,7 @@ Implementation history and completed work.
 
 - [Roadmap](../planning/roadmap.md)
 - [Planning Milestones](../planning/milestones.md)
+- [TVScraper and Recording Metadata Roadmap](../planning/tvscraper-recording-metadata-roadmap.md)
 
 Planned work and future direction.
 
@@ -218,14 +220,3 @@ These documents are historical implementation notes or phase-specific architectu
 - [Documentation Standards](documentation-standards.md)
 - [Backend Development Guide](backend-development-guide.md)
 - [Contributor Guide](contributor-guide.md)
-- [Release Process](release-process.md)
-
----
-
-## Back
-
-- [Back to README](../../README.md)
-- [Back to Documentation Index](../index.md)
-- [Back to Project Overview](../project-overview.md)
-
-- [SearchTimer runtime mutation policy wiring](searchtimer-runtime-mutation-policy-wiring.md)
