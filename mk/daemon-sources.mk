@@ -32,7 +32,6 @@ DAEMON_SRC := \
         core/vdr/src/SearchTimerService.cpp \
         core/vdr/src/RestfulApiSearchTimerMapper.cpp \
         core/vdr/src/RestfulApiSearchTimerAdapter.cpp \
-        core/vdr/src/RestfulApiSearchTimerDiscoveryProvider.cpp \
         core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
         core/vdr/src/EpgSearchNativeFuzzyCapabilityFreshnessPolicy.cpp \
         core/vdr/src/EpgSearchNativeFuzzyStartupRestoreService.cpp \
