@@ -86,6 +86,19 @@
       ]
     },
     {
+      "id": "vdr.recordings.query",
+      "title": "VDR recording query is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/recordings/query?backend=default&limit=5",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "totalCount",
+        "returnedCount",
+        "recordings"
+      ]
+    },
+    {
       "id": "vdr.events",
       "title": "VDR events are reachable",
       "risk": "safe",
@@ -125,6 +138,43 @@
       "path": "/api/runtime/summary",
       "expectedStatus": 200,
       "requiredJsonKeys": []
+    },
+    {
+      "id": "epg.search",
+      "title": "EPG search is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/epg/search?backend=default&query=Tatort&limit=5",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "totalCount",
+        "returnedCount",
+        "matches"
+      ]
+    },
+    {
+      "id": "epg.now-next",
+      "title": "EPG now-next window is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/epg/now-next?from=-1",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "events",
+        "count"
+      ]
+    },
+    {
+      "id": "epg.time-window",
+      "title": "EPG time window is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/epg/time-window?from=-1&timespan=7200",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "events",
+        "count"
+      ]
     },
     {
       "id": "searchtimer.discovery",
