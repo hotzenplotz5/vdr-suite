@@ -12,7 +12,7 @@
 
 ## Status
 
-Implemented. Awaiting GitHub Actions verification.
+Completed. GitHub Actions run 28289332754 passed docs-check, fast-regression-test and daemon build.
 
 ## Purpose
 
@@ -40,14 +40,21 @@ docs/development/index.md
 
 ## Verification coverage
 
-Expected local checks:
+Verified by GitHub Actions:
+
+```text
+run 28289332754
+docs-check: success
+fast-regression-test: success
+Build daemon: success
+```
+
+Covered commands:
 
 ```bash
-make test-restfulapi-search-timer-discovery-provider-contract
-make test-json-string-decoder
-make test-vdr
 make test-docs
 make test-phase
+make test-ci-fast
 make daemon
 ```
 
