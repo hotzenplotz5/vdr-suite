@@ -53,6 +53,50 @@
       "requiredJsonKeys": []
     },
     {
+      "id": "vdr.channels",
+      "title": "VDR channels are reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/channels",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "channels"
+      ]
+    },
+    {
+      "id": "vdr.timers",
+      "title": "VDR timers are reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/timers",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "timers"
+      ]
+    },
+    {
+      "id": "vdr.recordings",
+      "title": "VDR recordings are reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/recordings",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "recordings"
+      ]
+    },
+    {
+      "id": "vdr.events",
+      "title": "VDR events are reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/events",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "events"
+      ]
+    },
+    {
       "id": "backend.registry",
       "title": "Backend registry is reachable",
       "risk": "safe",
@@ -91,6 +135,19 @@
       "expectedStatus": 200,
       "requiredJsonKeys": [
         "backendId"
+      ]
+    },
+    {
+      "id": "searchtimer.list",
+      "title": "SearchTimer listing is reachable",
+      "risk": "safe",
+      "method": "GET",
+      "path": "/api/vdr/searchtimers?backend=default&limit=5",
+      "expectedStatus": 200,
+      "requiredJsonKeys": [
+        "totalCount",
+        "returnedCount",
+        "searchtimers"
       ]
     },
     {
