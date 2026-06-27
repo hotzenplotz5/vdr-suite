@@ -25,7 +25,7 @@ Some VDR installations can expose metadata through plugins such as TVScraper or 
 
 A backend without a metadata source would make VDR-Suite visually and functionally weaker: no reliable artwork, cast, characters, external IDs, genres, ratings, keywords, collections or recommendation evidence.
 
-At the same time, VDR-Suite should not build a custom scraper just because scraping is possible. If an existing external scraper, service or provider already solves metadata acquisition, matching, artwork handling and refresh behavior well, VDR-Suite should evaluate and reuse it through a provider boundary.
+At the same time, VDR-Suite should not build a custom scraper just because scraping is possible. If an existing external scraper, service, plugin or provider already solves metadata acquisition, matching, artwork handling and refresh behavior well, VDR-Suite should evaluate and reuse it through a provider boundary.
 
 ---
 
@@ -44,7 +44,8 @@ RecordingMetadataProvider
 ├─ EpgOnlyRecordingMetadataProvider
 ├─ PluginBackedRecordingMetadataProvider
 │  ├─ TvscraperRecordingMetadataProvider
-│  └─ Scraper2VdrRecordingMetadataProvider
+│  ├─ Scraper2VdrRecordingMetadataProvider
+│  └─ GenericVdrPluginMetadataProvider
 ├─ ExternalCatalogRecordingMetadataProvider
 │  ├─ MovieDatabaseProvider
 │  ├─ TvDatabaseProvider
@@ -54,9 +55,30 @@ RecordingMetadataProvider
 
 The provider names above are architecture categories, not a commitment to one concrete external service or API.
 
-VDR-Suite may use external scrapers and catalog providers when they provide better matching, richer metadata or safer artwork handling than a suite-owned implementation.
+VDR-Suite may use external scrapers, catalog providers or plugin-backed providers when they provide better matching, richer metadata or safer artwork handling than a suite-owned implementation.
 
 VDR-Suite must still normalize the results into suite-owned domain objects and persist selected results in the suite metadata database when this improves cross-backend availability, performance, offline access, auditability or frontend consistency.
+
+---
+
+## Plugin-Backed Provider Boundary
+
+A VDR plugin may act as a metadata acquisition helper for VDR-originated content when it already solves metadata matching well.
+
+The preferred flow is:
+
+```text
+VDR plugin metadata source
+  -> explicit adapter or export boundary
+  -> VDR-Suite provider
+  -> normalized suite metadata model
+  -> suite metadata database
+  -> stable API and frontend contract
+```
+
+This allows VDR-Suite to reuse mature plugin behavior without making one plugin mandatory.
+
+The suite database remains important because other backends may not have any plugin metadata source. Those backends still need enrichment through external catalog providers, suite-side import pipelines or other configured providers.
 
 ---
 
@@ -64,6 +86,7 @@ VDR-Suite must still normalize the results into suite-owned domain objects and p
 
 - Prefer mature external metadata providers over reinventing scraper logic.
 - Evaluate provider quality before implementing a suite-owned scraper path.
+- Allow VDR plugins to act as metadata suppliers through explicit provider boundaries.
 - Keep provider-specific API behavior, storage quirks and matching heuristics behind provider boundaries.
 - Store normalized metadata in the suite database when it is needed for cross-backend consistency, caching, search, recommendations or frontend response stability.
 - Treat plugin-backed metadata and external catalog metadata as inputs, not as frontend contracts.
@@ -92,6 +115,7 @@ Evaluation dimensions:
 - Licensing, attribution and usage constraints.
 - Offline/cache behavior.
 - Suitability for multi-backend normalization.
+- Ability to help metadata-poor backends through suite database enrichment.
 
 ---
 
