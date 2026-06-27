@@ -69,6 +69,32 @@ static void test_parse_events_maps_real_restfulapi_shape()
     assert(events[1].parentalRating == 6);
 }
 
+static void test_parse_events_decodes_unicode_escapes()
+{
+    const std::string json =
+        "{\"events\":["
+        "{\"id\":99,"
+        "\"title\":\"Der gro\\u00dfe B\\u00f6rsencrash\","
+        "\"short_text\":\"M\\u00fcnchen\","
+        "\"description\":\"Doku f\\u00fcr Kinder\","
+        "\"start_time\":1780453800,"
+        "\"channel\":\"C-1-2-3\","
+        "\"duration\":900,"
+        "\"contents\":[\"Doku/\\u00d6konomie\"]"
+        "}"
+        "]}";
+
+    std::vector<VdrEvent> events =
+        RestfulApiEventMapper::parseEvents(json);
+
+    assert(events.size() == 1);
+    assert(events[0].title == "Der große Börsencrash");
+    assert(events[0].subtitle == "München");
+    assert(events[0].description == "Doku für Kinder");
+    assert(events[0].contentDescriptors.size() == 1);
+    assert(events[0].contentDescriptors[0] == "Doku/Ökonomie");
+}
+
 static void test_parse_events_accepts_top_level_array()
 {
     const std::string json =
@@ -129,6 +155,7 @@ int main()
 {
     test_parse_events_empty_array();
     test_parse_events_maps_real_restfulapi_shape();
+    test_parse_events_decodes_unicode_escapes();
     test_parse_events_accepts_top_level_array();
     test_parse_events_ignores_objects_without_id();
     test_parse_events_tolerates_invalid_json();
