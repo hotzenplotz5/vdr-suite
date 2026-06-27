@@ -220,6 +220,75 @@ void createMapsSubtitleAndSummarySearchFieldsToRestfulApiBody()
     assert(body.find("\"compare_summary\":1") != std::string::npos);
 }
 
+void createSerializesStructuredSearchTimerOptionListsAsJsonArrays()
+{
+    HttpResponse createResponse;
+    createResponse.statusCode = 200;
+    createResponse.body = "Id: 88";
+
+    SequencedHttpClient httpClient({createResponse});
+    RestfulApiSearchTimerCommandExecutor executor(httpClient);
+
+    SearchTimerCreateRequest request =
+        makeCreateRequest("Advanced Options");
+
+    request.blacklistMode = 1;
+    request.blacklistIdList = {"3", "7"};
+    request.useExtendedEpgInfo = true;
+    request.extendedEpgInfoList = {"category=movie", "actor=John Doe"};
+
+    const auto result =
+        executor.create(request);
+
+    assert(result.success);
+    assert(httpClient.requests().size() == 1);
+
+    const std::string& body =
+        httpClient.requests()[0].body;
+
+    assert(body.find("\"blacklist_ids\":[\"3\",\"7\"]")
+           != std::string::npos);
+    assert(body.find("\"ext_epg_info\":[\"category=movie\",\"actor=John Doe\"]")
+           != std::string::npos);
+    assert(body.find("\"blacklist_ids\":\"") == std::string::npos);
+    assert(body.find("\"ext_epg_info\":\"") == std::string::npos);
+}
+
+void updateSerializesLegacySearchTimerOptionListsAsJsonArrays()
+{
+    HttpResponse updateResponse;
+    updateResponse.statusCode = 200;
+    updateResponse.body = "OK, Id:17";
+
+    SequencedHttpClient httpClient({updateResponse});
+    RestfulApiSearchTimerCommandExecutor executor(httpClient);
+
+    SearchTimerUpdateRequest request =
+        makeUpdateRequest(
+            "17",
+            "Advanced Options Updated");
+
+    request.blacklistMode = 1;
+    request.blacklistIds = "3, 7";
+    request.useExtendedEpgInfo = true;
+    request.extendedEpgInfo = "category=movie; actor=John Doe";
+
+    const auto result =
+        executor.update(request);
+
+    assert(result.success);
+    assert(httpClient.requests().size() == 1);
+
+    const std::string& body =
+        httpClient.requests()[0].body;
+
+    assert(body.find("\"id\":17") != std::string::npos);
+    assert(body.find("\"blacklist_ids\":[\"3\",\"7\"]")
+           != std::string::npos);
+    assert(body.find("\"ext_epg_info\":[\"category=movie\",\"actor=John Doe\"]")
+           != std::string::npos);
+}
+
 void updateUsesRestfulApiPostContractWithNumericIdInBody()
 {
     HttpResponse updateResponse;
@@ -303,6 +372,8 @@ int main()
     createFallsBackToReadbackWhenCreateBodyHasNoId();
     createMapsTitleOnlySearchFieldsToRestfulApiBody();
     createMapsSubtitleAndSummarySearchFieldsToRestfulApiBody();
+    createSerializesStructuredSearchTimerOptionListsAsJsonArrays();
+    updateSerializesLegacySearchTimerOptionListsAsJsonArrays();
     updateUsesRestfulApiPostContractWithNumericIdInBody();
     createFailsWhenReadbackCannotFindUniqueCreatedId();
 
