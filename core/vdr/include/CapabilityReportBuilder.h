@@ -38,7 +38,8 @@ private:
             "events.read",
             "events.read.selective",
             "epg.search.fuzzy.fallback",
-            "epg.search.fuzzy.native"
+            "epg.search.fuzzy.native",
+            "searchtimer.preview.native"
         };
 
         return capabilities;
