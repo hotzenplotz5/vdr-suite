@@ -1,4 +1,4 @@
-.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder
+.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring
 
 test-ci-fast: \
 	test-fast \
@@ -77,6 +77,7 @@ test-vdr: \
 	test-search-timer-discovery-service \
 	test-search-timer-discovery-static-provider \
 	test-restfulapi-search-timer-discovery-provider-contract \
+	test-searchtimer-discovery-runtime-wiring \
 	test-search-timer-automation-evaluation-plan \
 	test-search-timer-automation-match-candidate \
 	test-search-timer-automation-duplicate-detection \
@@ -135,6 +136,10 @@ test-json-string-decoder:
 		core/vdr/tests/test_json_string_decoder.cpp \
 		-o /tmp/test_json_string_decoder
 	/tmp/test_json_string_decoder
+
+
+test-searchtimer-discovery-runtime-wiring:
+	python3 tools/check_searchtimer_discovery_runtime_wiring.py
 
 
 test-backend-node:
