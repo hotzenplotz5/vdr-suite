@@ -78,6 +78,7 @@ std::string jsonEscape(
 }
 
 std::string buildSearchTimerBody(
+    const std::string& backendNativeId,
     const std::string& query,
     const bool active,
     const std::string& directory,
@@ -132,9 +133,16 @@ std::string buildSearchTimerBody(
 {
     std::ostringstream body;
 
+    body << "{";
+
+    if (!backendNativeId.empty())
+    {
+        body << "\"id\":" << backendNativeId << ",";
+    }
+
     body
-        << "{"
-        << "\"search\":\"" << jsonEscape(query) << "\","
+        << "\"search\":\"" << jsonEscape(query) << "\",";
+    body
         << "\"use_title\":" << (compareTitle ? "1" : "0") << ","
         << "\"use_subtitle\":" << (compareSubtitle ? "1" : "0") << ","
         << "\"use_description\":" << (compareSummary ? "1" : "0") << ","
@@ -497,6 +505,7 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
     httpRequest.headers["Content-Type"] = "application/json";
     httpRequest.body =
         buildSearchTimerBody(
+            "",
             request.query,
             request.active,
             request.directory,
@@ -602,13 +611,13 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
     const SearchTimerUpdateRequest& request)
 {
     HttpRequest httpRequest;
-    httpRequest.method = "PUT";
-    httpRequest.url = "/searchtimers/";
-    httpRequest.url += urlEncode(request.backendNativeId);
+    httpRequest.method = "POST";
+    httpRequest.url = "/searchtimers";
     httpRequest.headers["Accept"] = "text/plain";
     httpRequest.headers["Content-Type"] = "application/json";
     httpRequest.body =
         buildSearchTimerBody(
+            request.backendNativeId,
             request.query,
             request.active,
             request.directory,
@@ -668,7 +677,11 @@ SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
     {
         return SearchTimerUpdateResult::failed(
             "RESTfulAPI searchtimer update failed",
-            {response.body});
+            {
+                "status=" + std::to_string(response.statusCode),
+                "requestBody=" + httpRequest.body,
+                "responseBody=" + response.body
+            });
     }
 
     const std::string updatedId =
