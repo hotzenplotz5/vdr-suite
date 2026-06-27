@@ -27,6 +27,10 @@ std::string SearchTimerPreviewResultJsonSerializer::serialize(
     appendQuoted(json, stateToJson(searchTimer.state()));
     json << "},";
 
+    json << "\"previewEngine\":";
+    appendQuoted(json, result.previewEngine());
+    json << ",";
+
     json << "\"epgInput\":{";
     json << "\"status\":";
     appendQuoted(json, result.epgInputStatus());
