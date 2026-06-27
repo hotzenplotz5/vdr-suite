@@ -10,7 +10,7 @@
 
 ## Status
 
-Completed. GitHub Actions passed for commit `7c260bb8`.
+Completed. GitHub Actions passed for commit `9f470076`.
 
 ## Purpose
 
@@ -51,6 +51,8 @@ make test-docs
 make test-phase
 make test-vdr
 ```
+
+Final warning-free verification was recorded for commit `9f470076`.
 
 ## Back
 
