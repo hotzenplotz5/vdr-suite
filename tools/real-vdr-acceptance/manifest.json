@@ -116,11 +116,19 @@
       "path": "/api/vdr/searchtimers/validate",
       "expectedStatus": 200,
       "body": {
+        "operation": "create",
         "backendId": "default",
         "name": "Acceptance Dry Run",
-        "query": "Tatort"
+        "query": "Tatort",
+        "executionMode": "dry-run"
       },
-      "requiredJsonKeys": []
+      "requiredJsonKeys": [],
+      "expectedJsonValues": {
+        "valid": true,
+        "operation": "create",
+        "backendId": "default",
+        "writeOperation": true
+      }
     }
   ]
 }
