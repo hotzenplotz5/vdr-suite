@@ -13,6 +13,7 @@ public:
     bool eventsSelectiveRead = false;
     bool epgSearchFuzzyFallback = false;
     bool epgSearchFuzzyNative = false;
+    bool searchTimerPreviewNative = false;
 
     static VdrCapabilitySet snapshotReadOnly()
     {
@@ -28,6 +29,7 @@ public:
         capabilities.eventsSelectiveRead = true;
         capabilities.epgSearchFuzzyFallback = true;
         capabilities.epgSearchFuzzyNative = false;
+        capabilities.searchTimerPreviewNative = false;
 
         return capabilities;
     }
