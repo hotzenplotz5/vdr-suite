@@ -1,4 +1,4 @@
-.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring
+.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets
 
 test-ci-fast: \
 	test-fast \
@@ -8,7 +8,8 @@ test-ci-fast: \
 	test-search-timer-preview-service \
 	test-search-timer-preview-epg-cache \
 	test-vdr-snapshot-read-service-searchtimer-preview-epg-cache \
-	test-api-router-searchtimer-preview-epg-cache
+	test-api-router-searchtimer-preview-epg-cache \
+	test-daemon-runtime-shutdown-resets
 
 test-vdr: \
 	test-backend-node \
@@ -78,6 +79,7 @@ test-vdr: \
 	test-search-timer-discovery-static-provider \
 	test-restfulapi-search-timer-discovery-provider-contract \
 	test-searchtimer-discovery-runtime-wiring \
+	test-daemon-runtime-shutdown-resets \
 	test-search-timer-automation-evaluation-plan \
 	test-search-timer-automation-match-candidate \
 	test-search-timer-automation-duplicate-detection \
@@ -140,6 +142,10 @@ test-json-string-decoder:
 
 test-searchtimer-discovery-runtime-wiring:
 	python3 tools/check_searchtimer_discovery_runtime_wiring.py
+
+
+test-daemon-runtime-shutdown-resets:
+	python3 tools/check_daemon_runtime_shutdown_resets.py
 
 
 test-backend-node:
