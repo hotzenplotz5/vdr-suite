@@ -3,6 +3,7 @@
 #include "HttpRequest.h"
 #include "VdrTimerOperationRequest.h"
 
+#include <cctype>
 #include <sstream>
 #include <string>
 
@@ -87,6 +88,37 @@ private:
         return request.directory + "~" + request.title;
     }
 
+    static std::string formEncode(
+        const std::string& value)
+    {
+        std::ostringstream encoded;
+        const char* digits = "0123456789ABCDEF";
+
+        for (const unsigned char character : value)
+        {
+            if (std::isalnum(character) ||
+                character == '-' ||
+                character == '_' ||
+                character == '.' ||
+                character == '~')
+            {
+                encoded << character;
+            }
+            else if (character == ' ')
+            {
+                encoded << '+';
+            }
+            else
+            {
+                encoded << '%';
+                encoded << digits[(character >> 4) & 0x0F];
+                encoded << digits[character & 0x0F];
+            }
+        }
+
+        return encoded.str();
+    }
+
     static void appendParameter(
         std::string& body,
         const std::string& name,
@@ -98,7 +130,7 @@ private:
 
         body += name;
         body += "=";
-        body += value;
+        body += formEncode(value);
     }
 
     static std::string buildTimerBody(
