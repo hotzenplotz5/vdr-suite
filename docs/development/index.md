@@ -111,6 +111,8 @@ Current architecture validation:
 - [SearchTimer Automation REST Preview Contract](searchtimer-automation-rest-preview-contract.md)
 - [SearchTimer Automation Daemon Scheduling Plan](searchtimer-automation-daemon-scheduling-plan.md)
 - [SearchTimer Automation Safety Review](searchtimer-automation-safety-review.md)
+- [SearchTimer Runtime Mutation Policy Wiring](searchtimer-runtime-mutation-policy-wiring.md)
+- [SearchTimer Verified Execution Result Integration](searchtimer-verified-execution-result-integration.md)
 - [SearchTimer Title-Only RESTfulAPI Field Mapping](searchtimer-title-only-restfulapi-field-mapping.md)
 - [SearchTimer Title-Only Request Parser Contract](searchtimer-title-only-request-parser-contract.md)
 - [SearchTimer Title-Only REST Controller Contract](searchtimer-title-only-rest-controller-contract.md)
