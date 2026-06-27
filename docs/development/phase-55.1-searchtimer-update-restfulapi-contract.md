@@ -1,5 +1,13 @@
 # Phase 55.1 - SearchTimer Update RESTfulAPI Contract Fix
 
+## Navigation
+
+- [Development Index](index.md)
+- [Phase 55.0 - VDR-Suite Feature-Parity and Adapter Audit](phase-55-vdr-parity-adapter-audit.md)
+- [Current Project Status](current-status.md)
+
+---
+
 ## Status
 
 Implemented. Awaiting GitHub Actions verification.
@@ -93,3 +101,8 @@ make test-restful-api-search-timer-command-executor
 ```
 
 If real yaVDR validation is needed after CI, use the existing SearchTimer real smoke path instead of treating the mock contract test as full runtime proof.
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Phase 55.0 Audit](phase-55-vdr-parity-adapter-audit.md)
