@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -135,7 +136,8 @@ def probe_url(base_url: str, path: str) -> str:
     return urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
 
 
-def execute_probe(base_url: str, timeout: int, probe: dict) -> tuple[bool, str]:
+def execute_probe(base_url: str, timeout: int, probe: dict) -> dict:
+    started = time.monotonic()
     url = probe_url(base_url, probe["path"])
     method = probe["method"]
     data = None
@@ -151,6 +153,10 @@ def execute_probe(base_url: str, timeout: int, probe: dict) -> tuple[bool, str]:
         headers=headers,
         method=method)
 
+    status = None
+    body = ""
+    error_message = ""
+
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             status = response.status
@@ -159,24 +165,58 @@ def execute_probe(base_url: str, timeout: int, probe: dict) -> tuple[bool, str]:
         status = error.code
         body = error.read().decode("utf-8", errors="replace")
     except Exception as error:
-        return False, f"{probe['id']}: request failed: {error}"
+        error_message = f"request failed: {error}"
+
+    duration_ms = int((time.monotonic() - started) * 1000)
+
+    result = {
+        "id": probe["id"],
+        "title": probe["title"],
+        "risk": probe["risk"],
+        "method": method,
+        "path": probe["path"],
+        "route": route_path(probe["path"]),
+        "expectedStatus": probe["expectedStatus"],
+        "status": status,
+        "durationMs": duration_ms,
+        "passed": False,
+        "message": "",
+    }
+
+    if error_message:
+        result["message"] = error_message
+        return result
 
     if status != probe["expectedStatus"]:
-        return False, f"{probe['id']}: expected HTTP {probe['expectedStatus']}, got {status}"
+        result["message"] = f"expected HTTP {probe['expectedStatus']}, got {status}"
+        return result
 
     try:
         decoded = json.loads(body)
     except json.JSONDecodeError as error:
-        return False, f"{probe['id']}: response is not valid JSON: {error}"
+        result["message"] = f"response is not valid JSON: {error}"
+        return result
 
     if not isinstance(decoded, dict):
-        return False, f"{probe['id']}: response JSON must be an object"
+        result["message"] = "response JSON must be an object"
+        return result
 
     for key in probe.get("requiredJsonKeys", []):
         if key not in decoded:
-            return False, f"{probe['id']}: missing JSON key '{key}'"
+            result["message"] = f"missing JSON key '{key}'"
+            return result
 
-    return True, f"{probe['id']}: ok"
+    result["passed"] = True
+    result["message"] = "ok"
+    return result
+
+
+def write_report(path: str, report: dict) -> None:
+    report_path = Path(path)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
 
 
 def main() -> int:
@@ -199,6 +239,10 @@ def main() -> int:
         "--base-url",
         default="",
         help="Daemon base URL. Defaults to env var from manifest or manifest defaultBaseUrl")
+    parser.add_argument(
+        "--report-json",
+        default="",
+        help="Optional path for a machine-readable JSON acceptance report")
     args = parser.parse_args()
 
     manifest = load_manifest(Path(args.manifest))
@@ -220,16 +264,38 @@ def main() -> int:
         or os.environ.get(defaults["baseUrlEnvironment"], "")
         or defaults["defaultBaseUrl"])
     timeout = int(defaults.get("timeoutSeconds", 5))
+    probes = selected_probes(manifest, args.max_risk)
 
-    failures = 0
-    for probe in selected_probes(manifest, args.max_risk):
-        ok, message = execute_probe(base_url, timeout, probe)
-        print(message)
-        if not ok:
-            failures += 1
+    started = time.monotonic()
+    results = []
 
-    if failures:
-        print(f"Real VDR acceptance failed: {failures} probe(s) failed.")
+    for probe in probes:
+        result = execute_probe(base_url, timeout, probe)
+        results.append(result)
+        print(f"{result['id']}: {result['message']}")
+
+    passed = sum(1 for result in results if result["passed"])
+    failed = len(results) - passed
+    duration_ms = int((time.monotonic() - started) * 1000)
+
+    report = {
+        "schemaVersion": 1,
+        "manifestName": manifest.get("name", ""),
+        "baseUrl": base_url,
+        "maxRisk": args.max_risk,
+        "total": len(results),
+        "passed": passed,
+        "failed": failed,
+        "durationMs": duration_ms,
+        "results": results,
+    }
+
+    if args.report_json:
+        write_report(args.report_json, report)
+        print(f"Real VDR acceptance JSON report written: {args.report_json}")
+
+    if failed:
+        print(f"Real VDR acceptance failed: {failed} probe(s) failed.")
         return 1
 
     print("Real VDR acceptance passed.")
