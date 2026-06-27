@@ -61,6 +61,7 @@ static void test_default_result_reports_ready_epg_input()
     assert(json.find("\"name\":\"Terra X Suche\"") != std::string::npos);
     assert(json.find("\"query\":\"Terra X\"") != std::string::npos);
     assert(json.find("\"state\":\"active\"") != std::string::npos);
+    assert(json.find("\"previewEngine\":\"suite-epg-cache\"") != std::string::npos);
     assert(json.find("\"epgInput\":{") != std::string::npos);
     assert(json.find("\"status\":\"ready\"") != std::string::npos);
     assert(json.find("\"available\":true") != std::string::npos);
@@ -90,6 +91,7 @@ static void test_warming_epg_input_is_explicit()
     const std::string json =
         serializer.serialize(previewResult);
 
+    assert(json.find("\"previewEngine\":\"suite-epg-cache\"") != std::string::npos);
     assert(json.find("\"epgInput\":{") != std::string::npos);
     assert(json.find("\"status\":\"warming\"") != std::string::npos);
     assert(json.find("\"available\":false") != std::string::npos);
@@ -98,10 +100,29 @@ static void test_warming_epg_input_is_explicit()
     assert(json.find("\"returnedCount\":0") != std::string::npos);
 }
 
+static void test_custom_preview_engine_is_serialized()
+{
+    SearchTimerPreviewResult previewResult(
+        makeSearchTimer(),
+        EpgSearchResult::empty(10, 0),
+        "ready",
+        true,
+        {},
+        "native-epgsearch");
+
+    SearchTimerPreviewResultJsonSerializer serializer;
+
+    const std::string json =
+        serializer.serialize(previewResult);
+
+    assert(json.find("\"previewEngine\":\"native-epgsearch\"") != std::string::npos);
+}
+
 int main()
 {
     test_default_result_reports_ready_epg_input();
     test_warming_epg_input_is_explicit();
+    test_custom_preview_engine_is_serialized();
 
     std::cout
         << "test_search_timer_preview_result_json_serializer passed"
