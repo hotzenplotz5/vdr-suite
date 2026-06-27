@@ -15,8 +15,8 @@ struct VdrRecording
 
     std::string startTime;
 
-    int durationSeconds;
-    long long sizeMb;
+    int durationSeconds = 0;
+    long long sizeMb = 0;
 
     PersonCollection persons = PersonCollection::createEmpty();
 };

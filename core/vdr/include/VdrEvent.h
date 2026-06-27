@@ -15,8 +15,8 @@ struct VdrEvent
     std::string startTime;
     std::string endTime;
 
-    int durationSeconds;
+    int durationSeconds = 0;
 
     std::vector<std::string> contentDescriptors;
-    int parentalRating;
+    int parentalRating = 0;
 };
