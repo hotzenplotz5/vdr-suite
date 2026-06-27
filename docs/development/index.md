@@ -93,6 +93,7 @@ Current architecture validation:
 - [Live Parity Discovery RESTfulAPI Provider Contract](live-parity-discovery-restfulapi-provider-contract.md)
 - [Live Parity Discovery Foundation Completion](live-parity-discovery-foundation-completion.md)
 - [Phase 55.0 - VDR-Suite Feature-Parity and Adapter Audit](phase-55-vdr-parity-adapter-audit.md)
+- [Phase 55.1 - SearchTimer Update RESTfulAPI Contract Fix](phase-55.1-searchtimer-update-restfulapi-contract.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
