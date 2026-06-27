@@ -1,5 +1,7 @@
 #include "RestfulApiTimerMapper.h"
 
+#include "JsonStringDecoder.h"
+
 #include <cctype>
 #include <string>
 #include <vector>
@@ -77,39 +79,7 @@ std::vector<std::string> splitTopLevelObjects(const std::string& arrayText)
 
 std::string unescapeJsonString(const std::string& value)
 {
-    std::string result;
-    bool escaped = false;
-
-    for (char c : value) {
-        if (escaped) {
-            switch (c) {
-            case 'n':
-                result.push_back('\n');
-                break;
-            case 'r':
-                result.push_back('\r');
-                break;
-            case 't':
-                result.push_back('\t');
-                break;
-            case '"':
-            case '\\':
-            case '/':
-                result.push_back(c);
-                break;
-            default:
-                result.push_back(c);
-                break;
-            }
-            escaped = false;
-        } else if (c == '\\') {
-            escaped = true;
-        } else {
-            result.push_back(c);
-        }
-    }
-
-    return result;
+    return vdrsuite::decodeJsonStringEscapes(value);
 }
 
 std::string getStringField(const std::string& objectText, const std::string& fieldName)
