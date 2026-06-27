@@ -39,6 +39,7 @@ VDR_SRC := \
         core/vdr/src/SearchTimerAutomationSafetyReview.cpp \
         core/vdr/src/SearchTimerDiscoveryService.cpp \
         core/vdr/src/SearchTimerDiscoveryStaticProvider.cpp \
+        core/vdr/src/RestfulApiSearchTimerDiscoveryProvider.cpp \
         core/vdr/src/SearchTimerWorkflowValidationService.cpp \
         core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
         core/vdr/src/SearchTimerWorkflowExecutorResultMapper.cpp \
@@ -90,4 +91,4 @@ VDR_SRC := \
         core/vdr/src/LiveTransportFactory.cpp \
         core/vdr/src/SseLiveTransport.cpp \
         core/vdr/src/BackendPollingCoordinator.cpp \
-        core/vdr/src/VdrAdapterFactory.cpp
+        core/vdr/src/VdrAdapterFactory.cpp \
