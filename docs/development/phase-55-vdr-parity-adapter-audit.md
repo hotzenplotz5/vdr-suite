@@ -1,5 +1,13 @@
 # Phase 55.0 - VDR-Suite Feature-Parity and Adapter Audit
 
+## Navigation
+
+- [Development Index](index.md)
+- [Current Project Status](current-status.md)
+- [Phase 55.1 - SearchTimer Update RESTfulAPI Contract Fix](phase-55.1-searchtimer-update-restfulapi-contract.md)
+
+---
+
 ## Status
 
 Initial audit record.
@@ -517,3 +525,8 @@ SearchTimer update is already part of the implemented VDR-Suite workflow and app
 No local tests were run for this audit.
 
 After any implementation phase derived from this audit, use GitHub Actions as the default test gate and real yaVDR smoke tests only where the behaviour depends on actual VDR/RESTfulAPI runtime semantics.
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Current Project Status](current-status.md)
