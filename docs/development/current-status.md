@@ -79,19 +79,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 55.4d - SearchTimer Discovery Shared Decoder Cleanup
+Phase 54.3e - SearchTimer preview EPG input status contract
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 55.4d - SearchTimer Discovery Shared Decoder Cleanup
+Phase 54.3e - SearchTimer preview EPG input status contract
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 55.4e - Daemon Runtime Shutdown Stabilization
+Phase 54.3 - SearchTimer warm EPG cache implementation
 ```
 
 Required planned follow-up:
@@ -128,7 +128,7 @@ SearchTimer Discovery Shared Decoder Cleanup
 Current foundation in progress:
 
 ```text
-Daemon Runtime Shutdown Stabilization
+SearchTimer Preview EPG Performance
 ```
 
 Direct GitHub documentation synchronization should still be followed locally by functional or runtime-specific checks only when the change requires real local behaviour validation.
