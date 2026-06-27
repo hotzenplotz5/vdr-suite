@@ -27,11 +27,29 @@ public:
         std::string epgInputStatus,
         bool epgInputAvailable,
         std::vector<std::string> warnings)
+        : SearchTimerPreviewResult(
+              std::move(searchTimer),
+              std::move(searchResult),
+              std::move(epgInputStatus),
+              epgInputAvailable,
+              std::move(warnings),
+              "suite-epg-cache")
+    {
+    }
+
+    SearchTimerPreviewResult(
+        SearchTimer searchTimer,
+        EpgSearchResult searchResult,
+        std::string epgInputStatus,
+        bool epgInputAvailable,
+        std::vector<std::string> warnings,
+        std::string previewEngine)
         : searchTimer_(std::move(searchTimer)),
           searchResult_(std::move(searchResult)),
           epgInputStatus_(std::move(epgInputStatus)),
           epgInputAvailable_(epgInputAvailable),
-          warnings_(std::move(warnings))
+          warnings_(std::move(warnings)),
+          previewEngine_(std::move(previewEngine))
     {
     }
 
@@ -60,6 +78,11 @@ public:
         return warnings_;
     }
 
+    const std::string& previewEngine() const
+    {
+        return previewEngine_;
+    }
+
     int totalCount() const
     {
         return searchResult_.totalCount();
@@ -81,4 +104,5 @@ private:
     std::string epgInputStatus_;
     bool epgInputAvailable_ = true;
     std::vector<std::string> warnings_;
+    std::string previewEngine_ = "suite-epg-cache";
 };
