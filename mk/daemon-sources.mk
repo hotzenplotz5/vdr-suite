@@ -46,6 +46,8 @@ DAEMON_SRC := \
         api/rest/src/LiveTransportController.cpp \
         api/rest/src/CapabilityController.cpp \
         api/rest/src/RecordingActionValidationController.cpp \
+        api/rest/src/RecordingActionExecutionController.cpp \
+        api/rest/src/VdrTimerActionController.cpp \
         core/recordings/src/RecordingActionUtils.cpp \
         core/recordings/src/RecordingActionValidationResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionExecutionResultJsonSerializer.cpp \
