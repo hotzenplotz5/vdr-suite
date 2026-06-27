@@ -92,6 +92,7 @@
       "method": "GET",
       "path": "/api/vdr/recordings/query?backend=default&limit=5",
       "expectedStatus": 200,
+      "timeoutSeconds": 30,
       "requiredJsonKeys": [
         "totalCount",
         "returnedCount",
