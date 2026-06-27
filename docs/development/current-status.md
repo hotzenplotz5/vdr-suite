@@ -79,19 +79,19 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 54.3e - SearchTimer preview EPG input status contract
+Phase 55.4d - SearchTimer Discovery Shared Decoder Cleanup
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 54.3e - SearchTimer preview EPG input status contract
+Phase 55.4d - SearchTimer Discovery Shared Decoder Cleanup
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 54.3 - SearchTimer warm EPG cache implementation
+Phase 55.4e - Daemon Runtime Shutdown Stabilization
 ```
 
 Required planned follow-up:
@@ -121,20 +121,17 @@ SearchTimer User Workflow Foundation
 SearchTimer Runtime Mutation Policy
 SearchTimer Warm EPG Cache Architecture
 SearchTimer Preview EPG Input Status Contract
+SearchTimer Discovery RESTfulAPI Runtime Wiring
+SearchTimer Discovery Shared Decoder Cleanup
 ```
 
 Current foundation in progress:
 
 ```text
-SearchTimer Preview EPG Performance
+Daemon Runtime Shutdown Stabilization
 ```
 
-Direct GitHub documentation synchronization should still be followed locally by:
-
-```text
-make test-docs
-make test-phase
-```
+Direct GitHub documentation synchronization should still be followed locally by functional or runtime-specific checks only when the change requires real local behaviour validation.
 
 ---
 
@@ -155,6 +152,8 @@ make test-phase
 - Phase 54.2 accepts ADR-0034 for warm EPG cache input, change-state invalidation and future SSE-triggered refresh.
 - Phase 54.3e verifies and documents the SearchTimer preview `epgInput` contract so non-ready EPG input is not hidden as a normal zero-match result.
 - Phase 54.3 now has a runtime cache refresh foundation: backend-scoped refresh service, refresh service registry, refresh controller, explicit REST refresh route, daemon wiring and router regression coverage are implemented.
+- Phase 55.4c wires the SearchTimer discovery runtime to the RESTfulAPI provider and verifies daemon build through GitHub Actions.
+- Phase 55.4d removes duplicate SearchTimer discovery JSON string decoding and routes discovery string escape decoding through the shared `JsonStringDecoder`.
 - ADR-0035 records that recordings are a heavy on-demand domain and must not be loaded synchronously for all backends during daemon startup.
 - Startup snapshot runtime is implemented for the initial poll: status, timers, SearchTimer metadata and channels may load, while recordings and full EPG events remain excluded from startup.
 
@@ -183,6 +182,8 @@ make test-phase
 - Recording actions use backend-native recording identity.
 - Content classification uses source-aware evidence for genre, rating, metadata and policy work.
 - Person architecture uses source-aware evidence, roles, confidence, normalized names, character names and provider references.
+- SearchTimer discovery runtime now uses the RESTfulAPI provider when an HTTP backend context exists and falls back to the static provider only without a backend context.
+- SearchTimer discovery string escape decoding now uses the shared `JsonStringDecoder` utility.
 
 ---
 
@@ -217,96 +218,14 @@ Performance goal:
 Backend workload should remain comparable to established VDR frontends such as live whenever equivalent information is requested.
 
 Recording-specific startup rule:
-
-- daemon startup must not synchronously load recordings for all configured backends
-- recording pages must show backend-scoped loading state instead of assuming data is already available
-- a ready empty recording cache is a valid empty list, but unknown/loading/unavailable/error is not
-
----
-
-## Current Implemented API Areas
-
-Implemented API areas include:
-
-- snapshot-backed VDR read APIs
-- backend registry and backend-aware read APIs
-- selective EPG read APIs
-- EPG search API
-- SearchTimer backend provider and route foundations
-- SearchTimer user workflow foundation
-- SearchTimer preview EPG input status contract
-- SearchTimer preview EPG cache explicit refresh API
-- recording query API
-- recording action validation and execution APIs
-- person query APIs
-- recording-person search APIs
-- recording character search through characterName
-- dashboard, jobs, metadata and runtime diagnostics APIs
-
-Detailed route contracts belong in the domain-specific API documentation files.
-
----
-
-## Current Test Runtime Observation
-
-The full local regression target is intentionally no longer the default verification path for normal development work.
-
-Recommended local verification for architecture and documentation work:
-
-```text
-make test-docs
-make test-phase
-make daemon
-```
-
-Targeted local tests remain useful for narrow changes and for real VDR validation.
-
-Real VDR tests are reserved for backend integration, RESTfulAPI validation, SSE streams, polling, snapshot runtime, multi-VDR scenarios and real metadata availability checks.
-
----
-
-## Next Technical Focus
-
-```text
-Phase 54.3 - SearchTimer warm EPG cache implementation
-```
-
-The next implementation phase should continue the backend-scoped warm EPG cache for SearchTimer preview so interactive preview requests do not fetch the full RESTfulAPI EPG dump.
-
-Implemented so far:
-
-```text
-SearchTimerPreviewEpgCacheRefreshService
-SearchTimerPreviewEpgCacheRefreshServiceRegistry
-SearchTimerPreviewEpgCacheRefreshController
-POST /api/searchtimers/preview/cache/refresh
-POST /api/vdr/searchtimers/preview/cache/refresh
-```
-
-Required planned follow-up:
-
-```text
-Lazy Recording Loading and Backend-Scoped Recording Refresh
-```
-
-This follow-up must ensure daemon startup remains lightweight and recordings are loaded only on demand for the selected backend with explicit loading/status feedback.
-
-Important boundaries:
-
-- keep VDR as the source of truth for VDR-owned state
-- prefer selective EPG queries and warm cache refresh over full EPG transfers in interactive request paths
-- do not synchronously load recordings for all backends during daemon startup
-- keep backend-scoped recording refresh independent per backend
-- keep metadata provider details behind provider boundaries
-- keep policy enforcement out until dedicated profile and permission architecture exists
-- build SearchTimer on top of existing EPG search and recording metadata foundations
-- preserve backend identity for future multi-backend SearchTimer behavior
-- treat SSE as a future invalidation signal, not as a full EPG payload stream
+- daemon startup must not synchronously load all recordings for all backends.
+- recording data should be loaded through lazy, backend-scoped refresh paths.
+- UI/API consumers must be able to see whether recording data is not loaded yet, loading, ready or stale.
 
 ---
 
 ## Back
 
-- [Back to README](../../README.md)
-- [Back to Documentation Index](../index.md)
 - [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to Project Overview](../project-overview.md)
