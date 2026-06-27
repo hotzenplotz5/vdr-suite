@@ -55,6 +55,23 @@ extepginfo.json     -> extendedEpgInfo
 
 The provider keeps the old constructor behaviour: if no HTTP client is configured, discovery returns an empty catalog. This preserves earlier tests and keeps static/offline usage safe.
 
+## Real RESTfulAPI smoke result
+
+A real yaVDR RESTfulAPI smoke check against `127.0.0.1:8002` confirmed that all four endpoints are available.
+
+Observed shape:
+
+```text
+/searchtimers/channelgroups.json -> {"groups":[],"count":0,"total":0}
+/searchtimers/recordingdirs.json -> {"dirs":[...],"count":50,"total":50}
+/searchtimers/blacklists.json    -> {"blacklists":[],"count":0,"total":0}
+/searchtimers/extepginfo.json    -> {"ext_epg_info":[],"count":0,"total":0}
+```
+
+The real smoke output also exposed JSON Unicode escapes in recording directory names, for example `\u00f6`, `\u00fc` and `\u00df`.
+
+The provider now decodes JSON Unicode escapes into UTF-8 before storing catalog values.
+
 ## Changed files
 
 ```text
@@ -86,6 +103,7 @@ New coverage:
 - recording directories are mapped
 - blacklists with `id` and `search` are mapped
 - extended EPG info with `id`, `name`, `values` and `config` is mapped
+- JSON Unicode escapes such as `\u00f6`, `\u00fc` and `\u00df` are decoded into UTF-8
 
 ## Remaining follow-up
 
@@ -94,12 +112,19 @@ This phase completes the RESTfulAPI provider contract itself.
 Potential follow-up work:
 
 - Verify daemon/runtime wiring uses the HTTP-backed provider rather than the no-client constructor.
-- Add real yaVDR smoke validation for all four discovery endpoints.
+- Add real yaVDR smoke validation for all four discovery endpoints through VDR-Suite runtime once wired.
 - Decide whether conflicts belong into discovery or a separate operational status API.
 
 ## Verification
 
-No local test was run by this change author.
+Real RESTfulAPI smoke check completed against:
+
+```text
+http://127.0.0.1:8002/searchtimers/channelgroups.json
+http://127.0.0.1:8002/searchtimers/recordingdirs.json
+http://127.0.0.1:8002/searchtimers/blacklists.json
+http://127.0.0.1:8002/searchtimers/extepginfo.json
+```
 
 Expected GitHub Actions/local narrow target:
 
