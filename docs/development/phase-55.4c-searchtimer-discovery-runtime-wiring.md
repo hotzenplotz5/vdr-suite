@@ -11,7 +11,7 @@
 
 ## Status
 
-Implemented. Awaiting GitHub Actions verification.
+Completed. GitHub Actions run 28288004880 passed docs-check, fast-regression-test and daemon build.
 
 ## Purpose
 
@@ -45,13 +45,14 @@ test-searchtimer-discovery-runtime-wiring
 
 The target verifies the runtime wiring contract and is included in the VDR test group.
 
-Expected local checks:
+Verified checks:
 
 ```bash
 make test-searchtimer-discovery-runtime-wiring
 make test-restfulapi-search-timer-discovery-provider-contract
 make test-docs
 make test-phase
+make daemon
 ```
 
 ## Back
