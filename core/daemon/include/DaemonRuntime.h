@@ -32,6 +32,7 @@
 #include "ConsoleRuntimeLogger.h"
 #include "Database.h"
 #include "IHttpClient.h"
+#include "ISearchTimerDiscoveryProvider.h"
 #include "IVdrAdapter.h"
 #include "IHttpServer.h"
 #include "JobDashboardService.h"
@@ -68,7 +69,6 @@
 #include "SearchTimerDiscoveryController.h"
 #include "SearchTimerDiscoveryJsonSerializer.h"
 #include "SearchTimerDiscoveryService.h"
-#include "SearchTimerDiscoveryStaticProvider.h"
 #include "SearchTimerAutomationDryRunResultJsonSerializer.h"
 #include "SearchTimerAutomationPreviewController.h"
 #include "SearchTimerAutomationReadOnlyService.h"
@@ -204,7 +204,7 @@ private:
     std::unique_ptr<SearchTimerService> searchTimerService_;
     std::unique_ptr<SearchTimerResultJsonSerializer> searchTimerResultJsonSerializer_;
     std::unique_ptr<SearchTimerController> searchTimerController_;
-    std::unique_ptr<SearchTimerDiscoveryStaticProvider> searchTimerDiscoveryProvider_;
+    std::unique_ptr<ISearchTimerDiscoveryProvider> searchTimerDiscoveryProvider_;
     std::unique_ptr<SearchTimerDiscoveryService> searchTimerDiscoveryService_;
     std::unique_ptr<SearchTimerDiscoveryJsonSerializer> searchTimerDiscoveryJsonSerializer_;
     std::unique_ptr<SearchTimerDiscoveryController> searchTimerDiscoveryController_;
