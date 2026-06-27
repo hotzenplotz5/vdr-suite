@@ -72,6 +72,10 @@ def validate_manifest(manifest: dict) -> list[str]:
     if allowed_risks != ["safe", "dry-run", "destructive"]:
         errors.append("defaults.allowedRiskLevels must be ['safe', 'dry-run', 'destructive']")
 
+    default_timeout = defaults.get("timeoutSeconds")
+    if not isinstance(default_timeout, int) or default_timeout <= 0:
+        errors.append("defaults.timeoutSeconds must be a positive integer")
+
     probes = manifest.get("probes")
     if not isinstance(probes, list) or not probes:
         errors.append("probes must be a non-empty array")
@@ -121,6 +125,12 @@ def validate_manifest(manifest: dict) -> list[str]:
         elif not all(isinstance(key, str) for key in expected_json_values.keys()):
             errors.append(f"{prefix}.expectedJsonValues keys must be strings")
 
+        timeout_seconds = probe.get("timeoutSeconds")
+        if timeout_seconds is not None and (
+                not isinstance(timeout_seconds, int) or
+                timeout_seconds <= 0):
+            errors.append(f"{prefix}.timeoutSeconds must be a positive integer when provided")
+
         if probe.get("risk") == "destructive" and not probe.get("destructiveConfirmation"):
             errors.append(f"{prefix}.destructiveConfirmation is required for destructive probes")
 
@@ -142,10 +152,11 @@ def probe_url(base_url: str, path: str) -> str:
     return urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
 
 
-def execute_probe(base_url: str, timeout: int, probe: dict) -> dict:
+def execute_probe(base_url: str, default_timeout: int, probe: dict) -> dict:
     started = time.monotonic()
     url = probe_url(base_url, probe["path"])
     method = probe["method"]
+    timeout = int(probe.get("timeoutSeconds", default_timeout))
     data = None
     headers = {"Accept": "application/json"}
 
@@ -184,6 +195,7 @@ def execute_probe(base_url: str, timeout: int, probe: dict) -> dict:
         "route": route_path(probe["path"]),
         "expectedStatus": probe["expectedStatus"],
         "status": status,
+        "timeoutSeconds": timeout,
         "durationMs": duration_ms,
         "passed": False,
         "message": "",
