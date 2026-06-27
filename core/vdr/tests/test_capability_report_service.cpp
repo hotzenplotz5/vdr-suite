@@ -23,12 +23,23 @@ int main()
 
     assert(report.backendId() == "mock-backend");
     assert(!report.empty());
-    assert(report.size() == 10);
+    assert(report.size() == 11);
+
+    bool sawNativeFuzzyCapability = false;
+    bool sawNativeSearchTimerPreviewCapability = false;
 
     for (const auto& state : report.capabilities())
     {
         if (state.capabilityName() == "epg.search.fuzzy.native")
         {
+            sawNativeFuzzyCapability = true;
+            assert(!state.supported());
+            assert(!state.availableNow());
+            assert(state.availability() == CapabilityAvailability::Unsupported);
+        }
+        else if (state.capabilityName() == "searchtimer.preview.native")
+        {
+            sawNativeSearchTimerPreviewCapability = true;
             assert(!state.supported());
             assert(!state.availableNow());
             assert(state.availability() == CapabilityAvailability::Unsupported);
@@ -40,6 +51,21 @@ int main()
             assert(state.availability() == CapabilityAvailability::Available);
         }
     }
+
+    assert(sawNativeFuzzyCapability);
+    assert(sawNativeSearchTimerPreviewCapability);
+
+    VdrCapabilitySet nativePreviewCapabilities =
+        VdrCapabilitySet::snapshotReadOnly();
+    nativePreviewCapabilities.searchTimerPreviewNative = true;
+    CapabilityResolver nativePreviewResolver(nativePreviewCapabilities);
+
+    const CapabilityState nativePreviewState =
+        nativePreviewResolver.state("searchtimer.preview.native");
+
+    assert(nativePreviewState.supported());
+    assert(nativePreviewState.availableNow());
+    assert(nativePreviewState.availability() == CapabilityAvailability::Available);
 
     VdrCapabilitySet emptyCapabilities;
     CapabilityResolver emptyResolver(emptyCapabilities);
@@ -54,7 +80,7 @@ int main()
 
     assert(emptyReport.backendId() == "empty-backend");
     assert(!emptyReport.empty());
-    assert(emptyReport.size() == 10);
+    assert(emptyReport.size() == 11);
 
     for (const auto& state : emptyReport.capabilities())
     {
