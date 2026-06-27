@@ -9,7 +9,11 @@ int main()
     assert(vdrsuite::decodeJsonStringEscapes("plain") == "plain");
     assert(vdrsuite::decodeJsonStringEscapes("Line\\nBreak") == "Line\nBreak");
     assert(vdrsuite::decodeJsonStringEscapes("Quote: \\\"x\\\"") == "Quote: \"x\"");
-    assert(vdrsuite::decodeJsonStringEscapes("Slash: \\\/") == "Slash: /");
+
+    const std::string slashInput =
+        std::string("Slash: \\") + "/";
+    assert(vdrsuite::decodeJsonStringEscapes(slashInput) == "Slash: /");
+
     assert(vdrsuite::decodeJsonStringEscapes("Backslash: \\\\") == "Backslash: \\");
     assert(vdrsuite::decodeJsonStringEscapes("Der gro\\u00dfe B\\u00f6rsencrash") ==
            "Der große Börsencrash");
