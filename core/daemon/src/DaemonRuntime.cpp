@@ -5,6 +5,8 @@
 #include "RestfulApiVdrTimerActionExecutorAdapter.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiSearchTimerAdapter.h"
+#include "RestfulApiSearchTimerDiscoveryProvider.h"
+#include "SearchTimerDiscoveryStaticProvider.h"
 #include "SimpleHttpListener.h"
 #include "TestHttpServer.h"
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
@@ -313,8 +315,21 @@ bool DaemonRuntime::initialize()
         std::cout << "SearchTimer controller runtime skipped: no VDR backend configured" << std::endl;
     }
 
-    searchTimerDiscoveryProvider_ =
-        std::make_unique<SearchTimerDiscoveryStaticProvider>();
+    if (!backendRuntimeContexts_.empty()
+        && backendRuntimeContexts_.front()->httpClient) {
+        searchTimerDiscoveryProvider_ =
+            std::make_unique<RestfulApiSearchTimerDiscoveryProvider>(
+                backendRuntimeContexts_.front()->backendId,
+                *backendRuntimeContexts_.front()->httpClient,
+                "");
+        std::cout << "SearchTimer discovery provider runtime initialized: restfulapi" << std::endl;
+    }
+    else {
+        searchTimerDiscoveryProvider_ =
+            std::make_unique<SearchTimerDiscoveryStaticProvider>();
+        std::cout << "SearchTimer discovery provider runtime initialized: static fallback" << std::endl;
+    }
+
     searchTimerDiscoveryService_ =
         std::make_unique<SearchTimerDiscoveryService>(
             *searchTimerDiscoveryProvider_);
