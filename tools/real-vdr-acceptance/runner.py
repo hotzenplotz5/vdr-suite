@@ -9,6 +9,8 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 MANIFEST_PATH = Path(__file__).with_name("manifest.json")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+API_ROUTER_PATH = REPOSITORY_ROOT / "api" / "rest" / "src" / "ApiRouter.cpp"
 
 RISK_ORDER = {
     "safe": 0,
@@ -20,6 +22,38 @@ RISK_ORDER = {
 def load_manifest(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def route_path(path_with_query: str) -> str:
+    return path_with_query.split("?", 1)[0]
+
+
+def validate_manifest_routes(manifest: dict) -> list[str]:
+    errors: list[str] = []
+
+    if not API_ROUTER_PATH.exists():
+        return [f"ApiRouter.cpp not found: {API_ROUTER_PATH}"]
+
+    router_source = API_ROUTER_PATH.read_text(encoding="utf-8")
+
+    for probe in manifest.get("probes", []):
+        if not isinstance(probe, dict):
+            continue
+
+        path = probe.get("path")
+        probe_id = probe.get("id", "<unknown>")
+        if not isinstance(path, str):
+            continue
+
+        route = route_path(path)
+        quoted_route = f'"{route}"'
+
+        if quoted_route not in router_source:
+            errors.append(
+                f"probe {probe_id} references route {route}, "
+                "but that route is not present in api/rest/src/ApiRouter.cpp")
+
+    return errors
 
 
 def validate_manifest(manifest: dict) -> list[str]:
@@ -82,6 +116,8 @@ def validate_manifest(manifest: dict) -> list[str]:
 
         if probe.get("risk") == "destructive" and not probe.get("destructiveConfirmation"):
             errors.append(f"{prefix}.destructiveConfirmation is required for destructive probes")
+
+    errors.extend(validate_manifest_routes(manifest))
 
     return errors
 
