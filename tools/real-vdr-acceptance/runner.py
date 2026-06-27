@@ -115,6 +115,12 @@ def validate_manifest(manifest: dict) -> list[str]:
         elif not all(isinstance(item, str) for item in required_json_keys):
             errors.append(f"{prefix}.requiredJsonKeys must contain strings only")
 
+        expected_json_values = probe.get("expectedJsonValues", {})
+        if not isinstance(expected_json_values, dict):
+            errors.append(f"{prefix}.expectedJsonValues must be an object when provided")
+        elif not all(isinstance(key, str) for key in expected_json_values.keys()):
+            errors.append(f"{prefix}.expectedJsonValues keys must be strings")
+
         if probe.get("risk") == "destructive" and not probe.get("destructiveConfirmation"):
             errors.append(f"{prefix}.destructiveConfirmation is required for destructive probes")
 
@@ -204,6 +210,18 @@ def execute_probe(base_url: str, timeout: int, probe: dict) -> dict:
     for key in probe.get("requiredJsonKeys", []):
         if key not in decoded:
             result["message"] = f"missing JSON key '{key}'"
+            return result
+
+    for key, expected_value in probe.get("expectedJsonValues", {}).items():
+        if key not in decoded:
+            result["message"] = f"missing expected JSON value key '{key}'"
+            return result
+
+        actual_value = decoded[key]
+        if actual_value != expected_value:
+            result["message"] = (
+                f"JSON value mismatch for '{key}': "
+                f"expected {expected_value!r}, got {actual_value!r}")
             return result
 
     result["passed"] = True
