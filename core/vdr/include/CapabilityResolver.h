@@ -74,6 +74,11 @@ public:
             return fromSupportedFlag(capability, capabilities_.epgSearchFuzzyNative);
         }
 
+        if (capability == "searchtimer.preview.native")
+        {
+            return fromSupportedFlag(capability, capabilities_.searchTimerPreviewNative);
+        }
+
         return CapabilityState::unsupported(
             capability,
             "unknown capability");
