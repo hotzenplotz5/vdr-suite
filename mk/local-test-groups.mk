@@ -1,4 +1,4 @@
-.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff
+.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy
 
 
 test-ci-fast: \
@@ -14,7 +14,8 @@ test-ci-fast: \
 	test-http-listener-bind-failure-handling \
 	test-real-vdr-acceptance-manifest \
 	test-phase-map-coverage \
-	test-github-update-safety-handoff
+	test-github-update-safety-handoff \
+	test-recording-mutation-safety-policy
 
 
 test-vdr: \
@@ -89,6 +90,7 @@ test-vdr: \
 	test-http-listener-bind-failure-handling \
 	test-real-vdr-acceptance-manifest \
 	test-github-update-safety-handoff \
+	test-recording-mutation-safety-policy \
 	test-search-timer-automation-evaluation-plan \
 	test-search-timer-automation-match-candidate \
 	test-search-timer-automation-duplicate-detection \
@@ -171,6 +173,10 @@ test-phase-map-coverage:
 
 test-github-update-safety-handoff:
 	python3 tools/check_github_update_safety_handoff.py
+
+
+test-recording-mutation-safety-policy:
+	python3 tools/check_recording_mutation_safety_policy.py
 
 
 test-backend-node:
