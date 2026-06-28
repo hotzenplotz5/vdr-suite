@@ -117,6 +117,7 @@ Current architecture validation:
 - [Phase 56.26 - REST API Developer Boundary Guide](phase-56.26-rest-api-developer-boundary-guide.md)
 - [Phase 56.27 - Service API Developer Boundary Guide](phase-56.27-service-api-developer-boundary-guide.md)
 - [Phase 56.28 - Backend Adapter Developer Boundary Guide](phase-56.28-backend-adapter-developer-boundary-guide.md)
+- [Phase 56.29 - Packaging Boundary Guide](phase-56.29-packaging-boundary-guide.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
