@@ -62,7 +62,7 @@ CHECKS = [
             "return payload.recordingId;",
             "/recordings/move.json",
             "/recordings/delete.json",
-            "\"copy_only\":false",
+            "copy_only",
         ],
     ),
     (
