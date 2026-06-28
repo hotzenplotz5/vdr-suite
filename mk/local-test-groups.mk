@@ -1,4 +1,5 @@
-.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-real-vdr-acceptance-manifest
+.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-real-vdr-acceptance-manifest
+
 
 test-ci-fast: \
 	test-fast \
@@ -10,7 +11,9 @@ test-ci-fast: \
 	test-vdr-snapshot-read-service-searchtimer-preview-epg-cache \
 	test-api-router-searchtimer-preview-epg-cache \
 	test-daemon-runtime-shutdown-resets \
+	test-http-listener-bind-failure-handling \
 	test-real-vdr-acceptance-manifest
+
 
 test-vdr: \
 	test-backend-node \
@@ -81,6 +84,7 @@ test-vdr: \
 	test-restfulapi-search-timer-discovery-provider-contract \
 	test-searchtimer-discovery-runtime-wiring \
 	test-daemon-runtime-shutdown-resets \
+	test-http-listener-bind-failure-handling \
 	test-real-vdr-acceptance-manifest \
 	test-search-timer-automation-evaluation-plan \
 	test-search-timer-automation-match-candidate \
@@ -148,6 +152,10 @@ test-searchtimer-discovery-runtime-wiring:
 
 test-daemon-runtime-shutdown-resets:
 	python3 tools/check_daemon_runtime_shutdown_resets.py
+
+
+test-http-listener-bind-failure-handling:
+	python3 tools/check_http_listener_bind_failure_handling.py
 
 
 test-real-vdr-acceptance-manifest:
