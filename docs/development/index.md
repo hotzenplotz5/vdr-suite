@@ -174,6 +174,7 @@ Current architecture validation:
 ## Progress Tracking
 
 - [Completed Phases](completed-phases.md)
+- [Completed Phases Latest Marker](completed-phases-latest.md)
 - [Milestones](milestones.md)
 
 Implementation history and completed work.
