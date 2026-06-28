@@ -103,13 +103,13 @@ Progress source: ../planning/project-progress.md
 Latest completed implementation phase:
 
 ```text
-Phase 55.5n - Roadmap historical coverage alignment
+Phase 55.5o - Phase map and roadmap simplification
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 55.5n - Roadmap historical coverage alignment
+Phase 55.5o - Phase map and roadmap simplification
 ```
 
 Next major implementation milestone:

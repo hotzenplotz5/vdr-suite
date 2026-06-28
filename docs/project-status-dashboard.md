@@ -161,13 +161,13 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 55.5n - Roadmap historical coverage alignment
+Phase 55.5o - Phase map and roadmap simplification
 ```
 
 Current Documentation Consolidation:
 
 ```text
-Phase 55.5n - Roadmap historical coverage alignment
+Phase 55.5o - Phase map and roadmap simplification
 ```
 
 Next Major Implementation Milestone:
@@ -230,7 +230,7 @@ Phase 53.x  - SearchTimer title-only workflow preservation
 Phase 54.1  - SearchTimer preview comparison-option fix
 Phase 54.2  - SearchTimer warm EPG cache architecture
 Phase 55.5  - Real VDR acceptance and daemon lifecycle hardening
-Phase 55.5n - Roadmap historical coverage alignment
+Phase 55.5o - Phase map and roadmap simplification
 ```
 
 ---

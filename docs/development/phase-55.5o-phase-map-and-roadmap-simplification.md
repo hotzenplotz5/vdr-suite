@@ -1,4 +1,4 @@
-# Phase 55.5n - Roadmap Historical Coverage Alignment
+# Phase 55.5o - Phase Map and Roadmap Simplification
 
 ## Navigation
 
@@ -7,6 +7,7 @@
 - [Development Index](index.md)
 - [Current Project Status](current-status.md)
 - [Completed Phases](completed-phases.md)
+- [Phase Map](../planning/phase-map.md)
 - [Roadmap](../planning/roadmap.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
 
@@ -14,27 +15,19 @@
 
 ## Purpose
 
-This document records the follow-up documentation step after Phase 55.5m.
+This document records the documentation simplification step after Phase 55.5n.
 
-Phase 55.5m fixed the high-level project state snapshot. Phase 55.5n fixes the roadmap timeline coverage itself.
+Phase 55.5n made missing roadmap ranges visible, but the roadmap still duplicated too much historical milestone text.
 
-The roadmap had visible gaps: it jumped from Phase 30.x-36.x directly to Phase 45.x and did not clearly show the Phase 50-55 tracks as roadmap milestones.
+Phase 55.5o introduces a compact canonical phase map and simplifies the roadmap so future chats and documentation updates have one clear entry point for project state.
 
 ---
 
 ## Scope
 
-Phase 55.5n is documentation-only.
+Phase 55.5o is documentation and guardrail only.
 
 It does not add runtime behavior, API behavior, backend mutation, SearchTimer execution or recording action execution.
-
-The scope is:
-
-- add an implementation timeline coverage map to the roadmap
-- make Phase 37-44 visible in roadmap history
-- make Phase 50-55 visible as roadmap tracks
-- remove stale planned Phase 55/56 roadmap labels that conflicted with already completed 55.x work
-- keep Phase 55.6 as the next implementation focus
 
 ---
 
@@ -54,18 +47,12 @@ Phase 55.6 - Recording operations audit and safety policy
 
 ---
 
-## Required Verification After Consolidation
-
-Run locally:
+## Required Verification
 
 ```bash
 make test-docs
 make test-phase
-```
-
-Recommended guardrails:
-
-```bash
+make test-phase-map-coverage
 make test-real-vdr-acceptance-manifest
 make test-daemon-runtime-shutdown-resets
 make test-http-listener-bind-failure-handling

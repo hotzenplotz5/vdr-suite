@@ -53,7 +53,7 @@ Completed phases:
 - Phase 55.5j - Safe query acceptance coverage.
 - Phase 55.5k - Real VDR acceptance cold-recording timeout stabilization.
 - Phase 55.5l - Daemon startup/shutdown hardening.
-- Phase 55.5n - Roadmap historical coverage alignment.
+- Phase 55.5o - Phase map and roadmap simplification.
 
 Key outcomes:
 - Real VDR acceptance currently verifies 20/20 safe and dry-run probes.
@@ -232,7 +232,7 @@ Planned next steps:
 
 ## Detailed Phase History
 
-## Phase 55.5n - Roadmap historical coverage alignment
+## Phase 55.5o - Phase map and roadmap simplification
 
 Status: Completed.
 

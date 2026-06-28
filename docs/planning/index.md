@@ -22,7 +22,8 @@ Implementation details and completed work belong in the development section.
 ### Roadmap
 
 - [Roadmap](roadmap.md)
-- [Project Progress](project-progress.md)
+- [Phase Map](phase-map.md)
+- [Project State Snapshot](project-progress.md)
 - [Lazy Recording Loading](lazy-recording-loading.md)
 - [Recording Metadata, External Scrapers and Suite Metadata Database Roadmap](tvscraper-recording-metadata-roadmap.md)
 
@@ -40,10 +41,10 @@ Current planning entry point and milestone pointers.
 
 ```text
 Current major implementation milestone
-Phase 54.3 - SearchTimer warm EPG cache implementation
+Phase 55.5o - Phase map and roadmap simplification
 
 Required planned follow-up
-Lazy Recording Loading and Backend-Scoped Recording Refresh
+Phase 55.6 - Recording operations audit and safety policy
 
 Visible later metadata milestone
 Suite Metadata Database and External Scraper Provider Integration
@@ -63,7 +64,8 @@ Current verified state and completed implementation history.
 ## Documentation Rules
 
 - [Roadmap](roadmap.md) contains long-term direction.
-- [Project Progress](project-progress.md) contains high-level progress percentages and the active milestone.
+- [Phase Map](phase-map.md)
+- [Project State Snapshot](project-progress.md) contains high-level progress percentages and the active milestone.
 - [Lazy Recording Loading](lazy-recording-loading.md) keeps the no-startup-recording-load requirement visible until implementation.
 - [Recording Metadata Roadmap](tvscraper-recording-metadata-roadmap.md) keeps plugin-backed metadata, external scraper provider evaluation and the suite-owned metadata database visible.
 - [Milestones](milestones.md) remains a lightweight planning pointer document.
