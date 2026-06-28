@@ -9,17 +9,16 @@
 - [Current Project Status](current-status.md)
 - [Roadmap](../planning/roadmap.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
+- [Completed Phases Archive](completed-phases/README.md)
+- [Completed Phases Latest Marker](completed-phases-latest.md)
 
 ---
 
 ## Purpose
 
-This file tracks completed implementation phases.
+This file is the compact entry point for completed implementation phases.
 
-It has two purposes:
-
-- provide a milestone-oriented overview of completed work
-- preserve the detailed chronological phase history
+It provides a milestone-oriented overview and links detailed historical ranges to the completed phases archive.
 
 Current status belongs to:
 
@@ -29,6 +28,14 @@ Future planning belongs to:
 
 - [Roadmap](../planning/roadmap.md)
 - [Milestones](../planning/milestones.md)
+
+Detailed historical archives belong to:
+
+- [Completed Phases Archive](completed-phases/README.md)
+
+The latest completed implementation marker is tracked independently in:
+
+- [Completed Phases Latest Marker](completed-phases-latest.md)
 
 ---
 
@@ -90,7 +97,7 @@ Status: Completed.
 Purpose:
 - Refresh the high-level project documentation before starting the next major milestone.
 - Make completed foundations visible as milestones instead of only as individual phases.
-- Align roadmap, dashboard and completed phase history.
+- Align roadmap, dashboard and project progress.
 
 Completed phases:
 - Phase 46.38 - Roadmap and Milestone Refresh.
@@ -103,9 +110,11 @@ Completed consolidation work:
 - Roadmap, dashboard and project progress alignment.
 - New-chat handoff verification checklist.
 
-## Archived Detailed Phase Range - Phase 46 through Phase 50
+---
 
-Detailed Phase 46 through Phase 50 records were moved into the completed phases archive during Phase 56.
+## Archived Detailed Phase Ranges
+
+Detailed Phase 46 through Phase 55 records were moved into the completed phases archive during Phase 56.
 
 Archived files:
 - [Phase 46](completed-phases/phase-46.md)
@@ -113,10 +122,17 @@ Archived files:
 - [Phase 48](completed-phases/phase-48.md)
 - [Phase 49](completed-phases/phase-49.md)
 - [Phase 50](completed-phases/phase-50.md)
-
-The latest completed implementation marker is tracked independently in [Completed Phases Latest Marker](completed-phases-latest.md).
+- [Phase 51](completed-phases/phase-51.md)
+- [Phase 52](completed-phases/phase-52.md)
+- [Phase 53](completed-phases/phase-53.md)
+- [Phase 54](completed-phases/phase-54.md)
+- [Phase 55](completed-phases/phase-55.md)
 
 ---
+
+## Legacy Inline Detail History
+
+Older detailed history remains inline below until it is explicitly archived in a future split.
 
 ## Phase 46.12 - Content Rating API Documentation
 
@@ -129,4 +145,3 @@ The latest completed implementation marker is tracked independently in [Complete
 - [Back to Development Index](index.md)
 
 ---
-
