@@ -81,12 +81,21 @@ Planned outcomes:
 
 ## Planned Major Milestones
 
-### Phase 56 - Library Boundary and Packaging
+### Phase 56 - Library Boundary, Packaging and Developer Documentation
 
 Status: Planned.
 
 Goal:
 - Separate reusable libraries from daemon/application surfaces.
+- Rebuild the developer documentation around the new library and API boundaries.
+
+Planned outcomes:
+- Define public library boundaries, internal-only modules and daemon/application integration points.
+- Create a new developer documentation structure instead of extending the old phase-history layout.
+- Document how external and internal developers should use the REST API, service APIs and reusable libraries.
+- Add API usage examples for common integration tasks.
+- Add library usage examples for backend adapters, recording services, SearchTimer services and metadata/provider boundaries.
+- Keep historical phase documents available for traceability, but make the new developer documentation the primary entry point.
 
 ---
 
