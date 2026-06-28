@@ -109,6 +109,7 @@ Current architecture validation:
 - [Phase 55.6 - Recording Operations Audit and Safety Policy](phase-55.6-recording-operations-audit-and-safety-policy.md)
 - [Phase 56.0 - Completed Phases Archive Split Plan](phase-56.0-completed-phases-archive-split-plan.md)
 - [Phase 56.20 - Library, Daemon and API Boundary Audit](phase-56.20-library-daemon-api-boundary-audit.md)
+- [Phase 56.21 - Build Boundary Map](phase-56.21-build-boundary-map.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
