@@ -2,45 +2,27 @@
 
 ## Purpose
 
-This handoff records the preferred command-line check for GitHub Actions status.
+This handoff records the preferred command-line tool for GitHub Actions status checks.
 
 New chats must use this check before declaring pushed VDR-Suite work complete when GitHub Actions status matters.
 
 ---
 
-## Check current HEAD with status icons
+## Tool name
 
-Run from the repository root:
-
-```bash
-cd /home/yavdr/vdr-suite
-
-SHA=$(git rev-parse HEAD)
-
-gh run list --workflow ci.yml --branch main --commit "$SHA" --limit 1 \
-  --json status,conclusion,headSha,displayTitle,url \
-  --jq '.[] | (if .status=="completed" and .conclusion=="success" then "✅ GRÜN" elif .status=="completed" then "❌ ROT" else "⏳ LÄUFT" end) + "  " + .headSha[0:7] + "  " + .displayTitle + "  " + .url'
-```
-
-Expected meanings:
+The VDR-Suite GitHub Actions polling tool is:
 
 ```text
-✅ GRÜN  -> GitHub Actions completed successfully.
-❌ ROT   -> GitHub Actions completed with failure or non-success conclusion.
-⏳ LÄUFT -> GitHub Actions is still queued or running.
+tools/watch_github_ci.py
 ```
 
----
-
-## Check recent workflow runs
+Preferred command:
 
 ```bash
-cd /home/yavdr/vdr-suite
-
-gh run list --workflow ci.yml --branch main --limit 5 \
-  --json status,conclusion,headSha,displayTitle,url \
-  --jq '.[] | (if .status=="completed" and .conclusion=="success" then "✅ GRÜN" elif .status=="completed" then "❌ ROT" else "⏳ LÄUFT" end) + "  " + .headSha[0:7] + "  " + .displayTitle + "  " + .url'
+tools/watch_github_ci.py --watch --interval 60 --url --chat
 ```
+
+Use this tool when waiting for GitHub Actions to become green or red.
 
 ---
 
