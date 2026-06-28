@@ -6,6 +6,7 @@
 - [Documentation Index](../index.md)
 - [Project Overview](../project-overview.md)
 - [Development Index](index.md)
+- [Phase Map](../planning/phase-map.md)
 - [Roadmap](../planning/roadmap.md)
 - [Lazy Recording Loading](../planning/lazy-recording-loading.md)
 - [Startup Snapshot Runtime Rule](startup-snapshot-runtime.md)
@@ -203,6 +204,54 @@ git log --oneline -5
 
 When work was done directly through GitHub, run `git pull` locally before compiling or runtime testing.
 
+### New chat documentation orientation
+
+Before planning or completing work in a new chat, read these documents first:
+
+```text
+docs/planning/phase-map.md
+docs/development/current-status.md
+docs/planning/roadmap.md
+docs/development/completed-phases.md only when detailed phase history is needed
+```
+
+Documentation responsibility:
+
+- `docs/planning/phase-map.md` is the compact source of truth for phase-range coverage.
+- `docs/planning/roadmap.md` describes direction and must not duplicate the full completed phase history.
+- `docs/development/current-status.md`, `README.md`, `docs/project-status-dashboard.md`, `docs/development/index.md` and `docs/development/completed-phases.md` must stay phase-marker consistent.
+- Any completed phase that changes project direction, safety policy, runtime behaviour or public API must update the relevant documentation in the same work block.
+- Do not declare a phase complete until documentation checks and phase consistency checks are green.
+
+### Preferred edit path for new chats
+
+Prefer direct GitHub repository updates for existing files when the change is documentation-only, guardrail-only, planning-only or otherwise does not require local runtime evidence before the edit.
+
+Use local edits first only when the change requires:
+
+- compilation or linker validation before editing can be trusted
+- daemon runtime validation
+- Real VDR acceptance validation
+- inspection of the local working tree
+- generated files that must be reviewed before commit
+- a workaround because the GitHub connector blocks a file operation
+
+After direct GitHub edits, always run locally:
+
+```bash
+git pull
+make test-docs
+make test-phase
+```
+
+For phase-map, roadmap or marker changes, also run:
+
+```bash
+make test-phase-map-coverage
+```
+
+For runtime/API/acceptance-sensitive changes, also run the applicable runtime and acceptance guardrails before declaring completion.
+
 ### Standard CI expectations
 
 Every implementation or guardrail change must be verified by GitHub Actions unless it is explicitly local-only experimental work.
@@ -224,6 +273,9 @@ Documentation-sensitive changes must keep the documentation checks green and mus
 Minimum checks for documentation and guardrail work:
 
 ```bash
+make test-docs
+make test-phase
+make test-phase-map-coverage
 make test-real-vdr-acceptance-manifest
 make test-daemon-runtime-shutdown-resets
 make test-http-listener-bind-failure-handling
