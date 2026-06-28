@@ -37,11 +37,11 @@ Status after Phase 56.17:
 
 | File | Current archive state | Top-level source state |
 | --- | --- | --- |
-| `phase-46.md` | compact phase archive | retained |
-| `phase-47.md` | compact phase archive | retained |
-| `phase-48.md` | compact phase archive | retained |
-| `phase-49.md` | compact phase archive | retained |
-| `phase-50.md` | compact phase archive | retained |
+| `phase-46.md` | compact phase archive | compacted from top-level detail history |
+| `phase-47.md` | compact phase archive | compacted from top-level detail history |
+| `phase-48.md` | compact phase archive | compacted from top-level detail history |
+| `phase-49.md` | compact phase archive | compacted from top-level detail history |
+| `phase-50.md` | compact phase archive | compacted from top-level detail history |
 | `phase-51.md` | compact phase archive | compacted from top-level detail history |
 | `phase-52.md` | compact phase archive | compacted from top-level detail history |
 | `phase-53.md` | compact phase archive | compacted from top-level detail history |
@@ -51,7 +51,7 @@ Status after Phase 56.17:
 Migration rule:
 - Keep the latest-completed marker independent from historical headings.
 - Phase 51 through Phase 55 were compacted from the top-level detail history.
-- Phase 46 through Phase 50 now have compact archive files and are candidates for the final top-level detail compaction pass.
+- Phase 46 through Phase 50 were compacted from the top-level detail history in Phase 56.18.
 
 ---
 
