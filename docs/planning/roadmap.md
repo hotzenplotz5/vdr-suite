@@ -17,13 +17,13 @@
 
 ```text
 Completed implementation state
-Phase 54.3e - SearchTimer preview EPG input status contract
+Phase 55.5m - Documentation consolidation and roadmap alignment
 
 Documentation consolidation step
-Phase 54.3e - SearchTimer preview EPG input status contract
+Phase 55.5m - Documentation consolidation and roadmap alignment
 
 Next major implementation milestone
-Phase 54.3 - SearchTimer warm EPG cache implementation
+Phase 55.6 - Recording operations audit and safety policy
 ```
 
 ---
@@ -237,27 +237,75 @@ Representative phase range:
 
 ---
 
+## Recently Completed Technical Milestones
+
+### Real VDR Acceptance Foundation
+
+Status: Completed.
+
+Primary result:
+- Adds a repeatable real VDR acceptance manifest and runner for safe and dry-run API validation against a live daemon.
+
+Key outcomes:
+- Safe and dry-run acceptance scope currently passes 20/20 probes.
+- Acceptance route validation prevents stale manifest paths.
+- Per-probe timeout support handles cold large-recording queries without hiding unrelated probe behavior.
+- JSON report output records machine-readable acceptance evidence.
+
+Representative phase range:
+- Phase 55.5c through Phase 55.5k.
+
+---
+
+### Daemon Runtime Lifecycle Hardening
+
+Status: Completed.
+
+Primary result:
+- Makes daemon startup and shutdown behavior operator-safe for the current simple HTTP listener runtime.
+
+Key outcomes:
+- Duplicate daemon starts on an occupied HTTP port exit with status 1 instead of aborting.
+- SIGTERM stops the daemon cleanly without `kill -9`.
+- Port 18080 is released after normal shutdown.
+- Guardrails cover HTTP bind failure handling and daemon runtime shutdown resets.
+
+Representative phase range:
+- Phase 55.4e and Phase 55.5l.
+
+---
+
+### Documentation Consolidation and Handoff Verification
+
+Status: Completed.
+
+Primary result:
+- Aligns high-level project documentation with the verified Phase 55.5 runtime and acceptance state.
+
+Key outcomes:
+- README, roadmap, project progress, current status, project dashboard, development index and completed-phase history now point at the same completed and next milestones.
+- New-chat handoff rules preserve required local, real VDR and GitHub Actions checks.
+
+Representative phase:
+- Phase 55.5m.
+
+---
+
 ## Current Milestone
 
-### Phase 54 - SearchTimer Preview Runtime and EPG Input Performance
+### Phase 55.6 - Recording Operations Audit and Safety Policy
 
-Status: In Progress.
+Status: Planned.
 
 Goal:
-- Make SearchTimer preview correct and fast enough for operator-facing use against real VDR EPG data.
+- Audit live recording operations before enabling or expanding real write-capable paths.
 
-Completed results:
-- Phase 54.0 wires runtime mutation policy execution while keeping the runtime gate closed by default.
-- Phase 54.1 fixes SearchTimer preview comparison options and verifies title-only matching against live VDR EPG input.
-- Phase 54.2 accepts ADR-0034 for warm EPG cache input, change-state invalidation and future SSE-triggered refresh.
-- Phase 54.3 continues the backend-scoped warm EPG cache implementation and explicit refresh behavior.
-
-Expected outcomes:
-- Backend-scoped warm EPG cache for SearchTimer preview.
-- Explicit cache readiness and stale-state diagnostics.
-- No full RESTfulAPI EPG dump per interactive preview request.
-- Change-state driven cache invalidation through polling first.
-- Future RESTfulAPI SSE change stream support as an invalidation signal.
+Planned outcomes:
+- Confirm which recording operations remain read-only, dry-run-only or destructive.
+- Define operator confirmation, permission, backend allowlist and safety-policy requirements.
+- Keep destructive real VDR probes explicitly opt-in.
+- Preserve the current real VDR acceptance suite as safe/dry-run by default.
+- Prepare the later recording operations implementation without silently opening mutation paths.
 
 ---
 

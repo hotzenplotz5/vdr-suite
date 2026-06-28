@@ -47,13 +47,13 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 54.3e - SearchTimer preview EPG input status contract
+Phase 55.5m - Documentation consolidation and roadmap alignment
 ```
 
 Next implementation focus:
 
 ```text
-Phase 54.3 - SearchTimer warm EPG cache implementation
+Phase 55.6 - Recording operations audit and safety policy
 ```
 
 Current architecture validation:
@@ -102,6 +102,7 @@ Current architecture validation:
 - [Phase 55.4b - Shared JSON String Decoder](phase-55.4b-shared-json-string-decoder.md)
 - [Phase 55.4c - SearchTimer Discovery Runtime Wiring](phase-55.4c-searchtimer-discovery-runtime-wiring.md)
 - [Phase 55.4d - SearchTimer Discovery Shared Decoder Cleanup](phase-55.4d-searchtimer-discovery-shared-decoder.md)
+- [Phase 55.5m - Documentation Consolidation and Roadmap Alignment](phase-55.5m-documentation-consolidation.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)

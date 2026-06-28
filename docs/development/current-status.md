@@ -45,7 +45,7 @@ main
 
 Overall foundation progress, not product completion:
 
-    ███████░░░ 70%
+    ███████░░░ 73%
 
 Milestone progress:
 
@@ -58,16 +58,19 @@ Milestone progress:
     SearchTimer Backend Foundation       ██████████ 100%  completed
     SearchTimer User Workflow            ██████████ 100%  completed
     SearchTimer Runtime Mutation Policy  ██████████ 100%  completed
-    SearchTimer Preview EPG Performance  ███░░░░░░░  30%  in progress
+    SearchTimer Preview EPG Performance  ████████░░  75%  in progress
+    Real VDR Acceptance Foundation       ██████████ 100%  completed
+    Runtime Lifecycle Hardening          ██████████ 100%  completed
     Lazy Recording Loading               █░░░░░░░░░  10%  in progress
     Live Plugin Parity Foundation        ██████████ 100%  completed
     Automation Foundation                ██████████ 100%  completed
+    Recording Operations Safety          ░░░░░░░░░░   0%  planned
     Federation Foundation                ░░░░░░░░░░   0%  planned
     Frontend Foundation                  ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 54.3 - SearchTimer warm EPG cache implementation
+    Phase 55.6 - Recording operations audit and safety policy
 
 Progress source: [Project Progress](../planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -79,25 +82,25 @@ Progress source: [Project Progress](../planning/project-progress.md)
 Latest completed implementation phase:
 
 ```text
-Phase 54.3e - SearchTimer preview EPG input status contract
+Phase 55.5m - Documentation consolidation and roadmap alignment
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 54.3e - SearchTimer preview EPG input status contract
+Phase 55.5m - Documentation consolidation and roadmap alignment
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 54.3 - SearchTimer warm EPG cache implementation
+Phase 55.6 - Recording operations audit and safety policy
 ```
 
 Required planned follow-up:
 
 ```text
-Lazy Recording Loading and Backend-Scoped Recording Refresh
+Recording operations audit and safety policy
 ```
 
 Completed foundations:
@@ -123,12 +126,15 @@ SearchTimer Warm EPG Cache Architecture
 SearchTimer Preview EPG Input Status Contract
 SearchTimer Discovery RESTfulAPI Runtime Wiring
 SearchTimer Discovery Shared Decoder Cleanup
+Real VDR Acceptance Foundation
+Daemon Runtime Lifecycle Hardening
+Documentation Handoff Verification
 ```
 
 Current foundation in progress:
 
 ```text
-SearchTimer Preview EPG Performance
+Recording Operations Audit and Safety Policy
 ```
 
 Direct GitHub documentation synchronization should still be followed locally by functional or runtime-specific checks only when the change requires real local behaviour validation.

@@ -32,7 +32,7 @@ The generated progress blocks are written by:
 The overall value is foundation progress, not final product completion.
 
 ```text
-overall|70
+overall|73
 ```
 
 ---
@@ -48,10 +48,13 @@ Documentation Foundation|100|completed
 SearchTimer Backend Foundation|100|completed
 SearchTimer User Workflow|100|completed
 SearchTimer Runtime Mutation Policy|100|completed
-SearchTimer Preview EPG Performance|30|in progress
+SearchTimer Preview EPG Performance|75|in progress
+Real VDR Acceptance Foundation|100|completed
+Runtime Lifecycle Hardening|100|completed
 Lazy Recording Loading|10|in progress
 Live Plugin Parity Foundation|100|completed
 Automation Foundation|100|completed
+Recording Operations Safety|0|planned
 Federation Foundation|0|planned
 Frontend Foundation|0|planned
 
@@ -59,13 +62,13 @@ Frontend Foundation|0|planned
 
 ## Current Milestone
 
-Phase 54.3 - SearchTimer warm EPG cache implementation
+Phase 55.6 - Recording operations audit and safety policy
 
 ---
 
 ## Required Follow-Up Milestone
 
-Lazy Recording Loading and Backend-Scoped Recording Refresh
+Recording operations audit and safety policy
 
 ---
 

@@ -34,9 +34,38 @@ Future planning belongs to:
 
 ## Completed Milestones Overview
 
+### Real VDR Acceptance and Runtime Lifecycle Foundation
+
+Status: Completed.
+
+Purpose:
+- Establish repeatable real VDR acceptance checks for safe and dry-run API coverage.
+- Make daemon lifecycle behavior operator-safe for duplicate starts and normal SIGTERM shutdown.
+- Preserve a new-chat handoff checklist so local runtime, acceptance, documentation and GitHub Actions checks are not forgotten.
+
+Completed phases:
+- Phase 55.5c - Real VDR acceptance manifest foundation.
+- Phase 55.5d - Acceptance manifest route validation.
+- Phase 55.5e - Acceptance JSON report output.
+- Phase 55.5g - Expected JSON values in acceptance runner.
+- Phase 55.5h - Acceptance manifest safe-read expansion.
+- Phase 55.5i - SearchTimer plan dry-run acceptance probe.
+- Phase 55.5j - Safe query acceptance coverage.
+- Phase 55.5k - Real VDR acceptance cold-recording timeout stabilization.
+- Phase 55.5l - Daemon startup/shutdown hardening.
+- Phase 55.5m - Documentation consolidation and roadmap alignment.
+
+Key outcomes:
+- Real VDR acceptance currently verifies 20/20 safe and dry-run probes.
+- Duplicate daemon startup on an occupied HTTP port exits cleanly with status 1 instead of aborting.
+- SIGTERM stops the daemon cleanly without `kill -9` and releases port 18080.
+- New-chat handoff documentation now records the required local, real VDR and GitHub Actions evidence before declaring runtime phases complete.
+
+---
+
 ### Documentation Consolidation
 
-Status: In Progress.
+Status: Completed.
 
 Purpose:
 - Refresh the high-level project documentation before starting the next major milestone.
@@ -47,10 +76,12 @@ Completed phases:
 - Phase 46.38 - Roadmap and Milestone Refresh.
 - Phase 46.39 - Project Status Dashboard Refresh.
 
-Remaining planned documentation work:
+Completed consolidation work:
 - Completed phase milestone restructuring.
 - Current status refresh.
 - README refresh.
+- Roadmap, dashboard and project progress alignment.
+- New-chat handoff verification checklist.
 
 ## Phase 47.12 - SearchTimer route data source wiring
 
@@ -200,6 +231,153 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+
+## Phase 55.5m - Documentation consolidation and roadmap alignment
+
+Status: Completed.
+
+Summary:
+- Consolidated README, roadmap, project progress, current status, project dashboard, development index and completed-phase history after the Phase 55.5 real VDR acceptance and daemon lifecycle hardening work.
+- Moved the tracked latest completed implementation marker to Phase 55.5m across the documentation files monitored by `check_phase_consistency.py`.
+- Moved the tracked next implementation focus to Phase 55.6 recording operations audit and safety policy.
+- Preserved the new-chat handoff checklist for local runtime, real VDR acceptance, documentation and GitHub Actions verification.
+- Kept this phase documentation-only with no runtime behavior, API behavior, backend mutation or recording operation change.
+
+---
+
+## Phase 55.5l - Daemon startup/shutdown hardening
+
+Status: Completed.
+
+Summary:
+- Changed HTTP listener bind failure handling so a duplicate daemon start on an occupied port exits cleanly with status 1 instead of throwing an uncaught exception and producing a core dump.
+- Added guardrail coverage for bind failure behavior.
+- Changed the HTTP listener loop to poll for stop requests and break cleanly on signal interruption.
+- Verified against a real local daemon that SIGTERM stops the process without `kill -9` and releases port 18080.
+- Verified the final real VDR acceptance run after hardening with 20/20 probes passing.
+
+---
+
+## Phase 55.5k - Real VDR acceptance cold-recording timeout stabilization
+
+Status: Completed.
+
+Summary:
+- Added per-probe timeout support to the real VDR acceptance runner.
+- Increased the cold recording query acceptance timeout so large real recording catalogs do not cascade into unrelated probe timeouts.
+- Preserved the default timeout for ordinary probes.
+- Added timeoutSeconds to the JSON report output for each probe result.
+- Verified that the cold real VDR acceptance run passed 20/20 probes.
+
+---
+
+## Phase 55.5j - Safe query acceptance coverage
+
+Status: Completed.
+
+Summary:
+- Extended the real VDR acceptance manifest with safe query probes for recording query, EPG search, EPG now/next and EPG time-window endpoints.
+- Kept all new probes safe and non-mutating.
+- Exposed the practical runtime cost of large recording catalogs during cold acceptance runs.
+
+---
+
+## Phase 55.5i - SearchTimer plan dry-run acceptance probe
+
+Status: Completed.
+
+Summary:
+- Added a dry-run SearchTimer workflow planning acceptance probe.
+- Verified that create planning returns a valid dry-run plan with create/readback steps and explicit operator confirmation requirements.
+- Kept backend mutation out of acceptance scope.
+
+---
+
+## Phase 55.5h - Acceptance manifest safe-read expansion
+
+Status: Completed.
+
+Summary:
+- Expanded the real VDR acceptance manifest with safe read probes for channels, timers, recordings, events and SearchTimer lists.
+- Kept the acceptance manifest focused on safe and dry-run coverage.
+
+---
+
+## Phase 55.5g - Expected JSON values in acceptance runner
+
+Status: Completed.
+
+Summary:
+- Added expectedJsonValues support to the real VDR acceptance runner.
+- Strengthened SearchTimer workflow validation acceptance from HTTP-200-only to response-value verification.
+- Verified validation semantics for operation, execution mode, workflow steps and safety flags.
+
+---
+
+## Phase 55.5e - Acceptance JSON report output
+
+Status: Completed.
+
+Summary:
+- Added optional JSON report output to the real VDR acceptance runner.
+- Captured manifest name, base URL, risk level, totals, duration and per-probe results.
+
+---
+
+## Phase 55.5d - Acceptance manifest route validation
+
+Status: Completed.
+
+Summary:
+- Added validation that acceptance manifest routes are present in ApiRouter.
+- Prevented stale acceptance entries from silently drifting away from routed API paths.
+
+---
+
+## Phase 55.5c - Real VDR acceptance manifest foundation
+
+Status: Completed.
+
+Summary:
+- Added the real VDR acceptance manifest and runner foundation.
+- Added initial safe and dry-run probes for dashboard, VDR overview, status, health, backend registry, capabilities, runtime summary and SearchTimer workflow paths.
+- Wired manifest validation into the local CI-fast/VDR test groups.
+
+---
+
+## Phase 55.5b - Native SearchTimer preview capability gate
+
+Status: Completed.
+
+Summary:
+- Added a native SearchTimer preview capability flag.
+- Exposed native-preview availability through capability reporting while keeping default unsupported behavior.
+- Preserved suite EPG cache preview as the safe default preview engine.
+
+---
+
+## Phase 55.5a - SearchTimer preview engine contract
+
+Status: Completed.
+
+Summary:
+- Added the SearchTimer preview engine contract.
+- Exposed the preview engine in JSON responses so clients can distinguish suite-cache preview from future native epgsearch preview.
+- Preserved `suite-epg-cache` as the default preview engine.
+
+---
+
+## Phase 55.4e - Daemon runtime shutdown reset guardrail
+
+Status: Completed.
+
+Summary:
+- Completed daemon runtime shutdown reset coverage for recently added runtime components.
+- Added a guardrail that checks shutdown reset coverage for runtime-owned services/controllers.
+- Wired the shutdown reset guardrail into the local test groups.
+
+---
+
 
 ## Phase 54.3e - SearchTimer preview EPG input status contract
 

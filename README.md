@@ -26,7 +26,7 @@ VDR-Suite complements VDR. It does not replace it.
 
 Overall foundation progress, not product completion:
 
-    ███████░░░ 70%
+    ███████░░░ 73%
 
 Milestone progress:
 
@@ -39,16 +39,19 @@ Milestone progress:
     SearchTimer Backend Foundation       ██████████ 100%  completed
     SearchTimer User Workflow            ██████████ 100%  completed
     SearchTimer Runtime Mutation Policy  ██████████ 100%  completed
-    SearchTimer Preview EPG Performance  ███░░░░░░░  30%  in progress
+    SearchTimer Preview EPG Performance  ████████░░  75%  in progress
+    Real VDR Acceptance Foundation       ██████████ 100%  completed
+    Runtime Lifecycle Hardening          ██████████ 100%  completed
     Lazy Recording Loading               █░░░░░░░░░  10%  in progress
     Live Plugin Parity Foundation        ██████████ 100%  completed
     Automation Foundation                ██████████ 100%  completed
+    Recording Operations Safety          ░░░░░░░░░░   0%  planned
     Federation Foundation                ░░░░░░░░░░   0%  planned
     Frontend Foundation                  ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 54.3 - SearchTimer warm EPG cache implementation
+    Phase 55.6 - Recording operations audit and safety policy
 
 Progress source: [Project Progress](docs/planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -59,19 +62,19 @@ Progress source: [Project Progress](docs/planning/project-progress.md)
 
 Latest completed implementation phase:
 
-    Phase 54.3e - SearchTimer preview EPG input status contract
+    Phase 55.5m - Documentation consolidation and roadmap alignment
 
 Current documentation consolidation:
 
-    Phase 54.3e - SearchTimer preview EPG input status contract
+    Phase 55.5m - Documentation consolidation and roadmap alignment
 
 Next major implementation milestone:
 
-    Phase 54.3 - SearchTimer warm EPG cache implementation
+    Phase 55.6 - Recording operations audit and safety policy
 
 Required planned follow-up:
 
-    Lazy Recording Loading and Backend-Scoped Recording Refresh
+    Recording operations audit and safety policy
 
 Completed foundations:
 
@@ -93,10 +96,13 @@ Completed foundations:
 - Native Fuzzy SearchTimer Capability Validation
 - SearchTimer User Workflow Foundation
 - SearchTimer Runtime Mutation Policy
+- Real VDR Acceptance Foundation
+- Daemon Runtime Lifecycle Hardening
+- Documentation Handoff Verification
 
 Current foundation in progress:
 
-- SearchTimer Preview EPG Performance
+- Recording Operations Audit and Safety Policy
 
 ---
 
@@ -109,6 +115,9 @@ Runtime:
 - Snapshot change feed
 - Live transport foundation
 - Runtime diagnostics
+- HTTP listener bind-failure hardening
+- SIGTERM daemon shutdown hardening
+- Real VDR acceptance manifest and runner
 
 Multi-backend:
 
@@ -133,6 +142,7 @@ SearchTimer:
 - Native fuzzy SearchTimer capability validation
 - SearchTimer user workflow foundation completed with verified execution and production mutation closed
 - SearchTimer preview comparison options verified against live VDR EPG input
+- SearchTimer workflow validation and planning covered by real VDR acceptance
 
 Recordings:
 

@@ -19,7 +19,7 @@
 
 Overall foundation progress, not product completion:
 
-    ███████░░░ 70%
+    ███████░░░ 73%
 
 Milestone progress:
 
@@ -32,16 +32,19 @@ Milestone progress:
     SearchTimer Backend Foundation       ██████████ 100%  completed
     SearchTimer User Workflow            ██████████ 100%  completed
     SearchTimer Runtime Mutation Policy  ██████████ 100%  completed
-    SearchTimer Preview EPG Performance  ███░░░░░░░  30%  in progress
+    Recording Operations Audit and Safety Policy  ████████░░  75%  in progress
+    Real VDR Acceptance Foundation       ██████████ 100%  completed
+    Runtime Lifecycle Hardening          ██████████ 100%  completed
     Lazy Recording Loading               █░░░░░░░░░  10%  in progress
     Live Plugin Parity Foundation        ██████████ 100%  completed
     Automation Foundation                ██████████ 100%  completed
+    Recording Operations Safety          ░░░░░░░░░░   0%  planned
     Federation Foundation                ░░░░░░░░░░   0%  planned
     Frontend Foundation                  ░░░░░░░░░░   0%  planned
 
 Current milestone:
 
-    Phase 54.3 - SearchTimer warm EPG cache implementation
+    Phase 55.6 - Recording operations audit and safety policy
 
 Progress source: [Project Progress](planning/project-progress.md)
 <!-- PROJECT_PROGRESS_END -->
@@ -82,6 +85,8 @@ SearchTimer Domain Model        expanded
 Native Fuzzy Capability         validated end-to-end
 SearchTimer User Workflow       completed foundation + verified execution
 SearchTimer Preview EPG Cache   ADR-0034 documented
+Real VDR Acceptance             20/20 safe/dry-run probes verified
+Daemon Lifecycle Hardening       duplicate bind + SIGTERM verified
 ```
 
 ### Federation and Security
@@ -135,25 +140,25 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 54.3e - SearchTimer preview EPG input status contract
+Phase 55.5m - Documentation consolidation and roadmap alignment
 ```
 
 Current Documentation Consolidation:
 
 ```text
-Phase 54.3e - SearchTimer preview EPG input status contract
+Phase 55.5m - Documentation consolidation and roadmap alignment
 ```
 
 Next Major Implementation Milestone:
 
 ```text
-Phase 54.3 - SearchTimer warm EPG cache implementation
+Phase 55.6 - Recording operations audit and safety policy
 ```
 
 Required Planned Follow-Up:
 
 ```text
-Lazy Recording Loading and Backend-Scoped Recording Refresh
+Recording operations audit and safety policy
 ```
 
 Latest Completed Milestones:
@@ -165,6 +170,9 @@ Recording Character Search Foundation
 EPGSearch Native Fuzzy Capability Validation
 SearchTimer Runtime Mutation Policy
 SearchTimer Warm EPG Cache Architecture
+Real VDR Acceptance Foundation
+Daemon Runtime Lifecycle Hardening
+Documentation Handoff Verification
 ```
 
 Current Milestone In Progress:
@@ -200,6 +208,8 @@ Phase 50.x  - SearchTimer user workflow foundation
 Phase 53.x  - SearchTimer title-only workflow preservation
 Phase 54.1  - SearchTimer preview comparison-option fix
 Phase 54.2  - SearchTimer warm EPG cache architecture
+Phase 55.5  - Real VDR acceptance and daemon lifecycle hardening
+Phase 55.5m - Documentation consolidation and roadmap alignment
 ```
 
 ---
