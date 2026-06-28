@@ -42,7 +42,7 @@ Status after Phase 56.10:
 | `phase-48.md` | archive target only | retained |
 | `phase-49.md` | archive target only | retained |
 | `phase-50.md` | archive target only | retained |
-| `phase-51.md` | summary archive | retained |
+| `phase-51.md` | compact phase archive | compacted from top-level detail history |
 | `phase-52.md` | compact phase archive | compacted from top-level detail history |
 | `phase-53.md` | compact phase archive | compacted from top-level detail history |
 | `phase-54.md` | compact phase archive | compacted from top-level detail history |
@@ -51,7 +51,8 @@ Status after Phase 56.10:
 Migration rule:
 - Keep `completed-phases.md` unchanged until a phase range has a verified archive file and the latest-completed marker is independent from historical headings.
 - Phase 52 through Phase 55 were compacted from the top-level detail history in Phase 56.13.
-- Phase 46 through Phase 51 need archive enrichment before compaction.
+- Phase 46 through Phase 50 need archive enrichment before compaction.
+- Phase 51 was enriched and compacted from the top-level detail history in Phase 56.15.
 
 ---
 
