@@ -13,7 +13,6 @@ TARGETS = [
 START = '<!-- PROJECT_PROGRESS_START -->'
 END = '<!-- PROJECT_PROGRESS_END -->'
 
-
 def parse_source():
     text = SOURCE.read_text(encoding='utf-8')
     overall = None
@@ -60,6 +59,10 @@ def parse_source():
 
     return overall, items, current
 
+def bar(percent):
+    filled = round(percent / 10)
+    empty = 10 - filled
+    return '█' * filled + '░' * empty
 
 def progress_link_for(path):
     if path.name == 'README.md':
@@ -71,64 +74,29 @@ def progress_link_for(path):
     raise SystemExit('No progress link rule for ' + str(path))
 
 
-def render_item(name, percent, state):
-    if percent == 100:
-        return '- ' + name + ' — complete'
-    if percent == 0:
-        return '- ' + name + ' — planned'
-    return '- ' + name + ' — ' + str(percent) + '% ' + state
-
-
-def render_group(title, items):
-    lines = []
-    if not items:
-        return lines
-    lines.append('### ' + title)
-    lines.append('')
-    for name, percent, state in items:
-        lines.append(render_item(name, percent, state))
-    lines.append('')
-    return lines
-
-
 def render_block(overall, items, current, source_link):
-    completed = []
-    in_progress = []
-    planned = []
-    other = []
-
-    for item in items:
-        name, percent, state = item
-        normalized = state.strip().lower()
-        if percent == 100 or normalized == 'completed':
-            completed.append(item)
-        elif percent == 0 or normalized == 'planned':
-            planned.append(item)
-        elif normalized == 'in progress':
-            in_progress.append(item)
-        else:
-            other.append(item)
-
     lines = []
     lines.append(START)
     lines.append('## Project Progress')
     lines.append('')
-    lines.append('Overall foundation progress, not product completion: **' + str(overall) + '%**')
+    lines.append('Overall foundation progress, not product completion:')
     lines.append('')
-    lines.extend(render_group('Completed foundations', completed))
-    lines.extend(render_group('In progress', in_progress))
-    lines.extend(render_group('Planned foundations', planned))
-    lines.extend(render_group('Other tracked work', other))
+    lines.append('    ' + bar(overall) + ' ' + str(overall) + '%')
+    lines.append('')
+    lines.append('Milestone progress:')
+    lines.append('')
+    width = max(len(name) for name, _, _ in items)
+    for name, percent, state in items:
+        label = name.ljust(width)
+        lines.append('    ' + label + '  ' + bar(percent) + ' ' + str(percent).rjust(3) + '%  ' + state)
+    lines.append('')
     lines.append('Current milestone:')
     lines.append('')
-    lines.append('```text')
-    lines.append(current)
-    lines.append('```')
+    lines.append('    ' + current)
     lines.append('')
     lines.append('Progress source: [Project Progress](' + source_link + ')')
     lines.append(END)
     return '\n'.join(lines)
-
 
 def ensure_block(path, block):
     text = path.read_text(encoding='utf-8')
@@ -151,7 +119,6 @@ def ensure_block(path, block):
     text = text.replace(marker, block + '\n\n---\n\n' + marker, 1)
     path.write_text(text, encoding='utf-8')
 
-
 def main():
     overall, items, current = parse_source()
     for target in TARGETS:
@@ -159,7 +126,6 @@ def main():
         ensure_block(target, block)
     print('project progress blocks updated')
     return 0
-
 
 if __name__ == '__main__':
     raise SystemExit(main())
