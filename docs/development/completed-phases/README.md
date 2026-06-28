@@ -33,15 +33,15 @@ The top-level `completed-phases.md` remains the compact entry point. Detailed hi
 
 ## Archive Completeness Audit
 
-Status after Phase 56.10:
+Status after Phase 56.17:
 
 | File | Current archive state | Top-level source state |
 | --- | --- | --- |
-| `phase-46.md` | archive target only | retained |
-| `phase-47.md` | archive target only | retained |
-| `phase-48.md` | archive target only | retained |
-| `phase-49.md` | archive target only | retained |
-| `phase-50.md` | archive target only | retained |
+| `phase-46.md` | compact phase archive | retained |
+| `phase-47.md` | compact phase archive | retained |
+| `phase-48.md` | compact phase archive | retained |
+| `phase-49.md` | compact phase archive | retained |
+| `phase-50.md` | compact phase archive | retained |
 | `phase-51.md` | compact phase archive | compacted from top-level detail history |
 | `phase-52.md` | compact phase archive | compacted from top-level detail history |
 | `phase-53.md` | compact phase archive | compacted from top-level detail history |
@@ -49,10 +49,9 @@ Status after Phase 56.10:
 | `phase-55.md` | copied phase archive | compacted from top-level detail history |
 
 Migration rule:
-- Keep `completed-phases.md` unchanged until a phase range has a verified archive file and the latest-completed marker is independent from historical headings.
-- Phase 52 through Phase 55 were compacted from the top-level detail history in Phase 56.13.
-- Phase 46 through Phase 50 need archive enrichment before compaction.
-- Phase 51 was enriched and compacted from the top-level detail history in Phase 56.15.
+- Keep the latest-completed marker independent from historical headings.
+- Phase 51 through Phase 55 were compacted from the top-level detail history.
+- Phase 46 through Phase 50 now have compact archive files and are candidates for the final top-level detail compaction pass.
 
 ---
 
