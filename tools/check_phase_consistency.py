@@ -114,6 +114,17 @@ def first_phase_after_any(text, markers):
     return None
 
 
+def completed_phases_marker(text):
+    explicit = first_phase_after_any(text, [
+        "Latest completed implementation phase",
+        "Latest Completed Implementation Phase",
+    ])
+    if explicit:
+        return explicit
+
+    return latest_completed_heading(text)
+
+
 def completed_phase(name, text):
     if name == "README":
         return first_phase_after_any(text, [
@@ -140,7 +151,7 @@ def completed_phase(name, text):
             "Current completed phase",
         ])
     if name == "completed-phases":
-        return latest_completed_heading(text)
+        return completed_phases_marker(text)
     return latest(text)
 
 
