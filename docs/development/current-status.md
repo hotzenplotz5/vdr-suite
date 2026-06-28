@@ -156,6 +156,168 @@ Direct GitHub documentation synchronization should still be followed locally by 
 - Phase 55.4d removes duplicate SearchTimer discovery JSON string decoding and routes discovery string escape decoding through the shared `JsonStringDecoder`.
 - ADR-0035 records that recordings are a heavy on-demand domain and must not be loaded synchronously for all backends during daemon startup.
 - Startup snapshot runtime is implemented for the initial poll: status, timers, SearchTimer metadata and channels may load, while recordings and full EPG events remain excluded from startup.
+- Runtime lifecycle hardening 55.5l is verified against a real local daemon: duplicate daemon start on an occupied HTTP port exits cleanly with status 1 instead of aborting, SIGTERM stops the listener and releases port 18080 without `kill -9`, and the real VDR acceptance manifest passes 20/20 probes afterward.
+
+---
+
+## New Chat Handoff and Required Verification Checklist
+
+New chats must start from this checklist before declaring a VDR-Suite change complete.
+
+### Repository state
+
+Collect the current repository state first:
+
+```bash
+cd /home/yavdr/vdr-suite
+git status --short
+git log --oneline -5
+```
+
+When work was done directly through GitHub, run `git pull` locally before compiling or runtime testing.
+
+### Standard CI expectations
+
+Every implementation or guardrail change must be verified by GitHub Actions unless it is explicitly local-only experimental work.
+
+Required GitHub jobs:
+
+```text
+docs-check: success
+fast-regression-test: success
+Build daemon: success
+```
+
+Do not mark a phase as complete from local tests alone when the change was pushed to GitHub.
+
+### Documentation and guardrail checks
+
+Documentation-sensitive changes must keep the documentation checks green and must not accidentally move global phase markers unless all tracked files are updated together.
+
+Minimum checks for documentation and guardrail work:
+
+```bash
+make test-real-vdr-acceptance-manifest
+make test-daemon-runtime-shutdown-resets
+make test-http-listener-bind-failure-handling
+```
+
+If a new documentation file is added, it must be reachable from the relevant documentation index or an existing navigation path before `docs-check` is considered trustworthy.
+
+### Daemon lifecycle checks
+
+Runtime lifecycle changes must be tested against the built daemon, not only with unit checks.
+
+Start the daemon:
+
+```bash
+rm -f /tmp/vdr-suite-daemon.log /tmp/vdr-suite-daemon.pid
+
+/tmp/vdr-suite-daemon > /tmp/vdr-suite-daemon.log 2>&1 &
+echo $! > /tmp/vdr-suite-daemon.pid
+
+sleep 3
+
+ps -p "$(cat /tmp/vdr-suite-daemon.pid)" -o pid,cmd
+ss -ltnp | grep ':18080'
+tail -40 /tmp/vdr-suite-daemon.log
+```
+
+Expected startup evidence:
+
+```text
+simple HTTP listener running on 127.0.0.1:18080
+```
+
+Duplicate-start bind failure must exit cleanly and must not create a core dump:
+
+```bash
+/tmp/vdr-suite-daemon > /tmp/vdr-suite-daemon-bind-test.log 2>&1
+echo "exit=$?"
+tail -30 /tmp/vdr-suite-daemon-bind-test.log
+```
+
+Expected duplicate-start evidence:
+
+```text
+failed to bind HTTP listener to 127.0.0.1:18080
+exit=1
+```
+
+Forbidden duplicate-start evidence:
+
+```text
+Abgebrochen
+Speicherabzug
+terminate called after throwing
+```
+
+SIGTERM must stop the daemon without `kill -9`:
+
+```bash
+pid="$(cat /tmp/vdr-suite-daemon.pid)"
+kill -TERM "$pid"
+sleep 3
+
+ps -ef | grep '[v]dr-suite-daemon' || true
+ss -ltnp | grep ':18080' || true
+tail -50 /tmp/vdr-suite-daemon.log
+```
+
+Expected shutdown evidence:
+
+```text
+HTTP server runtime stopped
+API router runtime stopped
+REST controller runtime stopped
+dashboard runtime stopped
+database closed
+vdr-suite-daemon runtime shutting down
+```
+
+### Real VDR acceptance checks
+
+Before running the real VDR acceptance runner, ensure the process owning port 18080 is the daemon instance you intend to test.
+
+```bash
+cat /tmp/vdr-suite-daemon.pid 2>/dev/null || true
+ps -ef | grep '[v]dr-suite-daemon' || true
+ss -ltnp | grep ':18080' || true
+```
+
+A stale daemon can make acceptance appear green against the wrong process. If the PID file and port owner differ, stop the stale daemon first.
+
+Run the real VDR acceptance manifest:
+
+```bash
+python3 tools/real-vdr-acceptance/runner.py \
+  --base-url http://127.0.0.1:18080 \
+  --max-risk dry-run \
+  --report-json /tmp/vdr-suite-acceptance-current.json
+```
+
+Expected acceptance evidence:
+
+```text
+Real VDR acceptance manifest validation passed.
+Real VDR acceptance passed.
+```
+
+The current expected real VDR acceptance scope is 20/20 probes, including safe reads, SearchTimer discovery/list/preview, workflow validation and workflow planning.
+
+### Completion rule
+
+A runtime-related phase is only complete when all applicable evidence exists:
+
+```text
+local build: success
+required local guardrails: success
+runtime lifecycle behaviour: verified when touched
+real VDR acceptance: success when runtime/API behaviour is touched
+GitHub docs-check: success
+GitHub fast-regression-test: success
+GitHub daemon build: success
+```
 
 ---
 
@@ -218,14 +380,3 @@ Performance goal:
 Backend workload should remain comparable to established VDR frontends such as live whenever equivalent information is requested.
 
 Recording-specific startup rule:
-- daemon startup must not synchronously load all recordings for all backends.
-- recording data should be loaded through lazy, backend-scoped refresh paths.
-- UI/API consumers must be able to see whether recording data is not loaded yet, loading, ready or stale.
-
----
-
-## Back
-
-- [Back to Development Index](index.md)
-- [Back to Documentation Index](../index.md)
-- [Back to Project Overview](../project-overview.md)
