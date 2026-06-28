@@ -10,6 +10,8 @@ REQUIRED = [
     "Prefer direct GitHub repository updates for existing files",
     "Use local edits first only when the change requires:",
     "a workaround because the GitHub connector blocks a file operation",
+    "Never replace a complete existing file through GitHub update_file from a truncated or partial fetch.",
+    "For index files and status files, a small link addition must remain a small diff.",
 ]
 
 
