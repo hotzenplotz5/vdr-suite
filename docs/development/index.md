@@ -107,6 +107,7 @@ Current architecture validation:
 - [Phase 55.5n - Roadmap Historical Coverage Alignment](phase-55.5n-roadmap-historical-coverage.md)
 - [Phase 55.5o - Phase Map and Roadmap Simplification](phase-55.5o-phase-map-and-roadmap-simplification.md)
 - [Phase 55.6 - Recording Operations Audit and Safety Policy](phase-55.6-recording-operations-audit-and-safety-policy.md)
+- [Phase 56.0 - Completed Phases Archive Split Plan](phase-56.0-completed-phases-archive-split-plan.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
