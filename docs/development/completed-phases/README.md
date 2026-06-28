@@ -18,6 +18,7 @@ The top-level `completed-phases.md` remains the compact entry point. Detailed hi
 
 ## Archived Phase Ranges
 
+- [Phase 54](phase-54.md)
 - [Phase 55](phase-55.md)
 
 ---
