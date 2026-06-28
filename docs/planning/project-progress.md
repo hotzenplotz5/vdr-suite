@@ -1,4 +1,4 @@
-# VDR-Suite Project Progress
+# VDR-Suite Project State Snapshot
 
 ## Navigation
 
@@ -6,7 +6,6 @@
 - [Documentation Index](../index.md)
 - [Planning Index](index.md)
 - [Roadmap](roadmap.md)
-- [Project Progress](project-progress.md)
 - [Lazy Recording Loading](lazy-recording-loading.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
 - [Current Project Status](../development/current-status.md)
@@ -15,66 +14,79 @@
 
 ## Purpose
 
-This file is the single source for high-level project progress percentages.
+This file is the source for the high-level project state block copied into README, Current Status and Project Status Dashboard.
 
-The values are intentionally milestone-oriented. They are not code coverage values, not production readiness guarantees and not product-completion percentages.
+It is intentionally **not** a percentage-based product progress tracker.
 
-The top-level value describes foundation progress across the planned architecture, including completed backend foundations and still-open product areas such as frontend, federation, permissions and client work.
+VDR-Suite has many completed foundations, but it is not production-complete. Some domains are deliberately read-only, dry-run-only or guarded until later safety phases.
 
-The generated progress blocks are written by:
+The generated state blocks are written by:
 
     tools/update_project_progress.py
 
 ---
 
-## Overall Foundation Progress
+<!-- PROJECT_STATE_SNAPSHOT_START -->
+## Project State Snapshot
 
-The overall value is foundation progress, not final product completion.
+This is a verified implementation-state snapshot, not a product-completion percentage.
+
+### Verified foundations
+
+- Core runtime and daemon foundation
+- VDR backend adapter and RESTfulAPI integration foundation
+- Backend registry and multi-backend runtime foundation
+- Snapshot cache, snapshot access and change-feed foundation
+- REST routing and JSON response boundaries
+- Recording query foundation
+- Recording action validation and guarded execution foundation
+- Selective EPG query and EPG search foundation
+- Content classification and person metadata foundations
+- Recording person and character search foundations
+- SearchTimer backend, validation, planning and workflow foundations
+- SearchTimer safety gates, readback verification and production mutation policy foundations
+- Live parity discovery foundation
+- Real VDR acceptance manifest and runner foundation
+- Daemon lifecycle hardening for duplicate bind failures and SIGTERM shutdown
+
+### Verified real-runtime evidence
+
+- Real VDR acceptance currently passes 20/20 safe and dry-run probes.
+- Duplicate daemon start on an occupied HTTP port exits cleanly with status 1 instead of aborting.
+- SIGTERM stops the daemon cleanly without `kill -9` and releases port 18080.
+- GitHub Actions verification is required before runtime-related phases are considered complete.
+
+### Guarded or deliberately incomplete areas
+
+- SearchTimer production mutation remains gated and closed by default.
+- Recording operations need a dedicated safety audit before destructive real-backend probes are expanded.
+- Lazy recording loading is still a required follow-up for large real recording catalogs and multi-backend scaling.
+- Suite-owned metadata database and external scraper/provider strategy are planned but not yet implemented as the final metadata product.
+- Authentication, authorization, per-backend permissions and read-only secondary-site policy are still planned.
+- Web, Windows, Android, iOS and TV frontends are planned product layers, not completed foundations.
+
+### Current active focus
 
 ```text
-overall|73
+Phase 55.6 - Recording operations audit and safety policy
 ```
 
----
+### Later strategic milestones
 
-## Progress Items
+- Library boundary and packaging strategy
+- Multi-site backend federation and permissions
+- Frontend foundation
+- Suite metadata database and external provider integration
+- Safe production-grade recording operations
 
-Core Runtime Foundation|100|completed
-Multi-Backend Foundation|100|completed
-Query Foundation|100|completed
-Action Foundation|100|completed
-Metadata Foundation|100|completed
-Documentation Foundation|100|completed
-SearchTimer Backend Foundation|100|completed
-SearchTimer User Workflow|100|completed
-SearchTimer Runtime Mutation Policy|100|completed
-SearchTimer Preview EPG Performance|75|in progress
-Real VDR Acceptance Foundation|100|completed
-Runtime Lifecycle Hardening|100|completed
-Lazy Recording Loading|10|in progress
-Live Plugin Parity Foundation|100|completed
-Automation Foundation|100|completed
-Recording Operations Safety|0|planned
-Federation Foundation|0|planned
-Frontend Foundation|0|planned
-
----
-
-## Current Milestone
-
-Phase 55.6 - Recording operations audit and safety policy
-
----
-
-## Required Follow-Up Milestone
-
-Recording operations audit and safety policy
+Progress source: {{PROJECT_PROGRESS_SOURCE_LINK}}
+<!-- PROJECT_STATE_SNAPSHOT_END -->
 
 ---
 
 ## Maintenance Rule
 
-Update this file when a major milestone starts, progresses or completes.
+Update this file when the verified project state changes.
 
 After editing this file, run:
 

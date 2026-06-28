@@ -22,38 +22,59 @@ VDR-Suite complements VDR. It does not replace it.
 ---
 
 <!-- PROJECT_PROGRESS_START -->
-## Project Progress
+## Project State Snapshot
 
-Overall foundation progress, not product completion:
+This is a verified implementation-state snapshot, not a product-completion percentage.
 
-    ███████░░░ 73%
+### Verified foundations
 
-Milestone progress:
+- Core runtime and daemon foundation
+- VDR backend adapter and RESTfulAPI integration foundation
+- Backend registry and multi-backend runtime foundation
+- Snapshot cache, snapshot access and change-feed foundation
+- REST routing and JSON response boundaries
+- Recording query foundation
+- Recording action validation and guarded execution foundation
+- Selective EPG query and EPG search foundation
+- Content classification and person metadata foundations
+- Recording person and character search foundations
+- SearchTimer backend, validation, planning and workflow foundations
+- SearchTimer safety gates, readback verification and production mutation policy foundations
+- Live parity discovery foundation
+- Real VDR acceptance manifest and runner foundation
+- Daemon lifecycle hardening for duplicate bind failures and SIGTERM shutdown
 
-    Core Runtime Foundation              ██████████ 100%  completed
-    Multi-Backend Foundation             ██████████ 100%  completed
-    Query Foundation                     ██████████ 100%  completed
-    Action Foundation                    ██████████ 100%  completed
-    Metadata Foundation                  ██████████ 100%  completed
-    Documentation Foundation             ██████████ 100%  completed
-    SearchTimer Backend Foundation       ██████████ 100%  completed
-    SearchTimer User Workflow            ██████████ 100%  completed
-    SearchTimer Runtime Mutation Policy  ██████████ 100%  completed
-    SearchTimer Preview EPG Performance  ████████░░  75%  in progress
-    Real VDR Acceptance Foundation       ██████████ 100%  completed
-    Runtime Lifecycle Hardening          ██████████ 100%  completed
-    Lazy Recording Loading               █░░░░░░░░░  10%  in progress
-    Live Plugin Parity Foundation        ██████████ 100%  completed
-    Automation Foundation                ██████████ 100%  completed
-    Recording Operations Safety          ░░░░░░░░░░   0%  planned
-    Federation Foundation                ░░░░░░░░░░   0%  planned
-    Frontend Foundation                  ░░░░░░░░░░   0%  planned
+### Verified real-runtime evidence
 
-Current milestone:
+- Real VDR acceptance currently passes 20/20 safe and dry-run probes.
+- Duplicate daemon start on an occupied HTTP port exits cleanly with status 1 instead of aborting.
+- SIGTERM stops the daemon cleanly without `kill -9` and releases port 18080.
+- GitHub Actions verification is required before runtime-related phases are considered complete.
 
-    Phase 55.6 - Recording operations audit and safety policy
+### Guarded or deliberately incomplete areas
 
-Progress source: [Project Progress](docs/planning/project-progress.md)
+- SearchTimer production mutation remains gated and closed by default.
+- Recording operations need a dedicated safety audit before destructive real-backend probes are expanded.
+- Lazy recording loading is still a required follow-up for large real recording catalogs and multi-backend scaling.
+- Suite-owned metadata database and external scraper/provider strategy are planned but not yet implemented as the final metadata product.
+- Authentication, authorization, per-backend permissions and read-only secondary-site policy are still planned.
+- Web, Windows, Android, iOS and TV frontends are planned product layers, not completed foundations.
+
+### Current active focus
+
+```text
+Phase 55.6 - Recording operations audit and safety policy
+```
+
+### Later strategic milestones
+
+- Library boundary and packaging strategy
+- Multi-site backend federation and permissions
+- Frontend foundation
+- Suite metadata database and external provider integration
+- Safe production-grade recording operations
+
+Progress source: docs/planning/project-progress.md
 <!-- PROJECT_PROGRESS_END -->
 
 ---
@@ -115,9 +136,9 @@ Runtime:
 - Snapshot change feed
 - Live transport foundation
 - Runtime diagnostics
+- Real VDR acceptance manifest and runner
 - HTTP listener bind-failure hardening
 - SIGTERM daemon shutdown hardening
-- Real VDR acceptance manifest and runner
 
 Multi-backend:
 

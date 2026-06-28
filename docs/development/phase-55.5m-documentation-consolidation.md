@@ -16,7 +16,7 @@
 
 This document records the documentation consolidation step after the real VDR acceptance and daemon lifecycle hardening work.
 
-The implementation and runtime work had advanced beyond the high-level project documentation. README, roadmap, project progress, current status, project dashboard and completed phases still described Phase 54.3e / Phase 54.3 as the current position even though the repository had already verified the Phase 55.5 real VDR acceptance and runtime lifecycle hardening work.
+The implementation and runtime work had advanced beyond the high-level project documentation. Several status files still described Phase 54.3e / Phase 54.3 as the current position even though the repository had already verified the Phase 55.5 real VDR acceptance and runtime lifecycle hardening work.
 
 ---
 
@@ -30,7 +30,7 @@ The scope is:
 
 - align latest completed implementation markers across tracked documentation files
 - align next implementation focus markers across tracked documentation files
-- update the project progress source and regenerated progress blocks
+- replace misleading percentage-style progress with a verified project state snapshot
 - add recent Phase 55.5 real VDR acceptance and runtime lifecycle work to completed-phase history
 - keep the new-chat handoff and required verification checklist visible
 - preserve the rule that runtime/API phases need local evidence plus GitHub Actions evidence before completion
