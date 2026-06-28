@@ -8,7 +8,6 @@
 #include <iostream>
 #include <netdb.h>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <cstdlib>
 #include <sys/socket.h>
@@ -188,6 +187,10 @@ int SimpleHttpListener::runUntilStopped()
 {
     const int listenSocket = createListeningSocket();
 
+    if (listenSocket < 0) {
+        return 1;
+    }
+
     std::cout
         << "simple HTTP listener running on "
         << host_
@@ -240,8 +243,11 @@ int SimpleHttpListener::createListeningSocket() const
         &result);
 
     if (lookup != 0) {
-        throw std::runtime_error(
-            std::string("getaddrinfo failed: ") + gai_strerror(lookup));
+        std::cerr
+            << "getaddrinfo failed: "
+            << gai_strerror(lookup)
+            << std::endl;
+        return -1;
     }
 
     int listenSocket = -1;
@@ -275,14 +281,22 @@ int SimpleHttpListener::createListeningSocket() const
     freeaddrinfo(result);
 
     if (listenSocket < 0) {
-        throw std::runtime_error(
-            "failed to bind HTTP listener to " + host_ + ":" + port);
+        std::cerr
+            << "failed to bind HTTP listener to "
+            << host_
+            << ":"
+            << port
+            << std::endl;
+        return -1;
     }
 
     if (listen(listenSocket, 16) != 0) {
+        std::cerr
+            << "listen failed: "
+            << std::strerror(errno)
+            << std::endl;
         close(listenSocket);
-        throw std::runtime_error(
-            std::string("listen failed: ") + std::strerror(errno));
+        return -1;
     }
 
     return listenSocket;
