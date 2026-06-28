@@ -231,7 +231,7 @@ int SimpleHttpListener::runUntilStopped()
 
         if (ready < 0) {
             if (errno == EINTR) {
-                continue;
+                break;
             }
 
             std::cerr
@@ -253,7 +253,7 @@ int SimpleHttpListener::runUntilStopped()
 
         if (clientSocket < 0) {
             if (errno == EINTR) {
-                continue;
+                break;
             }
 
             std::cerr
