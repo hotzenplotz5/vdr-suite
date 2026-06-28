@@ -10,59 +10,12 @@ TARGETS = [
     ROOT / 'docs/project-status-dashboard.md',
 ]
 
-START = '<!-- PROJECT_PROGRESS_START -->'
-END = '<!-- PROJECT_PROGRESS_END -->'
+TARGET_START = '<!-- PROJECT_PROGRESS_START -->'
+TARGET_END = '<!-- PROJECT_PROGRESS_END -->'
+SOURCE_START = '<!-- PROJECT_STATE_SNAPSHOT_START -->'
+SOURCE_END = '<!-- PROJECT_STATE_SNAPSHOT_END -->'
+SOURCE_LINK_TOKEN = '{{PROJECT_PROGRESS_SOURCE_LINK}}'
 
-def parse_source():
-    text = SOURCE.read_text(encoding='utf-8')
-    overall = None
-    items = []
-    current = None
-    section = None
-
-    for raw in text.splitlines():
-        line = raw.strip()
-        if line in ('## Overall Progress', '## Overall Foundation Progress'):
-            section = 'overall'
-            continue
-        if line == '## Progress Items':
-            section = 'items'
-            continue
-        if line == '## Current Milestone':
-            section = 'current'
-            continue
-        if line.startswith('```'):
-            continue
-        if line.startswith('## ') or line == '---':
-            if section != 'current':
-                section = None
-            continue
-        if not line or line.startswith('- '):
-            continue
-
-        if section == 'overall' and line.startswith('overall|'):
-            overall = int(line.split('|', 1)[1])
-        elif section == 'items' and '|' in line:
-            parts = line.split('|')
-            if len(parts) != 3:
-                raise SystemExit('Invalid progress item: ' + line)
-            items.append((parts[0], int(parts[1]), parts[2]))
-        elif section == 'current' and current is None:
-            current = line
-
-    if overall is None:
-        raise SystemExit('Missing overall progress')
-    if current is None:
-        raise SystemExit('Missing current milestone')
-    if not items:
-        raise SystemExit('Missing progress items')
-
-    return overall, items, current
-
-def bar(percent):
-    filled = round(percent / 10)
-    empty = 10 - filled
-    return '█' * filled + '░' * empty
 
 def progress_link_for(path):
     if path.name == 'README.md':
@@ -74,35 +27,28 @@ def progress_link_for(path):
     raise SystemExit('No progress link rule for ' + str(path))
 
 
-def render_block(overall, items, current, source_link):
-    lines = []
-    lines.append(START)
-    lines.append('## Project Progress')
-    lines.append('')
-    lines.append('Overall foundation progress, not product completion:')
-    lines.append('')
-    lines.append('    ' + bar(overall) + ' ' + str(overall) + '%')
-    lines.append('')
-    lines.append('Milestone progress:')
-    lines.append('')
-    width = max(len(name) for name, _, _ in items)
-    for name, percent, state in items:
-        label = name.ljust(width)
-        lines.append('    ' + label + '  ' + bar(percent) + ' ' + str(percent).rjust(3) + '%  ' + state)
-    lines.append('')
-    lines.append('Current milestone:')
-    lines.append('')
-    lines.append('    ' + current)
-    lines.append('')
-    lines.append('Progress source: [Project Progress](' + source_link + ')')
-    lines.append(END)
-    return '\n'.join(lines)
+def load_snapshot_template():
+    text = SOURCE.read_text(encoding='utf-8')
+    if SOURCE_START not in text or SOURCE_END not in text:
+        raise SystemExit('Project state snapshot markers missing in ' + str(SOURCE))
+
+    snapshot = text.split(SOURCE_START, 1)[1].split(SOURCE_END, 1)[0].strip()
+    if not snapshot:
+        raise SystemExit('Project state snapshot is empty in ' + str(SOURCE))
+
+    return snapshot
+
+
+def render_block(snapshot, source_link):
+    block = snapshot.replace(SOURCE_LINK_TOKEN, source_link)
+    return TARGET_START + '\n' + block + '\n' + TARGET_END
+
 
 def ensure_block(path, block):
     text = path.read_text(encoding='utf-8')
-    if START in text and END in text:
-        before = text.split(START, 1)[0]
-        after = text.split(END, 1)[1]
+    if TARGET_START in text and TARGET_END in text:
+        before = text.split(TARGET_START, 1)[0]
+        after = text.split(TARGET_END, 1)[1]
         path.write_text(before + block + after, encoding='utf-8')
         return
 
@@ -119,13 +65,15 @@ def ensure_block(path, block):
     text = text.replace(marker, block + '\n\n---\n\n' + marker, 1)
     path.write_text(text, encoding='utf-8')
 
+
 def main():
-    overall, items, current = parse_source()
+    snapshot = load_snapshot_template()
     for target in TARGETS:
-        block = render_block(overall, items, current, progress_link_for(target))
+        block = render_block(snapshot, progress_link_for(target))
         ensure_block(target, block)
-    print('project progress blocks updated')
+    print('project state snapshot blocks updated')
     return 0
+
 
 if __name__ == '__main__':
     raise SystemExit(main())
