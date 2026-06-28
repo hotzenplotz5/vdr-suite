@@ -1,4 +1,4 @@
-.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-real-vdr-acceptance-manifest test-phase-map-coverage
+.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff
 
 
 test-ci-fast: \
@@ -13,7 +13,8 @@ test-ci-fast: \
 	test-daemon-runtime-shutdown-resets \
 	test-http-listener-bind-failure-handling \
 	test-real-vdr-acceptance-manifest \
-	test-phase-map-coverage
+	test-phase-map-coverage \
+	test-github-update-safety-handoff
 
 
 test-vdr: \
@@ -87,6 +88,7 @@ test-vdr: \
 	test-daemon-runtime-shutdown-resets \
 	test-http-listener-bind-failure-handling \
 	test-real-vdr-acceptance-manifest \
+	test-github-update-safety-handoff \
 	test-search-timer-automation-evaluation-plan \
 	test-search-timer-automation-match-candidate \
 	test-search-timer-automation-duplicate-detection \
@@ -167,9 +169,14 @@ test-phase-map-coverage:
 	python3 tools/check_phase_map_coverage.py
 
 
+test-github-update-safety-handoff:
+	python3 tools/check_github_update_safety_handoff.py
+
+
 test-backend-node:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/tests/test_backend_node.cpp \
 		-o /tmp/test_backend_node
 	/tmp/test_backend_node
@@ -197,6 +204,7 @@ test-backend-registry-service:
 test-backend-registry-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryJsonSerializer.cpp \
 		core/vdr/tests/test_backend_registry_json_serializer.cpp \
 		-o /tmp/test_backend_registry_json_serializer
