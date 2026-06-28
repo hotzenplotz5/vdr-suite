@@ -12,6 +12,7 @@ FILES = {
     "project-status-dashboard": ROOT / "docs" / "project-status-dashboard.md",
     "roadmap": ROOT / "docs" / "planning" / "roadmap.md",
     "completed-phases": ROOT / "docs" / "development" / "completed-phases.md",
+    "completed-phases-latest": ROOT / "docs" / "development" / "completed-phases-latest.md",
     "development-index": ROOT / "docs" / "development" / "index.md",
 }
 
@@ -114,11 +115,15 @@ def first_phase_after_any(text, markers):
     return None
 
 
-def completed_phases_marker(text):
-    explicit = first_phase_after_any(text, [
+def explicit_latest_completed_marker(text):
+    return first_phase_after_any(text, [
         "Latest completed implementation phase",
         "Latest Completed Implementation Phase",
     ])
+
+
+def completed_phases_marker(text):
+    explicit = explicit_latest_completed_marker(text)
     if explicit:
         return explicit
 
@@ -150,6 +155,8 @@ def completed_phase(name, text):
         return first_phase_after_any(text, [
             "Current completed phase",
         ])
+    if name == "completed-phases-latest":
+        return explicit_latest_completed_marker(text)
     if name == "completed-phases":
         return completed_phases_marker(text)
     return latest(text)
