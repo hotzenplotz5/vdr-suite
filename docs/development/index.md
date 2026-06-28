@@ -112,6 +112,7 @@ Current architecture validation:
 - [Phase 56.21 - Build Boundary Map](phase-56.21-build-boundary-map.md)
 - [Phase 56.22 - VDR Source Boundary Plan](phase-56.22-vdr-source-boundary-plan.md)
 - [Phase 56.23 - HTTP Boundary Plan](phase-56.23-http-boundary-plan.md)
+- [Phase 56.24 - HTTP Source Group Split](phase-56.24-http-source-group-split.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
