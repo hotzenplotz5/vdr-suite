@@ -175,6 +175,7 @@ Current architecture validation:
 
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
+- [Completed Phases Archive](completed-phases/README.md)
 - [Milestones](milestones.md)
 
 Implementation history and completed work.
