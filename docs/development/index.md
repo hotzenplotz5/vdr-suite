@@ -47,7 +47,7 @@ These documents describe the verified current state of the project.
 Current completed phase:
 
 ```text
-Phase 55.5m - Documentation consolidation and roadmap alignment
+Phase 55.5n - Roadmap historical coverage alignment
 ```
 
 Next implementation focus:
@@ -103,6 +103,7 @@ Current architecture validation:
 - [Phase 55.4c - SearchTimer Discovery Runtime Wiring](phase-55.4c-searchtimer-discovery-runtime-wiring.md)
 - [Phase 55.4d - SearchTimer Discovery Shared Decoder Cleanup](phase-55.4d-searchtimer-discovery-shared-decoder.md)
 - [Phase 55.5m - Documentation Consolidation and Roadmap Alignment](phase-55.5m-documentation-consolidation.md)
+- [Phase 55.5n - Roadmap Historical Coverage Alignment](phase-55.5n-roadmap-historical-coverage.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)

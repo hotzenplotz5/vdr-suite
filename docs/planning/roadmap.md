@@ -17,10 +17,10 @@
 
 ```text
 Completed implementation state
-Phase 55.5m - Documentation consolidation and roadmap alignment
+Phase 55.5n - Roadmap historical coverage alignment
 
 Documentation consolidation step
-Phase 55.5m - Documentation consolidation and roadmap alignment
+Phase 55.5n - Roadmap historical coverage alignment
 
 Next major implementation milestone
 Phase 55.6 - Recording operations audit and safety policy
@@ -53,6 +53,34 @@ Current build and project state belongs to [Current Project Status](../developme
 | In Progress | The milestone has begun and still needs further implementation before it can be considered a foundation. |
 | Planned | The milestone is a concrete intended implementation direction. |
 | Vision | The milestone is strategically important but intentionally deferred until earlier foundations exist. |
+
+---
+
+## Implementation Timeline Coverage
+
+This section is a milestone coverage map. It is not the detailed chronological phase log.
+
+Detailed phase-by-phase history remains in [Completed Phases](../development/completed-phases.md).
+
+| Phase range | Roadmap coverage |
+| --- | --- |
+| Phase 1.x-7.x | Core platform, database, repositories, services, REST boundaries and daemon foundation. |
+| Phase 8.x | VDR domain objects, adapter boundaries, mock/external backends and RESTfulAPI integration foundation. |
+| Phase 9.x-29.x | Multi-backend runtime, backend-aware snapshots, snapshot cache, change feed, live transport and backend-aware API foundation. |
+| Phase 30.x-36.x | Recording action validation and guarded execution foundation. |
+| Phase 37.x-44.x | Recording action runtime completion, real-backend validation, regression coverage, action safety review and transition toward selective runtime/query hardening. |
+| Phase 45.x | Selective EPG search foundation and EPG REST API surface. |
+| Phase 46.x | Content classification, metadata domain foundations, person metadata, recording-person search and recording-character search. |
+| Phase 47.x-49.x | SearchTimer backend foundation, RESTfulAPI compatibility, real VDR validation, Live/EPGSearch inventory, regex/fuzzy search semantics and native fuzzy capability validation. |
+| Phase 50.0-50.50 | SearchTimer user workflow, dry-run/prepare/execute planning, safety gates, real-execution policy, mandatory readback verification and controlled test execution. |
+| Phase 51.x | Live plugin parity discovery foundation. |
+| Phase 52.x | SearchTimer automation read-only planning, dry-run models, preview endpoint, scheduling plan and safety review. |
+| Phase 53.x | SearchTimer title-only REST/workflow preservation and completion audit. |
+| Phase 54.x | SearchTimer preview runtime, mutation policy wiring and warm EPG cache architecture. |
+| Phase 55.0-55.4e | Feature parity and adapter audit, RESTfulAPI SearchTimer contract fixes, JSON/form-body fixes, discovery provider/runtime wiring and daemon shutdown reset guardrail. |
+| Phase 55.5a-55.5m | SearchTimer preview engine contract, native preview capability, real VDR acceptance manifest, acceptance expansion, daemon lifecycle hardening and documentation consolidation. |
+| Phase 55.5n | Roadmap historical coverage alignment. |
+| Phase 55.6 | Recording operations audit and safety policy. |
 
 ---
 
@@ -283,7 +311,7 @@ Primary result:
 - Aligns high-level project documentation with the verified Phase 55.5 runtime and acceptance state.
 
 Key outcomes:
-- README, roadmap, project progress, current status, project dashboard, development index and completed-phase history now point at the same completed and next milestones.
+- README, roadmap, project state, current status, project dashboard, development index and completed-phase history now point at the same completed and next milestones.
 - New-chat handoff rules preserve required local, real VDR and GitHub Actions checks.
 
 Representative phase:
@@ -311,63 +339,52 @@ Planned outcomes:
 
 ## Planned Major Milestones
 
-### Phase 55 - Backend Management and Client Administration Foundation
+### Phase 56 - Library Boundary and Packaging Strategy
 
 Status: Planned.
 
 Goal:
-- Turn backend configuration, capability visibility and backend health into manageable client-facing concepts.
+- Separate reusable suite libraries from daemon/application surfaces before the project grows more clients and packaging targets.
 
 Expected outcomes:
-- Backend management API.
-- Backend capability visibility.
-- Backend health and diagnostics.
+- Clear `libs/` versus `apps/` ownership boundary.
+- Packaging-oriented build layout without changing the current GNU Make foundation blindly.
+- Stable internal API boundaries for daemon, tools and future frontend-facing services.
+- Documentation of what remains application glue and what becomes reusable library code.
+
+---
+
+### Phase 57 - Multi-Site Backend Administration and Permissions
+
+Status: Planned.
+
+Goal:
+- Support multi-site VDR operation with different permissions per backend, including a read-only secondary-site mode.
+
+Expected outcomes:
+- Backend administration API.
+- Backend capability visibility and health diagnostics.
 - Backend connection validation.
+- Backend permission model.
+- Read-only secondary backend mode.
+- Client-visible backend selection and policy state.
 - Preparation for frontend backend administration.
 
 ---
 
-### Phase 56 - Backend Capability Matrix and Policy Visibility
+### Phase 58 - Frontend and Live Parity for Everyday Usage
 
 Status: Planned.
 
 Goal:
-- Make backend differences explicit instead of hidden behind optimistic assumptions.
-
-Expected outcomes:
-- Backend-scoped capability matrix.
-- Read-only versus write capability visibility.
-- UI-ready permission and safety state.
-- Provider-aware capability categories for EPG, timers, SearchTimers, recordings and metadata.
-
----
-
-### Phase 57 - Multi-Backend Permissions and Administration
-
-Status: Planned.
-
-Goal:
-- Support multi-site VDR operation with different permissions per backend.
-
-Expected outcomes:
-- Backend administration API.
-- Backend permission model.
-- Read-only secondary backend mode.
-- Client-visible backend selection and policy state.
-
----
-
-### Phase 58 - Live Parity for Everyday Frontend Usage
-
-Status: Planned.
-
-Goal:
-- Close the remaining everyday usability gaps between VDR-Suite and the classic VDR Live plugin while keeping VDR-Suite API-first and multi-backend-ready.
+- Close the remaining everyday usability gaps between VDR-Suite and classic VDR frontends while keeping VDR-Suite API-first and multi-backend-ready.
 
 Expected outcomes:
 - Practical frontend-ready recording, timer, channel and EPG views.
 - Read-only helper surfaces where mutation is not yet safe.
 - Improved diagnostics for missing backend features.
+- Frontend-ready backend and permission state.
+- Web/desktop/mobile client foundations remain downstream of safe API and permission foundations.
 
 ---
 

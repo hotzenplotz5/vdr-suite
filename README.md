@@ -83,11 +83,11 @@ Progress source: docs/planning/project-progress.md
 
 Latest completed implementation phase:
 
-    Phase 55.5m - Documentation consolidation and roadmap alignment
+    Phase 55.5n - Roadmap historical coverage alignment
 
 Current documentation consolidation:
 
-    Phase 55.5m - Documentation consolidation and roadmap alignment
+    Phase 55.5n - Roadmap historical coverage alignment
 
 Next major implementation milestone:
 
