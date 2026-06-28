@@ -10,17 +10,23 @@
 
 ## Purpose
 
-This file is the additive archive target for Phase 46 records during the Phase 56 completed-phases archive split.
-
-Detailed historical entries remain in `../completed-phases.md` until the range is fully migrated and verified.
+This file archives Phase 46 completed records during the Phase 56 completed-phases archive split.
 
 ---
 
-## Migration State
+## Scope
 
-- Archive target created.
-- Source file unchanged.
-- Archive index link deferred to the final batch patch.
+Phase 46 covered metadata search foundations and documentation refresh work.
+
+---
+
+## Archived Ranges
+
+- Phase 46.13 through Phase 46.24 - Person metadata foundation.
+- Phase 46.25 through Phase 46.34 - Recording person search foundation.
+- Phase 46.35 through Phase 46.36 - Recording character search foundation.
+- Phase 46.37 - EPG person search result model.
+- Phase 46.38 through Phase 46.39 - Documentation consolidation.
 
 ---
 
