@@ -10,9 +10,9 @@
 
 ## Purpose
 
-This directory will contain historical completed-phase archive files split out of `docs/development/completed-phases.md`.
+This directory contains historical completed-phase archive files split out of `docs/development/completed-phases.md`.
 
-The top-level `completed-phases.md` remains the compact entry point. Detailed historical ranges will move here in small reviewable commits.
+The top-level `completed-phases.md` is the compact entry point. Detailed historical ranges for Phase 46 through Phase 55 live in this archive directory.
 
 ---
 
@@ -33,7 +33,7 @@ The top-level `completed-phases.md` remains the compact entry point. Detailed hi
 
 ## Archive Completeness Audit
 
-Status after Phase 56.17:
+Status after Phase 56.19:
 
 | File | Current archive state | Top-level source state |
 | --- | --- | --- |
@@ -48,25 +48,22 @@ Status after Phase 56.17:
 | `phase-54.md` | compact phase archive | compacted from top-level detail history |
 | `phase-55.md` | copied phase archive | compacted from top-level detail history |
 
-Migration rule:
-- Keep the latest-completed marker independent from historical headings.
-- Phase 51 through Phase 55 were compacted from the top-level detail history.
-- Phase 46 through Phase 50 were compacted from the top-level detail history in Phase 56.18.
+Migration result:
+- The latest-completed marker is independent from historical headings.
+- Phase 46 through Phase 55 were compacted from the top-level detail history.
+- The top-level completed phases file now remains a compact entry point with links to this archive directory.
 
 ---
 
-## Planned Archive Files
+## Completion Verification
 
-- `phase-46.md`
-- `phase-47.md`
-- `phase-48.md`
-- `phase-49.md`
-- `phase-50.md`
-- `phase-51.md`
-- `phase-52.md`
-- `phase-53.md`
-- `phase-54.md`
-- `phase-55.md`
+The archive split is considered complete when these checks pass after pulling the final commits locally:
+
+```bash
+make test-docs
+make test-phase
+make test-phase-map-coverage
+```
 
 ---
 
