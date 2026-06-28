@@ -380,3 +380,12 @@ Performance goal:
 Backend workload should remain comparable to established VDR frontends such as live whenever equivalent information is requested.
 
 Recording-specific startup rule:
+
+Recordings are intentionally excluded from initial startup snapshots. Recording lists are loaded on demand or by explicit backend-scoped refresh paths so daemon startup and multi-backend initialization do not synchronously transfer large recording payloads.
+
+---
+
+## Back
+
+- [Development Index](index.md)
+- [Documentation Index](../index.md)
