@@ -11,7 +11,8 @@ FILES = {
     "current-status": ROOT / "docs" / "development" / "current-status.md",
     "project-status-dashboard": ROOT / "docs" / "project-status-dashboard.md",
     "roadmap": ROOT / "docs" / "planning" / "roadmap.md",
-    "completed-phases": ROOT / "docs" / "development" / "completed-phases.md",
+    # completed-phases.md is a long historical archive and may be compacted.
+    # The explicit latest marker is tracked in completed-phases-latest.md instead.
     "completed-phases-latest": ROOT / "docs" / "development" / "completed-phases-latest.md",
     "development-index": ROOT / "docs" / "development" / "index.md",
 }
