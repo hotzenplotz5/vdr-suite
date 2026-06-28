@@ -12,7 +12,7 @@ NEXT_PHASE = "Phase 55.6 - Recording operations audit and safety policy"
 FOLLOW_UP = "Recording operations audit and safety policy"
 CURRENT_FOUNDATION = "Recording Operations Audit and Safety Policy"
 
-PROGRESS_SOURCE = """# VDR-Suite Project Progress
+PROJECT_STATE_SOURCE = """# VDR-Suite Project State Snapshot
 
 ## Navigation
 
@@ -20,7 +20,6 @@ PROGRESS_SOURCE = """# VDR-Suite Project Progress
 - [Documentation Index](../index.md)
 - [Planning Index](index.md)
 - [Roadmap](roadmap.md)
-- [Project Progress](project-progress.md)
 - [Lazy Recording Loading](lazy-recording-loading.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
 - [Current Project Status](../development/current-status.md)
@@ -29,66 +28,79 @@ PROGRESS_SOURCE = """# VDR-Suite Project Progress
 
 ## Purpose
 
-This file is the single source for high-level project progress percentages.
+This file is the source for the high-level project state block copied into README, Current Status and Project Status Dashboard.
 
-The values are intentionally milestone-oriented. They are not code coverage values, not production readiness guarantees and not product-completion percentages.
+It is intentionally **not** a percentage-based product progress tracker.
 
-The top-level value describes foundation progress across the planned architecture, including completed backend foundations and still-open product areas such as frontend, federation, permissions and client work.
+VDR-Suite has many completed foundations, but it is not production-complete. Some domains are deliberately read-only, dry-run-only or guarded until later safety phases.
 
-The generated progress blocks are written by:
+The generated state blocks are written by:
 
     tools/update_project_progress.py
 
 ---
 
-## Overall Foundation Progress
+<!-- PROJECT_STATE_SNAPSHOT_START -->
+## Project State Snapshot
 
-The overall value is foundation progress, not final product completion.
+This is a verified implementation-state snapshot, not a product-completion percentage.
+
+### Verified foundations
+
+- Core runtime and daemon foundation
+- VDR backend adapter and RESTfulAPI integration foundation
+- Backend registry and multi-backend runtime foundation
+- Snapshot cache, snapshot access and change-feed foundation
+- REST routing and JSON response boundaries
+- Recording query foundation
+- Recording action validation and guarded execution foundation
+- Selective EPG query and EPG search foundation
+- Content classification and person metadata foundations
+- Recording person and character search foundations
+- SearchTimer backend, validation, planning and workflow foundations
+- SearchTimer safety gates, readback verification and production mutation policy foundations
+- Live parity discovery foundation
+- Real VDR acceptance manifest and runner foundation
+- Daemon lifecycle hardening for duplicate bind failures and SIGTERM shutdown
+
+### Verified real-runtime evidence
+
+- Real VDR acceptance currently passes 20/20 safe and dry-run probes.
+- Duplicate daemon start on an occupied HTTP port exits cleanly with status 1 instead of aborting.
+- SIGTERM stops the daemon cleanly without `kill -9` and releases port 18080.
+- GitHub Actions verification is required before runtime-related phases are considered complete.
+
+### Guarded or deliberately incomplete areas
+
+- SearchTimer production mutation remains gated and closed by default.
+- Recording operations need a dedicated safety audit before destructive real-backend probes are expanded.
+- Lazy recording loading is still a required follow-up for large real recording catalogs and multi-backend scaling.
+- Suite-owned metadata database and external scraper/provider strategy are planned but not yet implemented as the final metadata product.
+- Authentication, authorization, per-backend permissions and read-only secondary-site policy are still planned.
+- Web, Windows, Android, iOS and TV frontends are planned product layers, not completed foundations.
+
+### Current active focus
 
 ```text
-overall|73
+Phase 55.6 - Recording operations audit and safety policy
 ```
 
----
+### Later strategic milestones
 
-## Progress Items
+- Library boundary and packaging strategy
+- Multi-site backend federation and permissions
+- Frontend foundation
+- Suite metadata database and external provider integration
+- Safe production-grade recording operations
 
-Core Runtime Foundation|100|completed
-Multi-Backend Foundation|100|completed
-Query Foundation|100|completed
-Action Foundation|100|completed
-Metadata Foundation|100|completed
-Documentation Foundation|100|completed
-SearchTimer Backend Foundation|100|completed
-SearchTimer User Workflow|100|completed
-SearchTimer Runtime Mutation Policy|100|completed
-SearchTimer Preview EPG Performance|75|in progress
-Real VDR Acceptance Foundation|100|completed
-Runtime Lifecycle Hardening|100|completed
-Lazy Recording Loading|10|in progress
-Live Plugin Parity Foundation|100|completed
-Automation Foundation|100|completed
-Recording Operations Safety|0|planned
-Federation Foundation|0|planned
-Frontend Foundation|0|planned
-
----
-
-## Current Milestone
-
-Phase 55.6 - Recording operations audit and safety policy
-
----
-
-## Required Follow-Up Milestone
-
-Recording operations audit and safety policy
+Progress source: {{PROJECT_PROGRESS_SOURCE_LINK}}
+<!-- PROJECT_STATE_SNAPSHOT_END -->
 
 ---
 
 ## Maintenance Rule
 
-Update this file when a major milestone starts, progresses or completes.
+Update this file when the verified project state changes.
 
 After editing this file, run:
 
@@ -123,7 +135,7 @@ CONSOLIDATION_DOC = """# Phase 55.5m - Documentation Consolidation and Roadmap A
 
 This document records the documentation consolidation step after the real VDR acceptance and daemon lifecycle hardening work.
 
-The implementation and runtime work had advanced beyond the high-level project documentation. README, roadmap, project progress, current status, project dashboard and completed phases still described Phase 54.3e / Phase 54.3 as the current position even though the repository had already verified the Phase 55.5 real VDR acceptance and runtime lifecycle hardening work.
+The implementation and runtime work had advanced beyond the high-level project documentation. Several status files still described Phase 54.3e / Phase 54.3 as the current position even though the repository had already verified the Phase 55.5 real VDR acceptance and runtime lifecycle hardening work.
 
 ---
 
@@ -137,7 +149,7 @@ The scope is:
 
 - align latest completed implementation markers across tracked documentation files
 - align next implementation focus markers across tracked documentation files
-- update the project progress source and regenerated progress blocks
+- replace misleading percentage-style progress with a verified project state snapshot
 - add recent Phase 55.5 real VDR acceptance and runtime lifecycle work to completed-phase history
 - keep the new-chat handoff and required verification checklist visible
 - preserve the rule that runtime/API phases need local evidence plus GitHub Actions evidence before completion
@@ -237,7 +249,8 @@ DETAILED_PHASE_BLOCK = """## Phase 55.5m - Documentation consolidation and roadm
 Status: Completed.
 
 Summary:
-- Consolidated README, roadmap, project progress, current status, project dashboard, development index and completed-phase history after the Phase 55.5 real VDR acceptance and daemon lifecycle hardening work.
+- Consolidated README, roadmap, project state snapshot, current status, project dashboard, development index and completed-phase history after the Phase 55.5 real VDR acceptance and daemon lifecycle hardening work.
+- Replaced misleading percentage-style progress with a verified project state snapshot that separates verified foundations from guarded, deliberately incomplete and planned work.
 - Moved the tracked latest completed implementation marker to Phase 55.5m across the documentation files monitored by `check_phase_consistency.py`.
 - Moved the tracked next implementation focus to Phase 55.6 recording operations audit and safety policy.
 - Preserved the new-chat handoff checklist for local runtime, real VDR acceptance, documentation and GitHub Actions verification.
@@ -345,28 +358,6 @@ Summary:
 
 ---
 
-## Phase 55.5b - Native SearchTimer preview capability gate
-
-Status: Completed.
-
-Summary:
-- Added a native SearchTimer preview capability flag.
-- Exposed native-preview availability through capability reporting while keeping default unsupported behavior.
-- Preserved suite EPG cache preview as the safe default preview engine.
-
----
-
-## Phase 55.5a - SearchTimer preview engine contract
-
-Status: Completed.
-
-Summary:
-- Added the SearchTimer preview engine contract.
-- Exposed the preview engine in JSON responses so clients can distinguish suite-cache preview from future native epgsearch preview.
-- Preserved `suite-epg-cache` as the default preview engine.
-
----
-
 ## Phase 55.4e - Daemon runtime shutdown reset guardrail
 
 Status: Completed.
@@ -395,8 +386,7 @@ def write(relative: str, text: str) -> None:
 
 def replace_indented_marker(text: str, marker: str, value: str) -> str:
     pattern = re.compile(r"(" + re.escape(marker) + r"\n\n)    .*")
-    replacement = r"\1    " + value
-    updated, count = pattern.subn(replacement, text, count=1)
+    updated, count = pattern.subn(r"\1    " + value, text, count=1)
     if count != 1:
         raise SystemExit("marker not found or not unique: " + marker)
     return updated
@@ -410,15 +400,7 @@ def replace_fenced_marker(text: str, marker: str, value: str) -> str:
     return updated
 
 
-def replace_or_insert_line(text: str, old: str, new: str) -> str:
-    if new in text:
-        return text
-    if old not in text:
-        raise SystemExit("line not found: " + old)
-    return text.replace(old, new, 1)
-
-
-def ensure_list_item_after(text: str, anchor: str, item: str) -> str:
+def ensure_item_after(text: str, anchor: str, item: str) -> str:
     if item in text:
         return text
     if anchor not in text:
@@ -426,8 +408,8 @@ def ensure_list_item_after(text: str, anchor: str, item: str) -> str:
     return text.replace(anchor, anchor + "\n" + item, 1)
 
 
-def update_project_progress_source() -> None:
-    write("docs/planning/project-progress.md", PROGRESS_SOURCE)
+def update_project_state_source() -> None:
+    write("docs/planning/project-progress.md", PROJECT_STATE_SOURCE)
     subprocess.run(["python3", "tools/update_project_progress.py"], cwd=ROOT, check=True)
 
 
@@ -437,10 +419,10 @@ def update_readme() -> None:
     text = replace_indented_marker(text, "Current documentation consolidation:", DONE_PHASE)
     text = replace_indented_marker(text, "Next major implementation milestone:", NEXT_PHASE)
     text = replace_indented_marker(text, "Required planned follow-up:", FOLLOW_UP)
-    text = ensure_list_item_after(text, "- SearchTimer Runtime Mutation Policy", "- Real VDR Acceptance Foundation\n- Daemon Runtime Lifecycle Hardening\n- Documentation Handoff Verification")
+    text = ensure_item_after(text, "- SearchTimer Runtime Mutation Policy", "- Real VDR Acceptance Foundation\n- Daemon Runtime Lifecycle Hardening\n- Documentation Handoff Verification")
     text = text.replace("- SearchTimer Preview EPG Performance", "- " + CURRENT_FOUNDATION, 1)
-    text = ensure_list_item_after(text, "- Runtime diagnostics", "- HTTP listener bind-failure hardening\n- SIGTERM daemon shutdown hardening\n- Real VDR acceptance manifest and runner")
-    text = ensure_list_item_after(text, "- SearchTimer preview comparison options verified against live VDR EPG input", "- SearchTimer workflow validation and planning covered by real VDR acceptance")
+    text = ensure_item_after(text, "- Runtime diagnostics", "- Real VDR acceptance manifest and runner\n- HTTP listener bind-failure hardening\n- SIGTERM daemon shutdown hardening")
+    text = ensure_item_after(text, "- SearchTimer preview comparison options verified against live VDR EPG input", "- SearchTimer workflow validation and planning covered by real VDR acceptance")
     write("README.md", text)
 
 
@@ -450,7 +432,7 @@ def update_current_status() -> None:
     text = replace_fenced_marker(text, "Current documentation consolidation state:", DONE_PHASE)
     text = replace_fenced_marker(text, "Next major implementation milestone:", NEXT_PHASE)
     text = replace_fenced_marker(text, "Required planned follow-up:", FOLLOW_UP)
-    text = ensure_list_item_after(text, "SearchTimer Discovery Shared Decoder Cleanup", "Real VDR Acceptance Foundation\nDaemon Runtime Lifecycle Hardening\nDocumentation Handoff Verification")
+    text = ensure_item_after(text, "SearchTimer Discovery Shared Decoder Cleanup", "Real VDR Acceptance Foundation\nDaemon Runtime Lifecycle Hardening\nDocumentation Handoff Verification")
     text = replace_fenced_marker(text, "Current foundation in progress:", CURRENT_FOUNDATION)
     write("docs/development/current-status.md", text)
 
@@ -459,7 +441,7 @@ def update_development_index() -> None:
     text = read("docs/development/index.md")
     text = replace_fenced_marker(text, "Current completed phase:", DONE_PHASE)
     text = replace_fenced_marker(text, "Next implementation focus:", NEXT_PHASE)
-    text = ensure_list_item_after(text, "- [Phase 55.4d - SearchTimer Discovery Shared Decoder Cleanup](phase-55.4d-searchtimer-discovery-shared-decoder.md)", "- [Phase 55.5m - Documentation Consolidation and Roadmap Alignment](phase-55.5m-documentation-consolidation.md)")
+    text = ensure_item_after(text, "- [Phase 55.4d - SearchTimer Discovery Shared Decoder Cleanup](phase-55.4d-searchtimer-discovery-shared-decoder.md)", "- [Phase 55.5m - Documentation Consolidation and Roadmap Alignment](phase-55.5m-documentation-consolidation.md)")
     write("docs/development/index.md", text)
 
 
@@ -469,10 +451,10 @@ def update_dashboard() -> None:
     text = replace_fenced_marker(text, "Current Documentation Consolidation:", DONE_PHASE)
     text = replace_fenced_marker(text, "Next Major Implementation Milestone:", NEXT_PHASE)
     text = replace_fenced_marker(text, "Required Planned Follow-Up:", FOLLOW_UP)
-    text = ensure_list_item_after(text, "SearchTimer Preview EPG Cache   ADR-0034 documented", "Real VDR Acceptance             20/20 safe/dry-run probes verified\nDaemon Lifecycle Hardening       duplicate bind + SIGTERM verified")
-    text = ensure_list_item_after(text, "SearchTimer Warm EPG Cache Architecture", "Real VDR Acceptance Foundation\nDaemon Runtime Lifecycle Hardening\nDocumentation Handoff Verification")
+    text = ensure_item_after(text, "SearchTimer Preview EPG Cache   ADR-0034 documented", "Real VDR Acceptance             20/20 safe/dry-run probes verified\nDaemon Lifecycle Hardening       duplicate bind + SIGTERM verified")
+    text = ensure_item_after(text, "SearchTimer Warm EPG Cache Architecture", "Real VDR Acceptance Foundation\nDaemon Runtime Lifecycle Hardening\nDocumentation Handoff Verification")
     text = text.replace("SearchTimer Preview EPG Performance", CURRENT_FOUNDATION, 1)
-    text = ensure_list_item_after(text, "Phase 54.2  - SearchTimer warm EPG cache architecture", "Phase 55.5  - Real VDR acceptance and daemon lifecycle hardening\nPhase 55.5m - Documentation consolidation and roadmap alignment")
+    text = ensure_item_after(text, "Phase 54.2  - SearchTimer warm EPG cache architecture", "Phase 55.5  - Real VDR acceptance and daemon lifecycle hardening\nPhase 55.5m - Documentation consolidation and roadmap alignment")
     write("docs/project-status-dashboard.md", text)
 
 
@@ -541,7 +523,8 @@ Primary result:
 - Aligns high-level project documentation with the verified Phase 55.5 runtime and acceptance state.
 
 Key outcomes:
-- README, roadmap, project progress, current status, project dashboard, development index and completed-phase history now point at the same completed and next milestones.
+- Misleading percentage-style progress is replaced by a verified project state snapshot.
+- README, roadmap, project state, current status, project dashboard, development index and completed-phase history now point at the same completed and next milestones.
 - New-chat handoff rules preserve required local, real VDR and GitHub Actions checks.
 
 Representative phase:
@@ -577,15 +560,12 @@ Planned outcomes:
 
 def update_completed_phases() -> None:
     text = read("docs/development/completed-phases.md")
-
     if "### Real VDR Acceptance and Runtime Lifecycle Foundation" not in text:
         text = text.replace("### Documentation Consolidation", COMPLETED_OVERVIEW_BLOCK + "### Documentation Consolidation", 1)
-
     if "## Phase 55.5m - Documentation consolidation and roadmap alignment" not in text:
         text = text.replace("## Detailed Phase History\n", "## Detailed Phase History\n\n" + DETAILED_PHASE_BLOCK, 1)
-
     text = text.replace("Status: In Progress.\n\nPurpose:\n- Refresh the high-level project documentation before starting the next major milestone.", "Status: Completed.\n\nPurpose:\n- Refresh the high-level project documentation before starting the next major milestone.", 1)
-    text = text.replace("Remaining planned documentation work:\n- Completed phase milestone restructuring.\n- Current status refresh.\n- README refresh.", "Completed consolidation work:\n- Completed phase milestone restructuring.\n- Current status refresh.\n- README refresh.\n- Roadmap, dashboard and project progress alignment.\n- New-chat handoff verification checklist.", 1)
+    text = text.replace("Remaining planned documentation work:\n- Completed phase milestone restructuring.\n- Current status refresh.\n- README refresh.", "Completed consolidation work:\n- Completed phase milestone restructuring.\n- Current status refresh.\n- README refresh.\n- Roadmap, dashboard and project state alignment.\n- New-chat handoff verification checklist.", 1)
     write("docs/development/completed-phases.md", text)
 
 
@@ -594,7 +574,7 @@ def write_consolidation_doc() -> None:
 
 
 def main() -> int:
-    update_project_progress_source()
+    update_project_state_source()
     update_readme()
     update_current_status()
     update_development_index()
@@ -602,8 +582,7 @@ def main() -> int:
     update_roadmap()
     update_completed_phases()
     write_consolidation_doc()
-
-    print("Phase 55.5m documentation consolidation applied.")
+    print("Phase 55.5m documentation consolidation applied with verified project state snapshot.")
     print("Next checks:")
     print("  make test-docs")
     print("  make test-phase")
