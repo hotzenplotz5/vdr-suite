@@ -22,6 +22,7 @@ This index separates current project state from historical phase-specific record
 Authoritative sources:
 
 - [Current Project Status](current-status.md)
+- [GitHub Actions Status Handoff](github-actions-status-handoff.md)
 - [Current Architecture State](current-architecture-state.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
 - [Current Technical Debt](current-technical-debt.md)
