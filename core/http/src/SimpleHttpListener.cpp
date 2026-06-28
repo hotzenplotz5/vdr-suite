@@ -10,6 +10,7 @@
 #include <sstream>
 #include <string>
 #include <cstdlib>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -177,9 +178,23 @@ SimpleHttpListener::SimpleHttpListener(
     std::string host,
     int port,
     IHttpServer& server)
+    : SimpleHttpListener(
+          std::move(host),
+          port,
+          server,
+          []() { return false; })
+{
+}
+
+SimpleHttpListener::SimpleHttpListener(
+    std::string host,
+    int port,
+    IHttpServer& server,
+    std::function<bool()> shouldStop)
     : host_(std::move(host)),
       port_(port),
-      server_(server)
+      server_(server),
+      shouldStop_(std::move(shouldStop))
 {
 }
 
@@ -198,7 +213,39 @@ int SimpleHttpListener::runUntilStopped()
         << port_
         << std::endl;
 
-    while (true) {
+    while (!shouldStop_()) {
+        fd_set readSet;
+        FD_ZERO(&readSet);
+        FD_SET(listenSocket, &readSet);
+
+        timeval timeout{};
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+
+        const int ready = select(
+            listenSocket + 1,
+            &readSet,
+            nullptr,
+            nullptr,
+            &timeout);
+
+        if (ready < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+
+            std::cerr
+                << "select failed: "
+                << std::strerror(errno)
+                << std::endl;
+
+            continue;
+        }
+
+        if (ready == 0) {
+            continue;
+        }
+
         const int clientSocket = accept(
             listenSocket,
             nullptr,
@@ -206,7 +253,7 @@ int SimpleHttpListener::runUntilStopped()
 
         if (clientSocket < 0) {
             if (errno == EINTR) {
-                break;
+                continue;
             }
 
             std::cerr
