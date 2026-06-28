@@ -232,6 +232,7 @@ Project status:
 
 - [Project Status Dashboard](docs/project-status-dashboard.md)
 - [Current Project Status](docs/development/current-status.md)
+- [GitHub Actions Status Handoff](docs/development/github-actions-status-handoff.md)
 - [Roadmap](docs/planning/roadmap.md)
 - [Lazy Recording Loading](docs/planning/lazy-recording-loading.md)
 - [Completed Phases](docs/development/completed-phases.md)
