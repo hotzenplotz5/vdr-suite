@@ -34,6 +34,26 @@ Future planning belongs to:
 
 ## Completed Milestones Overview
 
+### Recording Operations Audit and Safety Policy
+
+Status: Completed.
+
+Purpose:
+- Audit live recording operations before expanding destructive real-backend recording actions.
+- Preserve dry-run, read-only and opt-in safety as the default behaviour.
+- Record guardrail coverage for recording mutation safety policy.
+
+Completed phases:
+- Phase 55.6 - Recording operations audit and safety policy.
+
+Key outcomes:
+- Real recording move, rename and delete paths remain explicitly gated.
+- Destructive real VDR recording probes remain opt-in and marker-restricted.
+- Recording mutation safety policy is documented and wired into local test groups.
+- Phase 56 becomes the next implementation focus.
+
+---
+
 ### Real VDR Acceptance and Runtime Lifecycle Foundation
 
 Status: Completed.
@@ -231,6 +251,35 @@ Planned next steps:
 ---
 
 ## Detailed Phase History
+
+## Phase 55.6 - Recording operations audit and safety policy
+
+Status: Completed.
+
+Summary:
+- Completed the recording operations audit and safety-policy foundation before expanding destructive real-backend recording actions.
+- Audited existing recording action request, validation, safety and execution boundaries.
+- Documented which recording operations are allowed by default and which remain blocked by default.
+- Confirmed that real recording move, rename and delete paths remain explicitly opt-in.
+- Preserved dry-run and read-only safety as the default behaviour.
+- Added a recording mutation safety-policy guardrail and wired it into local test groups.
+- Recorded the GitHub CI watcher handoff command for future chat continuity.
+
+Verification:
+```text
+make test-docs
+make test-phase
+make test-phase-map-coverage
+make test-recording-mutation-safety-policy
+make test-github-update-safety-handoff
+```
+
+Completion result:
+- Recording mutation paths remain gated.
+- Real destructive VDR recording probes remain opt-in.
+- Phase 56 becomes the next implementation focus.
+
+---
 
 ## Phase 55.5o - Phase map and roadmap simplification
 

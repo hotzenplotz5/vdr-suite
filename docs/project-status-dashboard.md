@@ -36,6 +36,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Live parity discovery foundation
 - Real VDR acceptance manifest and runner foundation
 - Daemon lifecycle hardening for duplicate bind failures and SIGTERM shutdown
+- Recording operations audit and safety policy foundation
 
 ### Verified real-runtime evidence
 
@@ -47,7 +48,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 ### Guarded or deliberately incomplete areas
 
 - SearchTimer production mutation remains gated and closed by default.
-- Recording operations need a dedicated safety audit before destructive real-backend probes are expanded.
+- Recording operations real-backend write probes remain explicitly gated.
 - Lazy recording loading is still a required follow-up for large real recording catalogs and multi-backend scaling.
 - Suite-owned metadata database and external scraper/provider strategy are planned but not yet implemented as the final metadata product.
 - Authentication, authorization, per-backend permissions and read-only secondary-site policy are still planned.
@@ -56,12 +57,11 @@ This is a verified implementation-state snapshot, not a product-completion perce
 ### Current active focus
 
 ```text
-Phase 55.6 - Recording operations audit and safety policy
+Phase 56 - Library Boundary, Packaging and Developer Documentation
 ```
 
 ### Later strategic milestones
 
-- Library boundary and packaging strategy
 - Multi-site backend federation and permissions
 - Frontend foundation
 - Suite metadata database and external provider integration
@@ -161,25 +161,25 @@ Media Streaming                 planned
 Current Major Phase:
 
 ```text
-Phase 55.5o - Phase map and roadmap simplification
+Phase 55.6 - Recording operations audit and safety policy
 ```
 
 Current Documentation Consolidation:
 
 ```text
-Phase 55.5o - Phase map and roadmap simplification
+Phase 55.6 - Recording operations audit and safety policy
 ```
 
 Next Major Implementation Milestone:
 
 ```text
-Phase 55.6 - Recording operations audit and safety policy
+Phase 56 - Library Boundary, Packaging and Developer Documentation
 ```
 
 Required Planned Follow-Up:
 
 ```text
-Recording operations audit and safety policy
+Library Boundary, Packaging and Developer Documentation
 ```
 
 Latest Completed Milestones:
@@ -194,12 +194,13 @@ SearchTimer Warm EPG Cache Architecture
 Real VDR Acceptance Foundation
 Daemon Runtime Lifecycle Hardening
 Documentation Handoff Verification
+Recording Operations Audit and Safety Policy
 ```
 
 Current Milestone In Progress:
 
 ```text
-Recording Operations Audit and Safety Policy
+Library Boundary, Packaging and Developer Documentation
 ```
 
 ---
@@ -231,6 +232,7 @@ Phase 54.1  - SearchTimer preview comparison-option fix
 Phase 54.2  - SearchTimer warm EPG cache architecture
 Phase 55.5  - Real VDR acceptance and daemon lifecycle hardening
 Phase 55.5o - Phase map and roadmap simplification
+Phase 55.6  - Recording operations audit and safety policy
 ```
 
 ---
@@ -262,16 +264,16 @@ SearchTimer warm EPG cache architecture
 Current Foundation:
 
 ```text
-SearchTimer Preview EPG Performance
+Library Boundary, Packaging and Developer Documentation
 ```
 
 Planned Major Direction:
 
 ```text
-Phase 54.3 - SearchTimer warm EPG cache implementation
-Phase 54.x - RESTfulAPI SSE change-state stream evaluation
-Lazy Recording Loading - no startup recording load, backend-scoped on-demand refresh
-Phase 55.x - Backend management and client administration
+Phase 56 - Library Boundary, Packaging and Developer Documentation
+Phase 57 - Multi-Site Backend Administration and Permissions
+Phase 58 - Frontend and Live Parity
+Phase 59 - Suite Metadata Database and External Providers
 ```
 
 Important:

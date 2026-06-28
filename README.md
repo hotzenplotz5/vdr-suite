@@ -43,6 +43,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Live parity discovery foundation
 - Real VDR acceptance manifest and runner foundation
 - Daemon lifecycle hardening for duplicate bind failures and SIGTERM shutdown
+- Recording operations audit and safety policy foundation
 
 ### Verified real-runtime evidence
 
@@ -63,12 +64,11 @@ This is a verified implementation-state snapshot, not a product-completion perce
 ### Current active focus
 
 ```text
-Phase 55.6 - Recording operations audit and safety policy
+Phase 56 - Library Boundary, Packaging and Developer Documentation
 ```
 
 ### Later strategic milestones
 
-- Library boundary and packaging strategy
 - Multi-site backend federation and permissions
 - Frontend foundation
 - Suite metadata database and external provider integration
@@ -83,19 +83,19 @@ Progress source: docs/planning/project-progress.md
 
 Latest completed implementation phase:
 
-    Phase 55.5o - Phase map and roadmap simplification
+    Phase 55.6 - Recording operations audit and safety policy
 
 Current documentation consolidation:
 
-    Phase 55.5o - Phase map and roadmap simplification
+    Phase 55.6 - Recording operations audit and safety policy
 
 Next major implementation milestone:
 
-    Phase 55.6 - Recording operations audit and safety policy
+    Phase 56 - Library Boundary, Packaging and Developer Documentation
 
 Required planned follow-up:
 
-    Recording operations audit and safety policy
+    Library Boundary, Packaging and Developer Documentation
 
 Completed foundations:
 
@@ -120,10 +120,11 @@ Completed foundations:
 - Real VDR Acceptance Foundation
 - Daemon Runtime Lifecycle Hardening
 - Documentation Handoff Verification
+- Recording Operations Audit and Safety Policy
 
 Current foundation in progress:
 
-- Recording Operations Audit and Safety Policy
+- Library Boundary, Packaging and Developer Documentation
 
 ---
 

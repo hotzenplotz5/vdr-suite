@@ -18,10 +18,10 @@
 
 ```text
 Completed implementation state
-Phase 55.5o - Phase map and roadmap simplification
+Phase 55.6 - Recording operations audit and safety policy
 
 Current implementation focus
-Phase 55.6 - Recording operations audit and safety policy
+Phase 56 - Library Boundary, Packaging and Developer Documentation
 ```
 
 ---
@@ -58,24 +58,25 @@ Completed foundation ranges:
 - Phase 55.0-55.4e: Adapter and Runtime Hardening.
 - Phase 55.5a-55.5n: Acceptance and Documentation.
 - Phase 55.5o: Phase Map and Roadmap.
+- Phase 55.6: Recording Operations Audit and Safety Policy.
 
 ---
 
-## Current Milestone
+## Recently Completed Milestone
 
 ### Phase 55.6 - Recording Operations Audit and Safety Policy
 
-Status: Next.
+Status: Completed.
 
 Goal:
 - Audit live recording operations before enabling or expanding real write-capable paths.
 
-Planned outcomes:
-- Confirm which recording operations remain read-only, dry-run-only or destructive.
-- Define operator confirmation, permission, backend allowlist and safety-policy requirements.
-- Keep destructive real VDR probes explicitly opt-in.
-- Preserve the current real VDR acceptance suite as safe/dry-run by default.
-- Prepare later recording operations implementation without silently opening mutation paths.
+Completed outcomes:
+- Confirmed which recording operations remain read-only, dry-run-only or destructive.
+- Defined operator confirmation, permission, backend allowlist and safety-policy requirements.
+- Kept destructive real VDR probes explicitly opt-in.
+- Preserved the current real VDR acceptance suite as safe/dry-run by default.
+- Prepared later recording operations implementation without silently opening mutation paths.
 
 ---
 
@@ -83,7 +84,7 @@ Planned outcomes:
 
 ### Phase 56 - Library Boundary, Packaging and Developer Documentation
 
-Status: Planned.
+Status: Next.
 
 Goal:
 - Separate reusable libraries from daemon/application surfaces.

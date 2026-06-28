@@ -63,6 +63,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Live parity discovery foundation
 - Real VDR acceptance manifest and runner foundation
 - Daemon lifecycle hardening for duplicate bind failures and SIGTERM shutdown
+- Recording operations audit and safety policy foundation
 
 ### Verified real-runtime evidence
 
@@ -74,7 +75,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 ### Guarded or deliberately incomplete areas
 
 - SearchTimer production mutation remains gated and closed by default.
-- Recording operations need a dedicated safety audit before destructive real-backend probes are expanded.
+- Recording operations real-backend write probes remain explicitly gated.
 - Lazy recording loading is still a required follow-up for large real recording catalogs and multi-backend scaling.
 - Suite-owned metadata database and external scraper/provider strategy are planned but not yet implemented as the final metadata product.
 - Authentication, authorization, per-backend permissions and read-only secondary-site policy are still planned.
@@ -83,12 +84,11 @@ This is a verified implementation-state snapshot, not a product-completion perce
 ### Current active focus
 
 ```text
-Phase 55.6 - Recording operations audit and safety policy
+Phase 56 - Library Boundary, Packaging and Developer Documentation
 ```
 
 ### Later strategic milestones
 
-- Library boundary and packaging strategy
 - Multi-site backend federation and permissions
 - Frontend foundation
 - Suite metadata database and external provider integration
@@ -104,25 +104,25 @@ Progress source: ../planning/project-progress.md
 Latest completed implementation phase:
 
 ```text
-Phase 55.5o - Phase map and roadmap simplification
+Phase 55.6 - Recording operations audit and safety policy
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 55.5o - Phase map and roadmap simplification
+Phase 55.6 - Recording operations audit and safety policy
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 55.6 - Recording operations audit and safety policy
+Phase 56 - Library Boundary, Packaging and Developer Documentation
 ```
 
 Required planned follow-up:
 
 ```text
-Recording operations audit and safety policy
+Library Boundary, Packaging and Developer Documentation
 ```
 
 Completed foundations:
@@ -151,12 +151,13 @@ SearchTimer Discovery Shared Decoder Cleanup
 Real VDR Acceptance Foundation
 Daemon Runtime Lifecycle Hardening
 Documentation Handoff Verification
+Recording Operations Audit and Safety Policy
 ```
 
 Current foundation in progress:
 
 ```text
-Recording Operations Audit and Safety Policy
+Library Boundary, Packaging and Developer Documentation
 ```
 
 Direct GitHub documentation synchronization should still be followed locally by functional or runtime-specific checks only when the change requires real local behaviour validation.
@@ -185,6 +186,7 @@ Direct GitHub documentation synchronization should still be followed locally by 
 - ADR-0035 records that recordings are a heavy on-demand domain and must not be loaded synchronously for all backends during daemon startup.
 - Startup snapshot runtime is implemented for the initial poll: status, timers, SearchTimer metadata and channels may load, while recordings and full EPG events remain excluded from startup.
 - Runtime lifecycle hardening 55.5l is verified against a real local daemon: duplicate daemon start on an occupied HTTP port exits cleanly with status 1 instead of aborting, SIGTERM stops the listener and releases port 18080 without `kill -9`, and the real VDR acceptance manifest passes 20/20 probes afterward.
+- Phase 55.6 records the recording operations audit and safety policy: real recording move, rename and delete paths remain explicitly gated, dry-run/read-only behaviour remains the default, and destructive real-backend probes remain opt-in.
 
 ---
 
@@ -425,6 +427,7 @@ GitHub daemon build: success
 - Person architecture uses source-aware evidence, roles, confidence, normalized names, character names and provider references.
 - SearchTimer discovery runtime now uses the RESTfulAPI provider when an HTTP backend context exists and falls back to the static provider only without a backend context.
 - SearchTimer discovery string escape decoding now uses the shared `JsonStringDecoder` utility.
+- Recording mutation paths remain guarded by explicit backend policy, permission, dry-run, read-only and real-helper gates.
 
 ---
 

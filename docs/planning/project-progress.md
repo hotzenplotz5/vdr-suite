@@ -48,6 +48,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Live parity discovery foundation
 - Real VDR acceptance manifest and runner foundation
 - Daemon lifecycle hardening for duplicate bind failures and SIGTERM shutdown
+- Recording operations audit and safety policy foundation
 
 ### Verified real-runtime evidence
 
@@ -59,7 +60,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 ### Guarded or deliberately incomplete areas
 
 - SearchTimer production mutation remains gated and closed by default.
-- Recording operations need a dedicated safety audit before destructive real-backend probes are expanded.
+- Recording operations real-backend write probes remain explicitly gated.
 - Lazy recording loading is still a required follow-up for large real recording catalogs and multi-backend scaling.
 - Suite-owned metadata database and external scraper/provider strategy are planned but not yet implemented as the final metadata product.
 - Authentication, authorization, per-backend permissions and read-only secondary-site policy are still planned.
@@ -68,12 +69,11 @@ This is a verified implementation-state snapshot, not a product-completion perce
 ### Current active focus
 
 ```text
-Phase 55.6 - Recording operations audit and safety policy
+Phase 56 - Library Boundary, Packaging and Developer Documentation
 ```
 
 ### Later strategic milestones
 
-- Library boundary and packaging strategy
 - Multi-site backend federation and permissions
 - Frontend foundation
 - Suite metadata database and external provider integration

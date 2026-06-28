@@ -3,9 +3,9 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-PREVIOUS = "Phase 55.5n - Roadmap historical coverage alignment"
-LATEST = "Phase 55.5o - Phase map and roadmap simplification"
-NEXT = "Phase 55.6 - Recording operations audit and safety policy"
+PREVIOUS = "Phase 55.5o - Phase map and roadmap simplification"
+LATEST = "Phase 55.6 - Recording operations audit and safety policy"
+NEXT = "Phase 56 - Library Boundary, Packaging and Developer Documentation"
 
 COMPLETED_ROWS = [
     ("Phase 1.x-7.x", "Completed", "Core Platform", "Database, repositories, services, REST boundaries and daemon foundation."),
@@ -24,11 +24,11 @@ COMPLETED_ROWS = [
     ("Phase 55.0-55.4e", "Completed", "Adapter and Runtime Hardening", "Feature parity and adapter audit, RESTfulAPI contract fixes, discovery wiring and daemon shutdown reset guardrail."),
     ("Phase 55.5a-55.5n", "Completed", "Acceptance and Documentation", "Preview engine contract, native preview capability, real VDR acceptance, lifecycle hardening and roadmap historical coverage."),
     ("Phase 55.5o", "Completed", "Phase Map and Roadmap", "Canonical phase map, simplified roadmap and phase-map coverage guardrail."),
+    ("Phase 55.6", "Completed", "Recording Operations Audit", "Recording mutation safety policy, default-blocked real write probes and guardrail coverage."),
 ]
 
 PLANNED_ROWS = [
-    ("Phase 55.6", "Next", "Recording Operations Audit", "Audit live recording operations and define safety policy before destructive real-backend probes expand."),
-    ("Phase 56", "Planned", "Library Boundary and Packaging", "Separate reusable libraries from daemon/application surfaces."),
+    ("Phase 56", "Next", "Library Boundary and Packaging", "Separate reusable libraries from daemon/application surfaces."),
     ("Phase 57", "Planned", "Multi-Site Backend Administration and Permissions", "Support multi-site operation with backend-specific permissions and read-only secondary-site mode."),
     ("Phase 58", "Planned", "Frontend and Live Parity", "Build frontend-ready everyday recording, timer, channel and EPG views after safe API and permission foundations."),
     ("Phase 59", "Planned", "Suite Metadata Database and External Providers", "Build a suite-owned metadata database while using mature external scraper/catalog providers behind boundaries."),
