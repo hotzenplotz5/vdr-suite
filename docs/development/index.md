@@ -120,6 +120,7 @@ Current architecture validation:
 - [Phase 56.29 - Packaging Boundary Guide](phase-56.29-packaging-boundary-guide.md)
 - [Phase 56.30 - Package Candidate Source Inventory](phase-56.30-package-candidate-source-inventory.md)
 - [Phase 56.31 - Public Header Inventory](phase-56.31-public-header-inventory.md)
+- [Phase 56.32 - Package Dependency Graph](phase-56.32-package-dependency-graph.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
