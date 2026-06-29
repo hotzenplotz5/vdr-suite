@@ -510,28 +510,24 @@ test-restfulapi-execution-gate-blocks-dispatch:
 
 test-restfulapi-upstream-action-endpoint-contract:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
 		core/recordings/tests/test_restfulapi_upstream_action_endpoint_contract.cpp \
 		-o /tmp/test_restfulapi_upstream_action_endpoint_contract
 	/tmp/test_restfulapi_upstream_action_endpoint_contract
 
 test-restfulapi-move-tilde-mapping-regression:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
 		core/recordings/tests/test_restfulapi_move_tilde_mapping_regression.cpp \
 		-o /tmp/test_restfulapi_move_tilde_mapping_regression
 	/tmp/test_restfulapi_move_tilde_mapping_regression
 
 test-restfulapi-action-request-preview-contract:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
 		core/recordings/tests/test_restfulapi_action_request_preview_contract.cpp \
 		-o /tmp/test_restfulapi_action_request_preview_contract
 	/tmp/test_restfulapi_action_request_preview_contract
 
 test-restfulapi-recording-action-empty-basepath-contract:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
 		core/recordings/tests/test_restfulapi_recording_action_empty_basepath_contract.cpp \
 		-o /tmp/test_restfulapi_recording_action_empty_basepath_contract
 	/tmp/test_restfulapi_recording_action_empty_basepath_contract
@@ -554,7 +550,6 @@ test-restfulapi-recording-action-executor-response-contract:
 
 test-restfulapi-recording-action-mapping-contract:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
 		core/recordings/tests/test_restfulapi_recording_action_mapping_contract.cpp \
 		-o /tmp/test_restfulapi_recording_action_mapping_contract
 	/tmp/test_restfulapi_recording_action_mapping_contract
