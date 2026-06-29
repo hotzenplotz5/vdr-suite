@@ -88,6 +88,7 @@ If a canonical ADR is superseded, keep it only in the superseded section and do 
 - ADR-0034 SearchTimer Warm EPG Cache and Change Invalidation
 - ADR-0035 Lazy Recording Loading and Backend-Scoped Refresh
 - ADR-0036 TVScraper Recording Metadata Integration Strategy
+- [ADR-0037: Packaging, Install Layout and API Boundary](ADR-0037-packaging-install-api-boundary.md)
 - ADR-0037 Suite Metadata Database and External Scraper Strategy
 
 ---
