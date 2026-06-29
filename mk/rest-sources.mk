@@ -25,6 +25,9 @@ REST_SNAPSHOT_CHANGE_FEED_SRC := \
 REST_LIVE_TRANSPORT_SRC := \
         api/rest/src/LiveTransportController.cpp
 
+VDR_TIMER_ACTION_REST_PARSER_SRC := \
+        api/rest/src/VdrTimerActionRequestParser.cpp
+
 REST_ROUTER_SRC := \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
