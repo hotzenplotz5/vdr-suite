@@ -69,6 +69,7 @@ Current architecture validation:
 - [ADR-0033: EPGSearch Fuzzy Mode Decision](../adr/ADR-0033-epgsearch-fuzzy-mode-decision.md)
 - [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](../adr/ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
 - [ADR-0036: TVScraper Recording Metadata Integration Strategy](../adr/ADR-0036-tvscraper-recording-metadata-integration.md)
+- [ADR-0037: Packaging, Install Layout and API Boundary](../adr/ADR-0037-packaging-install-api-boundary.md)
 - [Timer Contract Gap Analysis](timer-contract-gap-analysis.md)
 - [Real Recording Action End-to-End Validation](real-recording-action-e2e-validation.md)
 - [Phase 44 Recording Action Runtime Completion](phase-44-recording-action-runtime-completion.md)
