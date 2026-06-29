@@ -215,7 +215,7 @@ test-recording-action-execution-controller-safety-preview:
 
 test-recording-action-execution-service-registry-safety:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_EXECUTOR_ADAPTER_SRC) \
 		core/http/src/MockHttpClient.cpp \
 		core/recordings/tests/test_recording_action_execution_service_registry_safety.cpp \
 		-o /tmp/test_recording_action_execution_service_registry_safety
@@ -223,7 +223,7 @@ test-recording-action-execution-service-registry-safety:
 
 test-recording-action-backend-executor-registry-capabilities:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_EXECUTOR_ADAPTER_SRC) \
 		core/http/src/MockHttpClient.cpp \
 		core/recordings/tests/test_recording_action_backend_executor_registry_capabilities.cpp \
 		-o /tmp/test_recording_action_backend_executor_registry_capabilities
@@ -231,7 +231,7 @@ test-recording-action-backend-executor-registry-capabilities:
 
 test-restfulapi-recording-action-executor-capabilities:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_EXECUTOR_ADAPTER_SRC) \
 		core/http/src/MockHttpClient.cpp \
 		core/recordings/tests/test_restfulapi_recording_action_executor_capabilities.cpp \
 		-o /tmp/test_restfulapi_recording_action_executor_capabilities
@@ -239,9 +239,8 @@ test-restfulapi-recording-action-executor-capabilities:
 
 test-restfulapi-executor-preserves-http-error-status:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC) \
 		core/http/src/MockHttpClient.cpp \
-		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
 		core/recordings/tests/test_restfulapi_executor_preserves_http_error_status.cpp \
 		-o /tmp/test_restfulapi_executor_preserves_http_error_status
 	/tmp/test_restfulapi_executor_preserves_http_error_status
@@ -399,7 +398,7 @@ test-basic-http-client-socket-contract:
 
 test-real-client-readonly-recording-action-executor-gate:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_EXECUTOR_ADAPTER_SRC) \
 		core/http/src/BasicHttpClient.cpp \
 		core/recordings/tests/test_real_client_readonly_recording_action_executor_gate.cpp \
 		-o /tmp/test_real_client_readonly_recording_action_executor_gate
