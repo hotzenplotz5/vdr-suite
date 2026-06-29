@@ -7,6 +7,10 @@ RECORDING_ACTION_CORE_SRC := \
 RECORDING_ACTION_REST_PARSER_SRC := \
         api/rest/src/RecordingActionValidationRequestParser.cpp
 
+RECORDING_ACTION_REST_CONTROLLER_SRC := \
+        $(RECORDING_ACTION_CORE_SRC) \
+        $(RECORDING_ACTION_REST_PARSER_SRC)
+
 RECORDING_ACTION_VDR_CACHE_SRC := \
         core/vdr/src/SearchTimerPreviewEpgCache.cpp
 

@@ -202,7 +202,7 @@ test-vdr-timer-action-controller:
 
 test-recording-action-execution-controller-safety-preview:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_REST_CONTROLLER_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/VdrSnapshotReadService.cpp \
@@ -281,7 +281,7 @@ test-recording-action-execution-service-safety:
 
 test-recording-action-execution-controller-execute-body-policy-gate:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_REST_CONTROLLER_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/VdrSnapshotReadService.cpp \
@@ -293,7 +293,7 @@ test-recording-action-execution-controller-execute-body-policy-gate:
 
 test-recording-action-execution-controller-policy-execute:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_REST_CONTROLLER_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/VdrSnapshotReadService.cpp \
@@ -312,7 +312,7 @@ test-recording-action-policy-gated-execute:
 
 test-recording-action-execution-controller-policy-safety:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_REST_CONTROLLER_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/VdrSnapshotReadService.cpp \
@@ -556,7 +556,7 @@ test-restfulapi-recording-action-mapping-contract:
 
 test-recording-action-execution-controller:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_REST_CONTROLLER_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/VdrSnapshotReadService.cpp \
@@ -568,7 +568,7 @@ test-recording-action-execution-controller:
 
 test-recording-action-validation-controller:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_REST_CONTROLLER_SRC) \
 		api/rest/src/RecordingActionValidationController.cpp \
 		api/rest/tests/test_recording_action_validation_controller.cpp \
 		-o /tmp/test_recording_action_validation_controller
