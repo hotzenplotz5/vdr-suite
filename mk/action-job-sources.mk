@@ -1,10 +1,20 @@
-ACTIONS_SRC := \
+RECORDING_ACTION_CORE_SRC := \
         core/recordings/src/RecordingActionUtils.cpp \
         core/recordings/src/RecordingActionValidationResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionExecutionResultJsonSerializer.cpp \
-        core/recordings/src/RecordingActionValidationService.cpp \
-        api/rest/src/RecordingActionValidationRequestParser.cpp \
+        core/recordings/src/RecordingActionValidationService.cpp
+
+RECORDING_ACTION_REST_PARSER_SRC := \
+        api/rest/src/RecordingActionValidationRequestParser.cpp
+
+RECORDING_ACTION_VDR_CACHE_SRC := \
         core/vdr/src/SearchTimerPreviewEpgCache.cpp
+
+# Transitional compatibility aggregate for existing tests and smoke helpers.
+ACTIONS_SRC := \
+        $(RECORDING_ACTION_CORE_SRC) \
+        $(RECORDING_ACTION_REST_PARSER_SRC) \
+        $(RECORDING_ACTION_VDR_CACHE_SRC)
 
 ACTION_SERVICE_SRC := \
         core/recordings/src/ActionService.cpp \
