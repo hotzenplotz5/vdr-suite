@@ -496,14 +496,14 @@ test-restfulapi-executor-http-transport-contract:
 
 test-restfulapi-execution-dispatch-allowed:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/recordings/tests/test_restfulapi_execution_dispatch_allowed.cpp \
 		-o /tmp/test_restfulapi_execution_dispatch_allowed
 	/tmp/test_restfulapi_execution_dispatch_allowed
 
 test-restfulapi-execution-gate-blocks-dispatch:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/recordings/tests/test_restfulapi_execution_gate_blocks_dispatch.cpp \
 		-o /tmp/test_restfulapi_execution_gate_blocks_dispatch
 	/tmp/test_restfulapi_execution_gate_blocks_dispatch
