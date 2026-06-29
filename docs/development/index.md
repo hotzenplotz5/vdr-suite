@@ -131,6 +131,7 @@ Current architecture validation:
 - [Phase 56.40 - RESTfulAPI Executor Source Group Split](phase-56.40-restfulapi-executor-source-group.md)
 - [Phase 56.41-56.44 - ACTIONS_SRC Batch Migration](phase-56.41-56.44-actions-src-batch.md)
 - [Phase 56.45 - Remaining ACTIONS_SRC Re-Audit](phase-56.45-remaining-actions-src-reaudit.md)
+- [Phase 56.46 - Recording Action REST Controller Source Group Split](phase-56.46-rest-controller-source-group.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
