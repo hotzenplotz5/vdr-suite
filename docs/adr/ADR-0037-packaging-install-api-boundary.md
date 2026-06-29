@@ -1,5 +1,12 @@
 # ADR-0037: Packaging, Install Layout and API Boundary
 
+## Navigation
+
+- [Development Index](../development/index.md)
+- [Documentation Index](../index.md)
+
+---
+
 ## Status
 
 Accepted for Phase 56 planning.
@@ -285,3 +292,10 @@ Planned Phase 56 follow-up items:
 - add `make install` staging contract
 - add package prerequisite audit
 - complete Phase 56 packaging readiness audit
+
+---
+
+## Back
+
+- [Back to Development Index](../development/index.md)
+- [Back to Documentation Index](../index.md)
