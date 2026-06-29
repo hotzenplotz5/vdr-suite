@@ -123,6 +123,7 @@ Current architecture validation:
 - [Phase 56.32 - Package Dependency Graph](phase-56.32-package-dependency-graph.md)
 - [Phase 56.33 - Recording Action Source Group Split](phase-56.33-recording-action-source-group-split.md)
 - [Phase 56.34 - Recording Action Target Migration](phase-56.34-recording-action-target-migration.md)
+- [Phase 56.35 - Recording Action Core Target Migration](phase-56.35-recording-action-core-target-migration.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
