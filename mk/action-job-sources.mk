@@ -24,6 +24,9 @@ RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC := \
 RECORDING_ACTION_EXECUTOR_ADAPTER_SRC := \
         $(RECORDING_ACTION_CORE_SRC)
 
+RECORDING_ACTION_LEGACY_TEST_SRC := \
+        $(RECORDING_ACTION_CORE_SRC)
+
 # Transitional compatibility aggregate for existing tests and smoke helpers.
 ACTIONS_SRC := \
         $(RECORDING_ACTION_CORE_SRC) \

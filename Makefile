@@ -588,7 +588,7 @@ test-recording-action-validation-result-json-serializer:
 
 test-recording-action:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_LEGACY_TEST_SRC) \
 		core/recordings/tests/test_recording_action.cpp \
 		-o /tmp/test_recording_action
 	/tmp/test_recording_action
@@ -1729,28 +1729,28 @@ clean:
 .PHONY: test-recording-action-executor-interface
 test-recording-action-backend-execution-path:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_LEGACY_TEST_SRC) \
 		core/recordings/tests/test_recording_action_backend_execution_path.cpp \
 		-o /tmp/test_recording_action_backend_execution_path
 	/tmp/test_recording_action_backend_execution_path
 
 test-recording-action-execution-service:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_LEGACY_TEST_SRC) \
 		core/recordings/tests/test_recording_action_execution_service.cpp \
 		-o /tmp/test_recording_action_execution_service
 	/tmp/test_recording_action_execution_service
 
 test-recording-action-job-payload-factory:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_LEGACY_TEST_SRC) \
 		core/recordings/tests/test_recording_action_job_payload_factory.cpp \
 		-o /tmp/test_recording_action_job_payload_factory
 	/tmp/test_recording_action_job_payload_factory
 
 test-recording-action-executor-interface:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_LEGACY_TEST_SRC) \
 		core/recordings/tests/test_recording_action_executor_interface.cpp \
 		-o /tmp/test_recording_action_executor_interface
 	/tmp/test_recording_action_executor_interface
