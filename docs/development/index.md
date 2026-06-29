@@ -122,6 +122,7 @@ Current architecture validation:
 - [Phase 56.31 - Public Header Inventory](phase-56.31-public-header-inventory.md)
 - [Phase 56.32 - Package Dependency Graph](phase-56.32-package-dependency-graph.md)
 - [Phase 56.33 - Recording Action Source Group Split](phase-56.33-recording-action-source-group-split.md)
+- [Phase 56.34 - Recording Action Target Migration](phase-56.34-recording-action-target-migration.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
