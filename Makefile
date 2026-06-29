@@ -169,14 +169,15 @@ test-metadata-service: prepare-test-db
 
 test-recording-action-execution-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/recordings/tests/test_recording_action_execution_result_json_serializer.cpp \
 		-o /tmp/test_recording_action_execution_result_json_serializer
 	/tmp/test_recording_action_execution_result_json_serializer
 
 test-recording-action-validation-request-parser:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
+		$(RECORDING_ACTION_REST_PARSER_SRC) \
 		api/rest/tests/test_recording_action_validation_request_parser.cpp \
 		-o /tmp/test_recording_action_validation_request_parser
 	/tmp/test_recording_action_validation_request_parser
