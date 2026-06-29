@@ -129,6 +129,7 @@ Current architecture validation:
 - [Phase 56.38 - Recording Action Validation Target Migration](phase-56.38-recording-action-validation-target-migration.md)
 - [Phase 56.39 - Recording Action Preview Source Group Split](phase-56.39-recording-action-preview-source-group.md)
 - [Phase 56.40 - RESTfulAPI Executor Source Group Split](phase-56.40-restfulapi-executor-source-group.md)
+- [Phase 56.41-56.44 - ACTIONS_SRC Batch Migration](phase-56.41-56.44-actions-src-batch.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
