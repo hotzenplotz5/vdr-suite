@@ -102,7 +102,7 @@ Current architecture validation:
 - [Phase 55.4 - RESTfulAPI SearchTimer Discovery Provider](phase-55.4-searchtimer-discovery-restfulapi-provider.md)
 - [Phase 55.4b - Shared JSON String Decoder](phase-55.4b-shared-json-string-decoder.md)
 - [Phase 55.4c - SearchTimer Discovery Runtime Wiring](phase-55.4c-searchtimer-discovery-runtime-wiring.md)
-- [Phase 55.4d - SearchTimer Discovery Shared Decoder Cleanup](phase-55.4d-shared-json-string-decoder.md)
+- [Phase 55.4d - SearchTimer Discovery Shared Decoder Cleanup](phase-55.4d-searchtimer-discovery-shared-decoder.md)
 - [Phase 55.5m - Documentation Consolidation and Roadmap Alignment](phase-55.5m-documentation-consolidation.md)
 - [Phase 55.5n - Roadmap Historical Coverage Alignment](phase-55.5n-roadmap-historical-coverage.md)
 - [Phase 55.5o - Phase Map and Roadmap Simplification](phase-55.5o-phase-map-and-roadmap-simplification.md)
