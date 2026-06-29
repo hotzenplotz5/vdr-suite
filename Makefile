@@ -68,18 +68,16 @@ vdr-suite-native-fuzzy-operator-refresh-helper:
 
 restfulapi-real-delete-smoke-helper:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC) \
 		core/http/src/BasicHttpClient.cpp \
-		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
 		apps/tools/restfulapi_recording_action_real_delete_smoke.cpp \
 		-o /tmp/restfulapi_recording_action_real_delete_smoke
 	/tmp/restfulapi_recording_action_real_delete_smoke --help
 
 restfulapi-real-move-smoke-helper:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC) \
 		core/http/src/BasicHttpClient.cpp \
-		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
 		apps/tools/restfulapi_recording_action_real_move_smoke.cpp \
 		-o /tmp/restfulapi_recording_action_real_move_smoke
 	/tmp/restfulapi_recording_action_real_move_smoke --help
@@ -442,27 +440,24 @@ test-recording-action-request-preview-service:
 
 test-restfulapi-rename-live-error-contract:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC) \
 		core/http/src/BasicHttpClient.cpp \
-		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
 		core/recordings/tests/test_restfulapi_rename_live_error_contract.cpp \
 		-o /tmp/test_restfulapi_rename_live_error_contract
 	/tmp/test_restfulapi_rename_live_error_contract
 
 test-restfulapi-delete-live-error-contract:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC) \
 		core/http/src/BasicHttpClient.cpp \
-		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
 		core/recordings/tests/test_restfulapi_delete_live_error_contract.cpp \
 		-o /tmp/test_restfulapi_delete_live_error_contract
 	/tmp/test_restfulapi_delete_live_error_contract
 
 test-restfulapi-executor-basic-http-client-socket-smoke:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC) \
 		core/http/src/BasicHttpClient.cpp \
-		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
 		core/recordings/tests/test_restfulapi_executor_basic_http_client_socket_smoke.cpp \
 		-o /tmp/test_restfulapi_executor_basic_http_client_socket_smoke
 	/tmp/test_restfulapi_executor_basic_http_client_socket_smoke
