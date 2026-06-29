@@ -135,6 +135,7 @@ Current architecture validation:
 - [Phase 56.46 - Recording Action REST Controller Source Group Split](phase-56.46-rest-controller-source-group.md)
 - [Phase 56.47 - Recording Action Executor Adapter Source Group Split](phase-56.47-executor-adapter-source-group.md)
 - [Phase 56.48 - VDR Timer Action Parser Source Group Split](phase-56.48-vdr-timer-parser-source-group.md)
+- [Phase 56.49 - Legacy Recording Action Test Source Group Split](phase-56.49-legacy-action-tests-source-group.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
