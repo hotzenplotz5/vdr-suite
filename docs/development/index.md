@@ -126,6 +126,7 @@ Current architecture validation:
 - [Phase 56.35 - Recording Action Core Target Migration](phase-56.35-recording-action-core-target-migration.md)
 - [Phase 56.36 - Remaining ACTIONS_SRC Audit](phase-56.36-remaining-actions-src-audit.md)
 - [Phase 56.37 - Recording Action Policy Target Migration](phase-56.37-recording-action-policy-target-migration.md)
+- [Phase 56.38 - Recording Action Validation Target Migration](phase-56.38-recording-action-validation-target-migration.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
