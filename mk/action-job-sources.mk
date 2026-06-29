@@ -13,6 +13,10 @@ RECORDING_ACTION_VDR_CACHE_SRC := \
 RECORDING_ACTION_PREVIEW_SRC := \
         $(RECORDING_ACTION_CORE_SRC)
 
+RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC := \
+        $(RECORDING_ACTION_CORE_SRC) \
+        core/recordings/src/RestfulApiRecordingActionExecutor.cpp
+
 # Transitional compatibility aggregate for existing tests and smoke helpers.
 ACTIONS_SRC := \
         $(RECORDING_ACTION_CORE_SRC) \

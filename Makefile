@@ -469,36 +469,32 @@ test-restfulapi-executor-basic-http-client-socket-smoke:
 
 test-preview-execution-restfulapi-request-equivalence:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC) \
 		core/http/src/MockHttpClient.cpp \
-		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
 		core/recordings/tests/test_preview_execution_restfulapi_request_equivalence.cpp \
 		-o /tmp/test_preview_execution_restfulapi_request_equivalence
 	/tmp/test_preview_execution_restfulapi_request_equivalence
 
 test-execution-service-restfulapi-executor-integration:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC) \
 		core/http/src/MockHttpClient.cpp \
-		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
 		core/recordings/tests/test_execution_service_restfulapi_executor_integration.cpp \
 		-o /tmp/test_execution_service_restfulapi_executor_integration
 	/tmp/test_execution_service_restfulapi_executor_integration
 
 test-restfulapi-executor-http-result-mapping:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC) \
 		core/http/src/MockHttpClient.cpp \
-		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
 		core/recordings/tests/test_restfulapi_executor_http_result_mapping.cpp \
 		-o /tmp/test_restfulapi_executor_http_result_mapping
 	/tmp/test_restfulapi_executor_http_result_mapping
 
 test-restfulapi-executor-http-transport-contract:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_RESTFULAPI_EXECUTOR_SRC) \
 		core/http/src/MockHttpClient.cpp \
-		core/recordings/src/RestfulApiRecordingActionExecutor.cpp \
 		core/recordings/tests/test_restfulapi_executor_http_transport_contract.cpp \
 		-o /tmp/test_restfulapi_executor_http_transport_contract
 	/tmp/test_restfulapi_executor_http_transport_contract
