@@ -417,7 +417,8 @@ test-recording-action-request-preview-result-json-serializer:
 
 test-recording-action-preview-controller:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_PREVIEW_SRC) \
+		$(RECORDING_ACTION_REST_PARSER_SRC) \
 		core/recordings/src/RecordingActionRequestPreviewResultJsonSerializer.cpp \
 		api/rest/src/RecordingActionPreviewController.cpp \
 		api/rest/tests/test_recording_action_preview_controller.cpp \
@@ -426,7 +427,7 @@ test-recording-action-preview-controller:
 
 test-recording-action-request-preview-service-json-contract:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_PREVIEW_SRC) \
 		core/recordings/src/RecordingActionRequestPreviewResultJsonSerializer.cpp \
 		core/recordings/tests/test_recording_action_request_preview_service_json_contract.cpp \
 		-o /tmp/test_recording_action_request_preview_service_json_contract
@@ -434,7 +435,7 @@ test-recording-action-request-preview-service-json-contract:
 
 test-recording-action-request-preview-service:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_PREVIEW_SRC) \
 		core/recordings/tests/test_recording_action_request_preview_service.cpp \
 		-o /tmp/test_recording_action_request_preview_service
 	/tmp/test_recording_action_request_preview_service

@@ -10,6 +10,9 @@ RECORDING_ACTION_REST_PARSER_SRC := \
 RECORDING_ACTION_VDR_CACHE_SRC := \
         core/vdr/src/SearchTimerPreviewEpgCache.cpp
 
+RECORDING_ACTION_PREVIEW_SRC := \
+        $(RECORDING_ACTION_CORE_SRC)
+
 # Transitional compatibility aggregate for existing tests and smoke helpers.
 ACTIONS_SRC := \
         $(RECORDING_ACTION_CORE_SRC) \
