@@ -534,7 +534,7 @@ test-restfulapi-recording-action-empty-basepath-contract:
 
 test-restfulapi-recording-action-executor-transport-smoke:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/http/src/MockHttpClient.cpp \
 		core/recordings/tests/test_restfulapi_recording_action_executor_transport_smoke.cpp \
 		-o /tmp/test_restfulapi_recording_action_executor_transport_smoke
@@ -542,7 +542,7 @@ test-restfulapi-recording-action-executor-transport-smoke:
 
 test-restfulapi-recording-action-executor-response-contract:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/http/src/MockHttpClient.cpp \
 		core/recordings/tests/test_restfulapi_recording_action_executor_response_contract.cpp \
 		-o /tmp/test_restfulapi_recording_action_executor_response_contract
