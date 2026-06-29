@@ -250,7 +250,7 @@ test-restfulapi-executor-preserves-http-error-status:
 
 test-recording-action-execution-service-capability-safety:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/recordings/tests/test_recording_action_execution_service_capability_safety.cpp \
 		-o /tmp/test_recording_action_execution_service_capability_safety
 	/tmp/test_recording_action_execution_service_capability_safety
@@ -276,7 +276,7 @@ test-recording-action-safety-result-json-serializer:
 
 test-recording-action-execution-service-safety:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/recordings/tests/test_recording_action_execution_service_safety.cpp \
 		-o /tmp/test_recording_action_execution_service_safety
 	/tmp/test_recording_action_execution_service_safety
