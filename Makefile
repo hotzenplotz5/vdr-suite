@@ -589,14 +589,14 @@ test-recording-action-validation-controller:
 
 test-recording-action-validation-service:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/recordings/tests/test_recording_action_validation_service.cpp \
 		-o /tmp/test_recording_action_validation_service
 	/tmp/test_recording_action_validation_service
 
 test-recording-action-validation-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/recordings/tests/test_recording_action_validation_result_json_serializer.cpp \
 		-o /tmp/test_recording_action_validation_result_json_serializer
 	/tmp/test_recording_action_validation_result_json_serializer
