@@ -307,7 +307,7 @@ test-recording-action-execution-controller-policy-execute:
 
 test-recording-action-policy-gated-execute:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/recordings/tests/test_recording_action_policy_gated_execute.cpp \
 		-o /tmp/test_recording_action_policy_gated_execute
 	/tmp/test_recording_action_policy_gated_execute
@@ -341,7 +341,7 @@ test-recording-action-backend-registry-policy-mapping:
 
 test-recording-action-backend-policy-safety-json-contract:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
 		core/recordings/tests/test_recording_action_backend_policy_safety_json_contract.cpp \
 		-o /tmp/test_recording_action_backend_policy_safety_json_contract
@@ -349,7 +349,7 @@ test-recording-action-backend-policy-safety-json-contract:
 
 test-recording-action-backend-policy-safety:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/recordings/tests/test_recording_action_backend_policy_safety.cpp \
 		-o /tmp/test_recording_action_backend_policy_safety
 	/tmp/test_recording_action_backend_policy_safety
@@ -387,7 +387,7 @@ test-recording-action-safety-reason-contract:
 
 test-recording-action-safety-contract:
 	$(CXX) $(CXXFLAGS) \
-		$(ACTIONS_SRC) \
+		$(RECORDING_ACTION_CORE_SRC) \
 		core/recordings/tests/test_recording_action_safety_contract.cpp \
 		-o /tmp/test_recording_action_safety_contract
 	/tmp/test_recording_action_safety_contract
