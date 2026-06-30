@@ -6,6 +6,7 @@
 - [Documentation Index](index.md)
 - [Current State](CURRENT.md)
 - [Roadmap](planning/roadmap.md)
+- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [ADR Index](adr/index.md)
 - [GitHub Actions Status Handoff](development/github-actions-status-handoff.md)
 
@@ -30,9 +31,10 @@ A new chat should start with these files in this order:
 1. [Current State](CURRENT.md)
 2. [Roadmap](planning/roadmap.md)
 3. [Phase Map](planning/phase-map.md)
-4. [ADR Index](adr/index.md)
-5. [Completed Phases](development/completed-phases.md)
-6. [GitHub Actions Status Handoff](development/github-actions-status-handoff.md) when CI state matters
+4. [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+5. [ADR Index](adr/index.md)
+6. [Completed Phases](development/completed-phases.md)
+7. [GitHub Actions Status Handoff](development/github-actions-status-handoff.md) when CI state matters
 
 Detailed phase notes should be opened only when a specific historical detail is needed.
 
@@ -88,6 +90,14 @@ The goal is multi-site backend administration and permissions:
 
 ---
 
+## Phase 58 Direction
+
+Phase 58 should use the parity audit as input for the frontend and Live-parity validation block.
+
+The frontend should first expose existing backend capabilities and reveal real gaps instead of guessing missing features.
+
+---
+
 ## Current Architecture Boundary
 
 Current simplified architecture chain:
@@ -118,6 +128,8 @@ Use [Current State](CURRENT.md) for current truth.
 Use [Roadmap](planning/roadmap.md) for planned direction.
 
 Use [Phase Map](planning/phase-map.md) for compact phase-range coverage.
+
+Use [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md) for RESTfulAPI, Live, epgsearch and VDR-Core parity questions.
 
 Use [Completed Phases](development/completed-phases.md) for milestone history.
 
@@ -162,7 +174,9 @@ tools/watch_github_ci.py --watch --interval 60 --url --chat
 
 DOC-RESET-1 created the current-state entry point.
 
-DOC-RESET-2 aligns roadmap, ADR index and completed-phase markers.
+DOC-RESET-2 aligned roadmap, ADR index, completed-phase markers and new-chat handoff links.
+
+The parity audit captures the product gap view before DOC-RESET-3.
 
 DOC-RESET-3 should add stronger documentation tooling checks for:
 
