@@ -1768,6 +1768,9 @@ test-docs:
 	python3 tools/check_docs.py
 	python3 tools/check_doc_indexes.py
 	python3 tools/check_doc_reachability.py
+	python3 tools/check_doc_entrypoints.py
+	python3 tools/check_adr_index.py
+	python3 tools/check_completed_phase_markers.py
 
 .PHONY: test-architecture
 test-architecture:
