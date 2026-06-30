@@ -7,9 +7,9 @@ DOCDIR ?= $(PREFIX)/share/doc/vdr-suite
 MANDIR ?= $(PREFIX)/share/man
 INSTALL ?= install
 
-.PHONY: install install-runtime install-cli install-docs test-install-staging
+.PHONY: install install-runtime install-cli install-docs install-manpages test-install-staging
 
-install: install-runtime install-cli install-docs
+install: install-runtime install-cli install-docs install-manpages
 
 install-runtime: daemon
 	$(INSTALL) -d $(DESTDIR)$(SBINDIR)
@@ -25,6 +25,14 @@ install-docs:
 	$(INSTALL) -m 0644 README.md $(DESTDIR)$(DOCDIR)/README.md
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)
 
+install-manpages:
+	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man8
+	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-daemon.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-daemon.8
+	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man5
+	$(INSTALL) -m 0644 docs/man/man5/vdr-suite.conf.5 $(DESTDIR)$(MANDIR)/man5/vdr-suite.conf.5
+	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man1
+	$(INSTALL) -m 0644 docs/man/man1/vdr-suite-dashboard.1 $(DESTDIR)$(MANDIR)/man1/vdr-suite-dashboard.1
+
 test-install-staging:
 	rm -rf /tmp/vdr-suite-pkgroot
 	$(MAKE) install DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr
@@ -33,3 +41,6 @@ test-install-staging:
 	test -d /tmp/vdr-suite-pkgroot/etc/vdr-suite
 	test -f /tmp/vdr-suite-pkgroot/usr/share/doc/vdr-suite/README.md
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite
+	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-daemon.8
+	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man5/vdr-suite.conf.5
+	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-dashboard.1
