@@ -211,14 +211,19 @@ When work was done directly through GitHub, run `git pull` locally before compil
 Before planning or completing work in a new chat, read these documents first:
 
 ```text
-docs/planning/phase-map.md
-docs/development/current-status.md
+docs/NEW-CHAT-HANDOFF.md
+docs/CURRENT.md
 docs/planning/roadmap.md
+docs/planning/phase-map.md
+docs/adr/index.md
+docs/development/github-actions-status-handoff.md when CI state matters
 docs/development/completed-phases.md only when detailed phase history is needed
 ```
 
 Documentation responsibility:
 
+- `docs/NEW-CHAT-HANDOFF.md` is the compact handoff for new chats.
+- `docs/CURRENT.md` is the primary human current-state entry point.
 - `docs/planning/phase-map.md` is the compact source of truth for phase-range coverage.
 - `docs/planning/roadmap.md` describes direction and must not duplicate the full completed phase history.
 - `docs/development/current-status.md`, `README.md`, `docs/project-status-dashboard.md`, `docs/development/index.md` and `docs/development/completed-phases.md` must stay phase-marker consistent.

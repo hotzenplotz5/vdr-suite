@@ -7,12 +7,17 @@
 - [Current State](CURRENT.md)
 - [Roadmap](planning/roadmap.md)
 - [ADR Index](adr/index.md)
+- [GitHub Actions Status Handoff](development/github-actions-status-handoff.md)
 
 ---
 
 ## Purpose
 
-This file is the short handoff that a new chat should read first.
+This file is the short project handoff that a new chat should read first.
+
+It does not replace the existing specialized CI handoff.
+
+When GitHub Actions status matters, use [GitHub Actions Status Handoff](development/github-actions-status-handoff.md).
 
 It is intentionally compact and points to the current source documents instead of repeating the whole phase history.
 
@@ -27,6 +32,7 @@ A new chat should start with these files in this order:
 3. [Phase Map](planning/phase-map.md)
 4. [ADR Index](adr/index.md)
 5. [Completed Phases](development/completed-phases.md)
+6. [GitHub Actions Status Handoff](development/github-actions-status-handoff.md) when CI state matters
 
 Detailed phase notes should be opened only when a specific historical detail is needed.
 
@@ -143,6 +149,12 @@ make test-phase-map-coverage
 For runtime-sensitive changes, also run the applicable runtime, daemon and real VDR acceptance checks.
 
 GitHub Actions must be green before a pushed phase or reset block is considered complete.
+
+CI status command:
+
+```bash
+tools/watch_github_ci.py --watch --interval 60 --url --chat
+```
 
 ---
 

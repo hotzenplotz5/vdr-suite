@@ -4,6 +4,7 @@
 
 - [README](../../README.md)
 - [Documentation Index](../index.md)
+- [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Development Index](index.md)
 - [Current Project Status](current-status.md)
 
@@ -14,6 +15,8 @@
 This handoff records the preferred command-line tool for GitHub Actions status checks.
 
 New chats should use this check when GitHub Actions status matters.
+
+For general project orientation, start with [New Chat Handoff](../NEW-CHAT-HANDOFF.md).
 
 ---
 
@@ -37,6 +40,7 @@ Use this tool when waiting for GitHub Actions to become green or red.
 
 ## Back
 
+- [Back to New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Back to Development Index](index.md)
 - [Back to Documentation Index](../index.md)
 - [Back to README](../../README.md)
