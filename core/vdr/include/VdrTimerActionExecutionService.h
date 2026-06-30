@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BackendAccessPolicy.h"
+#include "BackendRegistryService.h"
 #include "IVdrTimerActionExecutor.h"
 #include "VdrTimerActionExecutorAdapterRegistry.h"
 #include "VdrTimerActionResult.h"
@@ -17,4 +19,11 @@ public:
         VdrTimerActionType type,
         const VdrTimerOperationRequest& request,
         const VdrTimerActionExecutorAdapterRegistry& registry) const;
+
+    VdrTimerActionResult execute(
+        VdrTimerActionType type,
+        const VdrTimerOperationRequest& request,
+        const VdrTimerActionExecutorAdapterRegistry& registry,
+        const BackendRegistryService& backendRegistryService,
+        const BackendAccessPolicy& accessPolicy) const;
 };
