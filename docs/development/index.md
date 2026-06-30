@@ -139,6 +139,7 @@ Current architecture validation:
 - [Phase 56.50 - Remove Transitional ACTIONS_SRC Aggregate](phase-56.50-remove-actions-src-aggregate.md)
 - [Phase 56.51 - Install Layout Contract](phase-56.51-install-layout-contract.md)
 - [Phase 56.52 - make install Staging Target](phase-56.52-make-install-staging-target.md)
+- [Phase 56.53 - Manpage Skeletons](phase-56.53-manpage-skeletons.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
