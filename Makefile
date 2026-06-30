@@ -190,6 +190,9 @@ test-vdr-timer-action-request-parser:
 
 test-vdr-timer-action-controller:
 	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/MockVdrTimerActionExecutor.cpp \
 		core/vdr/src/VdrTimerActionService.cpp \
 		core/vdr/src/VdrTimerActionExecutionService.cpp \
@@ -1107,6 +1110,9 @@ test-search-timer-workflow-production-policy-gate:
 
 test-search-timer-workflow-backend-write-permission-gate:
 	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWritePermissionGate.cpp \

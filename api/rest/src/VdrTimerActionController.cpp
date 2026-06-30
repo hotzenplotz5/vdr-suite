@@ -1,5 +1,7 @@
 #include "VdrTimerActionController.h"
 
+#include "BackendAccessPolicy.h"
+#include "BackendRegistryService.h"
 #include "IVdrTimerActionExecutor.h"
 #include "VdrTimerActionRequestParser.h"
 #include "VdrTimerActionResultJsonSerializer.h"
@@ -11,7 +13,9 @@ VdrTimerActionController::VdrTimerActionController(
     : actionService_(&actionService),
       executionService_(nullptr),
       jsonSerializer_(jsonSerializer),
-      requestParser_(nullptr)
+      requestParser_(nullptr),
+      backendRegistryService_(nullptr),
+      backendAccessPolicy_(nullptr)
 {
 }
 
@@ -22,7 +26,9 @@ VdrTimerActionController::VdrTimerActionController(
     : actionService_(&actionService),
       executionService_(nullptr),
       jsonSerializer_(jsonSerializer),
-      requestParser_(&requestParser)
+      requestParser_(&requestParser),
+      backendRegistryService_(nullptr),
+      backendAccessPolicy_(nullptr)
 {
 }
 
@@ -33,7 +39,24 @@ VdrTimerActionController::VdrTimerActionController(
     : actionService_(nullptr),
       executionService_(&executionService),
       jsonSerializer_(jsonSerializer),
-      requestParser_(&requestParser)
+      requestParser_(&requestParser),
+      backendRegistryService_(nullptr),
+      backendAccessPolicy_(nullptr)
+{
+}
+
+VdrTimerActionController::VdrTimerActionController(
+    VdrTimerActionExecutionService& executionService,
+    VdrTimerActionResultJsonSerializer& jsonSerializer,
+    VdrTimerActionRequestParser& requestParser,
+    const BackendRegistryService& backendRegistryService,
+    const BackendAccessPolicy& backendAccessPolicy)
+    : actionService_(nullptr),
+      executionService_(&executionService),
+      jsonSerializer_(jsonSerializer),
+      requestParser_(&requestParser),
+      backendRegistryService_(&backendRegistryService),
+      backendAccessPolicy_(&backendAccessPolicy)
 {
 }
 
@@ -154,6 +177,12 @@ ApiResponse VdrTimerActionController::removeBody(
         registry);
 }
 
+bool VdrTimerActionController::hasBackendAccessPolicy() const
+{
+    return backendRegistryService_ != nullptr &&
+        backendAccessPolicy_ != nullptr;
+}
+
 ApiResponse VdrTimerActionController::execute(
     VdrTimerActionType type,
     const VdrTimerOperationRequest& request,
@@ -227,6 +256,24 @@ ApiResponse VdrTimerActionController::execute(
     {
         response.statusCode = 500;
         response.body = "{\"error\":\"vdr timer action execution service unavailable\"}";
+        return response;
+    }
+
+    if (hasBackendAccessPolicy())
+    {
+        const BackendAccessDecision accessDecision =
+            backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_,
+                request.backendId);
+
+        response.body =
+            jsonSerializer_.serialize(
+                executionService_->execute(
+                    type,
+                    request,
+                    registry,
+                    accessDecision));
+
         return response;
     }
 

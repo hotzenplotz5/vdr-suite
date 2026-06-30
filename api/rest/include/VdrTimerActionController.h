@@ -8,6 +8,8 @@
 
 #include <string>
 
+class BackendAccessPolicy;
+class BackendRegistryService;
 class IVdrTimerActionExecutor;
 class VdrTimerActionRequestParser;
 class VdrTimerActionResultJsonSerializer;
@@ -29,6 +31,13 @@ public:
         VdrTimerActionExecutionService& executionService,
         VdrTimerActionResultJsonSerializer& jsonSerializer,
         VdrTimerActionRequestParser& requestParser);
+
+    VdrTimerActionController(
+        VdrTimerActionExecutionService& executionService,
+        VdrTimerActionResultJsonSerializer& jsonSerializer,
+        VdrTimerActionRequestParser& requestParser,
+        const BackendRegistryService& backendRegistryService,
+        const BackendAccessPolicy& backendAccessPolicy);
 
     ApiResponse create(
         const VdrTimerOperationRequest& request,
@@ -67,6 +76,8 @@ public:
         const VdrTimerActionExecutorAdapterRegistry& registry);
 
 private:
+    bool hasBackendAccessPolicy() const;
+
     ApiResponse execute(
         VdrTimerActionType type,
         const VdrTimerOperationRequest& request,
@@ -83,4 +94,6 @@ private:
     VdrTimerActionExecutionService* executionService_;
     VdrTimerActionResultJsonSerializer& jsonSerializer_;
     VdrTimerActionRequestParser* requestParser_;
+    const BackendRegistryService* backendRegistryService_;
+    const BackendAccessPolicy* backendAccessPolicy_;
 };

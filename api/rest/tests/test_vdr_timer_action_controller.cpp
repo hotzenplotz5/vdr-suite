@@ -1,5 +1,8 @@
 #include "VdrTimerActionController.h"
 
+#include "BackendAccessPolicy.h"
+#include "BackendRegistry.h"
+#include "BackendRegistryService.h"
 #include "MockVdrTimerActionExecutor.h"
 #include "VdrTimerActionExecutionService.h"
 #include "VdrTimerActionExecutorAdapterRegistry.h"
@@ -28,6 +31,11 @@ public:
     IVdrTimerActionExecutor& executor() override
     {
         return executor_;
+    }
+
+    int callCount() const
+    {
+        return executor_.callCount();
     }
 
 private:
@@ -62,6 +70,20 @@ static VdrTimerActionExecutorAdapterRegistry makeRegistry()
             "living-room"));
 
     return registry;
+}
+
+static BackendNode makeBackendNode(
+    const std::string& backendId,
+    const std::string& accessMode)
+{
+    BackendNode backend;
+    backend.backendId = backendId;
+    backend.backendName = backendId;
+    backend.backendType = "restfulapi";
+    backend.accessMode = accessMode;
+    backend.enabled = true;
+    backend.online = true;
+    return backend;
 }
 
 static void test_create_request_returns_json_response()
@@ -268,6 +290,95 @@ static void test_remove_body_uses_registry()
     assert(response.body.find("\"type\":\"delete\"") != std::string::npos);
 }
 
+static void test_registry_body_allows_read_write_backend_with_policy()
+{
+    VdrTimerActionExecutionService executionService;
+    VdrTimerActionResultJsonSerializer serializer;
+    VdrTimerActionRequestParser parser;
+
+    BackendRegistry backendRegistry;
+    backendRegistry.addBackend(
+        makeBackendNode(
+            "living-room",
+            "read-write"));
+
+    BackendRegistryService backendRegistryService(backendRegistry);
+    BackendAccessPolicy backendAccessPolicy;
+
+    VdrTimerActionController controller(
+        executionService,
+        serializer,
+        parser,
+        backendRegistryService,
+        backendAccessPolicy);
+
+    VdrTimerActionExecutorAdapterRegistry executorRegistry;
+    auto adapter =
+        std::make_shared<TestTimerActionExecutorAdapter>(
+            "living-room");
+
+    executorRegistry.registerAdapter(adapter);
+
+    const ApiResponse response =
+        controller.createBody(
+            "{"
+            "\"backendId\":\"living-room\","
+            "\"timerId\":\"42\""
+            "}",
+            executorRegistry);
+
+    assert(response.statusCode == 200);
+    assert(response.contentType == "application/json");
+    assert(response.body.find("\"success\":true") != std::string::npos);
+    assert(response.body.find("\"type\":\"create\"") != std::string::npos);
+    assert(adapter->callCount() == 1);
+}
+
+static void test_registry_body_blocks_read_only_backend_with_policy()
+{
+    VdrTimerActionExecutionService executionService;
+    VdrTimerActionResultJsonSerializer serializer;
+    VdrTimerActionRequestParser parser;
+
+    BackendRegistry backendRegistry;
+    backendRegistry.addBackend(
+        makeBackendNode(
+            "living-room",
+            "read-only"));
+
+    BackendRegistryService backendRegistryService(backendRegistry);
+    BackendAccessPolicy backendAccessPolicy;
+
+    VdrTimerActionController controller(
+        executionService,
+        serializer,
+        parser,
+        backendRegistryService,
+        backendAccessPolicy);
+
+    VdrTimerActionExecutorAdapterRegistry executorRegistry;
+    auto adapter =
+        std::make_shared<TestTimerActionExecutorAdapter>(
+            "living-room");
+
+    executorRegistry.registerAdapter(adapter);
+
+    const ApiResponse response =
+        controller.updateBody(
+            "{"
+            "\"backendId\":\"living-room\","
+            "\"timerId\":\"42\""
+            "}",
+            executorRegistry);
+
+    assert(response.statusCode == 200);
+    assert(response.contentType == "application/json");
+    assert(response.body.find("\"success\":false") != std::string::npos);
+    assert(response.body.find("\"type\":\"update\"") != std::string::npos);
+    assert(response.body.find("backend is read-only") != std::string::npos);
+    assert(adapter->callCount() == 0);
+}
+
 static void test_missing_registry_adapter_returns_json_failure()
 {
     VdrTimerActionExecutionService executionService;
@@ -305,6 +416,8 @@ int main()
     test_create_body_uses_registry();
     test_update_body_uses_registry();
     test_remove_body_uses_registry();
+    test_registry_body_allows_read_write_backend_with_policy();
+    test_registry_body_blocks_read_only_backend_with_policy();
     test_missing_registry_adapter_returns_json_failure();
 
     return 0;
