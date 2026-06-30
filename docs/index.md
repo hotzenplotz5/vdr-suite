@@ -41,6 +41,7 @@ Most `docs/development/phase-*` files are historical records, not the best start
 - [Current Project Status](development/current-status.md)
 - [Project Status Dashboard](project-status-dashboard.md)
 - [Roadmap](planning/roadmap.md)
+- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Build System State](development/build-system-state.md)
 - [Current Architecture State](development/current-architecture-state.md)
 
@@ -69,6 +70,7 @@ Most `docs/development/phase-*` files are historical records, not the best start
 
 - [Planning Documentation](planning/index.md)
 - [Planning Milestones](planning/milestones.md)
+- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Lazy Recording Loading](planning/lazy-recording-loading.md)
 
 ---
