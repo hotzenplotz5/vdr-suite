@@ -9,13 +9,15 @@
 
 static BackendNode makeBackend(
     const std::string& id,
-    const std::string& name)
+    const std::string& name,
+    const std::string& accessMode = "read-write")
 {
     BackendNode backend;
 
     backend.backendId = id;
     backend.backendName = name;
     backend.backendType = "vdr";
+    backend.accessMode = accessMode;
     backend.enabled = true;
 
     return backend;
@@ -55,7 +57,8 @@ int main()
     registry.addBackend(
         makeBackend(
             "ferienhaus",
-            "Ferienhaus VDR"));
+            "Ferienhaus VDR",
+            "read-only"));
 
     BackendRegistryService service(registry);
     BackendRegistryJsonSerializer serializer;
@@ -80,6 +83,21 @@ int main()
             "\"backendId\":\"ferienhaus\"")
         != std::string::npos);
 
+    assert(
+        listResponse.body.find(
+            "\"accessMode\":\"read-write\"")
+        != std::string::npos);
+
+    assert(
+        listResponse.body.find(
+            "\"accessMode\":\"read-only\"")
+        != std::string::npos);
+
+    assert(
+        listResponse.body.find(
+            "\"readOnly\":true")
+        != std::string::npos);
+
     ApiResponse defaultResponse =
         controller.getDefaultBackend();
 
@@ -88,6 +106,11 @@ int main()
     assert(
         defaultResponse.body.find(
             "\"backendId\":\"default\"")
+        != std::string::npos);
+
+    assert(
+        defaultResponse.body.find(
+            "\"readOnly\":false")
         != std::string::npos);
 
     return 0;
