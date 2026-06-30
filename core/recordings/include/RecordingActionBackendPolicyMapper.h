@@ -14,7 +14,7 @@ public:
         policy.backendId = backend.backendId;
         policy.backendAvailable = backend.enabled && backend.online;
 
-        if (backend.backendType == "restfulapi-readonly")
+        if (backend.readOnly() || backend.backendType == "restfulapi-readonly")
         {
             policy.readOnly = true;
             policy.executionAllowed = false;

@@ -27,6 +27,27 @@ int main()
 
     {
         BackendNode backend;
+        backend.backendId = "remote-house-access-mode";
+        backend.backendType = "restfulapi";
+        backend.accessMode = "read-only";
+        backend.enabled = true;
+        backend.online = true;
+
+        const RecordingActionBackendPolicy policy =
+            mapper.fromBackendNode(backend);
+
+        assert(policy.backendId == "remote-house-access-mode");
+        assert(policy.backendAvailable);
+        assert(policy.readOnly);
+        assert(!policy.executionAllowed);
+        assert(policy.capabilities.contains("recording.action.move"));
+        assert(policy.permissions.contains("recording.permission.view"));
+        assert(!policy.permissions.contains("recording.permission.move"));
+        assert(!policy.permissions.contains("recording.permission.delete"));
+    }
+
+    {
+        BackendNode backend;
         backend.backendId = "remote-house";
         backend.backendType = "restfulapi-readonly";
         backend.enabled = true;
