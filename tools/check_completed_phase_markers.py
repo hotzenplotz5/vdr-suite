@@ -5,7 +5,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 LATEST = "Phase 56 - Library Boundary, Packaging and Developer Documentation"
 NEXT = "Phase 57 - Multi-Site Backend Administration and Permissions"
-PHASE_58 = "Phase 58 - Frontend and Live Parity"
+PHASE_58 = "Phase 58"
 PARITY_DOC = "parity-audit-and-frontend-gap-roadmap.md"
 
 REQUIRED_LATEST = [
@@ -57,7 +57,7 @@ def main():
         require_marker(errors, rel, NEXT, "next implementation marker")
 
     for rel in REQUIRED_PHASE58:
-        require_marker(errors, rel, PHASE_58, "Phase 58 planned marker")
+        require_marker(errors, rel, PHASE_58, "Phase 58 planning marker")
 
     parity_path = ROOT / "docs" / "planning" / "parity-audit-and-frontend-gap-roadmap.md"
     if not parity_path.exists():
@@ -80,7 +80,7 @@ def main():
     print("Completed phase marker check passed.")
     print("Latest completed phase: " + LATEST)
     print("Next implementation focus: " + NEXT)
-    print("Planned frontend block: " + PHASE_58)
+    print("Planned frontend block marker: " + PHASE_58)
     return 0
 
 
