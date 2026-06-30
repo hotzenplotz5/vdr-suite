@@ -1,138 +1,82 @@
 # VDR-Suite Documentation
 
-## Navigation
+## Start Here
 
-- [README](../README.md)
+Primary current-state entry point:
+
+- [Current State](CURRENT.md)
+
+Project overview:
+
 - [Project Overview](project-overview.md)
 - [Projektübersicht Deutsch](project-overview.de.md)
 - [Project Overview English](project-overview.en.md)
 
 ---
 
-## Purpose
+## Current State vs. History
 
-Main entry point for all VDR-Suite documentation.
+Use [Current State](CURRENT.md) to answer:
 
----
+```text
+What is true now?
+```
 
-## Start Here
+Use historical phase files only when you need implementation traceability.
 
-1. [Project Overview](project-overview.md)
-2. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
-3. [Current Project Status](development/current-status.md)
-4. [Roadmap](planning/roadmap.md)
-5. [Lazy Recording Loading](planning/lazy-recording-loading.md)
+Most `docs/development/phase-*` files are historical records, not the best starting point for current project status.
 
 ---
 
-## Current Project State
+## Current Project Links
 
-Current Major Phase:
-
-- Phase 54.3 - SearchTimer warm EPG cache implementation
-
-Required Planned Follow-Up:
-
-- Lazy Recording Loading and Backend-Scoped Recording Refresh
-
----
-
-## Documentation Areas
-
-### Project
-
-- [Project Overview](project-overview.md)
-- [VDR-Suite Vision](introduction/vdr-suite-vision.md)
-
-### Planning
-
-- [Planning Documentation](planning/index.md)
+- [Current Project Status](development/current-status.md)
+- [Project Status Dashboard](project-status-dashboard.md)
 - [Roadmap](planning/roadmap.md)
-- [Lazy Recording Loading](planning/lazy-recording-loading.md)
-- [Milestones](planning/milestones.md)
+- [Build System State](development/build-system-state.md)
+- [Current Architecture State](development/current-architecture-state.md)
 
-### Development
+---
+
+## Development and Architecture
 
 - [Development Documentation](development/index.md)
-- [Current Project Status](development/current-status.md)
-- [Current Architecture State](development/current-architecture-state.md)
-- [Completed Phases](development/completed-phases.md)
-- [Current Technical Debt](development/current-technical-debt.md)
-- [Build System State](development/build-system-state.md)
-
-### Architecture
-
+- [Developer Onboarding](development/developer-onboarding.md)
+- [Architecture Map](development/architecture-map.md)
 - [Architecture Documentation](architecture/index.md)
-- [Snapshot Architecture](architecture/snapshot-architecture.md)
-- [Snapshot Access Architecture](architecture/snapshot-access-architecture.md)
-- [Snapshot Change Feed Architecture](architecture/snapshot-change-feed-architecture.md)
-- [VDR Backends](architecture/vdr-backends.md)
-- [RESTfulAPI Integration](architecture/restfulapi-integration.md)
-- [REST API Runtime](architecture/rest-api-runtime.md)
-
-### ADRs
-
 - [Architecture Decision Records](adr/index.md)
 
-### Build and Runtime Basics
+---
+
+## Phase 56 Packaging Boundary
+
+- [Phase 56 Completion Audit](development/phase-56.57-completion-audit.md)
+- [Install Manifest / Package File Contract](development/phase-56.55-install-manifest-package-file-contract.md)
+- [Package Prerequisite Audit](development/phase-56.56-package-prerequisite-audit.md)
+- [ADR-0037: Packaging, Install Layout and API Boundary](adr/ADR-0037-packaging-install-api-boundary.md)
+
+---
+
+## Planning
+
+- [Planning Documentation](planning/index.md)
+- [Planning Milestones](planning/milestones.md)
+- [Lazy Recording Loading](planning/lazy-recording-loading.md)
+
+---
+
+## Supporting Documents
 
 - [Build Requirements](build-requirements.md)
 - [Dependencies](dependencies.md)
 - [Database Design](database-design.md)
-
----
-
-## Documentation Rules
-
-Every documentation page should provide navigation back to:
-
-- [README](../README.md)
-- [Documentation Index](index.md)
-- [Project Overview](project-overview.md)
-- the local section index when applicable
-
----
-
-## Suggested Reading Order
-
-New contributors:
-
-1. [Project Overview](project-overview.md)
-2. [VDR-Suite Vision](introduction/vdr-suite-vision.md)
-3. [Current Project Status](development/current-status.md)
-4. [Roadmap](planning/roadmap.md)
-5. [Lazy Recording Loading](planning/lazy-recording-loading.md)
-
-Developers:
-
-1. [Current Project Status](development/current-status.md)
-2. [Architecture Documentation](architecture/index.md)
-3. [Architecture Decision Records](adr/index.md)
-4. [Roadmap](planning/roadmap.md)
-5. [Lazy Recording Loading](planning/lazy-recording-loading.md)
-
-Architects:
-
-1. [Project Overview](project-overview.md)
-2. [Architecture Documentation](architecture/index.md)
-3. [Architecture Decision Records](adr/index.md)
-4. [Roadmap](planning/roadmap.md)
-5. [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](adr/ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
-
-## Additional Project Documents
-
-- [VDR-Suite Project Status Dashboard](project-status-dashboard.md)
-- [VDR-Suite Glossar](project-glossary.md)
-- [VDR-Suite Projektprinzipien](project-principles.md)
+- [Project Glossary](project-glossary.md)
+- [Project Principles](project-principles.md)
 - [Community Documentation](community/index.md)
 - [Introduction](introduction/index.md)
-- [Phase 0 Documentation](phase-0/index.md)
-- [VDR-Suite Forward Roadmap](roadmap/README.md)
 
 ---
 
 ## Back
 
-- [Back to Documentation Index](index.md)
-- [Back to Project Overview](project-overview.md)
 - [Back to README](../README.md)
