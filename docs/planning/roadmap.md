@@ -9,6 +9,7 @@
 - [Planning Index](index.md)
 - [Phase Map](phase-map.md)
 - [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md)
+- [Phase 57 Local Server Permission Model](phase-57-local-server-permission-model.md)
 - [Current Project Status](../development/current-status.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
 - [Completed Phases](../development/completed-phases.md)
@@ -39,6 +40,8 @@ The primary human entry point for the current repository state is [Current State
 Detailed chronological implementation history belongs to [Completed Phases](../development/completed-phases.md).
 
 Product parity and frontend gap planning belongs to [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md).
+
+The first local/private server permission boundary for Phase 57 belongs to [Phase 57 Local Server Permission Model](phase-57-local-server-permission-model.md).
 
 ---
 
@@ -99,6 +102,9 @@ Status: Next.
 Goal:
 - Support multi-site operation with backend-specific permissions and read-only secondary-site mode.
 
+Planning input:
+- [Phase 57 Local Server Permission Model](phase-57-local-server-permission-model.md)
+
 Planned outcomes:
 - Model multiple VDR backend sites explicitly.
 - Add backend administration surfaces without bypassing the existing adapter boundary.
@@ -145,6 +151,7 @@ Goal:
 - [Current State](../CURRENT.md) is the first human entry point for current repository truth.
 - [Phase Map](phase-map.md) is the compact source of truth for phase-range coverage.
 - [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md) records feature parity and frontend gap planning.
+- [Phase 57 Local Server Permission Model](phase-57-local-server-permission-model.md) fixes the local/private server permission boundary before Phase 57.1 code changes.
 - This roadmap describes direction and should not duplicate the detailed completed phase log.
 - Detailed chronological implementation history belongs in [Completed Phases](../development/completed-phases.md).
 - Project status snapshots belong in [Current Project Status](../development/current-status.md) and [Project Status Dashboard](../project-status-dashboard.md).
