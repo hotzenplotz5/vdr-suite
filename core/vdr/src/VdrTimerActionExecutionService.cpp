@@ -32,3 +32,31 @@ VdrTimerActionResult VdrTimerActionExecutionService::execute(
         type,
         request);
 }
+
+VdrTimerActionResult VdrTimerActionExecutionService::execute(
+    VdrTimerActionType type,
+    const VdrTimerOperationRequest& request,
+    const VdrTimerActionExecutorAdapterRegistry& registry,
+    const BackendRegistryService& backendRegistryService,
+    const BackendAccessPolicy& accessPolicy) const
+{
+    const BackendAccessDecision decision =
+        accessPolicy.canWriteToBackend(
+            backendRegistryService,
+            request.backendId);
+
+    if (!decision.allowed)
+    {
+        return VdrTimerActionResult::failed(
+            type,
+            request.timerId,
+            request.backendId,
+            decision.reason,
+            decision.errors);
+    }
+
+    return execute(
+        type,
+        request,
+        registry);
+}
