@@ -142,6 +142,7 @@ Current architecture validation:
 - [Phase 56.53 - Manpage Skeletons](phase-56.53-manpage-skeletons.md)
 - [Phase 56.54 - Manpage Install Target](phase-56.54-manpage-install-target.md)
 - [Phase 56.55 - Install Manifest / Package File Contract](phase-56.55-install-manifest-package-file-contract.md)
+- [Phase 56.56 - Package Prerequisite Audit](phase-56.56-package-prerequisite-audit.md)
 - [SearchTimer Automation Foundation Planning](searchtimer-automation-foundation-planning.md)
 - [SearchTimer Automation Evaluation Plan Model](searchtimer-automation-evaluation-plan-model.md)
 - [SearchTimer Automation Match Candidate Model](searchtimer-automation-match-candidate-model.md)
