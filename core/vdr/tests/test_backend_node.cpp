@@ -10,6 +10,9 @@ int main()
     assert(node.backendId == "default");
     assert(node.backendName == "Default VDR");
     assert(node.backendType == "vdr");
+    assert(node.accessMode == "read-write");
+    assert(!node.readOnly());
+    assert(node.writeAllowed());
     assert(node.enabled);
     assert(!node.online);
 
@@ -25,6 +28,11 @@ int main()
     assert(!node.capabilities.timersRead);
     assert(!node.capabilities.channelsRead);
     assert(!node.capabilities.eventsRead);
+
+    node.accessMode = "read-only";
+
+    assert(node.readOnly());
+    assert(!node.writeAllowed());
 
     std::cout
         << "test_backend_node passed"
