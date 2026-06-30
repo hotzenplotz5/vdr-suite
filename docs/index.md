@@ -4,15 +4,17 @@
 
 - [README](../README.md)
 - [Current State](CURRENT.md)
+- [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Project Overview](project-overview.md)
 
 ---
 
 ## Start Here
 
-Primary current-state entry point:
+Primary current-state entry points:
 
 - [Current State](CURRENT.md)
+- [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 
 Project overview:
 
@@ -24,11 +26,9 @@ Project overview:
 
 ## Current State vs. History
 
-Use [Current State](CURRENT.md) to answer:
+Use [Current State](CURRENT.md) to answer what is true now.
 
-```text
-What is true now?
-```
+Use [New Chat Handoff](NEW-CHAT-HANDOFF.md) when starting a new session.
 
 Use historical phase files only when you need implementation traceability.
 
