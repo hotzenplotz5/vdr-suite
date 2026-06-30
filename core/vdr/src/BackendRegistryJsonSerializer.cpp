@@ -18,6 +18,8 @@ std::string BackendRegistryJsonSerializer::serializeBackend(
         << "\"backendId\":\"" << backend.backendId << "\","
         << "\"backendName\":\"" << backend.backendName << "\","
         << "\"backendType\":\"" << backend.backendType << "\","
+        << "\"accessMode\":\"" << backend.accessMode << "\","
+        << "\"readOnly\":" << backendBoolToJson(backend.readOnly()) << ","
         << "\"enabled\":" << backendBoolToJson(backend.enabled) << ","
         << "\"online\":" << backendBoolToJson(backend.online)
         << "}";
