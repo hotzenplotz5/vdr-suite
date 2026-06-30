@@ -1,8 +1,6 @@
 #include "VdrTimerActionExecutionService.h"
 
 #include "BackendAccessPolicy.h"
-#include "BackendRegistry.h"
-#include "BackendRegistryService.h"
 #include "MockVdrTimerActionExecutor.h"
 
 #include <cassert>
@@ -46,15 +44,28 @@ static VdrTimerOperationRequest makeRequest()
     return request;
 }
 
-static BackendNode makeBackend(
-    const std::string& backendId,
-    const std::string& accessMode)
+static BackendAccessDecision allowedAccessDecision()
 {
-    BackendNode backend;
-    backend.backendId = backendId;
-    backend.backendName = backendId;
-    backend.accessMode = accessMode;
-    return backend;
+    BackendAccessDecision decision;
+    decision.allowed = true;
+    decision.backendFound = true;
+    decision.backendId = "living-room";
+    decision.accessMode = "read-write";
+    decision.reason = "backend write access allowed";
+    return decision;
+}
+
+static BackendAccessDecision deniedAccessDecision()
+{
+    BackendAccessDecision decision;
+    decision.allowed = false;
+    decision.backendFound = true;
+    decision.readOnly = true;
+    decision.backendId = "living-room";
+    decision.accessMode = "read-only";
+    decision.reason = "backend is read-only";
+    decision.errors.push_back("backend is read-only");
+    return decision;
 }
 
 static void test_execute_direct_executor()
@@ -116,7 +127,7 @@ static void test_missing_registry_adapter_returns_failure()
     assert(result.errors.at(0) == "timer action executor adapter not found");
 }
 
-static void test_gated_execute_allows_read_write_backend()
+static void test_gated_execute_allows_write_decision()
 {
     VdrTimerActionExecutionService service;
     VdrTimerActionExecutorAdapterRegistry executorRegistry;
@@ -127,18 +138,12 @@ static void test_gated_execute_allows_read_write_backend()
 
     executorRegistry.registerAdapter(adapter);
 
-    BackendRegistry backendRegistry;
-    backendRegistry.addBackend(makeBackend("living-room", "read-write"));
-    BackendRegistryService backendRegistryService(backendRegistry);
-    BackendAccessPolicy accessPolicy;
-
     const VdrTimerActionResult result =
         service.execute(
             VdrTimerActionType::Create,
             makeRequest(),
             executorRegistry,
-            backendRegistryService,
-            accessPolicy);
+            allowedAccessDecision());
 
     assert(result.success == true);
     assert(result.type == VdrTimerActionType::Create);
@@ -146,7 +151,7 @@ static void test_gated_execute_allows_read_write_backend()
     assert(adapter->callCount() == 1);
 }
 
-static void test_gated_execute_denies_read_only_backend()
+static void test_gated_execute_denies_read_only_decision()
 {
     VdrTimerActionExecutionService service;
     VdrTimerActionExecutorAdapterRegistry executorRegistry;
@@ -157,18 +162,12 @@ static void test_gated_execute_denies_read_only_backend()
 
     executorRegistry.registerAdapter(adapter);
 
-    BackendRegistry backendRegistry;
-    backendRegistry.addBackend(makeBackend("living-room", "read-only"));
-    BackendRegistryService backendRegistryService(backendRegistry);
-    BackendAccessPolicy accessPolicy;
-
     const VdrTimerActionResult result =
         service.execute(
             VdrTimerActionType::Update,
             makeRequest(),
             executorRegistry,
-            backendRegistryService,
-            accessPolicy);
+            deniedAccessDecision());
 
     assert(result.success == false);
     assert(result.type == VdrTimerActionType::Update);
@@ -185,8 +184,8 @@ int main()
     test_execute_direct_executor();
     test_execute_via_registry();
     test_missing_registry_adapter_returns_failure();
-    test_gated_execute_allows_read_write_backend();
-    test_gated_execute_denies_read_only_backend();
+    test_gated_execute_allows_write_decision();
+    test_gated_execute_denies_read_only_decision();
 
     return 0;
 }
