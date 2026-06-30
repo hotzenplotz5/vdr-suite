@@ -4,8 +4,11 @@
 
 - [README](../README.md)
 - [Documentation Index](index.md)
+- [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Development Documentation](development/index.md)
 - [Roadmap](planning/roadmap.md)
+- [Phase Map](planning/phase-map.md)
+- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [ADR Index](adr/index.md)
 
 ---
@@ -15,6 +18,8 @@
 This is the primary human entry point for the current state of the repository.
 
 Use this file before reading historical phase notes.
+
+For new ChatGPT sessions or context loss, start with [New Chat Handoff](NEW-CHAT-HANDOFF.md).
 
 ---
 
@@ -98,8 +103,10 @@ RuntimeConfig
 
 ## Current Links
 
+- [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Completed Phases](development/completed-phases.md)
 - [ADR Index](adr/index.md)
 - [Phase 56 Completion Audit](development/phase-56.57-completion-audit.md)
