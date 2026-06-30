@@ -82,6 +82,8 @@ Most `docs/development/phase-*` files are historical records, not the best start
 - [Project Principles](project-principles.md)
 - [Community Documentation](community/index.md)
 - [Introduction](introduction/index.md)
+- [Phase 0 Archive](phase-0/index.md)
+- [Legacy Roadmap Archive](roadmap/README.md)
 
 ---
 
