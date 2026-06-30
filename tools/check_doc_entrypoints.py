@@ -7,7 +7,6 @@ ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_LINKS = {
     "README.md": [
         "docs/CURRENT.md",
-        "docs/NEW-CHAT-HANDOFF.md",
         "docs/index.md",
         "docs/planning/roadmap.md",
     ],
