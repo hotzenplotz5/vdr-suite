@@ -4,8 +4,9 @@
 
 - [README](../../README.md)
 - [Documentation Index](../index.md)
+- [Current State](../CURRENT.md)
 - [Project Overview](../project-overview.md)
-- [ADR Index](index.md)
+- [Architecture Documentation](../architecture/index.md)
 
 ---
 
@@ -19,127 +20,50 @@ Stable architecture descriptions belong in:
 
 Current implementation progress belongs in:
 
+- [Current State](../CURRENT.md)
 - [Current Project Status](../development/current-status.md)
 
 ---
 
 ## ADR Numbering Policy
 
-Canonical ADR sequence:
+Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0001
-ADR-0002
-...
 ADR-0037
 ```
 
-Next available ADR:
+Current active `ADR-0037`:
+
+- [ADR-0037: Packaging, Install Layout and API Boundary](ADR-0037-packaging-install-api-boundary.md)
+
+Next available canonical ADR:
 
 ```text
 ADR-0038
 ```
 
-The historical lowercase adr-001 to adr-007 files remain for repository history and compatibility.
+Rules:
 
-The legacy numeric files 007 and 008 also remain for repository history and compatibility.
-
-No new ADRs should be created in the lowercase or legacy numeric series.
-
-If a canonical ADR is superseded, keep it only in the superseded section and do not list it as an active canonical decision.
-
----
-
-## Canonical ADRs
-
-- ADR-0001 Monorepo
-- ADR-0002 SQLite
-- ADR-0003 REST API
-- ADR-0004 C++17
-- ADR-0005 External VDR Integration Strategy
-- ADR-0006 VDR Backend Architecture
-- ADR-0007 RESTfulAPI Adapter Boundary
-- ADR-0008 Real HTTP Server Strategy
-- ADR-0009 HTTP Server Factory Strategy
-- ADR-0010 Library-First VDR Architecture
-- ADR-0011 VDR Source Model Architecture
-- ADR-0012 Source Capability Model
-- ADR-0013 Permission Model
-- ADR-0014 Recording Identity Strategy
-- ADR-0015 Timer Operation Boundary
-- ADR-0016 Snapshot Change Feed Architecture
-- ADR-0017 Live Transport Boundary
-- ADR-0018 Incremental Snapshot Synchronization
-- ADR-0019 SSE Event Stream Transport Strategy
-- ADR-0020 Multi-Source Federation Architecture
-- ADR-0021 Selective Backend Query Strategy
-- ADR-0022 LIVE Functional Reference Strategy
-- ADR-0023 LIVE Superset Strategy
-- ADR-0024 Recording Action Transport Mapping
-- ADR-0025 Configurable Metadata Provider Architecture
-- ADR-0026 External Orchestration Layer Above VDR
-- ADR-0027 VDR-First Implementation With Future Media Federation
-- ADR-0028 Content Classification Architecture
-- ADR-0029 Backend-Neutral SearchTimer Architecture
-- ADR-0030 Domain-First UI Over OSD Proxy
-- ADR-0031 Person Catalog and External Filmography Architecture
-- ADR-0032 EPGSearch Regex Mode Safety
-- ADR-0033 EPGSearch Fuzzy Mode Decision
-- ADR-0034 SearchTimer Warm EPG Cache and Change Invalidation
-- ADR-0035 Lazy Recording Loading and Backend-Scoped Refresh
-- ADR-0036 TVScraper Recording Metadata Integration Strategy
-- [ADR-0037: Packaging, Install Layout and API Boundary](ADR-0037-packaging-install-api-boundary.md)
-- ADR-0037 Suite Metadata Database and External Scraper Strategy
+- Use the next canonical `ADR-00xx` number for new ADRs.
+- Do not create new lowercase `adr-00x` files.
+- Do not create new legacy numeric files such as `007-*` or `008-*`.
+- Do not list duplicate active ADR numbers.
+- If an old ADR is superseded or has a numbering conflict, keep it visible only in the historical or superseded sections.
 
 ---
 
-## Historical ADR Series
+## Active Canonical ADRs
 
-Retained for historical reference:
+### Repository, Storage and Language Foundation
 
-- adr-001 Backend Identity Strategy
-- adr-002 Backend Federation Strategy
-- adr-003 Backend Capability Strategy
-- adr-004 Backend Lifecycle Strategy
-- adr-005 Stream Provider Strategy
-- adr-006 Internal Event Dispatch Strategy
-- adr-007 Platform API Strategy
-- 007 Platform API Strategy
-- 008 Runtime Observability Strategy
+- [ADR-0001: Monorepo for VDR-Suite](ADR-0001-monorepo.md)
+- [ADR-0002: SQLite as Central Metadata Database](ADR-0002-sqlite.md)
+- [ADR-0003: REST API as External Interface](ADR-0003-rest-api.md)
+- [ADR-0004: C++17 Minimum Standard](ADR-0004-cpp17.md)
 
----
+### VDR Backend and Runtime Architecture
 
-## Superseded ADRs
-
-- [ADR-0011: VDR Source Model](ADR-0011-vdr-source-model.md) superseded by [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md)
-
----
-
-## Related Documents
-
-- [Architecture Documentation](../architecture/index.md)
-- [Current Architecture State](../development/current-architecture-state.md)
-- [Current Project Status](../development/current-status.md)
-- [Roadmap](../planning/roadmap.md)
-
----
-
-## Rules
-
-- use the next canonical ADR number
-- keep historical ADRs available
-- keep superseded ADRs visible
-- avoid duplicate active ADR numbers
-- link architecture summaries from docs/architecture
-
-## ADR Documents
-
-### Active Canonical ADRs
-
-- [ADR-0001: Monorepo für VDR-Suite](ADR-0001-monorepo.md)
-- [ADR-0002: SQLite als zentrale Metadaten-Datenbank](ADR-0002-sqlite.md)
-- [ADR-0003: REST API als externe Schnittstelle](ADR-0003-rest-api.md)
-- [ADR-0004: C++17 als Mindeststandard](ADR-0004-cpp17.md)
 - [ADR-0005: External VDR Integration Strategy](ADR-0005-external-vdr-integration-strategy.md)
 - [ADR-0006: VDR Backend Architecture](ADR-0006-vdr-backend-architecture.md)
 - [ADR-0007: RESTfulAPI Adapter Boundary](ADR-0007-restfulapi-adapter-boundary.md)
@@ -160,6 +84,9 @@ Retained for historical reference:
 - [ADR-0022: LIVE Functional Reference Strategy](ADR-0022-live-functional-reference-strategy.md)
 - [ADR-0023: LIVE Superset Strategy](ADR-0023-live-superset-strategy.md)
 - [ADR-0024: Recording Action Transport Mapping](ADR-0024-recording-action-transport-mapping.md)
+
+### Metadata, Search and UI Strategy
+
 - [ADR-0025: Configurable Metadata Provider Architecture](ADR-0025-configurable-metadata-provider-architecture.md)
 - [ADR-0026: External Orchestration Layer Above VDR](ADR-0026-external-orchestration-layer-above-vdr.md)
 - [ADR-0027: VDR-First Implementation With Future Media Federation](ADR-0027-vdr-first-implementation-with-future-media-federation.md)
@@ -172,13 +99,22 @@ Retained for historical reference:
 - [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
 - [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
 - [ADR-0036: TVScraper Recording Metadata Integration Strategy](ADR-0036-tvscraper-recording-metadata-integration.md)
-- [ADR-0037: Suite Metadata Database and External Scraper Strategy](ADR-0037-suite-metadata-database-and-external-scraper-strategy.md)
 
-### Superseded Canonical ADRs
+### Packaging and Install Boundary
 
-- [ADR-0011: VDR Source Model](ADR-0011-vdr-source-model.md)
+- [ADR-0037: Packaging, Install Layout and API Boundary](ADR-0037-packaging-install-api-boundary.md)
 
-### Historical ADRs
+---
+
+## Superseded Canonical ADRs
+
+- [ADR-0011: VDR Source Model](ADR-0011-vdr-source-model.md), superseded by [ADR-0011: VDR Source Model Architecture](ADR-0011-vdr-source-model-architecture.md)
+
+---
+
+## Historical ADRs
+
+Historical lowercase and numeric ADRs are retained for repository history and compatibility:
 
 - [ADR-001 Backend Identity Strategy](adr-001-backend-identity-strategy.md)
 - [ADR-002 Backend Federation Strategy](adr-002-backend-federation-strategy.md)
@@ -191,8 +127,28 @@ Retained for historical reference:
 
 ---
 
+## Numbering Conflict Retained for Cleanup
+
+The following file exists with a conflicting `ADR-0037` number and is not listed as an active canonical ADR:
+
+- [ADR-0037: Suite Metadata Database and External Scraper Strategy](ADR-0037-suite-metadata-database-and-external-scraper-strategy.md)
+
+Future cleanup should either renumber it to a free canonical ADR number or move its content into the appropriate metadata planning document before it is treated as active.
+
+---
+
+## Related Documents
+
+- [Current State](../CURRENT.md)
+- [Architecture Documentation](../architecture/index.md)
+- [Current Architecture State](../development/current-architecture-state.md)
+- [Current Project Status](../development/current-status.md)
+- [Roadmap](../planning/roadmap.md)
+
+---
+
 ## Back
 
 - [Back to README](../../README.md)
 - [Back to Documentation Index](../index.md)
-- [Back to Project Overview](../project-overview.md)
+- [Back to Current State](../CURRENT.md)
