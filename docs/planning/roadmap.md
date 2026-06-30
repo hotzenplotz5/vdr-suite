@@ -8,6 +8,7 @@
 - [Project Overview](../project-overview.md)
 - [Planning Index](index.md)
 - [Phase Map](phase-map.md)
+- [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md)
 - [Current Project Status](../development/current-status.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
 - [Completed Phases](../development/completed-phases.md)
@@ -36,6 +37,8 @@ The compact source of truth for phase-range coverage is [Phase Map](phase-map.md
 The primary human entry point for the current repository state is [Current State](../CURRENT.md).
 
 Detailed chronological implementation history belongs to [Completed Phases](../development/completed-phases.md).
+
+Product parity and frontend gap planning belongs to [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md).
 
 ---
 
@@ -112,6 +115,11 @@ Status: Planned.
 Goal:
 - Build frontend-ready everyday recording, timer, channel and EPG views after safe API and permission foundations.
 
+Planning input:
+- [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md)
+
+The frontend should first expose existing backend capability and reveal real gaps through vertical product slices.
+
 ---
 
 ### Phase 59 - Suite Metadata Database and External Providers
@@ -136,6 +144,7 @@ Goal:
 
 - [Current State](../CURRENT.md) is the first human entry point for current repository truth.
 - [Phase Map](phase-map.md) is the compact source of truth for phase-range coverage.
+- [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md) records feature parity and frontend gap planning.
 - This roadmap describes direction and should not duplicate the detailed completed phase log.
 - Detailed chronological implementation history belongs in [Completed Phases](../development/completed-phases.md).
 - Project status snapshots belong in [Current Project Status](../development/current-status.md) and [Project Status Dashboard](../project-status-dashboard.md).
