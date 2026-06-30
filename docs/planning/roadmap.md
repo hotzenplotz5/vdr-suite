@@ -4,6 +4,7 @@
 
 - [README](../../README.md)
 - [Documentation Index](../index.md)
+- [Current State](../CURRENT.md)
 - [Project Overview](../project-overview.md)
 - [Planning Index](index.md)
 - [Phase Map](phase-map.md)
@@ -18,10 +19,10 @@
 
 ```text
 Completed implementation state
-Phase 55.6 - Recording operations audit and safety policy
+Phase 56 - Library Boundary, Packaging and Developer Documentation
 
 Current implementation focus
-Phase 56 - Library Boundary, Packaging and Developer Documentation
+Phase 57 - Multi-Site Backend Administration and Permissions
 ```
 
 ---
@@ -31,6 +32,8 @@ Phase 56 - Library Boundary, Packaging and Developer Documentation
 This roadmap describes the current direction of VDR-Suite without duplicating the full phase history.
 
 The compact source of truth for phase-range coverage is [Phase Map](phase-map.md).
+
+The primary human entry point for the current repository state is [Current State](../CURRENT.md).
 
 Detailed chronological implementation history belongs to [Completed Phases](../development/completed-phases.md).
 
@@ -59,53 +62,46 @@ Completed foundation ranges:
 - Phase 55.5a-55.5n: Acceptance and Documentation.
 - Phase 55.5o: Phase Map and Roadmap.
 - Phase 55.6: Recording Operations Audit and Safety Policy.
+- Phase 56: Library Boundary, Packaging and Developer Documentation.
 
 ---
 
 ## Recently Completed Milestone
 
-### Phase 55.6 - Recording Operations Audit and Safety Policy
+### Phase 56 - Library Boundary, Packaging and Developer Documentation
 
 Status: Completed.
 
 Goal:
-- Audit live recording operations before enabling or expanding real write-capable paths.
+- Separate reusable library and module boundaries from daemon/application surfaces.
+- Define the packaging and install layout contract before introducing real distribution packaging.
+- Rebuild the documentation entry point so current state is easier to find than historical phase notes.
 
 Completed outcomes:
-- Confirmed which recording operations remain read-only, dry-run-only or destructive.
-- Defined operator confirmation, permission, backend allowlist and safety-policy requirements.
-- Kept destructive real VDR probes explicitly opt-in.
-- Preserved the current real VDR acceptance suite as safe/dry-run by default.
-- Prepared later recording operations implementation without silently opening mutation paths.
+- Documented the core/API boundary and kept the REST API as the application-facing boundary.
+- Removed the transitional recording-action source aggregate and split source groups by responsibility.
+- Added staged install support through `make install DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr`.
+- Added initial daemon, config and CLI manpages and staged them through the install target.
+- Documented install manifest ownership, package prerequisites and Phase 56 completion.
+- Added `docs/CURRENT.md` as the primary current-state entry point.
 
 ---
 
 ## Planned Major Milestones
 
-### Phase 56 - Library Boundary, Packaging and Developer Documentation
+### Phase 57 - Multi-Site Backend Administration and Permissions
 
 Status: Next.
 
 Goal:
-- Separate reusable libraries from daemon/application surfaces.
-- Rebuild the developer documentation around the new library and API boundaries.
+- Support multi-site operation with backend-specific permissions and read-only secondary-site mode.
 
 Planned outcomes:
-- Define public library boundaries, internal-only modules and daemon/application integration points.
-- Create a new developer documentation structure instead of extending the old phase-history layout.
-- Document how external and internal developers should use the REST API, service APIs and reusable libraries.
-- Add API usage examples for common integration tasks.
-- Add library usage examples for backend adapters, recording services, SearchTimer services and metadata/provider boundaries.
-- Keep historical phase documents available for traceability, but make the new developer documentation the primary entry point.
-
----
-
-### Phase 57 - Multi-Site Backend Administration and Permissions
-
-Status: Planned.
-
-Goal:
-- Support multi-site operation with backend-specific permissions and read-only secondary-site mode.
+- Model multiple VDR backend sites explicitly.
+- Add backend administration surfaces without bypassing the existing adapter boundary.
+- Represent read/write capabilities per backend.
+- Keep secondary-site read-only access enforceable by policy.
+- Prepare frontend-visible backend selection and permission state.
 
 ---
 
@@ -136,9 +132,9 @@ Goal:
 
 ---
 
-
 ## Roadmap Maintenance Rules
 
+- [Current State](../CURRENT.md) is the first human entry point for current repository truth.
 - [Phase Map](phase-map.md) is the compact source of truth for phase-range coverage.
 - This roadmap describes direction and should not duplicate the detailed completed phase log.
 - Detailed chronological implementation history belongs in [Completed Phases](../development/completed-phases.md).
@@ -151,4 +147,5 @@ Goal:
 
 - [Back to README](../../README.md)
 - [Back to Documentation Index](../index.md)
+- [Back to Current State](../CURRENT.md)
 - [Back to Project Overview](../project-overview.md)
