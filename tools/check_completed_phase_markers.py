@@ -30,7 +30,6 @@ REQUIRED_NEXT = [
 REQUIRED_PHASE58 = [
     "docs/NEW-CHAT-HANDOFF.md",
     "docs/planning/roadmap.md",
-    "docs/planning/parity-audit-and-frontend-gap-roadmap.md",
 ]
 
 
