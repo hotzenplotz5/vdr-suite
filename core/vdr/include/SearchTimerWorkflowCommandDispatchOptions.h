@@ -2,6 +2,8 @@
 
 #include "ISearchTimerCommandExecutor.h"
 #include "ISearchTimerDataSource.h"
+#include "BackendAccessPolicy.h"
+#include "BackendRegistryService.h"
 
 #include <string>
 #include <vector>
@@ -121,6 +123,25 @@ public:
         return options;
     }
 
+    static SearchTimerWorkflowCommandDispatchOptions confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlistAndPermissionAndBackendAccessPolicy(
+        bool explicitOperatorConfirmation,
+        ISearchTimerCommandExecutor* executor,
+        const std::vector<std::string>& allowedBackendIds,
+        const std::vector<std::string>& permittedBackendIds,
+        const BackendRegistryService* backendRegistryService,
+        const BackendAccessPolicy* backendAccessPolicy)
+    {
+        SearchTimerWorkflowCommandDispatchOptions options =
+            confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlistAndPermission(
+                explicitOperatorConfirmation,
+                executor,
+                allowedBackendIds,
+                permittedBackendIds);
+        options.backendRegistryService_ = backendRegistryService;
+        options.backendAccessPolicy_ = backendAccessPolicy;
+        return options;
+    }
+
     static SearchTimerWorkflowCommandDispatchOptions confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlistAndPermissionAndProductionPolicyGate(
         bool explicitOperatorConfirmation,
         ISearchTimerCommandExecutor* executor,
@@ -201,6 +222,22 @@ public:
         return backendWritePermittedBackendIds_;
     }
 
+    bool hasBackendAccessPolicy() const
+    {
+        return backendRegistryService_ != nullptr &&
+            backendAccessPolicy_ != nullptr;
+    }
+
+    const BackendRegistryService* backendRegistryService() const
+    {
+        return backendRegistryService_;
+    }
+
+    const BackendAccessPolicy* backendAccessPolicy() const
+    {
+        return backendAccessPolicy_;
+    }
+
     bool productionPolicyGateConfigured() const
     {
         return productionPolicyGateConfigured_;
@@ -217,5 +254,7 @@ private:
     std::vector<std::string> backendWriteAllowedBackendIds_;
     bool backendWritePermissionGateEnabled_ = false;
     std::vector<std::string> backendWritePermittedBackendIds_;
+    const BackendRegistryService* backendRegistryService_ = nullptr;
+    const BackendAccessPolicy* backendAccessPolicy_ = nullptr;
     bool productionPolicyGateConfigured_ = false;
 };

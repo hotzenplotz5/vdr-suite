@@ -1,11 +1,29 @@
 #include "SearchTimerWorkflowBackendWritePermissionGate.h"
 
+#include "BackendAccessPolicy.h"
+#include "BackendRegistry.h"
+#include "BackendRegistryService.h"
+
 #include "SearchTimerWorkflowPlanningService.h"
 
 #include <cassert>
 #include <iostream>
 #include <string>
 #include <vector>
+
+static BackendNode makeBackend(
+    const std::string& backendId,
+    const std::string& accessMode)
+{
+    BackendNode backend;
+    backend.backendId = backendId;
+    backend.backendName = backendId;
+    backend.backendType = "restfulapi";
+    backend.accessMode = accessMode;
+    backend.enabled = true;
+    backend.online = true;
+    return backend;
+}
 
 class BackendWritePermissionGateExecutor : public ISearchTimerCommandExecutor
 {
@@ -92,6 +110,57 @@ int main()
     assert(permitted.backendId == "home-vdr");
     assert(permitted.dispatchStage == "backend-write-permission-permitted");
     assert(permitted.errors.empty());
+
+    BackendAccessPolicy accessPolicy;
+
+    BackendRegistry readWriteRegistry;
+    readWriteRegistry.addBackend(
+        makeBackend(
+            "home-vdr",
+            "read-write"));
+    BackendRegistryService readWriteService(readWriteRegistry);
+
+    const auto accessPermitted =
+        permissionGate.evaluate(
+            writePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlistAndPermissionAndBackendAccessPolicy(
+                true,
+                &executor,
+                std::vector<std::string>{"home-vdr"},
+                std::vector<std::string>{"home-vdr"},
+                &readWriteService,
+                &accessPolicy));
+
+    assert(accessPermitted.permitted);
+    assert(accessPermitted.configured);
+    assert(accessPermitted.backendId == "home-vdr");
+    assert(accessPermitted.dispatchStage == "backend-write-permission-permitted");
+    assert(accessPermitted.errors.empty());
+
+    BackendRegistry readOnlyRegistry;
+    readOnlyRegistry.addBackend(
+        makeBackend(
+            "home-vdr",
+            "read-only"));
+    BackendRegistryService readOnlyService(readOnlyRegistry);
+
+    const auto accessDenied =
+        permissionGate.evaluate(
+            writePlan,
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithProductionRealExecutionEnabledAndBackendWriteAllowlistAndPermissionAndBackendAccessPolicy(
+                true,
+                &executor,
+                std::vector<std::string>{"home-vdr"},
+                std::vector<std::string>{"home-vdr"},
+                &readOnlyService,
+                &accessPolicy));
+
+    assert(!accessDenied.permitted);
+    assert(accessDenied.configured);
+    assert(accessDenied.backendId == "home-vdr");
+    assert(accessDenied.dispatchStage == "backend-write-access-denied");
+    assert(accessDenied.message == "backend is read-only");
+    assert(!accessDenied.errors.empty());
 
     const SearchTimerWorkflowExecutionPlan readPlan =
         planningService.plan(

@@ -66,6 +66,30 @@ SearchTimerWorkflowBackendWritePermissionGate::evaluate(
         return decision;
     }
 
+    if (options.hasBackendAccessPolicy())
+    {
+        const BackendAccessDecision accessDecision =
+            options.backendAccessPolicy()->canWriteToBackend(
+                *options.backendRegistryService(),
+                decision.backendId);
+
+        if (!accessDecision.allowed)
+        {
+            decision.permitted = false;
+            decision.configured = true;
+            decision.dispatchStage = "backend-write-access-denied";
+            decision.message = accessDecision.reason;
+            decision.errors = accessDecision.errors;
+
+            if (decision.errors.empty())
+            {
+                decision.errors.push_back(accessDecision.reason);
+            }
+
+            return decision;
+        }
+    }
+
     decision.permitted = true;
     decision.dispatchStage = "backend-write-permission-permitted";
     decision.message = "backend is permitted for SearchTimer write execution";
