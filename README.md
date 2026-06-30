@@ -46,6 +46,7 @@ Phase 56 completed:
 - manpage staging
 - install manifest and package file contract
 - package prerequisite audit
+- documentation current-state reset
 
 Current staging command:
 
@@ -103,13 +104,7 @@ Historical implementation notes remain in `docs/development/phase-*`.
 
 ## Next Work
 
-Next work block:
-
-```text
-DOC-RESET-1 - Documentation Usability Reset
-```
-
-After that:
+Next implementation focus:
 
 ```text
 Phase 57 - Multi-Site Backend Administration and Permissions
