@@ -1,4 +1,4 @@
-# VDR-Suite Forward Roadmap
+# VDR-Suite Forward Roadmap Archive
 
 ## Navigation
 
@@ -20,6 +20,8 @@ The current authoritative roadmap is:
 - [Current Project Status](../development/current-status.md)
 
 The files in this directory are kept for historical planning traceability only.
+
+Do not use this directory as the current roadmap entry point.
 
 ---
 

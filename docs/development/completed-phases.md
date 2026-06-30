@@ -41,6 +41,25 @@ The latest completed implementation marker is tracked independently in:
 
 ## Completed Milestones Overview
 
+### Library Boundary, Packaging and Developer Documentation
+
+Status: Completed.
+
+Completed phases:
+- Phase 56 - Library Boundary, Packaging and Developer Documentation.
+- Phase 56.57 - Phase 56 Completion Audit.
+
+Key outcomes:
+- Core/API boundaries are documented, with REST as the application-facing API boundary.
+- Source groups are split by responsibility.
+- The transitional `ACTIONS_SRC` aggregate has been removed.
+- `make install DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr` stages runtime, CLI, docs, data directory and manpages.
+- Initial daemon, config and CLI manpages exist and are installed by the staging target.
+- Install manifest ownership and package prerequisites are documented.
+- No public C++ ABI or `vdr-suite-dev` package is introduced.
+
+---
+
 ### Recording Operations Audit and Safety Policy
 
 Status: Completed.
@@ -57,7 +76,7 @@ Key outcomes:
 - Real recording move, rename and delete paths remain explicitly gated.
 - Destructive real VDR recording probes remain opt-in and marker-restricted.
 - Recording mutation safety policy is documented and wired into local test groups.
-- Phase 56 becomes the next implementation focus.
+- Phase 56 is now completed as the packaging and library-boundary block.
 
 ---
 
