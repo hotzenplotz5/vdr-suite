@@ -25,6 +25,7 @@ Implementation details and completed work belong in the development section.
 - [Roadmap](roadmap.md)
 - [Phase Map](phase-map.md)
 - [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md)
+- [Phase 57 Local Server Permission Model](phase-57-local-server-permission-model.md)
 - [Project State Snapshot](project-progress.md)
 - [Lazy Recording Loading](lazy-recording-loading.md)
 - [Recording Metadata, External Scrapers and Suite Metadata Database Roadmap](tvscraper-recording-metadata-roadmap.md)
@@ -72,6 +73,7 @@ Current verified state and completed implementation history.
 - [Roadmap](roadmap.md) contains long-term direction.
 - [Phase Map](phase-map.md) contains compact phase-range coverage.
 - [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md) records RESTfulAPI, Live, epgsearch and VDR-Core parity questions.
+- [Phase 57 Local Server Permission Model](phase-57-local-server-permission-model.md) fixes the local/private server permission boundary before Phase 57.1 code changes.
 - [Project State Snapshot](project-progress.md) contains high-level progress percentages and the active milestone.
 - [Recording Metadata Roadmap](tvscraper-recording-metadata-roadmap.md) keeps plugin-backed metadata, external scraper provider evaluation and the suite-owned metadata database visible.
 - [Milestones](milestones.md) remains a lightweight planning pointer document.
