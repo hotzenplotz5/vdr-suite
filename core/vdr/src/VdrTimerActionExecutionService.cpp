@@ -37,22 +37,16 @@ VdrTimerActionResult VdrTimerActionExecutionService::execute(
     VdrTimerActionType type,
     const VdrTimerOperationRequest& request,
     const VdrTimerActionExecutorAdapterRegistry& registry,
-    const BackendRegistryService& backendRegistryService,
-    const BackendAccessPolicy& accessPolicy) const
+    const BackendAccessDecision& accessDecision) const
 {
-    const BackendAccessDecision decision =
-        accessPolicy.canWriteToBackend(
-            backendRegistryService,
-            request.backendId);
-
-    if (!decision.allowed)
+    if (!accessDecision.allowed)
     {
         return VdrTimerActionResult::failed(
             type,
             request.timerId,
             request.backendId,
-            decision.reason,
-            decision.errors);
+            accessDecision.reason,
+            accessDecision.errors);
     }
 
     return execute(
