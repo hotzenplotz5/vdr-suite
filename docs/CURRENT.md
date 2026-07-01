@@ -106,7 +106,6 @@ RuntimeConfig
 - [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Completed Phases](development/completed-phases.md)
 - [ADR Index](adr/index.md)
-- [Phase 57 Completion Audit](development/phase-57.9-completion-audit.md)
 
 ---
 
