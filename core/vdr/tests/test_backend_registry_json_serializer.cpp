@@ -47,6 +47,27 @@ static void test_serializer_serializes_single_backend()
     assert(json.find("\"online\":false") != std::string::npos);
 }
 
+static void test_serializer_serializes_frontend_selector_contract()
+{
+    BackendNode backend =
+        makeBackend("house-a", "Haus A", true, true);
+
+    BackendRegistryJsonSerializer serializer;
+
+    const std::string json =
+        serializer.serializeBackend(backend);
+
+    assert(json.find("\"frontendSelector\":{") != std::string::npos);
+    assert(json.find("\"id\":\"house-a\"") != std::string::npos);
+    assert(json.find("\"label\":\"Haus A\"") != std::string::npos);
+    assert(json.find("\"accessMode\":\"read-write\"") != std::string::npos);
+    assert(json.find("\"readOnly\":false") != std::string::npos);
+    assert(json.find("\"canWrite\":true") != std::string::npos);
+    assert(json.find("\"canWriteRecordings\":true") != std::string::npos);
+    assert(json.find("\"canWriteTimers\":true") != std::string::npos);
+    assert(json.find("\"canWriteSearchTimers\":true") != std::string::npos);
+}
+
 static void test_serializer_serializes_read_only_backend()
 {
     BackendNode backend =
@@ -64,6 +85,9 @@ static void test_serializer_serializes_read_only_backend()
     assert(json.find("\"canWriteRecordings\":false") != std::string::npos);
     assert(json.find("\"canWriteTimers\":false") != std::string::npos);
     assert(json.find("\"canWriteSearchTimers\":false") != std::string::npos);
+    assert(json.find("\"frontendSelector\":{") != std::string::npos);
+    assert(json.find("\"id\":\"remote-house\"") != std::string::npos);
+    assert(json.find("\"label\":\"Remote House VDR\"") != std::string::npos);
 }
 
 static void test_serializer_serializes_backend_list()
@@ -82,6 +106,7 @@ static void test_serializer_serializes_backend_list()
     assert(json.find("\"backends\":[") != std::string::npos);
     assert(json.find("\"backendId\":\"default\"") != std::string::npos);
     assert(json.find("\"backendId\":\"ferienhaus\"") != std::string::npos);
+    assert(json.find("\"frontendSelector\":{") != std::string::npos);
     assert(json.find("\"accessMode\":\"read-write\"") != std::string::npos);
     assert(json.find("\"accessMode\":\"read-only\"") != std::string::npos);
     assert(json.find("\"readOnly\":true") != std::string::npos);
@@ -98,6 +123,7 @@ static void test_serializer_serializes_empty_backend_list()
 int main()
 {
     test_serializer_serializes_single_backend();
+    test_serializer_serializes_frontend_selector_contract();
     test_serializer_serializes_read_only_backend();
     test_serializer_serializes_backend_list();
     test_serializer_serializes_empty_backend_list();
