@@ -27,6 +27,128 @@ std::string toLowerAscii(const std::string& value)
     return lowered;
 }
 
+bool startsWith(
+    const std::string& value,
+    const std::string& prefix)
+{
+    return value.size() >= prefix.size() &&
+        value.compare(0, prefix.size(), prefix) == 0;
+}
+
+bool endsWith(
+    const std::string& value,
+    const std::string& suffix)
+{
+    return value.size() >= suffix.size() &&
+        value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+int hexValue(const char character)
+{
+    if (character >= '0' && character <= '9')
+    {
+        return character - '0';
+    }
+
+    if (character >= 'a' && character <= 'f')
+    {
+        return 10 + character - 'a';
+    }
+
+    if (character >= 'A' && character <= 'F')
+    {
+        return 10 + character - 'A';
+    }
+
+    return -1;
+}
+
+std::string percentDecodePath(const std::string& value)
+{
+    std::string decoded;
+    decoded.reserve(value.size());
+
+    for (std::size_t index = 0; index < value.size(); ++index)
+    {
+        if (value[index] == '%' && index + 2 < value.size())
+        {
+            const int high = hexValue(value[index + 1]);
+            const int low = hexValue(value[index + 2]);
+
+            if (high >= 0 && low >= 0)
+            {
+                decoded.push_back(
+                    static_cast<char>((high * 16) + low));
+                index += 2;
+                continue;
+            }
+        }
+
+        decoded.push_back(value[index]);
+    }
+
+    return decoded;
+}
+
+bool isSafeRelativePath(const std::string& path)
+{
+    if (path.empty() ||
+        path[0] == '/' ||
+        path.find('\\') != std::string::npos ||
+        path.find("//") != std::string::npos)
+    {
+        return false;
+    }
+
+    std::size_t segmentStart = 0;
+
+    while (segmentStart <= path.size())
+    {
+        const std::size_t segmentEnd =
+            path.find('/', segmentStart);
+        const std::string segment =
+            path.substr(
+                segmentStart,
+                segmentEnd == std::string::npos
+                    ? std::string::npos
+                    : segmentEnd - segmentStart);
+
+        if (segment.empty() || segment == "." || segment == "..")
+        {
+            return false;
+        }
+
+        if (segmentEnd == std::string::npos)
+        {
+            break;
+        }
+
+        segmentStart = segmentEnd + 1;
+    }
+
+    return true;
+}
+
+bool isSupportedLogoPath(const std::string& path)
+{
+    const std::string lowered = toLowerAscii(path);
+
+    return endsWith(lowered, ".png") ||
+        endsWith(lowered, ".svg");
+}
+
+std::string logoContentType(const std::string& path)
+{
+    const std::string lowered = toLowerAscii(path);
+
+    if (endsWith(lowered, ".svg"))
+    {
+        return "image/svg+xml";
+    }
+
+    return "image/png";
+}
+
 std::string headerValue(
     const HttpServerRequest& request,
     const std::string& headerName)
@@ -88,11 +210,11 @@ HttpServerResponse makeStaticNotFoundResponse()
     return response;
 }
 
-bool readTextFile(
+bool readFile(
     const std::string& path,
     std::string& content)
 {
-    std::ifstream file(path);
+    std::ifstream file(path, std::ios::binary);
 
     if (!file)
     {
@@ -125,6 +247,26 @@ std::vector<std::string> frontendRoots()
     return roots;
 }
 
+std::vector<std::string> channelLogoRoots()
+{
+    const char* configuredRoot =
+        std::getenv("VDR_SUITE_CHANNEL_LOGO_ROOT");
+
+    std::vector<std::string> roots;
+
+    if (configuredRoot != nullptr && configuredRoot[0] != '\0')
+    {
+        roots.emplace_back(configuredRoot);
+    }
+
+    roots.emplace_back(
+        "/usr/share/vdr/plugins/skindesigner/skins/estuary4vdr/logos");
+    roots.emplace_back(
+        "/usr/share/vdr/plugins/skindesigner/logos");
+
+    return roots;
+}
+
 bool readFrontendAsset(
     const std::string& relativePath,
     std::string& content)
@@ -134,7 +276,25 @@ bool readFrontendAsset(
         const std::string path =
             root + "/" + relativePath;
 
-        if (readTextFile(path, content))
+        if (readFile(path, content))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool readChannelLogoAsset(
+    const std::string& relativePath,
+    std::string& content)
+{
+    for (const std::string& root : channelLogoRoots())
+    {
+        const std::string path =
+            root + "/" + relativePath;
+
+        if (readFile(path, content))
         {
             return true;
         }
@@ -164,6 +324,36 @@ HttpServerResponse makeFrontendAssetResponse(
     return response;
 }
 
+HttpServerResponse makeChannelLogoResponse(
+    const std::string& path)
+{
+    const std::string prefix = "/channel-logos/";
+    const std::string relativePath =
+        percentDecodePath(path.substr(prefix.size()));
+
+    if (!isSafeRelativePath(relativePath) ||
+        !isSupportedLogoPath(relativePath))
+    {
+        return makeStaticNotFoundResponse();
+    }
+
+    std::string content;
+
+    if (!readChannelLogoAsset(relativePath, content))
+    {
+        return makeStaticNotFoundResponse();
+    }
+
+    HttpServerResponse response;
+
+    response.statusCode = 200;
+    response.headers["Content-Type"] = logoContentType(relativePath);
+    response.headers["Cache-Control"] = "no-store";
+    response.body = content;
+
+    return response;
+}
+
 bool isFrontendPath(
     const std::string& path)
 {
@@ -172,7 +362,14 @@ bool isFrontendPath(
         path == "/frontend/" ||
         path == "/frontend/index.html" ||
         path == "/frontend/app.js" ||
+        path == "/frontend/channel-logos.js" ||
         path == "/frontend/style.css";
+}
+
+bool isChannelLogoPath(
+    const std::string& path)
+{
+    return startsWith(path, "/channel-logos/");
 }
 
 HttpServerResponse serveFrontendPath(
@@ -192,6 +389,13 @@ HttpServerResponse serveFrontendPath(
     {
         return makeFrontendAssetResponse(
             "app.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/channel-logos.js")
+    {
+        return makeFrontendAssetResponse(
+            "channel-logos.js",
             "application/javascript; charset=utf-8");
     }
 
@@ -224,6 +428,12 @@ HttpServerResponse TestHttpServer::handleRequest(
         isFrontendPath(request.path))
     {
         return serveFrontendPath(request.path);
+    }
+
+    if (request.method == "GET" &&
+        isChannelLogoPath(request.path))
+    {
+        return makeChannelLogoResponse(request.path);
     }
 
     ApiResponse apiResponse;
