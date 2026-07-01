@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VDR-Suite Frontend</title>
+  <link rel="stylesheet" href="/frontend/style.css">
+</head>
+<body>
+  <header><h1>VDR-Suite Frontend</h1></header>
+  <main>
+    <p id="status" class="status">Lade Backend-Auswahl...</p>
+    <section class="layout">
+      <section id="backends" class="backend-list" aria-label="Backend-Auswahl"></section>
+      <section id="detail" class="detail-card" aria-live="polite">
+        <div class="detail-header">
+          <h2>Backend-Details</h2>
+          <button id="refresh-detail" type="button" disabled>Aktualisieren</button>
+        </div>
+        <div id="detail-meta" class="detail-meta">Noch kein Backend ausgewählt.</div>
+        <nav id="module-nav" class="module-nav" aria-label="Backend-Module">
+          <button type="button" class="module-tab active" data-module="overview">Übersicht</button>
+          <button type="button" class="module-tab" data-module="channels">Kanäle</button>
+          <button type="button" class="module-tab" data-module="timers">Timer</button>
+          <button type="button" class="module-tab" data-module="recordings">Aufnahmen</button>
+          <button type="button" class="module-tab" data-module="searchtimers">SearchTimer</button>
+        </nav>
+        <section id="detail-data" class="metric-grid">Klicke auf eine Backend-Karte.</section>
+      </section>
+    </section>
+  </main>
+  <script src="/frontend/app.js"></script>
+</body>
+</html>
