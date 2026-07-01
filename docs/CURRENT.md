@@ -19,17 +19,17 @@ This is the primary human entry point for the current state of the repository.
 
 Use this file before reading historical phase notes.
 
-For new ChatGPT sessions or context loss, start with [New Chat Handoff](NEW-CHAT-HANDOFF.md).
-
 ---
 
 ## Current Verified State
 
 Current completed project block:
 
-```text
-Phase 57 - Multi-Site Backend Administration and Permissions
-```
+- Phase 57 - Multi-Site Backend Administration and Permissions
+
+Previous completed project block:
+
+- Phase 56 - Library Boundary, Packaging and Developer Documentation
 
 Verified outcomes:
 
@@ -46,24 +46,18 @@ Verified outcomes:
 
 Canonical staging command:
 
-```bash
-make install DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr
-```
+- make install DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr
 
 Primary verification command:
 
-```bash
-make test-install-staging
-```
+- make test-install-staging
 
 ---
 
 ## Current Runtime Entry Points
 
-```text
-/usr/sbin/vdr-suite-daemon
-/usr/bin/vdr-suite-dashboard
-```
+- /usr/sbin/vdr-suite-daemon
+- /usr/bin/vdr-suite-dashboard
 
 `vdr-suite-dashboard` is currently CLI, not the future web/mobile frontend.
 
@@ -75,10 +69,8 @@ The REST API is the application-facing API boundary.
 
 Core modules remain internal implementation boundaries.
 
-```text
-Core modules may not depend on api/rest.
-The REST API layer may depend on core modules.
-```
+- Core modules may not depend on api/rest.
+- The REST API layer may depend on core modules.
 
 ---
 
@@ -86,15 +78,13 @@ The REST API layer may depend on core modules.
 
 The architecture remains multi-backend oriented:
 
-```text
-RuntimeConfig
-  -> VdrConfig
-  -> VdrAdapterFactory
-  -> IVdrAdapter
-  -> ExternalVdrAdapter / MockVdrAdapter / RestfulApiVdrAdapter
-  -> VdrService
-  -> REST controllers
-```
+- RuntimeConfig
+- VdrConfig
+- VdrAdapterFactory
+- IVdrAdapter
+- ExternalVdrAdapter / MockVdrAdapter / RestfulApiVdrAdapter
+- VdrService
+- REST controllers
 
 ---
 
@@ -113,9 +103,7 @@ RuntimeConfig
 
 Next implementation focus:
 
-```text
-Phase 58 - Frontend and Live Parity
-```
+- Phase 58 - Frontend and Live Parity
 
 ---
 
