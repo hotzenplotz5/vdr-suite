@@ -30,5 +30,54 @@
     </section>
   </main>
   <script src="/frontend/app.js"></script>
+  <script>
+    function decodeRecordingText(value) {
+      return String(value || '')
+        .replace(/#([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(/_/g, ' ')
+        .trim();
+    }
+
+    function recordingSortKey(value) {
+      return decodeRecordingText(value).toLocaleLowerCase('de-DE');
+    }
+
+    const originalRecordingDisplayParts = recordingDisplayParts;
+    recordingDisplayParts = function(recording, index) {
+      const display = originalRecordingDisplayParts(recording, index);
+      return {
+        folder: decodeRecordingText(display.folder),
+        title: decodeRecordingText(display.title)
+      };
+    };
+
+    groupRecordings = function(recordings) {
+      const groups = new Map();
+
+      recordings.forEach((recording, index) => {
+        const display = recordingDisplayParts(recording, index);
+        if (!groups.has(display.folder)) {
+          groups.set(display.folder, []);
+        }
+        groups.get(display.folder).push({
+          recording,
+          title: display.title,
+          index
+        });
+      });
+
+      const sortedGroups = new Map(
+        Array.from(groups.entries()).sort((left, right) =>
+          recordingSortKey(left[0]).localeCompare(recordingSortKey(right[0]), 'de-DE'))
+      );
+
+      sortedGroups.forEach(items => {
+        items.sort((left, right) =>
+          recordingSortKey(left.title).localeCompare(recordingSortKey(right.title), 'de-DE'));
+      });
+
+      return sortedGroups;
+    };
+  </script>
 </body>
 </html>
