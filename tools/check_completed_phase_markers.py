@@ -42,7 +42,8 @@ def require_marker(errors, rel, marker, description):
     if not path.exists():
         errors.append(rel + " is missing")
         return
-    if marker not in read(rel):
+    text = read(rel)
+    if marker not in text:
         errors.append(rel + " misses " + description + ": " + marker)
 
 
@@ -61,10 +62,13 @@ def main():
     parity_path = ROOT / "docs" / "planning" / "parity-audit-and-frontend-gap-roadmap.md"
     if not parity_path.exists():
         errors.append("parity audit planning document is missing")
-    elif PARITY_DOC not in read("docs/NEW-CHAT-HANDOFF.md"):
-        errors.append("handoff misses parity audit link")
+    else:
+        parity_text = parity_path.read_text(encoding="utf-8")
+        for marker in ["RESTfulAPI", "Live", "epgsearch", "VDR Core", "Phase 57", "Phase 58"]:
+            if marker not in parity_text:
+                errors.append("parity audit document misses marker: " + marker)
 
-    for rel in ["docs/planning/roadmap.md", "docs/planning/index.md"]:
+    for rel in ["docs/NEW-CHAT-HANDOFF.md", "docs/planning/roadmap.md", "docs/planning/index.md"]:
         require_marker(errors, rel, PARITY_DOC, "parity audit link")
 
     if errors:
