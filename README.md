@@ -33,20 +33,17 @@ VDR-Suite complements VDR. It does not replace it.
 Current completed project block:
 
 ```text
-Phase 56 - Library Boundary, Packaging and Developer Documentation
+Phase 57 - Multi-Site Backend Administration and Permissions
 ```
 
-Phase 56 completed:
+Phase 57 completed:
 
-- library and module boundary documentation
-- build source-group cleanup
-- staged install target using `DESTDIR`
-- daemon and CLI install paths
-- initial manpages
-- manpage staging
-- install manifest and package file contract
-- package prerequisite audit
-- documentation current-state reset
+- backend access modes for read-write and read-only sites
+- central backend access policy
+- recording write policy from backend access mode
+- timer write coverage across core, REST, daemon and router paths
+- SearchTimer backend write permission gate
+- frontend-visible backend write hints in `/api/backends`
 
 Current staging command:
 
@@ -107,5 +104,5 @@ Historical implementation notes remain in `docs/development/phase-*`.
 Next implementation focus:
 
 ```text
-Phase 57 - Multi-Site Backend Administration and Permissions
+Phase 58 - Frontend and Live Parity
 ```
