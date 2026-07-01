@@ -117,6 +117,7 @@ bool DaemonRuntime::initialize()
 
     backendRegistry_.addBackend(defaultBackend);
     backendRegistryService_ = std::make_unique<BackendRegistryService>(backendRegistry_);
+    backendAccessPolicy_ = std::make_unique<BackendAccessPolicy>();
     backendRegistryJsonSerializer_ = std::make_unique<BackendRegistryJsonSerializer>();
     backendRegistryController_ = std::make_unique<BackendRegistryController>(*backendRegistryService_, *backendRegistryJsonSerializer_);
 
@@ -425,7 +426,9 @@ bool DaemonRuntime::initialize()
     vdrTimerActionController_ = std::make_unique<VdrTimerActionController>(
         *vdrTimerActionExecutionService_,
         *vdrTimerActionResultJsonSerializer_,
-        *vdrTimerActionRequestParser_);
+        *vdrTimerActionRequestParser_,
+        *backendRegistryService_,
+        *backendAccessPolicy_);
 
     std::cout << "recording action controller runtime initialized" << std::endl;
     std::cout << "VDR timer action controller runtime initialized" << std::endl;

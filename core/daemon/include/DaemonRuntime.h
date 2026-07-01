@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ApiRouter.h"
+#include "BackendAccessPolicy.h"
 #include "BackendRuntimeContext.h"
 #include "BackendPollingCoordinator.h"
 #include "BackendRegistry.h"
@@ -157,6 +158,7 @@ private:
 
     BackendRegistry backendRegistry_;
     std::unique_ptr<BackendRegistryService> backendRegistryService_;
+    std::unique_ptr<BackendAccessPolicy> backendAccessPolicy_;
     std::unique_ptr<BackendRegistryJsonSerializer> backendRegistryJsonSerializer_;
     std::unique_ptr<BackendRegistryController> backendRegistryController_;
     VdrConfig vdrConfig_;

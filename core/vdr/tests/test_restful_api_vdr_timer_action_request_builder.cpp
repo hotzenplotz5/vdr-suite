@@ -44,7 +44,7 @@ static void test_build_create_request()
     assert(httpRequest.body.find("priority=50") != std::string::npos);
     assert(httpRequest.body.find("lifetime=99") != std::string::npos);
     assert(httpRequest.body.find("file=News~Tagesschau") != std::string::npos);
-    assert(httpRequest.body.find("aux=<epgsearch></epgsearch>") != std::string::npos);
+    assert(httpRequest.body.find("aux=%3Cepgsearch%3E%3C%2Fepgsearch%3E") != std::string::npos);
     assert(httpRequest.body.find("timer_id=") == std::string::npos);
 }
 
