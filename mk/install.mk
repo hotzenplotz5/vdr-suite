@@ -15,6 +15,10 @@ install-runtime: daemon
 	$(INSTALL) -d $(DESTDIR)$(SBINDIR)
 	$(INSTALL) -m 0755 /tmp/vdr-suite-daemon $(DESTDIR)$(SBINDIR)/vdr-suite-daemon
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/vdr-suite
+	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
+	$(INSTALL) -m 0644 web/frontend/index.html $(DESTDIR)$(DATADIR)/web/frontend/index.html
+	$(INSTALL) -m 0644 web/frontend/app.js $(DESTDIR)$(DATADIR)/web/frontend/app.js
+	$(INSTALL) -m 0644 web/frontend/style.css $(DESTDIR)$(DATADIR)/web/frontend/style.css
 
 install-cli: dashboard-cli
 	$(INSTALL) -d $(DESTDIR)$(BINDIR)
@@ -41,6 +45,9 @@ test-install-staging:
 	test -d /tmp/vdr-suite-pkgroot/etc/vdr-suite
 	test -f /tmp/vdr-suite-pkgroot/usr/share/doc/vdr-suite/README.md
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/app.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/style.css
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-daemon.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man5/vdr-suite.conf.5
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-dashboard.1
