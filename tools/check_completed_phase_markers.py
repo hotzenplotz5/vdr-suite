@@ -11,7 +11,6 @@ PARITY_DOC = "parity-audit-and-frontend-gap-roadmap.md"
 REQUIRED_LATEST = [
     "README.md",
     "docs/CURRENT.md",
-    "docs/NEW-CHAT-HANDOFF.md",
     "docs/planning/roadmap.md",
     "docs/planning/phase-map.md",
     "docs/development/completed-phases-latest.md",
@@ -21,14 +20,12 @@ REQUIRED_LATEST = [
 REQUIRED_NEXT = [
     "README.md",
     "docs/CURRENT.md",
-    "docs/NEW-CHAT-HANDOFF.md",
     "docs/planning/roadmap.md",
     "docs/planning/phase-map.md",
     "docs/development/completed-phases-latest.md",
 ]
 
 REQUIRED_PHASE58 = [
-    "docs/NEW-CHAT-HANDOFF.md",
     "docs/planning/roadmap.md",
 ]
 
