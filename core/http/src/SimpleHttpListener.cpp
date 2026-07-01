@@ -22,12 +22,20 @@ std::string reasonPhrase(int statusCode)
         return "OK";
     }
 
+    if (statusCode == 401) {
+        return "Unauthorized";
+    }
+
     if (statusCode == 404) {
         return "Not Found";
     }
 
     if (statusCode == 405) {
         return "Method Not Allowed";
+    }
+
+    if (statusCode == 503) {
+        return "Service Unavailable";
     }
 
     return "OK";
