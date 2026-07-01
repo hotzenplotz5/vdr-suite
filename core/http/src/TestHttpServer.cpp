@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -105,13 +106,50 @@ bool readTextFile(
     return true;
 }
 
-HttpServerResponse makeTextFileResponse(
-    const std::string& path,
+std::vector<std::string> frontendRoots()
+{
+    const char* configuredRoot =
+        std::getenv("VDR_SUITE_FRONTEND_ROOT");
+
+    std::vector<std::string> roots;
+
+    if (configuredRoot != nullptr && configuredRoot[0] != '\0')
+    {
+        roots.emplace_back(configuredRoot);
+    }
+
+    roots.emplace_back("web/frontend");
+    roots.emplace_back("/usr/share/vdr-suite/web/frontend");
+    roots.emplace_back("/usr/local/share/vdr-suite/web/frontend");
+
+    return roots;
+}
+
+bool readFrontendAsset(
+    const std::string& relativePath,
+    std::string& content)
+{
+    for (const std::string& root : frontendRoots())
+    {
+        const std::string path =
+            root + "/" + relativePath;
+
+        if (readTextFile(path, content))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+HttpServerResponse makeFrontendAssetResponse(
+    const std::string& relativePath,
     const std::string& contentType)
 {
     std::string content;
 
-    if (!readTextFile(path, content))
+    if (!readFrontendAsset(relativePath, content))
     {
         return makeStaticNotFoundResponse();
     }
@@ -145,22 +183,22 @@ HttpServerResponse serveFrontendPath(
         path == "/frontend/" ||
         path == "/frontend/index.html")
     {
-        return makeTextFileResponse(
-            "web/frontend/index.html",
+        return makeFrontendAssetResponse(
+            "index.html",
             "text/html; charset=utf-8");
     }
 
     if (path == "/frontend/app.js")
     {
-        return makeTextFileResponse(
-            "web/frontend/app.js",
+        return makeFrontendAssetResponse(
+            "app.js",
             "application/javascript; charset=utf-8");
     }
 
     if (path == "/frontend/style.css")
     {
-        return makeTextFileResponse(
-            "web/frontend/style.css",
+        return makeFrontendAssetResponse(
+            "style.css",
             "text/css; charset=utf-8");
     }
 
