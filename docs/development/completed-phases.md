@@ -6,7 +6,6 @@
 - [Development Index](index.md)
 - [Current Project Status](current-status.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
-- [Phase 57 Completion Audit](phase-57.9-completion-audit.md)
 
 ---
 
