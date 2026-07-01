@@ -82,10 +82,6 @@ Completed outcomes:
 - SearchTimer access handling
 - frontend-visible backend permission state
 
-Completion audit:
-
-- [Phase 57.9 - Completion Audit](../development/phase-57.9-completion-audit.md)
-
 ---
 
 ## Planned Major Milestones
