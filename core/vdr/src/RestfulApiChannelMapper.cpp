@@ -82,15 +82,39 @@ std::string unescapeJsonString(const std::string& value)
     return vdrsuite::decodeJsonStringEscapes(value);
 }
 
-std::string getStringField(const std::string& objectText, const std::string& fieldName)
+std::string toLowerAscii(const std::string& value)
+{
+    std::string lowered;
+    lowered.reserve(value.size());
+
+    for (char character : value) {
+        lowered.push_back(
+            static_cast<char>(
+                std::tolower(static_cast<unsigned char>(character))));
+    }
+
+    return lowered;
+}
+
+std::size_t findFieldColon(const std::string& objectText, const std::string& fieldName)
 {
     const std::string key = "\"" + fieldName + "\"";
     std::size_t keyPos = objectText.find(key);
     if (keyPos == std::string::npos) {
-        return "";
+        return std::string::npos;
     }
 
-    std::size_t colon = objectText.find(':', keyPos + key.size());
+    return objectText.find(':', keyPos + key.size());
+}
+
+bool hasField(const std::string& objectText, const std::string& fieldName)
+{
+    return findFieldColon(objectText, fieldName) != std::string::npos;
+}
+
+std::string getStringField(const std::string& objectText, const std::string& fieldName)
+{
+    std::size_t colon = findFieldColon(objectText, fieldName);
     if (colon == std::string::npos) {
         return "";
     }
@@ -124,13 +148,7 @@ std::string getStringField(const std::string& objectText, const std::string& fie
 
 int getIntField(const std::string& objectText, const std::string& fieldName, int fallback = 0)
 {
-    const std::string key = "\"" + fieldName + "\"";
-    std::size_t keyPos = objectText.find(key);
-    if (keyPos == std::string::npos) {
-        return fallback;
-    }
-
-    std::size_t colon = objectText.find(':', keyPos + key.size());
+    std::size_t colon = findFieldColon(objectText, fieldName);
     if (colon == std::string::npos) {
         return fallback;
     }
@@ -161,13 +179,7 @@ int getIntField(const std::string& objectText, const std::string& fieldName, int
 
 bool getBoolField(const std::string& objectText, const std::string& fieldName, bool fallback = false)
 {
-    const std::string key = "\"" + fieldName + "\"";
-    std::size_t keyPos = objectText.find(key);
-    if (keyPos == std::string::npos) {
-        return fallback;
-    }
-
-    std::size_t colon = objectText.find(':', keyPos + key.size());
+    std::size_t colon = findFieldColon(objectText, fieldName);
     if (colon == std::string::npos) {
         return fallback;
     }
@@ -181,7 +193,127 @@ bool getBoolField(const std::string& objectText, const std::string& fieldName, b
         return false;
     }
 
+    if (objectText.compare(pos, 1, "1") == 0) {
+        return true;
+    }
+
+    if (objectText.compare(pos, 1, "0") == 0) {
+        return false;
+    }
+
+    if (pos < objectText.size() && objectText[pos] == '"') {
+        const std::string value = toLowerAscii(getStringField(objectText, fieldName));
+        if (value == "true" || value == "yes" || value == "1") {
+            return true;
+        }
+        if (value == "false" || value == "no" || value == "0") {
+            return false;
+        }
+    }
+
     return fallback;
+}
+
+bool getFirstBoolField(
+    const std::string& objectText,
+    const std::vector<std::string>& fieldNames,
+    bool fallback)
+{
+    for (const std::string& fieldName : fieldNames) {
+        if (hasField(objectText, fieldName)) {
+            return getBoolField(objectText, fieldName, fallback);
+        }
+    }
+
+    return fallback;
+}
+
+std::string getArrayFieldText(const std::string& objectText, const std::string& fieldName)
+{
+    std::size_t colon = findFieldColon(objectText, fieldName);
+    if (colon == std::string::npos) {
+        return "";
+    }
+
+    std::size_t arrayStart = objectText.find('[', colon + 1);
+    if (arrayStart == std::string::npos) {
+        return "";
+    }
+
+    std::size_t arrayEnd = findMatching(objectText, arrayStart, '[', ']');
+    if (arrayEnd == std::string::npos) {
+        return "";
+    }
+
+    return objectText.substr(arrayStart + 1, arrayEnd - arrayStart - 1);
+}
+
+bool tokenMeansNonZeroCaid(const std::string& token)
+{
+    std::string cleaned;
+
+    for (char character : token) {
+        if (!std::isspace(static_cast<unsigned char>(character)) &&
+            character != '"' &&
+            character != '\'') {
+            cleaned.push_back(character);
+        }
+    }
+
+    if (cleaned.empty() || cleaned == "0") {
+        return false;
+    }
+
+    for (char character : cleaned) {
+        if (character >= '1' && character <= '9') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool hasNonZeroCaids(const std::string& objectText)
+{
+    for (const std::string& fieldName : {"caids", "CAIDs", "caid", "CAID"}) {
+        if (!hasField(objectText, fieldName)) {
+            continue;
+        }
+
+        const std::string arrayText = getArrayFieldText(objectText, fieldName);
+        if (!arrayText.empty()) {
+            std::size_t start = 0;
+            while (start <= arrayText.size()) {
+                std::size_t end = arrayText.find(',', start);
+                const std::string token = arrayText.substr(
+                    start,
+                    end == std::string::npos
+                        ? std::string::npos
+                        : end - start);
+
+                if (tokenMeansNonZeroCaid(token)) {
+                    return true;
+                }
+
+                if (end == std::string::npos) {
+                    break;
+                }
+                start = end + 1;
+            }
+        }
+
+        const int numericCaid = getIntField(objectText, fieldName, 0);
+        if (numericCaid > 0) {
+            return true;
+        }
+
+        const std::string stringCaid = getStringField(objectText, fieldName);
+        if (tokenMeansNonZeroCaid(stringCaid)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 std::string extractChannelsArray(const std::string& json)
@@ -221,11 +353,14 @@ VdrChannel mapObjectToChannel(const std::string& objectText)
     channel.id = getStringField(objectText, "channel_id");
     channel.number = getIntField(objectText, "number", 0);
     channel.name = getStringField(objectText, "name");
-    channel.provider = "";
+    channel.provider = getStringField(objectText, "provider");
     channel.group = getStringField(objectText, "group");
-    channel.radio = getBoolField(objectText, "is_radio", false);
-    channel.encrypted = false;
-    channel.enabled = true;
+    channel.radio = getFirstBoolField(objectText, {"is_radio", "radio"}, false);
+    channel.encrypted = getFirstBoolField(
+        objectText,
+        {"encrypted", "is_encrypted", "scrambled", "is_scrambled"},
+        hasNonZeroCaids(objectText));
+    channel.enabled = getFirstBoolField(objectText, {"enabled", "is_enabled", "active"}, true);
 
     return channel;
 }
