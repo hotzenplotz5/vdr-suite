@@ -1,7 +1,37 @@
 function normalizeChannelLogoName(value) {
   return String(value || '')
     .trim()
+    .replace(/\s+/g, ' ')
     .toLocaleLowerCase('de-DE');
+}
+
+function addUniqueValue(values, value) {
+  const normalized = normalizeChannelLogoName(value);
+
+  if (normalized !== '' && !values.includes(normalized)) {
+    values.push(normalized);
+  }
+}
+
+function addChannelLogoNameVariants(values, value) {
+  const normalized = normalizeChannelLogoName(value);
+
+  if (normalized === '') {
+    return;
+  }
+
+  addUniqueValue(values, normalized);
+  addUniqueValue(values, normalized.replace(/\s*;.*$/, ''));
+  addUniqueValue(values, normalized.replace(/\s*\(.*\)\s*$/, ''));
+  addUniqueValue(values, normalized.replace(/\s+(hd|uhd|sd)$/i, ''));
+  addUniqueValue(values, normalized.replace(/\s+/g, '_'));
+  addUniqueValue(values, normalized.replace(/\s+/g, '-'));
+  addUniqueValue(values, normalized.replace(/\s+/g, ''));
+
+  const withoutQuality = normalized.replace(/\s+(hd|uhd|sd)$/i, '');
+  addUniqueValue(values, withoutQuality.replace(/\s+/g, '_'));
+  addUniqueValue(values, withoutQuality.replace(/\s+/g, '-'));
+  addUniqueValue(values, withoutQuality.replace(/\s+/g, ''));
 }
 
 function channelLogoPathForName(name, extension) {
@@ -22,18 +52,16 @@ function uniqueChannelLogoCandidates(title, channelId) {
   const normalizedTitle = normalizeChannelLogoName(title);
   const normalizedChannelId = normalizeChannelLogoName(channelId);
 
-  if (normalizedTitle !== '') {
-    names.push(normalizedTitle);
-  }
+  addChannelLogoNameVariants(names, normalizedTitle);
 
   if (normalizedChannelId !== '' && normalizedChannelId !== '-' && normalizedChannelId !== normalizedTitle) {
-    names.push(normalizedChannelId);
+    addChannelLogoNameVariants(names, normalizedChannelId);
   }
 
   const candidates = [];
 
   names.forEach(name => {
-    ['.svg', '.png'].forEach(extension => {
+    ['.png', '.svg'].forEach(extension => {
       const path = channelLogoPathForName(name, extension);
       if (path !== '' && !candidates.includes(path)) {
         candidates.push(path);
@@ -57,6 +85,7 @@ function channelLogoInitial(title) {
 function createChannelLogoElement(title, channelId) {
   const frame = document.createElement('div');
   frame.className = 'channel-logo-frame';
+  frame.title = 'Logo-Kandidaten: ' + uniqueChannelLogoCandidates(title, channelId).slice(0, 4).join(' | ');
 
   const fallback = addText(document.createElement('div'), channelLogoInitial(title));
   fallback.className = 'channel-logo-fallback';
