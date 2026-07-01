@@ -15,6 +15,9 @@ public:
     bool updateBackendCapabilities(
         const std::string& backendId,
         const VdrCapabilitySet& capabilities);
+    bool updateBackendOnline(
+        const std::string& backendId,
+        bool online);
     std::vector<BackendNode> listBackends() const;
 
 private:
