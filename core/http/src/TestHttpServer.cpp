@@ -251,6 +251,8 @@ std::vector<std::string> channelLogoRoots()
 {
     const char* configuredRoot =
         std::getenv("VDR_SUITE_CHANNEL_LOGO_ROOT");
+    const char* configuredCache =
+        std::getenv("VDR_SUITE_CHANNEL_LOGO_CACHE");
 
     std::vector<std::string> roots;
 
@@ -259,6 +261,12 @@ std::vector<std::string> channelLogoRoots()
         roots.emplace_back(configuredRoot);
     }
 
+    if (configuredCache != nullptr && configuredCache[0] != '\0')
+    {
+        roots.emplace_back(configuredCache);
+    }
+
+    roots.emplace_back("/var/cache/vdr-suite/channel-logos");
     roots.emplace_back(
         "/usr/share/vdr/plugins/skindesigner/skins/estuary4vdr/logos");
     roots.emplace_back(
