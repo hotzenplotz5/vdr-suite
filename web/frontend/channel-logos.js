@@ -1,3 +1,5 @@
+let channelListViewMode = 'groups';
+
 function normalizeChannelLogoName(value) {
   return String(value || '')
     .trim()
@@ -194,6 +196,162 @@ function createChannelLogoElement(title, channelId) {
   return frame;
 }
 
+function channelNumber(channel, fallback) {
+  const value = Number(firstValue(channel, ['number', 'channelNumber', 'position'], fallback));
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function sortedChannels(channels) {
+  return channels.slice().sort((left, right) => {
+    const numberDiff = channelNumber(left, 999999) - channelNumber(right, 999999);
+    if (numberDiff !== 0) {
+      return numberDiff;
+    }
+
+    const leftName = normalizeChannelLogoName(firstValue(left, ['name', 'channelName', 'title', 'displayName'], ''));
+    const rightName = normalizeChannelLogoName(firstValue(right, ['name', 'channelName', 'title', 'displayName'], ''));
+    return leftName.localeCompare(rightName, 'de-DE');
+  });
+}
+
+function channelGroupName(channel) {
+  const group = String(firstValue(channel, ['group', 'groupName', 'bouquet', 'category'], '')).trim();
+  return group === '' ? 'Ohne Gruppe' : group;
+}
+
+function hasRealChannelGroups(channels) {
+  const groups = new Set();
+
+  channels.forEach(channel => {
+    const group = String(firstValue(channel, ['group', 'groupName', 'bouquet', 'category'], '')).trim();
+    if (group !== '') {
+      groups.add(group);
+    }
+  });
+
+  return groups.size > 0;
+}
+
+function groupChannelsByVdrGroup(channels) {
+  const groups = new Map();
+
+  sortedChannels(channels).forEach(channel => {
+    const groupName = channelGroupName(channel);
+    if (!groups.has(groupName)) {
+      groups.set(groupName, []);
+    }
+    groups.get(groupName).push(channel);
+  });
+
+  return Array.from(groups.entries()).sort((left, right) => {
+    const leftFirst = channelNumber(left[1][0], 999999);
+    const rightFirst = channelNumber(right[1][0], 999999);
+    return leftFirst - rightFirst;
+  });
+}
+
+function groupChannelsByNumberBlocks(channels) {
+  const groups = new Map();
+
+  sortedChannels(channels).forEach((channel, index) => {
+    const number = channelNumber(channel, index + 1);
+    const start = Math.floor((number - 1) / 20) * 20 + 1;
+    const end = start + 19;
+    const label = String(start) + '–' + String(end);
+
+    if (!groups.has(label)) {
+      groups.set(label, []);
+    }
+
+    groups.get(label).push(channel);
+  });
+
+  return Array.from(groups.entries()).sort((left, right) => {
+    const leftStart = Number(left[0].split('–')[0]);
+    const rightStart = Number(right[0].split('–')[0]);
+    return leftStart - rightStart;
+  });
+}
+
+function renderChannelViewButtons(container, channels) {
+  const controls = document.createElement('div');
+  controls.className = 'module-nav';
+  controls.setAttribute('aria-label', 'Kanallisten-Ansicht');
+
+  const groupsAvailable = hasRealChannelGroups(channels);
+
+  const groupButton = document.createElement('button');
+  groupButton.type = 'button';
+  groupButton.className = 'module-tab' + (channelListViewMode === 'groups' ? ' active' : '');
+  groupButton.textContent = 'Gruppen';
+  groupButton.disabled = !groupsAvailable;
+  groupButton.addEventListener('click', () => {
+    channelListViewMode = 'groups';
+    renderChannelList({ channels });
+  });
+
+  const blocksButton = document.createElement('button');
+  blocksButton.type = 'button';
+  blocksButton.className = 'module-tab' + (channelListViewMode === 'blocks' ? ' active' : '');
+  blocksButton.textContent = '1–20 / 21–40';
+  blocksButton.addEventListener('click', () => {
+    channelListViewMode = 'blocks';
+    renderChannelList({ channels });
+  });
+
+  controls.appendChild(groupButton);
+  controls.appendChild(blocksButton);
+  container.appendChild(controls);
+}
+
+function renderChannelItem(channel, index) {
+  const item = document.createElement('article');
+  item.className = 'list-item channel-list-item';
+  const title = firstValue(
+    channel,
+    ['name', 'channelName', 'title', 'displayName', 'id', 'channelId'],
+    'Kanal ' + String(index + 1)
+  );
+  const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '-');
+  const number = channelNumber(channel, index + 1);
+  const group = channelGroupName(channel);
+
+  item.appendChild(createChannelLogoElement(title, channelId));
+
+  const text = document.createElement('div');
+  text.className = 'channel-text';
+  text.appendChild(addText(document.createElement('div'), String(title))).className = 'list-title';
+  text.appendChild(addText(
+    document.createElement('div'),
+    'Nummer: ' + String(number) + ' · ID: ' + String(channelId)
+  )).className = 'list-meta';
+
+  if (group !== 'Ohne Gruppe') {
+    text.appendChild(addText(document.createElement('div'), 'Gruppe: ' + group)).className = 'list-meta';
+  }
+
+  item.appendChild(text);
+  return item;
+}
+
+function renderChannelSection(list, label, channels, globalOffset) {
+  const header = document.createElement('article');
+  header.className = 'module-placeholder';
+  const firstNumber = channelNumber(channels[0], 0);
+  const lastNumber = channelNumber(channels[channels.length - 1], 0);
+
+  header.appendChild(addText(document.createElement('h3'), label));
+  header.appendChild(addText(
+    document.createElement('p'),
+    String(channels.length) + ' Kanal/Kanäle · Nummern ' + String(firstNumber) + '–' + String(lastNumber)
+  ));
+  list.appendChild(header);
+
+  channels.forEach((channel, index) => {
+    list.appendChild(renderChannelItem(channel, globalOffset + index));
+  });
+}
+
 renderChannelList = function(data) {
   const channels = listFromResponse(data, 'channels');
   detailDataElement.replaceChildren();
@@ -210,37 +368,29 @@ renderChannelList = function(data) {
     return;
   }
 
-  channels.slice(0, 20).forEach((channel, index) => {
-    const item = document.createElement('article');
-    item.className = 'list-item channel-list-item';
-    const title = firstValue(
-      channel,
-      ['name', 'channelName', 'title', 'displayName', 'id', 'channelId'],
-      'Kanal ' + String(index + 1)
-    );
-    const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '-');
-    const number = firstValue(channel, ['number', 'channelNumber', 'position'], String(index + 1));
-
-    item.appendChild(createChannelLogoElement(title, channelId));
-
-    const text = document.createElement('div');
-    text.className = 'channel-text';
-    text.appendChild(addText(document.createElement('div'), String(title))).className = 'list-title';
-    text.appendChild(addText(
-      document.createElement('div'),
-      'Nummer: ' + String(number) + ' · ID: ' + String(channelId)
-    )).className = 'list-meta';
-    item.appendChild(text);
-
-    list.appendChild(item);
-  });
-
-  if (channels.length > 20) {
-    const info = document.createElement('article');
-    info.className = 'module-placeholder';
-    info.appendChild(addText(document.createElement('p'), 'Zeige 20 von ' + String(channels.length) + ' Kanälen.'));
-    list.appendChild(info);
+  if (!hasRealChannelGroups(channels)) {
+    channelListViewMode = 'blocks';
   }
+
+  const overview = document.createElement('article');
+  overview.className = 'module-placeholder';
+  overview.appendChild(addText(document.createElement('h3'), 'Kanalliste'));
+  overview.appendChild(addText(
+    document.createElement('p'),
+    String(channels.length) + ' Kanal/Kanäle vollständig geladen.'
+  ));
+  renderChannelViewButtons(overview, channels);
+  list.appendChild(overview);
+
+  const sections = channelListViewMode === 'groups'
+    ? groupChannelsByVdrGroup(channels)
+    : groupChannelsByNumberBlocks(channels);
+
+  let offset = 0;
+  sections.forEach(([label, sectionChannels]) => {
+    renderChannelSection(list, label, sectionChannels, offset);
+    offset += sectionChannels.length;
+  });
 
   detailDataElement.appendChild(list);
 };
