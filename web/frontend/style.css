@@ -129,6 +129,16 @@ button:disabled { background: #475569; color: #cbd5e1; cursor: default; }
   display: grid;
   gap: 0.6rem;
 }
-.list-title { font-weight: 800; font-size: 1.05rem; }
-.list-meta { margin-top: 0.25rem; color: #cbd5e1; font-size: 0.92rem; }
+.list-title {
+  font-weight: 800;
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+.list-meta {
+  margin-top: 0.25rem;
+  color: #cbd5e1;
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .error { color: #fecaca; }
