@@ -102,7 +102,17 @@ HttpServerResponse makeFrontendShellResponse()
     }
     main { padding: 1.25rem; }
     h1 { margin: 0; font-size: clamp(2rem, 7vw, 3.5rem); }
-    h2 { margin: 0 0 0.75rem; font-size: 1.35rem; }
+    h2 { margin: 0; font-size: 1.35rem; }
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 0.55rem 0.85rem;
+      background: #2563eb;
+      color: #dbeafe;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:disabled { background: #475569; color: #cbd5e1; cursor: default; }
     .status { margin: 0 0 1rem; color: #cbd5e1; font-size: 1.1rem; }
     .layout { display: grid; gap: 1rem; max-width: 70rem; }
     .backend-list { display: grid; gap: 1rem; }
@@ -150,16 +160,35 @@ HttpServerResponse makeFrontendShellResponse()
       border-radius: 1rem;
       background: #111827;
     }
+    .detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
     .detail-meta { color: #cbd5e1; margin-bottom: 0.75rem; }
-    .detail-pre {
-      margin: 0;
-      padding: 1rem;
-      border-radius: 0.75rem;
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+      gap: 0.75rem;
+    }
+    .metric-card {
+      padding: 0.9rem;
+      border: 1px solid #334155;
+      border-radius: 0.85rem;
       background: #020617;
-      color: #e2e8f0;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      font-size: 0.9rem;
+    }
+    .metric-value {
+      font-size: 1.85rem;
+      line-height: 1;
+      font-weight: 900;
+      color: #bfdbfe;
+    }
+    .metric-label {
+      margin-top: 0.35rem;
+      color: #cbd5e1;
+      font-size: 0.95rem;
     }
     .error { color: #fecaca; }
   </style>
@@ -171,9 +200,12 @@ HttpServerResponse makeFrontendShellResponse()
     <section class="layout">
       <section id="backends" class="backend-list" aria-label="Backend-Auswahl"></section>
       <section id="detail" class="detail-card" aria-live="polite">
-        <h2>Backend-Details</h2>
+        <div class="detail-header">
+          <h2>Backend-Details</h2>
+          <button id="refresh-detail" type="button" disabled>Aktualisieren</button>
+        </div>
         <div id="detail-meta" class="detail-meta">Noch kein Backend ausgewählt.</div>
-        <pre id="detail-data" class="detail-pre">Klicke auf eine Backend-Karte.</pre>
+        <section id="detail-data" class="metric-grid">Klicke auf eine Backend-Karte.</section>
       </section>
     </section>
   </main>
@@ -182,7 +214,9 @@ HttpServerResponse makeFrontendShellResponse()
     const backendsElement = document.getElementById('backends');
     const detailMetaElement = document.getElementById('detail-meta');
     const detailDataElement = document.getElementById('detail-data');
+    const refreshDetailButton = document.getElementById('refresh-detail');
     let selectedBackendId = '';
+    let selectedBackend = null;
 
     function addText(element, text) {
       element.textContent = text;
@@ -196,6 +230,31 @@ HttpServerResponse makeFrontendShellResponse()
       return badge;
     }
 
+    function valueOrZero(value) {
+      return Number.isFinite(Number(value)) ? Number(value) : 0;
+    }
+
+    function createMetric(label, value) {
+      const card = document.createElement('article');
+      card.className = 'metric-card';
+      const valueElement = addText(document.createElement('div'), String(value));
+      valueElement.className = 'metric-value';
+      const labelElement = addText(document.createElement('div'), label);
+      labelElement.className = 'metric-label';
+      card.appendChild(valueElement);
+      card.appendChild(labelElement);
+      return card;
+    }
+
+    function renderSnapshotMetrics(data) {
+      detailDataElement.replaceChildren();
+      detailDataElement.appendChild(createMetric('Snapshot', data.snapshotAvailable ? 'ja' : 'nein'));
+      detailDataElement.appendChild(createMetric('Kanäle', valueOrZero(data.channelCount)));
+      detailDataElement.appendChild(createMetric('Events', valueOrZero(data.eventCount)));
+      detailDataElement.appendChild(createMetric('Timer', valueOrZero(data.timerCount)));
+      detailDataElement.appendChild(createMetric('Aufnahmen', valueOrZero(data.recordingCount)));
+    }
+
     function markSelected(backendId) {
       selectedBackendId = backendId;
       document.querySelectorAll('.backend-card').forEach(card => {
@@ -204,12 +263,14 @@ HttpServerResponse makeFrontendShellResponse()
     }
 
     function loadBackendDetails(backend) {
+      selectedBackend = backend;
       const selector = backend.frontendSelector || backend;
       const backendId = selector.id || backend.backendId || 'default';
       markSelected(backendId);
+      refreshDetailButton.disabled = true;
       detailMetaElement.className = 'detail-meta';
       detailMetaElement.textContent = 'Lade Details für ' + (selector.label || backend.backendName || backendId) + '...';
-      detailDataElement.textContent = '';
+      detailDataElement.replaceChildren();
 
       fetch('/api/backends/' + encodeURIComponent(backendId) + '/snapshot')
         .then(response => {
@@ -220,12 +281,14 @@ HttpServerResponse makeFrontendShellResponse()
         })
         .then(data => {
           detailMetaElement.textContent = 'Details für ' + (selector.label || backend.backendName || backendId);
-          detailDataElement.textContent = JSON.stringify(data, null, 2);
+          renderSnapshotMetrics(data);
+          refreshDetailButton.disabled = false;
         })
         .catch(error => {
           detailMetaElement.className = 'detail-meta error';
           detailMetaElement.textContent = 'Details konnten nicht geladen werden: ' + error.message;
-          detailDataElement.textContent = '';
+          detailDataElement.replaceChildren();
+          refreshDetailButton.disabled = false;
         });
     }
 
@@ -278,6 +341,12 @@ HttpServerResponse makeFrontendShellResponse()
 
       return card;
     }
+
+    refreshDetailButton.addEventListener('click', () => {
+      if (selectedBackend) {
+        loadBackendDetails(selectedBackend);
+      }
+    });
 
     fetch('/api/backends')
       .then(response => {
