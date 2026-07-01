@@ -49,6 +49,7 @@ public:
 
         snapshot.backendId = backendId_;
         snapshot.status = buildStatus();
+        snapshot.recordings = buildRecordings();
         snapshot.timers = buildTimers();
         snapshot.searchTimers = buildSearchTimers();
         snapshot.channels = buildChannels();
