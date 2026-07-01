@@ -153,9 +153,9 @@ button:disabled { background: #475569; color: #cbd5e1; cursor: default; }
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #334155;
+  border: 1px solid #94a3b8;
   border-radius: 0.55rem;
-  background: #0f172a;
+  background: #f8fafc;
   overflow: hidden;
 }
 .channel-logo {
@@ -167,7 +167,7 @@ button:disabled { background: #475569; color: #cbd5e1; cursor: default; }
 .channel-logo-frame.loaded .channel-logo { display: block; }
 .channel-logo-frame.loaded .channel-logo-fallback { display: none; }
 .channel-logo-fallback {
-  color: #bfdbfe;
+  color: #1e293b;
   font-weight: 900;
   font-size: 1.1rem;
 }
