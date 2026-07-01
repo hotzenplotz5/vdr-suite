@@ -13,6 +13,8 @@ std::string BackendRegistryJsonSerializer::serializeBackend(
 {
     std::ostringstream json;
 
+    const bool canWrite = !backend.readOnly();
+
     json
         << "{"
         << "\"backendId\":\"" << backend.backendId << "\","
@@ -20,10 +22,20 @@ std::string BackendRegistryJsonSerializer::serializeBackend(
         << "\"backendType\":\"" << backend.backendType << "\","
         << "\"accessMode\":\"" << backend.accessMode << "\","
         << "\"readOnly\":" << backendBoolToJson(backend.readOnly()) << ","
-        << "\"canWrite\":" << backendBoolToJson(!backend.readOnly()) << ","
-        << "\"canWriteRecordings\":" << backendBoolToJson(!backend.readOnly()) << ","
-        << "\"canWriteTimers\":" << backendBoolToJson(!backend.readOnly()) << ","
-        << "\"canWriteSearchTimers\":" << backendBoolToJson(!backend.readOnly()) << ","
+        << "\"canWrite\":" << backendBoolToJson(canWrite) << ","
+        << "\"canWriteRecordings\":" << backendBoolToJson(canWrite) << ","
+        << "\"canWriteTimers\":" << backendBoolToJson(canWrite) << ","
+        << "\"canWriteSearchTimers\":" << backendBoolToJson(canWrite) << ","
+        << "\"frontendSelector\":{"
+        << "\"id\":\"" << backend.backendId << "\","
+        << "\"label\":\"" << backend.backendName << "\","
+        << "\"accessMode\":\"" << backend.accessMode << "\","
+        << "\"readOnly\":" << backendBoolToJson(backend.readOnly()) << ","
+        << "\"canWrite\":" << backendBoolToJson(canWrite) << ","
+        << "\"canWriteRecordings\":" << backendBoolToJson(canWrite) << ","
+        << "\"canWriteTimers\":" << backendBoolToJson(canWrite) << ","
+        << "\"canWriteSearchTimers\":" << backendBoolToJson(canWrite)
+        << "},"
         << "\"enabled\":" << backendBoolToJson(backend.enabled) << ","
         << "\"online\":" << backendBoolToJson(backend.online)
         << "}";
