@@ -45,6 +45,7 @@ Detailed phase-by-phase history remains in [Completed Phases](../development/com
 | Phase 55.5o | Completed | Phase Map and Roadmap | Canonical phase map, simplified roadmap and phase-map coverage guardrail. |
 | Phase 55.6 | Completed | Recording Operations Audit | Recording mutation safety policy, default-blocked real write probes and guardrail coverage. |
 | Phase 56 | Completed | Library Boundary and Packaging | Source-group cleanup, install boundary, DESTDIR staging, manpages, install manifest and prerequisite audit. |
+| Phase 57 | Completed | Multi-Site Backend Administration and Permissions | Backend access modes, backend access handling and frontend-visible backend permission hints. |
 
 ---
 
@@ -52,10 +53,10 @@ Detailed phase-by-phase history remains in [Completed Phases](../development/com
 
 ```text
 Latest completed implementation phase
-Phase 56 - Library Boundary, Packaging and Developer Documentation
+Phase 57 - Multi-Site Backend Administration and Permissions
 
 Next implementation focus
-Phase 57 - Multi-Site Backend Administration and Permissions
+Phase 58 - Frontend and Live Parity
 ```
 
 ---
@@ -64,8 +65,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 
 | Range | Status | Track | Goal |
 | --- | --- | --- | --- |
-| Phase 57 | Next | Multi-Site Backend Administration and Permissions | Support multi-site operation with backend-specific permissions and read-only secondary-site mode. |
-| Phase 58 | Planned | Frontend and Live Parity | Build frontend-ready everyday recording, timer, channel and EPG views after safe API and permission foundations. |
+| Phase 58 | Next | Frontend and Live Parity | Build frontend-ready everyday recording, timer, channel and EPG views after safe API and permission foundations. |
 | Phase 59 | Planned | Suite Metadata Database and External Providers | Build a suite-owned metadata database while using mature external scraper/catalog providers behind boundaries. |
 | Phase 60 | Vision | Recommendation and Content Knowledge Graph | Build recommendation and graph primitives after metadata and frontend foundations mature. |
 
