@@ -104,6 +104,7 @@ HttpServerResponse makeFrontendShellResponse()
     h1 { margin: 0; font-size: clamp(2rem, 7vw, 3.5rem); }
     h2 { margin: 0; font-size: 1.35rem; }
     h3 { margin: 0 0 0.45rem; font-size: 1.1rem; }
+    p { margin: 0.35rem 0 0; }
     button {
       border: 0;
       border-radius: 999px;
@@ -191,7 +192,8 @@ HttpServerResponse makeFrontendShellResponse()
       gap: 0.75rem;
     }
     .metric-card,
-    .module-placeholder {
+    .module-placeholder,
+    .list-item {
       padding: 0.9rem;
       border: 1px solid #334155;
       border-radius: 0.85rem;
@@ -212,6 +214,13 @@ HttpServerResponse makeFrontendShellResponse()
       color: #cbd5e1;
       font-size: 0.95rem;
     }
+    .list {
+      grid-column: 1 / -1;
+      display: grid;
+      gap: 0.6rem;
+    }
+    .list-title { font-weight: 800; font-size: 1.05rem; }
+    .list-meta { margin-top: 0.25rem; color: #cbd5e1; font-size: 0.92rem; }
     .error { color: #fecaca; }
   </style>
 </head>
@@ -248,6 +257,7 @@ HttpServerResponse makeFrontendShellResponse()
     let selectedBackend = null;
     let selectedModule = 'overview';
     let currentSnapshot = null;
+    let currentChannels = null;
 
     const moduleLabels = {
       overview: 'Übersicht',
@@ -285,6 +295,28 @@ HttpServerResponse makeFrontendShellResponse()
       return card;
     }
 
+    function firstValue(object, keys, fallback) {
+      for (const key of keys) {
+        if (object && object[key] !== undefined && object[key] !== null && object[key] !== '') {
+          return object[key];
+        }
+      }
+      return fallback;
+    }
+
+    function listFromResponse(data, key) {
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (data && Array.isArray(data[key])) {
+        return data[key];
+      }
+      if (data && Array.isArray(data.items)) {
+        return data.items;
+      }
+      return [];
+    }
+
     function renderSnapshotMetrics(data) {
       detailDataElement.replaceChildren();
       detailDataElement.appendChild(createMetric('Snapshot', data.snapshotAvailable ? 'ja' : 'nein'));
@@ -294,15 +326,57 @@ HttpServerResponse makeFrontendShellResponse()
       detailDataElement.appendChild(createMetric('Aufnahmen', valueOrZero(data.recordingCount)));
     }
 
+    function renderChannelList(data) {
+      const channels = listFromResponse(data, 'channels');
+      detailDataElement.replaceChildren();
+
+      const list = document.createElement('section');
+      list.className = 'list';
+
+      if (channels.length === 0) {
+        const empty = document.createElement('article');
+        empty.className = 'module-placeholder';
+        empty.appendChild(addText(document.createElement('h3'), 'Keine Kanäle gefunden'));
+        empty.appendChild(addText(document.createElement('p'), 'Der Endpunkt /api/vdr/channels hat keine Kanalliste geliefert.'));
+        detailDataElement.appendChild(empty);
+        return;
+      }
+
+      channels.slice(0, 20).forEach((channel, index) => {
+        const item = document.createElement('article');
+        item.className = 'list-item';
+        const title = firstValue(
+          channel,
+          ['name', 'channelName', 'title', 'displayName', 'id', 'channelId'],
+          'Kanal ' + String(index + 1)
+        );
+        const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '-');
+        const number = firstValue(channel, ['number', 'channelNumber', 'position'], String(index + 1));
+        item.appendChild(addText(document.createElement('div'), String(title))).className = 'list-title';
+        item.appendChild(addText(
+          document.createElement('div'),
+          'Nummer: ' + String(number) + ' · ID: ' + String(channelId)
+        )).className = 'list-meta';
+        list.appendChild(item);
+      });
+
+      if (channels.length > 20) {
+        const info = document.createElement('article');
+        info.className = 'module-placeholder';
+        info.appendChild(addText(document.createElement('p'), 'Zeige 20 von ' + String(channels.length) + ' Kanälen.'));
+        list.appendChild(info);
+      }
+
+      detailDataElement.appendChild(list);
+    }
+
     function renderModulePlaceholder(moduleName, data) {
       const countMap = {
-        channels: valueOrZero(data.channelCount),
         timers: valueOrZero(data.timerCount),
         recordings: valueOrZero(data.recordingCount),
         searchtimers: 0
       };
       const endpointMap = {
-        channels: '/api/vdr/channels',
         timers: '/api/vdr/timers',
         recordings: '/api/vdr/recordings',
         searchtimers: '/api/searchtimers'
@@ -318,9 +392,44 @@ HttpServerResponse makeFrontendShellResponse()
       detailDataElement.appendChild(box);
     }
 
+    function loadChannels() {
+      detailDataElement.replaceChildren();
+      const loading = document.createElement('section');
+      loading.className = 'module-placeholder';
+      loading.appendChild(addText(document.createElement('h3'), 'Kanäle'));
+      loading.appendChild(addText(document.createElement('p'), 'Lade Kanalliste aus /api/vdr/channels...'));
+      detailDataElement.appendChild(loading);
+
+      fetch('/api/vdr/channels')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('HTTP ' + response.status);
+          }
+          return response.json();
+        })
+        .then(data => {
+          currentChannels = data;
+          renderChannelList(data);
+        })
+        .catch(error => {
+          currentChannels = null;
+          detailDataElement.replaceChildren();
+          const box = document.createElement('section');
+          box.className = 'module-placeholder error';
+          box.appendChild(addText(document.createElement('h3'), 'Kanäle konnten nicht geladen werden'));
+          box.appendChild(addText(document.createElement('p'), error.message));
+          detailDataElement.appendChild(box);
+        });
+    }
+
     function renderSelectedModule(data) {
       if (selectedModule === 'overview') {
         renderSnapshotMetrics(data);
+        return;
+      }
+
+      if (selectedModule === 'channels') {
+        loadChannels();
         return;
       }
 
@@ -434,9 +543,16 @@ HttpServerResponse makeFrontendShellResponse()
     });
 
     refreshDetailButton.addEventListener('click', () => {
-      if (selectedBackend) {
-        loadBackendDetails(selectedBackend);
+      if (!selectedBackend) {
+        return;
       }
+
+      if (selectedModule === 'channels') {
+        loadChannels();
+        return;
+      }
+
+      loadBackendDetails(selectedBackend);
     });
 
     fetch('/api/backends')
