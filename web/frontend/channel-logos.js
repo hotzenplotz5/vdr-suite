@@ -1,6 +1,13 @@
 let channelListViewMode = 'groups';
-let channelListFilterMode = 'all';
 let channelListVisibleCount = 20;
+let channelListFilters = {
+  tv: false,
+  radio: false,
+  free: false,
+  encrypted: false,
+  enabled: false,
+  disabled: false
+};
 
 const CHANNEL_LIST_PAGE_SIZE = 20;
 
@@ -231,7 +238,7 @@ function channelHasUsableCaids(channel) {
 
 function channelsHaveEncryptionInfo(channels) {
   return channels.some(channel =>
-    channelBoolean(channel, ['encrypted', 'scrambled', 'isEncrypted', 'isScrambled'], false) ||
+    channelHasField(channel, ['encrypted', 'scrambled', 'isEncrypted', 'isScrambled']) ||
     channelHasUsableCaids(channel)
   );
 }
@@ -267,34 +274,67 @@ function hasRealChannelGroups(channels) {
   return groups.size > 0;
 }
 
+function clearChannelFilters() {
+  channelListFilters = {
+    tv: false,
+    radio: false,
+    free: false,
+    encrypted: false,
+    enabled: false,
+    disabled: false
+  };
+}
+
+function isAnyChannelFilterActive(encryptionAvailable) {
+  return channelListFilters.tv ||
+    channelListFilters.radio ||
+    (encryptionAvailable && (channelListFilters.free || channelListFilters.encrypted)) ||
+    channelListFilters.enabled ||
+    channelListFilters.disabled;
+}
+
+function toggleChannelFilter(value, encryptionAvailable) {
+  if (value === 'all') {
+    clearChannelFilters();
+    return;
+  }
+
+  if (!encryptionAvailable && (value === 'free' || value === 'encrypted')) {
+    return;
+  }
+
+  channelListFilters[value] = !channelListFilters[value];
+}
+
+function matchesSelectedPair(value, positiveSelected, negativeSelected) {
+  if (!positiveSelected && !negativeSelected) {
+    return true;
+  }
+
+  if (positiveSelected && negativeSelected) {
+    return true;
+  }
+
+  return value ? positiveSelected : negativeSelected;
+}
+
 function filterChannels(channels, encryptionAvailable) {
   return channels.filter(channel => {
     const radio = channelBoolean(channel, ['radio', 'isRadio'], false);
     const encrypted = channelBoolean(channel, ['encrypted', 'scrambled', 'isEncrypted'], false);
     const enabled = channelBoolean(channel, ['enabled', 'active'], true);
 
-    if (channelListFilterMode === 'tv') {
-      return !radio;
+    if (!matchesSelectedPair(radio, channelListFilters.radio, channelListFilters.tv)) {
+      return false;
     }
 
-    if (channelListFilterMode === 'radio') {
-      return radio;
+    if (encryptionAvailable &&
+        !matchesSelectedPair(encrypted, channelListFilters.encrypted, channelListFilters.free)) {
+      return false;
     }
 
-    if (encryptionAvailable && channelListFilterMode === 'free') {
-      return !encrypted;
-    }
-
-    if (encryptionAvailable && channelListFilterMode === 'encrypted') {
-      return encrypted;
-    }
-
-    if (channelListFilterMode === 'enabled') {
-      return enabled;
-    }
-
-    if (channelListFilterMode === 'disabled') {
-      return !enabled;
+    if (!matchesSelectedPair(enabled, channelListFilters.enabled, channelListFilters.disabled)) {
+      return false;
     }
 
     return true;
@@ -401,13 +441,17 @@ function renderChannelFilterButtons(container, channels, encryptionAvailable) {
   filters.push(['disabled', 'Deaktiviert']);
 
   filters.forEach(([value, label]) => {
+    const active = value === 'all'
+      ? !isAnyChannelFilterActive(encryptionAvailable)
+      : Boolean(channelListFilters[value]);
+
     renderChannelButton(
       controls,
       label,
-      channelListFilterMode === value,
+      active,
       false,
       () => {
-        channelListFilterMode = value;
+        toggleChannelFilter(value, encryptionAvailable);
         channelListVisibleCount = CHANNEL_LIST_PAGE_SIZE;
         renderChannelList({ channels });
       }
@@ -541,8 +585,9 @@ renderChannelList = function(data) {
 
   const encryptionAvailable = channelsHaveEncryptionInfo(channels);
 
-  if (!encryptionAvailable && (channelListFilterMode === 'free' || channelListFilterMode === 'encrypted')) {
-    channelListFilterMode = 'all';
+  if (!encryptionAvailable) {
+    channelListFilters.free = false;
+    channelListFilters.encrypted = false;
   }
 
   if (!hasRealChannelGroups(channels)) {
