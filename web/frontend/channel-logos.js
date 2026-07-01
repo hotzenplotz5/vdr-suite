@@ -303,7 +303,52 @@ function toggleChannelFilter(value, encryptionAvailable) {
     return;
   }
 
-  channelListFilters[value] = !channelListFilters[value];
+  if (value === 'tv') {
+    channelListFilters.tv = !channelListFilters.tv;
+    if (channelListFilters.tv) {
+      channelListFilters.radio = false;
+    }
+    return;
+  }
+
+  if (value === 'radio') {
+    channelListFilters.radio = !channelListFilters.radio;
+    if (channelListFilters.radio) {
+      channelListFilters.tv = false;
+    }
+    return;
+  }
+
+  if (value === 'free') {
+    channelListFilters.free = !channelListFilters.free;
+    if (channelListFilters.free) {
+      channelListFilters.encrypted = false;
+    }
+    return;
+  }
+
+  if (value === 'encrypted') {
+    channelListFilters.encrypted = !channelListFilters.encrypted;
+    if (channelListFilters.encrypted) {
+      channelListFilters.free = false;
+    }
+    return;
+  }
+
+  if (value === 'enabled') {
+    channelListFilters.enabled = !channelListFilters.enabled;
+    if (channelListFilters.enabled) {
+      channelListFilters.disabled = false;
+    }
+    return;
+  }
+
+  if (value === 'disabled') {
+    channelListFilters.disabled = !channelListFilters.disabled;
+    if (channelListFilters.disabled) {
+      channelListFilters.enabled = false;
+    }
+  }
 }
 
 function matchesSelectedPair(value, positiveSelected, negativeSelected) {
