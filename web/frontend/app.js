@@ -8,6 +8,7 @@ let selectedBackend = null;
 let selectedModule = 'overview';
 let currentSnapshot = null;
 let currentChannels = null;
+let currentTimers = null;
 
 const moduleLabels = {
   overview: 'Übersicht',
@@ -120,14 +121,64 @@ function renderChannelList(data) {
   detailDataElement.appendChild(list);
 }
 
+function renderTimerList(data) {
+  const timers = listFromResponse(data, 'timers');
+  detailDataElement.replaceChildren();
+
+  const list = document.createElement('section');
+  list.className = 'list';
+
+  if (timers.length === 0) {
+    const empty = document.createElement('article');
+    empty.className = 'module-placeholder';
+    empty.appendChild(addText(document.createElement('h3'), 'Keine Timer gefunden'));
+    empty.appendChild(addText(document.createElement('p'), 'Der Endpunkt /api/vdr/timers hat aktuell keine Timer geliefert.'));
+    detailDataElement.appendChild(empty);
+    return;
+  }
+
+  timers.slice(0, 20).forEach((timer, index) => {
+    const item = document.createElement('article');
+    item.className = 'list-item';
+    const title = firstValue(
+      timer,
+      ['title', 'name', 'file', 'eventTitle', 'description', 'id', 'timerId'],
+      'Timer ' + String(index + 1)
+    );
+    const timerId = firstValue(timer, ['timerId', 'id', 'nativeId'], '-');
+    const channel = firstValue(timer, ['channelName', 'channel', 'channelId'], '-');
+    const state = firstValue(timer, ['state', 'status', 'enabled', 'active'], '-');
+    const start = firstValue(timer, ['startTime', 'start', 'begin'], '-');
+    const stop = firstValue(timer, ['stopTime', 'stop', 'end'], '-');
+
+    item.appendChild(addText(document.createElement('div'), String(title))).className = 'list-title';
+    item.appendChild(addText(
+      document.createElement('div'),
+      'ID: ' + String(timerId) + ' · Kanal: ' + String(channel) + ' · Status: ' + String(state)
+    )).className = 'list-meta';
+    item.appendChild(addText(
+      document.createElement('div'),
+      'Start: ' + String(start) + ' · Ende: ' + String(stop)
+    )).className = 'list-meta';
+    list.appendChild(item);
+  });
+
+  if (timers.length > 20) {
+    const info = document.createElement('article');
+    info.className = 'module-placeholder';
+    info.appendChild(addText(document.createElement('p'), 'Zeige 20 von ' + String(timers.length) + ' Timern.'));
+    list.appendChild(info);
+  }
+
+  detailDataElement.appendChild(list);
+}
+
 function renderModulePlaceholder(moduleName, data) {
   const countMap = {
-    timers: valueOrZero(data.timerCount),
     recordings: valueOrZero(data.recordingCount),
     searchtimers: 0
   };
   const endpointMap = {
-    timers: '/api/vdr/timers',
     recordings: '/api/vdr/recordings',
     searchtimers: '/api/searchtimers'
   };
@@ -142,13 +193,26 @@ function renderModulePlaceholder(moduleName, data) {
   detailDataElement.appendChild(box);
 }
 
-function loadChannels() {
+function renderModuleError(title, error) {
+  detailDataElement.replaceChildren();
+  const box = document.createElement('section');
+  box.className = 'module-placeholder error';
+  box.appendChild(addText(document.createElement('h3'), title));
+  box.appendChild(addText(document.createElement('p'), error.message));
+  detailDataElement.appendChild(box);
+}
+
+function renderModuleLoading(title, message) {
   detailDataElement.replaceChildren();
   const loading = document.createElement('section');
   loading.className = 'module-placeholder';
-  loading.appendChild(addText(document.createElement('h3'), 'Kanäle'));
-  loading.appendChild(addText(document.createElement('p'), 'Lade Kanalliste aus /api/vdr/channels...'));
+  loading.appendChild(addText(document.createElement('h3'), title));
+  loading.appendChild(addText(document.createElement('p'), message));
   detailDataElement.appendChild(loading);
+}
+
+function loadChannels() {
+  renderModuleLoading('Kanäle', 'Lade Kanalliste aus /api/vdr/channels...');
 
   fetch('/api/vdr/channels')
     .then(response => {
@@ -163,12 +227,27 @@ function loadChannels() {
     })
     .catch(error => {
       currentChannels = null;
-      detailDataElement.replaceChildren();
-      const box = document.createElement('section');
-      box.className = 'module-placeholder error';
-      box.appendChild(addText(document.createElement('h3'), 'Kanäle konnten nicht geladen werden'));
-      box.appendChild(addText(document.createElement('p'), error.message));
-      detailDataElement.appendChild(box);
+      renderModuleError('Kanäle konnten nicht geladen werden', error);
+    });
+}
+
+function loadTimers() {
+  renderModuleLoading('Timer', 'Lade Timerliste aus /api/vdr/timers...');
+
+  fetch('/api/vdr/timers')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+      return response.json();
+    })
+    .then(data => {
+      currentTimers = data;
+      renderTimerList(data);
+    })
+    .catch(error => {
+      currentTimers = null;
+      renderModuleError('Timer konnten nicht geladen werden', error);
     });
 }
 
@@ -180,6 +259,11 @@ function renderSelectedModule(data) {
 
   if (selectedModule === 'channels') {
     loadChannels();
+    return;
+  }
+
+  if (selectedModule === 'timers') {
+    loadTimers();
     return;
   }
 
@@ -299,6 +383,11 @@ refreshDetailButton.addEventListener('click', () => {
 
   if (selectedModule === 'channels') {
     loadChannels();
+    return;
+  }
+
+  if (selectedModule === 'timers') {
+    loadTimers();
     return;
   }
 
