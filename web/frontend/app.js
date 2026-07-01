@@ -9,6 +9,7 @@ let selectedModule = 'overview';
 let currentSnapshot = null;
 let currentChannels = null;
 let currentTimers = null;
+let currentRecordings = null;
 
 const moduleLabels = {
   overview: 'Übersicht',
@@ -155,6 +156,43 @@ function formatTimerStatus(timer) {
   return String(status);
 }
 
+function formatDurationSeconds(value) {
+  const seconds = Number(value);
+
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '-';
+  }
+
+  const minutes = Math.round(seconds / 60);
+
+  if (minutes < 60) {
+    return String(minutes) + ' min';
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (remainingMinutes === 0) {
+    return String(hours) + ' h';
+  }
+
+  return String(hours) + ' h ' + String(remainingMinutes) + ' min';
+}
+
+function formatSizeMb(value) {
+  const sizeMb = Number(value);
+
+  if (!Number.isFinite(sizeMb) || sizeMb <= 0) {
+    return '-';
+  }
+
+  if (sizeMb >= 1024) {
+    return (sizeMb / 1024).toFixed(1) + ' GB';
+  }
+
+  return String(Math.round(sizeMb)) + ' MB';
+}
+
 function renderSnapshotMetrics(data) {
   detailDataElement.replaceChildren();
   detailDataElement.appendChild(createMetric('Snapshot', data.snapshotAvailable ? 'ja' : 'nein'));
@@ -270,13 +308,67 @@ function renderTimerList(data) {
   detailDataElement.appendChild(list);
 }
 
+function renderRecordingList(data) {
+  const recordings = listFromResponse(data, 'recordings');
+  detailDataElement.replaceChildren();
+
+  const list = document.createElement('section');
+  list.className = 'list';
+
+  if (recordings.length === 0) {
+    const empty = document.createElement('article');
+    empty.className = 'module-placeholder';
+    empty.appendChild(addText(document.createElement('h3'), 'Keine Aufnahmen gefunden'));
+    empty.appendChild(addText(document.createElement('p'), 'Der Endpunkt /api/vdr/recordings hat aktuell keine Aufnahmen geliefert.'));
+    detailDataElement.appendChild(empty);
+    return;
+  }
+
+  recordings.slice(0, 20).forEach((recording, index) => {
+    const item = document.createElement('article');
+    item.className = 'list-item';
+    const title = firstValue(
+      recording,
+      ['title', 'name', 'file', 'displayName', 'id'],
+      'Aufnahme ' + String(index + 1)
+    );
+    const recordingId = firstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
+    const path = firstValue(recording, ['path', 'fileName', 'directory'], '-');
+    const startTime = firstValue(recording, ['startTime', 'start', 'date'], '-');
+    const duration = formatDurationSeconds(firstValue(recording, ['durationSeconds', 'duration'], 0));
+    const size = formatSizeMb(firstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
+
+    item.appendChild(addText(document.createElement('div'), String(title))).className = 'list-title';
+    item.appendChild(addText(
+      document.createElement('div'),
+      'Start: ' + String(startTime) + ' · Dauer: ' + duration + ' · Größe: ' + size
+    )).className = 'list-meta';
+    item.appendChild(addText(
+      document.createElement('div'),
+      'Pfad: ' + String(path)
+    )).className = 'list-meta';
+    item.appendChild(addText(
+      document.createElement('div'),
+      'ID: ' + String(recordingId)
+    )).className = 'list-meta';
+    list.appendChild(item);
+  });
+
+  if (recordings.length > 20) {
+    const info = document.createElement('article');
+    info.className = 'module-placeholder';
+    info.appendChild(addText(document.createElement('p'), 'Zeige 20 von ' + String(recordings.length) + ' Aufnahmen.'));
+    list.appendChild(info);
+  }
+
+  detailDataElement.appendChild(list);
+}
+
 function renderModulePlaceholder(moduleName, data) {
   const countMap = {
-    recordings: valueOrZero(data.recordingCount),
     searchtimers: 0
   };
   const endpointMap = {
-    recordings: '/api/vdr/recordings',
     searchtimers: '/api/searchtimers'
   };
   detailDataElement.replaceChildren();
@@ -348,6 +440,26 @@ function loadTimers() {
     });
 }
 
+function loadRecordings() {
+  renderModuleLoading('Aufnahmen', 'Lade Aufnahmeliste aus /api/vdr/recordings...');
+
+  fetch('/api/vdr/recordings')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+      return response.json();
+    })
+    .then(data => {
+      currentRecordings = data;
+      renderRecordingList(data);
+    })
+    .catch(error => {
+      currentRecordings = null;
+      renderModuleError('Aufnahmen konnten nicht geladen werden', error);
+    });
+}
+
 function renderSelectedModule(data) {
   if (selectedModule === 'overview') {
     renderSnapshotMetrics(data);
@@ -361,6 +473,11 @@ function renderSelectedModule(data) {
 
   if (selectedModule === 'timers') {
     loadTimers();
+    return;
+  }
+
+  if (selectedModule === 'recordings') {
+    loadRecordings();
     return;
   }
 
@@ -485,6 +602,11 @@ refreshDetailButton.addEventListener('click', () => {
 
   if (selectedModule === 'timers') {
     loadTimers();
+    return;
+  }
+
+  if (selectedModule === 'recordings') {
+    loadRecordings();
     return;
   }
 
