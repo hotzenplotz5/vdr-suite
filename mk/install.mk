@@ -5,6 +5,8 @@ SYSCONFDIR ?= /etc
 DATADIR ?= $(PREFIX)/share/vdr-suite
 DOCDIR ?= $(PREFIX)/share/doc/vdr-suite
 MANDIR ?= $(PREFIX)/share/man
+LOCALSTATEDIR ?= /var
+CACHEDIR ?= $(LOCALSTATEDIR)/cache/vdr-suite
 INSTALL ?= install
 
 .PHONY: install install-runtime install-cli install-docs install-manpages test-install-staging
@@ -15,6 +17,7 @@ install-runtime: daemon
 	$(INSTALL) -d $(DESTDIR)$(SBINDIR)
 	$(INSTALL) -m 0755 /tmp/vdr-suite-daemon $(DESTDIR)$(SBINDIR)/vdr-suite-daemon
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/vdr-suite
+	$(INSTALL) -d $(DESTDIR)$(CACHEDIR)/channel-logos
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
 	$(INSTALL) -m 0644 web/frontend/index.html $(DESTDIR)$(DATADIR)/web/frontend/index.html
 	$(INSTALL) -m 0644 web/frontend/app.js $(DESTDIR)$(DATADIR)/web/frontend/app.js
@@ -24,6 +27,7 @@ install-runtime: daemon
 install-cli: dashboard-cli
 	$(INSTALL) -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 /tmp/vdr-suite-dashboard $(DESTDIR)$(BINDIR)/vdr-suite-dashboard
+	$(INSTALL) -m 0755 tools/vdr_suite_logo_sync.py $(DESTDIR)$(BINDIR)/vdr-suite-logo-sync
 
 install-docs:
 	$(INSTALL) -d $(DESTDIR)$(DOCDIR)
@@ -43,7 +47,9 @@ test-install-staging:
 	$(MAKE) install DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr
 	test -x /tmp/vdr-suite-pkgroot/usr/sbin/vdr-suite-daemon
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-dashboard
+	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-logo-sync
 	test -d /tmp/vdr-suite-pkgroot/etc/vdr-suite
+	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos
 	test -f /tmp/vdr-suite-pkgroot/usr/share/doc/vdr-suite/README.md
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html
