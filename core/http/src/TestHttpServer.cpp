@@ -103,6 +103,7 @@ HttpServerResponse makeFrontendShellResponse()
     main { padding: 1.25rem; }
     h1 { margin: 0; font-size: clamp(2rem, 7vw, 3.5rem); }
     h2 { margin: 0; font-size: 1.35rem; }
+    h3 { margin: 0 0 0.45rem; font-size: 1.1rem; }
     button {
       border: 0;
       border-radius: 999px;
@@ -168,16 +169,37 @@ HttpServerResponse makeFrontendShellResponse()
       margin-bottom: 0.75rem;
     }
     .detail-meta { color: #cbd5e1; margin-bottom: 0.75rem; }
+    .module-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0 0 0.85rem;
+    }
+    .module-tab {
+      background: #1e293b;
+      color: #cbd5e1;
+      border: 1px solid #334155;
+    }
+    .module-tab.active {
+      background: #2563eb;
+      color: #dbeafe;
+      border-color: #60a5fa;
+    }
     .metric-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
       gap: 0.75rem;
     }
-    .metric-card {
+    .metric-card,
+    .module-placeholder {
       padding: 0.9rem;
       border: 1px solid #334155;
       border-radius: 0.85rem;
       background: #020617;
+    }
+    .module-placeholder {
+      grid-column: 1 / -1;
+      color: #cbd5e1;
     }
     .metric-value {
       font-size: 1.85rem;
@@ -205,6 +227,13 @@ HttpServerResponse makeFrontendShellResponse()
           <button id="refresh-detail" type="button" disabled>Aktualisieren</button>
         </div>
         <div id="detail-meta" class="detail-meta">Noch kein Backend ausgewählt.</div>
+        <nav id="module-nav" class="module-nav" aria-label="Backend-Module">
+          <button type="button" class="module-tab active" data-module="overview">Übersicht</button>
+          <button type="button" class="module-tab" data-module="channels">Kanäle</button>
+          <button type="button" class="module-tab" data-module="timers">Timer</button>
+          <button type="button" class="module-tab" data-module="recordings">Aufnahmen</button>
+          <button type="button" class="module-tab" data-module="searchtimers">SearchTimer</button>
+        </nav>
         <section id="detail-data" class="metric-grid">Klicke auf eine Backend-Karte.</section>
       </section>
     </section>
@@ -217,6 +246,16 @@ HttpServerResponse makeFrontendShellResponse()
     const refreshDetailButton = document.getElementById('refresh-detail');
     let selectedBackendId = '';
     let selectedBackend = null;
+    let selectedModule = 'overview';
+    let currentSnapshot = null;
+
+    const moduleLabels = {
+      overview: 'Übersicht',
+      channels: 'Kanäle',
+      timers: 'Timer',
+      recordings: 'Aufnahmen',
+      searchtimers: 'SearchTimer'
+    };
 
     function addText(element, text) {
       element.textContent = text;
@@ -255,6 +294,50 @@ HttpServerResponse makeFrontendShellResponse()
       detailDataElement.appendChild(createMetric('Aufnahmen', valueOrZero(data.recordingCount)));
     }
 
+    function renderModulePlaceholder(moduleName, data) {
+      const countMap = {
+        channels: valueOrZero(data.channelCount),
+        timers: valueOrZero(data.timerCount),
+        recordings: valueOrZero(data.recordingCount),
+        searchtimers: 0
+      };
+      const endpointMap = {
+        channels: '/api/vdr/channels',
+        timers: '/api/vdr/timers',
+        recordings: '/api/vdr/recordings',
+        searchtimers: '/api/searchtimers'
+      };
+      detailDataElement.replaceChildren();
+      const box = document.createElement('section');
+      box.className = 'module-placeholder';
+      box.appendChild(addText(document.createElement('h3'), moduleLabels[moduleName] || moduleName));
+      box.appendChild(addText(
+        document.createElement('p'),
+        'Modul vorbereitet. Aktueller Snapshot-Zähler: ' + String(countMap[moduleName] || 0) + '. Nächster Schritt: Liste aus ' + endpointMap[moduleName] + ' rendern.'
+      ));
+      detailDataElement.appendChild(box);
+    }
+
+    function renderSelectedModule(data) {
+      if (selectedModule === 'overview') {
+        renderSnapshotMetrics(data);
+        return;
+      }
+
+      renderModulePlaceholder(selectedModule, data);
+    }
+
+    function selectModule(moduleName) {
+      selectedModule = moduleName;
+      document.querySelectorAll('.module-tab').forEach(button => {
+        button.classList.toggle('active', button.dataset.module === moduleName);
+      });
+
+      if (currentSnapshot) {
+        renderSelectedModule(currentSnapshot);
+      }
+    }
+
     function markSelected(backendId) {
       selectedBackendId = backendId;
       document.querySelectorAll('.backend-card').forEach(card => {
@@ -264,6 +347,8 @@ HttpServerResponse makeFrontendShellResponse()
 
     function loadBackendDetails(backend) {
       selectedBackend = backend;
+      selectedModule = 'overview';
+      selectModule('overview');
       const selector = backend.frontendSelector || backend;
       const backendId = selector.id || backend.backendId || 'default';
       markSelected(backendId);
@@ -280,11 +365,13 @@ HttpServerResponse makeFrontendShellResponse()
           return response.json();
         })
         .then(data => {
+          currentSnapshot = data;
           detailMetaElement.textContent = 'Details für ' + (selector.label || backend.backendName || backendId);
-          renderSnapshotMetrics(data);
+          renderSelectedModule(data);
           refreshDetailButton.disabled = false;
         })
         .catch(error => {
+          currentSnapshot = null;
           detailMetaElement.className = 'detail-meta error';
           detailMetaElement.textContent = 'Details konnten nicht geladen werden: ' + error.message;
           detailDataElement.replaceChildren();
@@ -341,6 +428,10 @@ HttpServerResponse makeFrontendShellResponse()
 
       return card;
     }
+
+    document.querySelectorAll('.module-tab').forEach(button => {
+      button.addEventListener('click', () => selectModule(button.dataset.module));
+    });
 
     refreshDetailButton.addEventListener('click', () => {
       if (selectedBackend) {
