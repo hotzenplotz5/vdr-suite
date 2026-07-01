@@ -31,6 +31,8 @@
   </main>
   <script src="/frontend/app.js"></script>
   <script>
+    let recordingSortMode = 'name';
+
     function decodeRecordingText(value) {
       return String(value || '')
         .replace(/#([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
@@ -40,6 +42,18 @@
 
     function recordingSortKey(value) {
       return decodeRecordingText(value).toLocaleLowerCase('de-DE');
+    }
+
+    function recordingTimestamp(entry) {
+      const recording = entry.recording || entry;
+      const value = firstValue(recording, ['startTime', 'start', 'date'], '');
+      const number = Number(value);
+
+      if (Number.isFinite(number) && number > 0) {
+        return number;
+      }
+
+      return 0;
     }
 
     const originalRecordingDisplayParts = recordingDisplayParts;
@@ -98,8 +112,52 @@
     }
 
     function sortedRecordingItems(node) {
-      return node.items.slice().sort((left, right) =>
+      const items = node.items.slice();
+
+      if (recordingSortMode === 'date') {
+        return items.sort((left, right) => {
+          const dateDiff = recordingTimestamp(right) - recordingTimestamp(left);
+          if (dateDiff !== 0) {
+            return dateDiff;
+          }
+          return recordingSortKey(left.title).localeCompare(recordingSortKey(right.title), 'de-DE');
+        });
+      }
+
+      return items.sort((left, right) =>
         recordingSortKey(left.title).localeCompare(recordingSortKey(right.title), 'de-DE'));
+    }
+
+    function renderRecordingSortButtons(node, container) {
+      if (node.items.length < 2) {
+        return;
+      }
+
+      const controls = document.createElement('div');
+      controls.className = 'module-nav';
+      controls.setAttribute('aria-label', 'Sortierung der Aufnahmen');
+
+      const nameButton = document.createElement('button');
+      nameButton.type = 'button';
+      nameButton.className = 'module-tab' + (recordingSortMode === 'name' ? ' active' : '');
+      nameButton.textContent = 'A-Z';
+      nameButton.addEventListener('click', () => {
+        recordingSortMode = 'name';
+        renderRecordingNode(node);
+      });
+
+      const dateButton = document.createElement('button');
+      dateButton.type = 'button';
+      dateButton.className = 'module-tab' + (recordingSortMode === 'date' ? ' active' : '');
+      dateButton.textContent = 'Datum';
+      dateButton.addEventListener('click', () => {
+        recordingSortMode = 'date';
+        renderRecordingNode(node);
+      });
+
+      controls.appendChild(nameButton);
+      controls.appendChild(dateButton);
+      container.appendChild(controls);
     }
 
     function renderRecordingEntry(entry) {
@@ -129,6 +187,7 @@
       const path = pathForRecordingNode(node);
       header.appendChild(addText(document.createElement('h3'), path.length === 0 ? 'Aufnahme-Ordner' : path.join(' / ')));
       header.appendChild(addText(document.createElement('p'), String(node.folders.size) + ' Ordner · ' + String(countRecordingNode(node)) + ' Aufnahme(n)'));
+      renderRecordingSortButtons(node, header);
 
       if (node.parent) {
         const backButton = document.createElement('button');
