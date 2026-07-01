@@ -215,6 +215,27 @@ function channelBoolean(channel, keys, fallback) {
   return fallback;
 }
 
+function channelHasField(channel, keys) {
+  return keys.some(key => Object.prototype.hasOwnProperty.call(channel, key));
+}
+
+function channelHasUsableCaids(channel) {
+  const caids = channel.caids || channel.CAIDs || channel.caid || channel.CAID;
+
+  if (Array.isArray(caids)) {
+    return caids.length > 0;
+  }
+
+  return caids !== undefined && caids !== null && String(caids).trim() !== '';
+}
+
+function channelsHaveEncryptionInfo(channels) {
+  return channels.some(channel =>
+    channelBoolean(channel, ['encrypted', 'scrambled', 'isEncrypted', 'isScrambled'], false) ||
+    channelHasUsableCaids(channel)
+  );
+}
+
 function sortedChannels(channels) {
   return channels.slice().sort((left, right) => {
     const numberDiff = channelNumber(left, 999999) - channelNumber(right, 999999);
@@ -246,7 +267,7 @@ function hasRealChannelGroups(channels) {
   return groups.size > 0;
 }
 
-function filterChannels(channels) {
+function filterChannels(channels, encryptionAvailable) {
   return channels.filter(channel => {
     const radio = channelBoolean(channel, ['radio', 'isRadio'], false);
     const encrypted = channelBoolean(channel, ['encrypted', 'scrambled', 'isEncrypted'], false);
@@ -260,11 +281,11 @@ function filterChannels(channels) {
       return radio;
     }
 
-    if (channelListFilterMode === 'free') {
+    if (encryptionAvailable && channelListFilterMode === 'free') {
       return !encrypted;
     }
 
-    if (channelListFilterMode === 'encrypted') {
+    if (encryptionAvailable && channelListFilterMode === 'encrypted') {
       return encrypted;
     }
 
@@ -360,7 +381,7 @@ function renderChannelViewButtons(container, channels) {
   container.appendChild(controls);
 }
 
-function renderChannelFilterButtons(container, channels) {
+function renderChannelFilterButtons(container, channels, encryptionAvailable) {
   const controls = document.createElement('div');
   controls.className = 'module-nav';
   controls.setAttribute('aria-label', 'Kanallisten-Filter');
@@ -368,12 +389,16 @@ function renderChannelFilterButtons(container, channels) {
   const filters = [
     ['all', 'Alle'],
     ['tv', 'TV'],
-    ['radio', 'Radio'],
-    ['free', 'Frei'],
-    ['encrypted', 'Verschlüsselt'],
-    ['enabled', 'Aktiv'],
-    ['disabled', 'Deaktiviert']
+    ['radio', 'Radio']
   ];
+
+  if (encryptionAvailable) {
+    filters.push(['free', 'Frei']);
+    filters.push(['encrypted', 'Verschlüsselt']);
+  }
+
+  filters.push(['enabled', 'Aktiv']);
+  filters.push(['disabled', 'Deaktiviert']);
 
   filters.forEach(([value, label]) => {
     renderChannelButton(
@@ -428,20 +453,24 @@ function renderChannelPagingControls(container, channels, filteredCount) {
   }
 }
 
-function channelStatusText(channel) {
+function channelStatusText(channel, encryptionAvailable) {
   const radio = channelBoolean(channel, ['radio', 'isRadio'], false);
-  const encrypted = channelBoolean(channel, ['encrypted', 'scrambled', 'isEncrypted'], false);
   const enabled = channelBoolean(channel, ['enabled', 'active'], true);
   const parts = [];
 
   parts.push(radio ? 'Radio' : 'TV');
-  parts.push(encrypted ? 'verschlüsselt' : 'frei');
+
+  if (encryptionAvailable) {
+    const encrypted = channelBoolean(channel, ['encrypted', 'scrambled', 'isEncrypted'], false);
+    parts.push(encrypted ? 'verschlüsselt' : 'frei');
+  }
+
   parts.push(enabled ? 'aktiv' : 'deaktiviert');
 
   return parts.join(' · ');
 }
 
-function renderChannelItem(channel, index) {
+function renderChannelItem(channel, index, encryptionAvailable) {
   const item = document.createElement('article');
   item.className = 'list-item channel-list-item';
   const title = firstValue(
@@ -462,7 +491,7 @@ function renderChannelItem(channel, index) {
     document.createElement('div'),
     'Nummer: ' + String(number) + ' · ID: ' + String(channelId)
   )).className = 'list-meta';
-  text.appendChild(addText(document.createElement('div'), channelStatusText(channel))).className = 'list-meta';
+  text.appendChild(addText(document.createElement('div'), channelStatusText(channel, encryptionAvailable))).className = 'list-meta';
 
   if (group !== 'Ohne Gruppe') {
     text.appendChild(addText(document.createElement('div'), 'Gruppe: ' + group)).className = 'list-meta';
@@ -472,7 +501,7 @@ function renderChannelItem(channel, index) {
   return item;
 }
 
-function renderChannelSection(list, label, channels, globalOffset) {
+function renderChannelSection(list, label, channels, globalOffset, encryptionAvailable) {
   if (channels.length === 0) {
     return;
   }
@@ -490,7 +519,7 @@ function renderChannelSection(list, label, channels, globalOffset) {
   list.appendChild(header);
 
   channels.forEach((channel, index) => {
-    list.appendChild(renderChannelItem(channel, globalOffset + index));
+    list.appendChild(renderChannelItem(channel, globalOffset + index, encryptionAvailable));
   });
 }
 
@@ -510,11 +539,17 @@ renderChannelList = function(data) {
     return;
   }
 
+  const encryptionAvailable = channelsHaveEncryptionInfo(channels);
+
+  if (!encryptionAvailable && (channelListFilterMode === 'free' || channelListFilterMode === 'encrypted')) {
+    channelListFilterMode = 'all';
+  }
+
   if (!hasRealChannelGroups(channels)) {
     channelListViewMode = 'number';
   }
 
-  const filteredChannels = sortedChannels(filterChannels(channels));
+  const filteredChannels = sortedChannels(filterChannels(channels, encryptionAvailable));
   const visibleCount = Math.min(channelListVisibleCount, filteredChannels.length);
   const visibleChannels = filteredChannels.slice(0, visibleCount);
 
@@ -527,7 +562,7 @@ renderChannelList = function(data) {
       ' gefilterten Kanälen · ' + String(channels.length) + ' gesamt.'
   ));
   renderChannelViewButtons(overview, channels);
-  renderChannelFilterButtons(overview, channels);
+  renderChannelFilterButtons(overview, channels, encryptionAvailable);
   renderChannelPagingControls(overview, channels, filteredChannels.length);
   list.appendChild(overview);
 
@@ -547,7 +582,7 @@ renderChannelList = function(data) {
 
   let offset = 0;
   sections.forEach(([label, sectionChannels]) => {
-    renderChannelSection(list, label, sectionChannels, offset);
+    renderChannelSection(list, label, sectionChannels, offset, encryptionAvailable);
     offset += sectionChannels.length;
   });
 
