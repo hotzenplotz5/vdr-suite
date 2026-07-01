@@ -1,4 +1,5 @@
 #include "ApiRouter.h"
+#include "BackendAccessPolicy.h"
 #include "BackendRegistryService.h"
 #include "BackendRegistryJsonSerializer.h"
 #include "BackendRegistryController.h"
@@ -303,6 +304,11 @@ public:
         return executor_;
     }
 
+    int callCount() const
+    {
+        return executor_.callCount();
+    }
+
 private:
     std::string backendIdValue_;
     MockVdrTimerActionExecutor executor_;
@@ -484,7 +490,36 @@ int main()
     defaultBackend.enabled = true;
     defaultBackend.online = false;
     backendRegistry.addBackend(defaultBackend);
+
+    BackendNode routerBackend;
+    routerBackend.backendId = "router-backend";
+    routerBackend.backendName = "Router Backend";
+    routerBackend.backendType = "restfulapi";
+    routerBackend.enabled = true;
+    routerBackend.online = true;
+    routerBackend.accessMode = "read-write";
+    backendRegistry.addBackend(routerBackend);
+
+    BackendNode readOnlyTimerBackend;
+    readOnlyTimerBackend.backendId = "readonly-timer-backend";
+    readOnlyTimerBackend.backendName = "Read-only Timer Backend";
+    readOnlyTimerBackend.backendType = "restfulapi";
+    readOnlyTimerBackend.enabled = true;
+    readOnlyTimerBackend.online = true;
+    readOnlyTimerBackend.accessMode = "read-only";
+    backendRegistry.addBackend(readOnlyTimerBackend);
+
+    BackendNode registeredWithoutTimerAdapterBackend;
+    registeredWithoutTimerAdapterBackend.backendId = "registered-without-timer-adapter";
+    registeredWithoutTimerAdapterBackend.backendName = "Registered Without Timer Adapter";
+    registeredWithoutTimerAdapterBackend.backendType = "restfulapi";
+    registeredWithoutTimerAdapterBackend.enabled = true;
+    registeredWithoutTimerAdapterBackend.online = true;
+    registeredWithoutTimerAdapterBackend.accessMode = "read-write";
+    backendRegistry.addBackend(registeredWithoutTimerAdapterBackend);
+
     BackendRegistryService backendRegistryService(backendRegistry);
+    BackendAccessPolicy backendAccessPolicy;
     BackendRegistryJsonSerializer backendRegistryJsonSerializer;
     BackendRegistryController backendRegistryController(
         backendRegistryService,
@@ -620,10 +655,20 @@ int main()
     VdrTimerActionController vdrTimerActionController(
         vdrTimerActionExecutionService,
         vdrTimerActionResultJsonSerializer,
-        vdrTimerActionRequestParser);
+        vdrTimerActionRequestParser,
+        backendRegistryService,
+        backendAccessPolicy);
     VdrTimerActionExecutorAdapterRegistry vdrTimerActionExecutorAdapterRegistry;
-    vdrTimerActionExecutorAdapterRegistry.registerAdapter(
-        std::make_shared<RouterVdrTimerActionExecutorAdapter>("router-backend"));
+
+    auto routerTimerAdapter =
+        std::make_shared<RouterVdrTimerActionExecutorAdapter>(
+            "router-backend");
+    auto readOnlyTimerAdapter =
+        std::make_shared<RouterVdrTimerActionExecutorAdapter>(
+            "readonly-timer-backend");
+
+    vdrTimerActionExecutorAdapterRegistry.registerAdapter(routerTimerAdapter);
+    vdrTimerActionExecutorAdapterRegistry.registerAdapter(readOnlyTimerAdapter);
 
     ApiRouter router(
         dashboardController,
@@ -1726,10 +1771,34 @@ int main()
     assert(timerDeleteResponse.body.find("\"type\":\"delete\"")
            != std::string::npos);
 
+    const std::string readOnlyTimerUpdateBody =
+        "{"
+        "\"backendId\":\"readonly-timer-backend\","
+        "\"timerId\":\"readonly-timer-1\","
+        "\"title\":\"Read-only Router Timer Update\""
+        "}";
+
+    ApiResponse readOnlyTimerUpdateResponse =
+        router.handlePost(
+            "/api/vdr/timers/actions/update",
+            readOnlyTimerUpdateBody);
+
+    assert(readOnlyTimerUpdateResponse.statusCode == 200);
+    assert(readOnlyTimerUpdateResponse.contentType == "application/json");
+    assert(readOnlyTimerUpdateResponse.body.find("\"success\":false")
+           != std::string::npos);
+    assert(readOnlyTimerUpdateResponse.body.find("\"type\":\"update\"")
+           != std::string::npos);
+    assert(readOnlyTimerUpdateResponse.body.find("\"backendId\":\"readonly-timer-backend\"")
+           != std::string::npos);
+    assert(readOnlyTimerUpdateResponse.body.find("backend is read-only")
+           != std::string::npos);
+    assert(readOnlyTimerAdapter->callCount() == 0);
+
     ApiResponse timerMissingBackendResponse =
         router.handlePost(
             "/api/vdr/timers/actions/delete",
-            "{\"backendId\":\"missing-backend\",\"timerId\":\"router-timer-1\"}");
+            "{\"backendId\":\"registered-without-timer-adapter\",\"timerId\":\"router-timer-1\"}");
 
     assert(timerMissingBackendResponse.statusCode == 200);
     assert(timerMissingBackendResponse.contentType == "application/json");
