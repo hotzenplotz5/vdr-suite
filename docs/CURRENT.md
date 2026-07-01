@@ -28,20 +28,17 @@ For new ChatGPT sessions or context loss, start with [New Chat Handoff](NEW-CHAT
 Current completed project block:
 
 ```text
-Phase 56 - Library Boundary, Packaging and Developer Documentation
+Phase 57 - Multi-Site Backend Administration and Permissions
 ```
 
 Verified outcomes:
 
-- source groups are split by responsibility
-- package and install boundaries are documented
-- `make install` supports `DESTDIR` staging
-- daemon, CLI, docs, data directory and manpages are staged
-- manual page skeletons exist and are installed by the staging target
-- no public C++ ABI is promised
-- no `vdr-suite-dev` package is introduced
-- Debian packaging metadata is still deliberately deferred
-- the current-state documentation entry point has been reset
+- backend access modes for read-write and read-only sites
+- backend registry JSON permission hints
+- recording action backend access handling
+- timer action backend access coverage
+- SearchTimer backend access coverage
+- frontend-visible backend permission state
 
 ---
 
@@ -109,7 +106,7 @@ RuntimeConfig
 - [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Completed Phases](development/completed-phases.md)
 - [ADR Index](adr/index.md)
-- [Phase 56 Completion Audit](development/phase-56.57-completion-audit.md)
+- [Phase 57 Completion Audit](development/phase-57.9-completion-audit.md)
 
 ---
 
@@ -118,7 +115,7 @@ RuntimeConfig
 Next implementation focus:
 
 ```text
-Phase 57 - Multi-Site Backend Administration and Permissions
+Phase 58 - Frontend and Live Parity
 ```
 
 ---
