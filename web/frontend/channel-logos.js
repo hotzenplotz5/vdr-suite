@@ -13,6 +13,60 @@ function addUniqueValue(values, value) {
   }
 }
 
+function addChannelLogoAliases(values, value) {
+  const normalized = normalizeChannelLogoName(value);
+  const withoutQuality = normalized.replace(/\s+(hd|uhd|sd)$/i, '');
+
+  const aliasMap = {
+    'zdfneo hd': ['zdf_neo hd', 'zdf neo hd', 'zdfneo', 'zdf_neo', 'zdf neo'],
+    'zdfneo': ['zdf_neo', 'zdf neo'],
+    'zdfinfo hd': ['zdfinfo', 'zdf.info', 'zdf info hd', 'zdf info'],
+    'zdfinfo': ['zdf.info', 'zdf info'],
+    'tagesschau24 hd': ['tagesschau24', 'tagesschau 24 hd', 'tagesschau 24'],
+    'tagesschau24': ['tagesschau 24'],
+    'one hd': ['one'],
+    'phoenix hd': ['phoenix'],
+    'arte hd': ['arte'],
+    '3sat hd': ['3sat'],
+    'das erste hd': ['das erste'],
+    'ndr fs hh hd': ['ndr fs hh', 'ndr fernsehen hd', 'ndr fernsehen'],
+    'ndr fs mv hd': ['ndr fs mv', 'ndr fernsehen hd', 'ndr fernsehen'],
+    'ndr fs nds hd': ['ndr fs nds', 'ndr fernsehen hd', 'ndr fernsehen'],
+    'ndr fs sh hd': ['ndr fs sh', 'ndr fernsehen hd', 'ndr fernsehen'],
+    'ntv': ['n-tv', 'n tv'],
+    'welt hd': ['welt'],
+    'pro sieben hd': ['pro sieben', 'prosieben hd', 'prosieben', 'pro7 hd', 'pro7'],
+    'pro sieben': ['prosieben', 'pro7'],
+    'sat.1 hd': ['sat.1', 'sat1 hd', 'sat1'],
+    'sat.1': ['sat1'],
+    'rtlup hd': ['rtlup', 'rtl up hd', 'rtl up'],
+    'rtlup': ['rtl up'],
+    'kabel eins hd': ['kabel eins', 'kabeleins hd', 'kabeleins'],
+    'kabel eins': ['kabeleins'],
+    'sixx hd': ['sixx'],
+    'dmax hd': ['dmax'],
+    'tele 5 hd': ['tele 5', 'tele5 hd', 'tele5'],
+    'sport1 hd': ['sport1'],
+    'servustv hd deutschland': ['servustv deutschland', 'servus tv hd deutschland', 'servus tv deutschland'],
+    'servustv deutschland': ['servus tv deutschland']
+  };
+
+  [normalized, withoutQuality].forEach(key => {
+    const aliases = aliasMap[key] || [];
+    aliases.forEach(alias => addUniqueValue(values, alias));
+  });
+
+  if (/^zdf[a-z]/.test(normalized)) {
+    addUniqueValue(values, normalized.replace(/^zdf/, 'zdf_'));
+    addUniqueValue(values, normalized.replace(/^zdf/, 'zdf '));
+  }
+
+  if (/^zdf[a-z]/.test(withoutQuality)) {
+    addUniqueValue(values, withoutQuality.replace(/^zdf/, 'zdf_'));
+    addUniqueValue(values, withoutQuality.replace(/^zdf/, 'zdf '));
+  }
+}
+
 function addChannelLogoNameVariants(values, value) {
   const normalized = normalizeChannelLogoName(value);
 
@@ -32,6 +86,7 @@ function addChannelLogoNameVariants(values, value) {
   addUniqueValue(values, withoutQuality.replace(/\s+/g, '_'));
   addUniqueValue(values, withoutQuality.replace(/\s+/g, '-'));
   addUniqueValue(values, withoutQuality.replace(/\s+/g, ''));
+  addChannelLogoAliases(values, normalized);
 }
 
 function channelLogoPathForName(name, extension) {
