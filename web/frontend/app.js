@@ -68,6 +68,93 @@ function listFromResponse(data, key) {
   return [];
 }
 
+function timerIdPart(timer, index) {
+  const timerId = firstValue(timer, ['id', 'timerId', 'nativeId'], '');
+  const parts = String(timerId).split(':');
+  return parts.length > index ? parts[index] : '';
+}
+
+function formatVdrClock(value) {
+  if (value === undefined || value === null || value === '') {
+    return '-';
+  }
+
+  const text = String(value).trim();
+
+  if (text === '') {
+    return '-';
+  }
+
+  if (text.includes(':') || text.includes('-') || text.includes('T')) {
+    return text;
+  }
+
+  if (/^\d{1,4}$/.test(text)) {
+    const padded = text.padStart(4, '0');
+    return padded.slice(0, 2) + ':' + padded.slice(2, 4);
+  }
+
+  return text;
+}
+
+function timerStartValue(timer) {
+  const explicit = firstValue(timer, ['startTime', 'beginTime'], '');
+  if (explicit !== '') {
+    return explicit;
+  }
+
+  const raw = firstValue(timer, ['start', 'begin'], '');
+  if (raw !== '') {
+    return raw;
+  }
+
+  return timerIdPart(timer, 3);
+}
+
+function timerEndValue(timer) {
+  const explicit = firstValue(timer, ['endTime', 'stopTime'], '');
+  if (explicit !== '') {
+    return explicit;
+  }
+
+  const raw = firstValue(timer, ['stop', 'end'], '');
+  if (raw !== '') {
+    return raw;
+  }
+
+  return timerIdPart(timer, 4);
+}
+
+function formatTimerStatus(timer) {
+  if (timer.recording === true) {
+    return 'nimmt auf';
+  }
+
+  if (timer.pending === true) {
+    return 'wartend';
+  }
+
+  if (timer.enabled === true || timer.active === true) {
+    return 'aktiv';
+  }
+
+  if (timer.enabled === false || timer.active === false) {
+    return 'inaktiv';
+  }
+
+  const status = firstValue(timer, ['state', 'status'], '-');
+
+  if (status === true || status === 'true') {
+    return 'aktiv';
+  }
+
+  if (status === false || status === 'false') {
+    return 'inaktiv';
+  }
+
+  return String(status);
+}
+
 function renderSnapshotMetrics(data) {
   detailDataElement.replaceChildren();
   detailDataElement.appendChild(createMetric('Snapshot', data.snapshotAvailable ? 'ja' : 'nein'));
@@ -145,20 +232,30 @@ function renderTimerList(data) {
       ['title', 'name', 'file', 'eventTitle', 'description', 'id', 'timerId'],
       'Timer ' + String(index + 1)
     );
+    const subtitle = firstValue(timer, ['subtitle'], '');
     const timerId = firstValue(timer, ['timerId', 'id', 'nativeId'], '-');
     const channel = firstValue(timer, ['channelName', 'channel', 'channelId'], '-');
-    const state = firstValue(timer, ['state', 'status', 'enabled', 'active'], '-');
-    const start = firstValue(timer, ['startTime', 'start', 'begin'], '-');
-    const stop = firstValue(timer, ['stopTime', 'stop', 'end'], '-');
+    const status = formatTimerStatus(timer);
+    const start = formatVdrClock(timerStartValue(timer));
+    const stop = formatVdrClock(timerEndValue(timer));
 
     item.appendChild(addText(document.createElement('div'), String(title))).className = 'list-title';
+
+    if (subtitle !== '') {
+      item.appendChild(addText(document.createElement('div'), String(subtitle))).className = 'list-meta';
+    }
+
     item.appendChild(addText(
       document.createElement('div'),
-      'ID: ' + String(timerId) + ' · Kanal: ' + String(channel) + ' · Status: ' + String(state)
+      'Kanal: ' + String(channel) + ' · Status: ' + status
     )).className = 'list-meta';
     item.appendChild(addText(
       document.createElement('div'),
-      'Start: ' + String(start) + ' · Ende: ' + String(stop)
+      'Start: ' + start + ' · Ende: ' + stop
+    )).className = 'list-meta';
+    item.appendChild(addText(
+      document.createElement('div'),
+      'ID: ' + String(timerId)
     )).className = 'list-meta';
     list.appendChild(item);
   });
