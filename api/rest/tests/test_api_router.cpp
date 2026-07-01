@@ -753,6 +753,30 @@ int main()
     assert(backendsResponse.contentType == "application/json");
     assert(backendsResponse.body.find("\"backends\":[")
            != std::string::npos);
+    assert(backendsResponse.body.find("\"backendId\":\"router-backend\"")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"accessMode\":\"read-write\"")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"canWrite\":true")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"canWriteRecordings\":true")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"canWriteTimers\":true")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"canWriteSearchTimers\":true")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"backendId\":\"readonly-timer-backend\"")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"accessMode\":\"read-only\"")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"canWrite\":false")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"canWriteRecordings\":false")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"canWriteTimers\":false")
+           != std::string::npos);
+    assert(backendsResponse.body.find("\"canWriteSearchTimers\":false")
+           != std::string::npos);
     assert(backendsResponse.body.find("\"backendId\":\"default\"")
            != std::string::npos);
 

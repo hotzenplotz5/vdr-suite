@@ -39,6 +39,10 @@ static void test_serializer_serializes_single_backend()
     assert(json.find("\"backendType\":\"vdr\"") != std::string::npos);
     assert(json.find("\"accessMode\":\"read-write\"") != std::string::npos);
     assert(json.find("\"readOnly\":false") != std::string::npos);
+    assert(json.find("\"canWrite\":true") != std::string::npos);
+    assert(json.find("\"canWriteRecordings\":true") != std::string::npos);
+    assert(json.find("\"canWriteTimers\":true") != std::string::npos);
+    assert(json.find("\"canWriteSearchTimers\":true") != std::string::npos);
     assert(json.find("\"enabled\":true") != std::string::npos);
     assert(json.find("\"online\":false") != std::string::npos);
 }
@@ -56,6 +60,10 @@ static void test_serializer_serializes_read_only_backend()
     assert(json.find("\"backendId\":\"remote-house\"") != std::string::npos);
     assert(json.find("\"accessMode\":\"read-only\"") != std::string::npos);
     assert(json.find("\"readOnly\":true") != std::string::npos);
+    assert(json.find("\"canWrite\":false") != std::string::npos);
+    assert(json.find("\"canWriteRecordings\":false") != std::string::npos);
+    assert(json.find("\"canWriteTimers\":false") != std::string::npos);
+    assert(json.find("\"canWriteSearchTimers\":false") != std::string::npos);
 }
 
 static void test_serializer_serializes_backend_list()

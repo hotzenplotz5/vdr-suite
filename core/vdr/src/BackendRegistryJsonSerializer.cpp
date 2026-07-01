@@ -20,6 +20,10 @@ std::string BackendRegistryJsonSerializer::serializeBackend(
         << "\"backendType\":\"" << backend.backendType << "\","
         << "\"accessMode\":\"" << backend.accessMode << "\","
         << "\"readOnly\":" << backendBoolToJson(backend.readOnly()) << ","
+        << "\"canWrite\":" << backendBoolToJson(!backend.readOnly()) << ","
+        << "\"canWriteRecordings\":" << backendBoolToJson(!backend.readOnly()) << ","
+        << "\"canWriteTimers\":" << backendBoolToJson(!backend.readOnly()) << ","
+        << "\"canWriteSearchTimers\":" << backendBoolToJson(!backend.readOnly()) << ","
         << "\"enabled\":" << backendBoolToJson(backend.enabled) << ","
         << "\"online\":" << backendBoolToJson(backend.online)
         << "}";
