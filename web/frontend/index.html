@@ -51,32 +51,143 @@
       };
     };
 
-    groupRecordings = function(recordings) {
-      const groups = new Map();
+    function createRecordingNode(name, parent) {
+      return { name, parent, folders: new Map(), items: [] };
+    }
+
+    function countRecordingNode(node) {
+      let count = node.items.length;
+      node.folders.forEach(child => { count += countRecordingNode(child); });
+      return count;
+    }
+
+    function pathForRecordingNode(node) {
+      const parts = [];
+      let cursor = node;
+      while (cursor && cursor.parent) {
+        parts.unshift(cursor.name);
+        cursor = cursor.parent;
+      }
+      return parts;
+    }
+
+    function buildRecordingTree(recordings) {
+      const root = createRecordingNode('Aufnahme-Ordner', null);
 
       recordings.forEach((recording, index) => {
         const display = recordingDisplayParts(recording, index);
-        if (!groups.has(display.folder)) {
-          groups.set(display.folder, []);
-        }
-        groups.get(display.folder).push({
-          recording,
-          title: display.title,
-          index
+        const folders = display.folder.split('/').filter(Boolean);
+        let node = root;
+
+        folders.forEach(folder => {
+          if (!node.folders.has(folder)) {
+            node.folders.set(folder, createRecordingNode(folder, node));
+          }
+          node = node.folders.get(folder);
         });
+
+        node.items.push({ recording, title: display.title, index });
       });
 
-      const sortedGroups = new Map(
-        Array.from(groups.entries()).sort((left, right) =>
-          recordingSortKey(left[0]).localeCompare(recordingSortKey(right[0]), 'de-DE'))
-      );
+      return root;
+    }
 
-      sortedGroups.forEach(items => {
-        items.sort((left, right) =>
-          recordingSortKey(left.title).localeCompare(recordingSortKey(right.title), 'de-DE'));
+    function sortedRecordingFolders(node) {
+      return Array.from(node.folders.values()).sort((left, right) =>
+        recordingSortKey(left.name).localeCompare(recordingSortKey(right.name), 'de-DE'));
+    }
+
+    function sortedRecordingItems(node) {
+      return node.items.slice().sort((left, right) =>
+        recordingSortKey(left.title).localeCompare(recordingSortKey(right.title), 'de-DE'));
+    }
+
+    function renderRecordingEntry(entry) {
+      const recording = entry.recording;
+      const item = document.createElement('article');
+      item.className = 'list-item';
+      const recordingId = firstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
+      const path = firstValue(recording, ['path', 'fileName', 'directory'], '-');
+      const startTime = formatRecordingStart(firstValue(recording, ['startTime', 'start', 'date'], '-'));
+      const duration = formatDurationSeconds(firstValue(recording, ['durationSeconds', 'duration'], 0));
+      const size = formatSizeMb(firstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
+
+      item.appendChild(addText(document.createElement('div'), entry.title)).className = 'list-title';
+      item.appendChild(addText(document.createElement('div'), 'Start: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size)).className = 'list-meta';
+      item.appendChild(addText(document.createElement('div'), 'Pfad: ' + decodeRecordingText(String(path)))).className = 'list-meta';
+      item.appendChild(addText(document.createElement('div'), 'ID: ' + String(recordingId))).className = 'list-meta';
+      return item;
+    }
+
+    function renderRecordingNode(node) {
+      detailDataElement.replaceChildren();
+      const list = document.createElement('section');
+      list.className = 'list';
+
+      const header = document.createElement('article');
+      header.className = 'module-placeholder';
+      const path = pathForRecordingNode(node);
+      header.appendChild(addText(document.createElement('h3'), path.length === 0 ? 'Aufnahme-Ordner' : path.join(' / ')));
+      header.appendChild(addText(document.createElement('p'), String(node.folders.size) + ' Ordner · ' + String(countRecordingNode(node)) + ' Aufnahme(n)'));
+
+      if (node.parent) {
+        const backButton = document.createElement('button');
+        backButton.type = 'button';
+        backButton.textContent = 'Zurück';
+        backButton.addEventListener('click', () => renderRecordingNode(node.parent));
+        header.appendChild(backButton);
+      }
+
+      list.appendChild(header);
+
+      sortedRecordingFolders(node).forEach(folder => {
+        const item = document.createElement('article');
+        item.className = 'list-item';
+        item.tabIndex = 0;
+        item.setAttribute('role', 'button');
+        item.setAttribute('aria-label', 'Ordner ' + folder.name + ' öffnen');
+        item.appendChild(addText(document.createElement('div'), folder.name)).className = 'list-title';
+        item.appendChild(addText(document.createElement('div'), String(countRecordingNode(folder)) + ' Aufnahme(n) · antippen zum Öffnen')).className = 'list-meta';
+
+        const openFolder = () => renderRecordingNode(folder);
+        item.addEventListener('click', openFolder);
+        item.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openFolder();
+          }
+        });
+        list.appendChild(item);
       });
 
-      return sortedGroups;
+      sortedRecordingItems(node).slice(0, 20).forEach(entry => {
+        list.appendChild(renderRecordingEntry(entry));
+      });
+
+      if (node.items.length > 20) {
+        const info = document.createElement('article');
+        info.className = 'module-placeholder';
+        info.appendChild(addText(document.createElement('p'), 'Zeige 20 von ' + String(node.items.length) + ' Aufnahmen in diesem Ordner.'));
+        list.appendChild(info);
+      }
+
+      detailDataElement.appendChild(list);
+    }
+
+    renderRecordingList = function(data) {
+      const recordings = listFromResponse(data, 'recordings');
+      detailDataElement.replaceChildren();
+
+      if (recordings.length === 0) {
+        const empty = document.createElement('article');
+        empty.className = 'module-placeholder';
+        empty.appendChild(addText(document.createElement('h3'), 'Keine Aufnahmen gefunden'));
+        empty.appendChild(addText(document.createElement('p'), 'Der Endpunkt /api/vdr/recordings hat aktuell keine Aufnahmen geliefert.'));
+        detailDataElement.appendChild(empty);
+        return;
+      }
+
+      renderRecordingNode(buildRecordingTree(recordings));
     };
   </script>
 </body>
