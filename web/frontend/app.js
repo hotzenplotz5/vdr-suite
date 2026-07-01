@@ -193,6 +193,90 @@ function formatSizeMb(value) {
   return String(Math.round(sizeMb)) + ' MB';
 }
 
+function formatRecordingStart(value) {
+  if (value === undefined || value === null || value === '' || String(value) === '-1') {
+    return '-';
+  }
+
+  const number = Number(value);
+
+  if (Number.isFinite(number) && number > 1000000000) {
+    return new Date(number * 1000).toLocaleString('de-DE', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  return String(value);
+}
+
+function normalizePathText(value) {
+  return String(value || '')
+    .replace(/^\/srv\/vdr\/video\//, '/')
+    .replace(/\/+/g, '/')
+    .replace(/^\//, '');
+}
+
+function recordingDisplayParts(recording, index) {
+  const rawTitle = String(firstValue(
+    recording,
+    ['title', 'name', 'file', 'displayName'],
+    'Aufnahme ' + String(index + 1)
+  ));
+
+  const titleParts = rawTitle.split('/').filter(part => part !== '');
+
+  if (titleParts.length > 1) {
+    return {
+      folder: titleParts.slice(0, -1).join('/'),
+      title: titleParts[titleParts.length - 1]
+    };
+  }
+
+  const path = normalizePathText(firstValue(recording, ['path', 'fileName', 'directory'], ''));
+  const pathParts = path.split('/').filter(part => part !== '');
+
+  if (pathParts.length > 2) {
+    return {
+      folder: pathParts.slice(0, -2).join('/'),
+      title: rawTitle
+    };
+  }
+
+  if (pathParts.length > 1) {
+    return {
+      folder: pathParts.slice(0, -1).join('/'),
+      title: rawTitle
+    };
+  }
+
+  return {
+    folder: 'Ohne Ordner',
+    title: rawTitle
+  };
+}
+
+function groupRecordings(recordings) {
+  const groups = new Map();
+
+  recordings.forEach((recording, index) => {
+    const display = recordingDisplayParts(recording, index);
+    if (!groups.has(display.folder)) {
+      groups.set(display.folder, []);
+    }
+    groups.get(display.folder).push({
+      recording,
+      title: display.title,
+      index
+    });
+  });
+
+  return groups;
+}
+
 function renderSnapshotMetrics(data) {
   detailDataElement.replaceChildren();
   detailDataElement.appendChild(createMetric('Snapshot', data.snapshotAvailable ? 'ja' : 'nein'));
@@ -324,34 +408,41 @@ function renderRecordingList(data) {
     return;
   }
 
-  recordings.slice(0, 20).forEach((recording, index) => {
-    const item = document.createElement('article');
-    item.className = 'list-item';
-    const title = firstValue(
-      recording,
-      ['title', 'name', 'file', 'displayName', 'id'],
-      'Aufnahme ' + String(index + 1)
-    );
-    const recordingId = firstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
-    const path = firstValue(recording, ['path', 'fileName', 'directory'], '-');
-    const startTime = firstValue(recording, ['startTime', 'start', 'date'], '-');
-    const duration = formatDurationSeconds(firstValue(recording, ['durationSeconds', 'duration'], 0));
-    const size = formatSizeMb(firstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
+  const visibleRecordings = recordings.slice(0, 20);
+  const groups = groupRecordings(visibleRecordings);
 
-    item.appendChild(addText(document.createElement('div'), String(title))).className = 'list-title';
-    item.appendChild(addText(
-      document.createElement('div'),
-      'Start: ' + String(startTime) + ' · Dauer: ' + duration + ' · Größe: ' + size
-    )).className = 'list-meta';
-    item.appendChild(addText(
-      document.createElement('div'),
-      'Pfad: ' + String(path)
-    )).className = 'list-meta';
-    item.appendChild(addText(
-      document.createElement('div'),
-      'ID: ' + String(recordingId)
-    )).className = 'list-meta';
-    list.appendChild(item);
+  groups.forEach((items, folder) => {
+    const folderHeader = document.createElement('article');
+    folderHeader.className = 'module-placeholder';
+    folderHeader.appendChild(addText(document.createElement('h3'), folder));
+    folderHeader.appendChild(addText(document.createElement('p'), String(items.length) + ' Aufnahme(n)'));
+    list.appendChild(folderHeader);
+
+    items.forEach(entry => {
+      const recording = entry.recording;
+      const item = document.createElement('article');
+      item.className = 'list-item';
+      const recordingId = firstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
+      const path = firstValue(recording, ['path', 'fileName', 'directory'], '-');
+      const startTime = formatRecordingStart(firstValue(recording, ['startTime', 'start', 'date'], '-'));
+      const duration = formatDurationSeconds(firstValue(recording, ['durationSeconds', 'duration'], 0));
+      const size = formatSizeMb(firstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
+
+      item.appendChild(addText(document.createElement('div'), entry.title)).className = 'list-title';
+      item.appendChild(addText(
+        document.createElement('div'),
+        'Start: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size
+      )).className = 'list-meta';
+      item.appendChild(addText(
+        document.createElement('div'),
+        'Pfad: ' + String(path)
+      )).className = 'list-meta';
+      item.appendChild(addText(
+        document.createElement('div'),
+        'ID: ' + String(recordingId)
+      )).className = 'list-meta';
+      list.appendChild(item);
+    });
   });
 
   if (recordings.length > 20) {
