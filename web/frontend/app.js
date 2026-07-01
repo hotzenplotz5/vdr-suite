@@ -8,6 +8,7 @@ let selectedBackend = null;
 let selectedModule = 'overview';
 let currentSnapshot = null;
 let currentChannels = null;
+let currentEvents = null;
 let currentTimers = null;
 let currentRecordings = null;
 
@@ -67,6 +68,91 @@ function listFromResponse(data, key) {
     return data.items;
   }
   return [];
+}
+
+function parseFrontendEventEpoch(value) {
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+
+  const number = Number(value);
+  if (Number.isFinite(number) && number > 0) {
+    return number > 100000000000 ? Math.floor(number / 1000) : Math.floor(number);
+  }
+
+  const parsed = Date.parse(String(value));
+  if (Number.isFinite(parsed)) {
+    return Math.floor(parsed / 1000);
+  }
+
+  return 0;
+}
+
+function frontendChannelId(channel) {
+  return String(firstValue(channel, ['id', 'channelId', 'nativeId'], '')).trim();
+}
+
+function frontendEventChannelId(event) {
+  return String(firstValue(event, ['channelId', 'channel', 'channel_id'], '')).trim();
+}
+
+function frontendEventEnd(event, start) {
+  const explicitEnd = parseFrontendEventEpoch(firstValue(event, ['endTime', 'end', 'stopTime'], ''));
+  if (explicitEnd > start) {
+    return explicitEnd;
+  }
+
+  const duration = Number(firstValue(event, ['durationSeconds', 'duration'], 0));
+  if (Number.isFinite(duration) && duration > 0 && start > 0) {
+    return start + duration;
+  }
+
+  return 0;
+}
+
+function findCurrentEventForChannel(channel, events, nowSeconds) {
+  const channelId = frontendChannelId(channel);
+  if (channelId === '') {
+    return null;
+  }
+
+  for (const event of events) {
+    if (frontendEventChannelId(event) !== channelId) {
+      continue;
+    }
+
+    const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
+    const end = frontendEventEnd(event, start);
+
+    if (start > 0 && end > 0 && start <= nowSeconds && nowSeconds < end) {
+      return event;
+    }
+  }
+
+  return null;
+}
+
+function attachCurrentEventsToChannelData(channelData, eventData) {
+  const channels = listFromResponse(channelData, 'channels');
+  const events = listFromResponse(eventData, 'events');
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  const enrichedChannels = channels.map(channel => Object.assign(
+    {},
+    channel,
+    {
+      currentEvent: findCurrentEventForChannel(channel, events, nowSeconds)
+    }
+  ));
+
+  const result = Array.isArray(channelData)
+    ? { channels: enrichedChannels }
+    : Object.assign({}, channelData);
+
+  result.channels = enrichedChannels;
+  result.events = events;
+
+  return result;
 }
 
 function timerIdPart(timer, index) {
@@ -544,21 +630,35 @@ function renderModuleLoading(title, message) {
 }
 
 function loadChannels() {
-  renderModuleLoading('Kanäle', 'Lade Kanalliste aus /api/vdr/channels...');
+  renderModuleLoading('Kanäle', 'Lade Kanalliste und laufendes Programm...');
 
-  fetch('/api/vdr/channels')
+  const channelsRequest = fetch('/api/vdr/channels')
     .then(response => {
       if (!response.ok) {
         throw new Error('HTTP ' + response.status);
       }
       return response.json();
+    });
+
+  const eventsRequest = fetch('/api/vdr/events')
+    .then(response => {
+      if (!response.ok) {
+        return { events: [] };
+      }
+      return response.json();
     })
-    .then(data => {
-      currentChannels = data;
-      renderChannelList(data);
+    .catch(() => ({ events: [] }));
+
+  Promise.all([channelsRequest, eventsRequest])
+    .then(([channelData, eventData]) => {
+      const enrichedData = attachCurrentEventsToChannelData(channelData, eventData);
+      currentChannels = enrichedData;
+      currentEvents = eventData;
+      renderChannelList(enrichedData);
     })
     .catch(error => {
       currentChannels = null;
+      currentEvents = null;
       renderModuleError('Kanäle konnten nicht geladen werden', error);
     });
 }

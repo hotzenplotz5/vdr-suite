@@ -559,6 +559,52 @@ function channelStatusText(channel, encryptionAvailable) {
   return parts.join(' · ');
 }
 
+function channelProgramClock(value) {
+  const number = Number(value);
+  let date = null;
+
+  if (Number.isFinite(number) && number > 0) {
+    date = new Date((number > 100000000000 ? number : number * 1000));
+  } else {
+    const parsed = Date.parse(String(value || ''));
+    if (Number.isFinite(parsed)) {
+      date = new Date(parsed);
+    }
+  }
+
+  if (!date || Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function channelProgramTimeText(event) {
+  if (!event) {
+    return '';
+  }
+
+  const start = channelProgramClock(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
+  const end = channelProgramClock(firstValue(event, ['endTime', 'end', 'stopTime'], ''));
+
+  if (start !== '' && end !== '') {
+    return start + '–' + end;
+  }
+
+  if (start !== '') {
+    return 'seit ' + start;
+  }
+
+  return '';
+}
+
+function channelCurrentProgram(channel) {
+  return channel.currentEvent || channel.now || channel.currentProgram || null;
+}
+
 function renderChannelItem(channel, index, encryptionAvailable) {
   const item = document.createElement('article');
   item.className = 'list-item channel-list-item';
@@ -568,23 +614,36 @@ function renderChannelItem(channel, index, encryptionAvailable) {
     'Kanal ' + String(index + 1)
   );
   const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '-');
-  const number = channelNumber(channel, index + 1);
-  const group = channelGroupName(channel);
+  const currentProgram = channelCurrentProgram(channel);
 
   item.appendChild(createChannelLogoElement(title, channelId));
 
   const text = document.createElement('div');
   text.className = 'channel-text';
   text.appendChild(addText(document.createElement('div'), String(title))).className = 'list-title';
-  text.appendChild(addText(
-    document.createElement('div'),
-    'Nummer: ' + String(number) + ' · ID: ' + String(channelId)
-  )).className = 'list-meta';
-  text.appendChild(addText(document.createElement('div'), channelStatusText(channel, encryptionAvailable))).className = 'list-meta';
 
-  if (group !== 'Ohne Gruppe') {
-    text.appendChild(addText(document.createElement('div'), 'Gruppe: ' + group)).className = 'list-meta';
+  if (currentProgram) {
+    const programTitle = firstValue(currentProgram, ['title', 'name', 'eventTitle'], 'Laufendes Programm');
+    const subtitle = firstValue(currentProgram, ['subtitle', 'shortText', 'short_text'], '');
+    const timeText = channelProgramTimeText(currentProgram);
+
+    text.appendChild(addText(
+      document.createElement('div'),
+      'Jetzt: ' + String(programTitle)
+    )).className = 'list-meta';
+
+    if (timeText !== '' || subtitle !== '') {
+      const details = [timeText, subtitle].filter(value => String(value).trim() !== '').join(' · ');
+      text.appendChild(addText(document.createElement('div'), details)).className = 'list-meta';
+    }
+  } else {
+    text.appendChild(addText(
+      document.createElement('div'),
+      'Jetzt: keine EPG-Information'
+    )).className = 'list-meta';
   }
+
+  text.appendChild(addText(document.createElement('div'), channelStatusText(channel, encryptionAvailable))).className = 'list-meta';
 
   item.appendChild(text);
   return item;
