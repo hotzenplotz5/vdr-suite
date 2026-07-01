@@ -3,8 +3,8 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-LATEST = "Phase 56 - Library Boundary, Packaging and Developer Documentation"
-NEXT = "Phase 57 - Multi-Site Backend Administration and Permissions"
+LATEST = "Phase 57 - Multi-Site Backend Administration and Permissions"
+NEXT = "Phase 58 - Frontend and Live Parity"
 
 REQUIRED_COMPLETED_RANGES = [
     "Phase 1.x-7.x",
@@ -25,10 +25,10 @@ REQUIRED_COMPLETED_RANGES = [
     "Phase 55.5o",
     "Phase 55.6",
     "Phase 56",
+    "Phase 57",
 ]
 
 REQUIRED_PLANNED_RANGES = [
-    "Phase 57",
     "Phase 58",
     "Phase 59",
     "Phase 60",
