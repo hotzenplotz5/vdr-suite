@@ -100,7 +100,6 @@ function createChannelLogoElement(title, channelId) {
   const image = document.createElement('img');
   image.className = 'channel-logo';
   image.alt = 'Logo ' + String(title || channelId || 'Kanal');
-  image.loading = 'lazy';
 
   let index = 0;
 
