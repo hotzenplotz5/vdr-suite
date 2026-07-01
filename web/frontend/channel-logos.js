@@ -100,6 +100,11 @@ function createChannelLogoElement(title, channelId) {
   const image = document.createElement('img');
   image.className = 'channel-logo';
   image.alt = 'Logo ' + String(title || channelId || 'Kanal');
+  image.style.display = 'block';
+  image.style.maxWidth = '100%';
+  image.style.maxHeight = '100%';
+  image.style.objectFit = 'contain';
+  image.style.opacity = '0';
 
   let index = 0;
 
@@ -107,6 +112,7 @@ function createChannelLogoElement(title, channelId) {
     if (index >= candidates.length) {
       image.remove();
       frame.classList.remove('loaded');
+      fallback.style.display = '';
       return;
     }
 
@@ -116,10 +122,14 @@ function createChannelLogoElement(title, channelId) {
 
   image.addEventListener('load', () => {
     frame.classList.add('loaded');
+    image.style.opacity = '1';
+    fallback.style.display = 'none';
   });
 
   image.addEventListener('error', () => {
     frame.classList.remove('loaded');
+    image.style.opacity = '0';
+    fallback.style.display = '';
     tryNextCandidate();
   });
 
