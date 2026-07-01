@@ -98,6 +98,25 @@ Planning input:
 
 - [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md)
 
+Phase 58.0 start audit:
+
+- Inventory frontend read models before adding UI code.
+- Map existing REST endpoints to frontend views.
+- Confirm backend selector data from /api/backends.
+- Confirm write hints for recording, timer and SearchTimer buttons.
+- Keep read-only backend views visible but disable write actions.
+- Use Live parity data to expose real feature gaps.
+
+Frontend-relevant endpoints:
+
+- /api/backends
+- /api/vdr/overview
+- /api/vdr/recordings
+- /api/vdr/timers
+- /api/vdr/searchtimers
+- /api/vdr/epg/search
+- /api/vdr/live-parity
+
 ---
 
 ### Phase 59 - Suite Metadata Database and External Providers
