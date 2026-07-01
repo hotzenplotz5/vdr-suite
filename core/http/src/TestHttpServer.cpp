@@ -102,15 +102,20 @@ HttpServerResponse makeFrontendShellResponse()
     }
     main { padding: 1.25rem; }
     h1 { margin: 0; font-size: clamp(2rem, 7vw, 3.5rem); }
+    h2 { margin: 0 0 0.75rem; font-size: 1.35rem; }
     .status { margin: 0 0 1rem; color: #cbd5e1; font-size: 1.1rem; }
-    .backend-list { display: grid; gap: 1rem; max-width: 60rem; }
+    .layout { display: grid; gap: 1rem; max-width: 70rem; }
+    .backend-list { display: grid; gap: 1rem; }
     .backend-card {
       padding: 1rem;
       border: 1px solid #334155;
       border-radius: 1rem;
       background: #1e293b;
       box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.18);
+      cursor: pointer;
     }
+    .backend-card:focus { outline: 3px solid #60a5fa; outline-offset: 3px; }
+    .backend-card.selected { border-color: #60a5fa; background: #24324a; }
     .backend-header {
       display: flex;
       justify-content: space-between;
@@ -139,6 +144,23 @@ HttpServerResponse makeFrontendShellResponse()
     }
     .badge.enabled { background: #1d4ed8; color: #dbeafe; }
     .badge.disabled { background: #475569; color: #cbd5e1; }
+    .detail-card {
+      padding: 1rem;
+      border: 1px solid #334155;
+      border-radius: 1rem;
+      background: #111827;
+    }
+    .detail-meta { color: #cbd5e1; margin-bottom: 0.75rem; }
+    .detail-pre {
+      margin: 0;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      background: #020617;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-size: 0.9rem;
+    }
     .error { color: #fecaca; }
   </style>
 </head>
@@ -146,11 +168,21 @@ HttpServerResponse makeFrontendShellResponse()
   <header><h1>VDR-Suite Frontend</h1></header>
   <main>
     <p id="status" class="status">Lade Backend-Auswahl...</p>
-    <section id="backends" class="backend-list"></section>
+    <section class="layout">
+      <section id="backends" class="backend-list" aria-label="Backend-Auswahl"></section>
+      <section id="detail" class="detail-card" aria-live="polite">
+        <h2>Backend-Details</h2>
+        <div id="detail-meta" class="detail-meta">Noch kein Backend ausgewählt.</div>
+        <pre id="detail-data" class="detail-pre">Klicke auf eine Backend-Karte.</pre>
+      </section>
+    </section>
   </main>
   <script>
     const statusElement = document.getElementById('status');
     const backendsElement = document.getElementById('backends');
+    const detailMetaElement = document.getElementById('detail-meta');
+    const detailDataElement = document.getElementById('detail-data');
+    let selectedBackendId = '';
 
     function addText(element, text) {
       element.textContent = text;
@@ -164,20 +196,58 @@ HttpServerResponse makeFrontendShellResponse()
       return badge;
     }
 
+    function markSelected(backendId) {
+      selectedBackendId = backendId;
+      document.querySelectorAll('.backend-card').forEach(card => {
+        card.classList.toggle('selected', card.dataset.backendId === backendId);
+      });
+    }
+
+    function loadBackendDetails(backend) {
+      const selector = backend.frontendSelector || backend;
+      const backendId = selector.id || backend.backendId || 'default';
+      markSelected(backendId);
+      detailMetaElement.className = 'detail-meta';
+      detailMetaElement.textContent = 'Lade Details für ' + (selector.label || backend.backendName || backendId) + '...';
+      detailDataElement.textContent = '';
+
+      fetch('/api/backends/' + encodeURIComponent(backendId) + '/snapshot')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('HTTP ' + response.status);
+          }
+          return response.json();
+        })
+        .then(data => {
+          detailMetaElement.textContent = 'Details für ' + (selector.label || backend.backendName || backendId);
+          detailDataElement.textContent = JSON.stringify(data, null, 2);
+        })
+        .catch(error => {
+          detailMetaElement.className = 'detail-meta error';
+          detailMetaElement.textContent = 'Details konnten nicht geladen werden: ' + error.message;
+          detailDataElement.textContent = '';
+        });
+    }
+
     function renderBackend(backend) {
       const selector = backend.frontendSelector || backend;
+      const backendId = selector.id || backend.backendId || 'default';
       const card = document.createElement('article');
       card.className = 'backend-card';
+      card.dataset.backendId = backendId;
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', 'Backend ' + (selector.label || backend.backendName || backendId) + ' auswählen');
 
       const header = document.createElement('div');
       header.className = 'backend-header';
 
       const titleBlock = document.createElement('div');
-      const title = addText(document.createElement('div'), selector.label || backend.backendName || backend.backendId || 'Unbekanntes Backend');
+      const title = addText(document.createElement('div'), selector.label || backend.backendName || backendId || 'Unbekanntes Backend');
       title.className = 'backend-title';
       const subtitle = addText(
         document.createElement('div'),
-        'ID: ' + (selector.id || backend.backendId || '-') + ' · Zugriff: ' + (selector.accessMode || backend.accessMode || '-')
+        'ID: ' + backendId + ' · Zugriff: ' + (selector.accessMode || backend.accessMode || '-')
       );
       subtitle.className = 'backend-subtitle';
       titleBlock.appendChild(title);
@@ -198,6 +268,14 @@ HttpServerResponse makeFrontendShellResponse()
       badges.appendChild(createBadge('SearchTimer', Boolean(selector.canWriteSearchTimers)));
       card.appendChild(badges);
 
+      card.addEventListener('click', () => loadBackendDetails(backend));
+      card.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          loadBackendDetails(backend);
+        }
+      });
+
       return card;
     }
 
@@ -213,6 +291,9 @@ HttpServerResponse makeFrontendShellResponse()
         statusElement.textContent = backends.length + ' Backend(s) gefunden';
         backendsElement.replaceChildren();
         backends.forEach(backend => backendsElement.appendChild(renderBackend(backend)));
+        if (backends.length > 0) {
+          loadBackendDetails(backends[0]);
+        }
       })
       .catch(error => {
         statusElement.className = 'status error';
