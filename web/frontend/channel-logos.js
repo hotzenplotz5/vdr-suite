@@ -1,4 +1,8 @@
 let channelListViewMode = 'groups';
+let channelListFilterMode = 'all';
+let channelListVisibleCount = 20;
+
+const CHANNEL_LIST_PAGE_SIZE = 20;
 
 function normalizeChannelLogoName(value) {
   return String(value || '')
@@ -201,6 +205,16 @@ function channelNumber(channel, fallback) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+function channelBoolean(channel, keys, fallback) {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(channel, key)) {
+      return Boolean(channel[key]);
+    }
+  }
+
+  return fallback;
+}
+
 function sortedChannels(channels) {
   return channels.slice().sort((left, right) => {
     const numberDiff = channelNumber(left, 999999) - channelNumber(right, 999999);
@@ -232,6 +246,40 @@ function hasRealChannelGroups(channels) {
   return groups.size > 0;
 }
 
+function filterChannels(channels) {
+  return channels.filter(channel => {
+    const radio = channelBoolean(channel, ['radio', 'isRadio'], false);
+    const encrypted = channelBoolean(channel, ['encrypted', 'scrambled', 'isEncrypted'], false);
+    const enabled = channelBoolean(channel, ['enabled', 'active'], true);
+
+    if (channelListFilterMode === 'tv') {
+      return !radio;
+    }
+
+    if (channelListFilterMode === 'radio') {
+      return radio;
+    }
+
+    if (channelListFilterMode === 'free') {
+      return !encrypted;
+    }
+
+    if (channelListFilterMode === 'encrypted') {
+      return encrypted;
+    }
+
+    if (channelListFilterMode === 'enabled') {
+      return enabled;
+    }
+
+    if (channelListFilterMode === 'disabled') {
+      return !enabled;
+    }
+
+    return true;
+  });
+}
+
 function groupChannelsByVdrGroup(channels) {
   const groups = new Map();
 
@@ -250,13 +298,12 @@ function groupChannelsByVdrGroup(channels) {
   });
 }
 
-function groupChannelsByNumberBlocks(channels) {
+function groupChannelsByLoadedPages(channels) {
   const groups = new Map();
 
   sortedChannels(channels).forEach((channel, index) => {
-    const number = channelNumber(channel, index + 1);
-    const start = Math.floor((number - 1) / 20) * 20 + 1;
-    const end = start + 19;
+    const start = Math.floor(index / CHANNEL_LIST_PAGE_SIZE) * CHANNEL_LIST_PAGE_SIZE + 1;
+    const end = start + CHANNEL_LIST_PAGE_SIZE - 1;
     const label = String(start) + '–' + String(end);
 
     if (!groups.has(label)) {
@@ -266,11 +313,17 @@ function groupChannelsByNumberBlocks(channels) {
     groups.get(label).push(channel);
   });
 
-  return Array.from(groups.entries()).sort((left, right) => {
-    const leftStart = Number(left[0].split('–')[0]);
-    const rightStart = Number(right[0].split('–')[0]);
-    return leftStart - rightStart;
-  });
+  return Array.from(groups.entries());
+}
+
+function renderChannelButton(container, label, active, disabled, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'module-tab' + (active ? ' active' : '');
+  button.textContent = label;
+  button.disabled = disabled;
+  button.addEventListener('click', onClick);
+  container.appendChild(button);
 }
 
 function renderChannelViewButtons(container, channels) {
@@ -280,28 +333,112 @@ function renderChannelViewButtons(container, channels) {
 
   const groupsAvailable = hasRealChannelGroups(channels);
 
-  const groupButton = document.createElement('button');
-  groupButton.type = 'button';
-  groupButton.className = 'module-tab' + (channelListViewMode === 'groups' ? ' active' : '');
-  groupButton.textContent = 'Gruppen';
-  groupButton.disabled = !groupsAvailable;
-  groupButton.addEventListener('click', () => {
-    channelListViewMode = 'groups';
-    renderChannelList({ channels });
-  });
+  renderChannelButton(
+    controls,
+    'Gruppen',
+    channelListViewMode === 'groups',
+    !groupsAvailable,
+    () => {
+      channelListViewMode = 'groups';
+      channelListVisibleCount = CHANNEL_LIST_PAGE_SIZE;
+      renderChannelList({ channels });
+    }
+  );
 
-  const blocksButton = document.createElement('button');
-  blocksButton.type = 'button';
-  blocksButton.className = 'module-tab' + (channelListViewMode === 'blocks' ? ' active' : '');
-  blocksButton.textContent = '1–20 / 21–40';
-  blocksButton.addEventListener('click', () => {
-    channelListViewMode = 'blocks';
-    renderChannelList({ channels });
-  });
+  renderChannelButton(
+    controls,
+    'Kanalnummer',
+    channelListViewMode === 'number',
+    false,
+    () => {
+      channelListViewMode = 'number';
+      channelListVisibleCount = CHANNEL_LIST_PAGE_SIZE;
+      renderChannelList({ channels });
+    }
+  );
 
-  controls.appendChild(groupButton);
-  controls.appendChild(blocksButton);
   container.appendChild(controls);
+}
+
+function renderChannelFilterButtons(container, channels) {
+  const controls = document.createElement('div');
+  controls.className = 'module-nav';
+  controls.setAttribute('aria-label', 'Kanallisten-Filter');
+
+  const filters = [
+    ['all', 'Alle'],
+    ['tv', 'TV'],
+    ['radio', 'Radio'],
+    ['free', 'Frei'],
+    ['encrypted', 'Verschlüsselt'],
+    ['enabled', 'Aktiv'],
+    ['disabled', 'Deaktiviert']
+  ];
+
+  filters.forEach(([value, label]) => {
+    renderChannelButton(
+      controls,
+      label,
+      channelListFilterMode === value,
+      false,
+      () => {
+        channelListFilterMode = value;
+        channelListVisibleCount = CHANNEL_LIST_PAGE_SIZE;
+        renderChannelList({ channels });
+      }
+    );
+  });
+
+  container.appendChild(controls);
+}
+
+function renderChannelPagingControls(container, channels, filteredCount) {
+  const controls = document.createElement('div');
+  controls.className = 'module-nav';
+  controls.setAttribute('aria-label', 'Kanallisten-Paginierung');
+
+  if (channelListVisibleCount < filteredCount) {
+    renderChannelButton(
+      controls,
+      'Weitere 20 laden',
+      false,
+      false,
+      () => {
+        channelListVisibleCount += CHANNEL_LIST_PAGE_SIZE;
+        renderChannelList({ channels });
+      }
+    );
+  }
+
+  if (channelListVisibleCount > CHANNEL_LIST_PAGE_SIZE) {
+    renderChannelButton(
+      controls,
+      'Zurück auf 20',
+      false,
+      false,
+      () => {
+        channelListVisibleCount = CHANNEL_LIST_PAGE_SIZE;
+        renderChannelList({ channels });
+      }
+    );
+  }
+
+  if (controls.childElementCount > 0) {
+    container.appendChild(controls);
+  }
+}
+
+function channelStatusText(channel) {
+  const radio = channelBoolean(channel, ['radio', 'isRadio'], false);
+  const encrypted = channelBoolean(channel, ['encrypted', 'scrambled', 'isEncrypted'], false);
+  const enabled = channelBoolean(channel, ['enabled', 'active'], true);
+  const parts = [];
+
+  parts.push(radio ? 'Radio' : 'TV');
+  parts.push(encrypted ? 'verschlüsselt' : 'frei');
+  parts.push(enabled ? 'aktiv' : 'deaktiviert');
+
+  return parts.join(' · ');
 }
 
 function renderChannelItem(channel, index) {
@@ -325,6 +462,7 @@ function renderChannelItem(channel, index) {
     document.createElement('div'),
     'Nummer: ' + String(number) + ' · ID: ' + String(channelId)
   )).className = 'list-meta';
+  text.appendChild(addText(document.createElement('div'), channelStatusText(channel))).className = 'list-meta';
 
   if (group !== 'Ohne Gruppe') {
     text.appendChild(addText(document.createElement('div'), 'Gruppe: ' + group)).className = 'list-meta';
@@ -335,6 +473,10 @@ function renderChannelItem(channel, index) {
 }
 
 function renderChannelSection(list, label, channels, globalOffset) {
+  if (channels.length === 0) {
+    return;
+  }
+
   const header = document.createElement('article');
   header.className = 'module-placeholder';
   const firstNumber = channelNumber(channels[0], 0);
@@ -369,22 +511,39 @@ renderChannelList = function(data) {
   }
 
   if (!hasRealChannelGroups(channels)) {
-    channelListViewMode = 'blocks';
+    channelListViewMode = 'number';
   }
+
+  const filteredChannels = sortedChannels(filterChannels(channels));
+  const visibleCount = Math.min(channelListVisibleCount, filteredChannels.length);
+  const visibleChannels = filteredChannels.slice(0, visibleCount);
 
   const overview = document.createElement('article');
   overview.className = 'module-placeholder';
   overview.appendChild(addText(document.createElement('h3'), 'Kanalliste'));
   overview.appendChild(addText(
     document.createElement('p'),
-    String(channels.length) + ' Kanal/Kanäle vollständig geladen.'
+    'Zeige ' + String(visibleChannels.length) + ' von ' + String(filteredChannels.length) +
+      ' gefilterten Kanälen · ' + String(channels.length) + ' gesamt.'
   ));
   renderChannelViewButtons(overview, channels);
+  renderChannelFilterButtons(overview, channels);
+  renderChannelPagingControls(overview, channels, filteredChannels.length);
   list.appendChild(overview);
 
+  if (visibleChannels.length === 0) {
+    const empty = document.createElement('article');
+    empty.className = 'module-placeholder';
+    empty.appendChild(addText(document.createElement('h3'), 'Keine Kanäle im Filter'));
+    empty.appendChild(addText(document.createElement('p'), 'Wähle einen anderen Filter.'));
+    list.appendChild(empty);
+    detailDataElement.appendChild(list);
+    return;
+  }
+
   const sections = channelListViewMode === 'groups'
-    ? groupChannelsByVdrGroup(channels)
-    : groupChannelsByNumberBlocks(channels);
+    ? groupChannelsByVdrGroup(visibleChannels)
+    : groupChannelsByLoadedPages(visibleChannels);
 
   let offset = 0;
   sections.forEach(([label, sectionChannels]) => {
