@@ -159,6 +159,58 @@ ApiResponse makeNativeFuzzyOperatorRefreshUnavailableResponse()
     return response;
 }
 
+ApiResponse makeFrontendShellResponse()
+{
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "text/html; charset=utf-8";
+    response.body = R"FRONTEND(<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VDR-Suite Frontend</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #111827; color: #f9fafb; }
+    header { padding: 1rem; background: #020617; border-bottom: 1px solid #334155; }
+    main { padding: 1rem; }
+    pre { white-space: pre-wrap; padding: 1rem; background: #1e293b; border-radius: 0.75rem; }
+    .error { color: #fecaca; }
+  </style>
+</head>
+<body>
+  <header><h1>VDR-Suite Frontend</h1></header>
+  <main>
+    <p id="status">Lade Backend-Auswahl...</p>
+    <pre id="backends"></pre>
+  </main>
+  <script>
+    const statusElement = document.getElementById('status');
+    const backendsElement = document.getElementById('backends');
+    fetch('/api/backends')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status);
+        }
+        return response.json();
+      })
+      .then(data => {
+        const backends = Array.isArray(data.backends) ? data.backends : [];
+        statusElement.textContent = backends.length + ' Backend(s) gefunden';
+        backendsElement.textContent = JSON.stringify(data, null, 2);
+      })
+      .catch(error => {
+        statusElement.className = 'error';
+        statusElement.textContent = 'Backend-Auswahl konnte nicht geladen werden: ' + error.message;
+      });
+  </script>
+</body>
+</html>)FRONTEND";
+
+    return response;
+}
+
 static bool parseBackendSnapshotRoute(
     const std::string& path,
     std::string& backendId,
@@ -458,6 +510,12 @@ ApiResponse ApiRouter::handleGet(
     const RestQueryParameters queryParameters =
         RestQueryParameters::parse(
             requestQueryString(requestTarget));
+
+    if (path == "/" ||
+        path == "/frontend")
+    {
+        return makeFrontendShellResponse();
+    }
 
     if (path == "/api/dashboard")
     {
