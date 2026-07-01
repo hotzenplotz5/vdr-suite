@@ -224,7 +224,7 @@ VdrChannel mapObjectToChannel(const std::string& objectText)
     channel.provider = "";
     channel.group = getStringField(objectText, "group");
     channel.radio = getBoolField(objectText, "is_radio", false);
-    channel.encrypted = false;
+    channel.encrypted = getBoolField(objectText, "encrypted", false);
     channel.enabled = true;
 
     return channel;
