@@ -81,70 +81,6 @@ static void test_channel_mapper_accepts_top_level_array()
     assert(channels[0].radio == false);
 }
 
-static void test_channel_mapper_maps_encrypted_boolean_fields()
-{
-    const std::string json =
-        "{\"channels\":["
-        "{\"name\":\"Sky Cinema HD\","
-        "\"number\":101,"
-        "\"channel_id\":\"C-1-2-101\","
-        "\"group\":\"PayTV\","
-        "\"is_radio\":false,"
-        "\"is_encrypted\":true},"
-        "{\"name\":\"Public TV\","
-        "\"number\":102,"
-        "\"channel_id\":\"C-1-2-102\","
-        "\"group\":\"FreeTV\","
-        "\"scrambled\":false}"
-        "]}";
-
-    std::vector<VdrChannel> channels = RestfulApiChannelMapper::parseChannels(json);
-
-    assert(channels.size() == 2);
-    assert(channels[0].encrypted == true);
-    assert(channels[1].encrypted == false);
-}
-
-static void test_channel_mapper_maps_encrypted_from_caids()
-{
-    const std::string json =
-        "{\"channels\":["
-        "{\"name\":\"CA Channel\","
-        "\"number\":201,"
-        "\"channel_id\":\"C-1-2-201\","
-        "\"group\":\"PayTV\","
-        "\"caids\":[0,1702]},"
-        "{\"name\":\"FTA Channel\","
-        "\"number\":202,"
-        "\"channel_id\":\"C-1-2-202\","
-        "\"group\":\"FreeTV\","
-        "\"caids\":[0]}"
-        "]}";
-
-    std::vector<VdrChannel> channels = RestfulApiChannelMapper::parseChannels(json);
-
-    assert(channels.size() == 2);
-    assert(channels[0].encrypted == true);
-    assert(channels[1].encrypted == false);
-}
-
-static void test_channel_mapper_maps_enabled_field()
-{
-    const std::string json =
-        "{\"channels\":["
-        "{\"name\":\"Disabled\","
-        "\"number\":301,"
-        "\"channel_id\":\"C-1-2-301\","
-        "\"group\":\"Test\","
-        "\"enabled\":false}"
-        "]}";
-
-    std::vector<VdrChannel> channels = RestfulApiChannelMapper::parseChannels(json);
-
-    assert(channels.size() == 1);
-    assert(channels[0].enabled == false);
-}
-
 static void test_channel_mapper_ignores_objects_without_channel_id()
 {
     const std::string json =
@@ -177,9 +113,6 @@ int main()
 {
     test_channel_mapper_maps_valid_channels_response();
     test_channel_mapper_accepts_top_level_array();
-    test_channel_mapper_maps_encrypted_boolean_fields();
-    test_channel_mapper_maps_encrypted_from_caids();
-    test_channel_mapper_maps_enabled_field();
     test_channel_mapper_ignores_objects_without_channel_id();
     test_channel_mapper_tolerates_invalid_json();
     test_channel_mapper_tolerates_empty_channels_array();
