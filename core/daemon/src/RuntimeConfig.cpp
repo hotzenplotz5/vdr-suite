@@ -5,7 +5,7 @@ RuntimeConfig::RuntimeConfig()
       vdrMode_("restfulapi"),
       vdrHost_("127.0.0.1"),
       vdrPort_(8002),
-      httpListenHost_("127.0.0.1"),
+      httpListenHost_("0.0.0.0"),
       httpListenPort_(18080)
 {
 }
