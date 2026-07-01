@@ -32,6 +32,8 @@
   <script src="/frontend/app.js"></script>
   <script>
     let recordingSortMode = 'name';
+    let recordingViewMode = 'folder';
+    let currentRecordingRecords = [];
 
     function decodeRecordingText(value) {
       return String(value || '')
@@ -106,6 +108,41 @@
       return root;
     }
 
+    function recordingGenreName(recording, index) {
+      const display = recordingDisplayParts(recording, index);
+      const parts = display.folder.split('/').filter(Boolean);
+      return parts.length > 0 ? parts[0] : 'Ohne Genre';
+    }
+
+    function buildRecordingGenreTree(recordings) {
+      const root = createRecordingNode('Aufnahme-Genres', null);
+
+      recordings.forEach((recording, index) => {
+        const display = recordingDisplayParts(recording, index);
+        const genre = recordingGenreName(recording, index);
+
+        if (!root.folders.has(genre)) {
+          root.folders.set(genre, createRecordingNode(genre, root));
+        }
+
+        root.folders.get(genre).items.push({ recording, title: display.title, index });
+      });
+
+      return root;
+    }
+
+    function recordingRootNode() {
+      if (recordingViewMode === 'genre') {
+        return buildRecordingGenreTree(currentRecordingRecords);
+      }
+
+      return buildRecordingTree(currentRecordingRecords);
+    }
+
+    function renderRecordingRoot() {
+      renderRecordingNode(recordingRootNode());
+    }
+
     function sortedRecordingFolders(node) {
       return Array.from(node.folders.values()).sort((left, right) =>
         recordingSortKey(left.name).localeCompare(recordingSortKey(right.name), 'de-DE'));
@@ -126,6 +163,34 @@
 
       return items.sort((left, right) =>
         recordingSortKey(left.title).localeCompare(recordingSortKey(right.title), 'de-DE'));
+    }
+
+    function renderRecordingViewButtons(container) {
+      const controls = document.createElement('div');
+      controls.className = 'module-nav';
+      controls.setAttribute('aria-label', 'Aufnahmen-Ansicht');
+
+      const folderButton = document.createElement('button');
+      folderButton.type = 'button';
+      folderButton.className = 'module-tab' + (recordingViewMode === 'folder' ? ' active' : '');
+      folderButton.textContent = 'Ordner';
+      folderButton.addEventListener('click', () => {
+        recordingViewMode = 'folder';
+        renderRecordingRoot();
+      });
+
+      const genreButton = document.createElement('button');
+      genreButton.type = 'button';
+      genreButton.className = 'module-tab' + (recordingViewMode === 'genre' ? ' active' : '');
+      genreButton.textContent = 'Genre';
+      genreButton.addEventListener('click', () => {
+        recordingViewMode = 'genre';
+        renderRecordingRoot();
+      });
+
+      controls.appendChild(folderButton);
+      controls.appendChild(genreButton);
+      container.appendChild(controls);
     }
 
     function renderRecordingSortButtons(node, container) {
@@ -185,8 +250,12 @@
       const header = document.createElement('article');
       header.className = 'module-placeholder';
       const path = pathForRecordingNode(node);
-      header.appendChild(addText(document.createElement('h3'), path.length === 0 ? 'Aufnahme-Ordner' : path.join(' / ')));
+      const title = path.length === 0
+        ? (recordingViewMode === 'genre' ? 'Aufnahme-Genres' : 'Aufnahme-Ordner')
+        : path.join(' / ');
+      header.appendChild(addText(document.createElement('h3'), title));
       header.appendChild(addText(document.createElement('p'), String(node.folders.size) + ' Ordner · ' + String(countRecordingNode(node)) + ' Aufnahme(n)'));
+      renderRecordingViewButtons(header);
       renderRecordingSortButtons(node, header);
 
       if (node.parent) {
@@ -235,6 +304,7 @@
 
     renderRecordingList = function(data) {
       const recordings = listFromResponse(data, 'recordings');
+      currentRecordingRecords = recordings;
       detailDataElement.replaceChildren();
 
       if (recordings.length === 0) {
@@ -246,7 +316,7 @@
         return;
       }
 
-      renderRecordingNode(buildRecordingTree(recordings));
+      renderRecordingRoot();
     };
   </script>
 </body>
