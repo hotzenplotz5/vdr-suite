@@ -53,7 +53,8 @@ public:
 
     VdrChangeState getChangeState() const override
     {
-        return VdrChangeState{};
+        assert(false && "EPG cache service test must not read change state");
+        __builtin_unreachable();
     }
 };
 
