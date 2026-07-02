@@ -319,6 +319,198 @@
 
       renderRecordingRoot();
     };
+
+    function formatFrontendNumber(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) {
+        return String(value || '0');
+      }
+      return number.toLocaleString('de-DE');
+    }
+
+    function formatFrontendTime(seconds) {
+      const value = parseFrontendEventEpoch(seconds);
+      if (value <= 0) {
+        return '-';
+      }
+      return new Date(value * 1000).toLocaleString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function channelNameById(channels) {
+      const names = new Map();
+      channels.forEach(channel => {
+        const id = frontendChannelId(channel);
+        if (id !== '') {
+          names.set(id, String(firstValue(channel, ['name', 'channelName', 'title'], id)));
+        }
+      });
+      return names;
+    }
+
+    function isRtl2ChannelName(name) {
+      return String(name || '').toLocaleLowerCase('de-DE').replace(/\s+/g, '').includes('rtl2');
+    }
+
+    function eventSearchText(event) {
+      return [
+        firstValue(event, ['title', 'name'], ''),
+        firstValue(event, ['subtitle', 'shortText', 'short_text'], ''),
+        firstValue(event, ['description', 'text'], '')
+      ].join(' ').toLocaleLowerCase('de-DE');
+    }
+
+    function createSearchTimerHitItem(event, channelNames) {
+      const item = document.createElement('article');
+      item.className = 'list-item search-hit';
+      const channelId = frontendEventChannelId(event);
+      const channelName = channelNames.get(channelId) || channelId || '-';
+      const title = String(firstValue(event, ['title', 'name'], 'Unbenannte Sendung'));
+      const start = firstValue(event, ['startTime', 'start', 'beginTime'], '');
+      const end = firstValue(event, ['endTime', 'end', 'stopTime'], '');
+
+      item.appendChild(addText(document.createElement('div'), title)).className = 'list-title';
+      item.appendChild(addText(document.createElement('div'), channelName + ' · ' + formatFrontendTime(start) + ' – ' + formatFrontendTime(end))).className = 'list-meta';
+      item.appendChild(addText(document.createElement('div'), 'Treffer: Beschreibung/Titel enthält „Trump“')).className = 'list-meta';
+      return item;
+    }
+
+    function renderSearchTimerCockpit(searchTimerData, eventData, channelData, timerData) {
+      const searchTimers = listFromResponse(searchTimerData, 'searchTimers')
+        .concat(listFromResponse(searchTimerData, 'searchtimers'))
+        .concat(listFromResponse(searchTimerData, 'timers'));
+      const events = listFromResponse(eventData, 'events');
+      const channels = listFromResponse(channelData, 'channels');
+      const timers = listFromResponse(timerData, 'timers');
+      const channelNames = channelNameById(channels);
+      const now = Math.floor(Date.now() / 1000);
+      const twoDays = now + 2 * 24 * 60 * 60;
+
+      const trumpHits = events.filter(event => {
+        const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], 0));
+        const channelName = channelNames.get(frontendEventChannelId(event)) || '';
+        return start >= now
+          && start <= twoDays
+          && eventSearchText(event).includes('trump')
+          && !isRtl2ChannelName(channelName);
+      });
+
+      detailDataElement.replaceChildren();
+
+      const hero = document.createElement('section');
+      hero.className = 'search-cockpit hero-panel';
+      hero.appendChild(addText(document.createElement('h3'), 'SearchTimer Cockpit'));
+      hero.appendChild(addText(document.createElement('p'), 'Automatische Aufnahmevorschläge, Treffer und Konfliktlage für den ausgewählten VDR.'));
+
+      const stats = document.createElement('div');
+      stats.className = 'cockpit-stats';
+      stats.appendChild(createMetric('SearchTimer', formatFrontendNumber(searchTimers.length)));
+      stats.appendChild(createMetric('EPG Events', formatFrontendNumber(events.length)));
+      stats.appendChild(createMetric('Trump / 2 Tage', formatFrontendNumber(trumpHits.length)));
+      stats.appendChild(createMetric('Timer aktiv', formatFrontendNumber(timers.length)));
+      hero.appendChild(stats);
+      detailDataElement.appendChild(hero);
+
+      const proposal = document.createElement('section');
+      proposal.className = 'list';
+      const proposalHeader = document.createElement('article');
+      proposalHeader.className = 'module-placeholder search-proposal';
+      proposalHeader.appendChild(addText(document.createElement('h3'), 'Vorschlag: „Trump“ aufnehmen'));
+      proposalHeader.appendChild(addText(document.createElement('p'), 'Regel: Suche in Titel/Beschreibung · Zeitraum nächste 2 Tage · Ausschluss: RTL2.'));
+      proposalHeader.appendChild(addText(document.createElement('p'), 'Aktuelle Treffer: ' + formatFrontendNumber(trumpHits.length) + ' von ' + formatFrontendNumber(events.length) + ' EPG-Einträgen.'));
+      proposal.appendChild(proposalHeader);
+
+      trumpHits.slice(0, 12).forEach(event => {
+        proposal.appendChild(createSearchTimerHitItem(event, channelNames));
+      });
+
+      if (trumpHits.length === 0) {
+        const empty = document.createElement('article');
+        empty.className = 'list-item';
+        empty.appendChild(addText(document.createElement('div'), 'Keine aktuellen Treffer')).className = 'list-title';
+        empty.appendChild(addText(document.createElement('div'), 'Der vollständige EPG ist geladen, aber im Zwei-Tage-Fenster wurde kein passender Treffer gefunden.')).className = 'list-meta';
+        proposal.appendChild(empty);
+      }
+
+      if (trumpHits.length > 12) {
+        const more = document.createElement('article');
+        more.className = 'module-placeholder';
+        more.appendChild(addText(document.createElement('p'), 'Zeige 12 von ' + formatFrontendNumber(trumpHits.length) + ' Treffern.'));
+        proposal.appendChild(more);
+      }
+
+      detailDataElement.appendChild(proposal);
+    }
+
+    function loadSearchTimers() {
+      renderModuleLoading('SearchTimer', 'Lade SearchTimer, EPG und Timer-Status...');
+
+      const searchTimersRequest = fetch('/api/searchtimers')
+        .then(response => response.ok ? response.json() : { searchTimers: [] })
+        .catch(() => ({ searchTimers: [] }));
+
+      const eventsRequest = fetch('/api/vdr/events')
+        .then(response => response.ok ? response.json() : { events: [] })
+        .catch(() => ({ events: [] }));
+
+      const channelsRequest = fetch('/api/vdr/channels')
+        .then(response => response.ok ? response.json() : { channels: [] })
+        .catch(() => ({ channels: [] }));
+
+      const timersRequest = fetch('/api/vdr/timers')
+        .then(response => response.ok ? response.json() : { timers: [] })
+        .catch(() => ({ timers: [] }));
+
+      Promise.all([searchTimersRequest, eventsRequest, channelsRequest, timersRequest])
+        .then(([searchTimerData, eventData, channelData, timerData]) => {
+          renderSearchTimerCockpit(searchTimerData, eventData, channelData, timerData);
+        })
+        .catch(error => renderModuleError('SearchTimer konnte nicht geladen werden', error));
+    }
+
+    const baseRenderSnapshotMetrics = renderSnapshotMetrics;
+    renderSnapshotMetrics = function(data) {
+      detailDataElement.replaceChildren();
+      const snapshotAvailable = data.snapshotAvailable ? 'ja' : 'nein';
+      detailDataElement.appendChild(createMetric('Snapshot', snapshotAvailable));
+      detailDataElement.appendChild(createMetric('Kanäle', formatFrontendNumber(valueOrZero(data.channelCount))));
+      detailDataElement.appendChild(createMetric('EPG Events', formatFrontendNumber(valueOrZero(data.eventCount))));
+      detailDataElement.appendChild(createMetric('Timer', formatFrontendNumber(valueOrZero(data.timerCount))));
+      detailDataElement.appendChild(createMetric('Aufnahmen', formatFrontendNumber(valueOrZero(data.recordingCount))));
+
+      const insight = document.createElement('article');
+      insight.className = 'module-placeholder overview-insight';
+      insight.appendChild(addText(document.createElement('h3'), 'Backend live'));
+      insight.appendChild(addText(document.createElement('p'), 'Der Snapshot enthält ' + formatFrontendNumber(valueOrZero(data.eventCount)) + ' EPG-Einträge. SearchTimer kann daraus Vorschläge und Aufnahmeziele ableiten.'));
+      detailDataElement.appendChild(insight);
+    };
+
+    const baseRenderSelectedModule = renderSelectedModule;
+    renderSelectedModule = function(data) {
+      if (selectedModule === 'searchtimers') {
+        loadSearchTimers();
+        return;
+      }
+      baseRenderSelectedModule(data);
+    };
+
+    const baseRenderBackend = renderBackend;
+    renderBackend = function(backend) {
+      const card = baseRenderBackend(backend);
+      const selector = backend.frontendSelector || backend;
+      const chips = document.createElement('div');
+      chips.className = 'backend-summary-row';
+      chips.appendChild(addText(document.createElement('span'), backend.online ? '🟢 Online' : '🔴 Offline'));
+      chips.appendChild(addText(document.createElement('span'), selector.canWrite ? 'Schreiben' : 'Nur lesen'));
+      chips.appendChild(addText(document.createElement('span'), selector.canWriteTimers ? 'Timer' : 'Timer gesperrt'));
+      chips.appendChild(addText(document.createElement('span'), selector.canWriteSearchTimers ? 'SearchTimer' : 'SearchTimer gesperrt'));
+      card.appendChild(chips);
+      return card;
+    };
   </script>
 </body>
 </html>
