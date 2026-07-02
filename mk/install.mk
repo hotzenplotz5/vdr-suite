@@ -25,6 +25,7 @@ install-runtime: daemon
 	$(INSTALL) -m 0755 /tmp/vdr-suite-daemon $(DESTDIR)$(SBINDIR)/vdr-suite-daemon
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/vdr-suite
 	$(INSTALL) -d $(DESTDIR)$(CACHEDIR)/channel-logos
+	$(INSTALL) -d $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand
 	$(INSTALL) -d $(DESTDIR)$(STATEDIR)
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
 	$(INSTALL) -m 0644 web/frontend/index.html $(DESTDIR)$(DATADIR)/web/frontend/index.html
@@ -32,6 +33,9 @@ install-runtime: daemon
 	$(INSTALL) -m 0644 web/frontend/channel-logos.js $(DESTDIR)$(DATADIR)/web/frontend/channel-logos.js
 	$(INSTALL) -m 0644 web/frontend/epg-cache.js $(DESTDIR)$(DATADIR)/web/frontend/epg-cache.js
 	$(INSTALL) -m 0644 web/frontend/style.css $(DESTDIR)$(DATADIR)/web/frontend/style.css
+	$(INSTALL) -m 0644 web/frontend/logo-vdr-suite.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
+	$(INSTALL) -m 0644 web/frontend/icon-vdr-suite.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/icon-vdr-suite.svg
+	$(INSTALL) -m 0644 web/frontend/favicon.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/favicon.svg
 
 install-cli: dashboard-cli
 	$(INSTALL) -d $(DESTDIR)$(BINDIR)
@@ -63,6 +67,7 @@ test-install-staging:
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-logo-sync
 	test -d /tmp/vdr-suite-pkgroot/etc/vdr-suite
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos
+	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand
 	test -d /tmp/vdr-suite-pkgroot/var/lib/vdr-suite
 	test -f /tmp/vdr-suite-pkgroot/usr/share/doc/vdr-suite/README.md
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite
@@ -71,6 +76,9 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-logos.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-cache.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/style.css
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/icon-vdr-suite.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/favicon.svg
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-daemon.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man5/vdr-suite.conf.5
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-dashboard.1
