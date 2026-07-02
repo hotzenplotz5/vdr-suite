@@ -332,6 +332,35 @@ HttpServerResponse makeFrontendAssetResponse(
     return response;
 }
 
+HttpServerResponse makeFrontendScriptBundleResponse(
+    const std::string& primaryRelativePath,
+    const std::string& addonRelativePath)
+{
+    std::string content;
+
+    if (!readFrontendAsset(primaryRelativePath, content))
+    {
+        return makeStaticNotFoundResponse();
+    }
+
+    std::string addon;
+
+    if (readFrontendAsset(addonRelativePath, addon))
+    {
+        content += "\n\n";
+        content += addon;
+    }
+
+    HttpServerResponse response;
+
+    response.statusCode = 200;
+    response.headers["Content-Type"] = "application/javascript; charset=utf-8";
+    response.headers["Cache-Control"] = "no-store";
+    response.body = content;
+
+    return response;
+}
+
 HttpServerResponse makeChannelLogoResponse(
     const std::string& path)
 {
@@ -402,9 +431,9 @@ HttpServerResponse serveFrontendPath(
 
     if (path == "/frontend/channel-logos.js")
     {
-        return makeFrontendAssetResponse(
+        return makeFrontendScriptBundleResponse(
             "channel-logos.js",
-            "application/javascript; charset=utf-8");
+            "epg-cache.js");
     }
 
     if (path == "/frontend/style.css")
@@ -419,69 +448,47 @@ HttpServerResponse serveFrontendPath(
 
 }
 
-TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
-    : apiRouter_(apiRouter)
+TestHttpServer::TestHttpServer(ApiRouter& router)
+    : router_(router)
 {
 }
 
 HttpServerResponse TestHttpServer::handleRequest(
-    const HttpServerRequest& request) const
+    const HttpServerRequest& request)
 {
+    if (isChannelLogoPath(request.path))
+    {
+        return makeChannelLogoResponse(request.path);
+    }
+
+    if (isFrontendPath(request.path))
+    {
+        return serveFrontendPath(request.path);
+    }
+
     if (!isAuthorized(request))
     {
         return makeUnauthorizedResponse();
     }
 
-    if (request.method == "GET" &&
-        isFrontendPath(request.path))
-    {
-        return serveFrontendPath(request.path);
-    }
-
-    if (request.method == "GET" &&
-        isChannelLogoPath(request.path))
-    {
-        return makeChannelLogoResponse(request.path);
-    }
-
     ApiResponse apiResponse;
 
-    if (request.method == "GET")
+    if (request.method == "POST")
     {
-        apiResponse =
-            apiRouter_.handleGet(request.path);
-    }
-    else if (request.method == "POST")
-    {
-        apiResponse =
-            apiRouter_.handlePost(
-                request.path,
-                request.body);
+        apiResponse = router_.handlePost(
+            request.path,
+            request.body);
     }
     else
     {
-        return mapApiResponse(
-            405,
-            "application/json",
-            "{\"error\":\"method not allowed\"}");
+        apiResponse = router_.handleGet(request.path);
     }
 
-    return mapApiResponse(
-        apiResponse.statusCode,
-        apiResponse.contentType,
-        apiResponse.body);
-}
-
-HttpServerResponse TestHttpServer::mapApiResponse(
-    int statusCode,
-    const std::string& contentType,
-    const std::string& body) const
-{
     HttpServerResponse response;
 
-    response.statusCode = statusCode;
-    response.headers["Content-Type"] = contentType;
-    response.body = body;
+    response.statusCode = apiResponse.statusCode;
+    response.headers["Content-Type"] = apiResponse.contentType;
+    response.body = apiResponse.body;
 
     return response;
 }
