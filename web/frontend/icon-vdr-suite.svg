@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">VDR-Suite icon</title>
+  <desc id="desc">Connected TV play icon with live signal arcs.</desc>
+  <defs>
+    <linearGradient id="vdrBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.48" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <filter id="softGlow" x="-20%" y="-25%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#020617" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <g filter="url(#softGlow)">
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M98 63 H185 A13 13 0 0 1 198 76 V149 A13 13 0 0 1 185 162 H70 A27 27 0 0 1 43 135 V90 A27 27 0 0 1 70 63 H98" stroke="#07152d" stroke-width="11"/>
+      <path d="M85 184 H158" stroke="#07152d" stroke-width="10"/>
+      <path d="M213 54 A48 48 0 0 1 233 92" stroke="url(#vdrBlue)" stroke-width="11"/>
+      <path d="M213 76 A26 26 0 0 1 222 92" stroke="url(#vdrBlue)" stroke-width="11"/>
+      <path d="M31 94 H16" stroke="#64748b" stroke-width="4"/>
+      <path d="M31 116 H16" stroke="#64748b" stroke-width="4"/>
+      <path d="M31 138 H22 L14 148 H5" stroke="#64748b" stroke-width="4"/>
+    </g>
+    <rect x="3" y="83" width="16" height="16" rx="4" fill="url(#vdrBlue)"/>
+    <rect x="3" y="105" width="16" height="16" rx="4" fill="url(#vdrBlue)"/>
+    <rect x="3" y="137" width="16" height="16" rx="4" fill="url(#vdrBlue)"/>
+    <path d="M102 101 C102 93 111 88 118 93 L153 114 C160 118 160 127 153 131 L118 152 C111 157 102 152 102 144 Z" fill="url(#vdrBlue)"/>
+  </g>
+</svg>
