@@ -60,6 +60,11 @@ static VdrSnapshot makeBackendSnapshot(
     channel.name = backendId + " Channel";
     snapshot.channels.push_back(channel);
 
+    VdrEvent event;
+    event.id = backendId + "-event";
+    event.title = backendId + " Event";
+    snapshot.events.push_back(event);
+
     VdrRecording recording;
     recording.id = recordingId;
     recording.title = backendId + " Recording";
@@ -175,6 +180,8 @@ static void test_snapshot_read_service_returns_all_backend_snapshots()
             foundHome = true;
             assert(snapshot.channels.size() == 1);
             assert(snapshot.channels[0].id == "home-channel");
+            assert(snapshot.events.size() == 1);
+            assert(snapshot.events[0].id == "home-vdr-event");
             assert(snapshot.recordings.size() == 1);
             assert(snapshot.recordings[0].id == "home-recording");
         }
@@ -184,6 +191,8 @@ static void test_snapshot_read_service_returns_all_backend_snapshots()
             foundParents = true;
             assert(snapshot.channels.size() == 1);
             assert(snapshot.channels[0].id == "parents-channel");
+            assert(snapshot.events.size() == 1);
+            assert(snapshot.events[0].id == "parents-vdr-event");
             assert(snapshot.recordings.size() == 1);
             assert(snapshot.recordings[0].id == "parents-recording");
         }
@@ -191,6 +200,58 @@ static void test_snapshot_read_service_returns_all_backend_snapshots()
 
     assert(foundHome);
     assert(foundParents);
+}
+
+static void test_snapshot_read_service_ignores_preview_cache_for_event_reads()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    cache.update(makeTestSnapshot());
+
+    VdrEvent cachedEvent;
+    cachedEvent.id = "preview-cache-event";
+    cachedEvent.title = "Preview Cache Event";
+
+    accessService.searchTimerPreviewEpgCache().updateReady(
+        "default",
+        std::vector<VdrEvent>{cachedEvent});
+
+    VdrSnapshotReadService readService(accessService);
+
+    const auto events = readService.getEvents();
+
+    assert(events.size() == 1);
+    assert(events[0].id == "event-1");
+    assert(readService.searchTimerPreviewEpgCache().readyEventCountForBackend("default") == 1);
+}
+
+static void test_snapshot_read_service_ignores_preview_cache_for_backend_event_reads()
+{
+    SnapshotCache cache;
+    SnapshotCacheService cacheService(cache);
+    SnapshotAccessService accessService(cacheService);
+
+    cache.updateForBackend(
+        "home-vdr",
+        makeBackendSnapshot("home-vdr", "home-channel", "home-recording"));
+
+    VdrEvent cachedEvent;
+    cachedEvent.id = "home-preview-cache-event";
+    cachedEvent.title = "Home Preview Cache Event";
+
+    accessService.searchTimerPreviewEpgCache().updateReady(
+        "home-vdr",
+        std::vector<VdrEvent>{cachedEvent});
+
+    VdrSnapshotReadService readService(accessService);
+
+    const auto events = readService.getEventsForBackend("home-vdr");
+
+    assert(events.size() == 1);
+    assert(events[0].id == "home-vdr-event");
+    assert(readService.searchTimerPreviewEpgCache().readyEventCountForBackend("home-vdr") == 1);
 }
 
 
@@ -201,6 +262,8 @@ int main()
     test_snapshot_read_service_reads_matching_backend();
     test_snapshot_read_service_rejects_non_matching_backend();
     test_snapshot_read_service_returns_all_backend_snapshots();
+    test_snapshot_read_service_ignores_preview_cache_for_event_reads();
+    test_snapshot_read_service_ignores_preview_cache_for_backend_event_reads();
 
     return 0;
 }
