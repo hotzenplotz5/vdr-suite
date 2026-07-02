@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EpgCacheService.h"
 #include "IHttpClient.h"
 #include "IVdrAdapter.h"
 #include "PollingService.h"
@@ -21,5 +22,6 @@ struct BackendRuntimeContext
     std::unique_ptr<RestfulApiSearchTimerAdapter> searchTimerAdapter;
     std::unique_ptr<VdrSnapshotBuilder> snapshotBuilder;
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
+    std::unique_ptr<EpgCacheService> epgCacheService;
     std::unique_ptr<PollingService> pollingService;
 };
