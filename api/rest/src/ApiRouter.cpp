@@ -2,6 +2,7 @@
 
 #include "BackendRegistryController.h"
 #include "CapabilityController.h"
+#include "EpgCacheController.h"
 #include "EpgController.h"
 #include "EpgSearchNativeFuzzyStaleProbeAdministrationController.h"
 #include "EpgSearchNativeFuzzyOperatorRefreshController.h"
@@ -24,6 +25,7 @@
 #include "SearchTimerResult.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
+#include "VdrEventQuery.h"
 #include "VdrRecordingQueryController.h"
 #include "VdrSnapshotReadService.h"
 #include "VdrTimerActionController.h"
@@ -57,6 +59,22 @@ std::string requestQueryString(const std::string& requestTarget)
     return requestTarget.substr(queryStart + 1);
 }
 
+std::string normalizeBackendId(const std::string& backendId)
+{
+    if (backendId.empty())
+    {
+        return "default";
+    }
+
+    return backendId;
+}
+
+bool isTruthy(const std::string& value)
+{
+    return value == "true" ||
+        value == "1" ||
+        value == "yes";
+}
 
 ApiResponse makeEpgUnavailableResponse()
 {
@@ -65,6 +83,17 @@ ApiResponse makeEpgUnavailableResponse()
     response.statusCode = 503;
     response.contentType = "application/json";
     response.body = "{\"error\":\"epg backend unavailable\"}";
+
+    return response;
+}
+
+ApiResponse makeEpgCacheUnavailableResponse()
+{
+    ApiResponse response;
+
+    response.statusCode = 503;
+    response.contentType = "application/json";
+    response.body = "{\"error\":\"epg cache unavailable\"}";
 
     return response;
 }
@@ -268,7 +297,8 @@ ApiRouter::ApiRouter(
     EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController,
     SearchTimerDiscoveryController* searchTimerDiscoveryController,
     SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController,
-    SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController)
+    SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController,
+    EpgCacheController* epgCacheController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
       recordingsController_(recordingsController),
@@ -292,6 +322,7 @@ ApiRouter::ApiRouter(
       searchTimerAutomationPreviewController_(searchTimerAutomationPreviewController),
       searchTimerPreviewEpgCacheRefreshController_(
           searchTimerPreviewEpgCacheRefreshController),
+      epgCacheController_(epgCacheController),
       liveTransportController_(liveTransportController),
       searchTimerCommandExecutor_(searchTimerCommandExecutor),
       nativeFuzzyStaleProbeAdministrationController_(
@@ -345,6 +376,31 @@ ApiResponse ApiRouter::handlePost(
         return vdrTimerActionController_.removeBody(
             body,
             vdrTimerActionExecutorAdapterRegistry_);
+    }
+
+    if (path == "/api/epg/cache/refresh")
+    {
+        if (epgCacheController_ == nullptr)
+        {
+            return makeEpgCacheUnavailableResponse();
+        }
+
+        VdrEventQuery query;
+        query.channelId = queryParameters.get("channelId");
+        query.eventId = queryParameters.get("eventId");
+        query.from = queryParameters.getInt("from", -1);
+        query.timespan = queryParameters.getInt("timespan", 0);
+        query.start = queryParameters.getInt("start", -1);
+        query.limit = queryParameters.getInt("limit", 0);
+        query.channelEventLimit = queryParameters.getInt(
+            "channelEventLimit",
+            queryParameters.getInt("chevents", 0));
+        query.onlyCount = isTruthy(queryParameters.get("only_count")) ||
+            isTruthy(queryParameters.get("onlyCount"));
+
+        return epgCacheController_->refreshBackendWindow(
+            normalizeBackendId(queryParameters.get("backend")),
+            query);
     }
 
     if (path == "/api/searchtimers/preview/cache/refresh" ||
@@ -709,6 +765,37 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.getInt("from", -1),
             queryParameters.getInt("timespan", 7200),
             queryParameters.getInt("limit", 5));
+    }
+
+    if (path == "/api/epg/cache/now-next")
+    {
+        if (epgCacheController_ == nullptr)
+        {
+            return makeEpgCacheUnavailableResponse();
+        }
+
+        return epgCacheController_->getNowNext(
+            normalizeBackendId(queryParameters.get("backend")),
+            queryParameters.get("channelId"),
+            queryParameters.get("fromTime"),
+            queryParameters.getInt(
+                "limit",
+                queryParameters.getInt("chevents", 5)));
+    }
+
+    if (path == "/api/epg/cache/window")
+    {
+        if (epgCacheController_ == nullptr)
+        {
+            return makeEpgCacheUnavailableResponse();
+        }
+
+        return epgCacheController_->getWindow(
+            normalizeBackendId(queryParameters.get("backend")),
+            queryParameters.get("channelId"),
+            queryParameters.get("fromTime"),
+            queryParameters.get("untilTime"),
+            queryParameters.getInt("limit", 50));
     }
 
     if (path == "/api/searchtimers/discovery" ||
