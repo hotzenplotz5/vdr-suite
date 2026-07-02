@@ -65,6 +65,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Real VDR acceptance manifest and runner foundation
 - Daemon lifecycle hardening for duplicate bind failures and SIGTERM shutdown
 - Recording operations audit and safety policy foundation
+- RESTfulAPI event stream change-hint foundation
 
 ### Verified real-runtime evidence
 
@@ -73,6 +74,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - SIGTERM stops the daemon cleanly without `kill -9` and releases port 18080.
 - GitHub Actions verification is required before runtime-related phases are considered complete.
 - Phase 58.39 verifies bounded live EPG input for channel cards via the now-next EPG route.
+- Phase 58.58 verifies RESTfulAPI SSE-driven change hints: vdr-suite connects to RESTfulAPI `/eventstream` on `vdr_port + 1`, receives `vdr-change` hints and turns them into `/api/vdr/changes` entries for timers and recordings.
 
 ### Guarded or deliberately incomplete areas
 
@@ -103,18 +105,47 @@ Progress source: ../planning/project-progress.md
 
 ---
 
+## Phase 58.58 - RESTfulAPI Event Stream Change Hints
+
+Status: implemented, runtime-tested, committed and tagged.
+
+Commit:
+
+- `361d0e9f` Phase 58.58: add RESTfulAPI event stream change hints
+
+Tag:
+
+- `v1.58.58-restfulapi-eventstream-change-hints`
+
+Summary:
+
+- Added `RestfulApiEventStreamClient`.
+- The client connects to RESTfulAPI `/eventstream` on `vdr_port + 1`.
+- Incoming `vdr-change` SSE events set an atomic external change hint.
+- The existing HTTP listener tick consumes that hint and triggers `pollVdrAndUpdateChangeFeed()`.
+- Snapshot and change-feed mutation remain on the existing runtime path.
+- The previous 5-second polling path remains active as fallback.
+
+Runtime proof:
+
+- vdr-suite connected to RESTfulAPI event stream on `127.0.0.1:8003`.
+- vdr-suite logged RESTfulAPI event stream change hints.
+- `/api/vdr/changes` produced new entries for `timers` and `recordings`.
+
+---
+
 ## Current Verified State
 
 Latest completed major implementation phase:
 
 ```text
-Phase 57 - Multi-Site Backend Administration and Permissions
+Phase 58.58 - RESTfulAPI Event Stream Change Hints
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 57 - Multi-Site Backend Administration and Permissions
+Phase 58.58 - RESTfulAPI Event Stream Change Hints
 ```
 
 Next major implementation milestone:
@@ -196,6 +227,7 @@ Direct GitHub documentation synchronization should still be followed locally by 
 - Phase 58.39 fixes bounded global RESTfulAPI event queries and switches channel cards to the bounded now-next EPG route; real runtime validation reduced the channel-card EPG payload from a full 37025-event dump to a bounded 606-event response.
 - Phase 58.39 guardrail follow-up updates the RESTfulAPI adapter regression test so global timespan and chevents query options are preserved, and narrows the adapter unit-test link boundary to MockHttpClient only.
 - Phase 58.40 adds the backend-scoped persistent EPG database foundation: SQLite `epg_events`, repository APIs that require backend id, and regression coverage proving same channel/event ids on different backends do not overwrite each other.
+- Phase 58.58 adds the RESTfulAPI event-stream change-hint bridge: `RestfulApiEventStreamClient` connects to RESTfulAPI `/eventstream` on `vdr_port + 1`, sets an atomic external change hint, and lets the existing listener tick trigger `pollVdrAndUpdateChangeFeed()` so snapshot and change-feed mutation remain on the existing runtime path.
 
 ---
 
