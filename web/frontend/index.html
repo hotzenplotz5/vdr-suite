@@ -119,6 +119,27 @@
       text-overflow: ellipsis;
     }
 
+    @media (min-width: 72rem) {
+      .layout {
+        max-width: min(118rem, calc(100vw - 2.5rem));
+        grid-template-columns: minmax(22rem, 32rem) minmax(0, 1fr);
+        align-items: start;
+      }
+
+      .brand-shell,
+      #status {
+        grid-column: 1 / -1;
+      }
+
+      .backend-list {
+        grid-column: 1;
+      }
+
+      #detail {
+        grid-column: 2;
+      }
+    }
+
     @media (max-width: 760px) {
       .brand-shell {
         border-radius: 0.95rem;
