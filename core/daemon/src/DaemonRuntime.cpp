@@ -53,6 +53,13 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
     context->service = std::make_unique<VdrService>(
         *context->adapter,
         &runtimeLogger_);
+
+    if (epgEventRepository_) {
+        context->epgCacheService = std::make_unique<EpgCacheService>(
+            *epgEventRepository_,
+            *context->service);
+    }
+
     context->snapshotBuilder = std::make_unique<VdrSnapshotBuilder>(
         *context->service,
         context->backendId,
@@ -181,6 +188,14 @@ bool DaemonRuntime::initialize()
     searchTimerPreviewEpgCache_ = std::make_unique<SearchTimerPreviewEpgCache>();
     searchTimerPreviewEpgCacheRefreshServiceRegistry_ =
         std::make_unique<SearchTimerPreviewEpgCacheRefreshServiceRegistry>();
+    epgEventRepository_ = std::make_unique<EpgEventRepository>(database_);
+
+    if (!epgEventRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize EPG cache repository schema" << std::endl;
+        return false;
+    }
+
+    epgCacheServiceRegistry_ = std::make_unique<EpgCacheServiceRegistry>();
 
     for (const BackendNode& runtimeBackend : runtimeBackends) {
         auto backendRuntimeContext =
@@ -190,6 +205,12 @@ bool DaemonRuntime::initialize()
             searchTimerPreviewEpgCacheRefreshServiceRegistry_->registerService(
                 backendRuntimeContext->backendId,
                 *backendRuntimeContext->searchTimerPreviewEpgCacheRefreshService);
+        }
+
+        if (backendRuntimeContext->epgCacheService) {
+            epgCacheServiceRegistry_->registerService(
+                backendRuntimeContext->backendId,
+                *backendRuntimeContext->epgCacheService);
         }
 
         backendPollingCoordinator_->addPollingService(
@@ -360,6 +381,11 @@ bool DaemonRuntime::initialize()
 
     std::cout << "SearchTimer preview EPG cache refresh controller runtime initialized" << std::endl;
 
+    epgCacheController_ = std::make_unique<EpgCacheController>(
+        *epgCacheServiceRegistry_);
+
+    std::cout << "EPG cache controller runtime initialized" << std::endl;
+
     personResolutionJsonSerializer_ = std::make_unique<PersonResolutionJsonSerializer>();
     personSearchService_ = std::make_unique<PersonSearchService>();
     personQueryResultJsonSerializer_ = std::make_unique<PersonQueryResultJsonSerializer>();
@@ -501,7 +527,8 @@ bool DaemonRuntime::initialize()
         epgSearchNativeFuzzyOperatorRefreshController_.get(),
         searchTimerDiscoveryController_.get(),
         searchTimerAutomationPreviewController_.get(),
-        searchTimerPreviewEpgCacheRefreshController_.get());
+        searchTimerPreviewEpgCacheRefreshController_.get(),
+        epgCacheController_.get());
 
     apiRouter_->setSearchTimerPreviewEpgCache(
         searchTimerPreviewEpgCache_.get());
@@ -585,6 +612,7 @@ void DaemonRuntime::shutdown()
     epgSearchNativeFuzzyCapabilityFreshnessPolicy_.reset();
     epgSearchNativeFuzzyCapabilityDetector_.reset();
     epgSearchNativeFuzzyCapabilityRepository_.reset();
+    epgCacheController_.reset();
     searchTimerPreviewEpgCacheRefreshController_.reset();
     searchTimerAutomationPreviewController_.reset();
     searchTimerAutomationDryRunResultJsonSerializer_.reset();
@@ -652,6 +680,8 @@ void DaemonRuntime::shutdown()
     snapshotChangeFeed_.reset();
     backendPollingCoordinator_.reset();
     backendRuntimeContexts_.clear();
+    epgCacheServiceRegistry_.reset();
+    epgEventRepository_.reset();
     searchTimerPreviewEpgCacheRefreshServiceRegistry_.reset();
     searchTimerPreviewEpgCache_.reset();
     vdrSnapshotReadJsonSerializer_.reset();
