@@ -47,8 +47,7 @@ public:
     void setSearchTimerPreviewEpgCache(
         SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
     {
-        snapshotReadService_.setSearchTimerPreviewEpgCache(
-            searchTimerPreviewEpgCache);
+        searchTimerPreviewEpgCache_ = searchTimerPreviewEpgCache;
     }
 
     std::vector<VdrRecording> getRecordings() const
