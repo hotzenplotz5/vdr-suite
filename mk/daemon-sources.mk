@@ -66,6 +66,7 @@ DAEMON_SRC := \
         core/http/src/BasicHttpClient.cpp \
         core/http/src/SimpleHttpListener.cpp \
         core/http/src/TestHttpServer.cpp \
+        core/daemon/src/RestfulApiEventStreamClient.cpp \
         core/daemon/src/DaemonRuntime.cpp \
         core/daemon/src/DaemonApp.cpp \
         api/rest/src/SearchTimerCreateRequestParser.cpp \

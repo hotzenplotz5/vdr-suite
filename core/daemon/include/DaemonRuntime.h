@@ -139,6 +139,7 @@ private:
         const BackendNode& backend);
 
     bool initialized_;
+    std::atomic<bool> externalVdrChangeHint_;
 
     RuntimeConfig config_;
     ConsoleRuntimeLogger runtimeLogger_;

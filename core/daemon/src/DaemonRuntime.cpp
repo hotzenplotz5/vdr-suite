@@ -2,6 +2,7 @@
 
 #include "BasicHttpClient.h"
 #include "RestfulApiVdrAdapter.h"
+#include "RestfulApiEventStreamClient.h"
 #include "RestfulApiVdrTimerActionExecutorAdapter.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RestfulApiSearchTimerAdapter.h"
@@ -18,7 +19,8 @@
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
 
 DaemonRuntime::DaemonRuntime()
-    : initialized_(false)
+    : initialized_(false),
+      externalVdrChangeHint_(false)
 {
 }
 
@@ -81,6 +83,14 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         context->backendId,
         &runtimeLogger_,
         &runtimeDiagnosticsService_);
+
+    context->eventStreamClient = std::make_unique<RestfulApiEventStreamClient>(
+        context->backendId,
+        backendConfig.host,
+        backendConfig.port + 1,
+        [this](const std::string&) {
+            externalVdrChangeHint_.store(true);
+        });
 
     return context;
 }
@@ -217,6 +227,10 @@ bool DaemonRuntime::initialize()
         backendPollingCoordinator_->addPollingService(
             backendRuntimeContext->backendId,
             *backendRuntimeContext->pollingService);
+
+        if (backendRuntimeContext->eventStreamClient) {
+            backendRuntimeContext->eventStreamClient->start();
+        }
 
         backendRuntimeContexts_.push_back(
             std::move(backendRuntimeContext));
@@ -558,7 +572,10 @@ bool DaemonRuntime::initialize()
         [this, lastVdrPoll]() mutable {
             const auto now = std::chrono::steady_clock::now();
 
-            if (std::chrono::duration_cast<std::chrono::seconds>(now - lastVdrPoll).count() < 5) {
+            const bool externalHint = externalVdrChangeHint_.exchange(false);
+
+            if (!externalHint &&
+                std::chrono::duration_cast<std::chrono::seconds>(now - lastVdrPoll).count() < 5) {
                 return;
             }
 
@@ -617,6 +634,12 @@ void DaemonRuntime::shutdown()
 {
     if (!initialized_) {
         return;
+    }
+
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        if (backendRuntimeContext->eventStreamClient) {
+            backendRuntimeContext->eventStreamClient->stop();
+        }
     }
 
     httpListener_.reset();
