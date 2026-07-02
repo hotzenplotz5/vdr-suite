@@ -22,12 +22,15 @@ DAEMON_SRC := \
         api/rest/src/VdrController.cpp \
         api/rest/src/VdrRecordingQueryController.cpp \
         api/rest/src/EpgController.cpp \
+        api/rest/src/EpgCacheController.cpp \
         api/rest/src/EpgSearchNativeFuzzyStaleProbeAdministrationController.cpp \
         api/rest/src/EpgSearchNativeFuzzyOperatorRefreshController.cpp \
         api/rest/src/SearchTimerController.cpp \
         api/rest/src/SearchTimerDiscoveryController.cpp \
         api/rest/src/SearchTimerAutomationPreviewController.cpp \
         api/rest/src/SearchTimerPreviewEpgCacheRefreshController.cpp \
+        core/vdr/src/EpgEventRepository.cpp \
+        core/vdr/src/EpgCacheService.cpp \
         core/vdr/src/SearchTimerResultJsonSerializer.cpp \
         core/vdr/src/SearchTimerService.cpp \
         core/vdr/src/RestfulApiSearchTimerMapper.cpp \
