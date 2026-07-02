@@ -1,3 +1,124 @@
+function ensureCachedEpgDetailStyles() {
+  if (document.getElementById('cached-epg-detail-styles')) {
+    return;
+  }
+
+  const style = document.createElement('style');
+  style.id = 'cached-epg-detail-styles';
+  style.textContent = `
+.cached-channel-epg-detail {
+  gap: 0.75rem;
+}
+.cached-channel-epg-header {
+  border-color: rgba(96, 165, 250, 0.4);
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 38%),
+    #020617;
+}
+.cached-epg-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+.cached-epg-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+.cached-epg-title-text {
+  min-width: 0;
+}
+.cached-epg-header-meta {
+  color: #cbd5e1;
+  font-size: 0.92rem;
+}
+.cached-epg-back-button {
+  flex: 0 0 auto;
+}
+.cached-epg-summary {
+  color: #bfdbfe;
+  font-weight: 700;
+}
+.cached-epg-event-card {
+  display: grid;
+  gap: 0.5rem;
+  border-color: rgba(148, 163, 184, 0.28);
+}
+.cached-epg-event-card.current {
+  border-color: rgba(96, 165, 250, 0.55);
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 42%),
+    #020617;
+}
+.cached-epg-event-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.cached-epg-status-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.22rem 0.62rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #e2e8f0;
+  background: rgba(51, 65, 85, 0.68);
+}
+.cached-epg-status-badge.current {
+  color: #dbeafe;
+  background: rgba(37, 99, 235, 0.34);
+  border-color: rgba(96, 165, 250, 0.46);
+}
+.cached-epg-status-badge.next {
+  color: #bbf7d0;
+  background: rgba(22, 163, 74, 0.18);
+  border-color: rgba(34, 197, 94, 0.32);
+}
+.cached-epg-event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.cached-epg-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  background: rgba(30, 41, 59, 0.9);
+  color: #cbd5e1;
+  font-size: 0.88rem;
+}
+.cached-epg-description {
+  color: #dbeafe;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .cached-epg-header-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .cached-epg-back-button {
+    width: 100%;
+  }
+  .cached-epg-event-header {
+    flex-direction: column-reverse;
+  }
+  .cached-epg-status-badge {
+    align-self: flex-start;
+  }
+}
+`;
+  document.head.appendChild(style);
+}
+
+ensureCachedEpgDetailStyles();
+
 function frontendSelectedBackendId() {
   if (selectedBackendId && String(selectedBackendId).trim() !== '') {
     return String(selectedBackendId).trim();
@@ -109,6 +230,51 @@ function cachedEpgProgramDescription(event) {
   return firstValue(event, ['description', 'summary', 'text'], '');
 }
 
+function cachedEpgEventLabel(index) {
+  if (index === 0) {
+    return 'Jetzt';
+  }
+
+  if (index === 1) {
+    return 'Als Nächstes';
+  }
+
+  return 'Später';
+}
+
+function cachedEpgEventBadgeClass(index) {
+  if (index === 0) {
+    return 'cached-epg-status-badge current';
+  }
+
+  if (index === 1) {
+    return 'cached-epg-status-badge next';
+  }
+
+  return 'cached-epg-status-badge';
+}
+
+function cachedEpgTimeText(event) {
+  if (typeof channelProgramTimeText === 'function') {
+    return channelProgramTimeText(event);
+  }
+
+  return '';
+}
+
+function appendCachedEpgChip(container, text) {
+  const value = String(text || '').trim();
+
+  if (value === '') {
+    return;
+  }
+
+  const chip = document.createElement('span');
+  chip.className = 'cached-epg-chip';
+  chip.textContent = value;
+  container.appendChild(chip);
+}
+
 function cachedEpgRenderNowOverviewRows(container, channels, events) {
   const nowSeconds = Math.floor(Date.now() / 1000);
   let visibleCount = 0;
@@ -139,9 +305,7 @@ function cachedEpgRenderNowOverviewRows(container, channels, events) {
       'Jetzt: ' + String(cachedEpgProgramTitle(currentProgram))
     )).className = 'list-meta';
 
-    const timeText = typeof channelProgramTimeText === 'function'
-      ? channelProgramTimeText(currentProgram)
-      : '';
+    const timeText = cachedEpgTimeText(currentProgram);
     const subtitle = cachedEpgProgramSubtitle(currentProgram);
     const detailParts = [timeText, subtitle]
       .filter(value => String(value || '').trim() !== '');
@@ -157,30 +321,42 @@ function cachedEpgRenderNowOverviewRows(container, channels, events) {
   return visibleCount;
 }
 
-function renderCachedChannelEpgEvent(container, event) {
+function renderCachedChannelEpgEvent(container, event, index) {
   const item = document.createElement('article');
-  item.className = 'list-item';
+  item.className = index === 0
+    ? 'list-item cached-epg-event-card current'
+    : 'list-item cached-epg-event-card';
 
-  item.appendChild(addText(
+  const header = document.createElement('div');
+  header.className = 'cached-epg-event-header';
+
+  const text = document.createElement('div');
+  text.className = 'cached-epg-title-text';
+  text.appendChild(addText(
     document.createElement('div'),
     String(cachedEpgProgramTitle(event))
   )).className = 'list-title';
 
-  const timeText = typeof channelProgramTimeText === 'function'
-    ? channelProgramTimeText(event)
-    : '';
-  const subtitle = cachedEpgProgramSubtitle(event);
-  const details = [timeText, subtitle]
-    .filter(value => String(value || '').trim() !== '')
-    .join(' · ');
+  const badge = document.createElement('span');
+  badge.className = cachedEpgEventBadgeClass(index);
+  badge.textContent = cachedEpgEventLabel(index);
 
-  if (details !== '') {
-    item.appendChild(addText(document.createElement('div'), details)).className = 'list-meta';
+  header.appendChild(text);
+  header.appendChild(badge);
+  item.appendChild(header);
+
+  const meta = document.createElement('div');
+  meta.className = 'cached-epg-event-meta';
+  appendCachedEpgChip(meta, cachedEpgTimeText(event));
+  appendCachedEpgChip(meta, cachedEpgProgramSubtitle(event));
+
+  if (meta.childNodes.length > 0) {
+    item.appendChild(meta);
   }
 
   const description = cachedEpgProgramDescription(event);
   if (String(description).trim() !== '') {
-    item.appendChild(addText(document.createElement('div'), String(description))).className = 'list-meta';
+    item.appendChild(addText(document.createElement('div'), String(description))).className = 'cached-epg-description';
   }
 
   container.appendChild(item);
@@ -197,15 +373,30 @@ function renderCachedChannelEpgDetail(channel) {
   list.className = 'list cached-channel-epg-detail';
 
   const header = document.createElement('article');
-  header.className = 'module-placeholder';
-  header.appendChild(addText(document.createElement('h3'), String(title)));
-  header.appendChild(addText(
-    document.createElement('p'),
-    'EPG-Details · Backend ' + backendId + ' · Kanal ' + channelId
-  ));
+  header.className = 'module-placeholder cached-channel-epg-header';
+
+  const headerRow = document.createElement('div');
+  headerRow.className = 'cached-epg-header-row';
+
+  const titleRow = document.createElement('div');
+  titleRow.className = 'cached-epg-title-row';
+
+  if (typeof createChannelLogoElement === 'function') {
+    titleRow.appendChild(createChannelLogoElement(title, channelId));
+  }
+
+  const titleText = document.createElement('div');
+  titleText.className = 'cached-epg-title-text';
+  titleText.appendChild(addText(document.createElement('h3'), String(title)));
+  titleText.appendChild(addText(
+    document.createElement('div'),
+    'Backend ' + backendId + ' · Kanal ' + channelId
+  )).className = 'cached-epg-header-meta';
+  titleRow.appendChild(titleText);
 
   const backButton = document.createElement('button');
   backButton.type = 'button';
+  backButton.className = 'cached-epg-back-button';
   backButton.textContent = 'Zurück zur Kanalliste';
   backButton.addEventListener('click', () => {
     if (currentChannels) {
@@ -215,7 +406,10 @@ function renderCachedChannelEpgDetail(channel) {
 
     loadChannels();
   });
-  header.appendChild(backButton);
+
+  headerRow.appendChild(titleRow);
+  headerRow.appendChild(backButton);
+  header.appendChild(headerRow);
   list.appendChild(header);
 
   const loading = document.createElement('article');
@@ -242,7 +436,15 @@ function renderCachedChannelEpgDetail(channel) {
         return;
       }
 
-      events.forEach(event => renderCachedChannelEpgEvent(list, event));
+      const summary = document.createElement('article');
+      summary.className = 'module-placeholder cached-epg-summary';
+      summary.appendChild(addText(
+        document.createElement('p'),
+        String(events.length) + ' Sendung(en) aus dem Cache geladen. Der erste Eintrag ist die laufende Sendung.'
+      ));
+      list.appendChild(summary);
+
+      events.forEach((event, index) => renderCachedChannelEpgEvent(list, event, index));
     })
     .catch(error => {
       if (!list.isConnected || selectedModule !== 'channels') {
