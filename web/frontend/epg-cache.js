@@ -105,6 +105,46 @@ function ensureCachedEpgDetailStyles() {
   outline: 3px solid #60a5fa;
   outline-offset: 3px;
 }
+.cached-epg-channel-progress {
+  display: grid;
+  gap: 0.55rem;
+  border-color: rgba(96, 165, 250, 0.42);
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 42%),
+    rgba(15, 23, 42, 0.92);
+}
+.cached-epg-channel-progress.done {
+  border-color: rgba(34, 197, 94, 0.34);
+}
+.cached-epg-channel-progress.error {
+  border-color: rgba(248, 113, 113, 0.42);
+}
+.cached-epg-progress-title {
+  color: #dbeafe;
+  font-weight: 800;
+}
+.cached-epg-progress-text {
+  color: #cbd5e1;
+}
+.cached-epg-progress-track {
+  height: 0.45rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(30, 41, 59, 0.96);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+}
+.cached-epg-progress-bar {
+  height: 100%;
+  width: 42%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #0ea5e9, #22d3ee);
+  animation: cachedEpgProgressBar 1.05s ease-in-out infinite;
+}
+@keyframes cachedEpgProgressBar {
+  0% { transform: translateX(-115%); }
+  55% { transform: translateX(85%); }
+  100% { transform: translateX(245%); }
+}
 @media (max-width: 760px) {
   .cached-epg-header-row {
     align-items: stretch;
@@ -177,22 +217,11 @@ function loadCachedNowNextEvents(backendId) {
   const nowSeconds = Math.floor(Date.now() / 1000);
 
   return fetchJsonOrThrow(
-    '/api/epg/cache/refresh?backend=' + encodedBackendId + '&from=-1&chevents=2',
-    { method: 'POST' }
+    '/api/epg/cache/now-next?backend=' + encodedBackendId +
+      '&fromTime=' + String(nowSeconds) +
+      '&limit=1000'
   )
-    .then(() => fetchJsonOrThrow(
-      '/api/epg/cache/now-next?backend=' + encodedBackendId +
-        '&fromTime=' + String(nowSeconds) +
-        '&limit=1000'
-    ))
-    .then(data => {
-      if (listFromResponse(data, 'events').length === 0) {
-        return loadLiveNowNextEvents();
-      }
-
-      return data;
-    })
-    .catch(() => loadLiveNowNextEvents());
+    .catch(() => ({ events: [] }));
 }
 
 function loadCachedChannelEvents(backendId, channelId) {
@@ -602,6 +631,8 @@ if (typeof renderChannelItem === 'function') {
   renderChannelItem = function(channel, index, encryptionAvailable) {
     const item = renderChannelItemWithoutCachedEpgDetail(channel, index, encryptionAvailable);
     const title = cachedEpgChannelTitle(channel, index);
+    const channelId = frontendChannelId(channel);
+    item.dataset.cachedEpgChannelId = channelId;
 
     item.tabIndex = 0;
     item.setAttribute('role', 'button');
@@ -622,30 +653,270 @@ if (typeof renderChannelItem === 'function') {
   };
 }
 
+let cachedEpgChannelLoadSequence = 0;
+
+function cachedEpgChannelListElement() {
+  return detailDataElement.querySelector('.list');
+}
+
+function removeCachedEpgChannelProgress() {
+  const existing = detailDataElement.querySelector('.cached-epg-channel-progress');
+
+  if (existing) {
+    existing.remove();
+  }
+}
+
+function renderCachedEpgChannelProgress(message, state) {
+  const list = cachedEpgChannelListElement();
+
+  if (!list) {
+    return;
+  }
+
+  removeCachedEpgChannelProgress();
+
+  const box = document.createElement('article');
+  box.className = 'module-placeholder cached-epg-channel-progress' + (state ? ' ' + state : '');
+
+  const title = state === 'done'
+    ? 'EPG ergänzt'
+    : state === 'error'
+      ? 'EPG konnte nicht ergänzt werden'
+      : 'EPG wird im Hintergrund ergänzt';
+
+  box.appendChild(addText(document.createElement('div'), title)).className = 'cached-epg-progress-title';
+  box.appendChild(addText(document.createElement('div'), message)).className = 'cached-epg-progress-text';
+
+  if (state !== 'done' && state !== 'error') {
+    const track = document.createElement('div');
+    track.className = 'cached-epg-progress-track';
+
+    const bar = document.createElement('div');
+    bar.className = 'cached-epg-progress-bar';
+
+    track.appendChild(bar);
+    box.appendChild(track);
+  }
+
+  const first = list.firstElementChild;
+  if (first && first.nextSibling) {
+    list.insertBefore(box, first.nextSibling);
+    return;
+  }
+
+  list.appendChild(box);
+}
+
+function renderChannelsWithoutBlockingEpg(channelData) {
+  currentChannels = channelData;
+  currentEvents = { events: [] };
+  renderChannelList(channelData);
+  renderCachedEpgChannelProgress(
+    'Kanäle sind bereits sichtbar. Laufende Programme werden nachgeladen.',
+    'loading'
+  );
+}
+
+function renderChannelsWithCachedEpg(channelData, eventData) {
+  const enrichedData = attachCurrentEventsToChannelData(channelData, eventData);
+  currentChannels = enrichedData;
+  currentEvents = eventData;
+  renderChannelList(enrichedData);
+}
+
+function cachedEpgChannelListElement() {
+  return detailDataElement.querySelector('.list');
+}
+
+function removeCachedEpgChannelProgress() {
+  const existing = detailDataElement.querySelector('.cached-epg-channel-progress');
+
+  if (existing) {
+    existing.remove();
+  }
+}
+
+function renderCachedEpgChannelProgress(message, state) {
+  const list = cachedEpgChannelListElement();
+
+  if (!list) {
+    return;
+  }
+
+  removeCachedEpgChannelProgress();
+
+  const box = document.createElement('article');
+  box.className = 'module-placeholder cached-epg-channel-progress' + (state ? ' ' + state : '');
+
+  const title = state === 'done'
+    ? 'EPG ergänzt'
+    : state === 'error'
+      ? 'EPG konnte nicht ergänzt werden'
+      : 'EPG wird ergänzt';
+
+  box.appendChild(addText(document.createElement('div'), title)).className = 'cached-epg-progress-title';
+  box.appendChild(addText(document.createElement('div'), message)).className = 'cached-epg-progress-text';
+
+  if (state !== 'done' && state !== 'error') {
+    const track = document.createElement('div');
+    track.className = 'cached-epg-progress-track';
+
+    const bar = document.createElement('div');
+    bar.className = 'cached-epg-progress-bar';
+
+    track.appendChild(bar);
+    box.appendChild(track);
+  }
+
+  const first = list.firstElementChild;
+  if (first && first.nextSibling) {
+    list.insertBefore(box, first.nextSibling);
+    return;
+  }
+
+  list.appendChild(box);
+}
+
+function cachedEpgProgramLineForItem(item) {
+  const lines = Array.from(item.querySelectorAll('.list-meta'));
+
+  return lines.find(line =>
+    String(line.textContent || '').trim().startsWith('Jetzt:'));
+}
+
+function cachedEpgPaintVisibleChannelPrograms(eventData) {
+  const events = listFromResponse(eventData, 'events');
+  const channels = listFromResponse(currentChannels, 'channels');
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const channelsById = new Map();
+
+  channels.forEach(channel => {
+    const channelId = frontendChannelId(channel);
+    if (channelId !== '') {
+      channelsById.set(channelId, channel);
+    }
+  });
+
+  let updated = 0;
+
+  document.querySelectorAll('.channel-list-item[data-cached-epg-channel-id]').forEach(item => {
+    const channelId = String(item.dataset.cachedEpgChannelId || '').trim();
+    const channel = channelsById.get(channelId);
+
+    if (!channel) {
+      return;
+    }
+
+    const event = findCurrentEventForChannel(channel, events, nowSeconds);
+
+    if (!event) {
+      return;
+    }
+
+    const programLine = cachedEpgProgramLineForItem(item);
+
+    if (!programLine) {
+      return;
+    }
+
+    const programTitle = cachedEpgProgramTitle(event);
+    const timeText = cachedEpgTimeText(event);
+    const subtitle = cachedEpgProgramSubtitle(event);
+    const detailParts = [timeText, subtitle]
+      .filter(value => String(value || '').trim() !== '');
+
+    programLine.textContent = detailParts.length > 0
+      ? 'Jetzt: ' + String(programTitle) + ' · ' + detailParts.join(' · ')
+      : 'Jetzt: ' + String(programTitle);
+
+    updated += 1;
+  });
+
+  return updated;
+}
+
+function cachedEpgStartChannelProgramLoad(backendId, loadSequence) {
+  const start = () => {
+    if (loadSequence !== cachedEpgChannelLoadSequence ||
+        selectedModule !== 'channels' ||
+        frontendSelectedBackendId() !== backendId) {
+      return;
+    }
+
+    loadCachedNowNextEvents(backendId)
+      .then(eventData => {
+        if (loadSequence !== cachedEpgChannelLoadSequence ||
+            selectedModule !== 'channels' ||
+            frontendSelectedBackendId() !== backendId) {
+          return;
+        }
+
+        currentEvents = eventData;
+        const updated = cachedEpgPaintVisibleChannelPrograms(eventData);
+
+        renderCachedEpgChannelProgress(
+          updated > 0
+            ? String(updated) + ' sichtbare Kanal/Kanäle mit laufendem Programm ergänzt.'
+            : 'Keine laufenden Programme für die sichtbaren Kanäle im Cache gefunden.',
+          updated > 0 ? 'done' : 'error'
+        );
+
+        setTimeout(() => {
+          if (loadSequence === cachedEpgChannelLoadSequence && selectedModule === 'channels') {
+            removeCachedEpgChannelProgress();
+          }
+        }, 1800);
+      })
+      .catch(() => {
+        if (loadSequence !== cachedEpgChannelLoadSequence ||
+            selectedModule !== 'channels') {
+          return;
+        }
+
+        renderCachedEpgChannelProgress(
+          'Die Kanalliste bleibt nutzbar. EPG wird später erneut versucht.',
+          'error'
+        );
+      });
+  };
+
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => requestAnimationFrame(start));
+    return;
+  }
+
+  setTimeout(start, 120);
+}
+
 loadChannels = function() {
-  renderModuleLoading('Kanäle', 'Lade Kanalliste und gecachtes laufendes Programm...');
+  renderModuleLoading('Kanäle', 'Lade Kanalliste...');
 
   const backendId = frontendSelectedBackendId();
+  const loadSequence = ++cachedEpgChannelLoadSequence;
 
-  const channelsRequest = fetch('/api/vdr/channels')
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('HTTP ' + response.status);
+  fetchJsonOrThrow('/api/vdr/channels')
+    .then(channelData => {
+      if (loadSequence !== cachedEpgChannelLoadSequence || selectedModule !== 'channels') {
+        return;
       }
 
-      return response.json();
-    });
+      currentChannels = channelData;
+      currentEvents = { events: [] };
+      renderChannelList(channelData);
 
-  const eventsRequest = loadCachedNowNextEvents(backendId);
+      renderCachedEpgChannelProgress(
+        'Kanäle sind sichtbar. Laufende Programme werden nachgeladen.',
+        'loading'
+      );
 
-  Promise.all([channelsRequest, eventsRequest])
-    .then(([channelData, eventData]) => {
-      const enrichedData = attachCurrentEventsToChannelData(channelData, eventData);
-      currentChannels = enrichedData;
-      currentEvents = eventData;
-      renderChannelList(enrichedData);
+      cachedEpgStartChannelProgramLoad(backendId, loadSequence);
     })
     .catch(error => {
+      if (loadSequence !== cachedEpgChannelLoadSequence) {
+        return;
+      }
+
       currentChannels = null;
       currentEvents = null;
       renderModuleError('Kanäle konnten nicht geladen werden', error);
