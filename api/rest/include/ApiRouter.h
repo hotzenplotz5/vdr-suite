@@ -10,6 +10,7 @@
 
 class BackendRegistryController;
 class CapabilityController;
+class EpgCacheController;
 class EpgController;
 class EpgSearchNativeFuzzyStaleProbeAdministrationController;
 class EpgSearchNativeFuzzyOperatorRefreshController;
@@ -46,7 +47,8 @@ public:
     void setSearchTimerPreviewEpgCache(
         SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
     {
-        searchTimerPreviewEpgCache_ = searchTimerPreviewEpgCache;
+        vdrSnapshotReadService_.setSearchTimerPreviewEpgCache(
+            searchTimerPreviewEpgCache);
     }
 
     std::vector<VdrRecording> getRecordings() const
@@ -126,7 +128,8 @@ public:
         EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController = nullptr,
         SearchTimerDiscoveryController* searchTimerDiscoveryController = nullptr,
         SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController = nullptr,
-        SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController = nullptr);
+        SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController = nullptr,
+        EpgCacheController* epgCacheController = nullptr);
 
     void setSearchTimerPreviewEpgCache(
         SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
@@ -165,6 +168,7 @@ private:
     SearchTimerDiscoveryController* searchTimerDiscoveryController_;
     SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController_;
     SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController_;
+    EpgCacheController* epgCacheController_;
     LiveTransportController& liveTransportController_;
     ISearchTimerCommandExecutor* searchTimerCommandExecutor_;
     EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController_;
