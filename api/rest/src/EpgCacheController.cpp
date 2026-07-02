@@ -1,6 +1,7 @@
 #include "EpgCacheController.h"
 
 #include "EpgCacheService.h"
+#include "EpgCacheServiceRegistry.h"
 #include "VdrEvent.h"
 
 #include <sstream>
@@ -121,6 +122,22 @@ std::string serializeRefreshResult(
     return json.str();
 }
 
+std::string serializeBackendNotFound(
+    const std::string& backendId)
+{
+    std::ostringstream json;
+
+    json
+        << "{"
+        << "\"backendId\":\"" << escapeJsonString(backendId) << "\","
+        << "\"status\":\"backend-not-found\","
+        << "\"eventCount\":0,"
+        << "\"events\":[]"
+        << "}";
+
+    return json.str();
+}
+
 ApiResponse jsonResponse(int statusCode, const std::string& body)
 {
     ApiResponse response;
@@ -132,8 +149,26 @@ ApiResponse jsonResponse(int statusCode, const std::string& body)
 }
 
 EpgCacheController::EpgCacheController(EpgCacheService& service)
-    : service_(service)
+    : directService_(&service),
+      registry_(nullptr)
 {
+}
+
+EpgCacheController::EpgCacheController(EpgCacheServiceRegistry& registry)
+    : directService_(nullptr),
+      registry_(&registry)
+{
+}
+
+EpgCacheService* EpgCacheController::findService(
+    const std::string& backendId) const
+{
+    if (registry_ != nullptr)
+    {
+        return registry_->findService(backendId);
+    }
+
+    return directService_;
 }
 
 ApiResponse EpgCacheController::refreshBackendWindow(
@@ -141,9 +176,17 @@ ApiResponse EpgCacheController::refreshBackendWindow(
     const VdrEventQuery& query)
 {
     const std::string normalizedBackendId = normalizeBackendId(backendId);
+    EpgCacheService* service = findService(normalizedBackendId);
+
+    if (service == nullptr)
+    {
+        return jsonResponse(
+            404,
+            serializeBackendNotFound(normalizedBackendId));
+    }
 
     const EpgCacheRefreshResult result =
-        service_.refreshBackendWindow(normalizedBackendId, query);
+        service->refreshBackendWindow(normalizedBackendId, query);
 
     if (!result.accepted)
     {
@@ -171,12 +214,20 @@ ApiResponse EpgCacheController::getNowNext(
     int eventLimit) const
 {
     const std::string normalizedBackendId = normalizeBackendId(backendId);
+    EpgCacheService* service = findService(normalizedBackendId);
+
+    if (service == nullptr)
+    {
+        return jsonResponse(
+            404,
+            serializeBackendNotFound(normalizedBackendId));
+    }
 
     return jsonResponse(
         200,
         serializeEvents(
             normalizedBackendId,
-            service_.findNowNextForBackend(
+            service->findNowNextForBackend(
                 normalizedBackendId,
                 channelId,
                 fromTime,
@@ -191,12 +242,20 @@ ApiResponse EpgCacheController::getWindow(
     int eventLimit) const
 {
     const std::string normalizedBackendId = normalizeBackendId(backendId);
+    EpgCacheService* service = findService(normalizedBackendId);
+
+    if (service == nullptr)
+    {
+        return jsonResponse(
+            404,
+            serializeBackendNotFound(normalizedBackendId));
+    }
 
     return jsonResponse(
         200,
         serializeEvents(
             normalizedBackendId,
-            service_.findWindowForBackend(
+            service->findWindowForBackend(
                 normalizedBackendId,
                 channelId,
                 fromTime,
