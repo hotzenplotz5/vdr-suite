@@ -174,7 +174,17 @@ std::string RestfulApiVdrAdapter::buildEventsUrl(const VdrEventQuery& query)
 
     url += ".json";
 
-    if (query.channelId.empty() && query.eventId.empty()) {
+    const bool hasEventQueryOptions =
+        query.from >= 0 ||
+        query.timespan > 0 ||
+        query.start >= 0 ||
+        query.limit > 0 ||
+        query.channelEventLimit > 0 ||
+        query.onlyCount;
+
+    if (query.channelId.empty() &&
+        query.eventId.empty() &&
+        !hasEventQueryOptions) {
         return url;
     }
 

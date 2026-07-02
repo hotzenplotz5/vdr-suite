@@ -736,12 +736,19 @@ function loadChannels() {
       return response.json();
     });
 
-  const eventsRequest = fetch('/api/vdr/events')
+  const eventsRequest = fetch('/api/epg/now-next?from=-1')
     .then(response => {
-      if (!response.ok) {
-        return { events: [] };
+      if (response.ok) {
+        return response.json();
       }
-      return response.json();
+
+      return fetch('/api/vdr/events')
+        .then(fallbackResponse => {
+          if (!fallbackResponse.ok) {
+            return { events: [] };
+          }
+          return fallbackResponse.json();
+        });
     })
     .catch(() => ({ events: [] }));
 
