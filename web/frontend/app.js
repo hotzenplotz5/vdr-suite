@@ -10,6 +10,7 @@ let currentSnapshot = null;
 let currentChannels = null;
 let currentEvents = null;
 let currentTimers = null;
+let currentSearchTimers = null;
 let currentRecordings = null;
 
 const moduleLabels = {
@@ -68,6 +69,35 @@ function listFromResponse(data, key) {
     return data.items;
   }
   return [];
+}
+
+function listSearchTimersFromResponse(data) {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (data && Array.isArray(data.searchTimers)) {
+    return data.searchTimers;
+  }
+
+  if (data && Array.isArray(data.searchtimers)) {
+    return data.searchtimers;
+  }
+
+  if (data && Array.isArray(data.timers)) {
+    return data.timers;
+  }
+
+  if (data && Array.isArray(data.items)) {
+    return data.items;
+  }
+
+  return [];
+}
+
+function searchTimerActive(searchTimer) {
+  const value = firstValue(searchTimer, ['active', 'enabled', 'isActive'], false);
+  return value === true || value === 'true' || value === 1 || value === '1';
 }
 
 function parseFrontendEventEpoch(value) {
@@ -478,6 +508,72 @@ function renderTimerList(data) {
   detailDataElement.appendChild(list);
 }
 
+function renderSearchTimerList(data) {
+  const searchTimers = listSearchTimersFromResponse(data);
+  detailDataElement.replaceChildren();
+
+  const list = document.createElement('section');
+  list.className = 'list searchtimer-list';
+
+  if (searchTimers.length === 0) {
+    const empty = document.createElement('article');
+    empty.className = 'module-placeholder';
+    empty.appendChild(addText(document.createElement('h3'), 'Keine SearchTimer gefunden'));
+    empty.appendChild(addText(document.createElement('p'), 'Der SearchTimer-Endpunkt hat aktuell keine Einträge geliefert.'));
+    detailDataElement.appendChild(empty);
+    return;
+  }
+
+  searchTimers.forEach((searchTimer, index) => {
+    const item = document.createElement('article');
+    item.className = 'list-item searchtimer-card';
+
+    const name = firstValue(
+      searchTimer,
+      ['name', 'title', 'query', 'backendNativeId', 'id'],
+      'SearchTimer ' + String(index + 1)
+    );
+
+    const query = firstValue(searchTimer, ['query', 'search', 'pattern', 'expression'], '');
+    const backendId = firstValue(searchTimer, ['backendId', 'backend', 'source'], '');
+    const nativeId = firstValue(searchTimer, ['backendNativeId', 'nativeId', 'id'], '');
+    const active = searchTimerActive(searchTimer);
+
+    const header = document.createElement('div');
+    header.className = 'searchtimer-header';
+
+    const titleBlock = document.createElement('div');
+    titleBlock.appendChild(addText(document.createElement('div'), String(name))).className = 'list-title';
+
+    if (query !== '' && query !== name) {
+      titleBlock.appendChild(addText(document.createElement('div'), 'Suche: ' + String(query))).className = 'list-meta searchtimer-query';
+    }
+
+    const status = addText(document.createElement('span'), active ? 'aktiv' : 'inaktiv');
+    status.className = 'searchtimer-status ' + (active ? 'enabled' : 'disabled');
+
+    header.appendChild(titleBlock);
+    header.appendChild(status);
+    item.appendChild(header);
+
+    const metaParts = [];
+    if (backendId !== '') {
+      metaParts.push('Backend: ' + String(backendId));
+    }
+    if (nativeId !== '') {
+      metaParts.push('ID: ' + String(nativeId));
+    }
+
+    if (metaParts.length > 0) {
+      item.appendChild(addText(document.createElement('div'), metaParts.join(' · '))).className = 'list-meta searchtimer-technical';
+    }
+
+    list.appendChild(item);
+  });
+
+  detailDataElement.appendChild(list);
+}
+
 function renderRecordingList(data) {
   const recordings = listFromResponse(data, 'recordings');
   detailDataElement.replaceChildren();
@@ -683,6 +779,33 @@ function loadTimers() {
     });
 }
 
+function loadSearchTimers() {
+  renderModuleLoading('SearchTimer', 'Lade SearchTimer...');
+
+  fetch('/api/vdr/searchtimers')
+    .then(response => {
+      if (response.ok) {
+        return response.json();
+      }
+
+      return fetch('/api/searchtimers')
+        .then(fallbackResponse => {
+          if (!fallbackResponse.ok) {
+            throw new Error('HTTP ' + fallbackResponse.status);
+          }
+          return fallbackResponse.json();
+        });
+    })
+    .then(data => {
+      currentSearchTimers = data;
+      renderSearchTimerList(data);
+    })
+    .catch(error => {
+      currentSearchTimers = null;
+      renderModuleError('SearchTimer konnten nicht geladen werden', error);
+    });
+}
+
 function loadRecordings() {
   renderModuleLoading('Aufnahmen', 'Lade Aufnahmeliste aus /api/vdr/recordings...');
 
@@ -721,6 +844,11 @@ function renderSelectedModule(data) {
 
   if (selectedModule === 'recordings') {
     loadRecordings();
+    return;
+  }
+
+  if (selectedModule === 'searchtimers') {
+    loadSearchTimers();
     return;
   }
 
@@ -850,6 +978,11 @@ refreshDetailButton.addEventListener('click', () => {
 
   if (selectedModule === 'recordings') {
     loadRecordings();
+    return;
+  }
+
+  if (selectedModule === 'searchtimers') {
+    loadSearchTimers();
     return;
   }
 
