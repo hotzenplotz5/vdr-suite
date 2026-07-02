@@ -11,9 +11,14 @@ STATEDIR ?= $(LOCALSTATEDIR)/lib/vdr-suite
 SYSTEMDUNITDIR ?= /lib/systemd/system
 INSTALL ?= install
 
-.PHONY: install install-runtime install-cli install-docs install-manpages install-systemd test-install-staging
+.PHONY: install install-runtime install-cli install-docs install-manpages install-systemd test-install-staging test-systemd-unit-contract
 
 install: install-runtime install-cli install-docs install-manpages install-systemd
+
+test-ci-fast: test-systemd-unit-contract
+
+test-systemd-unit-contract:
+	python3 tools/check_systemd_unit_contract.py
 
 install-runtime: daemon
 	$(INSTALL) -d $(DESTDIR)$(SBINDIR)
