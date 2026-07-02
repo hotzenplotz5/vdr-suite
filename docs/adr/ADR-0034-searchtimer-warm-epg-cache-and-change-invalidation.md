@@ -138,6 +138,68 @@ A narrower EPG-only stream can be considered later, but a general change-state s
 
 ---
 
+## Phase 58.40 Addendum: Backend-Scoped Persistent EPG Cache
+
+Phase 58.40 refines the warm EPG cache decision into a persistent, backend-scoped SQLite foundation.
+
+The warm EPG input source may be implemented in layers:
+
+```text
+RESTfulAPI selective EPG query
+-> backend-scoped EPG synchronization
+-> SQLite epg_events table
+-> backend-scoped EPG query repository
+-> SearchTimer preview / frontend EPG consumers
+```
+
+The persistent cache must keep backend ownership explicit.
+
+Every stored EPG event must include:
+
+```text
+backend_id
+channel_id
+event_id
+```
+
+The primary identity of a stored event is:
+
+```text
+backend_id + channel_id + event_id
+```
+
+No repository method may read, write, update, delete or search EPG events without an explicit backend id.
+
+Allowed repository shapes:
+
+```text
+upsertEventsForBackend(...)
+findNowNextForBackend(...)
+findWindowForBackend(...)
+deleteExpiredForBackend(...)
+countForBackend(...)
+```
+
+Disallowed repository shapes:
+
+```text
+upsertEvents(...)
+findNowNext(...)
+findWindow(...)
+deleteExpired(...)
+count(...)
+```
+
+This prevents EPG data from multiple VDR backends from being mixed when channel ids, event ids or broadcast titles overlap between sites.
+
+The SearchTimer preview cache remains preview-scoped. It must not override global snapshot event reads such as `VdrSnapshotReadService::getEvents()` or `getEventsForBackend()`.
+
+The persistent EPG cache is the correct place for reusable frontend, SearchTimer preview and later search/index consumers. Snapshot event reads remain snapshot-backed.
+
+Phase 58.40 only introduces the database/repository foundation. It does not introduce daemon startup EPG loading, SSE-driven synchronization or frontend route migration yet.
+
+---
+
 ## Consequences
 
 Positive consequences:
@@ -147,6 +209,7 @@ Positive consequences:
 - Preview no longer depends on downloading large EPG JSON bodies per request.
 - Missing EPG input becomes visible as a cache readiness problem instead of a false zero-result preview.
 - Polling and future SSE can share the same invalidation model.
+- Phase 58.40 gives frontend and SearchTimer consumers a persistent backend-scoped EPG foundation.
 
 Trade-offs:
 
@@ -154,6 +217,7 @@ Trade-offs:
 - Startup may need a cache warm-up phase before SearchTimer preview is ready.
 - The cache may consume memory proportional to the configured EPG window.
 - Native epgsearch may still be faster for some backends and should remain a future capability-specific path.
+- Persistent EPG storage must enforce backend ownership in schema, primary keys, upserts, cleanup and all queries.
 
 ---
 
@@ -176,6 +240,16 @@ A later phase may add:
 - SSE change stream client support
 - RESTfulAPI `/changes/stream` patch
 - backend-native epgsearch fast path
+
+Phase 58.40 adds the persistent cache foundation:
+
+- add a backend-scoped `epg_events` SQLite table
+- use `(backend_id, channel_id, event_id)` as event identity
+- add an EPG repository whose public methods require backend id
+- verify that same channel ids and event ids can exist on different backends without overwriting each other
+- keep the SearchTimer preview RAM cache preview-scoped
+- keep global snapshot event reads snapshot-backed
+- do not load EPG during daemon startup
 
 ---
 
