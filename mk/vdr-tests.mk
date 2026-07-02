@@ -596,6 +596,17 @@ test-restful-api-change-state-adapter:
 		-o /tmp/test_restful_api_change_state_adapter
 	/tmp/test_restful_api_change_state_adapter
 
+
+test-epg-event-repository:
+	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/EpgEventRepository.cpp \
+		core/vdr/tests/test_epg_event_repository.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_epg_event_repository
+	/tmp/test_epg_event_repository
+
+
 test-vdr-domain-objects:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_vdr_domain_objects.cpp \
