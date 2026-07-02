@@ -67,6 +67,28 @@ function loadCachedNowNextEvents(backendId) {
     .catch(() => loadLiveNowNextEvents());
 }
 
+function loadCachedChannelEvents(backendId, channelId) {
+  const normalizedBackendId = backendId && String(backendId).trim() !== ''
+    ? String(backendId).trim()
+    : 'default';
+  const encodedBackendId = encodeURIComponent(normalizedBackendId);
+  const encodedChannelId = encodeURIComponent(channelId);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  return fetchJsonOrThrow(
+    '/api/epg/cache/refresh?backend=' + encodedBackendId +
+      '&channelId=' + encodedChannelId +
+      '&from=-1&chevents=10',
+    { method: 'POST' }
+  )
+    .then(() => fetchJsonOrThrow(
+      '/api/epg/cache/now-next?backend=' + encodedBackendId +
+        '&channelId=' + encodedChannelId +
+        '&fromTime=' + String(nowSeconds) +
+        '&limit=10'
+    ));
+}
+
 function cachedEpgChannelTitle(channel, fallbackIndex) {
   return firstValue(
     channel,
@@ -81,6 +103,10 @@ function cachedEpgProgramTitle(event) {
 
 function cachedEpgProgramSubtitle(event) {
   return firstValue(event, ['subtitle', 'shortText', 'short_text'], '');
+}
+
+function cachedEpgProgramDescription(event) {
+  return firstValue(event, ['description', 'summary', 'text'], '');
 }
 
 function cachedEpgRenderNowOverviewRows(container, channels, events) {
@@ -129,6 +155,107 @@ function cachedEpgRenderNowOverviewRows(container, channels, events) {
   });
 
   return visibleCount;
+}
+
+function renderCachedChannelEpgEvent(container, event) {
+  const item = document.createElement('article');
+  item.className = 'list-item';
+
+  item.appendChild(addText(
+    document.createElement('div'),
+    String(cachedEpgProgramTitle(event))
+  )).className = 'list-title';
+
+  const timeText = typeof channelProgramTimeText === 'function'
+    ? channelProgramTimeText(event)
+    : '';
+  const subtitle = cachedEpgProgramSubtitle(event);
+  const details = [timeText, subtitle]
+    .filter(value => String(value || '').trim() !== '')
+    .join(' · ');
+
+  if (details !== '') {
+    item.appendChild(addText(document.createElement('div'), details)).className = 'list-meta';
+  }
+
+  const description = cachedEpgProgramDescription(event);
+  if (String(description).trim() !== '') {
+    item.appendChild(addText(document.createElement('div'), String(description))).className = 'list-meta';
+  }
+
+  container.appendChild(item);
+}
+
+function renderCachedChannelEpgDetail(channel) {
+  const backendId = frontendSelectedBackendId();
+  const channelId = frontendChannelId(channel);
+  const title = cachedEpgChannelTitle(channel, 0);
+
+  detailDataElement.replaceChildren();
+
+  const list = document.createElement('section');
+  list.className = 'list cached-channel-epg-detail';
+
+  const header = document.createElement('article');
+  header.className = 'module-placeholder';
+  header.appendChild(addText(document.createElement('h3'), String(title)));
+  header.appendChild(addText(
+    document.createElement('p'),
+    'EPG-Details · Backend ' + backendId + ' · Kanal ' + channelId
+  ));
+
+  const backButton = document.createElement('button');
+  backButton.type = 'button';
+  backButton.textContent = 'Zurück zur Kanalliste';
+  backButton.addEventListener('click', () => {
+    if (currentChannels) {
+      renderChannelList(currentChannels);
+      return;
+    }
+
+    loadChannels();
+  });
+  header.appendChild(backButton);
+  list.appendChild(header);
+
+  const loading = document.createElement('article');
+  loading.className = 'module-placeholder';
+  loading.appendChild(addText(document.createElement('p'), 'Lade EPG für diesen Kanal...'));
+  list.appendChild(loading);
+  detailDataElement.appendChild(list);
+
+  loadCachedChannelEvents(backendId, channelId)
+    .then(data => {
+      if (!list.isConnected || selectedModule !== 'channels') {
+        return;
+      }
+
+      loading.remove();
+      const events = listFromResponse(data, 'events');
+
+      if (events.length === 0) {
+        const empty = document.createElement('article');
+        empty.className = 'module-placeholder';
+        empty.appendChild(addText(document.createElement('h3'), 'Keine EPG-Daten gefunden'));
+        empty.appendChild(addText(document.createElement('p'), 'Der Cache enthält aktuell keine Events für diesen Kanal.'));
+        list.appendChild(empty);
+        return;
+      }
+
+      events.forEach(event => renderCachedChannelEpgEvent(list, event));
+    })
+    .catch(error => {
+      if (!list.isConnected || selectedModule !== 'channels') {
+        return;
+      }
+
+      loading.remove();
+      const box = document.createElement('article');
+      box.className = 'module-placeholder error';
+      box.appendChild(addText(document.createElement('h3'), 'EPG-Details konnten nicht geladen werden'));
+      box.appendChild(addText(document.createElement('p'), error.message));
+      list.appendChild(box);
+    });
 }
 
 function renderCachedEpgNowOverview() {
@@ -225,6 +352,32 @@ renderSnapshotMetrics = function(data) {
 
 setTimeout(renderCachedEpgNowOverviewIfCurrent, 0);
 setTimeout(renderCachedEpgNowOverviewIfCurrent, 250);
+
+if (typeof renderChannelItem === 'function') {
+  const renderChannelItemWithoutCachedEpgDetail = renderChannelItem;
+
+  renderChannelItem = function(channel, index, encryptionAvailable) {
+    const item = renderChannelItemWithoutCachedEpgDetail(channel, index, encryptionAvailable);
+    const title = cachedEpgChannelTitle(channel, index);
+
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+    item.setAttribute('aria-label', 'EPG für ' + String(title) + ' öffnen');
+    item.title = 'EPG für ' + String(title) + ' öffnen';
+
+    const openDetails = () => renderCachedChannelEpgDetail(channel);
+
+    item.addEventListener('click', openDetails);
+    item.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openDetails();
+      }
+    });
+
+    return item;
+  };
+}
 
 loadChannels = function() {
   renderModuleLoading('Kanäle', 'Lade Kanalliste und gecachtes laufendes Programm...');
