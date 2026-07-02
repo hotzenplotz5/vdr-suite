@@ -7,11 +7,12 @@ DOCDIR ?= $(PREFIX)/share/doc/vdr-suite
 MANDIR ?= $(PREFIX)/share/man
 LOCALSTATEDIR ?= /var
 CACHEDIR ?= $(LOCALSTATEDIR)/cache/vdr-suite
+SYSTEMDUNITDIR ?= /lib/systemd/system
 INSTALL ?= install
 
-.PHONY: install install-runtime install-cli install-docs install-manpages test-install-staging
+.PHONY: install install-runtime install-cli install-docs install-manpages install-systemd test-install-staging
 
-install: install-runtime install-cli install-docs install-manpages
+install: install-runtime install-cli install-docs install-manpages install-systemd
 
 install-runtime: daemon
 	$(INSTALL) -d $(DESTDIR)$(SBINDIR)
@@ -43,6 +44,10 @@ install-manpages:
 	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man1
 	$(INSTALL) -m 0644 docs/man/man1/vdr-suite-dashboard.1 $(DESTDIR)$(MANDIR)/man1/vdr-suite-dashboard.1
 
+install-systemd:
+	$(INSTALL) -d $(DESTDIR)$(SYSTEMDUNITDIR)
+	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-daemon.service $(DESTDIR)$(SYSTEMDUNITDIR)/vdr-suite-daemon.service
+
 test-install-staging:
 	rm -rf /tmp/vdr-suite-pkgroot
 	$(MAKE) install DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr
@@ -61,3 +66,4 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-daemon.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man5/vdr-suite.conf.5
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-dashboard.1
+	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-daemon.service
