@@ -19,6 +19,13 @@ public:
         IHttpServer& server,
         std::function<bool()> shouldStop);
 
+    SimpleHttpListener(
+        std::string host,
+        int port,
+        IHttpServer& server,
+        std::function<bool()> shouldStop,
+        std::function<void()> onTick);
+
     int runUntilStopped();
 
 private:
@@ -26,6 +33,7 @@ private:
     int port_;
     IHttpServer& server_;
     std::function<bool()> shouldStop_;
+    std::function<void()> onTick_;
 
     int createListeningSocket() const;
     void handleClient(int clientSocket) const;

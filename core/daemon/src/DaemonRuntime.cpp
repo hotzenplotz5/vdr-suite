@@ -11,6 +11,7 @@
 #include "TestHttpServer.h"
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 
+#include <chrono>
 #include <csignal>
 #include <iostream>
 
@@ -544,7 +545,26 @@ bool DaemonRuntime::initialize()
     std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;
 
     httpServer_ = std::make_unique<TestHttpServer>(*apiRouter_);
-    httpListener_ = std::make_unique<SimpleHttpListener>(config_.httpListenHost(), config_.httpListenPort(), *httpServer_);
+
+    auto lastVdrPoll = std::chrono::steady_clock::now();
+
+    httpListener_ = std::make_unique<SimpleHttpListener>(
+        config_.httpListenHost(),
+        config_.httpListenPort(),
+        *httpServer_,
+        []() {
+            return shutdownRequested_.load();
+        },
+        [this, lastVdrPoll]() mutable {
+            const auto now = std::chrono::steady_clock::now();
+
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - lastVdrPoll).count() < 5) {
+                return;
+            }
+
+            lastVdrPoll = now;
+            pollVdrAndUpdateChangeFeed();
+        });
 
     std::cout << "HTTP listener runtime initialized" << std::endl;
     std::cout << "dashboard runtime initialized" << std::endl;

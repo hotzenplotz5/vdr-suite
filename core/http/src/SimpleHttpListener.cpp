@@ -13,6 +13,7 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <utility>
 
 namespace {
 
@@ -190,7 +191,8 @@ SimpleHttpListener::SimpleHttpListener(
           std::move(host),
           port,
           server,
-          []() { return false; })
+          []() { return false; },
+          []() {})
 {
 }
 
@@ -199,10 +201,26 @@ SimpleHttpListener::SimpleHttpListener(
     int port,
     IHttpServer& server,
     std::function<bool()> shouldStop)
+    : SimpleHttpListener(
+          std::move(host),
+          port,
+          server,
+          std::move(shouldStop),
+          []() {})
+{
+}
+
+SimpleHttpListener::SimpleHttpListener(
+    std::string host,
+    int port,
+    IHttpServer& server,
+    std::function<bool()> shouldStop,
+    std::function<void()> onTick)
     : host_(std::move(host)),
       port_(port),
       server_(server),
-      shouldStop_(std::move(shouldStop))
+      shouldStop_(std::move(shouldStop)),
+      onTick_(std::move(onTick))
 {
 }
 
@@ -222,6 +240,10 @@ int SimpleHttpListener::runUntilStopped()
         << std::endl;
 
     while (!shouldStop_()) {
+        if (onTick_) {
+            onTick_();
+        }
+
         fd_set readSet;
         FD_ZERO(&readSet);
         FD_SET(listenSocket, &readSet);
