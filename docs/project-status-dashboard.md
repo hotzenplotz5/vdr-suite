@@ -29,6 +29,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Recording query foundation
 - Recording action validation and guarded execution foundation
 - Selective EPG query and EPG search foundation
+- Backend-scoped persistent EPG database foundation
 - Content classification and person metadata foundations
 - Recording person and character search foundations
 - SearchTimer backend, validation, planning and workflow foundations
@@ -43,15 +44,17 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Real VDR acceptance currently passes 20/20 safe and dry-run probes.
 - Duplicate daemon start on an occupied HTTP port exits cleanly with status 1 instead of aborting.
 - SIGTERM stops the daemon cleanly without `kill -9` and releases port 18080.
-- GitHub Actions verification is required before runtime-related phases are considered complete.\n- Phase 58.39 verifies bounded live EPG input for channel cards via the now-next EPG route.
+- GitHub Actions verification is required before runtime-related phases are considered complete.
+- Phase 58.39 verifies bounded live EPG input for channel cards via the now-next EPG route.
 
 ### Guarded or deliberately incomplete areas
 
 - SearchTimer production mutation remains gated and closed by default.
 - Recording operations real-backend write probes remain explicitly gated.
 - Lazy recording loading is still a required follow-up for large real recording catalogs and multi-backend scaling.
+- The persistent EPG database foundation is present, but EPG synchronization service, daemon scheduling and frontend consumers are not wired to it yet.
 - Suite-owned metadata database and external scraper/provider strategy are planned but not yet implemented as the final metadata product.
-- Authentication, authorization, per-backend permissions and read-only secondary-site policy are still planned.
+- Authentication, authorization, per-backend permissions and read-only secondary-site policy are still planned beyond the current access-mode foundation.
 - Web, Windows, Android, iOS and TV frontends remain planned product layers; the current web frontend is a Phase 58 foundation, not the final client product.
 
 ### Current active focus
@@ -62,10 +65,11 @@ Phase 58 - Frontend and Live Parity
 
 ### Later strategic milestones
 
-- Multi-site backend federation and permissions
+- Multi-site backend federation and permission hardening
 - Frontend and live-parity foundation
+- EPG synchronization service and SSE/change-state triggered background synchronization
 - Suite metadata database and external provider integration
-- EPG cache database and SSE/change-state triggered background synchronization\n- Safe production-grade recording operations
+- Safe production-grade recording operations
 
 Progress source: planning/project-progress.md
 <!-- PROJECT_PROGRESS_END -->
@@ -77,88 +81,89 @@ Progress source: planning/project-progress.md
 ### Core Platform
 
 ```text
-Backend Foundation              complete
-Snapshot Runtime                complete
-Read API                        complete
-Change Feed                     complete
-Backend Registry                implemented
-Multi-Backend Routing           implemented
-Multi-Backend Polling           implemented
-Multi-Backend Read API          implemented
-Live Transport                  implemented
-Selective Event Queries         implemented
-Heavy Domain Policy             implemented
-EPG REST API Boundary           implemented
-EPG Search API                  implemented
-Recording Query API             implemented
-Recording Actions               implemented + diagnostics
-Lazy Recording Loading          planned
-Content Classification          ADR + foundation implemented
-Person Metadata                 implemented foundation
-Recording Person Search         implemented foundation
-Recording Character Search      implemented foundation
-EPG Person Search               result model foundation
-SearchTimer Route               implemented
-SearchTimer Daemon Provider     implemented
-SearchTimer Backend Contract    documented
-SearchTimer Payload Validation  documented
-SearchTimer Domain Model        expanded
-Native Fuzzy Capability         validated end-to-end
-SearchTimer User Workflow       completed foundation + verified execution
-SearchTimer Preview EPG Cache   ADR-0034 documented
-Real VDR Acceptance             20/20 safe/dry-run probes verified
-Daemon Lifecycle Hardening       duplicate bind + SIGTERM verified
+Backend Foundation                         complete
+Snapshot Runtime                           complete
+Read API                                   complete
+Change Feed                                complete
+Backend Registry                           implemented
+Multi-Backend Routing                      implemented
+Multi-Backend Polling                      implemented
+Multi-Backend Read API                     implemented
+Live Transport                             implemented
+Selective Event Queries                    implemented
+Heavy Domain Policy                        implemented
+EPG REST API Boundary                      implemented
+EPG Search API                             implemented
+Backend-Scoped EPG DB Foundation           implemented
+Recording Query API                        implemented
+Recording Actions                          implemented + diagnostics
+Lazy Recording Loading                     planned
+Content Classification                     ADR + foundation implemented
+Person Metadata                            implemented foundation
+Recording Person Search                    implemented foundation
+Recording Character Search                 implemented foundation
+EPG Person Search                          result model foundation
+SearchTimer Route                          implemented
+SearchTimer Daemon Provider                implemented
+SearchTimer Backend Contract               documented
+SearchTimer Payload Validation             documented
+SearchTimer Domain Model                   expanded
+Native Fuzzy Capability                    validated end-to-end
+SearchTimer User Workflow                  completed foundation + verified execution
+SearchTimer Preview EPG Cache              ADR-0034 documented
+Real VDR Acceptance                        20/20 safe/dry-run probes verified
+Daemon Lifecycle Hardening                 duplicate bind + SIGTERM verified
 ```
 
 ### Federation and Security
 
 ```text
-Multi-VDR                       foundation implemented
-Backend Registry                runtime + API implemented
-Multi-Snapshot Cache            implemented
-Backend-Aware Snapshots         implemented
-Runtime Contexts                implemented
-Capability System               foundation implemented
-Authentication                  planned
-Authorization                   planned
-Profiles / Policy               planned future concern
+Multi-VDR                                  foundation implemented
+Backend Registry                           runtime + API implemented
+Multi-Snapshot Cache                       implemented
+Backend-Aware Snapshots                    implemented
+Runtime Contexts                           implemented
+Capability System                          foundation implemented
+Authentication                             planned
+Authorization                              planned
+Profiles / Policy                          planned future concern
 ```
 
 ### Client Platforms
 
 ```text
-Web Frontend                    planned
-Windows Frontend                planned
-Android Frontend                planned
-iOS Frontend                    planned
-TV Frontend                     planned
-Hisense / VIDAA Strategy        future evaluation
+Web Frontend                               planned
+Windows Frontend                           planned
+Android Frontend                           planned
+iOS Frontend                               planned
+TV Frontend                                planned
+Hisense / VIDAA Strategy                   future evaluation
 ```
 
 ### Media Extensions
 
 ```text
-Content Classification          ADR-0028 documented
-Genre Foundation                implemented foundation
-Genre Resolution                implemented foundation
-Genre JSON Contract             implemented
-Canonical Genre Registry        implemented
-Genre Localization              implemented foundation
-Localized Genre JSON            implemented
-Person Metadata                 implemented foundation
-Recording Person Metadata       implemented foundation
-Recording Character Search      implemented foundation
-Content Rating / FSK            planned
-Image Validation                planned
-Preview Streams                 planned
-Media Streaming                 planned
+Content Classification                     ADR-0028 documented
+Genre Foundation                           implemented foundation
+Genre Resolution                           implemented foundation
+Genre JSON Contract                        implemented
+Canonical Genre Registry                   implemented
+Genre Localization                         implemented foundation
+Localized Genre JSON                       implemented
+Person Metadata                            implemented foundation
+Recording Person Metadata                  implemented foundation
+Recording Character Search                 implemented foundation
+Content Rating / FSK                       planned
+Image Validation                           planned
+Preview Streams                            planned
+Media Streaming                            planned
 ```
 
 ---
 
 ## Current Position
 
-Current Major Phase:
+Latest Completed Major Phase:
 
 ```text
 Phase 57 - Multi-Site Backend Administration and Permissions
@@ -191,6 +196,7 @@ Recording Character Search Foundation
 EPGSearch Native Fuzzy Capability Validation
 SearchTimer Runtime Mutation Policy
 SearchTimer Warm EPG Cache Architecture
+Backend-Scoped Persistent EPG Database Foundation
 Real VDR Acceptance Foundation
 Daemon Runtime Lifecycle Hardening
 Documentation Handoff Verification
@@ -217,6 +223,7 @@ Recording Person Search Foundation
 Recording Character Search Foundation
 EPGSearch Native Fuzzy Capability Validation
 SearchTimer Warm EPG Cache Architecture
+Backend-Scoped Persistent EPG Database Foundation
 ```
 
 Representative completed phases:
@@ -233,9 +240,10 @@ Phase 54.2  - SearchTimer warm EPG cache architecture
 Phase 55.5  - Real VDR acceptance and daemon lifecycle hardening
 Phase 55.5o - Phase map and roadmap simplification
 Phase 55.6  - Recording operations audit and safety policy
-Phase 57.x - Multi-site backend administration and permissions
+Phase 57.x  - Multi-site backend administration and permissions
 Phase 58.38 - SearchTimer frontend cockpit and mobile UI polish
 Phase 58.39 - Bounded live EPG for channel cards
+Phase 58.40 - Backend-scoped persistent EPG database foundation
 ```
 
 ---
@@ -254,6 +262,7 @@ Live transport foundation
 Capability foundation
 Selective EPG query foundation
 EPG search API foundation
+Backend-scoped persistent EPG database foundation
 Recording query foundation
 Recording action foundation
 Content classification foundation
@@ -273,8 +282,6 @@ Frontend and Live Parity
 Planned Major Direction:
 
 ```text
-Phase 58 - Frontend and Live Parity
-Phase 57 - Multi-Site Backend Administration and Permissions
 Phase 58 - Frontend and Live Parity
 Phase 59 - Suite Metadata Database and External Providers
 ```
@@ -304,6 +311,7 @@ This progress description summarizes documented roadmap direction by major miles
 | Heavy Domain Policy | Events / EPG and recordings are classified as heavy domains and protected from automatic full refresh behavior. |
 | EPG REST API Boundary | Selective EPG reads are exposed through backend-neutral REST routes. |
 | EPG Search API | The EPG search API is implemented and documented over selective EPG windows. |
+| Backend-Scoped EPG DB Foundation | SQLite `epg_events` and `EpgEventRepository` persist EPG events with `backend_id + channel_id + event_id` identity and backend-required repository APIs. |
 | SearchTimer | Backend route, daemon provider, domain model expansion, real payload validation, native fuzzy capability validation and user workflow foundation are implemented; production mutation remains gated. |
 | SearchTimer Preview EPG Cache | ADR-0034 requires warm backend-scoped EPG input for interactive preview and forbids full EPG dumps per preview request. |
 | Lazy Recording Loading | ADR-0035 requires startup to avoid synchronous full recording loads and requires backend-scoped on-demand recording refresh with explicit loading state. |
