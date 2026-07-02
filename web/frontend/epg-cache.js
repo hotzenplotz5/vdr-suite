@@ -55,7 +55,7 @@ function loadCachedNowNextEvents(backendId) {
     .then(() => fetchJsonOrThrow(
       '/api/epg/cache/now-next?backend=' + encodedBackendId +
         '&fromTime=' + String(nowSeconds) +
-        '&limit=200'
+        '&limit=1000'
     ))
     .then(data => {
       if (listFromResponse(data, 'events').length === 0) {
