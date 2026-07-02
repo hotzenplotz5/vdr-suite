@@ -110,14 +110,6 @@ std::vector<VdrChannel> VdrSnapshotReadService::getChannelsForBackend(
 
 std::vector<VdrEvent> VdrSnapshotReadService::getEvents() const
 {
-    const std::vector<VdrEvent>* cachedEvents =
-        snapshotAccessService_.searchTimerPreviewEpgCache().eventsForBackend("default");
-
-    if (cachedEvents != nullptr)
-    {
-        return *cachedEvents;
-    }
-
     const auto snapshot = snapshotAccessService_.snapshot();
     return snapshot ? snapshot->events : std::vector<VdrEvent>{};
 }
@@ -125,14 +117,6 @@ std::vector<VdrEvent> VdrSnapshotReadService::getEvents() const
 std::vector<VdrEvent> VdrSnapshotReadService::getEventsForBackend(
     const std::string& backendId) const
 {
-    const std::vector<VdrEvent>* cachedEvents =
-        snapshotAccessService_.searchTimerPreviewEpgCache().eventsForBackend(backendId);
-
-    if (cachedEvents != nullptr)
-    {
-        return *cachedEvents;
-    }
-
     const auto snapshot =
         snapshotAccessService_.snapshotForBackend(backendId);
 
