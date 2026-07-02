@@ -74,6 +74,31 @@ CREATE INDEX IF NOT EXISTS idx_metadata_type ON metadata(media_type);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs(job_type);
 
+CREATE TABLE IF NOT EXISTS epg_events (
+    backend_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    subtitle TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    duration_seconds INTEGER NOT NULL DEFAULT 0,
+    parental_rating INTEGER NOT NULL DEFAULT 0,
+    content_descriptors TEXT NOT NULL DEFAULT '',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (backend_id, channel_id, event_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_epg_events_backend_time
+    ON epg_events (backend_id, start_time, end_time);
+CREATE INDEX IF NOT EXISTS idx_epg_events_backend_channel_time
+    ON epg_events (backend_id, channel_id, start_time, end_time);
+CREATE INDEX IF NOT EXISTS idx_epg_events_backend_title
+    ON epg_events (backend_id, title);
+
 CREATE TABLE IF NOT EXISTS epgsearch_native_fuzzy_capability_probes (
     backend_id TEXT PRIMARY KEY,
     create_accepted INTEGER NOT NULL DEFAULT 0,
