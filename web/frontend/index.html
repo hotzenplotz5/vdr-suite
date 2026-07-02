@@ -4,12 +4,72 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>vdr-suite</title>
-  <link rel="icon" type="image/svg+xml" href="/frontend/favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="/channel-logos/vdr-suite-brand/favicon.svg">
   <link rel="stylesheet" href="/frontend/style.css">
+  <style>
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.22), transparent 32%),
+        #020617;
+      border-bottom: 1px solid #334155;
+    }
+
+    .app-logo {
+      width: min(22rem, 68vw);
+      max-height: 4.4rem;
+      object-fit: contain;
+      flex: 0 1 auto;
+    }
+
+    .app-header-text {
+      min-width: 0;
+      color: #cbd5e1;
+    }
+
+    .app-header-text h1 {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .app-header-text p {
+      margin: 0;
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+    }
+
+    @media (max-width: 760px) {
+      .app-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.45rem;
+        padding: 0.9rem 1rem;
+      }
+
+      .app-logo {
+        width: min(18rem, 86vw);
+        max-height: 3.7rem;
+      }
+
+      .app-header-text p {
+        font-size: 0.86rem;
+      }
+    }
+  </style>
 </head>
 <body>
   <header class="app-header">
-    <img class="app-logo" src="/frontend/logo-vdr-suite.svg" alt="vdr-suite">
+    <img class="app-logo" src="/channel-logos/vdr-suite-brand/logo-vdr-suite.svg" alt="vdr-suite">
     <div class="app-header-text">
       <h1>vdr-suite</h1>
       <p>Modernes VDR Webfrontend</p>
