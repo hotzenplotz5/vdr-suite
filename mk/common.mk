@@ -20,6 +20,18 @@ test-ci-fast: test-epg-event-repository test-epg-cache-service test-vdr-snapshot
 
 test-vdr: test-epg-event-repository test-epg-cache-service test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
 
+test-epg-cache-service:
+	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/EpgEventRepository.cpp \
+		core/vdr/src/EpgCacheService.cpp \
+		core/vdr/src/VdrService.cpp \
+		core/vdr/tests/test_epg_cache_service.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_epg_cache_service
+	/tmp/test_epg_cache_service
+
+
 test-vdr-snapshot-builder-startup-snapshot:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
