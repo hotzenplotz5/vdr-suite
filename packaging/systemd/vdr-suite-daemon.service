@@ -2,8 +2,7 @@
 Description=VDR-Suite daemon
 Documentation=man:vdr-suite-daemon(8)
 After=network-online.target vdr.service
-Wants=network-online.target
-Requires=vdr.service
+Wants=network-online.target vdr.service
 
 [Service]
 Type=simple
