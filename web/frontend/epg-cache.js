@@ -132,6 +132,12 @@ function cachedEpgRenderNowOverviewRows(container, channels, events) {
 }
 
 function renderCachedEpgNowOverview() {
+  const existingOverview = detailDataElement.querySelector('.epg-now-overview');
+
+  if (existingOverview) {
+    existingOverview.remove();
+  }
+
   const backendId = frontendSelectedBackendId();
   const loading = document.createElement('section');
   loading.className = 'list epg-now-overview';
@@ -198,12 +204,27 @@ function renderCachedEpgNowOverview() {
     });
 }
 
+function renderCachedEpgNowOverviewIfCurrent() {
+  if (selectedModule !== 'overview' || !currentSnapshot) {
+    return;
+  }
+
+  if (detailDataElement.querySelector('.epg-now-overview')) {
+    return;
+  }
+
+  renderCachedEpgNowOverview();
+}
+
 const renderSnapshotMetricsWithoutCachedEpg = renderSnapshotMetrics;
 
 renderSnapshotMetrics = function(data) {
   renderSnapshotMetricsWithoutCachedEpg(data);
   renderCachedEpgNowOverview();
 };
+
+setTimeout(renderCachedEpgNowOverviewIfCurrent, 0);
+setTimeout(renderCachedEpgNowOverviewIfCurrent, 250);
 
 loadChannels = function() {
   renderModuleLoading('Kanäle', 'Lade Kanalliste und gecachtes laufendes Programm...');
