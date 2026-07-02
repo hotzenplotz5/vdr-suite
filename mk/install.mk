@@ -7,6 +7,7 @@ DOCDIR ?= $(PREFIX)/share/doc/vdr-suite
 MANDIR ?= $(PREFIX)/share/man
 LOCALSTATEDIR ?= /var
 CACHEDIR ?= $(LOCALSTATEDIR)/cache/vdr-suite
+STATEDIR ?= $(LOCALSTATEDIR)/lib/vdr-suite
 SYSTEMDUNITDIR ?= /lib/systemd/system
 INSTALL ?= install
 
@@ -19,6 +20,7 @@ install-runtime: daemon
 	$(INSTALL) -m 0755 /tmp/vdr-suite-daemon $(DESTDIR)$(SBINDIR)/vdr-suite-daemon
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/vdr-suite
 	$(INSTALL) -d $(DESTDIR)$(CACHEDIR)/channel-logos
+	$(INSTALL) -d $(DESTDIR)$(STATEDIR)
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
 	$(INSTALL) -m 0644 web/frontend/index.html $(DESTDIR)$(DATADIR)/web/frontend/index.html
 	$(INSTALL) -m 0644 web/frontend/app.js $(DESTDIR)$(DATADIR)/web/frontend/app.js
@@ -56,6 +58,7 @@ test-install-staging:
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-logo-sync
 	test -d /tmp/vdr-suite-pkgroot/etc/vdr-suite
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos
+	test -d /tmp/vdr-suite-pkgroot/var/lib/vdr-suite
 	test -f /tmp/vdr-suite-pkgroot/usr/share/doc/vdr-suite/README.md
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html
