@@ -47,7 +47,7 @@ public:
     void setSearchTimerPreviewEpgCache(
         SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
     {
-        vdrSnapshotReadService_.setSearchTimerPreviewEpgCache(
+        snapshotReadService_.setSearchTimerPreviewEpgCache(
             searchTimerPreviewEpgCache);
     }
 
