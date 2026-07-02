@@ -298,7 +298,7 @@ ApiRouter::ApiRouter(
     SearchTimerDiscoveryController* searchTimerDiscoveryController,
     SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController,
     SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController,
-    EpgCacheController* epgCacheController)
+    IEpgCacheController* epgCacheController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
       recordingsController_(recordingsController),
