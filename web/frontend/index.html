@@ -138,6 +138,35 @@
       #detail {
         grid-column: 2;
       }
+
+      .brand-feature-strip {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.72rem;
+        padding: 0.86rem 1.05rem 1rem;
+      }
+
+      .brand-feature {
+        gap: 0.78rem;
+        padding: 0.82rem 0.95rem;
+        border-radius: 0.95rem;
+      }
+
+      .brand-feature svg {
+        width: 2.35rem;
+        height: 2.35rem;
+        flex-basis: 2.35rem;
+      }
+
+      .brand-feature-title {
+        font-size: 0.9rem;
+        letter-spacing: 0.045em;
+      }
+
+      .brand-feature-text {
+        display: block;
+        font-size: 0.78rem;
+        line-height: 1.2;
+      }
     }
 
     @media (max-width: 760px) {
