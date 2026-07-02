@@ -56,6 +56,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Recording query foundation
 - Recording action validation and guarded execution foundation
 - Selective EPG query and EPG search foundation
+- Backend-scoped persistent EPG database foundation
 - Content classification and person metadata foundations
 - Recording person and character search foundations
 - SearchTimer backend, validation, planning and workflow foundations
@@ -70,15 +71,17 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Real VDR acceptance currently passes 20/20 safe and dry-run probes.
 - Duplicate daemon start on an occupied HTTP port exits cleanly with status 1 instead of aborting.
 - SIGTERM stops the daemon cleanly without `kill -9` and releases port 18080.
-- GitHub Actions verification is required before runtime-related phases are considered complete.\n- Phase 58.39 verifies bounded live EPG input for channel cards via the now-next EPG route.
+- GitHub Actions verification is required before runtime-related phases are considered complete.
+- Phase 58.39 verifies bounded live EPG input for channel cards via the now-next EPG route.
 
 ### Guarded or deliberately incomplete areas
 
 - SearchTimer production mutation remains gated and closed by default.
 - Recording operations real-backend write probes remain explicitly gated.
 - Lazy recording loading is still a required follow-up for large real recording catalogs and multi-backend scaling.
+- The persistent EPG database foundation is present, but EPG synchronization service, daemon scheduling and frontend consumers are not wired to it yet.
 - Suite-owned metadata database and external scraper/provider strategy are planned but not yet implemented as the final metadata product.
-- Authentication, authorization, per-backend permissions and read-only secondary-site policy are still planned.
+- Authentication, authorization, per-backend permissions and read-only secondary-site policy are still planned beyond the current access-mode foundation.
 - Web, Windows, Android, iOS and TV frontends remain planned product layers; the current web frontend is a Phase 58 foundation, not the final client product.
 
 ### Current active focus
@@ -89,10 +92,11 @@ Phase 58 - Frontend and Live Parity
 
 ### Later strategic milestones
 
-- Multi-site backend federation and permissions
+- Multi-site backend federation and permission hardening
 - Frontend and live-parity foundation
+- EPG synchronization service and SSE/change-state triggered background synchronization
 - Suite metadata database and external provider integration
-- EPG cache database and SSE/change-state triggered background synchronization\n- Safe production-grade recording operations
+- Safe production-grade recording operations
 
 Progress source: ../planning/project-progress.md
 <!-- PROJECT_PROGRESS_END -->
@@ -101,7 +105,7 @@ Progress source: ../planning/project-progress.md
 
 ## Current Verified State
 
-Latest completed implementation phase:
+Latest completed major implementation phase:
 
 ```text
 Phase 57 - Multi-Site Backend Administration and Permissions
@@ -138,6 +142,7 @@ Capability Foundation
 Recording Query Foundation
 Recording Action Foundation
 EPG Search Foundation
+Backend-Scoped Persistent EPG Database Foundation
 Content Classification Foundation
 Person Metadata Foundation
 Recording Person Search Foundation
@@ -187,10 +192,11 @@ Direct GitHub documentation synchronization should still be followed locally by 
 - Startup snapshot runtime is implemented for the initial poll: status, timers, SearchTimer metadata and channels may load, while recordings and full EPG events remain excluded from startup.
 - Runtime lifecycle hardening 55.5l is verified against a real local daemon: duplicate daemon start on an occupied HTTP port exits cleanly with status 1 instead of aborting, SIGTERM stops the listener and releases port 18080 without `kill -9`, and the real VDR acceptance manifest passes 20/20 probes afterward.
 - Phase 55.6 records the recording operations audit and safety policy: real recording move, rename and delete paths remain explicitly gated, dry-run/read-only behaviour remains the default, and destructive real-backend probes remain opt-in.
-
 - Phase 58.38 adds the SearchTimer frontend cockpit and mobile UI polish so existing backend capabilities are visible in the frontend.
 - Phase 58.39 fixes bounded global RESTfulAPI event queries and switches channel cards to the bounded now-next EPG route; real runtime validation reduced the channel-card EPG payload from a full 37025-event dump to a bounded 606-event response.
 - Phase 58.39 guardrail follow-up updates the RESTfulAPI adapter regression test so global timespan and chevents query options are preserved, and narrows the adapter unit-test link boundary to MockHttpClient only.
+- Phase 58.40 adds the backend-scoped persistent EPG database foundation: SQLite `epg_events`, repository APIs that require backend id, and regression coverage proving same channel/event ids on different backends do not overwrite each other.
+
 ---
 
 ## New Chat Handoff and Required Verification Checklist
@@ -199,15 +205,16 @@ New chats must start from this checklist before declaring a VDR-Suite change com
 
 ### Repository state
 
-Collect the current repository state first:
+Collect the current repository state first. Prefer GitHub inspection for repository, documentation, ADR, source and CI state. Local shell evidence is required only for compilation, daemon runtime, real VDR/RESTfulAPI tests, port/listener behaviour and local Make targets.
+
+When work was done directly through GitHub, run locally before compiling or runtime testing:
 
 ```bash
 cd /home/yavdr/vdr-suite
+git pull --ff-only
 git status --short
 git log --oneline -5
 ```
-
-When work was done directly through GitHub, run `git pull` locally before compiling or runtime testing.
 
 ### New chat documentation orientation
 
@@ -249,7 +256,7 @@ Use local edits first only when the change requires:
 After direct GitHub edits, always run locally:
 
 ```bash
-git pull
+git pull --ff-only
 make test-docs
 make test-phase
 ```
@@ -418,7 +425,7 @@ GitHub daemon build: success
 - Runtime diagnostics are integrated through structured runtime measurement boundaries.
 - Backend identity is present in snapshot change feed entries, snapshot read metadata and cached snapshots.
 - Backend registry service, serializer and controller expose backend identity through service and REST boundaries.
-- Snapshot cache can store snapshots per backend while preserving the legacy single-snapshot interface.
+- Snapshot cache can store and resolve snapshots per backend while preserving the legacy single-snapshot interface compatible.
 - Snapshot access and snapshot read services support backend-aware reads.
 - VDR controller exposes default VDR reads, backend-specific reads and multi-backend snapshot summary reads.
 - PollingService and BackendPollingCoordinator support backend-aware polling coordination.
@@ -426,9 +433,11 @@ GitHub daemon build: success
 - VdrEventQuery provides the first backend-neutral selective EPG query contract.
 - Events and EPG are treated as heavy domains and are not automatically full-refreshed by default.
 - Recordings are also a heavy domain for startup and multi-backend runtime planning; startup snapshots must not synchronously load recordings for every backend.
+- Persistent EPG storage now has a backend-scoped SQLite foundation through `epg_events` and `EpgEventRepository`.
 - EPG search operates over selective event windows and does not require a persistent full EPG mirror.
 - SearchTimer preview exposes `epgInput.status`, `epgInput.available` and `epgInput.warnings`: ready empty input is a valid zero-result preview, while warming, stale, unknown and unavailable input is non-authoritative.
 - SearchTimer preview EPG cache refresh uses backend-scoped selective event queries and is exposed through an explicit read-only refresh endpoint.
+- The SearchTimer preview RAM cache remains preview-scoped and must not replace snapshot-backed global event reads.
 - Recording pages must eventually render before recordings are loaded and show backend-scoped loading state until the selected backend is ready.
 - Recording actions use backend-native recording identity.
 - Content classification uses source-aware evidence for genre, rating, metadata and policy work.
@@ -462,6 +471,7 @@ Preferred runtime strategies are:
 - time-window queries
 - object-specific queries
 - backend-scoped on-demand recording refreshes
+- backend-scoped persistent EPG repository queries
 - change-hint driven refreshes
 - warm backend-scoped caches for interactive preview paths
 
@@ -472,6 +482,10 @@ Backend workload should remain comparable to established VDR frontends such as l
 Recording-specific startup rule:
 
 Recordings are intentionally excluded from initial startup snapshots. Recording lists are loaded on demand or by explicit backend-scoped refresh paths so daemon startup and multi-backend initialization do not synchronously transfer large recording payloads.
+
+EPG-specific startup rule:
+
+Full EPG event loading is intentionally excluded from initial startup snapshots. The persistent EPG database foundation is a separate backend-scoped query layer, not an instruction to load all EPG events during daemon startup.
 
 ---
 
