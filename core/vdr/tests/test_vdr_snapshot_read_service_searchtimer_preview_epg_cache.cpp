@@ -56,7 +56,7 @@ static void test_unknown_cache_falls_back_to_snapshot_events()
     assert(events.at(0).id == "snapshot-event");
 }
 
-static void test_ready_empty_cache_is_valid_zero_results()
+static void test_ready_empty_cache_is_valid_preview_input()
 {
     SnapshotCache snapshotCache;
     SnapshotCacheService snapshotCacheService(snapshotCache);
@@ -73,13 +73,20 @@ static void test_ready_empty_cache_is_valid_zero_results()
         "default",
         std::vector<VdrEvent>{});
 
+    const std::vector<VdrEvent>* cachedEvents =
+        readService.searchTimerPreviewEpgCache().eventsForBackend("default");
+
+    assert(cachedEvents != nullptr);
+    assert(cachedEvents->empty());
+
     const std::vector<VdrEvent> events =
         readService.getEvents();
 
-    assert(events.empty());
+    assert(events.size() == 1);
+    assert(events.at(0).id == "snapshot-event");
 }
 
-static void test_ready_cache_overrides_snapshot_events()
+static void test_ready_cache_remains_preview_scoped()
 {
     SnapshotCache snapshotCache;
     SnapshotCacheService snapshotCacheService(snapshotCache);
@@ -97,11 +104,18 @@ static void test_ready_cache_overrides_snapshot_events()
         std::vector<VdrEvent>{
             make_event("cache-event", "Cache Event")});
 
+    const std::vector<VdrEvent>* cachedEvents =
+        readService.searchTimerPreviewEpgCache().eventsForBackend("default");
+
+    assert(cachedEvents != nullptr);
+    assert(cachedEvents->size() == 1);
+    assert(cachedEvents->at(0).id == "cache-event");
+
     const std::vector<VdrEvent> events =
         readService.getEvents();
 
     assert(events.size() == 1);
-    assert(events.at(0).id == "cache-event");
+    assert(events.at(0).id == "snapshot-event");
 }
 
 static void test_stale_cache_falls_back_to_snapshot_events()
@@ -155,23 +169,33 @@ static void test_backend_cache_is_backend_scoped()
         std::vector<VdrEvent>{
             make_event("cache-remote", "Remote Cache")});
 
+    const std::vector<VdrEvent>* defaultCachedEvents =
+        readService.searchTimerPreviewEpgCache().eventsForBackend("default");
+    const std::vector<VdrEvent>* remoteCachedEvents =
+        readService.searchTimerPreviewEpgCache().eventsForBackend("remote");
+
     const std::vector<VdrEvent> defaultEvents =
         readService.getEventsForBackend("default");
     const std::vector<VdrEvent> remoteEvents =
         readService.getEventsForBackend("remote");
 
+    assert(defaultCachedEvents == nullptr);
+    assert(remoteCachedEvents != nullptr);
+    assert(remoteCachedEvents->size() == 1);
+    assert(remoteCachedEvents->at(0).id == "cache-remote");
+
     assert(defaultEvents.size() == 1);
     assert(defaultEvents.at(0).id == "snapshot-default");
 
     assert(remoteEvents.size() == 1);
-    assert(remoteEvents.at(0).id == "cache-remote");
+    assert(remoteEvents.at(0).id == "snapshot-remote");
 }
 
 int main()
 {
     test_unknown_cache_falls_back_to_snapshot_events();
-    test_ready_empty_cache_is_valid_zero_results();
-    test_ready_cache_overrides_snapshot_events();
+    test_ready_empty_cache_is_valid_preview_input();
+    test_ready_cache_remains_preview_scoped();
     test_stale_cache_falls_back_to_snapshot_events();
     test_backend_cache_is_backend_scoped();
 
