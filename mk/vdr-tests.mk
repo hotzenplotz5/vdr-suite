@@ -583,7 +583,7 @@ test-restful-api-vdr-timer-action-executor:
 test-restful-api-vdr-adapter:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
-		$(HTTP_SRC) \
+		core/http/src/MockHttpClient.cpp \
 		core/vdr/tests/test_restful_api_vdr_adapter.cpp \
 		-o /tmp/test_restful_api_vdr_adapter
 	/tmp/test_restful_api_vdr_adapter
