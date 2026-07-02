@@ -98,6 +98,13 @@ function ensureCachedEpgDetailStyles() {
   line-height: 1.42;
   overflow-wrap: anywhere;
 }
+.cached-epg-overview-link {
+  cursor: pointer;
+}
+.cached-epg-overview-link:focus {
+  outline: 3px solid #60a5fa;
+  outline-offset: 3px;
+}
 @media (max-width: 760px) {
   .cached-epg-header-row {
     align-items: stretch;
@@ -275,6 +282,38 @@ function appendCachedEpgChip(container, text) {
   container.appendChild(chip);
 }
 
+function activateCachedEpgChannelsTab() {
+  selectedModule = 'channels';
+
+  document.querySelectorAll('.module-tab').forEach(button => {
+    const isChannels = String(button.textContent || '').trim() === moduleLabels.channels;
+    button.classList.toggle('active', isChannels);
+  });
+}
+
+function openCachedChannelEpgDetail(channel) {
+  activateCachedEpgChannelsTab();
+  renderCachedChannelEpgDetail(channel);
+}
+
+function makeCachedEpgOverviewRowOpenDetails(item, channel, title) {
+  item.classList.add('cached-epg-overview-link');
+  item.tabIndex = 0;
+  item.setAttribute('role', 'button');
+  item.setAttribute('aria-label', 'EPG-Details für ' + String(title) + ' öffnen');
+  item.title = 'EPG-Details für ' + String(title) + ' öffnen';
+
+  const openDetails = () => openCachedChannelEpgDetail(channel);
+
+  item.addEventListener('click', openDetails);
+  item.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openDetails();
+    }
+  });
+}
+
 function cachedEpgRenderNowOverviewRows(container, channels, events) {
   const nowSeconds = Math.floor(Date.now() / 1000);
   let visibleCount = 0;
@@ -292,6 +331,8 @@ function cachedEpgRenderNowOverviewRows(container, channels, events) {
     const channelId = frontendChannelId(channel);
     const item = document.createElement('article');
     item.className = 'list-item channel-list-item';
+
+    makeCachedEpgOverviewRowOpenDetails(item, channel, title);
 
     if (typeof createChannelLogoElement === 'function') {
       item.appendChild(createChannelLogoElement(title, channelId));
@@ -567,7 +608,7 @@ if (typeof renderChannelItem === 'function') {
     item.setAttribute('aria-label', 'EPG für ' + String(title) + ' öffnen');
     item.title = 'EPG für ' + String(title) + ' öffnen';
 
-    const openDetails = () => renderCachedChannelEpgDetail(channel);
+    const openDetails = () => openCachedChannelEpgDetail(channel);
 
     item.addEventListener('click', openDetails);
     item.addEventListener('keydown', event => {
