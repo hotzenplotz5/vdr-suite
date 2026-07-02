@@ -6,6 +6,7 @@
 #include <string>
 
 class EpgCacheService;
+class EpgCacheServiceRegistry;
 
 class IEpgCacheController
 {
@@ -34,6 +35,7 @@ class EpgCacheController : public IEpgCacheController
 {
 public:
     explicit EpgCacheController(EpgCacheService& service);
+    explicit EpgCacheController(EpgCacheServiceRegistry& registry);
 
     ApiResponse refreshBackendWindow(
         const std::string& backendId,
@@ -53,5 +55,9 @@ public:
         int eventLimit) const override;
 
 private:
-    EpgCacheService& service_;
+    EpgCacheService* directService_;
+    EpgCacheServiceRegistry* registry_;
+
+    EpgCacheService* findService(
+        const std::string& backendId) const;
 };
