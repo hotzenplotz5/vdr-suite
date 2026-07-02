@@ -10,7 +10,7 @@
 
 class BackendRegistryController;
 class CapabilityController;
-class EpgCacheController;
+class IEpgCacheController;
 class EpgController;
 class EpgSearchNativeFuzzyStaleProbeAdministrationController;
 class EpgSearchNativeFuzzyOperatorRefreshController;
@@ -129,7 +129,7 @@ public:
         SearchTimerDiscoveryController* searchTimerDiscoveryController = nullptr,
         SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController = nullptr,
         SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController = nullptr,
-        EpgCacheController* epgCacheController = nullptr);
+        IEpgCacheController* epgCacheController = nullptr);
 
     void setSearchTimerPreviewEpgCache(
         SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
@@ -168,7 +168,7 @@ private:
     SearchTimerDiscoveryController* searchTimerDiscoveryController_;
     SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController_;
     SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController_;
-    EpgCacheController* epgCacheController_;
+    IEpgCacheController* epgCacheController_;
     LiveTransportController& liveTransportController_;
     ISearchTimerCommandExecutor* searchTimerCommandExecutor_;
     EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController_;
