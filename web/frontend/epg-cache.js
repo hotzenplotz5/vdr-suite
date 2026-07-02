@@ -197,6 +197,48 @@ function cachedEpgSetLiveStatus(text, error) {
   box.textContent = text;
 }
 
+
+function cachedEpgChangedDomainsFromEntries(entries) {
+  const domains = new Set();
+
+  entries.forEach(entry => {
+    if (!entry || !Array.isArray(entry.changedDomains)) {
+      return;
+    }
+
+    entry.changedDomains.forEach(domain => {
+      const value = String(domain || '').trim();
+      if (value !== '') {
+        domains.add(value);
+      }
+    });
+  });
+
+  return domains;
+}
+
+function cachedEpgRefreshVisibleModuleForChanges(entries) {
+  const domains = cachedEpgChangedDomainsFromEntries(entries);
+
+  if (typeof selectedModule === 'undefined') {
+    return;
+  }
+
+  if (selectedModule === 'timers' && domains.has('timers') && typeof loadTimers === 'function') {
+    loadTimers();
+    return;
+  }
+
+  if (selectedModule === 'recordings' && domains.has('recordings') && typeof loadRecordings === 'function') {
+    loadRecordings();
+    return;
+  }
+
+  if (selectedModule === 'overview' && typeof loadBackendDetails === 'function' && selectedBackend) {
+    loadBackendDetails(selectedBackend);
+  }
+}
+
 function cachedEpgPollChangeFeedOnce() {
   return fetchJsonOrThrow('/api/vdr/changes')
     .then(data => {
@@ -215,8 +257,18 @@ function cachedEpgPollChangeFeedOnce() {
       }
 
       if (sequence > cachedEpgLastChangeSequence) {
+        const changedEntries = entries.filter(entry =>
+          entry && Number(entry.sequenceNumber || 0) > cachedEpgLastChangeSequence
+        );
+
         cachedEpgLastChangeSequence = sequence;
-        const last = entries.length > 0 ? entries[entries.length - 1] : null;
+
+        const last = changedEntries.length > 0
+          ? changedEntries[changedEntries.length - 1]
+          : entries.length > 0
+            ? entries[entries.length - 1]
+            : null;
+
         const backend = last && last.backendId ? String(last.backendId) : 'default';
         const domains = last && Array.isArray(last.changedDomains)
           ? last.changedDomains.join(', ')
@@ -228,6 +280,8 @@ function cachedEpgPollChangeFeedOnce() {
             ' · Sequenz ' + String(sequence),
           false
         );
+
+        cachedEpgRefreshVisibleModuleForChanges(changedEntries.length > 0 ? changedEntries : entries);
         return;
       }
 
