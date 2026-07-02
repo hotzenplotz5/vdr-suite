@@ -12,13 +12,13 @@ LDFLAGS := $(shell pkg-config --libs sqlite3)
 
 SQLITE_SRC := core/sqlite/src/Database.cpp
 
-.PHONY: all test clean prepare-test-db test-epg-event-repository test-epg-cache-service test-epg-cache-controller dashboard-cli daemon test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
+.PHONY: all test clean prepare-test-db test-epg-event-repository test-epg-cache-service test-epg-cache-controller test-api-router-epg-cache-routes dashboard-cli daemon test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
 
 all: test
 
-test-ci-fast: test-epg-event-repository test-epg-cache-service test-epg-cache-controller test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
+test-ci-fast: test-epg-event-repository test-epg-cache-service test-epg-cache-controller test-api-router-epg-cache-routes test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
 
-test-vdr: test-epg-event-repository test-epg-cache-service test-epg-cache-controller test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
+test-vdr: test-epg-event-repository test-epg-cache-service test-epg-cache-controller test-api-router-epg-cache-routes test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
 
 test-epg-cache-service:
 	$(CXX) $(CXXFLAGS) \
@@ -43,6 +43,34 @@ test-epg-cache-controller:
 		$(LDFLAGS) \
 		-o /tmp/test_epg_cache_controller
 	/tmp/test_epg_cache_controller
+
+
+test-api-router-epg-cache-routes: prepare-test-db
+	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(VDR_SRC) \
+		$(RUNTIME_SRC) \
+		$(REST_ROUTER_SRC) \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityFreshnessPolicy.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyStaleProbeAdministrationService.cpp \
+		api/rest/src/EpgSearchNativeFuzzyStaleProbeAdministrationController.cpp \
+		core/vdr/src/EpgSearchNativeFuzzyOperatorRefreshService.cpp \
+		api/rest/src/EpgSearchNativeFuzzyOperatorRefreshController.cpp \
+		api/rest/src/SearchTimerController.cpp \
+		api/rest/src/SearchTimerDiscoveryController.cpp \
+		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
+		core/vdr/src/SearchTimerService.cpp \
+		api/rest/src/SearchTimerCreateRequestParser.cpp \
+		api/rest/src/SearchTimerUpdateRequestParser.cpp \
+		api/rest/src/SearchTimerDeleteRequestParser.cpp \
+		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
+		api/rest/src/VdrController.cpp \
+		api/rest/src/VdrRecordingQueryController.cpp \
+		api/rest/tests/test_api_router_epg_cache_routes.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_api_router_epg_cache_routes
+	/tmp/test_api_router_epg_cache_routes
 
 
 test-vdr-snapshot-builder-startup-snapshot:
