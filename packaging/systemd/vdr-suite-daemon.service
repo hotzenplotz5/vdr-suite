@@ -1,0 +1,18 @@
+[Unit]
+Description=VDR-Suite daemon
+Documentation=man:vdr-suite-daemon(8)
+After=network-online.target vdr.service
+Wants=network-online.target
+Requires=vdr.service
+
+[Service]
+Type=simple
+Environment=VDR_SUITE_FRONTEND_ROOT=/usr/share/vdr-suite/web/frontend
+ExecStart=/usr/sbin/vdr-suite-daemon
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target
