@@ -70,7 +70,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Real VDR acceptance currently passes 20/20 safe and dry-run probes.
 - Duplicate daemon start on an occupied HTTP port exits cleanly with status 1 instead of aborting.
 - SIGTERM stops the daemon cleanly without `kill -9` and releases port 18080.
-- GitHub Actions verification is required before runtime-related phases are considered complete.
+- GitHub Actions verification is required before runtime-related phases are considered complete.\n- Phase 58.39 verifies bounded live EPG input for channel cards via the now-next EPG route.
 
 ### Guarded or deliberately incomplete areas
 
@@ -79,20 +79,20 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Lazy recording loading is still a required follow-up for large real recording catalogs and multi-backend scaling.
 - Suite-owned metadata database and external scraper/provider strategy are planned but not yet implemented as the final metadata product.
 - Authentication, authorization, per-backend permissions and read-only secondary-site policy are still planned.
-- Web, Windows, Android, iOS and TV frontends are planned product layers, not completed foundations.
+- Web, Windows, Android, iOS and TV frontends remain planned product layers; the current web frontend is a Phase 58 foundation, not the final client product.
 
 ### Current active focus
 
 ```text
-Phase 56 - Library Boundary, Packaging and Developer Documentation
+Phase 58 - Frontend and Live Parity
 ```
 
 ### Later strategic milestones
 
 - Multi-site backend federation and permissions
-- Frontend foundation
+- Frontend and live-parity foundation
 - Suite metadata database and external provider integration
-- Safe production-grade recording operations
+- EPG cache database and SSE/change-state triggered background synchronization\n- Safe production-grade recording operations
 
 Progress source: ../planning/project-progress.md
 <!-- PROJECT_PROGRESS_END -->
@@ -104,25 +104,25 @@ Progress source: ../planning/project-progress.md
 Latest completed implementation phase:
 
 ```text
-Phase 55.6 - Recording operations audit and safety policy
+Phase 57 - Multi-Site Backend Administration and Permissions
 ```
 
 Current documentation consolidation state:
 
 ```text
-Phase 55.6 - Recording operations audit and safety policy
+Phase 57 - Multi-Site Backend Administration and Permissions
 ```
 
 Next major implementation milestone:
 
 ```text
-Phase 56 - Library Boundary, Packaging and Developer Documentation
+Phase 58 - Frontend and Live Parity
 ```
 
 Required planned follow-up:
 
 ```text
-Library Boundary, Packaging and Developer Documentation
+Frontend and Live Parity
 ```
 
 Completed foundations:
@@ -157,7 +157,7 @@ Recording Operations Audit and Safety Policy
 Current foundation in progress:
 
 ```text
-Library Boundary, Packaging and Developer Documentation
+Frontend and Live Parity
 ```
 
 Direct GitHub documentation synchronization should still be followed locally by functional or runtime-specific checks only when the change requires real local behaviour validation.
@@ -188,6 +188,9 @@ Direct GitHub documentation synchronization should still be followed locally by 
 - Runtime lifecycle hardening 55.5l is verified against a real local daemon: duplicate daemon start on an occupied HTTP port exits cleanly with status 1 instead of aborting, SIGTERM stops the listener and releases port 18080 without `kill -9`, and the real VDR acceptance manifest passes 20/20 probes afterward.
 - Phase 55.6 records the recording operations audit and safety policy: real recording move, rename and delete paths remain explicitly gated, dry-run/read-only behaviour remains the default, and destructive real-backend probes remain opt-in.
 
+- Phase 58.38 adds the SearchTimer frontend cockpit and mobile UI polish so existing backend capabilities are visible in the frontend.
+- Phase 58.39 fixes bounded global RESTfulAPI event queries and switches channel cards to the bounded now-next EPG route; real runtime validation reduced the channel-card EPG payload from a full 37025-event dump to a bounded 606-event response.
+- Phase 58.39 guardrail follow-up updates the RESTfulAPI adapter regression test so global timespan and chevents query options are preserved, and narrows the adapter unit-test link boundary to MockHttpClient only.
 ---
 
 ## New Chat Handoff and Required Verification Checklist
