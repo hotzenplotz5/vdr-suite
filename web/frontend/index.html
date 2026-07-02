@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="/frontend/style.css">
   <style>
     .brand-shell {
+      box-sizing: border-box;
+      width: calc(100% - 2.5rem);
       max-width: 70rem;
       margin: 1.25rem;
       overflow: hidden;
@@ -65,7 +67,7 @@
 
     .brand-feature-strip {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(10.4rem, 1fr));
       gap: 0.5rem;
       padding: 0.62rem 0.9rem 0.78rem;
     }
@@ -116,15 +118,10 @@
       }
     }
 
-    @media (max-width: 980px) {
-      .brand-feature-strip {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
     @media (max-width: 760px) {
       .brand-shell {
-        margin: 0.75rem;
+        width: calc(100% - 2.5rem);
+        margin: 1.25rem;
         border-radius: 0.95rem;
       }
 
@@ -136,7 +133,7 @@
       }
 
       .app-logo {
-        width: min(19.8rem, 86vw);
+        width: min(19.8rem, 82vw);
         max-height: 3.35rem;
       }
 
@@ -150,7 +147,7 @@
       }
 
       .brand-feature-strip {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(7.9rem, 1fr));
         gap: 0.45rem;
         padding: 0.58rem 0.65rem 0.7rem;
       }
