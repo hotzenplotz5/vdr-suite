@@ -1,7 +1,30 @@
 #include "RuntimeConfig.h"
 
+#include <cstdlib>
+#include <string>
+
+namespace
+{
+std::string environmentOrDefault(const char* name, const std::string& fallback)
+{
+    const char* value = std::getenv(name);
+
+    if (value == nullptr) {
+        return fallback;
+    }
+
+    std::string text(value);
+
+    if (text.empty()) {
+        return fallback;
+    }
+
+    return text;
+}
+}
+
 RuntimeConfig::RuntimeConfig()
-    : databasePath_("/tmp/vdr-suite-test.db"),
+    : databasePath_(environmentOrDefault("VDR_SUITE_DATABASE_PATH", "/tmp/vdr-suite-test.db")),
       vdrMode_("restfulapi"),
       vdrHost_("127.0.0.1"),
       vdrPort_(8002),
