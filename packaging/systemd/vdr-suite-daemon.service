@@ -8,6 +8,7 @@ Requires=vdr.service
 [Service]
 Type=simple
 Environment=VDR_SUITE_FRONTEND_ROOT=/usr/share/vdr-suite/web/frontend
+Environment=VDR_SUITE_DATABASE_PATH=/var/lib/vdr-suite/vdr-suite.db
 ExecStart=/usr/sbin/vdr-suite-daemon
 Restart=on-failure
 RestartSec=3
