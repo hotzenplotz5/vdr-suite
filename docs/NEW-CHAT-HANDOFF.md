@@ -48,6 +48,12 @@ Latest completed major project block:
 Phase 57 - Multi-Site Backend Administration and Permissions
 ```
 
+Previous completed major project block:
+
+```text
+Phase 56 - Library Boundary, Packaging and Developer Documentation
+```
+
 Current implementation focus:
 
 ```text
@@ -72,6 +78,26 @@ Verified Phase 57 outcomes:
 - timer action backend access coverage
 - SearchTimer backend access coverage
 - frontend-visible backend permission state
+
+---
+
+## Phase 56 Result
+
+Phase 56 is complete.
+
+The important result is the install and boundary contract before real packaging.
+
+Verified Phase 56 outcomes:
+
+- source groups are split by responsibility
+- the transitional recording-action aggregate is removed
+- core/API boundary is documented
+- REST API remains the application-facing boundary
+- `make install DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr` stages installable files
+- daemon, CLI, documentation, data directory and manpages are staged
+- no public C++ ABI is promised
+- no `vdr-suite-dev` package is introduced
+- Debian packaging metadata is still deferred
 
 ---
 
