@@ -174,6 +174,10 @@ std::string RestfulApiVdrAdapter::buildEventsUrl(const VdrEventQuery& query)
 
     url += ".json";
 
+    if (query.channelId.empty() && query.eventId.empty()) {
+        return url;
+    }
+
     bool hasQuery = false;
 
     if (query.from >= 0) {
