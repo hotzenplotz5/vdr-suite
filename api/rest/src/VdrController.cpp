@@ -6,16 +6,19 @@
 #include "VdrCapabilitySet.h"
 #include "CapabilityResolver.h"
 #include "VdrSnapshotReadService.h"
+#include "VdrService.h"
 
 VdrController::VdrController(
     VdrOverviewService& overviewService,
     VdrOverviewJsonSerializer& jsonSerializer,
     VdrSnapshotReadService& snapshotReadService,
-    VdrSnapshotReadJsonSerializer& snapshotReadJsonSerializer)
+    VdrSnapshotReadJsonSerializer& snapshotReadJsonSerializer,
+    VdrService* liveService)
     : overviewService_(overviewService),
       jsonSerializer_(jsonSerializer),
       snapshotReadService_(snapshotReadService),
-      snapshotReadJsonSerializer_(snapshotReadJsonSerializer)
+      snapshotReadJsonSerializer_(snapshotReadJsonSerializer),
+      liveService_(liveService)
 {
 }
 
@@ -205,6 +208,24 @@ ApiResponse VdrController::getTimers()
     response.body =
         snapshotReadJsonSerializer_.serializeTimers(
             snapshotReadService_.getTimers());
+
+    return response;
+}
+
+ApiResponse VdrController::getLiveTimers()
+{
+    if (liveService_ == nullptr)
+    {
+        return getTimers();
+    }
+
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        snapshotReadJsonSerializer_.serializeTimers(
+            liveService_->getTimers());
 
     return response;
 }

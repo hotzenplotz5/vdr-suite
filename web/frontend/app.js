@@ -767,14 +767,22 @@ function loadChannels() {
 }
 
 function loadTimers() {
-  renderModuleLoading('Timer', 'Lade Timerliste aus /api/vdr/timers...');
+  renderModuleLoading('Timer', 'Lade aktuelle Timerliste direkt vom VDR...');
 
-  fetch('/api/vdr/timers')
+  fetch('/api/vdr/timers/live')
     .then(response => {
-      if (!response.ok) {
-        throw new Error('HTTP ' + response.status);
+      if (response.ok) {
+        return response.json();
       }
-      return response.json();
+
+      return fetch('/api/vdr/timers')
+        .then(fallbackResponse => {
+          if (!fallbackResponse.ok) {
+            throw new Error('HTTP ' + fallbackResponse.status);
+          }
+
+          return fallbackResponse.json();
+        });
     })
     .then(data => {
       currentTimers = data;

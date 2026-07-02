@@ -8,6 +8,7 @@ class VdrOverviewService;
 class VdrOverviewJsonSerializer;
 class VdrSnapshotReadService;
 class VdrSnapshotReadJsonSerializer;
+class VdrService;
 
 class VdrController
 {
@@ -16,7 +17,8 @@ public:
         VdrOverviewService& overviewService,
         VdrOverviewJsonSerializer& jsonSerializer,
         VdrSnapshotReadService& snapshotReadService,
-        VdrSnapshotReadJsonSerializer& snapshotReadJsonSerializer);
+        VdrSnapshotReadJsonSerializer& snapshotReadJsonSerializer,
+        VdrService* liveService = nullptr);
 
     ApiResponse getOverview();
     ApiResponse getStatus();
@@ -29,6 +31,7 @@ public:
     ApiResponse getCapabilities();
     ApiResponse getRecordings();
     ApiResponse getTimers();
+    ApiResponse getLiveTimers();
     ApiResponse getSearchTimers();
     ApiResponse getChannels();
     ApiResponse getEvents();
@@ -38,4 +41,5 @@ private:
     VdrOverviewJsonSerializer& jsonSerializer_;
     VdrSnapshotReadService& snapshotReadService_;
     VdrSnapshotReadJsonSerializer& snapshotReadJsonSerializer_;
+    VdrService* liveService_;
 };

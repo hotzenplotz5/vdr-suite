@@ -233,7 +233,14 @@ bool DaemonRuntime::initialize()
 
     vdrOverviewService_ = std::make_unique<VdrOverviewService>(*snapshotAccessService_);
     vdrOverviewJsonSerializer_ = std::make_unique<VdrOverviewJsonSerializer>();
-    vdrController_ = std::make_unique<VdrController>(*vdrOverviewService_, *vdrOverviewJsonSerializer_, *vdrSnapshotReadService_, *vdrSnapshotReadJsonSerializer_);
+    vdrController_ = std::make_unique<VdrController>(
+        *vdrOverviewService_,
+        *vdrOverviewJsonSerializer_,
+        *vdrSnapshotReadService_,
+        *vdrSnapshotReadJsonSerializer_,
+        backendRuntimeContexts_.empty()
+            ? nullptr
+            : backendRuntimeContexts_.front()->service.get());
 
     if (!backendRuntimeContexts_.empty()) {
         vdrRecordingQueryService_ = std::make_unique<VdrRecordingQueryService>(

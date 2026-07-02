@@ -692,6 +692,11 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.getInt("offset", 0));
     }
 
+    if (path == "/api/vdr/timers/live")
+    {
+        return vdrController_.getLiveTimers();
+    }
+
     if (path == "/api/vdr/timers")
     {
         return vdrController_.getTimers();
