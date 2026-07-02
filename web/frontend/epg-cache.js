@@ -166,6 +166,98 @@ function ensureCachedEpgDetailStyles() {
 
 ensureCachedEpgDetailStyles();
 
+let cachedEpgLastChangeSequence = null;
+let cachedEpgChangeFeedTimer = null;
+
+function cachedEpgEnsureLiveStatusBox() {
+  let box = document.getElementById('vdr-suite-live-status');
+
+  if (box) {
+    return box;
+  }
+
+  box = document.createElement('div');
+  box.id = 'vdr-suite-live-status';
+  box.className = 'detail-meta';
+  box.textContent = 'Live-Status: Verbindung wird vorbereitet...';
+
+  const detail = document.getElementById('detail-meta');
+  if (detail && detail.parentNode) {
+    detail.parentNode.insertBefore(box, detail.nextSibling);
+    return box;
+  }
+
+  document.body.appendChild(box);
+  return box;
+}
+
+function cachedEpgSetLiveStatus(text, error) {
+  const box = cachedEpgEnsureLiveStatusBox();
+  box.className = error ? 'detail-meta error' : 'detail-meta';
+  box.textContent = text;
+}
+
+function cachedEpgPollChangeFeedOnce() {
+  return fetchJsonOrThrow('/api/vdr/changes')
+    .then(data => {
+      const sequence = Number(data.latestSequenceNumber || 0);
+      const generation = Number(data.latestSnapshotGeneration || 0);
+      const entries = listFromResponse(data, 'entries');
+
+      if (cachedEpgLastChangeSequence === null) {
+        cachedEpgLastChangeSequence = sequence;
+        cachedEpgSetLiveStatus(
+          'Live-Status: verbunden · Snapshot ' + String(generation) +
+            ' · Sequenz ' + String(sequence),
+          false
+        );
+        return;
+      }
+
+      if (sequence > cachedEpgLastChangeSequence) {
+        cachedEpgLastChangeSequence = sequence;
+        const last = entries.length > 0 ? entries[entries.length - 1] : null;
+        const backend = last && last.backendId ? String(last.backendId) : 'default';
+        const domains = last && Array.isArray(last.changedDomains)
+          ? last.changedDomains.join(', ')
+          : 'Snapshot';
+
+        cachedEpgSetLiveStatus(
+          'Live-Status: Änderung erkannt · Backend ' + backend +
+            ' · ' + domains +
+            ' · Sequenz ' + String(sequence),
+          false
+        );
+        return;
+      }
+
+      cachedEpgSetLiveStatus(
+        'Live-Status: verbunden · Snapshot ' + String(generation) +
+          ' · Sequenz ' + String(sequence),
+        false
+      );
+    })
+    .catch(error => {
+      cachedEpgSetLiveStatus(
+        'Live-Status: Change-Feed nicht erreichbar · ' + error.message,
+        true
+      );
+    });
+}
+
+function cachedEpgStartChangeFeedPolling() {
+  if (cachedEpgChangeFeedTimer) {
+    return;
+  }
+
+  cachedEpgPollChangeFeedOnce();
+  cachedEpgChangeFeedTimer = setInterval(cachedEpgPollChangeFeedOnce, 5000);
+}
+
+cachedEpgStartChangeFeedPolling();
+
+
+
 function frontendSelectedBackendId() {
   if (selectedBackendId && String(selectedBackendId).trim() !== '') {
     return String(selectedBackendId).trim();
