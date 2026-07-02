@@ -448,47 +448,69 @@ HttpServerResponse serveFrontendPath(
 
 }
 
-TestHttpServer::TestHttpServer(ApiRouter& router)
-    : router_(router)
+TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
+    : apiRouter_(apiRouter)
 {
 }
 
 HttpServerResponse TestHttpServer::handleRequest(
-    const HttpServerRequest& request)
+    const HttpServerRequest& request) const
 {
-    if (isChannelLogoPath(request.path))
-    {
-        return makeChannelLogoResponse(request.path);
-    }
-
-    if (isFrontendPath(request.path))
-    {
-        return serveFrontendPath(request.path);
-    }
-
     if (!isAuthorized(request))
     {
         return makeUnauthorizedResponse();
     }
 
+    if (request.method == "GET" &&
+        isFrontendPath(request.path))
+    {
+        return serveFrontendPath(request.path);
+    }
+
+    if (request.method == "GET" &&
+        isChannelLogoPath(request.path))
+    {
+        return makeChannelLogoResponse(request.path);
+    }
+
     ApiResponse apiResponse;
 
-    if (request.method == "POST")
+    if (request.method == "GET")
     {
-        apiResponse = router_.handlePost(
-            request.path,
-            request.body);
+        apiResponse =
+            apiRouter_.handleGet(request.path);
+    }
+    else if (request.method == "POST")
+    {
+        apiResponse =
+            apiRouter_.handlePost(
+                request.path,
+                request.body);
     }
     else
     {
-        apiResponse = router_.handleGet(request.path);
+        return mapApiResponse(
+            405,
+            "application/json",
+            "{\"error\":\"method not allowed\"}");
     }
 
+    return mapApiResponse(
+        apiResponse.statusCode,
+        apiResponse.contentType,
+        apiResponse.body);
+}
+
+HttpServerResponse TestHttpServer::mapApiResponse(
+    int statusCode,
+    const std::string& contentType,
+    const std::string& body) const
+{
     HttpServerResponse response;
 
-    response.statusCode = apiResponse.statusCode;
-    response.headers["Content-Type"] = apiResponse.contentType;
-    response.body = apiResponse.body;
+    response.statusCode = statusCode;
+    response.headers["Content-Type"] = contentType;
+    response.body = body;
 
     return response;
 }
