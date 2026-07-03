@@ -21,6 +21,7 @@ let epgWarmCacheStatus = 'EPG-Cache wird vom Daemon im Hintergrund vorbereitet.'
 let epgLoadedBackendId = '';
 let epgTimeAxisMode = 'horizontal';
 let epgTimeWindowPageOffset = 0;
+let epgProgramView = 'horizontal';
 let selectedEpgDetail = null;
 
 const EPG_TIMELINE_VISIBLE_SECONDS = 24 * 60 * 60;
@@ -28,6 +29,7 @@ const EPG_TIMELINE_TICK_SECONDS = 2 * 60 * 60;
 const EPG_TIMELINE_CONTEXT_BEFORE_SECONDS = 0;
 const EPG_TIMELINE_WINDOW_ANCHOR_SECONDS = 30 * 60;
 const EPG_TIMELINE_MAX_PAGE_OFFSET = 1;
+const EPG_VISIBLE_CHANNEL_LIMIT = 15;
 
 const moduleLabels = {
   overview: 'Übersicht',
@@ -1172,12 +1174,149 @@ function renderEpgWorkbench(list, channelData, eventData) {
   alignEpgSideDetailToSource(null);
 }
 
+function epgCurrentEntryForChannel(channel, events, nowSeconds) {
+  return epgEventsForChannel(channel, events, nowSeconds)
+    .find(entry => entry.start <= nowSeconds && nowSeconds < entry.end) || null;
+}
+
+function epgNextEntryForChannel(channel, events, nowSeconds) {
+  return epgEventsForChannel(channel, events, nowSeconds)
+    .find(entry => entry.start > nowSeconds) || null;
+}
+
+function epgProgramProgressPercent(entry, nowSeconds) {
+  if (!entry || entry.end <= entry.start) {
+    return 0;
+  }
+
+  const value = ((nowSeconds - entry.start) / (entry.end - entry.start)) * 100;
+  return Math.max(0, Math.min(100, value));
+}
+
+function createEpgProgramChannelHeader(channel, index) {
+  const header = document.createElement('div');
+  header.className = 'epg-program-channel';
+
+  const channelTitleText = epgChannelTitle(channel, epgChannelOffset + index);
+  const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '');
+
+  if (typeof createChannelLogoElement === 'function') {
+    const logo = createChannelLogoElement(channelTitleText, channelId);
+    logo.classList.add('epg-channel-logo');
+    header.appendChild(logo);
+  }
+
+  const title = addText(document.createElement('h3'), channelTitleText);
+  header.appendChild(title);
+
+  return header;
+}
+
+function createEpgProgramEmpty(text) {
+  const empty = addText(document.createElement('p'), text);
+  empty.className = 'epg-program-empty';
+  return empty;
+}
+
+function createEpgProgramEventButton(entry, channel, label, nowSeconds) {
+  if (!entry) {
+    return createEpgProgramEmpty(label + ': keine Sendung gefunden.');
+  }
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'epg-program-event';
+  button.setAttribute('aria-label', 'EPG Details für ' + epgEventTitle(entry.event) + ' öffnen');
+
+  const labelElement = addText(document.createElement('div'), label);
+  labelElement.className = 'epg-program-label';
+  button.appendChild(labelElement);
+
+  const time = addText(
+    document.createElement('div'),
+    formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end)
+  );
+  time.className = 'epg-event-time';
+  button.appendChild(time);
+
+  const title = addText(document.createElement('div'), epgEventTitle(entry.event));
+  title.className = 'epg-event-title';
+  button.appendChild(title);
+
+  const subtitle = epgEventSubtitle(entry.event);
+  if (subtitle !== '') {
+    const subtitleElement = addText(document.createElement('div'), subtitle);
+    subtitleElement.className = 'epg-event-subtitle';
+    button.appendChild(subtitleElement);
+  }
+
+  if (entry.start <= nowSeconds && nowSeconds < entry.end) {
+    button.classList.add('current');
+
+    const progress = document.createElement('div');
+    progress.className = 'epg-program-progress';
+
+    const bar = document.createElement('div');
+    bar.className = 'epg-program-progress-bar';
+    bar.style.width = epgProgramProgressPercent(entry, nowSeconds).toFixed(1) + '%';
+
+    progress.appendChild(bar);
+    button.appendChild(progress);
+
+    const remainingMinutes = Math.max(0, Math.ceil((entry.end - nowSeconds) / 60));
+    const remaining = addText(document.createElement('div'), 'endet in ' + String(remainingMinutes) + ' min');
+    remaining.className = 'epg-program-remaining';
+    button.appendChild(remaining);
+  } else {
+    button.classList.add('next');
+  }
+
+  button.addEventListener('click', clickEvent => renderEpgEventDetail(entry.event, channel, clickEvent.currentTarget));
+  return button;
+}
+
+function createEpgProgramCard(channel, index, events, nowSeconds, viewMode) {
+  const card = document.createElement('article');
+  card.className = 'epg-program-card';
+
+  card.appendChild(createEpgProgramChannelHeader(channel, index));
+
+  const body = document.createElement('div');
+  body.className = 'epg-program-events';
+
+  const current = epgCurrentEntryForChannel(channel, events, nowSeconds);
+  const next = epgNextEntryForChannel(channel, events, nowSeconds);
+
+  if (viewMode === 'live') {
+    body.appendChild(createEpgProgramEventButton(current, channel, 'läuft jetzt', nowSeconds));
+    body.appendChild(createEpgProgramEventButton(next, channel, 'als nächstes', nowSeconds));
+  } else if (viewMode === 'now') {
+    body.appendChild(createEpgProgramEventButton(current, channel, 'läuft jetzt', nowSeconds));
+  } else if (viewMode === 'next') {
+    body.appendChild(createEpgProgramEventButton(next, channel, 'als nächstes', nowSeconds));
+  }
+
+  card.appendChild(body);
+  return card;
+}
+
+function createEpgProgramViewGrid(visibleChannels, events, nowSeconds, viewMode) {
+  const grid = document.createElement('section');
+  grid.className = 'epg-program-grid epg-program-grid-' + viewMode;
+
+  visibleChannels.forEach((channel, index) => {
+    grid.appendChild(createEpgProgramCard(channel, index, events, nowSeconds, viewMode));
+  });
+
+  return grid;
+}
+
 function renderEpgTimeView(channelData, eventData) {
   const channels = listFromResponse(channelData, 'channels');
   const events = listFromResponse(eventData, 'events');
   const nowSeconds = Math.floor(Date.now() / 1000);
   const bounds = epgTimelineBounds(nowSeconds);
-  const limit = 5;
+  const limit = EPG_VISIBLE_CHANNEL_LIMIT;
   const visibleChannels = channels.slice(epgChannelOffset, epgChannelOffset + limit);
 
   detailDataElement.replaceChildren();
@@ -1223,10 +1362,11 @@ function renderEpgTimeView(channelData, eventData) {
 
   const timeView = document.createElement('button');
   timeView.type = 'button';
-  timeView.className = 'epg-view-button ' + (epgTimeAxisMode === 'horizontal' ? 'active' : '');
+  timeView.className = 'epg-view-button ' + (epgProgramView === 'horizontal' ? 'active' : '');
   timeView.textContent = 'Zeit horizontal · Zeitachse oben';
   timeView.addEventListener('click', () => {
     epgTimelineMode = 'time';
+    epgProgramView = 'horizontal';
     epgTimeAxisMode = 'horizontal';
     if (currentChannels && currentEvents) {
       renderEpgTimeView(currentChannels, currentEvents);
@@ -1237,10 +1377,11 @@ function renderEpgTimeView(channelData, eventData) {
 
   const verticalTimeView = document.createElement('button');
   verticalTimeView.type = 'button';
-  verticalTimeView.className = 'epg-view-button ' + (epgTimeAxisMode === 'vertical' ? 'active' : '');
+  verticalTimeView.className = 'epg-view-button ' + (epgProgramView === 'vertical' ? 'active' : '');
   verticalTimeView.textContent = 'Zeit vertikal · Kanäle oben';
   verticalTimeView.addEventListener('click', () => {
     epgTimelineMode = 'time';
+    epgProgramView = 'vertical';
     epgTimeAxisMode = 'vertical';
     if (currentChannels && currentEvents) {
       renderEpgTimeView(currentChannels, currentEvents);
@@ -1249,18 +1390,53 @@ function renderEpgTimeView(channelData, eventData) {
     loadEpgTimeline();
   });
 
-  const timelineView = document.createElement('button');
-  timelineView.type = 'button';
-  timelineView.className = 'epg-view-button';
-  timelineView.textContent = 'Timeline · 30 Kanäle';
-  timelineView.addEventListener('click', () => {
-    epgTimelineMode = 'timeline';
-    renderEpgTimelineModePlaceholder();
+  const liveView = document.createElement('button');
+  liveView.type = 'button';
+  liveView.className = 'epg-view-button ' + (epgProgramView === 'live' ? 'active' : '');
+  liveView.textContent = 'Live-Liste';
+  liveView.addEventListener('click', () => {
+    epgTimelineMode = 'time';
+    epgProgramView = 'live';
+    if (currentChannels && currentEvents) {
+      renderEpgTimeView(currentChannels, currentEvents);
+      return;
+    }
+    loadEpgTimeline();
+  });
+
+  const nowView = document.createElement('button');
+  nowView.type = 'button';
+  nowView.className = 'epg-view-button ' + (epgProgramView === 'now' ? 'active' : '');
+  nowView.textContent = 'Läuft jetzt';
+  nowView.addEventListener('click', () => {
+    epgTimelineMode = 'time';
+    epgProgramView = 'now';
+    if (currentChannels && currentEvents) {
+      renderEpgTimeView(currentChannels, currentEvents);
+      return;
+    }
+    loadEpgTimeline();
+  });
+
+  const nextView = document.createElement('button');
+  nextView.type = 'button';
+  nextView.className = 'epg-view-button ' + (epgProgramView === 'next' ? 'active' : '');
+  nextView.textContent = 'Als nächstes';
+  nextView.addEventListener('click', () => {
+    epgTimelineMode = 'time';
+    epgProgramView = 'next';
+    if (currentChannels && currentEvents) {
+      renderEpgTimeView(currentChannels, currentEvents);
+      return;
+    }
+    loadEpgTimeline();
   });
 
   modeRow.appendChild(timeView);
   modeRow.appendChild(verticalTimeView);
-  modeRow.appendChild(timelineView);
+  modeRow.appendChild(liveView);
+  modeRow.appendChild(nowView);
+  modeRow.appendChild(nextView);
   header.appendChild(modeRow);
 
   const pager = document.createElement('div');
@@ -1268,7 +1444,7 @@ function renderEpgTimeView(channelData, eventData) {
 
   const previous = document.createElement('button');
   previous.type = 'button';
-  previous.textContent = 'Vorherige 5';
+  previous.textContent = 'Vorherige 15';
   previous.disabled = epgChannelOffset <= 0;
   previous.addEventListener('click', () => {
     epgChannelOffset = Math.max(0, epgChannelOffset - limit);
@@ -1277,7 +1453,7 @@ function renderEpgTimeView(channelData, eventData) {
 
   const next = document.createElement('button');
   next.type = 'button';
-  next.textContent = 'Nächste 5';
+  next.textContent = 'Nächste 15';
   next.disabled = epgChannelOffset + limit >= channels.length;
   next.addEventListener('click', () => {
     epgChannelOffset = epgChannelOffset + limit;
@@ -1328,7 +1504,14 @@ function renderEpgTimeView(channelData, eventData) {
     return;
   }
 
-  if (epgTimeAxisMode === 'vertical') {
+  if (epgProgramView === 'live' || epgProgramView === 'now' || epgProgramView === 'next') {
+    const programGrid = createEpgProgramViewGrid(visibleChannels, events, nowSeconds, epgProgramView);
+    list.appendChild(programGrid);
+    renderEpgWorkbench(list, channelData, eventData);
+    return;
+  }
+
+  if (epgProgramView === 'vertical' || epgTimeAxisMode === 'vertical') {
     const verticalGrid = createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds);
     list.appendChild(verticalGrid);
     renderEpgWorkbench(list, channelData, eventData);
@@ -1697,7 +1880,7 @@ function fetchCachedOrLiveEpgWindow(channelData) {
 
 function visibleEpgChannelsFromData(channelData) {
   const channels = listFromResponse(channelData, 'channels');
-  const limit = 5;
+  const limit = EPG_VISIBLE_CHANNEL_LIMIT;
   const maxOffset = Math.max(0, channels.length - limit);
 
   if (epgChannelOffset > maxOffset) {
