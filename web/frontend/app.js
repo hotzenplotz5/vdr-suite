@@ -972,8 +972,41 @@ function renderEpgTimelineModePlaceholder() {
   detailDataElement.appendChild(list);
 }
 
+function renderEpgTimelineLoading() {
+  detailDataElement.replaceChildren();
+
+  const box = document.createElement('section');
+  box.className = 'module-placeholder epg-loading-box';
+
+  box.appendChild(addText(document.createElement('h3'), 'EPG Zeitleiste'));
+  box.appendChild(addText(
+    document.createElement('p'),
+    'Lade 24 Stunden EPG-Daten. Das kann je nach Datenmenge ein paar Sekunden dauern...'
+  ));
+
+  const progress = document.createElement('div');
+  progress.className = 'epg-loading-progress';
+  progress.setAttribute('role', 'progressbar');
+  progress.setAttribute('aria-label', 'EPG wird geladen');
+
+  const bar = document.createElement('div');
+  bar.className = 'epg-loading-progress-bar';
+  progress.appendChild(bar);
+
+  box.appendChild(progress);
+
+  const hint = addText(
+    document.createElement('p'),
+    'Kanäle und Sendungen werden danach lokal für die aktuelle Ansicht gefiltert.'
+  );
+  hint.className = 'epg-loading-hint';
+  box.appendChild(hint);
+
+  detailDataElement.appendChild(box);
+}
+
 function loadEpgTimeline() {
-  renderModuleLoading('EPG Zeitleiste', 'Lade EPG-Zeitfenster für 24 Stunden...');
+  renderEpgTimelineLoading();
 
   const channelsRequest = fetch('/api/vdr/channels', { cache: 'no-store' })
     .then(response => {
