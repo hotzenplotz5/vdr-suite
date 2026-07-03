@@ -418,3 +418,24 @@ button:disabled { background: #475569; color: #cbd5e1; cursor: default; }
     font-size: 0.88rem;
   }
 }
+
+/* Phase 58.61: improve channel logo contrast */
+img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
+  display: block;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.92) 48%, rgba(226, 232, 240, 0.90) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  border-radius: 0.95rem;
+  padding: 0.32rem;
+  box-shadow:
+    0 0.4rem 1rem rgba(2, 6, 23, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  filter: brightness(1.06) contrast(1.10) saturate(1.04);
+}
+
+@media (max-width: 720px) {
+  img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
+    border-radius: 0.85rem;
+    padding: 0.28rem;
+  }
+}
