@@ -627,3 +627,10 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
     left: 100%;
   }
 }
+
+/* Phase 58.67: EPG warm cache status */
+.epg-cache-status {
+  margin-top: 0.65rem;
+  color: #7dd3fc;
+  font-size: 0.88rem;
+}

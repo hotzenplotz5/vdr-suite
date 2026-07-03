@@ -14,6 +14,10 @@ let currentSearchTimers = null;
 let currentRecordings = null;
 let epgChannelOffset = 0;
 let epgTimelineMode = 'time';
+let epgWarmCacheInFlight = false;
+let epgWarmCacheLastStartedAt = 0;
+let epgWarmCacheLastBackendId = '';
+let epgWarmCacheStatus = 'EPG-Cache wird bei Bedarf im Hintergrund vorbereitet.';
 
 const moduleLabels = {
   overview: 'Übersicht',
@@ -838,8 +842,13 @@ function renderEpgTimeView(channelData, eventData) {
 
   header.appendChild(addText(
     document.createElement('p'),
-    rangeText + ' 24h-URL: ' + String(eventData.__debugUrl || '-') + ' · Events geladen: ' + String(events.length) + ' · Kanal 1: ' + String(firstVisibleChannelEventCount) + ' Events · Kanal 2: ' + String(secondVisibleChannelEventCount) + ' Events.'
+    rangeText + ' Quelle: ' + String(eventData.__source || 'live') + ' · URL: ' + String(eventData.__debugUrl || '-') + ' · Events geladen: ' + String(events.length) + ' · Kanal 1: ' + String(firstVisibleChannelEventCount) + ' Events · Kanal 2: ' + String(secondVisibleChannelEventCount) + ' Events.'
   ));
+
+  const cacheStatus = addText(document.createElement('p'), epgWarmCacheStatus);
+  cacheStatus.className = 'epg-cache-status';
+  cacheStatus.dataset.epgCacheStatus = 'true';
+  header.appendChild(cacheStatus);
 
   const modeRow = document.createElement('div');
   modeRow.className = 'epg-view-toggle';
@@ -875,7 +884,7 @@ function renderEpgTimeView(channelData, eventData) {
   previous.disabled = epgChannelOffset <= 0;
   previous.addEventListener('click', () => {
     epgChannelOffset = Math.max(0, epgChannelOffset - limit);
-    loadEpgTimeline();
+    renderEpgTimeView(channelData, eventData);
   });
 
   const next = document.createElement('button');
@@ -884,7 +893,7 @@ function renderEpgTimeView(channelData, eventData) {
   next.disabled = epgChannelOffset + limit >= channels.length;
   next.addEventListener('click', () => {
     epgChannelOffset = epgChannelOffset + limit;
-    loadEpgTimeline();
+    renderEpgTimeView(channelData, eventData);
   });
 
   pager.appendChild(previous);
@@ -964,6 +973,10 @@ function renderEpgTimelineModePlaceholder() {
   back.textContent = 'Zur Zeitansicht zurück';
   back.addEventListener('click', () => {
     epgTimelineMode = 'time';
+    if (currentChannels && currentEvents) {
+      renderEpgTimeView(currentChannels, currentEvents);
+      return;
+    }
     loadEpgTimeline();
   });
   box.appendChild(back);
@@ -1005,6 +1018,138 @@ function renderEpgTimelineLoading() {
   detailDataElement.appendChild(box);
 }
 
+function selectedEpgBackendId() {
+  if (selectedBackendId) {
+    return selectedBackendId;
+  }
+
+  if (selectedBackend && selectedBackend.frontendSelector && selectedBackend.frontendSelector.id) {
+    return selectedBackend.frontendSelector.id;
+  }
+
+  if (selectedBackend && selectedBackend.backendId) {
+    return selectedBackend.backendId;
+  }
+
+  return 'default';
+}
+
+function updateEpgWarmCacheStatusText() {
+  const status = detailDataElement.querySelector('[data-epg-cache-status]');
+  if (status) {
+    status.textContent = epgWarmCacheStatus;
+  }
+}
+
+function startEpgWarmCacheRefresh() {
+  const backendId = selectedEpgBackendId();
+  const now = Date.now();
+
+  if (epgWarmCacheInFlight) {
+    return;
+  }
+
+  if (epgWarmCacheLastBackendId === backendId && now - epgWarmCacheLastStartedAt < 10 * 60 * 1000) {
+    return;
+  }
+
+  epgWarmCacheInFlight = true;
+  epgWarmCacheLastStartedAt = now;
+  epgWarmCacheLastBackendId = backendId;
+  epgWarmCacheStatus = 'EPG-Cache wird im Hintergrund für 24 Stunden aktualisiert...';
+  updateEpgWarmCacheStatusText();
+
+  const refreshUrl = '/api/epg/cache/refresh'
+    + '?backend=' + encodeURIComponent(backendId)
+    + '&from=-1'
+    + '&timespan=86400'
+    + '&channelEventLimit=80'
+    + '&_=' + encodeURIComponent(String(now));
+
+  fetch(refreshUrl, { method: 'POST', cache: 'no-store' })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+      return response.json();
+    })
+    .then(data => {
+      const count = Number(data.eventCount || data.count || 0);
+      epgWarmCacheStatus = count > 0
+        ? 'EPG-Cache aktualisiert: ' + String(count) + ' Events gespeichert.'
+        : 'EPG-Cache aktualisiert.';
+      updateEpgWarmCacheStatusText();
+    })
+    .catch(error => {
+      epgWarmCacheStatus = 'EPG-Cache konnte nicht aktualisiert werden: ' + error.message;
+      updateEpgWarmCacheStatusText();
+    })
+    .finally(() => {
+      epgWarmCacheInFlight = false;
+    });
+}
+
+function epgWindowBounds() {
+  const from = Math.floor(Date.now() / 1000);
+  return {
+    from,
+    until: from + 86400
+  };
+}
+
+function listEventsFromEpgResponse(data) {
+  return listFromResponse(data, 'events');
+}
+
+function fetchLiveEpgWindow() {
+  const liveUrl = '/api/epg/time-window?from=-1&timespan=86400&_='
+    + encodeURIComponent(String(Date.now()));
+
+  return fetch(liveUrl, { cache: 'no-store' })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Live-EPG HTTP ' + response.status);
+      }
+      return response.json();
+    })
+    .then(data => {
+      data.__debugUrl = liveUrl;
+      data.__source = 'live';
+      return data;
+    });
+}
+
+function fetchCachedOrLiveEpgWindow() {
+  const backendId = selectedEpgBackendId();
+  const bounds = epgWindowBounds();
+
+  const cacheUrl = '/api/epg/cache/window'
+    + '?backend=' + encodeURIComponent(backendId)
+    + '&fromTime=' + encodeURIComponent(String(bounds.from))
+    + '&untilTime=' + encodeURIComponent(String(bounds.until))
+    + '&limit=0'
+    + '&_=' + encodeURIComponent(String(Date.now()));
+
+  return fetch(cacheUrl, { cache: 'no-store' })
+    .then(response => {
+      if (!response.ok) {
+        return null;
+      }
+      return response.json();
+    })
+    .then(data => {
+      const events = data ? listEventsFromEpgResponse(data) : [];
+      if (events.length > 0) {
+        data.__debugUrl = cacheUrl;
+        data.__source = 'cache';
+        return data;
+      }
+
+      return fetchLiveEpgWindow();
+    })
+    .catch(() => fetchLiveEpgWindow());
+}
+
 function loadEpgTimeline() {
   renderEpgTimelineLoading();
 
@@ -1016,19 +1161,7 @@ function loadEpgTimeline() {
       return response.json();
     });
 
-  const epgWindowUrl = '/api/epg/time-window?from=-1&timespan=86400&_=' + encodeURIComponent(String(Date.now()));
-
-  const eventsRequest = fetch(epgWindowUrl, { cache: 'no-store' })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('EPG HTTP ' + response.status + ' für ' + epgWindowUrl);
-      }
-      return response.json();
-    })
-    .then(data => {
-      data.__debugUrl = epgWindowUrl;
-      return data;
-    });
+  const eventsRequest = fetchCachedOrLiveEpgWindow();
 
   Promise.all([channelsRequest, eventsRequest])
     .then(([channelData, eventData]) => {
@@ -1041,6 +1174,7 @@ function loadEpgTimeline() {
       }
 
       renderEpgTimeView(channelData, eventData);
+      setTimeout(startEpgWarmCacheRefresh, 1200);
     })
     .catch(error => {
       currentChannels = null;
@@ -1050,6 +1184,18 @@ function loadEpgTimeline() {
 }
 
 function renderEpgTimelinePlaceholder(data) {
+  (void data);
+
+  if (currentChannels && currentEvents) {
+    if (epgTimelineMode === 'timeline') {
+      renderEpgTimelineModePlaceholder();
+      return;
+    }
+
+    renderEpgTimeView(currentChannels, currentEvents);
+    return;
+  }
+
   loadEpgTimeline();
 }
 
