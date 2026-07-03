@@ -17,7 +17,7 @@ let epgTimelineMode = 'time';
 let epgWarmCacheInFlight = false;
 let epgWarmCacheLastStartedAt = 0;
 let epgWarmCacheLastBackendId = '';
-let epgWarmCacheStatus = 'EPG-Cache wird bei Bedarf im Hintergrund vorbereitet.';
+let epgWarmCacheStatus = 'EPG-Cache wird vom Daemon im Hintergrund vorbereitet.';
 let epgLoadedBackendId = '';
 
 const moduleLabels = {
@@ -860,6 +860,10 @@ function renderEpgTimeView(channelData, eventData) {
   timeView.textContent = 'Zeitansicht · 5 Kanäle';
   timeView.addEventListener('click', () => {
     epgTimelineMode = 'time';
+    if (currentChannels && currentEvents) {
+      renderEpgTimeView(currentChannels, currentEvents);
+      return;
+    }
     loadEpgTimeline();
   });
 
@@ -995,7 +999,7 @@ function renderEpgTimelineLoading() {
   box.appendChild(addText(document.createElement('h3'), 'EPG Zeitleiste'));
   box.appendChild(addText(
     document.createElement('p'),
-    'Lade 24 Stunden EPG-Daten. Das kann je nach Datenmenge ein paar Sekunden dauern...'
+    'Lade 24 Stunden EPG-Daten aus dem lokalen Daemon-Cache...'
   ));
 
   const progress = document.createElement('div');
@@ -1011,7 +1015,7 @@ function renderEpgTimelineLoading() {
 
   const hint = addText(
     document.createElement('p'),
-    'Kanäle und Sendungen werden danach lokal für die aktuelle Ansicht gefiltert.'
+    'Kanäle und Sendungen werden lokal aus SQLite gelesen und danach im Browser gefiltert.'
   );
   hint.className = 'epg-loading-hint';
   box.appendChild(hint);
@@ -1043,51 +1047,8 @@ function updateEpgWarmCacheStatusText() {
 }
 
 function startEpgWarmCacheRefresh() {
-  const backendId = selectedEpgBackendId();
-  const now = Date.now();
-
-  if (epgWarmCacheInFlight) {
-    return;
-  }
-
-  if (epgWarmCacheLastBackendId === backendId && now - epgWarmCacheLastStartedAt < 10 * 60 * 1000) {
-    return;
-  }
-
-  epgWarmCacheInFlight = true;
-  epgWarmCacheLastStartedAt = now;
-  epgWarmCacheLastBackendId = backendId;
-  epgWarmCacheStatus = 'EPG-Cache wird im Hintergrund für 24 Stunden aktualisiert...';
+  epgWarmCacheStatus = 'EPG-Cache wird vom Daemon im Hintergrund aktualisiert.';
   updateEpgWarmCacheStatusText();
-
-  const refreshUrl = '/api/epg/cache/refresh'
-    + '?backend=' + encodeURIComponent(backendId)
-    + '&from=-1'
-    + '&timespan=86400'
-    + '&channelEventLimit=80'
-    + '&_=' + encodeURIComponent(String(now));
-
-  fetch(refreshUrl, { method: 'POST', cache: 'no-store' })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('HTTP ' + response.status);
-      }
-      return response.json();
-    })
-    .then(data => {
-      const count = Number(data.eventCount || data.count || 0);
-      epgWarmCacheStatus = count > 0
-        ? 'EPG-Cache aktualisiert: ' + String(count) + ' Events gespeichert.'
-        : 'EPG-Cache aktualisiert.';
-      updateEpgWarmCacheStatusText();
-    })
-    .catch(error => {
-      epgWarmCacheStatus = 'EPG-Cache konnte nicht aktualisiert werden: ' + error.message;
-      updateEpgWarmCacheStatusText();
-    })
-    .finally(() => {
-      epgWarmCacheInFlight = false;
-    });
 }
 
 function epgWindowBounds() {
@@ -1134,32 +1095,24 @@ function fetchCachedOrLiveEpgWindow() {
   return fetch(cacheUrl, { cache: 'no-store' })
     .then(response => {
       if (!response.ok) {
-        return null;
+        throw new Error('EPG-Cache HTTP ' + response.status);
       }
+
       return response.json();
     })
     .then(data => {
-      const events = data ? listEventsFromEpgResponse(data) : [];
-      if (events.length > 0) {
-        data.__debugUrl = cacheUrl;
-        data.__source = 'cache-full';
-        data.__partialWindow = false;
-        return data;
-      }
+      const events = listEventsFromEpgResponse(data);
+      data.__debugUrl = cacheUrl;
+      data.__source = events.length > 0 ? 'cache-full' : 'cache-empty';
+      data.__partialWindow = false;
 
-      return fetchLiveEpgWindow()
-        .then(liveData => {
-          liveData.__source = 'live-full-fallback';
-          liveData.__partialWindow = false;
-          return liveData;
-        });
-    })
-    .catch(() => fetchLiveEpgWindow()
-      .then(liveData => {
-        liveData.__source = 'live-full-fallback';
-        liveData.__partialWindow = false;
-        return liveData;
-      }));
+      epgWarmCacheStatus = events.length > 0
+        ? 'EPG-Cache bereit: ' + String(events.length) + ' Events aus SQLite geladen.'
+        : 'EPG-Cache ist noch leer. Der Daemon füllt die Datenbank im Hintergrund.';
+      updateEpgWarmCacheStatusText();
+
+      return data;
+    });
 }
 
 function visibleEpgChannelsFromData(channelData) {
