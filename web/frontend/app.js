@@ -21,6 +21,7 @@ let epgWarmCacheStatus = 'EPG-Cache wird vom Daemon im Hintergrund vorbereitet.'
 let epgLoadedBackendId = '';
 let epgTimeAxisMode = 'horizontal';
 let epgTimeWindowPageOffset = 0;
+let selectedEpgDetail = null;
 
 const EPG_TIMELINE_VISIBLE_SECONDS = 24 * 60 * 60;
 const EPG_TIMELINE_TICK_SECONDS = 2 * 60 * 60;
@@ -751,12 +752,7 @@ function epgEventsForChannel(channel, events, nowSeconds) {
     .sort((left, right) => left.start - right.start);
 }
 
-function renderEpgEventDetail(event, channel) {
-  const existing = detailDataElement.querySelector('.epg-event-detail');
-  if (existing) {
-    existing.remove();
-  }
-
+function createEpgEventDetailCard(event, channel) {
   const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
   const end = frontendEventEnd(event, start);
   const detail = document.createElement('article');
@@ -778,18 +774,77 @@ function renderEpgEventDetail(event, channel) {
   const eventId = firstValue(event, ['eventId', 'id', 'nativeId'], '');
   const channelId = frontendEventChannelId(event);
   const technical = [];
+
   if (channelId !== '') {
     technical.push('channelId=' + channelId);
   }
+
   if (eventId !== '') {
     technical.push('eventId=' + String(eventId));
   }
+
   if (technical.length > 0) {
-    detail.appendChild(addText(document.createElement('p'), technical.join(' · ')));
+    const technicalLine = addText(document.createElement('p'), technical.join(' · '));
+    technicalLine.className = 'epg-event-technical';
+    detail.appendChild(technicalLine);
   }
 
-  detailDataElement.appendChild(detail);
-  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  return detail;
+}
+
+function renderEpgSideDetail() {
+  const holder = detailDataElement.querySelector('[data-epg-side-detail="true"]');
+
+  if (!holder) {
+    return;
+  }
+
+  holder.replaceChildren();
+
+  if (!selectedEpgDetail || !selectedEpgDetail.event || !selectedEpgDetail.channel) {
+    const empty = document.createElement('article');
+    empty.className = 'module-placeholder epg-detail-empty';
+    empty.appendChild(addText(document.createElement('h3'), 'EPG-Details'));
+    empty.appendChild(addText(document.createElement('p'), 'Sendung anklicken, dann erscheinen die Details hier.'));
+    holder.appendChild(empty);
+    return;
+  }
+
+  holder.appendChild(createEpgEventDetailCard(selectedEpgDetail.event, selectedEpgDetail.channel));
+}
+
+function alignEpgSideDetailToSource(sourceElement) {
+  const holder = detailDataElement.querySelector('[data-epg-side-detail="true"]');
+  const workbench = detailDataElement.querySelector('.epg-workbench');
+  const desktop = window.matchMedia && window.matchMedia('(min-width: 1100px)').matches;
+
+  if (!holder) {
+    return;
+  }
+
+  if (!desktop || !sourceElement || !workbench) {
+    holder.style.removeProperty('--epg-detail-top');
+    return;
+  }
+
+  const sourceRect = sourceElement.getBoundingClientRect();
+  const workbenchRect = workbench.getBoundingClientRect();
+  const offset = Math.max(0, Math.round(sourceRect.top - workbenchRect.top));
+
+  holder.style.setProperty('--epg-detail-top', String(offset) + 'px');
+}
+
+function renderEpgEventDetail(event, channel, sourceElement) {
+  selectedEpgDetail = { event, channel };
+  renderEpgSideDetail();
+  alignEpgSideDetailToSource(sourceElement);
+
+  const holder = detailDataElement.querySelector('[data-epg-side-detail="true"]');
+  const desktop = window.matchMedia && window.matchMedia('(min-width: 1100px)').matches;
+
+  if (holder && !desktop) {
+    holder.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function createEpgEventCard(entry, channel) {
@@ -818,7 +873,7 @@ function createEpgEventCard(entry, channel) {
     button.appendChild(subtitleElement);
   }
 
-  button.addEventListener('click', () => renderEpgEventDetail(event, channel));
+  button.addEventListener('click', clickEvent => renderEpgEventDetail(event, channel, clickEvent.currentTarget));
   return button;
 }
 
@@ -1039,6 +1094,84 @@ function createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds) 
   return grid;
 }
 
+function appendEpgSidebarLine(parent, label, value) {
+  const line = document.createElement('div');
+  line.className = 'epg-sidebar-line';
+
+  const key = addText(document.createElement('span'), label);
+  key.className = 'epg-sidebar-label';
+
+  const val = addText(document.createElement('strong'), String(value));
+  val.className = 'epg-sidebar-value';
+
+  line.appendChild(key);
+  line.appendChild(val);
+  parent.appendChild(line);
+}
+
+function renderEpgSidebar(channelData, eventData) {
+  const channels = listFromResponse(channelData, 'channels');
+  const events = listFromResponse(eventData, 'events');
+  const status = eventData && eventData.__cacheStatus ? eventData.__cacheStatus : null;
+
+  const sidebar = document.createElement('aside');
+  sidebar.className = 'epg-sidebar';
+
+  const backendCard = document.createElement('article');
+  backendCard.className = 'module-placeholder epg-sidebar-card';
+  backendCard.appendChild(addText(document.createElement('h3'), 'Backend'));
+
+  appendEpgSidebarLine(backendCard, 'Backend-ID', selectedEpgBackendId());
+  appendEpgSidebarLine(backendCard, 'Kanäle', String(channels.length));
+  appendEpgSidebarLine(backendCard, 'EPG geladen', String(events.length));
+  appendEpgSidebarLine(backendCard, 'Quelle', String(eventData.__source || 'cache'));
+
+  if (status) {
+    appendEpgSidebarLine(backendCard, 'Cache bereit', status.ready ? 'ja' : 'nein');
+    appendEpgSidebarLine(backendCard, 'Cache Events', String(status.eventCount || 0));
+
+    if (status.lastRefreshKnown) {
+      appendEpgSidebarLine(backendCard, 'Letzter Lauf', String(status.lastRefreshDurationMs || 0) + ' ms');
+    }
+
+    if (status.lastError && String(status.lastError).trim() !== '') {
+      appendEpgSidebarLine(backendCard, 'Fehler', String(status.lastError));
+    }
+  }
+
+  const debug = String(eventData.__debugUrl || '');
+  if (debug !== '') {
+    const debugLine = addText(document.createElement('p'), debug);
+    debugLine.className = 'epg-sidebar-debug';
+    backendCard.appendChild(debugLine);
+  }
+
+  sidebar.appendChild(backendCard);
+
+  const detailHolder = document.createElement('div');
+  detailHolder.className = 'epg-side-detail';
+  detailHolder.dataset.epgSideDetail = 'true';
+  sidebar.appendChild(detailHolder);
+
+  return sidebar;
+}
+
+function renderEpgWorkbench(list, channelData, eventData) {
+  const workbench = document.createElement('section');
+  workbench.className = 'epg-workbench';
+
+  const main = document.createElement('div');
+  main.className = 'epg-workbench-main';
+  main.appendChild(list);
+
+  workbench.appendChild(main);
+  workbench.appendChild(renderEpgSidebar(channelData, eventData));
+
+  detailDataElement.appendChild(workbench);
+  renderEpgSideDetail();
+  alignEpgSideDetailToSource(null);
+}
+
 function renderEpgTimeView(channelData, eventData) {
   const channels = listFromResponse(channelData, 'channels');
   const events = listFromResponse(eventData, 'events');
@@ -1191,14 +1324,14 @@ function renderEpgTimeView(channelData, eventData) {
     empty.appendChild(addText(document.createElement('h3'), 'Keine EPG-Kanäle'));
     empty.appendChild(addText(document.createElement('p'), 'Die Kanalliste ist leer oder der Offset liegt außerhalb der Kanalliste.'));
     list.appendChild(empty);
-    detailDataElement.appendChild(list);
+    renderEpgWorkbench(list, channelData, eventData);
     return;
   }
 
   if (epgTimeAxisMode === 'vertical') {
     const verticalGrid = createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds);
     list.appendChild(verticalGrid);
-    detailDataElement.appendChild(list);
+    renderEpgWorkbench(list, channelData, eventData);
     return;
   }
 
@@ -1284,7 +1417,7 @@ function renderEpgTimeView(channelData, eventData) {
   });
 
   list.appendChild(grid);
-  detailDataElement.appendChild(list);
+  renderEpgWorkbench(list, channelData, eventData);
 }
 
 function renderEpgTimelineModePlaceholder() {

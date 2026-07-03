@@ -1012,3 +1012,284 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
   opacity: 0.65;
   cursor: default;
 }
+
+
+/* Phase 58.80: EPG workbench sidebar */
+.epg-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(19rem, 24rem);
+  gap: 1rem;
+  align-items: start;
+}
+
+.epg-workbench-main {
+  min-width: 0;
+}
+
+.epg-sidebar {
+  display: grid;
+  gap: 0.85rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.epg-sidebar-card,
+.epg-detail-empty,
+.epg-event-detail {
+  margin: 0;
+}
+
+.epg-sidebar-card h3,
+.epg-detail-empty h3,
+.epg-event-detail h3 {
+  margin-top: 0;
+}
+
+.epg-sidebar-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.38rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.epg-sidebar-label {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.epg-sidebar-value {
+  color: #f8fafc;
+  font-size: 0.82rem;
+  text-align: right;
+  word-break: break-word;
+}
+
+.epg-sidebar-debug,
+.epg-event-technical {
+  color: #64748b;
+  font-size: 0.76rem;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.epg-side-detail {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (max-width: 1099px) {
+  .epg-workbench {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .epg-sidebar {
+    position: static;
+  }
+}
+
+
+/* Phase 58.80b: compact backend selector and aligned EPG detail */
+.layout {
+  max-width: none;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.backend-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.backend-card {
+  width: auto;
+  min-width: 12rem;
+  max-width: 18rem;
+  padding: 0.58rem 0.72rem;
+  border-radius: 0.8rem;
+}
+
+.backend-header {
+  margin-bottom: 0;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.backend-title {
+  font-size: 0.98rem;
+  line-height: 1.15;
+}
+
+.backend-subtitle,
+.backend-card .badge-row {
+  display: none;
+}
+
+.backend-card .status-pill {
+  padding: 0.18rem 0.48rem;
+  font-size: 0.76rem;
+}
+
+.detail-card {
+  min-width: 0;
+}
+
+.epg-workbench {
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 21rem);
+}
+
+.epg-workbench-main {
+  min-width: 0;
+}
+
+.epg-sidebar {
+  position: relative;
+  display: block;
+  min-height: 55rem;
+}
+
+.epg-sidebar-card {
+  margin-bottom: 0.85rem;
+}
+
+.epg-side-detail {
+  display: block;
+}
+
+@media (min-width: 1100px) {
+  .epg-side-detail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: var(--epg-detail-top, 9rem);
+  }
+}
+
+@media (max-width: 1099px) {
+  .backend-list {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .backend-card {
+    max-width: none;
+  }
+
+  .epg-workbench {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .epg-sidebar {
+    min-height: 0;
+  }
+
+  .epg-side-detail {
+    position: static;
+  }
+}
+
+
+/* Phase 58.80c: backend selector inside Multi-Backend brand tile */
+.brand-feature.brand-feature-backends {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(9.5rem, 13rem);
+  align-items: center;
+  column-gap: 0.65rem;
+}
+
+.brand-feature-copy {
+  min-width: 0;
+}
+
+.brand-backend-list {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 0.28rem;
+  margin: 0;
+  justify-self: end;
+  width: 100%;
+  max-width: 13rem;
+}
+
+.brand-backend-list .backend-card {
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+  padding: 0.34rem 0.48rem;
+  border-radius: 0.62rem;
+  background: rgba(2, 6, 23, 0.44);
+  border-color: rgba(96, 165, 250, 0.28);
+  box-shadow: none;
+}
+
+.brand-backend-list .backend-header {
+  align-items: center;
+  gap: 0.42rem;
+  margin: 0;
+}
+
+.brand-backend-list .backend-title {
+  font-size: 0.76rem;
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand-backend-list .backend-subtitle,
+.brand-backend-list .badge-row {
+  display: none;
+}
+
+.brand-backend-list .status-pill {
+  padding: 0.12rem 0.36rem;
+  font-size: 0.64rem;
+  line-height: 1.1;
+}
+
+@media (max-width: 760px) {
+  .brand-feature.brand-feature-backends {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .brand-backend-list {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    max-width: none;
+    margin-top: 0.35rem;
+  }
+}
+
+
+/* Phase 58.80d: sticky channel column in horizontal EPG */
+.epg-time-scale-channel,
+.epg-time-row-channel {
+  position: sticky;
+  left: 0;
+  z-index: 18;
+  box-shadow: 0.85rem 0 1.2rem rgba(2, 6, 23, 0.72);
+}
+
+.epg-time-scale-channel {
+  z-index: 22;
+  background: rgba(2, 6, 23, 0.96);
+}
+
+.epg-time-row-channel {
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.94));
+}
+
+.epg-time-row-track,
+.epg-time-scale-track {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .epg-time-scale-channel,
+  .epg-time-row-channel {
+    box-shadow: 0.65rem 0 1rem rgba(2, 6, 23, 0.78);
+  }
+}
