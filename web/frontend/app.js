@@ -721,6 +721,7 @@ function epgChannelTitle(channel, index) {
 }
 
 function epgEventsForChannel(channel, events, nowSeconds) {
+  (void nowSeconds);
   const channelId = frontendChannelId(channel);
   if (channelId === '') {
     return [];
@@ -733,9 +734,8 @@ function epgEventsForChannel(channel, events, nowSeconds) {
       const end = frontendEventEnd(event, start);
       return { event, start, end };
     })
-    .filter(entry => entry.start > 0 && entry.end > 0 && entry.end >= nowSeconds)
-    .sort((left, right) => left.start - right.start)
-    .slice(0, 4);
+    .filter(entry => entry.start > 0 && entry.end > 0)
+    .sort((left, right) => left.start - right.start);
 }
 
 function renderEpgEventDetail(event, channel) {
@@ -828,9 +828,17 @@ function renderEpgTimeView(channelData, eventData) {
   const rangeText = channels.length === 0
     ? 'Keine Kanäle gefunden.'
     : 'Zeige Kanäle ' + String(epgChannelOffset + 1) + '–' + String(epgChannelOffset + visibleChannels.length) + ' von ' + String(channels.length) + '.';
+  const firstVisibleChannelEventCount = visibleChannels.length > 0
+    ? epgEventsForChannel(visibleChannels[0], events, nowSeconds).length
+    : 0;
+
+  const secondVisibleChannelEventCount = visibleChannels.length > 1
+    ? epgEventsForChannel(visibleChannels[1], events, nowSeconds).length
+    : 0;
+
   header.appendChild(addText(
     document.createElement('p'),
-    rangeText + ' Geladen wird begrenzt über /api/epg/now-next?from=-1.'
+    rangeText + ' 24h-URL: ' + String(eventData.__debugUrl || '-') + ' · Events geladen: ' + String(events.length) + ' · Kanal 1: ' + String(firstVisibleChannelEventCount) + ' Events · Kanal 2: ' + String(secondVisibleChannelEventCount) + ' Events.'
   ));
 
   const modeRow = document.createElement('div');
@@ -965,9 +973,9 @@ function renderEpgTimelineModePlaceholder() {
 }
 
 function loadEpgTimeline() {
-  renderModuleLoading('EPG Zeitleiste', 'Lade begrenzte EPG-Daten für die Zeitansicht...');
+  renderModuleLoading('EPG Zeitleiste', 'Lade EPG-Zeitfenster für 24 Stunden...');
 
-  const channelsRequest = fetch('/api/vdr/channels')
+  const channelsRequest = fetch('/api/vdr/channels', { cache: 'no-store' })
     .then(response => {
       if (!response.ok) {
         throw new Error('Kanäle HTTP ' + response.status);
@@ -975,14 +983,19 @@ function loadEpgTimeline() {
       return response.json();
     });
 
-  const eventsRequest = fetch('/api/epg/now-next?from=-1')
+  const epgWindowUrl = '/api/epg/time-window?from=-1&timespan=86400&_=' + encodeURIComponent(String(Date.now()));
+
+  const eventsRequest = fetch(epgWindowUrl, { cache: 'no-store' })
     .then(response => {
       if (!response.ok) {
-        return { events: [] };
+        throw new Error('EPG HTTP ' + response.status + ' für ' + epgWindowUrl);
       }
       return response.json();
     })
-    .catch(() => ({ events: [] }));
+    .then(data => {
+      data.__debugUrl = epgWindowUrl;
+      return data;
+    });
 
   Promise.all([channelsRequest, eventsRequest])
     .then(([channelData, eventData]) => {
@@ -1054,7 +1067,9 @@ function loadChannels() {
       return response.json();
     });
 
-  const eventsRequest = fetch('/api/epg/now-next?from=-1')
+  const epgWindowUrl = '/api/epg/time-window?from=-1&timespan=86400&_=' + encodeURIComponent(String(Date.now()));
+
+  const eventsRequest = fetch(epgWindowUrl, { cache: 'no-store' })
     .then(response => {
       if (response.ok) {
         return response.json();
