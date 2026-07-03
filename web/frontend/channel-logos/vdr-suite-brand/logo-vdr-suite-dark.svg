@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 210" role="img" aria-labelledby="title desc">
+  <title id="title">vdr-suite dark UI logo</title>
+  <desc id="desc">Transparent VDR-Suite dark UI logo with white TV outline, white vdr wordmark and blue suite wordmark.</desc>
+  <defs>
+    <linearGradient id="nodeBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.55" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="playBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.46" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="suiteBlue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.52" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <g fill="none" stroke="#f8fafc" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M57 80 H95 L111 94 H128" stroke-width="6"/>
+    <path d="M57 105 H128" stroke-width="6"/>
+    <path d="M57 130 H95 L111 116 H128" stroke-width="6"/>
+
+    <rect x="128" y="55" width="185" height="96" rx="18" ry="18" stroke-width="12"/>
+    <path d="M190 54 L161 25" stroke-width="10"/>
+    <path d="M222 54 L251 25" stroke-width="10"/>
+    <path d="M170 176 H274" stroke-width="9"/>
+  </g>
+
+  <rect x="30" y="68" width="28" height="28" rx="6" fill="url(#nodeBlue)"/>
+  <rect x="30" y="93" width="28" height="28" rx="6" fill="url(#nodeBlue)"/>
+  <rect x="30" y="118" width="28" height="28" rx="6" fill="url(#nodeBlue)"/>
+
+  <path d="M190 81 C190 72 200 66 208 71 L250 96 C259 101 259 113 250 118 L208 143 C200 148 190 142 190 133 Z" fill="url(#playBlue)"/>
+
+  <g font-family="Orbitron, Audiowide, Eurostile, Rajdhani, Arial, sans-serif" font-size="88" font-weight="600" font-style="italic" letter-spacing="-5">
+    <text x="365" y="134" fill="#f8fafc">vdr-</text>
+    <text x="535" y="134" fill="url(#suiteBlue)">suite</text>
+  </g>
+</svg>
