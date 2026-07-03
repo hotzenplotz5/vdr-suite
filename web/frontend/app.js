@@ -16,6 +16,7 @@ let currentRecordings = null;
 const moduleLabels = {
   overview: 'Übersicht',
   channels: 'Kanäle',
+  epg: 'EPG Zeitleiste',
   timers: 'Timer',
   recordings: 'Aufnahmen',
   searchtimers: 'SearchTimer'
@@ -689,6 +690,56 @@ function renderRecordingList(data) {
   renderFolderOverview();
 }
 
+function renderEpgTimelinePlaceholder(data) {
+  detailDataElement.replaceChildren();
+
+  const list = document.createElement('section');
+  list.className = 'list epg-timeline-module';
+
+  const intro = document.createElement('article');
+  intro.className = 'module-placeholder epg-timeline-intro';
+  intro.appendChild(addText(document.createElement('h3'), 'EPG Zeitleiste'));
+  intro.appendChild(addText(
+    document.createElement('p'),
+    'Vorbereitet für eine begrenzte, backend-spezifische EPG-Zeitleiste. Es wird kein vollständiges EPG beim Start geladen.'
+  ));
+
+  const modeRow = document.createElement('div');
+  modeRow.className = 'epg-view-toggle';
+
+  const timeView = document.createElement('button');
+  timeView.type = 'button';
+  timeView.className = 'epg-view-button active';
+  timeView.textContent = 'Zeitansicht · 5 Kanäle';
+
+  const timelineView = document.createElement('button');
+  timelineView.type = 'button';
+  timelineView.className = 'epg-view-button';
+  timelineView.textContent = 'Timeline · 30 Kanäle';
+
+  modeRow.appendChild(timeView);
+  modeRow.appendChild(timelineView);
+  intro.appendChild(modeRow);
+
+  intro.appendChild(addText(
+    document.createElement('p'),
+    'Nächster Schritt: begrenzter Backend-Endpunkt mit channelOffset, channelLimit, from und durationHours.'
+  ));
+
+  list.appendChild(intro);
+
+  const preview = document.createElement('article');
+  preview.className = 'module-placeholder epg-timeline-preview';
+  preview.appendChild(addText(document.createElement('h3'), 'Geplante Bedienung'));
+  preview.appendChild(addText(
+    document.createElement('p'),
+    'Live-Ansicht: Zeit auf der Y-Achse, Kanäle als Spalten. Timeline-Ansicht: Zeit auf der X-Achse, Kanäle als Zeilen. EPG-Einträge werden später antippbar für Detailinformationen.'
+  ));
+  list.appendChild(preview);
+
+  detailDataElement.appendChild(list);
+}
+
 function renderModulePlaceholder(moduleName, data) {
   const countMap = {
     searchtimers: 0
@@ -852,6 +903,11 @@ function renderSelectedModule(data) {
     return;
   }
 
+  if (selectedModule === 'epg') {
+    renderEpgTimelinePlaceholder(data);
+    return;
+  }
+
   if (selectedModule === 'timers') {
     loadTimers();
     return;
@@ -976,6 +1032,29 @@ document.querySelectorAll('.module-tab').forEach(button => {
   button.addEventListener('click', () => selectModule(button.dataset.module));
 });
 
+document.querySelectorAll('[data-brand-module]').forEach(button => {
+  const openModule = () => {
+    const moduleName = button.dataset.brandModule;
+    if (!moduleName) {
+      return;
+    }
+
+    selectModule(moduleName);
+
+    if (detailDataElement && typeof detailDataElement.scrollIntoView === 'function') {
+      detailDataElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  button.addEventListener('click', openModule);
+  button.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openModule();
+    }
+  });
+});
+
 refreshDetailButton.addEventListener('click', () => {
   if (!selectedBackend) {
     return;
@@ -983,6 +1062,11 @@ refreshDetailButton.addEventListener('click', () => {
 
   if (selectedModule === 'channels') {
     loadChannels();
+    return;
+  }
+
+  if (selectedModule === 'epg') {
+    renderSelectedModule(currentSnapshot || {});
     return;
   }
 

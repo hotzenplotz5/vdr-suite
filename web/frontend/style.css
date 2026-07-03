@@ -439,3 +439,31 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
     padding: 0.28rem;
   }
 }
+
+/* Phase 58.62: EPG timeline module entry */
+.epg-timeline-module {
+  gap: 0.85rem;
+}
+
+.epg-view-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0.95rem 0 0.65rem;
+}
+
+.epg-view-button {
+  border: 1px solid rgba(96, 165, 250, 0.38);
+  background: rgba(15, 23, 42, 0.78);
+  color: #cbd5e1;
+}
+
+.epg-view-button.active {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  color: #eff6ff;
+  border-color: rgba(147, 197, 253, 0.72);
+}
+
+.epg-timeline-preview {
+  border-color: rgba(56, 189, 248, 0.28);
+}
