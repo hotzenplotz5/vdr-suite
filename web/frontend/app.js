@@ -902,8 +902,21 @@ function renderEpgTimeView(channelData, eventData) {
     const column = document.createElement('article');
     column.className = 'epg-channel-column';
 
-    const channelTitle = addText(document.createElement('h3'), epgChannelTitle(channel, epgChannelOffset + index));
-    column.appendChild(channelTitle);
+    const channelHeader = document.createElement('div');
+    channelHeader.className = 'epg-channel-header';
+
+    const channelTitleText = epgChannelTitle(channel, epgChannelOffset + index);
+    const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '');
+
+    if (typeof createChannelLogoElement === 'function') {
+      const logo = createChannelLogoElement(channelTitleText, channelId);
+      logo.classList.add('epg-channel-logo');
+      channelHeader.appendChild(logo);
+    }
+
+    const channelTitle = addText(document.createElement('h3'), channelTitleText);
+    channelHeader.appendChild(channelTitle);
+    column.appendChild(channelHeader);
 
     const channelEvents = epgEventsForChannel(channel, events, nowSeconds);
 

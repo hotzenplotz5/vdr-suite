@@ -551,3 +551,38 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
     grid-template-columns: repeat(5, minmax(15rem, 78vw));
   }
 }
+
+/* Phase 58.64: EPG channel logos */
+.epg-channel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.62rem;
+  margin: 0 0 0.7rem;
+  min-width: 0;
+}
+
+.epg-channel-header h3 {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.epg-channel-logo {
+  width: 4.2rem;
+  height: 2.45rem;
+  flex: 0 0 4.2rem;
+  border-radius: 0.72rem;
+}
+
+.epg-channel-logo .channel-logo-fallback {
+  font-size: 1rem;
+}
+
+@media (max-width: 720px) {
+  .epg-channel-logo {
+    width: 4.6rem;
+    height: 2.55rem;
+    flex-basis: 4.6rem;
+  }
+}
