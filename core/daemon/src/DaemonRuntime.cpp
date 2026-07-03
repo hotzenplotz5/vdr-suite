@@ -731,8 +731,8 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
 
     VdrEventQuery query;
     query.from = -1;
-    query.timespan = 86400;
-    query.channelEventLimit = 80;
+    query.timespan = 172800;
+    query.channelEventLimit = 160;
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
         if (epgCacheWarmupStopRequested_.load()) {
