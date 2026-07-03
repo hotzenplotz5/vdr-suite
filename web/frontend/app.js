@@ -754,24 +754,111 @@ function epgEventsForChannel(channel, events, nowSeconds) {
     .sort((left, right) => left.start - right.start);
 }
 
+function epgEventDescription(event) {
+  return String(firstValue(event, ['description', 'longText', 'details', 'synopsis'], ''));
+}
+
+function formatEpgDuration(start, end) {
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return '-';
+  }
+
+  const minutes = Math.round((end - start) / 60);
+  if (minutes < 60) {
+    return String(minutes) + ' min';
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+
+  if (rest === 0) {
+    return String(hours) + ' h';
+  }
+
+  return String(hours) + ' h ' + String(rest) + ' min';
+}
+
+function appendEpgDetailMeta(parent, label, value) {
+  const item = document.createElement('div');
+  item.className = 'epg-detail-meta-item';
+
+  const key = addText(document.createElement('span'), label);
+  key.className = 'epg-detail-meta-label';
+
+  const val = addText(document.createElement('strong'), String(value));
+  val.className = 'epg-detail-meta-value';
+
+  item.appendChild(key);
+  item.appendChild(val);
+  parent.appendChild(item);
+}
+
+function createEpgDetailAction(label, hint) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'epg-detail-action';
+  button.textContent = label;
+  button.title = hint;
+  button.disabled = true;
+  return button;
+}
+
 function createEpgEventDetailCard(event, channel) {
   const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
   const end = frontendEventEnd(event, start);
+  const channelTitle = epgChannelTitle(channel, 0);
   const detail = document.createElement('article');
-  detail.className = 'module-placeholder epg-event-detail';
+  detail.className = 'module-placeholder epg-event-detail epg-event-detail-action-panel';
 
-  detail.appendChild(addText(document.createElement('h3'), epgEventTitle(event)));
+  const hero = document.createElement('div');
+  hero.className = 'epg-detail-hero';
 
-  const meta = [
-    'Kanal: ' + epgChannelTitle(channel, 0),
-    formatEpgClockFromEpoch(start) + '–' + formatEpgClockFromEpoch(end)
-  ];
-  detail.appendChild(addText(document.createElement('p'), meta.join(' · ')));
+  const eyebrow = addText(document.createElement('div'), 'EPG-Details');
+  eyebrow.className = 'epg-detail-eyebrow';
+  hero.appendChild(eyebrow);
+
+  const title = addText(document.createElement('h3'), epgEventTitle(event));
+  title.className = 'epg-detail-title';
+  hero.appendChild(title);
 
   const subtitle = epgEventSubtitle(event);
   if (subtitle !== '') {
-    detail.appendChild(addText(document.createElement('p'), subtitle));
+    const subtitleElement = addText(document.createElement('p'), subtitle);
+    subtitleElement.className = 'epg-detail-subtitle';
+    hero.appendChild(subtitleElement);
   }
+
+  detail.appendChild(hero);
+
+  const metaGrid = document.createElement('div');
+  metaGrid.className = 'epg-detail-meta-grid';
+
+  appendEpgDetailMeta(metaGrid, 'Kanal', channelTitle);
+  appendEpgDetailMeta(metaGrid, 'Zeit', formatEpgClockFromEpoch(start) + '–' + formatEpgClockFromEpoch(end));
+  appendEpgDetailMeta(metaGrid, 'Dauer', formatEpgDuration(start, end));
+  appendEpgDetailMeta(metaGrid, 'Backend', selectedEpgBackendId());
+
+  detail.appendChild(metaGrid);
+
+  const description = epgEventDescription(event);
+  if (description !== '' && description !== subtitle) {
+    const descriptionBox = document.createElement('div');
+    descriptionBox.className = 'epg-detail-description';
+    descriptionBox.appendChild(addText(document.createElement('h4'), 'Beschreibung'));
+    descriptionBox.appendChild(addText(document.createElement('p'), description));
+    detail.appendChild(descriptionBox);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'epg-detail-actions';
+  actions.setAttribute('aria-label', 'EPG Aktionen');
+
+  actions.appendChild(createEpgDetailAction('Aufnahme', 'Aktion vorbereitet. Echte Aufnahmefunktion folgt in der nächsten Phase.'));
+  actions.appendChild(createEpgDetailAction('Timer', 'Aktion vorbereitet. Echte Timer-Erstellung folgt in der nächsten Phase.'));
+  actions.appendChild(createEpgDetailAction('Suchtimer', 'Aktion vorbereitet. Echte SearchTimer-Anbindung folgt später.'));
+  actions.appendChild(createEpgDetailAction('Mehr …', 'Weitere EPG-Aktionen werden später angebunden.'));
+
+  detail.appendChild(actions);
 
   const eventId = firstValue(event, ['eventId', 'id', 'nativeId'], '');
   const channelId = frontendEventChannelId(event);

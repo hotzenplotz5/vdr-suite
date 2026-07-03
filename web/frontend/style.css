@@ -1414,3 +1414,129 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+
+/* Phase 58.82: EPG detail action panel */
+.epg-event-detail-action-panel {
+  padding: 0;
+  overflow: hidden;
+  border-color: rgba(34, 211, 238, 0.38);
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.2), transparent 34%),
+    linear-gradient(135deg, rgba(2, 6, 23, 0.98), rgba(15, 23, 42, 0.94));
+}
+
+.epg-detail-hero {
+  padding: 0.9rem 0.95rem 0.72rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.epg-detail-eyebrow {
+  color: #7dd3fc;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.epg-detail-title {
+  margin: 0.25rem 0 0;
+  color: #f8fafc;
+  font-size: 1.18rem;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.epg-detail-subtitle {
+  margin-top: 0.45rem;
+  color: #bfdbfe;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.epg-detail-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.42rem;
+  padding: 0.75rem 0.95rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.epg-detail-meta-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding-bottom: 0.34rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.epg-detail-meta-item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.epg-detail-meta-label {
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.epg-detail-meta-value {
+  min-width: 0;
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.epg-detail-description {
+  padding: 0.75rem 0.95rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.epg-detail-description h4 {
+  margin: 0 0 0.35rem;
+  color: #f8fafc;
+  font-size: 0.88rem;
+}
+
+.epg-detail-description p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.86rem;
+  line-height: 1.42;
+}
+
+.epg-detail-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.42rem;
+  padding: 0.75rem 0.95rem;
+}
+
+.epg-detail-action {
+  padding: 0.5rem 0.55rem;
+  border-radius: 0.72rem;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  background: rgba(37, 99, 235, 0.18);
+  color: #bfdbfe;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.epg-detail-action:disabled {
+  cursor: default;
+  opacity: 0.72;
+  background: rgba(51, 65, 85, 0.52);
+  color: #cbd5e1;
+}
+
+.epg-event-detail-action-panel .epg-event-technical {
+  margin: 0;
+  padding: 0 0.95rem 0.82rem;
+}
+
+@media (max-width: 760px) {
+  .epg-detail-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
