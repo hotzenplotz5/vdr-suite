@@ -66,6 +66,7 @@ class FakeEpgCacheController : public IEpgCacheController
 {
 public:
     int refreshCalls = 0;
+    int statusCalls = 0;
     int nowNextCalls = 0;
     int windowCalls = 0;
 
@@ -88,6 +89,22 @@ public:
         response.statusCode = 200;
         response.contentType = "application/json";
         response.body = "{\"route\":\"refresh\"}";
+        return response;
+    }
+
+
+    ApiResponse getStatus(
+        const std::string& backendId) const override
+    {
+        FakeEpgCacheController* self =
+            const_cast<FakeEpgCacheController*>(this);
+        ++self->statusCalls;
+        self->lastBackendId = backendId;
+
+        ApiResponse response;
+        response.statusCode = 200;
+        response.contentType = "application/json";
+        response.body = "{\"route\":\"status\"}";
         return response;
     }
 
@@ -302,6 +319,11 @@ int main()
     assert(unavailableRead.statusCode == 503);
     assert(contains(unavailableRead.body, "epg cache unavailable"));
 
+    const ApiResponse unavailableStatus = unavailableRouter.handleGet(
+        "/api/epg/cache/status?backend=home-vdr");
+    assert(unavailableStatus.statusCode == 503);
+    assert(contains(unavailableStatus.body, "epg cache unavailable"));
+
     FakeEpgCacheController fakeEpgCacheController;
 
     ApiRouter router(
@@ -347,6 +369,14 @@ int main()
     assert(fakeEpgCacheController.lastQuery.start == 3);
     assert(fakeEpgCacheController.lastQuery.limit == 4);
     assert(fakeEpgCacheController.lastQuery.channelEventLimit == 2);
+
+    const ApiResponse status = router.handleGet(
+        "/api/epg/cache/status?backend=status-vdr");
+
+    assert(status.statusCode == 200);
+    assert(contains(status.body, "status"));
+    assert(fakeEpgCacheController.statusCalls == 1);
+    assert(fakeEpgCacheController.lastBackendId == "status-vdr");
 
     const ApiResponse nowNext = router.handleGet(
         "/api/epg/cache/now-next?backend=parents-vdr&channelId=channel-2&fromTime=1000&limit=9");

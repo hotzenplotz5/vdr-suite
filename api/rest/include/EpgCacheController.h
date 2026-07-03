@@ -17,6 +17,9 @@ public:
         const std::string& backendId,
         const VdrEventQuery& query) = 0;
 
+    virtual ApiResponse getStatus(
+        const std::string& backendId) const = 0;
+
     virtual ApiResponse getNowNext(
         const std::string& backendId,
         const std::string& channelId,
@@ -40,6 +43,9 @@ public:
     ApiResponse refreshBackendWindow(
         const std::string& backendId,
         const VdrEventQuery& query) override;
+
+    ApiResponse getStatus(
+        const std::string& backendId) const override;
 
     ApiResponse getNowNext(
         const std::string& backendId,

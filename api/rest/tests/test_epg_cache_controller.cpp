@@ -184,6 +184,56 @@ static void test_bounded_refresh_and_now_next_read_return_backend_scoped_json()
     assert(adapter.boundedEventCalls == 2);
 }
 
+static void test_status_reports_count_and_last_refresh_metadata()
+{
+    std::remove("/tmp/vdr-suite-epg-cache-controller-status-test.db");
+
+    Database database;
+    assert(database.open("/tmp/vdr-suite-epg-cache-controller-status-test.db"));
+
+    EpgEventRepository repository(database);
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    EpgCacheService service(repository, vdrService);
+    EpgCacheController controller(service);
+
+    const ApiResponse initialStatus =
+        controller.getStatus("default");
+
+    assert(initialStatus.statusCode == 200);
+    assert(contains(initialStatus.body, "\"backendId\":\"default\""));
+    assert(contains(initialStatus.body, "\"ready\":false"));
+    assert(contains(initialStatus.body, "\"eventCount\":0"));
+    assert(contains(initialStatus.body, "\"lastRefreshKnown\":false"));
+
+    VdrEventQuery query;
+    query.limit = 1;
+
+    adapter.events = {
+        make_event("event-1", "channel-1", "Status Cached", "0900", "1100")};
+
+    const ApiResponse refresh =
+        controller.refreshBackendWindow("default", query);
+
+    assert(refresh.statusCode == 200);
+
+    const ApiResponse status =
+        controller.getStatus("default");
+
+    assert(status.statusCode == 200);
+    assert(contains(status.body, "\"backendId\":\"default\""));
+    assert(contains(status.body, "\"ready\":true"));
+    assert(contains(status.body, "\"eventCount\":1"));
+    assert(contains(status.body, "\"lastRefreshKnown\":true"));
+    assert(contains(status.body, "\"lastRefreshAccepted\":true"));
+    assert(contains(status.body, "\"lastRefreshFetched\":true"));
+    assert(contains(status.body, "\"lastRefreshStored\":true"));
+    assert(contains(status.body, "\"lastRefreshEventCount\":1"));
+    assert(contains(status.body, "\"lastRefreshDurationMs\":"));
+    assert(contains(status.body, "\"lastError\":\"\""));
+}
+
+
 static void test_window_read_defaults_empty_backend_to_default()
 {
     std::remove("/tmp/vdr-suite-epg-cache-controller-default-test.db");
@@ -223,6 +273,7 @@ int main()
 {
     test_unbounded_refresh_returns_bad_request_without_adapter_fetch();
     test_bounded_refresh_and_now_next_read_return_backend_scoped_json();
+    test_status_reports_count_and_last_refresh_metadata();
     test_window_read_defaults_empty_backend_to_default();
 
     return 0;

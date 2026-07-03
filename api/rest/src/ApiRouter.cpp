@@ -772,6 +772,17 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.getInt("limit", 5));
     }
 
+    if (path == "/api/epg/cache/status")
+    {
+        if (epgCacheController_ == nullptr)
+        {
+            return makeEpgCacheUnavailableResponse();
+        }
+
+        return epgCacheController_->getStatus(
+            normalizeBackendId(queryParameters.get("backend")));
+    }
+
     if (path == "/api/epg/cache/now-next")
     {
         if (epgCacheController_ == nullptr)

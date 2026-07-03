@@ -137,6 +137,31 @@ std::string serializeRefreshResult(
     return json.str();
 }
 
+std::string serializeStatus(
+    const EpgCacheStatus& status)
+{
+    std::ostringstream json;
+
+    json
+        << "{"
+        << "\"backendId\":\"" << escapeJsonString(status.backendId) << "\","
+        << "\"ready\":" << boolJson(status.ready) << ","
+        << "\"eventCount\":" << status.eventCount << ","
+        << "\"lastRefreshKnown\":" << boolJson(status.lastRefreshKnown) << ","
+        << "\"lastRefreshAccepted\":" << boolJson(status.lastRefreshAccepted) << ","
+        << "\"lastRefreshFetched\":" << boolJson(status.lastRefreshFetched) << ","
+        << "\"lastRefreshStored\":" << boolJson(status.lastRefreshStored) << ","
+        << "\"lastRefreshEventCount\":" << status.lastRefreshEventCount << ","
+        << "\"lastRefreshStartedAt\":" << status.lastRefreshStartedAt << ","
+        << "\"lastRefreshFinishedAt\":" << status.lastRefreshFinishedAt << ","
+        << "\"lastRefreshDurationMs\":" << status.lastRefreshDurationMs << ","
+        << "\"lastError\":\"" << escapeJsonString(status.lastError) << "\""
+        << "}";
+
+    return json.str();
+}
+
+
 std::string serializeBackendNotFound(
     const std::string& backendId)
 {
@@ -220,6 +245,24 @@ ApiResponse EpgCacheController::refreshBackendWindow(
     return jsonResponse(
         200,
         serializeRefreshResult(normalizedBackendId, result));
+}
+
+ApiResponse EpgCacheController::getStatus(
+    const std::string& backendId) const
+{
+    const std::string normalizedBackendId = normalizeBackendId(backendId);
+    EpgCacheService* service = findService(normalizedBackendId);
+
+    if (service == nullptr)
+    {
+        return jsonResponse(
+            404,
+            serializeBackendNotFound(normalizedBackendId));
+    }
+
+    return jsonResponse(
+        200,
+        serializeStatus(service->getStatusForBackend(normalizedBackendId)));
 }
 
 ApiResponse EpgCacheController::getNowNext(

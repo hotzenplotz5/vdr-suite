@@ -6,7 +6,9 @@
 #include "VdrService.h"
 
 #include <cstddef>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 struct EpgCacheRefreshResult
@@ -15,6 +17,23 @@ struct EpgCacheRefreshResult
     bool fetched = false;
     bool stored = false;
     std::size_t eventCount = 0;
+};
+
+struct EpgCacheStatus
+{
+    std::string backendId;
+    bool ready = false;
+    int eventCount = 0;
+
+    bool lastRefreshKnown = false;
+    bool lastRefreshAccepted = false;
+    bool lastRefreshFetched = false;
+    bool lastRefreshStored = false;
+    std::size_t lastRefreshEventCount = 0;
+    long long lastRefreshStartedAt = 0;
+    long long lastRefreshFinishedAt = 0;
+    long long lastRefreshDurationMs = 0;
+    std::string lastError;
 };
 
 class EpgCacheService
@@ -27,6 +46,9 @@ public:
     EpgCacheRefreshResult refreshBackendWindow(
         const std::string& backendId,
         const VdrEventQuery& query);
+
+    EpgCacheStatus getStatusForBackend(
+        const std::string& backendId) const;
 
     std::vector<VdrEvent> findNowNextForBackend(
         const std::string& backendId,
@@ -52,6 +74,32 @@ public:
         const VdrEventQuery& query);
 
 private:
+    struct RefreshMetadata
+    {
+        bool known = false;
+        bool accepted = false;
+        bool fetched = false;
+        bool stored = false;
+        std::size_t eventCount = 0;
+        long long startedAt = 0;
+        long long finishedAt = 0;
+        long long durationMs = 0;
+        std::string lastError;
+    };
+
     EpgEventRepository& repository_;
     VdrService& vdrService_;
+    mutable std::mutex statusMutex_;
+    std::unordered_map<std::string, RefreshMetadata> refreshMetadataByBackend_;
+
+    void updateStatusForBackend(
+        const std::string& backendId,
+        const EpgCacheRefreshResult& result,
+        long long startedAt,
+        long long finishedAt,
+        long long durationMs,
+        const std::string& lastError);
+
+    static std::string normalizeBackendId(
+        const std::string& backendId);
 };
