@@ -2,6 +2,7 @@
 
 #include "VdrEvent.h"
 
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,7 @@ public:
 
 private:
     Database& database_;
+    mutable std::recursive_mutex mutex_;
 
     static std::string normalizeBackendId(const std::string& backendId);
 };

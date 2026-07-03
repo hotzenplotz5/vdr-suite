@@ -120,7 +120,9 @@
 #include "SimpleHttpListener.h"
 
 #include <atomic>
+#include <thread>
 #include <memory>
+#include <string>
 #include <vector>
 
 class DaemonRuntime
@@ -135,11 +137,18 @@ public:
 private:
     static void handleSignal(int signalNumber);
     void pollVdrAndUpdateChangeFeed();
+    void startEpgCacheWarmupWorker();
+    void stopEpgCacheWarmupWorker();
+    void runEpgCacheWarmupWorker();
+    void refreshEpgCacheForAllBackends(const std::string& reason);
     std::unique_ptr<BackendRuntimeContext> createBackendRuntimeContext(
         const BackendNode& backend);
 
     bool initialized_;
     std::atomic<bool> externalVdrChangeHint_;
+    std::atomic<bool> epgCacheWarmupStopRequested_;
+    std::atomic<bool> epgCacheDirtyHint_;
+    std::thread epgCacheWarmupThread_;
 
     RuntimeConfig config_;
     ConsoleRuntimeLogger runtimeLogger_;

@@ -116,6 +116,8 @@ EpgEventRepository::EpgEventRepository(Database& database)
 
 bool EpgEventRepository::ensureSchema()
 {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+
     return database_.execute(
         "CREATE TABLE IF NOT EXISTS epg_events ("
         "backend_id TEXT NOT NULL,"
@@ -145,6 +147,8 @@ bool EpgEventRepository::upsertEventsForBackend(
     const std::string& backendId,
     const std::vector<VdrEvent>& events)
 {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+
     if (!ensureSchema())
     {
         return false;
@@ -236,6 +240,8 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
     const std::string& untilTime,
     int eventLimit) const
 {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+
     sqlite3_stmt* stmt = nullptr;
 
     const bool hasChannel = !channelId.empty();
@@ -309,6 +315,8 @@ bool EpgEventRepository::deleteExpiredForBackend(
     const std::string& backendId,
     const std::string& beforeEndTime)
 {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+
     sqlite3_stmt* stmt = nullptr;
 
     const char* sql =
@@ -338,6 +346,8 @@ bool EpgEventRepository::deleteExpiredForBackend(
 int EpgEventRepository::countForBackend(
     const std::string& backendId) const
 {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+
     sqlite3_stmt* stmt = nullptr;
 
     const char* sql =
