@@ -1046,11 +1046,6 @@ function updateEpgWarmCacheStatusText() {
   }
 }
 
-function startEpgWarmCacheRefresh() {
-  epgWarmCacheStatus = 'EPG-Cache wird vom Daemon im Hintergrund aktualisiert.';
-  updateEpgWarmCacheStatusText();
-}
-
 function epgWindowBounds() {
   const from = Math.floor(Date.now() / 1000);
   return {
@@ -1142,24 +1137,6 @@ function listEventsFromEpgResponse(data) {
   return listFromResponse(data, 'events');
 }
 
-function fetchLiveEpgWindow() {
-  const liveUrl = '/api/epg/time-window?from=-1&timespan=86400&_='
-    + encodeURIComponent(String(Date.now()));
-
-  return fetch(liveUrl, { cache: 'no-store' })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Live-EPG HTTP ' + response.status);
-      }
-      return response.json();
-    })
-    .then(data => {
-      data.__debugUrl = liveUrl;
-      data.__source = 'live';
-      return data;
-    });
-}
-
 function fetchCachedOrLiveEpgWindow() {
   const backendId = selectedEpgBackendId();
   const bounds = epgWindowBounds();
@@ -1211,138 +1188,6 @@ function visibleEpgChannelsFromData(channelData) {
   }
 
   return channels.slice(epgChannelOffset, epgChannelOffset + limit);
-}
-
-function fetchCachedEpgWindowForChannel(channel) {
-  const channelId = frontendChannelId(channel);
-
-  if (channelId === '') {
-    return Promise.resolve({
-      events: [],
-      eventCount: 0,
-      __source: 'empty',
-      __debugUrl: 'channel-without-id'
-    });
-  }
-
-  const backendId = selectedEpgBackendId();
-  const bounds = epgWindowBounds();
-
-  const cacheUrl = '/api/epg/cache/window'
-    + '?backend=' + encodeURIComponent(backendId)
-    + '&channelId=' + encodeURIComponent(channelId)
-    + '&fromTime=' + encodeURIComponent(String(bounds.from))
-    + '&untilTime=' + encodeURIComponent(String(bounds.until))
-    + '&limit=0'
-    + '&_=' + encodeURIComponent(String(Date.now()));
-
-  return fetch(cacheUrl, { cache: 'no-store' })
-    .then(response => {
-      if (!response.ok) {
-        return {
-          events: [],
-          eventCount: 0,
-          __source: 'cache-miss',
-          __debugUrl: cacheUrl
-        };
-      }
-
-      return response.json()
-        .then(data => {
-          data.__source = 'cache';
-          data.__debugUrl = cacheUrl;
-          return data;
-        });
-    })
-    .catch(() => ({
-      events: [],
-      eventCount: 0,
-      __source: 'cache-error',
-      __debugUrl: cacheUrl
-    }));
-}
-
-function mergeVisibleCachedEpgResponses(responses) {
-  const events = [];
-  let cacheHits = 0;
-
-  responses.forEach(response => {
-    const responseEvents = listEventsFromEpgResponse(response);
-    if (responseEvents.length > 0) {
-      cacheHits += 1;
-    }
-
-    responseEvents.forEach(event => events.push(event));
-  });
-
-  return {
-    events,
-    eventCount: events.length,
-    __source: cacheHits > 0 ? 'cache-visible' : 'cache-empty',
-    __partialWindow: true,
-    __debugUrl: String(responses.length) + ' sichtbare Cache-Kanalabfragen · Treffer: ' + String(cacheHits)
-  };
-}
-
-function fetchVisibleCachedEpgWindow(channelData) {
-  const visibleChannels = visibleEpgChannelsFromData(channelData);
-
-  if (visibleChannels.length === 0) {
-    return Promise.resolve({
-      events: [],
-      eventCount: 0,
-      __source: 'cache-empty',
-      __partialWindow: true,
-      __debugUrl: 'keine sichtbaren Kanäle'
-    });
-  }
-
-  return Promise.all(
-    visibleChannels.map(channel => fetchCachedEpgWindowForChannel(channel))
-  ).then(mergeVisibleCachedEpgResponses);
-}
-
-function fetchVisibleCacheOrLiveEpgWindow(channelData) {
-  return fetchVisibleCachedEpgWindow(channelData)
-    .then(cacheData => {
-      if (listEventsFromEpgResponse(cacheData).length > 0) {
-        return cacheData;
-      }
-
-      return fetchLiveEpgWindow()
-        .then(liveData => {
-          liveData.__source = 'live-full-fallback';
-          liveData.__partialWindow = false;
-          return liveData;
-        });
-    });
-}
-
-function loadVisibleCachedEpgPage(channelData) {
-  if (!channelData) {
-    loadEpgTimeline();
-    return;
-  }
-
-  renderEpgTimelineLoading();
-
-  fetchVisibleCachedEpgWindow(channelData)
-    .then(eventData => {
-      currentChannels = channelData;
-      currentEvents = eventData;
-      epgLoadedBackendId = selectedEpgBackendId();
-
-      if (listEventsFromEpgResponse(eventData).length === 0) {
-        epgWarmCacheStatus = 'Für diese Kanalseite sind noch keine Cache-Daten vorhanden. Der EPG-Cache wird im Hintergrund aufgebaut.';
-        updateEpgWarmCacheStatusText();
-        epgWarmCacheStatus = 'Für diese Kanalseite sind noch keine Cache-Daten vorhanden. Automatischer Voll-Refresh ist deaktiviert, damit die Navigation nicht blockiert.';
-      }
-
-      renderEpgTimeView(channelData, eventData);
-    })
-    .catch(error => {
-      renderModuleError('EPG-Cache-Seite konnte nicht geladen werden', error);
-    });
 }
 
 function loadEpgTimeline() {
