@@ -154,6 +154,11 @@ bool EpgEventRepository::upsertEventsForBackend(
         return false;
     }
 
+    if (events.empty())
+    {
+        return true;
+    }
+
     sqlite3_stmt* stmt = nullptr;
 
     const char* sql =
@@ -180,6 +185,12 @@ bool EpgEventRepository::upsertEventsForBackend(
             &stmt,
             nullptr) != SQLITE_OK)
     {
+        return false;
+    }
+
+    if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+    {
+        sqlite3_finalize(stmt);
         return false;
     }
 
@@ -210,11 +221,22 @@ bool EpgEventRepository::upsertEventsForBackend(
         if (sqlite3_step(stmt) != SQLITE_DONE)
         {
             sqlite3_finalize(stmt);
+            database_.execute("ROLLBACK;");
             return false;
         }
     }
 
-    sqlite3_finalize(stmt);
+    if (sqlite3_finalize(stmt) != SQLITE_OK)
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+
+    if (!database_.execute("COMMIT;"))
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
 
     return true;
 }
