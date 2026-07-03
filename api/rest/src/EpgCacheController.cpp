@@ -4,6 +4,7 @@
 #include "EpgCacheServiceRegistry.h"
 #include "VdrEvent.h"
 
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -24,7 +25,7 @@ std::string escapeJsonString(const std::string& value)
 {
     std::ostringstream escaped;
 
-    for (char character : value)
+    for (unsigned char character : value)
     {
         switch (character)
         {
@@ -44,7 +45,21 @@ std::string escapeJsonString(const std::string& value)
             escaped << "\\t";
             break;
         default:
-            escaped << character;
+            if (character < 0x20)
+            {
+                escaped
+                    << "\\u"
+                    << std::hex
+                    << std::setw(4)
+                    << std::setfill('0')
+                    << static_cast<int>(character)
+                    << std::dec
+                    << std::setfill(' ');
+            }
+            else
+            {
+                escaped << static_cast<char>(character);
+            }
             break;
         }
     }
