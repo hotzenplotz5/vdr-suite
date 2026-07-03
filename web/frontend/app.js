@@ -1059,6 +1059,85 @@ function epgWindowBounds() {
   };
 }
 
+function formatEpgCacheTimestamp(epochSeconds) {
+  const value = Number(epochSeconds);
+
+  if (!Number.isFinite(value) || value <= 0) {
+    return '-';
+  }
+
+  return new Date(value * 1000).toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
+function formatEpgCacheDurationMs(durationMs) {
+  const value = Number(durationMs);
+
+  if (!Number.isFinite(value) || value <= 0) {
+    return '-';
+  }
+
+  if (value < 1000) {
+    return String(Math.round(value)) + 'ms';
+  }
+
+  return (value / 1000).toFixed(1).replace('.', ',') + 's';
+}
+
+function describeEpgCacheStatus(status, loadedEventCount) {
+  if (!status) {
+    return 'EPG-Cache-Status konnte nicht geladen werden.';
+  }
+
+  if (status.__statusError) {
+    return 'EPG-Cache-Status konnte nicht geladen werden: ' + status.__statusError;
+  }
+
+  const eventCount = Number(status.eventCount || loadedEventCount || 0);
+  const parts = [];
+
+  parts.push(status.ready ? 'Cache bereit' : 'Cache noch leer');
+  parts.push(String(eventCount) + ' Events in SQLite');
+
+  if (status.lastRefreshKnown) {
+    parts.push('letzter Warmup ' + formatEpgCacheTimestamp(status.lastRefreshFinishedAt));
+    parts.push('Dauer ' + formatEpgCacheDurationMs(status.lastRefreshDurationMs));
+
+    if (status.lastRefreshStored !== true) {
+      parts.push('letzter Warmup nicht gespeichert');
+    }
+  } else {
+    parts.push('noch kein Warmup seit Daemon-Start erfasst');
+  }
+
+  if (status.lastError) {
+    parts.push('Fehler: ' + String(status.lastError));
+  }
+
+  return parts.join(' · ');
+}
+
+function fetchEpgCacheStatusForBackend(backendId) {
+  const statusUrl = '/api/epg/cache/status'
+    + '?backend=' + encodeURIComponent(backendId)
+    + '&_=' + encodeURIComponent(String(Date.now()));
+
+  return fetch(statusUrl, { cache: 'no-store' })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+
+      return response.json();
+    })
+    .catch(error => ({
+      __statusError: error.message
+    }));
+}
+
 function listEventsFromEpgResponse(data) {
   return listFromResponse(data, 'events');
 }
@@ -1092,23 +1171,26 @@ function fetchCachedOrLiveEpgWindow() {
     + '&limit=0'
     + '&_=' + encodeURIComponent(String(Date.now()));
 
-  return fetch(cacheUrl, { cache: 'no-store' })
+  const windowRequest = fetch(cacheUrl, { cache: 'no-store' })
     .then(response => {
       if (!response.ok) {
         throw new Error('EPG-Cache HTTP ' + response.status);
       }
 
       return response.json();
-    })
-    .then(data => {
+    });
+
+  const statusRequest = fetchEpgCacheStatusForBackend(backendId);
+
+  return Promise.all([windowRequest, statusRequest])
+    .then(([data, status]) => {
       const events = listEventsFromEpgResponse(data);
       data.__debugUrl = cacheUrl;
       data.__source = events.length > 0 ? 'cache-full' : 'cache-empty';
       data.__partialWindow = false;
+      data.__cacheStatus = status;
 
-      epgWarmCacheStatus = events.length > 0
-        ? 'EPG-Cache bereit: ' + String(events.length) + ' Events aus SQLite geladen.'
-        : 'EPG-Cache ist noch leer. Der Daemon füllt die Datenbank im Hintergrund.';
+      epgWarmCacheStatus = describeEpgCacheStatus(status, events.length);
       updateEpgWarmCacheStatusText();
 
       return data;
