@@ -1017,7 +1017,7 @@ function createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds) 
       }
 
       card.style.top = position.left.toFixed(3) + '%';
-      card.style.height = Math.max(position.width, 3.2).toFixed(3) + '%';
+      card.style.height = position.width.toFixed(3) + '%';
       card.title = epgEventTitle(entry.event)
         + ' · ' + formatEpgClockFromEpoch(entry.start)
         + '–' + formatEpgClockFromEpoch(entry.end);
@@ -1264,7 +1264,7 @@ function renderEpgTimeView(channelData, eventData) {
       }
 
       card.style.left = position.left.toFixed(3) + '%';
-      card.style.width = Math.max(position.width, 1.4).toFixed(3) + '%';
+      card.style.width = position.width.toFixed(3) + '%';
       card.title = epgEventTitle(entry.event)
         + ' · ' + formatEpgClockFromEpoch(entry.start)
         + '–' + formatEpgClockFromEpoch(entry.end);

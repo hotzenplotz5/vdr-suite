@@ -646,10 +646,10 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
 .epg-time-scale-row,
 .epg-time-row {
   display: grid;
-  grid-template-columns: 13.5rem minmax(432rem, 1fr);
+  grid-template-columns: 13.5rem minmax(720rem, 1fr);
   gap: 0.75rem;
   align-items: stretch;
-  min-width: 448rem;
+  min-width: 736rem;
 }
 
 .epg-time-scale-channel,
@@ -702,7 +702,7 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
 }
 
 .epg-time-row-track {
-  min-height: 5.4rem;
+  min-height: 7.2rem;
 }
 
 .epg-time-grid-line {
@@ -763,9 +763,8 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
   bottom: 0.64rem;
   z-index: 4;
   display: block;
-  min-width: 2.4rem;
   margin: 0;
-  padding: 0.5rem 0.58rem;
+  padding: 0.42rem 0.5rem;
   overflow: hidden;
   border-radius: 0.72rem;
 }
@@ -811,8 +810,8 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
 @media (max-width: 720px) {
   .epg-time-scale-row,
   .epg-time-row {
-    grid-template-columns: 11.5rem minmax(360rem, 1fr);
-    min-width: 374rem;
+    grid-template-columns: 11.5rem minmax(600rem, 1fr);
+    min-width: 614rem;
   }
 
   .epg-time-row-channel {
@@ -881,7 +880,7 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
 .epg-vertical-time-track,
 .epg-vertical-channel-track {
   position: relative;
-  height: 432rem;
+  height: 720rem;
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.86));
@@ -946,7 +945,7 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
   z-index: 4;
   display: block;
   margin: 0;
-  padding: 0.45rem 0.52rem;
+  padding: 0.4rem 0.48rem;
   overflow: hidden;
   border-radius: 0.72rem;
 }
@@ -997,9 +996,8 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
 
   .epg-vertical-time-track,
   .epg-vertical-channel-track {
-    height: 396rem;
+    height: 660rem;
   }
-}
 }
 
 /* Phase 58.78: 24h EPG window controls */
