@@ -467,3 +467,87 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
 .epg-timeline-preview {
   border-color: rgba(56, 189, 248, 0.28);
 }
+
+/* Phase 58.63: bounded EPG time view */
+.epg-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+}
+
+.epg-pager button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.epg-channel-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(13rem, 1fr));
+  gap: 0.85rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.epg-channel-column {
+  min-width: 13rem;
+  border: 1px solid rgba(96, 165, 250, 0.26);
+  border-radius: 1rem;
+  background: rgba(2, 6, 23, 0.58);
+  padding: 0.8rem;
+}
+
+.epg-channel-column h3 {
+  margin: 0 0 0.7rem;
+  color: #f8fafc;
+  font-size: 0.95rem;
+}
+
+.epg-event-card {
+  display: block;
+  width: 100%;
+  margin: 0 0 0.62rem;
+  padding: 0.68rem;
+  text-align: left;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 0.8rem;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.72));
+  color: #e2e8f0;
+}
+
+.epg-event-card:hover,
+.epg-event-card:focus {
+  border-color: rgba(56, 189, 248, 0.58);
+  outline: none;
+}
+
+.epg-event-time {
+  color: #93c5fd;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.epg-event-title {
+  margin-top: 0.18rem;
+  color: #f8fafc;
+  font-weight: 850;
+}
+
+.epg-event-subtitle,
+.epg-empty-channel {
+  margin-top: 0.2rem;
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.epg-event-detail {
+  border-color: rgba(56, 189, 248, 0.42);
+}
+
+@media (max-width: 720px) {
+  .epg-channel-grid {
+    grid-template-columns: repeat(5, minmax(15rem, 78vw));
+  }
+}
