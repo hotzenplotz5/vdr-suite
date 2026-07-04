@@ -74,7 +74,7 @@ KillSignal=SIGTERM
 TimeoutStopSec=15
 ```
 
-This matches the existing daemon SIGTERM shutdown behaviour and avoids the previous manual `kill -9` workflow.
+This matches the existing daemon SIGTERM shutdown behaviour and avoids the previous manual forced-stop workflow.
 
 ---
 
@@ -113,3 +113,10 @@ The test remains DESTDIR-only and does not mutate the live host system.
 Phase 58.48 does not add Debian maintainer scripts, automatic service enabling, package dependencies, a dedicated runtime user, or final hardening rules.
 
 Those belong to later packaging/hardening work.
+
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Current Project Status](current-status.md)
