@@ -972,6 +972,18 @@ function alignEpgSideDetailToSource(sourceElement) {
 
 function renderEpgEventDetail(event, channel, sourceElement) {
   selectedEpgDetail = { event, channel };
+
+  if (
+    isMobileEpgLayout()
+    && sourceElement
+    && sourceElement.classList
+    && sourceElement.classList.contains('epg-program-event')
+  ) {
+    renderMobileEpgInlineDetail(event, channel, sourceElement);
+    return;
+  }
+
+  clearMobileEpgInlineDetails(null);
   renderEpgSideDetail();
   alignEpgSideDetailToSource(sourceElement);
 
@@ -981,6 +993,75 @@ function renderEpgEventDetail(event, channel, sourceElement) {
   if (holder && !desktop) {
     holder.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+}
+
+function isMobileEpgLayout() {
+  return window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
+}
+
+function clearMobileEpgInlineDetails(focusElement) {
+  detailDataElement.querySelectorAll('[data-epg-inline-detail="true"]').forEach(element => {
+    element.remove();
+  });
+
+  detailDataElement.querySelectorAll('.epg-program-card-expanded').forEach(card => {
+    card.classList.remove('epg-program-card-expanded');
+  });
+
+  detailDataElement.querySelectorAll('.epg-program-event.selected').forEach(button => {
+    button.classList.remove('selected');
+    button.removeAttribute('aria-expanded');
+  });
+
+  if (focusElement && typeof focusElement.focus === 'function') {
+    try {
+      focusElement.focus({ preventScroll: true });
+    } catch (focusError) {
+      void focusError;
+      focusElement.focus();
+    }
+  }
+}
+
+function renderMobileEpgInlineDetail(event, channel, sourceElement) {
+  const card = sourceElement ? sourceElement.closest('.epg-program-card') : null;
+  const events = card ? card.querySelector('.epg-program-events') : null;
+
+  if (!card || !events) {
+    renderEpgSideDetail();
+    alignEpgSideDetailToSource(sourceElement);
+    return;
+  }
+
+  clearMobileEpgInlineDetails(null);
+
+  card.classList.add('epg-program-card-expanded');
+  sourceElement.classList.add('selected');
+  sourceElement.setAttribute('aria-expanded', 'true');
+
+  const inline = document.createElement('section');
+  inline.className = 'epg-program-inline-detail';
+  inline.dataset.epgInlineDetail = 'true';
+
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'epg-mobile-back-button';
+  back.textContent = 'Zurück zur EPG-Liste';
+  back.addEventListener('click', () => {
+    selectedEpgDetail = null;
+    clearMobileEpgInlineDetails(sourceElement);
+    renderEpgSideDetail();
+  });
+
+  inline.appendChild(back);
+  inline.appendChild(createEpgEventDetailCard(event, channel));
+
+  events.insertAdjacentElement('afterend', inline);
+  renderEpgSideDetail();
+
+  window.setTimeout(() => {
+    inline.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 30);
 }
 
 function createEpgEventCard(entry, channel) {
@@ -1726,8 +1807,14 @@ function renderEpgTimeView(channelData, eventData) {
   const channels = listFromResponse(channelData, 'channels');
   const events = listFromResponse(eventData, 'events');
   const nowSeconds = Math.floor(Date.now() / 1000);
+
+  if (isMobileEpgLayout() && (epgProgramView === 'horizontal' || epgProgramView === 'vertical')) {
+    epgProgramView = 'live';
+    epgTimeAxisMode = 'horizontal';
+  }
+
   const bounds = epgTimelineBounds(nowSeconds);
-  const limit = EPG_VISIBLE_CHANNEL_LIMIT;
+  const limit = isMobileEpgLayout() ? 8 : EPG_VISIBLE_CHANNEL_LIMIT;
   const visibleChannels = channels.slice(epgChannelOffset, epgChannelOffset + limit);
 
   detailDataElement.replaceChildren();
@@ -1768,12 +1855,22 @@ function renderEpgTimeView(channelData, eventData) {
   cacheStatus.dataset.epgCacheStatus = 'true';
   header.appendChild(cacheStatus);
 
+  if (isMobileEpgLayout()) {
+    const mobileHint = addText(
+      document.createElement('p'),
+      'Mobile Ansicht: Zeitachsen sind deaktiviert. Sendung antippen, die Kachel klappt mit Details auf.'
+    );
+    mobileHint.className = 'epg-mobile-mode-note';
+    header.appendChild(mobileHint);
+  }
+
   const modeRow = document.createElement('div');
   modeRow.className = 'epg-view-toggle';
 
   const timeView = document.createElement('button');
   timeView.type = 'button';
   timeView.className = 'epg-view-button ' + (epgProgramView === 'horizontal' ? 'active' : '');
+  timeView.classList.add('epg-desktop-only');
   timeView.textContent = 'Zeit horizontal · Zeitachse oben';
   timeView.addEventListener('click', () => {
     epgTimelineMode = 'time';
@@ -1789,6 +1886,7 @@ function renderEpgTimeView(channelData, eventData) {
   const verticalTimeView = document.createElement('button');
   verticalTimeView.type = 'button';
   verticalTimeView.className = 'epg-view-button ' + (epgProgramView === 'vertical' ? 'active' : '');
+  verticalTimeView.classList.add('epg-desktop-only');
   verticalTimeView.textContent = 'Zeit vertikal · Kanäle oben';
   verticalTimeView.addEventListener('click', () => {
     epgTimelineMode = 'time';
@@ -1855,7 +1953,7 @@ function renderEpgTimeView(channelData, eventData) {
 
   const previous = document.createElement('button');
   previous.type = 'button';
-  previous.textContent = 'Vorherige 15';
+  previous.textContent = 'Vorherige ' + String(limit);
   previous.disabled = epgChannelOffset <= 0;
   previous.addEventListener('click', () => {
     epgChannelOffset = Math.max(0, epgChannelOffset - limit);
@@ -1864,7 +1962,7 @@ function renderEpgTimeView(channelData, eventData) {
 
   const next = document.createElement('button');
   next.type = 'button';
-  next.textContent = 'Nächste 15';
+  next.textContent = 'Nächste ' + String(limit);
   next.disabled = epgChannelOffset + limit >= channels.length;
   next.addEventListener('click', () => {
     epgChannelOffset = epgChannelOffset + limit;
@@ -1877,6 +1975,7 @@ function renderEpgTimeView(channelData, eventData) {
 
   const timePager = document.createElement('div');
   timePager.className = 'epg-time-window-pager';
+  timePager.classList.add('epg-desktop-only');
 
   const current24h = document.createElement('button');
   current24h.type = 'button';
