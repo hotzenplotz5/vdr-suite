@@ -1,115 +1,26 @@
 # VDR-Suite
 
-[![VDR-Suite CI](https://github.com/hotzenplotz5/vdr-suite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hotzenplotz5/vdr-suite/actions/workflows/ci.yml)
-
-## Start Here
-
-Current state:
+## Navigation
 
 - [Current State](docs/CURRENT.md)
-
-Project overview:
-
-- [Projektübersicht Deutsch](docs/project-overview.de.md)
-- [Project Overview English](docs/project-overview.en.md)
 - [Documentation Index](docs/index.md)
-
----
-
-## What is VDR-Suite?
-
-VDR-Suite is a modern multi-backend platform for VDR.
-
-It provides a snapshot-based runtime, backend-neutral services, REST APIs, metadata foundations, search foundations and future automation features for VDR environments.
-
-VDR remains the source of truth.
-
-VDR-Suite complements VDR. It does not replace it.
+- [Roadmap](docs/planning/roadmap.md)
 
 ---
 
 ## Current Verified State
 
-Current completed major project block:
+Current completed project block:
 
 ```text
 Phase 57 - Multi-Site Backend Administration and Permissions
 ```
-
-Phase 57 completed:
-
-- backend access modes for read-write and read-only sites
-- central backend access policy
-- recording write policy from backend access mode
-- timer write coverage across core, REST, daemon and router paths
-- SearchTimer backend write permission gate
-- frontend-visible backend write hints in `/api/backends`
 
 Latest completed implementation slice:
 
 ```text
 Phase 58.90b - Stable Channel Sorter
 ```
-
-Phase 58.90b completed:
-
-- guarded channel move API
-- stable `Kanäle sortieren` frontend module
-- handle-only drag on desktop and touch devices
-- normal scrolling preserved in the sorter
-- experimental post-move focus restore excluded from the stable state
-
-Current staging command:
-
-```bash
-make install DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr
-```
-
-Current verification command:
-
-```bash
-make test-install-staging
-```
-
-Full current details are kept in [docs/CURRENT.md](docs/CURRENT.md).
-
----
-
-## Current Runtime Entry Points
-
-```text
-/usr/sbin/vdr-suite-daemon
-/usr/bin/vdr-suite-dashboard
-```
-
-`vdr-suite-dashboard` is currently the CLI dashboard command. The current web frontend is a Phase 58 foundation, not yet the final multi-platform product layer.
-
----
-
-## Current Architecture Boundary
-
-The REST API is the application-facing API boundary.
-
-Core modules remain internal implementation boundaries.
-
-```text
-Core modules may not depend on api/rest.
-The REST API layer may depend on core modules.
-```
-
----
-
-## Documentation
-
-Use these entry points instead of starting from historical phase notes:
-
-- [Current State](docs/CURRENT.md)
-- [Documentation Index](docs/index.md)
-- [Development Documentation](docs/development/index.md)
-- [ADR Index](docs/adr/index.md)
-- [Roadmap](docs/planning/roadmap.md)
-
-Historical implementation notes remain in `docs/development/phase-*`.
 
 ---
 
