@@ -30,7 +30,7 @@ VDR-Suite complements VDR. It does not replace it.
 
 ## Current Verified State
 
-Current completed project block:
+Current completed major project block:
 
 ```text
 Phase 57 - Multi-Site Backend Administration and Permissions
@@ -44,6 +44,20 @@ Phase 57 completed:
 - timer write coverage across core, REST, daemon and router paths
 - SearchTimer backend write permission gate
 - frontend-visible backend write hints in `/api/backends`
+
+Latest completed implementation slice:
+
+```text
+Phase 58.90b - Stable Channel Sorter
+```
+
+Phase 58.90b completed:
+
+- guarded channel move API
+- stable `Kanäle sortieren` frontend module
+- handle-only drag on desktop and touch devices
+- normal scrolling preserved in the sorter
+- experimental post-move focus restore excluded from the stable state
 
 Current staging command:
 
@@ -68,7 +82,7 @@ Full current details are kept in [docs/CURRENT.md](docs/CURRENT.md).
 /usr/bin/vdr-suite-dashboard
 ```
 
-`vdr-suite-dashboard` is currently the CLI dashboard command. The future web/mobile frontend is a later product layer.
+`vdr-suite-dashboard` is currently the CLI dashboard command. The current web frontend is a Phase 58 foundation, not yet the final multi-platform product layer.
 
 ---
 
