@@ -65,6 +65,10 @@ Current Phase 58 foundation notes:
 - Phase 58.38 - SearchTimer frontend cockpit and mobile UI polish.
 - Phase 58.39 - Bounded live EPG for channel cards.
 - Phase 58.40 - Backend-scoped persistent EPG database foundation.
+- [Phase 58.48 - systemd Service Installation](phase-58.48-systemd-service.md)
+- [Phase 58.90a - Channel Move API](phase-58.90a-channel-move-api.md)
+- [Phase 58.90b - Stable Channel Sorter](phase-58.90b-stable-channel-sorter.md)
+- [Phase 58.90c - Documentation Consolidation](phase-58.90c-documentation-consolidation.md)
 
 Do not move global latest-completed markers to Phase 58 until the full Phase 58 major block is closed consistently across the marker files.
 
