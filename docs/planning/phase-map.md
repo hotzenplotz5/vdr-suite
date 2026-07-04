@@ -46,16 +46,20 @@ Detailed phase-by-phase history remains in [Completed Phases](../development/com
 | Phase 55.6 | Completed | Recording Operations Audit | Recording mutation safety policy, default-blocked real write probes and guardrail coverage. |
 | Phase 56 | Completed | Library Boundary and Packaging | Source-group cleanup, install boundary, DESTDIR staging, manpages, install manifest and prerequisite audit. |
 | Phase 57 | Completed | Multi-Site Backend Administration and Permissions | Backend access modes, backend access handling and frontend-visible backend permission hints. |
+| Phase 58.0-58.90b | In progress, completed slices | Frontend and Live Parity | Frontend foundations, bounded EPG input, RESTfulAPI event hints, guarded channel move API and stable channel sorter. |
 
 ---
 
 ## Current Position
 
 ```text
-Latest completed implementation phase
+Latest completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
 
-Next implementation focus
+Latest completed implementation slice
+Phase 58.90b - Stable Channel Sorter
+
+Current implementation focus
 Phase 58 - Frontend and Live Parity
 ```
 
@@ -65,7 +69,7 @@ Phase 58 - Frontend and Live Parity
 
 | Range | Status | Track | Goal |
 | --- | --- | --- | --- |
-| Phase 58 | Next | Frontend and Live Parity | Build frontend-ready everyday recording, timer, channel and EPG views after safe API and permission foundations. |
+| Phase 58 | In progress | Frontend and Live Parity | Continue frontend-ready everyday recording, timer, channel and EPG views after the stable channel sorter foundation. |
 | Phase 59 | Planned | Suite Metadata Database and External Providers | Build a suite-owned metadata database while using mature external scraper/catalog providers behind boundaries. |
 | Phase 60 | Vision | Recommendation and Content Knowledge Graph | Build recommendation and graph primitives after metadata and frontend foundations mature. |
 
