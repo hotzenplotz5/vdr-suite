@@ -1,5 +1,6 @@
 let channelListViewMode = 'groups';
 let channelListVisibleCount = 20;
+let channelListOpenGroups = {};
 let channelListFilters = {
   tv: false,
   radio: false,
@@ -10,6 +11,91 @@ let channelListFilters = {
 };
 
 const CHANNEL_LIST_PAGE_SIZE = 20;
+
+function channelDragRecentlyEnded(element) {
+  if (!element) {
+    return false;
+  }
+
+  const endedAt = Number(element.dataset.channelDragEndedAt || 0);
+  return Number.isFinite(endedAt) && Date.now() - endedAt < 320;
+}
+
+function enableChannelMouseDragScroll(element, axis) {
+  if (!element || element.dataset.channelDragScrollBound === 'true') {
+    return;
+  }
+
+  element.dataset.channelDragScrollBound = 'true';
+
+  const scrollAxis = axis === 'x' || axis === 'y' || axis === 'both' ? axis : 'both';
+  const threshold = 7;
+
+  let pointerActive = false;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startScrollLeft = 0;
+  let startScrollTop = 0;
+
+  const canScrollX = () => scrollAxis === 'x' || scrollAxis === 'both';
+  const canScrollY = () => scrollAxis === 'y' || scrollAxis === 'both';
+
+  const stopDrag = () => {
+    if (dragging) {
+      element.dataset.channelDragEndedAt = String(Date.now());
+    }
+
+    pointerActive = false;
+    dragging = false;
+    element.classList.remove('dragging');
+  };
+
+  element.addEventListener('pointerdown', event => {
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+
+    pointerActive = true;
+    dragging = false;
+    startX = event.clientX;
+    startY = event.clientY;
+    startScrollLeft = element.scrollLeft;
+    startScrollTop = element.scrollTop;
+  });
+
+  element.addEventListener('pointermove', event => {
+    if (!pointerActive) {
+      return;
+    }
+
+    const deltaX = event.clientX - startX;
+    const deltaY = event.clientY - startY;
+
+    if (!dragging && Math.hypot(deltaX, deltaY) < threshold) {
+      return;
+    }
+
+    if (!dragging) {
+      dragging = true;
+      element.classList.add('dragging');
+    }
+
+    if (canScrollX()) {
+      element.scrollLeft = startScrollLeft - deltaX;
+    }
+
+    if (canScrollY()) {
+      element.scrollTop = startScrollTop - deltaY;
+    }
+
+    event.preventDefault();
+  }, { passive: false });
+
+  element.addEventListener('pointerup', stopDrag);
+  element.addEventListener('pointercancel', stopDrag);
+  element.addEventListener('pointerleave', stopDrag);
+}
 
 function normalizeChannelLogoName(value) {
   return String(value || '')
@@ -257,21 +343,94 @@ function sortedChannels(channels) {
 }
 
 function channelGroupName(channel) {
-  const group = String(firstValue(channel, ['group', 'groupName', 'bouquet', 'category'], '')).trim();
-  return group === '' ? 'Ohne Gruppe' : group;
+  const explicit = String(firstValue(channel, [
+    'group',
+    'groupName',
+    'channelGroup',
+    'bouquet',
+    'category',
+    'provider',
+    'section'
+  ], '')).trim();
+
+  if (explicit !== '') {
+    return explicit;
+  }
+
+  const title = normalizeChannelLogoName(firstValue(
+    channel,
+    ['name', 'channelName', 'title', 'displayName', 'id', 'channelId'],
+    ''
+  ));
+  const type = normalizeChannelLogoName(firstValue(channel, ['type', 'serviceType'], ''));
+
+  if (type.includes('radio') || title.includes('radio')) {
+    return 'Radio';
+  }
+
+  if (
+    title.includes('das erste') ||
+    title.includes('daserste') ||
+    title.includes('zdf') ||
+    title.includes('ndr') ||
+    title.includes('wdr') ||
+    title.includes('swr') ||
+    title.includes('br ') ||
+    title.includes('br-') ||
+    title.includes('hr-') ||
+    title.includes('mdr') ||
+    title.includes('rbb') ||
+    title.includes('arte') ||
+    title.includes('3sat') ||
+    title.includes('one') ||
+    title.includes('phoenix') ||
+    title.includes('kika') ||
+    title.includes('tagesschau')
+  ) {
+    return 'Öffentlich-rechtlich';
+  }
+
+  if (
+    title.includes('welt') ||
+    title.includes('ntv') ||
+    title.includes('n-tv') ||
+    title.includes('euronews') ||
+    title.includes('cnn') ||
+    title.includes('bbc')
+  ) {
+    return 'Nachrichten';
+  }
+
+  if (
+    title.includes('sport') ||
+    title.includes('sky') ||
+    title.includes('eurosport') ||
+    title.includes('dazn')
+  ) {
+    return 'Sport';
+  }
+
+  if (
+    title.includes('rtl') ||
+    title.includes('sat.1') ||
+    title.includes('sat1') ||
+    title.includes('pro sieben') ||
+    title.includes('prosieben') ||
+    title.includes('vox') ||
+    title.includes('kabel') ||
+    title.includes('sixx') ||
+    title.includes('tele 5') ||
+    title.includes('dmax') ||
+    title.includes('nitro')
+  ) {
+    return 'Private';
+  }
+
+  return 'Weitere Sender';
 }
 
 function hasRealChannelGroups(channels) {
-  const groups = new Set();
-
-  channels.forEach(channel => {
-    const group = String(firstValue(channel, ['group', 'groupName', 'bouquet', 'category'], '')).trim();
-    if (group !== '') {
-      groups.add(group);
-    }
-  });
-
-  return groups.size > 0;
+  return channels.length > 0;
 }
 
 function clearChannelFilters() {
@@ -696,12 +855,14 @@ renderChannelList = function(data) {
     channelListFilters.encrypted = false;
   }
 
-  if (!hasRealChannelGroups(channels)) {
-    channelListViewMode = 'number';
+  if (channelListViewMode !== 'groups' && channelListViewMode !== 'number') {
+    channelListViewMode = 'groups';
   }
 
   const filteredChannels = sortedChannels(filterChannels(channels, encryptionAvailable));
-  const visibleCount = Math.min(channelListVisibleCount, filteredChannels.length);
+  const visibleCount = channelListViewMode === 'groups'
+    ? filteredChannels.length
+    : Math.min(channelListVisibleCount, filteredChannels.length);
   const visibleChannels = filteredChannels.slice(0, visibleCount);
 
   const shell = document.createElement('section');
@@ -712,13 +873,19 @@ renderChannelList = function(data) {
   overview.appendChild(addText(document.createElement('h3'), 'Kanalliste'));
   overview.appendChild(addText(
     document.createElement('p'),
-    'Zeige ' + String(visibleChannels.length) + ' von ' + String(filteredChannels.length) +
-      ' gefilterten Kanälen · ' + String(channels.length) + ' gesamt. Kanal links anklicken, rechts Programm ansehen.'
+    channelListViewMode === 'groups'
+      ? 'Zeige ' + String(filteredChannels.length) + ' gefilterte Kanäle in einklappbaren Gruppen · ' + String(channels.length) + ' gesamt. Gruppe öffnen, Kanal links anklicken, rechts Programm ansehen.'
+      : 'Zeige ' + String(visibleChannels.length) + ' von ' + String(filteredChannels.length) +
+        ' gefilterten Kanälen · ' + String(channels.length) + ' gesamt. Kanal links anklicken, rechts Programm ansehen.'
   ));
 
   renderChannelViewButtons(overview, channels);
   renderChannelFilterButtons(overview, channels, encryptionAvailable);
-  renderChannelPagingControls(overview, channels, filteredChannels.length);
+
+  if (channelListViewMode === 'number') {
+    renderChannelPagingControls(overview, channels, filteredChannels.length);
+  }
+
   shell.appendChild(overview);
 
   if (visibleChannels.length === 0) {
@@ -833,6 +1000,10 @@ renderChannelList = function(data) {
     button.appendChild(row);
 
     button.addEventListener('click', () => {
+      if (channelDragRecentlyEnded(channelPane)) {
+        return;
+      }
+
       state.selectedIndex = index;
       state.selectedEventKey = '';
       renderAll();
@@ -877,6 +1048,11 @@ renderChannelList = function(data) {
     button.appendChild(content);
 
     button.addEventListener('click', () => {
+      const scrollArea = button.closest('.channel-agenda-scroll');
+      if (channelDragRecentlyEnded(scrollArea)) {
+        return;
+      }
+
       state.selectedEventKey = eventKey(entry);
       renderAll();
     });
@@ -887,9 +1063,88 @@ renderChannelList = function(data) {
   function renderChannelPane() {
     channelPane.replaceChildren();
 
+    if (channelListViewMode !== 'groups') {
+      visibleChannels.forEach((channel, index) => {
+        channelPane.appendChild(renderChannelButton(channel, index));
+      });
+      return;
+    }
+
+    const selected = selectedChannel();
+    const selectedGroup = selected ? channelGroupName(selected) : '';
+
+    if (selectedGroup !== '' && Object.keys(channelListOpenGroups).length === 0) {
+      channelListOpenGroups[selectedGroup] = true;
+    }
+
+    const groups = new Map();
+
     visibleChannels.forEach((channel, index) => {
-      channelPane.appendChild(renderChannelButton(channel, index));
+      const group = channelGroupName(channel);
+      if (!groups.has(group)) {
+        groups.set(group, []);
+      }
+      groups.get(group).push({ channel, index });
     });
+
+    groups.forEach((items, group) => {
+      const open = channelListOpenGroups[group] === true;
+      const section = document.createElement('section');
+      section.className = 'channel-browser-group' + (open ? ' open' : '');
+
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'channel-browser-group-toggle';
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+      const chevron = addText(document.createElement('span'), open ? '▾' : '▸');
+      chevron.className = 'channel-browser-group-chevron';
+      toggle.appendChild(chevron);
+
+      const copy = document.createElement('span');
+      copy.className = 'channel-browser-group-copy';
+      copy.appendChild(addText(document.createElement('strong'), group));
+      copy.appendChild(addText(
+        document.createElement('span'),
+        String(items.length) + ' Sender · ' + (open ? 'einklappen' : 'ausklappen')
+      ));
+      toggle.appendChild(copy);
+
+      toggle.addEventListener('click', () => {
+        if (channelDragRecentlyEnded(channelPane)) {
+          return;
+        }
+
+        channelListOpenGroups[group] = !open;
+        renderChannelPane();
+
+        requestAnimationFrame(() => {
+          enableChannelMouseDragScroll(channelPane, 'y');
+        });
+      });
+
+      section.appendChild(toggle);
+
+      if (open) {
+        const itemList = document.createElement('div');
+        itemList.className = 'channel-browser-group-items';
+
+        items.forEach(entry => {
+          itemList.appendChild(renderChannelButton(entry.channel, entry.index));
+        });
+
+        section.appendChild(itemList);
+      }
+
+      channelPane.appendChild(section);
+    });
+
+    const hint = addText(
+      document.createElement('p'),
+      'Tipp: Kanalliste mit gedrückter Maustaste hoch/runter ziehen.'
+    );
+    hint.className = 'channel-browser-group-footer';
+    channelPane.appendChild(hint);
   }
 
   function renderDetailPane() {
@@ -968,7 +1223,7 @@ renderChannelList = function(data) {
     agenda.appendChild(addText(document.createElement('h3'), 'Programm'));
     agenda.appendChild(addText(
       document.createElement('p'),
-      'Zeit links, Sendung rechts. Mit Mausrad scrollen oder Eintrag anklicken.'
+      'Zeit links, Sendung rechts. Mit Mausrad oder gedrückter Maustaste scrollen, Eintrag anklicken für Details.'
     )).className = 'channel-agenda-hint';
 
     const scroll = document.createElement('div');
@@ -996,6 +1251,13 @@ renderChannelList = function(data) {
   function renderAll() {
     renderChannelPane();
     renderDetailPane();
+
+    requestAnimationFrame(() => {
+      enableChannelMouseDragScroll(channelPane, 'y');
+      detailPane.querySelectorAll('.channel-agenda-scroll').forEach(scrollArea => {
+        enableChannelMouseDragScroll(scrollArea, 'y');
+      });
+    });
   }
 
   workbench.appendChild(channelPane);

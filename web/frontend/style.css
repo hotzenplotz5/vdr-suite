@@ -2689,3 +2689,123 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
     inset 0 0 0 1px rgba(45, 212, 191, 0.24),
     0 0 0.8rem rgba(45, 212, 191, 0.12);
 }
+
+/* Phase 58.84: active channel browser groups */
+.channel-browser-list,
+.channel-agenda-scroll {
+  cursor: grab;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.channel-browser-list.dragging,
+.channel-agenda-scroll.dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.channel-browser-list.dragging *,
+.channel-agenda-scroll.dragging * {
+  user-select: none;
+}
+
+.channel-browser-group {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 0.95rem;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 42%),
+    rgba(2, 6, 23, 0.72);
+}
+
+.channel-browser-group.open {
+  border-color: rgba(34, 211, 238, 0.48);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.1);
+}
+
+.channel-browser-group-toggle {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.72rem;
+  align-items: center;
+  padding: 0.78rem 0.86rem;
+  border: 0;
+  background: rgba(15, 23, 42, 0.84);
+  color: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+}
+
+.channel-browser-group-toggle:hover,
+.channel-browser-group-toggle:focus {
+  background: rgba(14, 165, 233, 0.16);
+  outline: none;
+}
+
+.channel-browser-group-chevron {
+  display: inline-grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.18);
+  color: #67e8f9;
+  font-weight: 900;
+}
+
+.channel-browser-group-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.16rem;
+}
+
+.channel-browser-group-copy strong {
+  overflow: hidden;
+  color: #f8fafc;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-browser-group-copy span {
+  color: #93c5fd;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.channel-browser-group-items {
+  display: grid;
+  gap: 0.58rem;
+  padding: 0.58rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.channel-browser-group-items .channel-browser-item {
+  margin: 0;
+}
+
+.channel-browser-group-footer {
+  margin: 0.2rem 0 0;
+  padding: 0.55rem 0.68rem;
+  border: 1px dashed rgba(148, 163, 184, 0.22);
+  border-radius: 0.75rem;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  background: rgba(2, 6, 23, 0.46);
+}
+
+/* Phase 58.84b: preserve channel click targets while drag scrolling */
+.channel-browser-list .channel-browser-item,
+.channel-browser-list .channel-browser-group-toggle,
+.channel-agenda-scroll .channel-agenda-row {
+  cursor: pointer;
+}
+
+.channel-browser-list.dragging .channel-browser-item,
+.channel-browser-list.dragging .channel-browser-group-toggle,
+.channel-agenda-scroll.dragging .channel-agenda-row {
+  cursor: grabbing;
+}
