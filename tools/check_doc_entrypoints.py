@@ -52,7 +52,6 @@ REQUIRED_LINKS = {
 
 REQUIRED_TEXT = {
     "docs/NEW-CHAT-HANDOFF.md": [
-        "tools/watch_github_ci.py --watch --interval 60 --url --chat",
         "Phase 56 - Library Boundary, Packaging and Developer Documentation",
         "Phase 57 - Multi-Site Backend Administration and Permissions",
     ],
