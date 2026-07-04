@@ -1,0 +1,44 @@
+name: Phase 58.91 Apply Mobile EPG Patch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/phase58_91_apply_mobile_epg.yml
+      - tools/phase58_91_mobile_epg_inline_patch.py
+
+permissions:
+  contents: write
+
+jobs:
+  apply-mobile-epg-patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply mobile EPG inline patch
+        run: python3 tools/phase58_91_mobile_epg_inline_patch.py
+
+      - name: Verify frontend syntax
+        run: |
+          node --check web/frontend/app.js
+          node --check web/frontend/channel-logos.js
+          git diff --check
+
+      - name: Commit generated frontend patch
+        run: |
+          if git diff --quiet -- web/frontend/app.js web/frontend/style.css web/frontend/mobile-epg.js; then
+            echo "No frontend changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A web/frontend/app.js web/frontend/style.css web/frontend/mobile-epg.js
+          git commit -m "Phase 58.91: implement mobile EPG inline expansion"
+          git push origin main
