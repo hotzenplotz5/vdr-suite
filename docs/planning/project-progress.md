@@ -50,6 +50,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Real VDR acceptance manifest and runner foundation
 - Daemon lifecycle hardening for duplicate bind failures and SIGTERM shutdown
 - Recording operations audit and safety policy foundation
+- Channel move API and stable frontend channel sorter foundation
 
 ### Verified real-runtime evidence
 
@@ -58,6 +59,8 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - SIGTERM stops the daemon cleanly without `kill -9` and releases port 18080.
 - GitHub Actions verification is required before runtime-related phases are considered complete.
 - Phase 58.39 verifies bounded live EPG input for channel cards via the now-next EPG route.
+- Phase 58.90a verifies guarded channel move API coverage.
+- Phase 58.90b verifies stable channel sorting on desktop and touch devices.
 
 ### Guarded or deliberately incomplete areas
 
