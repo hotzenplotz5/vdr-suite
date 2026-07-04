@@ -228,6 +228,52 @@ function createChannelLogoElement(title, channelId) {
     display: none !important;
   }
 
+  body.mobile-epg-mode #detail,
+  body.mobile-epg-mode #detail-data,
+  body.mobile-epg-mode .epg-workbench,
+  body.mobile-epg-mode .epg-workbench-main,
+  body.mobile-epg-mode .epg-timeline-module,
+  body.mobile-epg-mode .epg-program-grid,
+  body.mobile-epg-mode .epg-program-card,
+  body.mobile-epg-mode .epg-program-events,
+  body.mobile-epg-mode .epg-program-event,
+  body.mobile-epg-mode .epg-sidebar,
+  body.mobile-epg-mode .epg-side-detail {
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  body.mobile-epg-mode .epg-workbench {
+    display: block !important;
+    overflow-x: hidden !important;
+  }
+
+  body.mobile-epg-mode .epg-sidebar {
+    display: block !important;
+    position: static !important;
+    min-height: 0 !important;
+    margin-top: 0.75rem;
+  }
+
+  body.mobile-epg-mode .epg-detail-empty {
+    display: none !important;
+  }
+
+  body.mobile-epg-mode .epg-side-detail {
+    display: block !important;
+    position: static !important;
+  }
+
+  body.mobile-epg-mode .epg-program-card {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.mobile-epg-mode .epg-program-events {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
   .mobile-epg-mode-note {
     margin-top: 0.65rem;
     color: #7dd3fc;
@@ -260,7 +306,7 @@ function createChannelLogoElement(title, channelId) {
 
     const note = document.createElement('p');
     note.className = 'mobile-epg-mode-note';
-    note.textContent = 'Mobile Ansicht: Die großen Zeitachsen sind auf dem Handy deaktiviert. Nutze Live-Liste, Läuft jetzt oder Als nächstes.';
+    note.textContent = 'Mobile Ansicht: Zeitachsen sind auf dem Handy deaktiviert. Sendung antippen, Details erscheinen darunter.';
     header.appendChild(note);
   }
 
