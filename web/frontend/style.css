@@ -2809,3 +2809,190 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
 .channel-agenda-scroll.dragging .channel-agenda-row {
   cursor: grabbing;
 }
+
+/* Phase 58.89: sticky vertical EPG header and two-axis drag */
+.epg-vertical-time-grid {
+  overflow: visible;
+}
+
+.epg-vertical-channel-scrollbar {
+  position: sticky;
+  top: 0;
+  z-index: 52;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 1rem;
+  border: 1px solid rgba(96, 165, 250, 0.26);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.96);
+  cursor: grab;
+  scrollbar-gutter: stable;
+}
+
+.epg-vertical-channel-scrollbar-inner {
+  height: 1px;
+}
+
+.epg-vertical-scroll-content {
+  position: relative;
+  overflow: auto;
+  max-height: min(74vh, 58rem);
+  padding-bottom: 0.35rem;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  cursor: grab;
+}
+
+.epg-vertical-time-grid.dragging,
+.epg-vertical-channel-scrollbar.dragging,
+.epg-vertical-scroll-content.dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.epg-vertical-time-grid.dragging button,
+.epg-vertical-scroll-content.dragging button {
+  cursor: grabbing;
+}
+
+.epg-vertical-header-row {
+  position: sticky;
+  top: 0;
+  z-index: 48;
+  padding-bottom: 0.42rem;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.98), rgba(2, 6, 23, 0.9));
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0.85rem 1.15rem rgba(2, 6, 23, 0.78);
+}
+
+.epg-vertical-corner {
+  position: sticky;
+  left: 0;
+  z-index: 56;
+  background: rgba(2, 6, 23, 0.98);
+  box-shadow: 0.85rem 0 1.05rem rgba(2, 6, 23, 0.72);
+}
+
+.epg-vertical-time-track {
+  position: sticky;
+  left: 0;
+  z-index: 34;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.94));
+  box-shadow: 0.85rem 0 1.05rem rgba(2, 6, 23, 0.72);
+}
+
+.epg-vertical-channel-header {
+  z-index: 50;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.94));
+}
+
+.epg-vertical-body {
+  align-items: start;
+}
+
+.epg-vertical-scroll-content::-webkit-scrollbar,
+.epg-vertical-channel-scrollbar::-webkit-scrollbar {
+  height: 0.9rem;
+  width: 0.9rem;
+}
+
+.epg-vertical-scroll-content::-webkit-scrollbar-thumb,
+.epg-vertical-channel-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.42);
+  border: 3px solid rgba(2, 6, 23, 0.96);
+}
+
+.epg-vertical-scroll-content::-webkit-scrollbar-track,
+.epg-vertical-channel-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+@media (max-width: 720px) {
+  .epg-vertical-scroll-content {
+    max-height: 72vh;
+  }
+}
+
+/* Phase 58.89c: avoid truncated backend feature tile */
+.brand-shell .brand-feature-strip {
+  grid-template-columns: minmax(26rem, 1.65fr) repeat(4, minmax(11.5rem, 1fr));
+}
+
+.brand-feature.brand-feature-backends {
+  grid-template-columns: auto minmax(9.5rem, 1fr) minmax(10.5rem, 14rem);
+  min-width: 0;
+}
+
+.brand-feature.brand-feature-backends .brand-feature-copy {
+  min-width: 9.5rem;
+  overflow: hidden;
+}
+
+.brand-feature.brand-feature-backends .brand-feature-title,
+.brand-feature.brand-feature-backends .brand-feature-text {
+  max-width: none;
+}
+
+.brand-feature.brand-feature-backends .brand-backend-list {
+  min-width: 10.5rem;
+}
+
+.brand-feature.brand-feature-backends .backend-card {
+  min-width: 0;
+}
+
+.brand-feature.brand-feature-backends .backend-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 112rem) {
+  .brand-shell .brand-feature-strip {
+    grid-template-columns: minmax(24rem, 1.55fr) repeat(4, minmax(10.5rem, 1fr));
+  }
+
+  .brand-feature.brand-feature-backends {
+    grid-template-columns: auto minmax(8.5rem, 1fr) minmax(9.8rem, 13rem);
+  }
+
+  .brand-feature.brand-feature-backends .brand-feature-copy {
+    min-width: 8.5rem;
+  }
+}
+
+@media (max-width: 88rem) {
+  .brand-shell .brand-feature-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .brand-feature.brand-feature-backends {
+    grid-column: 1 / -1;
+    grid-template-columns: auto minmax(11rem, 1fr) minmax(10.5rem, 15rem);
+  }
+
+  .brand-feature.brand-feature-backends .brand-feature-copy {
+    min-width: 11rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .brand-feature.brand-feature-backends {
+    grid-column: 1 / -1;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .brand-feature.brand-feature-backends .brand-feature-copy {
+    min-width: 0;
+  }
+
+  .brand-feature.brand-feature-backends .brand-backend-list {
+    grid-column: 1 / -1;
+    min-width: 0;
+    margin-top: 0.35rem;
+  }
+}

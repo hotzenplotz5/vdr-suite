@@ -1278,25 +1278,33 @@ function enableEpgVerticalHorizontalScroll(grid, topScroller, scrollContent, dra
   topScroller.addEventListener('scroll', syncFromTop, { passive: true });
   scrollContent.addEventListener('scroll', syncFromContent, { passive: true });
 
-  const bindDragScroll = surface => {
-    if (!surface) {
+  const setDragging = (surface, enabled) => {
+    surface.classList.toggle('dragging', enabled);
+    topScroller.classList.toggle('dragging', enabled);
+    scrollContent.classList.toggle('dragging', enabled);
+    grid.classList.toggle('dragging', enabled);
+  };
+
+  const bindHorizontalDrag = surface => {
+    if (!surface || surface.dataset.epgVerticalHorizontalDragBound === 'true') {
       return;
     }
 
-    let active = false;
+    surface.dataset.epgVerticalHorizontalDragBound = 'true';
+
+    let pointerActive = false;
+    let dragging = false;
     let startX = 0;
     let startScrollLeft = 0;
 
     const endDrag = () => {
-      if (!active) {
-        return;
+      if (dragging) {
+        epgSuppressClickUntil = Date.now() + 260;
       }
 
-      active = false;
-      surface.classList.remove('dragging');
-      topScroller.classList.remove('dragging');
-      scrollContent.classList.remove('dragging');
-      grid.classList.remove('dragging');
+      pointerActive = false;
+      dragging = false;
+      setDragging(surface, false);
     };
 
     surface.addEventListener('pointerdown', event => {
@@ -1304,47 +1312,114 @@ function enableEpgVerticalHorizontalScroll(grid, topScroller, scrollContent, dra
         return;
       }
 
-      active = true;
+      pointerActive = true;
+      dragging = false;
       startX = event.clientX;
       startScrollLeft = scrollContent.scrollLeft;
-
-      surface.classList.add('dragging');
-      topScroller.classList.add('dragging');
-      scrollContent.classList.add('dragging');
-      grid.classList.add('dragging');
-
-      if (surface.setPointerCapture && event.pointerId !== undefined) {
-        surface.setPointerCapture(event.pointerId);
-      }
     });
 
     surface.addEventListener('pointermove', event => {
-      if (!active) {
+      if (!pointerActive) {
         return;
       }
 
-      const delta = event.clientX - startX;
-      const nextScrollLeft = startScrollLeft - delta;
+      const deltaX = event.clientX - startX;
 
-      scrollContent.scrollLeft = nextScrollLeft;
-      topScroller.scrollLeft = scrollContent.scrollLeft;
-
-      if (Math.abs(delta) > 2) {
-        event.preventDefault();
+      if (!dragging && Math.abs(deltaX) < 7) {
+        return;
       }
-    });
+
+      if (!dragging) {
+        dragging = true;
+        setDragging(surface, true);
+
+        if (surface.setPointerCapture && event.pointerId !== undefined) {
+          surface.setPointerCapture(event.pointerId);
+        }
+      }
+
+      scrollContent.scrollLeft = startScrollLeft - deltaX;
+      topScroller.scrollLeft = scrollContent.scrollLeft;
+      event.preventDefault();
+    }, { passive: false });
 
     surface.addEventListener('pointerup', endDrag);
     surface.addEventListener('pointercancel', endDrag);
     surface.addEventListener('pointerleave', endDrag);
   };
 
-  bindDragScroll(topScroller);
-  bindDragScroll(dragSurface);
-  enableEpgDragPan(scrollContent, scrollContent, {
-    classTarget: grid,
-    verticalWindow: true
-  });
+  const bindTwoAxisDrag = surface => {
+    if (!surface || surface.dataset.epgVerticalTwoAxisDragBound === 'true') {
+      return;
+    }
+
+    surface.dataset.epgVerticalTwoAxisDragBound = 'true';
+
+    let pointerActive = false;
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startScrollLeft = 0;
+    let startScrollTop = 0;
+
+    const endDrag = () => {
+      if (dragging) {
+        epgSuppressClickUntil = Date.now() + 260;
+      }
+
+      pointerActive = false;
+      dragging = false;
+      setDragging(surface, false);
+    };
+
+    surface.addEventListener('pointerdown', event => {
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+
+      pointerActive = true;
+      dragging = false;
+      startX = event.clientX;
+      startY = event.clientY;
+      startScrollLeft = scrollContent.scrollLeft;
+      startScrollTop = scrollContent.scrollTop;
+    });
+
+    surface.addEventListener('pointermove', event => {
+      if (!pointerActive) {
+        return;
+      }
+
+      const deltaX = event.clientX - startX;
+      const deltaY = event.clientY - startY;
+
+      if (!dragging && Math.hypot(deltaX, deltaY) < 7) {
+        return;
+      }
+
+      if (!dragging) {
+        dragging = true;
+        setDragging(surface, true);
+
+        if (surface.setPointerCapture && event.pointerId !== undefined) {
+          surface.setPointerCapture(event.pointerId);
+        }
+      }
+
+      scrollContent.scrollLeft = startScrollLeft - deltaX;
+      scrollContent.scrollTop = startScrollTop - deltaY;
+      topScroller.scrollLeft = scrollContent.scrollLeft;
+      event.preventDefault();
+    }, { passive: false });
+
+    surface.addEventListener('pointerup', endDrag);
+    surface.addEventListener('pointercancel', endDrag);
+    surface.addEventListener('pointerleave', endDrag);
+  };
+
+  bindHorizontalDrag(topScroller);
+  bindHorizontalDrag(dragSurface);
+  bindTwoAxisDrag(scrollContent);
 
   requestAnimationFrame(updateTopScrollerWidth);
   setTimeout(updateTopScrollerWidth, 120);
@@ -2772,7 +2847,8 @@ fetch('/api/backends')
   })
   .then(data => {
     const backends = Array.isArray(data.backends) ? data.backends : [];
-    statusElement.textContent = backends.length + ' Backend(s) gefunden';
+    statusElement.textContent = '';
+    statusElement.hidden = true;
     backendsElement.replaceChildren();
     backends.forEach(backend => backendsElement.appendChild(renderBackend(backend)));
     if (backends.length > 0) {
@@ -2780,6 +2856,7 @@ fetch('/api/backends')
     }
   })
   .catch(error => {
+    statusElement.hidden = false;
     statusElement.className = 'status error';
     statusElement.textContent = 'Backend-Auswahl konnte nicht geladen werden: ' + error.message;
   });
