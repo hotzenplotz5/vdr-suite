@@ -1,5 +1,13 @@
 # Phase 58.90b: Stable Channel Sorter
 
+## Navigation
+
+- [Development Index](index.md)
+- [Current Project Status](current-status.md)
+- [Completed Phases](completed-phases.md)
+
+---
+
 Datum: 2026-07-04
 
 ## Ziel
@@ -58,3 +66,11 @@ Manuell getestet:
 Der Sortierer ist in `app.js` integriert, um zusätzliche statische JS-Ladeprobleme zu vermeiden.
 
 Die normale Kanalliste bleibt unverändert.
+
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+- [Back to Current Project Status](current-status.md)
+- [Back to Completed Phases](completed-phases.md)
