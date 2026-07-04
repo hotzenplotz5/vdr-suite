@@ -363,3 +363,16 @@ function createChannelLogoElement(title, channelId) {
     applyMobileEpgMode();
   }
 })();
+
+// Phase 58.91: load mobile expandable-card helper without changing index.html.
+(function loadMobileEpgExpandableCardHelper() {
+  if (document.querySelector('script[data-mobile-epg-helper="true"]')) {
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = '/frontend/mobile-epg.js';
+  script.dataset.mobileEpgHelper = 'true';
+  script.defer = true;
+  document.head.appendChild(script);
+})();
