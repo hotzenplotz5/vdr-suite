@@ -48,6 +48,12 @@ Latest completed major project block:
 Phase 57 - Multi-Site Backend Administration and Permissions
 ```
 
+Latest completed implementation slice:
+
+```text
+Phase 58.90b - Stable Channel Sorter
+```
+
 Previous completed major project block:
 
 ```text
@@ -60,7 +66,22 @@ Current implementation focus:
 Phase 58 - Frontend and Live Parity
 ```
 
-Do not move global latest-completed markers from Phase 57 to a Phase 58 subphase unless the full Phase 58 major block is completed and the tracked marker files are updated together.
+Keep the latest completed major project block at Phase 57 until the full Phase 58 block is completed. Track completed Phase 58 slices separately; the latest stable slice is Phase 58.90b.
+
+---
+
+## Phase 58.90b Result
+
+Phase 58.90b added the stable channel sorting frontend.
+
+Verified outcomes:
+
+- `Kanäle sortieren` module exists in the web frontend
+- channel movement uses the guarded backend move API
+- drag starts only on the left `↕` handle
+- normal scrolling remains possible
+- touch and desktop operation were manually verified
+- the broken post-move focus-restore experiment was not included
 
 ---
 
@@ -118,6 +139,7 @@ Current Phase 58 guardrails:
 - SearchTimerPreviewEpgCache remains preview-scoped
 - global snapshot event reads remain snapshot-backed
 - reusable persistent EPG data belongs to the backend-scoped EPG database foundation
+- channel sorting must use guarded move APIs and preserve normal touch scrolling
 
 ---
 
@@ -218,39 +240,4 @@ For install-layout changes:
 make test-install-staging
 make test-docs
 make test-phase
-make test-phase-map-coverage
 ```
-
-For runtime-sensitive changes, also run the applicable runtime, daemon and real VDR acceptance checks.
-
-GitHub Actions must be green before a pushed phase or reset block is considered complete.
-
-CI status command:
-
-```bash
-tools/watch_github_ci.py --watch --interval 60 --url --chat
-```
-
----
-
-## Current Known Documentation Cleanup
-
-DOC-RESET-1 created the current-state entry point.
-
-DOC-RESET-2 aligned roadmap, ADR index, completed-phase markers and new-chat handoff links.
-
-The parity audit captures the product gap view before DOC-RESET-3.
-
-DOC-RESET-3 should add stronger documentation tooling checks for:
-
-- current entry points
-- ADR duplicate active numbers
-- completed-phase marker alignment
-
----
-
-## Back
-
-- [Back to Current State](CURRENT.md)
-- [Back to Documentation Index](index.md)
-- [Back to README](../README.md)
