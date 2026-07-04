@@ -196,3 +196,124 @@ function createChannelLogoElement(title, channelId) {
 
   return frame;
 }
+
+// Phase 58.91: mobile EPG mode guard.
+// The desktop timeline views need wide horizontal and vertical axes. On phones we keep
+// the EPG usable by switching to the live list and hiding timeline-only controls.
+(function enableMobileEpgMode() {
+  const mobileQuery = window.matchMedia ? window.matchMedia('(max-width: 720px)') : null;
+  let switchInFlight = false;
+
+  function isMobile() {
+    return mobileQuery ? mobileQuery.matches : window.innerWidth <= 720;
+  }
+
+  function injectMobileEpgStyles() {
+    if (document.getElementById('mobile-epg-mode-style')) {
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'mobile-epg-mode-style';
+    style.textContent = `
+@media (max-width: 720px) {
+  .epg-view-toggle .epg-view-button:nth-child(1),
+  .epg-view-toggle .epg-view-button:nth-child(2),
+  .epg-time-window-pager {
+    display: none !important;
+  }
+
+  .epg-time-grid,
+  .epg-vertical-time-grid {
+    display: none !important;
+  }
+
+  .mobile-epg-mode-note {
+    margin-top: 0.65rem;
+    color: #7dd3fc;
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+}
+`;
+    document.head.appendChild(style);
+  }
+
+  function buttonText(button) {
+    return String(button ? button.textContent || '' : '').trim();
+  }
+
+  function isTimelineButton(button) {
+    const text = buttonText(button);
+    return text.startsWith('Zeit horizontal') || text.startsWith('Zeit vertikal');
+  }
+
+  function findLiveButton(buttons) {
+    return buttons.find(button => buttonText(button).startsWith('Live-Liste')) || null;
+  }
+
+  function ensureMobileHint() {
+    const header = document.querySelector('.epg-timeline-intro');
+    if (!header || header.querySelector('.mobile-epg-mode-note')) {
+      return;
+    }
+
+    const note = document.createElement('p');
+    note.className = 'mobile-epg-mode-note';
+    note.textContent = 'Mobile Ansicht: Die großen Zeitachsen sind auf dem Handy deaktiviert. Nutze Live-Liste, Läuft jetzt oder Als nächstes.';
+    header.appendChild(note);
+  }
+
+  function applyMobileEpgMode() {
+    document.body.classList.toggle('mobile-epg-mode', isMobile());
+
+    if (!isMobile()) {
+      return;
+    }
+
+    const toggle = document.querySelector('.epg-view-toggle');
+    if (!toggle) {
+      return;
+    }
+
+    ensureMobileHint();
+
+    const buttons = Array.from(toggle.querySelectorAll('.epg-view-button'));
+    const active = buttons.find(button => button.classList.contains('active')) || null;
+
+    if (!active || !isTimelineButton(active) || switchInFlight) {
+      return;
+    }
+
+    const liveButton = findLiveButton(buttons);
+    if (!liveButton || liveButton.disabled) {
+      return;
+    }
+
+    switchInFlight = true;
+    window.setTimeout(() => {
+      liveButton.click();
+      switchInFlight = false;
+    }, 0);
+  }
+
+  injectMobileEpgStyles();
+
+  if (mobileQuery && typeof mobileQuery.addEventListener === 'function') {
+    mobileQuery.addEventListener('change', applyMobileEpgMode);
+  } else {
+    window.addEventListener('resize', applyMobileEpgMode);
+  }
+
+  const observer = new MutationObserver(applyMobileEpgMode);
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyMobileEpgMode);
+  } else {
+    applyMobileEpgMode();
+  }
+})();
