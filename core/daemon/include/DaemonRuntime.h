@@ -104,6 +104,12 @@
 #include "SnapshotCacheService.h"
 #include "VdrConfig.h"
 #include "VdrController.h"
+#include "VdrChannelMoveController.h"
+#include "VdrChannelMoveExecutionService.h"
+#include "VdrChannelMoveExecutorAdapterRegistry.h"
+#include "VdrChannelMoveRequestParser.h"
+#include "VdrChannelMoveResultJsonSerializer.h"
+#include "SvdrpChannelMoveExecutor.h"
 #include "VdrRecordingQueryController.h"
 #include "VdrRecordingQueryResultJsonSerializer.h"
 #include "VdrRecordingQueryService.h"
@@ -263,6 +269,12 @@ private:
     std::unique_ptr<VdrTimerActionRequestParser> vdrTimerActionRequestParser_;
     std::unique_ptr<VdrTimerActionExecutorAdapterRegistry> vdrTimerActionExecutorAdapterRegistry_;
     std::unique_ptr<VdrTimerActionController> vdrTimerActionController_;
+
+    std::unique_ptr<VdrChannelMoveExecutionService> vdrChannelMoveExecutionService_;
+    std::unique_ptr<VdrChannelMoveResultJsonSerializer> vdrChannelMoveResultJsonSerializer_;
+    std::unique_ptr<VdrChannelMoveRequestParser> vdrChannelMoveRequestParser_;
+    std::unique_ptr<VdrChannelMoveExecutorAdapterRegistry> vdrChannelMoveExecutorAdapterRegistry_;
+    std::unique_ptr<VdrChannelMoveController> vdrChannelMoveController_;
 
     std::unique_ptr<RuntimeDiagnosticsJsonSerializer> runtimeDiagnosticsJsonSerializer_;
     std::unique_ptr<RuntimeDiagnosticsController> runtimeDiagnosticsController_;

@@ -1926,3 +1926,18 @@ test-restfulapi-search-timer-command-executor:
 		core/vdr/tests/test_restfulapi_search_timer_command_executor.cpp \
 		-o /tmp/test_restfulapi_search_timer_command_executor
 	/tmp/test_restfulapi_search_timer_command_executor
+
+
+test-vdr-channel-move-controller:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/src/VdrChannelMoveExecutionService.cpp \
+		core/vdr/src/VdrChannelMoveExecutorAdapterRegistry.cpp \
+		core/vdr/src/VdrChannelMoveResultJsonSerializer.cpp \
+		api/rest/src/VdrChannelMoveRequestParser.cpp \
+		api/rest/src/VdrChannelMoveController.cpp \
+		api/rest/tests/test_vdr_channel_move_controller.cpp \
+		-o /tmp/test_vdr_channel_move_controller
+	/tmp/test_vdr_channel_move_controller

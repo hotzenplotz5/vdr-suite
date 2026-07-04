@@ -25,6 +25,7 @@
 #include "SearchTimerResult.h"
 #include "SnapshotChangeFeedController.h"
 #include "VdrController.h"
+#include "VdrChannelMoveController.h"
 #include "VdrEventQuery.h"
 #include "VdrRecordingQueryController.h"
 #include "VdrSnapshotReadService.h"
@@ -298,7 +299,8 @@ ApiRouter::ApiRouter(
     SearchTimerDiscoveryController* searchTimerDiscoveryController,
     SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController,
     SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController,
-    IEpgCacheController* epgCacheController)
+    IEpgCacheController* epgCacheController,
+    VdrChannelMoveController* vdrChannelMoveController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
       recordingsController_(recordingsController),
@@ -327,7 +329,8 @@ ApiRouter::ApiRouter(
       searchTimerCommandExecutor_(searchTimerCommandExecutor),
       nativeFuzzyStaleProbeAdministrationController_(
           nativeFuzzyStaleProbeAdministrationController),
-      nativeFuzzyOperatorRefreshController_(nativeFuzzyOperatorRefreshController)
+      nativeFuzzyOperatorRefreshController_(nativeFuzzyOperatorRefreshController),
+      vdrChannelMoveController_(vdrChannelMoveController)
 {
 }
 
@@ -376,6 +379,21 @@ ApiResponse ApiRouter::handlePost(
         return vdrTimerActionController_.removeBody(
             body,
             vdrTimerActionExecutorAdapterRegistry_);
+    }
+
+    if (path == "/api/vdr/channels/move" ||
+        path == "/api/vdr/channels/actions/move")
+    {
+        if (vdrChannelMoveController_ == nullptr)
+        {
+            ApiResponse response;
+            response.statusCode = 503;
+            response.contentType = "application/json";
+            response.body = "{\"error\":\"vdr channel move controller unavailable\"}";
+            return response;
+        }
+
+        return vdrChannelMoveController_->moveBody(body);
     }
 
     if (path == "/api/epg/cache/refresh")

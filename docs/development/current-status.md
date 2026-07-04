@@ -1,5 +1,15 @@
 # VDR-Suite Current Project Status
 
+## Phase 58.90a - Channel Move API
+
+Status: abgeschlossen.
+
+- Backend-API fuer Kanalverschiebung ergaenzt.
+- SVDRP MOVC <sourceNumber> <targetNumber> wird ueber VDR-Suite gekapselt.
+- Dry-Run und reale reversible Verschiebung wurden erfolgreich getestet.
+- Read-only Backends werden durch BackendAccessPolicy blockiert.
+- Naechster Schritt: Phase 58.90b mit Sortiermodus, Drag-Handle und Sicherheitsdialog im Kanal-Frontend.
+
 ## Navigation
 
 - [README](../../README.md)

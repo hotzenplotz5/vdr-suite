@@ -50,6 +50,8 @@ DAEMON_SRC := \
         api/rest/src/RecordingActionValidationController.cpp \
         api/rest/src/RecordingActionExecutionController.cpp \
         api/rest/src/VdrTimerActionController.cpp \
+        api/rest/src/VdrChannelMoveRequestParser.cpp \
+        api/rest/src/VdrChannelMoveController.cpp \
         core/recordings/src/RecordingActionUtils.cpp \
         core/recordings/src/RecordingActionValidationResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionExecutionResultJsonSerializer.cpp \

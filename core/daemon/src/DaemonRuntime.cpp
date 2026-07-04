@@ -484,6 +484,49 @@ bool DaemonRuntime::initialize()
         *backendRegistryService_,
         *backendAccessPolicy_);
 
+    vdrChannelMoveExecutionService_ =
+        std::make_unique<VdrChannelMoveExecutionService>();
+    vdrChannelMoveResultJsonSerializer_ =
+        std::make_unique<VdrChannelMoveResultJsonSerializer>();
+    vdrChannelMoveRequestParser_ =
+        std::make_unique<VdrChannelMoveRequestParser>();
+    vdrChannelMoveExecutorAdapterRegistry_ =
+        std::make_unique<VdrChannelMoveExecutorAdapterRegistry>();
+
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        if (backendRuntimeContext &&
+            backendRuntimeContext->backendId == "default") {
+            vdrChannelMoveExecutorAdapterRegistry_->registerAdapter(
+                std::make_shared<VdrChannelMoveExecutorAdapter>(
+                    backendRuntimeContext->backendId,
+                    std::make_shared<SvdrpChannelMoveExecutor>()));
+        }
+    }
+
+    vdrChannelMoveController_ =
+        std::make_unique<VdrChannelMoveController>(
+            *vdrChannelMoveExecutionService_,
+            *vdrChannelMoveResultJsonSerializer_,
+            *vdrChannelMoveRequestParser_,
+            *vdrChannelMoveExecutorAdapterRegistry_,
+            *backendRegistryService_,
+            *backendAccessPolicy_);
+
+    vdrChannelMoveController_->setAfterSuccessfulMoveCallback(
+        [this](const std::string& backendId) {
+            for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+                if (backendRuntimeContext &&
+                    backendRuntimeContext->backendId == backendId &&
+                    backendRuntimeContext->snapshotBuilder) {
+                    snapshotCacheService_->updateChannelsForBackend(
+                        backendId,
+                        backendRuntimeContext->snapshotBuilder->buildChannels());
+                    externalVdrChangeHint_.store(true);
+                    break;
+                }
+            }
+        });
+
     std::cout << "recording action controller runtime initialized" << std::endl;
     std::cout << "VDR timer action controller runtime initialized" << std::endl;
 
@@ -556,7 +599,8 @@ bool DaemonRuntime::initialize()
         searchTimerDiscoveryController_.get(),
         searchTimerAutomationPreviewController_.get(),
         searchTimerPreviewEpgCacheRefreshController_.get(),
-        epgCacheController_.get());
+        epgCacheController_.get(),
+        vdrChannelMoveController_.get());
 
     apiRouter_->setSearchTimerPreviewEpgCache(
         searchTimerPreviewEpgCache_.get());
