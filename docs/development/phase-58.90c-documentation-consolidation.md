@@ -1,67 +1,41 @@
 # Phase 58.90c: Documentation Consolidation
 
-Date: 2026-07-04
+## Navigation
 
-## Goal
+- [Development Index](index.md)
+- [Current Project Status](current-status.md)
+- [Completed Phases](completed-phases.md)
 
-Bring the documentation state in line with Phase 58.90a and Phase 58.90b directly in the GitHub repository.
+---
 
-## Stable technical state
+## Status
 
-```text
-2f66168d Phase 58.90b: add stable channel sorter
-```
+Completed documentation consolidation after Phase 58.90b.
 
-Tag:
+---
 
-```text
-v1.58.90b-stable-channel-sorter
-```
+## Summary
 
-## Updated documents
+This note records the documentation refresh after the stable channel sorter work.
 
-- `README.md`
-- `docs/CURRENT.md`
-- `docs/NEW-CHAT-HANDOFF.md`
-- `docs/development/current-status.md`
-- `docs/development/completed-phases.md`
-- `docs/development/completed-phases-latest.md`
-- `docs/planning/phase-map.md`
-- `docs/planning/roadmap.md`
-- `docs/planning/project-progress.md`
+The latest completed major project block remains Phase 57.
 
-## State model
+The latest completed implementation slice is Phase 58.90b.
 
-The latest completed major project block remains:
+Phase 58 remains in progress as the frontend and live-parity block.
 
-```text
-Phase 57 - Multi-Site Backend Administration and Permissions
-```
+---
 
-The latest completed implementation slice is:
+## Verification
 
-```text
-Phase 58.90b - Stable Channel Sorter
-```
+- `make test-docs`
+- `make test-phase`
+- `make test-phase-map-coverage`
 
-Phase 58 remains in progress as the current frontend and live-parity block.
+---
 
-## Stable channel sorter scope
+## Back
 
-- `Kanaele sortieren` frontend module
-- drag only on the left handle
-- touch and desktop operation
-- normal scrolling remains possible
-- guarded Channel Move API usage
-
-## Deliberate exclusion
-
-The experimental post-move focus restore is not part of the stable state.
-
-## Expected verification
-
-```bash
-make test-docs
-make test-phase
-make test-phase-map-coverage
-```
+- [Back to Development Index](index.md)
+- [Back to Current Project Status](current-status.md)
+- [Back to Completed Phases](completed-phases.md)
