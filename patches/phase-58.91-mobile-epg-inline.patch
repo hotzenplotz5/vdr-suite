@@ -1,8 +1,8 @@
 diff --git a/web/frontend/app.js b/web/frontend/app.js
 --- a/web/frontend/app.js
 +++ b/web/frontend/app.js
-@@
--function renderEpgEventDetail(event, channel, sourceElement) {
+@@ -975,12 +975,93 @@ function alignEpgSideDetailToSource(sourceElement) {
+ function renderEpgEventDetail(event, channel, sourceElement) {
 -  selectedEpgDetail = { event, channel };
 -  renderEpgSideDetail();
 -  alignEpgSideDetailToSource(sourceElement);
@@ -14,6 +14,30 @@ diff --git a/web/frontend/app.js b/web/frontend/app.js
 -    holder.scrollIntoView({ behavior: 'smooth', block: 'start' });
 -  }
 -}
++  selectedEpgDetail = { event, channel };
++
++  if (
++    isMobileEpgLayout()
++    && sourceElement
++    && sourceElement.classList
++    && sourceElement.classList.contains('epg-program-event')
++  ) {
++    renderMobileEpgInlineDetail(event, channel, sourceElement);
++    return;
++  }
++
++  clearMobileEpgInlineDetails(null);
++  renderEpgSideDetail();
++  alignEpgSideDetailToSource(sourceElement);
++
++  const holder = detailDataElement.querySelector('[data-epg-side-detail="true"]');
++  const desktop = window.matchMedia && window.matchMedia('(min-width: 1100px)').matches;
++
++  if (holder && !desktop) {
++    holder.scrollIntoView({ behavior: 'smooth', block: 'start' });
++  }
++}
++
 +function isMobileEpgLayout() {
 +  return window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
 +}
@@ -82,32 +106,7 @@ diff --git a/web/frontend/app.js b/web/frontend/app.js
 +    inline.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 +  }, 30);
 +}
-+
-+function renderEpgEventDetail(event, channel, sourceElement) {
-+  selectedEpgDetail = { event, channel };
-+
-+  if (
-+    isMobileEpgLayout()
-+    && sourceElement
-+    && sourceElement.classList
-+    && sourceElement.classList.contains('epg-program-event')
-+  ) {
-+    renderMobileEpgInlineDetail(event, channel, sourceElement);
-+    return;
-+  }
-+
-+  clearMobileEpgInlineDetails(null);
-+  renderEpgSideDetail();
-+  alignEpgSideDetailToSource(sourceElement);
-+
-+  const holder = detailDataElement.querySelector('[data-epg-side-detail="true"]');
-+  const desktop = window.matchMedia && window.matchMedia('(min-width: 1100px)').matches;
-+
-+  if (holder && !desktop) {
-+    holder.scrollIntoView({ behavior: 'smooth', block: 'start' });
-+  }
-+}
-@@
+@@ -1727,7 +1808,13 @@ function renderEpgTimeView(channelData, eventData) {
  function renderEpgTimeView(channelData, eventData) {
    const channels = listFromResponse(channelData, 'channels');
    const events = listFromResponse(eventData, 'events');
@@ -122,7 +121,7 @@ diff --git a/web/frontend/app.js b/web/frontend/app.js
 -  const limit = EPG_VISIBLE_CHANNEL_LIMIT;
 +  const limit = isMobileEpgLayout() ? 8 : EPG_VISIBLE_CHANNEL_LIMIT;
    const visibleChannels = channels.slice(epgChannelOffset, epgChannelOffset + limit);
-@@
+@@ -1768,6 +1855,15 @@ function renderEpgTimeView(channelData, eventData) {
    const cacheStatus = addText(document.createElement('p'), epgWarmCacheStatus);
    cacheStatus.className = 'epg-cache-status';
    cacheStatus.dataset.epgCacheStatus = 'true';
@@ -138,41 +137,41 @@ diff --git a/web/frontend/app.js b/web/frontend/app.js
 +  }
  
    const modeRow = document.createElement('div');
-   modeRow.className = 'epg-view-toggle';
-@@
+@@ -1776,4 +1872,5 @@ function renderEpgTimeView(channelData, eventData) {
    const timeView = document.createElement('button');
    timeView.type = 'button';
    timeView.className = 'epg-view-button ' + (epgProgramView === 'horizontal' ? 'active' : '');
 +  timeView.classList.add('epg-desktop-only');
    timeView.textContent = 'Zeit horizontal · Zeitachse oben';
-@@
+@@ -1791,4 +1888,5 @@ function renderEpgTimeView(channelData, eventData) {
    const verticalTimeView = document.createElement('button');
    verticalTimeView.type = 'button';
    verticalTimeView.className = 'epg-view-button ' + (epgProgramView === 'vertical' ? 'active' : '');
 +  verticalTimeView.classList.add('epg-desktop-only');
    verticalTimeView.textContent = 'Zeit vertikal · Kanäle oben';
-@@
+@@ -1858,5 +1956,5 @@ function renderEpgTimeView(channelData, eventData) {
    const previous = document.createElement('button');
    previous.type = 'button';
 -  previous.textContent = 'Vorherige 15';
 +  previous.textContent = 'Vorherige ' + String(limit);
-@@
+   previous.disabled = epgChannelOffset <= 0;
+@@ -1867,5 +1965,5 @@ function renderEpgTimeView(channelData, eventData) {
    const next = document.createElement('button');
    next.type = 'button';
 -  next.textContent = 'Nächste 15';
 +  next.textContent = 'Nächste ' + String(limit);
-@@
+   next.disabled = epgChannelOffset + limit >= channels.length;
+@@ -1880,3 +1978,4 @@ function renderEpgTimeView(channelData, eventData) {
    const timePager = document.createElement('div');
    timePager.className = 'epg-time-window-pager';
 +  timePager.classList.add('epg-desktop-only');
+ 
 diff --git a/web/frontend/style.css b/web/frontend/style.css
 --- a/web/frontend/style.css
 +++ b/web/frontend/style.css
-@@
- .searchtimer-diagnostics-pre {
-   margin: 0.55rem 0 0;
-   white-space: pre-wrap;
-   word-break: break-word;
+@@ -2599,3 +2599,115 @@
+ .channel-detail-program-entry.active .channel-detail-program-time {
+   color: #fecaca;
  }
 +
 +/* Phase 58.91: mobile EPG inline expansion */
