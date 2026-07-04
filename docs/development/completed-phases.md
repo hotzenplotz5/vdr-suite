@@ -26,14 +26,17 @@ Completed subphases:
 - Phase 58.38 - SearchTimer frontend cockpit and mobile UI polish.
 - Phase 58.39 - Bounded live EPG for channel cards.
 - Phase 58.40 - Backend-scoped persistent EPG database foundation.
+- Phase 58.58 - RESTfulAPI event stream change hints.
+- Phase 58.90a - Guarded channel move API.
+- Phase 58.90b - Stable frontend channel sorter.
 
 Key outcomes:
 
 - Existing backend capabilities are visible in the frontend foundation.
 - Channel-card EPG uses bounded now-next input instead of an unbounded full EPG dump.
-- Global RESTfulAPI event query parameters are preserved.
 - Persistent EPG event identity is backend-scoped as `backend_id + channel_id + event_id`.
-- The persistent EPG database foundation does not add daemon startup EPG loading, SSE synchronization or frontend route migration.
+- Channel move and sorting are represented as stable Phase 58 frontend/live-parity slices.
+- The stable channel sorter uses handle-only pointer drag and preserves normal scrolling.
 
 Note: Phase 58 as a major block is not marked complete here. The latest completed major implementation phase remains Phase 57 until the full Phase 58 block is closed consistently across the marker files.
 
@@ -52,7 +55,7 @@ Key outcomes:
 
 - Backend access modes are represented.
 - Backend registry JSON exposes permission hints.
-- Recording, timer and SearchTimer write paths use backend access handling.
+- Recording, timer and SearchTimer paths use backend access handling.
 
 ---
 
