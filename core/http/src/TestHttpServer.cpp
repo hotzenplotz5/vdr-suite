@@ -400,6 +400,7 @@ bool isFrontendPath(
         path == "/frontend/index.html" ||
         path == "/frontend/app.js" ||
         path == "/frontend/channel-logos.js" ||
+        path == "/frontend/channel-browser.js" ||
         path == "/frontend/style.css";
 }
 
@@ -434,6 +435,13 @@ HttpServerResponse serveFrontendPath(
         return makeFrontendScriptBundleResponse(
             "channel-logos.js",
             "epg-cache.js");
+    }
+
+    if (path == "/frontend/channel-browser.js")
+    {
+        return makeFrontendAssetResponse(
+            "channel-browser.js",
+            "application/javascript; charset=utf-8");
     }
 
     if (path == "/frontend/style.css")
