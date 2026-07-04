@@ -673,10 +673,12 @@ function renderChannelSection(list, label, channels, globalOffset, encryptionAva
 
 renderChannelList = function(data) {
   const channels = listFromResponse(data, 'channels');
-  detailDataElement.replaceChildren();
+  const dataEvents = Array.isArray(data.events) ? data.events : [];
+  const fallbackEvents = currentEvents ? listFromResponse(currentEvents, 'events') : [];
+  const events = dataEvents.length > 0 ? dataEvents : fallbackEvents;
+  const nowSeconds = Math.floor(Date.now() / 1000);
 
-  const list = document.createElement('section');
-  list.className = 'list';
+  detailDataElement.replaceChildren();
 
   if (channels.length === 0) {
     const empty = document.createElement('article');
@@ -702,38 +704,304 @@ renderChannelList = function(data) {
   const visibleCount = Math.min(channelListVisibleCount, filteredChannels.length);
   const visibleChannels = filteredChannels.slice(0, visibleCount);
 
+  const shell = document.createElement('section');
+  shell.className = 'list channel-browser-module';
+
   const overview = document.createElement('article');
-  overview.className = 'module-placeholder';
+  overview.className = 'module-placeholder channel-browser-intro';
   overview.appendChild(addText(document.createElement('h3'), 'Kanalliste'));
   overview.appendChild(addText(
     document.createElement('p'),
     'Zeige ' + String(visibleChannels.length) + ' von ' + String(filteredChannels.length) +
-      ' gefilterten Kanälen · ' + String(channels.length) + ' gesamt.'
+      ' gefilterten Kanälen · ' + String(channels.length) + ' gesamt. Kanal links anklicken, rechts Programm ansehen.'
   ));
+
   renderChannelViewButtons(overview, channels);
   renderChannelFilterButtons(overview, channels, encryptionAvailable);
   renderChannelPagingControls(overview, channels, filteredChannels.length);
-  list.appendChild(overview);
+  shell.appendChild(overview);
 
   if (visibleChannels.length === 0) {
     const empty = document.createElement('article');
     empty.className = 'module-placeholder';
     empty.appendChild(addText(document.createElement('h3'), 'Keine Kanäle im Filter'));
     empty.appendChild(addText(document.createElement('p'), 'Wähle einen anderen Filter.'));
-    list.appendChild(empty);
-    detailDataElement.appendChild(list);
+    shell.appendChild(empty);
+    detailDataElement.appendChild(shell);
     return;
   }
 
-  const sections = channelListViewMode === 'groups'
-    ? groupChannelsByVdrGroup(visibleChannels)
-    : groupChannelsByLoadedPages(visibleChannels);
+  const workbench = document.createElement('section');
+  workbench.className = 'channel-browser-workbench';
 
-  let offset = 0;
-  sections.forEach(([label, sectionChannels]) => {
-    renderChannelSection(list, label, sectionChannels, offset, encryptionAvailable);
-    offset += sectionChannels.length;
-  });
+  const channelPane = document.createElement('div');
+  channelPane.className = 'channel-browser-list';
 
-  detailDataElement.appendChild(list);
+  const detailPane = document.createElement('div');
+  detailPane.className = 'channel-browser-detail';
+
+  const state = {
+    selectedIndex: 0,
+    selectedEventKey: ''
+  };
+
+  function eventKey(entry) {
+    return [
+      frontendEventChannelId(entry.event),
+      String(entry.start),
+      String(entry.end),
+      String(firstValue(entry.event, ['eventId', 'id', 'nativeId'], epgEventTitle(entry.event)))
+    ].join(':');
+  }
+
+  function channelEntries(channel) {
+    return epgEventsForChannel(channel, events, nowSeconds)
+      .filter(entry => entry.end > nowSeconds)
+      .slice(0, 48);
+  }
+
+  function currentEntry(entries) {
+    return entries.find(entry => entry.start <= nowSeconds && nowSeconds < entry.end) || null;
+  }
+
+  function nextEntry(entries) {
+    return entries.find(entry => entry.start >= nowSeconds) || null;
+  }
+
+  function selectedChannel() {
+    if (state.selectedIndex < 0 || state.selectedIndex >= visibleChannels.length) {
+      state.selectedIndex = 0;
+    }
+
+    return visibleChannels[state.selectedIndex] || null;
+  }
+
+  function selectedEntry(entries) {
+    if (entries.length === 0) {
+      return null;
+    }
+
+    if (state.selectedEventKey !== '') {
+      const match = entries.find(entry => eventKey(entry) === state.selectedEventKey);
+      if (match) {
+        return match;
+      }
+    }
+
+    return currentEntry(entries) || entries[0];
+  }
+
+  function renderChannelButton(channel, index) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'channel-browser-item' + (index === state.selectedIndex ? ' active' : '');
+    button.setAttribute('aria-pressed', index === state.selectedIndex ? 'true' : 'false');
+
+    const channelTitle = epgChannelTitle(channel, index);
+    const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '');
+    const number = firstValue(channel, ['number', 'channelNumber', 'position'], String(index + 1));
+
+    const row = document.createElement('div');
+    row.className = 'channel-list-item';
+
+    if (typeof createChannelLogoElement === 'function') {
+      const logo = createChannelLogoElement(channelTitle, channelId);
+      logo.classList.add('epg-channel-logo');
+      row.appendChild(logo);
+    }
+
+    const textBlock = document.createElement('div');
+    textBlock.className = 'channel-text';
+    textBlock.appendChild(addText(document.createElement('div'), channelTitle)).className = 'list-title';
+    textBlock.appendChild(addText(
+      document.createElement('div'),
+      'Nr. ' + String(number) + ' · ' + String(channelId || '-')
+    )).className = 'list-meta';
+
+    const entries = channelEntries(channel);
+    const current = currentEntry(entries);
+
+    if (current) {
+      textBlock.appendChild(addText(
+        document.createElement('div'),
+        'Jetzt: ' + epgEventTitle(current.event) + ' · '
+          + formatEpgClockFromEpoch(current.start) + '–' + formatEpgClockFromEpoch(current.end)
+      )).className = 'list-meta channel-browser-now';
+    }
+
+    row.appendChild(textBlock);
+    button.appendChild(row);
+
+    button.addEventListener('click', () => {
+      state.selectedIndex = index;
+      state.selectedEventKey = '';
+      renderAll();
+    });
+
+    return button;
+  }
+
+  function renderAgendaRow(entry, channel, active) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'channel-agenda-row' + (active ? ' active' : '');
+
+    if (entry.start <= nowSeconds && nowSeconds < entry.end) {
+      button.classList.add('current');
+    }
+
+    const timeBox = document.createElement('div');
+    timeBox.className = 'channel-agenda-timebox';
+
+    timeBox.appendChild(addText(
+      document.createElement('div'),
+      formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end)
+    )).className = 'channel-agenda-time';
+
+    timeBox.appendChild(addText(
+      document.createElement('div'),
+      formatEpgDuration(entry.start, entry.end)
+    )).className = 'channel-agenda-duration';
+
+    const content = document.createElement('div');
+    content.className = 'channel-agenda-content';
+
+    content.appendChild(addText(document.createElement('div'), epgEventTitle(entry.event))).className = 'channel-agenda-title';
+
+    const subtitle = epgEventSubtitle(entry.event);
+    if (subtitle !== '' && subtitle !== epgEventTitle(entry.event)) {
+      content.appendChild(addText(document.createElement('div'), subtitle)).className = 'channel-agenda-subtitle';
+    }
+
+    button.appendChild(timeBox);
+    button.appendChild(content);
+
+    button.addEventListener('click', () => {
+      state.selectedEventKey = eventKey(entry);
+      renderAll();
+    });
+
+    return button;
+  }
+
+  function renderChannelPane() {
+    channelPane.replaceChildren();
+
+    visibleChannels.forEach((channel, index) => {
+      channelPane.appendChild(renderChannelButton(channel, index));
+    });
+  }
+
+  function renderDetailPane() {
+    detailPane.replaceChildren();
+
+    const channel = selectedChannel();
+    if (!channel) {
+      const empty = document.createElement('article');
+      empty.className = 'module-placeholder';
+      empty.appendChild(addText(document.createElement('h3'), 'Kein Kanal ausgewählt'));
+      detailPane.appendChild(empty);
+      return;
+    }
+
+    const channelTitle = epgChannelTitle(channel, state.selectedIndex);
+    const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '');
+    const number = firstValue(channel, ['number', 'channelNumber', 'position'], String(state.selectedIndex + 1));
+    const entries = channelEntries(channel);
+    const active = selectedEntry(entries);
+    const current = currentEntry(entries);
+    const next = nextEntry(entries);
+
+    const hero = document.createElement('article');
+    hero.className = 'module-placeholder channel-browser-selected';
+
+    const head = document.createElement('div');
+    head.className = 'channel-browser-selected-head';
+
+    if (typeof createChannelLogoElement === 'function') {
+      const logo = createChannelLogoElement(channelTitle, channelId);
+      logo.classList.add('channel-browser-detail-logo');
+      head.appendChild(logo);
+    }
+
+    const titleBlock = document.createElement('div');
+    titleBlock.className = 'channel-browser-detail-headline';
+    titleBlock.appendChild(addText(document.createElement('h3'), channelTitle));
+    titleBlock.appendChild(addText(
+      document.createElement('p'),
+      'Kanalnummer ' + String(number) + ' · ' + String(channelId || '-')
+    ));
+
+    head.appendChild(titleBlock);
+    hero.appendChild(head);
+
+    const summary = document.createElement('div');
+    summary.className = 'channel-browser-summary';
+
+    const nowCard = document.createElement('div');
+    nowCard.className = 'channel-browser-summary-card';
+    nowCard.appendChild(addText(document.createElement('div'), 'Läuft jetzt')).className = 'channel-browser-summary-label';
+    nowCard.appendChild(addText(
+      document.createElement('div'),
+      current
+        ? epgEventTitle(current.event) + ' · ' + formatEpgClockFromEpoch(current.start) + '–' + formatEpgClockFromEpoch(current.end)
+        : 'keine laufende Sendung'
+    )).className = 'channel-browser-summary-value';
+    summary.appendChild(nowCard);
+
+    const nextCard = document.createElement('div');
+    nextCard.className = 'channel-browser-summary-card';
+    nextCard.appendChild(addText(document.createElement('div'), 'Als nächstes')).className = 'channel-browser-summary-label';
+    nextCard.appendChild(addText(
+      document.createElement('div'),
+      next
+        ? epgEventTitle(next.event) + ' · ' + formatEpgClockFromEpoch(next.start) + '–' + formatEpgClockFromEpoch(next.end)
+        : 'keine nächste Sendung'
+    )).className = 'channel-browser-summary-value';
+    summary.appendChild(nextCard);
+
+    hero.appendChild(summary);
+    detailPane.appendChild(hero);
+
+    const agenda = document.createElement('article');
+    agenda.className = 'module-placeholder channel-agenda-card';
+    agenda.appendChild(addText(document.createElement('h3'), 'Programm'));
+    agenda.appendChild(addText(
+      document.createElement('p'),
+      'Zeit links, Sendung rechts. Mit Mausrad scrollen oder Eintrag anklicken.'
+    )).className = 'channel-agenda-hint';
+
+    const scroll = document.createElement('div');
+    scroll.className = 'channel-agenda-scroll';
+
+    if (entries.length === 0) {
+      scroll.appendChild(addText(
+        document.createElement('div'),
+        'Keine Programmdaten im aktuellen Zeitfenster gefunden.'
+      )).className = 'channel-agenda-empty';
+    } else {
+      entries.forEach(entry => {
+        scroll.appendChild(renderAgendaRow(entry, channel, active && eventKey(entry) === eventKey(active)));
+      });
+    }
+
+    agenda.appendChild(scroll);
+    detailPane.appendChild(agenda);
+
+    if (active) {
+      detailPane.appendChild(createEpgEventDetailCard(active.event, channel));
+    }
+  }
+
+  function renderAll() {
+    renderChannelPane();
+    renderDetailPane();
+  }
+
+  workbench.appendChild(channelPane);
+  workbench.appendChild(detailPane);
+  shell.appendChild(workbench);
+  detailDataElement.appendChild(shell);
+
+  renderAll();
 };

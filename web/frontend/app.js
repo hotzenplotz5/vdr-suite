@@ -1,3 +1,5 @@
+
+
 const statusElement = document.getElementById('status');
 const backendsElement = document.getElementById('backends');
 const detailMetaElement = document.getElementById('detail-meta');
@@ -23,6 +25,7 @@ let epgTimeAxisMode = 'horizontal';
 let epgTimeWindowPageOffset = 0;
 let epgProgramView = 'horizontal';
 let selectedEpgDetail = null;
+let epgSuppressClickUntil = 0;
 
 const EPG_TIMELINE_VISIBLE_SECONDS = 24 * 60 * 60;
 const EPG_TIMELINE_TICK_SECONDS = 2 * 60 * 60;
@@ -421,12 +424,68 @@ function renderSnapshotMetrics(data) {
   detailDataElement.appendChild(createMetric('Aufnahmen', valueOrZero(data.recordingCount)));
 }
 
+
+function enableMouseDragScroll(element, axis) {
+  (void element);
+  (void axis);
+}
+
+
+
+function formatChannelGroupLabel(groupName) {
+  const value = String(groupName || '').trim();
+
+  if (value === '') {
+    return 'Ohne Gruppe';
+  }
+
+  const known = {
+    DieOeffentlichen: 'Die Öffentlichen',
+    DieÖffentlichen: 'Die Öffentlichen',
+    DieDritten: 'Die Dritten',
+    News: 'Nachrichten',
+    Private: 'Private',
+    Kinderkram: 'Kinder',
+    Rest: 'Weitere Sender'
+  };
+
+  if (known[value]) {
+    return known[value];
+  }
+
+  return value
+    .replace(/([a-zäöüß])([A-ZÄÖÜ])/g, '$1 $2')
+    .replace(/Oeff/g, 'Öff')
+    .replace(/ae/g, 'ä')
+    .replace(/oe/g, 'ö')
+    .replace(/ue/g, 'ü');
+}
+
+
 function renderChannelList(data) {
   const channels = listFromResponse(data, 'channels');
   detailDataElement.replaceChildren();
 
-  const list = document.createElement('section');
-  list.className = 'list';
+  if (!renderChannelList.mode) {
+    renderChannelList.mode = 'numbers';
+  }
+
+  if (!Number.isFinite(Number(renderChannelList.visibleCount))) {
+    renderChannelList.visibleCount = 20;
+  }
+
+  if (!Number.isFinite(Number(renderChannelList.selectedIndex))) {
+    renderChannelList.selectedIndex = 0;
+  }
+
+  const state = {
+    mode: renderChannelList.mode,
+    visibleCount: Math.max(20, Number(renderChannelList.visibleCount || 20)),
+    selectedIndex: Math.max(0, Number(renderChannelList.selectedIndex || 0))
+  };
+
+  const shell = document.createElement('section');
+  shell.className = 'list channel-browser-module';
 
   if (channels.length === 0) {
     const empty = document.createElement('article');
@@ -437,32 +496,425 @@ function renderChannelList(data) {
     return;
   }
 
-  channels.slice(0, 20).forEach((channel, index) => {
-    const item = document.createElement('article');
-    item.className = 'list-item';
-    const title = firstValue(
+  if (state.selectedIndex >= channels.length) {
+    state.selectedIndex = 0;
+    renderChannelList.selectedIndex = 0;
+  }
+
+  function channelTitle(channel, index) {
+    return String(firstValue(
       channel,
       ['name', 'channelName', 'title', 'displayName', 'id', 'channelId'],
       'Kanal ' + String(index + 1)
-    );
-    const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '-');
-    const number = firstValue(channel, ['number', 'channelNumber', 'position'], String(index + 1));
-    item.appendChild(addText(document.createElement('div'), String(title))).className = 'list-title';
-    item.appendChild(addText(
-      document.createElement('div'),
-      'Nummer: ' + String(number) + ' · ID: ' + String(channelId)
-    )).className = 'list-meta';
-    list.appendChild(item);
-  });
-
-  if (channels.length > 20) {
-    const info = document.createElement('article');
-    info.className = 'module-placeholder';
-    info.appendChild(addText(document.createElement('p'), 'Zeige 20 von ' + String(channels.length) + ' Kanälen.'));
-    list.appendChild(info);
+    ));
   }
 
-  detailDataElement.appendChild(list);
+  function channelId(channel) {
+    return String(firstValue(channel, ['channelId', 'id', 'nativeId'], ''));
+  }
+
+  function channelNumber(channel, index) {
+    return String(firstValue(channel, ['number', 'channelNumber', 'position'], String(index + 1)));
+  }
+
+  function channelGroupName(channel, index) {
+    const explicit = String(firstValue(channel, [
+      'group',
+      'channelGroup',
+      'category',
+      'bouquet',
+      'provider',
+      'section'
+    ], '')).trim();
+
+    if (explicit !== '') {
+      return explicit;
+    }
+
+    const title = channelTitle(channel, index).toLocaleLowerCase('de-DE');
+    const type = String(firstValue(channel, ['type', 'serviceType'], '')).toLocaleLowerCase('de-DE');
+
+    if (type.includes('radio') || title.includes('radio')) {
+      return 'Radio';
+    }
+
+    if (
+      title.includes('daserste') ||
+      title.includes('das erste') ||
+      title.includes('zdf') ||
+      title.includes('ndr') ||
+      title.includes('wdr') ||
+      title.includes('swr') ||
+      title.includes('br ') ||
+      title.includes('br-') ||
+      title.includes('hr-') ||
+      title.includes('mdr') ||
+      title.includes('rbb') ||
+      title.includes('arte') ||
+      title.includes('3sat') ||
+      title.includes('one') ||
+      title.includes('phoenix') ||
+      title.includes('kika') ||
+      title.includes('tagesschau')
+    ) {
+      return 'Öffentlich-rechtlich';
+    }
+
+    if (
+      title.includes('welt') ||
+      title.includes('ntv') ||
+      title.includes('n-tv') ||
+      title.includes('euronews') ||
+      title.includes('cnn') ||
+      title.includes('bbc')
+    ) {
+      return 'Nachrichten';
+    }
+
+    if (
+      title.includes('sport') ||
+      title.includes('sky') ||
+      title.includes('eurosport') ||
+      title.includes('dazn')
+    ) {
+      return 'Sport';
+    }
+
+    if (
+      title.includes('rtl') ||
+      title.includes('sat') ||
+      title.includes('pro sieben') ||
+      title.includes('prosieben') ||
+      title.includes('vox') ||
+      title.includes('kabel') ||
+      title.includes('sixx') ||
+      title.includes('tele 5') ||
+      title.includes('dmax') ||
+      title.includes('nitro')
+    ) {
+      return 'Private';
+    }
+
+    return 'Weitere Sender';
+  }
+
+  function channelCurrentText(channel) {
+    const current = channel.currentEvent || null;
+
+    if (!current) {
+      return 'EPG rechts nach Kanalwahl';
+    }
+
+    const title = epgEventTitle(current);
+    const start = parseFrontendEventEpoch(firstValue(current, ['startTime', 'start', 'beginTime'], ''));
+    const end = frontendEventEnd(current, start);
+    const time = start > 0 && end > 0
+      ? ' · ' + formatEpgClockFromEpoch(start) + '–' + formatEpgClockFromEpoch(end)
+      : '';
+
+    return 'Jetzt: ' + title + time;
+  }
+
+  function orderedEntries() {
+    return channels.map((channel, index) => ({ channel, index }));
+  }
+
+  function visibleEntries() {
+    return orderedEntries().slice(0, Math.min(state.visibleCount, channels.length));
+  }
+
+  const intro = document.createElement('article');
+  intro.className = 'module-placeholder channel-browser-intro';
+  intro.appendChild(addText(document.createElement('h3'), 'Kanalliste'));
+
+  const introText = state.mode === 'groups'
+    ? 'Zeige ' + String(Math.min(state.visibleCount, channels.length)) + ' von ' + String(channels.length) + ' Kanälen nach Sendergruppen. Kanal links anklicken, rechts Programm ansehen.'
+    : 'Zeige ' + String(Math.min(state.visibleCount, channels.length)) + ' von ' + String(channels.length) + ' Kanälen nach originaler VDR-Kanalreihenfolge. Kanal links anklicken, rechts Programm ansehen.';
+
+  intro.appendChild(addText(document.createElement('p'), introText));
+
+  const modeRow = document.createElement('div');
+  modeRow.className = 'channel-browser-mode-row';
+
+  const groupsButton = addText(document.createElement('button'), 'Sendergruppen');
+  groupsButton.type = 'button';
+  groupsButton.className = 'channel-browser-mode-button' + (state.mode === 'groups' ? ' active' : '');
+  groupsButton.addEventListener('click', () => {
+    renderChannelList.mode = 'groups';
+    renderChannelList(data);
+  });
+
+  const numbersButton = addText(document.createElement('button'), 'Kanalreihenfolge');
+  numbersButton.type = 'button';
+  numbersButton.className = 'channel-browser-mode-button' + (state.mode === 'numbers' ? ' active' : '');
+  numbersButton.addEventListener('click', () => {
+    renderChannelList.mode = 'numbers';
+    renderChannelList(data);
+  });
+
+  modeRow.appendChild(groupsButton);
+  modeRow.appendChild(numbersButton);
+  intro.appendChild(modeRow);
+
+  const hint = addText(
+    document.createElement('p'),
+    state.mode === 'groups'
+      ? 'Sendergruppen: thematische Blöcke wie Öffentlich-rechtlich, Private, Nachrichten, Sport, Radio.'
+      : 'Kanalreihenfolge: die echte VDR-Reihenfolge wie auf der Fernbedienung.'
+  );
+  hint.className = 'channel-browser-mode-hint';
+  intro.appendChild(hint);
+
+  shell.appendChild(intro);
+
+  const workbench = document.createElement('section');
+  workbench.className = 'channel-browser-workbench';
+
+  const channelPane = document.createElement('div');
+  channelPane.className = 'channel-browser-list';
+  channelPane.setAttribute('aria-label', 'Kanäle');
+  enableMouseDragScroll(channelPane, 'y');
+
+  const detailPane = document.createElement('div');
+  detailPane.className = 'channel-browser-detail';
+
+  function renderChannelButton(channel, index) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'channel-browser-item' + (index === state.selectedIndex ? ' active' : '');
+    button.setAttribute('aria-label', 'Kanal ' + channelTitle(channel, index) + ' öffnen');
+
+    if (typeof createChannelLogoElement === 'function') {
+      const logo = createChannelLogoElement(channelTitle(channel, index), channelId(channel));
+      logo.classList.add('epg-channel-logo');
+      button.appendChild(logo);
+    }
+
+    const textBlock = document.createElement('span');
+    textBlock.className = 'channel-browser-item-text';
+
+    const title = addText(document.createElement('strong'), channelTitle(channel, index));
+    textBlock.appendChild(title);
+
+    const meta = addText(
+      document.createElement('span'),
+      'Nr. ' + channelNumber(channel, index) + ' · ' + (channelId(channel) || '-')
+    );
+    meta.className = 'channel-browser-meta';
+    textBlock.appendChild(meta);
+
+    const now = addText(document.createElement('span'), channelCurrentText(channel));
+    now.className = 'list-meta channel-browser-now';
+    textBlock.appendChild(now);
+
+    button.appendChild(textBlock);
+
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      state.selectedIndex = index;
+      renderChannelList.selectedIndex = index;
+
+      channelPane.querySelectorAll('.channel-browser-item.active').forEach(item => {
+        item.classList.remove('active');
+      });
+      button.classList.add('active');
+
+      renderChannelDetail(index);
+    });
+
+    return button;
+  }
+
+  function renderChannelPane() {
+    channelPane.replaceChildren();
+
+    const entries = visibleEntries();
+
+    if (state.mode === 'groups') {
+      const groups = new Map();
+
+      entries.forEach(entry => {
+        const group = formatChannelGroupLabel(channelGroupName(entry.channel, entry.index));
+        if (!groups.has(group)) {
+          groups.set(group, []);
+        }
+        groups.get(group).push(entry);
+      });
+
+      groups.forEach((items, group) => {
+        const header = document.createElement('div');
+        header.className = 'channel-browser-group-header';
+        header.appendChild(addText(document.createElement('strong'), group));
+        header.appendChild(addText(document.createElement('span'), String(items.length) + ' Sender'));
+        channelPane.appendChild(header);
+
+        items.forEach(entry => {
+          channelPane.appendChild(renderChannelButton(entry.channel, entry.index));
+        });
+      });
+    } else {
+      entries.forEach(entry => {
+        channelPane.appendChild(renderChannelButton(entry.channel, entry.index));
+      });
+    }
+
+    if (state.visibleCount < channels.length) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'module-placeholder channel-browser-more';
+      more.textContent = 'Weitere 20 laden';
+      more.addEventListener('click', () => {
+        renderChannelList.visibleCount = Math.min(channels.length, state.visibleCount + 20);
+        renderChannelList(data);
+      });
+      channelPane.appendChild(more);
+    }
+
+    requestAnimationFrame(() => enableMouseDragScroll(channelPane, 'y'));
+  }
+
+  function renderSummaryValue(entry) {
+    if (!entry) {
+      return 'keine Sendung gefunden';
+    }
+
+    return epgEventTitle(entry.event)
+      + ' · '
+      + formatEpgClockFromEpoch(entry.start)
+      + '–'
+      + formatEpgClockFromEpoch(entry.end);
+  }
+
+  function renderChannelDetail(forcedIndex) {
+    const detailIndex = Number.isFinite(Number(forcedIndex)) ? Number(forcedIndex) : state.selectedIndex;
+    state.selectedIndex = detailIndex;
+    renderChannelList.selectedIndex = detailIndex;
+
+    const requestToken = String(Date.now()) + '-' + String(detailIndex);
+    detailPane.dataset.channelRequestToken = requestToken;
+
+    const channel = channels[detailIndex];
+    if (!channel) {
+      detailPane.replaceChildren();
+      return;
+    }
+
+    detailPane.replaceChildren();
+
+    const hero = document.createElement('article');
+    hero.className = 'module-placeholder channel-browser-selected';
+
+    const head = document.createElement('div');
+    head.className = 'channel-browser-selected-head';
+
+    if (typeof createChannelLogoElement === 'function') {
+      const logo = createChannelLogoElement(channelTitle(channel, detailIndex), channelId(channel));
+      logo.classList.add('channel-browser-detail-logo');
+      head.appendChild(logo);
+    }
+
+    const titleBlock = document.createElement('div');
+    titleBlock.className = 'channel-browser-detail-headline';
+    titleBlock.appendChild(addText(document.createElement('h3'), channelTitle(channel, detailIndex)));
+    titleBlock.appendChild(addText(
+      document.createElement('p'),
+      'Kanalnummer ' + channelNumber(channel, detailIndex) + ' · ' + (channelId(channel) || '-')
+    ));
+    head.appendChild(titleBlock);
+    hero.appendChild(head);
+
+    const summary = document.createElement('div');
+    summary.className = 'channel-browser-summary';
+
+    const nowCard = document.createElement('div');
+    nowCard.className = 'channel-browser-summary-card';
+    nowCard.appendChild(addText(document.createElement('div'), 'Läuft jetzt')).className = 'channel-browser-summary-label';
+    const nowValue = addText(document.createElement('div'), 'lade EPG...');
+    nowValue.className = 'channel-browser-summary-value';
+    nowCard.appendChild(nowValue);
+
+    const nextCard = document.createElement('div');
+    nextCard.className = 'channel-browser-summary-card';
+    nextCard.appendChild(addText(document.createElement('div'), 'Als nächstes')).className = 'channel-browser-summary-label';
+    const nextValue = addText(document.createElement('div'), 'lade EPG...');
+    nextValue.className = 'channel-browser-summary-value';
+    nextCard.appendChild(nextValue);
+
+    summary.appendChild(nowCard);
+    summary.appendChild(nextCard);
+    hero.appendChild(summary);
+    detailPane.appendChild(hero);
+
+    const program = document.createElement('article');
+    program.className = 'module-placeholder channel-browser-program';
+    detailPane.appendChild(program);
+
+    const loading = document.createElement('article');
+    loading.className = 'channel-detail-program-empty';
+    loading.appendChild(addText(document.createElement('strong'), 'Lade Programm aus dem EPG-Cache...'));
+    loading.appendChild(addText(document.createElement('p'), channelId(channel) || '-'));
+    program.appendChild(loading);
+
+    fetchCachedEpgWindowForSingleChannel(channel)
+      .then(eventData => {
+        if (detailPane.dataset.channelRequestToken !== requestToken) {
+          return;
+        }
+        const events = listEventsFromEpgResponse(eventData);
+        const nowSeconds = Math.floor(Date.now() / 1000);
+
+        const currentEntry = events
+          .map(event => {
+            const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
+            const end = frontendEventEnd(event, start);
+            return { event, start, end };
+          })
+          .filter(entry => entry.start > 0 && entry.end > entry.start && entry.start <= nowSeconds && nowSeconds < entry.end)
+          .sort((a, b) => a.start - b.start)[0] || null;
+
+        const nextEntry = events
+          .map(event => {
+            const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
+            const end = frontendEventEnd(event, start);
+            return { event, start, end };
+          })
+          .filter(entry => entry.start > nowSeconds && entry.end > entry.start)
+          .sort((a, b) => a.start - b.start)[0] || null;
+
+        nowValue.textContent = currentEntry
+          ? renderSummaryValue(currentEntry)
+          : (nextEntry ? 'nächster EPG-Eintrag: ' + renderSummaryValue(nextEntry) : 'kein aktueller Eintrag im Cache-Fenster');
+        nextValue.textContent = nextEntry
+          ? renderSummaryValue(nextEntry)
+          : 'kein weiterer Eintrag im Cache-Fenster';
+
+        renderChannelDetailProgramList(program, channel, eventData);
+      })
+      .catch(error => {
+        if (detailPane.dataset.channelRequestToken !== requestToken) {
+          return;
+        }
+
+        program.replaceChildren();
+
+        const box = document.createElement('article');
+        box.className = 'channel-detail-program-empty error';
+        box.appendChild(addText(document.createElement('strong'), 'EPG konnte nicht geladen werden'));
+        box.appendChild(addText(document.createElement('p'), error.message));
+        program.appendChild(box);
+
+        nowValue.textContent = 'EPG konnte nicht geladen werden';
+        nextValue.textContent = 'EPG konnte nicht geladen werden';
+      });
+  }
+
+  renderChannelPane();
+  renderChannelDetail();
+
+  workbench.appendChild(channelPane);
+  workbench.appendChild(detailPane);
+  shell.appendChild(workbench);
+  detailDataElement.appendChild(shell);
 }
 
 function renderTimerList(data) {
@@ -793,13 +1245,99 @@ function appendEpgDetailMeta(parent, label, value) {
   parent.appendChild(item);
 }
 
-function createEpgDetailAction(label, hint) {
+function formatEpgTimerDay(epochSeconds) {
+  const date = new Date(epochSeconds * 1000);
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return year + '-' + month + '-' + day;
+}
+
+function formatEpgTimerClockValue(epochSeconds) {
+  const date = new Date(epochSeconds * 1000);
+  return Number(
+    String(date.getHours()).padStart(2, '0') +
+    String(date.getMinutes()).padStart(2, '0')
+  );
+}
+
+function buildEpgTimerCreatePayload(event, channel) {
+  const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
+  const end = frontendEventEnd(event, start);
+  const eventId = firstValue(event, ['eventId', 'id', 'nativeId'], '');
+  const channelId = frontendEventChannelId(event) || frontendChannelId(channel);
+
+  return {
+    backendId: selectedEpgBackendId(),
+    channelId,
+    title: epgEventTitle(event),
+    directory: '',
+    day: formatEpgTimerDay(start),
+    weekdays: '-------',
+    start: formatEpgTimerClockValue(start),
+    stop: formatEpgTimerClockValue(end),
+    priority: 50,
+    lifetime: 99,
+    active: true,
+    aux: eventId !== '' ? 'eventId=' + String(eventId) : ''
+  };
+}
+
+function showEpgTimerPayloadPreview(container, event, channel) {
+  const oldPreview = container.querySelector('[data-epg-timer-preview="true"]');
+  if (oldPreview) {
+    oldPreview.remove();
+  }
+
+  const payload = buildEpgTimerCreatePayload(event, channel);
+
+  const preview = document.createElement('div');
+  preview.className = 'epg-timer-preview';
+  preview.dataset.epgTimerPreview = 'true';
+
+  preview.appendChild(addText(document.createElement('h4'), 'Timer-Vorschau'));
+
+  const summary = document.createElement('div');
+  summary.className = 'epg-timer-preview-summary';
+
+  appendEpgDetailMeta(summary, 'Backend', payload.backendId);
+  appendEpgDetailMeta(summary, 'Kanal', payload.channelId || '-');
+  appendEpgDetailMeta(summary, 'Titel', payload.title);
+  appendEpgDetailMeta(summary, 'Datum', payload.day);
+  appendEpgDetailMeta(summary, 'Start', String(payload.start));
+  appendEpgDetailMeta(summary, 'Stop', String(payload.stop));
+
+  preview.appendChild(summary);
+
+  const note = addText(
+    document.createElement('p'),
+    'Noch nicht gesendet. Das ist nur die vorbereitete Nutzlast für /api/vdr/timers/actions/create.'
+  );
+  note.className = 'epg-timer-preview-note';
+  preview.appendChild(note);
+
+  const code = addText(document.createElement('pre'), JSON.stringify(payload, null, 2));
+  code.className = 'epg-timer-preview-code';
+  preview.appendChild(code);
+
+  container.appendChild(preview);
+}
+
+function createEpgDetailAction(label, hint, onClick) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'epg-detail-action';
   button.textContent = label;
   button.title = hint;
-  button.disabled = true;
+
+  if (typeof onClick === 'function') {
+    button.disabled = false;
+    button.addEventListener('click', onClick);
+  } else {
+    button.disabled = true;
+  }
+
   return button;
 }
 
@@ -853,8 +1391,12 @@ function createEpgEventDetailCard(event, channel) {
   actions.className = 'epg-detail-actions';
   actions.setAttribute('aria-label', 'EPG Aktionen');
 
-  actions.appendChild(createEpgDetailAction('Aufnahme', 'Aktion vorbereitet. Echte Aufnahmefunktion folgt in der nächsten Phase.'));
-  actions.appendChild(createEpgDetailAction('Timer', 'Aktion vorbereitet. Echte Timer-Erstellung folgt in der nächsten Phase.'));
+  actions.appendChild(createEpgDetailAction('Aufnahme', 'Aktion vorbereitet. Aufnahmefunktion folgt später.'));
+  actions.appendChild(createEpgDetailAction(
+    'Timer vorbereiten',
+    'Timerdaten aus dieser EPG-Sendung berechnen und anzeigen.',
+    () => showEpgTimerPayloadPreview(detail, event, channel)
+  ));
   actions.appendChild(createEpgDetailAction('Suchtimer', 'Aktion vorbereitet. Echte SearchTimer-Anbindung folgt später.'));
   actions.appendChild(createEpgDetailAction('Mehr …', 'Weitere EPG-Aktionen werden später angebunden.'));
 
@@ -903,24 +1445,12 @@ function renderEpgSideDetail() {
 }
 
 function alignEpgSideDetailToSource(sourceElement) {
+  (void sourceElement);
+
   const holder = detailDataElement.querySelector('[data-epg-side-detail="true"]');
-  const workbench = detailDataElement.querySelector('.epg-workbench');
-  const desktop = window.matchMedia && window.matchMedia('(min-width: 1100px)').matches;
-
-  if (!holder) {
-    return;
-  }
-
-  if (!desktop || !sourceElement || !workbench) {
+  if (holder) {
     holder.style.removeProperty('--epg-detail-top');
-    return;
   }
-
-  const sourceRect = sourceElement.getBoundingClientRect();
-  const workbenchRect = workbench.getBoundingClientRect();
-  const offset = Math.max(0, Math.round(sourceRect.top - workbenchRect.top));
-
-  holder.style.setProperty('--epg-detail-top', String(offset) + 'px');
 }
 
 function renderEpgEventDetail(event, channel, sourceElement) {
@@ -962,7 +1492,14 @@ function createEpgEventCard(entry, channel) {
     button.appendChild(subtitleElement);
   }
 
-  button.addEventListener('click', clickEvent => renderEpgEventDetail(event, channel, clickEvent.currentTarget));
+  button.addEventListener('click', clickEvent => {
+    if (Date.now() < epgSuppressClickUntil) {
+      clickEvent.preventDefault();
+      return;
+    }
+
+    renderEpgEventDetail(event, channel, clickEvent.currentTarget);
+  });
   return button;
 }
 
@@ -1104,9 +1641,222 @@ function createEpgVerticalChannelHeader(channel, index) {
   return header;
 }
 
+
+
+function enableEpgDragPan(surface, horizontalTarget, options) {
+  if (!surface || !horizontalTarget) {
+    return;
+  }
+
+  const config = options || {};
+  const classTarget = config.classTarget || surface;
+  const threshold = 14;
+
+  let pointerActive = false;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startScrollLeft = 0;
+  let startWindowScrollY = 0;
+
+  const addDraggingClass = () => {
+    surface.classList.add('dragging');
+    horizontalTarget.classList.add('dragging');
+    classTarget.classList.add('dragging');
+  };
+
+  const removeDraggingClass = () => {
+    surface.classList.remove('dragging');
+    horizontalTarget.classList.remove('dragging');
+    classTarget.classList.remove('dragging');
+  };
+
+  const endDrag = () => {
+    if (dragging) {
+      epgSuppressClickUntil = Date.now() + 250;
+    }
+
+    pointerActive = false;
+    dragging = false;
+    removeDraggingClass();
+  };
+
+  surface.addEventListener('pointerdown', event => {
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+
+    pointerActive = true;
+    dragging = false;
+    startX = event.clientX;
+    startY = event.clientY;
+    startScrollLeft = horizontalTarget.scrollLeft;
+    startWindowScrollY = window.scrollY || window.pageYOffset || 0;
+  });
+
+  surface.addEventListener('pointermove', event => {
+    if (!pointerActive) {
+      return;
+    }
+
+    const deltaX = event.clientX - startX;
+    const deltaY = event.clientY - startY;
+
+    if (!dragging && Math.hypot(deltaX, deltaY) < threshold) {
+      return;
+    }
+
+    if (!dragging) {
+      dragging = true;
+      addDraggingClass();
+    }
+
+    horizontalTarget.scrollLeft = startScrollLeft - deltaX;
+
+    if (config.verticalWindow !== false) {
+      window.scrollTo(window.scrollX || window.pageXOffset || 0, startWindowScrollY - deltaY);
+    }
+
+    event.preventDefault();
+  });
+
+  surface.addEventListener('pointerup', endDrag);
+  surface.addEventListener('pointercancel', endDrag);
+  surface.addEventListener('pointerleave', endDrag);
+}
+
+
+function enableEpgVerticalHorizontalScroll(grid, topScroller, scrollContent, dragSurface) {
+  const inner = topScroller.firstElementChild;
+  let syncing = false;
+
+  const updateTopScrollerWidth = () => {
+    if (!inner) {
+      return;
+    }
+
+    const width = Math.max(scrollContent.scrollWidth, scrollContent.clientWidth);
+    inner.style.width = String(width) + 'px';
+  };
+
+  const syncFromTop = () => {
+    if (syncing) {
+      return;
+    }
+
+    syncing = true;
+    scrollContent.scrollLeft = topScroller.scrollLeft;
+    syncing = false;
+  };
+
+  const syncFromContent = () => {
+    if (syncing) {
+      return;
+    }
+
+    syncing = true;
+    topScroller.scrollLeft = scrollContent.scrollLeft;
+    syncing = false;
+  };
+
+  topScroller.addEventListener('scroll', syncFromTop, { passive: true });
+  scrollContent.addEventListener('scroll', syncFromContent, { passive: true });
+
+  const bindDragScroll = surface => {
+    if (!surface) {
+      return;
+    }
+
+    let active = false;
+    let startX = 0;
+    let startScrollLeft = 0;
+
+    const endDrag = () => {
+      if (!active) {
+        return;
+      }
+
+      active = false;
+      surface.classList.remove('dragging');
+      topScroller.classList.remove('dragging');
+      scrollContent.classList.remove('dragging');
+      grid.classList.remove('dragging');
+    };
+
+    surface.addEventListener('pointerdown', event => {
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+
+      active = true;
+      startX = event.clientX;
+      startScrollLeft = scrollContent.scrollLeft;
+
+      surface.classList.add('dragging');
+      topScroller.classList.add('dragging');
+      scrollContent.classList.add('dragging');
+      grid.classList.add('dragging');
+
+      if (surface.setPointerCapture && event.pointerId !== undefined) {
+        surface.setPointerCapture(event.pointerId);
+      }
+    });
+
+    surface.addEventListener('pointermove', event => {
+      if (!active) {
+        return;
+      }
+
+      const delta = event.clientX - startX;
+      const nextScrollLeft = startScrollLeft - delta;
+
+      scrollContent.scrollLeft = nextScrollLeft;
+      topScroller.scrollLeft = scrollContent.scrollLeft;
+
+      if (Math.abs(delta) > 2) {
+        event.preventDefault();
+      }
+    });
+
+    surface.addEventListener('pointerup', endDrag);
+    surface.addEventListener('pointercancel', endDrag);
+    surface.addEventListener('pointerleave', endDrag);
+  };
+
+  bindDragScroll(topScroller);
+  bindDragScroll(dragSurface);
+  enableEpgDragPan(scrollContent, scrollContent, {
+    classTarget: grid,
+    verticalWindow: true
+  });
+
+  requestAnimationFrame(updateTopScrollerWidth);
+  setTimeout(updateTopScrollerWidth, 120);
+
+  if (typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(updateTopScrollerWidth);
+    observer.observe(grid);
+    observer.observe(scrollContent);
+  } else {
+    window.addEventListener('resize', updateTopScrollerWidth);
+  }
+}
+
+
 function createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds) {
   const grid = document.createElement('section');
   grid.className = 'epg-vertical-time-grid';
+
+  const topScroller = document.createElement('div');
+  topScroller.className = 'epg-vertical-channel-scrollbar';
+  topScroller.setAttribute('aria-label', 'Kanäle horizontal verschieben');
+
+  const topScrollerInner = document.createElement('div');
+  topScrollerInner.className = 'epg-vertical-channel-scrollbar-inner';
+  topScroller.appendChild(topScrollerInner);
+
+  const scrollContent = document.createElement('div');
+  scrollContent.className = 'epg-vertical-scroll-content';
 
   const columnTemplate = '5.8rem repeat(' + String(Math.max(visibleChannels.length, 1)) + ', minmax(13rem, 1fr))';
 
@@ -1122,7 +1872,7 @@ function createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds) 
     headerRow.appendChild(createEpgVerticalChannelHeader(channel, index));
   });
 
-  grid.appendChild(headerRow);
+  scrollContent.appendChild(headerRow);
 
   const body = document.createElement('div');
   body.className = 'epg-vertical-body';
@@ -1179,7 +1929,13 @@ function createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds) 
     body.appendChild(track);
   });
 
-  grid.appendChild(body);
+  scrollContent.appendChild(body);
+
+  grid.appendChild(topScroller);
+  grid.appendChild(scrollContent);
+
+  enableEpgVerticalHorizontalScroll(grid, topScroller, scrollContent, headerRow);
+
   return grid;
 }
 
@@ -1199,50 +1955,19 @@ function appendEpgSidebarLine(parent, label, value) {
 }
 
 function renderEpgSidebar(channelData, eventData) {
-  const channels = listFromResponse(channelData, 'channels');
-  const events = listFromResponse(eventData, 'events');
-  const status = eventData && eventData.__cacheStatus ? eventData.__cacheStatus : null;
+  (void channelData);
+  (void eventData);
 
-  const sidebar = document.createElement('aside');
-  sidebar.className = 'epg-sidebar';
-
-  const backendCard = document.createElement('article');
-  backendCard.className = 'module-placeholder epg-sidebar-card';
-  backendCard.appendChild(addText(document.createElement('h3'), 'Backend'));
-
-  appendEpgSidebarLine(backendCard, 'Backend-ID', selectedEpgBackendId());
-  appendEpgSidebarLine(backendCard, 'Kanäle', String(channels.length));
-  appendEpgSidebarLine(backendCard, 'EPG geladen', String(events.length));
-  appendEpgSidebarLine(backendCard, 'Quelle', String(eventData.__source || 'cache'));
-
-  if (status) {
-    appendEpgSidebarLine(backendCard, 'Cache bereit', status.ready ? 'ja' : 'nein');
-    appendEpgSidebarLine(backendCard, 'Cache Events', String(status.eventCount || 0));
-
-    if (status.lastRefreshKnown) {
-      appendEpgSidebarLine(backendCard, 'Letzter Lauf', String(status.lastRefreshDurationMs || 0) + ' ms');
-    }
-
-    if (status.lastError && String(status.lastError).trim() !== '') {
-      appendEpgSidebarLine(backendCard, 'Fehler', String(status.lastError));
-    }
-  }
-
-  const debug = String(eventData.__debugUrl || '');
-  if (debug !== '') {
-    const debugLine = addText(document.createElement('p'), debug);
-    debugLine.className = 'epg-sidebar-debug';
-    backendCard.appendChild(debugLine);
-  }
-
-  sidebar.appendChild(backendCard);
+  const aside = document.createElement('aside');
+  aside.className = 'epg-sidebar epg-detail-sidebar';
 
   const detailHolder = document.createElement('div');
   detailHolder.className = 'epg-side-detail';
   detailHolder.dataset.epgSideDetail = 'true';
-  sidebar.appendChild(detailHolder);
 
-  return sidebar;
+  aside.appendChild(detailHolder);
+
+  return aside;
 }
 
 function renderEpgWorkbench(list, channelData, eventData) {
@@ -1358,7 +2083,14 @@ function createEpgProgramEventButton(entry, channel, label, nowSeconds) {
     button.classList.add('next');
   }
 
-  button.addEventListener('click', clickEvent => renderEpgEventDetail(entry.event, channel, clickEvent.currentTarget));
+  button.addEventListener('click', clickEvent => {
+    if (Date.now() < epgSuppressClickUntil) {
+      clickEvent.preventDefault();
+      return;
+    }
+
+    renderEpgEventDetail(entry.event, channel, clickEvent.currentTarget);
+  });
   return button;
 }
 
@@ -1593,6 +2325,10 @@ function renderEpgTimeView(channelData, eventData) {
 
   if (epgProgramView === 'live' || epgProgramView === 'now' || epgProgramView === 'next') {
     const programGrid = createEpgProgramViewGrid(visibleChannels, events, nowSeconds, epgProgramView);
+    enableEpgDragPan(programGrid, programGrid, {
+      classTarget: programGrid,
+      verticalWindow: true
+    });
     list.appendChild(programGrid);
     renderEpgWorkbench(list, channelData, eventData);
     return;
@@ -1684,6 +2420,11 @@ function renderEpgTimeView(channelData, eventData) {
 
     row.appendChild(track);
     grid.appendChild(row);
+  });
+
+  enableEpgDragPan(grid, grid, {
+    classTarget: grid,
+    verticalWindow: true
   });
 
   list.appendChild(grid);
@@ -1869,6 +2610,197 @@ function fetchEpgCacheStatusForBackend(backendId) {
 function listEventsFromEpgResponse(data) {
   return listFromResponse(data, 'events');
 }
+
+
+function fetchCachedEpgWindowForSingleChannel(channel) {
+  const channelId = String(firstValue(channel, ['channelId', 'id', 'nativeId'], ''));
+
+  if (channelId === '') {
+    return Promise.resolve({
+      events: [],
+      eventCount: 0,
+      __source: 'empty-channel',
+      __debugUrl: 'channel-without-id'
+    });
+  }
+
+  const backendId = selectedEpgBackendId();
+
+  const cacheUrl = '/api/epg/cache/window'
+    + '?backend=' + encodeURIComponent(backendId)
+    + '&channelId=' + encodeURIComponent(channelId)
+    + '&fromTime=0'
+    + '&untilTime=4102444800'
+    + '&limit=32'
+    + '&_=' + encodeURIComponent(String(Date.now()));
+
+  return fetch(cacheUrl, {
+    cache: 'no-store',
+    credentials: 'same-origin'
+  })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('EPG-Cache Kanal HTTP ' + response.status);
+      }
+
+      return response.json();
+    })
+    .then(data => {
+      data.__source = 'cache-single-channel-fast';
+      data.__debugUrl = cacheUrl;
+      return data;
+    });
+}
+
+function createChannelDetailProgramEntry(entry, channel, detailHost) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'channel-detail-program-entry';
+  button.setAttribute('aria-label', 'EPG Details für ' + epgEventTitle(entry.event) + ' öffnen');
+
+  const time = addText(
+    document.createElement('div'),
+    formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end)
+  );
+  time.className = 'channel-detail-program-time';
+
+  const body = document.createElement('div');
+  body.className = 'channel-detail-program-body';
+
+  const title = addText(document.createElement('strong'), epgEventTitle(entry.event));
+  title.className = 'channel-detail-program-title';
+  body.appendChild(title);
+
+  const subtitle = firstValue(entry.event, ['subtitle', 'shortText', 'shortDescription'], '');
+  if (subtitle !== '') {
+    body.appendChild(addText(document.createElement('span'), String(subtitle))).className = 'channel-detail-program-subtitle';
+  }
+
+  button.appendChild(time);
+  button.appendChild(body);
+
+  const openDetail = () => {
+    const parent = button.closest('.channel-detail-program-list');
+
+    if (parent) {
+      parent.querySelectorAll('.channel-detail-program-entry.active').forEach(item => {
+        item.classList.remove('active');
+      });
+    }
+
+    button.classList.add('active');
+
+    if (detailHost) {
+      detailHost.replaceChildren(createEpgEventDetailCard(entry.event, channel));
+    }
+  };
+
+  button.addEventListener('click', event => {
+    event.preventDefault();
+    openDetail();
+  });
+
+  button.openChannelDetail = openDetail;
+
+  return button;
+}
+
+function renderChannelDetailProgramList(container, channel, eventData) {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  const entries = listEventsFromEpgResponse(eventData)
+    .map(event => {
+      const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
+      const end = frontendEventEnd(event, start);
+
+      return { event, start, end };
+    })
+    .filter(entry => entry.start > 0 && entry.end > entry.start)
+    .sort((a, b) => a.start - b.start);
+
+  container.replaceChildren();
+
+  const header = document.createElement('div');
+  header.className = 'channel-detail-program-header';
+  header.appendChild(addText(document.createElement('h3'), 'Programm'));
+
+  const sourceText = String(eventData.__source || 'cache');
+  const sourceLabel = sourceText.includes('wide-fallback')
+    ? 'breiter EPG-Cache-Fallback'
+    : 'aktuelles 24h-Fenster';
+
+  header.appendChild(addText(
+    document.createElement('p'),
+    sourceLabel + ' · links Zeit, rechts Sendung · Mausrad oder gedrückte Maustaste zum Scrollen.'
+  ));
+  container.appendChild(header);
+
+  const list = document.createElement('div');
+  list.className = 'channel-detail-program-list';
+
+  const detailHost = document.createElement('div');
+  detailHost.className = 'channel-detail-event-host';
+
+  if (entries.length === 0) {
+    const empty = document.createElement('article');
+    empty.className = 'channel-detail-program-empty';
+    empty.appendChild(addText(document.createElement('strong'), 'Keine Programmdaten im Cache für diesen Kanal gefunden.'));
+    empty.appendChild(addText(
+      document.createElement('p'),
+      'Kanal-ID: ' + String(firstValue(channel, ['channelId', 'id', 'nativeId'], '-'))
+        + ' · Quelle: ' + String(eventData.__source || '-')
+    ));
+
+    if (eventData.__debugUrl) {
+      empty.appendChild(addText(document.createElement('p'), String(eventData.__debugUrl)));
+    }
+
+    list.appendChild(empty);
+  } else {
+    entries.forEach(entry => {
+      list.appendChild(createChannelDetailProgramEntry(entry, channel, detailHost));
+    });
+  }
+
+  container.appendChild(list);
+  container.appendChild(detailHost);
+
+  enableMouseDragScroll(list, 'y');
+
+  const buttons = Array.from(list.querySelectorAll('.channel-detail-program-entry'));
+  const currentIndex = entries.findIndex(entry => entry.start <= nowSeconds && nowSeconds < entry.end);
+  const nextIndex = entries.findIndex(entry => entry.start > nowSeconds);
+  const preferredIndex = currentIndex >= 0 ? currentIndex : (nextIndex >= 0 ? nextIndex : 0);
+  const preferredButton = buttons[preferredIndex] || buttons[0];
+
+  if (preferredButton && typeof preferredButton.openChannelDetail === 'function') {
+    preferredButton.openChannelDetail();
+    preferredButton.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function loadChannelDetailProgram(container, channel) {
+  container.replaceChildren();
+
+  const loading = document.createElement('article');
+  loading.className = 'channel-detail-program-empty';
+  loading.appendChild(addText(document.createElement('strong'), 'Lade EPG für diesen Kanal...'));
+  loading.appendChild(addText(document.createElement('p'), frontendChannelId(channel)));
+  container.appendChild(loading);
+
+  fetchCachedEpgWindowForSingleChannel(channel)
+    .then(eventData => renderChannelDetailProgramList(container, channel, eventData))
+    .catch(error => {
+      container.replaceChildren();
+
+      const box = document.createElement('article');
+      box.className = 'channel-detail-program-empty error';
+      box.appendChild(addText(document.createElement('strong'), 'EPG konnte nicht geladen werden'));
+      box.appendChild(addText(document.createElement('p'), error.message));
+      container.appendChild(box);
+    });
+}
+
 
 function fetchCachedEpgWindowForVisibleChannel(channel) {
   const channelId = frontendChannelId(channel);
@@ -2077,45 +3009,42 @@ function renderModuleLoading(title, message) {
 }
 
 function loadChannels() {
-  renderModuleLoading('Kanäle', 'Lade Kanalliste und laufendes Programm...');
+  renderModuleLoading('Kanäle', 'Lade Kanalliste...');
 
-  const channelsRequest = fetch('/api/vdr/channels')
+  const backendId = selectedEpgBackendId();
+  const url = '/api/vdr/channels'
+    + '?backend=' + encodeURIComponent(backendId)
+    + '&_=' + encodeURIComponent(String(Date.now()));
+
+  fetch(url, {
+    cache: 'no-store',
+    credentials: 'same-origin'
+  })
     .then(response => {
       if (!response.ok) {
-        throw new Error('HTTP ' + response.status);
+        throw new Error('Kanalliste HTTP ' + response.status);
       }
+
       return response.json();
-    });
-
-  const epgWindowUrl = '/api/epg/time-window?from=-1&timespan=86400&_=' + encodeURIComponent(String(Date.now()));
-
-  const eventsRequest = fetch(epgWindowUrl, { cache: 'no-store' })
-    .then(response => {
-      if (response.ok) {
-        return response.json();
-      }
-
-      return fetch('/api/vdr/events')
-        .then(fallbackResponse => {
-          if (!fallbackResponse.ok) {
-            return { events: [] };
-          }
-          return fallbackResponse.json();
-        });
     })
-    .catch(() => ({ events: [] }));
+    .then(channelData => {
+      currentChannels = channelData;
+      currentEvents = null;
 
-  Promise.all([channelsRequest, eventsRequest])
-    .then(([channelData, eventData]) => {
-      const enrichedData = attachCurrentEventsToChannelData(channelData, eventData);
-      currentChannels = enrichedData;
-      currentEvents = eventData;
-      renderChannelList(enrichedData);
+      renderChannelList(channelData);
     })
     .catch(error => {
       currentChannels = null;
       currentEvents = null;
-      renderModuleError('Kanäle konnten nicht geladen werden', error);
+
+      detailDataElement.replaceChildren();
+
+      const box = document.createElement('article');
+      box.className = 'module-placeholder';
+      box.appendChild(addText(document.createElement('h3'), 'Kanalliste konnte nicht geladen werden'));
+      box.appendChild(addText(document.createElement('p'), error.message));
+      box.appendChild(addText(document.createElement('p'), url));
+      detailDataElement.appendChild(box);
     });
 }
 
@@ -2194,6 +3123,80 @@ function loadRecordings() {
     });
 }
 
+
+function appendSettingsLine(parent, label, value) {
+  const row = document.createElement('div');
+  row.className = 'settings-line';
+
+  const labelElement = addText(document.createElement('span'), label);
+  labelElement.className = 'settings-label';
+
+  const valueElement = addText(document.createElement('strong'), value === undefined || value === null || value === '' ? '-' : String(value));
+  valueElement.className = 'settings-value';
+
+  row.appendChild(labelElement);
+  row.appendChild(valueElement);
+  parent.appendChild(row);
+}
+
+function settingsBoolean(value) {
+  return value ? 'ja' : 'nein';
+}
+
+function renderSettingsView(data) {
+  detailDataElement.replaceChildren();
+
+  const panel = document.createElement('section');
+  panel.className = 'settings-panel';
+
+  const intro = document.createElement('article');
+  intro.className = 'module-placeholder settings-card';
+  intro.appendChild(addText(document.createElement('h3'), 'Einstellungen'));
+  intro.appendChild(addText(
+    document.createElement('p'),
+    'Zentrale Oberfläche für Frontend-Einstellungen, Backend-Auswahl und technische Backend-Informationen.'
+  ));
+  panel.appendChild(intro);
+
+  const backend = selectedBackend || {};
+  const selector = backend.frontendSelector || backend;
+  const backendId = selectedEpgBackendId();
+
+  const backendCard = document.createElement('article');
+  backendCard.className = 'module-placeholder settings-card';
+  backendCard.appendChild(addText(document.createElement('h3'), 'Backendinfo'));
+
+  appendSettingsLine(backendCard, 'Name', selector.label || backend.backendName || backendId);
+  appendSettingsLine(backendCard, 'Backend-ID', backendId);
+  appendSettingsLine(backendCard, 'Online', settingsBoolean(Boolean(backend.online)));
+  appendSettingsLine(backendCard, 'Zugriff', selector.accessMode || backend.accessMode || '-');
+  appendSettingsLine(backendCard, 'Schreiben', settingsBoolean(Boolean(selector.canWrite)));
+  appendSettingsLine(backendCard, 'Aufnahmen', settingsBoolean(Boolean(selector.canWriteRecordings)));
+  appendSettingsLine(backendCard, 'Timer', settingsBoolean(Boolean(selector.canWriteTimers)));
+  appendSettingsLine(backendCard, 'SearchTimer', settingsBoolean(Boolean(selector.canWriteSearchTimers)));
+
+  panel.appendChild(backendCard);
+
+  const runtimeCard = document.createElement('article');
+  runtimeCard.className = 'module-placeholder settings-card';
+  runtimeCard.appendChild(addText(document.createElement('h3'), 'Frontend'));
+
+  appendSettingsLine(runtimeCard, 'Aktives Modul', selectedModule);
+  appendSettingsLine(runtimeCard, 'EPG-Ansicht', epgTimeAxisMode === 'vertical' ? 'Zeit vertikal' : 'Zeit horizontal');
+  appendSettingsLine(runtimeCard, 'EPG-Kanaloffset', epgChannelOffset);
+  appendSettingsLine(runtimeCard, 'EPG-Zeitfenster', epgTimeWindowPageOffset === 0 ? 'aktuelle 24h' : 'nächste 24h');
+
+  if (data && typeof data === 'object') {
+    appendSettingsLine(runtimeCard, 'Snapshot-Sequenz', firstValue(data, ['sequence', 'snapshotSequence', 'snapshotId'], '-'));
+    appendSettingsLine(runtimeCard, 'Live-Status', firstValue(data, ['liveStatus', 'status'], '-'));
+  }
+
+  panel.appendChild(runtimeCard);
+
+  detailDataElement.appendChild(panel);
+}
+
+
 function renderSelectedModule(data) {
   if (selectedModule === 'overview') {
     renderSnapshotMetrics(data);
@@ -2225,11 +3228,32 @@ function renderSelectedModule(data) {
     return;
   }
 
+  if (selectedModule === 'settings') {
+    renderSettingsView(data);
+    return;
+  }
+
   renderModulePlaceholder(selectedModule, data);
 }
 
 function selectModule(moduleName) {
   selectedModule = moduleName;
+
+  if (moduleName === 'channels') {
+    if (typeof selectedChannelId !== 'undefined') {
+      selectedChannelId = '';
+    }
+    if (typeof selectedChannel !== 'undefined') {
+      selectedChannel = null;
+    }
+    if (typeof selectedChannelNumber !== 'undefined') {
+      selectedChannelNumber = null;
+    }
+    if (typeof selectedChannelDetail !== 'undefined') {
+      selectedChannelDetail = null;
+    }
+  }
+
   document.querySelectorAll('.module-tab').forEach(button => {
     button.classList.toggle('active', button.dataset.module === moduleName);
   });
