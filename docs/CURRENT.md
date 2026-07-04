@@ -23,15 +23,19 @@ Use this file before reading historical phase notes.
 
 ## Current Verified State
 
-Current completed project block:
+Current completed major project block:
 
 - Phase 57 - Multi-Site Backend Administration and Permissions
 
-Previous completed project block:
+Previous completed major project block:
 
 - Phase 56 - Library Boundary, Packaging and Developer Documentation
 
-Verified outcomes:
+Latest completed implementation slice:
+
+- Phase 58.90b - Stable Channel Sorter
+
+Verified Phase 57 outcomes:
 
 - backend access modes for read-write and read-only sites
 - backend registry JSON permission hints
@@ -39,6 +43,14 @@ Verified outcomes:
 - timer action backend access coverage
 - SearchTimer backend access coverage
 - frontend-visible backend permission state
+
+Verified Phase 58.90b slice outcomes:
+
+- guarded backend channel move API
+- stable frontend channel sorting module
+- desktop and touch pointer-drag support
+- handle-only drag so normal list scrolling remains usable
+- no focus-restore experiment in the stable state
 
 ---
 
@@ -60,6 +72,8 @@ Primary verification command:
 - /usr/bin/vdr-suite-dashboard
 
 `vdr-suite-dashboard` is currently CLI, not the future web/mobile frontend.
+
+The web frontend is currently a Phase 58 foundation with stable channel sorting and selected VDR views.
 
 ---
 
@@ -104,6 +118,11 @@ The architecture remains multi-backend oriented:
 Next implementation focus:
 
 - Phase 58 - Frontend and Live Parity
+
+Immediate follow-up:
+
+- continue frontend/live-parity consolidation after the stable channel sorter
+- do not re-introduce the broken post-move focus-restore experiment without a separate guarded implementation and test path
 
 ---
 
