@@ -19,8 +19,11 @@
 ## Current Position
 
 ```text
-Completed implementation state
+Completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
+
+Latest completed implementation slice
+Phase 58.90b - Stable Channel Sorter
 
 Current implementation focus
 Phase 58 - Frontend and Live Parity
@@ -64,10 +67,28 @@ Completed foundation ranges:
 - Phase 55.x: Adapter, acceptance and documentation hardening.
 - Phase 56: Library Boundary, Packaging and Developer Documentation.
 - Phase 57: Multi-Site Backend Administration and Permissions.
+- Phase 58.0-58.90b: Frontend/live-parity slices including event hints, channel move API and stable channel sorter.
 
 ---
 
-## Recently Completed Milestone
+## Recently Completed Implementation Slice
+
+### Phase 58.90b - Stable Channel Sorter
+
+Status: Completed stable frontend slice.
+
+Completed outcomes:
+
+- guarded channel move API
+- stable frontend channel sorter
+- handle-only pointer drag
+- desktop and touch validation
+- normal sorter scrolling preserved
+- broken post-move focus-restore experiment excluded from the stable state
+
+---
+
+## Recently Completed Major Milestone
 
 ### Phase 57 - Multi-Site Backend Administration and Permissions
 
@@ -88,7 +109,7 @@ Completed outcomes:
 
 ### Phase 58 - Frontend and Live Parity
 
-Status: Next.
+Status: In progress.
 
 Goal:
 
@@ -116,6 +137,7 @@ Frontend-relevant endpoints:
 - /api/vdr/searchtimers
 - /api/vdr/epg/search
 - /api/vdr/live-parity
+- /api/vdr/channels/move
 
 ---
 
