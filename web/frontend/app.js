@@ -2358,6 +2358,29 @@ function loadChannels() {
       currentEvents = null;
 
       renderChannelList(channelData);
+
+      return fetchCachedOrLiveEpgWindow(channelData)
+        .then(eventData => {
+          currentEvents = eventData;
+
+          if (selectedModule !== 'channels') {
+            return;
+          }
+
+          const enrichedChannelData = Array.isArray(channelData)
+            ? { channels: channelData }
+            : Object.assign({}, channelData);
+
+          enrichedChannelData.events = listEventsFromEpgResponse(eventData);
+          enrichedChannelData.__epgSource = String(eventData.__source || 'cache');
+          enrichedChannelData.__epgDebugUrl = String(eventData.__debugUrl || '');
+
+          renderChannelList(enrichedChannelData);
+        })
+        .catch(error => {
+          (void error);
+          currentEvents = null;
+        });
     })
     .catch(error => {
       currentChannels = null;

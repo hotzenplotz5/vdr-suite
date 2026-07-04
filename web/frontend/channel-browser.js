@@ -15,6 +15,63 @@ let channelListFilters = {
 
 const CHANNEL_LIST_PAGE_SIZE = 20;
 
+const CHANNEL_BROWSER_EPG_RETRY_DELAY_MS = 900;
+
+let channelBrowserEpgPrefetchInFlight = false;
+let channelBrowserEpgPrefetchLastStartedAt = 0;
+
+function channelBrowserBuildDataWithEvents(channelData, eventData) {
+  const enriched = Array.isArray(channelData)
+    ? { channels: channelData }
+    : Object.assign({}, channelData);
+
+  enriched.events = listEventsFromEpgResponse(eventData);
+  enriched.__epgSource = String(eventData.__source || 'cache');
+  enriched.__epgDebugUrl = String(eventData.__debugUrl || '');
+
+  return enriched;
+}
+
+function scheduleChannelBrowserEpgPrefetch(channelData) {
+  if (typeof fetchCachedOrLiveEpgWindow !== 'function') {
+    return;
+  }
+
+  if (typeof selectedModule !== 'undefined' && selectedModule !== 'channels') {
+    return;
+  }
+
+  if (channelBrowserEpgPrefetchInFlight) {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - channelBrowserEpgPrefetchLastStartedAt < CHANNEL_BROWSER_EPG_RETRY_DELAY_MS) {
+    return;
+  }
+
+  channelBrowserEpgPrefetchInFlight = true;
+  channelBrowserEpgPrefetchLastStartedAt = now;
+
+  fetchCachedOrLiveEpgWindow(channelData)
+    .then(eventData => {
+      currentEvents = eventData;
+
+      if (typeof selectedModule !== 'undefined' && selectedModule !== 'channels') {
+        return;
+      }
+
+      renderChannelList(channelBrowserBuildDataWithEvents(channelData, eventData));
+    })
+    .catch(error => {
+      (void error);
+    })
+    .finally(() => {
+      channelBrowserEpgPrefetchInFlight = false;
+    });
+}
+
+
 function channelDragRecentlyEnded(element) {
   if (!element) {
     return false;
@@ -794,12 +851,18 @@ renderChannelList = function(data) {
 
     const entries = channelEntries(channel);
     const current = currentEntry(entries);
+    const preview = current || nextEntry(entries);
 
-    if (current) {
+    if (preview) {
       textBlock.appendChild(addText(
         document.createElement('div'),
-        'Jetzt: ' + epgEventTitle(current.event) + ' · '
-          + formatEpgClockFromEpoch(current.start) + '–' + formatEpgClockFromEpoch(current.end)
+        (current ? 'Jetzt: ' : 'Als nächstes: ') + epgEventTitle(preview.event) + ' · '
+          + formatEpgClockFromEpoch(preview.start) + '–' + formatEpgClockFromEpoch(preview.end)
+      )).className = 'list-meta channel-browser-now';
+    } else {
+      textBlock.appendChild(addText(
+        document.createElement('div'),
+        'EPG wird geladen...'
       )).className = 'list-meta channel-browser-now';
     }
 
@@ -1071,6 +1134,10 @@ renderChannelList = function(data) {
   workbench.appendChild(detailPane);
   shell.appendChild(workbench);
   detailDataElement.appendChild(shell);
+
+  if (!visibleChannels.some(channel => channelEntries(channel).length > 0)) {
+    scheduleChannelBrowserEpgPrefetch(data);
+  }
 
   renderAll();
 };
