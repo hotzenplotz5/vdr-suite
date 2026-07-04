@@ -91,6 +91,11 @@ static void assertJsonResponse(
     assert(response.headers.at("Content-Type") == "application/json");
 }
 
+static void authorize(HttpServerRequest& request)
+{
+    request.headers["Authorization"] = "Basic YWRtaW46dmRyLXN1aXRl";
+}
+
 static void assertEmptyDiscoveryResponse(
     const HttpServerResponse& response,
     const std::string& expectedBackendId)
@@ -302,6 +307,7 @@ int main()
     HttpServerRequest dashboardRequest;
     dashboardRequest.method = "GET";
     dashboardRequest.path = "/api/dashboard";
+    authorize(dashboardRequest);
     HttpServerResponse dashboardResponse =
         server.handleRequest(dashboardRequest);
     assertJsonResponse(dashboardResponse, 200);
@@ -311,6 +317,7 @@ int main()
     HttpServerRequest vdrStatusRequest;
     vdrStatusRequest.method = "GET";
     vdrStatusRequest.path = "/api/vdr/status";
+    authorize(vdrStatusRequest);
     HttpServerResponse vdrStatusResponse =
         server.handleRequest(vdrStatusRequest);
     assertJsonResponse(vdrStatusResponse, 200);
@@ -320,6 +327,7 @@ int main()
     HttpServerRequest backendHealthRequest;
     backendHealthRequest.method = "GET";
     backendHealthRequest.path = "/api/backends/default/health";
+    authorize(backendHealthRequest);
     HttpServerResponse backendHealthResponse =
         server.handleRequest(backendHealthRequest);
     assertJsonResponse(backendHealthResponse, 200);
@@ -329,6 +337,7 @@ int main()
     HttpServerRequest runtimeSummaryRequest;
     runtimeSummaryRequest.method = "GET";
     runtimeSummaryRequest.path = "/api/runtime/summary";
+    authorize(runtimeSummaryRequest);
     HttpServerResponse runtimeSummaryResponse =
         server.handleRequest(runtimeSummaryRequest);
     assertJsonResponse(runtimeSummaryResponse, 200);
@@ -338,6 +347,7 @@ int main()
     HttpServerRequest dashboardQueryRequest;
     dashboardQueryRequest.method = "GET";
     dashboardQueryRequest.path = "/api/dashboard?ignored=true";
+    authorize(dashboardQueryRequest);
     HttpServerResponse dashboardQueryResponse =
         server.handleRequest(dashboardQueryRequest);
     assertJsonResponse(dashboardQueryResponse, 200);
@@ -346,6 +356,7 @@ int main()
     HttpServerRequest epgQueryRequest;
     epgQueryRequest.method = "GET";
     epgQueryRequest.path = "/api/epg/now-next?channelId=1&from=123";
+    authorize(epgQueryRequest);
     HttpServerResponse epgQueryResponse =
         server.handleRequest(epgQueryRequest);
     assertJsonResponse(epgQueryResponse, 200);
@@ -354,6 +365,7 @@ int main()
     HttpServerRequest discoveryRequest;
     discoveryRequest.method = "GET";
     discoveryRequest.path = "/api/searchtimers/discovery?backend=http-server";
+    authorize(discoveryRequest);
     HttpServerResponse discoveryResponse =
         server.handleRequest(discoveryRequest);
     assertEmptyDiscoveryResponse(
@@ -363,6 +375,7 @@ int main()
     HttpServerRequest vdrDiscoveryDefaultRequest;
     vdrDiscoveryDefaultRequest.method = "GET";
     vdrDiscoveryDefaultRequest.path = "/api/vdr/searchtimers/discovery";
+    authorize(vdrDiscoveryDefaultRequest);
     HttpServerResponse vdrDiscoveryDefaultResponse =
         server.handleRequest(vdrDiscoveryDefaultRequest);
     assertEmptyDiscoveryResponse(
@@ -372,6 +385,7 @@ int main()
     HttpServerRequest vdrDiscoveryBackendRequest;
     vdrDiscoveryBackendRequest.method = "GET";
     vdrDiscoveryBackendRequest.path = "/api/vdr/searchtimers/discovery?backend=ferienhaus";
+    authorize(vdrDiscoveryBackendRequest);
     HttpServerResponse vdrDiscoveryBackendResponse =
         server.handleRequest(vdrDiscoveryBackendRequest);
     assertEmptyDiscoveryResponse(
@@ -382,6 +396,7 @@ int main()
     discoveryPostRequest.method = "POST";
     discoveryPostRequest.path = "/api/searchtimers/discovery";
     discoveryPostRequest.body = "{\"ignored\":true}";
+    authorize(discoveryPostRequest);
     HttpServerResponse discoveryPostResponse =
         server.handleRequest(discoveryPostRequest);
     assertJsonResponse(discoveryPostResponse, 404);
@@ -390,15 +405,27 @@ int main()
     HttpServerRequest missingRequest;
     missingRequest.method = "GET";
     missingRequest.path = "/api/missing";
+    authorize(missingRequest);
     HttpServerResponse missingResponse =
         server.handleRequest(missingRequest);
     assertJsonResponse(missingResponse, 404);
     assert(missingResponse.body == "{\"error\":\"not found\"}");
 
+    HttpServerRequest missingLogoRequest;
+    missingLogoRequest.method = "GET";
+    missingLogoRequest.path = "/channel-logos/definitely-missing-logo.png";
+    authorize(missingLogoRequest);
+    HttpServerResponse missingLogoResponse =
+        server.handleRequest(missingLogoRequest);
+    assert(missingLogoResponse.statusCode == 204);
+    assert(missingLogoResponse.headers.at("Content-Type") == "image/png");
+    assert(missingLogoResponse.body.empty());
+
     HttpServerRequest postRequest;
     postRequest.method = "POST";
     postRequest.path = "/api/dashboard";
     postRequest.body = "{\"ignored\":true}";
+    authorize(postRequest);
     HttpServerResponse postResponse =
         server.handleRequest(postRequest);
     assertJsonResponse(postResponse, 404);
@@ -415,6 +442,7 @@ int main()
         "\"dryRun\":true,"
         "\"targetPath\":\"/srv/vdr/video/archive\""
         "}";
+    authorize(validationRequest);
     HttpServerResponse validationResponse =
         server.handleRequest(validationRequest);
     assertJsonResponse(validationResponse, 200);
@@ -437,6 +465,7 @@ int main()
         "\"action\":\"DELETE\","
         "\"dryRun\":true"
         "}";
+    authorize(vdrValidationRequest);
     HttpServerResponse vdrValidationResponse =
         server.handleRequest(vdrValidationRequest);
     assertJsonResponse(vdrValidationResponse, 200);
@@ -448,6 +477,7 @@ int main()
     HttpServerRequest unsupportedMethodRequest;
     unsupportedMethodRequest.method = "PUT";
     unsupportedMethodRequest.path = "/api/dashboard";
+    authorize(unsupportedMethodRequest);
     HttpServerResponse unsupportedMethodResponse =
         server.handleRequest(unsupportedMethodRequest);
     assertJsonResponse(unsupportedMethodResponse, 405);

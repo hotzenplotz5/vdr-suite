@@ -326,7 +326,7 @@ HttpServerResponse makeFrontendAssetResponse(
 
     response.statusCode = 200;
     response.headers["Content-Type"] = contentType;
-    response.headers["Cache-Control"] = "no-store";
+    response.headers["Cache-Control"] = "no-cache";
     response.body = content;
 
     return response;
@@ -355,8 +355,21 @@ HttpServerResponse makeFrontendScriptBundleResponse(
 
     response.statusCode = 200;
     response.headers["Content-Type"] = "application/javascript; charset=utf-8";
-    response.headers["Cache-Control"] = "no-store";
+    response.headers["Cache-Control"] = "no-cache";
     response.body = content;
+
+    return response;
+}
+
+HttpServerResponse makeMissingChannelLogoResponse(
+    const std::string& relativePath)
+{
+    HttpServerResponse response;
+
+    response.statusCode = 204;
+    response.headers["Content-Type"] = logoContentType(relativePath);
+    response.headers["Cache-Control"] = "no-cache";
+    response.body = "";
 
     return response;
 }
@@ -378,14 +391,14 @@ HttpServerResponse makeChannelLogoResponse(
 
     if (!readChannelLogoAsset(relativePath, content))
     {
-        return makeStaticNotFoundResponse();
+        return makeMissingChannelLogoResponse(relativePath);
     }
 
     HttpServerResponse response;
 
     response.statusCode = 200;
     response.headers["Content-Type"] = logoContentType(relativePath);
-    response.headers["Cache-Control"] = "no-store";
+    response.headers["Cache-Control"] = "no-cache";
     response.body = content;
 
     return response;

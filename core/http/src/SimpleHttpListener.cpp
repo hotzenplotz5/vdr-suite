@@ -4,6 +4,7 @@
 #include "HttpServerResponse.h"
 
 #include <cerrno>
+#include <cctype>
 #include <cstring>
 #include <iostream>
 #include <netdb.h>
@@ -17,10 +18,56 @@
 
 namespace {
 
+std::string lowerAscii(const std::string& value)
+{
+    std::string lowered;
+    lowered.reserve(value.size());
+
+    for (const char character : value) {
+        lowered.push_back(
+            static_cast<char>(
+                std::tolower(
+                    static_cast<unsigned char>(character))));
+    }
+
+    return lowered;
+}
+
+bool hasHeader(
+    const HttpServerResponse& response,
+    const std::string& headerName)
+{
+    const std::string wanted = lowerAscii(headerName);
+
+    for (const auto& header : response.headers) {
+        if (lowerAscii(header.first) == wanted) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+std::string serializedHeaderValue(
+    const std::string& headerName,
+    const std::string& headerValue)
+{
+    if (lowerAscii(headerName) == "content-type" &&
+        lowerAscii(headerValue) == "application/json") {
+        return "application/json; charset=utf-8";
+    }
+
+    return headerValue;
+}
+
 std::string reasonPhrase(int statusCode)
 {
     if (statusCode == 200) {
         return "OK";
+    }
+
+    if (statusCode == 204) {
+        return "No Content";
     }
 
     if (statusCode == 401) {
@@ -116,8 +163,16 @@ std::string serializeResponse(const HttpServerResponse& response)
         stream
             << header.first
             << ": "
-            << header.second
+            << serializedHeaderValue(header.first, header.second)
             << "\r\n";
+    }
+
+    if (!hasHeader(response, "Cache-Control")) {
+        stream << "Cache-Control: no-cache\r\n";
+    }
+
+    if (!hasHeader(response, "X-Content-Type-Options")) {
+        stream << "X-Content-Type-Options: nosniff\r\n";
     }
 
     stream
