@@ -37,6 +37,7 @@ const EPG_VISIBLE_CHANNEL_LIMIT = 15;
 const moduleLabels = {
   overview: 'Übersicht',
   channels: 'Kanäle',
+  channelsort: 'Kanäle sortieren',
   epg: 'EPG Zeitleiste',
   timers: 'Timer',
   recordings: 'Aufnahmen',
@@ -2632,6 +2633,11 @@ function renderSelectedModule(data) {
     return;
   }
 
+  if (selectedModule === 'channelsort') {
+    loadChannelSorter();
+    return;
+  }
+
   if (selectedModule === 'epg') {
     renderEpgTimelinePlaceholder(data);
     return;
@@ -2815,6 +2821,11 @@ refreshDetailButton.addEventListener('click', () => {
     return;
   }
 
+  if (selectedModule === 'channelsort') {
+    loadChannelSorter();
+    return;
+  }
+
   if (selectedModule === 'epg') {
     renderSelectedModule(currentSnapshot || {});
     return;
@@ -2860,3 +2871,475 @@ fetch('/api/backends')
     statusElement.className = 'status error';
     statusElement.textContent = 'Backend-Auswahl konnte nicht geladen werden: ' + error.message;
   });
+
+// Phase 58.90b: integrated standalone pointer channel sorter.
+// Stable version: drag only on the left handle, no post-move focus restore.
+
+let channelSorterData = null;
+let channelSorterBusy = false;
+let channelSorterPointer = null;
+
+function channelSorterBackendId() {
+  if (typeof selectedEpgBackendId === 'function') {
+    const backendId = selectedEpgBackendId();
+    if (String(backendId || '').trim() !== '') {
+      return String(backendId);
+    }
+  }
+
+  if (typeof selectedBackendId !== 'undefined' && String(selectedBackendId || '').trim() !== '') {
+    return String(selectedBackendId);
+  }
+
+  return 'default';
+}
+
+function channelSorterNumber(channel, fallback) {
+  const value = Number(firstValue(channel, ['number', 'channelNumber', 'position'], fallback));
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function channelSorterTitle(channel, index) {
+  return String(firstValue(
+    channel,
+    ['name', 'channelName', 'title', 'displayName', 'id', 'channelId'],
+    'Kanal ' + String(index + 1)
+  ));
+}
+
+function channelSorterId(channel) {
+  return String(firstValue(channel, ['channelId', 'id', 'nativeId'], ''));
+}
+
+function channelSorterChannels(data) {
+  return listFromResponse(data, 'channels')
+    .slice()
+    .sort((left, right) => {
+      const numberDiff = channelSorterNumber(left, 999999) - channelSorterNumber(right, 999999);
+      if (numberDiff !== 0) {
+        return numberDiff;
+      }
+
+      return channelSorterTitle(left, 0).localeCompare(channelSorterTitle(right, 0), 'de-DE');
+    });
+}
+
+function channelSorterSetStatus(message, error) {
+  const status = document.querySelector('.channel-sorter-status');
+  if (!status) {
+    return;
+  }
+
+  status.textContent = message;
+  status.classList.toggle('error', Boolean(error));
+}
+
+function channelSorterApiMove(sourceNumber, targetNumber) {
+  return fetch('/api/vdr/channels/move', {
+    method: 'POST',
+    cache: 'no-store',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      backendId: channelSorterBackendId(),
+      sourceNumber: sourceNumber,
+      targetNumber: targetNumber
+    })
+  })
+    .then(response => response.json()
+      .catch(() => ({}))
+      .then(data => ({ response, data })))
+    .then(result => {
+      const response = result.response;
+      const data = result.data || {};
+
+      if (!response.ok || data.success !== true) {
+        const message = data.message || data.error || ('HTTP ' + String(response.status));
+        throw new Error(message);
+      }
+
+      return data;
+    });
+}
+
+function channelSorterClearDragVisuals() {
+  document.querySelectorAll('.channel-sorter-card').forEach(card => {
+    card.classList.remove('drag-source');
+    card.classList.remove('drop-target');
+  });
+
+  const ghost = document.querySelector('.channel-sorter-ghost');
+  if (ghost) {
+    ghost.remove();
+  }
+
+  document.body.classList.remove('channel-sorter-dragging');
+}
+
+function channelSorterTargetAt(list, channels, clientX, clientY) {
+  const element = document.elementFromPoint(clientX, clientY);
+  const card = element ? element.closest('.channel-sorter-card') : null;
+
+  if (!card || !list.contains(card)) {
+    return null;
+  }
+
+  const index = Number(card.dataset.index);
+  if (!Number.isFinite(index) || index < 0 || index >= channels.length) {
+    return null;
+  }
+
+  return { card, index };
+}
+
+function channelSorterAutoScroll(list, clientY) {
+  const rect = list.getBoundingClientRect();
+  const edge = 76;
+  const step = 24;
+
+  if (clientY < rect.top + edge) {
+    list.scrollTop = Math.max(0, list.scrollTop - step);
+    return;
+  }
+
+  if (clientY > rect.bottom - edge) {
+    list.scrollTop += step;
+  }
+}
+
+function channelSorterFinishMove(source, targetIndex, channels) {
+  if (!source || channelSorterBusy) {
+    return;
+  }
+
+  if (targetIndex === source.index) {
+    channelSorterSetStatus('Quelle und Ziel sind identisch.');
+    return;
+  }
+
+  const targetChannel = channels[targetIndex];
+  if (!targetChannel) {
+    channelSorterSetStatus('Kein Ziel gewählt.', true);
+    return;
+  }
+
+  const sourceNumber = channelSorterNumber(source.channel, source.index + 1);
+  const targetNumber = channelSorterNumber(targetChannel, targetIndex + 1);
+  const sourceTitle = channelSorterTitle(source.channel, source.index);
+  const targetTitle = channelSorterTitle(targetChannel, targetIndex);
+
+  if (sourceNumber === targetNumber) {
+    channelSorterSetStatus('Quelle und Ziel sind identisch.');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    'Kanal verschieben?\n\n' +
+    sourceTitle + ' von Nr. ' + String(sourceNumber) +
+    ' auf Position Nr. ' + String(targetNumber) + '.\n' +
+    'Zielposition aktuell: ' + targetTitle + '.'
+  );
+
+  if (!confirmed) {
+    channelSorterSetStatus('Verschieben abgebrochen.');
+    return;
+  }
+
+  channelSorterBusy = true;
+  channelSorterSetStatus(
+    'Verschiebe ' + sourceTitle + ' von Nr. ' + String(sourceNumber) +
+    ' auf Nr. ' + String(targetNumber) + '...'
+  );
+
+  channelSorterApiMove(sourceNumber, targetNumber)
+    .then(() => {
+      channelSorterBusy = false;
+      channelSorterSetStatus('Kanal verschoben. Lade Kanalliste neu...');
+      loadChannelSorter();
+    })
+    .catch(error => {
+      channelSorterBusy = false;
+      channelSorterSetStatus('Kanal konnte nicht verschoben werden: ' + error.message, true);
+      renderChannelSorter(channelSorterData);
+    });
+}
+
+function channelSorterBeginPointerDrag(event, card, channel, index, channels, list) {
+  if (channelSorterBusy || channelSorterPointer) {
+    return;
+  }
+
+  if (event.pointerType === 'mouse' && event.button !== undefined && event.button !== 0) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  channelSorterClearDragVisuals();
+
+  const rect = card.getBoundingClientRect();
+  const ghost = card.cloneNode(true);
+  const offsetX = event.clientX - rect.left;
+  const offsetY = event.clientY - rect.top;
+
+  let targetIndex = index;
+
+  channelSorterPointer = {
+    pointerId: event.pointerId,
+    channel,
+    index,
+    card,
+    ghost
+  };
+
+  ghost.classList.add('channel-sorter-ghost');
+  ghost.style.width = String(rect.width) + 'px';
+  ghost.style.height = String(rect.height) + 'px';
+  ghost.style.left = String(rect.left) + 'px';
+  ghost.style.top = String(rect.top) + 'px';
+
+  document.body.appendChild(ghost);
+  document.body.classList.add('channel-sorter-dragging');
+  card.classList.add('drag-source');
+
+  if (card.setPointerCapture && event.pointerId !== undefined) {
+    try {
+      card.setPointerCapture(event.pointerId);
+    } catch (captureError) {
+      (void captureError);
+    }
+  }
+
+  const moveGhost = moveEvent => {
+    ghost.style.left = String(moveEvent.clientX - offsetX) + 'px';
+    ghost.style.top = String(moveEvent.clientY - offsetY) + 'px';
+  };
+
+  const updateTarget = moveEvent => {
+    moveGhost(moveEvent);
+    channelSorterAutoScroll(list, moveEvent.clientY);
+
+    list.querySelectorAll('.channel-sorter-card').forEach(item => {
+      item.classList.remove('drop-target');
+    });
+
+    const hit = channelSorterTargetAt(list, channels, moveEvent.clientX, moveEvent.clientY);
+    if (!hit || hit.index === index) {
+      targetIndex = index;
+      return;
+    }
+
+    targetIndex = hit.index;
+    hit.card.classList.add('drop-target');
+
+    const sourceTitle = channelSorterTitle(channel, index);
+    const targetTitle = channelSorterTitle(channels[targetIndex], targetIndex);
+    channelSorterSetStatus(sourceTitle + ' → Zielposition: ' + targetTitle);
+  };
+
+  const cleanup = () => {
+    document.removeEventListener('pointermove', onPointerMove, true);
+    document.removeEventListener('pointerup', onPointerUp, true);
+    document.removeEventListener('pointercancel', onPointerCancel, true);
+
+    if (card.releasePointerCapture && event.pointerId !== undefined) {
+      try {
+        card.releasePointerCapture(event.pointerId);
+      } catch (releaseError) {
+        (void releaseError);
+      }
+    }
+
+    channelSorterClearDragVisuals();
+    channelSorterPointer = null;
+  };
+
+  const onPointerMove = moveEvent => {
+    if (!channelSorterPointer || moveEvent.pointerId !== channelSorterPointer.pointerId) {
+      return;
+    }
+
+    moveEvent.preventDefault();
+    moveEvent.stopPropagation();
+    updateTarget(moveEvent);
+  };
+
+  const onPointerUp = upEvent => {
+    if (!channelSorterPointer || upEvent.pointerId !== channelSorterPointer.pointerId) {
+      return;
+    }
+
+    upEvent.preventDefault();
+    upEvent.stopPropagation();
+
+    updateTarget(upEvent);
+    cleanup();
+
+    channelSorterFinishMove({ channel, index }, targetIndex, channels);
+  };
+
+  const onPointerCancel = cancelEvent => {
+    if (!channelSorterPointer || cancelEvent.pointerId !== channelSorterPointer.pointerId) {
+      return;
+    }
+
+    cancelEvent.preventDefault();
+    cancelEvent.stopPropagation();
+
+    cleanup();
+    channelSorterSetStatus('Verschieben abgebrochen.');
+  };
+
+  document.addEventListener('pointermove', onPointerMove, true);
+  document.addEventListener('pointerup', onPointerUp, true);
+  document.addEventListener('pointercancel', onPointerCancel, true);
+
+  moveGhost(event);
+  channelSorterSetStatus(
+    'Quelle: ' + channelSorterTitle(channel, index) +
+    '. Auf Zielkachel loslassen.'
+  );
+}
+
+function createChannelSorterCard(channel, index, channels, list) {
+  const card = document.createElement('article');
+  card.className = 'channel-sorter-card';
+  card.dataset.index = String(index);
+  card.dataset.number = String(channelSorterNumber(channel, index + 1));
+  card.tabIndex = 0;
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-label', channelSorterTitle(channel, index) + ' verschieben');
+
+  card.addEventListener('dragstart', event => {
+    event.preventDefault();
+  }, true);
+
+  const handle = addText(document.createElement('div'), '↕');
+  handle.className = 'channel-sorter-handle';
+  handle.setAttribute('aria-label', channelSorterTitle(channel, index) + ' ziehen');
+  handle.addEventListener('pointerdown', event => {
+    channelSorterBeginPointerDrag(event, card, channel, index, channels, list);
+  }, { passive: false });
+  card.appendChild(handle);
+
+  const title = channelSorterTitle(channel, index);
+  const channelId = channelSorterId(channel);
+
+  if (typeof createChannelLogoElement === 'function') {
+    const logo = createChannelLogoElement(title, channelId);
+    logo.classList.add('epg-channel-logo');
+    card.appendChild(logo);
+  }
+
+  const text = document.createElement('div');
+  text.className = 'channel-sorter-text';
+
+  const name = addText(document.createElement('div'), title);
+  name.className = 'channel-sorter-title';
+  text.appendChild(name);
+
+  const meta = addText(
+    document.createElement('div'),
+    'Nr. ' + String(channelSorterNumber(channel, index + 1)) + ' · ' + String(channelId || '-')
+  );
+  meta.className = 'channel-sorter-meta';
+  text.appendChild(meta);
+
+  card.appendChild(text);
+
+  return card;
+}
+
+function renderChannelSorter(data) {
+  channelSorterData = data;
+
+  const channels = channelSorterChannels(data);
+  detailDataElement.replaceChildren();
+
+  const shell = document.createElement('section');
+  shell.className = 'channel-sorter-shell';
+
+  const intro = document.createElement('article');
+  intro.className = 'module-placeholder channel-sorter-intro';
+  intro.appendChild(addText(document.createElement('h3'), 'Kanäle sortieren'));
+  intro.appendChild(addText(
+    document.createElement('p'),
+    'Eigenständige Sortieroberfläche. Am linken ↕-Griff ziehen; auf dem Rest der Liste normal scrollen.'
+  ));
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'channel-sorter-toolbar';
+
+  const reload = document.createElement('button');
+  reload.type = 'button';
+  reload.textContent = 'Neu laden';
+  reload.disabled = channelSorterBusy;
+  reload.addEventListener('click', () => loadChannelSorter());
+  toolbar.appendChild(reload);
+
+  const status = addText(
+    document.createElement('span'),
+    channels.length === 0
+      ? 'Keine Kanäle gefunden.'
+      : String(channels.length) + ' Kanäle geladen.'
+  );
+  status.className = 'channel-sorter-status';
+  toolbar.appendChild(status);
+
+  intro.appendChild(toolbar);
+  shell.appendChild(intro);
+
+  if (channels.length === 0) {
+    const empty = document.createElement('article');
+    empty.className = 'module-placeholder';
+    empty.appendChild(addText(document.createElement('h3'), 'Keine Kanäle gefunden'));
+    empty.appendChild(addText(document.createElement('p'), 'Der Endpunkt /api/vdr/channels hat keine Kanäle geliefert.'));
+    shell.appendChild(empty);
+    detailDataElement.appendChild(shell);
+    return;
+  }
+
+  const list = document.createElement('section');
+  list.className = 'channel-sorter-list';
+  list.setAttribute('aria-label', 'Kanalliste sortieren');
+
+  channels.forEach((channel, index) => {
+    list.appendChild(createChannelSorterCard(channel, index, channels, list));
+  });
+
+  shell.appendChild(list);
+  detailDataElement.appendChild(shell);
+}
+
+function loadChannelSorter() {
+  renderModuleLoading('Kanäle sortieren', 'Lade Kanalliste für Sortierung...');
+
+  const backendId = channelSorterBackendId();
+  const url = '/api/vdr/channels'
+    + '?backend=' + encodeURIComponent(backendId)
+    + '&_=' + encodeURIComponent(String(Date.now()));
+
+  fetch(url, {
+    cache: 'no-store',
+    credentials: 'same-origin'
+  })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Kanalliste HTTP ' + response.status);
+      }
+
+      return response.json();
+    })
+    .then(data => {
+      channelSorterData = data;
+      currentChannels = data;
+      renderChannelSorter(data);
+    })
+    .catch(error => {
+      channelSorterData = null;
+      renderModuleError('Kanalsortierer konnte nicht geladen werden', error);
+    });
+}

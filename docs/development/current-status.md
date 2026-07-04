@@ -1,3 +1,22 @@
+## Phase 58.90b - Stable Channel Sorter (2026-07-04)
+
+Status: abgeschlossen
+
+Die Kanalsortierung wurde als eigenständiges Frontend-Modul `Kanäle sortieren` umgesetzt.
+
+Stabiler Umfang:
+
+- eigener Sortiermodus getrennt vom Kanalbrowser
+- Pointer-Drag für Handy und Desktop
+- Verschieben nur über den linken `↕`-Griff
+- normales Scrollen bleibt erhalten
+- Anbindung an `POST /api/vdr/channels/move`
+- kein Fokus-Restore nach dem Verschieben
+
+Dokumentation:
+
+- `docs/development/phase-58.90b-stable-channel-sorter.md`
+
 # VDR-Suite Current Project Status
 
 ## Phase 58.90a - Channel Move API
