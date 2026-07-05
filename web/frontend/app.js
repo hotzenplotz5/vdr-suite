@@ -1598,8 +1598,8 @@ function createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds) 
       card.style.top = position.left.toFixed(3) + '%';
       card.style.height = position.width.toFixed(3) + '%';
       card.title = epgEventTitle(entry.event)
-        + ' · ' + formatEpgClockFromEpoch(entry.start)
-        + '–' + formatEpgClockFromEpoch(entry.end);
+        + ' · ' + (new Date(entry.start * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + formatEpgClockFromEpoch(entry.start)
+        + '–' + formatEpgClockFromEpoch(entry.end));
 
       track.appendChild(card);
       renderedEvents += 1;
@@ -1870,8 +1870,8 @@ function renderEpgTimeView(channelData, eventData) {
   header.appendChild(addText(
     document.createElement('p'),
     rangeText
-      + ' Zeitfenster: ' + formatEpgClockFromEpoch(bounds.start) + '–' + formatEpgClockFromEpoch(bounds.end)
-      + ' · Jetzt: ' + formatEpgClockFromEpoch(nowSeconds)
+      + ' Zeitfenster: ' + (new Date(bounds.start * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + formatEpgClockFromEpoch(bounds.start) + '–' + formatEpgClockFromEpoch(bounds.end))
+      + ' · Jetzt: ' + (new Date(nowSeconds * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + formatEpgClockFromEpoch(nowSeconds))
       + ' · Quelle: ' + String(eventData.__source || 'cache')
       + ' · URL: ' + String(eventData.__debugUrl || '-')
       + ' · Events geladen: ' + String(events.length)
@@ -2127,8 +2127,8 @@ function renderEpgTimeView(channelData, eventData) {
       card.style.left = position.left.toFixed(3) + '%';
       card.style.width = position.width.toFixed(3) + '%';
       card.title = epgEventTitle(entry.event)
-        + ' · ' + formatEpgClockFromEpoch(entry.start)
-        + '–' + formatEpgClockFromEpoch(entry.end);
+        + ' · ' + (new Date(entry.start * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + formatEpgClockFromEpoch(entry.start)
+        + '–' + formatEpgClockFromEpoch(entry.end));
 
       track.appendChild(card);
       renderedEvents += 1;
