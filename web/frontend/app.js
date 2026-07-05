@@ -1241,6 +1241,18 @@ function createEpgVerticalChannelHeader(channel, index) {
 
 
 
+function epgVerticalColumnTemplate(visibleChannelCount) {
+  const channelCount = Math.max(Number(visibleChannelCount) || 0, 1);
+
+  if (typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 720px)').matches) {
+    return '3rem repeat(' + String(channelCount) + ', minmax(calc(100vw - 5.2rem), calc(100vw - 5.2rem)))';
+  }
+
+  return '5.8rem repeat(' + String(channelCount) + ', minmax(13rem, 1fr))';
+}
+
 function enableEpgDragPan(surface, horizontalTarget, options) {
   if (!surface || !horizontalTarget) {
     return;
@@ -1531,7 +1543,7 @@ function createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds) 
   const scrollContent = document.createElement('div');
   scrollContent.className = 'epg-vertical-scroll-content';
 
-  const columnTemplate = '5.8rem repeat(' + String(Math.max(visibleChannels.length, 1)) + ', minmax(13rem, 1fr))';
+  const columnTemplate = epgVerticalColumnTemplate(visibleChannels.length);
 
   const headerRow = document.createElement('div');
   headerRow.className = 'epg-vertical-header-row';
@@ -1803,12 +1815,29 @@ function createEpgProgramViewGrid(visibleChannels, events, nowSeconds, viewMode)
   return grid;
 }
 
+function epgIsMobileViewport() {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(max-width: 720px)').matches;
+}
+
+function epgTimeAxisViewIsSelected() {
+  return epgProgramView === 'horizontal' || epgProgramView === 'vertical';
+}
+
 function renderEpgTimeView(channelData, eventData) {
+  const mobileEpgViewport = epgIsMobileViewport();
+
+  if (mobileEpgViewport && epgTimeAxisViewIsSelected()) {
+    epgProgramView = 'live';
+    epgTimeAxisMode = 'horizontal';
+  }
+
   const channels = listFromResponse(channelData, 'channels');
   const events = listFromResponse(eventData, 'events');
   const nowSeconds = Math.floor(Date.now() / 1000);
 
-  if (isMobileEpgLayout() && (epgProgramView === 'horizontal' || epgProgramView === 'vertical')) {
+  if (isMobileEpgLayout() && epgProgramView === 'horizontal') {
     epgProgramView = 'live';
     epgTimeAxisMode = 'horizontal';
   }
@@ -1941,8 +1970,10 @@ function renderEpgTimeView(channelData, eventData) {
     loadEpgTimeline();
   });
 
-  modeRow.appendChild(timeView);
-  modeRow.appendChild(verticalTimeView);
+  if (!mobileEpgViewport) {
+    modeRow.appendChild(timeView);
+    modeRow.appendChild(verticalTimeView);
+  }
   modeRow.appendChild(liveView);
   modeRow.appendChild(nowView);
   modeRow.appendChild(nextView);
