@@ -801,11 +801,24 @@ function buildEpgTimerCreatePayload(event, channel) {
   };
 }
 
-function showEpgTimerPayloadPreview(container, event, channel) {
-  const oldPreview = container.querySelector('[data-epg-timer-preview="true"]');
-  if (oldPreview) {
-    oldPreview.remove();
+function clearEpgTimerFeedback(container) {
+  container.querySelectorAll('[data-epg-timer-preview="true"], [data-epg-timer-status="true"]').forEach(element => {
+    element.remove();
+  });
+}
+
+function appendEpgTimerFeedback(container, element) {
+  const technical = container.querySelector('.epg-event-technical');
+  if (technical) {
+    container.insertBefore(element, technical);
+    return;
   }
+
+  container.appendChild(element);
+}
+
+function showEpgTimerPayloadPreview(container, event, channel) {
+  clearEpgTimerFeedback(container);
 
   const payload = buildEpgTimerCreatePayload(event, channel);
 
@@ -838,7 +851,180 @@ function showEpgTimerPayloadPreview(container, event, channel) {
   code.className = 'epg-timer-preview-code';
   preview.appendChild(code);
 
-  container.appendChild(preview);
+  appendEpgTimerFeedback(container, preview);
+}
+
+function epgTimerResultDetails(result) {
+  const details = [];
+
+  if (result && Array.isArray(result.errors)) {
+    result.errors.forEach(error => details.push(String(error)));
+  }
+
+  if (result && Array.isArray(result.warnings)) {
+    result.warnings.forEach(warning => details.push(String(warning)));
+  }
+
+  return details;
+}
+
+function showEpgTimerStatus(container, success, title, message, details) {
+  clearEpgTimerFeedback(container);
+
+  const status = document.createElement('div');
+  status.className = 'epg-timer-status ' + (success ? 'success' : 'error');
+  status.dataset.epgTimerStatus = 'true';
+
+  status.appendChild(addText(document.createElement('h4'), title));
+  status.appendChild(addText(document.createElement('p'), message));
+
+  if (Array.isArray(details) && details.length > 0) {
+    const list = document.createElement('ul');
+    details.forEach(detail => {
+      list.appendChild(addText(document.createElement('li'), String(detail)));
+    });
+    status.appendChild(list);
+  }
+
+  appendEpgTimerFeedback(container, status);
+}
+
+function parseEpgTimerCreateResponse(response, text) {
+  let data = {};
+
+  if (text !== '') {
+    try {
+      data = JSON.parse(text);
+    } catch (parseError) {
+      data = { message: text };
+    }
+  }
+
+  if (!response.ok) {
+    const message = String(data.error || data.message || ('HTTP ' + String(response.status)));
+    const error = new Error(message);
+    error.data = data;
+    throw error;
+  }
+
+  return data;
+}
+
+function validateEpgTimerPayload(payload) {
+  const missing = [];
+
+  if (!payload.backendId) {
+    missing.push('Backend fehlt');
+  }
+
+  if (!payload.channelId) {
+    missing.push('Kanal-ID fehlt');
+  }
+
+  if (!payload.title) {
+    missing.push('Titel fehlt');
+  }
+
+  if (!payload.day) {
+    missing.push('Datum fehlt');
+  }
+
+  if (!Number.isFinite(Number(payload.start)) || Number(payload.start) <= 0) {
+    missing.push('Startzeit fehlt');
+  }
+
+  if (!Number.isFinite(Number(payload.stop)) || Number(payload.stop) <= 0) {
+    missing.push('Stopzeit fehlt');
+  }
+
+  return missing;
+}
+
+function createEpgTimerFromDetail(container, event, channel, button) {
+  const payload = buildEpgTimerCreatePayload(event, channel);
+  const validationErrors = validateEpgTimerPayload(payload);
+
+  if (validationErrors.length > 0) {
+    showEpgTimerStatus(
+      container,
+      false,
+      'Timer kann nicht erstellt werden',
+      'Die EPG-Sendung enthält nicht alle nötigen Timerdaten.',
+      validationErrors
+    );
+    return;
+  }
+
+  const originalLabel = button ? button.textContent : '';
+  if (button) {
+    button.disabled = true;
+    button.classList.add('pending');
+    button.textContent = 'Erstelle …';
+  }
+
+  clearEpgTimerFeedback(container);
+
+  fetch('/api/vdr/timers/actions/create', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    cache: 'no-store',
+    body: JSON.stringify(payload)
+  })
+    .then(response => response.text().then(text => parseEpgTimerCreateResponse(response, text)))
+    .then(result => {
+      if (result && result.success === false) {
+        showEpgTimerStatus(
+          container,
+          false,
+          'Timer wurde nicht erstellt',
+          String(result.message || 'Der VDR hat die Timer-Erstellung abgelehnt.'),
+          epgTimerResultDetails(result)
+        );
+
+        if (button) {
+          button.disabled = false;
+          button.classList.remove('pending');
+          button.textContent = originalLabel;
+        }
+        return;
+      }
+
+      const timerId = result && result.timerId ? String(result.timerId) : '';
+      showEpgTimerStatus(
+        container,
+        true,
+        'Timer erstellt',
+        timerId !== ''
+          ? 'Timer wurde erfolgreich erstellt. Timer-ID: ' + timerId
+          : String((result && result.message) || 'Timer wurde erfolgreich erstellt.'),
+        epgTimerResultDetails(result)
+      );
+
+      if (button) {
+        button.classList.remove('pending');
+        button.textContent = 'Timer erstellt';
+      }
+    })
+    .catch(error => {
+      const data = error && error.data ? error.data : {};
+      const details = epgTimerResultDetails(data);
+
+      showEpgTimerStatus(
+        container,
+        false,
+        'Timer-Fehler',
+        String((error && error.message) || 'Timer konnte nicht erstellt werden.'),
+        details
+      );
+
+      if (button) {
+        button.disabled = false;
+        button.classList.remove('pending');
+        button.textContent = originalLabel;
+      }
+    });
 }
 
 function createEpgDetailAction(label, hint, onClick) {
@@ -908,9 +1094,16 @@ function createEpgEventDetailCard(event, channel) {
   actions.className = 'epg-detail-actions';
   actions.setAttribute('aria-label', 'EPG Aktionen');
 
-  actions.appendChild(createEpgDetailAction('Aufnahme', 'Aktion vorbereitet. Aufnahmefunktion folgt später.'));
+  const createTimerAction = createEpgDetailAction(
+    'Timer erstellen',
+    'Timer aus dieser EPG-Sendung auf dem ausgewählten VDR erstellen.',
+    clickEvent => createEpgTimerFromDetail(detail, event, channel, clickEvent.currentTarget)
+  );
+  createTimerAction.classList.add('primary');
+  actions.appendChild(createTimerAction);
+
   actions.appendChild(createEpgDetailAction(
-    'Timer vorbereiten',
+    'Timerdaten prüfen',
     'Timerdaten aus dieser EPG-Sendung berechnen und anzeigen.',
     () => showEpgTimerPayloadPreview(detail, event, channel)
   ));

@@ -3746,3 +3746,61 @@ body.channel-sorter-dragging * {
     word-break: break-word;
   }
 }
+
+
+/* Phase 58.94a: EPG timer create feedback */
+.epg-detail-action.primary {
+  border-color: rgba(34, 211, 238, 0.62);
+  background:
+    linear-gradient(135deg, rgba(14, 165, 233, 0.38), rgba(37, 99, 235, 0.28));
+  color: #ecfeff;
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.12);
+}
+
+.epg-detail-action.pending {
+  cursor: wait;
+  opacity: 0.86;
+}
+
+.epg-timer-status {
+  margin: 0 0.95rem 0.85rem;
+  padding: 0.72rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 0.78rem;
+  background: rgba(2, 6, 23, 0.62);
+}
+
+.epg-timer-status.success {
+  border-color: rgba(45, 212, 191, 0.58);
+  background:
+    radial-gradient(circle at top left, rgba(20, 184, 166, 0.22), transparent 42%),
+    rgba(2, 6, 23, 0.64);
+}
+
+.epg-timer-status.error {
+  border-color: rgba(248, 113, 113, 0.62);
+  background:
+    radial-gradient(circle at top left, rgba(248, 113, 113, 0.16), transparent 42%),
+    rgba(2, 6, 23, 0.64);
+}
+
+.epg-timer-status h4 {
+  margin: 0 0 0.45rem;
+  color: #f8fafc;
+  font-size: 0.9rem;
+}
+
+.epg-timer-status p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  line-height: 1.38;
+}
+
+.epg-timer-status ul {
+  margin: 0.55rem 0 0;
+  padding-left: 1.1rem;
+  color: #fecaca;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
