@@ -32,6 +32,7 @@ public:
     ApiResponse getRecordings();
     ApiResponse getTimers();
     ApiResponse getLiveTimers();
+    ApiResponse getLiveTimerConflicts();
     ApiResponse getSearchTimers();
     ApiResponse getChannels();
     ApiResponse getEvents();

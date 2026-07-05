@@ -715,6 +715,12 @@ ApiResponse ApiRouter::handleGet(
         return vdrController_.getLiveTimers();
     }
 
+    if (path == "/api/vdr/timer-conflicts/live" ||
+        path == "/api/vdr/timers/conflicts/live")
+    {
+        return vdrController_.getLiveTimerConflicts();
+    }
+
     if (path == "/api/vdr/timers")
     {
         return vdrController_.getTimers();

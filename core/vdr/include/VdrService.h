@@ -11,6 +11,7 @@
 #include "VdrRecording.h"
 #include "VdrStatus.h"
 #include "VdrTimer.h"
+#include "VdrTimerConflict.h"
 
 #include <string>
 #include <vector>
@@ -25,6 +26,7 @@ public:
     std::vector<VdrEvent> getEvents() const;
     std::vector<VdrEvent> getEvents(const VdrEventQuery& query) const;
     std::vector<VdrTimer> getTimers() const;
+    VdrTimerConflictReport getTimerConflictReport() const;
     std::vector<VdrRecording> getRecordings() const;
     VdrChangeState getChangeState() const;
 

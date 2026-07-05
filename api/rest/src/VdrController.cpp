@@ -230,6 +230,32 @@ ApiResponse VdrController::getLiveTimers()
     return response;
 }
 
+ApiResponse VdrController::getLiveTimerConflicts()
+{
+    VdrTimerConflictReport report;
+
+    if (liveService_ == nullptr)
+    {
+        report.source = "restfulapi-epgsearch";
+        report.available = false;
+        report.error = "live VDR service unavailable";
+    }
+    else
+    {
+        report = liveService_->getTimerConflictReport();
+    }
+
+    ApiResponse response;
+
+    response.statusCode = 200;
+    response.contentType = "application/json";
+    response.body =
+        snapshotReadJsonSerializer_.serializeTimerConflictReport(
+            report);
+
+    return response;
+}
+
 ApiResponse VdrController::getSearchTimers()
 {
     ApiResponse response;

@@ -7,6 +7,7 @@
 #include "VdrSnapshot.h"
 #include "VdrStatus.h"
 #include "VdrTimer.h"
+#include "VdrTimerConflict.h"
 #include "VdrCapabilitySet.h"
 
 #include <string>
@@ -23,6 +24,9 @@ public:
 
     std::string serializeTimers(
         const std::vector<VdrTimer>& timers) const;
+
+    std::string serializeTimerConflictReport(
+        const VdrTimerConflictReport& report) const;
 
     std::string serializeSearchTimers(
         const std::vector<SearchTimer>& searchTimers) const;

@@ -1941,3 +1941,35 @@ test-vdr-channel-move-controller:
 		api/rest/tests/test_vdr_channel_move_controller.cpp \
 		-o /tmp/test_vdr_channel_move_controller
 	/tmp/test_vdr_channel_move_controller
+
+test-restful-api-timer-conflict-mapper:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/RestfulApiTimerConflictMapper.cpp \
+		core/vdr/tests/test_restful_api_timer_conflict_mapper.cpp \
+		-o /tmp/test_restful_api_timer_conflict_mapper
+	/tmp/test_restful_api_timer_conflict_mapper
+
+test-restful-api-vdr-adapter-timer-conflicts:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/VdrChangeState.cpp \
+		core/vdr/src/RestfulApiChannelMapper.cpp \
+		core/vdr/src/RestfulApiRecordingMapper.cpp \
+		core/vdr/src/RestfulApiTimerMapper.cpp \
+		core/vdr/src/RestfulApiTimerConflictMapper.cpp \
+		core/vdr/src/RestfulApiEventMapper.cpp \
+		core/vdr/src/RestfulApiStatusMapper.cpp \
+		core/vdr/src/RestfulApiVdrAdapter.cpp \
+		core/http/src/MockHttpClient.cpp \
+		core/vdr/tests/test_restful_api_vdr_adapter_timer_conflicts.cpp \
+		-o /tmp/test_restful_api_vdr_adapter_timer_conflicts
+	/tmp/test_restful_api_vdr_adapter_timer_conflicts
+
+test-vdr-timer-conflict-json-serializer:
+	$(CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrSnapshotReadJsonSerializer.cpp \
+		core/vdr/tests/test_vdr_timer_conflict_json_serializer.cpp \
+		-o /tmp/test_vdr_timer_conflict_json_serializer
+	/tmp/test_vdr_timer_conflict_json_serializer
+
+test-vdr-timer-conflicts: test-restful-api-timer-conflict-mapper test-restful-api-vdr-adapter-timer-conflicts test-vdr-timer-conflict-json-serializer

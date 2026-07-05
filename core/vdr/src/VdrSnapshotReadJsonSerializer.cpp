@@ -2,11 +2,55 @@
 
 #include <sstream>
 #include <cstddef>
+#include <string>
 
 static const char* boolToJson(
     bool value)
 {
     return value ? "true" : "false";
+}
+
+static std::string jsonEscape(
+    const std::string& value)
+{
+    std::string escaped;
+
+    for (char ch : value)
+    {
+        switch (ch)
+        {
+            case '\\':
+                escaped += "\\\\";
+                break;
+            case '"':
+                escaped += "\\\"";
+                break;
+            case '\n':
+                escaped += "\\n";
+                break;
+            case '\r':
+                escaped += "\\r";
+                break;
+            case '\t':
+                escaped += "\\t";
+                break;
+            default:
+                if (static_cast<unsigned char>(ch) >= 0x20)
+                {
+                    escaped.push_back(ch);
+                }
+                break;
+        }
+    }
+
+    return escaped;
+}
+
+static void appendJsonString(
+    std::ostringstream& json,
+    const std::string& value)
+{
+    json << "\"" << jsonEscape(value) << "\"";
 }
 
 std::string VdrSnapshotReadJsonSerializer::serializeStatus(
@@ -92,6 +136,98 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimers(
             << "\"enabled\":" << boolToJson(timer.enabled) << ","
             << "\"recording\":" << boolToJson(timer.recording)
             << "}";
+    }
+
+    json << "]}";
+
+    return json.str();
+}
+
+std::string VdrSnapshotReadJsonSerializer::serializeTimerConflictReport(
+    const VdrTimerConflictReport& report) const
+{
+    std::ostringstream json;
+
+    json
+        << "{"
+        << "\"source\":";
+    appendJsonString(json, report.source);
+    json
+        << ",\"available\":" << boolToJson(report.available)
+        << ",\"checkAdvised\":" << boolToJson(report.checkAdvised)
+        << ",\"count\":" << report.count
+        << ",\"total\":" << report.total;
+
+    if (!report.error.empty())
+    {
+        json << ",\"error\":";
+        appendJsonString(json, report.error);
+    }
+
+    json << ",\"conflicts\":[";
+
+    for (std::size_t conflictIndex = 0;
+         conflictIndex < report.conflicts.size();
+         ++conflictIndex)
+    {
+        const VdrTimerConflict& conflict =
+            report.conflicts[conflictIndex];
+
+        if (conflictIndex > 0)
+        {
+            json << ",";
+        }
+
+        json
+            << "{"
+            << "\"raw\":";
+        appendJsonString(json, conflict.raw);
+        json
+            << ",\"conflictTime\":" << conflict.conflictTime
+            << ",\"entries\":[";
+
+        for (std::size_t entryIndex = 0;
+             entryIndex < conflict.entries.size();
+             ++entryIndex)
+        {
+            const VdrTimerConflictEntry& entry =
+                conflict.entries[entryIndex];
+
+            if (entryIndex > 0)
+            {
+                json << ",";
+            }
+
+            json
+                << "{"
+                << "\"timerIndex\":" << entry.timerIndex
+                << ",\"percentage\":" << entry.percentage
+                << ",\"concurrentTimerIndices\":[";
+
+            for (std::size_t index = 0;
+                 index < entry.concurrentTimerIndices.size();
+                 ++index)
+            {
+                if (index > 0)
+                {
+                    json << ",";
+                }
+
+                json << entry.concurrentTimerIndices[index];
+            }
+
+            json << "]";
+
+            if (!entry.remoteServer.empty())
+            {
+                json << ",\"remoteServer\":";
+                appendJsonString(json, entry.remoteServer);
+            }
+
+            json << "}";
+        }
+
+        json << "]}";
     }
 
     json << "]}";

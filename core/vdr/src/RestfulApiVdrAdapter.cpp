@@ -6,6 +6,7 @@
 #include "RestfulApiEventMapper.h"
 #include "RestfulApiRecordingMapper.h"
 #include "RestfulApiStatusMapper.h"
+#include "RestfulApiTimerConflictMapper.h"
 #include "RestfulApiTimerMapper.h"
 
 #include <cctype>
@@ -231,6 +232,20 @@ std::vector<VdrTimer> RestfulApiVdrAdapter::getTimers() const
     }
 
     return RestfulApiTimerMapper::parseTimers(response.body);
+}
+
+VdrTimerConflictReport RestfulApiVdrAdapter::getTimerConflictReport() const
+{
+    HttpRequest request;
+    request.method = "GET";
+    request.url = "/searchtimers/conflicts.json";
+    request.headers["Accept"] = "application/json";
+
+    HttpResponse response = httpClient_.execute(request);
+
+    return RestfulApiTimerConflictMapper::parseReport(
+        response.body,
+        response.statusCode);
 }
 
 std::vector<VdrRecording> RestfulApiVdrAdapter::getRecordings() const

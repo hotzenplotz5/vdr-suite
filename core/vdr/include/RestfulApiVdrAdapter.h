@@ -9,6 +9,7 @@
 #include "VdrRecording.h"
 #include "VdrStatus.h"
 #include "VdrTimer.h"
+#include "VdrTimerConflict.h"
 
 #include <string>
 #include <vector>
@@ -22,6 +23,7 @@ public:
     std::vector<VdrEvent> getEvents(const VdrEventQuery& query) const override;
     std::vector<VdrChannel> getChannels() const override;
     std::vector<VdrTimer> getTimers() const override;
+    VdrTimerConflictReport getTimerConflictReport() const override;
     std::vector<VdrRecording> getRecordings() const override;
     VdrChangeState getChangeState() const override;
 

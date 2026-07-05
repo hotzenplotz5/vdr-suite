@@ -121,6 +121,18 @@ std::vector<VdrTimer> MockVdrAdapter::getTimers() const
     return { timer };
 }
 
+VdrTimerConflictReport MockVdrAdapter::getTimerConflictReport() const
+{
+    VdrTimerConflictReport report;
+    report.source = "mock";
+    report.available = true;
+    report.checkAdvised = false;
+    report.count = 0;
+    report.total = 0;
+
+    return report;
+}
+
 std::vector<VdrRecording> MockVdrAdapter::getRecordings() const
 {
     VdrRecording recording1;

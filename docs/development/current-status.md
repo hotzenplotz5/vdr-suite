@@ -118,3 +118,31 @@ Progress source: ../planning/project-progress.md
 - [Back to Development Index](index.md)
 - [Back to Documentation Index](../index.md)
 - [Back to README](../../README.md)
+
+## Phase 58.94c: RESTfulAPI Timer Conflict Discovery
+
+Status: stable/live verified
+
+Implemented:
+
+- Added VdrTimerConflict and VdrTimerConflictReport domain objects.
+- Added RestfulApiTimerConflictMapper for /searchtimers/conflicts.json.
+- Added RestfulApiVdrAdapter::getTimerConflictReport().
+- Added VdrService::getTimerConflictReport().
+- Added VdrSnapshotReadJsonSerializer::serializeTimerConflictReport().
+- Added VdrController live conflict endpoint.
+- Added API routes:
+  - /api/vdr/timer-conflicts/live
+  - /api/vdr/timers/conflicts/live
+
+Live verification:
+
+- Source: restfulapi-epgsearch
+- available: true
+- count: 2
+- total: 2
+- Conflict entries expose timerIndex, percentage and concurrentTimerIndices.
+
+Architecture decision:
+
+RESTfulAPI is the primary timer conflict source. SVDRP epgsearch LSCC remains a validation and fallback path for later phases.

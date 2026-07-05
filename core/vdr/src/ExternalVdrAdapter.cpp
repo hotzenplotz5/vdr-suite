@@ -38,6 +38,16 @@ std::vector<VdrTimer> ExternalVdrAdapter::getTimers() const
     return {};
 }
 
+VdrTimerConflictReport ExternalVdrAdapter::getTimerConflictReport() const
+{
+    VdrTimerConflictReport report;
+    report.source = "external";
+    report.available = false;
+    report.error = "timer conflict report unavailable for external adapter";
+
+    return report;
+}
+
 std::vector<VdrRecording> ExternalVdrAdapter::getRecordings() const
 {
     return {};

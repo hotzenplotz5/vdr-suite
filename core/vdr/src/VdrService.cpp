@@ -45,6 +45,12 @@ std::vector<VdrTimer> VdrService::getTimers() const
     return adapter_.getTimers();
 }
 
+VdrTimerConflictReport VdrService::getTimerConflictReport() const
+{
+    log(RuntimeLogLevel::Info, "Loading timer conflict report");
+    return adapter_.getTimerConflictReport();
+}
+
 std::vector<VdrRecording> VdrService::getRecordings() const
 {
     log(RuntimeLogLevel::Info, "Loading recordings");
