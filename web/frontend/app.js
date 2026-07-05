@@ -1073,7 +1073,7 @@ function createEpgEventCard(entry, channel) {
 
   const time = addText(
     document.createElement('div'),
-    formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end)
+    (new Date(entry.start * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end))
   );
   time.className = 'epg-event-time';
 
@@ -1731,7 +1731,7 @@ function createEpgProgramEventButton(entry, channel, label, nowSeconds) {
 
   const time = addText(
     document.createElement('div'),
-    formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end)
+    (new Date(entry.start * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end))
   );
   time.className = 'epg-event-time';
   button.appendChild(time);
