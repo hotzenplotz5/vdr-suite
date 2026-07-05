@@ -3303,3 +3303,52 @@ body.channel-sorter-dragging * {
     display: none;
   }
 }
+
+/* Phase 58.93h: selected channel EPG and mobile agenda scroll */
+@media (max-width: 42rem) {
+  .channel-browser-summary {
+    display: none;
+  }
+
+  .channel-agenda-card {
+    padding: 0.75rem;
+  }
+
+  .channel-agenda-scroll {
+    overflow: visible;
+    touch-action: pan-y;
+  }
+
+  .channel-agenda-row {
+    grid-template-columns: 7.4rem minmax(0, 1fr);
+    gap: 0.65rem;
+    padding: 0.72rem;
+    align-items: center;
+    touch-action: manipulation;
+  }
+
+  .channel-agenda-time {
+    font-size: 0.82rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  .channel-agenda-duration {
+    display: none;
+  }
+
+  .channel-agenda-title {
+    font-size: 0.95rem;
+    line-height: 1.25;
+  }
+
+  .channel-agenda-subtitle {
+    font-size: 0.82rem;
+  }
+}
+
+/* Phase 58.93i: inline mobile channel agenda details */
+@media (max-width: 42rem) {
+  .channel-agenda-row.active {
+    border-color: #22d3ee;
+    background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 45

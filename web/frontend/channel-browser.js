@@ -72,6 +72,47 @@ function scheduleChannelBrowserEpgPrefetch(channelData) {
 }
 
 
+function fetchChannelBrowserChannelWindow(channel) {
+  if (typeof fetchCachedEpgWindowForVisibleChannel !== 'function') {
+    return Promise.resolve({ events: [] });
+  }
+
+  return fetchCachedEpgWindowForVisibleChannel(channel)
+    .then(eventData => {
+      if (listEventsFromEpgResponse(eventData).length > 0) {
+        return eventData;
+      }
+
+      const channelId = frontendChannelId(channel);
+      if (channelId === '') {
+        return eventData;
+      }
+
+      const backendId = selectedEpgBackendId();
+      const bounds = epgWindowBounds();
+      const refreshUrl = '/api/epg/cache/refresh'
+        + '?backend=' + encodeURIComponent(backendId)
+        + '&channelId=' + encodeURIComponent(channelId)
+        + '&from=' + encodeURIComponent(String(bounds.from))
+        + '&timespan=' + encodeURIComponent(String(Math.max(7200, bounds.until - bounds.from)))
+        + '&limit=0'
+        + '&channelEventLimit=96'
+        + '&_=' + encodeURIComponent(String(Date.now()));
+
+      return fetch(refreshUrl, { method: 'POST', cache: 'no-store' })
+        .then(response => {
+          if (!response.ok) {
+            return eventData;
+          }
+
+          return fetchCachedEpgWindowForVisibleChannel(channel)
+            .catch(() => eventData);
+        })
+        .catch(() => eventData);
+    })
+    .catch(() => ({ events: [] }));
+}
+
 function channelDragRecentlyEnded(element) {
   if (!element) {
     return false;
@@ -776,6 +817,85 @@ renderChannelList = function(data) {
     selectedEventKey: ''
   };
 
+  const channelBrowserPrefetchedChannelIds = {};
+  let channelBrowserGroupPrefetchInFlight = false;
+
+  function channelBrowserEventIdentity(event) {
+    return frontendEventChannelId(event) + '|'
+      + String(firstValue(event, ['eventId', 'id', 'nativeId'], '')) + '|'
+      + String(firstValue(event, ['startTime', 'start', 'beginTime'], '')) + '|'
+      + epgEventTitle(event);
+  }
+
+  function mergeChannelBrowserPrefetchedEvents(responses) {
+    const known = {};
+    let added = 0;
+
+    events.forEach(event => {
+      known[channelBrowserEventIdentity(event)] = true;
+    });
+
+    responses.forEach(response => {
+      listEventsFromEpgResponse(response).forEach(event => {
+        const key = channelBrowserEventIdentity(event);
+        if (known[key]) {
+          return;
+        }
+
+        known[key] = true;
+        events.push(event);
+        added += 1;
+      });
+    });
+
+    if (added > 0) {
+      currentEvents = {
+        events,
+        eventCount: events.length,
+        __source: 'cache-channel-browser-prefetch',
+        __partialWindow: true,
+        __debugUrl: 'channel-browser group prefetch'
+      };
+    }
+
+    return added;
+  }
+
+  function prefetchChannelBrowserChannels(channelsToPrefetch) {
+    if (channelBrowserGroupPrefetchInFlight || typeof fetchChannelBrowserChannelWindow !== 'function') {
+      return;
+    }
+
+    const candidates = channelsToPrefetch
+      .filter(channel => {
+        const channelId = frontendChannelId(channel);
+        return channelId !== '' &&
+          channelBrowserPrefetchedChannelIds[channelId] !== true &&
+          channelEntries(channel).length === 0;
+      })
+      .slice(0, 12);
+
+    if (candidates.length === 0) {
+      return;
+    }
+
+    candidates.forEach(channel => {
+      channelBrowserPrefetchedChannelIds[frontendChannelId(channel)] = true;
+    });
+
+    channelBrowserGroupPrefetchInFlight = true;
+
+    Promise.all(candidates.map(channel => fetchChannelBrowserChannelWindow(channel)))
+      .then(responses => {
+        if (mergeChannelBrowserPrefetchedEvents(responses) > 0) {
+          renderAll();
+        }
+      })
+      .finally(() => {
+        channelBrowserGroupPrefetchInFlight = false;
+      });
+  }
+
   function eventKey(entry) {
     return [
       frontendEventChannelId(entry.event),
@@ -937,6 +1057,7 @@ renderChannelList = function(data) {
       visibleChannels.forEach((channel, index) => {
         channelPane.appendChild(renderChannelButton(channel, index));
       });
+      prefetchChannelBrowserChannels(visibleChannels);
       return;
     }
 
@@ -1003,6 +1124,8 @@ renderChannelList = function(data) {
           itemList.appendChild(renderChannelButton(entry.channel, entry.index));
         });
 
+        prefetchChannelBrowserChannels(items.map(entry => entry.channel));
+
         section.appendChild(itemList);
       }
 
@@ -1036,6 +1159,68 @@ renderChannelList = function(data) {
     const active = selectedEntry(entries);
     const current = currentEntry(entries);
     const next = nextEntry(entries);
+
+    if (entries.length === 0 &&
+        channelBrowserEpgPrefetchInFlight === false &&
+        typeof fetchCachedEpgWindowForVisibleChannel === 'function') {
+      const prefetchNow = Date.now();
+      if (prefetchNow - channelBrowserEpgPrefetchLastStartedAt >= CHANNEL_BROWSER_EPG_RETRY_DELAY_MS) {
+        channelBrowserEpgPrefetchInFlight = true;
+        channelBrowserEpgPrefetchLastStartedAt = prefetchNow;
+
+        fetchCachedEpgWindowForVisibleChannel(channel)
+          .then(eventData => {
+            if (listEventsFromEpgResponse(eventData).length > 0) {
+              return eventData;
+            }
+
+            const channelId = frontendChannelId(channel);
+            if (channelId === '') {
+              return eventData;
+            }
+
+            const backendId = selectedEpgBackendId();
+            const bounds = epgWindowBounds();
+            const refreshUrl = '/api/epg/cache/refresh'
+              + '?backend=' + encodeURIComponent(backendId)
+              + '&channelId=' + encodeURIComponent(channelId)
+              + '&from=' + encodeURIComponent(String(bounds.from))
+              + '&timespan=' + encodeURIComponent(String(Math.max(7200, bounds.until - bounds.from)))
+              + '&limit=0'
+              + '&channelEventLimit=96'
+              + '&_=' + encodeURIComponent(String(Date.now()));
+
+            return fetch(refreshUrl, { method: 'POST', cache: 'no-store' })
+              .then(response => {
+                if (!response.ok) {
+                  return eventData;
+                }
+
+                return fetchCachedEpgWindowForVisibleChannel(channel)
+                  .catch(() => eventData);
+              })
+              .catch(() => eventData);
+          })
+          .then(eventData => {
+            const incomingEvents = listEventsFromEpgResponse(eventData);
+            incomingEvents.forEach(event => events.push(event));
+            currentEvents = {
+              events,
+              eventCount: events.length,
+              __source: 'cache-channel-browser-selected',
+              __partialWindow: true,
+              __debugUrl: String(eventData.__debugUrl || '')
+            };
+            renderAll();
+          })
+          .catch(error => {
+            (void error);
+          })
+          .finally(() => {
+            channelBrowserEpgPrefetchInFlight = false;
+          });
+      }
+    }
 
     const hero = document.createElement('article');
     hero.className = 'module-placeholder channel-browser-selected';
@@ -1106,7 +1291,15 @@ renderChannelList = function(data) {
       )).className = 'channel-agenda-empty';
     } else {
       entries.forEach(entry => {
-        scroll.appendChild(renderAgendaRow(entry, channel, active && eventKey(entry) === eventKey(active)));
+        const rowActive = active && eventKey(entry) === eventKey(active);
+        scroll.appendChild(renderAgendaRow(entry, channel, rowActive));
+
+        if (rowActive && state.selectedEventKey.length > 0 &&
+            window.matchMedia && window.matchMedia('(max-width: 760px)').matches) {
+          const inlineDetail = createEpgEventDetailCard(entry.event, channel);
+          inlineDetail.classList.add('channel-agenda-inline-detail');
+          scroll.appendChild(inlineDetail);
+        }
       });
     }
 
@@ -1124,9 +1317,11 @@ renderChannelList = function(data) {
 
     requestAnimationFrame(() => {
       enableChannelMouseDragScroll(channelPane, 'y');
-      detailPane.querySelectorAll('.channel-agenda-scroll').forEach(scrollArea => {
-        enableChannelMouseDragScroll(scrollArea, 'y');
-      });
+      if ((window.matchMedia && window.matchMedia('(max-width: 760px)').matches) === false) {
+        detailPane.querySelectorAll('.channel-agenda-scroll').forEach(scrollArea => {
+          enableChannelMouseDragScroll(scrollArea, 'y');
+        });
+      }
     });
   }
 
