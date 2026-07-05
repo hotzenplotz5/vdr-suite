@@ -779,6 +779,187 @@ function formatEpgTimerClockValue(epochSeconds) {
   );
 }
 
+const EPG_TIMER_DETAIL_SYNC_INTERVAL_MS = 3500;
+let epgTimerDetailSyncIntervalId = null;
+let epgTimerDetailSyncInFlight = false;
+let epgLiveTimerCache = [];
+
+function epgTimerDetailCards() {
+  return Array.from(document.querySelectorAll('[data-epg-timer-sync="true"]'));
+}
+
+function epgTimerText(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+function epgTimerEpochSeconds(value) {
+  const parsed = parseFrontendEventEpoch(value);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 1000000000) {
+    return numeric;
+  }
+
+  const date = new Date(String(value || ''));
+  if (!Number.isNaN(date.getTime())) {
+    return Math.floor(date.getTime() / 1000);
+  }
+
+  return 0;
+}
+
+function epgTimerDetailMetadata(detail) {
+  return {
+    channelId: String(detail.dataset.epgTimerChannelId || ''),
+    eventId: String(detail.dataset.epgTimerEventId || ''),
+    title: String(detail.dataset.epgTimerTitle || ''),
+    start: Number(detail.dataset.epgTimerStart || 0),
+    end: Number(detail.dataset.epgTimerEnd || 0),
+    createdTimerId: String(detail.dataset.epgTimerCreatedTimerId || '')
+  };
+}
+
+function epgTimerFromResponse(data) {
+  return listFromResponse(data, 'timers');
+}
+
+function epgTimerMatchesDetail(timer, metadata) {
+  const timerId = String(firstValue(timer, ['timerId', 'id', 'nativeId'], ''));
+  if (metadata.createdTimerId !== '' && timerId !== '') {
+    return metadata.createdTimerId === timerId;
+  }
+
+  const timerChannelId = String(firstValue(timer, ['channelId', 'channel'], ''));
+  if (metadata.channelId !== '' && timerChannelId !== '' && metadata.channelId !== timerChannelId) {
+    return false;
+  }
+
+  const timerEventId = String(firstValue(timer, ['eventId', 'eventID', 'eventNativeId'], ''));
+  if (metadata.eventId !== '' && timerEventId !== '') {
+    return metadata.eventId === timerEventId;
+  }
+
+  const timerTitle = epgTimerText(firstValue(timer, ['title', 'name', 'eventTitle'], ''));
+  const detailTitle = epgTimerText(metadata.title);
+  const titleMatches = timerTitle !== '' && detailTitle !== '' && timerTitle === detailTitle;
+
+  const timerStart = epgTimerEpochSeconds(firstValue(timer, ['startTime', 'start', 'beginTime'], ''));
+  const timerEnd = epgTimerEpochSeconds(firstValue(timer, ['endTime', 'stop', 'stopTime'], ''));
+
+  const startMatches =
+    metadata.start > 0 &&
+    timerStart > 0 &&
+    Math.abs(timerStart - metadata.start) <= 180;
+
+  const endMatches =
+    metadata.end > 0 &&
+    timerEnd > 0 &&
+    Math.abs(timerEnd - metadata.end) <= 180;
+
+  return startMatches && (endMatches || titleMatches);
+}
+
+function clearEpgTimerSuccessFeedback(container) {
+  container.querySelectorAll('[data-epg-timer-status="true"].success').forEach(element => {
+    element.remove();
+  });
+}
+
+function setEpgTimerDetailState(detail, matchingTimer) {
+  const button = detail.querySelector('[data-epg-create-timer-action="true"]');
+  if (!button || button.classList.contains('pending')) {
+    return;
+  }
+
+  if (matchingTimer) {
+    const timerId = String(firstValue(matchingTimer, ['timerId', 'id', 'nativeId'], ''));
+    if (timerId !== '') {
+      detail.dataset.epgTimerCreatedTimerId = timerId;
+    }
+
+    detail.dataset.epgTimerState = 'present';
+    button.disabled = true;
+    button.classList.add('timer-present');
+    button.textContent = timerRecording(matchingTimer) ? 'Nimmt auf' : 'Timer vorhanden';
+    button.title = 'Für diese EPG-Sendung existiert bereits ein Timer.';
+    return;
+  }
+
+  if (detail.dataset.epgTimerState === 'present') {
+    clearEpgTimerSuccessFeedback(detail);
+  }
+
+  detail.dataset.epgTimerState = 'absent';
+  detail.dataset.epgTimerCreatedTimerId = '';
+  button.disabled = false;
+  button.classList.remove('timer-present');
+  button.textContent = 'Timer erstellen';
+  button.title = 'Timer aus dieser EPG-Sendung auf dem ausgewählten VDR erstellen.';
+}
+
+function syncEpgTimerDetailWithTimers(detail, timers) {
+  const metadata = epgTimerDetailMetadata(detail);
+  const matchingTimer = timers.find(timer => epgTimerMatchesDetail(timer, metadata));
+  setEpgTimerDetailState(detail, matchingTimer || null);
+}
+
+function syncEpgTimerDetailStates() {
+  const details = epgTimerDetailCards();
+  if (details.length === 0) {
+    if (epgTimerDetailSyncIntervalId !== null) {
+      window.clearInterval(epgTimerDetailSyncIntervalId);
+      epgTimerDetailSyncIntervalId = null;
+    }
+    return;
+  }
+
+  if (epgTimerDetailSyncInFlight) {
+    return;
+  }
+
+  epgTimerDetailSyncInFlight = true;
+
+  fetch('/api/vdr/timers/live', { cache: 'no-store' })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('HTTP ' + String(response.status));
+      }
+      return response.json();
+    })
+    .then(data => {
+      epgLiveTimerCache = epgTimerFromResponse(data);
+      epgTimerDetailCards().forEach(detail => {
+        syncEpgTimerDetailWithTimers(detail, epgLiveTimerCache);
+      });
+    })
+    .catch(() => {
+      /* Live-Sync ist Komfort. Bei Fehler bleibt die lokale Anzeige unverändert. */
+    })
+    .finally(() => {
+      epgTimerDetailSyncInFlight = false;
+    });
+}
+
+function startEpgTimerDetailSync() {
+  if (epgTimerDetailSyncIntervalId === null) {
+    epgTimerDetailSyncIntervalId = window.setInterval(
+      syncEpgTimerDetailStates,
+      EPG_TIMER_DETAIL_SYNC_INTERVAL_MS
+    );
+  }
+}
+
+function syncEpgTimerDetailStatesSoon() {
+  startEpgTimerDetailSync();
+  window.setTimeout(syncEpgTimerDetailStates, 250);
+}
+
 function buildEpgTimerCreatePayload(event, channel) {
   const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
   const end = frontendEventEnd(event, start);
@@ -1002,10 +1183,17 @@ function createEpgTimerFromDetail(container, event, channel, button) {
         epgTimerResultDetails(result)
       );
 
+      if (timerId !== '') {
+        container.dataset.epgTimerCreatedTimerId = timerId;
+      }
+      container.dataset.epgTimerState = 'present';
+
       if (button) {
         button.classList.remove('pending');
         button.textContent = 'Timer erstellt';
       }
+
+      syncEpgTimerDetailStatesSoon();
     })
     .catch(error => {
       const data = error && error.data ? error.data : {};
@@ -1050,6 +1238,18 @@ function createEpgEventDetailCard(event, channel) {
   const channelTitle = epgChannelTitle(channel, 0);
   const detail = document.createElement('article');
   detail.className = 'module-placeholder epg-event-detail epg-event-detail-action-panel';
+
+  const syncEventId = String(firstValue(event, ['eventId', 'id', 'nativeId'], ''));
+  const syncChannelId = frontendEventChannelId(event) || frontendChannelId(channel);
+
+  detail.dataset.epgTimerSync = 'true';
+  detail.dataset.epgTimerState = 'unknown';
+  detail.dataset.epgTimerEventId = syncEventId;
+  detail.dataset.epgTimerChannelId = syncChannelId;
+  detail.dataset.epgTimerTitle = epgEventTitle(event);
+  detail.dataset.epgTimerStart = String(start);
+  detail.dataset.epgTimerEnd = String(end);
+  detail.dataset.epgTimerCreatedTimerId = '';
 
   const hero = document.createElement('div');
   hero.className = 'epg-detail-hero';
@@ -1100,6 +1300,7 @@ function createEpgEventDetailCard(event, channel) {
     clickEvent => createEpgTimerFromDetail(detail, event, channel, clickEvent.currentTarget)
   );
   createTimerAction.classList.add('primary');
+  createTimerAction.dataset.epgCreateTimerAction = 'true';
   actions.appendChild(createTimerAction);
 
   actions.appendChild(createEpgDetailAction(
@@ -1112,8 +1313,8 @@ function createEpgEventDetailCard(event, channel) {
 
   detail.appendChild(actions);
 
-  const eventId = firstValue(event, ['eventId', 'id', 'nativeId'], '');
-  const channelId = frontendEventChannelId(event);
+  const eventId = syncEventId;
+  const channelId = syncChannelId;
   const technical = [];
 
   if (channelId !== '') {
@@ -1129,6 +1330,8 @@ function createEpgEventDetailCard(event, channel) {
     technicalLine.className = 'epg-event-technical';
     detail.appendChild(technicalLine);
   }
+
+  syncEpgTimerDetailStatesSoon();
 
   return detail;
 }
