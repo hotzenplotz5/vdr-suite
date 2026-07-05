@@ -1935,8 +1935,9 @@ function renderEpgTimeView(channelData, eventData) {
   liveView.addEventListener('click', () => {
     epgTimelineMode = 'time';
     epgProgramView = 'live';
+    epgTimeWindowPageOffset = 0;
     if (currentChannels && currentEvents) {
-      renderEpgTimeView(currentChannels, currentEvents);
+      loadEpgTimeline();
       return;
     }
     loadEpgTimeline();
@@ -1949,8 +1950,9 @@ function renderEpgTimeView(channelData, eventData) {
   nowView.addEventListener('click', () => {
     epgTimelineMode = 'time';
     epgProgramView = 'now';
+    epgTimeWindowPageOffset = 0;
     if (currentChannels && currentEvents) {
-      renderEpgTimeView(currentChannels, currentEvents);
+      loadEpgTimeline();
       return;
     }
     loadEpgTimeline();
@@ -1963,8 +1965,9 @@ function renderEpgTimeView(channelData, eventData) {
   nextView.addEventListener('click', () => {
     epgTimelineMode = 'time';
     epgProgramView = 'next';
+    epgTimeWindowPageOffset = 0;
     if (currentChannels && currentEvents) {
-      renderEpgTimeView(currentChannels, currentEvents);
+      loadEpgTimeline();
       return;
     }
     loadEpgTimeline();
@@ -2025,6 +2028,12 @@ function renderEpgTimeView(channelData, eventData) {
   next24h.disabled = epgTimeWindowPageOffset === 1;
   next24h.addEventListener('click', () => {
     epgTimeWindowPageOffset = 1;
+
+    if (epgProgramView === 'live' || epgProgramView === 'now' || epgProgramView === 'next') {
+      epgProgramView = 'horizontal';
+      epgTimeAxisMode = 'horizontal';
+    }
+
     loadEpgTimeline();
   });
 
