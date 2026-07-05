@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 58.90b - Stable Channel Sorter
+Phase 58.94d - Timer Conflict Frontend Renderer
 ```
 
 Current documentation consolidation state:
@@ -47,15 +47,15 @@ Phase 58 - Frontend and Live Parity
 
 ## Latest Verified Implementation Slice
 
-Phase 58.90b added the stable channel sorter frontend.
+Phase 58.94d connects the already verified RESTfulAPI timer conflict discovery endpoint to the Timer module in the web frontend.
 
 Stable scope:
 
-- dedicated channel sorting module
-- desktop and touch support
-- handle-only drag
-- normal scrolling preserved
-- no post-move focus experiment in the stable state
+- preserve the existing live timer list rendering
+- fetch `/api/vdr/timers/conflicts/live` after rendering timers
+- prepend a Timer-Konflikte panel above the timer cards
+- show conflict count, source, conflict time, timer indices, percentages and concurrent timer indices
+- show explicit states for loading, unavailable conflict source and no conflicts
 
 ---
 
@@ -78,6 +78,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - SearchTimer backend and workflow foundations
 - Live parity discovery foundation
 - Channel move and stable frontend sorter foundation
+- Timer conflict discovery and frontend rendering foundation
 
 ### Verified real-runtime evidence
 
@@ -85,6 +86,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Duplicate daemon start handling is verified.
 - Phase 58.39 verifies bounded live EPG input for channel cards.
 - Phase 58.90b verifies stable channel sorting on desktop and touch devices.
+- Phase 58.94c verifies RESTfulAPI timer conflict discovery with live count=2 and total=2.
 
 ### Guarded or deliberately incomplete areas
 
@@ -146,3 +148,24 @@ Live verification:
 Architecture decision:
 
 RESTfulAPI is the primary timer conflict source. SVDRP epgsearch LSCC remains a validation and fallback path for later phases.
+
+## Phase 58.94d: Timer Conflict Frontend Renderer
+
+Status: GitHub patch applied; local runtime verification still required after pull/install.
+
+Implemented:
+
+- Added `web/frontend/timer-conflicts.js` as a dedicated frontend renderer for timer conflict reports.
+- Preserved the existing `renderTimerList()` flow and decorated it instead of replacing the timer list implementation.
+- Fetches `/api/vdr/timers/conflicts/live` after the live timer list is rendered.
+- Prepends a `Timer-Konflikte` panel above the timer cards.
+- Shows loading, unavailable source, no-conflict and active-conflict states.
+- Renders conflict time, timer index, percentage, concurrent timer indices and remote server if present.
+- Loads the renderer through the existing frontend bootstrap path.
+
+Verification still required locally:
+
+- `node --check web/frontend/timer-conflicts.js`
+- `node --check web/frontend/channel-logos.js`
+- install updated frontend assets to `/usr/share/vdr-suite/web/frontend/`
+- reload the web frontend and verify that the Timer tab shows the conflict panel when `/api/vdr/timers/conflicts/live` returns count > 0.
