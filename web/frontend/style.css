@@ -3616,3 +3616,133 @@ body.channel-sorter-dragging * {
     touch-action: pan-y !important;
   }
 }
+
+/* Phase 58.93l: mobile EPG workbench width */
+@media (max-width: 42rem) {
+  #detail-data > .epg-workbench {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0.85rem;
+    overflow-x: hidden;
+  }
+
+  #detail-data > .epg-workbench > .epg-workbench-main {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  #detail-data > .epg-workbench > .epg-sidebar {
+    display: none;
+  }
+
+  .epg-timeline-module,
+  .epg-timeline-intro,
+  .epg-program-grid,
+  .epg-program-card,
+  .epg-program-channel,
+  .epg-program-events,
+  .epg-program-event,
+  .epg-program-inline-detail,
+  .epg-event-detail {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .epg-timeline-module {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+    justify-self: stretch;
+    overflow-x: hidden;
+  }
+
+  .epg-timeline-intro {
+    width: 100%;
+    max-width: 100%;
+    justify-self: stretch;
+    overflow: hidden;
+    padding: 0.95rem;
+  }
+
+  .epg-timeline-intro p,
+  .epg-cache-status,
+  .epg-mobile-mode-note {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .epg-view-toggle,
+  .epg-pager {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: visible;
+    flex-wrap: wrap;
+  }
+
+  .epg-view-button,
+  .epg-pager button {
+    max-width: 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .epg-program-grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-self: stretch;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: 66vh;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-right: 0.15rem;
+  }
+
+  .epg-program-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .epg-program-channel,
+  .epg-program-events,
+  .epg-program-event {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .epg-program-channel {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .epg-program-channel h3,
+  .epg-program-event,
+  .epg-program-event *,
+  .epg-program-inline-detail,
+  .epg-program-inline-detail *,
+  .epg-event-detail,
+  .epg-event-detail * {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
