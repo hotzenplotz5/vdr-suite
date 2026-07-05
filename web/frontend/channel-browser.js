@@ -498,7 +498,7 @@ function renderChannelButton(container, label, active, disabled, onClick) {
 
 function renderChannelViewButtons(container, channels) {
   const controls = document.createElement('div');
-  controls.className = 'module-nav';
+  controls.className = 'module-nav channel-browser-controls';
   controls.setAttribute('aria-label', 'Kanallisten-Ansicht');
 
   const groupsAvailable = hasRealChannelGroups(channels);
@@ -532,7 +532,7 @@ function renderChannelViewButtons(container, channels) {
 
 function renderChannelFilterButtons(container, channels, encryptionAvailable) {
   const controls = document.createElement('div');
-  controls.className = 'module-nav';
+  controls.className = 'module-nav channel-browser-controls';
   controls.setAttribute('aria-label', 'Kanallisten-Filter');
 
   const filters = [
@@ -572,7 +572,7 @@ function renderChannelFilterButtons(container, channels, encryptionAvailable) {
 
 function renderChannelPagingControls(container, channels, filteredCount) {
   const controls = document.createElement('div');
-  controls.className = 'module-nav';
+  controls.className = 'module-nav channel-browser-controls';
   controls.setAttribute('aria-label', 'Kanallisten-Paginierung');
 
   if (channelListVisibleCount < filteredCount) {
@@ -817,6 +817,23 @@ renderChannelList = function(data) {
     selectedEventKey: ''
   };
 
+  function resetChannelBrowserMobileHorizontalScroll() {
+    if (!(window.matchMedia && window.matchMedia('(max-width: 760px)').matches)) {
+      return;
+    }
+
+    document.documentElement.scrollLeft = 0;
+    document.body.scrollLeft = 0;
+    shell.scrollLeft = 0;
+    workbench.scrollLeft = 0;
+    channelPane.scrollLeft = 0;
+    detailPane.scrollLeft = 0;
+
+    if (window.scrollX !== 0) {
+      window.scrollTo(0, window.scrollY);
+    }
+  }
+
   const channelBrowserPrefetchedChannelIds = {};
   let channelBrowserGroupPrefetchInFlight = false;
 
@@ -1003,12 +1020,13 @@ renderChannelList = function(data) {
   }
 
   function renderAgendaRow(entry, channel, active) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'channel-agenda-row' + (active ? ' active' : '');
+    const row = document.createElement('div');
+    row.className = 'channel-agenda-row' + (active ? ' active' : '');
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
 
     if (entry.start <= nowSeconds && nowSeconds < entry.end) {
-      button.classList.add('current');
+      row.classList.add('current');
     }
 
     const timeBox = document.createElement('div');
@@ -1016,7 +1034,12 @@ renderChannelList = function(data) {
 
     timeBox.appendChild(addText(
       document.createElement('div'),
-      (new Date(entry.start * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end))
+      new Date(entry.start * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
+    )).className = 'channel-agenda-date';
+
+    timeBox.appendChild(addText(
+      document.createElement('div'),
+      formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end)
     )).className = 'channel-agenda-time';
 
     timeBox.appendChild(addText(
@@ -1034,20 +1057,31 @@ renderChannelList = function(data) {
       content.appendChild(addText(document.createElement('div'), subtitle)).className = 'channel-agenda-subtitle';
     }
 
-    button.appendChild(timeBox);
-    button.appendChild(content);
+    row.appendChild(timeBox);
+    row.appendChild(content);
 
-    button.addEventListener('click', () => {
-      const scrollArea = button.closest('.channel-agenda-scroll');
+    const activateRow = () => {
+      const scrollArea = row.closest('.channel-agenda-scroll');
       if (channelDragRecentlyEnded(scrollArea)) {
         return;
       }
 
       state.selectedEventKey = eventKey(entry);
       renderAll();
+    };
+
+    row.addEventListener('click', activateRow);
+
+    row.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+
+      event.preventDefault();
+      activateRow();
     });
 
-    return button;
+    return row;
   }
 
   function renderChannelPane() {
@@ -1108,6 +1142,7 @@ renderChannelList = function(data) {
 
         channelListOpenGroups[group] = !open;
         renderChannelPane();
+        resetChannelBrowserMobileHorizontalScroll();
 
         requestAnimationFrame(() => {
           enableChannelMouseDragScroll(channelPane, 'y');
@@ -1317,11 +1352,11 @@ renderChannelList = function(data) {
 
     requestAnimationFrame(() => {
       enableChannelMouseDragScroll(channelPane, 'y');
-      if ((window.matchMedia && window.matchMedia('(max-width: 760px)').matches) === false) {
-        detailPane.querySelectorAll('.channel-agenda-scroll').forEach(scrollArea => {
-          enableChannelMouseDragScroll(scrollArea, 'y');
-        });
-      }
+      // Programme must use native browser scrolling.
+      // Drag-scroll is intentionally not attached to .channel-agenda-scroll,
+      // because preventDefault() blocks touch scrolling on mobile browsers.
+
+      resetChannelBrowserMobileHorizontalScroll();
     });
   }
 
