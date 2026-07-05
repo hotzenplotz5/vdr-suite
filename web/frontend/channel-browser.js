@@ -896,7 +896,7 @@ renderChannelList = function(data) {
 
     timeBox.appendChild(addText(
       document.createElement('div'),
-      formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end)
+      (new Date(entry.start * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end))
     )).className = 'channel-agenda-time';
 
     timeBox.appendChild(addText(
@@ -1113,7 +1113,7 @@ renderChannelList = function(data) {
     agenda.appendChild(scroll);
     detailPane.appendChild(agenda);
 
-    if (active) {
+    if (active && !(window.matchMedia && window.matchMedia('(max-width: 760px)').matches)) {
       detailPane.appendChild(createEpgEventDetailCard(active.event, channel));
     }
   }

@@ -3280,3 +3280,26 @@ body.channel-sorter-dragging * {
     display: none !important;
   }
 }
+
+/* Phase 58.93g: mobile channel browser cleanup */
+@media (max-width: 42rem) {
+  .channel-browser-list {
+    max-height: 18rem;
+  }
+
+  .channel-browser-selected {
+    padding: 0.75rem;
+  }
+
+  .channel-browser-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .channel-agenda-scroll {
+    max-height: none;
+  }
+
+  .channel-agenda-hint {
+    display: none;
+  }
+}
