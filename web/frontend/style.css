@@ -3273,3 +3273,10 @@ body.channel-sorter-dragging * {
   }
 }
 
+
+/* Phase 58.93d: hide desktop-only EPG controls on mobile */
+@media (max-width: 720px) {
+  .epg-desktop-only {
+    display: none !important;
+  }
+}

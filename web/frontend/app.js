@@ -1843,7 +1843,7 @@ function renderEpgTimeView(channelData, eventData) {
   }
 
   const bounds = epgTimelineBounds(nowSeconds);
-  const limit = isMobileEpgLayout() ? 8 : EPG_VISIBLE_CHANNEL_LIMIT;
+  const limit = EPG_VISIBLE_CHANNEL_LIMIT;
   const visibleChannels = channels.slice(epgChannelOffset, epgChannelOffset + limit);
 
   detailDataElement.replaceChildren();
