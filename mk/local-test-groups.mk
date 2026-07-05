@@ -250,3 +250,7 @@ test-api-router-searchtimer-preview-epg-cache:
 		api/rest/tests/test_api_router_searchtimer_preview_epg_cache.cpp \
 		-o /tmp/test_api_router_searchtimer_preview_epg_cache
 	/tmp/test_api_router_searchtimer_preview_epg_cache
+
+.PHONY: test-frontend-contracts
+test-frontend-contracts:
+	python3 tools/check_frontend_ownership_contracts.py
