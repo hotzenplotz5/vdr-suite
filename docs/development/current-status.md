@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 58.94d - Timer Conflict Frontend Renderer
+Phase 58.95 - Frontend Ownership Contracts
 ```
 
 Current documentation consolidation state:
@@ -47,15 +47,20 @@ Phase 58 - Frontend and Live Parity
 
 ## Latest Verified Implementation Slice
 
-Phase 58.94d connects the already verified RESTfulAPI timer conflict discovery endpoint to the Timer module in the web frontend.
+Phase 58.95 adds an explicit ownership contract for the script-based Phase 58 web frontend so feature patches do not drift into unrelated helper files.
 
 Stable scope:
 
-- preserve the existing live timer list rendering
-- fetch `/api/vdr/timers/conflicts/live` after rendering timers
-- prepend a Timer-Konflikte panel above the timer cards
-- show conflict count, source, conflict time, timer indices, percentages and concurrent timer indices
-- show explicit states for loading, unavailable conflict source and no conflicts
+- document `index.html`, `app.js`, `channel-logos.js`, `channel-browser.js` and `style.css` ownership boundaries
+- define the Timer conflict integration rule as Timer-module-owned behavior
+- make `channel-logos.js` helper-only and explicitly forbid dynamic script loading there
+- add a static frontend ownership contract check in `tools/check_frontend_ownership_contracts.py`
+- guard script order and helper boundaries before further frontend modularization
+
+Previous verified slice:
+
+- Phase 58.94d connected the verified RESTfulAPI timer conflict discovery endpoint to the Timer module in the web frontend.
+- Phase 58.94c verified RESTfulAPI timer conflict discovery with live `count=2` and `total=2`.
 
 ---
 
@@ -79,6 +84,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Live parity discovery foundation
 - Channel move and stable frontend sorter foundation
 - Timer conflict discovery and frontend rendering foundation
+- Frontend ownership contract foundation
 
 ### Verified real-runtime evidence
 
@@ -87,6 +93,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 58.39 verifies bounded live EPG input for channel cards.
 - Phase 58.90b verifies stable channel sorting on desktop and touch devices.
 - Phase 58.94c verifies RESTfulAPI timer conflict discovery with live count=2 and total=2.
+- Phase 58.95 documents frontend ownership boundaries and adds a static guard against helper-file module drift.
 
 ### Guarded or deliberately incomplete areas
 
@@ -95,6 +102,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Lazy recording loading is still a required follow-up for large real recording catalogs and multi-backend scaling.
 - Authentication, authorization, per-backend permissions and read-only secondary-site policy remain planned beyond the current access-mode foundation.
 - Web, Windows, Android, iOS and TV frontends remain planned product layers; the current web frontend is a Phase 58 foundation, not the final client product.
+- Full frontend module extraction remains planned; Phase 58.95 only defines and guards the current script-based ownership model.
 
 ### Current active focus
 
@@ -118,54 +126,3 @@ Progress source: ../planning/project-progress.md
 ## Back
 
 - [Back to Development Index](index.md)
-- [Back to Documentation Index](../index.md)
-- [Back to README](../../README.md)
-
-## Phase 58.94c: RESTfulAPI Timer Conflict Discovery
-
-Status: stable/live verified
-
-Implemented:
-
-- Added VdrTimerConflict and VdrTimerConflictReport domain objects.
-- Added RestfulApiTimerConflictMapper for /searchtimers/conflicts.json.
-- Added RestfulApiVdrAdapter::getTimerConflictReport().
-- Added VdrService::getTimerConflictReport().
-- Added VdrSnapshotReadJsonSerializer::serializeTimerConflictReport().
-- Added VdrController live conflict endpoint.
-- Added API routes:
-  - /api/vdr/timer-conflicts/live
-  - /api/vdr/timers/conflicts/live
-
-Live verification:
-
-- Source: restfulapi-epgsearch
-- available: true
-- count: 2
-- total: 2
-- Conflict entries expose timerIndex, percentage and concurrentTimerIndices.
-
-Architecture decision:
-
-RESTfulAPI is the primary timer conflict source. SVDRP epgsearch LSCC remains a validation and fallback path for later phases.
-
-## Phase 58.94d: Timer Conflict Frontend Renderer
-
-Status: GitHub patch applied; local runtime verification still required after pull/install.
-
-Implemented:
-
-- Added `web/frontend/timer-conflicts.js` as a dedicated frontend renderer for timer conflict reports.
-- Preserved the existing `renderTimerList()` flow and decorated it instead of replacing the timer list implementation.
-- Fetches `/api/vdr/timers/conflicts/live` after the live timer list is rendered.
-- Prepends a `Timer-Konflikte` panel above the timer cards.
-- Shows loading, unavailable source, no-conflict and active-conflict states.
-- Renders conflict time, timer index, percentage, concurrent timer indices and remote server if present.
-- Loads the renderer through the existing frontend bootstrap path.
-
-Verification still required locally:
-
-- `node --check web/frontend/timer-conflicts.js`
-- `node --check web/frontend/channel-logos.js`
-- install updated frontend assets to `/usr/share/vdr-suite/web/frontend/`
-- reload the web frontend and verify that the Timer tab shows the conflict panel when `/api/vdr/timers/conflicts/live` returns count > 0.
