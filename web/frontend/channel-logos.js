@@ -196,3 +196,14 @@ function createChannelLogoElement(title, channelId) {
 
   return frame;
 }
+
+(function loadTimerConflictFrontendModule() {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = '/frontend/timer-conflicts.js';
+  script.async = false;
+  document.head.appendChild(script);
+})();
