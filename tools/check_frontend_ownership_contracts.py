@@ -210,6 +210,51 @@ def check_channel_loading_client_api_contract(app_js: str) -> None:
     )
 
 
+
+def check_epg_timeline_channel_loading_client_api_contract(app_js: str) -> None:
+    start = app_js.find("function loadEpgTimeline() {")
+    require(start >= 0, "app.js must define loadEpgTimeline()")
+
+    end = app_js.find("function renderEpgTimelinePlaceholder(data) {", start)
+    require(
+        end > start,
+        "app.js loadEpgTimeline() boundary must end before renderEpgTimelinePlaceholder()"
+    )
+
+    body = app_js[start:end]
+
+    require(
+        "window.VdrSuiteClientApi" in body,
+        "loadEpgTimeline() must use window.VdrSuiteClientApi"
+    )
+
+    require(
+        "fetchClientChannels" in body,
+        "loadEpgTimeline() must use fetchClientChannels() for Channel loading"
+    )
+
+    require(
+        "fetchCachedOrLiveEpgWindow(channelData)" in body,
+        "loadEpgTimeline() must keep fetchCachedOrLiveEpgWindow(channelData)"
+    )
+
+    require(
+        "cache: " + chr(39) + "no-store" + chr(39) in body,
+        "loadEpgTimeline() must preserve no-store Channel loading"
+    )
+
+    forbidden_tokens = [
+        "fetch(" + chr(39) + "/api/vdr/channels" + chr(39),
+        "fetch(" + chr(34) + "/api/vdr/channels" + chr(34),
+    ]
+
+    for token in forbidden_tokens:
+        require(
+            token not in body,
+            "loadEpgTimeline() must not directly fetch Channel route " + token
+        )
+
+
 def check_channel_logos_contract(channel_logos_js: str) -> None:
     forbidden_patterns = [
         (r"createElement\s*\(\s*['\"]script['\"]\s*\)", "must not create script elements"),
@@ -345,6 +390,7 @@ def main() -> int:
         check_index_contract(index_html)
         check_app_contract(app_js)
         check_channel_loading_client_api_contract(app_js)
+        check_epg_timeline_channel_loading_client_api_contract(app_js)
         check_timer_loading_client_api_contract(app_js)
         check_timer_conflict_loading_client_api_contract(app_js)
         check_client_api_contract()

@@ -3126,13 +3126,24 @@ function visibleEpgChannelsFromData(channelData) {
 function loadEpgTimeline() {
   renderEpgTimelineLoading();
 
-  const channelsRequest = fetch('/api/vdr/channels', { cache: 'no-store' })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Kanäle HTTP ' + response.status);
-      }
-      return response.json();
-    });
+  const clientApi = window.VdrSuiteClientApi;
+
+  if (!clientApi || typeof clientApi.fetchClientChannels !== 'function') {
+    currentChannels = null;
+    currentEvents = null;
+    if (typeof epgLoadedBackendId !== 'undefined') {
+      epgLoadedBackendId = '';
+    }
+    renderModuleError(
+      'EPG Zeitleiste konnte nicht geladen werden',
+      new Error('Client API wrapper is not available')
+    );
+    return;
+  }
+
+  const channelsRequest = clientApi.fetchClientChannels({
+    cache: 'no-store'
+  });
 
   channelsRequest
     .then(channelData => fetchCachedOrLiveEpgWindow(channelData)

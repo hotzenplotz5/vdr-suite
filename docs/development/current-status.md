@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.01 - Channel Loading uses Web Client API Wrapper
+Phase 59.02a - EPG Timeline Channel Loading uses Web Client API Wrapper
 ```
 
 Current documentation consolidation state:
@@ -47,26 +47,26 @@ Phase 58 - Frontend and Live Parity
 
 ## Latest Verified Implementation Slice
 
-Phase 59.01 routes Channel list loading through the DOM-free
-web Client API wrapper before extracting Channel UI code.
+Phase 59.02a routes the Channel list loading used by the EPG
+Timeline through the DOM-free web Client API wrapper.
 
 Stable scope:
 
-- keep loadChannels() in web/frontend/app.js
-- keep Channel rendering in web/frontend/app.js
-- move Channel list HTTP access behind fetchClientChannels()
-- preserve selectedEpgBackendId() backend selection
-- preserve the _ cache-busting query parameter
-- preserve no-store and same-origin request options
-- guard loadChannels() against direct Channel fetch regression
-- keep Timer list and Timer conflict loading through the Client API
-- do not extract a Channel UI module yet
+- keep loadEpgTimeline() in web/frontend/app.js
+- keep EPG rendering in web/frontend/app.js
+- move loadEpgTimeline() Channel access behind fetchClientChannels()
+- keep fetchCachedOrLiveEpgWindow(channelData) unchanged
+- keep EPG cache status loading unchanged
+- keep EPG cache window loading unchanged
+- guard loadEpgTimeline() against direct Channel fetch regression
+- keep Channel, Timer list and Timer conflict loading through the Client API
+- do not extract an EPG UI module yet
 
 Previous verified slices:
 
+- Phase 59.01 routed Channel list loading through fetchClientChannels().
 - Phase 59.00 routed Timer conflict loading through fetchClientTimerConflicts().
 - Phase 58.99 routed Timer list loading through fetchClientTimers().
-- Phase 58.98 introduced web/frontend/api/client-api.js.
 
 ---
 
@@ -97,6 +97,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Timer loading through Web Client API Wrapper
 - Timer conflict loading through Web Client API Wrapper
 - Channel loading through Web Client API Wrapper
+- EPG Timeline Channel loading through Web Client API Wrapper
 
 ### Verified real-runtime evidence
 
@@ -112,6 +113,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 58.99 routes Timer list loading through fetchClientTimers().
 - Phase 59.00 routes Timer conflict loading through fetchClientTimerConflicts().
 - Phase 59.01 routes Channel list loading through fetchClientChannels().
+- Phase 59.02a routes EPG Timeline Channel loading through fetchClientChannels().
 
 ### Guarded or deliberately incomplete areas
 

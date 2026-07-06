@@ -461,3 +461,23 @@ Implemented behavior:
 
 No Channel UI module has been extracted yet.
 
+---
+
+## Phase 59.02a Implementation Status
+
+Phase 59.02a moves the Channel loading part of the EPG
+Timeline behind the web Client API wrapper.
+
+Implemented behavior:
+
+- loadEpgTimeline() still lives in web/frontend/app.js
+- EPG rendering still lives in web/frontend/app.js
+- fetchClientChannels() owns the Channel list HTTP access
+  used by loadEpgTimeline()
+- fetchCachedOrLiveEpgWindow(channelData) remains unchanged
+- EPG cache status loading remains unchanged
+- EPG cache window loading remains unchanged
+- loadEpgTimeline() no longer fetches /api/vdr/channels directly
+
+No EPG UI module has been extracted yet.
+
