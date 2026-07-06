@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.05i - Recording Details and EPG Offset Hardening
+Phase 59.05j - Recording Details and EPG Frontend Cleanup
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.05i completes the Recording detail view slice and the first EPG frontend event-indexing, header cleanup and offset-hardening chain after the frontend client API recovery chain.
+Phase 59.05j completes the Recording detail view slice and the first EPG frontend event-indexing, header cleanup, offset-hardening and reload-cleanup chain after the frontend client API recovery chain.
 
 Stable scope:
 
@@ -74,6 +74,7 @@ Stable scope:
 - Phase 59.05g removes raw EPG debug URL and per-channel debug counters from the visible EPG header text.
 - Phase 59.05h clamps the EPG channel offset before rendering so stale offsets cannot produce an empty visible-channel window.
 - Phase 59.05i guards the EPG visible-channel limit with a minimum of one before offset math and slicing.
+- Phase 59.05j removes redundant EPG program-view reload branches that performed the same reload in both paths.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -158,6 +159,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.05g verifies the EPG header keeps useful source/event information without exposing debug URL or sample channel counters.
 - Phase 59.05h verifies the EPG channel offset is bounded before visible-channel slicing.
 - Phase 59.05i verifies the visible-channel limit cannot become zero for EPG offset calculations.
+- Phase 59.05j verifies EPG program-view buttons use one deterministic reload path.
 
 ### Guarded or deliberately incomplete areas
 
