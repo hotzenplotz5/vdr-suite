@@ -55,7 +55,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.08e - Web Client API Capability and Backend State Wrappers
+Phase 59.08f - Web Client API Timer Action Wrappers
 ```
 
 Previous completed major project block:
@@ -70,7 +70,7 @@ Current implementation focus:
 Phase 58 - Frontend and Live Parity
 ```
 
-Keep the latest completed major project block at Phase 57 until the full frontend and Live-parity block is completed. Track completed Phase 59 frontend and parity slices separately; the latest stable slice is Phase 59.08e.
+Keep the latest completed major project block at Phase 57 until the full frontend and Live-parity block is completed. Track completed Phase 59 frontend and parity slices separately; the latest stable slice is Phase 59.08f.
 
 ---
 

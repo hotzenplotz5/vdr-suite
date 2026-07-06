@@ -539,6 +539,9 @@ Current wrapper functions:
 
 - `fetchClientTimers`
 - `fetchClientTimerConflicts`
+- `fetchClientTimerCreateAction`
+- `fetchClientTimerUpdateAction`
+- `fetchClientTimerDeleteAction`
 - `fetchClientChannels`
 - `fetchClientCapabilities`
 - `fetchClientBackends`
@@ -570,7 +573,6 @@ New parity rule:
 
 High-value missing wrapper areas:
 
-- timer create/update/delete workflows
 - SearchTimer create/update/delete workflows
 - permission report route once backend exposes one
 - event detail and media/artwork helpers
@@ -578,9 +580,9 @@ High-value missing wrapper areas:
 
 Next recommended frontend/API slices:
 
-- add wrapper functions for EPGSearch query and SearchTimer preview
-- add wrapper functions for recording action preview and execution
-- add wrapper functions for capability and permission state
+- add wrapper functions for SearchTimer mutation workflows
+- add wrapper functions for event detail and media/artwork helpers
+- add wrapper functions for recording marks, resume, cut and playback helpers
 - only then expand the corresponding UI modules
 
 ---
@@ -606,7 +608,29 @@ The covered catalog payload includes:
 
 Next open Web Client API areas:
 
-- timer mutation workflows
+- SearchTimer mutation workflows
+- permission report route once backend exposes one
+
+---
+
+## Phase 59.08f Implementation Status
+
+Phase 59.08f moves Timer create, update and delete action HTTP access behind the Web Client API wrapper.
+
+Implemented behavior:
+
+- `fetchClientTimerCreateAction()` is exposed by `web/frontend/api/client-api.js`
+- `fetchClientTimerCreateAction()` owns `/api/vdr/timers/actions/create`
+- `fetchClientTimerUpdateAction()` is exposed by `web/frontend/api/client-api.js`
+- `fetchClientTimerUpdateAction()` owns `/api/vdr/timers/actions/update`
+- `fetchClientTimerDeleteAction()` is exposed by `web/frontend/api/client-api.js`
+- `fetchClientTimerDeleteAction()` owns `/api/vdr/timers/actions/delete`
+- JSON request bodies are normalized through `jsonPostOptions()`
+- the wrapper remains DOM-free
+- no Timer action UI is added yet
+
+Next open Web Client API areas:
+
 - SearchTimer mutation workflows
 - permission report route once backend exposes one
 
@@ -630,7 +654,6 @@ Implemented behavior:
 
 Next open Web Client API areas:
 
-- timer mutation workflows
 - SearchTimer mutation workflows
 - permission report route once backend exposes one
 

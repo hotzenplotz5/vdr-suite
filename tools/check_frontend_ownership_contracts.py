@@ -664,6 +664,9 @@ def check_client_api_contract():
     required_exports = [
         "fetchClientTimers",
         "fetchClientTimerConflicts",
+        "fetchClientTimerCreateAction",
+        "fetchClientTimerUpdateAction",
+        "fetchClientTimerDeleteAction",
         "fetchClientChannels",
         "fetchClientCapabilities",
         "fetchClientBackends",
@@ -687,6 +690,21 @@ def check_client_api_contract():
         )
 
 
+    require(
+        "function fetchClientTimerCreateAction(options)" in client_api
+        and "/api/vdr/timers/actions/create" in client_api,
+        "fetchClientTimerCreateAction() must own /api/vdr/timers/actions/create access"
+    )
+    require(
+        "function fetchClientTimerUpdateAction(options)" in client_api
+        and "/api/vdr/timers/actions/update" in client_api,
+        "fetchClientTimerUpdateAction() must own /api/vdr/timers/actions/update access"
+    )
+    require(
+        "function fetchClientTimerDeleteAction(options)" in client_api
+        and "/api/vdr/timers/actions/delete" in client_api,
+        "fetchClientTimerDeleteAction() must own /api/vdr/timers/actions/delete access"
+    )
     require(
         "requestJson(" + chr(39) + "/api/vdr/capabilities" + chr(39) in client_api,
         "fetchClientCapabilities() must own /api/vdr/capabilities access"

@@ -211,6 +211,18 @@
     return requestJson('/api/vdr/timers/conflicts/live', options);
   }
 
+  function fetchClientTimerCreateAction(options) {
+    return requestJson('/api/vdr/timers/actions/create', jsonPostOptions(options));
+  }
+
+  function fetchClientTimerUpdateAction(options) {
+    return requestJson('/api/vdr/timers/actions/update', jsonPostOptions(options));
+  }
+
+  function fetchClientTimerDeleteAction(options) {
+    return requestJson('/api/vdr/timers/actions/delete', jsonPostOptions(options));
+  }
+
   function fetchClientChannels(options) {
     return requestJson('/api/vdr/channels', options);
   }
@@ -294,6 +306,9 @@
     requestJson: requestJson,
     fetchClientTimers: fetchClientTimers,
     fetchClientTimerConflicts: fetchClientTimerConflicts,
+    fetchClientTimerCreateAction: fetchClientTimerCreateAction,
+    fetchClientTimerUpdateAction: fetchClientTimerUpdateAction,
+    fetchClientTimerDeleteAction: fetchClientTimerDeleteAction,
     fetchClientChannels: fetchClientChannels,
     fetchClientCapabilities: fetchClientCapabilities,
     fetchClientBackends: fetchClientBackends,

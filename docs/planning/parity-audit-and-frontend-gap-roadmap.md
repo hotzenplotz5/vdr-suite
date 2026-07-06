@@ -204,7 +204,7 @@ It is an incremental seam, not the final stable multi-client `/api/client` layer
 
 | Capability | Source capability | Backend/domain status | Web Client API status | UI status | Next action |
 | --- | --- | --- | --- | --- | --- |
-| Timer list | VDR timers | Present | Wrapped through fetchClientTimers | Partial | Keep route behind wrapper and improve detail UI. |
+| Timer list and actions | VDR timers and timer action workflows | Present | Wrapped through fetchClientTimers, fetchClientTimerCreateAction, fetchClientTimerUpdateAction and fetchClientTimerDeleteAction | Partial | Add Live-style detail/action UI only after safety semantics are proven. |
 | Timer conflicts | epgsearch TimerConflictList | Present through RESTfulAPI adapter | Wrapped through fetchClientTimerConflicts | Partial | Build Live-style conflict view and audit IsConflictCheckAdvised. |
 | Channel list | VDR channels | Present | Wrapped through fetchClientChannels | Partial | Keep channel UI behind wrapper and preserve sorter rules. |
 | EPG window | VDR events and EPG cache | Present | Wrapped through fetchClientEpgWindow and fetchClientEpgCacheWindow | Partial | Keep visible-window loading and add Live-style search/detail gaps. |
@@ -212,7 +212,7 @@ It is an incremental seam, not the final stable multi-client `/api/client` layer
 | SearchTimer list | epgsearch SearchTimerList | Present | Wrapped through fetchClientSearchTimers | Partial | Add Live-style SearchTimer UI, preview and edit workflow. |
 | Discovery catalogs | ExtEPGInfoList, ChanGrpList, BlackList, DirectoryList | Backend-neutral discovery present | Wrapped through fetchClientSearchTimerDiscovery | Missing in UI | Use catalogs in SearchTimer UI after wrapper tests. |
 | Native EPGSearch query | QuerySearchTimer and QuerySearch | Partial | Wrapped through fetchClientEpgSearch and fetchClientSearchTimerPreview | Missing or indirect | Add real parity tests before UI expansion. |
-| Client capabilities | backend permissions and capability report | Present in backend foundations | Incomplete dedicated wrapper | Partial | Expose read-only/write capability state consistently. |
+| Client capabilities | backend capability report and backend registry | Capability and backend state routes present; generic permission route gap remains | Wrapped through fetchClientCapabilities, fetchClientBackends and fetchClientDefaultBackend | Partial | Add permission report only when backend exposes a route. |
 | Stable `/api/client` layer | VDR-Suite client contract | Planned | Not implemented | Not applicable | Introduce after current wrapper coverage stabilizes. |
 
 Rule for future Live-parity work:
