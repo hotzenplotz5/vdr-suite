@@ -836,7 +836,7 @@ function renderSearchTimerList(data) {
 }
 
 const RECORDING_FOLDER_BATCH_SIZE = 80;
-const RECORDING_ITEM_BATCH_SIZE = 40;
+const RECORDING_ITEM_PAGE_SIZE = 20;
 
 function renderRecordingList(data) {
   const recordings = listFromResponse(data, 'recordings');
@@ -935,6 +935,49 @@ function renderRecordingList(data) {
     return holder;
   }
 
+  function createRecordingNavigationButton(label, disabled, action) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.disabled = disabled;
+
+    if (!disabled) {
+      button.addEventListener('click', action);
+    }
+
+    return button;
+  }
+
+  function createRecordingPagerControls(node, visibleFolderCount, recordingPageIndex, pageCount) {
+    const pager = document.createElement('article');
+    pager.className = 'module-placeholder recording-pager';
+
+    const currentPage = recordingPageIndex + 1;
+    pager.appendChild(addText(
+      document.createElement('p'),
+      'Seite ' + String(currentPage) + ' von ' + String(pageCount)
+        + ' · ' + String(RECORDING_ITEM_PAGE_SIZE) + ' Aufnahmen pro Seite'
+    ));
+
+    const actions = document.createElement('div');
+    actions.className = 'recording-pager-actions';
+
+    actions.appendChild(createRecordingNavigationButton(
+      'Vorherige 20',
+      recordingPageIndex <= 0,
+      () => renderFolderNode(node, visibleFolderCount, recordingPageIndex - 1)
+    ));
+
+    actions.appendChild(createRecordingNavigationButton(
+      'Nächste 20',
+      recordingPageIndex >= pageCount - 1,
+      () => renderFolderNode(node, visibleFolderCount, recordingPageIndex + 1)
+    ));
+
+    pager.appendChild(actions);
+    return pager;
+  }
+
   function createRecordingListItem(entry) {
     const recording = entry.recording;
     const item = document.createElement('article');
@@ -957,7 +1000,7 @@ function renderRecordingList(data) {
     return item;
   }
 
-  function renderFolderNode(node, visibleFolderCount, visibleRecordingCount) {
+  function renderFolderNode(node, visibleFolderCount, recordingPageIndex) {
     const childFolders = sortedRecordingFolderNodes(node);
 
     visibleFolderCount = Math.min(
@@ -965,10 +1008,12 @@ function renderRecordingList(data) {
       childFolders.length
     );
 
-    visibleRecordingCount = Math.min(
-      Math.max(Number(visibleRecordingCount) || RECORDING_ITEM_BATCH_SIZE, RECORDING_ITEM_BATCH_SIZE),
-      node.recordings.length
-    );
+    const recordingPageCount = Math.max(1, Math.ceil(node.recordings.length / RECORDING_ITEM_PAGE_SIZE));
+    recordingPageIndex = Math.max(0, Math.min(Number(recordingPageIndex) || 0, recordingPageCount - 1));
+
+    const recordingStartIndex = recordingPageIndex * RECORDING_ITEM_PAGE_SIZE;
+    const recordingEndIndex = recordingStartIndex + RECORDING_ITEM_PAGE_SIZE;
+    const visibleRecordings = node.recordings.slice(recordingStartIndex, recordingEndIndex);
 
     detailDataElement.replaceChildren();
 
@@ -986,6 +1031,10 @@ function renderRecordingList(data) {
       String(totalRecordings) + ' Aufnahme(n) im Katalog'
     ];
 
+    if (node.recordings.length > 0) {
+      summary.push('Seite ' + String(recordingPageIndex + 1) + ' von ' + String(recordingPageCount));
+    }
+
     header.appendChild(addText(document.createElement('p'), summary.join(' · ')));
 
     if (node.parent) {
@@ -993,7 +1042,7 @@ function renderRecordingList(data) {
       backButton.type = 'button';
       backButton.textContent = 'Eine Ebene zurück';
       backButton.addEventListener('click', () => {
-        renderFolderNode(node.parent, RECORDING_FOLDER_BATCH_SIZE, RECORDING_ITEM_BATCH_SIZE);
+        renderFolderNode(node.parent, RECORDING_FOLDER_BATCH_SIZE, 0);
       });
       header.appendChild(backButton);
     }
@@ -1016,7 +1065,7 @@ function renderRecordingList(data) {
       )).className = 'list-meta';
 
       const openFolder = () => {
-        renderFolderNode(folderNode, RECORDING_FOLDER_BATCH_SIZE, RECORDING_ITEM_BATCH_SIZE);
+        renderFolderNode(folderNode, RECORDING_FOLDER_BATCH_SIZE, 0);
       };
 
       item.addEventListener('click', openFolder);
@@ -1034,20 +1083,20 @@ function renderRecordingList(data) {
       const remaining = childFolders.length - visibleFolderCount;
       list.appendChild(createLoadMoreButton(
         'Weitere Ordner laden (' + String(remaining) + ' verbleibend)',
-        () => renderFolderNode(node, visibleFolderCount + RECORDING_FOLDER_BATCH_SIZE, visibleRecordingCount)
+        () => renderFolderNode(node, visibleFolderCount + RECORDING_FOLDER_BATCH_SIZE, recordingPageIndex)
       ));
     }
 
-    node.recordings.slice(0, visibleRecordingCount).forEach(entry => {
+    if (node.recordings.length > RECORDING_ITEM_PAGE_SIZE) {
+      list.appendChild(createRecordingPagerControls(node, visibleFolderCount, recordingPageIndex, recordingPageCount));
+    }
+
+    visibleRecordings.forEach(entry => {
       list.appendChild(createRecordingListItem(entry));
     });
 
-    if (visibleRecordingCount < node.recordings.length) {
-      const remaining = node.recordings.length - visibleRecordingCount;
-      list.appendChild(createLoadMoreButton(
-        'Weitere Aufnahmen laden (' + String(remaining) + ' verbleibend)',
-        () => renderFolderNode(node, visibleFolderCount, visibleRecordingCount + RECORDING_ITEM_BATCH_SIZE)
-      ));
+    if (node.recordings.length > RECORDING_ITEM_PAGE_SIZE) {
+      list.appendChild(createRecordingPagerControls(node, visibleFolderCount, recordingPageIndex, recordingPageCount));
     }
 
     if (childFolders.length === 0 && node.recordings.length === 0) {
@@ -1061,7 +1110,7 @@ function renderRecordingList(data) {
   }
 
   const rootNode = buildRecordingFolderTree(recordings);
-  renderFolderNode(rootNode, RECORDING_FOLDER_BATCH_SIZE, RECORDING_ITEM_BATCH_SIZE);
+  renderFolderNode(rootNode, RECORDING_FOLDER_BATCH_SIZE, 0);
 }
 
 function formatEpgClockFromEpoch(epochSeconds) {

@@ -518,8 +518,13 @@ def check_recording_bounded_rendering_contract(app_js: str) -> None:
     )
 
     require(
-        "RECORDING_ITEM_BATCH_SIZE" in body_with_constants,
-        "renderRecordingList() must use RECORDING_ITEM_BATCH_SIZE"
+        "RECORDING_ITEM_PAGE_SIZE" in body_with_constants,
+        "renderRecordingList() must use RECORDING_ITEM_PAGE_SIZE"
+    )
+
+    require(
+        "RECORDING_ITEM_PAGE_SIZE = 20" in body_with_constants,
+        "Recording folder pagination must use 20 recordings per page"
     )
 
     require(
@@ -548,18 +553,23 @@ def check_recording_bounded_rendering_contract(app_js: str) -> None:
     )
 
     require(
-        "items.slice(0, visibleRecordingCount)" in body,
-        "Recording folder view must render a bounded recording slice"
+        "createRecordingPagerControls" in body,
+        "Recording folder view must expose pager controls"
     )
 
     require(
-        "Weitere Ordner laden" in body,
-        "Recording folder tree must expose an incremental folder load-more control"
+        "Vorherige 20" in body,
+        "Recording folder view must expose a previous-page control"
     )
 
     require(
-        "Weitere Aufnahmen laden" in body,
-        "Recording folder view must expose an incremental load-more control"
+        "Nächste 20" in body,
+        "Recording folder view must expose a next-page control"
+    )
+
+    require(
+        "node.recordings.slice(recordingStartIndex, recordingEndIndex)" in body,
+        "Recording folder view must render the selected recording page only"
     )
 
     require(
