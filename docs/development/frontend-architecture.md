@@ -226,3 +226,37 @@ python3 tools/check_frontend_ownership_contracts.py
 ```
 
 The test must fail if a helper file becomes a hidden bootstrap or if the script order in `index.html` drifts away from the documented frontend ownership model.
+
+---
+
+## Client API Wrapper Ownership
+
+The web Client API wrapper is owned by:
+
+- web/frontend/api/client-api.js
+
+This file is the DOM-free HTTP and JSON seam for the web
+frontend.
+
+Allowed responsibilities:
+
+- fetch calls
+- URL and query construction
+- JSON parsing
+- HTTP error normalization
+- backend id propagation
+- read-only and write capability propagation
+
+Forbidden responsibilities:
+
+- DOM rendering
+- CSS class decisions
+- module routing
+- channel-logo rendering
+- Timer card rendering
+- direct access to detailDataElement
+
+UI modules may call the Client API wrapper.
+
+Helper files must not become API bootstraps.
+

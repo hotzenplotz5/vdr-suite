@@ -393,3 +393,19 @@ Phase 58.97 is complete when:
 - make test-frontend-contracts still passes
 - make test-phase-map-coverage still passes
 
+---
+
+## Phase 58.98 Implementation Status
+
+Phase 58.98 introduces the first web Client API wrapper.
+
+Implemented file:
+
+- web/frontend/api/client-api.js
+
+The wrapper is intentionally DOM-free.
+
+It currently wraps existing /api/vdr routes.
+
+No production UI module has been moved out of app.js yet.
+

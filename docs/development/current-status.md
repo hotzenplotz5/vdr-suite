@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 58.97 - Client API and Frontend Module Boundary Plan
+Phase 58.98 - Web Client API Wrapper
 ```
 
 Current documentation consolidation state:
@@ -47,28 +47,26 @@ Phase 58 - Frontend and Live Parity
 
 ## Latest Verified Implementation Slice
 
-Phase 58.97 defines the Client API and frontend module
-boundary before extracting more code from `web/frontend/app.js`.
+Phase 58.98 introduces the first DOM-free web Client API
+wrapper before extracting UI modules from web/frontend/app.js.
 
 Stable scope:
 
-- treat the web frontend as one client, not the shared architecture
-- define the future VDR-Suite Client API as the reusable boundary
-- prepare Web, Windows, Linux, mobile and TV clients
-- keep platform-specific UI rendering separate from HTTP/JSON access
-- define `web/frontend/api/client-api.js` as the first future seam
-- preserve the existing frontend ownership guard
-- preserve the lightweight `make test-frontend-contracts` target
-- deliberately avoid moving production UI code in this planning slice
+- add web/frontend/api/client-api.js
+- expose window.VdrSuiteClientApi for the current script frontend
+- wrap existing /api/vdr routes behind client-facing functions
+- load client-api.js before app.js
+- install client-api.js with the web frontend assets
+- extend the frontend ownership guard for DOM-free API boundaries
+- keep all production UI rendering in app.js for this slice
 
 Previous verified slices:
 
-- Phase 58.96 exposes the frontend ownership guard through
-  `make test-frontend-contracts`.
+- Phase 58.97 defined the Client API and frontend module boundary.
+- Phase 58.96 exposed the frontend ownership guard through
+  make test-frontend-contracts.
 - Phase 58.95a integrated native Timer conflict rendering into
   the Timer frontend ownership model.
-- Phase 58.95 documented frontend ownership boundaries and added
-  a static guard against helper-file module drift.
 
 ---
 
@@ -92,8 +90,10 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Live parity discovery foundation
 - Channel move and stable frontend sorter foundation
 - Timer conflict discovery and frontend rendering foundation
-- Frontend ownership contract foundation\n- Lightweight frontend ownership guard Make target
+- Frontend ownership contract foundation
+- Lightweight frontend ownership guard Make target
 - Client API and frontend module boundary planning
+- Web Client API Wrapper implementation
 
 ### Verified real-runtime evidence
 
@@ -102,8 +102,10 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 58.39 verifies bounded live EPG input for channel cards.
 - Phase 58.90b verifies stable channel sorting on desktop and touch devices.
 - Phase 58.94c verifies RESTfulAPI timer conflict discovery with live count=2 and total=2.
-- Phase 58.95 documents frontend ownership boundaries and adds a static guard against helper-file module drift.\n- Phase 58.96 verifies `make test-frontend-contracts` as a lightweight guard target outside the heavier C++ fast-test path.
+- Phase 58.95 documents frontend ownership boundaries and adds a static guard against helper-file module drift.
+- Phase 58.96 verifies `make test-frontend-contracts` as a lightweight guard target outside the heavier C++ fast-test path.
 - Phase 58.97 defines the future Client API and frontend module boundary for Web, Windows, Linux, mobile and TV clients.
+- Phase 58.98 introduces web/frontend/api/client-api.js as the first DOM-free web API wrapper.
 
 ### Guarded or deliberately incomplete areas
 

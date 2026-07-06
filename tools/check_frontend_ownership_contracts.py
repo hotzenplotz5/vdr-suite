@@ -161,6 +161,67 @@ def check_documentation_contract(frontend_architecture_md: str) -> None:
         )
 
 
+
+def check_client_api_contract():
+    client_api_path = ROOT / "web/frontend/api/client-api.js"
+    index_path = ROOT / "web/frontend/index.html"
+
+    require(
+        client_api_path.exists(),
+        "web/frontend/api/client-api.js must exist as the DOM-free Client API wrapper"
+    )
+
+    client_api = client_api_path.read_text()
+    index_html = index_path.read_text()
+
+    require(
+        "window.VdrSuiteClientApi" in client_api,
+        "client-api.js must expose window.VdrSuiteClientApi"
+    )
+
+    required_exports = [
+        "fetchClientTimers",
+        "fetchClientTimerConflicts",
+        "fetchClientChannels",
+        "fetchClientEpgWindow",
+        "fetchClientRecordings",
+        "fetchClientSearchTimers",
+    ]
+
+    for export_name in required_exports:
+        require(
+            export_name in client_api,
+            "client-api.js must export " + export_name
+        )
+
+    forbidden_tokens = [
+        "document.",
+        "document[",
+        "createElement",
+        "className",
+        "classList",
+        "detailDataElement",
+        "innerHTML",
+        "appendChild",
+    ]
+
+    for token in forbidden_tokens:
+        require(
+            token not in client_api,
+            "client-api.js must stay DOM-free and must not contain " + token
+        )
+
+    require(
+        "client-api.js" in index_html,
+        "index.html must load client-api.js before app.js"
+    )
+
+    require(
+        index_html.index("client-api.js") < index_html.index("app.js"),
+        "client-api.js must be loaded before app.js"
+    )
+
+
 def main() -> int:
     try:
         index_html = read(INDEX)
@@ -172,6 +233,7 @@ def main() -> int:
 
         check_index_contract(index_html)
         check_app_contract(app_js)
+        check_client_api_contract()
         check_channel_logos_contract(channel_logos_js)
         check_channel_browser_contract(channel_browser_js)
         check_style_contract(style_css, app_js)
