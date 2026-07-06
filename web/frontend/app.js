@@ -12,6 +12,7 @@ let currentSnapshot = null;
 let currentChannels = null;
 let currentEvents = null;
 let currentTimers = null;
+let currentTimerConflicts = null;
 let currentSearchTimers = null;
 let currentRecordings = null;
 let epgChannelOffset = 0;
@@ -434,7 +435,129 @@ let renderChannelList = function() {
 };
 
 
-function renderTimerList(data) {
+function timerConflictEntries(conflict) {
+  if (!conflict || !Array.isArray(conflict.entries)) {
+    return [];
+  }
+
+  return conflict.entries;
+}
+
+function timerConflictCount(report) {
+  if (!report || typeof report !== 'object') {
+    return 0;
+  }
+
+  const count = Number(firstValue(report, ['count', 'total'], 0));
+  if (Number.isFinite(count) && count > 0) {
+    return count;
+  }
+
+  if (Array.isArray(report.conflicts)) {
+    return report.conflicts.length;
+  }
+
+  return 0;
+}
+
+function formatTimerConflictTime(value) {
+  const epoch = Number(value);
+
+  if (!Number.isFinite(epoch) || epoch <= 0) {
+    return '-';
+  }
+
+  return new Date(epoch * 1000).toLocaleString('de-DE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function describeTimerConflictEntry(entry) {
+  const timerIndex = firstValue(entry, ['timerIndex', 'timer', 'index'], '-');
+  const percentage = firstValue(entry, ['percentage', 'percent'], '-');
+  const concurrent = Array.isArray(entry.concurrentTimerIndices)
+    ? entry.concurrentTimerIndices.join(', ')
+    : String(firstValue(entry, ['concurrentTimerIndices', 'concurrent'], '-'));
+
+  return 'Timer ' + String(timerIndex)
+    + ' · ' + String(percentage) + '%'
+    + ' · beteiligt: ' + concurrent;
+}
+
+function appendTimerConflictSummary(parent, report) {
+  const count = timerConflictCount(report);
+
+  if (count <= 0) {
+    return;
+  }
+
+  const conflicts = Array.isArray(report.conflicts) ? report.conflicts : [];
+
+  const box = document.createElement('article');
+  box.className = 'module-placeholder timer-conflict-panel timer-conflict-panel-alert timer-conflict-summary';
+  box.setAttribute('role', 'alert');
+
+  const headline = addText(
+    document.createElement('h3'),
+    String(count) + ' Timerkonflikt' + (count === 1 ? '' : 'e') + ' erkannt'
+  );
+  box.appendChild(headline);
+
+  const metaParts = [];
+  metaParts.push('Quelle: ' + String(firstValue(report, ['source'], 'restfulapi-epgsearch')));
+
+  if (report.checkAdvised === true) {
+    metaParts.push('Neuberechnung empfohlen');
+  }
+
+  box.appendChild(addText(document.createElement('p'), metaParts.join(' · '))).className = 'timer-conflict-meta';
+
+  const list = document.createElement('div');
+  list.className = 'timer-conflict-list';
+
+  conflicts.slice(0, 5).forEach((conflict, index) => {
+    const item = document.createElement('div');
+    item.className = 'timer-conflict-item';
+
+    item.appendChild(addText(
+      document.createElement('div'),
+      'Konflikt ' + String(index + 1) + ' · ' + formatTimerConflictTime(conflict.conflictTime)
+    )).className = 'timer-conflict-title';
+
+    timerConflictEntries(conflict).forEach(entry => {
+      item.appendChild(addText(
+        document.createElement('div'),
+        describeTimerConflictEntry(entry)
+      )).className = 'timer-conflict-entry';
+    });
+
+    const raw = firstValue(conflict, ['raw'], '');
+    if (raw !== '') {
+      item.appendChild(addText(
+        document.createElement('div'),
+        'RAW: ' + String(raw)
+      )).className = 'timer-conflict-raw';
+    }
+
+    list.appendChild(item);
+  });
+
+  if (conflicts.length > 5) {
+    list.appendChild(addText(
+      document.createElement('div'),
+      'Zeige 5 von ' + String(conflicts.length) + ' Konflikten.'
+    )).className = 'timer-conflict-meta';
+  }
+
+  box.appendChild(list);
+  parent.appendChild(box);
+}
+
+function renderTimerList(data, conflictReport) {
   const timers = listFromResponse(data, 'timers');
   detailDataElement.replaceChildren();
 

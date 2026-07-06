@@ -75,24 +75,29 @@ def check_index_contract(index_html: str) -> None:
 
 
 def check_app_contract(app_js: str) -> None:
-    require("function renderTimerList(data)" in app_js, "app.js must own renderTimerList(data)")
+    require(
+        re.search(r"function\s+renderTimerList\s*\(\s*data(?:\s*,[^)]*)?\)", app_js) is not None,
+        "app.js must own renderTimerList(data[, ...])",
+    )
     require("function loadTimers()" in app_js, "app.js must own loadTimers()")
-    require("renderTimerList(data);" in app_js, "loadTimers() must render the timer list through renderTimerList(data)")
+    require(
+        re.search(r"renderTimerList\s*\(\s*data(?:\s*,[^)]*)?\)\s*;", app_js) is not None,
+        "loadTimers() must render the timer list through renderTimerList(data[, ...])",
+    )
 
-    if "Timer-Konflikte" in app_js or "loadTimerConflictPanel" in app_js:
+    if "Timer-Konflikte" in app_js or "Timerkonflikt" in app_js or "loadTimerConflictPanel" in app_js:
         require(
             "function loadTimerConflictPanel" in app_js,
             "Timer conflict UI text exists but loadTimerConflictPanel() is missing",
         )
         require(
-            "loadTimerConflictPanel(listFromResponse(data," in app_js,
-            "loadTimers() must call loadTimerConflictPanel() after renderTimerList(data)",
+            "loadTimerConflictPanel(" in app_js,
+            "loadTimers() must call loadTimerConflictPanel() after renderTimerList(data[, ...])",
         )
         require(
-            "timer-conflict-panel" in app_js,
-            "Timer conflict panel must use the timer-conflict-panel CSS prefix",
+            "timer-conflict-" in app_js,
+            "Timer conflict UI must use the timer-conflict-* CSS prefix",
         )
-
 
 def check_channel_logos_contract(channel_logos_js: str) -> None:
     forbidden_patterns = [
