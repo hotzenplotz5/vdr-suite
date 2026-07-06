@@ -176,7 +176,11 @@
   }
 
   function fetchClientRecordings(options) {
-    return requestJson('/api/vdr/recordings/live', options);
+    return requestJsonWithFallback(
+      '/api/vdr/recordings/live',
+      '/api/vdr/recordings',
+      options
+    );
   }
 
   function fetchClientSearchTimers(options) {

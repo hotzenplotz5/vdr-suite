@@ -423,6 +423,38 @@ def check_frontend_static_serving_contract(test_http_server_cpp: str) -> None:
     )
 
 
+
+def check_recording_loading_client_api_contract(client_api: str) -> None:
+    require(
+        "function fetchClientRecordings(options)" in client_api,
+        "client-api.js must define fetchClientRecordings(options)"
+    )
+
+    start = client_api.find("function fetchClientRecordings(options)")
+    end = client_api.find("function fetchClientSearchTimers(options)", start)
+    require(
+        end > start,
+        "client-api.js fetchClientRecordings() boundary must end before fetchClientSearchTimers()"
+    )
+
+    body = client_api[start:end]
+
+    require(
+        "requestJsonWithFallback" in body,
+        "fetchClientRecordings() must use requestJsonWithFallback()"
+    )
+
+    require(
+        "'/api/vdr/recordings/live'" in body,
+        "fetchClientRecordings() must try /api/vdr/recordings/live first"
+    )
+
+    require(
+        "'/api/vdr/recordings'" in body,
+        "fetchClientRecordings() must fall back to /api/vdr/recordings"
+    )
+
+
 def check_client_api_contract():
     client_api_path = ROOT / "web/frontend/api/client-api.js"
     index_path = ROOT / "web/frontend/index.html"
@@ -458,6 +490,7 @@ def check_client_api_contract():
         )
 
 
+    check_recording_loading_client_api_contract(client_api)
     require(
         "requestJson(" + chr(39) + "/api/epg/cache/status" + chr(39) in client_api,
         "fetchClientEpgCacheStatus() must own /api/epg/cache/status access"
