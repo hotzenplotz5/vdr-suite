@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.05g - Recording Details and EPG Header Cleanup
+Phase 59.05h - Recording Details and EPG Offset Hardening
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.05g completes the Recording detail view slice and the first EPG frontend event-indexing and header cleanup chain after the frontend client API recovery chain.
+Phase 59.05h completes the Recording detail view slice and the first EPG frontend event-indexing, header cleanup and offset-hardening chain after the frontend client API recovery chain.
 
 Stable scope:
 
@@ -72,6 +72,7 @@ Stable scope:
 - Phase 59.05e removes the unused EPG overlap helper and cleans the remaining EPG channel-event helper signature.
 - Phase 59.05f removes the now-unused EPG per-channel full-list helper after all active EPG views use the visible event index.
 - Phase 59.05g removes raw EPG debug URL and per-channel debug counters from the visible EPG header text.
+- Phase 59.05h clamps the EPG channel offset before rendering so stale offsets cannot produce an empty visible-channel window.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -154,6 +155,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.05e verifies the obsolete EPG overlap helper has no remaining call sites and is removed.
 - Phase 59.05f verifies the obsolete EPG per-channel full-list helper has no remaining call sites and is removed.
 - Phase 59.05g verifies the EPG header keeps useful source/event information without exposing debug URL or sample channel counters.
+- Phase 59.05h verifies the EPG channel offset is bounded before visible-channel slicing.
 
 ### Guarded or deliberately incomplete areas
 
