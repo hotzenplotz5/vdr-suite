@@ -43,6 +43,12 @@ Current implementation focus:
 Phase 58 - Frontend and Live Parity
 ```
 
+Next planned implementation slice:
+
+```text
+Phase 59.04 - Recording and EPG Frontend Performance Hardening
+```
+
 ---
 
 ## Latest Verified Implementation Slice
@@ -131,7 +137,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 
 - SearchTimer production changes remain gated and closed by default.
 - Recording operation write probes remain explicitly gated.
-- Recording query loading is restored; lazy/virtualized recording rendering remains a required follow-up for large real recording catalogs and multi-backend scaling.
+- Recording query loading is restored; lazy/virtualized recording rendering is the planned Phase 59.04 follow-up for large real recording catalogs and multi-backend scaling.
 - Authentication, authorization, per-backend permissions and read-only secondary-site policy remain planned beyond the current access-mode foundation.
 - Web, Windows, Android, iOS and TV frontends remain planned product layers; the current web frontend is a Phase 58 foundation, not the final client product.
 - Full frontend module extraction remains planned; Phase 58.95 only defines and guards the current script-based ownership model.

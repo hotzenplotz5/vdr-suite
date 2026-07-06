@@ -23,7 +23,10 @@ Completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
 
 Latest completed implementation slice
-Phase 58.90b - Stable Channel Sorter
+Phase 59.03e - Frontend Recovery Status Documentation
+
+Next planned implementation slice
+Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 Current implementation focus
 Phase 58 - Frontend and Live Parity
@@ -73,18 +76,43 @@ Completed foundation ranges:
 
 ## Recently Completed Implementation Slice
 
-### Phase 58.90b - Stable Channel Sorter
+### Phase 59.03e - Frontend Recovery Status Documentation
 
-Status: Completed stable frontend slice.
+Status: Completed recovery and documentation slice.
 
 Completed outcomes:
 
-- guarded channel move API
-- stable frontend channel sorter
-- handle-only pointer drag
-- desktop and touch validation
-- normal sorter scrolling preserved
-- broken post-move focus-restore experiment excluded from the stable state
+- visible-channel EPG cache window batch loading is documented
+- daemon delivery of `/frontend/api/client-api.js` is documented
+- Recording module recovery through `/api/vdr/recordings/query` is documented
+- Timer and Timer conflict wrapper verification is documented
+- real recording catalog loading with 1007 recordings is documented
+- `web/frontend/api/client-api.js` remains the DOM-free frontend API boundary
+- `web/frontend/app.js` remains the current frontend module owner
+
+---
+
+## Next Planned Implementation Slice
+
+### Phase 59.04 - Recording and EPG Frontend Performance Hardening
+
+Status: Planned.
+
+Goal:
+
+- Make the current web frontend stable with real-world data volumes before adding larger feature surfaces.
+
+Planned scope:
+
+- reduce Recording module DOM pressure for large catalogs
+- add bounded or lazy rendering for 1000+ recordings
+- preserve `/api/vdr/recordings/query` as the Recording module data source
+- keep Recording loading backend-scoped
+- reduce EPG timeline DOM pressure for visible-channel batches
+- preserve SQLite-backed EPG cache window loading
+- avoid new direct `fetch()` calls in core frontend modules
+- keep `web/frontend/api/client-api.js` DOM-free
+- keep frontend ownership contracts green
 
 ---
 
