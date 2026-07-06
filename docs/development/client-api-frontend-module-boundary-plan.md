@@ -543,6 +543,7 @@ Current wrapper functions:
 - `fetchClientTimerUpdateAction`
 - `fetchClientTimerDeleteAction`
 - `fetchClientChannels`
+- `fetchClientChannelMoveAction`
 - `fetchClientCapabilities`
 - `fetchClientVdrOverview`
 - `fetchClientVdrStatus`
@@ -630,6 +631,33 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.09e Implementation Status
+
+Phase 59.09e migrates channel sorter API access in `web/frontend/app.js` to the Web Client API wrapper.
+
+Implemented behavior:
+
+- channel sorter list loading now uses `window.VdrSuiteClientApi.fetchClientChannels()`
+- channel move actions now use `window.VdrSuiteClientApi.fetchClientChannelMoveAction()`
+- `fetchClientChannelMoveAction(options)` owns `/api/vdr/channels/move`
+- the direct-fetch legacy inventory is now empty
+- `web/frontend/app.js` must not call `fetch()` directly
+- no backend route and no UI expansion is added
+
+Remaining known direct API fetch inventory:
+
+- none in `web/frontend/app.js`
+
+Next open Web Client API areas:
+
+- client API contract snapshot
+- preparation for UI module extraction
+- event detail and media/artwork routes once backend exposes dedicated contracts
+- recording marks, resume, cut and playback helpers once backend exposes dedicated contracts
+- permission report route once backend exposes one
+
+---
+
 ## Phase 59.09d Implementation Status
 
 Phase 59.09d migrates backend selection API access in `web/frontend/app.js` to the Web Client API wrapper.
@@ -646,7 +674,7 @@ Implemented behavior:
 
 Remaining known literal direct API fetch inventory:
 
-- `/api/vdr/channels/move`
+- none
 
 Next open Web Client API areas:
 

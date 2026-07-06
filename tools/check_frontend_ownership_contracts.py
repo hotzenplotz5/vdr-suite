@@ -137,9 +137,7 @@ def check_app_contract(app_js: str) -> None:
 
 
 def check_app_direct_api_fetch_contract(app_js: str) -> None:
-    legacy_direct_api_fetches = {
-        "/api/vdr/channels/move",
-    }
+    legacy_direct_api_fetches = set()
 
     direct_api_fetches = []
 
@@ -149,10 +147,15 @@ def check_app_direct_api_fetch_contract(app_js: str) -> None:
     ):
         direct_api_fetches.append(match.group(2))
 
+    direct_fetch_calls = re.findall(r"\bfetch\s*\(", app_js)
     unexpected_direct_api_fetches = sorted(
         set(direct_api_fetches) - legacy_direct_api_fetches
     )
 
+    require(
+        not direct_fetch_calls,
+        "app.js must not call fetch() directly; use window.VdrSuiteClientApi"
+    )
     require(
         not unexpected_direct_api_fetches,
         "app.js must not add new direct API fetch routes; use window.VdrSuiteClientApi: "
@@ -734,6 +737,7 @@ def check_client_api_contract():
         "fetchClientTimerUpdateAction",
         "fetchClientTimerDeleteAction",
         "fetchClientChannels",
+        "fetchClientChannelMoveAction",
         "fetchClientCapabilities",
         "fetchClientVdrOverview",
         "fetchClientVdrStatus",
@@ -811,6 +815,12 @@ def check_client_api_contract():
         "function fetchClientTimerDeleteAction(options)" in client_api
         and "/api/vdr/timers/actions/delete" in client_api,
         "fetchClientTimerDeleteAction() must own /api/vdr/timers/actions/delete access"
+    )
+    require(
+        "function fetchClientChannelMoveAction(options)" in client_api
+        and "/api/vdr/channels/move" in client_api
+        and "jsonPostOptions(options)" in client_api,
+        "fetchClientChannelMoveAction() must own /api/vdr/channels/move access"
     )
     require(
         "requestJson(" + chr(39) + "/api/vdr/capabilities" + chr(39) in client_api,

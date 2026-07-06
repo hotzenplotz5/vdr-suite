@@ -3484,9 +3484,6 @@ function loadChannels() {
     backend: backendId,
     _: String(Date.now())
   };
-  const url = '/api/vdr/channels'
-    + '?backend=' + encodeURIComponent(backendId)
-    + '&_=' + encodeURIComponent(channelQuery._);
   const clientApi = window.VdrSuiteClientApi;
 
   if (!clientApi || typeof clientApi.fetchClientChannels !== 'function') {
@@ -4035,28 +4032,26 @@ function channelSorterSetStatus(message, error) {
 }
 
 function channelSorterApiMove(sourceNumber, targetNumber) {
-  return fetch('/api/vdr/channels/move', {
-    method: 'POST',
+  const clientApi = window.VdrSuiteClientApi;
+
+  if (!clientApi || typeof clientApi.fetchClientChannelMoveAction !== 'function') {
+    return Promise.reject(new Error('Client API wrapper is not available'));
+  }
+
+  return clientApi.fetchClientChannelMoveAction({
     cache: 'no-store',
     credentials: 'same-origin',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
+    payload: {
       backendId: channelSorterBackendId(),
       sourceNumber: sourceNumber,
       targetNumber: targetNumber
-    })
+    }
   })
-    .then(response => response.json()
-      .catch(() => ({}))
-      .then(data => ({ response, data })))
-    .then(result => {
-      const response = result.response;
-      const data = result.data || {};
-
-      if (!response.ok || data.success !== true) {
-        const message = data.message || data.error || ('HTTP ' + String(response.status));
+    .then(data => {
+      if (!data || data.success !== true) {
+        const message = data && (data.message || data.error)
+          ? data.message || data.error
+          : 'Channel move action was rejected';
         throw new Error(message);
       }
 
@@ -4418,21 +4413,25 @@ function loadChannelSorter() {
   renderModuleLoading('Kanäle sortieren', 'Lade Kanalliste für Sortierung...');
 
   const backendId = channelSorterBackendId();
-  const url = '/api/vdr/channels'
-    + '?backend=' + encodeURIComponent(backendId)
-    + '&_=' + encodeURIComponent(String(Date.now()));
+  const clientApi = window.VdrSuiteClientApi;
 
-  fetch(url, {
+  if (!clientApi || typeof clientApi.fetchClientChannels !== 'function') {
+    channelSorterData = null;
+    renderModuleError(
+      'Kanalsortierer konnte nicht geladen werden',
+      new Error('Client API wrapper is not available')
+    );
+    return;
+  }
+
+  clientApi.fetchClientChannels({
+    query: {
+      backend: backendId,
+      _: String(Date.now())
+    },
     cache: 'no-store',
     credentials: 'same-origin'
   })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Kanalliste HTTP ' + response.status);
-      }
-
-      return response.json();
-    })
     .then(data => {
       channelSorterData = data;
       currentChannels = data;

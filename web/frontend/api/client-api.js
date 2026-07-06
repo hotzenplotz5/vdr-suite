@@ -227,6 +227,10 @@
     return requestJson('/api/vdr/channels', options);
   }
 
+  function fetchClientChannelMoveAction(options) {
+    return requestJson('/api/vdr/channels/move', jsonPostOptions(options));
+  }
+
   function fetchClientCapabilities(options) {
     return requestJson('/api/vdr/capabilities', options);
   }
@@ -423,6 +427,7 @@
     fetchClientTimerUpdateAction: fetchClientTimerUpdateAction,
     fetchClientTimerDeleteAction: fetchClientTimerDeleteAction,
     fetchClientChannels: fetchClientChannels,
+    fetchClientChannelMoveAction: fetchClientChannelMoveAction,
     fetchClientCapabilities: fetchClientCapabilities,
     fetchClientVdrOverview: fetchClientVdrOverview,
     fetchClientVdrStatus: fetchClientVdrStatus,
