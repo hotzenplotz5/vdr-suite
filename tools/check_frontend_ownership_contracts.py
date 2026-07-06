@@ -543,8 +543,23 @@ def check_recording_bounded_rendering_contract(app_js: str) -> None:
     )
 
     require(
-        "childFolders.slice(0, visibleFolderCount)" in body,
-        "Recording folder overview must render a bounded child-folder slice"
+        "leafRecordingFolders" in body,
+        "Recording folder tree must detect single-recording leaf folders"
+    )
+
+    require(
+        "displayChildFolders" in body,
+        "Recording folder tree must separate display folders from promoted recording leaves"
+    )
+
+    require(
+        "recordingEntries = node.recordings.concat" in body,
+        "Recording folder tree must promote single-recording leaf folders into recording entries"
+    )
+
+    require(
+        "displayChildFolders.slice(0, visibleFolderCount)" in body,
+        "Recording folder overview must render a bounded display-folder slice"
     )
 
     require(
@@ -568,7 +583,7 @@ def check_recording_bounded_rendering_contract(app_js: str) -> None:
     )
 
     require(
-        "node.recordings.slice(recordingStartIndex, recordingEndIndex)" in body,
+        "recordingEntries.slice(recordingStartIndex, recordingEndIndex)" in body,
         "Recording folder view must render the selected recording page only"
     )
 

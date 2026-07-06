@@ -1002,18 +1002,27 @@ function renderRecordingList(data) {
 
   function renderFolderNode(node, visibleFolderCount, recordingPageIndex) {
     const childFolders = sortedRecordingFolderNodes(node);
+    const leafRecordingFolders = childFolders.filter(folderNode =>
+      folderNode.folders.size === 0 && folderNode.recordings.length === 1
+    );
+    const displayChildFolders = childFolders.filter(folderNode =>
+      !(folderNode.folders.size === 0 && folderNode.recordings.length === 1)
+    );
+    const recordingEntries = node.recordings.concat(
+      leafRecordingFolders.map(folderNode => folderNode.recordings[0])
+    );
 
     visibleFolderCount = Math.min(
       Math.max(Number(visibleFolderCount) || RECORDING_FOLDER_BATCH_SIZE, RECORDING_FOLDER_BATCH_SIZE),
-      childFolders.length
+      displayChildFolders.length
     );
 
-    const recordingPageCount = Math.max(1, Math.ceil(node.recordings.length / RECORDING_ITEM_PAGE_SIZE));
+    const recordingPageCount = Math.max(1, Math.ceil(recordingEntries.length / RECORDING_ITEM_PAGE_SIZE));
     recordingPageIndex = Math.max(0, Math.min(Number(recordingPageIndex) || 0, recordingPageCount - 1));
 
     const recordingStartIndex = recordingPageIndex * RECORDING_ITEM_PAGE_SIZE;
     const recordingEndIndex = recordingStartIndex + RECORDING_ITEM_PAGE_SIZE;
-    const visibleRecordings = node.recordings.slice(recordingStartIndex, recordingEndIndex);
+    const visibleRecordings = recordingEntries.slice(recordingStartIndex, recordingEndIndex);
 
     detailDataElement.replaceChildren();
 
@@ -1025,13 +1034,13 @@ function renderRecordingList(data) {
     header.appendChild(addText(document.createElement('h3'), recordingFolderLabel(node)));
 
     const summary = [
-      String(childFolders.length) + ' Unterordner',
-      String(node.recordings.length) + ' direkte Aufnahme(n)',
+      String(displayChildFolders.length) + ' Unterordner',
+      String(recordingEntries.length) + ' Aufnahme(n) in dieser Ebene',
       String(node.totalRecordings) + ' Aufnahme(n) insgesamt',
       String(totalRecordings) + ' Aufnahme(n) im Katalog'
     ];
 
-    if (node.recordings.length > 0) {
+    if (recordingEntries.length > 0) {
       summary.push('Seite ' + String(recordingPageIndex + 1) + ' von ' + String(recordingPageCount));
     }
 
@@ -1049,7 +1058,7 @@ function renderRecordingList(data) {
 
     list.appendChild(header);
 
-    childFolders.slice(0, visibleFolderCount).forEach(folderNode => {
+    displayChildFolders.slice(0, visibleFolderCount).forEach(folderNode => {
       const item = document.createElement('article');
       item.className = 'list-item recording-folder-item';
       item.tabIndex = 0;
@@ -1079,15 +1088,15 @@ function renderRecordingList(data) {
       list.appendChild(item);
     });
 
-    if (visibleFolderCount < childFolders.length) {
-      const remaining = childFolders.length - visibleFolderCount;
+    if (visibleFolderCount < displayChildFolders.length) {
+      const remaining = displayChildFolders.length - visibleFolderCount;
       list.appendChild(createLoadMoreButton(
         'Weitere Ordner laden (' + String(remaining) + ' verbleibend)',
         () => renderFolderNode(node, visibleFolderCount + RECORDING_FOLDER_BATCH_SIZE, recordingPageIndex)
       ));
     }
 
-    if (node.recordings.length > RECORDING_ITEM_PAGE_SIZE) {
+    if (recordingEntries.length > RECORDING_ITEM_PAGE_SIZE) {
       list.appendChild(createRecordingPagerControls(node, visibleFolderCount, recordingPageIndex, recordingPageCount));
     }
 
@@ -1095,11 +1104,11 @@ function renderRecordingList(data) {
       list.appendChild(createRecordingListItem(entry));
     });
 
-    if (node.recordings.length > RECORDING_ITEM_PAGE_SIZE) {
+    if (recordingEntries.length > RECORDING_ITEM_PAGE_SIZE) {
       list.appendChild(createRecordingPagerControls(node, visibleFolderCount, recordingPageIndex, recordingPageCount));
     }
 
-    if (childFolders.length === 0 && node.recordings.length === 0) {
+    if (displayChildFolders.length === 0 && recordingEntries.length === 0) {
       const empty = document.createElement('article');
       empty.className = 'module-placeholder';
       empty.appendChild(addText(document.createElement('p'), 'Dieser Ordner enthält keine Aufnahmen.'));
