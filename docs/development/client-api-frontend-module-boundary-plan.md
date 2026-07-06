@@ -525,3 +525,57 @@ Implemented behavior:
 
 - [Back to Development Index](index.md)
 
+---
+
+## Phase 59.07a Web Client API Parity Refresh
+
+Phase 59.07a promotes the Web Client API wrapper from a migration detail to an explicit parity tracking dimension.
+
+Current implemented wrapper file:
+
+- `web/frontend/api/client-api.js`
+
+Current wrapper functions:
+
+- `fetchClientTimers`
+- `fetchClientTimerConflicts`
+- `fetchClientChannels`
+- `fetchClientEpgWindow`
+- `fetchClientEpgCacheStatus`
+- `fetchClientEpgCacheWindow`
+- `fetchClientRecordings`
+- `fetchClientSearchTimers`
+
+Current status:
+
+- The wrapper is DOM-free.
+- The wrapper still calls existing `/api/vdr` and `/api/epg` routes.
+- The wrapper is the required seam before extracting more UI modules from `web/frontend/app.js`.
+- The final stable `/api/client` route layer remains planned, not implemented.
+
+New parity rule:
+
+- Every Live, RESTfulAPI or epgsearch capability must be tracked across backend/domain status, Web Client API status and UI status.
+- A backend feature is not considered frontend-ready until the Web Client API status is explicit.
+- New browser frontend data loading must not add direct fetch calls in `web/frontend/app.js`.
+- New Web Client API wrapper functions must stay backend-neutral and DOM-free.
+
+High-value missing wrapper areas:
+
+- SearchTimer discovery catalogs
+- native EPGSearch query and SearchTimer query preview
+- recording action validation and execution
+- timer create/update/delete workflows
+- SearchTimer create/update/delete workflows
+- client capability and permission report
+- event detail and media/artwork helpers
+- recording marks, resume, cut and playback helpers
+
+Next recommended frontend/API slices:
+
+- add wrapper functions for SearchTimer discovery catalogs
+- add wrapper functions for EPGSearch query and SearchTimer preview
+- add wrapper functions for recording action preview and execution
+- add wrapper functions for capability and permission state
+- only then expand the corresponding UI modules
+

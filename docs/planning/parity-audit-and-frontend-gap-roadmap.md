@@ -194,6 +194,36 @@ The open question is whether all relevant core timer details are represented los
 
 ---
 
+## Web Client API Parity View
+
+Phase 59.07a adds the Web Client API as an explicit parity dimension.
+
+The web frontend currently uses a DOM-free wrapper at `web/frontend/api/client-api.js`.
+This wrapper still calls existing `/api/vdr` and `/api/epg` routes.
+It is an incremental seam, not the final stable multi-client `/api/client` layer.
+
+| Capability | Source capability | Backend/domain status | Web Client API status | UI status | Next action |
+| --- | --- | --- | --- | --- | --- |
+| Timer list | VDR timers | Present | Wrapped through fetchClientTimers | Partial | Keep route behind wrapper and improve detail UI. |
+| Timer conflicts | epgsearch TimerConflictList | Present through RESTfulAPI adapter | Wrapped through fetchClientTimerConflicts | Partial | Build Live-style conflict view and audit IsConflictCheckAdvised. |
+| Channel list | VDR channels | Present | Wrapped through fetchClientChannels | Partial | Keep channel UI behind wrapper and preserve sorter rules. |
+| EPG window | VDR events and EPG cache | Present | Wrapped through fetchClientEpgWindow and fetchClientEpgCacheWindow | Partial | Keep visible-window loading and add Live-style search/detail gaps. |
+| Recordings | VDR recordings and query endpoint | Present | Wrapped through fetchClientRecordings | Partial | Add action workflow and detail parity behind wrapper. |
+| SearchTimer list | epgsearch SearchTimerList | Present | Wrapped through fetchClientSearchTimers | Partial | Add Live-style SearchTimer UI, preview and edit workflow. |
+| Discovery catalogs | ExtEPGInfoList, ChanGrpList, BlackList, DirectoryList | Backend-neutral discovery present | Missing dedicated wrapper | Missing in UI | Add Web Client API wrapper before UI usage. |
+| Native EPGSearch query | QuerySearchTimer and QuerySearch | Partial | Missing dedicated wrapper | Missing or indirect | Add explicit wrapper and real parity tests before UI expansion. |
+| Client capabilities | backend permissions and capability report | Present in backend foundations | Incomplete dedicated wrapper | Partial | Expose read-only/write capability state consistently. |
+| Stable `/api/client` layer | VDR-Suite client contract | Planned | Not implemented | Not applicable | Introduce after current wrapper coverage stabilizes. |
+
+Rule for future Live-parity work:
+
+- A capability is not frontend-ready until it has a backend/domain status, a Web Client API status and a UI status.
+- New frontend HTTP access must first go through `web/frontend/api/client-api.js`.
+- `web/frontend/api/client-api.js` must remain DOM-free.
+- Final multi-client contracts should later move behind stable `/api/client` routes.
+
+---
+
 ## Most Important Real Gaps
 
 | Priority | Gap | Why it matters |

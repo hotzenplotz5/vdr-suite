@@ -30,8 +30,20 @@ Phase 56 - Library Boundary, Packaging and Developer Documentation
 Latest completed implementation slice:
 
 ```text
-Phase 58.90b - Stable Channel Sorter
+Phase 59.07a - Live, RESTfulAPI and EPGSearch Parity Inventory Refresh
 ```
+
+---
+
+## Documentation Reading Rule
+
+Before proposing frontend, Live-parity, RESTfulAPI or epgsearch work, first inspect:
+
+- `docs/development/current-status.md`
+- `docs/planning/parity-audit-and-frontend-gap-roadmap.md`
+- `docs/development/client-api-frontend-module-boundary-plan.md`
+- `docs/architecture/restfulapi-integration.md`
+- `docs/development/epgsearch-capability-matrix.md`
 
 ---
 

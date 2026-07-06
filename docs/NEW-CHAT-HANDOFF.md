@@ -31,10 +31,14 @@ A new chat should start with these files in this order:
 1. [Current State](CURRENT.md)
 2. [Roadmap](planning/roadmap.md)
 3. [Phase Map](planning/phase-map.md)
-4. [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
-5. [ADR Index](adr/index.md)
-6. [Completed Phases](development/completed-phases.md)
-7. [GitHub Actions Status Handoff](development/github-actions-status-handoff.md) when CI state matters
+4. [Current Project Status](development/current-status.md)
+5. [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+6. [Client API and Frontend Module Boundary Plan](development/client-api-frontend-module-boundary-plan.md)
+7. [RESTfulAPI Integration Architecture](architecture/restfulapi-integration.md)
+8. [EPGSearch Capability Matrix](development/epgsearch-capability-matrix.md)
+9. [ADR Index](adr/index.md)
+10. [Completed Phases](development/completed-phases.md)
+11. [GitHub Actions Status Handoff](development/github-actions-status-handoff.md) when CI state matters
 
 Detailed phase notes should be opened only when a specific historical detail is needed.
 
@@ -51,7 +55,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 58.90b - Stable Channel Sorter
+Phase 59.07a - Live, RESTfulAPI and EPGSearch Parity Inventory Refresh
 ```
 
 Previous completed major project block:
@@ -66,22 +70,22 @@ Current implementation focus:
 Phase 58 - Frontend and Live Parity
 ```
 
-Keep the latest completed major project block at Phase 57 until the full Phase 58 block is completed. Track completed Phase 58 slices separately; the latest stable slice is Phase 58.90b.
+Keep the latest completed major project block at Phase 57 until the full frontend and Live-parity block is completed. Track completed Phase 59 frontend and parity slices separately; the latest stable slice is Phase 59.07a.
 
 ---
 
-## Phase 58.90b Result
+## Phase 59.07a Result
 
-Phase 58.90b added the stable channel sorting frontend.
+Phase 59.07a refreshes the Live, RESTfulAPI, epgsearch and Web Client API parity inventory.
 
 Verified outcomes:
 
-- `Kanäle sortieren` module exists in the web frontend
-- channel movement uses the guarded backend move API
-- drag starts only on the left `↕` handle
-- normal scrolling remains possible
-- touch and desktop operation were manually verified
-- the broken post-move focus-restore experiment was not included
+- Roadmap and current-status documents point to the current parity audit slice
+- stale Live-parity entries are downgraded from missing/check where backend-neutral source support exists
+- EPGSearch capability matrix records newer discovery, timer-conflict, regex, fuzzy and native fuzzy foundations
+- RESTfulAPI integration documentation records later SearchTimer discovery and timer-conflict paths
+- Web Client API parity is tracked as its own dimension before more frontend work
+- `docs/CURRENT.md` and this handoff define the required reading order for future chats
 
 ---
 
@@ -214,7 +218,13 @@ Use [Roadmap](planning/roadmap.md) for planned direction.
 
 Use [Phase Map](planning/phase-map.md) for compact phase-range coverage.
 
-Use [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md) for RESTfulAPI, Live, epgsearch and VDR-Core parity questions.
+Use [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md) for RESTfulAPI, Live, epgsearch, VDR-Core and Web Client API parity questions.
+
+Use [Client API and Frontend Module Boundary Plan](development/client-api-frontend-module-boundary-plan.md) before proposing frontend data-loading, UI extraction or multi-client API work.
+
+Use [RESTfulAPI Integration Architecture](architecture/restfulapi-integration.md) before proposing direct RESTfulAPI usage.
+
+Use [EPGSearch Capability Matrix](development/epgsearch-capability-matrix.md) before proposing SearchTimer, EPG search, discovery catalog or conflict work.
 
 Use [Completed Phases](development/completed-phases.md) for milestone history.
 
