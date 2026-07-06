@@ -1,5 +1,11 @@
 # Phase 58.94c: RESTfulAPI Timer Conflict Discovery
 
+## Navigation
+
+- [Development Index](index.md)
+- [Current Project Status](current-status.md)
+
+
 ## Ziel
 
 VDR-Suite bindet die epgsearch-Timerkonfliktprüfung über RESTfulAPI an.
@@ -41,3 +47,9 @@ Beispiel:
 
 RESTfulAPI ist die primäre Quelle.
 SVDRP PLUG epgsearch LSCC bleibt Gegencheck und möglicher Fallback für spätere Phasen.
+
+---
+
+## Back
+
+- [Back to Development Index](index.md)

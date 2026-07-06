@@ -71,6 +71,7 @@ Current Phase 58 foundation notes:
 - [Phase 58.90a - Channel Move API](phase-58.90a-channel-move-api.md)
 - [Phase 58.90b - Stable Channel Sorter](phase-58.90b-stable-channel-sorter.md)
 - [Phase 58.90c - Documentation Consolidation](phase-58.90c-documentation-consolidation.md)
+- [Phase 58.94c - RESTfulAPI Timer Conflict Discovery](phase-58.94c-restfulapi-timer-conflicts.md)
 
 Do not move global latest-completed markers to Phase 58 until the full Phase 58 major block is closed consistently across the marker files.
 

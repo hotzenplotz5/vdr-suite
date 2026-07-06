@@ -1,5 +1,25 @@
 # Contributing to VDR-Suite
 
+## Mandatory Project Rules
+
+These rules are non-negotiable and must be checked before every implementation change.
+
+1. No blind patches.
+2. Inspect the relevant files before proposing or applying changes.
+3. Prefer GitHub inspection for repository state and file context before local patch commands.
+4. Prove the current state and the root cause first.
+5. Explain the intended minimal change before patching.
+6. Do not use `sed` for code changes unless it is clearly the safest and smallest tool for the job.
+7. Do not generate CRAP patches, broad rewrites or unrelated cleanup.
+8. Keep patches minimal, reviewable and tied to the proven cause.
+9. Run the matching checks before commit.
+10. Commit only explicit files, never `git add .`.
+11. Patch only after the intended change is understood.
+12. If the diagnosis is uncertain, stop and ask instead of guessing.
+13. For interactive terminal blocks, do not use `set -e` or `exit 1`.
+14. Do not combine cleanup, patching, checks, commit and push in one large block.
+
+
 ## Navigation
 
 * [README](README.md)

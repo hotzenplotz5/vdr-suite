@@ -519,3 +519,9 @@ Implemented behavior:
 - the EPG data path remains SQLite-based
 - no EPG UI module has been extracted yet.
 
+---
+
+## Back
+
+- [Back to Development Index](index.md)
+
