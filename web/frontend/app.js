@@ -2819,6 +2819,15 @@ function renderEpgTimeView(channelData, eventData) {
   const modeRow = document.createElement('div');
   modeRow.className = 'epg-view-toggle';
 
+  const rerenderOrLoadEpgTimeline = () => {
+    if (currentChannels && currentEvents) {
+      renderEpgTimeView(currentChannels, currentEvents);
+      return;
+    }
+
+    loadEpgTimeline();
+  };
+
   const timeView = document.createElement('button');
   timeView.type = 'button';
   timeView.className = 'epg-view-button ' + (epgProgramView === 'horizontal' ? 'active' : '');
@@ -2828,11 +2837,7 @@ function renderEpgTimeView(channelData, eventData) {
     epgTimelineMode = 'time';
     epgProgramView = 'horizontal';
     epgTimeAxisMode = 'horizontal';
-    if (currentChannels && currentEvents) {
-      renderEpgTimeView(currentChannels, currentEvents);
-      return;
-    }
-    loadEpgTimeline();
+    rerenderOrLoadEpgTimeline();
   });
 
   const verticalTimeView = document.createElement('button');
@@ -2844,11 +2849,7 @@ function renderEpgTimeView(channelData, eventData) {
     epgTimelineMode = 'time';
     epgProgramView = 'vertical';
     epgTimeAxisMode = 'vertical';
-    if (currentChannels && currentEvents) {
-      renderEpgTimeView(currentChannels, currentEvents);
-      return;
-    }
-    loadEpgTimeline();
+    rerenderOrLoadEpgTimeline();
   });
 
   const liveView = document.createElement('button');
