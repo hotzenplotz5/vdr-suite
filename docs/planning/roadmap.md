@@ -23,7 +23,7 @@ Completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
 
 Latest completed implementation slice
-Phase 59.03e - Frontend Recovery Status Documentation
+Phase 59.04c - Recording Folder Paging Controls
 
 Next planned implementation slice
 Phase 59.04 - Recording and EPG Frontend Performance Hardening
@@ -76,17 +76,19 @@ Completed foundation ranges:
 
 ## Recently Completed Implementation Slice
 
-### Phase 59.03e - Frontend Recovery Status Documentation
+### Phase 59.04c - Recording Folder Paging Controls
 
-Status: Completed recovery and documentation slice.
+Status: Completed frontend performance slice.
 
 Completed outcomes:
 
-- visible-channel EPG cache window batch loading is documented
-- daemon delivery of `/frontend/api/client-api.js` is documented
-- Recording module recovery through `/api/vdr/recordings/query` is documented
-- Timer and Timer conflict wrapper verification is documented
-- real recording catalog loading with 1007 recordings is documented
+- Recording module keeps `/api/vdr/recordings/query` as its data source
+- Recording rendering is bounded for large real catalogs
+- Recording folders are rendered as a hierarchical tree
+- nested folders are no longer flattened into the root view
+- folder recordings use explicit 20-item paging
+- previous and next page controls are visible inside folders
+- frontend ownership contracts guard the Recording rendering model
 - `web/frontend/api/client-api.js` remains the DOM-free frontend API boundary
 - `web/frontend/app.js` remains the current frontend module owner
 
