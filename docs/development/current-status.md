@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.02b - EPG Cache Status uses Web Client API Wrapper
+Phase 59.03d - Recording Module loads through Recording Query Endpoint
 ```
 
 Current documentation consolidation state:
@@ -47,24 +47,25 @@ Phase 58 - Frontend and Live Parity
 
 ## Latest Verified Implementation Slice
 
-Phase 59.03 batches EPG cache window loading for the visible channel set.
+Phase 59.03d completes the frontend client API recovery chain after the visible EPG cache batch change.
 
 Stable scope:
 
-- keep EPG rendering in web/frontend/app.js
-- keep EPG cache status loading through fetchClientEpgCacheStatus()
-- add fetchClientEpgCacheWindow() to the DOM-free Client API wrapper
-- route EPG cache window access through fetchClientEpgCacheWindow()
-- preserve /api/epg/cache/window legacy channelId behavior
-- add channelIds query support for visible channel batch loading
-- decode URL query parameters before REST routing
-- query SQLite with channel_id IN (...) for visible channel batches
-- replace per-channel EPG Promise.all loading with one visible-channel batch request
-- keep the EPG data path SQLite-based
-- do not extract an EPG UI module yet
+- Phase 59.03 batches EPG cache window loading for the visible channel set.
+- Phase 59.03b serves `/frontend/api/client-api.js` through the daemon HTTP frontend whitelist.
+- Phase 59.03c removes the broken recording live-only client route.
+- Phase 59.03d loads recordings through `/api/vdr/recordings/query`.
+- EPG cache window loading remains SQLite-backed.
+- Timer loading is verified through the Web Client API wrapper.
+- Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
+- Recording loading is verified against a real catalog with 1007 recordings.
+- `/api/vdr/recordings` snapshot emptiness no longer blocks the recording module.
+- `web/frontend/api/client-api.js` remains DOM-free.
+- `web/frontend/app.js` remains the current frontend module owner.
 
 Previous verified slices:
 
+- Phase 59.03 batches EPG cache window loading for visible channels.
 - Phase 59.02b routed EPG cache status loading through fetchClientEpgCacheStatus().
 - Phase 59.02a routed EPG Timeline Channel loading through fetchClientChannels().
 - Phase 59.01 routed Channel list loading through fetchClientChannels().
@@ -102,6 +103,8 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - EPG Timeline Channel loading through Web Client API Wrapper
 - EPG Cache Status loading through Web Client API Wrapper
 - EPG Cache Window visible channel batch loading
+- Frontend Client API wrapper static serving through daemon HTTP frontend routes
+- Recording module loading through Recording Query Endpoint
 
 ### Verified real-runtime evidence
 
@@ -119,12 +122,16 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.01 routes Channel list loading through fetchClientChannels().
 - Phase 59.02a routes EPG Timeline Channel loading through fetchClientChannels().
 - Phase 59.02b routes EPG cache status loading through fetchClientEpgCacheStatus().
+- Phase 59.03 batches visible-channel EPG cache window loading into one `/api/epg/cache/window` request with `channelIds`.
+- Phase 59.03b verifies `/frontend/api/client-api.js` is served by the daemon HTTP frontend route.
+- Phase 59.03c verifies the recording Client API wrapper no longer depends on the missing `/api/vdr/recordings/live` route.
+- Phase 59.03d verifies the Recording module loads the real recording catalog through `/api/vdr/recordings/query`.
 
 ### Guarded or deliberately incomplete areas
 
 - SearchTimer production changes remain gated and closed by default.
 - Recording operation write probes remain explicitly gated.
-- Lazy recording loading is still a required follow-up for large real recording catalogs and multi-backend scaling.
+- Recording query loading is restored; lazy/virtualized recording rendering remains a required follow-up for large real recording catalogs and multi-backend scaling.
 - Authentication, authorization, per-backend permissions and read-only secondary-site policy remain planned beyond the current access-mode foundation.
 - Web, Windows, Android, iOS and TV frontends remain planned product layers; the current web frontend is a Phase 58 foundation, not the final client product.
 - Full frontend module extraction remains planned; Phase 58.95 only defines and guards the current script-based ownership model.
