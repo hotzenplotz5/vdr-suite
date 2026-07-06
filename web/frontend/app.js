@@ -2775,24 +2775,25 @@ function renderEpgTimeView(channelData, eventData) {
     ? 'Keine Kanäle gefunden.'
     : 'Zeige Kanäle ' + String(epgChannelOffset + 1) + '–' + String(epgChannelOffset + visibleChannels.length) + ' von ' + String(channels.length) + '.';
 
-  const firstVisibleChannelEventCount = visibleChannels.length > 0
-    ? epgIndexedEventsForChannel(visibleEventIndex, visibleChannels[0]).length
-    : 0;
+  const windowText = new Date(bounds.start * 1000).toLocaleDateString('de-DE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit'
+  }) + ' ' + formatEpgClockFromEpoch(bounds.start) + '–' + formatEpgClockFromEpoch(bounds.end);
 
-  const secondVisibleChannelEventCount = visibleChannels.length > 1
-    ? epgIndexedEventsForChannel(visibleEventIndex, visibleChannels[1]).length
-    : 0;
+  const nowText = new Date(nowSeconds * 1000).toLocaleDateString('de-DE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit'
+  }) + ' ' + formatEpgClockFromEpoch(nowSeconds);
 
   header.appendChild(addText(
     document.createElement('p'),
     rangeText
-      + ' Zeitfenster: ' + (new Date(bounds.start * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + formatEpgClockFromEpoch(bounds.start) + '–' + formatEpgClockFromEpoch(bounds.end))
-      + ' · Jetzt: ' + (new Date(nowSeconds * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + formatEpgClockFromEpoch(nowSeconds))
+      + ' Zeitfenster: ' + windowText
+      + ' · Jetzt: ' + nowText
       + ' · Quelle: ' + String(eventData.__source || 'cache')
-      + ' · URL: ' + String(eventData.__debugUrl || '-')
-      + ' · Events geladen: ' + String(events.length)
-      + ' · Kanal 1: ' + String(firstVisibleChannelEventCount) + ' Events'
-      + ' · Kanal 2: ' + String(secondVisibleChannelEventCount) + ' Events.'
+      + ' · Events geladen: ' + String(events.length) + '.'
   ));
 
   const cacheStatus = addText(document.createElement('p'), epgWarmCacheStatus);
