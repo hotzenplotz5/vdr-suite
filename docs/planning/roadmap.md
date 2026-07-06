@@ -23,10 +23,10 @@ Completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
 
 Latest completed implementation slice
-Phase 59.04d - Recording Leaf Promotion
+Phase 59.06b - Recording Details and EPG Vertical Drag UX
 
 Next planned implementation slice
-Phase 59.04 - Recording and EPG Frontend Performance Hardening
+Phase 59.07a - Live, RESTfulAPI and EPGSearch Parity Inventory Refresh
 
 Current implementation focus
 Phase 58 - Frontend and Live Parity
@@ -76,9 +76,9 @@ Completed foundation ranges:
 
 ## Recently Completed Implementation Slice
 
-### Phase 59.04d - Recording Leaf Promotion
+### Phase 59.06b - Recording Details and EPG Vertical Drag UX
 
-Status: Completed Recording frontend performance slice.
+Status: Completed frontend hardening and UX slice.
 
 Completed outcomes:
 
@@ -89,7 +89,11 @@ Completed outcomes:
 - folder recordings use explicit 20-item paging
 - previous and next page controls are visible inside folders
 - single-recording leaf folders are displayed as recordings instead of fake folders
-- frontend ownership contracts guard the Recording rendering model
+- recording entries open an in-module detail view
+- visible-channel EPG rendering reuses one event index
+- EPG time-window, program-view and channel-window controls use deterministic helper paths
+- vertical EPG channel scrolling exposes drag affordance and a visible drag hint
+- frontend ownership contracts guard the current frontend module model
 - `web/frontend/api/client-api.js` remains the DOM-free frontend API boundary
 - `web/frontend/app.js` remains the current frontend module owner
 
@@ -97,25 +101,22 @@ Completed outcomes:
 
 ## Next Planned Implementation Slice
 
-### Phase 59.04 - Recording and EPG Frontend Performance Hardening
+### Phase 59.07a - Live, RESTfulAPI and EPGSearch Parity Inventory Refresh
 
 Status: Planned.
 
 Goal:
 
-- Make the current web frontend stable with real-world data volumes before adding larger feature surfaces.
+- Reconcile source code, RESTfulAPI capability knowledge and existing documentation before adding more Live-parity features.
 
 Planned scope:
 
-- reduce Recording module DOM pressure for large catalogs
-- add bounded or lazy rendering for 1000+ recordings
-- preserve `/api/vdr/recordings/query` as the Recording module data source
-- keep Recording loading backend-scoped
-- reduce EPG timeline DOM pressure for visible-channel batches
-- preserve SQLite-backed EPG cache window loading
-- avoid new direct `fetch()` calls in core frontend modules
-- keep `web/frontend/api/client-api.js` DOM-free
-- keep frontend ownership contracts green
+- compare Live, epgsearch and RESTfulAPI capability surfaces against VDR-Suite source
+- mark implemented backend-neutral VDR-Suite capabilities as done
+- downgrade stale `MISSING` or `CHECK` documentation entries where code now exists
+- keep UI gaps separate from backend/domain gaps
+- identify remaining real VDR evidence gaps
+- define the next implementation target from the refreshed parity matrix
 
 ---
 

@@ -108,6 +108,8 @@ connection retry logic
 
 ## Implemented RESTfulAPI Mappings
 
+Phase 59.07a refresh note: the original Phase 8 mapping list below is no longer the complete RESTfulAPI integration surface. Later phases added SearchTimer discovery, timer conflict and frontend client API paths while keeping RESTfulAPI below backend-neutral boundaries.
+
 Implemented as of Phase 8.18:
 
 ```text
@@ -197,7 +199,7 @@ RestfulApiEventMapper
 VdrEvent
 ```
 
-EPGSearch integration remains out of scope.
+The original Phase 8 event mapper did not include EPGSearch. Later phases added backend-neutral EPGSearch query, matcher, serializer and REST routing; exact native epgsearch query parity remains a separate audit area.
 
 ---
 
@@ -243,9 +245,23 @@ RestfulApiTimerMapper
 VdrTimer
 ```
 
-Search timers remain out of scope.
+The original Phase 8 timer mapper did not include SearchTimers. Later phases added backend-neutral SearchTimer domain, workflow, discovery and timer-conflict read paths. Core timer mutation remains governed by policy and safety gates.
 
-Timer creation, modification and deletion remain future work.
+---
+
+### SearchTimer Discovery and Timer Conflicts
+
+Later phases added RESTfulAPI-backed read paths for epgsearch helper catalogs and timer conflicts.
+
+Current later-phase integration:
+
+- `/searchtimers/channelgroups.json` maps to SearchTimerDiscoveryCatalog channel groups.
+- `/searchtimers/recordingdirs.json` maps to SearchTimerDiscoveryCatalog recording directories.
+- `/searchtimers/blacklists.json` maps to SearchTimerDiscoveryCatalog blacklists.
+- `/searchtimers/extepginfo.json` maps to SearchTimerDiscoveryCatalog extended EPG info.
+- `/searchtimers/conflicts.json` maps to VdrTimerConflictReport.
+
+These endpoints are adapter/provider concerns and must remain below backend-neutral service and controller boundaries.
 
 ---
 
@@ -398,7 +414,7 @@ Current mapper style:
 
 ## Out of Scope
 
-Still out of scope after Phase 8.18:
+Historical Phase 8.18 out-of-scope list:
 
 ```text
 real network communication

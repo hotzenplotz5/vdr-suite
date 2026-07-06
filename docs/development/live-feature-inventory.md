@@ -56,11 +56,11 @@ Relevant EPGSearch service areas:
 | SearchTimer delete | DelSearchTimer | present | real VDR covered |
 | SearchTimer query preview | QuerySearchTimer | partially present | needs exact compatibility check |
 | Ad-hoc query search | QuerySearch | partially present | needs dedicated capability |
-| Extended EPG categories | ExtEPGInfoList | missing or not first-class | high-value gap |
-| Channel groups | ChanGrpList | missing or not first-class | medium-value gap |
-| Blacklists | BlackList | write fields exist; list capability unclear | gap |
-| Directories | DirectoryList / ShortDirectoryList | partially present via recordings/actions | needs dedicated capability |
-| Timer conflicts | TimerConflictList | missing | high-value gap |
+| Extended EPG categories | ExtEPGInfoList | partially present through discovery | filtering, UI usage and real-data completeness gap |
+| Channel groups | ChanGrpList | partially present through discovery | matcher semantics and UI usage gap |
+| Blacklists | BlackList | discovery and write fields present | matching semantics and UI usage gap |
+| Directories | DirectoryList / ShortDirectoryList | discovery partially present | exact DirectoryList/ShortDirectoryList parity and UI usage gap |
+| Timer conflicts | TimerConflictList | backend/domain/adapter path present | Live-style UI and IsConflictCheckAdvised gap |
 | Conflict-check advice | IsConflictCheckAdvised | missing | high-value gap |
 | Expression evaluation | Evaluate(expr,event) | missing | advanced gap |
 

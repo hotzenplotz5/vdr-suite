@@ -75,16 +75,16 @@ RESTfulAPI epgsearch exposes rich SearchTimer fields and validation rules, inclu
 | Time filter | yes | start_time/stop_time | partial | medium |
 | Duration filter | yes | duration_min/max | present in SearchTimer | medium |
 | Day-of-week filter | yes | dayofweek | present in SearchTimer | medium |
-| Extended EPG categories | ExtEPGInfoList | ext_epg_info | not first-class | high |
+| Extended EPG categories | ExtEPGInfoList | ext_epg_info | partial: discovery present, matcher/UI semantics incomplete | high |
 | Content descriptors | yes | content_descriptors | present in SearchTimer write/read | medium |
 | Favorites | use_in_favorites | yes | present in SearchTimer | medium |
-| Blacklists | BlackList | blacklist_mode / blacklist_ids | fields present, list capability missing | high |
-| Channel groups | ChanGrpList | channels when use_channel group | not first-class | high |
-| Directories | DirectoryList / ShortDirectoryList | directory fields | partial | medium |
+| Blacklists | BlackList | blacklist_mode / blacklist_ids | partial: fields and discovery present, matcher/UI semantics incomplete | high |
+| Channel groups | ChanGrpList | channels when use_channel group | partial: discovery present, matcher/UI semantics incomplete | high |
+| Directories | DirectoryList / ShortDirectoryList | directory fields | partial: discovery present, exact list parity still open | medium |
 | SearchTimer CRUD | SearchTimerList/Add/Mod/Del | yes | implemented and real-VDR tested | done |
 | SearchTimer query preview | QuerySearchTimer | likely not first-class | partial | high |
 | Ad-hoc query search | QuerySearch | likely not first-class | partial | high |
-| Timer conflicts | TimerConflictList | unclear | missing | high |
+| Timer conflicts | TimerConflictList | /searchtimers/conflicts.json | partial: backend report present, advice/UI semantics open | high |
 | Conflict-check advice | IsConflictCheckAdvised | unclear | missing | high |
 | Expression evaluation | Evaluate(expr,event) | unclear | missing | low/advanced |
 
@@ -160,6 +160,27 @@ Audit EPGSearch conflict service and determine whether RESTfulAPI can expose it 
 The next implementation should not start with conflicts or TVScraper.
 
 The safest and highest-value continuation is a backend-neutral EPGSearch query model followed by a real VDR ad-hoc EPGSearch query smoke.
+
+## Phase 59.07a Refresh Baseline
+
+Phase 59.07a reconciles this matrix with later source work.
+
+Items that should no longer be treated as completely missing:
+
+- SearchTimer discovery catalogs have a backend-neutral model, service, JSON contract and RESTfulAPI provider.
+- Timer conflicts have a backend-neutral report type, RESTfulAPI mapper and adapter method.
+- The web client API exposes timer conflict and SearchTimer loading paths.
+- EPGSearch text search now includes deterministic phrase, exact, all-words, any-word, regex and fuzzy fallback paths.
+- Native epgsearch fuzzy support has probe, persistence, restore and operator refresh foundations.
+
+Remaining open areas:
+
+- exact QuerySearchTimer parity against epgsearch
+- exact QuerySearch parity against epgsearch
+- IsConflictCheckAdvised
+- Evaluate(expr,event)
+- extended EPG, blacklist, channel-group, time-window, weekday and favorites semantics in match execution
+- Live-style UI usage for discovery catalogs and conflicts
 
 ## Back
 

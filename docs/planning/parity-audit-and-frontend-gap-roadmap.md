@@ -42,6 +42,8 @@ BETTER  VDR-Suite is stronger than the comparison target
 
 ## Current High-Level Assessment
 
+Phase 59.07a refresh note: this document is being reconciled with the newer VDR-Suite source state after the Phase 59 frontend hardening chain.
+
 VDR-Suite is no longer only a backend prototype.
 
 The project already has strong foundations for:
@@ -87,7 +89,7 @@ The main remaining work is now less about basic feasibility and more about proof
 | Channel groups | PARTIAL | Discovery likely exists, exact list parity should be proven. |
 | Extended EPG info | PARTIAL | Support likely exists, exact list parity should be proven. |
 | Recording directories | CHECK | Targeted audit required. |
-| Timer conflicts | CHECK | Targeted audit required. |
+| Timer conflicts | PARTIAL | Backend/domain/adapter and frontend client wrapper are present; exact Live/epgsearch advice semantics and UI parity still need audit. |
 | OSD | CHECK | Not confirmed as current VDR-Suite scope. |
 | Remote control | CHECK | Not confirmed as current VDR-Suite scope. |
 | Femon / signal values | CHECK | Not confirmed as current VDR-Suite scope. |
@@ -113,16 +115,16 @@ VDR-Suite is stronger architecturally, but not yet a Live replacement for end us
 | SearchTimer backend | OK | Strong backend work exists. |
 | SearchTimer preview | OK | Present. |
 | Live parity discovery | OK | Phase 51 exists for discovery. |
-| Web UI | MISSING | Major product gap. |
-| Recording web UI | MISSING | Needed for user parity. |
-| Timer web UI | MISSING | Needed for user parity. |
-| SearchTimer web UI | MISSING | Needed for user parity. |
+| Web UI | PARTIAL | Current web frontend exists, but Live-level workflow parity is incomplete. |
+| Recording web UI | PARTIAL | Browser, folder tree, paging and detail view exist; action workflow parity remains incomplete. |
+| Timer web UI | PARTIAL | Timer loading and conflict client paths exist; Live-style detail/action UI remains incomplete. |
+| SearchTimer web UI | PARTIAL | SearchTimer backend and frontend loading exist; Live-style edit/preview workflow remains incomplete. |
 | EPG day view / What's On | PARTIAL | API may support it, UI does not. |
 | Multischedule | CHECK | Needs audit. |
 | Remote page | CHECK | Needs scope decision. |
 | OSD page | CHECK | Needs scope decision. |
 | Setup page | CHECK | Needs scope decision. |
-| Timer conflicts page | CHECK | Needs backend and UI audit. |
+| Timer conflicts page | PARTIAL | Backend and client API paths exist; Live-style page and advice semantics still need audit. |
 | recstream / streaming | CHECK | Needs concept and scope decision. |
 | SSE / live transport | OK | Present, but not identical to Live streaming. |
 | Multi-backend | BETTER | VDR-Suite target is stronger. |
@@ -151,15 +153,15 @@ The remaining question is exact semantic compatibility with epgsearch behavior.
 | Native preview capability | OK | Present. |
 | Real VDR validation | OK | Present. |
 | Readback verification | OK | Present. |
-| SearchTimer discovery catalogs | PARTIAL | Catalog completeness needs audit. |
+| SearchTimer discovery catalogs | PARTIAL | Backend-neutral discovery and RESTfulAPI provider exist; real data completeness and UI usage still need audit. |
 | SearchTimerList | CHECK | Needs exact mapping proof. |
 | QuerySearchTimer | CHECK | Preview exists, exact semantics need proof. |
 | QuerySearch | CHECK | Needs proof against epgsearch behavior. |
 | ExtEPGInfoList | CHECK | Needs proof. |
 | ChanGrpList | CHECK | Needs proof. |
 | BlackList | CHECK | Needs proof. |
-| DirectoryList / ShortDirectoryList | CHECK | Important target gap. |
-| TimerConflictList | CHECK | Important target gap. |
+| DirectoryList / ShortDirectoryList | PARTIAL | Recording-directory discovery exists; exact epgsearch parity and UI usage still need audit. |
+| TimerConflictList | PARTIAL | Timer conflict report exists through RESTfulAPI; exact epgsearch fields and Live-style UI still need audit. |
 | IsConflictCheckAdvised | CHECK | Important target gap. |
 | Evaluate expression against event | CHECK | Not confirmed. |
 | Automatic timer creation from automation | PARTIAL | Dry-run and proposal flows exist; execute path must be proven. |
