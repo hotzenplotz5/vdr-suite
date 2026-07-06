@@ -629,6 +629,36 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.08j Implementation Status
+
+Phase 59.08j guards the Web Client API against fake wrappers for backend route gaps.
+
+Guarded backend route gaps:
+
+- permission report routes
+- dedicated event detail routes
+- dedicated event media/artwork routes
+- recording marks routes
+- recording resume routes
+- recording cut routes
+- recording playback routes
+
+Implemented behavior:
+
+- the frontend ownership guard rejects fake Client API wrappers for the route gaps above
+- the guard is intentionally negative until backend contracts exist
+- future backend work must add real routes first, then update the guard and only then add wrappers
+- the wrapper remains DOM-free
+- no UI expansion is added
+
+Next open Web Client API areas:
+
+- event detail and media/artwork routes once backend exposes dedicated contracts
+- recording marks, resume, cut and playback helpers once backend exposes dedicated contracts
+- permission report route once backend exposes one
+
+---
+
 ## Phase 59.08i Implementation Status
 
 Phase 59.08i moves VDR runtime state HTTP access behind the Web Client API wrapper.

@@ -897,6 +897,32 @@ def check_client_api_contract():
                 function_name + "() must own read route access for " + route
             )
 
+    missing_backend_route_gap_tokens = [
+        "fetchClientPermissionReport",
+        "fetchClientEventDetail",
+        "fetchClientEventArtwork",
+        "fetchClientEventMedia",
+        "fetchClientRecordingMarks",
+        "fetchClientRecordingResume",
+        "fetchClientRecordingCut",
+        "fetchClientRecordingPlayback",
+        "/api/vdr/permissions",
+        "/api/permissions",
+        "/api/vdr/events/detail",
+        "/api/vdr/events/artwork",
+        "/api/vdr/events/media",
+        "/api/vdr/recordings/marks",
+        "/api/vdr/recordings/resume",
+        "/api/vdr/recordings/cut",
+        "/api/vdr/recordings/playback",
+    ]
+
+    for token in missing_backend_route_gap_tokens:
+        require(
+            token not in client_api,
+            "client-api.js must not fake missing backend route gap token: " + token
+        )
+
     forbidden_tokens = [
         "document.",
         "document[",
