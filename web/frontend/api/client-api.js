@@ -107,6 +107,24 @@
     };
   }
 
+  function jsonPostOptions(options) {
+    const normalized = normalizeOptions(options);
+    const bodySource = normalized.body !== undefined
+      ? normalized.body
+      : normalized.payload;
+
+    return Object.assign({}, normalized, {
+      method: normalized.method || 'POST',
+      headers: Object.assign(
+        { 'Content-Type': 'application/json' },
+        normalized.headers || {}
+      ),
+      body: bodySource && typeof bodySource === 'object'
+        ? JSON.stringify(bodySource)
+        : bodySource
+    });
+  }
+
   function errorMessage(path, status, payload) {
     if (payload && typeof payload === 'object') {
       if (payload.error) {
@@ -197,6 +215,22 @@
     return requestJson('/api/vdr/recordings/query', options);
   }
 
+  function fetchClientRecordingActionValidation(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/recordings/actions/validate',
+      '/api/recordings/actions/validate',
+      jsonPostOptions(options)
+    );
+  }
+
+  function fetchClientRecordingActionExecution(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/recordings/actions/execute',
+      '/api/recordings/actions/execute',
+      jsonPostOptions(options)
+    );
+  }
+
   function fetchClientSearchTimers(options) {
     return requestJson('/api/vdr/searchtimers/live', options);
   }
@@ -227,6 +261,8 @@
     fetchClientEpgCacheStatus: fetchClientEpgCacheStatus,
     fetchClientEpgCacheWindow: fetchClientEpgCacheWindow,
     fetchClientRecordings: fetchClientRecordings,
+    fetchClientRecordingActionValidation: fetchClientRecordingActionValidation,
+    fetchClientRecordingActionExecution: fetchClientRecordingActionExecution,
     fetchClientSearchTimers: fetchClientSearchTimers,
     fetchClientSearchTimerDiscovery: fetchClientSearchTimerDiscovery,
     fetchClientSearchTimerPreview: fetchClientSearchTimerPreview

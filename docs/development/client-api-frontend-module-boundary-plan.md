@@ -545,6 +545,8 @@ Current wrapper functions:
 - `fetchClientEpgCacheStatus`
 - `fetchClientEpgCacheWindow`
 - `fetchClientRecordings`
+- `fetchClientRecordingActionValidation`
+- `fetchClientRecordingActionExecution`
 - `fetchClientSearchTimers`
 - `fetchClientSearchTimerDiscovery`
 - `fetchClientSearchTimerPreview`
@@ -565,7 +567,6 @@ New parity rule:
 
 High-value missing wrapper areas:
 
-- recording action validation and execution
 - timer create/update/delete workflows
 - SearchTimer create/update/delete workflows
 - client capability and permission report
@@ -602,7 +603,30 @@ The covered catalog payload includes:
 
 Next open Web Client API areas:
 
-- recording action validation and execution
+- capability and permission report
+- timer mutation workflows
+- SearchTimer mutation workflows
+
+---
+
+## Phase 59.08c Implementation Status
+
+Phase 59.08c moves Recording action validation and execution HTTP access behind the Web Client API wrapper.
+
+Implemented behavior:
+
+- `fetchClientRecordingActionValidation()` is exposed by `web/frontend/api/client-api.js`
+- `fetchClientRecordingActionValidation()` uses `/api/vdr/recordings/actions/validate`
+- `fetchClientRecordingActionValidation()` keeps `/api/recordings/actions/validate` as a compatibility fallback
+- `fetchClientRecordingActionExecution()` is exposed by `web/frontend/api/client-api.js`
+- `fetchClientRecordingActionExecution()` uses `/api/vdr/recordings/actions/execute`
+- `fetchClientRecordingActionExecution()` keeps `/api/recordings/actions/execute` as a compatibility fallback
+- JSON request bodies are normalized through `jsonPostOptions()`
+- the wrapper remains DOM-free
+- no Recording action UI is added yet
+
+Next open Web Client API areas:
+
 - capability and permission report
 - timer mutation workflows
 - SearchTimer mutation workflows

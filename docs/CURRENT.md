@@ -30,7 +30,7 @@ Phase 56 - Library Boundary, Packaging and Developer Documentation
 Latest completed implementation slice:
 
 ```text
-Phase 59.08b - Web Client API EPGSearch and SearchTimer Preview Wrapper
+Phase 59.08c - Web Client API Recording Action Wrappers
 ```
 
 ---

@@ -208,7 +208,7 @@ It is an incremental seam, not the final stable multi-client `/api/client` layer
 | Timer conflicts | epgsearch TimerConflictList | Present through RESTfulAPI adapter | Wrapped through fetchClientTimerConflicts | Partial | Build Live-style conflict view and audit IsConflictCheckAdvised. |
 | Channel list | VDR channels | Present | Wrapped through fetchClientChannels | Partial | Keep channel UI behind wrapper and preserve sorter rules. |
 | EPG window | VDR events and EPG cache | Present | Wrapped through fetchClientEpgWindow and fetchClientEpgCacheWindow | Partial | Keep visible-window loading and add Live-style search/detail gaps. |
-| Recordings | VDR recordings and query endpoint | Present | Wrapped through fetchClientRecordings | Partial | Add action workflow and detail parity behind wrapper. |
+| Recordings | VDR recordings, query endpoint and guarded action endpoints | Present | Wrapped through fetchClientRecordings, fetchClientRecordingActionValidation and fetchClientRecordingActionExecution | Partial | Add action UI only after explicit safety and permission checks. |
 | SearchTimer list | epgsearch SearchTimerList | Present | Wrapped through fetchClientSearchTimers | Partial | Add Live-style SearchTimer UI, preview and edit workflow. |
 | Discovery catalogs | ExtEPGInfoList, ChanGrpList, BlackList, DirectoryList | Backend-neutral discovery present | Wrapped through fetchClientSearchTimerDiscovery | Missing in UI | Use catalogs in SearchTimer UI after wrapper tests. |
 | Native EPGSearch query | QuerySearchTimer and QuerySearch | Partial | Wrapped through fetchClientEpgSearch and fetchClientSearchTimerPreview | Missing or indirect | Add real parity tests before UI expansion. |

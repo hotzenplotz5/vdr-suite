@@ -432,10 +432,24 @@ def check_recording_loading_client_api_contract(client_api: str) -> None:
     )
 
     start = client_api.find("function fetchClientRecordings(options)")
-    end = client_api.find("function fetchClientSearchTimers(options)", start)
+    recording_action_boundary = client_api.find(
+        "function fetchClientRecordingActionValidation(options)",
+        start
+    )
+    search_timer_boundary = client_api.find(
+        "function fetchClientSearchTimers(options)",
+        start
+    )
+
+    end = (
+        recording_action_boundary
+        if recording_action_boundary > start
+        else search_timer_boundary
+    )
+
     require(
         end > start,
-        "client-api.js fetchClientRecordings() boundary must end before fetchClientSearchTimers()"
+        "client-api.js fetchClientRecordings() boundary must end before the next client API function"
     )
 
     body = client_api[start:end]
@@ -620,6 +634,8 @@ def check_client_api_contract():
         "fetchClientEpgCacheStatus",
         "fetchClientEpgCacheWindow",
         "fetchClientRecordings",
+        "fetchClientRecordingActionValidation",
+        "fetchClientRecordingActionExecution",
         "fetchClientSearchTimers",
         "fetchClientSearchTimerDiscovery",
         "fetchClientSearchTimerPreview",
@@ -633,6 +649,32 @@ def check_client_api_contract():
 
 
     check_recording_loading_client_api_contract(client_api)
+    require(
+        "function jsonPostOptions(options)" in client_api,
+        "client-api.js must provide jsonPostOptions(options)"
+    )
+    require(
+        "Content-Type" in client_api and "application/json" in client_api,
+        "jsonPostOptions() must preserve JSON content type"
+    )
+    require(
+        "function fetchClientRecordingActionValidation(options)" in client_api,
+        "client-api.js must define fetchClientRecordingActionValidation(options)"
+    )
+    require(
+        "/api/vdr/recordings/actions/validate" in client_api
+        and "/api/recordings/actions/validate" in client_api,
+        "fetchClientRecordingActionValidation() must own recording action validation route access"
+    )
+    require(
+        "function fetchClientRecordingActionExecution(options)" in client_api,
+        "client-api.js must define fetchClientRecordingActionExecution(options)"
+    )
+    require(
+        "/api/vdr/recordings/actions/execute" in client_api
+        and "/api/recordings/actions/execute" in client_api,
+        "fetchClientRecordingActionExecution() must own recording action execution route access"
+    )
     require(
         "function fetchClientSearchTimerDiscovery(options)" in client_api,
         "client-api.js must define fetchClientSearchTimerDiscovery(options)"
