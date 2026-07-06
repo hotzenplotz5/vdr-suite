@@ -1205,8 +1205,7 @@ function epgChannelTitle(channel, index) {
   ));
 }
 
-function epgEventsForChannel(channel, events, nowSeconds) {
-  (void nowSeconds);
+function epgEventsForChannel(channel, events) {
   const channelId = frontendChannelId(channel);
   if (channelId === '') {
     return [];
@@ -2114,11 +2113,6 @@ function appendEpgNowLine(track, bounds, nowSeconds, withLabel) {
   }
 
   track.appendChild(line);
-}
-
-function epgEventsOverlappingBounds(channel, events, bounds) {
-  return epgEventsForChannel(channel, events, bounds.start)
-    .filter(entry => entry.end > bounds.start && entry.start < bounds.end);
 }
 
 function appendEpgVerticalTimelineTicks(track, bounds, withLabels) {
