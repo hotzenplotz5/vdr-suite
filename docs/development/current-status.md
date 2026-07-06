@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.08c - Web Client API Recording Action Wrappers
+Phase 59.08d - Route SearchTimer List Loading through Web Client API
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.08c adds DOM-free Web Client API wrappers for Recording action validation and execution after the EPGSearch and SearchTimer preview wrapper slice.
+Phase 59.08d routes the SearchTimer list loader in app.js through the DOM-free Web Client API wrapper and removes direct SearchTimer fetch calls from that module.
 
 Stable scope:
 
@@ -85,6 +85,7 @@ Stable scope:
 - Phase 59.08a routes SearchTimer discovery catalog loading through the Web Client API wrapper.
 - Phase 59.08b routes EPGSearch query and SearchTimer preview loading through the Web Client API wrapper.
 - Phase 59.08c routes Recording action validation and execution through the Web Client API wrapper.
+- Phase 59.08d routes SearchTimer list loading in app.js through `fetchClientSearchTimers()`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -180,6 +181,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.08a verifies `fetchClientSearchTimerDiscovery()` owns the SearchTimer discovery route access.
 - Phase 59.08b verifies `fetchClientEpgSearch()` and `fetchClientSearchTimerPreview()` own their route access.
 - Phase 59.08c verifies `fetchClientRecordingActionValidation()` and `fetchClientRecordingActionExecution()` own their route access.
+- Phase 59.08d verifies `loadSearchTimers()` no longer directly fetches SearchTimer routes.
 
 ### Guarded or deliberately incomplete areas
 

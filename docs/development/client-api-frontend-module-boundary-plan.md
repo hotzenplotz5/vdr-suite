@@ -609,6 +609,28 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.08d Implementation Status
+
+Phase 59.08d routes SearchTimer list loading through the Web Client API wrapper.
+
+Implemented behavior:
+
+- `fetchClientSearchTimers()` now tries `/api/vdr/searchtimers/live`
+- `fetchClientSearchTimers()` falls back to `/api/vdr/searchtimers`
+- `fetchClientSearchTimers()` falls back to `/api/searchtimers`
+- `loadSearchTimers()` uses `window.VdrSuiteClientApi.fetchClientSearchTimers()`
+- `loadSearchTimers()` no longer calls `fetch()` directly
+- the wrapper remains DOM-free
+- no SearchTimer UI expansion is added yet
+
+Next open Web Client API areas:
+
+- capability and permission report
+- timer mutation workflows
+- SearchTimer mutation workflows
+
+---
+
 ## Phase 59.08c Implementation Status
 
 Phase 59.08c moves Recording action validation and execution HTTP access behind the Web Client API wrapper.

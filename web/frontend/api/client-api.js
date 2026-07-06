@@ -179,6 +179,26 @@
     });
   }
 
+  function requestJsonWithFallbacks(paths, options) {
+    const candidates = Array.isArray(paths) ? paths.slice() : [];
+
+    function tryNext(index) {
+      if (index >= candidates.length) {
+        return Promise.reject(new Error('No fallback path available'));
+      }
+
+      return requestJson(candidates[index], options).catch(function (error) {
+        if (index >= candidates.length - 1) {
+          throw error;
+        }
+
+        return tryNext(index + 1);
+      });
+    }
+
+    return tryNext(0);
+  }
+
   function fetchClientTimers(options) {
     return requestJsonWithFallback(
       '/api/vdr/timers/live',
@@ -232,7 +252,14 @@
   }
 
   function fetchClientSearchTimers(options) {
-    return requestJson('/api/vdr/searchtimers/live', options);
+    return requestJsonWithFallbacks(
+      [
+        '/api/vdr/searchtimers/live',
+        '/api/vdr/searchtimers',
+        '/api/searchtimers'
+      ],
+      options
+    );
   }
 
   function fetchClientSearchTimerDiscovery(options) {

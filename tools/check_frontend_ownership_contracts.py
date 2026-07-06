@@ -135,6 +135,42 @@ def check_timer_loading_client_api_contract(app_js: str) -> None:
 
 
 
+def check_searchtimer_loading_client_api_contract(app_js: str) -> None:
+    start = app_js.find("function loadSearchTimers() {")
+    require(start >= 0, "app.js must define loadSearchTimers()")
+
+    end = app_js.find("function loadRecordings() {", start)
+    require(
+        end > start,
+        "app.js loadSearchTimers() boundary must end before loadRecordings()"
+    )
+
+    body = app_js[start:end]
+
+    require(
+        "window.VdrSuiteClientApi" in body,
+        "loadSearchTimers() must use window.VdrSuiteClientApi"
+    )
+
+    require(
+        "fetchClientSearchTimers" in body,
+        "loadSearchTimers() must use fetchClientSearchTimers()"
+    )
+
+    forbidden_tokens = [
+        "fetch('/api/vdr/searchtimers'",
+        'fetch("/api/vdr/searchtimers"',
+        "fetch('/api/searchtimers'",
+        'fetch("/api/searchtimers"',
+    ]
+
+    for token in forbidden_tokens:
+        require(
+            token not in body,
+            "loadSearchTimers() must not directly fetch SearchTimer route " + token
+        )
+
+
 def check_timer_conflict_loading_client_api_contract(app_js: str) -> None:
     start = app_js.find("function loadTimerConflictPanel(timers) {")
     require(start >= 0, "app.js must define loadTimerConflictPanel(timers)")
@@ -676,6 +712,17 @@ def check_client_api_contract():
         "fetchClientRecordingActionExecution() must own recording action execution route access"
     )
     require(
+        "function requestJsonWithFallbacks(paths, options)" in client_api,
+        "client-api.js must provide requestJsonWithFallbacks(paths, options)"
+    )
+    require(
+        "function fetchClientSearchTimers(options)" in client_api
+        and "/api/vdr/searchtimers/live" in client_api
+        and "/api/vdr/searchtimers" in client_api
+        and "/api/searchtimers" in client_api,
+        "fetchClientSearchTimers() must own live and snapshot SearchTimer route access"
+    )
+    require(
         "function fetchClientSearchTimerDiscovery(options)" in client_api,
         "client-api.js must define fetchClientSearchTimerDiscovery(options)"
     )
@@ -759,6 +806,7 @@ def main() -> int:
         check_epg_cache_status_client_api_contract(app_js)
         check_epg_cache_window_client_api_contract(app_js)
         check_timer_loading_client_api_contract(app_js)
+        check_searchtimer_loading_client_api_contract(app_js)
         check_recording_module_loading_client_api_contract(app_js)
         check_recording_bounded_rendering_contract(app_js)
         check_timer_conflict_loading_client_api_contract(app_js)

@@ -3588,20 +3588,18 @@ function loadTimers() {
 function loadSearchTimers() {
   renderModuleLoading('SearchTimer', 'Lade SearchTimer...');
 
-  fetch('/api/vdr/searchtimers')
-    .then(response => {
-      if (response.ok) {
-        return response.json();
-      }
+  const clientApi = window.VdrSuiteClientApi;
 
-      return fetch('/api/searchtimers')
-        .then(fallbackResponse => {
-          if (!fallbackResponse.ok) {
-            throw new Error('HTTP ' + fallbackResponse.status);
-          }
-          return fallbackResponse.json();
-        });
-    })
+  if (!clientApi || typeof clientApi.fetchClientSearchTimers !== 'function') {
+    currentSearchTimers = null;
+    renderModuleError(
+      'SearchTimer konnten nicht geladen werden',
+      new Error('Client API wrapper is not available')
+    );
+    return;
+  }
+
+  clientApi.fetchClientSearchTimers()
     .then(data => {
       currentSearchTimers = data;
       renderSearchTimerList(data);
