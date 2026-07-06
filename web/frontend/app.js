@@ -978,10 +978,55 @@ function renderRecordingList(data) {
     return pager;
   }
 
-  function createRecordingListItem(entry) {
+  function renderRecordingDetail(entry, node, visibleFolderCount, recordingPageIndex) {
+    const recording = entry.recording;
+    detailDataElement.replaceChildren();
+
+    const list = document.createElement('section');
+    list.className = 'list recording-detail-list';
+
+    const item = document.createElement('article');
+    item.className = 'module-placeholder recording-detail';
+
+    const recordingId = firstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
+    const path = firstValue(recording, ['path', 'fileName', 'directory'], '-');
+    const startTime = formatRecordingStart(firstValue(recording, ['startTime', 'start', 'date'], '-'));
+    const duration = formatDurationSeconds(firstValue(recording, ['durationSeconds', 'duration'], 0));
+    const size = formatSizeMb(firstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
+    const channel = firstValue(recording, ['channelName', 'channel', 'channelId'], '-');
+    const description = firstValue(recording, ['description', 'summary', 'shortText'], '');
+
+    item.appendChild(addText(document.createElement('h3'), entry.title));
+    item.appendChild(addText(document.createElement('p'), 'Start: ' + startTime));
+    item.appendChild(addText(document.createElement('p'), 'Dauer: ' + duration));
+    item.appendChild(addText(document.createElement('p'), 'Größe: ' + size));
+    item.appendChild(addText(document.createElement('p'), 'Sender: ' + String(channel)));
+    item.appendChild(addText(document.createElement('p'), 'Pfad: ' + String(path)));
+    item.appendChild(addText(document.createElement('p'), 'ID: ' + String(recordingId)));
+
+    if (String(description).trim()) {
+      item.appendChild(addText(document.createElement('p'), String(description)));
+    }
+
+    const backButton = document.createElement('button');
+    backButton.type = 'button';
+    backButton.textContent = 'Zurück zur Liste';
+    backButton.addEventListener('click', () => {
+      renderFolderNode(node, visibleFolderCount, recordingPageIndex);
+    });
+    item.appendChild(backButton);
+
+    list.appendChild(item);
+    detailDataElement.appendChild(list);
+  }
+
+  function createRecordingListItem(entry, openDetail) {
     const recording = entry.recording;
     const item = document.createElement('article');
     item.className = 'list-item recording-list-item';
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+    item.setAttribute('aria-label', 'Aufnahme ' + entry.title + ' öffnen');
 
     const recordingId = firstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
     const path = firstValue(recording, ['path', 'fileName', 'directory'], '-');
@@ -992,10 +1037,18 @@ function renderRecordingList(data) {
     item.appendChild(addText(document.createElement('div'), entry.title)).className = 'list-title';
     item.appendChild(addText(
       document.createElement('div'),
-      'Start: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size
+      'Start: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size + ' · antippen für Details'
     )).className = 'list-meta';
     item.appendChild(addText(document.createElement('div'), 'Pfad: ' + String(path))).className = 'list-meta';
     item.appendChild(addText(document.createElement('div'), 'ID: ' + String(recordingId))).className = 'list-meta';
+
+    item.addEventListener('click', openDetail);
+    item.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openDetail();
+      }
+    });
 
     return item;
   }
@@ -1101,7 +1154,9 @@ function renderRecordingList(data) {
     }
 
     visibleRecordings.forEach(entry => {
-      list.appendChild(createRecordingListItem(entry));
+      list.appendChild(createRecordingListItem(entry, () => {
+        renderRecordingDetail(entry, node, visibleFolderCount, recordingPageIndex);
+      }));
     });
 
     if (recordingEntries.length > RECORDING_ITEM_PAGE_SIZE) {
