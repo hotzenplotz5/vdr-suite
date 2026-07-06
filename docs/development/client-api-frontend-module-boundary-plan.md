@@ -442,3 +442,22 @@ Implemented behavior:
 
 No Timer UI module has been extracted yet.
 
+---
+
+## Phase 59.01 Implementation Status
+
+Phase 59.01 moves Channel list HTTP access behind the web
+Client API wrapper.
+
+Implemented behavior:
+
+- loadChannels() still lives in web/frontend/app.js
+- Channel rendering still lives in web/frontend/app.js
+- fetchClientChannels() owns the Channel list HTTP access
+- backend selection stays based on selectedEpgBackendId()
+- cache-busting stays based on the _ query parameter
+- no-store and same-origin request options are preserved
+- loadChannels() no longer fetches the Channel route directly
+
+No Channel UI module has been extracted yet.
+

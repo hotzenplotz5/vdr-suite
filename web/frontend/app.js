@@ -3222,21 +3222,30 @@ function loadChannels() {
   renderModuleLoading('Kanäle', 'Lade Kanalliste...');
 
   const backendId = selectedEpgBackendId();
+  const channelQuery = {
+    backend: backendId,
+    _: String(Date.now())
+  };
   const url = '/api/vdr/channels'
     + '?backend=' + encodeURIComponent(backendId)
-    + '&_=' + encodeURIComponent(String(Date.now()));
+    + '&_=' + encodeURIComponent(channelQuery._);
+  const clientApi = window.VdrSuiteClientApi;
 
-  fetch(url, {
+  if (!clientApi || typeof clientApi.fetchClientChannels !== 'function') {
+    currentChannels = null;
+    currentEvents = null;
+    renderModuleError(
+      'Kanalliste konnte nicht geladen werden',
+      new Error('Client API wrapper is not available')
+    );
+    return;
+  }
+
+  clientApi.fetchClientChannels({
+    query: channelQuery,
     cache: 'no-store',
     credentials: 'same-origin'
   })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Kanalliste HTTP ' + response.status);
-      }
-
-      return response.json();
-    })
     .then(channelData => {
       currentChannels = channelData;
       currentEvents = null;

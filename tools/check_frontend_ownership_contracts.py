@@ -168,6 +168,48 @@ def check_timer_conflict_loading_client_api_contract(app_js: str) -> None:
         )
 
 
+
+def check_channel_loading_client_api_contract(app_js: str) -> None:
+    start = app_js.find("function loadChannels() {")
+    require(start >= 0, "app.js must define loadChannels()")
+
+    end = app_js.find("function loadTimers() {", start)
+    require(end > start, "app.js loadChannels() boundary must end before loadTimers()")
+
+    body = app_js[start:end]
+
+    require(
+        "window.VdrSuiteClientApi" in body,
+        "loadChannels() must use window.VdrSuiteClientApi"
+    )
+
+    require(
+        "fetchClientChannels" in body,
+        "loadChannels() must use fetchClientChannels()"
+    )
+
+    require(
+        "selectedEpgBackendId()" in body,
+        "loadChannels() must preserve selectedEpgBackendId()"
+    )
+
+    require(
+        "backend:" in body and "_:" in body,
+        "loadChannels() must preserve backend and cache-busting query parameters"
+    )
+
+    require(
+        ("cache: " + chr(39) + "no-store" + chr(39)) in body
+        and ("credentials: " + chr(39) + "same-origin" + chr(39)) in body,
+        "loadChannels() must preserve no-store and same-origin request options"
+    )
+
+    require(
+        "fetch(" not in body,
+        "loadChannels() must not directly fetch runtime data"
+    )
+
+
 def check_channel_logos_contract(channel_logos_js: str) -> None:
     forbidden_patterns = [
         (r"createElement\s*\(\s*['\"]script['\"]\s*\)", "must not create script elements"),
@@ -302,6 +344,7 @@ def main() -> int:
 
         check_index_contract(index_html)
         check_app_contract(app_js)
+        check_channel_loading_client_api_contract(app_js)
         check_timer_loading_client_api_contract(app_js)
         check_timer_conflict_loading_client_api_contract(app_js)
         check_client_api_contract()

@@ -87,7 +87,9 @@
     return {
       method: normalized.method || 'GET',
       headers: Object.assign({}, DEFAULT_HEADERS, normalized.headers || {}),
-      body: normalized.body
+      body: normalized.body,
+      cache: normalized.cache,
+      credentials: normalized.credentials
     };
   }
 
@@ -158,7 +160,7 @@
   }
 
   function fetchClientChannels(options) {
-    return requestJson('/api/vdr/channels/live', options);
+    return requestJson('/api/vdr/channels', options);
   }
 
   function fetchClientEpgWindow(options) {
