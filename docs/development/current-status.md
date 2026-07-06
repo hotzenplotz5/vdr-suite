@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.05k - Recording Details and EPG Frontend Cleanup
+Phase 59.05l - Recording Details and EPG Frontend Cleanup
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.05k completes the Recording detail view slice and the first EPG frontend event-indexing, header cleanup, offset-hardening and reload-cleanup chain after the frontend client API recovery chain.
+Phase 59.05l completes the Recording detail view slice and the first EPG frontend event-indexing, header cleanup, offset-hardening and reload-cleanup chain after the frontend client API recovery chain.
 
 Stable scope:
 
@@ -76,6 +76,7 @@ Stable scope:
 - Phase 59.05i guards the EPG visible-channel limit with a minimum of one before offset math and slicing.
 - Phase 59.05j removes redundant EPG program-view reload branches that performed the same reload in both paths.
 - Phase 59.05k deduplicates the EPG horizontal and vertical time-view reload fallback through one local helper.
+- Phase 59.05l deduplicates the live/now/next EPG program-view switch through one local helper.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -162,6 +163,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.05i verifies the visible-channel limit cannot become zero for EPG offset calculations.
 - Phase 59.05j verifies EPG program-view buttons use one deterministic reload path.
 - Phase 59.05k verifies EPG time-axis buttons share one deterministic rerender-or-load path.
+- Phase 59.05l verifies EPG program-view buttons share one deterministic switch-and-load path.
 
 ### Guarded or deliberately incomplete areas
 
