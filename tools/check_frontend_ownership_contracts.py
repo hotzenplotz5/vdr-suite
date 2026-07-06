@@ -138,8 +138,6 @@ def check_app_contract(app_js: str) -> None:
 
 def check_app_direct_api_fetch_contract(app_js: str) -> None:
     legacy_direct_api_fetches = {
-        "/api/backends",
-        "/api/backends/",
         "/api/vdr/channels/move",
     }
 
@@ -744,6 +742,7 @@ def check_client_api_contract():
         "fetchClientVdrSnapshots",
         "fetchClientBackends",
         "fetchClientDefaultBackend",
+        "fetchClientBackendSnapshot",
         "fetchClientEpgWindow",
         "fetchClientEpgSearch",
         "fetchClientEpgCacheStatus",
@@ -843,6 +842,13 @@ def check_client_api_contract():
     require(
         "requestJson(" + chr(39) + "/api/backends/default" + chr(39) in client_api,
         "fetchClientDefaultBackend() must own /api/backends/default access"
+    )
+    require(
+        "function fetchClientBackendSnapshot(backendId, options)" in client_api
+        and "/api/backends/" in client_api
+        and "encodeURIComponent(id)" in client_api
+        and "/snapshot" in client_api,
+        "fetchClientBackendSnapshot() must own /api/backends/<id>/snapshot access"
     )
     check_recording_loading_client_api_contract(client_api)
     require(

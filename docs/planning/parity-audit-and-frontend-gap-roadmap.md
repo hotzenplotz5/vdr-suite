@@ -213,7 +213,7 @@ It is an incremental seam, not the final stable multi-client `/api/client` layer
 | Discovery catalogs | ExtEPGInfoList, ChanGrpList, BlackList, DirectoryList | Backend-neutral discovery present | Wrapped through fetchClientSearchTimerDiscovery | Missing in UI | Use catalogs in SearchTimer UI after wrapper tests. |
 | Native EPGSearch query | QuerySearchTimer and QuerySearch | Partial | Wrapped through fetchClientEpgSearch, fetchClientSearchTimerPreview and SearchTimer workflow wrappers | Missing or indirect | Add real parity tests before UI expansion. |
 | Metadata and person catalog | Metadata, persons and recording-person search routes | Present for metadata and person search; event-detail/media route contracts remain gaps | Wrapped through fetchClientMetadata, fetchClientPersons and fetchClientRecordingPersons | Missing or indirect | Use only after UI semantics and media/artwork contracts are explicit. |
-| Client capabilities and runtime state | backend capability report, backend registry and VDR runtime state routes | Capability, backend state and runtime state routes present; generic permission route gap remains | Wrapped through fetchClientCapabilities, fetchClientVdrOverview, fetchClientVdrStatus, fetchClientVdrHealth, fetchClientVdrSnapshotSummary, fetchClientVdrSnapshots, fetchClientBackends and fetchClientDefaultBackend | Partial | Add permission report only when backend exposes a route. |
+| Client capabilities and runtime state | backend capability report, backend registry and VDR runtime state routes | Capability, backend state and runtime state routes present; generic permission route gap remains | Wrapped through fetchClientCapabilities, fetchClientVdrOverview, fetchClientVdrStatus, fetchClientVdrHealth, fetchClientVdrSnapshotSummary, fetchClientVdrSnapshots, fetchClientBackends, fetchClientDefaultBackend and fetchClientBackendSnapshot | Partial | Add permission report only when backend exposes a route. |
 | Missing backend route gaps | permission report, event detail/media, recording marks/resume/cut/playback | Dedicated route contracts not yet proven | Guarded against fake Client API wrappers | Not applicable | Add backend contracts first, then wrappers, then UI. |
 | Stable `/api/client` layer | VDR-Suite client contract | Planned | Not implemented | Not applicable | Introduce after current wrapper coverage stabilizes. |
 
@@ -222,7 +222,7 @@ Rule for future Live-parity work:
 - A capability is not frontend-ready until it has a backend/domain status, a Web Client API status and a UI status.
 - New frontend HTTP access must first go through `web/frontend/api/client-api.js`.
 - Every defined `fetchClient...` helper must be exported through `window.VdrSuiteClientApi`, and every exported helper must be defined.
-- `web/frontend/app.js` must not add new direct `/api...` fetch routes; the remaining legacy direct fetches are explicitly inventoried until migrated to `window.VdrSuiteClientApi`; EPG timer live-sync and create-timer access are already migrated.
+- `web/frontend/app.js` must not add new direct `/api...` fetch routes; the remaining legacy direct fetches are explicitly inventoried until migrated to `window.VdrSuiteClientApi`; EPG timer live-sync, create-timer access, backend list loading and backend snapshot loading are already migrated.
 - `web/frontend/api/client-api.js` must remain DOM-free.
 - Final multi-client contracts should later move behind stable `/api/client` routes.
 

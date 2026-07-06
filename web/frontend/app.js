@@ -3796,13 +3796,20 @@ function loadBackendDetails(backend) {
   detailMetaElement.textContent = 'Lade Details für ' + (selector.label || backend.backendName || backendId) + '...';
   detailDataElement.replaceChildren();
 
-  fetch('/api/backends/' + encodeURIComponent(backendId) + '/snapshot')
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('HTTP ' + response.status);
-      }
-      return response.json();
-    })
+  const clientApi = window.VdrSuiteClientApi;
+
+  if (!clientApi || typeof clientApi.fetchClientBackendSnapshot !== 'function') {
+    currentSnapshot = null;
+    detailMetaElement.className = 'detail-meta error';
+    detailMetaElement.textContent = 'Details konnten nicht geladen werden: Client API wrapper is not available';
+    detailDataElement.replaceChildren();
+    refreshDetailButton.disabled = false;
+    return;
+  }
+
+  clientApi.fetchClientBackendSnapshot(backendId, {
+    cache: 'no-store'
+  })
     .then(data => {
       currentSnapshot = data;
       detailMetaElement.textContent = 'Details für ' + (selector.label || backend.backendName || backendId);
@@ -3933,28 +3940,37 @@ refreshDetailButton.addEventListener('click', () => {
   loadBackendDetails(selectedBackend);
 });
 
-fetch('/api/backends')
-  .then(response => {
-    if (!response.ok) {
-      throw new Error('HTTP ' + response.status);
-    }
-    return response.json();
-  })
-  .then(data => {
-    const backends = Array.isArray(data.backends) ? data.backends : [];
-    statusElement.textContent = '';
-    statusElement.hidden = true;
-    backendsElement.replaceChildren();
-    backends.forEach(backend => backendsElement.appendChild(renderBackend(backend)));
-    if (backends.length > 0) {
-      loadBackendDetails(backends[0]);
-    }
-  })
-  .catch(error => {
+function loadBackendSelection() {
+  const clientApi = window.VdrSuiteClientApi;
+
+  if (!clientApi || typeof clientApi.fetchClientBackends !== 'function') {
     statusElement.hidden = false;
     statusElement.className = 'status error';
-    statusElement.textContent = 'Backend-Auswahl konnte nicht geladen werden: ' + error.message;
-  });
+    statusElement.textContent = 'Backend-Auswahl konnte nicht geladen werden: Client API wrapper is not available';
+    return;
+  }
+
+  clientApi.fetchClientBackends({
+    cache: 'no-store'
+  })
+    .then(data => {
+      const backends = Array.isArray(data.backends) ? data.backends : [];
+      statusElement.textContent = '';
+      statusElement.hidden = true;
+      backendsElement.replaceChildren();
+      backends.forEach(backend => backendsElement.appendChild(renderBackend(backend)));
+      if (backends.length > 0) {
+        loadBackendDetails(backends[0]);
+      }
+    })
+    .catch(error => {
+      statusElement.hidden = false;
+      statusElement.className = 'status error';
+      statusElement.textContent = 'Backend-Auswahl konnte nicht geladen werden: ' + error.message;
+    });
+}
+
+loadBackendSelection();
 
 // Phase 58.90b: integrated standalone pointer channel sorter.
 // Stable version: drag only on the left handle, no post-move focus restore.

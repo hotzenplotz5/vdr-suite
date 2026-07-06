@@ -259,6 +259,11 @@
     return requestJson('/api/backends/default', options);
   }
 
+  function fetchClientBackendSnapshot(backendId, options) {
+    const id = backendId ? String(backendId) : 'default';
+    return requestJson('/api/backends/' + encodeURIComponent(id) + '/snapshot', options);
+  }
+
   function fetchClientEpgWindow(options) {
     return requestJson('/api/vdr/events/live', options);
   }
@@ -426,6 +431,7 @@
     fetchClientVdrSnapshots: fetchClientVdrSnapshots,
     fetchClientBackends: fetchClientBackends,
     fetchClientDefaultBackend: fetchClientDefaultBackend,
+    fetchClientBackendSnapshot: fetchClientBackendSnapshot,
     fetchClientEpgWindow: fetchClientEpgWindow,
     fetchClientEpgSearch: fetchClientEpgSearch,
     fetchClientEpgCacheStatus: fetchClientEpgCacheStatus,

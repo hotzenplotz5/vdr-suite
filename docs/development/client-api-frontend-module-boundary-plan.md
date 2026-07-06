@@ -551,6 +551,7 @@ Current wrapper functions:
 - `fetchClientVdrSnapshots`
 - `fetchClientBackends`
 - `fetchClientDefaultBackend`
+- `fetchClientBackendSnapshot`
 - `fetchClientEpgWindow`
 - `fetchClientEpgSearch`
 - `fetchClientEpgCacheStatus`
@@ -629,6 +630,35 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.09d Implementation Status
+
+Phase 59.09d migrates backend selection API access in `web/frontend/app.js` to the Web Client API wrapper.
+
+Implemented behavior:
+
+- backend list loading now uses `window.VdrSuiteClientApi.fetchClientBackends()`
+- backend snapshot loading now uses `window.VdrSuiteClientApi.fetchClientBackendSnapshot()`
+- `fetchClientBackendSnapshot(backendId, options)` owns `/api/backends/<id>/snapshot`
+- `/api/backends` is removed from the direct-fetch legacy inventory
+- `/api/backends/` is removed from the direct-fetch legacy inventory
+- the remaining literal direct-fetch legacy inventory is reduced to channel move
+- no backend route and no UI expansion is added
+
+Remaining known literal direct API fetch inventory:
+
+- `/api/vdr/channels/move`
+
+Next open Web Client API areas:
+
+- add or verify channel move wrapper before migrating channel move UI
+- reduce variable-based channel sorter loading after channel move ownership is explicit
+- preparation for UI module extraction
+- event detail and media/artwork routes once backend exposes dedicated contracts
+- recording marks, resume, cut and playback helpers once backend exposes dedicated contracts
+- permission report route once backend exposes one
+
+---
+
 ## Phase 59.09c Implementation Status
 
 Phase 59.09c migrates EPG timer direct API access in `web/frontend/app.js` to the Web Client API wrapper.
@@ -644,8 +674,6 @@ Implemented behavior:
 
 Remaining known legacy direct API fetch inventory:
 
-- `/api/backends`
-- `/api/backends/`
 - `/api/vdr/channels/move`
 
 Next open Web Client API areas:

@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.09c - EPG Timer Direct Fetch Migration
+Phase 59.09d - Backend Selection Direct Fetch Migration
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.09c migrates the EPG timer live-sync and create-timer direct fetches in `app.js` to `window.VdrSuiteClientApi`.
+Phase 59.09d migrates backend list and backend snapshot direct fetches in `app.js` to `window.VdrSuiteClientApi`.
 
 Stable scope:
 
@@ -95,6 +95,7 @@ Stable scope:
 - Phase 59.09a guards the Web Client API export registry against missing or undefined fetchClient exports.
 - Phase 59.09b guards `web/frontend/app.js` against new direct `/api...` fetch calls and inventories the remaining legacy direct fetches for later migration.
 - Phase 59.09c migrates EPG timer live-sync and EPG timer create actions to `window.VdrSuiteClientApi`.
+- Phase 59.09d migrates backend list and backend snapshot loading to `window.VdrSuiteClientApi`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -200,6 +201,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.09a verifies every defined fetchClient function is exported and every exported fetchClient name is defined.
 - Phase 59.09b verifies `app.js` does not add new direct `/api...` fetch routes beyond the explicit legacy inventory.
 - Phase 59.09c verifies the legacy direct fetch inventory no longer includes `/api/vdr/timers/live` or `/api/vdr/timers/actions/create`.
+- Phase 59.09d verifies the legacy direct fetch inventory no longer includes `/api/backends` or `/api/backends/`.
 
 ### Guarded or deliberately incomplete areas
 
