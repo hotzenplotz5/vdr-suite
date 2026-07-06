@@ -1205,23 +1205,6 @@ function epgChannelTitle(channel, index) {
   ));
 }
 
-function epgEventsForChannel(channel, events) {
-  const channelId = frontendChannelId(channel);
-  if (channelId === '') {
-    return [];
-  }
-
-  return events
-    .filter(event => frontendEventChannelId(event) === channelId)
-    .map(event => {
-      const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
-      const end = frontendEventEnd(event, start);
-      return { event, start, end };
-    })
-    .filter(entry => entry.start > 0 && entry.end > 0)
-    .sort((left, right) => left.start - right.start);
-}
-
 function epgEventDescription(event) {
   return String(firstValue(event, ['description', 'longText', 'details', 'synopsis'], ''));
 }
