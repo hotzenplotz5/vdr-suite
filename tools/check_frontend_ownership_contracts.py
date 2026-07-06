@@ -141,8 +141,6 @@ def check_app_direct_api_fetch_contract(app_js: str) -> None:
         "/api/backends",
         "/api/backends/",
         "/api/vdr/channels/move",
-        "/api/vdr/timers/actions/create",
-        "/api/vdr/timers/live",
     }
 
     direct_api_fetches = []

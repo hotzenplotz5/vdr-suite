@@ -629,6 +629,36 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.09c Implementation Status
+
+Phase 59.09c migrates EPG timer direct API access in `web/frontend/app.js` to the Web Client API wrapper.
+
+Implemented behavior:
+
+- EPG timer live-sync now uses `window.VdrSuiteClientApi.fetchClientTimers()`
+- EPG timer creation now uses `window.VdrSuiteClientApi.fetchClientTimerCreateAction()`
+- `/api/vdr/timers/live` is removed from the direct-fetch legacy inventory
+- `/api/vdr/timers/actions/create` is removed from the direct-fetch legacy inventory
+- the remaining direct-fetch legacy inventory is reduced to backend selection and channel move routes
+- no backend route and no UI expansion is added
+
+Remaining known legacy direct API fetch inventory:
+
+- `/api/backends`
+- `/api/backends/`
+- `/api/vdr/channels/move`
+
+Next open Web Client API areas:
+
+- migrate backend selection direct fetches to `window.VdrSuiteClientApi`
+- add or verify channel move wrapper before migrating channel move UI
+- preparation for UI module extraction
+- event detail and media/artwork routes once backend exposes dedicated contracts
+- recording marks, resume, cut and playback helpers once backend exposes dedicated contracts
+- permission report route once backend exposes one
+
+---
+
 ## Phase 59.09b Implementation Status
 
 Phase 59.09b hardens browser API ownership in `web/frontend/app.js` by turning the remaining direct API fetches into an explicit legacy inventory.
@@ -647,8 +677,6 @@ Known legacy direct API fetch inventory:
 - `/api/backends`
 - `/api/backends/`
 - `/api/vdr/channels/move`
-- `/api/vdr/timers/actions/create`
-- `/api/vdr/timers/live`
 
 Next open Web Client API areas:
 

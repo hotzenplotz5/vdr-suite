@@ -1448,13 +1448,7 @@ function syncEpgTimerDetailStates() {
 
   epgTimerDetailSyncInFlight = true;
 
-  fetch('/api/vdr/timers/live', { cache: 'no-store' })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('HTTP ' + String(response.status));
-      }
-      return response.json();
-    })
+  window.VdrSuiteClientApi.fetchClientTimers({ cache: 'no-store' })
     .then(data => {
       epgLiveTimerCache = epgTimerFromResponse(data);
       epgTimerDetailCards().forEach(detail => {
@@ -1668,15 +1662,10 @@ function createEpgTimerFromDetail(container, event, channel, button) {
 
   clearEpgTimerFeedback(container);
 
-  fetch('/api/vdr/timers/actions/create', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+  window.VdrSuiteClientApi.fetchClientTimerCreateAction({
     cache: 'no-store',
-    body: JSON.stringify(payload)
+    payload
   })
-    .then(response => response.text().then(text => parseEpgTimerCreateResponse(response, text)))
     .then(result => {
       if (result && result.success === false) {
         showEpgTimerStatus(
