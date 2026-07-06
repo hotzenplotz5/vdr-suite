@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 58.98 - Web Client API Wrapper
+Phase 58.99 - Timer Loading uses Web Client API Wrapper
 ```
 
 Current documentation consolidation state:
@@ -47,26 +47,25 @@ Phase 58 - Frontend and Live Parity
 
 ## Latest Verified Implementation Slice
 
-Phase 58.98 introduces the first DOM-free web Client API
-wrapper before extracting UI modules from web/frontend/app.js.
+Phase 58.99 routes Timer list loading through the DOM-free web
+Client API wrapper before extracting Timer UI code.
 
 Stable scope:
 
-- add web/frontend/api/client-api.js
-- expose window.VdrSuiteClientApi for the current script frontend
-- wrap existing /api/vdr routes behind client-facing functions
-- load client-api.js before app.js
-- install client-api.js with the web frontend assets
-- extend the frontend ownership guard for DOM-free API boundaries
-- keep all production UI rendering in app.js for this slice
+- keep loadTimers() in web/frontend/app.js
+- keep Timer rendering in web/frontend/app.js
+- move Timer list HTTP access behind fetchClientTimers()
+- keep /api/vdr/timers/live with fallback to /api/vdr/timers
+- guard loadTimers() against direct Timer list fetch regression
+- keep Timer conflict rendering unchanged for this slice
+- do not extract a Timer UI module yet
 
 Previous verified slices:
 
+- Phase 58.98 introduced web/frontend/api/client-api.js.
 - Phase 58.97 defined the Client API and frontend module boundary.
 - Phase 58.96 exposed the frontend ownership guard through
   make test-frontend-contracts.
-- Phase 58.95a integrated native Timer conflict rendering into
-  the Timer frontend ownership model.
 
 ---
 
@@ -94,6 +93,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Lightweight frontend ownership guard Make target
 - Client API and frontend module boundary planning
 - Web Client API Wrapper implementation
+- Timer loading through Web Client API Wrapper
 
 ### Verified real-runtime evidence
 
@@ -106,6 +106,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 58.96 verifies `make test-frontend-contracts` as a lightweight guard target outside the heavier C++ fast-test path.
 - Phase 58.97 defines the future Client API and frontend module boundary for Web, Windows, Linux, mobile and TV clients.
 - Phase 58.98 introduces web/frontend/api/client-api.js as the first DOM-free web API wrapper.
+- Phase 58.99 routes Timer list loading through fetchClientTimers().
 
 ### Guarded or deliberately incomplete areas
 

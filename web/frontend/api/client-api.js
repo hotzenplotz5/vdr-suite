@@ -135,8 +135,22 @@
     });
   }
 
+  function requestJsonWithFallback(path, fallbackPath, options) {
+    return requestJson(path, options).catch(function (error) {
+      if (!fallbackPath) {
+        throw error;
+      }
+
+      return requestJson(fallbackPath, options);
+    });
+  }
+
   function fetchClientTimers(options) {
-    return requestJson('/api/vdr/timers/live', options);
+    return requestJsonWithFallback(
+      '/api/vdr/timers/live',
+      '/api/vdr/timers',
+      options
+    );
   }
 
   function fetchClientTimerConflicts(options) {

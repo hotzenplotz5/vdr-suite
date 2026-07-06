@@ -3276,21 +3276,18 @@ function loadChannels() {
 function loadTimers() {
   renderModuleLoading('Timer', 'Lade aktuelle Timerliste direkt vom VDR...');
 
-  fetch('/api/vdr/timers/live')
-    .then(response => {
-      if (response.ok) {
-        return response.json();
-      }
+  const clientApi = window.VdrSuiteClientApi;
 
-      return fetch('/api/vdr/timers')
-        .then(fallbackResponse => {
-          if (!fallbackResponse.ok) {
-            throw new Error('HTTP ' + fallbackResponse.status);
-          }
+  if (!clientApi || typeof clientApi.fetchClientTimers !== 'function') {
+    currentTimers = null;
+    renderModuleError(
+      'Timer konnten nicht geladen werden',
+      new Error('Client API wrapper is not available')
+    );
+    return;
+  }
 
-          return fallbackResponse.json();
-        });
-    })
+  clientApi.fetchClientTimers()
     .then(data => {
       currentTimers = data;
       renderTimerList(data);

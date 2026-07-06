@@ -409,3 +409,20 @@ It currently wraps existing /api/vdr routes.
 
 No production UI module has been moved out of app.js yet.
 
+---
+
+## Phase 58.99 Implementation Status
+
+Phase 58.99 moves Timer loading HTTP access behind the web
+Client API wrapper.
+
+Implemented behavior:
+
+- loadTimers() still lives in web/frontend/app.js
+- Timer rendering still lives in web/frontend/app.js
+- fetchClientTimers() owns the Timer list HTTP access
+- fetchClientTimers() keeps the live route and fallback route
+- loadTimers() no longer fetches /api/vdr/timers directly
+
+No Timer UI module has been extracted yet.
+
