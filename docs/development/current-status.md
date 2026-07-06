@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 58.99 - Timer Loading uses Web Client API Wrapper
+Phase 59.00 - Timer Conflict Loading uses Web Client API Wrapper
 ```
 
 Current documentation consolidation state:
@@ -47,25 +47,23 @@ Phase 58 - Frontend and Live Parity
 
 ## Latest Verified Implementation Slice
 
-Phase 58.99 routes Timer list loading through the DOM-free web
-Client API wrapper before extracting Timer UI code.
+Phase 59.00 routes Timer conflict loading through the DOM-free
+web Client API wrapper before extracting Timer UI code.
 
 Stable scope:
 
-- keep loadTimers() in web/frontend/app.js
-- keep Timer rendering in web/frontend/app.js
-- move Timer list HTTP access behind fetchClientTimers()
-- keep /api/vdr/timers/live with fallback to /api/vdr/timers
-- guard loadTimers() against direct Timer list fetch regression
-- keep Timer conflict rendering unchanged for this slice
+- keep loadTimerConflictPanel() in web/frontend/app.js
+- keep Timer conflict rendering in web/frontend/app.js
+- move Timer conflict HTTP access behind fetchClientTimerConflicts()
+- guard loadTimerConflictPanel() against direct conflict fetch regression
+- keep Timer list loading through fetchClientTimers()
 - do not extract a Timer UI module yet
 
 Previous verified slices:
 
+- Phase 58.99 routed Timer list loading through fetchClientTimers().
 - Phase 58.98 introduced web/frontend/api/client-api.js.
 - Phase 58.97 defined the Client API and frontend module boundary.
-- Phase 58.96 exposed the frontend ownership guard through
-  make test-frontend-contracts.
 
 ---
 
@@ -94,6 +92,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Client API and frontend module boundary planning
 - Web Client API Wrapper implementation
 - Timer loading through Web Client API Wrapper
+- Timer conflict loading through Web Client API Wrapper
 
 ### Verified real-runtime evidence
 
@@ -107,6 +106,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 58.97 defines the future Client API and frontend module boundary for Web, Windows, Linux, mobile and TV clients.
 - Phase 58.98 introduces web/frontend/api/client-api.js as the first DOM-free web API wrapper.
 - Phase 58.99 routes Timer list loading through fetchClientTimers().
+- Phase 59.00 routes Timer conflict loading through fetchClientTimerConflicts().
 
 ### Guarded or deliberately incomplete areas
 

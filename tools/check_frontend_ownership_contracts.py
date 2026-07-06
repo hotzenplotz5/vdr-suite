@@ -133,6 +133,41 @@ def check_timer_loading_client_api_contract(app_js: str) -> None:
         )
 
 
+
+def check_timer_conflict_loading_client_api_contract(app_js: str) -> None:
+    start = app_js.find("function loadTimerConflictPanel(timers) {")
+    require(start >= 0, "app.js must define loadTimerConflictPanel(timers)")
+
+    end = app_js.find("function renderSearchTimerList(data) {", start)
+    require(
+        end > start,
+        "app.js loadTimerConflictPanel() boundary must end before renderSearchTimerList()"
+    )
+
+    body = app_js[start:end]
+
+    require(
+        "window.VdrSuiteClientApi" in body,
+        "loadTimerConflictPanel() must use window.VdrSuiteClientApi"
+    )
+
+    require(
+        "fetchClientTimerConflicts" in body,
+        "loadTimerConflictPanel() must use fetchClientTimerConflicts()"
+    )
+
+    forbidden_tokens = [
+        "fetch(\"/api/vdr/timers/conflicts/live\"",
+        "fetch('/api/vdr/timers/conflicts/live'",
+    ]
+
+    for token in forbidden_tokens:
+        require(
+            token not in body,
+            "loadTimerConflictPanel() must not directly fetch Timer conflict route " + token
+        )
+
+
 def check_channel_logos_contract(channel_logos_js: str) -> None:
     forbidden_patterns = [
         (r"createElement\s*\(\s*['\"]script['\"]\s*\)", "must not create script elements"),
@@ -268,6 +303,7 @@ def main() -> int:
         check_index_contract(index_html)
         check_app_contract(app_js)
         check_timer_loading_client_api_contract(app_js)
+        check_timer_conflict_loading_client_api_contract(app_js)
         check_client_api_contract()
         check_channel_logos_contract(channel_logos_js)
         check_channel_browser_contract(channel_browser_js)

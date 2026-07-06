@@ -426,3 +426,19 @@ Implemented behavior:
 
 No Timer UI module has been extracted yet.
 
+---
+
+## Phase 59.00 Implementation Status
+
+Phase 59.00 moves Timer conflict HTTP access behind the web
+Client API wrapper.
+
+Implemented behavior:
+
+- loadTimerConflictPanel() still lives in web/frontend/app.js
+- Timer conflict rendering still lives in web/frontend/app.js
+- fetchClientTimerConflicts() owns the Timer conflict HTTP access
+- loadTimerConflictPanel() no longer fetches the conflict route directly
+
+No Timer UI module has been extracted yet.
+

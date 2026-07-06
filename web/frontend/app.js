@@ -737,14 +737,22 @@ function appendTimerConflictPanel(report, timers, error) {
 }
 
 function loadTimerConflictPanel(timers) {
-  fetch("/api/vdr/timers/conflicts/live", { cache: "no-store", credentials: "same-origin" })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error("HTTP " + String(response.status));
-      }
+  const clientApi = window.VdrSuiteClientApi;
 
-      return response.json();
-    })
+  if (!clientApi || typeof clientApi.fetchClientTimerConflicts !== "function") {
+    if (selectedModule !== "timers") {
+      return;
+    }
+
+    appendTimerConflictPanel(
+      null,
+      timers,
+      new Error("Client API wrapper is not available")
+    );
+    return;
+  }
+
+  clientApi.fetchClientTimerConflicts()
     .then(report => {
       if (selectedModule !== "timers") {
         return;
