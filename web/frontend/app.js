@@ -2758,7 +2758,7 @@ function renderEpgTimeView(channelData, eventData) {
   }
 
   const bounds = epgTimelineBounds(nowSeconds);
-  const limit = EPG_VISIBLE_CHANNEL_LIMIT;
+  const limit = Math.max(1, EPG_VISIBLE_CHANNEL_LIMIT);
   const maxChannelOffset = Math.max(0, Math.floor(Math.max(0, channels.length - 1) / limit) * limit);
 
   if (epgChannelOffset < 0 || epgChannelOffset > maxChannelOffset) {
