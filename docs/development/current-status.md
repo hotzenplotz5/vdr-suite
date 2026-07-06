@@ -47,23 +47,25 @@ Phase 58 - Frontend and Live Parity
 
 ## Latest Verified Implementation Slice
 
-Phase 59.02b routes EPG cache status loading through the
-DOM-free web Client API wrapper.
+Phase 59.03 batches EPG cache window loading for the visible channel set.
 
 Stable scope:
 
-- keep fetchEpgCacheStatusForBackend() in web/frontend/app.js
 - keep EPG rendering in web/frontend/app.js
-- move /api/epg/cache/status access behind fetchClientEpgCacheStatus()
-- preserve backend and _ cache-busting query parameters
-- preserve no-store loading
-- preserve __statusError fallback behavior
-- keep EPG cache window loading unchanged
-- keep EPG Timeline Channel loading through fetchClientChannels()
+- keep EPG cache status loading through fetchClientEpgCacheStatus()
+- add fetchClientEpgCacheWindow() to the DOM-free Client API wrapper
+- route EPG cache window access through fetchClientEpgCacheWindow()
+- preserve /api/epg/cache/window legacy channelId behavior
+- add channelIds query support for visible channel batch loading
+- decode URL query parameters before REST routing
+- query SQLite with channel_id IN (...) for visible channel batches
+- replace per-channel EPG Promise.all loading with one visible-channel batch request
+- keep the EPG data path SQLite-based
 - do not extract an EPG UI module yet
 
 Previous verified slices:
 
+- Phase 59.02b routed EPG cache status loading through fetchClientEpgCacheStatus().
 - Phase 59.02a routed EPG Timeline Channel loading through fetchClientChannels().
 - Phase 59.01 routed Channel list loading through fetchClientChannels().
 - Phase 59.00 routed Timer conflict loading through fetchClientTimerConflicts().
@@ -99,6 +101,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Channel loading through Web Client API Wrapper
 - EPG Timeline Channel loading through Web Client API Wrapper
 - EPG Cache Status loading through Web Client API Wrapper
+- EPG Cache Window visible channel batch loading
 
 ### Verified real-runtime evidence
 
@@ -148,3 +151,5 @@ Progress source: ../planning/project-progress.md
 ## Back
 
 - [Back to Development Index](index.md)
+
+- Phase 59.03 batches EPG cache window loading for visible channels.

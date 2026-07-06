@@ -299,6 +299,53 @@ def check_epg_cache_status_client_api_contract(app_js: str) -> None:
     )
 
 
+
+def check_epg_cache_window_client_api_contract(app_js: str) -> None:
+    start = app_js.find("function fetchCachedEpgWindowForVisibleChannels(visibleChannels) {")
+    require(
+        start >= 0,
+        "app.js must define fetchCachedEpgWindowForVisibleChannels(visibleChannels)"
+    )
+
+    end = app_js.find("function fetchVisibleCachedEpgWindow(channelData) {", start)
+    require(
+        end > start,
+        "app.js fetchCachedEpgWindowForVisibleChannels() boundary must end before fetchVisibleCachedEpgWindow()"
+    )
+
+    body = app_js[start:end]
+
+    require(
+        "window.VdrSuiteClientApi" in body,
+        "fetchCachedEpgWindowForVisibleChannels() must use window.VdrSuiteClientApi"
+    )
+
+    require(
+        "fetchClientEpgCacheWindow" in body,
+        "fetchCachedEpgWindowForVisibleChannels() must use fetchClientEpgCacheWindow()"
+    )
+
+    require(
+        "channelIds:" in body and "channelIds.join(" in body,
+        "fetchCachedEpgWindowForVisibleChannels() must batch visible channel IDs"
+    )
+
+    require(
+        "cache: " + chr(39) + "no-store" + chr(39) in body,
+        "fetchCachedEpgWindowForVisibleChannels() must preserve no-store loading"
+    )
+
+    require(
+        "Promise.all" not in body,
+        "fetchCachedEpgWindowForVisibleChannels() must not use per-channel Promise.all loading"
+    )
+
+    require(
+        "fetch(" not in body,
+        "fetchCachedEpgWindowForVisibleChannels() must not directly fetch runtime data"
+    )
+
+
 def check_channel_logos_contract(channel_logos_js: str) -> None:
     forbidden_patterns = [
         (r"createElement\s*\(\s*['\"]script['\"]\s*\)", "must not create script elements"),
@@ -385,6 +432,7 @@ def check_client_api_contract():
         "fetchClientChannels",
         "fetchClientEpgWindow",
         "fetchClientEpgCacheStatus",
+        "fetchClientEpgCacheWindow",
         "fetchClientRecordings",
         "fetchClientSearchTimers",
     ]
@@ -399,6 +447,12 @@ def check_client_api_contract():
     require(
         "requestJson(" + chr(39) + "/api/epg/cache/status" + chr(39) in client_api,
         "fetchClientEpgCacheStatus() must own /api/epg/cache/status access"
+    )
+
+
+    require(
+        "requestJson(" + chr(39) + "/api/epg/cache/window" + chr(39) in client_api,
+        "fetchClientEpgCacheWindow() must own /api/epg/cache/window access"
     )
 
     forbidden_tokens = [
@@ -443,6 +497,7 @@ def main() -> int:
         check_channel_loading_client_api_contract(app_js)
         check_epg_timeline_channel_loading_client_api_contract(app_js)
         check_epg_cache_status_client_api_contract(app_js)
+        check_epg_cache_window_client_api_contract(app_js)
         check_timer_loading_client_api_contract(app_js)
         check_timer_conflict_loading_client_api_contract(app_js)
         check_client_api_contract()

@@ -3,6 +3,62 @@
 #include <cstdlib>
 #include <sstream>
 
+namespace
+{
+int hexValue(char value)
+{
+    if (value >= '0' && value <= '9')
+    {
+        return value - '0';
+    }
+
+    if (value >= 'A' && value <= 'F')
+    {
+        return value - 'A' + 10;
+    }
+
+    if (value >= 'a' && value <= 'f')
+    {
+        return value - 'a' + 10;
+    }
+
+    return -1;
+}
+
+std::string urlDecode(const std::string& value)
+{
+    std::string decoded;
+
+    for (std::size_t index = 0; index < value.size(); ++index)
+    {
+        const char current = value.at(index);
+
+        if (current == '+')
+        {
+            decoded.push_back(' ');
+            continue;
+        }
+
+        if (current == '%' && index + 2 < value.size())
+        {
+            const int high = hexValue(value.at(index + 1));
+            const int low = hexValue(value.at(index + 2));
+
+            if (high >= 0 && low >= 0)
+            {
+                decoded.push_back(static_cast<char>((high << 4) | low));
+                index += 2;
+                continue;
+            }
+        }
+
+        decoded.push_back(current);
+    }
+
+    return decoded;
+}
+}
+
 RestQueryParameters RestQueryParameters::parse(
     const std::string& queryString)
 {
@@ -22,12 +78,12 @@ RestQueryParameters RestQueryParameters::parse(
 
         if (separator == std::string::npos)
         {
-            parameters.values_[item] = "";
+            parameters.values_[urlDecode(item)] = "";
             continue;
         }
 
-        const std::string key = item.substr(0, separator);
-        const std::string value = item.substr(separator + 1);
+        const std::string key = urlDecode(item.substr(0, separator));
+        const std::string value = urlDecode(item.substr(separator + 1));
 
         if (!key.empty())
         {

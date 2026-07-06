@@ -3016,65 +3016,62 @@ function listEventsFromEpgResponse(data) {
 }
 
 
-function fetchCachedEpgWindowForVisibleChannel(channel) {
-  const channelId = frontendChannelId(channel);
+function visibleEpgChannelIds(visibleChannels) {
+  const seen = new Set();
+  const channelIds = [];
 
-  if (channelId === '') {
+  visibleChannels.forEach(channel => {
+    const channelId = frontendChannelId(channel);
+
+    if (channelId === '' || seen.has(channelId)) {
+      return;
+    }
+
+    seen.add(channelId);
+    channelIds.push(channelId);
+  });
+
+  return channelIds;
+}
+
+function fetchCachedEpgWindowForVisibleChannels(visibleChannels) {
+  const channelIds = visibleEpgChannelIds(visibleChannels);
+
+  if (channelIds.length === 0) {
     return Promise.resolve({
       events: [],
       eventCount: 0,
       __source: 'empty-channel',
-      __debugUrl: 'channel-without-id'
+      __partialWindow: true,
+      __debugUrl: 'keine sichtbaren Kanal-IDs'
     });
   }
 
   const backendId = selectedEpgBackendId();
   const bounds = epgWindowBounds();
+  const clientApi = window.VdrSuiteClientApi;
 
-  const cacheUrl = '/api/epg/cache/window'
-    + '?backend=' + encodeURIComponent(backendId)
-    + '&channelId=' + encodeURIComponent(channelId)
-    + '&fromTime=' + encodeURIComponent(String(bounds.from))
-    + '&untilTime=' + encodeURIComponent(String(bounds.until))
-    + '&limit=0'
-    + '&_=' + encodeURIComponent(String(Date.now()));
+  if (!clientApi || typeof clientApi.fetchClientEpgCacheWindow !== 'function') {
+    return Promise.reject(new Error('Client API wrapper is not available'));
+  }
 
-  return fetch(cacheUrl, { cache: 'no-store' })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('EPG-Cache Kanal HTTP ' + response.status);
-      }
-
-      return response.json();
-    })
+  return clientApi.fetchClientEpgCacheWindow({
+    query: {
+      backend: backendId,
+      channelIds: channelIds.join(','),
+      fromTime: String(bounds.from),
+      untilTime: String(bounds.until),
+      limit: '0',
+      _: String(Date.now())
+    },
+    cache: 'no-store'
+  })
     .then(data => {
-      data.__source = 'cache-channel';
-      data.__debugUrl = cacheUrl;
+      data.__source = 'cache-visible-batch-24h';
+      data.__partialWindow = true;
+      data.__debugUrl = '1 sichtbare Kanal-Batch-Abfrage · Kanäle: ' + String(channelIds.length);
       return data;
     });
-}
-
-function mergeVisibleEpgChannelWindows(responses) {
-  const events = [];
-  let cacheHits = 0;
-
-  responses.forEach(response => {
-    const responseEvents = listEventsFromEpgResponse(response);
-
-    if (responseEvents.length > 0) {
-      cacheHits += 1;
-    }
-
-    responseEvents.forEach(event => events.push(event));
-  });
-
-  return {
-    events,
-    eventCount: events.length,
-    __source: cacheHits > 0 ? 'cache-visible-24h' : 'cache-empty',
-    __partialWindow: true,
-    __debugUrl: String(responses.length) + ' sichtbare Kanalabfragen · Treffer: ' + String(cacheHits)
-  };
 }
 
 function fetchVisibleCachedEpgWindow(channelData) {
@@ -3090,9 +3087,7 @@ function fetchVisibleCachedEpgWindow(channelData) {
     });
   }
 
-  return Promise.all(
-    visibleChannels.map(channel => fetchCachedEpgWindowForVisibleChannel(channel))
-  ).then(mergeVisibleEpgChannelWindows);
+  return fetchCachedEpgWindowForVisibleChannels(visibleChannels);
 }
 
 function fetchCachedOrLiveEpgWindow(channelData) {

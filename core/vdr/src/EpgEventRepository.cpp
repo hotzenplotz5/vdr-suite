@@ -107,6 +107,42 @@ std::vector<VdrEvent> readEvents(sqlite3_stmt* stmt)
 
     return events;
 }
+
+std::vector<std::string> splitChannelIdsParameter(
+    const std::string& channelId)
+{
+    std::vector<std::string> result;
+    std::istringstream input(channelId);
+    std::string item;
+
+    while (std::getline(input, item, ','))
+    {
+        if (!item.empty())
+        {
+            result.push_back(item);
+        }
+    }
+
+    return result;
+}
+
+std::string sqlPlaceholders(std::size_t count)
+{
+    std::ostringstream output;
+
+    for (std::size_t index = 0; index < count; ++index)
+    {
+        if (index > 0)
+        {
+            output << ", ";
+        }
+
+        output << "?";
+    }
+
+    return output.str();
+}
+
 }
 
 EpgEventRepository::EpgEventRepository(Database& database)
@@ -266,7 +302,10 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
 
     sqlite3_stmt* stmt = nullptr;
 
-    const bool hasChannel = !channelId.empty();
+    const std::vector<std::string> channelIds =
+        splitChannelIdsParameter(channelId);
+
+    const bool hasChannels = !channelIds.empty();
     const bool hasUntil = !untilTime.empty();
     const bool hasLimit = eventLimit > 0;
 
@@ -278,9 +317,11 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
         "WHERE backend_id = ? "
         "AND end_time > ? ";
 
-    if (hasChannel)
+    if (hasChannels)
     {
-        sql += "AND channel_id = ? ";
+        sql += "AND channel_id IN (";
+        sql += sqlPlaceholders(channelIds.size());
+        sql += ") ";
     }
 
     if (hasUntil)
@@ -311,9 +352,9 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
     bindText(stmt, bindIndex++, normalizeBackendId(backendId));
     bindText(stmt, bindIndex++, fromTime);
 
-    if (hasChannel)
+    for (const std::string& currentChannelId : channelIds)
     {
-        bindText(stmt, bindIndex++, channelId);
+        bindText(stmt, bindIndex++, currentChannelId);
     }
 
     if (hasUntil)

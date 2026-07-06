@@ -832,7 +832,7 @@ ApiResponse ApiRouter::handleGet(
 
         return epgCacheController_->getWindow(
             normalizeBackendId(queryParameters.get("backend")),
-            queryParameters.get("channelId"),
+            queryParameters.get("channelIds", queryParameters.get("channelId")),
             queryParameters.get("fromTime"),
             queryParameters.get("untilTime"),
             queryParameters.getInt("limit", 50));

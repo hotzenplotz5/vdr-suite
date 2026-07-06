@@ -269,12 +269,59 @@ static void test_window_read_defaults_empty_backend_to_default()
     assert(adapter.boundedEventCalls == 1);
 }
 
+
+static void test_window_read_filters_multiple_channel_ids()
+{
+    std::remove("/tmp/vdr-suite-epg-cache-controller-batch-window-test.db");
+
+    Database database;
+    assert(database.open("/tmp/vdr-suite-epg-cache-controller-batch-window-test.db"));
+
+    EpgEventRepository repository(database);
+    MockEventAdapter adapter;
+    VdrService vdrService(adapter);
+    EpgCacheService service(repository, vdrService);
+    EpgCacheController controller(service);
+
+    VdrEventQuery query;
+    query.limit = 3;
+
+    adapter.events = {
+        make_event("event-1", "channel-1", "Batch One", "0900", "1000"),
+        make_event("event-2", "channel-2", "Batch Two", "0930", "1030"),
+        make_event("event-3", "channel-3", "Batch Three", "1000", "1100")};
+
+    const ApiResponse refresh =
+        controller.refreshBackendWindow("home-vdr", query);
+
+    assert(refresh.statusCode == 200);
+
+    const ApiResponse window =
+        controller.getWindow(
+            "home-vdr",
+            "channel-1,channel-3",
+            "0900",
+            "1300",
+            0);
+
+    assert(window.statusCode == 200);
+    assert(contains(window.body, "\"backendId\":\"home-vdr\""));
+    assert(contains(window.body, "\"eventCount\":2"));
+    assert(contains(window.body, "Batch One"));
+    assert(!contains(window.body, "Batch Two"));
+    assert(contains(window.body, "Batch Three"));
+    assert(adapter.unboundedEventCalls == 0);
+    assert(adapter.boundedEventCalls == 1);
+}
+
+
 int main()
 {
     test_unbounded_refresh_returns_bad_request_without_adapter_fetch();
     test_bounded_refresh_and_now_next_read_return_backend_scoped_json();
     test_status_reports_count_and_last_refresh_metadata();
     test_window_read_defaults_empty_backend_to_default();
+    test_window_read_filters_multiple_channel_ids();
 
     return 0;
 }

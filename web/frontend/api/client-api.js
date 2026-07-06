@@ -171,6 +171,10 @@
     return requestJson('/api/epg/cache/status', options);
   }
 
+  function fetchClientEpgCacheWindow(options) {
+    return requestJson('/api/epg/cache/window', options);
+  }
+
   function fetchClientRecordings(options) {
     return requestJson('/api/vdr/recordings/live', options);
   }
@@ -186,6 +190,7 @@
     fetchClientChannels: fetchClientChannels,
     fetchClientEpgWindow: fetchClientEpgWindow,
     fetchClientEpgCacheStatus: fetchClientEpgCacheStatus,
+    fetchClientEpgCacheWindow: fetchClientEpgCacheWindow,
     fetchClientRecordings: fetchClientRecordings,
     fetchClientSearchTimers: fetchClientSearchTimers
   });

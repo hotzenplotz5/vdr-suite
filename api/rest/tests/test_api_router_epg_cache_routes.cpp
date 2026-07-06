@@ -401,6 +401,18 @@ int main()
     assert(fakeEpgCacheController.lastUntilTime == "1300");
     assert(fakeEpgCacheController.lastEventLimit == 11);
 
+    const ApiResponse batchWindow = router.handleGet(
+        "/api/epg/cache/window?backend=batch-vdr&channelIds=channel-1%2Cchannel-2&fromTime=0900&untilTime=1300&limit=0");
+
+    assert(batchWindow.statusCode == 200);
+    assert(contains(batchWindow.body, "window"));
+    assert(fakeEpgCacheController.windowCalls == 2);
+    assert(fakeEpgCacheController.lastBackendId == "batch-vdr");
+    assert(fakeEpgCacheController.lastChannelId == "channel-1,channel-2");
+    assert(fakeEpgCacheController.lastFromTime == "0900");
+    assert(fakeEpgCacheController.lastUntilTime == "1300");
+    assert(fakeEpgCacheController.lastEventLimit == 0);
+
     std::cout << "test_api_router_epg_cache_routes passed" << std::endl;
     return 0;
 }

@@ -501,3 +501,21 @@ Implemented behavior:
 
 No EPG UI module has been extracted yet.
 
+## Phase 59.03 Implementation Status
+
+Phase 59.03 batches EPG cache window loading for the visible channel set.
+
+Implemented behavior:
+
+- /api/epg/cache/window accepts channelIds as a comma-separated query parameter
+- channelIds are decoded by RestQueryParameters before routing
+- EPG cache reads use SQLite channel_id IN (...) filtering for visible channels
+- legacy channelId behavior remains supported
+- unfiltered cache-window behavior remains supported
+- the frontend sends one cache-window request for the visible channel page
+- per-channel Promise.all EPG cache loading was removed
+- EPG cache status remains routed through fetchClientEpgCacheStatus()
+- EPG cache window loading is routed through fetchClientEpgCacheWindow()
+- the EPG data path remains SQLite-based
+- no EPG UI module has been extracted yet.
+
