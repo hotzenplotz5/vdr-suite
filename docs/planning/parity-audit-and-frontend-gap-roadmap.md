@@ -221,6 +221,7 @@ Rule for future Live-parity work:
 
 - A capability is not frontend-ready until it has a backend/domain status, a Web Client API status and a UI status.
 - New frontend HTTP access must first go through `web/frontend/api/client-api.js`.
+- Every defined `fetchClient...` helper must be exported through `window.VdrSuiteClientApi`, and every exported helper must be defined.
 - `web/frontend/api/client-api.js` must remain DOM-free.
 - Final multi-client contracts should later move behind stable `/api/client` routes.
 

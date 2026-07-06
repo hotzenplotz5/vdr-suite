@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.08j - Web Client API Missing Backend Route Gap Guard
+Phase 59.09a - Web Client API Export Registry Guard
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.08j guards the Web Client API against fake wrappers for missing backend route gaps.
+Phase 59.09a guards the Web Client API export registry so every defined fetchClient function is exported and every exported fetchClient name is defined.
 
 Stable scope:
 
@@ -92,6 +92,7 @@ Stable scope:
 - Phase 59.08h routes metadata, person search, recording-person search and auxiliary EPG reads through dedicated Web Client API wrappers.
 - Phase 59.08i routes VDR overview, status, health and snapshot state reads through dedicated Web Client API wrappers.
 - Phase 59.08j prevents fake Web Client API wrappers for permission report, event media/detail and recording marks/resume/cut/playback route gaps.
+- Phase 59.09a guards the Web Client API export registry against missing or undefined fetchClient exports.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -194,6 +195,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.08h verifies metadata, person, recording-person and auxiliary EPG read wrappers own their route access.
 - Phase 59.08i verifies VDR overview, status, health, snapshot summary and snapshot list wrappers own their route access.
 - Phase 59.08j verifies the Client API wrapper does not fake missing backend route gap tokens.
+- Phase 59.09a verifies every defined fetchClient function is exported and every exported fetchClient name is defined.
 
 ### Guarded or deliberately incomplete areas
 

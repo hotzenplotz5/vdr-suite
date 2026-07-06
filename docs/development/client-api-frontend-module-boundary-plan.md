@@ -629,6 +629,29 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.09a Implementation Status
+
+Phase 59.09a hardens the Web Client API export registry.
+
+Implemented behavior:
+
+- the frontend ownership guard extracts all defined `fetchClient...` functions from `web/frontend/api/client-api.js`
+- the guard extracts all exported `fetchClient...` entries from `window.VdrSuiteClientApi`
+- every defined `fetchClient...` function must be exported
+- every exported `fetchClient...` entry must refer to a defined function
+- the existing explicit route ownership checks remain in place
+- the wrapper remains DOM-free
+- no new backend route and no UI expansion is added
+
+Next open Web Client API areas:
+
+- direct browser fetch guard hardening for `web/frontend/app.js`
+- event detail and media/artwork routes once backend exposes dedicated contracts
+- recording marks, resume, cut and playback helpers once backend exposes dedicated contracts
+- permission report route once backend exposes one
+
+---
+
 ## Phase 59.08j Implementation Status
 
 Phase 59.08j guards the Web Client API against fake wrappers for backend route gaps.

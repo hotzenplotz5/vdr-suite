@@ -40,6 +40,41 @@ def require(condition: bool, message: str) -> None:
         raise ContractFailure(message)
 
 
+def client_api_fetch_function_names(client_api: str) -> set[str]:
+    return set(
+        re.findall(
+            r"\bfunction\s+(fetchClient[A-Za-z0-9_]+)\s*\(",
+            client_api,
+        )
+    )
+
+
+def client_api_export_names(client_api: str) -> set[str]:
+    marker = "window.VdrSuiteClientApi = Object.freeze({"
+    start = client_api.find(marker)
+
+    require(
+        start >= 0,
+        "client-api.js must expose window.VdrSuiteClientApi through Object.freeze"
+    )
+
+    end = client_api.find("\n  });", start)
+
+    require(
+        end > start,
+        "client-api.js export registry block must be closed by Object.freeze terminator"
+    )
+
+    export_block = client_api[start:end]
+
+    return set(
+        re.findall(
+            r"\b(fetchClient[A-Za-z0-9_]+)\s*:",
+            export_block,
+        )
+    )
+
+
 def script_positions(index_html: str) -> dict[str, int]:
     scripts = {
         "app": '<script src="/frontend/app.js"></script>',
@@ -701,10 +736,32 @@ def check_client_api_contract():
         "fetchClientSearchTimerDeleteAction",
     ]
 
+    defined_fetch_functions = client_api_fetch_function_names(client_api)
+    exported_fetch_functions = client_api_export_names(client_api)
+
+    missing_exported_functions = sorted(
+        defined_fetch_functions - exported_fetch_functions
+    )
+    unknown_exported_functions = sorted(
+        exported_fetch_functions - defined_fetch_functions
+    )
+
+    require(
+        not missing_exported_functions,
+        "client-api.js must export every fetchClient function: "
+        + ", ".join(missing_exported_functions)
+    )
+    require(
+        not unknown_exported_functions,
+        "client-api.js must not export undefined fetchClient functions: "
+        + ", ".join(unknown_exported_functions)
+    )
+
     for export_name in required_exports:
         require(
-            export_name in client_api,
+            export_name in exported_fetch_functions,
             "client-api.js must export " + export_name
+            + " through window.VdrSuiteClientApi"
         )
 
 
