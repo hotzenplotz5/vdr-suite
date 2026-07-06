@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 58.95 - Frontend Ownership Contracts
+Phase 58.96 - Frontend Ownership Guard Target
 ```
 
 Current documentation consolidation state:
@@ -47,15 +47,15 @@ Phase 58 - Frontend and Live Parity
 
 ## Latest Verified Implementation Slice
 
-Phase 58.95 adds an explicit ownership contract for the script-based Phase 58 web frontend so feature patches do not drift into unrelated helper files.
+Phase 58.96 makes the frontend ownership guard available as an explicit lightweight Make target without adding it to the heavier C++-compiling fast test group.
 
 Stable scope:
 
-- document `index.html`, `app.js`, `channel-logos.js`, `channel-browser.js` and `style.css` ownership boundaries
-- define the Timer conflict integration rule as Timer-module-owned behavior
-- make `channel-logos.js` helper-only and explicitly forbid dynamic script loading there
-- add a static frontend ownership contract check in `tools/check_frontend_ownership_contracts.py`
-- guard script order and helper boundaries before further frontend modularization
+- keep the frontend ownership contract documented
+- keep `tools/check_frontend_ownership_contracts.py` as the static frontend guard
+- expose the guard through `make test-frontend-contracts`
+- deliberately do not wire the guard into `test-ci-fast`, because that target compiles larger C++ test groups
+- preserve the native Timer conflict frontend integration from Phase 58.95a
 
 Previous verified slice:
 
@@ -84,7 +84,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Live parity discovery foundation
 - Channel move and stable frontend sorter foundation
 - Timer conflict discovery and frontend rendering foundation
-- Frontend ownership contract foundation
+- Frontend ownership contract foundation\n- Lightweight frontend ownership guard Make target
 
 ### Verified real-runtime evidence
 
@@ -93,7 +93,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 58.39 verifies bounded live EPG input for channel cards.
 - Phase 58.90b verifies stable channel sorting on desktop and touch devices.
 - Phase 58.94c verifies RESTfulAPI timer conflict discovery with live count=2 and total=2.
-- Phase 58.95 documents frontend ownership boundaries and adds a static guard against helper-file module drift.
+- Phase 58.95 documents frontend ownership boundaries and adds a static guard against helper-file module drift.\n- Phase 58.96 verifies `make test-frontend-contracts` as a lightweight guard target outside the heavier C++ fast-test path.
 
 ### Guarded or deliberately incomplete areas
 
