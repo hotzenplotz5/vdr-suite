@@ -616,11 +616,13 @@ def check_client_api_contract():
         "fetchClientTimerConflicts",
         "fetchClientChannels",
         "fetchClientEpgWindow",
+        "fetchClientEpgSearch",
         "fetchClientEpgCacheStatus",
         "fetchClientEpgCacheWindow",
         "fetchClientRecordings",
         "fetchClientSearchTimers",
         "fetchClientSearchTimerDiscovery",
+        "fetchClientSearchTimerPreview",
     ]
 
     for export_name in required_exports:
@@ -636,10 +638,28 @@ def check_client_api_contract():
         "client-api.js must define fetchClientSearchTimerDiscovery(options)"
     )
     require(
+        "backendQueryOptions(options)" in client_api,
+        "client-api.js must provide backendQueryOptions(options)"
+    )
+    require(
+        "requestJson(" + chr(39) + "/api/epg/search" + chr(39) in client_api,
+        "fetchClientEpgSearch() must own /api/epg/search access"
+    )
+    require(
         "requestJsonWithFallback(" in client_api
         and "/api/vdr/searchtimers/discovery" in client_api
         and "/api/searchtimers/discovery" in client_api,
         "fetchClientSearchTimerDiscovery() must own SearchTimer discovery route access"
+    )
+    require(
+        "function fetchClientSearchTimerPreview(options)" in client_api,
+        "client-api.js must define fetchClientSearchTimerPreview(options)"
+    )
+    require(
+        "requestJsonWithFallback(" in client_api
+        and "/api/vdr/searchtimers/preview" in client_api
+        and "/api/searchtimers/preview" in client_api,
+        "fetchClientSearchTimerPreview() must own SearchTimer preview route access"
     )
     require(
         "requestJson(" + chr(39) + "/api/epg/cache/status" + chr(39) in client_api,

@@ -81,6 +81,20 @@
     return query;
   }
 
+  function backendQueryOptions(options) {
+    const normalized = normalizeOptions(options);
+    const query = copyQuery(normalized.query);
+
+    if (normalized.backendId && !query.backend) {
+      query.backend = normalized.backendId;
+    }
+
+    return Object.assign({}, normalized, {
+      backendId: undefined,
+      query: query
+    });
+  }
+
   function requestOptions(options) {
     const normalized = normalizeOptions(options);
 
@@ -167,6 +181,10 @@
     return requestJson('/api/vdr/events/live', options);
   }
 
+  function fetchClientEpgSearch(options) {
+    return requestJson('/api/epg/search', backendQueryOptions(options));
+  }
+
   function fetchClientEpgCacheStatus(options) {
     return requestJson('/api/epg/cache/status', options);
   }
@@ -187,7 +205,15 @@
     return requestJsonWithFallback(
       '/api/vdr/searchtimers/discovery',
       '/api/searchtimers/discovery',
-      options
+      backendQueryOptions(options)
+    );
+  }
+
+  function fetchClientSearchTimerPreview(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/searchtimers/preview',
+      '/api/searchtimers/preview',
+      backendQueryOptions(options)
     );
   }
 
@@ -197,10 +223,12 @@
     fetchClientTimerConflicts: fetchClientTimerConflicts,
     fetchClientChannels: fetchClientChannels,
     fetchClientEpgWindow: fetchClientEpgWindow,
+    fetchClientEpgSearch: fetchClientEpgSearch,
     fetchClientEpgCacheStatus: fetchClientEpgCacheStatus,
     fetchClientEpgCacheWindow: fetchClientEpgCacheWindow,
     fetchClientRecordings: fetchClientRecordings,
     fetchClientSearchTimers: fetchClientSearchTimers,
-    fetchClientSearchTimerDiscovery: fetchClientSearchTimerDiscovery
+    fetchClientSearchTimerDiscovery: fetchClientSearchTimerDiscovery,
+    fetchClientSearchTimerPreview: fetchClientSearchTimerPreview
   });
 }());

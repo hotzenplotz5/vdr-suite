@@ -30,7 +30,7 @@ Phase 56 - Library Boundary, Packaging and Developer Documentation
 Latest completed implementation slice:
 
 ```text
-Phase 59.07a - Live, RESTfulAPI and EPGSearch Parity Inventory Refresh
+Phase 59.08b - Web Client API EPGSearch and SearchTimer Preview Wrapper
 ```
 
 ---

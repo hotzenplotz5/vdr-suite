@@ -210,8 +210,8 @@ It is an incremental seam, not the final stable multi-client `/api/client` layer
 | EPG window | VDR events and EPG cache | Present | Wrapped through fetchClientEpgWindow and fetchClientEpgCacheWindow | Partial | Keep visible-window loading and add Live-style search/detail gaps. |
 | Recordings | VDR recordings and query endpoint | Present | Wrapped through fetchClientRecordings | Partial | Add action workflow and detail parity behind wrapper. |
 | SearchTimer list | epgsearch SearchTimerList | Present | Wrapped through fetchClientSearchTimers | Partial | Add Live-style SearchTimer UI, preview and edit workflow. |
-| Discovery catalogs | ExtEPGInfoList, ChanGrpList, BlackList, DirectoryList | Backend-neutral discovery present | Missing dedicated wrapper | Missing in UI | Add Web Client API wrapper before UI usage. |
-| Native EPGSearch query | QuerySearchTimer and QuerySearch | Partial | Missing dedicated wrapper | Missing or indirect | Add explicit wrapper and real parity tests before UI expansion. |
+| Discovery catalogs | ExtEPGInfoList, ChanGrpList, BlackList, DirectoryList | Backend-neutral discovery present | Wrapped through fetchClientSearchTimerDiscovery | Missing in UI | Use catalogs in SearchTimer UI after wrapper tests. |
+| Native EPGSearch query | QuerySearchTimer and QuerySearch | Partial | Wrapped through fetchClientEpgSearch and fetchClientSearchTimerPreview | Missing or indirect | Add real parity tests before UI expansion. |
 | Client capabilities | backend permissions and capability report | Present in backend foundations | Incomplete dedicated wrapper | Partial | Expose read-only/write capability state consistently. |
 | Stable `/api/client` layer | VDR-Suite client contract | Planned | Not implemented | Not applicable | Introduce after current wrapper coverage stabilizes. |
 

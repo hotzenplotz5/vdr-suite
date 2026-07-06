@@ -541,10 +541,13 @@ Current wrapper functions:
 - `fetchClientTimerConflicts`
 - `fetchClientChannels`
 - `fetchClientEpgWindow`
+- `fetchClientEpgSearch`
 - `fetchClientEpgCacheStatus`
 - `fetchClientEpgCacheWindow`
 - `fetchClientRecordings`
 - `fetchClientSearchTimers`
+- `fetchClientSearchTimerDiscovery`
+- `fetchClientSearchTimerPreview`
 
 Current status:
 
@@ -562,8 +565,6 @@ New parity rule:
 
 High-value missing wrapper areas:
 
-- SearchTimer discovery catalogs
-- native EPGSearch query and SearchTimer query preview
 - recording action validation and execution
 - timer create/update/delete workflows
 - SearchTimer create/update/delete workflows
@@ -601,7 +602,30 @@ The covered catalog payload includes:
 
 Next open Web Client API areas:
 
-- EPGSearch query and SearchTimer preview
+- recording action validation and execution
+- capability and permission report
+- timer mutation workflows
+- SearchTimer mutation workflows
+
+---
+
+## Phase 59.08b Implementation Status
+
+Phase 59.08b moves EPGSearch query and SearchTimer preview HTTP access behind the Web Client API wrapper.
+
+Implemented behavior:
+
+- `fetchClientEpgSearch()` is exposed by `web/frontend/api/client-api.js`
+- `fetchClientEpgSearch()` owns `/api/epg/search`
+- `fetchClientSearchTimerPreview()` is exposed by `web/frontend/api/client-api.js`
+- `fetchClientSearchTimerPreview()` uses `/api/vdr/searchtimers/preview`
+- `fetchClientSearchTimerPreview()` keeps `/api/searchtimers/preview` as a compatibility fallback
+- backend-aware callers may pass `backendId`; the wrapper maps it to the existing backend query parameter for these backend routes
+- the wrapper remains DOM-free
+- no EPGSearch or SearchTimer preview UI is added yet
+
+Next open Web Client API areas:
+
 - recording action validation and execution
 - capability and permission report
 - timer mutation workflows
