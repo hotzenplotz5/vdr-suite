@@ -412,6 +412,7 @@ bool isFrontendPath(
         path == "/frontend/" ||
         path == "/frontend/index.html" ||
         path == "/frontend/app.js" ||
+        path == "/frontend/api/client-api.js" ||
         path == "/frontend/channel-logos.js" ||
         path == "/frontend/channel-browser.js" ||
         path == "/frontend/style.css";
@@ -440,6 +441,13 @@ HttpServerResponse serveFrontendPath(
     {
         return makeFrontendAssetResponse(
             "app.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/api/client-api.js")
+    {
+        return makeFrontendAssetResponse(
+            "api/client-api.js",
             "application/javascript; charset=utf-8");
     }
 

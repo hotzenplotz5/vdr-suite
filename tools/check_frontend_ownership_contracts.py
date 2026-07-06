@@ -22,6 +22,7 @@ CHANNEL_LOGOS = FRONTEND / "channel-logos.js"
 CHANNEL_BROWSER = FRONTEND / "channel-browser.js"
 STYLE = FRONTEND / "style.css"
 ARCH_DOC = ROOT / "docs" / "development" / "frontend-architecture.md"
+HTTP_SERVER = ROOT / "core" / "http" / "src" / "TestHttpServer.cpp"
 
 
 class ContractFailure(Exception):
@@ -409,6 +410,19 @@ def check_documentation_contract(frontend_architecture_md: str) -> None:
 
 
 
+
+def check_frontend_static_serving_contract(test_http_server_cpp: str) -> None:
+    require(
+        '"frontend/api/client-api.js"' in test_http_server_cpp or '"/frontend/api/client-api.js"' in test_http_server_cpp,
+        "TestHttpServer must serve /frontend/api/client-api.js"
+    )
+
+    require(
+        '"api/client-api.js"' in test_http_server_cpp,
+        "TestHttpServer must map /frontend/api/client-api.js to api/client-api.js"
+    )
+
+
 def check_client_api_contract():
     client_api_path = ROOT / "web/frontend/api/client-api.js"
     index_path = ROOT / "web/frontend/index.html"
@@ -491,6 +505,7 @@ def main() -> int:
         channel_browser_js = read(CHANNEL_BROWSER)
         style_css = read(STYLE)
         frontend_architecture_md = read(ARCH_DOC)
+        test_http_server_cpp = read(HTTP_SERVER)
 
         check_index_contract(index_html)
         check_app_contract(app_js)
@@ -501,6 +516,7 @@ def main() -> int:
         check_timer_loading_client_api_contract(app_js)
         check_timer_conflict_loading_client_api_contract(app_js)
         check_client_api_contract()
+        check_frontend_static_serving_contract(test_http_server_cpp)
         check_channel_logos_contract(channel_logos_js)
         check_channel_browser_contract(channel_browser_js)
         check_style_contract(style_css, app_js)
