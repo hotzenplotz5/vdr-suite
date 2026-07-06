@@ -2859,10 +2859,6 @@ function renderEpgTimeView(channelData, eventData) {
     epgTimelineMode = 'time';
     epgProgramView = 'live';
     epgTimeWindowPageOffset = 0;
-    if (currentChannels && currentEvents) {
-      loadEpgTimeline();
-      return;
-    }
     loadEpgTimeline();
   });
 
@@ -2874,10 +2870,6 @@ function renderEpgTimeView(channelData, eventData) {
     epgTimelineMode = 'time';
     epgProgramView = 'now';
     epgTimeWindowPageOffset = 0;
-    if (currentChannels && currentEvents) {
-      loadEpgTimeline();
-      return;
-    }
     loadEpgTimeline();
   });
 
@@ -2889,10 +2881,6 @@ function renderEpgTimeView(channelData, eventData) {
     epgTimelineMode = 'time';
     epgProgramView = 'next';
     epgTimeWindowPageOffset = 0;
-    if (currentChannels && currentEvents) {
-      loadEpgTimeline();
-      return;
-    }
     loadEpgTimeline();
   });
 
