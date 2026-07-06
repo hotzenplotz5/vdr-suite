@@ -27,6 +27,7 @@ Authoritative sources:
 - [Project Status Dashboard](../project-status-dashboard.md)
 - [Current Technical Debt](current-technical-debt.md)
 - [Build System State](build-system-state.md)\n- [Frontend Architecture and Ownership Contracts](frontend-architecture.md)
+- [Client API and Frontend Module Boundary Plan](client-api-frontend-module-boundary-plan.md)
 - [CI Test Strategy](ci-test-strategy.md)
 - [Runtime Diagnostics Status](runtime-diagnostics-status.md)
 - [Runtime Diagnostics Documentation](runtime-diagnostics/README.md)
