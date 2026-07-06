@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.04c - Recording Folder Paging Controls
+Phase 59.04d - Recording Leaf Promotion
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.04c completes the first Recording frontend performance hardening slice after the frontend client API recovery chain.
+Phase 59.04d completes the first Recording frontend performance hardening slice after the frontend client API recovery chain.
 
 Stable scope:
 
@@ -64,6 +64,7 @@ Stable scope:
 - Phase 59.04a bounds Recording module rendering for large real catalogs.
 - Phase 59.04b renders recordings as a hierarchical folder tree instead of a flat folder map.
 - Phase 59.04c adds explicit Recording folder paging controls with 20 recordings per page.
+- Phase 59.04d promotes single-recording leaf folders into recording entries instead of rendering them as fake folders.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -138,12 +139,13 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.04a verifies bounded Recording rendering for large catalogs.
 - Phase 59.04b verifies nested Recording folder tree rendering.
 - Phase 59.04c verifies explicit previous/next paging controls for folder recordings.
+- Phase 59.04d verifies single-recording leaf folders are displayed as recordings while real folders remain navigable.
 
 ### Guarded or deliberately incomplete areas
 
 - SearchTimer production changes remain gated and closed by default.
 - Recording operation write probes remain explicitly gated.
-- Recording query loading is restored and the first Recording frontend performance slice is complete through bounded rendering, folder-tree navigation and 20-item paging; deeper recording detail/action UI remains a follow-up.
+- Recording query loading is restored and the first Recording frontend performance slice is complete through bounded rendering, folder-tree navigation, 20-item paging and single-recording leaf promotion; deeper recording detail/action UI remains a follow-up.
 - Authentication, authorization, per-backend permissions and read-only secondary-site policy remain planned beyond the current access-mode foundation.
 - Web, Windows, Android, iOS and TV frontends remain planned product layers; the current web frontend is a Phase 58 foundation, not the final client product.
 - Full frontend module extraction remains planned; Phase 58.95 only defines and guards the current script-based ownership model.

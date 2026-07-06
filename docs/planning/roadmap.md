@@ -23,7 +23,7 @@ Completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
 
 Latest completed implementation slice
-Phase 59.04c - Recording Folder Paging Controls
+Phase 59.04d - Recording Leaf Promotion
 
 Next planned implementation slice
 Phase 59.04 - Recording and EPG Frontend Performance Hardening
@@ -76,9 +76,9 @@ Completed foundation ranges:
 
 ## Recently Completed Implementation Slice
 
-### Phase 59.04c - Recording Folder Paging Controls
+### Phase 59.04d - Recording Leaf Promotion
 
-Status: Completed frontend performance slice.
+Status: Completed Recording frontend performance slice.
 
 Completed outcomes:
 
@@ -88,6 +88,7 @@ Completed outcomes:
 - nested folders are no longer flattened into the root view
 - folder recordings use explicit 20-item paging
 - previous and next page controls are visible inside folders
+- single-recording leaf folders are displayed as recordings instead of fake folders
 - frontend ownership contracts guard the Recording rendering model
 - `web/frontend/api/client-api.js` remains the DOM-free frontend API boundary
 - `web/frontend/app.js` remains the current frontend module owner
