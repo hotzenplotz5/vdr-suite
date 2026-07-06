@@ -255,6 +255,38 @@
     return requestJson('/api/epg/cache/window', options);
   }
 
+  function fetchClientEpgNowNext(options) {
+    return requestJson('/api/epg/now-next', options);
+  }
+
+  function fetchClientEpgTimeWindow(options) {
+    return requestJson('/api/epg/time-window', options);
+  }
+
+  function fetchClientEpgChannelWindow(options) {
+    return requestJson('/api/epg/channel-window', options);
+  }
+
+  function fetchClientMetadata(options) {
+    return requestJson('/api/metadata', options);
+  }
+
+  function fetchClientPersons(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/persons',
+      '/api/persons',
+      options
+    );
+  }
+
+  function fetchClientRecordingPersons(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/recordings/persons/search',
+      '/api/recordings/persons/search',
+      backendQueryOptions(options)
+    );
+  }
+
   function fetchClientRecordings(options) {
     return requestJson('/api/vdr/recordings/query', options);
   }
@@ -373,6 +405,12 @@
     fetchClientEpgSearch: fetchClientEpgSearch,
     fetchClientEpgCacheStatus: fetchClientEpgCacheStatus,
     fetchClientEpgCacheWindow: fetchClientEpgCacheWindow,
+    fetchClientEpgNowNext: fetchClientEpgNowNext,
+    fetchClientEpgTimeWindow: fetchClientEpgTimeWindow,
+    fetchClientEpgChannelWindow: fetchClientEpgChannelWindow,
+    fetchClientMetadata: fetchClientMetadata,
+    fetchClientPersons: fetchClientPersons,
+    fetchClientRecordingPersons: fetchClientRecordingPersons,
     fetchClientRecordings: fetchClientRecordings,
     fetchClientRecordingActionValidation: fetchClientRecordingActionValidation,
     fetchClientRecordingActionExecution: fetchClientRecordingActionExecution,

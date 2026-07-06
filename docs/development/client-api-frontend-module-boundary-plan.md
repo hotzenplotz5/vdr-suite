@@ -550,6 +550,12 @@ Current wrapper functions:
 - `fetchClientEpgSearch`
 - `fetchClientEpgCacheStatus`
 - `fetchClientEpgCacheWindow`
+- `fetchClientEpgNowNext`
+- `fetchClientEpgTimeWindow`
+- `fetchClientEpgChannelWindow`
+- `fetchClientMetadata`
+- `fetchClientPersons`
+- `fetchClientRecordingPersons`
 - `fetchClientRecordings`
 - `fetchClientRecordingActionValidation`
 - `fetchClientRecordingActionExecution`
@@ -581,12 +587,12 @@ New parity rule:
 High-value missing wrapper areas:
 
 - permission report route once backend exposes one
-- event detail and media/artwork helpers
+- event detail and media/artwork route gaps once backend exposes dedicated contracts
 - recording marks, resume, cut and playback helpers
 
 Next recommended frontend/API slices:
 
-- add wrapper functions for event detail and media/artwork helpers
+- audit event detail and media/artwork backend route gaps before adding wrappers
 - add wrapper functions for recording marks, resume, cut and playback helpers
 - add a permission report route once the backend exposes one
 - only then expand the corresponding UI modules
@@ -614,6 +620,31 @@ The covered catalog payload includes:
 
 Next open Web Client API areas:
 
+- permission report route once backend exposes one
+
+---
+
+## Phase 59.08h Implementation Status
+
+Phase 59.08h moves metadata, person and auxiliary EPG read HTTP access behind the Web Client API wrapper.
+
+Implemented behavior:
+
+- `fetchClientMetadata()` owns `/api/metadata`
+- `fetchClientPersons()` owns `/api/vdr/persons` with `/api/persons` fallback
+- `fetchClientRecordingPersons()` owns `/api/vdr/recordings/persons/search` with `/api/recordings/persons/search` fallback
+- `fetchClientEpgNowNext()` owns `/api/epg/now-next`
+- `fetchClientEpgTimeWindow()` owns `/api/epg/time-window`
+- `fetchClientEpgChannelWindow()` owns `/api/epg/channel-window`
+- backend-scoped recording-person queries are normalized through `backendQueryOptions()`
+- the wrapper remains DOM-free
+- no metadata, person or auxiliary EPG UI expansion is added yet
+- dedicated event detail and media/artwork route contracts remain backend gaps
+
+Next open Web Client API areas:
+
+- event detail and media/artwork routes once backend exposes dedicated contracts
+- recording marks, resume, cut and playback helpers
 - permission report route once backend exposes one
 
 ---

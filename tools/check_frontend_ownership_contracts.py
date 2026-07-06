@@ -675,6 +675,12 @@ def check_client_api_contract():
         "fetchClientEpgSearch",
         "fetchClientEpgCacheStatus",
         "fetchClientEpgCacheWindow",
+        "fetchClientEpgNowNext",
+        "fetchClientEpgTimeWindow",
+        "fetchClientEpgChannelWindow",
+        "fetchClientMetadata",
+        "fetchClientPersons",
+        "fetchClientRecordingPersons",
         "fetchClientRecordings",
         "fetchClientRecordingActionValidation",
         "fetchClientRecordingActionExecution",
@@ -843,6 +849,29 @@ def check_client_api_contract():
         "requestJson(" + chr(39) + "/api/epg/cache/window" + chr(39) in client_api,
         "fetchClientEpgCacheWindow() must own /api/epg/cache/window access"
     )
+
+    read_route_checks = {
+        "fetchClientEpgNowNext": ("/api/epg/now-next",),
+        "fetchClientEpgTimeWindow": ("/api/epg/time-window",),
+        "fetchClientEpgChannelWindow": ("/api/epg/channel-window",),
+        "fetchClientMetadata": ("/api/metadata",),
+        "fetchClientPersons": ("/api/vdr/persons", "/api/persons"),
+        "fetchClientRecordingPersons": (
+            "/api/vdr/recordings/persons/search",
+            "/api/recordings/persons/search",
+        ),
+    }
+
+    for function_name, routes in read_route_checks.items():
+        require(
+            "function " + function_name + "(options)" in client_api,
+            "client-api.js must define " + function_name + "(options)"
+        )
+        for route in routes:
+            require(
+                route in client_api,
+                function_name + "() must own read route access for " + route
+            )
 
     forbidden_tokens = [
         "document.",
