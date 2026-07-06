@@ -1227,6 +1227,23 @@ function epgEventDescription(event) {
   return String(firstValue(event, ['description', 'longText', 'details', 'synopsis'], ''));
 }
 
+function buildEpgVisibleEventIndex(visibleChannels, events, bounds) {
+  const index = new Map();
+
+  visibleChannels.forEach(channel => {
+    index.set(
+      frontendChannelId(channel),
+      epgEventsOverlappingBounds(channel, events, bounds)
+    );
+  });
+
+  return index;
+}
+
+function epgIndexedEventsForChannel(eventIndex, channel) {
+  return eventIndex.get(frontendChannelId(channel)) || [];
+}
+
 function formatEpgDuration(start, end) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
     return '-';
@@ -2424,7 +2441,7 @@ function enableEpgVerticalHorizontalScroll(grid, topScroller, scrollContent, dra
 }
 
 
-function createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds) {
+function createEpgVerticalTimeGrid(visibleChannels, eventIndex, bounds, nowSeconds) {
   const grid = document.createElement('section');
   grid.className = 'epg-vertical-time-grid';
 
@@ -2471,7 +2488,7 @@ function createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds) 
     appendEpgVerticalTimelineTicks(track, bounds, false);
     appendEpgVerticalNowLine(track, bounds, nowSeconds, false);
 
-    const channelEvents = epgEventsOverlappingBounds(channel, events, bounds);
+    const channelEvents = epgIndexedEventsForChannel(eventIndex, channel);
     let renderedEvents = 0;
 
     channelEvents.forEach(entry => {
@@ -2741,6 +2758,7 @@ function renderEpgTimeView(channelData, eventData) {
   const bounds = epgTimelineBounds(nowSeconds);
   const limit = EPG_VISIBLE_CHANNEL_LIMIT;
   const visibleChannels = channels.slice(epgChannelOffset, epgChannelOffset + limit);
+  const visibleEventIndex = buildEpgVisibleEventIndex(visibleChannels, events, bounds);
 
   detailDataElement.replaceChildren();
 
@@ -2756,11 +2774,11 @@ function renderEpgTimeView(channelData, eventData) {
     : 'Zeige Kanäle ' + String(epgChannelOffset + 1) + '–' + String(epgChannelOffset + visibleChannels.length) + ' von ' + String(channels.length) + '.';
 
   const firstVisibleChannelEventCount = visibleChannels.length > 0
-    ? epgEventsOverlappingBounds(visibleChannels[0], events, bounds).length
+    ? epgIndexedEventsForChannel(visibleEventIndex, visibleChannels[0]).length
     : 0;
 
   const secondVisibleChannelEventCount = visibleChannels.length > 1
-    ? epgEventsOverlappingBounds(visibleChannels[1], events, bounds).length
+    ? epgIndexedEventsForChannel(visibleEventIndex, visibleChannels[1]).length
     : 0;
 
   header.appendChild(addText(
@@ -2962,7 +2980,7 @@ function renderEpgTimeView(channelData, eventData) {
   }
 
   if (epgProgramView === 'vertical' || epgTimeAxisMode === 'vertical') {
-    const verticalGrid = createEpgVerticalTimeGrid(visibleChannels, events, bounds, nowSeconds);
+    const verticalGrid = createEpgVerticalTimeGrid(visibleChannels, visibleEventIndex, bounds, nowSeconds);
     list.appendChild(verticalGrid);
     renderEpgWorkbench(list, channelData, eventData);
     return;
@@ -3010,7 +3028,7 @@ function renderEpgTimeView(channelData, eventData) {
     appendEpgTimelineTicks(track, bounds, false);
     appendEpgNowLine(track, bounds, nowSeconds, false);
 
-    const channelEvents = epgEventsOverlappingBounds(channel, events, bounds);
+    const channelEvents = epgIndexedEventsForChannel(visibleEventIndex, channel);
     let renderedEvents = 0;
 
     channelEvents.forEach(entry => {
