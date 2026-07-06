@@ -183,6 +183,14 @@
     return requestJson('/api/vdr/searchtimers/live', options);
   }
 
+  function fetchClientSearchTimerDiscovery(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/searchtimers/discovery',
+      '/api/searchtimers/discovery',
+      options
+    );
+  }
+
   window.VdrSuiteClientApi = Object.freeze({
     requestJson: requestJson,
     fetchClientTimers: fetchClientTimers,
@@ -192,6 +200,7 @@
     fetchClientEpgCacheStatus: fetchClientEpgCacheStatus,
     fetchClientEpgCacheWindow: fetchClientEpgCacheWindow,
     fetchClientRecordings: fetchClientRecordings,
-    fetchClientSearchTimers: fetchClientSearchTimers
+    fetchClientSearchTimers: fetchClientSearchTimers,
+    fetchClientSearchTimerDiscovery: fetchClientSearchTimerDiscovery
   });
 }());

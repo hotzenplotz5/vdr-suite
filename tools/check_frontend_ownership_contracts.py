@@ -620,6 +620,7 @@ def check_client_api_contract():
         "fetchClientEpgCacheWindow",
         "fetchClientRecordings",
         "fetchClientSearchTimers",
+        "fetchClientSearchTimerDiscovery",
     ]
 
     for export_name in required_exports:
@@ -630,6 +631,16 @@ def check_client_api_contract():
 
 
     check_recording_loading_client_api_contract(client_api)
+    require(
+        "function fetchClientSearchTimerDiscovery(options)" in client_api,
+        "client-api.js must define fetchClientSearchTimerDiscovery(options)"
+    )
+    require(
+        "requestJsonWithFallback(" in client_api
+        and "/api/vdr/searchtimers/discovery" in client_api
+        and "/api/searchtimers/discovery" in client_api,
+        "fetchClientSearchTimerDiscovery() must own SearchTimer discovery route access"
+    )
     require(
         "requestJson(" + chr(39) + "/api/epg/cache/status" + chr(39) in client_api,
         "fetchClientEpgCacheStatus() must own /api/epg/cache/status access"

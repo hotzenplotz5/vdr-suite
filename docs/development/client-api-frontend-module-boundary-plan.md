@@ -573,9 +573,37 @@ High-value missing wrapper areas:
 
 Next recommended frontend/API slices:
 
-- add wrapper functions for SearchTimer discovery catalogs
 - add wrapper functions for EPGSearch query and SearchTimer preview
 - add wrapper functions for recording action preview and execution
 - add wrapper functions for capability and permission state
 - only then expand the corresponding UI modules
+
+---
+
+## Phase 59.08a Implementation Status
+
+Phase 59.08a moves SearchTimer discovery catalog HTTP access behind the Web Client API wrapper.
+
+Implemented behavior:
+
+- `fetchClientSearchTimerDiscovery()` is exposed by `web/frontend/api/client-api.js`
+- the wrapper uses `/api/vdr/searchtimers/discovery`
+- the wrapper keeps `/api/searchtimers/discovery` as a compatibility fallback
+- the wrapper remains DOM-free
+- no SearchTimer discovery UI is added yet
+
+The covered catalog payload includes:
+
+- extended EPG info
+- channel groups
+- blacklists
+- recording directories
+
+Next open Web Client API areas:
+
+- EPGSearch query and SearchTimer preview
+- recording action validation and execution
+- capability and permission report
+- timer mutation workflows
+- SearchTimer mutation workflows
 

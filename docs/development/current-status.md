@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.07a - Live, RESTfulAPI and EPGSearch Parity Inventory Refresh
+Phase 59.08a - Web Client API SearchTimer Discovery Wrapper
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.07a refreshes the Live, RESTfulAPI and EPGSearch parity inventory after the Recording detail, EPG frontend hardening and vertical drag UX chain.
+Phase 59.08a adds a DOM-free Web Client API wrapper for SearchTimer discovery catalogs after the 59.07 parity and handoff refresh.
 
 Stable scope:
 
@@ -82,6 +82,7 @@ Stable scope:
 - Phase 59.06a adds tooltip and accessibility affordance text for vertical EPG drag scrolling.
 - Phase 59.06b adds a visible vertical EPG drag hint above the channel scrollbar.
 - Phase 59.07a reconciles Live, RESTfulAPI and EPGSearch parity documentation with the newer VDR-Suite source state.
+- Phase 59.08a routes SearchTimer discovery catalog loading through the Web Client API wrapper.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -174,6 +175,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.06a verifies the vertical EPG channel scrollbar, header row and scroll content expose drag-scrolling affordances.
 - Phase 59.06b verifies the vertical EPG view renders an explicit drag hint for channel scrolling.
 - Phase 59.07a verifies stale parity documentation entries are downgraded from missing/check where backend-neutral source support now exists.
+- Phase 59.08a verifies `fetchClientSearchTimerDiscovery()` owns the SearchTimer discovery route access.
 
 ### Guarded or deliberately incomplete areas
 
