@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.04d - Recording Leaf Promotion
+Phase 59.05d - Recording Details and EPG Event Indexing
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.04d completes the first Recording frontend performance hardening slice after the frontend client API recovery chain.
+Phase 59.05d completes the Recording detail view slice and the first EPG frontend event-indexing hardening chain after the frontend client API recovery chain.
 
 Stable scope:
 
@@ -65,6 +65,10 @@ Stable scope:
 - Phase 59.04b renders recordings as a hierarchical folder tree instead of a flat folder map.
 - Phase 59.04c adds explicit Recording folder paging controls with 20 recordings per page.
 - Phase 59.04d promotes single-recording leaf folders into recording entries instead of rendering them as fake folders.
+- Phase 59.05a adds a Recording detail view opened from recording entries.
+- Phase 59.05b indexes visible EPG events for the active channel window.
+- Phase 59.05c reuses the visible EPG event index in the live/now/next program views.
+- Phase 59.05d builds the visible EPG event index in one event scan instead of repeated per-channel full-list filtering.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -140,12 +144,16 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.04b verifies nested Recording folder tree rendering.
 - Phase 59.04c verifies explicit previous/next paging controls for folder recordings.
 - Phase 59.04d verifies single-recording leaf folders are displayed as recordings while real folders remain navigable.
+- Phase 59.05a verifies recording entries can open an in-module detail view.
+- Phase 59.05b verifies horizontal and vertical EPG time views reuse a visible-channel event index.
+- Phase 59.05c verifies live/now/next EPG program views reuse the same visible-channel event index.
+- Phase 59.05d verifies the visible EPG event index is built in one pass over the loaded event payload.
 
 ### Guarded or deliberately incomplete areas
 
 - SearchTimer production changes remain gated and closed by default.
 - Recording operation write probes remain explicitly gated.
-- Recording query loading is restored and the first Recording frontend performance slice is complete through bounded rendering, folder-tree navigation, 20-item paging and single-recording leaf promotion; deeper recording detail/action UI remains a follow-up.
+- Recording query loading is restored and the first Recording frontend performance slice is complete through bounded rendering, folder-tree navigation, 20-item paging, single-recording leaf promotion and an in-module recording detail view; deeper recording action UI remains a follow-up.
 - Authentication, authorization, per-backend permissions and read-only secondary-site policy remain planned beyond the current access-mode foundation.
 - Web, Windows, Android, iOS and TV frontends remain planned product layers; the current web frontend is a Phase 58 foundation, not the final client product.
 - Full frontend module extraction remains planned; Phase 58.95 only defines and guards the current script-based ownership model.
