@@ -665,6 +665,9 @@ def check_client_api_contract():
         "fetchClientTimers",
         "fetchClientTimerConflicts",
         "fetchClientChannels",
+        "fetchClientCapabilities",
+        "fetchClientBackends",
+        "fetchClientDefaultBackend",
         "fetchClientEpgWindow",
         "fetchClientEpgSearch",
         "fetchClientEpgCacheStatus",
@@ -684,6 +687,18 @@ def check_client_api_contract():
         )
 
 
+    require(
+        "requestJson(" + chr(39) + "/api/vdr/capabilities" + chr(39) in client_api,
+        "fetchClientCapabilities() must own /api/vdr/capabilities access"
+    )
+    require(
+        "requestJson(" + chr(39) + "/api/backends" + chr(39) in client_api,
+        "fetchClientBackends() must own /api/backends access"
+    )
+    require(
+        "requestJson(" + chr(39) + "/api/backends/default" + chr(39) in client_api,
+        "fetchClientDefaultBackend() must own /api/backends/default access"
+    )
     check_recording_loading_client_api_contract(client_api)
     require(
         "function jsonPostOptions(options)" in client_api,

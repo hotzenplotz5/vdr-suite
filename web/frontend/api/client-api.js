@@ -215,6 +215,18 @@
     return requestJson('/api/vdr/channels', options);
   }
 
+  function fetchClientCapabilities(options) {
+    return requestJson('/api/vdr/capabilities', options);
+  }
+
+  function fetchClientBackends(options) {
+    return requestJson('/api/backends', options);
+  }
+
+  function fetchClientDefaultBackend(options) {
+    return requestJson('/api/backends/default', options);
+  }
+
   function fetchClientEpgWindow(options) {
     return requestJson('/api/vdr/events/live', options);
   }
@@ -283,6 +295,9 @@
     fetchClientTimers: fetchClientTimers,
     fetchClientTimerConflicts: fetchClientTimerConflicts,
     fetchClientChannels: fetchClientChannels,
+    fetchClientCapabilities: fetchClientCapabilities,
+    fetchClientBackends: fetchClientBackends,
+    fetchClientDefaultBackend: fetchClientDefaultBackend,
     fetchClientEpgWindow: fetchClientEpgWindow,
     fetchClientEpgSearch: fetchClientEpgSearch,
     fetchClientEpgCacheStatus: fetchClientEpgCacheStatus,

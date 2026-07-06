@@ -540,6 +540,9 @@ Current wrapper functions:
 - `fetchClientTimers`
 - `fetchClientTimerConflicts`
 - `fetchClientChannels`
+- `fetchClientCapabilities`
+- `fetchClientBackends`
+- `fetchClientDefaultBackend`
 - `fetchClientEpgWindow`
 - `fetchClientEpgSearch`
 - `fetchClientEpgCacheStatus`
@@ -569,7 +572,7 @@ High-value missing wrapper areas:
 
 - timer create/update/delete workflows
 - SearchTimer create/update/delete workflows
-- client capability and permission report
+- permission report route once backend exposes one
 - event detail and media/artwork helpers
 - recording marks, resume, cut and playback helpers
 
@@ -603,9 +606,33 @@ The covered catalog payload includes:
 
 Next open Web Client API areas:
 
-- capability and permission report
 - timer mutation workflows
 - SearchTimer mutation workflows
+- permission report route once backend exposes one
+
+---
+
+## Phase 59.08e Implementation Status
+
+Phase 59.08e moves capability and backend state HTTP access behind the Web Client API wrapper.
+
+Implemented behavior:
+
+- `fetchClientCapabilities()` is exposed by `web/frontend/api/client-api.js`
+- `fetchClientCapabilities()` owns `/api/vdr/capabilities`
+- `fetchClientBackends()` is exposed by `web/frontend/api/client-api.js`
+- `fetchClientBackends()` owns `/api/backends`
+- `fetchClientDefaultBackend()` is exposed by `web/frontend/api/client-api.js`
+- `fetchClientDefaultBackend()` owns `/api/backends/default`
+- generic permission reporting is not faked in the frontend and remains a backend route gap
+- the wrapper remains DOM-free
+- no capability or permission UI is added yet
+
+Next open Web Client API areas:
+
+- timer mutation workflows
+- SearchTimer mutation workflows
+- permission report route once backend exposes one
 
 ---
 
