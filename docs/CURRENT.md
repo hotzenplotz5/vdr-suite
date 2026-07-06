@@ -30,7 +30,7 @@ Phase 56 - Library Boundary, Packaging and Developer Documentation
 Latest completed implementation slice:
 
 ```text
-Phase 59.08f - Web Client API Timer Action Wrappers
+Phase 59.08g - Web Client API SearchTimer Workflow and Mutation Wrappers
 ```
 
 ---

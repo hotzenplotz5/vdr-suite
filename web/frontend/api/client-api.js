@@ -302,6 +302,62 @@
     );
   }
 
+  function fetchClientSearchTimerPlan(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/searchtimers/plan',
+      '/api/searchtimers/plan',
+      jsonPostOptions(options)
+    );
+  }
+
+  function fetchClientSearchTimerValidate(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/searchtimers/validate',
+      '/api/searchtimers/validate',
+      jsonPostOptions(options)
+    );
+  }
+
+  function fetchClientSearchTimerExecute(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/searchtimers/execute',
+      '/api/searchtimers/execute',
+      jsonPostOptions(options)
+    );
+  }
+
+  function fetchClientSearchTimerRealTest(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/searchtimers/real-test',
+      '/api/searchtimers/real-test',
+      jsonPostOptions(options)
+    );
+  }
+
+  function fetchClientSearchTimerCreateAction(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/searchtimers',
+      '/api/searchtimers',
+      jsonPostOptions(options)
+    );
+  }
+
+  function fetchClientSearchTimerUpdateAction(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/searchtimers/update',
+      '/api/searchtimers/update',
+      jsonPostOptions(options)
+    );
+  }
+
+  function fetchClientSearchTimerDeleteAction(options) {
+    return requestJsonWithFallback(
+      '/api/vdr/searchtimers/delete',
+      '/api/searchtimers/delete',
+      jsonPostOptions(options)
+    );
+  }
+
   window.VdrSuiteClientApi = Object.freeze({
     requestJson: requestJson,
     fetchClientTimers: fetchClientTimers,
@@ -322,6 +378,13 @@
     fetchClientRecordingActionExecution: fetchClientRecordingActionExecution,
     fetchClientSearchTimers: fetchClientSearchTimers,
     fetchClientSearchTimerDiscovery: fetchClientSearchTimerDiscovery,
-    fetchClientSearchTimerPreview: fetchClientSearchTimerPreview
+    fetchClientSearchTimerPreview: fetchClientSearchTimerPreview,
+    fetchClientSearchTimerPlan: fetchClientSearchTimerPlan,
+    fetchClientSearchTimerValidate: fetchClientSearchTimerValidate,
+    fetchClientSearchTimerExecute: fetchClientSearchTimerExecute,
+    fetchClientSearchTimerRealTest: fetchClientSearchTimerRealTest,
+    fetchClientSearchTimerCreateAction: fetchClientSearchTimerCreateAction,
+    fetchClientSearchTimerUpdateAction: fetchClientSearchTimerUpdateAction,
+    fetchClientSearchTimerDeleteAction: fetchClientSearchTimerDeleteAction
   });
 }());

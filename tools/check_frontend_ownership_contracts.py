@@ -681,6 +681,13 @@ def check_client_api_contract():
         "fetchClientSearchTimers",
         "fetchClientSearchTimerDiscovery",
         "fetchClientSearchTimerPreview",
+        "fetchClientSearchTimerPlan",
+        "fetchClientSearchTimerValidate",
+        "fetchClientSearchTimerExecute",
+        "fetchClientSearchTimerRealTest",
+        "fetchClientSearchTimerCreateAction",
+        "fetchClientSearchTimerUpdateAction",
+        "fetchClientSearchTimerDeleteAction",
     ]
 
     for export_name in required_exports:
@@ -783,6 +790,49 @@ def check_client_api_contract():
         and "/api/searchtimers/preview" in client_api,
         "fetchClientSearchTimerPreview() must own SearchTimer preview route access"
     )
+
+    searchtimer_workflow_routes = {
+        "fetchClientSearchTimerPlan": (
+            "/api/vdr/searchtimers/plan",
+            "/api/searchtimers/plan",
+        ),
+        "fetchClientSearchTimerValidate": (
+            "/api/vdr/searchtimers/validate",
+            "/api/searchtimers/validate",
+        ),
+        "fetchClientSearchTimerExecute": (
+            "/api/vdr/searchtimers/execute",
+            "/api/searchtimers/execute",
+        ),
+        "fetchClientSearchTimerRealTest": (
+            "/api/vdr/searchtimers/real-test",
+            "/api/searchtimers/real-test",
+        ),
+        "fetchClientSearchTimerCreateAction": (
+            "/api/vdr/searchtimers",
+            "/api/searchtimers",
+        ),
+        "fetchClientSearchTimerUpdateAction": (
+            "/api/vdr/searchtimers/update",
+            "/api/searchtimers/update",
+        ),
+        "fetchClientSearchTimerDeleteAction": (
+            "/api/vdr/searchtimers/delete",
+            "/api/searchtimers/delete",
+        ),
+    }
+
+    for function_name, routes in searchtimer_workflow_routes.items():
+        require(
+            "function " + function_name + "(options)" in client_api,
+            "client-api.js must define " + function_name + "(options)"
+        )
+        for route in routes:
+            require(
+                route in client_api,
+                function_name + "() must own SearchTimer route access for " + route
+            )
+
     require(
         "requestJson(" + chr(39) + "/api/epg/cache/status" + chr(39) in client_api,
         "fetchClientEpgCacheStatus() must own /api/epg/cache/status access"

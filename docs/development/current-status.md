@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.08f - Web Client API Timer Action Wrappers
+Phase 59.08g - Web Client API SearchTimer Workflow and Mutation Wrappers
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.08f adds DOM-free Web Client API wrappers for Timer create, update and delete action routes.
+Phase 59.08g adds DOM-free Web Client API wrappers for SearchTimer plan, validate, execute, real-test, create, update and delete routes.
 
 Stable scope:
 
@@ -88,6 +88,7 @@ Stable scope:
 - Phase 59.08d routes SearchTimer list loading in app.js through `fetchClientSearchTimers()`.
 - Phase 59.08e routes capability and backend state loading through dedicated Web Client API wrappers.
 - Phase 59.08f routes Timer create, update and delete actions through dedicated Web Client API wrappers.
+- Phase 59.08g routes SearchTimer workflow and mutation actions through dedicated Web Client API wrappers.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -186,6 +187,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.08d verifies `loadSearchTimers()` no longer directly fetches SearchTimer routes.
 - Phase 59.08e verifies `fetchClientCapabilities()`, `fetchClientBackends()` and `fetchClientDefaultBackend()` own their route access.
 - Phase 59.08f verifies `fetchClientTimerCreateAction()`, `fetchClientTimerUpdateAction()` and `fetchClientTimerDeleteAction()` own their route access.
+- Phase 59.08g verifies SearchTimer plan, validate, execute, real-test, create, update and delete wrappers own their route access.
 
 ### Guarded or deliberately incomplete areas
 

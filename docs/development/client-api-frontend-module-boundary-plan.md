@@ -556,6 +556,13 @@ Current wrapper functions:
 - `fetchClientSearchTimers`
 - `fetchClientSearchTimerDiscovery`
 - `fetchClientSearchTimerPreview`
+- `fetchClientSearchTimerPlan`
+- `fetchClientSearchTimerValidate`
+- `fetchClientSearchTimerExecute`
+- `fetchClientSearchTimerRealTest`
+- `fetchClientSearchTimerCreateAction`
+- `fetchClientSearchTimerUpdateAction`
+- `fetchClientSearchTimerDeleteAction`
 
 Current status:
 
@@ -573,16 +580,15 @@ New parity rule:
 
 High-value missing wrapper areas:
 
-- SearchTimer create/update/delete workflows
 - permission report route once backend exposes one
 - event detail and media/artwork helpers
 - recording marks, resume, cut and playback helpers
 
 Next recommended frontend/API slices:
 
-- add wrapper functions for SearchTimer mutation workflows
 - add wrapper functions for event detail and media/artwork helpers
 - add wrapper functions for recording marks, resume, cut and playback helpers
+- add a permission report route once the backend exposes one
 - only then expand the corresponding UI modules
 
 ---
@@ -608,7 +614,29 @@ The covered catalog payload includes:
 
 Next open Web Client API areas:
 
-- SearchTimer mutation workflows
+- permission report route once backend exposes one
+
+---
+
+## Phase 59.08g Implementation Status
+
+Phase 59.08g moves SearchTimer workflow and mutation HTTP access behind the Web Client API wrapper.
+
+Implemented behavior:
+
+- `fetchClientSearchTimerPlan()` owns `/api/vdr/searchtimers/plan` with `/api/searchtimers/plan` fallback
+- `fetchClientSearchTimerValidate()` owns `/api/vdr/searchtimers/validate` with `/api/searchtimers/validate` fallback
+- `fetchClientSearchTimerExecute()` owns `/api/vdr/searchtimers/execute` with `/api/searchtimers/execute` fallback
+- `fetchClientSearchTimerRealTest()` owns `/api/vdr/searchtimers/real-test` with `/api/searchtimers/real-test` fallback
+- `fetchClientSearchTimerCreateAction()` owns `/api/vdr/searchtimers` with `/api/searchtimers` fallback
+- `fetchClientSearchTimerUpdateAction()` owns `/api/vdr/searchtimers/update` with `/api/searchtimers/update` fallback
+- `fetchClientSearchTimerDeleteAction()` owns `/api/vdr/searchtimers/delete` with `/api/searchtimers/delete` fallback
+- JSON request bodies are normalized through `jsonPostOptions()`
+- the wrapper remains DOM-free
+- no SearchTimer mutation UI is added yet
+
+Next open Web Client API areas:
+
 - permission report route once backend exposes one
 
 ---
@@ -631,7 +659,6 @@ Implemented behavior:
 
 Next open Web Client API areas:
 
-- SearchTimer mutation workflows
 - permission report route once backend exposes one
 
 ---
@@ -654,7 +681,6 @@ Implemented behavior:
 
 Next open Web Client API areas:
 
-- SearchTimer mutation workflows
 - permission report route once backend exposes one
 
 ---
