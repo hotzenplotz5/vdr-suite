@@ -523,8 +523,28 @@ def check_recording_bounded_rendering_contract(app_js: str) -> None:
     )
 
     require(
-        "folderEntries.slice(0, visibleFolderCount)" in body,
-        "Recording folder overview must render a bounded folder slice"
+        "buildRecordingFolderTree" in body,
+        "Recording module must build a hierarchical folder tree"
+    )
+
+    require(
+        "createRecordingFolderNode" in body,
+        "Recording module must use explicit folder tree nodes"
+    )
+
+    require(
+        "node.folders" in body,
+        "Recording module must render nested subfolders from folder tree nodes"
+    )
+
+    require(
+        "childFolders.slice(0, visibleFolderCount)" in body,
+        "Recording folder overview must render a bounded child-folder slice"
+    )
+
+    require(
+        "Eine Ebene zurück" in body,
+        "Recording folder tree must provide parent navigation"
     )
 
     require(
@@ -534,7 +554,7 @@ def check_recording_bounded_rendering_contract(app_js: str) -> None:
 
     require(
         "Weitere Ordner laden" in body,
-        "Recording folder overview must expose an incremental load-more control"
+        "Recording folder tree must expose an incremental folder load-more control"
     )
 
     require(
