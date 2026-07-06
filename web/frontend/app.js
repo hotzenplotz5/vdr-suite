@@ -835,6 +835,9 @@ function renderSearchTimerList(data) {
   detailDataElement.appendChild(list);
 }
 
+const RECORDING_FOLDER_BATCH_SIZE = 80;
+const RECORDING_ITEM_BATCH_SIZE = 40;
+
 function renderRecordingList(data) {
   const recordings = listFromResponse(data, 'recordings');
   detailDataElement.replaceChildren();
@@ -843,29 +846,75 @@ function renderRecordingList(data) {
     const empty = document.createElement('article');
     empty.className = 'module-placeholder';
     empty.appendChild(addText(document.createElement('h3'), 'Keine Aufnahmen gefunden'));
-    empty.appendChild(addText(document.createElement('p'), 'Der Endpunkt /api/vdr/recordings hat aktuell keine Aufnahmen geliefert.'));
+    empty.appendChild(addText(document.createElement('p'), 'Der Endpunkt /api/vdr/recordings/query hat aktuell keine Aufnahmen geliefert.'));
     detailDataElement.appendChild(empty);
     return;
   }
 
+  const reportedTotal = Number(firstValue(data || {}, ['totalCount', 'total', 'count'], recordings.length));
+  const totalRecordings = Number.isFinite(reportedTotal) && reportedTotal > recordings.length
+    ? reportedTotal
+    : recordings.length;
   const groups = groupRecordings(recordings);
+  const folderEntries = Array.from(groups.entries())
+    .sort((left, right) => String(left[0]).localeCompare(String(right[0]), 'de-DE'));
 
-  function renderFolderOverview() {
+  function createLoadMoreButton(label, action) {
+    const holder = document.createElement('article');
+    holder.className = 'module-placeholder';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.addEventListener('click', action);
+
+    holder.appendChild(button);
+    return holder;
+  }
+
+  function createRecordingListItem(entry) {
+    const recording = entry.recording;
+    const item = document.createElement('article');
+    item.className = 'list-item';
+
+    const recordingId = firstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
+    const path = firstValue(recording, ['path', 'fileName', 'directory'], '-');
+    const startTime = formatRecordingStart(firstValue(recording, ['startTime', 'start', 'date'], '-'));
+    const duration = formatDurationSeconds(firstValue(recording, ['durationSeconds', 'duration'], 0));
+    const size = formatSizeMb(firstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
+
+    item.appendChild(addText(document.createElement('div'), entry.title)).className = 'list-title';
+    item.appendChild(addText(
+      document.createElement('div'),
+      'Start: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size
+    )).className = 'list-meta';
+    item.appendChild(addText(document.createElement('div'), 'Pfad: ' + String(path))).className = 'list-meta';
+    item.appendChild(addText(document.createElement('div'), 'ID: ' + String(recordingId))).className = 'list-meta';
+
+    return item;
+  }
+
+  function renderFolderOverview(visibleFolderCount) {
+    visibleFolderCount = Math.min(
+      Math.max(Number(visibleFolderCount) || RECORDING_FOLDER_BATCH_SIZE, RECORDING_FOLDER_BATCH_SIZE),
+      folderEntries.length
+    );
+
     detailDataElement.replaceChildren();
 
     const list = document.createElement('section');
-    list.className = 'list';
+    list.className = 'list recording-folder-list';
 
     const header = document.createElement('article');
     header.className = 'module-placeholder';
     header.appendChild(addText(document.createElement('h3'), 'Aufnahme-Ordner'));
     header.appendChild(addText(
       document.createElement('p'),
-      String(groups.size) + ' Ordner · ' + String(recordings.length) + ' Aufnahme(n)'
+      String(folderEntries.length) + ' Ordner · ' + String(totalRecordings) + ' Aufnahme(n) · angezeigt: ' + String(visibleFolderCount) + ' Ordner'
     ));
     list.appendChild(header);
 
-    groups.forEach((items, folder) => {
+    folderEntries.slice(0, visibleFolderCount).forEach(([folder, items]) => {
       const item = document.createElement('article');
       item.className = 'list-item';
       item.tabIndex = 0;
@@ -878,7 +927,7 @@ function renderRecordingList(data) {
         String(items.length) + ' Aufnahme(n) · antippen zum Öffnen'
       )).className = 'list-meta';
 
-      const openFolder = () => renderFolderRecordings(folder, items);
+      const openFolder = () => renderFolderRecordings(folder, items, RECORDING_ITEM_BATCH_SIZE);
       item.addEventListener('click', openFolder);
       item.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -890,64 +939,60 @@ function renderRecordingList(data) {
       list.appendChild(item);
     });
 
-    detailDataElement.appendChild(list);
-  }
-
-  function renderFolderRecordings(folder, items) {
-    detailDataElement.replaceChildren();
-
-    const list = document.createElement('section');
-    list.className = 'list';
-
-    const header = document.createElement('article');
-    header.className = 'module-placeholder';
-    header.appendChild(addText(document.createElement('h3'), folder));
-    header.appendChild(addText(document.createElement('p'), String(items.length) + ' Aufnahme(n)'));
-
-    const backButton = document.createElement('button');
-    backButton.type = 'button';
-    backButton.textContent = 'Zurück zu Ordnern';
-    backButton.addEventListener('click', renderFolderOverview);
-    header.appendChild(backButton);
-
-    list.appendChild(header);
-
-    items.slice(0, 20).forEach(entry => {
-      const recording = entry.recording;
-      const item = document.createElement('article');
-      item.className = 'list-item';
-
-      const recordingId = firstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
-      const path = firstValue(recording, ['path', 'fileName', 'directory'], '-');
-      const startTime = formatRecordingStart(firstValue(recording, ['startTime', 'start', 'date'], '-'));
-      const duration = formatDurationSeconds(firstValue(recording, ['durationSeconds', 'duration'], 0));
-      const size = formatSizeMb(firstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
-
-      item.appendChild(addText(document.createElement('div'), entry.title)).className = 'list-title';
-      item.appendChild(addText(
-        document.createElement('div'),
-        'Start: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size
-      )).className = 'list-meta';
-      item.appendChild(addText(document.createElement('div'), 'Pfad: ' + String(path))).className = 'list-meta';
-      item.appendChild(addText(document.createElement('div'), 'ID: ' + String(recordingId))).className = 'list-meta';
-
-      list.appendChild(item);
-    });
-
-    if (items.length > 20) {
-      const info = document.createElement('article');
-      info.className = 'module-placeholder';
-      info.appendChild(addText(
-        document.createElement('p'),
-        'Zeige 20 von ' + String(items.length) + ' Aufnahmen in diesem Ordner.'
+    if (visibleFolderCount < folderEntries.length) {
+      const remaining = folderEntries.length - visibleFolderCount;
+      list.appendChild(createLoadMoreButton(
+        'Weitere Ordner laden (' + String(remaining) + ' verbleibend)',
+        () => renderFolderOverview(visibleFolderCount + RECORDING_FOLDER_BATCH_SIZE)
       ));
-      list.appendChild(info);
     }
 
     detailDataElement.appendChild(list);
   }
 
-  renderFolderOverview();
+  function renderFolderRecordings(folder, items, visibleRecordingCount) {
+    visibleRecordingCount = Math.min(
+      Math.max(Number(visibleRecordingCount) || RECORDING_ITEM_BATCH_SIZE, RECORDING_ITEM_BATCH_SIZE),
+      items.length
+    );
+
+    detailDataElement.replaceChildren();
+
+    const list = document.createElement('section');
+    list.className = 'list recording-item-list';
+
+    const header = document.createElement('article');
+    header.className = 'module-placeholder';
+    header.appendChild(addText(document.createElement('h3'), folder));
+    header.appendChild(addText(
+      document.createElement('p'),
+      String(items.length) + ' Aufnahme(n) · angezeigt: ' + String(visibleRecordingCount)
+    ));
+
+    const backButton = document.createElement('button');
+    backButton.type = 'button';
+    backButton.textContent = 'Zurück zu Ordnern';
+    backButton.addEventListener('click', () => renderFolderOverview(RECORDING_FOLDER_BATCH_SIZE));
+    header.appendChild(backButton);
+
+    list.appendChild(header);
+
+    items.slice(0, visibleRecordingCount).forEach(entry => {
+      list.appendChild(createRecordingListItem(entry));
+    });
+
+    if (visibleRecordingCount < items.length) {
+      const remaining = items.length - visibleRecordingCount;
+      list.appendChild(createLoadMoreButton(
+        'Weitere Aufnahmen laden (' + String(remaining) + ' verbleibend)',
+        () => renderFolderRecordings(folder, items, visibleRecordingCount + RECORDING_ITEM_BATCH_SIZE)
+      ));
+    }
+
+    detailDataElement.appendChild(list);
+  }
+
+  renderFolderOverview(RECORDING_FOLDER_BATCH_SIZE);
 }
 
 function formatEpgClockFromEpoch(epochSeconds) {

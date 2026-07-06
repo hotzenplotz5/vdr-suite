@@ -499,6 +499,56 @@ def check_recording_module_loading_client_api_contract(app_js: str) -> None:
     )
 
 
+def check_recording_bounded_rendering_contract(app_js: str) -> None:
+    start = app_js.find("function renderRecordingList(data) {")
+    require(start >= 0, "app.js must define renderRecordingList(data)")
+
+    end = app_js.find("function formatEpgClockFromEpoch", start)
+    require(
+        end > start,
+        "app.js renderRecordingList() boundary must end before formatEpgClockFromEpoch()"
+    )
+
+    body_with_constants = app_js[max(0, start - 500):end]
+    body = app_js[start:end]
+
+    require(
+        "RECORDING_FOLDER_BATCH_SIZE" in body_with_constants,
+        "renderRecordingList() must use RECORDING_FOLDER_BATCH_SIZE"
+    )
+
+    require(
+        "RECORDING_ITEM_BATCH_SIZE" in body_with_constants,
+        "renderRecordingList() must use RECORDING_ITEM_BATCH_SIZE"
+    )
+
+    require(
+        "folderEntries.slice(0, visibleFolderCount)" in body,
+        "Recording folder overview must render a bounded folder slice"
+    )
+
+    require(
+        "items.slice(0, visibleRecordingCount)" in body,
+        "Recording folder view must render a bounded recording slice"
+    )
+
+    require(
+        "Weitere Ordner laden" in body,
+        "Recording folder overview must expose an incremental load-more control"
+    )
+
+    require(
+        "Weitere Aufnahmen laden" in body,
+        "Recording folder view must expose an incremental load-more control"
+    )
+
+    require(
+        "/api/vdr/recordings/query" in body,
+        "Recording empty-state text must reference /api/vdr/recordings/query"
+    )
+
+
+
 def check_client_api_contract():
     client_api_path = ROOT / "web/frontend/api/client-api.js"
     index_path = ROOT / "web/frontend/index.html"
@@ -592,6 +642,7 @@ def main() -> int:
         check_epg_cache_window_client_api_contract(app_js)
         check_timer_loading_client_api_contract(app_js)
         check_recording_module_loading_client_api_contract(app_js)
+        check_recording_bounded_rendering_contract(app_js)
         check_timer_conflict_loading_client_api_contract(app_js)
         check_client_api_contract()
         check_frontend_static_serving_contract(test_http_server_cpp)
