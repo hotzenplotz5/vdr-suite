@@ -669,6 +669,11 @@ def check_client_api_contract():
         "fetchClientTimerDeleteAction",
         "fetchClientChannels",
         "fetchClientCapabilities",
+        "fetchClientVdrOverview",
+        "fetchClientVdrStatus",
+        "fetchClientVdrHealth",
+        "fetchClientVdrSnapshotSummary",
+        "fetchClientVdrSnapshots",
         "fetchClientBackends",
         "fetchClientDefaultBackend",
         "fetchClientEpgWindow",
@@ -722,6 +727,25 @@ def check_client_api_contract():
         "requestJson(" + chr(39) + "/api/vdr/capabilities" + chr(39) in client_api,
         "fetchClientCapabilities() must own /api/vdr/capabilities access"
     )
+
+    vdr_runtime_state_routes = {
+        "fetchClientVdrOverview": ("/api/vdr/overview", "/api/vdr"),
+        "fetchClientVdrStatus": ("/api/vdr/status",),
+        "fetchClientVdrHealth": ("/api/vdr/health",),
+        "fetchClientVdrSnapshotSummary": ("/api/vdr/snapshot",),
+        "fetchClientVdrSnapshots": ("/api/vdr/snapshots",),
+    }
+
+    for function_name, routes in vdr_runtime_state_routes.items():
+        require(
+            "function " + function_name + "(options)" in client_api,
+            "client-api.js must define " + function_name + "(options)"
+        )
+        for route in routes:
+            require(
+                route in client_api,
+                function_name + "() must own VDR runtime state route access for " + route
+            )
     require(
         "requestJson(" + chr(39) + "/api/backends" + chr(39) in client_api,
         "fetchClientBackends() must own /api/backends access"

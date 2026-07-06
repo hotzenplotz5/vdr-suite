@@ -231,6 +231,26 @@
     return requestJson('/api/vdr/capabilities', options);
   }
 
+  function fetchClientVdrOverview(options) {
+    return requestJsonWithFallback('/api/vdr/overview', '/api/vdr', options);
+  }
+
+  function fetchClientVdrStatus(options) {
+    return requestJson('/api/vdr/status', options);
+  }
+
+  function fetchClientVdrHealth(options) {
+    return requestJson('/api/vdr/health', options);
+  }
+
+  function fetchClientVdrSnapshotSummary(options) {
+    return requestJson('/api/vdr/snapshot', options);
+  }
+
+  function fetchClientVdrSnapshots(options) {
+    return requestJson('/api/vdr/snapshots', options);
+  }
+
   function fetchClientBackends(options) {
     return requestJson('/api/backends', options);
   }
@@ -399,6 +419,11 @@
     fetchClientTimerDeleteAction: fetchClientTimerDeleteAction,
     fetchClientChannels: fetchClientChannels,
     fetchClientCapabilities: fetchClientCapabilities,
+    fetchClientVdrOverview: fetchClientVdrOverview,
+    fetchClientVdrStatus: fetchClientVdrStatus,
+    fetchClientVdrHealth: fetchClientVdrHealth,
+    fetchClientVdrSnapshotSummary: fetchClientVdrSnapshotSummary,
+    fetchClientVdrSnapshots: fetchClientVdrSnapshots,
     fetchClientBackends: fetchClientBackends,
     fetchClientDefaultBackend: fetchClientDefaultBackend,
     fetchClientEpgWindow: fetchClientEpgWindow,

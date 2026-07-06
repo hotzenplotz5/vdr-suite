@@ -544,6 +544,11 @@ Current wrapper functions:
 - `fetchClientTimerDeleteAction`
 - `fetchClientChannels`
 - `fetchClientCapabilities`
+- `fetchClientVdrOverview`
+- `fetchClientVdrStatus`
+- `fetchClientVdrHealth`
+- `fetchClientVdrSnapshotSummary`
+- `fetchClientVdrSnapshots`
 - `fetchClientBackends`
 - `fetchClientDefaultBackend`
 - `fetchClientEpgWindow`
@@ -620,6 +625,28 @@ The covered catalog payload includes:
 
 Next open Web Client API areas:
 
+- permission report route once backend exposes one
+
+---
+
+## Phase 59.08i Implementation Status
+
+Phase 59.08i moves VDR runtime state HTTP access behind the Web Client API wrapper.
+
+Implemented behavior:
+
+- `fetchClientVdrOverview()` owns `/api/vdr/overview` with `/api/vdr` fallback
+- `fetchClientVdrStatus()` owns `/api/vdr/status`
+- `fetchClientVdrHealth()` owns `/api/vdr/health`
+- `fetchClientVdrSnapshotSummary()` owns `/api/vdr/snapshot`
+- `fetchClientVdrSnapshots()` owns `/api/vdr/snapshots`
+- the wrapper remains DOM-free
+- no VDR runtime state UI expansion is added yet
+
+Next open Web Client API areas:
+
+- event detail and media/artwork routes once backend exposes dedicated contracts
+- recording marks, resume, cut and playback helpers
 - permission report route once backend exposes one
 
 ---
