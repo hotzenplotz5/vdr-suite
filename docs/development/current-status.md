@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.05n - Recording Details and EPG Frontend Cleanup
+Phase 59.06a - Recording Details and EPG Vertical Drag UX
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.05n completes the Recording detail view slice and the first EPG frontend event-indexing, header cleanup, offset-hardening and reload-cleanup chain after the frontend client API recovery chain.
+Phase 59.06a completes the Recording detail view slice and extends the EPG frontend event-indexing, header cleanup, offset-hardening, reload-cleanup and vertical drag UX chain after the frontend client API recovery chain.
 
 Stable scope:
 
@@ -79,6 +79,7 @@ Stable scope:
 - Phase 59.05l deduplicates the live/now/next EPG program-view switch through one local helper.
 - Phase 59.05m deduplicates the EPG 24h time-window switch through one local helper while preserving the next-window program-view fallback.
 - Phase 59.05n deduplicates the EPG channel-window pager through one local move helper.
+- Phase 59.06a adds tooltip and accessibility affordance text for vertical EPG drag scrolling.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -168,6 +169,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.05l verifies EPG program-view buttons share one deterministic switch-and-load path.
 - Phase 59.05m verifies EPG time-window buttons share one deterministic switch-and-load path.
 - Phase 59.05n verifies EPG channel-window buttons share one deterministic move-and-load path.
+- Phase 59.06a verifies the vertical EPG channel scrollbar, header row and scroll content expose drag-scrolling affordances.
 
 ### Guarded or deliberately incomplete areas
 
