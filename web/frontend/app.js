@@ -2828,6 +2828,13 @@ function renderEpgTimeView(channelData, eventData) {
     loadEpgTimeline();
   };
 
+  const switchToEpgProgramView = (programView) => {
+    epgTimelineMode = 'time';
+    epgProgramView = programView;
+    epgTimeWindowPageOffset = 0;
+    loadEpgTimeline();
+  };
+
   const timeView = document.createElement('button');
   timeView.type = 'button';
   timeView.className = 'epg-view-button ' + (epgProgramView === 'horizontal' ? 'active' : '');
@@ -2857,10 +2864,7 @@ function renderEpgTimeView(channelData, eventData) {
   liveView.className = 'epg-view-button ' + (epgProgramView === 'live' ? 'active' : '');
   liveView.textContent = 'Live-Liste';
   liveView.addEventListener('click', () => {
-    epgTimelineMode = 'time';
-    epgProgramView = 'live';
-    epgTimeWindowPageOffset = 0;
-    loadEpgTimeline();
+    switchToEpgProgramView('live');
   });
 
   const nowView = document.createElement('button');
@@ -2868,10 +2872,7 @@ function renderEpgTimeView(channelData, eventData) {
   nowView.className = 'epg-view-button ' + (epgProgramView === 'now' ? 'active' : '');
   nowView.textContent = 'Läuft jetzt';
   nowView.addEventListener('click', () => {
-    epgTimelineMode = 'time';
-    epgProgramView = 'now';
-    epgTimeWindowPageOffset = 0;
-    loadEpgTimeline();
+    switchToEpgProgramView('now');
   });
 
   const nextView = document.createElement('button');
@@ -2879,10 +2880,7 @@ function renderEpgTimeView(channelData, eventData) {
   nextView.className = 'epg-view-button ' + (epgProgramView === 'next' ? 'active' : '');
   nextView.textContent = 'Als nächstes';
   nextView.addEventListener('click', () => {
-    epgTimelineMode = 'time';
-    epgProgramView = 'next';
-    epgTimeWindowPageOffset = 0;
-    loadEpgTimeline();
+    switchToEpgProgramView('next');
   });
 
   if (!mobileEpgViewport) {
