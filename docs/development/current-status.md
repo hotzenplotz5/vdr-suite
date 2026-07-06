@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.05e - Recording Details and EPG Event Index Cleanup
+Phase 59.05f - Recording Details and EPG Event Index Cleanup
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.05e completes the Recording detail view slice and the first EPG frontend event-indexing hardening chain after the frontend client API recovery chain.
+Phase 59.05f completes the Recording detail view slice and the first EPG frontend event-indexing hardening chain after the frontend client API recovery chain.
 
 Stable scope:
 
@@ -70,6 +70,7 @@ Stable scope:
 - Phase 59.05c reuses the visible EPG event index in the live/now/next program views.
 - Phase 59.05d builds the visible EPG event index in one event scan instead of repeated per-channel full-list filtering.
 - Phase 59.05e removes the unused EPG overlap helper and cleans the remaining EPG channel-event helper signature.
+- Phase 59.05f removes the now-unused EPG per-channel full-list helper after all active EPG views use the visible event index.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -150,6 +151,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.05c verifies live/now/next EPG program views reuse the same visible-channel event index.
 - Phase 59.05d verifies the visible EPG event index is built in one pass over the loaded event payload.
 - Phase 59.05e verifies the obsolete EPG overlap helper has no remaining call sites and is removed.
+- Phase 59.05f verifies the obsolete EPG per-channel full-list helper has no remaining call sites and is removed.
 
 ### Guarded or deliberately incomplete areas
 
