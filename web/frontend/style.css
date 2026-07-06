@@ -1796,6 +1796,13 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
   min-width: 72rem;
 }
 
+.epg-vertical-drag-hint {
+  margin: 0;
+  color: #93c5fd;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .epg-vertical-scroll-content {
   overflow-x: auto;
   overflow-y: visible;
