@@ -2584,13 +2584,13 @@ function renderEpgWorkbench(list, channelData, eventData) {
   alignEpgSideDetailToSource(null);
 }
 
-function epgCurrentEntryForChannel(channel, events, nowSeconds) {
-  return epgEventsForChannel(channel, events, nowSeconds)
+function epgCurrentEntryForChannel(channelEvents, nowSeconds) {
+  return channelEvents
     .find(entry => entry.start <= nowSeconds && nowSeconds < entry.end) || null;
 }
 
-function epgNextEntryForChannel(channel, events, nowSeconds) {
-  return epgEventsForChannel(channel, events, nowSeconds)
+function epgNextEntryForChannel(channelEvents, nowSeconds) {
+  return channelEvents
     .find(entry => entry.start > nowSeconds) || null;
 }
 
@@ -2692,7 +2692,7 @@ function createEpgProgramEventButton(entry, channel, label, nowSeconds) {
   return button;
 }
 
-function createEpgProgramCard(channel, index, events, nowSeconds, viewMode) {
+function createEpgProgramCard(channel, index, channelEvents, nowSeconds, viewMode) {
   const card = document.createElement('article');
   card.className = 'epg-program-card';
 
@@ -2701,8 +2701,8 @@ function createEpgProgramCard(channel, index, events, nowSeconds, viewMode) {
   const body = document.createElement('div');
   body.className = 'epg-program-events';
 
-  const current = epgCurrentEntryForChannel(channel, events, nowSeconds);
-  const next = epgNextEntryForChannel(channel, events, nowSeconds);
+  const current = epgCurrentEntryForChannel(channelEvents, nowSeconds);
+  const next = epgNextEntryForChannel(channelEvents, nowSeconds);
 
   if (viewMode === 'live') {
     body.appendChild(createEpgProgramEventButton(current, channel, 'läuft jetzt', nowSeconds));
@@ -2717,12 +2717,13 @@ function createEpgProgramCard(channel, index, events, nowSeconds, viewMode) {
   return card;
 }
 
-function createEpgProgramViewGrid(visibleChannels, events, nowSeconds, viewMode) {
+function createEpgProgramViewGrid(visibleChannels, eventIndex, nowSeconds, viewMode) {
   const grid = document.createElement('section');
   grid.className = 'epg-program-grid epg-program-grid-' + viewMode;
 
   visibleChannels.forEach((channel, index) => {
-    grid.appendChild(createEpgProgramCard(channel, index, events, nowSeconds, viewMode));
+    const channelEvents = epgIndexedEventsForChannel(eventIndex, channel);
+    grid.appendChild(createEpgProgramCard(channel, index, channelEvents, nowSeconds, viewMode));
   });
 
   return grid;
@@ -2969,7 +2970,7 @@ function renderEpgTimeView(channelData, eventData) {
   }
 
   if (epgProgramView === 'live' || epgProgramView === 'now' || epgProgramView === 'next') {
-    const programGrid = createEpgProgramViewGrid(visibleChannels, events, nowSeconds, epgProgramView);
+    const programGrid = createEpgProgramViewGrid(visibleChannels, visibleEventIndex, nowSeconds, epgProgramView);
     enableEpgDragPan(programGrid, programGrid, {
       classTarget: programGrid,
       verticalWindow: true
