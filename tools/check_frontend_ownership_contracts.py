@@ -136,6 +136,41 @@ def check_app_contract(app_js: str) -> None:
         )
 
 
+def check_app_direct_api_fetch_contract(app_js: str) -> None:
+    legacy_direct_api_fetches = {
+        "/api/backends",
+        "/api/backends/",
+        "/api/vdr/channels/move",
+        "/api/vdr/timers/actions/create",
+        "/api/vdr/timers/live",
+    }
+
+    direct_api_fetches = []
+
+    for match in re.finditer(
+        r"\bfetch\s*\(\s*([\"'`])(/api(?:/[^\"'`]*)?)\1",
+        app_js,
+    ):
+        direct_api_fetches.append(match.group(2))
+
+    unexpected_direct_api_fetches = sorted(
+        set(direct_api_fetches) - legacy_direct_api_fetches
+    )
+
+    require(
+        not unexpected_direct_api_fetches,
+        "app.js must not add new direct API fetch routes; use window.VdrSuiteClientApi: "
+        + ", ".join(unexpected_direct_api_fetches)
+    )
+
+    for legacy_route in legacy_direct_api_fetches:
+        require(
+            legacy_route in direct_api_fetches,
+            "app.js direct API fetch legacy inventory changed unexpectedly for "
+            + legacy_route
+        )
+
+
 def check_timer_loading_client_api_contract(app_js: str) -> None:
     start = app_js.find("function loadTimers() {")
     require(start >= 0, "app.js must define loadTimers()")
@@ -1020,6 +1055,7 @@ def main() -> int:
 
         check_index_contract(index_html)
         check_app_contract(app_js)
+        check_app_direct_api_fetch_contract(app_js)
         check_channel_loading_client_api_contract(app_js)
         check_epg_timeline_channel_loading_client_api_contract(app_js)
         check_epg_cache_status_client_api_contract(app_js)

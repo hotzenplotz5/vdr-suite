@@ -30,7 +30,7 @@ Phase 56 - Library Boundary, Packaging and Developer Documentation
 Latest completed implementation slice:
 
 ```text
-Phase 59.09a - Web Client API Export Registry Guard
+Phase 59.09b - Web Frontend Direct API Fetch Guard
 ```
 
 ---

@@ -629,6 +629,37 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.09b Implementation Status
+
+Phase 59.09b hardens browser API ownership in `web/frontend/app.js` by turning the remaining direct API fetches into an explicit legacy inventory.
+
+Implemented behavior:
+
+- the frontend ownership guard scans `web/frontend/app.js` for direct literal `fetch('/api...')`, `fetch("/api...")` and `fetch(`/api...`)` calls
+- known legacy direct API fetches are explicitly allowlisted
+- new direct browser API access in `app.js` is rejected
+- frontend API access must move through `window.VdrSuiteClientApi`
+- `web/frontend/api/client-api.js` remains the only current web API wrapper
+- no backend route and no UI expansion is added
+
+Known legacy direct API fetch inventory:
+
+- `/api/backends`
+- `/api/backends/`
+- `/api/vdr/channels/move`
+- `/api/vdr/timers/actions/create`
+- `/api/vdr/timers/live`
+
+Next open Web Client API areas:
+
+- migrate the remaining legacy direct API fetches to `window.VdrSuiteClientApi`
+- preparation for UI module extraction
+- event detail and media/artwork routes once backend exposes dedicated contracts
+- recording marks, resume, cut and playback helpers once backend exposes dedicated contracts
+- permission report route once backend exposes one
+
+---
+
 ## Phase 59.09a Implementation Status
 
 Phase 59.09a hardens the Web Client API export registry.
