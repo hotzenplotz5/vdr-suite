@@ -2449,6 +2449,7 @@ function createEpgVerticalTimeGrid(visibleChannels, eventIndex, bounds, nowSecon
   const topScroller = document.createElement('div');
   topScroller.className = 'epg-vertical-channel-scrollbar';
   topScroller.setAttribute('aria-label', 'Kanäle horizontal verschieben');
+  topScroller.title = 'Kanäle mit gedrückter Maustaste horizontal verschieben.';
 
   const topScrollerInner = document.createElement('div');
   topScrollerInner.className = 'epg-vertical-channel-scrollbar-inner';
@@ -2456,12 +2457,16 @@ function createEpgVerticalTimeGrid(visibleChannels, eventIndex, bounds, nowSecon
 
   const scrollContent = document.createElement('div');
   scrollContent.className = 'epg-vertical-scroll-content';
+  scrollContent.setAttribute('role', 'region');
+  scrollContent.setAttribute('aria-label', 'Vertikale EPG-Zeitansicht horizontal und vertikal verschieben');
+  scrollContent.title = 'Zeitansicht mit gedrückter Maustaste verschieben.';
 
   const columnTemplate = epgVerticalColumnTemplate(visibleChannels.length);
 
   const headerRow = document.createElement('div');
   headerRow.className = 'epg-vertical-header-row';
   headerRow.style.gridTemplateColumns = columnTemplate;
+  headerRow.title = 'Kanalreihe mit gedrückter Maustaste nach links oder rechts verschieben.';
 
   const corner = addText(document.createElement('div'), 'Zeit');
   corner.className = 'epg-vertical-corner';
