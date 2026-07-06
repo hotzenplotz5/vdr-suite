@@ -2835,6 +2835,17 @@ function renderEpgTimeView(channelData, eventData) {
     loadEpgTimeline();
   };
 
+  const switchToEpgTimeWindow = (pageOffset) => {
+    epgTimeWindowPageOffset = pageOffset;
+
+    if (pageOffset === 1 && (epgProgramView === 'live' || epgProgramView === 'now' || epgProgramView === 'next')) {
+      epgProgramView = 'horizontal';
+      epgTimeAxisMode = 'horizontal';
+    }
+
+    loadEpgTimeline();
+  };
+
   const timeView = document.createElement('button');
   timeView.type = 'button';
   timeView.className = 'epg-view-button ' + (epgProgramView === 'horizontal' ? 'active' : '');
@@ -2927,8 +2938,7 @@ function renderEpgTimeView(channelData, eventData) {
   current24h.className = 'epg-view-button ' + (epgTimeWindowPageOffset === 0 ? 'active' : '');
   current24h.disabled = epgTimeWindowPageOffset === 0;
   current24h.addEventListener('click', () => {
-    epgTimeWindowPageOffset = 0;
-    loadEpgTimeline();
+    switchToEpgTimeWindow(0);
   });
 
   const next24h = document.createElement('button');
@@ -2937,14 +2947,7 @@ function renderEpgTimeView(channelData, eventData) {
   next24h.className = 'epg-view-button ' + (epgTimeWindowPageOffset === 1 ? 'active' : '');
   next24h.disabled = epgTimeWindowPageOffset === 1;
   next24h.addEventListener('click', () => {
-    epgTimeWindowPageOffset = 1;
-
-    if (epgProgramView === 'live' || epgProgramView === 'now' || epgProgramView === 'next') {
-      epgProgramView = 'horizontal';
-      epgTimeAxisMode = 'horizontal';
-    }
-
-    loadEpgTimeline();
+    switchToEpgTimeWindow(1);
   });
 
   timePager.appendChild(current24h);
