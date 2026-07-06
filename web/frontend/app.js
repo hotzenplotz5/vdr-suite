@@ -1229,12 +1229,36 @@ function epgEventDescription(event) {
 
 function buildEpgVisibleEventIndex(visibleChannels, events, bounds) {
   const index = new Map();
+  const visibleChannelIds = new Set();
 
   visibleChannels.forEach(channel => {
-    index.set(
-      frontendChannelId(channel),
-      epgEventsOverlappingBounds(channel, events, bounds)
-    );
+    const channelId = frontendChannelId(channel);
+    index.set(channelId, []);
+
+    if (channelId !== '') {
+      visibleChannelIds.add(channelId);
+    }
+  });
+
+  events.forEach(event => {
+    const channelId = frontendEventChannelId(event);
+
+    if (!visibleChannelIds.has(channelId)) {
+      return;
+    }
+
+    const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
+    const end = frontendEventEnd(event, start);
+
+    if (start <= 0 || end <= 0 || end <= bounds.start || start >= bounds.end) {
+      return;
+    }
+
+    index.get(channelId).push({ event, start, end });
+  });
+
+  index.forEach(entries => {
+    entries.sort((left, right) => left.start - right.start);
   });
 
   return index;
