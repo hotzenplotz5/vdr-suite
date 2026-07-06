@@ -2846,6 +2846,11 @@ function renderEpgTimeView(channelData, eventData) {
     loadEpgTimeline();
   };
 
+  const moveEpgChannelWindow = (delta) => {
+    epgChannelOffset = Math.max(0, epgChannelOffset + delta);
+    loadEpgTimeline();
+  };
+
   const timeView = document.createElement('button');
   timeView.type = 'button';
   timeView.className = 'epg-view-button ' + (epgProgramView === 'horizontal' ? 'active' : '');
@@ -2911,8 +2916,7 @@ function renderEpgTimeView(channelData, eventData) {
   previous.textContent = 'Vorherige ' + String(limit);
   previous.disabled = epgChannelOffset <= 0;
   previous.addEventListener('click', () => {
-    epgChannelOffset = Math.max(0, epgChannelOffset - limit);
-    loadEpgTimeline();
+    moveEpgChannelWindow(-limit);
   });
 
   const next = document.createElement('button');
@@ -2920,8 +2924,7 @@ function renderEpgTimeView(channelData, eventData) {
   next.textContent = 'Nächste ' + String(limit);
   next.disabled = epgChannelOffset + limit >= channels.length;
   next.addEventListener('click', () => {
-    epgChannelOffset = epgChannelOffset + limit;
-    loadEpgTimeline();
+    moveEpgChannelWindow(limit);
   });
 
   pager.appendChild(previous);
