@@ -3354,15 +3354,29 @@ function loadSearchTimers() {
 }
 
 function loadRecordings() {
-  renderModuleLoading('Aufnahmen', 'Lade Aufnahmeliste aus /api/vdr/recordings...');
+  renderModuleLoading('Aufnahmen', 'Lade Aufnahmeliste aus /api/vdr/recordings/query...');
 
-  fetch('/api/vdr/recordings')
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('HTTP ' + response.status);
-      }
-      return response.json();
-    })
+  const clientApi = window.VdrSuiteClientApi;
+  const backendId = selectedEpgBackendId();
+
+  if (!clientApi || typeof clientApi.fetchClientRecordings !== 'function') {
+    currentRecordings = null;
+    renderModuleError(
+      'Aufnahmen konnten nicht geladen werden',
+      new Error('Client API wrapper is not available')
+    );
+    return;
+  }
+
+  clientApi.fetchClientRecordings({
+    query: {
+      backend: backendId,
+      limit: 0,
+      _: String(Date.now())
+    },
+    cache: 'no-store',
+    credentials: 'same-origin'
+  })
     .then(data => {
       currentRecordings = data;
       renderRecordingList(data);
@@ -3372,7 +3386,6 @@ function loadRecordings() {
       renderModuleError('Aufnahmen konnten nicht geladen werden', error);
     });
 }
-
 
 function appendSettingsLine(parent, label, value) {
   const row = document.createElement('div');

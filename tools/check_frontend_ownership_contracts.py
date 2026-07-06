@@ -424,6 +424,7 @@ def check_frontend_static_serving_contract(test_http_server_cpp: str) -> None:
 
 
 
+
 def check_recording_loading_client_api_contract(client_api: str) -> None:
     require(
         "function fetchClientRecordings(options)" in client_api,
@@ -440,18 +441,61 @@ def check_recording_loading_client_api_contract(client_api: str) -> None:
     body = client_api[start:end]
 
     require(
-        "requestJsonWithFallback" in body,
-        "fetchClientRecordings() must use requestJsonWithFallback()"
+        "requestJson('/api/vdr/recordings/query'" in body,
+        "fetchClientRecordings() must use /api/vdr/recordings/query"
     )
 
     require(
-        "'/api/vdr/recordings/live'" in body,
-        "fetchClientRecordings() must try /api/vdr/recordings/live first"
+        "requestJsonWithFallback" not in body,
+        "fetchClientRecordings() must not fall back to the empty snapshot recordings route"
     )
 
     require(
-        "'/api/vdr/recordings'" in body,
-        "fetchClientRecordings() must fall back to /api/vdr/recordings"
+        "'/api/vdr/recordings/live'" not in body,
+        "fetchClientRecordings() must not use missing /api/vdr/recordings/live"
+    )
+
+
+def check_recording_module_loading_client_api_contract(app_js: str) -> None:
+    start = app_js.find("function loadRecordings() {")
+    require(start >= 0, "app.js must define loadRecordings()")
+
+    end = app_js.find("function appendSettingsLine", start)
+    require(
+        end > start,
+        "app.js loadRecordings() boundary must end before appendSettingsLine()"
+    )
+
+    body = app_js[start:end]
+
+    require(
+        "window.VdrSuiteClientApi" in body,
+        "loadRecordings() must use window.VdrSuiteClientApi"
+    )
+
+    require(
+        "fetchClientRecordings" in body,
+        "loadRecordings() must use fetchClientRecordings()"
+    )
+
+    require(
+        "selectedEpgBackendId()" in body,
+        "loadRecordings() must pass the selected backend"
+    )
+
+    require(
+        "backend:" in body and "limit:" in body and "_:" in body,
+        "loadRecordings() must pass backend, limit and cache-busting query parameters"
+    )
+
+    require(
+        "/api/vdr/recordings/query" in body,
+        "loadRecordings() loading text must document /api/vdr/recordings/query"
+    )
+
+    require(
+        "fetch('/api/vdr/recordings')" not in body and 'fetch("/api/vdr/recordings")' not in body,
+        "loadRecordings() must not directly fetch the empty snapshot recordings route"
     )
 
 
@@ -547,6 +591,7 @@ def main() -> int:
         check_epg_cache_status_client_api_contract(app_js)
         check_epg_cache_window_client_api_contract(app_js)
         check_timer_loading_client_api_contract(app_js)
+        check_recording_module_loading_client_api_contract(app_js)
         check_timer_conflict_loading_client_api_contract(app_js)
         check_client_api_contract()
         check_frontend_static_serving_contract(test_http_server_cpp)
