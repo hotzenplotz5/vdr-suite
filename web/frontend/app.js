@@ -2990,18 +2990,22 @@ function describeEpgCacheStatus(status, loadedEventCount) {
 }
 
 function fetchEpgCacheStatusForBackend(backendId) {
-  const statusUrl = '/api/epg/cache/status'
-    + '?backend=' + encodeURIComponent(backendId)
-    + '&_=' + encodeURIComponent(String(Date.now()));
+  const statusQuery = {
+    backend: backendId,
+    _: String(Date.now())
+  };
+  const clientApi = window.VdrSuiteClientApi;
 
-  return fetch(statusUrl, { cache: 'no-store' })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('HTTP ' + response.status);
-      }
+  if (!clientApi || typeof clientApi.fetchClientEpgCacheStatus !== 'function') {
+    return Promise.resolve({
+      __statusError: 'Client API wrapper is not available'
+    });
+  }
 
-      return response.json();
-    })
+  return clientApi.fetchClientEpgCacheStatus({
+    query: statusQuery,
+    cache: 'no-store'
+  })
     .catch(error => ({
       __statusError: error.message
     }));

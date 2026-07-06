@@ -255,6 +255,50 @@ def check_epg_timeline_channel_loading_client_api_contract(app_js: str) -> None:
         )
 
 
+
+def check_epg_cache_status_client_api_contract(app_js: str) -> None:
+    start = app_js.find("function fetchEpgCacheStatusForBackend(backendId) {")
+    require(start >= 0, "app.js must define fetchEpgCacheStatusForBackend(backendId)")
+
+    end = app_js.find("function listEventsFromEpgResponse(data) {", start)
+    require(
+        end > start,
+        "app.js fetchEpgCacheStatusForBackend() boundary must end before listEventsFromEpgResponse()"
+    )
+
+    body = app_js[start:end]
+
+    require(
+        "window.VdrSuiteClientApi" in body,
+        "fetchEpgCacheStatusForBackend() must use window.VdrSuiteClientApi"
+    )
+
+    require(
+        "fetchClientEpgCacheStatus" in body,
+        "fetchEpgCacheStatusForBackend() must use fetchClientEpgCacheStatus()"
+    )
+
+    require(
+        "backend:" in body and "_:" in body,
+        "fetchEpgCacheStatusForBackend() must preserve backend and cache-busting query parameters"
+    )
+
+    require(
+        "cache: " + chr(39) + "no-store" + chr(39) in body,
+        "fetchEpgCacheStatusForBackend() must preserve no-store loading"
+    )
+
+    require(
+        "__statusError" in body,
+        "fetchEpgCacheStatusForBackend() must preserve status error fallback object"
+    )
+
+    require(
+        "fetch(" not in body,
+        "fetchEpgCacheStatusForBackend() must not directly fetch runtime data"
+    )
+
+
 def check_channel_logos_contract(channel_logos_js: str) -> None:
     forbidden_patterns = [
         (r"createElement\s*\(\s*['\"]script['\"]\s*\)", "must not create script elements"),
@@ -340,6 +384,7 @@ def check_client_api_contract():
         "fetchClientTimerConflicts",
         "fetchClientChannels",
         "fetchClientEpgWindow",
+        "fetchClientEpgCacheStatus",
         "fetchClientRecordings",
         "fetchClientSearchTimers",
     ]
@@ -349,6 +394,12 @@ def check_client_api_contract():
             export_name in client_api,
             "client-api.js must export " + export_name
         )
+
+
+    require(
+        "requestJson(" + chr(39) + "/api/epg/cache/status" + chr(39) in client_api,
+        "fetchClientEpgCacheStatus() must own /api/epg/cache/status access"
+    )
 
     forbidden_tokens = [
         "document.",
@@ -391,6 +442,7 @@ def main() -> int:
         check_app_contract(app_js)
         check_channel_loading_client_api_contract(app_js)
         check_epg_timeline_channel_loading_client_api_contract(app_js)
+        check_epg_cache_status_client_api_contract(app_js)
         check_timer_loading_client_api_contract(app_js)
         check_timer_conflict_loading_client_api_contract(app_js)
         check_client_api_contract()

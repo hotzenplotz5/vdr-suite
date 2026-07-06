@@ -167,6 +167,10 @@
     return requestJson('/api/vdr/events/live', options);
   }
 
+  function fetchClientEpgCacheStatus(options) {
+    return requestJson('/api/epg/cache/status', options);
+  }
+
   function fetchClientRecordings(options) {
     return requestJson('/api/vdr/recordings/live', options);
   }
@@ -181,6 +185,7 @@
     fetchClientTimerConflicts: fetchClientTimerConflicts,
     fetchClientChannels: fetchClientChannels,
     fetchClientEpgWindow: fetchClientEpgWindow,
+    fetchClientEpgCacheStatus: fetchClientEpgCacheStatus,
     fetchClientRecordings: fetchClientRecordings,
     fetchClientSearchTimers: fetchClientSearchTimers
   });

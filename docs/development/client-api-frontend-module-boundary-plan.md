@@ -481,3 +481,23 @@ Implemented behavior:
 
 No EPG UI module has been extracted yet.
 
+---
+
+## Phase 59.02b Implementation Status
+
+Phase 59.02b moves EPG cache status HTTP access behind the
+web Client API wrapper.
+
+Implemented behavior:
+
+- fetchEpgCacheStatusForBackend() still lives in web/frontend/app.js
+- EPG cache status formatting still lives in web/frontend/app.js
+- fetchClientEpgCacheStatus() owns /api/epg/cache/status access
+- backend selection stays passed through the backend query parameter
+- cache-busting stays based on the _ query parameter
+- no-store loading is preserved
+- __statusError fallback behavior is preserved
+- /api/epg/cache/window remains unchanged
+
+No EPG UI module has been extracted yet.
+
