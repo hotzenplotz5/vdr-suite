@@ -184,6 +184,10 @@ function enableChannelMouseDragScroll(element, axis) {
   };
 
   element.addEventListener('pointerdown', event => {
+    if (event.pointerType && event.pointerType !== 'mouse') {
+      return;
+    }
+
     if (event.button !== undefined && event.button !== 0) {
       return;
     }
