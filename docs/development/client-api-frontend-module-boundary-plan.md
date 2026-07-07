@@ -272,6 +272,7 @@ Frontend module runtime smoke check:
   - `/frontend/modules/channels.js`
   - `/frontend/modules/recordings.js`
 - If the running daemon is not rebuilt/restarted, the runtime-compatible script paths remain authoritative.
+- `check_frontend_ownership_contracts.py` guards this smoke-check section so it does not disappear during later module work.
 
 Recording browser module-path preparation:
 

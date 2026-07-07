@@ -24,6 +24,7 @@ RECORDING_BROWSER = FRONTEND / "modules" / "recordings.js"
 RECORDING_BROWSER_MODULE = ROOT / "web/frontend/modules/recordings.js"
 STYLE = FRONTEND / "style.css"
 ARCH_DOC = ROOT / "docs" / "development" / "frontend-architecture.md"
+BOUNDARY_DOC = ROOT / "docs" / "development" / "client-api-frontend-module-boundary-plan.md"
 CLIENT_API_CONTRACT_SNAPSHOT = ROOT / "docs" / "development" / "web-client-api-contract-snapshot.md"
 HTTP_SERVER = ROOT / "core" / "http" / "src" / "TestHttpServer.cpp"
 INSTALL_MK = ROOT / "mk" / "install.mk"
@@ -1159,6 +1160,25 @@ def check_frontend_install_contract(install_mk: str) -> None:
     )
 
 
+def check_frontend_module_runtime_smoke_check_documentation(boundary_doc: str) -> None:
+    required_tokens = [
+        "Frontend module runtime smoke check:",
+        "Verify the `Kanäle` module renders channel groups and selected-channel programmes.",
+        "Verify the `Aufnahmen` module renders the recording tree and opens recording details.",
+        "/frontend/channel-browser.js",
+        "/frontend/recording-browser.js",
+        "/frontend/modules/channels.js",
+        "/frontend/modules/recordings.js",
+        "runtime-compatible script paths remain authoritative",
+    ]
+
+    for token in required_tokens:
+        require(
+            token in boundary_doc,
+            "frontend module runtime smoke check documentation missing: " + token,
+        )
+
+
 def check_channel_browser_module_path_serving_contract(
     test_http_server_cpp: str,
     install_mk: str,
@@ -1832,6 +1852,7 @@ def main() -> int:
         recording_browser_js = read_preferred(RECORDING_BROWSER_MODULE, RECORDING_BROWSER)
         style_css = read(STYLE)
         frontend_architecture_md = read(ARCH_DOC)
+        boundary_doc = read(BOUNDARY_DOC)
         test_http_server_cpp = read(HTTP_SERVER)
         install_mk = read(INSTALL_MK)
 
@@ -1855,6 +1876,7 @@ def main() -> int:
         )
         check_frontend_static_serving_contract(test_http_server_cpp)
         check_frontend_install_contract(install_mk)
+        check_frontend_module_runtime_smoke_check_documentation(boundary_doc)
         check_channel_logos_contract(channel_logos_js)
         check_channel_browser_contract(channel_browser_js)
         check_channel_browser_context_boundary_contract(
