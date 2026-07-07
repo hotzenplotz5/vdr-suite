@@ -631,6 +631,33 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10n Implementation Status
+
+Phase 59.10n moves Recording-specific formatting helpers into the Recording browser.
+
+Implemented behavior:
+
+- `recordingBrowserFormatDurationSeconds(value)` is now implemented locally
+- `recordingBrowserFormatSizeMb(value)` is now implemented locally
+- `recordingBrowserFormatRecordingStart(value)` is now implemented locally
+- `formatDurationSeconds` is removed from `RECORDING_BROWSER_CONTEXT_DEPENDENCIES`
+- `formatSizeMb` is removed from `RECORDING_BROWSER_CONTEXT_DEPENDENCIES`
+- `formatRecordingStart` is removed from `RECORDING_BROWSER_CONTEXT_DEPENDENCIES`
+- `app.js` no longer passes the three formatting helpers to `recordingBrowser.configureContext(...)`
+- DOM and display-part helpers still come from the configured context
+- HTTP loading remains in `app.js`
+- `recording-browser.js` still does not call `fetch()`
+- `recording-browser.js` still does not use `window.VdrSuiteClientApi`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- move the small DOM text helper into `recording-browser.js`
+- reduce the remaining context dependency list
+- keep `app.js` as HTTP/loading bridge only
+
+---
+
 ## Phase 59.10m Implementation Status
 
 Phase 59.10m moves simple response helpers into the Recording browser.

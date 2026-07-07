@@ -1,14 +1,11 @@
 "use strict";
 
-// Phase 59.10m: Recording browser owns local response helper functions.
+// Phase 59.10n: Recording browser owns local formatting helper functions.
 // HTTP ownership remains outside this file.
 
 const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([
   'detailDataElement',
   'addText',
-  'formatDurationSeconds',
-  'formatSizeMb',
-  'formatRecordingStart',
   'recordingDisplayParts'
 ]);
 
@@ -76,15 +73,60 @@ function recordingBrowserListFromResponse(data, key) {
 }
 
 function recordingBrowserFormatDurationSeconds(value) {
-  return recordingBrowserContextValue('formatDurationSeconds')(value);
+  const seconds = Number(value);
+
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '-';
+  }
+
+  const minutes = Math.round(seconds / 60);
+
+  if (minutes < 60) {
+    return String(minutes) + ' min';
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (remainingMinutes === 0) {
+    return String(hours) + ' h';
+  }
+
+  return String(hours) + ' h ' + String(remainingMinutes) + ' min';
 }
 
 function recordingBrowserFormatSizeMb(value) {
-  return recordingBrowserContextValue('formatSizeMb')(value);
+  const sizeMb = Number(value);
+
+  if (!Number.isFinite(sizeMb) || sizeMb <= 0) {
+    return '-';
+  }
+
+  if (sizeMb >= 1024) {
+    return (sizeMb / 1024).toFixed(1) + ' GB';
+  }
+
+  return String(Math.round(sizeMb)) + ' MB';
 }
 
 function recordingBrowserFormatRecordingStart(value) {
-  return recordingBrowserContextValue('formatRecordingStart')(value);
+  if (value === undefined || value === null || value === '' || String(value) === '-1') {
+    return '-';
+  }
+
+  const number = Number(value);
+
+  if (Number.isFinite(number) && number > 1000000000) {
+    return new Date(number * 1000).toLocaleString('de-DE', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  return String(value);
 }
 
 let recordingSortMode = 'name';

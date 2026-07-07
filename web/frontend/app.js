@@ -3272,9 +3272,6 @@ function renderRecordingsThroughModule(data) {
   recordingBrowser.configureContext({
     detailDataElement: detailDataElement,
     addText: addText,
-    formatDurationSeconds: formatDurationSeconds,
-    formatSizeMb: formatSizeMb,
-    formatRecordingStart: formatRecordingStart,
     recordingDisplayParts: recordingDisplayParts
   });
 

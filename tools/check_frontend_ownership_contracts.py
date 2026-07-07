@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10m" in recording_browser_js,
-        "recording-browser.js must document its local response helper phase",
+        "Phase 59.10n" in recording_browser_js,
+        "recording-browser.js must document its local formatting helper phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -560,9 +560,6 @@ def check_recording_browser_dependency_contract(
     required_app_globals = [
         "const detailDataElement = document.getElementById('detail-data');",
         "function addText(element, text)",
-        "function formatDurationSeconds(value)",
-        "function formatSizeMb(value)",
-        "function formatRecordingStart(value)",
         "function recordingDisplayParts(recording, index)",
         "function renderRecordingsThroughModule(data)",
     ]
@@ -639,9 +636,6 @@ def check_recording_browser_context_boundary_contract(
         "function recordingBrowserContextValue(name)",
         "function recordingBrowserDetailDataElement()",
         "function recordingBrowserAddText(element, text)",
-        "function recordingBrowserFormatDurationSeconds(value)",
-        "function recordingBrowserFormatSizeMb(value)",
-        "function recordingBrowserFormatRecordingStart(value)",
         "function recordingBrowserDisplayParts(recording, index)",
         "const sourceDisplayParts = recordingBrowserContextValue('recordingDisplayParts')",
     ]
@@ -704,17 +698,35 @@ def check_recording_browser_context_boundary_contract(
             "recording-browser.js local response helper missing: " + token,
         )
 
-    forbidden_response_context_tokens = [
-        "'firstValue'",
-        "'listFromResponse'",
-        "recordingBrowserContextValue('firstValue')",
-        "recordingBrowserContextValue('listFromResponse')",
+    required_local_formatting_helper_tokens = [
+        "function recordingBrowserFormatDurationSeconds(value)",
+        "function recordingBrowserFormatSizeMb(value)",
+        "function recordingBrowserFormatRecordingStart(value)",
     ]
 
-    for token in forbidden_response_context_tokens:
+    for token in required_local_formatting_helper_tokens:
+        require(
+            token in recording_browser_js,
+            "recording-browser.js local formatting helper missing: " + token,
+        )
+
+    forbidden_context_helper_tokens = [
+        "'firstValue'",
+        "'listFromResponse'",
+        "'formatDurationSeconds'",
+        "'formatSizeMb'",
+        "'formatRecordingStart'",
+        "recordingBrowserContextValue('firstValue')",
+        "recordingBrowserContextValue('listFromResponse')",
+        "recordingBrowserContextValue('formatDurationSeconds')",
+        "recordingBrowserContextValue('formatSizeMb')",
+        "recordingBrowserContextValue('formatRecordingStart')",
+    ]
+
+    for token in forbidden_context_helper_tokens:
         require(
             token not in recording_browser_js,
-            "recording-browser.js must not require response helper from context: " + token,
+            "recording-browser.js must not require local helper from context: " + token,
         )
 
     require(
@@ -729,9 +741,6 @@ def check_recording_browser_context_boundary_contract(
     required_context_dependencies = [
         "detailDataElement",
         "addText",
-        "formatDurationSeconds",
-        "formatSizeMb",
-        "formatRecordingStart",
         "recordingDisplayParts",
     ]
 
@@ -777,12 +786,15 @@ def check_recording_browser_context_boundary_contract(
     forbidden_bridge_context_tokens = [
         "firstValue: firstValue",
         "listFromResponse: listFromResponse",
+        "formatDurationSeconds: formatDurationSeconds",
+        "formatSizeMb: formatSizeMb",
+        "formatRecordingStart: formatRecordingStart",
     ]
 
     for token in forbidden_bridge_context_tokens:
         require(
             token not in bridge_body,
-            "app.js Recording browser context handshake must not pass local response helper: " + token,
+            "app.js Recording browser context handshake must not pass local helper: " + token,
         )
 
 
