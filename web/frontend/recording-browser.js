@@ -1,13 +1,11 @@
 "use strict";
 
-// Phase 59.10l: Recording browser requires configured context accessors.
+// Phase 59.10m: Recording browser owns local response helper functions.
 // HTTP ownership remains outside this file.
 
 const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([
   'detailDataElement',
   'addText',
-  'firstValue',
-  'listFromResponse',
   'formatDurationSeconds',
   'formatSizeMb',
   'formatRecordingStart',
@@ -52,11 +50,29 @@ function recordingBrowserAddText(element, text) {
 }
 
 function recordingBrowserFirstValue(object, keys, fallback) {
-  return recordingBrowserContextValue('firstValue')(object, keys, fallback);
+  for (const key of keys) {
+    if (object && object[key] !== undefined && object[key] !== null && object[key] !== '') {
+      return object[key];
+    }
+  }
+
+  return fallback;
 }
 
 function recordingBrowserListFromResponse(data, key) {
-  return recordingBrowserContextValue('listFromResponse')(data, key);
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (data && Array.isArray(data[key])) {
+    return data[key];
+  }
+
+  if (data && Array.isArray(data.items)) {
+    return data.items;
+  }
+
+  return [];
 }
 
 function recordingBrowserFormatDurationSeconds(value) {

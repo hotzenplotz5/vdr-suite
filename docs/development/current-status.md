@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.10l - Recording Browser Strict Context Accessors
+Phase 59.10m - Recording Browser Local Response Helpers
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.10l removes the temporary global helper fallback and requires the configured Recording browser context.
+Phase 59.10m moves the simple response helpers `firstValue` and `listFromResponse` into `recording-browser.js` and removes them from the context handshake.
 
 Stable scope:
 
@@ -110,6 +110,7 @@ Stable scope:
 - Phase 59.10j removes the global `recordingDisplayParts` mutation and uses `recordingBrowserDisplayParts(...)` locally.
 - Phase 59.10k routes shared helper calls through Recording browser context accessors.
 - Phase 59.10l removes the temporary global helper fallback and fails clearly if the context is missing.
+- Phase 59.10m moves `firstValue` and `listFromResponse` behavior into local Recording browser helpers.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -230,6 +231,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.10j verifies Recording display text decoding no longer mutates the global `recordingDisplayParts` helper.
 - Phase 59.10k verifies direct shared helper calls are replaced by Recording browser context accessors.
 - Phase 59.10l verifies Recording browser context accessors no longer fall back to global helper symbols.
+- Phase 59.10m verifies response helper behavior is local and no longer part of the Recording browser context.
 
 ### Guarded or deliberately incomplete areas
 

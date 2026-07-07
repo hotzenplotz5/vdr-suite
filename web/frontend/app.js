@@ -3272,8 +3272,6 @@ function renderRecordingsThroughModule(data) {
   recordingBrowser.configureContext({
     detailDataElement: detailDataElement,
     addText: addText,
-    firstValue: firstValue,
-    listFromResponse: listFromResponse,
     formatDurationSeconds: formatDurationSeconds,
     formatSizeMb: formatSizeMb,
     formatRecordingStart: formatRecordingStart,

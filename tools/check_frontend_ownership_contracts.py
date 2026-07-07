@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10l" in recording_browser_js,
-        "recording-browser.js must document its strict context accessor phase",
+        "Phase 59.10m" in recording_browser_js,
+        "recording-browser.js must document its local response helper phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -560,8 +560,6 @@ def check_recording_browser_dependency_contract(
     required_app_globals = [
         "const detailDataElement = document.getElementById('detail-data');",
         "function addText(element, text)",
-        "function firstValue(object, keys, fallback)",
-        "function listFromResponse(data, key)",
         "function formatDurationSeconds(value)",
         "function formatSizeMb(value)",
         "function formatRecordingStart(value)",
@@ -580,7 +578,12 @@ def check_recording_browser_dependency_contract(
         "function recordingBrowserDetailDataElement()",
         "function recordingBrowserAddText(element, text)",
         "function recordingBrowserFirstValue(object, keys, fallback)",
+        "for (const key of keys)",
+        "return fallback;",
         "function recordingBrowserListFromResponse(data, key)",
+        "if (Array.isArray(data)) {",
+        "if (data && Array.isArray(data[key])) {",
+        "if (data && Array.isArray(data.items)) {",
         "function recordingBrowserFormatDurationSeconds(value)",
         "function recordingBrowserFormatSizeMb(value)",
         "function recordingBrowserFormatRecordingStart(value)",
@@ -636,8 +639,6 @@ def check_recording_browser_context_boundary_contract(
         "function recordingBrowserContextValue(name)",
         "function recordingBrowserDetailDataElement()",
         "function recordingBrowserAddText(element, text)",
-        "function recordingBrowserFirstValue(object, keys, fallback)",
-        "function recordingBrowserListFromResponse(data, key)",
         "function recordingBrowserFormatDurationSeconds(value)",
         "function recordingBrowserFormatSizeMb(value)",
         "function recordingBrowserFormatRecordingStart(value)",
@@ -688,6 +689,34 @@ def check_recording_browser_context_boundary_contract(
             "recording-browser.js must not keep global helper fallback token: " + token,
         )
 
+    required_local_response_helper_tokens = [
+        "function recordingBrowserFirstValue(object, keys, fallback)",
+        "for (const key of keys)",
+        "function recordingBrowserListFromResponse(data, key)",
+        "if (Array.isArray(data)) {",
+        "if (data && Array.isArray(data[key])) {",
+        "if (data && Array.isArray(data.items)) {",
+    ]
+
+    for token in required_local_response_helper_tokens:
+        require(
+            token in recording_browser_js,
+            "recording-browser.js local response helper missing: " + token,
+        )
+
+    forbidden_response_context_tokens = [
+        "'firstValue'",
+        "'listFromResponse'",
+        "recordingBrowserContextValue('firstValue')",
+        "recordingBrowserContextValue('listFromResponse')",
+    ]
+
+    for token in forbidden_response_context_tokens:
+        require(
+            token not in recording_browser_js,
+            "recording-browser.js must not require response helper from context: " + token,
+        )
+
     require(
         "Recording browser context is not configured" in recording_browser_js,
         "recording-browser.js must fail clearly when context is not configured",
@@ -700,8 +729,6 @@ def check_recording_browser_context_boundary_contract(
     required_context_dependencies = [
         "detailDataElement",
         "addText",
-        "firstValue",
-        "listFromResponse",
         "formatDurationSeconds",
         "formatSizeMb",
         "formatRecordingStart",
@@ -745,6 +772,17 @@ def check_recording_browser_context_boundary_contract(
         require(
             name + ": " + name in bridge_body,
             "app.js Recording browser context handshake missing dependency: " + name,
+        )
+
+    forbidden_bridge_context_tokens = [
+        "firstValue: firstValue",
+        "listFromResponse: listFromResponse",
+    ]
+
+    for token in forbidden_bridge_context_tokens:
+        require(
+            token not in bridge_body,
+            "app.js Recording browser context handshake must not pass local response helper: " + token,
         )
 
 
