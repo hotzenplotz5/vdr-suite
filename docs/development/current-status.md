@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.12i removes the remaining legacy Channel browser callback call after the physical module move.
+Phase 59.12i3 restores the runtime-safe Channel browser script path while keeping the module source path.
 
 Stable scope:
 
@@ -143,6 +143,7 @@ Stable scope:
 - Phase 59.12g moves the physical Channel browser asset from `web/frontend/channel-browser.js` to `web/frontend/modules/channels.js`.
 - Phase 59.12h loads frontend modules before `app.js` so Channel browser context configuration can succeed.
 - Phase 59.12i replaces the remaining `renderChannelList(...)` callback with `renderChannelBrowserList(...)`.
+- Phase 59.12i3 loads the Channel browser through `/frontend/channel-browser.js` until the running daemon serves `/frontend/modules/channels.js`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
