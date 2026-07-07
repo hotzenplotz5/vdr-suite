@@ -82,7 +82,7 @@ def script_positions(index_html: str) -> dict[str, int]:
     scripts = {
         "app": '<script src="/frontend/app.js"></script>',
         "channel_logos": '<script src="/frontend/channel-logos.js"></script>',
-        "channel_browser": '<script src="/frontend/modules/channels.js"></script>',
+        "channel_browser": '<script src="/frontend/channel-browser.js"></script>',
         "recording_browser": '<script src="/frontend/recording-browser.js"></script>',
     }
 
@@ -103,15 +103,15 @@ def check_index_contract(index_html: str) -> None:
         < positions["channel_browser"]
         < positions["recording_browser"]
         < positions["app"],
-        "index.html script order must be client-api.js -> channel-logos.js -> modules/channels.js -> recording-browser.js -> app.js",
+        "index.html script order must be client-api.js -> channel-logos.js -> channel-browser.js -> recording-browser.js -> app.js",
     )
     require(
-        '<script src="/frontend/modules/channels.js"></script>' in index_html,
-        "index.html must load the physical Channel browser module asset",
+        '<script src="/frontend/channel-browser.js"></script>' in index_html,
+        "index.html must load the runtime-compatible Channel browser asset path",
     )
     require(
-        '<script src="/frontend/channel-browser.js"></script>' not in index_html,
-        "index.html must not load the legacy channel-browser.js asset after the physical module move",
+        '<script src="/frontend/modules/channels.js"></script>' not in index_html,
+        "index.html must not load /frontend/modules/channels.js until the running daemon serves it",
     )
 
     require(
