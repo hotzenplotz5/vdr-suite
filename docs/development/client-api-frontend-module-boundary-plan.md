@@ -631,6 +631,33 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10p Implementation Status
+
+Phase 59.10p moves Recording display-part derivation into the Recording browser.
+
+Implemented behavior:
+
+- `recordingBrowserNormalizePathText(value)` is now implemented locally
+- `recordingBrowserDisplayParts(recording, index)` is now implemented locally
+- title-derived folders are resolved locally
+- path-derived folders are resolved locally
+- VDR title/path marker cleanup still runs through `decodeRecordingText(...)`
+- `recordingDisplayParts` is removed from `RECORDING_BROWSER_CONTEXT_DEPENDENCIES`
+- `app.js` no longer passes `recordingDisplayParts` to `recordingBrowser.configureContext(...)`
+- only the shared detail target remains in the configured Recording browser context
+- HTTP loading remains in `app.js`
+- `recording-browser.js` still does not call `fetch()`
+- `recording-browser.js` still does not use `window.VdrSuiteClientApi`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- narrow the remaining DOM mount dependency
+- keep `app.js` as HTTP/loading bridge only
+- consider later cleanup of legacy unused Recording helpers in `app.js`
+
+---
+
 ## Phase 59.10o Implementation Status
 
 Phase 59.10o moves the small DOM text helper into the Recording browser.

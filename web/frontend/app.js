@@ -3270,8 +3270,7 @@ function renderRecordingsThroughModule(data) {
   }
 
   recordingBrowser.configureContext({
-    detailDataElement: detailDataElement,
-    recordingDisplayParts: recordingDisplayParts
+    detailDataElement: detailDataElement
   });
 
   recordingBrowser.renderList(data);

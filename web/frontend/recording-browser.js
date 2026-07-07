@@ -1,11 +1,10 @@
 "use strict";
 
-// Phase 59.10o: Recording browser owns its local DOM text helper.
+// Phase 59.10p: Recording browser owns its local display parts helper.
 // HTTP ownership remains outside this file.
 
 const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([
-  'detailDataElement',
-  'recordingDisplayParts'
+  'detailDataElement'
 ]);
 
 let recordingBrowserContext = null;
@@ -158,13 +157,53 @@ function recordingTimestamp(entry) {
   return 0;
 }
 
-function recordingBrowserDisplayParts(recording, index) {
-  const sourceDisplayParts = recordingBrowserContextValue('recordingDisplayParts');
+function recordingBrowserNormalizePathText(value) {
+  return String(value || '')
+    .replace(/^\/srv\/vdr\/video\//, '/')
+    .replace(/\/+/g, '/')
+    .replace(/^\//, '');
+}
 
-  const display = sourceDisplayParts(recording, index);
+function recordingBrowserDisplayParts(recording, index) {
+  const rawTitle = String(recordingBrowserFirstValue(
+    recording,
+    ['title', 'name', 'file', 'displayName'],
+    'Aufnahme ' + String(index + 1)
+  ));
+
+  const titleParts = rawTitle.split('/').filter(part => part !== '');
+
+  if (titleParts.length > 1) {
+    return {
+      folder: decodeRecordingText(titleParts.slice(0, -1).join('/')),
+      title: decodeRecordingText(titleParts[titleParts.length - 1])
+    };
+  }
+
+  const path = recordingBrowserNormalizePathText(recordingBrowserFirstValue(
+    recording,
+    ['path', 'fileName', 'directory'],
+    ''
+  ));
+  const pathParts = path.split('/').filter(part => part !== '');
+
+  if (pathParts.length > 2) {
+    return {
+      folder: decodeRecordingText(pathParts.slice(0, -2).join('/')),
+      title: decodeRecordingText(rawTitle)
+    };
+  }
+
+  if (pathParts.length > 1) {
+    return {
+      folder: decodeRecordingText(pathParts.slice(0, -1).join('/')),
+      title: decodeRecordingText(rawTitle)
+    };
+  }
+
   return {
-    folder: decodeRecordingText(display.folder),
-    title: decodeRecordingText(display.title)
+    folder: 'Ohne Ordner',
+    title: decodeRecordingText(rawTitle)
   };
 }
 
