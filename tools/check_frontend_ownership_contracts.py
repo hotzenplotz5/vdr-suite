@@ -1177,6 +1177,14 @@ def check_channel_browser_module_path_serving_contract(
         "install.mk must be ready to install web/frontend/modules/recordings.js when it exists",
     )
     require(
+        "$(DATADIR)/web/frontend/recording-browser.js" in install_mk,
+        "install.mk must keep the runtime-compatible recording-browser.js path",
+    )
+    require(
+        "cmp -s /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/recordings.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-browser.js" in install_mk,
+        "install.mk staging test must verify recording-browser.js matches modules/recordings.js when the module source exists",
+    )
+    require(
         "$(DATADIR)/web/frontend/channel-browser.js" in install_mk,
         "install.mk must install a runtime-compatible channel-browser.js copy",
     )

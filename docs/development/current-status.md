@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.14b prepares static serving and install contracts for the future Recording browser module asset path.
+Phase 59.14c guarantees the runtime Recording browser asset remains compatible with the future module source.
 
 Stable scope:
 
@@ -149,6 +149,7 @@ Stable scope:
 - Phase 59.13c documents the temporary asset contract: module source path plus runtime-compatible script path until daemon rollout.
 - Phase 59.14a documents the Recording browser readiness for the same module-source plus runtime-compatible asset contract.
 - Phase 59.14b prepares `/frontend/modules/recordings.js` serving and install contracts before moving the physical asset.
+- Phase 59.14c keeps `/frontend/recording-browser.js` as the runtime path and verifies it against `modules/recordings.js` when that module source exists.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

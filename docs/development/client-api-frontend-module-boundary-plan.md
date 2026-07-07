@@ -264,7 +264,7 @@ Recording browser module-path preparation:
 - The current runtime script remains `/frontend/recording-browser.js`.
 - The future source-of-truth path will be `web/frontend/modules/recordings.js`.
 - Phase 59.14b prepares install and static serving contracts for `web/frontend/modules/recordings.js` before the physical asset move.
-- The Recording browser should follow the Channel browser compatibility-copy pattern: module source path plus runtime-compatible script path until daemon rollout.
+- Phase 59.14c applies the Channel browser compatibility-copy pattern to Recording browser: `recording-browser.js` remains the runtime path and will be verified against `modules/recordings.js` when the module source exists.
 
 Next phase direction:
 
