@@ -122,6 +122,25 @@ def check_index_contract(index_html: str) -> None:
     )
 
 
+def check_app_channel_browser_module_bridge_contract(app_js: str) -> None:
+    require(
+        "function renderChannelsThroughModule(data)" in app_js,
+        "app.js must define renderChannelsThroughModule(data)",
+    )
+    require(
+        "window.VdrSuiteChannelBrowser.renderList(data)" in app_js,
+        "app.js must render Channels through window.VdrSuiteChannelBrowser.renderList(data)",
+    )
+    require(
+        "Channel browser module render API is not available" in app_js,
+        "app.js Channel browser bridge must fail clearly when renderList is missing",
+    )
+    require(
+        "renderChannelList(" not in app_js,
+        "app.js must not call the legacy global renderChannelList bridge",
+    )
+
+
 def check_app_contract(app_js: str) -> None:
     require(
         re.search(r"function\s+renderTimerList\s*\(\s*data(?:\s*,[^)]*)?\)", app_js) is not None,
@@ -601,6 +620,18 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
     require(
         "configureContext: configureChannelBrowserContext" in channel_browser_js,
         "Channel browser module API must expose configureContext",
+    )
+    require(
+        "renderList: renderChannelBrowserList" in channel_browser_js,
+        "Channel browser module API must expose renderList",
+    )
+    require(
+        "function renderChannelBrowserList(data)" in channel_browser_js,
+        "channel-browser.js must own renderChannelBrowserList(data)",
+    )
+    require(
+        "renderChannelList = function(data)" in channel_browser_js,
+        "channel-browser.js must keep the temporary legacy renderChannelList bridge",
     )
 
 
@@ -1733,6 +1764,7 @@ def main() -> int:
 
         check_index_contract(index_html)
         check_app_contract(app_js)
+        check_app_channel_browser_module_bridge_contract(app_js)
         check_app_direct_api_fetch_contract(app_js)
         check_channel_loading_client_api_contract(app_js)
         check_epg_timeline_channel_loading_client_api_contract(app_js)
