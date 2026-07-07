@@ -256,6 +256,7 @@ Frontend module asset contract:
 - `mk/install.mk` installs both module source files and their runtime-compatible copies.
 - Staging install tests verify that each runtime-compatible copy is byte-identical to its module source.
 - `index.html` keeps loading the runtime-compatible script paths until daemon/static serving rollout is safe.
+- `check_frontend_ownership_contracts.py` prevents direct `/frontend/modules/channels.js` and `/frontend/modules/recordings.js` script loading before that rollout.
 - `/frontend/modules/channels.js` and `/frontend/modules/recordings.js` remain prepared for later direct module-path loading.
 - Keep runtime HTTP access routed through `window.VdrSuiteClientApi`.
 

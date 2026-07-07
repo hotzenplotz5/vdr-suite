@@ -110,7 +110,7 @@ def check_index_contract(index_html: str) -> None:
         < positions["channel_browser"]
         < positions["recording_browser"]
         < positions["app"],
-        "index.html script order must be client-api.js -> channel-logos.js -> channel-browser.js -> modules/recordings.js -> app.js",
+        "index.html script order must be client-api.js -> channel-logos.js -> channel-browser.js -> recording-browser.js -> app.js",
     )
     require(
         '<script src="/frontend/channel-browser.js"></script>' in index_html,
@@ -119,6 +119,14 @@ def check_index_contract(index_html: str) -> None:
     require(
         '<script src="/frontend/modules/channels.js"></script>' not in index_html,
         "index.html must not load /frontend/modules/channels.js until the running daemon serves it",
+    )
+    require(
+        '<script src="/frontend/recording-browser.js"></script>' in index_html,
+        "index.html must load the runtime-compatible Recording browser asset path",
+    )
+    require(
+        '<script src="/frontend/modules/recordings.js"></script>' not in index_html,
+        "index.html must not load /frontend/modules/recordings.js until the running daemon serves it",
     )
 
     require(
