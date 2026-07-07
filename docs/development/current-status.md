@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.15b guards index.html against direct frontend module-path loading before daemon rollout.
+Phase 59.15c documents the frontend module runtime smoke check after compatibility-copy installs.
 
 Stable scope:
 
@@ -155,6 +155,7 @@ Stable scope:
 - Phase 59.14f installs `modules/recordings.js` unconditionally and verifies `/frontend/recording-browser.js` as an identical compatibility copy.
 - Phase 59.15a consolidates the shared frontend module contract for Channel and Recording browser assets.
 - Phase 59.15b guards `index.html` so Channel and Recording browser scripts keep using runtime-compatible paths until daemon rollout.
+- Phase 59.15c documents the required browser/runtime smoke check for Channel and Recording module compatibility copies.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

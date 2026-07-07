@@ -260,6 +260,19 @@ Frontend module asset contract:
 - `/frontend/modules/channels.js` and `/frontend/modules/recordings.js` remain prepared for later direct module-path loading.
 - Keep runtime HTTP access routed through `window.VdrSuiteClientApi`.
 
+Frontend module runtime smoke check:
+
+- After installing frontend assets, hard-reload the browser.
+- Verify the `Kanäle` module renders channel groups and selected-channel programmes.
+- Verify the `Aufnahmen` module renders the recording tree and opens recording details.
+- Verify the browser console has no missing script errors for:
+  - `/frontend/channel-browser.js`
+  - `/frontend/recording-browser.js`
+- Verify the browser console has no accidental direct module path load errors for:
+  - `/frontend/modules/channels.js`
+  - `/frontend/modules/recordings.js`
+- If the running daemon is not rebuilt/restarted, the runtime-compatible script paths remain authoritative.
+
 Recording browser module-path preparation:
 
 - The logical Recording browser module API already exists as `window.VdrSuiteRecordingBrowser`.
