@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.11d - Channel Browser Dependency Inventory
+Phase 59.11e - Channel Browser Context Boundary Preparation
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.11d documents the Channel browser dependency inventory before further extraction work.
+Phase 59.11e introduces the Channel browser context API surface before wiring dependencies through it.
 
 Stable scope:
 
@@ -121,6 +121,7 @@ Stable scope:
 - Phase 59.11b enables drag-scroll on the selected-channel `Programm` list.
 - Phase 59.11c limits Channel browser drag-scroll handling to mouse pointer input so touch/mobile scrolling remains native.
 - Phase 59.11d documents the Channel browser app.js dependency inventory before additional extraction slices.
+- Phase 59.11e introduces `window.VdrSuiteChannelBrowser.configureContext(...)` as the future Channel browser context boundary.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

@@ -18,6 +18,12 @@ const CHANNEL_LIST_PAGE_SIZE = 20;
 
 const CHANNEL_BROWSER_EPG_RETRY_DELAY_MS = 900;
 
+let channelBrowserContext = {};
+
+function configureChannelBrowserContext(context) {
+  channelBrowserContext = context && typeof context === 'object' ? Object.assign({}, context) : {};
+}
+
 let channelBrowserEpgPrefetchInFlight = false;
 let channelBrowserEpgPrefetchLastStartedAt = 0;
 
@@ -1408,3 +1414,9 @@ renderChannelList = function(data) {
 
   renderAll();
 };
+
+if (typeof window !== 'undefined') {
+  window.VdrSuiteChannelBrowser = Object.freeze({
+    configureContext: configureChannelBrowserContext
+  });
+}
