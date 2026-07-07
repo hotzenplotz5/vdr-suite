@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.11f - Channel Browser Context Wiring
+Phase 59.11g - Channel Browser Mount Target Accessor
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.11f wires app.js to the Channel browser context API surface without moving dependencies yet.
+Phase 59.11g routes the Channel browser mount target through its configured context accessor.
 
 Stable scope:
 
@@ -123,6 +123,7 @@ Stable scope:
 - Phase 59.11d documents the Channel browser app.js dependency inventory before additional extraction slices.
 - Phase 59.11e introduces `window.VdrSuiteChannelBrowser.configureContext(...)` as the future Channel browser context boundary.
 - Phase 59.11f configures the Channel browser context boundary from `app.js` with the current mount target.
+- Phase 59.11g routes Channel browser mount-target access through `channelBrowserDetailDataElement()`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

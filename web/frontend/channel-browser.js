@@ -24,6 +24,16 @@ function configureChannelBrowserContext(context) {
   channelBrowserContext = context && typeof context === 'object' ? Object.assign({}, context) : {};
 }
 
+function channelBrowserDetailDataElement() {
+  const element = channelBrowserContext.detailDataElement;
+
+  if (!element || typeof element.replaceChildren !== 'function' || typeof element.appendChild !== 'function') {
+    throw new Error('Channel browser detail data element is not configured');
+  }
+
+  return element;
+}
+
 let channelBrowserEpgPrefetchInFlight = false;
 let channelBrowserEpgPrefetchLastStartedAt = 0;
 
@@ -783,14 +793,14 @@ renderChannelList = function(data) {
   const events = dataEvents.length > 0 ? dataEvents : fallbackEvents;
   const nowSeconds = Math.floor(Date.now() / 1000);
 
-  detailDataElement.replaceChildren();
+  channelBrowserDetailDataElement().replaceChildren();
 
   if (channels.length === 0) {
     const empty = document.createElement('article');
     empty.className = 'module-placeholder';
     empty.appendChild(addText(document.createElement('h3'), 'Keine Kanäle gefunden'));
     empty.appendChild(addText(document.createElement('p'), 'Der Endpunkt /api/vdr/channels hat keine Kanalliste geliefert.'));
-    detailDataElement.appendChild(empty);
+    channelBrowserDetailDataElement().appendChild(empty);
     return;
   }
 
@@ -840,7 +850,7 @@ renderChannelList = function(data) {
     empty.appendChild(addText(document.createElement('h3'), 'Keine Kanäle im Filter'));
     empty.appendChild(addText(document.createElement('p'), 'Wähle einen anderen Filter.'));
     shell.appendChild(empty);
-    detailDataElement.appendChild(shell);
+    channelBrowserDetailDataElement().appendChild(shell);
     return;
   }
 
@@ -1406,7 +1416,7 @@ renderChannelList = function(data) {
   workbench.appendChild(channelPane);
   workbench.appendChild(detailPane);
   shell.appendChild(workbench);
-  detailDataElement.appendChild(shell);
+  channelBrowserDetailDataElement().appendChild(shell);
 
   if (!visibleChannels.some(channel => channelEntries(channel).length > 0)) {
     scheduleChannelBrowserEpgPrefetch(data);
