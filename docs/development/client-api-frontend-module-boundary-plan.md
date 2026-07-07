@@ -262,9 +262,10 @@ Recording browser module-path preparation:
 
 - The logical Recording browser module API already exists as `window.VdrSuiteRecordingBrowser`.
 - The current runtime script remains `/frontend/recording-browser.js`.
-- The future source-of-truth path will be `web/frontend/modules/recordings.js`.
+- The source-of-truth file is now `web/frontend/modules/recordings.js`.
 - Phase 59.14b prepares install and static serving contracts for `web/frontend/modules/recordings.js` before the physical asset move.
-- Phase 59.14c applies the Channel browser compatibility-copy pattern to Recording browser: `recording-browser.js` remains the runtime path and will be verified against `modules/recordings.js` when the module source exists.
+- Phase 59.14c applies the Channel browser compatibility-copy pattern to Recording browser: `recording-browser.js` remains the runtime path and is verified against `modules/recordings.js` when the module source exists.
+- Phase 59.14d moves the physical Recording browser source to `web/frontend/modules/recordings.js`.
 
 Next phase direction:
 

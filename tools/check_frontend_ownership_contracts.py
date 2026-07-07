@@ -21,6 +21,7 @@ APP = FRONTEND / "app.js"
 CHANNEL_LOGOS = FRONTEND / "channel-logos.js"
 CHANNEL_BROWSER = FRONTEND / "modules" / "channels.js"
 RECORDING_BROWSER = FRONTEND / "recording-browser.js"
+RECORDING_BROWSER_MODULE = ROOT / "web/frontend/modules/recordings.js"
 STYLE = FRONTEND / "style.css"
 ARCH_DOC = ROOT / "docs" / "development" / "frontend-architecture.md"
 CLIENT_API_CONTRACT_SNAPSHOT = ROOT / "docs" / "development" / "web-client-api-contract-snapshot.md"
@@ -36,6 +37,12 @@ def read(path: Path) -> str:
     if not path.exists():
         raise ContractFailure(f"required file missing: {path.relative_to(ROOT)}")
     return path.read_text(encoding="utf-8")
+
+
+def read_preferred(primary: Path, fallback: Path) -> str:
+    if primary.exists():
+        return read(primary)
+    return read(fallback)
 
 
 def require(condition: bool, message: str) -> None:
@@ -780,7 +787,7 @@ def check_recording_browser_dependency_contract(
     for token in required_recording_browser_dependencies:
         require(
             token in recording_browser_js,
-            "recording-browser.js dependency contract missing: " + token,
+            "recordings.js dependency contract missing: " + token,
         )
 
 
@@ -826,7 +833,7 @@ def check_recording_browser_context_boundary_contract(
     for token in required_mount_target_tokens:
         require(
             token in recording_browser_js,
-            "recording-browser.js mount target boundary missing: " + token,
+            "recordings.js mount target boundary missing: " + token,
         )
 
     forbidden_direct_helper_calls = [
@@ -1814,7 +1821,7 @@ def main() -> int:
         app_js = read(APP)
         channel_logos_js = read(CHANNEL_LOGOS)
         channel_browser_js = read(CHANNEL_BROWSER)
-        recording_browser_js = read(RECORDING_BROWSER)
+        recording_browser_js = read_preferred(RECORDING_BROWSER_MODULE, RECORDING_BROWSER)
         style_css = read(STYLE)
         frontend_architecture_md = read(ARCH_DOC)
         test_http_server_cpp = read(HTTP_SERVER)
