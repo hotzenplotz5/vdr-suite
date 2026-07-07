@@ -631,6 +631,39 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10k Implementation Status
+
+Phase 59.10k routes shared Recording browser helper calls through context accessors.
+
+Implemented behavior:
+
+- `recording-browser.js` defines `recordingBrowserContextValue(name)`
+- `recording-browser.js` defines local wrappers for:
+  - `detailDataElement`
+  - `addText`
+  - `firstValue`
+  - `listFromResponse`
+  - `formatDurationSeconds`
+  - `formatSizeMb`
+  - `formatRecordingStart`
+  - `recordingDisplayParts`
+- Recording rendering calls the local wrappers instead of direct shared globals
+- `recordingBrowserDisplayParts(...)` gets its source helper through `recordingBrowserContextValue('recordingDisplayParts')`
+- the configured context remains the preferred source
+- a guarded fallback keeps the module compatible while the script order still exposes shared app helpers
+- HTTP loading remains in `app.js`
+- `recording-browser.js` still does not call `fetch()`
+- `recording-browser.js` still does not use `window.VdrSuiteClientApi`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- remove the temporary fallback to global helper symbols
+- reduce the context dependency list as helpers move fully into `recording-browser.js`
+- keep `recording-browser.js` UI-only
+
+---
+
 ## Phase 59.10j Implementation Status
 
 Phase 59.10j removes the global Recording display-parts mutation.

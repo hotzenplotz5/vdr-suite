@@ -1,6 +1,6 @@
 "use strict";
 
-// Phase 59.10j: Recording browser uses a local display parts context helper.
+// Phase 59.10k: Recording browser routes shared helpers through context accessors.
 // HTTP ownership remains outside this file.
 
 const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([
@@ -29,6 +29,86 @@ function configureRecordingBrowserContext(context) {
   recordingBrowserContext = Object.freeze(Object.assign({}, value));
 }
 
+function recordingBrowserFallbackContextValue(name) {
+  if (name === 'detailDataElement' && typeof detailDataElement !== 'undefined') {
+    return detailDataElement;
+  }
+
+  if (name === 'addText' && typeof addText === 'function') {
+    return addText;
+  }
+
+  if (name === 'firstValue' && typeof firstValue === 'function') {
+    return firstValue;
+  }
+
+  if (name === 'listFromResponse' && typeof listFromResponse === 'function') {
+    return listFromResponse;
+  }
+
+  if (name === 'formatDurationSeconds' && typeof formatDurationSeconds === 'function') {
+    return formatDurationSeconds;
+  }
+
+  if (name === 'formatSizeMb' && typeof formatSizeMb === 'function') {
+    return formatSizeMb;
+  }
+
+  if (name === 'formatRecordingStart' && typeof formatRecordingStart === 'function') {
+    return formatRecordingStart;
+  }
+
+  if (name === 'recordingDisplayParts' && typeof recordingDisplayParts === 'function') {
+    return recordingDisplayParts;
+  }
+
+  return null;
+}
+
+function recordingBrowserContextValue(name) {
+  const configured = recordingBrowserContext ? recordingBrowserContext[name] : null;
+
+  if (configured !== undefined && configured !== null) {
+    return configured;
+  }
+
+  const fallback = recordingBrowserFallbackContextValue(name);
+
+  if (fallback !== undefined && fallback !== null) {
+    return fallback;
+  }
+
+  throw new Error('Recording browser context value missing: ' + name);
+}
+
+function recordingBrowserDetailDataElement() {
+  return recordingBrowserContextValue('detailDataElement');
+}
+
+function recordingBrowserAddText(element, text) {
+  return recordingBrowserContextValue('addText')(element, text);
+}
+
+function recordingBrowserFirstValue(object, keys, fallback) {
+  return recordingBrowserContextValue('firstValue')(object, keys, fallback);
+}
+
+function recordingBrowserListFromResponse(data, key) {
+  return recordingBrowserContextValue('listFromResponse')(data, key);
+}
+
+function recordingBrowserFormatDurationSeconds(value) {
+  return recordingBrowserContextValue('formatDurationSeconds')(value);
+}
+
+function recordingBrowserFormatSizeMb(value) {
+  return recordingBrowserContextValue('formatSizeMb')(value);
+}
+
+function recordingBrowserFormatRecordingStart(value) {
+  return recordingBrowserContextValue('formatRecordingStart')(value);
+}
+
 let recordingSortMode = 'name';
 let recordingViewMode = 'folder';
 let currentRecordingRecords = [];
@@ -48,7 +128,7 @@ function recordingSortKey(value) {
 
 function recordingTimestamp(entry) {
   const recording = entry.recording || entry;
-  const value = firstValue(recording, ['startTime', 'start', 'date'], '');
+  const value = recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '');
   const number = Number(value);
 
   if (Number.isFinite(number) && number > 0) {
@@ -59,12 +139,7 @@ function recordingTimestamp(entry) {
 }
 
 function recordingBrowserDisplayParts(recording, index) {
-  const sourceDisplayParts = (
-    recordingBrowserContext
-    && typeof recordingBrowserContext.recordingDisplayParts === 'function'
-  )
-    ? recordingBrowserContext.recordingDisplayParts
-    : recordingDisplayParts;
+  const sourceDisplayParts = recordingBrowserContextValue('recordingDisplayParts');
 
   const display = sourceDisplayParts(recording, index);
   return {
@@ -177,8 +252,8 @@ function renderRecordingNode(node) {
 
   const header = document.createElement('article');
   header.className = 'module-placeholder';
-  header.appendChild(addText(document.createElement('h3'), node.name));
-  header.appendChild(addText(
+  header.appendChild(recordingBrowserAddText(document.createElement('h3'), node.name));
+  header.appendChild(recordingBrowserAddText(
     document.createElement('p'),
     countRecordingNode(node) + ' Aufnahme(n) in diesem Bereich.'
   ));
@@ -200,8 +275,8 @@ function renderRecordingNode(node) {
     item.className = 'list-item';
     item.tabIndex = 0;
     item.setAttribute('role', 'button');
-    item.appendChild(addText(document.createElement('div'), child.name)).className = 'list-title';
-    item.appendChild(addText(document.createElement('div'), countRecordingNode(child) + ' Aufnahme(n)')).className = 'list-meta';
+    item.appendChild(recordingBrowserAddText(document.createElement('div'), child.name)).className = 'list-title';
+    item.appendChild(recordingBrowserAddText(document.createElement('div'), countRecordingNode(child) + ' Aufnahme(n)')).className = 'list-meta';
     const open = () => renderRecordingNode(child);
     item.addEventListener('click', open);
     item.addEventListener('keydown', event => {
@@ -216,31 +291,31 @@ function renderRecordingNode(node) {
   sortedRecordingItems(node).forEach(entry => {
     const item = document.createElement('article');
     item.className = 'list-item';
-    item.appendChild(addText(document.createElement('div'), entry.title)).className = 'list-title';
-    item.appendChild(addText(document.createElement('div'), pathForRecordingNode(node).join(' / ') || 'Hauptordner')).className = 'list-meta';
+    item.appendChild(recordingBrowserAddText(document.createElement('div'), entry.title)).className = 'list-title';
+    item.appendChild(recordingBrowserAddText(document.createElement('div'), pathForRecordingNode(node).join(' / ') || 'Hauptordner')).className = 'list-meta';
     container.appendChild(item);
   });
 
-  detailDataElement.replaceChildren(container);
+  recordingBrowserDetailDataElement().replaceChildren(container);
 }
 
 const RECORDING_FOLDER_BATCH_SIZE = 80;
 const RECORDING_ITEM_PAGE_SIZE = 20;
 
 function renderRecordingList(data) {
-  const recordings = listFromResponse(data, 'recordings');
-  detailDataElement.replaceChildren();
+  const recordings = recordingBrowserListFromResponse(data, 'recordings');
+  recordingBrowserDetailDataElement().replaceChildren();
 
   if (recordings.length === 0) {
     const empty = document.createElement('article');
     empty.className = 'module-placeholder';
-    empty.appendChild(addText(document.createElement('h3'), 'Keine Aufnahmen gefunden'));
-    empty.appendChild(addText(document.createElement('p'), 'Der Recording-Query-Endpunkt hat aktuell keine Aufnahmen geliefert.'));
-    detailDataElement.appendChild(empty);
+    empty.appendChild(recordingBrowserAddText(document.createElement('h3'), 'Keine Aufnahmen gefunden'));
+    empty.appendChild(recordingBrowserAddText(document.createElement('p'), 'Der Recording-Query-Endpunkt hat aktuell keine Aufnahmen geliefert.'));
+    recordingBrowserDetailDataElement().appendChild(empty);
     return;
   }
 
-  const reportedTotal = Number(firstValue(data || {}, ['totalCount', 'total', 'count'], recordings.length));
+  const reportedTotal = Number(recordingBrowserFirstValue(data || {}, ['totalCount', 'total', 'count'], recordings.length));
   const totalRecordings = Number.isFinite(reportedTotal) && reportedTotal > recordings.length
     ? reportedTotal
     : recordings.length;
@@ -342,7 +417,7 @@ function renderRecordingList(data) {
     pager.className = 'module-placeholder recording-pager';
 
     const currentPage = recordingPageIndex + 1;
-    pager.appendChild(addText(
+    pager.appendChild(recordingBrowserAddText(
       document.createElement('p'),
       'Seite ' + String(currentPage) + ' von ' + String(pageCount)
         + ' · ' + String(RECORDING_ITEM_PAGE_SIZE) + ' Aufnahmen pro Seite'
@@ -369,7 +444,7 @@ function renderRecordingList(data) {
 
   function renderRecordingDetail(entry, node, visibleFolderCount, recordingPageIndex) {
     const recording = entry.recording;
-    detailDataElement.replaceChildren();
+    recordingBrowserDetailDataElement().replaceChildren();
 
     const list = document.createElement('section');
     list.className = 'list recording-detail-list';
@@ -377,24 +452,24 @@ function renderRecordingList(data) {
     const item = document.createElement('article');
     item.className = 'module-placeholder recording-detail';
 
-    const recordingId = firstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
-    const path = firstValue(recording, ['path', 'fileName', 'directory'], '-');
-    const startTime = formatRecordingStart(firstValue(recording, ['startTime', 'start', 'date'], '-'));
-    const duration = formatDurationSeconds(firstValue(recording, ['durationSeconds', 'duration'], 0));
-    const size = formatSizeMb(firstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
-    const channel = firstValue(recording, ['channelName', 'channel', 'channelId'], '-');
-    const description = firstValue(recording, ['description', 'summary', 'shortText'], '');
+    const recordingId = recordingBrowserFirstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
+    const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
+    const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
+    const duration = recordingBrowserFormatDurationSeconds(recordingBrowserFirstValue(recording, ['durationSeconds', 'duration'], 0));
+    const size = recordingBrowserFormatSizeMb(recordingBrowserFirstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
+    const channel = recordingBrowserFirstValue(recording, ['channelName', 'channel', 'channelId'], '-');
+    const description = recordingBrowserFirstValue(recording, ['description', 'summary', 'shortText'], '');
 
-    item.appendChild(addText(document.createElement('h3'), entry.title));
-    item.appendChild(addText(document.createElement('p'), 'Start: ' + startTime));
-    item.appendChild(addText(document.createElement('p'), 'Dauer: ' + duration));
-    item.appendChild(addText(document.createElement('p'), 'Größe: ' + size));
-    item.appendChild(addText(document.createElement('p'), 'Sender: ' + String(channel)));
-    item.appendChild(addText(document.createElement('p'), 'Pfad: ' + String(path)));
-    item.appendChild(addText(document.createElement('p'), 'ID: ' + String(recordingId)));
+    item.appendChild(recordingBrowserAddText(document.createElement('h3'), entry.title));
+    item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Start: ' + startTime));
+    item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
+    item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Größe: ' + size));
+    item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Sender: ' + String(channel)));
+    item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Pfad: ' + String(path)));
+    item.appendChild(recordingBrowserAddText(document.createElement('p'), 'ID: ' + String(recordingId)));
 
     if (String(description).trim()) {
-      item.appendChild(addText(document.createElement('p'), String(description)));
+      item.appendChild(recordingBrowserAddText(document.createElement('p'), String(description)));
     }
 
     const backButton = document.createElement('button');
@@ -406,7 +481,7 @@ function renderRecordingList(data) {
     item.appendChild(backButton);
 
     list.appendChild(item);
-    detailDataElement.appendChild(list);
+    recordingBrowserDetailDataElement().appendChild(list);
   }
 
   function createRecordingListItem(entry, openDetail) {
@@ -417,19 +492,19 @@ function renderRecordingList(data) {
     item.setAttribute('role', 'button');
     item.setAttribute('aria-label', 'Aufnahme ' + entry.title + ' öffnen');
 
-    const recordingId = firstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
-    const path = firstValue(recording, ['path', 'fileName', 'directory'], '-');
-    const startTime = formatRecordingStart(firstValue(recording, ['startTime', 'start', 'date'], '-'));
-    const duration = formatDurationSeconds(firstValue(recording, ['durationSeconds', 'duration'], 0));
-    const size = formatSizeMb(firstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
+    const recordingId = recordingBrowserFirstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
+    const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
+    const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
+    const duration = recordingBrowserFormatDurationSeconds(recordingBrowserFirstValue(recording, ['durationSeconds', 'duration'], 0));
+    const size = recordingBrowserFormatSizeMb(recordingBrowserFirstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
 
-    item.appendChild(addText(document.createElement('div'), entry.title)).className = 'list-title';
-    item.appendChild(addText(
+    item.appendChild(recordingBrowserAddText(document.createElement('div'), entry.title)).className = 'list-title';
+    item.appendChild(recordingBrowserAddText(
       document.createElement('div'),
       'Start: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size + ' · antippen für Details'
     )).className = 'list-meta';
-    item.appendChild(addText(document.createElement('div'), 'Pfad: ' + String(path))).className = 'list-meta';
-    item.appendChild(addText(document.createElement('div'), 'ID: ' + String(recordingId))).className = 'list-meta';
+    item.appendChild(recordingBrowserAddText(document.createElement('div'), 'Pfad: ' + String(path))).className = 'list-meta';
+    item.appendChild(recordingBrowserAddText(document.createElement('div'), 'ID: ' + String(recordingId))).className = 'list-meta';
 
     item.addEventListener('click', openDetail);
     item.addEventListener('keydown', event => {
@@ -466,14 +541,14 @@ function renderRecordingList(data) {
     const recordingEndIndex = recordingStartIndex + RECORDING_ITEM_PAGE_SIZE;
     const visibleRecordings = recordingEntries.slice(recordingStartIndex, recordingEndIndex);
 
-    detailDataElement.replaceChildren();
+    recordingBrowserDetailDataElement().replaceChildren();
 
     const list = document.createElement('section');
     list.className = 'list recording-folder-list';
 
     const header = document.createElement('article');
     header.className = 'module-placeholder';
-    header.appendChild(addText(document.createElement('h3'), recordingFolderLabel(node)));
+    header.appendChild(recordingBrowserAddText(document.createElement('h3'), recordingFolderLabel(node)));
 
     const summary = [
       String(displayChildFolders.length) + ' Unterordner',
@@ -486,7 +561,7 @@ function renderRecordingList(data) {
       summary.push('Seite ' + String(recordingPageIndex + 1) + ' von ' + String(recordingPageCount));
     }
 
-    header.appendChild(addText(document.createElement('p'), summary.join(' · ')));
+    header.appendChild(recordingBrowserAddText(document.createElement('p'), summary.join(' · ')));
 
     if (node.parent) {
       const backButton = document.createElement('button');
@@ -507,8 +582,8 @@ function renderRecordingList(data) {
       item.setAttribute('role', 'button');
       item.setAttribute('aria-label', 'Ordner ' + recordingFolderLabel(folderNode) + ' öffnen');
 
-      item.appendChild(addText(document.createElement('div'), folderNode.name)).className = 'list-title';
-      item.appendChild(addText(
+      item.appendChild(recordingBrowserAddText(document.createElement('div'), folderNode.name)).className = 'list-title';
+      item.appendChild(recordingBrowserAddText(
         document.createElement('div'),
         String(folderNode.folders.size) + ' Unterordner · '
           + String(folderNode.recordings.length) + ' direkte Aufnahme(n) · '
@@ -555,11 +630,11 @@ function renderRecordingList(data) {
     if (displayChildFolders.length === 0 && recordingEntries.length === 0) {
       const empty = document.createElement('article');
       empty.className = 'module-placeholder';
-      empty.appendChild(addText(document.createElement('p'), 'Dieser Ordner enthält keine Aufnahmen.'));
+      empty.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dieser Ordner enthält keine Aufnahmen.'));
       list.appendChild(empty);
     }
 
-    detailDataElement.appendChild(list);
+    recordingBrowserDetailDataElement().appendChild(list);
   }
 
   const rootNode = buildRecordingFolderTree(recordings);

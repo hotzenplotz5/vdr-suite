@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10j" in recording_browser_js,
-        "recording-browser.js must document its local display parts context phase",
+        "Phase 59.10k" in recording_browser_js,
+        "recording-browser.js must document its context accessor phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -520,8 +520,8 @@ def check_recording_browser_contract(recording_browser_js: str) -> None:
         "recording-browser.js must not mutate the global recordingDisplayParts helper",
     )
     require(
-        "detailDataElement.replaceChildren(container)" in recording_browser_js,
-        "recording-browser.js must keep rendering into the shared detail data element",
+        "recordingBrowserDetailDataElement().replaceChildren(container)" in recording_browser_js,
+        "recording-browser.js must keep rendering into the shared detail data element through its context accessor",
     )
     require(
         "document.createElement" in recording_browser_js,
@@ -576,12 +576,22 @@ def check_recording_browser_dependency_contract(
         )
 
     required_recording_browser_dependencies = [
-        "firstValue(recording, ['startTime', 'start', 'date'], '')",
+        "function recordingBrowserFallbackContextValue(name)",
+        "function recordingBrowserContextValue(name)",
+        "function recordingBrowserDetailDataElement()",
+        "function recordingBrowserAddText(element, text)",
+        "function recordingBrowserFirstValue(object, keys, fallback)",
+        "function recordingBrowserListFromResponse(data, key)",
+        "function recordingBrowserFormatDurationSeconds(value)",
+        "function recordingBrowserFormatSizeMb(value)",
+        "function recordingBrowserFormatRecordingStart(value)",
+        "recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '')",
         "function recordingBrowserDisplayParts(recording, index)",
+        "const sourceDisplayParts = recordingBrowserContextValue('recordingDisplayParts')",
         "const display = recordingBrowserDisplayParts(recording, index)",
         "sourceDisplayParts(recording, index)",
-        "addText(document.createElement('h3'), node.name)",
-        "detailDataElement.replaceChildren(container)",
+        "recordingBrowserAddText(document.createElement('h3'), node.name)",
+        "recordingBrowserDetailDataElement().replaceChildren(container)",
         "function setRecordingBrowserRecords(records)",
         "function renderRecordingList(data)",
         "function configureRecordingBrowserContext(context)",
@@ -623,10 +633,44 @@ def check_recording_browser_context_boundary_contract(
         "contextDependencies: RECORDING_BROWSER_CONTEXT_DEPENDENCIES" in recording_browser_js,
         "window.VdrSuiteRecordingBrowser must expose contextDependencies",
     )
-    require(
-        "function recordingBrowserDisplayParts(recording, index)" in recording_browser_js,
-        "recording-browser.js must route display-part decoding through its local context helper",
-    )
+    required_context_accessor_tokens = [
+        "function recordingBrowserFallbackContextValue(name)",
+        "function recordingBrowserContextValue(name)",
+        "function recordingBrowserDetailDataElement()",
+        "function recordingBrowserAddText(element, text)",
+        "function recordingBrowserFirstValue(object, keys, fallback)",
+        "function recordingBrowserListFromResponse(data, key)",
+        "function recordingBrowserFormatDurationSeconds(value)",
+        "function recordingBrowserFormatSizeMb(value)",
+        "function recordingBrowserFormatRecordingStart(value)",
+        "function recordingBrowserDisplayParts(recording, index)",
+        "const sourceDisplayParts = recordingBrowserContextValue('recordingDisplayParts')",
+    ]
+
+    for token in required_context_accessor_tokens:
+        require(
+            token in recording_browser_js,
+            "recording-browser.js context accessor missing: " + token,
+        )
+
+    forbidden_direct_helper_calls = [
+        "addText(document",
+        "firstValue(recording",
+        "firstValue(data || {}",
+        "listFromResponse(data, 'recordings')",
+        "formatRecordingStart(",
+        "formatDurationSeconds(",
+        "formatSizeMb(",
+        "detailDataElement.replaceChildren",
+        "detailDataElement.appendChild",
+    ]
+
+    for token in forbidden_direct_helper_calls:
+        require(
+            token not in recording_browser_js,
+            "recording-browser.js must route shared helper through context accessor instead of: " + token,
+        )
+
     require(
         "recordingDisplayParts = function(recording, index)" not in recording_browser_js,
         "recording-browser.js context migration must not mutate recordingDisplayParts globally",
