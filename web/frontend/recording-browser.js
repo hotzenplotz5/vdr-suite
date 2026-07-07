@@ -1,6 +1,6 @@
 "use strict";
 
-// Phase 59.10h: Recording browser documents its shared context boundary.
+// Phase 59.10i: Recording browser accepts an explicit shared context handshake.
 // HTTP ownership remains outside this file.
 
 const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([
@@ -13,6 +13,21 @@ const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([
   'formatRecordingStart',
   'recordingDisplayParts'
 ]);
+
+let recordingBrowserContext = null;
+
+function configureRecordingBrowserContext(context) {
+  const value = context && typeof context === 'object' ? context : {};
+  const missing = RECORDING_BROWSER_CONTEXT_DEPENDENCIES.filter(name =>
+    value[name] === undefined || value[name] === null
+  );
+
+  if (missing.length > 0) {
+    throw new Error('Recording browser context missing: ' + missing.join(', '));
+  }
+
+  recordingBrowserContext = Object.freeze(Object.assign({}, value));
+}
 
 let recordingSortMode = 'name';
 let recordingViewMode = 'folder';
@@ -550,6 +565,8 @@ function setRecordingBrowserRecords(records) {
 }
 
 window.VdrSuiteRecordingBrowser = Object.freeze({
+  contextDependencies: RECORDING_BROWSER_CONTEXT_DEPENDENCIES,
+  configureContext: configureRecordingBrowserContext,
   decodeRecordingText: decodeRecordingText,
   setRecords: setRecordingBrowserRecords,
   renderList: renderRecordingList,

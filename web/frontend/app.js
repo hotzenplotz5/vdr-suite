@@ -3257,13 +3257,28 @@ function loadSearchTimers() {
 function renderRecordingsThroughModule(data) {
   const recordingBrowser = window.VdrSuiteRecordingBrowser;
 
-  if (!recordingBrowser || typeof recordingBrowser.renderList !== 'function') {
+  if (
+    !recordingBrowser
+    || typeof recordingBrowser.configureContext !== 'function'
+    || typeof recordingBrowser.renderList !== 'function'
+  ) {
     renderModuleError(
       'Aufnahmen konnten nicht angezeigt werden',
       new Error('Recording browser module is not available')
     );
     return;
   }
+
+  recordingBrowser.configureContext({
+    detailDataElement: detailDataElement,
+    addText: addText,
+    firstValue: firstValue,
+    listFromResponse: listFromResponse,
+    formatDurationSeconds: formatDurationSeconds,
+    formatSizeMb: formatSizeMb,
+    formatRecordingStart: formatRecordingStart,
+    recordingDisplayParts: recordingDisplayParts
+  });
 
   recordingBrowser.renderList(data);
 }

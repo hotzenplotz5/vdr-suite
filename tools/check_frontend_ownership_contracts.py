@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10h" in recording_browser_js,
-        "recording-browser.js must document its shared context boundary phase",
+        "Phase 59.10i" in recording_browser_js,
+        "recording-browser.js must document its explicit context API handshake phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -579,7 +579,11 @@ def check_recording_browser_dependency_contract(
         "detailDataElement.replaceChildren(container)",
         "function setRecordingBrowserRecords(records)",
         "function renderRecordingList(data)",
+        "function configureRecordingBrowserContext(context)",
+        "let recordingBrowserContext = null",
         "window.VdrSuiteRecordingBrowser = Object.freeze({",
+        "contextDependencies: RECORDING_BROWSER_CONTEXT_DEPENDENCIES",
+        "configureContext: configureRecordingBrowserContext",
         "decodeRecordingText: decodeRecordingText",
         "setRecords: setRecordingBrowserRecords",
         "renderList: renderRecordingList",
@@ -601,6 +605,18 @@ def check_recording_browser_context_boundary_contract(
     require(
         "const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([" in recording_browser_js,
         "recording-browser.js must define an explicit shared context dependency list",
+    )
+    require(
+        "function configureRecordingBrowserContext(context)" in recording_browser_js,
+        "recording-browser.js must define configureRecordingBrowserContext(context)",
+    )
+    require(
+        "configureContext: configureRecordingBrowserContext" in recording_browser_js,
+        "window.VdrSuiteRecordingBrowser must expose configureContext",
+    )
+    require(
+        "contextDependencies: RECORDING_BROWSER_CONTEXT_DEPENDENCIES" in recording_browser_js,
+        "window.VdrSuiteRecordingBrowser must expose contextDependencies",
     )
 
     required_context_dependencies = [
@@ -633,6 +649,26 @@ def check_recording_browser_context_boundary_contract(
         "recording-browser.js context boundary must not include literal runtime API routes",
     )
 
+    bridge_start = app_js.find("function renderRecordingsThroughModule(data)")
+    bridge_end = app_js.find("function loadRecordings()", bridge_start)
+    require(
+        bridge_start >= 0 and bridge_end > bridge_start,
+        "app.js must keep the Recording browser context handshake before loadRecordings()",
+    )
+
+    bridge_body = app_js[bridge_start:bridge_end]
+
+    require(
+        "recordingBrowser.configureContext({" in bridge_body,
+        "app.js must configure the Recording browser shared context before rendering",
+    )
+
+    for name in required_context_dependencies:
+        require(
+            name + ": " + name in bridge_body,
+            "app.js Recording browser context handshake missing dependency: " + name,
+        )
+
 
 def check_recording_rich_renderer_migration_contract(
     app_js: str,
@@ -659,6 +695,10 @@ def check_recording_rich_renderer_migration_contract(
     require(
         "window.VdrSuiteRecordingBrowser" in bridge_body,
         "app.js Recording module bridge must use window.VdrSuiteRecordingBrowser",
+    )
+    require(
+        "configureContext({" in bridge_body,
+        "app.js Recording module bridge must configure context before rendering",
     )
     require(
         "renderList(data)" in bridge_body,

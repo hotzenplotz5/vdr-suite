@@ -631,6 +631,42 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10i Implementation Status
+
+Phase 59.10i adds the Recording browser context API handshake.
+
+Implemented behavior:
+
+- `recording-browser.js` defines `configureRecordingBrowserContext(context)`
+- `recording-browser.js` stores the provided context in `recordingBrowserContext`
+- `window.VdrSuiteRecordingBrowser` exposes:
+  - `contextDependencies`
+  - `configureContext`
+  - `renderList`
+  - the existing UI helpers
+- `app.js` calls `recordingBrowser.configureContext(...)` before `renderList(data)`
+- the context passed by `app.js` includes:
+  - `detailDataElement`
+  - `addText`
+  - `firstValue`
+  - `listFromResponse`
+  - `formatDurationSeconds`
+  - `formatSizeMb`
+  - `formatRecordingStart`
+  - `recordingDisplayParts`
+- HTTP loading remains in `app.js`
+- `recording-browser.js` still does not call `fetch()`
+- `recording-browser.js` still does not use `window.VdrSuiteClientApi`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- switch internal Recording browser calls from globals to `recordingBrowserContext`
+- remove the temporary global Recording helper dependency bridge
+- keep `recording-browser.js` UI-only
+
+---
+
 ## Phase 59.10h Implementation Status
 
 Phase 59.10h prepares the Recording browser context boundary.
