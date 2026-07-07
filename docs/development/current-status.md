@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.13c finalizes the documented Channel browser asset contract after the compatibility-copy setup.
+Phase 59.14a documents the Recording browser module-path preparation before any physical asset move.
 
 Stable scope:
 
@@ -147,6 +147,7 @@ Stable scope:
 - Phase 59.13a aligns the ownership guard with the runtime-compatible `/frontend/channel-browser.js` script path.
 - Phase 59.13b installs `/frontend/channel-browser.js` as a compatibility copy of `web/frontend/modules/channels.js` and verifies it in staging.
 - Phase 59.13c documents the temporary asset contract: module source path plus runtime-compatible script path until daemon rollout.
+- Phase 59.14a documents the Recording browser readiness for the same module-source plus runtime-compatible asset contract.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

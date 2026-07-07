@@ -258,6 +258,14 @@ Frontend asset contract:
 - `/frontend/modules/channels.js` remains prepared for the later daemon rollout.
 - Keep EPG cache refresh access routed through `window.VdrSuiteClientApi`.
 
+Recording browser module-path preparation:
+
+- The logical Recording browser module API already exists as `window.VdrSuiteRecordingBrowser`.
+- The current runtime script remains `/frontend/recording-browser.js`.
+- The future source-of-truth path will be `web/frontend/modules/recordings.js`.
+- Do not move the physical Recording browser asset until the install, static serving, and ownership contracts are prepared in separate slices.
+- The Recording browser should follow the Channel browser compatibility-copy pattern: module source path plus runtime-compatible script path until daemon rollout.
+
 Next phase direction:
 
 - Move formatting helpers only after the Module API bridge is stable.
