@@ -1,6 +1,6 @@
 "use strict";
 
-// Phase 59.10f: Recording browser owns the rich Recording renderer.
+// Phase 59.10g: Recording browser cleans VDR encoded Recording display titles.
 // HTTP ownership remains outside this file.
 
 let recordingSortMode = 'name';
@@ -11,6 +11,8 @@ function decodeRecordingText(value) {
   return String(value || '')
     .replace(/#([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     .replace(/_/g, ' ')
+    .trim()
+    .replace(/^%+/, '')
     .trim();
 }
 

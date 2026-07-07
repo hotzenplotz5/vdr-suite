@@ -631,6 +631,33 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10g Implementation Status
+
+Phase 59.10g cleans VDR encoded Recording display titles in `recording-browser.js`.
+
+Implemented behavior:
+
+- `decodeRecordingText(value)` strips leading VDR `%` markers
+- the cleanup is applied through the existing Recording display hook
+- folder titles, Recording list titles and Recording detail titles share the cleanup
+- HTTP loading remains in `app.js`
+- `recording-browser.js` still does not call `fetch()`
+- `recording-browser.js` still does not use `window.VdrSuiteClientApi`
+- no backend route is changed
+
+Observed real-data symptom fixed:
+
+- `%Schwarzer Donnerstag` renders as `Schwarzer Donnerstag`
+- `%Kampf gegen die Krise` renders as `Kampf gegen die Krise`
+
+Next open frontend extraction areas:
+
+- replace shared global dependencies with a narrow Recording browser context
+- move remaining Recording-specific helper dependencies out of `app.js`
+- keep `recording-browser.js` UI-only
+
+---
+
 ## Phase 59.10f Implementation Status
 
 Phase 59.10f migrates the rich Recording renderer into `recording-browser.js`.

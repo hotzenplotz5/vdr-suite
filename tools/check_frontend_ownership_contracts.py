@@ -500,12 +500,16 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10f" in recording_browser_js,
-        "recording-browser.js must document its rich renderer migration phase",
+        "Phase 59.10g" in recording_browser_js,
+        "recording-browser.js must document its VDR title decode cleanup phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
         "recording-browser.js must own renderRecordingNode(node)",
+    )
+    require(
+        ".replace(/^%+/, '')" in recording_browser_js,
+        "recording-browser.js must strip leading VDR percent markers from display text",
     )
     require(
         "recordingDisplayParts = function(recording, index)" in recording_browser_js,
