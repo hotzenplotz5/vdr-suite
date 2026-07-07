@@ -177,7 +177,6 @@ runtime state and helper functions owned by `web/frontend/app.js`.
 
 Current app.js-owned helper dependencies:
 
-- `listEventsFromEpgResponse`
 - `frontendChannelId`
 - `frontendEventChannelId`
 - `parseFrontendEventEpoch`
@@ -235,6 +234,7 @@ Next extraction candidates:
 - Phase 59.11l moved `firstValue` behavior into a local Channel browser response helper.
 - Phase 59.11m guards the local first-value helper so global `firstValue(...)` does not return.
 - Phase 59.11n moved `listFromResponse` behavior into a local Channel browser response helper.
+- Phase 59.11o moved `listEventsFromEpgResponse` behavior into a local Channel browser response helper.
 - Move formatting helpers only after their Channel browser call sites are
   isolated and guarded.
 - Keep EPG cache refresh access routed through `window.VdrSuiteClientApi`.

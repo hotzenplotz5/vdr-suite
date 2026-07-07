@@ -65,6 +65,10 @@ function channelBrowserListFromResponse(data, key) {
   return [];
 }
 
+function channelBrowserListEventsFromEpgResponse(data) {
+  return channelBrowserListFromResponse(data, 'events');
+}
+
 let channelBrowserEpgPrefetchInFlight = false;
 let channelBrowserEpgPrefetchLastStartedAt = 0;
 
@@ -73,7 +77,7 @@ function channelBrowserBuildDataWithEvents(channelData, eventData) {
     ? { channels: channelData }
     : Object.assign({}, channelData);
 
-  enriched.events = listEventsFromEpgResponse(eventData);
+  enriched.events = channelBrowserListEventsFromEpgResponse(eventData);
   enriched.__epgSource = String(eventData.__source || 'cache');
   enriched.__epgDebugUrl = String(eventData.__debugUrl || '');
 
@@ -127,7 +131,7 @@ function fetchChannelBrowserChannelWindow(channel) {
 
   return fetchCachedEpgWindowForVisibleChannel(channel)
     .then(eventData => {
-      if (listEventsFromEpgResponse(eventData).length > 0) {
+      if (channelBrowserListEventsFromEpgResponse(eventData).length > 0) {
         return eventData;
       }
 
@@ -935,7 +939,7 @@ renderChannelList = function(data) {
     });
 
     responses.forEach(response => {
-      listEventsFromEpgResponse(response).forEach(event => {
+      channelBrowserListEventsFromEpgResponse(response).forEach(event => {
         const key = channelBrowserEventIdentity(event);
         if (known[key]) {
           return;
@@ -1287,7 +1291,7 @@ renderChannelList = function(data) {
 
         fetchCachedEpgWindowForVisibleChannel(channel)
           .then(eventData => {
-            if (listEventsFromEpgResponse(eventData).length > 0) {
+            if (channelBrowserListEventsFromEpgResponse(eventData).length > 0) {
               return eventData;
             }
 
@@ -1321,7 +1325,7 @@ renderChannelList = function(data) {
               .catch(() => eventData);
           })
           .then(eventData => {
-            const incomingEvents = listEventsFromEpgResponse(eventData);
+            const incomingEvents = channelBrowserListEventsFromEpgResponse(eventData);
             incomingEvents.forEach(event => events.push(event));
             currentEvents = {
               events,

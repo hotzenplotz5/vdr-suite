@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.11n - Channel Browser Local List Response Helper
+Phase 59.11o - Channel Browser Local EPG Event List Helper
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.11n moves Channel browser response-list lookup to a local helper.
+Phase 59.11o moves Channel browser EPG event-list lookup to a local helper.
 
 Stable scope:
 
@@ -131,6 +131,7 @@ Stable scope:
 - Phase 59.11l moves `firstValue` behavior into `channelBrowserFirstValue(...)`.
 - Phase 59.11m guards the local Channel browser first-value helper in `check_frontend_ownership_contracts.py`.
 - Phase 59.11n moves `listFromResponse` behavior into `channelBrowserListFromResponse(...)`.
+- Phase 59.11o moves `listEventsFromEpgResponse` behavior into `channelBrowserListEventsFromEpgResponse(...)`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
