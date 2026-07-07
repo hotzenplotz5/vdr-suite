@@ -189,7 +189,6 @@ Current app.js-owned helper dependencies:
 - `epgEventTitle`
 - `epgEventSubtitle`
 - `epgChannelTitle`
-- `addText`
 - `createEpgEventDetailCard`
 - `fetchCachedOrLiveEpgWindow`
 - `fetchCachedEpgWindowForVisibleChannel`
@@ -233,7 +232,7 @@ Current Channel browser extraction boundary:
 
 Next extraction candidates:
 
-- Move `addText` behavior into a local Channel browser DOM text helper.
+- Phase 59.11j moved `addText` behavior into a local Channel browser DOM text helper.
 - Move `firstValue` and `listFromResponse` behavior into local Channel browser
   response helpers.
 - Move formatting helpers only after their Channel browser call sites are

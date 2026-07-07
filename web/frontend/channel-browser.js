@@ -34,6 +34,11 @@ function channelBrowserDetailDataElement() {
   return element;
 }
 
+function channelBrowserAddText(element, text) {
+  element.textContent = text;
+  return element;
+}
+
 let channelBrowserEpgPrefetchInFlight = false;
 let channelBrowserEpgPrefetchLastStartedAt = 0;
 
@@ -735,30 +740,30 @@ function renderChannelItem(channel, index, encryptionAvailable) {
 
   const text = document.createElement('div');
   text.className = 'channel-text';
-  text.appendChild(addText(document.createElement('div'), String(title))).className = 'list-title';
+  text.appendChild(channelBrowserAddText(document.createElement('div'), String(title))).className = 'list-title';
 
   if (currentProgram) {
     const programTitle = firstValue(currentProgram, ['title', 'name', 'eventTitle'], 'Laufendes Programm');
     const subtitle = firstValue(currentProgram, ['subtitle', 'shortText', 'short_text'], '');
     const timeText = channelProgramTimeText(currentProgram);
 
-    text.appendChild(addText(
+    text.appendChild(channelBrowserAddText(
       document.createElement('div'),
       'Jetzt: ' + String(programTitle)
     )).className = 'list-meta';
 
     if (timeText !== '' || subtitle !== '') {
       const details = [timeText, subtitle].filter(value => String(value).trim() !== '').join(' · ');
-      text.appendChild(addText(document.createElement('div'), details)).className = 'list-meta';
+      text.appendChild(channelBrowserAddText(document.createElement('div'), details)).className = 'list-meta';
     }
   } else {
-    text.appendChild(addText(
+    text.appendChild(channelBrowserAddText(
       document.createElement('div'),
       'Jetzt: keine EPG-Information'
     )).className = 'list-meta';
   }
 
-  text.appendChild(addText(document.createElement('div'), channelStatusText(channel, encryptionAvailable))).className = 'list-meta';
+  text.appendChild(channelBrowserAddText(document.createElement('div'), channelStatusText(channel, encryptionAvailable))).className = 'list-meta';
 
   item.appendChild(text);
   return item;
@@ -774,8 +779,8 @@ function renderChannelSection(list, label, channels, globalOffset, encryptionAva
   const firstNumber = channelNumber(channels[0], 0);
   const lastNumber = channelNumber(channels[channels.length - 1], 0);
 
-  header.appendChild(addText(document.createElement('h3'), label));
-  header.appendChild(addText(
+  header.appendChild(channelBrowserAddText(document.createElement('h3'), label));
+  header.appendChild(channelBrowserAddText(
     document.createElement('p'),
     String(channels.length) + ' Kanal/Kanäle · Nummern ' + String(firstNumber) + '–' + String(lastNumber)
   ));
@@ -798,8 +803,8 @@ renderChannelList = function(data) {
   if (channels.length === 0) {
     const empty = document.createElement('article');
     empty.className = 'module-placeholder';
-    empty.appendChild(addText(document.createElement('h3'), 'Keine Kanäle gefunden'));
-    empty.appendChild(addText(document.createElement('p'), 'Der Endpunkt /api/vdr/channels hat keine Kanalliste geliefert.'));
+    empty.appendChild(channelBrowserAddText(document.createElement('h3'), 'Keine Kanäle gefunden'));
+    empty.appendChild(channelBrowserAddText(document.createElement('p'), 'Der Endpunkt /api/vdr/channels hat keine Kanalliste geliefert.'));
     channelBrowserDetailDataElement().appendChild(empty);
     return;
   }
@@ -826,8 +831,8 @@ renderChannelList = function(data) {
 
   const overview = document.createElement('article');
   overview.className = 'module-placeholder channel-browser-intro';
-  overview.appendChild(addText(document.createElement('h3'), 'Kanalliste'));
-  overview.appendChild(addText(
+  overview.appendChild(channelBrowserAddText(document.createElement('h3'), 'Kanalliste'));
+  overview.appendChild(channelBrowserAddText(
     document.createElement('p'),
     channelListViewMode === 'groups'
       ? 'Zeige ' + String(filteredChannels.length) + ' gefilterte Kanäle in einklappbaren Gruppen · ' + String(channels.length) + ' gesamt. Gruppe öffnen, Kanal links anklicken, rechts Programm ansehen.'
@@ -847,8 +852,8 @@ renderChannelList = function(data) {
   if (visibleChannels.length === 0) {
     const empty = document.createElement('article');
     empty.className = 'module-placeholder';
-    empty.appendChild(addText(document.createElement('h3'), 'Keine Kanäle im Filter'));
-    empty.appendChild(addText(document.createElement('p'), 'Wähle einen anderen Filter.'));
+    empty.appendChild(channelBrowserAddText(document.createElement('h3'), 'Keine Kanäle im Filter'));
+    empty.appendChild(channelBrowserAddText(document.createElement('p'), 'Wähle einen anderen Filter.'));
     shell.appendChild(empty);
     channelBrowserDetailDataElement().appendChild(shell);
     return;
@@ -1031,8 +1036,8 @@ renderChannelList = function(data) {
 
     const textBlock = document.createElement('div');
     textBlock.className = 'channel-text';
-    textBlock.appendChild(addText(document.createElement('div'), channelTitle)).className = 'list-title';
-    textBlock.appendChild(addText(
+    textBlock.appendChild(channelBrowserAddText(document.createElement('div'), channelTitle)).className = 'list-title';
+    textBlock.appendChild(channelBrowserAddText(
       document.createElement('div'),
       'Nr. ' + String(number) + ' · ' + String(channelId || '-')
     )).className = 'list-meta';
@@ -1042,13 +1047,13 @@ renderChannelList = function(data) {
     const preview = current || nextEntry(entries);
 
     if (preview) {
-      textBlock.appendChild(addText(
+      textBlock.appendChild(channelBrowserAddText(
         document.createElement('div'),
         (current ? 'Jetzt: ' : 'Als nächstes: ') + epgEventTitle(preview.event) + ' · '
           + formatEpgClockFromEpoch(preview.start) + '–' + formatEpgClockFromEpoch(preview.end)
       )).className = 'list-meta channel-browser-now';
     } else {
-      textBlock.appendChild(addText(
+      textBlock.appendChild(channelBrowserAddText(
         document.createElement('div'),
         'EPG wird geladen...'
       )).className = 'list-meta channel-browser-now';
@@ -1083,17 +1088,17 @@ renderChannelList = function(data) {
     const timeBox = document.createElement('div');
     timeBox.className = 'channel-agenda-timebox';
 
-    timeBox.appendChild(addText(
+    timeBox.appendChild(channelBrowserAddText(
       document.createElement('div'),
       new Date(entry.start * 1000).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
     )).className = 'channel-agenda-date';
 
-    timeBox.appendChild(addText(
+    timeBox.appendChild(channelBrowserAddText(
       document.createElement('div'),
       formatEpgClockFromEpoch(entry.start) + '–' + formatEpgClockFromEpoch(entry.end)
     )).className = 'channel-agenda-time';
 
-    timeBox.appendChild(addText(
+    timeBox.appendChild(channelBrowserAddText(
       document.createElement('div'),
       formatEpgDuration(entry.start, entry.end)
     )).className = 'channel-agenda-duration';
@@ -1101,11 +1106,11 @@ renderChannelList = function(data) {
     const content = document.createElement('div');
     content.className = 'channel-agenda-content';
 
-    content.appendChild(addText(document.createElement('div'), epgEventTitle(entry.event))).className = 'channel-agenda-title';
+    content.appendChild(channelBrowserAddText(document.createElement('div'), epgEventTitle(entry.event))).className = 'channel-agenda-title';
 
     const subtitle = epgEventSubtitle(entry.event);
     if (subtitle !== '' && subtitle !== epgEventTitle(entry.event)) {
-      content.appendChild(addText(document.createElement('div'), subtitle)).className = 'channel-agenda-subtitle';
+      content.appendChild(channelBrowserAddText(document.createElement('div'), subtitle)).className = 'channel-agenda-subtitle';
     }
 
     row.appendChild(timeBox);
@@ -1173,14 +1178,14 @@ renderChannelList = function(data) {
       toggle.className = 'channel-browser-group-toggle';
       toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
 
-      const chevron = addText(document.createElement('span'), open ? '▾' : '▸');
+      const chevron = channelBrowserAddText(document.createElement('span'), open ? '▾' : '▸');
       chevron.className = 'channel-browser-group-chevron';
       toggle.appendChild(chevron);
 
       const copy = document.createElement('span');
       copy.className = 'channel-browser-group-copy';
-      copy.appendChild(addText(document.createElement('strong'), group));
-      copy.appendChild(addText(
+      copy.appendChild(channelBrowserAddText(document.createElement('strong'), group));
+      copy.appendChild(channelBrowserAddText(
         document.createElement('span'),
         String(items.length) + ' Sender · ' + (open ? 'einklappen' : 'ausklappen')
       ));
@@ -1218,7 +1223,7 @@ renderChannelList = function(data) {
       channelPane.appendChild(section);
     });
 
-    const hint = addText(
+    const hint = channelBrowserAddText(
       document.createElement('p'),
       'Tipp: Kanalliste mit gedrückter Maustaste hoch/runter ziehen.'
     );
@@ -1233,7 +1238,7 @@ renderChannelList = function(data) {
     if (!channel) {
       const empty = document.createElement('article');
       empty.className = 'module-placeholder';
-      empty.appendChild(addText(document.createElement('h3'), 'Kein Kanal ausgewählt'));
+      empty.appendChild(channelBrowserAddText(document.createElement('h3'), 'Kein Kanal ausgewählt'));
       detailPane.appendChild(empty);
       return;
     }
@@ -1324,8 +1329,8 @@ renderChannelList = function(data) {
 
     const titleBlock = document.createElement('div');
     titleBlock.className = 'channel-browser-detail-headline';
-    titleBlock.appendChild(addText(document.createElement('h3'), channelTitle));
-    titleBlock.appendChild(addText(
+    titleBlock.appendChild(channelBrowserAddText(document.createElement('h3'), channelTitle));
+    titleBlock.appendChild(channelBrowserAddText(
       document.createElement('p'),
       'Kanalnummer ' + String(number) + ' · ' + String(channelId || '-')
     ));
@@ -1338,8 +1343,8 @@ renderChannelList = function(data) {
 
     const nowCard = document.createElement('div');
     nowCard.className = 'channel-browser-summary-card';
-    nowCard.appendChild(addText(document.createElement('div'), 'Läuft jetzt')).className = 'channel-browser-summary-label';
-    nowCard.appendChild(addText(
+    nowCard.appendChild(channelBrowserAddText(document.createElement('div'), 'Läuft jetzt')).className = 'channel-browser-summary-label';
+    nowCard.appendChild(channelBrowserAddText(
       document.createElement('div'),
       current
         ? epgEventTitle(current.event) + ' · ' + formatEpgClockFromEpoch(current.start) + '–' + formatEpgClockFromEpoch(current.end)
@@ -1349,8 +1354,8 @@ renderChannelList = function(data) {
 
     const nextCard = document.createElement('div');
     nextCard.className = 'channel-browser-summary-card';
-    nextCard.appendChild(addText(document.createElement('div'), 'Als nächstes')).className = 'channel-browser-summary-label';
-    nextCard.appendChild(addText(
+    nextCard.appendChild(channelBrowserAddText(document.createElement('div'), 'Als nächstes')).className = 'channel-browser-summary-label';
+    nextCard.appendChild(channelBrowserAddText(
       document.createElement('div'),
       next
         ? epgEventTitle(next.event) + ' · ' + formatEpgClockFromEpoch(next.start) + '–' + formatEpgClockFromEpoch(next.end)
@@ -1363,8 +1368,8 @@ renderChannelList = function(data) {
 
     const agenda = document.createElement('article');
     agenda.className = 'module-placeholder channel-agenda-card';
-    agenda.appendChild(addText(document.createElement('h3'), 'Programm'));
-    agenda.appendChild(addText(
+    agenda.appendChild(channelBrowserAddText(document.createElement('h3'), 'Programm'));
+    agenda.appendChild(channelBrowserAddText(
       document.createElement('p'),
       'Zeit links, Sendung rechts. Mit Mausrad oder gedrückter Maustaste scrollen, Eintrag anklicken für Details.'
     )).className = 'channel-agenda-hint';
@@ -1375,7 +1380,7 @@ renderChannelList = function(data) {
     scroll.setAttribute('aria-label', 'Programm des ausgewählten Kanals');
 
     if (entries.length === 0) {
-      scroll.appendChild(addText(
+      scroll.appendChild(channelBrowserAddText(
         document.createElement('div'),
         'Keine Programmdaten im aktuellen Zeitfenster gefunden.'
       )).className = 'channel-agenda-empty';
