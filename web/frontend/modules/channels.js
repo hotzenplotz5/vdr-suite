@@ -113,7 +113,7 @@ function scheduleChannelBrowserEpgPrefetch(channelData) {
         return;
       }
 
-      renderChannelList(channelBrowserBuildDataWithEvents(channelData, eventData));
+      renderChannelBrowserList(channelBrowserBuildDataWithEvents(channelData, eventData));
     })
     .catch(error => {
       (void error);
@@ -597,7 +597,7 @@ function renderChannelViewButtons(container, channels) {
     () => {
       channelListViewMode = 'groups';
       channelListVisibleCount = CHANNEL_LIST_PAGE_SIZE;
-      renderChannelList({ channels });
+      renderChannelBrowserList({ channels });
     }
   );
 
@@ -609,7 +609,7 @@ function renderChannelViewButtons(container, channels) {
     () => {
       channelListViewMode = 'number';
       channelListVisibleCount = CHANNEL_LIST_PAGE_SIZE;
-      renderChannelList({ channels });
+      renderChannelBrowserList({ channels });
     }
   );
 
@@ -648,7 +648,7 @@ function renderChannelFilterButtons(container, channels, encryptionAvailable) {
       () => {
         toggleChannelFilter(value, encryptionAvailable);
         channelListVisibleCount = CHANNEL_LIST_PAGE_SIZE;
-        renderChannelList({ channels });
+        renderChannelBrowserList({ channels });
       }
     );
   });
@@ -669,7 +669,7 @@ function renderChannelPagingControls(container, channels, filteredCount) {
       false,
       () => {
         channelListVisibleCount += CHANNEL_LIST_PAGE_SIZE;
-        renderChannelList({ channels });
+        renderChannelBrowserList({ channels });
       }
     );
   }
@@ -682,7 +682,7 @@ function renderChannelPagingControls(container, channels, filteredCount) {
       false,
       () => {
         channelListVisibleCount = CHANNEL_LIST_PAGE_SIZE;
-        renderChannelList({ channels });
+        renderChannelBrowserList({ channels });
       }
     );
   }
