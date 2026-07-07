@@ -1,4 +1,4 @@
-// Phase 59.11a1: Channel browser restores its selected-channel EPG event helper.
+// Phase 59.11b: Channel browser drag-scrolls the selected-channel programme list.
 // Channel browser view, filters, grouped navigation and programme agenda.
 // Depends on app.js helpers and channel-logos.js logo helpers.
 
@@ -1351,6 +1351,8 @@ renderChannelList = function(data) {
 
     const scroll = document.createElement('div');
     scroll.className = 'channel-agenda-scroll';
+    scroll.title = 'Programm mit gedrückter Maustaste hoch/runter ziehen.';
+    scroll.setAttribute('aria-label', 'Programm des ausgewählten Kanals');
 
     if (entries.length === 0) {
       scroll.appendChild(addText(
@@ -1385,9 +1387,7 @@ renderChannelList = function(data) {
 
     requestAnimationFrame(() => {
       enableChannelMouseDragScroll(channelPane, 'y');
-      // Programme must use native browser scrolling.
-      // Drag-scroll is intentionally not attached to .channel-agenda-scroll,
-      // because preventDefault() blocks touch scrolling on mobile browsers.
+      enableChannelMouseDragScroll(detailPane.querySelector('.channel-agenda-scroll'), 'y');
 
       resetChannelBrowserMobileHorizontalScroll();
     });

@@ -631,6 +631,29 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.11b Implementation Status
+
+Phase 59.11b improves the Channel browser selected-channel programme list usability.
+
+Implemented behavior:
+
+- `.channel-agenda-scroll` now gets the same drag-scroll helper used by the Kanalliste
+- `renderAll()` attaches `enableChannelMouseDragScroll(...)` to the selected-channel programme scroll area
+- the old explicit exclusion comment for programme drag-scroll is removed
+- the programme scroll area exposes a title hint for dragging
+- row click suppression still uses `channelDragRecentlyEnded(...)`
+- the Channel browser still does not call `fetch()` directly
+- `/api/epg/cache/refresh` remains owned by `web/frontend/api/client-api.js`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- keep Channel browser UI interactions small and smoke-tested
+- reduce remaining Channel browser dependencies on app.js helpers in later slices
+- keep mobile touch behavior under observation after drag-scroll changes
+
+---
+
 ## Phase 59.11a1 Implementation Status
 
 Phase 59.11a1 fixes the Channel browser selected-channel programme view after the EPG cache refresh Client API boundary change.

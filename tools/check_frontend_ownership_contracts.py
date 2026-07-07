@@ -489,8 +489,8 @@ def check_channel_logos_contract(channel_logos_js: str) -> None:
 
 def check_channel_browser_contract(channel_browser_js: str) -> None:
     require(
-        "Phase 59.11a1" in channel_browser_js,
-        "channel-browser.js must document its selected-channel EPG event helper hotfix phase",
+        "Phase 59.11b" in channel_browser_js,
+        "channel-browser.js must document its selected-channel programme drag-scroll phase",
     )
     require(
         "renderChannelList" in channel_browser_js,
@@ -507,6 +507,18 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
     require(
         "function epgEventsForChannel(channel, sourceEvents, nowSeconds)" in channel_browser_js,
         "channel-browser.js must own epgEventsForChannel(channel, sourceEvents, nowSeconds)",
+    )
+    require(
+        "enableChannelMouseDragScroll(detailPane.querySelector('.channel-agenda-scroll'), 'y')" in channel_browser_js,
+        "channel-browser.js must enable drag-scroll for the selected-channel programme list",
+    )
+    require(
+        "Programm mit gedrückter Maustaste hoch/runter ziehen." in channel_browser_js,
+        "channel-browser.js must expose programme drag-scroll affordance text",
+    )
+    require(
+        "Programme must use native browser scrolling" not in channel_browser_js,
+        "channel-browser.js must not keep the old programme drag-scroll exclusion comment",
     )
     require(
         "return epgEventsForChannel(channel, events, nowSeconds)" in channel_browser_js,
