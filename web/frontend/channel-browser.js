@@ -49,6 +49,22 @@ function channelBrowserFirstValue(object, keys, fallback) {
   return fallback;
 }
 
+function channelBrowserListFromResponse(data, key) {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (data && Array.isArray(data[key])) {
+    return data[key];
+  }
+
+  if (data && Array.isArray(data.items)) {
+    return data.items;
+  }
+
+  return [];
+}
+
 let channelBrowserEpgPrefetchInFlight = false;
 let channelBrowserEpgPrefetchLastStartedAt = 0;
 
@@ -802,9 +818,9 @@ function renderChannelSection(list, label, channels, globalOffset, encryptionAva
 }
 
 renderChannelList = function(data) {
-  const channels = listFromResponse(data, 'channels');
+  const channels = channelBrowserListFromResponse(data, 'channels');
   const dataEvents = Array.isArray(data.events) ? data.events : [];
-  const fallbackEvents = currentEvents ? listFromResponse(currentEvents, 'events') : [];
+  const fallbackEvents = currentEvents ? channelBrowserListFromResponse(currentEvents, 'events') : [];
   const events = dataEvents.length > 0 ? dataEvents : fallbackEvents;
   const nowSeconds = Math.floor(Date.now() / 1000);
 
