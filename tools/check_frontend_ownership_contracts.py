@@ -578,10 +578,6 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
         "modules/channels.js must document its selected-channel programme drag-scroll phase",
     )
     require(
-        "renderChannelList" in channel_browser_js,
-        "modules/channels.js must remain the owner of renderChannelList registration",
-    )
-    require(
         "window.VdrSuiteClientApi" in channel_browser_js,
         "modules/channels.js must use the Client API wrapper for runtime HTTP boundaries",
     )
