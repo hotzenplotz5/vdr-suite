@@ -227,7 +227,7 @@ Current Channel browser extraction boundary:
   `detailDataElement.replaceChildren(...)` or `detailDataElement.appendChild(...)`
   regressions inside `channel-browser.js`.
 
-Next extraction candidates:
+Channel browser modularization readiness:
 
 - Phase 59.11j moved `addText` behavior into a local Channel browser DOM text helper.
 - Phase 59.11k guards the local DOM text helper so global `addText(...)` does not return.
@@ -236,8 +236,16 @@ Next extraction candidates:
 - Phase 59.11n moved `listFromResponse` behavior into a local Channel browser response helper.
 - Phase 59.11o moved `listEventsFromEpgResponse` behavior into a local Channel browser response helper.
 - Phase 59.11p guards local Channel browser response helpers so global list helpers do not return.
-- Move formatting helpers only after their Channel browser call sites are
-  isolated and guarded.
+- Phase 59.11q marks the Channel browser ready for the first explicit Module API slice.
+
+Next phase direction:
+
+- Start `Phase 59.12a - Channel Browser Module API`.
+- Introduce `window.VdrSuiteChannelBrowser.renderList(data)`.
+- Keep the legacy global `renderChannelList = function(data)` only as a compatibility bridge during 59.12a.
+- In 59.12b, route `app.js` through `window.VdrSuiteChannelBrowser.renderList(data)`.
+- In 59.12c, remove or guard the legacy global `renderChannelList` bridge.
+- Move formatting helpers only after the Module API bridge is stable.
 - Keep EPG cache refresh access routed through `window.VdrSuiteClientApi`.
 
 ---

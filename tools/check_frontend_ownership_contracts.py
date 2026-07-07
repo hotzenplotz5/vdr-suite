@@ -594,6 +594,14 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
         "timer-conflict" not in channel_browser_js.lower(),
         "channel-browser.js must not contain Timer conflict logic",
     )
+    require(
+        "window.VdrSuiteChannelBrowser = Object.freeze({" in channel_browser_js,
+        "channel-browser.js must expose the Channel browser module API surface",
+    )
+    require(
+        "configureContext: configureChannelBrowserContext" in channel_browser_js,
+        "Channel browser module API must expose configureContext",
+    )
 
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
