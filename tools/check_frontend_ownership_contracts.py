@@ -504,6 +504,14 @@ def check_recording_browser_contract(recording_browser_js: str) -> None:
         "recording-browser.js must document its mount target boundary phase",
     )
     require(
+        "function recordingBrowserNormalizePathText(value)" in recording_browser_js,
+        "recording-browser.js must own normalized Recording path text helper after app cleanup",
+    )
+    require(
+        "function recordingBrowserDisplayParts(recording, index)" in recording_browser_js,
+        "recording-browser.js must own Recording display parts after app cleanup",
+    )
+    require(
         "function renderRecordingNode(node)" in recording_browser_js,
         "recording-browser.js must own renderRecordingNode(node)",
     )
@@ -566,6 +574,20 @@ def check_recording_browser_dependency_contract(
         require(
             token in app_js,
             "app.js must keep shared Recording browser dependency: " + token,
+        )
+
+    forbidden_app_recording_legacy_helpers = [
+        "function normalizePathText(value)",
+        "function recordingDisplayParts(recording, index)",
+        "function groupRecordings(recordings)",
+        "const display = recordingDisplayParts(recording, index)",
+        "normalizePathText(firstValue(recording",
+    ]
+
+    for token in forbidden_app_recording_legacy_helpers:
+        require(
+            token not in app_js,
+            "app.js must not keep migrated Recording browser legacy helper: " + token,
         )
 
     required_recording_browser_dependencies = [

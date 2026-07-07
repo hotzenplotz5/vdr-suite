@@ -631,6 +631,32 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10r Implementation Status
+
+Phase 59.10r removes migrated Recording helper code from `app.js`.
+
+Implemented behavior:
+
+- `normalizePathText(value)` is removed from `app.js`
+- `recordingDisplayParts(recording, index)` is removed from `app.js`
+- `groupRecordings(recordings)` is removed from `app.js`
+- `recording-browser.js` remains the owner of Recording path normalization
+- `recording-browser.js` remains the owner of Recording display-part derivation
+- `app.js` remains the HTTP/loading bridge for recordings
+- `app.js` still calls `recordingBrowser.configureMountTarget(detailDataElement)`
+- HTTP loading remains in `app.js`
+- `recording-browser.js` still does not call `fetch()`
+- `recording-browser.js` still does not use `window.VdrSuiteClientApi`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- consider splitting additional large frontend modules only after Recording browser remains stable
+- keep cleanup slices small and verified against the real UI
+- keep `recording-browser.js` UI-only
+
+---
+
 ## Phase 59.10q Implementation Status
 
 Phase 59.10q replaces the last Recording browser context dependency with an explicit mount target.
