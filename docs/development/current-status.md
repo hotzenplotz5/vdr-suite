@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.10p - Recording Browser Local Display Parts Helper
+Phase 59.10q - Recording Browser Mount Target Boundary
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.10p moves the Recording display-parts helper into `recording-browser.js` and removes `recordingDisplayParts` from the context handshake.
+Phase 59.10q replaces the last Recording browser context dependency with an explicit mount target boundary.
 
 Stable scope:
 
@@ -114,6 +114,7 @@ Stable scope:
 - Phase 59.10n moves Recording duration, size and start-time formatting into local Recording browser helpers.
 - Phase 59.10o moves `addText` behavior into a local Recording browser DOM text helper.
 - Phase 59.10p moves Recording display-parts behavior into local Recording browser helpers.
+- Phase 59.10q replaces the remaining context object with `configureMountTarget(detailDataElement)`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -238,6 +239,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.10n verifies Recording formatting helper behavior is local and no longer part of the Recording browser context.
 - Phase 59.10o verifies DOM text helper behavior is local and no longer part of the Recording browser context.
 - Phase 59.10p verifies Recording display-parts behavior is local and no longer part of the Recording browser context.
+- Phase 59.10q verifies the Recording browser uses an explicit mount target instead of a dependency context object.
 
 ### Guarded or deliberately incomplete areas
 

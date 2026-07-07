@@ -631,6 +631,33 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10q Implementation Status
+
+Phase 59.10q replaces the last Recording browser context dependency with an explicit mount target.
+
+Implemented behavior:
+
+- `recordingBrowserMountTarget` is now the internal DOM target holder
+- `configureRecordingBrowserMountTarget(element)` validates the mount target
+- invalid mount targets fail with `Recording browser mount target is invalid`
+- missing mount targets fail with `Recording browser mount target is not configured`
+- `app.js` now calls `recordingBrowser.configureMountTarget(detailDataElement)`
+- `app.js` no longer passes a context object for Recording rendering
+- `contextDependencies` is no longer exported
+- `configureContext(...)` remains as a compatibility wrapper over the mount-target API
+- HTTP loading remains in `app.js`
+- `recording-browser.js` still does not call `fetch()`
+- `recording-browser.js` still does not use `window.VdrSuiteClientApi`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- consider later cleanup of legacy unused Recording helper functions in `app.js`
+- keep `app.js` as HTTP/loading bridge only
+- keep `recording-browser.js` UI-only
+
+---
+
 ## Phase 59.10p Implementation Status
 
 Phase 59.10p moves Recording display-part derivation into the Recording browser.

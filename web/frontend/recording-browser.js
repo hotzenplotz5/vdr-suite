@@ -1,43 +1,29 @@
 "use strict";
 
-// Phase 59.10p: Recording browser owns its local display parts helper.
+// Phase 59.10q: Recording browser uses an explicit mount target boundary.
 // HTTP ownership remains outside this file.
 
-const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([
-  'detailDataElement'
-]);
+let recordingBrowserMountTarget = null;
 
-let recordingBrowserContext = null;
+function configureRecordingBrowserMountTarget(element) {
+  if (!element || typeof element.replaceChildren !== 'function' || typeof element.appendChild !== 'function') {
+    throw new Error('Recording browser mount target is invalid');
+  }
+
+  recordingBrowserMountTarget = element;
+}
 
 function configureRecordingBrowserContext(context) {
   const value = context && typeof context === 'object' ? context : {};
-  const missing = RECORDING_BROWSER_CONTEXT_DEPENDENCIES.filter(name =>
-    value[name] === undefined || value[name] === null
-  );
-
-  if (missing.length > 0) {
-    throw new Error('Recording browser context missing: ' + missing.join(', '));
-  }
-
-  recordingBrowserContext = Object.freeze(Object.assign({}, value));
-}
-
-function recordingBrowserContextValue(name) {
-  if (!recordingBrowserContext) {
-    throw new Error('Recording browser context is not configured');
-  }
-
-  const configured = recordingBrowserContext[name];
-
-  if (configured !== undefined && configured !== null) {
-    return configured;
-  }
-
-  throw new Error('Recording browser context value missing: ' + name);
+  configureRecordingBrowserMountTarget(value.detailDataElement);
 }
 
 function recordingBrowserDetailDataElement() {
-  return recordingBrowserContextValue('detailDataElement');
+  if (!recordingBrowserMountTarget) {
+    throw new Error('Recording browser mount target is not configured');
+  }
+
+  return recordingBrowserMountTarget;
 }
 
 function recordingBrowserAddText(element, text) {
@@ -705,8 +691,8 @@ function setRecordingBrowserRecords(records) {
 }
 
 window.VdrSuiteRecordingBrowser = Object.freeze({
-  contextDependencies: RECORDING_BROWSER_CONTEXT_DEPENDENCIES,
   configureContext: configureRecordingBrowserContext,
+  configureMountTarget: configureRecordingBrowserMountTarget,
   decodeRecordingText: decodeRecordingText,
   setRecords: setRecordingBrowserRecords,
   renderList: renderRecordingList,

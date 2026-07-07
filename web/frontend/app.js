@@ -3259,7 +3259,7 @@ function renderRecordingsThroughModule(data) {
 
   if (
     !recordingBrowser
-    || typeof recordingBrowser.configureContext !== 'function'
+    || typeof recordingBrowser.configureMountTarget !== 'function'
     || typeof recordingBrowser.renderList !== 'function'
   ) {
     renderModuleError(
@@ -3269,10 +3269,7 @@ function renderRecordingsThroughModule(data) {
     return;
   }
 
-  recordingBrowser.configureContext({
-    detailDataElement: detailDataElement
-  });
-
+  recordingBrowser.configureMountTarget(detailDataElement);
   recordingBrowser.renderList(data);
 }
 

@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10p" in recording_browser_js,
-        "recording-browser.js must document its local display parts helper phase",
+        "Phase 59.10q" in recording_browser_js,
+        "recording-browser.js must document its mount target boundary phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -569,7 +569,14 @@ def check_recording_browser_dependency_contract(
         )
 
     required_recording_browser_dependencies = [
-        "function recordingBrowserContextValue(name)",
+        "let recordingBrowserMountTarget = null",
+        "function configureRecordingBrowserMountTarget(element)",
+        "Recording browser mount target is invalid",
+        "Recording browser mount target is not configured",
+        "recordingBrowserMountTarget = element;",
+        "return recordingBrowserMountTarget;",
+        "function configureRecordingBrowserContext(context)",
+        "configureRecordingBrowserMountTarget(value.detailDataElement);",
         "function recordingBrowserDetailDataElement()",
         "function recordingBrowserAddText(element, text)",
         "function recordingBrowserFirstValue(object, keys, fallback)",
@@ -593,11 +600,9 @@ def check_recording_browser_dependency_contract(
         "recordingBrowserDetailDataElement().replaceChildren(container)",
         "function setRecordingBrowserRecords(records)",
         "function renderRecordingList(data)",
-        "function configureRecordingBrowserContext(context)",
-        "let recordingBrowserContext = null",
         "window.VdrSuiteRecordingBrowser = Object.freeze({",
-        "contextDependencies: RECORDING_BROWSER_CONTEXT_DEPENDENCIES",
         "configureContext: configureRecordingBrowserContext",
+        "configureMountTarget: configureRecordingBrowserMountTarget",
         "decodeRecordingText: decodeRecordingText",
         "setRecords: setRecordingBrowserRecords",
         "renderList: renderRecordingList",
@@ -617,30 +622,44 @@ def check_recording_browser_context_boundary_contract(
     recording_browser_js: str,
 ) -> None:
     require(
-        "const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([" in recording_browser_js,
-        "recording-browser.js must define an explicit shared context dependency list",
+        "const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([" not in recording_browser_js,
+        "recording-browser.js must no longer need a shared context dependency list",
+    )
+    require(
+        "function configureRecordingBrowserMountTarget(element)" in recording_browser_js,
+        "recording-browser.js must define configureRecordingBrowserMountTarget(element)",
+    )
+    require(
+        "configureMountTarget: configureRecordingBrowserMountTarget" in recording_browser_js,
+        "window.VdrSuiteRecordingBrowser must expose configureMountTarget",
     )
     require(
         "function configureRecordingBrowserContext(context)" in recording_browser_js,
-        "recording-browser.js must define configureRecordingBrowserContext(context)",
+        "recording-browser.js must keep configureContext compatibility through the mount target boundary",
     )
     require(
         "configureContext: configureRecordingBrowserContext" in recording_browser_js,
-        "window.VdrSuiteRecordingBrowser must expose configureContext",
+        "window.VdrSuiteRecordingBrowser must keep configureContext compatibility",
     )
     require(
-        "contextDependencies: RECORDING_BROWSER_CONTEXT_DEPENDENCIES" in recording_browser_js,
-        "window.VdrSuiteRecordingBrowser must expose contextDependencies",
+        "contextDependencies:" not in recording_browser_js,
+        "window.VdrSuiteRecordingBrowser must not expose contextDependencies after mount target extraction",
     )
-    required_context_accessor_tokens = [
-        "function recordingBrowserContextValue(name)",
+
+    required_mount_target_tokens = [
+        "let recordingBrowserMountTarget = null",
+        "function configureRecordingBrowserMountTarget(element)",
+        "Recording browser mount target is invalid",
+        "Recording browser mount target is not configured",
+        "recordingBrowserMountTarget = element;",
+        "return recordingBrowserMountTarget;",
         "function recordingBrowserDetailDataElement()",
     ]
 
-    for token in required_context_accessor_tokens:
+    for token in required_mount_target_tokens:
         require(
             token in recording_browser_js,
-            "recording-browser.js context accessor missing: " + token,
+            "recording-browser.js mount target boundary missing: " + token,
         )
 
     forbidden_direct_helper_calls = [
@@ -672,6 +691,11 @@ def check_recording_browser_context_boundary_contract(
         "typeof formatSizeMb",
         "typeof formatRecordingStart",
         "typeof recordingDisplayParts",
+        "let recordingBrowserContext = null",
+        "function recordingBrowserContextValue(name)",
+        "recordingBrowserContextValue(",
+        "Recording browser context is not configured",
+        "Recording browser context value missing:",
     ]
 
     for token in forbidden_fallback_tokens:
@@ -760,27 +784,17 @@ def check_recording_browser_context_boundary_contract(
         )
 
     require(
-        "Recording browser context is not configured" in recording_browser_js,
-        "recording-browser.js must fail clearly when context is not configured",
+        "Recording browser mount target is not configured" in recording_browser_js,
+        "recording-browser.js must fail clearly when mount target is not configured",
     )
     require(
         "recordingDisplayParts = function(recording, index)" not in recording_browser_js,
         "recording-browser.js context migration must not mutate recordingDisplayParts globally",
     )
-
-    required_context_dependencies = [
-        "detailDataElement",
-    ]
-
-    for name in required_context_dependencies:
-        require(
-            "'" + name + "'" in recording_browser_js,
-            "recording-browser.js context dependency list missing: " + name,
-        )
-        require(
-            name in app_js,
-            "app.js must still provide Recording browser shared context dependency: " + name,
-        )
+    require(
+        "detailDataElement" in app_js,
+        "app.js must still provide the Recording browser mount target",
+    )
 
     require(
         "window.VdrSuiteClientApi" not in recording_browser_js,
@@ -801,17 +815,13 @@ def check_recording_browser_context_boundary_contract(
     bridge_body = app_js[bridge_start:bridge_end]
 
     require(
-        "recordingBrowser.configureContext({" in bridge_body,
-        "app.js must configure the Recording browser shared context before rendering",
+        "recordingBrowser.configureMountTarget(detailDataElement);" in bridge_body,
+        "app.js must configure the Recording browser mount target before rendering",
     )
 
-    for name in required_context_dependencies:
-        require(
-            name + ": " + name in bridge_body,
-            "app.js Recording browser context handshake missing dependency: " + name,
-        )
-
     forbidden_bridge_context_tokens = [
+        "recordingBrowser.configureContext({",
+        "detailDataElement: detailDataElement",
         "addText: addText",
         "firstValue: firstValue",
         "listFromResponse: listFromResponse",
@@ -855,8 +865,8 @@ def check_recording_rich_renderer_migration_contract(
         "app.js Recording module bridge must use window.VdrSuiteRecordingBrowser",
     )
     require(
-        "configureContext({" in bridge_body,
-        "app.js Recording module bridge must configure context before rendering",
+        "configureMountTarget(detailDataElement)" in bridge_body,
+        "app.js Recording module bridge must configure mount target before rendering",
     )
     require(
         "renderList(data)" in bridge_body,
