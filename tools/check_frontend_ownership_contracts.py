@@ -583,6 +583,83 @@ def check_recording_browser_dependency_contract(
         )
 
 
+def check_recording_rich_renderer_migration_prep_contract(
+    app_js: str,
+    recording_browser_js: str,
+) -> None:
+    start = app_js.find("function renderRecordingList(data) {")
+    require(
+        start >= 0,
+        "app.js must still own the rich renderRecordingList(data) renderer before migration",
+    )
+
+    end = app_js.find("function formatEpgClockFromEpoch", start)
+    require(
+        end > start,
+        "app.js rich renderRecordingList(data) boundary must end before formatEpgClockFromEpoch()",
+    )
+
+    body = app_js[start:end]
+    body_with_constants = app_js[max(0, start - 500):end]
+
+    require(
+        "RECORDING_ITEM_PAGE_SIZE = 20" in body_with_constants,
+        "app.js rich Recording renderer must keep 20-item paging constant",
+    )
+
+    required_rich_renderer_tokens = [
+        "function buildRecordingFolderTree(items)",
+        "function createRecordingPagerControls(",
+        "function renderRecordingDetail(",
+        "function createRecordingListItem(",
+        "function renderFolderNode(",
+        "RECORDING_ITEM_PAGE_SIZE",
+        "Vorherige 20",
+        "Nächste 20",
+        "leafRecordingFolders",
+        "displayChildFolders",
+        "recordingEntries.slice(recordingStartIndex, recordingEndIndex)",
+        "renderRecordingDetail(entry, node, visibleFolderCount, recordingPageIndex)",
+    ]
+
+    for token in required_rich_renderer_tokens:
+        require(
+            token in body,
+            "app.js rich Recording renderer migration prep missing token: " + token,
+        )
+
+    require(
+        "window.VdrSuiteRecordingBrowser" not in body,
+        "app.js must not switch Recording rendering to VdrSuiteRecordingBrowser before rich renderer migration",
+    )
+
+    lightweight_renderer_tokens = [
+        "function renderRecordingNode(node)",
+        "function buildRecordingTree(recordings)",
+        "function buildRecordingGenreTree(recordings)",
+    ]
+
+    for token in lightweight_renderer_tokens:
+        require(
+            token in recording_browser_js,
+            "recording-browser.js lightweight renderer baseline missing token: " + token,
+        )
+
+    forbidden_premature_rich_tokens = [
+        "function renderRecordingDetail(",
+        "function createRecordingPagerControls(",
+        "RECORDING_ITEM_PAGE_SIZE = 20",
+        "Vorherige 20",
+        "Nächste 20",
+    ]
+
+    for token in forbidden_premature_rich_tokens:
+        require(
+            token not in recording_browser_js,
+            "recording-browser.js must not partially own rich renderer before migration: " + token,
+        )
+
+
 def check_style_contract(style_css: str, app_js: str) -> None:
     if "timer-conflict-panel" in app_js:
         require(
@@ -1256,6 +1333,10 @@ def main() -> int:
         check_recording_browser_contract(recording_browser_js)
         check_recording_browser_dependency_contract(
             index_html,
+            app_js,
+            recording_browser_js,
+        )
+        check_recording_rich_renderer_migration_prep_contract(
             app_js,
             recording_browser_js,
         )

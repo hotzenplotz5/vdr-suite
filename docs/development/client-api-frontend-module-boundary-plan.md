@@ -631,6 +631,34 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10e Implementation Status
+
+Phase 59.10e prepares the rich Recording renderer migration.
+
+Implemented behavior:
+
+- the frontend ownership guard verifies `app.js` still owns the rich `renderRecordingList(data)` renderer
+- the guard verifies the rich renderer still contains:
+  - folder tree building
+  - Recording detail view
+  - Recording list item creation
+  - folder node rendering
+  - 20-item Recording paging
+  - previous and next paging controls
+  - single-recording leaf folder promotion
+- the guard prevents `app.js` from switching to `window.VdrSuiteRecordingBrowser` before the rich renderer is moved
+- the guard verifies `recording-browser.js` still contains only the lightweight renderer baseline
+- the guard prevents a partial rich renderer migration into `recording-browser.js`
+- no runtime behavior and no backend route is changed
+
+Next open frontend extraction areas:
+
+- move the rich `renderRecordingList(data)` block from `app.js` into `recording-browser.js`
+- then migrate `loadRecordings()` to call `window.VdrSuiteRecordingBrowser`
+- preserve detail view, folder batching and 20-item paging during the move
+
+---
+
 ## Phase 59.10d Implementation Status
 
 Phase 59.10d exposes a UI-only Recording browser module API surface.
