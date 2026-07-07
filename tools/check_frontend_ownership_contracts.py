@@ -19,7 +19,7 @@ FRONTEND = ROOT / "web" / "frontend"
 INDEX = FRONTEND / "index.html"
 APP = FRONTEND / "app.js"
 CHANNEL_LOGOS = FRONTEND / "channel-logos.js"
-CHANNEL_BROWSER = FRONTEND / "channel-browser.js"
+CHANNEL_BROWSER = FRONTEND / "modules" / "channels.js"
 RECORDING_BROWSER = FRONTEND / "recording-browser.js"
 STYLE = FRONTEND / "style.css"
 ARCH_DOC = ROOT / "docs" / "development" / "frontend-architecture.md"
@@ -82,7 +82,7 @@ def script_positions(index_html: str) -> dict[str, int]:
     scripts = {
         "app": '<script src="/frontend/app.js"></script>',
         "channel_logos": '<script src="/frontend/channel-logos.js"></script>',
-        "channel_browser": '<script src="/frontend/channel-browser.js"></script>',
+        "channel_browser": '<script src="/frontend/modules/channels.js"></script>',
         "recording_browser": '<script src="/frontend/recording-browser.js"></script>',
     }
 
@@ -103,15 +103,15 @@ def check_index_contract(index_html: str) -> None:
         < positions["channel_logos"]
         < positions["channel_browser"]
         < positions["recording_browser"],
-        "index.html script order must be app.js -> channel-logos.js -> channel-browser.js -> recording-browser.js",
+        "index.html script order must be app.js -> channel-logos.js -> modules/channels.js -> recording-browser.js",
     )
     require(
-        '<script src="/frontend/channel-browser.js"></script>' in index_html,
-        "index.html must keep channel-browser.js as the physical Channel browser asset path until the daemon whitelist is updated",
+        '<script src="/frontend/modules/channels.js"></script>' in index_html,
+        "index.html must load the physical Channel browser module asset",
     )
     require(
-        '<script src="/frontend/modules/channels.js"></script>' not in index_html,
-        "index.html must not load /frontend/modules/channels.js before the physical Channel browser asset is moved",
+        '<script src="/frontend/channel-browser.js"></script>' not in index_html,
+        "index.html must not load the legacy channel-browser.js asset after the physical module move",
     )
 
     require(
@@ -540,7 +540,7 @@ def check_channel_browser_context_boundary_contract(
     for token in required_channel_context_tokens:
         require(
             token in channel_browser_js,
-            "channel-browser.js context boundary missing: " + token,
+            "modules/channels.js context boundary missing: " + token,
         )
 
     forbidden_direct_mount_tokens = [
@@ -555,7 +555,7 @@ def check_channel_browser_context_boundary_contract(
     for token in forbidden_direct_mount_tokens:
         require(
             token not in channel_browser_js,
-            "channel-browser.js must use channelBrowserDetailDataElement() instead of: " + token,
+            "modules/channels.js must use channelBrowserDetailDataElement() instead of: " + token,
         )
 
     require(
@@ -575,35 +575,35 @@ def check_channel_browser_context_boundary_contract(
 def check_channel_browser_contract(channel_browser_js: str) -> None:
     require(
         "Phase 59.11b" in channel_browser_js,
-        "channel-browser.js must document its selected-channel programme drag-scroll phase",
+        "modules/channels.js must document its selected-channel programme drag-scroll phase",
     )
     require(
         "renderChannelList" in channel_browser_js,
-        "channel-browser.js must remain the owner of renderChannelList registration",
+        "modules/channels.js must remain the owner of renderChannelList registration",
     )
     require(
         "window.VdrSuiteClientApi" in channel_browser_js,
-        "channel-browser.js must use the Client API wrapper for runtime HTTP boundaries",
+        "modules/channels.js must use the Client API wrapper for runtime HTTP boundaries",
     )
     require(
         "fetchClientEpgCacheRefresh" in channel_browser_js,
-        "channel-browser.js must route EPG cache refresh through fetchClientEpgCacheRefresh()",
+        "modules/channels.js must route EPG cache refresh through fetchClientEpgCacheRefresh()",
     )
     require(
         "function epgEventsForChannel(channel, sourceEvents, nowSeconds)" in channel_browser_js,
-        "channel-browser.js must own epgEventsForChannel(channel, sourceEvents, nowSeconds)",
+        "modules/channels.js must own epgEventsForChannel(channel, sourceEvents, nowSeconds)",
     )
     require(
         "enableChannelMouseDragScroll(detailPane.querySelector('.channel-agenda-scroll'), 'y')" in channel_browser_js,
-        "channel-browser.js must enable drag-scroll for the selected-channel programme list",
+        "modules/channels.js must enable drag-scroll for the selected-channel programme list",
     )
     require(
         "Programm mit gedrückter Maustaste hoch/runter ziehen." in channel_browser_js,
-        "channel-browser.js must expose programme drag-scroll affordance text",
+        "modules/channels.js must expose programme drag-scroll affordance text",
     )
     require(
         "Programme must use native browser scrolling" not in channel_browser_js,
-        "channel-browser.js must not keep the old programme drag-scroll exclusion comment",
+        "modules/channels.js must not keep the old programme drag-scroll exclusion comment",
     )
     require(
         "return epgEventsForChannel(channel, events, nowSeconds)" in channel_browser_js,
@@ -611,19 +611,19 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
     )
     require(
         "/api/epg/cache/refresh" not in channel_browser_js,
-        "channel-browser.js must not own the EPG cache refresh route literal",
+        "modules/channels.js must not own the EPG cache refresh route literal",
     )
     require(
         not re.search(r"\bfetch\s*\(", channel_browser_js),
-        "channel-browser.js must not call fetch() directly",
+        "modules/channels.js must not call fetch() directly",
     )
     require(
         "timer-conflict" not in channel_browser_js.lower(),
-        "channel-browser.js must not contain Timer conflict logic",
+        "modules/channels.js must not contain Timer conflict logic",
     )
     require(
         "window.VdrSuiteChannelBrowser = Object.freeze({" in channel_browser_js,
-        "channel-browser.js must expose the Channel browser module API surface",
+        "modules/channels.js must expose the Channel browser module API surface",
     )
     require(
         "configureContext: configureChannelBrowserContext" in channel_browser_js,
@@ -635,11 +635,11 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
     )
     require(
         "function renderChannelBrowserList(data)" in channel_browser_js,
-        "channel-browser.js must own renderChannelBrowserList(data)",
+        "modules/channels.js must own renderChannelBrowserList(data)",
     )
     require(
         "renderChannelList = function(data)" not in channel_browser_js,
-        "channel-browser.js must not keep the legacy renderChannelList bridge after Module API migration",
+        "modules/channels.js must not keep the legacy renderChannelList bridge after Module API migration",
     )
 
 
@@ -1162,7 +1162,7 @@ def check_channel_browser_module_path_serving_contract(
     )
     require(
         "web/frontend/modules/channels.js" in install_mk,
-        "install.mk must be ready to install web/frontend/modules/channels.js when it exists",
+        "install.mk must be ready to install web/frontend/modules/channels.js",
     )
 
 
