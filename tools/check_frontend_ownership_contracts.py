@@ -487,6 +487,53 @@ def check_channel_logos_contract(channel_logos_js: str) -> None:
     )
 
 
+def check_channel_browser_context_boundary_contract(
+    app_js: str,
+    channel_browser_js: str,
+) -> None:
+    required_channel_context_tokens = [
+        "let channelBrowserContext = {}",
+        "function configureChannelBrowserContext(context)",
+        "function channelBrowserDetailDataElement()",
+        "Channel browser detail data element is not configured",
+        "channelBrowserContext.detailDataElement",
+        "channelBrowserDetailDataElement().replaceChildren()",
+        "channelBrowserDetailDataElement().appendChild(",
+        "window.VdrSuiteChannelBrowser = Object.freeze({",
+        "configureContext: configureChannelBrowserContext",
+    ]
+
+    for token in required_channel_context_tokens:
+        require(
+            token in channel_browser_js,
+            "channel-browser.js context boundary missing: " + token,
+        )
+
+    forbidden_direct_mount_tokens = [
+        "detailDataElement.replaceChildren",
+        "detailDataElement.appendChild",
+    ]
+
+    for token in forbidden_direct_mount_tokens:
+        require(
+            token not in channel_browser_js,
+            "channel-browser.js must use channelBrowserDetailDataElement() instead of: " + token,
+        )
+
+    require(
+        "function configureChannelBrowserContextBoundary()" in app_js,
+        "app.js must define configureChannelBrowserContextBoundary()",
+    )
+    require(
+        "window.VdrSuiteChannelBrowser.configureContext({" in app_js,
+        "app.js must configure the Channel browser context boundary",
+    )
+    require(
+        "detailDataElement" in app_js,
+        "app.js must provide the Channel browser mount target",
+    )
+
+
 def check_channel_browser_contract(channel_browser_js: str) -> None:
     require(
         "Phase 59.11b" in channel_browser_js,
@@ -1682,6 +1729,10 @@ def main() -> int:
         check_frontend_install_contract(install_mk)
         check_channel_logos_contract(channel_logos_js)
         check_channel_browser_contract(channel_browser_js)
+        check_channel_browser_context_boundary_contract(
+            app_js,
+            channel_browser_js,
+        )
         check_recording_browser_contract(recording_browser_js)
         check_recording_browser_dependency_contract(
             index_html,
