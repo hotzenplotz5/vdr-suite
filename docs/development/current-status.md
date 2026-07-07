@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.09f - Web Client API Contract Snapshot
+Phase 59.10a - Recording Browser Static Asset Prep
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.09f documents and guards the current `window.VdrSuiteClientApi` export snapshot before UI module extraction.
+Phase 59.10a prepares `web/frontend/recording-browser.js` as a static frontend asset before moving Recording browser logic out of `index.html`.
 
 Stable scope:
 
@@ -98,6 +98,7 @@ Stable scope:
 - Phase 59.09d migrates backend list and backend snapshot loading to `window.VdrSuiteClientApi`.
 - Phase 59.09e migrates channel sorter list loading and channel move actions to `window.VdrSuiteClientApi`.
 - Phase 59.09f adds a checked Web Client API contract snapshot for the UI module extraction handoff.
+- Phase 59.10a prepares `recording-browser.js` as a served and installed static frontend asset without loading it yet.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -206,6 +207,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.09d verifies the legacy direct fetch inventory no longer includes `/api/backends` or `/api/backends/`.
 - Phase 59.09e verifies `app.js` has no remaining direct `fetch()` calls.
 - Phase 59.09f verifies every exported `fetchClient*` helper is documented in the Web Client API contract snapshot.
+- Phase 59.10a verifies the daemon static frontend whitelist and install staging include `recording-browser.js`.
 
 ### Guarded or deliberately incomplete areas
 

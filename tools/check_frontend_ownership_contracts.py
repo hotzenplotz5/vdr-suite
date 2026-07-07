@@ -20,10 +20,12 @@ INDEX = FRONTEND / "index.html"
 APP = FRONTEND / "app.js"
 CHANNEL_LOGOS = FRONTEND / "channel-logos.js"
 CHANNEL_BROWSER = FRONTEND / "channel-browser.js"
+RECORDING_BROWSER = FRONTEND / "recording-browser.js"
 STYLE = FRONTEND / "style.css"
 ARCH_DOC = ROOT / "docs" / "development" / "frontend-architecture.md"
 CLIENT_API_CONTRACT_SNAPSHOT = ROOT / "docs" / "development" / "web-client-api-contract-snapshot.md"
 HTTP_SERVER = ROOT / "core" / "http" / "src" / "TestHttpServer.cpp"
+INSTALL_MK = ROOT / "mk" / "install.mk"
 
 
 class ContractFailure(Exception):
@@ -487,6 +489,17 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
     )
 
 
+def check_recording_browser_contract(recording_browser_js: str) -> None:
+    require(
+        "Phase 59.10a" in recording_browser_js,
+        "recording-browser.js must document its static asset prep phase",
+    )
+    require(
+        not re.search(r"\bfetch\s*\(", recording_browser_js),
+        "recording-browser.js must not fetch runtime data directly",
+    )
+
+
 def check_style_contract(style_css: str, app_js: str) -> None:
     if "timer-conflict-panel" in app_js:
         require(
@@ -517,6 +530,17 @@ def check_documentation_contract(frontend_architecture_md: str) -> None:
 
 
 
+def check_frontend_install_contract(install_mk: str) -> None:
+    require(
+        "web/frontend/recording-browser.js $(DESTDIR)$(DATADIR)/web/frontend/recording-browser.js" in install_mk,
+        "install-runtime must install web/frontend/recording-browser.js"
+    )
+    require(
+        "test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-browser.js" in install_mk,
+        "test-install-staging must verify recording-browser.js"
+    )
+
+
 def check_frontend_static_serving_contract(test_http_server_cpp: str) -> None:
     require(
         '"frontend/api/client-api.js"' in test_http_server_cpp or '"/frontend/api/client-api.js"' in test_http_server_cpp,
@@ -526,6 +550,16 @@ def check_frontend_static_serving_contract(test_http_server_cpp: str) -> None:
     require(
         '"api/client-api.js"' in test_http_server_cpp,
         "TestHttpServer must map /frontend/api/client-api.js to api/client-api.js"
+    )
+
+    require(
+        '"/frontend/recording-browser.js"' in test_http_server_cpp,
+        "TestHttpServer must allow /frontend/recording-browser.js"
+    )
+
+    require(
+        '"recording-browser.js"' in test_http_server_cpp,
+        "TestHttpServer must map /frontend/recording-browser.js to recording-browser.js"
     )
 
 
@@ -1113,9 +1147,11 @@ def main() -> int:
         app_js = read(APP)
         channel_logos_js = read(CHANNEL_LOGOS)
         channel_browser_js = read(CHANNEL_BROWSER)
+        recording_browser_js = read(RECORDING_BROWSER)
         style_css = read(STYLE)
         frontend_architecture_md = read(ARCH_DOC)
         test_http_server_cpp = read(HTTP_SERVER)
+        install_mk = read(INSTALL_MK)
 
         check_index_contract(index_html)
         check_app_contract(app_js)
@@ -1131,8 +1167,10 @@ def main() -> int:
         check_timer_conflict_loading_client_api_contract(app_js)
         check_client_api_contract()
         check_frontend_static_serving_contract(test_http_server_cpp)
+        check_frontend_install_contract(install_mk)
         check_channel_logos_contract(channel_logos_js)
         check_channel_browser_contract(channel_browser_js)
+        check_recording_browser_contract(recording_browser_js)
         check_style_contract(style_css, app_js)
         check_documentation_contract(frontend_architecture_md)
     except ContractFailure as exc:

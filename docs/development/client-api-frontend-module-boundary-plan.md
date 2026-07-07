@@ -631,6 +631,30 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10a Implementation Status
+
+Phase 59.10a prepares the Recording browser frontend module as a static asset before extracting runtime logic from `index.html`.
+
+Implemented behavior:
+
+- `web/frontend/recording-browser.js` exists as a static asset placeholder
+- `TestHttpServer` allows `/frontend/recording-browser.js`
+- `TestHttpServer` maps `/frontend/recording-browser.js` to `recording-browser.js`
+- `install-runtime` installs `web/frontend/recording-browser.js`
+- `test-install-staging` verifies the installed Recording browser asset
+- the frontend ownership guard verifies the static serving and install contracts
+- `index.html` does not load `recording-browser.js` yet
+- no runtime behavior and no backend route is changed
+
+Next open frontend extraction areas:
+
+- move the inline Recording browser script from `index.html` into `web/frontend/recording-browser.js`
+- load `recording-browser.js` after `channel-browser.js`
+- keep HTTP ownership in `window.VdrSuiteClientApi`
+- keep `recording-browser.js` free of direct `fetch()` calls
+
+---
+
 ## Phase 59.09f Implementation Status
 
 Phase 59.09f adds a checked Web Client API contract snapshot.

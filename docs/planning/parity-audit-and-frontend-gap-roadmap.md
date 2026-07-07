@@ -222,7 +222,7 @@ Rule for future Live-parity work:
 - A capability is not frontend-ready until it has a backend/domain status, a Web Client API status and a UI status.
 - New frontend HTTP access must first go through `web/frontend/api/client-api.js`.
 - Every defined `fetchClient...` helper must be exported through `window.VdrSuiteClientApi`, and every exported helper must be defined.
-- `web/frontend/app.js` must not add new direct `/api...` fetch routes; `web/frontend/app.js` no longer owns direct `fetch()` calls; EPG timer live-sync, create-timer access, backend list loading, backend snapshot loading, channel sorter list loading and channel move actions are already migrated, and the Web Client API export snapshot is now documented.
+- `web/frontend/app.js` must not add new direct `/api...` fetch routes; `web/frontend/app.js` no longer owns direct `fetch()` calls; EPG timer live-sync, create-timer access, backend list loading, backend snapshot loading, channel sorter list loading and channel move actions are already migrated, and the Web Client API export snapshot is now documented, and the Recording browser static asset is prepared for module extraction.
 - `web/frontend/api/client-api.js` must remain DOM-free.
 - Final multi-client contracts should later move behind stable `/api/client` routes.
 
