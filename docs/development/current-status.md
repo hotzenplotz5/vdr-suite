@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.11a - Channel Browser EPG Refresh Client API Boundary
+Phase 59.11a1 - Channel Browser EPG Event Helper Hotfix
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.11a routes the Channel browser EPG cache refresh POST through `fetchClientEpgCacheRefresh()` in the Web Client API wrapper.
+Phase 59.11a1 restores the Channel browser selected-channel EPG event helper required by `channelEntries()` after the refresh Client API boundary migration.
 
 Stable scope:
 
@@ -117,6 +117,7 @@ Stable scope:
 - Phase 59.10q replaces the remaining context object with `configureMountTarget(detailDataElement)`.
 - Phase 59.10r removes migrated legacy Recording display helper functions from `app.js`.
 - Phase 59.11a routes Channel browser EPG cache refresh through `fetchClientEpgCacheRefresh()`.
+- Phase 59.11a1 restores `epgEventsForChannel(...)` for the Channel browser selected-channel programme view.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

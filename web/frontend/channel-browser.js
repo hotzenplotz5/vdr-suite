@@ -1,4 +1,4 @@
-// Phase 59.11a: Channel browser routes EPG cache refresh through the Client API wrapper.
+// Phase 59.11a1: Channel browser restores its selected-channel EPG event helper.
 // Channel browser view, filters, grouped navigation and programme agenda.
 // Depends on app.js helpers and channel-logos.js logo helpers.
 
@@ -114,6 +114,34 @@ function fetchChannelBrowserChannelWindow(channel) {
         .catch(() => eventData);
     })
     .catch(() => ({ events: [] }));
+}
+
+function epgEventsForChannel(channel, sourceEvents, nowSeconds) {
+  const channelId = frontendChannelId(channel);
+  const current = Number(nowSeconds) || Math.floor(Date.now() / 1000);
+  const entries = [];
+
+  if (channelId === '') {
+    return entries;
+  }
+
+  (Array.isArray(sourceEvents) ? sourceEvents : []).forEach(event => {
+    if (frontendEventChannelId(event) !== channelId) {
+      return;
+    }
+
+    const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
+    const end = frontendEventEnd(event, start);
+
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end <= current) {
+      return;
+    }
+
+    entries.push({ event, start, end });
+  });
+
+  entries.sort((left, right) => left.start - right.start);
+  return entries;
 }
 
 function channelDragRecentlyEnded(element) {

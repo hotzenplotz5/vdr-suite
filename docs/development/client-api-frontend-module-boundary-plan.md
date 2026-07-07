@@ -631,6 +631,29 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.11a1 Implementation Status
+
+Phase 59.11a1 fixes the Channel browser selected-channel programme view after the EPG cache refresh Client API boundary change.
+
+Implemented behavior:
+
+- `channel-browser.js` owns `epgEventsForChannel(channel, sourceEvents, nowSeconds)`
+- `channelEntries(channel)` can resolve current and upcoming entries again
+- the helper filters events by `frontendEventChannelId(event)`
+- the helper parses event start and end using the existing EPG helper functions
+- stale/ended entries are ignored before rendering the selected-channel programme pane
+- the Channel browser still does not call `fetch()` directly
+- `/api/epg/cache/refresh` remains owned by `web/frontend/api/client-api.js`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- keep Channel browser helper ownership explicit
+- reduce remaining Channel browser dependencies on app.js helpers in later small slices
+- keep browser smoke tests focused on Kanäle, selected-channel details and EPG refresh fallback
+
+---
+
 ## Phase 59.11a Implementation Status
 
 Phase 59.11a starts the Channel browser HTTP boundary cleanup.

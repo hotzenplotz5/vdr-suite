@@ -489,8 +489,8 @@ def check_channel_logos_contract(channel_logos_js: str) -> None:
 
 def check_channel_browser_contract(channel_browser_js: str) -> None:
     require(
-        "Phase 59.11a" in channel_browser_js,
-        "channel-browser.js must document its EPG cache refresh Client API boundary phase",
+        "Phase 59.11a1" in channel_browser_js,
+        "channel-browser.js must document its selected-channel EPG event helper hotfix phase",
     )
     require(
         "renderChannelList" in channel_browser_js,
@@ -503,6 +503,14 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
     require(
         "fetchClientEpgCacheRefresh" in channel_browser_js,
         "channel-browser.js must route EPG cache refresh through fetchClientEpgCacheRefresh()",
+    )
+    require(
+        "function epgEventsForChannel(channel, sourceEvents, nowSeconds)" in channel_browser_js,
+        "channel-browser.js must own epgEventsForChannel(channel, sourceEvents, nowSeconds)",
+    )
+    require(
+        "return epgEventsForChannel(channel, events, nowSeconds)" in channel_browser_js,
+        "channel-browser.js channelEntries() must use epgEventsForChannel()",
     )
     require(
         "/api/epg/cache/refresh" not in channel_browser_js,

@@ -30,7 +30,7 @@ Phase 56 - Library Boundary, Packaging and Developer Documentation
 Latest completed implementation slice:
 
 ```text
-Phase 59.11a - Channel Browser EPG Refresh Client API Boundary
+Phase 59.11a1 - Channel Browser EPG Event Helper Hotfix
 ```
 
 ---
