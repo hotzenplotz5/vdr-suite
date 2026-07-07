@@ -1,6 +1,6 @@
 "use strict";
 
-// Phase 59.10i: Recording browser accepts an explicit shared context handshake.
+// Phase 59.10j: Recording browser uses a local display parts context helper.
 // HTTP ownership remains outside this file.
 
 const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([
@@ -58,14 +58,20 @@ function recordingTimestamp(entry) {
   return 0;
 }
 
-const originalRecordingDisplayParts = recordingDisplayParts;
-recordingDisplayParts = function(recording, index) {
-  const display = originalRecordingDisplayParts(recording, index);
+function recordingBrowserDisplayParts(recording, index) {
+  const sourceDisplayParts = (
+    recordingBrowserContext
+    && typeof recordingBrowserContext.recordingDisplayParts === 'function'
+  )
+    ? recordingBrowserContext.recordingDisplayParts
+    : recordingDisplayParts;
+
+  const display = sourceDisplayParts(recording, index);
   return {
     folder: decodeRecordingText(display.folder),
     title: decodeRecordingText(display.title)
   };
-};
+}
 
 function createRecordingNode(name, parent) {
   return { name, parent, folders: new Map(), items: [] };
@@ -91,7 +97,7 @@ function buildRecordingTree(recordings) {
   const root = createRecordingNode('Aufnahme-Ordner', null);
 
   recordings.forEach((recording, index) => {
-    const display = recordingDisplayParts(recording, index);
+    const display = recordingBrowserDisplayParts(recording, index);
     const folders = display.folder.split('/').filter(Boolean);
     let node = root;
 
@@ -109,7 +115,7 @@ function buildRecordingTree(recordings) {
 }
 
 function recordingGenreName(recording, index) {
-  const display = recordingDisplayParts(recording, index);
+  const display = recordingBrowserDisplayParts(recording, index);
   const parts = display.folder.split('/').filter(Boolean);
   return parts.length > 0 ? parts[0] : 'Ohne Genre';
 }
@@ -118,7 +124,7 @@ function buildRecordingGenreTree(recordings) {
   const root = createRecordingNode('Aufnahme-Genres', null);
 
   recordings.forEach((recording, index) => {
-    const display = recordingDisplayParts(recording, index);
+    const display = recordingBrowserDisplayParts(recording, index);
     const genre = recordingGenreName(recording, index);
 
     if (!root.folders.has(genre)) {
@@ -264,7 +270,7 @@ function renderRecordingList(data) {
     const rootNode = createRecordingFolderNode('Aufnahme-Ordner', [], null);
 
     items.forEach((recording, index) => {
-      const display = recordingDisplayParts(recording, index);
+      const display = recordingBrowserDisplayParts(recording, index);
       const entry = {
         recording,
         title: display.title,

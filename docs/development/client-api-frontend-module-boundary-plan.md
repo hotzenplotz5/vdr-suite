@@ -631,6 +631,33 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10j Implementation Status
+
+Phase 59.10j removes the global Recording display-parts mutation.
+
+Implemented behavior:
+
+- `recording-browser.js` defines `recordingBrowserDisplayParts(recording, index)`
+- the helper reads `recordingDisplayParts` from `recordingBrowserContext` when configured
+- the helper keeps the VDR display cleanup:
+  - `#xx` decoding
+  - underscore-to-space conversion
+  - leading `%` marker cleanup
+- `recording-browser.js` no longer reassigns `recordingDisplayParts`
+- Recording folder/tree/list rendering uses `recordingBrowserDisplayParts(...)`
+- HTTP loading remains in `app.js`
+- `recording-browser.js` still does not call `fetch()`
+- `recording-browser.js` still does not use `window.VdrSuiteClientApi`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- switch remaining Recording browser calls from globals to `recordingBrowserContext`
+- remove the temporary global helper fallback
+- keep `recording-browser.js` UI-only
+
+---
+
 ## Phase 59.10i Implementation Status
 
 Phase 59.10i adds the Recording browser context API handshake.

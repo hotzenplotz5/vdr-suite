@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10i" in recording_browser_js,
-        "recording-browser.js must document its explicit context API handshake phase",
+        "Phase 59.10j" in recording_browser_js,
+        "recording-browser.js must document its local display parts context phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -512,8 +512,12 @@ def check_recording_browser_contract(recording_browser_js: str) -> None:
         "recording-browser.js must strip leading VDR percent markers from display text",
     )
     require(
-        "recordingDisplayParts = function(recording, index)" in recording_browser_js,
-        "recording-browser.js must keep the recording display text normalization hook",
+        "function recordingBrowserDisplayParts(recording, index)" in recording_browser_js,
+        "recording-browser.js must keep a local Recording display text normalization helper",
+    )
+    require(
+        "recordingDisplayParts = function(recording, index)" not in recording_browser_js,
+        "recording-browser.js must not mutate the global recordingDisplayParts helper",
     )
     require(
         "detailDataElement.replaceChildren(container)" in recording_browser_js,
@@ -573,8 +577,9 @@ def check_recording_browser_dependency_contract(
 
     required_recording_browser_dependencies = [
         "firstValue(recording, ['startTime', 'start', 'date'], '')",
-        "const originalRecordingDisplayParts = recordingDisplayParts",
-        "recordingDisplayParts = function(recording, index)",
+        "function recordingBrowserDisplayParts(recording, index)",
+        "const display = recordingBrowserDisplayParts(recording, index)",
+        "sourceDisplayParts(recording, index)",
         "addText(document.createElement('h3'), node.name)",
         "detailDataElement.replaceChildren(container)",
         "function setRecordingBrowserRecords(records)",
@@ -617,6 +622,14 @@ def check_recording_browser_context_boundary_contract(
     require(
         "contextDependencies: RECORDING_BROWSER_CONTEXT_DEPENDENCIES" in recording_browser_js,
         "window.VdrSuiteRecordingBrowser must expose contextDependencies",
+    )
+    require(
+        "function recordingBrowserDisplayParts(recording, index)" in recording_browser_js,
+        "recording-browser.js must route display-part decoding through its local context helper",
+    )
+    require(
+        "recordingDisplayParts = function(recording, index)" not in recording_browser_js,
+        "recording-browser.js context migration must not mutate recordingDisplayParts globally",
     )
 
     required_context_dependencies = [
