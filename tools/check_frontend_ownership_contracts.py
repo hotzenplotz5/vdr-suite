@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10g" in recording_browser_js,
-        "recording-browser.js must document its VDR title decode cleanup phase",
+        "Phase 59.10h" in recording_browser_js,
+        "recording-browser.js must document its shared context boundary phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -592,6 +592,46 @@ def check_recording_browser_dependency_contract(
             token in recording_browser_js,
             "recording-browser.js dependency contract missing: " + token,
         )
+
+
+def check_recording_browser_context_boundary_contract(
+    app_js: str,
+    recording_browser_js: str,
+) -> None:
+    require(
+        "const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([" in recording_browser_js,
+        "recording-browser.js must define an explicit shared context dependency list",
+    )
+
+    required_context_dependencies = [
+        "detailDataElement",
+        "addText",
+        "firstValue",
+        "listFromResponse",
+        "formatDurationSeconds",
+        "formatSizeMb",
+        "formatRecordingStart",
+        "recordingDisplayParts",
+    ]
+
+    for name in required_context_dependencies:
+        require(
+            "'" + name + "'" in recording_browser_js,
+            "recording-browser.js context dependency list missing: " + name,
+        )
+        require(
+            name in app_js,
+            "app.js must still provide Recording browser shared context dependency: " + name,
+        )
+
+    require(
+        "window.VdrSuiteClientApi" not in recording_browser_js,
+        "recording-browser.js context boundary must not include runtime Client API ownership",
+    )
+    require(
+        "/api/" not in recording_browser_js,
+        "recording-browser.js context boundary must not include literal runtime API routes",
+    )
 
 
 def check_recording_rich_renderer_migration_contract(
@@ -1368,6 +1408,10 @@ def main() -> int:
         check_recording_browser_contract(recording_browser_js)
         check_recording_browser_dependency_contract(
             index_html,
+            app_js,
+            recording_browser_js,
+        )
+        check_recording_browser_context_boundary_contract(
             app_js,
             recording_browser_js,
         )

@@ -1,7 +1,18 @@
 "use strict";
 
-// Phase 59.10g: Recording browser cleans VDR encoded Recording display titles.
+// Phase 59.10h: Recording browser documents its shared context boundary.
 // HTTP ownership remains outside this file.
+
+const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([
+  'detailDataElement',
+  'addText',
+  'firstValue',
+  'listFromResponse',
+  'formatDurationSeconds',
+  'formatSizeMb',
+  'formatRecordingStart',
+  'recordingDisplayParts'
+]);
 
 let recordingSortMode = 'name';
 let recordingViewMode = 'folder';

@@ -30,7 +30,7 @@ Phase 56 - Library Boundary, Packaging and Developer Documentation
 Latest completed implementation slice:
 
 ```text
-Phase 59.10g - Recording Browser VDR Title Decode Cleanup
+Phase 59.10h - Recording Browser Context Boundary Prep
 ```
 
 ---

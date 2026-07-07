@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.10g - Recording Browser VDR Title Decode Cleanup
+Phase 59.10h - Recording Browser Context Boundary Prep
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.10g cleans VDR encoded Recording display titles by stripping leading percent markers in `recording-browser.js`.
+Phase 59.10h documents and guards the shared context dependencies still provided by `app.js` to `recording-browser.js`.
 
 Stable scope:
 
@@ -105,6 +105,7 @@ Stable scope:
 - Phase 59.10e guards the rich Recording renderer migration boundary before moving `renderRecordingList(data)` out of `app.js`.
 - Phase 59.10f moves `renderRecordingList(data)` into `recording-browser.js` and routes `app.js` through `window.VdrSuiteRecordingBrowser.renderList(data)`.
 - Phase 59.10g strips leading VDR `%` title markers from Recording folder/list/detail display text.
+- Phase 59.10h documents the temporary Recording browser context boundary before dependency injection.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -220,6 +221,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.10e verifies the rich Recording renderer still lives completely in `app.js` and is not partially migrated.
 - Phase 59.10f verifies the rich Recording renderer lives in `recording-browser.js`, remains UI-only and preserves 20-item paging.
 - Phase 59.10g verifies `recording-browser.js` keeps VDR title decode cleanup and remains API-free.
+- Phase 59.10h verifies the Recording browser shared context dependency list remains explicit and API-free.
 
 ### Guarded or deliberately incomplete areas
 

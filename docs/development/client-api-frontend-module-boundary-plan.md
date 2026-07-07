@@ -631,6 +631,36 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10h Implementation Status
+
+Phase 59.10h prepares the Recording browser context boundary.
+
+Implemented behavior:
+
+- `recording-browser.js` defines `RECORDING_BROWSER_CONTEXT_DEPENDENCIES`
+- the dependency list documents the temporary shared context from `app.js`
+- the listed shared dependencies are:
+  - `detailDataElement`
+  - `addText`
+  - `firstValue`
+  - `listFromResponse`
+  - `formatDurationSeconds`
+  - `formatSizeMb`
+  - `formatRecordingStart`
+  - `recordingDisplayParts`
+- the frontend ownership guard verifies every listed dependency is still provided by `app.js`
+- the guard prevents `recording-browser.js` from adding `window.VdrSuiteClientApi`
+- the guard prevents `recording-browser.js` from adding literal `/api/` routes
+- no runtime HTTP behavior and no backend route is changed
+
+Next open frontend extraction areas:
+
+- replace the shared global dependencies with an injected Recording browser context
+- move remaining Recording-specific helper dependencies out of `app.js`
+- keep `recording-browser.js` UI-only
+
+---
+
 ## Phase 59.10g Implementation Status
 
 Phase 59.10g cleans VDR encoded Recording display titles in `recording-browser.js`.
