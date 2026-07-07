@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.10r - Recording Browser Legacy App Helper Cleanup
+Phase 59.11a - Channel Browser EPG Refresh Client API Boundary
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.10r removes the migrated legacy Recording helper functions from `app.js` after the Recording browser owns them locally.
+Phase 59.11a routes the Channel browser EPG cache refresh POST through `fetchClientEpgCacheRefresh()` in the Web Client API wrapper.
 
 Stable scope:
 
@@ -116,6 +116,7 @@ Stable scope:
 - Phase 59.10p moves Recording display-parts behavior into local Recording browser helpers.
 - Phase 59.10q replaces the remaining context object with `configureMountTarget(detailDataElement)`.
 - Phase 59.10r removes migrated legacy Recording display helper functions from `app.js`.
+- Phase 59.11a routes Channel browser EPG cache refresh through `fetchClientEpgCacheRefresh()`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

@@ -65,6 +65,7 @@ EPG:
 - `fetchClientEpgSearch`
 - `fetchClientEpgCacheStatus`
 - `fetchClientEpgCacheWindow`
+- `fetchClientEpgCacheRefresh`
 - `fetchClientEpgNowNext`
 - `fetchClientEpgTimeWindow`
 - `fetchClientEpgChannelWindow`

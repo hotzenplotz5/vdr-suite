@@ -631,6 +631,30 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.11a Implementation Status
+
+Phase 59.11a starts the Channel browser HTTP boundary cleanup.
+
+Implemented behavior:
+
+- `fetchClientEpgCacheRefresh(options)` is added to `web/frontend/api/client-api.js`
+- the wrapper owns POST access to `/api/epg/cache/refresh`
+- `fetchClientEpgCacheRefresh` is exported through `window.VdrSuiteClientApi`
+- the Web Client API contract snapshot lists the new wrapper
+- `channel-browser.js` no longer builds the EPG cache refresh route literal
+- `channel-browser.js` no longer calls `fetch()` directly for EPG cache refresh
+- `channel-browser.js` requests refresh through `window.VdrSuiteClientApi.fetchClientEpgCacheRefresh(...)`
+- the existing fallback behavior remains: refresh failure falls back to the existing event data
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- reduce remaining Channel browser dependencies on app.js helpers
+- keep `client-api.js` DOM-free
+- keep Channel browser UI and refresh behavior stable before larger extraction
+
+---
+
 ## Phase 59.10r Implementation Status
 
 Phase 59.10r removes migrated Recording helper code from `app.js`.

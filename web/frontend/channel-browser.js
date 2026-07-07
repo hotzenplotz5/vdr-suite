@@ -1,3 +1,4 @@
+// Phase 59.11a: Channel browser routes EPG cache refresh through the Client API wrapper.
 // Channel browser view, filters, grouped navigation and programme agenda.
 // Depends on app.js helpers and channel-logos.js logo helpers.
 
@@ -90,24 +91,26 @@ function fetchChannelBrowserChannelWindow(channel) {
 
       const backendId = selectedEpgBackendId();
       const bounds = epgWindowBounds();
-      const refreshUrl = '/api/epg/cache/refresh'
-        + '?backend=' + encodeURIComponent(backendId)
-        + '&channelId=' + encodeURIComponent(channelId)
-        + '&from=' + encodeURIComponent(String(bounds.from))
-        + '&timespan=' + encodeURIComponent(String(Math.max(7200, bounds.until - bounds.from)))
-        + '&limit=0'
-        + '&channelEventLimit=96'
-        + '&_=' + encodeURIComponent(String(Date.now()));
+      const clientApi = window.VdrSuiteClientApi;
 
-      return fetch(refreshUrl, { method: 'POST', cache: 'no-store' })
-        .then(response => {
-          if (!response.ok) {
-            return eventData;
-          }
+      if (!clientApi || typeof clientApi.fetchClientEpgCacheRefresh !== 'function') {
+        return eventData;
+      }
 
-          return fetchCachedEpgWindowForVisibleChannel(channel)
-            .catch(() => eventData);
-        })
+      return clientApi.fetchClientEpgCacheRefresh({
+        query: {
+          backend: backendId,
+          channelId: channelId,
+          from: String(bounds.from),
+          timespan: String(Math.max(7200, bounds.until - bounds.from)),
+          limit: '0',
+          channelEventLimit: '96',
+          _: String(Date.now())
+        },
+        cache: 'no-store'
+      })
+        .then(() => fetchCachedEpgWindowForVisibleChannel(channel)
+          .catch(() => eventData))
         .catch(() => eventData);
     })
     .catch(() => ({ events: [] }));
@@ -1216,24 +1219,26 @@ renderChannelList = function(data) {
 
             const backendId = selectedEpgBackendId();
             const bounds = epgWindowBounds();
-            const refreshUrl = '/api/epg/cache/refresh'
-              + '?backend=' + encodeURIComponent(backendId)
-              + '&channelId=' + encodeURIComponent(channelId)
-              + '&from=' + encodeURIComponent(String(bounds.from))
-              + '&timespan=' + encodeURIComponent(String(Math.max(7200, bounds.until - bounds.from)))
-              + '&limit=0'
-              + '&channelEventLimit=96'
-              + '&_=' + encodeURIComponent(String(Date.now()));
+            const clientApi = window.VdrSuiteClientApi;
 
-            return fetch(refreshUrl, { method: 'POST', cache: 'no-store' })
-              .then(response => {
-                if (!response.ok) {
-                  return eventData;
-                }
+            if (!clientApi || typeof clientApi.fetchClientEpgCacheRefresh !== 'function') {
+              return eventData;
+            }
 
-                return fetchCachedEpgWindowForVisibleChannel(channel)
-                  .catch(() => eventData);
-              })
+            return clientApi.fetchClientEpgCacheRefresh({
+              query: {
+                backend: backendId,
+                channelId: channelId,
+                from: String(bounds.from),
+                timespan: String(Math.max(7200, bounds.until - bounds.from)),
+                limit: '0',
+                channelEventLimit: '96',
+                _: String(Date.now())
+              },
+              cache: 'no-store'
+            })
+              .then(() => fetchCachedEpgWindowForVisibleChannel(channel)
+                .catch(() => eventData))
               .catch(() => eventData);
           })
           .then(eventData => {

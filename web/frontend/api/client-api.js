@@ -284,6 +284,14 @@
     return requestJson('/api/epg/cache/window', options);
   }
 
+  function fetchClientEpgCacheRefresh(options) {
+    const normalized = normalizeOptions(options);
+
+    return requestJson('/api/epg/cache/refresh', Object.assign({}, normalized, {
+      method: normalized.method || 'POST'
+    }));
+  }
+
   function fetchClientEpgNowNext(options) {
     return requestJson('/api/epg/now-next', options);
   }
@@ -441,6 +449,7 @@
     fetchClientEpgSearch: fetchClientEpgSearch,
     fetchClientEpgCacheStatus: fetchClientEpgCacheStatus,
     fetchClientEpgCacheWindow: fetchClientEpgCacheWindow,
+    fetchClientEpgCacheRefresh: fetchClientEpgCacheRefresh,
     fetchClientEpgNowNext: fetchClientEpgNowNext,
     fetchClientEpgTimeWindow: fetchClientEpgTimeWindow,
     fetchClientEpgChannelWindow: fetchClientEpgChannelWindow,

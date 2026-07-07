@@ -489,8 +489,28 @@ def check_channel_logos_contract(channel_logos_js: str) -> None:
 
 def check_channel_browser_contract(channel_browser_js: str) -> None:
     require(
+        "Phase 59.11a" in channel_browser_js,
+        "channel-browser.js must document its EPG cache refresh Client API boundary phase",
+    )
+    require(
         "renderChannelList" in channel_browser_js,
         "channel-browser.js must remain the owner of renderChannelList registration",
+    )
+    require(
+        "window.VdrSuiteClientApi" in channel_browser_js,
+        "channel-browser.js must use the Client API wrapper for runtime HTTP boundaries",
+    )
+    require(
+        "fetchClientEpgCacheRefresh" in channel_browser_js,
+        "channel-browser.js must route EPG cache refresh through fetchClientEpgCacheRefresh()",
+    )
+    require(
+        "/api/epg/cache/refresh" not in channel_browser_js,
+        "channel-browser.js must not own the EPG cache refresh route literal",
+    )
+    require(
+        not re.search(r"\bfetch\s*\(", channel_browser_js),
+        "channel-browser.js must not call fetch() directly",
     )
     require(
         "timer-conflict" not in channel_browser_js.lower(),
@@ -1294,6 +1314,7 @@ def check_client_api_contract():
         "fetchClientEpgSearch",
         "fetchClientEpgCacheStatus",
         "fetchClientEpgCacheWindow",
+        "fetchClientEpgCacheRefresh",
         "fetchClientEpgNowNext",
         "fetchClientEpgTimeWindow",
         "fetchClientEpgChannelWindow",
@@ -1527,6 +1548,12 @@ def check_client_api_contract():
     require(
         "requestJson(" + chr(39) + "/api/epg/cache/window" + chr(39) in client_api,
         "fetchClientEpgCacheWindow() must own /api/epg/cache/window access"
+    )
+    require(
+        "function fetchClientEpgCacheRefresh(options)" in client_api
+        and "requestJson(" + chr(39) + "/api/epg/cache/refresh" + chr(39) in client_api
+        and "method: normalized.method || " + chr(39) + "POST" + chr(39) in client_api,
+        "fetchClientEpgCacheRefresh() must own POST access to /api/epg/cache/refresh"
     )
 
     read_route_checks = {
