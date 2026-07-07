@@ -39,6 +39,16 @@ function channelBrowserAddText(element, text) {
   return element;
 }
 
+function channelBrowserFirstValue(object, keys, fallback) {
+  for (const key of keys) {
+    if (object && object[key] !== undefined && object[key] !== null && object[key] !== '') {
+      return object[key];
+    }
+  }
+
+  return fallback;
+}
+
 let channelBrowserEpgPrefetchInFlight = false;
 let channelBrowserEpgPrefetchLastStartedAt = 0;
 
@@ -151,7 +161,7 @@ function epgEventsForChannel(channel, sourceEvents, nowSeconds) {
       return;
     }
 
-    const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
+    const start = parseFrontendEventEpoch(channelBrowserFirstValue(event, ['startTime', 'start', 'beginTime'], ''));
     const end = frontendEventEnd(event, start);
 
     if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end <= current) {
@@ -255,7 +265,7 @@ function enableChannelMouseDragScroll(element, axis) {
 }
 
 function channelNumber(channel, fallback) {
-  const value = Number(firstValue(channel, ['number', 'channelNumber', 'position'], fallback));
+  const value = Number(channelBrowserFirstValue(channel, ['number', 'channelNumber', 'position'], fallback));
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
@@ -297,14 +307,14 @@ function sortedChannels(channels) {
       return numberDiff;
     }
 
-    const leftName = normalizeChannelLogoName(firstValue(left, ['name', 'channelName', 'title', 'displayName'], ''));
-    const rightName = normalizeChannelLogoName(firstValue(right, ['name', 'channelName', 'title', 'displayName'], ''));
+    const leftName = normalizeChannelLogoName(channelBrowserFirstValue(left, ['name', 'channelName', 'title', 'displayName'], ''));
+    const rightName = normalizeChannelLogoName(channelBrowserFirstValue(right, ['name', 'channelName', 'title', 'displayName'], ''));
     return leftName.localeCompare(rightName, 'de-DE');
   });
 }
 
 function channelGroupName(channel) {
-  const explicit = String(firstValue(channel, [
+  const explicit = String(channelBrowserFirstValue(channel, [
     'group',
     'groupName',
     'channelGroup',
@@ -318,12 +328,12 @@ function channelGroupName(channel) {
     return explicit;
   }
 
-  const title = normalizeChannelLogoName(firstValue(
+  const title = normalizeChannelLogoName(channelBrowserFirstValue(
     channel,
     ['name', 'channelName', 'title', 'displayName', 'id', 'channelId'],
     ''
   ));
-  const type = normalizeChannelLogoName(firstValue(channel, ['type', 'serviceType'], ''));
+  const type = normalizeChannelLogoName(channelBrowserFirstValue(channel, ['type', 'serviceType'], ''));
 
   if (type.includes('radio') || title.includes('radio')) {
     return 'Radio';
@@ -707,8 +717,8 @@ function channelProgramTimeText(event) {
     return '';
   }
 
-  const start = channelProgramClock(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
-  const end = channelProgramClock(firstValue(event, ['endTime', 'end', 'stopTime'], ''));
+  const start = channelProgramClock(channelBrowserFirstValue(event, ['startTime', 'start', 'beginTime'], ''));
+  const end = channelProgramClock(channelBrowserFirstValue(event, ['endTime', 'end', 'stopTime'], ''));
 
   if (start !== '' && end !== '') {
     return start + '–' + end;
@@ -728,12 +738,12 @@ function channelCurrentProgram(channel) {
 function renderChannelItem(channel, index, encryptionAvailable) {
   const item = document.createElement('article');
   item.className = 'list-item channel-list-item';
-  const title = firstValue(
+  const title = channelBrowserFirstValue(
     channel,
     ['name', 'channelName', 'title', 'displayName', 'id', 'channelId'],
     'Kanal ' + String(index + 1)
   );
-  const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '-');
+  const channelId = channelBrowserFirstValue(channel, ['channelId', 'id', 'nativeId'], '-');
   const currentProgram = channelCurrentProgram(channel);
 
   item.appendChild(createChannelLogoElement(title, channelId));
@@ -743,8 +753,8 @@ function renderChannelItem(channel, index, encryptionAvailable) {
   text.appendChild(channelBrowserAddText(document.createElement('div'), String(title))).className = 'list-title';
 
   if (currentProgram) {
-    const programTitle = firstValue(currentProgram, ['title', 'name', 'eventTitle'], 'Laufendes Programm');
-    const subtitle = firstValue(currentProgram, ['subtitle', 'shortText', 'short_text'], '');
+    const programTitle = channelBrowserFirstValue(currentProgram, ['title', 'name', 'eventTitle'], 'Laufendes Programm');
+    const subtitle = channelBrowserFirstValue(currentProgram, ['subtitle', 'shortText', 'short_text'], '');
     const timeText = channelProgramTimeText(currentProgram);
 
     text.appendChild(channelBrowserAddText(
@@ -895,8 +905,8 @@ renderChannelList = function(data) {
 
   function channelBrowserEventIdentity(event) {
     return frontendEventChannelId(event) + '|'
-      + String(firstValue(event, ['eventId', 'id', 'nativeId'], '')) + '|'
-      + String(firstValue(event, ['startTime', 'start', 'beginTime'], '')) + '|'
+      + String(channelBrowserFirstValue(event, ['eventId', 'id', 'nativeId'], '')) + '|'
+      + String(channelBrowserFirstValue(event, ['startTime', 'start', 'beginTime'], '')) + '|'
       + epgEventTitle(event);
   }
 
@@ -974,7 +984,7 @@ renderChannelList = function(data) {
       frontendEventChannelId(entry.event),
       String(entry.start),
       String(entry.end),
-      String(firstValue(entry.event, ['eventId', 'id', 'nativeId'], epgEventTitle(entry.event)))
+      String(channelBrowserFirstValue(entry.event, ['eventId', 'id', 'nativeId'], epgEventTitle(entry.event)))
     ].join(':');
   }
 
@@ -1022,8 +1032,8 @@ renderChannelList = function(data) {
     button.setAttribute('aria-pressed', index === state.selectedIndex ? 'true' : 'false');
 
     const channelTitle = epgChannelTitle(channel, index);
-    const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '');
-    const number = firstValue(channel, ['number', 'channelNumber', 'position'], String(index + 1));
+    const channelId = channelBrowserFirstValue(channel, ['channelId', 'id', 'nativeId'], '');
+    const number = channelBrowserFirstValue(channel, ['number', 'channelNumber', 'position'], String(index + 1));
 
     const row = document.createElement('div');
     row.className = 'channel-list-item';
@@ -1244,8 +1254,8 @@ renderChannelList = function(data) {
     }
 
     const channelTitle = epgChannelTitle(channel, state.selectedIndex);
-    const channelId = firstValue(channel, ['channelId', 'id', 'nativeId'], '');
-    const number = firstValue(channel, ['number', 'channelNumber', 'position'], String(state.selectedIndex + 1));
+    const channelId = channelBrowserFirstValue(channel, ['channelId', 'id', 'nativeId'], '');
+    const number = channelBrowserFirstValue(channel, ['number', 'channelNumber', 'position'], String(state.selectedIndex + 1));
     const entries = channelEntries(channel);
     const active = selectedEntry(entries);
     const current = currentEntry(entries);
