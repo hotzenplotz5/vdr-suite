@@ -247,13 +247,15 @@ Current Channel browser module state:
 - Phase 59.12d removes the temporary global `renderChannelList(data)` bridge from `channel-browser.js`.
 - Phase 59.12e documents the module-path constraint before moving the physical asset.
 
-Physical path constraint:
+Frontend asset contract:
 
-- The logical module API already exists as `window.VdrSuiteChannelBrowser`.
-- The module source lives at `web/frontend/modules/channels.js`, while runtime loading currently uses `/frontend/channel-browser.js` for daemon compatibility.
-- `index.html` currently loads `/frontend/channel-browser.js`; install provides and verifies that file as a compatibility copy from `web/frontend/modules/channels.js`.
-- Phase 59.12f prepares daemon/static serving and install contracts for `web/frontend/modules/channels.js` before the physical file move.
-- Phase 59.12g moves the physical Channel browser asset to `web/frontend/modules/channels.js`.
+- The logical module API exists as `window.VdrSuiteChannelBrowser`.
+- The source-of-truth file is `web/frontend/modules/channels.js`.
+- The runtime-compatible script path is `/frontend/channel-browser.js`.
+- `mk/install.mk` installs `/frontend/channel-browser.js` as a compatibility copy of `web/frontend/modules/channels.js`.
+- The staging install test verifies that both installed files are byte-identical.
+- `index.html` keeps loading `/frontend/channel-browser.js` until the deployed daemon/static serving path has been rolled forward safely.
+- `/frontend/modules/channels.js` remains prepared for the later daemon rollout.
 - Keep EPG cache refresh access routed through `window.VdrSuiteClientApi`.
 
 Next phase direction:
