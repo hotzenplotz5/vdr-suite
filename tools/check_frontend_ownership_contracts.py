@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10c" in recording_browser_js,
-        "recording-browser.js must document its dependency-boundary phase",
+        "Phase 59.10d" in recording_browser_js,
+        "recording-browser.js must document its module API surface phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -568,6 +568,12 @@ def check_recording_browser_dependency_contract(
         "recordingDisplayParts = function(recording, index)",
         "addText(document.createElement('h3'), node.name)",
         "detailDataElement.replaceChildren(container)",
+        "function setRecordingBrowserRecords(records)",
+        "window.VdrSuiteRecordingBrowser = Object.freeze({",
+        "decodeRecordingText: decodeRecordingText",
+        "setRecords: setRecordingBrowserRecords",
+        "renderRoot: renderRecordingRoot",
+        "renderNode: renderRecordingNode",
     ]
 
     for token in required_recording_browser_dependencies:

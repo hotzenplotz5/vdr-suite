@@ -631,6 +631,33 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10d Implementation Status
+
+Phase 59.10d exposes a UI-only Recording browser module API surface.
+
+Implemented behavior:
+
+- `recording-browser.js` documents the module API surface phase
+- `window.VdrSuiteRecordingBrowser` is exposed by `recording-browser.js`
+- the module API currently exposes:
+  - `decodeRecordingText`
+  - `setRecords`
+  - `renderRoot`
+  - `renderNode`
+- `setRecords` owns the local `currentRecordingRecords` state update
+- `recording-browser.js` still does not call `fetch()`
+- `recording-browser.js` still does not use `window.VdrSuiteClientApi`
+- no backend route and no runtime HTTP behavior is changed
+- `app.js` is not migrated to the module API yet
+
+Next open frontend extraction areas:
+
+- migrate `app.js` Recording rendering to call `window.VdrSuiteRecordingBrowser`
+- replace the global dependency bridge with a narrow Recording browser context
+- move additional Recording UI helpers out of `app.js`
+
+---
+
 ## Phase 59.10c Implementation Status
 
 Phase 59.10c guards the temporary dependency boundary of the extracted Recording browser runtime.

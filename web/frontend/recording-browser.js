@@ -1,6 +1,6 @@
 "use strict";
 
-// Phase 59.10c: Recording browser runtime stays UI-only and depends on shared frontend helpers.
+// Phase 59.10d: Recording browser exposes a UI-only module API surface.
 // HTTP ownership remains outside this file.
 
 let recordingSortMode = 'name';
@@ -189,3 +189,14 @@ function renderRecordingNode(node) {
 
   detailDataElement.replaceChildren(container);
 }
+
+function setRecordingBrowserRecords(records) {
+  currentRecordingRecords = Array.isArray(records) ? records.slice() : [];
+}
+
+window.VdrSuiteRecordingBrowser = Object.freeze({
+  decodeRecordingText: decodeRecordingText,
+  setRecords: setRecordingBrowserRecords,
+  renderRoot: renderRecordingRoot,
+  renderNode: renderRecordingNode
+});
