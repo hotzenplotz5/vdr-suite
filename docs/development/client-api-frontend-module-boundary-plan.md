@@ -260,6 +260,16 @@ Frontend module asset contract:
 - `/frontend/modules/channels.js` and `/frontend/modules/recordings.js` remain prepared for later direct module-path loading.
 - Keep runtime HTTP access routed through `window.VdrSuiteClientApi`.
 
+Phase 59.15 closeout:
+
+- Channel and Recording browser source files now live under `web/frontend/modules/`.
+- Runtime-compatible script paths remain authoritative for the deployed daemon:
+  - `/frontend/channel-browser.js`
+  - `/frontend/recording-browser.js`
+- Install rules keep runtime-compatible copies byte-identical to their module sources.
+- Ownership guards protect script order, runtime paths, module sources, install copies and smoke-check documentation.
+- The next architectural step is Phase 60 frontend platform work: shared bootstrap, module registry, shared UI helpers and continued Client API consolidation.
+
 Frontend module runtime smoke check:
 
 - After installing frontend assets, hard-reload the browser.
