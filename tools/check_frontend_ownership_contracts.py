@@ -1164,6 +1164,14 @@ def check_channel_browser_module_path_serving_contract(
         "web/frontend/modules/channels.js" in install_mk,
         "install.mk must be ready to install web/frontend/modules/channels.js",
     )
+    require(
+        "$(DATADIR)/web/frontend/channel-browser.js" in install_mk,
+        "install.mk must install a runtime-compatible channel-browser.js copy",
+    )
+    require(
+        "cmp -s /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/channels.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-browser.js" in install_mk,
+        "install.mk staging test must verify channel-browser.js matches modules/channels.js",
+    )
 
 
 def check_frontend_static_serving_contract(test_http_server_cpp: str) -> None:

@@ -251,7 +251,7 @@ Physical path constraint:
 
 - The logical module API already exists as `window.VdrSuiteChannelBrowser`.
 - The module source lives at `web/frontend/modules/channels.js`, while runtime loading currently uses `/frontend/channel-browser.js` for daemon compatibility.
-- `index.html` currently loads `/frontend/channel-browser.js`; install provides that file as a compatibility copy from `web/frontend/modules/channels.js`.
+- `index.html` currently loads `/frontend/channel-browser.js`; install provides and verifies that file as a compatibility copy from `web/frontend/modules/channels.js`.
 - Phase 59.12f prepares daemon/static serving and install contracts for `web/frontend/modules/channels.js` before the physical file move.
 - Phase 59.12g moves the physical Channel browser asset to `web/frontend/modules/channels.js`.
 - Keep EPG cache refresh access routed through `window.VdrSuiteClientApi`.
