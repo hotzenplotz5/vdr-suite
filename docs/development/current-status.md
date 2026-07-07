@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.12e - Channel Browser Module Path Preparation
+Phase 59.12f - Channel Browser Module Static Path Contract
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.12e documents the Channel browser module-path constraint before any physical asset move.
+Phase 59.12f prepares daemon and install contracts for the future Channel browser module asset path.
 
 Stable scope:
 
@@ -139,6 +139,7 @@ Stable scope:
 - Phase 59.12c guards the Channel browser module bridge and prevents app.js from calling the legacy global bridge.
 - Phase 59.12d removes the temporary global `renderChannelList(data)` bridge from `channel-browser.js`.
 - Phase 59.12e keeps the physical asset at `web/frontend/channel-browser.js` until the daemon/static asset whitelist is updated.
+- Phase 59.12f prepares `/frontend/modules/channels.js` serving and install contracts before moving the physical asset.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

@@ -415,6 +415,7 @@ bool isFrontendPath(
         path == "/frontend/api/client-api.js" ||
         path == "/frontend/channel-logos.js" ||
         path == "/frontend/channel-browser.js" ||
+        path == "/frontend/modules/channels.js" ||
         path == "/frontend/recording-browser.js" ||
         path == "/frontend/style.css";
 }
@@ -463,6 +464,13 @@ HttpServerResponse serveFrontendPath(
     {
         return makeFrontendAssetResponse(
             "channel-browser.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/modules/channels.js")
+    {
+        return makeFrontendAssetResponse(
+            "modules/channels.js",
             "application/javascript; charset=utf-8");
     }
 

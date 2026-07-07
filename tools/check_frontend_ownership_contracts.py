@@ -111,7 +111,7 @@ def check_index_contract(index_html: str) -> None:
     )
     require(
         '<script src="/frontend/modules/channels.js"></script>' not in index_html,
-        "index.html must not load /frontend/modules/channels.js before static serving supports it",
+        "index.html must not load /frontend/modules/channels.js before the physical Channel browser asset is moved",
     )
 
     require(
@@ -1144,6 +1144,28 @@ def check_frontend_install_contract(install_mk: str) -> None:
     )
 
 
+def check_channel_browser_module_path_serving_contract(
+    test_http_server_cpp: str,
+    install_mk: str,
+) -> None:
+    require(
+        'path == "/frontend/modules/channels.js"' in test_http_server_cpp,
+        "TestHttpServer.cpp must whitelist /frontend/modules/channels.js before the physical Channel browser asset move",
+    )
+    require(
+        '"modules/channels.js"' in test_http_server_cpp,
+        "TestHttpServer.cpp must serve modules/channels.js before the physical Channel browser asset move",
+    )
+    require(
+        "$(DATADIR)/web/frontend/modules" in install_mk,
+        "install.mk must create the frontend modules directory",
+    )
+    require(
+        "web/frontend/modules/channels.js" in install_mk,
+        "install.mk must be ready to install web/frontend/modules/channels.js when it exists",
+    )
+
+
 def check_frontend_static_serving_contract(test_http_server_cpp: str) -> None:
     require(
         '"frontend/api/client-api.js"' in test_http_server_cpp or '"/frontend/api/client-api.js"' in test_http_server_cpp,
@@ -1784,6 +1806,10 @@ def main() -> int:
         check_recording_bounded_rendering_contract(app_js, recording_browser_js)
         check_timer_conflict_loading_client_api_contract(app_js)
         check_client_api_contract()
+        check_channel_browser_module_path_serving_contract(
+            test_http_server_cpp,
+            install_mk,
+        )
         check_frontend_static_serving_contract(test_http_server_cpp)
         check_frontend_install_contract(install_mk)
         check_channel_logos_contract(channel_logos_js)
