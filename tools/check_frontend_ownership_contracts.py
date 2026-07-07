@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10b" in recording_browser_js,
-        "recording-browser.js must document its extraction phase",
+        "Phase 59.10c" in recording_browser_js,
+        "recording-browser.js must document its dependency-boundary phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -516,9 +516,65 @@ def check_recording_browser_contract(recording_browser_js: str) -> None:
         "recording-browser.js must keep rendering into the shared detail data element",
     )
     require(
+        "document.createElement" in recording_browser_js,
+        "recording-browser.js must remain an explicit DOM-rendering module",
+    )
+    require(
         not re.search(r"\bfetch\s*\(", recording_browser_js),
         "recording-browser.js must not fetch runtime data directly",
     )
+
+    forbidden_runtime_api_tokens = [
+        "window.VdrSuiteClientApi",
+        "/api/",
+        "XMLHttpRequest",
+        "EventSource",
+        "WebSocket",
+    ]
+
+    for token in forbidden_runtime_api_tokens:
+        require(
+            token not in recording_browser_js,
+            "recording-browser.js must not own runtime API access token: " + token,
+        )
+
+
+def check_recording_browser_dependency_contract(
+    index_html: str,
+    app_js: str,
+    recording_browser_js: str,
+) -> None:
+    require(
+        '<script src="/frontend/recording-browser.js"></script>' in index_html,
+        "index.html must load recording-browser.js",
+    )
+
+    required_app_globals = [
+        "const detailDataElement = document.getElementById('detail-data');",
+        "function addText(element, text)",
+        "function firstValue(object, keys, fallback)",
+        "function recordingDisplayParts(recording, index)",
+    ]
+
+    for token in required_app_globals:
+        require(
+            token in app_js,
+            "app.js must keep shared Recording browser dependency: " + token,
+        )
+
+    required_recording_browser_dependencies = [
+        "firstValue(recording, ['startTime', 'start', 'date'], '')",
+        "const originalRecordingDisplayParts = recordingDisplayParts",
+        "recordingDisplayParts = function(recording, index)",
+        "addText(document.createElement('h3'), node.name)",
+        "detailDataElement.replaceChildren(container)",
+    ]
+
+    for token in required_recording_browser_dependencies:
+        require(
+            token in recording_browser_js,
+            "recording-browser.js dependency contract missing: " + token,
+        )
 
 
 def check_style_contract(style_css: str, app_js: str) -> None:
@@ -1192,6 +1248,11 @@ def main() -> int:
         check_channel_logos_contract(channel_logos_js)
         check_channel_browser_contract(channel_browser_js)
         check_recording_browser_contract(recording_browser_js)
+        check_recording_browser_dependency_contract(
+            index_html,
+            app_js,
+            recording_browser_js,
+        )
         check_style_contract(style_css, app_js)
         check_documentation_contract(frontend_architecture_md)
     except ContractFailure as exc:

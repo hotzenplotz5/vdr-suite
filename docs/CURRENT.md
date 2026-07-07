@@ -30,7 +30,7 @@ Phase 56 - Library Boundary, Packaging and Developer Documentation
 Latest completed implementation slice:
 
 ```text
-Phase 59.10b - Extract Recording Browser Runtime
+Phase 59.10c - Recording Browser Dependency Boundary Guard
 ```
 
 ---

@@ -631,6 +631,32 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10c Implementation Status
+
+Phase 59.10c guards the temporary dependency boundary of the extracted Recording browser runtime.
+
+Implemented behavior:
+
+- `recording-browser.js` documents the dependency-boundary phase
+- `recording-browser.js` remains an explicit DOM-rendering module
+- `recording-browser.js` must not use `fetch()`
+- `recording-browser.js` must not use `window.VdrSuiteClientApi`
+- `recording-browser.js` must not own `/api/`, `XMLHttpRequest`, `EventSource` or `WebSocket`
+- the frontend ownership guard verifies the shared app.js dependencies used during migration:
+  - `detailDataElement`
+  - `addText`
+  - `firstValue`
+  - `recordingDisplayParts`
+- no backend route and no runtime behavior is changed
+
+Next open frontend extraction areas:
+
+- replace the global dependency bridge with a narrow Recording browser context
+- move additional Recording UI helpers out of `app.js`
+- keep HTTP ownership in `window.VdrSuiteClientApi`
+
+---
+
 ## Phase 59.10b Implementation Status
 
 Phase 59.10b extracts the Recording browser runtime from `web/frontend/index.html` into `web/frontend/recording-browser.js`.

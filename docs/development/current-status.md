@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.10b - Extract Recording Browser Runtime
+Phase 59.10c - Recording Browser Dependency Boundary Guard
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.10b moves the inline Recording browser runtime from `index.html` into `web/frontend/recording-browser.js`.
+Phase 59.10c documents and guards the temporary dependency boundary between `recording-browser.js` and shared frontend globals from `app.js`.
 
 Stable scope:
 
@@ -100,6 +100,7 @@ Stable scope:
 - Phase 59.09f adds a checked Web Client API contract snapshot for the UI module extraction handoff.
 - Phase 59.10a prepares `recording-browser.js` as a served and installed static frontend asset without loading it yet.
 - Phase 59.10b loads `recording-browser.js` after `channel-browser.js` and removes the inline Recording browser runtime from `index.html`.
+- Phase 59.10c guards the temporary Recording browser dependency boundary against accidental runtime API ownership.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
@@ -210,6 +211,7 @@ This is a verified implementation-state snapshot, not a product-completion perce
 - Phase 59.09f verifies every exported `fetchClient*` helper is documented in the Web Client API contract snapshot.
 - Phase 59.10a verifies the daemon static frontend whitelist and install staging include `recording-browser.js`.
 - Phase 59.10b verifies `recording-browser.js` owns the extracted Recording browser runtime and still has no direct `fetch()` calls.
+- Phase 59.10c verifies `recording-browser.js` depends only on the documented shared frontend globals and still owns no runtime API access.
 
 ### Guarded or deliberately incomplete areas
 

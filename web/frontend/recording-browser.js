@@ -1,7 +1,7 @@
 "use strict";
 
-// Phase 59.10b: extracted Recording browser runtime from index.html.
-// HTTP ownership remains in window.VdrSuiteClientApi through app.js.
+// Phase 59.10c: Recording browser runtime stays UI-only and depends on shared frontend helpers.
+// HTTP ownership remains outside this file.
 
 let recordingSortMode = 'name';
 let recordingViewMode = 'folder';
