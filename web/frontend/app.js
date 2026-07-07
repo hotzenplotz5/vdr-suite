@@ -28,6 +28,19 @@ let epgProgramView = 'horizontal';
 let selectedEpgDetail = null;
 let epgSuppressClickUntil = 0;
 
+function configureChannelBrowserContextBoundary() {
+  if (!window.VdrSuiteChannelBrowser ||
+      typeof window.VdrSuiteChannelBrowser.configureContext !== 'function') {
+    return;
+  }
+
+  window.VdrSuiteChannelBrowser.configureContext({
+    detailDataElement
+  });
+}
+
+configureChannelBrowserContextBoundary();
+
 const EPG_TIMELINE_VISIBLE_SECONDS = 24 * 60 * 60;
 const EPG_TIMELINE_TICK_SECONDS = 2 * 60 * 60;
 const EPG_TIMELINE_CONTEXT_BEFORE_SECONDS = 0;
