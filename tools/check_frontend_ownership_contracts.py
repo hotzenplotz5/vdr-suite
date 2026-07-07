@@ -20,7 +20,7 @@ INDEX = FRONTEND / "index.html"
 APP = FRONTEND / "app.js"
 CHANNEL_LOGOS = FRONTEND / "channel-logos.js"
 CHANNEL_BROWSER = FRONTEND / "modules" / "channels.js"
-RECORDING_BROWSER = FRONTEND / "recording-browser.js"
+RECORDING_BROWSER = FRONTEND / "modules" / "recordings.js"
 RECORDING_BROWSER_MODULE = ROOT / "web/frontend/modules/recordings.js"
 STYLE = FRONTEND / "style.css"
 ARCH_DOC = ROOT / "docs" / "development" / "frontend-architecture.md"
@@ -110,7 +110,7 @@ def check_index_contract(index_html: str) -> None:
         < positions["channel_browser"]
         < positions["recording_browser"]
         < positions["app"],
-        "index.html script order must be client-api.js -> channel-logos.js -> channel-browser.js -> recording-browser.js -> app.js",
+        "index.html script order must be client-api.js -> channel-logos.js -> channel-browser.js -> modules/recordings.js -> app.js",
     )
     require(
         '<script src="/frontend/channel-browser.js"></script>' in index_html,
@@ -653,43 +653,43 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
         "Phase 59.10q" in recording_browser_js,
-        "recording-browser.js must document its mount target boundary phase",
+        "modules/recordings.js must document its mount target boundary phase",
     )
     require(
         "function recordingBrowserNormalizePathText(value)" in recording_browser_js,
-        "recording-browser.js must own normalized Recording path text helper after app cleanup",
+        "modules/recordings.js must own normalized Recording path text helper after app cleanup",
     )
     require(
         "function recordingBrowserDisplayParts(recording, index)" in recording_browser_js,
-        "recording-browser.js must own Recording display parts after app cleanup",
+        "modules/recordings.js must own Recording display parts after app cleanup",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
-        "recording-browser.js must own renderRecordingNode(node)",
+        "modules/recordings.js must own renderRecordingNode(node)",
     )
     require(
         ".replace(/^%+/, '')" in recording_browser_js,
-        "recording-browser.js must strip leading VDR percent markers from display text",
+        "modules/recordings.js must strip leading VDR percent markers from display text",
     )
     require(
         "function recordingBrowserDisplayParts(recording, index)" in recording_browser_js,
-        "recording-browser.js must keep a local Recording display text normalization helper",
+        "modules/recordings.js must keep a local Recording display text normalization helper",
     )
     require(
         "recordingDisplayParts = function(recording, index)" not in recording_browser_js,
-        "recording-browser.js must not mutate the global recordingDisplayParts helper",
+        "modules/recordings.js must not mutate the global recordingDisplayParts helper",
     )
     require(
         "recordingBrowserDetailDataElement().replaceChildren(container)" in recording_browser_js,
-        "recording-browser.js must keep rendering into the shared detail data element through its context accessor",
+        "modules/recordings.js must keep rendering into the shared detail data element through its context accessor",
     )
     require(
         "document.createElement" in recording_browser_js,
-        "recording-browser.js must remain an explicit DOM-rendering module",
+        "modules/recordings.js must remain an explicit DOM-rendering module",
     )
     require(
         not re.search(r"\bfetch\s*\(", recording_browser_js),
-        "recording-browser.js must not fetch runtime data directly",
+        "modules/recordings.js must not fetch runtime data directly",
     )
 
     forbidden_runtime_api_tokens = [
@@ -703,7 +703,7 @@ def check_recording_browser_contract(recording_browser_js: str) -> None:
     for token in forbidden_runtime_api_tokens:
         require(
             token not in recording_browser_js,
-            "recording-browser.js must not own runtime API access token: " + token,
+            "modules/recordings.js must not own runtime API access token: " + token,
         )
 
 
@@ -797,11 +797,11 @@ def check_recording_browser_context_boundary_contract(
 ) -> None:
     require(
         "const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([" not in recording_browser_js,
-        "recording-browser.js must no longer need a shared context dependency list",
+        "modules/recordings.js must no longer need a shared context dependency list",
     )
     require(
         "function configureRecordingBrowserMountTarget(element)" in recording_browser_js,
-        "recording-browser.js must define configureRecordingBrowserMountTarget(element)",
+        "modules/recordings.js must define configureRecordingBrowserMountTarget(element)",
     )
     require(
         "configureMountTarget: configureRecordingBrowserMountTarget" in recording_browser_js,
@@ -809,7 +809,7 @@ def check_recording_browser_context_boundary_contract(
     )
     require(
         "function configureRecordingBrowserContext(context)" in recording_browser_js,
-        "recording-browser.js must keep configureContext compatibility through the mount target boundary",
+        "modules/recordings.js must keep configureContext compatibility through the mount target boundary",
     )
     require(
         "configureContext: configureRecordingBrowserContext" in recording_browser_js,
@@ -851,7 +851,7 @@ def check_recording_browser_context_boundary_contract(
     for token in forbidden_direct_helper_calls:
         require(
             token not in recording_browser_js,
-            "recording-browser.js must route shared helper through context accessor instead of: " + token,
+            "modules/recordings.js must route shared helper through context accessor instead of: " + token,
         )
 
     forbidden_fallback_tokens = [
@@ -875,7 +875,7 @@ def check_recording_browser_context_boundary_contract(
     for token in forbidden_fallback_tokens:
         require(
             token not in recording_browser_js,
-            "recording-browser.js must not keep global helper fallback token: " + token,
+            "modules/recordings.js must not keep global helper fallback token: " + token,
         )
 
     required_local_response_helper_tokens = [
@@ -890,7 +890,7 @@ def check_recording_browser_context_boundary_contract(
     for token in required_local_response_helper_tokens:
         require(
             token in recording_browser_js,
-            "recording-browser.js local response helper missing: " + token,
+            "modules/recordings.js local response helper missing: " + token,
         )
 
     required_local_formatting_helper_tokens = [
@@ -902,7 +902,7 @@ def check_recording_browser_context_boundary_contract(
     for token in required_local_formatting_helper_tokens:
         require(
             token in recording_browser_js,
-            "recording-browser.js local formatting helper missing: " + token,
+            "modules/recordings.js local formatting helper missing: " + token,
         )
 
     required_local_dom_helper_tokens = [
@@ -914,7 +914,7 @@ def check_recording_browser_context_boundary_contract(
     for token in required_local_dom_helper_tokens:
         require(
             token in recording_browser_js,
-            "recording-browser.js local DOM text helper missing: " + token,
+            "modules/recordings.js local DOM text helper missing: " + token,
         )
 
     required_local_display_helper_tokens = [
@@ -930,7 +930,7 @@ def check_recording_browser_context_boundary_contract(
     for token in required_local_display_helper_tokens:
         require(
             token in recording_browser_js,
-            "recording-browser.js local display parts helper missing: " + token,
+            "modules/recordings.js local display parts helper missing: " + token,
         )
 
     forbidden_context_helper_tokens = [
@@ -954,16 +954,16 @@ def check_recording_browser_context_boundary_contract(
     for token in forbidden_context_helper_tokens:
         require(
             token not in recording_browser_js,
-            "recording-browser.js must not require local helper from context: " + token,
+            "modules/recordings.js must not require local helper from context: " + token,
         )
 
     require(
         "Recording browser mount target is not configured" in recording_browser_js,
-        "recording-browser.js must fail clearly when mount target is not configured",
+        "modules/recordings.js must fail clearly when mount target is not configured",
     )
     require(
         "recordingDisplayParts = function(recording, index)" not in recording_browser_js,
-        "recording-browser.js context migration must not mutate recordingDisplayParts globally",
+        "modules/recordings.js context migration must not mutate recordingDisplayParts globally",
     )
     require(
         "detailDataElement" in app_js,
@@ -972,11 +972,11 @@ def check_recording_browser_context_boundary_contract(
 
     require(
         "window.VdrSuiteClientApi" not in recording_browser_js,
-        "recording-browser.js context boundary must not include runtime Client API ownership",
+        "modules/recordings.js context boundary must not include runtime Client API ownership",
     )
     require(
         "/api/" not in recording_browser_js,
-        "recording-browser.js context boundary must not include literal runtime API routes",
+        "modules/recordings.js context boundary must not include literal runtime API routes",
     )
 
     bridge_start = app_js.find("function renderRecordingsThroughModule(data)")
@@ -1058,13 +1058,13 @@ def check_recording_rich_renderer_migration_contract(
     start = recording_browser_js.find("function renderRecordingList(data) {")
     require(
         start >= 0,
-        "recording-browser.js must own rich renderRecordingList(data)",
+        "modules/recordings.js must own rich renderRecordingList(data)",
     )
 
     end = recording_browser_js.find("function setRecordingBrowserRecords(records)", start)
     require(
         end > start,
-        "recording-browser.js rich renderRecordingList(data) boundary must end before setRecordingBrowserRecords()",
+        "modules/recordings.js rich renderRecordingList(data) boundary must end before setRecordingBrowserRecords()",
     )
 
     body = recording_browser_js[start:end]
@@ -1072,11 +1072,11 @@ def check_recording_rich_renderer_migration_contract(
 
     require(
         "RECORDING_FOLDER_BATCH_SIZE" in body_with_constants,
-        "recording-browser.js rich renderer must keep folder batching constant",
+        "modules/recordings.js rich renderer must keep folder batching constant",
     )
     require(
         "RECORDING_ITEM_PAGE_SIZE = 20" in body_with_constants,
-        "recording-browser.js rich renderer must keep 20-item paging constant",
+        "modules/recordings.js rich renderer must keep 20-item paging constant",
     )
 
     required_rich_renderer_tokens = [
@@ -1097,7 +1097,7 @@ def check_recording_rich_renderer_migration_contract(
     for token in required_rich_renderer_tokens:
         require(
             token in body,
-            "recording-browser.js rich renderer missing token: " + token,
+            "modules/recordings.js rich renderer missing token: " + token,
         )
 
     require(
@@ -1106,7 +1106,7 @@ def check_recording_rich_renderer_migration_contract(
     )
     require(
         "/api/" not in recording_browser_js,
-        "recording-browser.js must not contain literal API routes after renderer migration",
+        "modules/recordings.js must not contain literal API routes after renderer migration",
     )
 
 
@@ -1142,7 +1142,7 @@ def check_documentation_contract(frontend_architecture_md: str) -> None:
 
 def check_frontend_install_contract(install_mk: str) -> None:
     require(
-        "web/frontend/recording-browser.js $(DESTDIR)$(DATADIR)/web/frontend/recording-browser.js" in install_mk,
+        "web/frontend/modules/recordings.js $(DESTDIR)$(DATADIR)/web/frontend/recording-browser.js" in install_mk,
         "install-runtime must install web/frontend/recording-browser.js"
     )
     require(
@@ -1185,11 +1185,11 @@ def check_channel_browser_module_path_serving_contract(
     )
     require(
         "$(DATADIR)/web/frontend/recording-browser.js" in install_mk,
-        "install.mk must keep the runtime-compatible recording-browser.js path",
+        "install.mk must keep the runtime-compatible modules/recordings.js path",
     )
     require(
         "cmp -s /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/recordings.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-browser.js" in install_mk,
-        "install.mk staging test must verify recording-browser.js matches modules/recordings.js when the module source exists",
+        "install.mk staging test must verify modules/recordings.js matches modules/recordings.js when the module source exists",
     )
     require(
         "$(DATADIR)/web/frontend/channel-browser.js" in install_mk,
@@ -1218,8 +1218,8 @@ def check_frontend_static_serving_contract(test_http_server_cpp: str) -> None:
     )
 
     require(
-        '"recording-browser.js"' in test_http_server_cpp,
-        "TestHttpServer must map /frontend/recording-browser.js to recording-browser.js"
+        '"modules/recordings.js"' in test_http_server_cpp,
+        "TestHttpServer must map /frontend/modules/recordings.js to recording-browser.js"
     )
 
 
@@ -1323,12 +1323,12 @@ def check_recording_bounded_rendering_contract(
     )
 
     start = recording_browser_js.find("function renderRecordingList(data) {")
-    require(start >= 0, "recording-browser.js must define renderRecordingList(data)")
+    require(start >= 0, "modules/recordings.js must define renderRecordingList(data)")
 
     end = recording_browser_js.find("function setRecordingBrowserRecords(records)", start)
     require(
         end > start,
-        "recording-browser.js renderRecordingList() boundary must end before setRecordingBrowserRecords()"
+        "modules/recordings.js renderRecordingList() boundary must end before setRecordingBrowserRecords()"
     )
 
     body_with_constants = recording_browser_js[max(0, start - 500):end]
