@@ -166,6 +166,60 @@ Extraction must be incremental.
 The current app.js remains the bootstrap and module router
 until modules are migrated.
 
+### Channel Browser Dependency Inventory
+
+Phase 59.11d records the current Channel browser dependency boundary before
+additional extraction work.
+
+`web/frontend/channel-browser.js` is already separated as its own frontend
+asset, but it is not yet an isolated module. It still depends on shared
+runtime state and helper functions owned by `web/frontend/app.js`.
+
+Current app.js-owned helper dependencies:
+
+- `firstValue`
+- `listFromResponse`
+- `listEventsFromEpgResponse`
+- `frontendChannelId`
+- `frontendEventChannelId`
+- `parseFrontendEventEpoch`
+- `frontendEventEnd`
+- `formatEpgClockFromEpoch`
+- `formatEpgDuration`
+- `epgEventTitle`
+- `epgEventSubtitle`
+- `epgChannelTitle`
+- `addText`
+- `createEpgEventDetailCard`
+- `fetchCachedOrLiveEpgWindow`
+- `fetchCachedEpgWindowForVisibleChannel`
+- `selectedEpgBackendId`
+- `epgWindowBounds`
+- `renderChannelList`
+
+Current app.js-owned runtime state dependencies:
+
+- `currentEvents`
+- `selectedModule`
+- `detailDataElement`
+
+Current non-app frontend dependency:
+
+- `createChannelLogoElement` from the channel logo frontend helper.
+
+Current Client API dependency:
+
+- `window.VdrSuiteClientApi.fetchClientEpgCacheRefresh`
+
+Boundary rule for upcoming slices:
+
+- Do not move the Channel browser blindly.
+- First replace app.js-owned data and DOM dependencies with an explicit
+  `configureContext(...)` style boundary similar to the Recording browser.
+- Keep HTTP ownership in `web/frontend/api/client-api.js`.
+- Keep `channel-browser.js` free of direct `fetch()` calls and direct
+  `/api/epg/cache/refresh` literals.
+
 ---
 
 ## Candidate Client API Endpoints
