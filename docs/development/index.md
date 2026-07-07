@@ -29,6 +29,7 @@ Authoritative sources:
 - [Build System State](build-system-state.md)
 - [Frontend Architecture and Ownership Contracts](frontend-architecture.md)
 - [Client API and Frontend Module Boundary Plan](client-api-frontend-module-boundary-plan.md)
+- [Web Client API Contract Snapshot](web-client-api-contract-snapshot.md)
 - [CI Test Strategy](ci-test-strategy.md)
 - [Runtime Diagnostics Status](runtime-diagnostics-status.md)
 - [Runtime Diagnostics Documentation](runtime-diagnostics/README.md)

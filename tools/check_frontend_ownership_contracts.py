@@ -22,6 +22,7 @@ CHANNEL_LOGOS = FRONTEND / "channel-logos.js"
 CHANNEL_BROWSER = FRONTEND / "channel-browser.js"
 STYLE = FRONTEND / "style.css"
 ARCH_DOC = ROOT / "docs" / "development" / "frontend-architecture.md"
+CLIENT_API_CONTRACT_SNAPSHOT = ROOT / "docs" / "development" / "web-client-api-contract-snapshot.md"
 HTTP_SERVER = ROOT / "core" / "http" / "src" / "TestHttpServer.cpp"
 
 
@@ -713,6 +714,48 @@ def check_recording_bounded_rendering_contract(app_js: str) -> None:
 
 
 
+def check_client_api_contract_snapshot(
+    snapshot_md: str,
+    defined_fetch_functions: set[str],
+    exported_fetch_functions: set[str],
+) -> None:
+    require(
+        "# Web Client API Contract Snapshot" in snapshot_md,
+        "Web Client API contract snapshot must have a clear title"
+    )
+    require(
+        "Phase 59.09f" in snapshot_md,
+        "Web Client API contract snapshot must document the owning phase"
+    )
+    require(
+        "No direct `fetch()` calls in `web/frontend/app.js`." in snapshot_md,
+        "Web Client API contract snapshot must document the no-direct-fetch rule"
+    )
+    require(
+        "Remaining known direct API fetch inventory" in snapshot_md
+        and "- none" in snapshot_md,
+        "Web Client API contract snapshot must document an empty direct fetch inventory"
+    )
+    require(
+        "Missing Backend Route Gaps" in snapshot_md,
+        "Web Client API contract snapshot must document missing backend route gaps"
+    )
+
+    for function_name in sorted(exported_fetch_functions):
+        require(
+            "- `" + function_name + "`" in snapshot_md,
+            "Web Client API contract snapshot is missing exported function "
+            + function_name
+        )
+
+    for function_name in sorted(defined_fetch_functions):
+        require(
+            "- `" + function_name + "`" in snapshot_md,
+            "Web Client API contract snapshot is missing defined function "
+            + function_name
+        )
+
+
 def check_client_api_contract():
     client_api_path = ROOT / "web/frontend/api/client-api.js"
     index_path = ROOT / "web/frontend/index.html"
@@ -724,6 +767,7 @@ def check_client_api_contract():
 
     client_api = client_api_path.read_text()
     index_html = index_path.read_text()
+    client_api_contract_snapshot = read(CLIENT_API_CONTRACT_SNAPSHOT)
 
     require(
         "window.VdrSuiteClientApi" in client_api,
@@ -780,6 +824,12 @@ def check_client_api_contract():
     )
     unknown_exported_functions = sorted(
         exported_fetch_functions - defined_fetch_functions
+    )
+
+    check_client_api_contract_snapshot(
+        client_api_contract_snapshot,
+        defined_fetch_functions,
+        exported_fetch_functions,
     )
 
     require(

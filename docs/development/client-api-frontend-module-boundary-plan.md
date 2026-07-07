@@ -631,6 +631,28 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.09f Implementation Status
+
+Phase 59.09f adds a checked Web Client API contract snapshot.
+
+Implemented behavior:
+
+- `docs/development/web-client-api-contract-snapshot.md` documents every exported `fetchClient*` helper
+- the frontend ownership guard verifies the snapshot contains every defined and exported Web Client API helper
+- the snapshot documents that `web/frontend/app.js` has no remaining direct `fetch()` calls
+- the snapshot documents the missing backend route gaps that must not be faked
+- the development documentation index links the snapshot as a current project-state document
+- no runtime behavior and no backend route is changed
+
+Next open Web Client API areas:
+
+- UI module extraction using `window.VdrSuiteClientApi` as the only HTTP boundary
+- event detail and media/artwork routes once backend exposes dedicated contracts
+- recording marks, resume, cut and playback helpers once backend exposes dedicated contracts
+- permission report route once backend exposes one
+
+---
+
 ## Phase 59.09e Implementation Status
 
 Phase 59.09e migrates channel sorter API access in `web/frontend/app.js` to the Web Client API wrapper.
