@@ -631,6 +631,29 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10b Implementation Status
+
+Phase 59.10b extracts the Recording browser runtime from `web/frontend/index.html` into `web/frontend/recording-browser.js`.
+
+Implemented behavior:
+
+- `index.html` loads `recording-browser.js` after `channel-browser.js`
+- the old inline Recording browser script is removed from `index.html`
+- `recording-browser.js` owns `renderRecordingNode(node)`
+- `recording-browser.js` keeps the Recording display text normalization hook
+- `recording-browser.js` renders into the shared detail data element during this migration slice
+- `recording-browser.js` does not call `fetch()` directly
+- HTTP ownership remains in `window.VdrSuiteClientApi` through `app.js`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- move more Recording UI helpers out of `app.js`
+- define a narrower shared frontend context instead of relying on globals
+- keep `recording-browser.js` free of direct backend fetches
+
+---
+
 ## Phase 59.10a Implementation Status
 
 Phase 59.10a prepares the Recording browser frontend module as a static asset before extracting runtime logic from `index.html`.

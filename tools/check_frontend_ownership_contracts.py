@@ -83,6 +83,7 @@ def script_positions(index_html: str) -> dict[str, int]:
         "app": '<script src="/frontend/app.js"></script>',
         "channel_logos": '<script src="/frontend/channel-logos.js"></script>',
         "channel_browser": '<script src="/frontend/channel-browser.js"></script>',
+        "recording_browser": '<script src="/frontend/recording-browser.js"></script>',
     }
 
     positions: dict[str, int] = {}
@@ -98,8 +99,16 @@ def check_index_contract(index_html: str) -> None:
     positions = script_positions(index_html)
 
     require(
-        positions["app"] < positions["channel_logos"] < positions["channel_browser"],
-        "index.html script order must be app.js -> channel-logos.js -> channel-browser.js",
+        positions["app"]
+        < positions["channel_logos"]
+        < positions["channel_browser"]
+        < positions["recording_browser"],
+        "index.html script order must be app.js -> channel-logos.js -> channel-browser.js -> recording-browser.js",
+    )
+
+    require(
+        "let recordingSortMode = " not in index_html,
+        "index.html must not keep the extracted Recording browser runtime inline",
     )
 
     require(
@@ -491,8 +500,20 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10a" in recording_browser_js,
-        "recording-browser.js must document its static asset prep phase",
+        "Phase 59.10b" in recording_browser_js,
+        "recording-browser.js must document its extraction phase",
+    )
+    require(
+        "function renderRecordingNode(node)" in recording_browser_js,
+        "recording-browser.js must own renderRecordingNode(node)",
+    )
+    require(
+        "recordingDisplayParts = function(recording, index)" in recording_browser_js,
+        "recording-browser.js must keep the recording display text normalization hook",
+    )
+    require(
+        "detailDataElement.replaceChildren(container)" in recording_browser_js,
+        "recording-browser.js must keep rendering into the shared detail data element",
     )
     require(
         not re.search(r"\bfetch\s*\(", recording_browser_js),
