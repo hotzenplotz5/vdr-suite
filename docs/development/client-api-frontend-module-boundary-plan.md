@@ -247,16 +247,17 @@ Current Channel browser module state:
 - Phase 59.12d removes the temporary global `renderChannelList(data)` bridge from `channel-browser.js`.
 - Phase 59.12e documents the module-path constraint before moving the physical asset.
 
-Frontend asset contract:
+Frontend module asset contract:
 
-- The logical module API exists as `window.VdrSuiteChannelBrowser`.
-- The source-of-truth file is `web/frontend/modules/channels.js`.
-- The runtime-compatible script path is `/frontend/channel-browser.js`.
-- `mk/install.mk` installs `/frontend/channel-browser.js` as a compatibility copy of `web/frontend/modules/channels.js`.
-- The staging install test verifies that both installed files are byte-identical.
-- `index.html` keeps loading `/frontend/channel-browser.js` until the deployed daemon/static serving path has been rolled forward safely.
-- `/frontend/modules/channels.js` remains prepared for the later daemon rollout.
-- Keep EPG cache refresh access routed through `window.VdrSuiteClientApi`.
+- Channel source-of-truth: `web/frontend/modules/channels.js`.
+- Channel runtime-compatible script path: `/frontend/channel-browser.js`.
+- Recording source-of-truth: `web/frontend/modules/recordings.js`.
+- Recording runtime-compatible script path: `/frontend/recording-browser.js`.
+- `mk/install.mk` installs both module source files and their runtime-compatible copies.
+- Staging install tests verify that each runtime-compatible copy is byte-identical to its module source.
+- `index.html` keeps loading the runtime-compatible script paths until daemon/static serving rollout is safe.
+- `/frontend/modules/channels.js` and `/frontend/modules/recordings.js` remain prepared for later direct module-path loading.
+- Keep runtime HTTP access routed through `window.VdrSuiteClientApi`.
 
 Recording browser module-path preparation:
 
