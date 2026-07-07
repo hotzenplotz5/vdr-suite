@@ -3271,7 +3271,6 @@ function renderRecordingsThroughModule(data) {
 
   recordingBrowser.configureContext({
     detailDataElement: detailDataElement,
-    addText: addText,
     recordingDisplayParts: recordingDisplayParts
   });
 

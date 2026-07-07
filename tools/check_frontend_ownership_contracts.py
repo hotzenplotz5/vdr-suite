@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10n" in recording_browser_js,
-        "recording-browser.js must document its local formatting helper phase",
+        "Phase 59.10o" in recording_browser_js,
+        "recording-browser.js must document its local DOM text helper phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -559,7 +559,6 @@ def check_recording_browser_dependency_contract(
 
     required_app_globals = [
         "const detailDataElement = document.getElementById('detail-data');",
-        "function addText(element, text)",
         "function recordingDisplayParts(recording, index)",
         "function renderRecordingsThroughModule(data)",
     ]
@@ -635,7 +634,6 @@ def check_recording_browser_context_boundary_contract(
     required_context_accessor_tokens = [
         "function recordingBrowserContextValue(name)",
         "function recordingBrowserDetailDataElement()",
-        "function recordingBrowserAddText(element, text)",
         "function recordingBrowserDisplayParts(recording, index)",
         "const sourceDisplayParts = recordingBrowserContextValue('recordingDisplayParts')",
     ]
@@ -710,12 +708,26 @@ def check_recording_browser_context_boundary_contract(
             "recording-browser.js local formatting helper missing: " + token,
         )
 
+    required_local_dom_helper_tokens = [
+        "function recordingBrowserAddText(element, text)",
+        "element.textContent = text;",
+        "return element;",
+    ]
+
+    for token in required_local_dom_helper_tokens:
+        require(
+            token in recording_browser_js,
+            "recording-browser.js local DOM text helper missing: " + token,
+        )
+
     forbidden_context_helper_tokens = [
+        "'addText'",
         "'firstValue'",
         "'listFromResponse'",
         "'formatDurationSeconds'",
         "'formatSizeMb'",
         "'formatRecordingStart'",
+        "recordingBrowserContextValue('addText')",
         "recordingBrowserContextValue('firstValue')",
         "recordingBrowserContextValue('listFromResponse')",
         "recordingBrowserContextValue('formatDurationSeconds')",
@@ -740,7 +752,6 @@ def check_recording_browser_context_boundary_contract(
 
     required_context_dependencies = [
         "detailDataElement",
-        "addText",
         "recordingDisplayParts",
     ]
 
@@ -784,6 +795,7 @@ def check_recording_browser_context_boundary_contract(
         )
 
     forbidden_bridge_context_tokens = [
+        "addText: addText",
         "firstValue: firstValue",
         "listFromResponse: listFromResponse",
         "formatDurationSeconds: formatDurationSeconds",

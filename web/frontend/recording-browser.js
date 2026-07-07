@@ -1,11 +1,10 @@
 "use strict";
 
-// Phase 59.10n: Recording browser owns local formatting helper functions.
+// Phase 59.10o: Recording browser owns its local DOM text helper.
 // HTTP ownership remains outside this file.
 
 const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([
   'detailDataElement',
-  'addText',
   'recordingDisplayParts'
 ]);
 
@@ -43,7 +42,8 @@ function recordingBrowserDetailDataElement() {
 }
 
 function recordingBrowserAddText(element, text) {
-  return recordingBrowserContextValue('addText')(element, text);
+  element.textContent = text;
+  return element;
 }
 
 function recordingBrowserFirstValue(object, keys, fallback) {
