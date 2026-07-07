@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.11l - Channel Browser Local First Value Helper
+Phase 59.11m - Channel Browser First Value Helper Guard
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.11l moves Channel browser first-value lookup to a local response helper.
+Phase 59.11m guards the Channel browser local first-value helper boundary.
 
 Stable scope:
 
@@ -129,6 +129,7 @@ Stable scope:
 - Phase 59.11j moves `addText` behavior into `channelBrowserAddText(...)`.
 - Phase 59.11k guards the local Channel browser DOM text helper in `check_frontend_ownership_contracts.py`.
 - Phase 59.11l moves `firstValue` behavior into `channelBrowserFirstValue(...)`.
+- Phase 59.11m guards the local Channel browser first-value helper in `check_frontend_ownership_contracts.py`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

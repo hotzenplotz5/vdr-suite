@@ -501,6 +501,8 @@ def check_channel_browser_context_boundary_contract(
         "channelBrowserDetailDataElement().appendChild(",
         "function channelBrowserAddText(element, text)",
         "channelBrowserAddText(document.createElement(",
+        "function channelBrowserFirstValue(object, keys, fallback)",
+        "channelBrowserFirstValue(channel, [",
         "window.VdrSuiteChannelBrowser = Object.freeze({",
         "configureContext: configureChannelBrowserContext",
     ]
@@ -515,6 +517,7 @@ def check_channel_browser_context_boundary_contract(
         "detailDataElement.replaceChildren",
         "detailDataElement.appendChild",
         "addText(document.createElement(",
+        "firstValue(",
     ]
 
     for token in forbidden_direct_mount_tokens:

@@ -234,6 +234,7 @@ Next extraction candidates:
 - Phase 59.11j moved `addText` behavior into a local Channel browser DOM text helper.
 - Phase 59.11k guards the local DOM text helper so global `addText(...)` does not return.
 - Phase 59.11l moved `firstValue` behavior into a local Channel browser response helper.
+- Phase 59.11m guards the local first-value helper so global `firstValue(...)` does not return.
 - Move `listFromResponse` behavior into a local Channel browser response helper.
 - Move formatting helpers only after their Channel browser call sites are
   isolated and guarded.
