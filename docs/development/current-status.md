@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.12a - Channel Browser Module API
+Phase 59.12b - Channel Browser App Module Bridge
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.12a introduces the Channel browser renderList module API while keeping the legacy global bridge.
+Phase 59.12b routes app.js Channel browser rendering through the explicit module API.
 
 Stable scope:
 
@@ -135,6 +135,7 @@ Stable scope:
 - Phase 59.11p guards local Channel browser response helpers in `check_frontend_ownership_contracts.py`.
 - Phase 59.11q documents Channel browser readiness for `window.VdrSuiteChannelBrowser.renderList(data)`.
 - Phase 59.12a exposes `window.VdrSuiteChannelBrowser.renderList(data)` and keeps `renderChannelList(data)` as a compatibility bridge.
+- Phase 59.12b routes `app.js` through `window.VdrSuiteChannelBrowser.renderList(data)` via `renderChannelsThroughModule(data)`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

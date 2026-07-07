@@ -39,6 +39,17 @@ function configureChannelBrowserContextBoundary() {
   });
 }
 
+function renderChannelsThroughModule(data) {
+  configureChannelBrowserContextBoundary();
+
+  if (!window.VdrSuiteChannelBrowser ||
+      typeof window.VdrSuiteChannelBrowser.renderList !== 'function') {
+    throw new Error('Channel browser module render API is not available');
+  }
+
+  return window.VdrSuiteChannelBrowser.renderList(data);
+}
+
 configureChannelBrowserContextBoundary();
 
 const EPG_TIMELINE_VISIBLE_SECONDS = 24 * 60 * 60;
@@ -3112,7 +3123,7 @@ function loadChannels() {
       currentChannels = channelData;
       currentEvents = null;
 
-      renderChannelList(channelData);
+      renderChannelsThroughModule(channelData);
 
       return fetchCachedOrLiveEpgWindow(channelData)
         .then(eventData => {
@@ -3130,7 +3141,7 @@ function loadChannels() {
           enrichedChannelData.__epgSource = String(eventData.__source || 'cache');
           enrichedChannelData.__epgDebugUrl = String(eventData.__debugUrl || '');
 
-          renderChannelList(enrichedChannelData);
+          renderChannelsThroughModule(enrichedChannelData);
         })
         .catch(error => {
           (void error);
