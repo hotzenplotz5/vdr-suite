@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.12c - Channel Browser Module Bridge Guard
+Phase 59.12d - Channel Browser Legacy Bridge Removal
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.12c guards the app.js Channel browser module bridge and temporary legacy bridge.
+Phase 59.12d removes the legacy global Channel browser render bridge after app.js uses the module API.
 
 Stable scope:
 
@@ -137,6 +137,7 @@ Stable scope:
 - Phase 59.12a exposes `window.VdrSuiteChannelBrowser.renderList(data)` and keeps `renderChannelList(data)` as a compatibility bridge.
 - Phase 59.12b routes `app.js` through `window.VdrSuiteChannelBrowser.renderList(data)` via `renderChannelsThroughModule(data)`.
 - Phase 59.12c guards the Channel browser module bridge and prevents app.js from calling the legacy global bridge.
+- Phase 59.12d removes the temporary global `renderChannelList(data)` bridge from `channel-browser.js`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

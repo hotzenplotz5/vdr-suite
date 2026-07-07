@@ -1460,10 +1460,6 @@ function renderChannelBrowserList(data) {
   renderAll();
 }
 
-renderChannelList = function(data) {
-  return renderChannelBrowserList(data);
-};
-
 if (typeof window !== 'undefined') {
   window.VdrSuiteChannelBrowser = Object.freeze({
     configureContext: configureChannelBrowserContext,

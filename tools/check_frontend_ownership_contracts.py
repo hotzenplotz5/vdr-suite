@@ -630,8 +630,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
         "channel-browser.js must own renderChannelBrowserList(data)",
     )
     require(
-        "renderChannelList = function(data)" in channel_browser_js,
-        "channel-browser.js must keep the temporary legacy renderChannelList bridge",
+        "renderChannelList = function(data)" not in channel_browser_js,
+        "channel-browser.js must not keep the legacy renderChannelList bridge after Module API migration",
     )
 
 
