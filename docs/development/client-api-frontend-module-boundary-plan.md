@@ -240,9 +240,8 @@ Channel browser modularization readiness:
 
 Next phase direction:
 
-- Start `Phase 59.12a - Channel Browser Module API`.
-- Introduce `window.VdrSuiteChannelBrowser.renderList(data)`.
-- Keep the legacy global `renderChannelList = function(data)` only as a compatibility bridge during 59.12a.
+- Phase 59.12a introduced `window.VdrSuiteChannelBrowser.renderList(data)`.
+- Phase 59.12a keeps the legacy global `renderChannelList(data)` only as a compatibility bridge.
 - In 59.12b, route `app.js` through `window.VdrSuiteChannelBrowser.renderList(data)`.
 - In 59.12c, remove or guard the legacy global `renderChannelList` bridge.
 - Move formatting helpers only after the Module API bridge is stable.

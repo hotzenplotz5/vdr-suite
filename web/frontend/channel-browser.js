@@ -821,7 +821,7 @@ function renderChannelSection(list, label, channels, globalOffset, encryptionAva
   });
 }
 
-renderChannelList = function(data) {
+function renderChannelBrowserList(data) {
   const channels = channelBrowserListFromResponse(data, 'channels');
   const dataEvents = Array.isArray(data.events) ? data.events : [];
   const fallbackEvents = currentEvents ? channelBrowserListFromResponse(currentEvents, 'events') : [];
@@ -1458,10 +1458,15 @@ renderChannelList = function(data) {
   }
 
   renderAll();
+}
+
+renderChannelList = function(data) {
+  return renderChannelBrowserList(data);
 };
 
 if (typeof window !== 'undefined') {
   window.VdrSuiteChannelBrowser = Object.freeze({
-    configureContext: configureChannelBrowserContext
+    configureContext: configureChannelBrowserContext,
+    renderList: renderChannelBrowserList
   });
 }
