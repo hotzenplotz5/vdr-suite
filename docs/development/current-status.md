@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.11j - Channel Browser Local DOM Text Helper
+Phase 59.11k - Channel Browser Local DOM Text Helper Guard
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.11j moves Channel browser text-node writes to a local DOM text helper.
+Phase 59.11k guards the Channel browser local DOM text helper boundary.
 
 Stable scope:
 
@@ -127,6 +127,7 @@ Stable scope:
 - Phase 59.11h guards the Channel browser context boundary in `check_frontend_ownership_contracts.py`.
 - Phase 59.11i synchronizes the Channel browser boundary documentation after the context accessor slices.
 - Phase 59.11j moves `addText` behavior into `channelBrowserAddText(...)`.
+- Phase 59.11k guards the local Channel browser DOM text helper in `check_frontend_ownership_contracts.py`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
