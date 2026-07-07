@@ -105,6 +105,14 @@ def check_index_contract(index_html: str) -> None:
         < positions["recording_browser"],
         "index.html script order must be app.js -> channel-logos.js -> channel-browser.js -> recording-browser.js",
     )
+    require(
+        '<script src="/frontend/channel-browser.js"></script>' in index_html,
+        "index.html must keep channel-browser.js as the physical Channel browser asset path until the daemon whitelist is updated",
+    )
+    require(
+        '<script src="/frontend/modules/channels.js"></script>' not in index_html,
+        "index.html must not load /frontend/modules/channels.js before static serving supports it",
+    )
 
     require(
         "let recordingSortMode = " not in index_html,

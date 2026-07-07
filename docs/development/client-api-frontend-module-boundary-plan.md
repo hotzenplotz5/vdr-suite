@@ -238,15 +238,27 @@ Channel browser modularization readiness:
 - Phase 59.11p guards local Channel browser response helpers so global list helpers do not return.
 - Phase 59.11q marks the Channel browser ready for the first explicit Module API slice.
 
-Next phase direction:
+Current Channel browser module state:
 
 - Phase 59.12a introduced `window.VdrSuiteChannelBrowser.renderList(data)`.
 - Phase 59.12a kept the legacy global `renderChannelList(data)` only as a compatibility bridge.
 - Phase 59.12b routes `app.js` through `window.VdrSuiteChannelBrowser.renderList(data)` via `renderChannelsThroughModule(data)`.
 - Phase 59.12c guards the temporary legacy global `renderChannelList` bridge and prevents app.js from using it directly.
 - Phase 59.12d removes the temporary global `renderChannelList(data)` bridge from `channel-browser.js`.
-- Move formatting helpers only after the Module API bridge is stable.
+- Phase 59.12e documents the module-path constraint before moving the physical asset.
+
+Physical path constraint:
+
+- The logical module API already exists as `window.VdrSuiteChannelBrowser`.
+- The physical script remains `web/frontend/channel-browser.js` for now.
+- `index.html`, `mk/install.mk`, and the daemon frontend whitelist still own the served asset path.
+- Do not move the physical file to `web/frontend/modules/channels.js` until the daemon/static frontend serving contract is updated in its own backend-aware slice.
 - Keep EPG cache refresh access routed through `window.VdrSuiteClientApi`.
+
+Next phase direction:
+
+- Move formatting helpers only after the Module API bridge is stable.
+- Plan a separate backend-aware static asset path slice before any physical file move into `web/frontend/modules/`.
 
 ---
 
