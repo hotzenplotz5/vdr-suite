@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10d" in recording_browser_js,
-        "recording-browser.js must document its module API surface phase",
+        "Phase 59.10f" in recording_browser_js,
+        "recording-browser.js must document its rich renderer migration phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -553,7 +553,12 @@ def check_recording_browser_dependency_contract(
         "const detailDataElement = document.getElementById('detail-data');",
         "function addText(element, text)",
         "function firstValue(object, keys, fallback)",
+        "function listFromResponse(data, key)",
+        "function formatDurationSeconds(value)",
+        "function formatSizeMb(value)",
+        "function formatRecordingStart(value)",
         "function recordingDisplayParts(recording, index)",
+        "function renderRecordingsThroughModule(data)",
     ]
 
     for token in required_app_globals:
@@ -569,9 +574,11 @@ def check_recording_browser_dependency_contract(
         "addText(document.createElement('h3'), node.name)",
         "detailDataElement.replaceChildren(container)",
         "function setRecordingBrowserRecords(records)",
+        "function renderRecordingList(data)",
         "window.VdrSuiteRecordingBrowser = Object.freeze({",
         "decodeRecordingText: decodeRecordingText",
         "setRecords: setRecordingBrowserRecords",
+        "renderList: renderRecordingList",
         "renderRoot: renderRecordingRoot",
         "renderNode: renderRecordingNode",
     ]
@@ -583,28 +590,67 @@ def check_recording_browser_dependency_contract(
         )
 
 
-def check_recording_rich_renderer_migration_prep_contract(
+def check_recording_rich_renderer_migration_contract(
     app_js: str,
     recording_browser_js: str,
 ) -> None:
-    start = app_js.find("function renderRecordingList(data) {")
+    require(
+        "function renderRecordingList(data) {" not in app_js,
+        "app.js must no longer own renderRecordingList(data) after rich renderer migration",
+    )
+    require(
+        "function renderRecordingsThroughModule(data)" in app_js,
+        "app.js must define renderRecordingsThroughModule(data)",
+    )
+
+    bridge_start = app_js.find("function renderRecordingsThroughModule(data)")
+    bridge_end = app_js.find("function appendSettingsLine", bridge_start)
+    require(
+        bridge_start >= 0 and bridge_end > bridge_start,
+        "app.js Recording module bridge boundary must end before appendSettingsLine()",
+    )
+
+    bridge_body = app_js[bridge_start:bridge_end]
+
+    require(
+        "window.VdrSuiteRecordingBrowser" in bridge_body,
+        "app.js Recording module bridge must use window.VdrSuiteRecordingBrowser",
+    )
+    require(
+        "renderList(data)" in bridge_body,
+        "app.js Recording module bridge must call renderList(data)",
+    )
+    require(
+        "fetchClientRecordings" in bridge_body,
+        "loadRecordings() must still load data through fetchClientRecordings()",
+    )
+    require(
+        "renderRecordingList(data)" not in bridge_body,
+        "app.js must not call renderRecordingList(data) directly after migration",
+    )
+
+    start = recording_browser_js.find("function renderRecordingList(data) {")
     require(
         start >= 0,
-        "app.js must still own the rich renderRecordingList(data) renderer before migration",
+        "recording-browser.js must own rich renderRecordingList(data)",
     )
 
-    end = app_js.find("function formatEpgClockFromEpoch", start)
+    end = recording_browser_js.find("function setRecordingBrowserRecords(records)", start)
     require(
         end > start,
-        "app.js rich renderRecordingList(data) boundary must end before formatEpgClockFromEpoch()",
+        "recording-browser.js rich renderRecordingList(data) boundary must end before setRecordingBrowserRecords()",
     )
 
-    body = app_js[start:end]
-    body_with_constants = app_js[max(0, start - 500):end]
+    body = recording_browser_js[start:end]
+    body_with_constants = recording_browser_js[max(0, start - 500):end]
 
     require(
+        "RECORDING_FOLDER_BATCH_SIZE" in body_with_constants,
+        "recording-browser.js rich renderer must keep folder batching constant",
+    )
+    require(
         "RECORDING_ITEM_PAGE_SIZE = 20" in body_with_constants,
-        "app.js rich Recording renderer must keep 20-item paging constant",
+        "recording-browser.js rich renderer must keep 20-item paging constant",
     )
 
     required_rich_renderer_tokens = [
@@ -613,51 +659,29 @@ def check_recording_rich_renderer_migration_prep_contract(
         "function renderRecordingDetail(",
         "function createRecordingListItem(",
         "function renderFolderNode(",
-        "RECORDING_ITEM_PAGE_SIZE",
         "Vorherige 20",
         "Nächste 20",
         "leafRecordingFolders",
         "displayChildFolders",
         "recordingEntries.slice(recordingStartIndex, recordingEndIndex)",
         "renderRecordingDetail(entry, node, visibleFolderCount, recordingPageIndex)",
+        "Recording-Query-Endpunkt",
     ]
 
     for token in required_rich_renderer_tokens:
         require(
             token in body,
-            "app.js rich Recording renderer migration prep missing token: " + token,
+            "recording-browser.js rich renderer missing token: " + token,
         )
 
     require(
-        "window.VdrSuiteRecordingBrowser" not in body,
-        "app.js must not switch Recording rendering to VdrSuiteRecordingBrowser before rich renderer migration",
+        "renderList: renderRecordingList" in recording_browser_js,
+        "window.VdrSuiteRecordingBrowser must expose renderList: renderRecordingList",
     )
-
-    lightweight_renderer_tokens = [
-        "function renderRecordingNode(node)",
-        "function buildRecordingTree(recordings)",
-        "function buildRecordingGenreTree(recordings)",
-    ]
-
-    for token in lightweight_renderer_tokens:
-        require(
-            token in recording_browser_js,
-            "recording-browser.js lightweight renderer baseline missing token: " + token,
-        )
-
-    forbidden_premature_rich_tokens = [
-        "function renderRecordingDetail(",
-        "function createRecordingPagerControls(",
-        "RECORDING_ITEM_PAGE_SIZE = 20",
-        "Vorherige 20",
-        "Nächste 20",
-    ]
-
-    for token in forbidden_premature_rich_tokens:
-        require(
-            token not in recording_browser_js,
-            "recording-browser.js must not partially own rich renderer before migration: " + token,
-        )
+    require(
+        "/api/" not in recording_browser_js,
+        "recording-browser.js must not contain literal API routes after renderer migration",
+    )
 
 
 def check_style_contract(style_css: str, app_js: str) -> None:
@@ -813,18 +837,26 @@ def check_recording_module_loading_client_api_contract(app_js: str) -> None:
     )
 
 
-def check_recording_bounded_rendering_contract(app_js: str) -> None:
-    start = app_js.find("function renderRecordingList(data) {")
-    require(start >= 0, "app.js must define renderRecordingList(data)")
-
-    end = app_js.find("function formatEpgClockFromEpoch", start)
+def check_recording_bounded_rendering_contract(
+    app_js: str,
+    recording_browser_js: str,
+) -> None:
     require(
-        end > start,
-        "app.js renderRecordingList() boundary must end before formatEpgClockFromEpoch()"
+        "function renderRecordingList(data) {" not in app_js,
+        "app.js must not own renderRecordingList(data) after Recording browser extraction",
     )
 
-    body_with_constants = app_js[max(0, start - 500):end]
-    body = app_js[start:end]
+    start = recording_browser_js.find("function renderRecordingList(data) {")
+    require(start >= 0, "recording-browser.js must define renderRecordingList(data)")
+
+    end = recording_browser_js.find("function setRecordingBrowserRecords(records)", start)
+    require(
+        end > start,
+        "recording-browser.js renderRecordingList() boundary must end before setRecordingBrowserRecords()"
+    )
+
+    body_with_constants = recording_browser_js[max(0, start - 500):end]
+    body = recording_browser_js[start:end]
 
     require(
         "RECORDING_FOLDER_BATCH_SIZE" in body_with_constants,
@@ -902,10 +934,9 @@ def check_recording_bounded_rendering_contract(app_js: str) -> None:
     )
 
     require(
-        "/api/vdr/recordings/query" in body,
-        "Recording empty-state text must reference /api/vdr/recordings/query"
+        "Recording-Query-Endpunkt" in body,
+        "Recording empty-state text must reference the query endpoint without owning literal API routes"
     )
-
 
 
 def check_client_api_contract_snapshot(
@@ -1323,7 +1354,7 @@ def main() -> int:
         check_timer_loading_client_api_contract(app_js)
         check_searchtimer_loading_client_api_contract(app_js)
         check_recording_module_loading_client_api_contract(app_js)
-        check_recording_bounded_rendering_contract(app_js)
+        check_recording_bounded_rendering_contract(app_js, recording_browser_js)
         check_timer_conflict_loading_client_api_contract(app_js)
         check_client_api_contract()
         check_frontend_static_serving_contract(test_http_server_cpp)
@@ -1336,7 +1367,7 @@ def main() -> int:
             app_js,
             recording_browser_js,
         )
-        check_recording_rich_renderer_migration_prep_contract(
+        check_recording_rich_renderer_migration_contract(
             app_js,
             recording_browser_js,
         )

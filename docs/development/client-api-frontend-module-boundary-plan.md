@@ -631,6 +631,32 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10f Implementation Status
+
+Phase 59.10f migrates the rich Recording renderer into `recording-browser.js`.
+
+Implemented behavior:
+
+- `recording-browser.js` owns `renderRecordingList(data)`
+- `recording-browser.js` owns the rich Recording folder tree renderer
+- `recording-browser.js` owns the Recording detail view
+- `recording-browser.js` owns 20-item Recording paging
+- `recording-browser.js` exposes `renderList: renderRecordingList`
+- `app.js` no longer owns `renderRecordingList(data)`
+- `app.js` routes loaded Recording data through `window.VdrSuiteRecordingBrowser.renderList(data)`
+- HTTP loading remains in `app.js` through `window.VdrSuiteClientApi.fetchClientRecordings()`
+- `recording-browser.js` still does not call `fetch()`
+- `recording-browser.js` still does not use `window.VdrSuiteClientApi`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- replace shared global dependencies with a narrow Recording browser context
+- move remaining Recording-specific helper dependencies out of `app.js`
+- keep `recording-browser.js` UI-only
+
+---
+
 ## Phase 59.10e Implementation Status
 
 Phase 59.10e prepares the rich Recording renderer migration.
