@@ -270,6 +270,19 @@ Phase 59.15 closeout:
 - Ownership guards protect script order, runtime paths, module sources, install copies and smoke-check documentation.
 - The next architectural step is Phase 60 frontend platform work: shared bootstrap, module registry, shared UI helpers and continued Client API consolidation.
 
+Phase 60 Frontend Platform roadmap anchor:
+
+- Phase 60 must not start by moving another large browser file.
+- First target: a small `web/frontend/platform/` foundation with explicit runtime-safe loading.
+- Planned platform pieces:
+  - frontend bootstrap boundary
+  - module registry
+  - shared DOM/UI helper namespace
+  - shared formatting helper namespace
+  - continued `window.VdrSuiteClientApi` consolidation
+- Existing browser modules remain on their runtime-compatible script paths until daemon/static rollout is deliberately changed.
+- Every platform slice must preserve the Phase 59 smoke-check expectations for `Kanäle` and `Aufnahmen`.
+
 Frontend module runtime smoke check:
 
 - After installing frontend assets, hard-reload the browser.
