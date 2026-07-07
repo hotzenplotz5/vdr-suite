@@ -1181,7 +1181,7 @@ def check_channel_browser_module_path_serving_contract(
     )
     require(
         "web/frontend/modules/recordings.js" in install_mk,
-        "install.mk must be ready to install web/frontend/modules/recordings.js when it exists",
+        "install.mk must install web/frontend/modules/recordings.js",
     )
     require(
         "$(DATADIR)/web/frontend/recording-browser.js" in install_mk,
