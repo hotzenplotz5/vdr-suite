@@ -36,6 +36,7 @@ install-runtime: daemon
 	$(INSTALL) -m 0644 web/frontend/channel-logos.js $(DESTDIR)$(DATADIR)/web/frontend/channel-logos.js
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/modules/channels.js
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/channel-browser.js
+	if [ -f web/frontend/modules/recordings.js ]; then $(INSTALL) -m 0644 web/frontend/modules/recordings.js $(DESTDIR)$(DATADIR)/web/frontend/modules/recordings.js; fi
 	$(INSTALL) -m 0644 web/frontend/recording-browser.js $(DESTDIR)$(DATADIR)/web/frontend/recording-browser.js
 	$(INSTALL) -m 0644 web/frontend/epg-cache.js $(DESTDIR)$(DATADIR)/web/frontend/epg-cache.js
 	$(INSTALL) -m 0644 web/frontend/style.css $(DESTDIR)$(DATADIR)/web/frontend/style.css
@@ -86,6 +87,7 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-browser.js
 	cmp -s /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/channels.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-browser.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-browser.js
+	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-cache.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/style.css
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg

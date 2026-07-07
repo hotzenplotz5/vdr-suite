@@ -1153,8 +1153,16 @@ def check_channel_browser_module_path_serving_contract(
         "TestHttpServer.cpp must whitelist /frontend/modules/channels.js before the physical Channel browser asset move",
     )
     require(
+        'path == "/frontend/modules/recordings.js"' in test_http_server_cpp,
+        "TestHttpServer.cpp must whitelist /frontend/modules/recordings.js before the physical Recording browser asset move",
+    )
+    require(
         '"modules/channels.js"' in test_http_server_cpp,
         "TestHttpServer.cpp must serve modules/channels.js before the physical Channel browser asset move",
+    )
+    require(
+        '"modules/recordings.js"' in test_http_server_cpp,
+        "TestHttpServer.cpp must serve modules/recordings.js before the physical Recording browser asset move",
     )
     require(
         "$(DATADIR)/web/frontend/modules" in install_mk,
@@ -1163,6 +1171,10 @@ def check_channel_browser_module_path_serving_contract(
     require(
         "web/frontend/modules/channels.js" in install_mk,
         "install.mk must be ready to install web/frontend/modules/channels.js",
+    )
+    require(
+        "web/frontend/modules/recordings.js" in install_mk,
+        "install.mk must be ready to install web/frontend/modules/recordings.js when it exists",
     )
     require(
         "$(DATADIR)/web/frontend/channel-browser.js" in install_mk,
