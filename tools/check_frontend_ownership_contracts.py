@@ -99,11 +99,11 @@ def check_index_contract(index_html: str) -> None:
     positions = script_positions(index_html)
 
     require(
-        positions["app"]
-        < positions["channel_logos"]
+        positions["channel_logos"]
         < positions["channel_browser"]
-        < positions["recording_browser"],
-        "index.html script order must be app.js -> channel-logos.js -> modules/channels.js -> recording-browser.js",
+        < positions["recording_browser"]
+        < positions["app"],
+        "index.html script order must be client-api.js -> channel-logos.js -> modules/channels.js -> recording-browser.js -> app.js",
     )
     require(
         '<script src="/frontend/modules/channels.js"></script>' in index_html,

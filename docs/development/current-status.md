@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.12g - Channel Browser Physical Module Move
+Phase 59.12h - Channel Browser Script Load Order Fix
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.12g moves the Channel browser physical asset to web/frontend/modules/channels.js.
+Phase 59.12h loads Channel browser modules before app.js so context configuration can succeed.
 
 Stable scope:
 
@@ -141,6 +141,7 @@ Stable scope:
 - Phase 59.12e keeps the physical asset at `web/frontend/channel-browser.js` until the daemon/static asset whitelist is updated.
 - Phase 59.12f prepares `/frontend/modules/channels.js` serving and install contracts before moving the physical asset.
 - Phase 59.12g moves the physical Channel browser asset from `web/frontend/channel-browser.js` to `web/frontend/modules/channels.js`.
+- Phase 59.12h loads frontend modules before `app.js` so Channel browser context configuration can succeed.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
