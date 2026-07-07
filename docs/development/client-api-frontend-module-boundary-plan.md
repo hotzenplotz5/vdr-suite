@@ -220,6 +220,26 @@ Boundary rule for upcoming slices:
 - Keep `channel-browser.js` free of direct `fetch()` calls and direct
   `/api/epg/cache/refresh` literals.
 
+Current Channel browser extraction boundary:
+
+- Phase 59.11e introduced `window.VdrSuiteChannelBrowser.configureContext(...)`.
+- Phase 59.11f wired `app.js` to configure the Channel browser context with
+  the current detail mount target.
+- Phase 59.11g routed Channel browser mount-target access through
+  `channelBrowserDetailDataElement()`.
+- Phase 59.11h guards the context boundary and prevents direct
+  `detailDataElement.replaceChildren(...)` or `detailDataElement.appendChild(...)`
+  regressions inside `channel-browser.js`.
+
+Next extraction candidates:
+
+- Move `addText` behavior into a local Channel browser DOM text helper.
+- Move `firstValue` and `listFromResponse` behavior into local Channel browser
+  response helpers.
+- Move formatting helpers only after their Channel browser call sites are
+  isolated and guarded.
+- Keep EPG cache refresh access routed through `window.VdrSuiteClientApi`.
+
 ---
 
 ## Candidate Client API Endpoints

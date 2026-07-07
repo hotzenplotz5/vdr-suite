@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.11h - Channel Browser Context Boundary Guard
+Phase 59.11i - Channel Browser Boundary Documentation Sync
 ```
 
 Current documentation consolidation state:
@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 59.11h guards the Channel browser context boundary against direct mount-target regressions.
+Phase 59.11i synchronizes the Channel browser boundary documentation with the new context slices.
 
 Stable scope:
 
@@ -125,6 +125,7 @@ Stable scope:
 - Phase 59.11f configures the Channel browser context boundary from `app.js` with the current mount target.
 - Phase 59.11g routes Channel browser mount-target access through `channelBrowserDetailDataElement()`.
 - Phase 59.11h guards the Channel browser context boundary in `check_frontend_ownership_contracts.py`.
+- Phase 59.11i synchronizes the Channel browser boundary documentation after the context accessor slices.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
