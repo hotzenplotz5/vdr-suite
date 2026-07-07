@@ -631,6 +631,31 @@ Next open Web Client API areas:
 
 ---
 
+## Phase 59.10l Implementation Status
+
+Phase 59.10l removes the temporary global helper fallback from the Recording browser.
+
+Implemented behavior:
+
+- `recordingBrowserContextValue(name)` now requires `recordingBrowserContext`
+- missing context fails with `Recording browser context is not configured`
+- missing context members still fail with `Recording browser context value missing: <name>`
+- `recording-browser.js` no longer defines `recordingBrowserFallbackContextValue(name)`
+- `recording-browser.js` no longer checks global helper symbols with `typeof ...`
+- shared helper access is only routed through the configured context
+- HTTP loading remains in `app.js`
+- `recording-browser.js` still does not call `fetch()`
+- `recording-browser.js` still does not use `window.VdrSuiteClientApi`
+- no backend route is changed
+
+Next open frontend extraction areas:
+
+- reduce the context dependency list by moving helper implementations into `recording-browser.js`
+- keep `app.js` as HTTP/loading bridge only
+- keep `recording-browser.js` UI-only
+
+---
+
 ## Phase 59.10k Implementation Status
 
 Phase 59.10k routes shared Recording browser helper calls through context accessors.

@@ -1,6 +1,6 @@
 "use strict";
 
-// Phase 59.10k: Recording browser routes shared helpers through context accessors.
+// Phase 59.10l: Recording browser requires configured context accessors.
 // HTTP ownership remains outside this file.
 
 const RECORDING_BROWSER_CONTEXT_DEPENDENCIES = Object.freeze([
@@ -29,53 +29,15 @@ function configureRecordingBrowserContext(context) {
   recordingBrowserContext = Object.freeze(Object.assign({}, value));
 }
 
-function recordingBrowserFallbackContextValue(name) {
-  if (name === 'detailDataElement' && typeof detailDataElement !== 'undefined') {
-    return detailDataElement;
-  }
-
-  if (name === 'addText' && typeof addText === 'function') {
-    return addText;
-  }
-
-  if (name === 'firstValue' && typeof firstValue === 'function') {
-    return firstValue;
-  }
-
-  if (name === 'listFromResponse' && typeof listFromResponse === 'function') {
-    return listFromResponse;
-  }
-
-  if (name === 'formatDurationSeconds' && typeof formatDurationSeconds === 'function') {
-    return formatDurationSeconds;
-  }
-
-  if (name === 'formatSizeMb' && typeof formatSizeMb === 'function') {
-    return formatSizeMb;
-  }
-
-  if (name === 'formatRecordingStart' && typeof formatRecordingStart === 'function') {
-    return formatRecordingStart;
-  }
-
-  if (name === 'recordingDisplayParts' && typeof recordingDisplayParts === 'function') {
-    return recordingDisplayParts;
-  }
-
-  return null;
-}
-
 function recordingBrowserContextValue(name) {
-  const configured = recordingBrowserContext ? recordingBrowserContext[name] : null;
+  if (!recordingBrowserContext) {
+    throw new Error('Recording browser context is not configured');
+  }
+
+  const configured = recordingBrowserContext[name];
 
   if (configured !== undefined && configured !== null) {
     return configured;
-  }
-
-  const fallback = recordingBrowserFallbackContextValue(name);
-
-  if (fallback !== undefined && fallback !== null) {
-    return fallback;
   }
 
   throw new Error('Recording browser context value missing: ' + name);

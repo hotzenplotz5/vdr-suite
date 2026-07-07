@@ -500,8 +500,8 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
-        "Phase 59.10k" in recording_browser_js,
-        "recording-browser.js must document its context accessor phase",
+        "Phase 59.10l" in recording_browser_js,
+        "recording-browser.js must document its strict context accessor phase",
     )
     require(
         "function renderRecordingNode(node)" in recording_browser_js,
@@ -576,7 +576,6 @@ def check_recording_browser_dependency_contract(
         )
 
     required_recording_browser_dependencies = [
-        "function recordingBrowserFallbackContextValue(name)",
         "function recordingBrowserContextValue(name)",
         "function recordingBrowserDetailDataElement()",
         "function recordingBrowserAddText(element, text)",
@@ -634,7 +633,6 @@ def check_recording_browser_context_boundary_contract(
         "window.VdrSuiteRecordingBrowser must expose contextDependencies",
     )
     required_context_accessor_tokens = [
-        "function recordingBrowserFallbackContextValue(name)",
         "function recordingBrowserContextValue(name)",
         "function recordingBrowserDetailDataElement()",
         "function recordingBrowserAddText(element, text)",
@@ -671,6 +669,29 @@ def check_recording_browser_context_boundary_contract(
             "recording-browser.js must route shared helper through context accessor instead of: " + token,
         )
 
+    forbidden_fallback_tokens = [
+        "function recordingBrowserFallbackContextValue(name)",
+        "recordingBrowserFallbackContextValue(",
+        "typeof detailDataElement",
+        "typeof addText",
+        "typeof firstValue",
+        "typeof listFromResponse",
+        "typeof formatDurationSeconds",
+        "typeof formatSizeMb",
+        "typeof formatRecordingStart",
+        "typeof recordingDisplayParts",
+    ]
+
+    for token in forbidden_fallback_tokens:
+        require(
+            token not in recording_browser_js,
+            "recording-browser.js must not keep global helper fallback token: " + token,
+        )
+
+    require(
+        "Recording browser context is not configured" in recording_browser_js,
+        "recording-browser.js must fail clearly when context is not configured",
+    )
     require(
         "recordingDisplayParts = function(recording, index)" not in recording_browser_js,
         "recording-browser.js context migration must not mutate recordingDisplayParts globally",
