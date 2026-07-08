@@ -182,6 +182,8 @@ def main() -> int:
         "timerBrowserContext = Object.freeze(Object.assign({}, context || {}));",
         "configureContext: configureAppOwnedTimerBrowserContext",
         "const mountTarget = timerBrowserContext.detailDataElement || detailDataElement;",
+        "const previous = mountTarget.querySelector(\"[data-timer-conflict-panel=\\\"true\\\"]\");",
+        "const target = mountTarget.querySelector(\".list\") || mountTarget;",
         "mountTarget.replaceChildren();",
         "mountTarget.appendChild(list);",
         "window.VdrSuiteTimerBrowser = timerBrowserApi",

@@ -716,7 +716,8 @@ function timerConflictTimerLabel(timers, timerIndex) {
 }
 
 function appendTimerConflictPanel(report, timers, error) {
-  const previous = detailDataElement.querySelector("[data-timer-conflict-panel=\"true\"]");
+  const mountTarget = timerBrowserContext.detailDataElement || detailDataElement;
+  const previous = mountTarget.querySelector("[data-timer-conflict-panel=\"true\"]");
 
   if (previous) {
     previous.remove();
@@ -780,7 +781,7 @@ function appendTimerConflictPanel(report, timers, error) {
     }
   }
 
-  const target = detailDataElement.querySelector(".list") || detailDataElement;
+  const target = mountTarget.querySelector(".list") || mountTarget;
 
   if (target.firstChild) {
     target.insertBefore(panel, target.firstChild);

@@ -746,6 +746,21 @@ def check_prepared_frontend_helpers_source_contract() -> None:
     )
 
 
+def check_app_owned_timer_conflict_context_contract(app_js: str) -> None:
+    required_tokens = [
+        "function appendTimerConflictPanel(report, timers, error)",
+        "const mountTarget = timerBrowserContext.detailDataElement || detailDataElement;",
+        "const previous = mountTarget.querySelector(\"[data-timer-conflict-panel=\\\"true\\\"]\");",
+        "const target = mountTarget.querySelector(\".list\") || mountTarget;",
+    ]
+
+    for token in required_tokens:
+        require(
+            token in app_js,
+            "app-owned Timer conflict panel context consumption missing: " + token,
+        )
+
+
 def check_app_owned_timer_context_consumption_contract(app_js: str) -> None:
     required_tokens = [
         "let timerBrowserContext = Object.freeze({});",
@@ -2141,6 +2156,7 @@ def main() -> int:
             channel_browser_js,
         )
         check_recording_browser_registry_registration_contract(recording_browser_js)
+        check_app_owned_timer_conflict_context_contract(app_js)
         check_app_owned_timer_context_consumption_contract(app_js)
         check_app_timer_context_boundary_contract(app_js)
         check_app_timer_module_bridge_contract(app_js)

@@ -343,6 +343,7 @@ Frontend module runtime smoke check:
 - Timer list rendering is routed through `renderTimersThroughModule(...)`, which resolves `timers` via `VdrSuitePlatform.getModule('timers')` with legacy fallback.
 - Timer browser context is configured through `configureTimerBrowserContextBoundary()`, including the platform-resolved `timers` mount target and `VdrSuiteFrontendHelpers`.
 - App-owned Timer rendering consumes the Timer context through `configureContext(...)` and renders into the context-provided mount target with `detailDataElement` fallback.
+- Timer conflict rendering also consumes the Timer context mount target, so list and conflict panel share one module-owned render surface.
 - Shared helper source `web/frontend/platform/helpers.js` is loaded after `platform/bootstrap.js` and before `api/client-api.js`.
 - Verify the `Kanäle` module renders channel groups and selected-channel programmes.
 - Verify the `Aufnahmen` module renders the recording tree and opens recording details.
