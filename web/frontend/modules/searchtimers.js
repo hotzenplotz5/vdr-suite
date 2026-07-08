@@ -1,4 +1,4 @@
-// Phase 60.9e: Active SearchTimer browser module with Live parity field groups.
+// Phase 60.10a: Active SearchTimer browser module with editor shell.
 // SearchTimer is visible in the frontend module navigation.
 // Owns SearchTimer list rendering through the frontend platform registry.
 // Live parity capability slots are rendered for VPS, blacklist, filters, preview and write actions.
@@ -159,6 +159,101 @@
     parent.appendChild(panel);
   }
 
+  function appendEditorField(parent, label, input) {
+    const row = document.createElement('label');
+    row.className = 'searchtimer-editor-field';
+
+    const caption = addText(document.createElement('span'), label);
+    row.appendChild(caption);
+    row.appendChild(input);
+    parent.appendChild(row);
+  }
+
+  function textInput(name, placeholder) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = name;
+    input.placeholder = placeholder || '';
+    input.disabled = true;
+    return input;
+  }
+
+  function checkboxInput(name) {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.name = name;
+    input.disabled = true;
+    return input;
+  }
+
+  function numberInput(name, placeholder) {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.name = name;
+    input.placeholder = placeholder || '';
+    input.disabled = true;
+    return input;
+  }
+
+  function renderSearchTimerEditorShell(parent) {
+    const editor = document.createElement('aside');
+    editor.className = 'module-placeholder searchtimer-editor-shell';
+    editor.dataset.searchtimerEditor = 'create';
+
+    const heading = document.createElement('div');
+    heading.className = 'searchtimer-editor-heading';
+    heading.appendChild(addText(document.createElement('h3'), 'Neuer SearchTimer'));
+
+    const notice = addText(
+      document.createElement('p'),
+      'Editor-Schale vorbereitet. Vorschau, Validierung und Speichern werden in den nächsten Schritten an die vorhandenen Client-API-Aktionen angebunden.'
+    );
+    heading.appendChild(notice);
+    editor.appendChild(heading);
+
+    const form = document.createElement('form');
+    form.className = 'searchtimer-editor-form';
+    form.dataset.searchtimerEditorForm = 'create';
+
+    appendEditorField(form, 'Suchbegriff', textInput('search', 'z. B. Tatort'));
+    appendEditorField(form, 'Aktiv', checkboxInput('use_as_searchtimer'));
+    appendEditorField(form, 'VPS/PDC', checkboxInput('use_vps'));
+    appendEditorField(form, 'Verzeichnis', textInput('directory', 'optional'));
+    appendEditorField(form, 'Priorität', numberInput('priority', '50'));
+    appendEditorField(form, 'Lebensdauer', numberInput('lifetime', '99'));
+    appendEditorField(form, 'Kanalfilter', textInput('channels', 'optional'));
+    appendEditorField(form, 'Zeitfenster Start', textInput('start_time', 'HHMM'));
+    appendEditorField(form, 'Zeitfenster Stop', textInput('stop_time', 'HHMM'));
+    appendEditorField(form, 'Blacklist-IDs', textInput('blacklist_ids', 'optional'));
+
+    const actions = document.createElement('div');
+    actions.className = 'searchtimer-editor-actions';
+
+    const previewButton = addText(document.createElement('button'), 'Vorschau');
+    previewButton.type = 'button';
+    previewButton.disabled = true;
+    previewButton.dataset.searchtimerAction = 'preview';
+
+    const saveButton = addText(document.createElement('button'), 'Speichern');
+    saveButton.type = 'button';
+    saveButton.disabled = true;
+    saveButton.dataset.searchtimerAction = 'save';
+
+    const cancelButton = addText(document.createElement('button'), 'Abbrechen');
+    cancelButton.type = 'button';
+    cancelButton.disabled = true;
+    cancelButton.dataset.searchtimerAction = 'cancel';
+
+    actions.appendChild(previewButton);
+    actions.appendChild(saveButton);
+    actions.appendChild(cancelButton);
+
+    form.appendChild(actions);
+    editor.appendChild(form);
+
+    parent.appendChild(editor);
+  }
+
   function searchTimerTitle(searchTimer, index) {
     return firstValue(
       searchTimer,
@@ -247,6 +342,7 @@
     list.appendChild(header);
 
     renderCapabilitySlots(list);
+    renderSearchTimerEditorShell(list);
 
     if (searchTimers.length === 0) {
       const empty = document.createElement('article');
