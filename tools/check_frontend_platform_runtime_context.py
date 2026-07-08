@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP = ROOT / "web" / "frontend" / "platform" / "bootstrap.js"
 APP = ROOT / "web" / "frontend" / "app.js"
 TIMER_MODULE = ROOT / "web" / "frontend" / "modules" / "timers.js"
+HELPERS = ROOT / "web" / "frontend" / "platform" / "helpers.js"
 
 
 class ContractFailure(Exception):
@@ -37,6 +38,7 @@ def main() -> int:
     bootstrap = read(BOOTSTRAP)
     app_js = read(APP)
     timer_module = read(TIMER_MODULE)
+    helpers_js = read(HELPERS)
 
     required_tokens = [
         "Phase 60.3: Frontend platform runtime context foundation.",
@@ -66,6 +68,38 @@ def main() -> int:
 
     for token in required_tokens:
         require(token in bootstrap, "platform runtime context contract missing: " + token)
+
+    helpers_required_tokens = [
+        "Phase 60.6a: Shared frontend helper source foundation.",
+        "Prepared DOM-free and HTTP-free helper namespace for future module extraction.",
+        "This file is intentionally not loaded by index.html yet.",
+        "function firstValue(source, keys, fallback)",
+        "function listFromResponse(data, key)",
+        "function numberOrZero(value)",
+        "function formatEpochClock(epochSeconds)",
+        "const helpersApi = Object.freeze({",
+        "global.VdrSuiteFrontendHelpers = helpersApi;",
+    ]
+
+    for token in helpers_required_tokens:
+        require(token in helpers_js, "prepared frontend helper source contract missing: " + token)
+
+    helpers_forbidden_tokens = [
+        "document.",
+        "document[",
+        "createElement",
+        "appendChild",
+        "replaceChildren",
+        "innerHTML",
+        "fetch(",
+        "XMLHttpRequest",
+        "EventSource",
+        "WebSocket",
+        "registerModule(",
+    ]
+
+    for token in helpers_forbidden_tokens:
+        require(token not in helpers_js, "prepared frontend helper source must stay DOM/API-free: " + token)
 
     timer_module_required_tokens = [
         "Phase 60.5c: Timer module source placeholder.",
