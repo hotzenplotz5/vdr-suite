@@ -486,7 +486,7 @@
     appendPreviewMetric(summary, 'Treffer gesamt', firstValue(statistics, ['totalCount'], firstValue(preview, ['totalCount'], 0)));
     appendPreviewMetric(summary, 'Geliefert', firstValue(statistics, ['returnedCount'], firstValue(preview, ['returnedCount'], 0)));
     appendPreviewMetric(summary, 'Kanäle', firstValue(statistics, ['channelCount'], 0));
-    appendPreviewMetric(summary, 'Nächster Start', firstValue(statistics, ['nextStartTime'], '-'));
+    appendPreviewMetric(summary, 'Nächster Start', formatPreviewUnixTime(firstValue(statistics, ['nextStartTime'], '')));
 
     target.appendChild(summary);
 
