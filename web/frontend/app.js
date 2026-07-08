@@ -592,7 +592,11 @@ function configureTimerBrowserContextBoundary() {
 
   timerBrowser.configureContext({
     detailDataElement: frontendPlatformMountTarget('timers', detailDataElement),
-    helpers: window.VdrSuiteFrontendHelpers || null
+    helpers: window.VdrSuiteFrontendHelpers || null,
+    formatTimerStatus: formatTimerStatus,
+    formatVdrClock: formatVdrClock,
+    timerStartValue: timerStartValue,
+    timerEndValue: timerEndValue
   });
 }
 
@@ -836,7 +840,7 @@ const timerBrowserApi = Object.freeze({
   loadConflicts: loadTimerConflictPanel
 });
 
-window.VdrSuiteTimerBrowser = timerBrowserApi;
+window.VdrSuiteTimerBrowser = window.VdrSuiteTimerBrowser || timerBrowserApi;
 
 function registerAppOwnedTimerModule() {
   if (!window.VdrSuitePlatform ||

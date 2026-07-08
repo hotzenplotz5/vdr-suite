@@ -746,6 +746,29 @@ def check_prepared_frontend_helpers_source_contract() -> None:
     )
 
 
+def check_active_timer_module_source_contract() -> None:
+    timer_module = read(ROOT / "web" / "frontend" / "modules" / "timers.js")
+    index_html = read(INDEX)
+
+    required_tokens = [
+        "Phase 60.8a: Active Timer browser module.",
+        "function configureContext(context)",
+        "function renderList(data, conflictReport)",
+        "global.VdrSuiteTimerBrowser = timerBrowserApi;",
+        "global.VdrSuitePlatform.registerModule('timers', timerBrowserApi);",
+        "Timer browser mount target is not configured",
+    ]
+
+    for token in required_tokens:
+        require(token in timer_module, "active Timer module source missing: " + token)
+
+    require(
+        index_html.index('<script src="/frontend/modules/timers.js"></script>')
+        < index_html.index('<script src="/frontend/app.js"></script>'),
+        "index.html must load timers.js before app.js",
+    )
+
+
 def check_app_owned_timer_conflict_context_contract(app_js: str) -> None:
     required_tokens = [
         "function appendTimerConflictPanel(report, timers, error)",
@@ -2156,6 +2179,7 @@ def main() -> int:
             channel_browser_js,
         )
         check_recording_browser_registry_registration_contract(recording_browser_js)
+        check_active_timer_module_source_contract()
         check_app_owned_timer_conflict_context_contract(app_js)
         check_app_owned_timer_context_consumption_contract(app_js)
         check_app_timer_context_boundary_contract(app_js)

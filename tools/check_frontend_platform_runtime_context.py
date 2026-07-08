@@ -72,7 +72,7 @@ def main() -> int:
     helpers_required_tokens = [
         "Phase 60.6a: Shared frontend helper source foundation.",
         "Prepared DOM-free and HTTP-free helper namespace for future module extraction.",
-        "This file is intentionally not loaded by index.html yet.",
+        "global.VdrSuiteTimerBrowser = timerBrowserApi;",
         "function firstValue(source, keys, fallback)",
         "function listFromResponse(data, key)",
         "function numberOrZero(value)",
@@ -102,15 +102,15 @@ def main() -> int:
         require(token not in helpers_js, "prepared frontend helper source must stay DOM/API-free: " + token)
 
     timer_module_required_tokens = [
-        "Phase 60.5c: Timer module source placeholder.",
-        "Prepared module source path for the future Timer browser extraction.",
-        "This file is intentionally not loaded by index.html yet.",
-        "Runtime ownership stays in app.js until the Timer renderer is extracted.",
-        "const timerModulePreparation = Object.freeze({",
-        "phase: '60.5c'",
-        "isPrepared: function()",
-        "global.VdrSuitePreparedModules = Object.create(null);",
-        "global.VdrSuitePreparedModules.timers = timerModulePreparation;",
+        "Phase 60.8a: Active Timer browser module.",
+        "Owns Timer list rendering through the frontend platform registry.",
+        "global.VdrSuiteTimerBrowser = timerBrowserApi;",
+        "global.VdrSuitePlatform.registerModule('timers', timerBrowserApi);"
+        "function renderList(data, conflictReport)",
+        "const timerBrowserApi = Object.freeze({",
+        "configureContext: configureContext",
+        "renderList: renderList",
+        "Timer browser mount target is not configured",
     ]
 
     for token in timer_module_required_tokens:
@@ -127,9 +127,6 @@ def main() -> int:
         "XMLHttpRequest",
         "EventSource",
         "WebSocket",
-        "registerModule('timers'",
-        'registerModule("timers"',
-        "renderTimerList",
         "loadTimers",
         "loadTimerConflictPanel",
     ]
@@ -172,6 +169,10 @@ def main() -> int:
         "timerBrowser.configureContext({",
         "detailDataElement: frontendPlatformMountTarget('timers', detailDataElement)",
         "helpers: window.VdrSuiteFrontendHelpers || null",
+        "formatTimerStatus: formatTimerStatus",
+        "formatVdrClock: formatVdrClock",
+        "timerStartValue: timerStartValue",
+        "timerEndValue: timerEndValue",
         "configureTimerBrowserContextBoundary();",
         "frontendPlatformModule('timers', window.VdrSuiteTimerBrowser)",
         "return timerBrowser.renderList(data, conflictReport)",
