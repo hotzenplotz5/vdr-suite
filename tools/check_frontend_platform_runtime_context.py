@@ -80,6 +80,7 @@ def main() -> int:
         "getSelectedBackendId: selectedEpgBackendId",
         "getSelectedModule: function()",
         "configurePlatformRuntimeContextBoundary();",
+        "configureChannelBrowserContextBoundary();\nconfigurePlatformRuntimeContextBoundary();",
         "function frontendPlatformModule(name, legacyApi)",
         "window.VdrSuitePlatform.getModule(name)",
         "frontendPlatformModule('channels', window.VdrSuiteChannelBrowser)",

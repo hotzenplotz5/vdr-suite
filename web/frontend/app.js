@@ -89,6 +89,7 @@ function renderChannelsThroughModule(data) {
 }
 
 configureChannelBrowserContextBoundary();
+configurePlatformRuntimeContextBoundary();
 
 const EPG_TIMELINE_VISIBLE_SECONDS = 24 * 60 * 60;
 const EPG_TIMELINE_TICK_SECONDS = 2 * 60 * 60;

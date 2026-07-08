@@ -160,8 +160,12 @@ def check_app_channel_browser_module_bridge_contract(app_js: str) -> None:
         "app.js must define renderChannelsThroughModule(data)",
     )
     require(
-        "window.VdrSuiteChannelBrowser.renderList(data)" in app_js,
-        "app.js must render Channels through window.VdrSuiteChannelBrowser.renderList(data)",
+        "frontendPlatformModule('channels', window.VdrSuiteChannelBrowser)" in app_js,
+        "app.js must resolve Channels through VdrSuitePlatform.getModule('channels') with legacy fallback",
+    )
+    require(
+        "return channelBrowser.renderList(data)" in app_js,
+        "app.js must render Channels through the resolved Channel browser module",
     )
     require(
         "Channel browser module render API is not available" in app_js,
