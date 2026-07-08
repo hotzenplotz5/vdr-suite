@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 60.2h2 aligns the Recording browser dependency guard with the shared registry API object.
+Phase 60.2i guards the Recording browser registry runtime smoke-check expectations.
 
 Stable scope:
 
@@ -177,6 +177,7 @@ Stable scope:
 - Phase 60.2h registers `window.VdrSuiteRecordingBrowser` as the `recordings` platform module while preserving the legacy global API.
 - Phase 60.2h1 removes the obsolete direct `Object.freeze` export expectation from the Recording browser registry guard.
 - Phase 60.2h2 updates the Recording dependency guard to accept the shared `recordingBrowserApi` export.
+- Phase 60.2i documents and guards the combined Channel and Recording registry runtime checks for `listModules`, `hasModule` and `getModule`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

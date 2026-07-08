@@ -1273,9 +1273,11 @@ def check_frontend_module_runtime_smoke_check_documentation(boundary_doc: str) -
         "/frontend/modules/channels.js",
         "/frontend/modules/recordings.js",
         "Verify `window.VdrSuitePlatform.isLoaded()` returns `true` after hard reload.",
-        "Verify `window.VdrSuitePlatform.listModules()` returns `['channels']` after Channel browser registration.",
+        "Verify `window.VdrSuitePlatform.listModules()` returns `['channels', 'recordings']` after Channel and Recording browser registration.",
         "Verify `window.VdrSuitePlatform.hasModule('channels')` returns `true`.",
+        "Verify `window.VdrSuitePlatform.hasModule('recordings')` returns `true`.",
         "Verify `window.VdrSuitePlatform.getModule('channels') === window.VdrSuiteChannelBrowser` returns `true`.",
+        "Verify `window.VdrSuitePlatform.getModule('recordings') === window.VdrSuiteRecordingBrowser` returns `true`.",
         "runtime-compatible script paths remain authoritative",
     ]
 
