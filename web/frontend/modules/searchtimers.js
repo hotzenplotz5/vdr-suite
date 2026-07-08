@@ -1,4 +1,4 @@
-// Phase 60.10d: Active SearchTimer browser module with preview-only editor wiring.
+// Phase 60.10e: Active SearchTimer browser module with readable preview result rendering.
 // SearchTimer is visible in the frontend module navigation.
 // Owns SearchTimer list rendering through the frontend platform registry.
 // Live parity capability slots are rendered for VPS, blacklist, filters, preview and write actions.
@@ -232,6 +232,135 @@
     return payload;
   }
 
+  function previewTextValue(value, fallback) {
+    if (value === undefined || value === null || value === '') {
+      return fallback;
+    }
+
+    return String(value);
+  }
+
+  function appendPreviewMetric(parent, label, value) {
+    const item = document.createElement('div');
+    item.className = 'searchtimer-preview-metric';
+
+    item.appendChild(addText(document.createElement('span'), label));
+    item.appendChild(addText(document.createElement('strong'), previewTextValue(value, '-')));
+
+    parent.appendChild(item);
+  }
+
+  function appendPreviewWarnings(parent, warnings) {
+    if (!Array.isArray(warnings) || warnings.length === 0) {
+      return;
+    }
+
+    const section = document.createElement('section');
+    section.className = 'searchtimer-preview-section searchtimer-preview-warnings';
+    section.appendChild(addText(document.createElement('h4'), 'Warnungen'));
+
+    const list = document.createElement('ul');
+    warnings.forEach(warning => {
+      list.appendChild(addText(document.createElement('li'), warning));
+    });
+
+    section.appendChild(list);
+    parent.appendChild(section);
+  }
+
+  function previewMatchesFromResponse(data) {
+    if (data &&
+        data.preview &&
+        Array.isArray(data.preview.matches)) {
+      return data.preview.matches;
+    }
+
+    return [];
+  }
+
+  function appendPreviewMatch(parent, match, index) {
+    const card = document.createElement('article');
+    card.className = 'searchtimer-preview-match';
+
+    card.appendChild(addText(
+      document.createElement('h5'),
+      previewTextValue(
+        firstValue(match, ['title', 'name', 'eventTitle', 'shortText'], ''),
+        'Treffer ' + String(index + 1)
+      )
+    ));
+
+    appendMeta(card, 'Kanal', firstValue(match, ['channelName', 'channel', 'channelId'], '-'));
+    appendMeta(card, 'Start', firstValue(match, ['startTime', 'start', 'beginTime'], '-'));
+    appendMeta(card, 'Ende', firstValue(match, ['endTime', 'end'], '-'));
+    appendMeta(card, 'Beschreibung', firstValue(match, ['description', 'summary', 'longText'], '-'));
+
+    parent.appendChild(card);
+  }
+
+  function appendPreviewMatches(parent, data) {
+    const matches = previewMatchesFromResponse(data);
+
+    const section = document.createElement('section');
+    section.className = 'searchtimer-preview-section searchtimer-preview-matches';
+    section.appendChild(addText(document.createElement('h4'), 'Preview-Treffer'));
+
+    if (matches.length === 0) {
+      section.appendChild(addText(
+        document.createElement('p'),
+        'Keine Treffer in der aktuellen Vorschau.'
+      ));
+      parent.appendChild(section);
+      return;
+    }
+
+    matches.forEach((match, index) => {
+      appendPreviewMatch(section, match, index);
+    });
+
+    parent.appendChild(section);
+  }
+
+  function appendPreviewTechnicalDetails(parent, data) {
+    const details = document.createElement('details');
+    details.className = 'searchtimer-preview-technical';
+    details.appendChild(addText(document.createElement('summary'), 'Technische JSON-Details'));
+
+    const preview = document.createElement('pre');
+    preview.className = 'searchtimer-editor-preview-json';
+    preview.textContent = JSON.stringify(data, null, 2).slice(0, 6000);
+    details.appendChild(preview);
+
+    parent.appendChild(details);
+  }
+
+  function renderSearchTimerPreviewData(target, message, data) {
+    const epgInput = data && data.epgInput ? data.epgInput : {};
+    const statistics = data && data.statistics ? data.statistics : {};
+    const preview = data && data.preview ? data.preview : {};
+    const searchTimer = data && data.searchTimer ? data.searchTimer : {};
+
+    target.appendChild(addText(document.createElement('strong'), message));
+
+    const summary = document.createElement('section');
+    summary.className = 'searchtimer-preview-summary';
+
+    appendPreviewMetric(summary, 'Backend', firstValue(searchTimer, ['backendId', 'backend'], searchTimerEditorBackendId()));
+    appendPreviewMetric(summary, 'Engine', firstValue(data, ['previewEngine'], '-'));
+    appendPreviewMetric(summary, 'EPG-Status', firstValue(epgInput, ['status'], '-'));
+    appendPreviewMetric(summary, 'EPG verfügbar', formatBoolean(firstValue(epgInput, ['available'], false)));
+    appendPreviewMetric(summary, 'Treffer gesamt', firstValue(statistics, ['totalCount'], firstValue(preview, ['totalCount'], 0)));
+    appendPreviewMetric(summary, 'Geliefert', firstValue(statistics, ['returnedCount'], firstValue(preview, ['returnedCount'], 0)));
+    appendPreviewMetric(summary, 'Kanäle', firstValue(statistics, ['channelCount'], 0));
+    appendPreviewMetric(summary, 'Nächster Start', firstValue(statistics, ['nextStartTime'], '-'));
+
+    target.appendChild(summary);
+
+    appendPreviewWarnings(target, epgInput.warnings);
+    appendPreviewMatches(target, data);
+    appendPreviewTechnicalDetails(target, data);
+  }
+
   function setSearchTimerPreviewFeedback(target, error, message, data) {
     target.replaceChildren();
     target.hidden = false;
@@ -239,14 +368,12 @@
       ? 'searchtimer-editor-preview-result error'
       : 'searchtimer-editor-preview-result';
 
-    target.appendChild(addText(document.createElement('strong'), message));
-
-    if (data !== undefined && data !== null) {
-      const preview = document.createElement('pre');
-      preview.className = 'searchtimer-editor-preview-json';
-      preview.textContent = JSON.stringify(data, null, 2).slice(0, 4000);
-      target.appendChild(preview);
+    if (!error && data && typeof data === 'object') {
+      renderSearchTimerPreviewData(target, message, data);
+      return;
     }
+
+    target.appendChild(addText(document.createElement('strong'), message));
   }
 
   function runSearchTimerPreview(form, button, target) {
