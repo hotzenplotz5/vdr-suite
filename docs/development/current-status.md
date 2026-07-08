@@ -51,6 +51,17 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ---
 
+## GitHub Update Safety Handoff
+
+### Preferred edit path for new chats
+
+- Prefer direct GitHub repository updates for existing files when the requested change is a small, well-scoped documentation or source update.
+- Use local edits first only when the change requires:
+  - running repository-local generators before editing,
+  - inspecting generated files before committing,
+  - applying a binary or non-text artifact workflow,
+  - a workaround because the GitHub connector blocks a file operation.
+
 ## Latest Verified Implementation Slice
 
 Phase 60.2j closes the frontend platform module registry block.
