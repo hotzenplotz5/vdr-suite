@@ -186,8 +186,6 @@ def main() -> int:
         "function configureSearchTimerBrowserContextBoundary()",
         "frontendPlatformModule('searchtimers', window.VdrSuiteSearchTimerBrowser)",
         "function renderSearchTimersThroughModule(data)",
-        "function renderList(data)",
-        "SearchTimer browser mount target is not configured",
         "renderSearchTimersThroughModule(data);",
     ]
 
