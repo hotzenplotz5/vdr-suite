@@ -417,6 +417,8 @@ bool isFrontendPath(
         path == "/frontend/channel-logos.js" ||
         path == "/frontend/channel-browser.js" ||
         path == "/frontend/modules/channels.js" ||
+        path == "/frontend/modules/timers.js" ||
+        path == "/frontend/modules/searchtimers.js" ||
         path == "/frontend/recording-browser.js" ||
         path == "/frontend/modules/recordings.js" ||
         path == "/frontend/style.css";
@@ -480,6 +482,20 @@ HttpServerResponse serveFrontendPath(
     {
         return makeFrontendAssetResponse(
             "modules/channels.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/modules/timers.js")
+    {
+        return makeFrontendAssetResponse(
+            "modules/timers.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/modules/searchtimers.js")
+    {
+        return makeFrontendAssetResponse(
+            "modules/searchtimers.js",
             "application/javascript; charset=utf-8");
     }
 
