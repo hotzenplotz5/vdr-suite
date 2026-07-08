@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP = ROOT / "web" / "frontend" / "platform" / "bootstrap.js"
 APP = ROOT / "web" / "frontend" / "app.js"
+TIMER_MODULE = ROOT / "web" / "frontend" / "modules" / "timers.js"
 
 
 class ContractFailure(Exception):
@@ -35,6 +36,7 @@ def require(condition: bool, message: str) -> None:
 def main() -> int:
     bootstrap = read(BOOTSTRAP)
     app_js = read(APP)
+    timer_module = read(TIMER_MODULE)
 
     required_tokens = [
         "Phase 60.3: Frontend platform runtime context foundation.",
@@ -64,6 +66,42 @@ def main() -> int:
 
     for token in required_tokens:
         require(token in bootstrap, "platform runtime context contract missing: " + token)
+
+    timer_module_required_tokens = [
+        "Phase 60.5c: Timer module source placeholder.",
+        "Prepared module source path for the future Timer browser extraction.",
+        "This file is intentionally not loaded by index.html yet.",
+        "Runtime ownership stays in app.js until the Timer renderer is extracted.",
+        "const timerModulePreparation = Object.freeze({",
+        "phase: '60.5c'",
+        "isPrepared: function()",
+        "global.VdrSuitePreparedModules = Object.create(null);",
+        "global.VdrSuitePreparedModules.timers = timerModulePreparation;",
+    ]
+
+    for token in timer_module_required_tokens:
+        require(token in timer_module, "prepared Timer module contract missing: " + token)
+
+    timer_module_forbidden_tokens = [
+        "document.",
+        "document[",
+        "createElement",
+        "appendChild",
+        "replaceChildren",
+        "innerHTML",
+        "fetch(",
+        "XMLHttpRequest",
+        "EventSource",
+        "WebSocket",
+        "registerModule('timers'",
+        'registerModule("timers"',
+        "renderTimerList",
+        "loadTimers",
+        "loadTimerConflictPanel",
+    ]
+
+    for token in timer_module_forbidden_tokens:
+        require(token not in timer_module, "prepared Timer module must remain inert before extraction: " + token)
 
     app_required_tokens = [
         "function configurePlatformRuntimeContextBoundary()",
