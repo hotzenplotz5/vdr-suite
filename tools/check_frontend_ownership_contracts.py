@@ -314,10 +314,10 @@ def check_timer_conflict_loading_client_api_contract(app_js: str) -> None:
     start = app_js.find("function loadTimerConflictPanel(timers) {")
     require(start >= 0, "app.js must define loadTimerConflictPanel(timers)")
 
-    end = app_js.find("function renderSearchTimerList(data) {", start)
+    end = app_js.find("function configureSearchTimerBrowserContextBoundary() {", start)
     require(
         end > start,
-        "app.js loadTimerConflictPanel() boundary must end before renderSearchTimerList()"
+        "app.js loadTimerConflictPanel() boundary must end before configureSearchTimerBrowserContextBoundary()"
     )
 
     body = app_js[start:end]
@@ -771,16 +771,15 @@ def check_active_timer_module_source_contract() -> None:
 
 def check_app_owned_timer_context_consumption_contract(app_js: str) -> None:
     required_tokens = [
-        "let timerBrowserContext = Object.freeze({});",
-        "function configureAppOwnedTimerBrowserContext(context)",
-        "timerBrowserContext = Object.freeze(Object.assign({}, context || {}));",
-        "configureContext: configureAppOwnedTimerBrowserContext",
+        "function loadTimerConflictPanel(",
+        "function appendTimerConflictPanel(report, timers, error)",
+        "return renderTimerConflictsThroughModule(report, timers, error);",
     ]
 
     for token in required_tokens:
         require(
             token in app_js,
-            "app-owned Timer compatibility context consumption missing: " + token,
+            "app.js Timer conflict loading/context bridge missing: " + token,
         )
 
 
