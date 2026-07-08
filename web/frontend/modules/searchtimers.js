@@ -1,4 +1,4 @@
-// Phase 60.10a: Active SearchTimer browser module with editor shell.
+// Phase 60.10d: Active SearchTimer browser module with preview-only editor wiring.
 // SearchTimer is visible in the frontend module navigation.
 // Owns SearchTimer list rendering through the frontend platform registry.
 // Live parity capability slots are rendered for VPS, blacklist, filters, preview and write actions.
@@ -174,7 +174,7 @@
     input.type = 'text';
     input.name = name;
     input.placeholder = placeholder || '';
-    input.disabled = true;
+    input.disabled = false;
     return input;
   }
 
@@ -182,7 +182,7 @@
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.name = name;
-    input.disabled = true;
+    input.disabled = false;
     return input;
   }
 
@@ -191,8 +191,126 @@
     input.type = 'number';
     input.name = name;
     input.placeholder = placeholder || '';
-    input.disabled = true;
+    input.disabled = false;
     return input;
+  }
+
+  function searchTimerEditorClientApi() {
+    return searchTimerBrowserContext.clientApi || global.VdrSuiteClientApi || null;
+  }
+
+  function searchTimerEditorBackendId() {
+    if (typeof searchTimerBrowserContext.getSelectedBackendId === 'function') {
+      const backendId = searchTimerBrowserContext.getSelectedBackendId();
+      if (String(backendId || '').trim() !== '') {
+        return String(backendId);
+      }
+    }
+
+    return 'default';
+  }
+
+  function collectSearchTimerEditorPayload(form) {
+    const payload = {};
+
+    Array.from(form.elements).forEach(element => {
+      if (!element || !element.name) {
+        return;
+      }
+
+      if (element.type === 'checkbox') {
+        payload[element.name] = element.checked ? '1' : '0';
+        return;
+      }
+
+      const value = String(element.value || '').trim();
+      if (value !== '') {
+        payload[element.name] = value;
+      }
+    });
+
+    return payload;
+  }
+
+  function setSearchTimerPreviewFeedback(target, error, message, data) {
+    target.replaceChildren();
+    target.hidden = false;
+    target.className = error
+      ? 'searchtimer-editor-preview-result error'
+      : 'searchtimer-editor-preview-result';
+
+    target.appendChild(addText(document.createElement('strong'), message));
+
+    if (data !== undefined && data !== null) {
+      const preview = document.createElement('pre');
+      preview.className = 'searchtimer-editor-preview-json';
+      preview.textContent = JSON.stringify(data, null, 2).slice(0, 4000);
+      target.appendChild(preview);
+    }
+  }
+
+  function runSearchTimerPreview(form, button, target) {
+    const clientApi = searchTimerEditorClientApi();
+
+    if (!clientApi || typeof clientApi.fetchClientSearchTimerPreview !== 'function') {
+      setSearchTimerPreviewFeedback(
+        target,
+        true,
+        'SearchTimer-Vorschau ist nicht verfügbar.',
+        null
+      );
+      return;
+    }
+
+    const payload = collectSearchTimerEditorPayload(form);
+
+    if (String(payload.search || '').trim() === '') {
+      setSearchTimerPreviewFeedback(
+        target,
+        true,
+        'Bitte zuerst einen Suchbegriff eingeben.',
+        null
+      );
+      return;
+    }
+
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Prüfe …';
+
+    setSearchTimerPreviewFeedback(
+      target,
+      false,
+      'SearchTimer-Vorschau wird geladen …',
+      null
+    );
+
+    clientApi.fetchClientSearchTimerPreview({
+      backendId: searchTimerEditorBackendId(),
+      query: payload,
+      cache: 'no-store',
+      credentials: 'same-origin'
+    })
+      .then(result => {
+        setSearchTimerPreviewFeedback(
+          target,
+          false,
+          'SearchTimer-Vorschau geladen.',
+          result
+        );
+      })
+      .catch(error => {
+        setSearchTimerPreviewFeedback(
+          target,
+          true,
+          String((error && error.message) || 'SearchTimer-Vorschau konnte nicht geladen werden.'),
+          null
+        );
+      })
+      .finally(() => {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      });
   }
 
   function renderSearchTimerEditorShell(parent) {
@@ -206,7 +324,7 @@
 
     const notice = addText(
       document.createElement('p'),
-      'Editor-Schale vorbereitet. Vorschau, Validierung und Speichern werden in den nächsten Schritten an die vorhandenen Client-API-Aktionen angebunden.'
+      'Preview-only Editor: Eingaben und Vorschau sind aktiv. Speichern bleibt bis zur Validierungs- und Schreibfreigabe deaktiviert.'
     );
     heading.appendChild(notice);
     editor.appendChild(heading);
@@ -231,7 +349,7 @@
 
     const previewButton = addText(document.createElement('button'), 'Vorschau');
     previewButton.type = 'button';
-    previewButton.disabled = true;
+    previewButton.disabled = false;
     previewButton.dataset.searchtimerAction = 'preview';
 
     const saveButton = addText(document.createElement('button'), 'Speichern');
@@ -244,11 +362,26 @@
     cancelButton.disabled = true;
     cancelButton.dataset.searchtimerAction = 'cancel';
 
+    const previewTarget = document.createElement('div');
+    previewTarget.className = 'searchtimer-editor-preview-result';
+    previewTarget.dataset.searchtimerPreviewResult = 'true';
+    previewTarget.hidden = true;
+
+    previewButton.addEventListener('click', () => {
+      runSearchTimerPreview(form, previewButton, previewTarget);
+    });
+
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      runSearchTimerPreview(form, previewButton, previewTarget);
+    });
+
     actions.appendChild(previewButton);
     actions.appendChild(saveButton);
     actions.appendChild(cancelButton);
 
     form.appendChild(actions);
+    form.appendChild(previewTarget);
     editor.appendChild(form);
 
     parent.appendChild(editor);
