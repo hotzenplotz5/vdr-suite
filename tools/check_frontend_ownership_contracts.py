@@ -669,8 +669,9 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
         "modules/channels.js must not contain Timer conflict logic",
     )
     require(
-        "window.VdrSuiteChannelBrowser = Object.freeze({" in channel_browser_js,
-        "modules/channels.js must expose the Channel browser module API surface",
+        "const channelBrowserApi = Object.freeze({" in channel_browser_js
+        and "window.VdrSuiteChannelBrowser = channelBrowserApi" in channel_browser_js,
+        "modules/channels.js must expose the shared Channel browser module API surface",
     )
     require(
         "configureContext: configureChannelBrowserContext" in channel_browser_js,
