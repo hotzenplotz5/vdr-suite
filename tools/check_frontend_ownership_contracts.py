@@ -746,6 +746,24 @@ def check_prepared_frontend_helpers_source_contract() -> None:
     )
 
 
+def check_app_owned_timer_context_consumption_contract(app_js: str) -> None:
+    required_tokens = [
+        "let timerBrowserContext = Object.freeze({});",
+        "function configureAppOwnedTimerBrowserContext(context)",
+        "timerBrowserContext = Object.freeze(Object.assign({}, context || {}));",
+        "configureContext: configureAppOwnedTimerBrowserContext",
+        "const mountTarget = timerBrowserContext.detailDataElement || detailDataElement;",
+        "mountTarget.replaceChildren();",
+        "mountTarget.appendChild(list);",
+    ]
+
+    for token in required_tokens:
+        require(
+            token in app_js,
+            "app-owned Timer browser context consumption missing: " + token,
+        )
+
+
 def check_app_timer_context_boundary_contract(app_js: str) -> None:
     require(
         "function configureTimerBrowserContextBoundary()" in app_js,
@@ -2123,6 +2141,7 @@ def main() -> int:
             channel_browser_js,
         )
         check_recording_browser_registry_registration_contract(recording_browser_js)
+        check_app_owned_timer_context_consumption_contract(app_js)
         check_app_timer_context_boundary_contract(app_js)
         check_app_timer_module_bridge_contract(app_js)
         check_app_timer_registry_registration_contract(app_js)

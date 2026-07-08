@@ -610,7 +610,9 @@ function renderTimersThroughModule(data, conflictReport) {
 
 function renderTimerList(data, conflictReport) {
   const timers = listFromResponse(data, 'timers');
-  detailDataElement.replaceChildren();
+  const mountTarget = timerBrowserContext.detailDataElement || detailDataElement;
+
+  mountTarget.replaceChildren();
 
   const list = document.createElement('section');
   list.className = 'list';
@@ -620,7 +622,7 @@ function renderTimerList(data, conflictReport) {
     empty.className = 'module-placeholder';
     empty.appendChild(addText(document.createElement('h3'), 'Keine Timer gefunden'));
     empty.appendChild(addText(document.createElement('p'), 'Der Endpunkt /api/vdr/timers hat aktuell keine Timer geliefert.'));
-    detailDataElement.appendChild(empty);
+    mountTarget.appendChild(empty);
     return;
   }
 
@@ -667,7 +669,7 @@ function renderTimerList(data, conflictReport) {
     list.appendChild(info);
   }
 
-  detailDataElement.appendChild(list);
+  mountTarget.appendChild(list);
 }
 
 
@@ -820,7 +822,14 @@ function loadTimerConflictPanel(timers) {
     });
 }
 
+let timerBrowserContext = Object.freeze({});
+
+function configureAppOwnedTimerBrowserContext(context) {
+  timerBrowserContext = Object.freeze(Object.assign({}, context || {}));
+}
+
 const timerBrowserApi = Object.freeze({
+  configureContext: configureAppOwnedTimerBrowserContext,
   renderList: renderTimerList,
   load: loadTimers,
   loadConflicts: loadTimerConflictPanel
