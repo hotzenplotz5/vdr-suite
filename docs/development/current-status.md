@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 60.1f closes the minimal frontend platform bootstrap contract.
+Phase 60.2a anchors the frontend platform module registry roadmap.
 
 Stable scope:
 
@@ -164,6 +164,7 @@ Stable scope:
 - Phase 60.1d loads `/frontend/platform/bootstrap.js` before `/frontend/api/client-api.js` and guards the runtime script order.
 - Phase 60.1e extends the frontend runtime smoke check with `window.VdrSuitePlatform.isLoaded()`.
 - Phase 60.1f closes the minimal platform bootstrap contract: served, installed, loaded first, DOM-free and smoke-checked.
+- Phase 60.2a anchors the module registry roadmap before adding registry behavior to `window.VdrSuitePlatform`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

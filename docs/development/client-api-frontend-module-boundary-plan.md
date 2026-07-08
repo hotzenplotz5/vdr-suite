@@ -285,6 +285,22 @@ Phase 60 Frontend Platform roadmap anchor:
   - shared DOM/UI helper namespace
   - shared formatting helper namespace
   - continued `window.VdrSuiteClientApi` consolidation
+
+Phase 60.2 module registry roadmap:
+
+- Do not connect existing Channel or Recording browser modules to the registry yet.
+- First registry slice must only extend `web/frontend/platform/bootstrap.js`.
+- Planned registry API:
+  - `registerModule(name, moduleApi)`
+  - `getModule(name)`
+  - `hasModule(name)`
+  - `listModules()`
+- Registry names must be stable strings such as `channels` and `recordings`.
+- Registry storage must remain private inside `platform/bootstrap.js`.
+- Registry methods must avoid DOM access, HTTP access and dynamic script loading.
+- Existing globals remain authoritative until dedicated migration slices:
+  - `window.VdrSuiteChannelBrowser`
+  - `window.VdrSuiteRecordingBrowser`
 - Existing browser modules remain on their runtime-compatible script paths until daemon/static rollout is deliberately changed.
 - Every platform slice must preserve the Phase 59 smoke-check expectations for `Kanäle` and `Aufnahmen`.
 
