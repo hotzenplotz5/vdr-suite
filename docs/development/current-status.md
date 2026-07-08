@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 60.2e1 aligns the Channel browser registry guard after the shared API registration.
+Phase 60.2f guards the Channel browser registry runtime smoke-check expectations.
 
 Stable scope:
 
@@ -170,6 +170,7 @@ Stable scope:
 - Phase 60.2d guards that `window.VdrSuiteChannelBrowser` remains the authoritative Channel API before the dedicated registry registration slice.
 - Phase 60.2e registers `window.VdrSuiteChannelBrowser` as the `channels` platform module while preserving the legacy global API.
 - Phase 60.2e1 removes the obsolete direct `Object.freeze` export expectation from the Channel browser registry guard.
+- Phase 60.2f documents and guards the Channel registry runtime checks for `listModules`, `hasModule` and `getModule`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
