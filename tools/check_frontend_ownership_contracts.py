@@ -769,20 +769,6 @@ def check_active_timer_module_source_contract() -> None:
     )
 
 
-def check_app_owned_timer_conflict_context_contract(app_js: str) -> None:
-    required_tokens = [
-        "function appendTimerConflictPanel(report, timers, error)",
-        "const previous = mountTarget.querySelector(\"[data-timer-conflict-panel=\\\"true\\\"]\");",
-        "const target = mountTarget.querySelector(\".list\") || mountTarget;",
-    ]
-
-    for token in required_tokens:
-        require(
-            token in app_js,
-            "app-owned Timer conflict panel context consumption missing: " + token,
-        )
-
-
 def check_app_owned_timer_context_consumption_contract(app_js: str) -> None:
     required_tokens = [
         "let timerBrowserContext = Object.freeze({});",
@@ -830,7 +816,6 @@ def check_timer_conflict_module_bridge_contract(app_js: str, timer_module_js: st
         "function renderTimerConflictsThroughModule(report, timers, error)",
         "frontendPlatformModule('timers', window.VdrSuiteTimerBrowser)",
         "timerBrowser.renderConflicts(report, timers, error)",
-        "return appendAppOwnedTimerConflictPanel(report, timers, error);",
         "function appendTimerConflictPanel(report, timers, error)",
         "return renderTimerConflictsThroughModule(report, timers, error);",
     ]
@@ -2214,7 +2199,6 @@ def main() -> int:
         )
         check_recording_browser_registry_registration_contract(recording_browser_js)
         check_active_timer_module_source_contract()
-        check_app_owned_timer_conflict_context_contract(app_js)
         check_app_owned_timer_context_consumption_contract(app_js)
         check_app_timer_context_boundary_contract(app_js)
         check_timer_conflict_module_bridge_contract(app_js, read(ROOT / "web" / "frontend" / "modules" / "timers.js"))

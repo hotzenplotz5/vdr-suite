@@ -343,6 +343,7 @@ Frontend module runtime smoke check:
 - `web/frontend/modules/timers.js` owns Timer list rendering; `app.js` still owns Timer loading and conflict fetching in this slice.
 - `app.js` no longer owns `renderTimerList(...)`; its Timer browser fallback fails clearly if `modules/timers.js` is unavailable.
 - Timer conflict panel rendering is routed through `modules/timers.js` via `renderConflicts(...)`, with the app-owned conflict renderer kept only as a fallback.
+- Timer ownership contracts now verify target architecture only: app-owned Timer loading/bridges in `app.js`, Timer list and conflict rendering in `modules/timers.js`.
 - Timer list rendering is routed through `renderTimersThroughModule(...)`, which resolves `timers` via `VdrSuitePlatform.getModule('timers')` with legacy fallback.
 - Timer browser context is configured through `configureTimerBrowserContextBoundary()`, including the platform-resolved `timers` mount target and `VdrSuiteFrontendHelpers`.
 - App-owned Timer rendering consumes the Timer context through `configureContext(...)` and renders into the context-provided mount target with `detailDataElement` fallback.
