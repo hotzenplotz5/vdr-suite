@@ -825,6 +825,31 @@ def check_app_timer_context_boundary_contract(app_js: str) -> None:
     )
 
 
+def check_timer_conflict_module_bridge_contract(app_js: str, timer_module_js: str) -> None:
+    required_app_tokens = [
+        "function renderTimerConflictsThroughModule(report, timers, error)",
+        "frontendPlatformModule('timers', window.VdrSuiteTimerBrowser)",
+        "timerBrowser.renderConflicts(report, timers, error)",
+        "return appendAppOwnedTimerConflictPanel(report, timers, error);",
+        "function appendTimerConflictPanel(report, timers, error)",
+        "return renderTimerConflictsThroughModule(report, timers, error);",
+    ]
+
+    for token in required_app_tokens:
+        require(token in app_js, "app.js Timer conflict module bridge missing: " + token)
+
+    required_module_tokens = [
+        "function renderConflicts(report, timers, error)",
+        "renderConflicts: renderConflicts",
+        "Timer-Konflikte konnten nicht geladen werden",
+        "data-timer-conflict-panel",
+        "timerConflictTimerLabel(timers, timerIndex)",
+    ]
+
+    for token in required_module_tokens:
+        require(token in timer_module_js, "modules/timers.js Timer conflict rendering missing: " + token)
+
+
 def check_app_timer_module_bridge_contract(app_js: str) -> None:
     require(
         "function renderTimersThroughModule(data, conflictReport)" in app_js,
@@ -2192,6 +2217,7 @@ def main() -> int:
         check_app_owned_timer_conflict_context_contract(app_js)
         check_app_owned_timer_context_consumption_contract(app_js)
         check_app_timer_context_boundary_contract(app_js)
+        check_timer_conflict_module_bridge_contract(app_js, read(ROOT / "web" / "frontend" / "modules" / "timers.js"))
         check_app_timer_module_bridge_contract(app_js)
         check_app_timer_renderer_extraction_contract(app_js)
         check_app_timer_registry_registration_contract(app_js)

@@ -654,7 +654,23 @@ function timerConflictTimerLabel(timers, timerIndex) {
   return "Timer #" + String(timerIndex) + ": " + String(title) + suffix;
 }
 
+function renderTimerConflictsThroughModule(report, timers, error) {
+  configureTimerBrowserContextBoundary();
+
+  const timerBrowser = frontendPlatformModule('timers', window.VdrSuiteTimerBrowser);
+
+  if (timerBrowser && typeof timerBrowser.renderConflicts === 'function') {
+    return timerBrowser.renderConflicts(report, timers, error);
+  }
+
+  return appendAppOwnedTimerConflictPanel(report, timers, error);
+}
+
 function appendTimerConflictPanel(report, timers, error) {
+  return renderTimerConflictsThroughModule(report, timers, error);
+}
+
+function appendAppOwnedTimerConflictPanel(report, timers, error) {
   const mountTarget = timerBrowserContext.detailDataElement || detailDataElement;
   const previous = mountTarget.querySelector("[data-timer-conflict-panel=\"true\"]");
 
