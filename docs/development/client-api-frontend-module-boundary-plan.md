@@ -299,6 +299,7 @@ Phase 60.2 module registry roadmap:
 - Registry storage must remain private inside `platform/bootstrap.js`.
 - Registry methods must avoid DOM access, HTTP access and dynamic script loading.
 - Phase 60.2b provides the registry API but does not register Channel or Recording browser modules yet.
+- Phase 60.2c guards the smoke-check expectation that the registry starts empty before module registration slices.
 - Existing globals remain authoritative until dedicated migration slices:
   - `window.VdrSuiteChannelBrowser`
   - `window.VdrSuiteRecordingBrowser`
@@ -309,6 +310,7 @@ Frontend module runtime smoke check:
 
 - After installing frontend assets, hard-reload the browser.
 - Verify `window.VdrSuitePlatform.isLoaded()` returns `true` after hard reload.
+- Verify `window.VdrSuitePlatform.listModules()` returns an empty array before module registration slices.
 - Verify the `Kanäle` module renders channel groups and selected-channel programmes.
 - Verify the `Aufnahmen` module renders the recording tree and opens recording details.
 - Verify the browser console has no missing script errors for:

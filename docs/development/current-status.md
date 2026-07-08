@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 60.2b adds the minimal DOM-free frontend platform module registry API.
+Phase 60.2c guards the platform registry smoke-check documentation before module registration.
 
 Stable scope:
 
@@ -166,6 +166,7 @@ Stable scope:
 - Phase 60.1f closes the minimal platform bootstrap contract: served, installed, loaded first, DOM-free and smoke-checked.
 - Phase 60.2a anchors the module registry roadmap before adding registry behavior to `window.VdrSuitePlatform`.
 - Phase 60.2b adds `registerModule`, `getModule`, `hasModule` and `listModules` to `window.VdrSuitePlatform` without connecting existing browser modules yet.
+- Phase 60.2c documents and guards that `window.VdrSuitePlatform.listModules()` remains empty before dedicated module registration slices.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
