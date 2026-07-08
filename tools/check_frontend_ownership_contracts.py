@@ -811,11 +811,24 @@ def check_app_timer_context_boundary_contract(app_js: str) -> None:
     )
 
 
+def check_app_timer_conflict_fallback_removed_contract(app_js: str) -> None:
+    forbidden_tokens = [
+        "function appendAppOwnedTimerConflictPanel(report, timers, error)",
+        "return appendAppOwnedTimerConflictPanel(report, timers, error);",
+        "function timerConflictListFromReport(report)",
+        "function timerConflictTimerLabel(timers, timerIndex)",
+    ]
+
+    for token in forbidden_tokens:
+        require(token not in app_js, "app.js must not keep app-owned Timer conflict fallback after module extraction: " + token)
+
+
 def check_timer_conflict_module_bridge_contract(app_js: str, timer_module_js: str) -> None:
     required_app_tokens = [
         "function renderTimerConflictsThroughModule(report, timers, error)",
         "frontendPlatformModule('timers', window.VdrSuiteTimerBrowser)",
-        "timerBrowser.renderConflicts(report, timers, error)",
+        "Timer browser module conflict render API is not available",
+        "return timerBrowser.renderConflicts(report, timers, error)",
         "function appendTimerConflictPanel(report, timers, error)",
         "return renderTimerConflictsThroughModule(report, timers, error);",
     ]
@@ -2201,6 +2214,7 @@ def main() -> int:
         check_active_timer_module_source_contract()
         check_app_owned_timer_context_consumption_contract(app_js)
         check_app_timer_context_boundary_contract(app_js)
+        check_app_timer_conflict_fallback_removed_contract(app_js)
         check_timer_conflict_module_bridge_contract(app_js, read(ROOT / "web" / "frontend" / "modules" / "timers.js"))
         check_app_timer_module_bridge_contract(app_js)
         check_app_timer_renderer_extraction_contract(app_js)

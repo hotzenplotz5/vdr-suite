@@ -485,22 +485,6 @@ function timerConflictCount(report) {
   return 0;
 }
 
-function formatTimerConflictTime(value) {
-  const epoch = Number(value);
-
-  if (!Number.isFinite(epoch) || epoch <= 0) {
-    return '-';
-  }
-
-  return new Date(epoch * 1000).toLocaleString('de-DE', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
 function describeTimerConflictEntry(entry) {
   const timerIndex = firstValue(entry, ['timerIndex', 'timer', 'index'], '-');
   const percentage = firstValue(entry, ['percentage', 'percent'], '-');
@@ -612,14 +596,6 @@ function renderTimersThroughModule(data, conflictReport) {
   return timerBrowser.renderList(data, conflictReport);
 }
 
-function timerConflictListFromReport(report) {
-  if (report && Array.isArray(report.conflicts)) {
-    return report.conflicts;
-  }
-
-  return [];
-}
-
 function formatTimerConflictTime(value) {
   const number = Number(value);
 
@@ -636,113 +612,20 @@ function formatTimerConflictTime(value) {
   return formatVdrClock(value);
 }
 
-function timerConflictTimerLabel(timers, timerIndex) {
-  const index = Number(timerIndex);
-  const timer = Array.isArray(timers) && Number.isFinite(index) && index > 0
-    ? timers[index - 1]
-    : null;
-
-  if (!timer) {
-    return "Timer #" + String(timerIndex);
-  }
-
-  const title = firstValue(timer, ["title", "name", "eventTitle", "description", "id", "timerId"], "Timer " + String(timerIndex));
-  const start = formatVdrClock(timerStartValue(timer));
-  const stop = formatVdrClock(timerEndValue(timer));
-  const suffix = start !== "-" || stop !== "-" ? " · " + start + "–" + stop : "";
-
-  return "Timer #" + String(timerIndex) + ": " + String(title) + suffix;
-}
-
 function renderTimerConflictsThroughModule(report, timers, error) {
   configureTimerBrowserContextBoundary();
 
   const timerBrowser = frontendPlatformModule('timers', window.VdrSuiteTimerBrowser);
 
-  if (timerBrowser && typeof timerBrowser.renderConflicts === 'function') {
-    return timerBrowser.renderConflicts(report, timers, error);
+  if (!timerBrowser || typeof timerBrowser.renderConflicts !== 'function') {
+    throw new Error('Timer browser module conflict render API is not available');
   }
 
-  return appendAppOwnedTimerConflictPanel(report, timers, error);
+  return timerBrowser.renderConflicts(report, timers, error);
 }
 
 function appendTimerConflictPanel(report, timers, error) {
   return renderTimerConflictsThroughModule(report, timers, error);
-}
-
-function appendAppOwnedTimerConflictPanel(report, timers, error) {
-  const mountTarget = timerBrowserContext.detailDataElement || detailDataElement;
-  const previous = mountTarget.querySelector("[data-timer-conflict-panel=\"true\"]");
-
-  if (previous) {
-    previous.remove();
-  }
-
-  const panel = document.createElement("article");
-  panel.className = "module-placeholder timer-conflict-panel";
-  panel.dataset.timerConflictPanel = "true";
-
-  if (error) {
-    panel.appendChild(addText(document.createElement("h3"), "Timer-Konflikte konnten nicht geladen werden"));
-    panel.appendChild(addText(document.createElement("p"), error.message));
-  } else if (report && report.available === false) {
-    panel.appendChild(addText(document.createElement("h3"), "Timer-Konfliktprüfung nicht verfügbar"));
-    panel.appendChild(addText(document.createElement("p"), firstValue(report, ["error"], "Der Konflikt-Endpunkt ist nicht verfügbar.")));
-  } else {
-    const conflicts = timerConflictListFromReport(report);
-    const count = Number(firstValue(report || {}, ["count"], conflicts.length));
-    const total = Number(firstValue(report || {}, ["total"], conflicts.length));
-    const source = firstValue(report || {}, ["source"], "unbekannt");
-    const activeConflictCount = Number.isFinite(count) ? count : conflicts.length;
-
-    if (activeConflictCount > 0 || conflicts.length > 0) {
-      panel.classList.add("timer-conflict-panel-alert");
-      panel.setAttribute("aria-label", "Achtung: aktive Timer-Konflikte");
-    } else {
-      panel.classList.add("timer-conflict-panel-ok");
-    }
-
-    if (conflicts.length === 0 && count === 0) {
-      panel.appendChild(addText(document.createElement("h3"), "Keine Timer-Konflikte gemeldet"));
-      panel.appendChild(addText(document.createElement("p"), "Quelle: " + String(source)));
-    } else {
-      panel.appendChild(addText(document.createElement("h3"), "Timer-Konflikte: " + String(activeConflictCount)));
-      panel.appendChild(addText(document.createElement("p"), "Quelle: " + String(source) + " · Gesamt: " + String(Number.isFinite(total) ? total : conflicts.length)));
-
-      conflicts.slice(0, 10).forEach((conflict, conflictIndex) => {
-        const conflictBlock = document.createElement("div");
-        conflictBlock.className = "list-meta";
-
-        const time = formatTimerConflictTime(firstValue(conflict, ["conflictTime", "time"], ""));
-        const entries = Array.isArray(conflict.entries) ? conflict.entries : [];
-
-        conflictBlock.appendChild(addText(document.createElement("strong"), "Konflikt " + String(conflictIndex + 1) + " · " + time));
-
-        entries.forEach(entry => {
-          const timerIndex = firstValue(entry, ["timerIndex"], "?");
-          const percentage = firstValue(entry, ["percentage"], "?");
-          const concurrent = Array.isArray(entry.concurrentTimerIndices)
-            ? entry.concurrentTimerIndices.join(", ")
-            : String(firstValue(entry, ["concurrentTimerIndices"], "-"));
-
-          conflictBlock.appendChild(addText(
-            document.createElement("div"),
-            timerConflictTimerLabel(timers, timerIndex) + " · " + String(percentage) + "% · parallel: " + concurrent
-          ));
-        });
-
-        panel.appendChild(conflictBlock);
-      });
-    }
-  }
-
-  const target = mountTarget.querySelector(".list") || mountTarget;
-
-  if (target.firstChild) {
-    target.insertBefore(panel, target.firstChild);
-  } else {
-    target.appendChild(panel);
-  }
 }
 
 function loadTimerConflictPanel(timers) {
