@@ -690,7 +690,7 @@ function setRecordingBrowserRecords(records) {
   currentRecordingRecords = Array.isArray(records) ? records.slice() : [];
 }
 
-window.VdrSuiteRecordingBrowser = Object.freeze({
+const recordingBrowserApi = Object.freeze({
   configureContext: configureRecordingBrowserContext,
   configureMountTarget: configureRecordingBrowserMountTarget,
   decodeRecordingText: decodeRecordingText,
@@ -699,3 +699,11 @@ window.VdrSuiteRecordingBrowser = Object.freeze({
   renderRoot: renderRecordingRoot,
   renderNode: renderRecordingNode
 });
+
+window.VdrSuiteRecordingBrowser = recordingBrowserApi;
+
+if (window.VdrSuitePlatform &&
+    typeof window.VdrSuitePlatform.registerModule === 'function' &&
+    !window.VdrSuitePlatform.hasModule('recordings')) {
+  window.VdrSuitePlatform.registerModule('recordings', recordingBrowserApi);
+}

@@ -695,22 +695,34 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
     )
 
 
-def check_recording_browser_registry_registration_preparation(recording_browser_js: str) -> None:
+def check_recording_browser_registry_registration_contract(recording_browser_js: str) -> None:
     require(
         "window.VdrSuiteRecordingBrowser = Object.freeze({" in recording_browser_js,
-        "modules/recordings.js must keep window.VdrSuiteRecordingBrowser as the authoritative Recording browser API before registry registration",
+        "modules/recordings.js must keep window.VdrSuiteRecordingBrowser as the authoritative Recording browser API after registry registration",
     )
     require(
         "configureContext: configureRecordingBrowserContext" in recording_browser_js,
-        "modules/recordings.js must expose configureContext before registry registration",
+        "modules/recordings.js must expose configureContext through the registry API",
     )
     require(
         "renderList: renderRecordingList" in recording_browser_js,
-        "modules/recordings.js must expose renderList before registry registration",
+        "modules/recordings.js must expose renderList through the registry API",
     )
     require(
-        "window.VdrSuitePlatform.registerModule('recordings'" not in recording_browser_js,
-        "modules/recordings.js must not register with VdrSuitePlatform before the dedicated Recording registration slice",
+        "const recordingBrowserApi = Object.freeze({" in recording_browser_js,
+        "modules/recordings.js must create a shared recordingBrowserApi object for global and registry access",
+    )
+    require(
+        "window.VdrSuiteRecordingBrowser = recordingBrowserApi" in recording_browser_js,
+        "modules/recordings.js must keep window.VdrSuiteRecordingBrowser mapped to the shared Recording browser API",
+    )
+    require(
+        "window.VdrSuitePlatform.registerModule('recordings', recordingBrowserApi)" in recording_browser_js,
+        "modules/recordings.js must register the Recording browser API with VdrSuitePlatform",
+    )
+    require(
+        "!window.VdrSuitePlatform.hasModule('recordings')" in recording_browser_js,
+        "modules/recordings.js must guard duplicate Recording browser registry registration",
     )
 
 
@@ -1992,7 +2004,7 @@ def main() -> int:
             app_js,
             channel_browser_js,
         )
-        check_recording_browser_registry_registration_preparation(recording_browser_js)
+        check_recording_browser_registry_registration_contract(recording_browser_js)
         check_recording_browser_contract(recording_browser_js)
         check_recording_browser_dependency_contract(
             index_html,
