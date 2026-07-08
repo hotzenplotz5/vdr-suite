@@ -183,6 +183,10 @@ def main() -> int:
         "load: loadTimers",
         "loadConflicts: loadTimerConflictPanel",
         "registerAppOwnedTimerModule();",
+        "function configureSearchTimerBrowserContextBoundary()",
+        "frontendPlatformModule('searchtimers', window.VdrSuiteSearchTimerBrowser)",
+        "function renderSearchTimersThroughModule(data)",
+        "renderSearchTimersThroughModule(data);",
     ]
 
     for token in app_required_tokens:

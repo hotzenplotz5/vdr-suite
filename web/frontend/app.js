@@ -3153,6 +3153,40 @@ function loadTimers() {
     });
 }
 
+function configureSearchTimerBrowserContextBoundary() {
+  const searchTimerBrowser = frontendPlatformModule('searchtimers', window.VdrSuiteSearchTimerBrowser);
+
+  if (!searchTimerBrowser ||
+      typeof searchTimerBrowser.configureContext !== 'function') {
+    return;
+  }
+
+  searchTimerBrowser.configureContext({
+    detailDataElement: frontendPlatformMountTarget('searchtimers', detailDataElement),
+    helpers: window.VdrSuiteFrontendHelpers || null
+  });
+}
+
+function renderSearchTimersThroughModule(data) {
+  configureSearchTimerBrowserContextBoundary();
+
+  const searchTimerBrowser = frontendPlatformModule('searchtimers', window.VdrSuiteSearchTimerBrowser);
+
+  if (searchTimerBrowser && typeof searchTimerBrowser.renderList === 'function') {
+    try {
+      return searchTimerBrowser.renderList(data);
+    } catch (error) {
+      if (error && error.message === 'SearchTimer rendering is still owned by app.js') {
+        return renderSearchTimerList(data);
+      }
+
+      throw error;
+    }
+  }
+
+  return renderSearchTimerList(data);
+}
+
 function loadSearchTimers() {
   renderModuleLoading('SearchTimer', 'Lade SearchTimer...');
 
@@ -3170,7 +3204,7 @@ function loadSearchTimers() {
   clientApi.fetchClientSearchTimers()
     .then(data => {
       currentSearchTimers = data;
-      renderSearchTimerList(data);
+      renderSearchTimersThroughModule(data);
     })
     .catch(error => {
       currentSearchTimers = null;

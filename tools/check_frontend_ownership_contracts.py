@@ -900,6 +900,47 @@ def check_app_timer_registry_registration_contract(app_js: str) -> None:
         )
 
 
+def check_prepared_searchtimer_module_source_contract() -> None:
+    searchtimer_module = read(ROOT / "web" / "frontend" / "modules" / "searchtimers.js")
+    index_html = read(INDEX)
+
+    required_tokens = [
+        "Phase 60.9a: Prepared SearchTimer browser module.",
+        "function configureContext(context)",
+        "function unavailableSearchTimerRenderList()",
+        "SearchTimer rendering is still owned by app.js",
+        "const searchTimerBrowserApi = Object.freeze({",
+        "global.VdrSuiteSearchTimerBrowser = searchTimerBrowserApi;",
+        "global.VdrSuitePlatform.registerModule('searchtimers', searchTimerBrowserApi);",
+    ]
+
+    for token in required_tokens:
+        require(token in searchtimer_module, "prepared SearchTimer module source missing: " + token)
+
+    require(
+        index_html.index('<script src="/frontend/modules/searchtimers.js"></script>')
+        < index_html.index('<script src="/frontend/app.js"></script>'),
+        "index.html must load searchtimers.js before app.js",
+    )
+
+
+def check_app_searchtimer_module_bridge_contract(app_js: str) -> None:
+    required_tokens = [
+        "function configureSearchTimerBrowserContextBoundary()",
+        "frontendPlatformModule('searchtimers', window.VdrSuiteSearchTimerBrowser)",
+        "detailDataElement: frontendPlatformMountTarget('searchtimers', detailDataElement)",
+        "helpers: window.VdrSuiteFrontendHelpers || null",
+        "function renderSearchTimersThroughModule(data)",
+        "searchTimerBrowser.renderList(data)",
+        "SearchTimer rendering is still owned by app.js",
+        "return renderSearchTimerList(data);",
+        "renderSearchTimersThroughModule(data);",
+    ]
+
+    for token in required_tokens:
+        require(token in app_js, "app.js SearchTimer module bridge missing: " + token)
+
+
 def check_recording_browser_registry_registration_contract(recording_browser_js: str) -> None:
     require(
         "configureContext: configureRecordingBrowserContext" in recording_browser_js,
