@@ -794,6 +794,14 @@ function loadTimerConflictPanel(timers) {
     });
 }
 
+const timerBrowserApi = Object.freeze({
+  renderList: renderTimerList,
+  load: loadTimers,
+  loadConflicts: loadTimerConflictPanel
+});
+
+window.VdrSuiteTimerBrowser = timerBrowserApi;
+
 function registerAppOwnedTimerModule() {
   if (!window.VdrSuitePlatform ||
       typeof window.VdrSuitePlatform.registerModule !== 'function' ||
@@ -802,11 +810,7 @@ function registerAppOwnedTimerModule() {
     return;
   }
 
-  window.VdrSuitePlatform.registerModule('timers', Object.freeze({
-    renderList: renderTimerList,
-    load: loadTimers,
-    loadConflicts: loadTimerConflictPanel
-  }));
+  window.VdrSuitePlatform.registerModule('timers', timerBrowserApi);
 }
 
 registerAppOwnedTimerModule();

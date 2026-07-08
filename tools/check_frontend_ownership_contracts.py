@@ -702,7 +702,9 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 def check_app_timer_registry_registration_contract(app_js: str) -> None:
     required_tokens = [
         "function registerAppOwnedTimerModule()",
-        "window.VdrSuitePlatform.registerModule('timers', Object.freeze({",
+        "const timerBrowserApi = Object.freeze({",
+        "window.VdrSuiteTimerBrowser = timerBrowserApi",
+        "window.VdrSuitePlatform.registerModule('timers', timerBrowserApi)",
         "window.VdrSuitePlatform.hasModule('timers')",
         "renderList: renderTimerList",
         "load: loadTimers",
@@ -1301,7 +1303,7 @@ def check_frontend_module_runtime_smoke_check_documentation(boundary_doc: str) -
         "Verify `window.VdrSuitePlatform.hasModule('timers')` returns `true`.",
         "Verify `window.VdrSuitePlatform.getModule('channels') === window.VdrSuiteChannelBrowser` returns `true`.",
         "Verify `window.VdrSuitePlatform.getModule('recordings') === window.VdrSuiteRecordingBrowser` returns `true`.",
-        "Verify `window.VdrSuitePlatform.getModule('timers').renderList === renderTimerList` returns `true` while Timer rendering remains app-owned.",
+        "Verify `window.VdrSuitePlatform.getModule('timers') === window.VdrSuiteTimerBrowser` returns `true` while Timer rendering remains app-owned.",
         "runtime-compatible script paths remain authoritative",
     ]
 
