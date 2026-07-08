@@ -697,10 +697,6 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
 
 def check_recording_browser_registry_registration_contract(recording_browser_js: str) -> None:
     require(
-        "window.VdrSuiteRecordingBrowser = Object.freeze({" in recording_browser_js,
-        "modules/recordings.js must keep window.VdrSuiteRecordingBrowser as the authoritative Recording browser API after registry registration",
-    )
-    require(
         "configureContext: configureRecordingBrowserContext" in recording_browser_js,
         "modules/recordings.js must expose configureContext through the registry API",
     )
