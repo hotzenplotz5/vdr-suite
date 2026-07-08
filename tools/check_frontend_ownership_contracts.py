@@ -1635,27 +1635,53 @@ def check_channel_browser_module_path_serving_contract(
     )
 
 
-def check_frontend_static_serving_contract(test_http_server_cpp: str) -> None:
-    require(
-        '"frontend/api/client-api.js"' in test_http_server_cpp or '"/frontend/api/client-api.js"' in test_http_server_cpp,
-        "TestHttpServer must serve /frontend/api/client-api.js"
-    )
+def frontend_asset_paths_from_index(index_html: str) -> list[str]:
+    return sorted(set(
+        re.findall(
+            r"(?:src|href)=[\'\"](/frontend/[^\'\"?#]+)",
+            index_html,
+        )
+    ))
+
+
+def check_frontend_static_serving_contract(
+    index_html: str,
+    test_http_server_cpp: str,
+    install_mk: str,
+) -> None:
+    frontend_assets = frontend_asset_paths_from_index(index_html)
 
     require(
-        '"api/client-api.js"' in test_http_server_cpp,
-        "TestHttpServer must map /frontend/api/client-api.js to api/client-api.js"
+        bool(frontend_assets),
+        "index.html must contain at least one /frontend static asset",
     )
 
-    require(
-        '"/frontend/recording-browser.js"' in test_http_server_cpp,
-        "TestHttpServer must allow /frontend/recording-browser.js"
-    )
+    for asset_path in frontend_assets:
+        relative_path = asset_path[len("/frontend/"):]
 
-    require(
-        '"modules/recordings.js"' in test_http_server_cpp,
-        "TestHttpServer must map /frontend/modules/recordings.js to recording-browser.js"
-    )
+        require(
+            f'path == "{asset_path}"' in test_http_server_cpp
+            or f'"{asset_path}"' in test_http_server_cpp,
+            "TestHttpServer must allow " + asset_path,
+        )
+        require(
+            f'"{relative_path}"' in test_http_server_cpp,
+            "TestHttpServer must map " + asset_path + " to " + relative_path,
+        )
 
+        install_source = "web/frontend/" + relative_path
+        install_destination = "$(DATADIR)/web/frontend/" + relative_path
+        staging_destination = (
+            "/tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/"
+            + relative_path
+        )
+
+        require(
+            install_source in install_mk
+            or install_destination in install_mk
+            or staging_destination in install_mk,
+            "install-runtime/test-install-staging must cover " + asset_path,
+        )
 
 
 
@@ -2281,7 +2307,11 @@ def main() -> int:
             test_http_server_cpp,
             install_mk,
         )
-        check_frontend_static_serving_contract(test_http_server_cpp)
+        check_frontend_static_serving_contract(
+            index_html,
+            test_http_server_cpp,
+            install_mk,
+        )
         check_frontend_install_contract(install_mk)
         check_frontend_platform_bootstrap_contract(platform_bootstrap_js)
         check_frontend_module_runtime_smoke_check_documentation(boundary_doc)

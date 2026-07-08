@@ -414,6 +414,7 @@ bool isFrontendPath(
         path == "/frontend/app.js" ||
         path == "/frontend/api/client-api.js" ||
         path == "/frontend/platform/bootstrap.js" ||
+        path == "/frontend/platform/helpers.js" ||
         path == "/frontend/channel-logos.js" ||
         path == "/frontend/channel-browser.js" ||
         path == "/frontend/modules/channels.js" ||
@@ -461,6 +462,13 @@ HttpServerResponse serveFrontendPath(
     {
         return makeFrontendAssetResponse(
             "platform/bootstrap.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/platform/helpers.js")
+    {
+        return makeFrontendAssetResponse(
+            "platform/helpers.js",
             "application/javascript; charset=utf-8");
     }
 
