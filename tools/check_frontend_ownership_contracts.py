@@ -1211,6 +1211,7 @@ def check_frontend_module_runtime_smoke_check_documentation(boundary_doc: str) -
         "/frontend/recording-browser.js",
         "/frontend/modules/channels.js",
         "/frontend/modules/recordings.js",
+        "Verify `window.VdrSuitePlatform.isLoaded()` returns `true` after hard reload.",
         "runtime-compatible script paths remain authoritative",
     ]
 
