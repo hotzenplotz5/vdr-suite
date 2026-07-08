@@ -905,10 +905,11 @@ def check_prepared_searchtimer_module_source_contract() -> None:
     index_html = read(INDEX)
 
     required_tokens = [
-        "Phase 60.9a: Prepared SearchTimer browser module.",
+        "Phase 60.9b: Active SearchTimer browser module.",
         "function configureContext(context)",
-        "function unavailableSearchTimerRenderList()",
-        "SearchTimer rendering is still owned by app.js",
+                        "function renderList(data)",
+        "SearchTimer browser mount target is not configured",
+        "renderList: renderList",
         "const searchTimerBrowserApi = Object.freeze({",
         "global.VdrSuiteSearchTimerBrowser = searchTimerBrowserApi;",
         "global.VdrSuitePlatform.registerModule('searchtimers', searchTimerBrowserApi);",
@@ -931,10 +932,8 @@ def check_app_searchtimer_module_bridge_contract(app_js: str) -> None:
         "detailDataElement: frontendPlatformMountTarget('searchtimers', detailDataElement)",
         "helpers: window.VdrSuiteFrontendHelpers || null",
         "function renderSearchTimersThroughModule(data)",
-        "searchTimerBrowser.renderList(data)",
-        "SearchTimer rendering is still owned by app.js",
-        "return renderSearchTimerList(data);",
-        "renderSearchTimersThroughModule(data);",
+        "return searchTimerBrowser.renderList(data)",
+                        "renderSearchTimersThroughModule(data);",
     ]
 
     for token in required_tokens:

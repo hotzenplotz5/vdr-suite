@@ -3172,19 +3172,11 @@ function renderSearchTimersThroughModule(data) {
 
   const searchTimerBrowser = frontendPlatformModule('searchtimers', window.VdrSuiteSearchTimerBrowser);
 
-  if (searchTimerBrowser && typeof searchTimerBrowser.renderList === 'function') {
-    try {
-      return searchTimerBrowser.renderList(data);
-    } catch (error) {
-      if (error && error.message === 'SearchTimer rendering is still owned by app.js') {
-        return renderSearchTimerList(data);
-      }
-
-      throw error;
-    }
+  if (!searchTimerBrowser || typeof searchTimerBrowser.renderList !== 'function') {
+    throw new Error('SearchTimer browser module render API is not available');
   }
 
-  return renderSearchTimerList(data);
+  return searchTimerBrowser.renderList(data);
 }
 
 function loadSearchTimers() {
