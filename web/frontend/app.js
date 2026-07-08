@@ -582,6 +582,16 @@ function appendTimerConflictSummary(parent, report) {
   parent.appendChild(box);
 }
 
+function renderTimersThroughModule(data, conflictReport) {
+  const timerBrowser = frontendPlatformModule('timers', window.VdrSuiteTimerBrowser);
+
+  if (!timerBrowser || typeof timerBrowser.renderList !== 'function') {
+    throw new Error('Timer browser module render API is not available');
+  }
+
+  return timerBrowser.renderList(data, conflictReport);
+}
+
 function renderTimerList(data, conflictReport) {
   const timers = listFromResponse(data, 'timers');
   detailDataElement.replaceChildren();
@@ -3266,7 +3276,7 @@ function loadTimers() {
   clientApi.fetchClientTimers()
     .then(data => {
       currentTimers = data;
-      renderTimerList(data);
+      renderTimersThroughModule(data, null);
       loadTimerConflictPanel(listFromResponse(data, "timers"));
     })
     .catch(error => {

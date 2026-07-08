@@ -745,6 +745,25 @@ def check_prepared_frontend_helpers_source_contract() -> None:
     )
 
 
+def check_app_timer_module_bridge_contract(app_js: str) -> None:
+    require(
+        "function renderTimersThroughModule(data, conflictReport)" in app_js,
+        "app.js must define renderTimersThroughModule(data, conflictReport)",
+    )
+    require(
+        "frontendPlatformModule('timers', window.VdrSuiteTimerBrowser)" in app_js,
+        "app.js must resolve Timers through VdrSuitePlatform.getModule('timers') with legacy fallback",
+    )
+    require(
+        "return timerBrowser.renderList(data, conflictReport)" in app_js,
+        "app.js must render Timers through the resolved Timer browser module",
+    )
+    require(
+        "renderTimersThroughModule(data, null);" in app_js,
+        "loadTimers() must route Timer rendering through renderTimersThroughModule(data, null)",
+    )
+
+
 def check_app_timer_registry_registration_contract(app_js: str) -> None:
     required_tokens = [
         "function registerAppOwnedTimerModule()",
@@ -2076,6 +2095,7 @@ def main() -> int:
             channel_browser_js,
         )
         check_recording_browser_registry_registration_contract(recording_browser_js)
+        check_app_timer_module_bridge_contract(app_js)
         check_app_timer_registry_registration_contract(app_js)
         check_prepared_frontend_helpers_source_contract()
         check_recording_browser_contract(recording_browser_js)
