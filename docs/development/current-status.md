@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 60.2f1 aligns the Channel browser API surface guard with the shared registry API object.
+Phase 60.2f2 aligns the Channel browser context-boundary guard with the shared registry API object.
 
 Stable scope:
 
@@ -172,6 +172,7 @@ Stable scope:
 - Phase 60.2e1 removes the obsolete direct `Object.freeze` export expectation from the Channel browser registry guard.
 - Phase 60.2f documents and guards the Channel registry runtime checks for `listModules`, `hasModule` and `getModule`.
 - Phase 60.2f1 updates the Channel API surface guard to accept the shared `channelBrowserApi` export.
+- Phase 60.2f2 updates the Channel context-boundary guard to accept `window.VdrSuiteChannelBrowser = channelBrowserApi`.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

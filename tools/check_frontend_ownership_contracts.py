@@ -557,7 +557,7 @@ def check_channel_browser_context_boundary_contract(
         "function channelBrowserListFromResponse(data, key)",
         "function channelBrowserListEventsFromEpgResponse(data)",
         "channelBrowserListEventsFromEpgResponse(eventData)",
-        "window.VdrSuiteChannelBrowser = Object.freeze({",
+        "window.VdrSuiteChannelBrowser = channelBrowserApi",
         "configureContext: configureChannelBrowserContext",
     ]
 
