@@ -281,6 +281,73 @@ button:disabled { background: #475569; color: #cbd5e1; cursor: default; }
   border-color: rgba(248, 113, 113, 0.28);
 }
 
+
+/* Phase 60.10c: SearchTimer editor mobile form layout */
+.searchtimer-editor-shell {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.searchtimer-editor-heading p {
+  max-width: 56rem;
+  line-height: 1.32;
+}
+
+.searchtimer-editor-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.72rem 0.85rem;
+  align-items: start;
+}
+
+.searchtimer-editor-field {
+  display: grid;
+  gap: 0.32rem;
+  min-width: 0;
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+.searchtimer-editor-field span {
+  line-height: 1.18;
+}
+
+.searchtimer-editor-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.35rem;
+  border: 1px solid #475569;
+  border-radius: 0.55rem;
+  padding: 0.45rem 0.6rem;
+  background: #111827;
+  color: #e2e8f0;
+  font: inherit;
+}
+
+.searchtimer-editor-field input[type="checkbox"] {
+  width: 1.35rem;
+  min-height: 1.35rem;
+  justify-self: start;
+  accent-color: #60a5fa;
+}
+
+.searchtimer-editor-field input:disabled {
+  opacity: 0.72;
+}
+
+.searchtimer-editor-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.15rem;
+}
+
+.searchtimer-editor-actions button {
+  min-height: 2.35rem;
+}
+
 @media (max-width: 760px) {
   body {
     font-size: 15px;
@@ -417,6 +484,24 @@ button:disabled { background: #475569; color: #cbd5e1; cursor: default; }
   .list-meta {
     font-size: 0.88rem;
   }
+
+  .searchtimer-editor-form {
+    grid-template-columns: 1fr;
+  }
+
+  .searchtimer-editor-field input {
+    min-height: 2.5rem;
+  }
+
+  .searchtimer-editor-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .searchtimer-editor-actions button {
+    width: 100%;
+  }
+
 }
 
 /* Phase 58.61: improve channel logo contrast */

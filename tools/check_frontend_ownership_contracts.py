@@ -1479,6 +1479,24 @@ def check_style_contract(style_css: str, app_js: str) -> None:
             "style.css must define .timer-conflict-panel-alert when Timer conflicts are rendered",
         )
 
+    searchtimer_editor_required_tokens = [
+        "Phase 60.10c: SearchTimer editor mobile form layout",
+        ".searchtimer-editor-shell",
+        ".searchtimer-editor-form",
+        "grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));",
+        ".searchtimer-editor-field",
+        ".searchtimer-editor-field input",
+        ".searchtimer-editor-field input[type=\"checkbox\"]",
+        ".searchtimer-editor-actions",
+        "@media (max-width: 460px)",
+        "grid-template-columns: 1fr;",
+    ]
+
+    for token in searchtimer_editor_required_tokens:
+        require(
+            token in style_css,
+            "style.css must keep SearchTimer editor mobile layout token: " + token,
+        )
 
 def check_documentation_contract(frontend_architecture_md: str) -> None:
     required_terms = [
