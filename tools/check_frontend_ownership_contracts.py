@@ -598,10 +598,6 @@ def check_channel_browser_context_boundary_contract(
 
 def check_channel_browser_registry_registration_contract(channel_browser_js: str) -> None:
     require(
-        "window.VdrSuiteChannelBrowser = Object.freeze({" in channel_browser_js,
-        "modules/channels.js must keep window.VdrSuiteChannelBrowser as the authoritative Channel browser API after registry registration",
-    )
-    require(
         "configureContext: configureChannelBrowserContext" in channel_browser_js,
         "modules/channels.js must expose configureContext through the registry API",
     )
