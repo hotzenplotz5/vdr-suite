@@ -90,6 +90,7 @@ def script_positions(index_html: str) -> dict[str, int]:
     scripts = {
         "platform": '<script src="/frontend/platform/bootstrap.js"></script>',
         "client_api": '<script src="/frontend/api/client-api.js"></script>',
+        "helpers": '<script src="/frontend/platform/helpers.js"></script>',
         "app": '<script src="/frontend/app.js"></script>',
         "channel_logos": '<script src="/frontend/channel-logos.js"></script>',
         "channel_browser": '<script src="/frontend/channel-browser.js"></script>',
@@ -110,12 +111,13 @@ def check_index_contract(index_html: str) -> None:
 
     require(
         positions["platform"]
+        < positions["helpers"]
         < positions["client_api"]
         < positions["channel_logos"]
         < positions["channel_browser"]
         < positions["recording_browser"]
         < positions["app"],
-        "index.html script order must be platform/bootstrap.js -> client-api.js -> channel-logos.js -> channel-browser.js -> recording-browser.js -> app.js",
+        "index.html script order must be platform/bootstrap.js -> platform/helpers.js -> client-api.js -> channel-logos.js -> channel-browser.js -> recording-browser.js -> app.js",
     )
     require(
         '<script src="/frontend/platform/bootstrap.js"></script>' in index_html,
@@ -738,8 +740,8 @@ def check_prepared_frontend_helpers_source_contract() -> None:
         require(token not in helpers_js, "prepared frontend helpers source must stay DOM/API-free: " + token)
 
     require(
-        '<script src="/frontend/platform/helpers.js"></script>' not in index_html,
-        "index.html must not load prepared frontend helpers before the dedicated rollout slice",
+        '<script src="/frontend/platform/helpers.js"></script>' in index_html,
+        "index.html must load the shared frontend helpers after the platform bootstrap",
     )
 
 

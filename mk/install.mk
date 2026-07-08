@@ -35,6 +35,7 @@ install-runtime: daemon
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/api
 	$(INSTALL) -m 0644 web/frontend/api/client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/client-api.js
 	$(INSTALL) -m 0644 web/frontend/platform/bootstrap.js $(DESTDIR)$(DATADIR)/web/frontend/platform/bootstrap.js
+	$(INSTALL) -m 0644 web/frontend/platform/helpers.js $(DESTDIR)$(DATADIR)/web/frontend/platform/helpers.js
 	$(INSTALL) -m 0644 web/frontend/channel-logos.js $(DESTDIR)$(DATADIR)/web/frontend/channel-logos.js
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/modules/channels.js
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/channel-browser.js
@@ -87,6 +88,7 @@ test-install-staging:
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/bootstrap.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/helpers.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/channels.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-browser.js
 	cmp -s /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/channels.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-browser.js
