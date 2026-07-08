@@ -1208,6 +1208,14 @@ def check_channel_browser_module_path_serving_contract(
         "install.mk must be ready to install web/frontend/modules/channels.js",
     )
     require(
+        "$(DATADIR)/web/frontend/platform" in install_mk,
+        "install.mk must create the frontend platform asset directory",
+    )
+    require(
+        "web/frontend/platform/bootstrap.js" in install_mk,
+        "install.mk must be ready to install web/frontend/platform/bootstrap.js when it exists",
+    )
+    require(
         "web/frontend/modules/recordings.js" in install_mk,
         "install.mk must install web/frontend/modules/recordings.js",
     )
