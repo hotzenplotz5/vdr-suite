@@ -699,6 +699,24 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
     )
 
 
+def check_app_timer_registry_registration_contract(app_js: str) -> None:
+    required_tokens = [
+        "function registerAppOwnedTimerModule()",
+        "window.VdrSuitePlatform.registerModule('timers', Object.freeze({",
+        "window.VdrSuitePlatform.hasModule('timers')",
+        "renderList: renderTimerList",
+        "load: loadTimers",
+        "loadConflicts: loadTimerConflictPanel",
+        "registerAppOwnedTimerModule();",
+    ]
+
+    for token in required_tokens:
+        require(
+            token in app_js,
+            "app.js Timer registry registration missing: " + token,
+        )
+
+
 def check_recording_browser_registry_registration_contract(recording_browser_js: str) -> None:
     require(
         "configureContext: configureRecordingBrowserContext" in recording_browser_js,
@@ -1277,11 +1295,13 @@ def check_frontend_module_runtime_smoke_check_documentation(boundary_doc: str) -
         "/frontend/modules/channels.js",
         "/frontend/modules/recordings.js",
         "Verify `window.VdrSuitePlatform.isLoaded()` returns `true` after hard reload.",
-        "Verify `window.VdrSuitePlatform.listModules()` returns `['channels', 'recordings']` after Channel and Recording browser registration.",
+        "Verify `window.VdrSuitePlatform.listModules()` returns `['channels', 'recordings', 'timers']` after Channel, Recording and app-owned Timer module registration.",
         "Verify `window.VdrSuitePlatform.hasModule('channels')` returns `true`.",
         "Verify `window.VdrSuitePlatform.hasModule('recordings')` returns `true`.",
+        "Verify `window.VdrSuitePlatform.hasModule('timers')` returns `true`.",
         "Verify `window.VdrSuitePlatform.getModule('channels') === window.VdrSuiteChannelBrowser` returns `true`.",
         "Verify `window.VdrSuitePlatform.getModule('recordings') === window.VdrSuiteRecordingBrowser` returns `true`.",
+        "Verify `window.VdrSuitePlatform.getModule('timers').renderList === renderTimerList` returns `true` while Timer rendering remains app-owned.",
         "runtime-compatible script paths remain authoritative",
     ]
 
@@ -2008,6 +2028,7 @@ def main() -> int:
             channel_browser_js,
         )
         check_recording_browser_registry_registration_contract(recording_browser_js)
+        check_app_timer_registry_registration_contract(app_js)
         check_recording_browser_contract(recording_browser_js)
         check_recording_browser_dependency_contract(
             index_html,

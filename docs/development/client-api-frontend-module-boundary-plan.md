@@ -333,11 +333,13 @@ Frontend module runtime smoke check:
 
 - After installing frontend assets, hard-reload the browser.
 - Verify `window.VdrSuitePlatform.isLoaded()` returns `true` after hard reload.
-- Verify `window.VdrSuitePlatform.listModules()` returns `['channels', 'recordings']` after Channel and Recording browser registration.
+- Verify `window.VdrSuitePlatform.listModules()` returns `['channels', 'recordings', 'timers']` after Channel, Recording and app-owned Timer module registration.
 - Verify `window.VdrSuitePlatform.hasModule('channels')` returns `true`.
 - Verify `window.VdrSuitePlatform.hasModule('recordings')` returns `true`.
+- Verify `window.VdrSuitePlatform.hasModule('timers')` returns `true`.
 - Verify `window.VdrSuitePlatform.getModule('channels') === window.VdrSuiteChannelBrowser` returns `true`.
 - Verify `window.VdrSuitePlatform.getModule('recordings') === window.VdrSuiteRecordingBrowser` returns `true`.
+- Verify `window.VdrSuitePlatform.getModule('timers').renderList === renderTimerList` returns `true` while Timer rendering remains app-owned.
 - Verify the `Kanäle` module renders channel groups and selected-channel programmes.
 - Verify the `Aufnahmen` module renders the recording tree and opens recording details.
 - Verify the browser console has no missing script errors for:

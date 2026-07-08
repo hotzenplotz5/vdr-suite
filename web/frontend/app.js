@@ -794,6 +794,23 @@ function loadTimerConflictPanel(timers) {
     });
 }
 
+function registerAppOwnedTimerModule() {
+  if (!window.VdrSuitePlatform ||
+      typeof window.VdrSuitePlatform.registerModule !== 'function' ||
+      typeof window.VdrSuitePlatform.hasModule !== 'function' ||
+      window.VdrSuitePlatform.hasModule('timers')) {
+    return;
+  }
+
+  window.VdrSuitePlatform.registerModule('timers', Object.freeze({
+    renderList: renderTimerList,
+    load: loadTimers,
+    loadConflicts: loadTimerConflictPanel
+  }));
+}
+
+registerAppOwnedTimerModule();
+
 function renderSearchTimerList(data) {
   const searchTimers = listSearchTimersFromResponse(data);
   detailDataElement.replaceChildren();

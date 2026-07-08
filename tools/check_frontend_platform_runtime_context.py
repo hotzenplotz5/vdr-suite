@@ -94,6 +94,12 @@ def main() -> int:
         "window.VdrSuitePlatform.getModule(name)",
         "frontendPlatformModule('channels', window.VdrSuiteChannelBrowser)",
         "frontendPlatformModule('recordings', window.VdrSuiteRecordingBrowser)",
+        "function registerAppOwnedTimerModule()",
+        "window.VdrSuitePlatform.registerModule('timers', Object.freeze({",
+        "renderList: renderTimerList",
+        "load: loadTimers",
+        "loadConflicts: loadTimerConflictPanel",
+        "registerAppOwnedTimerModule();",
     ]
 
     for token in app_required_tokens:
