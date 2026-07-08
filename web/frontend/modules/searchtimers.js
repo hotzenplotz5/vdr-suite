@@ -1,4 +1,4 @@
-// Phase 60.9b: Active SearchTimer browser module.
+// Phase 60.9e: Active SearchTimer browser module with Live parity field groups.
 // SearchTimer is visible in the frontend module navigation.
 // Owns SearchTimer list rendering through the frontend platform registry.
 // Live parity capability slots are rendered for VPS, blacklist, filters, preview and write actions.
@@ -98,15 +98,40 @@
     return '-';
   }
 
+  function formatSearchTimerValue(value) {
+    if (Array.isArray(value)) {
+      return value.length === 0 ? '-' : value.join(', ');
+    }
+
+    if (value && typeof value === 'object') {
+      return JSON.stringify(value);
+    }
+
+    return value === undefined || value === null || value === '' ? '-' : String(value);
+  }
+
   function appendMeta(parent, label, value) {
     const row = document.createElement('div');
     row.className = 'list-meta';
 
     const strong = addText(document.createElement('strong'), label + ': ');
     row.appendChild(strong);
-    row.appendChild(document.createTextNode(value === undefined || value === null || value === '' ? '-' : String(value)));
+    row.appendChild(document.createTextNode(formatSearchTimerValue(value)));
 
     parent.appendChild(row);
+  }
+
+  function appendFieldGroup(parent, title, fields) {
+    const group = document.createElement('section');
+    group.className = 'searchtimer-field-group';
+
+    group.appendChild(addText(document.createElement('h4'), title));
+
+    fields.forEach(field => {
+      appendMeta(parent === group ? group : group, field.label, field.value);
+    });
+
+    parent.appendChild(group);
   }
 
   function renderCapabilitySlots(parent) {
@@ -148,13 +173,52 @@
 
     card.appendChild(addText(document.createElement('h3'), searchTimerTitle(searchTimer, index)));
 
-    appendMeta(card, 'Status', formatBoolean(firstValue(searchTimer, ['active', 'enabled', 'isActive'], '')));
-    appendMeta(card, 'VPS/PDC', formatBoolean(firstValue(searchTimer, ['vps', 'useVps', 'vpsEnabled', 'pdc'], '')));
-    appendMeta(card, 'Blacklist', firstValue(searchTimer, ['blacklist', 'blacklists', 'blacklistName', 'exclude'], '-'));
-    appendMeta(card, 'Kanalfilter', firstValue(searchTimer, ['channel', 'channelId', 'channelName', 'channelFilter', 'channels'], '-'));
-    appendMeta(card, 'Zeitfenster', firstValue(searchTimer, ['timeWindow', 'timeRange', 'startTime', 'start'], '-'));
-    appendMeta(card, 'Wochentage', firstValue(searchTimer, ['weekdays', 'days'], '-'));
-    appendMeta(card, 'Duplikate', formatBoolean(firstValue(searchTimer, ['avoidRepeats', 'avoidDuplicates', 'skipRepeats'], '')));
+    appendFieldGroup(card, 'Basis', [
+      { label: 'Status', value: formatBoolean(firstValue(searchTimer, ['active', 'enabled', 'isActive', 'use_as_searchtimer'], '')) },
+      { label: 'Suche', value: firstValue(searchTimer, ['search', 'query', 'name', 'title'], '-') },
+      { label: 'Backend-ID', value: firstValue(searchTimer, ['backendId', 'backend'], '-') },
+      { label: 'Native ID', value: firstValue(searchTimer, ['backendNativeId', 'id', 'timerId'], '-') }
+    ]);
+
+    appendFieldGroup(card, 'Aufnahmeoptionen', [
+      { label: 'Verzeichnis', value: firstValue(searchTimer, ['directory', 'folder'], '-') },
+      { label: 'Priorität', value: firstValue(searchTimer, ['priority'], '-') },
+      { label: 'Lebensdauer', value: firstValue(searchTimer, ['lifetime'], '-') },
+      { label: 'Start-Marge', value: firstValue(searchTimer, ['margin_start', 'marginStart', 'startMargin'], '-') },
+      { label: 'Stop-Marge', value: firstValue(searchTimer, ['margin_stop', 'marginStop', 'stopMargin'], '-') },
+      { label: 'VPS/PDC', value: formatBoolean(firstValue(searchTimer, ['use_vps', 'vps', 'useVps', 'vpsEnabled', 'pdc'], '')) }
+    ]);
+
+    appendFieldGroup(card, 'Kanal-, Zeit- und Dauerfilter', [
+      { label: 'Kanalfilter aktiv', value: formatBoolean(firstValue(searchTimer, ['use_channel', 'useChannel'], '')) },
+      { label: 'Kanäle', value: firstValue(searchTimer, ['channels', 'channel', 'channelId', 'channelName', 'channelFilter'], '-') },
+      { label: 'Kanal min/max', value: String(firstValue(searchTimer, ['channel_min', 'channelMin'], '-')) + ' / ' + String(firstValue(searchTimer, ['channel_max', 'channelMax'], '-')) },
+      { label: 'Zeitfilter aktiv', value: formatBoolean(firstValue(searchTimer, ['use_time', 'useTime'], '')) },
+      { label: 'Start/Stop', value: String(firstValue(searchTimer, ['start_time', 'startTime', 'start'], '-')) + ' – ' + String(firstValue(searchTimer, ['stop_time', 'stopTime', 'stop'], '-')) },
+      { label: 'Wochentage', value: firstValue(searchTimer, ['dayofweek', 'weekdays', 'days'], '-') },
+      { label: 'Dauer min/max', value: String(firstValue(searchTimer, ['duration_min', 'durationMin'], '-')) + ' / ' + String(firstValue(searchTimer, ['duration_max', 'durationMax'], '-')) }
+    ]);
+
+    appendFieldGroup(card, 'Wiederholungen, Serien und Blacklist', [
+      { label: 'Duplikate vermeiden', value: formatBoolean(firstValue(searchTimer, ['avoid_repeats', 'avoidRepeats', 'avoidDuplicates', 'skipRepeats'], '')) },
+      { label: 'Erlaubte Wiederholungen', value: firstValue(searchTimer, ['allowed_repeats', 'allowedRepeats'], '-') },
+      { label: 'Wiederholungen innerhalb Tage', value: firstValue(searchTimer, ['repeats_within_days', 'repeatsWithinDays'], '-') },
+      { label: 'Serienaufnahme', value: formatBoolean(firstValue(searchTimer, ['use_series_recording', 'useSeriesRecording'], '')) },
+      { label: 'Aufnahmen behalten', value: firstValue(searchTimer, ['keep_recs', 'keepRecs'], '-') },
+      { label: 'Blacklist-Modus', value: firstValue(searchTimer, ['blacklist_mode', 'blacklistMode'], '-') },
+      { label: 'Blacklist-IDs', value: firstValue(searchTimer, ['blacklist_ids', 'blacklistIds', 'blacklists', 'blacklist'], '-') }
+    ]);
+
+    appendFieldGroup(card, 'Weitere Live-Paritätsfelder', [
+      { label: 'Suchmodus', value: firstValue(searchTimer, ['mode'], '-') },
+      { label: 'Groß/Kleinschreibung', value: formatBoolean(firstValue(searchTimer, ['match_case', 'matchCase'], '')) },
+      { label: 'Toleranz', value: firstValue(searchTimer, ['tolerance'], '-') },
+      { label: 'Summary-Match', value: firstValue(searchTimer, ['summary_match', 'summaryMatch'], '-') },
+      { label: 'Extended EPG', value: firstValue(searchTimer, ['use_ext_epg_info', 'ext_epg_info', 'content_descriptors'], '-') },
+      { label: 'Favoriten', value: formatBoolean(firstValue(searchTimer, ['use_in_favorites', 'useInFavorites'], '')) },
+      { label: 'Gültig von/bis', value: String(firstValue(searchTimer, ['use_as_searchtimer_from', 'validFrom'], '-')) + ' – ' + String(firstValue(searchTimer, ['use_as_searchtimer_til', 'validUntil'], '-')) },
+      { label: 'Cleanup', value: String(firstValue(searchTimer, ['del_recs_after_days', 'deleteRecordingsAfterDays'], '-')) + ' / ' + String(firstValue(searchTimer, ['del_after_count_recs', 'deleteAfterCountRecordings'], '-')) }
+    ]);
 
     return card;
   }
