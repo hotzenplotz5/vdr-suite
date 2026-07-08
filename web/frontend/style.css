@@ -443,6 +443,43 @@ button:disabled { background: #475569; color: #cbd5e1; cursor: default; }
   font-size: 1rem;
 }
 
+.searchtimer-preview-match-heading {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.searchtimer-preview-match-heading p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
+
+.searchtimer-preview-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.searchtimer-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.55rem;
+  padding: 0.2rem 0.48rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.74);
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.searchtimer-preview-description {
+  margin: 0;
+  color: #dbeafe;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .searchtimer-preview-technical summary {
   cursor: pointer;
   color: #bfdbfe;

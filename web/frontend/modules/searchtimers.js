@@ -1,4 +1,4 @@
-// Phase 60.10g: Active SearchTimer browser module with preview comparison options.
+// Phase 60.10h: Active SearchTimer browser module with polished preview result cards.
 // SearchTimer is visible in the frontend module navigation.
 // Owns SearchTimer list rendering through the frontend platform registry.
 // Live parity capability slots are rendered for VPS, blacklist, filters, preview and write actions.
@@ -279,22 +279,155 @@
     return [];
   }
 
+  function previewEventFromMatch(match) {
+    if (match && match.event && typeof match.event === 'object') {
+      return match.event;
+    }
+
+    return match || {};
+  }
+
+  function previewFieldFromMatch(match, eventKeys, matchKeys, fallback) {
+    const event = previewEventFromMatch(match);
+    const eventValue = firstValue(event, eventKeys, undefined);
+
+    if (eventValue !== undefined && eventValue !== null && eventValue !== '') {
+      return eventValue;
+    }
+
+    return firstValue(match, matchKeys, fallback);
+  }
+
+  function formatPreviewUnixTime(value) {
+    if (value === undefined || value === null || value === '') {
+      return '-';
+    }
+
+    const number = Number(value);
+    const date = Number.isFinite(number) ? new Date(number * 1000) : new Date(String(value));
+
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
+    }
+
+    return date.toLocaleString('de-DE', {
+      weekday: 'short',
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  function formatPreviewDuration(value) {
+    const seconds = Number(value);
+
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      return '-';
+    }
+
+    const minutes = Math.round(seconds / 60);
+
+    if (minutes < 60) {
+      return String(minutes) + ' min';
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+
+    if (rest === 0) {
+      return String(hours) + ' h';
+    }
+
+    return String(hours) + ' h ' + String(rest) + ' min';
+  }
+
+  function truncatePreviewText(value, maxLength) {
+    const text = previewTextValue(value, '').replace(/\s+/g, ' ').trim();
+
+    if (text.length <= maxLength) {
+      return text;
+    }
+
+    return text.slice(0, maxLength - 1).trimEnd() + '…';
+  }
+
+  function appendPreviewBadge(parent, text) {
+    const badge = document.createElement('span');
+    badge.className = 'searchtimer-preview-badge';
+    badge.textContent = previewTextValue(text, '-');
+    parent.appendChild(badge);
+  }
+
   function appendPreviewMatch(parent, match, index) {
     const card = document.createElement('article');
     card.className = 'searchtimer-preview-match';
 
-    card.appendChild(addText(
+    const title = previewFieldFromMatch(
+      match,
+      ['title', 'name', 'eventTitle', 'shortText'],
+      ['title', 'name', 'eventTitle', 'shortText'],
+      'Treffer ' + String(index + 1)
+    );
+    const subtitle = previewFieldFromMatch(
+      match,
+      ['subtitle', 'subTitle'],
+      ['subtitle', 'subTitle'],
+      ''
+    );
+    const channel = previewFieldFromMatch(
+      match,
+      ['channelName', 'channel', 'channelId'],
+      ['channelName', 'channel', 'channelId'],
+      '-'
+    );
+    const start = previewFieldFromMatch(
+      match,
+      ['startTime', 'start', 'beginTime'],
+      ['startTime', 'start', 'beginTime'],
+      ''
+    );
+    const duration = previewFieldFromMatch(
+      match,
+      ['durationSeconds', 'duration'],
+      ['durationSeconds', 'duration'],
+      ''
+    );
+    const description = previewFieldFromMatch(
+      match,
+      ['description', 'summary', 'longText'],
+      ['description', 'summary', 'longText'],
+      ''
+    );
+
+    const heading = document.createElement('div');
+    heading.className = 'searchtimer-preview-match-heading';
+    heading.appendChild(addText(
       document.createElement('h5'),
-      previewTextValue(
-        firstValue(match, ['title', 'name', 'eventTitle', 'shortText'], ''),
-        'Treffer ' + String(index + 1)
-      )
+      previewTextValue(title, 'Treffer ' + String(index + 1))
     ));
 
-    appendMeta(card, 'Kanal', firstValue(match, ['channelName', 'channel', 'channelId'], '-'));
-    appendMeta(card, 'Start', firstValue(match, ['startTime', 'start', 'beginTime'], '-'));
-    appendMeta(card, 'Ende', firstValue(match, ['endTime', 'end'], '-'));
-    appendMeta(card, 'Beschreibung', firstValue(match, ['description', 'summary', 'longText'], '-'));
+    if (subtitle !== '') {
+      heading.appendChild(addText(document.createElement('p'), subtitle));
+    }
+
+    card.appendChild(heading);
+
+    const badges = document.createElement('div');
+    badges.className = 'searchtimer-preview-badges';
+    appendPreviewBadge(badges, 'Kanal: ' + previewTextValue(channel, '-'));
+    appendPreviewBadge(badges, 'Start: ' + formatPreviewUnixTime(start));
+    appendPreviewBadge(badges, 'Dauer: ' + formatPreviewDuration(duration));
+    card.appendChild(badges);
+
+    const descriptionText = truncatePreviewText(description, 320);
+
+    if (descriptionText !== '') {
+      const descriptionElement = document.createElement('p');
+      descriptionElement.className = 'searchtimer-preview-description';
+      descriptionElement.textContent = descriptionText;
+      card.appendChild(descriptionElement);
+    }
 
     parent.appendChild(card);
   }
