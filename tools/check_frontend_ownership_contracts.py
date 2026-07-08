@@ -186,8 +186,9 @@ def check_app_contract(app_js: str) -> None:
     )
     require("function loadTimers()" in app_js, "app.js must own loadTimers()")
     require(
-        re.search(r"renderTimerList\s*\(\s*data(?:\s*,[^)]*)?\)\s*;", app_js) is not None,
-        "loadTimers() must render the timer list through renderTimerList(data[, ...])",
+        "renderTimersThroughModule(data, null);" in app_js
+        or re.search(r"renderTimerList\s*\(\s*data(?:\s*,[^)]*)?\)\s*;", app_js) is not None,
+        "loadTimers() must render the timer list through the Timer module bridge or renderTimerList(data[, ...])",
     )
 
     if "Timer-Konflikte" in app_js or "Timerkonflikt" in app_js or "loadTimerConflictPanel" in app_js:
