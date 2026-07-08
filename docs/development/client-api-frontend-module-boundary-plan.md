@@ -312,6 +312,23 @@ Phase 60.2 module registry roadmap:
 - Existing browser modules remain on their runtime-compatible script paths until daemon/static rollout is deliberately changed.
 - Every platform slice must preserve the Phase 59 smoke-check expectations for `Kanäle` and `Aufnahmen`.
 
+Phase 60.2 closeout:
+
+- `window.VdrSuitePlatform` owns the private module registry.
+- Registry API is stable:
+  - `registerModule(name, moduleApi)`
+  - `getModule(name)`
+  - `hasModule(name)`
+  - `listModules()`
+- Registered modules:
+  - `channels`
+  - `recordings`
+- Compatibility globals remain authoritative for existing callers:
+  - `window.VdrSuiteChannelBrowser`
+  - `window.VdrSuiteRecordingBrowser`
+- Runtime-compatible script paths remain authoritative until daemon/static rollout is deliberately changed.
+- The next frontend platform block is Phase 60.3 Shared UI Foundation.
+
 Frontend module runtime smoke check:
 
 - After installing frontend assets, hard-reload the browser.
