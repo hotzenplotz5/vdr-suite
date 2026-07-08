@@ -1536,13 +1536,15 @@ def check_frontend_module_runtime_smoke_check_documentation(boundary_doc: str) -
         "/frontend/modules/channels.js",
         "/frontend/modules/recordings.js",
         "Verify `window.VdrSuitePlatform.isLoaded()` returns `true` after hard reload.",
-        "Verify `window.VdrSuitePlatform.listModules()` returns `['channels', 'recordings', 'timers']` after Channel, Recording and app-owned Timer module registration.",
+        "Verify `window.VdrSuitePlatform.listModules()` returns `['channels', 'recordings', 'timers', 'searchtimers']` after Channel, Recording, Timer and SearchTimer module registration.",
         "Verify `window.VdrSuitePlatform.hasModule('channels')` returns `true`.",
         "Verify `window.VdrSuitePlatform.hasModule('recordings')` returns `true`.",
         "Verify `window.VdrSuitePlatform.hasModule('timers')` returns `true`.",
+        "Verify `window.VdrSuitePlatform.hasModule('searchtimers')` returns `true`.",
         "Verify `window.VdrSuitePlatform.getModule('channels') === window.VdrSuiteChannelBrowser` returns `true`.",
         "Verify `window.VdrSuitePlatform.getModule('recordings') === window.VdrSuiteRecordingBrowser` returns `true`.",
         "Verify `window.VdrSuitePlatform.getModule('timers') === window.VdrSuiteTimerBrowser` returns `true` with the active `web/frontend/modules/timers.js` Timer module.",
+        "Verify `window.VdrSuitePlatform.getModule('searchtimers') === window.VdrSuiteSearchTimerBrowser` returns `true` with the active `web/frontend/modules/searchtimers.js` SearchTimer module.",
         "runtime-compatible script paths remain authoritative",
     ]
 
