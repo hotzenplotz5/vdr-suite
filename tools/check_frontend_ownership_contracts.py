@@ -247,7 +247,7 @@ def check_timer_loading_client_api_contract(app_js: str) -> None:
     load_timers_body = app_js[start:end]
 
     require(
-        "window.VdrSuiteClientApi" in load_timers_body,
+        ("window.VdrSuiteClientApi" in load_timers_body or "frontendPlatformClientApi()" in load_timers_body),
         "loadTimers() must use the Web Client API through VdrSuitePlatform or legacy window.VdrSuiteClientApi"
     )
 
@@ -284,7 +284,7 @@ def check_searchtimer_loading_client_api_contract(app_js: str) -> None:
     body = app_js[start:end]
 
     require(
-        ("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body),
+        (("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body) or "frontendPlatformClientApi()" in body),
         "loadSearchTimers() must use the Web Client API through VdrSuitePlatform or legacy window.VdrSuiteClientApi"
     )
 
@@ -320,7 +320,7 @@ def check_timer_conflict_loading_client_api_contract(app_js: str) -> None:
     body = app_js[start:end]
 
     require(
-        ("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body),
+        (("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body) or "frontendPlatformClientApi()" in body),
         "loadTimerConflictPanel() must use the Web Client API through VdrSuitePlatform or legacy window.VdrSuiteClientApi"
     )
 
@@ -352,7 +352,7 @@ def check_channel_loading_client_api_contract(app_js: str) -> None:
     body = app_js[start:end]
 
     require(
-        ("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body),
+        (("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body) or "frontendPlatformClientApi()" in body),
         "loadChannels() must use the Web Client API through VdrSuitePlatform or legacy window.VdrSuiteClientApi"
     )
 
@@ -397,7 +397,7 @@ def check_epg_timeline_channel_loading_client_api_contract(app_js: str) -> None:
     body = app_js[start:end]
 
     require(
-        ("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body),
+        (("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body) or "frontendPlatformClientApi()" in body),
         "loadEpgTimeline() must use the Web Client API through VdrSuitePlatform or legacy window.VdrSuiteClientApi"
     )
 
@@ -442,7 +442,7 @@ def check_epg_cache_status_client_api_contract(app_js: str) -> None:
     body = app_js[start:end]
 
     require(
-        ("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body),
+        (("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body) or "frontendPlatformClientApi()" in body),
         "fetchEpgCacheStatusForBackend() must use the Web Client API through VdrSuitePlatform or legacy window.VdrSuiteClientApi"
     )
 
@@ -489,7 +489,7 @@ def check_epg_cache_window_client_api_contract(app_js: str) -> None:
     body = app_js[start:end]
 
     require(
-        ("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body),
+        (("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body) or "frontendPlatformClientApi()" in body),
         "fetchCachedEpgWindowForVisibleChannels() must use the Web Client API through VdrSuitePlatform or legacy window.VdrSuiteClientApi"
     )
 
@@ -1432,7 +1432,7 @@ def check_recording_module_loading_client_api_contract(app_js: str) -> None:
     body = app_js[start:end]
 
     require(
-        ("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body),
+        (("window.VdrSuiteClientApi" in body or "frontendPlatformClientApi()" in body) or "frontendPlatformClientApi()" in body),
         "loadRecordings() must use the Web Client API through VdrSuitePlatform or legacy window.VdrSuiteClientApi"
     )
 
