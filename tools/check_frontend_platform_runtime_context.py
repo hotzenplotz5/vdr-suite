@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP = ROOT / "web" / "frontend" / "platform" / "bootstrap.js"
+APP = ROOT / "web" / "frontend" / "app.js"
 
 
 class ContractFailure(Exception):
@@ -33,6 +34,7 @@ def require(condition: bool, message: str) -> None:
 
 def main() -> int:
     bootstrap = read(BOOTSTRAP)
+    app_js = read(APP)
 
     required_tokens = [
         "Phase 60.3: Frontend platform runtime context foundation.",
@@ -62,6 +64,26 @@ def main() -> int:
 
     for token in required_tokens:
         require(token in bootstrap, "platform runtime context contract missing: " + token)
+
+    app_required_tokens = [
+        "function configurePlatformRuntimeContextBoundary()",
+        "window.VdrSuitePlatform.configureRuntimeContext({",
+        "clientApi: window.VdrSuiteClientApi || null",
+        "mountTarget: detailDataElement",
+        "mountTargets: {",
+        "channels: detailDataElement",
+        "recordings: detailDataElement",
+        "timers: detailDataElement",
+        "searchtimers: detailDataElement",
+        "epg: detailDataElement",
+        "channelsort: detailDataElement",
+        "getSelectedBackendId: selectedEpgBackendId",
+        "getSelectedModule: function()",
+        "configurePlatformRuntimeContextBoundary();",
+    ]
+
+    for token in app_required_tokens:
+        require(token in app_js, "app.js platform runtime context wiring missing: " + token)
 
     forbidden_tokens = [
         "document.",

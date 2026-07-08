@@ -28,6 +28,31 @@ let epgProgramView = 'horizontal';
 let selectedEpgDetail = null;
 let epgSuppressClickUntil = 0;
 
+function configurePlatformRuntimeContextBoundary() {
+  if (!window.VdrSuitePlatform ||
+      typeof window.VdrSuitePlatform.configureRuntimeContext !== 'function') {
+    return;
+  }
+
+  window.VdrSuitePlatform.configureRuntimeContext({
+    clientApi: window.VdrSuiteClientApi || null,
+    mountTarget: detailDataElement,
+    mountTargets: {
+      detail: detailDataElement,
+      channels: detailDataElement,
+      recordings: detailDataElement,
+      timers: detailDataElement,
+      searchtimers: detailDataElement,
+      epg: detailDataElement,
+      channelsort: detailDataElement
+    },
+    getSelectedBackendId: selectedEpgBackendId,
+    getSelectedModule: function() {
+      return selectedModule;
+    }
+  });
+}
+
 function configureChannelBrowserContextBoundary() {
   if (!window.VdrSuiteChannelBrowser ||
       typeof window.VdrSuiteChannelBrowser.configureContext !== 'function') {
@@ -41,6 +66,7 @@ function configureChannelBrowserContextBoundary() {
 
 function renderChannelsThroughModule(data) {
   configureChannelBrowserContextBoundary();
+configurePlatformRuntimeContextBoundary();
 
   if (!window.VdrSuiteChannelBrowser ||
       typeof window.VdrSuiteChannelBrowser.renderList !== 'function') {
