@@ -695,6 +695,25 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
     )
 
 
+def check_recording_browser_registry_registration_preparation(recording_browser_js: str) -> None:
+    require(
+        "window.VdrSuiteRecordingBrowser = Object.freeze({" in recording_browser_js,
+        "modules/recordings.js must keep window.VdrSuiteRecordingBrowser as the authoritative Recording browser API before registry registration",
+    )
+    require(
+        "configureContext: configureRecordingBrowserContext" in recording_browser_js,
+        "modules/recordings.js must expose configureContext before registry registration",
+    )
+    require(
+        "renderList: renderRecordingList" in recording_browser_js,
+        "modules/recordings.js must expose renderList before registry registration",
+    )
+    require(
+        "window.VdrSuitePlatform.registerModule('recordings'" not in recording_browser_js,
+        "modules/recordings.js must not register with VdrSuitePlatform before the dedicated Recording registration slice",
+    )
+
+
 def check_recording_browser_contract(recording_browser_js: str) -> None:
     require(
         "Phase 59.10q" in recording_browser_js,
@@ -1973,6 +1992,7 @@ def main() -> int:
             app_js,
             channel_browser_js,
         )
+        check_recording_browser_registry_registration_preparation(recording_browser_js)
         check_recording_browser_contract(recording_browser_js)
         check_recording_browser_dependency_contract(
             index_html,

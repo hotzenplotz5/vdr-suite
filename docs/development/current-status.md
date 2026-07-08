@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 60.2f2 aligns the Channel browser context-boundary guard with the shared registry API object.
+Phase 60.2g prepares the Recording browser registry registration boundary without registering it yet.
 
 Stable scope:
 
@@ -173,6 +173,7 @@ Stable scope:
 - Phase 60.2f documents and guards the Channel registry runtime checks for `listModules`, `hasModule` and `getModule`.
 - Phase 60.2f1 updates the Channel API surface guard to accept the shared `channelBrowserApi` export.
 - Phase 60.2f2 updates the Channel context-boundary guard to accept `window.VdrSuiteChannelBrowser = channelBrowserApi`.
+- Phase 60.2g guards that `window.VdrSuiteRecordingBrowser` remains the authoritative Recording API before the dedicated registry registration slice.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

@@ -303,6 +303,7 @@ Phase 60.2 module registry roadmap:
 - Phase 60.2d prepares Channel browser registration by guarding the existing `window.VdrSuiteChannelBrowser` API and preventing early `channels` registry registration.
 - Phase 60.2e registers the Channel browser API as `channels` in `window.VdrSuitePlatform` while keeping `window.VdrSuiteChannelBrowser` authoritative for existing callers.
 - Phase 60.2f guards the runtime smoke-check expectations for Channel registry lookup.
+- Phase 60.2g prepares Recording browser registration by guarding the existing `window.VdrSuiteRecordingBrowser` API and preventing early `recordings` registry registration.
 - Existing globals remain authoritative until dedicated migration slices:
   - `window.VdrSuiteChannelBrowser`
   - `window.VdrSuiteRecordingBrowser`
