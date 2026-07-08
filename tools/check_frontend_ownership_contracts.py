@@ -699,6 +699,50 @@ def check_channel_browser_contract(channel_browser_js: str) -> None:
     )
 
 
+def check_prepared_frontend_helpers_source_contract() -> None:
+    helpers_path = ROOT / "web" / "frontend" / "platform" / "helpers.js"
+    index_html = read(INDEX)
+
+    require(
+        helpers_path.exists(),
+        "web/frontend/platform/helpers.js must exist as the prepared shared helper source",
+    )
+
+    helpers_js = read(helpers_path)
+
+    required_tokens = [
+        "Phase 60.6a: Shared frontend helper source foundation.",
+        "global.VdrSuiteFrontendHelpers = helpersApi;",
+        "firstValue: firstValue",
+        "listFromResponse: listFromResponse",
+        "numberOrZero: numberOrZero",
+        "formatEpochClock: formatEpochClock",
+    ]
+
+    for token in required_tokens:
+        require(token in helpers_js, "prepared frontend helpers source missing: " + token)
+
+    forbidden_tokens = [
+        "document.",
+        "createElement",
+        "appendChild",
+        "replaceChildren",
+        "innerHTML",
+        "fetch(",
+        "XMLHttpRequest",
+        "EventSource",
+        "WebSocket",
+    ]
+
+    for token in forbidden_tokens:
+        require(token not in helpers_js, "prepared frontend helpers source must stay DOM/API-free: " + token)
+
+    require(
+        '<script src="/frontend/platform/helpers.js"></script>' not in index_html,
+        "index.html must not load prepared frontend helpers before the dedicated rollout slice",
+    )
+
+
 def check_app_timer_registry_registration_contract(app_js: str) -> None:
     required_tokens = [
         "function registerAppOwnedTimerModule()",
@@ -2031,6 +2075,7 @@ def main() -> int:
         )
         check_recording_browser_registry_registration_contract(recording_browser_js)
         check_app_timer_registry_registration_contract(app_js)
+        check_prepared_frontend_helpers_source_contract()
         check_recording_browser_contract(recording_browser_js)
         check_recording_browser_dependency_contract(
             index_html,
