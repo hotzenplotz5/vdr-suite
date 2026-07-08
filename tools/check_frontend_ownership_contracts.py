@@ -88,6 +88,8 @@ def client_api_export_names(client_api: str) -> set[str]:
 
 def script_positions(index_html: str) -> dict[str, int]:
     scripts = {
+        "platform": '<script src="/frontend/platform/bootstrap.js"></script>',
+        "client_api": '<script src="/frontend/api/client-api.js"></script>',
         "app": '<script src="/frontend/app.js"></script>',
         "channel_logos": '<script src="/frontend/channel-logos.js"></script>',
         "channel_browser": '<script src="/frontend/channel-browser.js"></script>',
@@ -107,11 +109,17 @@ def check_index_contract(index_html: str) -> None:
     positions = script_positions(index_html)
 
     require(
-        positions["channel_logos"]
+        positions["platform"]
+        < positions["client_api"]
+        < positions["channel_logos"]
         < positions["channel_browser"]
         < positions["recording_browser"]
         < positions["app"],
-        "index.html script order must be client-api.js -> channel-logos.js -> channel-browser.js -> recording-browser.js -> app.js",
+        "index.html script order must be platform/bootstrap.js -> client-api.js -> channel-logos.js -> channel-browser.js -> recording-browser.js -> app.js",
+    )
+    require(
+        '<script src="/frontend/platform/bootstrap.js"></script>' in index_html,
+        "index.html must load the frontend platform bootstrap before client-api.js",
     )
     require(
         '<script src="/frontend/channel-browser.js"></script>' in index_html,

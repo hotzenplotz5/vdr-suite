@@ -275,7 +275,8 @@ Phase 60 Frontend Platform roadmap anchor:
 - Phase 60 must not start by moving another large browser file.
 - First target: a small `web/frontend/platform/` foundation with explicit runtime-safe loading.
 - Phase 60.1b prepares `/frontend/platform/bootstrap.js` static serving and install contracts before creating or loading the bootstrap asset.
-- Phase 60.1c creates `web/frontend/platform/bootstrap.js` as a DOM-free namespace anchor and keeps it unloaded until a dedicated runtime-loading slice.
+- Phase 60.1c creates `web/frontend/platform/bootstrap.js` as a DOM-free namespace anchor.
+- Phase 60.1d loads `/frontend/platform/bootstrap.js` before `/frontend/api/client-api.js` and guards the load order.
 - Planned platform pieces:
   - frontend bootstrap boundary
   - module registry

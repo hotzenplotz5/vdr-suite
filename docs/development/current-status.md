@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 60.1c adds the minimal frontend platform bootstrap namespace asset without loading it at runtime.
+Phase 60.1d loads the frontend platform bootstrap before the Client API and guards the script order.
 
 Stable scope:
 
@@ -161,6 +161,7 @@ Stable scope:
 - Phase 60.1a anchors the Frontend Platform roadmap: bootstrap, module registry, shared UI helpers and continued Client API consolidation.
 - Phase 60.1b prepares `/frontend/platform/bootstrap.js` serving and install contracts before any runtime platform bootstrap is loaded.
 - Phase 60.1c adds `web/frontend/platform/bootstrap.js` as a DOM-free `window.VdrSuitePlatform` namespace anchor.
+- Phase 60.1d loads `/frontend/platform/bootstrap.js` before `/frontend/api/client-api.js` and guards the runtime script order.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.
