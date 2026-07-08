@@ -1,4 +1,4 @@
-// Phase 60.10f: Active SearchTimer browser module with preview query parameter mapping.
+// Phase 60.10g: Active SearchTimer browser module with preview comparison options.
 // SearchTimer is visible in the frontend module navigation.
 // Owns SearchTimer list rendering through the frontend platform registry.
 // Live parity capability slots are rendered for VPS, blacklist, filters, preview and write actions.
@@ -178,10 +178,11 @@
     return input;
   }
 
-  function checkboxInput(name) {
+  function checkboxInput(name, checked) {
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.name = name;
+    input.checked = Boolean(checked);
     input.disabled = false;
     return input;
   }
@@ -474,6 +475,9 @@
     form.dataset.searchtimerEditorForm = 'create';
 
     appendEditorField(form, 'Suchbegriff', textInput('search', 'z. B. Tatort'));
+    appendEditorField(form, 'Titel durchsuchen', checkboxInput('compareTitle', true));
+    appendEditorField(form, 'Untertitel durchsuchen', checkboxInput('compareSubtitle', true));
+    appendEditorField(form, 'Beschreibung durchsuchen', checkboxInput('compareSummary', false));
     appendEditorField(form, 'Aktiv', checkboxInput('use_as_searchtimer'));
     appendEditorField(form, 'VPS/PDC', checkboxInput('use_vps'));
     appendEditorField(form, 'Verzeichnis', textInput('directory', 'optional'));

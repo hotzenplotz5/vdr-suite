@@ -92,17 +92,27 @@ public:
         ++selectiveEventsReadCount;
         lastQuery = query;
 
-        VdrEvent event;
-        event.id = "cache-event-amerika";
-        event.channelId = "cache-channel";
-        event.title = "Amerika Cache Dokumentation";
-        event.subtitle = "Preview Cache";
-        event.description = "This event is loaded only through the refresh cache path.";
-        event.startTime = "2026-06-26T20:15:00";
-        event.endTime = "2026-06-26T21:00:00";
-        event.durationSeconds = 2700;
+        VdrEvent titleEvent;
+        titleEvent.id = "cache-event-amerika-title";
+        titleEvent.channelId = "cache-channel";
+        titleEvent.title = "Amerika Cache Dokumentation";
+        titleEvent.subtitle = "Preview Cache";
+        titleEvent.description = "This event is loaded only through the refresh cache path.";
+        titleEvent.startTime = "2026-06-26T20:15:00";
+        titleEvent.endTime = "2026-06-26T21:00:00";
+        titleEvent.durationSeconds = 2700;
 
-        return {event};
+        VdrEvent descriptionOnlyEvent;
+        descriptionOnlyEvent.id = "cache-event-amerika-description";
+        descriptionOnlyEvent.channelId = "cache-channel";
+        descriptionOnlyEvent.title = "Beschreibungstreffer";
+        descriptionOnlyEvent.subtitle = "Preview Cache";
+        descriptionOnlyEvent.description = "Amerika appears only in this event description.";
+        descriptionOnlyEvent.startTime = "2026-06-26T21:15:00";
+        descriptionOnlyEvent.endTime = "2026-06-26T22:00:00";
+        descriptionOnlyEvent.durationSeconds = 2700;
+
+        return {titleEvent, descriptionOnlyEvent};
     }
 
     std::vector<VdrChannel> getChannels() const override
@@ -311,7 +321,7 @@ int main()
     assert(refreshResponse.body.find("\"backendId\":\"default\"") != std::string::npos);
     assert(refreshResponse.body.find("\"status\":\"ready\"") != std::string::npos);
     assert(refreshResponse.body.find("\"available\":true") != std::string::npos);
-    assert(refreshResponse.body.find("\"eventCount\":1") != std::string::npos);
+    assert(refreshResponse.body.find("\"eventCount\":2") != std::string::npos);
 
     assert(adapter.fullEventsReadCount == 0);
     assert(adapter.selectiveEventsReadCount == 1);
@@ -329,6 +339,18 @@ int main()
     assert(previewResponse.body.find("\"available\":true") != std::string::npos);
     assert(previewResponse.body.find("\"totalCount\":1") != std::string::npos);
     assert(previewResponse.body.find("Amerika Cache Dokumentation") != std::string::npos);
+    assert(previewResponse.body.find("Beschreibungstreffer") == std::string::npos);
+
+    const ApiResponse summaryOnlyPreviewResponse = router.handleGet(
+        "/api/searchtimers/preview?backend=default&query=Amerika&compareTitle=0&compareSubtitle=0&compareSummary=1&limit=10");
+
+    assert(summaryOnlyPreviewResponse.statusCode == 200);
+    assert(summaryOnlyPreviewResponse.contentType == "application/json");
+    assert(summaryOnlyPreviewResponse.body.find("\"status\":\"ready\"") != std::string::npos);
+    assert(summaryOnlyPreviewResponse.body.find("\"available\":true") != std::string::npos);
+    assert(summaryOnlyPreviewResponse.body.find("\"totalCount\":1") != std::string::npos);
+    assert(summaryOnlyPreviewResponse.body.find("Beschreibungstreffer") != std::string::npos);
+    assert(summaryOnlyPreviewResponse.body.find("Amerika Cache Dokumentation") == std::string::npos);
 
     assert(adapter.fullEventsReadCount == 0);
     assert(adapter.selectiveEventsReadCount == 1);

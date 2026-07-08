@@ -77,6 +77,19 @@ bool isTruthy(const std::string& value)
         value == "yes";
 }
 
+bool queryBoolOrDefault(
+    const RestQueryParameters& queryParameters,
+    const std::string& key,
+    bool defaultValue)
+{
+    if (!queryParameters.has(key))
+    {
+        return defaultValue;
+    }
+
+    return isTruthy(queryParameters.get(key));
+}
+
 ApiResponse makeEpgUnavailableResponse()
 {
     ApiResponse response;
@@ -895,7 +908,7 @@ ApiResponse ApiRouter::handleGet(
                 ? "Preview SearchTimer"
                 : queryParameters.get("name");
 
-        const SearchTimer previewSearchTimer =
+        SearchTimer previewSearchTimer =
             SearchTimer::create(
                 SearchTimerId::fromBackendNativeId(
                     backendId,
@@ -903,6 +916,13 @@ ApiResponse ApiRouter::handleGet(
                 name,
                 queryText,
                 SearchTimerState::Active);
+
+        previewSearchTimer.comparisonOptions().setCompareTitle(
+            queryBoolOrDefault(queryParameters, "compareTitle", true));
+        previewSearchTimer.comparisonOptions().setCompareSubtitle(
+            queryBoolOrDefault(queryParameters, "compareSubtitle", true));
+        previewSearchTimer.comparisonOptions().setCompareSummary(
+            queryBoolOrDefault(queryParameters, "compareSummary", false));
 
         const std::vector<VdrEvent> events =
             queryParameters.get("backend").empty()
