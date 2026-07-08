@@ -277,6 +277,8 @@ Phase 60 Frontend Platform roadmap anchor:
 - Phase 60.1b prepares `/frontend/platform/bootstrap.js` static serving and install contracts before creating or loading the bootstrap asset.
 - Phase 60.1c creates `web/frontend/platform/bootstrap.js` as a DOM-free namespace anchor.
 - Phase 60.1d loads `/frontend/platform/bootstrap.js` before `/frontend/api/client-api.js` and guards the load order.
+- Phase 60.1e extends the runtime smoke check with `window.VdrSuitePlatform.isLoaded()`.
+- Phase 60.1f closes the minimal bootstrap contract: `/frontend/platform/bootstrap.js` is served, installed, loaded first, DOM-free and smoke-checked.
 - Planned platform pieces:
   - frontend bootstrap boundary
   - module registry
