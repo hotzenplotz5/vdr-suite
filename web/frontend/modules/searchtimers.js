@@ -1,4 +1,4 @@
-// Phase 60.10e: Active SearchTimer browser module with readable preview result rendering.
+// Phase 60.10f: Active SearchTimer browser module with preview query parameter mapping.
 // SearchTimer is visible in the frontend module navigation.
 // Owns SearchTimer list rendering through the frontend platform registry.
 // Live parity capability slots are rendered for VPS, blacklist, filters, preview and write actions.
@@ -361,6 +361,19 @@
     appendPreviewTechnicalDetails(target, data);
   }
 
+  function buildSearchTimerPreviewQueryPayload(payload) {
+    const previewQuery = Object.assign({}, payload || {});
+    const searchText = String(previewQuery.search || '').trim();
+
+    if (searchText !== '') {
+      previewQuery.query = searchText;
+      previewQuery.text = searchText;
+    }
+
+    delete previewQuery.search;
+    return previewQuery;
+  }
+
   function setSearchTimerPreviewFeedback(target, error, message, data) {
     target.replaceChildren();
     target.hidden = false;
@@ -414,7 +427,7 @@
 
     clientApi.fetchClientSearchTimerPreview({
       backendId: searchTimerEditorBackendId(),
-      query: payload,
+      query: buildSearchTimerPreviewQueryPayload(payload),
       cache: 'no-store',
       credentials: 'same-origin'
     })
