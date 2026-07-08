@@ -852,7 +852,7 @@ def check_app_timer_registry_registration_contract(app_js: str) -> None:
     required_tokens = [
         "function registerAppOwnedTimerModule()",
         "const timerBrowserApi = Object.freeze({",
-        "window.VdrSuiteTimerBrowser = timerBrowserApi",
+        "window.VdrSuiteTimerBrowser = window.VdrSuiteTimerBrowser || timerBrowserApi",
         "window.VdrSuitePlatform.registerModule('timers', timerBrowserApi)",
         "window.VdrSuitePlatform.hasModule('timers')",
         "renderList: renderTimerList",
@@ -864,7 +864,7 @@ def check_app_timer_registry_registration_contract(app_js: str) -> None:
     for token in required_tokens:
         require(
             token in app_js,
-            "app.js Timer registry registration missing: " + token,
+            "app.js Timer registry compatibility registration missing: " + token,
         )
 
 
@@ -1452,7 +1452,7 @@ def check_frontend_module_runtime_smoke_check_documentation(boundary_doc: str) -
         "Verify `window.VdrSuitePlatform.hasModule('timers')` returns `true`.",
         "Verify `window.VdrSuitePlatform.getModule('channels') === window.VdrSuiteChannelBrowser` returns `true`.",
         "Verify `window.VdrSuitePlatform.getModule('recordings') === window.VdrSuiteRecordingBrowser` returns `true`.",
-        "Verify `window.VdrSuitePlatform.getModule('timers') === window.VdrSuiteTimerBrowser` returns `true` while Timer rendering remains app-owned.",
+        "Verify `window.VdrSuitePlatform.getModule('timers') === window.VdrSuiteTimerBrowser` returns `true` with the active `web/frontend/modules/timers.js` Timer module.",
         "runtime-compatible script paths remain authoritative",
     ]
 

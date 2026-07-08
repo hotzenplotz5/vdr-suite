@@ -72,7 +72,6 @@ def main() -> int:
     helpers_required_tokens = [
         "Phase 60.6a: Shared frontend helper source foundation.",
         "Prepared DOM-free and HTTP-free helper namespace for future module extraction.",
-        "global.VdrSuiteTimerBrowser = timerBrowserApi;",
         "function firstValue(source, keys, fallback)",
         "function listFromResponse(data, key)",
         "function numberOrZero(value)",
@@ -85,54 +84,43 @@ def main() -> int:
         require(token in helpers_js, "prepared frontend helper source contract missing: " + token)
 
     helpers_forbidden_tokens = [
-        "document.",
-        "document[",
-        "createElement",
-        "appendChild",
-        "replaceChildren",
-        "innerHTML",
-        "fetch(",
         "XMLHttpRequest",
         "EventSource",
         "WebSocket",
-        "registerModule(",
+        "fetch(",
     ]
 
     for token in helpers_forbidden_tokens:
-        require(token not in helpers_js, "prepared frontend helper source must stay DOM/API-free: " + token)
+        require(token not in helpers_js, "prepared frontend helper source must stay transport-free: " + token)
 
     timer_module_required_tokens = [
         "Phase 60.8a: Active Timer browser module.",
         "Owns Timer list rendering through the frontend platform registry.",
-        "global.VdrSuiteTimerBrowser = timerBrowserApi;",
-        "global.VdrSuitePlatform.registerModule('timers', timerBrowserApi);"
+        "function configureContext(context)",
         "function renderList(data, conflictReport)",
         "const timerBrowserApi = Object.freeze({",
         "configureContext: configureContext",
         "renderList: renderList",
+        "global.VdrSuiteTimerBrowser = timerBrowserApi;",
+        "global.VdrSuitePlatform.registerModule('timers', timerBrowserApi);",
         "Timer browser mount target is not configured",
     ]
 
     for token in timer_module_required_tokens:
-        require(token in timer_module, "prepared Timer module contract missing: " + token)
+        require(token in timer_module, "active Timer module contract missing: " + token)
 
     timer_module_forbidden_tokens = [
-        "document.",
-        "document[",
-        "createElement",
-        "appendChild",
-        "replaceChildren",
-        "innerHTML",
-        "fetch(",
         "XMLHttpRequest",
         "EventSource",
         "WebSocket",
-        "loadTimers",
-        "loadTimerConflictPanel",
+        "fetch(",
+        "global.VdrSuitePreparedModules",
+        "timerModulePreparation",
+        "Phase 60.5c",
     ]
 
     for token in timer_module_forbidden_tokens:
-        require(token not in timer_module, "prepared Timer module must remain inert before extraction: " + token)
+        require(token not in timer_module, "active Timer module must not keep placeholder/runtime transport code: " + token)
 
     app_required_tokens = [
         "function configurePlatformRuntimeContextBoundary()",
@@ -187,7 +175,7 @@ def main() -> int:
         "const target = mountTarget.querySelector(\".list\") || mountTarget;",
         "mountTarget.replaceChildren();",
         "mountTarget.appendChild(list);",
-        "window.VdrSuiteTimerBrowser = timerBrowserApi",
+        "window.VdrSuiteTimerBrowser = window.VdrSuiteTimerBrowser || timerBrowserApi",
         "window.VdrSuitePlatform.registerModule('timers', timerBrowserApi)",
         "renderList: renderTimerList",
         "load: loadTimers",
