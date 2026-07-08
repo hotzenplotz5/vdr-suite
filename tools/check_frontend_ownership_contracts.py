@@ -596,6 +596,25 @@ def check_channel_browser_context_boundary_contract(
     )
 
 
+def check_channel_browser_registry_registration_preparation(channel_browser_js: str) -> None:
+    require(
+        "window.VdrSuiteChannelBrowser = Object.freeze({" in channel_browser_js,
+        "modules/channels.js must keep window.VdrSuiteChannelBrowser as the authoritative Channel browser API before registry registration",
+    )
+    require(
+        "configureContext: configureChannelBrowserContext" in channel_browser_js,
+        "modules/channels.js must expose configureContext before registry registration",
+    )
+    require(
+        "renderList: renderChannelBrowserList" in channel_browser_js,
+        "modules/channels.js must expose renderList before registry registration",
+    )
+    require(
+        "window.VdrSuitePlatform.registerModule('channels'" not in channel_browser_js,
+        "modules/channels.js must not register with VdrSuitePlatform before the dedicated Channel registration slice",
+    )
+
+
 def check_channel_browser_contract(channel_browser_js: str) -> None:
     require(
         "Phase 59.11b" in channel_browser_js,
@@ -1937,6 +1956,7 @@ def main() -> int:
         check_frontend_platform_bootstrap_contract(platform_bootstrap_js)
         check_frontend_module_runtime_smoke_check_documentation(boundary_doc)
         check_channel_logos_contract(channel_logos_js)
+        check_channel_browser_registry_registration_preparation(channel_browser_js)
         check_channel_browser_contract(channel_browser_js)
         check_channel_browser_context_boundary_contract(
             app_js,

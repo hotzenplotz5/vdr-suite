@@ -300,6 +300,7 @@ Phase 60.2 module registry roadmap:
 - Registry methods must avoid DOM access, HTTP access and dynamic script loading.
 - Phase 60.2b provides the registry API but does not register Channel or Recording browser modules yet.
 - Phase 60.2c guards the smoke-check expectation that the registry starts empty before module registration slices.
+- Phase 60.2d prepares Channel browser registration by guarding the existing `window.VdrSuiteChannelBrowser` API and preventing early `channels` registry registration.
 - Existing globals remain authoritative until dedicated migration slices:
   - `window.VdrSuiteChannelBrowser`
   - `window.VdrSuiteRecordingBrowser`
