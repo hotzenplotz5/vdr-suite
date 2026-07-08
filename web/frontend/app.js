@@ -582,7 +582,23 @@ function appendTimerConflictSummary(parent, report) {
   parent.appendChild(box);
 }
 
+function configureTimerBrowserContextBoundary() {
+  const timerBrowser = frontendPlatformModule('timers', window.VdrSuiteTimerBrowser);
+
+  if (!timerBrowser ||
+      typeof timerBrowser.configureContext !== 'function') {
+    return;
+  }
+
+  timerBrowser.configureContext({
+    detailDataElement: frontendPlatformMountTarget('timers', detailDataElement),
+    helpers: window.VdrSuiteFrontendHelpers || null
+  });
+}
+
 function renderTimersThroughModule(data, conflictReport) {
+  configureTimerBrowserContextBoundary();
+
   const timerBrowser = frontendPlatformModule('timers', window.VdrSuiteTimerBrowser);
 
   if (!timerBrowser || typeof timerBrowser.renderList !== 'function') {

@@ -746,6 +746,33 @@ def check_prepared_frontend_helpers_source_contract() -> None:
     )
 
 
+def check_app_timer_context_boundary_contract(app_js: str) -> None:
+    require(
+        "function configureTimerBrowserContextBoundary()" in app_js,
+        "app.js must define configureTimerBrowserContextBoundary()",
+    )
+    require(
+        "frontendPlatformModule('timers', window.VdrSuiteTimerBrowser)" in app_js,
+        "app.js must resolve Timer browser context through the platform module registry with legacy fallback",
+    )
+    require(
+        "timerBrowser.configureContext({" in app_js,
+        "app.js must configure the resolved Timer browser context boundary",
+    )
+    require(
+        "detailDataElement: frontendPlatformMountTarget('timers', detailDataElement)" in app_js,
+        "app.js must provide the platform-resolved Timer mount target",
+    )
+    require(
+        "helpers: window.VdrSuiteFrontendHelpers || null" in app_js,
+        "app.js must pass shared frontend helpers into the Timer context boundary",
+    )
+    require(
+        "configureTimerBrowserContextBoundary();" in app_js,
+        "app.js must configure the Timer browser context before rendering through the module bridge",
+    )
+
+
 def check_app_timer_module_bridge_contract(app_js: str) -> None:
     require(
         "function renderTimersThroughModule(data, conflictReport)" in app_js,
@@ -2096,6 +2123,7 @@ def main() -> int:
             channel_browser_js,
         )
         check_recording_browser_registry_registration_contract(recording_browser_js)
+        check_app_timer_context_boundary_contract(app_js)
         check_app_timer_module_bridge_contract(app_js)
         check_app_timer_registry_registration_contract(app_js)
         check_prepared_frontend_helpers_source_contract()
