@@ -345,6 +345,7 @@ Frontend module runtime smoke check:
 - Timer conflict panel rendering is owned by `modules/timers.js` via `renderConflicts(...)`; the former app-owned conflict renderer fallback has been removed.
 - Timer ownership contracts now verify target architecture only: app-owned Timer loading/bridges in `app.js`, Timer list and conflict rendering in `modules/timers.js`.
 - `web/frontend/modules/searchtimers.js` now owns SearchTimer list rendering and displays Live-parity slots for VPS, blacklist, filters, preview and write actions.
+- `app.js` no longer owns `renderSearchTimerList(...)`; SearchTimer list rendering is now module-owned.
 - `web/frontend/modules/searchtimers.js` is prepared and registered through the platform; SearchTimer rendering still falls back to the app-owned renderer until extraction.
 - Timer list rendering is routed through `renderTimersThroughModule(...)`, which resolves `timers` via `VdrSuitePlatform.getModule('timers')` with legacy fallback.
 - Timer browser context is configured through `configureTimerBrowserContextBoundary()`, including the platform-resolved `timers` mount target and `VdrSuiteFrontendHelpers`.

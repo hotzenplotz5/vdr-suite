@@ -925,6 +925,25 @@ def check_prepared_searchtimer_module_source_contract() -> None:
     )
 
 
+def check_app_searchtimer_renderer_extraction_contract(app_js: str, searchtimer_module_js: str) -> None:
+    require(
+        "function renderSearchTimerList(" not in app_js,
+        "app.js must no longer own renderSearchTimerList after SearchTimer module extraction",
+    )
+    require(
+        "renderSearchTimerList(" not in app_js,
+        "app.js must not call the removed app-owned SearchTimer renderer",
+    )
+    require(
+        "function renderList(data)" in searchtimer_module_js,
+        "modules/searchtimers.js must own SearchTimer renderList(data)",
+    )
+    require(
+        "mountTarget.replaceChildren();" in searchtimer_module_js,
+        "modules/searchtimers.js must render into the configured mount target",
+    )
+
+
 def check_app_searchtimer_module_bridge_contract(app_js: str) -> None:
     required_tokens = [
         "function configureSearchTimerBrowserContextBoundary()",
@@ -2250,6 +2269,7 @@ def main() -> int:
             app_js,
             channel_browser_js,
         )
+        check_app_searchtimer_renderer_extraction_contract(app_js, read(ROOT / "web" / "frontend" / "modules" / "searchtimers.js"))
         check_recording_browser_registry_registration_contract(recording_browser_js)
         check_active_timer_module_source_contract()
         check_app_owned_timer_context_consumption_contract(app_js)
