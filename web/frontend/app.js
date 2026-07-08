@@ -53,6 +53,18 @@ function configurePlatformRuntimeContextBoundary() {
   });
 }
 
+function frontendPlatformClientApi() {
+  if (window.VdrSuitePlatform &&
+      typeof window.VdrSuitePlatform.getClientApi === 'function') {
+    const clientApi = window.VdrSuitePlatform.getClientApi();
+    if (clientApi) {
+      return clientApi;
+    }
+  }
+
+  return window.VdrSuiteClientApi || null;
+}
+
 function frontendPlatformModule(name, legacyApi) {
   if (window.VdrSuitePlatform &&
       typeof window.VdrSuitePlatform.getModule === 'function') {
@@ -750,7 +762,7 @@ function appendTimerConflictPanel(report, timers, error) {
 }
 
 function loadTimerConflictPanel(timers) {
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchClientTimerConflicts !== "function") {
     if (selectedModule !== "timers") {
@@ -2913,7 +2925,7 @@ function fetchEpgCacheStatusForBackend(backendId) {
     backend: backendId,
     _: String(Date.now())
   };
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchClientEpgCacheStatus !== 'function') {
     return Promise.resolve({
@@ -2968,7 +2980,7 @@ function fetchCachedEpgWindowForVisibleChannels(visibleChannels) {
 
   const backendId = selectedEpgBackendId();
   const bounds = epgWindowBounds();
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchClientEpgCacheWindow !== 'function') {
     return Promise.reject(new Error('Client API wrapper is not available'));
@@ -3044,7 +3056,7 @@ function visibleEpgChannelsFromData(channelData) {
 function loadEpgTimeline() {
   renderEpgTimelineLoading();
 
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchClientChannels !== 'function') {
     currentChannels = null;
@@ -3155,7 +3167,7 @@ function loadChannels() {
     backend: backendId,
     _: String(Date.now())
   };
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchClientChannels !== 'function') {
     currentChannels = null;
@@ -3219,7 +3231,7 @@ function loadChannels() {
 function loadTimers() {
   renderModuleLoading('Timer', 'Lade aktuelle Timerliste direkt vom VDR...');
 
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchClientTimers !== 'function') {
     currentTimers = null;
@@ -3245,7 +3257,7 @@ function loadTimers() {
 function loadSearchTimers() {
   renderModuleLoading('SearchTimer', 'Lade SearchTimer...');
 
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchClientSearchTimers !== 'function') {
     currentSearchTimers = null;
@@ -3283,7 +3295,7 @@ function renderRecordingsThroughModule(data) {
 function loadRecordings() {
   renderModuleLoading('Aufnahmen', 'Lade Aufnahmeliste aus /api/vdr/recordings/query...');
 
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
   const backendId = selectedEpgBackendId();
 
   if (!clientApi || typeof clientApi.fetchClientRecordings !== 'function') {
@@ -3477,7 +3489,7 @@ function loadBackendDetails(backend) {
   detailMetaElement.textContent = 'Lade Details für ' + (selector.label || backend.backendName || backendId) + '...';
   detailDataElement.replaceChildren();
 
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchClientBackendSnapshot !== 'function') {
     currentSnapshot = null;
@@ -3622,7 +3634,7 @@ refreshDetailButton.addEventListener('click', () => {
 });
 
 function loadBackendSelection() {
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchClientBackends !== 'function') {
     statusElement.hidden = false;
@@ -3716,7 +3728,7 @@ function channelSorterSetStatus(message, error) {
 }
 
 function channelSorterApiMove(sourceNumber, targetNumber) {
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchClientChannelMoveAction !== 'function') {
     return Promise.reject(new Error('Client API wrapper is not available'));
@@ -4097,7 +4109,7 @@ function loadChannelSorter() {
   renderModuleLoading('Kanäle sortieren', 'Lade Kanalliste für Sortierung...');
 
   const backendId = channelSorterBackendId();
-  const clientApi = window.VdrSuiteClientApi;
+  const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchClientChannels !== 'function') {
     channelSorterData = null;
