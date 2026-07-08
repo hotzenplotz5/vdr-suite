@@ -1160,6 +1160,40 @@ def check_frontend_install_contract(install_mk: str) -> None:
     )
 
 
+def check_frontend_platform_bootstrap_contract(platform_bootstrap_js: str) -> None:
+    required_tokens = [
+        "Phase 60.1c",
+        "global.VdrSuitePlatform = api",
+        "Object.freeze({",
+        "version: '60.1c'",
+        "isLoaded: function()",
+    ]
+
+    for token in required_tokens:
+        require(
+            token in platform_bootstrap_js,
+            "platform/bootstrap.js contract missing: " + token,
+        )
+
+    forbidden_tokens = [
+        "document.",
+        "document[",
+        "createElement",
+        "appendChild",
+        "innerHTML",
+        "XMLHttpRequest",
+        "fetch(",
+        "EventSource",
+        "WebSocket",
+    ]
+
+    for token in forbidden_tokens:
+        require(
+            token not in platform_bootstrap_js,
+            "platform/bootstrap.js must stay DOM/API-free before runtime loading: " + token,
+        )
+
+
 def check_frontend_module_runtime_smoke_check_documentation(boundary_doc: str) -> None:
     required_tokens = [
         "Frontend module runtime smoke check:",
@@ -1213,7 +1247,7 @@ def check_channel_browser_module_path_serving_contract(
     )
     require(
         "web/frontend/platform/bootstrap.js" in install_mk,
-        "install.mk must be ready to install web/frontend/platform/bootstrap.js when it exists",
+        "install.mk must install web/frontend/platform/bootstrap.js",
     )
     require(
         "web/frontend/modules/recordings.js" in install_mk,
@@ -1861,6 +1895,7 @@ def main() -> int:
         style_css = read(STYLE)
         frontend_architecture_md = read(ARCH_DOC)
         boundary_doc = read(BOUNDARY_DOC)
+        platform_bootstrap_js = read(ROOT / "web" / "frontend" / "platform" / "bootstrap.js")
         test_http_server_cpp = read(HTTP_SERVER)
         install_mk = read(INSTALL_MK)
 
@@ -1884,6 +1919,7 @@ def main() -> int:
         )
         check_frontend_static_serving_contract(test_http_server_cpp)
         check_frontend_install_contract(install_mk)
+        check_frontend_platform_bootstrap_contract(platform_bootstrap_js)
         check_frontend_module_runtime_smoke_check_documentation(boundary_doc)
         check_channel_logos_contract(channel_logos_js)
         check_channel_browser_contract(channel_browser_js)
