@@ -65,14 +65,28 @@ function frontendPlatformModule(name, legacyApi) {
   return legacyApi || null;
 }
 
+function frontendPlatformMountTarget(name, fallback) {
+  if (window.VdrSuitePlatform &&
+      typeof window.VdrSuitePlatform.getMountTarget === 'function') {
+    const mountTarget = window.VdrSuitePlatform.getMountTarget(name);
+    if (mountTarget) {
+      return mountTarget;
+    }
+  }
+
+  return fallback || null;
+}
+
 function configureChannelBrowserContextBoundary() {
-  if (!window.VdrSuiteChannelBrowser ||
-      typeof window.VdrSuiteChannelBrowser.configureContext !== 'function') {
+  const channelBrowser = frontendPlatformModule('channels', window.VdrSuiteChannelBrowser);
+
+  if (!channelBrowser ||
+      typeof channelBrowser.configureContext !== 'function') {
     return;
   }
 
-  window.VdrSuiteChannelBrowser.configureContext({
-    detailDataElement
+  channelBrowser.configureContext({
+    detailDataElement: frontendPlatformMountTarget('channels', detailDataElement)
   });
 }
 
@@ -3262,7 +3276,7 @@ function renderRecordingsThroughModule(data) {
     throw new Error('Recording browser module API is not available');
   }
 
-  recordingBrowser.configureMountTarget(detailDataElement);
+  recordingBrowser.configureMountTarget(frontendPlatformMountTarget('recordings', detailDataElement));
   return recordingBrowser.renderList(data);
 }
 

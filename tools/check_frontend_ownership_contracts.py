@@ -591,8 +591,8 @@ def check_channel_browser_context_boundary_contract(
         "app.js must define configureChannelBrowserContextBoundary()",
     )
     require(
-        "window.VdrSuiteChannelBrowser.configureContext({" in app_js,
-        "app.js must configure the Channel browser context boundary",
+        "channelBrowser.configureContext({" in app_js,
+        "app.js must configure the resolved Channel browser context boundary",
     )
     require(
         "detailDataElement" in app_js,
@@ -1066,8 +1066,8 @@ def check_recording_browser_context_boundary_contract(
     bridge_body = app_js[bridge_start:bridge_end]
 
     require(
-        "recordingBrowser.configureMountTarget(detailDataElement);" in bridge_body,
-        "app.js must configure the Recording browser mount target before rendering",
+        "recordingBrowser.configureMountTarget(frontendPlatformMountTarget('recordings', detailDataElement));" in bridge_body,
+        "app.js must configure the resolved Recording browser mount target before rendering",
     )
 
     forbidden_bridge_context_tokens = [
@@ -1116,8 +1116,8 @@ def check_recording_rich_renderer_migration_contract(
         "app.js Recording module bridge must use window.VdrSuiteRecordingBrowser",
     )
     require(
-        "configureMountTarget(detailDataElement)" in bridge_body,
-        "app.js Recording module bridge must configure mount target before rendering",
+        "configureMountTarget(frontendPlatformMountTarget('recordings', detailDataElement))" in bridge_body,
+        "app.js Recording module bridge must configure the platform-resolved mount target before rendering",
     )
     require(
         "renderList(data)" in bridge_body,
