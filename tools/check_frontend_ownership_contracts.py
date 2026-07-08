@@ -1170,10 +1170,15 @@ def check_frontend_install_contract(install_mk: str) -> None:
 
 def check_frontend_platform_bootstrap_contract(platform_bootstrap_js: str) -> None:
     required_tokens = [
-        "Phase 60.1c",
+        "Phase 60.2b",
+        "const modules = Object.create(null)",
+        "function registerModule(name, moduleApi)",
+        "function getModule(name)",
+        "function hasModule(name)",
+        "function listModules()",
         "global.VdrSuitePlatform = api",
         "Object.freeze({",
-        "version: '60.1c'",
+        "version: '60.2b'",
         "isLoaded: function()",
     ]
 
