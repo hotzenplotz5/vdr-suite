@@ -254,3 +254,4 @@ test-api-router-searchtimer-preview-epg-cache:
 .PHONY: test-frontend-contracts
 test-frontend-contracts:
 	python3 tools/check_frontend_ownership_contracts.py
+	python3 tools/check_frontend_platform_runtime_context.py
