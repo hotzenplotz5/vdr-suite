@@ -612,71 +612,6 @@ function renderTimersThroughModule(data, conflictReport) {
   return timerBrowser.renderList(data, conflictReport);
 }
 
-function renderTimerList(data, conflictReport) {
-  const timers = listFromResponse(data, 'timers');
-  const mountTarget = timerBrowserContext.detailDataElement || detailDataElement;
-
-  mountTarget.replaceChildren();
-
-  const list = document.createElement('section');
-  list.className = 'list';
-
-  if (timers.length === 0) {
-    const empty = document.createElement('article');
-    empty.className = 'module-placeholder';
-    empty.appendChild(addText(document.createElement('h3'), 'Keine Timer gefunden'));
-    empty.appendChild(addText(document.createElement('p'), 'Der Endpunkt /api/vdr/timers hat aktuell keine Timer geliefert.'));
-    mountTarget.appendChild(empty);
-    return;
-  }
-
-  timers.slice(0, 20).forEach((timer, index) => {
-    const item = document.createElement('article');
-    item.className = 'list-item';
-    const title = firstValue(
-      timer,
-      ['title', 'name', 'file', 'eventTitle', 'description', 'id', 'timerId'],
-      'Timer ' + String(index + 1)
-    );
-    const subtitle = firstValue(timer, ['subtitle'], '');
-    const timerId = firstValue(timer, ['timerId', 'id', 'nativeId'], '-');
-    const channel = firstValue(timer, ['channelName', 'channel', 'channelId'], '-');
-    const status = formatTimerStatus(timer);
-    const start = formatVdrClock(timerStartValue(timer));
-    const stop = formatVdrClock(timerEndValue(timer));
-
-    item.appendChild(addText(document.createElement('div'), String(title))).className = 'list-title';
-
-    if (subtitle !== '') {
-      item.appendChild(addText(document.createElement('div'), String(subtitle))).className = 'list-meta';
-    }
-
-    item.appendChild(addText(
-      document.createElement('div'),
-      'Kanal: ' + String(channel) + ' · Status: ' + status
-    )).className = 'list-meta';
-    item.appendChild(addText(
-      document.createElement('div'),
-      'Start: ' + start + ' · Ende: ' + stop
-    )).className = 'list-meta';
-    item.appendChild(addText(
-      document.createElement('div'),
-      'ID: ' + String(timerId)
-    )).className = 'list-meta';
-    list.appendChild(item);
-  });
-
-  if (timers.length > 20) {
-    const info = document.createElement('article');
-    info.className = 'module-placeholder';
-    info.appendChild(addText(document.createElement('p'), 'Zeige 20 von ' + String(timers.length) + ' Timern.'));
-    list.appendChild(info);
-  }
-
-  mountTarget.appendChild(list);
-}
-
-
 function timerConflictListFromReport(report) {
   if (report && Array.isArray(report.conflicts)) {
     return report.conflicts;
@@ -833,9 +768,13 @@ function configureAppOwnedTimerBrowserContext(context) {
   timerBrowserContext = Object.freeze(Object.assign({}, context || {}));
 }
 
+function unavailableAppOwnedTimerRenderList() {
+  throw new Error('Timer list rendering is owned by web/frontend/modules/timers.js');
+}
+
 const timerBrowserApi = Object.freeze({
   configureContext: configureAppOwnedTimerBrowserContext,
-  renderList: renderTimerList,
+  renderList: unavailableAppOwnedTimerRenderList,
   load: loadTimers,
   loadConflicts: loadTimerConflictPanel
 });

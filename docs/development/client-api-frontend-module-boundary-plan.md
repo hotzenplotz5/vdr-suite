@@ -341,6 +341,7 @@ Frontend module runtime smoke check:
 - Verify `window.VdrSuitePlatform.getModule('recordings') === window.VdrSuiteRecordingBrowser` returns `true`.
 - Verify `window.VdrSuitePlatform.getModule('timers') === window.VdrSuiteTimerBrowser` returns `true` with the active `web/frontend/modules/timers.js` Timer module.
 - `web/frontend/modules/timers.js` owns Timer list rendering; `app.js` still owns Timer loading and conflict fetching in this slice.
+- `app.js` no longer owns `renderTimerList(...)`; its Timer browser fallback fails clearly if `modules/timers.js` is unavailable.
 - Timer list rendering is routed through `renderTimersThroughModule(...)`, which resolves `timers` via `VdrSuitePlatform.getModule('timers')` with legacy fallback.
 - Timer browser context is configured through `configureTimerBrowserContextBoundary()`, including the platform-resolved `timers` mount target and `VdrSuiteFrontendHelpers`.
 - App-owned Timer rendering consumes the Timer context through `configureContext(...)` and renders into the context-provided mount target with `detailDataElement` fallback.

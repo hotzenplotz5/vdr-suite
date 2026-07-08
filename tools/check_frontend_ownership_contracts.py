@@ -181,8 +181,8 @@ def check_app_channel_browser_module_bridge_contract(app_js: str) -> None:
 
 def check_app_contract(app_js: str) -> None:
     require(
-        re.search(r"function\s+renderTimerList\s*\(\s*data(?:\s*,[^)]*)?\)", app_js) is not None,
-        "app.js must own renderTimerList(data[, ...])",
+        re.search(r"function\s+renderTimerList\s*\(\s*data(?:\s*,[^)]*)?\)", app_js) is None,
+        "app.js must not own renderTimerList(data[, ...]) after Timer module extraction",
     )
     require("function loadTimers()" in app_js, "app.js must own loadTimers()")
     require(
@@ -198,7 +198,7 @@ def check_app_contract(app_js: str) -> None:
         )
         require(
             "loadTimerConflictPanel(" in app_js,
-            "loadTimers() must call loadTimerConflictPanel() after renderTimerList(data[, ...])",
+            "loadTimers() must call loadTimerConflictPanel() after Timer module rendering",
         )
         require(
             "timer-conflict-" in app_js,
@@ -772,7 +772,6 @@ def check_active_timer_module_source_contract() -> None:
 def check_app_owned_timer_conflict_context_contract(app_js: str) -> None:
     required_tokens = [
         "function appendTimerConflictPanel(report, timers, error)",
-        "const mountTarget = timerBrowserContext.detailDataElement || detailDataElement;",
         "const previous = mountTarget.querySelector(\"[data-timer-conflict-panel=\\\"true\\\"]\");",
         "const target = mountTarget.querySelector(\".list\") || mountTarget;",
     ]
@@ -790,15 +789,12 @@ def check_app_owned_timer_context_consumption_contract(app_js: str) -> None:
         "function configureAppOwnedTimerBrowserContext(context)",
         "timerBrowserContext = Object.freeze(Object.assign({}, context || {}));",
         "configureContext: configureAppOwnedTimerBrowserContext",
-        "const mountTarget = timerBrowserContext.detailDataElement || detailDataElement;",
-        "mountTarget.replaceChildren();",
-        "mountTarget.appendChild(list);",
     ]
 
     for token in required_tokens:
         require(
             token in app_js,
-            "app-owned Timer browser context consumption missing: " + token,
+            "app-owned Timer compatibility context consumption missing: " + token,
         )
 
 
@@ -848,14 +844,27 @@ def check_app_timer_module_bridge_contract(app_js: str) -> None:
     )
 
 
+def check_app_timer_renderer_extraction_contract(app_js: str) -> None:
+    require(
+        "function renderTimerList(data, conflictReport)" not in app_js,
+        "app.js must no longer own renderTimerList after active Timer module extraction",
+    )
+    require(
+        "renderList: unavailableAppOwnedTimerRenderList" in app_js,
+        "app.js Timer compatibility API must fail clearly if the active Timer module is unavailable",
+    )
+
+
 def check_app_timer_registry_registration_contract(app_js: str) -> None:
     required_tokens = [
         "function registerAppOwnedTimerModule()",
+        "function unavailableAppOwnedTimerRenderList()",
+        "Timer list rendering is owned by web/frontend/modules/timers.js",
         "const timerBrowserApi = Object.freeze({",
         "window.VdrSuiteTimerBrowser = window.VdrSuiteTimerBrowser || timerBrowserApi",
         "window.VdrSuitePlatform.registerModule('timers', timerBrowserApi)",
         "window.VdrSuitePlatform.hasModule('timers')",
-        "renderList: renderTimerList",
+        "renderList: unavailableAppOwnedTimerRenderList",
         "load: loadTimers",
         "loadConflicts: loadTimerConflictPanel",
         "registerAppOwnedTimerModule();",
@@ -2184,6 +2193,7 @@ def main() -> int:
         check_app_owned_timer_context_consumption_contract(app_js)
         check_app_timer_context_boundary_contract(app_js)
         check_app_timer_module_bridge_contract(app_js)
+        check_app_timer_renderer_extraction_contract(app_js)
         check_app_timer_registry_registration_contract(app_js)
         check_prepared_frontend_helpers_source_contract()
         check_recording_browser_contract(recording_browser_js)
