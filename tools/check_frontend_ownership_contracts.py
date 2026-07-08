@@ -596,22 +596,34 @@ def check_channel_browser_context_boundary_contract(
     )
 
 
-def check_channel_browser_registry_registration_preparation(channel_browser_js: str) -> None:
+def check_channel_browser_registry_registration_contract(channel_browser_js: str) -> None:
     require(
         "window.VdrSuiteChannelBrowser = Object.freeze({" in channel_browser_js,
-        "modules/channels.js must keep window.VdrSuiteChannelBrowser as the authoritative Channel browser API before registry registration",
+        "modules/channels.js must keep window.VdrSuiteChannelBrowser as the authoritative Channel browser API after registry registration",
     )
     require(
         "configureContext: configureChannelBrowserContext" in channel_browser_js,
-        "modules/channels.js must expose configureContext before registry registration",
+        "modules/channels.js must expose configureContext through the registry API",
     )
     require(
         "renderList: renderChannelBrowserList" in channel_browser_js,
-        "modules/channels.js must expose renderList before registry registration",
+        "modules/channels.js must expose renderList through the registry API",
     )
     require(
-        "window.VdrSuitePlatform.registerModule('channels'" not in channel_browser_js,
-        "modules/channels.js must not register with VdrSuitePlatform before the dedicated Channel registration slice",
+        "const channelBrowserApi = Object.freeze({" in channel_browser_js,
+        "modules/channels.js must create a shared channelBrowserApi object for global and registry access",
+    )
+    require(
+        "window.VdrSuiteChannelBrowser = channelBrowserApi" in channel_browser_js,
+        "modules/channels.js must keep window.VdrSuiteChannelBrowser mapped to the shared Channel browser API",
+    )
+    require(
+        "window.VdrSuitePlatform.registerModule('channels', channelBrowserApi)" in channel_browser_js,
+        "modules/channels.js must register the Channel browser API with VdrSuitePlatform",
+    )
+    require(
+        "!window.VdrSuitePlatform.hasModule('channels')" in channel_browser_js,
+        "modules/channels.js must guard duplicate Channel browser registry registration",
     )
 
 
@@ -1236,7 +1248,7 @@ def check_frontend_module_runtime_smoke_check_documentation(boundary_doc: str) -
         "/frontend/modules/channels.js",
         "/frontend/modules/recordings.js",
         "Verify `window.VdrSuitePlatform.isLoaded()` returns `true` after hard reload.",
-        "Verify `window.VdrSuitePlatform.listModules()` returns an empty array before module registration slices.",
+        "Verify `window.VdrSuitePlatform.listModules()` returns `['channels']` after Channel browser registration.",
         "runtime-compatible script paths remain authoritative",
     ]
 
@@ -1956,7 +1968,7 @@ def main() -> int:
         check_frontend_platform_bootstrap_contract(platform_bootstrap_js)
         check_frontend_module_runtime_smoke_check_documentation(boundary_doc)
         check_channel_logos_contract(channel_logos_js)
-        check_channel_browser_registry_registration_preparation(channel_browser_js)
+        check_channel_browser_registry_registration_contract(channel_browser_js)
         check_channel_browser_contract(channel_browser_js)
         check_channel_browser_context_boundary_contract(
             app_js,

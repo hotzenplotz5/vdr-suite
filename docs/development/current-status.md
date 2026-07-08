@@ -53,7 +53,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 60.2d prepares the Channel browser registry registration boundary without registering it yet.
+Phase 60.2e registers the Channel browser API with the frontend platform registry.
 
 Stable scope:
 
@@ -168,6 +168,7 @@ Stable scope:
 - Phase 60.2b adds `registerModule`, `getModule`, `hasModule` and `listModules` to `window.VdrSuitePlatform` without connecting existing browser modules yet.
 - Phase 60.2c documents and guards that `window.VdrSuitePlatform.listModules()` remains empty before dedicated module registration slices.
 - Phase 60.2d guards that `window.VdrSuiteChannelBrowser` remains the authoritative Channel API before the dedicated registry registration slice.
+- Phase 60.2e registers `window.VdrSuiteChannelBrowser` as the `channels` platform module while preserving the legacy global API.
 - EPG cache window loading remains SQLite-backed.
 - Timer loading is verified through the Web Client API wrapper.
 - Timer conflict loading is verified through `/api/vdr/timers/conflicts/live`.

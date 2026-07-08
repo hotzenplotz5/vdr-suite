@@ -1461,8 +1461,16 @@ function renderChannelBrowserList(data) {
 }
 
 if (typeof window !== 'undefined') {
-  window.VdrSuiteChannelBrowser = Object.freeze({
+  const channelBrowserApi = Object.freeze({
     configureContext: configureChannelBrowserContext,
     renderList: renderChannelBrowserList
   });
+
+  window.VdrSuiteChannelBrowser = channelBrowserApi;
+
+  if (window.VdrSuitePlatform &&
+      typeof window.VdrSuitePlatform.registerModule === 'function' &&
+      !window.VdrSuitePlatform.hasModule('channels')) {
+    window.VdrSuitePlatform.registerModule('channels', channelBrowserApi);
+  }
 }

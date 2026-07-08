@@ -301,6 +301,7 @@ Phase 60.2 module registry roadmap:
 - Phase 60.2b provides the registry API but does not register Channel or Recording browser modules yet.
 - Phase 60.2c guards the smoke-check expectation that the registry starts empty before module registration slices.
 - Phase 60.2d prepares Channel browser registration by guarding the existing `window.VdrSuiteChannelBrowser` API and preventing early `channels` registry registration.
+- Phase 60.2e registers the Channel browser API as `channels` in `window.VdrSuitePlatform` while keeping `window.VdrSuiteChannelBrowser` authoritative for existing callers.
 - Existing globals remain authoritative until dedicated migration slices:
   - `window.VdrSuiteChannelBrowser`
   - `window.VdrSuiteRecordingBrowser`
@@ -311,7 +312,7 @@ Frontend module runtime smoke check:
 
 - After installing frontend assets, hard-reload the browser.
 - Verify `window.VdrSuitePlatform.isLoaded()` returns `true` after hard reload.
-- Verify `window.VdrSuitePlatform.listModules()` returns an empty array before module registration slices.
+- Verify `window.VdrSuitePlatform.listModules()` returns `['channels']` after Channel browser registration.
 - Verify the `Kanäle` module renders channel groups and selected-channel programmes.
 - Verify the `Aufnahmen` module renders the recording tree and opens recording details.
 - Verify the browser console has no missing script errors for:
