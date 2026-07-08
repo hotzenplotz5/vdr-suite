@@ -308,7 +308,7 @@ Phase 60.2 module registry roadmap:
 Frontend module runtime smoke check:
 
 - After installing frontend assets, hard-reload the browser.
-- Verify `window.VdrSuitePlatform.isLoaded()` returns `true` in the browser console.
+- Verify `window.VdrSuitePlatform.isLoaded()` returns `true` after hard reload.
 - Verify the `Kanäle` module renders channel groups and selected-channel programmes.
 - Verify the `Aufnahmen` module renders the recording tree and opens recording details.
 - Verify the browser console has no missing script errors for:
