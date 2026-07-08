@@ -80,6 +80,10 @@ def main() -> int:
         "getSelectedBackendId: selectedEpgBackendId",
         "getSelectedModule: function()",
         "configurePlatformRuntimeContextBoundary();",
+        "function frontendPlatformModule(name, legacyApi)",
+        "window.VdrSuitePlatform.getModule(name)",
+        "frontendPlatformModule('channels', window.VdrSuiteChannelBrowser)",
+        "frontendPlatformModule('recordings', window.VdrSuiteRecordingBrowser)",
     ]
 
     for token in app_required_tokens:

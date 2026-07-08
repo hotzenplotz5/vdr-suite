@@ -53,6 +53,18 @@ function configurePlatformRuntimeContextBoundary() {
   });
 }
 
+function frontendPlatformModule(name, legacyApi) {
+  if (window.VdrSuitePlatform &&
+      typeof window.VdrSuitePlatform.getModule === 'function') {
+    const moduleApi = window.VdrSuitePlatform.getModule(name);
+    if (moduleApi) {
+      return moduleApi;
+    }
+  }
+
+  return legacyApi || null;
+}
+
 function configureChannelBrowserContextBoundary() {
   if (!window.VdrSuiteChannelBrowser ||
       typeof window.VdrSuiteChannelBrowser.configureContext !== 'function') {
@@ -66,14 +78,14 @@ function configureChannelBrowserContextBoundary() {
 
 function renderChannelsThroughModule(data) {
   configureChannelBrowserContextBoundary();
-configurePlatformRuntimeContextBoundary();
 
-  if (!window.VdrSuiteChannelBrowser ||
-      typeof window.VdrSuiteChannelBrowser.renderList !== 'function') {
+  const channelBrowser = frontendPlatformModule('channels', window.VdrSuiteChannelBrowser);
+
+  if (!channelBrowser || typeof channelBrowser.renderList !== 'function') {
     throw new Error('Channel browser module render API is not available');
   }
 
-  return window.VdrSuiteChannelBrowser.renderList(data);
+  return channelBrowser.renderList(data);
 }
 
 configureChannelBrowserContextBoundary();
@@ -3241,22 +3253,16 @@ function loadSearchTimers() {
 }
 
 function renderRecordingsThroughModule(data) {
-  const recordingBrowser = window.VdrSuiteRecordingBrowser;
+  const recordingBrowser = frontendPlatformModule('recordings', window.VdrSuiteRecordingBrowser);
 
-  if (
-    !recordingBrowser
-    || typeof recordingBrowser.configureMountTarget !== 'function'
-    || typeof recordingBrowser.renderList !== 'function'
-  ) {
-    renderModuleError(
-      'Aufnahmen konnten nicht angezeigt werden',
-      new Error('Recording browser module is not available')
-    );
-    return;
+  if (!recordingBrowser ||
+      typeof recordingBrowser.configureMountTarget !== 'function' ||
+      typeof recordingBrowser.renderList !== 'function') {
+    throw new Error('Recording browser module API is not available');
   }
 
   recordingBrowser.configureMountTarget(detailDataElement);
-  recordingBrowser.renderList(data);
+  return recordingBrowser.renderList(data);
 }
 
 function loadRecordings() {
