@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -50,26 +51,17 @@ std::string stateToJson(
     return "unknown";
 }
 
-} // namespace
-
-std::string SearchTimerResultJsonSerializer::serialize(
-    const SearchTimerResult& result) const
+void appendSearchTimerArray(
+    std::ostringstream& json,
+    const std::vector<SearchTimer>& timers)
 {
-    std::ostringstream json;
-
-    json
-        << "{"
-        << "\"totalCount\":" << result.totalCount() << ","
-        << "\"returnedCount\":" << result.returnedCount() << ","
-        << "\"limit\":" << result.limit() << ","
-        << "\"offset\":" << result.offset() << ","
-        << "\"searchtimers\":[";
+    json << "[";
 
     for (std::size_t index = 0;
-         index < result.items().size();
+         index < timers.size();
          ++index)
     {
-        const SearchTimer& timer = result.items().at(index);
+        const SearchTimer& timer = timers.at(index);
 
         if (index > 0) {
             json << ",";
@@ -154,9 +146,31 @@ std::string SearchTimerResultJsonSerializer::serialize(
             << "}";
     }
 
+    json << "]";
+}
+
+} // namespace
+
+std::string SearchTimerResultJsonSerializer::serialize(
+    const SearchTimerResult& result) const
+{
+    std::ostringstream json;
+
     json
-        << "]"
-        << "}";
+        << "{"
+        << "\"totalCount\":" << result.totalCount() << ","
+        << "\"returnedCount\":" << result.returnedCount() << ","
+        << "\"limit\":" << result.limit() << ","
+        << "\"offset\":" << result.offset() << ","
+        << "\"searchtimers\":";
+
+    appendSearchTimerArray(json, result.items());
+
+    json << ",\"searchTimers\":";
+
+    appendSearchTimerArray(json, result.items());
+
+    json << "}";
 
     return json.str();
 }
