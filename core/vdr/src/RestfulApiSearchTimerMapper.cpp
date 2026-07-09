@@ -123,8 +123,8 @@ std::string getStringField(const std::string& objectText, const std::string& fie
         return "";
     }
 
-    std::size_t quoteStart = objectText.find('"', colon + 1);
-    if (quoteStart == std::string::npos) {
+    std::size_t quoteStart = skipWhitespace(objectText, colon + 1);
+    if (quoteStart >= objectText.size() || objectText[quoteStart] != '"') {
         return "";
     }
 
