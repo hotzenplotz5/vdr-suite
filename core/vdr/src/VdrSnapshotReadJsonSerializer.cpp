@@ -122,19 +122,34 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimers(
             json << ",";
         }
 
+        json << "{";
+
+        json << "\"id\":";
+        appendJsonString(json, timer.id);
+
+        json << ",\"channelId\":";
+        appendJsonString(json, timer.channelId);
+
+        json << ",\"eventId\":";
+        appendJsonString(json, timer.eventId);
+
+        json << ",\"title\":";
+        appendJsonString(json, timer.title);
+
+        json << ",\"subtitle\":";
+        appendJsonString(json, timer.subtitle);
+
+        json << ",\"startTime\":";
+        appendJsonString(json, timer.startTime);
+
+        json << ",\"endTime\":";
+        appendJsonString(json, timer.endTime);
+
         json
-            << "{"
-            << "\"id\":\"" << timer.id << "\"," 
-            << "\"channelId\":\"" << timer.channelId << "\"," 
-            << "\"eventId\":\"" << timer.eventId << "\"," 
-            << "\"title\":\"" << timer.title << "\"," 
-            << "\"subtitle\":\"" << timer.subtitle << "\"," 
-            << "\"startTime\":\"" << timer.startTime << "\"," 
-            << "\"endTime\":\"" << timer.endTime << "\"," 
-            << "\"priority\":" << timer.priority << ","
-            << "\"lifetime\":" << timer.lifetime << ","
-            << "\"enabled\":" << boolToJson(timer.enabled) << ","
-            << "\"recording\":" << boolToJson(timer.recording)
+            << ",\"priority\":" << timer.priority
+            << ",\"lifetime\":" << timer.lifetime
+            << ",\"enabled\":" << boolToJson(timer.enabled)
+            << ",\"recording\":" << boolToJson(timer.recording)
             << "}";
     }
 

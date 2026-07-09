@@ -116,6 +116,36 @@ static void test_snapshot_read_serializer_serializes_search_timers()
     assert(json.find("\"active\":true") != std::string::npos);
 }
 
+
+static void test_snapshot_read_serializer_escapes_timer_strings()
+{
+    VdrSnapshotReadJsonSerializer serializer;
+
+    VdrTimer timer;
+    timer.id = "timer-\"1\"";
+    timer.channelId = "channel\\id";
+    timer.eventId = "event-1";
+    timer.title = "ARD-Radio-Tatort \"Grow\" von Dominik Bernet";
+    timer.subtitle = "<epgsearch><searchtimer>Tatort </searchtimer></epgsearch>";
+    timer.startTime = "1900";
+    timer.endTime = "2000";
+    timer.priority = 0;
+    timer.lifetime = 0;
+    timer.enabled = true;
+    timer.recording = false;
+
+    const std::string json =
+        serializer.serializeTimers({timer});
+
+    assert(json.find("\"timers\":[") != std::string::npos);
+    assert(json.find("\"id\":\"timer-\\\"1\\\"\"") != std::string::npos);
+    assert(json.find("\"channelId\":\"channel\\\\id\"") != std::string::npos);
+    assert(json.find("\"title\":\"ARD-Radio-Tatort \\\"Grow\\\" von Dominik Bernet\"") != std::string::npos);
+    assert(json.find("\"subtitle\":\"<epgsearch><searchtimer>Tatort </searchtimer></epgsearch>\"") != std::string::npos);
+    assert(json.find("\"enabled\":true") != std::string::npos);
+    assert(json.find("\"recording\":false") != std::string::npos);
+}
+
 static void test_snapshot_read_serializer_serializes_empty_domain_lists()
 {
     VdrSnapshotReadJsonSerializer serializer;
@@ -132,6 +162,7 @@ int main()
     test_snapshot_read_serializer_serializes_status();
     test_snapshot_read_serializer_serializes_empty_domain_lists();
     test_snapshot_read_serializer_serializes_search_timers();
+    test_snapshot_read_serializer_escapes_timer_strings();
     test_snapshot_read_serializer_serializes_multiple_snapshot_summaries();
 
     std::cout
