@@ -346,10 +346,15 @@ function renderRecordingNode(node) {
 
 
 let recordingBrowserFolderLoader = null;
+let recordingBrowserActionRunner = null;
 let recordingBrowserFolderRefreshTimer = null;
 
 function configureRecordingBrowserFolderLoader(loader) {
   recordingBrowserFolderLoader = typeof loader === 'function' ? loader : null;
+}
+
+function configureRecordingBrowserActionRunner(runner) {
+  recordingBrowserActionRunner = typeof runner === 'function' ? runner : null;
 }
 
 function recordingBrowserCancelFolderRefreshTimer() {
@@ -404,6 +409,184 @@ function recordingBrowserLoadServerFolder(path, offset) {
     });
 }
 
+
+function recordingBrowserActionList(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map(entry => String(entry || '').trim())
+    .filter(entry => entry !== '');
+}
+
+function recordingBrowserActionPayload(recording, action) {
+  const recordingId = recordingBrowserFirstValue(recording, ['recordingId', 'id', 'nativeId'], '');
+  const recordingPath = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '');
+
+  const payload = {
+    recordingId: String(recordingId),
+    action: String(action),
+    dryRun: true
+  };
+
+  if (String(recordingPath || '').trim() !== '') {
+    payload.recordingPath = String(recordingPath);
+  }
+
+  return payload;
+}
+
+function recordingBrowserRenderActionResult(target, title, result, error) {
+  target.replaceChildren();
+
+  const heading = document.createElement('h4');
+  heading.textContent = title;
+  target.appendChild(heading);
+
+  const lines = [];
+
+  if (error) {
+    lines.push('Fehler: ' + (error.message ? error.message : String(error)));
+  } else if (result && typeof result === 'object') {
+    if (Object.prototype.hasOwnProperty.call(result, 'valid')) {
+      lines.push('Validierung: ' + (result.valid ? 'gültig' : 'ungültig'));
+    }
+
+    if (Object.prototype.hasOwnProperty.call(result, 'success')) {
+      lines.push('Ausführung: ' + (result.success ? 'erfolgreich' : 'nicht erfolgreich'));
+    }
+
+    if (result.type) {
+      lines.push('Typ: ' + String(result.type));
+    }
+
+    if (result.action) {
+      lines.push('Aktion: ' + String(result.action));
+    }
+
+    if (result.message) {
+      lines.push('Meldung: ' + String(result.message));
+    }
+
+    const permissions = recordingBrowserActionList(result.requiredPermissions);
+    if (permissions.length > 0) {
+      lines.push('Benötigte Rechte: ' + permissions.join(', '));
+    }
+
+    const capabilities = recordingBrowserActionList(result.requiredCapabilities);
+    if (capabilities.length > 0) {
+      lines.push('Benötigte Fähigkeiten: ' + capabilities.join(', '));
+    }
+
+    const warnings = recordingBrowserActionList(result.warnings);
+    if (warnings.length > 0) {
+      lines.push('Warnungen: ' + warnings.join(' · '));
+    }
+
+    const errors = recordingBrowserActionList(result.errors);
+    if (errors.length > 0) {
+      lines.push('API-Fehler: ' + errors.join(' · '));
+    }
+
+    if (lines.length === 0) {
+      lines.push('Antwort erhalten.');
+    }
+  } else {
+    lines.push('Antwort erhalten.');
+  }
+
+  lines.forEach(line => {
+    target.appendChild(recordingBrowserAddText(document.createElement('p'), line));
+  });
+}
+
+function recordingBrowserCreateActionButton(label, mode, action, recording, resultBox) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+
+  button.addEventListener('click', () => {
+    if (!recordingBrowserActionRunner) {
+      recordingBrowserRenderActionResult(
+        resultBox,
+        label,
+        null,
+        new Error('Recording action runner is not configured')
+      );
+      return;
+    }
+
+    button.disabled = true;
+    recordingBrowserRenderActionResult(
+      resultBox,
+      label,
+      { message: 'Aktion läuft …' },
+      null
+    );
+
+    recordingBrowserActionRunner({
+      mode: mode,
+      action: action,
+      payload: recordingBrowserActionPayload(recording, action),
+      recording: recording
+    })
+      .then(result => {
+        recordingBrowserRenderActionResult(resultBox, label, result, null);
+      })
+      .catch(error => {
+        recordingBrowserRenderActionResult(resultBox, label, null, error);
+      })
+      .finally(() => {
+        button.disabled = false;
+      });
+  });
+
+  return button;
+}
+
+function createServerRecordingActionPanel(recording) {
+  const panel = document.createElement('div');
+  panel.className = 'recording-action-panel';
+
+  panel.appendChild(recordingBrowserAddText(
+    document.createElement('h3'),
+    'Aktionen'
+  ));
+
+  panel.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    'Sicherer Action-Test: Validierung und Dry-Run. Keine echte Löschung, kein echtes Verschieben, keine echte Mutation.'
+  ));
+
+  const actions = document.createElement('div');
+  actions.className = 'recording-action-buttons';
+
+  const resultBox = document.createElement('div');
+  resultBox.className = 'recording-action-result';
+
+  actions.appendChild(recordingBrowserCreateActionButton(
+    'Löschen prüfen',
+    'validate',
+    'DELETE',
+    recording,
+    resultBox
+  ));
+
+  actions.appendChild(recordingBrowserCreateActionButton(
+    'Löschen Dry-Run',
+    'execute',
+    'DELETE',
+    recording,
+    resultBox
+  ));
+
+  panel.appendChild(actions);
+  panel.appendChild(resultBox);
+
+  return panel;
+}
+
 function renderServerRecordingDetail(recording, folderData) {
   recordingBrowserCancelFolderRefreshTimer();
 
@@ -426,6 +609,7 @@ function renderServerRecordingDetail(recording, folderData) {
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Größe: ' + size));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Pfad: ' + String(path)));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'ID: ' + String(recordingId)));
+  item.appendChild(createServerRecordingActionPanel(recording));
 
   const backButton = document.createElement('button');
   backButton.type = 'button';
@@ -965,6 +1149,7 @@ const recordingBrowserApi = Object.freeze({
   configureContext: configureRecordingBrowserContext,
   configureMountTarget: configureRecordingBrowserMountTarget,
   configureFolderLoader: configureRecordingBrowserFolderLoader,
+  configureActionRunner: configureRecordingBrowserActionRunner,
   decodeRecordingText: decodeRecordingText,
   setRecords: setRecordingBrowserRecords,
   renderList: renderRecordingList,

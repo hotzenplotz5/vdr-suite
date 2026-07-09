@@ -68,23 +68,18 @@ int main()
     const RecordingActionExecutionResult dryRunResult =
         service.execute(dryRunRequest, dryRunExecutor);
 
-    assert(dryRunExecutor.called);
+    assert(!dryRunExecutor.called);
     assert(!dryRunResult.success);
     assert(dryRunResult.type == RecordingActionType::Move);
     assert(dryRunResult.backendId == "living-room");
     assert(dryRunResult.recordingId == "recording-1");
-    assert(dryRunResult.message == "dry-run execution skipped");
+    assert(dryRunResult.message == "dry-run backend execution skipped");
     assert(dryRunResult.hasWarnings());
     assert(!dryRunResult.hasErrors());
 
-    assert(dryRunExecutor.capturedPayload.backendId == "living-room");
-    assert(dryRunExecutor.capturedPayload.recordingId == "recording-1");
-    assert(dryRunExecutor.capturedPayload.type == RecordingActionType::Move);
-    assert(dryRunExecutor.capturedPayload.jobType == "recording.move");
-    assert(dryRunExecutor.capturedPayload.dryRun);
-    assert(dryRunExecutor.capturedPayload.parameters.at("targetPath") == "/video/archive");
-    assert(dryRunExecutor.capturedPayload.requiredCapabilities.at(0) == "recordings.action.move");
-    assert(dryRunExecutor.capturedPayload.requiredPermissions.at(0) == "recordings.action.move");
+    assert(dryRunExecutor.capturedPayload.backendId.empty());
+    assert(dryRunExecutor.capturedPayload.recordingId.empty());
+    assert(dryRunExecutor.capturedPayload.type == RecordingActionType::Unknown);
 
     RecordingActionRequest executeRequest;
     executeRequest.backendId = "living-room";

@@ -3171,6 +3171,42 @@ function renderRecordingsThroughModule(data) {
     });
   }
 
+  if (typeof recordingBrowser.configureActionRunner === 'function') {
+    const clientApi = frontendPlatformClientApi();
+
+    recordingBrowser.configureActionRunner(function(actionRequest) {
+      const request = actionRequest && typeof actionRequest === 'object' ? actionRequest : {};
+      const payload = Object.assign({}, request.payload || {});
+      payload.backendId = selectedEpgBackendId();
+
+      if (!clientApi) {
+        return Promise.reject(new Error('Recording action API wrapper is not available'));
+      }
+
+      if (request.mode === 'execute') {
+        if (typeof clientApi.fetchClientRecordingActionExecution !== 'function') {
+          return Promise.reject(new Error('Recording action execution API wrapper is not available'));
+        }
+
+        return clientApi.fetchClientRecordingActionExecution({
+          payload: payload,
+          cache: 'no-store',
+          credentials: 'same-origin'
+        });
+      }
+
+      if (typeof clientApi.fetchClientRecordingActionValidation !== 'function') {
+        return Promise.reject(new Error('Recording action validation API wrapper is not available'));
+      }
+
+      return clientApi.fetchClientRecordingActionValidation({
+        payload: payload,
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+    });
+  }
+
   return recordingBrowser.renderList(data);
 }
 

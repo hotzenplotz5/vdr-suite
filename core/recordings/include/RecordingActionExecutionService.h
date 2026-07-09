@@ -74,6 +74,16 @@ public:
         const RecordingActionJobPayload payload =
             payloadFactory_.create(request, validation);
 
+        if (payload.dryRun)
+        {
+            RecordingActionExecutionResult result =
+                dryRunSkipped(payload);
+
+            appendValidationWarnings(result, validation);
+
+            return result;
+        }
+
         RecordingActionExecutionResult result =
             executor.execute(payload);
 
@@ -127,6 +137,16 @@ public:
         const RecordingActionJobPayload payload =
             payloadFactory_.create(request, validation);
 
+        if (payload.dryRun)
+        {
+            RecordingActionExecutionResult result =
+                dryRunSkipped(payload);
+
+            appendValidationWarnings(result, validation);
+
+            return result;
+        }
+
         const RecordingActionBackendExecutorAdapterLookupResult resolvedAdapter =
             registry.findAdapter(payload.backendId);
 
@@ -174,6 +194,27 @@ public:
     }
 
 private:
+    static RecordingActionExecutionResult dryRunSkipped(
+        const RecordingActionJobPayload& payload)
+    {
+        RecordingActionExecutionResult result;
+        result.success = false;
+        result.type = payload.type;
+        result.recordingId = payload.recordingId;
+        result.backendId = payload.backendId;
+        result.message = "dry-run backend execution skipped";
+
+        const auto recordingPath =
+            payload.parameters.find("recordingPath");
+
+        if (recordingPath != payload.parameters.end())
+        {
+            result.recordingPath = recordingPath->second;
+        }
+
+        return result;
+    }
+
     static RecordingActionExecutionResult validationFailure(
         const RecordingActionRequest& request,
         const RecordingActionValidationResult& validation)
