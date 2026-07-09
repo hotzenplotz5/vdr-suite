@@ -64,7 +64,20 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 60.2j closes the frontend platform module registry block.
+Phase 60.11b adds the lazy Recording folder cache.
+
+Verified runtime scope:
+- Phase 60.10l fixes Timer JSON escaping for quoted Timer titles in `/api/vdr/timers/live`.
+- Phase 60.11a introduces the SQLite-backed VDR Recording cache repository foundation.
+- Phase 60.11b wires Recording cache usage into the daemon runtime.
+- Phase 60.11b starts a daemon background warmup worker for Recording cache refresh.
+- Phase 60.11b exposes `/api/vdr/recordings/cache/status`.
+- Phase 60.11b exposes `/api/vdr/recordings/folder` for lazy folder loading.
+- Phase 60.11b changes the frontend Recording browser from full initial `limit=0` loading to root-folder lazy loading.
+- Phase 60.11b keeps folder clicks lazy: root folder -> child folder -> direct recording page.
+- Runtime verification on the default backend proved `state=ready`, `cacheReady=true`, `totalCount=7976`, root folder count `25`, `Action` folder count `46`, and `Action/48 Hrs` direct recording count `1`.
+- Restart verification proved stale-while-refresh behavior: existing cache data stayed usable while the daemon refreshed the Recording cache in the background.
+- Frontend verification proved that `Action/48 Hrs` opens through the lazy Recording folder flow and displays the direct recording detail.
 
 Stable scope:
 
