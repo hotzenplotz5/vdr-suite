@@ -16,6 +16,7 @@ int main()
     assert(emptyJson.find("\"limit\":25") != std::string::npos);
     assert(emptyJson.find("\"offset\":10") != std::string::npos);
     assert(emptyJson.find("\"searchtimers\":[]") != std::string::npos);
+    assert(emptyJson.find("\"searchTimers\":[]") != std::string::npos);
 
     std::vector<SearchTimer> timers;
     SearchTimer terraX = SearchTimer::create(
@@ -87,6 +88,8 @@ int main()
     assert(json.find("\"returnedCount\":2") != std::string::npos);
     assert(json.find("\"limit\":2") != std::string::npos);
     assert(json.find("\"offset\":4") != std::string::npos);
+    assert(json.find("\"searchtimers\":[") != std::string::npos);
+    assert(json.find("\"searchTimers\":[") != std::string::npos);
     assert(json.find("\"backendId\":\"livingroom\"") != std::string::npos);
     assert(json.find("\"backendNativeId\":\"1\"") != std::string::npos);
     assert(json.find("\"name\":\"Terra X\"") != std::string::npos);
