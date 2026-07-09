@@ -187,6 +187,53 @@ int getIntField(const std::string& objectText, const std::string& fieldName, int
     return negative ? -value : value;
 }
 
+bool getBoolField(
+    const std::string& objectText,
+    const std::string& fieldName,
+    bool fallback = false)
+{
+    const std::string key = "\"" + fieldName + "\"";
+    std::size_t keyPos = objectText.find(key);
+
+    if (keyPos == std::string::npos) {
+        return fallback;
+    }
+
+    std::size_t colon = objectText.find(':', keyPos + key.size());
+
+    if (colon == std::string::npos) {
+        return fallback;
+    }
+
+    std::size_t pos = skipWhitespace(objectText, colon + 1);
+
+    if (pos >= objectText.size()) {
+        return fallback;
+    }
+
+    if (objectText.compare(pos, 4, "true") == 0) {
+        return true;
+    }
+
+    if (objectText.compare(pos, 5, "false") == 0) {
+        return false;
+    }
+
+    if (objectText[pos] == '"') {
+        const std::string value = getStringField(objectText, fieldName);
+        return value == "true" ||
+            value == "1" ||
+            value == "yes";
+    }
+
+    if (objectText[pos] == '-' ||
+        std::isdigit(static_cast<unsigned char>(objectText[pos]))) {
+        return getIntField(objectText, fieldName, fallback ? 1 : 0) != 0;
+    }
+
+    return fallback;
+}
+
 SearchTimerState mapState(const std::string& objectText)
 {
     const int useAsSearchTimer = getIntField(objectText, "use_as_searchtimer", 1);
@@ -244,15 +291,24 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
             getIntField(objectText, "duration_max", 0));
 
         timer.comparisonOptions().setCompareTitle(
-            getIntField(objectText, "compare_title", 0) != 0);
+            getBoolField(
+                objectText,
+                "use_title",
+                getBoolField(objectText, "compare_title", false)));
         timer.comparisonOptions().setCompareSubtitle(
-            getIntField(objectText, "compare_subtitle", 0) != 0);
+            getBoolField(
+                objectText,
+                "use_subtitle",
+                getBoolField(objectText, "compare_subtitle", false)));
         timer.comparisonOptions().setCompareSummary(
-            getIntField(objectText, "compare_summary", 0) != 0);
+            getBoolField(
+                objectText,
+                "use_description",
+                getBoolField(objectText, "compare_summary", false)));
         timer.comparisonOptions().setCompareCategories(
-            getIntField(objectText, "compare_categories", 0) != 0);
+            getBoolField(objectText, "compare_categories", false));
         timer.comparisonOptions().setCompareTime(
-            getIntField(objectText, "compare_time", 0) != 0);
+            getBoolField(objectText, "compare_time", false));
 
         timer.repeatOptions().setAvoidRepeats(
             getIntField(objectText, "avoid_repeats", 0) != 0);

@@ -179,6 +179,9 @@ int main()
     assert(realRestfulApiTimers.at(0).query() == "Tatort ");
     assert(realRestfulApiTimers.at(0).isActive());
     assert(realRestfulApiTimers.at(0).channelOptions().channels() == "alle");
+    assert(realRestfulApiTimers.at(0).comparisonOptions().compareTitle());
+    assert(!realRestfulApiTimers.at(0).comparisonOptions().compareSubtitle());
+    assert(!realRestfulApiTimers.at(0).comparisonOptions().compareSummary());
     assert(realRestfulApiTimers.at(0).blacklistOptions().blacklistMode() == 3);
     assert(realRestfulApiTimers.at(0).blacklistOptions().blacklistIds().empty());
     assert(realRestfulApiTimers.at(0).extendedEpgOptions().extendedEpgInfo().empty());
