@@ -1973,3 +1973,13 @@ test-vdr-timer-conflict-json-serializer:
 	/tmp/test_vdr_timer_conflict_json_serializer
 
 test-vdr-timer-conflicts: test-restful-api-timer-conflict-mapper test-restful-api-vdr-adapter-timer-conflicts test-vdr-timer-conflict-json-serializer
+
+.PHONY: test-vdr-recording-cache-repository
+test-vdr-recording-cache-repository:
+	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		core/vdr/tests/test_vdr_recording_cache_repository.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_vdr_recording_cache_repository
+	/tmp/test_vdr_recording_cache_repository

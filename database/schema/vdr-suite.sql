@@ -99,6 +99,30 @@ CREATE INDEX IF NOT EXISTS idx_epg_events_backend_channel_time
 CREATE INDEX IF NOT EXISTS idx_epg_events_backend_title
     ON epg_events (backend_id, title);
 
+CREATE TABLE IF NOT EXISTS vdr_recording_cache (
+    backend_id TEXT NOT NULL,
+    cache_key TEXT NOT NULL,
+    recording_id TEXT NOT NULL DEFAULT '',
+    backend_native_id TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    path TEXT NOT NULL DEFAULT '',
+    start_time TEXT NOT NULL DEFAULT '',
+    duration_seconds INTEGER NOT NULL DEFAULT 0,
+    size_mb INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TEXT DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (backend_id, cache_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_vdr_recording_cache_backend_title
+    ON vdr_recording_cache (backend_id, title);
+CREATE INDEX IF NOT EXISTS idx_vdr_recording_cache_backend_start
+    ON vdr_recording_cache (backend_id, start_time);
+CREATE INDEX IF NOT EXISTS idx_vdr_recording_cache_backend_path
+    ON vdr_recording_cache (backend_id, path);
+
 CREATE TABLE IF NOT EXISTS epgsearch_native_fuzzy_capability_probes (
     backend_id TEXT PRIMARY KEY,
     create_accepted INTEGER NOT NULL DEFAULT 0,
