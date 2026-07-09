@@ -3148,28 +3148,53 @@ function renderRecordingsThroughModule(data) {
   }
 
   recordingBrowser.configureMountTarget(frontendPlatformMountTarget('recordings', detailDataElement));
+
+  if (typeof recordingBrowser.configureFolderLoader === 'function') {
+    const clientApi = frontendPlatformClientApi();
+
+    recordingBrowser.configureFolderLoader(function(path, offset) {
+      if (!clientApi || typeof clientApi.fetchClientRecordingFolder !== 'function') {
+        return Promise.reject(new Error('Recording folder API wrapper is not available'));
+      }
+
+      return clientApi.fetchClientRecordingFolder({
+        query: {
+          backend: selectedEpgBackendId(),
+          path: path || '',
+          limit: 50,
+          offset: Number(offset) || 0,
+          _: String(Date.now())
+        },
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+    });
+  }
+
   return recordingBrowser.renderList(data);
 }
 
 function loadRecordings() {
-  renderModuleLoading('Aufnahmen', 'Lade Aufnahmeliste aus /api/vdr/recordings/query...');
+  renderModuleLoading('Aufnahmen', 'Lade Aufnahmeordner aus dem lokalen Recording-Cache...');
 
   const clientApi = frontendPlatformClientApi();
   const backendId = selectedEpgBackendId();
 
-  if (!clientApi || typeof clientApi.fetchClientRecordings !== 'function') {
+  if (!clientApi || typeof clientApi.fetchClientRecordingFolder !== 'function') {
     currentRecordings = null;
     renderModuleError(
       'Aufnahmen konnten nicht geladen werden',
-      new Error('Client API wrapper is not available')
+      new Error('Recording folder API wrapper is not available')
     );
     return;
   }
 
-  clientApi.fetchClientRecordings({
+  clientApi.fetchClientRecordingFolder({
     query: {
       backend: backendId,
-      limit: 0,
+      path: '',
+      limit: 50,
+      offset: 0,
       _: String(Date.now())
     },
     cache: 'no-store',

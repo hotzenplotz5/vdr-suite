@@ -21,6 +21,7 @@ DAEMON_SRC := \
         core/vdr/src/PersonSearchService.cpp \
         api/rest/src/VdrController.cpp \
         api/rest/src/VdrRecordingQueryController.cpp \
+        api/rest/src/VdrRecordingFolderController.cpp \
         api/rest/src/EpgController.cpp \
         api/rest/src/EpgCacheController.cpp \
         api/rest/src/EpgSearchNativeFuzzyStaleProbeAdministrationController.cpp \
@@ -30,6 +31,7 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerAutomationPreviewController.cpp \
         api/rest/src/SearchTimerPreviewEpgCacheRefreshController.cpp \
         core/vdr/src/EpgEventRepository.cpp \
+        core/vdr/src/VdrRecordingCacheRepository.cpp \
         core/vdr/src/EpgCacheService.cpp \
         core/vdr/src/SearchTimerResultJsonSerializer.cpp \
         core/vdr/src/SearchTimerService.cpp \

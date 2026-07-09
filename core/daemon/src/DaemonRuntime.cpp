@@ -12,12 +12,14 @@
 #include "TestHttpServer.h"
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "VdrEventQuery.h"
+#include "VdrRecordingCacheRepository.h"
 
 #include <chrono>
 #include <exception>
 #include <csignal>
 #include <iostream>
 #include <thread>
+#include <vector>
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
 
@@ -25,7 +27,9 @@ DaemonRuntime::DaemonRuntime()
     : initialized_(false),
       externalVdrChangeHint_(false),
       epgCacheWarmupStopRequested_(false),
-      epgCacheDirtyHint_(false)
+      epgCacheDirtyHint_(false),
+      recordingCacheWarmupStopRequested_(false),
+      recordingCacheDirtyHint_(false)
 {
 }
 
@@ -96,6 +100,7 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         [this](const std::string&) {
             externalVdrChangeHint_.store(true);
             epgCacheDirtyHint_.store(true);
+            recordingCacheDirtyHint_.store(true);
         });
 
     return context;
@@ -212,6 +217,13 @@ bool DaemonRuntime::initialize()
         return false;
     }
 
+    vdrRecordingCacheRepository_ = std::make_unique<VdrRecordingCacheRepository>(database_);
+
+    if (!vdrRecordingCacheRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize VDR recording cache repository schema" << std::endl;
+        return false;
+    }
+
     epgCacheServiceRegistry_ = std::make_unique<EpgCacheServiceRegistry>();
 
     for (const BackendNode& runtimeBackend : runtimeBackends) {
@@ -265,7 +277,9 @@ bool DaemonRuntime::initialize()
 
     if (!backendRuntimeContexts_.empty()) {
         vdrRecordingQueryService_ = std::make_unique<VdrRecordingQueryService>(
-            *backendRuntimeContexts_.front()->service);
+            *backendRuntimeContexts_.front()->service,
+            vdrRecordingCacheRepository_.get(),
+            backendRuntimeContexts_.front()->backendId);
     }
     else {
         std::cerr << "failed to initialize VDR recording query controller: no VDR backend configured" << std::endl;
@@ -276,6 +290,8 @@ bool DaemonRuntime::initialize()
     vdrRecordingQueryController_ = std::make_unique<VdrRecordingQueryController>(
         *vdrRecordingQueryService_,
         *vdrRecordingQueryResultJsonSerializer_);
+    vdrRecordingFolderController_ = std::make_unique<VdrRecordingFolderController>(
+        *vdrRecordingCacheRepository_);
 
     capabilityResolver_ =
         std::make_unique<BackendRegistryCapabilityResolver>(
@@ -467,9 +483,21 @@ bool DaemonRuntime::initialize()
     recordingActionExecutionController_->setAfterSuccessfulExecutionCallback(
         [this]() {
             for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+                const std::vector<VdrRecording> recordings =
+                    backendRuntimeContext->snapshotBuilder->buildRecordings();
+
                 snapshotCacheService_->updateRecordingsForBackend(
                     backendRuntimeContext->backendId,
-                    backendRuntimeContext->snapshotBuilder->buildRecordings());
+                    recordings);
+
+                if (vdrRecordingCacheRepository_) {
+                    vdrRecordingCacheRepository_->replaceRecordingsForBackend(
+                        backendRuntimeContext->backendId,
+                        recordings);
+                    vdrRecordingCacheRepository_->markRefreshFinished(
+                        backendRuntimeContext->backendId,
+                        static_cast<int>(recordings.size()));
+                }
             }
         });
 
@@ -600,7 +628,8 @@ bool DaemonRuntime::initialize()
         searchTimerAutomationPreviewController_.get(),
         searchTimerPreviewEpgCacheRefreshController_.get(),
         epgCacheController_.get(),
-        vdrChannelMoveController_.get());
+        vdrChannelMoveController_.get(),
+        vdrRecordingFolderController_.get());
 
     apiRouter_->setSearchTimerPreviewEpgCache(
         searchTimerPreviewEpgCache_.get());
@@ -634,6 +663,7 @@ bool DaemonRuntime::initialize()
         });
 
     startEpgCacheWarmupWorker();
+    startRecordingCacheWarmupWorker();
 
     std::cout << "HTTP listener runtime initialized" << std::endl;
     std::cout << "dashboard runtime initialized" << std::endl;
@@ -645,6 +675,192 @@ bool DaemonRuntime::initialize()
     initialized_ = true;
 
     return true;
+}
+
+
+void DaemonRuntime::startRecordingCacheWarmupWorker()
+{
+    if (recordingCacheWarmupThread_.joinable()) {
+        return;
+    }
+
+    recordingCacheWarmupStopRequested_.store(false);
+    recordingCacheDirtyHint_.store(false);
+
+    recordingCacheWarmupThread_ = std::thread([this]() {
+        runRecordingCacheWarmupWorker();
+    });
+}
+
+void DaemonRuntime::stopRecordingCacheWarmupWorker()
+{
+    recordingCacheWarmupStopRequested_.store(true);
+
+    if (recordingCacheWarmupThread_.joinable()) {
+        recordingCacheWarmupThread_.join();
+    }
+}
+
+void DaemonRuntime::runRecordingCacheWarmupWorker()
+{
+    try {
+        const int initialDelaySeconds = 1;
+        const int dirtyDebounceSeconds = 30;
+
+        std::cout
+            << "Recording cache warmup worker scheduled after "
+            << initialDelaySeconds
+            << " seconds"
+            << std::endl;
+
+        const auto waitForStop = [this](int seconds) -> bool {
+            for (int elapsed = 0; elapsed < seconds; ++elapsed) {
+                if (recordingCacheWarmupStopRequested_.load()) {
+                    return true;
+                }
+
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+
+            return recordingCacheWarmupStopRequested_.load();
+        };
+
+        if (waitForStop(initialDelaySeconds)) {
+            return;
+        }
+
+        refreshRecordingCacheForAllBackends("startup");
+
+        auto lastRefresh = std::chrono::steady_clock::now();
+
+        while (!recordingCacheWarmupStopRequested_.load()) {
+            if (waitForStop(5)) {
+                return;
+            }
+
+            if (!recordingCacheDirtyHint_.exchange(false)) {
+                continue;
+            }
+
+            const auto now = std::chrono::steady_clock::now();
+            const auto secondsSinceLastRefresh =
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    now - lastRefresh).count();
+
+            if (secondsSinceLastRefresh < dirtyDebounceSeconds) {
+                std::cout
+                    << "Recording cache warmup worker debounced dirty hint: "
+                    << secondsSinceLastRefresh
+                    << " seconds since last refresh"
+                    << std::endl;
+                continue;
+            }
+
+            refreshRecordingCacheForAllBackends("event-stream-dirty-hint");
+            lastRefresh = std::chrono::steady_clock::now();
+        }
+    }
+    catch (const std::exception& error) {
+        std::cerr
+            << "Recording cache warmup worker stopped after exception: "
+            << error.what()
+            << std::endl;
+    }
+    catch (...) {
+        std::cerr
+            << "Recording cache warmup worker stopped after unknown exception"
+            << std::endl;
+    }
+}
+
+void DaemonRuntime::refreshRecordingCacheForAllBackends(
+    const std::string& reason)
+{
+    if (!vdrRecordingCacheRepository_) {
+        std::cout
+            << "Recording cache warmup skipped: repository unavailable"
+            << std::endl;
+        return;
+    }
+
+    if (backendRuntimeContexts_.empty()) {
+        std::cout
+            << "Recording cache warmup skipped: no VDR backend configured"
+            << std::endl;
+        return;
+    }
+
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        if (recordingCacheWarmupStopRequested_.load()) {
+            return;
+        }
+
+        if (!backendRuntimeContext || !backendRuntimeContext->service) {
+            continue;
+        }
+
+        std::cout
+            << "Recording cache warmup started: reason="
+            << reason
+            << ", backend="
+            << backendRuntimeContext->backendId
+            << std::endl;
+
+        vdrRecordingCacheRepository_->markRefreshStarted(
+            backendRuntimeContext->backendId);
+
+        try {
+            const std::vector<VdrRecording> recordings =
+                backendRuntimeContext->service->getRecordings();
+
+            const bool stored =
+                vdrRecordingCacheRepository_->replaceRecordingsForBackend(
+                    backendRuntimeContext->backendId,
+                    recordings);
+
+            if (stored) {
+                vdrRecordingCacheRepository_->markRefreshFinished(
+                    backendRuntimeContext->backendId,
+                    static_cast<int>(recordings.size()));
+            }
+            else {
+                vdrRecordingCacheRepository_->markRefreshFailed(
+                    backendRuntimeContext->backendId,
+                    "repository replace failed");
+            }
+
+            std::cout
+                << "Recording cache warmup finished: backend="
+                << backendRuntimeContext->backendId
+                << ", stored="
+                << (stored ? "true" : "false")
+                << ", recordings="
+                << recordings.size()
+                << std::endl;
+        }
+        catch (const std::exception& error) {
+            vdrRecordingCacheRepository_->markRefreshFailed(
+                backendRuntimeContext->backendId,
+                error.what());
+
+            std::cerr
+                << "Recording cache warmup failed: backend="
+                << backendRuntimeContext->backendId
+                << ", error="
+                << error.what()
+                << std::endl;
+        }
+        catch (...) {
+            vdrRecordingCacheRepository_->markRefreshFailed(
+                backendRuntimeContext->backendId,
+                "unknown exception");
+
+            std::cerr
+                << "Recording cache warmup failed after unknown exception: backend="
+                << backendRuntimeContext->backendId
+                << std::endl;
+        }
+    }
 }
 
 void DaemonRuntime::pollVdrAndUpdateChangeFeed()
@@ -837,6 +1053,7 @@ void DaemonRuntime::shutdown()
         return;
     }
 
+    stopRecordingCacheWarmupWorker();
     stopEpgCacheWarmupWorker();
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
@@ -923,8 +1140,10 @@ void DaemonRuntime::shutdown()
     backendRegistryJsonSerializer_.reset();
     backendRegistryService_.reset();
     vdrRecordingQueryController_.reset();
+    vdrRecordingFolderController_.reset();
     vdrRecordingQueryResultJsonSerializer_.reset();
     vdrRecordingQueryService_.reset();
+    vdrRecordingCacheRepository_.reset();
     vdrController_.reset();
     vdrOverviewJsonSerializer_.reset();
     vdrOverviewService_.reset();

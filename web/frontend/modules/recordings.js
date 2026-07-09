@@ -344,10 +344,281 @@ function renderRecordingNode(node) {
   recordingBrowserDetailDataElement().replaceChildren(container);
 }
 
+
+let recordingBrowserFolderLoader = null;
+let recordingBrowserFolderRefreshTimer = null;
+
+function configureRecordingBrowserFolderLoader(loader) {
+  recordingBrowserFolderLoader = typeof loader === 'function' ? loader : null;
+}
+
+function recordingBrowserCancelFolderRefreshTimer() {
+  if (recordingBrowserFolderRefreshTimer !== null) {
+    window.clearTimeout(recordingBrowserFolderRefreshTimer);
+    recordingBrowserFolderRefreshTimer = null;
+  }
+}
+
+function recordingBrowserServerFolderLabel(path) {
+  const value = String(path || '').trim();
+  return value === '' ? 'Aufnahme-Ordner' : value.split('/').join(' / ');
+}
+
+function recordingBrowserLoadServerFolder(path, offset) {
+  if (!recordingBrowserFolderLoader) {
+    return;
+  }
+
+  recordingBrowserCancelFolderRefreshTimer();
+
+  const holder = document.createElement('section');
+  holder.className = 'list recording-folder-list';
+
+  const loading = document.createElement('article');
+  loading.className = 'module-placeholder';
+  loading.appendChild(recordingBrowserAddText(
+    document.createElement('h3'),
+    'Lade Aufnahmeordner …'
+  ));
+  loading.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    recordingBrowserServerFolderLabel(path)
+  ));
+  holder.appendChild(loading);
+  recordingBrowserDetailDataElement().replaceChildren(holder);
+
+  recordingBrowserFolderLoader(path || '', Number(offset) || 0)
+    .then(renderServerRecordingFolder)
+    .catch(error => {
+      const errorBox = document.createElement('article');
+      errorBox.className = 'module-placeholder';
+      errorBox.appendChild(recordingBrowserAddText(
+        document.createElement('h3'),
+        'Aufnahmeordner konnte nicht geladen werden'
+      ));
+      errorBox.appendChild(recordingBrowserAddText(
+        document.createElement('p'),
+        error && error.message ? error.message : String(error)
+      ));
+      recordingBrowserDetailDataElement().replaceChildren(errorBox);
+    });
+}
+
+function renderServerRecordingDetail(recording, folderData) {
+  recordingBrowserCancelFolderRefreshTimer();
+
+  const list = document.createElement('section');
+  list.className = 'list recording-detail-list';
+
+  const item = document.createElement('article');
+  item.className = 'module-placeholder recording-detail';
+
+  const title = recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme');
+  const recordingId = recordingBrowserFirstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
+  const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
+  const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
+  const duration = recordingBrowserFormatDurationSeconds(recordingBrowserFirstValue(recording, ['durationSeconds', 'duration'], 0));
+  const size = recordingBrowserFormatSizeMb(recordingBrowserFirstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
+
+  item.appendChild(recordingBrowserAddText(document.createElement('h3'), String(title)));
+  item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Start: ' + startTime));
+  item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
+  item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Größe: ' + size));
+  item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Pfad: ' + String(path)));
+  item.appendChild(recordingBrowserAddText(document.createElement('p'), 'ID: ' + String(recordingId)));
+
+  const backButton = document.createElement('button');
+  backButton.type = 'button';
+  backButton.textContent = 'Zurück zum Ordner';
+  backButton.addEventListener('click', () => renderServerRecordingFolder(folderData));
+  item.appendChild(backButton);
+
+  list.appendChild(item);
+  recordingBrowserDetailDataElement().replaceChildren(list);
+}
+
+function createServerRecordingItem(recording, folderData) {
+  const item = document.createElement('article');
+  item.className = 'list-item recording-list-item';
+  item.tabIndex = 0;
+  item.setAttribute('role', 'button');
+
+  const title = recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme');
+  const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
+  const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
+  const duration = recordingBrowserFormatDurationSeconds(recordingBrowserFirstValue(recording, ['durationSeconds', 'duration'], 0));
+  const size = recordingBrowserFormatSizeMb(recordingBrowserFirstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
+
+  item.appendChild(recordingBrowserAddText(document.createElement('div'), String(title))).className = 'list-title';
+  item.appendChild(recordingBrowserAddText(
+    document.createElement('div'),
+    'Start: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size + ' · antippen für Details'
+  )).className = 'list-meta';
+  item.appendChild(recordingBrowserAddText(document.createElement('div'), 'Pfad: ' + String(path))).className = 'list-meta';
+
+  const open = () => renderServerRecordingDetail(recording, folderData);
+  item.addEventListener('click', open);
+  item.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      open();
+    }
+  });
+
+  return item;
+}
+
+function renderServerRecordingFolder(data) {
+  recordingBrowserCancelFolderRefreshTimer();
+
+  const folderData = data && typeof data === 'object' ? data : {};
+  const folders = recordingBrowserListFromResponse(folderData, 'folders');
+  const recordings = recordingBrowserListFromResponse(folderData, 'recordings');
+  const path = String(folderData.path || '');
+  const parentPath = String(folderData.parentPath || '');
+  const cacheState = String(folderData.cacheState || folderData.state || 'empty');
+  const cacheReady = Boolean(folderData.cacheReady);
+  const offset = Number(folderData.offset) || 0;
+  const limit = Number(folderData.limit) || 50;
+  const recordingCount = Number(folderData.recordingCount) || recordings.length;
+  const totalCount = Number(folderData.totalCount) || 0;
+
+  const list = document.createElement('section');
+  list.className = 'list recording-folder-list';
+
+  const header = document.createElement('article');
+  header.className = 'module-placeholder';
+  header.appendChild(recordingBrowserAddText(
+    document.createElement('h3'),
+    recordingBrowserServerFolderLabel(path)
+  ));
+
+  const summary = [
+    String(folders.length) + ' Unterordner',
+    String(recordingCount) + ' direkte Aufnahme(n)',
+    String(totalCount) + ' Aufnahme(n) im Cache',
+    'Cache: ' + cacheState
+  ];
+
+  header.appendChild(recordingBrowserAddText(document.createElement('p'), summary.join(' · ')));
+
+  if (!cacheReady) {
+    header.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      'Recording-Cache wird vom Daemon im Hintergrund gefüllt. Diese Ansicht aktualisiert sich automatisch.'
+    ));
+  }
+
+  if (path !== '') {
+    const backButton = document.createElement('button');
+    backButton.type = 'button';
+    backButton.textContent = parentPath === '' ? 'Zurück zum Hauptordner' : 'Eine Ebene zurück';
+    backButton.addEventListener('click', () => recordingBrowserLoadServerFolder(parentPath, 0));
+    header.appendChild(backButton);
+  }
+
+  list.appendChild(header);
+
+  folders.forEach(folder => {
+    const item = document.createElement('article');
+    item.className = 'list-item recording-folder-item';
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+
+    const folderName = String(recordingBrowserFirstValue(folder, ['name', 'title'], 'Ordner'));
+    const folderPath = String(recordingBrowserFirstValue(folder, ['path'], folderName));
+    const folderCount = Number(recordingBrowserFirstValue(folder, ['recordingCount', 'count', 'total'], 0));
+
+    item.appendChild(recordingBrowserAddText(document.createElement('div'), folderName)).className = 'list-title';
+    item.appendChild(recordingBrowserAddText(
+      document.createElement('div'),
+      String(folderCount) + ' Aufnahme(n) · antippen zum Öffnen'
+    )).className = 'list-meta';
+
+    const open = () => recordingBrowserLoadServerFolder(folderPath, 0);
+    item.addEventListener('click', open);
+    item.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        open();
+      }
+    });
+
+    list.appendChild(item);
+  });
+
+  recordings.forEach(recording => {
+    list.appendChild(createServerRecordingItem(recording, folderData));
+  });
+
+  if (recordingCount > limit || offset > 0) {
+    const pager = document.createElement('article');
+    pager.className = 'module-placeholder recording-pager';
+
+    const actions = document.createElement('div');
+    actions.className = 'recording-pager-actions';
+
+    const previous = document.createElement('button');
+    previous.type = 'button';
+    previous.textContent = 'Vorherige ' + String(limit);
+    previous.disabled = offset <= 0;
+    if (!previous.disabled) {
+      previous.addEventListener('click', () => {
+        recordingBrowserLoadServerFolder(path, Math.max(0, offset - limit));
+      });
+    }
+    actions.appendChild(previous);
+
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.textContent = 'Nächste ' + String(limit);
+    next.disabled = offset + limit >= recordingCount;
+    if (!next.disabled) {
+      next.addEventListener('click', () => {
+        recordingBrowserLoadServerFolder(path, offset + limit);
+      });
+    }
+    actions.appendChild(next);
+
+    pager.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      'Direkte Aufnahmen ' + String(offset + 1) + '–' + String(Math.min(offset + recordings.length, recordingCount)) + ' von ' + String(recordingCount)
+    ));
+    pager.appendChild(actions);
+    list.appendChild(pager);
+  }
+
+  if (folders.length === 0 && recordings.length === 0) {
+    const empty = document.createElement('article');
+    empty.className = 'module-placeholder';
+    empty.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      cacheReady
+        ? 'Dieser Ordner enthält keine Aufnahmen.'
+        : 'Noch keine Cache-Daten vorhanden.'
+    ));
+    list.appendChild(empty);
+  }
+
+  recordingBrowserDetailDataElement().replaceChildren(list);
+
+  if (!cacheReady && recordingBrowserFolderLoader) {
+    recordingBrowserFolderRefreshTimer = window.setTimeout(() => {
+      recordingBrowserLoadServerFolder(path, offset);
+    }, 1500);
+  }
+}
+
+
 const RECORDING_FOLDER_BATCH_SIZE = 80;
 const RECORDING_ITEM_PAGE_SIZE = 20;
 
 function renderRecordingList(data) {
+  if (data && data.recordingFolder === true) {
+    renderServerRecordingFolder(data);
+    return;
+  }
+
   const recordings = recordingBrowserListFromResponse(data, 'recordings');
   recordingBrowserDetailDataElement().replaceChildren();
 
@@ -693,6 +964,7 @@ function setRecordingBrowserRecords(records) {
 const recordingBrowserApi = Object.freeze({
   configureContext: configureRecordingBrowserContext,
   configureMountTarget: configureRecordingBrowserMountTarget,
+  configureFolderLoader: configureRecordingBrowserFolderLoader,
   decodeRecordingText: decodeRecordingText,
   setRecords: setRecordingBrowserRecords,
   renderList: renderRecordingList,

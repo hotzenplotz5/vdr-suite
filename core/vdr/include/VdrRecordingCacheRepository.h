@@ -8,6 +8,39 @@
 
 class Database;
 
+struct VdrRecordingCacheStatus
+{
+    std::string backendId;
+    std::string state = "empty";
+    int totalCount = 0;
+    std::string startedAt;
+    std::string finishedAt;
+    std::string lastError;
+};
+
+struct VdrRecordingFolderEntry
+{
+    std::string name;
+    std::string path;
+    int recordingCount = 0;
+};
+
+struct VdrRecordingFolderPage
+{
+    std::string backendId;
+    std::string path;
+    std::string parentPath;
+    std::string cacheState = "empty";
+    bool cacheReady = false;
+    int totalCount = 0;
+    int folderCount = 0;
+    int recordingCount = 0;
+    int limit = 50;
+    int offset = 0;
+    std::vector<VdrRecordingFolderEntry> folders;
+    std::vector<VdrRecording> recordings;
+};
+
 class VdrRecordingCacheRepository
 {
 public:
@@ -30,6 +63,26 @@ public:
     int countForBackend(
         const std::string& backendId) const;
 
+    bool markRefreshStarted(
+        const std::string& backendId);
+
+    bool markRefreshFinished(
+        const std::string& backendId,
+        int totalCount);
+
+    bool markRefreshFailed(
+        const std::string& backendId,
+        const std::string& errorMessage);
+
+    VdrRecordingCacheStatus statusForBackend(
+        const std::string& backendId) const;
+
+    VdrRecordingFolderPage folderPageForBackend(
+        const std::string& backendId,
+        const std::string& folderPath,
+        int limit,
+        int offset) const;
+
 private:
     Database& database_;
     mutable std::recursive_mutex mutex_;
@@ -37,7 +90,16 @@ private:
     static std::string normalizeBackendId(
         const std::string& backendId);
 
+    static std::string normalizeFolderPath(
+        const std::string& folderPath);
+
+    static std::string parentFolderPath(
+        const std::string& folderPath);
+
     static std::string cacheKeyForRecording(
+        const VdrRecording& recording);
+
+    static std::string folderPathForRecording(
         const VdrRecording& recording);
 
     bool upsertRecordingsForBackendLocked(

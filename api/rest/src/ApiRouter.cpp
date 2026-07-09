@@ -28,6 +28,7 @@
 #include "VdrChannelMoveController.h"
 #include "VdrEventQuery.h"
 #include "VdrRecordingQueryController.h"
+#include "VdrRecordingFolderController.h"
 #include "VdrSnapshotReadService.h"
 #include "VdrTimerActionController.h"
 #include "VdrTimerActionExecutorAdapterRegistry.h"
@@ -313,7 +314,8 @@ ApiRouter::ApiRouter(
     SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController,
     SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController,
     IEpgCacheController* epgCacheController,
-    VdrChannelMoveController* vdrChannelMoveController)
+    VdrChannelMoveController* vdrChannelMoveController,
+    VdrRecordingFolderController* vdrRecordingFolderController)
     : dashboardController_(dashboardController),
       jobsController_(jobsController),
       recordingsController_(recordingsController),
@@ -343,7 +345,8 @@ ApiRouter::ApiRouter(
       nativeFuzzyStaleProbeAdministrationController_(
           nativeFuzzyStaleProbeAdministrationController),
       nativeFuzzyOperatorRefreshController_(nativeFuzzyOperatorRefreshController),
-      vdrChannelMoveController_(vdrChannelMoveController)
+      vdrChannelMoveController_(vdrChannelMoveController),
+      vdrRecordingFolderController_(vdrRecordingFolderController)
 {
 }
 
@@ -658,6 +661,40 @@ ApiResponse ApiRouter::handleGet(
     if (path == "/api/vdr/recordings")
     {
         return vdrController_.getRecordings();
+    }
+
+    if (path == "/api/vdr/recordings/cache/status")
+    {
+        if (vdrRecordingFolderController_ == nullptr)
+        {
+            ApiResponse response;
+            response.statusCode = 503;
+            response.contentType = "application/json";
+            response.body = "{\"error\":\"recording folder cache unavailable\"}";
+            return response;
+        }
+
+        return vdrRecordingFolderController_->getStatus(
+            normalizeBackendId(queryParameters.get("backend")));
+    }
+
+    if (path == "/api/vdr/recordings/folder" ||
+        path == "/api/vdr/recordings/folders")
+    {
+        if (vdrRecordingFolderController_ == nullptr)
+        {
+            ApiResponse response;
+            response.statusCode = 503;
+            response.contentType = "application/json";
+            response.body = "{\"error\":\"recording folder cache unavailable\"}";
+            return response;
+        }
+
+        return vdrRecordingFolderController_->getFolder(
+            normalizeBackendId(queryParameters.get("backend")),
+            queryParameters.get("path"),
+            queryParameters.getInt("limit", 50),
+            queryParameters.getInt("offset", 0));
     }
 
     if (path == "/api/vdr/recordings/query")

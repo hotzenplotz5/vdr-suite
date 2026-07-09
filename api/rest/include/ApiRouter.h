@@ -32,6 +32,7 @@ class SearchTimerAutomationPreviewController;
 class VdrController;
 class VdrChannelMoveController;
 class VdrRecordingQueryController;
+class VdrRecordingFolderController;
 class VdrTimerActionController;
 class VdrTimerActionExecutorAdapterRegistry;
 
@@ -130,7 +131,8 @@ public:
         SearchTimerAutomationPreviewController* searchTimerAutomationPreviewController = nullptr,
         SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController = nullptr,
         IEpgCacheController* epgCacheController = nullptr,
-        VdrChannelMoveController* vdrChannelMoveController = nullptr);
+        VdrChannelMoveController* vdrChannelMoveController = nullptr,
+        VdrRecordingFolderController* vdrRecordingFolderController = nullptr);
 
     void setSearchTimerPreviewEpgCache(
         SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
@@ -175,4 +177,5 @@ private:
     EpgSearchNativeFuzzyStaleProbeAdministrationController* nativeFuzzyStaleProbeAdministrationController_;
     EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController_;
     VdrChannelMoveController* vdrChannelMoveController_;
+    VdrRecordingFolderController* vdrRecordingFolderController_;
 };

@@ -328,6 +328,14 @@
     return requestJson('/api/vdr/recordings/query', options);
   }
 
+  function fetchClientRecordingCacheStatus(options) {
+    return requestJson('/api/vdr/recordings/cache/status', backendQueryOptions(options));
+  }
+
+  function fetchClientRecordingFolder(options) {
+    return requestJson('/api/vdr/recordings/folder', backendQueryOptions(options));
+  }
+
   function fetchClientRecordingActionValidation(options) {
     return requestJsonWithFallback(
       '/api/vdr/recordings/actions/validate',
@@ -457,6 +465,8 @@
     fetchClientPersons: fetchClientPersons,
     fetchClientRecordingPersons: fetchClientRecordingPersons,
     fetchClientRecordings: fetchClientRecordings,
+    fetchClientRecordingCacheStatus: fetchClientRecordingCacheStatus,
+    fetchClientRecordingFolder: fetchClientRecordingFolder,
     fetchClientRecordingActionValidation: fetchClientRecordingActionValidation,
     fetchClientRecordingActionExecution: fetchClientRecordingActionExecution,
     fetchClientSearchTimers: fetchClientSearchTimers,

@@ -1983,3 +1983,28 @@ test-vdr-recording-cache-repository:
 		$(LDFLAGS) \
 		-o /tmp/test_vdr_recording_cache_repository
 	/tmp/test_vdr_recording_cache_repository
+
+.PHONY: test-vdr-recording-query-service-cache
+test-vdr-recording-query-service-cache:
+	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/MockVdrAdapter.cpp \
+		core/vdr/src/VdrService.cpp \
+		core/vdr/src/VdrRecordingQueryMatcher.cpp \
+		core/vdr/src/VdrRecordingQueryService.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		core/vdr/tests/test_vdr_recording_query_service_cache.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_vdr_recording_query_service_cache
+	/tmp/test_vdr_recording_query_service_cache
+
+.PHONY: test-vdr-recording-folder-controller
+test-vdr-recording-folder-controller:
+	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		api/rest/src/VdrRecordingFolderController.cpp \
+		api/rest/tests/test_vdr_recording_folder_controller.cpp \
+		$(LDFLAGS) \
+		-o /tmp/test_vdr_recording_folder_controller
+	/tmp/test_vdr_recording_folder_controller

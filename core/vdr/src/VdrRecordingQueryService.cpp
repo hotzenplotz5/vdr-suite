@@ -1,13 +1,19 @@
 #include "VdrRecordingQueryService.h"
 
+#include "VdrRecordingCacheRepository.h"
 #include "VdrService.h"
 #include "VdrRecordingQueryMatcher.h"
 
 #include <algorithm>
+#include <vector>
 
 VdrRecordingQueryService::VdrRecordingQueryService(
-    VdrService& vdrService)
-    : vdrService_(vdrService)
+    VdrService& vdrService,
+    VdrRecordingCacheRepository* recordingCacheRepository,
+    const std::string& defaultBackendId)
+    : vdrService_(vdrService),
+      recordingCacheRepository_(recordingCacheRepository),
+      defaultBackendId_(defaultBackendId.empty() ? "default" : defaultBackendId)
 {
 }
 
@@ -15,7 +21,7 @@ VdrRecordingQueryResult VdrRecordingQueryService::queryRecordings(
     const VdrRecordingQuery& query) const
 {
     const auto allRecordings =
-        vdrService_.getRecordings();
+        loadRecordings(query);
 
     std::vector<VdrRecording> filteredRecordings;
 
@@ -96,4 +102,54 @@ VdrRecordingQueryResult VdrRecordingQueryService::queryRecordings(
         totalCount,
         limit,
         offset);
+}
+
+std::vector<VdrRecording> VdrRecordingQueryService::loadRecordings(
+    const VdrRecordingQuery& query) const
+{
+    const std::string backendId =
+        effectiveBackendId(query);
+
+    if (recordingCacheRepository_ != nullptr &&
+        recordingCacheRepository_->countForBackend(backendId) > 0)
+    {
+        return recordingCacheRepository_->findAllForBackend(backendId);
+    }
+
+    if (query.hasBackendFilter() &&
+        backendId != defaultBackendId_)
+    {
+        return {};
+    }
+
+    std::vector<VdrRecording> liveRecordings =
+        vdrService_.getRecordings();
+
+    if (recordingCacheRepository_ != nullptr &&
+        !liveRecordings.empty())
+    {
+        if (recordingCacheRepository_->replaceRecordingsForBackend(
+                backendId,
+                liveRecordings))
+        {
+            recordingCacheRepository_->markRefreshFinished(
+                backendId,
+                static_cast<int>(liveRecordings.size()));
+
+            return recordingCacheRepository_->findAllForBackend(backendId);
+        }
+    }
+
+    return liveRecordings;
+}
+
+std::string VdrRecordingQueryService::effectiveBackendId(
+    const VdrRecordingQuery& query) const
+{
+    if (query.hasBackendFilter())
+    {
+        return query.backendFilter();
+    }
+
+    return defaultBackendId_;
 }

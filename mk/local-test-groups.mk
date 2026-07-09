@@ -47,6 +47,8 @@ test-vdr: \
 	test-restful-api-channel-mapper \
 	test-restful-api-recording-mapper \
 	test-vdr-recording-cache-repository \
+	test-vdr-recording-query-service-cache \
+	test-vdr-recording-folder-controller \
 	test-restful-api-timer-mapper \
 	test-vdr-timer-operation-request \
 	test-vdr-timer-action-result \

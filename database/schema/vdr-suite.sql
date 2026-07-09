@@ -132,3 +132,13 @@ CREATE TABLE IF NOT EXISTS epgsearch_native_fuzzy_capability_probes (
     cleanup_succeeded INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS vdr_recording_cache_status (
+    backend_id TEXT PRIMARY KEY,
+    state TEXT NOT NULL DEFAULT 'empty',
+    total_count INTEGER NOT NULL DEFAULT 0,
+    started_at TEXT NOT NULL DEFAULT '',
+    finished_at TEXT NOT NULL DEFAULT '',
+    last_error TEXT NOT NULL DEFAULT '',
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);

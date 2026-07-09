@@ -104,6 +104,8 @@
 #include "SnapshotCacheService.h"
 #include "VdrConfig.h"
 #include "VdrController.h"
+#include "VdrRecordingCacheRepository.h"
+#include "VdrRecordingFolderController.h"
 #include "VdrChannelMoveController.h"
 #include "VdrChannelMoveExecutionService.h"
 #include "VdrChannelMoveExecutorAdapterRegistry.h"
@@ -147,6 +149,10 @@ private:
     void stopEpgCacheWarmupWorker();
     void runEpgCacheWarmupWorker();
     void refreshEpgCacheForAllBackends(const std::string& reason);
+    void startRecordingCacheWarmupWorker();
+    void stopRecordingCacheWarmupWorker();
+    void runRecordingCacheWarmupWorker();
+    void refreshRecordingCacheForAllBackends(const std::string& reason);
     std::unique_ptr<BackendRuntimeContext> createBackendRuntimeContext(
         const BackendNode& backend);
 
@@ -154,7 +160,10 @@ private:
     std::atomic<bool> externalVdrChangeHint_;
     std::atomic<bool> epgCacheWarmupStopRequested_;
     std::atomic<bool> epgCacheDirtyHint_;
+    std::atomic<bool> recordingCacheWarmupStopRequested_;
+    std::atomic<bool> recordingCacheDirtyHint_;
     std::thread epgCacheWarmupThread_;
+    std::thread recordingCacheWarmupThread_;
 
     RuntimeConfig config_;
     ConsoleRuntimeLogger runtimeLogger_;
@@ -187,6 +196,7 @@ private:
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshServiceRegistry> searchTimerPreviewEpgCacheRefreshServiceRegistry_;
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshController> searchTimerPreviewEpgCacheRefreshController_;
     std::unique_ptr<EpgEventRepository> epgEventRepository_;
+    std::unique_ptr<VdrRecordingCacheRepository> vdrRecordingCacheRepository_;
     std::unique_ptr<EpgCacheServiceRegistry> epgCacheServiceRegistry_;
     std::unique_ptr<EpgCacheController> epgCacheController_;
     std::unique_ptr<SnapshotCache> snapshotCache_;
@@ -207,6 +217,7 @@ private:
     std::unique_ptr<VdrRecordingQueryService> vdrRecordingQueryService_;
     std::unique_ptr<VdrRecordingQueryResultJsonSerializer> vdrRecordingQueryResultJsonSerializer_;
     std::unique_ptr<VdrRecordingQueryController> vdrRecordingQueryController_;
+    std::unique_ptr<VdrRecordingFolderController> vdrRecordingFolderController_;
     std::unique_ptr<VdrCapabilitySet> capabilitySet_;
     std::unique_ptr<ICapabilityResolver> capabilityResolver_;
     std::unique_ptr<CapabilityReportBuilder> capabilityReportBuilder_;
