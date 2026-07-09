@@ -35,8 +35,8 @@ int main()
     assert(response.body.find("\"wouldCreateJob\":false") != std::string::npos);
     assert(response.body.find("\"backendId\":\"default\"") != std::string::npos);
     assert(response.body.find("\"recordingId\":\"recording-001\"") != std::string::npos);
-    assert(response.body.find("\"requiredCapabilities\":[\"recordings.action.move\"]") != std::string::npos);
-    assert(response.body.find("\"requiredPermissions\":[\"recordings.action.move\"]") != std::string::npos);
+    assert(response.body.find("\"requiredCapabilities\":[\"recording.action.move\"]") != std::string::npos);
+    assert(response.body.find("\"requiredPermissions\":[\"recording.permission.move\"]") != std::string::npos);
     assert(response.body.find("\"warnings\":[\"dry-run only\"]") != std::string::npos);
     assert(response.body.find("\"errors\":[]") != std::string::npos);
 
@@ -73,7 +73,7 @@ int main()
     assert(bodyResponse.contentType == "application/json");
     assert(bodyResponse.body.find("\"valid\":true") != std::string::npos);
     assert(bodyResponse.body.find("\"recordingId\":\"recording-005\"") != std::string::npos);
-    assert(bodyResponse.body.find("\"requiredCapabilities\":[\"recordings.action.move\"]") != std::string::npos);
+    assert(bodyResponse.body.find("\"requiredCapabilities\":[\"recording.action.move\"]") != std::string::npos);
 
     ApiResponse missingParserResponse =
         controller.validateBody("{}");

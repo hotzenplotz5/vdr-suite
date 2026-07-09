@@ -70,8 +70,8 @@ int main()
     validation.wouldCreateJob = false;
     validation.backendId = request.backendId;
     validation.recordingId = request.recordingId;
-    validation.requiredCapabilities.push_back("recordings.action.move");
-    validation.requiredPermissions.push_back("recordings.action.move");
+    validation.requiredCapabilities.push_back("recording.action.move");
+    validation.requiredPermissions.push_back("recording.permission.move");
     validation.warnings.push_back("dry-run only");
 
     assert(validation.valid);
@@ -80,9 +80,9 @@ int main()
     assert(validation.backendId == "default");
     assert(validation.recordingId == "recording-001");
     assert(validation.requiredCapabilities.size() == 1);
-    assert(validation.requiredCapabilities.at(0) == "recordings.action.move");
+    assert(validation.requiredCapabilities.at(0) == "recording.action.move");
     assert(validation.requiredPermissions.size() == 1);
-    assert(validation.requiredPermissions.at(0) == "recordings.action.move");
+    assert(validation.requiredPermissions.at(0) == "recording.permission.move");
     assert(validation.warnings.size() == 1);
     assert(validation.errors.empty());
 
@@ -120,9 +120,9 @@ int main()
     assert(!dryRunPlan.createJob);
     assert(dryRunPlan.plannedJobType == "MOVE");
     assert(dryRunPlan.requiredCapabilities.size() == 1);
-    assert(dryRunPlan.requiredCapabilities.at(0) == "recordings.action.move");
+    assert(dryRunPlan.requiredCapabilities.at(0) == "recording.action.move");
     assert(dryRunPlan.requiredPermissions.size() == 1);
-    assert(dryRunPlan.requiredPermissions.at(0) == "recordings.action.move");
+    assert(dryRunPlan.requiredPermissions.at(0) == "recording.permission.move");
     assert(dryRunPlan.warnings.size() == 1);
 
     RecordingActionPlan executionPlan;
@@ -133,8 +133,8 @@ int main()
     executionPlan.executionAllowed = true;
     executionPlan.createJob = true;
     executionPlan.plannedJobType = "METADATA_REFRESH";
-    executionPlan.requiredCapabilities.push_back("recordings.action.metadata.refresh");
-    executionPlan.requiredPermissions.push_back("recordings.action.metadata.refresh");
+    executionPlan.requiredCapabilities.push_back("recording.action.metadata-refresh");
+    executionPlan.requiredPermissions.push_back("recording.permission.metadata-refresh");
 
     assert(executionPlan.backendId == "default");
     assert(executionPlan.recordingId == "recording-001");
@@ -169,25 +169,25 @@ int main()
 
     RecordingActionCapabilityRequirements moveRequirements;
     moveRequirements.type = RecordingActionType::Move;
-    moveRequirements.requiredCapabilities.push_back("recordings.action.move");
+    moveRequirements.requiredCapabilities.push_back("recording.action.move");
     moveRequirements.requiresWriteAccess = true;
     moveRequirements.requiresDryRunSupport = true;
 
     assert(moveRequirements.type == RecordingActionType::Move);
     assert(moveRequirements.requiredCapabilities.size() == 1);
-    assert(moveRequirements.requiredCapabilities.at(0) == "recordings.action.move");
+    assert(moveRequirements.requiredCapabilities.at(0) == "recording.action.move");
     assert(moveRequirements.requiresWriteAccess);
     assert(moveRequirements.requiresDryRunSupport);
 
     RecordingActionCapabilityRequirements metadataRequirements;
     metadataRequirements.type = RecordingActionType::MetadataRefresh;
-    metadataRequirements.requiredCapabilities.push_back("recordings.action.metadata.refresh");
+    metadataRequirements.requiredCapabilities.push_back("recording.action.metadata-refresh");
     metadataRequirements.requiresWriteAccess = false;
     metadataRequirements.requiresDryRunSupport = true;
 
     assert(metadataRequirements.type == RecordingActionType::MetadataRefresh);
     assert(metadataRequirements.requiredCapabilities.size() == 1);
-    assert(metadataRequirements.requiredCapabilities.at(0) == "recordings.action.metadata.refresh");
+    assert(metadataRequirements.requiredCapabilities.at(0) == "recording.action.metadata-refresh");
     assert(!metadataRequirements.requiresWriteAccess);
     assert(metadataRequirements.requiresDryRunSupport);
 
@@ -195,24 +195,24 @@ int main()
     RecordingActionCapabilityEvaluationResult evaluation;
     evaluation.type = RecordingActionType::Move;
     evaluation.allowed = true;
-    evaluation.availableCapabilities.push_back("recordings.action.move");
+    evaluation.availableCapabilities.push_back("recording.action.move");
 
     assert(evaluation.type == RecordingActionType::Move);
     assert(evaluation.allowed);
     assert(evaluation.availableCapabilities.size() == 1);
-    assert(evaluation.availableCapabilities.at(0) == "recordings.action.move");
+    assert(evaluation.availableCapabilities.at(0) == "recording.action.move");
     assert(evaluation.missingCapabilities.empty());
 
 
     RecordingActionPermissionEvaluationResult permissionEvaluation;
     permissionEvaluation.type = RecordingActionType::Move;
     permissionEvaluation.allowed = true;
-    permissionEvaluation.grantedPermissions.push_back("recordings.move");
+    permissionEvaluation.grantedPermissions.push_back("recording.permission.move");
 
     assert(permissionEvaluation.type == RecordingActionType::Move);
     assert(permissionEvaluation.allowed);
     assert(permissionEvaluation.grantedPermissions.size() == 1);
-    assert(permissionEvaluation.grantedPermissions.at(0) == "recordings.move");
+    assert(permissionEvaluation.grantedPermissions.at(0) == "recording.permission.move");
     assert(permissionEvaluation.missingPermissions.empty());
 
 

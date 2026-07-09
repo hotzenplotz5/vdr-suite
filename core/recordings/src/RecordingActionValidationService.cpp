@@ -1,42 +1,22 @@
 #include "RecordingActionValidationService.h"
 
+#include "RecordingActionCapabilityContract.h"
+#include "RecordingActionPermissionContract.h"
 
 namespace
 {
 std::string capabilityForAction(
     RecordingActionType type)
 {
-    switch (type)
-    {
-        case RecordingActionType::Move:
-            return "recordings.action.move";
-        case RecordingActionType::Rename:
-            return "recordings.action.rename";
-        case RecordingActionType::Delete:
-            return "recordings.action.delete";
-        case RecordingActionType::MetadataRefresh:
-            return "recordings.action.metadata.refresh";
-        default:
-            return "";
-    }
+    RecordingActionCapabilityContract contract;
+    return contract.requiredCapability(type);
 }
 
 std::string permissionForAction(
     RecordingActionType type)
 {
-    switch (type)
-    {
-        case RecordingActionType::Move:
-            return "recordings.action.move";
-        case RecordingActionType::Rename:
-            return "recordings.action.rename";
-        case RecordingActionType::Delete:
-            return "recordings.action.delete";
-        case RecordingActionType::MetadataRefresh:
-            return "recordings.action.metadata.refresh";
-        default:
-            return "";
-    }
+    RecordingActionPermissionContract contract;
+    return contract.requiredPermission(type);
 }
 
 bool hasParameter(

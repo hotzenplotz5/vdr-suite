@@ -12,8 +12,8 @@ int main()
     result.wouldCreateJob = false;
     result.backendId = "default";
     result.recordingId = "recording-001";
-    result.requiredCapabilities.push_back("recordings.action.move");
-    result.requiredPermissions.push_back("recordings.action.move");
+    result.requiredCapabilities.push_back("recording.action.move");
+    result.requiredPermissions.push_back("recording.permission.move");
     result.warnings.push_back("dry-run only");
 
     RecordingActionValidationResultJsonSerializer serializer;
@@ -26,8 +26,8 @@ int main()
     assert(json.find("\"wouldCreateJob\":false") != std::string::npos);
     assert(json.find("\"backendId\":\"default\"") != std::string::npos);
     assert(json.find("\"recordingId\":\"recording-001\"") != std::string::npos);
-    assert(json.find("\"requiredCapabilities\":[\"recordings.action.move\"]") != std::string::npos);
-    assert(json.find("\"requiredPermissions\":[\"recordings.action.move\"]") != std::string::npos);
+    assert(json.find("\"requiredCapabilities\":[\"recording.action.move\"]") != std::string::npos);
+    assert(json.find("\"requiredPermissions\":[\"recording.permission.move\"]") != std::string::npos);
     assert(json.find("\"warnings\":[\"dry-run only\"]") != std::string::npos);
     assert(json.find("\"errors\":[]") != std::string::npos);
 

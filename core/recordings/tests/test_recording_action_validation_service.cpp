@@ -24,9 +24,9 @@ int main()
     assert(moveResult.backendId == "default");
     assert(moveResult.recordingId == "recording-001");
     assert(moveResult.requiredCapabilities.size() == 1);
-    assert(moveResult.requiredCapabilities.at(0) == "recordings.action.move");
+    assert(moveResult.requiredCapabilities.at(0) == "recording.action.move");
     assert(moveResult.requiredPermissions.size() == 1);
-    assert(moveResult.requiredPermissions.at(0) == "recordings.action.move");
+    assert(moveResult.requiredPermissions.at(0) == "recording.permission.move");
     assert(moveResult.warnings.size() == 1);
     assert(moveResult.warnings.at(0) == "dry-run only");
     assert(moveResult.errors.empty());
@@ -97,8 +97,8 @@ int main()
         service.validate(renameRequest);
 
     assert(renameResult.valid);
-    assert(renameResult.requiredCapabilities.at(0) == "recordings.action.rename");
-    assert(renameResult.requiredPermissions.at(0) == "recordings.action.rename");
+    assert(renameResult.requiredCapabilities.at(0) == "recording.action.rename");
+    assert(renameResult.requiredPermissions.at(0) == "recording.permission.rename");
 
     RecordingActionRequest missingRenameName = renameRequest;
     missingRenameName.parameters.erase("newName");
@@ -122,8 +122,8 @@ int main()
         service.validate(deleteRequest);
 
     assert(deleteResult.valid);
-    assert(deleteResult.requiredCapabilities.at(0) == "recordings.action.delete");
-    assert(deleteResult.requiredPermissions.at(0) == "recordings.action.delete");
+    assert(deleteResult.requiredCapabilities.at(0) == "recording.action.delete");
+    assert(deleteResult.requiredPermissions.at(0) == "recording.permission.delete");
 
     std::cout
         << "test_recording_action_validation_service passed"
