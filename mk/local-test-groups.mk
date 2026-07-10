@@ -242,7 +242,9 @@ test-vdr-snapshot-read-service-searchtimer-preview-epg-cache:
 
 test-api-router-searchtimer-preview-epg-cache:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
 		core/vdr/src/SearchTimerService.cpp \
 		api/rest/src/SearchTimerCreateRequestParser.cpp \
@@ -251,6 +253,7 @@ test-api-router-searchtimer-preview-epg-cache:
 		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
 		api/rest/src/SearchTimerController.cpp \
 		api/rest/tests/test_api_router_searchtimer_preview_epg_cache.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_api_router_searchtimer_preview_epg_cache
 	/tmp/test_api_router_searchtimer_preview_epg_cache
 
