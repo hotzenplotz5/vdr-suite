@@ -1491,6 +1491,8 @@ test-api-router: prepare-test-db
 		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
 		api/rest/src/VdrController.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
+		api/rest/src/VdrRecordingFolderController.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		api/rest/tests/test_api_router.cpp \
 		$(LDFLAGS) \
 		-o /tmp/test_api_router
