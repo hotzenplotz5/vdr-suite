@@ -124,6 +124,22 @@ std::string joinPath(
     return result;
 }
 
+bool isStorageMountSegment(
+    const std::string& segment)
+{
+    return segment == "Recordings_on_yavdr(nfs)";
+}
+
+void removeStorageMountPrefix(
+    std::vector<std::string>& segments)
+{
+    if (!segments.empty() &&
+        isStorageMountSegment(segments.front()))
+    {
+        segments.erase(segments.begin());
+    }
+}
+
 std::string firstSegment(
     const std::string& path)
 {
@@ -858,6 +874,8 @@ std::string VdrRecordingCacheRepository::folderPathForRecording(
 
     std::vector<std::string> segments =
         splitPath(path);
+
+    removeStorageMountPrefix(segments);
 
     if (!segments.empty())
     {
