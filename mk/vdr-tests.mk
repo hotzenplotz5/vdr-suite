@@ -209,6 +209,7 @@ test-search-timer-preview-result-json-serializer:
 		$(VDR_SRC) \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_search_timer_preview_result_json_serializer.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_search_timer_preview_result_json_serializer
 	/tmp/test_search_timer_preview_result_json_serializer
 
@@ -536,6 +537,7 @@ test-live-transport-service:
 		$(VDR_SRC) \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_live_transport_service.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_live_transport_service
 	/tmp/test_live_transport_service
 
@@ -602,6 +604,7 @@ test-restful-api-timer-mapper:
 		$(VDR_SRC) \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_restful_api_timer_mapper.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_restful_api_timer_mapper
 	/tmp/test_restful_api_timer_mapper
 
@@ -692,6 +695,7 @@ test-restful-api-vdr-adapter:
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/http/src/MockHttpClient.cpp \
 		core/vdr/tests/test_restful_api_vdr_adapter.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_restful_api_vdr_adapter
 	/tmp/test_restful_api_vdr_adapter
 
@@ -701,6 +705,7 @@ test-restful-api-change-state-adapter:
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(HTTP_SRC) \
 		core/vdr/tests/test_restful_api_change_state_adapter.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_restful_api_change_state_adapter
 	/tmp/test_restful_api_change_state_adapter
 
