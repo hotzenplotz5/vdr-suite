@@ -719,6 +719,7 @@ test-vdr-domain-objects:
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		core/vdr/tests/test_vdr_domain_objects.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_domain_objects
 	/tmp/test_vdr_domain_objects
 
