@@ -317,15 +317,21 @@ test-external-vdr-adapter:
 
 test-mock-vdr-adapter:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_mock_vdr_adapter.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_mock_vdr_adapter
 	/tmp/test_mock_vdr_adapter
 
 test-vdr-adapter-factory:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_vdr_adapter_factory.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_adapter_factory
 	/tmp/test_vdr_adapter_factory
 
@@ -563,8 +569,11 @@ test-sse-live-transport:
 
 test-restful-api-status-mapper:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_restful_api_status_mapper.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_restful_api_status_mapper
 	/tmp/test_restful_api_status_mapper
 
@@ -691,6 +700,7 @@ test-restful-api-vdr-timer-action-executor:
 
 test-restful-api-vdr-adapter:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/http/src/MockHttpClient.cpp \
@@ -701,6 +711,7 @@ test-restful-api-vdr-adapter:
 
 test-restful-api-change-state-adapter:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(HTTP_SRC) \
@@ -759,28 +770,37 @@ test-vdr-snapshot-read-service:
 
 test-local-restfulapi-integration:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/http/src/BasicHttpClient.cpp \
 		core/http/src/MockHttpClient.cpp \
 		core/vdr/tests/test_local_restfulapi_integration.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_local_restfulapi_integration
 	/tmp/test_local_restfulapi_integration
 
 test-local-snapshot-runtime-integration:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/http/src/BasicHttpClient.cpp \
 		core/http/src/MockHttpClient.cpp \
 		core/vdr/tests/test_local_snapshot_runtime_integration.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_local_snapshot_runtime_integration
 	/tmp/test_local_snapshot_runtime_integration
 
 test-local-partial-refresh-validation:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/http/src/BasicHttpClient.cpp \
 		core/http/src/MockHttpClient.cpp \
 		core/vdr/tests/test_local_partial_refresh_validation.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_local_partial_refresh_validation
 	/tmp/test_local_partial_refresh_validation
 
@@ -788,9 +808,12 @@ test-local-partial-refresh-validation:
 .PHONY: test-real-restfulapi-integration
 test-real-restfulapi-integration:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/http/src/BasicHttpClient.cpp \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_real_restfulapi_integration.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_real_restfulapi_integration
 	/tmp/test_real_restfulapi_integration
 
@@ -798,9 +821,12 @@ test-real-restfulapi-integration:
 .PHONY: test-real-snapshot-builder
 test-real-snapshot-builder:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/http/src/BasicHttpClient.cpp \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_real_snapshot_builder.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_real_snapshot_builder
 	/tmp/test_real_snapshot_builder
 
@@ -808,9 +834,12 @@ test-real-snapshot-builder:
 .PHONY: test-real-change-state
 test-real-change-state:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/http/src/BasicHttpClient.cpp \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_real_change_state.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_real_change_state
 	/tmp/test_real_change_state
 
@@ -818,9 +847,12 @@ test-real-change-state:
 .PHONY: test-real-polling-initial-snapshot
 test-real-polling-initial-snapshot:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/http/src/BasicHttpClient.cpp \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_real_polling_initial_snapshot.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_real_polling_initial_snapshot
 	/tmp/test_real_polling_initial_snapshot
 
@@ -828,8 +860,11 @@ test-real-polling-initial-snapshot:
 .PHONY: test-real-polling-stability
 test-real-polling-stability:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/http/src/BasicHttpClient.cpp \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_real_polling_stability.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_real_polling_stability
 	/tmp/test_real_polling_stability

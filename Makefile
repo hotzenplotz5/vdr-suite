@@ -23,7 +23,9 @@ audit-doc-sync-tests:
 
 searchtimer-yavdr-api-smoke-harness-helper:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/src/SearchTimerService.cpp \
 		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
 		api/rest/src/SearchTimerCreateRequestParser.cpp \
@@ -33,6 +35,7 @@ searchtimer-yavdr-api-smoke-harness-helper:
 		api/rest/src/SearchTimerController.cpp \
 		core/http/src/SimpleHttpListener.cpp \
 		apps/tools/searchtimer_yavdr_api_smoke_harness.cpp \
+		$(LDFLAGS) \
 		-o /tmp/vdr_suite_searchtimer_yavdr_api_smoke_harness
 	/tmp/vdr_suite_searchtimer_yavdr_api_smoke_harness --help
 
@@ -665,9 +668,12 @@ test-dashboard-controller: prepare-test-db
 
 test-vdr-controller:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(REST_VDR_SRC) \
 		api/rest/tests/test_vdr_controller.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_controller
 	/tmp/test_vdr_controller
 
@@ -682,9 +688,12 @@ test-backend-registry-capability-resolver:
 
 test-backend-registry-controller:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		api/rest/src/BackendRegistryController.cpp \
 		api/rest/tests/test_backend_registry_controller.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_backend_registry_controller
 	/tmp/test_backend_registry_controller
 
@@ -698,17 +707,23 @@ test-runtime-diagnostics-controller:
 
 test-snapshot-change-feed-controller:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(REST_SNAPSHOT_CHANGE_FEED_SRC) \
 		api/rest/tests/test_snapshot_change_feed_controller.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_snapshot_change_feed_controller
 	/tmp/test_snapshot_change_feed_controller
 
 test-live-transport-controller:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(REST_LIVE_TRANSPORT_SRC) \
 		api/rest/tests/test_live_transport_controller.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_live_transport_controller
 	/tmp/test_live_transport_controller
 
@@ -1546,8 +1561,10 @@ test-test-http-server: prepare-test-db
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(RUNTIME_SRC) \
 		$(REST_ROUTER_SRC) \
+		api/rest/src/VdrRecordingFolderController.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyCapabilityFreshnessPolicy.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
 		core/vdr/src/EpgSearchNativeFuzzyStaleProbeAdministrationService.cpp \
@@ -1581,6 +1598,7 @@ daemon:
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(RUNTIME_SRC) \
 		$(DAEMON_SRC) \
 		apps/daemon/main.cpp \
@@ -1590,8 +1608,11 @@ daemon:
 
 test-backend-runtime-context:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_backend_runtime_context.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_backend_runtime_context
 	/tmp/test_backend_runtime_context
 
