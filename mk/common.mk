@@ -12,9 +12,12 @@ LDFLAGS := $(shell pkg-config --libs sqlite3)
 
 SQLITE_SRC := core/sqlite/src/Database.cpp
 
-.PHONY: all test clean prepare-test-db test-runtime-config test-epg-event-repository test-epg-cache-service test-epg-cache-controller test-api-router-epg-cache-routes dashboard-cli daemon test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
+.PHONY: all test clean prepare-test-db check-vdr-linkage-contracts test-runtime-config test-epg-event-repository test-epg-cache-service test-epg-cache-controller test-api-router-epg-cache-routes dashboard-cli daemon test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
 
 all: test
+
+check-vdr-linkage-contracts:
+	python3 tools/check_vdr_linkage_contracts.py
 
 test-ci-fast: test-runtime-config test-epg-event-repository test-epg-cache-service test-epg-cache-controller test-api-router-epg-cache-routes test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
 
