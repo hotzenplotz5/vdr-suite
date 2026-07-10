@@ -677,6 +677,7 @@ function renderServerRecordingFolder(data) {
   const offset = Number(folderData.offset) || 0;
   const limit = Number(folderData.limit) || 50;
   const recordingCount = Number(folderData.recordingCount) || recordings.length;
+  const returnedCount = Number(folderData.returnedCount) || recordings.length;
   const totalCount = Number(folderData.totalCount) || 0;
 
   const list = document.createElement('section');
@@ -689,11 +690,16 @@ function renderServerRecordingFolder(data) {
     recordingBrowserServerFolderLabel(path)
   ));
 
+  const cacheLabel = cacheReady
+    ? 'Cache bereit'
+    : 'Cache wird aktualisiert: ' + cacheState;
+
   const summary = [
-    String(folders.length) + ' Unterordner',
-    String(recordingCount) + ' direkte Aufnahme(n)',
-    String(totalCount) + ' Aufnahme(n) im Cache',
-    'Cache: ' + cacheState
+    'Unterordner: ' + String(folders.length),
+    'Direkte Aufnahmen: ' + String(recordingCount),
+    'Angezeigt: ' + String(returnedCount),
+    'Gesamt im Cache: ' + String(totalCount),
+    cacheLabel
   ];
 
   header.appendChild(recordingBrowserAddText(document.createElement('p'), summary.join(' · ')));
