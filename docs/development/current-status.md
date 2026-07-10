@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 59.12i - Channel Browser Legacy Callback Hotfix
+Phase 60.11f7 - VDR Cache Linkage Hotfix
 ```
 
 Current documentation consolidation state:
@@ -46,7 +46,7 @@ Phase 58 - Frontend and Live Parity
 Next planned implementation slice:
 
 ```text
-Phase 59.04 - Recording and EPG Frontend Performance Hardening
+Phase 60.12 - Post-cache hardening and next frontend/backend cleanup
 ```
 
 ---
@@ -64,7 +64,7 @@ Phase 59.04 - Recording and EPG Frontend Performance Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 60.11b adds the lazy Recording folder cache.
+Phase 60.11f7 completes the lazy Recording cache stabilization and CI linkage hotfix train.
 
 Verified runtime scope:
 - Phase 60.10l fixes Timer JSON escaping for quoted Timer titles in `/api/vdr/timers/live`.
@@ -78,6 +78,13 @@ Verified runtime scope:
 - Runtime verification on the default backend proved `state=ready`, `cacheReady=true`, `totalCount=7976`, root folder count `25`, `Action` folder count `46`, and `Action/48 Hrs` direct recording count `1`.
 - Restart verification proved stale-while-refresh behavior: existing cache data stayed usable while the daemon refreshed the Recording cache in the background.
 - Frontend verification proved that `Action/48 Hrs` opens through the lazy Recording folder flow and displays the direct recording detail.
+- Phase 60.11c tightened safe Recording action dry-run UI behavior.
+- Phase 60.11d aligned Recording action contract names.
+- Phase 60.11e added Recording start-time path fallback handling.
+- Phase 60.11f stabilized Recording lazy cache test contracts.
+- Phase 60.11f7 fixed the VDR cache linkage cascade across `Makefile`, `mk/common.mk`, `mk/vdr-tests.mk`, and `mk/local-test-groups.mk`.
+- GitHub Actions run `29095828546` verified `docs-check`, `fast-regression-test`, and daemon build successfully before tag `v1.60.11f7-vdr-cache-linkage-hotfix`.
+
 
 Stable scope:
 
