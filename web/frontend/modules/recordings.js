@@ -61,7 +61,7 @@ function recordingBrowserFormatDurationSeconds(value) {
   const seconds = Number(value);
 
   if (!Number.isFinite(seconds) || seconds <= 0) {
-    return '-';
+    return 'Unbekannt';
   }
 
   const minutes = Math.round(seconds / 60);
@@ -96,10 +96,14 @@ function recordingBrowserFormatSizeMb(value) {
 
 function recordingBrowserFormatRecordingStart(value) {
   if (value === undefined || value === null || value === '' || String(value) === '-1') {
-    return '-';
+    return 'Unbekannt';
   }
 
   const number = Number(value);
+
+  if (Number.isFinite(number) && number <= 0) {
+    return 'Unbekannt';
+  }
 
   if (Number.isFinite(number) && number > 1000000000) {
     return new Date(number * 1000).toLocaleString('de-DE', {

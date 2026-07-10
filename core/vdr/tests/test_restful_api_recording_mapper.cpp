@@ -148,6 +148,33 @@ static void test_parse_recordings_imports_additional_media_actors()
     assert(firstActor.characterName() == "Forrest Gump");
 }
 
+static void test_parse_recordings_derives_start_time_from_rec_directory()
+{
+    const std::string json =
+        "{\"recordings\":["
+        "{\"number\":226,"
+        "\"name\":\"Action~48 Hrs\","
+        "\"file_name\":\"/srv/vdr/video/Action/48 Hrs/2026-06-21.10.08.1-0.rec\","
+        "\"relative_file_name\":\"/Action/48 Hrs/2026-06-21.10.08.1-0.rec\","
+        "\"duration\":-1,"
+        "\"event_duration\":-1,"
+        "\"event_start_time\":-1,"
+        "\"filesize_mb\":9232"
+        "}"
+        "]}";
+
+    std::vector<VdrRecording> recordings =
+        RestfulApiRecordingMapper::parseRecordings(json);
+
+    assert(recordings.size() == 1);
+    assert(recordings[0].id == "226");
+    assert(recordings[0].path == "/Action/48 Hrs/2026-06-21.10.08.1-0.rec");
+    assert(recordings[0].durationSeconds == -1);
+    assert(recordings[0].startTime != "");
+    assert(recordings[0].startTime != "-1");
+    assert(std::stoll(recordings[0].startTime) > 1000000000);
+}
+
 static void test_parse_recordings_tolerates_invalid_json()
 {
     std::vector<VdrRecording> recordings =
@@ -163,6 +190,7 @@ int main()
     test_parse_recordings_falls_back_to_absolute_file_name();
     test_parse_recordings_ignores_objects_without_number();
     test_parse_recordings_imports_additional_media_actors();
+    test_parse_recordings_derives_start_time_from_rec_directory();
     test_parse_recordings_tolerates_invalid_json();
 
     return 0;

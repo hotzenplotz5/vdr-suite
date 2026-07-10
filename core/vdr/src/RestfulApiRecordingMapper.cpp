@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
+#include <ctime>
 #include <string>
 #include <vector>
 
@@ -337,6 +339,77 @@ long long getLongLongField(const std::string& objectText, const std::string& fie
     return negative ? -value : value;
 }
 
+long long deriveRecordingStartTimeFromPath(const std::string& path)
+{
+    std::string normalizedPath = path;
+
+    std::replace(
+        normalizedPath.begin(),
+        normalizedPath.end(),
+        '\\',
+        '/');
+
+    while (!normalizedPath.empty() &&
+           normalizedPath.back() == '/') {
+        normalizedPath.pop_back();
+    }
+
+    const std::size_t separator =
+        normalizedPath.rfind('/');
+
+    const std::string segment =
+        separator == std::string::npos
+            ? normalizedPath
+            : normalizedPath.substr(separator + 1);
+
+    int year = 0;
+    int month = 0;
+    int day = 0;
+    int hour = 0;
+    int minute = 0;
+
+    if (std::sscanf(
+            segment.c_str(),
+            "%4d-%2d-%2d.%2d.%2d",
+            &year,
+            &month,
+            &day,
+            &hour,
+            &minute) != 5) {
+        return -1;
+    }
+
+    if (year < 1970 ||
+        month < 1 ||
+        month > 12 ||
+        day < 1 ||
+        day > 31 ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+        return -1;
+    }
+
+    std::tm timeParts {};
+    timeParts.tm_year = year - 1900;
+    timeParts.tm_mon = month - 1;
+    timeParts.tm_mday = day;
+    timeParts.tm_hour = hour;
+    timeParts.tm_min = minute;
+    timeParts.tm_sec = 0;
+    timeParts.tm_isdst = -1;
+
+    const std::time_t timestamp =
+        std::mktime(&timeParts);
+
+    if (timestamp <= 0) {
+        return -1;
+    }
+
+    return static_cast<long long>(timestamp);
+}
+
 std::string extractRecordingsArray(const std::string& json)
 {
     std::size_t recordingsKey = json.find("\"recordings\"");
@@ -379,8 +452,31 @@ VdrRecording mapObjectToRecording(const std::string& objectText)
     recording.title = normalizeRecordingName(getStringField(objectText, "name"));
     recording.path = relativePath.empty() ? fileName : relativePath;
     recording.backendNativeId = fileName;
-    recording.startTime = std::to_string(getIntField(objectText, "event_start_time", 0));
-    recording.durationSeconds = getIntField(objectText, "duration", 0);
+    long long startTime =
+        getLongLongField(objectText, "event_start_time", -1);
+
+    if (startTime <= 0) {
+        startTime =
+            deriveRecordingStartTimeFromPath(recording.path);
+    }
+
+    if (startTime <= 0) {
+        startTime =
+            deriveRecordingStartTimeFromPath(fileName);
+    }
+
+    recording.startTime =
+        startTime > 0 ? std::to_string(startTime) : "-1";
+
+    int durationSeconds =
+        getIntField(objectText, "duration", -1);
+
+    if (durationSeconds <= 0) {
+        durationSeconds =
+            getIntField(objectText, "event_duration", -1);
+    }
+
+    recording.durationSeconds = durationSeconds;
     recording.sizeMb = getLongLongField(objectText, "filesize_mb", 0);
     recording.persons = parseAdditionalMediaActors(objectText);
 
