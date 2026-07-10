@@ -377,6 +377,21 @@ function recordingBrowserServerFolderLabel(path) {
 
   return value
     .split('/')
+    .filter(part => part !== '')
+    .map(part => decodeRecordingText(part))
+    .join(' / ');
+}
+
+function recordingBrowserDisplayPathLabel(value) {
+  const raw = String(value || '').trim();
+
+  if (raw === '') {
+    return '';
+  }
+
+  return raw
+    .split('/')
+    .filter(part => part !== '')
     .map(part => decodeRecordingText(part))
     .join(' / ');
 }
@@ -608,7 +623,7 @@ function renderServerRecordingDetail(recording, folderData) {
   const item = document.createElement('article');
   item.className = 'module-placeholder recording-detail';
 
-  const title = decodeRecordingText(recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme'));
+  const title = recordingBrowserDisplayPathLabel(recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme'));
   const recordingId = recordingBrowserFirstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
   const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
   const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
@@ -639,7 +654,7 @@ function createServerRecordingItem(recording, folderData) {
   item.tabIndex = 0;
   item.setAttribute('role', 'button');
 
-  const title = decodeRecordingText(recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme'));
+  const title = recordingBrowserDisplayPathLabel(recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme'));
   const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
   const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
   const duration = recordingBrowserFormatDurationSeconds(recordingBrowserFirstValue(recording, ['durationSeconds', 'duration'], 0));
@@ -791,14 +806,24 @@ function renderServerRecordingFolder(data) {
     list.appendChild(pager);
   }
 
+  if (folders.length > 0 && recordings.length === 0) {
+    const folderOnly = document.createElement('article');
+    folderOnly.className = 'module-placeholder';
+    folderOnly.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      'Dieser Bereich enthält Unterordner, aber keine direkten Aufnahmen.'
+    ));
+    list.appendChild(folderOnly);
+  }
+
   if (folders.length === 0 && recordings.length === 0) {
     const empty = document.createElement('article');
     empty.className = 'module-placeholder';
     empty.appendChild(recordingBrowserAddText(
       document.createElement('p'),
       cacheReady
-        ? 'Dieser Ordner enthält keine Aufnahmen.'
-        : 'Noch keine Cache-Daten vorhanden.'
+        ? 'Dieser Ordner enthält keine Unterordner und keine direkten Aufnahmen.'
+        : 'Noch keine Cache-Daten vorhanden. Der Daemon lädt die Aufnahmen im Hintergrund.'
     ));
     list.appendChild(empty);
   }
