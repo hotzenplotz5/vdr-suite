@@ -23,10 +23,10 @@ Completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
 
 Latest completed implementation slice
-Phase 59.06b - Recording Details and EPG Vertical Drag UX
+Phase 60.12c - VDR Linkage Guard CI Enforcement
 
 Next planned implementation slice
-Phase 59.07a - Live, RESTfulAPI and EPGSearch Parity Inventory Refresh
+Phase 60.13 - Lazy Recording Cache Product Hardening
 
 Current implementation focus
 Phase 58 - Frontend and Live Parity
@@ -76,47 +76,40 @@ Completed foundation ranges:
 
 ## Recently Completed Implementation Slice
 
-### Phase 59.06b - Recording Details and EPG Vertical Drag UX
+### Phase 60.12c - VDR Linkage Guard CI Enforcement
 
-Status: Completed frontend hardening and UX slice.
+Status: Completed CI and build-contract hardening slice.
 
 Completed outcomes:
 
-- Recording module keeps `/api/vdr/recordings/query` as its data source
-- Recording rendering is bounded for large real catalogs
-- Recording folders are rendered as a hierarchical tree
-- nested folders are no longer flattened into the root view
-- folder recordings use explicit 20-item paging
-- previous and next page controls are visible inside folders
-- single-recording leaf folders are displayed as recordings instead of fake folders
-- recording entries open an in-module detail view
-- visible-channel EPG rendering reuses one event index
-- EPG time-window, program-view and channel-window controls use deterministic helper paths
-- vertical EPG channel scrolling exposes drag affordance and a visible drag hint
-- frontend ownership contracts guard the current frontend module model
-- `web/frontend/api/client-api.js` remains the DOM-free frontend API boundary
-- `web/frontend/app.js` remains the current frontend module owner
+- VDR cache linkage fallout after lazy Recording cache integration is fixed
+- SQLite-backed VDR cache targets consistently link `$(SQLITE_SRC)` and `$(LDFLAGS)`
+- ApiRouter targets consistently include `VdrRecordingFolderController.cpp` where needed
+- daemon duplicate `VdrRecordingCacheRepository.cpp` linkage is removed
+- `tools/check_vdr_linkage_contracts.py` guards VDR/SQLite/ApiRouter linkage contracts
+- `check-vdr-linkage-contracts` is wired into `test-ci-fast` and `test-vdr`
+- GitHub Actions verifies the guard before daemon build
 
 ---
 
 ## Next Planned Implementation Slice
 
-### Phase 59.07a - Live, RESTfulAPI and EPGSearch Parity Inventory Refresh
+### Phase 60.13 - Lazy Recording Cache Product Hardening
 
 Status: Planned.
 
 Goal:
 
-- Reconcile source code, RESTfulAPI capability knowledge and existing documentation before adding more Live-parity features.
+- Harden the lazy Recording cache product behavior after the CI/linkage stabilization train.
 
 Planned scope:
 
-- compare Live, epgsearch and RESTfulAPI capability surfaces against VDR-Suite source
-- mark implemented backend-neutral VDR-Suite capabilities as done
-- downgrade stale `MISSING` or `CHECK` documentation entries where code now exists
-- keep UI gaps separate from backend/domain gaps
-- identify remaining real VDR evidence gaps
-- define the next implementation target from the refreshed parity matrix
+- expose cache status and stale-refresh behavior clearly in the frontend
+- improve user-visible error states for Recording folder loading
+- verify deep folder paths, large folders and direct recording details
+- keep read-only backend behavior visible but action-safe
+- preserve lazy root-folder and child-folder loading for large real catalogs
+- define the next frontend/backend cleanup target from verified runtime behavior
 
 ---
 

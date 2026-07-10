@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 60.11f7 - VDR Cache Linkage Hotfix
+Phase 60.12c - VDR Linkage Guard CI Enforcement
 ```
 
 Current documentation consolidation state:
@@ -46,7 +46,7 @@ Phase 58 - Frontend and Live Parity
 Next planned implementation slice:
 
 ```text
-Phase 60.12 - Post-cache hardening and next frontend/backend cleanup
+Phase 60.13 - Lazy Recording Cache Product Hardening
 ```
 
 ---
@@ -64,7 +64,7 @@ Phase 60.12 - Post-cache hardening and next frontend/backend cleanup
 
 ## Latest Verified Implementation Slice
 
-Phase 60.11f7 completes the lazy Recording cache stabilization and CI linkage hotfix train.
+Phase 60.12c completes the VDR linkage guard hardening train and enforces it through CI.
 
 Verified runtime scope:
 - Phase 60.10l fixes Timer JSON escaping for quoted Timer titles in `/api/vdr/timers/live`.
@@ -83,7 +83,9 @@ Verified runtime scope:
 - Phase 60.11e added Recording start-time path fallback handling.
 - Phase 60.11f stabilized Recording lazy cache test contracts.
 - Phase 60.11f7 fixed the VDR cache linkage cascade across `Makefile`, `mk/common.mk`, `mk/vdr-tests.mk`, and `mk/local-test-groups.mk`.
-- GitHub Actions run `29095828546` verified `docs-check`, `fast-regression-test`, and daemon build successfully before tag `v1.60.11f7-vdr-cache-linkage-hotfix`.
+- Phase 60.12b added the permanent `tools/check_vdr_linkage_contracts.py` guard.
+- Phase 60.12c wired `check-vdr-linkage-contracts` into `test-ci-fast` and `test-vdr`.
+- GitHub Actions run `29113070907` verified `docs-check`, `fast-regression-test`, and daemon build successfully before tag `v1.60.12c-vdr-linkage-guard-ci`.
 
 
 Stable scope:
