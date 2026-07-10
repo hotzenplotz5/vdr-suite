@@ -79,6 +79,8 @@ Metadata and persons:
 Recordings:
 
 - `fetchClientRecordings`
+- `fetchClientRecordingCacheStatus`
+- `fetchClientRecordingFolder`
 - `fetchClientRecordingActionValidation`
 - `fetchClientRecordingActionExecution`
 

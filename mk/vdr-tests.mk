@@ -308,8 +308,11 @@ test-vdr-adapter-factory:
 
 test-vdr-service:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_vdr_service.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_service
 	/tmp/test_vdr_service
 
@@ -490,7 +493,7 @@ test-restful-api-channel-mapper:
 
 test-restful-api-recording-mapper:
 	$(CXX) $(CXXFLAGS) \
-		$(VDR_SRC) \
+		core/vdr/src/RestfulApiRecordingMapper.cpp \
 		core/vdr/tests/test_restful_api_recording_mapper.cpp \
 		-o /tmp/test_restful_api_recording_mapper
 	/tmp/test_restful_api_recording_mapper

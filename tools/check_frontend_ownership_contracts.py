@@ -1451,8 +1451,8 @@ def check_recording_rich_renderer_migration_contract(
         "app.js Recording module bridge must call renderList(data)",
     )
     require(
-        "fetchClientRecordings" in bridge_body,
-        "loadRecordings() must still load data through fetchClientRecordings()",
+        "fetchClientRecordingFolder" in bridge_body,
+        "loadRecordings() must load data through fetchClientRecordingFolder() for the Lazy Recording Folder Cache",
     )
     require(
         "renderRecordingList(data)" not in bridge_body,
@@ -1495,13 +1495,13 @@ def check_recording_rich_renderer_migration_contract(
         "displayChildFolders",
         "recordingEntries.slice(recordingStartIndex, recordingEndIndex)",
         "renderRecordingDetail(entry, node, visibleFolderCount, recordingPageIndex)",
-        "Recording-Query-Endpunkt",
+        "Lazy Recording Folder Cache",
     ]
 
     for token in required_rich_renderer_tokens:
         require(
             token in body,
-            "modules/recordings.js rich renderer missing token: " + token,
+            "modules/recordings.js rich renderer/loading text missing token: " + token,
         )
 
     require(
@@ -1823,8 +1823,8 @@ def check_recording_module_loading_client_api_contract(app_js: str) -> None:
     )
 
     require(
-        "fetchClientRecordings" in body,
-        "loadRecordings() must use fetchClientRecordings()"
+        "fetchClientRecordingFolder" in body,
+        "loadRecordings() must use fetchClientRecordingFolder() for the Lazy Recording Folder Cache"
     )
 
     require(
@@ -1838,8 +1838,8 @@ def check_recording_module_loading_client_api_contract(app_js: str) -> None:
     )
 
     require(
-        "/api/vdr/recordings/query" in body,
-        "loadRecordings() loading text must document /api/vdr/recordings/query"
+        "Lade Aufnahmeordner aus dem lokalen Recording-Cache" in body,
+        "loadRecordings() loading text must document the Lazy Recording Folder Cache"
     )
 
     require(
@@ -1945,7 +1945,7 @@ def check_recording_bounded_rendering_contract(
     )
 
     require(
-        "Recording-Query-Endpunkt" in body,
+        "Lazy Recording Folder Cache" in body,
         "Recording empty-state text must reference the query endpoint without owning literal API routes"
     )
 

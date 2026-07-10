@@ -814,7 +814,7 @@ function renderRecordingList(data) {
     const empty = document.createElement('article');
     empty.className = 'module-placeholder';
     empty.appendChild(recordingBrowserAddText(document.createElement('h3'), 'Keine Aufnahmen gefunden'));
-    empty.appendChild(recordingBrowserAddText(document.createElement('p'), 'Der Recording-Query-Endpunkt hat aktuell keine Aufnahmen geliefert.'));
+    empty.appendChild(recordingBrowserAddText(document.createElement('p'), 'Der Lazy Recording Folder Cache hat aktuell keine Aufnahmen geliefert.'));
     recordingBrowserDetailDataElement().appendChild(empty);
     return;
   }
