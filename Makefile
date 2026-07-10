@@ -1598,7 +1598,6 @@ daemon:
 	$(CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
-		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(RUNTIME_SRC) \
 		$(DAEMON_SRC) \
 		apps/daemon/main.cpp \
