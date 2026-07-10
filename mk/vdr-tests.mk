@@ -167,35 +167,47 @@ test-fast: test-epg-query-service-restfulapi test-epg-query-service test-epg-que
 
 test-epg-query-service-restfulapi:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/http/src/MockHttpClient.cpp \
 		core/vdr/tests/test_epg_query_service_restfulapi.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_epg_query_service_restfulapi
 	/tmp/test_epg_query_service_restfulapi
 
 test-epg-query-service:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_epg_query_service.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_epg_query_service
 	/tmp/test_epg_query_service
 
 test-epg-query-factory:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_epg_query_factory.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_epg_query_factory
 	/tmp/test_epg_query_factory
 
 test-search-timer-preview-service:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_search_timer_preview_service.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_search_timer_preview_service
 	/tmp/test_search_timer_preview_service
 
 test-search-timer-preview-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_search_timer_preview_result_json_serializer.cpp \
 		-o /tmp/test_search_timer_preview_result_json_serializer
 	/tmp/test_search_timer_preview_result_json_serializer
@@ -266,29 +278,39 @@ test-search-timer-delete-request-parser:
 
 test-search-timer-update-request-parser:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		api/rest/src/SearchTimerUpdateRequestParser.cpp \
 		api/rest/tests/test_search_timer_update_request_parser.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_search_timer_update_request_parser
 	/tmp/test_search_timer_update_request_parser
 
 test-backend-polling-coordinator:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_backend_polling_coordinator.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_backend_polling_coordinator
 	/tmp/test_backend_polling_coordinator
 
 test-vdr-config:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/tests/test_vdr_config.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_config
 	/tmp/test_vdr_config
 
 test-external-vdr-adapter:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_external_vdr_adapter.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_external_vdr_adapter
 	/tmp/test_external_vdr_adapter
 
@@ -318,155 +340,222 @@ test-vdr-service:
 
 test-vdr-overview-service:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_vdr_overview_service.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_overview_service
 	/tmp/test_vdr_overview_service
 
 test-vdr-overview-json-serializer:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_vdr_overview_json_serializer.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_overview_json_serializer
 	/tmp/test_vdr_overview_json_serializer
 
 test-vdr-snapshot-read-json-serializer:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_vdr_snapshot_read_json_serializer.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_snapshot_read_json_serializer
 	/tmp/test_vdr_snapshot_read_json_serializer
 
 test-vdr-snapshot-builder:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_vdr_snapshot_builder.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_snapshot_builder
 	/tmp/test_vdr_snapshot_builder
 
 test-polling-service:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_polling_service.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_polling_service
 	/tmp/test_polling_service
 
 test-vdr-change-state:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_vdr_change_state.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_change_state
 	/tmp/test_vdr_change_state
 
 test-vdr-change-event:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_vdr_change_event.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_change_event
 	/tmp/test_vdr_change_event
 
 test-change-detection-service:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_change_detection_service.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_change_detection_service
 	/tmp/test_change_detection_service
 
 test-snapshot-refresh-decision-service:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_snapshot_refresh_decision_service.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_snapshot_refresh_decision_service
 	/tmp/test_snapshot_refresh_decision_service
 
 test-snapshot-refresh-planner:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_snapshot_refresh_planner.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_snapshot_refresh_planner
 	/tmp/test_snapshot_refresh_planner
 
 test-snapshot-update-plan:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_snapshot_update_plan.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_snapshot_update_plan
 	/tmp/test_snapshot_update_plan
 
 test-snapshot-cache:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_snapshot_cache.cpp \
+		$(LDFLAGS) \
+		$(LDFLAGS) \
 		-o /tmp/test_snapshot_cache
 	/tmp/test_snapshot_cache
 
 test-snapshot-cache-service:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_snapshot_cache_service.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_snapshot_cache_service
 	/tmp/test_snapshot_cache_service
 
 test-snapshot-change-feed:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_snapshot_change_feed.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_snapshot_change_feed
 	/tmp/test_snapshot_change_feed
 
 test-snapshot-change-feed-json-serializer:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_snapshot_change_feed_json_serializer.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_snapshot_change_feed_json_serializer
 	/tmp/test_snapshot_change_feed_json_serializer
 
 test-live-update-event:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_live_update_event.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_live_update_event
 	/tmp/test_live_update_event
 
 test-live-update-event-json-serializer:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_live_update_event_json_serializer.cpp \
+		$(LDFLAGS) \
+		$(LDFLAGS) \
 		-o /tmp/test_live_update_event_json_serializer
 	/tmp/test_live_update_event_json_serializer
 
 test-live-transport-interface:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_live_transport_interface.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_live_transport_interface
 	/tmp/test_live_transport_interface
 
 test-test-live-transport:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_test_live_transport.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_test_live_transport
 	/tmp/test_test_live_transport
 
 test-live-transport-service:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_live_transport_service.cpp \
 		-o /tmp/test_live_transport_service
 	/tmp/test_live_transport_service
 
 test-live-transport-factory:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_live_transport_factory.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_live_transport_factory
 	/tmp/test_live_transport_factory
 
 test-sse-live-transport:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_sse_live_transport.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_sse_live_transport
 	/tmp/test_sse_live_transport
 
@@ -479,28 +568,39 @@ test-restful-api-status-mapper:
 
 test-restful-api-event-mapper:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_restful_api_event_mapper.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_restful_api_event_mapper
 	/tmp/test_restful_api_event_mapper
 
 test-restful-api-channel-mapper:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_restful_api_channel_mapper.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_restful_api_channel_mapper
 	/tmp/test_restful_api_channel_mapper
 
 test-restful-api-recording-mapper:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/vdr/src/RestfulApiRecordingMapper.cpp \
 		core/vdr/tests/test_restful_api_recording_mapper.cpp \
+		$(LDFLAGS) \
+		$(LDFLAGS) \
 		-o /tmp/test_restful_api_recording_mapper
 	/tmp/test_restful_api_recording_mapper
 
 test-restful-api-timer-mapper:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_restful_api_timer_mapper.cpp \
 		-o /tmp/test_restful_api_timer_mapper
 	/tmp/test_restful_api_timer_mapper
@@ -521,13 +621,16 @@ test-vdr-timer-action-result-json-serializer:
 	$(CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrTimerActionResultJsonSerializer.cpp \
 		core/vdr/tests/test_vdr_timer_action_result_json_serializer.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_timer_action_result_json_serializer
 	/tmp/test_vdr_timer_action_result_json_serializer
 
 test-vdr-timer-action-executor-adapter-registry:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/vdr/src/MockVdrTimerActionExecutor.cpp \
 		core/vdr/tests/test_vdr_timer_action_executor_adapter_registry.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_timer_action_executor_adapter_registry
 	/tmp/test_vdr_timer_action_executor_adapter_registry
 
@@ -586,6 +689,7 @@ test-restful-api-vdr-timer-action-executor:
 test-restful-api-vdr-adapter:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/http/src/MockHttpClient.cpp \
 		core/vdr/tests/test_restful_api_vdr_adapter.cpp \
 		-o /tmp/test_restful_api_vdr_adapter
@@ -594,6 +698,7 @@ test-restful-api-vdr-adapter:
 test-restful-api-change-state-adapter:
 	$(CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(HTTP_SRC) \
 		core/vdr/tests/test_restful_api_change_state_adapter.cpp \
 		-o /tmp/test_restful_api_change_state_adapter
@@ -612,6 +717,7 @@ test-epg-event-repository:
 
 test-vdr-domain-objects:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/vdr/tests/test_vdr_domain_objects.cpp \
 		-o /tmp/test_vdr_domain_objects
 	/tmp/test_vdr_domain_objects
@@ -619,7 +725,9 @@ test-vdr-domain-objects:
 
 test-domain-refresh-policy:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/vdr/tests/test_domain_refresh_policy.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_domain_refresh_policy
 	/tmp/test_domain_refresh_policy
 
@@ -635,8 +743,11 @@ test-snapshot-access-service:
 
 test-vdr-snapshot-read-service:
 	$(CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_vdr_snapshot_read_service.cpp \
+		$(LDFLAGS) \
 		-o /tmp/test_vdr_snapshot_read_service
 	/tmp/test_vdr_snapshot_read_service
 
