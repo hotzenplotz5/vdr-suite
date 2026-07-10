@@ -370,7 +370,15 @@ function recordingBrowserCancelFolderRefreshTimer() {
 
 function recordingBrowserServerFolderLabel(path) {
   const value = String(path || '').trim();
-  return value === '' ? 'Aufnahme-Ordner' : value.split('/').join(' / ');
+
+  if (value === '') {
+    return 'Aufnahme-Ordner';
+  }
+
+  return value
+    .split('/')
+    .map(part => decodeRecordingText(part))
+    .join(' / ');
 }
 
 function recordingBrowserLoadServerFolder(path, offset) {
@@ -600,7 +608,7 @@ function renderServerRecordingDetail(recording, folderData) {
   const item = document.createElement('article');
   item.className = 'module-placeholder recording-detail';
 
-  const title = recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme');
+  const title = decodeRecordingText(recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme'));
   const recordingId = recordingBrowserFirstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
   const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
   const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
@@ -631,7 +639,7 @@ function createServerRecordingItem(recording, folderData) {
   item.tabIndex = 0;
   item.setAttribute('role', 'button');
 
-  const title = recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme');
+  const title = decodeRecordingText(recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme'));
   const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
   const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
   const duration = recordingBrowserFormatDurationSeconds(recordingBrowserFirstValue(recording, ['durationSeconds', 'duration'], 0));
@@ -713,8 +721,9 @@ function renderServerRecordingFolder(data) {
     item.tabIndex = 0;
     item.setAttribute('role', 'button');
 
-    const folderName = String(recordingBrowserFirstValue(folder, ['name', 'title'], 'Ordner'));
-    const folderPath = String(recordingBrowserFirstValue(folder, ['path'], folderName));
+    const rawFolderName = String(recordingBrowserFirstValue(folder, ['name', 'title'], 'Ordner'));
+    const folderName = decodeRecordingText(rawFolderName);
+    const folderPath = String(recordingBrowserFirstValue(folder, ['path'], rawFolderName));
     const folderCount = Number(recordingBrowserFirstValue(folder, ['recordingCount', 'count', 'total'], 0));
 
     item.appendChild(recordingBrowserAddText(document.createElement('div'), folderName)).className = 'list-title';
