@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 60.12c - VDR Linkage Guard CI Enforcement
+Phase 60.13d3 - Recording Storage Mount Segment Hardening
 ```
 
 Current documentation consolidation state:
@@ -46,7 +46,7 @@ Phase 58 - Frontend and Live Parity
 Next planned implementation slice:
 
 ```text
-Phase 60.13 - Lazy Recording Cache Product Hardening
+Phase 60.13d4 - Recording Cache Status Documentation Sync
 ```
 
 ---
@@ -64,7 +64,7 @@ Phase 60.13 - Lazy Recording Cache Product Hardening
 
 ## Latest Verified Implementation Slice
 
-Phase 60.12c completes the VDR linkage guard hardening train and enforces it through CI.
+Phase 60.13d3 completes the lazy Recording cache product hardening train through runtime-verified frontend label fixes, detail path wrapping, and backend storage mount segment flattening.
 
 Verified runtime scope:
 - Phase 60.10l fixes Timer JSON escaping for quoted Timer titles in `/api/vdr/timers/live`.
@@ -85,6 +85,13 @@ Verified runtime scope:
 - Phase 60.11f7 fixed the VDR cache linkage cascade across `Makefile`, `mk/common.mk`, `mk/vdr-tests.mk`, and `mk/local-test-groups.mk`.
 - Phase 60.12b added the permanent `tools/check_vdr_linkage_contracts.py` guard.
 - Phase 60.12c wired `check-vdr-linkage-contracts` into `test-ci-fast` and `test-vdr`.
+- Phase 60.13a decoded server Recording labels in the lazy Recording browser.
+- Phase 60.13b hardened Recording folder status summaries.
+- Phase 60.13c improved display path labels for Recording folder and Recording detail titles while keeping raw API paths intact.
+- Phase 60.13d1 fixed mobile Recording detail path wrapping so long VDR `.rec` paths stay inside the detail card.
+- Phase 60.13d2 introduced initial backend flattening for the technical `Recordings_on_yavdr(nfs)` storage mount folder.
+- Phase 60.13d3 removed all `Recordings_on_yavdr(nfs)` storage mount segments from the backend Recording folder model, including nested duplicates.
+- Runtime verification proved the root Recording folder API no longer exposes `Recordings_on_yavdr(nfs)` and still reports `totalCount=7976`.
 - GitHub Actions run `29113070907` verified `docs-check`, `fast-regression-test`, and daemon build successfully before tag `v1.60.12c-vdr-linkage-guard-ci`.
 
 
