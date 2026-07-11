@@ -446,6 +446,19 @@ function recordingBrowserLocalRecordingTitle(recording, folderData) {
   return titleLabel || 'Aufnahme';
 }
 
+function recordingBrowserParentDisplayFolder(label) {
+  const parts = String(label || '')
+    .split('/')
+    .map(part => part.trim())
+    .filter(part => part !== '');
+
+  if (parts.length <= 1) {
+    return '';
+  }
+
+  return parts.slice(0, -1).join(' / ');
+}
+
 function recordingBrowserLoadServerFolder(path, offset) {
   if (!recordingBrowserFolderLoader) {
     return;
@@ -674,11 +687,11 @@ function renderServerRecordingDetail(recording, folderData) {
   item.className = 'module-placeholder recording-detail';
 
   const title = recordingBrowserLocalRecordingTitle(recording, folderData);
-  const folderLabel = recordingBrowserDisplayPathLabel(
+  const folderLabel = recordingBrowserParentDisplayFolder(recordingBrowserDisplayPathLabel(
     folderData && typeof folderData === 'object'
       ? String(folderData.path || '')
       : ''
-  );
+  ));
   const recordingId = recordingBrowserFirstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
   const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
   const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
