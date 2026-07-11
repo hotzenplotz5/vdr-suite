@@ -396,3 +396,56 @@ Conclusion:
 - Delete dry-run execution is safety-gated and does not call the backend executor.
 - The Web UI must keep Delete in validate/dry-run-only mode until a dedicated sharp-delete probe exists.
 - Before enabling sharp Delete, the backend request source path must be reviewed against RESTfulAPI mount-loop paths. Runtime probes have shown that RESTfulAPI can expose the same recording through `Recordings_on_yavdr(nfs)` mount aliases, so sharp Delete must not blindly trust the displayed backend-native path.
+
+## Phase 60.15f: Move validation and dry-run runtime probe
+
+Status: completed as readiness probe only.
+
+Runtime environment:
+
+- VDR-Suite daemon: `http://127.0.0.1:18080`
+- Backend: `default`
+- Source folder: `heute_journal`
+- Target path: `__vdr_suite_move_probe__`
+- Probe mode: validation plus dry-run execution only
+- No sharp move was executed.
+
+Observed source recording:
+
+- Folder request returned exactly one recording in `heute_journal`.
+- Recording id: `7983`
+- Recording path: `/Recordings_on_yavdr(nfs)/heute_journal/2026-07-08.21.45.2-0.rec`
+- Backend native id: `/srv/vdr/video/Recordings_on_yavdr(nfs)/heute_journal/2026-07-08.21.45.2-0.rec`
+
+Validation request:
+
+- Action: `MOVE`
+- Dry-run: `true`
+- Target path: `__vdr_suite_move_probe__`
+
+Validation result:
+
+- HTTP status: `200`
+- `valid`: `true`
+- `dryRun`: `true`
+- Required capability: `recording.action.move`
+- Required permission: `recording.permission.move`
+- Warning: `dry-run only`
+- Errors: none
+
+Dry-run execution result:
+
+- HTTP status: `200`
+- `success`: `false`
+- `type`: `MOVE`
+- `snapshotRefreshed`: `false`
+- Message: `dry-run backend execution skipped`
+- Warning: `dry-run only`
+- Errors: none
+
+Conclusion:
+
+- Move is recognized by the validation layer.
+- Move dry-run execution is safety-gated and does not call the backend executor.
+- The Web UI must not expose a sharp Move action before a dedicated sharp-move probe exists.
+- Before enabling sharp Move, both source and target path handling must be reviewed against RESTfulAPI mount-loop paths. Runtime probes have shown that RESTfulAPI can expose recordings through `Recordings_on_yavdr(nfs)` mount aliases.
