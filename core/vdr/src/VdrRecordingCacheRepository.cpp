@@ -141,6 +141,79 @@ void removeStorageMountSegments(
         segments.end());
 }
 
+std::string recordingDeduplicationKey(
+    const VdrRecording& recording)
+{
+    const std::string path =
+        recording.path.empty()
+            ? recording.backendNativeId
+            : recording.path;
+
+    std::vector<std::string> segments =
+        splitPath(path);
+
+    removeStorageMountSegments(segments);
+
+    if (!segments.empty())
+    {
+        return joinPath(segments);
+    }
+
+    std::vector<std::string> titleSegments =
+        splitPath(recording.title);
+
+    removeStorageMountSegments(titleSegments);
+
+    if (!titleSegments.empty())
+    {
+        return joinPath(titleSegments);
+    }
+
+    if (!recording.backendNativeId.empty())
+    {
+        return recording.backendNativeId;
+    }
+
+    if (!recording.path.empty())
+    {
+        return recording.path;
+    }
+
+    if (!recording.id.empty())
+    {
+        return recording.id;
+    }
+
+    return recording.title;
+}
+
+std::vector<VdrRecording> uniqueRecordingsByNormalizedPath(
+    const std::vector<VdrRecording>& recordings)
+{
+    std::map<std::string, VdrRecording> uniqueRecordings;
+
+    for (const VdrRecording& recording : recordings)
+    {
+        const std::string key =
+            recordingDeduplicationKey(recording);
+
+        if (uniqueRecordings.find(key) == uniqueRecordings.end())
+        {
+            uniqueRecordings.emplace(key, recording);
+        }
+    }
+
+    std::vector<VdrRecording> result;
+    result.reserve(uniqueRecordings.size());
+
+    for (const auto& entry : uniqueRecordings)
+    {
+        result.push_back(entry.second);
+    }
+
+    return result;
+}
+
 std::string firstSegment(
     const std::string& path)
 {
@@ -704,7 +777,8 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
     page.offset = std::max(0, offset);
 
     const std::vector<VdrRecording> allRecordings =
-        findAllForBackend(normalizedBackendId);
+        uniqueRecordingsByNormalizedPath(
+            findAllForBackend(normalizedBackendId));
 
     std::map<std::string, int> folderCounts;
     std::vector<VdrRecording> directRecordings;
