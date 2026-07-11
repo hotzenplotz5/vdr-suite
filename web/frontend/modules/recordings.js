@@ -459,13 +459,7 @@ function recordingBrowserParentDisplayFolder(label) {
   return parts.slice(0, -1).join(' / ');
 }
 
-function recordingBrowserLoadServerFolder(path, offset) {
-  if (!recordingBrowserFolderLoader) {
-    return;
-  }
-
-  recordingBrowserCancelFolderRefreshTimer();
-
+function recordingBrowserRenderFolderLoading(path) {
   const holder = document.createElement('section');
   holder.className = 'list recording-folder-list';
 
@@ -481,22 +475,66 @@ function recordingBrowserLoadServerFolder(path, offset) {
   ));
   holder.appendChild(loading);
   recordingBrowserDetailDataElement().replaceChildren(holder);
+}
+
+function recordingBrowserRenderFolderLoadError(error) {
+  const errorBox = document.createElement('article');
+  errorBox.className = 'module-placeholder';
+  errorBox.appendChild(recordingBrowserAddText(
+    document.createElement('h3'),
+    'Aufnahmeordner konnte nicht geladen werden'
+  ));
+  errorBox.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    error && error.message ? error.message : String(error)
+  ));
+  recordingBrowserDetailDataElement().replaceChildren(errorBox);
+}
+
+function recordingBrowserIsSingleRecordingLeaf(folderData) {
+  const folders = recordingBrowserListFromResponse(folderData, 'folders');
+  const recordings = recordingBrowserListFromResponse(folderData, 'recordings');
+  const recordingCount = Number(folderData && folderData.recordingCount) || recordings.length;
+
+  return folders.length === 0 &&
+    recordings.length === 1 &&
+    recordingCount === 1;
+}
+
+function recordingBrowserLoadServerFolder(path, offset) {
+  if (!recordingBrowserFolderLoader) {
+    return;
+  }
+
+  recordingBrowserCancelFolderRefreshTimer();
+  recordingBrowserRenderFolderLoading(path);
 
   recordingBrowserFolderLoader(path || '', Number(offset) || 0)
     .then(renderServerRecordingFolder)
-    .catch(error => {
-      const errorBox = document.createElement('article');
-      errorBox.className = 'module-placeholder';
-      errorBox.appendChild(recordingBrowserAddText(
-        document.createElement('h3'),
-        'Aufnahmeordner konnte nicht geladen werden'
-      ));
-      errorBox.appendChild(recordingBrowserAddText(
-        document.createElement('p'),
-        error && error.message ? error.message : String(error)
-      ));
-      recordingBrowserDetailDataElement().replaceChildren(errorBox);
-    });
+    .catch(recordingBrowserRenderFolderLoadError);
+}
+
+function recordingBrowserOpenServerFolder(path, parentFolderData) {
+  if (!recordingBrowserFolderLoader) {
+    return;
+  }
+
+  recordingBrowserCancelFolderRefreshTimer();
+  recordingBrowserRenderFolderLoading(path);
+
+  recordingBrowserFolderLoader(path || '', 0)
+    .then(data => {
+      const folderData = data && typeof data === 'object' ? data : {};
+
+      if (recordingBrowserIsSingleRecordingLeaf(folderData)) {
+        const recordings = recordingBrowserListFromResponse(folderData, 'recordings');
+        renderServerRecordingDetail(recordings[0], parentFolderData || folderData);
+        return;
+      }
+
+      renderServerRecordingFolder(folderData);
+    })
+    .catch(recordingBrowserRenderFolderLoadError);
 }
 
 
@@ -847,7 +885,7 @@ function renderServerRecordingFolder(data) {
       String(folderCount) + ' Aufnahme(n) · antippen zum Öffnen'
     )).className = 'list-meta';
 
-    const open = () => recordingBrowserLoadServerFolder(folderPath, 0);
+    const open = () => recordingBrowserOpenServerFolder(folderPath, folderData);
     item.addEventListener('click', open);
     item.addEventListener('keydown', event => {
       if (event.key === 'Enter' || event.key === ' ') {
