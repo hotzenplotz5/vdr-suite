@@ -681,7 +681,7 @@ function renderServerRecordingDetail(recording, folderData) {
   const size = recordingBrowserFormatSizeMb(recordingBrowserFirstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
 
   item.appendChild(recordingBrowserAddText(document.createElement('h3'), String(title)));
-  item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Start: ' + startTime));
+  item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Aufnahme: ' + startTime));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Größe: ' + size));
 
@@ -728,7 +728,7 @@ function createServerRecordingItem(recording, folderData) {
   item.appendChild(recordingBrowserAddText(document.createElement('div'), String(title))).className = 'list-title';
   item.appendChild(recordingBrowserAddText(
     document.createElement('div'),
-    'Start: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size + ' · antippen für Details'
+    'Aufnahme: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size + ' · antippen für Details'
   )).className = 'list-meta';
 
   const open = () => renderServerRecordingDetail(recording, folderData);
@@ -1073,7 +1073,7 @@ function renderRecordingList(data) {
     const description = recordingBrowserFirstValue(recording, ['description', 'summary', 'shortText'], '');
 
     item.appendChild(recordingBrowserAddText(document.createElement('h3'), entry.title));
-    item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Start: ' + startTime));
+    item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Aufnahme: ' + startTime));
     item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
     item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Größe: ' + size));
     item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Sender: ' + String(channel)));
@@ -1113,7 +1113,7 @@ function renderRecordingList(data) {
     item.appendChild(recordingBrowserAddText(document.createElement('div'), entry.title)).className = 'list-title';
     item.appendChild(recordingBrowserAddText(
       document.createElement('div'),
-      'Start: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size + ' · antippen für Details'
+      'Aufnahme: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size + ' · antippen für Details'
     )).className = 'list-meta';
     item.appendChild(recordingBrowserAddText(document.createElement('div'), 'Pfad: ' + String(path))).className = 'list-meta';
     item.appendChild(recordingBrowserAddText(document.createElement('div'), 'ID: ' + String(recordingId))).className = 'list-meta';
