@@ -174,6 +174,146 @@ Goal:
 
 ---
 
+## Rename Runtime Probe Result
+
+Phase 60.15b verified the first real Recording action pipeline with `dryRun=true`.
+
+No real mutation was performed.
+
+Runtime target:
+
+```text
+http://127.0.0.1:18080
+```
+
+Backend:
+
+```text
+default
+```
+
+Authenticated user:
+
+```text
+admin
+```
+
+Probe recording:
+
+```json
+{
+  "backendId": "default",
+  "id": "226",
+  "title": "Action/48 Hrs",
+  "path": "/Action/48 Hrs/2026-06-21.10.08.1-0.rec",
+  "backendNativeId": "/srv/vdr/video/Action/48 Hrs/2026-06-21.10.08.1-0.rec"
+}
+```
+
+First probe finding:
+
+```json
+{
+  "action": "rename"
+}
+```
+
+The lowercase action name was rejected as `UNKNOWN` because the current parser
+expects uppercase action names.
+
+Correct action value:
+
+```json
+{
+  "action": "RENAME"
+}
+```
+
+Successful dry-run payload:
+
+```json
+{
+  "backendId": "default",
+  "recordingId": "226",
+  "action": "RENAME",
+  "dryRun": true,
+  "newName": "__VDR_SUITE_RENAME_RUNTIME_PROBE__",
+  "recordingPath": "/Action/48 Hrs/2026-06-21.10.08.1-0.rec",
+  "backendNativeId": "/srv/vdr/video/Action/48 Hrs/2026-06-21.10.08.1-0.rec"
+}
+```
+
+Validation result:
+
+```json
+{
+  "valid": true,
+  "dryRun": true,
+  "wouldCreateJob": false,
+  "backendId": "default",
+  "recordingId": "226",
+  "requiredCapabilities": [
+    "recording.action.rename"
+  ],
+  "requiredPermissions": [
+    "recording.permission.rename"
+  ],
+  "warnings": [
+    "dry-run only"
+  ],
+  "errors": []
+}
+```
+
+Execution result:
+
+```json
+{
+  "success": false,
+  "type": "RENAME",
+  "backendId": "default",
+  "recordingId": "226",
+  "backendNativeId": "/srv/vdr/video/Action/48 Hrs/2026-06-21.10.08.1-0.rec",
+  "recordingPath": "/Action/48 Hrs/2026-06-21.10.08.1-0.rec",
+  "snapshotRefreshed": false,
+  "upstreamHttpStatus": 0,
+  "upstreamEndpoint": "",
+  "upstreamResponseBody": "",
+  "message": "dry-run backend execution skipped",
+  "warnings": [
+    "dry-run only"
+  ],
+  "errors": []
+}
+```
+
+Interpretation:
+
+- `RENAME` is parsed correctly.
+- validation accepts the request.
+- required rename capability is reported.
+- required rename permission is reported.
+- execution reaches the dry-run boundary.
+- no backend mutation happens while `dryRun=true`.
+
+The expected result is:
+
+```text
+success=false
+message=dry-run backend execution skipped
+```
+
+This is not a failure. It proves the safety boundary is active.
+
+Decision:
+
+- The next implementation step may prepare real rename execution.
+- The frontend must send uppercase `RENAME`.
+- `dryRun=false` may only be sent after explicit confirmation.
+- Delete/trash and move remain out of scope until rename has been proven safe.
+
+---
+
 ## Non-Goals
 
 The following are explicitly not part of the first sharp-action phase:
@@ -197,10 +337,16 @@ Phase 60.15a is complete when:
 - the next implementation order is defined
 - no runtime mutation has been performed
 
+Phase 60.15b is complete when:
+
+- the rename validation payload is proven with `dryRun=true`
+- the rename execution route reaches the dry-run boundary
+- uppercase `RENAME` is documented as the currently required action value
+- no runtime mutation has been performed
+
 ---
 
 ## Back
 
 - [Development Index](index.md)
 - [Documentation Index](../index.md)
-
