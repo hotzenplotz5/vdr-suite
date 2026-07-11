@@ -23,10 +23,10 @@ Completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
 
 Latest completed implementation slice
-Phase 60.13d4 - Recording Cache Status Documentation Sync
+Phase 60.14k - Recording Detail UX Polish
 
 Next planned implementation slice
-Phase 60.14 - Recording Browser UX Polish
+Phase 60.15 - Recording Metadata and Poster Preparation
 
 Current implementation focus
 Phase 58 - Frontend and Live Parity
@@ -76,41 +76,42 @@ Completed foundation ranges:
 
 ## Recently Completed Implementation Slice
 
-### Phase 60.13d4 - Lazy Recording Cache Product Hardening
+### Phase 60.14k - Recording Browser UX Polish
 
-Status: Completed runtime, frontend and documentation hardening slice.
+Status: Completed frontend UX and runtime behavior polish slice.
 
 Completed outcomes:
 
-- server Recording labels are decoded for user-visible folder and detail titles
-- Recording folder status summaries distinguish cache readiness, shown counts and total cache size
-- Recording display path labels use readable separators while raw API paths stay intact
-- mobile Recording detail cards wrap long VDR `.rec` paths safely inside the card
-- backend Recording folder modeling flattens the technical `Recordings_on_yavdr(nfs)` storage mount folder
-- nested duplicate storage mount segments are removed from the backend folder model
-- runtime verification proved the root Recording folder API no longer exposes `Recordings_on_yavdr(nfs)`
-- documentation status was synced after the completed 60.13 hardening train
+- Recording folder views show breadcrumb-style context for the current lazy folder
+- single-recording leaf folders open directly into the Recording detail view
+- Recording folder cache entries are deduplicated by normalized recording path for product views
+- Recording list titles show local titles instead of repeated folder paths
+- Recording detail titles are simplified and no longer repeat folder context
+- Recording timestamp labels use `Aufnahme` instead of the ambiguous `Start`
+- technical path, ID and size fields are hidden behind `Technische Details anzeigen`
+- Recording action controls are hidden behind `Aktionen anzeigen`
+- runtime verification proved single-recording navigation, deduplicated folder counts and polished detail cards in the browser
 
 ---
 
 ## Next Planned Implementation Slice
 
-### Phase 60.14 - Recording Browser UX Polish
+### Phase 60.15 - Recording Metadata and Poster Preparation
 
 Status: Planned.
 
 Goal:
 
-- Improve everyday usability of the lazy Recording browser after the 60.13 cache and folder-model hardening train.
+- Prepare Recording metadata, artwork and poster handling on top of the now-polished lazy Recording browser.
 
 Planned scope:
 
-- add clearer breadcrumb-style folder context
-- improve back-navigation text and placement for deep folders
-- make folder and recording counts easier to understand in large catalogs
-- improve pagination and orientation for very large folders such as series collections
-- keep technical raw paths available without letting them dominate the normal detail view
-- preserve lazy root-folder and child-folder loading for large real catalogs
+- define which Recording metadata fields belong in the Suite model
+- distinguish VDR technical metadata from imported Rectools or scraper metadata
+- prepare UI placeholders for poster and artwork data without requiring them immediately
+- keep the existing lazy Recording folder flow stable while adding metadata hooks
+- avoid coupling scraper-specific behavior directly into the Recording browser UI
+- define the next backend/frontend contract for Recording metadata enrichment
 
 ---
 
