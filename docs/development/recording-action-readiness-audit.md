@@ -350,3 +350,49 @@ Phase 60.15b is complete when:
 
 - [Development Index](index.md)
 - [Documentation Index](../index.md)
+
+## Phase 60.15d: Delete validation and dry-run runtime probe
+
+Status: completed as readiness probe only.
+
+Runtime environment:
+
+- VDR-Suite daemon: `http://127.0.0.1:18080`
+- Backend: `default`
+- Probe folder: `heute_journal`
+- Probe mode: validation plus dry-run execution only
+- No sharp delete was executed.
+
+Observed source recording:
+
+- Folder request returned exactly one recording in `heute_journal`.
+- Recording id: `7983`
+- Recording path: `/Recordings_on_yavdr(nfs)/heute_journal/2026-07-08.21.45.2-0.rec`
+- Backend native id: `/srv/vdr/video/Recordings_on_yavdr(nfs)/heute_journal/2026-07-08.21.45.2-0.rec`
+
+Validation result:
+
+- HTTP status: `200`
+- `valid`: `true`
+- `dryRun`: `true`
+- Required capability: `recording.action.delete`
+- Required permission: `recording.permission.delete`
+- Warning: `dry-run only`
+- Errors: none
+
+Dry-run execution result:
+
+- HTTP status: `200`
+- `success`: `false`
+- `type`: `DELETE`
+- `snapshotRefreshed`: `false`
+- Message: `dry-run backend execution skipped`
+- Warning: `dry-run only`
+- Errors: none
+
+Conclusion:
+
+- Delete is recognized by the validation layer.
+- Delete dry-run execution is safety-gated and does not call the backend executor.
+- The Web UI must keep Delete in validate/dry-run-only mode until a dedicated sharp-delete probe exists.
+- Before enabling sharp Delete, the backend request source path must be reviewed against RESTfulAPI mount-loop paths. Runtime probes have shown that RESTfulAPI can expose the same recording through `Recordings_on_yavdr(nfs)` mount aliases, so sharp Delete must not blindly trust the displayed backend-native path.
