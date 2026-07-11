@@ -725,11 +725,6 @@ function renderServerRecordingDetail(recording, folderData) {
   item.className = 'module-placeholder recording-detail';
 
   const title = recordingBrowserLocalRecordingTitle(recording, folderData);
-  const folderLabel = recordingBrowserParentDisplayFolder(recordingBrowserDisplayPathLabel(
-    folderData && typeof folderData === 'object'
-      ? String(folderData.path || '')
-      : ''
-  ));
   const recordingId = recordingBrowserFirstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
   const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
   const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
@@ -737,13 +732,6 @@ function renderServerRecordingDetail(recording, folderData) {
   const size = recordingBrowserFormatSizeMb(recordingBrowserFirstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
 
   item.appendChild(recordingBrowserAddText(document.createElement('h3'), String(title)));
-
-  if (folderLabel !== '') {
-    item.appendChild(recordingBrowserAddText(
-      document.createElement('p'),
-      'Ordner: ' + folderLabel
-    ));
-  }
 
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Aufnahme: ' + startTime));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
