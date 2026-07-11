@@ -644,8 +644,24 @@ function renderServerRecordingDetail(recording, folderData) {
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Start: ' + startTime));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Größe: ' + size));
-  item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Pfad: ' + String(path)));
-  item.appendChild(recordingBrowserAddText(document.createElement('p'), 'ID: ' + String(recordingId)));
+
+  const technicalDetails = document.createElement('details');
+  technicalDetails.className = 'recording-technical-details';
+
+  technicalDetails.appendChild(recordingBrowserAddText(
+    document.createElement('summary'),
+    'Technische Details anzeigen'
+  ));
+  technicalDetails.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    'Pfad: ' + String(path)
+  ));
+  technicalDetails.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    'ID: ' + String(recordingId)
+  ));
+
+  item.appendChild(technicalDetails);
   item.appendChild(createServerRecordingActionPanel(recording));
 
   const backButton = document.createElement('button');
