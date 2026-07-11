@@ -735,7 +735,6 @@ function renderServerRecordingDetail(recording, folderData) {
 
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Aufnahme: ' + startTime));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
-  item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Größe: ' + size));
 
   const technicalDetails = document.createElement('details');
   technicalDetails.className = 'recording-technical-details';
@@ -743,6 +742,10 @@ function renderServerRecordingDetail(recording, folderData) {
   technicalDetails.appendChild(recordingBrowserAddText(
     document.createElement('summary'),
     'Technische Details anzeigen'
+  ));
+  technicalDetails.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    'Größe: ' + size
   ));
   technicalDetails.appendChild(recordingBrowserAddText(
     document.createElement('p'),
