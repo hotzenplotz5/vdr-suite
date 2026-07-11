@@ -130,14 +130,15 @@ bool isStorageMountSegment(
     return segment == "Recordings_on_yavdr(nfs)";
 }
 
-void removeStorageMountPrefix(
+void removeStorageMountSegments(
     std::vector<std::string>& segments)
 {
-    if (!segments.empty() &&
-        isStorageMountSegment(segments.front()))
-    {
-        segments.erase(segments.begin());
-    }
+    segments.erase(
+        std::remove_if(
+            segments.begin(),
+            segments.end(),
+            isStorageMountSegment),
+        segments.end());
 }
 
 std::string firstSegment(
@@ -875,7 +876,7 @@ std::string VdrRecordingCacheRepository::folderPathForRecording(
     std::vector<std::string> segments =
         splitPath(path);
 
-    removeStorageMountPrefix(segments);
+    removeStorageMountSegments(segments);
 
     if (!segments.empty())
     {
@@ -890,6 +891,8 @@ std::string VdrRecordingCacheRepository::folderPathForRecording(
 
     std::vector<std::string> titleSegments =
         splitPath(recording.title);
+
+    removeStorageMountSegments(titleSegments);
 
     if (titleSegments.size() > 1)
     {
