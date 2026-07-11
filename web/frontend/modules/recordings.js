@@ -843,7 +843,7 @@ function createServerRecordingActionPanel(recording) {
 
   panel.appendChild(recordingBrowserAddText(
     document.createElement('p'),
-    'Umbenennen ist nach Bestätigung scharf. Löschen bleibt weiterhin nur Prüfung/Dry-Run.'
+    'Umbenennen ist nach Bestätigung scharf. Löschen ist bewusst noch nicht scharf aktiviert und bleibt Prüfung/Dry-Run.'
   ));
 
   const actions = document.createElement('div');
@@ -863,7 +863,7 @@ function createServerRecordingActionPanel(recording) {
   ));
 
   actions.appendChild(recordingBrowserCreateActionButton(
-    'Löschen prüfen',
+    'Löschen prüfen (sicher)',
     'validate',
     'DELETE',
     recording,
@@ -871,7 +871,7 @@ function createServerRecordingActionPanel(recording) {
   ));
 
   actions.appendChild(recordingBrowserCreateActionButton(
-    'Löschen Dry-Run',
+    'Löschen Dry-Run (keine Ausführung)',
     'execute',
     'DELETE',
     recording,
