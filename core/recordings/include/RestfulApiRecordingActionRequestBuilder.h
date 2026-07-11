@@ -173,6 +173,26 @@ private:
         return "/" + joinRecordingPathSegments(segments);
     }
 
+    static std::string normalizedRecordingFilesystemPath(
+        const RecordingActionJobPayload& payload)
+    {
+        const std::string source =
+            recordingPath(payload);
+
+        const std::vector<std::string> segments =
+            splitRecordingPathSegments(source);
+
+        if (segments.empty()) {
+            return source;
+        }
+
+        if (source.rfind("/srv/vdr/video/", 0) == 0) {
+            return "/srv/vdr/video/" + joinRecordingPathSegments(segments);
+        }
+
+        return "/" + joinRecordingPathSegments(segments);
+    }
+
     static std::string moveTarget(
         const std::string& targetPath,
         const RecordingActionJobPayload& payload)
@@ -309,7 +329,7 @@ private:
             findParameter(payload.parameters, "targetPath");
 
         std::string body = "{";
-        body += "\"source\":" + jsonQuote(normalizedRecordingPath(payload));
+        body += "\"source\":" + jsonQuote(normalizedRecordingFilesystemPath(payload));
         body += ",\"target\":" + jsonQuote(encodeVdrFolderTarget(moveTarget(targetPath, payload)));
         body += ",\"copy_only\":false";
         body += "}";
