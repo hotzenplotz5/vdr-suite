@@ -548,19 +548,33 @@ function recordingBrowserActionList(value) {
     .filter(entry => entry !== '');
 }
 
-function recordingBrowserActionPayload(recording, action) {
+function recordingBrowserActionPayload(recording, action, overrides) {
   const recordingId = recordingBrowserFirstValue(recording, ['recordingId', 'id', 'nativeId'], '');
   const recordingPath = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '');
+  const backendNativeId = recordingBrowserFirstValue(recording, ['backendNativeId', 'nativePath'], '');
+  const extra = overrides && typeof overrides === 'object' ? overrides : {};
 
   const payload = {
     recordingId: String(recordingId),
-    action: String(action),
+    action: String(action).toUpperCase(),
     dryRun: true
   };
 
   if (String(recordingPath || '').trim() !== '') {
     payload.recordingPath = String(recordingPath);
   }
+
+  if (String(backendNativeId || '').trim() !== '') {
+    payload.backendNativeId = String(backendNativeId);
+  }
+
+  Object.keys(extra).forEach(key => {
+    const value = extra[key];
+
+    if (value !== undefined && value !== null && value !== '') {
+      payload[key] = value;
+    }
+  });
 
   return payload;
 }
@@ -673,6 +687,151 @@ function recordingBrowserCreateActionButton(label, mode, action, recording, resu
   return button;
 }
 
+function recordingBrowserPromptRenameName(recording, label, resultBox) {
+  const currentTitle = recordingBrowserLocalRecordingTitle(recording, null);
+  const newName = window.prompt('Neuer Name für diese Aufnahme:', currentTitle);
+
+  if (newName === null) {
+    recordingBrowserRenderActionResult(
+      resultBox,
+      label,
+      { message: 'Umbenennen abgebrochen.' },
+      null
+    );
+    return '';
+  }
+
+  const trimmedName = String(newName || '').trim();
+
+  if (trimmedName === '') {
+    recordingBrowserRenderActionResult(
+      resultBox,
+      label,
+      null,
+      new Error('Neuer Name darf nicht leer sein')
+    );
+    return '';
+  }
+
+  return trimmedName;
+}
+
+function recordingBrowserCreateRenameValidateButton(recording, resultBox) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'Umbenennen prüfen';
+
+  button.addEventListener('click', () => {
+    if (!recordingBrowserActionRunner) {
+      recordingBrowserRenderActionResult(
+        resultBox,
+        'Umbenennen prüfen',
+        null,
+        new Error('Recording action runner is not configured')
+      );
+      return;
+    }
+
+    const trimmedName = recordingBrowserPromptRenameName(recording, 'Umbenennen prüfen', resultBox);
+
+    if (trimmedName === '') {
+      return;
+    }
+
+    button.disabled = true;
+    recordingBrowserRenderActionResult(
+      resultBox,
+      'Umbenennen prüfen',
+      { message: 'Umbenennen wird geprüft …' },
+      null
+    );
+
+    recordingBrowserActionRunner({
+      mode: 'validate',
+      action: 'RENAME',
+      payload: recordingBrowserActionPayload(recording, 'RENAME', {
+        dryRun: true,
+        newName: trimmedName
+      }),
+      recording: recording
+    })
+      .then(result => {
+        recordingBrowserRenderActionResult(resultBox, 'Umbenennen prüfen', result, null);
+      })
+      .catch(error => {
+        recordingBrowserRenderActionResult(resultBox, 'Umbenennen prüfen', null, error);
+      })
+      .finally(() => {
+        button.disabled = false;
+      });
+  });
+
+  return button;
+}
+
+function recordingBrowserCreateRenameButton(recording, resultBox) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'Umbenennen';
+
+  button.addEventListener('click', () => {
+    if (!recordingBrowserActionRunner) {
+      recordingBrowserRenderActionResult(
+        resultBox,
+        'Umbenennen',
+        null,
+        new Error('Recording action runner is not configured')
+      );
+      return;
+    }
+
+    const trimmedName = recordingBrowserPromptRenameName(recording, 'Umbenennen', resultBox);
+
+    if (trimmedName === '') {
+      return;
+    }
+
+    if (!window.confirm('Aufnahme wirklich umbenennen in "' + trimmedName + '"?')) {
+      recordingBrowserRenderActionResult(
+        resultBox,
+        'Umbenennen',
+        { message: 'Umbenennen nicht bestätigt.' },
+        null
+      );
+      return;
+    }
+
+    button.disabled = true;
+    recordingBrowserRenderActionResult(
+      resultBox,
+      'Umbenennen',
+      { message: 'Umbenennen wird ausgeführt …' },
+      null
+    );
+
+    recordingBrowserActionRunner({
+      mode: 'execute',
+      action: 'RENAME',
+      payload: recordingBrowserActionPayload(recording, 'RENAME', {
+        dryRun: false,
+        newName: trimmedName
+      }),
+      recording: recording
+    })
+      .then(result => {
+        recordingBrowserRenderActionResult(resultBox, 'Umbenennen', result, null);
+      })
+      .catch(error => {
+        recordingBrowserRenderActionResult(resultBox, 'Umbenennen', null, error);
+      })
+      .finally(() => {
+        button.disabled = false;
+      });
+  });
+
+  return button;
+}
+
 function createServerRecordingActionPanel(recording) {
   const panel = document.createElement('details');
   panel.className = 'recording-action-panel';
@@ -684,7 +843,7 @@ function createServerRecordingActionPanel(recording) {
 
   panel.appendChild(recordingBrowserAddText(
     document.createElement('p'),
-    'Sicherer Action-Test: Validierung und Dry-Run. Keine echte Löschung, kein echtes Verschieben, keine echte Mutation.'
+    'Umbenennen ist nach Bestätigung scharf. Löschen bleibt weiterhin nur Prüfung/Dry-Run.'
   ));
 
   const actions = document.createElement('div');
@@ -692,6 +851,16 @@ function createServerRecordingActionPanel(recording) {
 
   const resultBox = document.createElement('div');
   resultBox.className = 'recording-action-result';
+
+  actions.appendChild(recordingBrowserCreateRenameButton(
+    recording,
+    resultBox
+  ));
+
+  actions.appendChild(recordingBrowserCreateRenameValidateButton(
+    recording,
+    resultBox
+  ));
 
   actions.appendChild(recordingBrowserCreateActionButton(
     'Löschen prüfen',

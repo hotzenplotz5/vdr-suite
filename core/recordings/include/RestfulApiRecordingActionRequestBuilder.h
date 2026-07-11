@@ -181,6 +181,98 @@ private:
         return targetPath + "/" + leaf;
     }
 
+    static bool isStorageMountSegment(const std::string& segment)
+    {
+        return segment == "Recordings_on_yavdr(nfs)";
+    }
+
+    static std::vector<std::string> splitRecordingPathSegments(
+        std::string source)
+    {
+        const std::string srvPrefix =
+            "/srv/vdr/video/";
+
+        if (source.rfind(srvPrefix, 0) == 0) {
+            source = source.substr(srvPrefix.size());
+        }
+
+        while (!source.empty() && source.front() == '/') {
+            source.erase(source.begin());
+        }
+
+        while (!source.empty() && source.back() == '/') {
+            source.pop_back();
+        }
+
+        std::vector<std::string> segments;
+        std::string current;
+
+        for (char c : source) {
+            if (c == '/') {
+                if (!current.empty() && !isStorageMountSegment(current)) {
+                    segments.push_back(current);
+                }
+
+                current.clear();
+                continue;
+            }
+
+            current.push_back(c);
+        }
+
+        if (!current.empty() && !isStorageMountSegment(current)) {
+            segments.push_back(current);
+        }
+
+        return segments;
+    }
+
+    static std::string joinRecordingPathSegments(
+        const std::vector<std::string>& segments)
+    {
+        std::string result;
+
+        for (const std::string& segment : segments) {
+            if (!result.empty()) {
+                result += "/";
+            }
+
+            result += segment;
+        }
+
+        return result;
+    }
+
+    static std::string recordingParentFolder(
+        const RecordingActionJobPayload& payload)
+    {
+        std::vector<std::string> segments =
+            splitRecordingPathSegments(recordingPath(payload));
+
+        if (segments.size() <= 2) {
+            return "";
+        }
+
+        segments.pop_back();
+        segments.pop_back();
+
+        return joinRecordingPathSegments(segments);
+    }
+
+    static std::string renameTarget(
+        const RecordingActionJobPayload& payload,
+        const std::string& newName)
+    {
+        const std::string parent =
+            recordingParentFolder(payload);
+
+        if (parent.empty()) {
+            return newName;
+        }
+
+        return parent + "/" + newName;
+    }
+
     static std::string jsonQuote(const std::string& value)
     {
         std::string quoted = "\"";
@@ -220,7 +312,7 @@ private:
 
         std::string body = "{";
         body += "\"source\":" + jsonQuote(recordingPath(payload));
-        body += ",\"target\":" + jsonQuote(encodeVdrRecordingNameTarget(newName));
+        body += ",\"target\":" + jsonQuote(encodeVdrRecordingNameTarget(renameTarget(payload, newName)));
         body += ",\"copy_only\":false";
         body += "}";
 

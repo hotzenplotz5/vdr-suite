@@ -921,22 +921,7 @@ std::string VdrRecordingCacheRepository::parentFolderPath(
 std::string VdrRecordingCacheRepository::cacheKeyForRecording(
     const VdrRecording& recording)
 {
-    if (!recording.backendNativeId.empty())
-    {
-        return recording.backendNativeId;
-    }
-
-    if (!recording.path.empty())
-    {
-        return recording.path;
-    }
-
-    if (!recording.id.empty())
-    {
-        return recording.id;
-    }
-
-    return recording.title;
+    return recordingDeduplicationKey(recording);
 }
 
 std::string VdrRecordingCacheRepository::folderPathForRecording(
