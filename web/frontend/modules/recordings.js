@@ -396,6 +396,16 @@ function recordingBrowserDisplayPathLabel(value) {
     .join(' / ');
 }
 
+function recordingBrowserFolderBreadcrumbLabel(path) {
+  const folderLabel = recordingBrowserServerFolderLabel(path);
+
+  if (folderLabel === 'Aufnahme-Ordner') {
+    return 'Pfad: Aufnahme-Ordner';
+  }
+
+  return 'Pfad: Aufnahme-Ordner / ' + folderLabel;
+}
+
 function recordingBrowserLoadServerFolder(path, offset) {
   if (!recordingBrowserFolderLoader) {
     return;
@@ -703,6 +713,10 @@ function renderServerRecordingFolder(data) {
   header.appendChild(recordingBrowserAddText(
     document.createElement('h3'),
     recordingBrowserServerFolderLabel(path)
+  ));
+  header.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    recordingBrowserFolderBreadcrumbLabel(path)
   ));
 
   const cacheLabel = cacheReady
