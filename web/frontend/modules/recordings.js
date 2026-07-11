@@ -596,7 +596,16 @@ function recordingBrowserRenderActionResult(target, title, result, error) {
     }
 
     if (Object.prototype.hasOwnProperty.call(result, 'success')) {
-      lines.push('Ausführung: ' + (result.success ? 'erfolgreich' : 'nicht erfolgreich'));
+      const message = String(result.message || '');
+      const warnings = recordingBrowserActionList(result.warnings);
+      const dryRunSkipped = message === 'dry-run backend execution skipped'
+        || warnings.includes('dry-run only');
+
+      if (dryRunSkipped && !result.success) {
+        lines.push('Ausführung: Dry-Run / keine Backend-Ausführung');
+      } else {
+        lines.push('Ausführung: ' + (result.success ? 'erfolgreich' : 'nicht erfolgreich'));
+      }
     }
 
     if (result.type) {
