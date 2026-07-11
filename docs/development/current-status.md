@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 60.13d3 - Recording Storage Mount Segment Hardening
+Phase 60.14k - Recording Detail UX Polish
 ```
 
 Current documentation consolidation state:
@@ -46,7 +46,7 @@ Phase 58 - Frontend and Live Parity
 Next planned implementation slice:
 
 ```text
-Phase 60.13d4 - Recording Cache Status Documentation Sync
+Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
 ---
@@ -64,7 +64,7 @@ Phase 60.13d4 - Recording Cache Status Documentation Sync
 
 ## Latest Verified Implementation Slice
 
-Phase 60.13d3 completes the lazy Recording cache product hardening train through runtime-verified frontend label fixes, detail path wrapping, and backend storage mount segment flattening.
+Phase 60.14k completes the Recording Browser UX polish train after lazy Recording cache hardening. It keeps the server-side lazy folder model, removes duplicate cache-derived folder entries from product views, simplifies single-recording navigation, declutters Recording detail cards, and keeps technical path, ID and size information behind explicit disclosure controls.
 
 Verified runtime scope:
 - Phase 60.10l fixes Timer JSON escaping for quoted Timer titles in `/api/vdr/timers/live`.
@@ -93,6 +93,16 @@ Verified runtime scope:
 - Phase 60.13d3 removed all `Recordings_on_yavdr(nfs)` storage mount segments from the backend Recording folder model, including nested duplicates.
 - Runtime verification proved the root Recording folder API no longer exposes `Recordings_on_yavdr(nfs)` and still reports `totalCount=7976`.
 - GitHub Actions run `29113070907` verified `docs-check`, `fast-regression-test`, and daemon build successfully before tag `v1.60.12c-vdr-linkage-guard-ci`.
+
+- Phase 60.14a added breadcrumb-style Recording folder context.
+- Phase 60.14b made Recording technical details collapsible.
+- Phase 60.14c deduplicated Recording folder cache entries by normalized recording path.
+- Phase 60.14d simplified Recording list titles so leaf recordings show their local title.
+- Phase 60.14e renamed the visible Recording timestamp label from `Start` to `Aufnahme`.
+- Phase 60.14f simplified Recording detail titles.
+- Phase 60.14g refined Recording detail folder context.
+- Phase 60.14h auto-opens single-recording leaf folders directly into the detail view.
+- Phase 60.14k collapses Recording actions, moves size into technical details, and removes redundant explanatory list text.
 
 
 Stable scope:

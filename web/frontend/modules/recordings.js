@@ -783,7 +783,7 @@ function createServerRecordingItem(recording, folderData) {
   item.appendChild(recordingBrowserAddText(document.createElement('div'), String(title))).className = 'list-title';
   item.appendChild(recordingBrowserAddText(
     document.createElement('div'),
-    'Aufnahme: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size + ' · antippen für Details'
+    'Aufnahme: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size
   )).className = 'list-meta';
 
   const open = () => renderServerRecordingDetail(recording, folderData);
@@ -1130,8 +1130,7 @@ function renderRecordingList(data) {
     item.appendChild(recordingBrowserAddText(document.createElement('h3'), entry.title));
     item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Aufnahme: ' + startTime));
     item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
-    item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Größe: ' + size));
-    item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Sender: ' + String(channel)));
+      item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Sender: ' + String(channel)));
     item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Pfad: ' + String(path)));
     item.appendChild(recordingBrowserAddText(document.createElement('p'), 'ID: ' + String(recordingId)));
 
@@ -1168,7 +1167,7 @@ function renderRecordingList(data) {
     item.appendChild(recordingBrowserAddText(document.createElement('div'), entry.title)).className = 'list-title';
     item.appendChild(recordingBrowserAddText(
       document.createElement('div'),
-      'Aufnahme: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size + ' · antippen für Details'
+      'Aufnahme: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size
     )).className = 'list-meta';
     item.appendChild(recordingBrowserAddText(document.createElement('div'), 'Pfad: ' + String(path))).className = 'list-meta';
     item.appendChild(recordingBrowserAddText(document.createElement('div'), 'ID: ' + String(recordingId))).className = 'list-meta';
