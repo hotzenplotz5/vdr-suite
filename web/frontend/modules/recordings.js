@@ -674,12 +674,12 @@ function recordingBrowserCreateActionButton(label, mode, action, recording, resu
 }
 
 function createServerRecordingActionPanel(recording) {
-  const panel = document.createElement('div');
+  const panel = document.createElement('details');
   panel.className = 'recording-action-panel';
 
   panel.appendChild(recordingBrowserAddText(
-    document.createElement('h3'),
-    'Aktionen'
+    document.createElement('summary'),
+    'Aktionen anzeigen'
   ));
 
   panel.appendChild(recordingBrowserAddText(
