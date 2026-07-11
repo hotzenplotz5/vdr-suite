@@ -673,7 +673,12 @@ function renderServerRecordingDetail(recording, folderData) {
   const item = document.createElement('article');
   item.className = 'module-placeholder recording-detail';
 
-  const title = recordingBrowserDisplayPathLabel(recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme'));
+  const title = recordingBrowserLocalRecordingTitle(recording, folderData);
+  const folderLabel = recordingBrowserDisplayPathLabel(
+    folderData && typeof folderData === 'object'
+      ? String(folderData.path || '')
+      : ''
+  );
   const recordingId = recordingBrowserFirstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
   const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
   const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
@@ -681,6 +686,14 @@ function renderServerRecordingDetail(recording, folderData) {
   const size = recordingBrowserFormatSizeMb(recordingBrowserFirstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
 
   item.appendChild(recordingBrowserAddText(document.createElement('h3'), String(title)));
+
+  if (folderLabel !== '') {
+    item.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      'Ordner: ' + folderLabel
+    ));
+  }
+
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Aufnahme: ' + startTime));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Größe: ' + size));
