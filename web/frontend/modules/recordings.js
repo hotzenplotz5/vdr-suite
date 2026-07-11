@@ -716,6 +716,88 @@ function recordingBrowserPromptRenameName(recording, label, resultBox) {
   return trimmedName;
 }
 
+
+function recordingBrowserPromptMoveTarget(label, resultBox) {
+  const targetPath = window.prompt('Zielordner für diese Move-Prüfung:', '__vdr_suite_move_probe__');
+
+  if (targetPath === null) {
+    recordingBrowserRenderActionResult(
+      resultBox,
+      label,
+      { message: 'Verschieben abgebrochen.' },
+      null
+    );
+    return '';
+  }
+
+  const trimmedPath = String(targetPath || '').trim();
+
+  if (trimmedPath === '') {
+    recordingBrowserRenderActionResult(
+      resultBox,
+      label,
+      null,
+      new Error('Zielordner darf nicht leer sein')
+    );
+    return '';
+  }
+
+  return trimmedPath;
+}
+
+function recordingBrowserCreateMoveDryRunButton(label, mode, recording, resultBox) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+
+  button.addEventListener('click', () => {
+    if (!recordingBrowserActionRunner) {
+      recordingBrowserRenderActionResult(
+        resultBox,
+        label,
+        null,
+        new Error('Recording action runner is not configured')
+      );
+      return;
+    }
+
+    const targetPath = recordingBrowserPromptMoveTarget(label, resultBox);
+
+    if (targetPath === '') {
+      return;
+    }
+
+    button.disabled = true;
+    recordingBrowserRenderActionResult(
+      resultBox,
+      label,
+      { message: mode === 'validate' ? 'Verschieben wird geprüft …' : 'Verschieben Dry-Run läuft …' },
+      null
+    );
+
+    recordingBrowserActionRunner({
+      mode: mode,
+      action: 'MOVE',
+      payload: recordingBrowserActionPayload(recording, 'MOVE', {
+        dryRun: true,
+        targetPath: targetPath
+      }),
+      recording: recording
+    })
+      .then(result => {
+        recordingBrowserRenderActionResult(resultBox, label, result, null);
+      })
+      .catch(error => {
+        recordingBrowserRenderActionResult(resultBox, label, null, error);
+      })
+      .finally(() => {
+        button.disabled = false;
+      });
+  });
+
+  return button;
+}
+
 function recordingBrowserCreateRenameValidateButton(recording, resultBox) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -843,7 +925,7 @@ function createServerRecordingActionPanel(recording) {
 
   panel.appendChild(recordingBrowserAddText(
     document.createElement('p'),
-    'Umbenennen ist nach Bestätigung scharf. Löschen ist bewusst noch nicht scharf aktiviert und bleibt Prüfung/Dry-Run.'
+    'Umbenennen ist nach Bestätigung scharf. Verschieben und Löschen sind bewusst noch nicht scharf aktiviert und bleiben Prüfung/Dry-Run.'
   ));
 
   const actions = document.createElement('div');
@@ -858,6 +940,20 @@ function createServerRecordingActionPanel(recording) {
   ));
 
   actions.appendChild(recordingBrowserCreateRenameValidateButton(
+    recording,
+    resultBox
+  ));
+
+  actions.appendChild(recordingBrowserCreateMoveDryRunButton(
+    'Verschieben prüfen (sicher)',
+    'validate',
+    recording,
+    resultBox
+  ));
+
+  actions.appendChild(recordingBrowserCreateMoveDryRunButton(
+    'Verschieben Dry-Run (keine Ausführung)',
+    'execute',
     recording,
     resultBox
   ));
