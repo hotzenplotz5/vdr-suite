@@ -406,6 +406,46 @@ function recordingBrowserFolderBreadcrumbLabel(path) {
   return 'Pfad: Aufnahme-Ordner / ' + folderLabel;
 }
 
+function recordingBrowserLastDisplaySegment(label) {
+  const parts = String(label || '')
+    .split('/')
+    .map(part => part.trim())
+    .filter(part => part !== '');
+
+  if (parts.length === 0) {
+    return String(label || '').trim();
+  }
+
+  return parts[parts.length - 1];
+}
+
+function recordingBrowserLocalRecordingTitle(recording, folderData) {
+  const rawTitle = recordingBrowserFirstValue(
+    recording,
+    ['title', 'name', 'file', 'displayName'],
+    'Aufnahme'
+  );
+  const titleLabel = recordingBrowserDisplayPathLabel(rawTitle);
+  const folderPath = folderData && typeof folderData === 'object'
+    ? String(folderData.path || '')
+    : '';
+  const folderLabel = recordingBrowserDisplayPathLabel(folderPath);
+
+  if (folderLabel !== '' && titleLabel === folderLabel) {
+    return recordingBrowserLastDisplaySegment(titleLabel);
+  }
+
+  if (folderLabel !== '' && titleLabel.startsWith(folderLabel + ' / ')) {
+    return titleLabel.slice(folderLabel.length + 3).trim();
+  }
+
+  if (titleLabel.includes(' / ')) {
+    return recordingBrowserLastDisplaySegment(titleLabel.replace(/ \/ /g, '/'));
+  }
+
+  return titleLabel || 'Aufnahme';
+}
+
 function recordingBrowserLoadServerFolder(path, offset) {
   if (!recordingBrowserFolderLoader) {
     return;
@@ -680,8 +720,7 @@ function createServerRecordingItem(recording, folderData) {
   item.tabIndex = 0;
   item.setAttribute('role', 'button');
 
-  const title = recordingBrowserDisplayPathLabel(recordingBrowserFirstValue(recording, ['title', 'name', 'file', 'displayName'], 'Aufnahme'));
-  const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
+  const title = recordingBrowserLocalRecordingTitle(recording, folderData);
   const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
   const duration = recordingBrowserFormatDurationSeconds(recordingBrowserFirstValue(recording, ['durationSeconds', 'duration'], 0));
   const size = recordingBrowserFormatSizeMb(recordingBrowserFirstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
@@ -691,7 +730,6 @@ function createServerRecordingItem(recording, folderData) {
     document.createElement('div'),
     'Start: ' + startTime + ' · Dauer: ' + duration + ' · Größe: ' + size + ' · antippen für Details'
   )).className = 'list-meta';
-  item.appendChild(recordingBrowserAddText(document.createElement('div'), 'Pfad: ' + String(path))).className = 'list-meta';
 
   const open = () => renderServerRecordingDetail(recording, folderData);
   item.addEventListener('click', open);
