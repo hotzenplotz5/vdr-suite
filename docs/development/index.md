@@ -108,6 +108,7 @@ Do not move global latest-completed markers to Phase 58 until the full Phase 58 
 - [SearchTimer Completeness Re-Audit](searchtimer-completeness-reaudit.md)
 - [Real VDR Regression Coverage Audit](real-vdr-regression-coverage-audit.md)
 - [Real Recording Action Regression Audit](real-recording-action-regression-audit.md)
+- [Recording Action Readiness Audit](recording-action-readiness-audit.md)
 - [Live / EPGSearch Feature Inventory](live-feature-inventory.md)
 - [Live Plugin Parity Source Audit](live-plugin-parity-source-audit.md)
 - [Live Parity Discovery Domain Foundation](live-parity-discovery-domain-foundation.md)
