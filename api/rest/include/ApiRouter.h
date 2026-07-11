@@ -20,6 +20,7 @@ class MetadataController;
 class PersonController;
 class RecordingsController;
 class RecordingActionExecutionController;
+class RecordingActionPreviewController;
 class RecordingPersonSearchController;
 class RecordingActionValidationController;
 class RuntimeDiagnosticsController;
@@ -118,6 +119,7 @@ public:
         CapabilityController& capabilityController,
         RecordingActionValidationController& recordingActionValidationController,
         RecordingActionExecutionController& recordingActionExecutionController,
+        RecordingActionPreviewController& recordingActionPreviewController,
         VdrTimerActionController& vdrTimerActionController,
         VdrTimerActionExecutorAdapterRegistry& vdrTimerActionExecutorAdapterRegistry,
         RuntimeDiagnosticsController& runtimeDiagnosticsController,
@@ -163,6 +165,7 @@ private:
     CapabilityController& capabilityController_;
     RecordingActionValidationController& recordingActionValidationController_;
     RecordingActionExecutionController& recordingActionExecutionController_;
+    RecordingActionPreviewController& recordingActionPreviewController_;
     VdrTimerActionController& vdrTimerActionController_;
     VdrTimerActionExecutorAdapterRegistry& vdrTimerActionExecutorAdapterRegistry_;
     RuntimeDiagnosticsController& runtimeDiagnosticsController_;

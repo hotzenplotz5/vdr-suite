@@ -57,6 +57,7 @@ REST_ROUTER_SRC := \
         api/rest/src/CapabilityController.cpp \
         api/rest/src/RecordingActionValidationController.cpp \
         api/rest/src/RecordingActionExecutionController.cpp \
+        api/rest/src/RecordingActionPreviewController.cpp \
         api/rest/src/VdrTimerActionController.cpp \
         api/rest/src/VdrChannelMoveRequestParser.cpp \
         api/rest/src/VdrChannelMoveController.cpp \
@@ -64,6 +65,7 @@ REST_ROUTER_SRC := \
         core/recordings/src/RecordingActionUtils.cpp \
         core/recordings/src/RecordingActionValidationResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionExecutionResultJsonSerializer.cpp \
+        core/recordings/src/RecordingActionRequestPreviewResultJsonSerializer.cpp \
 	core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionValidationService.cpp \
         api/rest/src/RecordingActionValidationRequestParser.cpp \

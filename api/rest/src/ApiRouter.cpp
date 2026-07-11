@@ -14,9 +14,11 @@
 #include "Person.h"
 #include "RecordingsController.h"
 #include "RecordingActionExecutionController.h"
+#include "RecordingActionPreviewController.h"
 #include "RecordingActionValidationController.h"
 #include "RecordingPersonSearchController.h"
 #include "RestQueryParameters.h"
+#include "RestfulApiRecordingActionBackendConfig.h"
 #include "RuntimeDiagnosticsController.h"
 #include "SearchTimerController.h"
 #include "SearchTimerDiscoveryController.h"
@@ -301,6 +303,7 @@ ApiRouter::ApiRouter(
     CapabilityController& capabilityController,
     RecordingActionValidationController& recordingActionValidationController,
     RecordingActionExecutionController& recordingActionExecutionController,
+    RecordingActionPreviewController& recordingActionPreviewController,
     VdrTimerActionController& vdrTimerActionController,
     VdrTimerActionExecutorAdapterRegistry& vdrTimerActionExecutorAdapterRegistry,
     RuntimeDiagnosticsController& runtimeDiagnosticsController,
@@ -330,6 +333,7 @@ ApiRouter::ApiRouter(
       capabilityController_(capabilityController),
       recordingActionValidationController_(recordingActionValidationController),
       recordingActionExecutionController_(recordingActionExecutionController),
+      recordingActionPreviewController_(recordingActionPreviewController),
       vdrTimerActionController_(vdrTimerActionController),
       vdrTimerActionExecutorAdapterRegistry_(vdrTimerActionExecutorAdapterRegistry),
       runtimeDiagnosticsController_(runtimeDiagnosticsController),
@@ -374,6 +378,20 @@ ApiResponse ApiRouter::handlePost(
         path == "/api/vdr/recordings/actions/execute")
     {
         return recordingActionExecutionController_.executeBody(body);
+    }
+
+    if (path == "/api/recordings/actions/preview" ||
+        path == "/api/vdr/recordings/actions/preview")
+    {
+        RestfulApiRecordingActionBackendConfig config;
+        config.backendId = "default";
+        config.basePath = "";
+        config.allowExecution = false;
+        config.readOnly = true;
+
+        return recordingActionPreviewController_.previewBody(
+            body,
+            config);
     }
 
     if (path == "/api/vdr/timers/actions/create")

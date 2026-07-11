@@ -160,12 +160,25 @@ private:
         return source.substr(leafStart + 1, leafEnd - leafStart);
     }
 
+    static std::string normalizedRecordingPath(
+        const RecordingActionJobPayload& payload)
+    {
+        const std::vector<std::string> segments =
+            splitRecordingPathSegments(recordingPath(payload));
+
+        if (segments.empty()) {
+            return recordingPath(payload);
+        }
+
+        return "/" + joinRecordingPathSegments(segments);
+    }
+
     static std::string moveTarget(
         const std::string& targetPath,
         const RecordingActionJobPayload& payload)
     {
         const std::string source =
-            recordingPath(payload);
+            normalizedRecordingPath(payload);
 
         const std::string leaf =
             recordingLeafName(source);
@@ -296,7 +309,7 @@ private:
             findParameter(payload.parameters, "targetPath");
 
         std::string body = "{";
-        body += "\"source\":" + jsonQuote(recordingPath(payload));
+        body += "\"source\":" + jsonQuote(normalizedRecordingPath(payload));
         body += ",\"target\":" + jsonQuote(encodeVdrFolderTarget(moveTarget(targetPath, payload)));
         body += ",\"copy_only\":false";
         body += "}";

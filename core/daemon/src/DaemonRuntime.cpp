@@ -501,6 +501,16 @@ bool DaemonRuntime::initialize()
             }
         });
 
+    recordingActionRequestPreviewService_ =
+        std::make_unique<RecordingActionRequestPreviewService>();
+    recordingActionRequestPreviewResultJsonSerializer_ =
+        std::make_unique<RecordingActionRequestPreviewResultJsonSerializer>();
+    recordingActionPreviewController_ =
+        std::make_unique<RecordingActionPreviewController>(
+            *recordingActionRequestPreviewService_,
+            *recordingActionRequestPreviewResultJsonSerializer_,
+            *recordingActionValidationRequestParser_);
+
     vdrTimerActionService_ = std::make_unique<VdrTimerActionService>();
     vdrTimerActionExecutionService_ = std::make_unique<VdrTimerActionExecutionService>();
     vdrTimerActionResultJsonSerializer_ = std::make_unique<VdrTimerActionResultJsonSerializer>();
@@ -615,6 +625,7 @@ bool DaemonRuntime::initialize()
         *capabilityController_,
         *recordingActionValidationController_,
         *recordingActionExecutionController_,
+        *recordingActionPreviewController_,
         *vdrTimerActionController_,
         *vdrTimerActionExecutorAdapterRegistry_,
         *runtimeDiagnosticsController_,

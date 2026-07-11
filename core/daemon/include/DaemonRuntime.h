@@ -57,6 +57,9 @@
 #include "RecordingActionExecutionController.h"
 #include "RecordingActionExecutionResultJsonSerializer.h"
 #include "RecordingActionExecutionService.h"
+#include "RecordingActionPreviewController.h"
+#include "RecordingActionRequestPreviewResultJsonSerializer.h"
+#include "RecordingActionRequestPreviewService.h"
 #include "RecordingActionValidationController.h"
 #include "RecordingActionValidationRequestParser.h"
 #include "RecordingActionValidationResultJsonSerializer.h"
@@ -273,6 +276,9 @@ private:
     std::unique_ptr<RecordingActionExecutionResultJsonSerializer> recordingActionExecutionResultJsonSerializer_;
     std::unique_ptr<RecordingActionBackendExecutorAdapterRegistry> recordingActionBackendExecutorAdapterRegistry_;
     std::unique_ptr<RecordingActionExecutionController> recordingActionExecutionController_;
+    std::unique_ptr<RecordingActionRequestPreviewService> recordingActionRequestPreviewService_;
+    std::unique_ptr<RecordingActionRequestPreviewResultJsonSerializer> recordingActionRequestPreviewResultJsonSerializer_;
+    std::unique_ptr<RecordingActionPreviewController> recordingActionPreviewController_;
 
     std::unique_ptr<VdrTimerActionService> vdrTimerActionService_;
     std::unique_ptr<VdrTimerActionExecutionService> vdrTimerActionExecutionService_;
