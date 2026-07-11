@@ -23,10 +23,10 @@ Completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
 
 Latest completed implementation slice
-Phase 60.12c - VDR Linkage Guard CI Enforcement
+Phase 60.13d4 - Recording Cache Status Documentation Sync
 
 Next planned implementation slice
-Phase 60.13 - Lazy Recording Cache Product Hardening
+Phase 60.14 - Recording Browser UX Polish
 
 Current implementation focus
 Phase 58 - Frontend and Live Parity
@@ -76,40 +76,41 @@ Completed foundation ranges:
 
 ## Recently Completed Implementation Slice
 
-### Phase 60.12c - VDR Linkage Guard CI Enforcement
+### Phase 60.13d4 - Lazy Recording Cache Product Hardening
 
-Status: Completed CI and build-contract hardening slice.
+Status: Completed runtime, frontend and documentation hardening slice.
 
 Completed outcomes:
 
-- VDR cache linkage fallout after lazy Recording cache integration is fixed
-- SQLite-backed VDR cache targets consistently link `$(SQLITE_SRC)` and `$(LDFLAGS)`
-- ApiRouter targets consistently include `VdrRecordingFolderController.cpp` where needed
-- daemon duplicate `VdrRecordingCacheRepository.cpp` linkage is removed
-- `tools/check_vdr_linkage_contracts.py` guards VDR/SQLite/ApiRouter linkage contracts
-- `check-vdr-linkage-contracts` is wired into `test-ci-fast` and `test-vdr`
-- GitHub Actions verifies the guard before daemon build
+- server Recording labels are decoded for user-visible folder and detail titles
+- Recording folder status summaries distinguish cache readiness, shown counts and total cache size
+- Recording display path labels use readable separators while raw API paths stay intact
+- mobile Recording detail cards wrap long VDR `.rec` paths safely inside the card
+- backend Recording folder modeling flattens the technical `Recordings_on_yavdr(nfs)` storage mount folder
+- nested duplicate storage mount segments are removed from the backend folder model
+- runtime verification proved the root Recording folder API no longer exposes `Recordings_on_yavdr(nfs)`
+- documentation status was synced after the completed 60.13 hardening train
 
 ---
 
 ## Next Planned Implementation Slice
 
-### Phase 60.13 - Lazy Recording Cache Product Hardening
+### Phase 60.14 - Recording Browser UX Polish
 
 Status: Planned.
 
 Goal:
 
-- Harden the lazy Recording cache product behavior after the CI/linkage stabilization train.
+- Improve everyday usability of the lazy Recording browser after the 60.13 cache and folder-model hardening train.
 
 Planned scope:
 
-- expose cache status and stale-refresh behavior clearly in the frontend
-- improve user-visible error states for Recording folder loading
-- verify deep folder paths, large folders and direct recording details
-- keep read-only backend behavior visible but action-safe
+- add clearer breadcrumb-style folder context
+- improve back-navigation text and placement for deep folders
+- make folder and recording counts easier to understand in large catalogs
+- improve pagination and orientation for very large folders such as series collections
+- keep technical raw paths available without letting them dominate the normal detail view
 - preserve lazy root-folder and child-folder loading for large real catalogs
-- define the next frontend/backend cleanup target from verified runtime behavior
 
 ---
 
