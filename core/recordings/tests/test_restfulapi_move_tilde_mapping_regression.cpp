@@ -15,14 +15,17 @@ int main()
 
     RecordingActionJobPayload payload;
     payload.backendId = "local-vdr";
-    payload.recordingId =
-        "Tagesschau/2026-06-17.20.00.10-0.rec";
+    payload.recordingId = "7983";
     payload.type = RecordingActionType::Move;
     payload.dryRun = true;
     payload.parameters["recordingPath"] =
-        "Tagesschau/2026-06-17.20.00.10-0.rec";
+        "/Recordings_on_yavdr(nfs)/Ghibli/Die_letzten_Glühwürmchen__1988_/2026-04-18.21.32.1-0.rec";
+    payload.parameters["backendNativeId"] =
+        "/srv/vdr/video/Recordings_on_yavdr(nfs)/Ghibli/Die_letzten_Glühwürmchen__1988_/2026-04-18.21.32.1-0.rec";
+    payload.parameters["recordingTitle"] =
+        "Ghibli/Die letzten Glühwürmchen (1988)";
     payload.parameters["targetPath"] =
-        "Archiv/Tagesschau";
+        "__vdr_suite_move_probe__";
 
     RestfulApiRecordingActionRequestBuilder builder;
 
@@ -32,12 +35,18 @@ int main()
     assert(request.method == "POST");
     assert(request.url == "/recordings/move.json");
 
-    assert(request.body.find("\"source\":\"Tagesschau/2026-06-17.20.00.10-0.rec\"") != std::string::npos);
-    assert(request.body.find("\"target\":\"Archiv~Tagesschau~Tagesschau\"") != std::string::npos);
+    assert(request.body.find(
+        "\"source\":\"/srv/vdr/video/Recordings_on_yavdr(nfs)/Ghibli/Die_letzten_Glühwürmchen__1988_/2026-04-18.21.32.1-0.rec\"")
+        != std::string::npos);
+    assert(request.body.find(
+        "\"target\":\"__vdr_suite_move_probe__~Die letzten Glühwürmchen (1988)\"")
+        != std::string::npos);
     assert(request.body.find("\"copy_only\":false") != std::string::npos);
 
-    assert(request.body.find("Archiv/Tagesschau") == std::string::npos);
-    assert(request.body.find("Archiv~~Tagesschau") == std::string::npos);
+    assert(request.body.find(
+        "\"source\":\"/srv/vdr/video/Ghibli/") == std::string::npos);
+    assert(request.body.find(
+        "__vdr_suite_move_probe__~Die_letzten_Glühwürmchen__1988_") == std::string::npos);
     assert(request.body.find("/api/") == std::string::npos);
 
     return 0;

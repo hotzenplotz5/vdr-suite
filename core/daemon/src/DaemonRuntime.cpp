@@ -749,7 +749,7 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
                 return;
             }
 
-            if (!recordingCacheDirtyHint_.exchange(false)) {
+            if (!recordingCacheDirtyHint_.load()) {
                 continue;
             }
 
@@ -759,11 +759,10 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
                     now - lastRefresh).count();
 
             if (secondsSinceLastRefresh < dirtyDebounceSeconds) {
-                std::cout
-                    << "Recording cache warmup worker debounced dirty hint: "
-                    << secondsSinceLastRefresh
-                    << " seconds since last refresh"
-                    << std::endl;
+                continue;
+            }
+
+            if (!recordingCacheDirtyHint_.exchange(false)) {
                 continue;
             }
 
@@ -956,7 +955,7 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
                 return;
             }
 
-            if (!epgCacheDirtyHint_.exchange(false)) {
+            if (!epgCacheDirtyHint_.load()) {
                 continue;
             }
 
@@ -966,11 +965,10 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
                     now - lastRefresh).count();
 
             if (secondsSinceLastRefresh < dirtyDebounceSeconds) {
-                std::cout
-                    << "EPG cache warmup worker debounced dirty hint: "
-                    << secondsSinceLastRefresh
-                    << " seconds since last refresh"
-                    << std::endl;
+                continue;
+            }
+
+            if (!epgCacheDirtyHint_.exchange(false)) {
                 continue;
             }
 

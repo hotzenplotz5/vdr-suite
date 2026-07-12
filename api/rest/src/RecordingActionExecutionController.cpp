@@ -6,6 +6,8 @@
 #include "RecordingActionValidationRequestParser.h"
 #include "VdrSnapshotReadService.h"
 
+#include <thread>
+
 RecordingActionExecutionController::RecordingActionExecutionController(
     RecordingActionExecutionService& executionService,
     RecordingActionExecutionResultJsonSerializer& jsonSerializer,
@@ -83,7 +85,12 @@ bool RecordingActionExecutionController::refreshAfterSuccessfulExecution(
         return false;
     }
 
-    afterSuccessfulExecution_();
+    const std::function<void()> callback = afterSuccessfulExecution_;
+
+    std::thread([callback]() {
+        callback();
+    }).detach();
+
     return true;
 }
 
@@ -119,7 +126,19 @@ RecordingActionRequest RecordingActionExecutionController::resolveBackendNativeI
         return request;
     }
 
-    if (request.parameters.find("backendNativeId") != request.parameters.end())
+    const auto backendNativeId =
+        request.parameters.find("backendNativeId");
+    const bool needsBackendNativeId =
+        backendNativeId == request.parameters.end() ||
+        backendNativeId->second.empty();
+
+    const auto recordingTitle =
+        request.parameters.find("recordingTitle");
+    const bool needsRecordingTitle =
+        recordingTitle == request.parameters.end() ||
+        recordingTitle->second.empty();
+
+    if (!needsBackendNativeId && !needsRecordingTitle)
     {
         return request;
     }
@@ -136,11 +155,26 @@ RecordingActionRequest RecordingActionExecutionController::resolveBackendNativeI
 
     for (const VdrRecording& recording : recordings)
     {
-        if (recording.id == request.recordingId && !recording.backendNativeId.empty())
+        if (recording.id != request.recordingId)
         {
-            resolved.parameters["backendNativeId"] = recording.backendNativeId;
-            return resolved;
+            continue;
         }
+
+        if (needsBackendNativeId &&
+            !recording.backendNativeId.empty())
+        {
+            resolved.parameters["backendNativeId"] =
+                recording.backendNativeId;
+        }
+
+        if (needsRecordingTitle &&
+            !recording.title.empty())
+        {
+            resolved.parameters["recordingTitle"] =
+                recording.title;
+        }
+
+        return resolved;
     }
 
     return resolved;

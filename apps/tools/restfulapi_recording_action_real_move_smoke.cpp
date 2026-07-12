@@ -15,6 +15,7 @@ struct Options
     int port = 8002;
     std::string source;
     std::string target;
+    std::string title;
     bool execute = false;
     bool help = false;
 };
@@ -25,8 +26,9 @@ void printUsage()
         << "Usage:\n"
         << "  restfulapi_recording_action_real_move_smoke "
         << "--host 127.0.0.1 --port 8002 "
-        << "--source '<vdr-recording-source>' "
-        << "--target 'Archive/Target' [--execute]\n\n"
+        << "--source '<absolute-vdr-file-name>' "
+        << "--target 'Archive/Target' "
+        << "--title '<logical-vdr-recording-name>' [--execute]\n\n"
         << "Default mode is preview-only. Real execution requires both:\n"
         << "  --execute\n"
         << "  VDR_SUITE_ALLOW_REAL_RECORDING_ACTION=YES\n";
@@ -66,6 +68,10 @@ Options parseOptions(
         {
             options.target = argv[++index];
         }
+        else if (argument == "--title" && index + 1 < argc)
+        {
+            options.title = argv[++index];
+        }
         else
         {
             std::cerr << "Unknown or incomplete argument: "
@@ -100,6 +106,7 @@ RecordingActionRequest makeRequest(
     request.dryRun = !options.execute;
     request.parameters["recordingPath"] = options.source;
     request.parameters["targetPath"] = options.target;
+    request.parameters["recordingTitle"] = options.title;
     return request;
 }
 
@@ -113,6 +120,7 @@ RecordingActionJobPayload makePayload(
     payload.dryRun = !options.execute;
     payload.parameters["recordingPath"] = options.source;
     payload.parameters["targetPath"] = options.target;
+    payload.parameters["recordingTitle"] = options.title;
     return payload;
 }
 
@@ -192,16 +200,20 @@ int main(
         return 0;
     }
 
-    if (options.source.empty() || options.target.empty())
+    if (options.source.empty() ||
+        options.target.empty() ||
+        options.title.empty())
     {
         printUsage();
         return 2;
     }
 
-    if (!hasTestMarker(options.source) || !hasTestMarker(options.target))
+    if (options.execute &&
+        (!hasTestMarker(options.source) ||
+         !hasTestMarker(options.target)))
     {
         std::cerr
-            << "Refusing move smoke without VDR-SUITE-TEST marker "
+            << "Refusing real move execution without VDR-SUITE-TEST marker "
             << "in both --source and --target.\n";
         return 8;
     }

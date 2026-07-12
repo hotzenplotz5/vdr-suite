@@ -16,7 +16,8 @@ int main()
             "\"action\":\"MOVE\","
             "\"dryRun\":true,"
             "\"targetPath\":\"/srv/vdr/video/archive\","
-            "\"recordingPath\":\"Movies/Tatort/2026-06-16.20.15.1-0.rec\""
+            "\"recordingPath\":\"Movies/Tatort/2026-06-16.20.15.1-0.rec\","
+            "\"recordingTitle\":\"Movies/Tatort am Abend\""
             "}");
 
     assert(moveRequest.backendId == "default");
@@ -27,6 +28,9 @@ int main()
     assert(
         moveRequest.parameters.at("recordingPath") ==
         "Movies/Tatort/2026-06-16.20.15.1-0.rec");
+    assert(
+        moveRequest.parameters.at("recordingTitle") ==
+        "Movies/Tatort am Abend");
 
     RecordingActionRequest renameRequest =
         parser.parse(

@@ -197,5 +197,13 @@ RecordingActionRequest RecordingActionValidationRequestParser::parse(
         request.parameters["backendNativeId"] = backendNativeId;
     }
 
+    const std::string recordingTitle =
+        getValue(values, "recordingTitle");
+
+    if (!recordingTitle.empty())
+    {
+        request.parameters["recordingTitle"] = recordingTitle;
+    }
+
     return request;
 }

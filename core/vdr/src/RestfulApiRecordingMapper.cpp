@@ -6,6 +6,8 @@
 #include <cctype>
 #include <cstdio>
 #include <ctime>
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -483,24 +485,244 @@ VdrRecording mapObjectToRecording(const std::string& objectText)
     return recording;
 }
 
-}
-
-std::vector<VdrRecording> RestfulApiRecordingMapper::parseRecordings(const std::string& json)
+struct RecordingCandidate
 {
-    std::vector<VdrRecording> recordings;
+    VdrRecording recording;
+    std::string inode;
+    std::size_t originalIndex = 0;
+};
 
-    std::string arrayText = extractRecordingsArray(json);
-    if (arrayText.empty()) {
-        return recordings;
+std::string recordingSelectionPath(
+    const VdrRecording& recording)
+{
+    if (!recording.backendNativeId.empty()) {
+        return recording.backendNativeId;
     }
 
-    std::vector<std::string> objects = splitTopLevelObjects(arrayText);
-    for (const std::string& objectText : objects) {
-        VdrRecording recording = mapObjectToRecording(objectText);
-        if (!recording.id.empty()) {
-            recordings.push_back(recording);
+    return recording.path;
+}
+
+std::vector<std::string> splitRecordingPath(
+    std::string path)
+{
+    std::replace(path.begin(), path.end(), '\\', '/');
+
+    std::vector<std::string> segments;
+    std::string current;
+
+    for (char c : path) {
+        if (c == '/') {
+            if (!current.empty()) {
+                segments.push_back(current);
+                current.clear();
+            }
+            continue;
+        }
+
+        current.push_back(c);
+    }
+
+    if (!current.empty()) {
+        segments.push_back(current);
+    }
+
+    return segments;
+}
+
+std::string recordingDirectoryLeaf(
+    const VdrRecording& recording)
+{
+    const std::vector<std::string> segments =
+        splitRecordingPath(recordingSelectionPath(recording));
+
+    if (segments.empty()) {
+        return "";
+    }
+
+    return segments.back();
+}
+
+std::size_t storageMountSegmentCount(
+    const VdrRecording& recording)
+{
+    const std::vector<std::string> segments =
+        splitRecordingPath(recordingSelectionPath(recording));
+
+    return static_cast<std::size_t>(std::count(
+        segments.begin(),
+        segments.end(),
+        "Recordings_on_yavdr(nfs)"));
+}
+
+std::size_t recordingPathDepth(
+    const VdrRecording& recording)
+{
+    return splitRecordingPath(
+        recordingSelectionPath(recording)).size();
+}
+
+std::string recordingAliasIdentityKey(
+    const VdrRecording& recording)
+{
+    const std::string leaf =
+        recordingDirectoryLeaf(recording);
+
+    if (leaf.empty()) {
+        return "";
+    }
+
+    return leaf + "|" +
+           recording.startTime + "|" +
+           std::to_string(recording.durationSeconds) + "|" +
+           std::to_string(recording.sizeMb);
+}
+
+bool isAliasFamily(
+    const std::vector<RecordingCandidate>& candidates,
+    const std::vector<std::size_t>& indices)
+{
+    bool hasEmptyInode = false;
+    bool hasNonEmptyInode = false;
+    bool hasRepeatedStorageMount = false;
+    bool hasDuplicateInode = false;
+    std::set<std::string> seenInodes;
+
+    for (const std::size_t index : indices) {
+        const RecordingCandidate& candidate =
+            candidates.at(index);
+
+        if (candidate.inode.empty()) {
+            hasEmptyInode = true;
+        } else {
+            hasNonEmptyInode = true;
+            if (!seenInodes.insert(candidate.inode).second) {
+                hasDuplicateInode = true;
+            }
+        }
+
+        if (storageMountSegmentCount(candidate.recording) > 1) {
+            hasRepeatedStorageMount = true;
+        }
+    }
+
+    return (hasEmptyInode && hasNonEmptyInode) ||
+           hasRepeatedStorageMount ||
+           hasDuplicateInode;
+}
+
+bool preferRecordingCandidate(
+    const RecordingCandidate& candidate,
+    const RecordingCandidate& current)
+{
+    if (candidate.inode.empty() != current.inode.empty()) {
+        return !candidate.inode.empty();
+    }
+
+    const std::size_t candidateMountCount =
+        storageMountSegmentCount(candidate.recording);
+    const std::size_t currentMountCount =
+        storageMountSegmentCount(current.recording);
+
+    if (candidateMountCount != currentMountCount) {
+        return candidateMountCount < currentMountCount;
+    }
+
+    const std::size_t candidateDepth =
+        recordingPathDepth(candidate.recording);
+    const std::size_t currentDepth =
+        recordingPathDepth(current.recording);
+
+    if (candidateDepth != currentDepth) {
+        return candidateDepth < currentDepth;
+    }
+
+    const std::size_t candidateLength =
+        recordingSelectionPath(candidate.recording).size();
+    const std::size_t currentLength =
+        recordingSelectionPath(current.recording).size();
+
+    if (candidateLength != currentLength) {
+        return candidateLength < currentLength;
+    }
+
+    return candidate.originalIndex > current.originalIndex;
+}
+
+std::vector<VdrRecording> canonicalizeRecordingAliases(
+    const std::vector<RecordingCandidate>& candidates)
+{
+    std::map<std::string, std::vector<std::size_t>> groups;
+
+    for (std::size_t index = 0; index < candidates.size(); ++index) {
+        const std::string key =
+            recordingAliasIdentityKey(candidates.at(index).recording);
+
+        if (!key.empty()) {
+            groups[key].push_back(index);
+        }
+    }
+
+    std::vector<bool> keep(candidates.size(), true);
+
+    for (const auto& entry : groups) {
+        const std::vector<std::size_t>& indices =
+            entry.second;
+
+        if (indices.size() < 2 ||
+            !isAliasFamily(candidates, indices)) {
+            continue;
+        }
+
+        std::size_t preferredIndex =
+            indices.front();
+
+        for (const std::size_t index : indices) {
+            if (preferRecordingCandidate(
+                    candidates.at(index),
+                    candidates.at(preferredIndex))) {
+                preferredIndex = index;
+            }
+        }
+
+        for (const std::size_t index : indices) {
+            keep.at(index) = index == preferredIndex;
+        }
+    }
+
+    std::vector<VdrRecording> recordings;
+
+    for (std::size_t index = 0; index < candidates.size(); ++index) {
+        if (keep.at(index)) {
+            recordings.push_back(
+                candidates.at(index).recording);
         }
     }
 
     return recordings;
+}
+
+}
+
+std::vector<VdrRecording> RestfulApiRecordingMapper::parseRecordings(const std::string& json)
+{
+    std::vector<RecordingCandidate> candidates;
+
+    std::string arrayText = extractRecordingsArray(json);
+    if (arrayText.empty()) {
+        return {};
+    }
+
+    std::vector<std::string> objects = splitTopLevelObjects(arrayText);
+    for (const std::string& objectText : objects) {
+        RecordingCandidate candidate;
+        candidate.recording = mapObjectToRecording(objectText);
+        candidate.inode = getStringField(objectText, "inode");
+        candidate.originalIndex = candidates.size();
+
+        if (!candidate.recording.id.empty()) {
+            candidates.push_back(candidate);
+        }
+    }
+
+    return canonicalizeRecordingAliases(candidates);
 }

@@ -175,6 +175,72 @@ static void test_parse_recordings_derives_start_time_from_rec_directory()
     assert(std::stoll(recordings[0].startTime) > 1000000000);
 }
 
+static void test_parse_recordings_prefers_canonical_entry_over_recursive_aliases()
+{
+    const std::string json =
+        "{\"recordings\":["
+        "{\"number\":3652,"
+        "\"name\":\"Recordings on yavdr(nfs)~Recordings on yavdr(nfs)~heute journal\","
+        "\"file_name\":\"/srv/vdr/video/Recordings_on_yavdr(nfs)/Recordings_on_yavdr(nfs)/heute_journal/2026-07-08.21.45.2-0.rec\","
+        "\"relative_file_name\":\"/Recordings_on_yavdr(nfs)/Recordings_on_yavdr(nfs)/heute_journal/2026-07-08.21.45.2-0.rec\","
+        "\"inode\":\"\","
+        "\"duration\":341,"
+        "\"filesize_mb\":284,"
+        "\"event_start_time\":1783539900},"
+        "{\"number\":7378,"
+        "\"name\":\"Recordings on yavdr(nfs)~heute journal\","
+        "\"file_name\":\"/srv/vdr/video/Recordings_on_yavdr(nfs)/heute_journal/2026-07-08.21.45.2-0.rec\","
+        "\"relative_file_name\":\"/Recordings_on_yavdr(nfs)/heute_journal/2026-07-08.21.45.2-0.rec\","
+        "\"inode\":\"\","
+        "\"duration\":341,"
+        "\"filesize_mb\":284,"
+        "\"event_start_time\":1783539900},"
+        "{\"number\":7999,"
+        "\"name\":\"VDR-SUITE-TEST heute journal\","
+        "\"file_name\":\"/srv/vdr/video/VDR-SUITE-TEST_heute_journal/2026-07-08.21.45.2-0.rec\","
+        "\"relative_file_name\":\"/VDR-SUITE-TEST_heute_journal/2026-07-08.21.45.2-0.rec\","
+        "\"inode\":\"2065:14947898\","
+        "\"duration\":341,"
+        "\"filesize_mb\":284,"
+        "\"event_start_time\":1783539900}"
+        "]}";
+
+    const std::vector<VdrRecording> recordings =
+        RestfulApiRecordingMapper::parseRecordings(json);
+
+    assert(recordings.size() == 1);
+    assert(recordings[0].id == "7999");
+    assert(recordings[0].title == "VDR-SUITE-TEST heute journal");
+    assert(recordings[0].backendNativeId ==
+        "/srv/vdr/video/VDR-SUITE-TEST_heute_journal/2026-07-08.21.45.2-0.rec");
+}
+
+static void test_parse_recordings_preserves_distinct_real_copies()
+{
+    const std::string json =
+        "{\"recordings\":["
+        "{\"number\":10,"
+        "\"name\":\"Copy A\","
+        "\"file_name\":\"/srv/vdr/video/Copy_A/2026-07-08.21.45.2-0.rec\","
+        "\"inode\":\"2065:100\","
+        "\"duration\":341,"
+        "\"filesize_mb\":284,"
+        "\"event_start_time\":1783539900},"
+        "{\"number\":11,"
+        "\"name\":\"Copy B\","
+        "\"file_name\":\"/srv/vdr/video/Copy_B/2026-07-08.21.45.2-0.rec\","
+        "\"inode\":\"2065:101\","
+        "\"duration\":341,"
+        "\"filesize_mb\":284,"
+        "\"event_start_time\":1783539900}"
+        "]}";
+
+    const std::vector<VdrRecording> recordings =
+        RestfulApiRecordingMapper::parseRecordings(json);
+
+    assert(recordings.size() == 2);
+}
+
 static void test_parse_recordings_tolerates_invalid_json()
 {
     std::vector<VdrRecording> recordings =
@@ -191,6 +257,8 @@ int main()
     test_parse_recordings_ignores_objects_without_number();
     test_parse_recordings_imports_additional_media_actors();
     test_parse_recordings_derives_start_time_from_rec_directory();
+    test_parse_recordings_prefers_canonical_entry_over_recursive_aliases();
+    test_parse_recordings_preserves_distinct_real_copies();
     test_parse_recordings_tolerates_invalid_json();
 
     return 0;

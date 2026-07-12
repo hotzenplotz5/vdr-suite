@@ -5,8 +5,10 @@
 #include "RecordingActionJobPayload.h"
 #include "RestfulApiRecordingActionBackendConfig.h"
 
+#include <algorithm>
 #include <map>
 #include <string>
+#include <vector>
 
 class RestfulApiRecordingActionRequestBuilder
 {
@@ -173,35 +175,44 @@ private:
         return "/" + joinRecordingPathSegments(segments);
     }
 
-    static std::string normalizedRecordingFilesystemPath(
+    static std::string recordingLogicalLeafName(
         const RecordingActionJobPayload& payload)
     {
-        const std::string source =
-            recordingPath(payload);
+        std::string logicalName =
+            findParameter(payload.parameters, "recordingTitle");
 
-        const std::vector<std::string> segments =
-            splitRecordingPathSegments(source);
-
-        if (segments.empty()) {
-            return source;
+        if (logicalName.empty()) {
+            return recordingLeafName(
+                normalizedRecordingPath(payload));
         }
 
-        if (source.rfind("/srv/vdr/video/", 0) == 0) {
-            return "/srv/vdr/video/" + joinRecordingPathSegments(segments);
+        std::replace(
+            logicalName.begin(),
+            logicalName.end(),
+            '~',
+            '/');
+
+        while (!logicalName.empty() &&
+               logicalName.back() == '/') {
+            logicalName.pop_back();
         }
 
-        return "/" + joinRecordingPathSegments(segments);
+        const std::size_t separator =
+            logicalName.find_last_of('/');
+
+        if (separator == std::string::npos) {
+            return logicalName;
+        }
+
+        return logicalName.substr(separator + 1);
     }
 
     static std::string moveTarget(
         const std::string& targetPath,
         const RecordingActionJobPayload& payload)
     {
-        const std::string source =
-            normalizedRecordingPath(payload);
-
         const std::string leaf =
-            recordingLeafName(source);
+            recordingLogicalLeafName(payload);
 
         if (targetPath.empty() || leaf.empty()) {
             return targetPath;
@@ -296,6 +307,11 @@ private:
         const RecordingActionJobPayload& payload,
         const std::string& newName)
     {
+        if (newName.find('/') != std::string::npos ||
+            newName.find('~') != std::string::npos) {
+            return newName;
+        }
+
         const std::string parent =
             recordingParentFolder(payload);
 
@@ -329,7 +345,7 @@ private:
             findParameter(payload.parameters, "targetPath");
 
         std::string body = "{";
-        body += "\"source\":" + jsonQuote(normalizedRecordingFilesystemPath(payload));
+        body += "\"source\":" + jsonQuote(recordingPath(payload));
         body += ",\"target\":" + jsonQuote(encodeVdrFolderTarget(moveTarget(targetPath, payload)));
         body += ",\"copy_only\":false";
         body += "}";

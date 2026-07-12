@@ -6,9 +6,12 @@
 #include "RecordingActionValidationRequestParser.h"
 #include "VdrSnapshotReadService.h"
 
+#include <atomic>
 #include <cassert>
+#include <chrono>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace
@@ -241,6 +244,7 @@ int main()
     recording.id = "recording-3";
     recording.backendId = "living-room";
     recording.backendNativeId = "/srv/vdr/video/Movies/Test/2026-06-19.20.15.1-0.rec";
+    recording.title = "Movies/Test Recording";
     snapshotAccessService.snapshot_.backendId = "living-room";
     snapshotAccessService.snapshot_.recordings.push_back(recording);
 
@@ -257,10 +261,10 @@ int main()
         resolvedRequestParser,
         snapshotReadService);
 
-    int refreshCount = 0;
+    std::atomic<int> refreshCount{0};
     resolvedBodyController.setAfterSuccessfulExecutionCallback(
         [&refreshCount]() {
-            ++refreshCount;
+            refreshCount.fetch_add(1);
         });
 
     const std::string resolvedBody =
@@ -281,7 +285,17 @@ int main()
     assert(resolvedBodyResponse.body.find("\"backendNativeId\":\"" + recording.backendNativeId + "\"") != std::string::npos);
     assert(resolvedBodyResponse.body.find("\"snapshotRefreshed\":true") != std::string::npos);
     assert(capturingAdapter->lastPayload.parameters.at("backendNativeId") == recording.backendNativeId);
-    assert(refreshCount == 1);
+    assert(capturingAdapter->lastPayload.parameters.at("recordingTitle") == recording.title);
+
+    for (int attempt = 0;
+         attempt < 100 && refreshCount.load() == 0;
+         ++attempt)
+    {
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(10));
+    }
+
+    assert(refreshCount.load() == 1);
 
     return 0;
 }
