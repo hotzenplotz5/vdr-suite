@@ -344,6 +344,55 @@
     );
   }
 
+  function recordingListFromResponse(data) {
+    if (Array.isArray(data)) {
+      return data;
+    }
+
+    if (data && Array.isArray(data.recordings)) {
+      return data.recordings;
+    }
+
+    if (data && Array.isArray(data.items)) {
+      return data.items;
+    }
+
+    return [];
+  }
+
+  function recordingTitle(recording) {
+    if (!recording || typeof recording !== 'object') {
+      return '';
+    }
+
+    return String(
+      recording.title ||
+      recording.name ||
+      recording.displayName ||
+      ''
+    ).trim();
+  }
+
+  function normalizedRecordingActionPayload(options) {
+    const normalized = normalizeOptions(options);
+
+    if (normalized.payload && typeof normalized.payload === 'object') {
+      return normalized.payload;
+    }
+
+    if (normalized.body && typeof normalized.body === 'object') {
+      return normalized.body;
+    }
+
+    return {};
+  }
+
+  function delay(milliseconds) {
+    return new Promise(function (resolve) {
+      window.setTimeout(resolve, milliseconds);
+    });
+  }
+
   function refreshRecordingView() {
     if (typeof window.loadRecordings === 'function') {
       window.loadRecordings();
@@ -356,24 +405,92 @@
     }
   }
 
-  function scheduleRecordingViewRefresh(result) {
-    if (result && Object.prototype.hasOwnProperty.call(result, 'success') && result.success === false) {
-      return result;
+  function renameVisibleInCache(data, expectedName) {
+    const normalizedExpected = String(expectedName || '').trim();
+
+    if (normalizedExpected === '') {
+      return true;
     }
 
-    [1000, 3000, 6000].forEach(function (delay) {
-      window.setTimeout(refreshRecordingView, delay);
+    return recordingListFromResponse(data).some(function (recording) {
+      const title = recordingTitle(recording);
+      return title === normalizedExpected ||
+        title.endsWith('/' + normalizedExpected);
     });
+  }
 
-    return result;
+  function waitForRenameCache(payload, attempt) {
+    const expectedName = String(payload.newName || '').trim();
+    const backendId = String(payload.backendId || 'default').trim() || 'default';
+
+    if (expectedName === '') {
+      return Promise.resolve(false);
+    }
+
+    return requestJson('/api/vdr/recordings/query', {
+      query: {
+        backend: backendId,
+        title: expectedName,
+        limit: 50,
+        offset: 0,
+        _: String(Date.now())
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    })
+      .then(function (data) {
+        if (renameVisibleInCache(data, expectedName)) {
+          return true;
+        }
+
+        if (attempt >= 59) {
+          return false;
+        }
+
+        return delay(1000).then(function () {
+          return waitForRenameCache(payload, attempt + 1);
+        });
+      })
+      .catch(function () {
+        if (attempt >= 59) {
+          return false;
+        }
+
+        return delay(1000).then(function () {
+          return waitForRenameCache(payload, attempt + 1);
+        });
+      });
+  }
+
+  function synchronizeRecordingView(options, result) {
+    if (result && Object.prototype.hasOwnProperty.call(result, 'success') && result.success === false) {
+      return Promise.resolve(result);
+    }
+
+    const payload = normalizedRecordingActionPayload(options);
+    const action = String(payload.action || '').toUpperCase();
+
+    if (action !== 'RENAME') {
+      refreshRecordingView();
+      return Promise.resolve(result);
+    }
+
+    return waitForRenameCache(payload, 0).then(function () {
+      refreshRecordingView();
+      return result;
+    });
   }
 
   function fetchClientRecordingActionExecution(options) {
+    const normalized = normalizeOptions(options);
+
     return requestJsonWithFallback(
       '/api/vdr/recordings/actions/execute',
       '/api/recordings/actions/execute',
-      jsonPostOptions(options)
-    ).then(scheduleRecordingViewRefresh);
+      jsonPostOptions(normalized)
+    ).then(function (result) {
+      return synchronizeRecordingView(normalized, result);
+    });
   }
 
   function fetchClientSearchTimers(options) {
