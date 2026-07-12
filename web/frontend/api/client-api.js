@@ -344,12 +344,31 @@
     );
   }
 
+  function scheduleRecordingViewRefresh(result) {
+    if (!result || result.success !== true) {
+      return result;
+    }
+
+    window.setTimeout(function () {
+      const recordingsTab = document.querySelector('.module-tab[data-module="recordings"].active');
+      const refreshButton = document.getElementById('refresh-detail');
+
+      if (!recordingsTab || !refreshButton || refreshButton.disabled) {
+        return;
+      }
+
+      refreshButton.click();
+    }, 2000);
+
+    return result;
+  }
+
   function fetchClientRecordingActionExecution(options) {
     return requestJsonWithFallback(
       '/api/vdr/recordings/actions/execute',
       '/api/recordings/actions/execute',
       jsonPostOptions(options)
-    );
+    ).then(scheduleRecordingViewRefresh);
   }
 
   function fetchClientSearchTimers(options) {
