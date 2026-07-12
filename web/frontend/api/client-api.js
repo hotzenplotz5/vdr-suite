@@ -344,21 +344,26 @@
     );
   }
 
+  function refreshRecordingView() {
+    if (typeof window.loadRecordings === 'function') {
+      window.loadRecordings();
+      return;
+    }
+
+    const refreshButton = document.getElementById('refresh-detail');
+    if (refreshButton && !refreshButton.disabled) {
+      refreshButton.click();
+    }
+  }
+
   function scheduleRecordingViewRefresh(result) {
-    if (!result || result.success !== true) {
+    if (result && Object.prototype.hasOwnProperty.call(result, 'success') && result.success === false) {
       return result;
     }
 
-    window.setTimeout(function () {
-      const recordingsTab = document.querySelector('.module-tab[data-module="recordings"].active');
-      const refreshButton = document.getElementById('refresh-detail');
-
-      if (!recordingsTab || !refreshButton || refreshButton.disabled) {
-        return;
-      }
-
-      refreshButton.click();
-    }, 2000);
+    [1000, 3000, 6000].forEach(function (delay) {
+      window.setTimeout(refreshRecordingView, delay);
+    });
 
     return result;
   }
