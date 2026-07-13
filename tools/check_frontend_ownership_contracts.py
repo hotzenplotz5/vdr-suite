@@ -1109,6 +1109,10 @@ def check_recording_browser_contract(recording_browser_js: str) -> None:
         "function recordingBrowserFindMovedRecordingInTarget(",
         "recordings.move.rootAsTarget",
         "recordings.move.requiresValidation",
+        "function recordingBrowserValidateNewMoveFolderName(value)",
+        "function recordingBrowserJoinMoveFolderPath(parentPath, folderName)",
+        "recordings.move.createFolder",
+        "recordings.move.newFolderSelected",
     ]
 
     for token in required_move_workflow_tokens:

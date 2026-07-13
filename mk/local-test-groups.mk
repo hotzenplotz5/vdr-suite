@@ -276,3 +276,4 @@ test-frontend-contracts: test-frontend-i18n
 test-frontend-i18n:
 	python3 tools/check_frontend_i18n_contracts.py
 	node web/frontend/tests/test_i18n_runtime.js
+	node web/frontend/tests/test_recording_move_new_folder.js

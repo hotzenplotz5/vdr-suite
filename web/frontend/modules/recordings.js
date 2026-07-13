@@ -1040,6 +1040,69 @@ function recordingBrowserMoveTargetLabel(targetParameter) {
     : recordingBrowserDisplayPathLabel(folderPath);
 }
 
+function recordingBrowserValidateNewMoveFolderName(value) {
+  const name = String(value || '').trim();
+
+  if (name === '') {
+    return {
+      valid: false,
+      name: '',
+      messageKey: 'recordings.move.newFolderRequired',
+      fallback: 'Bitte einen Ordnernamen eingeben.'
+    };
+  }
+
+  if (name === '.' || name === '..') {
+    return {
+      valid: false,
+      name: name,
+      messageKey: 'recordings.move.newFolderReserved',
+      fallback: 'Die Namen . und .. sind nicht zulässig.'
+    };
+  }
+
+  if (name.length > 80) {
+    return {
+      valid: false,
+      name: name,
+      messageKey: 'recordings.move.newFolderTooLong',
+      fallback: 'Der Ordnername darf höchstens 80 Zeichen lang sein.'
+    };
+  }
+
+  const containsForbiddenSeparator =
+    name.includes('/') ||
+    name.includes('\\') ||
+    name.includes('~');
+  const containsControlCharacter = Array.from(name).some(character => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || code === 127;
+  });
+
+  if (containsForbiddenSeparator || containsControlCharacter) {
+    return {
+      valid: false,
+      name: name,
+      messageKey: 'recordings.move.newFolderInvalidCharacters',
+      fallback: 'Der Ordnername darf weder /, \\, ~ noch Steuerzeichen enthalten.'
+    };
+  }
+
+  return {
+    valid: true,
+    name: name,
+    messageKey: '',
+    fallback: ''
+  };
+}
+
+function recordingBrowserJoinMoveFolderPath(parentPath, folderName) {
+  const parent = recordingBrowserNormalizeMovePath(parentPath);
+  const child = String(folderName || '').trim();
+
+  return parent === '' ? child : parent + '/' + child;
+}
+
 function recordingBrowserMoveSourceFolderPath(recording, folderData) {
   const rawTitle = String(recordingBrowserFirstValue(
     recording,
@@ -1603,6 +1666,14 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
   );
   browseButton.disabled = !recordingBrowserFolderLoader;
 
+  const createFolderButton = document.createElement('button');
+  createFolderButton.type = 'button';
+  createFolderButton.textContent = recordingBrowserTranslate(
+    'recordings.move.createFolder',
+    'Neuen Zielordner'
+  );
+  createFolderButton.disabled = !recordingBrowserFolderLoader;
+
   const validateButton = document.createElement('button');
   validateButton.type = 'button';
   validateButton.textContent = recordingBrowserTranslate(
@@ -1621,6 +1692,7 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
 
   controls.appendChild(rootButton);
   controls.appendChild(browseButton);
+  controls.appendChild(createFolderButton);
   controls.appendChild(validateButton);
   controls.appendChild(executeButton);
   body.appendChild(controls);
@@ -1717,7 +1789,7 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
     ));
   };
 
-  const loadFolderBrowser = path => {
+  const loadFolderBrowser = (path, openCreateFolder) => {
     if (!recordingBrowserFolderLoader) {
       return;
     }
@@ -1787,12 +1859,160 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
             'Eine Ebene zurück'
           );
           backButton.addEventListener('click', () =>
-            loadFolderBrowser(parentPath)
+            loadFolderBrowser(parentPath, false)
           );
           browserControls.appendChild(backButton);
         }
 
+        const inlineCreateButton = document.createElement('button');
+        inlineCreateButton.type = 'button';
+        inlineCreateButton.textContent = recordingBrowserTranslate(
+          'recordings.move.createFolder',
+          'Neuen Zielordner'
+        );
+        browserControls.appendChild(inlineCreateButton);
         browseBox.appendChild(browserControls);
+
+        const createFolderPanel = document.createElement('form');
+        createFolderPanel.className = 'recording-move-new-folder';
+        createFolderPanel.hidden = true;
+
+        createFolderPanel.appendChild(recordingBrowserAddText(
+          document.createElement('h5'),
+          recordingBrowserTranslate(
+            'recordings.move.newFolderTitle',
+            'Neuen Zielordner anlegen'
+          )
+        ));
+        createFolderPanel.appendChild(recordingBrowserAddText(
+          document.createElement('p'),
+          recordingBrowserTranslate(
+            'recordings.move.newFolderHint',
+            'Der Ordner wird zusammen mit der Aufnahme beim Verschieben angelegt.'
+          )
+        ));
+
+        const folderNameLabel = document.createElement('label');
+        folderNameLabel.appendChild(recordingBrowserAddText(
+          document.createElement('span'),
+          recordingBrowserTranslate(
+            'recordings.move.newFolderName',
+            'Ordnername'
+          )
+        ));
+
+        const folderNameInput = document.createElement('input');
+        folderNameInput.type = 'text';
+        folderNameInput.maxLength = 80;
+        folderNameInput.autocomplete = 'off';
+        folderNameInput.placeholder = recordingBrowserTranslate(
+          'recordings.move.newFolderPlaceholder',
+          'z. B. Anime'
+        );
+        folderNameLabel.appendChild(folderNameInput);
+        createFolderPanel.appendChild(folderNameLabel);
+
+        const createFolderStatus = document.createElement('p');
+        createFolderStatus.className = 'recording-move-new-folder-status';
+        createFolderStatus.setAttribute('role', 'status');
+        createFolderStatus.setAttribute('aria-live', 'polite');
+        createFolderPanel.appendChild(createFolderStatus);
+
+        const createFolderActions = document.createElement('div');
+        createFolderActions.className = 'recording-action-buttons';
+
+        const useNewFolderButton = document.createElement('button');
+        useNewFolderButton.type = 'submit';
+        useNewFolderButton.textContent = recordingBrowserTranslate(
+          'recordings.move.newFolderUse',
+          'Neuen Ordner als Ziel verwenden'
+        );
+
+        const cancelNewFolderButton = document.createElement('button');
+        cancelNewFolderButton.type = 'button';
+        cancelNewFolderButton.textContent = recordingBrowserTranslate(
+          'recordings.move.newFolderCancel',
+          'Abbrechen'
+        );
+
+        createFolderActions.appendChild(useNewFolderButton);
+        createFolderActions.appendChild(cancelNewFolderButton);
+        createFolderPanel.appendChild(createFolderActions);
+        browseBox.appendChild(createFolderPanel);
+
+        const revealCreateFolderPanel = () => {
+          createFolderPanel.hidden = false;
+          createFolderStatus.textContent = '';
+          window.setTimeout(() => folderNameInput.focus(), 0);
+        };
+
+        inlineCreateButton.addEventListener('click', revealCreateFolderPanel);
+        cancelNewFolderButton.addEventListener('click', () => {
+          createFolderPanel.hidden = true;
+          folderNameInput.value = '';
+          createFolderStatus.textContent = '';
+        });
+
+        createFolderPanel.addEventListener('submit', event => {
+          event.preventDefault();
+
+          const validation = recordingBrowserValidateNewMoveFolderName(
+            folderNameInput.value
+          );
+
+          if (!validation.valid) {
+            createFolderStatus.className =
+              'recording-move-new-folder-status error';
+            createFolderStatus.textContent = recordingBrowserTranslate(
+              validation.messageKey,
+              validation.fallback
+            );
+            folderNameInput.focus();
+            return;
+          }
+
+          const targetPath = recordingBrowserJoinMoveFolderPath(
+            browserPath,
+            validation.name
+          );
+          const targetExists = folders.some(folder => {
+            const folderName = decodeRecordingText(
+              recordingBrowserFirstValue(folder, ['name', 'title'], '')
+            );
+            const folderPath = recordingBrowserNormalizeMovePath(
+              recordingBrowserFirstValue(
+                folder,
+                ['path'],
+                recordingBrowserJoinMoveFolderPath(browserPath, folderName)
+              )
+            );
+            return folderPath === targetPath;
+          });
+
+          chooseTargetFolder(targetPath);
+          setValidationStatus(
+            'neutral',
+            recordingBrowserTranslate(
+              targetExists
+                ? 'recordings.move.newFolderExistingSelected'
+                : 'recordings.move.newFolderSelected',
+              targetExists
+                ? 'Der Ordner „{target}“ existiert bereits und wurde als Ziel ausgewählt. Bitte Ziel prüfen.'
+                : 'Neues Ziel „{target}“ ausgewählt. Der Ordner wird beim Verschieben angelegt. Bitte Ziel prüfen.',
+              { target: recordingBrowserMoveTargetLabel(targetPath) }
+            )
+          );
+          createFolderPanel.hidden = true;
+          validateButton.focus();
+          validateButton.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        });
+
+        if (openCreateFolder === true) {
+          revealCreateFolderPanel();
+        }
 
         if (folders.length === 0) {
           browseBox.appendChild(recordingBrowserAddText(
@@ -1822,7 +2042,7 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
           folderButton.type = 'button';
           folderButton.textContent = folderName;
           folderButton.addEventListener('click', () =>
-            loadFolderBrowser(folderPath)
+            loadFolderBrowser(folderPath, false)
           );
           browseBox.appendChild(folderButton);
         });
@@ -1841,7 +2061,11 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
   });
 
   browseButton.addEventListener('click', () => {
-    loadFolderBrowser('');
+    loadFolderBrowser('', false);
+  });
+
+  createFolderButton.addEventListener('click', () => {
+    loadFolderBrowser('', true);
   });
 
   validateButton.addEventListener('click', () => {
@@ -3184,7 +3408,9 @@ const recordingBrowserApi = Object.freeze({
   setRecords: setRecordingBrowserRecords,
   renderList: renderRecordingList,
   renderRoot: renderRecordingRoot,
-  renderNode: renderRecordingNode
+  renderNode: renderRecordingNode,
+  validateNewMoveFolderName: recordingBrowserValidateNewMoveFolderName,
+  joinMoveFolderPath: recordingBrowserJoinMoveFolderPath
 });
 
 window.VdrSuiteRecordingBrowser = recordingBrowserApi;
