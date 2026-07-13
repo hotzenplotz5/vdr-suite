@@ -29,7 +29,8 @@ DaemonRuntime::DaemonRuntime()
       epgCacheWarmupStopRequested_(false),
       epgCacheDirtyHint_(false),
       recordingCacheWarmupStopRequested_(false),
-      recordingCacheDirtyHint_(false)
+      recordingCacheDirtyHint_(false),
+      recordingCacheActionRefreshAttempts_(0)
 {
 }
 
@@ -481,8 +482,23 @@ bool DaemonRuntime::initialize()
         *recordingActionValidationRequestParser_,
         *vdrSnapshotReadService_);
     recordingActionExecutionController_->setAfterSuccessfulExecutionCallback(
-        [this]() {
+        [this](const RecordingActionRequest& request) {
+            const std::string backendId =
+                request.backendId.empty()
+                    ? "default"
+                    : request.backendId;
+
+            recordingCacheActionRefreshAttempts_.store(8);
+            recordingCacheDirtyHint_.store(true);
+            externalVdrChangeHint_.store(true);
+
             for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+                if (!backendRuntimeContext ||
+                    backendRuntimeContext->backendId != backendId ||
+                    !backendRuntimeContext->snapshotBuilder) {
+                    continue;
+                }
+
                 const std::vector<VdrRecording> recordings =
                     backendRuntimeContext->snapshotBuilder->buildRecordings();
 
@@ -498,6 +514,8 @@ bool DaemonRuntime::initialize()
                         backendRuntimeContext->backendId,
                         static_cast<int>(recordings.size()));
                 }
+
+                break;
             }
         });
 
@@ -697,6 +715,7 @@ void DaemonRuntime::startRecordingCacheWarmupWorker()
 
     recordingCacheWarmupStopRequested_.store(false);
     recordingCacheDirtyHint_.store(false);
+    recordingCacheActionRefreshAttempts_.store(0);
 
     recordingCacheWarmupThread_ = std::thread([this]() {
         runRecordingCacheWarmupWorker();
@@ -745,8 +764,24 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
         auto lastRefresh = std::chrono::steady_clock::now();
 
         while (!recordingCacheWarmupStopRequested_.load()) {
-            if (waitForStop(5)) {
+            if (waitForStop(1)) {
                 return;
+            }
+
+            int remainingActionRefreshAttempts =
+                recordingCacheActionRefreshAttempts_.load();
+
+            while (remainingActionRefreshAttempts > 0 &&
+                   !recordingCacheActionRefreshAttempts_.compare_exchange_weak(
+                       remainingActionRefreshAttempts,
+                       remainingActionRefreshAttempts - 1)) {
+            }
+
+            if (remainingActionRefreshAttempts > 0) {
+                refreshRecordingCacheForAllBackends(
+                    "recording-action-reconcile");
+                lastRefresh = std::chrono::steady_clock::now();
+                continue;
             }
 
             if (!recordingCacheDirtyHint_.load()) {

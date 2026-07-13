@@ -65,13 +65,14 @@ RecordingActionExecutionController::RecordingActionExecutionController(
 }
 
 void RecordingActionExecutionController::setAfterSuccessfulExecutionCallback(
-    std::function<void()> callback)
+    std::function<void(const RecordingActionRequest&)> callback)
 {
     afterSuccessfulExecution_ = std::move(callback);
 }
 
 bool RecordingActionExecutionController::refreshAfterSuccessfulExecution(
-    const RecordingActionExecutionResult& result) const
+    const RecordingActionExecutionResult& result,
+    const RecordingActionRequest& resolvedRequest) const
 {
     if (!result.success)
     {
@@ -85,7 +86,7 @@ bool RecordingActionExecutionController::refreshAfterSuccessfulExecution(
 
     try
     {
-        afterSuccessfulExecution_();
+        afterSuccessfulExecution_(resolvedRequest);
         return true;
     }
     catch (...)
@@ -204,7 +205,9 @@ ApiResponse RecordingActionExecutionController::execute(
                 lookup.policy);
 
         const bool snapshotRefreshed =
-            refreshAfterSuccessfulExecution(result);
+            refreshAfterSuccessfulExecution(
+                result,
+                resolvedRequest);
         result =
             enrichExecutionResult(
                 result,
@@ -223,7 +226,9 @@ ApiResponse RecordingActionExecutionController::execute(
             backendExecutorAdapterRegistry_);
 
     const bool snapshotRefreshed =
-        refreshAfterSuccessfulExecution(result);
+        refreshAfterSuccessfulExecution(
+            result,
+            resolvedRequest);
     result =
         enrichExecutionResult(
             result,
