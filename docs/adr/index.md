@@ -30,17 +30,17 @@ Current implementation progress belongs in:
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0037
+ADR-0038
 ```
 
-Current active `ADR-0037`:
+Current active `ADR-0038`:
 
-- [ADR-0037: Packaging, Install Layout and API Boundary](ADR-0037-packaging-install-api-boundary.md)
+- [ADR-0038: Recording Lifecycle Gold Standard](ADR-0038-recording-lifecycle-gold-standard.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0038
+ADR-0039
 ```
 
 Rules:
@@ -84,6 +84,7 @@ Rules:
 - [ADR-0022: LIVE Functional Reference Strategy](ADR-0022-live-functional-reference-strategy.md)
 - [ADR-0023: LIVE Superset Strategy](ADR-0023-live-superset-strategy.md)
 - [ADR-0024: Recording Action Transport Mapping](ADR-0024-recording-action-transport-mapping.md)
+- [ADR-0038: Recording Lifecycle Gold Standard](ADR-0038-recording-lifecycle-gold-standard.md)
 
 ### Metadata, Search and UI Strategy
 
