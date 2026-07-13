@@ -8,9 +8,10 @@ ADR_DIR = ROOT / "docs" / "adr"
 INDEX = ADR_DIR / "index.md"
 ACTIVE_START = "## Active Canonical ADRs"
 ACTIVE_END = "---"
-EXPECTED_LATEST = "ADR-0037"
-EXPECTED_NEXT = "ADR-0038"
+EXPECTED_LATEST = "ADR-0038"
+EXPECTED_NEXT = "ADR-0039"
 EXPECTED_ACTIVE_0037 = "ADR-0037-packaging-install-api-boundary.md"
+EXPECTED_ACTIVE_0038 = "ADR-0038-recording-lifecycle-gold-standard.md"
 CONFLICT_0037 = "ADR-0037-suite-metadata-database-and-external-scraper-strategy.md"
 
 ADR_LINK = re.compile(r"\((ADR-\d{4}[^)]+\.md)\)")
@@ -45,6 +46,8 @@ def main():
         errors.append("ADR index misses next canonical ADR marker " + EXPECTED_NEXT)
     if EXPECTED_ACTIVE_0037 not in active:
         errors.append("active ADR section misses canonical ADR-0037 packaging file")
+    if EXPECTED_ACTIVE_0038 not in active:
+        errors.append("active ADR section misses canonical ADR-0038 recording lifecycle file")
     if CONFLICT_0037 in active:
         errors.append("conflicting ADR-0037 suite metadata file is listed as active")
     if "Numbering Conflict Retained for Cleanup" not in text:
@@ -67,8 +70,10 @@ def main():
 
     if "0037" not in active_numbers:
         errors.append("active ADR list does not contain ADR-0037")
-    if "0038" in active_numbers:
-        errors.append("ADR-0038 is listed active although it is currently the next available number")
+    if "0038" not in active_numbers:
+        errors.append("active ADR list does not contain ADR-0038")
+    if "0039" in active_numbers:
+        errors.append("ADR-0039 is listed active although it is currently the next available number")
 
     lowercase_or_numeric = []
     for line in active.splitlines():
