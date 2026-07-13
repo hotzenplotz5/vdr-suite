@@ -390,6 +390,7 @@ let recordingBrowserActionRunner = null;
 let recordingBrowserFolderRefreshTimer = null;
 let recordingBrowserPendingRename = null;
 let recordingBrowserPendingMove = null;
+let recordingBrowserPendingDelete = null;
 let recordingBrowserVisibleFolderPath = null;
 
 function configureRecordingBrowserFolderLoader(loader) {
@@ -799,6 +800,165 @@ function recordingBrowserOpenServerFolder(path, parentFolderData) {
     .catch(recordingBrowserRenderFolderLoadError);
 }
 
+
+function recordingBrowserNormalizedIdentityValue(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/\/+$/g, '');
+}
+
+function recordingBrowserRecordingIdentity(recording) {
+  const value = recording && typeof recording === 'object' ? recording : {};
+  return {
+    recordingId: recordingBrowserNormalizedIdentityValue(
+      recordingBrowserFirstValue(value, ['recordingId', 'id'], '')
+    ),
+    backendNativeId: recordingBrowserNormalizedIdentityValue(
+      recordingBrowserFirstValue(value, ['backendNativeId', 'nativeId', 'nativePath'], '')
+    ),
+    path: recordingBrowserNormalizedIdentityValue(
+      recordingBrowserFirstValue(value, ['path', 'fileName', 'directory'], '')
+    ),
+    title: recordingBrowserNormalizedIdentityValue(
+      recordingBrowserFirstValue(value, ['title', 'name', 'displayName'], '')
+    ),
+    start: String(recordingBrowserFirstValue(value, ['startTime', 'start', 'date'], '')),
+    duration: String(recordingBrowserFirstValue(value, ['durationSeconds', 'duration'], ''))
+  };
+}
+
+function recordingBrowserSameRecording(left, right) {
+  const leftIdentity = recordingBrowserRecordingIdentity(left);
+  const rightIdentity = recordingBrowserRecordingIdentity(right);
+
+  for (const key of ['recordingId', 'backendNativeId', 'path']) {
+    if (leftIdentity[key] !== '' && rightIdentity[key] !== '') {
+      return leftIdentity[key] === rightIdentity[key];
+    }
+  }
+
+  return leftIdentity.title !== '' &&
+    leftIdentity.title === rightIdentity.title &&
+    leftIdentity.start !== '' &&
+    leftIdentity.start === rightIdentity.start &&
+    leftIdentity.duration === rightIdentity.duration;
+}
+
+function recordingBrowserFolderContainsRecording(folderData, expectedRecording) {
+  return recordingBrowserListFromResponse(folderData, 'recordings')
+    .some(recording => recordingBrowserSameRecording(recording, expectedRecording));
+}
+
+function recordingBrowserClearPendingDelete() {
+  recordingBrowserPendingDelete = null;
+  recordingBrowserCancelFolderRefreshTimer();
+}
+
+function recordingBrowserSetPendingDelete(recording, folderData, accepted, timedOut) {
+  recordingBrowserPendingDelete = {
+    recording: recording,
+    folderData: folderData,
+    folderPath: folderData && typeof folderData === 'object'
+      ? String(folderData.path || '')
+      : '',
+    accepted: accepted === true,
+    timedOut: timedOut === true
+  };
+}
+
+function recordingBrowserRenderPendingDelete(recording, folderData, accepted, timedOut) {
+  recordingBrowserSetPendingDelete(recording, folderData, accepted, timedOut);
+  renderServerRecordingDetail(recording, folderData, {
+    deletePending: true,
+    deleteAccepted: accepted === true,
+    deleteTimedOut: timedOut === true
+  });
+}
+
+function recordingBrowserHandleDeleteFailure(recording, folderData, message) {
+  recordingBrowserClearPendingDelete();
+  renderServerRecordingDetail(recording, folderData, {
+    deleteError: String(message || '')
+  });
+}
+
+function recordingBrowserScheduleDeleteFolderReload() {
+  if (!recordingBrowserPendingDelete || !recordingBrowserFolderLoader) {
+    return false;
+  }
+
+  const expectedRecording = recordingBrowserPendingDelete.recording;
+  const folderData = recordingBrowserPendingDelete.folderData;
+  const folderPath = recordingBrowserPendingDelete.folderPath;
+  let attempts = 0;
+  const maxAttempts = 30;
+
+  const reloadFolder = () => {
+    attempts += 1;
+
+    recordingBrowserFolderLoader(folderPath, 0)
+      .then(data => {
+        const latestFolderData = data && typeof data === 'object' ? data : {};
+
+        if (!recordingBrowserFolderContainsRecording(
+            latestFolderData,
+            expectedRecording)) {
+          recordingBrowserClearPendingDelete();
+          renderServerRecordingFolder(latestFolderData);
+          return;
+        }
+
+        if (attempts >= maxAttempts) {
+          recordingBrowserFolderRefreshTimer = null;
+          recordingBrowserRenderPendingDelete(
+            expectedRecording,
+            folderData,
+            true,
+            true
+          );
+          return;
+        }
+
+        recordingBrowserFolderRefreshTimer =
+          window.setTimeout(reloadFolder, 1000);
+      })
+      .catch(() => {
+        if (attempts >= maxAttempts) {
+          recordingBrowserFolderRefreshTimer = null;
+          recordingBrowserRenderPendingDelete(
+            expectedRecording,
+            folderData,
+            true,
+            true
+          );
+          return;
+        }
+
+        recordingBrowserFolderRefreshTimer =
+          window.setTimeout(reloadFolder, 1000);
+      });
+  };
+
+  recordingBrowserCancelFolderRefreshTimer();
+  reloadFolder();
+  return true;
+}
+
+function recordingBrowserRetryPendingDeleteReadback() {
+  if (!recordingBrowserPendingDelete) {
+    return false;
+  }
+
+  recordingBrowserPendingDelete.timedOut = false;
+  recordingBrowserRenderPendingDelete(
+    recordingBrowserPendingDelete.recording,
+    recordingBrowserPendingDelete.folderData,
+    true,
+    false
+  );
+  return recordingBrowserScheduleDeleteFolderReload();
+}
 
 function recordingBrowserActionList(value) {
   if (!Array.isArray(value)) {
@@ -2337,6 +2497,294 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
   return editor;
 }
 
+function recordingBrowserCreateDeleteEditor(recording, folderData, resultBox) {
+  const editor = document.createElement('details');
+  editor.className = 'recording-delete-editor';
+
+  editor.appendChild(recordingBrowserAddText(
+    document.createElement('summary'),
+    recordingBrowserTranslate('recordings.delete.title', 'Löschen …')
+  ));
+
+  const body = document.createElement('section');
+  body.className = 'module-placeholder recording-delete-editor-body';
+
+  const title = recordingBrowserLocalRecordingTitle(recording, folderData);
+  body.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    recordingBrowserTranslate(
+      'recordings.delete.recording',
+      'Aufnahme: {title}',
+      { title: title }
+    )
+  ));
+
+  const danger = document.createElement('p');
+  danger.className = 'recording-delete-danger-hint';
+  danger.textContent = recordingBrowserTranslate(
+    'recordings.delete.dangerHint',
+    'Die Aufnahme wird aus der aktiven VDR-Aufnahmeliste gelöscht. Nach der letzten Aufnahme verschwindet ein leerer Ordner automatisch.'
+  );
+  body.appendChild(danger);
+
+  const status = document.createElement('p');
+  status.className = 'recording-delete-status neutral';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+  status.textContent = recordingBrowserTranslate(
+    'recordings.delete.notReady',
+    'Die Aufnahme muss vor dem Löschen erfolgreich geprüft werden.'
+  );
+  body.appendChild(status);
+
+  const controls = document.createElement('div');
+  controls.className = 'recording-action-buttons';
+
+  const validateButton = document.createElement('button');
+  validateButton.type = 'button';
+  validateButton.textContent = recordingBrowserTranslate(
+    'recordings.delete.validate',
+    'Löschung prüfen'
+  );
+
+  const executeButton = document.createElement('button');
+  executeButton.type = 'button';
+  executeButton.className = 'recording-delete-execute-button';
+  executeButton.textContent = recordingBrowserTranslate(
+    'recordings.delete.execute',
+    'Aufnahme löschen'
+  );
+  executeButton.disabled = true;
+
+  controls.appendChild(validateButton);
+  controls.appendChild(executeButton);
+  body.appendChild(controls);
+  editor.appendChild(body);
+
+  let validated = false;
+
+  const setStatus = (state, message) => {
+    status.className = 'recording-delete-status ' + state;
+    status.textContent = message;
+  };
+
+  const invalidate = message => {
+    validated = false;
+    executeButton.disabled = true;
+    executeButton.classList.remove('ready');
+    setStatus('neutral', message);
+  };
+
+  const validationTitle = recordingBrowserTranslate(
+    'recordings.delete.validateAction',
+    'Löschen prüfen'
+  );
+
+  const validateDelete = finalCheck => {
+    if (!recordingBrowserActionRunner) {
+      const message = recordingBrowserTranslate(
+        'recordings.delete.validationUnavailable',
+        'Löschprüfung ist derzeit nicht verfügbar.'
+      );
+      setStatus('error', message);
+      recordingBrowserRenderActionResult(
+        resultBox,
+        validationTitle,
+        null,
+        new Error(message)
+      );
+      return Promise.resolve(false);
+    }
+
+    validateButton.disabled = true;
+    executeButton.disabled = true;
+    executeButton.classList.remove('ready');
+    setStatus(
+      'pending',
+      recordingBrowserTranslate(
+        finalCheck
+          ? 'recordings.delete.finalValidation'
+          : 'recordings.delete.validationPending',
+        finalCheck
+          ? 'Sicherheitsprüfung wird unmittelbar vor dem Löschen wiederholt …'
+          : 'Aufnahme wird zum Löschen geprüft …'
+      )
+    );
+    recordingBrowserRenderActionResult(
+      resultBox,
+      validationTitle,
+      {
+        message: recordingBrowserTranslate(
+          finalCheck
+            ? 'recordings.delete.finalValidation'
+            : 'recordings.delete.validationPending',
+          finalCheck
+            ? 'Sicherheitsprüfung wird unmittelbar vor dem Löschen wiederholt …'
+            : 'Aufnahme wird zum Löschen geprüft …'
+        )
+      },
+      null
+    );
+
+    return recordingBrowserActionRunner({
+      mode: 'validate',
+      action: 'DELETE',
+      payload: recordingBrowserActionPayload(recording, 'DELETE', {
+        dryRun: true
+      }),
+      recording: recording
+    })
+      .then(result => {
+        recordingBrowserRenderActionResult(
+          resultBox,
+          validationTitle,
+          result,
+          null
+        );
+
+        if (result && result.valid === true) {
+          validated = true;
+          executeButton.disabled = false;
+          executeButton.classList.add('ready');
+          setStatus(
+            'success',
+            recordingBrowserTranslate(
+              'recordings.delete.ready',
+              'Aufnahme geprüft – Löschen kann ausdrücklich bestätigt werden.'
+            )
+          );
+          return true;
+        }
+
+        invalidate(recordingBrowserTranslate(
+          finalCheck
+            ? 'recordings.delete.finalValidationFailed'
+            : 'recordings.delete.validationFailedDetails',
+          finalCheck
+            ? 'Die unmittelbar wiederholte Sicherheitsprüfung hat die Löschung abgelehnt.'
+            : 'Die Aufnahme konnte nicht zum Löschen freigegeben werden. Details stehen unter dem Dialog.'
+        ));
+        return false;
+      })
+      .catch(error => {
+        invalidate(recordingBrowserTranslate(
+          'recordings.delete.validationFailed',
+          'Löschprüfung fehlgeschlagen: {message}',
+          {
+            message: error && error.message
+              ? error.message
+              : String(error)
+          }
+        ));
+        recordingBrowserRenderActionResult(
+          resultBox,
+          validationTitle,
+          null,
+          error
+        );
+        return false;
+      })
+      .finally(() => {
+        validateButton.disabled = false;
+      });
+  };
+
+  validateButton.addEventListener('click', () => {
+    validateDelete(false).then(isValid => {
+      if (isValid) {
+        window.setTimeout(() => executeButton.focus(), 0);
+      }
+    });
+  });
+
+  executeButton.addEventListener('click', () => {
+    if (!validated) {
+      invalidate(recordingBrowserTranslate(
+        'recordings.delete.notReady',
+        'Die Aufnahme muss vor dem Löschen erfolgreich geprüft werden.'
+      ));
+      return;
+    }
+
+    executeButton.disabled = true;
+
+    validateDelete(true).then(isValid => {
+      if (!isValid) {
+        return;
+      }
+
+      if (!window.confirm(recordingBrowserTranslate(
+          'recordings.delete.confirm',
+          'Aufnahme „{title}“ wirklich löschen? Dieser Vorgang kann über VDR-Suite nicht rückgängig gemacht werden.',
+          { title: title }
+        ))) {
+        executeButton.disabled = false;
+        executeButton.classList.add('ready');
+        setStatus(
+          'success',
+          recordingBrowserTranslate(
+            'recordings.delete.cancelled',
+            'Löschen nicht bestätigt.'
+          )
+        );
+        return;
+      }
+
+      setStatus(
+        'pending',
+        recordingBrowserTranslate(
+          'recordings.delete.executing',
+          'Aufnahme wird gelöscht …'
+        )
+      );
+      recordingBrowserRenderPendingDelete(
+        recording,
+        folderData,
+        false,
+        false
+      );
+
+      recordingBrowserActionRunner({
+        mode: 'execute',
+        action: 'DELETE',
+        payload: recordingBrowserActionPayload(recording, 'DELETE', {
+          dryRun: false
+        }),
+        recording: recording
+      })
+        .then(result => {
+          if (result && result.success === true) {
+            recordingBrowserRenderPendingDelete(
+              recording,
+              folderData,
+              true,
+              false
+            );
+            recordingBrowserScheduleDeleteFolderReload();
+            return;
+          }
+
+          const message = result && (result.message || result.error)
+            ? String(result.message || result.error)
+            : recordingBrowserTranslate(
+                'recordings.delete.backendRejected',
+                'Backend hat die Löschung abgelehnt'
+              );
+          recordingBrowserHandleDeleteFailure(recording, folderData, message);
+        })
+        .catch(error => {
+          recordingBrowserHandleDeleteFailure(
+            recording,
+            folderData,
+            error && error.message ? error.message : String(error)
+          );
+        });
+    });
+  });
+
+  return editor;
+}
+
 function recordingBrowserCreateRenameValidateButton(recording, resultBox) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -2497,12 +2945,18 @@ function createServerRecordingActionPanel(recording, folderData) {
 
   panel.appendChild(recordingBrowserAddText(
     document.createElement('summary'),
-    'Aktionen anzeigen'
+    recordingBrowserTranslate(
+      'recordings.actions.show',
+      'Aktionen anzeigen'
+    )
   ));
 
   panel.appendChild(recordingBrowserAddText(
     document.createElement('p'),
-    'Umbenennen ist nach Bestätigung scharf. Verschieben wird zuerst gegen den gewählten Zielordner geprüft und danach ausdrücklich bestätigt. Löschen bleibt bewusst Prüfung/Dry-Run.'
+    recordingBrowserTranslate(
+      'recordings.actions.description',
+      'Umbenennen und Verschieben werden geprüft und ausdrücklich bestätigt. Löschen besitzt zusätzlich einen roten Gefahrenbereich und eine unmittelbar wiederholte Sicherheitsprüfung.'
+    )
   ));
 
   const actions = document.createElement('div');
@@ -2528,19 +2982,9 @@ function createServerRecordingActionPanel(recording, folderData) {
     resultBox
   ));
 
-  actions.appendChild(recordingBrowserCreateActionButton(
-    'Löschen prüfen (sicher)',
-    'validate',
-    'DELETE',
+  actions.appendChild(recordingBrowserCreateDeleteEditor(
     recording,
-    resultBox
-  ));
-
-  actions.appendChild(recordingBrowserCreateActionButton(
-    'Löschen Dry-Run (keine Ausführung)',
-    'execute',
-    'DELETE',
-    recording,
+    folderData,
     resultBox
   ));
 
@@ -2565,6 +3009,10 @@ function renderServerRecordingDetail(recording, folderData, options) {
   const moveTimedOut = detailOptions.moveTimedOut === true;
   const moveTargetPath = String(detailOptions.moveTargetPath || '').trim();
   const moveError = String(detailOptions.moveError || '').trim();
+  const deletePending = detailOptions.deletePending === true;
+  const deleteAccepted = detailOptions.deleteAccepted === true;
+  const deleteTimedOut = detailOptions.deleteTimedOut === true;
+  const deleteError = String(detailOptions.deleteError || '').trim();
 
   const list = document.createElement('section');
   list.className = 'list recording-detail-list';
@@ -2678,6 +3126,63 @@ function renderServerRecordingDetail(recording, folderData, options) {
     ));
   }
 
+  if (deletePending) {
+    const deleteMessage = deleteTimedOut
+      ? recordingBrowserTranslate(
+          'recordings.delete.timedOut',
+          'Die Löschung wurde bestätigt, ist im Aufnahme-Cache aber noch nicht sichtbar.'
+        )
+      : deleteAccepted
+        ? recordingBrowserTranslate(
+            'recordings.delete.accepted',
+            'Löschung vom Backend bestätigt. Der VDR-Aufnahmecache wird abgeglichen.'
+          )
+        : recordingBrowserTranslate(
+            'recordings.delete.pending',
+            'Löschung wird ausgeführt. Die Aufnahme bleibt sichtbar, bis der Cache das Ergebnis bestätigt.'
+          );
+
+    item.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      deleteMessage
+    ));
+
+    if (!deleteTimedOut) {
+      const progress = document.createElement('progress');
+      progress.className = 'recording-folder-refresh-progress';
+      progress.setAttribute(
+        'aria-label',
+        recordingBrowserTranslate(
+          'recordings.delete.syncAria',
+          'Löschung wird im Aufnahme-Cache abgeglichen'
+        )
+      );
+      item.appendChild(progress);
+    } else {
+      const retryButton = document.createElement('button');
+      retryButton.type = 'button';
+      retryButton.textContent = recordingBrowserTranslate(
+        'recordings.delete.cacheRetry',
+        'Cache-Abgleich erneut versuchen'
+      );
+      retryButton.addEventListener('click', () => {
+        recordingBrowserRetryPendingDeleteReadback();
+      });
+      item.appendChild(retryButton);
+    }
+  }
+
+  if (deleteError !== '') {
+    item.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      recordingBrowserTranslate(
+        'recordings.delete.failed',
+        'Löschen fehlgeschlagen: {message}',
+        { message: deleteError }
+      )
+    ));
+  }
+
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Aufnahme: ' + startTime));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
 
@@ -2703,7 +3208,7 @@ function renderServerRecordingDetail(recording, folderData, options) {
 
   item.appendChild(technicalDetails);
 
-  if (!renamePending && !movePending) {
+  if (!renamePending && !movePending && !deletePending) {
     item.appendChild(createServerRecordingActionPanel(recording, folderData));
   }
 
@@ -2717,12 +3222,17 @@ function renderServerRecordingDetail(recording, folderData, options) {
     const detailFolderPath = folderData && typeof folderData === 'object'
       ? String(folderData.path || '')
       : '';
-    backButton.textContent = movePending
+    backButton.textContent = deletePending
       ? recordingBrowserTranslate(
-          'recordings.move.backToRecordings',
+          'recordings.delete.backToRecordings',
           'Zurück zu den Aufnahmen'
         )
-      : 'Zurück zum Ordner';
+      : movePending
+        ? recordingBrowserTranslate(
+            'recordings.move.backToRecordings',
+            'Zurück zu den Aufnahmen'
+          )
+        : 'Zurück zum Ordner';
     backButton.addEventListener('click', () => {
       if (recordingBrowserFolderLoader) {
         recordingBrowserLoadServerFolder(detailFolderPath, 0);
@@ -3410,7 +3920,9 @@ const recordingBrowserApi = Object.freeze({
   renderRoot: renderRecordingRoot,
   renderNode: renderRecordingNode,
   validateNewMoveFolderName: recordingBrowserValidateNewMoveFolderName,
-  joinMoveFolderPath: recordingBrowserJoinMoveFolderPath
+  joinMoveFolderPath: recordingBrowserJoinMoveFolderPath,
+  sameRecording: recordingBrowserSameRecording,
+  folderContainsRecording: recordingBrowserFolderContainsRecording
 });
 
 window.VdrSuiteRecordingBrowser = recordingBrowserApi;

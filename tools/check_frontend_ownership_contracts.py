@@ -1113,6 +1113,10 @@ def check_recording_browser_contract(recording_browser_js: str) -> None:
         "function recordingBrowserJoinMoveFolderPath(parentPath, folderName)",
         "recordings.move.createFolder",
         "recordings.move.newFolderSelected",
+        "function recordingBrowserCreateDeleteEditor(recording, folderData, resultBox)",
+        "function recordingBrowserScheduleDeleteFolderReload()",
+        "recordings.delete.finalValidation",
+        "recordings.delete.execute",
     ]
 
     for token in required_move_workflow_tokens:

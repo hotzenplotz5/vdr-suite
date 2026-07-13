@@ -65,6 +65,10 @@ def main() -> int:
     require("function recordingBrowserJoinMoveFolderPath(parentPath, folderName)" in recordings, "Move new-folder path helper missing")
     require("recordings.move.createFolder" in recordings, "Move new-folder trigger must use i18n")
     require("recordings.move.newFolderSelected" in recordings, "Move new-folder selection feedback must use i18n")
+    require("function recordingBrowserCreateDeleteEditor(recording, folderData, resultBox)" in recordings, "Recording Delete editor missing")
+    require("recordings.delete.finalValidation" in recordings, "Recording Delete must repeat validation before execution")
+    require("recordings.delete.execute" in recordings, "Recording Delete execution label must use i18n")
+    require("recordingBrowserScheduleDeleteFolderReload();" in recordings, "Recording Delete cache readback missing")
     require("frontendTranslate('settings.language'" in app, "Settings must expose the language selector")
 
     for asset in [

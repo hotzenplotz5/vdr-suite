@@ -4193,3 +4193,73 @@ body.channel-sorter-dragging * {
     width: 100%;
   }
 }
+
+/* Recording delete danger workflow */
+.recording-delete-editor {
+  width: 100%;
+}
+
+.recording-delete-editor-body {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.65rem;
+  border-color: rgba(248, 113, 113, 0.58);
+  background: rgba(69, 10, 10, 0.2);
+}
+
+.recording-delete-danger-hint,
+.recording-delete-status {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.72rem 0.82rem;
+  border-radius: 0.7rem;
+  line-height: 1.4;
+}
+
+.recording-delete-danger-hint {
+  border: 1px solid rgba(248, 113, 113, 0.62);
+  background: rgba(127, 29, 29, 0.24);
+  color: #fecaca;
+  font-weight: 750;
+}
+
+.recording-delete-status {
+  border: 1px solid #475569;
+  background: rgba(15, 23, 42, 0.76);
+  color: #cbd5e1;
+}
+
+.recording-delete-status.pending {
+  border-color: rgba(96, 165, 250, 0.62);
+  color: #dbeafe;
+}
+
+.recording-delete-status.success {
+  border-color: rgba(248, 113, 113, 0.72);
+  background: rgba(185, 28, 28, 0.18);
+  color: #fecaca;
+  font-weight: 800;
+}
+
+.recording-delete-status.error {
+  border-color: rgba(248, 113, 113, 0.72);
+  color: #fecaca;
+}
+
+.recording-delete-execute-button.ready:not(:disabled) {
+  background: #b91c1c;
+  color: #fff7ed;
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.48),
+    0 0.55rem 1.25rem rgba(185, 28, 28, 0.24);
+}
+
+.recording-delete-execute-button.ready:not(:disabled):focus-visible {
+  outline: 3px solid #fca5a5;
+  outline-offset: 3px;
+}
+
+@media (max-width: 42rem) {
+  .recording-delete-execute-button {
+    width: 100%;
+  }
+}
