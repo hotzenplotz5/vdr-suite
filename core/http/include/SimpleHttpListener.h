@@ -3,6 +3,7 @@
 
 #include "IHttpServer.h"
 
+#include <chrono>
 #include <functional>
 #include <string>
 
@@ -26,6 +27,14 @@ public:
         std::function<bool()> shouldStop,
         std::function<void()> onTick);
 
+    SimpleHttpListener(
+        std::string host,
+        int port,
+        IHttpServer& server,
+        std::function<bool()> shouldStop,
+        std::function<void()> onTick,
+        std::chrono::milliseconds clientIoTimeout);
+
     int runUntilStopped();
 
 private:
@@ -34,6 +43,7 @@ private:
     IHttpServer& server_;
     std::function<bool()> shouldStop_;
     std::function<void()> onTick_;
+    std::chrono::milliseconds clientIoTimeout_;
 
     int createListeningSocket() const;
     void handleClient(int clientSocket) const;

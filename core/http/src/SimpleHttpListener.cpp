@@ -5,6 +5,7 @@
 
 #include <cerrno>
 #include <cctype>
+#include <chrono>
 #include <cstring>
 #include <iostream>
 #include <netdb.h>
@@ -17,6 +18,63 @@
 #include <utility>
 
 namespace {
+
+constexpr auto DEFAULT_CLIENT_IO_TIMEOUT = std::chrono::seconds(5);
+
+timeval socketTimeoutValue(std::chrono::milliseconds timeout)
+{
+    if (timeout.count() <= 0) {
+        timeout = std::chrono::milliseconds(1);
+    }
+
+    const auto totalMicroseconds =
+        std::chrono::duration_cast<std::chrono::microseconds>(timeout).count();
+
+    timeval value{};
+    value.tv_sec = static_cast<time_t>(totalMicroseconds / 1000000);
+    value.tv_usec = static_cast<suseconds_t>(totalMicroseconds % 1000000);
+    return value;
+}
+
+void configureClientSocketTimeouts(
+    int socketFd,
+    std::chrono::milliseconds timeout)
+{
+    const timeval value = socketTimeoutValue(timeout);
+
+    if (setsockopt(
+            socketFd,
+            SOL_SOCKET,
+            SO_RCVTIMEO,
+            &value,
+            sizeof(value)) != 0) {
+        std::cerr
+            << "failed to configure HTTP client receive timeout: "
+            << std::strerror(errno)
+            << std::endl;
+    }
+
+    if (setsockopt(
+            socketFd,
+            SOL_SOCKET,
+            SO_SNDTIMEO,
+            &value,
+            sizeof(value)) != 0) {
+        std::cerr
+            << "failed to configure HTTP client send timeout: "
+            << std::strerror(errno)
+            << std::endl;
+    }
+}
+
+int noSignalSendFlags()
+{
+#ifdef MSG_NOSIGNAL
+    return MSG_NOSIGNAL;
+#else
+    return 0;
+#endif
+}
 
 std::string lowerAscii(const std::string& value)
 {
@@ -226,7 +284,7 @@ void writeAll(int socketFd, const std::string& data)
             socketFd,
             data.data() + offset,
             data.size() - offset,
-            0);
+            noSignalSendFlags());
 
         if (written <= 0) {
             return;
@@ -271,11 +329,29 @@ SimpleHttpListener::SimpleHttpListener(
     IHttpServer& server,
     std::function<bool()> shouldStop,
     std::function<void()> onTick)
+    : SimpleHttpListener(
+          std::move(host),
+          port,
+          server,
+          std::move(shouldStop),
+          std::move(onTick),
+          DEFAULT_CLIENT_IO_TIMEOUT)
+{
+}
+
+SimpleHttpListener::SimpleHttpListener(
+    std::string host,
+    int port,
+    IHttpServer& server,
+    std::function<bool()> shouldStop,
+    std::function<void()> onTick,
+    std::chrono::milliseconds clientIoTimeout)
     : host_(std::move(host)),
       port_(port),
       server_(server),
       shouldStop_(std::move(shouldStop)),
-      onTick_(std::move(onTick))
+      onTick_(std::move(onTick)),
+      clientIoTimeout_(clientIoTimeout)
 {
 }
 
@@ -349,6 +425,9 @@ int SimpleHttpListener::runUntilStopped()
             continue;
         }
 
+        configureClientSocketTimeouts(
+            clientSocket,
+            clientIoTimeout_);
         handleClient(clientSocket);
         close(clientSocket);
     }
