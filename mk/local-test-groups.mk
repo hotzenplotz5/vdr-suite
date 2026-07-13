@@ -1,4 +1,4 @@
-.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy test-frontend-contracts
+.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-http-listener-partial-request-timeout test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy test-frontend-contracts
 
 
 test-ci-fast: \
@@ -12,6 +12,7 @@ test-ci-fast: \
 	test-api-router-searchtimer-preview-epg-cache \
 	test-daemon-runtime-shutdown-resets \
 	test-http-listener-bind-failure-handling \
+	test-http-listener-partial-request-timeout \
 	test-real-vdr-acceptance-manifest \
 	test-phase-map-coverage \
 	test-github-update-safety-handoff \
@@ -91,6 +92,7 @@ test-vdr: \
 	test-searchtimer-discovery-runtime-wiring \
 	test-daemon-runtime-shutdown-resets \
 	test-http-listener-bind-failure-handling \
+	test-http-listener-partial-request-timeout \
 	test-real-vdr-acceptance-manifest \
 	test-github-update-safety-handoff \
 	test-recording-mutation-safety-policy \
@@ -164,6 +166,14 @@ test-daemon-runtime-shutdown-resets:
 
 test-http-listener-bind-failure-handling:
 	python3 tools/check_http_listener_bind_failure_handling.py
+
+
+test-http-listener-partial-request-timeout:
+	$(CXX) $(CXXFLAGS) -pthread \
+		core/http/src/SimpleHttpListener.cpp \
+		core/http/tests/test_simple_http_listener_partial_request_timeout.cpp \
+		-o /tmp/test_simple_http_listener_partial_request_timeout
+	/tmp/test_simple_http_listener_partial_request_timeout
 
 
 test-real-vdr-acceptance-manifest:
