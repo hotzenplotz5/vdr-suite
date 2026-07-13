@@ -71,6 +71,14 @@
     return global.VdrSuiteClientApi || null;
   }
 
+  function getI18n() {
+    if (runtimeContext.i18n && typeof runtimeContext.i18n === 'object') {
+      return runtimeContext.i18n;
+    }
+
+    return global.VdrSuiteI18n || null;
+  }
+
   function getMountTarget(name) {
     const normalizedName = normalizeModuleName(name);
     const mountTargets = runtimeContext.mountTargets;
@@ -110,6 +118,7 @@
     configureRuntimeContext: configureRuntimeContext,
     getRuntimeContext: getRuntimeContext,
     getClientApi: getClientApi,
+    getI18n: getI18n,
     getMountTarget: getMountTarget,
     getSelectedBackendId: getSelectedBackendId,
     getSelectedModule: getSelectedModule

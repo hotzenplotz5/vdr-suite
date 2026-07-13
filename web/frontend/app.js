@@ -30,6 +30,28 @@ let epgProgramView = 'horizontal';
 let selectedEpgDetail = null;
 let epgSuppressClickUntil = 0;
 
+function frontendI18n() {
+  if (window.VdrSuitePlatform &&
+      typeof window.VdrSuitePlatform.getI18n === 'function') {
+    const i18n = window.VdrSuitePlatform.getI18n();
+    if (i18n) {
+      return i18n;
+    }
+  }
+
+  return window.VdrSuiteI18n || null;
+}
+
+function frontendTranslate(key, fallback, parameters) {
+  const i18n = frontendI18n();
+
+  if (!i18n || typeof i18n.t !== 'function') {
+    return String(fallback || key || '');
+  }
+
+  return i18n.t(key, parameters || {}, fallback);
+}
+
 function configurePlatformRuntimeContextBoundary() {
   if (!window.VdrSuitePlatform ||
       typeof window.VdrSuitePlatform.configureRuntimeContext !== 'function') {
@@ -38,6 +60,7 @@ function configurePlatformRuntimeContextBoundary() {
 
   window.VdrSuitePlatform.configureRuntimeContext({
     clientApi: window.VdrSuiteClientApi || null,
+    i18n: window.VdrSuiteI18n || null,
     mountTarget: detailDataElement,
     mountTargets: {
       detail: detailDataElement,
@@ -127,13 +150,13 @@ const EPG_TIMELINE_MAX_PAGE_OFFSET = 1;
 const EPG_VISIBLE_CHANNEL_LIMIT = 15;
 
 const moduleLabels = {
-  overview: 'Übersicht',
-  channels: 'Kanäle',
-  channelsort: 'Kanäle sortieren',
-  epg: 'EPG Zeitleiste',
-  timers: 'Timer',
-  recordings: 'Aufnahmen',
-  searchtimers: 'SearchTimer'
+  overview: frontendTranslate('module.overview', 'Übersicht'),
+  channels: frontendTranslate('module.channels', 'Kanäle'),
+  channelsort: frontendTranslate('module.channelSort', 'Kanäle sortieren'),
+  epg: frontendTranslate('module.epg', 'EPG Zeitleiste'),
+  timers: frontendTranslate('module.timers', 'Timer'),
+  recordings: frontendTranslate('module.recordings', 'Aufnahmen'),
+  searchtimers: frontendTranslate('module.searchTimers', 'SearchTimer')
 };
 
 function addText(element, text) {
@@ -3329,7 +3352,77 @@ function appendSettingsLine(parent, label, value) {
 }
 
 function settingsBoolean(value) {
-  return value ? 'ja' : 'nein';
+  return value
+    ? frontendTranslate('common.yes', 'ja')
+    : frontendTranslate('common.no', 'nein');
+}
+
+function appendSettingsLanguageCard(parent) {
+  const i18n = frontendI18n();
+  const card = document.createElement('article');
+  card.className = 'module-placeholder settings-card';
+  card.appendChild(addText(
+    document.createElement('h3'),
+    frontendTranslate('settings.language', 'Sprache')
+  ));
+  card.appendChild(addText(
+    document.createElement('p'),
+    frontendTranslate(
+      'settings.languageDescription',
+      'Die Auswahl wird im Browser gespeichert. Weitere Module werden schrittweise auf Sprachdateien umgestellt.'
+    )
+  ));
+
+  const label = document.createElement('label');
+  label.className = 'settings-language-field';
+  label.appendChild(addText(
+    document.createElement('span'),
+    frontendTranslate('settings.language', 'Sprache')
+  ));
+
+  const select = document.createElement('select');
+  select.className = 'settings-language-select';
+
+  [
+    ['de', frontendTranslate('settings.languageGerman', 'Deutsch')],
+    ['en', frontendTranslate('settings.languageEnglish', 'Englisch')]
+  ].forEach(entry => {
+    const option = document.createElement('option');
+    option.value = entry[0];
+    option.textContent = entry[1];
+    select.appendChild(option);
+  });
+
+  select.value = i18n && typeof i18n.getLocale === 'function'
+    ? i18n.getLocale()
+    : 'de';
+
+  const status = document.createElement('p');
+  status.className = 'settings-language-status';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+
+  select.addEventListener('change', () => {
+    if (!i18n || typeof i18n.setLocale !== 'function') {
+      return;
+    }
+
+    if (!i18n.setLocale(select.value)) {
+      return;
+    }
+
+    status.textContent = frontendTranslate(
+      'settings.languageReload',
+      'Sprache wird angewendet …'
+    );
+    select.disabled = true;
+    window.setTimeout(() => window.location.reload(), 80);
+  });
+
+  label.appendChild(select);
+  card.appendChild(label);
+  card.appendChild(status);
+  parent.appendChild(card);
 }
 
 function renderSettingsView(data) {
@@ -3340,12 +3433,20 @@ function renderSettingsView(data) {
 
   const intro = document.createElement('article');
   intro.className = 'module-placeholder settings-card';
-  intro.appendChild(addText(document.createElement('h3'), 'Einstellungen'));
+  intro.appendChild(addText(
+    document.createElement('h3'),
+    frontendTranslate('settings.title', 'Einstellungen')
+  ));
   intro.appendChild(addText(
     document.createElement('p'),
-    'Zentrale Oberfläche für Frontend-Einstellungen, Backend-Auswahl und technische Backend-Informationen.'
+    frontendTranslate(
+      'settings.description',
+      'Zentrale Oberfläche für Frontend-Einstellungen, Backend-Auswahl und technische Backend-Informationen.'
+    )
   ));
   panel.appendChild(intro);
+
+  appendSettingsLanguageCard(panel);
 
   const backend = selectedBackend || {};
   const selector = backend.frontendSelector || backend;
@@ -3353,35 +3454,64 @@ function renderSettingsView(data) {
 
   const backendCard = document.createElement('article');
   backendCard.className = 'module-placeholder settings-card';
-  backendCard.appendChild(addText(document.createElement('h3'), 'Backendinfo'));
+  backendCard.appendChild(addText(
+    document.createElement('h3'),
+    frontendTranslate('settings.backendInfo', 'Backendinfo')
+  ));
 
-  appendSettingsLine(backendCard, 'Name', selector.label || backend.backendName || backendId);
-  appendSettingsLine(backendCard, 'Backend-ID', backendId);
-  appendSettingsLine(backendCard, 'Online', settingsBoolean(Boolean(backend.online)));
-  appendSettingsLine(backendCard, 'Zugriff', selector.accessMode || backend.accessMode || '-');
-  appendSettingsLine(backendCard, 'Schreiben', settingsBoolean(Boolean(selector.canWrite)));
-  appendSettingsLine(backendCard, 'Aufnahmen', settingsBoolean(Boolean(selector.canWriteRecordings)));
-  appendSettingsLine(backendCard, 'Timer', settingsBoolean(Boolean(selector.canWriteTimers)));
-  appendSettingsLine(backendCard, 'SearchTimer', settingsBoolean(Boolean(selector.canWriteSearchTimers)));
+  appendSettingsLine(backendCard, frontendTranslate('settings.name', 'Name'), selector.label || backend.backendName || backendId);
+  appendSettingsLine(backendCard, frontendTranslate('settings.backendId', 'Backend-ID'), backendId);
+  appendSettingsLine(backendCard, frontendTranslate('settings.online', 'Online'), settingsBoolean(Boolean(backend.online)));
+  appendSettingsLine(backendCard, frontendTranslate('settings.access', 'Zugriff'), selector.accessMode || backend.accessMode || '-');
+  appendSettingsLine(backendCard, frontendTranslate('settings.write', 'Schreiben'), settingsBoolean(Boolean(selector.canWrite)));
+  appendSettingsLine(backendCard, frontendTranslate('settings.recordings', 'Aufnahmen'), settingsBoolean(Boolean(selector.canWriteRecordings)));
+  appendSettingsLine(backendCard, frontendTranslate('settings.timers', 'Timer'), settingsBoolean(Boolean(selector.canWriteTimers)));
+  appendSettingsLine(backendCard, frontendTranslate('settings.searchTimers', 'SearchTimer'), settingsBoolean(Boolean(selector.canWriteSearchTimers)));
 
   panel.appendChild(backendCard);
 
   const runtimeCard = document.createElement('article');
   runtimeCard.className = 'module-placeholder settings-card';
-  runtimeCard.appendChild(addText(document.createElement('h3'), 'Frontend'));
+  runtimeCard.appendChild(addText(
+    document.createElement('h3'),
+    frontendTranslate('settings.frontend', 'Frontend')
+  ));
 
-  appendSettingsLine(runtimeCard, 'Aktives Modul', selectedModule);
-  appendSettingsLine(runtimeCard, 'EPG-Ansicht', epgTimeAxisMode === 'vertical' ? 'Zeit vertikal' : 'Zeit horizontal');
-  appendSettingsLine(runtimeCard, 'EPG-Kanaloffset', epgChannelOffset);
-  appendSettingsLine(runtimeCard, 'EPG-Zeitfenster', epgTimeWindowPageOffset === 0 ? 'aktuelle 24h' : 'nächste 24h');
+  appendSettingsLine(
+    runtimeCard,
+    frontendTranslate('settings.activeModule', 'Aktives Modul'),
+    moduleLabels[selectedModule] || selectedModule
+  );
+  appendSettingsLine(
+    runtimeCard,
+    frontendTranslate('settings.epgView', 'EPG-Ansicht'),
+    epgTimeAxisMode === 'vertical'
+      ? frontendTranslate('settings.epgVertical', 'Zeit vertikal')
+      : frontendTranslate('settings.epgHorizontal', 'Zeit horizontal')
+  );
+  appendSettingsLine(runtimeCard, frontendTranslate('settings.channelOffset', 'EPG-Kanaloffset'), epgChannelOffset);
+  appendSettingsLine(
+    runtimeCard,
+    frontendTranslate('settings.timeWindow', 'EPG-Zeitfenster'),
+    epgTimeWindowPageOffset === 0
+      ? frontendTranslate('settings.current24Hours', 'aktuelle 24h')
+      : frontendTranslate('settings.next24Hours', 'nächste 24h')
+  );
 
   if (data && typeof data === 'object') {
-    appendSettingsLine(runtimeCard, 'Snapshot-Sequenz', firstValue(data, ['sequence', 'snapshotSequence', 'snapshotId'], '-'));
-    appendSettingsLine(runtimeCard, 'Live-Status', firstValue(data, ['liveStatus', 'status'], '-'));
+    appendSettingsLine(
+      runtimeCard,
+      frontendTranslate('settings.snapshotSequence', 'Snapshot-Sequenz'),
+      firstValue(data, ['sequence', 'snapshotSequence', 'snapshotId'], '-')
+    );
+    appendSettingsLine(
+      runtimeCard,
+      frontendTranslate('settings.liveStatus', 'Live-Status'),
+      firstValue(data, ['liveStatus', 'status'], '-')
+    );
   }
 
   panel.appendChild(runtimeCard);
-
   detailDataElement.appendChild(panel);
 }
 
