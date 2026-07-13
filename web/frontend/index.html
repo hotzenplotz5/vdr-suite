@@ -244,10 +244,10 @@
           <img class="app-logo" src="/channel-logos/vdr-suite-brand/logo-vdr-suite-dark.svg" alt="vdr-suite">
           <div class="app-header-text">
             <h1>vdr-suite</h1>
-            <p>VDR Webfrontend</p>
+            <p data-i18n="shell.webFrontend">VDR Webfrontend</p>
           </div>
         </header>
-        <section class="brand-feature-strip" aria-label="VDR-Suite Merkmale">
+        <section class="brand-feature-strip" aria-label="VDR-Suite Merkmale" data-i18n-aria-label="shell.features">
           <article class="brand-feature brand-feature-backends">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
               <rect x="6" y="9" width="20" height="8" rx="2"/>
@@ -257,8 +257,8 @@
               <path d="M26 24 H35"/>
               <circle cx="41" cy="35" r="3"/>
             </svg>
-            <div class="brand-feature-copy"><div class="brand-feature-title">Multi-Backend</div><div class="brand-feature-text">Flexible & skalierbar</div></div>
-            <section id="backends" class="backend-list brand-backend-list" aria-label="Backend-Auswahl"></section>
+            <div class="brand-feature-copy"><div class="brand-feature-title" data-i18n="shell.multiBackend">Multi-Backend</div><div class="brand-feature-text" data-i18n="shell.multiBackendDescription">Flexible & skalierbar</div></div>
+            <section id="backends" class="backend-list brand-backend-list" aria-label="Backend-Auswahl" data-i18n-aria-label="shell.backendSelection"></section>
           </article>
           <article class="brand-feature">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
@@ -268,9 +268,9 @@
               <path d="M11 11 A18 18 0 0 0 11 37"/>
               <path d="M37 11 A18 18 0 0 1 37 37"/>
             </svg>
-            <div><div class="brand-feature-title">Live TV</div><div class="brand-feature-text">Echtzeit & Streaming</div></div>
+            <div><div class="brand-feature-title" data-i18n="shell.liveTv">Live TV</div><div class="brand-feature-text" data-i18n="shell.liveTvDescription">Echtzeit & Streaming</div></div>
           </article>
-          <article class="brand-feature" data-brand-module="epg" tabindex="0" role="button" aria-label="EPG Zeitleiste öffnen">
+          <article class="brand-feature" data-brand-module="epg" tabindex="0" role="button" aria-label="EPG Zeitleiste öffnen" data-i18n-aria-label="shell.openEpg">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
               <rect x="8" y="10" width="32" height="30" rx="4"/>
               <path d="M15 7 V14"/>
@@ -283,7 +283,7 @@
               <path d="M23 34 H25"/>
               <path d="M30 34 H32"/>
             </svg>
-            <div><div class="brand-feature-title">EPG Zeitleiste</div><div class="brand-feature-text">Zeitachse & Programm</div></div>
+            <div><div class="brand-feature-title" data-i18n="shell.epgFeature">EPG Zeitleiste</div><div class="brand-feature-text" data-i18n="shell.epgFeatureDescription">Zeitachse & Programm</div></div>
           </article>
           <article class="brand-feature">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
@@ -291,9 +291,9 @@
               <path d="M20 16 H30"/>
               <path d="M19 31 H31"/>
             </svg>
-            <div><div class="brand-feature-title">Modular Suite</div><div class="brand-feature-text">Erweiterbar & anpassbar</div></div>
+            <div><div class="brand-feature-title" data-i18n="shell.modularSuite">Modular Suite</div><div class="brand-feature-text" data-i18n="shell.modularSuiteDescription">Erweiterbar & anpassbar</div></div>
           </article>
-          <article class="brand-feature" data-brand-module="settings" tabindex="0" role="button" aria-label="Einstellungen öffnen">
+          <article class="brand-feature" data-brand-module="settings" tabindex="0" role="button" aria-label="Einstellungen öffnen" data-i18n-aria-label="shell.openSettings">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="24" cy="24" r="6"/>
               <path d="M24 7 V13"/>
@@ -305,31 +305,34 @@
               <path d="M36 12 L32 16"/>
               <path d="M16 32 L12 36"/>
             </svg>
-            <div><div class="brand-feature-title">Einstellungen</div><div class="brand-feature-text">Backend & System</div></div>
+            <div><div class="brand-feature-title" data-i18n="shell.settings">Einstellungen</div><div class="brand-feature-text" data-i18n="shell.settingsDescription">Backend & System</div></div>
           </article>
         </section>
       </section>
-      <p id="status" class="status">Lade Backend-Auswahl...</p>
+      <p id="status" class="status" data-i18n="shell.loadBackendSelection">Lade Backend-Auswahl...</p>
       <section id="detail" class="detail-card" aria-live="polite">
         <div class="detail-header">
-          <h2>Backend-Details</h2>
-          <button id="refresh-detail" type="button" disabled>Aktualisieren</button>
+          <h2 data-i18n="shell.backendDetails">Backend-Details</h2>
+          <button id="refresh-detail" type="button" disabled data-i18n="shell.refresh">Aktualisieren</button>
         </div>
-        <div id="detail-meta" class="detail-meta">Noch kein Backend ausgewählt.</div>
-        <nav id="module-nav" class="module-nav" aria-label="Backend-Module">
-          <button type="button" class="module-tab active" data-module="overview">Übersicht</button>
-          <button type="button" class="module-tab" data-module="channels">Kanäle</button>
-          <button type="button" class="module-tab" data-module="channelsort">Kanäle sortieren</button>
-          <button type="button" class="module-tab" data-module="epg">EPG</button>
-          <button type="button" class="module-tab" data-module="timers">Timer</button>
-          <button type="button" class="module-tab" data-module="recordings">Aufnahmen</button>
-          <button type="button" class="module-tab" data-module="searchtimers">SearchTimer</button>
+        <div id="detail-meta" class="detail-meta" data-i18n="shell.noBackendSelected">Noch kein Backend ausgewählt.</div>
+        <nav id="module-nav" class="module-nav" aria-label="Backend-Module" data-i18n-aria-label="shell.backendModules">
+          <button type="button" class="module-tab active" data-module="overview" data-i18n="module.overview">Übersicht</button>
+          <button type="button" class="module-tab" data-module="channels" data-i18n="module.channels">Kanäle</button>
+          <button type="button" class="module-tab" data-module="channelsort" data-i18n="module.channelSort">Kanäle sortieren</button>
+          <button type="button" class="module-tab" data-module="epg" data-i18n="module.epg">EPG</button>
+          <button type="button" class="module-tab" data-module="timers" data-i18n="module.timers">Timer</button>
+          <button type="button" class="module-tab" data-module="recordings" data-i18n="module.recordings">Aufnahmen</button>
+          <button type="button" class="module-tab" data-module="searchtimers" data-i18n="module.searchTimers">SearchTimer</button>
         </nav>
-        <section id="detail-data" class="metric-grid">Klicke auf eine Backend-Karte.</section>
+        <section id="detail-data" class="metric-grid" data-i18n="shell.clickBackend">Klicke auf eine Backend-Karte.</section>
       </section>
     </section>
   </main>
   <script src="/frontend/platform/bootstrap.js"></script>
+  <script src="/frontend/locales/de.js"></script>
+  <script src="/frontend/locales/en.js"></script>
+  <script src="/frontend/platform/i18n.js"></script>
   <script src="/frontend/platform/helpers.js"></script>
   <script src="/frontend/api/client-api.js"></script>
   <script src="/frontend/channel-logos.js"></script>

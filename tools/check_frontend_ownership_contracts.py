@@ -89,6 +89,9 @@ def client_api_export_names(client_api: str) -> set[str]:
 def script_positions(index_html: str) -> dict[str, int]:
     scripts = {
         "platform": '<script src="/frontend/platform/bootstrap.js"></script>',
+        "locale_de": '<script src="/frontend/locales/de.js"></script>',
+        "locale_en": '<script src="/frontend/locales/en.js"></script>',
+        "i18n": '<script src="/frontend/platform/i18n.js"></script>',
         "client_api": '<script src="/frontend/api/client-api.js"></script>',
         "helpers": '<script src="/frontend/platform/helpers.js"></script>',
         "app": '<script src="/frontend/app.js"></script>',
@@ -111,13 +114,16 @@ def check_index_contract(index_html: str) -> None:
 
     require(
         positions["platform"]
+        < positions["locale_de"]
+        < positions["locale_en"]
+        < positions["i18n"]
         < positions["helpers"]
         < positions["client_api"]
         < positions["channel_logos"]
         < positions["channel_browser"]
         < positions["recording_browser"]
         < positions["app"],
-        "index.html script order must be platform/bootstrap.js -> platform/helpers.js -> client-api.js -> channel-logos.js -> channel-browser.js -> recording-browser.js -> app.js",
+        "index.html script order must be platform/bootstrap.js -> locales/de.js -> locales/en.js -> platform/i18n.js -> platform/helpers.js -> client-api.js -> channel-logos.js -> channel-browser.js -> recording-browser.js -> app.js",
     )
     require(
         '<script src="/frontend/platform/bootstrap.js"></script>' in index_html,
@@ -1101,8 +1107,8 @@ def check_recording_browser_contract(recording_browser_js: str) -> None:
         "function recordingBrowserFolderContainsMovedRecording(folderData, pendingMove)",
         "function recordingBrowserMoveCandidateFolderPaths(folderData, pendingMove)",
         "function recordingBrowserFindMovedRecordingInTarget(",
-        "Hauptordner als Ziel",
-        "Verschieben muss vor der Ausführung erfolgreich geprüft werden.",
+        "recordings.move.rootAsTarget",
+        "recordings.move.requiresValidation",
     ]
 
     for token in required_move_workflow_tokens:
@@ -1608,6 +1614,8 @@ def check_frontend_platform_bootstrap_contract(platform_bootstrap_js: str) -> No
         "function getModule(name)",
         "function hasModule(name)",
         "function listModules()",
+        "function getI18n()",
+        "getI18n: getI18n",
         "global.VdrSuitePlatform = api",
         "Object.freeze({",
         "version: '60.2b'",

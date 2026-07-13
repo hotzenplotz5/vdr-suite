@@ -414,7 +414,10 @@ bool isFrontendPath(
         path == "/frontend/app.js" ||
         path == "/frontend/api/client-api.js" ||
         path == "/frontend/platform/bootstrap.js" ||
+        path == "/frontend/platform/i18n.js" ||
         path == "/frontend/platform/helpers.js" ||
+        path == "/frontend/locales/de.js" ||
+        path == "/frontend/locales/en.js" ||
         path == "/frontend/channel-logos.js" ||
         path == "/frontend/channel-browser.js" ||
         path == "/frontend/modules/channels.js" ||
@@ -465,10 +468,31 @@ HttpServerResponse serveFrontendPath(
             "application/javascript; charset=utf-8");
     }
 
+    if (path == "/frontend/platform/i18n.js")
+    {
+        return makeFrontendAssetResponse(
+            "platform/i18n.js",
+            "application/javascript; charset=utf-8");
+    }
+
     if (path == "/frontend/platform/helpers.js")
     {
         return makeFrontendAssetResponse(
             "platform/helpers.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/locales/de.js")
+    {
+        return makeFrontendAssetResponse(
+            "locales/de.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/locales/en.js")
+    {
+        return makeFrontendAssetResponse(
+            "locales/en.js",
             "application/javascript; charset=utf-8");
     }
 

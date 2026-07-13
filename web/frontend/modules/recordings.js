@@ -31,6 +31,28 @@ function recordingBrowserAddText(element, text) {
   return element;
 }
 
+function recordingBrowserI18n() {
+  if (window.VdrSuitePlatform &&
+      typeof window.VdrSuitePlatform.getI18n === 'function') {
+    const i18n = window.VdrSuitePlatform.getI18n();
+    if (i18n) {
+      return i18n;
+    }
+  }
+
+  return window.VdrSuiteI18n || null;
+}
+
+function recordingBrowserTranslate(key, fallback, parameters) {
+  const i18n = recordingBrowserI18n();
+
+  if (!i18n || typeof i18n.t !== 'function') {
+    return String(fallback || key || '');
+  }
+
+  return i18n.t(key, parameters || {}, fallback);
+}
+
 function recordingBrowserFirstValue(object, keys, fallback) {
   for (const key of keys) {
     if (object && object[key] !== undefined && object[key] !== null && object[key] !== '') {
@@ -899,7 +921,10 @@ function recordingBrowserRenderActionResult(target, title, result, error) {
   const busyText = lines.join(' ');
   if (busyText.includes('wird ausgeführt') ||
       busyText.includes('läuft') ||
-      busyText.includes('wird geprüft')) {
+      busyText.includes('wird geprüft') ||
+      busyText.includes('is running') ||
+      busyText.includes('is being checked') ||
+      busyText.includes('is being executed')) {
     const progress = document.createElement('progress');
     progress.className = 'recording-action-progress';
     progress.setAttribute('aria-label', 'Aktion läuft');
@@ -1011,7 +1036,7 @@ function recordingBrowserMoveTargetFolderPath(targetParameter) {
 function recordingBrowserMoveTargetLabel(targetParameter) {
   const folderPath = recordingBrowserMoveTargetFolderPath(targetParameter);
   return folderPath === ''
-    ? 'Hauptordner'
+    ? recordingBrowserTranslate('common.rootFolder', 'Hauptordner')
     : recordingBrowserDisplayPathLabel(folderPath);
 }
 
@@ -1470,8 +1495,11 @@ function recordingBrowserHandleMoveFailure(
       const folderResult = data && typeof data === 'object'
         ? Object.assign({}, data)
         : {};
-      folderResult.actionNotice =
-        'Verschieben fehlgeschlagen: ' + message;
+      folderResult.actionNotice = recordingBrowserTranslate(
+        'recordings.move.failed',
+        'Verschieben fehlgeschlagen: {message}',
+        { message: message }
+      );
       renderServerRecordingFolder(folderResult);
     })
     .catch(error => recordingBrowserRenderFolderLoadError(error));
@@ -1483,7 +1511,7 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
 
   editor.appendChild(recordingBrowserAddText(
     document.createElement('summary'),
-    'Verschieben …'
+    recordingBrowserTranslate('recordings.move.title', 'Verschieben …')
   ));
 
   const body = document.createElement('section');
@@ -1500,32 +1528,46 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
 
   body.appendChild(recordingBrowserAddText(
     document.createElement('p'),
-    'Aufnahme: ' + sourceTitle
+    recordingBrowserTranslate(
+      'recordings.move.recording',
+      'Aufnahme: {title}',
+      { title: sourceTitle }
+    )
   ));
   body.appendChild(recordingBrowserAddText(
     document.createElement('p'),
-    'Aktueller Ordner: ' + (
-      sourceFolderPath === ''
-        ? 'Hauptordner'
-        : recordingBrowserDisplayPathLabel(sourceFolderPath)
+    recordingBrowserTranslate(
+      'recordings.move.currentFolder',
+      'Aktueller Ordner: {folder}',
+      {
+        folder: sourceFolderPath === ''
+          ? recordingBrowserTranslate('common.rootFolder', 'Hauptordner')
+          : recordingBrowserDisplayPathLabel(sourceFolderPath)
+      }
     )
   ));
 
   const label = document.createElement('label');
   label.appendChild(recordingBrowserAddText(
     document.createElement('span'),
-    'Zielordner'
+    recordingBrowserTranslate('recordings.move.targetFolder', 'Zielordner')
   ));
 
   const input = document.createElement('input');
   input.type = 'text';
-  input.placeholder = 'z. B. Filme/Archiv';
+  input.placeholder = recordingBrowserTranslate(
+    'recordings.move.placeholder',
+    'z. B. Filme/Archiv'
+  );
   input.autocomplete = 'off';
   label.appendChild(input);
   body.appendChild(label);
 
   const selectedTarget = document.createElement('p');
-  selectedTarget.textContent = 'Noch kein Zielordner ausgewählt.';
+  selectedTarget.textContent = recordingBrowserTranslate(
+    'recordings.move.noTarget',
+    'Noch kein Zielordner ausgewählt.'
+  );
   body.appendChild(selectedTarget);
 
   const validationStatus = document.createElement('p');
@@ -1533,8 +1575,10 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
     'recording-move-validation-status neutral';
   validationStatus.setAttribute('role', 'status');
   validationStatus.setAttribute('aria-live', 'polite');
-  validationStatus.textContent =
-    'Ziel auswählen und anschließend prüfen.';
+  validationStatus.textContent = recordingBrowserTranslate(
+    'recordings.move.selectThenValidate',
+    'Ziel auswählen und anschließend prüfen.'
+  );
   body.appendChild(validationStatus);
 
   const browseBox = document.createElement('section');
@@ -1546,21 +1590,33 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
 
   const rootButton = document.createElement('button');
   rootButton.type = 'button';
-  rootButton.textContent = 'Hauptordner als Ziel';
+  rootButton.textContent = recordingBrowserTranslate(
+    'recordings.move.rootAsTarget',
+    'Hauptordner als Ziel'
+  );
 
   const browseButton = document.createElement('button');
   browseButton.type = 'button';
-  browseButton.textContent = 'Vorhandene Ordner durchsuchen';
+  browseButton.textContent = recordingBrowserTranslate(
+    'recordings.move.browse',
+    'Vorhandene Ordner durchsuchen'
+  );
   browseButton.disabled = !recordingBrowserFolderLoader;
 
   const validateButton = document.createElement('button');
   validateButton.type = 'button';
-  validateButton.textContent = 'Ziel prüfen';
+  validateButton.textContent = recordingBrowserTranslate(
+    'recordings.move.validate',
+    'Ziel prüfen'
+  );
 
   const executeButton = document.createElement('button');
   executeButton.type = 'button';
   executeButton.className = 'recording-move-execute-button';
-  executeButton.textContent = 'Jetzt verschieben';
+  executeButton.textContent = recordingBrowserTranslate(
+    'recordings.move.execute',
+    'Jetzt verschieben'
+  );
   executeButton.disabled = true;
 
   controls.appendChild(rootButton);
@@ -1612,16 +1668,29 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
     setValidationStatus(
       'neutral',
       targetParameter() === ''
-        ? 'Ziel auswählen und anschließend prüfen.'
-        : 'Ziel geändert – bitte erneut prüfen.'
+        ? recordingBrowserTranslate(
+            'recordings.move.selectThenValidate',
+            'Ziel auswählen und anschließend prüfen.'
+          )
+        : recordingBrowserTranslate(
+            'recordings.move.targetChanged',
+            'Ziel geändert – bitte erneut prüfen.'
+          )
     );
   };
 
   const updateSelectedTarget = () => {
     const target = targetParameter();
     selectedTarget.textContent = target === ''
-      ? 'Noch kein Zielordner ausgewählt.'
-      : 'Ausgewähltes Ziel: ' + recordingBrowserMoveTargetLabel(target);
+      ? recordingBrowserTranslate(
+          'recordings.move.noTarget',
+          'Noch kein Zielordner ausgewählt.'
+        )
+      : recordingBrowserTranslate(
+          'recordings.move.selectedTarget',
+          'Ausgewähltes Ziel: {target}',
+          { target: recordingBrowserMoveTargetLabel(target) }
+        );
   };
 
   const chooseTargetFolder = path => {
@@ -1636,8 +1705,14 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
     browseBox.replaceChildren();
     browseBox.appendChild(recordingBrowserAddText(
       document.createElement('p'),
-      'Ordner konnten nicht geladen werden: ' + (
-        error && error.message ? error.message : String(error)
+      recordingBrowserTranslate(
+        'recordings.move.folderLoadError',
+        'Ordner konnten nicht geladen werden: {message}',
+        {
+          message: error && error.message
+            ? error.message
+            : String(error)
+        }
       )
     ));
   };
@@ -1651,12 +1726,21 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
     browseBox.replaceChildren();
     browseBox.appendChild(recordingBrowserAddText(
       document.createElement('p'),
-      'Lade Zielordner …'
+      recordingBrowserTranslate(
+        'recordings.move.loadingFolders',
+        'Lade Zielordner …'
+      )
     ));
 
     const progress = document.createElement('progress');
     progress.className = 'recording-folder-refresh-progress';
-    progress.setAttribute('aria-label', 'Zielordner werden geladen');
+    progress.setAttribute(
+      'aria-label',
+      recordingBrowserTranslate(
+        'recordings.move.loadingFoldersAria',
+        'Zielordner werden geladen'
+      )
+    );
     browseBox.appendChild(progress);
 
     recordingBrowserFolderLoader(normalizedPath, 0)
@@ -1677,7 +1761,7 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
         browseBox.appendChild(recordingBrowserAddText(
           document.createElement('h4'),
           browserPath === ''
-            ? 'Hauptordner'
+            ? recordingBrowserTranslate('common.rootFolder', 'Hauptordner')
             : recordingBrowserDisplayPathLabel(browserPath)
         ));
 
@@ -1686,7 +1770,10 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
 
         const chooseButton = document.createElement('button');
         chooseButton.type = 'button';
-        chooseButton.textContent = 'Diesen Ordner als Ziel verwenden';
+        chooseButton.textContent = recordingBrowserTranslate(
+          'recordings.move.useThisFolder',
+          'Diesen Ordner als Ziel verwenden'
+        );
         chooseButton.addEventListener('click', () =>
           chooseTargetFolder(browserPath)
         );
@@ -1695,7 +1782,10 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
         if (browserPath !== '') {
           const backButton = document.createElement('button');
           backButton.type = 'button';
-          backButton.textContent = 'Eine Ebene zurück';
+          backButton.textContent = recordingBrowserTranslate(
+            'recordings.move.upOneLevel',
+            'Eine Ebene zurück'
+          );
           backButton.addEventListener('click', () =>
             loadFolderBrowser(parentPath)
           );
@@ -1707,7 +1797,10 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
         if (folders.length === 0) {
           browseBox.appendChild(recordingBrowserAddText(
             document.createElement('p'),
-            'Keine weiteren Unterordner vorhanden.'
+            recordingBrowserTranslate(
+              'recordings.move.noSubfolders',
+              'Keine weiteren Unterordner vorhanden.'
+            )
           ));
           return;
         }
@@ -1717,7 +1810,7 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
             recordingBrowserFirstValue(
               folder,
               ['name', 'title'],
-              'Ordner'
+              recordingBrowserTranslate('common.folder', 'Ordner')
             )
           );
           const folderPath = recordingBrowserFirstValue(
@@ -1752,16 +1845,22 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
   });
 
   validateButton.addEventListener('click', () => {
+    const validationTitle = recordingBrowserTranslate(
+      'recordings.move.validateAction',
+      'Verschieben prüfen'
+    );
+
     if (!recordingBrowserActionRunner) {
-      setValidationStatus(
-        'error',
+      const message = recordingBrowserTranslate(
+        'recordings.move.targetValidationUnavailable',
         'Zielprüfung ist derzeit nicht verfügbar.'
       );
+      setValidationStatus('error', message);
       recordingBrowserRenderActionResult(
         resultBox,
-        'Verschieben prüfen',
+        validationTitle,
         null,
-        new Error('Recording action runner is not configured')
+        new Error(message)
       );
       return;
     }
@@ -1769,29 +1868,31 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
     const target = targetParameter();
 
     if (target === '') {
-      setValidationStatus(
-        'error',
+      const message = recordingBrowserTranslate(
+        'recordings.move.selectFirst',
         'Bitte zuerst einen Zielordner auswählen.'
       );
+      setValidationStatus('error', message);
       recordingBrowserRenderActionResult(
         resultBox,
-        'Verschieben prüfen',
+        validationTitle,
         null,
-        new Error('Bitte zuerst einen Zielordner auswählen')
+        new Error(message)
       );
       return;
     }
 
     if (recordingBrowserMoveTargetFolderPath(target) === sourceFolderPath) {
-      setValidationStatus(
-        'error',
+      const message = recordingBrowserTranslate(
+        'recordings.move.alreadyInFolder',
         'Die Aufnahme befindet sich bereits in diesem Ordner.'
       );
+      setValidationStatus('error', message);
       recordingBrowserRenderActionResult(
         resultBox,
-        'Verschieben prüfen',
+        validationTitle,
         null,
-        new Error('Die Aufnahme befindet sich bereits in diesem Ordner')
+        new Error(message)
       );
       return;
     }
@@ -1801,13 +1902,21 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
     executeButton.classList.remove('ready');
     setValidationStatus(
       'pending',
-      'Ziel „' + recordingBrowserMoveTargetLabel(target) +
-        '“ wird geprüft …'
+      recordingBrowserTranslate(
+        'recordings.move.targetValidationPending',
+        'Ziel „{target}“ wird geprüft …',
+        { target: recordingBrowserMoveTargetLabel(target) }
+      )
     );
     recordingBrowserRenderActionResult(
       resultBox,
-      'Verschieben prüfen',
-      { message: 'Verschieben wird geprüft …' },
+      validationTitle,
+      {
+        message: recordingBrowserTranslate(
+          'recordings.move.validating',
+          'Verschieben wird geprüft …'
+        )
+      },
       null
     );
 
@@ -1823,7 +1932,7 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
       .then(result => {
         recordingBrowserRenderActionResult(
           resultBox,
-          'Verschieben prüfen',
+          validationTitle,
           result,
           null
         );
@@ -1836,8 +1945,11 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
           executeButton.classList.add('ready');
           setValidationStatus(
             'success',
-            'Ziel geprüft – bereit zum Verschieben nach „' +
-              recordingBrowserMoveTargetLabel(target) + '“.'
+            recordingBrowserTranslate(
+              'recordings.move.targetReady',
+              'Ziel geprüft – bereit zum Verschieben nach „{target}“.',
+              { target: recordingBrowserMoveTargetLabel(target) }
+            )
           );
           focusReadyMoveButton();
           return;
@@ -1849,14 +1961,20 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
         if (!targetStillSelected) {
           setValidationStatus(
             'neutral',
-            'Ziel wurde während der Prüfung geändert – bitte erneut prüfen.'
+            recordingBrowserTranslate(
+              'recordings.move.targetChangedDuringValidation',
+              'Ziel wurde während der Prüfung geändert – bitte erneut prüfen.'
+            )
           );
           return;
         }
 
         setValidationStatus(
           'error',
-          'Zielprüfung nicht erfolgreich. Details stehen unter dem Dialog.'
+          recordingBrowserTranslate(
+            'recordings.move.targetValidationFailedDetails',
+            'Zielprüfung nicht erfolgreich. Details stehen unter dem Dialog.'
+          )
         );
       })
       .catch(error => {
@@ -1864,13 +1982,19 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
         executeButton.classList.remove('ready');
         setValidationStatus(
           'error',
-          'Zielprüfung fehlgeschlagen: ' + (
-            error && error.message ? error.message : String(error)
+          recordingBrowserTranslate(
+            'recordings.move.targetValidationFailed',
+            'Zielprüfung fehlgeschlagen: {message}',
+            {
+              message: error && error.message
+                ? error.message
+                : String(error)
+            }
           )
         );
         recordingBrowserRenderActionResult(
           resultBox,
-          'Verschieben prüfen',
+          validationTitle,
           null,
           error
         );
@@ -1882,33 +2006,49 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
 
   executeButton.addEventListener('click', () => {
     const target = targetParameter();
+    const moveTitle = recordingBrowserTranslate(
+      'recordings.move.title',
+      'Verschieben'
+    );
 
     if (target === '' || validatedTarget !== target) {
       executeButton.disabled = true;
       executeButton.classList.remove('ready');
       setValidationStatus(
         'error',
-        'Das aktuelle Ziel muss vor dem Verschieben erfolgreich geprüft werden.'
+        recordingBrowserTranslate(
+          'recordings.move.validationRequired',
+          'Das aktuelle Ziel muss vor dem Verschieben erfolgreich geprüft werden.'
+        )
       );
       recordingBrowserRenderActionResult(
         resultBox,
-        'Verschieben',
+        moveTitle,
         null,
-        new Error(
+        new Error(recordingBrowserTranslate(
+          'recordings.move.requiresValidation',
           'Verschieben muss vor der Ausführung erfolgreich geprüft werden.'
-        )
+        ))
       );
       return;
     }
 
     const targetLabel = recordingBrowserMoveTargetLabel(target);
 
-    if (!window.confirm(
-        'Aufnahme wirklich nach "' + targetLabel + '" verschieben?')) {
+    if (!window.confirm(recordingBrowserTranslate(
+        'recordings.move.confirm',
+        'Aufnahme wirklich nach „{target}“ verschieben?',
+        { target: targetLabel }
+      ))) {
       recordingBrowserRenderActionResult(
         resultBox,
-        'Verschieben',
-        { message: 'Verschieben nicht bestätigt.' },
+        moveTitle,
+        {
+          message: recordingBrowserTranslate(
+            'recordings.move.notConfirmed',
+            'Verschieben nicht bestätigt.'
+          )
+        },
         null
       );
       return;
@@ -1916,7 +2056,11 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
 
     setValidationStatus(
       'pending',
-      'Verschieben nach „' + targetLabel + '“ wird ausgeführt …'
+      recordingBrowserTranslate(
+        'recordings.move.executing',
+        'Verschieben nach „{target}“ wird ausgeführt …',
+        { target: targetLabel }
+      )
     );
 
     recordingBrowserRenderMovePendingDetail(
@@ -1945,7 +2089,10 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
 
         const message = result && (result.message || result.error)
           ? String(result.message || result.error)
-          : 'Backend hat das Verschieben abgelehnt';
+          : recordingBrowserTranslate(
+              'recordings.move.backendRejected',
+              'Backend hat das Verschieben abgelehnt'
+            );
 
         recordingBrowserHandleMoveFailure(
           recording,
@@ -2236,10 +2383,22 @@ function renderServerRecordingDetail(recording, folderData, options) {
   if (movePending) {
     const targetLabel = recordingBrowserMoveTargetLabel(moveTargetPath);
     const moveMessage = moveTimedOut
-      ? 'Verschieben wurde bestätigt, aber der neue Cache-Stand ist noch nicht sichtbar. Ziel: ' + targetLabel
+      ? recordingBrowserTranslate(
+          'recordings.move.timeout',
+          'Verschieben wurde bestätigt, aber der neue Cache-Stand ist noch nicht sichtbar. Ziel: {target}',
+          { target: targetLabel }
+        )
       : moveAccepted
-        ? 'Verschieben vom Backend bestätigt. Die Aufnahme wird im Zielordner gesucht: ' + targetLabel
-        : 'Verschieben wird ausgeführt. Ziel: ' + targetLabel;
+        ? recordingBrowserTranslate(
+            'recordings.move.accepted',
+            'Verschieben vom Backend bestätigt. Die Aufnahme wird im Zielordner gesucht: {target}',
+            { target: targetLabel }
+          )
+        : recordingBrowserTranslate(
+            'recordings.move.pending',
+            'Verschieben wird ausgeführt. Ziel: {target}',
+            { target: targetLabel }
+          );
 
     item.appendChild(recordingBrowserAddText(
       document.createElement('p'),
@@ -2249,12 +2408,21 @@ function renderServerRecordingDetail(recording, folderData, options) {
     if (!moveTimedOut) {
       const progress = document.createElement('progress');
       progress.className = 'recording-folder-refresh-progress';
-      progress.setAttribute('aria-label', 'Verschieben wird abgeglichen');
+      progress.setAttribute(
+        'aria-label',
+        recordingBrowserTranslate(
+          'recordings.move.syncAria',
+          'Verschieben wird im Aufnahme-Cache abgeglichen'
+        )
+      );
       item.appendChild(progress);
     } else {
       const retryButton = document.createElement('button');
       retryButton.type = 'button';
-      retryButton.textContent = 'Cache-Abgleich erneut versuchen';
+      retryButton.textContent = recordingBrowserTranslate(
+        'recordings.move.cacheRetry',
+        'Cache-Abgleich erneut versuchen'
+      );
       retryButton.addEventListener('click', () => {
         recordingBrowserRetryPendingMoveReadback();
         if (recordingBrowserPendingMove) {
@@ -2278,7 +2446,11 @@ function renderServerRecordingDetail(recording, folderData, options) {
   if (moveError !== '') {
     item.appendChild(recordingBrowserAddText(
       document.createElement('p'),
-      'Verschieben fehlgeschlagen: ' + moveError
+      recordingBrowserTranslate(
+        'recordings.move.failed',
+        'Verschieben fehlgeschlagen: {message}',
+        { message: moveError }
+      )
     ));
   }
 
@@ -2322,7 +2494,10 @@ function renderServerRecordingDetail(recording, folderData, options) {
       ? String(folderData.path || '')
       : '';
     backButton.textContent = movePending
-      ? 'Zurück zu den Aufnahmen'
+      ? recordingBrowserTranslate(
+          'recordings.move.backToRecordings',
+          'Zurück zu den Aufnahmen'
+        )
       : 'Zurück zum Ordner';
     backButton.addEventListener('click', () => {
       if (recordingBrowserFolderLoader) {
@@ -2468,11 +2643,26 @@ function renderServerRecordingFolder(data) {
         'Aufnahmeordner wird nach der Umbenennung aktualisiert';
     } else if (moveCachePending) {
       pendingMessage = pendingMove.timedOut
-        ? 'Verschieben bestätigt. Der Cache-Abgleich dauert länger als erwartet. Ziel: ' + pendingMove.targetLabel
+        ? recordingBrowserTranslate(
+            'recordings.move.folderTimeout',
+            'Verschieben bestätigt. Der Cache-Abgleich dauert länger als erwartet. Ziel: {target}',
+            { target: pendingMove.targetLabel }
+          )
         : pendingMove.accepted
-          ? 'Verschieben bestätigt. Die Aufnahme wird im Zielordner gesucht: ' + pendingMove.targetLabel
-          : 'Verschieben wird ausgeführt. Ziel: ' + pendingMove.targetLabel;
-      progressLabel = 'Verschieben wird im Aufnahme-Cache abgeglichen';
+          ? recordingBrowserTranslate(
+              'recordings.move.folderAccepted',
+              'Verschieben bestätigt. Die Aufnahme wird im Zielordner gesucht: {target}',
+              { target: pendingMove.targetLabel }
+            )
+          : recordingBrowserTranslate(
+              'recordings.move.pending',
+              'Verschieben wird ausgeführt. Ziel: {target}',
+              { target: pendingMove.targetLabel }
+            );
+      progressLabel = recordingBrowserTranslate(
+        'recordings.move.syncAria',
+        'Verschieben wird im Aufnahme-Cache abgeglichen'
+      );
     }
 
     header.appendChild(recordingBrowserAddText(
@@ -2488,7 +2678,10 @@ function renderServerRecordingFolder(data) {
     } else {
       const retryButton = document.createElement('button');
       retryButton.type = 'button';
-      retryButton.textContent = 'Cache-Abgleich erneut versuchen';
+      retryButton.textContent = recordingBrowserTranslate(
+        'recordings.move.cacheRetry',
+        'Cache-Abgleich erneut versuchen'
+      );
       retryButton.addEventListener('click', () => {
         recordingBrowserRetryPendingMoveReadback();
         recordingBrowserLoadServerFolder(path, offset);

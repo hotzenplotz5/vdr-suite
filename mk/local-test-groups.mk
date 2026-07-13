@@ -1,4 +1,4 @@
-.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-http-listener-partial-request-timeout test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy test-frontend-contracts
+.PHONY: test-ci-fast test-vdr test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-http-listener-partial-request-timeout test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy test-frontend-contracts test-frontend-i18n
 
 
 test-ci-fast: \
@@ -268,6 +268,11 @@ test-api-router-searchtimer-preview-epg-cache:
 	/tmp/test_api_router_searchtimer_preview_epg_cache
 
 .PHONY: test-frontend-contracts
-test-frontend-contracts:
+test-frontend-contracts: test-frontend-i18n
 	python3 tools/check_frontend_ownership_contracts.py
 	python3 tools/check_frontend_platform_runtime_context.py
+
+
+test-frontend-i18n:
+	python3 tools/check_frontend_i18n_contracts.py
+	node web/frontend/tests/test_i18n_runtime.js
