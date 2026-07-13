@@ -1,0 +1,54 @@
+name: Agent Recording Rename Cache UI Fix
+
+on:
+  push:
+    branches:
+      - agent/recording-rename-cache-ui-fix
+
+permissions:
+  contents: write
+
+jobs:
+  build-test-and-squash:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout working branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+
+      - name: Apply complete product fix
+        run: python3 .github/agent/apply_recording_fix.py
+
+      - name: Validate diff and frontend syntax
+        run: |
+          git diff --check
+          node --check web/frontend/modules/recordings.js
+          node --check web/frontend/api/client-api.js
+          node --check web/frontend/app.js
+          python3 tools/check_frontend_ownership_contracts.py
+
+      - name: Run fast regression suite
+        run: make test-ci-fast
+
+      - name: Build daemon
+        run: make daemon
+
+      - name: Publish one final buildable commit on the working branch
+        env:
+          BASE_SHA: 646020746bc449b220ff4f24b80992e5f38f0162
+          TARGET_BRANCH: agent/recording-rename-cache-ui-fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          tree_sha="$(git write-tree)"
+          final_sha="$(printf '%s\n' 'Recordings: synchronize cache before UI refresh' | git commit-tree "$tree_sha" -p "$BASE_SHA")"
+          git push --force origin "$final_sha:refs/heads/$TARGET_BRANCH"
+          echo "Final commit: $final_sha"
