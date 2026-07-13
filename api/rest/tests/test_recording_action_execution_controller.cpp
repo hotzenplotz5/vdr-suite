@@ -262,8 +262,19 @@ int main()
         snapshotReadService);
 
     std::atomic<int> refreshCount{0};
+    std::atomic<bool> refreshStarted{false};
+    std::atomic<bool> releaseRefresh{false};
+    std::atomic<bool> executionReturned{false};
+
     resolvedBodyController.setAfterSuccessfulExecutionCallback(
-        [&refreshCount]() {
+        [&refreshCount, &refreshStarted, &releaseRefresh]() {
+            refreshStarted.store(true);
+
+            while (!releaseRefresh.load())
+            {
+                std::this_thread::yield();
+            }
+
             refreshCount.fetch_add(1);
         });
 
@@ -275,9 +286,32 @@ int main()
         "\"dryRun\":false"
         "}";
 
-    const ApiResponse resolvedBodyResponse =
-        resolvedBodyController.executeBody(resolvedBody);
+    ApiResponse resolvedBodyResponse;
 
+    std::thread executionThread(
+        [&resolvedBodyController,
+         &resolvedBody,
+         &resolvedBodyResponse,
+         &executionReturned]() {
+            resolvedBodyResponse =
+                resolvedBodyController.executeBody(resolvedBody);
+            executionReturned.store(true);
+        });
+
+    while (!refreshStarted.load())
+    {
+        std::this_thread::yield();
+    }
+
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(10));
+
+    assert(!executionReturned.load());
+
+    releaseRefresh.store(true);
+    executionThread.join();
+
+    assert(executionReturned.load());
     assert(resolvedBodyResponse.statusCode == 200);
     assert(resolvedBodyResponse.contentType == "application/json");
     assert(resolvedBodyResponse.body.find("\"success\":true") != std::string::npos);
@@ -286,15 +320,6 @@ int main()
     assert(resolvedBodyResponse.body.find("\"snapshotRefreshed\":true") != std::string::npos);
     assert(capturingAdapter->lastPayload.parameters.at("backendNativeId") == recording.backendNativeId);
     assert(capturingAdapter->lastPayload.parameters.at("recordingTitle") == recording.title);
-
-    for (int attempt = 0;
-         attempt < 100 && refreshCount.load() == 0;
-         ++attempt)
-    {
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(10));
-    }
-
     assert(refreshCount.load() == 1);
 
     return 0;
