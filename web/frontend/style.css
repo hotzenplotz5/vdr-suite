@@ -4078,3 +4078,56 @@ body.channel-sorter-dragging * {
     radial-gradient(circle at top left, rgba(34, 197, 94, 0.16), transparent 42%),
     #020617;
 }
+
+/* Recording move validation feedback */
+.recording-move-validation-status {
+  box-sizing: border-box;
+  margin: 0.7rem 0 0.25rem;
+  padding: 0.72rem 0.82rem;
+  border: 1px solid #475569;
+  border-radius: 0.72rem;
+  background: rgba(15, 23, 42, 0.76);
+  color: #cbd5e1;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.recording-move-validation-status.pending {
+  border-color: rgba(96, 165, 250, 0.62);
+  background: rgba(37, 99, 235, 0.16);
+  color: #dbeafe;
+}
+
+.recording-move-validation-status.success {
+  border-color: rgba(34, 197, 94, 0.68);
+  background: rgba(22, 163, 74, 0.18);
+  color: #bbf7d0;
+}
+
+.recording-move-validation-status.error {
+  border-color: rgba(248, 113, 113, 0.64);
+  background: rgba(185, 28, 28, 0.16);
+  color: #fecaca;
+}
+
+.recording-move-execute-button.ready:not(:disabled) {
+  background: #16a34a;
+  color: #f0fdf4;
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.38),
+    0 0.55rem 1.25rem rgba(22, 163, 74, 0.22);
+}
+
+.recording-move-execute-button.ready:not(:disabled):focus-visible {
+  outline: 3px solid #86efac;
+  outline-offset: 3px;
+}
+
+@media (max-width: 42rem) {
+  .recording-move-validation-status {
+    font-size: 0.94rem;
+  }
+
+  .recording-move-execute-button {
+    width: 100%;
+  }
+}
