@@ -6,8 +6,6 @@
 #include "RecordingActionValidationRequestParser.h"
 #include "VdrSnapshotReadService.h"
 
-#include <thread>
-
 RecordingActionExecutionController::RecordingActionExecutionController(
     RecordingActionExecutionService& executionService,
     RecordingActionExecutionResultJsonSerializer& jsonSerializer,
@@ -85,13 +83,15 @@ bool RecordingActionExecutionController::refreshAfterSuccessfulExecution(
         return false;
     }
 
-    const std::function<void()> callback = afterSuccessfulExecution_;
-
-    std::thread([callback]() {
-        callback();
-    }).detach();
-
-    return true;
+    try
+    {
+        afterSuccessfulExecution_();
+        return true;
+    }
+    catch (...)
+    {
+        return false;
+    }
 }
 
 RecordingActionExecutionResult RecordingActionExecutionController::enrichExecutionResult(
