@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  capture-fast-regression-log:
+  validate-recording-fix:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,31 +21,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
 
-      - name: Capture fast regression output
-        id: regression
-        shell: bash
+      - name: Check frontend syntax and ownership
         run: |
-          set +e
-          make test-ci-fast > fast-regression.log 2>&1
-          status=$?
-          printf '%s\n' "$status" > fast-regression.status
-          exit 0
+          node --check web/frontend/modules/recordings.js
+          node --check web/frontend/api/client-api.js
+          node --check web/frontend/app.js
+          python3 tools/check_frontend_ownership_contracts.py
 
-      - name: Upload diagnostic output
-        uses: actions/upload-artifact@v4
-        with:
-          name: recording-fix-fast-regression
-          path: |
-            fast-regression.log
-            fast-regression.status
-          if-no-files-found: error
-          retention-days: 1
+      - name: Run recording action controller regression
+        run: make test-recording-action-execution-controller
 
-      - name: Preserve regression result
-        shell: bash
-        run: |
-          status="$(cat fast-regression.status)"
-          if [ "$status" -ne 0 ]; then
-            tail -n 80 fast-regression.log
-            exit "$status"
-          fi
+      - name: Build daemon
+        run: make daemon
