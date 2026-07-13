@@ -298,19 +298,25 @@ int main()
             executionReturned.store(true);
         });
 
-    while (!refreshStarted.load())
+    for (int attempt = 0;
+         attempt < 100 && !refreshStarted.load();
+         ++attempt)
     {
-        std::this_thread::yield();
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(1));
     }
 
     std::this_thread::sleep_for(
         std::chrono::milliseconds(10));
 
-    assert(!executionReturned.load());
+    const bool executionReturnedBeforeRelease =
+        executionReturned.load();
 
     releaseRefresh.store(true);
     executionThread.join();
 
+    assert(refreshStarted.load());
+    assert(!executionReturnedBeforeRelease);
     assert(executionReturned.load());
     assert(resolvedBodyResponse.statusCode == 200);
     assert(resolvedBodyResponse.contentType == "application/json");
