@@ -4193,3 +4193,79 @@ body.channel-sorter-dragging * {
     width: 100%;
   }
 }
+
+/* Recording VDR trash workflow */
+.recording-trash-editor {
+  width: 100%;
+}
+
+.recording-trash-editor > summary {
+  color: #fecaca;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.recording-trash-editor-body {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.7rem;
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(69, 10, 10, 0.3);
+}
+
+.recording-trash-warning {
+  margin: 0;
+  padding: 0.72rem 0.82rem;
+  border: 1px solid rgba(248, 113, 113, 0.58);
+  border-radius: 0.72rem;
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecaca;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.recording-trash-status {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #475569;
+  border-radius: 0.7rem;
+  background: rgba(15, 23, 42, 0.76);
+  color: #cbd5e1;
+  font-weight: 750;
+}
+
+.recording-trash-status.pending {
+  border-color: rgba(96, 165, 250, 0.62);
+  color: #dbeafe;
+}
+
+.recording-trash-status.success {
+  border-color: rgba(34, 197, 94, 0.68);
+  background: rgba(22, 163, 74, 0.18);
+  color: #bbf7d0;
+}
+
+.recording-trash-status.error {
+  border-color: rgba(248, 113, 113, 0.64);
+  background: rgba(185, 28, 28, 0.18);
+  color: #fecaca;
+}
+
+.recording-trash-execute-button.ready:not(:disabled) {
+  background: #b91c1c;
+  color: #fff7ed;
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.45),
+    0 0.55rem 1.25rem rgba(185, 28, 28, 0.28);
+}
+
+.recording-trash-execute-button.ready:not(:disabled):focus-visible {
+  outline: 3px solid #fca5a5;
+  outline-offset: 3px;
+}
+
+@media (max-width: 42rem) {
+  .recording-trash-execute-button {
+    width: 100%;
+  }
+}

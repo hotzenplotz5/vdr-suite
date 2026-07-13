@@ -1113,6 +1113,13 @@ def check_recording_browser_contract(recording_browser_js: str) -> None:
         "function recordingBrowserJoinMoveFolderPath(parentPath, folderName)",
         "recordings.move.createFolder",
         "recordings.move.newFolderSelected",
+        "function recordingBrowserCreateTrashEditor(recording, folderData, resultBox)",
+        "function recordingBrowserIsTrashDryRunReady(result)",
+        "function recordingBrowserTrashSourceOffset(recording, folderData)",
+        "function recordingBrowserTrashFolderHasContent(folderData)",
+        "recordings.trash.ready",
+        "recordings.trash.confirm",
+        "recordings.trash.syncAria",
     ]
 
     for token in required_move_workflow_tokens:

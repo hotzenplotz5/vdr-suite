@@ -390,12 +390,22 @@ Dry-run execution result:
 - Warning: `dry-run only`
 - Errors: none
 
-Conclusion:
+Conclusion at the time of this readiness probe:
 
 - Delete is recognized by the validation layer.
 - Delete dry-run execution is safety-gated and does not call the backend executor.
-- The Web UI must keep Delete in validate/dry-run-only mode until a dedicated sharp-delete probe exists.
-- Before enabling sharp Delete, the backend request source path must be reviewed against RESTfulAPI mount-loop paths. Runtime probes have shown that RESTfulAPI can expose the same recording through `Recordings_on_yavdr(nfs)` mount aliases, so sharp Delete must not blindly trust the displayed backend-native path.
+- Sharp Delete remained blocked until a dedicated real probe and native-identity review were complete.
+
+Later result:
+
+- The dedicated real end-to-end validation in
+  [Real Recording Action End-to-End Validation](real-recording-action-e2e-validation.md)
+  proved sharp `DELETE` through VDR-Suite and RESTfulAPI.
+- `backendNativeId` is the required backend-owned action identity.
+- The normal frontend action is VDR-compatible soft delete / move to the VDR
+  deleted-recordings area, not permanent filesystem deletion.
+- The frontend may expose the action only with validation, backend-policy dry-run,
+  explicit confirmation and post-action absence readback.
 
 ## Phase 60.15f: Move validation and dry-run runtime probe
 

@@ -65,6 +65,10 @@ def main() -> int:
     require("function recordingBrowserJoinMoveFolderPath(parentPath, folderName)" in recordings, "Move new-folder path helper missing")
     require("recordings.move.createFolder" in recordings, "Move new-folder trigger must use i18n")
     require("recordings.move.newFolderSelected" in recordings, "Move new-folder selection feedback must use i18n")
+    require("function recordingBrowserCreateTrashEditor(recording, folderData, resultBox)" in recordings, "Recording trash editor missing")
+    require("recordings.trash.ready" in recordings, "Recording trash ready feedback must use i18n")
+    require("recordings.trash.confirm" in recordings, "Recording trash confirmation must use i18n")
+    require("recordings.trash.syncAria" in recordings, "Recording trash readback must use i18n")
     require("frontendTranslate('settings.language'" in app, "Settings must expose the language selector")
 
     for asset in [

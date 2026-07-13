@@ -390,6 +390,7 @@ let recordingBrowserActionRunner = null;
 let recordingBrowserFolderRefreshTimer = null;
 let recordingBrowserPendingRename = null;
 let recordingBrowserPendingMove = null;
+let recordingBrowserPendingTrash = null;
 let recordingBrowserVisibleFolderPath = null;
 
 function configureRecordingBrowserFolderLoader(loader) {
@@ -1536,6 +1537,321 @@ function recordingBrowserActivateConfirmedMoveReadback() {
     .catch(() => recordingBrowserScheduleMoveTargetFolderReload());
 }
 
+function recordingBrowserParentFolderPath(path) {
+  const segments = recordingBrowserNormalizeFolderPath(path)
+    .split('/')
+    .filter(segment => segment !== '');
+
+  if (segments.length === 0) {
+    return '';
+  }
+
+  segments.pop();
+  return segments.join('/');
+}
+
+function recordingBrowserIsTrashDryRunReady(result) {
+  if (!result || typeof result !== 'object') {
+    return false;
+  }
+
+  const warnings = recordingBrowserActionList(result.warnings);
+  const errors = recordingBrowserActionList(result.errors);
+
+  return result.success === false &&
+    String(result.message || '') === 'dry-run backend execution skipped' &&
+    warnings.includes('dry-run only') &&
+    errors.length === 0;
+}
+
+function recordingBrowserTrashCandidateMatches(
+  recording,
+  folderData,
+  pendingTrash
+) {
+  return recordingBrowserMoveCandidateMatches(
+    recording,
+    folderData,
+    {
+      identity: pendingTrash && pendingTrash.identity
+        ? pendingTrash.identity
+        : {}
+    }
+  );
+}
+
+function recordingBrowserFolderContainsTrashIdentity(folderData, pendingTrash) {
+  return recordingBrowserListFromResponse(folderData, 'recordings')
+    .some(recording => recordingBrowserTrashCandidateMatches(
+      recording,
+      folderData,
+      pendingTrash
+    ));
+}
+
+function recordingBrowserTrashSourceOffset(recording, folderData) {
+  const sourceFolderPath = recordingBrowserMoveSourceFolderPath(
+    recording,
+    folderData
+  );
+  const visibleFolderPath = recordingBrowserNormalizeFolderPath(
+    folderData && typeof folderData === 'object'
+      ? folderData.path || ''
+      : ''
+  );
+
+  if (visibleFolderPath !== sourceFolderPath) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Number(folderData && folderData.offset) || 0
+  );
+}
+
+function recordingBrowserTrashFolderHasContent(folderData) {
+  const folders = recordingBrowserListFromResponse(folderData, 'folders');
+  const recordings = recordingBrowserListFromResponse(folderData, 'recordings');
+  const recordingCount = Math.max(
+    0,
+    Number(folderData && folderData.recordingCount) || 0
+  );
+
+  return folders.length > 0 || recordings.length > 0 || recordingCount > 0;
+}
+
+function recordingBrowserSetPendingTrash(recording, folderData, accepted) {
+  const sourceFolderPath = recordingBrowserMoveSourceFolderPath(
+    recording,
+    folderData
+  );
+
+  recordingBrowserPendingTrash = {
+    recording: recording,
+    folderData: folderData,
+    sourceFolderPath: sourceFolderPath,
+    sourceOffset: recordingBrowserTrashSourceOffset(recording, folderData),
+    identity: recordingBrowserMoveIdentity(recording),
+    title: recordingBrowserLocalRecordingTitle(recording, folderData),
+    accepted: accepted === true,
+    timedOut: false
+  };
+}
+
+function recordingBrowserClearPendingTrash() {
+  recordingBrowserPendingTrash = null;
+  recordingBrowserCancelFolderRefreshTimer();
+}
+
+function recordingBrowserRenderTrashPendingDetail(
+  recording,
+  folderData,
+  accepted,
+  timedOut
+) {
+  recordingBrowserSetPendingTrash(recording, folderData, accepted);
+  recordingBrowserPendingTrash.timedOut = timedOut === true;
+
+  renderServerRecordingDetail(
+    recording,
+    folderData,
+    {
+      trashPending: true,
+      trashAccepted: accepted === true,
+      trashTimedOut: timedOut === true
+    }
+  );
+}
+
+function recordingBrowserRenderFolderAfterTrashReadback(
+  sourceFolderData,
+  pendingTrash
+) {
+  const sourcePath = recordingBrowserNormalizeFolderPath(
+    pendingTrash.sourceFolderPath
+  );
+
+  const finishReadback = latestSourceFolderData => {
+    recordingBrowserClearPendingTrash();
+
+    if (sourcePath === '' ||
+        recordingBrowserTrashFolderHasContent(latestSourceFolderData)) {
+      renderServerRecordingFolder(latestSourceFolderData);
+      return;
+    }
+
+    if (!recordingBrowserFolderLoader) {
+      renderServerRecordingFolder(latestSourceFolderData);
+      return;
+    }
+
+    const parentPath = recordingBrowserNormalizeFolderPath(
+      latestSourceFolderData &&
+      latestSourceFolderData.parentPath !== undefined
+        ? latestSourceFolderData.parentPath
+        : recordingBrowserParentFolderPath(sourcePath)
+    );
+
+    recordingBrowserFolderLoader(parentPath, 0)
+      .then(renderServerRecordingFolder)
+      .catch(recordingBrowserRenderFolderLoadError);
+  };
+
+  if (!recordingBrowserFolderLoader ||
+      Number(sourceFolderData && sourceFolderData.offset) === 0) {
+    finishReadback(sourceFolderData);
+    return;
+  }
+
+  recordingBrowserFolderLoader(sourcePath, 0)
+    .then(data => finishReadback(
+      data && typeof data === 'object' ? data : {}
+    ))
+    .catch(recordingBrowserRenderFolderLoadError);
+}
+
+function recordingBrowserRenderTrashTimeout(pendingTrash) {
+  recordingBrowserFolderRefreshTimer = null;
+  pendingTrash.timedOut = true;
+
+  if (recordingBrowserVisibleFolderPath === null) {
+    renderServerRecordingDetail(
+      pendingTrash.recording,
+      pendingTrash.folderData,
+      {
+        trashPending: true,
+        trashAccepted: true,
+        trashTimedOut: true
+      }
+    );
+    return;
+  }
+
+  if (!recordingBrowserFolderLoader) {
+    return;
+  }
+
+  recordingBrowserFolderLoader(recordingBrowserVisibleFolderPath, 0)
+    .then(renderServerRecordingFolder)
+    .catch(() => {
+      /* Der bestätigte Papierkorb-Zustand bleibt für einen Retry erhalten. */
+    });
+}
+
+function recordingBrowserScheduleTrashReadback() {
+  if (!recordingBrowserPendingTrash ||
+      !recordingBrowserPendingTrash.accepted ||
+      recordingBrowserPendingTrash.timedOut ||
+      !recordingBrowserFolderLoader ||
+      recordingBrowserFolderRefreshTimer !== null) {
+    return false;
+  }
+
+  let attempts = 0;
+  const maxAttempts = 45;
+
+  const reloadSource = () => {
+    const pendingTrash = recordingBrowserPendingTrash;
+
+    if (!pendingTrash || !pendingTrash.accepted) {
+      recordingBrowserFolderRefreshTimer = null;
+      return;
+    }
+
+    attempts += 1;
+
+    recordingBrowserFolderLoader(
+      pendingTrash.sourceFolderPath,
+      pendingTrash.sourceOffset
+    )
+      .then(data => {
+        if (recordingBrowserPendingTrash !== pendingTrash) {
+          recordingBrowserFolderRefreshTimer = null;
+          return;
+        }
+
+        const sourceFolderData = data && typeof data === 'object'
+          ? data
+          : {};
+
+        if (!recordingBrowserFolderContainsTrashIdentity(
+            sourceFolderData,
+            pendingTrash)) {
+          recordingBrowserRenderFolderAfterTrashReadback(
+            sourceFolderData,
+            pendingTrash
+          );
+          return;
+        }
+
+        if (attempts >= maxAttempts) {
+          recordingBrowserRenderTrashTimeout(pendingTrash);
+          return;
+        }
+
+        recordingBrowserFolderRefreshTimer =
+          window.setTimeout(reloadSource, 1000);
+      })
+      .catch(() => {
+        if (recordingBrowserPendingTrash !== pendingTrash) {
+          recordingBrowserFolderRefreshTimer = null;
+          return;
+        }
+
+        if (attempts >= maxAttempts) {
+          recordingBrowserRenderTrashTimeout(pendingTrash);
+          return;
+        }
+
+        recordingBrowserFolderRefreshTimer =
+          window.setTimeout(reloadSource, 1000);
+      });
+  };
+
+  reloadSource();
+  return true;
+}
+
+function recordingBrowserRetryPendingTrashReadback() {
+  if (!recordingBrowserPendingTrash) {
+    return;
+  }
+
+  recordingBrowserPendingTrash.timedOut = false;
+  recordingBrowserCancelFolderRefreshTimer();
+  recordingBrowserScheduleTrashReadback();
+}
+
+function recordingBrowserActivateConfirmedTrashReadback() {
+  if (!recordingBrowserPendingTrash) {
+    return;
+  }
+
+  recordingBrowserPendingTrash.accepted = true;
+  recordingBrowserPendingTrash.timedOut = false;
+
+  renderServerRecordingDetail(
+    recordingBrowserPendingTrash.recording,
+    recordingBrowserPendingTrash.folderData,
+    {
+      trashPending: true,
+      trashAccepted: true,
+      trashTimedOut: false
+    }
+  );
+  recordingBrowserScheduleTrashReadback();
+}
+
+function recordingBrowserHandleTrashFailure(recording, folderData, message) {
+  recordingBrowserClearPendingTrash();
+  renderServerRecordingDetail(
+    recording,
+    folderData,
+    { trashError: message }
+  );
+}
+
 function recordingBrowserHandleMoveFailure(
   recording,
   folderData,
@@ -2337,6 +2653,320 @@ function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
   return editor;
 }
 
+function recordingBrowserCreateTrashEditor(recording, folderData, resultBox) {
+  const editor = document.createElement('details');
+  editor.className = 'recording-trash-editor';
+
+  editor.appendChild(recordingBrowserAddText(
+    document.createElement('summary'),
+    recordingBrowserTranslate(
+      'recordings.trash.title',
+      'In Papierkorb verschieben …'
+    )
+  ));
+
+  const body = document.createElement('section');
+  body.className = 'module-placeholder recording-trash-editor-body';
+
+  const title = recordingBrowserLocalRecordingTitle(recording, folderData);
+
+  body.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    recordingBrowserTranslate(
+      'recordings.trash.recording',
+      'Aufnahme: {title}',
+      { title: title }
+    )
+  ));
+
+  const warning = recordingBrowserAddText(
+    document.createElement('p'),
+    recordingBrowserTranslate(
+      'recordings.trash.warning',
+      'Dies ist kein direkter permanenter Dateisystem-Löschvorgang. VDR verschiebt die Aufnahme in seinen Bereich für gelöschte Aufnahmen; die spätere Bereinigung steuert VDR.'
+    )
+  );
+  warning.className = 'recording-trash-warning';
+  body.appendChild(warning);
+
+  const status = document.createElement('p');
+  status.className = 'recording-trash-status neutral';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+  status.textContent = recordingBrowserTranslate(
+    'recordings.trash.preflightRequired',
+    'Die Papierkorb-Aktion muss zuerst erfolgreich geprüft werden.'
+  );
+  body.appendChild(status);
+
+  const actions = document.createElement('div');
+  actions.className = 'recording-action-buttons';
+
+  const validateButton = document.createElement('button');
+  validateButton.type = 'button';
+  validateButton.textContent = recordingBrowserTranslate(
+    'recordings.trash.validate',
+    'Papierkorb-Aktion prüfen'
+  );
+
+  const executeButton = document.createElement('button');
+  executeButton.type = 'button';
+  executeButton.className = 'recording-trash-execute-button';
+  executeButton.textContent = recordingBrowserTranslate(
+    'recordings.trash.execute',
+    'In Papierkorb verschieben'
+  );
+  executeButton.disabled = true;
+
+  actions.appendChild(validateButton);
+  actions.appendChild(executeButton);
+  body.appendChild(actions);
+  editor.appendChild(body);
+
+  let preflightReady = false;
+
+  const setStatus = (state, message) => {
+    status.className = 'recording-trash-status ' + state;
+    status.textContent = message;
+  };
+
+  const resetReady = () => {
+    preflightReady = false;
+    executeButton.disabled = true;
+    executeButton.classList.remove('ready');
+  };
+
+  validateButton.addEventListener('click', () => {
+    const actionTitle = recordingBrowserTranslate(
+      'recordings.trash.validationAction',
+      'Papierkorb prüfen'
+    );
+
+    if (!recordingBrowserActionRunner) {
+      const message = recordingBrowserTranslate(
+        'recordings.trash.validationUnavailable',
+        'Die Recording-Action-Schnittstelle ist derzeit nicht verfügbar.'
+      );
+      setStatus('error', message);
+      recordingBrowserRenderActionResult(
+        resultBox,
+        actionTitle,
+        null,
+        new Error(message)
+      );
+      return;
+    }
+
+    resetReady();
+    validateButton.disabled = true;
+    setStatus(
+      'pending',
+      recordingBrowserTranslate(
+        'recordings.trash.validating',
+        'Papierkorb-Aktion wird validiert …'
+      )
+    );
+
+    const dryRunPayload = recordingBrowserActionPayload(
+      recording,
+      'DELETE',
+      { dryRun: true }
+    );
+
+    recordingBrowserActionRunner({
+      mode: 'validate',
+      action: 'DELETE',
+      payload: dryRunPayload,
+      recording: recording
+    })
+      .then(validationResult => {
+        recordingBrowserRenderActionResult(
+          resultBox,
+          actionTitle,
+          validationResult,
+          null
+        );
+
+        if (!validationResult || validationResult.valid !== true) {
+          throw new Error(recordingBrowserTranslate(
+            'recordings.trash.validationFailed',
+            'Die Validierung hat die Papierkorb-Aktion nicht freigegeben.'
+          ));
+        }
+
+        setStatus(
+          'pending',
+          recordingBrowserTranslate(
+            'recordings.trash.safetyChecking',
+            'Backend-Sicherheit und Berechtigungen werden als Dry-Run geprüft …'
+          )
+        );
+
+        return recordingBrowserActionRunner({
+          mode: 'execute',
+          action: 'DELETE',
+          payload: dryRunPayload,
+          recording: recording
+        });
+      })
+      .then(safetyResult => {
+        recordingBrowserRenderActionResult(
+          resultBox,
+          actionTitle,
+          safetyResult,
+          null
+        );
+
+        if (!recordingBrowserIsTrashDryRunReady(safetyResult)) {
+          throw new Error(recordingBrowserTranslate(
+            'recordings.trash.safetyBlocked',
+            'Die Backend-Sicherheitsprüfung hat die Papierkorb-Aktion nicht freigegeben.'
+          ));
+        }
+
+        preflightReady = true;
+        executeButton.disabled = false;
+        executeButton.classList.add('ready');
+        setStatus(
+          'success',
+          recordingBrowserTranslate(
+            'recordings.trash.ready',
+            'Prüfung erfolgreich – bereit für den VDR-Papierkorb.'
+          )
+        );
+        window.setTimeout(() => {
+          executeButton.focus();
+          executeButton.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        }, 0);
+      })
+      .catch(error => {
+        resetReady();
+        const message = error && error.message
+          ? error.message
+          : String(error);
+        setStatus(
+          'error',
+          recordingBrowserTranslate(
+            'recordings.trash.preflightFailed',
+            'Papierkorb-Prüfung fehlgeschlagen: {message}',
+            { message: message }
+          )
+        );
+        recordingBrowserRenderActionResult(
+          resultBox,
+          actionTitle,
+          null,
+          error
+        );
+      })
+      .finally(() => {
+        validateButton.disabled = false;
+      });
+  });
+
+  executeButton.addEventListener('click', () => {
+    if (!preflightReady) {
+      resetReady();
+      const message = recordingBrowserTranslate(
+        'recordings.trash.preflightRequired',
+        'Die Papierkorb-Aktion muss zuerst erfolgreich geprüft werden.'
+      );
+      setStatus('error', message);
+      recordingBrowserRenderActionResult(
+        resultBox,
+        recordingBrowserTranslate(
+          'recordings.trash.title',
+          'In Papierkorb verschieben'
+        ),
+        null,
+        new Error(message)
+      );
+      return;
+    }
+
+    if (!window.confirm(recordingBrowserTranslate(
+        'recordings.trash.confirm',
+        'Aufnahme „{title}“ in den VDR-Papierkorb verschieben?\n\nSie verschwindet aus den normalen Aufnahmen. VDR kann gelöschte Aufnahmen später nach seinen Aufbewahrungsregeln endgültig entfernen.',
+        { title: title }
+      ))) {
+      recordingBrowserRenderActionResult(
+        resultBox,
+        recordingBrowserTranslate(
+          'recordings.trash.title',
+          'In Papierkorb verschieben'
+        ),
+        {
+          message: recordingBrowserTranslate(
+            'recordings.trash.notConfirmed',
+            'Papierkorb-Aktion nicht bestätigt.'
+          )
+        },
+        null
+      );
+      return;
+    }
+
+    resetReady();
+    validateButton.disabled = true;
+    setStatus(
+      'pending',
+      recordingBrowserTranslate(
+        'recordings.trash.executing',
+        '„{title}“ wird in den VDR-Papierkorb verschoben …',
+        { title: title }
+      )
+    );
+
+    recordingBrowserRenderTrashPendingDetail(
+      recording,
+      folderData,
+      false,
+      false
+    );
+
+    recordingBrowserActionRunner({
+      mode: 'execute',
+      action: 'DELETE',
+      payload: recordingBrowserActionPayload(
+        recording,
+        'DELETE',
+        { dryRun: false }
+      ),
+      recording: recording
+    })
+      .then(result => {
+        if (result && result.success === true) {
+          recordingBrowserActivateConfirmedTrashReadback();
+          return;
+        }
+
+        const message = result && (result.message || result.error)
+          ? String(result.message || result.error)
+          : recordingBrowserTranslate(
+              'recordings.trash.backendRejected',
+              'Das Backend hat die Papierkorb-Aktion abgelehnt.'
+            );
+        recordingBrowserHandleTrashFailure(
+          recording,
+          folderData,
+          message
+        );
+      })
+      .catch(error => {
+        recordingBrowserHandleTrashFailure(
+          recording,
+          folderData,
+          error && error.message ? error.message : String(error)
+        );
+      });
+  });
+
+  return editor;
+}
+
 function recordingBrowserCreateRenameValidateButton(recording, resultBox) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -2497,12 +3127,18 @@ function createServerRecordingActionPanel(recording, folderData) {
 
   panel.appendChild(recordingBrowserAddText(
     document.createElement('summary'),
-    'Aktionen anzeigen'
+    recordingBrowserTranslate(
+      'recordings.actions.show',
+      'Aktionen anzeigen'
+    )
   ));
 
   panel.appendChild(recordingBrowserAddText(
     document.createElement('p'),
-    'Umbenennen ist nach Bestätigung scharf. Verschieben wird zuerst gegen den gewählten Zielordner geprüft und danach ausdrücklich bestätigt. Löschen bleibt bewusst Prüfung/Dry-Run.'
+    recordingBrowserTranslate(
+      'recordings.actions.description',
+      'Umbenennen und Verschieben werden vor der Ausführung bestätigt. Die Papierkorb-Aktion wird zusätzlich validiert und als Dry-Run gegen die Backend-Sicherheitsregeln geprüft.'
+    )
   ));
 
   const actions = document.createElement('div');
@@ -2528,19 +3164,9 @@ function createServerRecordingActionPanel(recording, folderData) {
     resultBox
   ));
 
-  actions.appendChild(recordingBrowserCreateActionButton(
-    'Löschen prüfen (sicher)',
-    'validate',
-    'DELETE',
+  actions.appendChild(recordingBrowserCreateTrashEditor(
     recording,
-    resultBox
-  ));
-
-  actions.appendChild(recordingBrowserCreateActionButton(
-    'Löschen Dry-Run (keine Ausführung)',
-    'execute',
-    'DELETE',
-    recording,
+    folderData,
     resultBox
   ));
 
@@ -2565,6 +3191,10 @@ function renderServerRecordingDetail(recording, folderData, options) {
   const moveTimedOut = detailOptions.moveTimedOut === true;
   const moveTargetPath = String(detailOptions.moveTargetPath || '').trim();
   const moveError = String(detailOptions.moveError || '').trim();
+  const trashPending = detailOptions.trashPending === true;
+  const trashAccepted = detailOptions.trashAccepted === true;
+  const trashTimedOut = detailOptions.trashTimedOut === true;
+  const trashError = String(detailOptions.trashError || '').trim();
 
   const list = document.createElement('section');
   list.className = 'list recording-detail-list';
@@ -2678,6 +3308,75 @@ function renderServerRecordingDetail(recording, folderData, options) {
     ));
   }
 
+  if (trashPending) {
+    const trashMessage = trashTimedOut
+      ? recordingBrowserTranslate(
+          'recordings.trash.timeout',
+          'Die Papierkorb-Aktion wurde bestätigt, aber die Aufnahme ist im Cache noch sichtbar.'
+        )
+      : trashAccepted
+        ? recordingBrowserTranslate(
+            'recordings.trash.accepted',
+            'Das Backend hat die Papierkorb-Aktion bestätigt. Der Aufnahme-Cache wird auf das Verschwinden der Aufnahme geprüft.'
+          )
+        : recordingBrowserTranslate(
+            'recordings.trash.pending',
+            'Die Aufnahme wird in den VDR-Papierkorb verschoben.'
+          );
+
+    item.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      trashMessage
+    ));
+
+    if (!trashTimedOut) {
+      const progress = document.createElement('progress');
+      progress.className = 'recording-folder-refresh-progress';
+      progress.setAttribute(
+        'aria-label',
+        recordingBrowserTranslate(
+          'recordings.trash.syncAria',
+          'Papierkorb-Aktion wird im Aufnahme-Cache abgeglichen'
+        )
+      );
+      item.appendChild(progress);
+    } else {
+      const retryButton = document.createElement('button');
+      retryButton.type = 'button';
+      retryButton.textContent = recordingBrowserTranslate(
+        'recordings.trash.cacheRetry',
+        'Cache-Abgleich erneut versuchen'
+      );
+      retryButton.addEventListener('click', () => {
+        recordingBrowserRetryPendingTrashReadback();
+        if (recordingBrowserPendingTrash) {
+          renderServerRecordingDetail(
+            recordingBrowserPendingTrash.recording,
+            recordingBrowserPendingTrash.folderData,
+            {
+              trashPending: true,
+              trashAccepted: true,
+              trashTimedOut: false
+            }
+          );
+          recordingBrowserScheduleTrashReadback();
+        }
+      });
+      item.appendChild(retryButton);
+    }
+  }
+
+  if (trashError !== '') {
+    item.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      recordingBrowserTranslate(
+        'recordings.trash.failed',
+        'Papierkorb-Aktion fehlgeschlagen: {message}',
+        { message: trashError }
+      )
+    ));
+  }
+
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Aufnahme: ' + startTime));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
 
@@ -2703,7 +3402,7 @@ function renderServerRecordingDetail(recording, folderData, options) {
 
   item.appendChild(technicalDetails);
 
-  if (!renamePending && !movePending) {
+  if (!renamePending && !movePending && !trashPending) {
     item.appendChild(createServerRecordingActionPanel(recording, folderData));
   }
 
@@ -2717,7 +3416,7 @@ function renderServerRecordingDetail(recording, folderData, options) {
     const detailFolderPath = folderData && typeof folderData === 'object'
       ? String(folderData.path || '')
       : '';
-    backButton.textContent = movePending
+    backButton.textContent = movePending || trashPending
       ? recordingBrowserTranslate(
           'recordings.move.backToRecordings',
           'Zurück zu den Aufnahmen'
@@ -2809,8 +3508,10 @@ function renderServerRecordingFolder(data) {
   }
 
   const moveCachePending = pendingMove !== null;
+  const pendingTrash = recordingBrowserPendingTrash;
+  const trashCachePending = pendingTrash !== null;
   const folderRefreshPending =
-    renameCachePending || moveCachePending || externalRefreshPending;
+    renameCachePending || moveCachePending || trashCachePending || externalRefreshPending;
 
   const list = document.createElement('section');
   list.className = 'list recording-folder-list';
@@ -2887,6 +3588,25 @@ function renderServerRecordingFolder(data) {
         'recordings.move.syncAria',
         'Verschieben wird im Aufnahme-Cache abgeglichen'
       );
+    } else if (trashCachePending) {
+      pendingMessage = pendingTrash.timedOut
+        ? recordingBrowserTranslate(
+            'recordings.trash.folderTimeout',
+            'Papierkorb-Aktion bestätigt. Der Cache zeigt die Aufnahme noch an.'
+          )
+        : pendingTrash.accepted
+          ? recordingBrowserTranslate(
+              'recordings.trash.folderAccepted',
+              'Papierkorb-Aktion bestätigt. Der Aufnahmeordner wird neu eingelesen.'
+            )
+          : recordingBrowserTranslate(
+              'recordings.trash.pending',
+              'Die Aufnahme wird in den VDR-Papierkorb verschoben.'
+            );
+      progressLabel = recordingBrowserTranslate(
+        'recordings.trash.syncAria',
+        'Papierkorb-Aktion wird im Aufnahme-Cache abgeglichen'
+      );
     }
 
     header.appendChild(recordingBrowserAddText(
@@ -2894,7 +3614,8 @@ function renderServerRecordingFolder(data) {
       pendingMessage
     ));
 
-    if (!moveCachePending || !pendingMove.timedOut) {
+    if ((!moveCachePending || !pendingMove.timedOut) &&
+        (!trashCachePending || !pendingTrash.timedOut)) {
       const progress = document.createElement('progress');
       progress.className = 'recording-folder-refresh-progress';
       progress.setAttribute('aria-label', progressLabel);
@@ -2902,12 +3623,21 @@ function renderServerRecordingFolder(data) {
     } else {
       const retryButton = document.createElement('button');
       retryButton.type = 'button';
-      retryButton.textContent = recordingBrowserTranslate(
-        'recordings.move.cacheRetry',
-        'Cache-Abgleich erneut versuchen'
-      );
+      retryButton.textContent = moveCachePending
+        ? recordingBrowserTranslate(
+            'recordings.move.cacheRetry',
+            'Cache-Abgleich erneut versuchen'
+          )
+        : recordingBrowserTranslate(
+            'recordings.trash.cacheRetry',
+            'Cache-Abgleich erneut versuchen'
+          );
       retryButton.addEventListener('click', () => {
-        recordingBrowserRetryPendingMoveReadback();
+        if (moveCachePending) {
+          recordingBrowserRetryPendingMoveReadback();
+        } else {
+          recordingBrowserRetryPendingTrashReadback();
+        }
         recordingBrowserLoadServerFolder(path, offset);
       });
       header.appendChild(retryButton);
@@ -3018,7 +3748,12 @@ function renderServerRecordingFolder(data) {
           ? 'Ordner und Aufnahmen werden nach der Umbenennung noch nachgeladen.'
           : moveCachePending
             ? 'Ordner und Aufnahmen werden nach dem Verschieben noch nachgeladen.'
-            : 'Ordner und Aufnahmen werden noch nachgeladen.'
+            : trashCachePending
+              ? recordingBrowserTranslate(
+                  'recordings.trash.folderAccepted',
+                  'Papierkorb-Aktion bestätigt. Der Aufnahmeordner wird neu eingelesen.'
+                )
+              : 'Ordner und Aufnahmen werden noch nachgeladen.'
         : cacheReady
           ? 'Dieser Ordner enthält keine Unterordner und keine direkten Aufnahmen.'
           : 'Noch keine Cache-Daten vorhanden. Der Daemon lädt die Aufnahmen im Hintergrund.'
@@ -3028,7 +3763,12 @@ function renderServerRecordingFolder(data) {
 
   recordingBrowserDetailDataElement().replaceChildren(list);
 
-  if (moveCachePending &&
+  if (trashCachePending &&
+      pendingTrash.accepted &&
+      !pendingTrash.timedOut &&
+      recordingBrowserFolderLoader) {
+    recordingBrowserScheduleTrashReadback();
+  } else if (moveCachePending &&
       pendingMove.accepted &&
       !pendingMove.timedOut &&
       recordingBrowserFolderLoader) {
@@ -3410,7 +4150,12 @@ const recordingBrowserApi = Object.freeze({
   renderRoot: renderRecordingRoot,
   renderNode: renderRecordingNode,
   validateNewMoveFolderName: recordingBrowserValidateNewMoveFolderName,
-  joinMoveFolderPath: recordingBrowserJoinMoveFolderPath
+  joinMoveFolderPath: recordingBrowserJoinMoveFolderPath,
+  parentFolderPath: recordingBrowserParentFolderPath,
+  isTrashDryRunReady: recordingBrowserIsTrashDryRunReady,
+  trashCandidateMatches: recordingBrowserTrashCandidateMatches,
+  trashSourceOffset: recordingBrowserTrashSourceOffset,
+  trashFolderHasContent: recordingBrowserTrashFolderHasContent
 });
 
 window.VdrSuiteRecordingBrowser = recordingBrowserApi;
