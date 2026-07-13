@@ -15,6 +15,8 @@ let currentTimers = null;
 let currentTimerConflicts = null;
 let currentSearchTimers = null;
 let currentRecordings = null;
+let currentRecordingsBackendId = '';
+let recordingsLoadSequence = 0;
 let epgChannelOffset = 0;
 let epgTimelineMode = 'time';
 let epgWarmCacheInFlight = false;
@@ -3210,18 +3212,64 @@ function renderRecordingsThroughModule(data) {
   return recordingBrowser.renderList(data);
 }
 
-function loadRecordings() {
-  renderModuleLoading('Aufnahmen', 'Lade Aufnahmeordner aus dem lokalen Recording-Cache...');
+function renderInitialRecordingFolderLoading(message) {
+  renderModuleLoading(
+    'Aufnahmen',
+    String(message || 'Aufnahmeordner wird geladen...')
+  );
 
+  const loadingBox = detailDataElement.querySelector('.module-placeholder');
+
+  if (!loadingBox) {
+    return;
+  }
+
+  const progress = document.createElement('progress');
+  progress.className = 'recording-folder-refresh-progress';
+  progress.setAttribute('aria-label', 'Aufnahmeordner wird geladen');
+  loadingBox.appendChild(progress);
+}
+
+function recordingRootRefreshView(data) {
+  if (Array.isArray(data)) {
+    return {
+      recordingFolder: true,
+      path: '',
+      recordings: data.slice(),
+      refreshPending: true
+    };
+  }
+
+  return Object.assign({}, data || {}, { refreshPending: true });
+}
+
+function loadRecordings() {
+  const loadingText =
+    'Lade Aufnahmeordner aus dem lokalen Recording-Cache...';
   const clientApi = frontendPlatformClientApi();
   const backendId = selectedEpgBackendId();
+  const loadSequence = ++recordingsLoadSequence;
+  const hasCachedRoot =
+    currentRecordings !== null &&
+    currentRecordingsBackendId === backendId;
+
+  if (hasCachedRoot) {
+    renderRecordingsThroughModule(
+      recordingRootRefreshView(currentRecordings)
+    );
+  } else {
+    renderInitialRecordingFolderLoading(loadingText);
+  }
 
   if (!clientApi || typeof clientApi.fetchClientRecordingFolder !== 'function') {
-    currentRecordings = null;
-    renderModuleError(
-      'Aufnahmen konnten nicht geladen werden',
-      new Error('Recording folder API wrapper is not available')
-    );
+    if (!hasCachedRoot) {
+      currentRecordings = null;
+      currentRecordingsBackendId = '';
+      renderModuleError(
+        'Aufnahmen konnten nicht geladen werden',
+        new Error('Recording folder API wrapper is not available')
+      );
+    }
     return;
   }
 
@@ -3237,11 +3285,30 @@ function loadRecordings() {
     credentials: 'same-origin'
   })
     .then(data => {
+      if (loadSequence !== recordingsLoadSequence) {
+        return;
+      }
+
       currentRecordings = data;
-      renderRecordingsThroughModule(data);
+      currentRecordingsBackendId = backendId;
+
+      if (selectedModule === 'recordings') {
+        renderRecordingsThroughModule(data);
+      }
     })
     .catch(error => {
+      if (loadSequence !== recordingsLoadSequence ||
+          selectedModule !== 'recordings') {
+        return;
+      }
+
+      if (hasCachedRoot) {
+        renderRecordingsThroughModule(currentRecordings);
+        return;
+      }
+
       currentRecordings = null;
+      currentRecordingsBackendId = '';
       renderModuleError('Aufnahmen konnten nicht geladen werden', error);
     });
 }

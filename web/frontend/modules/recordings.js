@@ -1678,6 +1678,7 @@ function renderServerRecordingFolder(data) {
   const recordingCount = Number(folderData.recordingCount) || recordings.length;
   const returnedCount = Number(folderData.returnedCount) || recordings.length;
   const totalCount = Number(folderData.totalCount) || 0;
+  const externalRefreshPending = folderData.refreshPending === true;
 
   let pendingRename = recordingBrowserPendingRenameForFolder(path);
 
@@ -1691,6 +1692,8 @@ function renderServerRecordingFolder(data) {
   }
 
   const renameCachePending = pendingRename !== null;
+  const folderRefreshPending =
+    renameCachePending || externalRefreshPending;
 
   const list = document.createElement('section');
   list.className = 'list recording-folder-list';
@@ -1727,10 +1730,18 @@ function renderServerRecordingFolder(data) {
     ));
   }
 
-  if (renameCachePending) {
-    const pendingMessage = pendingRename.accepted
-      ? 'Umbenennung bestätigt. Ordner und Aufnahmen werden neu geladen.'
-      : 'Umbenennung wird ausgeführt. Die Ordneransicht aktualisiert sich anschließend automatisch.';
+  if (folderRefreshPending) {
+    let pendingMessage =
+      'Aufnahmeordner wird im Hintergrund aktualisiert.';
+    let progressLabel = 'Aufnahmeordner wird aktualisiert';
+
+    if (renameCachePending) {
+      pendingMessage = pendingRename.accepted
+        ? 'Umbenennung bestätigt. Ordner und Aufnahmen werden neu geladen.'
+        : 'Umbenennung wird ausgeführt. Die Ordneransicht aktualisiert sich anschließend automatisch.';
+      progressLabel =
+        'Aufnahmeordner wird nach der Umbenennung aktualisiert';
+    }
 
     header.appendChild(recordingBrowserAddText(
       document.createElement('p'),
@@ -1739,7 +1750,7 @@ function renderServerRecordingFolder(data) {
 
     const progress = document.createElement('progress');
     progress.className = 'recording-folder-refresh-progress';
-    progress.setAttribute('aria-label', 'Aufnahmeordner wird nach der Umbenennung aktualisiert');
+    progress.setAttribute('aria-label', progressLabel);
     header.appendChild(progress);
   }
 
@@ -1842,8 +1853,10 @@ function renderServerRecordingFolder(data) {
     empty.className = 'module-placeholder';
     empty.appendChild(recordingBrowserAddText(
       document.createElement('p'),
-      renameCachePending
-        ? 'Ordner und Aufnahmen werden nach der Umbenennung noch nachgeladen.'
+      folderRefreshPending
+        ? renameCachePending
+          ? 'Ordner und Aufnahmen werden nach der Umbenennung noch nachgeladen.'
+          : 'Ordner und Aufnahmen werden noch nachgeladen.'
         : cacheReady
           ? 'Dieser Ordner enthält keine Unterordner und keine direkten Aufnahmen.'
           : 'Noch keine Cache-Daten vorhanden. Der Daemon lädt die Aufnahmen im Hintergrund.'
