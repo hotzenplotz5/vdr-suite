@@ -265,9 +265,14 @@ int main()
     std::atomic<bool> refreshStarted{false};
     std::atomic<bool> releaseRefresh{false};
     std::atomic<bool> executionReturned{false};
+    RecordingActionRequest refreshedRequest;
 
     resolvedBodyController.setAfterSuccessfulExecutionCallback(
-        [&refreshCount, &refreshStarted, &releaseRefresh]() {
+        [&refreshCount,
+         &refreshStarted,
+         &releaseRefresh,
+         &refreshedRequest](const RecordingActionRequest& callbackRequest) {
+            refreshedRequest = callbackRequest;
             refreshStarted.store(true);
 
             while (!releaseRefresh.load())
@@ -327,6 +332,12 @@ int main()
     assert(capturingAdapter->lastPayload.parameters.at("backendNativeId") == recording.backendNativeId);
     assert(capturingAdapter->lastPayload.parameters.at("recordingTitle") == recording.title);
     assert(refreshCount.load() == 1);
+    assert(refreshedRequest.backendId == "living-room");
+    assert(refreshedRequest.recordingId == "recording-3");
+    assert(refreshedRequest.type == RecordingActionType::Delete);
+    assert(
+        refreshedRequest.parameters.at("backendNativeId") ==
+        recording.backendNativeId);
 
     return 0;
 }

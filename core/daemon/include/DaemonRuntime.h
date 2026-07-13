@@ -165,6 +165,7 @@ private:
     std::atomic<bool> epgCacheDirtyHint_;
     std::atomic<bool> recordingCacheWarmupStopRequested_;
     std::atomic<bool> recordingCacheDirtyHint_;
+    std::atomic<int> recordingCacheActionRefreshAttempts_;
     std::thread epgCacheWarmupThread_;
     std::thread recordingCacheWarmupThread_;
 

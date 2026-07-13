@@ -528,10 +528,85 @@ function recordingBrowserLoadServerFolder(path, offset) {
     .catch(recordingBrowserRenderFolderLoadError);
 }
 
-function recordingBrowserRefreshFolderAfterSuccessfulAction(result, folderData) {
+function recordingBrowserNormalizeRenameLabel(value) {
+  const parts = decodeRecordingText(
+    String(value || '').replace(/~/g, '/')
+  )
+    .split('/')
+    .map(part => part.trim())
+    .filter(part => part !== '');
+
+  return parts.length > 0 ? parts[parts.length - 1] : '';
+}
+
+function recordingBrowserRenameLabelEquals(left, right) {
+  return recordingBrowserNormalizeRenameLabel(left)
+    .localeCompare(
+      recordingBrowserNormalizeRenameLabel(right),
+      'de-DE',
+      { sensitivity: 'base' }
+    ) === 0;
+}
+
+function recordingBrowserFolderContainsRenamedRecording(folderData, newName) {
+  const expectedName = recordingBrowserNormalizeRenameLabel(newName);
+
+  if (expectedName === '') {
+    return false;
+  }
+
+  const folders = recordingBrowserListFromResponse(folderData, 'folders');
+  const recordings = recordingBrowserListFromResponse(folderData, 'recordings');
+
+  if (folders.some(folder => {
+    const folderName = recordingBrowserFirstValue(folder, ['name', 'title'], '');
+    const folderPath = recordingBrowserFirstValue(folder, ['path'], '');
+
+    return recordingBrowserRenameLabelEquals(folderName, expectedName) ||
+      recordingBrowserRenameLabelEquals(folderPath, expectedName);
+  })) {
+    return true;
+  }
+
+  return recordings.some(recording =>
+    recordingBrowserRenameLabelEquals(
+      recordingBrowserLocalRecordingTitle(recording, folderData),
+      expectedName
+    )
+  );
+}
+
+function recordingBrowserRenderRenameRefreshWaiting(folderPath, newName) {
+  const holder = document.createElement('section');
+  holder.className = 'list recording-folder-list';
+
+  const waiting = document.createElement('article');
+  waiting.className = 'module-placeholder';
+  waiting.appendChild(recordingBrowserAddText(
+    document.createElement('h3'),
+    'Aufnahmeliste wird aktualisiert …'
+  ));
+  waiting.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    'Der neue Name „' + recordingBrowserNormalizeRenameLabel(newName) + '“ wird vom VDR übernommen.'
+  ));
+  waiting.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    'Ordner: ' + recordingBrowserServerFolderLabel(folderPath)
+  ));
+
+  const progress = document.createElement('progress');
+  progress.className = 'recording-folder-refresh-progress';
+  progress.setAttribute('aria-label', 'Aufnahmeliste wird aktualisiert');
+  waiting.appendChild(progress);
+
+  holder.appendChild(waiting);
+  recordingBrowserDetailDataElement().replaceChildren(holder);
+}
+
+function recordingBrowserScheduleRenameFolderReload(result, folderData, newName) {
   if (!result ||
       result.success !== true ||
-      result.snapshotRefreshed !== true ||
       !recordingBrowserFolderLoader) {
     return false;
   }
@@ -539,8 +614,54 @@ function recordingBrowserRefreshFolderAfterSuccessfulAction(result, folderData) 
   const folderPath = folderData && typeof folderData === 'object'
     ? String(folderData.path || '')
     : '';
+  let attempts = 0;
+  const maxAttempts = 20;
+  let latestFolderData = null;
 
-  recordingBrowserLoadServerFolder(folderPath, 0);
+  const reloadFolder = () => {
+    attempts += 1;
+    recordingBrowserRenderRenameRefreshWaiting(folderPath, newName);
+
+    recordingBrowserFolderLoader(folderPath, 0)
+      .then(data => {
+        latestFolderData = data && typeof data === 'object' ? data : {};
+
+        if (recordingBrowserFolderContainsRenamedRecording(
+            latestFolderData,
+            newName)) {
+          recordingBrowserFolderRefreshTimer = null;
+          renderServerRecordingFolder(latestFolderData);
+          return;
+        }
+
+        if (attempts >= maxAttempts) {
+          recordingBrowserFolderRefreshTimer = null;
+          renderServerRecordingFolder(latestFolderData);
+          return;
+        }
+
+        recordingBrowserFolderRefreshTimer =
+          window.setTimeout(reloadFolder, 500);
+      })
+      .catch(error => {
+        if (attempts >= maxAttempts) {
+          recordingBrowserFolderRefreshTimer = null;
+
+          if (latestFolderData) {
+            renderServerRecordingFolder(latestFolderData);
+          } else {
+            recordingBrowserRenderFolderLoadError(error);
+          }
+          return;
+        }
+
+        recordingBrowserFolderRefreshTimer =
+          window.setTimeout(reloadFolder, 500);
+      });
+  };
+
+  recordingBrowserCancelFolderRefreshTimer();
+  reloadFolder();
   return true;
 }
 
@@ -1196,7 +1317,11 @@ function recordingBrowserCreateRenameButton(recording, folderData, resultBox) {
     })
       .then(result => {
         recordingBrowserRenderActionResult(resultBox, 'Umbenennen', result, null);
-        recordingBrowserRefreshFolderAfterSuccessfulAction(result, folderData);
+        recordingBrowserScheduleRenameFolderReload(
+          result,
+          folderData,
+          trimmedName
+        );
       })
       .catch(error => {
         recordingBrowserRenderActionResult(resultBox, 'Umbenennen', null, error);

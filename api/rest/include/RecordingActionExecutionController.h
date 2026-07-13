@@ -51,7 +51,7 @@ public:
         const RecordingActionRequest& request);
 
     void setAfterSuccessfulExecutionCallback(
-        std::function<void()> callback);
+        std::function<void(const RecordingActionRequest&)> callback);
 
     RecordingActionRequest resolveBackendNativeId(
         const RecordingActionRequest& request) const;
@@ -72,10 +72,11 @@ private:
     BackendRegistry* backendRegistry_;
     RecordingActionValidationRequestParser* requestParser_;
     VdrSnapshotReadService* snapshotReadService_;
-    std::function<void()> afterSuccessfulExecution_;
+    std::function<void(const RecordingActionRequest&)> afterSuccessfulExecution_;
 
     bool refreshAfterSuccessfulExecution(
-        const RecordingActionExecutionResult& result) const;
+        const RecordingActionExecutionResult& result,
+        const RecordingActionRequest& resolvedRequest) const;
 
     RecordingActionExecutionResult enrichExecutionResult(
         RecordingActionExecutionResult result,
