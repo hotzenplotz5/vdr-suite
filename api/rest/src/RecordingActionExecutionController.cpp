@@ -202,6 +202,7 @@ ApiResponse RecordingActionExecutionController::execute(
                 resolvedRequest,
                 backendExecutorAdapterRegistry_,
                 lookup.policy);
+
         const bool snapshotRefreshed =
             refreshAfterSuccessfulExecution(result);
         result =
@@ -255,6 +256,7 @@ ApiResponse RecordingActionExecutionController::safety(
                 executionService_.evaluateSafety(
                     request,
                     lookup.policy));
+
         return response;
     }
 
@@ -264,6 +266,7 @@ ApiResponse RecordingActionExecutionController::safety(
                 request,
                 context,
                 backendExecutorAdapterRegistry_));
+
     return response;
 }
 
