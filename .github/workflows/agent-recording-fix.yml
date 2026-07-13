@@ -4,18 +4,23 @@ on:
   push:
     branches:
       - agent/recording-rename-cache-ui-fix
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   build-test-and-squash:
+    if: github.head_ref == 'agent/recording-rename-cache-ui-fix' || github.ref_name == 'agent/recording-rename-cache-ui-fix'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout working branch
         uses: actions/checkout@v4
         with:
+          ref: agent/recording-rename-cache-ui-fix
           fetch-depth: 0
 
       - name: Install build dependencies
