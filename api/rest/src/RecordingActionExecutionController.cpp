@@ -6,8 +6,6 @@
 #include "RecordingActionValidationRequestParser.h"
 #include "VdrSnapshotReadService.h"
 
-#include <thread>
-
 RecordingActionExecutionController::RecordingActionExecutionController(
     RecordingActionExecutionService& executionService,
     RecordingActionExecutionResultJsonSerializer& jsonSerializer,
@@ -85,13 +83,15 @@ bool RecordingActionExecutionController::refreshAfterSuccessfulExecution(
         return false;
     }
 
-    const std::function<void()> callback = afterSuccessfulExecution_;
-
-    std::thread([callback]() {
-        callback();
-    }).detach();
-
-    return true;
+    try
+    {
+        afterSuccessfulExecution_();
+        return true;
+    }
+    catch (...)
+    {
+        return false;
+    }
 }
 
 RecordingActionExecutionResult RecordingActionExecutionController::enrichExecutionResult(
@@ -202,7 +202,6 @@ ApiResponse RecordingActionExecutionController::execute(
                 resolvedRequest,
                 backendExecutorAdapterRegistry_,
                 lookup.policy);
-
         const bool snapshotRefreshed =
             refreshAfterSuccessfulExecution(result);
         result =
@@ -256,7 +255,6 @@ ApiResponse RecordingActionExecutionController::safety(
                 executionService_.evaluateSafety(
                     request,
                     lookup.policy));
-
         return response;
     }
 
@@ -266,7 +264,6 @@ ApiResponse RecordingActionExecutionController::safety(
                 request,
                 context,
                 backendExecutorAdapterRegistry_));
-
     return response;
 }
 
