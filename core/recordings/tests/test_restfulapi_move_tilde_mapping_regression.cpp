@@ -49,5 +49,31 @@ int main()
         "__vdr_suite_move_probe__~Die_letzten_Glühwürmchen__1988_") == std::string::npos);
     assert(request.body.find("/api/") == std::string::npos);
 
+    RecordingActionJobPayload rootPayload;
+    rootPayload.backendId = "local-vdr";
+    rootPayload.recordingId = "move-root-test";
+    rootPayload.type = RecordingActionType::Move;
+    rootPayload.dryRun = true;
+    rootPayload.parameters["recordingPath"] =
+        "/Archive/Move_Root_Test/2026-07-13.10.00.1-0.rec";
+    rootPayload.parameters["backendNativeId"] =
+        "/srv/vdr/video/Archive/Move_Root_Test/2026-07-13.10.00.1-0.rec";
+    rootPayload.parameters["recordingTitle"] =
+        "Archive/Move Root Test";
+    rootPayload.parameters["targetPath"] = "/";
+
+    const HttpRequest rootRequest =
+        builder.buildMoveRequest(config, rootPayload);
+
+    assert(rootRequest.body.find(
+        "\"target\":\"Move Root Test\"")
+        != std::string::npos);
+    assert(rootRequest.body.find(
+        "\"target\":\"~Move Root Test\"")
+        == std::string::npos);
+    assert(rootRequest.body.find(
+        "\"source\":\"/srv/vdr/video/Archive/Move_Root_Test/2026-07-13.10.00.1-0.rec\"")
+        != std::string::npos);
+
     return 0;
 }

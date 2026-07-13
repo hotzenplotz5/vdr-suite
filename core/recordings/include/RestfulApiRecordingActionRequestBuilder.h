@@ -214,7 +214,15 @@ private:
         const std::string leaf =
             recordingLogicalLeafName(payload);
 
-        if (targetPath.empty() || leaf.empty()) {
+        if (leaf.empty()) {
+            return targetPath;
+        }
+
+        if (targetPath == "/") {
+            return leaf;
+        }
+
+        if (targetPath.empty()) {
             return targetPath;
         }
 
