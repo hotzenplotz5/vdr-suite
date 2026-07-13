@@ -528,6 +528,22 @@ function recordingBrowserLoadServerFolder(path, offset) {
     .catch(recordingBrowserRenderFolderLoadError);
 }
 
+function recordingBrowserRefreshFolderAfterSuccessfulAction(result, folderData) {
+  if (!result ||
+      result.success !== true ||
+      result.snapshotRefreshed !== true ||
+      !recordingBrowserFolderLoader) {
+    return false;
+  }
+
+  const folderPath = folderData && typeof folderData === 'object'
+    ? String(folderData.path || '')
+    : '';
+
+  recordingBrowserLoadServerFolder(folderPath, 0);
+  return true;
+}
+
 function recordingBrowserOpenServerFolder(path, parentFolderData) {
   if (!recordingBrowserFolderLoader) {
     return;
@@ -1129,7 +1145,7 @@ function recordingBrowserCreateRenameValidateButton(recording, resultBox) {
   return button;
 }
 
-function recordingBrowserCreateRenameButton(recording, resultBox) {
+function recordingBrowserCreateRenameButton(recording, folderData, resultBox) {
   const button = document.createElement('button');
   button.type = 'button';
   button.textContent = 'Umbenennen';
@@ -1180,6 +1196,7 @@ function recordingBrowserCreateRenameButton(recording, resultBox) {
     })
       .then(result => {
         recordingBrowserRenderActionResult(resultBox, 'Umbenennen', result, null);
+        recordingBrowserRefreshFolderAfterSuccessfulAction(result, folderData);
       })
       .catch(error => {
         recordingBrowserRenderActionResult(resultBox, 'Umbenennen', null, error);
@@ -1192,7 +1209,7 @@ function recordingBrowserCreateRenameButton(recording, resultBox) {
   return button;
 }
 
-function createServerRecordingActionPanel(recording) {
+function createServerRecordingActionPanel(recording, folderData) {
   const panel = document.createElement('details');
   panel.className = 'recording-action-panel';
 
@@ -1214,6 +1231,7 @@ function createServerRecordingActionPanel(recording) {
 
   actions.appendChild(recordingBrowserCreateRenameButton(
     recording,
+    folderData,
     resultBox
   ));
 
@@ -1305,7 +1323,7 @@ function renderServerRecordingDetail(recording, folderData) {
   ));
 
   item.appendChild(technicalDetails);
-  item.appendChild(createServerRecordingActionPanel(recording));
+  item.appendChild(createServerRecordingActionPanel(recording, folderData));
 
   const backButton = document.createElement('button');
   backButton.type = 'button';
