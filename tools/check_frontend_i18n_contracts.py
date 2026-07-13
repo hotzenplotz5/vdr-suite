@@ -61,6 +61,10 @@ def main() -> int:
     require("localStorage" in i18n, "i18n locale preference must be persisted in browser storage")
     require("recordingBrowserTranslate(" in recordings, "Recording Move workflow must use i18n keys")
     require("recordings.move.targetReady" in recordings, "Move ready feedback must use its i18n key")
+    require("function recordingBrowserValidateNewMoveFolderName(value)" in recordings, "Move new-folder validation helper missing")
+    require("function recordingBrowserJoinMoveFolderPath(parentPath, folderName)" in recordings, "Move new-folder path helper missing")
+    require("recordings.move.createFolder" in recordings, "Move new-folder trigger must use i18n")
+    require("recordings.move.newFolderSelected" in recordings, "Move new-folder selection feedback must use i18n")
     require("frontendTranslate('settings.language'" in app, "Settings must expose the language selector")
 
     for asset in [
