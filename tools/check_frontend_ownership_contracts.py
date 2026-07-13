@@ -1095,6 +1095,22 @@ def check_recording_browser_contract(recording_browser_js: str) -> None:
         "modules/recordings.js must not fetch runtime data directly",
     )
 
+    required_move_workflow_tokens = [
+        "function recordingBrowserCreateMoveEditor(recording, folderData, resultBox)",
+        "function recordingBrowserScheduleMoveTargetFolderReload()",
+        "function recordingBrowserFolderContainsMovedRecording(folderData, pendingMove)",
+        "function recordingBrowserMoveCandidateFolderPaths(folderData, pendingMove)",
+        "function recordingBrowserFindMovedRecordingInTarget(",
+        "Hauptordner als Ziel",
+        "Verschieben muss vor der Ausführung erfolgreich geprüft werden.",
+    ]
+
+    for token in required_move_workflow_tokens:
+        require(
+            token in recording_browser_js,
+            "modules/recordings.js completed Move workflow missing: " + token,
+        )
+
     forbidden_runtime_api_tokens = [
         "window.VdrSuiteClientApi",
         "/api/",

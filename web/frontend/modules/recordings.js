@@ -367,6 +367,7 @@ let recordingBrowserFolderLoader = null;
 let recordingBrowserActionRunner = null;
 let recordingBrowserFolderRefreshTimer = null;
 let recordingBrowserPendingRename = null;
+let recordingBrowserPendingMove = null;
 let recordingBrowserVisibleFolderPath = null;
 
 function configureRecordingBrowserFolderLoader(loader) {
@@ -980,283 +981,840 @@ function recordingBrowserPromptRenameName(recording, label, resultBox) {
 }
 
 
-function recordingBrowserPromptMoveTarget(label, resultBox) {
-  const targetPath = window.prompt('Zielordner für Verschieben:', '');
-
-  if (targetPath === null) {
-    recordingBrowserRenderActionResult(
-      resultBox,
-      label,
-      { message: 'Verschieben abgebrochen.' },
-      null
-    );
-    return '';
-  }
-
-  const trimmedPath = String(targetPath || '').trim();
-
-  if (trimmedPath === '') {
-    recordingBrowserRenderActionResult(
-      resultBox,
-      label,
-      null,
-      new Error('Zielordner darf nicht leer sein')
-    );
-    return '';
-  }
-
-  return trimmedPath;
-}
-
 function recordingBrowserNormalizeMovePath(value) {
   return String(value || '')
     .trim()
+    .replace(/~/g, '/')
+    .replace(/\\/g, '/')
     .split('/')
     .map(part => part.trim())
     .filter(part => part !== '')
     .join('/');
 }
 
+function recordingBrowserMoveTargetParameter(value) {
+  const rawValue = String(value || '').trim();
 
-function recordingBrowserMovePathSegments(value) {
-  const normalized = recordingBrowserNormalizeMovePath(value);
+  if (rawValue === '/') {
+    return '/';
+  }
 
-  if (normalized === '') {
+  return recordingBrowserNormalizeMovePath(rawValue);
+}
+
+function recordingBrowserMoveTargetFolderPath(targetParameter) {
+  return String(targetParameter || '').trim() === '/'
+    ? ''
+    : recordingBrowserNormalizeMovePath(targetParameter);
+}
+
+function recordingBrowserMoveTargetLabel(targetParameter) {
+  const folderPath = recordingBrowserMoveTargetFolderPath(targetParameter);
+  return folderPath === ''
+    ? 'Hauptordner'
+    : recordingBrowserDisplayPathLabel(folderPath);
+}
+
+function recordingBrowserMoveSourceFolderPath(recording, folderData) {
+  const rawTitle = String(recordingBrowserFirstValue(
+    recording,
+    ['title', 'name', 'displayName'],
+    ''
+  )).replace(/~/g, '/');
+  const titleParts = rawTitle
+    .split('/')
+    .map(part => part.trim())
+    .filter(part => part !== '');
+
+  if (titleParts.length > 1) {
+    return recordingBrowserNormalizeMovePath(
+      titleParts.slice(0, -1).join('/')
+    );
+  }
+
+  return folderData && typeof folderData === 'object'
+    ? recordingBrowserNormalizeMovePath(folderData.path || '')
+    : '';
+}
+
+function recordingBrowserMoveNativeLeaf(recording) {
+  const nativePath = String(recordingBrowserFirstValue(
+    recording,
+    ['backendNativeId', 'nativePath', 'path', 'fileName'],
+    ''
+  ))
+    .replace(/\\/g, '/')
+    .replace(/\/+$/, '');
+  const parts = nativePath.split('/').filter(part => part !== '');
+  return parts.length > 0 ? parts[parts.length - 1] : '';
+}
+
+function recordingBrowserMoveIdentity(recording) {
+  return {
+    nativeLeaf: recordingBrowserMoveNativeLeaf(recording),
+    title: recordingBrowserNormalizeRenameLabel(
+      recordingBrowserFirstValue(
+        recording,
+        ['title', 'name', 'displayName'],
+        ''
+      )
+    ),
+    start: String(recordingBrowserFirstValue(
+      recording,
+      ['startTime', 'start', 'date'],
+      ''
+    )),
+    duration: String(recordingBrowserFirstValue(
+      recording,
+      ['durationSeconds', 'duration'],
+      ''
+    ))
+  };
+}
+
+function recordingBrowserMoveCandidateMatches(recording, folderData, pendingMove) {
+  const candidateIdentity = recordingBrowserMoveIdentity(recording);
+  const expectedIdentity = pendingMove.identity || {};
+
+  if (expectedIdentity.nativeLeaf !== '' &&
+      candidateIdentity.nativeLeaf === expectedIdentity.nativeLeaf) {
+    return true;
+  }
+
+  const candidateTitle = recordingBrowserNormalizeRenameLabel(
+    recordingBrowserLocalRecordingTitle(recording, folderData)
+  );
+  const titleMatches =
+    expectedIdentity.title !== '' &&
+    recordingBrowserRenameLabelEquals(candidateTitle, expectedIdentity.title);
+  const startMatches =
+    expectedIdentity.start !== '' &&
+    candidateIdentity.start === expectedIdentity.start;
+  const durationMatches =
+    expectedIdentity.duration !== '' &&
+    candidateIdentity.duration === expectedIdentity.duration;
+
+  return titleMatches && (startMatches || durationMatches);
+}
+
+function recordingBrowserFolderContainsMoveIdentity(folderData, pendingMove) {
+  return recordingBrowserListFromResponse(folderData, 'recordings')
+    .some(recording =>
+      recordingBrowserMoveCandidateMatches(
+        recording,
+        folderData,
+        pendingMove
+      )
+    );
+}
+
+function recordingBrowserFolderContainsMovedRecording(folderData, pendingMove) {
+  const actualPath = recordingBrowserNormalizeMovePath(
+    folderData && folderData.path ? folderData.path : ''
+  );
+
+  return actualPath === pendingMove.targetFolderPath &&
+    recordingBrowserFolderContainsMoveIdentity(folderData, pendingMove);
+}
+
+function recordingBrowserMoveCandidateFolderPaths(folderData, pendingMove) {
+  const expectedTitle = String(
+    pendingMove && pendingMove.identity
+      ? pendingMove.identity.title || ''
+      : ''
+  ).trim();
+
+  if (expectedTitle === '') {
     return [];
   }
 
-  return normalized.split('/').filter(part => part !== '');
-}
+  return recordingBrowserListFromResponse(folderData, 'folders')
+    .filter(folder => {
+      const folderName = decodeRecordingText(
+        recordingBrowserFirstValue(folder, ['name', 'title'], '')
+      );
+      const folderPath = recordingBrowserFirstValue(
+        folder,
+        ['path'],
+        ''
+      );
 
-function recordingBrowserMoveParentPath(targetPath) {
-  const parts = recordingBrowserMovePathSegments(targetPath);
-
-  if (parts.length <= 1) {
-    return '';
-  }
-
-  return parts.slice(0, -1).join('/');
-}
-
-function recordingBrowserMovePathDisplayEquals(left, right) {
-  const leftNormalized = recordingBrowserNormalizeMovePath(left);
-  const rightNormalized = recordingBrowserNormalizeMovePath(right);
-
-  if (leftNormalized === rightNormalized) {
-    return true;
-  }
-
-  return recordingBrowserDisplayPathLabel(leftNormalized) === recordingBrowserDisplayPathLabel(rightNormalized);
-}
-
-function recordingBrowserFolderContainsMoveTarget(folderData, targetPath) {
-  const expectedPath = recordingBrowserNormalizeMovePath(targetPath);
-
-  if (expectedPath === '') {
-    return true;
-  }
-
-  const expectedParts = recordingBrowserMovePathSegments(expectedPath);
-  const expectedName = expectedParts.length > 0 ? expectedParts[expectedParts.length - 1] : '';
-  const expectedParent = recordingBrowserMoveParentPath(expectedPath);
-  const currentParent = recordingBrowserNormalizeMovePath(folderData && folderData.path ? folderData.path : '');
-  const folders = recordingBrowserListFromResponse(folderData, 'folders');
-
-  return folders.some(folder => {
-    const folderPath = recordingBrowserNormalizeMovePath(
+      return recordingBrowserRenameLabelEquals(
+        folderName,
+        expectedTitle
+      ) || recordingBrowserRenameLabelEquals(
+        folderPath,
+        expectedTitle
+      );
+    })
+    .map(folder => recordingBrowserNormalizeMovePath(
       recordingBrowserFirstValue(folder, ['path'], '')
+    ))
+    .filter(folderPath => folderPath !== '');
+}
+
+function recordingBrowserFindMovedRecordingInTarget(
+  targetFolderData,
+  pendingMove
+) {
+  if (recordingBrowserFolderContainsMovedRecording(
+      targetFolderData,
+      pendingMove)) {
+    return Promise.resolve({
+      found: true,
+      folderData: targetFolderData
+    });
+  }
+
+  if (!recordingBrowserFolderLoader) {
+    return Promise.resolve({
+      found: false,
+      folderData: targetFolderData
+    });
+  }
+
+  const candidatePaths = recordingBrowserMoveCandidateFolderPaths(
+    targetFolderData,
+    pendingMove
+  );
+
+  if (candidatePaths.length === 0) {
+    return Promise.resolve({
+      found: false,
+      folderData: targetFolderData
+    });
+  }
+
+  return Promise.all(candidatePaths.map(candidatePath =>
+    recordingBrowserFolderLoader(candidatePath, 0)
+      .then(data => {
+        const candidateFolderData = data && typeof data === 'object'
+          ? data
+          : {};
+
+        return recordingBrowserFolderContainsMoveIdentity(
+          candidateFolderData,
+          pendingMove
+        )
+          ? candidateFolderData
+          : null;
+      })
+      .catch(() => null)
+  )).then(candidateResults => {
+    const matchedFolderData = candidateResults.find(
+      candidateResult => candidateResult !== null
     );
-    const folderName = recordingBrowserNormalizeMovePath(
-      recordingBrowserFirstValue(folder, ['name', 'title'], '')
-    );
 
-    if (folderPath !== '' && recordingBrowserMovePathDisplayEquals(folderPath, expectedPath)) {
-      return true;
-    }
-
-    if (currentParent === expectedParent &&
-        expectedName !== '' &&
-        recordingBrowserMovePathDisplayEquals(folderName, expectedName)) {
-      return true;
-    }
-
-    return false;
+    return {
+      found: Boolean(matchedFolderData),
+      folderData: matchedFolderData || targetFolderData
+    };
   });
 }
 
-function recordingBrowserRenderMoveParentRefreshWaiting(parentPath, targetPath, attempt, maxAttempts) {
-  (void attempt);
-  (void maxAttempts);
-
-  const holder = document.createElement('section');
-  holder.className = 'list recording-folder-list';
-
-  const waiting = document.createElement('article');
-  waiting.className = 'module-placeholder';
-  waiting.appendChild(recordingBrowserAddText(
-    document.createElement('h3'),
-    'Aufnahmeordner wird aktualisiert …'
-  ));
-  waiting.appendChild(recordingBrowserAddText(
-    document.createElement('p'),
-    'Bitte warten, die Ansicht wird automatisch aktualisiert.'
-  ));
-  waiting.appendChild(recordingBrowserAddText(
-    document.createElement('p'),
-    'Ordner darüber: ' + recordingBrowserServerFolderLabel(parentPath)
-  ));
-
-  if (recordingBrowserNormalizeMovePath(targetPath) !== '') {
-    waiting.appendChild(recordingBrowserAddText(
-      document.createElement('p'),
-      'Zielordner: ' + recordingBrowserDisplayPathLabel(targetPath)
-    ));
-  }
-
-  const progress = document.createElement('progress');
-  progress.className = 'recording-folder-refresh-progress';
-  progress.setAttribute('aria-label', 'Aufnahmeordner wird aktualisiert');
-  waiting.appendChild(progress);
-
-  holder.appendChild(waiting);
-  recordingBrowserDetailDataElement().replaceChildren(holder);
+function recordingBrowserSetPendingMove(
+  recording,
+  folderData,
+  targetParameter,
+  accepted
+) {
+  recordingBrowserPendingMove = {
+    recording: recording,
+    folderData: folderData,
+    sourceFolderPath: recordingBrowserMoveSourceFolderPath(
+      recording,
+      folderData
+    ),
+    targetParameter: targetParameter,
+    targetFolderPath: recordingBrowserMoveTargetFolderPath(targetParameter),
+    targetLabel: recordingBrowserMoveTargetLabel(targetParameter),
+    identity: recordingBrowserMoveIdentity(recording),
+    accepted: accepted === true,
+    timedOut: false
+  };
 }
 
+function recordingBrowserConfirmPendingMove(targetParameter) {
+  if (!recordingBrowserPendingMove ||
+      recordingBrowserPendingMove.targetParameter !== targetParameter) {
+    return false;
+  }
 
-function recordingBrowserScheduleMoveParentFolderReload(targetPath) {
+  recordingBrowserPendingMove.accepted = true;
+  recordingBrowserPendingMove.timedOut = false;
+  return true;
+}
+
+function recordingBrowserClearPendingMove() {
+  recordingBrowserPendingMove = null;
+  recordingBrowserCancelFolderRefreshTimer();
+}
+
+function recordingBrowserRenderMovePendingDetail(
+  recording,
+  folderData,
+  targetParameter,
+  accepted,
+  timedOut
+) {
+  recordingBrowserSetPendingMove(
+    recording,
+    folderData,
+    targetParameter,
+    accepted
+  );
+  recordingBrowserPendingMove.timedOut = timedOut === true;
+
+  renderServerRecordingDetail(
+    recording,
+    folderData,
+    {
+      movePending: true,
+      moveAccepted: accepted === true,
+      moveTimedOut: timedOut === true,
+      moveTargetPath: targetParameter
+    }
+  );
+}
+
+function recordingBrowserReloadVisibleFolderAfterMove(targetFolderData, pendingMove) {
+  const visibleFolderPath = recordingBrowserVisibleFolderPath;
+  recordingBrowserClearPendingMove();
+
+  if (visibleFolderPath === null) {
+    renderServerRecordingFolder(targetFolderData);
+    return;
+  }
+
+  if (!recordingBrowserFolderLoader) {
+    renderServerRecordingFolder(targetFolderData);
+    return;
+  }
+
+  recordingBrowserFolderLoader(visibleFolderPath, 0)
+    .then(renderServerRecordingFolder)
+    .catch(recordingBrowserRenderFolderLoadError);
+}
+
+function recordingBrowserRenderMoveTimeout(pendingMove) {
+  recordingBrowserFolderRefreshTimer = null;
+  pendingMove.timedOut = true;
+
+  if (recordingBrowserVisibleFolderPath === null) {
+    renderServerRecordingDetail(
+      pendingMove.recording,
+      pendingMove.folderData,
+      {
+        movePending: true,
+        moveAccepted: true,
+        moveTimedOut: true,
+        moveTargetPath: pendingMove.targetParameter
+      }
+    );
+    return;
+  }
+
   if (!recordingBrowserFolderLoader) {
     return;
   }
 
-  const parentPath = recordingBrowserMoveParentPath(targetPath);
-  const expectedTargetPath = recordingBrowserNormalizeMovePath(targetPath);
+  const visiblePath = recordingBrowserVisibleFolderPath;
+  recordingBrowserFolderLoader(visiblePath, 0)
+    .then(renderServerRecordingFolder)
+    .catch(() => {
+      /* Der bestätigte Move-Zustand bleibt sichtbar und kann erneut geprüft werden. */
+    });
+}
+
+function recordingBrowserScheduleMoveTargetFolderReload() {
+  if (!recordingBrowserPendingMove ||
+      !recordingBrowserPendingMove.accepted ||
+      recordingBrowserPendingMove.timedOut ||
+      !recordingBrowserFolderLoader ||
+      recordingBrowserFolderRefreshTimer !== null) {
+    return false;
+  }
+
   let attempts = 0;
-  const maxAttempts = 30;
+  const maxAttempts = 45;
 
-  const reloadParent = () => {
+  const reloadTarget = () => {
+    const pendingMove = recordingBrowserPendingMove;
+
+    if (!pendingMove || !pendingMove.accepted) {
+      recordingBrowserFolderRefreshTimer = null;
+      return;
+    }
+
     attempts += 1;
-    recordingBrowserRenderMoveParentRefreshWaiting(
-      parentPath,
-      expectedTargetPath,
-      attempts,
-      maxAttempts
-    );
 
-    recordingBrowserFolderLoader(parentPath, 0)
+    recordingBrowserFolderLoader(pendingMove.targetFolderPath, 0)
       .then(data => {
-        const folderData = data && typeof data === 'object' ? data : {};
-
-        if (recordingBrowserFolderContainsMoveTarget(folderData, expectedTargetPath)) {
+        if (recordingBrowserPendingMove !== pendingMove) {
           recordingBrowserFolderRefreshTimer = null;
-          renderServerRecordingFolder(folderData);
           return;
         }
 
-        if (attempts >= maxAttempts) {
+        const targetFolderData = data && typeof data === 'object'
+          ? data
+          : {};
+
+        return recordingBrowserFindMovedRecordingInTarget(
+          targetFolderData,
+          pendingMove
+        );
+      })
+      .then(readbackResult => {
+        if (recordingBrowserPendingMove !== pendingMove) {
           recordingBrowserFolderRefreshTimer = null;
-          recordingBrowserRenderMoveParentRefreshWaiting(
-            parentPath,
-            expectedTargetPath,
-            attempts,
-            maxAttempts
+          return;
+        }
+
+        if (readbackResult.found) {
+          recordingBrowserReloadVisibleFolderAfterMove(
+            readbackResult.folderData,
+            pendingMove
           );
           return;
         }
 
-        recordingBrowserFolderRefreshTimer = window.setTimeout(reloadParent, 3000);
-      })
-      .catch(error => {
         if (attempts >= maxAttempts) {
-          recordingBrowserFolderRefreshTimer = null;
-          recordingBrowserRenderFolderLoadError(error);
+          recordingBrowserRenderMoveTimeout(pendingMove);
           return;
         }
 
-        recordingBrowserFolderRefreshTimer = window.setTimeout(reloadParent, 3000);
+        recordingBrowserFolderRefreshTimer =
+          window.setTimeout(reloadTarget, 1000);
+      })
+      .catch(() => {
+        if (recordingBrowserPendingMove !== pendingMove) {
+          recordingBrowserFolderRefreshTimer = null;
+          return;
+        }
+
+        if (attempts >= maxAttempts) {
+          recordingBrowserRenderMoveTimeout(pendingMove);
+          return;
+        }
+
+        recordingBrowserFolderRefreshTimer =
+          window.setTimeout(reloadTarget, 1000);
       });
   };
 
-  recordingBrowserCancelFolderRefreshTimer();
-  reloadParent();
+  reloadTarget();
+  return true;
 }
 
+function recordingBrowserRetryPendingMoveReadback() {
+  if (!recordingBrowserPendingMove) {
+    return;
+  }
 
-function recordingBrowserCreateMoveDryRunButton(label, mode, recording, resultBox) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.textContent = label;
+  recordingBrowserPendingMove.timedOut = false;
+  recordingBrowserCancelFolderRefreshTimer();
+  recordingBrowserScheduleMoveTargetFolderReload();
+}
 
-  button.addEventListener('click', () => {
+function recordingBrowserActivateConfirmedMoveReadback() {
+  if (!recordingBrowserPendingMove) {
+    return;
+  }
+
+  if (recordingBrowserVisibleFolderPath === null) {
+    const pendingMove = recordingBrowserPendingMove;
+    renderServerRecordingDetail(
+      pendingMove.recording,
+      pendingMove.folderData,
+      {
+        movePending: true,
+        moveAccepted: true,
+        moveTimedOut: false,
+        moveTargetPath: pendingMove.targetParameter
+      }
+    );
+    recordingBrowserScheduleMoveTargetFolderReload();
+    return;
+  }
+
+  if (!recordingBrowserFolderLoader) {
+    recordingBrowserScheduleMoveTargetFolderReload();
+    return;
+  }
+
+  const visiblePath = recordingBrowserVisibleFolderPath;
+  recordingBrowserFolderLoader(visiblePath, 0)
+    .then(renderServerRecordingFolder)
+    .catch(() => recordingBrowserScheduleMoveTargetFolderReload());
+}
+
+function recordingBrowserHandleMoveFailure(
+  recording,
+  folderData,
+  message
+) {
+  const visibleFolderPath = recordingBrowserVisibleFolderPath;
+  recordingBrowserClearPendingMove();
+
+  if (visibleFolderPath === null || !recordingBrowserFolderLoader) {
+    renderServerRecordingDetail(
+      recording,
+      folderData,
+      { moveError: message }
+    );
+    return;
+  }
+
+  recordingBrowserFolderLoader(visibleFolderPath, 0)
+    .then(data => {
+      const folderResult = data && typeof data === 'object'
+        ? Object.assign({}, data)
+        : {};
+      folderResult.actionNotice =
+        'Verschieben fehlgeschlagen: ' + message;
+      renderServerRecordingFolder(folderResult);
+    })
+    .catch(error => recordingBrowserRenderFolderLoadError(error));
+}
+
+function recordingBrowserCreateMoveEditor(recording, folderData, resultBox) {
+  const editor = document.createElement('details');
+  editor.className = 'recording-move-editor';
+
+  editor.appendChild(recordingBrowserAddText(
+    document.createElement('summary'),
+    'Verschieben …'
+  ));
+
+  const body = document.createElement('section');
+  body.className = 'module-placeholder recording-move-editor-body';
+
+  const sourceFolderPath = recordingBrowserMoveSourceFolderPath(
+    recording,
+    folderData
+  );
+  const sourceTitle = recordingBrowserLocalRecordingTitle(
+    recording,
+    folderData
+  );
+
+  body.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    'Aufnahme: ' + sourceTitle
+  ));
+  body.appendChild(recordingBrowserAddText(
+    document.createElement('p'),
+    'Aktueller Ordner: ' + (
+      sourceFolderPath === ''
+        ? 'Hauptordner'
+        : recordingBrowserDisplayPathLabel(sourceFolderPath)
+    )
+  ));
+
+  const label = document.createElement('label');
+  label.appendChild(recordingBrowserAddText(
+    document.createElement('span'),
+    'Zielordner'
+  ));
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'z. B. Filme/Archiv';
+  input.autocomplete = 'off';
+  label.appendChild(input);
+  body.appendChild(label);
+
+  const selectedTarget = document.createElement('p');
+  selectedTarget.textContent = 'Noch kein Zielordner ausgewählt.';
+  body.appendChild(selectedTarget);
+
+  const browseBox = document.createElement('section');
+  browseBox.className = 'recording-move-folder-browser';
+  body.appendChild(browseBox);
+
+  const controls = document.createElement('div');
+  controls.className = 'recording-action-buttons';
+
+  const rootButton = document.createElement('button');
+  rootButton.type = 'button';
+  rootButton.textContent = 'Hauptordner als Ziel';
+
+  const browseButton = document.createElement('button');
+  browseButton.type = 'button';
+  browseButton.textContent = 'Vorhandene Ordner durchsuchen';
+  browseButton.disabled = !recordingBrowserFolderLoader;
+
+  const validateButton = document.createElement('button');
+  validateButton.type = 'button';
+  validateButton.textContent = 'Ziel prüfen';
+
+  const executeButton = document.createElement('button');
+  executeButton.type = 'button';
+  executeButton.textContent = 'Jetzt verschieben';
+  executeButton.disabled = true;
+
+  controls.appendChild(rootButton);
+  controls.appendChild(browseButton);
+  controls.appendChild(validateButton);
+  controls.appendChild(executeButton);
+  body.appendChild(controls);
+  editor.appendChild(body);
+
+  let rootSelected = false;
+  let validatedTarget = '';
+
+  const targetParameter = () => {
+    const rawValue = String(input.value || '').trim();
+
+    if (rawValue === '/') {
+      return '/';
+    }
+
+    const normalized = recordingBrowserNormalizeMovePath(rawValue);
+
+    if (normalized !== '') {
+      return normalized;
+    }
+
+    return rootSelected ? '/' : '';
+  };
+
+  const invalidateValidation = () => {
+    validatedTarget = '';
+    executeButton.disabled = true;
+  };
+
+  const updateSelectedTarget = () => {
+    const target = targetParameter();
+    selectedTarget.textContent = target === ''
+      ? 'Noch kein Zielordner ausgewählt.'
+      : 'Ausgewähltes Ziel: ' + recordingBrowserMoveTargetLabel(target);
+  };
+
+  const chooseTargetFolder = path => {
+    const normalized = recordingBrowserNormalizeMovePath(path);
+    rootSelected = normalized === '';
+    input.value = normalized;
+    invalidateValidation();
+    updateSelectedTarget();
+  };
+
+  const renderFolderBrowserError = error => {
+    browseBox.replaceChildren();
+    browseBox.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      'Ordner konnten nicht geladen werden: ' + (
+        error && error.message ? error.message : String(error)
+      )
+    ));
+  };
+
+  const loadFolderBrowser = path => {
+    if (!recordingBrowserFolderLoader) {
+      return;
+    }
+
+    const normalizedPath = recordingBrowserNormalizeMovePath(path);
+    browseBox.replaceChildren();
+    browseBox.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      'Lade Zielordner …'
+    ));
+
+    const progress = document.createElement('progress');
+    progress.className = 'recording-folder-refresh-progress';
+    progress.setAttribute('aria-label', 'Zielordner werden geladen');
+    browseBox.appendChild(progress);
+
+    recordingBrowserFolderLoader(normalizedPath, 0)
+      .then(data => {
+        const browserData = data && typeof data === 'object' ? data : {};
+        const browserPath = recordingBrowserNormalizeMovePath(
+          browserData.path || normalizedPath
+        );
+        const parentPath = recordingBrowserNormalizeMovePath(
+          browserData.parentPath || ''
+        );
+        const folders = recordingBrowserListFromResponse(
+          browserData,
+          'folders'
+        );
+
+        browseBox.replaceChildren();
+        browseBox.appendChild(recordingBrowserAddText(
+          document.createElement('h4'),
+          browserPath === ''
+            ? 'Hauptordner'
+            : recordingBrowserDisplayPathLabel(browserPath)
+        ));
+
+        const browserControls = document.createElement('div');
+        browserControls.className = 'recording-action-buttons';
+
+        const chooseButton = document.createElement('button');
+        chooseButton.type = 'button';
+        chooseButton.textContent = 'Diesen Ordner als Ziel verwenden';
+        chooseButton.addEventListener('click', () =>
+          chooseTargetFolder(browserPath)
+        );
+        browserControls.appendChild(chooseButton);
+
+        if (browserPath !== '') {
+          const backButton = document.createElement('button');
+          backButton.type = 'button';
+          backButton.textContent = 'Eine Ebene zurück';
+          backButton.addEventListener('click', () =>
+            loadFolderBrowser(parentPath)
+          );
+          browserControls.appendChild(backButton);
+        }
+
+        browseBox.appendChild(browserControls);
+
+        if (folders.length === 0) {
+          browseBox.appendChild(recordingBrowserAddText(
+            document.createElement('p'),
+            'Keine weiteren Unterordner vorhanden.'
+          ));
+          return;
+        }
+
+        folders.forEach(folder => {
+          const folderName = decodeRecordingText(
+            recordingBrowserFirstValue(
+              folder,
+              ['name', 'title'],
+              'Ordner'
+            )
+          );
+          const folderPath = recordingBrowserFirstValue(
+            folder,
+            ['path'],
+            folderName
+          );
+          const folderButton = document.createElement('button');
+          folderButton.type = 'button';
+          folderButton.textContent = folderName;
+          folderButton.addEventListener('click', () =>
+            loadFolderBrowser(folderPath)
+          );
+          browseBox.appendChild(folderButton);
+        });
+      })
+      .catch(renderFolderBrowserError);
+  };
+
+  input.addEventListener('input', () => {
+    rootSelected = String(input.value || '').trim() === '/';
+    invalidateValidation();
+    updateSelectedTarget();
+  });
+
+  rootButton.addEventListener('click', () => {
+    chooseTargetFolder('');
+  });
+
+  browseButton.addEventListener('click', () => {
+    loadFolderBrowser('');
+  });
+
+  validateButton.addEventListener('click', () => {
     if (!recordingBrowserActionRunner) {
       recordingBrowserRenderActionResult(
         resultBox,
-        label,
+        'Verschieben prüfen',
         null,
         new Error('Recording action runner is not configured')
       );
       return;
     }
 
-    const targetPath = recordingBrowserPromptMoveTarget(label, resultBox);
+    const target = targetParameter();
 
-    if (targetPath === '') {
+    if (target === '') {
+      recordingBrowserRenderActionResult(
+        resultBox,
+        'Verschieben prüfen',
+        null,
+        new Error('Bitte zuerst einen Zielordner auswählen')
+      );
       return;
     }
 
-    button.disabled = true;
+    if (recordingBrowserMoveTargetFolderPath(target) === sourceFolderPath) {
+      recordingBrowserRenderActionResult(
+        resultBox,
+        'Verschieben prüfen',
+        null,
+        new Error('Die Aufnahme befindet sich bereits in diesem Ordner')
+      );
+      return;
+    }
+
+    validateButton.disabled = true;
+    executeButton.disabled = true;
     recordingBrowserRenderActionResult(
       resultBox,
-      label,
-      { message: mode === 'validate' ? 'Verschieben wird geprüft …' : 'Verschieben Dry-Run läuft …' },
+      'Verschieben prüfen',
+      { message: 'Verschieben wird geprüft …' },
       null
     );
 
     recordingBrowserActionRunner({
-      mode: mode,
+      mode: 'validate',
       action: 'MOVE',
       payload: recordingBrowserActionPayload(recording, 'MOVE', {
         dryRun: true,
-        targetPath: targetPath
+        targetPath: target
       }),
       recording: recording
     })
       .then(result => {
-        recordingBrowserRenderActionResult(resultBox, label, result, null);
+        recordingBrowserRenderActionResult(
+          resultBox,
+          'Verschieben prüfen',
+          result,
+          null
+        );
+
+        if (result && result.valid === true && targetParameter() === target) {
+          validatedTarget = target;
+          executeButton.disabled = false;
+        }
       })
       .catch(error => {
-        recordingBrowserRenderActionResult(resultBox, label, null, error);
+        recordingBrowserRenderActionResult(
+          resultBox,
+          'Verschieben prüfen',
+          null,
+          error
+        );
       })
       .finally(() => {
-        button.disabled = false;
+        validateButton.disabled = false;
       });
   });
 
-  return button;
-}
+  executeButton.addEventListener('click', () => {
+    const target = targetParameter();
 
-function recordingBrowserCreateMoveButton(recording, resultBox) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.textContent = 'Verschieben';
-
-  button.addEventListener('click', () => {
-    if (!recordingBrowserActionRunner) {
+    if (target === '' || validatedTarget !== target) {
+      executeButton.disabled = true;
       recordingBrowserRenderActionResult(
         resultBox,
         'Verschieben',
         null,
-        new Error('Recording action runner is not configured')
+        new Error(
+          'Verschieben muss vor der Ausführung erfolgreich geprüft werden.'
+        )
       );
       return;
     }
 
-    const targetPath = recordingBrowserPromptMoveTarget('Verschieben', resultBox);
+    const targetLabel = recordingBrowserMoveTargetLabel(target);
 
-    if (targetPath === '') {
-      return;
-    }
-
-    if (!window.confirm('Aufnahme wirklich nach "' + targetPath + '" verschieben?')) {
+    if (!window.confirm(
+        'Aufnahme wirklich nach "' + targetLabel + '" verschieben?')) {
       recordingBrowserRenderActionResult(
         resultBox,
         'Verschieben',
@@ -1266,12 +1824,12 @@ function recordingBrowserCreateMoveButton(recording, resultBox) {
       return;
     }
 
-    button.disabled = true;
-    recordingBrowserRenderActionResult(
-      resultBox,
-      'Verschieben',
-      { message: 'Verschieben wird ausgeführt …' },
-      null
+    recordingBrowserRenderMovePendingDetail(
+      recording,
+      folderData,
+      target,
+      false,
+      false
     );
 
     recordingBrowserActionRunner({
@@ -1279,26 +1837,38 @@ function recordingBrowserCreateMoveButton(recording, resultBox) {
       action: 'MOVE',
       payload: recordingBrowserActionPayload(recording, 'MOVE', {
         dryRun: false,
-        targetPath: targetPath
+        targetPath: target
       }),
       recording: recording
     })
       .then(result => {
-        recordingBrowserRenderActionResult(resultBox, 'Verschieben', result, null);
-
-        if (result && result.success) {
-          recordingBrowserScheduleMoveParentFolderReload(targetPath);
+        if (result && result.success === true) {
+          recordingBrowserConfirmPendingMove(target);
+          recordingBrowserActivateConfirmedMoveReadback();
+          return;
         }
+
+        const message = result && (result.message || result.error)
+          ? String(result.message || result.error)
+          : 'Backend hat das Verschieben abgelehnt';
+
+        recordingBrowserHandleMoveFailure(
+          recording,
+          folderData,
+          message
+        );
       })
       .catch(error => {
-        recordingBrowserRenderActionResult(resultBox, 'Verschieben', null, error);
-      })
-      .finally(() => {
-        button.disabled = false;
+        recordingBrowserHandleMoveFailure(
+          recording,
+          folderData,
+          error && error.message ? error.message : String(error)
+        );
       });
   });
 
-  return button;
+  updateSelectedTarget();
+  return editor;
 }
 
 function recordingBrowserCreateRenameValidateButton(recording, resultBox) {
@@ -1466,7 +2036,7 @@ function createServerRecordingActionPanel(recording, folderData) {
 
   panel.appendChild(recordingBrowserAddText(
     document.createElement('p'),
-    'Umbenennen und Verschieben sind nach Bestätigung scharf. Löschen bleibt bewusst noch nicht scharf aktiviert und bleibt Prüfung/Dry-Run.'
+    'Umbenennen ist nach Bestätigung scharf. Verschieben wird zuerst gegen den gewählten Zielordner geprüft und danach ausdrücklich bestätigt. Löschen bleibt bewusst Prüfung/Dry-Run.'
   ));
 
   const actions = document.createElement('div');
@@ -1486,22 +2056,9 @@ function createServerRecordingActionPanel(recording, folderData) {
     resultBox
   ));
 
-  actions.appendChild(recordingBrowserCreateMoveButton(
+  actions.appendChild(recordingBrowserCreateMoveEditor(
     recording,
-    resultBox
-  ));
-
-  actions.appendChild(recordingBrowserCreateMoveDryRunButton(
-    'Verschieben prüfen (sicher)',
-    'validate',
-    recording,
-    resultBox
-  ));
-
-  actions.appendChild(recordingBrowserCreateMoveDryRunButton(
-    'Verschieben Dry-Run (keine Ausführung)',
-    'execute',
-    recording,
+    folderData,
     resultBox
   ));
 
@@ -1537,6 +2094,11 @@ function renderServerRecordingDetail(recording, folderData, options) {
   const renamePending = detailOptions.renamePending === true;
   const renameAccepted = detailOptions.renameAccepted === true;
   const renameError = String(detailOptions.renameError || '').trim();
+  const movePending = detailOptions.movePending === true;
+  const moveAccepted = detailOptions.moveAccepted === true;
+  const moveTimedOut = detailOptions.moveTimedOut === true;
+  const moveTargetPath = String(detailOptions.moveTargetPath || '').trim();
+  const moveError = String(detailOptions.moveError || '').trim();
 
   const list = document.createElement('section');
   list.className = 'list recording-detail-list';
@@ -1576,6 +2138,55 @@ function renderServerRecordingDetail(recording, folderData, options) {
     ));
   }
 
+  if (movePending) {
+    const targetLabel = recordingBrowserMoveTargetLabel(moveTargetPath);
+    const moveMessage = moveTimedOut
+      ? 'Verschieben wurde bestätigt, aber der neue Cache-Stand ist noch nicht sichtbar. Ziel: ' + targetLabel
+      : moveAccepted
+        ? 'Verschieben vom Backend bestätigt. Die Aufnahme wird im Zielordner gesucht: ' + targetLabel
+        : 'Verschieben wird ausgeführt. Ziel: ' + targetLabel;
+
+    item.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      moveMessage
+    ));
+
+    if (!moveTimedOut) {
+      const progress = document.createElement('progress');
+      progress.className = 'recording-folder-refresh-progress';
+      progress.setAttribute('aria-label', 'Verschieben wird abgeglichen');
+      item.appendChild(progress);
+    } else {
+      const retryButton = document.createElement('button');
+      retryButton.type = 'button';
+      retryButton.textContent = 'Cache-Abgleich erneut versuchen';
+      retryButton.addEventListener('click', () => {
+        recordingBrowserRetryPendingMoveReadback();
+        if (recordingBrowserPendingMove) {
+          renderServerRecordingDetail(
+            recordingBrowserPendingMove.recording,
+            recordingBrowserPendingMove.folderData,
+            {
+              movePending: true,
+              moveAccepted: true,
+              moveTimedOut: false,
+              moveTargetPath: recordingBrowserPendingMove.targetParameter
+            }
+          );
+          recordingBrowserScheduleMoveTargetFolderReload();
+        }
+      });
+      item.appendChild(retryButton);
+    }
+  }
+
+  if (moveError !== '') {
+    item.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      'Verschieben fehlgeschlagen: ' + moveError
+    ));
+  }
+
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Aufnahme: ' + startTime));
   item.appendChild(recordingBrowserAddText(document.createElement('p'), 'Dauer: ' + duration));
 
@@ -1601,7 +2212,7 @@ function renderServerRecordingDetail(recording, folderData, options) {
 
   item.appendChild(technicalDetails);
 
-  if (!renamePending) {
+  if (!renamePending && !movePending) {
     item.appendChild(createServerRecordingActionPanel(recording, folderData));
   }
 
@@ -1612,10 +2223,12 @@ function renderServerRecordingDetail(recording, folderData, options) {
     backButton.textContent = 'Ordnerabgleich läuft …';
     backButton.disabled = true;
   } else {
-    backButton.textContent = 'Zurück zum Ordner';
     const detailFolderPath = folderData && typeof folderData === 'object'
       ? String(folderData.path || '')
       : '';
+    backButton.textContent = movePending
+      ? 'Zurück zu den Aufnahmen'
+      : 'Zurück zum Ordner';
     backButton.addEventListener('click', () => {
       if (recordingBrowserFolderLoader) {
         recordingBrowserLoadServerFolder(detailFolderPath, 0);
@@ -1679,6 +2292,7 @@ function renderServerRecordingFolder(data) {
   const returnedCount = Number(folderData.returnedCount) || recordings.length;
   const totalCount = Number(folderData.totalCount) || 0;
   const externalRefreshPending = folderData.refreshPending === true;
+  const actionNotice = String(folderData.actionNotice || '').trim();
 
   let pendingRename = recordingBrowserPendingRenameForFolder(path);
 
@@ -1692,8 +2306,17 @@ function renderServerRecordingFolder(data) {
   }
 
   const renameCachePending = pendingRename !== null;
+  let pendingMove = recordingBrowserPendingMove;
+
+  if (pendingMove &&
+      recordingBrowserFolderContainsMovedRecording(folderData, pendingMove)) {
+    recordingBrowserClearPendingMove();
+    pendingMove = null;
+  }
+
+  const moveCachePending = pendingMove !== null;
   const folderRefreshPending =
-    renameCachePending || externalRefreshPending;
+    renameCachePending || moveCachePending || externalRefreshPending;
 
   const list = document.createElement('section');
   list.className = 'list recording-folder-list';
@@ -1723,6 +2346,13 @@ function renderServerRecordingFolder(data) {
 
   header.appendChild(recordingBrowserAddText(document.createElement('p'), summary.join(' · ')));
 
+  if (actionNotice !== '') {
+    header.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      actionNotice
+    ));
+  }
+
   if (!cacheReady) {
     header.appendChild(recordingBrowserAddText(
       document.createElement('p'),
@@ -1741,6 +2371,13 @@ function renderServerRecordingFolder(data) {
         : 'Umbenennung wird ausgeführt. Die Ordneransicht aktualisiert sich anschließend automatisch.';
       progressLabel =
         'Aufnahmeordner wird nach der Umbenennung aktualisiert';
+    } else if (moveCachePending) {
+      pendingMessage = pendingMove.timedOut
+        ? 'Verschieben bestätigt. Der Cache-Abgleich dauert länger als erwartet. Ziel: ' + pendingMove.targetLabel
+        : pendingMove.accepted
+          ? 'Verschieben bestätigt. Die Aufnahme wird im Zielordner gesucht: ' + pendingMove.targetLabel
+          : 'Verschieben wird ausgeführt. Ziel: ' + pendingMove.targetLabel;
+      progressLabel = 'Verschieben wird im Aufnahme-Cache abgeglichen';
     }
 
     header.appendChild(recordingBrowserAddText(
@@ -1748,10 +2385,21 @@ function renderServerRecordingFolder(data) {
       pendingMessage
     ));
 
-    const progress = document.createElement('progress');
-    progress.className = 'recording-folder-refresh-progress';
-    progress.setAttribute('aria-label', progressLabel);
-    header.appendChild(progress);
+    if (!moveCachePending || !pendingMove.timedOut) {
+      const progress = document.createElement('progress');
+      progress.className = 'recording-folder-refresh-progress';
+      progress.setAttribute('aria-label', progressLabel);
+      header.appendChild(progress);
+    } else {
+      const retryButton = document.createElement('button');
+      retryButton.type = 'button';
+      retryButton.textContent = 'Cache-Abgleich erneut versuchen';
+      retryButton.addEventListener('click', () => {
+        recordingBrowserRetryPendingMoveReadback();
+        recordingBrowserLoadServerFolder(path, offset);
+      });
+      header.appendChild(retryButton);
+    }
   }
 
   if (path !== '') {
@@ -1856,7 +2504,9 @@ function renderServerRecordingFolder(data) {
       folderRefreshPending
         ? renameCachePending
           ? 'Ordner und Aufnahmen werden nach der Umbenennung noch nachgeladen.'
-          : 'Ordner und Aufnahmen werden noch nachgeladen.'
+          : moveCachePending
+            ? 'Ordner und Aufnahmen werden nach dem Verschieben noch nachgeladen.'
+            : 'Ordner und Aufnahmen werden noch nachgeladen.'
         : cacheReady
           ? 'Dieser Ordner enthält keine Unterordner und keine direkten Aufnahmen.'
           : 'Noch keine Cache-Daten vorhanden. Der Daemon lädt die Aufnahmen im Hintergrund.'
@@ -1866,7 +2516,12 @@ function renderServerRecordingFolder(data) {
 
   recordingBrowserDetailDataElement().replaceChildren(list);
 
-  if (renameCachePending &&
+  if (moveCachePending &&
+      pendingMove.accepted &&
+      !pendingMove.timedOut &&
+      recordingBrowserFolderLoader) {
+    recordingBrowserScheduleMoveTargetFolderReload();
+  } else if (renameCachePending &&
       pendingRename.accepted &&
       recordingBrowserFolderLoader) {
     recordingBrowserScheduleRenameFolderReload(

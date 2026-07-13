@@ -399,7 +399,7 @@ Conclusion:
 
 ## Phase 60.15f: Move validation and dry-run runtime probe
 
-Status: completed as readiness probe only.
+Status: completed; the later real end-to-end validation also proved sharp Move execution and readback through VDR-Suite and RESTfulAPI.
 
 Runtime environment:
 
@@ -445,7 +445,9 @@ Dry-run execution result:
 
 Conclusion:
 
-- Move is recognized by the validation layer.
-- Move dry-run execution is safety-gated and does not call the backend executor.
-- The Web UI must not expose a sharp Move action before a dedicated sharp-move probe exists.
-- Before enabling sharp Move, both source and target path handling must be reviewed against RESTfulAPI mount-loop paths. Runtime probes have shown that RESTfulAPI can expose recordings through `Recordings_on_yavdr(nfs)` mount aliases.
+- Move is recognized by the validation layer and dry-run execution remains safety-gated.
+- The dedicated real end-to-end validation subsequently proved sharp Move execution, target-folder handling, source disappearance and target readback through the existing action pipeline.
+- The Web UI may expose sharp Move only after a successful validation for the exact selected target and explicit user confirmation.
+- The completed frontend workflow confirms the moved recording itself in the target folder instead of treating an already existing target folder as proof of completion.
+- The canonical frontend value `/` represents the Recording root; the RESTfulAPI request builder maps it to the preserved recording leaf name.
+- Backend-native source identity and the existing mount-loop normalization rules remain authoritative.
