@@ -1,6 +1,8 @@
 #pragma once
 
+#include <mutex>
 #include <string>
+#include <thread>
 
 struct sqlite3;
 
@@ -21,4 +23,7 @@ public:
 
 private:
     sqlite3* db_;
+    mutable std::recursive_mutex connectionMutex_;
+    bool transactionActive_;
+    std::thread::id transactionOwner_;
 };
