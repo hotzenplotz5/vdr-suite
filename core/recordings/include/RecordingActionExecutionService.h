@@ -74,7 +74,7 @@ public:
         const RecordingActionJobPayload payload =
             payloadFactory_.create(request, validation);
 
-        if (payload.dryRun)
+        if (shouldSkipBackendDryRun(payload))
         {
             RecordingActionExecutionResult result =
                 dryRunSkipped(payload);
@@ -87,6 +87,7 @@ public:
         RecordingActionExecutionResult result =
             executor.execute(payload);
 
+        normalizeDeleteDryRunResult(result, payload);
         appendValidationWarnings(result, validation);
 
         return result;
@@ -137,7 +138,7 @@ public:
         const RecordingActionJobPayload payload =
             payloadFactory_.create(request, validation);
 
-        if (payload.dryRun)
+        if (shouldSkipBackendDryRun(payload))
         {
             RecordingActionExecutionResult result =
                 dryRunSkipped(payload);
@@ -188,12 +189,36 @@ public:
         RecordingActionExecutionResult result =
             dispatchResult.executionResult;
 
+        normalizeDeleteDryRunResult(result, payload);
         appendValidationWarnings(result, validation);
 
         return result;
     }
 
 private:
+    static bool shouldSkipBackendDryRun(
+        const RecordingActionJobPayload& payload)
+    {
+        return payload.dryRun &&
+            payload.type != RecordingActionType::Delete;
+    }
+
+    static void normalizeDeleteDryRunResult(
+        RecordingActionExecutionResult& result,
+        const RecordingActionJobPayload& payload)
+    {
+        if (!payload.dryRun ||
+            payload.type != RecordingActionType::Delete ||
+            !result.success ||
+            result.hasErrors())
+        {
+            return;
+        }
+
+        result.success = false;
+        result.message = "dry-run backend execution skipped";
+    }
+
     static RecordingActionExecutionResult dryRunSkipped(
         const RecordingActionJobPayload& payload)
     {
