@@ -90,12 +90,7 @@ bool Database::execute(const std::string& sql)
     const bool endsTransaction =
         keyword == "COMMIT" || keyword == "ROLLBACK";
 
-    if (beginsTransaction) {
-        connectionMutex_.lock();
-    }
-    else {
-        connectionMutex_.lock();
-    }
+    connectionMutex_.lock();
 
     if (!db_) {
         std::cerr << "Database is not open" << std::endl;
@@ -119,11 +114,6 @@ bool Database::execute(const std::string& sql)
                   << std::endl;
 
         sqlite3_free(error);
-
-        if (beginsTransaction) {
-            connectionMutex_.unlock();
-        }
-
         connectionMutex_.unlock();
         return false;
     }
