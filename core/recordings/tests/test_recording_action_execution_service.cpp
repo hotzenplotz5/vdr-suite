@@ -15,12 +15,18 @@ public:
         capturedPayload = payload;
 
         RecordingActionExecutionResult result;
-        result.success = !payload.dryRun;
+        result.success =
+            payload.type == RecordingActionType::Delete ||
+            !payload.dryRun;
         result.type = payload.type;
         result.backendId = payload.backendId;
         result.recordingId = payload.recordingId;
 
-        if (payload.dryRun)
+        if (payload.dryRun && payload.type == RecordingActionType::Delete)
+        {
+            result.message = "native recording trash preview ready";
+        }
+        else if (payload.dryRun)
         {
             result.message = "dry-run execution skipped";
         }
@@ -80,6 +86,32 @@ int main()
     assert(dryRunExecutor.capturedPayload.backendId.empty());
     assert(dryRunExecutor.capturedPayload.recordingId.empty());
     assert(dryRunExecutor.capturedPayload.type == RecordingActionType::Unknown);
+
+    RecordingActionRequest deleteDryRunRequest;
+    deleteDryRunRequest.backendId = "living-room";
+    deleteDryRunRequest.recordingId = "recording-preview";
+    deleteDryRunRequest.type = RecordingActionType::Delete;
+    deleteDryRunRequest.dryRun = true;
+    deleteDryRunRequest.parameters["recordingPath"] =
+        "/video/recording-preview.rec";
+
+    CapturingRecordingActionExecutor deleteDryRunExecutor;
+
+    const RecordingActionExecutionResult deleteDryRunResult =
+        service.execute(deleteDryRunRequest, deleteDryRunExecutor);
+
+    assert(deleteDryRunExecutor.called);
+    assert(!deleteDryRunResult.success);
+    assert(deleteDryRunResult.type == RecordingActionType::Delete);
+    assert(deleteDryRunResult.backendId == "living-room");
+    assert(deleteDryRunResult.recordingId == "recording-preview");
+    assert(deleteDryRunResult.message == "dry-run backend execution skipped");
+    assert(deleteDryRunResult.hasWarnings());
+    assert(!deleteDryRunResult.hasErrors());
+    assert(deleteDryRunExecutor.capturedPayload.dryRun);
+    assert(deleteDryRunExecutor.capturedPayload.type == RecordingActionType::Delete);
+    assert(deleteDryRunExecutor.capturedPayload.parameters.at("recordingPath") ==
+        "/video/recording-preview.rec");
 
     RecordingActionRequest executeRequest;
     executeRequest.backendId = "living-room";
