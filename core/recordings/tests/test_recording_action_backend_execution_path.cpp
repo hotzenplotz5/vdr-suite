@@ -38,12 +38,18 @@ public:
         capturedPayload = payload;
 
         RecordingActionExecutionResult result;
-        result.success = !payload.dryRun;
+        result.success =
+            payload.type == RecordingActionType::Delete ||
+            !payload.dryRun;
         result.type = payload.type;
         result.backendId = payload.backendId;
         result.recordingId = payload.recordingId;
 
-        if (payload.dryRun)
+        if (payload.dryRun && payload.type == RecordingActionType::Delete)
+        {
+            result.message = "native recording trash preview ready";
+        }
+        else if (payload.dryRun)
         {
             result.message = "dry-run backend execution skipped";
         }
@@ -102,7 +108,7 @@ int main()
     const RecordingActionExecutionResult dryRunResult =
         service.execute(dryRunRequest, registry);
 
-    assert(adapter->called);
+    assert(!adapter->called);
     assert(!dryRunResult.success);
     assert(dryRunResult.type == RecordingActionType::Move);
     assert(dryRunResult.backendId == "living-room");
@@ -111,12 +117,36 @@ int main()
     assert(dryRunResult.hasWarnings());
     assert(!dryRunResult.hasErrors());
 
-    assert(adapter->capturedPayload.backendId == "living-room");
-    assert(adapter->capturedPayload.recordingId == "recording-2");
-    assert(adapter->capturedPayload.type == RecordingActionType::Move);
-    assert(adapter->capturedPayload.jobType == "recording.move");
-    assert(adapter->capturedPayload.dryRun);
-    assert(adapter->capturedPayload.parameters.at("targetPath") == "/video/archive");
+    RecordingActionBackendExecutorAdapterRegistry previewRegistry;
+
+    auto previewAdapter =
+        std::make_shared<CapturingBackendExecutorAdapter>("living-room");
+
+    previewRegistry.registerAdapter(previewAdapter);
+
+    RecordingActionRequest previewRequest;
+    previewRequest.backendId = "living-room";
+    previewRequest.recordingId = "recording-preview";
+    previewRequest.type = RecordingActionType::Delete;
+    previewRequest.dryRun = true;
+    previewRequest.parameters["recordingPath"] =
+        "/video/recording-preview.rec";
+
+    const RecordingActionExecutionResult previewResult =
+        service.execute(previewRequest, previewRegistry);
+
+    assert(previewAdapter->called);
+    assert(!previewResult.success);
+    assert(previewResult.type == RecordingActionType::Delete);
+    assert(previewResult.backendId == "living-room");
+    assert(previewResult.recordingId == "recording-preview");
+    assert(previewResult.message == "dry-run backend execution skipped");
+    assert(previewResult.hasWarnings());
+    assert(!previewResult.hasErrors());
+    assert(previewAdapter->capturedPayload.dryRun);
+    assert(previewAdapter->capturedPayload.type == RecordingActionType::Delete);
+    assert(previewAdapter->capturedPayload.parameters.at("recordingPath") ==
+        "/video/recording-preview.rec");
 
     RecordingActionBackendExecutorAdapterRegistry executionRegistry;
 
