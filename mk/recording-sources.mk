@@ -35,3 +35,5 @@ DASHBOARD_CLI_SRC := \
         core/recordings/src/RecordingDashboardService.cpp \
         core/recordings/src/DashboardFacade.cpp \
         core/recordings/src/DashboardJsonSerializer.cpp
+
+include mk/recording-trash-tests.mk
