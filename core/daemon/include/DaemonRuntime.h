@@ -51,6 +51,7 @@
 #include "PersonResolutionJsonSerializer.h"
 #include "PersonQueryResultJsonSerializer.h"
 #include "PersonController.h"
+#include "RecordingCacheReconcileBudget.h"
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
@@ -165,7 +166,7 @@ private:
     std::atomic<bool> epgCacheDirtyHint_;
     std::atomic<bool> recordingCacheWarmupStopRequested_;
     std::atomic<bool> recordingCacheDirtyHint_;
-    std::atomic<int> recordingCacheActionRefreshAttempts_;
+    RecordingCacheReconcileBudget recordingCacheActionRefreshAttempts_;
     std::thread epgCacheWarmupThread_;
     std::thread recordingCacheWarmupThread_;
 
