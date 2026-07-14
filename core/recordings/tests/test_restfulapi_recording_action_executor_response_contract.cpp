@@ -1,21 +1,60 @@
-#include "MockHttpClient.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 
 #include <cassert>
 #include <string>
+#include <vector>
 
 namespace
 {
-RecordingActionJobPayload makeDeletePayload(
-    bool dryRun)
+class SequenceHttpClient final : public IHttpClient
+{
+public:
+    explicit SequenceHttpClient(std::vector<HttpResponse> responses)
+        : responses_(std::move(responses))
+    {
+    }
+
+    HttpResponse execute(const HttpRequest& request) const override
+    {
+        requests_.push_back(request);
+        assert(nextResponse_ < responses_.size());
+        return responses_.at(nextResponse_++);
+    }
+
+    std::size_t requestCount() const
+    {
+        return requests_.size();
+    }
+
+    const HttpRequest& requestAt(std::size_t index) const
+    {
+        return requests_.at(index);
+    }
+
+private:
+    std::vector<HttpResponse> responses_;
+    mutable std::vector<HttpRequest> requests_;
+    mutable std::size_t nextResponse_ = 0;
+};
+
+HttpResponse response(int statusCode, const std::string& body)
+{
+    HttpResponse result;
+    result.statusCode = statusCode;
+    result.body = body;
+    return result;
+}
+
+RecordingActionJobPayload makeDeletePayload(bool dryRun)
 {
     RecordingActionJobPayload payload;
     payload.backendId = "default";
     payload.recordingId = "Movies/Tatort/2026-06-16.20.15.1-0.rec";
     payload.type = RecordingActionType::Delete;
     payload.dryRun = dryRun;
-    payload.parameters["recordingPath"] =
-        "Movies/Tatort/2026-06-16.20.15.1-0.rec";
+    payload.parameters["recordingPath"] = payload.recordingId;
+    payload.parameters["backendNativeId"] =
+        "/srv/vdr/video/Movies/Tatort/2026-06-16.20.15.1-0.rec";
     return payload;
 }
 
@@ -30,16 +69,31 @@ RestfulApiRecordingActionBackendConfig makeConfig(
     config.allowExecution = allowExecution;
     return config;
 }
+
+const std::string readyPreview =
+    "{"
+    "\"executable\":true,"
+    "\"recording_file\":\"/srv/vdr/video/test.rec\","
+    "\"blockers\":[],"
+    "\"warnings\":[],"
+    "\"revision_recordings_state\":12345,"
+    "\"revision_timers_state\":67890"
+    "}";
 }
 
 int main()
 {
     {
-        MockHttpClient httpClient;
-        HttpResponse response;
-        response.statusCode = 200;
-        response.body = "Recording deleted!";
-        httpClient.setResponse(response);
+        SequenceHttpClient httpClient({
+            response(200, readyPreview),
+            response(200, "{\"status\":\"ready\",\"blockers\":[],\"warnings\":[]}"),
+            response(
+                200,
+                "{\"status\":\"trashed\","
+                "\"recording_file\":\"/srv/vdr/video/test.rec\","
+                "\"deleted_recording_file\":\"/srv/vdr/video/test.del\","
+                "\"message\":\"Recording moved to the VDR trash.\"}")
+        });
 
         RestfulApiRecordingActionBackendExecutorAdapter adapter(
             makeConfig(false, true),
@@ -51,20 +105,33 @@ int main()
         assert(result.success);
         assert(result.type == RecordingActionType::Delete);
         assert(result.backendId == "default");
-        assert(result.recordingId == "Movies/Tatort/2026-06-16.20.15.1-0.rec");
-        assert(result.message == "restfulapi backend executor request accepted");
+        assert(result.message == "Recording moved to the VDR trash.");
         assert(result.errors.empty());
-        assert(httpClient.requestCount() == 1);
-        assert(httpClient.lastRequest().method == "POST");
-        assert(httpClient.lastRequest().url == "/api/recordings/delete.json");
+        assert(result.upstreamHttpStatus == 200);
+        assert(result.upstreamEndpoint == "/api/recordings/trash.json");
+        assert(httpClient.requestCount() == 3);
+        assert(httpClient.requestAt(0).url ==
+            "/api/recordings/trash/preview.json");
+        assert(httpClient.requestAt(1).url ==
+            "/api/recordings/trash/validate.json");
+        assert(httpClient.requestAt(2).url ==
+            "/api/recordings/trash.json");
+        assert(httpClient.requestAt(1).body.find(
+            "\"revision_recordings_state\":\"12345\"") !=
+            std::string::npos);
+        assert(httpClient.requestAt(2).body ==
+            httpClient.requestAt(1).body);
     }
 
     {
-        MockHttpClient httpClient;
-        HttpResponse response;
-        response.statusCode = 201;
-        response.body = "{\"recordings\":[]}";
-        httpClient.setResponse(response);
+        SequenceHttpClient httpClient({
+            response(200, readyPreview),
+            response(200, "{\"status\":\"ready\",\"blockers\":[],\"warnings\":[]}"),
+            response(
+                200,
+                "{\"status\":\"already-trashed\","
+                "\"message\":\"Recording is already present in the VDR trash.\"}")
+        });
 
         RestfulApiRecordingActionBackendExecutorAdapter adapter(
             makeConfig(false, true),
@@ -74,84 +141,27 @@ int main()
             adapter.execute(makeDeletePayload(false));
 
         assert(result.success);
-        assert(result.message == "restfulapi backend executor request accepted");
-        assert(result.errors.empty());
-        assert(httpClient.requestCount() == 1);
+        assert(result.message ==
+            "Recording is already present in the VDR trash.");
+        assert(httpClient.requestCount() == 3);
     }
 
     {
-        MockHttpClient httpClient;
-        HttpResponse response;
-        response.statusCode = 204;
-        response.body = "";
-        httpClient.setResponse(response);
+        SequenceHttpClient httpClient({
+            response(
+                200,
+                "{"
+                "\"executable\":false,"
+                "\"recording_file\":\"/srv/vdr/video/test.rec\","
+                "\"blockers\":[\"local-timer-active\"],"
+                "\"warnings\":[],"
+                "\"revision_recordings_state\":1,"
+                "\"revision_timers_state\":2"
+                "}")
+        });
 
         RestfulApiRecordingActionBackendExecutorAdapter adapter(
             makeConfig(false, true),
-            httpClient);
-
-        const RecordingActionExecutionResult result =
-            adapter.execute(makeDeletePayload(false));
-
-        assert(result.success);
-        assert(result.message == "restfulapi backend executor request accepted");
-        assert(result.errors.empty());
-        assert(httpClient.requestCount() == 1);
-    }
-
-    {
-        MockHttpClient httpClient;
-        HttpResponse response;
-        response.statusCode = 404;
-        response.body = "Recording not found!";
-        httpClient.setResponse(response);
-
-        RestfulApiRecordingActionBackendExecutorAdapter adapter(
-            makeConfig(false, true),
-            httpClient);
-
-        const RecordingActionExecutionResult result =
-            adapter.execute(makeDeletePayload(false));
-
-        assert(!result.success);
-        assert(result.message == "restfulapi backend executor request failed");
-        assert(result.errors.size() == 2);
-        assert(result.errors.at(0) ==
-               "restfulapi backend returned HTTP status 404");
-        assert(result.errors.at(1) == "Recording not found!");
-        assert(httpClient.requestCount() == 1);
-    }
-
-    {
-        MockHttpClient httpClient;
-        HttpResponse response;
-        response.statusCode = 500;
-        response.body = "";
-        httpClient.setResponse(response);
-
-        RestfulApiRecordingActionBackendExecutorAdapter adapter(
-            makeConfig(false, true),
-            httpClient);
-
-        const RecordingActionExecutionResult result =
-            adapter.execute(makeDeletePayload(false));
-
-        assert(!result.success);
-        assert(result.message == "restfulapi backend executor request failed");
-        assert(result.errors.size() == 1);
-        assert(result.errors.at(0) ==
-               "restfulapi backend returned HTTP status 500");
-        assert(httpClient.requestCount() == 1);
-    }
-
-    {
-        MockHttpClient httpClient;
-        HttpResponse response;
-        response.statusCode = 200;
-        httpClient.setResponse(response);
-
-        RestfulApiRecordingActionBackendExecutorAdapter adapter(
-            makeConfig(true, true),
             httpClient);
 
         const RecordingActionExecutionResult result =
@@ -159,21 +169,25 @@ int main()
 
         assert(!result.success);
         assert(result.message ==
-               "restfulapi backend executor backend is read-only");
+            "restfulapi recording trash preview blocked");
         assert(result.errors.size() == 1);
         assert(result.errors.at(0) ==
-               "recording action execution is blocked by read-only backend config");
-        assert(httpClient.requestCount() == 0);
+            "recording trash blocker: local-timer-active");
+        assert(httpClient.requestCount() == 1);
     }
 
     {
-        MockHttpClient httpClient;
-        HttpResponse response;
-        response.statusCode = 200;
-        httpClient.setResponse(response);
+        SequenceHttpClient httpClient({
+            response(200, readyPreview),
+            response(
+                200,
+                "{\"status\":\"conflict\","
+                "\"blockers\":[\"recording-missing\"],"
+                "\"warnings\":[]}")
+        });
 
         RestfulApiRecordingActionBackendExecutorAdapter adapter(
-            makeConfig(false, false),
+            makeConfig(false, true),
             httpClient);
 
         const RecordingActionExecutionResult result =
@@ -181,19 +195,33 @@ int main()
 
         assert(!result.success);
         assert(result.message ==
-               "restfulapi backend executor execution disabled");
-        assert(result.errors.size() == 1);
+            "restfulapi recording trash validation blocked");
         assert(result.errors.at(0) ==
-               "real recording action execution is disabled by restfulapi backend config");
-        assert(httpClient.requestCount() == 0);
+            "recording trash blocker: recording-missing");
+        assert(httpClient.requestCount() == 2);
     }
 
     {
-        MockHttpClient httpClient;
-        HttpResponse response;
-        response.statusCode = 200;
-        response.body = "Dry run accepted by test transport";
-        httpClient.setResponse(response);
+        SequenceHttpClient httpClient({response(409, "state changed")});
+
+        RestfulApiRecordingActionBackendExecutorAdapter adapter(
+            makeConfig(false, true),
+            httpClient);
+
+        const RecordingActionExecutionResult result =
+            adapter.execute(makeDeletePayload(false));
+
+        assert(!result.success);
+        assert(result.message ==
+            "restfulapi recording trash preview request failed");
+        assert(result.upstreamHttpStatus == 409);
+        assert(result.errors.at(0) ==
+            "restfulapi backend returned HTTP status 409");
+        assert(result.errors.at(1) == "state changed");
+    }
+
+    {
+        SequenceHttpClient httpClient({response(200, readyPreview)});
 
         RestfulApiRecordingActionBackendExecutorAdapter adapter(
             makeConfig(false, false),
@@ -203,8 +231,41 @@ int main()
             adapter.execute(makeDeletePayload(true));
 
         assert(result.success);
-        assert(result.message == "restfulapi backend executor request accepted");
+        assert(result.message ==
+            "restfulapi recording trash preview ready");
         assert(httpClient.requestCount() == 1);
+        assert(httpClient.requestAt(0).url ==
+            "/api/recordings/trash/preview.json");
+    }
+
+    {
+        SequenceHttpClient httpClient({});
+        RestfulApiRecordingActionBackendExecutorAdapter adapter(
+            makeConfig(true, true),
+            httpClient);
+
+        const RecordingActionExecutionResult result =
+            adapter.execute(makeDeletePayload(false));
+
+        assert(!result.success);
+        assert(result.message ==
+            "restfulapi backend executor backend is read-only");
+        assert(httpClient.requestCount() == 0);
+    }
+
+    {
+        SequenceHttpClient httpClient({});
+        RestfulApiRecordingActionBackendExecutorAdapter adapter(
+            makeConfig(false, false),
+            httpClient);
+
+        const RecordingActionExecutionResult result =
+            adapter.execute(makeDeletePayload(false));
+
+        assert(!result.success);
+        assert(result.message ==
+            "restfulapi backend executor execution disabled");
+        assert(httpClient.requestCount() == 0);
     }
 
     return 0;
