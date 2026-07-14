@@ -66,6 +66,28 @@ CHECKS = [
         ],
     ),
     (
+        "core/recordings/include/RestfulApiRecordingTrashRequestBuilder.h",
+        [
+            "/recordings/trash/preview.json",
+            "/recordings/trash/validate.json",
+            "/recordings/trash.json",
+            "revision_recordings_state",
+            "revision_timers_state",
+            "backendNativeId",
+        ],
+    ),
+    (
+        "core/recordings/include/RestfulApiRecordingTrashResponseParser.h",
+        [
+            "struct RestfulApiRecordingTrashPreviewResponse",
+            "struct RestfulApiRecordingTrashValidateResponse",
+            "struct RestfulApiRecordingTrashExecuteResponse",
+            "parsePreview",
+            "parseValidate",
+            "parseExecute",
+        ],
+    ),
+    (
         "docs/development/phase-55.6-recording-operations-audit-and-safety-policy.md",
         [
             "Allowed by default",
