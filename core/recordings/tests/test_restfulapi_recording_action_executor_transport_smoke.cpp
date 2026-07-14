@@ -37,7 +37,15 @@ int main()
 
     HttpResponse response;
     response.statusCode = 200;
-    response.body = "Dry-run transport smoke accepted";
+    response.body =
+        "{"
+        "\"executable\":true,"
+        "\"recording_file\":\"Movies/Tatort/2026-06-16.20.15.1-0.rec\","
+        "\"blockers\":[],"
+        "\"warnings\":[],"
+        "\"revision_recordings_state\":12345,"
+        "\"revision_timers_state\":67890"
+        "}";
     httpClient.setResponse(response);
 
     RestfulApiRecordingActionBackendExecutorAdapter adapter(
@@ -50,7 +58,7 @@ int main()
     assert(result.success);
     assert(result.backendId == "local-vdr");
     assert(result.type == RecordingActionType::Delete);
-    assert(result.message == "restfulapi backend executor request accepted");
+    assert(result.message == "restfulapi recording trash preview ready");
 
     assert(httpClient.requestCount() == 1);
 
@@ -58,7 +66,7 @@ int main()
         httpClient.lastRequest();
 
     assert(request.method == "POST");
-    assert(request.url == "/api/recordings/delete.json");
+    assert(request.url == "/api/recordings/trash/preview.json");
     assert(request.body.find("Movies/Tatort/2026-06-16.20.15.1-0.rec")
            != std::string::npos);
 
