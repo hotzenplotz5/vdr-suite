@@ -1,10 +1,42 @@
 #include "Database.h"
 
 #include <sqlite3.h>
+
+#include <algorithm>
+#include <cctype>
 #include <iostream>
 
+namespace
+{
+std::string firstSqlKeyword(const std::string& sql)
+{
+    const auto first = std::find_if_not(
+        sql.begin(),
+        sql.end(),
+        [](unsigned char character) {
+            return std::isspace(character) != 0;
+        });
+
+    std::string keyword;
+
+    for (auto iterator = first;
+         iterator != sql.end() &&
+         std::isalpha(static_cast<unsigned char>(*iterator)) != 0;
+         ++iterator)
+    {
+        keyword.push_back(
+            static_cast<char>(
+                std::toupper(static_cast<unsigned char>(*iterator))));
+    }
+
+    return keyword;
+}
+}
+
 Database::Database()
-    : db_(nullptr)
+    : db_(nullptr),
+      transactionActive_(false),
+      transactionOwner_()
 {
 }
 
@@ -15,6 +47,8 @@ Database::~Database()
 
 bool Database::open(const std::string& filename)
 {
+    std::lock_guard<std::recursive_mutex> lock(connectionMutex_);
+
     if (db_) {
         close();
     }
@@ -25,32 +59,53 @@ bool Database::open(const std::string& filename)
         return false;
     }
 
+    transactionActive_ = false;
+    transactionOwner_ = std::thread::id();
     return true;
 }
 
 void Database::close()
 {
+    std::lock_guard<std::recursive_mutex> lock(connectionMutex_);
+
     if (db_) {
         sqlite3_close(db_);
         db_ = nullptr;
     }
+
+    transactionActive_ = false;
+    transactionOwner_ = std::thread::id();
 }
 
 bool Database::isOpen() const
 {
+    std::lock_guard<std::recursive_mutex> lock(connectionMutex_);
     return db_ != nullptr;
 }
 
 bool Database::execute(const std::string& sql)
 {
+    const std::string keyword = firstSqlKeyword(sql);
+    const bool beginsTransaction = keyword == "BEGIN";
+    const bool endsTransaction =
+        keyword == "COMMIT" || keyword == "ROLLBACK";
+
+    if (beginsTransaction) {
+        connectionMutex_.lock();
+    }
+    else {
+        connectionMutex_.lock();
+    }
+
     if (!db_) {
         std::cerr << "Database is not open" << std::endl;
+        connectionMutex_.unlock();
         return false;
     }
 
     char* error = nullptr;
 
-    int rc = sqlite3_exec(
+    const int rc = sqlite3_exec(
         db_,
         sql.c_str(),
         nullptr,
@@ -64,14 +119,38 @@ bool Database::execute(const std::string& sql)
                   << std::endl;
 
         sqlite3_free(error);
+
+        if (beginsTransaction) {
+            connectionMutex_.unlock();
+        }
+
+        connectionMutex_.unlock();
         return false;
     }
 
+    if (beginsTransaction) {
+        transactionActive_ = true;
+        transactionOwner_ = std::this_thread::get_id();
+        return true;
+    }
+
+    if (endsTransaction &&
+        transactionActive_ &&
+        transactionOwner_ == std::this_thread::get_id())
+    {
+        transactionActive_ = false;
+        transactionOwner_ = std::thread::id();
+        connectionMutex_.unlock();
+    }
+
+    connectionMutex_.unlock();
     return true;
 }
 
 bool Database::tableExists(const std::string& tableName)
 {
+    std::lock_guard<std::recursive_mutex> lock(connectionMutex_);
+
     if (!db_) {
         return false;
     }
@@ -82,7 +161,7 @@ bool Database::tableExists(const std::string& tableName)
 
     bool found = false;
 
-        auto callback = [](void* data, int, char**, char**) -> int {
+    auto callback = [](void* data, int, char**, char**) -> int {
         bool* foundPtr = static_cast<bool*>(data);
         *foundPtr = true;
         return 0;
@@ -90,7 +169,7 @@ bool Database::tableExists(const std::string& tableName)
 
     char* error = nullptr;
 
-    int rc = sqlite3_exec(
+    const int rc = sqlite3_exec(
         db_,
         sql.c_str(),
         callback,
