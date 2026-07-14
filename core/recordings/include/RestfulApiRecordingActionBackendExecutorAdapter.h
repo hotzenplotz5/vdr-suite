@@ -6,10 +6,13 @@
 #include "RestfulApiRecordingActionBackendConfig.h"
 #include "RecordingActionCapabilityContract.h"
 #include "RestfulApiRecordingActionRequestBuilder.h"
+#include "RestfulApiRecordingTrashRequestBuilder.h"
+#include "RestfulApiRecordingTrashResponseParser.h"
 
 #include <map>
 #include <string>
 #include <utility>
+#include <vector>
 
 class RestfulApiRecordingActionBackendExecutorAdapter final
     : public IRecordingActionBackendExecutorAdapter
@@ -26,13 +29,9 @@ public:
     RecordingActionExecutionResult execute(
         const RecordingActionJobPayload& payload) override
     {
-        RecordingActionExecutionResult result;
-        result.type = payload.type;
-        result.backendId = backendId();
-        result.recordingId = payload.recordingId;
+        RecordingActionExecutionResult result = makeResult(payload);
 
         if (!isSupportedAction(payload.type)) {
-            result.success = false;
             result.message = "restfulapi backend executor action not supported";
             result.errors.push_back(
                 "unsupported recording action type for restfulapi backend executor");
@@ -51,27 +50,14 @@ public:
             return result;
         }
 
-        RestfulApiRecordingActionRequestBuilder requestBuilder;
-        const HttpRequest request = buildRequest(requestBuilder, payload);
-        const HttpResponse response = httpClient_.execute(request);
-
-        result.success = response.statusCode >= 200 && response.statusCode < 300;
-        result.message =
-            result.success
-                ? "restfulapi backend executor request accepted"
-                : "restfulapi backend executor request failed";
-
-        if (!result.success) {
-            result.errors.push_back(
-                "restfulapi backend returned HTTP status " +
-                std::to_string(response.statusCode));
-
-            if (!response.body.empty()) {
-                result.errors.push_back(response.body);
-            }
+        if (payload.type == RecordingActionType::Delete) {
+            return executeTrashWorkflow(payload);
         }
 
-        return result;
+        RestfulApiRecordingActionRequestBuilder requestBuilder;
+        return executeSingleRequest(
+            payload,
+            buildRequest(requestBuilder, payload));
     }
 
     std::string backendId() const override
@@ -105,6 +91,31 @@ public:
     }
 
 private:
+    static RecordingActionExecutionResult makeResult(
+        const RecordingActionJobPayload& payload)
+    {
+        RecordingActionExecutionResult result;
+        result.type = payload.type;
+        result.backendId = payload.backendId.empty()
+            ? "default"
+            : payload.backendId;
+        result.recordingId = payload.recordingId;
+
+        const auto backendNativeId =
+            payload.parameters.find("backendNativeId");
+        if (backendNativeId != payload.parameters.end()) {
+            result.backendNativeId = backendNativeId->second;
+        }
+
+        const auto recordingPath =
+            payload.parameters.find("recordingPath");
+        if (recordingPath != payload.parameters.end()) {
+            result.recordingPath = recordingPath->second;
+        }
+
+        return result;
+    }
+
     static bool isSupportedAction(RecordingActionType type)
     {
         return
@@ -118,7 +129,6 @@ private:
         const std::string& name)
     {
         const auto it = parameters.find(name);
-
         return it != parameters.end() && !it->second.empty();
     }
 
@@ -127,7 +137,6 @@ private:
         RecordingActionExecutionResult& result)
     {
         if (payload.recordingId.empty()) {
-            result.success = false;
             result.message = "restfulapi backend executor payload invalid";
             result.errors.push_back("recordingId is required");
             return false;
@@ -135,7 +144,6 @@ private:
 
         if (payload.type == RecordingActionType::Move &&
             !hasParameter(payload.parameters, "targetPath")) {
-            result.success = false;
             result.message = "restfulapi backend executor payload invalid";
             result.errors.push_back("targetPath is required for move");
             return false;
@@ -143,7 +151,6 @@ private:
 
         if (payload.type == RecordingActionType::Rename &&
             !hasParameter(payload.parameters, "newName")) {
-            result.success = false;
             result.message = "restfulapi backend executor payload invalid";
             result.errors.push_back("newName is required for rename");
             return false;
@@ -159,7 +166,6 @@ private:
             return true;
         }
 
-        result.success = false;
         result.message = "restfulapi backend executor backend is read-only";
         result.errors.push_back(
             "recording action execution is blocked by read-only backend config");
@@ -170,19 +176,205 @@ private:
         const RecordingActionJobPayload& payload,
         RecordingActionExecutionResult& result) const
     {
-        if (payload.dryRun) {
+        if (payload.dryRun || config_.allowExecution) {
             return true;
         }
 
-        if (config_.allowExecution) {
-            return true;
-        }
-
-        result.success = false;
         result.message = "restfulapi backend executor execution disabled";
         result.errors.push_back(
             "real recording action execution is disabled by restfulapi backend config");
         return false;
+    }
+
+    RecordingActionExecutionResult executeSingleRequest(
+        const RecordingActionJobPayload& payload,
+        const HttpRequest& request) const
+    {
+        RecordingActionExecutionResult result = makeResult(payload);
+        const HttpResponse response = httpClient_.execute(request);
+
+        result.upstreamHttpStatus = response.statusCode;
+        result.upstreamEndpoint = request.url;
+        result.upstreamResponseBody = response.body;
+        result.success = isSuccessful(response);
+        result.message = result.success
+            ? "restfulapi backend executor request accepted"
+            : "restfulapi backend executor request failed";
+
+        if (!result.success) {
+            appendHttpFailure(result, response);
+        }
+
+        return result;
+    }
+
+    RecordingActionExecutionResult executeTrashWorkflow(
+        const RecordingActionJobPayload& payload) const
+    {
+        RecordingActionExecutionResult result = makeResult(payload);
+        RestfulApiRecordingTrashRequestBuilder builder;
+
+        const HttpRequest previewRequest =
+            builder.buildPreviewRequest(config_, payload);
+        const HttpResponse previewResponse =
+            httpClient_.execute(previewRequest);
+
+        setUpstream(result, previewRequest, previewResponse);
+        if (!isSuccessful(previewResponse)) {
+            result.message = "restfulapi recording trash preview request failed";
+            appendHttpFailure(result, previewResponse);
+            return result;
+        }
+
+        const RestfulApiRecordingTrashPreviewResponse preview =
+            RestfulApiRecordingTrashResponseParser::parsePreview(
+                previewResponse.body);
+
+        if (!preview.parsed) {
+            result.message = "restfulapi recording trash preview response invalid";
+            result.errors.push_back(
+                "recording trash preview response is missing required fields");
+            return result;
+        }
+
+        result.warnings = preview.warnings;
+        if (!preview.executable) {
+            result.message = "restfulapi recording trash preview blocked";
+            appendBlockers(result, preview.blockers);
+            return result;
+        }
+
+        if (payload.dryRun) {
+            result.success = true;
+            result.message = "restfulapi recording trash preview ready";
+            return result;
+        }
+
+        const HttpRequest validateRequest =
+            builder.buildValidateRequest(
+                config_,
+                payload,
+                preview.recordingsState,
+                preview.timersState);
+        const HttpResponse validateResponse =
+            httpClient_.execute(validateRequest);
+
+        setUpstream(result, validateRequest, validateResponse);
+        if (!isSuccessful(validateResponse)) {
+            result.message = "restfulapi recording trash validation request failed";
+            appendHttpFailure(result, validateResponse);
+            return result;
+        }
+
+        const RestfulApiRecordingTrashValidateResponse validation =
+            RestfulApiRecordingTrashResponseParser::parseValidate(
+                validateResponse.body);
+
+        if (!validation.parsed) {
+            result.message = "restfulapi recording trash validation response invalid";
+            result.errors.push_back(
+                "recording trash validation response is missing status");
+            return result;
+        }
+
+        appendWarnings(result, validation.warnings);
+        if (validation.status != "ready") {
+            result.message = "restfulapi recording trash validation blocked";
+            appendBlockers(result, validation.blockers);
+            if (result.errors.empty()) {
+                result.errors.push_back(
+                    "recording trash validation status is " + validation.status);
+            }
+            return result;
+        }
+
+        const HttpRequest executeRequest =
+            builder.buildExecuteRequest(
+                config_,
+                payload,
+                preview.recordingsState,
+                preview.timersState);
+        const HttpResponse executeResponse =
+            httpClient_.execute(executeRequest);
+
+        setUpstream(result, executeRequest, executeResponse);
+        if (!isSuccessful(executeResponse)) {
+            result.message = "restfulapi recording trash execution request failed";
+            appendHttpFailure(result, executeResponse);
+            return result;
+        }
+
+        const RestfulApiRecordingTrashExecuteResponse execution =
+            RestfulApiRecordingTrashResponseParser::parseExecute(
+                executeResponse.body);
+
+        if (!execution.parsed) {
+            result.message = "restfulapi recording trash execution response invalid";
+            result.errors.push_back(
+                "recording trash execution response is missing status");
+            return result;
+        }
+
+        result.success =
+            execution.status == "trashed" ||
+            execution.status == "already-trashed";
+        result.message = execution.message.empty()
+            ? "restfulapi recording trash " + execution.status
+            : execution.message;
+
+        if (!result.success) {
+            result.errors.push_back(
+                "recording trash execution status is " + execution.status);
+        }
+
+        return result;
+    }
+
+    static bool isSuccessful(const HttpResponse& response)
+    {
+        return response.statusCode >= 200 && response.statusCode < 300;
+    }
+
+    static void setUpstream(
+        RecordingActionExecutionResult& result,
+        const HttpRequest& request,
+        const HttpResponse& response)
+    {
+        result.upstreamHttpStatus = response.statusCode;
+        result.upstreamEndpoint = request.url;
+        result.upstreamResponseBody = response.body;
+    }
+
+    static void appendHttpFailure(
+        RecordingActionExecutionResult& result,
+        const HttpResponse& response)
+    {
+        result.errors.push_back(
+            "restfulapi backend returned HTTP status " +
+            std::to_string(response.statusCode));
+
+        if (!response.body.empty()) {
+            result.errors.push_back(response.body);
+        }
+    }
+
+    static void appendWarnings(
+        RecordingActionExecutionResult& result,
+        const std::vector<std::string>& warnings)
+    {
+        result.warnings.insert(
+            result.warnings.end(),
+            warnings.begin(),
+            warnings.end());
+    }
+
+    static void appendBlockers(
+        RecordingActionExecutionResult& result,
+        const std::vector<std::string>& blockers)
+    {
+        for (const std::string& blocker : blockers) {
+            result.errors.push_back("recording trash blocker: " + blocker);
+        }
     }
 
     HttpRequest buildRequest(
@@ -193,11 +385,7 @@ private:
             return requestBuilder.buildMoveRequest(config_, payload);
         }
 
-        if (payload.type == RecordingActionType::Rename) {
-            return requestBuilder.buildRenameRequest(config_, payload);
-        }
-
-        return requestBuilder.buildDeleteRequest(config_, payload);
+        return requestBuilder.buildRenameRequest(config_, payload);
     }
 
     RestfulApiRecordingActionBackendConfig config_;
