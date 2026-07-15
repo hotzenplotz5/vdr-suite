@@ -8,10 +8,16 @@ ADR_DIR = ROOT / "docs" / "adr"
 INDEX = ADR_DIR / "index.md"
 ACTIVE_START = "## Active Canonical ADRs"
 ACTIVE_END = "---"
-EXPECTED_LATEST = "ADR-0037"
-EXPECTED_NEXT = "ADR-0038"
-EXPECTED_ACTIVE_0037 = "ADR-0037-packaging-install-api-boundary.md"
-CONFLICT_0037 = "ADR-0037-suite-metadata-database-and-external-scraper-strategy.md"
+EXPECTED_LATEST = "ADR-0041"
+EXPECTED_NEXT = "ADR-0042"
+REMOVED_CONFLICT = "ADR-0037-suite-metadata-database-and-external-scraper-strategy.md"
+EXPECTED_ACTIVE_FILES = {
+    "0037": "ADR-0037-packaging-install-api-boundary.md",
+    "0038": "ADR-0038-suite-metadata-database-and-external-provider-strategy.md",
+    "0039": "ADR-0039-backend-agent-control-plane-boundary.md",
+    "0040": "ADR-0040-backend-lifecycle-generation-lease-health.md",
+    "0041": "ADR-0041-authentication-agent-trust-multi-site-transport.md",
+}
 
 ADR_LINK = re.compile(r"\((ADR-\d{4}[^)]+\.md)\)")
 ADR_NUMBER = re.compile(r"ADR-(\d{4})")
@@ -43,14 +49,12 @@ def main():
         errors.append("ADR index misses canonical latest marker " + EXPECTED_LATEST)
     if EXPECTED_NEXT not in text:
         errors.append("ADR index misses next canonical ADR marker " + EXPECTED_NEXT)
-    if EXPECTED_ACTIVE_0037 not in active:
-        errors.append("active ADR section misses canonical ADR-0037 packaging file")
-    if CONFLICT_0037 in active:
-        errors.append("conflicting ADR-0037 suite metadata file is listed as active")
-    if "Numbering Conflict Retained for Cleanup" not in text:
-        errors.append("ADR index misses conflict cleanup section")
-    if CONFLICT_0037 not in text:
-        errors.append("ADR index does not keep conflicting ADR-0037 visible for cleanup")
+    if "Numbering Cleanup" not in text:
+        errors.append("ADR index misses numbering cleanup section")
+    if REMOVED_CONFLICT in active:
+        errors.append("removed conflicting ADR-0037 file is listed as active")
+    if (ADR_DIR / REMOVED_CONFLICT).exists():
+        errors.append("removed conflicting ADR-0037 file still exists")
 
     active_links = ADR_LINK.findall(active)
     active_numbers = []
@@ -61,14 +65,22 @@ def main():
         if not (ADR_DIR / link).exists():
             errors.append("active ADR link target is missing: " + link)
 
-    duplicates = sorted({number for number in active_numbers if active_numbers.count(number) > 1})
+    duplicates = sorted(
+        {number for number in active_numbers if active_numbers.count(number) > 1}
+    )
     for number in duplicates:
         errors.append("duplicate active ADR number: ADR-" + number)
 
-    if "0037" not in active_numbers:
-        errors.append("active ADR list does not contain ADR-0037")
-    if "0038" in active_numbers:
-        errors.append("ADR-0038 is listed active although it is currently the next available number")
+    for number, filename in EXPECTED_ACTIVE_FILES.items():
+        if number not in active_numbers:
+            errors.append("active ADR list does not contain ADR-" + number)
+        if filename not in active:
+            errors.append("active ADR section misses canonical file " + filename)
+        if not (ADR_DIR / filename).exists():
+            errors.append("canonical ADR file is missing: " + filename)
+
+    if "0042" in active_numbers:
+        errors.append("ADR-0042 is listed active although it is the next available number")
 
     lowercase_or_numeric = []
     for line in active.splitlines():
