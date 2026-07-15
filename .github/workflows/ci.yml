@@ -43,8 +43,50 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
 
-      - name: Run fast CI regression test
-        run: make test-ci-fast
+      - name: Test fast core group
+        run: make test-fast
+
+      - name: Test API router
+        run: make test-api-router
+
+      - name: Test RESTfulAPI timer executor
+        run: make test-restful-api-vdr-timer-action-executor
+
+      - name: Test SearchTimer preview serializer
+        run: make test-search-timer-preview-result-json-serializer
+
+      - name: Test SearchTimer preview service
+        run: make test-search-timer-preview-service
+
+      - name: Test SearchTimer preview EPG cache
+        run: make test-search-timer-preview-epg-cache
+
+      - name: Test snapshot SearchTimer preview cache
+        run: make test-vdr-snapshot-read-service-searchtimer-preview-epg-cache
+
+      - name: Test API SearchTimer preview cache
+        run: make test-api-router-searchtimer-preview-epg-cache
+
+      - name: Test daemon shutdown reset guard
+        run: make test-daemon-runtime-shutdown-resets
+
+      - name: Test HTTP listener bind failure guard
+        run: make test-http-listener-bind-failure-handling
+
+      - name: Test HTTP listener partial request timeout
+        run: make test-http-listener-partial-request-timeout
+
+      - name: Test real VDR acceptance manifest
+        run: make test-real-vdr-acceptance-manifest
+
+      - name: Test phase map coverage
+        run: make test-phase-map-coverage
+
+      - name: Test GitHub update safety handoff
+        run: make test-github-update-safety-handoff
+
+      - name: Test recording mutation safety policy
+        run: make test-recording-mutation-safety-policy
 
       - name: Build daemon
         run: make daemon
