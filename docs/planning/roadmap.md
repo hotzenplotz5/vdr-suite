@@ -22,14 +22,23 @@
 Completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
 
+Current umbrella implementation track
+Phase 58 - Frontend and Live Parity
+
 Latest completed implementation slice
 Phase 60.14k - Recording Detail UX Polish
 
 Next planned implementation slice
 Phase 60.15 - Recording Metadata and Poster Preparation
+```
 
-Current implementation focus
-Phase 58 - Frontend and Live Parity
+Current accepted architecture package:
+
+```text
+ADR-0038 - Suite Metadata Database and External Provider Strategy
+ADR-0039 - Backend Agent and Control Plane Boundary
+ADR-0040 - Backend Lifecycle, Generation, Lease and Health
+ADR-0041 - Authentication, Agent Trust and Multi-Site Transport
 ```
 
 ---
@@ -70,7 +79,11 @@ Completed foundation ranges:
 - Phase 55.x: Adapter, acceptance and documentation hardening.
 - Phase 56: Library Boundary, Packaging and Developer Documentation.
 - Phase 57: Multi-Site Backend Administration and Permissions.
-- Phase 58.0-58.90b: Frontend/live-parity slices including event hints, channel move API and stable channel sorter.
+- Phase 58.0-58.90b: Frontend and Live-parity foundation slices.
+- Phase 59.00-59.15e: Client API consolidation and frontend module boundaries.
+- Phase 60.1-60.14k: Frontend platform, lazy Recording cache and Recording detail UX.
+
+Phase 58 remains the broad frontend and Live-parity product track. The already-used 59.x and 60.x ranges are implementation slices under the continued frontend platform work and are not reused for future major milestones.
 
 ---
 
@@ -102,16 +115,17 @@ Status: Planned.
 
 Goal:
 
-- Prepare Recording metadata, artwork and poster handling on top of the now-polished lazy Recording browser.
+- Prepare Recording metadata, artwork and poster handling on top of the polished lazy Recording browser.
 
 Planned scope:
 
-- define which Recording metadata fields belong in the Suite model
-- distinguish VDR technical metadata from imported Rectools or scraper metadata
+- define which Recording metadata fields belong in the suite model
+- distinguish VDR technical metadata from provider, sidecar and imported metadata
 - prepare UI placeholders for poster and artwork data without requiring them immediately
 - keep the existing lazy Recording folder flow stable while adding metadata hooks
 - avoid coupling scraper-specific behavior directly into the Recording browser UI
 - define the next backend/frontend contract for Recording metadata enrichment
+- align the implementation with ADR-0038 provider, provenance and artwork boundaries
 
 ---
 
@@ -130,61 +144,111 @@ Completed outcomes:
 - SearchTimer access handling
 - frontend-visible backend permission state
 
+This milestone provides a server-enforced read-only foundation. It is not yet full user and role RBAC.
+
+---
+
+## Current Architecture Follow-Up
+
+The source audits of VDR Core, epgsearch, Live, RESTfulAPI, Streamdev, TVScraper, scraper2vdr, osd2web, epg2vdr and epgd produced the first accepted architecture package.
+
+### ADR-0038 - Suite Metadata Database and External Provider Strategy
+
+- suite-owned normalized metadata database
+- multiple provider inputs
+- provenance, evidence and confidence
+- suite-owned artwork asset identities
+
+### ADR-0039 - Backend Agent and Control Plane Boundary
+
+- Control Plane owns central orchestration and public APIs
+- Backend Agents own local native adapters and execution
+- no direct central database protocol for agents
+- remote sites use an Agent boundary instead of public VDR plugin ports
+
+### ADR-0040 - Backend Lifecycle, Generation, Lease and Health
+
+- stable backend identity
+- per-runtime backend generation
+- leases and heartbeats
+- explicit lifecycle and health state
+- fencing of stale Agent commands and results
+
+### ADR-0041 - Authentication, Agent Trust and Multi-Site Transport
+
+- separate client and Agent authentication
+- explicit Agent enrollment and revocation
+- protected remote-site transport
+- no implicit trust based only on LAN or VPN reachability
+
+These ADRs define architecture direction. They do not mark the corresponding runtime implementation as complete.
+
 ---
 
 ## Planned Major Milestones
 
-### Phase 58 - Frontend and Live Parity
-
-Status: In progress.
-
-Goal:
-
-- Build frontend-ready everyday recording, timer, channel and EPG views after the backend permission foundation.
-
-Planning input:
-
-- [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md)
-
-Phase 58.0 start audit:
-
-- Inventory frontend read models before adding UI code.
-- Map existing REST endpoints to frontend views.
-- Confirm backend selector data from /api/backends.
-- Confirm write hints for recording, timer and SearchTimer buttons.
-- Keep read-only backend views visible but disable write actions.
-- Use Live parity data to expose real feature gaps.
-
-Frontend-relevant endpoints:
-
-- /api/backends
-- /api/vdr/overview
-- /api/vdr/recordings
-- /api/vdr/timers
-- /api/vdr/searchtimers
-- /api/vdr/epg/search
-- /api/vdr/live-parity
-- /api/vdr/channels/move
-
----
-
-### Phase 59 - Suite Metadata Database and External Providers
+### Phase 61 - Suite Metadata Database and External Providers
 
 Status: Planned.
 
 Goal:
 
-- Build a suite-owned metadata database while using external scraper/catalog providers behind boundaries.
+- Build a suite-owned normalized metadata database while using external scraper, catalog, sidecar and plugin-backed providers behind explicit boundaries.
+
+Architecture basis:
+
+- ADR-0025
+- ADR-0036
+- ADR-0038
+
+Expected areas:
+
+- metadata entities and assignments
+- provider provenance and confidence
+- artwork asset service
+- backend-neutral Recording enrichment
+- cache invalidation and provider refresh
+- EPG-only fallback behavior
 
 ---
 
-### Phase 60 - Recommendation and Content Knowledge Graph
+### Phase 62 - Recommendation and Content Knowledge Graph
 
 Status: Vision.
 
 Goal:
 
 - Build recommendation and graph primitives after metadata and frontend foundations mature.
+
+Prerequisites:
+
+- stable suite metadata identities
+- provider provenance
+- people and character relationships
+- cross-backend Recording metadata
+- explainable recommendation evidence
+
+---
+
+## Later Architecture Milestones
+
+The next ADR package is expected to define:
+
+```text
+ADR-0042 - Safe Mutation, Revision and Idempotency Contract
+ADR-0043 - Job Claim, Retry and Saga Execution Model
+ADR-0044 - Timer Intent, Assignment and Native Timer Model
+ADR-0045 - Canonical EPG Event Identity and Provenance
+```
+
+Later packages may cover:
+
+- Streaming Gateway and media sessions
+- Legacy OSD compatibility bridge
+- public API versioning and error contracts
+- audit and security event model
+
+No runtime phase number is assigned to these items until the ADR and dependency order is stable.
 
 ---
 
@@ -196,7 +260,9 @@ Goal:
 - This roadmap describes direction and should not duplicate the detailed completed phase log.
 - Detailed chronological implementation history belongs in [Completed Phases](../development/completed-phases.md).
 - Project status snapshots belong in [Current Project Status](../development/current-status.md) and [Project Status Dashboard](../project-status-dashboard.md).
-- Planned phase numbers must not conflict with completed phase ranges.
+- Planned phase numbers must not conflict with completed phase or implementation-slice ranges.
+- Completed phase history must not be renumbered to free future planning numbers.
+- Accepted ADRs define architecture direction but do not imply completed implementation.
 
 ---
 
