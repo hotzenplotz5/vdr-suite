@@ -12,7 +12,7 @@
 
 ## Current Verified State
 
-Current completed major project block:
+Current completed project block:
 
 ```text
 Phase 57 - Multi-Site Backend Administration and Permissions
