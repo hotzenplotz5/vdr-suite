@@ -3,8 +3,10 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-LATEST = "Phase 57 - Multi-Site Backend Administration and Permissions"
-NEXT = "Phase 58 - Frontend and Live Parity"
+LATEST_MAJOR = "Phase 57 - Multi-Site Backend Administration and Permissions"
+UMBRELLA_TRACK = "Phase 58 - Frontend and Live Parity"
+LATEST_SLICE = "Phase 60.14k - Recording Detail UX Polish"
+NEXT_SLICE = "Phase 60.15 - Recording Metadata and Poster Preparation"
 
 REQUIRED_COMPLETED_RANGES = [
     "Phase 1.x-7.x",
@@ -26,12 +28,15 @@ REQUIRED_COMPLETED_RANGES = [
     "Phase 55.6",
     "Phase 56",
     "Phase 57",
+    "Phase 58.0-58.90b",
+    "Phase 59.00-59.15e",
+    "Phase 60.1-60.14k",
 ]
 
-REQUIRED_PLANNED_RANGES = [
-    "Phase 58",
-    "Phase 59",
-    "Phase 60",
+REQUIRED_CURRENT_AND_PLANNED = [
+    "Phase 60.15",
+    "Phase 61",
+    "Phase 62",
 ]
 
 STALE_ROADMAP_MARKERS = [
@@ -39,6 +44,8 @@ STALE_ROADMAP_MARKERS = [
     "### EPG Search Foundation",
     "### Phase 55 - Backend Management",
     "### Phase 56 - Backend Capability Matrix",
+    "### Phase 59 - Suite Metadata Database",
+    "### Phase 60 - Recommendation",
 ]
 
 
@@ -56,6 +63,12 @@ def error(message):
     sys.exit(1)
 
 
+def require_markers(text, rel, markers):
+    for marker in markers:
+        if marker not in text:
+            error(rel + " misses required marker: " + marker)
+
+
 def check():
     phase_map = read("docs/planning/phase-map.md")
     roadmap = read("docs/planning/roadmap.md")
@@ -63,28 +76,36 @@ def check():
     if "# VDR-Suite Phase Map" not in phase_map:
         error("phase-map.md does not contain the expected title")
 
-    for item in REQUIRED_COMPLETED_RANGES + REQUIRED_PLANNED_RANGES:
+    for item in REQUIRED_COMPLETED_RANGES + REQUIRED_CURRENT_AND_PLANNED:
         if item not in phase_map:
             error("phase-map.md misses required range: " + item)
 
-    if LATEST not in phase_map:
-        error("phase-map.md misses latest completed phase marker")
-    if NEXT not in phase_map:
-        error("phase-map.md misses next implementation focus marker")
+    require_markers(
+        phase_map,
+        "docs/planning/phase-map.md",
+        [LATEST_MAJOR, UMBRELLA_TRACK, LATEST_SLICE, NEXT_SLICE],
+    )
 
     if "[Phase Map](phase-map.md)" not in roadmap:
         error("roadmap.md does not link to phase-map.md")
+
+    require_markers(
+        roadmap,
+        "docs/planning/roadmap.md",
+        [LATEST_MAJOR, UMBRELLA_TRACK, LATEST_SLICE, NEXT_SLICE, "Phase 61", "Phase 62"],
+    )
 
     for item in STALE_ROADMAP_MARKERS:
         if item in roadmap:
             error("roadmap.md still contains stale block: " + item)
 
-    for rel in ["README.md", "docs/CURRENT.md"]:
+    for rel in ["README.md", "docs/CURRENT.md", "docs/NEW-CHAT-HANDOFF.md"]:
         text = read(rel)
-        if LATEST not in text:
-            error(rel + " misses latest completed phase marker")
-        if NEXT not in text:
-            error(rel + " misses next implementation focus marker")
+        require_markers(
+            text,
+            rel,
+            [LATEST_MAJOR, UMBRELLA_TRACK, LATEST_SLICE, NEXT_SLICE],
+        )
 
     print("Phase map coverage check passed.")
 
