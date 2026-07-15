@@ -5,11 +5,14 @@
 - [README](../README.md)
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
-- [Roadmap](planning/roadmap.md)
+- [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+- [Completed Architecture Source Audit](development/architecture-source-audit-2026-07-15.md)
 - [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [ADR Index](adr/index.md)
 - [Completed Phases](development/completed-phases.md)
+- [Completed Phases Latest Marker](development/completed-phases-latest.md)
 
 ---
 
@@ -27,7 +30,7 @@ Previous completed major project block:
 Phase 56 - Library Boundary, Packaging and Developer Documentation
 ```
 
-Current umbrella implementation track:
+Historical umbrella implementation track:
 
 ```text
 Phase 58 - Frontend and Live Parity
@@ -39,13 +42,36 @@ Latest completed implementation slice:
 Phase 60.14k - Recording Detail UX Polish
 ```
 
-Next planned implementation slice:
+Next planned runtime implementation slice:
 
 ```text
 Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
-Current architecture documentation package:
+The Phase 58 umbrella label is retained for product-history grouping. It does not control the strict future sequence.
+
+---
+
+## Completed Architecture Audit
+
+```text
+Architecture Source Audit - 2026-07-15
+Status: Completed evidence and decision activity
+```
+
+The audit covered VDR Core, epgsearch, Live, RESTfulAPI, Streamdev, TVScraper, scraper2vdr, osd2web, epg2vdr and epgd.
+
+Results are split into:
+
+- [Completed audit evidence](development/architecture-source-audit-2026-07-15.md)
+- [Living implementation-gap matrix](planning/architecture-audit-gap-matrix.md)
+- [Strict future execution order](planning/roadmap.md)
+
+The completed audit is not completed runtime implementation.
+
+---
+
+## Accepted Architecture Package
 
 ```text
 ADR-0038 - Suite Metadata Database and External Provider Strategy
@@ -56,23 +82,58 @@ ADR-0041 - Authentication, Agent Trust and Multi-Site Transport
 
 ---
 
-## Phase Numbering Note
+## Immediate Repository Work
 
-Phase 58 remains the current broad frontend and Live-parity track.
+Complete the second contract package before Phase 60.15:
 
-The completed 59.x and 60.x implementation slices are concrete frontend API, module, platform, recording-cache and recording-UX work performed under that continuing product track.
+```text
+ADR-0042 - Safe Mutation, Revision and Idempotency Contract
+ADR-0043 - Job Claim, Retry and Saga Execution Model
+ADR-0044 - Timer Intent, Assignment and Native Timer Model
+ADR-0045 - Canonical EPG Event Identity and Provenance
+ADR-0046 - Streaming Gateway and Media Session Boundary
+ADR-0047 - Legacy OSD Compatibility Bridge
+ADR-0048 - Public API Versioning, Error and Compatibility Contract
+ADR-0049 - Audit and Security Event Model
+```
 
-Future major milestones that previously reused Phase 59 and Phase 60 numbers are moved to conflict-free Phase 61 and Phase 62 planning slots.
+Required follow-up:
+
+```text
+Update affected architecture diagrams.
+Create domain and implementation dependency maps.
+Keep the strict Phase 60.15-68 sequence aligned with the decisions.
+```
+
+---
+
+## Strict Future Sequence
+
+```text
+1. ADR-0042 through ADR-0049 and diagrams
+2. Phase 60.15 - Recording Metadata Preparation
+3. Phase 61 - Suite Metadata Platform
+4. Phase 62 - Identity, RBAC and Audit
+5. Phase 63 - Backend Agent and Multi-Site Runtime
+6. Phase 64 - Timer Intent and Orchestration
+7. Phase 65 - Streaming Gateway
+8. Phase 66 - Legacy OSD Bridge
+9. Phase 67 - Public API and Client Hardening
+10. Phase 68 - Recommendation and Knowledge Graph
+```
 
 ---
 
 ## Documentation Reading Rule
 
-Before proposing frontend, Live-parity, RESTfulAPI, epgsearch, metadata or architecture work, first inspect:
+Before proposing frontend, Live-parity, RESTfulAPI, epgsearch, metadata, multi-site or architecture work, inspect:
 
 - `docs/development/current-status.md`
-- `docs/planning/phase-map.md`
 - `docs/planning/roadmap.md`
+- `docs/planning/phase-map.md`
+- `docs/planning/architecture-audit-gap-matrix.md`
+- `docs/development/architecture-source-audit-2026-07-15.md`
+- `docs/development/completed-phases.md`
 - `docs/planning/parity-audit-and-frontend-gap-roadmap.md`
 - `docs/development/client-api-frontend-module-boundary-plan.md`
 - `docs/architecture/restfulapi-integration.md`
@@ -81,34 +142,14 @@ Before proposing frontend, Live-parity, RESTfulAPI, epgsearch, metadata or archi
 
 ---
 
-## Next Work
+## Boundary Rules
 
-Immediate architecture focus:
-
-```text
-ADR-0042 - Safe Mutation, Revision and Idempotency Contract
-ADR-0043 - Job Claim, Retry and Saga Execution Model
-ADR-0044 - Timer Intent, Assignment and Native Timer Model
-ADR-0045 - Canonical EPG Event Identity and Provenance
-```
-
-Required follow-up:
-
-```text
-Update the affected architecture diagrams.
-Create an explicit implementation dependency map.
-Assign no new runtime phase numbers until those dependencies are stable.
-```
-
-Next implementation focus after the ADR and diagram package:
-
-```text
-Phase 60.15 - Recording Metadata and Poster Preparation
-```
-
-Phase 60.15 is the bounded bridge from the current Recording UX to the suite-owned metadata platform planned for Phase 61. It must remain provider-neutral and must not couple the frontend directly to TVScraper, scraper2vdr or an external provider database.
-
-Broad architecture plugin auditing is complete for roadmap purposes. Additional source audits should only answer a concrete implementation, adapter or risk question.
+- Completed Phases records finished implementation only.
+- The completed source audit records evidence and conclusions only.
+- The Architecture Audit Gap Matrix records open, partial and implemented audit gaps.
+- The strict roadmap owns future order.
+- The older parity matrix owns product and ecosystem parity questions, not architecture sequencing.
+- Additional plugin source audits require a concrete feature, adapter, migration or risk question.
 
 ---
 
