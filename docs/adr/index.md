@@ -30,17 +30,17 @@ Current implementation progress belongs in:
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0037
+ADR-0041
 ```
 
-Current active `ADR-0037`:
+Current active `ADR-0041`:
 
-- [ADR-0037: Packaging, Install Layout and API Boundary](ADR-0037-packaging-install-api-boundary.md)
+- [ADR-0041: Authentication, Agent Trust and Multi-Site Transport](ADR-0041-authentication-agent-trust-multi-site-transport.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0038
+ADR-0042
 ```
 
 Rules:
@@ -99,10 +99,17 @@ Rules:
 - [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
 - [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
 - [ADR-0036: TVScraper Recording Metadata Integration Strategy](ADR-0036-tvscraper-recording-metadata-integration.md)
+- [ADR-0038: Suite Metadata Database and External Provider Strategy](ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
 
 ### Packaging and Install Boundary
 
 - [ADR-0037: Packaging, Install Layout and API Boundary](ADR-0037-packaging-install-api-boundary.md)
+
+### Control Plane, Trust and Backend Lifecycle
+
+- [ADR-0039: Backend Agent and Control Plane Boundary](ADR-0039-backend-agent-control-plane-boundary.md)
+- [ADR-0040: Backend Lifecycle, Generation, Lease and Health](ADR-0040-backend-lifecycle-generation-lease-health.md)
+- [ADR-0041: Authentication, Agent Trust and Multi-Site Transport](ADR-0041-authentication-agent-trust-multi-site-transport.md)
 
 ---
 
@@ -119,7 +126,7 @@ Historical lowercase and numeric ADRs are retained for repository history and co
 - [ADR-001 Backend Identity Strategy](adr-001-backend-identity-strategy.md)
 - [ADR-002 Backend Federation Strategy](adr-002-backend-federation-strategy.md)
 - [ADR-003 Backend Capability Strategy](adr-003-backend-capability-strategy.md)
-- [ADR-004 Backend Lifecycle Strategy](adr-004-backend-lifecycle-strategy.md)
+- [ADR-004 Backend Lifecycle Strategy](adr-004-backend-lifecycle-strategy.md), superseded in direction by [ADR-0040](ADR-0040-backend-lifecycle-generation-lease-health.md)
 - [ADR-005 Stream Provider Strategy](adr-005-stream-provider-strategy.md)
 - [ADR-006 Internal Event Dispatch Strategy](adr-006-internal-event-dispatch-strategy.md)
 - [ADR-007: Platform API Strategy](007-platform-api-strategy.md)
@@ -127,13 +134,19 @@ Historical lowercase and numeric ADRs are retained for repository history and co
 
 ---
 
-## Numbering Conflict Retained for Cleanup
+## Numbering Cleanup
 
-The following file exists with a conflicting `ADR-0037` number and is not listed as an active canonical ADR:
+The former conflicting file:
 
-- [ADR-0037: Suite Metadata Database and External Scraper Strategy](ADR-0037-suite-metadata-database-and-external-scraper-strategy.md)
+```text
+ADR-0037-suite-metadata-database-and-external-scraper-strategy.md
+```
 
-Future cleanup should either renumber it to a free canonical ADR number or move its content into the appropriate metadata planning document before it is treated as active.
+was replaced by the canonical:
+
+- [ADR-0038: Suite Metadata Database and External Provider Strategy](ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
+
+`ADR-0037` remains assigned only to Packaging, Install Layout and API Boundary.
 
 ---
 
