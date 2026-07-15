@@ -1,5 +1,14 @@
 # Completed Phase 58 Slices - Frontend and Live Parity
 
+## Navigation
+
+- [Completed Phases Archive](README.md)
+- [Completed Phases](../completed-phases.md)
+- [Development Index](../index.md)
+- [Current State](../../CURRENT.md)
+
+---
+
 ## Status
 
 ```text
