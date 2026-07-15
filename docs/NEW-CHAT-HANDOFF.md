@@ -5,42 +5,40 @@
 - [README](../README.md)
 - [Documentation Index](index.md)
 - [Current State](CURRENT.md)
-- [Roadmap](planning/roadmap.md)
+- [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+- [Completed Architecture Source Audit](development/architecture-source-audit-2026-07-15.md)
 - [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [ADR Index](adr/index.md)
+- [Completed Phases](development/completed-phases.md)
 - [GitHub Actions Status Handoff](development/github-actions-status-handoff.md)
 
 ---
 
 ## Purpose
 
-This file is the compact project handoff that a new chat should read first.
+This is the compact project handoff that a new chat should read first.
 
 It does not replace specialized implementation, acceptance or CI handoffs.
-
-When GitHub Actions status matters, use [GitHub Actions Status Handoff](development/github-actions-status-handoff.md).
-
-Detailed chronological phase history belongs in [Completed Phases](development/completed-phases.md).
 
 ---
 
 ## Required First Reading
 
-A new chat should start with these files in this order:
+Read these files in this order:
 
 1. [Current State](CURRENT.md)
-2. [Phase Map](planning/phase-map.md)
-3. [Roadmap](planning/roadmap.md)
-4. [Current Project Status](development/current-status.md)
-5. [ADR Index](adr/index.md)
-6. [Current Architecture State](development/current-architecture-state.md)
-7. [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
-8. [Client API and Frontend Module Boundary Plan](development/client-api-frontend-module-boundary-plan.md)
-9. [RESTfulAPI Integration Architecture](architecture/restfulapi-integration.md)
-10. [EPGSearch Capability Matrix](development/epgsearch-capability-matrix.md)
-11. [Completed Phases](development/completed-phases.md) only when historical detail is required
-12. [GitHub Actions Status Handoff](development/github-actions-status-handoff.md) when CI state matters
+2. [Strict Roadmap](planning/roadmap.md)
+3. [Phase Map](planning/phase-map.md)
+4. [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+5. [Completed Architecture Source Audit](development/architecture-source-audit-2026-07-15.md)
+6. [Current Project Status](development/current-status.md)
+7. [ADR Index](adr/index.md)
+8. [Current Architecture State](development/current-architecture-state.md)
+9. [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+10. [Completed Phases](development/completed-phases.md) when historical detail is required
+11. [GitHub Actions Status Handoff](development/github-actions-status-handoff.md) when CI state matters
 
 ---
 
@@ -58,7 +56,7 @@ Previous completed major project block:
 Phase 56 - Library Boundary, Packaging and Developer Documentation
 ```
 
-Current umbrella implementation track:
+Historical umbrella implementation track:
 
 ```text
 Phase 58 - Frontend and Live Parity
@@ -70,41 +68,41 @@ Latest completed implementation slice:
 Phase 60.14k - Recording Detail UX Polish
 ```
 
-Next planned implementation slice:
+Next planned runtime implementation slice:
 
 ```text
 Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
-The completed 59.x and 60.x slices are already-used frontend API, module, platform, Recording cache and Recording UX implementation ranges under the continuing frontend track.
-
-Future major milestones therefore use:
-
-```text
-Phase 61 - Suite Metadata Database and External Providers
-Phase 62 - Recommendation and Content Knowledge Graph
-```
-
-Do not renumber completed implementation history.
+The Phase 58 umbrella label is historical. Future execution follows the strict numbered sequence from Phase 60.15 onward.
 
 ---
 
-## Current Architecture Package
+## Completed Architecture Audit
 
-The source audit covered:
+The completed 2026-07-15 source audit covered:
 
-- VDR Core
-- epgsearch
-- Live
-- RESTfulAPI
-- Streamdev
-- TVScraper
-- scraper2vdr
-- osd2web
-- epg2vdr
-- epgd
+- VDR Core;
+- epgsearch;
+- Live;
+- RESTfulAPI;
+- Streamdev;
+- TVScraper;
+- scraper2vdr;
+- osd2web;
+- epg2vdr;
+- epgd.
 
-The first accepted follow-up ADR package is:
+Use:
+
+- [Architecture Source Audit](development/architecture-source-audit-2026-07-15.md) for the completed evidence and conclusions;
+- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) for current implementation gaps and their target phases.
+
+Broad plugin auditing is complete. Additional audits require a concrete feature, adapter, migration or risk question.
+
+---
+
+## Accepted Architecture Package
 
 ```text
 ADR-0038 - Suite Metadata Database and External Provider Strategy
@@ -115,81 +113,96 @@ ADR-0041 - Authentication, Agent Trust and Multi-Site Transport
 
 Core conclusions:
 
-- VDR remains the native source of truth.
-- VDR-Suite remains an external orchestration and platform layer.
-- RESTfulAPI, SVDRP, Streamdev, TVScraper, epgsearch and OSD integrations remain behind adapter or provider boundaries.
+- VDR remains the native runtime authority.
+- VDR-Suite remains the external domain, orchestration and platform layer.
+- RESTfulAPI, SVDRP, Streamdev, TVScraper, epgsearch and OSD stay behind adapter or provider boundaries.
 - Multi-site production architecture uses a Control Plane and local Backend Agents.
-- Backend Agents do not receive direct central database access.
-- Remote sites do not expose VDR-internal plugin ports as public platform APIs.
-- Stable BackendId, backend generation, lease and health are separate concepts.
+- Agents do not receive direct central database access.
+- Remote sites do not expose VDR plugin ports as public platform APIs.
+- Stable BackendId, native identity, runtime generation, lease and health are separate concepts.
 - Read-only backend policy remains server-enforced.
-- Metadata is normalized into suite-owned entities while acquisition remains provider-based.
+- Metadata is normalized into suite-owned entities and assets while acquisition remains provider-based.
 
 ---
 
 ## Verified Runtime Foundation
 
-The repository already contains verified foundations for:
+Do not describe these areas as wholly missing:
 
-- daemon and REST runtime
-- RESTfulAPI adapter boundary
-- BackendNode and BackendRegistry
-- backend-aware snapshot storage and reads
-- snapshot change feed and SSE foundation
-- runtime diagnostics
-- Recording action request, preview, validation, planning and execution boundaries
-- guarded real-backend Recording action probes
-- Timer action boundaries
-- backend-neutral SearchTimer workflows
-- backend-scoped EPG cache and queries
-- lazy SQLite-backed Recording cache
-- Web Client API wrapper
-- frontend module ownership and registry foundations
-- read-only backend access handling
-
-Do not describe these areas as wholly missing.
+- daemon and REST runtime;
+- RESTfulAPI adapter boundary;
+- BackendNode and BackendRegistry;
+- backend-aware snapshots and reads;
+- snapshot change feed and SSE foundation;
+- runtime diagnostics;
+- Recording request, preview, validation, planning and execution boundaries;
+- guarded real-backend Recording probes;
+- native Timer action boundaries;
+- backend-neutral SearchTimer workflows;
+- backend-scoped EPG cache and queries;
+- lazy SQLite-backed Recording cache;
+- Web Client API wrapper;
+- frontend module ownership and registry;
+- server-enforced read-only backend access mode.
 
 ---
 
-## Guarded or Incomplete Areas
+## Main Incomplete Areas
 
-The following remain incomplete or intentionally closed:
+The detailed list is in the 30-row [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md).
 
-- user authentication and role-based authorization
-- Agent enrollment and secure remote-site transport implementation
-- backend generation, lease and health runtime model
-- expected revision and idempotency for mutations
-- production Job claim, retry, verification and rollback model
-- TimerIntent, TimerAssignment, scheduler and reconciler
-- canonical ProgramEvent identity above native backend events
-- suite metadata database implementation
-- artwork asset service
-- Streaming Gateway
-- Legacy OSD compatibility bridge
-- public `/api/v1` compatibility contract
-- audit and security event model
-- final Web, Windows, Android, iOS and TV clients
+Major gaps include:
+
+- real user, service and Agent identity with scoped RBAC;
+- Backend Agent enrollment and secure remote transport;
+- backend generation, heartbeat, lease and health runtime;
+- expected revision and idempotency for mutations;
+- production job claim, retry, verification and compensation;
+- TimerIntent, TimerAssignment, scheduler and reconciler;
+- canonical ProgramEvent identity and provenance;
+- suite-owned metadata and artwork services;
+- Streaming Gateway;
+- hardened Legacy OSD bridge;
+- versioned public API contract;
+- mutation audit and security events.
 
 ---
 
-## Next Work
+## Immediate Repository Work
 
-Immediate implementation slice:
-
-```text
-Phase 60.15 - Recording Metadata and Poster Preparation
-```
-
-Next architecture package:
+Complete this architecture contract package before Phase 60.15:
 
 ```text
 ADR-0042 - Safe Mutation, Revision and Idempotency Contract
 ADR-0043 - Job Claim, Retry and Saga Execution Model
 ADR-0044 - Timer Intent, Assignment and Native Timer Model
 ADR-0045 - Canonical EPG Event Identity and Provenance
+ADR-0046 - Streaming Gateway and Media Session Boundary
+ADR-0047 - Legacy OSD Compatibility Bridge
+ADR-0048 - Public API Versioning, Error and Compatibility Contract
+ADR-0049 - Audit and Security Event Model
 ```
 
-Do not begin runtime implementation of those new concepts before the relevant ADR is accepted and mapped against existing code.
+Then update architecture diagrams and domain and implementation dependency maps.
+
+---
+
+## Strict Future Sequence
+
+```text
+1. ADR-0042 through ADR-0049 and diagrams
+2. Phase 60.15 - Recording Metadata Preparation
+3. Phase 61 - Suite Metadata Platform
+4. Phase 62 - Identity, RBAC and Audit
+5. Phase 63 - Backend Agent and Multi-Site Runtime
+6. Phase 64 - Timer Intent and Orchestration
+7. Phase 65 - Streaming Gateway
+8. Phase 66 - Legacy OSD Bridge
+9. Phase 67 - Public API and Client Hardening
+10. Phase 68 - Recommendation and Knowledge Graph
+```
+
+Do not begin a later phase merely because it can be developed independently. The dependency order is authoritative.
 
 ---
 
@@ -199,13 +212,14 @@ Do not begin runtime implementation of those new concepts before the relevant AD
 - Inspect current repository state instead of relying on old chat summaries.
 - Use the next free canonical ADR number from `docs/adr/index.md`.
 - Do not create duplicate or lowercase ADR sequences.
-- Keep RESTfulAPI behind adapter boundaries.
+- Keep RESTfulAPI and all plugins behind adapter boundaries.
 - Keep frontend modules free of direct backend fetch ownership.
 - Preserve backend identity in all multi-backend reads and actions.
-- Read-only policy must be enforced by backend services, not only by hidden UI controls.
+- Enforce read-only and RBAC decisions in backend services, not only in the UI.
 - Recording and Timer writes remain guarded and explicit.
 - Real destructive probes remain closed by default.
-- Run the relevant documentation, phase and architecture checks after documentation changes.
+- Update Completed Phases only for finished runtime implementation.
+- Update the Gap Matrix when repository evidence changes.
 
 ---
 
@@ -219,7 +233,7 @@ make test-phase-map-coverage
 make test-phase
 ```
 
-Also run any ADR-index or documentation reachability checks included by `make test-docs`.
+Also run the full fast regression and daemon build before merging broad documentation changes that touch guard scripts or test fixtures.
 
 ---
 
