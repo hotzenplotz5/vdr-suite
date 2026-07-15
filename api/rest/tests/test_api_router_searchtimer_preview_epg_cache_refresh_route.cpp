@@ -21,6 +21,7 @@
 #include "MockVdrAdapter.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
 #include "RecordingActionExecutionController.h"
+#include "RecordingActionPreviewController.h"
 #include "RecordingActionExecutionResultJsonSerializer.h"
 #include "RecordingActionExecutionService.h"
 #include "RecordingActionValidationController.h"
@@ -165,6 +166,14 @@ int main()
         recordingActionBackendExecutorAdapterRegistry,
         recordingActionValidationRequestParser);
 
+    RecordingActionRequestPreviewService recordingActionPreviewService;
+    RecordingActionRequestPreviewResultJsonSerializer
+        recordingActionPreviewJsonSerializer;
+    RecordingActionPreviewController recordingActionPreviewController(
+        recordingActionPreviewService,
+        recordingActionPreviewJsonSerializer,
+        recordingActionValidationRequestParser);
+
     VdrTimerActionExecutionService vdrTimerActionExecutionService;
     VdrTimerActionResultJsonSerializer vdrTimerActionResultJsonSerializer;
     VdrTimerActionRequestParser vdrTimerActionRequestParser;
@@ -208,6 +217,7 @@ int main()
         capabilityController,
         recordingActionValidationController,
         recordingActionExecutionController,
+        recordingActionPreviewController,
         vdrTimerActionController,
         vdrTimerActionExecutorAdapterRegistry,
         runtimeDiagnosticsController,
