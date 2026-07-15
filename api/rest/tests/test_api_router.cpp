@@ -30,6 +30,7 @@
 #include "PersonController.h"
 #include "RecordingsController.h"
 #include "RecordingActionExecutionController.h"
+#include "RecordingActionPreviewController.h"
 #include "RecordingActionValidationController.h"
 #include "RecordingPersonSearchService.h"
 #include "RecordingPersonSearchResultJsonSerializer.h"
@@ -649,6 +650,14 @@ int main()
         recordingActionBackendExecutorAdapterRegistry,
         recordingActionValidationRequestParser);
 
+    RecordingActionRequestPreviewService recordingActionPreviewService;
+    RecordingActionRequestPreviewResultJsonSerializer
+        recordingActionPreviewJsonSerializer;
+    RecordingActionPreviewController recordingActionPreviewController(
+        recordingActionPreviewService,
+        recordingActionPreviewJsonSerializer,
+        recordingActionValidationRequestParser);
+
     VdrTimerActionExecutionService vdrTimerActionExecutionService;
     VdrTimerActionResultJsonSerializer vdrTimerActionResultJsonSerializer;
     VdrTimerActionRequestParser vdrTimerActionRequestParser;
@@ -685,6 +694,7 @@ int main()
         capabilityController,
         recordingActionValidationController,
         recordingActionExecutionController,
+        recordingActionPreviewController,
         vdrTimerActionController,
         vdrTimerActionExecutorAdapterRegistry,
         runtimeDiagnosticsController,
@@ -1074,6 +1084,7 @@ int main()
         capabilityController,
         recordingActionValidationController,
         recordingActionExecutionController,
+        recordingActionPreviewController,
         vdrTimerActionController,
         vdrTimerActionExecutorAdapterRegistry,
         runtimeDiagnosticsController,
