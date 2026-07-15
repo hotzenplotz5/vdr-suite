@@ -1,102 +1,50 @@
-name: Apply API Router Test Repair
+name: VDR-Suite CI
 
 on:
+  push:
   pull_request:
 
-permissions:
-  contents: write
-
 jobs:
-  repair-api-router-test:
-    if: github.head_ref == 'agent/architecture-audit-adrs'
+  docs-check:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout pull request branch
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 0
 
-      - name: Apply fixture repair
+      - name: Check repository structure
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
+          test -f README.md
+          test -f docs/project-principles.md
+          test -f docs/phase-0/01-vision.md
+          test -f docs/phase-0/02-architecture.md
+          test -f docs/phase-0/03-data-model.md
+          test -f docs/phase-0/04-service-layer.md
+          test -f docs/adr/ADR-0001-monorepo.md
+          test -f docs/planning/roadmap.md
+          test -f docs/planning/milestones.md
 
-          path = Path('api/rest/tests/test_api_router.cpp')
-          text = path.read_text(encoding='utf-8')
-
-          include_old = (
-              '#include "RecordingActionExecutionController.h"\n'
-              '#include "RecordingActionValidationController.h"\n'
-          )
-          include_new = (
-              '#include "RecordingActionExecutionController.h"\n'
-              '#include "RecordingActionPreviewController.h"\n'
-              '#include "RecordingActionValidationController.h"\n'
-          )
-          if '#include "RecordingActionPreviewController.h"' not in text:
-              assert text.count(include_old) == 1
-              text = text.replace(include_old, include_new, 1)
-
-          fixture_old = (
-              '    RecordingActionExecutionController recordingActionExecutionController(\n'
-              '        recordingActionExecutionService,\n'
-              '        recordingActionExecutionJsonSerializer,\n'
-              '        recordingActionBackendExecutorAdapterRegistry,\n'
-              '        recordingActionValidationRequestParser);\n'
-              '\n'
-              '    VdrTimerActionExecutionService vdrTimerActionExecutionService;\n'
-          )
-          fixture_new = (
-              '    RecordingActionExecutionController recordingActionExecutionController(\n'
-              '        recordingActionExecutionService,\n'
-              '        recordingActionExecutionJsonSerializer,\n'
-              '        recordingActionBackendExecutorAdapterRegistry,\n'
-              '        recordingActionValidationRequestParser);\n'
-              '\n'
-              '    RecordingActionRequestPreviewService recordingActionPreviewService;\n'
-              '    RecordingActionRequestPreviewResultJsonSerializer\n'
-              '        recordingActionPreviewJsonSerializer;\n'
-              '    RecordingActionPreviewController recordingActionPreviewController(\n'
-              '        recordingActionPreviewService,\n'
-              '        recordingActionPreviewJsonSerializer,\n'
-              '        recordingActionValidationRequestParser);\n'
-              '\n'
-              '    VdrTimerActionExecutionService vdrTimerActionExecutionService;\n'
-          )
-          if 'RecordingActionRequestPreviewService recordingActionPreviewService;' not in text:
-              assert text.count(fixture_old) == 1
-              text = text.replace(fixture_old, fixture_new, 1)
-
-          args_old = (
-              '        recordingActionValidationController,\n'
-              '        recordingActionExecutionController,\n'
-              '        vdrTimerActionController,\n'
-          )
-          args_new = (
-              '        recordingActionValidationController,\n'
-              '        recordingActionExecutionController,\n'
-              '        recordingActionPreviewController,\n'
-              '        vdrTimerActionController,\n'
-          )
-          remaining = text.count(args_old)
-          if remaining:
-              assert remaining == 2
-              text = text.replace(args_old, args_new)
-
-          path.write_text(text, encoding='utf-8')
-          PY
-
-          git diff --check
-
-      - name: Commit fixture repair
+      - name: Run documentation checks
         run: |
-          if git diff --quiet -- api/rest/tests/test_api_router.cpp; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add api/rest/tests/test_api_router.cpp
-          git commit -m "Test: update ApiRouter fixtures for preview controller"
-          git push origin HEAD:agent/architecture-audit-adrs
+          make test-docs
+          make test-phase
+
+  fast-regression-test:
+    runs-on: ubuntu-latest
+    needs:
+      - docs-check
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+
+      - name: Run fast CI regression test
+        run: make test-ci-fast
+
+      - name: Build daemon
+        run: make daemon
