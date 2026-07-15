@@ -37,6 +37,25 @@ REQUIRED_CURRENT_AND_PLANNED = [
     "Phase 60.15",
     "Phase 61",
     "Phase 62",
+    "Phase 63",
+    "Phase 64",
+    "Phase 65",
+    "Phase 66",
+    "Phase 67",
+    "Phase 68",
+]
+
+REQUIRED_ROADMAP_ORDER = [
+    "Step 1 - Complete the Architecture Contract Package",
+    "Step 2 - Phase 60.15: Recording Metadata and Poster Preparation",
+    "Step 3 - Phase 61: Suite Metadata Database and External Providers",
+    "Step 4 - Phase 62: Identity, RBAC and Audit Foundation",
+    "Step 5 - Phase 63: Backend Agent and Secure Multi-Site Runtime",
+    "Step 6 - Phase 64: Timer Intent and Multi-Backend Orchestration",
+    "Step 7 - Phase 65: Streaming Gateway and Media Sessions",
+    "Step 8 - Phase 66: Legacy OSD Compatibility Bridge",
+    "Step 9 - Phase 67: Public API and Client Compatibility Hardening",
+    "Step 10 - Phase 68: Recommendation and Content Knowledge Graph",
 ]
 
 STALE_ROADMAP_MARKERS = [
@@ -46,6 +65,8 @@ STALE_ROADMAP_MARKERS = [
     "### Phase 56 - Backend Capability Matrix",
     "### Phase 59 - Suite Metadata Database",
     "### Phase 60 - Recommendation",
+    "Phase 62 - Recommendation and Content Knowledge Graph",
+    "runtime milestone number not yet assigned",
 ]
 
 
@@ -67,6 +88,18 @@ def require_markers(text, rel, markers):
     for marker in markers:
         if marker not in text:
             error(rel + " misses required marker: " + marker)
+
+
+def require_order(text, rel, markers):
+    positions = []
+    for marker in markers:
+        position = text.find(marker)
+        if position < 0:
+            error(rel + " misses ordered marker: " + marker)
+        positions.append(position)
+
+    if positions != sorted(positions):
+        error(rel + " does not preserve the required roadmap order")
 
 
 def check():
@@ -92,7 +125,13 @@ def check():
     require_markers(
         roadmap,
         "docs/planning/roadmap.md",
-        [LATEST_MAJOR, UMBRELLA_TRACK, LATEST_SLICE, NEXT_SLICE, "Phase 61", "Phase 62"],
+        [LATEST_MAJOR, UMBRELLA_TRACK, LATEST_SLICE, NEXT_SLICE]
+        + REQUIRED_CURRENT_AND_PLANNED,
+    )
+    require_order(
+        roadmap,
+        "docs/planning/roadmap.md",
+        REQUIRED_ROADMAP_ORDER,
     )
 
     for item in STALE_ROADMAP_MARKERS:
