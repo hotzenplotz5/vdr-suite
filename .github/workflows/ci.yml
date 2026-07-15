@@ -1,21 +1,21 @@
 name: Apply API Router Test Repair
 
 on:
-  push:
+  pull_request:
 
 permissions:
   contents: write
 
 jobs:
   repair-api-router-test:
-    if: github.ref == 'refs/heads/agent/architecture-audit-adrs'
+    if: github.head_ref == 'agent/architecture-audit-adrs'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout branch
+      - name: Checkout pull request branch
         uses: actions/checkout@v4
         with:
-          ref: agent/architecture-audit-adrs
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       - name: Apply fixture repair
@@ -26,54 +26,64 @@ jobs:
           path = Path('api/rest/tests/test_api_router.cpp')
           text = path.read_text(encoding='utf-8')
 
+          include_old = (
+              '#include "RecordingActionExecutionController.h"\n'
+              '#include "RecordingActionValidationController.h"\n'
+          )
+          include_new = (
+              '#include "RecordingActionExecutionController.h"\n'
+              '#include "RecordingActionPreviewController.h"\n'
+              '#include "RecordingActionValidationController.h"\n'
+          )
           if '#include "RecordingActionPreviewController.h"' not in text:
-              old = '#include "RecordingActionExecutionController.h"\n#include "RecordingActionValidationController.h"\n'
-              new = '#include "RecordingActionExecutionController.h"\n#include "RecordingActionPreviewController.h"\n#include "RecordingActionValidationController.h"\n'
-              assert text.count(old) == 1
-              text = text.replace(old, new, 1)
+              assert text.count(include_old) == 1
+              text = text.replace(include_old, include_new, 1)
 
-          fixture_marker = '    RecordingActionRequestPreviewService recordingActionPreviewService;\n'
-          if fixture_marker not in text:
-              old = '''    RecordingActionExecutionController recordingActionExecutionController(
-              recordingActionExecutionService,
-              recordingActionExecutionJsonSerializer,
-              recordingActionBackendExecutorAdapterRegistry,
-              recordingActionValidationRequestParser);
+          fixture_old = (
+              '    RecordingActionExecutionController recordingActionExecutionController(\n'
+              '        recordingActionExecutionService,\n'
+              '        recordingActionExecutionJsonSerializer,\n'
+              '        recordingActionBackendExecutorAdapterRegistry,\n'
+              '        recordingActionValidationRequestParser);\n'
+              '\n'
+              '    VdrTimerActionExecutionService vdrTimerActionExecutionService;\n'
+          )
+          fixture_new = (
+              '    RecordingActionExecutionController recordingActionExecutionController(\n'
+              '        recordingActionExecutionService,\n'
+              '        recordingActionExecutionJsonSerializer,\n'
+              '        recordingActionBackendExecutorAdapterRegistry,\n'
+              '        recordingActionValidationRequestParser);\n'
+              '\n'
+              '    RecordingActionRequestPreviewService recordingActionPreviewService;\n'
+              '    RecordingActionRequestPreviewResultJsonSerializer\n'
+              '        recordingActionPreviewJsonSerializer;\n'
+              '    RecordingActionPreviewController recordingActionPreviewController(\n'
+              '        recordingActionPreviewService,\n'
+              '        recordingActionPreviewJsonSerializer,\n'
+              '        recordingActionValidationRequestParser);\n'
+              '\n'
+              '    VdrTimerActionExecutionService vdrTimerActionExecutionService;\n'
+          )
+          if 'RecordingActionRequestPreviewService recordingActionPreviewService;' not in text:
+              assert text.count(fixture_old) == 1
+              text = text.replace(fixture_old, fixture_new, 1)
 
-          VdrTimerActionExecutionService vdrTimerActionExecutionService;
-          '''
-              new = '''    RecordingActionExecutionController recordingActionExecutionController(
-              recordingActionExecutionService,
-              recordingActionExecutionJsonSerializer,
-              recordingActionBackendExecutorAdapterRegistry,
-              recordingActionValidationRequestParser);
-
-          RecordingActionRequestPreviewService recordingActionPreviewService;
-          RecordingActionRequestPreviewResultJsonSerializer
-              recordingActionPreviewJsonSerializer;
-          RecordingActionPreviewController recordingActionPreviewController(
-              recordingActionPreviewService,
-              recordingActionPreviewJsonSerializer,
-              recordingActionValidationRequestParser);
-
-          VdrTimerActionExecutionService vdrTimerActionExecutionService;
-          '''
-              assert text.count(old) == 1
-              text = text.replace(old, new, 1)
-
-          old = '''        recordingActionValidationController,
-              recordingActionExecutionController,
-              vdrTimerActionController,
-          '''
-          new = '''        recordingActionValidationController,
-              recordingActionExecutionController,
-              recordingActionPreviewController,
-              vdrTimerActionController,
-          '''
-          remaining = text.count(old)
+          args_old = (
+              '        recordingActionValidationController,\n'
+              '        recordingActionExecutionController,\n'
+              '        vdrTimerActionController,\n'
+          )
+          args_new = (
+              '        recordingActionValidationController,\n'
+              '        recordingActionExecutionController,\n'
+              '        recordingActionPreviewController,\n'
+              '        vdrTimerActionController,\n'
+          )
+          remaining = text.count(args_old)
           if remaining:
               assert remaining == 2
-              text = text.replace(old, new)
+              text = text.replace(args_old, args_new)
 
           path.write_text(text, encoding='utf-8')
           PY
