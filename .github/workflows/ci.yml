@@ -43,5 +43,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
 
-      - name: Isolate API router failure
-        run: make -s test-api-router
+      - name: Capture isolated API router result
+        run: |
+          set +e
+          make -s test-api-router > /tmp/api-router.log 2>&1
+          status=$?
+          echo "$status" > /tmp/api-router.status
+          exit 0
+
+      - name: Upload API router diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-router-diagnostic
+          path: |
+            /tmp/api-router.log
+            /tmp/api-router.status
+
+      - name: Report isolated API router result
+        run: |
+          cat /tmp/api-router.log
+          test "$(cat /tmp/api-router.status)" = "0"
