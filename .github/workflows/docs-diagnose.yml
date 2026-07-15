@@ -10,17 +10,27 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Documentation structure
-        run: python3 tools/check_docs.py
-      - name: Documentation indexes
-        run: python3 tools/check_doc_indexes.py
-      - name: Documentation reachability
-        run: python3 tools/check_doc_reachability.py
-      - name: Documentation entrypoints
-        run: python3 tools/check_doc_entrypoints.py
-      - name: ADR index
-        run: python3 tools/check_adr_index.py
-      - name: Phase map coverage
-        run: python3 tools/check_phase_map_coverage.py
-      - name: Phase consistency
-        run: python3 tools/check_phase_consistency.py
+      - name: Capture documentation checks
+        run: |
+          set +e
+          : > docs-diagnose.log
+          for check in \
+            "python3 tools/check_docs.py" \
+            "python3 tools/check_doc_indexes.py" \
+            "python3 tools/check_doc_reachability.py" \
+            "python3 tools/check_doc_entrypoints.py" \
+            "python3 tools/check_adr_index.py" \
+            "python3 tools/check_phase_map_coverage.py" \
+            "python3 tools/check_phase_consistency.py"
+          do
+            echo "=== ${check} ===" >> docs-diagnose.log
+            ${check} >> docs-diagnose.log 2>&1
+            echo "exit=$?" >> docs-diagnose.log
+            echo >> docs-diagnose.log
+          done
+          cat docs-diagnose.log
+      - name: Upload diagnosis
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-diagnose-log
+          path: docs-diagnose.log
