@@ -83,13 +83,7 @@ Before proposing frontend, Live-parity, RESTfulAPI, epgsearch, metadata or archi
 
 ## Next Work
 
-Next implementation focus:
-
-```text
-Phase 60.15 - Recording Metadata and Poster Preparation
-```
-
-Architecture follow-up after the first audit ADR package:
+Immediate architecture focus:
 
 ```text
 ADR-0042 - Safe Mutation, Revision and Idempotency Contract
@@ -97,6 +91,24 @@ ADR-0043 - Job Claim, Retry and Saga Execution Model
 ADR-0044 - Timer Intent, Assignment and Native Timer Model
 ADR-0045 - Canonical EPG Event Identity and Provenance
 ```
+
+Required follow-up:
+
+```text
+Update the affected architecture diagrams.
+Create an explicit implementation dependency map.
+Assign no new runtime phase numbers until those dependencies are stable.
+```
+
+Next implementation focus after the ADR and diagram package:
+
+```text
+Phase 60.15 - Recording Metadata and Poster Preparation
+```
+
+Phase 60.15 is the bounded bridge from the current Recording UX to the suite-owned metadata platform planned for Phase 61. It must remain provider-neutral and must not couple the frontend directly to TVScraper, scraper2vdr or an external provider database.
+
+Broad architecture plugin auditing is complete for roadmap purposes. Additional source audits should only answer a concrete implementation, adapter or risk question.
 
 ---
 
