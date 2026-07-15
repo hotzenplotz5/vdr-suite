@@ -1,0 +1,26 @@
+name: Diagnose Documentation Checks
+
+on:
+  pull_request:
+
+jobs:
+  docs-diagnose:
+    if: github.head_ref == 'agent/architecture-audit-adrs'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Documentation structure
+        run: python3 tools/check_docs.py
+      - name: Documentation indexes
+        run: python3 tools/check_doc_indexes.py
+      - name: Documentation reachability
+        run: python3 tools/check_doc_reachability.py
+      - name: Documentation entrypoints
+        run: python3 tools/check_doc_entrypoints.py
+      - name: ADR index
+        run: python3 tools/check_adr_index.py
+      - name: Phase map coverage
+        run: python3 tools/check_phase_map_coverage.py
+      - name: Phase consistency
+        run: python3 tools/check_phase_consistency.py
