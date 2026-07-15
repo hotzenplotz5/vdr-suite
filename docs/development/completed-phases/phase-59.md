@@ -1,5 +1,14 @@
 # Completed Phase 59 - Frontend Client API and Module Boundaries
 
+## Navigation
+
+- [Completed Phases Archive](README.md)
+- [Completed Phases](../completed-phases.md)
+- [Development Index](../index.md)
+- [Current State](../../CURRENT.md)
+
+---
+
 ## Status
 
 ```text
