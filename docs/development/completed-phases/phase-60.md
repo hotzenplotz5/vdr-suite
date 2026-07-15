@@ -1,5 +1,14 @@
 # Completed Phase 60 Slices - Frontend Platform and Recording UX
 
+## Navigation
+
+- [Completed Phases Archive](README.md)
+- [Completed Phases](../completed-phases.md)
+- [Development Index](../index.md)
+- [Current State](../../CURRENT.md)
+
+---
+
 ## Status
 
 ```text
