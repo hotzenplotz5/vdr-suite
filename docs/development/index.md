@@ -24,6 +24,7 @@ Authoritative sources:
 - [Current Project Status](current-status.md)
 - [GitHub Actions Status Handoff](github-actions-status-handoff.md)
 - [Current Architecture State](current-architecture-state.md)
+- [Architecture Source Audit - 2026-07-15](architecture-source-audit-2026-07-15.md)
 - [Project Status Dashboard](../project-status-dashboard.md)
 - [Current Technical Debt](current-technical-debt.md)
 - [Build System State](build-system-state.md)
