@@ -50,6 +50,7 @@ jobs:
         if: always()
         run: |
           python3 tools/check_make_test_manifest.py | tee make-test-inventory.txt
+          python3 tools/list_make_test_debt.py | tee -a make-test-inventory.txt
 
       - name: Upload Make test inventory
         if: always()
