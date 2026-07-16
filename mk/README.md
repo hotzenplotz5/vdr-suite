@@ -29,9 +29,18 @@ public group.
 - test-support-looking sources in broad aggregates
 - adjacent duplicate linker flag entries
 
-The default mode blocks structural errors and reports historical debt. The
-`--strict` mode turns all reported debt into failures and will become the
-standard once the current backlog is resolved.
+CI runs the guard in strict mode. The current baseline is:
+
+- 340 classified test targets
+- 318 referenced C++ and JavaScript test source files
+- zero ungrouped targets
+- zero orphan test source files
+- zero adjacent duplicate linker-flag entries
+
+Three legacy names are explicitly documented as intentional runtime variants:
+`TestHttpServer`, `MockVdrAdapter` and `TestLiveTransport`. New `Mock*` or
+`Test*` sources in broad production aggregates remain strict failures unless a
+reviewed rationale is added.
 
 The CI uploads `make-test-audit-bundle`, containing the complete report and the
 Make fragments used for that run.
