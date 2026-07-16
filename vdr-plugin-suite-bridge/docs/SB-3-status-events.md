@@ -1,7 +1,8 @@
 # SB.3 Native VDR Status Events
 
 SB.3 adds the first read-only observation path from VDR Core into the Suite
-bridge.
+bridge. SB.8 adds explicit continuity and saturation semantics to those
+diagnostic observations.
 
 ## Native integration
 
@@ -21,7 +22,7 @@ the transition to `stopped`.
 
 The bridge does not retain VDR object pointers, recording names, replay names or
 file paths. Each accepted callback performs only the active-state check and one
-bounded atomic counter increment. It then returns immediately.
+bounded saturating atomic counter increment. It then returns immediately.
 
 Callback arguments are not serialized, logged, queued or forwarded. Diagnostic
 logging and local-contract serialization happen only outside the VDR callback
@@ -33,19 +34,31 @@ VDR may invoke status callbacks from different execution contexts. The observer
 therefore uses only:
 
 - one atomic active flag;
-- one relaxed atomic counter per event family;
+- one saturating atomic counter per event family;
 - no queue;
 - no lock;
 - no allocation;
 - no logging in the callback body;
 - no worker thread.
 
-The counters are diagnostic observations. They are not yet sequence numbers and
-do not define overflow, reset or resynchronization semantics.
+## Continuity semantics
+
+The counters are cumulative diagnostic observations within one immutable
+`counter_epoch`.
+
+- counters never wrap to zero;
+- an unrepresentable event sets persistent overflow state for the epoch;
+- a new plugin instance creates a new epoch and fresh counters;
+- changed epoch requires a complete `SNAP` baseline;
+- overflow disables further delta calculation for that epoch.
+
+The counters are still not ordered event sequence numbers, domain events, audit
+history or guaranteed counts of user-visible actions. One visible VDR action may
+produce several native callbacks.
 
 ## Capability state
 
 Capability schema version remains `1`.
 
-`status-events` remains `available`. Later accepted slices also make `snapshots`
-and `local-contract` available. `mutations` remains `disabled`.
+`status-events` remains `available`. Snapshot and local-contract schemas are
+version `2`. `mutations` remains `disabled`.
