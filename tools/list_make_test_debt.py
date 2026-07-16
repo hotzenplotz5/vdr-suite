@@ -35,7 +35,10 @@ def main() -> int:
     production_leaks: list[str] = []
     for name in ("VDR_SRC", "DAEMON_SRC", "REST_ROUTER_SRC"):
         for source in aggregates.get(name, []):
-            if Path(source).name.startswith(("Mock", "Test")):
+            if (
+                Path(source).name.startswith(("Mock", "Test"))
+                and (name, source) not in audit.INTENTIONAL_RUNTIME_AGGREGATES
+            ):
                 production_leaks.append(f"{name}: {source}")
 
     duplicate_flags = audit.duplicate_ldflags(paths)
@@ -51,6 +54,12 @@ def main() -> int:
     print("\nComplete production aggregate test-support list:")
     for finding in sorted(production_leaks):
         print(finding)
+
+    print("\nIntentional runtime aggregate allowlist:")
+    for (name, source), reason in sorted(
+        audit.INTENTIONAL_RUNTIME_AGGREGATES.items()
+    ):
+        print(f"{name}: {source} — {reason}")
 
     print("\nComplete duplicate LDFLAGS list:")
     for path, line in duplicate_flags:
