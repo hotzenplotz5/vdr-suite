@@ -5,6 +5,7 @@
 #include "RestfulApiChannelMapper.h"
 #include "RestfulApiEventMapper.h"
 #include "RestfulApiRecordingMapper.h"
+#include "RestfulApiRecordingMetadataEnricher.h"
 #include "RestfulApiStatusMapper.h"
 #include "RestfulApiTimerConflictMapper.h"
 #include "RestfulApiTimerMapper.h"
@@ -261,7 +262,14 @@ std::vector<VdrRecording> RestfulApiVdrAdapter::getRecordings() const
         return {};
     }
 
-    return RestfulApiRecordingMapper::parseRecordings(response.body);
+    std::vector<VdrRecording> recordings =
+        RestfulApiRecordingMapper::parseRecordings(response.body);
+
+    RestfulApiRecordingMetadataEnricher::enrich(
+        response.body,
+        recordings);
+
+    return recordings;
 }
 
 VdrChangeState RestfulApiVdrAdapter::getChangeState() const

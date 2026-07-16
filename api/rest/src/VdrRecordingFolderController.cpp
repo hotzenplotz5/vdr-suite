@@ -1,6 +1,7 @@
 #include "VdrRecordingFolderController.h"
 
 #include "VdrRecordingCacheRepository.h"
+#include "VdrRecordingMetadataJsonSerializer.h"
 
 #include <sstream>
 #include <string>
@@ -78,6 +79,8 @@ void appendRecordingJson(
     appendJsonString(json, recording.startTime);
     json << ",\"durationSeconds\":" << recording.durationSeconds;
     json << ",\"sizeMb\":" << recording.sizeMb;
+    json << ",\"metadata\":"
+         << VdrRecordingMetadataJsonSerializer::serialize(recording);
 
     json << "}";
 }
