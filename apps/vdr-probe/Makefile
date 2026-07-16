@@ -1,7 +1,8 @@
 CXX := g++
 ROOT := ../..
 BUILD_DIR ?= $(abspath $(ROOT)/.build)
-BUILD_CXX = mkdir -p "$(BUILD_DIR)" && $(CXX)
+OBJECT_CACHE_DIR ?= $(BUILD_DIR)/obj
+BUILD_CXX = python3 $(ROOT)/tools/build_cpp_cached.py --compiler "$(CXX)" --cache-dir "$(OBJECT_CACHE_DIR)" --
 
 CXXFLAGS := -std=c++17 -Wall -Wextra \
         -I$(ROOT)/core/http/include \
