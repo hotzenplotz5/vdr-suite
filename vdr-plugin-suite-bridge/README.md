@@ -23,20 +23,34 @@ used by the separate Backend Agent.
 ## Current slice
 
 ```text
-SB.1 - Deterministic plugin lifecycle
+SB.2 - Native capability description
 ```
 
-The plugin now owns a small VDR-independent lifecycle state machine with the
-states `constructed`, `initialized`, `started` and `stopped`.
+The plugin now owns an immutable, VDR-independent capability catalogue with
+schema version `1`. It reports only capabilities that are already available and
+keeps future work explicitly marked as planned or disabled.
 
-Lifecycle rules:
+Current catalogue:
 
-- construction remains side-effect free;
-- `Start()` is rejected before successful initialization;
-- repeated successful initialization and start calls are idempotent;
-- stop is idempotent;
-- a stopped plugin instance cannot be restarted;
-- VDR logs include event, result, state and version fields.
+| Capability | State |
+| --- | --- |
+| `lifecycle` | `available` |
+| `status-events` | `planned` |
+| `snapshots` | `planned` |
+| `local-contract` | `planned` |
+| `mutations` | `disabled` |
+
+Capability state meanings:
+
+- `available`: implemented and covered by acceptance tests;
+- `planned`: reserved for a later implementation slice;
+- `disabled`: deliberately unavailable in the current architecture state.
+
+During plugin initialization VDR receives one structured log line per
+capability containing schema version, capability ID and state.
+
+The capability catalogue does not expose a transport or public Backend Agent
+contract yet. That boundary remains a later slice.
 
 ## Deliberate boundaries
 
@@ -57,8 +71,9 @@ make clean
 make check
 ```
 
-`make check` validates the source contract, version extraction, lifecycle state
-machine and final shared-object build.
+`make check` validates the foundation contract, capability source contract,
+version extraction, lifecycle state machine, capability catalogue and final
+shared-object build.
 
 ## Staged installation
 
@@ -68,5 +83,5 @@ make DESTDIR=/tmp/vdr-suitebridge-stage install
 find /tmp/vdr-suitebridge-stage -type f -print
 ```
 
-The plugin must not yet be installed into the live VDR plugin directory without
-a controlled load and rollback test.
+Every new plugin version must pass a controlled VDR load and rollback test
+before it is left installed in the live VDR plugin directory.

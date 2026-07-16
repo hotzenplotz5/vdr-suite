@@ -12,7 +12,12 @@ required_files = (
     ROOT / "suitebridge.cpp",
     ROOT / "suitebridge_lifecycle.h",
     ROOT / "suitebridge_lifecycle.cpp",
+    ROOT / "suitebridge_capabilities.h",
+    ROOT / "suitebridge_capabilities.cpp",
+    ROOT / "docs/SB-2-capabilities.md",
+    ROOT / "tests/check_capabilities_contract.py",
     ROOT / "tests/test_suitebridge_lifecycle.cpp",
+    ROOT / "tests/test_suitebridge_capabilities.cpp",
 )
 
 errors = []
@@ -31,17 +36,32 @@ header = (ROOT / "suitebridge.h").read_text(encoding="utf-8")
 source = (ROOT / "suitebridge.cpp").read_text(encoding="utf-8")
 lifecycle_header = (ROOT / "suitebridge_lifecycle.h").read_text(encoding="utf-8")
 lifecycle_source = (ROOT / "suitebridge_lifecycle.cpp").read_text(encoding="utf-8")
+capabilities_header = (ROOT / "suitebridge_capabilities.h").read_text(
+    encoding="utf-8"
+)
+capabilities_source = (ROOT / "suitebridge_capabilities.cpp").read_text(
+    encoding="utf-8"
+)
 combined = "\n".join(
-    (header, source, lifecycle_header, lifecycle_source)
+    (
+        header,
+        source,
+        lifecycle_header,
+        lifecycle_source,
+        capabilities_header,
+        capabilities_source,
+    )
 )
 
 required_makefile_content = (
     "PLUGIN = suitebridge",
     "SOFILE = libvdr-$(PLUGIN).so",
     "APIVERSION = $(call PKGCFG,apiversion)",
-    "OBJS = $(PLUGIN).o suitebridge_lifecycle.o",
+    "OBJS = $(PLUGIN).o suitebridge_lifecycle.o suitebridge_capabilities.o",
+    "check-capabilities-contract:",
     "test-lifecycle:",
-    'test "$(VERSION)" = "0.2.0"',
+    "test-capabilities:",
+    'test "$(VERSION)" = "0.3.0"',
 )
 
 for fragment in required_makefile_content:
@@ -49,13 +69,16 @@ for fragment in required_makefile_content:
         errors.append(f"missing Makefile contract: {fragment}")
 
 required_source_content = (
-    'static const char *VERSION = "0.2.0";',
+    'static const char *VERSION = "0.3.0";',
     "bool cPluginSuiteBridge::Initialize(void)",
     "bool cPluginSuiteBridge::Start(void)",
     "void cPluginSuiteBridge::Stop(void)",
     "lifecycle_.Initialize()",
     "lifecycle_.Start()",
     "lifecycle_.Stop()",
+    "SuiteBridgeCapabilities::All()",
+    "SuiteBridgeCapabilities::SchemaVersion()",
+    "SuiteBridgeCapabilities::StateName(capability.state)",
     "return nullptr;",
     "VDRPLUGINCREATOR(cPluginSuiteBridge);",
 )
@@ -101,4 +124,4 @@ if errors:
         print(f"ERROR: {error}", file=sys.stderr)
     raise SystemExit(1)
 
-print("suitebridge lifecycle contract ok")
+print("suitebridge foundation contract ok")

@@ -1,8 +1,10 @@
 #include "suitebridge.h"
 
+#include "suitebridge_capabilities.h"
+
 #include <vdr/tools.h>
 
-static const char *VERSION = "0.2.0";
+static const char *VERSION = "0.3.0";
 static const char *DESCRIPTION =
     "Native bridge between VDR and the VDR-Suite Backend Agent";
 
@@ -33,6 +35,15 @@ bool cPluginSuiteBridge::Initialize(void)
       "suitebridge: lifecycle event=initialize result=accepted state=%s version=%s",
       lifecycle_.StateName(),
       VERSION);
+
+  for (const auto &capability : SuiteBridgeCapabilities::All()) {
+    isyslog(
+        "suitebridge: capability schema=%u id=%s state=%s",
+        SuiteBridgeCapabilities::SchemaVersion(),
+        capability.id,
+        SuiteBridgeCapabilities::StateName(capability.state));
+  }
+
   return true;
 }
 

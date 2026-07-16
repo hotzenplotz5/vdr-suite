@@ -20,11 +20,12 @@ SOFILE = libvdr-$(PLUGIN).so
 
 DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
 
-OBJS = $(PLUGIN).o suitebridge_lifecycle.o
+OBJS = $(PLUGIN).o suitebridge_lifecycle.o suitebridge_capabilities.o
 DEPFILE = .dependencies
 LIFECYCLE_TEST = /tmp/test_suitebridge_lifecycle
+CAPABILITIES_TEST = /tmp/test_suitebridge_capabilities
 
-.PHONY: all install install-lib check check-contract check-version test-lifecycle check-build clean
+.PHONY: all install install-lib check check-contract check-capabilities-contract check-version test-lifecycle test-capabilities check-build clean
 
 all: $(SOFILE)
 
@@ -47,8 +48,11 @@ install: install-lib
 check-contract:
 	python3 tests/check_foundation_contract.py
 
+check-capabilities-contract:
+	python3 tests/check_capabilities_contract.py
+
 check-version:
-	test "$(VERSION)" = "0.2.0"
+	test "$(VERSION)" = "0.3.0"
 
 test-lifecycle:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
@@ -58,11 +62,19 @@ test-lifecycle:
 	$(LIFECYCLE_TEST)
 	rm -f $(LIFECYCLE_TEST)
 
+test-capabilities:
+	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
+		suitebridge_capabilities.cpp \
+		tests/test_suitebridge_capabilities.cpp \
+		-o $(CAPABILITIES_TEST)
+	$(CAPABILITIES_TEST)
+	rm -f $(CAPABILITIES_TEST)
+
 check-build: $(SOFILE)
 	test -s $(SOFILE)
 	readelf -h $(SOFILE) >/dev/null
 
-check: check-contract check-version test-lifecycle check-build
+check: check-contract check-capabilities-contract check-version test-lifecycle test-capabilities check-build
 
 clean:
-	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) *.tgz core* *~ ._*
+	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) *.tgz core* *~ ._*
