@@ -1,10 +1,11 @@
 #include "suitebridge.h"
 
 #include "suitebridge_capabilities.h"
+#include "suitebridge_svdrp_contract.h"
 
 #include <vdr/tools.h>
 
-static const char *VERSION = "0.6.0";
+static const char *VERSION = "0.7.0";
 static const char *DESCRIPTION =
     "Native bridge between VDR and the VDR-Suite Backend Agent";
 
@@ -79,6 +80,49 @@ void cPluginSuiteBridge::Stop(void)
 const char *cPluginSuiteBridge::MainMenuEntry(void)
 {
   return nullptr;
+}
+
+const char **cPluginSuiteBridge::SVDRPHelpPages(void)
+{
+  static const char *HelpPages[] = {
+      "SNAP\n"
+      "    Return the current read-only VDR-Suite status payload.",
+      nullptr,
+  };
+
+  return HelpPages;
+}
+
+cString cPluginSuiteBridge::SVDRPCommand(
+    const char *Command,
+    const char *Option,
+    int &ReplyCode)
+{
+  const SuiteBridgeSvdrpReply reply(
+      Command,
+      Option,
+      SuiteBridgeCapabilities::SchemaVersion(),
+      statusMonitor_.CaptureSnapshot());
+
+  if (!reply.Handled()) {
+    return nullptr;
+  }
+
+  ReplyCode = reply.ReplyCode();
+
+  if (!reply.HasPayload()) {
+    esyslog(
+        "suitebridge: svdrp command=SNAP result=rejected reply=%d",
+        ReplyCode);
+    return cString::sprintf("%s", reply.Data());
+  }
+
+  isyslog(
+      "suitebridge: svdrp command=SNAP result=served reply=%d bytes=%zu",
+      ReplyCode,
+      reply.Size());
+
+  return cString::sprintf("%s", reply.Data());
 }
 
 VDRPLUGINCREATOR(cPluginSuiteBridge);

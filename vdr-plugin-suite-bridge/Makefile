@@ -20,15 +20,16 @@ SOFILE = libvdr-$(PLUGIN).so
 
 DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
 
-OBJS = $(PLUGIN).o suitebridge_lifecycle.o suitebridge_capabilities.o suitebridge_status_snapshot.o suitebridge_local_contract.o suitebridge_status_events.o suitebridge_status_monitor.o
+OBJS = $(PLUGIN).o suitebridge_lifecycle.o suitebridge_capabilities.o suitebridge_status_snapshot.o suitebridge_local_contract.o suitebridge_svdrp_contract.o suitebridge_status_events.o suitebridge_status_monitor.o
 DEPFILE = .dependencies
 LIFECYCLE_TEST = /tmp/test_suitebridge_lifecycle
 CAPABILITIES_TEST = /tmp/test_suitebridge_capabilities
 STATUS_EVENTS_TEST = /tmp/test_suitebridge_status_events
 STATUS_SNAPSHOT_TEST = /tmp/test_suitebridge_status_snapshot
 LOCAL_CONTRACT_TEST = /tmp/test_suitebridge_local_contract
+SVDRP_CONTRACT_TEST = /tmp/test_suitebridge_svdrp_contract
 
-.PHONY: all install install-lib check check-contract check-capabilities-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-version test-lifecycle test-capabilities test-status-events test-status-snapshot test-local-contract check-build clean
+.PHONY: all install install-lib check check-contract check-capabilities-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-version test-lifecycle test-capabilities test-status-events test-status-snapshot test-local-contract test-svdrp-contract check-build clean
 
 all: $(SOFILE)
 
@@ -63,8 +64,11 @@ check-status-snapshot-contract:
 check-local-contract-contract:
 	python3 tests/check_local_contract_contract.py
 
+check-svdrp-contract:
+	python3 tests/check_svdrp_contract.py
+
 check-version:
-	test "$(VERSION)" = "0.6.0"
+	test "$(VERSION)" = "0.7.0"
 
 test-lifecycle:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
@@ -109,11 +113,21 @@ test-local-contract:
 	$(LOCAL_CONTRACT_TEST)
 	rm -f $(LOCAL_CONTRACT_TEST)
 
+test-svdrp-contract:
+	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
+		suitebridge_status_snapshot.cpp \
+		suitebridge_local_contract.cpp \
+		suitebridge_svdrp_contract.cpp \
+		tests/test_suitebridge_svdrp_contract.cpp \
+		-o $(SVDRP_CONTRACT_TEST)
+	$(SVDRP_CONTRACT_TEST)
+	rm -f $(SVDRP_CONTRACT_TEST)
+
 check-build: $(SOFILE)
 	test -s $(SOFILE)
 	readelf -h $(SOFILE) >/dev/null
 
-check: check-contract check-capabilities-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-version test-lifecycle test-capabilities test-status-events test-status-snapshot test-local-contract check-build
+check: check-contract check-capabilities-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-version test-lifecycle test-capabilities test-status-events test-status-snapshot test-local-contract test-svdrp-contract check-build
 
 clean:
-	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) $(LOCAL_CONTRACT_TEST) *.tgz core* *~ ._*
+	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) $(LOCAL_CONTRACT_TEST) $(SVDRP_CONTRACT_TEST) *.tgz core* *~ ._*

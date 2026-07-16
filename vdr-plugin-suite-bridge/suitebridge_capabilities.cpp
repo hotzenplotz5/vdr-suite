@@ -8,7 +8,7 @@ constexpr std::array<SuiteBridgeCapabilityDescriptor, 5> CAPABILITIES = {{
     {"lifecycle", SuiteBridgeCapabilityState::Available},
     {"status-events", SuiteBridgeCapabilityState::Available},
     {"snapshots", SuiteBridgeCapabilityState::Available},
-    {"local-contract", SuiteBridgeCapabilityState::Planned},
+    {"local-contract", SuiteBridgeCapabilityState::Available},
     {"mutations", SuiteBridgeCapabilityState::Disabled},
 }};
 

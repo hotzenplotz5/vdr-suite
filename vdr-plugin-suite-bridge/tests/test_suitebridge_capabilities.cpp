@@ -23,7 +23,7 @@ int main()
       SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Available,
-      SuiteBridgeCapabilityState::Planned,
+      SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Disabled,
   }};
 
@@ -50,7 +50,7 @@ int main()
   assert(SuiteBridgeCapabilities::IsAvailable("lifecycle"));
   assert(SuiteBridgeCapabilities::IsAvailable("status-events"));
   assert(SuiteBridgeCapabilities::IsAvailable("snapshots"));
-  assert(!SuiteBridgeCapabilities::IsAvailable("local-contract"));
+  assert(SuiteBridgeCapabilities::IsAvailable("local-contract"));
   assert(!SuiteBridgeCapabilities::IsAvailable("mutations"));
   assert(!SuiteBridgeCapabilities::IsAvailable("unknown"));
   assert(SuiteBridgeCapabilities::Find(nullptr) == nullptr);

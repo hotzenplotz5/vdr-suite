@@ -18,6 +18,8 @@ required_files = (
     ROOT / "suitebridge_status_snapshot.cpp",
     ROOT / "suitebridge_local_contract.h",
     ROOT / "suitebridge_local_contract.cpp",
+    ROOT / "suitebridge_svdrp_contract.h",
+    ROOT / "suitebridge_svdrp_contract.cpp",
     ROOT / "suitebridge_status_events.h",
     ROOT / "suitebridge_status_events.cpp",
     ROOT / "suitebridge_status_monitor.h",
@@ -26,15 +28,18 @@ required_files = (
     ROOT / "docs/SB-3-status-events.md",
     ROOT / "docs/SB-4-status-snapshots.md",
     ROOT / "docs/SB-5-local-contract-payload.md",
+    ROOT / "docs/SB-6-read-only-svdrp.md",
     ROOT / "tests/check_capabilities_contract.py",
     ROOT / "tests/check_status_events_contract.py",
     ROOT / "tests/check_status_snapshot_contract.py",
     ROOT / "tests/check_local_contract_contract.py",
+    ROOT / "tests/check_svdrp_contract.py",
     ROOT / "tests/test_suitebridge_lifecycle.cpp",
     ROOT / "tests/test_suitebridge_capabilities.cpp",
     ROOT / "tests/test_suitebridge_status_events.cpp",
     ROOT / "tests/test_suitebridge_status_snapshot.cpp",
     ROOT / "tests/test_suitebridge_local_contract.cpp",
+    ROOT / "tests/test_suitebridge_svdrp_contract.cpp",
 )
 
 errors = []
@@ -63,18 +68,21 @@ required_makefile_content = (
     "APIVERSION = $(call PKGCFG,apiversion)",
     "suitebridge_status_snapshot.o",
     "suitebridge_local_contract.o",
+    "suitebridge_svdrp_contract.o",
     "suitebridge_status_events.o",
     "suitebridge_status_monitor.o",
     "check-capabilities-contract:",
     "check-status-events-contract:",
     "check-status-snapshot-contract:",
     "check-local-contract-contract:",
+    "check-svdrp-contract:",
     "test-lifecycle:",
     "test-capabilities:",
     "test-status-events:",
     "test-status-snapshot:",
     "test-local-contract:",
-    'test "$(VERSION)" = "0.6.0"',
+    "test-svdrp-contract:",
+    'test "$(VERSION)" = "0.7.0"',
 )
 
 for fragment in required_makefile_content:
@@ -82,15 +90,18 @@ for fragment in required_makefile_content:
         errors.append(f"missing Makefile contract: {fragment}")
 
 required_source_content = (
-    'static const char *VERSION = "0.6.0";',
+    'static const char *VERSION = "0.7.0";',
     "bool cPluginSuiteBridge::Initialize(void)",
     "bool cPluginSuiteBridge::Start(void)",
     "void cPluginSuiteBridge::Stop(void)",
+    "cPluginSuiteBridge::SVDRPHelpPages(void)",
+    "cPluginSuiteBridge::SVDRPCommand(",
     "lifecycle_.Initialize()",
     "lifecycle_.Start()",
     "lifecycle_.Stop()",
     "statusMonitor_.Activate()",
     "statusMonitor_.Deactivate()",
+    "statusMonitor_.CaptureSnapshot()",
     "SuiteBridgeCapabilities::All()",
     "SuiteBridgeCapabilities::SchemaVersion()",
     "SuiteBridgeCapabilities::StateName(capability.state)",
@@ -113,6 +124,9 @@ required_foundation_content = (
     "status-snapshot schema=%u active=%s total=%llu",
     "class SuiteBridgeLocalContractPayload final",
     "local-contract-payload schema=%u result=prepared",
+    "class SuiteBridgeSvdrpReply final",
+    "SuiteBridgeSvdrpReply::Handled() const noexcept",
+    "SuiteBridgeSvdrpReply::HasPayload() const noexcept",
 )
 
 for fragment in required_foundation_content:

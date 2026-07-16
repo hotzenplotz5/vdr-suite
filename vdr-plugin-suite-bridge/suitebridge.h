@@ -19,6 +19,11 @@ public:
   void Stop(void) override;
 
   const char *MainMenuEntry(void) override;
+  const char **SVDRPHelpPages(void) override;
+  cString SVDRPCommand(
+      const char *Command,
+      const char *Option,
+      int &ReplyCode) override;
 
 private:
   SuiteBridgeLifecycle lifecycle_;
