@@ -85,36 +85,35 @@ ADR-0045 - Canonical EPG Event Identity and Provenance
 ADR-0046 - Streaming Gateway and Media Session Boundary
 ADR-0047 - Legacy OSD Compatibility Bridge
 ADR-0048 - Public API Versioning, Error and Compatibility Contract
+ADR-0049 - Audit and Security Event Model
 ```
 
-ADR-0042 accepts the common mutation contract. ADR-0043 accepts atomic job claims, fenced attempts, retry classification, cancellation, reconciliation and saga semantics. ADR-0044 accepts the separation of durable TimerIntent, TimerAssignment and NativeTimerBinding plus central scheduler and reconciler ownership. ADR-0045 accepts the separation of canonical ProgramEvent, BackendEventRef, immutable EventObservation and field-level provenance. ADR-0046 accepts the separation of MediaSession, MediaRoute, ProviderStreamLease, MediaAccessGrant and PlaybackConnection behind a VDR-Suite Streaming Gateway. ADR-0047 accepts the separation of LegacyOsdSession, OsdSurfaceRef, OsdViewerBinding, ordered OsdFrame/OsdDelta delivery, one fenced OsdControllerLease and allowlisted OsdInputCommand handling. ADR-0048 accepts `/api/v1` as the client-independent public namespace, Problem Details-compatible errors, request/correlation IDs, ETag preconditions, cursor collections, explicit compatibility/deprecation rules and strict separation from Agent, media, OSD and plugin protocol versions.
+ADR-0042 accepts the common mutation contract. ADR-0043 accepts atomic job claims, fenced attempts, retry classification, cancellation, reconciliation and saga semantics. ADR-0044 accepts the separation of durable TimerIntent, TimerAssignment and NativeTimerBinding plus central scheduler and reconciler ownership. ADR-0045 accepts the separation of canonical ProgramEvent, BackendEventRef, immutable EventObservation and field-level provenance. ADR-0046 accepts the separation of MediaSession, MediaRoute, ProviderStreamLease, MediaAccessGrant and PlaybackConnection behind a VDR-Suite Streaming Gateway. ADR-0047 accepts the separation of LegacyOsdSession, OsdSurfaceRef, OsdViewerBinding, ordered OsdFrame/OsdDelta delivery, one fenced OsdControllerLease and allowlisted OsdInputCommand handling. ADR-0048 accepts `/api/v1` as the client-independent public namespace, Problem Details-compatible errors, request/correlation IDs, ETag preconditions, cursor collections, explicit compatibility/deprecation rules and strict separation from Agent, media, OSD and plugin protocol versions. ADR-0049 accepts an append-only AccountabilityEvent envelope with separate audit and security classifications, stable actor/target/decision/outcome correlation, transactional pre-dispatch evidence, post-dispatch recovery semantics, Agent producer sequencing, redaction, retention and protected query rules.
 
-These decisions do not mark universal revisions, durable idempotency, production worker claims, Agent queues, TimerIntent persistence, assignment scheduling, canonical ProgramEvent persistence, provenance resolution, Streaming Gateway, media-session persistence, public media authorization, route provisioning, Agent media tunnels, Legacy OSD session persistence, viewer fan-out, controller-lease arbitration, native OSD capture, frame sequencing, resynchronization, remote input, `/api/v1` route migration, public response-header propagation, common error serialization, request/correlation ID middleware, ETags, cursor pagination, capability negotiation, structured Client API errors, legacy-route deprecation, native binding reconciliation, failover, compensation or all domain migrations as implemented. Current native Timer actions, SearchTimer proposals, `VdrEvent` read models, the warm `epg_events` cache, the historical Stream Provider direction, existing OSD/remote adapter references, the unversioned `ApiRouter` and the DOM-free Web Client API remain strong but pre-platform foundations.
+These decisions do not mark universal revisions, durable idempotency, production worker claims, Agent queues, TimerIntent persistence, assignment scheduling, canonical ProgramEvent persistence, provenance resolution, Streaming Gateway, media-session persistence, public media authorization, route provisioning, Agent media tunnels, Legacy OSD session persistence, viewer fan-out, controller-lease arbitration, native OSD capture, frame sequencing, resynchronization, remote input, `/api/v1` route migration, public response-header propagation, common error serialization, request/correlation ID middleware, ETags, cursor pagination, capability negotiation, structured Client API errors, legacy-route deprecation, append-only accountability persistence, actor-context propagation, authorization decision events, transactional audit outbox, Agent audit buffering, audit redaction, retention, protected audit queries, exports, native binding reconciliation, failover, compensation or all domain migrations as implemented. Current native Timer actions, SearchTimer proposals, `VdrEvent` read models, the warm `epg_events` cache, the historical Stream Provider direction, existing OSD/remote adapter references, the unversioned `ApiRouter`, the DOM-free Web Client API, runtime logs and diagnostics remain strong but pre-platform foundations.
 
 ---
 
 ## Immediate Repository Work
 
-Continue the second contract package before Phase 60.15:
-
-```text
-ADR-0049 - Audit and Security Event Model
-```
-
-Required follow-up:
+Complete the architecture-package closeout before Phase 60.15:
 
 ```text
 Update affected architecture diagrams.
-Create domain and implementation dependency maps.
-Keep the strict Phase 60.15-68 sequence aligned with the decisions.
+Create the domain dependency map.
+Create the implementation dependency map.
+Verify affected earlier ADR cross-references.
+Keep the strict Phase 60.15-68 sequence aligned with the accepted contracts.
 ```
+
+No new runtime mutation, Agent, streaming, Legacy OSD or public API implementation begins as part of this closeout.
 
 ---
 
 ## Strict Future Sequence
 
 ```text
-1. ADR-0049 and diagrams
+1. Architecture package diagrams and dependency maps
 2. Phase 60.15 - Recording Metadata Preparation
 3. Phase 61 - Suite Metadata Platform
 4. Phase 62 - Identity, RBAC and Audit
@@ -126,7 +125,7 @@ Keep the strict Phase 60.15-68 sequence aligned with the decisions.
 10. Phase 68 - Recommendation and Knowledge Graph
 ```
 
-ADR-0042 through ADR-0048 remain part of Step 1. They supply the accepted mutation, operation, claim, retry, reconciliation, saga, Timer intent, assignment, native binding, canonical programme-event identity, provenance, Streaming Gateway, MediaSession, Legacy OSD session, viewer, controller-lease, sequencing, safe-input, public versioning, error, revision, pagination and compatibility prerequisites for the remaining contract package and later runtime phases.
+ADR-0042 through ADR-0049 complete the accepted Step 1 contract decisions. They supply the mutation, operation, claim, retry, reconciliation, saga, Timer intent, assignment, native binding, canonical programme-event identity, provenance, Streaming Gateway, MediaSession, Legacy OSD session, viewer, controller-lease, sequencing, safe-input, public versioning, error, revision, pagination, compatibility, actor, authorization, accountability and security-event prerequisites for later runtime phases. Diagrams and dependency maps remain required before the strict sequence proceeds to Phase 60.15.
 
 ---
 
