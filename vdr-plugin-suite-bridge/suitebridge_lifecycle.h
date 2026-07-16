@@ -5,6 +5,7 @@ enum class SuiteBridgeLifecycleState {
   Constructed,
   Initialized,
   Started,
+  Stopping,
   Stopped,
 };
 
@@ -17,7 +18,8 @@ public:
 
   bool Initialize() noexcept;
   bool Start() noexcept;
-  void Stop() noexcept;
+  bool BeginStop() noexcept;
+  bool CompleteStop() noexcept;
 
 private:
   SuiteBridgeLifecycleState state_;
