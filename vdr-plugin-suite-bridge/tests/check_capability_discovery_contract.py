@@ -34,6 +34,11 @@ combined = "\n".join(
     if path.suffix in {".h", ".cpp"}
 )
 
+plugin_source = (ROOT / "suitebridge.cpp").read_text(encoding="utf-8")
+discovery_source = (
+    ROOT / "suitebridge_capability_discovery.cpp"
+).read_text(encoding="utf-8")
+
 required_content = (
     "class SuiteBridgeCapabilityDiscoveryPayload final",
     "SchemaVersion() noexcept",
@@ -45,13 +50,13 @@ required_content = (
     "SuiteBridgeCapabilities::SchemaVersion()",
     "SuiteBridgeStatusSnapshot::SchemaVersion()",
     "SuiteBridgeLocalContractPayload::SchemaVersion()",
-    '\\"discovery_schema\\"',
-    '\\"plugin_name\\"',
-    '\\"plugin_version\\"',
-    '\\"capability_schema\\"',
-    '\\"snapshot_schema\\"',
-    '\\"local_contract_schema\\"',
-    '\\"capabilities\\"',
+    '\"discovery_schema\"',
+    '\"plugin_name\"',
+    '\"plugin_version\"',
+    '\"capability_schema\"',
+    '\"snapshot_schema\"',
+    '\"local_contract_schema\"',
+    '\"capabilities\"',
     "class SuiteBridgeCapabilityDiscoveryReply final",
     'return "CAPS";',
     "return 900;",
@@ -89,6 +94,27 @@ for capability_id, state in (
         errors.append(
             f"missing discovery capability source: {capability_id}={state}"
         )
+
+discovery_dispatch = plugin_source.find(
+    "SuiteBridgeCapabilityDiscoveryReply capabilityReply("
+)
+discovery_handled = plugin_source.find("if (capabilityReply.Handled())")
+snapshot_capture = plugin_source.find("statusMonitor_.CaptureSnapshot()")
+
+if (
+    discovery_dispatch < 0
+    or discovery_handled < 0
+    or snapshot_capture < 0
+    or not discovery_dispatch < discovery_handled < snapshot_capture
+):
+    errors.append(
+        "CAPS must be dispatched and returned before SNAP captures a snapshot"
+    )
+
+if "statusMonitor_" in discovery_source or "CaptureSnapshot" in discovery_source:
+    errors.append(
+        "capability discovery implementation must not access the status monitor"
+    )
 
 forbidden_content = (
     "std::string",
