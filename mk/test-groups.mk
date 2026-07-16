@@ -98,7 +98,7 @@ VDR_TESTS := \
 	test-canonical-genre-registry \
 	test-genre-localization \
 	test-epg-search-request \
-	test-epg-search-matcher \
+	test-epgsearch-matcher \
 	test-epg-search-result \
 	test-search-timer \
 	test-search-timer-preview-epg-cache \
@@ -176,7 +176,7 @@ VDR_TESTS := \
 	test-search-timer-service-interface \
 	test-epg-person-search-result \
 	test-epg-search-result-json-serializer \
-	test-epg-search-service \
+	test-epgsearch-service \
 	test-vdr-domain-objects
 
 CI_FRONTEND_TESTS := \

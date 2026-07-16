@@ -47,6 +47,9 @@ jobs:
           python3 tools/audit_make_test_inventory.py --check | tee make-test-inventory.txt
           python3 tools/audit_make_test_inventory.py --json > make-test-inventory.json
 
+      - name: Dry-run complete test graph
+        run: make -n test-all >/dev/null
+
       - name: Upload Make test audit bundle
         uses: actions/upload-artifact@v4
         with:
