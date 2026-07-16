@@ -33,9 +33,9 @@ combined = "\n".join((header, source, test))
 required_content = (
     "class SuiteBridgeLocalContractPayload final",
     "SchemaVersion() noexcept",
-    "return 1;",
+    "return 2;",
     "Capacity() noexcept",
-    "static constexpr std::size_t kCapacity = 320;",
+    "static constexpr std::size_t kCapacity = 448;",
     "operator=(\n      const SuiteBridgeLocalContractPayload &) = delete;",
     "std::array<char, kCapacity> data_;",
     "std::snprintf(",
@@ -44,6 +44,10 @@ required_content = (
     '\\"snapshot_schema\\"',
     '\\"channel_switch\\"',
     '\\"timer_change\\"',
+    '\\"counter_epoch\\"',
+    '\\"counter_overflow\\"',
+    "snapshot.CounterEpoch()",
+    "snapshot.CounterOverflow()",
     "bool SuiteBridgeLocalContractPayload::Complete() const noexcept",
 )
 
