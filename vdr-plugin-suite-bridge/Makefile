@@ -68,7 +68,7 @@ check-svdrp-contract:
 	python3 tests/check_svdrp_contract.py
 
 check-version:
-	test "$(VERSION)" = "0.7.0"
+	test "$(VERSION)" = "0.8.0"
 
 test-lifecycle:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
