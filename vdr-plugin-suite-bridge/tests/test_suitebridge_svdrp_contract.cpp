@@ -1,3 +1,4 @@
+#include "suitebridge_local_contract.h"
 #include "suitebridge_status_snapshot.h"
 #include "suitebridge_svdrp_contract.h"
 
@@ -14,6 +15,7 @@ int main()
   static_assert(SuiteBridgeSvdrpReply::SuccessReplyCode() == 900);
   static_assert(SuiteBridgeSvdrpReply::InvalidOptionReplyCode() == 504);
   static_assert(SuiteBridgeSvdrpReply::PayloadUnavailableReplyCode() == 451);
+  static_assert(SuiteBridgeLocalContractPayload::SchemaVersion() == 2);
 
   const SuiteBridgeStatusSnapshot snapshot(
       true,
