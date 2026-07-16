@@ -1,5 +1,8 @@
 #include "suitebridge_status_monitor.h"
 
+#include "suitebridge_capabilities.h"
+#include "suitebridge_local_contract.h"
+
 #include <vdr/tools.h>
 
 SuiteBridgeStatusMonitor::SuiteBridgeStatusMonitor() noexcept
@@ -60,6 +63,24 @@ void SuiteBridgeStatusMonitor::LogSnapshot(
       snapshot.RecordingCount(),
       snapshot.ReplayingCount(),
       snapshot.TimerChangeCount());
+
+  const SuiteBridgeLocalContractPayload payload(
+      SuiteBridgeCapabilities::SchemaVersion(),
+      snapshot);
+
+  if (!payload.Complete()) {
+    esyslog(
+        "suitebridge: local-contract-payload schema=%u result=truncated bytes=%zu",
+        SuiteBridgeLocalContractPayload::SchemaVersion(),
+        payload.Size());
+    return;
+  }
+
+  isyslog(
+      "suitebridge: local-contract-payload schema=%u result=prepared bytes=%zu payload=%s",
+      SuiteBridgeLocalContractPayload::SchemaVersion(),
+      payload.Size(),
+      payload.Data());
 }
 
 void SuiteBridgeStatusMonitor::ChannelSwitch(

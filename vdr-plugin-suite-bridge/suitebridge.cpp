@@ -4,7 +4,7 @@
 
 #include <vdr/tools.h>
 
-static const char *VERSION = "0.5.0";
+static const char *VERSION = "0.6.0";
 static const char *DESCRIPTION =
     "Native bridge between VDR and the VDR-Suite Backend Agent";
 
