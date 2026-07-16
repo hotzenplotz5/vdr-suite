@@ -40,6 +40,17 @@ unsigned long long SuiteBridgeStatusEvents::Count(
   return counts_[index].load(std::memory_order_relaxed);
 }
 
+SuiteBridgeStatusSnapshot SuiteBridgeStatusEvents::CaptureSnapshot(
+    bool monitorActive) const noexcept
+{
+  return SuiteBridgeStatusSnapshot(
+      monitorActive,
+      Count(SuiteBridgeStatusEventKind::ChannelSwitch),
+      Count(SuiteBridgeStatusEventKind::Recording),
+      Count(SuiteBridgeStatusEventKind::Replaying),
+      Count(SuiteBridgeStatusEventKind::TimerChange));
+}
+
 const char *SuiteBridgeStatusEvents::Name(
     SuiteBridgeStatusEventKind kind) noexcept
 {
