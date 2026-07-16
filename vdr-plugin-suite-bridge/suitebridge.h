@@ -2,6 +2,7 @@
 #define VDR_SUITE_BRIDGE_H
 
 #include "suitebridge_lifecycle.h"
+#include "suitebridge_status_monitor.h"
 
 #include <vdr/plugin.h>
 
@@ -21,6 +22,7 @@ public:
 
 private:
   SuiteBridgeLifecycle lifecycle_;
+  SuiteBridgeStatusMonitor statusMonitor_;
 };
 
 #endif

@@ -4,7 +4,7 @@
 
 #include <vdr/tools.h>
 
-static const char *VERSION = "0.3.0";
+static const char *VERSION = "0.4.0";
 static const char *DESCRIPTION =
     "Native bridge between VDR and the VDR-Suite Backend Agent";
 
@@ -56,6 +56,8 @@ bool cPluginSuiteBridge::Start(void)
     return false;
   }
 
+  statusMonitor_.Activate();
+
   isyslog(
       "suitebridge: lifecycle event=start result=accepted state=%s version=%s",
       lifecycle_.StateName(),
@@ -65,7 +67,9 @@ bool cPluginSuiteBridge::Start(void)
 
 void cPluginSuiteBridge::Stop(void)
 {
+  statusMonitor_.Deactivate();
   lifecycle_.Stop();
+
   isyslog(
       "suitebridge: lifecycle event=stop result=accepted state=%s version=%s",
       lifecycle_.StateName(),

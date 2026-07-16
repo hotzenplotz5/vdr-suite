@@ -23,34 +23,46 @@ used by the separate Backend Agent.
 ## Current slice
 
 ```text
-SB.2 - Native capability description
+SB.3 - Native VDR status observation
 ```
 
-The plugin now owns an immutable, VDR-independent capability catalogue with
-schema version `1`. It reports only capabilities that are already available and
-keeps future work explicitly marked as planned or disabled.
+The plugin now owns a read-only VDR status monitor. The monitor is registered
+through VDR's native `cStatus` interface, remains inactive until the plugin has
+successfully started and is deactivated before the plugin lifecycle stops.
 
-Current catalogue:
+Observed event families:
+
+| Event family | Recorded fields |
+| --- | --- |
+| channel switch | sequence, channel number, live-view flag, device presence |
+| recording | sequence, on/off state, device presence |
+| replaying | sequence, on/off state, control presence |
+| timer change | sequence, numeric VDR change type, timer presence |
+
+The monitor intentionally does not retain recording names, replay names or file
+paths. It stores only atomic per-family counters and emits structured VDR log
+lines while active.
+
+Current capability catalogue:
 
 | Capability | State |
 | --- | --- |
 | `lifecycle` | `available` |
-| `status-events` | `planned` |
+| `status-events` | `available` |
 | `snapshots` | `planned` |
 | `local-contract` | `planned` |
 | `mutations` | `disabled` |
 
-Capability state meanings:
+Capability schema version remains `1`.
 
-- `available`: implemented and covered by acceptance tests;
-- `planned`: reserved for a later implementation slice;
-- `disabled`: deliberately unavailable in the current architecture state.
+## Lifecycle boundary
 
-During plugin initialization VDR receives one structured log line per
-capability containing schema version, capability ID and state.
-
-The capability catalogue does not expose a transport or public Backend Agent
-contract yet. That boundary remains a later slice.
+- construction registers the `cStatus` monitor but leaves it inactive;
+- successful `Start()` activates observation;
+- callbacks received while inactive are ignored;
+- `Stop()` disables observation before the lifecycle reaches `stopped`;
+- deactivation logs final per-event counters;
+- no event queue or background worker is created.
 
 ## Deliberate boundaries
 
@@ -62,7 +74,8 @@ The plugin still has:
 - no worker thread;
 - no database access;
 - no filesystem mutation;
-- no VDR mutation.
+- no VDR mutation;
+- no public Backend Agent transport contract.
 
 ## Build and tests
 
@@ -71,9 +84,9 @@ make clean
 make check
 ```
 
-`make check` validates the foundation contract, capability source contract,
-version extraction, lifecycle state machine, capability catalogue and final
-shared-object build.
+`make check` validates the foundation contract, capability contract,
+status-event contract, version extraction, lifecycle state machine, capability
+catalogue, atomic status-event counters and final shared-object build.
 
 ## Staged installation
 
@@ -83,5 +96,5 @@ make DESTDIR=/tmp/vdr-suitebridge-stage install
 find /tmp/vdr-suitebridge-stage -type f -print
 ```
 
-Every new plugin version must pass a controlled VDR load and rollback test
-before it is left installed in the live VDR plugin directory.
+Every new plugin version must pass a controlled VDR load, event and rollback
+test before it is left installed in the live VDR plugin directory.

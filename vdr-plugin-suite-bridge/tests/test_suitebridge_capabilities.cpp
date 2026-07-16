@@ -21,7 +21,7 @@ int main()
 
   const std::array<SuiteBridgeCapabilityState, 5> expectedStates = {{
       SuiteBridgeCapabilityState::Available,
-      SuiteBridgeCapabilityState::Planned,
+      SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Planned,
       SuiteBridgeCapabilityState::Planned,
       SuiteBridgeCapabilityState::Disabled,
@@ -48,7 +48,7 @@ int main()
       "disabled") == 0);
 
   assert(SuiteBridgeCapabilities::IsAvailable("lifecycle"));
-  assert(!SuiteBridgeCapabilities::IsAvailable("status-events"));
+  assert(SuiteBridgeCapabilities::IsAvailable("status-events"));
   assert(!SuiteBridgeCapabilities::IsAvailable("snapshots"));
   assert(!SuiteBridgeCapabilities::IsAvailable("local-contract"));
   assert(!SuiteBridgeCapabilities::IsAvailable("mutations"));
