@@ -50,14 +50,12 @@ required_content = (
     "class SuiteBridgeStatusMonitor final : public cStatus",
     "void Activate() noexcept",
     "void Deactivate() noexcept",
+    "void RecordEvent(SuiteBridgeStatusEventKind kind) noexcept",
     "void ChannelSwitch(",
     "void Recording(",
     "void Replaying(",
     "void TimerChange(",
-    "status-event type=channel-switch",
-    "status-event type=recording",
-    "status-event type=replaying",
-    "status-event type=timer-change",
+    "events_.Record(kind)",
 )
 
 for fragment in required_content:
@@ -81,6 +79,96 @@ forbidden_content = (
 for fragment in forbidden_content:
     if fragment in combined:
         errors.append(f"forbidden status-event implementation: {fragment}")
+
+
+def function_body(source: str, signature: str) -> str:
+    start = source.find(signature)
+    if start < 0:
+        errors.append(f"missing callback implementation: {signature}")
+        return ""
+
+    opening = source.find("{", start)
+    if opening < 0:
+        errors.append(f"missing callback body: {signature}")
+        return ""
+
+    depth = 0
+    for index in range(opening, len(source)):
+        character = source[index]
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                return source[opening + 1:index]
+
+    errors.append(f"unterminated callback body: {signature}")
+    return ""
+
+
+callback_contracts = (
+    (
+        "void SuiteBridgeStatusMonitor::ChannelSwitch(",
+        "RecordEvent(SuiteBridgeStatusEventKind::ChannelSwitch);",
+    ),
+    (
+        "void SuiteBridgeStatusMonitor::Recording(",
+        "RecordEvent(SuiteBridgeStatusEventKind::Recording);",
+    ),
+    (
+        "void SuiteBridgeStatusMonitor::Replaying(",
+        "RecordEvent(SuiteBridgeStatusEventKind::Replaying);",
+    ),
+    (
+        "void SuiteBridgeStatusMonitor::TimerChange(",
+        "RecordEvent(SuiteBridgeStatusEventKind::TimerChange);",
+    ),
+)
+
+callback_forbidden = (
+    "isyslog(",
+    "esyslog(",
+    "LogSnapshot(",
+    "CaptureSnapshot(",
+    "SuiteBridgeLocalContractPayload",
+    "socket(",
+    "connect(",
+    "system(",
+    "fork(",
+    "sleep(",
+    "usleep(",
+    "new ",
+    "delete ",
+)
+
+for signature, required_call in callback_contracts:
+    body = function_body(monitor_source, signature)
+
+    if required_call not in body:
+        errors.append(
+            f"callback does not perform bounded atomic recording: {signature}"
+        )
+
+    for fragment in callback_forbidden:
+        if fragment in body:
+            errors.append(
+                f"forbidden callback-side effect in {signature}: {fragment}"
+            )
+
+record_body = function_body(
+    monitor_source,
+    "void SuiteBridgeStatusMonitor::RecordEvent(",
+)
+
+for required_fragment in ("IsActive()", "events_.Record(kind)"):
+    if required_fragment not in record_body:
+        errors.append(
+            f"missing bounded RecordEvent behavior: {required_fragment}"
+        )
+
+for fragment in callback_forbidden:
+    if fragment in record_body:
+        errors.append(f"forbidden RecordEvent side effect: {fragment}")
 
 if errors:
     for error in errors:
