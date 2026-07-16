@@ -9,12 +9,12 @@ class SuiteBridgeCounterEpoch final {
 public:
   static constexpr std::size_t HexLength() noexcept
   {
-    return 32;
+    return kHexLength;
   }
 
   static constexpr std::size_t Capacity() noexcept
   {
-    return HexLength() + 1;
+    return kCapacity;
   }
 
   SuiteBridgeCounterEpoch() noexcept;
@@ -26,7 +26,10 @@ public:
   std::size_t Size() const noexcept;
 
 private:
-  std::array<char, Capacity()> data_;
+  static constexpr std::size_t kHexLength = 32;
+  static constexpr std::size_t kCapacity = kHexLength + 1;
+
+  std::array<char, kCapacity> data_;
 };
 
 class SuiteBridgeSaturatingCounter final {
