@@ -30,7 +30,24 @@ jobs:
           make test-phase
 
       - name: Audit Make and test inventory
-        run: python3 tools/audit_make_test_inventory.py --check
+        run: make test-make-inventory
+
+  frontend-regression-test:
+    runs-on: ubuntu-latest
+    needs:
+      - docs-check
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install frontend test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nodejs
+
+      - name: Run frontend contract tests
+        run: make test-ci-frontend
 
   fast-regression-test:
     runs-on: ubuntu-latest
@@ -51,3 +68,21 @@ jobs:
 
       - name: Build daemon
         run: make daemon
+
+  packaging-regression-test:
+    runs-on: ubuntu-latest
+    needs:
+      - frontend-regression-test
+      - fast-regression-test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+
+      - name: Run packaging and install staging tests
+        run: make test-ci-packaging
