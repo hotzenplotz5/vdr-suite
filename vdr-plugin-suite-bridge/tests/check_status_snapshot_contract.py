@@ -6,6 +6,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 required_files = (
+    ROOT / "suitebridge_counter_continuity.h",
     ROOT / "suitebridge_status_snapshot.h",
     ROOT / "suitebridge_status_snapshot.cpp",
     ROOT / "suitebridge_status_events.h",
@@ -34,16 +35,21 @@ combined = "\n".join(
 required_content = (
     "class SuiteBridgeStatusSnapshot final",
     "SchemaVersion() noexcept",
-    "return 1;",
+    "return 2;",
+    "CounterEpochLength() noexcept",
+    "return 32;",
     "operator=(const SuiteBridgeStatusSnapshot &) = delete;",
-    "const bool monitorActive_;",
-    "const unsigned long long channelSwitchCount_;",
-    "const unsigned long long recordingCount_;",
-    "const unsigned long long replayingCount_;",
-    "const unsigned long long timerChangeCount_;",
+    "unsigned long long totalCount_;",
+    "std::array<char, CounterEpochLength() + 1> counterEpoch_;",
+    "bool counterOverflow_;",
+    "AddSaturating(",
+    "std::numeric_limits<unsigned long long>::max()",
+    "CounterEpoch() const noexcept",
+    "CounterOverflow() const noexcept",
     "CaptureSnapshot(bool monitorActive) const noexcept",
     "SuiteBridgeStatusMonitor::CaptureSnapshot() const noexcept",
     "status-snapshot schema=%u active=%s total=%llu",
+    "counter-epoch=%s counter-overflow=%s",
 )
 
 for fragment in required_content:
