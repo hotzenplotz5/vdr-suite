@@ -10,3 +10,5 @@ public:
     static std::string serialize(
         const VdrRecording& recording);
 };
+
+#include "VdrRecordingMetadataJsonSerializer.inl"
