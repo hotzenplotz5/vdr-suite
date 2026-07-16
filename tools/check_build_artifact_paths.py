@@ -24,20 +24,33 @@ def main() -> int:
 
     for path in makefiles():
         relative = path.relative_to(ROOT)
-        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        for line_number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), 1
+        ):
             for match in OUTPUT_RE.finditer(line):
                 output_count += 1
                 output = match.group(1).strip('"\'')
                 if not output.startswith("$(BUILD_DIR)/"):
                     violations.append(
-                        f"{relative}:{line_number}: compiler output must use $(BUILD_DIR): {output}"
+                        f"{relative}:{line_number}: compiler output must use "
+                        f"$(BUILD_DIR): {output}"
                     )
 
     common = (ROOT / "mk/common.mk").read_text(encoding="utf-8")
     if "BUILD_DIR ?= $(CURDIR)/.build" not in common:
         violations.append("mk/common.mk: missing canonical BUILD_DIR default")
-    if 'BUILD_CXX = mkdir -p "$(BUILD_DIR)" && $(CXX)' not in common:
-        violations.append("mk/common.mk: missing BUILD_CXX directory guard")
+
+    cache = (ROOT / "mk/object-cache.mk").read_text(encoding="utf-8")
+    if "OBJECT_CACHE_DIR ?= $(BUILD_DIR)/obj" not in cache:
+        violations.append(
+            "mk/object-cache.mk: missing canonical OBJECT_CACHE_DIR default"
+        )
+    expected_wrapper = (
+        'BUILD_CXX = python3 tools/build_cpp_cached.py --compiler "$(CXX)" '
+        '--cache-dir "$(OBJECT_CACHE_DIR)" --'
+    )
+    if expected_wrapper not in cache:
+        violations.append("mk/object-cache.mk: missing cached BUILD_CXX wrapper")
 
     ignored = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
     if ".build/" not in ignored:

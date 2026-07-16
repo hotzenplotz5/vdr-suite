@@ -19,6 +19,19 @@ the test contract.
 `test-ci-fast`. `make clean` removes only `.build/` below the repository and the
 legacy temporary test database; it refuses an unsafe external `BUILD_DIR`.
 
+## Cached C++ Compilation
+
+`BUILD_CXX` preserves the existing source-based target recipes while compiling
+each C/C++ source into a reusable object under `$(OBJECT_CACHE_DIR)`. Cache keys
+include the compiler identity, working directory, compile-relevant environment
+and effective compile flags. Generated `.d` files track source and header
+prerequisites, and per-object file locks make parallel builds safe. The original
+argument order is retained for the final link.
+
+The cache contract is covered by `check-cpp-object-cache`. The existing
+`test-build-artifact-paths` gate depends on that check, so fast CI verifies both
+object reuse and all compiler output paths.
+
 The larger compatibility recipe sets are split by ownership:
 
 - `smoke-targets.mk` — real-system helpers and basic database/CLI targets
