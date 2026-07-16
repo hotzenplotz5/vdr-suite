@@ -20,13 +20,14 @@ SOFILE = libvdr-$(PLUGIN).so
 
 DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
 
-OBJS = $(PLUGIN).o suitebridge_lifecycle.o suitebridge_capabilities.o suitebridge_status_events.o suitebridge_status_monitor.o
+OBJS = $(PLUGIN).o suitebridge_lifecycle.o suitebridge_capabilities.o suitebridge_status_snapshot.o suitebridge_status_events.o suitebridge_status_monitor.o
 DEPFILE = .dependencies
 LIFECYCLE_TEST = /tmp/test_suitebridge_lifecycle
 CAPABILITIES_TEST = /tmp/test_suitebridge_capabilities
 STATUS_EVENTS_TEST = /tmp/test_suitebridge_status_events
+STATUS_SNAPSHOT_TEST = /tmp/test_suitebridge_status_snapshot
 
-.PHONY: all install install-lib check check-contract check-capabilities-contract check-status-events-contract check-version test-lifecycle test-capabilities test-status-events check-build clean
+.PHONY: all install install-lib check check-contract check-capabilities-contract check-status-events-contract check-status-snapshot-contract check-version test-lifecycle test-capabilities test-status-events test-status-snapshot check-build clean
 
 all: $(SOFILE)
 
@@ -55,8 +56,11 @@ check-capabilities-contract:
 check-status-events-contract:
 	python3 tests/check_status_events_contract.py
 
+check-status-snapshot-contract:
+	python3 tests/check_status_snapshot_contract.py
+
 check-version:
-	test "$(VERSION)" = "0.4.0"
+	test "$(VERSION)" = "0.5.0"
 
 test-lifecycle:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
@@ -76,17 +80,27 @@ test-capabilities:
 
 test-status-events:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
+		suitebridge_status_snapshot.cpp \
 		suitebridge_status_events.cpp \
 		tests/test_suitebridge_status_events.cpp \
 		-o $(STATUS_EVENTS_TEST)
 	$(STATUS_EVENTS_TEST)
 	rm -f $(STATUS_EVENTS_TEST)
 
+test-status-snapshot:
+	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
+		suitebridge_status_snapshot.cpp \
+		suitebridge_status_events.cpp \
+		tests/test_suitebridge_status_snapshot.cpp \
+		-o $(STATUS_SNAPSHOT_TEST)
+	$(STATUS_SNAPSHOT_TEST)
+	rm -f $(STATUS_SNAPSHOT_TEST)
+
 check-build: $(SOFILE)
 	test -s $(SOFILE)
 	readelf -h $(SOFILE) >/dev/null
 
-check: check-contract check-capabilities-contract check-status-events-contract check-version test-lifecycle test-capabilities test-status-events check-build
+check: check-contract check-capabilities-contract check-status-events-contract check-status-snapshot-contract check-version test-lifecycle test-capabilities test-status-events test-status-snapshot check-build
 
 clean:
-	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(STATUS_EVENTS_TEST) *.tgz core* *~ ._*
+	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) *.tgz core* *~ ._*
