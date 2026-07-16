@@ -13,33 +13,39 @@ bridge.
 - timer changes.
 
 The monitor is registered for the lifetime of the plugin object but ignores all
-callbacks until `cPluginSuiteBridge::Start()` activates it. `Stop()` deactivates
-the monitor before completing the plugin lifecycle transition.
+callbacks until `cPluginSuiteBridge::Start()` activates it. `Stop()` begins the
+explicit stopping lifecycle phase and deactivates the monitor before completing
+the transition to `stopped`.
 
 ## Data minimization
 
 The bridge does not retain VDR object pointers, recording names, replay names or
-file paths. Each accepted callback increments one atomic counter and writes a
-structured log line containing only scalar state needed for diagnostics.
+file paths. Each accepted callback performs only the active-state check and one
+bounded atomic counter increment. It then returns immediately.
+
+Callback arguments are not serialized, logged, queued or forwarded. Diagnostic
+logging and local-contract serialization happen only outside the VDR callback
+path through activation, deactivation or explicit snapshot requests.
 
 ## Concurrency boundary
 
-VDR may invoke status callbacks from different execution contexts. The initial
-observer therefore uses only:
+VDR may invoke status callbacks from different execution contexts. The observer
+therefore uses only:
 
 - one atomic active flag;
 - one relaxed atomic counter per event family;
 - no queue;
 - no lock;
 - no allocation;
+- no logging in the callback body;
 - no worker thread.
 
-## Capability transition
+The counters are diagnostic observations. They are not yet sequence numbers and
+do not define overflow, reset or resynchronization semantics.
+
+## Capability state
 
 Capability schema version remains `1`.
 
-`status-events` changes from `planned` to `available` only because the native
-callbacks, activation boundary, counters, source contracts, unit tests and live
-acceptance path now exist.
-
-`snapshots`, `local-contract` and `mutations` remain unavailable.
+`status-events` remains `available`. Later accepted slices also make `snapshots`
+and `local-contract` available. `mutations` remains `disabled`.
