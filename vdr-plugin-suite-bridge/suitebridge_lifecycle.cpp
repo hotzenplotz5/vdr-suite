@@ -19,6 +19,8 @@ const char *SuiteBridgeLifecycle::StateName() const noexcept
       return "initialized";
     case SuiteBridgeLifecycleState::Started:
       return "started";
+    case SuiteBridgeLifecycleState::Stopping:
+      return "stopping";
     case SuiteBridgeLifecycleState::Stopped:
       return "stopped";
   }
@@ -55,10 +57,32 @@ bool SuiteBridgeLifecycle::Start() noexcept
   return true;
 }
 
-void SuiteBridgeLifecycle::Stop() noexcept
+bool SuiteBridgeLifecycle::BeginStop() noexcept
 {
-  if (state_ == SuiteBridgeLifecycleState::Initialized ||
-      state_ == SuiteBridgeLifecycleState::Started) {
-    state_ = SuiteBridgeLifecycleState::Stopped;
+  if (state_ == SuiteBridgeLifecycleState::Stopping ||
+      state_ == SuiteBridgeLifecycleState::Stopped) {
+    return true;
   }
+
+  if (state_ != SuiteBridgeLifecycleState::Initialized &&
+      state_ != SuiteBridgeLifecycleState::Started) {
+    return false;
+  }
+
+  state_ = SuiteBridgeLifecycleState::Stopping;
+  return true;
+}
+
+bool SuiteBridgeLifecycle::CompleteStop() noexcept
+{
+  if (state_ == SuiteBridgeLifecycleState::Stopped) {
+    return true;
+  }
+
+  if (state_ != SuiteBridgeLifecycleState::Stopping) {
+    return false;
+  }
+
+  state_ = SuiteBridgeLifecycleState::Stopped;
+  return true;
 }
