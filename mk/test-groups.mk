@@ -8,6 +8,62 @@
 	test-make-test-manifest \
 	test-make-test-manifest-strict
 
+
+# Existing local test recipes that were historically callable but not reachable
+# from a public suite. Keeping the inventory explicit makes test-all complete
+# without forcing these broader or slower contracts into pull-request CI.
+EXTENDED_LOCAL_TESTS := \
+	test-architecture \
+	test-backend-registry-capability-resolver \
+	test-backend-runtime-context \
+	test-content-rating \
+	test-content-rating-controller \
+	test-content-rating-resolution-json-serializer \
+	test-content-rating-resolver \
+	test-docs \
+	test-epgsearch-matcher \
+	test-epgsearch-native-fuzzy-capability-freshness-policy \
+	test-epgsearch-native-fuzzy-capability-restore-service \
+	test-epgsearch-native-fuzzy-startup-restore-diagnostics \
+	test-epgsearch-native-fuzzy-startup-restore-service \
+	test-epgsearch-native-fuzzy-startup-restore-validation \
+	test-epgsearch-query \
+	test-epgsearch-request-mapper \
+	test-epgsearch-result-json-serializer \
+	test-epgsearch-service \
+	test-local-partial-refresh-validation \
+	test-local-restfulapi-integration \
+	test-local-snapshot-runtime-integration \
+	test-person \
+	test-person-controller \
+	test-person-query \
+	test-person-resolution-json-serializer \
+	test-person-resolver \
+	test-phase \
+	test-restful-api-search-timer-adapter \
+	test-restful-api-search-timer-mapper \
+	test-restful-api-timer-conflict-mapper \
+	test-restful-api-vdr-adapter-timer-conflicts \
+	test-restfulapi-delete-live-error-contract \
+	test-restfulapi-executor-preserves-http-error-status \
+	test-restfulapi-rename-live-error-contract \
+	test-restfulapi-search-timer-command-executor \
+	test-search-timer-controller \
+	test-search-timer-create-result-json-serializer \
+	test-search-timer-create-service \
+	test-search-timer-delete-request-parser \
+	test-search-timer-delete-result-json-serializer \
+	test-search-timer-delete-service \
+	test-search-timer-result-json-serializer \
+	test-search-timer-service \
+	test-search-timer-update-request-parser \
+	test-search-timer-update-result-json-serializer \
+	test-search-timer-update-service \
+	test-vdr-channel-move-controller \
+	test-vdr-snapshot-read-json-serializer \
+	test-vdr-timer-conflict-json-serializer \
+	test-vdr-timer-conflicts
+
 # Public test entrypoints live in this file only. Individual test recipes remain
 # close to their domain until the follow-up Makefile split is complete.
 
@@ -187,6 +243,7 @@ test-vdr: \
 
 
 test-all: \
+	$(EXTENDED_LOCAL_TESTS) \
 	test \
 	test-vdr \
 	test-ci-frontend \
