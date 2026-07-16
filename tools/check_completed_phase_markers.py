@@ -3,30 +3,58 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-LATEST = "Phase 57 - Multi-Site Backend Administration and Permissions"
-NEXT = "Phase 58 - Frontend and Live Parity"
-PHASE_58 = "Phase 58"
+LATEST_MAJOR = "Phase 57 - Multi-Site Backend Administration and Permissions"
+HISTORICAL_UMBRELLA = "Phase 58 - Frontend and Live Parity"
+LATEST_SLICE = "Phase 60.14k - Recording Detail UX Polish"
+NEXT_RUNTIME = "Phase 60.15 - Recording Metadata and Poster Preparation"
+ARCHITECTURE_FIRST = "ADR-0042"
+ARCHITECTURE_LAST = "ADR-0049"
 PARITY_DOC = "parity-audit-and-frontend-gap-roadmap.md"
+GAP_MATRIX = "architecture-audit-gap-matrix.md"
 
-REQUIRED_LATEST = [
+REQUIRED_LATEST_MAJOR = [
     "README.md",
     "docs/CURRENT.md",
+    "docs/NEW-CHAT-HANDOFF.md",
     "docs/planning/roadmap.md",
     "docs/planning/phase-map.md",
     "docs/development/completed-phases-latest.md",
     "docs/development/completed-phases.md",
 ]
 
-REQUIRED_NEXT = [
+REQUIRED_LATEST_SLICE = [
     "README.md",
     "docs/CURRENT.md",
+    "docs/NEW-CHAT-HANDOFF.md",
     "docs/planning/roadmap.md",
     "docs/planning/phase-map.md",
     "docs/development/completed-phases-latest.md",
+    "docs/development/completed-phases.md",
 ]
 
-REQUIRED_PHASE58 = [
+REQUIRED_NEXT_RUNTIME = [
+    "README.md",
+    "docs/CURRENT.md",
+    "docs/NEW-CHAT-HANDOFF.md",
     "docs/planning/roadmap.md",
+    "docs/planning/phase-map.md",
+    "docs/development/completed-phases-latest.md",
+    "docs/development/completed-phases.md",
+]
+
+REQUIRED_ARCHITECTURE_PACKAGE = [
+    "docs/CURRENT.md",
+    "docs/NEW-CHAT-HANDOFF.md",
+    "docs/planning/roadmap.md",
+    "docs/planning/architecture-audit-gap-matrix.md",
+    "docs/development/completed-phases-latest.md",
+]
+
+REQUIRED_HISTORICAL_UMBRELLA = [
+    "docs/CURRENT.md",
+    "docs/NEW-CHAT-HANDOFF.md",
+    "docs/planning/roadmap.md",
+    "docs/planning/phase-map.md",
 ]
 
 
@@ -47,14 +75,21 @@ def require_marker(errors, rel, marker, description):
 def main():
     errors = []
 
-    for rel in REQUIRED_LATEST:
-        require_marker(errors, rel, LATEST, "latest completed marker")
+    for rel in REQUIRED_LATEST_MAJOR:
+        require_marker(errors, rel, LATEST_MAJOR, "latest completed major marker")
 
-    for rel in REQUIRED_NEXT:
-        require_marker(errors, rel, NEXT, "next implementation marker")
+    for rel in REQUIRED_LATEST_SLICE:
+        require_marker(errors, rel, LATEST_SLICE, "latest completed slice marker")
 
-    for rel in REQUIRED_PHASE58:
-        require_marker(errors, rel, PHASE_58, "Phase 58 planning marker")
+    for rel in REQUIRED_NEXT_RUNTIME:
+        require_marker(errors, rel, NEXT_RUNTIME, "next runtime implementation marker")
+
+    for rel in REQUIRED_ARCHITECTURE_PACKAGE:
+        require_marker(errors, rel, ARCHITECTURE_FIRST, "architecture package start marker")
+        require_marker(errors, rel, ARCHITECTURE_LAST, "architecture package end marker")
+
+    for rel in REQUIRED_HISTORICAL_UMBRELLA:
+        require_marker(errors, rel, HISTORICAL_UMBRELLA, "historical Phase 58 umbrella marker")
 
     parity_path = ROOT / "docs" / "planning" / "parity-audit-and-frontend-gap-roadmap.md"
     if not parity_path.exists():
@@ -68,6 +103,9 @@ def main():
     for rel in ["docs/NEW-CHAT-HANDOFF.md", "docs/planning/roadmap.md", "docs/planning/index.md"]:
         require_marker(errors, rel, PARITY_DOC, "parity audit link")
 
+    for rel in ["docs/CURRENT.md", "docs/NEW-CHAT-HANDOFF.md", "docs/planning/index.md"]:
+        require_marker(errors, rel, GAP_MATRIX, "architecture audit gap matrix link")
+
     if errors:
         print("Completed phase marker check failed:")
         for error in errors:
@@ -75,9 +113,11 @@ def main():
         return 1
 
     print("Completed phase marker check passed.")
-    print("Latest completed phase: " + LATEST)
-    print("Next implementation focus: " + NEXT)
-    print("Planned frontend block marker: " + PHASE_58)
+    print("Latest completed major block: " + LATEST_MAJOR)
+    print("Latest completed slice: " + LATEST_SLICE)
+    print("Immediate architecture package: " + ARCHITECTURE_FIRST + " through " + ARCHITECTURE_LAST)
+    print("Next runtime implementation focus: " + NEXT_RUNTIME)
+    print("Historical umbrella marker: " + HISTORICAL_UMBRELLA)
     return 0
 
 

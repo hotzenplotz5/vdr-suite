@@ -5,198 +5,356 @@
 - [README](../../README.md)
 - [Documentation Index](../index.md)
 - [Current State](../CURRENT.md)
-- [Project Overview](../project-overview.md)
-- [Planning Index](index.md)
 - [Phase Map](phase-map.md)
-- [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md)
-- [Current Project Status](../development/current-status.md)
-- [Project Status Dashboard](../project-status-dashboard.md)
+- [ADR Index](../adr/index.md)
 - [Completed Phases](../development/completed-phases.md)
-- [Recording Metadata, External Scrapers and Suite Metadata Database Roadmap](tvscraper-recording-metadata-roadmap.md)
+- [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md)
+- [Recording Metadata Roadmap](tvscraper-recording-metadata-roadmap.md)
 
 ---
 
-## Current Position
+## Purpose
+
+This file defines the **forward execution order** of VDR-Suite.
+
+It is not the chronological phase archive. Completed history belongs in [Completed Phases](../development/completed-phases.md), and compact phase-range coverage belongs in [Phase Map](phase-map.md).
+
+The roadmap has one rule:
+
+> Work is read from top to bottom. A later numbered phase does not begin before the required decisions and exit criteria of the earlier phase are complete.
+
+---
+
+## Current Verified Position
 
 ```text
 Completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
+
+Current umbrella implementation track
+Phase 58 - Frontend and Live Parity
 
 Latest completed implementation slice
 Phase 60.14k - Recording Detail UX Polish
 
 Next planned implementation slice
 Phase 60.15 - Recording Metadata and Poster Preparation
+```
 
-Current implementation focus
-Phase 58 - Frontend and Live Parity
+The Phase 58 umbrella label describes the broad product track. It is **not** used to order future work. The actual execution order continues from Phase 60.15 onward.
+
+Accepted architecture baseline:
+
+```text
+ADR-0038 - Suite Metadata Database and External Provider Strategy
+ADR-0039 - Backend Agent and Control Plane Boundary
+ADR-0040 - Backend Lifecycle, Generation, Lease and Health
+ADR-0041 - Authentication, Agent Trust and Multi-Site Transport
 ```
 
 ---
 
-## Purpose
+# Strict Execution Order
 
-This roadmap describes the current direction of VDR-Suite without duplicating the full phase history.
+## Step 1 - Complete the Architecture Contract Package
 
-The compact source of truth for phase-range coverage is [Phase Map](phase-map.md).
+Status: Next repository work.
 
-The primary human entry point for the current repository state is [Current State](../CURRENT.md).
+Before new runtime implementation begins, complete:
 
-Detailed chronological implementation history belongs to [Completed Phases](../development/completed-phases.md).
+```text
+ADR-0042 - Safe Mutation, Revision and Idempotency Contract
+ADR-0043 - Job Claim, Retry and Saga Execution Model
+ADR-0044 - Timer Intent, Assignment and Native Timer Model
+ADR-0045 - Canonical EPG Event Identity and Provenance
+ADR-0046 - Streaming Gateway and Media Session Boundary
+ADR-0047 - Legacy OSD Compatibility Bridge
+ADR-0048 - Public API Versioning, Error and Compatibility Contract
+ADR-0049 - Audit and Security Event Model
+```
 
-Product parity and frontend gap planning belongs to [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md).
+Then update:
 
----
+- architecture diagrams;
+- the domain dependency map;
+- the implementation dependency map;
+- affected earlier ADR cross-references.
 
-## Phase Map Summary
+Exit criteria:
 
-See [Phase Map](phase-map.md) for the canonical compact table.
-
-Completed foundation ranges:
-
-- Phase 1.x-7.x: Core Platform.
-- Phase 8.x: VDR Backend.
-- Phase 9.x-29.x: Multi-Backend Runtime.
-- Phase 30.x-36.x: Recording Actions.
-- Phase 37.x-44.x: Recording Runtime Hardening.
-- Phase 45.x: EPG Search.
-- Phase 46.x: Metadata and People.
-- Phase 47.x-49.x: SearchTimer Backend.
-- Phase 50.0-50.50: SearchTimer Workflow.
-- Phase 51.x: Live Parity Discovery.
-- Phase 52.x: SearchTimer Automation Planning.
-- Phase 53.x: SearchTimer Completion Audit.
-- Phase 54.x: SearchTimer Preview Runtime.
-- Phase 55.x: Adapter, acceptance and documentation hardening.
-- Phase 56: Library Boundary, Packaging and Developer Documentation.
-- Phase 57: Multi-Site Backend Administration and Permissions.
-- Phase 58.0-58.90b: Frontend/live-parity slices including event hints, channel move API and stable channel sorter.
+- stable identity vocabulary exists for backends, recordings, events, timers, metadata and assets;
+- mutation requests define revision, idempotency, verification and audit behavior;
+- asynchronous work defines claim, retry, cancellation and compensation behavior;
+- client API, Agent API, streaming and Legacy OSD boundaries are distinct;
+- no future runtime phase depends on an undefined trust, identity or consistency model.
 
 ---
 
-## Recently Completed Implementation Slice
+## Step 2 - Phase 60.15: Recording Metadata and Poster Preparation
 
-### Phase 60.14k - Recording Browser UX Polish
-
-Status: Completed frontend UX and runtime behavior polish slice.
-
-Completed outcomes:
-
-- Recording folder views show breadcrumb-style context for the current lazy folder
-- single-recording leaf folders open directly into the Recording detail view
-- Recording folder cache entries are deduplicated by normalized recording path for product views
-- Recording list titles show local titles instead of repeated folder paths
-- Recording detail titles are simplified and no longer repeat folder context
-- Recording timestamp labels use `Aufnahme` instead of the ambiguous `Start`
-- technical path, ID and size fields are hidden behind `Technische Details anzeigen`
-- Recording action controls are hidden behind `Aktionen anzeigen`
-- runtime verification proved single-recording navigation, deduplicated folder counts and polished detail cards in the browser
-
----
-
-## Next Planned Implementation Slice
-
-### Phase 60.15 - Recording Metadata and Poster Preparation
-
-Status: Planned.
+Status: Planned immediately after Step 1.
 
 Goal:
 
-- Prepare Recording metadata, artwork and poster handling on top of the now-polished lazy Recording browser.
+- Prepare the existing Recording API and frontend for metadata and artwork without implementing the full metadata platform yet.
 
-Planned scope:
+Scope:
 
-- define which Recording metadata fields belong in the Suite model
-- distinguish VDR technical metadata from imported Rectools or scraper metadata
-- prepare UI placeholders for poster and artwork data without requiring them immediately
-- keep the existing lazy Recording folder flow stable while adding metadata hooks
-- avoid coupling scraper-specific behavior directly into the Recording browser UI
-- define the next backend/frontend contract for Recording metadata enrichment
+- separate technical VDR data from normalized and provider-derived metadata;
+- introduce provider-neutral artwork references;
+- add poster and artwork placeholders that also work without provider data;
+- keep lazy Recording folder loading and Recording detail navigation unchanged;
+- keep external lookup latency outside synchronous list rendering;
+- prevent direct frontend coupling to TVScraper, scraper2vdr or provider databases.
 
----
+Exit criteria:
 
-## Recently Completed Major Milestone
-
-### Phase 57 - Multi-Site Backend Administration and Permissions
-
-Status: Completed.
-
-Completed outcomes:
-
-- backend access modes
-- backend registry permission hints
-- recording action access handling
-- timer action access handling
-- SearchTimer access handling
-- frontend-visible backend permission state
+- the Recording API can represent technical, normalized and provider-derived fields separately;
+- artwork uses a suite-owned asset identity or a clearly temporary placeholder contract;
+- the frontend remains fully usable without enriched metadata;
+- existing Recording browser regression coverage remains green.
 
 ---
 
-## Planned Major Milestones
+## Step 3 - Phase 61: Suite Metadata Database and External Providers
 
-### Phase 58 - Frontend and Live Parity
-
-Status: In progress.
+Status: Planned after Phase 60.15.
 
 Goal:
 
-- Build frontend-ready everyday recording, timer, channel and EPG views after the backend permission foundation.
+- Build the suite-owned normalized metadata platform defined by ADR-0038.
 
-Planning input:
+Implementation order inside Phase 61:
 
-- [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md)
+1. metadata entity and assignment identities;
+2. database schema and migrations;
+3. provider, provenance, evidence and confidence contracts;
+4. artwork asset storage and delivery;
+5. Recording enrichment read model;
+6. sidecar, imported and plugin-backed provider adapters;
+7. asynchronous refresh, retry and invalidation jobs;
+8. frontend enrichment beyond the Phase 60.15 placeholders;
+9. migration and operational hardening.
 
-Phase 58.0 start audit:
+Exit criteria:
 
-- Inventory frontend read models before adding UI code.
-- Map existing REST endpoints to frontend views.
-- Confirm backend selector data from /api/backends.
-- Confirm write hints for recording, timer and SearchTimer buttons.
-- Keep read-only backend views visible but disable write actions.
-- Use Live parity data to expose real feature gaps.
-
-Frontend-relevant endpoints:
-
-- /api/backends
-- /api/vdr/overview
-- /api/vdr/recordings
-- /api/vdr/timers
-- /api/vdr/searchtimers
-- /api/vdr/epg/search
-- /api/vdr/live-parity
-- /api/vdr/channels/move
+- no external provider database is authoritative for VDR-Suite;
+- provider failures do not break Recording browsing;
+- metadata and artwork are backend-neutral;
+- stale and missing provider data have explicit states;
+- enrichment work is observable, retryable and auditable.
 
 ---
 
-### Phase 59 - Suite Metadata Database and External Providers
+## Step 4 - Phase 62: Identity, RBAC and Audit Foundation
 
-Status: Planned.
+Status: Planned after Phase 61.
 
 Goal:
 
-- Build a suite-owned metadata database while using external scraper/catalog providers behind boundaries.
+- Replace the current broad backend read-only/read-write hints with production-grade user, service and Agent authorization foundations.
+
+Scope:
+
+- users, service accounts and Agent identities;
+- roles and permission grants;
+- backend- and action-scoped authorization;
+- server-side enforcement;
+- secure sessions and credential lifecycle;
+- mutation audit records and security events;
+- preservation of the existing read-only backend baseline.
+
+Exit criteria:
+
+- different users can have different rights on the same backend;
+- the second-house read-only use case is enforced server-side;
+- every real mutation has an actor and audit outcome;
+- Agent credentials can be enrolled, rotated and revoked.
 
 ---
 
-### Phase 60 - Recommendation and Content Knowledge Graph
+## Step 5 - Phase 63: Backend Agent and Secure Multi-Site Runtime
 
-Status: Vision.
+Status: Planned after Phase 62.
 
 Goal:
 
-- Build recommendation and graph primitives after metadata and frontend foundations mature.
+- Implement the Control Plane and Backend Agent boundary for remote VDR sites.
+
+Scope:
+
+- outbound authenticated Agent connections;
+- persistent BackendId and native identity mapping;
+- backend generation, heartbeat, lease and health;
+- capability and snapshot publication;
+- fenced command dispatch;
+- offline, reconnecting and degraded states;
+- no public exposure of RESTfulAPI, SVDRP, Streamdev or plugin-internal ports.
+
+Exit criteria:
+
+- a remote read-only backend works through the Agent boundary;
+- stale Agent generations cannot complete current commands;
+- lease expiry changes backend availability deterministically;
+- remote writes remain disabled until all authorization and safe-mutation gates pass.
 
 ---
 
-## Roadmap Maintenance Rules
+## Step 6 - Phase 64: Timer Intent and Multi-Backend Orchestration
 
-- [Current State](../CURRENT.md) is the first human entry point for current repository truth.
-- [Phase Map](phase-map.md) is the compact source of truth for phase-range coverage.
-- [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md) records feature parity and frontend gap planning.
-- This roadmap describes direction and should not duplicate the detailed completed phase log.
-- Detailed chronological implementation history belongs in [Completed Phases](../development/completed-phases.md).
-- Project status snapshots belong in [Current Project Status](../development/current-status.md) and [Project Status Dashboard](../project-status-dashboard.md).
-- Planned phase numbers must not conflict with completed phase ranges.
+Status: Planned after Phase 63.
+
+Goal:
+
+- Separate user and automation intent from backend-native timer execution.
+
+Scope:
+
+- TimerIntent;
+- TimerAssignment;
+- NativeTimer binding;
+- scheduler and reconciler;
+- backend capability and channel availability checks;
+- deduplication and conflict handling;
+- reassignment and failure recovery;
+- epgsearch, SearchTimer and other automation providers producing intents instead of independent native writes.
+
+Exit criteria:
+
+- every native timer can be traced to an intent and assignment;
+- only one backend owns an active assignment;
+- backend failure does not silently create duplicate timers;
+- native execution is read back and reconciled.
+
+---
+
+## Step 7 - Phase 65: Streaming Gateway and Media Sessions
+
+Status: Planned after Phase 64.
+
+Goal:
+
+- Provide authenticated live and Recording playback without exposing internal Streamdev endpoints.
+
+Scope:
+
+- short-lived stream sessions;
+- backend and resource authorization;
+- gateway routing;
+- expiry, limits and audit;
+- range, seek and disconnect behavior;
+- Streamdev as an internal provider only.
+
+---
+
+## Step 8 - Phase 66: Legacy OSD Compatibility Bridge
+
+Status: Planned after Phase 65.
+
+Goal:
+
+- Provide controlled access to plugin functionality that does not yet have a native VDR-Suite domain UI.
+
+Scope:
+
+- isolated OSD sessions;
+- `osd.view` and `osd.control` permissions;
+- multiple viewers and one controller lease;
+- sequence and resynchronization behavior;
+- rate-limited key input;
+- no free shell-command channel;
+- no use as the primary Web or TV frontend architecture.
+
+---
+
+## Step 9 - Phase 67: Public API and Client Compatibility Hardening
+
+Status: Planned after Phase 66.
+
+Goal:
+
+- Stabilize the platform contract for Web, Windows, Android, iOS and TV clients.
+
+Scope:
+
+- `/api/v1` contract;
+- common error envelope;
+- request and correlation IDs;
+- pagination, revisions and ETags;
+- deprecation and compatibility policy;
+- capability negotiation;
+- final client-independent API documentation.
+
+---
+
+## Step 10 - Phase 68: Recommendation and Content Knowledge Graph
+
+Status: Later vision.
+
+Goal:
+
+- Build explainable recommendation and graph features only after metadata, identity, multi-site and API foundations are mature.
+
+Prerequisites:
+
+- stable metadata identities;
+- mature provider provenance;
+- people and character relationships;
+- cross-backend Recording metadata;
+- reliable audit and event history;
+- stable public API contracts.
+
+Phase 68 is not part of the immediate implementation sequence.
+
+---
+
+# Global Completion Gates
+
+## Identity Gate
+
+A persisted or synchronized resource requires:
+
+- a stable suite identity;
+- an explicit backend-native binding where applicable;
+- revision and ownership semantics.
+
+## Mutation Gate
+
+A real mutation requires:
+
+- authentication and authorization;
+- capability validation;
+- stale-state protection;
+- idempotency behavior;
+- result verification;
+- audit-visible outcome.
+
+## Asynchronous Work Gate
+
+Slow provider, filesystem, network or cross-site work belongs in the job model. It must not run inside synchronous list rendering or long-held VDR locks.
+
+## Source Audit Gate
+
+The broad plugin audit is complete. Additional source audits are performed only for a concrete feature, adapter or risk question.
+
+---
+
+## Maintenance Rules
+
+- [Phase Map](phase-map.md) is the compact phase-number source of truth.
+- This roadmap defines the forward work order only.
+- [Completed Phases](../development/completed-phases.md) owns chronological history.
+- A phase number is not reused or renumbered after implementation.
+- Accepted ADRs define direction but do not imply runtime completion.
+- Later phases do not begin merely because they can be developed independently; the dependency order above is authoritative.
+
+Verification:
+
+```bash
+make test-phase-map-coverage
+make test-docs
+make test-phase
+```
 
 ---
 
@@ -205,4 +363,3 @@ Goal:
 - [Back to README](../../README.md)
 - [Back to Documentation Index](../index.md)
 - [Back to Current State](../CURRENT.md)
-- [Back to Project Overview](../project-overview.md)

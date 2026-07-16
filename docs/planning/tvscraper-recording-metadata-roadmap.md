@@ -1,4 +1,4 @@
-# Recording Metadata, External Scrapers and Suite Metadata Database Roadmap
+# Recording Metadata, External Providers and Suite Metadata Database Roadmap
 
 ## Navigation
 
@@ -8,72 +8,101 @@
 - [Planning Index](index.md)
 - [Roadmap](roadmap.md)
 - [ADR-0036: TVScraper Recording Metadata Integration Strategy](../adr/ADR-0036-tvscraper-recording-metadata-integration.md)
-- [ADR-0037: Suite Metadata Database and External Scraper Strategy](../adr/ADR-0037-suite-metadata-database-and-external-scraper-strategy.md)
+- [ADR-0038: Suite Metadata Database and External Provider Strategy](../adr/ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
 
 ---
 
 ## Purpose
 
-This document keeps recording metadata, plugin-backed metadata, external scraper providers and the suite-owned metadata database visible in the roadmap.
+This document keeps Recording metadata, plugin-backed metadata, external catalog providers, artwork and the suite-owned normalized metadata database visible in the roadmap.
 
 The strategic rule is:
 
 ```text
-Use mature external metadata providers when they solve the job well.
-Normalize useful results into a VDR-Suite-owned metadata database.
+Use mature external metadata providers when they solve acquisition and matching well.
+Normalize selected results into VDR-Suite-owned metadata entities and assignments.
+Keep provenance, evidence and confidence.
 Do not make TVScraper or any single provider the whole strategy.
-Do not reimplement scraper behavior unless the provider evaluation shows a real gap.
+Do not reimplement scraper behavior without a proven gap.
 ```
 
 ---
 
 ## Position in the Roadmap
 
-Recording metadata work belongs after the current SearchTimer and Live parity stabilization work, but before recommendation and content-graph features become primary implementation goals.
+Recording metadata preparation begins with Phase 60.15 after the lazy Recording browser and Recording detail UX foundation.
+
+The full suite metadata database milestone follows as Phase 61.
+
+Recommendation and content graph work moves to Phase 62 because the 59.x and 60.x ranges already contain completed frontend implementation slices.
 
 Recommended order:
 
 ```text
-55.4c/55.4e - Daemon build/runtime/shutdown stabilization
-55.4d       - Shared JSON decoder cleanup
-55.5        - Native EPGSearch preview mode
-55.6        - Live recording operations audit
-56.x        - Backend capability matrix and read-only/write policy visibility
-57.x        - Multi-backend permissions and backend administration
-58.x        - Live parity for everyday frontend usage
-59.x        - Suite metadata database and external scraper provider integration
-60.x        - Recommendation and content knowledge graph foundations
+Phase 57      - Multi-site access-mode and backend permission foundation
+Phase 58      - Frontend and Live-parity umbrella track
+Phase 59.x    - Completed Client API and frontend module slices
+Phase 60.1-14 - Completed frontend platform and Recording UX slices
+Phase 60.15   - Recording metadata and poster preparation
+Phase 61      - Suite metadata database and external provider integration
+Phase 62      - Recommendation and content knowledge graph foundations
 ```
+
+Completed implementation history is not renumbered.
 
 ---
 
-## Phase 59 - Suite Metadata Database and External Scraper Provider Integration
+## Phase 60.15 - Recording Metadata and Poster Preparation
 
-Status: Planned.
+Status: Planned next implementation slice.
 
 Goal:
-- Build a backend-aware recording metadata layer that can use existing plugin metadata, external catalog providers and a suite-owned normalized metadata database.
+
+- Add provider-neutral Recording metadata and artwork hooks without destabilizing the lazy Recording browser.
+
+Expected preparation:
+
+- identify VDR-owned technical Recording fields
+- identify normalized suite metadata fields
+- distinguish EPG, plugin, external catalog, sidecar and manual provenance
+- define poster and artwork placeholders through suite asset identities
+- avoid direct TVScraper or scraper2vdr coupling in frontend modules
+- define API fields that degrade cleanly for EPG-only backends
+- preserve lazy folder and detail loading behavior
+- keep metadata reads backend-scoped and capability-aware
+
+This slice prepares contracts. It does not need to implement the complete Phase 61 provider and persistence system.
+
+---
+
+## Phase 61 - Suite Metadata Database and External Provider Integration
+
+Status: Planned major milestone.
+
+Goal:
+
+- Build a backend-aware metadata layer that can combine plugin metadata, external catalog data, sidecars, manual assignments and a suite-owned normalized database.
 
 Expected outcomes:
-- Recording metadata capability model.
-- Backend-scoped metadata provider registry.
-- Suite-owned normalized metadata database.
-- Provider evaluation matrix for plugin-backed and external catalog-backed metadata.
-- TVScraper provider boundary.
-- scraper2vdr provider boundary.
-- Generic plugin-backed metadata provider boundary for VDR plugins that expose useful metadata.
-- External catalog provider boundary for movie and TV metadata sources.
-- EPG-only fallback provider.
-- Normalized recording metadata aggregate.
-- Cast, character, director, writer and guest mapping audit.
-- Genre, rating, keywords and external-id mapping audit.
-- Artwork, poster and backdrop reference model.
-- Metadata origin, evidence and confidence model.
-- Import and refresh pipeline from plugin-backed providers into the suite metadata database.
-- Fallback enrichment for backends without their own metadata database.
-- Recording metadata refresh diagnostics.
-- Read-only API for enriched recording metadata.
-- Frontend-ready response contracts.
+
+- metadata entity identity
+- metadata assignment model
+- artwork asset identity and delivery boundary
+- backend-scoped metadata provider registry
+- suite-owned normalized metadata persistence
+- provider evidence and confidence model
+- TVScraper provider boundary
+- scraper2vdr provider boundary
+- generic plugin-backed provider boundary
+- external catalog provider boundary
+- sidecar and manual provider boundaries
+- EPG-only fallback
+- cast, character, director, writer and guest normalization
+- genre, rating, keyword and external-ID normalization
+- import, refresh and invalidation pipelines
+- read-only enriched metadata APIs
+- frontend-ready stable contracts
+- diagnostics for provider and refresh failures
 
 ---
 
@@ -82,29 +111,32 @@ Expected outcomes:
 VDR-Suite uses provider-backed metadata resolution.
 
 ```text
-RecordingMetadataService
-  -> RecordingMetadataProviderRegistry
-       -> EpgOnlyRecordingMetadataProvider
-       -> PluginBackedRecordingMetadataProvider
-            -> TvscraperRecordingMetadataProvider
-            -> Scraper2VdrRecordingMetadataProvider
+MetadataService
+  -> MetadataProviderRegistry
+       -> EpgMetadataProvider
+       -> PluginBackedMetadataProvider
+            -> TvscraperMetadataProvider
+            -> Scraper2VdrMetadataProvider
             -> GenericVdrPluginMetadataProvider
-       -> ExternalCatalogRecordingMetadataProvider
-            -> MovieDatabaseProvider
-            -> TvDatabaseProvider
-            -> ProviderSpecificIdResolver
-       -> SuiteRecordingMetadataDbProvider
+       -> ExternalCatalogMetadataProvider
+       -> SidecarMetadataProvider
+       -> ManualMetadataProvider
+       -> SuiteMetadataDbProvider
+  -> MetadataResolver
+  -> MetadataEntity / MetadataAssignment / ArtworkAsset
 ```
 
-The provider registry is backend-scoped.
+The provider registry is backend-aware, but the suite metadata entity may be shared across backends when evidence shows that the resources refer to the same movie, series or episode.
 
-The suite metadata database is not a replacement for every external provider. It is the normalized persistence, cache, index and cross-backend consistency layer.
+The suite database is not a replacement for every provider. It is the normalized persistence, cache, index, audit and cross-backend consistency layer.
 
-A VDR plugin can be used as a metadata helper when it already performs useful matching, artwork lookup or metadata acquisition. The plugin-backed provider reads through an explicit adapter boundary and then imports normalized results into the suite metadata database.
+A plugin-backed provider is never the frontend contract. The suite domain model remains the contract for UI, search, recommendations and cross-backend behavior.
 
-A plugin-backed provider is not the frontend contract. The suite domain model and the suite metadata database remain the contract for UI, search, recommendation and cross-backend behavior.
+---
 
-A backend or provider can expose:
+## Capability Direction
+
+A backend or provider may advertise capabilities such as:
 
 ```text
 metadata.recording.basic
@@ -118,59 +150,104 @@ metadata.recording.provider.plugin
 metadata.recording.provider.tvscraper
 metadata.recording.provider.scraper2vdr
 metadata.recording.provider.externalCatalog
+metadata.recording.provider.sidecar
 metadata.recording.provider.suiteDb
 ```
 
 If a capability is not advertised, VDR-Suite does not guess.
 
+Capability support does not imply user permission to trigger metadata mutation or refresh.
+
+---
+
+## Provenance and Resolution
+
+Provider results retain:
+
+- provider identity
+- backend identity when relevant
+- external IDs
+- observation time
+- language
+- evidence
+- confidence
+- provider revision
+- source payload revision or fingerprint when available
+
+The resolver may combine several providers instead of selecting one globally active provider.
+
+Manual assignments may override or lock selected relationships.
+
+Resolver decisions must remain explainable and auditable.
+
+---
+
+## Artwork Boundary
+
+Artwork is represented through suite-owned asset identities.
+
+```text
+provider image
+  -> validated import or proxy boundary
+  -> ArtworkAsset
+  -> assetId
+  -> suite-controlled client URL
+```
+
+The frontend must not receive arbitrary local paths from TVScraper, scraper2vdr or another backend plugin.
+
+Artwork handling must prepare for:
+
+- media-type validation
+- dimension and size limits
+- checksum validation
+- atomic publication
+- invalidation
+- attribution
+- provider licensing constraints
+- backend-independent URLs
+
 ---
 
 ## Provider Evaluation Before Reinvention
 
-Before VDR-Suite implements direct scraper behavior, it must compare existing options.
+Before VDR-Suite implements direct acquisition or scraper behavior, evaluate:
 
-Evaluation questions:
-
-- Does an existing plugin or external provider already solve matching better?
-- Does it handle German titles, international titles and aliases reliably?
-- Does it distinguish movie, series, episode and season data well?
-- Does it provide cast, characters, directors, writers and guests?
-- Does it provide artwork, posters, backdrops and external IDs?
-- Does it have acceptable operational, licensing and attribution requirements?
-- Can VDR-Suite cache or normalize the results safely?
-- Does it help backends that have no own metadata database?
-- Can the provider be used without tying VDR-Suite to provider-internal storage details?
+- matching quality for German and international titles
+- alias and translated-title support
+- movie, series, season and episode disambiguation
+- cast, characters, directors, writers and guests
+- genre, rating, keywords and external IDs
+- artwork and backdrop quality
+- update and invalidation behavior
+- API stability
+- operational requirements
+- licensing and attribution
+- offline and cache behavior
+- multi-backend normalization suitability
 
 Only proven gaps should become suite-owned acquisition logic.
 
 ---
 
-## Plugin-Backed Metadata Providers
-
-A VDR plugin may act as a metadata acquisition helper for VDR-originated content when it already solves metadata matching well.
+## Plugin-Backed Provider Boundary
 
 The preferred flow is:
 
 ```text
 VDR plugin metadata source
-  -> explicit adapter or export boundary
+  -> explicit local adapter
+  -> immutable provider result
   -> VDR-Suite provider
+  -> metadata resolver
   -> normalized suite metadata model
   -> suite metadata database
   -> stable API and frontend contract
 ```
 
-This keeps plugin-specific behavior behind the provider and allows VDR-Suite to reuse good existing work without making one plugin mandatory.
+Plugin-global state, borrowed pointers, provider database rows and local file paths must not escape the adapter boundary.
 
-The provider may be useful for:
-
-- initial enrichment of VDR recordings
-- validating metadata matching quality
-- importing artwork and external identifiers
-- comparing plugin-derived metadata against external catalog-derived metadata
-- bootstrapping suite metadata for installations that already run a mature metadata plugin
-
-It must not become the only solution for metadata-poor non-VDR backends. Those backends still need suite database enrichment through external catalog providers or other configured metadata providers.
+A plugin may remain authoritative for its own acquisition and matching behavior. VDR-Suite remains authoritative for the normalized entities and assignments it persists.
 
 ---
 
@@ -178,55 +255,61 @@ It must not become the only solution for metadata-poor non-VDR backends. Those b
 
 VDR-Suite must not:
 
-- treat TVScraper as the only recording metadata strategy
-- treat any plugin-backed provider as the only metadata strategy
-- scrape external metadata directly without a provider evaluation
+- treat TVScraper as the only metadata strategy
+- treat any plugin-backed provider as the public contract
+- expose provider-specific rows directly to the frontend
+- expose arbitrary provider filesystem paths as artwork IDs
 - write into plugin-owned storage without a later explicit ADR
-- assume any plugin or external catalog is installed or configured for every backend
-- expose provider-specific records directly to the frontend
+- assume every backend exposes the same metadata capabilities
+- reimplement an external scraper before provider evaluation
+- make VDR-Rectools the metadata source of truth
 
 VDR-Suite may:
 
-- read plugin-derived metadata exposed by RESTfulAPI or another backend adapter
-- use mature external metadata providers when they are better than building a new scraper
-- normalize provider-specific metadata into stable suite domain objects
-- persist normalized metadata in the suite database
-- cache normalized metadata with explicit invalidation
-- provide EPG-only fallback data
-- expose capability-specific frontend fields
+- read plugin-derived metadata through backend adapters
+- use external catalogs through provider adapters
+- import sidecar metadata
+- allow manual assignments
+- normalize and persist selected metadata
+- cache normalized results with explicit invalidation
+- provide EPG-only fallback
+- expose capability-specific fields
+- let VDR-Rectools consume resolved metadata for processing and export
 
 ---
 
-## Why the Suite Metadata Database Still Matters
-
-A backend without metadata support should not make VDR-Suite lose modern browsing and recommendation features.
+## Why the Suite Metadata Database Matters
 
 The suite database provides:
 
 - stable cross-backend metadata identity
-- cached provider results
-- frontend-ready normalized contracts
+- provider-independent frontend contracts
+- cached and offline provider results
 - search and recommendation input
 - artwork reference stability
 - provenance and confidence tracking
-- fallback enrichment for metadata-poor backends
+- manual correction support
+- enrichment for metadata-poor backends
+- auditability of resolver decisions
 
 ---
 
 ## Relation to Existing Foundations
 
-Existing completed foundations already cover part of this direction:
+Existing foundations already cover part of this direction:
 
-- Person metadata domain.
-- Recording-person search.
-- Recording-character search.
-- Content classification foundation.
-- Genre and rating groundwork.
-- TVScraper actor and character metadata validation through real VDR payloads.
-- ADR-0025 configurable metadata provider architecture.
-- ADR-0031 person catalog and external filmography architecture.
+- Person metadata domain
+- Recording-person search
+- Recording-character search
+- content classification
+- genre and rating groundwork
+- TVScraper-derived actor and character mapping validation
+- ADR-0025 configurable metadata provider architecture
+- ADR-0031 person catalog and external filmography architecture
+- ADR-0036 TVScraper Recording metadata integration strategy
+- ADR-0038 suite metadata database and external provider strategy
 
-The planned Phase 59 does not restart this work. It consolidates it into a full recording metadata provider and suite metadata database milestone.
+Phase 61 does not restart this work. It consolidates the existing foundations into a complete normalized metadata platform.
 
 ---
 

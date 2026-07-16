@@ -5,14 +5,15 @@
 - [Development Index](../index.md)
 - [Completed Phases](../completed-phases.md)
 - [Completed Phases Latest Marker](../completed-phases-latest.md)
+- [Current State](../../CURRENT.md)
 
 ---
 
 ## Purpose
 
-This directory contains historical completed-phase archive files split out of `docs/development/completed-phases.md`.
+This directory contains compact historical completed-phase archive files split out of `docs/development/completed-phases.md`.
 
-The top-level `completed-phases.md` is the compact entry point. Detailed historical ranges for Phase 46 through Phase 55 live in this archive directory.
+The top-level `completed-phases.md` remains the authoritative compact entry point. This directory owns phase-range detail summaries.
 
 ---
 
@@ -28,36 +29,34 @@ The top-level `completed-phases.md` is the compact entry point. Detailed histori
 - [Phase 53](phase-53.md)
 - [Phase 54](phase-54.md)
 - [Phase 55](phase-55.md)
+- [Phase 56](phase-56.md)
+- [Phase 57](phase-57.md)
+- [Phase 58 completed slices](phase-58.md)
+- [Phase 59](phase-59.md)
+- [Phase 60 completed slices](phase-60.md)
 
 ---
 
-## Archive Completeness Audit
+## Archive Semantics
 
-Status after Phase 56.19:
-
-| File | Current archive state | Top-level source state |
-| --- | --- | --- |
-| `phase-46.md` | compact phase archive | compacted from top-level detail history |
-| `phase-47.md` | compact phase archive | compacted from top-level detail history |
-| `phase-48.md` | compact phase archive | compacted from top-level detail history |
-| `phase-49.md` | compact phase archive | compacted from top-level detail history |
-| `phase-50.md` | compact phase archive | compacted from top-level detail history |
-| `phase-51.md` | compact phase archive | compacted from top-level detail history |
-| `phase-52.md` | compact phase archive | compacted from top-level detail history |
-| `phase-53.md` | compact phase archive | compacted from top-level detail history |
-| `phase-54.md` | compact phase archive | compacted from top-level detail history |
-| `phase-55.md` | copied phase archive | compacted from top-level detail history |
-
-Migration result:
-- The latest-completed marker is independent from historical headings.
-- Phase 46 through Phase 55 were compacted from the top-level detail history.
-- The top-level completed phases file now remains a compact entry point with links to this archive directory.
+- Phase 46 through Phase 57 are completed phase or major-block archives.
+- Phase 58 records completed slices under the historical Frontend and Live Parity umbrella label.
+- Phase 59 records the completed frontend Client API and module-boundary range.
+- Phase 60 records completed frontend platform and Recording UX slices through Phase 60.14k.
+- Planned Phase 60.15 work does not belong here until it is completed.
+- Non-phase evidence such as the 2026-07-15 architecture audit belongs in `docs/development/`, not in this phase archive.
 
 ---
 
-## Completion Verification
+## Maintenance Rules
 
-The archive split is considered complete when these checks pass after pulling the final commits locally:
+- Add or update the matching phase archive when a phase or slice range completes.
+- Keep planned work out of archive files except for a short next-boundary pointer.
+- Preserve the distinction between a completed major block and completed slices under a continuing umbrella track.
+- Link all archive files from `completed-phases.md` and this README.
+- Keep the latest marker in `completed-phases-latest.md` synchronized.
+
+Verification:
 
 ```bash
 make test-docs
