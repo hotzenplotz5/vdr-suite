@@ -1,5 +1,7 @@
 #include "VdrRecordingQueryResultJsonSerializer.h"
 
+#include "VdrRecordingMetadataJsonSerializer.h"
+
 #include <sstream>
 
 std::string VdrRecordingQueryResultJsonSerializer::serialize(
@@ -38,7 +40,9 @@ std::string VdrRecordingQueryResultJsonSerializer::serialize(
             << "\"backendNativeId\":\"" << recording.backendNativeId << "\","
             << "\"startTime\":\"" << recording.startTime << "\","
             << "\"durationSeconds\":" << recording.durationSeconds << ","
-            << "\"sizeMb\":" << recording.sizeMb
+            << "\"sizeMb\":" << recording.sizeMb << ","
+            << "\"metadata\":"
+            << VdrRecordingMetadataJsonSerializer::serialize(recording)
             << "}";
     }
 
