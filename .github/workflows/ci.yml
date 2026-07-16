@@ -2,12 +2,10 @@ name: VDR-Suite CI
 
 on:
   push:
-    branches:
-      - main
   pull_request:
 
 concurrency:
-  group: vdr-suite-ci-${{ github.workflow }}-${{ github.ref }}
+  group: vdr-suite-ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
