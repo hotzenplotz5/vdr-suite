@@ -29,6 +29,9 @@ jobs:
           make test-docs
           make test-phase
 
+      - name: Audit Make and test inventory
+        run: python3 tools/audit_make_test_inventory.py --check
+
   fast-regression-test:
     runs-on: ubuntu-latest
     needs:
