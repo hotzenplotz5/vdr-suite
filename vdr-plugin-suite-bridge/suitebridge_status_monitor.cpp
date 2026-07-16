@@ -13,8 +13,14 @@ SuiteBridgeStatusMonitor::SuiteBridgeStatusMonitor() noexcept
 void SuiteBridgeStatusMonitor::Activate() noexcept
 {
   active_.store(true, std::memory_order_release);
-  isyslog("suitebridge: status-monitor state=active");
-  LogSnapshot(CaptureSnapshot());
+
+  const SuiteBridgeStatusSnapshot snapshot = CaptureSnapshot();
+
+  isyslog(
+      "suitebridge: status-monitor state=active counter-epoch=%s counter-overflow=%s",
+      snapshot.CounterEpoch(),
+      snapshot.CounterOverflow() ? "true" : "false");
+  LogSnapshot(snapshot);
 }
 
 void SuiteBridgeStatusMonitor::Deactivate() noexcept
@@ -26,11 +32,13 @@ void SuiteBridgeStatusMonitor::Deactivate() noexcept
   const SuiteBridgeStatusSnapshot snapshot = events_.CaptureSnapshot(false);
 
   isyslog(
-      "suitebridge: status-monitor state=inactive channel-switch=%llu recording=%llu replaying=%llu timer-change=%llu",
+      "suitebridge: status-monitor state=inactive channel-switch=%llu recording=%llu replaying=%llu timer-change=%llu counter-epoch=%s counter-overflow=%s",
       snapshot.ChannelSwitchCount(),
       snapshot.RecordingCount(),
       snapshot.ReplayingCount(),
-      snapshot.TimerChangeCount());
+      snapshot.TimerChangeCount(),
+      snapshot.CounterEpoch(),
+      snapshot.CounterOverflow() ? "true" : "false");
 
   LogSnapshot(snapshot);
 }
@@ -65,14 +73,16 @@ void SuiteBridgeStatusMonitor::LogSnapshot(
     const SuiteBridgeStatusSnapshot &snapshot) const noexcept
 {
   isyslog(
-      "suitebridge: status-snapshot schema=%u active=%s total=%llu channel-switch=%llu recording=%llu replaying=%llu timer-change=%llu",
+      "suitebridge: status-snapshot schema=%u active=%s total=%llu channel-switch=%llu recording=%llu replaying=%llu timer-change=%llu counter-epoch=%s counter-overflow=%s",
       SuiteBridgeStatusSnapshot::SchemaVersion(),
       snapshot.MonitorActive() ? "true" : "false",
       snapshot.TotalCount(),
       snapshot.ChannelSwitchCount(),
       snapshot.RecordingCount(),
       snapshot.ReplayingCount(),
-      snapshot.TimerChangeCount());
+      snapshot.TimerChangeCount(),
+      snapshot.CounterEpoch(),
+      snapshot.CounterOverflow() ? "true" : "false");
 
   const SuiteBridgeLocalContractPayload payload(
       SuiteBridgeCapabilities::SchemaVersion(),
