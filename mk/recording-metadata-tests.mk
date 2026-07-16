@@ -40,6 +40,13 @@ test-recording-metadata-foundation: \
 	test-vdr-recording-metadata-cache-codec \
 	test-vdr-recording-metadata-json-serializer
 
+# The focused Timer-conflict adapter target compiles RestfulApiVdrAdapter.cpp
+# without the shared VDR_SRC aggregate. Add the new metadata translation units
+# only for that target while preserving its existing owner and recipe.
+test-restful-api-vdr-adapter-timer-conflicts: CXXFLAGS += \
+	core/vdr/src/RestfulApiRecordingMetadataMapper.cpp \
+	core/vdr/src/RestfulApiRecordingMetadataEnricher.cpp
+
 # Keep the metadata contract in the focused Recording path and the established
 # fast regression graph without creating a second central test-list owner.
 test-restful-api-recording-mapper: test-recording-metadata-foundation
