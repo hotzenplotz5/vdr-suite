@@ -2,6 +2,7 @@
 #define VDR_SUITE_BRIDGE_STATUS_MONITOR_H
 
 #include "suitebridge_status_events.h"
+#include "suitebridge_status_snapshot.h"
 
 #include <atomic>
 
@@ -17,6 +18,7 @@ public:
 
   unsigned long long EventCount(
       SuiteBridgeStatusEventKind kind) const noexcept;
+  SuiteBridgeStatusSnapshot CaptureSnapshot() const noexcept;
 
 protected:
   void ChannelSwitch(
@@ -41,6 +43,8 @@ protected:
       eTimerChange change) override;
 
 private:
+  void LogSnapshot(const SuiteBridgeStatusSnapshot &snapshot) const noexcept;
+
   std::atomic<bool> active_;
   SuiteBridgeStatusEvents events_;
 };
