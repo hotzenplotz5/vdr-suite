@@ -8,7 +8,7 @@ class SuiteBridgeStatusSnapshot final {
 public:
   static constexpr std::size_t CounterEpochLength() noexcept
   {
-    return 32;
+    return kCounterEpochLength;
   }
 
   SuiteBridgeStatusSnapshot(
@@ -38,13 +38,15 @@ public:
   bool CounterOverflow() const noexcept;
 
 private:
+  static constexpr std::size_t kCounterEpochLength = 32;
+
   bool monitorActive_;
   unsigned long long channelSwitchCount_;
   unsigned long long recordingCount_;
   unsigned long long replayingCount_;
   unsigned long long timerChangeCount_;
   unsigned long long totalCount_;
-  std::array<char, CounterEpochLength() + 1> counterEpoch_;
+  std::array<char, kCounterEpochLength + 1> counterEpoch_;
   bool counterOverflow_;
 };
 
