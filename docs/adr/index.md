@@ -30,17 +30,17 @@ Current implementation progress belongs in:
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0045
+ADR-0046
 ```
 
-Current active `ADR-0045`:
+Current active `ADR-0046`:
 
-- [ADR-0045: Canonical EPG Event Identity and Provenance](ADR-0045-canonical-epg-event-identity-provenance.md)
+- [ADR-0046: Streaming Gateway and Media Session Boundary](ADR-0046-streaming-gateway-media-session-boundary.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0046
+ADR-0047
 ```
 
 Rules:
@@ -105,7 +105,7 @@ Rules:
 
 - [ADR-0037: Packaging, Install Layout and API Boundary](ADR-0037-packaging-install-api-boundary.md)
 
-### Control Plane, Trust, Lifecycle, Mutation Safety, Orchestration and Provenance
+### Control Plane, Trust, Lifecycle, Mutation Safety, Orchestration, Provenance and Media
 
 - [ADR-0039: Backend Agent and Control Plane Boundary](ADR-0039-backend-agent-control-plane-boundary.md)
 - [ADR-0040: Backend Lifecycle, Generation, Lease and Health](ADR-0040-backend-lifecycle-generation-lease-health.md)
@@ -114,6 +114,7 @@ Rules:
 - [ADR-0043: Job Claim, Retry and Saga Execution Model](ADR-0043-job-claim-retry-saga-execution-model.md)
 - [ADR-0044: Timer Intent, Assignment and Native Timer Model](ADR-0044-timer-intent-assignment-native-timer-model.md)
 - [ADR-0045: Canonical EPG Event Identity and Provenance](ADR-0045-canonical-epg-event-identity-provenance.md)
+- [ADR-0046: Streaming Gateway and Media Session Boundary](ADR-0046-streaming-gateway-media-session-boundary.md)
 
 ---
 
