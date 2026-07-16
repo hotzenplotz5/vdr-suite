@@ -30,17 +30,17 @@ Current implementation progress belongs in:
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0041
+ADR-0042
 ```
 
-Current active `ADR-0041`:
+Current active `ADR-0042`:
 
-- [ADR-0041: Authentication, Agent Trust and Multi-Site Transport](ADR-0041-authentication-agent-trust-multi-site-transport.md)
+- [ADR-0042: Safe Mutation, Revision and Idempotency Contract](ADR-0042-safe-mutation-revision-idempotency-contract.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0042
+ADR-0043
 ```
 
 Rules:
@@ -105,11 +105,12 @@ Rules:
 
 - [ADR-0037: Packaging, Install Layout and API Boundary](ADR-0037-packaging-install-api-boundary.md)
 
-### Control Plane, Trust and Backend Lifecycle
+### Control Plane, Trust, Lifecycle and Mutation Safety
 
 - [ADR-0039: Backend Agent and Control Plane Boundary](ADR-0039-backend-agent-control-plane-boundary.md)
 - [ADR-0040: Backend Lifecycle, Generation, Lease and Health](ADR-0040-backend-lifecycle-generation-lease-health.md)
 - [ADR-0041: Authentication, Agent Trust and Multi-Site Transport](ADR-0041-authentication-agent-trust-multi-site-transport.md)
+- [ADR-0042: Safe Mutation, Revision and Idempotency Contract](ADR-0042-safe-mutation-revision-idempotency-contract.md)
 
 ---
 
@@ -122,7 +123,6 @@ Rules:
 ## Historical ADRs
 
 Historical lowercase and numeric ADRs are retained for repository history and compatibility:
-
 - [ADR-001 Backend Identity Strategy](adr-001-backend-identity-strategy.md)
 - [ADR-002 Backend Federation Strategy](adr-002-backend-federation-strategy.md)
 - [ADR-003 Backend Capability Strategy](adr-003-backend-capability-strategy.md)
