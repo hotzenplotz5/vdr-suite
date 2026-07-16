@@ -23,22 +23,45 @@ used by the separate Backend Agent.
 ## Current slice
 
 ```text
-SB.8 - Diagnostic counter continuity and resynchronization contract
+SB.9 - Read-only capability discovery and compatibility negotiation
 ```
 
-The plugin keeps the read-only native SVDRP endpoint introduced by SB.6:
+The plugin exposes two bounded read-only commands through VDR's existing SVDRP
+server:
 
 ```text
+PLUG suitebridge CAPS [discovery-schema]
 PLUG suitebridge SNAP
 ```
 
-`SNAP` captures the current immutable status snapshot and returns one compact
-JSON line with reply code `900`. The command accepts no options. Unknown options
-return reply code `504`, and unknown commands remain unhandled so VDR can issue
-its standard error response.
+`CAPS` returns plugin-local schema versions and the static capability catalogue.
+No option and explicit schema `1` produce byte-identical discovery payloads.
+Unsupported numeric schemas return reply `504`, malformed schema arguments return
+`501`, and payload preparation failure returns `451`.
 
-The endpoint is read-only. It does not change channels, timers, recordings,
+`SNAP` captures the current immutable status snapshot and returns one compact
+JSON line with reply code `900`. It accepts no options. Unknown options return
+reply code `504`.
+
+Unknown commands remain unhandled so VDR can issue its standard response.
+Command matching is case-insensitive.
+
+Both endpoints are read-only. They do not change channels, Timers, Recordings,
 playback, setup data or any other VDR state.
+
+## Capability discovery
+
+Discovery schema version: `1`
+
+The deterministic payload reports, in fixed top-level order:
+
+1. discovery schema;
+2. plugin name;
+3. plugin version;
+4. capability schema;
+5. snapshot schema;
+6. local-contract schema;
+7. capability entries.
 
 Current capability catalogue:
 
@@ -50,13 +73,21 @@ Current capability catalogue:
 | `local-contract` | `available` |
 | `mutations` | `disabled` |
 
+An unknown or absent capability is treated as unavailable. An absent or disabled
+`mutations` capability is a hard write prohibition. Capability discovery does
+not constitute user authorization.
+
 Current schema versions:
 
 | Schema | Version |
 | --- | ---: |
+| Discovery | `1` |
 | Capability | `1` |
 | Snapshot | `2` |
 | Local contract | `2` |
+
+The plugin software version is informative. Compatibility decisions use the
+explicit schema and capability values.
 
 ## Counter continuity
 
@@ -74,6 +105,8 @@ The Backend Agent compares values only while the epoch is unchanged and overflow
 is false. A changed epoch or uncertain continuity requires a complete `SNAP`
 baseline. These values are diagnostic observations, not an ordered event stream,
 audit history or guaranteed count of user actions.
+
+`CAPS` does not capture a status snapshot and cannot change the epoch or counters.
 
 ## Lifecycle boundary
 
@@ -125,9 +158,9 @@ The plugin still has:
 - no write-capable SVDRP command;
 - no Streaming Gateway or media-session ownership.
 
-The Backend Agent reaches `SNAP` through VDR's already configured SVDRP access.
-Network exposure, source restrictions and authentication remain deployment
-responsibilities outside this plugin slice.
+The Backend Agent reaches `CAPS` and `SNAP` through VDR's already configured
+SVDRP access. Network exposure, source restrictions and authentication remain
+deployment responsibilities outside this plugin slice.
 
 ## Build and tests
 
@@ -136,12 +169,13 @@ make clean
 make check
 ```
 
-`make check` validates the foundation, capability, counter-continuity,
-status-event, status-snapshot, local-contract-payload and read-only SVDRP source
-contracts; version extraction; the two-phase lifecycle state machine;
-callback-side-effect exclusion; epoch format and instance separation; saturating
-atomic counters and totals; immutable snapshots; deterministic payload bytes;
-command handling; and the final shared-object build.
+`make check` validates the foundation, capability catalogue, capability-discovery,
+counter-continuity, status-event, status-snapshot, local-contract-payload and
+read-only SVDRP source contracts; version extraction; lifecycle state machine;
+callback-side-effect exclusion; deterministic discovery and status bytes;
+discovery option parsing and failure codes; epoch format and instance separation;
+saturating atomic counters and totals; immutable snapshots; unchanged `SNAP`
+handling; and the final shared-object build.
 
 ## Staged installation
 
