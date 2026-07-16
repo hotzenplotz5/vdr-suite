@@ -30,17 +30,17 @@ Current implementation progress belongs in:
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0048
+ADR-0049
 ```
 
-Current active `ADR-0048`:
+Current active `ADR-0049`:
 
-- [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
+- [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0049
+ADR-0050
 ```
 
 Rules:
@@ -105,7 +105,7 @@ Rules:
 
 - [ADR-0037: Packaging, Install Layout and API Boundary](ADR-0037-packaging-install-api-boundary.md)
 
-### Control Plane, Trust, Lifecycle, Mutation Safety, Orchestration, Provenance, Media, Legacy Compatibility and Public API
+### Control Plane, Trust, Lifecycle, Mutation Safety, Orchestration, Provenance, Media, Legacy Compatibility, Public API and Audit
 
 - [ADR-0039: Backend Agent and Control Plane Boundary](ADR-0039-backend-agent-control-plane-boundary.md)
 - [ADR-0040: Backend Lifecycle, Generation, Lease and Health](ADR-0040-backend-lifecycle-generation-lease-health.md)
@@ -117,6 +117,7 @@ Rules:
 - [ADR-0046: Streaming Gateway and Media Session Boundary](ADR-0046-streaming-gateway-media-session-boundary.md)
 - [ADR-0047: Legacy OSD Compatibility Bridge](ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
+- [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
 
 ---
 
