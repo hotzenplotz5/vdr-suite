@@ -8,10 +8,14 @@ ROOT = Path(__file__).resolve().parents[1]
 required_files = (
     ROOT / "suitebridge.h",
     ROOT / "suitebridge.cpp",
+    ROOT / "suitebridge_status_snapshot.h",
+    ROOT / "suitebridge_local_contract.h",
+    ROOT / "suitebridge_local_contract.cpp",
     ROOT / "suitebridge_svdrp_contract.h",
     ROOT / "suitebridge_svdrp_contract.cpp",
     ROOT / "tests/test_suitebridge_svdrp_contract.cpp",
     ROOT / "docs/SB-6-read-only-svdrp.md",
+    ROOT / "docs/SB-8-counter-continuity.md",
 )
 
 errors = []
@@ -25,26 +29,10 @@ if errors:
         print(f"ERROR: {error}", file=sys.stderr)
     raise SystemExit(1)
 
-header = (ROOT / "suitebridge.h").read_text(encoding="utf-8")
-source = (ROOT / "suitebridge.cpp").read_text(encoding="utf-8")
-contract_header = (ROOT / "suitebridge_svdrp_contract.h").read_text(
-    encoding="utf-8"
-)
-contract_source = (ROOT / "suitebridge_svdrp_contract.cpp").read_text(
-    encoding="utf-8"
-)
-test = (ROOT / "tests/test_suitebridge_svdrp_contract.cpp").read_text(
-    encoding="utf-8"
-)
-
 combined = "\n".join(
-    (
-        header,
-        source,
-        contract_header,
-        contract_source,
-        test,
-    )
+    path.read_text(encoding="utf-8")
+    for path in required_files
+    if path.suffix in {".h", ".cpp"}
 )
 
 required_content = (
@@ -62,6 +50,12 @@ required_content = (
     "strcasecmp(command, CommandName())",
     "statusMonitor_.CaptureSnapshot()",
     "SuiteBridgeCapabilities::SchemaVersion()",
+    "SuiteBridgeStatusSnapshot::SchemaVersion()",
+    "SuiteBridgeLocalContractPayload::SchemaVersion()",
+    '\\"contract_schema\\":2',
+    '\\"snapshot_schema\\":2',
+    '\\"counter_epoch\\"',
+    '\\"counter_overflow\\"',
     "svdrp command=SNAP result=served reply=%d bytes=%zu",
     "svdrp command=SNAP result=rejected reply=%d",
     "return nullptr;",
