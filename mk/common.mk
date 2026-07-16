@@ -19,10 +19,6 @@ all: test
 check-vdr-linkage-contracts:
 	python3 tools/check_vdr_linkage_contracts.py
 
-test-ci-fast: check-vdr-linkage-contracts test-runtime-config test-epg-event-repository test-epg-cache-service test-epg-cache-controller test-api-router-epg-cache-routes test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
-
-test-vdr: check-vdr-linkage-contracts test-runtime-config test-epg-event-repository test-epg-cache-service test-epg-cache-controller test-api-router-epg-cache-routes test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
-
 
 test-runtime-config:
 	$(CXX) $(CXXFLAGS) \
@@ -79,8 +75,8 @@ test-api-router-epg-cache-routes: prepare-test-db
 		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
 		api/rest/src/VdrController.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
-	core/vdr/src/VdrRecordingCacheRepository.cpp \
-	api/rest/src/VdrRecordingFolderController.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		api/rest/src/VdrRecordingFolderController.cpp \
 		api/rest/tests/test_api_router_epg_cache_routes.cpp \
 		$(LDFLAGS) \
 		-o /tmp/test_api_router_epg_cache_routes
