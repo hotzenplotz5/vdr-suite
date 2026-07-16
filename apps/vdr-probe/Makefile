@@ -15,6 +15,8 @@ VDR_SRC := \
         $(ROOT)/core/vdr/src/VdrService.cpp \
         $(ROOT)/core/vdr/src/RestfulApiChannelMapper.cpp \
         $(ROOT)/core/vdr/src/RestfulApiRecordingMapper.cpp \
+        $(ROOT)/core/vdr/src/RestfulApiRecordingMetadataMapper.cpp \
+        $(ROOT)/core/vdr/src/RestfulApiRecordingMetadataEnricher.cpp \
         $(ROOT)/core/vdr/src/RestfulApiTimerMapper.cpp \
         $(ROOT)/core/vdr/src/RestfulApiEventMapper.cpp \
         $(ROOT)/core/vdr/src/RestfulApiStatusMapper.cpp \
