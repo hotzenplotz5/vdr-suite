@@ -1,6 +1,8 @@
 #ifndef VDR_SUITE_BRIDGE_STATUS_EVENTS_H
 #define VDR_SUITE_BRIDGE_STATUS_EVENTS_H
 
+#include "suitebridge_status_snapshot.h"
+
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -19,6 +21,7 @@ public:
 
   unsigned long long Record(SuiteBridgeStatusEventKind kind) noexcept;
   unsigned long long Count(SuiteBridgeStatusEventKind kind) const noexcept;
+  SuiteBridgeStatusSnapshot CaptureSnapshot(bool monitorActive) const noexcept;
 
   static const char *Name(SuiteBridgeStatusEventKind kind) noexcept;
 
