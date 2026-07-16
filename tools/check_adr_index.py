@@ -8,8 +8,8 @@ ADR_DIR = ROOT / "docs" / "adr"
 INDEX = ADR_DIR / "index.md"
 ACTIVE_START = "## Active Canonical ADRs"
 ACTIVE_END = "---"
-EXPECTED_LATEST = "ADR-0042"
-EXPECTED_NEXT = "ADR-0043"
+EXPECTED_LATEST = "ADR-0043"
+EXPECTED_NEXT = "ADR-0044"
 REMOVED_CONFLICT = "ADR-0037-suite-metadata-database-and-external-scraper-strategy.md"
 EXPECTED_ACTIVE_FILES = {
     "0037": "ADR-0037-packaging-install-api-boundary.md",
@@ -18,6 +18,7 @@ EXPECTED_ACTIVE_FILES = {
     "0040": "ADR-0040-backend-lifecycle-generation-lease-health.md",
     "0041": "ADR-0041-authentication-agent-trust-multi-site-transport.md",
     "0042": "ADR-0042-safe-mutation-revision-idempotency-contract.md",
+    "0043": "ADR-0043-job-claim-retry-saga-execution-model.md",
 }
 
 ADR_LINK = re.compile(r"\((ADR-\d{4}[^)]+\.md)\)")
@@ -80,8 +81,8 @@ def main():
         if not (ADR_DIR / filename).exists():
             errors.append("canonical ADR file is missing: " + filename)
 
-    if "0043" in active_numbers:
-        errors.append("ADR-0043 is listed active although it is the next available number")
+    if "0044" in active_numbers:
+        errors.append("ADR-0044 is listed active although it is the next available number")
 
     lowercase_or_numeric = []
     for line in active.splitlines():
