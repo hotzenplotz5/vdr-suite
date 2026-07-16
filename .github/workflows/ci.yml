@@ -48,3 +48,37 @@ jobs:
 
       - name: Build daemon
         run: make daemon
+
+  frontend-contracts:
+    runs-on: ubuntu-latest
+    needs:
+      - docs-check
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check frontend runtime
+        run: |
+          python3 --version
+          node --version
+
+      - name: Run frontend contract tests
+        run: make test-ci-frontend
+
+  packaging-check:
+    runs-on: ubuntu-latest
+    needs:
+      - docs-check
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+
+      - name: Run packaging staging tests
+        run: make test-ci-packaging
