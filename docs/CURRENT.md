@@ -5,6 +5,9 @@
 - [README](../README.md)
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
+- [Target Platform Architecture](architecture/target-platform-architecture.md)
+- [Domain Dependency Map](planning/domain-dependency-map.md)
+- [Implementation Dependency Map](planning/implementation-dependency-map.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
@@ -42,13 +45,22 @@ Latest completed implementation slice:
 Phase 60.14k - Recording Detail UX Polish
 ```
 
-Next planned runtime implementation slice:
+Completed architecture contract package:
+
+```text
+ADR-0042 through ADR-0049
+Target Platform Architecture
+Domain Dependency Map
+Implementation Dependency Map
+```
+
+Next runtime implementation slice:
 
 ```text
 Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
-The Phase 58 umbrella label is retained for product-history grouping. It does not control the strict future sequence.
+The Phase 58 umbrella label remains product-history grouping. It does not control the strict future sequence.
 
 ---
 
@@ -66,8 +78,11 @@ Results are split into:
 - [Completed audit evidence](development/architecture-source-audit-2026-07-15.md)
 - [Living implementation-gap matrix](planning/architecture-audit-gap-matrix.md)
 - [Strict future execution order](planning/roadmap.md)
+- [Canonical target diagrams](architecture/target-platform-architecture.md)
+- [Domain dependencies](planning/domain-dependency-map.md)
+- [Implementation dependencies](planning/implementation-dependency-map.md)
 
-The completed audit is not completed runtime implementation.
+The completed audit and contract package are not completed runtime implementation.
 
 ---
 
@@ -88,44 +103,83 @@ ADR-0048 - Public API Versioning, Error and Compatibility Contract
 ADR-0049 - Audit and Security Event Model
 ```
 
-ADR-0042 accepts the common mutation contract. ADR-0043 accepts atomic job claims, fenced attempts, retry classification, cancellation, reconciliation and saga semantics. ADR-0044 accepts the separation of durable TimerIntent, TimerAssignment and NativeTimerBinding plus central scheduler and reconciler ownership. ADR-0045 accepts the separation of canonical ProgramEvent, BackendEventRef, immutable EventObservation and field-level provenance. ADR-0046 accepts the separation of MediaSession, MediaRoute, ProviderStreamLease, MediaAccessGrant and PlaybackConnection behind a VDR-Suite Streaming Gateway. ADR-0047 accepts the separation of LegacyOsdSession, OsdSurfaceRef, OsdViewerBinding, ordered OsdFrame/OsdDelta delivery, one fenced OsdControllerLease and allowlisted OsdInputCommand handling. ADR-0048 accepts `/api/v1` as the client-independent public namespace, Problem Details-compatible errors, request/correlation IDs, ETag preconditions, cursor collections, explicit compatibility/deprecation rules and strict separation from Agent, media, OSD and plugin protocol versions. ADR-0049 accepts an append-only AccountabilityEvent envelope with separate audit and security classifications, stable actor/target/decision/outcome correlation, transactional pre-dispatch evidence, post-dispatch recovery semantics, Agent producer sequencing, redaction, retention and protected query rules.
+The accepted package establishes:
 
-These decisions do not mark universal revisions, durable idempotency, production worker claims, Agent queues, TimerIntent persistence, assignment scheduling, canonical ProgramEvent persistence, provenance resolution, Streaming Gateway, media-session persistence, public media authorization, route provisioning, Agent media tunnels, Legacy OSD session persistence, viewer fan-out, controller-lease arbitration, native OSD capture, frame sequencing, resynchronization, remote input, `/api/v1` route migration, public response-header propagation, common error serialization, request/correlation ID middleware, ETags, cursor pagination, capability negotiation, structured Client API errors, legacy-route deprecation, append-only accountability persistence, actor-context propagation, authorization decision events, transactional audit outbox, Agent audit buffering, audit redaction, retention, protected audit queries, exports, native binding reconciliation, failover, compensation or all domain migrations as implemented. Current native Timer actions, SearchTimer proposals, `VdrEvent` read models, the warm `epg_events` cache, the historical Stream Provider direction, existing OSD/remote adapter references, the unversioned `ApiRouter`, the DOM-free Web Client API, runtime logs and diagnostics remain strong but pre-platform foundations.
+- Control Plane, Backend Agent and VDR/plugin ownership;
+- backend identity, generation, lease, health and trust;
+- common mutation revision, idempotency, dispatch and verification semantics;
+- durable operations, jobs, attempts, retries, sagas and reconciliation;
+- TimerIntent, TimerAssignment and NativeTimerBinding separation;
+- ProgramEvent, BackendEventRef, observations and provenance;
+- MediaSession, MediaRoute, ProviderStreamLease, MediaAccessGrant and PlaybackConnection;
+- LegacyOsdSession, viewer binding, ordered frame/delta delivery and controller lease;
+- `/api/v1`, structured errors, request context, ETags, pagination and compatibility;
+- append-only AccountabilityEvent records and security-event classification.
+
+The [Target Platform Architecture](architecture/target-platform-architecture.md) is the canonical diagram set. The [Domain Dependency Map](planning/domain-dependency-map.md) and [Implementation Dependency Map](planning/implementation-dependency-map.md) make prerequisite direction explicit.
+
+---
+
+## Runtime Status Boundary
+
+The accepted contracts do not mark the following as implemented:
+
+- universal revisions and durable idempotency;
+- production worker claims, retries and sagas;
+- actor identity, RBAC and append-only accountability persistence;
+- Backend Agent enrollment, transport, generation, lease and reconnect runtime;
+- canonical ProgramEvent and metadata persistence;
+- TimerIntent persistence, scheduler, reconciler and failover;
+- Streaming Gateway, media routes and access grants;
+- Legacy OSD capture, sequencing, viewer fan-out or remote control;
+- `/api/v1` route migration, ETags, common errors or cursor collections;
+- Agent evidence buffering, audit outbox, retention, protected queries or exports.
+
+Current native Timer actions, SearchTimer proposals, `VdrEvent` read models, warm EPG cache, historical Stream Provider direction, existing OSD/remote adapter references, unversioned `ApiRouter`, DOM-free Web Client API, runtime logs and diagnostics remain strong foundations rather than the completed future platform.
 
 ---
 
 ## Immediate Repository Work
 
-Complete the architecture-package closeout before Phase 60.15:
+Begin Phase 60.15 with an evidence-first audit of:
 
 ```text
-Update affected architecture diagrams.
-Create the domain dependency map.
-Create the implementation dependency map.
-Verify affected earlier ADR cross-references.
-Keep the strict Phase 60.15-68 sequence aligned with the accepted contracts.
+Recording domain objects
+Recording serializers and REST representations
+Web Client API Recording contracts
+lazy Recording loading and cache ownership
+current poster and artwork placeholders
+metadata/provider coupling risks
 ```
 
-No new runtime mutation, Agent, streaming, Legacy OSD or public API implementation begins as part of this closeout.
+The first Phase 60.15 slice must define field ownership and migration boundaries before introducing provider integration.
+
+It must preserve:
+
+- Recording browsing without metadata providers;
+- lazy folder loading;
+- current backend scope;
+- frontend module ownership;
+- provider-neutral architecture;
+- all existing Recording regression coverage.
 
 ---
 
 ## Strict Future Sequence
 
 ```text
-1. Architecture package diagrams and dependency maps
-2. Phase 60.15 - Recording Metadata Preparation
-3. Phase 61 - Suite Metadata Platform
-4. Phase 62 - Identity, RBAC and Audit
-5. Phase 63 - Backend Agent and Multi-Site Runtime
-6. Phase 64 - Timer Intent and Orchestration
-7. Phase 65 - Streaming Gateway
-8. Phase 66 - Legacy OSD Bridge
-9. Phase 67 - Public API and Client Hardening
-10. Phase 68 - Recommendation and Knowledge Graph
+1. Phase 60.15 - Recording Metadata Preparation
+2. Phase 61 - Suite Metadata Platform
+3. Phase 62 - Identity, RBAC and Audit
+4. Phase 63 - Backend Agent and Multi-Site Runtime
+5. Phase 64 - Timer Intent and Orchestration
+6. Phase 65 - Streaming Gateway
+7. Phase 66 - Legacy OSD Bridge
+8. Phase 67 - Public API and Client Hardening
+9. Phase 68 - Recommendation and Knowledge Graph
 ```
 
-ADR-0042 through ADR-0049 complete the accepted Step 1 contract decisions. They supply the mutation, operation, claim, retry, reconciliation, saga, Timer intent, assignment, native binding, canonical programme-event identity, provenance, Streaming Gateway, MediaSession, Legacy OSD session, viewer, controller-lease, sequencing, safe-input, public versioning, error, revision, pagination, compatibility, actor, authorization, accountability and security-event prerequisites for later runtime phases. Diagrams and dependency maps remain required before the strict sequence proceeds to Phase 60.15.
+The architecture package is the accepted prerequisite baseline for this sequence. It remains authoritative even though its later runtime components are incomplete.
 
 ---
 
@@ -133,9 +187,12 @@ ADR-0042 through ADR-0049 complete the accepted Step 1 contract decisions. They 
 
 Before proposing frontend, Live-parity, RESTfulAPI, epgsearch, metadata, multi-site or architecture work, inspect:
 
-- `docs/development/current-status.md`
+- `docs/CURRENT.md`
 - `docs/planning/roadmap.md`
 - `docs/planning/phase-map.md`
+- `docs/architecture/target-platform-architecture.md`
+- `docs/planning/domain-dependency-map.md`
+- `docs/planning/implementation-dependency-map.md`
 - `docs/planning/architecture-audit-gap-matrix.md`
 - `docs/development/architecture-source-audit-2026-07-15.md`
 - `docs/development/completed-phases.md`
@@ -151,8 +208,10 @@ Before proposing frontend, Live-parity, RESTfulAPI, epgsearch, metadata, multi-s
 
 - Completed Phases records finished implementation only.
 - The completed source audit records evidence and conclusions only.
-- The Architecture Audit Gap Matrix records open, partial and implemented audit gaps.
-- The strict roadmap owns future order.
+- The Architecture Audit Gap Matrix records open, partial and implemented gaps.
+- The target diagrams define accepted ownership, not current runtime completion.
+- The Domain Dependency Map defines conceptual prerequisite direction.
+- The Implementation Dependency Map and roadmap own future execution order.
 - The older parity matrix owns product and ecosystem parity questions, not architecture sequencing.
 - Additional plugin source audits require a concrete feature, adapter, migration or risk question.
 

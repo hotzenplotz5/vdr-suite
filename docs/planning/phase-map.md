@@ -7,6 +7,9 @@
 - [Current State](../CURRENT.md)
 - [Planning Index](index.md)
 - [Roadmap](roadmap.md)
+- [Target Platform Architecture](../architecture/target-platform-architecture.md)
+- [Domain Dependency Map](domain-dependency-map.md)
+- [Implementation Dependency Map](implementation-dependency-map.md)
 - [Current Project Status](../development/current-status.md)
 - [Completed Phases](../development/completed-phases.md)
 
@@ -16,7 +19,7 @@
 
 This file is the canonical compact phase-number map for VDR-Suite.
 
-The detailed chronological history remains in [Completed Phases](../development/completed-phases.md). The strict future execution order is defined in [Roadmap](roadmap.md).
+The detailed chronological history remains in [Completed Phases](../development/completed-phases.md). The strict future execution order is defined in [Roadmap](roadmap.md), and its prerequisite expansion is defined in the [Implementation Dependency Map](implementation-dependency-map.md).
 
 ---
 
@@ -49,6 +52,26 @@ The detailed chronological history remains in [Completed Phases](../development/
 
 ---
 
+## Completed Architecture Contract Package
+
+```text
+ADR-0042 through ADR-0049
+Target Platform Architecture
+Domain Dependency Map
+Implementation Dependency Map
+```
+
+Status:
+
+```text
+Completed architecture and planning prerequisite
+Not a completed runtime phase
+```
+
+The package defines the accepted ownership, trust, identity, mutation, orchestration, media, OSD, public API and accountability contracts for the future sequence.
+
+---
+
 ## Current Position
 
 ```text
@@ -61,7 +84,7 @@ Phase 58 - Frontend and Live Parity
 Latest completed implementation slice
 Phase 60.14k - Recording Detail UX Polish
 
-Next planned implementation slice
+Next runtime implementation slice
 Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
@@ -73,18 +96,17 @@ The Phase 58 umbrella label is retained for historical product grouping. It does
 
 | Order | Range | Status | Track | Goal |
 | ---: | --- | --- | --- | --- |
-| 1 | Architecture package ADR-0042-ADR-0049 | Contract decisions accepted; diagrams and dependency maps remain | Core contracts | Complete architecture diagrams, domain dependency map, implementation dependency map and cross-reference closeout. |
-| 2 | Phase 60.15 | Planned next implementation slice | Recording Metadata Preparation | Add provider-neutral metadata and artwork hooks while preserving lazy Recording behavior. |
-| 3 | Phase 61 | Planned | Suite Metadata Platform | Build normalized suite-owned metadata, provider, provenance and artwork services. |
-| 4 | Phase 62 | Planned | Identity, RBAC and Audit | Add user, service and Agent identities, scoped authorization and mutation audit foundation. |
-| 5 | Phase 63 | Planned | Backend Agent and Multi-Site Runtime | Implement Agent enrollment, secure transport, generation, lease, health and fenced commands. |
-| 6 | Phase 64 | Planned | Timer Intent and Orchestration | Separate intent, assignment and native timers; add scheduler and reconciler. |
-| 7 | Phase 65 | Planned | Streaming Gateway | Add authenticated short-lived media sessions over internal providers. |
-| 8 | Phase 66 | Planned | Legacy OSD Bridge | Add isolated compatibility sessions with viewer and controller permissions. |
-| 9 | Phase 67 | Planned | Public API and Client Hardening | Stabilize `/api/v1`, errors, revisions, compatibility and client contracts. |
-| 10 | Phase 68 | Vision | Recommendation and Knowledge Graph | Add explainable recommendations after metadata and platform foundations mature. |
+| 1 | Phase 60.15 | Planned next implementation slice | Recording Metadata Preparation | Add provider-neutral metadata and artwork hooks while preserving lazy Recording behavior. |
+| 2 | Phase 61 | Planned | Suite Metadata Platform | Build normalized suite-owned metadata, provider, provenance and artwork services. |
+| 3 | Phase 62 | Planned | Identity, RBAC and Audit | Add user, service and Agent identities, scoped authorization and mutation accountability foundation. |
+| 4 | Phase 63 | Planned | Backend Agent and Multi-Site Runtime | Implement Agent enrollment, secure transport, generation, lease, health and fenced commands. |
+| 5 | Phase 64 | Planned | Timer Intent and Orchestration | Separate intent, assignment and native timers; add scheduler and reconciler. |
+| 6 | Phase 65 | Planned | Streaming Gateway | Add authenticated short-lived media sessions over internal providers. |
+| 7 | Phase 66 | Planned | Legacy OSD Bridge | Add isolated compatibility sessions with viewer and controller permissions. |
+| 8 | Phase 67 | Planned | Public API and Client Hardening | Stabilize `/api/v1`, errors, revisions, compatibility and client contracts. |
+| 9 | Phase 68 | Vision | Recommendation and Knowledge Graph | Add explainable recommendations after metadata and platform foundations mature. |
 
-This table is authoritative for future phase order. Later phases do not start before the dependency and exit criteria in [Roadmap](roadmap.md) are complete.
+This table is authoritative for phase numbering. The [Roadmap](roadmap.md) owns strict order and exit criteria. The [Implementation Dependency Map](implementation-dependency-map.md) owns detailed prerequisite and slice order.
 
 ---
 
@@ -94,17 +116,18 @@ This table is authoritative for future phase order. Later phases do not start be
 - Phase 58 remains a historical umbrella label only.
 - Phase 59 and Phase 60 are already-used implementation ranges and are not reused for new major milestones.
 - Future milestones continue sequentially with Phase 61 through Phase 68.
-- Architecture ADR work is listed before Phase 60.15 because it defines contracts, not a runtime milestone.
+- The completed architecture package is a contract prerequisite, not a runtime phase number.
 
 ---
 
 ## Maintenance Rules
 
 - This file owns phase numbers and compact status.
-- [Roadmap](roadmap.md) owns the strict execution order and phase exit criteria.
+- [Roadmap](roadmap.md) owns strict execution order and phase exit criteria.
+- [Implementation Dependency Map](implementation-dependency-map.md) expands phase prerequisites and slice order.
 - [Completed Phases](../development/completed-phases.md) owns chronological implementation history.
-- When a new phase completes, update this file and run the phase-map coverage check.
-- Accepted ADRs do not by themselves mark runtime phases as complete.
+- When a runtime phase completes, update this file and run the phase-map coverage check.
+- Accepted ADRs and target diagrams do not by themselves mark runtime phases complete.
 
 Verification:
 
