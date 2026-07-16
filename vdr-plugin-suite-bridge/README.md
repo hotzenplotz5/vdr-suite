@@ -23,11 +23,10 @@ used by the separate Backend Agent.
 ## Current slice
 
 ```text
-SB.6 - Read-only native SVDRP contract
+SB.7 - Gold-standard lifecycle and callback-boundary hardening
 ```
 
-The plugin now exposes the deterministic local-contract payload through VDR's
-existing plugin-specific SVDRP interface:
+The plugin keeps the read-only native SVDRP endpoint introduced by SB.6:
 
 ```text
 PLUG suitebridge SNAP
@@ -55,13 +54,37 @@ Capability schema version remains `1`.
 
 ## Lifecycle boundary
 
+The lifecycle state machine is:
+
+```text
+constructed
+  -> initialized
+  -> started
+  -> stopping
+  -> stopped
+```
+
 - construction registers the `cStatus` monitor but leaves it inactive;
 - successful `Start()` activates observation and captures an active snapshot;
 - callbacks received while inactive are ignored;
-- `SNAP` captures the current monitor counters on demand;
-- `Stop()` disables observation before the lifecycle reaches `stopped`;
-- deactivation captures the final inactive snapshot;
+- `Stop()` enters `stopping` before observation is deactivated;
+- deactivation captures the final inactive snapshot outside callback execution;
+- only after deactivation does the lifecycle reach `stopped`;
+- invalid or repeated transitions are deterministic;
 - no event queue or background worker is created.
+
+## Callback boundary
+
+Each VDR status callback is deliberately bounded to:
+
+1. discard pointer and descriptive arguments;
+2. check the atomic active flag;
+3. increment one relaxed atomic counter;
+4. return.
+
+The callback path performs no logging, serialization, network access, file or
+database work, allocation, waiting or external invocation. Structured lifecycle,
+snapshot and SVDRP logging remains outside the callbacks.
 
 ## Deliberate boundaries
 
@@ -74,11 +97,13 @@ The plugin still has:
 - no database access;
 - no filesystem mutation;
 - no VDR mutation;
-- no write-capable SVDRP command.
+- no write-capable SVDRP command;
+- no Streaming Gateway or media-session ownership.
 
 The Backend Agent reaches `SNAP` through VDR's already configured SVDRP access.
 Network exposure, source restrictions and authentication remain deployment
-responsibilities outside this plugin slice.
+responsibilities outside this plugin slice. ADR-0046 keeps public media sessions,
+routing, authorization and byte delivery outside the plugin boundary.
 
 ## Build and tests
 
@@ -89,9 +114,9 @@ make check
 
 `make check` validates the foundation, capability, status-event,
 status-snapshot, local-contract-payload and read-only SVDRP source contracts,
-version extraction, lifecycle state machine, capability catalogue, atomic
-counters, immutable snapshots, deterministic payload bytes, command handling and
-the final shared-object build.
+version extraction, the two-phase lifecycle state machine, callback-side-effect
+exclusion, capability catalogue, atomic counters, immutable snapshots,
+deterministic payload bytes, command handling and the final shared-object build.
 
 ## Staged installation
 
