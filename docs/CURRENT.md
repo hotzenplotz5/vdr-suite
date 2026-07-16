@@ -78,16 +78,18 @@ ADR-0038 - Suite Metadata Database and External Provider Strategy
 ADR-0039 - Backend Agent and Control Plane Boundary
 ADR-0040 - Backend Lifecycle, Generation, Lease and Health
 ADR-0041 - Authentication, Agent Trust and Multi-Site Transport
+ADR-0042 - Safe Mutation, Revision and Idempotency Contract
 ```
+
+ADR-0042 accepts the common mutation contract. It does not mark universal revision, durable idempotency storage or all domain migrations as implemented.
 
 ---
 
 ## Immediate Repository Work
 
-Complete the second contract package before Phase 60.15:
+Continue the second contract package before Phase 60.15:
 
 ```text
-ADR-0042 - Safe Mutation, Revision and Idempotency Contract
 ADR-0043 - Job Claim, Retry and Saga Execution Model
 ADR-0044 - Timer Intent, Assignment and Native Timer Model
 ADR-0045 - Canonical EPG Event Identity and Provenance
@@ -110,7 +112,7 @@ Keep the strict Phase 60.15-68 sequence aligned with the decisions.
 ## Strict Future Sequence
 
 ```text
-1. ADR-0042 through ADR-0049 and diagrams
+1. ADR-0043 through ADR-0049 and diagrams
 2. Phase 60.15 - Recording Metadata Preparation
 3. Phase 61 - Suite Metadata Platform
 4. Phase 62 - Identity, RBAC and Audit
@@ -121,6 +123,8 @@ Keep the strict Phase 60.15-68 sequence aligned with the decisions.
 9. Phase 67 - Public API and Client Hardening
 10. Phase 68 - Recommendation and Knowledge Graph
 ```
+
+ADR-0042 remains part of Step 1 and supplies the accepted mutation prerequisite for the remaining contract package.
 
 ---
 
