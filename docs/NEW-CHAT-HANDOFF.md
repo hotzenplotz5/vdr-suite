@@ -56,6 +56,12 @@ Latest completed major project block:
 Phase 57 - Multi-Site Backend Administration and Permissions
 ```
 
+Previous completed major project block:
+
+```text
+Phase 56 - Library Boundary, Packaging and Developer Documentation
+```
+
 Historical umbrella implementation track:
 
 ```text
