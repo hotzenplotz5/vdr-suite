@@ -4,10 +4,10 @@ include mk/test-groups.mk
 
 
 test-json-string-decoder:
-	$(CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/tests/test_json_string_decoder.cpp \
-		-o /tmp/test_json_string_decoder
-	/tmp/test_json_string_decoder
+		-o $(BUILD_DIR)/test_json_string_decoder
+	$(BUILD_DIR)/test_json_string_decoder
 
 
 test-searchtimer-discovery-runtime-wiring:
@@ -23,11 +23,11 @@ test-http-listener-bind-failure-handling:
 
 
 test-http-listener-partial-request-timeout:
-	$(CXX) $(CXXFLAGS) -pthread \
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		core/http/src/SimpleHttpListener.cpp \
 		core/http/tests/test_simple_http_listener_partial_request_timeout.cpp \
-		-o /tmp/test_simple_http_listener_partial_request_timeout
-	/tmp/test_simple_http_listener_partial_request_timeout
+		-o $(BUILD_DIR)/test_simple_http_listener_partial_request_timeout
+	$(BUILD_DIR)/test_simple_http_listener_partial_request_timeout
 
 
 test-real-vdr-acceptance-manifest:
@@ -47,65 +47,65 @@ test-recording-mutation-safety-policy:
 
 
 test-backend-node:
-	$(CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/tests/test_backend_node.cpp \
-		-o /tmp/test_backend_node
-	/tmp/test_backend_node
+		-o $(BUILD_DIR)/test_backend_node
+	$(BUILD_DIR)/test_backend_node
 
 
 test-backend-registry:
-	$(CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/tests/test_backend_registry.cpp \
-		-o /tmp/test_backend_registry
-	/tmp/test_backend_registry
+		-o $(BUILD_DIR)/test_backend_registry
+	$(BUILD_DIR)/test_backend_registry
 
 
 test-backend-registry-service:
-	$(CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/tests/test_backend_registry_service.cpp \
-		-o /tmp/test_backend_registry_service
-	/tmp/test_backend_registry_service
+		-o $(BUILD_DIR)/test_backend_registry_service
+	$(BUILD_DIR)/test_backend_registry_service
 
 
 test-backend-registry-json-serializer:
-	$(CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryJsonSerializer.cpp \
 		core/vdr/tests/test_backend_registry_json_serializer.cpp \
-		-o /tmp/test_backend_registry_json_serializer
-	/tmp/test_backend_registry_json_serializer
+		-o $(BUILD_DIR)/test_backend_registry_json_serializer
+	$(BUILD_DIR)/test_backend_registry_json_serializer
 
 
 test-search-timer-preview-epg-cache:
-	$(CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/SearchTimerPreviewEpgCache.cpp \
 		core/vdr/tests/test_search_timer_preview_epg_cache.cpp \
-		-o /tmp/test_search_timer_preview_epg_cache
-	/tmp/test_search_timer_preview_epg_cache
+		-o $(BUILD_DIR)/test_search_timer_preview_epg_cache
+	$(BUILD_DIR)/test_search_timer_preview_epg_cache
 
 
 test-vdr-snapshot-read-service-searchtimer-preview-epg-cache:
-	$(CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/SnapshotCache.cpp \
 		core/vdr/src/SnapshotCacheService.cpp \
 		core/vdr/src/SnapshotAccessService.cpp \
 		core/vdr/src/SearchTimerPreviewEpgCache.cpp \
 		core/vdr/src/VdrSnapshotReadService.cpp \
 		core/vdr/tests/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache.cpp \
-		-o /tmp/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache
-	/tmp/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache
+		-o $(BUILD_DIR)/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache
+	$(BUILD_DIR)/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache
 
 
 test-api-router-searchtimer-preview-epg-cache:
-	$(CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
@@ -118,8 +118,8 @@ test-api-router-searchtimer-preview-epg-cache:
 		api/rest/src/SearchTimerController.cpp \
 		api/rest/tests/test_api_router_searchtimer_preview_epg_cache.cpp \
 		$(LDFLAGS) \
-		-o /tmp/test_api_router_searchtimer_preview_epg_cache
-	/tmp/test_api_router_searchtimer_preview_epg_cache
+		-o $(BUILD_DIR)/test_api_router_searchtimer_preview_epg_cache
+	$(BUILD_DIR)/test_api_router_searchtimer_preview_epg_cache
 
 .PHONY: test-frontend-contracts
 test-frontend-contracts: test-frontend-i18n
