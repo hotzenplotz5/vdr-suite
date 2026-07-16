@@ -1,65 +1,93 @@
 # SB.6 Read-Only Native SVDRP Contract
 
-SB.6 exposes the deterministic local-contract payload through VDR's existing
-plugin-specific SVDRP command path. Later slices retain the same command while
-versioning the payload contract explicitly.
+SB.6 introduced the deterministic local-contract payload through VDR's existing
+plugin-specific SVDRP command path. Later slices retain `SNAP` and may add only
+bounded read-only commands with independent versioned contracts.
 
-## Command
+## Commands
 
-The Backend Agent can request the current payload with:
+### Status snapshot
 
 ```text
 PLUG suitebridge SNAP
 ```
 
-The command accepts no option and returns one compact JSON line.
+`SNAP` accepts no option and returns the current compact local-contract payload.
+
+### Capability discovery
+
+SB.9 adds:
+
+```text
+PLUG suitebridge CAPS [discovery-schema]
+```
+
+`CAPS` without an option selects the current discovery schema. `CAPS 1`
+explicitly requests discovery schema `1`.
 
 ## Reply contract
 
 | Case | Reply code | Result |
 | --- | ---: | --- |
-| valid `SNAP` request | `900` | current deterministic payload |
+| valid `SNAP` request | `900` | current deterministic status payload |
 | `SNAP` with an option | `504` | request rejected |
-| unknown command | VDR default | plugin returns unhandled |
+| valid `CAPS` or `CAPS 1` | `900` | deterministic capability payload |
+| `CAPS` with unsupported numeric schema | `504` | schema not supported |
+| `CAPS` with malformed schema | `501` | invalid argument syntax |
 | payload preparation failure | `451` | local processing failure |
+| unknown command | VDR default | plugin returns unhandled |
 
 Command matching is case-insensitive. JSON field order and schema values are
-defined by the current local-contract payload.
+defined by each command's own payload contract.
 
-## Current schema compatibility
+## Schema compatibility
 
-Capability schema remains version `1`.
+The independent plugin-local schema axes are:
 
-Snapshot schema and local-contract schema are version `2` after SB.8. The payload
-adds:
+| Schema | Version |
+| --- | ---: |
+| Capability discovery | `1` |
+| Capability catalogue | `1` |
+| Status snapshot | `2` |
+| Local contract | `2` |
 
-- `counter_epoch`;
-- `counter_overflow`.
+The public Suite API, future authenticated Agent protocol and plugin software
+version are separate compatibility axes.
 
-A consumer that supports only schema `1` must reject or safely degrade. It must
-not calculate counter deltas while ignoring the continuity fields.
+A consumer that supports only local-contract schema `1` must reject or safely
+degrade when schema `2` is reported. It must not calculate counter deltas while
+ignoring continuity fields.
+
+A consumer that does not support discovery schema `1` must not infer capability
+support from the plugin version. An older plugin that leaves `CAPS` unhandled is
+treated as legacy or unknown; optional and mutating functions remain disabled.
 
 ## Read-only boundary
 
-`SNAP` only captures the current atomic monitor counters and serializes the
-result. It does not:
+`SNAP` captures the current atomic monitor counters and serializes one immutable
+snapshot. `CAPS` serializes only compile-time and immutable plugin contract
+values and deliberately does not capture a status snapshot.
 
-- switch a channel;
-- create, edit or delete a timer;
-- start or stop a recording;
-- control replay;
-- reset counters;
-- alter VDR setup;
-- write a file;
-- create a worker thread;
-- open a plugin-owned socket.
+Neither command:
+
+- switches a channel;
+- creates, edits or deletes a Timer;
+- starts or stops a Recording;
+- controls replay;
+- resets counters;
+- alters VDR setup;
+- writes a file;
+- creates a worker thread;
+- opens a plugin-owned socket;
+- enables mutations.
 
 The plugin uses VDR's existing SVDRP server and does not implement its own
 listener.
 
 ## Resynchronization
 
-`SNAP` is the full read-only resynchronization point for diagnostic counters.
+`SNAP` remains the complete read-only resynchronization point for diagnostic
+counters.
 
 The Backend Agent accepts a new baseline when:
 
@@ -71,20 +99,24 @@ When `counter_overflow` is true, the Agent must not derive further event deltas
 for that epoch.
 
 The counters are not a durable sequence, domain-event history or audit record.
+`CAPS` does not change the epoch or any counter.
 
 ## Capability
 
 `local-contract` is reported as `available`. `mutations` remains `disabled`.
+Capability discovery reports that state but does not constitute authorization.
 
 ## Current live acceptance target
 
-The SB.8 live test must prove:
+The SB.9 live test must prove:
 
-1. plugin version `0.9.0` loads;
-2. `HELP` advertises `SNAP`;
-3. `SNAP` returns reply code `900` and schemas `2`, `1`, `2`;
-4. the epoch is valid and stable within one instance;
-5. a controlled native observation changes counters without changing the epoch;
-6. VDR restart creates a different epoch;
-7. normal operation reports no overflow;
-8. plugin removal and VDR restart leave no Suite Bridge binary loaded.
+1. plugin version `0.10.0` loads;
+2. `HELP` advertises `CAPS` and `SNAP`;
+3. `CAPS` and `CAPS 1` return byte-identical reply-`900` payloads;
+4. unsupported and malformed discovery schemas return `504` and `501`;
+5. discovery reports schemas `1`, `1`, `2`, `2`;
+6. all five capability IDs and states are exact;
+7. `mutations` is disabled;
+8. `SNAP` remains schema `2` and unchanged across discovery calls;
+9. callback logs and VDR state remain unchanged;
+10. plugin removal and VDR restart leave no Suite Bridge binary loaded.
