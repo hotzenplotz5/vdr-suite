@@ -29,10 +29,36 @@ jobs:
           make test-docs
           make test-phase
 
+  make-test-audit:
+    runs-on: ubuntu-latest
+    needs:
+      - docs-check
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Make test inventory
+        run: |
+          python3 tools/check_make_test_manifest.py | tee make-test-inventory.txt
+          python3 tools/list_make_test_debt.py | tee -a make-test-inventory.txt
+
+      - name: Upload Make test audit bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: make-test-audit-bundle
+          path: |
+            make-test-inventory.txt
+            Makefile
+            mk/
+          if-no-files-found: error
+          retention-days: 14
+
   fast-regression-test:
     runs-on: ubuntu-latest
     needs:
       - docs-check
+      - make-test-audit
 
     steps:
       - name: Checkout repository
@@ -45,24 +71,6 @@ jobs:
 
       - name: Run fast CI regression test
         run: make test-ci-fast
-
-      - name: Capture Make test inventory
-        if: always()
-        run: |
-          python3 tools/check_make_test_manifest.py | tee make-test-inventory.txt
-          python3 tools/list_make_test_debt.py | tee -a make-test-inventory.txt
-
-      - name: Upload Make test audit bundle
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: make-test-audit-bundle
-          path: |
-            make-test-inventory.txt
-            Makefile
-            mk/
-          if-no-files-found: error
-          retention-days: 14
 
       - name: Build daemon
         run: make daemon
