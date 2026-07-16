@@ -1,0 +1,66 @@
+name: Make Finalize Once
+
+on:
+  push:
+    branches:
+      - agent/make-test-finalize
+
+permissions:
+  contents: write
+
+concurrency:
+  group: make-finalize-once
+  cancel-in-progress: true
+
+jobs:
+  remove-duplicate-ldflags:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout finalization branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/make-test-finalize
+          fetch-depth: 0
+
+      - name: Remove exactly three adjacent duplicate LDFLAGS lines
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("mk/vdr-tests.mk")
+          lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+          output = []
+          removed = []
+
+          for number, line in enumerate(lines, start=1):
+              normalized = line.strip().rstrip("\\").strip()
+              previous = (
+                  output[-1].strip().rstrip("\\").strip()
+                  if output
+                  else ""
+              )
+              if normalized == "$(LDFLAGS)" and previous == normalized:
+                  removed.append(number)
+                  continue
+              output.append(line)
+
+          if len(removed) != 3:
+              raise SystemExit(
+                  f"Expected exactly 3 duplicate LDFLAGS lines, found {len(removed)}: {removed}"
+              )
+
+          path.write_text("".join(output), encoding="utf-8")
+          print(f"Removed duplicate LDFLAGS lines: {removed}")
+          PY
+
+          python3 tools/audit_make_test_inventory.py --check
+
+      - name: Commit linker cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mk/vdr-tests.mk
+          git diff --cached --check
+          git commit -m "Build: remove duplicate linker flags"
+          git push origin HEAD:agent/make-test-finalize
