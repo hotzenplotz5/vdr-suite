@@ -462,7 +462,6 @@ test-snapshot-cache:
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_snapshot_cache.cpp \
 		$(LDFLAGS) \
-		$(LDFLAGS) \
 		-o /tmp/test_snapshot_cache
 	/tmp/test_snapshot_cache
 
@@ -512,7 +511,6 @@ test-live-update-event-json-serializer:
 		$(VDR_SRC) \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_live_update_event_json_serializer.cpp \
-		$(LDFLAGS) \
 		$(LDFLAGS) \
 		-o /tmp/test_live_update_event_json_serializer
 	/tmp/test_live_update_event_json_serializer
@@ -602,7 +600,6 @@ test-restful-api-recording-mapper:
 		$(SQLITE_SRC) \
 		core/vdr/src/RestfulApiRecordingMapper.cpp \
 		core/vdr/tests/test_restful_api_recording_mapper.cpp \
-		$(LDFLAGS) \
 		$(LDFLAGS) \
 		-o /tmp/test_restful_api_recording_mapper
 	/tmp/test_restful_api_recording_mapper

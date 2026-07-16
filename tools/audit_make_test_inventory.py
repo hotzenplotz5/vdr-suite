@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the GNU Make test inventory without executing product tests.
-
-The audit intentionally distinguishes hard structural errors from migration
-warnings. Hard errors fail --check. Warnings document existing organization
-debt so the Make/test consolidation can proceed without deleting useful tests.
-"""
+"""Audit GNU Make test coverage and group ownership without executing tests."""
 
 from __future__ import annotations
 
@@ -12,18 +7,23 @@ import argparse
 import json
 import re
 import sys
-from collections import deque
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
+from typing import DefaultDict, Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
+GROUP_FILE = Path("mk/test-groups.mk")
 MAKEFILES = [ROOT / "Makefile", *sorted((ROOT / "mk").rglob("*.mk"))]
 
-TARGET_RE = re.compile(r"^([A-Za-z0-9_.%/+:-]+(?:\s+[A-Za-z0-9_.%/+:-]+)*)\s*:(?![=])\s*(.*)$")
-PATH_RE = re.compile(
-    r"(?<![$(])\b(?:[A-Za-z0-9_.-]+/)+(?:[A-Za-z0-9_.-]+\.)"
-    r"(?:cpp|cc|c|h|hpp|py|js|json|sql|md|service|html|css|svg)\b"
+CANONICAL_GROUPS = (
+    "test-ci-fast",
+    "test-ci-frontend",
+    "test-ci-packaging",
+    "test-vdr",
+    "test-all",
+    "test-manual-real",
+    "test-make-inventory",
 )
 
 PUBLIC_GROUPS = (
@@ -37,8 +37,30 @@ PUBLIC_GROUPS = (
     "test-frontend-contracts",
     "test-frontend-i18n",
     "test-install-staging",
+    "test-manual-real",
     "real-vdr-regression",
 )
+
+REQUIRED_REACHABILITY = {
+    "test-ci-fast": {
+        "test-make-inventory",
+        "test-recording-mutation-safety-policy",
+        "test-restfulapi-recording-trash-contract",
+        "test-systemd-unit-contract",
+    },
+    "test-ci-frontend": {"test-frontend-contracts"},
+    "test-ci-packaging": {
+        "test-install-staging",
+        "test-systemd-unit-contract",
+    },
+    "test-all": {
+        "test",
+        "test-vdr",
+        "test-ci-frontend",
+        "test-ci-packaging",
+        "test-make-inventory",
+    },
+}
 
 MANUAL_PREFIXES = (
     "real-",
@@ -46,6 +68,39 @@ MANUAL_PREFIXES = (
     "restfulapi-real-",
     "searchtimer-real-",
     "vdr-timer-real-",
+)
+
+INTENTIONAL_RUNTIME_AGGREGATES = {
+    (
+        "DAEMON_SRC",
+        "core/http/src/TestHttpServer.cpp",
+    ): "legacy-named production HTTP dispatcher constructed by DaemonRuntime",
+    (
+        "VDR_SRC",
+        "core/vdr/src/MockVdrAdapter.cpp",
+    ): "explicit mock runtime mode provided by VdrAdapterFactory",
+    (
+        "VDR_SRC",
+        "core/vdr/src/TestLiveTransport.cpp",
+    ): "explicit test runtime mode provided by LiveTransportFactory",
+    (
+        "REST_ROUTER_SRC",
+        "core/vdr/src/MockVdrTimerActionExecutor.cpp",
+    ): "router test-fixture aggregate; compatibility alias pending source split",
+}
+
+TARGET_RE = re.compile(
+    r"^([A-Za-z0-9_.%/+\-]+(?:\s+[A-Za-z0-9_.%/+\-]+)*)\s*:(?!=)\s*(.*)$"
+)
+VARIABLE_ASSIGNMENT_RE = re.compile(
+    r"^([A-Za-z0-9_]+)\s*(\+=|:=|=|\?=)\s*(.*)$"
+)
+VARIABLE_REFERENCE_RE = re.compile(r"^\$\(([A-Za-z0-9_]+)\)$")
+SOURCE_ASSIGNMENT_RE = re.compile(
+    r"^([A-Za-z0-9_]+)\s*(?::=|=|\+=|\?=)\s*(.*)$"
+)
+TEST_SOURCE_RE = re.compile(
+    r"(?:^|\s)((?:api|core|web)/[^\s\\]+/test_[^\s\\]+\.(?:cpp|cc|js))"
 )
 
 
@@ -57,66 +112,130 @@ class Target:
     recipe_locations: list[str] = field(default_factory=list)
 
 
-def logical_lines(path: Path) -> Iterable[tuple[int, str]]:
-    lines = path.read_text(encoding="utf-8").splitlines()
-    index = 0
-    while index < len(lines):
-        start = index + 1
-        line = lines[index]
-        while line.rstrip().endswith("\\") and index + 1 < len(lines):
-            line = line.rstrip()[:-1] + " " + lines[index + 1].strip()
-            index += 1
-        yield start, line
-        index += 1
+def relative(path: Path) -> str:
+    return path.relative_to(ROOT).as_posix()
 
 
-def parse_makefiles() -> tuple[dict[str, Target], list[str], list[str]]:
+def logical_lines(lines: Iterable[str]) -> list[tuple[int, str]]:
+    result: list[tuple[int, str]] = []
+    current = ""
+    start = 0
+    for number, raw in enumerate(lines, start=1):
+        line = raw.rstrip("\n")
+        if current:
+            current += line.lstrip()
+        else:
+            current = line
+            start = number
+        if current.rstrip().endswith("\\"):
+            current = current.rstrip()[:-1] + " "
+            continue
+        result.append((start, current))
+        current = ""
+    if current:
+        result.append((start, current))
+    return result
+
+
+def parse_make_variables() -> dict[str, list[str]]:
+    variables: dict[str, list[str]] = {}
+    for path in MAKEFILES:
+        for _number, line in logical_lines(
+            path.read_text(encoding="utf-8").splitlines()
+        ):
+            match = VARIABLE_ASSIGNMENT_RE.match(line.strip())
+            if not match:
+                continue
+            name, operator, value = match.groups()
+            tokens = value.split()
+            if operator == "+=":
+                variables.setdefault(name, []).extend(tokens)
+            elif operator == "?=":
+                variables.setdefault(name, tokens)
+            else:
+                variables[name] = tokens
+    return variables
+
+
+def dependency_tokens(
+    text: str,
+    variables: dict[str, list[str]],
+) -> set[str]:
+    result: set[str] = set()
+    queue: deque[str] = deque(text.split())
+    expanded_variables: set[str] = set()
+
+    while queue:
+        token = queue.popleft()
+        if token == "|":
+            continue
+        if token.startswith("#"):
+            break
+
+        variable_match = VARIABLE_REFERENCE_RE.match(token)
+        if variable_match:
+            name = variable_match.group(1)
+            if name in expanded_variables:
+                continue
+            expanded_variables.add(name)
+            queue.extendleft(reversed(variables.get(name, [])))
+            continue
+
+        if "$" in token or "%" in token or "=" in token:
+            continue
+        result.add(token)
+
+    return result
+
+
+def parse_targets() -> tuple[dict[str, Target], set[Path]]:
+    variables = parse_make_variables()
     targets: dict[str, Target] = {}
-    referenced_paths: list[str] = []
-    duplicate_ldflags: list[str] = []
+    referenced_test_sources: set[Path] = set()
 
     for path in MAKEFILES:
-        relative = path.relative_to(ROOT).as_posix()
-        raw_lines = path.read_text(encoding="utf-8").splitlines()
-        previous_nonempty = ""
-        for lineno, raw_line in enumerate(raw_lines, start=1):
-            stripped = raw_line.strip()
-            if stripped == "$(LDFLAGS) \\" and previous_nonempty == "$(LDFLAGS) \\" :
-                duplicate_ldflags.append(f"{relative}:{lineno}")
-            if stripped:
-                previous_nonempty = stripped
-
+        lines = path.read_text(encoding="utf-8").splitlines()
         current_targets: list[str] = []
-        for lineno, line in logical_lines(path):
+
+        for raw in lines:
+            for match in TEST_SOURCE_RE.finditer(raw):
+                referenced_test_sources.add(Path(match.group(1)))
+
+        for number, line in logical_lines(lines):
             stripped = line.strip()
-            if not stripped.startswith("#"):
-                referenced_paths.extend(PATH_RE.findall(line))
+            if not stripped or stripped.startswith("#"):
+                current_targets = []
+                continue
 
             match = TARGET_RE.match(line)
             if match and not line.startswith("\t"):
                 names = match.group(1).split()
-                dependencies = {
-                    token
-                    for token in match.group(2).split()
-                    if token and not token.startswith(("$", "|"))
-                }
+                if names == [".PHONY"]:
+                    current_targets = []
+                    continue
+                dependencies = dependency_tokens(match.group(2), variables)
                 current_targets = names
                 for name in names:
                     target = targets.setdefault(name, Target(name=name))
                     target.dependencies.update(dependencies)
-                    target.definitions.append(f"{relative}:{lineno}")
+                    target.definitions.append(f"{relative(path)}:{number}")
                 continue
 
             if line.startswith("\t") and current_targets:
                 for name in current_targets:
-                    targets[name].recipe_locations.append(f"{relative}:{lineno}")
-            elif stripped and not stripped.startswith("#"):
+                    targets[name].recipe_locations.append(
+                        f"{relative(path)}:{number}"
+                    )
+            else:
                 current_targets = []
 
-    return targets, referenced_paths, duplicate_ldflags
+    return targets, referenced_test_sources
 
 
-def transitive_dependencies(targets: dict[str, Target], root: str) -> set[str]:
+def transitive_dependencies(
+    targets: dict[str, Target],
+    root: str,
+) -> set[str]:
     seen: set[str] = set()
     queue: deque[str] = deque([root])
     while queue:
@@ -125,156 +244,207 @@ def transitive_dependencies(targets: dict[str, Target], root: str) -> set[str]:
             continue
         seen.add(current)
         target = targets.get(current)
-        if not target:
-            continue
-        queue.extend(dep for dep in target.dependencies if dep not in seen)
-    seen.discard(root)
+        if target:
+            queue.extend(
+                dependency
+                for dependency in target.dependencies
+                if dependency not in seen
+            )
     return seen
 
 
-def expected_target_for_test_file(path: Path) -> str:
-    return path.stem.replace("_", "-")
+def discovered_test_sources() -> set[Path]:
+    result: set[Path] = set()
+    for pattern in ("**/test_*.cpp", "**/test_*.cc", "**/test_*.js"):
+        for path in ROOT.glob(pattern):
+            if ".git" in path.parts or "build" in path.parts:
+                continue
+            if "tests" not in path.parts:
+                continue
+            result.add(path.relative_to(ROOT))
+    return result
 
 
-def production_test_support_warnings() -> list[str]:
-    warnings: list[str] = []
-    production_files = [ROOT / "mk" / "vdr-sources.mk", ROOT / "mk" / "daemon-sources.mk"]
-    marker = re.compile(r"(?:^|/)(?:Mock|Test)[A-Za-z0-9_]*\.(?:cpp|cc|c)$")
-    for path in production_files:
-        if not path.exists():
-            continue
-        relative = path.relative_to(ROOT).as_posix()
-        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-            for candidate in PATH_RE.findall(line):
-                if marker.search(candidate):
-                    warnings.append(f"{relative}:{lineno}: production aggregate references {candidate}")
-    return warnings
+def parse_source_aggregates() -> dict[str, list[str]]:
+    aggregates: DefaultDict[str, list[str]] = defaultdict(list)
+    for path in MAKEFILES:
+        for _number, line in logical_lines(
+            path.read_text(encoding="utf-8").splitlines()
+        ):
+            match = SOURCE_ASSIGNMENT_RE.match(line.strip())
+            if not match:
+                continue
+            name, value = match.groups()
+            if not name.endswith("_SRC"):
+                continue
+            aggregates[name].extend(
+                token for token in value.split() if token.endswith(".cpp")
+            )
+    return dict(aggregates)
+
+
+def duplicate_ldflags() -> list[str]:
+    duplicates: list[str] = []
+    for path in MAKEFILES:
+        previous = ""
+        for number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(),
+            start=1,
+        ):
+            normalized = line.strip().rstrip("\\").strip()
+            if normalized == "$(LDFLAGS)" and previous == normalized:
+                duplicates.append(f"{relative(path)}:{number}")
+            previous = normalized
+    return duplicates
 
 
 def build_report() -> dict[str, object]:
-    targets, referenced_paths, duplicate_ldflags = parse_makefiles()
+    targets, referenced_test_sources = parse_targets()
     errors: list[str] = []
-    warnings: list[str] = []
 
-    unresolved_paths = sorted(
-        path_text for path_text in set(referenced_paths) if not (ROOT / path_text).exists()
-    )
-    if unresolved_paths:
-        warnings.append(
-            f"{len(unresolved_paths)} Make path references need source/destination classification"
+    for group in CANONICAL_GROUPS:
+        target = targets.get(group)
+        if target is None:
+            errors.append(f"Missing canonical test group: {group}")
+            continue
+        definition_files = sorted(
+            {definition.split(":", 1)[0] for definition in target.definitions}
         )
+        if definition_files != [GROUP_FILE.as_posix()]:
+            errors.append(
+                f"Canonical group {group} must be defined only in "
+                f"{GROUP_FILE}: {', '.join(definition_files)}"
+            )
 
     for target in targets.values():
-        recipe_files = {location.split(":", 1)[0] for location in target.recipe_locations}
+        recipe_files = {
+            location.split(":", 1)[0]
+            for location in target.recipe_locations
+        }
         if len(recipe_files) > 1:
             errors.append(
                 f"Target {target.name} has recipes in multiple files: "
                 + ", ".join(sorted(recipe_files))
             )
 
-    test_targets = sorted(name for name in targets if name.startswith("test-"))
-    group_closures = {
-        group: sorted(
-            dependency
-            for dependency in transitive_dependencies(targets, group)
-            if dependency.startswith("test-")
+    for group, required_targets in REQUIRED_REACHABILITY.items():
+        closure = transitive_dependencies(targets, group)
+        for required in sorted(required_targets - closure):
+            errors.append(f"{group} does not reach required target {required}")
+
+    grouped_targets: set[str] = set()
+    public_group_closures: dict[str, list[str]] = {}
+    for group in PUBLIC_GROUPS:
+        if group not in targets:
+            continue
+        closure = transitive_dependencies(targets, group)
+        public_group_closures[group] = sorted(
+            target for target in closure if target.startswith("test-")
         )
-        for group in PUBLIC_GROUPS
-        if group in targets
+        grouped_targets.update(closure)
+
+    test_targets = {
+        name for name in targets if name == "test" or name.startswith("test-")
     }
-    grouped_targets = {target for closure in group_closures.values() for target in closure}
-    ungrouped_targets = [
+    ungrouped_targets = sorted(
         target
-        for target in test_targets
-        if target not in grouped_targets
+        for target in test_targets - grouped_targets
+        if target not in PUBLIC_GROUPS
+        and target not in CANONICAL_GROUPS
         and not target.startswith(MANUAL_PREFIXES)
-        and target not in PUBLIC_GROUPS
-    ]
-    if ungrouped_targets:
-        warnings.append(
-            f"{len(ungrouped_targets)} test targets are not reachable from a public test group"
-        )
-
-    test_files = sorted(
-        path.relative_to(ROOT).as_posix()
-        for pattern in ("**/test_*.cpp", "**/test_*.cc", "**/test_*.js")
-        for path in ROOT.glob(pattern)
-        if ".git" not in path.parts
     )
-    missing_target_files: list[str] = []
-    for path_text in test_files:
-        expected = expected_target_for_test_file(Path(path_text))
-        if expected not in targets:
-            missing_target_files.append(path_text)
-    if missing_target_files:
-        warnings.append(
-            f"{len(missing_target_files)} test source files have no convention-matching Make target"
+    if ungrouped_targets:
+        errors.append(
+            f"{len(ungrouped_targets)} test targets are not reachable "
+            "from a public group"
         )
 
-    if duplicate_ldflags:
-        warnings.append(f"{len(duplicate_ldflags)} consecutive duplicate $(LDFLAGS) entries found")
-
-    production_leaks = production_test_support_warnings()
-    if production_leaks:
-        warnings.append(
-            f"{len(production_leaks)} test-support-looking sources are present in production aggregates"
+    test_sources = discovered_test_sources()
+    orphan_sources = sorted(test_sources - referenced_test_sources)
+    stale_test_references = sorted(referenced_test_sources - test_sources)
+    if orphan_sources:
+        errors.append(
+            f"{len(orphan_sources)} test source files have no Make reference"
+        )
+    if stale_test_references:
+        errors.append(
+            f"{len(stale_test_references)} Make references point to missing "
+            "test source files"
         )
 
-    repeated_group_definitions = {
-        group: targets[group].definitions
-        for group in PUBLIC_GROUPS
-        if group in targets and len(targets[group].definitions) > 1
-    }
-    if repeated_group_definitions:
-        warnings.append(
-            f"{len(repeated_group_definitions)} public test groups are defined in multiple locations"
+    duplicate_flags = duplicate_ldflags()
+    if duplicate_flags:
+        errors.append(
+            f"{len(duplicate_flags)} consecutive duplicate $(LDFLAGS) entries found"
+        )
+
+    aggregates = parse_source_aggregates()
+    production_findings: list[str] = []
+    accepted_runtime_variants: list[str] = []
+    for name in ("VDR_SRC", "DAEMON_SRC", "REST_ROUTER_SRC"):
+        for source in aggregates.get(name, []):
+            if not Path(source).name.startswith(("Mock", "Test")):
+                continue
+            key = (name, source)
+            reason = INTENTIONAL_RUNTIME_AGGREGATES.get(key)
+            if reason:
+                accepted_runtime_variants.append(
+                    f"{name}: {source} — {reason}"
+                )
+            else:
+                production_findings.append(f"{name}: {source}")
+    if production_findings:
+        errors.append(
+            f"{len(production_findings)} unclassified Mock/Test sources "
+            "are present in broad runtime aggregates"
         )
 
     return {
-        "makefiles": [path.relative_to(ROOT).as_posix() for path in MAKEFILES],
+        "makefiles": [relative(path) for path in MAKEFILES],
         "counts": {
             "makefiles": len(MAKEFILES),
             "targets": len(targets),
             "test_targets": len(test_targets),
-            "test_source_files": len(test_files),
-            "unresolved_make_paths": len(unresolved_paths),
+            "test_source_files": len(test_sources),
+            "referenced_test_source_files": len(referenced_test_sources),
             "ungrouped_test_targets": len(ungrouped_targets),
-            "test_files_without_convention_target": len(missing_target_files),
-            "duplicate_ldflags": len(duplicate_ldflags),
-            "production_test_support_references": len(production_leaks),
-            "multiply_defined_public_groups": len(repeated_group_definitions),
+            "orphan_test_source_files": len(orphan_sources),
+            "stale_test_source_references": len(stale_test_references),
+            "duplicate_ldflags": len(duplicate_flags),
+            "unclassified_runtime_test_sources": len(production_findings),
         },
-        "public_groups": group_closures,
-        "multiply_defined_public_groups": repeated_group_definitions,
-        "unresolved_make_paths": unresolved_paths,
+        "public_groups": public_group_closures,
         "ungrouped_test_targets": ungrouped_targets,
-        "test_files_without_convention_target": missing_target_files,
-        "duplicate_ldflags_locations": duplicate_ldflags,
-        "production_test_support_references": production_leaks,
+        "orphan_test_source_files": [str(path) for path in orphan_sources],
+        "stale_test_source_references": [
+            str(path) for path in stale_test_references
+        ],
+        "duplicate_ldflags_locations": duplicate_flags,
+        "unclassified_runtime_test_sources": production_findings,
+        "accepted_runtime_variants": sorted(accepted_runtime_variants),
         "errors": errors,
-        "warnings": warnings,
     }
 
 
 def print_human(report: dict[str, object]) -> None:
-    counts = report["counts"]
     print("Make/test inventory audit")
     print("=========================")
-    for key, value in counts.items():
+    for key, value in report["counts"].items():
         print(f"{key}: {value}")
 
+    accepted = report["accepted_runtime_variants"]
+    if accepted:
+        print("\nIntentional runtime variants:")
+        for item in accepted:
+            print(f"- {item}")
+
     errors = report["errors"]
-    warnings = report["warnings"]
     if errors:
         print("\nErrors:")
         for item in errors:
             print(f"- {item}")
-    if warnings:
-        print("\nMigration warnings:")
-        for item in warnings:
-            print(f"- {item}")
-
-    print("\nDetailed JSON can be produced with --json.")
+    else:
+        print("\nStrict Make/test inventory passed.")
 
 
 def main() -> int:
@@ -282,9 +452,13 @@ def main() -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="return non-zero for hard structural errors",
+        help="return non-zero for any inventory violation",
     )
-    parser.add_argument("--json", action="store_true", help="print the full report as JSON")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="print the full report as JSON",
+    )
     args = parser.parse_args()
 
     report = build_report()

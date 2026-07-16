@@ -3,3 +3,5 @@ RUNTIME_SRC := \
         core/runtime/src/ConsoleRuntimeLogger.cpp \
         core/runtime/src/RuntimeDiagnosticsJsonSerializer.cpp \
         core/runtime/src/RuntimeDiagnosticsSummaryBuilder.cpp
+
+include mk/runtime-tests.mk

@@ -1,4 +1,4 @@
-.PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-make-inventory
+.PHONY: test-ci-fast test-ci-frontend test-ci-packaging test-all test-vdr test-manual-real test-make-inventory
 
 CI_FAST_TESTS := \
 	check-vdr-linkage-contracts \
@@ -38,6 +38,8 @@ VDR_TESTS := \
 	check-vdr-linkage-contracts \
 	test-backend-node \
 	test-backend-registry \
+	test-backend-registry-service \
+	test-backend-registry-json-serializer \
 	test-vdr-config \
 	test-external-vdr-adapter \
 	test-vdr-adapter-factory \
@@ -184,6 +186,66 @@ CI_PACKAGING_TESTS := \
 	test-systemd-unit-contract \
 	test-install-staging
 
+EXTENDED_LOCAL_TESTS := \
+	test-architecture \
+	test-backend-registry-capability-resolver \
+	test-backend-runtime-context \
+	test-content-rating \
+	test-content-rating-controller \
+	test-content-rating-resolution-json-serializer \
+	test-content-rating-resolver \
+	test-docs \
+	test-epgsearch-matcher \
+	test-epgsearch-native-fuzzy-capability-freshness-policy \
+	test-epgsearch-native-fuzzy-capability-restore-service \
+	test-epgsearch-native-fuzzy-startup-restore-diagnostics \
+	test-epgsearch-native-fuzzy-startup-restore-service \
+	test-epgsearch-native-fuzzy-startup-restore-validation \
+	test-epgsearch-query \
+	test-epgsearch-request-mapper \
+	test-epgsearch-result-json-serializer \
+	test-epgsearch-service \
+	test-local-partial-refresh-validation \
+	test-local-restfulapi-integration \
+	test-local-snapshot-runtime-integration \
+	test-person \
+	test-person-controller \
+	test-person-query \
+	test-person-resolution-json-serializer \
+	test-person-resolver \
+	test-phase \
+	test-restful-api-search-timer-adapter \
+	test-restful-api-search-timer-mapper \
+	test-restful-api-timer-conflict-mapper \
+	test-restful-api-vdr-adapter-timer-conflicts \
+	test-restfulapi-delete-live-error-contract \
+	test-restfulapi-executor-preserves-http-error-status \
+	test-restfulapi-rename-live-error-contract \
+	test-restfulapi-search-timer-command-executor \
+	test-search-timer-controller \
+	test-search-timer-create-result-json-serializer \
+	test-search-timer-create-service \
+	test-search-timer-delete-request-parser \
+	test-search-timer-delete-result-json-serializer \
+	test-search-timer-delete-service \
+	test-search-timer-result-json-serializer \
+	test-search-timer-service \
+	test-search-timer-update-request-parser \
+	test-search-timer-update-result-json-serializer \
+	test-search-timer-update-service \
+	test-vdr-channel-move-controller \
+	test-vdr-snapshot-read-json-serializer \
+	test-vdr-timer-conflict-json-serializer \
+	test-vdr-timer-conflicts
+
+MANUAL_REAL_TESTS := \
+	real-vdr-regression \
+	test-real-restfulapi-integration \
+	test-real-snapshot-builder \
+	test-real-change-state \
+	test-real-polling-initial-snapshot \
+	test-real-polling-stability
+
 test-ci-fast: $(CI_FAST_TESTS)
 
 test-vdr: $(VDR_TESTS)
@@ -192,7 +254,9 @@ test-ci-frontend: $(CI_FRONTEND_TESTS)
 
 test-ci-packaging: $(CI_PACKAGING_TESTS)
 
-test-all: test test-vdr test-ci-frontend test-ci-packaging
+test-all: $(EXTENDED_LOCAL_TESTS) test test-vdr test-ci-frontend test-ci-packaging test-make-inventory
+
+test-manual-real: $(MANUAL_REAL_TESTS)
 
 test-make-inventory:
 	python3 tools/audit_make_test_inventory.py --check
