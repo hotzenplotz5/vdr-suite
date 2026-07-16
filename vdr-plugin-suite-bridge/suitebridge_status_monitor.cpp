@@ -51,6 +51,16 @@ SuiteBridgeStatusSnapshot SuiteBridgeStatusMonitor::CaptureSnapshot() const noex
   return events_.CaptureSnapshot(IsActive());
 }
 
+void SuiteBridgeStatusMonitor::RecordEvent(
+    SuiteBridgeStatusEventKind kind) noexcept
+{
+  if (!IsActive()) {
+    return;
+  }
+
+  (void)events_.Record(kind);
+}
+
 void SuiteBridgeStatusMonitor::LogSnapshot(
     const SuiteBridgeStatusSnapshot &snapshot) const noexcept
 {
@@ -88,19 +98,11 @@ void SuiteBridgeStatusMonitor::ChannelSwitch(
     int channelNumber,
     bool liveView)
 {
-  if (!IsActive()) {
-    return;
-  }
+  (void)device;
+  (void)channelNumber;
+  (void)liveView;
 
-  const unsigned long long sequence =
-      events_.Record(SuiteBridgeStatusEventKind::ChannelSwitch);
-
-  isyslog(
-      "suitebridge: status-event type=channel-switch sequence=%llu channel=%d live=%s device=%s",
-      sequence,
-      channelNumber,
-      liveView ? "true" : "false",
-      device != nullptr ? "present" : "none");
+  RecordEvent(SuiteBridgeStatusEventKind::ChannelSwitch);
 }
 
 void SuiteBridgeStatusMonitor::Recording(
@@ -109,21 +111,12 @@ void SuiteBridgeStatusMonitor::Recording(
     const char *fileName,
     bool on)
 {
+  (void)device;
   (void)name;
   (void)fileName;
+  (void)on;
 
-  if (!IsActive()) {
-    return;
-  }
-
-  const unsigned long long sequence =
-      events_.Record(SuiteBridgeStatusEventKind::Recording);
-
-  isyslog(
-      "suitebridge: status-event type=recording sequence=%llu on=%s device=%s",
-      sequence,
-      on ? "true" : "false",
-      device != nullptr ? "present" : "none");
+  RecordEvent(SuiteBridgeStatusEventKind::Recording);
 }
 
 void SuiteBridgeStatusMonitor::Replaying(
@@ -132,37 +125,20 @@ void SuiteBridgeStatusMonitor::Replaying(
     const char *fileName,
     bool on)
 {
+  (void)control;
   (void)name;
   (void)fileName;
+  (void)on;
 
-  if (!IsActive()) {
-    return;
-  }
-
-  const unsigned long long sequence =
-      events_.Record(SuiteBridgeStatusEventKind::Replaying);
-
-  isyslog(
-      "suitebridge: status-event type=replaying sequence=%llu on=%s control=%s",
-      sequence,
-      on ? "true" : "false",
-      control != nullptr ? "present" : "none");
+  RecordEvent(SuiteBridgeStatusEventKind::Replaying);
 }
 
 void SuiteBridgeStatusMonitor::TimerChange(
     const cTimer *timer,
     eTimerChange change)
 {
-  if (!IsActive()) {
-    return;
-  }
+  (void)timer;
+  (void)change;
 
-  const unsigned long long sequence =
-      events_.Record(SuiteBridgeStatusEventKind::TimerChange);
-
-  isyslog(
-      "suitebridge: status-event type=timer-change sequence=%llu change=%d timer=%s",
-      sequence,
-      static_cast<int>(change),
-      timer != nullptr ? "present" : "none");
+  RecordEvent(SuiteBridgeStatusEventKind::TimerChange);
 }
