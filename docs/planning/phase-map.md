@@ -73,7 +73,7 @@ The Phase 58 umbrella label is retained for historical product grouping. It does
 
 | Order | Range | Status | Track | Goal |
 | ---: | --- | --- | --- | --- |
-| 1 | Architecture package ADR-0042-ADR-0049 | In progress; ADR-0042 and ADR-0043 accepted | Core contracts | Complete the remaining timer, EPG, streaming, OSD, API and audit decisions plus diagrams and dependency map. |
+| 1 | Architecture package ADR-0042-ADR-0049 | In progress; ADR-0042 through ADR-0044 accepted | Core contracts | Complete the remaining EPG, streaming, OSD, API and audit decisions plus diagrams and dependency map. |
 | 2 | Phase 60.15 | Planned next implementation slice | Recording Metadata Preparation | Add provider-neutral metadata and artwork hooks while preserving lazy Recording behavior. |
 | 3 | Phase 61 | Planned | Suite Metadata Platform | Build normalized suite-owned metadata, provider, provenance and artwork services. |
 | 4 | Phase 62 | Planned | Identity, RBAC and Audit | Add user, service and Agent identities, scoped authorization and mutation audit foundation. |
