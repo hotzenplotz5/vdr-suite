@@ -7,7 +7,7 @@ namespace {
 constexpr std::array<SuiteBridgeCapabilityDescriptor, 5> CAPABILITIES = {{
     {"lifecycle", SuiteBridgeCapabilityState::Available},
     {"status-events", SuiteBridgeCapabilityState::Available},
-    {"snapshots", SuiteBridgeCapabilityState::Planned},
+    {"snapshots", SuiteBridgeCapabilityState::Available},
     {"local-contract", SuiteBridgeCapabilityState::Planned},
     {"mutations", SuiteBridgeCapabilityState::Disabled},
 }};
