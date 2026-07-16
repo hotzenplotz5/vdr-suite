@@ -66,12 +66,12 @@ A plugin capability must never report `available` merely because source code exi
 
 | Item | Current value |
 | --- | --- |
-| Last completed slice | `SB.7 - Gold-standard lifecycle and callback-boundary hardening` |
+| Last completed slice | `SB.8 - Diagnostic counter continuity and resynchronization contract` |
 | Plugin name | `suitebridge` |
-| Plugin version | `0.8.0` |
+| Plugin version | `0.9.0` |
 | Shared object | `libvdr-suitebridge.so.<VDR-APIVERSION>` |
-| SB.7 implementation completion commit | `5f8c4d7434157766da2853db4e58b3623b40f6c1` |
-| SB.7 live-acceptance repository head | `2b4df6bc239489cf1aeed239927d347db28234b9` |
+| SB.8 implementation and test completion commit | `396eeccc3af775c88247f748fbb200059b4b2d31` |
+| SB.8 live-acceptance repository head | `396eeccc3af775c88247f748fbb200059b4b2d31` |
 | Live VDR version | `2.7.9` |
 | Live VDR API version | `11` |
 | Mutation state | `disabled` |
@@ -90,8 +90,13 @@ Current behavior:
 - unknown commands remain unhandled for the VDR default response;
 - command matching is case-insensitive;
 - lifecycle is `constructed → initialized → started → stopping → stopped`;
-- VDR status callbacks perform only an active-state check and one atomic counter increment;
+- VDR status callbacks perform only an active-state check and one saturating atomic counter increment;
 - callback bodies perform no logging, serialization, allocation, locking, waiting or external work;
+- each plugin instance owns one immutable 32-character lowercase hexadecimal `counter_epoch`;
+- event-family counters and the derived total never wrap to zero;
+- `counter_overflow` becomes sticky when an event or total can no longer be represented exactly;
+- a changed epoch requires the Backend Agent to discard its old baseline and adopt a complete `SNAP`;
+- counters remain diagnostic observations, not durable event sequences or user-action counts;
 - no plugin-owned listener, outbound connection, database, worker thread or filesystem mutation exists.
 
 ### Current capabilities
@@ -109,8 +114,8 @@ Current behavior:
 | Schema | Version |
 | --- | ---: |
 | Capability schema | `1` |
-| Snapshot schema | `1` |
-| Local-contract schema | `1` |
+| Snapshot schema | `2` |
+| Local-contract schema | `2` |
 
 Current local-contract payload fields, in fixed order:
 
@@ -123,52 +128,75 @@ Current local-contract payload fields, in fixed order:
 7. `recording`
 8. `replaying`
 9. `timer_change`
+10. `counter_epoch`
+11. `counter_overflow`
 
 ---
 
-## SB.7 Live VDR Acceptance
+## SB.8 Live VDR Acceptance
 
 Status: `implemented`
 
-The controlled live acceptance passed on VDR `2.7.9` with API version `11` at repository head `2b4df6bc239489cf1aeed239927d347db28234b9`.
+The controlled live acceptance passed on VDR `2.7.9` with API version `11` at repository head `396eeccc3af775c88247f748fbb200059b4b2d31`.
 
 Proven live behavior:
 
-- VDR loaded `libvdr-suitebridge.so.11` as plugin version `0.8.0`;
-- lifecycle reached `initialized` and `started`;
-- `local-contract` was reported as `available`;
-- `mutations` remained `disabled`;
-- `PLUG suitebridge HELP` advertised `SNAP` and plugin version `0.8.0`;
-- the baseline `SNAP` returned reply code `900`, schema versions `1`, fixed field order and `151` bytes;
+- VDR loaded `libvdr-suitebridge.so.11` as plugin version `0.9.0`;
+- `PLUG suitebridge HELP` advertised `SNAP` and plugin version `0.9.0`;
+- capability schema remained `1`;
+- snapshot and local-contract schemas were `2`;
+- the exact eleven-field order was accepted;
+- `counter_epoch` was a 32-character lowercase hexadecimal JSON string;
+- `counter_overflow` remained `false` throughout normal operation;
+- the baseline active payload for the first instance was `227` bytes;
 - original channel `7` was captured;
 - controlled test channel `1` was selected and channel `7` was restored;
-- the channel-switch counter changed from `4` to `8` to `12`;
+- first-instance epoch remained stable while the channel-switch counter changed `4 → 8 → 12`;
+- the final active payload for the first instance was `229` bytes because the counter values grew;
 - Recording, replaying and Timer-change counters remained `0`;
-- the final active `SNAP` remained schema-compatible and was `153` bytes because the observed counters had grown;
 - no callback-side `status-event` log was emitted;
-- three successful `SNAP` requests were recorded through bounded SVDRP logs;
+- VDR restart with the plugin still installed stopped the first instance through the two-phase lifecycle;
+- a second plugin instance produced a different epoch;
+- the second epoch remained stable across repeated `SNAP` requests;
+- the post-restart baseline was accepted with native startup callbacks already reflected in the counters;
 - Timer and Recording listings remained unchanged;
 - the VDR setup-file hash remained `e80c952eddeba470bd23a67060f079e3693e53b601781ba5cb9134d0064636dc`;
 - no mutation command or VDR write operation was invoked.
 
-Observed baseline active payload:
+Observed first-instance epoch:
 
-`{"contract_schema":1,"capability_schema":1,"snapshot_schema":1,"active":true,"total":4,"channel_switch":4,"recording":0,"replaying":0,"timer_change":0}`
+`03da379df7b143a8b5d328fcc09bbe0f`
 
-Observed final active payload:
+Observed first-instance baseline payload:
 
-`{"contract_schema":1,"capability_schema":1,"snapshot_schema":1,"active":true,"total":12,"channel_switch":12,"recording":0,"replaying":0,"timer_change":0}`
+`{"contract_schema":2,"capability_schema":1,"snapshot_schema":2,"active":true,"total":4,"channel_switch":4,"recording":0,"replaying":0,"timer_change":0,"counter_epoch":"03da379df7b143a8b5d328fcc09bbe0f","counter_overflow":false}`
 
-Two-phase stop evidence:
+Observed first-instance final active payload:
 
-1. lifecycle logged `stop-begin` with state `stopping`;
-2. the status monitor became `inactive`;
-3. the final inactive snapshot and local-contract payload were produced outside callbacks;
-4. lifecycle logged `stop-complete` with state `stopped`.
+`{"contract_schema":2,"capability_schema":1,"snapshot_schema":2,"active":true,"total":12,"channel_switch":12,"recording":0,"replaying":0,"timer_change":0,"counter_epoch":"03da379df7b143a8b5d328fcc09bbe0f","counter_overflow":false}`
 
-Observed final inactive payload:
+Observed first-instance final inactive payload:
 
-`{"contract_schema":1,"capability_schema":1,"snapshot_schema":1,"active":false,"total":12,"channel_switch":12,"recording":0,"replaying":0,"timer_change":0}`
+`{"contract_schema":2,"capability_schema":1,"snapshot_schema":2,"active":false,"total":12,"channel_switch":12,"recording":0,"replaying":0,"timer_change":0,"counter_epoch":"03da379df7b143a8b5d328fcc09bbe0f","counter_overflow":false}`
+
+Observed second-instance epoch:
+
+`646821ee8491b0ed4604209fa2e0fe65`
+
+Observed second-instance active payload:
+
+`{"contract_schema":2,"capability_schema":1,"snapshot_schema":2,"active":true,"total":4,"channel_switch":4,"recording":0,"replaying":0,"timer_change":0,"counter_epoch":"646821ee8491b0ed4604209fa2e0fe65","counter_overflow":false}`
+
+Observed second-instance final inactive payload:
+
+`{"contract_schema":2,"capability_schema":1,"snapshot_schema":2,"active":false,"total":4,"channel_switch":4,"recording":0,"replaying":0,"timer_change":0,"counter_epoch":"646821ee8491b0ed4604209fa2e0fe65","counter_overflow":false}`
+
+Two-phase stop evidence passed for both plugin instances:
+
+1. lifecycle entered `stopping`;
+2. the status monitor became inactive while retaining epoch and counters;
+3. the final schema-2 inactive snapshot and local-contract payload were produced outside callbacks;
+4. lifecycle entered `stopped`.
 
 Rollback evidence:
 
@@ -178,10 +206,10 @@ Rollback evidence:
 - VDR restarted;
 - no Suite Bridge shared object remained mapped into the VDR process;
 - original channel, Timer list, Recording list and setup hash remained restored;
-- build artifacts were removed;
+- build artifacts and temporary acceptance logs were removed;
 - repository worktree remained clean.
 
-SB.7 therefore satisfies the required source, build, contract, VDR-native callback, deterministic lifecycle, live load and rollback boundary.
+SB.8 therefore satisfies the required source, build, schema-evolution, counter-continuity, VDR restart, callback, lifecycle, live load and rollback boundary.
 
 ---
 
@@ -239,7 +267,10 @@ It is a small VDR-process-local bridge used by a separate Backend Agent. It must
 - protection of VDR-internal credentials and transports;
 - enforcement that commands target the Agent's own backend identity and active generation;
 - transport of backend-scoped Timer, EPG, media, OSD and accountability evidence;
-- preservation of operation, job, attempt and idempotency identities.
+- preservation of operation, job, attempt and idempotency identities;
+- comparison of diagnostic counter epochs and baselines;
+- full resynchronization after restart, reconnect or uncertain continuity;
+- refusal to calculate counter deltas after `counter_overflow=true`.
 
 ### `vdr-plugin-suite-bridge` owns
 
@@ -248,6 +279,7 @@ It is a small VDR-process-local bridge used by a separate Backend Agent. It must
 - VDR lock and thread-boundary correctness;
 - minimal native snapshots and events;
 - truthful local capability reporting;
+- process-local diagnostic counter epoch, saturation and overflow facts;
 - bounded native Timer, EPG, media-provider or OSD access where later implemented;
 - native identity and current-state readback where VDR exposes it;
 - bounded translation from Agent commands to VDR-native operations;
@@ -269,6 +301,7 @@ The Suite, Agent and plugin agree on:
 - verification policy;
 - timeout and unknown-outcome semantics;
 - protocol versioning and compatibility behavior;
+- counter epoch, overflow and full-resynchronization semantics;
 - bounded producer evidence for accountability;
 - which side is authoritative for every field.
 
@@ -305,7 +338,7 @@ Status callbacks and VDR-thread callbacks must not:
 - log per-event content;
 - retain or dereference native pointers after the callback.
 
-The current callback path performs only an atomic active-state check, one relaxed atomic counter increment and immediate return.
+The current callback path performs only an atomic active-state check, one saturating atomic counter increment and immediate return.
 
 ### 4. Lifecycle is deterministic
 
@@ -350,7 +383,12 @@ The plugin never advertises a write capability that cannot satisfy the complete 
 - Snapshot schema and field order are versioned where byte determinism is promised.
 - Snapshot generation and resource revision are separate concepts.
 - Current counters are diagnostic observations, not synchronization sequences.
-- Counter overflow, restart, reset, epoch and resynchronization behavior must be explicit before counters become synchronization primitives.
+- One visible VDR action may produce multiple native callbacks.
+- `counter_epoch` is stable only for one plugin instance and is not a credential or global identity.
+- A changed epoch invalidates the previous comparison baseline.
+- Counters and totals saturate rather than wrapping to zero.
+- `counter_overflow=true` prevents further reliable delta calculation in that epoch.
+- `SNAP` is the complete read-only resynchronization point.
 
 ### 8. Native operations require authoritative readback
 
@@ -473,7 +511,7 @@ Status: `accepted-contract`
 - Plugin SVDRP reply codes and local JSON are not the public client contract.
 - Public errors, request IDs, correlations, ETags, pagination and deprecation policy remain Control Plane concerns.
 
-Runtime state: SB.7 changes no public API or plugin schema.
+Runtime state: SB.8 advances only plugin-local snapshot and local-contract schemas to version `2`; no public API version changes.
 
 ### ADR-0049 — Audit and Security Event Model
 
@@ -495,6 +533,7 @@ Runtime state: no plugin audit database, durable event queue or security-event t
 - Additive optional fields require documented defaults.
 - Removing or reinterpreting a field requires a new schema or protocol version.
 - Capability, snapshot, local-contract, Agent, media, OSD and public API schemas evolve independently.
+- Local-contract schema `1` consumers must reject or safely degrade on schema `2`; they must not ignore epoch and overflow fields while calculating deltas.
 - Unsupported versions are rejected explicitly, not guessed.
 - The Agent degrades safely when the plugin is older than the Control Plane.
 - Capability negotiation happens before optional or mutating commands are used.
@@ -533,6 +572,8 @@ Logging must not include credentials, tokens, key material, raw object addresses
 
 Per-event VDR callback logging is prohibited. Runtime logs are diagnostic and are not the authoritative audit history.
 
+Counter epochs are diagnostic continuity values, not security tokens or actor identities.
+
 ---
 
 ## Test and Acceptance Standard
@@ -546,9 +587,10 @@ Per-event VDR callback logging is prohibited. Runtime logs are diagnostic and ar
 5. Deterministic serialization tests where byte stability is promised.
 6. Negative tests for malformed and unsupported requests.
 7. Lifecycle tests for invalid and repeated transitions.
-8. Regression proof that existing read-only behavior remains unchanged.
-9. API-versioned staged installation.
-10. Repository documentation checks.
+8. Counter saturation, overflow and epoch tests where counters are exposed.
+9. Regression proof that existing read-only behavior remains unchanged.
+10. API-versioned staged installation.
+11. Repository documentation checks.
 
 ### Required live VDR layers for read-only slices
 
@@ -557,10 +599,11 @@ Per-event VDR callback logging is prohibited. Runtime logs are diagnostic and ar
 3. Command and help discovery where applicable.
 4. Expected read-only response.
 5. Proof of the intended native observation.
-6. Proof that unrelated Timers, Recordings, replay and setup remain unchanged.
-7. Plugin removal and VDR restart.
-8. Proof that no stale Suite Bridge binary remains loaded.
-9. Restored original VDR state and clean worktree.
+6. Restart and resynchronization proof where continuity fields change.
+7. Proof that unrelated Timers, Recordings, replay and setup remain unchanged.
+8. Plugin removal and VDR restart.
+9. Proof that no stale Suite Bridge binary remains loaded.
+10. Restored original VDR state and clean worktree.
 
 ### Additional required layers for future mutation slices
 
@@ -590,9 +633,10 @@ A source-only test never replaces live VDR acceptance for a native boundary.
 | Durable operation and idempotency | owner | preserves identities | preserves identities | accepted-contract |
 | Job claims, retries and sagas | owner | executes assignments | bounded native step only | accepted-contract |
 | VDR lifecycle | observes | observes | owner | implemented and live accepted |
-| VDR status counters | consumes | transports | owner | implemented and live accepted |
-| Immutable local snapshot | consumes | transports | owner | implemented and live accepted |
+| VDR status counters | consumes diagnostically | compares epoch and baseline | owner | schema-2 continuity live accepted |
+| Immutable local snapshot | consumes | transports/resynchronizes | owner | schema `2`, live accepted |
 | `SNAP` SVDRP command | no | invokes | owner | implemented and live accepted |
+| Capability catalogue | consumes | must negotiate | owner | static schema `1`; no query command yet |
 | TimerIntent and assignment | owner | transports | no | accepted-contract |
 | Native Timer mutation | coordinates | transports | executes safely | disabled |
 | ProgramEvent identity/provenance | owner | transports observations | bounded native observation | accepted-contract |
@@ -664,7 +708,7 @@ A slice is not reported complete while a required field is unknown.
 
 ### Slice
 
-`SB.7 - Gold-standard lifecycle and callback-boundary hardening`
+`SB.8 - Diagnostic counter continuity and resynchronization contract`
 
 ### Branch
 
@@ -672,37 +716,57 @@ A slice is not reported complete while a required field is unknown.
 
 ### Heads
 
-- implementation completion commit: `5f8c4d7434157766da2853db4e58b3623b40f6c1`;
-- live-acceptance repository head: `2b4df6bc239489cf1aeed239927d347db28234b9`.
+- implementation and test completion commit: `396eeccc3af775c88247f748fbb200059b4b2d31`;
+- live-acceptance repository head: `396eeccc3af775c88247f748fbb200059b4b2d31`.
 
 ### Plugin version
 
-`0.8.0`
+`0.9.0`
 
 ### Implemented
 
-- explicit `Stopping` lifecycle state;
-- deterministic `BeginStop()` and `CompleteStop()` transition;
-- monitor deactivation between `stopping` and `stopped`;
-- final inactive snapshot outside callback execution;
-- VDR callbacks reduced to argument discard, atomic active-state check and one atomic counter increment;
-- removal of per-event callback logs and other callback-side work;
-- unchanged read-only `SNAP` contract.
+- allocation-free process-local counter epoch;
+- fixed 32-character lowercase hexadecimal epoch representation;
+- one immutable epoch per plugin instance;
+- saturating atomic event-family counters;
+- sticky overflow marking after an unrepresentable event;
+- saturating derived total;
+- immutable snapshot schema `2`;
+- deterministic local-contract schema `2`;
+- new `counter_epoch` and `counter_overflow` payload fields;
+- explicit Agent baseline and full-resynchronization rules;
+- unchanged read-only `SNAP` command and reply codes.
 
 ### Changed files
 
 - `vdr-plugin-suite-bridge/Makefile`;
 - `vdr-plugin-suite-bridge/README.md`;
 - `vdr-plugin-suite-bridge/docs/SB-3-status-events.md`;
-- `vdr-plugin-suite-bridge/docs/SB-7-lifecycle-callback-hardening.md`;
+- `vdr-plugin-suite-bridge/docs/SB-4-status-snapshots.md`;
+- `vdr-plugin-suite-bridge/docs/SB-5-local-contract-payload.md`;
+- `vdr-plugin-suite-bridge/docs/SB-6-read-only-svdrp.md`;
+- `vdr-plugin-suite-bridge/docs/SB-8-counter-continuity.md`;
 - `vdr-plugin-suite-bridge/suitebridge.cpp`;
-- `vdr-plugin-suite-bridge/suitebridge_lifecycle.cpp`;
-- `vdr-plugin-suite-bridge/suitebridge_lifecycle.h`;
+- `vdr-plugin-suite-bridge/suitebridge_counter_continuity.cpp`;
+- `vdr-plugin-suite-bridge/suitebridge_counter_continuity.h`;
+- `vdr-plugin-suite-bridge/suitebridge_local_contract.cpp`;
+- `vdr-plugin-suite-bridge/suitebridge_local_contract.h`;
+- `vdr-plugin-suite-bridge/suitebridge_status_events.cpp`;
+- `vdr-plugin-suite-bridge/suitebridge_status_events.h`;
 - `vdr-plugin-suite-bridge/suitebridge_status_monitor.cpp`;
-- `vdr-plugin-suite-bridge/suitebridge_status_monitor.h`;
+- `vdr-plugin-suite-bridge/suitebridge_status_snapshot.cpp`;
+- `vdr-plugin-suite-bridge/suitebridge_status_snapshot.h`;
+- `vdr-plugin-suite-bridge/tests/check_counter_continuity_contract.py`;
 - `vdr-plugin-suite-bridge/tests/check_foundation_contract.py`;
+- `vdr-plugin-suite-bridge/tests/check_local_contract_contract.py`;
 - `vdr-plugin-suite-bridge/tests/check_status_events_contract.py`;
-- `vdr-plugin-suite-bridge/tests/test_suitebridge_lifecycle.cpp`;
+- `vdr-plugin-suite-bridge/tests/check_status_snapshot_contract.py`;
+- `vdr-plugin-suite-bridge/tests/check_svdrp_contract.py`;
+- `vdr-plugin-suite-bridge/tests/test_suitebridge_counter_continuity.cpp`;
+- `vdr-plugin-suite-bridge/tests/test_suitebridge_local_contract.cpp`;
+- `vdr-plugin-suite-bridge/tests/test_suitebridge_status_events.cpp`;
+- `vdr-plugin-suite-bridge/tests/test_suitebridge_status_snapshot.cpp`;
+- `vdr-plugin-suite-bridge/tests/test_suitebridge_svdrp_contract.cpp`;
 - this handoff after successful acceptance.
 
 ### Capabilities
@@ -717,27 +781,41 @@ No capability ID or state changed:
 
 ### Schema changes
 
-None. Capability, snapshot and local-contract schemas remain at version `1`.
+- capability schema remains `1`;
+- snapshot schema changes from `1` to `2`;
+- local-contract schema changes from `1` to `2`.
+
+Schema-1 consumers must reject or safely degrade. They must not calculate deltas while ignoring schema-2 continuity fields.
 
 ### New commands or service calls
 
-None. `PLUG suitebridge SNAP` remains the only plugin-specific SVDRP command. No plugin service call or listener was added.
+None. `PLUG suitebridge SNAP` remains the only plugin-specific SVDRP command. No plugin service call, listener or second Agent protocol was added.
 
 ### New events or snapshots
 
-No new event family or payload field was added. Existing status counters remain observable through immutable snapshots. The final inactive snapshot is now ordered explicitly inside the two-phase stop sequence.
+No new VDR callback event family was added.
+
+Existing snapshots now include:
+
+- `counter_epoch`;
+- `counter_overflow`.
+
+`SNAP` remains the complete full-resynchronization point.
 
 ### Suite-side work unblocked
 
-- Backend Agent may rely on the explicit `stopping` and `stopped` lifecycle order for local shutdown supervision.
-- Agent may consume the read-only snapshot without per-event callback logging overhead.
-- Future bounded native observation work can build on a callback path proven free of external side effects.
+- Backend Agent can distinguish snapshots from different plugin instances.
+- Backend Agent can safely discard a stale baseline after VDR restart or plugin reload.
+- Backend Agent can stop delta calculation when overflow is reported.
+- Backend Agent can use `SNAP` as an explicit full-resynchronization baseline.
+- Control Plane can avoid treating process-local diagnostic counters as canonical events or audit history.
 
 ### Suite-side work still required
 
 - authenticated Agent transport;
 - backend identity and generation framing;
-- capability freshness and protocol compatibility handling;
+- read-only capability discovery and compatibility negotiation;
+- capability freshness publication;
 - durable jobs, idempotency and reconciliation;
 - TimerIntent and ProgramEvent runtime models;
 - Streaming Gateway and media sessions;
@@ -749,10 +827,12 @@ All mutation execution remains blocked.
 
 ### Compatibility risks
 
-- Per-event `status-event` log lines were deliberately removed.
-- Status counters remain diagnostic observations, not synchronization sequences.
-- One user-visible channel change may produce more than one native `ChannelSwitch` callback; SB.7 observed increments `4 → 8 → 12` for switch and restore.
-- Counter overflow, restart, reset, epoch and resynchronization semantics remain undefined.
+- Local-contract and snapshot schema `2` are incompatible with consumers that only accept schema `1`.
+- `counter_epoch` is diagnostic and process-local; it is not a global identity, credential or security token.
+- Epoch generation is designed for bounded instance distinction, not cryptographic uniqueness.
+- The first active snapshot after start may already contain callbacks and is not required to contain zero counters.
+- One user-visible channel change may produce multiple native `ChannelSwitch` callbacks; live acceptance again observed increments `4 → 8 → 12`.
+- `counter_overflow=true` means further deltas in that epoch are unreliable.
 - SVDRP availability and host restrictions remain deployment concerns.
 - Reply code `900` remains plugin-specific and not part of the public Client API.
 
@@ -762,35 +842,40 @@ Passed:
 
 - foundation source contract;
 - capability source contract;
+- counter-continuity source contract;
 - callback-side-effect and status-event source contract;
 - status-snapshot source contract;
 - local-contract payload source contract;
 - read-only SVDRP source contract;
-- lifecycle C++ unit test including stopping transitions and invalid repeats;
+- lifecycle C++ unit test;
 - capability C++ unit test;
-- status-event C++ unit test;
-- status-snapshot C++ unit test;
-- local-contract C++ unit test;
-- SVDRP command C++ unit test;
-- version extraction check for `0.8.0`;
+- epoch format, stability and instance-distinction C++ tests;
+- normal and saturating counter C++ tests;
+- sticky overflow and no-wrap C++ tests;
+- saturating total C++ test;
+- immutable schema-2 snapshot C++ test;
+- deterministic schema-2 local-contract C++ test;
+- schema-2 SVDRP command C++ test;
+- version extraction check for `0.9.0`;
 - final VDR shared-object build and ELF validation;
 - API-11 staged installation;
-- repository documentation and ADR checks.
+- repository documentation, ADR and architecture-package checks.
 
 ### Live VDR acceptance
 
 Passed on VDR `2.7.9`, API version `11`:
 
-- plugin version `0.8.0` loaded;
-- lifecycle initialization and start passed;
-- capability publication passed;
-- baseline, intermediate and final `SNAP` responses passed;
-- original channel `7` restored after controlled channel `1` test;
-- channel-switch counter increased `4 → 8 → 12`;
-- Recording, replaying and Timer-change counters remained unchanged;
+- plugin version `0.9.0` loaded;
+- schema `2` field order passed;
+- first epoch `03da379df7b143a8b5d328fcc09bbe0f` remained stable;
+- controlled channel switch and restore increased the counter `4 → 8 → 12` under the same epoch;
 - no callback-side `status-event` logs were emitted;
-- Timer list, Recording list and setup hash remained unchanged;
-- two-phase `stopping → inactive snapshot → stopped` order passed.
+- first instance stopped through `stopping → inactive snapshot → stopped`;
+- VDR restart produced second epoch `646821ee8491b0ed4604209fa2e0fe65`;
+- second epoch remained stable across repeated snapshots;
+- `counter_overflow` remained false;
+- original channel `7`, Timer list, Recording list and setup hash remained unchanged;
+- second instance also stopped through the required two-phase sequence.
 
 ### Rollback result
 
@@ -800,6 +885,7 @@ Passed:
 - VDR restarted;
 - no Suite Bridge binary remained loaded;
 - original VDR state remained restored;
+- build artifacts and temporary logs removed;
 - worktree clean.
 
 ### Mutation state
@@ -808,27 +894,30 @@ Passed:
 
 ### Next safe slice
 
-`SB.8 - Diagnostic counter continuity and resynchronization contract`
+`SB.9 - Read-only capability discovery and compatibility negotiation contract`
 
-Before code, SB.8 must inspect VDR restart and callback semantics and define a read-only contract for:
+Before code, SB.9 must inspect the existing static capability catalogue, SVDRP command boundary and accepted compatibility rules. It must define a bounded read-only discovery response for the Backend Agent covering at least:
 
-- process-local counter epoch or generation;
-- restart and reset behavior;
-- unsigned counter overflow handling;
-- full-snapshot resynchronization;
-- explicit statement that counters are not durable event sequences.
+- plugin name and version;
+- capability schema version;
+- snapshot and local-contract schema versions;
+- stable capability IDs and states;
+- explicit `mutations=disabled` evidence;
+- deterministic field order and unsupported-version behavior.
 
-SB.8 must add no mutation, listener, worker, database, public API, audit store, media path, OSD control or second Agent protocol.
+SB.9 may add one read-only plugin-specific command such as `CAPS` only after its exact payload, reply codes, schema ownership and compatibility behavior are documented and tested. It must add no mutation, listener, worker, database, public API, audit store, media path, OSD control or independent Agent protocol.
 
 ---
 
 ## Immediate Coordination Notes
 
-- The bridge branch contains SB.1 through fully live-accepted SB.7.
-- The coordinated branch includes accepted Suite contracts ADR-0042 through ADR-0049.
+- The bridge branch contains SB.1 through fully live-accepted SB.8.
+- The coordinated branch includes accepted Suite contracts ADR-0042 through ADR-0049 and the completed architecture-package closeout.
 - ADR acceptance does not mean the corresponding runtime exists.
 - The plugin remains deliberately read-only.
 - `SNAP` remains the only implemented plugin-specific SVDRP command.
+- Snapshot and local-contract schemas are now `2`; capability schema remains `1`.
+- Diagnostic counter continuity is explicit through epoch, saturation, overflow and full-resynchronization rules.
 - `mutations` remains `disabled`.
 - The authoritative plugin location remains `vdr-plugin-suite-bridge/` on the long-lived bridge branch.
 - The next plugin slice starts only after remote, handoff, source, tests and ownership boundaries have been inspected again.
