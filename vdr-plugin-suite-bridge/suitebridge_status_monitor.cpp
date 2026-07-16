@@ -11,6 +11,7 @@ void SuiteBridgeStatusMonitor::Activate() noexcept
 {
   active_.store(true, std::memory_order_release);
   isyslog("suitebridge: status-monitor state=active");
+  LogSnapshot(CaptureSnapshot());
 }
 
 void SuiteBridgeStatusMonitor::Deactivate() noexcept
@@ -19,12 +20,16 @@ void SuiteBridgeStatusMonitor::Deactivate() noexcept
     return;
   }
 
+  const SuiteBridgeStatusSnapshot snapshot = events_.CaptureSnapshot(false);
+
   isyslog(
       "suitebridge: status-monitor state=inactive channel-switch=%llu recording=%llu replaying=%llu timer-change=%llu",
-      EventCount(SuiteBridgeStatusEventKind::ChannelSwitch),
-      EventCount(SuiteBridgeStatusEventKind::Recording),
-      EventCount(SuiteBridgeStatusEventKind::Replaying),
-      EventCount(SuiteBridgeStatusEventKind::TimerChange));
+      snapshot.ChannelSwitchCount(),
+      snapshot.RecordingCount(),
+      snapshot.ReplayingCount(),
+      snapshot.TimerChangeCount());
+
+  LogSnapshot(snapshot);
 }
 
 bool SuiteBridgeStatusMonitor::IsActive() const noexcept
@@ -36,6 +41,25 @@ unsigned long long SuiteBridgeStatusMonitor::EventCount(
     SuiteBridgeStatusEventKind kind) const noexcept
 {
   return events_.Count(kind);
+}
+
+SuiteBridgeStatusSnapshot SuiteBridgeStatusMonitor::CaptureSnapshot() const noexcept
+{
+  return events_.CaptureSnapshot(IsActive());
+}
+
+void SuiteBridgeStatusMonitor::LogSnapshot(
+    const SuiteBridgeStatusSnapshot &snapshot) const noexcept
+{
+  isyslog(
+      "suitebridge: status-snapshot schema=%u active=%s total=%llu channel-switch=%llu recording=%llu replaying=%llu timer-change=%llu",
+      SuiteBridgeStatusSnapshot::SchemaVersion(),
+      snapshot.MonitorActive() ? "true" : "false",
+      snapshot.TotalCount(),
+      snapshot.ChannelSwitchCount(),
+      snapshot.RecordingCount(),
+      snapshot.ReplayingCount(),
+      snapshot.TimerChangeCount());
 }
 
 void SuiteBridgeStatusMonitor::ChannelSwitch(
