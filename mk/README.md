@@ -2,7 +2,33 @@
 
 The root `Makefile` remains the public compatibility entrypoint. Source lists,
 install rules, test recipes and public test groups are maintained in the
-fragments under `mk/`.
+fragments under `mk/`. The root entrypoint only includes those owned fragments;
+it does not carry domain recipes itself.
+
+
+## Build Artifacts
+
+Compiled test programs, tools and daemon binaries are written below the
+repository-local `.build/` directory through `BUILD_DIR`. Compiler recipes use
+`BUILD_CXX`, which creates that directory only when the recipe actually runs,
+so `make -n` remains side-effect free. Runtime databases and external-system
+smoke-test state may still use `/tmp` when their temporary lifecycle is part of
+the test contract.
+
+`make test-build-artifact-paths` verifies every Make `-o` output and is part of
+`test-ci-fast`. `make clean` removes only `.build/` below the repository and the
+legacy temporary test database; it refuses an unsafe external `BUILD_DIR`.
+
+The larger compatibility recipe sets are split by ownership:
+
+- `smoke-targets.mk` — real-system helpers and basic database/CLI targets
+- `recording-action-tests.mk` — Recording mutation and REST executor contracts
+- `application-tests.mk` — services, dashboards and controller composition
+- `domain-tests.mk` — backend, metadata classification and person/EPG domains
+- `search-timer-*.mk` — SearchTimer API and workflow contracts
+- `runtime-api-tests.mk` — REST routing, HTTP and daemon/runtime targets
+- `maintenance-tests.mk` — cleanup, documentation and remaining query contracts
+- `vdr-*-tests.mk` — VDR search, runtime/snapshot and timer/real-backend suites
 
 ## Public Test Entrypoints
 

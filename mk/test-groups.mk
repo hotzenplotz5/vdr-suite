@@ -3,6 +3,7 @@
 CI_FAST_TESTS := \
 	check-vdr-linkage-contracts \
 	test-make-inventory \
+	test-build-artifact-paths \
 	test-fast \
 	test-api-router \
 	test-restful-api-vdr-timer-action-executor \

@@ -20,7 +20,7 @@ test-systemd-unit-contract:
 
 install-runtime: daemon
 	$(INSTALL) -d $(DESTDIR)$(SBINDIR)
-	$(INSTALL) -m 0755 /tmp/vdr-suite-daemon $(DESTDIR)$(SBINDIR)/vdr-suite-daemon
+	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-daemon $(DESTDIR)$(SBINDIR)/vdr-suite-daemon
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/vdr-suite
 	$(INSTALL) -d $(DESTDIR)$(CACHEDIR)/channel-logos
 	$(INSTALL) -d $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand
@@ -54,7 +54,7 @@ install-runtime: daemon
 
 install-cli: dashboard-cli
 	$(INSTALL) -d $(DESTDIR)$(BINDIR)
-	$(INSTALL) -m 0755 /tmp/vdr-suite-dashboard $(DESTDIR)$(BINDIR)/vdr-suite-dashboard
+	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-dashboard $(DESTDIR)$(BINDIR)/vdr-suite-dashboard
 	$(INSTALL) -m 0755 tools/vdr_suite_logo_sync.py $(DESTDIR)$(BINDIR)/vdr-suite-logo-sync
 
 install-docs:

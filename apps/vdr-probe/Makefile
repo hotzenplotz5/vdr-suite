@@ -1,5 +1,7 @@
 CXX := g++
 ROOT := ../..
+BUILD_DIR ?= $(abspath $(ROOT)/.build)
+BUILD_CXX = mkdir -p "$(BUILD_DIR)" && $(CXX)
 
 CXXFLAGS := -std=c++17 -Wall -Wextra \
         -I$(ROOT)/core/http/include \
@@ -26,11 +28,11 @@ HTTP_SRC := \
 .PHONY: vdr-probe clean
 
 vdr-probe:
-	$(CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) \
 		$(VDR_SRC) \
 		$(HTTP_SRC) \
 		main.cpp \
-		-o /tmp/vdr-probe
+		-o $(BUILD_DIR)/vdr-probe
 
 clean:
-	rm -f /tmp/vdr-probe
+	rm -f "$(BUILD_DIR)/vdr-probe"
