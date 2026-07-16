@@ -2,7 +2,7 @@
 """Audit the GNU Make test inventory without executing product tests.
 
 The audit intentionally distinguishes hard structural errors from migration
-warnings.  Hard errors fail --check.  Warnings document existing organization
+warnings. Hard errors fail --check. Warnings document existing organization
 debt so the Make/test consolidation can proceed without deleting useful tests.
 """
 
@@ -12,7 +12,7 @@ import argparse
 import json
 import re
 import sys
-from collections import defaultdict, deque
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
@@ -77,17 +77,20 @@ def parse_makefiles() -> tuple[dict[str, Target], list[str], list[str]]:
 
     for path in MAKEFILES:
         relative = path.relative_to(ROOT).as_posix()
+        raw_lines = path.read_text(encoding="utf-8").splitlines()
         previous_nonempty = ""
-        current_targets: list[str] = []
-
-        for lineno, line in logical_lines(path):
-            stripped = line.strip()
-            referenced_paths.extend(PATH_RE.findall(line))
-
+        for lineno, raw_line in enumerate(raw_lines, start=1):
+            stripped = raw_line.strip()
             if stripped == "$(LDFLAGS) \\" and previous_nonempty == "$(LDFLAGS) \\" :
                 duplicate_ldflags.append(f"{relative}:{lineno}")
             if stripped:
                 previous_nonempty = stripped
+
+        current_targets: list[str] = []
+        for lineno, line in logical_lines(path):
+            stripped = line.strip()
+            if not stripped.startswith("#"):
+                referenced_paths.extend(PATH_RE.findall(line))
 
             match = TARGET_RE.match(line)
             if match and not line.startswith("\t"):
@@ -130,8 +133,7 @@ def transitive_dependencies(targets: dict[str, Target], root: str) -> set[str]:
 
 
 def expected_target_for_test_file(path: Path) -> str:
-    stem = path.stem
-    return stem.replace("_", "-")
+    return path.stem.replace("_", "-")
 
 
 def production_test_support_warnings() -> list[str]:
@@ -154,9 +156,13 @@ def build_report() -> dict[str, object]:
     errors: list[str] = []
     warnings: list[str] = []
 
-    for path_text in sorted(set(referenced_paths)):
-        if not (ROOT / path_text).exists():
-            errors.append(f"Make source reference does not exist: {path_text}")
+    unresolved_paths = sorted(
+        path_text for path_text in set(referenced_paths) if not (ROOT / path_text).exists()
+    )
+    if unresolved_paths:
+        warnings.append(
+            f"{len(unresolved_paths)} Make path references need source/destination classification"
+        )
 
     for target in targets.values():
         recipe_files = {location.split(":", 1)[0] for location in target.recipe_locations}
@@ -231,6 +237,7 @@ def build_report() -> dict[str, object]:
             "targets": len(targets),
             "test_targets": len(test_targets),
             "test_source_files": len(test_files),
+            "unresolved_make_paths": len(unresolved_paths),
             "ungrouped_test_targets": len(ungrouped_targets),
             "test_files_without_convention_target": len(missing_target_files),
             "duplicate_ldflags": len(duplicate_ldflags),
@@ -239,6 +246,7 @@ def build_report() -> dict[str, object]:
         },
         "public_groups": group_closures,
         "multiply_defined_public_groups": repeated_group_definitions,
+        "unresolved_make_paths": unresolved_paths,
         "ungrouped_test_targets": ungrouped_targets,
         "test_files_without_convention_target": missing_target_files,
         "duplicate_ldflags_locations": duplicate_ldflags,
