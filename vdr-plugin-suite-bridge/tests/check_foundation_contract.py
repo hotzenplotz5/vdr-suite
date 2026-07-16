@@ -14,17 +14,22 @@ required_files = (
     ROOT / "suitebridge_lifecycle.cpp",
     ROOT / "suitebridge_capabilities.h",
     ROOT / "suitebridge_capabilities.cpp",
+    ROOT / "suitebridge_status_snapshot.h",
+    ROOT / "suitebridge_status_snapshot.cpp",
     ROOT / "suitebridge_status_events.h",
     ROOT / "suitebridge_status_events.cpp",
     ROOT / "suitebridge_status_monitor.h",
     ROOT / "suitebridge_status_monitor.cpp",
     ROOT / "docs/SB-2-capabilities.md",
     ROOT / "docs/SB-3-status-events.md",
+    ROOT / "docs/SB-4-status-snapshots.md",
     ROOT / "tests/check_capabilities_contract.py",
     ROOT / "tests/check_status_events_contract.py",
+    ROOT / "tests/check_status_snapshot_contract.py",
     ROOT / "tests/test_suitebridge_lifecycle.cpp",
     ROOT / "tests/test_suitebridge_capabilities.cpp",
     ROOT / "tests/test_suitebridge_status_events.cpp",
+    ROOT / "tests/test_suitebridge_status_snapshot.cpp",
 )
 
 errors = []
@@ -49,6 +54,12 @@ capabilities_header = (ROOT / "suitebridge_capabilities.h").read_text(
 capabilities_source = (ROOT / "suitebridge_capabilities.cpp").read_text(
     encoding="utf-8"
 )
+status_snapshot_header = (ROOT / "suitebridge_status_snapshot.h").read_text(
+    encoding="utf-8"
+)
+status_snapshot_source = (ROOT / "suitebridge_status_snapshot.cpp").read_text(
+    encoding="utf-8"
+)
 status_events_header = (ROOT / "suitebridge_status_events.h").read_text(
     encoding="utf-8"
 )
@@ -69,6 +80,8 @@ combined = "\n".join(
         lifecycle_source,
         capabilities_header,
         capabilities_source,
+        status_snapshot_header,
+        status_snapshot_source,
         status_events_header,
         status_events_source,
         status_monitor_header,
@@ -80,14 +93,17 @@ required_makefile_content = (
     "PLUGIN = suitebridge",
     "SOFILE = libvdr-$(PLUGIN).so",
     "APIVERSION = $(call PKGCFG,apiversion)",
+    "suitebridge_status_snapshot.o",
     "suitebridge_status_events.o",
     "suitebridge_status_monitor.o",
     "check-capabilities-contract:",
     "check-status-events-contract:",
+    "check-status-snapshot-contract:",
     "test-lifecycle:",
     "test-capabilities:",
     "test-status-events:",
-    'test "$(VERSION)" = "0.4.0"',
+    "test-status-snapshot:",
+    'test "$(VERSION)" = "0.5.0"',
 )
 
 for fragment in required_makefile_content:
@@ -95,7 +111,7 @@ for fragment in required_makefile_content:
         errors.append(f"missing Makefile contract: {fragment}")
 
 required_source_content = (
-    'static const char *VERSION = "0.4.0";',
+    'static const char *VERSION = "0.5.0";',
     "bool cPluginSuiteBridge::Initialize(void)",
     "bool cPluginSuiteBridge::Start(void)",
     "void cPluginSuiteBridge::Stop(void)",
@@ -129,6 +145,17 @@ required_lifecycle_content = (
 for fragment in required_lifecycle_content:
     if fragment not in combined:
         errors.append(f"missing lifecycle contract: {fragment}")
+
+required_snapshot_content = (
+    "class SuiteBridgeStatusSnapshot final",
+    "CaptureSnapshot(bool monitorActive) const noexcept",
+    "SuiteBridgeStatusMonitor::CaptureSnapshot() const noexcept",
+    "status-snapshot schema=%u active=%s total=%llu",
+)
+
+for fragment in required_snapshot_content:
+    if fragment not in combined:
+        errors.append(f"missing status snapshot foundation: {fragment}")
 
 forbidden_content = (
     "#include <thread>",
