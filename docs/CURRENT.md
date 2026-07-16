@@ -81,11 +81,12 @@ ADR-0041 - Authentication, Agent Trust and Multi-Site Transport
 ADR-0042 - Safe Mutation, Revision and Idempotency Contract
 ADR-0043 - Job Claim, Retry and Saga Execution Model
 ADR-0044 - Timer Intent, Assignment and Native Timer Model
+ADR-0045 - Canonical EPG Event Identity and Provenance
 ```
 
-ADR-0042 accepts the common mutation contract. ADR-0043 accepts atomic job claims, fenced attempts, retry classification, cancellation, reconciliation and saga semantics. ADR-0044 accepts the separation of durable TimerIntent, TimerAssignment and NativeTimerBinding plus central scheduler and reconciler ownership.
+ADR-0042 accepts the common mutation contract. ADR-0043 accepts atomic job claims, fenced attempts, retry classification, cancellation, reconciliation and saga semantics. ADR-0044 accepts the separation of durable TimerIntent, TimerAssignment and NativeTimerBinding plus central scheduler and reconciler ownership. ADR-0045 accepts the separation of canonical ProgramEvent, BackendEventRef, immutable EventObservation and field-level provenance.
 
-These decisions do not mark universal revisions, durable idempotency, production worker claims, Agent queues, TimerIntent persistence, assignment scheduling, native binding reconciliation, failover, compensation or all domain migrations as implemented. Current native Timer actions and SearchTimer proposals remain strong but pre-orchestration foundations.
+These decisions do not mark universal revisions, durable idempotency, production worker claims, Agent queues, TimerIntent persistence, assignment scheduling, canonical ProgramEvent persistence, provenance resolution, native binding reconciliation, failover, compensation or all domain migrations as implemented. Current native Timer actions, SearchTimer proposals, `VdrEvent` read models and the warm `epg_events` cache remain strong but pre-platform foundations.
 
 ---
 
@@ -94,7 +95,6 @@ These decisions do not mark universal revisions, durable idempotency, production
 Continue the second contract package before Phase 60.15:
 
 ```text
-ADR-0045 - Canonical EPG Event Identity and Provenance
 ADR-0046 - Streaming Gateway and Media Session Boundary
 ADR-0047 - Legacy OSD Compatibility Bridge
 ADR-0048 - Public API Versioning, Error and Compatibility Contract
@@ -114,7 +114,7 @@ Keep the strict Phase 60.15-68 sequence aligned with the decisions.
 ## Strict Future Sequence
 
 ```text
-1. ADR-0045 through ADR-0049 and diagrams
+1. ADR-0046 through ADR-0049 and diagrams
 2. Phase 60.15 - Recording Metadata Preparation
 3. Phase 61 - Suite Metadata Platform
 4. Phase 62 - Identity, RBAC and Audit
@@ -126,7 +126,7 @@ Keep the strict Phase 60.15-68 sequence aligned with the decisions.
 10. Phase 68 - Recommendation and Knowledge Graph
 ```
 
-ADR-0042 through ADR-0044 remain part of Step 1. They supply the accepted mutation, operation, claim, retry, reconciliation, saga, Timer intent, assignment and native binding prerequisites for the remaining contract package and later runtime phases.
+ADR-0042 through ADR-0045 remain part of Step 1. They supply the accepted mutation, operation, claim, retry, reconciliation, saga, Timer intent, assignment, native binding, canonical programme-event identity and provenance prerequisites for the remaining contract package and later runtime phases.
 
 ---
 
