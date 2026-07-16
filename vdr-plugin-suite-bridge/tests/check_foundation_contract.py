@@ -29,6 +29,7 @@ required_files = (
     ROOT / "docs/SB-4-status-snapshots.md",
     ROOT / "docs/SB-5-local-contract-payload.md",
     ROOT / "docs/SB-6-read-only-svdrp.md",
+    ROOT / "docs/SB-7-lifecycle-callback-hardening.md",
     ROOT / "tests/check_capabilities_contract.py",
     ROOT / "tests/check_status_events_contract.py",
     ROOT / "tests/check_status_snapshot_contract.py",
@@ -82,7 +83,7 @@ required_makefile_content = (
     "test-status-snapshot:",
     "test-local-contract:",
     "test-svdrp-contract:",
-    'test "$(VERSION)" = "0.7.0"',
+    'test "$(VERSION)" = "0.8.0"',
 )
 
 for fragment in required_makefile_content:
@@ -90,7 +91,7 @@ for fragment in required_makefile_content:
         errors.append(f"missing Makefile contract: {fragment}")
 
 required_source_content = (
-    'static const char *VERSION = "0.7.0";',
+    'static const char *VERSION = "0.8.0";',
     "bool cPluginSuiteBridge::Initialize(void)",
     "bool cPluginSuiteBridge::Start(void)",
     "void cPluginSuiteBridge::Stop(void)",
@@ -98,7 +99,8 @@ required_source_content = (
     "cPluginSuiteBridge::SVDRPCommand(",
     "lifecycle_.Initialize()",
     "lifecycle_.Start()",
-    "lifecycle_.Stop()",
+    "lifecycle_.BeginStop()",
+    "lifecycle_.CompleteStop()",
     "statusMonitor_.Activate()",
     "statusMonitor_.Deactivate()",
     "statusMonitor_.CaptureSnapshot()",
@@ -115,9 +117,11 @@ for fragment in required_source_content:
 
 required_foundation_content = (
     "enum class SuiteBridgeLifecycleState",
+    "SuiteBridgeLifecycleState::Stopping",
     "bool SuiteBridgeLifecycle::Initialize() noexcept",
     "bool SuiteBridgeLifecycle::Start() noexcept",
-    "void SuiteBridgeLifecycle::Stop() noexcept",
+    "bool SuiteBridgeLifecycle::BeginStop() noexcept",
+    "bool SuiteBridgeLifecycle::CompleteStop() noexcept",
     "class SuiteBridgeStatusSnapshot final",
     "CaptureSnapshot(bool monitorActive) const noexcept",
     "SuiteBridgeStatusMonitor::CaptureSnapshot() const noexcept",
