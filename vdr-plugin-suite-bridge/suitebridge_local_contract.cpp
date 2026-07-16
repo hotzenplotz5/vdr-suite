@@ -14,7 +14,7 @@ SuiteBridgeLocalContractPayload::SuiteBridgeLocalContractPayload(
   const int written = std::snprintf(
       data_.data(),
       data_.size(),
-      "{\"contract_schema\":%u,\"capability_schema\":%u,\"snapshot_schema\":%u,\"active\":%s,\"total\":%llu,\"channel_switch\":%llu,\"recording\":%llu,\"replaying\":%llu,\"timer_change\":%llu}",
+      "{\"contract_schema\":%u,\"capability_schema\":%u,\"snapshot_schema\":%u,\"active\":%s,\"total\":%llu,\"channel_switch\":%llu,\"recording\":%llu,\"replaying\":%llu,\"timer_change\":%llu,\"counter_epoch\":\"%s\",\"counter_overflow\":%s}",
       SchemaVersion(),
       capabilitySchema,
       SuiteBridgeStatusSnapshot::SchemaVersion(),
@@ -23,7 +23,9 @@ SuiteBridgeLocalContractPayload::SuiteBridgeLocalContractPayload(
       snapshot.ChannelSwitchCount(),
       snapshot.RecordingCount(),
       snapshot.ReplayingCount(),
-      snapshot.TimerChangeCount());
+      snapshot.TimerChangeCount(),
+      snapshot.CounterEpoch(),
+      snapshot.CounterOverflow() ? "true" : "false");
 
   if (written < 0) {
     data_[0] = '\0';
