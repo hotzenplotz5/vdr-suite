@@ -1,11 +1,13 @@
 #include "suitebridge.h"
 
 #include "suitebridge_capabilities.h"
+#include "suitebridge_capability_discovery.h"
 #include "suitebridge_svdrp_contract.h"
 
 #include <vdr/tools.h>
 
-static const char *VERSION = "0.9.0";
+static const char *PLUGIN_NAME = "suitebridge";
+static const char *VERSION = "0.10.0";
 static const char *DESCRIPTION =
     "Native bridge between VDR and the VDR-Suite Backend Agent";
 
@@ -107,6 +109,8 @@ const char *cPluginSuiteBridge::MainMenuEntry(void)
 const char **cPluginSuiteBridge::SVDRPHelpPages(void)
 {
   static const char *HelpPages[] = {
+      "CAPS [discovery-schema]\n"
+      "    Return the read-only VDR-Suite capability discovery payload.",
       "SNAP\n"
       "    Return the current read-only VDR-Suite status payload.",
       nullptr,
@@ -120,31 +124,56 @@ cString cPluginSuiteBridge::SVDRPCommand(
     const char *Option,
     int &ReplyCode)
 {
-  const SuiteBridgeSvdrpReply reply(
+  const SuiteBridgeCapabilityDiscoveryReply capabilityReply(
+      Command,
+      Option,
+      PLUGIN_NAME,
+      VERSION);
+
+  if (capabilityReply.Handled()) {
+    ReplyCode = capabilityReply.ReplyCode();
+
+    if (!capabilityReply.HasPayload()) {
+      esyslog(
+          "suitebridge: svdrp command=CAPS result=rejected reply=%d",
+          ReplyCode);
+      return cString::sprintf("%s", capabilityReply.Data());
+    }
+
+    isyslog(
+        "suitebridge: svdrp command=CAPS result=served reply=%d bytes=%zu schema=%u",
+        ReplyCode,
+        capabilityReply.Size(),
+        SuiteBridgeCapabilityDiscoveryPayload::SchemaVersion());
+
+    return cString::sprintf("%s", capabilityReply.Data());
+  }
+
+  const SuiteBridgeSvdrpReply snapshotReply(
       Command,
       Option,
       SuiteBridgeCapabilities::SchemaVersion(),
       statusMonitor_.CaptureSnapshot());
 
-  if (!reply.Handled()) {
+  if (!snapshotReply.Handled()) {
     return nullptr;
   }
 
-  ReplyCode = reply.ReplyCode();
+  ReplyCode = snapshotReply.ReplyCode();
 
-  if (!reply.HasPayload()) {
+  if (!snapshotReply.HasPayload()) {
     esyslog(
         "suitebridge: svdrp command=SNAP result=rejected reply=%d",
         ReplyCode);
-    return cString::sprintf("%s", reply.Data());
+    return cString::sprintf("%s", snapshotReply.Data());
   }
 
   isyslog(
       "suitebridge: svdrp command=SNAP result=served reply=%d bytes=%zu",
       ReplyCode,
-      reply.Size());
+      snapshotReply.Size());
 
-  return cString::sprintf("%s", reply.Data());
+  return cString::sprintf("%s", snapshotReply.Data());
 }
 
 VDRPLUGINCREATOR(cPluginSuiteBridge);
