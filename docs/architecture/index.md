@@ -6,6 +6,8 @@
 - [Documentation Index](../index.md)
 - [Project Overview](../project-overview.md)
 - [Architecture Index](index.md)
+- [Current State](../CURRENT.md)
+- [Strict Roadmap](../planning/roadmap.md)
 
 ---
 
@@ -13,9 +15,20 @@
 
 This section contains the stable architecture of VDR-Suite.
 
-Implementation progress belongs in development documents.
+Implementation progress belongs in development documents. Long-term decisions belong in ADRs. Planned dependency order belongs in the planning section.
 
-Long-term decisions belong in ADRs.
+---
+
+## Canonical Target Architecture
+
+- [Target Platform Architecture](target-platform-architecture.md)
+- [Domain Dependency Map](../planning/domain-dependency-map.md)
+- [Implementation Dependency Map](../planning/implementation-dependency-map.md)
+- [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
+
+The Target Platform Architecture is the canonical diagram set for the contract package accepted through ADR-0049. The dependency maps distinguish domain ownership from runtime implementation order.
+
+A target diagram is not evidence of completed runtime behavior. Use [Current Architecture State](../development/current-architecture-state.md) and [Completed Phases](../development/completed-phases.md) for implementation truth.
 
 ---
 
@@ -24,6 +37,8 @@ Long-term decisions belong in ADRs.
 - [VDR-Suite Core Platform Model](vdr-suite-core-platform-model.md)
 - [Suite Components](suite-components.md)
 - [Media Platform Comparison](media-platform-comparison.md)
+
+The Core Platform Model is an earlier conceptual foundation. Where its older future wording differs from the accepted ADR-0038 through ADR-0049 package, the canonical Target Platform Architecture and active ADRs take precedence.
 
 ---
 
@@ -40,7 +55,6 @@ Long-term decisions belong in ADRs.
 - [Recording Action Source Constraints](recording-action-source-constraints.md)
 - [Recording Action Real Backend Smoke Test Plan](recording-action-real-backend-smoke-test-plan.md)
 - [Recording Action Real HTTP Client Gap](recording-action-real-http-client-gap.md)
-
 
 ---
 
@@ -73,7 +87,7 @@ Long-term decisions belong in ADRs.
 - [Phase 8.94 Snapshot Cache Integration Plan](phase-8.94-snapshot-cache-integration-plan.md)
 - [Phase 8.94 Runtime Wiring Notes](phase-8.94-runtime-wiring-notes.md)
 
-Historical implementation notes retained for reference.
+Historical implementation notes are retained for reference. They do not override later accepted ADRs or the target diagram set.
 
 ---
 
@@ -90,15 +104,20 @@ See:
 
 - [Current Architecture State](../development/current-architecture-state.md)
 - [Current Project Status](../development/current-status.md)
+- [Strict Roadmap](../planning/roadmap.md)
+- [Phase Map](../planning/phase-map.md)
 
 ---
 
 ## Rules
 
-- stable architecture belongs here
-- implementation progress belongs in development
-- historical implementation notes belong under Historical Notes
-- long-term decisions belong in ADRs
+- stable architecture belongs here;
+- target architecture and current implementation state remain explicitly separate;
+- implementation progress belongs in development;
+- dependency order belongs in planning;
+- historical implementation notes remain historical;
+- long-term decisions belong in ADRs;
+- plugins, Agents, providers and frontends do not bypass the ownership boundaries in the target architecture.
 
 ---
 
