@@ -20,17 +20,18 @@ SOFILE = libvdr-$(PLUGIN).so
 
 DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
 
-OBJS = $(PLUGIN).o suitebridge_lifecycle.o suitebridge_capabilities.o suitebridge_counter_continuity.o suitebridge_status_snapshot.o suitebridge_local_contract.o suitebridge_svdrp_contract.o suitebridge_status_events.o suitebridge_status_monitor.o
+OBJS = $(PLUGIN).o suitebridge_lifecycle.o suitebridge_capabilities.o suitebridge_capability_discovery.o suitebridge_counter_continuity.o suitebridge_status_snapshot.o suitebridge_local_contract.o suitebridge_svdrp_contract.o suitebridge_status_events.o suitebridge_status_monitor.o
 DEPFILE = .dependencies
 LIFECYCLE_TEST = /tmp/test_suitebridge_lifecycle
 CAPABILITIES_TEST = /tmp/test_suitebridge_capabilities
+CAPABILITY_DISCOVERY_TEST = /tmp/test_suitebridge_capability_discovery
 COUNTER_CONTINUITY_TEST = /tmp/test_suitebridge_counter_continuity
 STATUS_EVENTS_TEST = /tmp/test_suitebridge_status_events
 STATUS_SNAPSHOT_TEST = /tmp/test_suitebridge_status_snapshot
 LOCAL_CONTRACT_TEST = /tmp/test_suitebridge_local_contract
 SVDRP_CONTRACT_TEST = /tmp/test_suitebridge_svdrp_contract
 
-.PHONY: all install install-lib check check-contract check-capabilities-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-version test-lifecycle test-capabilities test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract check-build clean
+.PHONY: all install install-lib check check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract check-build clean
 
 all: $(SOFILE)
 
@@ -56,6 +57,9 @@ check-contract:
 check-capabilities-contract:
 	python3 tests/check_capabilities_contract.py
 
+check-capability-discovery-contract:
+	python3 tests/check_capability_discovery_contract.py
+
 check-counter-continuity-contract:
 	python3 tests/check_counter_continuity_contract.py
 
@@ -72,7 +76,7 @@ check-svdrp-contract:
 	python3 tests/check_svdrp_contract.py
 
 check-version:
-	test "$(VERSION)" = "0.9.0"
+	test "$(VERSION)" = "0.10.0"
 
 test-lifecycle:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
@@ -89,6 +93,15 @@ test-capabilities:
 		-o $(CAPABILITIES_TEST)
 	$(CAPABILITIES_TEST)
 	rm -f $(CAPABILITIES_TEST)
+
+test-capability-discovery:
+	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
+		suitebridge_capabilities.cpp \
+		suitebridge_capability_discovery.cpp \
+		tests/test_suitebridge_capability_discovery.cpp \
+		-o $(CAPABILITY_DISCOVERY_TEST)
+	$(CAPABILITY_DISCOVERY_TEST)
+	rm -f $(CAPABILITY_DISCOVERY_TEST)
 
 test-counter-continuity:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
@@ -141,7 +154,7 @@ check-build: $(SOFILE)
 	test -s $(SOFILE)
 	readelf -h $(SOFILE) >/dev/null
 
-check: check-contract check-capabilities-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-version test-lifecycle test-capabilities test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract check-build
+check: check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract check-build
 
 clean:
-	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(COUNTER_CONTINUITY_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) $(LOCAL_CONTRACT_TEST) $(SVDRP_CONTRACT_TEST) *.tgz core* *~ ._*
+	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(CAPABILITY_DISCOVERY_TEST) $(COUNTER_CONTINUITY_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) $(LOCAL_CONTRACT_TEST) $(SVDRP_CONTRACT_TEST) *.tgz core* *~ ._*
