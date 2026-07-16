@@ -46,19 +46,48 @@ REQUIRED_CURRENT_AND_PLANNED = [
 ]
 
 REQUIRED_ROADMAP_ORDER = [
-    "Step 1 - Complete the Architecture Contract Package",
-    "Step 2 - Phase 60.15: Recording Metadata and Poster Preparation",
-    "Step 3 - Phase 61: Suite Metadata Database and External Providers",
-    "Step 4 - Phase 62: Identity, RBAC and Audit Foundation",
-    "Step 5 - Phase 63: Backend Agent and Secure Multi-Site Runtime",
-    "Step 6 - Phase 64: Timer Intent and Multi-Backend Orchestration",
-    "Step 7 - Phase 65: Streaming Gateway and Media Sessions",
-    "Step 8 - Phase 66: Legacy OSD Compatibility Bridge",
-    "Step 9 - Phase 67: Public API and Client Compatibility Hardening",
-    "Step 10 - Phase 68: Recommendation and Content Knowledge Graph",
+    "Step 1 - Phase 60.15: Recording Metadata and Poster Preparation",
+    "Step 2 - Phase 61: Suite Metadata Database and External Providers",
+    "Step 3 - Phase 62: Identity, RBAC and Accountability Foundation",
+    "Step 4 - Phase 63: Backend Agent and Secure Multi-Site Runtime",
+    "Step 5 - Phase 64: Timer Intent and Multi-Backend Orchestration",
+    "Step 6 - Phase 65: Streaming Gateway and Media Sessions",
+    "Step 7 - Phase 66: Legacy OSD Compatibility Bridge",
+    "Step 8 - Phase 67: Public API and Client Compatibility Hardening",
+    "Step 9 - Phase 68: Recommendation and Content Knowledge Graph",
 ]
 
+REQUIRED_CLOSEOUT_FILES = [
+    "docs/architecture/target-platform-architecture.md",
+    "docs/planning/domain-dependency-map.md",
+    "docs/planning/implementation-dependency-map.md",
+]
+
+REQUIRED_CLOSEOUT_LINKS = {
+    "docs/CURRENT.md": [
+        "architecture/target-platform-architecture.md",
+        "planning/domain-dependency-map.md",
+        "planning/implementation-dependency-map.md",
+    ],
+    "docs/NEW-CHAT-HANDOFF.md": [
+        "architecture/target-platform-architecture.md",
+        "planning/domain-dependency-map.md",
+        "planning/implementation-dependency-map.md",
+    ],
+    "docs/planning/roadmap.md": [
+        "../architecture/target-platform-architecture.md",
+        "domain-dependency-map.md",
+        "implementation-dependency-map.md",
+    ],
+    "docs/planning/phase-map.md": [
+        "../architecture/target-platform-architecture.md",
+        "domain-dependency-map.md",
+        "implementation-dependency-map.md",
+    ],
+}
+
 STALE_ROADMAP_MARKERS = [
+    "Step 1 - Complete the Architecture Contract Package",
     "### Recording Action Foundation",
     "### EPG Search Foundation",
     "### Phase 55 - Backend Management",
@@ -102,6 +131,16 @@ def require_order(text, rel, markers):
         error(rel + " does not preserve the required roadmap order")
 
 
+def check_closeout_files():
+    for rel in REQUIRED_CLOSEOUT_FILES:
+        if not p(rel).is_file():
+            error("architecture package closeout file is missing: " + rel)
+
+    for rel, links in REQUIRED_CLOSEOUT_LINKS.items():
+        text = read(rel)
+        require_markers(text, rel, links)
+
+
 def check():
     phase_map = read("docs/planning/phase-map.md")
     roadmap = read("docs/planning/roadmap.md")
@@ -116,7 +155,13 @@ def check():
     require_markers(
         phase_map,
         "docs/planning/phase-map.md",
-        [LATEST_MAJOR, UMBRELLA_TRACK, LATEST_SLICE, NEXT_SLICE],
+        [
+            LATEST_MAJOR,
+            UMBRELLA_TRACK,
+            LATEST_SLICE,
+            NEXT_SLICE,
+            "Completed Architecture Contract Package",
+        ],
     )
 
     if "[Phase Map](phase-map.md)" not in roadmap:
@@ -125,9 +170,16 @@ def check():
     require_markers(
         roadmap,
         "docs/planning/roadmap.md",
-        [LATEST_MAJOR, UMBRELLA_TRACK, LATEST_SLICE, NEXT_SLICE]
+        [
+            LATEST_MAJOR,
+            UMBRELLA_TRACK,
+            LATEST_SLICE,
+            NEXT_SLICE,
+            "Completed Architecture Contract Baseline",
+        ]
         + REQUIRED_CURRENT_AND_PLANNED,
     )
+
     require_order(
         roadmap,
         "docs/planning/roadmap.md",
@@ -145,6 +197,8 @@ def check():
             rel,
             [LATEST_MAJOR, UMBRELLA_TRACK, LATEST_SLICE, NEXT_SLICE],
         )
+
+    check_closeout_files()
 
     print("Phase map coverage check passed.")
 
