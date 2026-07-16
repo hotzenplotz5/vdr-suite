@@ -19,6 +19,7 @@ VDR_SRC := \
         core/vdr/src/EpgSearchService.cpp \
         core/vdr/src/RestfulApiChannelMapper.cpp \
         core/vdr/src/RestfulApiRecordingMapper.cpp \
+        core/vdr/src/RestfulApiRecordingMetadataMapper.cpp \
         core/vdr/src/RestfulApiTimerMapper.cpp \
         core/vdr/src/RestfulApiTimerConflictMapper.cpp \
         core/vdr/src/RestfulApiEventMapper.cpp \
