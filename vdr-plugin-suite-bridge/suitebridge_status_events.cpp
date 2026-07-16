@@ -9,12 +9,7 @@ constexpr std::size_t EventIndex(SuiteBridgeStatusEventKind kind) noexcept
 
 }
 
-SuiteBridgeStatusEvents::SuiteBridgeStatusEvents() noexcept
-{
-  for (auto &count : counts_) {
-    count.store(0, std::memory_order_relaxed);
-  }
-}
+SuiteBridgeStatusEvents::SuiteBridgeStatusEvents() noexcept = default;
 
 unsigned long long SuiteBridgeStatusEvents::Record(
     SuiteBridgeStatusEventKind kind) noexcept
@@ -25,7 +20,7 @@ unsigned long long SuiteBridgeStatusEvents::Record(
     return 0;
   }
 
-  return counts_[index].fetch_add(1, std::memory_order_relaxed) + 1;
+  return counts_[index].Increment();
 }
 
 unsigned long long SuiteBridgeStatusEvents::Count(
@@ -37,7 +32,23 @@ unsigned long long SuiteBridgeStatusEvents::Count(
     return 0;
   }
 
-  return counts_[index].load(std::memory_order_relaxed);
+  return counts_[index].Value();
+}
+
+bool SuiteBridgeStatusEvents::CounterOverflowed() const noexcept
+{
+  for (const auto &counter : counts_) {
+    if (counter.Overflowed()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+const char *SuiteBridgeStatusEvents::CounterEpoch() const noexcept
+{
+  return epoch_.Data();
 }
 
 SuiteBridgeStatusSnapshot SuiteBridgeStatusEvents::CaptureSnapshot(
@@ -48,7 +59,9 @@ SuiteBridgeStatusSnapshot SuiteBridgeStatusEvents::CaptureSnapshot(
       Count(SuiteBridgeStatusEventKind::ChannelSwitch),
       Count(SuiteBridgeStatusEventKind::Recording),
       Count(SuiteBridgeStatusEventKind::Replaying),
-      Count(SuiteBridgeStatusEventKind::TimerChange));
+      Count(SuiteBridgeStatusEventKind::TimerChange),
+      CounterEpoch(),
+      CounterOverflowed());
 }
 
 const char *SuiteBridgeStatusEvents::Name(
