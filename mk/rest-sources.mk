@@ -28,7 +28,9 @@ REST_LIVE_TRANSPORT_SRC := \
 VDR_TIMER_ACTION_REST_PARSER_SRC := \
         api/rest/src/VdrTimerActionRequestParser.cpp
 
-REST_ROUTER_SRC := \
+# Full router fixture used by router and embedded test-server targets. It
+# intentionally includes a mock timer executor and is not a production bundle.
+REST_ROUTER_TEST_SRC := \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \
@@ -66,7 +68,7 @@ REST_ROUTER_SRC := \
         core/recordings/src/RecordingActionValidationResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionExecutionResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionRequestPreviewResultJsonSerializer.cpp \
-	core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
+        core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionValidationService.cpp \
         api/rest/src/RecordingActionValidationRequestParser.cpp \
         core/vdr/src/VdrTimerActionService.cpp \
@@ -76,3 +78,6 @@ REST_ROUTER_SRC := \
         api/rest/src/VdrTimerActionRequestParser.cpp \
         api/rest/src/SearchTimerAutomationPreviewController.cpp \
         api/rest/src/ApiRouter.cpp
+
+# Transitional compatibility alias for existing test recipes.
+REST_ROUTER_SRC := $(REST_ROUTER_TEST_SRC)
