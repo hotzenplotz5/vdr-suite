@@ -10,6 +10,9 @@ required_files = (
     ROOT / "README.md",
     ROOT / "suitebridge.h",
     ROOT / "suitebridge.cpp",
+    ROOT / "suitebridge_lifecycle.h",
+    ROOT / "suitebridge_lifecycle.cpp",
+    ROOT / "tests/test_suitebridge_lifecycle.cpp",
 )
 
 errors = []
@@ -26,14 +29,19 @@ if errors:
 makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
 header = (ROOT / "suitebridge.h").read_text(encoding="utf-8")
 source = (ROOT / "suitebridge.cpp").read_text(encoding="utf-8")
-combined = header + "\n" + source
+lifecycle_header = (ROOT / "suitebridge_lifecycle.h").read_text(encoding="utf-8")
+lifecycle_source = (ROOT / "suitebridge_lifecycle.cpp").read_text(encoding="utf-8")
+combined = "\n".join(
+    (header, source, lifecycle_header, lifecycle_source)
+)
 
 required_makefile_content = (
     "PLUGIN = suitebridge",
     "SOFILE = libvdr-$(PLUGIN).so",
     "APIVERSION = $(call PKGCFG,apiversion)",
-    "check-version:",
-    'test "$(VERSION)" = "0.1.0"',
+    "OBJS = $(PLUGIN).o suitebridge_lifecycle.o",
+    "test-lifecycle:",
+    'test "$(VERSION)" = "0.2.0"',
 )
 
 for fragment in required_makefile_content:
@@ -41,10 +49,13 @@ for fragment in required_makefile_content:
         errors.append(f"missing Makefile contract: {fragment}")
 
 required_source_content = (
-    'static const char *VERSION = "0.1.0";',
+    'static const char *VERSION = "0.2.0";',
     "bool cPluginSuiteBridge::Initialize(void)",
     "bool cPluginSuiteBridge::Start(void)",
     "void cPluginSuiteBridge::Stop(void)",
+    "lifecycle_.Initialize()",
+    "lifecycle_.Start()",
+    "lifecycle_.Stop()",
     "return nullptr;",
     "VDRPLUGINCREATOR(cPluginSuiteBridge);",
 )
@@ -52,6 +63,21 @@ required_source_content = (
 for fragment in required_source_content:
     if fragment not in source:
         errors.append(f"missing source contract: {fragment}")
+
+required_lifecycle_content = (
+    "enum class SuiteBridgeLifecycleState",
+    "SuiteBridgeLifecycleState::Constructed",
+    "SuiteBridgeLifecycleState::Initialized",
+    "SuiteBridgeLifecycleState::Started",
+    "SuiteBridgeLifecycleState::Stopped",
+    "bool SuiteBridgeLifecycle::Initialize() noexcept",
+    "bool SuiteBridgeLifecycle::Start() noexcept",
+    "void SuiteBridgeLifecycle::Stop() noexcept",
+)
+
+for fragment in required_lifecycle_content:
+    if fragment not in combined:
+        errors.append(f"missing lifecycle contract: {fragment}")
 
 forbidden_content = (
     "#include <thread>",
@@ -75,4 +101,4 @@ if errors:
         print(f"ERROR: {error}", file=sys.stderr)
     raise SystemExit(1)
 
-print("suitebridge foundation contract ok")
+print("suitebridge lifecycle contract ok")

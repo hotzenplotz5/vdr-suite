@@ -20,13 +20,28 @@ VDR Core
 The plugin is not the Backend Agent. It is the small VDR-process-local bridge
 used by the separate Backend Agent.
 
-## Foundation scope
+## Current slice
 
-The initial foundation contains:
+```text
+SB.1 - Deterministic plugin lifecycle
+```
 
-- standard VDR plugin lifecycle;
-- plugin version and description;
-- lifecycle logging;
+The plugin now owns a small VDR-independent lifecycle state machine with the
+states `constructed`, `initialized`, `started` and `stopped`.
+
+Lifecycle rules:
+
+- construction remains side-effect free;
+- `Start()` is rejected before successful initialization;
+- repeated successful initialization and start calls are idempotent;
+- stop is idempotent;
+- a stopped plugin instance cannot be restarted;
+- VDR logs include event, result, state and version fields.
+
+## Deliberate boundaries
+
+The plugin still has:
+
 - no menu entry;
 - no network listener;
 - no outbound connection;
@@ -35,12 +50,15 @@ The initial foundation contains:
 - no filesystem mutation;
 - no VDR mutation.
 
-## Build
+## Build and tests
 
 ```bash
 make clean
 make check
 ```
+
+`make check` validates the source contract, version extraction, lifecycle state
+machine and final shared-object build.
 
 ## Staged installation
 
@@ -50,4 +68,5 @@ make DESTDIR=/tmp/vdr-suitebridge-stage install
 find /tmp/vdr-suitebridge-stage -type f -print
 ```
 
-The foundation must not yet be installed into the live VDR plugin directory.
+The plugin must not yet be installed into the live VDR plugin directory without
+a controlled load and rollback test.

@@ -2,7 +2,7 @@
 
 #include <vdr/tools.h>
 
-static const char *VERSION = "0.1.0";
+static const char *VERSION = "0.2.0";
 static const char *DESCRIPTION =
     "Native bridge between VDR and the VDR-Suite Backend Agent";
 
@@ -22,19 +22,43 @@ const char *cPluginSuiteBridge::Description(void)
 
 bool cPluginSuiteBridge::Initialize(void)
 {
-  isyslog("suitebridge: initialize version %s", VERSION);
+  if (!lifecycle_.Initialize()) {
+    esyslog(
+        "suitebridge: lifecycle event=initialize result=rejected state=%s",
+        lifecycle_.StateName());
+    return false;
+  }
+
+  isyslog(
+      "suitebridge: lifecycle event=initialize result=accepted state=%s version=%s",
+      lifecycle_.StateName(),
+      VERSION);
   return true;
 }
 
 bool cPluginSuiteBridge::Start(void)
 {
-  isyslog("suitebridge: started");
+  if (!lifecycle_.Start()) {
+    esyslog(
+        "suitebridge: lifecycle event=start result=rejected state=%s",
+        lifecycle_.StateName());
+    return false;
+  }
+
+  isyslog(
+      "suitebridge: lifecycle event=start result=accepted state=%s version=%s",
+      lifecycle_.StateName(),
+      VERSION);
   return true;
 }
 
 void cPluginSuiteBridge::Stop(void)
 {
-  isyslog("suitebridge: stopped");
+  lifecycle_.Stop();
+  isyslog(
+      "suitebridge: lifecycle event=stop result=accepted state=%s version=%s",
+      lifecycle_.StateName(),
+      VERSION);
 }
 
 const char *cPluginSuiteBridge::MainMenuEntry(void)
