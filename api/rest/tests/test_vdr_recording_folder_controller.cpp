@@ -77,6 +77,10 @@ int main()
     assert(contains(root.body, "\"Series\""));
     assert(contains(root.body, "\"Movies\""));
     assert(contains(root.body, "\"Root Recording\""));
+    assert(contains(root.body, "\"metadata\":{"));
+    assert(contains(root.body, "\"providerAvailable\":false"));
+    assert(contains(root.body, "\"artworkPrepared\":false"));
+    assert(contains(root.body, "\"placeholderVariant\":"));
 
     const ApiResponse series =
         controller.getFolder("default", "Series", 20, 0);
@@ -84,6 +88,7 @@ int main()
     assert(series.statusCode == 200);
     assert(contains(series.body, "\"Show\""));
     assert(contains(series.body, "\"parentPath\":\"\""));
+    assert(contains(series.body, "\"metadata\":{"));
 
     std::cout
         << "test_vdr_recording_folder_controller passed"

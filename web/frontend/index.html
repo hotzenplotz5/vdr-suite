@@ -131,6 +131,89 @@
       text-overflow: ellipsis;
     }
 
+    /* Phase 60.15d: deterministic provider-independent poster preparation. */
+    .recording-list-item,
+    .recording-detail {
+      position: relative;
+      isolation: isolate;
+    }
+
+    .recording-list-item {
+      min-height: 7.5rem;
+      padding-left: 6.25rem !important;
+    }
+
+    .recording-list-item::before,
+    .recording-detail::before {
+      content: "▶";
+      position: absolute;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(125, 211, 252, 0.38);
+      border-radius: 0.82rem;
+      background:
+        radial-gradient(circle at 25% 18%, rgba(125, 211, 252, 0.54), transparent 25%),
+        linear-gradient(155deg, rgba(14, 165, 233, 0.92), rgba(30, 41, 59, 0.96) 48%, rgba(2, 6, 23, 0.98));
+      color: rgba(248, 250, 252, 0.94);
+      font-size: 1.45rem;
+      text-shadow: 0 0.18rem 0.6rem rgba(2, 6, 23, 0.8);
+      box-shadow:
+        0 0.65rem 1.4rem rgba(2, 6, 23, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      z-index: 0;
+    }
+
+    .recording-list-item::before {
+      left: 0.8rem;
+      top: 0.72rem;
+      width: 4.45rem;
+      height: 6.35rem;
+    }
+
+    .recording-list-item:nth-of-type(6n + 2)::before {
+      background:
+        radial-gradient(circle at 72% 20%, rgba(253, 186, 116, 0.55), transparent 27%),
+        linear-gradient(150deg, #9a3412, #4c1d95 52%, #020617);
+    }
+
+    .recording-list-item:nth-of-type(6n + 3)::before {
+      background:
+        radial-gradient(circle at 24% 24%, rgba(167, 243, 208, 0.5), transparent 28%),
+        linear-gradient(150deg, #047857, #164e63 52%, #020617);
+    }
+
+    .recording-list-item:nth-of-type(6n + 4)::before {
+      background:
+        radial-gradient(circle at 70% 22%, rgba(251, 191, 36, 0.52), transparent 27%),
+        linear-gradient(150deg, #92400e, #7f1d1d 52%, #020617);
+    }
+
+    .recording-list-item:nth-of-type(6n + 5)::before {
+      background:
+        radial-gradient(circle at 24% 20%, rgba(196, 181, 253, 0.58), transparent 25%),
+        linear-gradient(150deg, #5b21b6, #1e3a8a 52%, #020617);
+    }
+
+    .recording-list-item:nth-of-type(6n)::before {
+      background:
+        radial-gradient(circle at 72% 22%, rgba(244, 114, 182, 0.5), transparent 28%),
+        linear-gradient(150deg, #9d174d, #4338ca 52%, #020617);
+    }
+
+    .recording-detail {
+      min-height: 14rem;
+      padding-left: 11.2rem !important;
+    }
+
+    .recording-detail::before {
+      left: 1rem;
+      top: 1rem;
+      width: 8.6rem;
+      height: 12rem;
+      font-size: 2rem;
+    }
+
     @media (min-width: 72rem) {
       .layout {
         max-width: min(118rem, calc(100vw - 2.5rem));
@@ -232,6 +315,33 @@
 
       .brand-feature-text {
         display: none;
+      }
+
+      .recording-list-item {
+        min-height: 6.6rem;
+        padding-left: 5.45rem !important;
+      }
+
+      .recording-list-item::before {
+        left: 0.65rem;
+        top: 0.62rem;
+        width: 3.85rem;
+        height: 5.5rem;
+        border-radius: 0.7rem;
+      }
+
+      .recording-detail {
+        min-height: 11rem;
+        padding-left: 7.8rem !important;
+      }
+
+      .recording-detail::before {
+        left: 0.75rem;
+        top: 0.75rem;
+        width: 5.8rem;
+        height: 8.35rem;
+        border-radius: 0.72rem;
+        font-size: 1.5rem;
       }
     }
   </style>

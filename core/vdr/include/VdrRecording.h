@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Person.h"
+#include "VdrRecordingMetadata.h"
 
 #include <string>
 
@@ -18,5 +19,6 @@ struct VdrRecording
     int durationSeconds = 0;
     long long sizeMb = 0;
 
+    VdrRecordingMetadata metadata;
     PersonCollection persons = PersonCollection::createEmpty();
 };

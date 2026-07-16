@@ -26,6 +26,22 @@ int main()
     recordings.push_back(makeRecording("1", "Tatort"));
     recordings.push_back(makeRecording("2", "Tagesschau"));
 
+    recordings[0].metadata.native.eventTitle = "Tatort native";
+    recordings[0].metadata.provider.source =
+        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    recordings[0].metadata.provider.contentKind =
+        VdrRecordingContentKind::Movie;
+    recordings[0].metadata.provider.movieId = "13";
+    recordings[0].metadata.provider.title = "Tatort Film";
+    recordings[0].metadata.provider.overview = "Provider overview";
+
+    VdrRecordingArtworkRef poster;
+    poster.kind = VdrRecordingArtworkKind::Poster;
+    poster.source =
+        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    poster.reference = "movies/13/private-poster.jpg";
+    recordings[0].metadata.artwork.push_back(poster);
+
     VdrRecordingQueryResult result(
         recordings,
         973,
@@ -51,6 +67,11 @@ int main()
     assert(json.find("\"sizeMb\":512") != std::string::npos);
     assert(json.find("\"id\":\"2\"") != std::string::npos);
     assert(json.find("\"title\":\"Tagesschau\"") != std::string::npos);
+    assert(json.find("\"metadata\":{") != std::string::npos);
+    assert(json.find("\"contentKind\":\"movie\"") != std::string::npos);
+    assert(json.find("\"providerAvailable\":true") != std::string::npos);
+    assert(json.find("\"artworkPrepared\":true") != std::string::npos);
+    assert(json.find("private-poster.jpg") == std::string::npos);
 
     VdrRecordingQueryResult empty =
         VdrRecordingQueryResult::empty(
