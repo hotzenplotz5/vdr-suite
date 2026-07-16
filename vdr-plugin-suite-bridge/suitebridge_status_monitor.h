@@ -43,6 +43,7 @@ protected:
       eTimerChange change) override;
 
 private:
+  void RecordEvent(SuiteBridgeStatusEventKind kind) noexcept;
   void LogSnapshot(const SuiteBridgeStatusSnapshot &snapshot) const noexcept;
 
   std::atomic<bool> active_;
