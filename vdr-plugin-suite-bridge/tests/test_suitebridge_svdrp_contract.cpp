@@ -20,16 +20,17 @@ int main()
       12,
       2,
       3,
-      4);
+      4,
+      "0123456789abcdef0123456789abcdef",
+      false);
 
   const SuiteBridgeSvdrpReply reply(
       "SNAP",
       "",
       1,
       snapshot);
-
   const char *expected =
-      "{\"contract_schema\":1,\"capability_schema\":1,\"snapshot_schema\":1,\"active\":true,\"total\":21,\"channel_switch\":12,\"recording\":2,\"replaying\":3,\"timer_change\":4}";
+      "{\"contract_schema\":2,\"capability_schema\":1,\"snapshot_schema\":2,\"active\":true,\"total\":21,\"channel_switch\":12,\"recording\":2,\"replaying\":3,\"timer_change\":4,\"counter_epoch\":\"0123456789abcdef0123456789abcdef\",\"counter_overflow\":false}";
 
   assert(reply.Handled());
   assert(reply.HasPayload());
