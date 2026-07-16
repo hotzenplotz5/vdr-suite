@@ -47,9 +47,28 @@ REQUIRED_REACHABILITY = {
     },
 }
 
+INTENTIONAL_RUNTIME_AGGREGATES = {
+    (
+        "DAEMON_SRC",
+        "core/http/src/TestHttpServer.cpp",
+    ): "legacy-named production HTTP dispatcher used by DaemonRuntime",
+    (
+        "VDR_SRC",
+        "core/vdr/src/MockVdrAdapter.cpp",
+    ): "explicit mock adapter mode provided by VdrAdapterFactory",
+    (
+        "VDR_SRC",
+        "core/vdr/src/TestLiveTransport.cpp",
+    ): "explicit test transport mode provided by LiveTransportFactory",
+}
+
 TARGET_RE = re.compile(r"^([A-Za-z0-9_.%/+\-]+(?:\s+[A-Za-z0-9_.%/+\-]+)*)\s*:(?!=)\s*(.*)$")
 SOURCE_RE = re.compile(r"(?:^|\s)((?:api|core|web)/[^\s\\]+/test_[^\s\\]+\.(?:cpp|js))")
 ASSIGNMENT_RE = re.compile(r"^([A-Za-z0-9_]+)\s*(?::=|=|\+=|\?=)\s*(.*)$")
+VARIABLE_ASSIGNMENT_RE = re.compile(
+    r"^([A-Za-z0-9_]+)\s*(\+=|:=|=|\?=)\s*(.*)$"
+)
+VARIABLE_REFERENCE_RE = re.compile(r"^\$\(([A-Za-z0-9_]+)\)$")
 
 
 def make_files() -> list[Path]:
@@ -81,16 +100,53 @@ def logical_lines(lines: Iterable[str]) -> list[str]:
     return result
 
 
-def dependency_tokens(text: str) -> set[str]:
+def parse_make_variables(paths: Iterable[Path]) -> dict[str, list[str]]:
+    variables: dict[str, list[str]] = {}
+    for path in paths:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for line in logical_lines(lines):
+            match = VARIABLE_ASSIGNMENT_RE.match(line.strip())
+            if not match:
+                continue
+            name, operator, value = match.groups()
+            tokens = value.split()
+            if operator == "+=":
+                variables.setdefault(name, []).extend(tokens)
+            elif operator == "?=":
+                variables.setdefault(name, tokens)
+            else:
+                variables[name] = tokens
+    return variables
+
+
+def dependency_tokens(
+    text: str,
+    variables: dict[str, list[str]],
+) -> set[str]:
     result: set[str] = set()
-    for token in text.split():
+    queue = deque(text.split())
+    expanded_variables: set[str] = set()
+
+    while queue:
+        token = queue.popleft()
         if token == "|":
-            continue
-        if "$" in token or "%" in token or "=" in token:
             continue
         if token.startswith("#"):
             break
+
+        variable_match = VARIABLE_REFERENCE_RE.match(token)
+        if variable_match:
+            variable_name = variable_match.group(1)
+            if variable_name in expanded_variables:
+                continue
+            expanded_variables.add(variable_name)
+            queue.extendleft(reversed(variables.get(variable_name, [])))
+            continue
+
+        if "$" in token or "%" in token or "=" in token:
+            continue
         result.add(token)
+
     return result
 
 
@@ -99,6 +155,7 @@ def parse_targets(paths: Iterable[Path]) -> tuple[
 ]:
     graph: dict[str, set[str]] = defaultdict(set)
     definitions: DefaultDict[str, list[Path]] = defaultdict(list)
+    variables = parse_make_variables(paths)
 
     for path in paths:
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -112,7 +169,10 @@ def parse_targets(paths: Iterable[Path]) -> tuple[
             targets = targets_text.split()
             if targets == [".PHONY"]:
                 continue
-            prerequisites = dependency_tokens(prerequisites_text)
+            prerequisites = dependency_tokens(
+            prerequisites_text,
+            variables,
+        )
             for target in targets:
                 graph.setdefault(target, set()).update(prerequisites)
                 definitions[target].append(relative(path))
@@ -258,7 +318,10 @@ def main() -> int:
     for name in ("VDR_SRC", "DAEMON_SRC", "REST_ROUTER_SRC"):
         for source in aggregates.get(name, []):
             basename = Path(source).name
-            if basename.startswith(("Mock", "Test")):
+            if (
+                basename.startswith(("Mock", "Test"))
+                and (name, source) not in INTENTIONAL_RUNTIME_AGGREGATES
+            ):
                 production_leaks.append(f"{name}: {source}")
 
     duplicate_flags = duplicate_ldflags(paths)
