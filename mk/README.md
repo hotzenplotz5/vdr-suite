@@ -1,12 +1,49 @@
-# Modular Make includes
+# Make Infrastructure
 
-This directory contains split-out Makefile fragments.
+The top-level `Makefile` remains the compatibility entrypoint. Reusable source
+aggregates, install rules, test recipes and public test groups are owned here.
 
-The root `Makefile` remains the public entry point for normal developer workflows:
+## Public Test Entrypoints
 
-```bash
-make test
-make daemon
-```
+All public test groups are defined only in `test-groups.mk`:
 
-Source lists and later grouped test targets can be moved here incrementally so the root `Makefile` stays maintainable.
+- `test-ci-fast` — required fast C++ and policy regression path
+- `test-ci-frontend` — JavaScript, i18n and frontend ownership contracts
+- `test-ci-packaging` — systemd contract plus complete install staging
+- `test-vdr` — broad VDR domain and adapter suite
+- `test-all` — aggregate local non-real suite
+- `test-manual-real` — explicitly configured real-VDR tests only
+
+Individual test recipes stay close to their domain. A fragment may add a leaf
+test as a prerequisite of another domain target, but it must not redefine a
+public group.
+
+## Inventory Guard
+
+`tools/check_make_test_manifest.py` checks:
+
+- public group ownership and required reachability
+- missing test source references
+- orphan C++ and JavaScript test files
+- test targets outside public groups
+- test-support-looking sources in broad aggregates
+- adjacent duplicate linker flag entries
+
+The default mode blocks structural errors and reports historical debt. The
+`--strict` mode turns all reported debt into failures and will become the
+standard once the current backlog is resolved.
+
+The CI uploads `make-test-audit-bundle`, containing the complete report and the
+Make fragments used for that run.
+
+## Current Migration Rule
+
+Do not delete a test because it looks old. First prove one of the following:
+
+1. the protected behavior no longer exists;
+2. a stronger test covers the same contract;
+3. the target references removed production code;
+4. the test cannot be reached from any supported build or runtime path.
+
+Production and test-support source aggregates will be separated incrementally
+without changing daemon behavior in the same commit.
