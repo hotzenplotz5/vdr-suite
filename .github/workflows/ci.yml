@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: vdr-suite-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   docs-check:
     runs-on: ubuntu-latest
