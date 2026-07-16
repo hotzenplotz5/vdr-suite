@@ -6,6 +6,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 required_files = (
+    ROOT / "suitebridge_counter_continuity.h",
+    ROOT / "suitebridge_counter_continuity.cpp",
     ROOT / "suitebridge_status_events.h",
     ROOT / "suitebridge_status_events.cpp",
     ROOT / "suitebridge_status_monitor.h",
@@ -24,6 +26,12 @@ if errors:
         print(f"ERROR: {error}", file=sys.stderr)
     raise SystemExit(1)
 
+continuity_header = (ROOT / "suitebridge_counter_continuity.h").read_text(
+    encoding="utf-8"
+)
+continuity_source = (ROOT / "suitebridge_counter_continuity.cpp").read_text(
+    encoding="utf-8"
+)
 events_header = (ROOT / "suitebridge_status_events.h").read_text(
     encoding="utf-8"
 )
@@ -37,7 +45,14 @@ monitor_source = (ROOT / "suitebridge_status_monitor.cpp").read_text(
     encoding="utf-8"
 )
 combined = "\n".join(
-    (events_header, events_source, monitor_header, monitor_source)
+    (
+        continuity_header,
+        continuity_source,
+        events_header,
+        events_source,
+        monitor_header,
+        monitor_source,
+    )
 )
 
 required_content = (
@@ -46,7 +61,13 @@ required_content = (
     "SuiteBridgeStatusEventKind::Recording",
     "SuiteBridgeStatusEventKind::Replaying",
     "SuiteBridgeStatusEventKind::TimerChange",
+    "class SuiteBridgeSaturatingCounter final",
     "std::atomic<unsigned long long>",
+    "compare_exchange_weak(",
+    "class SuiteBridgeCounterEpoch final",
+    "SuiteBridgeCounterEpoch epoch_;",
+    "CounterOverflowed() const noexcept",
+    "CounterEpoch() const noexcept",
     "class SuiteBridgeStatusMonitor final : public cStatus",
     "void Activate() noexcept",
     "void Deactivate() noexcept",
@@ -68,6 +89,7 @@ forbidden_content = (
     "cThread",
     "std::vector",
     "std::queue",
+    "std::mutex",
     "new ",
     "delete ",
     "socket(",
@@ -131,6 +153,8 @@ callback_forbidden = (
     "LogSnapshot(",
     "CaptureSnapshot(",
     "SuiteBridgeLocalContractPayload",
+    "CounterEpoch(",
+    "CounterOverflowed(",
     "socket(",
     "connect(",
     "system(",
