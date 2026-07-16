@@ -15,6 +15,7 @@ include mk/object-cache.mk
 
 include mk/smoke-targets.mk
 include mk/recording-action-tests.mk
+include mk/recording-metadata-tests.mk
 include mk/application-tests.mk
 include mk/domain-tests.mk
 include mk/search-timer-api-tests.mk
