@@ -5,8 +5,8 @@ test-runtime-diagnostics: test-null-runtime-logger
 
 
 test-null-runtime-logger:
-	$(CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/runtime/src/NullRuntimeLogger.cpp \
 		core/runtime/tests/test_null_runtime_logger.cpp \
-		-o /tmp/test_null_runtime_logger
-	/tmp/test_null_runtime_logger
+		-o $(BUILD_DIR)/test_null_runtime_logger
+	$(BUILD_DIR)/test_null_runtime_logger
