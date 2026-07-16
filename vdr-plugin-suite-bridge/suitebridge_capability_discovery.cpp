@@ -4,7 +4,6 @@
 #include "suitebridge_local_contract.h"
 #include "suitebridge_status_snapshot.h"
 
-#include <cctype>
 #include <cstdarg>
 #include <cstdio>
 #include <limits>
@@ -27,6 +26,21 @@ enum class RequestedSchemaKind {
   Malformed,
 };
 
+bool IsAsciiSpace(unsigned char value) noexcept
+{
+  return value == ' ' ||
+      value == '\t' ||
+      value == '\n' ||
+      value == '\r' ||
+      value == '\v' ||
+      value == '\f';
+}
+
+bool IsAsciiDigit(unsigned char value) noexcept
+{
+  return value >= '0' && value <= '9';
+}
+
 RequestedSchemaKind ParseRequestedSchema(const char *option) noexcept
 {
   if (option == nullptr) {
@@ -36,7 +50,7 @@ RequestedSchemaKind ParseRequestedSchema(const char *option) noexcept
   const unsigned char *cursor =
       reinterpret_cast<const unsigned char *>(option);
 
-  while (*cursor != '\0' && std::isspace(*cursor) != 0) {
+  while (*cursor != '\0' && IsAsciiSpace(*cursor)) {
     ++cursor;
   }
 
@@ -50,7 +64,7 @@ RequestedSchemaKind ParseRequestedSchema(const char *option) noexcept
   constexpr unsigned long long maximum =
       std::numeric_limits<unsigned long long>::max();
 
-  while (*cursor != '\0' && std::isdigit(*cursor) != 0) {
+  while (*cursor != '\0' && IsAsciiDigit(*cursor)) {
     hasDigit = true;
     const unsigned int digit = static_cast<unsigned int>(*cursor - '0');
 
@@ -67,7 +81,7 @@ RequestedSchemaKind ParseRequestedSchema(const char *option) noexcept
     return RequestedSchemaKind::Malformed;
   }
 
-  while (*cursor != '\0' && std::isspace(*cursor) != 0) {
+  while (*cursor != '\0' && IsAsciiSpace(*cursor)) {
     ++cursor;
   }
 
