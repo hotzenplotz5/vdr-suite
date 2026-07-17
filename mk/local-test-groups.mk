@@ -71,14 +71,13 @@ test-backend-registry-service:
 		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/tests/test_backend_registry_service.cpp \
 		-o $(BUILD_DIR)/test_backend_registry_service
-	$(BUILD_DIR)/test_backend_registry_service
+	$(BUILD_DIR)/test_backend-registry-service
 
 
 test-backend-registry-json-serializer:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
-		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/BackendRegistryJsonSerializer.cpp \
 		core/vdr/tests/test_backend_registry_json_serializer.cpp \
 		-o $(BUILD_DIR)/test_backend_registry_json_serializer
