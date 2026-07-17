@@ -6,6 +6,7 @@
 - [Plugin ADR-0001](ADR-0001-plugin-role-and-native-integration-strategy.md)
 - [Shared VDR-Suite Handoff](VDR-SUITE-HANDOFF.md)
 - [SB.9 Capability Discovery](SB-9-capability-discovery.md)
+- [SB.10b Local SVDRP Transport](../../docs/architecture/suite-bridge-svdrp-transport.md)
 
 ---
 
@@ -80,23 +81,27 @@ PLUG suitebridge SNAP
 The current plugin has no menu, listener, outbound connection, worker thread,
 database, filesystem mutation or VDR mutation surface.
 
-SB.10a, the transport-neutral Agent handshake contract, is completed.
+Completed Agent-side SB.10 slices:
 
-Implementation head:
+| Slice | Acceptance head |
+| --- | --- |
+| SB.10a Transport-neutral handshake contract | `ba6deddbfba6d50b1152d584654a92f75340dcc3` |
+| SB.10b Local typed SVDRP transport | `3396840d41260bb3ed81bc652921b329263d7e58` |
+
+SB.10a implementation head:
 
 ```text
 d70ebee00edcab1cd019ca9e0c2541a06bf7d587
 ```
 
-Repository-wide automated-acceptance head:
+SB.10b implementation, automated-test and live-acceptance head:
 
 ```text
-ba6deddbfba6d50b1152d584654a92f75340dcc3
+3396840d41260bb3ed81bc652921b329263d7e58
 ```
 
-SB.10a is not a new plugin capability and does not change the plugin version,
-plugin commands, capability catalogue or local schemas. No live VDR test was
-required because SB.10a opens no concrete transport and invokes no VDR command.
+SB.10a and SB.10b are Agent-side work. They do not change the plugin version,
+plugin commands, capability catalogue or local schemas.
 
 ---
 
@@ -133,9 +138,9 @@ The sequence deliberately prioritizes:
 | Slice | Status | Primary owner | Plugin change expected |
 | --- | --- | --- | --- |
 | SB.10a Transport-neutral handshake contract | completed | Backend Agent | no |
-| SB.10b Local typed SVDRP transport | active | Backend Agent | no |
+| SB.10b Local typed SVDRP transport | completed | Backend Agent | no |
 | SB.10c Polling, reconnect and freshness | active | Backend Agent | no |
-| SB.10d Embedded-Agent integration and live acceptance | active | Backend Agent / Suite runtime | no, unless a proven compatibility gap exists |
+| SB.10d Embedded-Agent runtime integration | planned | Backend Agent / Suite runtime | no, unless a proven compatibility gap exists |
 | SB.11 Sequenced native event feed | planned | Plugin + Agent | yes |
 | SB.12 OSD notification feed | planned | Plugin + Agent | yes |
 | SB.13 Replay and AV state | planned | Plugin + Agent | likely |
@@ -184,10 +189,10 @@ Acceptance classification:
 - independent plugin regression passed;
 - complete documentation checks passed;
 - global architecture check passed after synchronization with ADR-0050;
-- the accepted branch contained current Suite `main` head
+- the accepted branch contained Suite `main` head
   `8ba96dbb46019030f7cb3ebcb95929034b6166d3`;
 - no live VDR test was required for this transport-neutral contract;
-- plugin runtime, version, commands, capabilities and schemas remain unchanged.
+- plugin runtime, version, commands, capabilities and schemas remained unchanged.
 
 Implemented responsibilities:
 
@@ -214,65 +219,86 @@ Non-goals:
 
 ## SB.10b — Local Typed SVDRP Transport
 
-Status: `active`
+Status: `completed`
 
 Primary owner: Backend Agent.
 
-Goal:
-
-Implement one dedicated local Suite Bridge transport that can execute only the
-typed commands admitted by the SB.10a interface.
-
-Allowed logical operations:
+Implementation, automated-test and controlled live-acceptance head:
 
 ```text
-DiscoverSchema1
-Snapshot
+3396840d41260bb3ed81bc652921b329263d7e58
 ```
 
-Expected transport behavior:
+Implemented behavior:
 
-- connect to the configured local VDR SVDRP endpoint;
-- read and validate the server greeting;
-- issue only fixed allowlisted Suite Bridge requests;
-- parse single-line and multiline SVDRP replies deterministically;
-- preserve reply code separately from payload;
-- normalize supported line endings;
-- enforce connection, read and total-operation deadlines;
-- enforce reply and payload byte limits;
-- handle connection refusal, timeout, short read, malformed reply and disconnect;
-- close the connection deterministically;
-- expose no arbitrary command-text method;
-- expose no shell, `system()`, `popen()`, fork or subprocess surface;
-- log only bounded transport facts.
-
-Preferred implementation:
-
-- direct small SVDRP client owned by the Agent transport layer.
-
-A temporary command-line wrapper is not the preferred permanent architecture.
-The existing mutation-specific channel-move executor must not be reused as the
-generic Suite Bridge transport.
-
-Required tests:
-
-- exact successful `CAPS 1` reply;
-- exact successful `SNAP` reply;
-- multiline reply termination;
-- CRLF and supported line-ending normalization;
-- unexpected greeting;
-- reply code rejection;
-- connection refusal;
-- connect timeout;
-- read timeout;
-- connection closed mid-reply;
-- oversized reply;
-- malformed reply line;
+- one dedicated direct local SVDRP transport;
+- only `DiscoverSchema1` and `Snapshot` are accepted by the public C++ boundary;
+- exact wire requests `PLUG suitebridge CAPS 1` and
+  `PLUG suitebridge SNAP`;
+- one independent socket per typed invocation;
+- non-blocking connect and bounded `poll()` waits;
+- greeting code `220` validation;
+- deterministic single-line and multiline reply parsing;
+- separate transport status, reply code, payload and diagnostic;
+- CRLF and LF normalization;
+- connect, per-I/O and total-operation deadlines;
+- bounded greeting, reply byte and line counts;
+- deterministic RAII socket cleanup;
+- no DNS lookup beyond localhost or numeric addresses;
 - no free command text;
-- no process or shell invocation;
-- deterministic resource cleanup.
+- no shell, process, `svdrpsend`, database, filesystem, RESTfulAPI or daemon
+  coupling;
+- no reuse of the mutation-specific `SvdrpChannelMoveExecutor`.
 
-Plugin changes expected: none.
+Automated acceptance proved:
+
+- strict Make inventory with zero ungrouped targets, orphan sources or stale
+  references;
+- SB.10a boundary and handshake regression;
+- explicit real-VDR reply-`550` missing-plugin regression;
+- SB.10b transport boundary guard;
+- exact `CAPS 1` and `SNAP` loopback requests;
+- successful and rejected replies;
+- CRLF, LF and multiline framing;
+- malformed and incomplete replies;
+- greeting and reply timeouts;
+- oversized reply rejection;
+- invalid configuration and connection failure;
+- deterministic peer closure;
+- independent plugin source-contract and C++ regression suite;
+- plugin version extraction at `0.10.0`;
+- final shared-object build and ELF validation;
+- complete documentation and global architecture checks;
+- clean synchronized worktree.
+
+Negative live evidence established that a missing plugin produces real VDR reply
+`550`. The handshake now classifies:
+
+- reply `500` as an unavailable legacy `CAPS` command;
+- reply `550` as an unavailable Suite Bridge plugin;
+- both as `LegacyOrUnknown`;
+- neither permits a subsequent `SNAP` request;
+- all mutations remain disabled.
+
+Controlled positive live acceptance on VDR `2.7.9`, API version `11`, proved:
+
+- the plugin was loaded as `libvdr-suitebridge.so.11`;
+- `HELP` listed `CAPS` and `SNAP`;
+- `CAPS 1` returned reply `900` and `mutations=disabled`;
+- `SNAP` returned reply `900`, `active=true` and a valid `counter_epoch`;
+- the direct Agent handshake returned `status=ready`;
+- plugin version `0.10.0`, discovery schema `1`, capability schema `1`, snapshot
+  schema `2` and local-contract schema `2` were exact;
+- `counter_overflow=false`;
+- channel, Timer, Recording and `setup.conf` state remained unchanged;
+- controlled rollback removed the configuration symlink, configuration file and
+  API-versioned shared object;
+- VDR restarted and no Suite Bridge mapping remained;
+- the original VDR state and clean repository worktree were restored.
+
+Plugin changes: none.
+
+Plugin version, commands, capabilities and schemas remain unchanged.
 
 ## SB.10c — Read-Only Polling, Reconnect and Freshness
 
@@ -303,6 +329,7 @@ offline
 
 Required behavior:
 
+- compose the accepted SB.10b transport rather than widen it;
 - perform capability discovery on initial connection;
 - fetch the initial `SNAP` only after compatibility succeeds;
 - retain one bounded baseline;
@@ -320,7 +347,7 @@ Plugin changes expected: none.
 
 ## SB.10d — Embedded-Agent Runtime Integration
 
-Status: `active`
+Status: `planned`
 
 Primary owner: Backend Agent and Suite runtime.
 
@@ -358,8 +385,9 @@ Required work:
 
 Completion gate:
 
-SB.10 is completed only when automated tests, final Suite build, controlled live
-VDR acceptance, shutdown, rollback and shared handoff update pass.
+SB.10 is completed only when SB.10c and SB.10d automated tests, final Suite
+build, controlled live VDR acceptance, shutdown, rollback and shared handoff
+updates pass.
 
 ---
 
@@ -934,19 +962,19 @@ A plugin slice is completed only when:
 The next implementation slice is:
 
 ```text
-SB.10b - Local typed SVDRP transport
+SB.10c - Read-only polling, reconnect and freshness
 ```
 
 Before implementation, the Agent-side precheck must read and compare:
 
-- the SB.10a transport-neutral contracts;
-- existing HTTP and socket abstractions;
-- existing test-server and transport tests;
-- the mutation-specific channel-move SVDRP executor;
-- VDR SVDRP framing and multiline reply behavior;
+- the accepted SB.10a handshake contract;
+- the accepted SB.10b direct transport and live evidence;
+- existing Agent worker, polling, backoff and freshness abstractions;
 - RuntimeConfig and BackendRuntimeContext;
+- daemon startup, shutdown and failure ownership;
+- current VDR restart and reconnect test infrastructure;
 - Make source and test ownership;
-- shutdown and live-acceptance paths.
+- the shared handoff and current `main` delta.
 
 Expected plugin changes: none.
 
@@ -961,7 +989,7 @@ contract and VDR callback data that can be copied safely.
 This roadmap does not:
 
 - replace the shared handoff;
-- mark SB.10 completed before acceptance;
+- mark all of SB.10 completed before SB.10c and SB.10d acceptance;
 - enable any mutation;
 - change plugin version or schema by documentation alone;
 - guarantee implementation of candidate slices;
@@ -981,6 +1009,7 @@ This roadmap does not:
 - [SB.6 Read-Only SVDRP](SB-6-read-only-svdrp.md)
 - [SB.8 Counter Continuity](SB-8-counter-continuity.md)
 - [SB.9 Capability Discovery](SB-9-capability-discovery.md)
+- [SB.10b Local SVDRP Transport](../../docs/architecture/suite-bridge-svdrp-transport.md)
 - [VDR-Suite ADR-0039: Backend Agent and Control Plane Boundary](../../docs/adr/ADR-0039-backend-agent-control-plane-boundary.md)
 - [VDR-Suite ADR-0042: Safe Mutation, Revision and Idempotency](../../docs/adr/ADR-0042-safe-mutation-revision-idempotency-contract.md)
 - [VDR-Suite ADR-0047: Legacy OSD Compatibility Bridge](../../docs/adr/ADR-0047-legacy-osd-compatibility-bridge.md)
