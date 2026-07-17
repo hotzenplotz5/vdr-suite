@@ -11,6 +11,18 @@ STATEDIR ?= $(LOCALSTATEDIR)/lib/vdr-suite
 SYSTEMDUNITDIR ?= /lib/systemd/system
 INSTALL ?= install
 
+RECORDING_GENRE_ARTWORK_ASSETS := \
+	action \
+	doku \
+	drama \
+	musik \
+	musical \
+	mystery \
+	scifi \
+	serien \
+	thriller \
+	western
+
 .PHONY: install install-runtime install-cli install-docs install-manpages install-systemd test-install-staging test-systemd-unit-contract
 
 install: install-runtime install-cli install-docs install-manpages install-systemd
@@ -53,6 +65,9 @@ install-runtime: daemon
 	$(INSTALL) -m 0644 web/frontend/icon-vdr-suite.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/icon-vdr-suite.svg
 	$(INSTALL) -m 0644 web/frontend/favicon.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/favicon.svg
 	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-sprite.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-sprite.svg
+	for genre in $(RECORDING_GENRE_ARTWORK_ASSETS); do \
+		$(INSTALL) -m 0644 web/frontend/assets/recording-genre-$$genre.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-$$genre.svg; \
+	done
 
 install-cli: dashboard-cli
 	$(INSTALL) -d $(DESTDIR)$(BINDIR)
@@ -116,6 +131,9 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/icon-vdr-suite.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/favicon.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-sprite.svg
+	for genre in $(RECORDING_GENRE_ARTWORK_ASSETS); do \
+		test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-$$genre.svg; \
+	done
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-daemon.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man5/vdr-suite.conf.5
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-dashboard.1
