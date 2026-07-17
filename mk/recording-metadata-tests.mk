@@ -2,6 +2,7 @@
 	test-restful-api-recording-metadata-mapper \
 	test-restful-api-recording-metadata-enricher \
 	test-vdr-recording-metadata-cache-codec \
+	test-vdr-recording-cache-metadata-persistence \
 	test-vdr-recording-metadata-json-serializer \
 	test-recording-metadata-foundation
 
@@ -27,6 +28,16 @@ test-vdr-recording-metadata-cache-codec:
 		-o $(BUILD_DIR)/test_vdr_recording_metadata_cache_codec
 	$(BUILD_DIR)/test_vdr_recording_metadata_cache_codec
 
+test-vdr-recording-cache-metadata-persistence:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		core/vdr/tests/test_vdr_recording_cache_metadata_persistence.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_vdr_recording_cache_metadata_persistence
+	$(BUILD_DIR)/test_vdr_recording_cache_metadata_persistence
+
 test-vdr-recording-metadata-json-serializer:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrRecordingMetadataJsonSerializer.cpp \
@@ -38,14 +49,19 @@ test-recording-metadata-foundation: \
 	test-restful-api-recording-metadata-mapper \
 	test-restful-api-recording-metadata-enricher \
 	test-vdr-recording-metadata-cache-codec \
+	test-vdr-recording-cache-metadata-persistence \
 	test-vdr-recording-metadata-json-serializer
 
-# The focused Timer-conflict adapter target compiles RestfulApiVdrAdapter.cpp
-# without the shared VDR_SRC aggregate. Add the new metadata translation units
-# only for that target while preserving its existing owner and recipe.
+# Focused targets which compile RestfulApiVdrAdapter.cpp or the Recording cache
+# without the shared VDR_SRC aggregate need the new metadata translation units.
 test-restful-api-vdr-adapter-timer-conflicts: CXXFLAGS += \
 	core/vdr/src/RestfulApiRecordingMetadataMapper.cpp \
 	core/vdr/src/RestfulApiRecordingMetadataEnricher.cpp
+
+test-vdr-recording-cache-repository \
+ test-vdr-recording-query-service-cache \
+ test-vdr-recording-folder-controller: CXXFLAGS += \
+	core/vdr/src/VdrRecordingMetadataCacheCodec.cpp
 
 # Keep the metadata contract in the focused Recording path and the established
 # fast regression graph without creating a second central test-list owner.
