@@ -13,7 +13,10 @@ The target is:
 
 > VDR-Suite shall be the gold standard for safe, modern, robust and multi-backend VDR integration while preserving VDR-native correctness.
 
-Accepted VDR-Suite ADRs remain authoritative for long-term platform decisions. Stable plugin documents remain authoritative for implemented plugin slices. This handoff records the actual synchronized implementation, test, live-acceptance and dependency state between the workstreams.
+Accepted VDR-Suite ADRs remain authoritative for long-term platform decisions.
+Stable plugin documents remain authoritative for implemented plugin slices. This
+handoff records the actual synchronized implementation, automated-test,
+live-acceptance and dependency state between the workstreams.
 
 ---
 
@@ -29,11 +32,15 @@ Accepted VDR-Suite ADRs remain authoritative for long-term platform decisions. S
 | Plugin architecture decision | `vdr-plugin-suite-bridge/docs/ADR-0001-plugin-role-and-native-integration-strategy.md` |
 | Plugin roadmap | `vdr-plugin-suite-bridge/docs/ROADMAP.md` |
 
-The bridge branch is synchronized with current `main` before a new coordinated slice begins.
+The bridge branch is synchronized with current `main` before a new coordinated
+slice begins.
 
-Suite work must not edit bridge implementation files unless the change is explicitly coordinated through this handoff. Plugin work must not modify unrelated Suite production files merely to complete a local bridge slice.
+Suite work must not edit bridge implementation files unless the change is
+explicitly coordinated through this handoff. Plugin work must not modify
+unrelated Suite production files merely to complete a local bridge slice.
 
-Repository changes are made directly through GitHub where tooling permits. No force-push or destructive reset is permitted for coordinated bridge work.
+Repository changes are made directly through GitHub where tooling permits. No
+force-push or destructive reset is permitted for coordinated bridge work.
 
 ---
 
@@ -41,39 +48,54 @@ Repository changes are made directly through GitHub where tooling permits. No fo
 
 | State | Meaning |
 | --- | --- |
-| `implemented` | Present in source, covered by tests and available at the stated boundary. |
+| `completed` | Implemented, all required acceptance gates passed and the accepted head is recorded. |
+| `implemented` | Present in source and covered by tests at the stated boundary, but final coordinated acceptance may still be pending. |
 | `accepted-contract` | Decided by an accepted ADR or explicit shared contract, but not fully implemented. |
 | `planned` | Intended direction that is not yet an accepted shared contract. |
 | `blocked` | Cannot proceed until a named prerequisite exists. |
 | `disabled` | Deliberately unavailable at runtime. |
 | `superseded` | Retained for history but no longer authoritative. |
 
-An accepted ADR does not make a runtime feature `implemented`.
+An accepted ADR does not make a runtime feature `implemented` or `completed`.
 
-A plugin capability becomes `available` only after source checks, C++ tests, final shared-object build, staged installation and required live VDR acceptance have passed.
+A plugin capability becomes `available` only after source checks, C++ tests,
+final shared-object build, staged installation and required live VDR acceptance
+have passed.
 
 ---
 
-## Current Plugin Snapshot
+## Current Coordinated Snapshot
 
 | Item | Current value |
 | --- | --- |
-| Last completed runtime slice | `SB.9 - Read-only capability discovery and compatibility negotiation` |
+| Last completed plugin runtime slice | `SB.9 - Read-only capability discovery and compatibility negotiation` |
+| Last completed Agent contract slice | `SB.10a - Transport-neutral local handshake contract` |
 | Plugin name | `suitebridge` |
 | Plugin version | `0.10.0` |
 | Shared object | `libvdr-suitebridge.so.<VDR-APIVERSION>` |
 | SB.9 implementation and automated-test completion commit | `1212c44b10cd81144ebc345f3cb81eca0bda47cf` |
 | SB.9 live-acceptance repository head | `fbd0fab648dca85521fe27107174ede36b0b6d95` |
 | Plugin ADR and roadmap documentation acceptance head | `efc885a5f9d811f3dd87c6ad204fbf3fe3f0db71` |
+| SB.10a Agent implementation head | `d70ebee00edcab1cd019ca9e0c2541a06bf7d587` |
+| SB.10a repository-wide automated-acceptance head | `ba6deddbfba6d50b1152d584654a92f75340dcc3` |
+| Suite `main` head included in SB.10a acceptance | `8ba96dbb46019030f7cb3ebcb95929034b6166d3` |
+| SQLite architecture decision and guard correction | `892ede4392a5232a7045af3386903f502e450b5d` |
 | Live VDR version | `2.7.9` |
 | Live VDR API version | `11` |
 | Live ELF build ID | `a9ff5c5917526a61eb8bf7c2bff098ea0f158820` |
 | Live shared-object size | `253848` bytes |
 | Mutation state | `disabled` |
 
-The live-acceptance head contains only later unrelated Suite-side Phase 60.15g changes after the SB.9 implementation head. Comparison from `1212c44b` to `fbd0fab6` shows no change below `vdr-plugin-suite-bridge/`.
+The accepted plugin ADR and roadmap are documentation-only coordination
+artifacts. They do not change plugin runtime behavior, plugin version, capability
+IDs, capability states, schema versions or mutation state.
 
-The accepted plugin ADR and roadmap are documentation-only coordination artifacts. They do not change plugin runtime behavior, plugin version, capability IDs, capability states, schema versions or mutation state.
+SB.10a is Agent-side only. It does not change the plugin binary or local plugin
+contract.
+
+---
+
+## Current Plugin Runtime Contract
 
 ### Implemented local endpoints
 
@@ -82,7 +104,9 @@ PLUG suitebridge CAPS [discovery-schema]
 PLUG suitebridge SNAP
 ```
 
-`CAPS` is processed before any status snapshot is captured. Capability discovery therefore reads only immutable plugin contract values and does not inspect VDR-native objects or alter diagnostic counters.
+`CAPS` is processed before any status snapshot is captured. Capability discovery
+therefore reads only immutable plugin contract values and does not inspect
+VDR-native objects or alter diagnostic counters.
 
 `SNAP` remains the complete read-only diagnostic resynchronization point.
 
@@ -105,7 +129,10 @@ PLUG suitebridge SNAP
 | Snapshot schema | `2` |
 | Local-contract schema | `2` |
 
-These are independent compatibility axes. Plugin software version, discovery schema, capability schema, snapshot schema, local-contract schema, future event schema, future OSD schema, future Agent protocol version and public `/api/v1` version must never be inferred from one another.
+These are independent compatibility axes. Plugin software version, discovery
+schema, capability schema, snapshot schema, local-contract schema, future event
+schema, future OSD schema, future Agent protocol version and public `/api/v1`
+version must never be inferred from one another.
 
 ---
 
@@ -123,7 +150,8 @@ These are independent compatibility axes. Plugin software version, discovery sch
 | payload preparation failure | `451` | Local processing failure. |
 | unknown command | VDR default | Plugin returns unhandled. |
 
-Only ASCII decimal digits and defined ASCII whitespace are accepted by the option parser. Caller-supplied option text is not logged.
+Only ASCII decimal digits and defined ASCII whitespace are accepted by the
+option parser. Caller-supplied option text is not logged.
 
 ### Discovery field order
 
@@ -135,7 +163,8 @@ Only ASCII decimal digits and defined ASCII whitespace are accepted by the optio
 6. `local_contract_schema`
 7. `capabilities`
 
-The capability array retains the static catalogue order, while consumers evaluate entries by stable ID and state rather than by position.
+The capability array retains the static catalogue order, while consumers
+evaluate entries by stable ID and state rather than by position.
 
 ### Safe Agent interpretation
 
@@ -144,8 +173,9 @@ The capability array retains the static catalogue order, while consumers evaluat
 - unknown additive capability IDs may be ignored;
 - `mutations=disabled` is a hard write prohibition;
 - an absent `mutations` capability is also treated as disabled;
-- schema compatibility is evaluated from explicit fields, not plugin version alone;
-- a legacy plugin that does not implement `CAPS` enables no optional or mutating function through optimistic fallback;
+- schema compatibility is evaluated from explicit fields, not plugin version;
+- a legacy plugin without `CAPS` enables no optional or mutating function through
+  optimistic fallback;
 - plugin capabilities are not user authorization.
 
 ### Observed live payload
@@ -176,17 +206,22 @@ Current local-contract field order:
 10. `counter_epoch`
 11. `counter_overflow`
 
-Each plugin instance owns one immutable 32-character lowercase hexadecimal `counter_epoch`.
+Each plugin instance owns one immutable 32-character lowercase hexadecimal
+`counter_epoch`.
 
-Event-family counters and the derived total saturate instead of wrapping. `counter_overflow` becomes sticky when an event or total can no longer be represented exactly.
+Event-family counters and the derived total saturate instead of wrapping.
+`counter_overflow` becomes sticky when an event or total can no longer be
+represented exactly.
 
 Agent rules:
 
-- same epoch and `counter_overflow=false`: diagnostic cumulative comparison is permitted;
+- same epoch and `counter_overflow=false`: diagnostic cumulative comparison is
+  permitted;
 - changed epoch: discard the prior baseline and adopt a complete `SNAP`;
 - uncertain transport continuity: adopt a complete `SNAP`;
 - `counter_overflow=true`: do not derive further deltas for that epoch;
-- counters are diagnostic observations, not durable sequences, audit history or guaranteed user-action counts.
+- counters are diagnostic observations, not durable sequences, audit history or
+  guaranteed user-action counts.
 
 Observed SB.9 live epoch:
 
@@ -200,8 +235,6 @@ Observed active payload before and after all `CAPS` requests:
 {"contract_schema":2,"capability_schema":1,"snapshot_schema":2,"active":true,"total":4,"channel_switch":4,"recording":0,"replaying":0,"timer_change":0,"counter_epoch":"26f5b0fc557edf7767a4f2ea3a02584d","counter_overflow":false}
 ```
 
-The payload remained byte-identical across all successful and rejected `CAPS` requests.
-
 Observed final inactive payload during rollback:
 
 ```json
@@ -212,54 +245,37 @@ Observed final inactive payload during rollback:
 
 ## SB.9 Live VDR Acceptance
 
-Status: `implemented`
+Status: `completed`
 
-The controlled live acceptance passed on VDR `2.7.9`, API version `11`, at repository head `fbd0fab648dca85521fe27107174ede36b0b6d95`.
+The controlled live acceptance passed on VDR `2.7.9`, API version `11`, at
+repository head `fbd0fab648dca85521fe27107174ede36b0b6d95`.
 
 Proven behavior:
 
 - plugin version `0.10.0` loaded as `libvdr-suitebridge.so.11`;
 - VDR mapped the expected API-versioned shared object;
-- general plugin `HELP` listed command names `CAPS` and `SNAP`;
-- `HELP CAPS` returned `CAPS [discovery-schema]` and the expected description;
-- `HELP SNAP` returned the expected `SNAP` description;
-- discovery schema `1`, capability schema `1`, snapshot schema `2` and local-contract schema `2` were exact;
-- the seven discovery fields appeared in deterministic order;
-- all five capability IDs and states were exact;
+- general plugin `HELP` listed `CAPS` and `SNAP`;
+- `HELP CAPS` and `HELP SNAP` returned the expected contracts;
+- discovery schema `1`, capability schema `1`, snapshot schema `2` and
+  local-contract schema `2` were exact;
+- all discovery fields and all five capability entries were exact;
 - `mutations` remained `disabled`;
-- `CAPS`, `CAPS 1` and `caps 01` returned byte-identical reply-`900` payloads;
-- `CAPS 2` returned reply `504` with `CAPS discovery schema unsupported`;
-- `CAPS abc` returned reply `501` with `CAPS requires a decimal discovery schema`;
-- `CAPS` requests did not change the `SNAP` epoch or counters;
-- no callback-side `status-event` log was emitted;
-- command logs remained bounded to command, result, reply, byte-count and schema facts;
-- original channel `7` remained unchanged;
-- Timer list and Recording list remained unchanged;
-- VDR setup hash remained `e80c952eddeba470bd23a67060f079e3693e53b601781ba5cb9134d0064636dc`;
-- no mutation command or VDR write operation was invoked.
+- valid discovery request forms returned byte-identical payloads;
+- unsupported and malformed discovery schemas returned exact replies;
+- discovery did not change the `SNAP` epoch or counters;
+- no callback-side event log was emitted;
+- channel, Timers, Recordings and setup hash remained unchanged;
+- no mutation command or VDR write operation was invoked;
+- two-phase stop and complete rollback passed.
 
-The earlier two live-test interruptions were test-harness defects only:
-
-1. the general VDR help overview was incorrectly expected to retain command options;
-2. reply parsing did not normalize the line ending returned by `svdrpsend`.
-
-Both interrupted runs triggered complete rollback. No plugin implementation defect was found.
-
-### Two-phase stop evidence
-
-1. lifecycle entered `stopping`;
-2. status observation became inactive while retaining epoch and counters;
-3. the final schema-2 inactive snapshot and local-contract payload were produced outside callbacks;
-4. lifecycle entered `stopped`.
-
-### Rollback evidence
+Rollback evidence:
 
 - configuration symlink removed;
 - plugin configuration removed;
 - API-versioned shared object removed;
 - VDR restarted;
-- no Suite Bridge shared object remained mapped into the VDR process;
-- original channel, Timer list, Recording list and setup hash remained restored;
+- no Suite Bridge shared object remained mapped;
+- original VDR state remained restored;
 - build artifacts and temporary logs were removed;
 - repository worktree remained clean and synchronized.
 
@@ -279,7 +295,9 @@ SB.8 remains the accepted basis for schema-2 continuity behavior.
 | First-instance channel counter | `4 → 8 → 12` |
 | Overflow during normal live test | `false` |
 
-SB.8 proved stable epoch within one instance, a changed epoch after VDR restart, saturating counters, sticky overflow semantics through unit tests, full resynchronization rules, two-phase stop for both instances and complete rollback.
+SB.8 proved stable epoch within one instance, a changed epoch after VDR restart,
+saturating counters, sticky overflow semantics through unit tests, full
+resynchronization rules, two-phase stop and complete rollback.
 
 ---
 
@@ -288,17 +306,23 @@ SB.8 proved stable epoch within one instance, a changed epoch after VDR restart,
 ### Documentation status
 
 - [ADR-0001: Suite Bridge Plugin Role and Native Integration Strategy](ADR-0001-plugin-role-and-native-integration-strategy.md): `accepted-contract`;
-- [VDR Suite Bridge Plugin Roadmap](ROADMAP.md): accepted coordination plan with explicit `active`, `planned`, `candidate`, `blocked` and `disabled` states;
-- documentation acceptance repository head: `efc885a5f9d811f3dd87c6ad204fbf3fe3f0db71`.
+- [VDR Suite Bridge Plugin Roadmap](ROADMAP.md): accepted coordination plan;
+- documentation acceptance repository head:
+  `efc885a5f9d811f3dd87c6ad204fbf3fe3f0db71`.
 
 ADR-0001 decides that:
 
 - Suite Bridge complements RESTfulAPI and does not replace it;
-- RESTfulAPI remains preferred for broad structured VDR reads and existing domain-oriented operations;
-- Suite Bridge owns immediate VDR-native observations, continuity, bounded native readback, safe Legacy OSD adaptation and narrowly typed native operations where a concrete gap is proven;
-- the Backend Agent owns local transport, compatibility negotiation, buffering, freshness and local brokering;
-- the Control Plane owns users, authorization, public API, multi-site policy, durable jobs, idempotency, retries, reconciliation and audit retention;
-- public clients never connect directly to the plugin, SVDRP, RESTfulAPI, plugin-service interfaces or local remote-control devices;
+- RESTfulAPI remains preferred for broad structured VDR reads and existing
+  domain-oriented operations;
+- Suite Bridge owns immediate VDR-native observations, continuity, bounded
+  native readback, safe Legacy OSD adaptation and narrowly typed native
+  operations where a concrete gap is proven;
+- the Backend Agent owns local transport, compatibility negotiation, buffering,
+  freshness and local brokering;
+- the Control Plane owns users, authorization, public API, multi-site policy,
+  durable jobs, idempotency, retries, reconciliation and audit retention;
+- public clients never connect directly to plugin-local transports;
 - read-only remains the default;
 - generic SVDRP, shell, raw-keycode and plugin-service tunnels are prohibited.
 
@@ -310,88 +334,102 @@ SB.11  bounded sequenced native event feed
 SB.12  OSD notification feed
 SB.13  replay and AV state
 SB.14  view-only Legacy OSD
-SB.15+ controller input and mutations only after all external prerequisites exist
+SB.15+ controller input and mutations after all external prerequisites
 ```
 
-### Documentation acceptance evidence
-
-Passed at repository head `efc885a5f9d811f3dd87c6ad204fbf3fe3f0db71`:
-
-- exact ADR, roadmap and README link-contract check;
-- all plugin foundation, capability, capability-discovery, continuity, status-event, status-snapshot, local-contract and SVDRP source contracts;
-- all existing plugin C++ tests;
-- plugin version extraction for `0.10.0`;
-- final `libvdr-suitebridge.so` build;
-- ELF validation through `readelf`;
-- plugin build cleanup;
-- `git diff --check`;
-- clean worktree synchronized with `origin/feature/vdr-plugin-suite-bridge-foundation`.
-
-No live VDR test was required for this documentation-only change because no plugin source, binary contract, command, capability, schema or runtime behavior changed.
-
-### Runtime impact
-
-- plugin version remains `0.10.0`;
-- implemented plugin commands remain `CAPS` and `SNAP` only;
-- discovery schema remains `1`;
-- capability schema remains `1`;
-- snapshot and local-contract schemas remain `2`;
-- `mutations` remains `disabled`;
-- SB.9 remains the latest completed and live-accepted plugin runtime slice.
+The documentation-only slice passed plugin source contracts, all plugin C++
+tests, version extraction, final shared-object build, ELF validation, cleanup,
+`git diff --check` and clean synchronized worktree verification.
 
 ---
 
-## Current SB.10 Agent Status
+## SB.10a Repository-Wide Acceptance
 
-### SB.10a — Transport-neutral local handshake contract
+### Slice
 
-Status at the Agent contract boundary: `implemented`.
+`SB.10a - Transport-neutral local handshake contract`
 
-Implementation head:
+Status: `completed`
 
-`d70ebee00edcab1cd019ca9e0c2541a06bf7d587`
+Primary owner: **Backend Agent**.
 
-Implemented Agent-side concepts:
+### Heads
+
+| Item | Value |
+| --- | --- |
+| Implementation head | `d70ebee00edcab1cd019ca9e0c2541a06bf7d587` |
+| Repository-wide automated-acceptance head | `ba6deddbfba6d50b1152d584654a92f75340dcc3` |
+| Included Suite `main` head | `8ba96dbb46019030f7cb3ebcb95929034b6166d3` |
+| Included SQLite architecture correction | `892ede4392a5232a7045af3386903f502e450b5d` |
+
+### Implemented Agent-side concepts
 
 - typed `ISuiteBridgeLocalTransport` boundary;
 - fixed logical operations `DiscoverSchema1` and `Snapshot`;
 - transport, reply and payload failure separation;
 - bounded purpose-built JSON parsing;
 - `CAPS 1` before `SNAP`;
-- independent discovery, capability, snapshot and local-contract schema validation;
+- independent discovery, capability, snapshot and local-contract schema
+  validation;
 - safe legacy or unknown-plugin result;
 - hard enforcement of `mutations=disabled`;
 - initial baseline creation;
 - epoch replacement;
 - overflow handling;
-- no arbitrary command string, shell, process, database, filesystem, worker or plugin-runtime coupling.
+- no arbitrary command string, shell, process, database, filesystem, worker or
+  plugin-runtime coupling.
 
-Targeted automated evidence passed locally:
+### Repository-wide acceptance evidence
 
-- `tools/check_suite_bridge_agent_boundary.py`;
-- `make test-suite-bridge-agent-boundary`;
-- `make test-suite-bridge-handshake` with `test_suite_bridge_handshake passed`;
-- corrected root Make/test inventory with zero orphan test sources;
-- independent plugin `make check`;
-- documentation checks after the required `## Back` correction.
+The coordinated SB.10a acceptance passed at repository head
+`ba6deddbfba6d50b1152d584654a92f75340dcc3`.
 
-### Coordinated acceptance state
+Proven acceptance:
 
-SB.10a is not yet recorded as a fully completed coordinated slice.
+- the bridge branch was synchronized with Suite `main` head
+  `8ba96dbb46019030f7cb3ebcb95929034b6166d3`;
+- ADR-0050 and the corrected direct-SQLite architecture boundary were included;
+- synchronization changed neither `core/agent/` nor
+  `vdr-plugin-suite-bridge/` unintentionally;
+- Python source compilation passed for inventory, boundary and architecture
+  checks;
+- the strict root Make/test inventory passed with zero ungrouped targets, zero
+  orphan test sources and zero stale references;
+- `tools/check_suite_bridge_agent_boundary.py` passed;
+- `make test-suite-bridge-agent-boundary` passed;
+- `make test-suite-bridge-handshake` passed with
+  `test_suite_bridge_handshake passed`;
+- independent plugin `make check` passed;
+- all existing plugin source-contract and C++ tests passed;
+- plugin version extraction remained `0.10.0`;
+- final `libvdr-suitebridge.so` build and ELF validation passed;
+- plugin build artifacts were cleaned;
+- complete repository documentation checks passed;
+- ADR index validation passed with ADR-0050 active and ADR-0051 next;
+- the global architecture check passed;
+- the final worktree was clean;
+- the accepted merge head was pushed to the long-lived bridge branch.
 
-The final repository-wide architecture gate failed on the synchronized branch because the then-current global SQLite boundary rejected three parallel Suite repository implementations:
+### Live-acceptance classification
 
-```text
-core/vdr/src/EpgEventRepository.cpp
-core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp
-core/vdr/src/VdrRecordingCacheRepository.cpp
-```
+No live VDR test was required for SB.10a.
 
-Those files and the SQLite architecture rule are owned by the parallel Suite/database work, not by SB.10a. The Suite Bridge workstream must not modify them merely to make its local slice green.
+SB.10a is a transport-neutral Agent value, parser, compatibility and handshake
+contract. It opens no real transport, invokes no VDR command and changes no
+plugin runtime behavior.
 
-Before SB.10a receives final coordinated acceptance, the bridge branch must be synchronized with the current `main` architecture fix and the complete relevant repository gates must be rerun on the resulting head.
+A concrete local transport and later daemon integration require their own live
+acceptance at the appropriate boundary.
 
-No plugin runtime change or live VDR acceptance is required for SB.10a itself because it is a transport-neutral Agent value and compatibility contract.
+### Plugin and schema impact
+
+- plugin version remains `0.10.0`;
+- implemented plugin commands remain `CAPS` and `SNAP`;
+- discovery schema remains `1`;
+- capability schema remains `1`;
+- snapshot and local-contract schemas remain `2`;
+- no capability ID or capability state changed;
+- `mutations` remains `disabled`.
 
 ---
 
@@ -420,7 +458,8 @@ It must not become:
 - a Streaming Gateway;
 - a public Legacy OSD session service;
 - a durable audit store;
-- a substitute for Suite-owned jobs, idempotency, reconciliation or authorization;
+- a substitute for Suite-owned jobs, idempotency, reconciliation or
+  authorization;
 - a replacement for broad structured RESTfulAPI reads.
 
 ---
@@ -440,7 +479,8 @@ It must not become:
 - canonical ProgramEvent identity, history and provenance policy;
 - MediaSession policy and public Streaming Gateway authorization;
 - LegacyOsdSession policy and controller-lease authority;
-- append-only AccountabilityEvent persistence, redaction, retention and protected queries;
+- append-only AccountabilityEvent persistence, redaction, retention and
+  protected queries;
 - final client-visible mutation state and public error contracts.
 
 ### VDR-Suite Backend Agent owns
@@ -455,7 +495,8 @@ It must not become:
 - refusal to calculate deltas after overflow;
 - bounded event and OSD buffering where later implemented;
 - protection of VDR-internal credentials and transports;
-- transport of backend-scoped Timer, EPG, media, OSD and accountability evidence;
+- transport of backend-scoped Timer, EPG, media, OSD and accountability
+  evidence;
 - preservation of operation, job, attempt and idempotency identities.
 
 ### `vdr-plugin-suite-bridge` owns
@@ -467,7 +508,8 @@ It must not become:
 - truthful local capability reporting;
 - process-local diagnostic epoch, saturation and overflow facts;
 - bounded native events and OSD observations where later implemented;
-- bounded native Timer, EPG, media-provider or OSD access where later implemented;
+- bounded native Timer, EPG, media-provider or OSD access where later
+  implemented;
 - native identity and current-state readback where VDR exposes it;
 - deterministic local results and error categories;
 - no leaking of raw VDR pointers or lock ownership across the boundary.
@@ -478,11 +520,15 @@ It must not become:
 
 ### VDR internals stay behind the plugin boundary
 
-Raw VDR pointers, iterators, lock guards and internal addresses never cross into the Agent or Suite. Native values are copied into bounded immutable value objects before leaving the VDR access scope.
+Raw VDR pointers, iterators, lock guards and internal addresses never cross into
+the Agent or Suite. Native values are copied into bounded immutable value
+objects before leaving the VDR access scope.
 
 ### Lock scopes are minimal and explicit
 
-Acquire only the recommended VDR lock, copy required values, and release the lock before serialization, logging, network I/O, disk I/O, waiting, retry or long computation.
+Acquire only the recommended VDR lock, copy required values, and release the
+lock before serialization, logging, network I/O, disk I/O, waiting, retry or
+long computation.
 
 ### VDR callbacks remain non-blocking
 
@@ -492,9 +538,11 @@ The current callback path performs only:
 2. one saturating atomic counter increment;
 3. immediate return.
 
-Callbacks perform no logging, serialization, allocation, locking, waiting, network access, database access, filesystem mutation or external invocation.
+Callbacks perform no logging, serialization, allocation, locking, waiting,
+network access, database access, filesystem mutation or external invocation.
 
-Future event or OSD callback work may only use fixed-capacity bounded state after a dedicated slice proves the exact VDR callback and concurrency contract.
+Future event or OSD callback work may only use fixed-capacity bounded state after
+a dedicated slice proves the exact VDR callback and concurrency contract.
 
 ### Lifecycle is deterministic
 
@@ -502,31 +550,42 @@ Future event or OSD callback work may only use fixed-capacity bounded state afte
 constructed → initialized → started → stopping → stopped
 ```
 
-`Stop()` enters `stopping`, disables callbacks, emits the final inactive snapshot outside callbacks and then enters `stopped`.
+`Stop()` enters `stopping`, disables callbacks, emits the final inactive snapshot
+outside callbacks and then enters `stopped`.
 
 ### Read-only is the default
 
-Mutation capabilities remain disabled until authorization, generation fencing, revision checks, idempotency behavior, authoritative readback and live acceptance are complete.
+Mutation capabilities remain disabled until authorization, generation fencing,
+revision checks, idempotency behavior, authoritative readback and live acceptance
+are complete.
 
 ### Capabilities are truthful and versioned
 
-A capability is not enabled by source presence, software-version guessing or frontend visibility. Optional behavior is selected only after explicit negotiation.
+A capability is not enabled by source presence, software-version guessing or
+frontend visibility. Optional behavior is selected only after explicit
+negotiation.
 
 ### Snapshots are immutable value contracts
 
-A snapshot is one bounded observation, not a live VDR object. Diagnostic counters are not event sequences. A changed epoch invalidates the previous comparison baseline.
+A snapshot is one bounded observation, not a live VDR object. Diagnostic counters
+are not event sequences. A changed epoch invalidates the previous comparison
+baseline.
 
 ### Native operations require authoritative readback
 
-A transport acknowledgement or native method return is not necessarily final success. Future mutations require bounded readback or reconciliation.
+A transport acknowledgement or native method return is not necessarily final
+success. Future mutations require bounded readback or reconciliation.
 
 ### Unknown outcome is a valid result
 
-The plugin must not silently retry a possibly executed native mutation. Verification or reconciliation comes first.
+The plugin must not silently retry a possibly executed native mutation.
+Verification or reconciliation comes first.
 
 ### No hidden alternate control plane
 
-The plugin does not independently own authorization, durable idempotency, cross-site policy, global retries, client sessions, public API versioning, metadata authority or audit retention.
+The plugin does not independently own authorization, durable idempotency,
+cross-site policy, global retries, client sessions, public API versioning,
+metadata authority or audit retention.
 
 ---
 
@@ -536,7 +595,9 @@ The plugin does not independently own authorization, durable idempotency, cross-
 
 Status: `accepted-contract`
 
-Suite Bridge complements RESTfulAPI. Native event, OSD and typed-action surfaces are added only through bounded versioned capabilities after a concrete gap and all safety prerequisites are proven.
+Suite Bridge complements RESTfulAPI. Native event, OSD and typed-action surfaces
+are added only through bounded versioned capabilities after a concrete gap and
+all safety prerequisites are proven.
 
 ### ADR-0042 — Safe Mutation, Revision and Idempotency
 
@@ -544,49 +605,65 @@ Status: `accepted-contract`
 
 Current plugin effect: `mutations=disabled`.
 
-The Control Plane owns durable idempotency, authorization and operation state. Agent and plugin preserve identities, reject obsolete generations, avoid blind redispatch and provide bounded readback evidence.
-
 ### ADR-0043 — Job Claim, Retry and Saga Execution
 
 Status: `accepted-contract`
 
-Control Plane owns durable job and saga state. Agent executes fenced assignments. Plugin executes only bounded native steps and owns no durable retry scheduler.
+Control Plane owns durable job and saga state. Agent executes fenced assignments.
+Plugin executes only bounded native steps and owns no durable retry scheduler.
 
 ### ADR-0044 — Timer Intent, Assignment and Native Timer
 
 Status: `accepted-contract`
 
-Control Plane owns TimerIntent, TimerAssignment and scheduling. Native Timer mutation remains disabled.
+Control Plane owns TimerIntent, TimerAssignment and scheduling. Native Timer
+mutation remains disabled.
 
 ### ADR-0045 — Canonical EPG Event Identity and Provenance
 
 Status: `accepted-contract`
 
-Control Plane owns canonical ProgramEvent identity, revision and provenance. Plugin may later expose bounded native observations only.
+Control Plane owns canonical ProgramEvent identity, revision and provenance.
+Plugin may later expose bounded native observations only.
 
 ### ADR-0046 — Streaming Gateway and Media Session Boundary
 
 Status: `accepted-contract`
 
-Control Plane owns MediaSession policy. Streaming Gateway owns the public media plane. Plugin does not expose permanent internal URLs or become the public Gateway.
+Control Plane owns MediaSession policy. Streaming Gateway owns the public media
+plane. Plugin does not expose permanent internal URLs or become the public
+Gateway.
 
 ### ADR-0047 — Legacy OSD Compatibility Bridge
 
 Status: `accepted-contract`
 
-Control Plane owns session and controller policy. Agent owns local broker and sequencing. Plugin may later expose bounded native OSD frames and allowlisted input translation only.
+Control Plane owns session and controller policy. Agent owns local broker and
+sequencing. Plugin may later expose bounded native OSD frames and allowlisted
+input translation only.
 
 ### ADR-0048 — Public API Versioning, Error and Compatibility
 
 Status: `accepted-contract`
 
-Public `/api/v1`, Agent protocol, media protocol, OSD protocol and plugin-local schemas are independent. SB.9 changes only plugin-local discovery availability and plugin version.
+Public `/api/v1`, Agent protocol, media protocol, OSD protocol and plugin-local
+schemas are independent.
 
 ### ADR-0049 — Audit and Security Event Model
 
 Status: `accepted-contract`
 
-Control Plane owns append-only AccountabilityEvent history and policy. Plugin may produce bounded local facts only. Callback paths remain free of audit I/O.
+Control Plane owns append-only AccountabilityEvent history and policy. Plugin may
+produce bounded local facts only. Callback paths remain free of audit I/O.
+
+### ADR-0050 — Domain Repository SQLite Boundary
+
+Status: `accepted-contract`
+
+Direct SQLite access is restricted to generic SQLite infrastructure, approved
+Domain `*Repository.cpp` implementations and explicitly registered schema
+contract tests. This decision resolved the repository-wide architecture gate
+that had blocked final SB.10a coordination acceptance.
 
 ---
 
@@ -600,19 +677,23 @@ Control Plane owns append-only AccountabilityEvent history and policy. Plugin ma
 - unknown or missing write capability means disabled;
 - plugin SVDRP reply codes and JSON are not the public client API;
 - transport acknowledgement and domain success are distinct;
-- `not_dispatched`, `rejected_before_mutation`, `executed_unverified`, `succeeded_verified`, `failed_verified` and `outcome_unknown` remain distinct future mutation outcomes.
+- future mutation outcomes remain explicitly differentiated.
 
 ---
 
 ## Observability Rules
 
-Important transitions and commands log only bounded facts such as component, event, result, plugin version, schema, command, reply and byte count.
+Important transitions and commands log only bounded facts such as component,
+event, result, plugin version, schema, command, reply and byte count.
 
-Logs must not include credentials, tokens, raw pointers, unrestricted payloads, unbounded metadata or caller-supplied command options.
+Logs must not include credentials, tokens, raw pointers, unrestricted payloads,
+unbounded metadata or caller-supplied command options.
 
-Per-event callback logging is prohibited. Runtime logs are diagnostic, not authoritative audit history.
+Per-event callback logging is prohibited. Runtime logs are diagnostic, not
+authoritative audit history.
 
-OSD frame or message content is not written to normal logs or durable audit records.
+OSD frame or message content is not written to normal logs or durable audit
+records.
 
 ---
 
@@ -644,7 +725,9 @@ OSD frame or message content is not written to normal logs or durable audit reco
 9. restored original VDR state;
 10. clean synchronized worktree.
 
-Agent-only transport-neutral contracts do not require a live VDR test. A concrete local transport or daemon integration slice requires the live acceptance appropriate to that boundary.
+Agent-only transport-neutral contracts do not require a live VDR test. A concrete
+local transport or daemon integration slice requires live acceptance appropriate
+to that boundary.
 
 ### Additional requirements before any future mutation slice
 
@@ -675,8 +758,8 @@ Agent-only transport-neutral contracts do not require a live VDR test. A concret
 | `SNAP` command | no | invokes | owner | implemented and live accepted |
 | Capability catalogue | consumes | negotiates/publishes | owner | schema `1`, live accepted |
 | `CAPS` discovery command | no | invokes/interprets | owner | discovery schema `1`, live accepted |
-| Transport-neutral Suite Bridge handshake | consumes health | owner | unchanged endpoint | implemented at Agent boundary; final coordinated gate pending |
-| Local typed Suite Bridge SVDRP transport | consumes health | planned owner | unchanged endpoint | next active slice |
+| Transport-neutral Suite Bridge handshake | consumes health | owner | unchanged endpoint | completed at `ba6deddbfba6d50b1152d584654a92f75340dcc3` |
+| Local typed Suite Bridge SVDRP transport | consumes health | owner | unchanged endpoint | next active slice |
 | Native sequenced event feed | consumes | validates/buffers | future producer | planned |
 | OSD notification feed | consumes | validates/buffers | future producer | planned |
 | View-only Legacy OSD | session owner | local broker | future native adapter | planned |
@@ -690,7 +773,7 @@ Agent-only transport-neutral contracts do not require a live VDR test. A concret
 
 ---
 
-## Latest Completed Plugin Slice Record
+## Latest Completed Plugin Runtime Slice Record
 
 ### Slice
 
@@ -702,93 +785,22 @@ Agent-only transport-neutral contracts do not require a live VDR test. A concret
 
 ### Heads
 
-- implementation and automated-test completion: `1212c44b10cd81144ebc345f3cb81eca0bda47cf`;
-- live-acceptance repository head: `fbd0fab648dca85521fe27107174ede36b0b6d95`.
+- implementation and automated-test completion:
+  `1212c44b10cd81144ebc345f3cb81eca0bda47cf`;
+- live-acceptance repository head:
+  `fbd0fab648dca85521fe27107174ede36b0b6d95`.
 
 ### Plugin version
 
 `0.10.0`
 
-### Implemented
-
-- allocation-free fixed-capacity capability discovery payload;
-- discovery schema `1`;
-- deterministic plugin and schema metadata;
-- deterministic five-entry capability catalogue;
-- ASCII-only schema option parser;
-- `CAPS`, `CAPS 1` and case-insensitive compatible request forms;
-- explicit replies `900`, `501`, `504` and `451`;
-- discovery dispatch before any snapshot capture;
-- bounded command logging without caller option values;
-- unchanged `SNAP` schema and behavior.
-
-### Changed plugin files
-
-- `vdr-plugin-suite-bridge/Makefile`;
-- `vdr-plugin-suite-bridge/README.md`;
-- `vdr-plugin-suite-bridge/docs/SB-2-capabilities.md`;
-- `vdr-plugin-suite-bridge/docs/SB-6-read-only-svdrp.md`;
-- `vdr-plugin-suite-bridge/docs/SB-9-capability-discovery.md`;
-- `vdr-plugin-suite-bridge/suitebridge.cpp`;
-- `vdr-plugin-suite-bridge/suitebridge_capability_discovery.cpp`;
-- `vdr-plugin-suite-bridge/suitebridge_capability_discovery.h`;
-- `vdr-plugin-suite-bridge/tests/check_capability_discovery_contract.py`;
-- `vdr-plugin-suite-bridge/tests/check_foundation_contract.py`;
-- `vdr-plugin-suite-bridge/tests/check_svdrp_contract.py`;
-- `vdr-plugin-suite-bridge/tests/test_suitebridge_capability_discovery.cpp`;
-- this handoff after successful acceptance.
-
 ### Capabilities and schemas
 
-No capability ID or state changed.
-
-- discovery schema: new version `1`;
-- capability schema: remains `1`;
-- snapshot schema: remains `2`;
-- local-contract schema: remains `2`;
-- mutations: remains `disabled`.
-
-### Automated tests
-
-Passed:
-
-- foundation source contract;
-- capability source contract;
-- capability-discovery source contract;
-- counter-continuity source contract;
-- status-event and callback-side-effect source contract;
-- status-snapshot source contract;
-- local-contract source contract;
-- read-only SVDRP source contract;
-- all existing lifecycle, capability, continuity, event, snapshot, local-contract and SVDRP C++ tests;
-- new deterministic capability-discovery C++ tests;
-- supported, unsupported, malformed and payload-exhaustion reply tests;
-- version extraction for `0.10.0`;
-- final VDR shared-object build and ELF validation;
-- API-11 staged installation;
-- repository documentation, ADR and phase checks.
-
-### Live acceptance
-
-Passed at `fbd0fab648dca85521fe27107174ede36b0b6d95` with:
-
-- VDR `2.7.9`, API `11`;
-- ELF build ID `a9ff5c5917526a61eb8bf7c2bff098ea0f158820`;
-- discovery payload size `364` bytes;
-- epoch `26f5b0fc557edf7767a4f2ea3a02584d`;
-- exact help overview and detail behavior;
-- exact capability catalogue and schemas;
-- byte-identical successful discovery requests;
-- exact `504` and `501` replies;
-- unchanged `SNAP` payload;
-- unchanged channel, Timers, Recordings and setup hash;
-- bounded logs and log-free callback path;
-- two-phase stop;
-- complete rollback.
-
-### Mutation state
-
-`disabled`
+- discovery schema: `1`;
+- capability schema: `1`;
+- snapshot schema: `2`;
+- local-contract schema: `2`;
+- mutations: `disabled`.
 
 ---
 
@@ -798,22 +810,43 @@ Passed at `fbd0fab648dca85521fe27107174ede36b0b6d95` with:
 
 Primary ownership: **Backend Agent**.
 
-### Prerequisite acceptance gate
+### Completed prerequisite
 
-Before SB.10b implementation changes are accepted:
+SB.10a is completed and repository-wide accepted at:
 
-1. synchronize the bridge branch with the current `main` that contains the Suite-owned SQLite architecture-boundary correction;
-2. prove that neither `core/agent/` nor `vdr-plugin-suite-bridge/` was changed unintentionally by that synchronization;
-3. rerun the SB.10a boundary and handshake tests;
-4. rerun the root Make/test inventory;
-5. rerun plugin `make check`;
-6. rerun documentation and architecture checks;
-7. require a clean synchronized worktree;
-8. record the resulting SB.10a automated-acceptance head before declaring SB.10a complete.
+```text
+ba6deddbfba6d50b1152d584654a92f75340dcc3
+```
+
+The accepted head contains:
+
+- the transport-neutral SB.10a implementation;
+- all SB.10a tests;
+- the accepted Plugin ADR and roadmap;
+- the synchronized Suite `main` state;
+- ADR-0050 and the corrected SQLite architecture boundary;
+- a successful global architecture check.
+
+### Required SB.10b precheck
+
+Before SB.10b code is written:
+
+1. inspect the current remote branch and compare it with
+   `ba6deddbfba6d50b1152d584654a92f75340dcc3`;
+2. read the complete shared handoff;
+3. read Plugin ADR-0001 and the SB.10 roadmap section;
+4. read all existing Agent transport, socket, HTTP and test-server sources;
+5. read `ISuiteBridgeLocalTransport` and every SB.10a source and test;
+6. inspect the existing mutation-specific `SvdrpChannelMoveExecutor`;
+7. inspect `RuntimeConfig`, `BackendRuntimeContext`, shutdown and test ownership;
+8. verify current VDR SVDRP greeting, request and multiline reply framing;
+9. define exact files, limits, failure categories and tests before code;
+10. preserve all parallel Suite and plugin changes.
 
 ### SB.10b scope
 
-Implement one dedicated local Agent transport that can execute only the typed SB.10a operations:
+Implement one dedicated local Agent transport that can execute only the typed
+SB.10a operations:
 
 ```text
 DiscoverSchema1
@@ -823,23 +856,28 @@ Snapshot
 The transport must:
 
 - connect to the configured local VDR SVDRP endpoint;
-- validate the greeting;
+- validate the server greeting;
 - issue only fixed allowlisted Suite Bridge requests;
 - parse single-line and multiline replies deterministically;
 - preserve reply code separately from payload;
 - normalize supported line endings;
-- enforce connection, read, operation and payload limits;
+- enforce connect, read, total-operation and payload limits;
 - distinguish unavailable, timeout, failed and rejected replies;
-- close resources deterministically;
+- close all resources deterministically;
 - expose no arbitrary command-text method;
 - use no shell, `system()`, `popen()`, fork or subprocess;
 - log only bounded transport facts.
 
-The permanent architecture is a small direct Agent-owned SVDRP client or an equivalently strict typed local transport. The existing mutation-specific `SvdrpChannelMoveExecutor` must not become the generic Agent transport.
+The permanent architecture is a small direct Agent-owned SVDRP client or an
+equivalently strict typed local transport.
+
+The existing mutation-specific `SvdrpChannelMoveExecutor` must not become the
+generic Suite Bridge Agent transport.
 
 Expected plugin changes for SB.10b: **none**.
 
-A plugin change is justified only if the Agent implementation and tests demonstrate a concrete bounded compatibility gap that cannot be handled safely on the Agent side.
+A plugin change is justified only if implementation and tests demonstrate a
+concrete bounded compatibility gap that cannot be handled safely by the Agent.
 
 SB.10b non-goals:
 
@@ -850,21 +888,26 @@ SB.10b non-goals:
 - no Timer, Recording, EPG, media or OSD surface;
 - no durable job, idempotency or audit store in the plugin;
 - no arbitrary SVDRP command tunnel;
-- no reinterpretation of `counter_epoch` as backend generation or security identity.
+- no reinterpretation of `counter_epoch` as backend generation or security
+  identity.
 
 ---
 
 ## Planned Plugin Direction After SB.10
 
-The accepted roadmap identifies the following direction, subject to a fresh precheck for every slice:
+The accepted roadmap identifies the following direction, subject to a fresh
+precheck for every slice:
 
 - `SB.11`: bounded sequenced native event feed for exact VDR transitions;
 - `SB.12`: bounded OSD notification feed for short-lived native messages;
 - `SB.13`: read-only replay and AV state;
-- `SB.14`: view-only Legacy OSD with epoch, frame sequence and full resynchronization;
-- `SB.15+`: controller input, typed native actions and mutations only after the complete Control Plane and Agent prerequisites exist.
+- `SB.14`: view-only Legacy OSD with epoch, frame sequence and full
+  resynchronization;
+- `SB.15+`: controller input, typed native actions and mutations only after the
+  complete Control Plane and Agent prerequisites exist.
 
-No future capability ID, schema or command name is considered implemented merely because it appears in the roadmap.
+No future capability ID, schema or command name is considered implemented merely
+because it appears in the roadmap.
 
 ---
 
@@ -873,7 +916,8 @@ No future capability ID, schema or command name is considered implemented merely
 Before every coordinated slice:
 
 1. inspect current remote branch and compare with the last accepted head;
-2. read this complete handoff, Plugin ADR-0001 and relevant accepted VDR-Suite ADRs;
+2. read this complete handoff, Plugin ADR-0001 and relevant accepted VDR-Suite
+   ADRs;
 3. inspect actual source, documentation, Make ownership and tests;
 4. distinguish Suite, Agent, plugin and shared ownership;
 5. state exact scope, affected files, schema/capability impact and non-goals;
@@ -888,19 +932,29 @@ Before every coordinated slice:
 ## Immediate Coordination Notes
 
 - The bridge branch contains fully live-accepted SB.1 through SB.9.
-- Plugin ADR-0001 and `ROADMAP.md` are accepted at documentation head `efc885a5f9d811f3dd87c6ad204fbf3fe3f0db71`.
-- SB.10a is implemented at the transport-neutral Agent contract boundary at `d70ebee00edcab1cd019ca9e0c2541a06bf7d587`.
-- SB.10a targeted tests passed; final coordinated acceptance still requires synchronization with the Suite-owned architecture fix and a clean repository-wide gate.
+- Plugin ADR-0001 and `ROADMAP.md` are accepted at documentation head
+  `efc885a5f9d811f3dd87c6ad204fbf3fe3f0db71`.
+- SB.10a is completed and repository-wide accepted at
+  `ba6deddbfba6d50b1152d584654a92f75340dcc3`.
+- The SB.10a implementation head remains
+  `d70ebee00edcab1cd019ca9e0c2541a06bf7d587`.
+- The accepted SB.10a head contains Suite `main` head
+  `8ba96dbb46019030f7cb3ebcb95929034b6166d3` and ADR-0050.
+- The strict Make inventory, SB.10a tests, plugin regression, documentation
+  checks and global architecture check all passed.
+- No live VDR test was required for the transport-neutral SB.10a contract.
 - `CAPS` and `SNAP` remain the only implemented plugin-specific SVDRP commands.
-- Capability discovery schema is `1`.
-- Capability schema is `1`.
-- Snapshot and local-contract schemas are `2`.
-- Diagnostic counter continuity is explicit through epoch, saturation, overflow and full-resynchronization rules.
+- Capability discovery schema remains `1`.
+- Capability schema remains `1`.
+- Snapshot and local-contract schemas remain `2`.
 - The plugin remains deliberately read-only.
 - `mutations` remains `disabled`.
-- The next active implementation work is SB.10b in the Backend Agent after the prerequisite acceptance gate.
-- The first expected plugin-expanding slice after complete SB.10 acceptance is SB.11, subject to a new full source and callback audit.
-- The authoritative plugin location remains `vdr-plugin-suite-bridge/` on the long-lived bridge branch.
+- The next active implementation work is SB.10b in the Backend Agent.
+- SB.10b begins with a complete source, transport and test precheck.
+- The first expected plugin-expanding slice after complete SB.10 acceptance is
+  SB.11, subject to a new full source and callback audit.
+- The authoritative plugin location remains `vdr-plugin-suite-bridge/` on the
+  long-lived bridge branch.
 
 ---
 
@@ -925,4 +979,5 @@ A VDR-related feature is complete only when:
 - documentation and this handoff match the implementation;
 - no existing VDR behavior is weakened to simplify integration.
 
-This standard applies equally to Recording, Timer, EPG, channel, replay, status, streaming, Legacy OSD and future plugin-service integration.
+This standard applies equally to Recording, Timer, EPG, channel, replay, status,
+streaming, Legacy OSD and future plugin-service integration.
