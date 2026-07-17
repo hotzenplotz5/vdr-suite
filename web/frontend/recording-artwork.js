@@ -160,7 +160,7 @@
       '    gap: 0.9rem;',
       '  }',
       '  .recording-folder-list > .module-placeholder,',
-      '  .recording-folder-list > .recording-list-item {',
+      '  .recording-folder-list > .recording-list-item:not(.recording-folder-item) {',
       '    grid-column: 1 / -1;',
       '  }',
       '  .recording-folder-list > .recording-folder-item {',
