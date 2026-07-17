@@ -29,6 +29,8 @@ public:
     bool handlesPath(
         const std::string& requestPath) const;
 
+    // Resolve only opaque Suite artwork requests backed by cached Recording
+    // metadata and files contained by an explicitly configured local root.
     VdrRecordingArtworkAsset loadPath(
         const std::string& requestPath) const;
 
