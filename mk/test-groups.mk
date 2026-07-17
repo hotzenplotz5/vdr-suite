@@ -4,6 +4,8 @@ CI_FAST_TESTS := \
 	check-vdr-linkage-contracts \
 	test-make-inventory \
 	test-build-artifact-paths \
+	test-suite-bridge-agent-boundary \
+	test-suite-bridge-handshake \
 	test-fast \
 	test-api-router \
 	test-restful-api-vdr-timer-action-executor \
@@ -37,6 +39,8 @@ CI_FAST_TESTS := \
 
 VDR_TESTS := \
 	check-vdr-linkage-contracts \
+	test-suite-bridge-agent-boundary \
+	test-suite-bridge-handshake \
 	test-backend-node \
 	test-backend-registry \
 	test-backend-registry-service \
