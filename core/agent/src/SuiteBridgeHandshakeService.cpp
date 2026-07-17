@@ -79,6 +79,13 @@ SuiteBridgeHandshakeResult SuiteBridgeHandshakeService::perform()
             "suite bridge CAPS command unavailable");
     }
 
+    if (discoveryReply.replyCode == 550)
+    {
+        return failure(
+            SuiteBridgeHandshakeStatus::LegacyOrUnknown,
+            "suite bridge plugin unavailable");
+    }
+
     if (discoveryReply.replyCode != 900)
     {
         return failure(
