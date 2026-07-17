@@ -268,6 +268,30 @@ assert.ok(styles.includes('background-size: 300% 200%;'));
   assert.ok(styles.includes('recording-genre-artwork-' + slug));
 });
 assert.ok(styles.includes('@media (min-width: 72rem)'));
+assert.ok(styles.includes('.recording-folder-list {'));
+assert.ok(
+  styles.includes(
+    'grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));'
+  )
+);
+assert.ok(styles.includes('.recording-folder-list > .module-placeholder,'));
+assert.ok(
+  styles.includes('.recording-folder-list > .recording-list-item {')
+);
+assert.ok(
+  styles.includes(
+    '.recording-folder-list > .recording-folder-item.has-recording-artwork {'
+  )
+);
+assert.ok(
+  styles.includes(
+    '.recording-folder-list > .recording-folder-item .recording-artwork-image,'
+  )
+);
+assert.ok(styles.includes('min-height: 14.15rem;'));
+assert.ok(styles.includes('padding-left: 10.75rem !important;'));
+assert.ok(styles.includes('width: 8.9rem;'));
+assert.ok(styles.includes('height: 12.7rem;'));
 assert.ok(styles.includes('width: 12rem;'));
 assert.ok(styles.includes('height: 18rem;'));
 assert.ok(styles.includes('@media (max-width: 760px)'));
