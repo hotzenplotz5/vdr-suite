@@ -314,7 +314,7 @@ SB.8 remains the accepted basis for schema-2 continuity behavior.
 | Implementation and test head | `396eeccc3af775c88247f748fbb200059b4b2d31` |
 | Live-acceptance head | `396eeccc3af775c88247f748fbb200059b4b2d31` |
 | First observed epoch | `03da379df7b143a8b5d328fcc09bbe0f` |
-| Second observed epoch after VDR restart | `646821ee8491b0ed4609fa2e0fe65` |
+| Second observed epoch after VDR restart | `646821ee8491b0ed4604209fa2e0fe65` |
 | First-instance channel counter | `4 → 8 → 12` |
 | Overflow during normal live test | `false` |
 
