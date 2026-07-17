@@ -1,7 +1,7 @@
 #pragma once
 
+#include <map>
 #include <string>
-#include <vector>
 
 class RuntimeConfig
 {
@@ -14,7 +14,7 @@ public:
     int vdrPort() const;
     const std::string& httpListenHost() const;
     int httpListenPort() const;
-    const std::vector<std::string>& recordingArtworkRoots() const;
+    const std::map<std::string, std::string>& recordingArtworkRoots() const;
 
 private:
     std::string databasePath_;
@@ -23,5 +23,5 @@ private:
     int vdrPort_;
     std::string httpListenHost_;
     int httpListenPort_;
-    std::vector<std::string> recordingArtworkRoots_;
+    std::map<std::string, std::string> recordingArtworkRoots_;
 };

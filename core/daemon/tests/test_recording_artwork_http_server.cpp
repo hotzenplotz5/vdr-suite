@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <memory>
 #include <string>
 
@@ -85,7 +86,16 @@ int main()
     std::remove(databasePath);
     std::filesystem::create_directories(root / "movies/7");
 
-    const std::string pngBytes("\x89PNG\r\n", 6);
+    const char pngData[] = {
+        static_cast<char>(0x89),
+        'P',
+        'N',
+        'G',
+        '\r',
+        '\n',
+        static_cast<char>(0x1a),
+        '\n'};
+    const std::string pngBytes(pngData, sizeof(pngData));
     {
         std::ofstream file(
             root / "movies/7/poster.png",
@@ -115,7 +125,7 @@ int main()
     RecordingArtworkHttpServer server(
         std::make_unique<AuthenticationBoundaryServer>(),
         repository,
-        {root.string()});
+        {{"default", root.string()}});
 
     HttpServerRequest unauthorized;
     unauthorized.method = "GET";
