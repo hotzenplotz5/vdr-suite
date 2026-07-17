@@ -111,12 +111,16 @@ int main()
 
     const std::string localJpegBytes = jpegBytes('L');
     const std::string remoteJpegBytes = jpegBytes('R');
+    const std::string rootPrefixedJpegBytes = jpegBytes('P');
     writeBinary(
         testRoot / "movies/13/poster.jpg",
         localJpegBytes);
     writeBinary(
         remoteRoot / "movies/13/poster.jpg",
         remoteJpegBytes);
+    writeBinary(
+        testRoot / "movies/150_poster.jpg",
+        rootPrefixedJpegBytes);
     writeBinary(
         testRoot / "movies/13/notes.txt",
         "not an image");
@@ -140,8 +144,17 @@ int main()
     VdrRecordingCacheRepository repository(database);
     assert(repository.ensureSchema());
 
-    const VdrRecording localRecording =
+    VdrRecording localRecording =
         makeRecording("default", "7");
+    localRecording.metadata.artwork.push_back(
+        makeArtwork(
+            VdrRecordingArtworkKind::Poster,
+            testRoot
+                .lexically_normal()
+                .relative_path()
+                .generic_string() +
+                "/movies/150_poster.jpg"));
+
     const VdrRecording remoteRecording =
         makeRecording("wohnhaus2", "8");
     assert(repository.replaceRecordingsForBackend(
@@ -159,6 +172,8 @@ int main()
         localRecording.metadata.artwork.at(2);
     const VdrRecordingArtworkRef& disguised =
         localRecording.metadata.artwork.at(3);
+    const VdrRecordingArtworkRef& rootPrefixed =
+        localRecording.metadata.artwork.at(4);
 
     const std::string posterId =
         VdrRecordingArtworkIdentity::assetId(
@@ -191,6 +206,17 @@ int main()
     assert(asset.statusCode == 200);
     assert(asset.contentType == "image/jpeg");
     assert(asset.content == localJpegBytes);
+
+    const std::string rootPrefixedUrl =
+        VdrRecordingArtworkIdentity::publicUrl(
+            localRecording,
+            rootPrefixed);
+    const VdrRecordingArtworkAsset rootPrefixedAsset =
+        localService.loadPath(rootPrefixedUrl);
+    assert(rootPrefixedAsset.found());
+    assert(rootPrefixedAsset.statusCode == 200);
+    assert(rootPrefixedAsset.contentType == "image/jpeg");
+    assert(rootPrefixedAsset.content == rootPrefixedJpegBytes);
 
     const std::string remotePosterUrl =
         VdrRecordingArtworkIdentity::publicUrl(
