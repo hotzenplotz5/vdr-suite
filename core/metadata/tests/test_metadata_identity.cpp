@@ -12,6 +12,7 @@ void test_generates_distinct_valid_suite_owned_ids()
 {
     std::set<std::string> entityIds;
     std::set<std::string> assignmentIds;
+    std::set<std::string> evidenceIds;
     std::set<std::string> targetIds;
 
     for (int index = 0; index < 16; ++index)
@@ -19,27 +20,34 @@ void test_generates_distinct_valid_suite_owned_ids()
         const MetadataEntityId entityId = MetadataEntityId::generate();
         const MetadataAssignmentId assignmentId =
             MetadataAssignmentId::generate();
+        const MetadataEvidenceId evidenceId =
+            MetadataEvidenceId::generate();
         const MetadataTargetId targetId = MetadataTargetId::generate();
 
         assert(entityId.isValid());
         assert(assignmentId.isValid());
+        assert(evidenceId.isValid());
         assert(targetId.isValid());
 
         assert(entityId.value().size() == 38);
         assert(assignmentId.value().size() == 38);
+        assert(evidenceId.value().size() == 38);
         assert(targetId.value().size() == 38);
 
         assert(entityId.value().compare(0, 6, "mdent_") == 0);
         assert(assignmentId.value().compare(0, 6, "mdasg_") == 0);
+        assert(evidenceId.value().compare(0, 6, "mdevd_") == 0);
         assert(targetId.value().compare(0, 6, "mdtgt_") == 0);
 
         entityIds.insert(entityId.value());
         assignmentIds.insert(assignmentId.value());
+        evidenceIds.insert(evidenceId.value());
         targetIds.insert(targetId.value());
     }
 
     assert(entityIds.size() == 16);
     assert(assignmentIds.size() == 16);
+    assert(evidenceIds.size() == 16);
     assert(targetIds.size() == 16);
 }
 
@@ -49,9 +57,11 @@ void test_rejects_noncanonical_opaque_ids()
 
     assert(MetadataEntityId::isValidValue("mdent_" + hex));
     assert(MetadataAssignmentId::isValidValue("mdasg_" + hex));
+    assert(MetadataEvidenceId::isValidValue("mdevd_" + hex));
     assert(MetadataTargetId::isValidValue("mdtgt_" + hex));
 
     assert(!MetadataEntityId::isValidValue("mdasg_" + hex));
+    assert(!MetadataEvidenceId::isValidValue("mdent_" + hex));
     assert(!MetadataEntityId::isValidValue("mdent_" + hex.substr(1)));
     assert(!MetadataEntityId::isValidValue("mdent_" + hex + "0"));
     assert(!MetadataEntityId::isValidValue(
@@ -67,6 +77,10 @@ void test_rejects_noncanonical_opaque_ids()
     const MetadataAssignmentId emptyAssignment;
     assert(emptyAssignment.empty());
     assert(!emptyAssignment.isValid());
+
+    const MetadataEvidenceId emptyEvidence;
+    assert(emptyEvidence.empty());
+    assert(!emptyEvidence.isValid());
 }
 
 void test_provider_ids_are_stable_slugs_not_external_urls()

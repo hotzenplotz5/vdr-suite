@@ -66,6 +66,27 @@ private:
     std::string value_;
 };
 
+class MetadataEvidenceId
+{
+public:
+    MetadataEvidenceId() = default;
+    explicit MetadataEvidenceId(std::string value);
+
+    static MetadataEvidenceId generate();
+    static bool isValidValue(const std::string& value);
+
+    bool isValid() const;
+    bool empty() const;
+    const std::string& value() const;
+
+    bool operator==(const MetadataEvidenceId& other) const;
+    bool operator!=(const MetadataEvidenceId& other) const;
+    bool operator<(const MetadataEvidenceId& other) const;
+
+private:
+    std::string value_;
+};
+
 class MetadataTargetId
 {
 public:

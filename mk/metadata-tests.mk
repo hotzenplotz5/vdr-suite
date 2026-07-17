@@ -1,4 +1,7 @@
-.PHONY: test-metadata-identity test-metadata-foundation
+.PHONY: \
+	test-metadata-identity \
+	test-metadata-schema-contract \
+	test-metadata-foundation
 
 test-metadata-identity: CXXFLAGS += -Icore/metadata/include
 test-metadata-identity:
@@ -8,6 +11,16 @@ test-metadata-identity:
 		-o $(BUILD_DIR)/test_metadata_identity
 	$(BUILD_DIR)/test_metadata_identity
 
-test-metadata-foundation: test-metadata-identity
+test-metadata-schema-contract:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/metadata/tests/test_metadata_schema_contract.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_metadata_schema_contract
+	$(BUILD_DIR)/test_metadata_schema_contract
+
+test-metadata-foundation: \
+	test-metadata-identity \
+	test-metadata-schema-contract
 
 test-fast: test-metadata-foundation
