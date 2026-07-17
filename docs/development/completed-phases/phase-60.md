@@ -1,4 +1,4 @@
-# Completed Phase 60 Slices - Frontend Platform and Recording UX
+# Completed Phase 60 Slices - Frontend Platform, Recording UX and Metadata Preparation
 
 ## Navigation
 
@@ -12,12 +12,12 @@
 ## Status
 
 ```text
-Completed through Phase 60.14k
+Completed through Phase 60.15
 ```
 
 ## Scope
 
-Phase 60 built the frontend platform foundation and hardened lazy Recording loading, folder navigation and Recording detail behavior.
+Phase 60 built the frontend platform foundation, hardened lazy Recording loading and detail behavior, and completed provider-neutral Recording metadata and poster preparation.
 
 ## Completed Outcomes
 
@@ -30,19 +30,26 @@ Phase 60 built the frontend platform foundation and hardened lazy Recording load
 - simplified Recording list and detail titles;
 - technical fields hidden behind an explicit details control;
 - Recording actions hidden behind an explicit actions control;
-- browser runtime verification and regression coverage through Phase 60.14k.
+- browser runtime verification and regression coverage through Phase 60.14k;
+- provider-neutral native, provider-derived and artwork metadata value types;
+- safe RESTfulAPI metadata enrichment without frontend provider coupling;
+- additive SQLite Recording metadata persistence and legacy migration;
+- deterministic poster placeholders for metadata-poor recordings;
+- opaque Suite-owned artwork IDs and authenticated local JPEG, PNG and WebP delivery;
+- traversal, size, unsupported-format and symlink-escape defenses;
+- frontend real-poster loading with same-origin validation and placeholder fallback.
 
 ## Latest Completed Slice
 
 ```text
-Phase 60.14k - Recording Detail UX Polish
+Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
 ## Next Boundary
 
-The next implementation slice is Phase 60.15, but it starts only after the ADR-0042 through ADR-0049 contract and diagram package is complete.
+The next runtime implementation phase is Phase 61 - Suite Metadata Database and External Provider Integration.
 
-Phase 60.15 prepares provider-neutral Recording metadata and artwork hooks without implementing the full Phase 61 metadata platform.
+Phase 61 builds the normalized metadata entity, assignment, provider, provenance, evidence, confidence, storage, refresh and recovery platform on the completed Phase 60.15 representation and artwork boundary.
 
 ## Back
 

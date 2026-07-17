@@ -83,6 +83,8 @@ This step changes documentation and planning truth only.
 
 # Step 2 - Phase 60.15 Recording Metadata Representation Preparation
 
+Status: Completed.
+
 ## Inputs
 
 - current lazy Recording browser and detail UX;
@@ -121,6 +123,8 @@ This step changes documentation and planning truth only.
 ---
 
 # Step 3 - Phase 61 Suite Metadata Platform
+
+Status: Next runtime implementation phase.
 
 ## Prerequisites
 

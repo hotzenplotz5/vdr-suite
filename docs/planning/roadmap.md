@@ -39,13 +39,13 @@ Historical umbrella implementation track
 Phase 58 - Frontend and Live Parity
 
 Latest completed implementation slice
-Phase 60.14k - Recording Detail UX Polish
+Phase 60.15 - Recording Metadata and Poster Preparation
 
 Completed architecture prerequisite
 ADR-0042 through ADR-0049 plus target diagrams and dependency maps
 
-Next runtime implementation slice
-Phase 60.15 - Recording Metadata and Poster Preparation
+Next runtime implementation phase
+Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
 The Phase 58 umbrella label describes broad product history. It does not order future work.
@@ -85,7 +85,7 @@ The contract package is complete. It does not mark the planned runtime component
 
 ## Step 1 - Phase 60.15: Recording Metadata and Poster Preparation
 
-Status: **Next runtime implementation slice.**
+Status: **Completed.**
 
 Goal:
 
@@ -110,7 +110,17 @@ Scope:
 - prevent direct frontend coupling to TVScraper, scraper2vdr or provider databases;
 - document temporary representation fields and their Phase 61 migration path.
 
-Non-goals:
+Completed outcomes:
+
+- provider-neutral native, provider-derived and artwork metadata contracts;
+- RESTfulAPI metadata enrichment without frontend provider coupling;
+- additive SQLite cache persistence with legacy migration and restart coverage;
+- deterministic placeholders for metadata-poor recordings;
+- Suite-owned opaque artwork IDs and authenticated same-origin URLs;
+- allowlisted JPEG, PNG and WebP delivery with traversal, size and symlink defenses;
+- lazy Recording folder and detail behavior retained with full CI coverage.
+
+Non-goals retained for Phase 61:
 
 - no final metadata database schema;
 - no provider database as Suite authority;
@@ -130,7 +140,7 @@ Exit criteria:
 
 ## Step 2 - Phase 61: Suite Metadata Database and External Providers
 
-Status: Planned after Phase 60.15.
+Status: **Next runtime implementation phase.**
 
 Goal:
 

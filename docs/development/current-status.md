@@ -28,7 +28,7 @@ Phase 57 - Multi-Site Backend Administration and Permissions
 Latest completed implementation slice:
 
 ```text
-Phase 60.14k - Recording Detail UX Polish
+Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
 Current documentation consolidation state:
@@ -40,13 +40,13 @@ Phase 58.90c - Documentation Consolidation
 Current implementation focus:
 
 ```text
-Phase 58 - Frontend and Live Parity
+Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
-Next planned implementation slice:
+Next planned implementation phase:
 
 ```text
-Phase 60.15 - Recording Metadata and Poster Preparation
+Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
 ---
@@ -64,7 +64,7 @@ Phase 60.15 - Recording Metadata and Poster Preparation
 
 ## Latest Verified Implementation Slice
 
-Phase 60.14k completes the Recording Browser UX polish train after lazy Recording cache hardening. It keeps the server-side lazy folder model, removes duplicate cache-derived folder entries from product views, simplifies single-recording navigation, declutters Recording detail cards, and keeps technical path, ID and size information behind explicit disclosure controls.
+Phase 60.15 completes Recording metadata and poster preparation on top of the lazy Recording browser. It separates native and provider-derived fields, persists metadata through the existing cache, keeps deterministic placeholders, exposes opaque Suite-owned artwork identities, and serves authenticated local artwork without exposing provider paths.
 
 Verified runtime scope:
 - Phase 60.10l fixes Timer JSON escaping for quoted Timer titles in `/api/vdr/timers/live`.
@@ -103,6 +103,11 @@ Verified runtime scope:
 - Phase 60.14g refined Recording detail folder context.
 - Phase 60.14h auto-opens single-recording leaf folders directly into the detail view.
 - Phase 60.14k collapses Recording actions, moves size into technical details, and removes redundant explanatory list text.
+- Phase 60.15a-c adds provider-neutral native, provider and artwork metadata contracts plus safe RESTfulAPI mapping.
+- Phase 60.15d-f attaches metadata to Recording read models and adds deterministic list/detail poster placeholders.
+- Phase 60.15g persists metadata through the existing SQLite Recording cache with additive legacy migration and restart coverage.
+- Phase 60.15h-i adds opaque Suite artwork IDs, authenticated allowlisted local image delivery, frontend same-origin loading and placeholder fallback.
+- GitHub Actions run `29554158956` verified documentation, frontend, Make inventory, full fast regression, daemon build and packaging for the completed artwork-delivery slice.
 
 
 Stable scope:

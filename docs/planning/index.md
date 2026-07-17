@@ -67,13 +67,13 @@ Latest completed major project block
 Phase 57 - Multi-Site Backend Administration and Permissions
 
 Latest completed implementation slice
-Phase 60.14k - Recording Detail UX Polish
+Phase 60.15 - Recording Metadata and Poster Preparation
 
 Architecture contract package
 ADR-0042 through ADR-0049, target diagrams and dependency maps completed
 
-Next runtime implementation slice
-Phase 60.15 - Recording Metadata and Poster Preparation
+Next runtime implementation phase
+Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
 ---
@@ -81,15 +81,14 @@ Phase 60.15 - Recording Metadata and Poster Preparation
 ## Strict Future Sequence
 
 ```text
-1. Phase 60.15 - Recording Metadata Preparation
-2. Phase 61 - Suite Metadata Platform
-3. Phase 62 - Identity, RBAC and Audit
-4. Phase 63 - Backend Agent and Multi-Site Runtime
-5. Phase 64 - Timer Intent and Orchestration
-6. Phase 65 - Streaming Gateway
-7. Phase 66 - Legacy OSD Bridge
-8. Phase 67 - Public API and Client Hardening
-9. Phase 68 - Recommendation and Knowledge Graph
+1. Phase 61 - Suite Metadata Platform
+2. Phase 62 - Identity, RBAC and Audit
+3. Phase 63 - Backend Agent and Multi-Site Runtime
+4. Phase 64 - Timer Intent and Orchestration
+5. Phase 65 - Streaming Gateway
+6. Phase 66 - Legacy OSD Bridge
+7. Phase 67 - Public API and Client Hardening
+8. Phase 68 - Recommendation and Knowledge Graph
 ```
 
 The completed architecture package remains the prerequisite baseline for every phase above.

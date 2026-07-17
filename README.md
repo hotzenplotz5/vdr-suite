@@ -27,13 +27,13 @@ Phase 58 - Frontend and Live Parity
 Latest completed implementation slice:
 
 ```text
-Phase 60.14k - Recording Detail UX Polish
+Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
-Next planned implementation slice:
+Next planned implementation phase:
 
 ```text
-Phase 60.15 - Recording Metadata and Poster Preparation
+Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
 ---
@@ -58,7 +58,7 @@ See [Current State](docs/CURRENT.md) and the [ADR Index](docs/adr/index.md) befo
 ## Next Work
 
 ```text
-Phase 60.15 - Recording Metadata and Poster Preparation
+Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
 Future major milestones use conflict-free ranges:

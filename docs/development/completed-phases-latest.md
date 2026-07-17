@@ -23,7 +23,7 @@ Detailed implementation history remains in [Completed Phases](completed-phases.m
 ## Latest Completed Implementation Slice
 
 ```text
-Phase 60.14k - Recording Detail UX Polish
+Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
 ---
@@ -38,7 +38,7 @@ The Phase 58 umbrella label remains a historical grouping and does not replace t
 
 ---
 
-## Immediate Repository Work
+## Completed Architecture Prerequisite
 
 ```text
 ADR-0042 through ADR-0049
@@ -46,10 +46,10 @@ Architecture diagrams
 Domain and implementation dependency maps
 ```
 
-## Next Runtime Implementation Slice
+## Next Runtime Implementation Phase
 
 ```text
-Phase 60.15 - Recording Metadata and Poster Preparation
+Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
 ---

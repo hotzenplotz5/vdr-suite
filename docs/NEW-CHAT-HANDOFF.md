@@ -71,7 +71,7 @@ Phase 58 - Frontend and Live Parity
 Latest completed implementation slice:
 
 ```text
-Phase 60.14k - Recording Detail UX Polish
+Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
 Completed architecture prerequisite:
@@ -83,13 +83,13 @@ Domain Dependency Map
 Implementation Dependency Map
 ```
 
-Next runtime implementation slice:
+Next runtime implementation phase:
 
 ```text
-Phase 60.15 - Recording Metadata and Poster Preparation
+Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
-The Phase 58 umbrella label is historical. Future execution follows the strict numbered sequence from Phase 60.15 onward.
+The Phase 58 umbrella label is historical. Future execution follows the strict numbered sequence from Phase 61 onward.
 
 ---
 
