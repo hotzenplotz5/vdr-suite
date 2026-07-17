@@ -30,17 +30,17 @@ Current implementation progress belongs in:
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0049
+ADR-0050
 ```
 
-Current active `ADR-0049`:
+Current active `ADR-0050`:
 
-- [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
+- [ADR-0050: Domain Repository SQLite Boundary](ADR-0050-domain-repository-sqlite-boundary.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0050
+ADR-0051
 ```
 
 Rules:
@@ -61,6 +61,7 @@ Rules:
 - [ADR-0002: SQLite as Central Metadata Database](ADR-0002-sqlite.md)
 - [ADR-0003: REST API as External Interface](ADR-0003-rest-api.md)
 - [ADR-0004: C++17 Minimum Standard](ADR-0004-cpp17.md)
+- [ADR-0050: Domain Repository SQLite Boundary](ADR-0050-domain-repository-sqlite-boundary.md)
 
 ### VDR Backend and Runtime Architecture
 
