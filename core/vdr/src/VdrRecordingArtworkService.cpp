@@ -10,6 +10,7 @@
 #include <iterator>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 namespace
@@ -301,7 +302,8 @@ VdrRecordingArtworkAsset readAllowedAsset(
             std::istreambuf_iterator<char>(file),
             std::istreambuf_iterator<char>());
 
-        if (!file.eof() || content.size() != fileSize)
+        if (file.bad() ||
+            content.size() != static_cast<std::size_t>(fileSize))
         {
             continue;
         }
