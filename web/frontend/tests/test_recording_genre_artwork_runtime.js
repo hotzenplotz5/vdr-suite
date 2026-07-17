@@ -167,6 +167,33 @@ assert.strictEqual(
   window.VdrSuiteRecordingGenreArtwork.forFolderName('Historienfilm').slug,
   'historienfilm'
 );
+
+const additionalGenreCases = Object.freeze({
+  Thriller: 'thriller',
+  Musik: 'musik',
+  Music: 'musik',
+  Drama: 'drama',
+  Mystery: 'mystery',
+  Mysterium: 'mystery',
+  SciFi: 'scifi',
+  'Science Fiction': 'scifi',
+  Serie: 'serien',
+  Serien: 'serien',
+  Western: 'western',
+  Doku: 'doku',
+  Dokumentation: 'doku',
+  Documentary: 'doku',
+  Action: 'action',
+  Musical: 'musical'
+});
+
+Object.entries(additionalGenreCases).forEach(([folderName, expectedSlug]) => {
+  assert.strictEqual(
+    window.VdrSuiteRecordingGenreArtwork.forFolderName(folderName).slug,
+    expectedSlug
+  );
+});
+
 assert.strictEqual(
   window.VdrSuiteRecordingGenreArtwork.forFolderName('Mission: Impossible'),
   null
@@ -225,6 +252,21 @@ assert.strictEqual(installedStyles.length, 1);
 const styles = installedStyles[0].textContent;
 assert.ok(styles.includes('recording-genre-sprite.svg'));
 assert.ok(styles.includes('background-size: 300% 200%;'));
+[
+  'thriller',
+  'musik',
+  'drama',
+  'mystery',
+  'scifi',
+  'serien',
+  'western',
+  'doku',
+  'action',
+  'musical'
+].forEach(slug => {
+  assert.ok(styles.includes('recording-genre-' + slug + '.svg'));
+  assert.ok(styles.includes('recording-genre-artwork-' + slug));
+});
 assert.ok(styles.includes('@media (min-width: 72rem)'));
 assert.ok(styles.includes('width: 12rem;'));
 assert.ok(styles.includes('height: 18rem;'));
