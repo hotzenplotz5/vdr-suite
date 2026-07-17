@@ -7,6 +7,7 @@
 - [Architecture Index](index.md)
 - [Target Platform Architecture](target-platform-architecture.md)
 - [Backend Agent and Control Plane Boundary](../adr/ADR-0039-backend-agent-control-plane-boundary.md)
+- [Suite Bridge Local SVDRP Transport](suite-bridge-svdrp-transport.md)
 - [Suite Bridge Handoff](../../vdr-plugin-suite-bridge/docs/VDR-SUITE-HANDOFF.md)
 
 ---
@@ -15,7 +16,12 @@
 
 Implementation slice: `SB.10a`
 
-State: transport-neutral Agent contract implemented; local SVDRP transport and daemon integration are not part of this slice.
+State: completed and repository-wide accepted at
+`ba6deddbfba6d50b1152d584654a92f75340dcc3`.
+
+The concrete SB.10b local SVDRP transport is implemented in isolation. Its
+automated and live VDR acceptance remain pending and are documented separately
+in [Suite Bridge Local SVDRP Transport](suite-bridge-svdrp-transport.md).
 
 The plugin boundary consumed here was live accepted in SB.9:
 
@@ -82,7 +88,7 @@ Plugin capability is not user authorization and `counter_epoch` is not `backendG
 
 ## Source Boundary
 
-Implemented files:
+SB.10a files:
 
 ```text
 core/agent/include/ISuiteBridgeLocalTransport.h
@@ -94,7 +100,7 @@ core/agent/src/SuiteBridgeLocalContractParser.cpp
 core/agent/src/SuiteBridgeHandshakeService.cpp
 ```
 
-The implementation has no:
+The SB.10a implementation has no:
 
 - process execution;
 - shell command construction;
@@ -105,6 +111,10 @@ The implementation has no:
 - VDR adapter dependency;
 - daemon runtime wiring;
 - plugin implementation change.
+
+The later concrete transport remains a separate implementation behind
+`ISuiteBridgeLocalTransport` and does not weaken this transport-neutral source
+boundary.
 
 ---
 
@@ -124,7 +134,8 @@ It returns separate fields for:
 - payload;
 - bounded diagnostic text.
 
-The later SB.10b transport may use local SVDRP internally, but it must implement this typed boundary rather than expose arbitrary command strings.
+SB.10b uses local SVDRP internally while preserving this typed boundary. It does
+not expose arbitrary command strings.
 
 ---
 
@@ -235,11 +246,14 @@ SB.10a adds no:
 - Timer, Recording, EPG, media or OSD surface;
 - mutation command or write policy.
 
+These remain SB.10a non-goals even though SB.10b now provides a separate direct
+socket implementation behind the interface.
+
 ---
 
 ## Tests
 
-The automated contract covers:
+The SB.10a automated contract covers:
 
 - exact SB.9 discovery and snapshot payloads;
 - order-independent object fields;
@@ -254,26 +268,35 @@ The automated contract covers:
 - initial, comparable, changed-epoch and overflow baseline updates;
 - source guards against transport, daemon, database and plugin coupling.
 
+SB.10b has separate transport boundary, loopback fixture and manual live VDR
+tests. See [Suite Bridge Local SVDRP Transport](suite-bridge-svdrp-transport.md).
+
 ---
 
-## Next Slice
+## Current Follow-Up Slice
 
-`SB.10b` may implement one bounded local transport for the two typed commands.
+`SB.10b` implements one bounded local transport for the two typed commands.
 
-The preferred direction is a small local SVDRP client or an equivalently strict process adapter that:
+The implementation:
 
-- does not accept arbitrary command strings;
-- distinguishes process, timeout, connection, reply and payload failures;
-- applies strict response-size limits;
+- accepts no arbitrary command string;
+- uses a direct Agent-owned socket rather than `svdrpsend`;
+- distinguishes unavailable, timeout, connection, framing and reply results;
+- applies strict response-size and line-count limits;
 - remains local to the Backend Agent boundary;
-- exposes no VDR-internal port to the Control Plane or public network.
+- exposes no VDR-internal port to the Control Plane or public network;
+- owns no daemon integration or polling lifecycle.
 
-Daemon integration remains a later slice after the transport itself has isolated tests and controlled live VDR acceptance.
+SB.10b becomes completed only after its automated tests and controlled live VDR
+smoke test pass and the shared handoff is updated.
+
+Daemon integration remains a later slice after the transport itself is accepted.
 
 ---
 
 ## Back
 
+- [Back to Suite Bridge Local SVDRP Transport](suite-bridge-svdrp-transport.md)
 - [Back to Architecture Index](index.md)
 - [Back to Documentation Index](../index.md)
 - [Back to README](../../README.md)
