@@ -2,16 +2,18 @@
 
 #include "VdrRecordingCacheRepository.h"
 
+#include <map>
+#include <string>
 #include <utility>
 
 RecordingArtworkHttpServer::RecordingArtworkHttpServer(
     std::unique_ptr<IHttpServer> delegate,
     VdrRecordingCacheRepository& repository,
-    std::vector<std::string> artworkRoots)
+    std::map<std::string, std::string> artworkRootsByBackend)
     : delegate_(std::move(delegate)),
       artworkService_(
           repository,
-          std::move(artworkRoots))
+          std::move(artworkRootsByBackend))
 {
 }
 

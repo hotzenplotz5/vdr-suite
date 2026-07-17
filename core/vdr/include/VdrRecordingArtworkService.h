@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cstddef>
+#include <map>
 #include <string>
-#include <vector>
 
 class VdrRecordingCacheRepository;
 
@@ -23,19 +23,19 @@ class VdrRecordingArtworkService
 public:
     VdrRecordingArtworkService(
         VdrRecordingCacheRepository& repository,
-        std::vector<std::string> roots,
+        std::map<std::string, std::string> rootsByBackend,
         std::size_t maximumFileSizeBytes = 16U * 1024U * 1024U);
 
     bool handlesPath(
         const std::string& requestPath) const;
 
     // Resolve only opaque Suite artwork requests backed by cached Recording
-    // metadata and files contained by an explicitly configured local root.
+    // metadata and the explicit local root assigned to that Recording backend.
     VdrRecordingArtworkAsset loadPath(
         const std::string& requestPath) const;
 
 private:
     VdrRecordingCacheRepository& repository_;
-    std::vector<std::string> roots_;
+    std::map<std::string, std::string> rootsByBackend_;
     std::size_t maximumFileSizeBytes_;
 };

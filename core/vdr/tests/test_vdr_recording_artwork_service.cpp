@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <string>
 
 namespace
@@ -15,6 +16,8 @@ namespace
 
 const std::filesystem::path testRoot =
     "/tmp/vdr-suite-artwork-service-root";
+const std::filesystem::path remoteRoot =
+    "/tmp/vdr-suite-artwork-service-remote";
 const std::filesystem::path outsideRoot =
     "/tmp/vdr-suite-artwork-service-outside";
 const char* databasePath =
@@ -33,6 +36,22 @@ void writeBinary(
     assert(file.good());
 }
 
+std::string jpegBytes(
+    const char marker)
+{
+    const char bytes[] = {
+        static_cast<char>(0xff),
+        static_cast<char>(0xd8),
+        static_cast<char>(0xff),
+        static_cast<char>(0xe0),
+        'V',
+        'D',
+        'R',
+        '-',
+        marker};
+    return std::string(bytes, sizeof(bytes));
+}
+
 VdrRecordingArtworkRef makeArtwork(
     const VdrRecordingArtworkKind kind,
     const std::string& reference)
@@ -47,15 +66,17 @@ VdrRecordingArtworkRef makeArtwork(
     return artwork;
 }
 
-VdrRecording makeRecording()
+VdrRecording makeRecording(
+    const std::string& backendId,
+    const std::string& recordingId)
 {
     VdrRecording recording;
-    recording.id = "7";
-    recording.backendId = "default";
+    recording.id = recordingId;
+    recording.backendId = backendId;
     recording.backendNativeId =
-        "/srv/vdr/video/Movies/Forrest_Gump/recording.rec";
+        "/srv/vdr/video/Movies/Forrest_Gump/" + backendId + ".rec";
     recording.path =
-        "/Movies/Forrest_Gump/recording.rec";
+        "/Movies/Forrest_Gump/" + backendId + ".rec";
     recording.title = "Forrest Gump";
     recording.metadata.provider.source =
         VdrRecordingMetadataSource::RestfulApiScraperBridge;
@@ -72,6 +93,9 @@ VdrRecording makeRecording()
     recording.metadata.artwork.push_back(makeArtwork(
         VdrRecordingArtworkKind::Fanart,
         "movies/13/escape.jpg"));
+    recording.metadata.artwork.push_back(makeArtwork(
+        VdrRecordingArtworkKind::Still,
+        "movies/13/fake.jpg"));
     return recording;
 }
 
@@ -81,15 +105,27 @@ int main()
 {
     std::error_code error;
     std::filesystem::remove_all(testRoot, error);
+    std::filesystem::remove_all(remoteRoot, error);
     std::filesystem::remove_all(outsideRoot, error);
     std::remove(databasePath);
 
-    const std::string jpegBytes(
-        "\xff\xd8VDR-SUITE\xff\xd9",
-        13);
-    writeBinary(testRoot / "movies/13/poster.jpg", jpegBytes);
-    writeBinary(testRoot / "movies/13/notes.txt", "not an image");
-    writeBinary(outsideRoot / "outside.jpg", "outside");
+    const std::string localJpegBytes = jpegBytes('L');
+    const std::string remoteJpegBytes = jpegBytes('R');
+    writeBinary(
+        testRoot / "movies/13/poster.jpg",
+        localJpegBytes);
+    writeBinary(
+        remoteRoot / "movies/13/poster.jpg",
+        remoteJpegBytes);
+    writeBinary(
+        testRoot / "movies/13/notes.txt",
+        "not an image");
+    writeBinary(
+        testRoot / "movies/13/fake.jpg",
+        "<html>not an image</html>");
+    writeBinary(
+        outsideRoot / "outside.jpg",
+        localJpegBytes);
 
     std::filesystem::create_directories(testRoot / "movies/13");
     std::filesystem::create_symlink(
@@ -104,25 +140,33 @@ int main()
     VdrRecordingCacheRepository repository(database);
     assert(repository.ensureSchema());
 
-    const VdrRecording recording = makeRecording();
+    const VdrRecording localRecording =
+        makeRecording("default", "7");
+    const VdrRecording remoteRecording =
+        makeRecording("wohnhaus2", "8");
     assert(repository.replaceRecordingsForBackend(
         "default",
-        {recording}));
+        {localRecording}));
+    assert(repository.replaceRecordingsForBackend(
+        "wohnhaus2",
+        {remoteRecording}));
 
     const VdrRecordingArtworkRef& poster =
-        recording.metadata.artwork.at(0);
+        localRecording.metadata.artwork.at(0);
     const VdrRecordingArtworkRef& unsupported =
-        recording.metadata.artwork.at(1);
+        localRecording.metadata.artwork.at(1);
     const VdrRecordingArtworkRef& escaped =
-        recording.metadata.artwork.at(2);
+        localRecording.metadata.artwork.at(2);
+    const VdrRecordingArtworkRef& disguised =
+        localRecording.metadata.artwork.at(3);
 
     const std::string posterId =
         VdrRecordingArtworkIdentity::assetId(
-            recording,
+            localRecording,
             poster);
     const std::string posterUrl =
         VdrRecordingArtworkIdentity::publicUrl(
-            recording,
+            localRecording,
             poster);
 
     assert(VdrRecordingArtworkIdentity::isValidAssetId(posterId));
@@ -131,52 +175,81 @@ int main()
            "/recording-artwork/default/" + posterId);
     assert(posterUrl.find("movies") == std::string::npos);
     assert(posterUrl.find("poster.jpg") == std::string::npos);
-    assert(VdrRecordingArtworkIdentity::preferredArtwork(recording) ==
-           &recording.metadata.artwork.at(0));
+    assert(VdrRecordingArtworkIdentity::preferredArtwork(localRecording) ==
+           &localRecording.metadata.artwork.at(0));
 
-    VdrRecordingArtworkService service(
+    VdrRecordingArtworkService localService(
         repository,
-        {testRoot.string()});
+        {{"default", testRoot.string()}});
 
-    assert(service.handlesPath(posterUrl));
-    assert(!service.handlesPath("/api/recordings"));
+    assert(localService.handlesPath(posterUrl));
+    assert(!localService.handlesPath("/api/recordings"));
 
     const VdrRecordingArtworkAsset asset =
-        service.loadPath(posterUrl);
+        localService.loadPath(posterUrl);
     assert(asset.found());
     assert(asset.statusCode == 200);
     assert(asset.contentType == "image/jpeg");
-    assert(asset.content == jpegBytes);
+    assert(asset.content == localJpegBytes);
 
-    assert(!service.loadPath(
+    const std::string remotePosterUrl =
+        VdrRecordingArtworkIdentity::publicUrl(
+            remoteRecording,
+            remoteRecording.metadata.artwork.at(0));
+    assert(!localService.loadPath(remotePosterUrl).found());
+
+    VdrRecordingArtworkService multiBackendService(
+        repository,
+        {
+            {"default", testRoot.string()},
+            {"wohnhaus2", remoteRoot.string()}
+        });
+    const VdrRecordingArtworkAsset remoteAsset =
+        multiBackendService.loadPath(remotePosterUrl);
+    assert(remoteAsset.found());
+    assert(remoteAsset.content == remoteJpegBytes);
+
+    assert(!localService.loadPath(
         "/recording-artwork/other/" + posterId).found());
-    assert(!service.loadPath(
+    assert(!localService.loadPath(
         "/recording-artwork/default/not-an-asset-id").found());
-    assert(!service.loadPath(
+    assert(!localService.loadPath(
         "/recording-artwork/default/" +
         posterId.substr(0, 31) + "g").found());
-    assert(!service.loadPath(
+    assert(!localService.loadPath(
         "/recording-artwork/default%2Fescape/" + posterId).found());
 
     const std::string unsupportedUrl =
         VdrRecordingArtworkIdentity::publicUrl(
-            recording,
+            localRecording,
             unsupported);
-    assert(!service.loadPath(unsupportedUrl).found());
+    assert(!localService.loadPath(unsupportedUrl).found());
 
     const std::string escapedUrl =
         VdrRecordingArtworkIdentity::publicUrl(
-            recording,
+            localRecording,
             escaped);
-    assert(!service.loadPath(escapedUrl).found());
+    assert(!localService.loadPath(escapedUrl).found());
+
+    const std::string disguisedUrl =
+        VdrRecordingArtworkIdentity::publicUrl(
+            localRecording,
+            disguised);
+    assert(!localService.loadPath(disguisedUrl).found());
+
+    VdrRecordingArtworkService relativeRootService(
+        repository,
+        {{"default", "relative/root"}});
+    assert(!relativeRootService.loadPath(posterUrl).found());
 
     VdrRecordingArtworkService sizeLimitedService(
         repository,
-        {testRoot.string()},
+        {{"default", testRoot.string()}},
         4);
     assert(!sizeLimitedService.loadPath(posterUrl).found());
 
     std::filesystem::remove_all(testRoot, error);
+    std::filesystem::remove_all(remoteRoot, error);
     std::filesystem::remove_all(outsideRoot, error);
     std::remove(databasePath);
 

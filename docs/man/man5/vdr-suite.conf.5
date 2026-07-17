@@ -13,15 +13,28 @@ Until the file format is finalized, selected runtime settings are available as e
 Overrides the SQLite database path.
 .TP
 .B VDR_SUITE_RECORDING_ARTWORK_ROOTS
-Colon-separated allowlist of local Recording artwork roots.
-The default is
-.IR /var/cache/vdr/plugins/tvscraper .
+Semicolon-separated mapping of backend IDs to absolute local Recording artwork roots.
+Each entry uses the form
+.IR backend=/absolute/path .
+For example:
+.PP
+.nf
+VDR_SUITE_RECORDING_ARTWORK_ROOTS=default=/var/cache/vdr/plugins/tvscraper;wohnhaus2=/srv/vdr-artwork
+.fi
+.PP
+There is no universal default. TVScraper accepts
+.BR -d / --dir
+and otherwise derives its storage directory from the VDR cache directory, which is distribution and installation dependent.
+The configured root must therefore match the actual local TVScraper directory for that backend.
+
+Duplicate backend IDs, relative paths and malformed entries disable local artwork delivery for the parsed setting.
+A backend without an explicit mapping cannot use another backend's root.
 
 Recording artwork references received from a backend remain internal.
-The daemon resolves them only below one of these roots and exposes opaque, authenticated
+The daemon resolves them only below the root assigned to that backend and exposes opaque, authenticated
 .B /recording-artwork/
 URLs to clients.
-Missing roots, unsupported file types, oversized files and paths escaping an allowed root are rejected.
+Missing roots, unsupported file types, invalid image signatures, oversized files and paths escaping an allowed root are rejected.
 .SH LOCATION
 The planned system configuration path is:
 .PP

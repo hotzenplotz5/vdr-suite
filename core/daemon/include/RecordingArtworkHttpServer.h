@@ -3,9 +3,9 @@
 #include "IHttpServer.h"
 #include "VdrRecordingArtworkService.h"
 
+#include <map>
 #include <memory>
 #include <string>
-#include <vector>
 
 class VdrRecordingCacheRepository;
 
@@ -15,7 +15,7 @@ public:
     RecordingArtworkHttpServer(
         std::unique_ptr<IHttpServer> delegate,
         VdrRecordingCacheRepository& repository,
-        std::vector<std::string> artworkRoots);
+        std::map<std::string, std::string> artworkRootsByBackend);
 
     HttpServerResponse handleRequest(
         const HttpServerRequest& request) const override;
