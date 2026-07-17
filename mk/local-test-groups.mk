@@ -133,3 +133,4 @@ test-frontend-i18n:
 	node web/frontend/tests/test_recording_move_new_folder.js
 	node web/frontend/tests/test_recording_trash_workflow.js
 	node web/frontend/tests/test_recording_poster_placeholder_contract.js
+	node web/frontend/tests/test_recording_artwork_runtime.js

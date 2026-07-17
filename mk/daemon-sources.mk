@@ -32,6 +32,7 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerPreviewEpgCacheRefreshController.cpp \
         core/vdr/src/EpgEventRepository.cpp \
         core/vdr/src/VdrRecordingCacheRepository.cpp \
+        core/vdr/src/VdrRecordingArtworkService.cpp \
         core/vdr/src/EpgCacheService.cpp \
         core/vdr/src/SearchTimerResultJsonSerializer.cpp \
         core/vdr/src/SearchTimerService.cpp \
@@ -72,6 +73,7 @@ DAEMON_SRC := \
         core/http/src/BasicHttpClient.cpp \
         core/http/src/SimpleHttpListener.cpp \
         core/http/src/TestHttpServer.cpp \
+        core/daemon/src/RecordingArtworkHttpServer.cpp \
         core/daemon/src/RestfulApiEventStreamClient.cpp \
         core/daemon/src/DaemonRuntime.cpp \
         core/daemon/src/DaemonApp.cpp \

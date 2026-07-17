@@ -122,9 +122,9 @@ struct VdrRecordingArtworkRef
     VdrRecordingMetadataSource source =
         VdrRecordingMetadataSource::None;
 
-    // The reference is source scoped and intentionally not a public URL or
-    // permanent Suite artwork identity. Phase 61 replaces it with a
-    // Suite-owned ArtworkAsset identity and delivery contract.
+    // This remains source-scoped cache evidence and is never a public URL.
+    // The API derives a separate opaque Suite artwork identity from the
+    // Recording and this reference before an authenticated delivery request.
     std::string reference;
     int width = 0;
     int height = 0;

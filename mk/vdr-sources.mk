@@ -13,6 +13,7 @@ VDR_SRC := \
         core/vdr/src/VdrRecordingQueryMatcher.cpp \
         core/vdr/src/VdrRecordingQueryResultJsonSerializer.cpp \
         core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
+        core/vdr/src/VdrRecordingArtworkIdentity.cpp \
         core/vdr/src/VdrRecordingMetadataJsonSerializer.cpp \
         core/vdr/src/EpgQueryService.cpp \
         core/vdr/src/EpgSearchMatcher.cpp \

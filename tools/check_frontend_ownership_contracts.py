@@ -1615,6 +1615,14 @@ def check_frontend_install_contract(install_mk: str) -> None:
         "test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-browser.js" in install_mk,
         "test-install-staging must verify recording-browser.js"
     )
+    require(
+        "web/frontend/recording-artwork.js $(DESTDIR)$(DATADIR)/web/frontend/recording-artwork.js" in install_mk,
+        "install-runtime must install recording-artwork.js",
+    )
+    require(
+        "test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-artwork.js" in install_mk,
+        "test-install-staging must verify recording-artwork.js",
+    )
 
 
 def check_frontend_platform_bootstrap_contract(platform_bootstrap_js: str) -> None:
@@ -1774,10 +1782,19 @@ def check_frontend_static_serving_contract(
             or f'"{asset_path}"' in test_http_server_cpp,
             "TestHttpServer must allow " + asset_path,
         )
-        require(
-            f'"{relative_path}"' in test_http_server_cpp,
-            "TestHttpServer must map " + asset_path + " to " + relative_path,
-        )
+
+        if asset_path == "/frontend/recording-browser.js":
+            require(
+                "makeFrontendScriptBundleResponse(" in test_http_server_cpp
+                and '"modules/recordings.js"' in test_http_server_cpp
+                and '"recording-artwork.js"' in test_http_server_cpp,
+                "TestHttpServer must bundle modules/recordings.js and recording-artwork.js for /frontend/recording-browser.js",
+            )
+        else:
+            require(
+                f'"{relative_path}"' in test_http_server_cpp,
+                "TestHttpServer must map " + asset_path + " to " + relative_path,
+            )
 
         install_source = "web/frontend/" + relative_path
         install_destination = "$(DATADIR)/web/frontend/" + relative_path
