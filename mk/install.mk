@@ -52,7 +52,8 @@ install-runtime: daemon
 	$(INSTALL) -m 0644 web/frontend/logo-vdr-suite-dark.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/logo-vdr-suite-dark.svg
 	$(INSTALL) -m 0644 web/frontend/icon-vdr-suite.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/icon-vdr-suite.svg
 	$(INSTALL) -m 0644 web/frontend/favicon.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/favicon.svg
-	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-sprite.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-sprite.svg
+	python3 tools/build_recording_genre_artwork.py $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-sprite.svg
+	chmod 0644 $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-sprite.svg
 
 install-cli: dashboard-cli
 	$(INSTALL) -d $(DESTDIR)$(BINDIR)
@@ -116,6 +117,7 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/icon-vdr-suite.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/favicon.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-sprite.svg
+	grep -q 'data:image/jpeg;base64' /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-sprite.svg
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-daemon.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man5/vdr-suite.conf.5
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-dashboard.1
