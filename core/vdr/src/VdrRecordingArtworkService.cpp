@@ -273,6 +273,35 @@ bool pathIsWithinRoot(
     return candidateIterator != candidate.end();
 }
 
+std::string referenceRelativeToConfiguredRoot(
+    const std::string& configuredRoot,
+    const std::string& reference)
+{
+    const std::string configuredRootReference =
+        std::filesystem::path(configuredRoot)
+            .lexically_normal()
+            .relative_path()
+            .generic_string();
+
+    if (configuredRootReference.empty())
+    {
+        return reference;
+    }
+
+    const std::string repeatedRootPrefix =
+        configuredRootReference + "/";
+
+    if (reference.compare(
+            0,
+            repeatedRootPrefix.size(),
+            repeatedRootPrefix) != 0)
+    {
+        return reference;
+    }
+
+    return reference.substr(repeatedRootPrefix.size());
+}
+
 VdrRecordingArtworkAsset readAllowedAsset(
     const std::string& configuredRoot,
     const std::string& reference,
@@ -298,8 +327,19 @@ VdrRecordingArtworkAsset readAllowedAsset(
         return result;
     }
 
+    const std::string rootRelativeReference =
+        referenceRelativeToConfiguredRoot(
+            configuredRoot,
+            reference);
+
+    if (!isSafeRelativeReference(rootRelativeReference))
+    {
+        return result;
+    }
+
     const std::filesystem::path requestedPath =
-        canonicalRoot / std::filesystem::path(reference);
+        canonicalRoot /
+        std::filesystem::path(rootRelativeReference);
     const std::filesystem::path canonicalCandidate =
         std::filesystem::canonical(requestedPath, error);
 
