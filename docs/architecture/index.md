@@ -47,6 +47,7 @@ The Core Platform Model is an earlier conceptual foundation. Where its older fut
 - [VDR Backends](vdr-backends.md)
 - [VDR Domain Model](vdr-domain-model.md)
 - [RESTfulAPI Integration](restfulapi-integration.md)
+- [Suite Bridge Backend Agent Handshake](suite-bridge-agent-handshake.md)
 - [External Project Analysis](external-project-analysis.md)
 - [Recording Actions Architecture](recording-actions-architecture.md)
 - [Recording Action Validation API](recording-action-validation-api.md)
