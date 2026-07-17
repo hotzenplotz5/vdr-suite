@@ -1,8 +1,10 @@
 #include "RuntimeConfig.h"
 
+#include <cctype>
 #include <cstdlib>
+#include <filesystem>
+#include <map>
 #include <string>
-#include <vector>
 
 namespace
 {
@@ -28,24 +30,77 @@ std::string environmentOrDefault(
     return text;
 }
 
-std::vector<std::string> splitArtworkRoots(
+std::string environmentOrEmpty(
+    const char* name)
+{
+    const char* value = std::getenv(name);
+    return value == nullptr
+        ? std::string()
+        : std::string(value);
+}
+
+bool isValidBackendId(
+    const std::string& backendId)
+{
+    if (backendId.empty() || backendId.size() > 128)
+    {
+        return false;
+    }
+
+    for (const unsigned char character : backendId)
+    {
+        if (!std::isalnum(character) &&
+            character != '-' &&
+            character != '_' &&
+            character != '.')
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+std::map<std::string, std::string> parseArtworkRoots(
     const std::string& value)
 {
-    std::vector<std::string> roots;
+    std::map<std::string, std::string> roots;
+
+    if (value.empty())
+    {
+        return roots;
+    }
+
     std::size_t start = 0;
 
     while (start <= value.size())
     {
-        const std::size_t end = value.find(':', start);
-        const std::string root = value.substr(
+        const std::size_t end = value.find(';', start);
+        const std::string entry = value.substr(
             start,
             end == std::string::npos
                 ? std::string::npos
                 : end - start);
+        const std::size_t separator = entry.find('=');
 
-        if (!root.empty())
+        if (entry.empty() ||
+            separator == std::string::npos ||
+            separator == 0 ||
+            separator + 1 >= entry.size())
         {
-            roots.push_back(root);
+            return {};
+        }
+
+        const std::string backendId =
+            entry.substr(0, separator);
+        const std::string root =
+            entry.substr(separator + 1);
+
+        if (!isValidBackendId(backendId) ||
+            !std::filesystem::path(root).is_absolute() ||
+            !roots.emplace(backendId, root).second)
+        {
+            return {};
         }
 
         if (end == std::string::npos)
@@ -54,11 +109,6 @@ std::vector<std::string> splitArtworkRoots(
         }
 
         start = end + 1;
-    }
-
-    if (roots.empty())
-    {
-        roots.push_back("/var/cache/vdr/plugins/tvscraper");
     }
 
     return roots;
@@ -75,10 +125,9 @@ RuntimeConfig::RuntimeConfig()
       vdrPort_(8002),
       httpListenHost_("0.0.0.0"),
       httpListenPort_(18080),
-      recordingArtworkRoots_(splitArtworkRoots(
-          environmentOrDefault(
-              "VDR_SUITE_RECORDING_ARTWORK_ROOTS",
-              "/var/cache/vdr/plugins/tvscraper")))
+      recordingArtworkRoots_(parseArtworkRoots(
+          environmentOrEmpty(
+              "VDR_SUITE_RECORDING_ARTWORK_ROOTS")))
 {
 }
 
@@ -112,7 +161,7 @@ int RuntimeConfig::httpListenPort() const
     return httpListenPort_;
 }
 
-const std::vector<std::string>& RuntimeConfig::recordingArtworkRoots() const
+const std::map<std::string, std::string>& RuntimeConfig::recordingArtworkRoots() const
 {
     return recordingArtworkRoots_;
 }
