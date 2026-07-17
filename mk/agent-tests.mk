@@ -9,7 +9,3 @@ test-suite-bridge-handshake:
 		core/agent/tests/test_suite_bridge_handshake.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_handshake
 	$(BUILD_DIR)/test_suite_bridge_handshake
-
-test-ci-fast: test-suite-bridge-agent-boundary test-suite-bridge-handshake
-
-test-vdr: test-suite-bridge-agent-boundary test-suite-bridge-handshake
