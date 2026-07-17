@@ -79,6 +79,13 @@ SuiteBridgeHandshakeResult SuiteBridgeHandshakeService::perform()
             "suite bridge CAPS command unavailable");
     }
 
+    if (discoveryReply.replyCode == 504)
+    {
+        return failure(
+            SuiteBridgeHandshakeStatus::IncompatibleDiscoverySchema,
+            "suite bridge discovery schema 1 unsupported");
+    }
+
     if (discoveryReply.replyCode != 900)
     {
         return failure(
