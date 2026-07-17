@@ -71,7 +71,7 @@ test-backend-registry-service:
 		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/tests/test_backend_registry_service.cpp \
 		-o $(BUILD_DIR)/test_backend_registry_service
-	$(BUILD_DIR)/test_backend-registry-service
+	$(BUILD_DIR)/test_backend_registry_service
 
 
 test-backend-registry-json-serializer:
