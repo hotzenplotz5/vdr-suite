@@ -4,11 +4,14 @@
 #include <cassert>
 #include <chrono>
 #include <cstring>
+#include <iostream>
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 using namespace vdrsuite::agent;
 
@@ -198,6 +201,8 @@ private:
         {
             sendAll(clientFd, response_);
         }
+
+        shutdown(clientFd, SHUT_WR);
 
         char finalByte = 0;
         const ssize_t finalRead = recv(clientFd, &finalByte, 1, 0);
@@ -534,5 +539,8 @@ int main()
     testUnavailableAndInvalidConfiguration();
     testConnectionFailure();
 
+    std::cout
+        << "test_suite_bridge_svdrp_transport passed"
+        << std::endl;
     return 0;
 }
