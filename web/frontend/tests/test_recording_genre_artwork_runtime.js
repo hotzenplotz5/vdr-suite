@@ -167,6 +167,33 @@ assert.strictEqual(
   window.VdrSuiteRecordingGenreArtwork.forFolderName('Historienfilm').slug,
   'historienfilm'
 );
+
+const additionalGenreCases = Object.freeze({
+  Thriller: 'thriller',
+  Musik: 'musik',
+  Music: 'musik',
+  Drama: 'drama',
+  Mystery: 'mystery',
+  Mysterium: 'mystery',
+  SciFi: 'scifi',
+  'Science Fiction': 'scifi',
+  Serie: 'serien',
+  Serien: 'serien',
+  Western: 'western',
+  Doku: 'doku',
+  Dokumentation: 'doku',
+  Documentary: 'doku',
+  Action: 'action',
+  Musical: 'musical'
+});
+
+Object.entries(additionalGenreCases).forEach(([folderName, expectedSlug]) => {
+  assert.strictEqual(
+    window.VdrSuiteRecordingGenreArtwork.forFolderName(folderName).slug,
+    expectedSlug
+  );
+});
+
 assert.strictEqual(
   window.VdrSuiteRecordingGenreArtwork.forFolderName('Mission: Impossible'),
   null
@@ -225,7 +252,46 @@ assert.strictEqual(installedStyles.length, 1);
 const styles = installedStyles[0].textContent;
 assert.ok(styles.includes('recording-genre-sprite.svg'));
 assert.ok(styles.includes('background-size: 300% 200%;'));
+[
+  'thriller',
+  'musik',
+  'drama',
+  'mystery',
+  'scifi',
+  'serien',
+  'western',
+  'doku',
+  'action',
+  'musical'
+].forEach(slug => {
+  assert.ok(styles.includes('recording-genre-' + slug + '.svg'));
+  assert.ok(styles.includes('recording-genre-artwork-' + slug));
+});
 assert.ok(styles.includes('@media (min-width: 72rem)'));
+assert.ok(styles.includes('.recording-folder-list {'));
+assert.ok(
+  styles.includes(
+    'grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));'
+  )
+);
+assert.ok(styles.includes('.recording-folder-list > .module-placeholder,'));
+assert.ok(
+  styles.includes('.recording-folder-list > .recording-list-item {')
+);
+assert.ok(
+  styles.includes(
+    '.recording-folder-list > .recording-folder-item.has-recording-artwork {'
+  )
+);
+assert.ok(
+  styles.includes(
+    '.recording-folder-list > .recording-folder-item .recording-artwork-image,'
+  )
+);
+assert.ok(styles.includes('min-height: 14.15rem;'));
+assert.ok(styles.includes('padding-left: 10.75rem !important;'));
+assert.ok(styles.includes('width: 8.9rem;'));
+assert.ok(styles.includes('height: 12.7rem;'));
 assert.ok(styles.includes('width: 12rem;'));
 assert.ok(styles.includes('height: 18rem;'));
 assert.ok(styles.includes('@media (max-width: 760px)'));

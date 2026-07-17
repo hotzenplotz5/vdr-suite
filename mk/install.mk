@@ -53,6 +53,16 @@ install-runtime: daemon
 	$(INSTALL) -m 0644 web/frontend/icon-vdr-suite.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/icon-vdr-suite.svg
 	$(INSTALL) -m 0644 web/frontend/favicon.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/favicon.svg
 	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-sprite.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-sprite.svg
+	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-thriller.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-thriller.svg
+	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-musik.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-musik.svg
+	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-drama.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-drama.svg
+	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-mystery.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-mystery.svg
+	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-scifi.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-scifi.svg
+	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-serien.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-serien.svg
+	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-western.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-western.svg
+	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-doku.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-doku.svg
+	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-action.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-action.svg
+	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-musical.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-musical.svg
 
 install-cli: dashboard-cli
 	$(INSTALL) -d $(DESTDIR)$(BINDIR)
@@ -116,6 +126,16 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/icon-vdr-suite.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/favicon.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-sprite.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-thriller.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-musik.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-drama.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-mystery.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-scifi.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-serien.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-western.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-doku.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-action.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-musical.svg
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man8/vdr-suite-daemon.8
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man5/vdr-suite.conf.5
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-dashboard.1
