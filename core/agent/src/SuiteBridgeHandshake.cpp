@@ -44,13 +44,13 @@ SuiteBridgeBaselineUpdate SuiteBridgeBaselineTracker::apply(
 
     if (hasBaseline_)
     {
-        if (next.counterOverflow || baseline_.counterOverflow)
-        {
-            update = SuiteBridgeBaselineUpdate::ReplacedOverflowed;
-        }
-        else if (next.counterEpoch != baseline_.counterEpoch)
+        if (next.counterEpoch != baseline_.counterEpoch)
         {
             update = SuiteBridgeBaselineUpdate::ReplacedEpochChanged;
+        }
+        else if (next.counterOverflow || baseline_.counterOverflow)
+        {
+            update = SuiteBridgeBaselineUpdate::ReplacedOverflowed;
         }
         else
         {
