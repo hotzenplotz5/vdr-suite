@@ -6,6 +6,8 @@ CI_FAST_TESTS := \
 	test-build-artifact-paths \
 	test-suite-bridge-agent-boundary \
 	test-suite-bridge-handshake \
+	test-suite-bridge-svdrp-transport-boundary \
+	test-suite-bridge-svdrp-transport \
 	test-fast \
 	test-api-router \
 	test-restful-api-vdr-timer-action-executor \
@@ -41,6 +43,8 @@ VDR_TESTS := \
 	check-vdr-linkage-contracts \
 	test-suite-bridge-agent-boundary \
 	test-suite-bridge-handshake \
+	test-suite-bridge-svdrp-transport-boundary \
+	test-suite-bridge-svdrp-transport \
 	test-backend-node \
 	test-backend-registry \
 	test-backend-registry-service \
@@ -249,7 +253,8 @@ MANUAL_REAL_TESTS := \
 	test-real-snapshot-builder \
 	test-real-change-state \
 	test-real-polling-initial-snapshot \
-	test-real-polling-stability
+	test-real-polling-stability \
+	test-suite-bridge-svdrp-transport-live
 
 test-ci-fast: $(CI_FAST_TESTS)
 
