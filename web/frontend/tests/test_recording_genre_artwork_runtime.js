@@ -276,7 +276,12 @@ assert.ok(
 );
 assert.ok(styles.includes('.recording-folder-list > .module-placeholder,'));
 assert.ok(
-  styles.includes('.recording-folder-list > .recording-list-item {')
+  styles.includes(
+    '.recording-folder-list > .recording-list-item:not(.recording-folder-item) {'
+  )
+);
+assert.ok(
+  !styles.includes('.recording-folder-list > .recording-list-item {')
 );
 assert.ok(
   styles.includes(
