@@ -1,0 +1,32 @@
+name: Phase 60.15 Documentation Closeout
+
+on:
+  push:
+    branches:
+      - agent/phase-60-15-closeout-docs
+
+permissions:
+  contents: write
+
+jobs:
+  apply-closeout:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/phase-60-15-closeout-docs
+
+      - name: Apply exact documentation closeout
+        run: python3 tools/apply_phase_60_15_closeout.py
+
+      - name: Commit closeout and remove helper
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md docs tools/check_completed_phase_markers.py tools/check_phase_map_coverage.py
+          git add -u .github/workflows tools
+          git diff --cached --check
+          git commit -m "Docs: close Phase 60.15 and advance to Phase 61"
+          git push origin HEAD:agent/phase-60-15-closeout-docs
