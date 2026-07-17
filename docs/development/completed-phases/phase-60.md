@@ -39,6 +39,11 @@ Phase 60 built the frontend platform foundation, hardened lazy Recording loading
 - traversal, size, unsupported-format and symlink-escape defenses;
 - frontend real-poster loading with same-origin validation and placeholder fallback.
 
+## Verification
+
+- Phase 60.15g merged to `main` as `f44e78a67b3b1099cb6691f043b156c2d11785a8` after CI run `29551759841` succeeded.
+- Phase 60.15h-i merged to `main` as `a3f42608badb3e4e64908bf99b8d31afd8d5d8fa` after CI run `29554158956` succeeded across documentation, frontend, Make inventory, C++ regression, daemon build and packaging.
+
 ## Latest Completed Slice
 
 ```text
