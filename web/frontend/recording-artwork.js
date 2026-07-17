@@ -4,6 +4,62 @@
   const artworkUrlPattern =
     /^\/recording-artwork\/(?:[A-Za-z0-9._~-]|%[0-9A-Fa-f]{2})+\/[0-9A-Fa-f]{32}$/;
 
+  function installRecordingArtworkStyles() {
+    if (document.getElementById('vdr-suite-recording-artwork-styles')) {
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'vdr-suite-recording-artwork-styles';
+    style.textContent = [
+      '.recording-artwork-image {',
+      '  position: absolute;',
+      '  z-index: 1;',
+      '  display: block;',
+      '  object-fit: cover;',
+      '  object-position: center;',
+      '  pointer-events: none;',
+      '  border: 1px solid rgba(125, 211, 252, 0.38);',
+      '  border-radius: 0.82rem;',
+      '  background: rgba(2, 6, 23, 0.92);',
+      '  box-shadow: 0 0.65rem 1.4rem rgba(2, 6, 23, 0.35);',
+      '}',
+      '.recording-list-item .recording-artwork-image {',
+      '  left: 0.8rem;',
+      '  top: 0.72rem;',
+      '  width: 4.45rem;',
+      '  height: 6.35rem;',
+      '}',
+      '.recording-detail .recording-artwork-image {',
+      '  left: 1rem;',
+      '  top: 1rem;',
+      '  width: 8.6rem;',
+      '  height: 12rem;',
+      '}',
+      '.recording-list-item.has-recording-artwork::before,',
+      '.recording-detail.has-recording-artwork::before {',
+      '  opacity: 0;',
+      '}',
+      '@media (max-width: 760px) {',
+      '  .recording-list-item .recording-artwork-image {',
+      '    left: 0.65rem;',
+      '    top: 0.62rem;',
+      '    width: 3.85rem;',
+      '    height: 5.5rem;',
+      '    border-radius: 0.7rem;',
+      '  }',
+      '  .recording-detail .recording-artwork-image {',
+      '    left: 0.75rem;',
+      '    top: 0.75rem;',
+      '    width: 5.8rem;',
+      '    height: 8.35rem;',
+      '    border-radius: 0.72rem;',
+      '  }',
+      '}'
+    ].join('\n');
+    document.head.appendChild(style);
+  }
+
   function recordingArtworkPresentation(recording) {
     if (!recording || typeof recording !== 'object') {
       return {};
@@ -92,6 +148,8 @@
 
     container.appendChild(image);
   }
+
+  installRecordingArtworkStyles();
 
   const originalCreateServerRecordingItem =
     window.createServerRecordingItem;
