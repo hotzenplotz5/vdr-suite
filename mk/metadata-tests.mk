@@ -1,5 +1,6 @@
 .PHONY: test-metadata-identity test-metadata-foundation
 
+test-metadata-identity: CXXFLAGS += -Icore/metadata/include
 test-metadata-identity:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(METADATA_SRC) \
