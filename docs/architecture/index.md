@@ -42,6 +42,16 @@ The Core Platform Model is an earlier conceptual foundation. Where its older fut
 
 ---
 
+## Metadata Platform
+
+- [Metadata Identity Foundation](metadata-identity-foundation.md)
+- [ADR-0038: Suite Metadata Database and External Provider Strategy](../adr/ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
+- [Recording Metadata Roadmap](../planning/tvscraper-recording-metadata-roadmap.md)
+
+The identity foundation defines the Phase 61.1 Suite-owned Entity, Assignment and Target identity boundary. Provider acquisition, persistence, resolver behavior and artwork storage remain later Phase 61 slices.
+
+---
+
 ## Backend Architecture
 
 - [VDR Backends](vdr-backends.md)
