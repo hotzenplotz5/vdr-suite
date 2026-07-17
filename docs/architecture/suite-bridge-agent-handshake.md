@@ -269,3 +269,11 @@ The preferred direction is a small local SVDRP client or an equivalently strict 
 - exposes no VDR-internal port to the Control Plane or public network.
 
 Daemon integration remains a later slice after the transport itself has isolated tests and controlled live VDR acceptance.
+
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to README](../../README.md)
