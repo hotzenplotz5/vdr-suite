@@ -1,0 +1,32 @@
+name: Phase 60.15i Frontend Bundle
+
+on:
+  push:
+    branches:
+      - agent/phase-60-15h-i-recording-artwork-endpoint
+
+permissions:
+  contents: write
+
+jobs:
+  apply-frontend-bundle:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/phase-60-15h-i-recording-artwork-endpoint
+
+      - name: Apply exact frontend bundle wiring
+        run: python3 tools/apply_phase_60_15i_frontend_bundle.py
+
+      - name: Commit transformed HTTP server
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add core/http/src/TestHttpServer.cpp
+          git add -u .github/workflows tools
+          git diff --cached --check
+          git commit -m "Phase 60.15i: bundle Recording artwork frontend"
+          git push origin HEAD:agent/phase-60-15h-i-recording-artwork-endpoint
