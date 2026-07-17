@@ -298,9 +298,9 @@ VdrRecordingArtworkAsset readAllowedAsset(
             continue;
         }
 
-        std::string content(
+        std::string content{
             std::istreambuf_iterator<char>(file),
-            std::istreambuf_iterator<char>());
+            std::istreambuf_iterator<char>()};
 
         if (file.bad() ||
             content.size() != static_cast<std::size_t>(fileSize))
