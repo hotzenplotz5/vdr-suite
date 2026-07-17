@@ -293,8 +293,16 @@ assert.ok(
     '.recording-folder-list > .recording-folder-item .recording-artwork-image,'
   )
 );
-assert.ok(styles.includes('min-height: 14.15rem;'));
-assert.ok(styles.includes('padding-left: 10.75rem !important;'));
+assert.ok(styles.includes('box-sizing: border-box;'));
+assert.ok(styles.includes('padding-top: 0.55rem;'));
+assert.ok(styles.includes('padding-bottom: 0.55rem;'));
+assert.ok(styles.includes('min-height: 13.7rem;'));
+assert.ok(styles.includes('padding-left: 10.45rem !important;'));
+assert.ok(styles.includes('line-height: 1.12;'));
+assert.ok(styles.includes('margin-top: 0.12rem;'));
+assert.ok(styles.includes('line-height: 1.2;'));
+assert.ok(styles.includes('left: 0.75rem;'));
+assert.ok(styles.includes('top: 0.45rem;'));
 assert.ok(styles.includes('width: 8.9rem;'));
 assert.ok(styles.includes('height: 12.7rem;'));
 assert.ok(styles.includes('width: 12rem;'));
