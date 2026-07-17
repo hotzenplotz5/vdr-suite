@@ -8,6 +8,7 @@
 - [Suite Bridge Backend Agent Handshake](suite-bridge-agent-handshake.md)
 - [Backend Agent and Control Plane Boundary](../adr/ADR-0039-backend-agent-control-plane-boundary.md)
 - [Suite Bridge Handoff](../../vdr-plugin-suite-bridge/docs/VDR-SUITE-HANDOFF.md)
+- [Suite Bridge Roadmap](../../vdr-plugin-suite-bridge/docs/ROADMAP.md)
 
 ---
 
@@ -15,10 +16,17 @@
 
 Implementation slice: `SB.10b`
 
-State: isolated typed local SVDRP transport implemented; automated and live VDR
-acceptance are still required before the slice is completed.
+State: `completed`.
+
+Implementation, automated-test and controlled live-acceptance head:
+
+```text
+3396840d41260bb3ed81bc652921b329263d7e58
+```
 
 SB.10b changes no plugin source, command, capability, schema or version.
+
+The plugin remains read-only and `mutations` remains `disabled`.
 
 ---
 
@@ -81,7 +89,9 @@ core/agent/include/SuiteBridgeSvdrpTransport.h
 core/agent/src/SuiteBridgeSvdrpTransport.cpp
 core/agent/tests/test_suite_bridge_svdrp_transport.cpp
 core/agent/tests/test_suite_bridge_svdrp_transport_live.cpp
+core/agent/tests/test_suite_bridge_handshake_missing_plugin.cpp
 tools/check_suite_bridge_svdrp_transport_boundary.py
+tools/check_suite_bridge_agent_boundary.py
 ```
 
 Build ownership remains in:
@@ -230,8 +240,16 @@ The parser accepts CRLF and LF input and normalizes payload line separation to
 `\n`.
 
 The final reply code is preserved separately from the payload. A syntactically
-valid reply such as `504` is a successful transport exchange and is evaluated by
-the handshake as a reply rejection rather than a socket failure.
+valid non-`900` reply is a successful transport exchange and is evaluated by the
+handshake rather than reclassified as a socket failure.
+
+Real VDR behavior established an additional compatibility fact:
+
+- reply `500` means the plugin does not implement `CAPS`;
+- reply `550` means the named plugin is not installed or loaded;
+- both are classified as `LegacyOrUnknown` by the handshake;
+- `SNAP` is not requested after either reply;
+- other non-`900` discovery replies remain `DiscoveryReplyRejected`.
 
 The parser rejects:
 
@@ -269,7 +287,7 @@ close-on-exec even though SB.10b launches no process.
 
 | Situation | Transport status |
 | --- | --- |
-| Empty host / deliberately not configured | `Unavailable` |
+| Empty host or deliberately not configured | `Unavailable` |
 | Valid greeting and complete command reply | `Success` |
 | Connect, greeting, send or reply deadline exceeded | `Timeout` |
 | Invalid configuration | `Failed` |
@@ -308,7 +326,7 @@ single synchronous transaction and owns no polling lifecycle.
 
 ---
 
-## Automated Tests
+## Automated Acceptance
 
 The deterministic loopback fixture covers:
 
@@ -343,36 +361,73 @@ The source boundary guard proves:
 - non-blocking connect, `poll()`, `SO_ERROR`, close-on-exec and no-signal send;
 - explicit greeting, size and multiline contracts.
 
+Repository-wide automated acceptance at
+`3396840d41260bb3ed81bc652921b329263d7e58` proved:
+
+- strict Make inventory with zero ungrouped targets, orphan sources or stale
+  references;
+- SB.10a boundary and handshake regression;
+- explicit real-VDR reply-`550` missing-plugin regression;
+- SB.10b transport boundary guard;
+- deterministic socket fixture;
+- independent plugin contract and C++ regression suite;
+- plugin version extraction at `0.10.0`;
+- final shared-object build and ELF validation;
+- complete documentation checks;
+- ADR index and completed-phase checks;
+- global architecture check;
+- clean synchronized worktree.
+
 ---
 
-## Manual Live VDR Smoke Test
+## Controlled Live VDR Acceptance
 
-The manual target is:
+The controlled live acceptance passed on:
 
-```text
-make test-suite-bridge-svdrp-transport-live
-```
+| Item | Value |
+| --- | --- |
+| Repository head | `3396840d41260bb3ed81bc652921b329263d7e58` |
+| VDR version | `2.7.9` |
+| VDR API version | `11` |
+| Endpoint | `127.0.0.1:6419` |
+| Plugin version | `0.10.0` |
+| Installed object | `libvdr-suitebridge.so.11` |
+| Installed object SHA-256 | `a84c4571e951da94de2c0b5f9badf2c74034fe94b0c43483dfa9d9345d513b5d` |
+| ELF build ID | not present |
 
-Optional environment variables:
+Negative live evidence before installation proved:
 
-```text
-VDR_SUITE_SUITEBRIDGE_SVDRP_HOST
-VDR_SUITE_SUITEBRIDGE_SVDRP_PORT
-```
+- VDR was reachable through the new direct transport;
+- VDR returned reply `550` because `suitebridge` was not installed;
+- the plugin shared object, configuration and process mapping were absent;
+- the corrected handshake classified this as `LegacyOrUnknown`;
+- `SNAP` was not requested after failed discovery.
 
-The live test performs the complete SB.10a handshake through the real SB.10b
-transport. It requires:
+Positive live evidence after controlled installation proved:
 
-- a controlled VDR instance;
-- the accepted Suite Bridge plugin installed and loaded;
-- SVDRP access permitted from the selected local address;
-- pre-test capture of channel, Timer, Recording and setup state;
-- successful `CAPS 1` and `SNAP` only;
-- `mutationsEnabled=false`;
-- unchanged unrelated VDR state;
-- deterministic plugin and VDR rollback where the test installation changed
-  live files;
-- a clean repository worktree.
+- VDR mapped the expected API-versioned shared object;
+- plugin `HELP` listed `CAPS` and `SNAP`;
+- `CAPS 1` returned reply `900`;
+- discovery schema `1`, capability schema `1`, snapshot schema `2` and
+  local-contract schema `2` were accepted;
+- `mutations` remained `disabled`;
+- `SNAP` returned reply `900`, `active=true` and a valid `counter_epoch`;
+- the direct Agent handshake returned `status=ready`;
+- the live contract reported plugin version `0.10.0` and
+  `counter_overflow=false`;
+- only `CAPS 1` and `SNAP` were invoked;
+- channel, Timer, Recording and `setup.conf` state remained byte-identical.
+
+Rollback evidence proved:
+
+- the configuration symlink was removed;
+- the plugin configuration was removed;
+- `libvdr-suitebridge.so.11` was removed;
+- VDR restarted successfully;
+- no Suite Bridge mapping remained in the VDR process;
+- channel, Timer, Recording and `setup.conf` state remained unchanged;
+- plugin build artifacts and temporary evidence were removed;
+- the repository worktree remained clean and synchronized.
 
 The live test prints bounded schema and activity facts. It does not print the raw
 JSON payload.
@@ -400,18 +455,24 @@ SB.10b adds no:
 
 ## Next Slice
 
-After automated and controlled live acceptance of SB.10b, SB.10c may add the
-read-only Agent observation lifecycle:
+The next coordinated implementation slice is:
+
+```text
+SB.10c - Read-only polling, reconnect and freshness
+```
+
+SB.10c may compose the accepted transport to add:
 
 - initial discovery and baseline;
 - bounded polling;
 - reconnect backoff;
 - freshness timestamps;
+- explicit plugin-missing, incompatible, stale, degraded and offline states;
 - epoch replacement;
 - overflow degradation;
 - clean stop behavior.
 
-SB.10c composes the transport. It does not widen the transport command surface.
+SB.10c does not widen the transport command surface and expects no plugin change.
 
 ---
 
