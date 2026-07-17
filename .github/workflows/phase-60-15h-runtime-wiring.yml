@@ -1,0 +1,32 @@
+name: Phase 60.15h Runtime Wiring
+
+on:
+  push:
+    branches:
+      - agent/phase-60-15h-i-recording-artwork-endpoint
+
+permissions:
+  contents: write
+
+jobs:
+  apply-runtime-wiring:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/phase-60-15h-i-recording-artwork-endpoint
+
+      - name: Apply exact runtime wiring
+        run: python3 tools/apply_phase_60_15h_runtime_wiring.py
+
+      - name: Commit transformed runtime
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add core/daemon/src/DaemonRuntime.cpp
+          git add -u .github/workflows tools
+          git diff --cached --check
+          git commit -m "Phase 60.15h: wire authenticated artwork HTTP server"
+          git push origin HEAD:agent/phase-60-15h-i-recording-artwork-endpoint
