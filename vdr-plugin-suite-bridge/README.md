@@ -162,6 +162,17 @@ The Backend Agent reaches `CAPS` and `SNAP` through VDR's already configured
 SVDRP access. Network exposure, source restrictions and authentication remain
 deployment responsibilities outside this plugin slice.
 
+## Project documents
+
+- [ADR-0001: Plugin Role and Native Integration Strategy](docs/ADR-0001-plugin-role-and-native-integration-strategy.md)
+- [Plugin Roadmap](docs/ROADMAP.md)
+- [Shared VDR-Suite Handoff](docs/VDR-SUITE-HANDOFF.md)
+
+The ADR defines the durable role and safety boundary. The roadmap defines the
+ordered implementation direction. The shared handoff remains authoritative for
+the last fully accepted coordinated slice and its exact test and live-acceptance
+state.
+
 ## Build and tests
 
 ```bash
