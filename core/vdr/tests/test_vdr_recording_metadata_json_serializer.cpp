@@ -1,3 +1,4 @@
+#include "VdrRecordingArtworkIdentity.h"
 #include "VdrRecordingMetadataJsonSerializer.h"
 
 #include <cassert>
@@ -8,6 +9,7 @@ int main()
 {
     VdrRecording recording;
     recording.id = "7";
+    recording.backendId = "ferienhaus";
     recording.title = "Technical title";
     recording.metadata.native.eventTitle = "Native event title";
     recording.metadata.native.shortText = "Native short text";
@@ -34,6 +36,15 @@ int main()
     artwork.height = 1000;
     recording.metadata.artwork.push_back(artwork);
 
+    const std::string expectedAssetId =
+        VdrRecordingArtworkIdentity::assetId(
+            recording,
+            recording.metadata.artwork.front());
+    const std::string expectedUrl =
+        VdrRecordingArtworkIdentity::publicUrl(
+            recording,
+            recording.metadata.artwork.front());
+
     const std::string json =
         VdrRecordingMetadataJsonSerializer::serialize(recording);
 
@@ -58,9 +69,22 @@ int main()
         std::string::npos);
     assert(json.find("\"placeholderVariant\":") !=
         std::string::npos);
+    assert(json.find(
+        "\"preferredAssetId\":\"" + expectedAssetId + "\"") !=
+        std::string::npos);
+    assert(json.find(
+        "\"posterAssetId\":\"" + expectedAssetId + "\"") !=
+        std::string::npos);
+    assert(json.find(
+        "\"preferredUrl\":\"" + expectedUrl + "\"") !=
+        std::string::npos);
+    assert(json.find(
+        "\"posterUrl\":\"" + expectedUrl + "\"") !=
+        std::string::npos);
+    assert(expectedUrl.find("/recording-artwork/ferienhaus/") == 0);
 
     // Source-scoped references are internal cache evidence. The client JSON
-    // exposes only availability and never leaks provider paths.
+    // exposes an opaque Suite URL and never leaks provider paths.
     assert(json.find("poster-secret.jpg") == std::string::npos);
     assert(json.find("series/100") == std::string::npos);
 
@@ -73,6 +97,10 @@ int main()
     assert(fallbackJson.find("\"providerAvailable\":false") !=
         std::string::npos);
     assert(fallbackJson.find("\"artworkPrepared\":false") !=
+        std::string::npos);
+    assert(fallbackJson.find("\"posterAssetId\":\"\"") !=
+        std::string::npos);
+    assert(fallbackJson.find("\"posterUrl\":\"\"") !=
         std::string::npos);
     assert(fallbackJson.find("\"title\":\"Fallback Recording\"") !=
         std::string::npos);
