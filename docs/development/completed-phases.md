@@ -32,7 +32,7 @@ Detailed chronological records belong in the archive and individual phase docume
 ## Latest Completed Implementation Slice
 
 ```text
-Phase 60.14k - Recording Detail UX Polish
+Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
 ## Latest Completed Major Project Block
@@ -64,7 +64,7 @@ The Phase 58 umbrella label is retained for historical product grouping. Concret
 | Phase 57 | Completed | Multi-site backend administration and read-only permission foundation. | [Phase 57](completed-phases/phase-57.md) |
 | Phase 58 | Completed slices | Frontend and Live-parity foundation slices; umbrella label retained historically. | [Phase 58](completed-phases/phase-58.md) |
 | Phase 59.00-59.15e | Completed | Frontend Client API and module boundaries. | [Phase 59](completed-phases/phase-59.md) |
-| Phase 60.1-60.14k | Completed | Frontend platform, lazy Recording cache and Recording detail UX. | [Phase 60](completed-phases/phase-60.md) |
+| Phase 60.1-60.15 | Completed | Frontend platform, lazy Recording cache, Recording detail UX, provider-neutral metadata and authenticated local artwork preparation. | [Phase 60](completed-phases/phase-60.md) |
 
 ---
 
@@ -82,12 +82,12 @@ Its remaining implementation gaps are tracked in:
 
 ## Next Work Boundary
 
-The next repository work is the ADR-0042 through ADR-0049 architecture contract and diagram package.
+The architecture contract package and Phase 60.15 runtime preparation are complete.
 
-The next runtime implementation slice after that package is:
+The next runtime implementation phase is:
 
 ```text
-Phase 60.15 - Recording Metadata and Poster Preparation
+Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
 ---
