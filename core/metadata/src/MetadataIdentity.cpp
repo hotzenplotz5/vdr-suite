@@ -13,6 +13,7 @@ namespace
 
 constexpr const char* metadataEntityPrefix = "mdent_";
 constexpr const char* metadataAssignmentPrefix = "mdasg_";
+constexpr const char* metadataEvidencePrefix = "mdevd_";
 constexpr const char* metadataTargetPrefix = "mdtgt_";
 constexpr std::size_t opaqueIdHexLength = 32;
 
@@ -211,6 +212,51 @@ bool MetadataAssignmentId::operator!=(
 
 bool MetadataAssignmentId::operator<(
     const MetadataAssignmentId& other) const
+{
+    return value_ < other.value_;
+}
+
+MetadataEvidenceId::MetadataEvidenceId(std::string value)
+    : value_(std::move(value))
+{
+}
+
+MetadataEvidenceId MetadataEvidenceId::generate()
+{
+    return MetadataEvidenceId(generateOpaqueId(metadataEvidencePrefix));
+}
+
+bool MetadataEvidenceId::isValidValue(const std::string& value)
+{
+    return isValidOpaqueId(value, metadataEvidencePrefix);
+}
+
+bool MetadataEvidenceId::isValid() const
+{
+    return isValidValue(value_);
+}
+
+bool MetadataEvidenceId::empty() const
+{
+    return value_.empty();
+}
+
+const std::string& MetadataEvidenceId::value() const
+{
+    return value_;
+}
+
+bool MetadataEvidenceId::operator==(const MetadataEvidenceId& other) const
+{
+    return value_ == other.value_;
+}
+
+bool MetadataEvidenceId::operator!=(const MetadataEvidenceId& other) const
+{
+    return !(*this == other);
+}
+
+bool MetadataEvidenceId::operator<(const MetadataEvidenceId& other) const
 {
     return value_ < other.value_;
 }
