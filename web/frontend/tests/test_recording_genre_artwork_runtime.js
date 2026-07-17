@@ -168,6 +168,46 @@ assert.strictEqual(
   'historienfilm'
 );
 assert.strictEqual(
+  window.VdrSuiteRecordingGenreArtwork.forFolderName('Thriller').slug,
+  'thriller'
+);
+assert.strictEqual(
+  window.VdrSuiteRecordingGenreArtwork.forFolderName('Musik').slug,
+  'musik'
+);
+assert.strictEqual(
+  window.VdrSuiteRecordingGenreArtwork.forFolderName('Drama').slug,
+  'drama'
+);
+assert.strictEqual(
+  window.VdrSuiteRecordingGenreArtwork.forFolderName('Mystery').slug,
+  'mystery'
+);
+assert.strictEqual(
+  window.VdrSuiteRecordingGenreArtwork.forFolderName('Science-Fiction').slug,
+  'scifi'
+);
+assert.strictEqual(
+  window.VdrSuiteRecordingGenreArtwork.forFolderName('Serien').slug,
+  'serien'
+);
+assert.strictEqual(
+  window.VdrSuiteRecordingGenreArtwork.forFolderName('Western').slug,
+  'western'
+);
+assert.strictEqual(
+  window.VdrSuiteRecordingGenreArtwork.forFolderName('Dokumentation').slug,
+  'doku'
+);
+assert.strictEqual(
+  window.VdrSuiteRecordingGenreArtwork.forFolderName('Action').slug,
+  'action'
+);
+assert.strictEqual(
+  window.VdrSuiteRecordingGenreArtwork.forFolderName('Musical').slug,
+  'musical'
+);
+assert.strictEqual(
   window.VdrSuiteRecordingGenreArtwork.forFolderName('Mission: Impossible'),
   null
 );
@@ -225,6 +265,11 @@ assert.strictEqual(installedStyles.length, 1);
 const styles = installedStyles[0].textContent;
 assert.ok(styles.includes('recording-genre-sprite.svg'));
 assert.ok(styles.includes('background-size: 300% 200%;'));
+assert.ok(styles.includes('recording-genre-thriller.svg'));
+assert.ok(styles.includes('recording-genre-musical.svg'));
+assert.ok(styles.includes('background-size: cover;'));
+assert.ok(styles.includes('.recording-genre-artwork-thriller'));
+assert.ok(styles.includes('.recording-genre-artwork-musical'));
 assert.ok(styles.includes('@media (min-width: 72rem)'));
 assert.ok(styles.includes('width: 12rem;'));
 assert.ok(styles.includes('height: 18rem;'));
