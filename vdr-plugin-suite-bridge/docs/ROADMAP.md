@@ -80,10 +80,23 @@ PLUG suitebridge SNAP
 The current plugin has no menu, listener, outbound connection, worker thread,
 database, filesystem mutation or VDR mutation surface.
 
-SB.10a, the transport-neutral Agent handshake contract, is implemented on the
-Suite Bridge branch. It is not a new plugin capability and does not change the
-plugin version or local schemas. Final coordinated handoff closure follows the
-complete repository acceptance process.
+SB.10a, the transport-neutral Agent handshake contract, is completed.
+
+Implementation head:
+
+```text
+d70ebee00edcab1cd019ca9e0c2541a06bf7d587
+```
+
+Repository-wide automated-acceptance head:
+
+```text
+ba6deddbfba6d50b1152d584654a92f75340dcc3
+```
+
+SB.10a is not a new plugin capability and does not change the plugin version,
+plugin commands, capability catalogue or local schemas. No live VDR test was
+required because SB.10a opens no concrete transport and invokes no VDR command.
 
 ---
 
@@ -119,7 +132,7 @@ The sequence deliberately prioritizes:
 
 | Slice | Status | Primary owner | Plugin change expected |
 | --- | --- | --- | --- |
-| SB.10a Transport-neutral handshake contract | active / implemented | Backend Agent | no |
+| SB.10a Transport-neutral handshake contract | completed | Backend Agent | no |
 | SB.10b Local typed SVDRP transport | active | Backend Agent | no |
 | SB.10c Polling, reconnect and freshness | active | Backend Agent | no |
 | SB.10d Embedded-Agent integration and live acceptance | active | Backend Agent / Suite runtime | no, unless a proven compatibility gap exists |
@@ -148,9 +161,33 @@ specific bounded plugin compatibility gap.
 
 ## SB.10a — Transport-Neutral Handshake Contract
 
-Status: `active / implemented`
+Status: `completed`
 
 Primary owner: Backend Agent.
+
+Implementation head:
+
+```text
+d70ebee00edcab1cd019ca9e0c2541a06bf7d587
+```
+
+Repository-wide automated-acceptance head:
+
+```text
+ba6deddbfba6d50b1152d584654a92f75340dcc3
+```
+
+Acceptance classification:
+
+- all targeted SB.10a tests passed;
+- strict root Make/test inventory passed;
+- independent plugin regression passed;
+- complete documentation checks passed;
+- global architecture check passed after synchronization with ADR-0050;
+- the accepted branch contained current Suite `main` head
+  `8ba96dbb46019030f7cb3ebcb95929034b6166d3`;
+- no live VDR test was required for this transport-neutral contract;
+- plugin runtime, version, commands, capabilities and schemas remain unchanged.
 
 Implemented responsibilities:
 
@@ -881,13 +918,13 @@ A plugin slice is completed only when:
 - positive, negative, malformed and overflow cases are tested;
 - all existing plugin tests still pass;
 - final VDR shared-object builds and passes ELF validation;
-- API-versioned staged installation passes;
-- required live VDR behavior is observed;
+- API-versioned staged installation passes where plugin runtime changes;
+- required live VDR behavior is observed where the slice reaches VDR runtime;
 - unrelated channel, Timer, Recording and setup state remains unchanged unless a
   disposable mutation is explicitly under test;
-- restart, stop and rollback are proven;
+- restart, stop and rollback are proven where required;
 - no stale plugin binary or configuration remains;
-- repository documentation checks pass;
+- repository Make inventory, documentation and architecture checks pass;
 - the shared handoff is updated only after acceptance.
 
 ---
@@ -947,6 +984,7 @@ This roadmap does not:
 - [VDR-Suite ADR-0039: Backend Agent and Control Plane Boundary](../../docs/adr/ADR-0039-backend-agent-control-plane-boundary.md)
 - [VDR-Suite ADR-0042: Safe Mutation, Revision and Idempotency](../../docs/adr/ADR-0042-safe-mutation-revision-idempotency-contract.md)
 - [VDR-Suite ADR-0047: Legacy OSD Compatibility Bridge](../../docs/adr/ADR-0047-legacy-osd-compatibility-bridge.md)
+- [VDR-Suite ADR-0050: Domain Repository SQLite Boundary](../../docs/adr/ADR-0050-domain-repository-sqlite-boundary.md)
 
 ---
 
