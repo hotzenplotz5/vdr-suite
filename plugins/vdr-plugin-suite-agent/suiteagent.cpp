@@ -3,6 +3,8 @@
 #include <vdr/plugin.h>
 #include <vdr/recording.h>
 
+#include <strings.h>
+
 #include <string>
 
 namespace {
@@ -100,17 +102,12 @@ public:
             return cString(nameResult.error.c_str());
         }
 
-        const std::string oldFileName(recording->FileName());
         if (!recording->ChangeName(nameResult.newName.c_str())) {
             replyCode = 550;
             return cString("VDR rejected recording move");
         }
 
         Recordings->TouchUpdate();
-        cRecordingUserCommand::InvokeCommand(
-            RUC_MOVEDRECORDING,
-            recording->FileName(),
-            oldFileName.c_str());
 
         replyCode = 250;
         return cString::sprintf(
