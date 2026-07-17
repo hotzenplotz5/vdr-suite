@@ -3,6 +3,21 @@
 
   const artworkUrlPattern =
     /^\/recording-artwork\/(?:[A-Za-z0-9._~-]|%[0-9A-Fa-f]{2})+\/[0-9A-Fa-f]{32}$/;
+  const genreArtworkSpriteUrl =
+    '/channel-logos/vdr-suite-brand/recording-genre-sprite.svg';
+  const genreArtworkAliases = Object.freeze({
+    horror: 'horror',
+    grusel: 'horror',
+    katastrophe: 'katastrophenfilm',
+    katastrophenfilm: 'katastrophenfilm',
+    fantasy: 'fantasy',
+    historie: 'historienfilm',
+    historienfilm: 'historienfilm',
+    comedy: 'komoedie',
+    komodie: 'komoedie',
+    krieg: 'krieg',
+    kriegsfilm: 'krieg'
+  });
 
   function installRecordingArtworkStyles() {
     if (document.getElementById('vdr-suite-recording-artwork-styles')) {
@@ -12,19 +27,23 @@
     const style = document.createElement('style');
     style.id = 'vdr-suite-recording-artwork-styles';
     style.textContent = [
-      '.recording-artwork-image {',
+      '.recording-artwork-image,',
+      '.recording-genre-artwork-image {',
       '  position: absolute;',
       '  z-index: 1;',
       '  display: block;',
-      '  object-fit: cover;',
-      '  object-position: center;',
       '  pointer-events: none;',
       '  border: 1px solid rgba(125, 211, 252, 0.38);',
       '  border-radius: 0.82rem;',
-      '  background: rgba(2, 6, 23, 0.92);',
+      '  background-color: rgba(2, 6, 23, 0.92);',
       '  box-shadow: 0 0.65rem 1.4rem rgba(2, 6, 23, 0.35);',
       '}',
-      '.recording-list-item .recording-artwork-image {',
+      '.recording-artwork-image {',
+      '  object-fit: cover;',
+      '  object-position: center;',
+      '}',
+      '.recording-list-item .recording-artwork-image,',
+      '.recording-folder-item .recording-genre-artwork-image {',
       '  left: 0.8rem;',
       '  top: 0.72rem;',
       '  width: 4.45rem;',
@@ -36,17 +55,64 @@
       '  width: 8.6rem;',
       '  height: 12rem;',
       '}',
+      '.recording-folder-item.has-recording-genre-artwork {',
+      '  position: relative;',
+      '  isolation: isolate;',
+      '  min-height: 7.5rem;',
+      '  padding-left: 6.25rem !important;',
+      '}',
+      '.recording-genre-artwork-image {',
+      '  background-image: url("' + genreArtworkSpriteUrl + '");',
+      '  background-repeat: no-repeat;',
+      '  background-size: 300% 200%;',
+      '}',
+      '.recording-genre-artwork-horror {',
+      '  background-position: 0% 0%;',
+      '}',
+      '.recording-genre-artwork-katastrophenfilm {',
+      '  background-position: 50% 0%;',
+      '}',
+      '.recording-genre-artwork-fantasy {',
+      '  background-position: 100% 0%;',
+      '}',
+      '.recording-genre-artwork-historienfilm {',
+      '  background-position: 0% 100%;',
+      '}',
+      '.recording-genre-artwork-komoedie {',
+      '  background-position: 50% 100%;',
+      '}',
+      '.recording-genre-artwork-krieg {',
+      '  background-position: 100% 100%;',
+      '}',
       '.recording-list-item.has-recording-artwork::before,',
       '.recording-detail.has-recording-artwork::before {',
       '  opacity: 0;',
       '}',
+      '@media (min-width: 72rem) {',
+      '  .recording-detail {',
+      '    min-height: 20rem;',
+      '    padding-left: 14.5rem !important;',
+      '  }',
+      '  .recording-detail::before,',
+      '  .recording-detail .recording-artwork-image {',
+      '    left: 1rem;',
+      '    top: 1rem;',
+      '    width: 12rem;',
+      '    height: 18rem;',
+      '  }',
+      '}',
       '@media (max-width: 760px) {',
-      '  .recording-list-item .recording-artwork-image {',
+      '  .recording-list-item .recording-artwork-image,',
+      '  .recording-folder-item .recording-genre-artwork-image {',
       '    left: 0.65rem;',
       '    top: 0.62rem;',
       '    width: 3.85rem;',
       '    height: 5.5rem;',
       '    border-radius: 0.7rem;',
+      '  }',
+      '  .recording-folder-item.has-recording-genre-artwork {',
+      '    min-height: 6.7rem;',
+      '    padding-left: 5.25rem !important;',
       '  }',
       '  .recording-detail .recording-artwork-image {',
       '    left: 0.75rem;',
@@ -149,6 +215,123 @@
     container.appendChild(image);
   }
 
+  function normalizeGenreArtworkName(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase('de-DE')
+      .replace(/[^a-z0-9]+/g, '');
+  }
+
+  function genreArtworkForFolderName(folderName) {
+    const normalized = normalizeGenreArtworkName(folderName);
+    const slug = genreArtworkAliases[normalized] || '';
+
+    if (slug === '') {
+      return null;
+    }
+
+    return Object.freeze({
+      slug: slug,
+      spriteUrl: genreArtworkSpriteUrl
+    });
+  }
+
+  function folderItemTitle(item) {
+    if (!item || typeof item.querySelector !== 'function') {
+      return '';
+    }
+
+    const title = item.querySelector('.list-title');
+    return title ? String(title.textContent || '').trim() : '';
+  }
+
+  function removeCompetingRecordingArtwork(item) {
+    if (!item || typeof item.querySelectorAll !== 'function') {
+      return;
+    }
+
+    item.querySelectorAll('.recording-artwork-image').forEach(image => {
+      image.remove();
+    });
+    item.classList.remove('has-recording-artwork');
+    item.dataset.recordingArtworkAttached = 'false';
+  }
+
+  function attachGenreArtwork(item) {
+    if (!item || !item.classList ||
+        !item.classList.contains('recording-folder-item')) {
+      return false;
+    }
+
+    const artwork = genreArtworkForFolderName(folderItemTitle(item));
+    if (!artwork) {
+      return false;
+    }
+
+    removeCompetingRecordingArtwork(item);
+
+    if (typeof item.querySelector === 'function' &&
+        item.querySelector('.recording-genre-artwork-image')) {
+      item.classList.add('has-recording-genre-artwork');
+      return true;
+    }
+
+    const image = document.createElement('span');
+    image.className =
+      'recording-genre-artwork-image recording-genre-artwork-' + artwork.slug;
+    image.setAttribute('aria-hidden', 'true');
+
+    item.dataset.recordingGenreArtworkAttached = 'true';
+    item.classList.add('has-recording-genre-artwork');
+    item.appendChild(image);
+    return true;
+  }
+
+  function scanGenreArtwork(root) {
+    if (!root) {
+      return;
+    }
+
+    if (typeof root.closest === 'function') {
+      const parentFolder = root.closest('.recording-folder-item');
+      if (parentFolder) {
+        attachGenreArtwork(parentFolder);
+      }
+    }
+
+    if (root.nodeType === 1 && typeof root.matches === 'function' &&
+        root.matches('.recording-folder-item')) {
+      attachGenreArtwork(root);
+    }
+
+    if (typeof root.querySelectorAll === 'function') {
+      root.querySelectorAll('.recording-folder-item').forEach(item => {
+        attachGenreArtwork(item);
+      });
+    }
+  }
+
+  function observeGenreArtwork() {
+    if (typeof MutationObserver !== 'function' || !document.body) {
+      return null;
+    }
+
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        Array.from(mutation.addedNodes || []).forEach(node => {
+          scanGenreArtwork(node);
+        });
+      });
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    return observer;
+  }
+
   installRecordingArtworkStyles();
 
   const originalCreateServerRecordingItem =
@@ -190,8 +373,19 @@
     };
   }
 
+  scanGenreArtwork(document);
+  const genreArtworkObserver = observeGenreArtwork();
+
   window.VdrSuiteRecordingArtwork = Object.freeze({
     urlForRecording: recordingArtworkUrl,
     attach: attachRecordingArtwork
+  });
+
+  window.VdrSuiteRecordingGenreArtwork = Object.freeze({
+    normalizeName: normalizeGenreArtworkName,
+    forFolderName: genreArtworkForFolderName,
+    attach: attachGenreArtwork,
+    scan: scanGenreArtwork,
+    observer: genreArtworkObserver
   });
 })();
