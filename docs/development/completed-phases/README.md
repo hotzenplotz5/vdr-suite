@@ -42,8 +42,8 @@ The top-level `completed-phases.md` remains the authoritative compact entry poin
 - Phase 46 through Phase 57 are completed phase or major-block archives.
 - Phase 58 records completed slices under the historical Frontend and Live Parity umbrella label.
 - Phase 59 records the completed frontend Client API and module-boundary range.
-- Phase 60 records completed frontend platform and Recording UX slices through Phase 60.14k.
-- Planned Phase 60.15 work does not belong here until it is completed.
+- Phase 60 records completed frontend platform, Recording UX, metadata preparation and authenticated local artwork delivery through Phase 60.15.
+- Phase 61 normalized metadata platform work remains planned and does not belong here until it is completed.
 - Non-phase evidence such as the 2026-07-15 architecture audit belongs in `docs/development/`, not in this phase archive.
 
 ---

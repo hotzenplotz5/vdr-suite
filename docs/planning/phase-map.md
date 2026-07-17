@@ -48,7 +48,7 @@ The detailed chronological history remains in [Completed Phases](../development/
 | Phase 57 | Completed | Multi-Site Backend Administration and Permissions | Backend access modes and server-enforced read-only foundation. |
 | Phase 58.0-58.90b | Completed slices; umbrella label retained | Frontend and Live Parity | Frontend foundations, EPG input, event hints, channel move API and sorting. |
 | Phase 59.00-59.15e | Completed | Frontend Client API and Modules | Client API consolidation, module extraction and ownership guards. |
-| Phase 60.1-60.14k | Completed | Frontend Platform and Recording UX | Platform bootstrap, lazy Recording cache, folder navigation and detail UX. |
+| Phase 60.1-60.15 | Completed | Frontend Platform, Recording UX and Metadata Preparation | Platform bootstrap, lazy Recording cache, detail UX, provider-neutral metadata, persistent artwork preparation and authenticated local artwork delivery. |
 
 ---
 
@@ -82,10 +82,10 @@ Current umbrella implementation track
 Phase 58 - Frontend and Live Parity
 
 Latest completed implementation slice
-Phase 60.14k - Recording Detail UX Polish
-
-Next runtime implementation slice
 Phase 60.15 - Recording Metadata and Poster Preparation
+
+Next runtime implementation phase
+Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
 The Phase 58 umbrella label is retained for historical product grouping. It does not override the numbered execution sequence below.
@@ -96,15 +96,14 @@ The Phase 58 umbrella label is retained for historical product grouping. It does
 
 | Order | Range | Status | Track | Goal |
 | ---: | --- | --- | --- | --- |
-| 1 | Phase 60.15 | Planned next implementation slice | Recording Metadata Preparation | Add provider-neutral metadata and artwork hooks while preserving lazy Recording behavior. |
-| 2 | Phase 61 | Planned | Suite Metadata Platform | Build normalized suite-owned metadata, provider, provenance and artwork services. |
-| 3 | Phase 62 | Planned | Identity, RBAC and Audit | Add user, service and Agent identities, scoped authorization and mutation accountability foundation. |
-| 4 | Phase 63 | Planned | Backend Agent and Multi-Site Runtime | Implement Agent enrollment, secure transport, generation, lease, health and fenced commands. |
-| 5 | Phase 64 | Planned | Timer Intent and Orchestration | Separate intent, assignment and native timers; add scheduler and reconciler. |
-| 6 | Phase 65 | Planned | Streaming Gateway | Add authenticated short-lived media sessions over internal providers. |
-| 7 | Phase 66 | Planned | Legacy OSD Bridge | Add isolated compatibility sessions with viewer and controller permissions. |
-| 8 | Phase 67 | Planned | Public API and Client Hardening | Stabilize `/api/v1`, errors, revisions, compatibility and client contracts. |
-| 9 | Phase 68 | Vision | Recommendation and Knowledge Graph | Add explainable recommendations after metadata and platform foundations mature. |
+| 1 | Phase 61 | Planned next runtime phase | Suite Metadata Platform | Build normalized suite-owned metadata, provider, provenance and artwork services. |
+| 2 | Phase 62 | Planned | Identity, RBAC and Audit | Add user, service and Agent identities, scoped authorization and mutation accountability foundation. |
+| 3 | Phase 63 | Planned | Backend Agent and Multi-Site Runtime | Implement Agent enrollment, secure transport, generation, lease, health and fenced commands. |
+| 4 | Phase 64 | Planned | Timer Intent and Orchestration | Separate intent, assignment and native timers; add scheduler and reconciler. |
+| 5 | Phase 65 | Planned | Streaming Gateway | Add authenticated short-lived media sessions over internal providers. |
+| 6 | Phase 66 | Planned | Legacy OSD Bridge | Add isolated compatibility sessions with viewer and controller permissions. |
+| 7 | Phase 67 | Planned | Public API and Client Hardening | Stabilize `/api/v1`, errors, revisions, compatibility and client contracts. |
+| 8 | Phase 68 | Vision | Recommendation and Knowledge Graph | Add explainable recommendations after metadata and platform foundations mature. |
 
 This table is authoritative for phase numbering. The [Roadmap](roadmap.md) owns strict order and exit criteria. The [Implementation Dependency Map](implementation-dependency-map.md) owns detailed prerequisite and slice order.
 

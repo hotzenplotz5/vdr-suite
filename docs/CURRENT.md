@@ -42,7 +42,7 @@ Phase 58 - Frontend and Live Parity
 Latest completed implementation slice:
 
 ```text
-Phase 60.14k - Recording Detail UX Polish
+Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
 Completed architecture contract package:
@@ -54,10 +54,10 @@ Domain Dependency Map
 Implementation Dependency Map
 ```
 
-Next runtime implementation slice:
+Next runtime implementation phase:
 
 ```text
-Phase 60.15 - Recording Metadata and Poster Preparation
+Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
 The Phase 58 umbrella label remains product-history grouping. It does not control the strict future sequence.
@@ -141,42 +141,41 @@ Current native Timer actions, SearchTimer proposals, `VdrEvent` read models, war
 
 ## Immediate Repository Work
 
-Begin Phase 60.15 with an evidence-first audit of:
+Begin Phase 61 with an evidence-first design of:
 
 ```text
-Recording domain objects
-Recording serializers and REST representations
-Web Client API Recording contracts
-lazy Recording loading and cache ownership
-current poster and artwork placeholders
-metadata/provider coupling risks
+MetadataEntity and MetadataAssignment identity
+provider, provenance, evidence and confidence contracts
+normalized metadata schema and migrations
+artwork asset storage and derivative policy
+backend-aware provider registry
+asynchronous refresh, invalidation and recovery
 ```
 
-The first Phase 60.15 slice must define field ownership and migration boundaries before introducing provider integration.
+Phase 60.15 is complete. Its provider-scoped source evidence remains internal, while clients consume Suite-owned metadata fields, opaque artwork identities and authenticated artwork URLs.
 
-It must preserve:
+Phase 61 must preserve:
 
 - Recording browsing without metadata providers;
-- lazy folder loading;
-- current backend scope;
+- lazy folder loading and cached fallback;
+- backend scope and provider failure isolation;
 - frontend module ownership;
-- provider-neutral architecture;
-- all existing Recording regression coverage.
+- provider-neutral public contracts;
+- migration, backup and recovery coverage.
 
 ---
 
 ## Strict Future Sequence
 
 ```text
-1. Phase 60.15 - Recording Metadata Preparation
-2. Phase 61 - Suite Metadata Platform
-3. Phase 62 - Identity, RBAC and Audit
-4. Phase 63 - Backend Agent and Multi-Site Runtime
-5. Phase 64 - Timer Intent and Orchestration
-6. Phase 65 - Streaming Gateway
-7. Phase 66 - Legacy OSD Bridge
-8. Phase 67 - Public API and Client Hardening
-9. Phase 68 - Recommendation and Knowledge Graph
+1. Phase 61 - Suite Metadata Platform
+2. Phase 62 - Identity, RBAC and Audit
+3. Phase 63 - Backend Agent and Multi-Site Runtime
+4. Phase 64 - Timer Intent and Orchestration
+5. Phase 65 - Streaming Gateway
+6. Phase 66 - Legacy OSD Bridge
+7. Phase 67 - Public API and Client Hardening
+8. Phase 68 - Recommendation and Knowledge Graph
 ```
 
 The architecture package is the accepted prerequisite baseline for this sequence. It remains authoritative even though its later runtime components are incomplete.

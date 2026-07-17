@@ -5,8 +5,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 LATEST_MAJOR = "Phase 57 - Multi-Site Backend Administration and Permissions"
 UMBRELLA_TRACK = "Phase 58 - Frontend and Live Parity"
-LATEST_SLICE = "Phase 60.14k - Recording Detail UX Polish"
-NEXT_SLICE = "Phase 60.15 - Recording Metadata and Poster Preparation"
+LATEST_SLICE = "Phase 60.15 - Recording Metadata and Poster Preparation"
+NEXT_SLICE = "Phase 61 - Suite Metadata Database and External Provider Integration"
 
 REQUIRED_COMPLETED_RANGES = [
     "Phase 1.x-7.x",
@@ -30,7 +30,7 @@ REQUIRED_COMPLETED_RANGES = [
     "Phase 57",
     "Phase 58.0-58.90b",
     "Phase 59.00-59.15e",
-    "Phase 60.1-60.14k",
+    "Phase 60.1-60.15",
 ]
 
 REQUIRED_CURRENT_AND_PLANNED = [

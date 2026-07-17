@@ -54,30 +54,30 @@ Completed implementation history is not renumbered.
 
 ## Phase 60.15 - Recording Metadata and Poster Preparation
 
-Status: Planned next implementation slice.
+Status: Completed.
 
 Goal:
 
 - Add provider-neutral Recording metadata and artwork hooks without destabilizing the lazy Recording browser.
 
-Expected preparation:
+Completed preparation:
 
-- identify VDR-owned technical Recording fields
-- identify normalized suite metadata fields
-- distinguish EPG, plugin, external catalog, sidecar and manual provenance
-- define poster and artwork placeholders through suite asset identities
-- avoid direct TVScraper or scraper2vdr coupling in frontend modules
-- define API fields that degrade cleanly for EPG-only backends
-- preserve lazy folder and detail loading behavior
-- keep metadata reads backend-scoped and capability-aware
+- VDR-owned technical fields remain separate from provider-derived Recording metadata
+- RESTfulAPI scraper metadata maps into provider-neutral movie and series/episode value types
+- source-scoped artwork references remain internal cache evidence
+- Recording metadata persists through the existing SQLite lazy cache and restart path
+- deterministic poster placeholders preserve EPG-only and metadata-poor behavior
+- Suite-owned opaque artwork IDs replace provider paths at the client boundary
+- authenticated local artwork delivery supports JPEG, PNG and WebP below allowlisted roots
+- lazy folder and detail loading remain unchanged and regression covered
 
-This slice prepares contracts. It does not need to implement the complete Phase 61 provider and persistence system.
+Phase 60.15 intentionally does not implement the complete Phase 61 normalized metadata entity, assignment, provenance and provider platform.
 
 ---
 
 ## Phase 61 - Suite Metadata Database and External Provider Integration
 
-Status: Planned major milestone.
+Status: Planned next major milestone.
 
 Goal:
 

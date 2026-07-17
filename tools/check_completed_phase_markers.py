@@ -5,8 +5,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 LATEST_MAJOR = "Phase 57 - Multi-Site Backend Administration and Permissions"
 HISTORICAL_UMBRELLA = "Phase 58 - Frontend and Live Parity"
-LATEST_SLICE = "Phase 60.14k - Recording Detail UX Polish"
-NEXT_RUNTIME = "Phase 60.15 - Recording Metadata and Poster Preparation"
+LATEST_SLICE = "Phase 60.15 - Recording Metadata and Poster Preparation"
+NEXT_RUNTIME = "Phase 61 - Suite Metadata Database and External Provider Integration"
 ARCHITECTURE_FIRST = "ADR-0042"
 ARCHITECTURE_LAST = "ADR-0049"
 PARITY_DOC = "parity-audit-and-frontend-gap-roadmap.md"
