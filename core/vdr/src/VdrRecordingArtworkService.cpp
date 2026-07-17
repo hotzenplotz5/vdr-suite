@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -209,6 +210,48 @@ std::string contentTypeForPath(
     return {};
 }
 
+unsigned char byteAt(
+    const std::string& content,
+    const std::size_t index)
+{
+    return static_cast<unsigned char>(content.at(index));
+}
+
+bool contentMatchesType(
+    const std::string& contentType,
+    const std::string& content)
+{
+    if (contentType == "image/jpeg")
+    {
+        return content.size() >= 3 &&
+               byteAt(content, 0) == 0xff &&
+               byteAt(content, 1) == 0xd8 &&
+               byteAt(content, 2) == 0xff;
+    }
+
+    if (contentType == "image/png")
+    {
+        return content.size() >= 8 &&
+               byteAt(content, 0) == 0x89 &&
+               byteAt(content, 1) == 0x50 &&
+               byteAt(content, 2) == 0x4e &&
+               byteAt(content, 3) == 0x47 &&
+               byteAt(content, 4) == 0x0d &&
+               byteAt(content, 5) == 0x0a &&
+               byteAt(content, 6) == 0x1a &&
+               byteAt(content, 7) == 0x0a;
+    }
+
+    if (contentType == "image/webp")
+    {
+        return content.size() >= 12 &&
+               content.compare(0, 4, "RIFF") == 0 &&
+               content.compare(8, 4, "WEBP") == 0;
+    }
+
+    return false;
+}
+
 bool pathIsWithinRoot(
     const std::filesystem::path& root,
     const std::filesystem::path& candidate)
@@ -231,89 +274,82 @@ bool pathIsWithinRoot(
 }
 
 VdrRecordingArtworkAsset readAllowedAsset(
-    const std::vector<std::string>& roots,
+    const std::string& configuredRoot,
     const std::string& reference,
     const std::size_t maximumFileSizeBytes)
 {
     VdrRecordingArtworkAsset result;
 
-    if (!isSafeRelativeReference(reference))
+    if (configuredRoot.empty() ||
+        !std::filesystem::path(configuredRoot).is_absolute() ||
+        !isSafeRelativeReference(reference))
     {
         return result;
     }
 
-    for (const std::string& configuredRoot : roots)
+    std::error_code error;
+    const std::filesystem::path canonicalRoot =
+        std::filesystem::canonical(configuredRoot, error);
+
+    if (error ||
+        !std::filesystem::is_directory(canonicalRoot, error) ||
+        error)
     {
-        if (configuredRoot.empty())
-        {
-            continue;
-        }
-
-        std::error_code error;
-        const std::filesystem::path canonicalRoot =
-            std::filesystem::canonical(configuredRoot, error);
-
-        if (error ||
-            !std::filesystem::is_directory(canonicalRoot, error) ||
-            error)
-        {
-            continue;
-        }
-
-        const std::filesystem::path requestedPath =
-            canonicalRoot / std::filesystem::path(reference);
-        const std::filesystem::path canonicalCandidate =
-            std::filesystem::canonical(requestedPath, error);
-
-        if (error ||
-            !pathIsWithinRoot(canonicalRoot, canonicalCandidate) ||
-            !std::filesystem::is_regular_file(canonicalCandidate, error) ||
-            error)
-        {
-            continue;
-        }
-
-        const std::string contentType =
-            contentTypeForPath(canonicalCandidate);
-
-        if (contentType.empty())
-        {
-            continue;
-        }
-
-        const std::uintmax_t fileSize =
-            std::filesystem::file_size(canonicalCandidate, error);
-
-        if (error ||
-            fileSize == 0 ||
-            fileSize > maximumFileSizeBytes)
-        {
-            continue;
-        }
-
-        std::ifstream file(canonicalCandidate, std::ios::binary);
-
-        if (!file)
-        {
-            continue;
-        }
-
-        std::string content{
-            std::istreambuf_iterator<char>(file),
-            std::istreambuf_iterator<char>()};
-
-        if (file.bad() ||
-            content.size() != static_cast<std::size_t>(fileSize))
-        {
-            continue;
-        }
-
-        result.statusCode = 200;
-        result.contentType = contentType;
-        result.content = std::move(content);
         return result;
     }
 
+    const std::filesystem::path requestedPath =
+        canonicalRoot / std::filesystem::path(reference);
+    const std::filesystem::path canonicalCandidate =
+        std::filesystem::canonical(requestedPath, error);
+
+    if (error ||
+        !pathIsWithinRoot(canonicalRoot, canonicalCandidate) ||
+        !std::filesystem::is_regular_file(canonicalCandidate, error) ||
+        error)
+    {
+        return result;
+    }
+
+    const std::string contentType =
+        contentTypeForPath(canonicalCandidate);
+
+    if (contentType.empty())
+    {
+        return result;
+    }
+
+    const std::uintmax_t fileSize =
+        std::filesystem::file_size(canonicalCandidate, error);
+
+    if (error ||
+        fileSize == 0 ||
+        fileSize > maximumFileSizeBytes)
+    {
+        return result;
+    }
+
+    std::ifstream file(canonicalCandidate, std::ios::binary);
+
+    if (!file)
+    {
+        return result;
+    }
+
+    std::string content{
+        std::istreambuf_iterator<char>(file),
+        std::istreambuf_iterator<char>()};
+
+    if (file.bad() ||
+        content.size() != static_cast<std::size_t>(fileSize) ||
+        !contentMatchesType(contentType, content))
+    {
+        return result;
+    }
+
+    result.statusCode = 200;
+    result.contentType = contentType;
+    result.content = std::move(content);
     return result;
 }
 
@@ -321,10 +357,10 @@ VdrRecordingArtworkAsset readAllowedAsset(
 
 VdrRecordingArtworkService::VdrRecordingArtworkService(
     VdrRecordingCacheRepository& repository,
-    std::vector<std::string> roots,
+    std::map<std::string, std::string> rootsByBackend,
     const std::size_t maximumFileSizeBytes)
     : repository_(repository),
-      roots_(std::move(roots)),
+      rootsByBackend_(std::move(rootsByBackend)),
       maximumFileSizeBytes_(maximumFileSizeBytes)
 {
 }
@@ -352,6 +388,14 @@ VdrRecordingArtworkAsset VdrRecordingArtworkService::loadPath(
         return {};
     }
 
+    const auto configuredRoot =
+        rootsByBackend_.find(backendId);
+
+    if (configuredRoot == rootsByBackend_.end())
+    {
+        return {};
+    }
+
     const std::vector<VdrRecording> recordings =
         repository_.findAllForBackend(backendId);
 
@@ -369,7 +413,7 @@ VdrRecordingArtworkAsset VdrRecordingArtworkService::loadPath(
             }
 
             return readAllowedAsset(
-                roots_,
+                configuredRoot->second,
                 artwork.reference,
                 maximumFileSizeBytes_);
         }
