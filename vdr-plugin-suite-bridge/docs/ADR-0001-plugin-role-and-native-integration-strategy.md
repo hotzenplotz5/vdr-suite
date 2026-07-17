@@ -307,7 +307,7 @@ Public clients may eventually send only normalized allowlisted actions such as:
 
 ```text
 up
-Down
+down
 left
 right
 ok
