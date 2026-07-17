@@ -533,9 +533,9 @@ HttpServerResponse serveFrontendPath(
 
     if (path == "/frontend/recording-browser.js")
     {
-        return makeFrontendAssetResponse(
-            "recording-browser.js",
-            "application/javascript; charset=utf-8");
+        return makeFrontendScriptBundleResponse(
+            "modules/recordings.js",
+            "recording-artwork.js");
     }
 
     if (path == "/frontend/modules/recordings.js")

@@ -1,4 +1,4 @@
-.TH VDR-SUITE.CONF 5 "Phase 56" "vdr-suite" "File Formats"
+.TH VDR-SUITE.CONF 5 "Phase 60.15" "vdr-suite" "File Formats"
 .SH NAME
 vdr-suite.conf \- configuration file for vdr-suite
 .SH DESCRIPTION
@@ -6,6 +6,22 @@ vdr-suite.conf \- configuration file for vdr-suite
 is the planned configuration file for vdr-suite.
 
 It will describe database, HTTP listener and VDR backend settings used by the daemon.
+Until the file format is finalized, selected runtime settings are available as environment variables.
+.SH ENVIRONMENT
+.TP
+.B VDR_SUITE_DATABASE_PATH
+Overrides the SQLite database path.
+.TP
+.B VDR_SUITE_RECORDING_ARTWORK_ROOTS
+Colon-separated allowlist of local Recording artwork roots.
+The default is
+.IR /var/cache/vdr/plugins/tvscraper .
+
+Recording artwork references received from a backend remain internal.
+The daemon resolves them only below one of these roots and exposes opaque, authenticated
+.B /recording-artwork/
+URLs to clients.
+Missing roots, unsupported file types, oversized files and paths escaping an allowed root are rejected.
 .SH LOCATION
 The planned system configuration path is:
 .PP
@@ -14,4 +30,4 @@ The planned system configuration path is:
 .BR vdr-suite-daemon (8),
 .BR vdr-suite-dashboard (1)
 .SH STATUS
-This manual page is an initial Phase 56 skeleton, not a final stable file format.
+This manual page documents the current environment boundary while the final configuration file format remains under development.

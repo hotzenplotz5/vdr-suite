@@ -10,6 +10,7 @@
 #include "SearchTimerDiscoveryStaticProvider.h"
 #include "SimpleHttpListener.h"
 #include "TestHttpServer.h"
+#include "RecordingArtworkHttpServer.h"
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "VdrEventQuery.h"
 #include "VdrRecordingCacheRepository.h"
@@ -666,7 +667,10 @@ bool DaemonRuntime::initialize()
     std::cout << "API router runtime initialized" << std::endl;
     std::cout << "SearchTimer preview EPG cache runtime initialized" << std::endl;
 
-    httpServer_ = std::make_unique<TestHttpServer>(*apiRouter_);
+    httpServer_ = std::make_unique<RecordingArtworkHttpServer>(
+        std::make_unique<TestHttpServer>(*apiRouter_),
+        *vdrRecordingCacheRepository_,
+        config_.recordingArtworkRoots());
 
     auto lastVdrPoll = std::chrono::steady_clock::now();
 

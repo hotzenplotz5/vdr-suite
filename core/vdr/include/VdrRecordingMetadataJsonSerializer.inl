@@ -1,5 +1,7 @@
 #pragma once
 
+#include "VdrRecordingArtworkIdentity.h"
+
 #include <cstdint>
 #include <iomanip>
 #include <initializer_list>
@@ -243,6 +245,20 @@ inline std::string VdrRecordingMetadataJsonSerializer::serialize(
     const VdrRecordingMetadata& metadata = recording.metadata;
     const VdrRecordingProviderMetadata& provider = metadata.provider;
     const ArtworkSummary artwork = summarizeArtwork(metadata);
+    const VdrRecordingArtworkRef* preferredArtwork =
+        VdrRecordingArtworkIdentity::preferredArtwork(recording);
+    const std::string preferredAssetId =
+        preferredArtwork == nullptr
+            ? std::string()
+            : VdrRecordingArtworkIdentity::assetId(
+                recording,
+                *preferredArtwork);
+    const std::string preferredArtworkUrl =
+        preferredArtwork == nullptr
+            ? std::string()
+            : VdrRecordingArtworkIdentity::publicUrl(
+                recording,
+                *preferredArtwork);
     const std::string title = presentationTitle(recording);
     const std::string subtitle = presentationSubtitle(recording);
     const std::string summary = presentationSummary(recording);
@@ -301,6 +317,8 @@ inline std::string VdrRecordingMetadataJsonSerializer::serialize(
          << (artwork.banner ? "true" : "false");
     json << ",\"stillAvailable\":"
          << (artwork.still ? "true" : "false");
+    appendStringProperty(json, "preferredAssetId", preferredAssetId);
+    appendStringProperty(json, "preferredUrl", preferredArtworkUrl);
     json << '}';
 
     json << ",\"presentation\":{";
@@ -315,6 +333,8 @@ inline std::string VdrRecordingMetadataJsonSerializer::serialize(
         json,
         "seasonEpisode",
         seasonEpisodeLabel(provider));
+    appendStringProperty(json, "posterAssetId", preferredAssetId);
+    appendStringProperty(json, "posterUrl", preferredArtworkUrl);
     json << ",\"providerAvailable\":"
          << (provider.hasData() ? "true" : "false");
     json << ",\"artworkPrepared\":"
