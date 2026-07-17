@@ -14,6 +14,7 @@ REQUIRED = [
     ROOT / "core/agent/src/SuiteBridgeLocalContractParser.cpp",
     ROOT / "core/agent/src/SuiteBridgeHandshakeService.cpp",
     ROOT / "core/agent/tests/test_suite_bridge_handshake.cpp",
+    ROOT / "core/agent/tests/test_suite_bridge_handshake_missing_plugin.cpp",
 ]
 
 FORBIDDEN_SOURCE_TOKENS = [
@@ -45,6 +46,8 @@ REQUIRED_TRANSPORT_FRAGMENTS = [
 REQUIRED_HANDSHAKE_FRAGMENTS = [
     "transport_.execute(SuiteBridgeLocalCommand::DiscoverSchema1)",
     "transport_.execute(SuiteBridgeLocalCommand::Snapshot)",
+    "discoveryReply.replyCode == 500",
+    "discoveryReply.replyCode == 550",
     "discoveryReply.replyCode != 900",
     "snapshotReply.replyCode != 900",
     "discovery.discoverySchema != 1",
@@ -60,6 +63,14 @@ REQUIRED_PARSER_FRAGMENTS = [
     "duplicate capability id",
     "invalid counter epoch",
     "snapshot total does not match counters",
+]
+
+REQUIRED_MISSING_PLUGIN_TEST_FRAGMENTS = [
+    "reply.replyCode = 550",
+    "SuiteBridgeHandshakeStatus::LegacyOrUnknown",
+    "transport.commands.size() == 1",
+    "SuiteBridgeLocalCommand::DiscoverSchema1",
+    "test_suite_bridge_handshake_missing_plugin passed",
 ]
 
 errors: list[str] = []
@@ -114,6 +125,18 @@ if handshake_path.is_file():
         pass
     elif discovery_position >= snapshot_position:
         errors.append("SNAP must never be requested before compatible CAPS discovery")
+
+missing_plugin_test_path = (
+    ROOT / "core/agent/tests/test_suite_bridge_handshake_missing_plugin.cpp"
+)
+if missing_plugin_test_path.is_file():
+    missing_plugin_test_text = missing_plugin_test_path.read_text(encoding="utf-8")
+
+    for fragment in REQUIRED_MISSING_PLUGIN_TEST_FRAGMENTS:
+        if fragment not in missing_plugin_test_text:
+            errors.append(
+                f"missing real VDR missing-plugin regression contract: {fragment}"
+            )
 
 parser_header = ROOT / "core/agent/include/SuiteBridgeLocalContractParser.h"
 parser_source = ROOT / "core/agent/src/SuiteBridgeLocalContractParser.cpp"
