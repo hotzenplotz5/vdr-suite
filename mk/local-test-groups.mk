@@ -78,6 +78,7 @@ test-backend-registry-json-serializer:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/BackendRegistryJsonSerializer.cpp \
 		core/vdr/tests/test_backend_registry_json_serializer.cpp \
 		-o $(BUILD_DIR)/test_backend_registry_json_serializer
@@ -133,3 +134,4 @@ test-frontend-i18n:
 	node web/frontend/tests/test_recording_move_new_folder.js
 	node web/frontend/tests/test_recording_trash_workflow.js
 	node web/frontend/tests/test_recording_poster_placeholder_contract.js
+	node web/frontend/tests/test_recording_artwork_runtime.js
