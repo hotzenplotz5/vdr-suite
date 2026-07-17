@@ -3,7 +3,7 @@
 test-suite-bridge-agent-boundary:
 	python3 tools/check_suite_bridge_agent_boundary.py
 
-test-suite-bridge-handshake:
+test-suite-bridge-handshake: test-suite-bridge-handshake-missing-plugin
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/agent/include \
 		$(AGENT_HANDSHAKE_SRC) \
 		core/agent/tests/test_suite_bridge_handshake.cpp \
