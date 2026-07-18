@@ -1,0 +1,67 @@
+name: SB.10d controlled live acceptance tooling
+
+on:
+  pull_request:
+    branches:
+      - feature/vdr-plugin-suite-bridge-foundation
+    paths:
+      - .github/sb10d-live-acceptance-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out SB.10d live tooling branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/sb10d-controlled-live-acceptance
+          fetch-depth: 1
+          show-progress: false
+
+      - name: Apply SB.10d live integration
+        run: python3 tools/apply_sb10d_live_acceptance_integration.py
+
+      - name: Compile live acceptance tools
+        run: |
+          python3 -m py_compile tools/run_sb10d_live_acceptance.py
+          python3 -m py_compile tools/check_sb10d_live_acceptance_contract.py
+
+      - name: Check live acceptance safety contract
+        run: make test-sb10d-live-acceptance-contract
+
+      - name: Build embedded runtime live probe
+        run: make build-suite-bridge-embedded-runtime-live
+
+      - name: Check Make inventory
+        run: make test-make-inventory
+
+      - name: Check retained SB.10d contracts
+        run: |
+          make test-suite-bridge-embedded-runtime-boundary
+          make test-suite-bridge-embedded-runtime
+          make test-suite-bridge-daemon-runtime-wiring
+          make test-runtime-config
+          make test-backend-runtime-context
+
+      - name: Check documentation and architecture
+        run: |
+          make test-docs
+          make test-architecture
+          git diff --check
+
+      - name: Remove one-time helpers
+        run: |
+          rm tools/apply_sb10d_live_acceptance_integration.py
+          rm .github/sb10d-live-acceptance-trigger
+
+      - name: Commit SB.10d live tooling
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit -m "Test: add controlled SB.10d live acceptance"
+          git push origin HEAD:agent/sb10d-controlled-live-acceptance
