@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,16 +41,19 @@ ALL_SOURCE_FORBIDDEN = [
     "svdrpsend",
 ]
 
-SERVICE_FORBIDDEN = [
+SERVICE_FORBIDDEN_LITERALS = [
     "std::thread",
     "std::mutex",
     "std::condition_variable",
     "sleep_for",
     "sleep_until",
     "usleep(",
-    "socket(",
-    "connect(",
-    "poll(",
+]
+
+SERVICE_FORBIDDEN_CALLS = [
+    "socket",
+    "connect",
+    "poll",
 ]
 
 REQUIRED_STATES = [
@@ -101,7 +105,27 @@ REQUIRED_TEST_FRAGMENTS = [
     "Overflowed",
 ]
 
+
+def contains_standalone_call(text: str, name: str) -> bool:
+    pattern = re.compile(
+        rf"(?<![A-Za-z0-9_]){re.escape(name)}\s*\("
+    )
+    return pattern.search(text) is not None
+
+
 errors: list[str] = []
+
+if not contains_standalone_call("connect(fd, address, length);", "connect"):
+    errors.append("standalone-call matcher does not detect connect()")
+
+if not contains_standalone_call("::connect(fd, address, length);", "connect"):
+    errors.append("standalone-call matcher does not detect ::connect()")
+
+if contains_standalone_call("scheduleReconnect(now);", "connect"):
+    errors.append("standalone-call matcher rejects scheduleReconnect()")
+
+if contains_standalone_call("reconnectDelay();", "connect"):
+    errors.append("standalone-call matcher rejects reconnectDelay()")
 
 for path in REQUIRED:
     if not path.is_file():
@@ -131,11 +155,18 @@ for path in SERVICE_FILES:
 
     text = path.read_text(encoding="utf-8")
 
-    for token in SERVICE_FORBIDDEN:
+    for token in SERVICE_FORBIDDEN_LITERALS:
         if token in text:
             errors.append(
                 f"deterministic observation service contains {token!r} in "
                 f"{path.relative_to(ROOT)}"
+            )
+
+    for call_name in SERVICE_FORBIDDEN_CALLS:
+        if contains_standalone_call(text, call_name):
+            errors.append(
+                "deterministic observation service contains standalone "
+                f"{call_name}() call in {path.relative_to(ROOT)}"
             )
 
 observation_header = ROOT / "core/agent/include/SuiteBridgeObservation.h"
