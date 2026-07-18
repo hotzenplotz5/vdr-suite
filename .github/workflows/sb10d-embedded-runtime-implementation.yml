@@ -23,7 +23,7 @@ jobs:
           show-progress: false
 
       - name: Apply SB.10d implementation
-        run: python3 tools/apply_sb10d_embedded_runtime.py
+        run: python3 tools/run_sb10d_embedded_runtime.py
 
       - name: Compile boundary tools
         run: |
@@ -63,6 +63,7 @@ jobs:
       - name: Remove one-time implementation helpers
         run: |
           rm tools/apply_sb10d_embedded_runtime.py
+          rm tools/run_sb10d_embedded_runtime.py
           rm .github/sb10d-implementation-trigger
 
       - name: Commit SB.10d implementation
