@@ -505,6 +505,7 @@ def main() -> int:
 
         wait_port("127.0.0.1", 18080, False, timeout_seconds=30)
 
+        plugin_staged = True
         run(
             [
                 "install",
@@ -518,7 +519,6 @@ def main() -> int:
         run(["vdrctl", "enable", "suitebridge"])
         if not suitebridge_config_links():
             raise AcceptanceError("vdrctl did not create a Suite Bridge configuration link")
-        plugin_staged = True
 
         run(["systemctl", "restart", VDR_SERVICE])
         wait_service(VDR_SERVICE, True)

@@ -215,6 +215,27 @@ Before SB.10d is completed, controlled live acceptance must prove:
 
 ---
 
+## Controlled Acceptance Runner
+
+The repository-owned runner executes the complete opt-in live sequence and always
+attempts rollback:
+
+```text
+python3 tools/run_sb10d_live_acceptance.py
+```
+
+It refuses a pre-existing Suite Bridge installation, records only hashes for
+channel, Timer, Recording and setup state, stops and later restores an active
+`vdr-suite-daemon.service`, stages the plugin, starts the repository daemon with
+SB.10d enabled, runs safe REST probes, restarts VDR, requires a changed plugin
+epoch, verifies clean worker and daemon shutdown, removes the staged plugin and
+configuration, restarts VDR, restores the original daemon-service state and
+requires a clean worktree.
+
+The runner uses no destructive VDR-Suite API operation.
+
+---
+
 ## Back
 
 - [Back to Architecture Index](index.md)
