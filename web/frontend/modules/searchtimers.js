@@ -647,6 +647,12 @@
       channelGroupSelect.replaceChildren(option('', 'Kanalgruppe auswählen …', true));
       realGroups.forEach(group => channelGroupSelect.appendChild(option(group, group, group === source.channels)));
 
+      function clearManualChannelFilter() {
+        ['manualUseChannel', 'manualChannels', 'manualChannelMin', 'manualChannelMax'].forEach(name => {
+          if (modeSelect.form && modeSelect.form.elements[name]) modeSelect.form.elements[name].value = '';
+        });
+      }
+
       function renderMode() {
         const mode = numberValue(modeSelect.value, 0);
         groupField.hidden = mode !== 1 || selectorGroups.length === 0;
@@ -669,12 +675,15 @@
       if (source.useChannel === 2 && realGroups.includes(source.channels)) channelGroupSelect.value = source.channels;
 
       modeSelect.addEventListener('change', () => {
-        ['manualUseChannel', 'manualChannels', 'manualChannelMin', 'manualChannelMax'].forEach(name => {
-          if (modeSelect.form && modeSelect.form.elements[name]) modeSelect.form.elements[name].value = '';
-        });
+        clearManualChannelFilter();
         renderMode();
       });
-      groupSelect.addEventListener('change', () => populateChannelSelect(channelSelect, channelsForGroup(channels, groupSelect.value), ''));
+      groupSelect.addEventListener('change', () => {
+        clearManualChannelFilter();
+        populateChannelSelect(channelSelect, channelsForGroup(channels, groupSelect.value), '');
+      });
+      channelSelect.addEventListener('change', clearManualChannelFilter);
+      channelGroupSelect.addEventListener('change', clearManualChannelFilter);
       renderMode();
 
       status.textContent = String(realGroups.length) + ' Kanalgruppen · ' + String(channels.length) + ' Kanäle.';
