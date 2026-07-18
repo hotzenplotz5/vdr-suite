@@ -19,8 +19,9 @@ Status: `active`
 
 Primary owners: Backend Agent and Suite runtime.
 
-The slice remains active until repository-wide automated acceptance and controlled
-live VDR restart, reconnect, shutdown and rollback acceptance have passed.
+The runtime implementation and repository-owned controlled-live-acceptance tooling
+have passed automated validation. SB.10d remains active until the controlled live
+VDR restart, reconnect, shutdown and rollback run has passed on the VDR host.
 
 ---
 
@@ -81,105 +82,146 @@ No VDR password, unrestricted command text or public endpoint is introduced.
 
 ---
 
-## Embedded Agent Boundary
+## Runtime Ownership
 
-`SuiteBridgeEmbeddedAgentRuntime` owns exactly one transport and one observation
-worker for one backend identity.
+`BackendRuntimeContext` owns one optional `SuiteBridgeEmbeddedAgentRuntime` for
+its exact backend ID.
 
-Its public surface is limited to:
+The runtime owns:
 
-- deterministic `start()`;
-- deterministic `stop()`;
-- `running()`;
-- one bounded backend-scoped health snapshot.
+- the accepted direct local `SuiteBridgeSvdrpTransport`;
+- the accepted `SuiteBridgeObservationWorker`;
+- start and stop of that worker;
+- one bounded backend-scoped health value.
 
-The health snapshot contains:
+The runtime does not own:
 
-- bounded backend identity;
-- configured and running facts;
-- the accepted SB.10c observation state;
-- bounded diagnostics and timestamps already defined by SB.10c;
-- mutation state, which remains disabled.
-
-It does not contain raw CAPS or SNAP payloads, SVDRP endpoint details, credentials,
-VDR pointers or public API data.
-
-The production constructor owns `SuiteBridgeSvdrpTransport`. A separate injected
-transport constructor exists only to make the runtime boundary deterministic in
-unit tests.
+- users, roles or authorization;
+- public API routing;
+- durable jobs or retries;
+- backend-generation authority;
+- RESTfulAPI domain state;
+- plugin lifecycle or VDR locks;
+- mutations.
 
 ---
 
-## Backend Ownership
+## Construction and Start Ordering
 
-`BackendRuntimeContext` owns the embedded Agent runtime beside its existing
-RESTfulAPI objects.
+Construction happens while each backend runtime context is assembled.
 
-Only the backend matching `VDR_SUITE_SUITE_BRIDGE_BACKEND_ID` receives the local
-Suite Bridge runtime. This prevents one local SVDRP endpoint from being
-optimistically attached to every configured backend.
+For the configured backend only:
 
-The existing RESTfulAPI adapter, polling service, event-stream client, EPG cache,
-Recording cache and mutation executors are not replaced or widened.
+1. validate and copy the bounded configuration;
+2. construct the typed SVDRP transport;
+3. construct the SB.10c observation worker;
+4. retain both behind the embedded Agent runtime;
+5. complete all remaining daemon construction;
+6. start the embedded Agent worker only after construction has succeeded.
 
----
+A disabled configuration constructs no transport and no worker. Starting a
+disabled runtime is a no-op.
 
-## Start and Stop Ordering
-
-Initialization order for each matching backend is:
-
-1. construct the RESTfulAPI context;
-2. construct the Suite Bridge embedded Agent runtime;
-3. start the Suite Bridge observation worker;
-4. start the existing RESTfulAPI event-stream client;
-5. publish the fully owned backend context.
-
-Shutdown reverses active local readers before context destruction:
-
-1. stop the RESTfulAPI event-stream client;
-2. stop and join the Suite Bridge observation worker;
-3. destroy backend contexts;
-4. continue the existing daemon teardown.
-
-A disabled or non-matching backend constructs no transport and starts no worker.
-Repeated start and stop calls remain safe.
+RESTfulAPI adapter and event-stream construction remain independent. Failure or
+absence of Suite Bridge does not remove broad RESTfulAPI reads.
 
 ---
 
-## Health Publication
+## Shutdown Ordering
 
-SB.10d publishes backend-scoped health inside `BackendRuntimeContext` through the
-embedded Agent runtime value. It does not add a public REST route.
+Shutdown is deterministic and idempotent:
 
-A later authenticated Agent-to-Control-Plane protocol may consume this value. That
-future protocol must preserve backend generation, machine identity and public API
-separation. SB.10d does not claim those later surfaces are implemented.
+1. request daemon shutdown;
+2. stop daemon-owned warmup workers;
+3. stop the RESTfulAPI event-stream client;
+4. stop and join the Suite Bridge observation worker;
+5. release HTTP and API runtime objects;
+6. destroy backend runtime contexts and their transports.
+
+The embedded Agent runtime destructor calls `stop()` as a final safety net. No
+worker remains joinable after shutdown.
 
 ---
 
-## Safety and Non-Goals
+## Health Boundary
 
-SB.10d introduces:
+The embedded Agent runtime exposes one bounded in-process health value containing:
 
-- no plugin source change;
-- no plugin version change;
-- no command or schema change;
-- no capability change;
-- no mutation;
-- no arbitrary SVDRP tunnel;
-- no public plugin JSON exposure;
-- no replacement of RESTfulAPI;
-- no durable retry or health database;
-- no Timer, Recording, EPG, media or OSD operation;
-- no backend-generation ownership in the plugin.
+- backend ID;
+- whether the runtime is configured;
+- whether the worker is running;
+- the accepted SB.10c observation snapshot.
 
-`mutations=disabled` remains a hard prohibition.
+The value does not expose:
+
+- raw CAPS or SNAP JSON;
+- SVDRP endpoint credentials;
+- arbitrary diagnostic payloads;
+- public authorization state;
+- mutable plugin state.
+
+No public API route is added by SB.10d. A later explicitly reviewed Control Plane
+health projection may consume this value without exposing plugin-local transport
+or payload details.
+
+---
+
+## RESTfulAPI Coexistence
+
+RESTfulAPI remains the broad VDR domain adapter for:
+
+- channels;
+- EPG;
+- Timers;
+- Recordings;
+- existing search and metadata reads;
+- existing event-stream hints.
+
+Suite Bridge does not replace those reads and does not become a second public
+backend API. It supplies only the native read-only compatibility and observation
+lifecycle already accepted in SB.10a through SB.10c.
+
+---
+
+## Plugin and Schema Impact
+
+SB.10d changes no plugin source.
+
+The plugin contract remains:
+
+```text
+plugin version       0.10.0
+commands             CAPS and SNAP only
+discovery schema     1
+capability schema    1
+snapshot schema      2
+local contract       2
+mutations            disabled
+```
+
+No capability ID or capability state changes.
+
+---
+
+## Non-Goals
+
+SB.10d does not introduce:
+
+- a new plugin command;
+- a plugin version or schema change;
+- a public health or plugin-payload endpoint;
+- a generic SVDRP tunnel;
+- a mutation path;
+- durable retry storage;
+- a replacement for RESTfulAPI;
+- media, OSD, Timer, Recording or EPG mutation ownership;
+- plugin-owned network, database or worker infrastructure.
 
 ---
 
 ## Automated Acceptance
 
-Automated acceptance must prove:
+Automated acceptance proves:
 
 - default-disabled and explicit-enabled configuration;
 - bounded parsing and fallback for every Suite Bridge environment value;
@@ -193,7 +235,11 @@ Automated acceptance must prove:
 - retained SB.10a, SB.10b and SB.10c tests;
 - strict Make source and test inventory;
 - complete documentation and architecture checks;
-- no public route or mutation fallback.
+- no public route or mutation fallback;
+- controlled-live runner syntax, rollback ordering and forbidden-operation guards;
+- successful build of the real embedded-runtime live probe.
+
+The real VDR execution remains a separate completion gate.
 
 ---
 
@@ -212,6 +258,28 @@ Before SB.10d is completed, controlled live acceptance must prove:
 9. plugin configuration and staged binary can be removed completely;
 10. VDR and daemon return to their original state;
 11. repository worktree is clean and synchronized.
+
+---
+
+## Controlled Acceptance Runner
+
+The repository-owned runner executes the complete opt-in live sequence and always
+attempts rollback:
+
+```text
+python3 tools/run_sb10d_live_acceptance.py
+```
+
+It refuses a pre-existing Suite Bridge installation, records only hashes for
+channel, Timer, Recording and setup state, stops and later restores an active
+`vdr-suite-daemon.service`, proves that the disabled daemon opens no Suite Bridge
+transport connection, stages the plugin, starts the repository daemon with
+SB.10d enabled, runs safe REST probes, restarts VDR, requires both a degraded
+observation state and a changed plugin epoch, verifies clean worker and daemon
+shutdown, removes every staged plugin binary and configuration, restarts VDR,
+restores the original daemon-service state and requires a clean worktree.
+
+The runner uses no destructive VDR-Suite API operation.
 
 ---
 

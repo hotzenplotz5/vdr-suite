@@ -14,6 +14,7 @@ CI_FAST_TESTS := \
 	test-suite-bridge-embedded-runtime-boundary \
 	test-suite-bridge-embedded-runtime \
 	test-suite-bridge-daemon-runtime-wiring \
+	test-sb10d-live-acceptance-contract \
 	test-fast \
 	test-api-router \
 	test-restful-api-vdr-timer-action-executor \
@@ -57,6 +58,7 @@ VDR_TESTS := \
 	test-suite-bridge-embedded-runtime-boundary \
 	test-suite-bridge-embedded-runtime \
 	test-suite-bridge-daemon-runtime-wiring \
+	test-sb10d-live-acceptance-contract \
 	test-backend-node \
 	test-backend-registry \
 	test-backend-registry-service \
@@ -266,7 +268,8 @@ MANUAL_REAL_TESTS := \
 	test-real-change-state \
 	test-real-polling-initial-snapshot \
 	test-real-polling-stability \
-	test-suite-bridge-svdrp-transport-live
+	test-suite-bridge-svdrp-transport-live \
+	test-real-suite-bridge-embedded-runtime-live
 
 test-ci-fast: $(CI_FAST_TESTS)
 
