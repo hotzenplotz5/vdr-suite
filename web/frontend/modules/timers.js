@@ -1,6 +1,6 @@
 // Phase 60.8a: Active Timer browser module.
 // Owns Timer list rendering through the frontend platform registry.
-// Extended with safe CRUD workflows and grouped channel selection.
+// Extended with safe CRUD workflows, grouped channel selection and recording-directory selection.
 (function(global) {
   'use strict';
 
@@ -8,6 +8,7 @@
   let lastTimerData = null;
   let lastConflictReport = null;
   let channelCache = Object.create(null);
+  let directoryCache = Object.create(null);
 
   const WEEKDAY_CHARACTERS = 'MTWTFSS';
   const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -147,7 +148,7 @@
       channelName: String(firstValue(source, ['channelName', 'channel'], '-')),
       eventId: String(firstValue(source, ['eventId'], '')),
       title: String(firstValue(source, ['title', 'name', 'file', 'eventTitle'], 'Timer')),
-      directory: String(firstValue(source, ['directory', 'folder'], '')),
+      directory: normalizeTimerDirectory(firstValue(source, ['directory', 'folder'], '')),
       subtitle: String(firstValue(source, ['subtitle'], '')),
       aux: String(firstValue(source, ['aux'], '')),
       day: String(firstValue(source, ['day', 'date'], '')),
@@ -228,6 +229,52 @@
     return number + name;
   }
 
+  function normalizeTimerDirectory(value) {
+    return String(value || '')
+      .trim()
+      .replace(/^[~\/]+|[~\/]+$/g, '')
+      .split(/[~\/]+/)
+      .map(part => part.trim())
+      .filter(Boolean)
+      .join('~');
+  }
+
+  function recordingFolderPathToTimerDirectory(path) {
+    return normalizeTimerDirectory(path);
+  }
+
+  function directoryOptionLabel(directory) {
+    const normalized = normalizeTimerDirectory(directory);
+    return normalized === '' ? 'Stammverzeichnis' : normalized.split('~').join(' › ');
+  }
+
+  function timerDirectories(data) {
+    return listFromResponse(data, 'timers')
+      .map(normalizeTimer)
+      .map(timer => timer.directory)
+      .filter(directory => directory !== '');
+  }
+
+  function directoryOptions(folderData, timerData, currentDirectory) {
+    const values = new Set();
+
+    listFromResponse(folderData, 'folders').forEach(folder => {
+      const directory = recordingFolderPathToTimerDirectory(
+        firstValue(folder, ['path', 'name'], '')
+      );
+      if (directory !== '') values.add(directory);
+    });
+
+    timerDirectories(timerData).forEach(directory => values.add(directory));
+
+    const current = normalizeTimerDirectory(currentDirectory);
+    if (current !== '') values.add(current);
+
+    return [''].concat(Array.from(values).sort((left, right) => (
+      directoryOptionLabel(left).localeCompare(directoryOptionLabel(right), 'de')
+    )));
+  }
+
   function timerActionPayload(timer, overrides) {
     const normalized = timer && timer.timerId !== undefined ? timer : normalizeTimer(timer || {}, 0);
     const changes = overrides && typeof overrides === 'object' ? overrides : {};
@@ -236,7 +283,9 @@
       timerId: String(changes.timerId !== undefined ? changes.timerId : normalized.timerId),
       channelId: String(changes.channelId !== undefined ? changes.channelId : normalized.channelId),
       title: String(changes.title !== undefined ? changes.title : normalized.title),
-      directory: String(changes.directory !== undefined ? changes.directory : normalized.directory),
+      directory: normalizeTimerDirectory(
+        changes.directory !== undefined ? changes.directory : normalized.directory
+      ),
       day: String(changes.day !== undefined ? changes.day : normalized.day),
       weekdays: normalizeWeekdays(changes.weekdays !== undefined ? changes.weekdays : normalized.weekdays),
       start: integerValue(changes.start !== undefined ? changes.start : normalized.start, 0),
@@ -275,8 +324,8 @@
     const style = document.createElement('style');
     style.id = 'vdr-suite-timer-workflow-styles';
     style.textContent = `
-.timer-module{display:grid;gap:.8rem}.timer-summary{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.65rem}.timer-summary h3,.timer-card h3{margin:0}.timer-create-panel,.timer-card{border:1px solid rgba(96,165,250,.24);border-radius:.95rem;background:rgba(15,23,42,.72)}.timer-create-panel>summary,.timer-card>summary{cursor:pointer;padding:.8rem .9rem;color:#f8fafc;font-weight:850}.timer-create-panel[open]>summary,.timer-card[open]>summary{border-bottom:1px solid rgba(148,163,184,.18)}.timer-card.conflict{border-color:rgba(248,113,113,.72)}.timer-card.recording{border-color:rgba(74,222,128,.62)}.timer-card-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.65rem;align-items:center}.timer-card-title strong{display:block;overflow:hidden;text-overflow:ellipsis}.timer-card-title span{display:block;margin-top:.15rem;color:#94a3b8;font-size:.86rem;font-weight:500}.timer-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.32rem}.timer-badge{padding:.22rem .48rem;border-radius:999px;border:1px solid rgba(148,163,184,.28);background:rgba(2,6,23,.72);color:#cbd5e1;font-size:.74rem;font-weight:800}.timer-badge.active,.timer-badge.recording{border-color:rgba(74,222,128,.5);color:#bbf7d0}.timer-badge.pending,.timer-badge.vps{border-color:rgba(56,189,248,.48);color:#bae6fd}.timer-badge.conflict{border-color:rgba(248,113,113,.62);color:#fecaca}.timer-card-body,.timer-create-body{display:grid;gap:.72rem;padding:.82rem .9rem .9rem}.timer-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.5rem}.timer-meta{padding:.55rem .62rem;border:1px solid rgba(148,163,184,.17);border-radius:.68rem;background:rgba(2,6,23,.52)}.timer-meta span{display:block;color:#94a3b8;font-size:.72rem;font-weight:750;text-transform:uppercase}.timer-meta strong{display:block;margin-top:.15rem;color:#f8fafc;overflow-wrap:anywhere}.timer-form{display:grid;gap:.72rem}.timer-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.62rem}.timer-field{display:grid;gap:.28rem;min-width:0}.timer-field.wide{grid-column:1/-1}.timer-field>span{color:#cbd5e1;font-size:.78rem;font-weight:750}.timer-field input,.timer-field select{box-sizing:border-box;width:100%;min-width:0;min-height:2.55rem;padding:.5rem .62rem;border:1px solid #475569;border-radius:.62rem;background:#111827;color:#f8fafc;font:inherit}.timer-field select:disabled{opacity:.62}.timer-checkbox{display:flex;align-items:center;gap:.45rem;min-height:2.55rem}.timer-checkbox input{width:1.15rem;height:1.15rem}.timer-weekdays{display:flex;flex-wrap:wrap;gap:.35rem}.timer-weekday{display:flex;align-items:center;gap:.28rem;padding:.38rem .48rem;border:1px solid rgba(148,163,184,.24);border-radius:.58rem;background:rgba(2,6,23,.52)}.timer-channel-status{margin:0;color:#94a3b8;font-size:.78rem}.timer-channel-expert{grid-column:1/-1;border:1px solid rgba(148,163,184,.18);border-radius:.65rem;background:rgba(2,6,23,.36)}.timer-channel-expert>summary{cursor:pointer;padding:.55rem .65rem;color:#94a3b8;font-size:.78rem;font-weight:750}.timer-channel-expert>.timer-field{padding:0 .65rem .65rem}.timer-actions{display:flex;flex-wrap:wrap;gap:.5rem}.timer-actions button{min-height:2.55rem;padding:.55rem .78rem;border-radius:.65rem}.timer-actions .danger{border-color:rgba(248,113,113,.55);color:#fecaca}.timer-actions .primary{border-color:rgba(56,189,248,.55)}.timer-feedback{min-height:1.2rem;padding:.58rem .65rem;border-radius:.62rem;background:rgba(2,6,23,.5);color:#cbd5e1}.timer-feedback.success{border:1px solid rgba(74,222,128,.4);color:#bbf7d0}.timer-feedback.error{border:1px solid rgba(248,113,113,.45);color:#fecaca}.timer-conflict-list{display:grid;gap:.5rem}.timer-conflict-item{padding:.58rem .65rem;border:1px solid rgba(248,113,113,.25);border-radius:.65rem;background:rgba(69,10,10,.22)}
-@media(max-width:760px){.timer-card-summary{grid-template-columns:minmax(0,1fr)}.timer-badges{justify-content:flex-start}.timer-form-grid{grid-template-columns:minmax(0,1fr)}.timer-field.wide,.timer-channel-expert{grid-column:auto}.timer-actions{display:grid;grid-template-columns:minmax(0,1fr)}.timer-actions button{width:100%}.timer-meta-grid{grid-template-columns:minmax(0,1fr)}}`;
+.timer-module{display:grid;gap:.8rem}.timer-summary{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.65rem}.timer-summary h3,.timer-card h3{margin:0}.timer-create-panel,.timer-card{border:1px solid rgba(96,165,250,.24);border-radius:.95rem;background:rgba(15,23,42,.72)}.timer-create-panel>summary,.timer-card>summary{cursor:pointer;padding:.8rem .9rem;color:#f8fafc;font-weight:850}.timer-create-panel[open]>summary,.timer-card[open]>summary{border-bottom:1px solid rgba(148,163,184,.18)}.timer-card.conflict{border-color:rgba(248,113,113,.72)}.timer-card.recording{border-color:rgba(74,222,128,.62)}.timer-card-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.65rem;align-items:center}.timer-card-title strong{display:block;overflow:hidden;text-overflow:ellipsis}.timer-card-title span{display:block;margin-top:.15rem;color:#94a3b8;font-size:.86rem;font-weight:500}.timer-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.32rem}.timer-badge{padding:.22rem .48rem;border-radius:999px;border:1px solid rgba(148,163,184,.28);background:rgba(2,6,23,.72);color:#cbd5e1;font-size:.74rem;font-weight:800}.timer-badge.active,.timer-badge.recording{border-color:rgba(74,222,128,.5);color:#bbf7d0}.timer-badge.pending,.timer-badge.vps{border-color:rgba(56,189,248,.48);color:#bae6fd}.timer-badge.conflict{border-color:rgba(248,113,113,.62);color:#fecaca}.timer-card-body,.timer-create-body{display:grid;gap:.72rem;padding:.82rem .9rem .9rem}.timer-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.5rem}.timer-meta{padding:.55rem .62rem;border:1px solid rgba(148,163,184,.17);border-radius:.68rem;background:rgba(2,6,23,.52)}.timer-meta span{display:block;color:#94a3b8;font-size:.72rem;font-weight:750;text-transform:uppercase}.timer-meta strong{display:block;margin-top:.15rem;color:#f8fafc;overflow-wrap:anywhere}.timer-form{display:grid;gap:.72rem}.timer-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.62rem}.timer-field{display:grid;gap:.28rem;min-width:0}.timer-field.wide{grid-column:1/-1}.timer-field>span{color:#cbd5e1;font-size:.78rem;font-weight:750}.timer-field input,.timer-field select{box-sizing:border-box;width:100%;min-width:0;min-height:2.55rem;padding:.5rem .62rem;border:1px solid #475569;border-radius:.62rem;background:#111827;color:#f8fafc;font:inherit}.timer-field select:disabled{opacity:.62}.timer-checkbox{display:flex;align-items:center;gap:.45rem;min-height:2.55rem}.timer-checkbox input{width:1.15rem;height:1.15rem}.timer-weekdays{display:flex;flex-wrap:wrap;gap:.35rem}.timer-weekday{display:flex;align-items:center;gap:.28rem;padding:.38rem .48rem;border:1px solid rgba(148,163,184,.24);border-radius:.58rem;background:rgba(2,6,23,.52)}.timer-selector-status{margin:.15rem 0 0;color:#94a3b8;font-size:.78rem}.timer-expert{grid-column:1/-1;border:1px solid rgba(148,163,184,.18);border-radius:.65rem;background:rgba(2,6,23,.36)}.timer-expert>summary{cursor:pointer;padding:.55rem .65rem;color:#94a3b8;font-size:.78rem;font-weight:750}.timer-expert>.timer-field{padding:0 .65rem .65rem}.timer-actions{display:flex;flex-wrap:wrap;gap:.5rem}.timer-actions button{min-height:2.55rem;padding:.55rem .78rem;border-radius:.65rem}.timer-actions .danger{border-color:rgba(248,113,113,.55);color:#fecaca}.timer-actions .primary{border-color:rgba(56,189,248,.55)}.timer-feedback{min-height:1.2rem;padding:.58rem .65rem;border-radius:.62rem;background:rgba(2,6,23,.5);color:#cbd5e1}.timer-feedback.success{border:1px solid rgba(74,222,128,.4);color:#bbf7d0}.timer-feedback.error{border:1px solid rgba(248,113,113,.45);color:#fecaca}.timer-conflict-list{display:grid;gap:.5rem}.timer-conflict-item{padding:.58rem .65rem;border:1px solid rgba(248,113,113,.25);border-radius:.65rem;background:rgba(69,10,10,.22)}
+@media(max-width:760px){.timer-card-summary{grid-template-columns:minmax(0,1fr)}.timer-badges{justify-content:flex-start}.timer-form-grid{grid-template-columns:minmax(0,1fr)}.timer-field.wide,.timer-expert{grid-column:auto}.timer-actions{display:grid;grid-template-columns:minmax(0,1fr)}.timer-actions button{width:100%}.timer-meta-grid{grid-template-columns:minmax(0,1fr)}}`;
     document.head.appendChild(style);
   }
 
@@ -352,6 +401,16 @@
     return form.elements.channelId ? String(form.elements.channelId.value || '').trim() : '';
   }
 
+  function effectiveDirectory(form) {
+    const manual = form.elements.manualDirectory
+      ? normalizeTimerDirectory(form.elements.manualDirectory.value)
+      : '';
+    if (manual !== '') return manual;
+    return form.elements.directory
+      ? normalizeTimerDirectory(form.elements.directory.value)
+      : '';
+  }
+
   function formPayload(form, timer) {
     const weekdays = weekdaysFromValues(selectedWeekdays(form));
     const repeating = weekdays !== '-------';
@@ -359,7 +418,7 @@
       timerId: form.elements.timerId ? form.elements.timerId.value : timer.timerId,
       channelId: effectiveChannelId(form),
       title: form.elements.title.value.trim(),
-      directory: form.elements.directory.value.trim(),
+      directory: effectiveDirectory(form),
       day: repeating ? '' : form.elements.day.value.trim(),
       weekdays,
       start: inputTimeToHhmm(form.elements.start.value),
@@ -437,6 +496,33 @@
     });
 
     return channelCache[backendId];
+  }
+
+  function fetchRecordingDirectories() {
+    const backendId = selectedBackendId();
+    if (directoryCache[backendId]) return directoryCache[backendId];
+
+    const clientApi = resolvedClientApi();
+    if (!clientApi || typeof clientApi.fetchClientRecordingFolder !== 'function') {
+      return Promise.reject(new Error('Aufnahmeverzeichnisse sind nicht verfügbar.'));
+    }
+
+    directoryCache[backendId] = clientApi.fetchClientRecordingFolder({
+      query: {
+        backend: backendId,
+        path: '',
+        limit: 1,
+        offset: 0,
+        _: String(Date.now())
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).catch(error => {
+      delete directoryCache[backendId];
+      throw error;
+    });
+
+    return directoryCache[backendId];
   }
 
   function populateChannelSelect(select, channels, selectedId) {
@@ -519,13 +605,12 @@
 
     const channelSelect = selectInput('channelId');
     const channelField = createField('Kanal auswählen', channelSelect, true);
-
     const status = document.createElement('p');
-    status.className = 'timer-channel-status';
+    status.className = 'timer-selector-status';
     channelField.appendChild(status);
 
     const expert = document.createElement('details');
-    expert.className = 'timer-channel-expert';
+    expert.className = 'timer-expert';
     expert.appendChild(addText(document.createElement('summary'), 'Expertenoption: Kanal-ID manuell eingeben'));
     const manualInput = textInput('manualChannelId', '');
     expert.appendChild(createField('Manuelle Kanal-ID (überschreibt Auswahl)', manualInput, true));
@@ -535,6 +620,69 @@
     grid.appendChild(expert);
     global.setTimeout(() => {
       configureChannelSelectors(groupField, groupSelect, channelSelect, manualInput, status, timer);
+    }, 0);
+  }
+
+  function populateDirectorySelect(select, directories, selectedDirectory) {
+    const normalizedSelected = normalizeTimerDirectory(selectedDirectory);
+    select.replaceChildren();
+    directories.forEach(directory => {
+      select.appendChild(option(
+        directory,
+        directoryOptionLabel(directory),
+        directory === normalizedSelected
+      ));
+    });
+    select.disabled = false;
+  }
+
+  function configureDirectorySelector(select, manualInput, status, timer) {
+    status.textContent = 'Aufnahmeverzeichnisse werden geladen …';
+    select.disabled = true;
+    select.replaceChildren(option('', 'Aufnahmeverzeichnisse werden geladen …', true));
+
+    fetchRecordingDirectories().then(folderData => {
+      const directories = directoryOptions(folderData, lastTimerData, timer.directory);
+      populateDirectorySelect(select, directories, timer.directory);
+      const existingCount = Math.max(0, directories.length - 1);
+      status.textContent = existingCount > 0
+        ? String(existingCount) + ' vorhandene Aufnahmeverzeichnisse · Stammverzeichnis verfügbar.'
+        : 'Keine vorhandenen Aufnahmeverzeichnisse gefunden · Stammverzeichnis verfügbar.';
+
+      select.addEventListener('change', () => { manualInput.value = ''; });
+      manualInput.addEventListener('input', () => {
+        if (manualInput.value.trim() !== '') select.value = '';
+      });
+    }).catch(error => {
+      const fallback = directoryOptions(null, lastTimerData, timer.directory);
+      populateDirectorySelect(select, fallback, timer.directory);
+      status.textContent = 'Aufnahmeverzeichnisse konnten nicht vollständig geladen werden. ' +
+        'Bekannte Timer-Verzeichnisse bleiben auswählbar; weitere Verzeichnisse bitte über die Expertenoption eingeben: ' +
+        String(error && error.message ? error.message : error);
+    });
+  }
+
+  function createDirectoryFields(grid, timer) {
+    const directorySelect = selectInput('directory');
+    const directoryField = createField('Aufnahmeverzeichnis auswählen', directorySelect, true);
+    const status = document.createElement('p');
+    status.className = 'timer-selector-status';
+    directoryField.appendChild(status);
+
+    const expert = document.createElement('details');
+    expert.className = 'timer-expert';
+    expert.appendChild(addText(document.createElement('summary'), 'Expertenoption: Verzeichnis manuell eingeben'));
+    const manualInput = textInput('manualDirectory', '');
+    expert.appendChild(createField(
+      'Manuelles Verzeichnis (überschreibt Auswahl, Unterordner mit ~ trennen)',
+      manualInput,
+      true
+    ));
+
+    grid.appendChild(directoryField);
+    grid.appendChild(expert);
+    global.setTimeout(() => {
+      configureDirectorySelector(directorySelect, manualInput, status, timer);
     }, 0);
   }
 
@@ -550,7 +698,7 @@
 
     grid.appendChild(createField('Titel', title, true));
     createChannelFields(grid, timer);
-    grid.appendChild(createField('Verzeichnis', textInput('directory', timer.directory), true));
+    createDirectoryFields(grid, timer);
     grid.appendChild(createField('Datum', textInput('day', timer.day, 'date')));
     grid.appendChild(createField('Start', textInput('start', timeToInput(timer.start), 'time')));
     grid.appendChild(createField('Ende', textInput('stop', timeToInput(timer.stop), 'time')));
@@ -668,7 +816,7 @@
     appendMeta(meta, 'Kanal', timer.channelName);
     appendMeta(meta, 'Kanal-ID', timer.channelId);
     appendMeta(meta, 'Timer-ID', timer.timerId);
-    appendMeta(meta, 'Verzeichnis', timer.directory || '-');
+    appendMeta(meta, 'Verzeichnis', directoryOptionLabel(timer.directory));
     appendMeta(meta, 'Priorität / Lebensdauer', String(timer.priority) + ' / ' + String(timer.lifetime));
     if (timer.subtitle) appendMeta(meta, 'Untertitel', timer.subtitle);
     if (timer.eventId) appendMeta(meta, 'Event-ID', timer.eventId);
@@ -829,6 +977,10 @@
     channelGroups: channelGroups,
     channelsForGroup: channelsForGroup,
     channelOptionLabel: channelOptionLabel,
+    normalizeTimerDirectory: normalizeTimerDirectory,
+    recordingFolderPathToTimerDirectory: recordingFolderPathToTimerDirectory,
+    directoryOptionLabel: directoryOptionLabel,
+    directoryOptions: directoryOptions,
     timerActionPayload: timerActionPayload,
     validateTimerPayload: validateTimerPayload,
     inputTimeToHhmm: inputTimeToHhmm,
