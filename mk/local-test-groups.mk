@@ -135,3 +135,5 @@ test-frontend-i18n:
 	node web/frontend/tests/test_recording_poster_placeholder_contract.js
 	node web/frontend/tests/test_recording_artwork_runtime.js
 	node web/frontend/tests/test_recording_genre_artwork_runtime.js
+	node web/frontend/tests/test_timer_workflows_runtime.js
+	node web/frontend/tests/test_searchtimer_workflows_runtime.js
