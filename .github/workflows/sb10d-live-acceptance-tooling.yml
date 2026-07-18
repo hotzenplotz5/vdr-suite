@@ -22,8 +22,8 @@ jobs:
           fetch-depth: 1
           show-progress: false
 
-      - name: Apply SB.10d live integration
-        run: python3 tools/apply_sb10d_live_acceptance_integration.py
+      - name: Apply final SB.10d live review
+        run: python3 tools/apply_sb10d_live_acceptance_review.py
 
       - name: Compile live acceptance tools
         run: |
@@ -55,13 +55,13 @@ jobs:
 
       - name: Remove one-time helpers
         run: |
-          rm tools/apply_sb10d_live_acceptance_integration.py
+          rm tools/apply_sb10d_live_acceptance_review.py
           rm .github/sb10d-live-acceptance-trigger
 
-      - name: Commit SB.10d live tooling
+      - name: Commit SB.10d live tooling review
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add --all
-          git commit -m "Test: add controlled SB.10d live acceptance"
+          git commit -m "Test: harden controlled SB.10d live acceptance"
           git push origin HEAD:agent/sb10d-controlled-live-acceptance
