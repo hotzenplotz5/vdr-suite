@@ -1,5 +1,5 @@
-// Channel logo lookup and fallback helpers.
-// Loaded after app.js and before channel-browser.js.
+// Channel logo lookup, fallback helpers and channel-browser extension bootstrap.
+// Loaded before channel-browser.js and app.js.
 
 function normalizeChannelLogoName(value) {
   return String(value || '')
@@ -195,4 +195,28 @@ function createChannelLogoElement(title, channelId) {
   tryNextCandidate();
 
   return frame;
+}
+
+function loadChannelDayProgramExtension() {
+  if (typeof document === 'undefined' || !document.body) {
+    return;
+  }
+
+  if (document.querySelector('script[data-channel-day-program-loader="true"]')) {
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = '/frontend/channel-day-program.js';
+  script.dataset.channelDayProgramLoader = 'true';
+  script.async = false;
+  document.body.appendChild(script);
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading' && typeof document.addEventListener === 'function') {
+    document.addEventListener('DOMContentLoaded', loadChannelDayProgramExtension, {once: true});
+  } else if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+    window.setTimeout(loadChannelDayProgramExtension, 0);
+  }
 }
