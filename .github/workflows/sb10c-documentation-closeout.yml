@@ -23,7 +23,7 @@ jobs:
           show-progress: false
 
       - name: Update SB.10c acceptance documentation
-        run: python3 tools/update_sb10c_acceptance_docs.py
+        run: python3 tools/run_sb10c_acceptance_docs_closeout.py
 
       - name: Check documentation
         run: make test-docs
