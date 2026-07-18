@@ -45,11 +45,11 @@ replace_once(
 )
 
 for anchor in (
-    '''\ttest-suite-bridge-daemon-runtime-wiring \\
-\ttest-fast \\
+    r'''	test-suite-bridge-daemon-runtime-wiring \
+	test-fast \
 ''',
-    '''\ttest-suite-bridge-daemon-runtime-wiring \\
-\ttest-backend-node \\
+    r'''	test-suite-bridge-daemon-runtime-wiring \
+	test-backend-node \
 ''',
 ):
     replacement = anchor.replace(
@@ -61,12 +61,12 @@ for anchor in (
 
 replace_once(
     "mk/test-groups.mk",
-    '''\ttest-real-polling-stability \\
-\ttest-suite-bridge-svdrp-transport-live
+    r'''	test-real-polling-stability \
+	test-suite-bridge-svdrp-transport-live
 ''',
-    '''\ttest-real-polling-stability \\
-\ttest-suite-bridge-svdrp-transport-live \\
-\ttest-real-suite-bridge-embedded-runtime-live
+    r'''	test-real-polling-stability \
+	test-suite-bridge-svdrp-transport-live \
+	test-real-suite-bridge-embedded-runtime-live
 ''',
 )
 
