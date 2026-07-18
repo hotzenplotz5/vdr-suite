@@ -1,3 +1,4 @@
+# Hosted CI builds and validates live probes; real VDR execution remains explicit and opt-in.
 .PHONY: test-suite-bridge-agent-boundary test-suite-bridge-handshake test-suite-bridge-handshake-missing-plugin test-suite-bridge-svdrp-transport-boundary test-suite-bridge-svdrp-transport test-suite-bridge-svdrp-transport-live test-suite-bridge-observation-boundary test-suite-bridge-observation-service test-suite-bridge-observation-worker test-suite-bridge-embedded-runtime-boundary test-suite-bridge-embedded-runtime test-suite-bridge-daemon-runtime-wiring test-sb10d-live-acceptance-contract build-suite-bridge-embedded-runtime-live test-real-suite-bridge-embedded-runtime-live test-real-suite-bridge-observation-live
 
 test-suite-bridge-agent-boundary:
