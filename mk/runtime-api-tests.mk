@@ -139,10 +139,11 @@ test-mock-http-client:
 	$(BUILD_DIR)/test_mock_http_client
 
 daemon:
-	$(BUILD_CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
 		$(RUNTIME_SRC) \
+		$(AGENT_SRC) \
 		$(DAEMON_SRC) \
 		apps/daemon/main.cpp \
 		$(LDFLAGS) \
@@ -150,9 +151,11 @@ daemon:
 
 
 test-backend-runtime-context:
-	$(BUILD_CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
+		$(AGENT_SRC) \
+		core/daemon/src/RestfulApiEventStreamClient.cpp \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_backend_runtime_context.cpp \
 		$(LDFLAGS) \

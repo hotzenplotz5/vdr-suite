@@ -20,6 +20,7 @@
 #include <csignal>
 #include <iostream>
 #include <thread>
+#include <utility>
 #include <vector>
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
@@ -104,6 +105,38 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             epgCacheDirtyHint_.store(true);
             recordingCacheDirtyHint_.store(true);
         });
+
+    const RuntimeSuiteBridgeConfig& suiteBridgeConfig =
+        config_.suiteBridge();
+
+    if (suiteBridgeConfig.enabled &&
+        context->backendId == suiteBridgeConfig.backendId) {
+        vdrsuite::agent::SuiteBridgeEmbeddedAgentConfig embeddedConfig;
+        embeddedConfig.backendId = context->backendId;
+        embeddedConfig.enabled = true;
+        embeddedConfig.transport.host = suiteBridgeConfig.host;
+        embeddedConfig.transport.port = suiteBridgeConfig.port;
+        embeddedConfig.transport.connectTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.connectTimeoutMs);
+        embeddedConfig.transport.ioTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.ioTimeoutMs);
+        embeddedConfig.transport.operationTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.operationTimeoutMs);
+        embeddedConfig.observation.pollInterval =
+            std::chrono::milliseconds(suiteBridgeConfig.pollIntervalMs);
+        embeddedConfig.observation.staleAfter =
+            std::chrono::milliseconds(suiteBridgeConfig.staleAfterMs);
+        embeddedConfig.observation.offlineAfter =
+            std::chrono::milliseconds(suiteBridgeConfig.offlineAfterMs);
+        embeddedConfig.observation.reconnectInitial =
+            std::chrono::milliseconds(suiteBridgeConfig.reconnectInitialMs);
+        embeddedConfig.observation.reconnectMaximum =
+            std::chrono::milliseconds(suiteBridgeConfig.reconnectMaximumMs);
+
+        context->suiteBridgeAgentRuntime =
+            std::make_unique<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime>(
+                std::move(embeddedConfig));
+    }
 
     return context;
 }
@@ -247,10 +280,6 @@ bool DaemonRuntime::initialize()
         backendPollingCoordinator_->addPollingService(
             backendRuntimeContext->backendId,
             *backendRuntimeContext->pollingService);
-
-        if (backendRuntimeContext->eventStreamClient) {
-            backendRuntimeContext->eventStreamClient->start();
-        }
 
         backendRuntimeContexts_.push_back(
             std::move(backendRuntimeContext));
@@ -695,6 +724,24 @@ bool DaemonRuntime::initialize()
             pollVdrAndUpdateChangeFeed();
         });
 
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        if (!backendRuntimeContext) {
+            continue;
+        }
+
+        if (backendRuntimeContext->suiteBridgeAgentRuntime) {
+            backendRuntimeContext->suiteBridgeAgentRuntime->start();
+            std::cout
+                << "Suite Bridge embedded Agent runtime started: backend="
+                << backendRuntimeContext->backendId
+                << std::endl;
+        }
+
+        if (backendRuntimeContext->eventStreamClient) {
+            backendRuntimeContext->eventStreamClient->start();
+        }
+    }
+
     startEpgCacheWarmupWorker();
     startRecordingCacheWarmupWorker();
 
@@ -1105,8 +1152,16 @@ void DaemonRuntime::shutdown()
     stopEpgCacheWarmupWorker();
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        if (!backendRuntimeContext) {
+            continue;
+        }
+
         if (backendRuntimeContext->eventStreamClient) {
             backendRuntimeContext->eventStreamClient->stop();
+        }
+
+        if (backendRuntimeContext->suiteBridgeAgentRuntime) {
+            backendRuntimeContext->suiteBridgeAgentRuntime->stop();
         }
     }
 

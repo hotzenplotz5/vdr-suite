@@ -11,6 +11,9 @@ CI_FAST_TESTS := \
 	test-suite-bridge-observation-boundary \
 	test-suite-bridge-observation-service \
 	test-suite-bridge-observation-worker \
+	test-suite-bridge-embedded-runtime-boundary \
+	test-suite-bridge-embedded-runtime \
+	test-suite-bridge-daemon-runtime-wiring \
 	test-fast \
 	test-api-router \
 	test-restful-api-vdr-timer-action-executor \
@@ -51,6 +54,9 @@ VDR_TESTS := \
 	test-suite-bridge-observation-boundary \
 	test-suite-bridge-observation-service \
 	test-suite-bridge-observation-worker \
+	test-suite-bridge-embedded-runtime-boundary \
+	test-suite-bridge-embedded-runtime \
+	test-suite-bridge-daemon-runtime-wiring \
 	test-backend-node \
 	test-backend-registry \
 	test-backend-registry-service \
