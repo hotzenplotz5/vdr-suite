@@ -56,6 +56,9 @@ struct SuiteBridgeSnapshotBaseline
 
     bool canCalculateDeltaFrom(
         const SuiteBridgeSnapshotBaseline& previous) const;
+
+    bool countersAtLeast(
+        const SuiteBridgeSnapshotBaseline& previous) const;
 };
 
 enum class SuiteBridgeBaselineUpdate
@@ -63,7 +66,8 @@ enum class SuiteBridgeBaselineUpdate
     AdoptedInitial,
     UpdatedComparable,
     ReplacedEpochChanged,
-    ReplacedOverflowed
+    ReplacedOverflowed,
+    RejectedCounterRegression
 };
 
 class SuiteBridgeBaselineTracker
@@ -84,7 +88,10 @@ private:
 
 enum class SuiteBridgeHandshakeStatus
 {
+    Compatible,
     Ready,
+    NotConfigured,
+    PluginMissing,
     LegacyOrUnknown,
     DiscoveryTransportError,
     DiscoveryReplyRejected,
@@ -114,6 +121,12 @@ struct SuiteBridgeHandshakeResult
     SuiteBridgeDiscovery discovery;
     SuiteBridgeSnapshotBaseline baseline;
     bool mutationsEnabled = false;
+
+    bool compatible() const
+    {
+        return status == SuiteBridgeHandshakeStatus::Compatible ||
+               status == SuiteBridgeHandshakeStatus::Ready;
+    }
 
     bool ready() const
     {
