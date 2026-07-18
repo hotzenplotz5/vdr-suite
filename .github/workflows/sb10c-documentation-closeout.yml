@@ -1,11 +1,11 @@
 name: SB.10c documentation closeout
 
 on:
-  push:
+  pull_request:
     branches:
       - feature/vdr-plugin-suite-bridge-foundation
     paths:
-      - .github/workflows/sb10c-documentation-closeout.yml
+      - .github/sb10c-documentation-closeout-trigger
 
 permissions:
   contents: write
