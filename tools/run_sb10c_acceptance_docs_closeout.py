@@ -24,4 +24,9 @@ if text.count(old) != 1:
 
 patched = text.replace(old, new, 1)
 namespace = {"__name__": "__main__", "__file__": str(updater)}
-exec(compile(patched, str(updater), "exec"), namespace)
+
+try:
+    exec(compile(patched, str(updater), "exec"), namespace)
+except Exception as error:
+    print(f"SB10C_CLOSEOUT_ERROR: {error}", flush=True)
+    raise SystemExit(1)
