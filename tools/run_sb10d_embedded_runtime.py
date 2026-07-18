@@ -14,12 +14,12 @@ try:
 
     fixture = Path("core/vdr/tests/test_backend_runtime_context.cpp")
     fixture_text = fixture.read_text(encoding="utf-8")
-    old = """    std::vector<VdrEvent> getEvents() const override
+    old_fixture = """    std::vector<VdrEvent> getEvents() const override
     {
         return {};
     }
 """
-    new = """    std::vector<VdrEvent> getEvents() const override
+    new_fixture = """    std::vector<VdrEvent> getEvents() const override
     {
         return {};
     }
@@ -31,13 +31,35 @@ try:
     }
 """
 
-    if fixture_text.count(old) != 1:
+    if fixture_text.count(old_fixture) != 1:
         raise RuntimeError(
             "BackendRuntimeContext adapter fixture marker is not unique"
         )
 
     fixture.write_text(
-        fixture_text.replace(old, new, 1),
+        fixture_text.replace(old_fixture, new_fixture, 1),
+        encoding="utf-8",
+    )
+
+    makefile = Path("mk/runtime-api-tests.mk")
+    makefile_text = makefile.read_text(encoding="utf-8")
+    old_target = """\t\t$(AGENT_SRC) \\
+\t\tcore/vdr/src/VdrRecordingCacheRepository.cpp \\
+\t\tcore/vdr/tests/test_backend_runtime_context.cpp \\
+"""
+    new_target = """\t\t$(AGENT_SRC) \\
+\t\tcore/daemon/src/RestfulApiEventStreamClient.cpp \\
+\t\tcore/vdr/src/VdrRecordingCacheRepository.cpp \\
+\t\tcore/vdr/tests/test_backend_runtime_context.cpp \\
+"""
+
+    if makefile_text.count(old_target) != 1:
+        raise RuntimeError(
+            "BackendRuntimeContext test target marker is not unique"
+        )
+
+    makefile.write_text(
+        makefile_text.replace(old_target, new_target, 1),
         encoding="utf-8",
     )
 except Exception as error:
