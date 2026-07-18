@@ -56,7 +56,22 @@ jobs:
         run: make test-runtime-config
 
       - name: Check backend runtime context
-        run: make test-backend-runtime-context
+        id: backend_context
+        continue-on-error: true
+        run: make test-backend-runtime-context > /tmp/sb10d-backend-runtime-context.log 2>&1
+
+      - name: Upload backend runtime context failure evidence
+        if: steps.backend_context.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sb10d-backend-runtime-context-failure
+          path: /tmp/sb10d-backend-runtime-context.log
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Enforce backend runtime context result
+        if: steps.backend_context.outcome == 'failure'
+        run: exit 1
 
       - name: Build daemon
         run: make daemon
