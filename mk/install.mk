@@ -41,14 +41,14 @@ install-runtime: daemon
 	$(INSTALL) -m 0644 web/frontend/channel-logos.js $(DESTDIR)$(DATADIR)/web/frontend/channel-logos.js
 	$(INSTALL) -m 0644 web/frontend/channel-day-program.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program.js
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/modules/channels.js
-	( cat web/frontend/modules/channels.js; printf '\n\n'; cat web/frontend/channel-day-program.js ) > $(DESTDIR)$(DATADIR)/web/frontend/channel-browser.js
-	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/channel-browser.js
+	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/channel-browser.js
 	$(INSTALL) -m 0644 web/frontend/modules/recordings.js $(DESTDIR)$(DATADIR)/web/frontend/modules/recordings.js
 	$(INSTALL) -m 0644 web/frontend/modules/timers.js $(DESTDIR)$(DATADIR)/web/frontend/modules/timers.js
 	$(INSTALL) -m 0644 web/frontend/modules/searchtimers.js $(DESTDIR)$(DATADIR)/web/frontend/modules/searchtimers.js
 	$(INSTALL) -m 0644 web/frontend/modules/recordings.js $(DESTDIR)$(DATADIR)/web/frontend/recording-browser.js
 	$(INSTALL) -m 0644 web/frontend/recording-artwork.js $(DESTDIR)$(DATADIR)/web/frontend/recording-artwork.js
-	$(INSTALL) -m 0644 web/frontend/epg-cache.js $(DESTDIR)$(DATADIR)/web/frontend/epg-cache.js
+	( cat web/frontend/epg-cache.js; printf '\n\n'; cat web/frontend/channel-day-program.js ) > $(DESTDIR)$(DATADIR)/web/frontend/epg-cache.js
+	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/epg-cache.js
 	$(INSTALL) -m 0644 web/frontend/style.css $(DESTDIR)$(DATADIR)/web/frontend/style.css
 	$(INSTALL) -m 0644 web/frontend/logo-vdr-suite.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
 	$(INSTALL) -m 0644 web/frontend/logo-vdr-suite-dark.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/logo-vdr-suite-dark.svg
@@ -114,8 +114,7 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/locales/en.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/channels.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-browser.js
-	grep -F 'window.VdrSuiteChannelBrowser = channelBrowserApi' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-browser.js >/dev/null
-	grep -F 'window.VdrSuiteChannelDayProgram = api' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-browser.js >/dev/null
+	cmp -s /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/channels.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-browser.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/recordings.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/timers.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/searchtimers.js
@@ -123,4 +122,5 @@ test-install-staging:
 	cmp -s /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/recordings.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-browser.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-artwork.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-cache.js
+	grep -F 'window.VdrSuiteChannelDayProgram = api' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-cache.js >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/style.css
