@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import base64
 import json
 import os
 import sys
@@ -152,13 +153,25 @@ def probe_url(base_url: str, path: str) -> str:
     return urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
 
 
-def execute_probe(base_url: str, default_timeout: int, probe: dict) -> dict:
+def execute_probe(
+    base_url: str,
+    default_timeout: int,
+    probe: dict,
+    username: str = "",
+    password: str = "",
+) -> dict:
     started = time.monotonic()
     url = probe_url(base_url, probe["path"])
     method = probe["method"]
     timeout = int(probe.get("timeoutSeconds", default_timeout))
     data = None
     headers = {"Accept": "application/json"}
+
+    if username:
+        token = base64.b64encode(
+            f"{username}:{password}".encode("utf-8")
+        ).decode("ascii")
+        headers["Authorization"] = f"Basic {token}"
 
     if method == "POST":
         data = json.dumps(probe.get("body", {})).encode("utf-8")
@@ -273,6 +286,20 @@ def main() -> int:
         "--report-json",
         default="",
         help="Optional path for a machine-readable JSON acceptance report")
+    parser.add_argument(
+        "--username",
+        default=os.environ.get("VDR_SUITE_API_USERNAME", ""),
+        help=(
+            "HTTP Basic Auth username. "
+            "Defaults to VDR_SUITE_API_USERNAME."
+        ))
+    parser.add_argument(
+        "--password",
+        default=os.environ.get("VDR_SUITE_API_PASSWORD", ""),
+        help=(
+            "HTTP Basic Auth password. "
+            "Defaults to VDR_SUITE_API_PASSWORD."
+        ))
     args = parser.parse_args()
 
     manifest = load_manifest(Path(args.manifest))
@@ -300,7 +327,13 @@ def main() -> int:
     results = []
 
     for probe in probes:
-        result = execute_probe(base_url, timeout, probe)
+        result = execute_probe(
+            base_url,
+            timeout,
+            probe,
+            username=args.username,
+            password=args.password,
+        )
         results.append(result)
         print(f"{result['id']}: {result['message']}")
 

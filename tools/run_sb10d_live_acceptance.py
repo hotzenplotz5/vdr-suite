@@ -460,11 +460,17 @@ def run_disabled_daemon_connection_probe(
 def run_safe_daemon_probes(
     base_url: str,
     report_path: Path,
+    username: str,
+    password: str,
     attempts: int = 1,
 ) -> None:
     last_output = ""
 
     for attempt in range(attempts):
+        probe_environment = os.environ.copy()
+        probe_environment["VDR_SUITE_API_USERNAME"] = username
+        probe_environment["VDR_SUITE_API_PASSWORD"] = password
+
         completed = subprocess.run(
             [
                 "python3",
@@ -477,6 +483,7 @@ def run_safe_daemon_probes(
                 str(report_path),
             ],
             cwd=ROOT,
+            env=probe_environment,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -517,6 +524,22 @@ def main() -> int:
     parser.add_argument("--restfulapi-user", default="")
     parser.add_argument("--restfulapi-password", default="")
     parser.add_argument("--daemon-base-url", default="http://127.0.0.1:18080")
+    parser.add_argument(
+        "--daemon-user",
+        default=os.environ.get("VDR_SUITE_API_USERNAME", "admin"),
+        help=(
+            "VDR-Suite daemon Basic Auth username. "
+            "Default: VDR_SUITE_API_USERNAME or admin."
+        ),
+    )
+    parser.add_argument(
+        "--daemon-password",
+        default=os.environ.get("VDR_SUITE_API_PASSWORD", "vdr-suite"),
+        help=(
+            "VDR-Suite daemon Basic Auth password. "
+            "Default: VDR_SUITE_API_PASSWORD or vdr-suite."
+        ),
+    )
     parser.add_argument("--timeout-seconds", type=int, default=90)
     parser.add_argument(
         "--evidence-dir",
@@ -706,7 +729,12 @@ def main() -> int:
         if daemon_process.poll() is not None:
             raise AcceptanceError("test daemon exited during startup")
 
-        run_safe_daemon_probes(args.daemon_base_url, pre_report_path)
+        run_safe_daemon_probes(
+            args.daemon_base_url,
+            pre_report_path,
+            args.daemon_user,
+            args.daemon_password,
+        )
 
         live_environment = os.environ.copy()
         live_environment.update(
@@ -774,11 +802,15 @@ def main() -> int:
 
         wait_json(
             args.daemon_base_url.rstrip("/") + "/api/vdr/status",
+            username=args.daemon_user,
+            password=args.daemon_password,
             timeout_seconds=60,
         )
         run_safe_daemon_probes(
             args.daemon_base_url,
             post_report_path,
+            args.daemon_user,
+            args.daemon_password,
             attempts=15,
         )
 
