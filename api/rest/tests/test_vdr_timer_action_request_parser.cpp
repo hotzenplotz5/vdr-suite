@@ -21,6 +21,7 @@ static void test_parse_full_timer_action_request()
             "\"priority\":50,"
             "\"lifetime\":99,"
             "\"active\":true,"
+            "\"vps\":true,"
             "\"aux\":\"<epgsearch></epgsearch>\""
             "}");
 
@@ -35,7 +36,8 @@ static void test_parse_full_timer_action_request()
     assert(request.stop == 2030);
     assert(request.priority == 50);
     assert(request.lifetime == 99);
-    assert(request.active == true);
+    assert(request.active);
+    assert(request.vps);
     assert(request.aux == "<epgsearch></epgsearch>");
 }
 
@@ -52,45 +54,42 @@ static void test_parse_minimal_request_uses_defaults()
 
     assert(request.backendId == "living-room");
     assert(request.timerId == "42");
+    assert(request.weekdays == "-------");
     assert(request.priority == 50);
     assert(request.lifetime == 99);
-    assert(request.active == true);
+    assert(request.active);
+    assert(!request.vps);
     assert(request.start == 0);
     assert(request.stop == 0);
 }
 
-static void test_parse_false_active()
+static void test_parse_false_flags()
 {
     VdrTimerActionRequestParser parser;
 
     const VdrTimerOperationRequest request =
-        parser.parse(
-            "{"
-            "\"active\":false"
-            "}");
+        parser.parse("{\"active\":false,\"vps\":false}");
 
-    assert(request.active == false);
+    assert(!request.active);
+    assert(!request.vps);
 }
 
-static void test_parse_numeric_active()
+static void test_parse_numeric_flags()
 {
     VdrTimerActionRequestParser parser;
 
     const VdrTimerOperationRequest request =
-        parser.parse(
-            "{"
-            "\"active\":1"
-            "}");
+        parser.parse("{\"active\":1,\"vps\":1}");
 
-    assert(request.active == true);
+    assert(request.active);
+    assert(request.vps);
 }
 
 int main()
 {
     test_parse_full_timer_action_request();
     test_parse_minimal_request_uses_defaults();
-    test_parse_false_active();
-    test_parse_numeric_active();
-
+    test_parse_false_flags();
+    test_parse_numeric_flags();
     return 0;
 }
