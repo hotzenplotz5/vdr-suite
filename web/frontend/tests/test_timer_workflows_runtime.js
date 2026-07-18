@@ -126,6 +126,33 @@ assert.deepStrictEqual(
   []
 );
 
+assert.strictEqual(api.normalizeTimerDirectory('/Movies/Action/'), 'Movies~Action');
+assert.strictEqual(api.recordingFolderPathToTimerDirectory('/Series'), 'Series');
+assert.strictEqual(api.directoryOptionLabel('Movies~Action'), 'Movies › Action');
+assert.strictEqual(api.directoryOptionLabel(''), 'Stammverzeichnis');
+assert.deepStrictEqual(
+  Array.from(api.directoryOptions(
+    {
+      folders: [
+        {name: 'Movies', path: 'Movies'},
+        {name: 'Series', path: '/Series'}
+      ]
+    },
+    {
+      timers: [
+        {directory: 'News'},
+        {directory: 'Movies~Action'}
+      ]
+    },
+    'Archive~Old'
+  )),
+  ['', 'Archive~Old', 'Movies', 'Movies~Action', 'News', 'Series']
+);
+assert.strictEqual(
+  api.timerActionPayload(timer, {directory: '/Movies/Action/'}).directory,
+  'Movies~Action'
+);
+
 assert.ok(!source.includes('fetch('));
 assert.ok(source.includes('function renderList(data, conflictReport)'));
 assert.ok(source.includes('function renderConflicts(report, timers, error)'));
@@ -133,5 +160,9 @@ assert.ok(source.includes("createField('Kanalgruppe', groupSelect, true)"));
 assert.ok(source.includes("createField('Kanal auswählen', channelSelect, true)"));
 assert.ok(source.includes('Expertenoption: Kanal-ID manuell eingeben'));
 assert.ok(source.includes('fetchClientChannels'));
+assert.ok(source.includes("createField('Aufnahmeverzeichnis auswählen', directorySelect, true)"));
+assert.ok(source.includes('Expertenoption: Verzeichnis manuell eingeben'));
+assert.ok(source.includes('fetchClientRecordingFolder'));
+assert.ok(source.includes('Stammverzeichnis'));
 
 console.log('test_timer_workflows_runtime passed');
