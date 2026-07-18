@@ -67,9 +67,22 @@ private:
         return basePath + endpoint;
     }
 
-    static std::string boolFlag(bool enabled)
+    static int timerFlags(
+        const VdrTimerOperationRequest& request)
     {
-        return enabled ? "1" : "0";
+        int flags = 0;
+
+        if (request.active)
+        {
+            flags |= 0x01;
+        }
+
+        if (request.vps)
+        {
+            flags |= 0x04;
+        }
+
+        return flags;
     }
 
     static std::string toString(int value)
@@ -139,7 +152,7 @@ private:
     {
         std::string body;
 
-        appendParameter(body, "flags", boolFlag(request.active));
+        appendParameter(body, "flags", toString(timerFlags(request)));
         appendParameter(body, "channel", request.channelId);
         appendParameter(body, "weekdays", request.weekdays);
         appendParameter(body, "day", request.day);
