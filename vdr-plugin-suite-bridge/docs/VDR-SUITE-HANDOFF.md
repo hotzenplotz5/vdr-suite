@@ -8,6 +8,7 @@
 - [SB.10a Agent Handshake](../../docs/architecture/suite-bridge-agent-handshake.md)
 - [SB.10b Local SVDRP Transport](../../docs/architecture/suite-bridge-svdrp-transport.md)
 - [SB.10c Observation Lifecycle](../../docs/architecture/suite-bridge-observation-lifecycle.md)
+- [SB.10d Embedded Agent Runtime](../../docs/architecture/suite-bridge-embedded-agent-runtime.md)
 - [VDR-Suite Documentation Index](../../docs/index.md)
 
 ---

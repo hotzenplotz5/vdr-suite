@@ -61,6 +61,7 @@ The identity foundation defines the Phase 61.1 Suite-owned Entity, Assignment an
 - [Suite Bridge Backend Agent Handshake](suite-bridge-agent-handshake.md)
 - [Suite Bridge Local SVDRP Transport](suite-bridge-svdrp-transport.md)
 - [Suite Bridge Read-Only Observation Lifecycle](suite-bridge-observation-lifecycle.md)
+- [Suite Bridge Embedded Agent Runtime](suite-bridge-embedded-agent-runtime.md)
 - [External Project Analysis](external-project-analysis.md)
 - [Recording Actions Architecture](recording-actions-architecture.md)
 - [Recording Action Validation API](recording-action-validation-api.md)

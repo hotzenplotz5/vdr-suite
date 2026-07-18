@@ -5,6 +5,7 @@ CXXFLAGS := -std=c++17 -Wall -Wextra \
         -Icore/sqlite/include \
         -Icore/recordings/include \
         -Icore/daemon/include \
+        -Icore/agent/include \
         -Icore/vdr/include \
         -Icore/http/include \
         -Icore/runtime/include \

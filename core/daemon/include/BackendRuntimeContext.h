@@ -7,6 +7,7 @@
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
 #include "SearchTimerPreviewEpgCacheRefreshService.h"
+#include "SuiteBridgeEmbeddedAgentRuntime.h"
 #include "VdrService.h"
 #include "VdrSnapshotBuilder.h"
 
@@ -26,4 +27,5 @@ struct BackendRuntimeContext
     std::unique_ptr<EpgCacheService> epgCacheService;
     std::unique_ptr<PollingService> pollingService;
     std::unique_ptr<RestfulApiEventStreamClient> eventStreamClient;
+    std::unique_ptr<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime> suiteBridgeAgentRuntime;
 };

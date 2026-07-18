@@ -11,7 +11,11 @@ AGENT_OBSERVATION_SRC := \
 	core/agent/src/SuiteBridgeObservationService.cpp \
 	core/agent/src/SuiteBridgeObservationWorker.cpp
 
+AGENT_EMBEDDED_RUNTIME_SRC := \
+	core/agent/src/SuiteBridgeEmbeddedAgentRuntime.cpp
+
 AGENT_SRC := \
 	$(AGENT_HANDSHAKE_SRC) \
 	$(AGENT_SVDRP_TRANSPORT_SRC) \
-	$(AGENT_OBSERVATION_SRC)
+	$(AGENT_OBSERVATION_SRC) \
+	$(AGENT_EMBEDDED_RUNTIME_SRC)

@@ -25,6 +25,12 @@ public:
         return {};
     }
 
+    std::vector<VdrEvent> getEvents(
+        const VdrEventQuery&) const override
+    {
+        return {};
+    }
+
     std::vector<VdrChannel> getChannels() const override
     {
         return {};
