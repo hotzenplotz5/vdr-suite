@@ -106,8 +106,8 @@ int main()
     assert(executeExecutor.capturedPayload.type == RecordingActionType::Delete);
     assert(executeExecutor.capturedPayload.jobType == "recording.delete");
     assert(!executeExecutor.capturedPayload.dryRun);
-    assert(executeExecutor.capturedPayload.requiredCapabilities.at(0) == "recordings.action.delete");
-    assert(executeExecutor.capturedPayload.requiredPermissions.at(0) == "recordings.action.delete");
+    assert(executeExecutor.capturedPayload.requiredCapabilities.at(0) == "recording.action.delete");
+    assert(executeExecutor.capturedPayload.requiredPermissions.at(0) == "recording.permission.delete");
 
     return 0;
 }

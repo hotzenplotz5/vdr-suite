@@ -122,6 +122,27 @@ test-restfulapi-upstream-action-endpoint-contract:
 		-o $(BUILD_DIR)/test_restfulapi_upstream_action_endpoint_contract
 	$(BUILD_DIR)/test_restfulapi_upstream_action_endpoint_contract
 
+test-restfulapi-safe-trash-workflow:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(RECORDING_ACTION_EXECUTOR_ADAPTER_SRC) \
+		core/recordings/tests/test_restfulapi_safe_trash_workflow.cpp \
+		-o $(BUILD_DIR)/test_restfulapi_safe_trash_workflow
+	$(BUILD_DIR)/test_restfulapi_safe_trash_workflow
+
+test-restfulapi-safe-rename-workflow:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(RECORDING_ACTION_EXECUTOR_ADAPTER_SRC) \
+		core/recordings/tests/test_restfulapi_safe_rename_workflow.cpp \
+		-o $(BUILD_DIR)/test_restfulapi_safe_rename_workflow
+	$(BUILD_DIR)/test_restfulapi_safe_rename_workflow
+
+test-restfulapi-safe-move-workflow:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(RECORDING_ACTION_EXECUTOR_ADAPTER_SRC) \
+		core/recordings/tests/test_restfulapi_safe_move_workflow.cpp \
+		-o $(BUILD_DIR)/test_restfulapi_safe_move_workflow
+	$(BUILD_DIR)/test_restfulapi_safe_move_workflow
+
 test-restfulapi-move-tilde-mapping-regression:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/recordings/tests/test_restfulapi_move_tilde_mapping_regression.cpp \

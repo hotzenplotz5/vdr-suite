@@ -137,16 +137,12 @@ public:
         const RecordingActionJobPayload payload =
             payloadFactory_.create(request, validation);
 
-        if (payload.dryRun)
-        {
-            RecordingActionExecutionResult result =
-                dryRunSkipped(payload);
-
-            appendValidationWarnings(result, validation);
-
-            return result;
-        }
-
+        /*
+         * Registry-backed execution delegates dry-run semantics to the
+         * selected backend adapter. A backend such as RESTfulAPI can then
+         * execute its read-only preview contract without invoking the
+         * mutation endpoint.
+         */
         const RecordingActionBackendExecutorAdapterLookupResult resolvedAdapter =
             registry.findAdapter(payload.backendId);
 

@@ -6,7 +6,10 @@
 #include "RestfulApiRecordingActionBackendConfig.h"
 
 #include <algorithm>
+#include <cctype>
+#include <iomanip>
 #include <map>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -26,6 +29,132 @@ public:
         return request;
     }
 
+    HttpRequest buildSafeMovePreviewRequest(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload) const
+    {
+        HttpRequest request;
+        request.method = "POST";
+        request.url =
+            buildUrl(
+                config.basePath,
+                "/recordings/move/preview.json");
+        request.headers["Accept"] = "application/json";
+        request.headers["Content-Type"] = "application/json";
+        request.body =
+            buildSafeMovePreviewBody(
+                config,
+                payload);
+        return request;
+    }
+
+    HttpRequest buildSafeMoveValidateRequest(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload,
+        const std::string& recordingsState,
+        const std::string& timersState) const
+    {
+        HttpRequest request;
+        request.method = "POST";
+        request.url =
+            buildUrl(
+                config.basePath,
+                "/recordings/move/validate.json");
+        request.headers["Accept"] = "application/json";
+        request.headers["Content-Type"] = "application/json";
+        request.body =
+            buildSafeMoveRevisionBody(
+                config,
+                payload,
+                recordingsState,
+                timersState);
+        return request;
+    }
+
+    HttpRequest buildSafeMoveExecuteRequest(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload,
+        const std::string& recordingsState,
+        const std::string& timersState) const
+    {
+        HttpRequest request;
+        request.method = "POST";
+        request.url =
+            buildUrl(
+                config.basePath,
+                "/recordings/move.json");
+        request.headers["Accept"] = "application/json";
+        request.headers["Content-Type"] = "application/json";
+        request.body =
+            buildSafeMoveRevisionBody(
+                config,
+                payload,
+                recordingsState,
+                timersState);
+        return request;
+    }
+
+    HttpRequest buildSafeRenamePreviewRequest(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload) const
+    {
+        HttpRequest request;
+        request.method = "POST";
+        request.url =
+            buildUrl(
+                config.basePath,
+                "/recordings/rename/preview.json");
+        request.headers["Accept"] = "application/json";
+        request.headers["Content-Type"] = "application/json";
+        request.body =
+            buildSafeRenamePreviewBody(payload);
+        return request;
+    }
+
+    HttpRequest buildSafeRenameValidateRequest(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload,
+        const std::string& recordingsState,
+        const std::string& timersState) const
+    {
+        HttpRequest request;
+        request.method = "POST";
+        request.url =
+            buildUrl(
+                config.basePath,
+                "/recordings/rename/validate.json");
+        request.headers["Accept"] = "application/json";
+        request.headers["Content-Type"] = "application/json";
+        request.body =
+            buildSafeRenameRevisionBody(
+                payload,
+                recordingsState,
+                timersState);
+        return request;
+    }
+
+    HttpRequest buildSafeRenameExecuteRequest(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload,
+        const std::string& recordingsState,
+        const std::string& timersState) const
+    {
+        HttpRequest request;
+        request.method = "POST";
+        request.url =
+            buildUrl(
+                config.basePath,
+                "/recordings/rename.json");
+        request.headers["Accept"] = "application/json";
+        request.headers["Content-Type"] = "application/json";
+        request.body =
+            buildSafeRenameRevisionBody(
+                payload,
+                recordingsState,
+                timersState);
+        return request;
+    }
+
     HttpRequest buildRenameRequest(
         const RestfulApiRecordingActionBackendConfig& config,
         const RecordingActionJobPayload& payload) const
@@ -36,6 +165,67 @@ public:
         request.headers["Accept"] = "application/json";
         request.headers["Content-Type"] = "application/json";
         request.body = buildRenameBody(payload);
+        return request;
+    }
+
+    HttpRequest buildSafeTrashPreviewRequest(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload) const
+    {
+        HttpRequest request;
+        request.method = "POST";
+        request.url =
+            buildUrl(
+                config.basePath,
+                "/recordings/trash/preview.json");
+        request.headers["Accept"] = "application/json";
+        request.headers["Content-Type"] = "application/json";
+        request.body =
+            buildSafeTrashPreviewBody(payload);
+        return request;
+    }
+
+    HttpRequest buildSafeTrashValidateRequest(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload,
+        const std::string& recordingsState,
+        const std::string& timersState) const
+    {
+        HttpRequest request;
+        request.method = "POST";
+        request.url =
+            buildUrl(
+                config.basePath,
+                "/recordings/trash/validate.json");
+        request.headers["Accept"] = "application/json";
+        request.headers["Content-Type"] = "application/json";
+        request.body =
+            buildSafeTrashRevisionBody(
+                payload,
+                recordingsState,
+                timersState);
+        return request;
+    }
+
+    HttpRequest buildSafeTrashExecuteRequest(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload,
+        const std::string& recordingsState,
+        const std::string& timersState) const
+    {
+        HttpRequest request;
+        request.method = "POST";
+        request.url =
+            buildUrl(
+                config.basePath,
+                "/recordings/trash.json");
+        request.headers["Accept"] = "application/json";
+        request.headers["Content-Type"] = "application/json";
+        request.body =
+            buildSafeTrashRevisionBody(
+                payload,
+                recordingsState,
+                timersState);
         return request;
     }
 
@@ -330,6 +520,273 @@ private:
         return parent + "/" + newName;
     }
 
+    static std::string normalizeSlashes(
+        std::string value)
+    {
+        std::replace(
+            value.begin(),
+            value.end(),
+            '\\',
+            '/');
+
+        while (value.size() > 1 &&
+               value.back() == '/')
+        {
+            value.pop_back();
+        }
+
+        return value;
+    }
+
+    static std::string lastPathSegment(
+        const std::string& path)
+    {
+        const std::string normalized =
+            normalizeSlashes(path);
+
+        const std::size_t separator =
+            normalized.find_last_of('/');
+
+        if (separator == std::string::npos)
+        {
+            return normalized;
+        }
+
+        return normalized.substr(separator + 1);
+    }
+
+    static std::string parentPath(
+        const std::string& path)
+    {
+        const std::string normalized =
+            normalizeSlashes(path);
+
+        const std::size_t separator =
+            normalized.find_last_of('/');
+
+        if (separator == std::string::npos)
+        {
+            return "";
+        }
+
+        if (separator == 0)
+        {
+            return "/";
+        }
+
+        return normalized.substr(0, separator);
+    }
+
+    static bool endsWith(
+        const std::string& value,
+        const std::string& suffix)
+    {
+        return
+            suffix.size() <= value.size() &&
+            value.compare(
+                value.size() - suffix.size(),
+                suffix.size(),
+                suffix) == 0;
+    }
+
+    static bool isHexDigit(
+        char value)
+    {
+        return std::isxdigit(
+            static_cast<unsigned char>(value)) != 0;
+    }
+
+    static bool isVdrFilesystemEscape(
+        const std::string& value,
+        std::size_t index)
+    {
+        return
+            value[index] == '#' &&
+            index + 2 < value.size() &&
+            isHexDigit(value[index + 1]) &&
+            isHexDigit(value[index + 2]);
+    }
+
+    static bool requiresVdrFilesystemEscape(
+        unsigned char value)
+    {
+        const std::string invalid =
+            "\"'\\/:*?|<>#~";
+
+        return invalid.find(
+            static_cast<char>(value)) !=
+            std::string::npos;
+    }
+
+    static std::string encodeVdrFilesystemSegment(
+        const std::string& segment)
+    {
+        std::ostringstream encoded;
+
+        for (std::size_t index = 0;
+             index < segment.size();
+             ++index)
+        {
+            const unsigned char value =
+                static_cast<unsigned char>(
+                    segment[index]);
+
+            if (isVdrFilesystemEscape(
+                    segment,
+                    index))
+            {
+                encoded <<
+                    segment.substr(index, 3);
+                index += 2;
+                continue;
+            }
+
+            if (value == ' ')
+            {
+                encoded << '_';
+                continue;
+            }
+
+            if (requiresVdrFilesystemEscape(value))
+            {
+                encoded
+                    << '#'
+                    << std::uppercase
+                    << std::hex
+                    << std::setw(2)
+                    << std::setfill('0')
+                    << static_cast<int>(value)
+                    << std::dec;
+                continue;
+            }
+
+            encoded <<
+                static_cast<char>(value);
+        }
+
+        return encoded.str();
+    }
+
+    static std::string encodeVdrFilesystemPath(
+        const std::string& path)
+    {
+        const std::vector<std::string> segments =
+            splitRecordingPathSegments(path);
+
+        std::vector<std::string> encodedSegments;
+        encodedSegments.reserve(segments.size());
+
+        for (const std::string& segment : segments)
+        {
+            encodedSegments.push_back(
+                encodeVdrFilesystemSegment(segment));
+        }
+
+        return joinRecordingPathSegments(
+            encodedSegments);
+    }
+
+    static std::string recordingVideoDirectory(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload)
+    {
+        const std::string source =
+            normalizeSlashes(
+                recordingPath(payload));
+
+        std::string relative =
+            normalizeSlashes(
+                findParameter(
+                    payload.parameters,
+                    "recordingPath"));
+
+        if (!relative.empty() &&
+            relative.front() != '/')
+        {
+            relative = "/" + relative;
+        }
+
+        if (!relative.empty() &&
+            endsWith(source, relative))
+        {
+            std::string directory =
+                source.substr(
+                    0,
+                    source.size() - relative.size());
+
+            while (directory.size() > 1 &&
+                   directory.back() == '/')
+            {
+                directory.pop_back();
+            }
+
+            if (!directory.empty())
+            {
+                return directory;
+            }
+        }
+
+        std::string directory =
+            normalizeSlashes(
+                config.videoDirectory);
+
+        if (directory.empty())
+        {
+            directory = "/srv/vdr/video";
+        }
+
+        return directory;
+    }
+
+    static std::string safeMoveTargetFile(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload)
+    {
+        const std::string source =
+            normalizeSlashes(
+                recordingPath(payload));
+
+        const std::string timestampDirectory =
+            lastPathSegment(source);
+
+        const std::string nativeTitleDirectory =
+            lastPathSegment(
+                parentPath(source));
+
+        const std::string targetPath =
+            findParameter(
+                payload.parameters,
+                "targetPath");
+
+        const std::string encodedTargetPath =
+            targetPath == "/"
+                ? ""
+                : encodeVdrFilesystemPath(
+                    targetPath);
+
+        std::string target =
+            recordingVideoDirectory(
+                config,
+                payload);
+
+        if (!encodedTargetPath.empty())
+        {
+            target += "/" + encodedTargetPath;
+        }
+
+        if (!nativeTitleDirectory.empty())
+        {
+            target += "/" + nativeTitleDirectory;
+        }
+
+        if (!timestampDirectory.empty())
+        {
+            target += "/" + timestampDirectory;
+        }
+
+        return normalizeSlashes(target);
+    }
+
     static std::string jsonQuote(const std::string& value)
     {
         std::string quoted = "\"";
@@ -361,6 +818,105 @@ private:
         return body;
     }
 
+    static std::string buildSafeMovePreviewBody(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload)
+    {
+        std::string body = "{";
+
+        body +=
+            "\"file\":" +
+            jsonQuote(recordingPath(payload));
+
+        body +=
+            ",\"target_file\":" +
+            jsonQuote(
+                safeMoveTargetFile(
+                    config,
+                    payload));
+
+        body += "}";
+
+        return body;
+    }
+
+    static std::string buildSafeMoveRevisionBody(
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload,
+        const std::string& recordingsState,
+        const std::string& timersState)
+    {
+        std::string body =
+            buildSafeMovePreviewBody(
+                config,
+                payload);
+
+        body.pop_back();
+
+        body +=
+            ",\"revision_recordings_state\":" +
+            jsonQuote(recordingsState);
+
+        body +=
+            ",\"revision_timers_state\":" +
+            jsonQuote(timersState);
+
+        body += "}";
+
+        return body;
+    }
+
+    static std::string safeRenameName(
+        const RecordingActionJobPayload& payload)
+    {
+        return encodeVdrFilesystemSegment(
+            findParameter(
+                payload.parameters,
+                "newName"));
+    }
+
+    static std::string buildSafeRenamePreviewBody(
+        const RecordingActionJobPayload& payload)
+    {
+        std::string body = "{";
+
+        body +=
+            "\"file\":" +
+            jsonQuote(recordingPath(payload));
+
+        body +=
+            ",\"name\":" +
+            jsonQuote(
+                safeRenameName(payload));
+
+        body += "}";
+
+        return body;
+    }
+
+    static std::string buildSafeRenameRevisionBody(
+        const RecordingActionJobPayload& payload,
+        const std::string& recordingsState,
+        const std::string& timersState)
+    {
+        std::string body =
+            buildSafeRenamePreviewBody(payload);
+
+        body.pop_back();
+
+        body +=
+            ",\"revision_recordings_state\":" +
+            jsonQuote(recordingsState);
+
+        body +=
+            ",\"revision_timers_state\":" +
+            jsonQuote(timersState);
+
+        body += "}";
+
+        return body;
+    }
+
     static std::string buildRenameBody(
         const RecordingActionJobPayload& payload)
     {
@@ -371,6 +927,43 @@ private:
         body += "\"source\":" + jsonQuote(recordingPath(payload));
         body += ",\"target\":" + jsonQuote(encodeVdrRecordingNameTarget(renameTarget(payload, newName)));
         body += ",\"copy_only\":false";
+        body += "}";
+
+        return body;
+    }
+
+    static std::string buildSafeTrashPreviewBody(
+        const RecordingActionJobPayload& payload)
+    {
+        std::string body = "{";
+
+        body +=
+            "\"file\":" +
+            jsonQuote(recordingPath(payload));
+
+        body += "}";
+
+        return body;
+    }
+
+    static std::string buildSafeTrashRevisionBody(
+        const RecordingActionJobPayload& payload,
+        const std::string& recordingsState,
+        const std::string& timersState)
+    {
+        std::string body =
+            buildSafeTrashPreviewBody(payload);
+
+        body.pop_back();
+
+        body +=
+            ",\"revision_recordings_state\":" +
+            jsonQuote(recordingsState);
+
+        body +=
+            ",\"revision_timers_state\":" +
+            jsonQuote(timersState);
+
         body += "}";
 
         return body;

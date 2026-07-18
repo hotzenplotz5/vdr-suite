@@ -31,6 +31,9 @@
 #include "RecordingActionValidationController.h"
 #include "RecordingActionValidationRequestParser.h"
 #include "RecordingActionExecutionResultJsonSerializer.h"
+#include "RecordingActionPreviewController.h"
+#include "RecordingActionRequestPreviewResultJsonSerializer.h"
+#include "RecordingActionRequestPreviewService.h"
 #include "RecordingActionValidationResultJsonSerializer.h"
 #include "RecordingActionBackendExecutorAdapterRegistry.h"
 #include "RecordingActionExecutionService.h"
@@ -224,6 +227,18 @@ int main()
         recordingActionBackendExecutorAdapterRegistry,
         recordingActionValidationRequestParser);
 
+    RecordingActionRequestPreviewService
+        recordingActionRequestPreviewService;
+
+    RecordingActionRequestPreviewResultJsonSerializer
+        recordingActionRequestPreviewJsonSerializer;
+
+    RecordingActionPreviewController
+        recordingActionPreviewController(
+            recordingActionRequestPreviewService,
+            recordingActionRequestPreviewJsonSerializer,
+            recordingActionValidationRequestParser);
+
     VdrTimerActionExecutionService vdrTimerActionExecutionService;
     VdrTimerActionResultJsonSerializer vdrTimerActionResultJsonSerializer;
     VdrTimerActionRequestParser vdrTimerActionRequestParser;
@@ -291,6 +306,7 @@ int main()
         capabilityController,
         recordingActionValidationController,
         recordingActionExecutionController,
+        recordingActionPreviewController,
         vdrTimerActionController,
         vdrTimerActionExecutorAdapterRegistry,
         runtimeDiagnosticsController,
@@ -450,7 +466,7 @@ int main()
     assert(validationResponse.body.find("\"dryRun\":true") != std::string::npos);
     assert(validationResponse.body.find("\"wouldCreateJob\":false") != std::string::npos);
     assert(validationResponse.body.find("\"recordingId\":\"http-recording-1\"") != std::string::npos);
-    assert(validationResponse.body.find("\"requiredCapabilities\":[\"recordings.action.move\"]")
+    assert(validationResponse.body.find("\"requiredCapabilities\":[\"recording.action.move\"]")
            != std::string::npos);
     assert(validationResponse.body.find("\"warnings\":[\"dry-run only\"]")
            != std::string::npos);
@@ -471,7 +487,7 @@ int main()
     assertJsonResponse(vdrValidationResponse, 200);
     assert(vdrValidationResponse.body.find("\"valid\":true") != std::string::npos);
     assert(vdrValidationResponse.body.find("\"recordingId\":\"http-recording-2\"") != std::string::npos);
-    assert(vdrValidationResponse.body.find("\"requiredCapabilities\":[\"recordings.action.delete\"]")
+    assert(vdrValidationResponse.body.find("\"requiredCapabilities\":[\"recording.action.delete\"]")
            != std::string::npos);
 
     HttpServerRequest unsupportedMethodRequest;
