@@ -35,6 +35,11 @@ def require_tokens(source: str, tokens: list[str], prefix: str) -> None:
         require(token in source, prefix + token)
 
 
+def require_transport_free(source: str, label: str) -> None:
+    for token in ["fetch(", "XMLHttpRequest", "EventSource", "WebSocket"]:
+        require(token not in source, f"{label} must use the Client API wrapper: {token}")
+
+
 def main() -> int:
     bootstrap = read(BOOTSTRAP)
     app_js = read(APP)
@@ -68,6 +73,20 @@ def main() -> int:
         "platform runtime context contract missing: ",
     )
 
+    for token in [
+        "document.",
+        "document[",
+        "createElement",
+        "appendChild",
+        "replaceChildren",
+        "innerHTML",
+        "fetch(",
+        "XMLHttpRequest",
+        "EventSource",
+        "WebSocket",
+    ]:
+        require(token not in bootstrap, "platform bootstrap must remain DOM/API-free: " + token)
+
     require_tokens(
         helpers_js,
         [
@@ -78,24 +97,33 @@ def main() -> int:
             "function formatEpochClock(epochSeconds)",
             "const helpersApi = Object.freeze({",
             "global.VdrSuiteFrontendHelpers = helpersApi;",
-            "function configureWorkflowModule(name, legacyApi)",
-            "platform.getSelectedBackendId()",
-            "clientApi: platform && typeof platform.getClientApi === 'function'",
-            "reload: workflowReload",
-            "configureWorkflowModule('timers'",
-            "configureWorkflowModule('searchtimers'",
         ],
-        "frontend helper/runtime bridge contract missing: ",
+        "frontend helper contract missing: ",
     )
 
-    for token in ["XMLHttpRequest", "EventSource", "WebSocket", "fetch("]:
-        require(token not in helpers_js, "frontend helper source must stay transport-free: " + token)
+    for token in [
+        "document.",
+        "createElement",
+        "appendChild",
+        "replaceChildren",
+        "innerHTML",
+        "fetch(",
+        "XMLHttpRequest",
+        "EventSource",
+        "WebSocket",
+    ]:
+        require(token not in helpers_js, "frontend helper source must stay DOM/API-free: " + token)
 
     require_tokens(
         timer_module,
         [
-            "Active Timer browser with safe create, edit, toggle and delete workflows.",
+            "Phase 60.8a: Active Timer browser module.",
             "function configureContext(context)",
+            "function resolvedClientApi()",
+            "global.VdrSuitePlatform || null",
+            "runtime.getClientApi()",
+            "runtime.getSelectedBackendId()",
+            "document.getElementById('refresh-detail')",
             "function renderList(data, conflictReport)",
             "function renderConflicts(report, timers, error)",
             "function timerActionPayload(timer, overrides)",
@@ -110,12 +138,18 @@ def main() -> int:
         ],
         "active Timer workflow contract missing: ",
     )
+    require_transport_free(timer_module, "Timer module")
 
     require_tokens(
         searchtimer_module,
         [
-            "SearchTimer browser with compact cards and safe create/preview/delete workflows.",
+            "Phase 60.9b: Active SearchTimer browser module.",
             "function configureContext(context)",
+            "function clientApi()",
+            "global.VdrSuitePlatform || null",
+            "runtime.getClientApi()",
+            "runtime.getSelectedBackendId()",
+            "document.getElementById('refresh-detail')",
             "function renderList(data)",
             "function normalizeSearchTimer(searchTimer, index)",
             "function buildCreatePayload(form, template)",
@@ -123,19 +157,14 @@ def main() -> int:
             "fetchClientSearchTimerPreview",
             "fetchClientSearchTimerCreateAction",
             "fetchClientSearchTimerDeleteAction",
-            "global.VdrSuiteSearchTimerBrowser = api;",
-            "global.VdrSuitePlatform.registerModule('searchtimers', api);",
+            "const searchTimerBrowserApi = Object.freeze({",
+            "global.VdrSuiteSearchTimerBrowser = searchTimerBrowserApi;",
+            "global.VdrSuitePlatform.registerModule('searchtimers', searchTimerBrowserApi);",
             "SearchTimer browser mount target is not configured",
         ],
         "active SearchTimer workflow contract missing: ",
     )
-
-    for source, label in [
-        (timer_module, "Timer module"),
-        (searchtimer_module, "SearchTimer module"),
-    ]:
-        for token in ["XMLHttpRequest", "EventSource", "WebSocket", "fetch("]:
-            require(token not in source, f"{label} must use the Client API wrapper: {token}")
+    require_transport_free(searchtimer_module, "SearchTimer module")
 
     require_tokens(
         app_js,
@@ -169,20 +198,6 @@ def main() -> int:
         ],
         "app.js platform runtime context wiring missing: ",
     )
-
-    for token in [
-        "document.",
-        "document[",
-        "createElement",
-        "appendChild",
-        "replaceChildren",
-        "innerHTML",
-        "fetch(",
-        "XMLHttpRequest",
-        "EventSource",
-        "WebSocket",
-    ]:
-        require(token not in bootstrap, "platform bootstrap must remain DOM/API-free: " + token)
 
     print("frontend platform runtime context contract ok")
     return 0
