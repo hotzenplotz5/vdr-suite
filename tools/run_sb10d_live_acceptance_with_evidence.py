@@ -15,7 +15,6 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "tools/run_sb10d_live_acceptance.py"
-SETUP_PATH = Path("/var/lib/vdr/setup.conf")
 
 
 class EvidenceError(RuntimeError):
@@ -95,8 +94,6 @@ def capture_payloads(
     base_url: str,
     username: str,
     password: str,
-    evidence: Path,
-    phase: str,
 ) -> dict[str, Any]:
     endpoints = {
         "channels": "/channels.json",
@@ -106,14 +103,12 @@ def capture_payloads(
     payloads: dict[str, Any] = {}
 
     for name, endpoint in endpoints.items():
-        payload = wait_json(
+        payloads[name] = wait_json(
             base_url.rstrip("/") + endpoint,
             username=username,
             password=password,
             timeout_seconds=60,
         )
-        payloads[name] = payload
-        write_json(evidence / f"{name}-{phase}.json", payload)
 
     return payloads
 
@@ -126,7 +121,7 @@ def json_difference(
     differences: list[dict[str, Any]] = []
 
     if type(before) is not type(after):
-        differences.append(
+        return [
             {
                 "path": path,
                 "kind": "type-changed",
@@ -135,8 +130,7 @@ def json_difference(
                 "before": before,
                 "after": after,
             }
-        )
-        return differences
+        ]
 
     if isinstance(before, dict):
         before_keys = set(before)
@@ -216,22 +210,22 @@ def json_difference(
     return differences
 
 
-def write_differences(
+def persist_evidence(
     evidence: Path,
     before_payloads: dict[str, Any],
     after_payloads: dict[str, Any],
+    runner_exit_code: int,
 ) -> list[str]:
+    evidence.mkdir(parents=True, exist_ok=True)
     changed_resources: list[str] = []
 
     for name in ("channels", "timers", "recordings"):
-        differences = json_difference(
-            before_payloads.get(name),
-            after_payloads.get(name),
-        )
+        before = before_payloads[name]
+        after = after_payloads[name]
+        differences = json_difference(before, after)
 
-        if differences:
-            changed_resources.append(name)
-
+        write_json(evidence / f"{name}-before.json", before)
+        write_json(evidence / f"{name}-after.json", after)
         write_json(
             evidence / f"{name}-diff.json",
             {
@@ -241,6 +235,18 @@ def write_differences(
                 "differences": differences,
             },
         )
+
+        if differences:
+            changed_resources.append(name)
+
+    write_json(
+        evidence / "vdr-state-evidence-summary.json",
+        {
+            "runnerExitCode": runner_exit_code,
+            "changedResources": changed_resources,
+            "vdrStateUnchanged": not changed_resources,
+        },
+    )
 
     return changed_resources
 
@@ -272,8 +278,6 @@ def main() -> int:
         args.restfulapi_base_url,
         args.restfulapi_user,
         args.restfulapi_password,
-        evidence.parent,
-        f"{evidence.name}-before",
     )
 
     command = [
@@ -290,39 +294,38 @@ def main() -> int:
         *passthrough,
     ]
 
-    environment = os.environ.copy()
     completed = subprocess.run(
         command,
         cwd=ROOT,
-        env=environment,
+        env=os.environ.copy(),
         check=False,
     )
 
-    after_payloads = capture_payloads(
-        args.restfulapi_base_url,
-        args.restfulapi_user,
-        args.restfulapi_password,
-        evidence,
-        "after",
-    )
+    if not evidence.exists():
+        evidence.mkdir(parents=True)
 
-    for name, payload in before_payloads.items():
-        write_json(evidence / f"{name}-before.json", payload)
+    try:
+        after_payloads = capture_payloads(
+            args.restfulapi_base_url,
+            args.restfulapi_user,
+            args.restfulapi_password,
+        )
+    except Exception as error:
+        write_json(
+            evidence / "vdr-state-evidence-summary.json",
+            {
+                "runnerExitCode": completed.returncode,
+                "evidenceError": str(error),
+                "vdrStateUnchanged": None,
+            },
+        )
+        raise
 
-    changed_resources = write_differences(
+    changed_resources = persist_evidence(
         evidence,
         before_payloads,
         after_payloads,
-    )
-
-    write_json(
-        evidence / "vdr-state-evidence-summary.json",
-        {
-            "runnerExitCode": completed.returncode,
-            "changedResources": changed_resources,
-            "vdrStateUnchanged": not changed_resources,
-            "setupPath": str(SETUP_PATH),
-        },
+        completed.returncode,
     )
 
     print(f"SB.10d extended evidence: {evidence}", flush=True)
