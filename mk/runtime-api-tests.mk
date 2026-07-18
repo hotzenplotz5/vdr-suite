@@ -133,7 +133,7 @@ test-test-http-server: prepare-test-db
 
 test-mock-http-client:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		$(HTTP_SRC) \
+		core/http/src/MockHttpClient.cpp \
 		core/http/tests/test_mock_http_client.cpp \
 		-o $(BUILD_DIR)/test_mock_http_client
 	$(BUILD_DIR)/test_mock_http_client
