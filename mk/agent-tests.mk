@@ -1,4 +1,4 @@
-.PHONY: test-suite-bridge-agent-boundary test-suite-bridge-handshake test-suite-bridge-handshake-missing-plugin test-suite-bridge-svdrp-transport-boundary test-suite-bridge-svdrp-transport test-suite-bridge-svdrp-transport-live test-suite-bridge-observation-boundary test-suite-bridge-observation-service test-suite-bridge-observation-worker test-suite-bridge-observation-live
+.PHONY: test-suite-bridge-agent-boundary test-suite-bridge-handshake test-suite-bridge-handshake-missing-plugin test-suite-bridge-svdrp-transport-boundary test-suite-bridge-svdrp-transport test-suite-bridge-svdrp-transport-live test-suite-bridge-observation-boundary test-suite-bridge-observation-service test-suite-bridge-observation-worker test-real-suite-bridge-observation-live
 
 test-suite-bridge-agent-boundary:
 	python3 tools/check_suite_bridge_agent_boundary.py
@@ -54,7 +54,7 @@ test-suite-bridge-svdrp-transport-live:
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_transport_live
 	$(BUILD_DIR)/test_suite_bridge_svdrp_transport_live
 
-test-suite-bridge-observation-live:
+test-real-suite-bridge-observation-live:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include \
 		$(AGENT_SRC) \
 		core/agent/tests/test_suite_bridge_observation_live.cpp \
