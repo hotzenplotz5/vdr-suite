@@ -239,5 +239,7 @@ assert.ok(source.includes("field('Kanalfilter', modeSelect, true)"));
 assert.ok(source.includes('Expertenoption: Verzeichnis manuell eingeben'));
 assert.ok(source.includes('Expertenoption: Kanalfilter manuell eingeben'));
 assert.ok(source.includes('Nur frei empfangbare Kanäle (FTA)'));
+assert.ok(source.includes('function clearManualChannelFilter()'));
+assert.ok(source.includes("channelGroupSelect.addEventListener('change', clearManualChannelFilter)"));
 
 console.log('test_searchtimer_workflows_runtime passed');
