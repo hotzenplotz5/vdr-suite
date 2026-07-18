@@ -1,2 +1,2 @@
 trigger SB.10c documentation closeout
-retry 1
+retry 2
