@@ -68,8 +68,16 @@ def main() -> int:
     for token in required_runner_tokens:
         require(token in runner, f"live runner is missing safety contract: {token}")
 
-    first_install = runner.index('"install",')
-    rollback_armed = runner.index("plugin_staged = True")
+    install_operation = '''        run(
+            [
+                "install",
+'''
+    require(
+        runner.count(install_operation) == 1,
+        "live runner must contain one exact external install operation",
+    )
+    first_install = runner.index(install_operation)
+    rollback_armed = runner.index("        plugin_staged = True")
     require(
         rollback_armed < first_install,
         "plugin rollback must be armed before the first external install write",
