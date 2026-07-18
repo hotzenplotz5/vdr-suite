@@ -1,4 +1,4 @@
-.PHONY: test-suite-bridge-agent-boundary test-suite-bridge-handshake test-suite-bridge-handshake-missing-plugin test-suite-bridge-svdrp-transport-boundary test-suite-bridge-svdrp-transport test-suite-bridge-svdrp-transport-live test-suite-bridge-observation-boundary test-suite-bridge-observation-service test-suite-bridge-observation-worker test-suite-bridge-embedded-runtime-boundary test-suite-bridge-embedded-runtime test-suite-bridge-daemon-runtime-wiring build-suite-bridge-embedded-runtime-live test-real-suite-bridge-embedded-runtime-live test-real-suite-bridge-observation-live
+.PHONY: test-suite-bridge-agent-boundary test-suite-bridge-handshake test-suite-bridge-handshake-missing-plugin test-suite-bridge-svdrp-transport-boundary test-suite-bridge-svdrp-transport test-suite-bridge-svdrp-transport-live test-suite-bridge-observation-boundary test-suite-bridge-observation-service test-suite-bridge-observation-worker test-suite-bridge-embedded-runtime-boundary test-suite-bridge-embedded-runtime test-suite-bridge-daemon-runtime-wiring test-sb10d-live-acceptance-contract build-suite-bridge-embedded-runtime-live test-real-suite-bridge-embedded-runtime-live test-real-suite-bridge-observation-live
 
 test-suite-bridge-agent-boundary:
 	python3 tools/check_suite_bridge_agent_boundary.py
@@ -59,6 +59,9 @@ test-suite-bridge-embedded-runtime:
 
 test-suite-bridge-daemon-runtime-wiring:
 	python3 tools/check_suite_bridge_daemon_runtime_wiring.py
+
+test-sb10d-live-acceptance-contract:
+	python3 tools/check_sb10d_live_acceptance_contract.py
 
 $(BUILD_DIR)/test_suite_bridge_embedded_agent_runtime_live:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include \
