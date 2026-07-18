@@ -59,10 +59,10 @@ std::string VdrSnapshotReadJsonSerializer::serializeStatus(
     std::ostringstream json;
 
     json
-        << "{" 
+        << "{"
         << "\"enabled\":" << boolToJson(status.enabled) << ","
-        << "\"mode\":\"" << status.mode << "\"," 
-        << "\"host\":\"" << status.host << "\"," 
+        << "\"mode\":\"" << status.mode << "\","
+        << "\"host\":\"" << status.host << "\","
         << "\"port\":" << status.port << ","
         << "\"state\":\"" << status.state << "\""
         << "}";
@@ -74,15 +74,11 @@ std::string VdrSnapshotReadJsonSerializer::serializeRecordings(
     const std::vector<VdrRecording>& recordings) const
 {
     std::ostringstream json;
-
     json << "{\"recordings\":[";
 
-    for (std::size_t index = 0;
-         index < recordings.size();
-         ++index)
+    for (std::size_t index = 0; index < recordings.size(); ++index)
     {
         const auto& recording = recordings[index];
-
         if (index > 0)
         {
             json << ",";
@@ -90,17 +86,16 @@ std::string VdrSnapshotReadJsonSerializer::serializeRecordings(
 
         json
             << "{"
-            << "\"id\":\"" << recording.id << "\"," 
-            << "\"title\":\"" << recording.title << "\"," 
-            << "\"path\":\"" << recording.path << "\"," 
-            << "\"startTime\":\"" << recording.startTime << "\"," 
+            << "\"id\":\"" << recording.id << "\","
+            << "\"title\":\"" << recording.title << "\","
+            << "\"path\":\"" << recording.path << "\","
+            << "\"startTime\":\"" << recording.startTime << "\","
             << "\"durationSeconds\":" << recording.durationSeconds << ","
             << "\"sizeMb\":" << recording.sizeMb
             << "}";
     }
 
     json << "]}";
-
     return json.str();
 }
 
@@ -108,43 +103,31 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimers(
     const std::vector<VdrTimer>& timers) const
 {
     std::ostringstream json;
-
     json << "{\"timers\":[";
 
-    for (std::size_t index = 0;
-         index < timers.size();
-         ++index)
+    for (std::size_t index = 0; index < timers.size(); ++index)
     {
         const auto& timer = timers[index];
-
         if (index > 0)
         {
             json << ",";
         }
 
         json << "{";
-
         json << "\"id\":";
         appendJsonString(json, timer.id);
-
         json << ",\"channelId\":";
         appendJsonString(json, timer.channelId);
-
         json << ",\"eventId\":";
         appendJsonString(json, timer.eventId);
-
         json << ",\"title\":";
         appendJsonString(json, timer.title);
-
         json << ",\"subtitle\":";
         appendJsonString(json, timer.subtitle);
-
         json << ",\"startTime\":";
         appendJsonString(json, timer.startTime);
-
         json << ",\"endTime\":";
         appendJsonString(json, timer.endTime);
-
         json
             << ",\"priority\":" << timer.priority
             << ",\"lifetime\":" << timer.lifetime
@@ -154,7 +137,6 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimers(
     }
 
     json << "]}";
-
     return json.str();
 }
 
@@ -162,10 +144,7 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimerConflictReport(
     const VdrTimerConflictReport& report) const
 {
     std::ostringstream json;
-
-    json
-        << "{"
-        << "\"source\":";
+    json << "{\"source\":";
     appendJsonString(json, report.source);
     json
         << ",\"available\":" << boolToJson(report.available)
@@ -180,73 +159,52 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimerConflictReport(
     }
 
     json << ",\"conflicts\":[";
-
-    for (std::size_t conflictIndex = 0;
-         conflictIndex < report.conflicts.size();
-         ++conflictIndex)
+    for (std::size_t conflictIndex = 0; conflictIndex < report.conflicts.size(); ++conflictIndex)
     {
-        const VdrTimerConflict& conflict =
-            report.conflicts[conflictIndex];
-
+        const VdrTimerConflict& conflict = report.conflicts[conflictIndex];
         if (conflictIndex > 0)
         {
             json << ",";
         }
 
-        json
-            << "{"
-            << "\"raw\":";
+        json << "{\"raw\":";
         appendJsonString(json, conflict.raw);
-        json
-            << ",\"conflictTime\":" << conflict.conflictTime
-            << ",\"entries\":[";
+        json << ",\"conflictTime\":" << conflict.conflictTime << ",\"entries\":[";
 
-        for (std::size_t entryIndex = 0;
-             entryIndex < conflict.entries.size();
-             ++entryIndex)
+        for (std::size_t entryIndex = 0; entryIndex < conflict.entries.size(); ++entryIndex)
         {
-            const VdrTimerConflictEntry& entry =
-                conflict.entries[entryIndex];
-
+            const VdrTimerConflictEntry& entry = conflict.entries[entryIndex];
             if (entryIndex > 0)
             {
                 json << ",";
             }
 
             json
-                << "{"
-                << "\"timerIndex\":" << entry.timerIndex
+                << "{\"timerIndex\":" << entry.timerIndex
                 << ",\"percentage\":" << entry.percentage
                 << ",\"concurrentTimerIndices\":[";
 
-            for (std::size_t index = 0;
-                 index < entry.concurrentTimerIndices.size();
-                 ++index)
+            for (std::size_t index = 0; index < entry.concurrentTimerIndices.size(); ++index)
             {
                 if (index > 0)
                 {
                     json << ",";
                 }
-
                 json << entry.concurrentTimerIndices[index];
             }
 
             json << "]";
-
             if (!entry.remoteServer.empty())
             {
                 json << ",\"remoteServer\":";
                 appendJsonString(json, entry.remoteServer);
             }
-
             json << "}";
         }
-
         json << "]}";
     }
 
     json << "]}";
-
     return json.str();
 }
 
@@ -254,15 +212,11 @@ std::string VdrSnapshotReadJsonSerializer::serializeSearchTimers(
     const std::vector<SearchTimer>& searchTimers) const
 {
     std::ostringstream json;
-
     json << "{\"searchTimers\":[";
 
-    for (std::size_t index = 0;
-         index < searchTimers.size();
-         ++index)
+    for (std::size_t index = 0; index < searchTimers.size(); ++index)
     {
         const auto& searchTimer = searchTimers[index];
-
         if (index > 0)
         {
             json << ",";
@@ -279,7 +233,6 @@ std::string VdrSnapshotReadJsonSerializer::serializeSearchTimers(
     }
 
     json << "]}";
-
     return json.str();
 }
 
@@ -287,15 +240,11 @@ std::string VdrSnapshotReadJsonSerializer::serializeChannels(
     const std::vector<VdrChannel>& channels) const
 {
     std::ostringstream json;
-
     json << "{\"channels\":[";
 
-    for (std::size_t index = 0;
-         index < channels.size();
-         ++index)
+    for (std::size_t index = 0; index < channels.size(); ++index)
     {
         const auto& channel = channels[index];
-
         if (index > 0)
         {
             json << ",";
@@ -303,11 +252,11 @@ std::string VdrSnapshotReadJsonSerializer::serializeChannels(
 
         json
             << "{"
-            << "\"id\":\"" << channel.id << "\"," 
+            << "\"id\":\"" << channel.id << "\","
             << "\"number\":" << channel.number << ","
-            << "\"name\":\"" << channel.name << "\"," 
-            << "\"provider\":\"" << channel.provider << "\"," 
-            << "\"group\":\"" << channel.group << "\"," 
+            << "\"name\":\"" << channel.name << "\","
+            << "\"provider\":\"" << channel.provider << "\","
+            << "\"group\":\"" << channel.group << "\","
             << "\"radio\":" << boolToJson(channel.radio) << ","
             << "\"encrypted\":" << boolToJson(channel.encrypted) << ","
             << "\"enabled\":" << boolToJson(channel.enabled)
@@ -315,7 +264,6 @@ std::string VdrSnapshotReadJsonSerializer::serializeChannels(
     }
 
     json << "]}";
-
     return json.str();
 }
 
@@ -323,31 +271,33 @@ std::string VdrSnapshotReadJsonSerializer::serializeEvents(
     const std::vector<VdrEvent>& events) const
 {
     std::ostringstream json;
-
     json << "{\"events\":[";
 
-    for (std::size_t index = 0;
-         index < events.size();
-         ++index)
+    for (std::size_t index = 0; index < events.size(); ++index)
     {
         const auto& event = events[index];
-
         if (index > 0)
         {
             json << ",";
         }
 
+        json << "{\"id\":";
+        appendJsonString(json, event.id);
+        json << ",\"channelId\":";
+        appendJsonString(json, event.channelId);
+        json << ",\"title\":";
+        appendJsonString(json, event.title);
+        json << ",\"subtitle\":";
+        appendJsonString(json, event.subtitle);
+        json << ",\"description\":";
+        appendJsonString(json, event.description);
+        json << ",\"startTime\":";
+        appendJsonString(json, event.startTime);
+        json << ",\"endTime\":";
+        appendJsonString(json, event.endTime);
         json
-            << "{"
-            << "\"id\":\"" << event.id << "\"," 
-            << "\"channelId\":\"" << event.channelId << "\"," 
-            << "\"title\":\"" << event.title << "\"," 
-            << "\"subtitle\":\"" << event.subtitle << "\"," 
-            << "\"description\":\"" << event.description << "\"," 
-            << "\"startTime\":\"" << event.startTime << "\"," 
-            << "\"endTime\":\"" << event.endTime << "\"," 
-            << "\"durationSeconds\":" << event.durationSeconds << ","
-            << "\"contentDescriptors\":[";
+            << ",\"durationSeconds\":" << event.durationSeconds
+            << ",\"contentDescriptors\":[";
 
         for (std::size_t descriptorIndex = 0;
              descriptorIndex < event.contentDescriptors.size();
@@ -357,11 +307,7 @@ std::string VdrSnapshotReadJsonSerializer::serializeEvents(
             {
                 json << ",";
             }
-
-            json
-                << "\""
-                << event.contentDescriptors[descriptorIndex]
-                << "\"";
+            appendJsonString(json, event.contentDescriptors[descriptorIndex]);
         }
 
         json
@@ -371,7 +317,6 @@ std::string VdrSnapshotReadJsonSerializer::serializeEvents(
     }
 
     json << "]}";
-
     return json.str();
 }
 
@@ -385,7 +330,6 @@ std::string VdrSnapshotReadJsonSerializer::serializeHealth(
     const std::string& backendId) const
 {
     std::ostringstream json;
-
     json
         << "{"
         << "\"backendId\":\"" << backendId << "\","
@@ -412,7 +356,6 @@ std::string VdrSnapshotReadJsonSerializer::serializeSnapshotSummary(
     const std::string& backendId) const
 {
     std::ostringstream json;
-
     json
         << "{"
         << "\"backendId\":\"" << backendId << "\","
@@ -426,20 +369,15 @@ std::string VdrSnapshotReadJsonSerializer::serializeSnapshotSummary(
     return json.str();
 }
 
-
 std::string VdrSnapshotReadJsonSerializer::serializeSnapshots(
     const std::vector<VdrSnapshot>& snapshots) const
 {
     std::ostringstream json;
-
     json << "{\"snapshots\":[";
 
-    for (std::size_t index = 0;
-         index < snapshots.size();
-         ++index)
+    for (std::size_t index = 0; index < snapshots.size(); ++index)
     {
         const auto& snapshot = snapshots[index];
-
         if (index > 0)
         {
             json << ",";
@@ -457,7 +395,6 @@ std::string VdrSnapshotReadJsonSerializer::serializeSnapshots(
     }
 
     json << "]}";
-
     return json.str();
 }
 
@@ -465,7 +402,6 @@ std::string VdrSnapshotReadJsonSerializer::serializeCapabilities(
     const VdrCapabilitySet& capabilities) const
 {
     std::ostringstream json;
-
     json
         << "{"
         << "\"snapshotRead\":" << boolToJson(capabilities.snapshotRead) << ","
