@@ -1738,7 +1738,7 @@ int main()
            != std::string::npos);
     assert(actionExecuteResponse.body.find("\"recordingId\":\"router-recording-1\"")
            != std::string::npos);
-    assert(actionExecuteResponse.body.find("\"message\":\"dry-run backend execution skipped\"")
+    assert(actionExecuteResponse.body.find("\"message\":\"router dry-run execution skipped\"")
            != std::string::npos);
 
     ApiResponse actionExecuteAliasResponse =

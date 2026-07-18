@@ -466,6 +466,9 @@ bool DaemonRuntime::initialize()
         RestfulApiRecordingActionBackendConfig recordingActionConfig;
         recordingActionConfig.backendId = backendRuntimeContext->backendId;
         recordingActionConfig.basePath = "";
+        recordingActionConfig.videoDirectory = "/srv/vdr/video";
+        recordingActionConfig.apiMode =
+            RestfulApiRecordingActionApiMode::SafeMutation;
         recordingActionConfig.allowExecution = true;
         recordingActionConfig.readOnly = false;
 

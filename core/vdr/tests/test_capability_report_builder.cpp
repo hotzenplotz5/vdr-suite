@@ -18,7 +18,7 @@ int main()
 
     assert(emptyReport.backendId() == "empty-backend");
     assert(!emptyReport.empty());
-    assert(emptyReport.size() == 10);
+    assert(emptyReport.size() == 11);
 
     for (const auto& state : emptyReport.capabilities())
     {
@@ -39,13 +39,14 @@ int main()
 
     assert(readOnlyReport.backendId() == "mock-backend");
     assert(!readOnlyReport.empty());
-    assert(readOnlyReport.size() == 10);
+    assert(readOnlyReport.size() == 11);
 
     for (std::size_t index = 0; index < readOnlyReport.capabilities().size(); ++index)
     {
         const auto& state = readOnlyReport.capabilities().at(index);
 
-        if (state.capabilityName() == "epg.search.fuzzy.native")
+        if (state.capabilityName() == "epg.search.fuzzy.native" ||
+            state.capabilityName() == "searchtimer.preview.native")
         {
             assert(!state.supported());
             assert(!state.availableNow());
@@ -64,6 +65,7 @@ int main()
     assert(readOnlyReport.capabilities().at(7).capabilityName() == "events.read.selective");
     assert(readOnlyReport.capabilities().at(8).capabilityName() == "epg.search.fuzzy.fallback");
     assert(readOnlyReport.capabilities().at(9).capabilityName() == "epg.search.fuzzy.native");
+    assert(readOnlyReport.capabilities().at(10).capabilityName() == "searchtimer.preview.native");
 
     std::cout
         << "test_capability_report_builder passed"

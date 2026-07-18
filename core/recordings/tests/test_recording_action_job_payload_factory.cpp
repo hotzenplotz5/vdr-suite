@@ -18,8 +18,8 @@ int main()
     validation.wouldCreateJob = true;
     validation.backendId = "living-room";
     validation.recordingId = "recording-1";
-    validation.requiredCapabilities.push_back("recordings.action.move");
-    validation.requiredPermissions.push_back("recordings.action.move");
+    validation.requiredCapabilities.push_back("recording.action.move");
+    validation.requiredPermissions.push_back("recording.permission.move");
     validation.warnings.push_back("validated for execution");
 
     RecordingActionJobPayloadFactory factory;
@@ -34,9 +34,9 @@ int main()
     assert(!payload.dryRun);
     assert(payload.parameters.at("targetPath") == "/video/archive");
     assert(payload.requiredCapabilities.size() == 1);
-    assert(payload.requiredCapabilities.at(0) == "recordings.action.move");
+    assert(payload.requiredCapabilities.at(0) == "recording.action.move");
     assert(payload.requiredPermissions.size() == 1);
-    assert(payload.requiredPermissions.at(0) == "recordings.action.move");
+    assert(payload.requiredPermissions.at(0) == "recording.permission.move");
     assert(payload.warnings.size() == 1);
     assert(payload.warnings.at(0) == "validated for execution");
 

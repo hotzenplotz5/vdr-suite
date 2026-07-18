@@ -88,21 +88,25 @@ test-capability-controller:
 
 .PHONY: test-vdr-recording-query-controller
 test-vdr-recording-query-controller:
-	$(BUILD_CXX) -std=c++17 -Wall -Wextra -Icore/vdr/include -Icore/runtime/include -Iapi/rest/include \
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/vdr/src/VdrService.cpp \
 		core/vdr/src/VdrChangeState.cpp \
 		core/vdr/src/MockVdrAdapter.cpp \
+		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/src/VdrRecordingQueryMatcher.cpp \
 		core/vdr/src/VdrRecordingQueryService.cpp \
 		core/vdr/src/VdrRecordingQueryResultJsonSerializer.cpp \
 		api/rest/src/VdrRecordingQueryController.cpp \
 		api/rest/tests/test_vdr_recording_query_controller.cpp \
+		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_vdr_recording_query_controller
 	$(BUILD_DIR)/test_vdr_recording_query_controller
 
 .PHONY: test-vdr-recording-query-result-json-serializer
 test-vdr-recording-query-result-json-serializer:
-	$(BUILD_CXX) -std=c++17 -Wall -Wextra -Icore/vdr/include \
+	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/VdrRecordingQueryResultJsonSerializer.cpp \
 		core/vdr/tests/test_vdr_recording_query_result_json_serializer.cpp \
 		-o $(BUILD_DIR)/test_vdr_recording_query_result_json_serializer
@@ -118,13 +122,17 @@ test-vdr-recording-query-matcher:
 
 .PHONY: test-vdr-recording-query-service
 test-vdr-recording-query-service:
-	$(BUILD_CXX) -std=c++17 -Wall -Wextra -Icore/vdr/include -Icore/runtime/include \
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
 		core/vdr/src/VdrService.cpp \
 		core/vdr/src/VdrChangeState.cpp \
 		core/vdr/src/MockVdrAdapter.cpp \
+		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/src/VdrRecordingQueryMatcher.cpp \
 		core/vdr/src/VdrRecordingQueryService.cpp \
 		core/vdr/tests/test_vdr_recording_query_service.cpp \
+		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_vdr_recording_query_service
 	$(BUILD_DIR)/test_vdr_recording_query_service
 
@@ -263,6 +271,7 @@ test-vdr-recording-query-service-cache:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		core/vdr/src/MockVdrAdapter.cpp \
+		core/vdr/src/VdrChangeState.cpp \
 		core/vdr/src/VdrService.cpp \
 		core/vdr/src/VdrRecordingQueryMatcher.cpp \
 		core/vdr/src/VdrRecordingQueryService.cpp \
