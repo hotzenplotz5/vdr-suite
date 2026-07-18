@@ -1,0 +1,43 @@
+name: SB.10c handoff consistency
+
+on:
+  pull_request:
+    branches:
+      - feature/vdr-plugin-suite-bridge-foundation
+    paths:
+      - .github/sb10c-documentation-closeout-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  consistency:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out bridge branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/vdr-plugin-suite-bridge-foundation
+          fetch-depth: 1
+          show-progress: false
+
+      - name: Fix final handoff consistency
+        run: python3 tools/fix_sb10c_handoff_stale_snapshot.py
+
+      - name: Check documentation
+        run: make test-docs
+
+      - name: Check architecture
+        run: make test-architecture
+
+      - name: Check whitespace
+        run: git diff --check
+
+      - name: Commit final handoff consistency
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add vdr-plugin-suite-bridge/docs/VDR-SUITE-HANDOFF.md
+          git commit -m "Docs: remove stale pre-SB.10c handoff wording"
+          git push origin HEAD:feature/vdr-plugin-suite-bridge-foundation
