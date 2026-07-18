@@ -43,13 +43,20 @@ jobs:
           make test-suite-bridge-observation-service
           make test-suite-bridge-observation-worker
 
-      - name: Check SB.10d runtime boundary and behavior
-        run: |
-          make test-suite-bridge-embedded-runtime-boundary
-          make test-suite-bridge-embedded-runtime
-          make test-suite-bridge-daemon-runtime-wiring
-          make test-runtime-config
-          make test-backend-runtime-context
+      - name: Check SB.10d embedded runtime boundary
+        run: make test-suite-bridge-embedded-runtime-boundary
+
+      - name: Check SB.10d embedded runtime behavior
+        run: make test-suite-bridge-embedded-runtime
+
+      - name: Check SB.10d daemon wiring
+        run: make test-suite-bridge-daemon-runtime-wiring
+
+      - name: Check SB.10d RuntimeConfig
+        run: make test-runtime-config
+
+      - name: Check backend runtime context
+        run: make test-backend-runtime-context
 
       - name: Build daemon
         run: make daemon
