@@ -8,6 +8,9 @@ CI_FAST_TESTS := \
 	test-suite-bridge-handshake \
 	test-suite-bridge-svdrp-transport-boundary \
 	test-suite-bridge-svdrp-transport \
+	test-suite-bridge-observation-boundary \
+	test-suite-bridge-observation-service \
+	test-suite-bridge-observation-worker \
 	test-fast \
 	test-api-router \
 	test-restful-api-vdr-timer-action-executor \
@@ -45,6 +48,9 @@ VDR_TESTS := \
 	test-suite-bridge-handshake \
 	test-suite-bridge-svdrp-transport-boundary \
 	test-suite-bridge-svdrp-transport \
+	test-suite-bridge-observation-boundary \
+	test-suite-bridge-observation-service \
+	test-suite-bridge-observation-worker \
 	test-backend-node \
 	test-backend-registry \
 	test-backend-registry-service \
