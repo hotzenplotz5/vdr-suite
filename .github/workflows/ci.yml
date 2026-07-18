@@ -74,6 +74,15 @@ jobs:
       - name: Run channel day programme runtime test
         run: node web/frontend/tests/test_channel_day_program_runtime.js
 
+      - name: Check frontend i18n contract
+        run: python3 tools/check_frontend_i18n_contracts.py
+
+      - name: Check frontend ownership contract
+        run: python3 tools/check_frontend_ownership_contracts.py
+
+      - name: Check frontend platform runtime contract
+        run: python3 tools/check_frontend_platform_runtime_context.py
+
   frontend-regression-test:
     runs-on: ubuntu-latest
     needs:
