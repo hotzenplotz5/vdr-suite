@@ -1,5 +1,7 @@
 #include "SuiteBridgeObservationWorker.h"
 
+#include <utility>
+
 namespace vdrsuite::agent
 {
 
