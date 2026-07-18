@@ -13,6 +13,11 @@ public:
     explicit SuiteBridgeHandshakeService(
         ISuiteBridgeLocalTransport& transport);
 
+    SuiteBridgeHandshakeResult discover();
+
+    SuiteBridgeHandshakeResult readSnapshot(
+        const SuiteBridgeDiscovery& discovery);
+
     SuiteBridgeHandshakeResult perform();
 
 private:
