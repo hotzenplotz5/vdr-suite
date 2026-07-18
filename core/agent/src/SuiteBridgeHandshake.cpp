@@ -33,36 +33,54 @@ bool SuiteBridgeSnapshotBaseline::canCalculateDeltaFrom(
            !counterOverflow &&
            !previous.counterOverflow &&
            !counterEpoch.empty() &&
-           counterEpoch == previous.counterEpoch;
+           counterEpoch == previous.counterEpoch &&
+           countersAtLeast(previous);
+}
+
+bool SuiteBridgeSnapshotBaseline::countersAtLeast(
+    const SuiteBridgeSnapshotBaseline& previous) const
+{
+    return total >= previous.total &&
+           channelSwitch >= previous.channelSwitch &&
+           recording >= previous.recording &&
+           replaying >= previous.replaying &&
+           timerChange >= previous.timerChange;
 }
 
 SuiteBridgeBaselineUpdate SuiteBridgeBaselineTracker::apply(
     const SuiteBridgeSnapshotBaseline& next)
 {
-    SuiteBridgeBaselineUpdate update =
-        SuiteBridgeBaselineUpdate::AdoptedInitial;
-
-    if (hasBaseline_)
+    if (!hasBaseline_)
     {
-        if (next.counterEpoch != baseline_.counterEpoch)
-        {
-            update = SuiteBridgeBaselineUpdate::ReplacedEpochChanged;
-        }
-        else if (next.counterOverflow || baseline_.counterOverflow)
-        {
-            update = SuiteBridgeBaselineUpdate::ReplacedOverflowed;
-        }
-        else
-        {
-            update = SuiteBridgeBaselineUpdate::UpdatedComparable;
-        }
+        baseline_ = next;
+        hasBaseline_ = true;
+        deltaAvailable_ = false;
+        return SuiteBridgeBaselineUpdate::AdoptedInitial;
     }
 
-    deltaAvailable_ =
-        hasBaseline_ && next.canCalculateDeltaFrom(baseline_);
+    if (next.counterEpoch != baseline_.counterEpoch)
+    {
+        baseline_ = next;
+        deltaAvailable_ = false;
+        return SuiteBridgeBaselineUpdate::ReplacedEpochChanged;
+    }
+
+    if (next.counterOverflow || baseline_.counterOverflow)
+    {
+        baseline_ = next;
+        deltaAvailable_ = false;
+        return SuiteBridgeBaselineUpdate::ReplacedOverflowed;
+    }
+
+    if (!next.countersAtLeast(baseline_))
+    {
+        deltaAvailable_ = false;
+        return SuiteBridgeBaselineUpdate::RejectedCounterRegression;
+    }
+
+    deltaAvailable_ = next.canCalculateDeltaFrom(baseline_);
     baseline_ = next;
-    hasBaseline_ = true;
-    return update;
+    return SuiteBridgeBaselineUpdate::UpdatedComparable;
 }
 
 bool SuiteBridgeBaselineTracker::hasBaseline() const
@@ -90,8 +108,14 @@ const char* suiteBridgeHandshakeStatusName(
 {
     switch (status)
     {
+        case SuiteBridgeHandshakeStatus::Compatible:
+            return "compatible";
         case SuiteBridgeHandshakeStatus::Ready:
             return "ready";
+        case SuiteBridgeHandshakeStatus::NotConfigured:
+            return "not_configured";
+        case SuiteBridgeHandshakeStatus::PluginMissing:
+            return "plugin_missing";
         case SuiteBridgeHandshakeStatus::LegacyOrUnknown:
             return "legacy_or_unknown";
         case SuiteBridgeHandshakeStatus::DiscoveryTransportError:
