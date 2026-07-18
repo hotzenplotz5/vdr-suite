@@ -14,10 +14,21 @@
 
 ## Status
 
-SB.10c implementation contract.
+SB.10c completed.
 
-The slice remains `active` until automated acceptance and controlled live VDR
-acceptance have passed. This document does not mark SB.10c completed.
+Focused automated acceptance passed at:
+
+```text
+10e82701f5633681b96df13d39ee0c05783ff68c
+```
+
+Controlled live VDR acceptance and complete rollback passed at:
+
+```text
+7362ecec0d103e1e4659b80476ea5ad321d413e2
+```
+
+The plugin runtime contract remained unchanged.
 
 ---
 
@@ -308,8 +319,40 @@ Automated acceptance must prove:
 - no daemon, RESTfulAPI, database or plugin coupling;
 - strict Make inventory closure.
 
-Controlled live acceptance remains required before SB.10c can be marked
-completed.
+## Acceptance Result
+
+Status: `completed`
+
+Automated acceptance proved:
+
+- strict Make inventory closure;
+- retained SB.10a and SB.10b regressions;
+- deterministic polling, reconnect, freshness and delta behavior;
+- exact stale and offline thresholds;
+- epoch replacement, overflow suppression and counter-regression rejection;
+- hard mutation disablement;
+- interruptible worker shutdown with no surviving thread;
+- complete documentation and architecture checks;
+- a clean synchronized worktree.
+
+Controlled live acceptance on VDR `2.7.9`, API version `11`, proved:
+
+- plugin version `0.10.0` loaded as `libvdr-suitebridge.so.11`;
+- installed object SHA-256 `a84c4571e951da94de2c0b5f9badf2c74034fe94b0c43483dfa9d9345d513b5d`;
+- retained handshake result `status=ready`;
+- initial observation command sequence `CAPS,SNAP`;
+- trusted follow-up polling through one additional `SNAP`;
+- observation state `snapshot_current`;
+- live epoch `9587ed0c461a89827c75a26fc56d11c6`;
+- live total `4`;
+- `counter_overflow=false`;
+- clean worker stop;
+- unchanged channel, Timer, Recording and `setup.conf` state;
+- complete plugin removal, VDR restart and rollback;
+- no Suite Bridge object remained mapped;
+- a clean synchronized repository.
+
+No plugin source, command, capability, schema or mutation state changed.
 
 ---
 

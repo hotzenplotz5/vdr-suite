@@ -7,6 +7,7 @@
 - [Plugin Roadmap](ROADMAP.md)
 - [SB.10a Agent Handshake](../../docs/architecture/suite-bridge-agent-handshake.md)
 - [SB.10b Local SVDRP Transport](../../docs/architecture/suite-bridge-svdrp-transport.md)
+- [SB.10c Observation Lifecycle](../../docs/architecture/suite-bridge-observation-lifecycle.md)
 - [VDR-Suite Documentation Index](../../docs/index.md)
 
 ---
@@ -82,26 +83,25 @@ have passed.
 | Last completed plugin runtime slice | `SB.9 - Read-only capability discovery and compatibility negotiation` |
 | Last completed Agent contract slice | `SB.10a - Transport-neutral local handshake contract` |
 | Last completed Agent transport slice | `SB.10b - Local typed SVDRP transport` |
-| Next active coordinated slice | `SB.10c - Read-only polling, reconnect and freshness` |
+| Last completed Agent observation slice | `SB.10c - Read-only polling, reconnect and freshness` |
+| Next active coordinated slice | `SB.10d - Embedded-Agent runtime integration` |
 | Plugin name | `suitebridge` |
 | Plugin version | `0.10.0` |
 | Shared object | `libvdr-suitebridge.so.<VDR-APIVERSION>` |
-| SB.9 implementation and automated-test completion commit | `1212c44b10cd81144ebc345f3cb81eca0bda47cf` |
-| SB.9 live-acceptance repository head | `fbd0fab648dca85521fe27107174ede36b0b6d95` |
-| Plugin ADR and roadmap documentation acceptance head | `efc885a5f9d811f3dd87c6ad204fbf3fe3f0db71` |
-| SB.10a Agent implementation head | `d70ebee00edcab1cd019ca9e0c2541a06bf7d587` |
-| SB.10a repository-wide automated-acceptance head | `ba6deddbfba6d50b1152d584654a92f75340dcc3` |
-| SB.10b implementation, automated-test and live-acceptance head | `3396840d41260bb3ed81bc652921b329263d7e58` |
-| Suite `main` head included in SB.10a and SB.10b implementation baseline | `8ba96dbb46019030f7cb3ebcb95929034b6166d3` |
-| Current later `main` head observed after SB.10b acceptance | `410f104a45890dc86f3a83813552ffe3dd141202` |
-| SQLite architecture decision and guard correction | `892ede4392a5232a7045af3386903f502e450b5d` |
+| SB.10a automated-acceptance head | `ba6deddbfba6d50b1152d584654a92f75340dcc3` |
+| SB.10b automated and live-acceptance head | `3396840d41260bb3ed81bc652921b329263d7e58` |
+| SB.10c synchronized implementation baseline | `e1e0e5dea1486122e6edc2837b9702723a10e3d8` |
+| SB.10c focused automated-acceptance head | `10e82701f5633681b96df13d39ee0c05783ff68c` |
+| SB.10c controlled live-acceptance head | `7362ecec0d103e1e4659b80476ea5ad321d413e2` |
+| Suite `main` included before SB.10c | `d2e6f1745cdba3592ac49f2d7dba33626136fbbe` |
 | Live VDR version | `2.7.9` |
 | Live VDR API version | `11` |
-| SB.9 live ELF build ID | `a9ff5c5917526a61eb8bf7c2bff098ea0f158820` |
-| SB.9 live shared-object size | `253848` bytes |
-| SB.10b live shared-object SHA-256 | `a84c4571e951da94de2c0b5f9badf2c74034fe94b0c43483dfa9d9345d513b5d` |
-| SB.10b live ELF build ID | not present |
+| SB.10b and SB.10c shared-object SHA-256 | `a84c4571e951da94de2c0b5f9badf2c74034fe94b0c43483dfa9d9345d513b5d` |
+| SB.10c observed live epoch | `9587ed0c461a89827c75a26fc56d11c6` |
 | Mutation state | `disabled` |
+
+SB.10a, SB.10b and SB.10c are Agent-side slices. None changes the plugin
+version, commands, capability catalogue, schemas or mutation state.
 
 The accepted plugin ADR and roadmap are coordination artifacts. They do not
 change plugin runtime behavior, plugin version, capability IDs, capability
@@ -197,8 +197,9 @@ evaluate entries by stable ID and state rather than by position.
 - schema compatibility is evaluated from explicit fields, not plugin version;
 - a legacy plugin without `CAPS` enables no optional or mutating function through
   optimistic fallback;
-- a missing plugin reply `550` enables no fallback and is classified as
-  `LegacyOrUnknown`;
+- a missing plugin reply `550` enables no fallback;
+- the retained one-shot handshake reports `LegacyOrUnknown`;
+- the SB.10c observation lifecycle exposes the precise `plugin_missing` state;
 - plugin capabilities are not user authorization.
 
 ### Observed live payload
@@ -614,6 +615,45 @@ After controlled installation:
 
 ---
 
+## SB.10c Read-Only Observation Lifecycle Acceptance
+
+Status: `completed`
+
+| Item | Value |
+| --- | --- |
+| Synchronized baseline | `e1e0e5dea1486122e6edc2837b9702723a10e3d8` |
+| Focused automated-acceptance head | `10e82701f5633681b96df13d39ee0c05783ff68c` |
+| Controlled live-acceptance head | `7362ecec0d103e1e4659b80476ea5ad321d413e2` |
+| Included Suite `main` head | `d2e6f1745cdba3592ac49f2d7dba33626136fbbe` |
+| VDR / API version | `2.7.9` / `11` |
+| Installed shared object | `libvdr-suitebridge.so.11` |
+| Installed object SHA-256 | `a84c4571e951da94de2c0b5f9badf2c74034fe94b0c43483dfa9d9345d513b5d` |
+| Observed epoch | `9587ed0c461a89827c75a26fc56d11c6` |
+| Observed total / overflow | `4` / `false` |
+
+Implemented and accepted behavior:
+
+- initial `CAPS 1`, then `SNAP`;
+- trusted subsequent `SNAP` polling;
+- bounded reconnect and explicit freshness;
+- retained last-good baseline;
+- safe same-epoch deltas;
+- epoch replacement and overflow suppression;
+- same-epoch counter-regression rejection;
+- bounded diagnostics;
+- deterministic service and clean joinable worker shutdown;
+- no daemon, RESTfulAPI, SQLite or plugin-source coupling;
+- mutations always disabled.
+
+Live acceptance proved `status=ready`, sequence `CAPS,SNAP,SNAP`, state
+`snapshot_current`, stable epoch, monotonic counters, clean worker stop, unchanged
+channel, Timer, Recording and `setup.conf` state, complete plugin removal, VDR
+restart and rollback.
+
+No plugin source, command, capability or schema changed.
+
+---
+
 ## Architectural Position
 
 ```text
@@ -941,8 +981,8 @@ to that boundary.
 | `CAPS` discovery command | no | invokes/interprets | owner | discovery schema `1`, live accepted |
 | Transport-neutral Suite Bridge handshake | consumes health | owner | unchanged endpoint | completed at `ba6deddbfba6d50b1152d584654a92f75340dcc3` |
 | Local typed Suite Bridge SVDRP transport | consumes health | owner | unchanged endpoint | completed at `3396840d41260bb3ed81bc652921b329263d7e58` |
-| Polling, reconnect and freshness lifecycle | consumes health | owner | unchanged endpoint | next active slice |
-| Embedded Agent runtime integration | consumes health | owner with Suite runtime | unchanged endpoint | planned after SB.10c |
+| Polling, reconnect and freshness lifecycle | consumes health | owner | unchanged endpoint | completed at `7362ecec0d103e1e4659b80476ea5ad321d413e2` |
+| Embedded Agent runtime integration | consumes health | owner with Suite runtime | unchanged endpoint | next active slice |
 | Native sequenced event feed | consumes | validates/buffers | future producer | planned |
 | OSD notification feed | consumes | validates/buffers | future producer | planned |
 | View-only Legacy OSD | session owner | local broker | future native adapter | planned |
@@ -985,103 +1025,32 @@ to that boundary.
 - local-contract schema: `2`;
 - mutations: `disabled`.
 
-SB.10a and SB.10b consume the accepted plugin runtime contract but do not create
-a later plugin runtime slice.
+SB.10a, SB.10b and SB.10c consume the accepted plugin runtime contract but do
+not create a later plugin runtime slice.
 
 ---
 
 ## Next Safe Coordinated Slice
 
-`SB.10c - Backend Agent read-only polling, reconnect and freshness`
+`SB.10d - Embedded-Agent runtime integration`
 
-Primary ownership: **Backend Agent**.
+Status: `active`
 
-Expected plugin changes: **none**.
+Primary ownership: **Backend Agent and Suite runtime**.
 
-### Completed prerequisites
+Expected plugin changes: **none**, unless a specific bounded compatibility gap is
+proven.
 
-SB.10a is completed at:
+Completed prerequisites:
 
-```text
-ba6deddbfba6d50b1152d584654a92f75340dcc3
-```
+- SB.10a: `ba6deddbfba6d50b1152d584654a92f75340dcc3`;
+- SB.10b: `3396840d41260bb3ed81bc652921b329263d7e58`;
+- SB.10c automated: `10e82701f5633681b96df13d39ee0c05783ff68c`;
+- SB.10c live: `7362ecec0d103e1e4659b80476ea5ad321d413e2`.
 
-SB.10b is completed with automated and controlled live acceptance at:
-
-```text
-3396840d41260bb3ed81bc652921b329263d7e58
-```
-
-### Required SB.10c precheck
-
-Before SB.10c code is written:
-
-1. inspect the current remote bridge branch and compare it with
-   `3396840d41260bb3ed81bc652921b329263d7e58`;
-2. inspect current `main` and synchronize only after reviewing its complete delta;
-3. preserve the parallel Recording genre-artwork work currently represented by
-   `410f104a45890dc86f3a83813552ffe3dd141202`;
-4. read this complete shared handoff;
-5. read Plugin ADR-0001 and the SB.10 roadmap sections;
-6. read the complete SB.10a handshake and SB.10b transport architecture;
-7. read all Agent worker, polling, timer, backoff, freshness and shutdown sources;
-8. read `RuntimeConfig`, `BackendRuntimeContext`, `DaemonRuntime` and their tests;
-9. inspect existing VDR restart, reconnect and local integration test fixtures;
-10. define exact state transitions, timestamps, limits, ownership and tests before
-    code;
-11. keep Runtime integration out of SB.10c unless explicitly justified;
-12. preserve all parallel Suite and plugin changes.
-
-### Required SB.10c state model
-
-The lifecycle must represent at least:
-
-```text
-not_configured
-connecting
-plugin_missing
-legacy_or_unknown
-incompatible
-compatible
-snapshot_current
-snapshot_stale
-transport_degraded
-overflowed
-offline
-```
-
-The exact implementation may use a smaller orthogonal state model if every
-observable condition above is represented without ambiguity.
-
-### Required behavior
-
-- compose the accepted SB.10b transport rather than widen it;
-- perform `CAPS 1` before the initial `SNAP`;
-- retain one bounded immutable baseline;
-- publish last-attempt, last-success and freshness facts with a defined clock;
-- distinguish plugin epoch from backend generation and security identity;
-- replace the baseline after epoch change;
-- stop deriving diagnostic deltas after overflow;
-- classify missing plugin separately from unreachable VDR where useful;
-- use bounded reconnect backoff with no unbounded retry loop;
-- avoid optimistic capability fallback;
-- avoid mutation fallback;
-- expose no raw plugin JSON or SVDRP endpoint to public clients;
-- stop cleanly without a live socket, worker or callback after shutdown;
-- remain read-only.
-
-### SB.10c non-goals
-
-- no plugin command or schema change;
-- no plugin version change;
-- no native mutation;
-- no public API route;
-- no durable job or retry store;
-- no backend-generation ownership in the plugin;
-- no Timer, Recording, EPG, media or OSD surface;
-- no arbitrary SVDRP command tunnel;
-- no embedded `DaemonRuntime` wiring unless moved into an explicitly reviewed
-  SB.10d step.
+Before SB.10d code, compare current `main`, review runtime configuration,
+construction, start, stop, destruction and health publication, and preserve
+RESTfulAPI as the broad VDR domain-read adapter. Mutations remain disabled.
 
 ---
 
@@ -1123,39 +1092,24 @@ Before every coordinated slice:
 
 ## Immediate Coordination Notes
 
-- The bridge branch contains fully live-accepted plugin slices SB.1 through SB.9.
-- Plugin ADR-0001 and the plugin roadmap remain authoritative coordination
-  documents.
-- SB.10a is completed at
-  `ba6deddbfba6d50b1152d584654a92f75340dcc3`.
-- SB.10b is completed with automated and controlled live acceptance at
-  `3396840d41260bb3ed81bc652921b329263d7e58`.
-- The direct SB.10b transport supports only `DiscoverSchema1` and `Snapshot`.
-- Real VDR reply `550` for a missing plugin is now covered by a regression test
-  and maps to `LegacyOrUnknown`.
-- The positive SB.10b live handshake returned `status=ready`.
-- The positive live test changed neither channel, Timer, Recording nor
-  `setup.conf` state.
-- The complete rollback removed the staged plugin, configuration and process
-  mapping.
-- The Suite Bridge plugin is intentionally not installed after rollback.
-- `CAPS` and `SNAP` remain the only implemented plugin-specific SVDRP commands.
-- Capability discovery schema remains `1`.
-- Capability schema remains `1`.
-- Snapshot and local-contract schemas remain `2`.
-- The plugin remains deliberately read-only.
+- Plugin slices SB.1 through SB.9 remain live accepted.
+- SB.10a, SB.10b and SB.10c are completed Agent-side slices.
+- SB.10c automated acceptance head is `10e82701f5633681b96df13d39ee0c05783ff68c`.
+- SB.10c live acceptance head is `7362ecec0d103e1e4659b80476ea5ad321d413e2`.
+- The accepted live sequence was `CAPS,SNAP,SNAP`.
+- The accepted state was `snapshot_current`.
+- Channel, Timer, Recording and `setup.conf` state remained unchanged.
+- Complete rollback removed the plugin, configuration and process mapping.
+- Plugin version remains `0.10.0`.
+- `CAPS` and `SNAP` remain the only plugin commands.
+- Discovery and capability schemas remain `1`; snapshot and local-contract schemas
+  remain `2`.
 - `mutations` remains `disabled`.
-- Current `main` has later parallel artwork work that was not part of SB.10b;
-  synchronize it only after complete comparison during the SB.10c precheck.
-- The next active implementation work is SB.10c in the Backend Agent.
-- SB.10d remains the later embedded-runtime integration step.
-- The first expected plugin-expanding slice after complete SB.10 acceptance is
-  SB.11, subject to a new full source and callback audit.
-- The authoritative plugin location remains `vdr-plugin-suite-bridge/` on the
-  long-lived bridge branch.
+- The next active work is SB.10d.
 
 ---
 
+## Gold-Standard Definition of Done
 ## Gold-Standard Definition of Done
 
 A VDR-related feature is complete only when:
@@ -1186,5 +1140,5 @@ streaming, Legacy OSD and future plugin-service integration.
 
 - [Back to Plugin README](../README.md)
 - [Back to Plugin Roadmap](ROADMAP.md)
-- [Back to SB.10b Local SVDRP Transport](../../docs/architecture/suite-bridge-svdrp-transport.md)
+- [Back to SB.10c Observation Lifecycle](../../docs/architecture/suite-bridge-observation-lifecycle.md)
 - [Back to VDR-Suite Documentation Index](../../docs/index.md)
