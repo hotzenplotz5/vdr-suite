@@ -239,6 +239,13 @@ SuiteBridgeHandshakeResult SuiteBridgeHandshakeService::perform()
 {
     SuiteBridgeHandshakeResult discovery = discover();
 
+    if (discovery.status == SuiteBridgeHandshakeStatus::NotConfigured ||
+        discovery.status == SuiteBridgeHandshakeStatus::PluginMissing)
+    {
+        discovery.status = SuiteBridgeHandshakeStatus::LegacyOrUnknown;
+        return discovery;
+    }
+
     if (discovery.status != SuiteBridgeHandshakeStatus::Compatible)
     {
         return discovery;
