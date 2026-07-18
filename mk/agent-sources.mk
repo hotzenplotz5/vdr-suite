@@ -1,3 +1,4 @@
+# Suite Bridge handshake, transport, observation and embedded runtime stay Agent-owned.
 AGENT_HANDSHAKE_SRC := \
 	core/agent/src/SuiteBridgeHandshake.cpp \
 	core/agent/src/SuiteBridgeLocalContractParser.cpp \
