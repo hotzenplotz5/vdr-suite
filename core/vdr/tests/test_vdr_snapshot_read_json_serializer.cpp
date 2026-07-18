@@ -48,6 +48,7 @@ static VdrSnapshot makeSnapshot(
     return snapshot;
 }
 
+
 static void test_snapshot_read_serializer_serializes_multiple_snapshot_summaries()
 {
     VdrSnapshotReadJsonSerializer serializer;
@@ -146,6 +147,44 @@ static void test_snapshot_read_serializer_escapes_timer_strings()
     assert(json.find("\"recording\":false") != std::string::npos);
 }
 
+
+static void test_snapshot_read_serializer_escapes_event_strings()
+{
+    VdrSnapshotReadJsonSerializer serializer;
+
+    VdrEvent event;
+    event.id = "event-\"1\"";
+    event.channelId = "channel\\id";
+    event.title = "Title\nwith newline";
+    event.subtitle = "Subtitle\twith tab";
+    event.description = std::string("Description") + static_cast<char>(0x01) + "control";
+    event.startTime = "1000";
+    event.endTime = "1100";
+    event.durationSeconds = 100;
+    event.contentDescriptors = {
+        "descriptor-\"one\"",
+        "descriptor\\two"
+    };
+    event.parentalRating = 12;
+
+    const std::string json =
+        serializer.serializeEvents({event});
+
+    assert(json.find("\"id\":\"event-\\\"1\\\"\"") != std::string::npos);
+    assert(json.find("\"channelId\":\"channel\\\\id\"") != std::string::npos);
+    assert(json.find("\"title\":\"Title\\nwith newline\"") != std::string::npos);
+    assert(json.find("\"subtitle\":\"Subtitle\\twith tab\"") != std::string::npos);
+    assert(json.find("\"description\":\"Descriptioncontrol\"") != std::string::npos);
+    assert(json.find("\"descriptor-\\\"one\\\"\"") != std::string::npos);
+    assert(json.find("\"descriptor\\\\two\"") != std::string::npos);
+
+    for (unsigned char ch : json)
+    {
+        assert(ch >= 0x20);
+    }
+}
+
+
 static void test_snapshot_read_serializer_serializes_empty_domain_lists()
 {
     VdrSnapshotReadJsonSerializer serializer;
@@ -163,6 +202,7 @@ int main()
     test_snapshot_read_serializer_serializes_empty_domain_lists();
     test_snapshot_read_serializer_serializes_search_timers();
     test_snapshot_read_serializer_escapes_timer_strings();
+    test_snapshot_read_serializer_escapes_event_strings();
     test_snapshot_read_serializer_serializes_multiple_snapshot_summaries();
 
     std::cout
