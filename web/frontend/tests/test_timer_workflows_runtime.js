@@ -101,8 +101,37 @@ const invalid = api.timerActionPayload(timer, {
   stop: 0
 });
 assert.ok(api.validateTimerPayload(invalid, true).length >= 4);
+
+const channels = [
+  api.normalizeChannel({id: 'S19.2E-1-1019-10301', number: 1, name: 'Das Erste HD', group: 'Öffentlich-rechtlich'}, 0),
+  api.normalizeChannel({id: 'S19.2E-1-1011-11110', number: 2, name: 'ZDF HD', group: 'Öffentlich-rechtlich'}, 1),
+  api.normalizeChannel({id: 'S19.2E-1-1089-12003', number: 3, name: 'RTL Television', group: 'Privat'}, 2),
+  api.normalizeChannel({id: 'S19.2E-1-1101-28106', number: 4, name: 'Radio Test', group: '', radio: true}, 3)
+];
+
+assert.deepStrictEqual(
+  Array.from(api.channelGroups(channels)),
+  ['Öffentlich-rechtlich', 'Privat', '__ungrouped__']
+);
+assert.deepStrictEqual(
+  Array.from(api.channelsForGroup(channels, 'Öffentlich-rechtlich')).map(channel => channel.id),
+  ['S19.2E-1-1019-10301', 'S19.2E-1-1011-11110']
+);
+assert.strictEqual(api.channelOptionLabel(channels[0]), '1 · Das Erste HD');
+assert.deepStrictEqual(
+  Array.from(api.channelGroups([
+    api.normalizeChannel({id: 'A', number: 1, name: 'A', group: ''}, 0),
+    api.normalizeChannel({id: 'B', number: 2, name: 'B', group: ''}, 1)
+  ])),
+  []
+);
+
 assert.ok(!source.includes('fetch('));
 assert.ok(source.includes('function renderList(data, conflictReport)'));
 assert.ok(source.includes('function renderConflicts(report, timers, error)'));
+assert.ok(source.includes("createField('Kanalgruppe', groupSelect, true)"));
+assert.ok(source.includes("createField('Kanal auswählen', channelSelect, true)"));
+assert.ok(source.includes('Expertenoption: Kanal-ID manuell eingeben'));
+assert.ok(source.includes('fetchClientChannels'));
 
 console.log('test_timer_workflows_runtime passed');
