@@ -226,11 +226,12 @@ python3 tools/run_sb10d_live_acceptance.py
 
 It refuses a pre-existing Suite Bridge installation, records only hashes for
 channel, Timer, Recording and setup state, stops and later restores an active
-`vdr-suite-daemon.service`, stages the plugin, starts the repository daemon with
-SB.10d enabled, runs safe REST probes, restarts VDR, requires a changed plugin
-epoch, verifies clean worker and daemon shutdown, removes the staged plugin and
-configuration, restarts VDR, restores the original daemon-service state and
-requires a clean worktree.
+`vdr-suite-daemon.service`, proves that the disabled daemon opens no Suite Bridge
+transport connection, stages the plugin, starts the repository daemon with
+SB.10d enabled, runs safe REST probes, restarts VDR, requires both a degraded
+observation state and a changed plugin epoch, verifies clean worker and daemon
+shutdown, removes every staged plugin binary and configuration, restarts VDR,
+restores the original daemon-service state and requires a clean worktree.
 
 The runner uses no destructive VDR-Suite API operation.
 

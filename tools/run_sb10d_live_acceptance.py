@@ -11,6 +11,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -30,6 +31,56 @@ PLUGIN_CONFIG = Path("/etc/vdr/conf.avail/suitebridge.conf")
 
 class AcceptanceError(RuntimeError):
     pass
+
+
+class NoConnectionProbe:
+    def __init__(self) -> None:
+        self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._server.bind(("127.0.0.1", 0))
+        self._server.listen(8)
+        self._server.settimeout(0.1)
+        self._port = int(self._server.getsockname()[1])
+        self._connections = 0
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._thread = threading.Thread(
+            target=self._run,
+            name="sb10d-disabled-connection-probe",
+        )
+
+    @property
+    def port(self) -> int:
+        return self._port
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=2)
+        self._server.close()
+        if self._thread.is_alive():
+            raise AcceptanceError("disabled connection probe did not stop")
+
+    def connection_count(self) -> int:
+        with self._lock:
+            return self._connections
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            try:
+                connection, _ = self._server.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                if self._stop.is_set():
+                    return
+                raise
+
+            with connection:
+                with self._lock:
+                    self._connections += 1
 
 
 def command_text(command: list[str]) -> str:
@@ -328,6 +379,84 @@ def stop_process(
     return not require_clean or process.returncode == 0
 
 
+def run_disabled_daemon_connection_probe(
+    evidence: Path,
+) -> dict[str, Any]:
+    probe = NoConnectionProbe()
+    process: subprocess.Popen[str] | None = None
+    log_handle = None
+    log_path = evidence / "daemon-disabled.log"
+    database_path = evidence / "vdr-suite-disabled.db"
+
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "VDR_SUITE_DATABASE_PATH": str(database_path),
+            "VDR_SUITE_FRONTEND_ROOT": str(ROOT / "web/frontend"),
+            "VDR_SUITE_SUITE_BRIDGE_ENABLED": "false",
+            "VDR_SUITE_SUITE_BRIDGE_BACKEND_ID": "default",
+            "VDR_SUITE_SUITE_BRIDGE_HOST": "127.0.0.1",
+            "VDR_SUITE_SUITE_BRIDGE_PORT": str(probe.port),
+        }
+    )
+
+    try:
+        probe.start()
+        log_handle = log_path.open("w", encoding="utf-8")
+        process = subprocess.Popen(
+            [str(DAEMON_BINARY)],
+            cwd=ROOT,
+            env=environment,
+            text=True,
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        wait_port("127.0.0.1", 18080, True, timeout_seconds=30)
+        time.sleep(1.0)
+
+        if process.poll() is not None:
+            raise AcceptanceError("disabled test daemon exited during startup")
+
+        if not stop_process(
+            process,
+            name="disabled test daemon",
+            timeout_seconds=20,
+            require_clean=True,
+        ):
+            raise AcceptanceError("disabled test daemon did not stop cleanly")
+        process = None
+        wait_port("127.0.0.1", 18080, False, timeout_seconds=30)
+
+        log_handle.flush()
+        log_text = log_path.read_text(encoding="utf-8", errors="replace")
+        if "Suite Bridge embedded Agent runtime started" in log_text:
+            raise AcceptanceError(
+                "disabled daemon reported a Suite Bridge runtime start"
+            )
+
+        connections = probe.connection_count()
+        if connections != 0:
+            raise AcceptanceError(
+                "disabled daemon opened a Suite Bridge transport connection"
+            )
+
+        return {
+            "configured": False,
+            "connections": connections,
+            "shutdown": "clean",
+        }
+    finally:
+        stop_process(
+            process,
+            name="disabled test daemon",
+            timeout_seconds=20,
+        )
+        if log_handle is not None:
+            log_handle.close()
+        probe.stop()
+
+
 def run_safe_daemon_probes(
     base_url: str,
     report_path: Path,
@@ -473,7 +602,10 @@ def main() -> int:
         report["vdrVersion"] = run(["vdr", "--version"]).stdout.splitlines()[0]
         report["installedObject"] = str(installed_object)
 
-        if installed_object.exists() or PLUGIN_CONFIG.exists() or suitebridge_config_links():
+        existing_objects = sorted(
+            library_directory.glob("libvdr-suitebridge.so*")
+        )
+        if existing_objects or PLUGIN_CONFIG.exists() or suitebridge_config_links():
             raise AcceptanceError(
                 "Suite Bridge installation/configuration already exists; refusing overwrite"
             )
@@ -504,6 +636,12 @@ def main() -> int:
             wait_service(DAEMON_SERVICE, False)
 
         wait_port("127.0.0.1", 18080, False, timeout_seconds=30)
+
+        disabled_probe = run_disabled_daemon_connection_probe(evidence)
+        report["disabledDaemon"] = disabled_probe
+        report["disabledDaemonNoSuiteBridgeConnection"] = (
+            disabled_probe.get("connections") == 0
+        )
 
         plugin_staged = True
         run(
@@ -625,6 +763,10 @@ def main() -> int:
             raise AcceptanceError("VDR restart did not replace the plugin epoch")
         if result.get("mutations_enabled") is not False:
             raise AcceptanceError("live result enabled mutations")
+        if result.get("saw_degraded") is not True:
+            raise AcceptanceError(
+                "VDR restart did not expose a degraded observation state"
+            )
         report["embeddedRuntimeResult"] = result
 
         if daemon_process.poll() is not None:
@@ -742,6 +884,16 @@ def main() -> int:
         try:
             if plugin_mapped():
                 cleanup_errors.append("Suite Bridge plugin remains mapped")
+            installed_object_text = report.get("installedObject", "")
+            remaining_objects = []
+            if installed_object_text:
+                remaining_objects = sorted(
+                    Path(installed_object_text).parent.glob(
+                        "libvdr-suitebridge.so*"
+                    )
+                )
+            if remaining_objects:
+                cleanup_errors.append("Suite Bridge binary remains installed")
             if PLUGIN_CONFIG.exists() or suitebridge_config_links():
                 cleanup_errors.append("Suite Bridge configuration remains installed")
             require_clean_worktree()

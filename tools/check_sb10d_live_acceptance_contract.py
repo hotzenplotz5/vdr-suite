@@ -60,6 +60,8 @@ def main() -> int:
         "vdrctl\", \"disable\", \"suitebridge",
         "wait_plugin_mapped(False)",
         "original_daemon_active",
+        "run_disabled_daemon_connection_probe(",
+        "disabledDaemonNoSuiteBridgeConnection",
         "stateBefore",
         "stateAfter",
         "rollbackComplete",
@@ -81,6 +83,15 @@ def main() -> int:
     require(
         rollback_armed < first_install,
         "plugin rollback must be armed before the first external install write",
+    )
+
+    require(
+        'result.get("saw_degraded") is not True' in runner,
+        "live runner must require an observed degraded restart state",
+    )
+    require(
+        'glob("libvdr-suitebridge.so*")' in runner,
+        "live runner must reject and detect every Suite Bridge binary variant",
     )
 
     for forbidden in (
