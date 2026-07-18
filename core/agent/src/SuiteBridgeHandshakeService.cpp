@@ -40,72 +40,9 @@ SuiteBridgeHandshakeStatus snapshotParseFailureStatus(
     return SuiteBridgeHandshakeStatus::InvalidSnapshotPayload;
 }
 
-}
-
-SuiteBridgeHandshakeService::SuiteBridgeHandshakeService(
-    ISuiteBridgeLocalTransport& transport)
-    : transport_(transport)
+SuiteBridgeHandshakeResult validateDiscovery(
+    SuiteBridgeDiscovery discovery)
 {
-}
-
-SuiteBridgeHandshakeResult SuiteBridgeHandshakeService::perform()
-{
-    const SuiteBridgeCommandReply discoveryReply =
-        transport_.execute(SuiteBridgeLocalCommand::DiscoverSchema1);
-
-    if (!discoveryReply.transportSucceeded())
-    {
-        if (discoveryReply.transportStatus ==
-            SuiteBridgeTransportStatus::Unavailable)
-        {
-            return failure(
-                SuiteBridgeHandshakeStatus::LegacyOrUnknown,
-                discoveryReply.diagnostic.empty()
-                    ? "suite bridge discovery unavailable"
-                    : discoveryReply.diagnostic);
-        }
-
-        return failure(
-            SuiteBridgeHandshakeStatus::DiscoveryTransportError,
-            discoveryReply.diagnostic.empty()
-                ? "suite bridge discovery transport failed"
-                : discoveryReply.diagnostic);
-    }
-
-    if (discoveryReply.replyCode == 500)
-    {
-        return failure(
-            SuiteBridgeHandshakeStatus::LegacyOrUnknown,
-            "suite bridge CAPS command unavailable");
-    }
-
-    if (discoveryReply.replyCode == 550)
-    {
-        return failure(
-            SuiteBridgeHandshakeStatus::LegacyOrUnknown,
-            "suite bridge plugin unavailable");
-    }
-
-    if (discoveryReply.replyCode != 900)
-    {
-        return failure(
-            SuiteBridgeHandshakeStatus::DiscoveryReplyRejected,
-            "suite bridge CAPS reply rejected");
-    }
-
-    SuiteBridgeDiscoveryParseResult discoveryParse =
-        parser_.parseDiscovery(discoveryReply.payload);
-
-    if (!discoveryParse.ok())
-    {
-        return failure(
-            discoveryParseFailureStatus(discoveryParse.status),
-            discoveryParse.diagnostic);
-    }
-
-    SuiteBridgeDiscovery discovery =
-        std::move(discoveryParse.value);
-
     if (discovery.pluginName != "suitebridge")
     {
         return failure(
@@ -149,23 +86,110 @@ SuiteBridgeHandshakeResult SuiteBridgeHandshakeService::perform()
             "required suite bridge read-only capability unavailable");
     }
 
+    SuiteBridgeHandshakeResult result;
+    result.status = SuiteBridgeHandshakeStatus::Compatible;
+    result.discovery = std::move(discovery);
+    result.mutationsEnabled = false;
+    return result;
+}
+
+}
+
+SuiteBridgeHandshakeService::SuiteBridgeHandshakeService(
+    ISuiteBridgeLocalTransport& transport)
+    : transport_(transport)
+{
+}
+
+SuiteBridgeHandshakeResult SuiteBridgeHandshakeService::discover()
+{
+    const SuiteBridgeCommandReply discoveryReply =
+        transport_.execute(SuiteBridgeLocalCommand::DiscoverSchema1);
+
+    if (!discoveryReply.transportSucceeded())
+    {
+        if (discoveryReply.transportStatus ==
+            SuiteBridgeTransportStatus::Unavailable)
+        {
+            return failure(
+                SuiteBridgeHandshakeStatus::NotConfigured,
+                discoveryReply.diagnostic.empty()
+                    ? "suite bridge transport is not configured"
+                    : discoveryReply.diagnostic);
+        }
+
+        return failure(
+            SuiteBridgeHandshakeStatus::DiscoveryTransportError,
+            discoveryReply.diagnostic.empty()
+                ? "suite bridge discovery transport failed"
+                : discoveryReply.diagnostic);
+    }
+
+    if (discoveryReply.replyCode == 500)
+    {
+        return failure(
+            SuiteBridgeHandshakeStatus::LegacyOrUnknown,
+            "suite bridge CAPS command unavailable");
+    }
+
+    if (discoveryReply.replyCode == 550)
+    {
+        return failure(
+            SuiteBridgeHandshakeStatus::PluginMissing,
+            "suite bridge plugin unavailable");
+    }
+
+    if (discoveryReply.replyCode != 900)
+    {
+        return failure(
+            SuiteBridgeHandshakeStatus::DiscoveryReplyRejected,
+            "suite bridge CAPS reply rejected");
+    }
+
+    SuiteBridgeDiscoveryParseResult discoveryParse =
+        parser_.parseDiscovery(discoveryReply.payload);
+
+    if (!discoveryParse.ok())
+    {
+        return failure(
+            discoveryParseFailureStatus(discoveryParse.status),
+            discoveryParse.diagnostic);
+    }
+
+    return validateDiscovery(std::move(discoveryParse.value));
+}
+
+SuiteBridgeHandshakeResult SuiteBridgeHandshakeService::readSnapshot(
+    const SuiteBridgeDiscovery& discovery)
+{
+    SuiteBridgeHandshakeResult validated = validateDiscovery(discovery);
+
+    if (validated.status != SuiteBridgeHandshakeStatus::Compatible)
+    {
+        return validated;
+    }
+
     const SuiteBridgeCommandReply snapshotReply =
         transport_.execute(SuiteBridgeLocalCommand::Snapshot);
 
     if (!snapshotReply.transportSucceeded())
     {
-        return failure(
+        SuiteBridgeHandshakeResult result = failure(
             SuiteBridgeHandshakeStatus::SnapshotTransportError,
             snapshotReply.diagnostic.empty()
                 ? "suite bridge snapshot transport failed"
                 : snapshotReply.diagnostic);
+        result.discovery = discovery;
+        return result;
     }
 
     if (snapshotReply.replyCode != 900)
     {
-        return failure(
+        SuiteBridgeHandshakeResult result = failure(
             SuiteBridgeHandshakeStatus::SnapshotReplyRejected,
             "suite bridge SNAP reply rejected");
+        result.discovery = discovery;
+        return result;
     }
 
     SuiteBridgeSnapshotParseResult snapshotParse =
@@ -173,9 +197,11 @@ SuiteBridgeHandshakeResult SuiteBridgeHandshakeService::perform()
 
     if (!snapshotParse.ok())
     {
-        return failure(
+        SuiteBridgeHandshakeResult result = failure(
             snapshotParseFailureStatus(snapshotParse.status),
             snapshotParse.diagnostic);
+        result.discovery = discovery;
+        return result;
     }
 
     SuiteBridgeSnapshotBaseline baseline =
@@ -185,28 +211,40 @@ SuiteBridgeHandshakeResult SuiteBridgeHandshakeService::perform()
         baseline.capabilitySchema != discovery.capabilitySchema ||
         baseline.snapshotSchema != discovery.snapshotSchema)
     {
-        return failure(
+        SuiteBridgeHandshakeResult result = failure(
             SuiteBridgeHandshakeStatus::InvalidSnapshotPayload,
             "snapshot schemas do not match discovery");
+        result.discovery = discovery;
+        return result;
     }
 
     if (!baseline.active)
     {
-        return failure(
+        SuiteBridgeHandshakeResult result = failure(
             SuiteBridgeHandshakeStatus::SnapshotInactive,
             "suite bridge snapshot is inactive");
+        result.discovery = discovery;
+        return result;
     }
 
     SuiteBridgeHandshakeResult result;
     result.status = SuiteBridgeHandshakeStatus::Ready;
-    result.discovery = std::move(discovery);
+    result.discovery = discovery;
     result.baseline = std::move(baseline);
-
-    // SB.10a is intentionally read-only even if a future plugin reports
-    // a mutation capability as available. Plugin capability is not Agent
-    // policy and is never sufficient authorization.
     result.mutationsEnabled = false;
     return result;
+}
+
+SuiteBridgeHandshakeResult SuiteBridgeHandshakeService::perform()
+{
+    SuiteBridgeHandshakeResult discovery = discover();
+
+    if (discovery.status != SuiteBridgeHandshakeStatus::Compatible)
+    {
+        return discovery;
+    }
+
+    return readSnapshot(discovery.discovery);
 }
 
 }
