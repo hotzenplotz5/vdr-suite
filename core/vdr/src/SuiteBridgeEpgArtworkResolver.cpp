@@ -6,6 +6,72 @@
 
 namespace
 {
+int hexDigitValue(const char character)
+{
+    if (character >= '0' && character <= '9')
+    {
+        return character - '0';
+    }
+    if (character >= 'a' && character <= 'f')
+    {
+        return character - 'a' + 10;
+    }
+    if (character >= 'A' && character <= 'F')
+    {
+        return character - 'A' + 10;
+    }
+    return -1;
+}
+
+bool appendEscapedCharacter(
+    const std::string& json,
+    std::size_t& index,
+    std::string& result)
+{
+    const char character = json[index];
+    switch (character)
+    {
+        case 'b': result.push_back('\b'); return true;
+        case 'f': result.push_back('\f'); return true;
+        case 'n': result.push_back('\n'); return true;
+        case 'r': result.push_back('\r'); return true;
+        case 't': result.push_back('\t'); return true;
+        case '\\': result.push_back('\\'); return true;
+        case '"': result.push_back('"'); return true;
+        case 'u':
+        {
+            if (index + 4 >= json.size())
+            {
+                return false;
+            }
+
+            int value = 0;
+            for (std::size_t offset = 1; offset <= 4; ++offset)
+            {
+                const int digit = hexDigitValue(json[index + offset]);
+                if (digit < 0)
+                {
+                    return false;
+                }
+                value = value * 16 + digit;
+            }
+
+            // SuiteBridge currently emits \u00XX only for JSON control bytes.
+            // Reject wider code points instead of silently producing invalid UTF-8.
+            if (value > 0x7f)
+            {
+                return false;
+            }
+
+            result.push_back(static_cast<char>(value));
+            index += 4;
+            return true;
+        }
+        default:
+            return false;
+    }
+}
+
 std::string jsonString(const std::string& json, const std::string& key)
 {
     const std::string marker = "\"" + key + "\":\"";
@@ -22,14 +88,9 @@ std::string jsonString(const std::string& json, const std::string& key)
         const char character = json[index];
         if (escaped)
         {
-            switch (character)
+            if (!appendEscapedCharacter(json, index, result))
             {
-                case 'n': result.push_back('\n'); break;
-                case 'r': result.push_back('\r'); break;
-                case 't': result.push_back('\t'); break;
-                case '\\': result.push_back('\\'); break;
-                case '"': result.push_back('"'); break;
-                default: return {};
+                return {};
             }
             escaped = false;
             continue;
@@ -43,6 +104,10 @@ std::string jsonString(const std::string& json, const std::string& key)
         if (character == '"')
         {
             return result;
+        }
+        if (static_cast<unsigned char>(character) < 0x20)
+        {
+            return {};
         }
         result.push_back(character);
     }
