@@ -69,12 +69,6 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         *context->adapter,
         &runtimeLogger_);
 
-    if (epgEventRepository_) {
-        context->epgCacheService = std::make_unique<EpgCacheService>(
-            *epgEventRepository_,
-            *context->service);
-    }
-
     context->snapshotBuilder = std::make_unique<VdrSnapshotBuilder>(
         *context->service,
         context->backendId,
@@ -111,6 +105,39 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
 
     if (suiteBridgeConfig.enabled &&
         context->backendId == suiteBridgeConfig.backendId) {
+        context->epgArtworkRepository =
+            std::make_unique<EpgArtworkRepository>(database_);
+
+        if (!context->epgArtworkRepository->ensureSchema()) {
+            std::cerr
+                << "failed to initialize EPG artwork repository schema for backend "
+                << context->backendId
+                << std::endl;
+            context->epgArtworkRepository.reset();
+        }
+        else {
+            vdrsuite::agent::SuiteBridgeSvdrpTransportConfig artworkTransportConfig;
+            artworkTransportConfig.host = suiteBridgeConfig.host;
+            artworkTransportConfig.port = suiteBridgeConfig.port;
+            artworkTransportConfig.connectTimeout =
+                std::chrono::milliseconds(suiteBridgeConfig.connectTimeoutMs);
+            artworkTransportConfig.ioTimeout =
+                std::chrono::milliseconds(suiteBridgeConfig.ioTimeoutMs);
+            artworkTransportConfig.operationTimeout =
+                std::chrono::milliseconds(suiteBridgeConfig.operationTimeoutMs);
+
+            context->epgArtworkTransport =
+                std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(
+                    std::move(artworkTransportConfig));
+            context->epgArtworkResolver =
+                std::make_unique<SuiteBridgeEpgArtworkResolver>(
+                    *context->epgArtworkTransport);
+            context->epgArtworkEnrichmentService =
+                std::make_unique<EpgArtworkEnrichmentService>(
+                    *context->epgArtworkRepository,
+                    *context->epgArtworkResolver);
+        }
+
         vdrsuite::agent::SuiteBridgeEmbeddedAgentConfig embeddedConfig;
         embeddedConfig.backendId = context->backendId;
         embeddedConfig.enabled = true;
@@ -136,6 +163,13 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         context->suiteBridgeAgentRuntime =
             std::make_unique<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime>(
                 std::move(embeddedConfig));
+    }
+
+    if (epgEventRepository_) {
+        context->epgCacheService = std::make_unique<EpgCacheService>(
+            *epgEventRepository_,
+            *context->service,
+            context->epgArtworkEnrichmentService.get());
     }
 
     return context;
