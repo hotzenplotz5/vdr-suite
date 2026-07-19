@@ -23,6 +23,7 @@ struct EpgCacheRefreshResult
     bool artworkQueueAvailable = true;
     std::size_t artworkQueued = 0;
     std::size_t artworkDeduplicated = 0;
+    std::size_t artworkSuppressed = 0;
     std::size_t artworkDropped = 0;
 };
 
