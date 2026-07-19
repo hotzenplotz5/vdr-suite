@@ -146,7 +146,7 @@ test-search-timer-preview-epg-cache-change-invalidator:
 		core/vdr/tests/test_search_timer_preview_epg_cache_change_invalidator.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_search_timer_preview_epg_cache_change_invalidator
-	$(BUILD_DIR)/test_search_timer_preview_epg-cache-change-invalidator
+	$(BUILD_DIR)/test_search_timer_preview_epg_cache_change_invalidator
 
 
 test-snapshot-change-feed-preview-epg-cache-invalidation:
