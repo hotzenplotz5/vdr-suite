@@ -1,6 +1,5 @@
 // Phase 60.6a: Shared frontend helper source foundation.
-// Prepared DOM-free and HTTP-free helper namespace for future module extraction.
-// This file is intentionally not loaded by index.html yet.
+// DOM-free and HTTP-free helpers shared by modular and legacy frontend runtimes.
 
 (function(global) {
   'use strict';
@@ -35,6 +34,10 @@
       return data.items;
     }
 
+    if (data && Array.isArray(data.results)) {
+      return data.results;
+    }
+
     return [];
   }
 
@@ -64,4 +67,10 @@
   });
 
   global.VdrSuiteFrontendHelpers = helpersApi;
+
+  // Compatibility boundary for older classic scripts such as epg-cache.js.
+  // New modules should use VdrSuiteFrontendHelpers directly.
+  if (typeof global.listFromResponse !== 'function') {
+    global.listFromResponse = listFromResponse;
+  }
 })(window);
