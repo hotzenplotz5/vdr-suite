@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <vector>
 
+class EpgArtworkEnrichmentService;
+
 struct EpgCacheRefreshResult
 {
     bool accepted = false;
@@ -41,7 +43,8 @@ class EpgCacheService
 public:
     EpgCacheService(
         EpgEventRepository& repository,
-        VdrService& vdrService);
+        VdrService& vdrService,
+        EpgArtworkEnrichmentService* artworkEnrichmentService = nullptr);
 
     EpgCacheRefreshResult refreshBackendWindow(
         const std::string& backendId,
@@ -89,6 +92,7 @@ private:
 
     EpgEventRepository& repository_;
     VdrService& vdrService_;
+    EpgArtworkEnrichmentService* artworkEnrichmentService_;
     mutable std::mutex statusMutex_;
     std::unordered_map<std::string, RefreshMetadata> refreshMetadataByBackend_;
 
