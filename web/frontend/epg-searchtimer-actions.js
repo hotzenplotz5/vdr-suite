@@ -1,13 +1,8 @@
 'use strict';
 
 (function (global) {
-  function installChannels2Styles() {
-    if (document.getElementById('vdr-suite-channels2-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'vdr-suite-channels2-styles';
-    style.textContent = '.channels2{display:grid;gap:1rem;min-width:0}.channels2 h3,.channels2 p{margin:0}.channels2-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem}.channels2-toolbar>div:first-child{display:grid;gap:.2rem}.channels2-toolbar>div:first-child p{color:#94a3b8}.channels2-tools{display:flex;flex-wrap:wrap;gap:.5rem}.channels2-search{width:min(25rem,100%);min-height:2.7rem;padding:.65rem .8rem;border:1px solid #475569;border-radius:.72rem;background:#0f172a;color:#f8fafc;font:inherit}.channels2-status{padding:.7rem .85rem;border:1px solid rgba(148,163,184,.24);border-radius:.75rem;background:rgba(15,23,42,.72);color:#cbd5e1}.channels2-status.error,.channels2-feedback.error{color:#fecaca}.channels2-feedback.success{color:#bbf7d0}.channels2-grid{display:grid;grid-template-columns:minmax(15rem,21rem) minmax(0,1fr);gap:1rem;align-items:start}.channels2-list{display:grid;gap:.4rem;max-height:72vh;overflow:auto}.channels2-channel{display:grid;grid-template-columns:3.5rem minmax(0,1fr);gap:.65rem;align-items:center;width:100%;padding:.62rem;border:1px solid rgba(148,163,184,.18);border-radius:.78rem;background:rgba(15,23,42,.68);color:#f8fafc;text-align:left}.channels2-channel:hover,.channels2-channel:focus-visible,.channels2-channel.active{border-color:rgba(56,189,248,.62);background:rgba(14,165,233,.14);outline:none}.channels2-logo{display:grid;place-items:center;width:3.5rem;height:2.4rem}.channels2-logo img,.channels2-logo .channel-logo{max-width:100%;max-height:100%;object-fit:contain}.channels2-title{display:block;font-weight:800;overflow-wrap:anywhere}.channels2-meta{display:block;margin-top:.12rem;color:#94a3b8;font-size:.82rem}.channels2-program{display:grid;gap:.7rem;min-width:0}.channels2-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.65rem;padding:.75rem .82rem;border:1px solid rgba(56,189,248,.25);border-radius:.82rem;background:rgba(2,6,23,.64)}.channels2-date{display:flex;flex-wrap:wrap;gap:.4rem}.channels2-date button,.channels2-date input,.channels2-tools button{min-height:2.55rem;padding:.52rem .7rem;border-radius:.68rem}.channels2-date input{border:1px solid #475569;background:#0f172a;color:#f8fafc;font:inherit}.channels2-day-heading{color:#e2e8f0;font-size:1rem}.channels2-events{display:grid;gap:.42rem}.channels2-event{display:grid;grid-template-columns:6rem minmax(0,1fr) auto;gap:.65rem;align-items:center;width:100%;padding:.68rem .75rem;border:1px solid rgba(148,163,184,.18);border-radius:.78rem;background:rgba(15,23,42,.68);color:#f8fafc;text-align:left}.channels2-event:hover,.channels2-event:focus-visible,.channels2-event.active{border-color:rgba(56,189,248,.62);background:rgba(14,165,233,.12);outline:none}.channels2-time{font-weight:800;color:#bae6fd}.channels2-badge{padding:.18rem .4rem;border:1px solid rgba(148,163,184,.28);border-radius:999px;color:#cbd5e1;font-size:.7rem;font-weight:800}.channels2-detail{display:grid;gap:.8rem;padding:1rem;border:1px solid rgba(56,189,248,.32);border-radius:.9rem;background:rgba(2,6,23,.78)}.channels2-detail-header{display:grid;gap:.25rem}.channels2-detail-subtitle{color:#e2e8f0}.channels2-detail-time{color:#93c5fd;font-weight:700}.channels2-description{max-width:75ch;color:#dbe4f0;line-height:1.5;white-space:pre-line}.channels2-actions{display:flex;flex-wrap:wrap;gap:.5rem}.channels2-actions button{min-height:2.7rem;padding:.58rem .9rem;border-radius:.7rem}.channels2-secondary-action{background:transparent!important;border:1px solid rgba(96,165,250,.6)!important;color:#bfdbfe!important}.channels2-feedback{min-height:1.35rem;padding:.45rem 0}.channels2-empty{padding:1rem;border:1px dashed rgba(148,163,184,.3);border-radius:.8rem;color:#94a3b8;text-align:center}@media(max-width:900px){.channels2-grid{grid-template-columns:1fr}.channels2-list{max-height:35vh}.channels2-toolbar{align-items:stretch;flex-direction:column}.channels2-tools{display:grid;grid-template-columns:minmax(0,1fr) auto}.channels2-search{width:100%}}@media(max-width:600px){.channels2{gap:.75rem}.channels2-list{display:flex;max-height:none;overflow-x:auto;overflow-y:hidden;padding:.1rem 0 .45rem;scroll-snap-type:x proximity}.channels2-channel{flex:0 0 13.5rem;scroll-snap-align:start}.channels2-head{align-items:stretch;flex-direction:column}.channels2-date{display:grid;grid-template-columns:auto 1fr auto}.channels2-date input{grid-column:1/-1;width:100%}.channels2-event{grid-template-columns:4.8rem minmax(0,1fr);align-items:start}.channels2-event .channels2-badge{display:none}.channels2-detail{margin-inline:-.15rem;padding:.85rem}.channels2-description{max-height:16rem;overflow:auto;font-size:.96rem;line-height:1.42}.channels2-actions{position:sticky;bottom:0;z-index:3;display:grid;grid-template-columns:1fr 1fr;margin:.2rem -.85rem -.85rem;padding:.7rem .85rem;background:linear-gradient(to top,#020617 75%,rgba(2,6,23,.88))}.channels2-actions button{width:100%;padding:.58rem .5rem;font-size:.9rem}.channels2-tools{grid-template-columns:1fr}.channels2-tools button{width:100%}}';
-    document.head.appendChild(style);
-  }
+  const PREVIEW_REFRESH_WINDOW_SECONDS = 14 * 24 * 60 * 60;
+  const PREVIEW_CHANNEL_EVENT_LIMIT = 96;
 
   function searchTimerNavigationButton() {
     return document.querySelector('[data-module="searchtimers"]');
@@ -35,6 +30,99 @@
     status.textContent = message;
   }
 
+  function selectedBackendId() {
+    const runtime = global.VdrSuitePlatform;
+    if (runtime && typeof runtime.getSelectedBackendId === 'function') {
+      const value = String(runtime.getSelectedBackendId() || '').trim();
+      if (value) return value;
+    }
+    return 'default';
+  }
+
+  function refreshPreviewCache() {
+    const client = global.VdrSuiteClientApi;
+    if (!client || typeof client.requestJson !== 'function') {
+      return Promise.reject(new Error('Preview-EPG-Cache kann nicht aktualisiert werden: Client API fehlt.'));
+    }
+
+    const options = {
+      method: 'POST',
+      query: {
+        backend: selectedBackendId(),
+        from: -1,
+        timespan: PREVIEW_REFRESH_WINDOW_SECONDS,
+        limit: 0,
+        channelEventLimit: PREVIEW_CHANNEL_EVENT_LIMIT,
+        _: Date.now()
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    };
+
+    return client.requestJson('/api/vdr/searchtimers/preview/cache/refresh', options)
+      .catch(function () {
+        return client.requestJson('/api/searchtimers/preview/cache/refresh', options);
+      })
+      .then(function (result) {
+        const available = result && result.available === true;
+        const ready = result && String(result.status || '') === 'ready';
+        const eventCount = Number(result && result.eventCount || 0);
+        if (!available || !ready || eventCount <= 0) {
+          throw new Error('Der Preview-EPG-Cache ist nicht bereit oder enthält keine Sendungen.');
+        }
+        return result;
+      });
+  }
+
+  function previewFeedback(button) {
+    const form = button.closest('form[data-searchtimer-editor-form="create"]');
+    return form ? form.querySelector('[data-searchtimer-preview-result="true"]') : null;
+  }
+
+  function installPreviewCacheGuard() {
+    if (document.documentElement.dataset.searchtimerPreviewCacheGuard === 'true') return;
+    document.documentElement.dataset.searchtimerPreviewCacheGuard = 'true';
+
+    document.addEventListener('click', function (event) {
+      const button = event.target && event.target.closest
+        ? event.target.closest('[data-searchtimer-action="preview"]')
+        : null;
+      if (!button || button.dataset.previewCacheReady === 'true') return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+
+      const feedback = previewFeedback(button);
+      button.disabled = true;
+      if (feedback) {
+        feedback.className = 'searchtimer-feedback';
+        feedback.textContent = 'EPG-Daten für die Vorschau werden aktualisiert …';
+      }
+
+      refreshPreviewCache()
+        .then(function (result) {
+          if (feedback) {
+            feedback.className = 'searchtimer-feedback success';
+            feedback.textContent = String(result.eventCount) + ' EPG-Sendungen geladen. Vorschau wird ausgeführt …';
+          }
+          button.dataset.previewCacheReady = 'true';
+          button.disabled = false;
+          button.click();
+          delete button.dataset.previewCacheReady;
+        })
+        .catch(function (error) {
+          button.disabled = false;
+          if (feedback) {
+            feedback.className = 'searchtimer-feedback error';
+            feedback.textContent = String(error && error.message ? error.message : error);
+          } else {
+            global.alert(String(error && error.message ? error.message : error));
+          }
+        });
+    }, true);
+  }
+
   function openSearchTimerEditor(options) {
     const settings = options && typeof options === 'object' ? options : {};
     const title = String(settings.title || '').trim();
@@ -58,26 +146,39 @@
         const form = document.querySelector('form[data-searchtimer-editor-form="create"]');
         if (!form) {
           if (attempts < 40) { global.setTimeout(fill, 100); return; }
-          const error = new Error('SearchTimer editor form did not appear');
           showStatus(statusTarget, 'Der SearchTimer-Editor konnte nicht geöffnet werden.', true);
-          reject(error); return;
+          reject(new Error('SearchTimer editor form did not appear'));
+          return;
         }
-        const panel = form.closest('details'); if (panel) panel.open = true;
-        setFormValue(form, 'name', title); setFormValue(form, 'query', title);
-        setFormValue(form, 'active', true, 'change'); setFormValue(form, 'compareTitle', true, 'change'); setFormValue(form, 'avoidRepeats', true, 'change');
+        const panel = form.closest('details');
+        if (panel) panel.open = true;
+        setFormValue(form, 'name', title);
+        setFormValue(form, 'query', title);
+        setFormValue(form, 'active', true, 'change');
+        setFormValue(form, 'compareTitle', true, 'change');
+        setFormValue(form, 'avoidRepeats', true, 'change');
         if (channelId) {
           setFormValue(form, 'channelFilterMode', 1, 'change');
           global.setTimeout(function () {
             if (channelGroup) setFormValue(form, 'channelSelectorGroup', channelGroup, 'change');
-            global.setTimeout(function () { setFormValue(form, 'channelId', channelId, 'change'); form.scrollIntoView({behavior:'smooth',block:'start'}); resolve(form); }, 80);
-          }, 80); return;
+            global.setTimeout(function () {
+              setFormValue(form, 'channelId', channelId, 'change');
+              form.scrollIntoView({behavior: 'smooth', block: 'start'});
+              resolve(form);
+            }, 80);
+          }, 80);
+          return;
         }
-        form.scrollIntoView({behavior:'smooth',block:'start'}); resolve(form);
+        form.scrollIntoView({behavior: 'smooth', block: 'start'});
+        resolve(form);
       };
       global.setTimeout(fill, 80);
     });
   }
 
-  installChannels2Styles();
-  global.VdrSuiteEpgSearchTimerActions = Object.freeze({openSearchTimerEditor: openSearchTimerEditor});
+  installPreviewCacheGuard();
+  global.VdrSuiteEpgSearchTimerActions = Object.freeze({
+    openSearchTimerEditor: openSearchTimerEditor,
+    refreshPreviewCache: refreshPreviewCache
+  });
 }(window));
