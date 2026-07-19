@@ -122,6 +122,17 @@ test-epg-artwork-repository:
 	$(BUILD_DIR)/test_epg_artwork_repository
 
 
+test-epg-artwork-enrichment-service:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/EpgArtworkRepository.cpp \
+		core/vdr/src/EpgArtworkEnrichmentService.cpp \
+		core/vdr/tests/test_epg_artwork_enrichment_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_epg_artwork_enrichment_service
+	$(BUILD_DIR)/test_epg_artwork_enrichment_service
+
+
 test-vdr-domain-objects:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
