@@ -64,7 +64,9 @@ int main()
         repository,
         resolver,
         3,
-        std::chrono::seconds(0));
+        std::chrono::seconds(0),
+        std::chrono::milliseconds(100),
+        std::chrono::milliseconds(100));
 
     EpgArtworkReference stale;
     stale.backendId = "home";
@@ -84,6 +86,7 @@ int main()
     assert(scheduled.queueAvailable);
     assert(scheduled.queued == 3);
     assert(scheduled.deduplicated == 0);
+    assert(scheduled.suppressed == 0);
     assert(scheduled.dropped == 0);
 
     const EpgArtworkEnrichmentResult duplicate = service.enrich(
@@ -103,6 +106,22 @@ int main()
     const EpgArtworkReference missing = repository.find(
         "home", "S19.2E-1-1011-11100", "missing");
     assert(!missing.valid());
+
+    const EpgArtworkEnrichmentResult cooledDown = service.enrich(
+        "home",
+        {event("missing"), event("unavailable")});
+    assert(cooledDown.queued == 0);
+    assert(cooledDown.suppressed == 2);
+    assert(resolver.calls == 3);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(120));
+    const EpgArtworkEnrichmentResult retried = service.enrich(
+        "home",
+        {event("missing"), event("unavailable")});
+    assert(retried.queued == 2);
+    assert(retried.suppressed == 0);
+    assert(service.waitUntilIdle(std::chrono::seconds(2)));
+    assert(resolver.calls == 5);
 
     EpgArtworkEnrichmentService boundedService(
         repository,
