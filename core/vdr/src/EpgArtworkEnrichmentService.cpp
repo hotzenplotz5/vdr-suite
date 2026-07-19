@@ -15,11 +15,15 @@ EpgArtworkEnrichmentService::EpgArtworkEnrichmentService(
     EpgArtworkRepository& repository,
     IEpgArtworkResolver& resolver,
     std::size_t maximumQueuedEvents,
-    std::chrono::seconds resolvedArtworkTtl)
+    std::chrono::seconds resolvedArtworkTtl,
+    std::chrono::milliseconds notFoundTtl,
+    std::chrono::milliseconds retryBackoff)
     : repository_(repository),
       resolver_(resolver),
       maximumQueuedEvents_(maximumQueuedEvents),
       resolvedArtworkTtl_(resolvedArtworkTtl),
+      notFoundTtl_(notFoundTtl),
+      retryBackoff_(retryBackoff),
       worker_(&EpgArtworkEnrichmentService::workerLoop, this)
 {
 }
@@ -55,6 +59,8 @@ EpgArtworkEnrichmentResult EpgArtworkEnrichmentService::enrich(
         return result;
     }
 
+    const Clock::time_point now = Clock::now();
+
     for (const VdrEvent& event : events)
     {
         if (event.id.empty() || event.channelId.empty())
@@ -67,6 +73,12 @@ EpgArtworkEnrichmentResult EpgArtworkEnrichmentService::enrich(
         if (pendingKeys_.find(key) != pendingKeys_.end())
         {
             ++result.deduplicated;
+            continue;
+        }
+
+        if (isSuppressedLocked(key, now))
+        {
+            ++result.suppressed;
             continue;
         }
 
@@ -127,7 +139,14 @@ void EpgArtworkEnrichmentService::workerLoop()
             workerBusy_ = true;
         }
 
-        process(item);
+        try
+        {
+            process(item);
+        }
+        catch (...)
+        {
+            suppressUntil(item.key, retryBackoff_);
+        }
 
         {
             std::lock_guard<std::mutex> lock(mutex_);
@@ -161,6 +180,7 @@ void EpgArtworkEnrichmentService::process(const WorkItem& item)
 
     if (!resolution.attempted)
     {
+        suppressUntil(item.key, retryBackoff_);
         return;
     }
 
@@ -170,6 +190,7 @@ void EpgArtworkEnrichmentService::process(const WorkItem& item)
             item.backendId,
             item.event.channelId,
             item.event.id);
+        suppressUntil(item.key, notFoundTtl_);
         return;
     }
 
@@ -177,7 +198,47 @@ void EpgArtworkEnrichmentService::process(const WorkItem& item)
     artwork.backendId = item.backendId;
     artwork.channelId = item.event.channelId;
     artwork.eventId = item.event.id;
-    repository_.upsert(artwork);
+
+    if (!repository_.upsert(artwork))
+    {
+        suppressUntil(item.key, retryBackoff_);
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    suppressedUntilByKey_.erase(item.key);
+}
+
+void EpgArtworkEnrichmentService::suppressUntil(
+    const std::string& key,
+    std::chrono::milliseconds duration)
+{
+    if (duration.count() <= 0)
+    {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    suppressedUntilByKey_[key] = Clock::now() + duration;
+}
+
+bool EpgArtworkEnrichmentService::isSuppressedLocked(
+    const std::string& key,
+    Clock::time_point now)
+{
+    const auto found = suppressedUntilByKey_.find(key);
+    if (found == suppressedUntilByKey_.end())
+    {
+        return false;
+    }
+
+    if (found->second <= now)
+    {
+        suppressedUntilByKey_.erase(found);
+        return false;
+    }
+
+    return true;
 }
 
 std::string EpgArtworkEnrichmentService::normalizeBackendId(
