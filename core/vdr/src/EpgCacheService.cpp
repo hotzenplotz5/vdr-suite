@@ -3,7 +3,6 @@
 #include "EpgArtworkEnrichmentService.h"
 
 #include <chrono>
-#include <iostream>
 
 namespace
 {
@@ -64,42 +63,15 @@ EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
         normalizedBackendId,
         events);
 
-    std::cout
-        << "EPG artwork enrichment starting: backend="
-        << normalizedBackendId
-        << ", events="
-        << events.size()
-        << ", resolverAvailable="
-        << (result.artworkEnrichmentAvailable ? "true" : "false")
-        << std::endl;
-
     if (result.stored && artworkEnrichmentService_ != nullptr)
     {
         const EpgArtworkEnrichmentResult artworkResult =
             artworkEnrichmentService_->enrich(normalizedBackendId, events);
-        result.artworkRepositoryOk = artworkResult.repositoryOk;
-        result.artworkAttempted = artworkResult.attempted;
-        result.artworkStored = artworkResult.stored;
-        result.artworkRemoved = artworkResult.removed;
-        result.artworkUnavailable = artworkResult.unavailable;
+        result.artworkQueueAvailable = artworkResult.queueAvailable;
+        result.artworkQueued = artworkResult.queued;
+        result.artworkDeduplicated = artworkResult.deduplicated;
+        result.artworkDropped = artworkResult.dropped;
     }
-
-    std::cout
-        << "EPG artwork enrichment finished: backend="
-        << normalizedBackendId
-        << ", attempted="
-        << result.artworkAttempted
-        << ", stored="
-        << result.artworkStored
-        << ", removed="
-        << result.artworkRemoved
-        << ", unavailable="
-        << result.artworkUnavailable
-        << ", repositoryOk="
-        << (result.artworkRepositoryOk ? "true" : "false")
-        << ", resolverAvailable="
-        << (result.artworkEnrichmentAvailable ? "true" : "false")
-        << std::endl;
 
     updateStatusForBackend(
         normalizedBackendId,
