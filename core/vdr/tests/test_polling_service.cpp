@@ -1,6 +1,8 @@
+#include "IRuntimeLogger.h"
 #include "IRuntimeMeasurementSink.h"
 #include "IVdrAdapter.h"
 #include "PollingService.h"
+#include "RuntimeLogEntry.h"
 #include "RuntimeMeasurement.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
@@ -11,6 +13,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -38,6 +41,32 @@ static bool containsMeasurement(
     return false;
 }
 
+class RecordingRuntimeLogger : public IRuntimeLogger {
+public:
+    void write(const RuntimeLogEntry& entry) override
+    {
+        entries.push_back(entry);
+    }
+
+    bool contains(
+        RuntimeLogLevel level,
+        const std::string& component,
+        const std::string& textSubstring) const
+    {
+        for (const RuntimeLogEntry& entry : entries) {
+            if (entry.level == level
+                && entry.component == component
+                && entry.text.find(textSubstring) != std::string::npos) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    std::vector<RuntimeLogEntry> entries;
+};
+
 class CountingVdrAdapter : public IVdrAdapter {
 public:
     mutable int statusReadCount = 0;
@@ -47,6 +76,8 @@ public:
     mutable int eventsReadCount = 0;
     mutable int selectiveEventsReadCount = 0;
     mutable int lastSelectiveChannelEventLimit = 0;
+    mutable int changeStateReadCount = 0;
+    bool failChangeStateRead = false;
 
     VdrChangeState changeState;
 
@@ -117,6 +148,12 @@ public:
 
     VdrChangeState getChangeState() const override
     {
+        ++changeStateReadCount;
+
+        if (failChangeStateRead) {
+            throw std::runtime_error("connect failed to 127.0.0.1:8002");
+        }
+
         return changeState;
     }
 
@@ -497,6 +534,60 @@ static void test_polling_service_updates_backend_startup_snapshot_without_record
     assert(snapshot->recordings.empty());
 }
 
+static void test_failed_poll_preserves_snapshot_logs_warning_and_recovers()
+{
+    CountingVdrAdapter adapter;
+    VdrService service(adapter);
+    VdrSnapshotBuilder builder(service);
+    SnapshotCache cache;
+    SnapshotCacheService snapshotCacheService(cache);
+    RecordingRuntimeLogger logger;
+    PollingService pollingService(
+        builder,
+        service,
+        snapshotCacheService,
+        "default",
+        &logger);
+
+    adapter.changeState.channelsVersion = 1;
+    pollingService.poll();
+
+    assert(cache.hasSnapshot());
+    assert(adapter.changeStateReadCount == 1);
+    assert(adapter.channelsReadCount == 1);
+
+    const VdrSnapshot snapshotBeforeFailure = pollingService.snapshot();
+    const int domainReadCountBeforeFailure = adapter.totalDomainReadCount();
+
+    adapter.failChangeStateRead = true;
+    pollingService.poll();
+
+    assert(adapter.changeStateReadCount == 2);
+    assert(adapter.totalDomainReadCount() == domainReadCountBeforeFailure);
+    assert(cache.hasSnapshot());
+    assert(pollingService.snapshot().channels.size() == snapshotBeforeFailure.channels.size());
+    assert(pollingService.snapshot().channels[0].id == snapshotBeforeFailure.channels[0].id);
+    assert(pollingService.snapshot().status.state == snapshotBeforeFailure.status.state);
+    assert(logger.contains(
+        RuntimeLogLevel::Warning,
+        "PollingService",
+        "Poll cycle failed for backend default"));
+    assert(logger.contains(
+        RuntimeLogLevel::Warning,
+        "PollingService",
+        "connect failed to 127.0.0.1:8002"));
+
+    adapter.failChangeStateRead = false;
+    adapter.changeState.channelsVersion = 2;
+    pollingService.poll();
+
+    assert(adapter.changeStateReadCount == 3);
+    assert(adapter.channelsReadCount == 2);
+    assert(adapter.totalDomainReadCount() == domainReadCountBeforeFailure + 1);
+    assert(pollingService.changeEvents().size() == 1);
+    assert(pollingService.changeEvents()[0].type() == VdrChangeType::ChannelsChanged);
+    assert(pollingService.lastUpdatePlan().shouldRefreshChannels() == true);
+}
 
 static void test_polling_change_events_can_feed_snapshot_change_feed()
 {
@@ -601,6 +692,7 @@ int main()
     test_event_change_falls_back_to_full_events_when_selective_refresh_is_disabled();
     test_change_events_are_cleared_before_next_poll();
     test_polling_service_updates_backend_startup_snapshot_without_recordings();
+    test_failed_poll_preserves_snapshot_logs_warning_and_recovers();
     test_polling_change_events_can_feed_snapshot_change_feed();
     test_unchanged_poll_does_not_add_snapshot_change_feed_entry();
     test_multiple_polling_change_events_feed_multiple_domains();

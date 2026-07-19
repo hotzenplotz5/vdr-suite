@@ -15,6 +15,7 @@ from typing import DefaultDict, Iterable
 ROOT = Path(__file__).resolve().parents[1]
 GROUP_FILE = Path("mk/test-groups.mk")
 MAKEFILES = [ROOT / "Makefile", *sorted((ROOT / "mk").rglob("*.mk"))]
+SUITE_TEST_ROOTS = ("api", "core", "web")
 
 CANONICAL_GROUPS = (
     "test-ci-fast",
@@ -255,13 +256,15 @@ def transitive_dependencies(
 
 def discovered_test_sources() -> set[Path]:
     result: set[Path] = set()
-    for pattern in ("**/test_*.cpp", "**/test_*.cc", "**/test_*.js"):
-        for path in ROOT.glob(pattern):
-            if ".git" in path.parts or "build" in path.parts:
-                continue
-            if "tests" not in path.parts:
-                continue
-            result.add(path.relative_to(ROOT))
+    for root_name in SUITE_TEST_ROOTS:
+        test_root = ROOT / root_name
+        for pattern in ("**/test_*.cpp", "**/test_*.cc", "**/test_*.js"):
+            for path in test_root.glob(pattern):
+                if ".git" in path.parts or "build" in path.parts:
+                    continue
+                if "tests" not in path.parts:
+                    continue
+                result.add(path.relative_to(ROOT))
     return result
 
 

@@ -73,6 +73,12 @@ The audit expands simple Make variables, so grouped lists such as
 `CI_FAST_TESTS`, `VDR_TESTS`, `EXTENDED_LOCAL_TESTS` and `MANUAL_REAL_TESTS`
 are part of the verified dependency graph.
 
+The strict root inventory owns the same source trees as the root Make graph:
+`api/`, `core/` and `web/`. Independently owned build roots are not folded into
+these public groups. In particular, `vdr-plugin-suite-bridge/Makefile` owns the
+Suite Bridge plugin tests and validates them through the plugin-local
+`make check` contract.
+
 Three legacy names are explicitly documented as intentional runtime variants:
 `TestHttpServer`, `MockVdrAdapter` and `TestLiveTransport`. The router test
 fixture also temporarily carries `MockVdrTimerActionExecutor` through the

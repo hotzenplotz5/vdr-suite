@@ -4,6 +4,17 @@ CI_FAST_TESTS := \
 	check-vdr-linkage-contracts \
 	test-make-inventory \
 	test-build-artifact-paths \
+	test-suite-bridge-agent-boundary \
+	test-suite-bridge-handshake \
+	test-suite-bridge-svdrp-transport-boundary \
+	test-suite-bridge-svdrp-transport \
+	test-suite-bridge-observation-boundary \
+	test-suite-bridge-observation-service \
+	test-suite-bridge-observation-worker \
+	test-suite-bridge-embedded-runtime-boundary \
+	test-suite-bridge-embedded-runtime \
+	test-suite-bridge-daemon-runtime-wiring \
+	test-sb10d-live-acceptance-contract \
 	test-fast \
 	test-api-router \
 	test-restful-api-vdr-timer-action-executor \
@@ -37,6 +48,17 @@ CI_FAST_TESTS := \
 
 VDR_TESTS := \
 	check-vdr-linkage-contracts \
+	test-suite-bridge-agent-boundary \
+	test-suite-bridge-handshake \
+	test-suite-bridge-svdrp-transport-boundary \
+	test-suite-bridge-svdrp-transport \
+	test-suite-bridge-observation-boundary \
+	test-suite-bridge-observation-service \
+	test-suite-bridge-observation-worker \
+	test-suite-bridge-embedded-runtime-boundary \
+	test-suite-bridge-embedded-runtime \
+	test-suite-bridge-daemon-runtime-wiring \
+	test-sb10d-live-acceptance-contract \
 	test-backend-node \
 	test-backend-registry \
 	test-backend-registry-service \
@@ -245,7 +267,9 @@ MANUAL_REAL_TESTS := \
 	test-real-snapshot-builder \
 	test-real-change-state \
 	test-real-polling-initial-snapshot \
-	test-real-polling-stability
+	test-real-polling-stability \
+	test-suite-bridge-svdrp-transport-live \
+	test-real-suite-bridge-embedded-runtime-live
 
 test-ci-fast: $(CI_FAST_TESTS)
 

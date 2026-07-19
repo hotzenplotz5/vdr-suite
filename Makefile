@@ -1,4 +1,5 @@
 include mk/common.mk
+include mk/agent-sources.mk
 
 include mk/recording-sources.mk
 include mk/metadata-sources.mk
@@ -15,6 +16,7 @@ include mk/object-cache.mk
 
 
 include mk/smoke-targets.mk
+include mk/agent-tests.mk
 include mk/recording-action-tests.mk
 include mk/recording-metadata-tests.mk
 include mk/metadata-tests.mk
