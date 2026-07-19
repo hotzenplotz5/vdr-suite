@@ -23,7 +23,7 @@ std::size_t findMatching(const std::string& text, std::size_t start, char openCh
     int depth = 0;
 
     for (std::size_t i = start; i < text.size(); ++i) {
-        char c = text[i];
+        const char c = text[i];
 
         if (inString) {
             if (escaped) {
@@ -60,12 +60,12 @@ std::vector<std::string> splitTopLevelObjects(const std::string& arrayText)
     std::size_t pos = 0;
 
     while (pos < arrayText.size()) {
-        std::size_t start = arrayText.find('{', pos);
+        const std::size_t start = arrayText.find('{', pos);
         if (start == std::string::npos) {
             break;
         }
 
-        std::size_t end = findMatching(arrayText, start, '{', '}');
+        const std::size_t end = findMatching(arrayText, start, '{', '}');
         if (end == std::string::npos) {
             break;
         }
@@ -82,27 +82,32 @@ std::string unescapeJsonString(const std::string& value)
     return vdrsuite::decodeJsonStringEscapes(value);
 }
 
+bool hasField(const std::string& objectText, const std::string& fieldName)
+{
+    return objectText.find("\"" + fieldName + "\"") != std::string::npos;
+}
+
 std::string getStringField(const std::string& objectText, const std::string& fieldName)
 {
     const std::string key = "\"" + fieldName + "\"";
-    std::size_t keyPos = objectText.find(key);
+    const std::size_t keyPos = objectText.find(key);
     if (keyPos == std::string::npos) {
         return "";
     }
 
-    std::size_t colon = objectText.find(':', keyPos + key.size());
+    const std::size_t colon = objectText.find(':', keyPos + key.size());
     if (colon == std::string::npos) {
         return "";
     }
 
-    std::size_t quoteStart = objectText.find('"', colon + 1);
+    const std::size_t quoteStart = objectText.find('"', colon + 1);
     if (quoteStart == std::string::npos) {
         return "";
     }
 
     bool escaped = false;
     for (std::size_t i = quoteStart + 1; i < objectText.size(); ++i) {
-        char c = objectText[i];
+        const char c = objectText[i];
 
         if (escaped) {
             escaped = false;
@@ -125,12 +130,12 @@ std::string getStringField(const std::string& objectText, const std::string& fie
 int getIntField(const std::string& objectText, const std::string& fieldName, int fallback = 0)
 {
     const std::string key = "\"" + fieldName + "\"";
-    std::size_t keyPos = objectText.find(key);
+    const std::size_t keyPos = objectText.find(key);
     if (keyPos == std::string::npos) {
         return fallback;
     }
 
-    std::size_t colon = objectText.find(':', keyPos + key.size());
+    const std::size_t colon = objectText.find(':', keyPos + key.size());
     if (colon == std::string::npos) {
         return fallback;
     }
@@ -140,8 +145,12 @@ int getIntField(const std::string& objectText, const std::string& fieldName, int
         return fallback;
     }
 
+    if (objectText[pos] == '"') {
+        ++pos;
+    }
+
     bool negative = false;
-    if (objectText[pos] == '-') {
+    if (pos < objectText.size() && objectText[pos] == '-') {
         negative = true;
         ++pos;
     }
@@ -162,17 +171,17 @@ int getIntField(const std::string& objectText, const std::string& fieldName, int
 bool getBoolField(const std::string& objectText, const std::string& fieldName, bool fallback = false)
 {
     const std::string key = "\"" + fieldName + "\"";
-    std::size_t keyPos = objectText.find(key);
+    const std::size_t keyPos = objectText.find(key);
     if (keyPos == std::string::npos) {
         return fallback;
     }
 
-    std::size_t colon = objectText.find(':', keyPos + key.size());
+    const std::size_t colon = objectText.find(':', keyPos + key.size());
     if (colon == std::string::npos) {
         return fallback;
     }
 
-    std::size_t pos = skipWhitespace(objectText, colon + 1);
+    const std::size_t pos = skipWhitespace(objectText, colon + 1);
     if (objectText.compare(pos, 4, "true") == 0) {
         return true;
     }
@@ -181,19 +190,19 @@ bool getBoolField(const std::string& objectText, const std::string& fieldName, b
         return false;
     }
 
-    return fallback;
+    return getIntField(objectText, fieldName, fallback ? 1 : 0) != 0;
 }
 
 std::string extractTimersArray(const std::string& json)
 {
-    std::size_t timersKey = json.find("\"timers\"");
+    const std::size_t timersKey = json.find("\"timers\"");
     if (timersKey != std::string::npos) {
-        std::size_t arrayStart = json.find('[', timersKey);
+        const std::size_t arrayStart = json.find('[', timersKey);
         if (arrayStart == std::string::npos) {
             return "";
         }
 
-        std::size_t arrayEnd = findMatching(json, arrayStart, '[', ']');
+        const std::size_t arrayEnd = findMatching(json, arrayStart, '[', ']');
         if (arrayEnd == std::string::npos) {
             return "";
         }
@@ -201,17 +210,34 @@ std::string extractTimersArray(const std::string& json)
         return json.substr(arrayStart + 1, arrayEnd - arrayStart - 1);
     }
 
-    std::size_t arrayStart = json.find('[');
+    const std::size_t arrayStart = json.find('[');
     if (arrayStart == std::string::npos) {
         return "";
     }
 
-    std::size_t arrayEnd = findMatching(json, arrayStart, '[', ']');
+    const std::size_t arrayEnd = findMatching(json, arrayStart, '[', ']');
     if (arrayEnd == std::string::npos) {
         return "";
     }
 
     return json.substr(arrayStart + 1, arrayEnd - arrayStart - 1);
+}
+
+void splitDirectoryAndTitle(
+    const std::string& fileName,
+    std::string& directory,
+    std::string& title)
+{
+    const std::size_t separator = fileName.find_last_of('~');
+
+    if (separator == std::string::npos) {
+        directory.clear();
+        title = fileName;
+        return;
+    }
+
+    directory = fileName.substr(0, separator);
+    title = fileName.substr(separator + 1);
 }
 
 VdrTimer mapObjectToTimer(const std::string& objectText)
@@ -220,7 +246,7 @@ VdrTimer mapObjectToTimer(const std::string& objectText)
 
     timer.id = getStringField(objectText, "id");
     if (timer.id.empty()) {
-        int number = getIntField(objectText, "number", -1);
+        const int number = getIntField(objectText, "number", -1);
         if (number >= 0) {
             timer.id = std::to_string(number);
         }
@@ -253,13 +279,14 @@ VdrTimer mapObjectToTimer(const std::string& objectText)
         timer.eventId = getStringField(objectText, "eventid");
     }
 
-    timer.title = getStringField(objectText, "filename");
-    if (timer.title.empty()) {
-        timer.title = getStringField(objectText, "title");
+    std::string fileName = getStringField(objectText, "filename");
+    if (fileName.empty()) {
+        fileName = getStringField(objectText, "title");
     }
-    if (timer.title.empty()) {
-        timer.title = getStringField(objectText, "file");
+    if (fileName.empty()) {
+        fileName = getStringField(objectText, "file");
     }
+    splitDirectoryAndTitle(fileName, timer.directory, timer.title);
 
     timer.subtitle = getStringField(objectText, "short_text");
     timer.aux = getStringField(objectText, "aux");
@@ -267,32 +294,53 @@ VdrTimer mapObjectToTimer(const std::string& objectText)
         timer.subtitle = timer.aux;
     }
 
-    timer.startTime = std::to_string(getIntField(objectText, "start", getIntField(objectText, "start_time", getIntField(objectText, "starttime", 0))));
-    timer.endTime = std::to_string(getIntField(objectText, "stop", getIntField(objectText, "stop_time", getIntField(objectText, "stoptime", 0))));
+    timer.day = getStringField(objectText, "day");
+    timer.weekdays = getStringField(objectText, "weekdays");
+    if (timer.weekdays.empty()) {
+        timer.weekdays = "-------";
+    }
 
+    timer.startTime = std::to_string(getIntField(
+        objectText,
+        "start",
+        getIntField(objectText, "start_time", getIntField(objectText, "starttime", 0))));
+    timer.endTime = std::to_string(getIntField(
+        objectText,
+        "stop",
+        getIntField(objectText, "stop_time", getIntField(objectText, "stoptime", 0))));
+
+    timer.flags = getIntField(objectText, "flags", 0);
     timer.priority = getIntField(objectText, "priority", 0);
     timer.lifetime = getIntField(objectText, "lifetime", 0);
 
-    timer.enabled = getBoolField(objectText, "is_active", getBoolField(objectText, "active", true));
-    timer.recording = getBoolField(objectText, "is_recording", getBoolField(objectText, "recording", false));
+    timer.enabled = hasField(objectText, "is_active")
+        ? getBoolField(objectText, "is_active", false)
+        : hasField(objectText, "active")
+            ? getBoolField(objectText, "active", false)
+            : (timer.flags & 0x01) != 0;
+    timer.vps = (timer.flags & 0x04) != 0;
+    timer.recording = hasField(objectText, "is_recording")
+        ? getBoolField(objectText, "is_recording", false)
+        : hasField(objectText, "recording")
+            ? getBoolField(objectText, "recording", false)
+            : (timer.flags & 0x08) != 0;
     timer.pending = getBoolField(objectText, "is_pending", false);
 
     return timer;
 }
 
-}
+} // namespace
 
 std::vector<VdrTimer> RestfulApiTimerMapper::parseTimers(const std::string& json)
 {
     std::vector<VdrTimer> timers;
 
-    std::string arrayText = extractTimersArray(json);
+    const std::string arrayText = extractTimersArray(json);
     if (arrayText.empty()) {
         return timers;
     }
 
-    std::vector<std::string> objects = splitTopLevelObjects(arrayText);
-    for (const std::string& objectText : objects) {
+    for (const std::string& objectText : splitTopLevelObjects(arrayText)) {
         VdrTimer timer = mapObjectToTimer(objectText);
         if (!timer.id.empty()) {
             timers.push_back(timer);

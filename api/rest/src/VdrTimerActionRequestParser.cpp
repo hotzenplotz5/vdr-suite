@@ -10,8 +10,8 @@ std::string unquote(
     const std::string& value)
 {
     if (value.size() >= 2 &&
-        value.front() == '\"' &&
-        value.back() == '\"')
+        value.front() == '"' &&
+        value.back() == '"')
     {
         return value.substr(1, value.size() - 2);
     }
@@ -190,6 +190,11 @@ VdrTimerOperationRequest VdrTimerActionRequestParser::parse(
     request.weekdays =
         getValue(values, "weekdays");
 
+    if (request.weekdays.empty())
+    {
+        request.weekdays = "-------";
+    }
+
     request.start =
         parseInt(values, "start", 0);
 
@@ -204,6 +209,9 @@ VdrTimerOperationRequest VdrTimerActionRequestParser::parse(
 
     request.active =
         parseBool(values, "active", true);
+
+    request.vps =
+        parseBool(values, "vps", false);
 
     request.aux =
         getValue(values, "aux");

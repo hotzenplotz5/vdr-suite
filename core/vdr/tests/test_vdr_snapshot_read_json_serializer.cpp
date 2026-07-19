@@ -6,7 +6,6 @@
 #include <iostream>
 #include <string>
 
-
 static VdrSnapshot makeSnapshot(
     const std::string& backendId,
     std::size_t channelCount,
@@ -59,20 +58,17 @@ static void test_snapshot_read_serializer_serializes_multiple_snapshot_summaries
         });
 
     assert(json.find("\"snapshots\":[") != std::string::npos);
-
     assert(json.find("\"backendId\":\"home-vdr\"") != std::string::npos);
     assert(json.find("\"channelCount\":2") != std::string::npos);
     assert(json.find("\"eventCount\":3") != std::string::npos);
     assert(json.find("\"timerCount\":1") != std::string::npos);
     assert(json.find("\"recordingCount\":4") != std::string::npos);
-
     assert(json.find("\"backendId\":\"parents-vdr\"") != std::string::npos);
     assert(json.find("\"channelCount\":5") != std::string::npos);
     assert(json.find("\"eventCount\":6") != std::string::npos);
     assert(json.find("\"timerCount\":2") != std::string::npos);
     assert(json.find("\"recordingCount\":7") != std::string::npos);
 }
-
 
 static void test_snapshot_read_serializer_serializes_status()
 {
@@ -84,22 +80,20 @@ static void test_snapshot_read_serializer_serializes_status()
     status.state = "connected";
 
     VdrSnapshotReadJsonSerializer serializer;
-    std::string json = serializer.serializeStatus(status);
+    const std::string json = serializer.serializeStatus(status);
 
     assert(json.find("\"enabled\":true") != std::string::npos);
     assert(json.find("\"mode\":\"snapshot-read\"") != std::string::npos);
     assert(json.find("\"host\":\"vdr-host\"") != std::string::npos);
     assert(json.find("\"port\":8002") != std::string::npos);
     assert(json.find("\"state\":\"connected\"") != std::string::npos);
-
-    std::cout << json << std::endl;
 }
 
 static void test_snapshot_read_serializer_serializes_search_timers()
 {
     VdrSnapshotReadJsonSerializer serializer;
 
-    SearchTimer searchTimer = SearchTimer::create(
+    const SearchTimer searchTimer = SearchTimer::create(
         SearchTimerId::fromBackendNativeId("home-vdr", "searchtimer-1"),
         "Terra X Suche",
         "Terra X",
@@ -116,34 +110,48 @@ static void test_snapshot_read_serializer_serializes_search_timers()
     assert(json.find("\"active\":true") != std::string::npos);
 }
 
-
-static void test_snapshot_read_serializer_escapes_timer_strings()
+static void test_snapshot_read_serializer_serializes_editable_timer_contract()
 {
     VdrSnapshotReadJsonSerializer serializer;
 
     VdrTimer timer;
     timer.id = "timer-\"1\"";
     timer.channelId = "channel\\id";
+    timer.channelName = "Das Erste HD";
     timer.eventId = "event-1";
     timer.title = "ARD-Radio-Tatort \"Grow\" von Dominik Bernet";
-    timer.subtitle = "<epgsearch><searchtimer>Tatort </searchtimer></epgsearch>";
+    timer.directory = "Krimi";
+    timer.subtitle = "Folge 1";
+    timer.aux = "<epgsearch><searchtimer>Tatort </searchtimer></epgsearch>";
+    timer.day = "2026-07-19";
+    timer.weekdays = "-------";
     timer.startTime = "1900";
     timer.endTime = "2000";
-    timer.priority = 0;
-    timer.lifetime = 0;
+    timer.flags = 5;
+    timer.priority = 50;
+    timer.lifetime = 99;
     timer.enabled = true;
+    timer.vps = true;
     timer.recording = false;
+    timer.pending = true;
 
     const std::string json =
         serializer.serializeTimers({timer});
 
     assert(json.find("\"timers\":[") != std::string::npos);
     assert(json.find("\"id\":\"timer-\\\"1\\\"\"") != std::string::npos);
+    assert(json.find("\"timerId\":\"timer-\\\"1\\\"\"") != std::string::npos);
     assert(json.find("\"channelId\":\"channel\\\\id\"") != std::string::npos);
-    assert(json.find("\"title\":\"ARD-Radio-Tatort \\\"Grow\\\" von Dominik Bernet\"") != std::string::npos);
-    assert(json.find("\"subtitle\":\"<epgsearch><searchtimer>Tatort </searchtimer></epgsearch>\"") != std::string::npos);
+    assert(json.find("\"channelName\":\"Das Erste HD\"") != std::string::npos);
+    assert(json.find("\"directory\":\"Krimi\"") != std::string::npos);
+    assert(json.find("\"day\":\"2026-07-19\"") != std::string::npos);
+    assert(json.find("\"weekdays\":\"-------\"") != std::string::npos);
+    assert(json.find("\"flags\":5") != std::string::npos);
     assert(json.find("\"enabled\":true") != std::string::npos);
+    assert(json.find("\"active\":true") != std::string::npos);
+    assert(json.find("\"vps\":true") != std::string::npos);
     assert(json.find("\"recording\":false") != std::string::npos);
+    assert(json.find("\"pending\":true") != std::string::npos);
 }
 
 static void test_snapshot_read_serializer_serializes_empty_domain_lists()
@@ -162,12 +170,9 @@ int main()
     test_snapshot_read_serializer_serializes_status();
     test_snapshot_read_serializer_serializes_empty_domain_lists();
     test_snapshot_read_serializer_serializes_search_timers();
-    test_snapshot_read_serializer_escapes_timer_strings();
+    test_snapshot_read_serializer_serializes_editable_timer_contract();
     test_snapshot_read_serializer_serializes_multiple_snapshot_summaries();
 
-    std::cout
-        << "test_vdr_snapshot_read_json_serializer passed"
-        << std::endl;
-
+    std::cout << "test_vdr_snapshot_read_json_serializer passed" << std::endl;
     return 0;
 }
