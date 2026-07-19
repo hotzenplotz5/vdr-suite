@@ -8,6 +8,7 @@ CI_FAST_TESTS := \
 	test-suite-bridge-handshake \
 	test-suite-bridge-svdrp-transport-boundary \
 	test-suite-bridge-svdrp-transport \
+	test-suite-bridge-svdrp-artwork-transport \
 	test-suite-bridge-observation-boundary \
 	test-suite-bridge-observation-service \
 	test-suite-bridge-observation-worker \
@@ -25,6 +26,9 @@ CI_FAST_TESTS := \
 	test-api-router-searchtimer-preview-epg-cache \
 	test-runtime-config \
 	test-epg-event-repository \
+	test-suite-bridge-epg-artwork-resolver \
+	test-epg-artwork-repository \
+	test-epg-artwork-enrichment-service \
 	test-epg-cache-service \
 	test-epg-cache-controller \
 	test-api-router-epg-cache-routes \
@@ -52,6 +56,7 @@ VDR_TESTS := \
 	test-suite-bridge-handshake \
 	test-suite-bridge-svdrp-transport-boundary \
 	test-suite-bridge-svdrp-transport \
+	test-suite-bridge-svdrp-artwork-transport \
 	test-suite-bridge-observation-boundary \
 	test-suite-bridge-observation-service \
 	test-suite-bridge-observation-worker \
@@ -128,6 +133,9 @@ VDR_TESTS := \
 	test-vdr-snapshot-read-service-searchtimer-preview-epg-cache \
 	test-runtime-config \
 	test-epg-event-repository \
+	test-suite-bridge-epg-artwork-resolver \
+	test-epg-artwork-repository \
+	test-epg-artwork-enrichment-service \
 	test-epg-cache-service \
 	test-epg-cache-controller \
 	test-api-router-epg-cache-routes \
@@ -228,7 +236,6 @@ EXTENDED_LOCAL_TESTS := \
 	test-epgsearch-request-mapper \
 	test-epgsearch-result-json-serializer \
 	test-epgsearch-service \
-	test-local-partial-refresh-validation \
 	test-local-restfulapi-integration \
 	test-local-snapshot-runtime-integration \
 	test-person \
