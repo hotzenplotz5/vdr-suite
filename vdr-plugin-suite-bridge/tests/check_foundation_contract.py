@@ -140,7 +140,7 @@ required_source_content = (
     "SuiteBridgeCapabilityDiscoveryReply capabilityReply(",
     '"ARTW <channel-id> <event-id>\\n"',
     "SuiteBridgeEpgArtworkRequest artworkRequest(",
-    "ResolvePreferredArtwork(*event)",
+    "ResolvePreferredArtwork(event)",
     "return nullptr;",
     "VDRPLUGINCREATOR(cPluginSuiteBridge);",
 )
