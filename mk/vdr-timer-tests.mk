@@ -112,6 +112,16 @@ test-epg-event-repository:
 	$(BUILD_DIR)/test_epg_event_repository
 
 
+test-epg-artwork-repository:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/EpgArtworkRepository.cpp \
+		core/vdr/tests/test_epg_artwork_repository.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_epg_artwork_repository
+	$(BUILD_DIR)/test_epg_artwork_repository
+
+
 test-vdr-domain-objects:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
