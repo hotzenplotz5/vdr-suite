@@ -173,7 +173,8 @@ required_foundation_content = (
     "SuiteBridgeSvdrpReply::HasPayload() const noexcept",
     "class SuiteBridgeEpgArtworkRequest final",
     "class SuiteBridgeEpgArtworkPayload final",
-    'CallFirstService("GetScraperVideo"',
+    "cGetScraperVideo request(&event, nullptr)",
+    "request.call()",
 )
 
 for fragment in required_foundation_content:
