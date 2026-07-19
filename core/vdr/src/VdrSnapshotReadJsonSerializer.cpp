@@ -1,21 +1,21 @@
 #include "VdrSnapshotReadJsonSerializer.h"
 
-#include <sstream>
 #include <cstddef>
+#include <sstream>
 #include <string>
 
-static const char* boolToJson(
-    bool value)
+namespace
+{
+const char* boolToJson(bool value)
 {
     return value ? "true" : "false";
 }
 
-static std::string jsonEscape(
-    const std::string& value)
+std::string jsonEscape(const std::string& value)
 {
     std::string escaped;
 
-    for (char ch : value)
+    for (const char ch : value)
     {
         switch (ch)
         {
@@ -46,11 +46,12 @@ static std::string jsonEscape(
     return escaped;
 }
 
-static void appendJsonString(
+void appendJsonString(
     std::ostringstream& json,
     const std::string& value)
 {
     json << "\"" << jsonEscape(value) << "\"";
+}
 }
 
 std::string VdrSnapshotReadJsonSerializer::serializeStatus(
@@ -61,11 +62,15 @@ std::string VdrSnapshotReadJsonSerializer::serializeStatus(
     json
         << "{"
         << "\"enabled\":" << boolToJson(status.enabled) << ","
-        << "\"mode\":\"" << status.mode << "\","
-        << "\"host\":\"" << status.host << "\","
-        << "\"port\":" << status.port << ","
-        << "\"state\":\"" << status.state << "\""
-        << "}";
+        << "\"mode\":";
+    appendJsonString(json, status.mode);
+    json << ",\"host\":";
+    appendJsonString(json, status.host);
+    json
+        << ",\"port\":" << status.port
+        << ",\"state\":";
+    appendJsonString(json, status.state);
+    json << "}";
 
     return json.str();
 }
@@ -78,20 +83,24 @@ std::string VdrSnapshotReadJsonSerializer::serializeRecordings(
 
     for (std::size_t index = 0; index < recordings.size(); ++index)
     {
-        const auto& recording = recordings[index];
+        const VdrRecording& recording = recordings[index];
+
         if (index > 0)
         {
             json << ",";
         }
 
+        json << "{\"id\":";
+        appendJsonString(json, recording.id);
+        json << ",\"title\":";
+        appendJsonString(json, recording.title);
+        json << ",\"path\":";
+        appendJsonString(json, recording.path);
+        json << ",\"startTime\":";
+        appendJsonString(json, recording.startTime);
         json
-            << "{"
-            << "\"id\":\"" << recording.id << "\","
-            << "\"title\":\"" << recording.title << "\","
-            << "\"path\":\"" << recording.path << "\","
-            << "\"startTime\":\"" << recording.startTime << "\","
-            << "\"durationSeconds\":" << recording.durationSeconds << ","
-            << "\"sizeMb\":" << recording.sizeMb
+            << ",\"durationSeconds\":" << recording.durationSeconds
+            << ",\"sizeMb\":" << recording.sizeMb
             << "}";
     }
 
@@ -107,32 +116,48 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimers(
 
     for (std::size_t index = 0; index < timers.size(); ++index)
     {
-        const auto& timer = timers[index];
+        const VdrTimer& timer = timers[index];
+
         if (index > 0)
         {
             json << ",";
         }
 
-        json << "{";
-        json << "\"id\":";
+        json << "{\"id\":";
+        appendJsonString(json, timer.id);
+        json << ",\"timerId\":";
         appendJsonString(json, timer.id);
         json << ",\"channelId\":";
         appendJsonString(json, timer.channelId);
+        json << ",\"channelName\":";
+        appendJsonString(json, timer.channelName);
         json << ",\"eventId\":";
         appendJsonString(json, timer.eventId);
         json << ",\"title\":";
         appendJsonString(json, timer.title);
+        json << ",\"directory\":";
+        appendJsonString(json, timer.directory);
         json << ",\"subtitle\":";
         appendJsonString(json, timer.subtitle);
+        json << ",\"aux\":";
+        appendJsonString(json, timer.aux);
+        json << ",\"day\":";
+        appendJsonString(json, timer.day);
+        json << ",\"weekdays\":";
+        appendJsonString(json, timer.weekdays);
         json << ",\"startTime\":";
         appendJsonString(json, timer.startTime);
         json << ",\"endTime\":";
         appendJsonString(json, timer.endTime);
         json
+            << ",\"flags\":" << timer.flags
             << ",\"priority\":" << timer.priority
             << ",\"lifetime\":" << timer.lifetime
             << ",\"enabled\":" << boolToJson(timer.enabled)
+            << ",\"active\":" << boolToJson(timer.enabled)
+            << ",\"vps\":" << boolToJson(timer.vps)
             << ",\"recording\":" << boolToJson(timer.recording)
+            << ",\"pending\":" << boolToJson(timer.pending)
             << "}";
     }
 
@@ -144,6 +169,7 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimerConflictReport(
     const VdrTimerConflictReport& report) const
 {
     std::ostringstream json;
+
     json << "{\"source\":";
     appendJsonString(json, report.source);
     json
@@ -159,9 +185,13 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimerConflictReport(
     }
 
     json << ",\"conflicts\":[";
-    for (std::size_t conflictIndex = 0; conflictIndex < report.conflicts.size(); ++conflictIndex)
+
+    for (std::size_t conflictIndex = 0;
+         conflictIndex < report.conflicts.size();
+         ++conflictIndex)
     {
         const VdrTimerConflict& conflict = report.conflicts[conflictIndex];
+
         if (conflictIndex > 0)
         {
             json << ",";
@@ -169,11 +199,16 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimerConflictReport(
 
         json << "{\"raw\":";
         appendJsonString(json, conflict.raw);
-        json << ",\"conflictTime\":" << conflict.conflictTime << ",\"entries\":[";
+        json
+            << ",\"conflictTime\":" << conflict.conflictTime
+            << ",\"entries\":[";
 
-        for (std::size_t entryIndex = 0; entryIndex < conflict.entries.size(); ++entryIndex)
+        for (std::size_t entryIndex = 0;
+             entryIndex < conflict.entries.size();
+             ++entryIndex)
         {
             const VdrTimerConflictEntry& entry = conflict.entries[entryIndex];
+
             if (entryIndex > 0)
             {
                 json << ",";
@@ -184,7 +219,9 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimerConflictReport(
                 << ",\"percentage\":" << entry.percentage
                 << ",\"concurrentTimerIndices\":[";
 
-            for (std::size_t index = 0; index < entry.concurrentTimerIndices.size(); ++index)
+            for (std::size_t index = 0;
+                 index < entry.concurrentTimerIndices.size();
+                 ++index)
             {
                 if (index > 0)
                 {
@@ -194,13 +231,16 @@ std::string VdrSnapshotReadJsonSerializer::serializeTimerConflictReport(
             }
 
             json << "]";
+
             if (!entry.remoteServer.empty())
             {
                 json << ",\"remoteServer\":";
                 appendJsonString(json, entry.remoteServer);
             }
+
             json << "}";
         }
+
         json << "]}";
     }
 
@@ -216,19 +256,23 @@ std::string VdrSnapshotReadJsonSerializer::serializeSearchTimers(
 
     for (std::size_t index = 0; index < searchTimers.size(); ++index)
     {
-        const auto& searchTimer = searchTimers[index];
+        const SearchTimer& searchTimer = searchTimers[index];
+
         if (index > 0)
         {
             json << ",";
         }
 
+        json << "{\"backendId\":";
+        appendJsonString(json, searchTimer.backendId());
+        json << ",\"backendNativeId\":";
+        appendJsonString(json, searchTimer.backendNativeId());
+        json << ",\"name\":";
+        appendJsonString(json, searchTimer.name());
+        json << ",\"query\":";
+        appendJsonString(json, searchTimer.query());
         json
-            << "{"
-            << "\"backendId\":\"" << searchTimer.backendId() << "\","
-            << "\"backendNativeId\":\"" << searchTimer.backendNativeId() << "\","
-            << "\"name\":\"" << searchTimer.name() << "\","
-            << "\"query\":\"" << searchTimer.query() << "\","
-            << "\"active\":" << boolToJson(searchTimer.isActive())
+            << ",\"active\":" << boolToJson(searchTimer.isActive())
             << "}";
     }
 
@@ -244,22 +288,25 @@ std::string VdrSnapshotReadJsonSerializer::serializeChannels(
 
     for (std::size_t index = 0; index < channels.size(); ++index)
     {
-        const auto& channel = channels[index];
+        const VdrChannel& channel = channels[index];
+
         if (index > 0)
         {
             json << ",";
         }
 
+        json << "{\"id\":";
+        appendJsonString(json, channel.id);
+        json << ",\"number\":" << channel.number << ",\"name\":";
+        appendJsonString(json, channel.name);
+        json << ",\"provider\":";
+        appendJsonString(json, channel.provider);
+        json << ",\"group\":";
+        appendJsonString(json, channel.group);
         json
-            << "{"
-            << "\"id\":\"" << channel.id << "\","
-            << "\"number\":" << channel.number << ","
-            << "\"name\":\"" << channel.name << "\","
-            << "\"provider\":\"" << channel.provider << "\","
-            << "\"group\":\"" << channel.group << "\","
-            << "\"radio\":" << boolToJson(channel.radio) << ","
-            << "\"encrypted\":" << boolToJson(channel.encrypted) << ","
-            << "\"enabled\":" << boolToJson(channel.enabled)
+            << ",\"radio\":" << boolToJson(channel.radio)
+            << ",\"encrypted\":" << boolToJson(channel.encrypted)
+            << ",\"enabled\":" << boolToJson(channel.enabled)
             << "}";
     }
 
@@ -275,7 +322,8 @@ std::string VdrSnapshotReadJsonSerializer::serializeEvents(
 
     for (std::size_t index = 0; index < events.size(); ++index)
     {
-        const auto& event = events[index];
+        const VdrEvent& event = events[index];
+
         if (index > 0)
         {
             json << ",";
@@ -311,8 +359,7 @@ std::string VdrSnapshotReadJsonSerializer::serializeEvents(
         }
 
         json
-            << "],"
-            << "\"parentalRating\":" << event.parentalRating
+            << "],\"parentalRating\":" << event.parentalRating
             << "}";
     }
 
@@ -330,18 +377,23 @@ std::string VdrSnapshotReadJsonSerializer::serializeHealth(
     const std::string& backendId) const
 {
     std::ostringstream json;
+
+    json << "{\"backendId\":";
+    appendJsonString(json, backendId);
     json
-        << "{"
-        << "\"backendId\":\"" << backendId << "\","
-        << "\"snapshotAvailable\":" << boolToJson(snapshotAvailable) << ","
-        << "\"state\":\"" << status.state << "\","
-        << "\"mode\":\"" << status.mode << "\","
-        << "\"host\":\"" << status.host << "\","
-        << "\"port\":" << status.port << ","
-        << "\"channelCount\":" << channelCount << ","
-        << "\"eventCount\":" << eventCount << ","
-        << "\"timerCount\":" << timerCount << ","
-        << "\"recordingCount\":" << recordingCount
+        << ",\"snapshotAvailable\":" << boolToJson(snapshotAvailable)
+        << ",\"state\":";
+    appendJsonString(json, status.state);
+    json << ",\"mode\":";
+    appendJsonString(json, status.mode);
+    json << ",\"host\":";
+    appendJsonString(json, status.host);
+    json
+        << ",\"port\":" << status.port
+        << ",\"channelCount\":" << channelCount
+        << ",\"eventCount\":" << eventCount
+        << ",\"timerCount\":" << timerCount
+        << ",\"recordingCount\":" << recordingCount
         << "}";
 
     return json.str();
@@ -356,14 +408,15 @@ std::string VdrSnapshotReadJsonSerializer::serializeSnapshotSummary(
     const std::string& backendId) const
 {
     std::ostringstream json;
+
+    json << "{\"backendId\":";
+    appendJsonString(json, backendId);
     json
-        << "{"
-        << "\"backendId\":\"" << backendId << "\","
-        << "\"snapshotAvailable\":" << boolToJson(snapshotAvailable) << ","
-        << "\"channelCount\":" << channelCount << ","
-        << "\"eventCount\":" << eventCount << ","
-        << "\"timerCount\":" << timerCount << ","
-        << "\"recordingCount\":" << recordingCount
+        << ",\"snapshotAvailable\":" << boolToJson(snapshotAvailable)
+        << ",\"channelCount\":" << channelCount
+        << ",\"eventCount\":" << eventCount
+        << ",\"timerCount\":" << timerCount
+        << ",\"recordingCount\":" << recordingCount
         << "}";
 
     return json.str();
@@ -377,20 +430,21 @@ std::string VdrSnapshotReadJsonSerializer::serializeSnapshots(
 
     for (std::size_t index = 0; index < snapshots.size(); ++index)
     {
-        const auto& snapshot = snapshots[index];
+        const VdrSnapshot& snapshot = snapshots[index];
+
         if (index > 0)
         {
             json << ",";
         }
 
+        json << "{\"backendId\":";
+        appendJsonString(json, snapshot.backendId);
         json
-            << "{"
-            << "\"backendId\":\"" << snapshot.backendId << "\","
-            << "\"snapshotAvailable\":true,"
-            << "\"channelCount\":" << snapshot.channels.size() << ","
-            << "\"eventCount\":" << snapshot.events.size() << ","
-            << "\"timerCount\":" << snapshot.timers.size() << ","
-            << "\"recordingCount\":" << snapshot.recordings.size()
+            << ",\"snapshotAvailable\":true"
+            << ",\"channelCount\":" << snapshot.channels.size()
+            << ",\"eventCount\":" << snapshot.events.size()
+            << ",\"timerCount\":" << snapshot.timers.size()
+            << ",\"recordingCount\":" << snapshot.recordings.size()
             << "}";
     }
 
@@ -402,6 +456,7 @@ std::string VdrSnapshotReadJsonSerializer::serializeCapabilities(
     const VdrCapabilitySet& capabilities) const
 {
     std::ostringstream json;
+
     json
         << "{"
         << "\"snapshotRead\":" << boolToJson(capabilities.snapshotRead) << ","

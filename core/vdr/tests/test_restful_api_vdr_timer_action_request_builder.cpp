@@ -18,6 +18,7 @@ static VdrTimerOperationRequest makeRequest()
     request.priority = 50;
     request.lifetime = 99;
     request.active = true;
+    request.vps = false;
     request.aux = "<epgsearch></epgsearch>";
     return request;
 }
@@ -25,16 +26,13 @@ static VdrTimerOperationRequest makeRequest()
 static void test_build_create_request()
 {
     RestfulApiVdrTimerActionRequestBuilder builder;
-    const VdrTimerOperationRequest request = makeRequest();
-
     const HttpRequest httpRequest =
-        builder.buildCreateRequest("/api", request);
+        builder.buildCreateRequest("/api", makeRequest());
 
     assert(httpRequest.method == "POST");
     assert(httpRequest.url == "/api/timers");
     assert(httpRequest.headers.at("Accept") == "application/json");
     assert(httpRequest.headers.at("Content-Type") == "application/x-www-form-urlencoded");
-
     assert(httpRequest.body.find("flags=1") != std::string::npos);
     assert(httpRequest.body.find("channel=C-61441-10006-50021") != std::string::npos);
     assert(httpRequest.body.find("weekdays=-------") != std::string::npos);
@@ -51,10 +49,8 @@ static void test_build_create_request()
 static void test_build_update_request()
 {
     RestfulApiVdrTimerActionRequestBuilder builder;
-    const VdrTimerOperationRequest request = makeRequest();
-
     const HttpRequest httpRequest =
-        builder.buildUpdateRequest("/api/", request);
+        builder.buildUpdateRequest("/api/", makeRequest());
 
     assert(httpRequest.method == "PUT");
     assert(httpRequest.url == "/api/timers");
@@ -65,15 +61,38 @@ static void test_build_update_request()
 static void test_build_delete_request()
 {
     RestfulApiVdrTimerActionRequestBuilder builder;
-    const VdrTimerOperationRequest request = makeRequest();
-
     const HttpRequest httpRequest =
-        builder.buildDeleteRequest("", request);
+        builder.buildDeleteRequest("", makeRequest());
 
     assert(httpRequest.method == "DELETE");
     assert(httpRequest.url == "/timers/42");
     assert(httpRequest.headers.at("Accept") == "application/json");
-    assert(httpRequest.body.empty() == true);
+    assert(httpRequest.body.empty());
+}
+
+static void test_active_vps_request_combines_flags()
+{
+    RestfulApiVdrTimerActionRequestBuilder builder;
+    VdrTimerOperationRequest request = makeRequest();
+    request.vps = true;
+
+    const HttpRequest httpRequest =
+        builder.buildCreateRequest("", request);
+
+    assert(httpRequest.body.find("flags=5") != std::string::npos);
+}
+
+static void test_inactive_vps_request_preserves_vps_flag()
+{
+    RestfulApiVdrTimerActionRequestBuilder builder;
+    VdrTimerOperationRequest request = makeRequest();
+    request.active = false;
+    request.vps = true;
+
+    const HttpRequest httpRequest =
+        builder.buildCreateRequest("", request);
+
+    assert(httpRequest.body.find("flags=4") != std::string::npos);
 }
 
 static void test_inactive_request_sets_flags_zero()
@@ -105,8 +124,9 @@ int main()
     test_build_create_request();
     test_build_update_request();
     test_build_delete_request();
+    test_active_vps_request_combines_flags();
+    test_inactive_vps_request_preserves_vps_flag();
     test_inactive_request_sets_flags_zero();
     test_request_without_directory_uses_title_as_file();
-
     return 0;
 }
