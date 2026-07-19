@@ -104,6 +104,11 @@ EpgArtworkReference EpgArtworkRepository::find(
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     EpgArtworkReference artwork;
+    if (!const_cast<EpgArtworkRepository*>(this)->ensureSchema())
+    {
+        return artwork;
+    }
+
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "SELECT provider, path, width, height, resolved_at "
@@ -147,6 +152,11 @@ bool EpgArtworkRepository::removeForEvent(
     const std::string& eventId)
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+    if (!ensureSchema())
+    {
+        return false;
+    }
 
     sqlite3_stmt* statement = nullptr;
     const char* sql =
