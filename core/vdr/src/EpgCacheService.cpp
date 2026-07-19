@@ -1,5 +1,7 @@
 #include "EpgCacheService.h"
 
+#include "EpgArtworkEnrichmentService.h"
+
 #include <chrono>
 
 namespace
@@ -20,9 +22,11 @@ long long elapsedMilliseconds(
 
 EpgCacheService::EpgCacheService(
     EpgEventRepository& repository,
-    VdrService& vdrService)
+    VdrService& vdrService,
+    EpgArtworkEnrichmentService* artworkEnrichmentService)
     : repository_(repository),
-      vdrService_(vdrService)
+      vdrService_(vdrService),
+      artworkEnrichmentService_(artworkEnrichmentService)
 {
 }
 
@@ -57,6 +61,11 @@ EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
     result.stored = repository_.upsertEventsForBackend(
         normalizedBackendId,
         events);
+
+    if (result.stored && artworkEnrichmentService_ != nullptr)
+    {
+        artworkEnrichmentService_->enrich(normalizedBackendId, events);
+    }
 
     updateStatusForBackend(
         normalizedBackendId,
