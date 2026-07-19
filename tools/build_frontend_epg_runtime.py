@@ -39,14 +39,14 @@ def build_runtime(root: Path) -> str:
 (function(global) {
   'use strict';
 
-  function startVdrSuiteLegacyEpgRuntime() {
-%s
-  }
-
   function bootVdrSuiteLegacyEpgRuntime() {
     if (global.__vdrSuiteLegacyEpgRuntimeStarted === true) return;
     global.__vdrSuiteLegacyEpgRuntimeStarted = true;
     startVdrSuiteLegacyEpgRuntime();
+  }
+
+  function startVdrSuiteLegacyEpgRuntime() {
+%s
   }
 
   if (document.readyState === 'loading') {

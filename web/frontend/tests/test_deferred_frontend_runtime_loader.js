@@ -4,7 +4,12 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const sourcePath = path.resolve(__dirname, '..', 'channel-logos.js');
+const sourcePath = path.resolve(
+  __dirname,
+  '..',
+  'platform',
+  'deferred-runtime-loader.js'
+);
 const source = fs.readFileSync(sourcePath, 'utf8');
 
 assert.ok(source.includes("'/frontend/channel-day-program.js'"));
