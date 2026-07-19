@@ -1,4 +1,14 @@
-.PHONY: test-suite-bridge-epg-artwork-resolver test-epg-artwork-repository test-epg-artwork-enrichment-service
+.PHONY: test-epg-artwork test-suite-bridge-epg-artwork-resolver test-epg-artwork-repository test-epg-artwork-enrichment-service
+
+test-epg-artwork: \
+	test-suite-bridge-svdrp-artwork-transport \
+	test-suite-bridge-epg-artwork-resolver \
+	test-epg-artwork-repository \
+	test-epg-artwork-enrichment-service
+
+# Keep the feature tests attached to both canonical backend test entrypoints
+# without duplicating their recipes in the central inventory lists.
+test-ci-fast test-vdr: test-epg-artwork
 
 test-suite-bridge-epg-artwork-resolver:
 	$(BUILD_CXX) $(CXXFLAGS) \
