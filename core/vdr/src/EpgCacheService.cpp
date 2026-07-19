@@ -70,6 +70,7 @@ EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
         result.artworkQueueAvailable = artworkResult.queueAvailable;
         result.artworkQueued = artworkResult.queued;
         result.artworkDeduplicated = artworkResult.deduplicated;
+        result.artworkSuppressed = artworkResult.suppressed;
         result.artworkDropped = artworkResult.dropped;
     }
 
