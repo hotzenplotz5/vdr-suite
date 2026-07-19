@@ -158,7 +158,6 @@ public:
                 );
 
             appendValidationWarnings(result, validation);
-
             return result;
         }
 
@@ -177,13 +176,13 @@ public:
                 );
 
             appendValidationWarnings(result, validation);
-
             return result;
         }
 
         RecordingActionExecutionResult result =
             dispatchResult.executionResult;
 
+        normalizeSuccessfulBackendDryRun(result, payload);
         appendValidationWarnings(result, validation);
 
         return result;
@@ -209,6 +208,27 @@ private:
         }
 
         return result;
+    }
+
+    static void normalizeSuccessfulBackendDryRun(
+        RecordingActionExecutionResult& result,
+        const RecordingActionJobPayload& payload)
+    {
+        if (!payload.dryRun || !result.success || result.hasErrors())
+        {
+            return;
+        }
+
+        result.success = false;
+        result.message = "dry-run backend execution skipped";
+
+        if (std::find(
+                result.warnings.begin(),
+                result.warnings.end(),
+                "dry-run only") == result.warnings.end())
+        {
+            result.warnings.push_back("dry-run only");
+        }
     }
 
     static RecordingActionExecutionResult validationFailure(
