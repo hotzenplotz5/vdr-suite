@@ -104,4 +104,4 @@ VDR_SRC := \
         core/vdr/src/LiveTransportFactory.cpp \
         core/vdr/src/SseLiveTransport.cpp \
         core/vdr/src/BackendPollingCoordinator.cpp \
-        core/vdr/src/VdrAdapterFactory.cpp \
+        core/vdr/src/VdrAdapterFactory.cpp
