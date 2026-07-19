@@ -348,18 +348,8 @@
   function deactivate() { state.active = false; state.sequence += 1; }
 
   function install() {
-    const nav = document.getElementById('module-nav');
-    if (!nav || nav.querySelector('[data-module="channels2"]')) return;
-    const button = addText(document.createElement('button'), 'Channels 2');
-    button.type = 'button'; button.className = 'module-tab'; button.dataset.module = 'channels2';
-    const old = nav.querySelector('[data-module="channels"]');
-    if (old && old.nextSibling) nav.insertBefore(button, old.nextSibling); else nav.appendChild(button);
-    button.addEventListener('click', function (event) { event.preventDefault(); event.stopImmediatePropagation(); activate(); }, true);
-    nav.addEventListener('click', function (event) { const tab = event.target && event.target.closest ? event.target.closest('.module-tab') : null; if (tab && tab.dataset.module !== 'channels2') deactivate(); }, true);
-    const refresh = document.getElementById('refresh-detail');
-    if (refresh) refresh.addEventListener('click', function (event) { if (!state.active) return; event.preventDefault(); event.stopImmediatePropagation(); loadChannels(); }, true);
+    installStyles();
   }
-
   global.VdrSuiteChannels2 = Object.freeze({activate: activate, deactivate: deactivate, refresh: loadChannels});
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, {once: true}); else install();
 })(window);

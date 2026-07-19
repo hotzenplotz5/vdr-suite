@@ -423,6 +423,7 @@ bool isFrontendPath(
         path == "/frontend/channel-day-program.js" ||
         path == "/frontend/channel-day-program-compat.js" ||
         path == "/frontend/recording-trash-ux.js" ||
+        path == "/frontend/epg-searchtimer-actions.js" ||
         path == "/frontend/channel-browser.js" ||
         path == "/frontend/modules/channels.js" ||
         path == "/frontend/modules/timers.js" ||
@@ -532,6 +533,13 @@ HttpServerResponse serveFrontendPath(
     {
         return makeFrontendAssetResponse(
             "recording-trash-ux.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/epg-searchtimer-actions.js")
+    {
+        return makeFrontendAssetResponse(
+            "epg-searchtimer-actions.js",
             "application/javascript; charset=utf-8");
     }
 

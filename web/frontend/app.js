@@ -152,6 +152,7 @@ const EPG_VISIBLE_CHANNEL_LIMIT = 15;
 const moduleLabels = {
   overview: frontendTranslate('module.overview', 'Übersicht'),
   channels: frontendTranslate('module.channels', 'Kanäle'),
+  channels2: 'Channels 2',
   channelsort: frontendTranslate('module.channelSort', 'Kanäle sortieren'),
   epg: frontendTranslate('module.epg', 'EPG Zeitleiste'),
   timers: frontendTranslate('module.timers', 'Timer'),
@@ -3527,6 +3528,62 @@ function renderSelectedModule(data) {
     return;
   }
 
+  if (selectedModule === 'channels2') {
+    const channels2 = window.VdrSuiteChannels2;
+
+    if (channels2 && typeof channels2.activate === 'function') {
+      channels2.activate();
+      return;
+    }
+
+    const deferredRuntimes = window.VdrSuiteDeferredFrontendRuntimes;
+
+    detailDataElement.replaceChildren();
+
+    const message = addText(
+      document.createElement('p'),
+      'Channels 2 wird geladen …'
+    );
+
+    message.className = 'status';
+    detailDataElement.appendChild(message);
+
+    if (
+      !deferredRuntimes ||
+      typeof deferredRuntimes.ensureChannels2 !== 'function'
+    ) {
+      message.className = 'status error';
+      message.textContent =
+        'Channels 2 konnte nicht geladen werden: Deferred Runtime Loader ist nicht verfügbar.';
+      return;
+    }
+
+    deferredRuntimes.ensureChannels2()
+      .then(function (runtime) {
+        if (selectedModule !== 'channels2') {
+          return;
+        }
+
+        if (!runtime || typeof runtime.activate !== 'function') {
+          throw new Error('Runtime API ist nicht verfügbar.');
+        }
+
+        runtime.activate();
+      })
+      .catch(function (error) {
+        if (selectedModule !== 'channels2') {
+          return;
+        }
+
+        message.className = 'status error';
+        message.textContent =
+          'Channels 2 konnte nicht geladen werden: ' +
+          String(error && error.message ? error.message : error);
+      });
+
+    return;
+  }
+
   if (selectedModule === 'channelsort') {
     loadChannelSorter();
     return;
@@ -3561,6 +3618,16 @@ function renderSelectedModule(data) {
 }
 
 function selectModule(moduleName) {
+  const channels2 = window.VdrSuiteChannels2;
+
+  if (
+    moduleName !== 'channels2' &&
+    channels2 &&
+    typeof channels2.deactivate === 'function'
+  ) {
+    channels2.deactivate();
+  }
+
   selectedModule = moduleName;
 
   if (moduleName === 'channels') {
@@ -3581,6 +3648,11 @@ function selectModule(moduleName) {
   document.querySelectorAll('.module-tab').forEach(button => {
     button.classList.toggle('active', button.dataset.module === moduleName);
   });
+
+  if (moduleName === 'channels2') {
+    renderSelectedModule(currentSnapshot || {});
+    return;
+  }
 
   if (currentSnapshot) {
     renderSelectedModule(currentSnapshot);
@@ -3719,6 +3791,18 @@ refreshDetailButton.addEventListener('click', () => {
 
   if (selectedModule === 'channels') {
     loadChannels();
+    return;
+  }
+
+  if (selectedModule === 'channels2') {
+    const channels2 = window.VdrSuiteChannels2;
+
+    if (channels2 && typeof channels2.refresh === 'function') {
+      channels2.refresh();
+    } else {
+      renderSelectedModule(currentSnapshot || {});
+    }
+
     return;
   }
 
