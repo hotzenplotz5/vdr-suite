@@ -31,7 +31,65 @@ function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
   });
 }
 
+function ensureVdrSuiteChannels2Tab() {
+  const nav = document.getElementById('module-nav');
+  if (!nav) {
+    return null;
+  }
+
+  let button = nav.querySelector('[data-module="channels2"]');
+  if (!button) {
+    button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'module-tab';
+    button.dataset.module = 'channels2';
+    button.textContent = 'Channels 2';
+
+    const channels = nav.querySelector('[data-module="channels"]');
+    if (channels && channels.nextSibling) {
+      nav.insertBefore(button, channels.nextSibling);
+    } else {
+      nav.appendChild(button);
+    }
+  }
+
+  if (button.dataset.channels2LoaderBound !== 'true') {
+    button.dataset.channels2LoaderBound = 'true';
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      document.querySelectorAll('.module-tab').forEach(tab => {
+        tab.classList.toggle('active', tab === button);
+      });
+
+      if (window.VdrSuiteChannels2 &&
+          typeof window.VdrSuiteChannels2.activate === 'function') {
+        window.VdrSuiteChannels2.activate();
+        return;
+      }
+
+      loadVdrSuiteDeferredRuntime(
+        'vdr-suite-channels2-runtime',
+        '/frontend/channel-day-program.js',
+        () => Boolean(window.VdrSuiteChannels2)
+      ).then(() => {
+        if (window.VdrSuiteChannels2 &&
+            typeof window.VdrSuiteChannels2.activate === 'function') {
+          window.VdrSuiteChannels2.activate();
+        }
+      }).catch(error => {
+        console.error('VDR-Suite Channels 2 runtime failed', error);
+      });
+    }, true);
+  }
+
+  return button;
+}
+
 function startVdrSuiteDeferredFrontendRuntimes() {
+  ensureVdrSuiteChannels2Tab();
+
   loadVdrSuiteDeferredRuntime(
     'vdr-suite-channels2-runtime',
     '/frontend/channel-day-program.js',
