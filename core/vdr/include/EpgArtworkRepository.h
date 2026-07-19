@@ -25,7 +25,9 @@ public:
 
 private:
     Database& database_;
-    mutable std::recursive_mutex mutex_;
+    mutable std::mutex mutex_;
+
+    bool ensureSchemaLocked() const;
 
     static std::string normalizeBackendId(const std::string& backendId);
 };
