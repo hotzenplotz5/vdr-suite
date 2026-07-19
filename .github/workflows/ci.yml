@@ -48,15 +48,20 @@ jobs:
           python3 tools/audit_make_test_inventory.py --json > make-test-inventory.json
 
       - name: Dry-run complete test graph
-        run: make -n test-all >/dev/null
+        shell: bash
+        run: |
+          set -o pipefail
+          make -n test-all 2>&1 | tee make-test-dry-run.txt
 
       - name: Upload Make test audit bundle
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: make-test-audit-bundle
           path: |
             make-test-inventory.txt
             make-test-inventory.json
+            make-test-dry-run.txt
             Makefile
             mk/
           if-no-files-found: error
@@ -77,7 +82,19 @@ jobs:
           sudo apt-get install -y nodejs
 
       - name: Run frontend contract tests
-        run: make test-ci-frontend
+        shell: bash
+        run: |
+          set -o pipefail
+          make test-ci-frontend 2>&1 | tee frontend-test.log
+
+      - name: Upload frontend test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-log
+          path: frontend-test.log
+          if-no-files-found: error
+          retention-days: 14
 
   fast-regression-test:
     runs-on: ubuntu-latest
