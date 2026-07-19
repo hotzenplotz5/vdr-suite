@@ -5,7 +5,7 @@
 
 struct RuntimeSuiteBridgeConfig
 {
-    bool enabled = false;
+    bool enabled = true;
     std::string backendId = "default";
     std::string host = "127.0.0.1";
     int port = 6419;
