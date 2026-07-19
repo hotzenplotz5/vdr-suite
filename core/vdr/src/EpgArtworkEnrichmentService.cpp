@@ -33,6 +33,8 @@ EpgArtworkEnrichmentService::~EpgArtworkEnrichmentService()
     {
         std::lock_guard<std::mutex> lock(mutex_);
         stopRequested_ = true;
+        queue_.clear();
+        pendingKeys_.clear();
     }
 
     workAvailable_.notify_all();
