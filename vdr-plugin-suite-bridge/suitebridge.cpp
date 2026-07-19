@@ -168,22 +168,43 @@ cString cPluginSuiteBridge::SVDRPCommand(
     const tChannelID channelId =
         tChannelID::FromString(artworkRequest.ChannelId().c_str());
 
-    if (channelId.Valid()) {
+    if (!channelId.Valid()) {
+      isyslog(
+          "suitebridge: artwork lookup result=invalid-channel channel=%s event=%u",
+          artworkRequest.ChannelId().c_str(),
+          artworkRequest.EventId());
+    } else {
       LOCK_SCHEDULES_READ;
       const cSchedule *schedule = Schedules->GetSchedule(channelId);
-      const cEvent *event = nullptr;
 
-      if (schedule) {
+      if (!schedule) {
+        isyslog(
+            "suitebridge: artwork lookup result=schedule-missing channel=%s event=%u",
+            artworkRequest.ChannelId().c_str(),
+            artworkRequest.EventId());
+      } else {
+        const cEvent *event = nullptr;
 #if APIVERSNUM >= 20502
         event = schedule->GetEventById(artworkRequest.EventId());
 #else
         event = schedule->GetEvent(artworkRequest.EventId());
 #endif
-      }
 
-      if (event) {
-        const SuiteBridgeTvScraperAdapter adapter;
-        artwork = adapter.ResolvePreferredArtwork(*event);
+        if (!event) {
+          isyslog(
+              "suitebridge: artwork lookup result=event-missing channel=%s event=%u",
+              artworkRequest.ChannelId().c_str(),
+              artworkRequest.EventId());
+        } else {
+          isyslog(
+              "suitebridge: artwork lookup result=event-found channel=%s event=%u title=%s",
+              artworkRequest.ChannelId().c_str(),
+              artworkRequest.EventId(),
+              event->Title() ? event->Title() : "");
+
+          const SuiteBridgeTvScraperAdapter adapter;
+          artwork = adapter.ResolvePreferredArtwork(*event);
+        }
       }
     }
 
