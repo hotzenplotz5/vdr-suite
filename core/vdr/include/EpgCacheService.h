@@ -20,11 +20,10 @@ struct EpgCacheRefreshResult
     bool stored = false;
     std::size_t eventCount = 0;
     bool artworkEnrichmentAvailable = false;
-    bool artworkRepositoryOk = true;
-    std::size_t artworkAttempted = 0;
-    std::size_t artworkStored = 0;
-    std::size_t artworkRemoved = 0;
-    std::size_t artworkUnavailable = 0;
+    bool artworkQueueAvailable = true;
+    std::size_t artworkQueued = 0;
+    std::size_t artworkDeduplicated = 0;
+    std::size_t artworkDropped = 0;
 };
 
 struct EpgCacheStatus
