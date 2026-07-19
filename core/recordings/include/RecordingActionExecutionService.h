@@ -10,6 +10,8 @@
 #include "RecordingActionSafetyService.h"
 #include "RecordingActionValidationService.h"
 
+#include <algorithm>
+
 class RecordingActionExecutionService
 {
 public:
