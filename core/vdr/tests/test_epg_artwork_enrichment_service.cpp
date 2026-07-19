@@ -5,6 +5,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstdio>
+#include <thread>
 
 class FakeResolver final : public IEpgArtworkResolver
 {
@@ -16,6 +17,7 @@ public:
         const VdrEvent& event) override
     {
         ++calls;
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
 
         EpgArtworkResolution result;
         if (event.id == "unavailable")
