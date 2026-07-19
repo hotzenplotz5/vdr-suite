@@ -65,13 +65,5 @@ if (typeof window !== 'undefined') {
     start: startVdrSuiteDeferredFrontendRuntimes
   });
 
-  if (document.readyState === 'complete') {
-    startVdrSuiteDeferredFrontendRuntimes();
-  } else {
-    window.addEventListener(
-      'load',
-      startVdrSuiteDeferredFrontendRuntimes,
-      {once: true}
-    );
-  }
+  startVdrSuiteDeferredFrontendRuntimes();
 }
