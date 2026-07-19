@@ -1,6 +1,5 @@
 #pragma once
 
-#include "EpgArtworkEnrichmentService.h"
 #include "EpgCacheService.h"
 #include "IHttpClient.h"
 #include "IVdrAdapter.h"
@@ -9,8 +8,6 @@
 #include "RestfulApiSearchTimerAdapter.h"
 #include "SearchTimerPreviewEpgCacheRefreshService.h"
 #include "SuiteBridgeEmbeddedAgentRuntime.h"
-#include "SuiteBridgeEpgArtworkResolver.h"
-#include "SuiteBridgeSvdrpTransport.h"
 #include "VdrService.h"
 #include "VdrSnapshotBuilder.h"
 
@@ -27,9 +24,6 @@ struct BackendRuntimeContext
     std::unique_ptr<RestfulApiSearchTimerAdapter> searchTimerAdapter;
     std::unique_ptr<VdrSnapshotBuilder> snapshotBuilder;
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
-    std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> epgArtworkTransport;
-    std::unique_ptr<SuiteBridgeEpgArtworkResolver> epgArtworkResolver;
-    std::unique_ptr<EpgArtworkEnrichmentService> epgArtworkEnrichmentService;
     std::unique_ptr<EpgCacheService> epgCacheService;
     std::unique_ptr<PollingService> pollingService;
     std::unique_ptr<RestfulApiEventStreamClient> eventStreamClient;
