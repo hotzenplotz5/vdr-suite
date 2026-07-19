@@ -99,6 +99,23 @@ CREATE INDEX IF NOT EXISTS idx_epg_events_backend_channel_time
 CREATE INDEX IF NOT EXISTS idx_epg_events_backend_title
     ON epg_events (backend_id, title);
 
+CREATE TABLE IF NOT EXISTS epg_event_artwork (
+    backend_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    path TEXT NOT NULL,
+    width INTEGER NOT NULL DEFAULT 0,
+    height INTEGER NOT NULL DEFAULT 0,
+    resolved_at INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (backend_id, channel_id, event_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_epg_event_artwork_provider
+    ON epg_event_artwork (backend_id, provider);
+
 CREATE TABLE IF NOT EXISTS vdr_recording_cache (
     backend_id TEXT NOT NULL,
     cache_key TEXT NOT NULL,
