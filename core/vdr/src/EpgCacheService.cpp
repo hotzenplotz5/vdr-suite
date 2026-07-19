@@ -41,6 +41,7 @@ EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
 
     EpgCacheRefreshResult result;
     result.accepted = isBoundedRefreshQuery(query);
+    result.artworkEnrichmentAvailable = artworkEnrichmentService_ != nullptr;
 
     if (!result.accepted)
     {
@@ -64,7 +65,13 @@ EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
 
     if (result.stored && artworkEnrichmentService_ != nullptr)
     {
-        artworkEnrichmentService_->enrich(normalizedBackendId, events);
+        const EpgArtworkEnrichmentResult artworkResult =
+            artworkEnrichmentService_->enrich(normalizedBackendId, events);
+        result.artworkRepositoryOk = artworkResult.repositoryOk;
+        result.artworkAttempted = artworkResult.attempted;
+        result.artworkStored = artworkResult.stored;
+        result.artworkRemoved = artworkResult.removed;
+        result.artworkUnavailable = artworkResult.unavailable;
     }
 
     updateStatusForBackend(
