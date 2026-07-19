@@ -129,7 +129,7 @@ void EpgArtworkEnrichmentService::workerLoop()
                 return stopRequested_ || !queue_.empty();
             });
 
-            if (stopRequested_ && queue_.empty())
+            if (stopRequested_)
             {
                 workerBusy_ = false;
                 idleChanged_.notify_all();
@@ -188,10 +188,15 @@ void EpgArtworkEnrichmentService::process(const WorkItem& item)
 
     if (!resolution.found)
     {
-        repository_.removeForEvent(
-            item.backendId,
-            item.event.channelId,
-            item.event.id);
+        if (!repository_.removeForEvent(
+                item.backendId,
+                item.event.channelId,
+                item.event.id))
+        {
+            suppressUntil(item.key, retryBackoff_);
+            return;
+        }
+
         suppressUntil(item.key, notFoundTtl_);
         return;
     }
