@@ -37,6 +37,14 @@ function startVdrSuiteDeferredFrontendRuntimes() {
   // runtimes here: they capture channel clicks, create a second detail view
   // and move/scroll that view after rendering.
   loadVdrSuiteDeferredRuntime(
+    'vdr-suite-epg-searchtimer-actions-runtime',
+    '/frontend/epg-searchtimer-actions.js',
+    () => Boolean(window.VdrSuiteEpgSearchTimerActions)
+  ).catch(error => {
+    console.error('VDR-Suite EPG SearchTimer runtime failed', error);
+  });
+
+  loadVdrSuiteDeferredRuntime(
     'vdr-suite-recording-trash-ux-runtime',
     '/frontend/recording-trash-ux.js',
     () => Boolean(window.VdrSuiteRecordingTrashUx)
