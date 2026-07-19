@@ -43,6 +43,7 @@ install-runtime: daemon
 	$(INSTALL) -m 0644 web/frontend/channel-day-program.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program.js
 	$(INSTALL) -m 0644 web/frontend/channel-day-program-compat.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program-compat.js
 	$(INSTALL) -m 0644 web/frontend/recording-trash-ux.js $(DESTDIR)$(DATADIR)/web/frontend/recording-trash-ux.js
+	$(INSTALL) -m 0644 web/frontend/epg-searchtimer-actions.js $(DESTDIR)$(DATADIR)/web/frontend/epg-searchtimer-actions.js
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/modules/channels.js
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/channel-browser.js
 	$(INSTALL) -m 0644 web/frontend/modules/recordings.js $(DESTDIR)$(DATADIR)/web/frontend/modules/recordings.js
@@ -110,6 +111,7 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program-compat.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-trash-ux.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/locales

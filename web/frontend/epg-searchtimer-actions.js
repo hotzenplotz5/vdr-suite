@@ -1,129 +1,184 @@
 'use strict';
 
-(function () {
-  const upgraded = new WeakSet();
+(function (global) {
+  const PREVIEW_REFRESH_WINDOW_SECONDS = 14 * 24 * 60 * 60;
+  const PREVIEW_CHANNEL_EVENT_LIMIT = 96;
 
-  function eventTitle(detail) {
-    const title = detail.querySelector('.epg-detail-title, h3');
-    return title ? String(title.textContent || '').trim() : '';
+  function searchTimerNavigationButton() {
+    return document.querySelector('[data-module="searchtimers"]');
   }
 
-  function showStatus(detail, message, failed) {
-    let status = detail.querySelector('[data-epg-searchtimer-status="true"]');
+  function setFormValue(form, name, value, eventName) {
+    const input = form.elements[name];
+    if (!input) return;
+    if (input.type === 'checkbox') input.checked = Boolean(value);
+    else input.value = String(value === undefined || value === null ? '' : value);
+    input.dispatchEvent(new Event(eventName || 'input', {bubbles: true}));
+  }
+
+  function showStatus(target, message, failed) {
+    if (!target) return;
+    let status = target.querySelector('[data-searchtimer-editor-status="true"]');
     if (!status) {
       status = document.createElement('p');
-      status.dataset.epgSearchtimerStatus = 'true';
+      status.dataset.searchtimerEditorStatus = 'true';
       status.setAttribute('role', 'status');
       status.setAttribute('aria-live', 'polite');
-      const actions = detail.querySelector('.epg-detail-actions');
-      if (actions) actions.insertAdjacentElement('afterend', status);
-      else detail.appendChild(status);
+      target.appendChild(status);
     }
+    status.className = failed ? 'channels2-feedback error' : 'channels2-feedback success';
     status.textContent = message;
-    status.className = failed ? 'epg-searchtimer-status error' : 'epg-searchtimer-status success';
   }
 
-  function createSeriesTimer(detail, button) {
-    const title = eventTitle(detail);
-    const api = window.VdrSuiteClientApi;
-    if (!title || !api || typeof api.fetchClientSearchTimerCreateAction !== 'function') {
-      showStatus(detail, 'Serientimer kann derzeit nicht erstellt werden.', true);
-      return;
+  function selectedBackendId() {
+    const runtime = global.VdrSuitePlatform;
+    if (runtime && typeof runtime.getSelectedBackendId === 'function') {
+      const value = String(runtime.getSelectedBackendId() || '').trim();
+      if (value) return value;
+    }
+    return 'default';
+  }
+
+  function refreshPreviewCache() {
+    const client = global.VdrSuiteClientApi;
+    if (!client || typeof client.requestJson !== 'function') {
+      return Promise.reject(new Error('Preview-EPG-Cache kann nicht aktualisiert werden: Client API fehlt.'));
     }
 
-    button.disabled = true;
-    showStatus(detail, 'Serientimer wird erstellt …', false);
-
-    api.fetchClientSearchTimerCreateAction({
+    const options = {
+      method: 'POST',
+      query: {
+        backend: selectedBackendId(),
+        from: -1,
+        timespan: PREVIEW_REFRESH_WINDOW_SECONDS,
+        limit: 0,
+        channelEventLimit: PREVIEW_CHANNEL_EVENT_LIMIT,
+        _: Date.now()
+      },
       cache: 'no-store',
-      payload: {
-        backendId: 'default',
-        name: title,
-        query: title,
-        active: true,
-        compareTitle: true,
-        compareSubtitle: false,
-        compareSummary: false,
-        useSeriesRecording: true
+      credentials: 'same-origin'
+    };
+
+    return client.requestJson('/api/vdr/searchtimers/preview/cache/refresh', options)
+      .catch(function () {
+        return client.requestJson('/api/searchtimers/preview/cache/refresh', options);
+      })
+      .then(function (result) {
+        const available = result && result.available === true;
+        const ready = result && String(result.status || '') === 'ready';
+        const eventCount = Number(result && result.eventCount || 0);
+        if (!available || !ready || eventCount <= 0) {
+          throw new Error('Der Preview-EPG-Cache ist nicht bereit oder enthält keine Sendungen.');
+        }
+        return result;
+      });
+  }
+
+  function previewFeedback(button) {
+    const form = button.closest('form[data-searchtimer-editor-form="create"]');
+    return form ? form.querySelector('[data-searchtimer-preview-result="true"]') : null;
+  }
+
+  function installPreviewCacheGuard() {
+    if (document.documentElement.dataset.searchtimerPreviewCacheGuard === 'true') return;
+    document.documentElement.dataset.searchtimerPreviewCacheGuard = 'true';
+
+    document.addEventListener('click', function (event) {
+      const button = event.target && event.target.closest
+        ? event.target.closest('[data-searchtimer-action="preview"]')
+        : null;
+      if (!button || button.dataset.previewCacheReady === 'true') return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+
+      const feedback = previewFeedback(button);
+      button.disabled = true;
+      if (feedback) {
+        feedback.className = 'searchtimer-feedback';
+        feedback.textContent = 'EPG-Daten für die Vorschau werden aktualisiert …';
       }
-    }).then(result => {
-      if (result && result.success === false) {
-        throw new Error(result.message || 'Backend hat den Serientimer abgelehnt.');
-      }
-      button.textContent = 'Serientimer erstellt';
-      showStatus(detail, 'Serientimer für „' + title + '“ wurde erstellt.', false);
-    }).catch(error => {
-      button.disabled = false;
-      button.textContent = 'Serientimer';
-      showStatus(detail, error && error.message ? error.message : String(error), true);
+
+      refreshPreviewCache()
+        .then(function (result) {
+          if (feedback) {
+            feedback.className = 'searchtimer-feedback success';
+            feedback.textContent = String(result.eventCount) + ' EPG-Sendungen geladen. Vorschau wird ausgeführt …';
+          }
+          button.dataset.previewCacheReady = 'true';
+          button.disabled = false;
+          button.click();
+          delete button.dataset.previewCacheReady;
+        })
+        .catch(function (error) {
+          button.disabled = false;
+          if (feedback) {
+            feedback.className = 'searchtimer-feedback error';
+            feedback.textContent = String(error && error.message ? error.message : error);
+          } else {
+            global.alert(String(error && error.message ? error.message : error));
+          }
+        });
+    }, true);
+  }
+
+  function openSearchTimerEditor(options) {
+    const settings = options && typeof options === 'object' ? options : {};
+    const title = String(settings.title || '').trim();
+    const channelId = String(settings.channelId || '').trim();
+    const channelGroup = String(settings.channelGroup || '').trim();
+    const statusTarget = settings.statusTarget || null;
+    const navigationButton = searchTimerNavigationButton();
+
+    if (!title || !navigationButton || typeof navigationButton.click !== 'function') {
+      showStatus(statusTarget, 'Der SearchTimer-Editor ist derzeit nicht erreichbar.', true);
+      return Promise.reject(new Error('SearchTimer editor is not available'));
+    }
+
+    showStatus(statusTarget, 'SearchTimer-Editor für „' + title + '“ wird geöffnet …', false);
+    navigationButton.click();
+
+    return new Promise(function (resolve, reject) {
+      let attempts = 0;
+      const fill = function () {
+        attempts += 1;
+        const form = document.querySelector('form[data-searchtimer-editor-form="create"]');
+        if (!form) {
+          if (attempts < 40) { global.setTimeout(fill, 100); return; }
+          showStatus(statusTarget, 'Der SearchTimer-Editor konnte nicht geöffnet werden.', true);
+          reject(new Error('SearchTimer editor form did not appear'));
+          return;
+        }
+        const panel = form.closest('details');
+        if (panel) panel.open = true;
+        setFormValue(form, 'name', title);
+        setFormValue(form, 'query', title);
+        setFormValue(form, 'active', true, 'change');
+        setFormValue(form, 'compareTitle', true, 'change');
+        setFormValue(form, 'avoidRepeats', true, 'change');
+        if (channelId) {
+          setFormValue(form, 'channelFilterMode', 1, 'change');
+          global.setTimeout(function () {
+            if (channelGroup) setFormValue(form, 'channelSelectorGroup', channelGroup, 'change');
+            global.setTimeout(function () {
+              setFormValue(form, 'channelId', channelId, 'change');
+              form.scrollIntoView({behavior: 'smooth', block: 'start'});
+              resolve(form);
+            }, 80);
+          }, 80);
+          return;
+        }
+        form.scrollIntoView({behavior: 'smooth', block: 'start'});
+        resolve(form);
+      };
+      global.setTimeout(fill, 80);
     });
   }
 
-  function openAdvancedSearchTimer(detail) {
-    const title = eventTitle(detail);
-    const navigationButton = Array.from(document.querySelectorAll('button, [role="button"]'))
-      .find(element => {
-        if (detail.contains(element)) return false;
-        const text = String(element.textContent || '').trim().toLowerCase();
-        return text === 'suchtimer' || text === 'searchtimer' || text.includes('suchtimer');
-      });
-
-    if (!navigationButton || typeof navigationButton.click !== 'function') {
-      showStatus(detail, 'Der erweiterte SearchTimer-Editor ist derzeit nicht erreichbar.', true);
-      return;
-    }
-
-    navigationButton.click();
-    window.setTimeout(() => {
-      const createButton = Array.from(document.querySelectorAll('button'))
-        .find(button => /neuer searchtimer|searchtimer erstellen/i.test(String(button.textContent || '')));
-      if (createButton && typeof createButton.click === 'function') createButton.click();
-
-      window.setTimeout(() => {
-        const query = document.querySelector('form [name="query"], form [name="search"]');
-        const name = document.querySelector('form [name="name"]');
-        if (query) {
-          query.value = title;
-          query.dispatchEvent(new Event('input', {bubbles: true}));
-        }
-        if (name && !String(name.value || '').trim()) {
-          name.value = title;
-          name.dispatchEvent(new Event('input', {bubbles: true}));
-        }
-      }, 100);
-    }, 100);
-  }
-
-  function upgrade(detail) {
-    if (upgraded.has(detail)) return;
-    const actions = detail.querySelector('.epg-detail-actions');
-    if (!actions) return;
-
-    const buttons = Array.from(actions.querySelectorAll('button'));
-    const search = buttons.find(button => String(button.textContent || '').trim() === 'Suchtimer');
-    const more = buttons.find(button => String(button.textContent || '').trim() === 'Mehr …');
-    if (!search || !more) return;
-
-    upgraded.add(detail);
-
-    search.disabled = false;
-    search.textContent = 'Serientimer';
-    search.title = 'Aktiven Serientimer aus dem Sendungstitel erstellen.';
-    search.addEventListener('click', () => createSeriesTimer(detail, search));
-
-    more.disabled = false;
-    more.textContent = 'Erweiterter SearchTimer';
-    more.title = 'SearchTimer-Editor mit dem Sendungstitel öffnen.';
-    more.addEventListener('click', () => openAdvancedSearchTimer(detail));
-  }
-
-  function scan() {
-    document.querySelectorAll('.epg-event-detail').forEach(upgrade);
-  }
-
-  const observer = new MutationObserver(scan);
-  observer.observe(document.documentElement, {childList: true, subtree: true});
-  scan();
-
-  window.VdrSuiteEpgSearchTimerActions = Object.freeze({scan});
-}());
+  installPreviewCacheGuard();
+  global.VdrSuiteEpgSearchTimerActions = Object.freeze({
+    openSearchTimerEditor: openSearchTimerEditor,
+    refreshPreviewCache: refreshPreviewCache
+  });
+}(window));
