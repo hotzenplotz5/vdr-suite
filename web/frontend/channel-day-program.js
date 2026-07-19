@@ -40,7 +40,38 @@
   function filterChannels(){const q=state.filter.toLocaleLowerCase('de-DE');state.visible=state.channels.filter(c=>!q||channelName(c).toLocaleLowerCase('de-DE').includes(q)||channelGroup(c).toLocaleLowerCase('de-DE').includes(q)||String(channelNumber(c)).includes(q));}
   function timerPayload(event,channel){const start=eventStart(event),end=eventEnd(event),id=text(pick(event,['eventId','id','nativeId']));return{backendId:backendId(),channelId:eventChannelId(event)||channelId(channel),title:eventTitle(event),directory:'',day:dateValue(new Date(start*1000)),weekdays:'-------',start:hhmm(start),stop:hhmm(end),priority:50,lifetime:99,active:true,vps:false,aux:id?'eventId='+id:''};}
   function createTimer(event,channel,feedback,button){const client=api();if(!client||typeof client.fetchClientTimerCreateAction!=='function'){feedback.className='channels2-feedback error';feedback.textContent='Timer-API ist nicht verfügbar.';return;}button.disabled=true;feedback.textContent='Timer wird erstellt …';client.fetchClientTimerCreateAction({payload:timerPayload(event,channel),cache:'no-store',credentials:'same-origin'}).then(result=>{if(result&&result.success===false)throw new Error(result.message||result.error||'Aktion wurde abgelehnt.');button.textContent='Timer erstellt';feedback.className='channels2-feedback success';feedback.textContent='Timer wurde erstellt.';}).catch(error=>{button.disabled=false;feedback.className='channels2-feedback error';feedback.textContent=error.message;});}
-  function prepareSearchTimer(event,channel,detail){const feedback=detail.querySelector('.channels2-feedback'),editor=global.VdrSuiteEpgSearchTimerActions;if(!editor||typeof editor.openSearchTimerEditor!=='function'){feedback.className='channels2-feedback error';feedback.textContent='SearchTimer-Editor ist nicht verfügbar.';return;}editor.openSearchTimerEditor({title:eventTitle(event),channelId:eventChannelId(event)||channelId(channel),channelGroup:channelGroup(channel),statusTarget:detail}).catch(error=>{feedback.className='channels2-feedback error';feedback.textContent=error.message;});}
+
+  function setFormValue(form,name,value,eventName){const field=form.elements[name];if(!field)return false;if(field.type==='checkbox')field.checked=Boolean(value);else field.value=String(value==null?'':value);field.dispatchEvent(new Event(eventName||'input',{bubbles:true}));return true;}
+  function waitFor(find,timeoutMs){return new Promise((resolve,reject)=>{const started=Date.now();const poll=()=>{let value=null;try{value=find();}catch(error){reject(error);return;}if(value){resolve(value);return;}if(Date.now()-started>=timeoutMs){reject(new Error('SearchTimer-Editor konnte nicht rechtzeitig geöffnet werden.'));return;}global.setTimeout(poll,100);};poll();});}
+  function optionExists(select,value){return Boolean(select&&Array.from(select.options||[]).some(option=>option.value===value));}
+  function prepareSearchTimer(event,channel,detail){
+    const feedback=detail.querySelector('.channels2-feedback');
+    const title=eventTitle(event);
+    const selectedChannelId=eventChannelId(event)||channelId(channel);
+    const selectedGroup=channelGroup(channel);
+    const navigation=document.querySelector('[data-module="searchtimers"]');
+    if(!navigation||typeof navigation.click!=='function'){feedback.className='channels2-feedback error';feedback.textContent='SearchTimer-Bereich ist nicht verfügbar.';return;}
+    feedback.className='channels2-feedback';feedback.textContent='SearchTimer-Editor wird geöffnet …';
+    navigation.click();
+    waitFor(()=>document.querySelector('form[data-searchtimer-editor-form="create"]'),10000).then(form=>{
+      const panel=form.closest('.searchtimer-create-panel');if(panel)panel.open=true;
+      setFormValue(form,'name',title);
+      setFormValue(form,'query',title);
+      setFormValue(form,'active',true,'change');
+      setFormValue(form,'compareTitle',true,'change');
+      setFormValue(form,'compareSubtitle',false,'change');
+      setFormValue(form,'compareSummary',false,'change');
+      setFormValue(form,'avoidRepeats',true,'change');
+      setFormValue(form,'channelFilterMode',1,'change');
+      setFormValue(form,'manualUseChannel',1);
+      setFormValue(form,'manualChannelMin',selectedChannelId);
+      setFormValue(form,'manualChannelMax',selectedChannelId);
+      return waitFor(()=>{const group=form.elements.channelSelectorGroup;return group&&!group.disabled&&group.options.length>0?group:null;},5000).then(group=>{
+        if(selectedGroup&&optionExists(group,selectedGroup)){setFormValue(form,'channelSelectorGroup',selectedGroup,'change');return waitFor(()=>{const select=form.elements.channelId;return select&&!select.disabled&&optionExists(select,selectedChannelId)?select:null;},5000).then(()=>setFormValue(form,'channelId',selectedChannelId,'change'));}
+        return null;
+      }).catch(()=>null).then(()=>{form.scrollIntoView({behavior:'smooth',block:'start'});const first=form.elements.query||form.elements.name;if(first&&typeof first.focus==='function')first.focus();});
+    }).catch(error=>{global.alert(String(error&&error.message?error.message:error));});
+  }
 
   function renderEventDetail(event,channel){
     const detail=document.createElement('article');detail.className='channels2-detail';
