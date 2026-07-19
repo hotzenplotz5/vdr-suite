@@ -70,7 +70,7 @@ EpgArtworkEnrichmentResult EpgArtworkEnrichmentService::enrich(
             continue;
         }
 
-        if (queue_.size() >= maximumQueuedEvents_)
+        if (pendingKeys_.size() >= maximumQueuedEvents_)
         {
             ++result.dropped;
             continue;
