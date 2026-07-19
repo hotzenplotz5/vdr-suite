@@ -36,17 +36,18 @@ function startVdrSuiteDeferredFrontendRuntimes() {
   // EPG event details. Do not load the former channel-day compatibility
   // runtimes here: they capture channel clicks, create a second detail view
   // and move/scroll that view after rendering.
-  //
-  // recording-trash-ux.js is the installed and statically served deferred
-  // frontend action bundle. It exposes both the recording trash UX and the
-  // EPG SearchTimer action enhancer, so one runtime request is sufficient.
   loadVdrSuiteDeferredRuntime(
-    'vdr-suite-deferred-actions-runtime',
+    'vdr-suite-epg-searchtimer-actions-runtime',
+    '/frontend/epg-searchtimer-actions.js',
+    () => Boolean(window.VdrSuiteEpgSearchTimerActions)
+  ).catch(error => {
+    console.error('VDR-Suite EPG SearchTimer runtime failed', error);
+  });
+
+  loadVdrSuiteDeferredRuntime(
+    'vdr-suite-recording-trash-ux-runtime',
     '/frontend/recording-trash-ux.js',
-    () => Boolean(
-      window.VdrSuiteRecordingTrashUx &&
-      window.VdrSuiteEpgSearchTimerActions
-    )
+    () => Boolean(window.VdrSuiteRecordingTrashUx)
   ).catch(error => {
     console.error('VDR-Suite deferred frontend runtime failed', error);
   });
