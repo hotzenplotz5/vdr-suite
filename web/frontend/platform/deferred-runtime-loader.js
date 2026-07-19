@@ -33,9 +33,7 @@ function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
 
 function ensureVdrSuiteChannels2Tab() {
   const nav = document.getElementById('module-nav');
-  if (!nav) {
-    return null;
-  }
+  if (!nav) return null;
 
   let button = nav.querySelector('[data-module="channels2"]');
   if (!button) {
@@ -46,60 +44,75 @@ function ensureVdrSuiteChannels2Tab() {
     button.textContent = 'Channels 2';
 
     const channels = nav.querySelector('[data-module="channels"]');
-    if (channels && channels.nextSibling) {
-      nav.insertBefore(button, channels.nextSibling);
-    } else {
-      nav.appendChild(button);
-    }
+    if (channels && channels.nextSibling) nav.insertBefore(button, channels.nextSibling);
+    else nav.appendChild(button);
   }
 
-  if (button.dataset.channels2LoaderBound !== 'true') {
-    button.dataset.channels2LoaderBound = 'true';
-    button.addEventListener('click', event => {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-
-      document.querySelectorAll('.module-tab').forEach(tab => {
-        tab.classList.toggle('active', tab === button);
-      });
-
-      if (window.VdrSuiteChannels2 &&
-          typeof window.VdrSuiteChannels2.activate === 'function') {
-        window.VdrSuiteChannels2.activate();
-        return;
-      }
-
-      loadVdrSuiteDeferredRuntime(
-        'vdr-suite-channels2-runtime',
-        '/frontend/channel-day-program.js',
-        () => Boolean(window.VdrSuiteChannels2)
-      ).then(() => {
-        if (window.VdrSuiteChannels2 &&
-            typeof window.VdrSuiteChannels2.activate === 'function') {
-          window.VdrSuiteChannels2.activate();
-        }
-      }).catch(error => {
-        console.error('VDR-Suite Channels 2 runtime failed', error);
-      });
-    }, true);
-  }
-
+  button.disabled = true;
+  button.title = 'Channels 2 wird geladen …';
   return button;
 }
 
+function showChannels2RuntimeError(button, error) {
+  if (button) {
+    button.disabled = false;
+    button.title = 'Channels 2 konnte nicht geladen werden';
+  }
+
+  const target = document.getElementById('detail-data');
+  if (!target) return;
+
+  const message = document.createElement('p');
+  message.className = 'status error';
+  message.textContent = 'Channels 2 konnte nicht geladen werden: ' +
+    (error && error.message ? error.message : String(error));
+  target.replaceChildren(message);
+}
+
+function bindVdrSuiteChannels2Tab(button) {
+  if (!button || button.dataset.channels2ReadyBound === 'true') return;
+
+  button.dataset.channels2ReadyBound = 'true';
+  button.disabled = false;
+  button.title = 'Neue Kanalansicht öffnen';
+
+  button.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    const moduleApi = window.VdrSuiteChannels2;
+    if (!moduleApi || typeof moduleApi.activate !== 'function') {
+      showChannels2RuntimeError(button, new Error('Runtime API ist nicht verfügbar'));
+      return;
+    }
+
+    try {
+      moduleApi.activate();
+    } catch (error) {
+      console.error('VDR-Suite Channels 2 activation failed', error);
+      showChannels2RuntimeError(button, error);
+    }
+  }, true);
+}
+
 function startVdrSuiteDeferredFrontendRuntimes() {
-  ensureVdrSuiteChannels2Tab();
+  const channels2Button = ensureVdrSuiteChannels2Tab();
 
   loadVdrSuiteDeferredRuntime(
     'vdr-suite-channels2-runtime',
     '/frontend/channel-day-program.js',
     () => Boolean(window.VdrSuiteChannels2)
-  ).catch(error => {
+  ).then(() => {
+    if (!window.VdrSuiteChannels2 ||
+        typeof window.VdrSuiteChannels2.activate !== 'function') {
+      throw new Error('channel-day-program.js loaded without VdrSuiteChannels2 API');
+    }
+    bindVdrSuiteChannels2Tab(channels2Button);
+  }).catch(error => {
     console.error('VDR-Suite Channels 2 runtime failed', error);
+    showChannels2RuntimeError(channels2Button, error);
   });
 
-  // The original channel browser remains isolated while Channels 2 is tested
-  // as a separate module with its own channel, EPG detail and action ownership.
   loadVdrSuiteDeferredRuntime(
     'vdr-suite-epg-searchtimer-actions-runtime',
     '/frontend/epg-searchtimer-actions.js',
