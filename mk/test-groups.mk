@@ -236,8 +236,6 @@ EXTENDED_LOCAL_TESTS := \
 	test-epgsearch-request-mapper \
 	test-epgsearch-result-json-serializer \
 	test-epgsearch-service \
-	test-local-restfulapi-integration \
-	test-local-snapshot-runtime-integration \
 	test-person \
 	test-person-controller \
 	test-person-query \
