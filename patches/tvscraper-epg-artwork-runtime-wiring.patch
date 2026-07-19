@@ -15,7 +15,7 @@ index 1a08edb..0000000 100644
      context->snapshotBuilder = std::make_unique<VdrSnapshotBuilder>(
          *context->service,
          context->backendId,
-@@ -113,6 +107,35 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContext(
+@@ -113,6 +107,39 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContext(
  
      if (suiteBridgeConfig.enabled &&
          context->backendId == suiteBridgeConfig.backendId) {
@@ -55,7 +55,9 @@ index 1a08edb..0000000 100644
          vdrsuite::agent::SuiteBridgeEmbeddedAgentConfig embeddedConfig;
          embeddedConfig.backendId = context->backendId;
          embeddedConfig.enabled = true;
-@@ -140,6 +163,13 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContext(
+@@ -138,7 +165,14 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContext(
+         context->suiteBridgeAgentRuntime =
+             std::make_unique<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime>(
                  std::move(embeddedConfig));
      }
  
