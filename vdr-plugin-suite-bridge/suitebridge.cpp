@@ -2,8 +2,12 @@
 
 #include "suitebridge_capabilities.h"
 #include "suitebridge_capability_discovery.h"
+#include "suitebridge_epg_artwork_contract.h"
 #include "suitebridge_svdrp_contract.h"
+#include "suitebridge_tvscraper_adapter.h"
 
+#include <vdr/channels.h>
+#include <vdr/epg.h>
 #include <vdr/tools.h>
 
 static const char *PLUGIN_NAME = "suitebridge";
@@ -113,6 +117,8 @@ const char **cPluginSuiteBridge::SVDRPHelpPages(void)
       "    Return the read-only VDR-Suite capability discovery payload.",
       "SNAP\n"
       "    Return the current read-only VDR-Suite status payload.",
+      "ARTW <channel-id> <event-id>\n"
+      "    Resolve preferred TVScraper artwork for one EPG event.",
       nullptr,
   };
 
@@ -147,6 +153,58 @@ cString cPluginSuiteBridge::SVDRPCommand(
         SuiteBridgeCapabilityDiscoveryPayload::SchemaVersion());
 
     return cString::sprintf("%s", capabilityReply.Data());
+  }
+
+  const SuiteBridgeEpgArtworkRequest artworkRequest(Command, Option);
+  if (artworkRequest.Handled()) {
+    if (!artworkRequest.Valid()) {
+      ReplyCode = 501;
+      return cString::sprintf(
+          "Usage: PLUG %s ARTW <channel-id> <event-id>",
+          PLUGIN_NAME);
+    }
+
+    SuiteBridgeArtworkReference artwork;
+    const tChannelID channelId =
+        tChannelID::FromString(artworkRequest.ChannelId().c_str());
+
+    if (channelId.Valid()) {
+      LOCK_SCHEDULES_READ;
+      const cSchedule *schedule = Schedules->GetSchedule(channelId);
+      const cEvent *event = nullptr;
+
+      if (schedule) {
+#if APIVERSNUM >= 20502
+        event = schedule->GetEventById(artworkRequest.EventId());
+#else
+        event = schedule->GetEvent(artworkRequest.EventId());
+#endif
+      }
+
+      if (event) {
+        const SuiteBridgeTvScraperAdapter adapter;
+        artwork = adapter.ResolvePreferredArtwork(*event);
+      }
+    }
+
+    const SuiteBridgeEpgArtworkPayload payload(artwork);
+    if (!payload.Complete()) {
+      ReplyCode = 451;
+      esyslog(
+          "suitebridge: svdrp command=ARTW result=overflow channel=%s event=%u",
+          artworkRequest.ChannelId().c_str(),
+          artworkRequest.EventId());
+      return cString::sprintf("Artwork payload exceeds contract capacity");
+    }
+
+    ReplyCode = 250;
+    isyslog(
+        "suitebridge: svdrp command=ARTW result=served channel=%s event=%u found=%s bytes=%zu",
+        artworkRequest.ChannelId().c_str(),
+        artworkRequest.EventId(),
+        artwork.Valid() ? "true" : "false",
+        payload.Size());
+    return cString::sprintf("%s", payload.Data());
   }
 
   const SuiteBridgeSvdrpReply snapshotReply(
