@@ -4,7 +4,10 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <condition_variable>
 #include <cstdio>
+#include <memory>
+#include <mutex>
 #include <thread>
 
 class FakeResolver final : public IEpgArtworkResolver
@@ -39,6 +42,49 @@ public:
         result.artwork.resolvedAt = 1234;
         return result;
     }
+};
+
+class BlockingResolver final : public IEpgArtworkResolver
+{
+public:
+    std::atomic<int> calls{0};
+
+    EpgArtworkResolution resolve(
+        const std::string&,
+        const VdrEvent&) override
+    {
+        ++calls;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            entered_ = true;
+        }
+        changed_.notify_all();
+
+        std::unique_lock<std::mutex> lock(mutex_);
+        changed_.wait(lock, [this]() { return released_; });
+        return {};
+    }
+
+    bool waitUntilEntered(std::chrono::milliseconds timeout)
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        return changed_.wait_for(lock, timeout, [this]() { return entered_; });
+    }
+
+    void release()
+    {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            released_ = true;
+        }
+        changed_.notify_all();
+    }
+
+private:
+    std::mutex mutex_;
+    std::condition_variable changed_;
+    bool entered_ = false;
+    bool released_ = false;
 };
 
 static VdrEvent event(const char* id)
@@ -134,6 +180,27 @@ int main()
     assert(bounded.queued == 1);
     assert(bounded.dropped == 1);
     assert(boundedService.waitUntilIdle(std::chrono::seconds(2)));
+
+    BlockingResolver blockingResolver;
+    auto shutdownService = std::make_unique<EpgArtworkEnrichmentService>(
+        repository,
+        blockingResolver,
+        3,
+        std::chrono::seconds(0));
+    const EpgArtworkEnrichmentResult shutdownQueued = shutdownService->enrich(
+        "home",
+        {event("shutdown-one"), event("shutdown-two"), event("shutdown-three")});
+    assert(shutdownQueued.queued == 3);
+    assert(blockingResolver.waitUntilEntered(std::chrono::seconds(1)));
+
+    std::thread shutdown([&shutdownService]() {
+        shutdownService.reset();
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    assert(blockingResolver.calls == 1);
+    blockingResolver.release();
+    shutdown.join();
+    assert(blockingResolver.calls == 1);
 
     return 0;
 }
