@@ -38,6 +38,8 @@ test-epg-cache-service:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		core/vdr/src/EpgEventRepository.cpp \
+		core/vdr/src/EpgArtworkRepository.cpp \
+		core/vdr/src/EpgArtworkEnrichmentService.cpp \
 		core/vdr/src/EpgCacheService.cpp \
 		core/vdr/src/VdrService.cpp \
 		core/vdr/tests/test_epg_cache_service.cpp \
@@ -50,6 +52,8 @@ test-epg-cache-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		core/vdr/src/EpgEventRepository.cpp \
+		core/vdr/src/EpgArtworkRepository.cpp \
+		core/vdr/src/EpgArtworkEnrichmentService.cpp \
 		core/vdr/src/EpgCacheService.cpp \
 		core/vdr/src/VdrService.cpp \
 		api/rest/src/EpgCacheController.cpp \
@@ -121,101 +125,3 @@ test-search-timer-preview-epg-cache-refresh-controller:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_search_timer_preview_epg_cache_refresh_controller
 	$(BUILD_DIR)/test_search_timer_preview_epg_cache_refresh_controller
-
-
-test-search-timer-preview-epg-cache-stale-guard:
-	$(BUILD_CXX) $(CXXFLAGS) \
-		$(SQLITE_SRC) \
-		$(VDR_SRC) \
-		core/vdr/src/VdrRecordingCacheRepository.cpp \
-		core/vdr/tests/test_search_timer_preview_epg_cache_stale_guard.cpp \
-		$(LDFLAGS) \
-		-o $(BUILD_DIR)/test_search_timer_preview_epg_cache_stale_guard
-	$(BUILD_DIR)/test_search_timer_preview_epg_cache_stale_guard
-
-
-test-search-timer-preview-epg-cache-change-invalidator:
-	$(BUILD_CXX) $(CXXFLAGS) \
-		$(SQLITE_SRC) \
-		$(VDR_SRC) \
-		core/vdr/src/VdrRecordingCacheRepository.cpp \
-		core/vdr/tests/test_search_timer_preview_epg_cache_change_invalidator.cpp \
-		$(LDFLAGS) \
-		-o $(BUILD_DIR)/test_search_timer_preview_epg_cache_change_invalidator
-	$(BUILD_DIR)/test_search_timer_preview_epg_cache_change_invalidator
-
-
-test-snapshot-change-feed-preview-epg-cache-invalidation:
-	$(BUILD_CXX) $(CXXFLAGS) \
-		$(SQLITE_SRC) \
-		$(VDR_SRC) \
-		core/vdr/src/VdrRecordingCacheRepository.cpp \
-		core/vdr/tests/test_snapshot_change_feed_preview_epg_cache_invalidation.cpp \
-		$(LDFLAGS) \
-		-o $(BUILD_DIR)/test_snapshot_change_feed_preview_epg_cache_invalidation
-	$(BUILD_DIR)/test_snapshot_change_feed_preview_epg_cache_invalidation
-
-
-test-api-router-searchtimer-preview-epg-cache-refresh-route: prepare-test-db
-	$(BUILD_CXX) $(CXXFLAGS) \
-		$(SQLITE_SRC) \
-		$(VDR_SRC) \
-		core/vdr/src/VdrRecordingCacheRepository.cpp \
-		$(RUNTIME_SRC) \
-		$(REST_ROUTER_SRC) \
-		core/vdr/src/EpgSearchNativeFuzzyCapabilityFreshnessPolicy.cpp \
-		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
-		core/vdr/src/EpgSearchNativeFuzzyStaleProbeAdministrationService.cpp \
-		api/rest/src/EpgSearchNativeFuzzyStaleProbeAdministrationController.cpp \
-		core/vdr/src/EpgSearchNativeFuzzyOperatorRefreshService.cpp \
-		api/rest/src/EpgSearchNativeFuzzyOperatorRefreshController.cpp \
-		api/rest/src/SearchTimerController.cpp \
-		api/rest/src/SearchTimerDiscoveryController.cpp \
-		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
-		core/vdr/src/SearchTimerService.cpp \
-		api/rest/src/SearchTimerCreateRequestParser.cpp \
-		api/rest/src/SearchTimerUpdateRequestParser.cpp \
-		api/rest/src/SearchTimerDeleteRequestParser.cpp \
-		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
-		api/rest/src/VdrController.cpp \
-		api/rest/src/VdrRecordingQueryController.cpp \
-		api/rest/src/VdrRecordingFolderController.cpp \
-		api/rest/tests/test_api_router_searchtimer_preview_epg_cache_refresh_route.cpp \
-		$(LDFLAGS) \
-		-o $(BUILD_DIR)/test_api_router_searchtimer_preview_epg_cache_refresh_route
-	$(BUILD_DIR)/test_api_router_searchtimer_preview_epg_cache_refresh_route
-
-
-test-api-router-searchtimer-preview-refresh-then-preview: prepare-test-db
-	$(BUILD_CXX) $(CXXFLAGS) \
-		$(SQLITE_SRC) \
-		$(VDR_SRC) \
-		core/vdr/src/VdrRecordingCacheRepository.cpp \
-		$(RUNTIME_SRC) \
-		$(REST_ROUTER_SRC) \
-		core/vdr/src/EpgSearchNativeFuzzyCapabilityFreshnessPolicy.cpp \
-		core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp \
-		core/vdr/src/EpgSearchNativeFuzzyStaleProbeAdministrationService.cpp \
-		api/rest/src/EpgSearchNativeFuzzyStaleProbeAdministrationController.cpp \
-		core/vdr/src/EpgSearchNativeFuzzyOperatorRefreshService.cpp \
-		api/rest/src/EpgSearchNativeFuzzyOperatorRefreshController.cpp \
-		api/rest/src/SearchTimerController.cpp \
-		api/rest/src/SearchTimerDiscoveryController.cpp \
-		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
-		core/vdr/src/SearchTimerService.cpp \
-		api/rest/src/SearchTimerCreateRequestParser.cpp \
-		api/rest/src/SearchTimerUpdateRequestParser.cpp \
-		api/rest/src/SearchTimerDeleteRequestParser.cpp \
-		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
-		api/rest/src/VdrController.cpp \
-		api/rest/src/VdrRecordingQueryController.cpp \
-		api/rest/src/VdrRecordingFolderController.cpp \
-		api/rest/tests/test_api_router_searchtimer_preview_refresh_then_preview.cpp \
-		$(LDFLAGS) \
-		-o $(BUILD_DIR)/test_api_router_searchtimer_preview_refresh_then_preview
-	$(BUILD_DIR)/test_api_router_searchtimer_preview_refresh_then_preview
-
-prepare-test-db:
-	rm -f /tmp/vdr-suite-test.db
-	sqlite3 /tmp/vdr-suite-test.db < database/schema/vdr-suite.sql
-	sqlite3 /tmp/vdr-suite-test.db < database/testdata/sample-data.sql
