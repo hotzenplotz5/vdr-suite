@@ -20,7 +20,7 @@ SOFILE = libvdr-$(PLUGIN).so
 
 DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
 
-OBJS = $(PLUGIN).o suitebridge_lifecycle.o suitebridge_capabilities.o suitebridge_capability_discovery.o suitebridge_counter_continuity.o suitebridge_status_snapshot.o suitebridge_local_contract.o suitebridge_svdrp_contract.o suitebridge_status_events.o suitebridge_status_monitor.o
+OBJS = $(PLUGIN).o suitebridge_lifecycle.o suitebridge_capabilities.o suitebridge_capability_discovery.o suitebridge_counter_continuity.o suitebridge_status_snapshot.o suitebridge_local_contract.o suitebridge_svdrp_contract.o suitebridge_status_events.o suitebridge_status_monitor.o suitebridge_artwork_reference.o suitebridge_tvscraper_adapter.o
 DEPFILE = .dependencies
 LIFECYCLE_TEST = /tmp/test_suitebridge_lifecycle
 CAPABILITIES_TEST = /tmp/test_suitebridge_capabilities
@@ -30,8 +30,9 @@ STATUS_EVENTS_TEST = /tmp/test_suitebridge_status_events
 STATUS_SNAPSHOT_TEST = /tmp/test_suitebridge_status_snapshot
 LOCAL_CONTRACT_TEST = /tmp/test_suitebridge_local_contract
 SVDRP_CONTRACT_TEST = /tmp/test_suitebridge_svdrp_contract
+ARTWORK_REFERENCE_TEST = /tmp/test_suitebridge_artwork_reference
 
-.PHONY: all install install-lib check check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract check-build clean
+.PHONY: all install install-lib check check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract test-artwork-reference check-build clean
 
 all: $(SOFILE)
 
@@ -150,11 +151,19 @@ test-svdrp-contract:
 	$(SVDRP_CONTRACT_TEST)
 	rm -f $(SVDRP_CONTRACT_TEST)
 
+test-artwork-reference:
+	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
+		suitebridge_artwork_reference.cpp \
+		tests/test_suitebridge_artwork_reference.cpp \
+		-o $(ARTWORK_REFERENCE_TEST)
+	$(ARTWORK_REFERENCE_TEST)
+	rm -f $(ARTWORK_REFERENCE_TEST)
+
 check-build: $(SOFILE)
 	test -s $(SOFILE)
 	readelf -h $(SOFILE) >/dev/null
 
-check: check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract check-build
+check: check-contract check-capabilities-contract check-capability-discovery-contract check-counter-continuity-contract check-status-events-contract check-status-snapshot-contract check-local-contract-contract check-svdrp-contract check-version test-lifecycle test-capabilities test-capability-discovery test-counter-continuity test-status-events test-status-snapshot test-local-contract test-svdrp-contract test-artwork-reference check-build
 
 clean:
-	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(CAPABILITY_DISCOVERY_TEST) $(COUNTER_CONTINUITY_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) $(LOCAL_CONTRACT_TEST) $(SVDRP_CONTRACT_TEST) *.tgz core* *~ ._*
+	rm -f $(OBJS) $(DEPFILE) $(SOFILE) $(LIFECYCLE_TEST) $(CAPABILITIES_TEST) $(CAPABILITY_DISCOVERY_TEST) $(COUNTER_CONTINUITY_TEST) $(STATUS_EVENTS_TEST) $(STATUS_SNAPSHOT_TEST) $(LOCAL_CONTRACT_TEST) $(SVDRP_CONTRACT_TEST) $(ARTWORK_REFERENCE_TEST) *.tgz core* *~ ._*
