@@ -34,16 +34,14 @@ function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
 function startVdrSuiteDeferredFrontendRuntimes() {
   loadVdrSuiteDeferredRuntime(
     'vdr-suite-channels2-runtime',
-    '/frontend/modules/channels2.js',
+    '/frontend/channel-day-program.js',
     () => Boolean(window.VdrSuiteChannels2)
   ).catch(error => {
     console.error('VDR-Suite Channels 2 runtime failed', error);
   });
 
-  // The channel browser module owns channel selection, agenda selection and
-  // EPG event details. Do not load the former channel-day compatibility
-  // runtimes here: they capture channel clicks, create a second detail view
-  // and move/scroll that view after rendering.
+  // The original channel browser remains isolated while Channels 2 is tested
+  // as a separate module with its own channel, EPG detail and action ownership.
   loadVdrSuiteDeferredRuntime(
     'vdr-suite-epg-searchtimer-actions-runtime',
     '/frontend/epg-searchtimer-actions.js',
