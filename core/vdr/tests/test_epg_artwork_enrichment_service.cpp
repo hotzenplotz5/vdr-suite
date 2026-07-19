@@ -28,7 +28,7 @@ public:
         result.artwork.path = "/cache/" + event.id + ".jpg";
         result.artwork.width = 1280;
         result.artwork.height = 720;
-        result.artwork.resolvedAt = "1234";
+        result.artwork.resolvedAt = 1234;
         return result;
     }
 };
@@ -62,7 +62,7 @@ int main()
     stale.path = "/cache/stale.jpg";
     stale.width = 1;
     stale.height = 1;
-    stale.resolvedAt = "1";
+    stale.resolvedAt = 1;
     assert(repository.upsert(stale));
 
     const EpgArtworkEnrichmentResult result = service.enrich(
