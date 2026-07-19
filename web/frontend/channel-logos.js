@@ -1,5 +1,5 @@
 // Channel logo lookup and fallback helpers.
-// Loaded after app.js and before channel-browser.js.
+// Loaded before the channel browser; deferred workflow runtimes start after window load.
 
 function normalizeChannelLogoName(value) {
   return String(value || '')

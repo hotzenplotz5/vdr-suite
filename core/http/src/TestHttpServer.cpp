@@ -416,9 +416,13 @@ bool isFrontendPath(
         path == "/frontend/platform/bootstrap.js" ||
         path == "/frontend/platform/i18n.js" ||
         path == "/frontend/platform/helpers.js" ||
+        path == "/frontend/platform/deferred-runtime-loader.js" ||
         path == "/frontend/locales/de.js" ||
         path == "/frontend/locales/en.js" ||
         path == "/frontend/channel-logos.js" ||
+        path == "/frontend/channel-day-program.js" ||
+        path == "/frontend/channel-day-program-compat.js" ||
+        path == "/frontend/recording-trash-ux.js" ||
         path == "/frontend/channel-browser.js" ||
         path == "/frontend/modules/channels.js" ||
         path == "/frontend/modules/timers.js" ||
@@ -482,6 +486,13 @@ HttpServerResponse serveFrontendPath(
             "application/javascript; charset=utf-8");
     }
 
+    if (path == "/frontend/platform/deferred-runtime-loader.js")
+    {
+        return makeFrontendAssetResponse(
+            "platform/deferred-runtime-loader.js",
+            "application/javascript; charset=utf-8");
+    }
+
     if (path == "/frontend/locales/de.js")
     {
         return makeFrontendAssetResponse(
@@ -501,6 +512,27 @@ HttpServerResponse serveFrontendPath(
         return makeFrontendScriptBundleResponse(
             "channel-logos.js",
             "epg-cache.js");
+    }
+
+    if (path == "/frontend/channel-day-program.js")
+    {
+        return makeFrontendAssetResponse(
+            "channel-day-program.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/channel-day-program-compat.js")
+    {
+        return makeFrontendAssetResponse(
+            "channel-day-program-compat.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/recording-trash-ux.js")
+    {
+        return makeFrontendAssetResponse(
+            "recording-trash-ux.js",
+            "application/javascript; charset=utf-8");
     }
 
     if (path == "/frontend/channel-browser.js")

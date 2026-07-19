@@ -1700,9 +1700,43 @@ def check_channel_browser_module_path_serving_contract(
     install_mk: str,
 ) -> None:
     require(
+        'path == "/frontend/platform/deferred-runtime-loader.js"' in test_http_server_cpp,
+        "TestHttpServer.cpp must whitelist /frontend/platform/deferred-runtime-loader.js",
+    )
+    require(
+        '"platform/deferred-runtime-loader.js"' in test_http_server_cpp,
+        "TestHttpServer.cpp must serve platform/deferred-runtime-loader.js",
+    )
+    require(
+        "web/frontend/platform/deferred-runtime-loader.js" in install_mk,
+        "install.mk must install web/frontend/platform/deferred-runtime-loader.js",
+    )
+
+    require(
         'path == "/frontend/modules/channels.js"' in test_http_server_cpp,
         "TestHttpServer.cpp must whitelist /frontend/modules/channels.js before the physical Channel browser asset move",
     )
+
+    for deferred_runtime_path in (
+        "/frontend/channel-day-program.js",
+        "/frontend/channel-day-program-compat.js",
+        "/frontend/recording-trash-ux.js",
+    ):
+        require(
+            f'path == "{deferred_runtime_path}"' in test_http_server_cpp,
+            "TestHttpServer.cpp must whitelist deferred frontend runtime: "
+            + deferred_runtime_path,
+        )
+
+        deferred_runtime_filename = deferred_runtime_path.removeprefix(
+            "/frontend/"
+        )
+
+        require(
+            f'"{deferred_runtime_filename}"' in test_http_server_cpp,
+            "TestHttpServer.cpp must serve deferred frontend runtime asset: "
+            + deferred_runtime_filename,
+        )
     require(
         'path == "/frontend/modules/recordings.js"' in test_http_server_cpp,
         "TestHttpServer.cpp must whitelist /frontend/modules/recordings.js before the physical Recording browser asset move",

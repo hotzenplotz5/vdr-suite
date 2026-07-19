@@ -36,9 +36,13 @@ install-runtime: daemon
 	$(INSTALL) -m 0644 web/frontend/platform/bootstrap.js $(DESTDIR)$(DATADIR)/web/frontend/platform/bootstrap.js
 	$(INSTALL) -m 0644 web/frontend/platform/i18n.js $(DESTDIR)$(DATADIR)/web/frontend/platform/i18n.js
 	$(INSTALL) -m 0644 web/frontend/platform/helpers.js $(DESTDIR)$(DATADIR)/web/frontend/platform/helpers.js
+	$(INSTALL) -m 0644 web/frontend/platform/deferred-runtime-loader.js $(DESTDIR)$(DATADIR)/web/frontend/platform/deferred-runtime-loader.js
 	$(INSTALL) -m 0644 web/frontend/locales/de.js $(DESTDIR)$(DATADIR)/web/frontend/locales/de.js
 	$(INSTALL) -m 0644 web/frontend/locales/en.js $(DESTDIR)$(DATADIR)/web/frontend/locales/en.js
 	$(INSTALL) -m 0644 web/frontend/channel-logos.js $(DESTDIR)$(DATADIR)/web/frontend/channel-logos.js
+	$(INSTALL) -m 0644 web/frontend/channel-day-program.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program.js
+	$(INSTALL) -m 0644 web/frontend/channel-day-program-compat.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program-compat.js
+	$(INSTALL) -m 0644 web/frontend/recording-trash-ux.js $(DESTDIR)$(DATADIR)/web/frontend/recording-trash-ux.js
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/modules/channels.js
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/channel-browser.js
 	$(INSTALL) -m 0644 web/frontend/modules/recordings.js $(DESTDIR)$(DATADIR)/web/frontend/modules/recordings.js
@@ -101,12 +105,18 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/app.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-logos.js
+	grep -F '/frontend/channel-day-program.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
+	grep -F '/frontend/recording-trash-ux.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program-compat.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-trash-ux.js
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/locales
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/bootstrap.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/i18n.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/helpers.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/locales/de.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/locales/en.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/channels.js
@@ -118,7 +128,6 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-browser.js
 	cmp -s /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/recordings.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-browser.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-artwork.js
-	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-cache.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/style.css
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
