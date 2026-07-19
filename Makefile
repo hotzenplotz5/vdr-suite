@@ -26,3 +26,4 @@ include mk/search-timer-api-tests.mk
 include mk/search-timer-workflow-tests.mk
 include mk/runtime-api-tests.mk
 include mk/maintenance-tests.mk
+include mk/epg-artwork-tests.mk
