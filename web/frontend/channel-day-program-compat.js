@@ -115,28 +115,11 @@
     }, 0);
   }
 
-  function requestLateDayProgrammeRuntime(root) {
-    if (!root || root.dataset.channelDayProgramBound === 'true') return;
-    if (root.dataset.channelDayProgramLateRequested === 'true') return;
-
-    root.dataset.channelDayProgramLateRequested = 'true';
-
-    const script = document.createElement('script');
-    script.src = '/frontend/channel-day-program.js?late=' + String(Date.now());
-    script.async = false;
-    script.dataset.channelDayProgramLateRuntime = 'true';
-    script.addEventListener('error', () => {
-      root.dataset.channelDayProgramLateRequested = 'false';
-    });
-    document.head.appendChild(script);
-  }
-
   function installRoot(root) {
     if (!root) return false;
 
     installStyles();
     markChannelBrowserShells(root);
-    requestLateDayProgrammeRuntime(root);
 
     if (root.dataset.channelDayProgramCompatBound === 'true') return true;
     root.dataset.channelDayProgramCompatBound = 'true';
@@ -175,9 +158,7 @@
   }
 
   function installWhenReady() {
-    const root = document.getElementById('detail-data');
-    if (installRoot(root)) return true;
-    return false;
+    return installRoot(document.getElementById('detail-data'));
   }
 
   function watchDocument() {
