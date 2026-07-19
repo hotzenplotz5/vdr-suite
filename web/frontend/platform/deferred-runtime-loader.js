@@ -32,24 +32,25 @@ function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
 }
 
 function startVdrSuiteDeferredFrontendRuntimes() {
+  // The channel browser module owns channel selection, agenda selection and
+  // EPG event details. Do not load the former channel-day compatibility
+  // runtimes here: they capture channel clicks, create a second detail view
+  // and move/scroll that view after rendering.
   loadVdrSuiteDeferredRuntime(
-    'vdr-suite-channel-day-program-runtime',
-    '/frontend/channel-day-program.js',
-    () => Boolean(window.VdrSuiteChannelDayProgram)
-  )
-    .then(() => loadVdrSuiteDeferredRuntime(
-      'vdr-suite-channel-day-program-compat-runtime',
-      '/frontend/channel-day-program-compat.js',
-      () => Boolean(window.VdrSuiteChannelDayProgramCompat)
-    ))
-    .then(() => loadVdrSuiteDeferredRuntime(
-      'vdr-suite-recording-trash-ux-runtime',
-      '/frontend/recording-trash-ux.js',
-      () => Boolean(window.VdrSuiteRecordingTrashUx)
-    ))
-    .catch(error => {
-      console.error('VDR-Suite deferred frontend runtime failed', error);
-    });
+    'vdr-suite-epg-searchtimer-actions-runtime',
+    '/frontend/epg-searchtimer-actions.js',
+    () => Boolean(window.VdrSuiteEpgSearchTimerActions)
+  ).catch(error => {
+    console.error('VDR-Suite EPG SearchTimer runtime failed', error);
+  });
+
+  loadVdrSuiteDeferredRuntime(
+    'vdr-suite-recording-trash-ux-runtime',
+    '/frontend/recording-trash-ux.js',
+    () => Boolean(window.VdrSuiteRecordingTrashUx)
+  ).catch(error => {
+    console.error('VDR-Suite deferred frontend runtime failed', error);
+  });
 }
 
 if (typeof window !== 'undefined') {
