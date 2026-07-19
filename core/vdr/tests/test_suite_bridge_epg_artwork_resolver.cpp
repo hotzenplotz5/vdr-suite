@@ -50,6 +50,17 @@ int main()
     assert(transport.event == "12345");
 
     transport.reply.payload =
+        "{\"schema\":1,\"found\":true,\"provider\":\"tvscraper\","
+        "\"path\":\"/var/cache/tvscraper/a\\\\b\\\"c\\b\\f\\n\\r\\t\\u001f.jpg\","
+        "\"width\":640,\"height\":360}";
+    EpgArtworkResolution escaped = resolver.resolve("home", makeEvent());
+    assert(escaped.attempted);
+    assert(escaped.found);
+    assert(
+        escaped.artwork.path ==
+        std::string("/var/cache/tvscraper/a\\b\"c\b\f\n\r\t\x1f.jpg"));
+
+    transport.reply.payload =
         "{\"schema\":1,\"found\":false,\"provider\":\"none\","
         "\"path\":\"\",\"width\":0,\"height\":0}";
     EpgArtworkResolution missing = resolver.resolve("home", makeEvent());
@@ -64,6 +75,14 @@ int main()
     transport.reply.payload = "not-json";
     EpgArtworkResolution malformed = resolver.resolve("home", makeEvent());
     assert(!malformed.attempted);
+
+    transport.reply.payload =
+        "{\"schema\":1,\"found\":true,\"provider\":\"tvscraper\","
+        "\"path\":\"invalid\\u20ac.jpg\",\"width\":640,\"height\":360}";
+    EpgArtworkResolution unsupportedUnicode =
+        resolver.resolve("home", makeEvent());
+    assert(!unsupportedUnicode.attempted);
+    assert(!unsupportedUnicode.found);
 
     return 0;
 }
