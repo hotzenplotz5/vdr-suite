@@ -6,14 +6,14 @@
 
 namespace
 {
-void bindText(sqlite3_stmt* statement, int index, const std::string& value)
+bool bindText(sqlite3_stmt* statement, int index, const std::string& value)
 {
-    sqlite3_bind_text(
+    return sqlite3_bind_text(
         statement,
         index,
         value.c_str(),
         -1,
-        SQLITE_TRANSIENT);
+        SQLITE_TRANSIENT) == SQLITE_OK;
 }
 
 std::string columnText(sqlite3_stmt* statement, int column)
@@ -30,8 +30,12 @@ EpgArtworkRepository::EpgArtworkRepository(Database& database)
 
 bool EpgArtworkRepository::ensureSchema()
 {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
+    return ensureSchemaLocked();
+}
 
+bool EpgArtworkRepository::ensureSchemaLocked() const
+{
     return database_.execute(
         "CREATE TABLE IF NOT EXISTS epg_event_artwork ("
         "backend_id TEXT NOT NULL,"
@@ -51,9 +55,9 @@ bool EpgArtworkRepository::ensureSchema()
 
 bool EpgArtworkRepository::upsert(const EpgArtworkReference& artwork)
 {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
 
-    if (!artwork.valid() || !ensureSchema())
+    if (!artwork.valid() || !ensureSchemaLocked())
     {
         return false;
     }
@@ -82,16 +86,17 @@ bool EpgArtworkRepository::upsert(const EpgArtworkReference& artwork)
         return false;
     }
 
-    bindText(statement, 1, normalizeBackendId(artwork.backendId));
-    bindText(statement, 2, artwork.channelId);
-    bindText(statement, 3, artwork.eventId);
-    bindText(statement, 4, artwork.provider);
-    bindText(statement, 5, artwork.path);
-    sqlite3_bind_int(statement, 6, artwork.width);
-    sqlite3_bind_int(statement, 7, artwork.height);
-    sqlite3_bind_int64(statement, 8, artwork.resolvedAt);
+    const bool bound =
+        bindText(statement, 1, normalizeBackendId(artwork.backendId)) &&
+        bindText(statement, 2, artwork.channelId) &&
+        bindText(statement, 3, artwork.eventId) &&
+        bindText(statement, 4, artwork.provider) &&
+        bindText(statement, 5, artwork.path) &&
+        sqlite3_bind_int(statement, 6, artwork.width) == SQLITE_OK &&
+        sqlite3_bind_int(statement, 7, artwork.height) == SQLITE_OK &&
+        sqlite3_bind_int64(statement, 8, artwork.resolvedAt) == SQLITE_OK;
 
-    const bool ok = sqlite3_step(statement) == SQLITE_DONE;
+    const bool ok = bound && sqlite3_step(statement) == SQLITE_DONE;
     sqlite3_finalize(statement);
     return ok;
 }
@@ -101,10 +106,10 @@ EpgArtworkReference EpgArtworkRepository::find(
     const std::string& channelId,
     const std::string& eventId) const
 {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
 
     EpgArtworkReference artwork;
-    if (!const_cast<EpgArtworkRepository*>(this)->ensureSchema())
+    if (!ensureSchemaLocked())
     {
         return artwork;
     }
@@ -129,11 +134,12 @@ EpgArtworkReference EpgArtworkRepository::find(
     artwork.channelId = channelId;
     artwork.eventId = eventId;
 
-    bindText(statement, 1, artwork.backendId);
-    bindText(statement, 2, channelId);
-    bindText(statement, 3, eventId);
+    const bool bound =
+        bindText(statement, 1, artwork.backendId) &&
+        bindText(statement, 2, channelId) &&
+        bindText(statement, 3, eventId);
 
-    if (sqlite3_step(statement) == SQLITE_ROW)
+    if (bound && sqlite3_step(statement) == SQLITE_ROW)
     {
         artwork.provider = columnText(statement, 0);
         artwork.path = columnText(statement, 1);
@@ -151,9 +157,9 @@ bool EpgArtworkRepository::removeForEvent(
     const std::string& channelId,
     const std::string& eventId)
 {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
 
-    if (!ensureSchema())
+    if (!ensureSchemaLocked())
     {
         return false;
     }
@@ -173,11 +179,12 @@ bool EpgArtworkRepository::removeForEvent(
         return false;
     }
 
-    bindText(statement, 1, normalizeBackendId(backendId));
-    bindText(statement, 2, channelId);
-    bindText(statement, 3, eventId);
+    const bool bound =
+        bindText(statement, 1, normalizeBackendId(backendId)) &&
+        bindText(statement, 2, channelId) &&
+        bindText(statement, 3, eventId);
 
-    const bool ok = sqlite3_step(statement) == SQLITE_DONE;
+    const bool ok = bound && sqlite3_step(statement) == SQLITE_DONE;
     sqlite3_finalize(statement);
     return ok;
 }
