@@ -81,24 +81,15 @@ vm.runInContext(`
   const EPG_VISIBLE_CHANNEL_LIMIT = 15;
   const detailDataElement = document.createElement('section');
   function visibleEpgChannelsFromData(data) { return data.channels || []; }
-  function createEpgEventCard() { return document.createElement('button'); }
-  function createEpgProgramEventButton() { return document.createElement('button'); }
   function createEpgEventDetailCard() { return document.createElement('article'); }
   function renderEpgTimeView() {}
   function loadEpgTimeline() {}
-  function appendEpgVerticalTimelineTicks() {}
-  function epgTimelinePercent(epochSeconds, bounds) {
-    return ((epochSeconds - bounds.start) / bounds.duration) * 100;
-  }
-  function formatEpgClockFromEpoch(epochSeconds) {
-    return new Date(epochSeconds * 1000).toISOString().slice(11, 16);
-  }
 `, context);
 
 scheduled.shift()();
 assert.strictEqual(window.VdrSuiteEpgSearchTimerActions.timelineEnhancementsReady(), true);
 assert.strictEqual(document.documentElement.dataset.epgTimelineEnhancements, 'true');
-assert.strictEqual(document.documentElement.dataset.epgVerticalQuarterScale, 'true');
+assert.strictEqual(document.documentElement.dataset.epgVerticalQuarterScale, undefined);
 assert.strictEqual(scheduled.length, 0);
 
 console.log('test_epg_timeline_deferred_install passed');
