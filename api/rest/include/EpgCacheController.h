@@ -5,6 +5,8 @@
 
 #include <string>
 
+class EpgArtworkPublicJsonSerializer;
+class EpgArtworkRepository;
 class EpgCacheService;
 class EpgCacheServiceRegistry;
 
@@ -39,6 +41,14 @@ class EpgCacheController : public IEpgCacheController
 public:
     explicit EpgCacheController(EpgCacheService& service);
     explicit EpgCacheController(EpgCacheServiceRegistry& registry);
+    EpgCacheController(
+        EpgCacheService& service,
+        EpgArtworkRepository& artworkRepository,
+        EpgArtworkPublicJsonSerializer& artworkJsonSerializer);
+    EpgCacheController(
+        EpgCacheServiceRegistry& registry,
+        EpgArtworkRepository& artworkRepository,
+        EpgArtworkPublicJsonSerializer& artworkJsonSerializer);
 
     ApiResponse refreshBackendWindow(
         const std::string& backendId,
@@ -63,6 +73,8 @@ public:
 private:
     EpgCacheService* directService_;
     EpgCacheServiceRegistry* registry_;
+    EpgArtworkRepository* artworkRepository_;
+    EpgArtworkPublicJsonSerializer* artworkJsonSerializer_;
 
     EpgCacheService* findService(
         const std::string& backendId) const;
