@@ -4,6 +4,8 @@
 #include "suitebridge_artwork_reference.h"
 #include "suitebridge_epg_metadata.h"
 
+#include <utility>
+
 class cEvent;
 
 class SuiteBridgeTvScraperAdapter final {
