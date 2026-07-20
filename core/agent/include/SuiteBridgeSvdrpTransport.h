@@ -2,6 +2,7 @@
 
 #include "ISuiteBridgeLocalTransport.h"
 #include "ISuiteBridgeArtworkTransport.h"
+#include "ISuiteBridgeEpgMetadataTransport.h"
 
 #include <chrono>
 #include <cstddef>
@@ -22,11 +23,13 @@ struct SuiteBridgeSvdrpTransportConfig
 
 class SuiteBridgeSvdrpTransport final :
     public ISuiteBridgeLocalTransport,
-    public ::ISuiteBridgeArtworkTransport
+    public ::ISuiteBridgeArtworkTransport,
+    public ::ISuiteBridgeEpgMetadataTransport
 {
 public:
     static constexpr std::size_t MaximumGreetingBytes = 1024;
     static constexpr std::size_t MaximumReplyBytes = 8192;
+    static constexpr std::size_t MaximumMetadataReplyBytes = 32768;
     static constexpr std::size_t MaximumReplyLines = 64;
 
     explicit SuiteBridgeSvdrpTransport(
@@ -39,9 +42,14 @@ public:
         const std::string& channelId,
         const std::string& eventId) override;
 
+    ::SuiteBridgeEpgMetadataCommandReply requestEpgMetadata(
+        const std::string& channelId,
+        const std::string& eventId) override;
+
 private:
     SuiteBridgeCommandReply executeRequest(
-        const std::string& requestText);
+        const std::string& requestText,
+        std::size_t maximumReplyBytes = MaximumReplyBytes);
 
     SuiteBridgeSvdrpTransportConfig config_;
 };
