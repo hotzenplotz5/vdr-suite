@@ -1,16 +1,43 @@
 #include "RecordingArtworkHttpServer.h"
 
+#include "RestQueryParameters.h"
 #include "VdrRecordingCacheRepository.h"
 
 #include <map>
 #include <string>
 #include <utility>
 
+namespace
+{
+std::string requestPath(const std::string& requestTarget)
+{
+    const std::size_t queryStart = requestTarget.find('?');
+    return queryStart == std::string::npos
+        ? requestTarget
+        : requestTarget.substr(0, queryStart);
+}
+
+std::string requestQueryString(const std::string& requestTarget)
+{
+    const std::size_t queryStart = requestTarget.find('?');
+    return queryStart == std::string::npos
+        ? std::string{}
+        : requestTarget.substr(queryStart + 1);
+}
+
+std::string normalizeBackendId(const std::string& backendId)
+{
+    return backendId.empty() ? "default" : backendId;
+}
+}
+
 RecordingArtworkHttpServer::RecordingArtworkHttpServer(
     std::unique_ptr<IHttpServer> delegate,
     VdrRecordingCacheRepository& repository,
     std::map<std::string, std::string> artworkRootsByBackend)
     : delegate_(std::move(delegate)),
+      epgArtworkProvider_(
+          dynamic_cast<IEpgArtworkHttpProvider*>(delegate_.get())),
       artworkService_(
           repository,
           std::move(artworkRootsByBackend))
@@ -24,9 +51,34 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
         delegate_->handleRequest(request);
 
     if (request.method != "GET" ||
-        !artworkService_.handlesPath(request.path) ||
         delegated.statusCode == 401 ||
         delegated.statusCode != 404)
+    {
+        return delegated;
+    }
+
+    if (requestPath(request.path) == "/api/epg/cache/artwork" &&
+        epgArtworkProvider_ != nullptr)
+    {
+        const RestQueryParameters queryParameters =
+            RestQueryParameters::parse(
+                requestQueryString(request.path));
+
+        HttpServerResponse response =
+            epgArtworkProvider_->getEpgArtwork(
+                normalizeBackendId(queryParameters.get("backend")),
+                queryParameters.get("channelId"),
+                queryParameters.get("eventId"));
+
+        response.headers["X-Content-Type-Options"] = "nosniff";
+        response.headers["Cache-Control"] =
+            response.statusCode == 200
+                ? "private, max-age=300"
+                : "no-store";
+        return response;
+    }
+
+    if (!artworkService_.handlesPath(request.path))
     {
         return delegated;
     }
