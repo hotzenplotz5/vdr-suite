@@ -127,7 +127,7 @@ function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.id = id;
-    script.src = src + '?runtime=' + String(Date.now());
+    script.src = src;
     script.async = false;
 
     script.addEventListener(
