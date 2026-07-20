@@ -1,5 +1,6 @@
 #include "suitebridge_tvscraper_adapter.h"
 
+#include "suitebridge_image_dimensions.h"
 #include "services.h"
 
 #include <vdr/epg.h>
@@ -45,20 +46,33 @@ SuiteBridgeTvScraperAdapter::ResolvePreferredArtwork(
           eOrientation::portrait),
       true);
 
+  SuiteBridgeImageDimensions actualDimensions;
+  if (!SuiteBridgeReadImageDimensions(media.path, actualDimensions)) {
+    isyslog(
+        "suitebridge: tvscraper result=invalid-artwork-file event=%u type=%d path=%s reported_width=%d reported_height=%d",
+        event.EventID(),
+        static_cast<int>(request.m_scraperVideo->getVideoType()),
+        media.path.c_str(),
+        media.width,
+        media.height);
+    return {};
+  }
+
   SuiteBridgeArtworkReference reference;
   reference.provider = SuiteBridgeArtworkProvider::TvScraper;
   reference.path = media.path;
-  reference.width = media.width;
-  reference.height = media.height;
+  reference.width = actualDimensions.width;
+  reference.height = actualDimensions.height;
 
   isyslog(
-      "suitebridge: tvscraper result=%s event=%u type=%d path=%s width=%d height=%d",
-      reference.Valid() ? "artwork" : "no-artwork",
+      "suitebridge: tvscraper result=artwork event=%u type=%d path=%s reported_width=%d reported_height=%d actual_width=%d actual_height=%d",
       event.EventID(),
       static_cast<int>(request.m_scraperVideo->getVideoType()),
       media.path.c_str(),
       media.width,
-      media.height);
+      media.height,
+      actualDimensions.width,
+      actualDimensions.height);
 
-  return reference.Valid() ? reference : SuiteBridgeArtworkReference{};
+  return reference;
 }
