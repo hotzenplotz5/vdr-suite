@@ -91,6 +91,9 @@ install-manpages:
 install-systemd:
 	$(INSTALL) -d $(DESTDIR)$(SYSTEMDUNITDIR)
 	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-daemon.service $(DESTDIR)$(SYSTEMDUNITDIR)/vdr-suite-daemon.service
+	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/default
+	test -e $(DESTDIR)$(SYSCONFDIR)/default/vdr-suite-daemon || \
+		$(INSTALL) -m 0644 packaging/systemd/vdr-suite-daemon.default $(DESTDIR)$(SYSCONFDIR)/default/vdr-suite-daemon
 
 test-install-staging:
 	rm -rf /tmp/vdr-suite-pkgroot
@@ -99,6 +102,8 @@ test-install-staging:
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-dashboard
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-logo-sync
 	test -d /tmp/vdr-suite-pkgroot/etc/vdr-suite
+	test -f /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon
+	grep -F 'VDR_SUITE_SUITE_BRIDGE_ENABLED=false' /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon >/dev/null
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand
 	test -d /tmp/vdr-suite-pkgroot/var/lib/vdr-suite
