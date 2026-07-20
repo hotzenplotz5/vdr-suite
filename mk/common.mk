@@ -56,6 +56,7 @@ test-epg-cache-controller:
 		core/vdr/src/EpgArtworkEnrichmentService.cpp \
 		core/vdr/src/EpgCacheService.cpp \
 		core/vdr/src/VdrService.cpp \
+		api/rest/src/EpgArtworkController.cpp \
 		api/rest/src/EpgCacheController.cpp \
 		api/rest/tests/test_epg_cache_controller.cpp \
 		$(LDFLAGS) \
@@ -218,8 +219,3 @@ test-api-router-searchtimer-preview-refresh-then-preview: prepare-test-db
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_api_router_searchtimer_preview_refresh_then_preview
 	$(BUILD_DIR)/test_api_router_searchtimer_preview_refresh_then_preview
-
-prepare-test-db:
-	rm -f /tmp/vdr-suite-test.db
-	sqlite3 /tmp/vdr-suite-test.db < database/schema/vdr-suite.sql
-	sqlite3 /tmp/vdr-suite-test.db < database/testdata/sample-data.sql
