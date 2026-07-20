@@ -40,9 +40,16 @@ public:
         int eventLimit) const = 0;
 
     virtual ApiResponse getArtwork(
-        const std::string& backendId,
-        const std::string& channelId,
-        const std::string& eventId) const = 0;
+        const std::string&,
+        const std::string&,
+        const std::string&) const
+    {
+        ApiResponse response;
+        response.statusCode = 503;
+        response.contentType = "application/json";
+        response.body = "{\"error\":\"epg artwork unavailable\"}";
+        return response;
+    }
 
     virtual ApiResponse getMetadata(
         const std::string&,
