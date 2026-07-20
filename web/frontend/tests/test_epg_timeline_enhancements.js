@@ -218,6 +218,16 @@ vm.runInContext(`
   function loadEpgTimeline() {
     loadCount += 1;
   }
+
+  function epgTimelinePercent(epochSeconds, bounds) {
+    return ((epochSeconds - bounds.start) / bounds.duration) * 100;
+  }
+
+  function formatEpgClockFromEpoch(epochSeconds) {
+    return new Date(epochSeconds * 1000).toISOString().slice(11, 16);
+  }
+
+  function appendEpgVerticalTimelineTicks() {}
 `, context);
 
 vm.runInContext(source, context, {filename: 'epg-searchtimer-actions.js'});
@@ -225,6 +235,7 @@ vm.runInContext(source, context, {filename: 'epg-searchtimer-actions.js'});
 assert.ok(window.VdrSuiteEpgSearchTimerActions);
 assert.strictEqual(window.VdrSuiteEpgSearchTimerActions.timelineEnhancementsReady(), true);
 assert.strictEqual(document.documentElement.dataset.epgTimelineEnhancements, 'true');
+assert.strictEqual(document.documentElement.dataset.epgVerticalQuarterScale, 'true');
 assert.ok(document.getElementById('vdr-suite-epg-timeline-enhancements'));
 
 const channels = [
@@ -282,11 +293,31 @@ const searchTimerButton = detail.querySelectorAll('.epg-detail-action')[0];
 assert.strictEqual(searchTimerButton.disabled, false);
 assert.strictEqual(searchTimerButton.textContent, 'Suchtimer erstellen');
 
+const quarterTrack = vm.runInContext(`(() => {
+  const track = document.createElement('div');
+  appendEpgVerticalTimelineTicks(track, {start: 0, end: 3600, duration: 3600}, true);
+  return track;
+})()`, context);
+const quarterLines = quarterTrack.children.filter(child => child.classList.contains('epg-vertical-grid-line'));
+const quarterLabels = quarterTrack.children.filter(child => child.classList.contains('epg-vertical-grid-label'));
+assert.deepStrictEqual(
+  quarterLines.map(line => line.dataset.epgQuarterMinute),
+  ['0', '15', '30', '45', '0']
+);
+assert.deepStrictEqual(
+  quarterLabels.map(label => label.textContent),
+  ['00:00', '00:15', '00:30', '01:00']
+);
+assert.ok(!quarterLabels.some(label => label.dataset.epgQuarterMinute === '45'));
+
 assert.ok(source.includes('visibleEpgChannelsFromData = function'));
 assert.ok(source.includes('renderEpgTimeView = function'));
 assert.ok(source.includes('createEpgEventCard = function'));
 assert.ok(source.includes('createEpgProgramEventButton = function'));
 assert.ok(source.includes('createEpgEventDetailCard = function'));
+assert.ok(source.includes('appendEpgVerticalTimelineTicks = function'));
+assert.ok(source.includes('TIMELINE_QUARTER_SECONDS = 15 * 60'));
+assert.ok(source.includes("minute === 0 || minute === 15 || minute === 30"));
 assert.ok(source.includes("button.textContent = 'Suchtimer erstellen'"));
 assert.ok(source.includes('artwork.available === true'));
 assert.ok(!source.includes('MutationObserver'));
