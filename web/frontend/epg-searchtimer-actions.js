@@ -8,6 +8,7 @@
   const TIMELINE_GROUP_ALL = '__all__';
   const TIMELINE_READY_ATTEMPTS = 80;
   const TIMELINE_READY_INTERVAL_MS = 100;
+  const TIMELINE_QUARTER_SECONDS = 15 * 60;
 
   let selectedTimelineGroup = '';
   let selectedTimelineBackendId = '';
@@ -335,6 +336,37 @@
     return detail;
   }
 
+  function timelineQuarterMinute(epochSeconds) {
+    return new Date(epochSeconds * 1000).getMinutes();
+  }
+
+  function appendVerticalQuarterTicks(track, bounds, withLabels) {
+    const firstTick = Math.ceil(bounds.start / TIMELINE_QUARTER_SECONDS) * TIMELINE_QUARTER_SECONDS;
+
+    for (let tick = firstTick; tick <= bounds.end; tick += TIMELINE_QUARTER_SECONDS) {
+      const minute = timelineQuarterMinute(tick);
+      const top = epgTimelinePercent(tick, bounds);
+      const strength = minute === 0
+        ? 'major'
+        : (minute === 30 ? 'half' : 'minor');
+
+      const line = document.createElement('div');
+      line.className = 'epg-vertical-grid-line epg-quarter-' + strength;
+      line.style.top = top.toFixed(3) + '%';
+      line.dataset.epgQuarterMinute = String(minute);
+      track.appendChild(line);
+
+      if (withLabels && (minute === 0 || minute === 15 || minute === 30)) {
+        const label = document.createElement('span');
+        label.textContent = formatEpgClockFromEpoch(tick);
+        label.className = 'epg-vertical-grid-label epg-quarter-label epg-quarter-' + strength;
+        label.style.top = top.toFixed(3) + '%';
+        label.dataset.epgQuarterMinute = String(minute);
+        track.appendChild(label);
+      }
+    }
+  }
+
   function ensureTimelineStyles() {
     if (document.getElementById(TIMELINE_STYLE_ID)) return;
     const style = document.createElement('style');
@@ -349,6 +381,13 @@
       '.epg-event-card.epg-has-artwork>*,.epg-program-event.epg-has-artwork>*{position:relative;z-index:1;text-shadow:0 1px 3px rgba(2,6,23,.95)}',
       '.epg-event-detail.epg-has-artwork{overflow:hidden}',
       '.epg-detail-artwork{width:100%;min-height:11rem;margin-bottom:.8rem;border-radius:.75rem;background-size:cover;background-position:center;box-shadow:inset 0 -3rem 4rem rgba(2,6,23,.38)}',
+      '.epg-vertical-grid-line.epg-quarter-major{opacity:.72}',
+      '.epg-vertical-grid-line.epg-quarter-half{opacity:.44}',
+      '.epg-vertical-grid-line.epg-quarter-minor{opacity:.22}',
+      '.epg-vertical-grid-label.epg-quarter-label{font-size:.68rem;white-space:nowrap}',
+      '.epg-vertical-grid-label.epg-quarter-major{font-weight:850;opacity:1}',
+      '.epg-vertical-grid-label.epg-quarter-half{font-weight:750;opacity:.9}',
+      '.epg-vertical-grid-label.epg-quarter-minor{font-weight:650;opacity:.78}',
       '@media(max-width:720px){.epg-group-control{align-items:stretch;flex-direction:column}.epg-group-field{min-width:0;width:100%}.epg-detail-artwork{min-height:10rem}}'
     ].join('');
     document.head.appendChild(style);
@@ -432,7 +471,10 @@
       && typeof visibleEpgChannelsFromData === 'function'
       && typeof createEpgEventCard === 'function'
       && typeof createEpgProgramEventButton === 'function'
-      && typeof createEpgEventDetailCard === 'function';
+      && typeof createEpgEventDetailCard === 'function'
+      && typeof appendEpgVerticalTimelineTicks === 'function'
+      && typeof epgTimelinePercent === 'function'
+      && typeof formatEpgClockFromEpoch === 'function';
   }
 
   function wrapTimelineFunctions() {
@@ -465,6 +507,10 @@
       return decorateTimelineDetail(originalCreateEpgEventDetailCard(event, channel), event, channel);
     };
 
+    appendEpgVerticalTimelineTicks = function (track, bounds, withLabels) {
+      appendVerticalQuarterTicks(track, bounds, withLabels);
+    };
+
     renderEpgTimeView = function (channelData, eventData) {
       const filtered = filterTimelineChannels(channelData);
       const result = originalRenderEpgTimeView(timelineChannelData(channelData, filtered), eventData);
@@ -474,6 +520,7 @@
 
     timelineFunctionsWrapped = true;
     document.documentElement.dataset.epgTimelineEnhancements = 'true';
+    document.documentElement.dataset.epgVerticalQuarterScale = 'true';
     return true;
   }
 
