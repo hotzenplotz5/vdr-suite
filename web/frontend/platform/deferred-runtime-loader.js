@@ -145,32 +145,16 @@ function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
 }
 
 function startVdrSuiteDeferredFrontendRuntimes() {
-  const epgMetadataRuntime = loadVdrSuiteDeferredRuntime(
-    'vdr-suite-epg-metadata-detail-runtime',
-    '/frontend/epg-metadata-detail.js',
-    () => Boolean(window.VdrSuiteEpgMetadataDetail)
-  ).catch(error => {
-    console.error('VDR-Suite EPG metadata detail runtime failed', error);
-  });
-
-  const epgSearchTimerRuntime = epgMetadataRuntime.then(() =>
-    loadVdrSuiteDeferredRuntime(
-      'vdr-suite-epg-searchtimer-actions-runtime',
-      '/frontend/epg-searchtimer-actions.js',
-      () => Boolean(window.VdrSuiteEpgSearchTimerActions)
+  loadVdrSuiteDeferredRuntime(
+    'vdr-suite-epg-searchtimer-actions-runtime',
+    '/frontend/epg-searchtimer-actions.js',
+    () => Boolean(
+      window.VdrSuiteEpgSearchTimerActions &&
+      window.VdrSuiteEpgMetadataDetail &&
+      window.VdrSuiteEpgMetadataDetailHook
     )
   ).catch(error => {
-    console.error('VDR-Suite EPG SearchTimer runtime failed', error);
-  });
-
-  epgSearchTimerRuntime.then(() =>
-    loadVdrSuiteDeferredRuntime(
-      'vdr-suite-epg-metadata-detail-hook-runtime',
-      '/frontend/epg-metadata-detail-hook.js',
-      () => Boolean(window.VdrSuiteEpgMetadataDetailHook)
-    )
-  ).catch(error => {
-    console.error('VDR-Suite EPG metadata detail hook failed', error);
+    console.error('VDR-Suite combined EPG detail runtime failed', error);
   });
 
   loadVdrSuiteDeferredRuntime(
