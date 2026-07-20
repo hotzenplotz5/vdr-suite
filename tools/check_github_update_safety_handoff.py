@@ -15,6 +15,12 @@ CURRENT_STATUS = ROOT / "docs/development/current-status.md"
 #   updating the file or use a smaller safe edit strategy.
 # - After every GitHub file update, inspect the commit diff before treating
 #   the change as correct.
+# - Do not wait for GitHub Actions before returning a completed repository
+#   change to the user. Run the relevant focused/local tests, commit and push.
+# - GitHub Actions may be inspected later as additional evidence, but must not
+#   block deployment instructions, runtime verification or the user response.
+# - Do not create a temporary pull request solely to wait for GitHub Actions
+#   unless the user explicitly requests that workflow.
 
 REQUIRED_CURRENT_STATUS_RULES = [
     "### Preferred edit path for new chats",
@@ -30,6 +36,8 @@ REQUIRED_GUARDRAIL_RULES = [
     "small diff.",
     "If a GitHub fetch result is truncated, fetch the missing ranges before",
     "After every GitHub file update, inspect the commit diff",
+    "Do not wait for GitHub Actions before returning a completed repository",
+    "Do not create a temporary pull request solely to wait for GitHub Actions",
 ]
 
 
