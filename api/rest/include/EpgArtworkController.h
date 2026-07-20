@@ -20,6 +20,12 @@ public:
         const std::string& channelId,
         const std::string& eventId) const;
 
+    static std::vector<std::string> defaultAllowedRoots();
+
+    static ApiResponse serveValidatedPath(
+        const std::string& candidate,
+        const std::vector<std::string>& allowedRoots);
+
 private:
     EpgArtworkRepository& repository_;
     std::vector<std::string> allowedRoots_;
