@@ -30,6 +30,8 @@ required_files = (
     ROOT / "suitebridge_status_monitor.cpp",
     ROOT / "suitebridge_artwork_reference.h",
     ROOT / "suitebridge_artwork_reference.cpp",
+    ROOT / "suitebridge_image_dimensions.h",
+    ROOT / "suitebridge_image_dimensions.cpp",
     ROOT / "suitebridge_tvscraper_adapter.h",
     ROOT / "suitebridge_tvscraper_adapter.cpp",
     ROOT / "suitebridge_epg_artwork_contract.h",
@@ -58,6 +60,7 @@ required_files = (
     ROOT / "tests/test_suitebridge_local_contract.cpp",
     ROOT / "tests/test_suitebridge_svdrp_contract.cpp",
     ROOT / "tests/test_suitebridge_artwork_reference.cpp",
+    ROOT / "tests/test_suitebridge_image_dimensions.cpp",
     ROOT / "tests/test_suitebridge_epg_artwork_contract.cpp",
 )
 
@@ -93,6 +96,7 @@ required_makefile_content = (
     "suitebridge_status_events.o",
     "suitebridge_status_monitor.o",
     "suitebridge_artwork_reference.o",
+    "suitebridge_image_dimensions.o",
     "suitebridge_tvscraper_adapter.o",
     "suitebridge_epg_artwork_contract.o",
     "check-capabilities-contract:",
@@ -111,6 +115,7 @@ required_makefile_content = (
     "test-local-contract:",
     "test-svdrp-contract:",
     "test-artwork-reference:",
+    "test-image-dimensions:",
     "test-epg-artwork-contract:",
     'test "$(VERSION)" = "0.10.0"',
 )
@@ -173,6 +178,7 @@ required_foundation_content = (
     "SuiteBridgeSvdrpReply::HasPayload() const noexcept",
     "class SuiteBridgeEpgArtworkRequest final",
     "class SuiteBridgeEpgArtworkPayload final",
+    "SuiteBridgeReadImageDimensions(",
     "cGetScraperVideo request(&event, nullptr)",
     "request.call()",
 )
