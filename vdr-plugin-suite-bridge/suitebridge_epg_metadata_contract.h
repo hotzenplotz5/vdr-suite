@@ -33,7 +33,8 @@ public:
   bool Complete() const noexcept;
 
 private:
-  static constexpr std::size_t kCapacity = 8192;
+  // The agent accepts at most 8192 reply bytes including SVDRP framing.
+  static constexpr std::size_t kCapacity = 7680;
 
   std::array<char, kCapacity> data_{};
   std::size_t size_ = 0;
