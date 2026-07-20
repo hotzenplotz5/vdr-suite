@@ -29,6 +29,9 @@ CI_FAST_TESTS := \
 	test-suite-bridge-epg-artwork-resolver \
 	test-epg-artwork-repository \
 	test-epg-artwork-enrichment-service \
+	test-epg-artwork-controller \
+	test-epg-artwork-public-json-serializer \
+	test-epg-cache-artwork-json \
 	test-epg-cache-service \
 	test-epg-cache-controller \
 	test-api-router-epg-cache-routes \
@@ -136,6 +139,9 @@ VDR_TESTS := \
 	test-suite-bridge-epg-artwork-resolver \
 	test-epg-artwork-repository \
 	test-epg-artwork-enrichment-service \
+	test-epg-artwork-controller \
+	test-epg-artwork-public-json-serializer \
+	test-epg-cache-artwork-json \
 	test-epg-cache-service \
 	test-epg-cache-controller \
 	test-api-router-epg-cache-routes \
