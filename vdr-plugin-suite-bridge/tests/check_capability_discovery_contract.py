@@ -66,7 +66,7 @@ required_content = (
     "strcasecmp(command, CommandName())",
     "ParseRequestedSchema(option)",
     'static const char *PLUGIN_NAME = "suitebridge";',
-    'static const char *VERSION = "0.10.0";',
+    'static const char *VERSION = "0.11.0";',
     "SuiteBridgeCapabilityDiscoveryReply capabilityReply(",
     "svdrp command=CAPS result=served reply=%d bytes=%zu schema=%u",
     "svdrp command=CAPS result=rejected reply=%d",
