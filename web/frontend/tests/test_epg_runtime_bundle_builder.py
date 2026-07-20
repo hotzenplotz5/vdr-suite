@@ -31,7 +31,7 @@ def main() -> int:
         legacy_marker = "function ensureCachedEpgDetailStyles()"
         day_markers = (
             "global.VdrSuiteChannelDayProgram = api",
-            "global.VdrSuiteChannels2=moduleApi",
+            "global.VdrSuiteChannels2 = moduleApi;",
         )
         compat_marker = "global.VdrSuiteChannelDayProgramCompat = Object.freeze"
 
