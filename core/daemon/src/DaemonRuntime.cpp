@@ -122,6 +122,9 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             context->epgArtworkResolver =
                 std::make_unique<SuiteBridgeEpgArtworkResolver>(
                     *context->epgArtworkTransport);
+            context->epgScraperMetadataResolver =
+                std::make_unique<SuiteBridgeEpgMetadataResolver>(
+                    *context->epgArtworkTransport);
             context->epgArtworkEnrichmentService =
                 std::make_unique<EpgArtworkEnrichmentService>(
                     *epgArtworkRepository_,
@@ -494,6 +497,15 @@ bool DaemonRuntime::initialize()
         *epgCacheServiceRegistry_,
         *epgArtworkRepository_,
         *epgArtworkPublicJsonSerializer_);
+
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        if (backendRuntimeContext &&
+            backendRuntimeContext->epgScraperMetadataResolver) {
+            epgCacheController_->registerScraperMetadataResolver(
+                backendRuntimeContext->backendId,
+                *backendRuntimeContext->epgScraperMetadataResolver);
+        }
+    }
 
     std::cout << "EPG cache controller runtime initialized" << std::endl;
 
