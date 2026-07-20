@@ -33,9 +33,10 @@ SuiteBridgeMetadataCommandReply SuiteBridgeSvdrpTransport::requestMetadata(
 
     const SuiteBridgeCommandReply reply = executeRequest(
         "PLUG suitebridge META " + channelId + " " + eventId + "\r\n");
-    metadataReply.transportSucceeded = reply.transportSucceeded();
     metadataReply.replyCode = reply.replyCode;
     metadataReply.payload = reply.payload;
+    metadataReply.transportSucceeded =
+        reply.transportSucceeded() && reply.replyCode == 250;
     return metadataReply;
 }
 
