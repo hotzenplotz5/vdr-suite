@@ -1,4 +1,4 @@
-.PHONY: test-suite-bridge-epg-artwork-resolver test-epg-artwork-repository test-epg-artwork-enrichment-service
+.PHONY: test-suite-bridge-epg-artwork-resolver test-epg-artwork-repository test-epg-artwork-enrichment-service test-epg-artwork-controller
 
 test-suite-bridge-epg-artwork-resolver:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -26,3 +26,13 @@ test-epg-artwork-enrichment-service:
 		$(LDFLAGS) -pthread \
 		-o $(BUILD_DIR)/test_epg_artwork_enrichment_service
 	$(BUILD_DIR)/test_epg_artwork_enrichment_service
+
+test-epg-artwork-controller:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/EpgArtworkRepository.cpp \
+		api/rest/src/EpgArtworkController.cpp \
+		api/rest/tests/test_epg_artwork_controller.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_epg_artwork_controller
+	$(BUILD_DIR)/test_epg_artwork_controller
