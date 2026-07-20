@@ -18,6 +18,8 @@
 #include "DashboardController.h"
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
+#include "EpgArtworkPublicJsonSerializer.h"
+#include "EpgArtworkRepository.h"
 #include "EpgCacheController.h"
 #include "EpgCacheServiceRegistry.h"
 #include "EpgController.h"
@@ -200,6 +202,8 @@ private:
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshServiceRegistry> searchTimerPreviewEpgCacheRefreshServiceRegistry_;
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshController> searchTimerPreviewEpgCacheRefreshController_;
     std::unique_ptr<EpgEventRepository> epgEventRepository_;
+    std::unique_ptr<EpgArtworkRepository> epgArtworkRepository_;
+    std::unique_ptr<EpgArtworkPublicJsonSerializer> epgArtworkPublicJsonSerializer_;
     std::unique_ptr<VdrRecordingCacheRepository> vdrRecordingCacheRepository_;
     std::unique_ptr<EpgCacheServiceRegistry> epgCacheServiceRegistry_;
     std::unique_ptr<EpgCacheController> epgCacheController_;
