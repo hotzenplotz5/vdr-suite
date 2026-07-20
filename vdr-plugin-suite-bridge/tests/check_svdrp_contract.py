@@ -48,6 +48,12 @@ required_content = (
     "Return the read-only VDR-Suite capability discovery payload.",
     '"SNAP\\n"',
     "Return the current read-only VDR-Suite status payload.",
+    '"ARTW <channel-id> <event-id>\\n"',
+    "Resolve preferred TVScraper artwork for one EPG event.",
+    '"META <channel-id> <event-id>\\n"',
+    "Resolve bounded TVScraper metadata for one EPG event.",
+    "SuiteBridgeEpgArtworkRequest artworkRequest(",
+    "SuiteBridgeEpgMetadataRequest metadataRequest(",
     "class SuiteBridgeCapabilityDiscoveryReply final",
     'return "CAPS";',
     "class SuiteBridgeSvdrpReply final",
@@ -71,6 +77,8 @@ required_content = (
     "svdrp command=CAPS result=rejected reply=%d",
     "svdrp command=SNAP result=served reply=%d bytes=%zu",
     "svdrp command=SNAP result=rejected reply=%d",
+    "svdrp command=ARTW result=served",
+    "svdrp command=META result=served",
     "return nullptr;",
 )
 
