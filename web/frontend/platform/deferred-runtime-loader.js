@@ -127,7 +127,7 @@ function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.id = id;
-    script.src = src + '?runtime=' + String(Date.now());
+    script.src = src;
     script.async = false;
 
     script.addEventListener(
@@ -169,5 +169,13 @@ if (typeof window !== 'undefined') {
     start: startVdrSuiteDeferredFrontendRuntimes
   });
 
-  startVdrSuiteDeferredFrontendRuntimes();
+  if (document.readyState === 'loading') {
+    document.addEventListener(
+      'DOMContentLoaded',
+      startVdrSuiteDeferredFrontendRuntimes,
+      {once: true}
+    );
+  } else {
+    startVdrSuiteDeferredFrontendRuntimes();
+  }
 }
