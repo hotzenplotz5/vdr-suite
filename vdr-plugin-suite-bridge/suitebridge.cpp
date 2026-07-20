@@ -2,14 +2,89 @@
 
 #include "suitebridge_capabilities.h"
 #include "suitebridge_capability_discovery.h"
+#include "suitebridge_epg_artwork_contract.h"
 #include "suitebridge_svdrp_contract.h"
+#include "suitebridge_tvscraper_adapter.h"
 
+#include <vdr/channels.h>
+#include <vdr/epg.h>
 #include <vdr/tools.h>
+
+#include <memory>
 
 static const char *PLUGIN_NAME = "suitebridge";
 static const char *VERSION = "0.10.0";
 static const char *DESCRIPTION =
     "Native bridge between VDR and the VDR-Suite Backend Agent";
+
+namespace {
+
+class SuiteBridgeDetachedEventSnapshot {
+public:
+  SuiteBridgeDetachedEventSnapshot(
+      const tChannelID &channelId,
+      const cEvent &source)
+      : schedule_(channelId),
+        event_(new cEvent(source.EventID()))
+  {
+    event_->SetTableID(source.TableID());
+    event_->SetVersion(source.Version());
+    event_->SetTitle(source.Title());
+    event_->SetShortText(source.ShortText());
+    event_->SetDescription(source.Description());
+
+    uchar contents[MaxEventContents];
+    for (int index = 0; index < MaxEventContents; ++index) {
+      contents[index] = source.Contents(index);
+    }
+    event_->SetContents(contents);
+
+    event_->SetParentalRating(source.ParentalRating());
+    event_->SetStartTime(source.StartTime());
+    event_->SetDuration(source.Duration());
+    event_->SetVps(source.Vps());
+    event_->SetAux(source.Aux());
+
+    schedule_.AddEvent(event_);
+  }
+
+  const cEvent &Event() const noexcept
+  {
+    return *event_;
+  }
+
+private:
+  cSchedule schedule_;
+  cEvent *event_;
+};
+
+std::unique_ptr<SuiteBridgeDetachedEventSnapshot> CaptureArtworkEvent(
+    const tChannelID &channelId,
+    unsigned int eventId)
+{
+  LOCK_SCHEDULES_READ;
+  const cSchedule *schedule = Schedules->GetSchedule(channelId);
+  if (!schedule) {
+    return nullptr;
+  }
+
+  const cEvent *event = nullptr;
+#if APIVERSNUM >= 20502
+  event = schedule->GetEventById(eventId);
+#else
+  event = schedule->GetEvent(eventId);
+#endif
+
+  if (!event) {
+    return nullptr;
+  }
+
+  return std::make_unique<SuiteBridgeDetachedEventSnapshot>(
+      channelId,
+      *event);
+}
+
+} // namespace
 
 cPluginSuiteBridge::cPluginSuiteBridge() = default;
 
@@ -113,6 +188,8 @@ const char **cPluginSuiteBridge::SVDRPHelpPages(void)
       "    Return the read-only VDR-Suite capability discovery payload.",
       "SNAP\n"
       "    Return the current read-only VDR-Suite status payload.",
+      "ARTW <channel-id> <event-id>\n"
+      "    Resolve preferred TVScraper artwork for one EPG event.",
       nullptr,
   };
 
@@ -147,6 +224,66 @@ cString cPluginSuiteBridge::SVDRPCommand(
         SuiteBridgeCapabilityDiscoveryPayload::SchemaVersion());
 
     return cString::sprintf("%s", capabilityReply.Data());
+  }
+
+  const SuiteBridgeEpgArtworkRequest artworkRequest(Command, Option);
+  if (artworkRequest.Handled()) {
+    if (!artworkRequest.Valid()) {
+      ReplyCode = 501;
+      return cString::sprintf(
+          "Usage: PLUG %s ARTW <channel-id> <event-id>",
+          PLUGIN_NAME);
+    }
+
+    SuiteBridgeArtworkReference artwork;
+    const tChannelID channelId =
+        tChannelID::FromString(artworkRequest.ChannelId().c_str());
+
+    if (!channelId.Valid()) {
+      isyslog(
+          "suitebridge: artwork lookup result=invalid-channel channel=%s event=%u",
+          artworkRequest.ChannelId().c_str(),
+          artworkRequest.EventId());
+    } else {
+      std::unique_ptr<SuiteBridgeDetachedEventSnapshot> eventSnapshot =
+          CaptureArtworkEvent(channelId, artworkRequest.EventId());
+
+      if (!eventSnapshot) {
+        isyslog(
+            "suitebridge: artwork lookup result=event-unavailable channel=%s event=%u",
+            artworkRequest.ChannelId().c_str(),
+            artworkRequest.EventId());
+      } else {
+        const cEvent &event = eventSnapshot->Event();
+        isyslog(
+            "suitebridge: artwork lookup result=event-snapshot channel=%s event=%u title=%s",
+            artworkRequest.ChannelId().c_str(),
+            artworkRequest.EventId(),
+            event.Title() ? event.Title() : "");
+
+        const SuiteBridgeTvScraperAdapter adapter;
+        artwork = adapter.ResolvePreferredArtwork(event);
+      }
+    }
+
+    const SuiteBridgeEpgArtworkPayload payload(artwork);
+    if (!payload.Complete()) {
+      ReplyCode = 451;
+      esyslog(
+          "suitebridge: svdrp command=ARTW result=overflow channel=%s event=%u",
+          artworkRequest.ChannelId().c_str(),
+          artworkRequest.EventId());
+      return cString::sprintf("Artwork payload exceeds contract capacity");
+    }
+
+    ReplyCode = 250;
+    isyslog(
+        "suitebridge: svdrp command=ARTW result=served channel=%s event=%u found=%s bytes=%zu",
+        artworkRequest.ChannelId().c_str(),
+        artworkRequest.EventId(),
+        artwork.Valid() ? "true" : "false",
+        payload.Size());
+    return cString::sprintf("%s", payload.Data());
   }
 
   const SuiteBridgeSvdrpReply snapshotReply(

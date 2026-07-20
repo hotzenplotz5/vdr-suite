@@ -1,5 +1,7 @@
 #include "EpgCacheService.h"
 
+#include "EpgArtworkEnrichmentService.h"
+
 #include <chrono>
 
 namespace
@@ -20,9 +22,11 @@ long long elapsedMilliseconds(
 
 EpgCacheService::EpgCacheService(
     EpgEventRepository& repository,
-    VdrService& vdrService)
+    VdrService& vdrService,
+    EpgArtworkEnrichmentService* artworkEnrichmentService)
     : repository_(repository),
-      vdrService_(vdrService)
+      vdrService_(vdrService),
+      artworkEnrichmentService_(artworkEnrichmentService)
 {
 }
 
@@ -37,6 +41,7 @@ EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
 
     EpgCacheRefreshResult result;
     result.accepted = isBoundedRefreshQuery(query);
+    result.artworkEnrichmentAvailable = artworkEnrichmentService_ != nullptr;
 
     if (!result.accepted)
     {
@@ -57,6 +62,17 @@ EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
     result.stored = repository_.upsertEventsForBackend(
         normalizedBackendId,
         events);
+
+    if (result.stored && artworkEnrichmentService_ != nullptr)
+    {
+        const EpgArtworkEnrichmentResult artworkResult =
+            artworkEnrichmentService_->enrich(normalizedBackendId, events);
+        result.artworkQueueAvailable = artworkResult.queueAvailable;
+        result.artworkQueued = artworkResult.queued;
+        result.artworkDeduplicated = artworkResult.deduplicated;
+        result.artworkSuppressed = artworkResult.suppressed;
+        result.artworkDropped = artworkResult.dropped;
+    }
 
     updateStatusForBackend(
         normalizedBackendId,

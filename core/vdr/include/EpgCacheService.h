@@ -11,12 +11,20 @@
 #include <unordered_map>
 #include <vector>
 
+class EpgArtworkEnrichmentService;
+
 struct EpgCacheRefreshResult
 {
     bool accepted = false;
     bool fetched = false;
     bool stored = false;
     std::size_t eventCount = 0;
+    bool artworkEnrichmentAvailable = false;
+    bool artworkQueueAvailable = true;
+    std::size_t artworkQueued = 0;
+    std::size_t artworkDeduplicated = 0;
+    std::size_t artworkSuppressed = 0;
+    std::size_t artworkDropped = 0;
 };
 
 struct EpgCacheStatus
@@ -41,7 +49,8 @@ class EpgCacheService
 public:
     EpgCacheService(
         EpgEventRepository& repository,
-        VdrService& vdrService);
+        VdrService& vdrService,
+        EpgArtworkEnrichmentService* artworkEnrichmentService = nullptr);
 
     EpgCacheRefreshResult refreshBackendWindow(
         const std::string& backendId,
@@ -89,6 +98,7 @@ private:
 
     EpgEventRepository& repository_;
     VdrService& vdrService_;
+    EpgArtworkEnrichmentService* artworkEnrichmentService_;
     mutable std::mutex statusMutex_;
     std::unordered_map<std::string, RefreshMetadata> refreshMetadataByBackend_;
 

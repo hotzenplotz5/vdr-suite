@@ -28,6 +28,14 @@ required_files = (
     ROOT / "suitebridge_status_events.cpp",
     ROOT / "suitebridge_status_monitor.h",
     ROOT / "suitebridge_status_monitor.cpp",
+    ROOT / "suitebridge_artwork_reference.h",
+    ROOT / "suitebridge_artwork_reference.cpp",
+    ROOT / "suitebridge_image_dimensions.h",
+    ROOT / "suitebridge_image_dimensions.cpp",
+    ROOT / "suitebridge_tvscraper_adapter.h",
+    ROOT / "suitebridge_tvscraper_adapter.cpp",
+    ROOT / "suitebridge_epg_artwork_contract.h",
+    ROOT / "suitebridge_epg_artwork_contract.cpp",
     ROOT / "docs/SB-2-capabilities.md",
     ROOT / "docs/SB-3-status-events.md",
     ROOT / "docs/SB-4-status-snapshots.md",
@@ -51,6 +59,9 @@ required_files = (
     ROOT / "tests/test_suitebridge_status_snapshot.cpp",
     ROOT / "tests/test_suitebridge_local_contract.cpp",
     ROOT / "tests/test_suitebridge_svdrp_contract.cpp",
+    ROOT / "tests/test_suitebridge_artwork_reference.cpp",
+    ROOT / "tests/test_suitebridge_image_dimensions.cpp",
+    ROOT / "tests/test_suitebridge_epg_artwork_contract.cpp",
 )
 
 errors = []
@@ -84,6 +95,10 @@ required_makefile_content = (
     "suitebridge_svdrp_contract.o",
     "suitebridge_status_events.o",
     "suitebridge_status_monitor.o",
+    "suitebridge_artwork_reference.o",
+    "suitebridge_image_dimensions.o",
+    "suitebridge_tvscraper_adapter.o",
+    "suitebridge_epg_artwork_contract.o",
     "check-capabilities-contract:",
     "check-capability-discovery-contract:",
     "check-counter-continuity-contract:",
@@ -99,6 +114,9 @@ required_makefile_content = (
     "test-status-snapshot:",
     "test-local-contract:",
     "test-svdrp-contract:",
+    "test-artwork-reference:",
+    "test-image-dimensions:",
+    "test-epg-artwork-contract:",
     'test "$(VERSION)" = "0.10.0"',
 )
 
@@ -125,6 +143,9 @@ required_source_content = (
     "SuiteBridgeCapabilities::SchemaVersion()",
     "SuiteBridgeCapabilities::StateName(capability.state)",
     "SuiteBridgeCapabilityDiscoveryReply capabilityReply(",
+    '"ARTW <channel-id> <event-id>\\n"',
+    "SuiteBridgeEpgArtworkRequest artworkRequest(",
+    "ResolvePreferredArtwork(event)",
     "return nullptr;",
     "VDRPLUGINCREATOR(cPluginSuiteBridge);",
 )
@@ -155,6 +176,11 @@ required_foundation_content = (
     "class SuiteBridgeSvdrpReply final",
     "SuiteBridgeSvdrpReply::Handled() const noexcept",
     "SuiteBridgeSvdrpReply::HasPayload() const noexcept",
+    "class SuiteBridgeEpgArtworkRequest final",
+    "class SuiteBridgeEpgArtworkPayload final",
+    "SuiteBridgeReadImageDimensions(",
+    "cGetScraperVideo request(&event, nullptr)",
+    "request.call()",
 )
 
 for fragment in required_foundation_content:

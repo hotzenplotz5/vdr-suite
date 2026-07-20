@@ -10,6 +10,7 @@ include mk/http-sources.mk
 include mk/runtime-sources.mk
 include mk/daemon-sources.mk
 include mk/install.mk
+include mk/test-inventory-exceptions.mk
 include mk/local-test-groups.mk
 include mk/object-cache.mk
 
@@ -26,3 +27,4 @@ include mk/search-timer-api-tests.mk
 include mk/search-timer-workflow-tests.mk
 include mk/runtime-api-tests.mk
 include mk/maintenance-tests.mk
+include mk/epg-artwork-tests.mk

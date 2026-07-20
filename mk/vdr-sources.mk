@@ -15,6 +15,9 @@ VDR_SRC := \
         core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
         core/vdr/src/VdrRecordingArtworkIdentity.cpp \
         core/vdr/src/VdrRecordingMetadataJsonSerializer.cpp \
+        core/vdr/src/EpgArtworkRepository.cpp \
+        core/vdr/src/EpgArtworkEnrichmentService.cpp \
+        core/vdr/src/SuiteBridgeEpgArtworkResolver.cpp \
         core/vdr/src/EpgQueryService.cpp \
         core/vdr/src/EpgSearchMatcher.cpp \
         core/vdr/src/EpgSearchResultJsonSerializer.cpp \
@@ -101,4 +104,4 @@ VDR_SRC := \
         core/vdr/src/LiveTransportFactory.cpp \
         core/vdr/src/SseLiveTransport.cpp \
         core/vdr/src/BackendPollingCoordinator.cpp \
-        core/vdr/src/VdrAdapterFactory.cpp \
+        core/vdr/src/VdrAdapterFactory.cpp

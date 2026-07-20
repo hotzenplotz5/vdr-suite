@@ -1,6 +1,6 @@
 include mk/test-groups.mk
 
-.PHONY: test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-http-listener-partial-request-timeout test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy test-frontend-contracts test-frontend-i18n
+.PHONY: test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-http-listener-partial-request-timeout test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy test-frontend-contracts test-frontend-i18n
 
 
 test-json-string-decoder:
@@ -90,6 +90,18 @@ test-search-timer-preview-epg-cache:
 		core/vdr/tests/test_search_timer_preview_epg_cache.cpp \
 		-o $(BUILD_DIR)/test_search_timer_preview_epg_cache
 	$(BUILD_DIR)/test_search_timer_preview_epg_cache
+
+
+test-vdr-snapshot-read-service:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/SnapshotCache.cpp \
+		core/vdr/src/SnapshotCacheService.cpp \
+		core/vdr/src/SnapshotAccessService.cpp \
+		core/vdr/src/SearchTimerPreviewEpgCache.cpp \
+		core/vdr/src/VdrSnapshotReadService.cpp \
+		core/vdr/tests/test_vdr_snapshot_read_service.cpp \
+		-o $(BUILD_DIR)/test_vdr_snapshot_read_service
+	$(BUILD_DIR)/test_vdr_snapshot_read_service
 
 
 test-vdr-snapshot-read-service-searchtimer-preview-epg-cache:

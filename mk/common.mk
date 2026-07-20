@@ -38,6 +38,8 @@ test-epg-cache-service:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		core/vdr/src/EpgEventRepository.cpp \
+		core/vdr/src/EpgArtworkRepository.cpp \
+		core/vdr/src/EpgArtworkEnrichmentService.cpp \
 		core/vdr/src/EpgCacheService.cpp \
 		core/vdr/src/VdrService.cpp \
 		core/vdr/tests/test_epg_cache_service.cpp \
@@ -50,6 +52,8 @@ test-epg-cache-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
 		core/vdr/src/EpgEventRepository.cpp \
+		core/vdr/src/EpgArtworkRepository.cpp \
+		core/vdr/src/EpgArtworkEnrichmentService.cpp \
 		core/vdr/src/EpgCacheService.cpp \
 		core/vdr/src/VdrService.cpp \
 		api/rest/src/EpgCacheController.cpp \

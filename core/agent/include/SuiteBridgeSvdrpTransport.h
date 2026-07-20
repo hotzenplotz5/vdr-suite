@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ISuiteBridgeLocalTransport.h"
+#include "ISuiteBridgeArtworkTransport.h"
 
 #include <chrono>
 #include <cstddef>
@@ -19,7 +20,9 @@ struct SuiteBridgeSvdrpTransportConfig
     std::chrono::milliseconds operationTimeout{3000};
 };
 
-class SuiteBridgeSvdrpTransport final : public ISuiteBridgeLocalTransport
+class SuiteBridgeSvdrpTransport final :
+    public ISuiteBridgeLocalTransport,
+    public ::ISuiteBridgeArtworkTransport
 {
 public:
     static constexpr std::size_t MaximumGreetingBytes = 1024;
@@ -32,7 +35,14 @@ public:
     SuiteBridgeCommandReply execute(
         SuiteBridgeLocalCommand command) override;
 
+    ::SuiteBridgeArtworkCommandReply requestArtwork(
+        const std::string& channelId,
+        const std::string& eventId) override;
+
 private:
+    SuiteBridgeCommandReply executeRequest(
+        const std::string& requestText);
+
     SuiteBridgeSvdrpTransportConfig config_;
 };
 

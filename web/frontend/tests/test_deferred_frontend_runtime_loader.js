@@ -12,12 +12,15 @@ const sourcePath = path.resolve(
 );
 const source = fs.readFileSync(sourcePath, 'utf8');
 
-assert.ok(source.includes("'/frontend/channel-day-program.js'"));
-assert.ok(source.includes("'/frontend/channel-day-program-compat.js'"));
+assert.ok(source.includes("'/frontend/epg-searchtimer-actions.js'"));
 assert.ok(source.includes("'/frontend/recording-trash-ux.js'"));
-assert.ok(source.includes("window.addEventListener('load', startVdrSuiteDeferredFrontendRuntimes"));
 assert.ok(source.includes("script.src = src + '?runtime='"));
-assert.ok(source.includes('window.VdrSuiteChannelDayProgram'));
+assert.ok(source.includes('window.VdrSuiteEpgSearchTimerActions'));
 assert.ok(source.includes('window.VdrSuiteRecordingTrashUx'));
+assert.ok(source.includes('window.VdrSuiteDeferredFrontendRuntimes'));
+assert.ok(source.includes('start: startVdrSuiteDeferredFrontendRuntimes'));
+assert.ok(source.includes('startVdrSuiteDeferredFrontendRuntimes();'));
+assert.ok(!source.includes("'/frontend/channel-day-program.js'"));
+assert.ok(!source.includes("'/frontend/channel-day-program-compat.js'"));
 
 console.log('test_deferred_frontend_runtime_loader passed');
