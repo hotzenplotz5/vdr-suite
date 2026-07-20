@@ -27,7 +27,14 @@
   const eventChannelId = e => text(pick(e,['channelId','channel','channel_id']));
   const eventStart = e => epoch(pick(e,['startTime','start','beginTime'],0));
   const eventEnd = e => { const s=eventStart(e),x=epoch(pick(e,['endTime','end','stopTime'],0)),d=Number(pick(e,['durationSeconds','duration'],0)); return x>s?x:s+(Number.isFinite(d)&&d>0?d:0); };
-  const eventArtwork = e => text(pick(e,['bannerUrl','imageUrl','posterUrl','artworkUrl','image','poster','banner']));
+  const eventArtwork = e => {
+    const artwork=e&&e.artwork;
+    if(artwork&&artwork.available===true){
+      const url=text(artwork.url);
+      if(url)return url;
+    }
+    return text(pick(e,['bannerUrl','imageUrl','posterUrl','artworkUrl','image','poster','banner']));
+  };
   const addText = (el,v) => { el.textContent=String(v); return el; };
   const dayOnly = v => { const d=v instanceof Date?v:new Date(v||Date.now()); return new Date(d.getFullYear(),d.getMonth(),d.getDate()); };
   const moveDay = (v,n) => { const d=dayOnly(v); d.setDate(d.getDate()+n); return d; };
