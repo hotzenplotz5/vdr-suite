@@ -11,5 +11,4 @@ LEGACY_UNWIRED_TEST_SOURCES := \
 	core/vdr/tests/test_real_polling_initial_snapshot.cpp \
 	core/vdr/tests/test_real_polling_stability.cpp \
 	core/vdr/tests/test_real_restfulapi_integration.cpp \
-	core/vdr/tests/test_real_snapshot_builder.cpp \
-	core/vdr/tests/test_vdr_snapshot_read_service.cpp
+	core/vdr/tests/test_real_snapshot_builder.cpp
