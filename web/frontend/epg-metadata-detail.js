@@ -2,9 +2,8 @@
 
 (function (global) {
   const STYLE_ID = 'vdr-suite-epg-metadata-detail-style';
-  const metadataRequests = new Map();
-
-  const ROLE_LABELS = Object.freeze({
+  const requestCache = new Map();
+  const roleLabels = Object.freeze({
     actor: 'Schauspiel',
     director: 'Regie',
     writer: 'Drehbuch',
@@ -16,19 +15,6 @@
     unknown: 'Mitwirkung'
   });
 
-  const MEDIA_TYPE_LABELS = Object.freeze({
-    movie: 'Film',
-    series: 'Serie',
-    none: 'Unbekannt'
-  });
-
-  const ORIENTATION_LABELS = Object.freeze({
-    landscape: 'Querformat',
-    banner: 'Banner',
-    portrait: 'Hochformat',
-    unknown: 'Bild'
-  });
-
   function firstValue(object, keys, fallback) {
     for (const key of keys) {
       if (object && object[key] !== undefined && object[key] !== null && object[key] !== '') {
@@ -36,6 +22,13 @@
       }
     }
     return fallback;
+  }
+
+  function node(tag, className, text) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    if (text !== undefined && text !== null) element.textContent = String(text);
+    return element;
   }
 
   function selectedBackendId() {
@@ -59,17 +52,6 @@
     return String(firstValue(event, ['eventId', 'id', 'nativeId'], '')).trim();
   }
 
-  function eventTitle(event) {
-    return String(firstValue(event, ['title', 'name', 'eventTitle'], 'Sendung')).trim();
-  }
-
-  function element(tagName, className, text) {
-    const node = document.createElement(tagName);
-    if (className) node.className = className;
-    if (text !== undefined && text !== null) node.textContent = String(text);
-    return node;
-  }
-
   function isPublicImageUrl(value) {
     const url = String(value || '').trim();
     return url.startsWith('/api/epg/cache/metadata/image?') ||
@@ -79,28 +61,28 @@
   function formatDate(value) {
     const text = String(value || '').trim();
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
-    if (!match) return text;
-    return match[3] + '.' + match[2] + '.' + match[1];
+    return match ? match[3] + '.' + match[2] + '.' + match[1] : text;
   }
 
   function roleLabel(value) {
-    const role = String(value || 'unknown').toLowerCase();
-    return ROLE_LABELS[role] || ROLE_LABELS.unknown;
+    return roleLabels[String(value || 'unknown').toLowerCase()] || roleLabels.unknown;
   }
 
   function mediaTypeLabel(value) {
-    const mediaType = String(value || 'none').toLowerCase();
-    return MEDIA_TYPE_LABELS[mediaType] || MEDIA_TYPE_LABELS.none;
+    if (value === 'movie') return 'Film';
+    if (value === 'series') return 'Serie';
+    return 'Unbekannt';
   }
 
   function orientationLabel(value) {
-    const orientation = String(value || 'unknown').toLowerCase();
-    return ORIENTATION_LABELS[orientation] || ORIENTATION_LABELS.unknown;
+    if (value === 'landscape') return 'Querformat';
+    if (value === 'banner') return 'Banner';
+    if (value === 'portrait') return 'Hochformat';
+    return 'Bild';
   }
 
   function ensureStyles() {
     if (document.getElementById(STYLE_ID)) return;
-
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = [
@@ -109,13 +91,13 @@
       '.epg-metadata-tab[aria-selected="true"]{background:#1d4ed8;color:#eff6ff}',
       '.epg-metadata-tab:disabled{opacity:.42;cursor:not-allowed}',
       '.epg-metadata-panel{display:grid;gap:.8rem;margin-bottom:.85rem}',
-      '.epg-metadata-status{margin:.35rem 0 .8rem;padding:.7rem .8rem;border:1px solid #334155;border-radius:.7rem;background:#111827;color:#cbd5e1;font-size:.86rem}',
+      '.epg-metadata-status,.epg-person-search-result{margin:.35rem 0 .8rem;padding:.7rem .8rem;border:1px solid #334155;border-radius:.7rem;background:#111827;color:#cbd5e1;font-size:.86rem}',
       '.epg-metadata-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem}',
       '.epg-metadata-fact{display:grid;gap:.15rem;padding:.55rem .65rem;border:1px solid #334155;border-radius:.65rem;background:#0f172a}',
       '.epg-metadata-fact-label{color:#94a3b8;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}',
       '.epg-metadata-fact-value{color:#f8fafc;font-size:.88rem;overflow-wrap:anywhere}',
       '.epg-metadata-copy{padding:.75rem;border:1px solid #334155;border-radius:.7rem;background:#111827}',
-      '.epg-metadata-copy h4{margin:0 0 .4rem;color:#f8fafc}',
+      '.epg-metadata-copy h4,.epg-person-search-result h4{margin:0 0 .4rem;color:#f8fafc}',
       '.epg-metadata-copy p{margin:0;color:#dbeafe;line-height:1.5}',
       '.epg-metadata-badges{display:flex;flex-wrap:wrap;gap:.4rem}',
       '.epg-metadata-badge{display:inline-flex;align-items:center;min-height:1.75rem;padding:.2rem .55rem;border:1px solid #475569;border-radius:999px;background:#172033;color:#dbeafe;font-size:.74rem;font-weight:800}',
@@ -126,11 +108,8 @@
       '.epg-person-placeholder{display:grid;place-items:center;color:#64748b;font-size:1.4rem;font-weight:900}',
       '.epg-person-name{display:block;color:#f8fafc;font-weight:850;line-height:1.25}',
       '.epg-person-character{display:block;margin-top:.2rem;color:#bfdbfe;font-size:.78rem;line-height:1.3}',
-      '.epg-person-role{display:block;margin-top:.25rem;color:#94a3b8;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}',
-      '.epg-person-search-result{padding:.75rem;border:1px solid #334155;border-radius:.75rem;background:#0f172a}',
-      '.epg-person-search-result h4{margin:0 0 .45rem}',
+      '.epg-person-role{display:block;margin-top:.25rem;color:#94a3b8;font-size:.7rem;font-weight:800;text-transform:uppercase}',
       '.epg-person-search-result ul{margin:.4rem 0 0;padding-left:1.15rem}',
-      '.epg-person-search-result li{margin:.25rem 0;color:#dbeafe}',
       '.epg-metadata-gallery-feature{width:100%;max-height:22rem;border-radius:.75rem;object-fit:contain;background:#020617}',
       '.epg-metadata-gallery-thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem}',
       '.epg-gallery-thumb{display:grid;gap:.3rem;padding:.35rem;border:1px solid #334155;border-radius:.65rem;background:#111827;color:#cbd5e1;cursor:pointer}',
@@ -139,78 +118,57 @@
       '.epg-gallery-thumb.portrait img{aspect-ratio:2/3;object-fit:contain}',
       '.epg-gallery-thumb span{font-size:.68rem;font-weight:800}',
       '.epg-metadata-link{color:#93c5fd;font-weight:800;text-decoration:none}',
-      '.epg-metadata-link:hover,.epg-metadata-link:focus-visible{text-decoration:underline}',
       '@media(max-width:720px){.epg-metadata-facts,.epg-metadata-cast{grid-template-columns:1fr}.epg-metadata-gallery-thumbs{grid-template-columns:repeat(2,minmax(0,1fr))}}'
     ].join('');
     document.head.appendChild(style);
   }
 
-  function metadataKey(backendId, channelId, nativeEventId) {
-    return [backendId, channelId, nativeEventId].join('\n');
-  }
-
   function fetchMetadata(backendId, channelId, nativeEventId) {
-    const key = metadataKey(backendId, channelId, nativeEventId);
-    if (metadataRequests.has(key)) return metadataRequests.get(key);
+    const key = backendId + '\n' + channelId + '\n' + nativeEventId;
+    if (requestCache.has(key)) return requestCache.get(key);
 
     const client = global.VdrSuiteClientApi;
-    if (!client || typeof client.fetchClientEpgScraperMetadata !== 'function') {
+    if (!client || typeof client.requestJson !== 'function') {
       return Promise.reject(new Error('EPG-Metadaten-Client ist nicht verfügbar.'));
     }
 
-    const request = client.fetchClientEpgScraperMetadata({
-      backendId: backendId,
-      channelId: channelId,
-      query: {eventId: nativeEventId},
+    const request = client.requestJson('/api/epg/cache/metadata', {
+      query: {
+        backend: backendId,
+        channelId: channelId,
+        eventId: nativeEventId
+      },
       cache: 'no-store',
       credentials: 'same-origin'
     }).catch(function (error) {
-      metadataRequests.delete(key);
+      requestCache.delete(key);
       throw error;
     });
 
-    metadataRequests.set(key, request);
+    requestCache.set(key, request);
     return request;
   }
 
   function appendFact(container, label, value) {
     const text = String(value === undefined || value === null ? '' : value).trim();
     if (!text) return;
-
-    const fact = element('div', 'epg-metadata-fact');
-    fact.appendChild(element('span', 'epg-metadata-fact-label', label));
-    fact.appendChild(element('span', 'epg-metadata-fact-value', text));
+    const fact = node('div', 'epg-metadata-fact');
+    fact.appendChild(node('span', 'epg-metadata-fact-label', label));
+    fact.appendChild(node('span', 'epg-metadata-fact-value', text));
     container.appendChild(fact);
   }
 
-  function appendBadges(container, values) {
-    (values || []).forEach(function (value) {
-      const text = String(value || '').trim();
-      if (text) container.appendChild(element('span', 'epg-metadata-badge', text));
-    });
-  }
-
-  function renderScraperPanel(panel, metadata) {
+  function renderScraper(panel, metadata) {
     panel.replaceChildren();
-
-    const facts = element('div', 'epg-metadata-facts');
+    const facts = node('div', 'epg-metadata-facts');
     appendFact(facts, 'Typ', mediaTypeLabel(metadata.mediaType));
     appendFact(facts, 'Titel', metadata.title);
     appendFact(facts, 'Originaltitel', metadata.originalTitle);
     appendFact(facts, 'Folge', metadata.episodeName);
-
-    if (Number(metadata.seasonNumber) > 0) {
-      appendFact(facts, 'Staffel', metadata.seasonNumber);
-    }
-    if (Number(metadata.episodeNumber) > 0) {
-      appendFact(facts, 'Episode', metadata.episodeNumber);
-    }
-    if (Number(metadata.absoluteEpisodeNumber) > 0) {
-      appendFact(facts, 'Folge gesamt', metadata.absoluteEpisodeNumber);
-    }
-    if (Number(metadata.runtimeMinutes) > 0) {
-      appendFact(facts, 'Laufzeit', String(metadata.runtimeMinutes) + ' Minuten');
-    }
+    if (Number(metadata.seasonNumber) > 0) appendFact(facts, 'Staffel', metadata.seasonNumber);
+    if (Number(metadata.episodeNumber) > 0) appendFact(facts, 'Episode', metadata.episodeNumber);
+    if (Number(metadata.absoluteEpisodeNumber) > 0) appendFact(facts, 'Folge gesamt', metadata.absoluteEpisodeNumber);
+    if (Number(metadata.runtimeMinutes) > 0) appendFact(facts, 'Laufzeit', metadata.runtimeMinutes + ' Minuten');
 
     if (metadata.mediaType === 'series') {
       appendFact(facts, 'Serienstart', formatDate(metadata.releaseDate));
@@ -222,210 +180,174 @@
     appendFact(facts, 'Sender / Netzwerk', (metadata.networks || []).join(', '));
     appendFact(facts, 'Produktionsland', (metadata.productionCountries || []).join(', '));
     appendFact(facts, 'Status', metadata.status);
-
     if (Number(metadata.voteAverage) > 0) {
-      const votes = Number(metadata.voteCount) > 0 ? ' · ' + String(metadata.voteCount) + ' Stimmen' : '';
-      appendFact(facts, 'Bewertung', String(metadata.voteAverage) + ' / 10' + votes);
+      appendFact(
+        facts,
+        'Bewertung',
+        metadata.voteAverage + ' / 10' + (Number(metadata.voteCount) > 0 ? ' · ' + metadata.voteCount + ' Stimmen' : '')
+      );
     }
 
     if (metadata.imdbId && /^tt\d+$/.test(String(metadata.imdbId))) {
-      const fact = element('div', 'epg-metadata-fact');
-      fact.appendChild(element('span', 'epg-metadata-fact-label', 'IMDb'));
-      const link = element('a', 'epg-metadata-fact-value epg-metadata-link', metadata.imdbId);
+      const fact = node('div', 'epg-metadata-fact');
+      fact.appendChild(node('span', 'epg-metadata-fact-label', 'IMDb'));
+      const link = node('a', 'epg-metadata-fact-value epg-metadata-link', metadata.imdbId);
       link.href = 'https://www.imdb.com/title/' + encodeURIComponent(metadata.imdbId) + '/';
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       fact.appendChild(link);
       facts.appendChild(fact);
     }
+    if (facts.children.length) panel.appendChild(facts);
 
-    if (facts.children.length > 0) panel.appendChild(facts);
-
-    const badges = element('div', 'epg-metadata-badges');
-    appendBadges(badges, metadata.genres || []);
-
+    const badges = node('div', 'epg-metadata-badges');
+    (metadata.genres || []).forEach(function (genre) {
+      if (genre) badges.appendChild(node('span', 'epg-metadata-badge', genre));
+    });
     const hints = metadata.providerHints || {};
     if (Number(hints.hd) > 0) {
-      badges.appendChild(element('span', 'epg-metadata-badge', 'HD-Hinweis · TVScraper'));
+      badges.appendChild(node('span', 'epg-metadata-badge', 'HD-Hinweis · TVScraper'));
     }
     if (Number(hints.language) > 0) {
-      badges.appendChild(element(
-        'span',
-        'epg-metadata-badge',
-        'Sprachcode ' + String(hints.language) + ' · TVScraper'
-      ));
+      badges.appendChild(node('span', 'epg-metadata-badge', 'Sprachcode ' + hints.language + ' · TVScraper'));
     }
-    if (badges.children.length > 0) panel.appendChild(badges);
+    if (badges.children.length) panel.appendChild(badges);
 
     if (metadata.tagline) {
-      const tagline = element('div', 'epg-metadata-copy');
-      tagline.appendChild(element('h4', '', 'Tagline'));
-      tagline.appendChild(element('p', '', metadata.tagline));
-      panel.appendChild(tagline);
+      const box = node('div', 'epg-metadata-copy');
+      box.appendChild(node('h4', '', 'Tagline'));
+      box.appendChild(node('p', '', metadata.tagline));
+      panel.appendChild(box);
     }
-
     if (metadata.overview) {
-      const overview = element('div', 'epg-metadata-copy');
-      overview.appendChild(element('h4', '', 'TVScraper-Beschreibung'));
-      overview.appendChild(element('p', '', metadata.overview));
-      panel.appendChild(overview);
+      const box = node('div', 'epg-metadata-copy');
+      box.appendChild(node('h4', '', 'TVScraper-Beschreibung'));
+      box.appendChild(node('p', '', metadata.overview));
+      panel.appendChild(box);
     }
   }
 
-  function renderRecordingSearch(target, person, metadata, backendId) {
+  function searchRecordings(target, person, metadata, backendId) {
     target.hidden = false;
     target.replaceChildren();
-    target.appendChild(element('h4', '', person.name));
-    target.appendChild(element(
-      'p',
-      '',
-      'Aktuelle EPG-Sendung: ' + String(metadata.episodeName || metadata.title || 'Sendung')
-    ));
-    target.appendChild(element('p', '', 'Suche in vorhandenen Aufnahmen …'));
+    target.appendChild(node('h4', '', person.name));
+    target.appendChild(node('p', '', 'Aktuelle EPG-Sendung: ' + (metadata.episodeName || metadata.title || 'Sendung')));
+    target.appendChild(node('p', '', 'Suche in vorhandenen Aufnahmen …'));
 
     const client = global.VdrSuiteClientApi;
     if (!client || typeof client.fetchClientRecordingPersons !== 'function') {
-      target.appendChild(element('p', '', 'Aufnahmensuche ist nicht verfügbar.'));
+      target.appendChild(node('p', '', 'Aufnahmensuche ist nicht verfügbar.'));
       return;
     }
 
     client.fetchClientRecordingPersons({
       backendId: backendId,
-      query: {
-        name: person.name,
-        limit: 20
-      },
+      query: {name: person.name, limit: 20},
       cache: 'no-store',
       credentials: 'same-origin'
     }).then(function (result) {
-      target.replaceChildren();
-      target.appendChild(element('h4', '', person.name));
-      target.appendChild(element(
-        'p',
-        '',
-        'Aktuelle EPG-Sendung: ' + String(metadata.episodeName || metadata.title || 'Sendung')
-      ));
-
       const matches = result && Array.isArray(result.matches) ? result.matches : [];
+      target.replaceChildren();
+      target.appendChild(node('h4', '', person.name));
+      target.appendChild(node('p', '', 'Aktuelle EPG-Sendung: ' + (metadata.episodeName || metadata.title || 'Sendung')));
       if (!matches.length) {
-        target.appendChild(element('p', '', 'Keine vorhandene Aufnahme mit dieser Person gefunden.'));
+        target.appendChild(node('p', '', 'Keine vorhandene Aufnahme mit dieser Person gefunden.'));
         return;
       }
-
-      target.appendChild(element('p', '', 'Gefundene Aufnahmen: ' + String(matches.length)));
+      target.appendChild(node('p', '', 'Gefundene Aufnahmen: ' + matches.length));
       const list = document.createElement('ul');
       matches.forEach(function (match) {
         const recording = match && match.recording ? match.recording : {};
-        const title = String(recording.title || recording.id || 'Aufnahme');
-        const backend = String(recording.backendId || backendId || 'default');
-        list.appendChild(element('li', '', title + ' · ' + backend));
+        list.appendChild(node('li', '', (recording.title || recording.id || 'Aufnahme') + ' · ' + (recording.backendId || backendId)));
       });
       target.appendChild(list);
     }).catch(function (error) {
       target.replaceChildren();
-      target.appendChild(element('h4', '', person.name));
-      target.appendChild(element(
-        'p',
-        '',
-        'Aufnahmensuche fehlgeschlagen: ' + String(error && error.message ? error.message : error)
-      ));
+      target.appendChild(node('h4', '', person.name));
+      target.appendChild(node('p', '', 'Aufnahmensuche fehlgeschlagen: ' + String(error && error.message ? error.message : error)));
     });
   }
 
-  function renderCastPanel(panel, metadata, backendId) {
+  function renderCast(panel, metadata, backendId) {
     panel.replaceChildren();
-
     const people = Array.isArray(metadata.people) ? metadata.people : [];
     if (!people.length) {
-      panel.appendChild(element('p', 'epg-metadata-status', 'Keine Besetzungsdaten verfügbar.'));
+      panel.appendChild(node('p', 'epg-metadata-status', 'Keine Besetzungsdaten verfügbar.'));
       return;
     }
 
-    const grid = element('div', 'epg-metadata-cast');
-    const searchResult = element('div', 'epg-person-search-result');
-    searchResult.hidden = true;
+    const grid = node('div', 'epg-metadata-cast');
+    const result = node('div', 'epg-person-search-result');
+    result.hidden = true;
 
     people.forEach(function (person) {
-      const card = element('button', 'epg-person-card');
+      const card = node('button', 'epg-person-card');
       card.type = 'button';
       card.title = person.name + ' in vorhandenen Aufnahmen suchen';
 
-      const image = person && person.image ? person.image : {};
-      if (image.available === true && isPublicImageUrl(image.url)) {
-        const portrait = document.createElement('img');
-        portrait.className = 'epg-person-image';
-        portrait.src = image.url;
-        portrait.alt = person.name;
-        portrait.loading = 'lazy';
-        card.appendChild(portrait);
+      if (person.image && person.image.available === true && isPublicImageUrl(person.image.url)) {
+        const image = document.createElement('img');
+        image.className = 'epg-person-image';
+        image.src = person.image.url;
+        image.alt = person.name;
+        image.loading = 'lazy';
+        card.appendChild(image);
       } else {
-        card.appendChild(element('span', 'epg-person-placeholder', '•'));
+        card.appendChild(node('span', 'epg-person-placeholder', '•'));
       }
 
       const copy = document.createElement('span');
-      copy.appendChild(element('span', 'epg-person-name', person.name));
-      if (person.characterName) {
-        copy.appendChild(element('span', 'epg-person-character', person.characterName));
-      }
-      copy.appendChild(element('span', 'epg-person-role', roleLabel(person.role)));
+      copy.appendChild(node('span', 'epg-person-name', person.name));
+      if (person.characterName) copy.appendChild(node('span', 'epg-person-character', person.characterName));
+      copy.appendChild(node('span', 'epg-person-role', roleLabel(person.role)));
       card.appendChild(copy);
-
       card.addEventListener('click', function () {
-        renderRecordingSearch(searchResult, person, metadata, backendId);
+        searchRecordings(result, person, metadata, backendId);
       });
       grid.appendChild(card);
     });
 
     panel.appendChild(grid);
-    panel.appendChild(searchResult);
+    panel.appendChild(result);
   }
 
-  function renderGalleryPanel(panel, metadata) {
+  function renderGallery(panel, metadata) {
     panel.replaceChildren();
-
-    const entries = Array.isArray(metadata.images)
+    const images = Array.isArray(metadata.images)
       ? metadata.images.filter(function (entry) {
-          return entry && entry.image && entry.image.available === true &&
-            isPublicImageUrl(entry.image.url);
+          return entry && entry.image && entry.image.available === true && isPublicImageUrl(entry.image.url);
         })
       : [];
 
-    if (!entries.length) {
-      panel.appendChild(element('p', 'epg-metadata-status', 'Keine weiteren Bilder verfügbar.'));
+    if (!images.length) {
+      panel.appendChild(node('p', 'epg-metadata-status', 'Keine weiteren Bilder verfügbar.'));
       return;
     }
 
     const feature = document.createElement('img');
     feature.className = 'epg-metadata-gallery-feature';
     feature.loading = 'lazy';
-    feature.alt = 'TVScraper-Bild';
     panel.appendChild(feature);
 
-    const thumbs = element('div', 'epg-metadata-gallery-thumbs');
+    const thumbs = node('div', 'epg-metadata-gallery-thumbs');
     const buttons = [];
-
     function select(index) {
-      const entry = entries[index];
-      feature.src = entry.image.url;
-      feature.alt = orientationLabel(entry.orientation) + ' zu ' + String(metadata.title || 'Sendung');
-      buttons.forEach(function (button, buttonIndex) {
-        button.setAttribute('aria-current', buttonIndex === index ? 'true' : 'false');
+      feature.src = images[index].image.url;
+      feature.alt = orientationLabel(images[index].orientation) + ' zu ' + (metadata.title || 'Sendung');
+      buttons.forEach(function (button, currentIndex) {
+        button.setAttribute('aria-current', currentIndex === index ? 'true' : 'false');
       });
     }
 
-    entries.forEach(function (entry, index) {
-      const button = element(
-        'button',
-        'epg-gallery-thumb ' + (entry.orientation === 'portrait' ? 'portrait' : '')
-      );
+    images.forEach(function (entry, index) {
+      const button = node('button', 'epg-gallery-thumb ' + (entry.orientation === 'portrait' ? 'portrait' : ''));
       button.type = 'button';
-
       const image = document.createElement('img');
       image.src = entry.image.url;
       image.alt = orientationLabel(entry.orientation);
       image.loading = 'lazy';
       button.appendChild(image);
-      button.appendChild(element('span', '', orientationLabel(entry.orientation)));
+      button.appendChild(node('span', '', orientationLabel(entry.orientation)));
       button.addEventListener('click', function () { select(index); });
       buttons.push(button);
       thumbs.appendChild(button);
@@ -437,17 +359,14 @@
 
   function ensurePreferredArtwork(detail, metadata) {
     if (detail.querySelector('.epg-detail-artwork')) return;
-
     const artwork = metadata && metadata.preferredArtwork;
-    if (!artwork || artwork.available !== true || !isPublicImageUrl(artwork.url)) return;
-
     const hero = detail.querySelector('.epg-detail-hero');
-    if (!hero) return;
+    if (!hero || !artwork || artwork.available !== true || !isPublicImageUrl(artwork.url)) return;
 
     const image = document.createElement('div');
     image.className = 'epg-detail-artwork';
     image.setAttribute('role', 'img');
-    image.setAttribute('aria-label', 'Bild zu ' + String(metadata.episodeName || metadata.title || 'Sendung'));
+    image.setAttribute('aria-label', 'Bild zu ' + (metadata.episodeName || metadata.title || 'Sendung'));
     image.style.backgroundImage = 'url("' + String(artwork.url).replace(/["\\\r\n]/g, '') + '")';
     detail.classList.add('epg-has-artwork');
     detail.insertBefore(image, hero);
@@ -464,30 +383,26 @@
     ensureStyles();
     detail.dataset.epgMetadataDetail = 'true';
 
-    const hero = detail.querySelector('.epg-detail-hero');
     const baseSections = [
-      hero,
+      detail.querySelector('.epg-detail-hero'),
       detail.querySelector('.epg-detail-meta-grid'),
       detail.querySelector('.epg-detail-description')
     ].filter(Boolean);
+    const actions = detail.querySelector('.epg-detail-actions');
+    const tabs = node('div', 'epg-metadata-tabs');
+    tabs.setAttribute('role', 'tablist');
+    tabs.setAttribute('aria-label', 'EPG Detailbereiche');
 
-    const tabList = element('div', 'epg-metadata-tabs');
-    tabList.setAttribute('role', 'tablist');
-    tabList.setAttribute('aria-label', 'EPG Detailbereiche');
-
-    const panelNames = ['scraper', 'cast', 'images'];
-    const panels = {};
     const buttons = {};
-
+    const panels = {};
     function addTab(name, label, disabled) {
-      const button = element('button', 'epg-metadata-tab', label);
+      const button = node('button', 'epg-metadata-tab', label);
       button.type = 'button';
+      button.disabled = Boolean(disabled);
       button.setAttribute('role', 'tab');
       button.setAttribute('aria-selected', name === 'epg' ? 'true' : 'false');
-      button.disabled = Boolean(disabled);
-      button.dataset.epgMetadataTab = name;
       buttons[name] = button;
-      tabList.appendChild(button);
+      tabs.appendChild(button);
     }
 
     addTab('epg', 'EPG', false);
@@ -495,30 +410,21 @@
     addTab('cast', 'Besetzung', true);
     addTab('images', 'Bilder', true);
 
-    const actions = detail.querySelector('.epg-detail-actions');
-    panelNames.forEach(function (name) {
-      const panel = element('section', 'epg-metadata-panel');
-      panel.dataset.epgMetadataPanel = name;
+    ['scraper', 'cast', 'images'].forEach(function (name) {
+      const panel = node('section', 'epg-metadata-panel');
       panel.hidden = true;
       panels[name] = panel;
       detail.insertBefore(panel, actions || null);
     });
 
-    const status = element('p', 'epg-metadata-status', 'TVScraper-Metadaten werden geladen …');
+    const status = node('p', 'epg-metadata-status', 'TVScraper-Metadaten werden geladen …');
     detail.insertBefore(status, actions || null);
 
     function activate(name) {
-      baseSections.forEach(function (section) {
-        section.hidden = name !== 'epg';
-      });
-      Object.keys(panels).forEach(function (panelName) {
-        panels[panelName].hidden = panelName !== name;
-      });
+      baseSections.forEach(function (section) { section.hidden = name !== 'epg'; });
+      Object.keys(panels).forEach(function (panelName) { panels[panelName].hidden = panelName !== name; });
       Object.keys(buttons).forEach(function (buttonName) {
-        buttons[buttonName].setAttribute(
-          'aria-selected',
-          buttonName === name ? 'true' : 'false'
-        );
+        buttons[buttonName].setAttribute('aria-selected', buttonName === name ? 'true' : 'false');
       });
     }
 
@@ -528,8 +434,8 @@
       });
     });
 
-    if (hero) detail.insertBefore(tabList, hero);
-    else detail.insertBefore(tabList, detail.firstChild || null);
+    const hero = detail.querySelector('.epg-detail-hero');
+    detail.insertBefore(tabs, hero || detail.firstChild || null);
 
     fetchMetadata(backendId, channelId, nativeEventId).then(function (metadata) {
       if (!metadata || metadata.available !== true) {
@@ -539,19 +445,15 @@
 
       status.remove();
       ensurePreferredArtwork(detail, metadata);
-      renderScraperPanel(panels.scraper, metadata);
-      renderCastPanel(panels.cast, metadata, backendId);
-      renderGalleryPanel(panels.images, metadata);
-
+      renderScraper(panels.scraper, metadata);
+      renderCast(panels.cast, metadata, backendId);
+      renderGallery(panels.images, metadata);
       buttons.scraper.disabled = false;
-      buttons.cast.disabled = !(Array.isArray(metadata.people) && metadata.people.length > 0);
-      buttons.images.disabled = !(Array.isArray(metadata.images) && metadata.images.length > 0);
-
+      buttons.cast.disabled = !(Array.isArray(metadata.people) && metadata.people.length);
+      buttons.images.disabled = !(Array.isArray(metadata.images) && metadata.images.length);
       detail.dataset.epgMetadataAvailable = 'true';
     }).catch(function (error) {
-      status.textContent = 'TVScraper-Metadaten konnten nicht geladen werden: ' +
-        String(error && error.message ? error.message : error);
-      status.classList.add('error');
+      status.textContent = 'TVScraper-Metadaten konnten nicht geladen werden: ' + String(error && error.message ? error.message : error);
     });
 
     return detail;
