@@ -5,11 +5,15 @@
 #include "EpgArtworkRepository.h"
 #include "EpgCacheService.h"
 #include "EpgCacheServiceRegistry.h"
+#include "EpgScraperMetadataPublicJsonSerializer.h"
+#include "EpgScraperMetadataResolverRegistry.h"
+#include "IEpgScraperMetadataResolver.h"
 #include "VdrEvent.h"
 
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -223,13 +227,63 @@ ApiResponse jsonResponse(int statusCode, const std::string& body)
     response.body = body;
     return response;
 }
+
+ApiResponse jsonError(int statusCode, const std::string& message)
+{
+    return jsonResponse(
+        statusCode,
+        "{\"error\":\"" + escapeJsonString(message) + "\"}");
+}
+
+VdrEvent metadataEvent(
+    const std::string& channelId,
+    const std::string& eventId)
+{
+    VdrEvent event;
+    event.channelId = channelId;
+    event.id = eventId;
+    return event;
+}
+
+const EpgScraperArtwork* selectedMetadataArtwork(
+    const EpgScraperMetadata& metadata,
+    const std::string& kind,
+    int index)
+{
+    if (kind == "preferred")
+    {
+        return index == 0 ? &metadata.preferredArtwork : nullptr;
+    }
+
+    if (kind == "person")
+    {
+        if (index < 0 || static_cast<std::size_t>(index) >= metadata.people.size())
+        {
+            return nullptr;
+        }
+        return &metadata.people[static_cast<std::size_t>(index)].image;
+    }
+
+    if (kind == "gallery")
+    {
+        if (index < 0 || static_cast<std::size_t>(index) >= metadata.images.size())
+        {
+            return nullptr;
+        }
+        return &metadata.images[static_cast<std::size_t>(index)].artwork;
+    }
+
+    return nullptr;
+}
 }
 
 EpgCacheController::EpgCacheController(EpgCacheService& service)
     : directService_(&service),
       registry_(nullptr),
       artworkRepository_(nullptr),
-      artworkJsonSerializer_(nullptr)
+      artworkJsonSerializer_(nullptr),
+      scraperMetadataResolverRegistry_(nullptr),
+      scraperMetadataJsonSerializer_(nullptr)
 {
 }
 
@@ -237,7 +291,9 @@ EpgCacheController::EpgCacheController(EpgCacheServiceRegistry& registry)
     : directService_(nullptr),
       registry_(&registry),
       artworkRepository_(nullptr),
-      artworkJsonSerializer_(nullptr)
+      artworkJsonSerializer_(nullptr),
+      scraperMetadataResolverRegistry_(nullptr),
+      scraperMetadataJsonSerializer_(nullptr)
 {
 }
 
@@ -248,7 +304,9 @@ EpgCacheController::EpgCacheController(
     : directService_(&service),
       registry_(nullptr),
       artworkRepository_(&artworkRepository),
-      artworkJsonSerializer_(&artworkJsonSerializer)
+      artworkJsonSerializer_(&artworkJsonSerializer),
+      scraperMetadataResolverRegistry_(nullptr),
+      scraperMetadataJsonSerializer_(nullptr)
 {
 }
 
@@ -259,8 +317,20 @@ EpgCacheController::EpgCacheController(
     : directService_(nullptr),
       registry_(&registry),
       artworkRepository_(&artworkRepository),
-      artworkJsonSerializer_(&artworkJsonSerializer)
+      artworkJsonSerializer_(&artworkJsonSerializer),
+      scraperMetadataResolverRegistry_(nullptr),
+      scraperMetadataJsonSerializer_(nullptr)
 {
+}
+
+void EpgCacheController::configureScraperMetadata(
+    EpgScraperMetadataResolverRegistry& resolverRegistry,
+    EpgScraperMetadataPublicJsonSerializer& jsonSerializer,
+    std::vector<std::string> allowedRoots)
+{
+    scraperMetadataResolverRegistry_ = &resolverRegistry;
+    scraperMetadataJsonSerializer_ = &jsonSerializer;
+    scraperMetadataAllowedRoots_ = std::move(allowedRoots);
 }
 
 EpgCacheService* EpgCacheController::findService(
@@ -386,4 +456,96 @@ ApiResponse EpgCacheController::getWindow(
                 eventLimit),
             artworkRepository_,
             artworkJsonSerializer_));
+}
+
+ApiResponse EpgCacheController::getMetadata(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& eventId) const
+{
+    if (channelId.empty() || eventId.empty())
+    {
+        return jsonError(400, "channelId and eventId are required");
+    }
+    if (scraperMetadataResolverRegistry_ == nullptr ||
+        scraperMetadataJsonSerializer_ == nullptr)
+    {
+        return jsonError(503, "epg scraper metadata unavailable");
+    }
+
+    const std::string normalizedBackendId = normalizeBackendId(backendId);
+    IEpgScraperMetadataResolver* resolver =
+        scraperMetadataResolverRegistry_->findResolver(normalizedBackendId);
+    if (resolver == nullptr)
+    {
+        return jsonError(503, "epg scraper metadata backend unavailable");
+    }
+
+    const EpgScraperMetadataResolution resolution = resolver->resolve(
+        normalizedBackendId,
+        metadataEvent(channelId, eventId));
+    if (!resolution.attempted)
+    {
+        return jsonError(502, "epg scraper metadata lookup failed");
+    }
+
+    return jsonResponse(
+        200,
+        scraperMetadataJsonSerializer_->serialize(resolution));
+}
+
+ApiResponse EpgCacheController::getMetadataImage(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& eventId,
+    const std::string& kind,
+    int index) const
+{
+    if (channelId.empty() || eventId.empty() || kind.empty() || index < 0)
+    {
+        return jsonError(
+            400,
+            "channelId, eventId, kind and non-negative index are required");
+    }
+    if (kind != "preferred" && kind != "person" && kind != "gallery")
+    {
+        return jsonError(400, "unsupported epg scraper metadata image kind");
+    }
+    if (scraperMetadataResolverRegistry_ == nullptr)
+    {
+        return jsonError(503, "epg scraper metadata unavailable");
+    }
+
+    const std::string normalizedBackendId = normalizeBackendId(backendId);
+    IEpgScraperMetadataResolver* resolver =
+        scraperMetadataResolverRegistry_->findResolver(normalizedBackendId);
+    if (resolver == nullptr)
+    {
+        return jsonError(503, "epg scraper metadata backend unavailable");
+    }
+
+    const EpgScraperMetadataResolution resolution = resolver->resolve(
+        normalizedBackendId,
+        metadataEvent(channelId, eventId));
+    if (!resolution.attempted)
+    {
+        return jsonError(502, "epg scraper metadata lookup failed");
+    }
+    if (!resolution.found)
+    {
+        return jsonError(404, "epg scraper metadata not found");
+    }
+
+    const EpgScraperArtwork* artwork = selectedMetadataArtwork(
+        resolution.metadata,
+        kind,
+        index);
+    if (artwork == nullptr || !artwork->valid())
+    {
+        return jsonError(404, "epg scraper metadata image not found");
+    }
+
+    return EpgArtworkController::serveValidatedPath(
+        artwork->path,
+        scraperMetadataAllowedRoots_);
 }
