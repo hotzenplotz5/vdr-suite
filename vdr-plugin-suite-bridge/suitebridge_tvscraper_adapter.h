@@ -2,6 +2,7 @@
 #define VDR_SUITE_BRIDGE_TVSCRAPER_ADAPTER_H
 
 #include "suitebridge_artwork_reference.h"
+#include "suitebridge_epg_metadata.h"
 
 class cEvent;
 
@@ -10,6 +11,9 @@ public:
   static bool Available() noexcept;
 
   SuiteBridgeArtworkReference ResolvePreferredArtwork(
+      const cEvent &event) const;
+
+  SuiteBridgeEpgMetadata ResolveMetadata(
       const cEvent &event) const;
 };
 
