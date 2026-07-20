@@ -143,6 +143,11 @@ public:
             searchTimerPreviewEpgCache);
     }
 
+    ApiResponse getEpgArtwork(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const;
+
     ApiResponse handleGet(
         const std::string& path);
 
