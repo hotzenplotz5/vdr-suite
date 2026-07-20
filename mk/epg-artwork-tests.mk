@@ -48,6 +48,7 @@ test-epg-artwork-public-json-serializer:
 test-epg-cache-artwork-json:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		core/vdr/src/VdrChangeState.cpp \
 		core/vdr/src/EpgEventRepository.cpp \
 		core/vdr/src/EpgArtworkRepository.cpp \
 		core/vdr/src/EpgArtworkPublicJsonSerializer.cpp \
