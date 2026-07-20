@@ -1,6 +1,6 @@
 'use strict';
 
-// Phase 60.17: deferred EPG timeline enhancements for channel groups and SearchTimer actions.
+// Phase 60.17: deferred EPG timeline enhancements for channel groups, detail artwork and SearchTimer actions.
 (function (global) {
   const PREVIEW_REFRESH_WINDOW_SECONDS = 14 * 24 * 60 * 60;
   const PREVIEW_CHANNEL_EVENT_LIMIT = 96;
@@ -228,6 +228,20 @@
     return String(timelineFirstValue(event, ['title', 'name', 'eventTitle'], 'Sendung')).trim();
   }
 
+  function timelineEventArtwork(event) {
+    const artwork = event && event.artwork;
+    if (artwork && artwork.available === true) {
+      const publicUrl = String(artwork.url || '').trim();
+      if (publicUrl) return publicUrl;
+    }
+
+    return String(timelineFirstValue(
+      event,
+      ['bannerUrl', 'imageUrl', 'posterUrl', 'artworkUrl', 'image', 'poster', 'banner'],
+      ''
+    )).trim();
+  }
+
   function timelineGroupOptions(channels) {
     const counts = new Map();
     channels.forEach(function (channel) {
@@ -271,6 +285,27 @@
     return result;
   }
 
+  function safeCssUrl(url) {
+    return 'url("' + String(url).replace(/["\\\r\n]/g, '') + '")';
+  }
+
+  function decorateTimelineDetailArtwork(detail, event) {
+    if (!detail || typeof detail.querySelector !== 'function') return detail;
+
+    const url = timelineEventArtwork(event);
+    const hero = detail.querySelector('.epg-detail-hero');
+    if (!url || !hero || typeof detail.insertBefore !== 'function') return detail;
+
+    const artwork = document.createElement('div');
+    artwork.className = 'epg-detail-artwork';
+    artwork.setAttribute('role', 'img');
+    artwork.setAttribute('aria-label', 'Bild zu ' + timelineEventTitle(event));
+    artwork.style.backgroundImage = safeCssUrl(url);
+    detail.classList.add('epg-has-artwork');
+    detail.insertBefore(artwork, hero);
+    return detail;
+  }
+
   function enableTimelineSearchTimer(detail, event, channel) {
     if (!detail || typeof detail.querySelectorAll !== 'function') return;
     const buttons = Array.from(detail.querySelectorAll('.epg-detail-action'));
@@ -304,7 +339,9 @@
       '.epg-group-field label{color:#94a3b8;font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}',
       '.epg-group-select{min-height:2.55rem;padding:.5rem .7rem;border:1px solid #475569;border-radius:.7rem;background:#0f172a;color:#f8fafc;font:inherit}',
       '.epg-group-summary{color:#bae6fd;font-size:.85rem;font-weight:750}',
-      '@media(max-width:720px){.epg-group-control{align-items:stretch;flex-direction:column}.epg-group-field{min-width:0;width:100%}}'
+      '.epg-event-detail.epg-has-artwork{overflow:hidden}',
+      '.epg-detail-artwork{width:100%;aspect-ratio:16/9;min-height:8.5rem;max-height:13rem;margin-bottom:.8rem;border-radius:.75rem;background-size:cover;background-position:center;box-shadow:inset 0 -3rem 4rem rgba(2,6,23,.38)}',
+      '@media(max-width:720px){.epg-group-control{align-items:stretch;flex-direction:column}.epg-group-field{min-width:0;width:100%}.epg-detail-artwork{min-height:9rem;max-height:none}}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -403,6 +440,7 @@
 
     createEpgEventDetailCard = function (event, channel) {
       const detail = originalCreateEpgEventDetailCard(event, channel);
+      decorateTimelineDetailArtwork(detail, event);
       enableTimelineSearchTimer(detail, event, channel);
       return detail;
     };
@@ -416,6 +454,7 @@
 
     timelineFunctionsWrapped = true;
     document.documentElement.dataset.epgTimelineEnhancements = 'true';
+    document.documentElement.dataset.epgDetailArtwork = 'true';
     delete document.documentElement.dataset.epgVerticalQuarterScale;
     return true;
   }
