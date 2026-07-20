@@ -7,17 +7,16 @@ const vm = require('vm');
 
 const sourcePath = path.resolve(__dirname, '..', 'channel-day-program.js');
 const source = fs.readFileSync(sourcePath, 'utf8');
-const testHookMarker = 'global.VdrSuiteChannels2=moduleApi;';
+const testHookMarker = 'global.VdrSuiteChannels2 = moduleApi;';
 const instrumentedSource = source.replace(
   testHookMarker,
-  'global.__VdrSuiteChannelDayProgramTest=Object.freeze({eventArtwork,renderEventDetail});' +
-    testHookMarker
+  'global.__VdrSuiteChannelDayProgramTest=Object.freeze({' +
+    'eventArtwork,renderEventDetail,booleanValue,channelIsRadio,' +
+    'channelIsEncrypted,channelIsEnabled,channelMatchesFilters,' +
+    'filterChannels,state});' + testHookMarker
 );
 
 assert.notStrictEqual(instrumentedSource, source);
-
-let registeredName = null;
-let registeredApi = null;
 
 class MockElement {
   constructor(tagName) {
@@ -32,67 +31,64 @@ class MockElement {
     this.textContent = '';
     this.type = '';
     this.value = '';
-
+    this.parentNode = null;
     this.classList = {
       add: (...names) => {
         const values = new Set(this.className.split(/\s+/).filter(Boolean));
-        names.forEach((name) => values.add(name));
+        names.forEach(name => values.add(name));
         this.className = Array.from(values).join(' ');
       },
-      contains: (name) => this.className.split(/\s+/).filter(Boolean).includes(name),
+      contains: name => this.className.split(/\s+/).filter(Boolean).includes(name),
       remove: (...names) => {
         const removed = new Set(names);
-        this.className = this.className
-          .split(/\s+/)
-          .filter((name) => name && !removed.has(name))
-          .join(' ');
+        this.className = this.className.split(/\s+/).filter(name => name && !removed.has(name)).join(' ');
       }
     };
   }
 
   append(...children) {
-    this.children.push(...children);
+    children.forEach(child => this.appendChild(child));
   }
 
   appendChild(child) {
     this.children.push(child);
+    if (child && typeof child === 'object') child.parentNode = this;
+    return child;
+  }
+
+  removeChild(child) {
+    const index = this.children.indexOf(child);
+    if (index >= 0) this.children.splice(index, 1);
+    child.parentNode = null;
     return child;
   }
 
   prepend(child) {
     this.children.unshift(child);
+    if (child && typeof child === 'object') child.parentNode = this;
   }
 
   querySelector(selector) {
     if (selector.startsWith('.')) {
       const className = selector.slice(1);
-      return this.find((element) => element.classList.contains(className));
+      return this.find(element => element.classList.contains(className));
     }
-
     return null;
   }
 
   find(predicate) {
     for (const child of this.children) {
-      if (!(child instanceof MockElement)) {
-        continue;
-      }
-
-      if (predicate(child)) {
-        return child;
-      }
-
+      if (!(child instanceof MockElement)) continue;
+      if (predicate(child)) return child;
       const nested = child.find(predicate);
-      if (nested) {
-        return nested;
-      }
+      if (nested) return nested;
     }
-
     return null;
   }
 
   replaceChildren(...children) {
-    this.children = children;
+    this.children = [];
+    children.forEach(child => this.appendChild(child));
   }
 
   setAttribute(name, value) {
@@ -102,22 +98,9 @@ class MockElement {
 
 const window = {
   VdrSuitePlatform: {
-    getSelectedBackendId() {
-      return 'living-room';
-    },
-    getClientApi() {
-      return null;
-    },
-    getMountTarget() {
-      return null;
-    },
-    hasModule() {
-      return false;
-    },
-    registerModule(name, api) {
-      registeredName = name;
-      registeredApi = api;
-    }
+    getSelectedBackendId() { return 'living-room'; },
+    getClientApi() { return null; },
+    getMountTarget() { return null; }
   },
   setTimeout,
   clearTimeout
@@ -125,15 +108,9 @@ const window = {
 
 const document = {
   head: new MockElement('head'),
-  createElement(tagName) {
-    return new MockElement(tagName);
-  },
-  getElementById() {
-    return null;
-  },
-  querySelector() {
-    return null;
-  }
+  createElement(tagName) { return new MockElement(tagName); },
+  getElementById() { return null; },
+  querySelector() { return null; }
 };
 
 vm.runInNewContext(instrumentedSource, {
@@ -153,57 +130,23 @@ vm.runInNewContext(instrumentedSource, {
   window
 }, {filename: sourcePath});
 
-assert.strictEqual(registeredName, 'channels2');
-assert.ok(registeredApi);
-assert.strictEqual(window.VdrSuiteChannels2, registeredApi);
-assert.strictEqual(typeof registeredApi.activate, 'function');
-assert.strictEqual(typeof registeredApi.deactivate, 'function');
-assert.strictEqual(typeof registeredApi.refresh, 'function');
-
-assert.doesNotThrow(() => registeredApi.activate());
-assert.doesNotThrow(() => registeredApi.refresh());
-assert.doesNotThrow(() => registeredApi.deactivate());
+const moduleApi = window.VdrSuiteChannels2;
+assert.ok(moduleApi);
+assert.strictEqual(typeof moduleApi.activate, 'function');
+assert.strictEqual(typeof moduleApi.renderList, 'function');
+assert.strictEqual(typeof moduleApi.deactivate, 'function');
+assert.strictEqual(typeof moduleApi.refresh, 'function');
+assert.doesNotThrow(() => moduleApi.activate());
+assert.doesNotThrow(() => moduleApi.refresh());
+assert.doesNotThrow(() => moduleApi.deactivate());
 
 const testApi = window.__VdrSuiteChannelDayProgramTest;
 assert.ok(testApi);
-assert.strictEqual(typeof testApi.eventArtwork, 'function');
-assert.strictEqual(typeof testApi.renderEventDetail, 'function');
 
-const publicArtworkUrl =
-  '/api/epg/cache/artwork?backend=default&channelId=C-1-1079-10351&eventId=13483';
-
-assert.strictEqual(
-  testApi.eventArtwork({
-    artwork: {
-      available: true,
-      url: publicArtworkUrl
-    },
-    imageUrl: '/legacy-should-not-win.jpg'
-  }),
-  publicArtworkUrl
-);
-
-assert.strictEqual(
-  testApi.eventArtwork({
-    artwork: {
-      available: false,
-      url: '/unavailable.jpg'
-    },
-    imageUrl: '/legacy-fallback.jpg'
-  }),
-  '/legacy-fallback.jpg'
-);
-
-assert.strictEqual(
-  testApi.eventArtwork({
-    artwork: {
-      available: true,
-      url: '   '
-    },
-    posterUrl: '/legacy-empty-url-fallback.jpg'
-  }),
-  '/legacy-empty-url-fallback.jpg'
-);
+const publicArtworkUrl = '/api/epg/cache/artwork?backend=default&channelId=C-1-1079-10351&eventId=13483';
+assert.strictEqual(testApi.eventArtwork({artwork: {available: true, url: publicArtworkUrl}, imageUrl: '/legacy.jpg'}), publicArtworkUrl);
+assert.strictEqual(testApi.eventArtwork({artwork: {available: false, url: '/unavailable.jpg'}, imageUrl: '/fallback.jpg'}), '/fallback.jpg');
+assert.strictEqual(testApi.eventArtwork({artwork: {available: true, url: '   '}, posterUrl: '/empty-fallback.jpg'}), '/empty-fallback.jpg');
 
 const event = {
   title: 'Testsendung',
@@ -211,55 +154,68 @@ const event = {
   channelId: 'C-1-1079-10351',
   startTime: 1760000000,
   endTime: 1760003600,
-  artwork: {
-    available: true,
-    url: publicArtworkUrl
-  }
+  artwork: {available: true, url: publicArtworkUrl}
 };
-const channel = {
-  id: 'C-1-1079-10351',
-  name: 'Testsender'
-};
-
+const channel = {id: 'C-1-1079-10351', name: 'Testsender'};
 const detail = testApi.renderEventDetail(event, channel);
 assert.ok(detail.classList.contains('has-artwork'));
+assert.strictEqual(detail.querySelector('.channels2-artwork').style.backgroundImage, `url("${publicArtworkUrl}")`);
 
-const artworkElement = detail.querySelector('.channels2-artwork');
-assert.ok(artworkElement);
-assert.strictEqual(
-  artworkElement.style.backgroundImage,
-  `url("${publicArtworkUrl}")`
-);
-
-const detailWithoutArtwork = testApi.renderEventDetail(
-  Object.assign({}, event, {artwork: {available: false, url: publicArtworkUrl}}),
-  channel
-);
+const detailWithoutArtwork = testApi.renderEventDetail(Object.assign({}, event, {artwork: {available: false, url: publicArtworkUrl}}), channel);
 assert.ok(!detailWithoutArtwork.classList.contains('has-artwork'));
-assert.strictEqual(
-  detailWithoutArtwork.querySelector('.channels2-artwork').style.backgroundImage,
-  undefined
-);
+assert.strictEqual(detailWithoutArtwork.querySelector('.channels2-artwork').style.backgroundImage, undefined);
+
+assert.strictEqual(testApi.booleanValue('false', true), false);
+assert.strictEqual(testApi.booleanValue('true', false), true);
+assert.strictEqual(testApi.channelIsRadio({radio: true}), true);
+assert.strictEqual(testApi.channelIsRadio({radio: 'false'}), false);
+assert.strictEqual(testApi.channelIsEncrypted({encrypted: true}), true);
+assert.strictEqual(testApi.channelIsEncrypted({caids: ['1702']}), true);
+assert.strictEqual(testApi.channelIsEnabled({active: false}), false);
+
+const channels = [
+  {id: 'tv-free', name: 'Das Erste HD', number: 1, group: 'Öffentlich', radio: false, encrypted: false, enabled: true},
+  {id: 'tv-pay', name: 'Pay TV', number: 2, group: 'Pay', radio: false, encrypted: true, enabled: true},
+  {id: 'radio', name: 'Radio Eins', number: 3, group: 'Radio', radio: true, encrypted: false, enabled: true},
+  {id: 'disabled', name: 'Alt TV', number: 4, group: 'Weitere', radio: false, encrypted: false, enabled: false}
+];
+
+testApi.state.channels = channels;
+testApi.state.encryptionAvailable = true;
+testApi.state.query = '';
+testApi.state.typeFilter = 'tv';
+testApi.state.accessFilter = 'free';
+testApi.state.statusFilter = 'enabled';
+testApi.filterChannels();
+assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['tv-free']);
+
+testApi.state.typeFilter = 'radio';
+testApi.state.accessFilter = 'all';
+testApi.filterChannels();
+assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['radio']);
+
+testApi.state.typeFilter = 'all';
+testApi.state.statusFilter = 'disabled';
+testApi.filterChannels();
+assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['disabled']);
+
+testApi.state.statusFilter = 'all';
+testApi.state.query = 'pay';
+testApi.filterChannels();
+assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['tv-pay']);
 
 assert.ok(!source.includes('fetch('));
-assert.ok(source.includes("registerModule('channels2'"));
 assert.ok(source.includes('fetchClientChannels'));
 assert.ok(source.includes('fetchClientEpgCacheWindow'));
 assert.ok(source.includes('fetchClientEpgChannelWindow'));
 assert.ok(source.includes('fetchClientTimerCreateAction'));
-assert.ok(source.includes('artwork.available===true'));
-assert.ok(source.includes('text(artwork.url)'));
-assert.ok(
-  source.includes(
-    '.channels2-detail.has-artwork{grid-template-columns:minmax(10rem,16rem) minmax(0,1fr)}'
-  )
-);
+assert.ok(source.includes("[['all', 'Alle'], ['tv', 'TV'], ['radio', 'Radio']]"));
+assert.ok(source.includes("[['all', 'Alle'], ['free', 'Frei'], ['encrypted', 'Verschlüsselt']]"));
+assert.ok(source.includes("[['all', 'Alle'], ['enabled', 'Aktiv'], ['disabled', 'Deaktiviert']]"));
+assert.ok(source.includes("intro.append(addText(document.createElement('h3'), 'Kanäle')"));
+assert.ok(source.includes('adoptCanonicalChannelNavigation'));
+assert.ok(source.includes('artwork.available === true'));
 assert.ok(source.includes('@media(max-width:720px)'));
-assert.ok(
-  source.includes(
-    '.channels2-detail.has-artwork{grid-template-columns:1fr}'
-  )
-);
-assert.ok(source.includes('Channels 2'));
+assert.ok(source.includes('.channels2-detail.has-artwork{grid-template-columns:1fr}'));
 
 console.log('test_channel_day_program_runtime passed');
