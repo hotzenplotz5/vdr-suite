@@ -10,17 +10,6 @@ const source = fs.readFileSync(
   'utf8'
 );
 
-class MockStyle {
-  constructor() {
-    this.values = {};
-    this.backgroundImage = '';
-  }
-
-  setProperty(name, value) {
-    this.values[name] = String(value);
-  }
-}
-
 class MockElement {
   constructor(tagName) {
     this.tagName = String(tagName || '').toUpperCase();
@@ -29,7 +18,6 @@ class MockElement {
     this.className = '';
     this.dataset = {};
     this.attributes = {};
-    this.style = new MockStyle();
     this.textContent = '';
     this.disabled = false;
     this.hidden = false;
@@ -167,25 +155,15 @@ vm.runInContext(`
   const detailDataElement = document.createElement('section');
   let loadCount = 0;
   let lastRenderedChannels = [];
+  let originalVerticalTickCalls = 0;
 
   function visibleEpgChannelsFromData(data) {
     return data.channels.slice(epgChannelOffset, epgChannelOffset + EPG_VISIBLE_CHANNEL_LIMIT);
   }
 
-  function createEpgEventCard() {
-    return document.createElement('button');
-  }
-
-  function createEpgProgramEventButton(entry) {
-    return entry ? document.createElement('button') : document.createElement('p');
-  }
-
   function createEpgEventDetailCard() {
     const detail = document.createElement('article');
     detail.className = 'epg-event-detail';
-    const hero = document.createElement('div');
-    hero.className = 'epg-detail-hero';
-    detail.appendChild(hero);
     const actions = document.createElement('div');
     const search = document.createElement('button');
     search.className = 'epg-detail-action';
@@ -215,19 +193,13 @@ vm.runInContext(`
     detailDataElement.appendChild(intro);
   }
 
+  function appendEpgVerticalTimelineTicks() {
+    originalVerticalTickCalls += 1;
+  }
+
   function loadEpgTimeline() {
     loadCount += 1;
   }
-
-  function epgTimelinePercent(epochSeconds, bounds) {
-    return ((epochSeconds - bounds.start) / bounds.duration) * 100;
-  }
-
-  function formatEpgClockFromEpoch(epochSeconds) {
-    return new Date(epochSeconds * 1000).toISOString().slice(11, 16);
-  }
-
-  function appendEpgVerticalTimelineTicks() {}
 `, context);
 
 vm.runInContext(source, context, {filename: 'epg-searchtimer-actions.js'});
@@ -235,7 +207,7 @@ vm.runInContext(source, context, {filename: 'epg-searchtimer-actions.js'});
 assert.ok(window.VdrSuiteEpgSearchTimerActions);
 assert.strictEqual(window.VdrSuiteEpgSearchTimerActions.timelineEnhancementsReady(), true);
 assert.strictEqual(document.documentElement.dataset.epgTimelineEnhancements, 'true');
-assert.strictEqual(document.documentElement.dataset.epgVerticalQuarterScale, 'true');
+assert.strictEqual(document.documentElement.dataset.epgVerticalQuarterScale, undefined);
 assert.ok(document.getElementById('vdr-suite-epg-timeline-enhancements'));
 
 const channels = [
@@ -269,57 +241,27 @@ select.dispatch('change');
 assert.strictEqual(vm.runInContext('epgChannelOffset', context), 0);
 assert.strictEqual(vm.runInContext('loadCount', context), 1);
 
-const publicArtworkUrl = '/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=17';
-const artworkCard = vm.runInContext(
-  `createEpgEventCard({event:{title:'Film',artwork:{available:true,url:'${publicArtworkUrl}'}}},{id:'C-1'})`,
-  context
-);
-assert.ok(artworkCard.classList.contains('epg-has-artwork'));
-assert.strictEqual(artworkCard.style.values['--epg-public-artwork'], `url("${publicArtworkUrl}")`);
-
-const unavailableCard = vm.runInContext(
-  `createEpgEventCard({event:{title:'Film',artwork:{available:false,url:'${publicArtworkUrl}'}}},{id:'C-1'})`,
-  context
-);
-assert.ok(!unavailableCard.classList.contains('epg-has-artwork'));
-
 const detail = vm.runInContext(
-  `createEpgEventDetailCard({title:'Film',channelId:'C-1',artwork:{available:true,url:'${publicArtworkUrl}'}},{id:'C-1',group:'Öffentlich'})`,
+  `createEpgEventDetailCard({title:'Film',channelId:'C-1',artwork:{available:true,url:'/ignored.jpg'}},{id:'C-1',group:'Öffentlich'})`,
   context
 );
-assert.ok(detail.classList.contains('epg-has-artwork'));
-assert.ok(detail.querySelector('.epg-detail-artwork'));
+assert.ok(!detail.classList.contains('epg-has-artwork'));
+assert.strictEqual(detail.querySelector('.epg-detail-artwork'), null);
 const searchTimerButton = detail.querySelectorAll('.epg-detail-action')[0];
 assert.strictEqual(searchTimerButton.disabled, false);
 assert.strictEqual(searchTimerButton.textContent, 'Suchtimer erstellen');
 
-const quarterTrack = vm.runInContext(`(() => {
-  const track = document.createElement('div');
-  appendEpgVerticalTimelineTicks(track, {start: 0, end: 3600, duration: 3600}, true);
-  return track;
-})()`, context);
-const quarterLines = quarterTrack.children.filter(child => child.classList.contains('epg-vertical-grid-line'));
-const quarterLabels = quarterTrack.children.filter(child => child.classList.contains('epg-vertical-grid-label'));
-assert.deepStrictEqual(
-  quarterLines.map(line => line.dataset.epgQuarterMinute),
-  ['0', '15', '30', '45', '0']
-);
-assert.deepStrictEqual(
-  quarterLabels.map(label => label.textContent),
-  ['00:00', '00:15', '00:30', '01:00']
-);
-assert.ok(!quarterLabels.some(label => label.dataset.epgQuarterMinute === '45'));
+vm.runInContext('appendEpgVerticalTimelineTicks({}, {}, true)', context);
+assert.strictEqual(vm.runInContext('originalVerticalTickCalls', context), 1);
 
 assert.ok(source.includes('visibleEpgChannelsFromData = function'));
 assert.ok(source.includes('renderEpgTimeView = function'));
-assert.ok(source.includes('createEpgEventCard = function'));
-assert.ok(source.includes('createEpgProgramEventButton = function'));
 assert.ok(source.includes('createEpgEventDetailCard = function'));
-assert.ok(source.includes('appendEpgVerticalTimelineTicks = function'));
-assert.ok(source.includes('TIMELINE_QUARTER_SECONDS = 15 * 60'));
-assert.ok(source.includes("minute === 0 || minute === 15 || minute === 30"));
 assert.ok(source.includes("button.textContent = 'Suchtimer erstellen'"));
-assert.ok(source.includes('artwork.available === true'));
+assert.ok(!source.includes('decorateTimelineArtwork'));
+assert.ok(!source.includes('epg-detail-artwork'));
+assert.ok(!source.includes('TIMELINE_QUARTER_SECONDS'));
+assert.ok(!source.includes('appendEpgVerticalTimelineTicks = function'));
 assert.ok(!source.includes('MutationObserver'));
 
 console.log('test_epg_timeline_enhancements passed');
