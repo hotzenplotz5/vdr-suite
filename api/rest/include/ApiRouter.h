@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "EpgCacheController.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
 #include "VdrSnapshotReadService.h"
@@ -10,7 +11,6 @@
 
 class BackendRegistryController;
 class CapabilityController;
-class IEpgCacheController;
 class EpgController;
 class EpgSearchNativeFuzzyStaleProbeAdministrationController;
 class EpgSearchNativeFuzzyOperatorRefreshController;
@@ -146,7 +146,22 @@ public:
     ApiResponse getEpgArtwork(
         const std::string& backendId,
         const std::string& channelId,
-        const std::string& eventId) const;
+        const std::string& eventId) const
+    {
+        if (epgCacheController_ == nullptr)
+        {
+            ApiResponse response;
+            response.statusCode = 503;
+            response.contentType = "application/json";
+            response.body = "{\"error\":\"epg cache unavailable\"}";
+            return response;
+        }
+
+        return epgCacheController_->getArtwork(
+            backendId,
+            channelId,
+            eventId);
+    }
 
     ApiResponse handleGet(
         const std::string& path);
