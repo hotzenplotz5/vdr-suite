@@ -28,3 +28,4 @@ include mk/search-timer-workflow-tests.mk
 include mk/runtime-api-tests.mk
 include mk/maintenance-tests.mk
 include mk/epg-artwork-tests.mk
+include mk/epg-metadata-tests.mk
