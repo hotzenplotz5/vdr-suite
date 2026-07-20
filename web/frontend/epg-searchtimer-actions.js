@@ -1,6 +1,6 @@
 'use strict';
 
-// Phase 60.17: deferred EPG timeline enhancements for channel groups, artwork and SearchTimer actions.
+// Phase 60.17: deferred EPG timeline enhancements for channel groups and SearchTimer actions.
 (function (global) {
   const PREVIEW_REFRESH_WINDOW_SECONDS = 14 * 24 * 60 * 60;
   const PREVIEW_CHANNEL_EVENT_LIMIT = 96;
@@ -8,7 +8,6 @@
   const TIMELINE_GROUP_ALL = '__all__';
   const TIMELINE_READY_ATTEMPTS = 80;
   const TIMELINE_READY_INTERVAL_MS = 100;
-  const TIMELINE_QUARTER_SECONDS = 15 * 60;
 
   let selectedTimelineGroup = '';
   let selectedTimelineBackendId = '';
@@ -155,11 +154,15 @@
         attempts += 1;
         const form = document.querySelector('form[data-searchtimer-editor-form="create"]');
         if (!form) {
-          if (attempts < 40) { global.setTimeout(fill, 100); return; }
+          if (attempts < 40) {
+            global.setTimeout(fill, 100);
+            return;
+          }
           showStatus(statusTarget, 'Der SearchTimer-Editor konnte nicht geöffnet werden.', true);
           reject(new Error('SearchTimer editor form did not appear'));
           return;
         }
+
         const panel = form.closest('details');
         if (panel) panel.open = true;
         setFormValue(form, 'name', title);
@@ -167,6 +170,7 @@
         setFormValue(form, 'active', true, 'change');
         setFormValue(form, 'compareTitle', true, 'change');
         setFormValue(form, 'avoidRepeats', true, 'change');
+
         if (channelId) {
           setFormValue(form, 'channelFilterMode', 1, 'change');
           global.setTimeout(function () {
@@ -179,6 +183,7 @@
           }, 80);
           return;
         }
+
         form.scrollIntoView({behavior: 'smooth', block: 'start'});
         resolve(form);
       };
@@ -221,19 +226,6 @@
 
   function timelineEventTitle(event) {
     return String(timelineFirstValue(event, ['title', 'name', 'eventTitle'], 'Sendung')).trim();
-  }
-
-  function timelineEventArtwork(event) {
-    const artwork = event && event.artwork;
-    if (artwork && artwork.available === true) {
-      const publicUrl = String(artwork.url || '').trim();
-      if (publicUrl) return publicUrl;
-    }
-    return String(timelineFirstValue(
-      event,
-      ['bannerUrl', 'imageUrl', 'posterUrl', 'artworkUrl', 'image', 'poster', 'banner'],
-      ''
-    )).trim();
   }
 
   function timelineGroupOptions(channels) {
@@ -279,19 +271,6 @@
     return result;
   }
 
-  function safeCssUrl(url) {
-    return 'url("' + String(url).replace(/["\\\r\n]/g, '') + '")';
-  }
-
-  function decorateTimelineArtwork(element, event) {
-    if (!element || !element.classList || !element.style) return element;
-    const url = timelineEventArtwork(event);
-    if (!url) return element;
-    element.classList.add('epg-has-artwork');
-    element.style.setProperty('--epg-public-artwork', safeCssUrl(url));
-    return element;
-  }
-
   function enableTimelineSearchTimer(detail, event, channel) {
     if (!detail || typeof detail.querySelectorAll !== 'function') return;
     const buttons = Array.from(detail.querySelectorAll('.epg-detail-action'));
@@ -315,58 +294,6 @@
     });
   }
 
-  function decorateTimelineDetail(detail, event, channel) {
-    if (!detail) return detail;
-    const url = timelineEventArtwork(event);
-    const hero = typeof detail.querySelector === 'function'
-      ? detail.querySelector('.epg-detail-hero')
-      : null;
-
-    if (url && hero && typeof detail.insertBefore === 'function') {
-      const artwork = document.createElement('div');
-      artwork.className = 'epg-detail-artwork';
-      artwork.setAttribute('role', 'img');
-      artwork.setAttribute('aria-label', 'Bild zu ' + timelineEventTitle(event));
-      artwork.style.backgroundImage = safeCssUrl(url);
-      detail.classList.add('epg-has-artwork');
-      detail.insertBefore(artwork, hero);
-    }
-
-    enableTimelineSearchTimer(detail, event, channel);
-    return detail;
-  }
-
-  function timelineQuarterMinute(epochSeconds) {
-    return new Date(epochSeconds * 1000).getMinutes();
-  }
-
-  function appendVerticalQuarterTicks(track, bounds, withLabels) {
-    const firstTick = Math.ceil(bounds.start / TIMELINE_QUARTER_SECONDS) * TIMELINE_QUARTER_SECONDS;
-
-    for (let tick = firstTick; tick <= bounds.end; tick += TIMELINE_QUARTER_SECONDS) {
-      const minute = timelineQuarterMinute(tick);
-      const top = epgTimelinePercent(tick, bounds);
-      const strength = minute === 0
-        ? 'major'
-        : (minute === 30 ? 'half' : 'minor');
-
-      const line = document.createElement('div');
-      line.className = 'epg-vertical-grid-line epg-quarter-' + strength;
-      line.style.top = top.toFixed(3) + '%';
-      line.dataset.epgQuarterMinute = String(minute);
-      track.appendChild(line);
-
-      if (withLabels && (minute === 0 || minute === 15 || minute === 30)) {
-        const label = document.createElement('span');
-        label.textContent = formatEpgClockFromEpoch(tick);
-        label.className = 'epg-vertical-grid-label epg-quarter-label epg-quarter-' + strength;
-        label.style.top = top.toFixed(3) + '%';
-        label.dataset.epgQuarterMinute = String(minute);
-        track.appendChild(label);
-      }
-    }
-  }
-
   function ensureTimelineStyles() {
     if (document.getElementById(TIMELINE_STYLE_ID)) return;
     const style = document.createElement('style');
@@ -377,18 +304,7 @@
       '.epg-group-field label{color:#94a3b8;font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}',
       '.epg-group-select{min-height:2.55rem;padding:.5rem .7rem;border:1px solid #475569;border-radius:.7rem;background:#0f172a;color:#f8fafc;font:inherit}',
       '.epg-group-summary{color:#bae6fd;font-size:.85rem;font-weight:750}',
-      '.epg-event-card.epg-has-artwork,.epg-program-event.epg-has-artwork{position:relative;overflow:hidden;isolation:isolate;background-image:linear-gradient(90deg,rgba(2,6,23,.92),rgba(2,6,23,.62)),var(--epg-public-artwork);background-size:cover;background-position:center}',
-      '.epg-event-card.epg-has-artwork>*,.epg-program-event.epg-has-artwork>*{position:relative;z-index:1;text-shadow:0 1px 3px rgba(2,6,23,.95)}',
-      '.epg-event-detail.epg-has-artwork{overflow:hidden}',
-      '.epg-detail-artwork{width:100%;min-height:11rem;margin-bottom:.8rem;border-radius:.75rem;background-size:cover;background-position:center;box-shadow:inset 0 -3rem 4rem rgba(2,6,23,.38)}',
-      '.epg-vertical-grid-line.epg-quarter-major{opacity:.72}',
-      '.epg-vertical-grid-line.epg-quarter-half{opacity:.44}',
-      '.epg-vertical-grid-line.epg-quarter-minor{opacity:.22}',
-      '.epg-vertical-grid-label.epg-quarter-label{font-size:.68rem;white-space:nowrap}',
-      '.epg-vertical-grid-label.epg-quarter-major{font-weight:850;opacity:1}',
-      '.epg-vertical-grid-label.epg-quarter-half{font-weight:750;opacity:.9}',
-      '.epg-vertical-grid-label.epg-quarter-minor{font-weight:650;opacity:.78}',
-      '@media(max-width:720px){.epg-group-control{align-items:stretch;flex-direction:column}.epg-group-field{min-width:0;width:100%}.epg-detail-artwork{min-height:10rem}}'
+      '@media(max-width:720px){.epg-group-control{align-items:stretch;flex-direction:column}.epg-group-field{min-width:0;width:100%}}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -469,12 +385,7 @@
   function timelineRendererIsReady() {
     return typeof renderEpgTimeView === 'function'
       && typeof visibleEpgChannelsFromData === 'function'
-      && typeof createEpgEventCard === 'function'
-      && typeof createEpgProgramEventButton === 'function'
-      && typeof createEpgEventDetailCard === 'function'
-      && typeof appendEpgVerticalTimelineTicks === 'function'
-      && typeof epgTimelinePercent === 'function'
-      && typeof formatEpgClockFromEpoch === 'function';
+      && typeof createEpgEventDetailCard === 'function';
   }
 
   function wrapTimelineFunctions() {
@@ -482,8 +393,6 @@
     if (!timelineRendererIsReady()) return false;
 
     const originalVisibleEpgChannelsFromData = visibleEpgChannelsFromData;
-    const originalCreateEpgEventCard = createEpgEventCard;
-    const originalCreateEpgProgramEventButton = createEpgProgramEventButton;
     const originalCreateEpgEventDetailCard = createEpgEventDetailCard;
     const originalRenderEpgTimeView = renderEpgTimeView;
 
@@ -492,23 +401,10 @@
       return originalVisibleEpgChannelsFromData(timelineChannelData(channelData, filtered));
     };
 
-    createEpgEventCard = function (entry, channel) {
-      const card = originalCreateEpgEventCard(entry, channel);
-      return decorateTimelineArtwork(card, entry && entry.event);
-    };
-
-    createEpgProgramEventButton = function (entry, channel, label, nowSeconds) {
-      const button = originalCreateEpgProgramEventButton(entry, channel, label, nowSeconds);
-      if (entry && entry.event) decorateTimelineArtwork(button, entry.event);
-      return button;
-    };
-
     createEpgEventDetailCard = function (event, channel) {
-      return decorateTimelineDetail(originalCreateEpgEventDetailCard(event, channel), event, channel);
-    };
-
-    appendEpgVerticalTimelineTicks = function (track, bounds, withLabels) {
-      appendVerticalQuarterTicks(track, bounds, withLabels);
+      const detail = originalCreateEpgEventDetailCard(event, channel);
+      enableTimelineSearchTimer(detail, event, channel);
+      return detail;
     };
 
     renderEpgTimeView = function (channelData, eventData) {
@@ -520,7 +416,7 @@
 
     timelineFunctionsWrapped = true;
     document.documentElement.dataset.epgTimelineEnhancements = 'true';
-    document.documentElement.dataset.epgVerticalQuarterScale = 'true';
+    delete document.documentElement.dataset.epgVerticalQuarterScale;
     return true;
   }
 
