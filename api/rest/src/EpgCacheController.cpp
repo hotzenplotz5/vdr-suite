@@ -5,8 +5,6 @@
 #include "EpgArtworkRepository.h"
 #include "EpgCacheService.h"
 #include "EpgCacheServiceRegistry.h"
-#include "EpgScraperMetadataPublicJsonSerializer.h"
-#include "EpgScraperMetadataResolverRegistry.h"
 #include "IEpgScraperMetadataResolver.h"
 #include "VdrEvent.h"
 
@@ -282,8 +280,7 @@ EpgCacheController::EpgCacheController(EpgCacheService& service)
       registry_(nullptr),
       artworkRepository_(nullptr),
       artworkJsonSerializer_(nullptr),
-      scraperMetadataResolverRegistry_(nullptr),
-      scraperMetadataJsonSerializer_(nullptr)
+      scraperMetadataAllowedRoots_(EpgArtworkController::defaultAllowedRoots())
 {
 }
 
@@ -292,8 +289,7 @@ EpgCacheController::EpgCacheController(EpgCacheServiceRegistry& registry)
       registry_(&registry),
       artworkRepository_(nullptr),
       artworkJsonSerializer_(nullptr),
-      scraperMetadataResolverRegistry_(nullptr),
-      scraperMetadataJsonSerializer_(nullptr)
+      scraperMetadataAllowedRoots_(EpgArtworkController::defaultAllowedRoots())
 {
 }
 
@@ -305,8 +301,7 @@ EpgCacheController::EpgCacheController(
       registry_(nullptr),
       artworkRepository_(&artworkRepository),
       artworkJsonSerializer_(&artworkJsonSerializer),
-      scraperMetadataResolverRegistry_(nullptr),
-      scraperMetadataJsonSerializer_(nullptr)
+      scraperMetadataAllowedRoots_(EpgArtworkController::defaultAllowedRoots())
 {
 }
 
@@ -318,18 +313,20 @@ EpgCacheController::EpgCacheController(
       registry_(&registry),
       artworkRepository_(&artworkRepository),
       artworkJsonSerializer_(&artworkJsonSerializer),
-      scraperMetadataResolverRegistry_(nullptr),
-      scraperMetadataJsonSerializer_(nullptr)
+      scraperMetadataAllowedRoots_(EpgArtworkController::defaultAllowedRoots())
 {
 }
 
-void EpgCacheController::configureScraperMetadata(
-    EpgScraperMetadataResolverRegistry& resolverRegistry,
-    EpgScraperMetadataPublicJsonSerializer& jsonSerializer,
+void EpgCacheController::registerScraperMetadataResolver(
+    const std::string& backendId,
+    IEpgScraperMetadataResolver& resolver)
+{
+    scraperMetadataResolverRegistry_.registerResolver(backendId, resolver);
+}
+
+void EpgCacheController::setScraperMetadataAllowedRoots(
     std::vector<std::string> allowedRoots)
 {
-    scraperMetadataResolverRegistry_ = &resolverRegistry;
-    scraperMetadataJsonSerializer_ = &jsonSerializer;
     scraperMetadataAllowedRoots_ = std::move(allowedRoots);
 }
 
@@ -467,15 +464,10 @@ ApiResponse EpgCacheController::getMetadata(
     {
         return jsonError(400, "channelId and eventId are required");
     }
-    if (scraperMetadataResolverRegistry_ == nullptr ||
-        scraperMetadataJsonSerializer_ == nullptr)
-    {
-        return jsonError(503, "epg scraper metadata unavailable");
-    }
 
     const std::string normalizedBackendId = normalizeBackendId(backendId);
     IEpgScraperMetadataResolver* resolver =
-        scraperMetadataResolverRegistry_->findResolver(normalizedBackendId);
+        scraperMetadataResolverRegistry_.findResolver(normalizedBackendId);
     if (resolver == nullptr)
     {
         return jsonError(503, "epg scraper metadata backend unavailable");
@@ -491,7 +483,7 @@ ApiResponse EpgCacheController::getMetadata(
 
     return jsonResponse(
         200,
-        scraperMetadataJsonSerializer_->serialize(resolution));
+        scraperMetadataJsonSerializer_.serialize(resolution));
 }
 
 ApiResponse EpgCacheController::getMetadataImage(
@@ -511,14 +503,10 @@ ApiResponse EpgCacheController::getMetadataImage(
     {
         return jsonError(400, "unsupported epg scraper metadata image kind");
     }
-    if (scraperMetadataResolverRegistry_ == nullptr)
-    {
-        return jsonError(503, "epg scraper metadata unavailable");
-    }
 
     const std::string normalizedBackendId = normalizeBackendId(backendId);
     IEpgScraperMetadataResolver* resolver =
-        scraperMetadataResolverRegistry_->findResolver(normalizedBackendId);
+        scraperMetadataResolverRegistry_.findResolver(normalizedBackendId);
     if (resolver == nullptr)
     {
         return jsonError(503, "epg scraper metadata backend unavailable");
