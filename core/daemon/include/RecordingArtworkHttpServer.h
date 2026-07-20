@@ -1,5 +1,6 @@
 #pragma once
 
+#include "IEpgArtworkHttpProvider.h"
 #include "IHttpServer.h"
 #include "VdrRecordingArtworkService.h"
 
@@ -22,5 +23,6 @@ public:
 
 private:
     std::unique_ptr<IHttpServer> delegate_;
+    IEpgArtworkHttpProvider* epgArtworkProvider_;
     VdrRecordingArtworkService artworkService_;
 };
