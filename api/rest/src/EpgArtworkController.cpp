@@ -14,14 +14,6 @@ namespace
 {
 constexpr std::uintmax_t kMaximumArtworkBytes = 32U * 1024U * 1024U;
 
-std::vector<std::string> defaultAllowedRoots()
-{
-    return {
-        "/var/cache/vdr/plugins/tvscraper",
-        "/var/cache/vdr-suite/epg-artwork"
-    };
-}
-
 std::string normalizeBackendId(const std::string& backendId)
 {
     return backendId.empty() ? "default" : backendId;
@@ -118,6 +110,14 @@ ApiResponse jsonError(int statusCode, const std::string& message)
 }
 }
 
+std::vector<std::string> EpgArtworkController::defaultAllowedRoots()
+{
+    return {
+        "/var/cache/vdr/plugins/tvscraper",
+        "/var/cache/vdr-suite/epg-artwork"
+    };
+}
+
 EpgArtworkController::EpgArtworkController(EpgArtworkRepository& repository)
     : EpgArtworkController(repository, defaultAllowedRoots())
 {
@@ -131,28 +131,12 @@ EpgArtworkController::EpgArtworkController(
 {
 }
 
-ApiResponse EpgArtworkController::getArtwork(
-    const std::string& backendId,
-    const std::string& channelId,
-    const std::string& eventId) const
+ApiResponse EpgArtworkController::serveValidatedPath(
+    const std::string& candidate,
+    const std::vector<std::string>& allowedRoots)
 {
-    if (channelId.empty() || eventId.empty())
-    {
-        return jsonError(400, "channelId and eventId are required");
-    }
-
-    const EpgArtworkReference artwork = repository_.find(
-        normalizeBackendId(backendId),
-        channelId,
-        eventId);
-
-    if (!artwork.valid())
-    {
-        return jsonError(404, "epg artwork not found");
-    }
-
     std::filesystem::path resolvedPath;
-    if (!resolveAllowedPath(artwork.path, allowedRoots_, resolvedPath))
+    if (!resolveAllowedPath(candidate, allowedRoots, resolvedPath))
     {
         return jsonError(403, "epg artwork path is not allowed");
     }
@@ -189,4 +173,27 @@ ApiResponse EpgArtworkController::getArtwork(
     response.contentType = contentType;
     response.body = buffer.str();
     return response;
+}
+
+ApiResponse EpgArtworkController::getArtwork(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& eventId) const
+{
+    if (channelId.empty() || eventId.empty())
+    {
+        return jsonError(400, "channelId and eventId are required");
+    }
+
+    const EpgArtworkReference artwork = repository_.find(
+        normalizeBackendId(backendId),
+        channelId,
+        eventId);
+
+    if (!artwork.valid())
+    {
+        return jsonError(404, "epg artwork not found");
+    }
+
+    return serveValidatedPath(artwork.path, allowedRoots_);
 }
