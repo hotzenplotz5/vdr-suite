@@ -5,11 +5,14 @@
 #include "VdrEventQuery.h"
 
 #include <string>
+#include <vector>
 
 class EpgArtworkPublicJsonSerializer;
 class EpgArtworkRepository;
 class EpgCacheService;
 class EpgCacheServiceRegistry;
+class EpgScraperMetadataPublicJsonSerializer;
+class EpgScraperMetadataResolverRegistry;
 
 class IEpgCacheController
 {
@@ -40,6 +43,32 @@ public:
         const std::string& backendId,
         const std::string& channelId,
         const std::string& eventId) const = 0;
+
+    virtual ApiResponse getMetadata(
+        const std::string&,
+        const std::string&,
+        const std::string&) const
+    {
+        ApiResponse response;
+        response.statusCode = 503;
+        response.contentType = "application/json";
+        response.body = "{\"error\":\"epg scraper metadata unavailable\"}";
+        return response;
+    }
+
+    virtual ApiResponse getMetadataImage(
+        const std::string&,
+        const std::string&,
+        const std::string&,
+        const std::string&,
+        int) const
+    {
+        ApiResponse response;
+        response.statusCode = 503;
+        response.contentType = "application/json";
+        response.body = "{\"error\":\"epg scraper metadata image unavailable\"}";
+        return response;
+    }
 };
 
 class EpgCacheController : public IEpgCacheController
@@ -55,6 +84,12 @@ public:
         EpgCacheServiceRegistry& registry,
         EpgArtworkRepository& artworkRepository,
         EpgArtworkPublicJsonSerializer& artworkJsonSerializer);
+
+    void configureScraperMetadata(
+        EpgScraperMetadataResolverRegistry& resolverRegistry,
+        EpgScraperMetadataPublicJsonSerializer& jsonSerializer,
+        std::vector<std::string> allowedRoots =
+            EpgArtworkController::defaultAllowedRoots());
 
     ApiResponse refreshBackendWindow(
         const std::string& backendId,
@@ -96,11 +131,26 @@ public:
             eventId);
     }
 
+    ApiResponse getMetadata(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const override;
+
+    ApiResponse getMetadataImage(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId,
+        const std::string& kind,
+        int index) const override;
+
 private:
     EpgCacheService* directService_;
     EpgCacheServiceRegistry* registry_;
     EpgArtworkRepository* artworkRepository_;
     EpgArtworkPublicJsonSerializer* artworkJsonSerializer_;
+    EpgScraperMetadataResolverRegistry* scraperMetadataResolverRegistry_;
+    EpgScraperMetadataPublicJsonSerializer* scraperMetadataJsonSerializer_;
+    std::vector<std::string> scraperMetadataAllowedRoots_;
 
     EpgCacheService* findService(
         const std::string& backendId) const;
