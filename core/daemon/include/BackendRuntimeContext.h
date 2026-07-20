@@ -10,6 +10,7 @@
 #include "SearchTimerPreviewEpgCacheRefreshService.h"
 #include "SuiteBridgeEmbeddedAgentRuntime.h"
 #include "SuiteBridgeEpgArtworkResolver.h"
+#include "SuiteBridgeEpgMetadataResolver.h"
 #include "SuiteBridgeSvdrpTransport.h"
 #include "VdrService.h"
 #include "VdrSnapshotBuilder.h"
@@ -29,6 +30,7 @@ struct BackendRuntimeContext
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> epgArtworkTransport;
     std::unique_ptr<SuiteBridgeEpgArtworkResolver> epgArtworkResolver;
+    std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataResolver;
     std::unique_ptr<EpgArtworkEnrichmentService> epgArtworkEnrichmentService;
     std::unique_ptr<EpgCacheService> epgCacheService;
     std::unique_ptr<PollingService> pollingService;
