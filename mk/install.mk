@@ -128,9 +128,10 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program-compat.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
-	grep -F 'window.VdrSuiteEpgMetadataDetail' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
-	grep -F 'window.VdrSuiteEpgSearchTimerActions' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
-	grep -F 'window.VdrSuiteEpgMetadataDetailHook' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
+	grep -F 'global.VdrSuiteEpgMetadataDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
+	grep -F 'global.VdrSuiteEpgSearchTimerActions = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
+	grep -F 'global.VdrSuiteEpgMetadataDetailHook = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-trash-ux.js
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform
