@@ -158,3 +158,4 @@ test-frontend-i18n:
 	node web/frontend/tests/test_epg_metadata_detail_hook.js
 	node web/frontend/tests/test_recording_trash_ux_runtime.js
 	python3 web/frontend/tests/test_epg_runtime_bundle_builder.py
+	python3 web/frontend/tests/test_epg_metadata_runtime_bundle.py
