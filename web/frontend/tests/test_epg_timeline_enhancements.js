@@ -10,6 +10,17 @@ const source = fs.readFileSync(
   'utf8'
 );
 
+class MockStyle {
+  constructor() {
+    this.values = {};
+    this.backgroundImage = '';
+  }
+
+  setProperty(name, value) {
+    this.values[name] = String(value);
+  }
+}
+
 class MockElement {
   constructor(tagName) {
     this.tagName = String(tagName || '').toUpperCase();
@@ -18,11 +29,13 @@ class MockElement {
     this.className = '';
     this.dataset = {};
     this.attributes = {};
+    this.style = new MockStyle();
     this.textContent = '';
     this.disabled = false;
     this.hidden = false;
     this.value = '';
     this.listeners = {};
+    this.id = '';
   }
 
   get classList() {
@@ -76,8 +89,12 @@ class MockElement {
       if (selector.startsWith('[') && selector.endsWith(']')) {
         const content = selector.slice(1, -1);
         const [rawName, rawValue] = content.split('=');
-        const name = rawName.replace(/^data-/, '').replace(/-([a-z])/g, (_, char) => char.toUpperCase());
-        if (rawValue === undefined) return Object.prototype.hasOwnProperty.call(element.dataset, name);
+        const name = rawName
+          .replace(/^data-/, '')
+          .replace(/-([a-z])/g, (_, character) => character.toUpperCase());
+        if (rawValue === undefined) {
+          return Object.prototype.hasOwnProperty.call(element.dataset, name);
+        }
         return String(element.dataset[name]) === rawValue.replace(/^"|"$/g, '');
       }
       return false;
@@ -155,7 +172,6 @@ vm.runInContext(`
   const detailDataElement = document.createElement('section');
   let loadCount = 0;
   let lastRenderedChannels = [];
-  let originalVerticalTickCalls = 0;
 
   function visibleEpgChannelsFromData(data) {
     return data.channels.slice(epgChannelOffset, epgChannelOffset + EPG_VISIBLE_CHANNEL_LIMIT);
@@ -164,6 +180,11 @@ vm.runInContext(`
   function createEpgEventDetailCard() {
     const detail = document.createElement('article');
     detail.className = 'epg-event-detail';
+
+    const hero = document.createElement('div');
+    hero.className = 'epg-detail-hero';
+    detail.appendChild(hero);
+
     const actions = document.createElement('div');
     const search = document.createElement('button');
     search.className = 'epg-detail-action';
@@ -177,24 +198,24 @@ vm.runInContext(`
   function renderEpgTimeView(channelData) {
     lastRenderedChannels = channelData.channels.slice();
     detailDataElement.children = [];
+
     const intro = document.createElement('article');
     intro.className = 'epg-timeline-intro';
+
     const description = document.createElement('p');
     description.textContent = 'Zeige Kanäle.';
     intro.appendChild(description);
+
     const modes = document.createElement('div');
     modes.className = 'epg-view-toggle';
     intro.appendChild(modes);
+
     const pager = document.createElement('div');
     pager.className = 'epg-pager';
     pager.appendChild(document.createElement('button'));
     pager.appendChild(document.createElement('button'));
     intro.appendChild(pager);
     detailDataElement.appendChild(intro);
-  }
-
-  function appendEpgVerticalTimelineTicks() {
-    originalVerticalTickCalls += 1;
   }
 
   function loadEpgTimeline() {
@@ -207,6 +228,7 @@ vm.runInContext(source, context, {filename: 'epg-searchtimer-actions.js'});
 assert.ok(window.VdrSuiteEpgSearchTimerActions);
 assert.strictEqual(window.VdrSuiteEpgSearchTimerActions.timelineEnhancementsReady(), true);
 assert.strictEqual(document.documentElement.dataset.epgTimelineEnhancements, 'true');
+assert.strictEqual(document.documentElement.dataset.epgDetailArtwork, 'true');
 assert.strictEqual(document.documentElement.dataset.epgVerticalQuarterScale, undefined);
 assert.ok(document.getElementById('vdr-suite-epg-timeline-enhancements'));
 
@@ -217,10 +239,16 @@ const channels = [
   {id: 'c1', group: ''}
 ];
 
-const visible = vm.runInContext(`visibleEpgChannelsFromData(${JSON.stringify({channels})})`, context);
+const visible = vm.runInContext(
+  `visibleEpgChannelsFromData(${JSON.stringify({channels})})`,
+  context
+);
 assert.deepStrictEqual(Array.from(visible, channel => channel.id), ['a1', 'a2']);
 
-vm.runInContext(`renderEpgTimeView(${JSON.stringify({channels})}, {events: []})`, context);
+vm.runInContext(
+  `renderEpgTimeView(${JSON.stringify({channels})}, {events: []})`,
+  context
+);
 const renderedIds = vm.runInContext('lastRenderedChannels.map(channel => channel.id)', context);
 assert.deepStrictEqual(Array.from(renderedIds), ['a1', 'a2']);
 
@@ -241,27 +269,35 @@ select.dispatch('change');
 assert.strictEqual(vm.runInContext('epgChannelOffset', context), 0);
 assert.strictEqual(vm.runInContext('loadCount', context), 1);
 
+const publicArtworkUrl = '/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=17';
 const detail = vm.runInContext(
-  `createEpgEventDetailCard({title:'Film',channelId:'C-1',artwork:{available:true,url:'/ignored.jpg'}},{id:'C-1',group:'Öffentlich'})`,
+  `createEpgEventDetailCard({title:'Film',channelId:'C-1',artwork:{available:true,url:'${publicArtworkUrl}'}},{id:'C-1',group:'Öffentlich'})`,
   context
 );
-assert.ok(!detail.classList.contains('epg-has-artwork'));
-assert.strictEqual(detail.querySelector('.epg-detail-artwork'), null);
+assert.ok(detail.classList.contains('epg-has-artwork'));
+const artwork = detail.querySelector('.epg-detail-artwork');
+assert.ok(artwork);
+assert.strictEqual(artwork.style.backgroundImage, `url("${publicArtworkUrl}")`);
+assert.strictEqual(detail.children[0], artwork);
+assert.strictEqual(detail.children[1].className, 'epg-detail-hero');
 const searchTimerButton = detail.querySelectorAll('.epg-detail-action')[0];
 assert.strictEqual(searchTimerButton.disabled, false);
 assert.strictEqual(searchTimerButton.textContent, 'Suchtimer erstellen');
 
-vm.runInContext('appendEpgVerticalTimelineTicks({}, {}, true)', context);
-assert.strictEqual(vm.runInContext('originalVerticalTickCalls', context), 1);
+const unavailableDetail = vm.runInContext(
+  `createEpgEventDetailCard({title:'Ohne Bild',channelId:'C-1',artwork:{available:false,url:'${publicArtworkUrl}'}},{id:'C-1',group:'Öffentlich'})`,
+  context
+);
+assert.ok(!unavailableDetail.classList.contains('epg-has-artwork'));
+assert.strictEqual(unavailableDetail.querySelector('.epg-detail-artwork'), null);
 
-assert.ok(source.includes('visibleEpgChannelsFromData = function'));
-assert.ok(source.includes('renderEpgTimeView = function'));
-assert.ok(source.includes('createEpgEventDetailCard = function'));
+assert.ok(source.includes('decorateTimelineDetailArtwork'));
+assert.ok(source.includes('artwork.available === true'));
 assert.ok(source.includes("button.textContent = 'Suchtimer erstellen'"));
-assert.ok(!source.includes('decorateTimelineArtwork'));
-assert.ok(!source.includes('epg-detail-artwork'));
-assert.ok(!source.includes('TIMELINE_QUARTER_SECONDS'));
+assert.ok(!source.includes('createEpgEventCard = function'));
+assert.ok(!source.includes('createEpgProgramEventButton = function'));
 assert.ok(!source.includes('appendEpgVerticalTimelineTicks = function'));
+assert.ok(!source.includes('TIMELINE_QUARTER_SECONDS'));
 assert.ok(!source.includes('MutationObserver'));
 
 console.log('test_epg_timeline_enhancements passed');
