@@ -14,24 +14,22 @@ VDR-Suite Backend Agent
 vdr-plugin-suite-bridge
         |
         v
-VDR Core
+VDR Core and local VDR plugins
 ```
 
 The plugin is not the Backend Agent. It is the small VDR-process-local bridge
 used by the separate Backend Agent.
 
-## Current slice
+## Current read-only commands
 
-```text
-SB.9 - Read-only capability discovery and compatibility negotiation
-```
-
-The plugin exposes two bounded read-only commands through VDR's existing SVDRP
+The plugin exposes four bounded read-only commands through VDR's existing SVDRP
 server:
 
 ```text
 PLUG suitebridge CAPS [discovery-schema]
 PLUG suitebridge SNAP
+PLUG suitebridge ARTW <channel-id> <event-id>
+PLUG suitebridge EPMD <channel-id> <event-id>
 ```
 
 `CAPS` returns plugin-local schema versions and the static capability catalogue.
@@ -43,11 +41,55 @@ Unsupported numeric schemas return reply `504`, malformed schema arguments retur
 JSON line with reply code `900`. It accepts no options. Unknown options return
 reply code `504`.
 
+`ARTW` resolves one preferred TVScraper image for a current VDR EPG event. The
+preference remains episode or movie, season, show or collection and then
+landscape, banner and portrait. The reply contains a bounded local provider
+reference and verified image dimensions. Public URLs remain owned by VDR-Suite.
+
+`EPMD` resolves bounded TVScraper content metadata for one current EPG event. It
+returns a schema-versioned JSON payload containing available movie, series and
+episode fields, normalized cast and crew roles, optional person portraits and a
+small multi-orientation image set. The command does not expose a raw TVScraper
+object dump and does not mutate TVScraper or VDR state.
+
+Both EPG commands capture a detached event snapshot under the VDR schedule read
+lock and invoke TVScraper only after that lock has been released.
+
 Unknown commands remain unhandled so VDR can issue its standard response.
 Command matching is case-insensitive.
 
-Both endpoints are read-only. They do not change channels, Timers, Recordings,
+All endpoints are read-only. They do not change channels, Timers, Recordings,
 playback, setup data or any other VDR state.
+
+## EPG metadata boundary
+
+The EPG metadata contract is deliberately bounded:
+
+- titles, descriptions and list values have fixed maximum byte lengths;
+- at most twelve normalized people are returned;
+- at most two landscape, two banner and two portrait images are returned;
+- image files and person portraits are accepted only when their real dimensions
+  can be read;
+- malformed or oversized payloads fail closed;
+- local provider paths remain internal transport data and are never a public Web
+  contract;
+- HD, audio-track and subtitle truth is not inferred from TVScraper metadata and
+  remains a separate future VDR component contract.
+
+Normalized person roles are:
+
+- actor;
+- director;
+- writer;
+- producer;
+- moderator;
+- guest;
+- composer;
+- other;
+- unknown.
+
+This mapping is compatible with the existing VDR-Suite Person domain and allows
+later EPG-person search without creating a second person model.
 
 ## Capability discovery
 
@@ -85,6 +127,8 @@ Current schema versions:
 | Capability | `1` |
 | Snapshot | `2` |
 | Local contract | `2` |
+| Preferred EPG artwork | `1` |
+| EPG metadata | `1` |
 
 The plugin software version is informative. Compatibility decisions use the
 explicit schema and capability values.
@@ -156,11 +200,12 @@ The plugin still has:
 - no VDR mutation;
 - no counter-reset command;
 - no write-capable SVDRP command;
+- no public artwork or metadata HTTP route;
 - no Streaming Gateway or media-session ownership.
 
-The Backend Agent reaches `CAPS` and `SNAP` through VDR's already configured
-SVDRP access. Network exposure, source restrictions and authentication remain
-deployment responsibilities outside this plugin slice.
+The Backend Agent reaches the commands through VDR's already configured SVDRP
+access. Network exposure, source restrictions and authentication remain
+deployment responsibilities outside this plugin.
 
 ## Project documents
 
@@ -181,12 +226,13 @@ make check
 ```
 
 `make check` validates the foundation, capability catalogue, capability-discovery,
-counter-continuity, status-event, status-snapshot, local-contract-payload and
-read-only SVDRP source contracts; version extraction; lifecycle state machine;
-callback-side-effect exclusion; deterministic discovery and status bytes;
-discovery option parsing and failure codes; epoch format and instance separation;
-saturating atomic counters and totals; immutable snapshots; unchanged `SNAP`
-handling; and the final shared-object build.
+counter-continuity, status-event, status-snapshot, local-contract-payload,
+read-only SVDRP, preferred EPG artwork and EPG metadata contracts; version
+extraction; lifecycle state machine; deterministic payloads; request validation;
+JSON escaping; bounded overflow handling; and the final shared-object build.
+
+The repository-level fast CI also runs the standalone EPG metadata contract and
+the foundation guard without requiring a live VDR instance.
 
 ## Staged installation
 
