@@ -112,10 +112,27 @@ jobs:
           sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
 
       - name: Run fast CI regression test
-        run: make test-ci-fast
+        shell: bash
+        run: |
+          set -o pipefail
+          make test-ci-fast 2>&1 | tee fast-regression-test.log
 
       - name: Build daemon
-        run: make daemon
+        shell: bash
+        run: |
+          set -o pipefail
+          make daemon 2>&1 | tee daemon-build.log
+
+      - name: Upload fast regression diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-regression-diagnostics
+          path: |
+            fast-regression-test.log
+            daemon-build.log
+          if-no-files-found: warn
+          retention-days: 14
 
   packaging-regression-test:
     runs-on: ubuntu-latest
