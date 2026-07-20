@@ -26,7 +26,7 @@ private:
 class SuiteBridgeEpgMetadataPayload final {
 public:
   explicit SuiteBridgeEpgMetadataPayload(
-      const SuiteBridgeEpgMetadata &metadata) noexcept;
+      const SuiteBridgeEpgMetadata &metadata);
 
   const char *Data() const noexcept;
   std::size_t Size() const noexcept;
