@@ -76,7 +76,7 @@ REQUIRED_METADATA_SOURCE_FRAGMENTS = [
     '"PLUG suitebridge META " + channelId + " " + eventId + "\\r\\n"',
     "safeMetadataToken(channelId)",
     "safeMetadataToken(eventId)",
-    "metadataReply.transportSucceeded = reply.transportSucceeded()",
+    "reply.transportSucceeded() && reply.replyCode == 250",
     "metadataReply.replyCode = reply.replyCode",
     "metadataReply.payload = reply.payload",
 ]
@@ -95,6 +95,9 @@ REQUIRED_METADATA_TEST_FRAGMENTS = [
     '"PLUG suitebridge META S19.2E-1-1011-11100 12345\\r\\n"',
     "reply.transportSucceeded",
     "reply.replyCode == 250",
+    'Server server("451 Metadata payload exceeds contract capacity\\r\\n")',
+    "!failed.transportSucceeded",
+    "failed.replyCode == 451",
     "bad channel",
     "bad event",
 ]
