@@ -29,14 +29,18 @@ def main() -> int:
 
         deferred_marker = "function bootVdrSuiteLegacyEpgRuntime()"
         legacy_marker = "function ensureCachedEpgDetailStyles()"
-        day_marker = "global.VdrSuiteChannelDayProgram = api"
+        day_markers = (
+            "global.VdrSuiteChannelDayProgram = api",
+            "global.VdrSuiteChannels2=moduleApi",
+        )
         compat_marker = "global.VdrSuiteChannelDayProgramCompat = Object.freeze"
 
         assert deferred_marker in source
         assert "document.addEventListener('DOMContentLoaded', bootVdrSuiteLegacyEpgRuntime" in source
         assert "global.__vdrSuiteLegacyEpgRuntimeStarted = true" in source
         assert legacy_marker in source
-        assert day_marker in source
+        day_marker = next((marker for marker in day_markers if marker in source), None)
+        assert day_marker is not None
         assert compat_marker in source
         assert source.index(deferred_marker) < source.index(legacy_marker)
         assert source.index(legacy_marker) < source.index(day_marker)
