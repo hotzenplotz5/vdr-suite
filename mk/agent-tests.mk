@@ -1,5 +1,5 @@
 # Hosted CI builds and validates live probes; real VDR execution remains explicit and opt-in.
-.PHONY: test-suite-bridge-agent-boundary test-suite-bridge-handshake test-suite-bridge-handshake-missing-plugin test-suite-bridge-svdrp-transport-boundary test-suite-bridge-svdrp-transport test-suite-bridge-svdrp-artwork-transport test-suite-bridge-svdrp-transport-live test-suite-bridge-observation-boundary test-suite-bridge-observation-service test-suite-bridge-observation-worker test-suite-bridge-embedded-runtime-boundary test-suite-bridge-embedded-runtime test-suite-bridge-daemon-runtime-wiring test-sb10d-live-acceptance-contract build-suite-bridge-embedded-runtime-live test-real-suite-bridge-embedded-runtime-live test-real-suite-bridge-observation-live
+.PHONY: test-suite-bridge-agent-boundary test-suite-bridge-handshake test-suite-bridge-handshake-missing-plugin test-suite-bridge-svdrp-transport-boundary test-suite-bridge-svdrp-transport test-suite-bridge-svdrp-artwork-transport test-suite-bridge-epg-metadata-contract test-suite-bridge-svdrp-transport-live test-suite-bridge-observation-boundary test-suite-bridge-observation-service test-suite-bridge-observation-worker test-suite-bridge-embedded-runtime-boundary test-suite-bridge-embedded-runtime test-suite-bridge-daemon-runtime-wiring test-sb10d-live-acceptance-contract build-suite-bridge-embedded-runtime-live test-real-suite-bridge-embedded-runtime-live test-real-suite-bridge-observation-live
 
 test-suite-bridge-agent-boundary:
 	python3 tools/check_suite_bridge_agent_boundary.py
@@ -34,6 +34,9 @@ test-suite-bridge-svdrp-artwork-transport:
 		core/agent/tests/test_suite_bridge_svdrp_artwork_transport.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_artwork_transport
 	$(BUILD_DIR)/test_suite_bridge_svdrp_artwork_transport
+
+test-suite-bridge-epg-metadata-contract:
+	$(MAKE) -C vdr-plugin-suite-bridge test-epg-metadata-contract check-contract
 
 test-suite-bridge-observation-boundary:
 	python3 tools/check_suite_bridge_observation_boundary.py
