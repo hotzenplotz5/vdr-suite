@@ -36,8 +36,3 @@ test-epg-scraper-metadata-controller:
 
 test-epg-scraper-metadata-routes-contract:
 	python3 tools/check_epg_scraper_metadata_routes.py
-
-# Keep the new transport, parser and public API reachable from existing groups.
-test-ci-fast: test-suite-bridge-svdrp-metadata-transport test-suite-bridge-epg-metadata-resolver test-epg-scraper-metadata-public-json test-epg-scraper-metadata-controller test-epg-scraper-metadata-routes-contract
-
-test-vdr: test-suite-bridge-svdrp-metadata-transport test-suite-bridge-epg-metadata-resolver test-epg-scraper-metadata-public-json test-epg-scraper-metadata-controller test-epg-scraper-metadata-routes-contract
