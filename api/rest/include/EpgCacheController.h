@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "EpgArtworkController.h"
 #include "VdrEventQuery.h"
 
 #include <string>
@@ -34,6 +35,11 @@ public:
         const std::string& fromTime,
         const std::string& untilTime,
         int eventLimit) const = 0;
+
+    virtual ApiResponse getArtwork(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const = 0;
 };
 
 class EpgCacheController : public IEpgCacheController
@@ -69,6 +75,26 @@ public:
         const std::string& fromTime,
         const std::string& untilTime,
         int eventLimit) const override;
+
+    ApiResponse getArtwork(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const override
+    {
+        if (artworkRepository_ == nullptr)
+        {
+            ApiResponse response;
+            response.statusCode = 503;
+            response.contentType = "application/json";
+            response.body = "{\"error\":\"epg artwork unavailable\"}";
+            return response;
+        }
+
+        return EpgArtworkController(*artworkRepository_).getArtwork(
+            backendId,
+            channelId,
+            eventId);
+    }
 
 private:
     EpgCacheService* directService_;
