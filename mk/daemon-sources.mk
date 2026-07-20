@@ -24,6 +24,7 @@ DAEMON_SRC := \
         api/rest/src/VdrRecordingFolderController.cpp \
         api/rest/src/EpgController.cpp \
         api/rest/src/EpgCacheController.cpp \
+        api/rest/src/EpgArtworkController.cpp \
         api/rest/src/EpgSearchNativeFuzzyStaleProbeAdministrationController.cpp \
         api/rest/src/EpgSearchNativeFuzzyOperatorRefreshController.cpp \
         api/rest/src/SearchTimerController.cpp \
