@@ -17,6 +17,13 @@ required_files = (
     ROOT / "docs/SB-9-capability-discovery.md",
 )
 
+capability_implementation_files = (
+    ROOT / "suitebridge_capabilities.h",
+    ROOT / "suitebridge_capabilities.cpp",
+    ROOT / "suitebridge_capability_discovery.h",
+    ROOT / "suitebridge_capability_discovery.cpp",
+)
+
 errors = []
 
 for path in required_files:
@@ -32,6 +39,11 @@ combined = "\n".join(
     path.read_text(encoding="utf-8")
     for path in required_files
     if path.suffix in {".h", ".cpp"}
+)
+
+capability_implementation = "\n".join(
+    path.read_text(encoding="utf-8")
+    for path in capability_implementation_files
 )
 
 plugin_source = (ROOT / "suitebridge.cpp").read_text(encoding="utf-8")
@@ -135,7 +147,7 @@ forbidden_content = (
 )
 
 for fragment in forbidden_content:
-    if fragment in combined:
+    if fragment in capability_implementation:
         errors.append(
             f"forbidden capability discovery implementation: {fragment}"
         )
