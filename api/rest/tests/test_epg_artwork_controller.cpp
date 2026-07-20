@@ -65,8 +65,8 @@ int main()
     writeBinaryFile(textPath, "not-an-image");
     writeBinaryFile(outsidePath, jpegBytes);
 
-    Database database(databasePath.string());
-    assert(database.open());
+    Database database;
+    assert(database.open(databasePath.string()));
 
     EpgArtworkRepository repository(database);
     assert(repository.ensureSchema());
