@@ -65,6 +65,7 @@ struct SuiteBridgeEpgMetadata {
   std::string episodeTitle;
   std::string tagline;
   std::string overview;
+  std::string episodeOverview;
   std::string releaseDate;
   std::string firstAired;
   std::string imdbId;
