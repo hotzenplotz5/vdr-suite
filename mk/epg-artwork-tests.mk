@@ -1,4 +1,4 @@
-.PHONY: test-suite-bridge-epg-artwork-resolver test-epg-artwork-repository test-epg-artwork-enrichment-service test-epg-artwork-controller
+.PHONY: test-suite-bridge-epg-artwork-resolver test-epg-artwork-repository test-epg-artwork-enrichment-service test-epg-artwork-controller test-epg-artwork-public-json-serializer
 
 test-suite-bridge-epg-artwork-resolver:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -36,3 +36,11 @@ test-epg-artwork-controller:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_epg_artwork_controller
 	$(BUILD_DIR)/test_epg_artwork_controller
+
+test-epg-artwork-public-json-serializer:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/EpgArtworkPublicJsonSerializer.cpp \
+		core/vdr/tests/test_epg_artwork_public_json_serializer.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_epg_artwork_public_json_serializer
+	$(BUILD_DIR)/test_epg_artwork_public_json_serializer
