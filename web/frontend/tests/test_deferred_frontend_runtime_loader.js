@@ -19,7 +19,9 @@ assert.ok(source.includes('window.VdrSuiteEpgSearchTimerActions'));
 assert.ok(source.includes('window.VdrSuiteRecordingTrashUx'));
 assert.ok(source.includes('window.VdrSuiteDeferredFrontendRuntimes'));
 assert.ok(source.includes('start: startVdrSuiteDeferredFrontendRuntimes'));
-assert.ok(source.includes('startVdrSuiteDeferredFrontendRuntimes();'));
+assert.ok(source.includes("document.addEventListener(\n      'DOMContentLoaded',"));
+assert.ok(source.includes('startVdrSuiteDeferredFrontendRuntimes,\n      {once: true}'));
+assert.ok(source.includes('} else {\n    startVdrSuiteDeferredFrontendRuntimes();'));
 assert.ok(!source.includes("'/frontend/channel-day-program.js'"));
 assert.ok(!source.includes("'/frontend/channel-day-program-compat.js'"));
 
