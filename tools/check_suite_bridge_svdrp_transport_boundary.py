@@ -38,16 +38,22 @@ FORBIDDEN_SOURCE_TOKENS = [
 
 REQUIRED_HEADER_FRAGMENTS = [
     "struct SuiteBridgeSvdrpTransportConfig",
-    "class SuiteBridgeSvdrpTransport final : public ISuiteBridgeLocalTransport",
+    "class SuiteBridgeSvdrpTransport final :",
+    "public ISuiteBridgeLocalTransport",
+    "public ::ISuiteBridgeArtworkTransport",
     "MaximumGreetingBytes = 1024",
     "MaximumReplyBytes = 8192",
     "MaximumReplyLines = 64",
     "SuiteBridgeCommandReply execute(",
+    "requestArtwork(",
 ]
 
 REQUIRED_SOURCE_FRAGMENTS = [
     'return "PLUG suitebridge CAPS 1\\r\\n";',
     'return "PLUG suitebridge SNAP\\r\\n";',
+    '"PLUG suitebridge ARTW " + channelId + " " + eventId + "\\r\\n"',
+    "safeToken(channelId)",
+    "safeToken(eventId)",
     "AI_NUMERICHOST | AI_NUMERICSERV",
     "O_NONBLOCK",
     "FD_CLOEXEC",
@@ -112,20 +118,25 @@ if "std::string command" in header_text:
 if "const std::string& command" in header_text:
     errors.append("SVDRP transport must not expose a free-form command")
 
-expected_requests = {
+expected_fixed_requests = {
     '"PLUG suitebridge CAPS 1\\r\\n"',
     '"PLUG suitebridge SNAP\\r\\n"',
 }
 
-observed_requests = {
+observed_fixed_requests = {
     line.strip().removeprefix("return ").removesuffix(";")
     for line in source_text.splitlines()
-    if "PLUG suitebridge " in line
+    if "PLUG suitebridge " in line and "return " in line
 }
 
-if observed_requests != expected_requests:
+if observed_fixed_requests != expected_fixed_requests:
     errors.append(
-        "SB.10b source must contain only the two fixed Suite Bridge requests"
+        "SB.10b source must retain exactly the two fixed local Suite Bridge requests"
+    )
+
+if source_text.count('"PLUG suitebridge ARTW "') != 1:
+    errors.append(
+        "SB.10b source must contain exactly one bounded artwork request prefix"
     )
 
 if errors:
