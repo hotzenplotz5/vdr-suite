@@ -28,8 +28,7 @@ class SuiteBridgeSvdrpTransport final :
 {
 public:
     static constexpr std::size_t MaximumGreetingBytes = 1024;
-    static constexpr std::size_t MaximumReplyBytes = 8192;
-    static constexpr std::size_t MaximumMetadataReplyBytes = 32768;
+    static constexpr std::size_t MaximumReplyBytes = 32768;
     static constexpr std::size_t MaximumReplyLines = 64;
 
     explicit SuiteBridgeSvdrpTransport(
@@ -48,8 +47,7 @@ public:
 
 private:
     SuiteBridgeCommandReply executeRequest(
-        const std::string& requestText,
-        std::size_t maximumReplyBytes = MaximumReplyBytes);
+        const std::string& requestText);
 
     SuiteBridgeSvdrpTransportConfig config_;
 };
