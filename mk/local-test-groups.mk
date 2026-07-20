@@ -154,5 +154,7 @@ test-frontend-i18n:
 	node web/frontend/tests/test_deferred_frontend_runtime_loader.js
 	node web/frontend/tests/test_epg_timeline_enhancements.js
 	node web/frontend/tests/test_epg_timeline_deferred_install.js
+	node web/frontend/tests/test_epg_metadata_detail.js
+	node web/frontend/tests/test_epg_metadata_detail_hook.js
 	node web/frontend/tests/test_recording_trash_ux_runtime.js
 	python3 web/frontend/tests/test_epg_runtime_bundle_builder.py
