@@ -2,6 +2,8 @@
 
 #include "DashboardController.h"
 #include "EpgArtworkController.h"
+#include "EpgScraperMetadataPublicJsonSerializer.h"
+#include "EpgScraperMetadataResolverRegistry.h"
 #include "VdrEventQuery.h"
 
 #include <string>
@@ -11,8 +13,6 @@ class EpgArtworkPublicJsonSerializer;
 class EpgArtworkRepository;
 class EpgCacheService;
 class EpgCacheServiceRegistry;
-class EpgScraperMetadataPublicJsonSerializer;
-class EpgScraperMetadataResolverRegistry;
 
 class IEpgCacheController
 {
@@ -85,11 +85,12 @@ public:
         EpgArtworkRepository& artworkRepository,
         EpgArtworkPublicJsonSerializer& artworkJsonSerializer);
 
-    void configureScraperMetadata(
-        EpgScraperMetadataResolverRegistry& resolverRegistry,
-        EpgScraperMetadataPublicJsonSerializer& jsonSerializer,
-        std::vector<std::string> allowedRoots =
-            EpgArtworkController::defaultAllowedRoots());
+    void registerScraperMetadataResolver(
+        const std::string& backendId,
+        IEpgScraperMetadataResolver& resolver);
+
+    void setScraperMetadataAllowedRoots(
+        std::vector<std::string> allowedRoots);
 
     ApiResponse refreshBackendWindow(
         const std::string& backendId,
@@ -148,8 +149,8 @@ private:
     EpgCacheServiceRegistry* registry_;
     EpgArtworkRepository* artworkRepository_;
     EpgArtworkPublicJsonSerializer* artworkJsonSerializer_;
-    EpgScraperMetadataResolverRegistry* scraperMetadataResolverRegistry_;
-    EpgScraperMetadataPublicJsonSerializer* scraperMetadataJsonSerializer_;
+    EpgScraperMetadataResolverRegistry scraperMetadataResolverRegistry_;
+    EpgScraperMetadataPublicJsonSerializer scraperMetadataJsonSerializer_;
     std::vector<std::string> scraperMetadataAllowedRoots_;
 
     EpgCacheService* findService(
