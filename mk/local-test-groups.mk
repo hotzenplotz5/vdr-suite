@@ -1,6 +1,6 @@
 include mk/test-groups.mk
 
-.PHONY: test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-http-listener-partial-request-timeout test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy test-frontend-contracts test-frontend-i18n
+.PHONY: test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-http-listener-partial-request-timeout test-http-listener-image-write-isolation test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy test-frontend-contracts test-frontend-i18n
 
 
 test-json-string-decoder:
@@ -28,6 +28,14 @@ test-http-listener-partial-request-timeout:
 		core/http/tests/test_simple_http_listener_partial_request_timeout.cpp \
 		-o $(BUILD_DIR)/test_simple_http_listener_partial_request_timeout
 	$(BUILD_DIR)/test_simple_http_listener_partial_request_timeout
+
+
+test-http-listener-image-write-isolation:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		core/http/src/SimpleHttpListener.cpp \
+		core/http/tests/test_simple_http_listener_image_write_isolation.cpp \
+		-o $(BUILD_DIR)/test_simple_http_listener_image_write_isolation
+	$(BUILD_DIR)/test_simple_http_listener_image_write_isolation
 
 
 test-real-vdr-acceptance-manifest:

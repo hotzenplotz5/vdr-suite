@@ -3,6 +3,7 @@
 #include "ISuiteBridgeLocalTransport.h"
 #include "ISuiteBridgeArtworkTransport.h"
 #include "ISuiteBridgeMetadataTransport.h"
+#include "SuiteBridgeMetadataReplyCache.h"
 
 #include <chrono>
 #include <cstddef>
@@ -50,6 +51,7 @@ private:
         const std::string& requestText);
 
     SuiteBridgeSvdrpTransportConfig config_;
+    SuiteBridgeMetadataReplyCache metadataReplyCache_;
 };
 
 }
