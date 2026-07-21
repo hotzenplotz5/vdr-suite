@@ -5,7 +5,10 @@
 
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <string>
+
+class SimpleHttpListenerResponseWriter;
 
 class SimpleHttpListener {
 public:
@@ -35,6 +38,8 @@ public:
         std::function<void()> onTick,
         std::chrono::milliseconds clientIoTimeout);
 
+    ~SimpleHttpListener();
+
     int runUntilStopped();
 
 private:
@@ -44,9 +49,13 @@ private:
     std::function<bool()> shouldStop_;
     std::function<void()> onTick_;
     std::chrono::milliseconds clientIoTimeout_;
+    std::unique_ptr<SimpleHttpListenerResponseWriter> responseWriter_;
 
     int createListeningSocket() const;
-    void handleClient(int clientSocket) const;
+    bool prepareClientResponse(
+        int clientSocket,
+        std::string& rawResponse,
+        bool& bulkResponse) const;
 };
 
 #endif
