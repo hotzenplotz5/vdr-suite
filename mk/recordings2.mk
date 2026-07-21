@@ -13,8 +13,6 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_recordings2_runtime.js
 	python3 tools/check_recordings2_runtime_wiring.py
 
-test-install-staging: test-recordings2-install-staging
-
-test-recordings2-install-staging:
+test-recordings2-install-staging: test-install-staging
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recordings2.js
