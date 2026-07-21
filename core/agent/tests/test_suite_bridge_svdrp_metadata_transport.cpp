@@ -139,6 +139,16 @@ int main()
         assert(server.request() ==
             "PLUG suitebridge META S19.2E-1-1011-11100 12345\r\n");
 
+        const SuiteBridgeMetadataCommandReply cached =
+            transport.requestMetadata(
+                "S19.2E-1-1011-11100",
+                "12345");
+        assert(cached.transportSucceeded);
+        assert(cached.replyCode == 250);
+        assert(cached.payload == reply.payload);
+        assert(server.request() ==
+            "PLUG suitebridge META S19.2E-1-1011-11100 12345\r\n");
+
         const SuiteBridgeMetadataCommandReply rejected = transport.requestMetadata(
             "bad channel",
             "12345");
