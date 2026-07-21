@@ -15,6 +15,7 @@ SOURCES = (
     ROOT / "web" / "frontend" / "epg-metadata-detail.js",
     ROOT / "web" / "frontend" / "epg-searchtimer-actions.js",
     ROOT / "web" / "frontend" / "epg-metadata-detail-hook.js",
+    ROOT / "web" / "frontend" / "epg-detail-desktop-focus.js",
 )
 
 
@@ -25,7 +26,7 @@ def main() -> int:
 
     source_markers = tuple(str(path.relative_to(ROOT)) for path in SOURCES)
     positions = tuple(install.index(marker) for marker in source_markers)
-    assert positions[0] < positions[1] < positions[2]
+    assert positions[0] < positions[1] < positions[2] < positions[3]
 
     assert "web/frontend/.epg-searchtimer-actions.js.tmp" in install
     assert "web/frontend/epg-searchtimer-actions.js" in install
@@ -37,10 +38,12 @@ def main() -> int:
     assert "window.VdrSuiteEpgMetadataDetailHook" in loader
     assert "'/frontend/epg-metadata-detail.js'" not in loader
     assert "'/frontend/epg-metadata-detail-hook.js'" not in loader
+    assert "'/frontend/epg-detail-desktop-focus.js'" not in loader
 
     assert 'path == "/frontend/epg-searchtimer-actions.js"' in http_server
     assert 'path == "/frontend/epg-metadata-detail.js"' not in http_server
     assert 'path == "/frontend/epg-metadata-detail-hook.js"' not in http_server
+    assert 'path == "/frontend/epg-detail-desktop-focus.js"' not in http_server
 
     with tempfile.TemporaryDirectory(prefix="vdr-suite-epg-metadata-bundle-") as directory:
         bundle = Path(directory) / "epg-searchtimer-actions.js"
@@ -54,7 +57,8 @@ def main() -> int:
         renderer = source.index("global.VdrSuiteEpgMetadataDetail = Object.freeze")
         searchtimer = source.index("global.VdrSuiteEpgSearchTimerActions = Object.freeze")
         hook = source.index("global.VdrSuiteEpgMetadataDetailHook = Object.freeze")
-        assert renderer < searchtimer < hook
+        desktop_focus = source.index("global.VdrSuiteEpgDetailDesktopFocus = Object.freeze")
+        assert renderer < searchtimer < hook < desktop_focus
 
         subprocess.run(["node", "--check", str(bundle)], check=True)
 
