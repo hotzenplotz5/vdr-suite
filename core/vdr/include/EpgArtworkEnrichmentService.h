@@ -1,12 +1,14 @@
 #pragma once
 
 #include "EpgArtworkRepository.h"
+#include "EpgPersonEnrichmentService.h"
 #include "IEpgArtworkResolver.h"
 
 #include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -62,6 +64,8 @@ private:
     const std::chrono::seconds resolvedArtworkTtl_;
     const std::chrono::milliseconds notFoundTtl_;
     const std::chrono::milliseconds retryBackoff_;
+    std::unique_ptr<EpgPersonIndexRepository> personIndexRepository_;
+    std::unique_ptr<EpgPersonEnrichmentService> personEnrichmentService_;
 
     std::mutex mutex_;
     std::condition_variable workAvailable_;
