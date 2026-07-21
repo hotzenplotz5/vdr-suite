@@ -29,6 +29,7 @@ VDR_TIMER_ACTION_REST_PARSER_SRC := \
         api/rest/src/VdrTimerActionRequestParser.cpp
 
 REST_ROUTER_SRC := \
+        $(PERSON_CONTEXT_SRC) \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \
