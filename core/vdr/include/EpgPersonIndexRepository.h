@@ -22,6 +22,11 @@ public:
         const VdrEvent& event,
         const EpgScraperMetadata& metadata);
 
+    bool removeForEvent(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId);
+
     std::vector<EpgPersonIndexMatch> search(
         const EpgPersonIndexQuery& query) const;
 
