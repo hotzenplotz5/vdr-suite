@@ -51,6 +51,7 @@ CI_FAST_TESTS := \
 	test-daemon-runtime-shutdown-resets \
 	test-http-listener-bind-failure-handling \
 	test-http-listener-partial-request-timeout \
+	test-http-listener-image-write-isolation \
 	test-real-vdr-acceptance-manifest \
 	test-phase-map-coverage \
 	test-github-update-safety-handoff \
@@ -171,6 +172,7 @@ VDR_TESTS := \
 	test-daemon-runtime-shutdown-resets \
 	test-http-listener-bind-failure-handling \
 	test-http-listener-partial-request-timeout \
+	test-http-listener-image-write-isolation \
 	test-real-vdr-acceptance-manifest \
 	test-github-update-safety-handoff \
 	test-recording-mutation-safety-policy \
