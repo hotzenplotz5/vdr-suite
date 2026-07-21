@@ -18,6 +18,7 @@ class JobsController;
 class LiveTransportController;
 class MetadataController;
 class PersonController;
+class PersonContextController;
 class RecordingsController;
 class RecordingActionExecutionController;
 class RecordingActionPreviewController;
@@ -87,7 +88,6 @@ public:
 
         const std::vector<VdrEvent>* cachedEvents =
             searchTimerPreviewEpgCache_->eventsForBackend(backendId);
-
         if (cachedEvents != nullptr)
         {
             return *cachedEvents;
@@ -134,7 +134,8 @@ public:
         SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController = nullptr,
         IEpgCacheController* epgCacheController = nullptr,
         VdrChannelMoveController* vdrChannelMoveController = nullptr,
-        VdrRecordingFolderController* vdrRecordingFolderController = nullptr);
+        VdrRecordingFolderController* vdrRecordingFolderController = nullptr,
+        PersonContextController* personContextController = nullptr);
 
     void setSearchTimerPreviewEpgCache(
         SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
@@ -163,9 +164,7 @@ public:
             eventId);
     }
 
-    ApiResponse handleGet(
-        const std::string& path);
-
+    ApiResponse handleGet(const std::string& path);
     ApiResponse handlePost(
         const std::string& path,
         const std::string& body);
@@ -201,4 +200,5 @@ private:
     EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController_;
     VdrChannelMoveController* vdrChannelMoveController_;
     VdrRecordingFolderController* vdrRecordingFolderController_;
+    PersonContextController* personContextController_;
 };
