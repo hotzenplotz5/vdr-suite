@@ -67,6 +67,7 @@ test-recording-artwork-http-server:
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/src/VdrRecordingArtworkIdentity.cpp \
 		core/vdr/src/VdrRecordingArtworkService.cpp \
+		api/rest/src/RestQueryParameters.cpp \
 		core/daemon/src/RecordingArtworkHttpServer.cpp \
 		core/daemon/tests/test_recording_artwork_http_server.cpp \
 		$(LDFLAGS) \

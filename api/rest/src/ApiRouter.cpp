@@ -891,6 +891,47 @@ ApiResponse ApiRouter::handleGet(
                 queryParameters.getInt("chevents", 5)));
     }
 
+    if (path == "/api/epg/cache/artwork")
+    {
+        if (epgCacheController_ == nullptr)
+        {
+            return makeEpgCacheUnavailableResponse();
+        }
+
+        return epgCacheController_->getArtwork(
+            normalizeBackendId(queryParameters.get("backend")),
+            queryParameters.get("channelId"),
+            queryParameters.get("eventId"));
+    }
+
+    if (path == "/api/epg/cache/metadata")
+    {
+        if (epgCacheController_ == nullptr)
+        {
+            return makeEpgCacheUnavailableResponse();
+        }
+
+        return epgCacheController_->getMetadata(
+            normalizeBackendId(queryParameters.get("backend")),
+            queryParameters.get("channelId"),
+            queryParameters.get("eventId"));
+    }
+
+    if (path == "/api/epg/cache/metadata/image")
+    {
+        if (epgCacheController_ == nullptr)
+        {
+            return makeEpgCacheUnavailableResponse();
+        }
+
+        return epgCacheController_->getMetadataImage(
+            normalizeBackendId(queryParameters.get("backend")),
+            queryParameters.get("channelId"),
+            queryParameters.get("eventId"),
+            queryParameters.get("kind"),
+            queryParameters.getInt("index", -1));
+    }
+
     if (path == "/api/epg/cache/window")
     {
         if (epgCacheController_ == nullptr)

@@ -7,13 +7,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 HEADER = ROOT / "core/agent/include/SuiteBridgeSvdrpTransport.h"
 SOURCE = ROOT / "core/agent/src/SuiteBridgeSvdrpTransport.cpp"
+METADATA_SOURCE = ROOT / "core/agent/src/SuiteBridgeSvdrpMetadataTransport.cpp"
 TEST = ROOT / "core/agent/tests/test_suite_bridge_svdrp_transport.cpp"
+METADATA_TEST = ROOT / "core/agent/tests/test_suite_bridge_svdrp_metadata_transport.cpp"
 LIVE_TEST = ROOT / "core/agent/tests/test_suite_bridge_svdrp_transport_live.cpp"
 
 REQUIRED = [
     HEADER,
     SOURCE,
+    METADATA_SOURCE,
     TEST,
+    METADATA_TEST,
     LIVE_TEST,
 ]
 
@@ -41,11 +45,13 @@ REQUIRED_HEADER_FRAGMENTS = [
     "class SuiteBridgeSvdrpTransport final :",
     "public ISuiteBridgeLocalTransport",
     "public ::ISuiteBridgeArtworkTransport",
+    "public ::ISuiteBridgeMetadataTransport",
     "MaximumGreetingBytes = 1024",
     "MaximumReplyBytes = 8192",
     "MaximumReplyLines = 64",
     "SuiteBridgeCommandReply execute(",
     "requestArtwork(",
+    "requestMetadata(",
 ]
 
 REQUIRED_SOURCE_FRAGMENTS = [
@@ -66,6 +72,15 @@ REQUIRED_SOURCE_FRAGMENTS = [
     "inconsistent SVDRP multiline reply code",
 ]
 
+REQUIRED_METADATA_SOURCE_FRAGMENTS = [
+    '"PLUG suitebridge META " + channelId + " " + eventId + "\\r\\n"',
+    "safeMetadataToken(channelId)",
+    "safeMetadataToken(eventId)",
+    "reply.transportSucceeded() && reply.replyCode == 250",
+    "metadataReply.replyCode = reply.replyCode",
+    "metadataReply.payload = reply.payload",
+]
+
 REQUIRED_TEST_FRAGMENTS = [
     'server.request() == "PLUG suitebridge CAPS 1\\r\\n"',
     'server.request() == "PLUG suitebridge SNAP\\r\\n"',
@@ -74,6 +89,17 @@ REQUIRED_TEST_FRAGMENTS = [
     "testGreetingTimeout();",
     "testOversizedReply();",
     "testConnectionFailure();",
+]
+
+REQUIRED_METADATA_TEST_FRAGMENTS = [
+    '"PLUG suitebridge META S19.2E-1-1011-11100 12345\\r\\n"',
+    "reply.transportSucceeded",
+    "reply.replyCode == 250",
+    'Server server("451 Metadata payload exceeds contract capacity\\r\\n")',
+    "!failed.transportSucceeded",
+    "failed.replyCode == 451",
+    "bad channel",
+    "bad event",
 ]
 
 errors: list[str] = []
@@ -86,10 +112,20 @@ for path in REQUIRED:
 
 header_text = HEADER.read_text(encoding="utf-8") if HEADER.is_file() else ""
 source_text = SOURCE.read_text(encoding="utf-8") if SOURCE.is_file() else ""
+metadata_source_text = (
+    METADATA_SOURCE.read_text(encoding="utf-8")
+    if METADATA_SOURCE.is_file()
+    else ""
+)
 test_text = TEST.read_text(encoding="utf-8") if TEST.is_file() else ""
+metadata_test_text = (
+    METADATA_TEST.read_text(encoding="utf-8")
+    if METADATA_TEST.is_file()
+    else ""
+)
 
 for token in FORBIDDEN_SOURCE_TOKENS:
-    if token in header_text or token in source_text:
+    if token in header_text or token in source_text or token in metadata_source_text:
         errors.append(
             f"forbidden SB.10b transport token {token!r}"
         )
@@ -106,10 +142,22 @@ for fragment in REQUIRED_SOURCE_FRAGMENTS:
             f"missing bounded SB.10b source contract: {fragment}"
         )
 
+for fragment in REQUIRED_METADATA_SOURCE_FRAGMENTS:
+    if fragment not in metadata_source_text:
+        errors.append(
+            f"missing bounded EPG metadata transport contract: {fragment}"
+        )
+
 for fragment in REQUIRED_TEST_FRAGMENTS:
     if fragment not in test_text:
         errors.append(
             f"missing SB.10b transport test contract: {fragment}"
+        )
+
+for fragment in REQUIRED_METADATA_TEST_FRAGMENTS:
+    if fragment not in metadata_test_text:
+        errors.append(
+            f"missing EPG metadata transport test contract: {fragment}"
         )
 
 if "std::string command" in header_text:
@@ -137,6 +185,11 @@ if observed_fixed_requests != expected_fixed_requests:
 if source_text.count('"PLUG suitebridge ARTW "') != 1:
     errors.append(
         "SB.10b source must contain exactly one bounded artwork request prefix"
+    )
+
+if metadata_source_text.count('"PLUG suitebridge META "') != 1:
+    errors.append(
+        "EPG metadata transport must contain exactly one bounded META request prefix"
     )
 
 if errors:

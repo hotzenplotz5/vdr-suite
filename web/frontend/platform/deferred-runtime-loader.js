@@ -127,7 +127,7 @@ function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.id = id;
-    script.src = src + '?runtime=' + String(Date.now());
+    script.src = src;
     script.async = false;
 
     script.addEventListener(
@@ -148,9 +148,14 @@ function startVdrSuiteDeferredFrontendRuntimes() {
   loadVdrSuiteDeferredRuntime(
     'vdr-suite-epg-searchtimer-actions-runtime',
     '/frontend/epg-searchtimer-actions.js',
-    () => Boolean(window.VdrSuiteEpgSearchTimerActions)
+    () => Boolean(
+      window.VdrSuiteEpgSearchTimerActions &&
+      window.VdrSuiteEpgMetadataDetail &&
+      window.VdrSuiteEpgMetadataDetailHook &&
+      window.VdrSuiteEpgDetailDesktopFocus
+    )
   ).catch(error => {
-    console.error('VDR-Suite EPG SearchTimer runtime failed', error);
+    console.error('VDR-Suite combined EPG detail runtime failed', error);
   });
 
   loadVdrSuiteDeferredRuntime(
@@ -169,5 +174,13 @@ if (typeof window !== 'undefined') {
     start: startVdrSuiteDeferredFrontendRuntimes
   });
 
-  startVdrSuiteDeferredFrontendRuntimes();
+  if (document.readyState === 'loading') {
+    document.addEventListener(
+      'DOMContentLoaded',
+      startVdrSuiteDeferredFrontendRuntimes,
+      {once: true}
+    );
+  } else {
+    startVdrSuiteDeferredFrontendRuntimes();
+  }
 }

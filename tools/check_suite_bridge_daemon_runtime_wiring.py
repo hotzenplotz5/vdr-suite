@@ -53,6 +53,10 @@ def main() -> int:
         "backend context must own backend-scoped Suite Bridge health runtime",
     )
     require(
+        "SuiteBridgeEpgMetadataResolver> epgScraperMetadataResolver" in context,
+        "backend context must own its typed EPG scraper metadata resolver",
+    )
+    require(
         "context->backendId == suiteBridgeConfig.backendId" in runtime,
         "Suite Bridge runtime must attach only to the configured backend",
     )
@@ -61,12 +65,31 @@ def main() -> int:
         "DaemonRuntime must construct the embedded Agent runtime",
     )
     require(
+        "std::make_unique<SuiteBridgeEpgMetadataResolver>" in runtime,
+        "DaemonRuntime must construct the backend EPG scraper metadata resolver",
+    )
+    require(
+        "registerScraperMetadataResolver(" in runtime,
+        "DaemonRuntime must register EPG scraper metadata by backend",
+    )
+    require(
         "suiteBridgeAgentRuntime->start()" in runtime,
         "DaemonRuntime must start the embedded Agent runtime",
     )
     require(
         "suiteBridgeAgentRuntime->stop()" in runtime,
         "DaemonRuntime must stop the embedded Agent runtime",
+    )
+
+    metadata_transport_index = runtime.index(
+        "context->epgArtworkTransport ="
+    )
+    metadata_resolver_index = runtime.index(
+        "context->epgScraperMetadataResolver ="
+    )
+    require(
+        metadata_transport_index < metadata_resolver_index,
+        "EPG metadata resolver must reuse the constructed bounded Suite Bridge transport",
     )
 
     start_index = runtime.index("suiteBridgeAgentRuntime->start()")

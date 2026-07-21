@@ -2,6 +2,7 @@
 
 #include "ISuiteBridgeLocalTransport.h"
 #include "ISuiteBridgeArtworkTransport.h"
+#include "ISuiteBridgeMetadataTransport.h"
 
 #include <chrono>
 #include <cstddef>
@@ -22,7 +23,8 @@ struct SuiteBridgeSvdrpTransportConfig
 
 class SuiteBridgeSvdrpTransport final :
     public ISuiteBridgeLocalTransport,
-    public ::ISuiteBridgeArtworkTransport
+    public ::ISuiteBridgeArtworkTransport,
+    public ::ISuiteBridgeMetadataTransport
 {
 public:
     static constexpr std::size_t MaximumGreetingBytes = 1024;
@@ -36,6 +38,10 @@ public:
         SuiteBridgeLocalCommand command) override;
 
     ::SuiteBridgeArtworkCommandReply requestArtwork(
+        const std::string& channelId,
+        const std::string& eventId) override;
+
+    ::SuiteBridgeMetadataCommandReply requestMetadata(
         const std::string& channelId,
         const std::string& eventId) override;
 

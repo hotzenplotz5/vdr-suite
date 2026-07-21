@@ -3,6 +3,7 @@
 #include "suitebridge_capabilities.h"
 #include "suitebridge_capability_discovery.h"
 #include "suitebridge_epg_artwork_contract.h"
+#include "suitebridge_epg_metadata_contract.h"
 #include "suitebridge_svdrp_contract.h"
 #include "suitebridge_tvscraper_adapter.h"
 
@@ -13,7 +14,7 @@
 #include <memory>
 
 static const char *PLUGIN_NAME = "suitebridge";
-static const char *VERSION = "0.10.0";
+static const char *VERSION = "0.11.0";
 static const char *DESCRIPTION =
     "Native bridge between VDR and the VDR-Suite Backend Agent";
 
@@ -58,7 +59,7 @@ private:
   cEvent *event_;
 };
 
-std::unique_ptr<SuiteBridgeDetachedEventSnapshot> CaptureArtworkEvent(
+std::unique_ptr<SuiteBridgeDetachedEventSnapshot> CaptureEpgEvent(
     const tChannelID &channelId,
     unsigned int eventId)
 {
@@ -190,6 +191,8 @@ const char **cPluginSuiteBridge::SVDRPHelpPages(void)
       "    Return the current read-only VDR-Suite status payload.",
       "ARTW <channel-id> <event-id>\n"
       "    Resolve preferred TVScraper artwork for one EPG event.",
+      "META <channel-id> <event-id>\n"
+      "    Resolve bounded TVScraper metadata for one EPG event.",
       nullptr,
   };
 
@@ -246,7 +249,7 @@ cString cPluginSuiteBridge::SVDRPCommand(
           artworkRequest.EventId());
     } else {
       std::unique_ptr<SuiteBridgeDetachedEventSnapshot> eventSnapshot =
-          CaptureArtworkEvent(channelId, artworkRequest.EventId());
+          CaptureEpgEvent(channelId, artworkRequest.EventId());
 
       if (!eventSnapshot) {
         isyslog(
@@ -284,6 +287,78 @@ cString cPluginSuiteBridge::SVDRPCommand(
         artwork.Valid() ? "true" : "false",
         payload.Size());
     return cString::sprintf("%s", payload.Data());
+  }
+
+  const SuiteBridgeEpgMetadataRequest metadataRequest(Command, Option);
+  if (metadataRequest.Handled()) {
+    if (!metadataRequest.Valid()) {
+      ReplyCode = 501;
+      return cString::sprintf(
+          "Usage: PLUG %s META <channel-id> <event-id>",
+          PLUGIN_NAME);
+    }
+
+    SuiteBridgeEpgMetadata metadata;
+    const tChannelID channelId =
+        tChannelID::FromString(metadataRequest.ChannelId().c_str());
+
+    if (!channelId.Valid()) {
+      isyslog(
+          "suitebridge: metadata lookup result=invalid-channel channel=%s event=%u",
+          metadataRequest.ChannelId().c_str(),
+          metadataRequest.EventId());
+    } else {
+      std::unique_ptr<SuiteBridgeDetachedEventSnapshot> eventSnapshot =
+          CaptureEpgEvent(channelId, metadataRequest.EventId());
+
+      if (!eventSnapshot) {
+        isyslog(
+            "suitebridge: metadata lookup result=event-unavailable channel=%s event=%u",
+            metadataRequest.ChannelId().c_str(),
+            metadataRequest.EventId());
+      } else {
+        const cEvent &event = eventSnapshot->Event();
+        isyslog(
+            "suitebridge: metadata lookup result=event-snapshot channel=%s event=%u title=%s",
+            metadataRequest.ChannelId().c_str(),
+            metadataRequest.EventId(),
+            event.Title() ? event.Title() : "");
+
+        const SuiteBridgeTvScraperAdapter adapter;
+        metadata = adapter.ResolveMetadata(event);
+      }
+    }
+
+    try {
+      const SuiteBridgeEpgMetadataPayload payload(metadata);
+      if (!payload.Complete()) {
+        ReplyCode = 451;
+        esyslog(
+            "suitebridge: svdrp command=META result=overflow channel=%s event=%u",
+            metadataRequest.ChannelId().c_str(),
+            metadataRequest.EventId());
+        return cString::sprintf(
+            "Metadata payload exceeds contract capacity");
+      }
+
+      ReplyCode = 250;
+      isyslog(
+          "suitebridge: svdrp command=META result=served channel=%s event=%u found=%s bytes=%zu people=%zu images=%zu",
+          metadataRequest.ChannelId().c_str(),
+          metadataRequest.EventId(),
+          metadata.found ? "true" : "false",
+          payload.Size(),
+          metadata.people.size(),
+          metadata.images.size());
+      return cString::sprintf("%s", payload.Data());
+    } catch (...) {
+      ReplyCode = 451;
+      esyslog(
+          "suitebridge: svdrp command=META result=serialization-failed channel=%s event=%u",
+          metadataRequest.ChannelId().c_str(),
+          metadataRequest.EventId());
+      return cString::sprintf("Metadata payload serialization failed");
+    }
   }
 
   const SuiteBridgeSvdrpReply snapshotReply(

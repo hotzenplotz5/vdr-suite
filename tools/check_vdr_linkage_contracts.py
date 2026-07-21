@@ -7,6 +7,7 @@ FILES = [
     Path("Makefile"),
     Path("mk/common.mk"),
     Path("mk/vdr-tests.mk"),
+    Path("mk/epg-metadata-tests.mk"),
     Path("mk/local-test-groups.mk"),
 ]
 

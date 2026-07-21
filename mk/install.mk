@@ -42,9 +42,17 @@ install-runtime: daemon
 	$(INSTALL) -m 0644 web/frontend/channel-logos.js $(DESTDIR)$(DATADIR)/web/frontend/channel-logos.js
 	$(INSTALL) -m 0644 web/frontend/channel-day-program.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program.js
 	$(INSTALL) -m 0644 web/frontend/channel-day-program-compat.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program-compat.js
-	$(INSTALL) -m 0644 web/frontend/epg-searchtimer-actions.js $(DESTDIR)$(DATADIR)/web/frontend/epg-searchtimer-actions.js
+	cat \
+		web/frontend/epg-metadata-detail.js \
+		web/frontend/epg-searchtimer-actions.js \
+		web/frontend/epg-metadata-detail-hook.js \
+		web/frontend/epg-detail-desktop-focus.js \
+		> $(DESTDIR)$(DATADIR)/web/frontend/.epg-searchtimer-actions.js.tmp
+	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/.epg-searchtimer-actions.js.tmp
+	mv -f \
+		$(DESTDIR)$(DATADIR)/web/frontend/.epg-searchtimer-actions.js.tmp \
+		$(DESTDIR)$(DATADIR)/web/frontend/epg-searchtimer-actions.js
 	$(INSTALL) -m 0644 web/frontend/recording-trash-ux.js $(DESTDIR)$(DATADIR)/web/frontend/recording-trash-ux.js
-	$(INSTALL) -m 0644 web/frontend/epg-searchtimer-actions.js $(DESTDIR)$(DATADIR)/web/frontend/epg-searchtimer-actions.js
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/modules/channels.js
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/channel-browser.js
 	$(INSTALL) -m 0644 web/frontend/modules/recordings.js $(DESTDIR)$(DATADIR)/web/frontend/modules/recordings.js
@@ -91,6 +99,9 @@ install-manpages:
 install-systemd:
 	$(INSTALL) -d $(DESTDIR)$(SYSTEMDUNITDIR)
 	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-daemon.service $(DESTDIR)$(SYSTEMDUNITDIR)/vdr-suite-daemon.service
+	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/default
+	test -e $(DESTDIR)$(SYSCONFDIR)/default/vdr-suite-daemon || \
+		$(INSTALL) -m 0644 packaging/systemd/vdr-suite-daemon.default $(DESTDIR)$(SYSCONFDIR)/default/vdr-suite-daemon
 
 test-install-staging:
 	rm -rf /tmp/vdr-suite-pkgroot
@@ -99,6 +110,8 @@ test-install-staging:
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-dashboard
 	test -x /tmp/vdr-suite-pkgroot/usr/bin/vdr-suite-logo-sync
 	test -d /tmp/vdr-suite-pkgroot/etc/vdr-suite
+	test -f /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon
+	grep -F 'VDR_SUITE_SUITE_BRIDGE_ENABLED=false' /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon >/dev/null
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos
 	test -d /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand
 	test -d /tmp/vdr-suite-pkgroot/var/lib/vdr-suite
@@ -110,12 +123,19 @@ test-install-staging:
 	! grep -F '/frontend/channel-day-program.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	! grep -F '/frontend/channel-day-program-compat.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	grep -F '/frontend/epg-searchtimer-actions.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
+	! grep -F '/frontend/epg-metadata-detail.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
+	! grep -F '/frontend/epg-metadata-detail-hook.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
+	! grep -F '/frontend/epg-detail-desktop-focus.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	grep -F '/frontend/recording-trash-ux.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program-compat.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
+	grep -F 'global.VdrSuiteEpgMetadataDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
+	grep -F 'global.VdrSuiteEpgSearchTimerActions = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
+	grep -F 'global.VdrSuiteEpgMetadataDetailHook = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
+	grep -F 'global.VdrSuiteEpgDetailDesktopFocus = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-trash-ux.js
-	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/locales

@@ -49,6 +49,7 @@ REST_ROUTER_SRC := \
         core/vdr/src/PersonResolutionJsonSerializer.cpp \
         core/vdr/src/PersonSearchService.cpp \
         api/rest/src/EpgController.cpp \
+        api/rest/src/EpgArtworkController.cpp \
         api/rest/src/RestQueryParameters.cpp \
         api/rest/src/BackendRegistryController.cpp \
         api/rest/src/RuntimeDiagnosticsController.cpp \
@@ -66,7 +67,7 @@ REST_ROUTER_SRC := \
         core/recordings/src/RecordingActionValidationResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionExecutionResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionRequestPreviewResultJsonSerializer.cpp \
-	core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
+        core/recordings/src/RecordingActionSafetyResultJsonSerializer.cpp \
         core/recordings/src/RecordingActionValidationService.cpp \
         api/rest/src/RecordingActionValidationRequestParser.cpp \
         core/vdr/src/VdrTimerActionService.cpp \

@@ -105,17 +105,7 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
 
     if (suiteBridgeConfig.enabled &&
         context->backendId == suiteBridgeConfig.backendId) {
-        context->epgArtworkRepository =
-            std::make_unique<EpgArtworkRepository>(database_);
-
-        if (!context->epgArtworkRepository->ensureSchema()) {
-            std::cerr
-                << "failed to initialize EPG artwork repository schema for backend "
-                << context->backendId
-                << std::endl;
-            context->epgArtworkRepository.reset();
-        }
-        else {
+        if (epgArtworkRepository_) {
             vdrsuite::agent::SuiteBridgeSvdrpTransportConfig artworkTransportConfig;
             artworkTransportConfig.host = suiteBridgeConfig.host;
             artworkTransportConfig.port = suiteBridgeConfig.port;
@@ -132,9 +122,12 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             context->epgArtworkResolver =
                 std::make_unique<SuiteBridgeEpgArtworkResolver>(
                     *context->epgArtworkTransport);
+            context->epgScraperMetadataResolver =
+                std::make_unique<SuiteBridgeEpgMetadataResolver>(
+                    *context->epgArtworkTransport);
             context->epgArtworkEnrichmentService =
                 std::make_unique<EpgArtworkEnrichmentService>(
-                    *context->epgArtworkRepository,
+                    *epgArtworkRepository_,
                     *context->epgArtworkResolver);
         }
 
@@ -285,6 +278,16 @@ bool DaemonRuntime::initialize()
         std::cerr << "failed to initialize EPG cache repository schema" << std::endl;
         return false;
     }
+
+    epgArtworkRepository_ = std::make_unique<EpgArtworkRepository>(database_);
+
+    if (!epgArtworkRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize EPG artwork repository schema" << std::endl;
+        return false;
+    }
+
+    epgArtworkPublicJsonSerializer_ =
+        std::make_unique<EpgArtworkPublicJsonSerializer>();
 
     vdrRecordingCacheRepository_ = std::make_unique<VdrRecordingCacheRepository>(database_);
 
@@ -491,7 +494,18 @@ bool DaemonRuntime::initialize()
     std::cout << "SearchTimer preview EPG cache refresh controller runtime initialized" << std::endl;
 
     epgCacheController_ = std::make_unique<EpgCacheController>(
-        *epgCacheServiceRegistry_);
+        *epgCacheServiceRegistry_,
+        *epgArtworkRepository_,
+        *epgArtworkPublicJsonSerializer_);
+
+    for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+        if (backendRuntimeContext &&
+            backendRuntimeContext->epgScraperMetadataResolver) {
+            epgCacheController_->registerScraperMetadataResolver(
+                backendRuntimeContext->backendId,
+                *backendRuntimeContext->epgScraperMetadataResolver);
+        }
+    }
 
     std::cout << "EPG cache controller runtime initialized" << std::endl;
 

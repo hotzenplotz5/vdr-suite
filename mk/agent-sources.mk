@@ -5,7 +5,8 @@ AGENT_HANDSHAKE_SRC := \
 	core/agent/src/SuiteBridgeHandshakeService.cpp
 
 AGENT_SVDRP_TRANSPORT_SRC := \
-	core/agent/src/SuiteBridgeSvdrpTransport.cpp
+	core/agent/src/SuiteBridgeSvdrpTransport.cpp \
+	core/agent/src/SuiteBridgeSvdrpMetadataTransport.cpp
 
 AGENT_OBSERVATION_SRC := \
 	core/agent/src/SuiteBridgeObservation.cpp \

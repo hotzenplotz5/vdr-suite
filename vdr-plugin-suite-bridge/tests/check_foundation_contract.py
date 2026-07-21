@@ -36,6 +36,9 @@ required_files = (
     ROOT / "suitebridge_tvscraper_adapter.cpp",
     ROOT / "suitebridge_epg_artwork_contract.h",
     ROOT / "suitebridge_epg_artwork_contract.cpp",
+    ROOT / "suitebridge_epg_metadata.h",
+    ROOT / "suitebridge_epg_metadata_contract.h",
+    ROOT / "suitebridge_epg_metadata_contract.cpp",
     ROOT / "docs/SB-2-capabilities.md",
     ROOT / "docs/SB-3-status-events.md",
     ROOT / "docs/SB-4-status-snapshots.md",
@@ -62,6 +65,7 @@ required_files = (
     ROOT / "tests/test_suitebridge_artwork_reference.cpp",
     ROOT / "tests/test_suitebridge_image_dimensions.cpp",
     ROOT / "tests/test_suitebridge_epg_artwork_contract.cpp",
+    ROOT / "tests/test_suitebridge_epg_metadata_contract.cpp",
 )
 
 errors = []
@@ -99,6 +103,7 @@ required_makefile_content = (
     "suitebridge_image_dimensions.o",
     "suitebridge_tvscraper_adapter.o",
     "suitebridge_epg_artwork_contract.o",
+    "suitebridge_epg_metadata_contract.o",
     "check-capabilities-contract:",
     "check-capability-discovery-contract:",
     "check-counter-continuity-contract:",
@@ -117,7 +122,8 @@ required_makefile_content = (
     "test-artwork-reference:",
     "test-image-dimensions:",
     "test-epg-artwork-contract:",
-    'test "$(VERSION)" = "0.10.0"',
+    "test-epg-metadata-contract:",
+    'test "$(VERSION)" = "0.11.0"',
 )
 
 for fragment in required_makefile_content:
@@ -126,7 +132,7 @@ for fragment in required_makefile_content:
 
 required_source_content = (
     'static const char *PLUGIN_NAME = "suitebridge";',
-    'static const char *VERSION = "0.10.0";',
+    'static const char *VERSION = "0.11.0";',
     "bool cPluginSuiteBridge::Initialize(void)",
     "bool cPluginSuiteBridge::Start(void)",
     "void cPluginSuiteBridge::Stop(void)",
@@ -146,6 +152,9 @@ required_source_content = (
     '"ARTW <channel-id> <event-id>\\n"',
     "SuiteBridgeEpgArtworkRequest artworkRequest(",
     "ResolvePreferredArtwork(event)",
+    '"META <channel-id> <event-id>\\n"',
+    "SuiteBridgeEpgMetadataRequest metadataRequest(",
+    "ResolveMetadata(event)",
     "return nullptr;",
     "VDRPLUGINCREATOR(cPluginSuiteBridge);",
 )
@@ -178,9 +187,18 @@ required_foundation_content = (
     "SuiteBridgeSvdrpReply::HasPayload() const noexcept",
     "class SuiteBridgeEpgArtworkRequest final",
     "class SuiteBridgeEpgArtworkPayload final",
+    "class SuiteBridgeEpgMetadataRequest final",
+    "class SuiteBridgeEpgMetadataPayload final",
+    "struct SuiteBridgeEpgMetadata final",
+    "struct SuiteBridgeEpgPerson final",
+    "struct SuiteBridgeEpgImage final",
     "SuiteBridgeReadImageDimensions(",
     "cGetScraperVideo request(&event, nullptr)",
     "request.call()",
+    "video.getMovieOrTv(",
+    "video.getEpisode(",
+    "video.getCharacters(true)",
+    "video.getImages(",
 )
 
 for fragment in required_foundation_content:
