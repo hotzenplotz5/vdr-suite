@@ -816,7 +816,11 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
     int limit,
     int offset) const
 {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    struct CachedRecordingRow
+    {
+        VdrRecording recording;
+        std::string metadataPayload;
+    };
 
     const std::string normalizedBackendId =
         normalizeBackendId(backendId);
@@ -824,8 +828,67 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
     const std::string normalizedFolderPath =
         normalizeFolderPath(folderPath);
 
-    VdrRecordingCacheStatus status =
-        statusForBackend(normalizedBackendId);
+    VdrRecordingCacheStatus status;
+    std::vector<CachedRecordingRow> cachedRows;
+
+    /*
+     * Keep the SQLite and repository lock boundary as small as possible.
+     *
+     * Folder navigation only needs path and title information for most
+     * cached recordings. Decoding every metadata payload while holding
+     * mutex_ causes unrelated folder and artwork requests to serialize
+     * behind a full-catalog metadata scan.
+     */
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+        status = statusForBackend(normalizedBackendId);
+
+        sqlite3_stmt* stmt = nullptr;
+
+        const char* sql =
+            "SELECT recording_id, backend_id, backend_native_id, "
+            "title, path, start_time, duration_seconds, size_mb, "
+            "metadata_payload "
+            "FROM vdr_recording_cache "
+            "WHERE backend_id = ? "
+            "ORDER BY title COLLATE NOCASE ASC, "
+            "path COLLATE NOCASE ASC;";
+
+        if (sqlite3_prepare_v2(
+                database_.handle(),
+                sql,
+                -1,
+                &stmt,
+                nullptr) == SQLITE_OK)
+        {
+            bindText(stmt, 1, normalizedBackendId);
+
+            while (sqlite3_step(stmt) == SQLITE_ROW)
+            {
+                CachedRecordingRow row;
+
+                row.recording.id = columnText(stmt, 0);
+                row.recording.backendId = columnText(stmt, 1);
+                row.recording.backendNativeId = columnText(stmt, 2);
+                row.recording.title = columnText(stmt, 3);
+                row.recording.path = columnText(stmt, 4);
+                row.recording.startTime = columnText(stmt, 5);
+                row.recording.durationSeconds =
+                    sqlite3_column_int(stmt, 6);
+                row.recording.sizeMb =
+                    sqlite3_column_int64(stmt, 7);
+                row.metadataPayload = columnText(stmt, 8);
+
+                cachedRows.push_back(std::move(row));
+            }
+        }
+
+        if (stmt != nullptr)
+        {
+            sqlite3_finalize(stmt);
+        }
+    }
 
     VdrRecordingFolderPage page;
     page.backendId = normalizedBackendId;
@@ -837,17 +900,33 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
     page.limit = limit <= 0 ? 50 : std::min(limit, 200);
     page.offset = std::max(0, offset);
 
-    const std::vector<VdrRecording> allRecordings =
-        uniqueRecordingsByNormalizedPath(
-            findAllForBackend(normalizedBackendId));
+    /*
+     * Deduplicate without decoding provider metadata. The normalized
+     * recording identity only depends on path, native ID, ID and title.
+     */
+    std::map<std::string, CachedRecordingRow> uniqueRows;
+
+    for (CachedRecordingRow& row : cachedRows)
+    {
+        const std::string key =
+            recordingDeduplicationKey(row.recording);
+
+        if (uniqueRows.find(key) == uniqueRows.end())
+        {
+            uniqueRows.emplace(
+                key,
+                std::move(row));
+        }
+    }
 
     std::map<std::string, int> folderCounts;
-    std::vector<VdrRecording> directRecordings;
+    std::vector<CachedRecordingRow> directRows;
 
-    for (const VdrRecording& recording : allRecordings)
+    for (auto& entry : uniqueRows)
     {
+        CachedRecordingRow& row = entry.second;
         const std::string recordingFolder =
-            folderPathForRecording(recording);
+            folderPathForRecording(row.recording);
 
         std::string remaining;
 
@@ -857,7 +936,7 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
         }
         else if (recordingFolder == normalizedFolderPath)
         {
-            directRecordings.push_back(recording);
+            directRows.push_back(std::move(row));
             continue;
         }
         else
@@ -870,12 +949,13 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
                 continue;
             }
 
-            remaining = recordingFolder.substr(prefix.size());
+            remaining =
+                recordingFolder.substr(prefix.size());
         }
 
         if (remaining.empty())
         {
-            directRecordings.push_back(recording);
+            directRows.push_back(std::move(row));
             continue;
         }
 
@@ -909,24 +989,27 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
         });
 
     std::sort(
-        directRecordings.begin(),
-        directRecordings.end(),
-        [](const VdrRecording& left,
-           const VdrRecording& right)
+        directRows.begin(),
+        directRows.end(),
+        [](const CachedRecordingRow& left,
+           const CachedRecordingRow& right)
         {
-            if (left.title != right.title)
+            if (left.recording.title !=
+                right.recording.title)
             {
-                return left.title < right.title;
+                return left.recording.title <
+                    right.recording.title;
             }
 
-            return left.path < right.path;
+            return left.recording.path <
+                right.recording.path;
         });
 
     page.folderCount =
         static_cast<int>(page.folders.size());
 
     page.recordingCount =
-        static_cast<int>(directRecordings.size());
+        static_cast<int>(directRows.size());
 
     const int end =
         std::min(
@@ -935,11 +1018,25 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
 
     if (page.offset < page.recordingCount)
     {
-        for (int index = page.offset; index < end; ++index)
+        for (int index = page.offset;
+             index < end;
+             ++index)
         {
+            CachedRecordingRow& row =
+                directRows.at(
+                    static_cast<std::size_t>(index));
+
+            /*
+             * Decode metadata only for recordings included in this
+             * response page. A folder-only response therefore performs
+             * no provider metadata decoding at all.
+             */
+            row.recording.metadata =
+                VdrRecordingMetadataCacheCodec::decode(
+                    row.metadataPayload);
+
             page.recordings.push_back(
-                directRecordings.at(
-                    static_cast<std::size_t>(index)));
+                std::move(row.recording));
         }
     }
 

@@ -141,7 +141,13 @@ int main()
 
     assert(!policyDenied.guardPassed);
     assert(!policyDenied.invocationAttempted);
-    assert(policyDenied.dispatchStage == "real-execution-policy-denied");
+    assert(
+        policyDenied.dispatchStage ==
+        "real-execution-enable-switch-required");
+    assert(
+        policyDenied.message ==
+        "production real execution enable switch is required");
+    assert(!policyDenied.errors.empty());
     assert(executor.callCount() == 0);
 
     const auto ready =

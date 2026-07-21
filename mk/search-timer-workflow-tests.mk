@@ -3,6 +3,9 @@ test-search-timer-workflow-real-execution-policy:
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWritePermissionGate.cpp \
 		core/vdr/src/SearchTimerWorkflowProductionPolicyGate.cpp \
 		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
@@ -15,6 +18,9 @@ test-search-timer-workflow-controlled-invocation-audit-trail:
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWritePermissionGate.cpp \
 		core/vdr/src/SearchTimerWorkflowProductionPolicyGate.cpp \
 		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
@@ -34,6 +40,9 @@ test-search-timer-workflow-controlled-test-executor-invocation:
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWritePermissionGate.cpp \
 		core/vdr/src/SearchTimerWorkflowProductionPolicyGate.cpp \
 		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
@@ -69,6 +78,9 @@ test-search-timer-workflow-guarded-executor-invocation:
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWritePermissionGate.cpp \
 		core/vdr/src/SearchTimerWorkflowProductionPolicyGate.cpp \
 		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \

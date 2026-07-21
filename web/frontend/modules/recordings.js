@@ -604,6 +604,173 @@ function recordingBrowserIsSingleRecordingLeaf(folderData) {
     recordingCount === 1;
 }
 
+function recordingBrowserObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value
+    : {};
+}
+
+function recordingBrowserRecordingMetadata(recording) {
+  return recordingBrowserObject(
+    recordingBrowserObject(recording).metadata
+  );
+}
+
+function recordingBrowserRecordingPresentation(recording) {
+  return recordingBrowserObject(
+    recordingBrowserRecordingMetadata(recording).presentation
+  );
+}
+
+function recordingBrowserRecordingProvider(recording) {
+  return recordingBrowserObject(
+    recordingBrowserRecordingMetadata(recording).provider
+  );
+}
+
+function recordingBrowserMetadataTitle(recording, folderData) {
+  const presentation =
+    recordingBrowserRecordingPresentation(recording);
+
+  return String(
+    recordingBrowserFirstValue(
+      presentation,
+      ['title'],
+      recordingBrowserLocalRecordingTitle(recording, folderData)
+    )
+  ).trim() || 'Aufnahme';
+}
+
+function recordingBrowserAppendMetadataText(
+  container,
+  className,
+  text
+) {
+  const value = String(text || '').trim();
+
+  if (value === '') {
+    return null;
+  }
+
+  const element = recordingBrowserAddText(
+    document.createElement('p'),
+    value
+  );
+
+  element.className = className;
+  container.appendChild(element);
+  return element;
+}
+
+function recordingBrowserAppendRecordingMetadata(
+  container,
+  recording
+) {
+  const presentation =
+    recordingBrowserRecordingPresentation(recording);
+  const provider =
+    recordingBrowserRecordingProvider(recording);
+
+  recordingBrowserAppendMetadataText(
+    container,
+    'recording-metadata-subtitle',
+    presentation.subtitle
+  );
+
+  recordingBrowserAppendMetadataText(
+    container,
+    'recording-metadata-summary',
+    presentation.summary
+  );
+
+  const facts = [];
+
+  const contentKind = String(
+    recordingBrowserFirstValue(
+      provider,
+      ['contentKind'],
+      recordingBrowserFirstValue(
+        presentation,
+        ['contentKind'],
+        ''
+      )
+    )
+  ).trim();
+
+  if (contentKind !== '' && contentKind !== 'unknown') {
+    facts.push('Typ: ' + contentKind);
+  }
+
+  const seasonEpisode = String(
+    recordingBrowserFirstValue(
+      presentation,
+      ['seasonEpisode'],
+      ''
+    )
+  ).trim();
+
+  if (seasonEpisode !== '') {
+    facts.push('Episode: ' + seasonEpisode);
+  }
+
+  const genre = String(
+    recordingBrowserFirstValue(
+      provider,
+      ['genreText'],
+      ''
+    )
+  ).trim();
+
+  if (genre !== '') {
+    facts.push('Genre: ' + genre);
+  }
+
+  const releaseDate = String(
+    recordingBrowserFirstValue(
+      provider,
+      ['releaseDate'],
+      ''
+    )
+  ).trim();
+
+  if (releaseDate !== '') {
+    facts.push('Veröffentlichung: ' + releaseDate);
+  }
+
+  const rating = Number(
+    recordingBrowserFirstValue(
+      provider,
+      ['rating'],
+      0
+    )
+  );
+
+  if (Number.isFinite(rating) && rating > 0) {
+    facts.push('Bewertung: ' + rating.toFixed(1));
+  }
+
+  if (facts.length === 0) {
+    return;
+  }
+
+  const details = document.createElement('details');
+  details.className = 'recording-metadata-details';
+
+  details.appendChild(recordingBrowserAddText(
+    document.createElement('summary'),
+    'Inhaltsdetails anzeigen'
+  ));
+
+  facts.forEach(fact => {
+    details.appendChild(recordingBrowserAddText(
+      document.createElement('p'),
+      fact
+    ));
+  });
+
+  container.appendChild(details);
+}
+
 function recordingBrowserLoadServerFolder(path, offset) {
   if (!recordingBrowserFolderLoader) {
     return;
@@ -790,8 +957,18 @@ function recordingBrowserOpenServerFolder(path, parentFolderData) {
       const folderData = data && typeof data === 'object' ? data : {};
 
       if (recordingBrowserIsSingleRecordingLeaf(folderData)) {
-        const recordings = recordingBrowserListFromResponse(folderData, 'recordings');
-        renderServerRecordingDetail(recordings[0], parentFolderData || folderData);
+        const recordings = recordingBrowserListFromResponse(
+          folderData,
+          'recordings'
+        );
+
+        renderServerRecordingDetail(
+          recordings[0],
+          folderData,
+          {
+            backFolderData: parentFolderData || folderData
+          }
+        );
         return;
       }
 
@@ -3195,6 +3372,9 @@ function renderServerRecordingDetail(recording, folderData, options) {
   const trashAccepted = detailOptions.trashAccepted === true;
   const trashTimedOut = detailOptions.trashTimedOut === true;
   const trashError = String(detailOptions.trashError || '').trim();
+  const backFolderData = recordingBrowserObject(
+    detailOptions.backFolderData || folderData
+  );
 
   const list = document.createElement('section');
   list.className = 'list recording-detail-list';
@@ -3202,14 +3382,22 @@ function renderServerRecordingDetail(recording, folderData, options) {
   const item = document.createElement('article');
   item.className = 'module-placeholder recording-detail';
 
-  const title = recordingBrowserLocalRecordingTitle(recording, folderData);
+  const title = recordingBrowserMetadataTitle(recording, folderData);
   const recordingId = recordingBrowserFirstValue(recording, ['recordingId', 'id', 'nativeId'], '-');
   const path = recordingBrowserFirstValue(recording, ['path', 'fileName', 'directory'], '-');
   const startTime = recordingBrowserFormatRecordingStart(recordingBrowserFirstValue(recording, ['startTime', 'start', 'date'], '-'));
   const duration = recordingBrowserFormatDurationSeconds(recordingBrowserFirstValue(recording, ['durationSeconds', 'duration'], 0));
   const size = recordingBrowserFormatSizeMb(recordingBrowserFirstValue(recording, ['sizeMb', 'sizeMB', 'size'], 0));
 
-  item.appendChild(recordingBrowserAddText(document.createElement('h3'), String(title)));
+  item.appendChild(recordingBrowserAddText(
+    document.createElement('h3'),
+    String(title)
+  ));
+
+  recordingBrowserAppendRecordingMetadata(
+    item,
+    recording
+  );
 
   if (renamePending) {
     const pendingMessage = renameAccepted
@@ -3413,9 +3601,9 @@ function renderServerRecordingDetail(recording, folderData, options) {
     backButton.textContent = 'Ordnerabgleich läuft …';
     backButton.disabled = true;
   } else {
-    const detailFolderPath = folderData && typeof folderData === 'object'
-      ? String(folderData.path || '')
-      : '';
+    const detailFolderPath = String(
+      backFolderData.path || ''
+    );
     backButton.textContent = movePending || trashPending
       ? recordingBrowserTranslate(
           'recordings.move.backToRecordings',
@@ -3428,7 +3616,7 @@ function renderServerRecordingDetail(recording, folderData, options) {
         return;
       }
 
-      renderServerRecordingFolder(folderData);
+      renderServerRecordingFolder(backFolderData);
     });
   }
 

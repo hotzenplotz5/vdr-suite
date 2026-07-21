@@ -16,6 +16,9 @@ test-search-timer-controller:
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWritePermissionGate.cpp \
 		core/vdr/src/SearchTimerWorkflowProductionPolicyGate.cpp \
 		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
@@ -146,6 +149,9 @@ test-search-timer-workflow-end-to-end-verified-execution:
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWritePermissionGate.cpp \
 		core/vdr/src/SearchTimerWorkflowProductionPolicyGate.cpp \
 		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
@@ -166,6 +172,9 @@ test-search-timer-workflow-command-dispatch-service:
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWritePermissionGate.cpp \
 		core/vdr/src/SearchTimerWorkflowProductionPolicyGate.cpp \
 		core/vdr/src/SearchTimerWorkflowRealExecutionPolicy.cpp \
@@ -238,6 +247,9 @@ test-search-timer-workflow-real-execution-readiness-review:
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWritePermissionGate.cpp \
 		core/vdr/src/SearchTimerWorkflowProductionPolicyGate.cpp \
 		core/vdr/src/SearchTimerWorkflowRealExecutionReadinessReview.cpp \
@@ -250,6 +262,9 @@ test-search-timer-workflow-real-execution-readiness-review-json-serializer:
 		core/vdr/src/SearchTimerWorkflowValidationService.cpp \
 		core/vdr/src/SearchTimerWorkflowPlanningService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWriteAllowlist.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
 		core/vdr/src/SearchTimerWorkflowBackendWritePermissionGate.cpp \
 		core/vdr/src/SearchTimerWorkflowProductionPolicyGate.cpp \
 		core/vdr/src/SearchTimerWorkflowRealExecutionReadinessReview.cpp \

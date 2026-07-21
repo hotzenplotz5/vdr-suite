@@ -1,6 +1,7 @@
 #include "SearchTimerWorkflowCommandDispatchService.h"
 
 #include "SearchTimerWorkflowPlanningService.h"
+#include "ISearchTimerDataSource.h"
 
 #include <cassert>
 #include <iostream>
@@ -70,6 +71,34 @@ private:
     int deleteCalls_ = 0;
 };
 
+class AuditTrailSearchTimerReadbackDataSource
+    : public ISearchTimerDataSource
+{
+public:
+    SearchTimerResult list(
+        const SearchTimerQuery& query) const override
+    {
+        (void)query;
+
+        std::vector<SearchTimer> items;
+
+        items.push_back(
+            SearchTimer::create(
+                SearchTimerId::fromBackendNativeId(
+                    "audit-vdr",
+                    "audit-created-1"),
+                "Terra X Audit",
+                "Terra X",
+                SearchTimerState::Active));
+
+        return SearchTimerResult::from(
+            items,
+            static_cast<int>(items.size()),
+            100,
+            0);
+    }
+};
+
 bool hasAuditEntry(
     const std::vector<std::string>& auditTrail,
     const std::string& expected)
@@ -90,6 +119,7 @@ int main()
     SearchTimerWorkflowPlanningService planningService;
     SearchTimerWorkflowCommandDispatchService dispatchService;
     AuditTrailSearchTimerCommandExecutor executor;
+    AuditTrailSearchTimerReadbackDataSource readbackDataSource;
 
     const SearchTimerWorkflowExecutionPlan createPlan =
         planningService.plan(
@@ -102,15 +132,18 @@ int main()
     const SearchTimerWorkflowExecutionResult createResult =
         dispatchService.dispatchPlan(
             createPlan,
-            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocation(
+            SearchTimerWorkflowCommandDispatchOptions::confirmedWithControlledTestExecutorInvocationAndReadbackDataSource(
                 true,
-                &executor));
+                &executor,
+                &readbackDataSource));
 
     assert(createResult.success);
     assert(createResult.executed);
     assert(createResult.executorInvocationAttempted);
     assert(createResult.executorResultMapped);
     assert(createResult.executorResultSuccessful);
+    assert(createResult.backendReadbackVerificationAttached);
+    assert(createResult.backendReadbackVerified());
     assert(!createResult.executorInvocationAuditTrail.empty());
     assert(hasAuditEntry(
         createResult.executorInvocationAuditTrail,
@@ -160,6 +193,12 @@ int main()
     assert(hasAuditEntry(
         createResult.executorInvocationAuditTrail,
         "executorResultSuccessful=true"));
+    assert(hasAuditEntry(
+        createResult.executorInvocationAuditTrail,
+        "backendReadbackVerificationAttached=true"));
+    assert(hasAuditEntry(
+        createResult.executorInvocationAuditTrail,
+        "backendReadbackVerified=true"));
     assert(hasAuditEntry(
         createResult.executorInvocationAuditTrail,
         "finalDispatchStage=executor-result-mapped"));

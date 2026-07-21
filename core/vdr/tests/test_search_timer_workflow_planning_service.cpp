@@ -93,8 +93,9 @@ int main()
     assert(deletePlan.valid());
     assert(deletePlan.hasExecutionWork());
     assert(deletePlan.primaryStep() == SearchTimerWorkflowExecutionStep::Delete);
-    assert(!deletePlan.hasFollowUpStep());
-    assert(!deletePlan.requiresBackendReadback());
+    assert(deletePlan.followUpStep() == SearchTimerWorkflowExecutionStep::Readback);
+    assert(deletePlan.hasFollowUpStep());
+    assert(deletePlan.requiresBackendReadback());
     assert(deletePlan.requiresExplicitOperatorConfirmation());
     assert(deletePlan.writeOperation());
     assert(!deletePlan.readOnly());

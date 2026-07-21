@@ -88,7 +88,14 @@ int main()
     assert(series.statusCode == 200);
     assert(contains(series.body, "\"Show\""));
     assert(contains(series.body, "\"parentPath\":\"\""));
-    assert(contains(series.body, "\"metadata\":{"));
+
+    const ApiResponse show =
+        controller.getFolder("default", "Series/Show", 20, 0);
+
+    assert(show.statusCode == 200);
+    assert(contains(show.body, "\"Series Episode\""));
+    assert(contains(show.body, "\"parentPath\":\"Series\""));
+    assert(contains(show.body, "\"metadata\":{"));
 
     std::cout
         << "test_vdr_recording_folder_controller passed"
