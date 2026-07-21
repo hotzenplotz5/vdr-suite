@@ -31,12 +31,19 @@ SuiteBridgeMetadataCommandReply SuiteBridgeSvdrpTransport::requestMetadata(
         return metadataReply;
     }
 
+    if (metadataReplyCache_.find(channelId, eventId, metadataReply))
+    {
+        return metadataReply;
+    }
+
     const SuiteBridgeCommandReply reply = executeRequest(
         "PLUG suitebridge META " + channelId + " " + eventId + "\r\n");
     metadataReply.replyCode = reply.replyCode;
     metadataReply.payload = reply.payload;
     metadataReply.transportSucceeded =
         reply.transportSucceeded() && reply.replyCode == 250;
+
+    metadataReplyCache_.store(channelId, eventId, metadataReply);
     return metadataReply;
 }
 
