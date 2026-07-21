@@ -6,20 +6,29 @@
 #include <cerrno>
 #include <cctype>
 #include <chrono>
+#include <condition_variable>
+#include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <iostream>
+#include <memory>
+#include <mutex>
 #include <netdb.h>
 #include <sstream>
 #include <string>
-#include <cstdlib>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <thread>
 #include <unistd.h>
 #include <utility>
+#include <vector>
 
 namespace {
 
 constexpr auto DEFAULT_CLIENT_IO_TIMEOUT = std::chrono::seconds(5);
+constexpr std::size_t DEFAULT_BULK_WRITER_COUNT = 4;
+constexpr std::size_t DEFAULT_MAXIMUM_QUEUED_BULK_RESPONSES = 32;
+constexpr std::size_t LARGE_RESPONSE_THRESHOLD_BYTES = 512 * 1024;
 
 timeval socketTimeoutValue(std::chrono::milliseconds timeout)
 {
@@ -91,6 +100,14 @@ std::string lowerAscii(const std::string& value)
     return lowered;
 }
 
+bool startsWith(
+    const std::string& value,
+    const std::string& prefix)
+{
+    return value.size() >= prefix.size() &&
+        value.compare(0, prefix.size(), prefix) == 0;
+}
+
 bool hasHeader(
     const HttpServerResponse& response,
     const std::string& headerName)
@@ -104,6 +121,36 @@ bool hasHeader(
     }
 
     return false;
+}
+
+std::string headerValue(
+    const HttpServerResponse& response,
+    const std::string& headerName)
+{
+    const std::string wanted = lowerAscii(headerName);
+
+    for (const auto& header : response.headers) {
+        if (lowerAscii(header.first) == wanted) {
+            return header.second;
+        }
+    }
+
+    return {};
+}
+
+bool isBulkResponse(const HttpServerResponse& response)
+{
+    const std::string contentType =
+        lowerAscii(headerValue(response, "Content-Type"));
+
+    if (startsWith(contentType, "image/") ||
+        startsWith(contentType, "audio/") ||
+        startsWith(contentType, "video/") ||
+        startsWith(contentType, "application/octet-stream")) {
+        return true;
+    }
+
+    return response.body.size() >= LARGE_RESPONSE_THRESHOLD_BYTES;
 }
 
 std::string serializedHeaderValue(
@@ -296,6 +343,100 @@ void writeAll(int socketFd, const std::string& data)
 
 } // namespace
 
+class SimpleHttpListenerResponseWriter
+{
+public:
+    SimpleHttpListenerResponseWriter(
+        std::size_t workerCount,
+        std::size_t maximumQueuedResponses)
+        : maximumQueuedResponses_(maximumQueuedResponses)
+    {
+        workers_.reserve(workerCount);
+
+        for (std::size_t index = 0; index < workerCount; ++index) {
+            workers_.emplace_back(
+                &SimpleHttpListenerResponseWriter::workerLoop,
+                this);
+        }
+    }
+
+    ~SimpleHttpListenerResponseWriter()
+    {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            stopRequested_ = true;
+        }
+
+        workAvailable_.notify_all();
+
+        for (std::thread& worker : workers_) {
+            if (worker.joinable()) {
+                worker.join();
+            }
+        }
+    }
+
+    bool enqueue(
+        int socketFd,
+        std::string&& rawResponse)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (stopRequested_ ||
+            queue_.size() >= maximumQueuedResponses_) {
+            return false;
+        }
+
+        PendingResponse pending;
+        pending.socketFd = socketFd;
+        pending.rawResponse = std::move(rawResponse);
+        queue_.push_back(std::move(pending));
+        workAvailable_.notify_one();
+        return true;
+    }
+
+private:
+    struct PendingResponse
+    {
+        int socketFd = -1;
+        std::string rawResponse;
+    };
+
+    const std::size_t maximumQueuedResponses_;
+    std::mutex mutex_;
+    std::condition_variable workAvailable_;
+    std::deque<PendingResponse> queue_;
+    std::vector<std::thread> workers_;
+    bool stopRequested_ = false;
+
+    void workerLoop()
+    {
+        while (true) {
+            PendingResponse pending;
+
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                workAvailable_.wait(lock, [this]() {
+                    return stopRequested_ || !queue_.empty();
+                });
+
+                if (queue_.empty()) {
+                    if (stopRequested_) {
+                        return;
+                    }
+                    continue;
+                }
+
+                pending = std::move(queue_.front());
+                queue_.pop_front();
+            }
+
+            writeAll(pending.socketFd, pending.rawResponse);
+            close(pending.socketFd);
+        }
+    }
+};
+
 SimpleHttpListener::SimpleHttpListener(
     std::string host,
     int port,
@@ -351,9 +492,15 @@ SimpleHttpListener::SimpleHttpListener(
       server_(server),
       shouldStop_(std::move(shouldStop)),
       onTick_(std::move(onTick)),
-      clientIoTimeout_(clientIoTimeout)
+      clientIoTimeout_(clientIoTimeout),
+      responseWriter_(
+          std::make_unique<SimpleHttpListenerResponseWriter>(
+              DEFAULT_BULK_WRITER_COUNT,
+              DEFAULT_MAXIMUM_QUEUED_BULK_RESPONSES))
 {
 }
+
+SimpleHttpListener::~SimpleHttpListener() = default;
 
 int SimpleHttpListener::runUntilStopped()
 {
@@ -428,7 +575,27 @@ int SimpleHttpListener::runUntilStopped()
         configureClientSocketTimeouts(
             clientSocket,
             clientIoTimeout_);
-        handleClient(clientSocket);
+
+        std::string rawResponse;
+        bool bulkResponse = false;
+
+        if (!prepareClientResponse(
+                clientSocket,
+                rawResponse,
+                bulkResponse)) {
+            close(clientSocket);
+            continue;
+        }
+
+        if (bulkResponse &&
+            responseWriter_ &&
+            responseWriter_->enqueue(
+                clientSocket,
+                std::move(rawResponse))) {
+            continue;
+        }
+
+        writeAll(clientSocket, rawResponse);
         close(clientSocket);
     }
 
@@ -513,7 +680,10 @@ int SimpleHttpListener::createListeningSocket() const
     return listenSocket;
 }
 
-void SimpleHttpListener::handleClient(int clientSocket) const
+bool SimpleHttpListener::prepareClientResponse(
+    int clientSocket,
+    std::string& rawResponse,
+    bool& bulkResponse) const
 {
     std::string rawRequest;
     char buffer[4096];
@@ -526,7 +696,7 @@ void SimpleHttpListener::handleClient(int clientSocket) const
             0);
 
         if (received <= 0) {
-            return;
+            return false;
         }
 
         rawRequest.append(buffer, static_cast<std::size_t>(received));
@@ -544,7 +714,7 @@ void SimpleHttpListener::handleClient(int clientSocket) const
             0);
 
         if (received <= 0) {
-            return;
+            return false;
         }
 
         rawRequest.append(buffer, static_cast<std::size_t>(received));
@@ -552,7 +722,7 @@ void SimpleHttpListener::handleClient(int clientSocket) const
     }
 
     const HttpServerResponse response = server_.handleRequest(request);
-    const std::string rawResponse = serializeResponse(response);
-
-    writeAll(clientSocket, rawResponse);
+    bulkResponse = isBulkResponse(response);
+    rawResponse = serializeResponse(response);
+    return true;
 }
