@@ -1,7 +1,6 @@
 #pragma once
 
 #include "EpgEventRepository.h"
-#include "IEpgPersonEnrichmentService.h"
 #include "VdrEvent.h"
 #include "VdrEventQuery.h"
 #include "VdrService.h"
@@ -26,12 +25,6 @@ struct EpgCacheRefreshResult
     std::size_t artworkDeduplicated = 0;
     std::size_t artworkSuppressed = 0;
     std::size_t artworkDropped = 0;
-    bool personEnrichmentAvailable = false;
-    bool personQueueAvailable = true;
-    std::size_t personQueued = 0;
-    std::size_t personDeduplicated = 0;
-    std::size_t personSuppressed = 0;
-    std::size_t personDropped = 0;
 };
 
 struct EpgCacheStatus
@@ -57,8 +50,7 @@ public:
     EpgCacheService(
         EpgEventRepository& repository,
         VdrService& vdrService,
-        EpgArtworkEnrichmentService* artworkEnrichmentService = nullptr,
-        IEpgPersonEnrichmentService* personEnrichmentService = nullptr);
+        EpgArtworkEnrichmentService* artworkEnrichmentService = nullptr);
 
     EpgCacheRefreshResult refreshBackendWindow(
         const std::string& backendId,
@@ -107,7 +99,6 @@ private:
     EpgEventRepository& repository_;
     VdrService& vdrService_;
     EpgArtworkEnrichmentService* artworkEnrichmentService_;
-    IEpgPersonEnrichmentService* personEnrichmentService_;
     mutable std::mutex statusMutex_;
     std::unordered_map<std::string, RefreshMetadata> refreshMetadataByBackend_;
 
