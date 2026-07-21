@@ -2,15 +2,18 @@
 
 #include "DashboardController.h"
 #include "EpgArtworkController.h"
+#include "EpgArtworkRepository.h"
+#include "EpgPersonIndexRepository.h"
 #include "EpgScraperMetadataPublicJsonSerializer.h"
 #include "EpgScraperMetadataResolverRegistry.h"
 #include "VdrEventQuery.h"
 
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
 class EpgArtworkPublicJsonSerializer;
-class EpgArtworkRepository;
 class EpgCacheService;
 class EpgCacheServiceRegistry;
 
@@ -75,6 +78,11 @@ public:
         response.contentType = "application/json";
         response.body = "{\"error\":\"epg scraper metadata image unavailable\"}";
         return response;
+    }
+
+    virtual EpgPersonIndexRepository* personIndexRepository() const
+    {
+        return nullptr;
     }
 };
 
@@ -151,6 +159,28 @@ public:
         const std::string& kind,
         int index) const override;
 
+    EpgPersonIndexRepository* personIndexRepository() const override
+    {
+        if (artworkRepository_ == nullptr)
+        {
+            return nullptr;
+        }
+
+        std::lock_guard<std::mutex> lock(personIndexMutex_);
+        if (!personIndexRepository_)
+        {
+            auto repository = std::make_unique<EpgPersonIndexRepository>(
+                artworkRepository_->database());
+            if (!repository->ensureSchema())
+            {
+                return nullptr;
+            }
+            personIndexRepository_ = std::move(repository);
+        }
+
+        return personIndexRepository_.get();
+    }
+
 private:
     EpgCacheService* directService_;
     EpgCacheServiceRegistry* registry_;
@@ -159,6 +189,8 @@ private:
     EpgScraperMetadataResolverRegistry scraperMetadataResolverRegistry_;
     EpgScraperMetadataPublicJsonSerializer scraperMetadataJsonSerializer_;
     std::vector<std::string> scraperMetadataAllowedRoots_;
+    mutable std::mutex personIndexMutex_;
+    mutable std::unique_ptr<EpgPersonIndexRepository> personIndexRepository_;
 
     EpgCacheService* findService(
         const std::string& backendId) const;
