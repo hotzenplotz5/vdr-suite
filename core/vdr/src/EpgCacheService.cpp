@@ -1,7 +1,6 @@
 #include "EpgCacheService.h"
 
 #include "EpgArtworkEnrichmentService.h"
-#include "EpgPersonEnrichmentService.h"
 
 #include <chrono>
 
@@ -24,12 +23,10 @@ long long elapsedMilliseconds(
 EpgCacheService::EpgCacheService(
     EpgEventRepository& repository,
     VdrService& vdrService,
-    EpgArtworkEnrichmentService* artworkEnrichmentService,
-    EpgPersonEnrichmentService* personEnrichmentService)
+    EpgArtworkEnrichmentService* artworkEnrichmentService)
     : repository_(repository),
       vdrService_(vdrService),
-      artworkEnrichmentService_(artworkEnrichmentService),
-      personEnrichmentService_(personEnrichmentService)
+      artworkEnrichmentService_(artworkEnrichmentService)
 {
 }
 
@@ -45,7 +42,6 @@ EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
     EpgCacheRefreshResult result;
     result.accepted = isBoundedRefreshQuery(query);
     result.artworkEnrichmentAvailable = artworkEnrichmentService_ != nullptr;
-    result.personEnrichmentAvailable = personEnrichmentService_ != nullptr;
 
     if (!result.accepted)
     {
@@ -76,17 +72,6 @@ EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
         result.artworkDeduplicated = artworkResult.deduplicated;
         result.artworkSuppressed = artworkResult.suppressed;
         result.artworkDropped = artworkResult.dropped;
-    }
-
-    if (result.stored && personEnrichmentService_ != nullptr)
-    {
-        const EpgPersonEnrichmentResult personResult =
-            personEnrichmentService_->enrich(normalizedBackendId, events);
-        result.personQueueAvailable = personResult.queueAvailable;
-        result.personQueued = personResult.queued;
-        result.personDeduplicated = personResult.deduplicated;
-        result.personSuppressed = personResult.suppressed;
-        result.personDropped = personResult.dropped;
     }
 
     updateStatusForBackend(
