@@ -37,6 +37,7 @@ test-runtime-config:
 test-epg-cache-service:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(EPG_PERSON_INDEX_SRC) \
 		core/vdr/src/EpgEventRepository.cpp \
 		core/vdr/src/EpgArtworkRepository.cpp \
 		core/vdr/src/EpgArtworkEnrichmentService.cpp \
@@ -51,6 +52,7 @@ test-epg-cache-service:
 test-epg-cache-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(EPG_PERSON_INDEX_SRC) \
 		core/vdr/src/EpgEventRepository.cpp \
 		core/vdr/src/EpgArtworkRepository.cpp \
 		core/vdr/src/EpgArtworkPublicJsonSerializer.cpp \
