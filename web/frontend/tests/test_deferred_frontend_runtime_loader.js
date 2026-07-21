@@ -19,6 +19,7 @@ assert.ok(!source.includes("script.src = src + '?runtime='"));
 assert.ok(source.includes('window.VdrSuiteEpgSearchTimerActions'));
 assert.ok(source.includes('window.VdrSuiteEpgMetadataDetail'));
 assert.ok(source.includes('window.VdrSuiteEpgMetadataDetailHook'));
+assert.ok(source.includes('window.VdrSuiteEpgDetailDesktopFocus'));
 assert.ok(source.includes('window.VdrSuiteRecordingTrashUx'));
 assert.ok(source.includes('window.VdrSuiteDeferredFrontendRuntimes'));
 assert.ok(source.includes('start: startVdrSuiteDeferredFrontendRuntimes'));
@@ -27,6 +28,7 @@ assert.ok(source.includes('startVdrSuiteDeferredFrontendRuntimes,\n      {once: 
 assert.ok(source.includes('} else {\n    startVdrSuiteDeferredFrontendRuntimes();'));
 assert.ok(!source.includes("'/frontend/epg-metadata-detail.js'"));
 assert.ok(!source.includes("'/frontend/epg-metadata-detail-hook.js'"));
+assert.ok(!source.includes("'/frontend/epg-detail-desktop-focus.js'"));
 assert.ok(!source.includes("'/frontend/channel-day-program.js'"));
 assert.ok(!source.includes("'/frontend/channel-day-program-compat.js'"));
 
