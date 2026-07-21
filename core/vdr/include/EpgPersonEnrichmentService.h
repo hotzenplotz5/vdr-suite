@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EpgPersonIndexRepository.h"
+#include "IEpgPersonEnrichmentService.h"
 #include "IEpgScraperMetadataResolver.h"
 
 #include <chrono>
@@ -14,16 +15,8 @@
 #include <unordered_set>
 #include <vector>
 
-struct EpgPersonEnrichmentResult
-{
-    std::size_t queued = 0;
-    std::size_t deduplicated = 0;
-    std::size_t suppressed = 0;
-    std::size_t dropped = 0;
-    bool queueAvailable = true;
-};
-
-class EpgPersonEnrichmentService
+class EpgPersonEnrichmentService final :
+    public IEpgPersonEnrichmentService
 {
 public:
     EpgPersonEnrichmentService(
@@ -33,7 +26,7 @@ public:
         std::chrono::milliseconds notFoundTtl = std::chrono::hours(6),
         std::chrono::milliseconds retryBackoff = std::chrono::minutes(5));
 
-    ~EpgPersonEnrichmentService();
+    ~EpgPersonEnrichmentService() override;
 
     EpgPersonEnrichmentService(const EpgPersonEnrichmentService&) = delete;
     EpgPersonEnrichmentService& operator=(
@@ -41,7 +34,7 @@ public:
 
     EpgPersonEnrichmentResult enrich(
         const std::string& backendId,
-        const std::vector<VdrEvent>& events);
+        const std::vector<VdrEvent>& events) override;
 
     bool waitUntilIdle(std::chrono::milliseconds timeout);
 
