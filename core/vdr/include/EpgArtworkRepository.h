@@ -23,6 +23,11 @@ public:
         const std::string& channelId,
         const std::string& eventId);
 
+    Database& database() const
+    {
+        return database_;
+    }
+
 private:
     Database& database_;
     mutable std::mutex mutex_;
