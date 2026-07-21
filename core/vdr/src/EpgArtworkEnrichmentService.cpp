@@ -1,5 +1,7 @@
 #include "EpgArtworkEnrichmentService.h"
 
+#include "IEpgScraperMetadataResolverProvider.h"
+
 #include <chrono>
 
 namespace
@@ -26,6 +28,27 @@ EpgArtworkEnrichmentService::EpgArtworkEnrichmentService(
       retryBackoff_(retryBackoff),
       worker_(&EpgArtworkEnrichmentService::workerLoop, this)
 {
+    auto* provider = dynamic_cast<IEpgScraperMetadataResolverProvider*>(
+        &resolver_);
+    IEpgScraperMetadataResolver* metadataResolver =
+        provider == nullptr ? nullptr : provider->scraperMetadataResolver();
+
+    if (metadataResolver != nullptr)
+    {
+        auto personRepository = std::make_unique<EpgPersonIndexRepository>(
+            repository_.database());
+        if (personRepository->ensureSchema())
+        {
+            personEnrichmentService_ =
+                std::make_unique<EpgPersonEnrichmentService>(
+                    *personRepository,
+                    *metadataResolver,
+                    maximumQueuedEvents,
+                    notFoundTtl,
+                    retryBackoff);
+            personIndexRepository_ = std::move(personRepository);
+        }
+    }
 }
 
 EpgArtworkEnrichmentService::~EpgArtworkEnrichmentService()
@@ -50,6 +73,11 @@ EpgArtworkEnrichmentResult EpgArtworkEnrichmentService::enrich(
     const std::string& backendId,
     const std::vector<VdrEvent>& events)
 {
+    if (personEnrichmentService_ != nullptr)
+    {
+        personEnrichmentService_->enrich(backendId, events);
+    }
+
     EpgArtworkEnrichmentResult result;
     const std::string normalizedBackendId = normalizeBackendId(backendId);
 
@@ -111,10 +139,30 @@ EpgArtworkEnrichmentResult EpgArtworkEnrichmentService::enrich(
 bool EpgArtworkEnrichmentService::waitUntilIdle(
     std::chrono::milliseconds timeout)
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-    return idleChanged_.wait_for(lock, timeout, [this]() {
-        return queue_.empty() && !workerBusy_;
-    });
+    const Clock::time_point deadline = Clock::now() + timeout;
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (!idleChanged_.wait_until(lock, deadline, [this]() {
+                return queue_.empty() && !workerBusy_;
+            }))
+        {
+            return false;
+        }
+    }
+
+    if (personEnrichmentService_ == nullptr)
+    {
+        return true;
+    }
+
+    const Clock::time_point now = Clock::now();
+    if (now >= deadline)
+    {
+        return false;
+    }
+
+    return personEnrichmentService_->waitUntilIdle(
+        std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now));
 }
 
 void EpgArtworkEnrichmentService::workerLoop()
