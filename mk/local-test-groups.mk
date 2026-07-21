@@ -38,6 +38,11 @@ test-http-listener-image-head-of-line:
 	$(BUILD_DIR)/test_simple_http_listener_image_head_of_line
 
 
+test-ci-fast: test-http-listener-image-head-of-line
+
+test-vdr: test-http-listener-image-head-of-line
+
+
 test-real-vdr-acceptance-manifest:
 	python3 tools/real-vdr-acceptance/runner.py --validate-only
 
