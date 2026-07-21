@@ -12,9 +12,10 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = [
+      '.epg-metadata-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;max-width:100%;gap:.26rem;overflow:visible;margin:.12rem 0 .72rem;padding:.14rem;border-radius:.62rem;box-sizing:border-box}',
+      '.epg-metadata-tab{min-width:0;width:100%;padding:.42rem .28rem;border-radius:.48rem;font-size:.76rem;line-height:1.15;text-align:center;white-space:normal;overflow-wrap:anywhere}',
+      '@media(max-width:380px){.epg-metadata-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}',
       '@media(min-width:1100px){',
-      '.epg-metadata-tabs{width:max-content;max-width:100%;gap:.26rem;margin:.12rem 0 .72rem;padding:.14rem;border-radius:.62rem}',
-      '.epg-metadata-tab{padding:.4rem .56rem;border-radius:.48rem;font-size:.76rem}',
       '.epg-workbench{position:relative;isolation:isolate;overflow:visible}',
       '.epg-workbench-main{position:relative;z-index:2;transition:filter .18s ease}',
       '.epg-detail-sidebar{position:relative;z-index:3}',
