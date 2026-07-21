@@ -1,4 +1,5 @@
 VDR_SRC := \
+        $(METADATA_PLATFORM_SRC) \
         core/vdr/src/VdrConfig.cpp \
         core/vdr/src/BackendRegistry.cpp \
         core/vdr/src/BackendRegistryService.cpp \
@@ -22,6 +23,11 @@ VDR_SRC := \
         core/vdr/src/EpgScraperMetadataResolverRegistry.cpp \
         core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp \
         core/vdr/src/EpgScraperMetadataPublicJsonSerializer.cpp \
+        core/vdr/src/EpgPersonIndexRepository.cpp \
+        core/vdr/src/EpgPersonIndexRepositoryMaintenance.cpp \
+        core/vdr/src/EpgPersonEnrichmentService.cpp \
+        core/vdr/src/PersonContextService.cpp \
+        core/vdr/src/PersonContextJsonSerializer.cpp \
         core/vdr/src/EpgQueryService.cpp \
         core/vdr/src/EpgSearchMatcher.cpp \
         core/vdr/src/EpgSearchResultJsonSerializer.cpp \
