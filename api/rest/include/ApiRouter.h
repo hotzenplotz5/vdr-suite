@@ -3,6 +3,9 @@
 #include "DashboardController.h"
 #include "EpgCacheController.h"
 #include "PersonContextController.h"
+#include "PersonContextJsonSerializer.h"
+#include "PersonContextService.h"
+#include "RecordingPersonSearchService.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
 #include "VdrSnapshotReadService.h"
@@ -52,6 +55,11 @@ public:
         SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
     {
         searchTimerPreviewEpgCache_ = searchTimerPreviewEpgCache;
+    }
+
+    VdrSnapshotReadService& snapshotReadService() const
+    {
+        return snapshotReadService_;
     }
 
     std::vector<VdrRecording> getRecordings() const
@@ -140,12 +148,6 @@ public:
             searchTimerPreviewEpgCache);
     }
 
-    void setPersonContextController(
-        PersonContextController* personContextController)
-    {
-        personContextController_ = personContextController;
-    }
-
     ApiResponse getPersonContext(
         const std::string& name,
         const std::string& providerPersonId,
@@ -156,7 +158,11 @@ public:
         int limit,
         int offset) const
     {
-        if (personContextController_ == nullptr)
+        EpgPersonIndexRepository* repository =
+            epgCacheController_ == nullptr
+                ? nullptr
+                : epgCacheController_->personIndexRepository();
+        if (repository == nullptr)
         {
             ApiResponse response;
             response.statusCode = 503;
@@ -165,7 +171,14 @@ public:
             return response;
         }
 
-        return personContextController_->getContext(
+        RecordingPersonSearchService recordingSearchService;
+        PersonContextService contextService(
+            recordingSearchService,
+            *repository,
+            vdrSnapshotReadService_.snapshotReadService());
+        PersonContextJsonSerializer serializer;
+        PersonContextController controller(contextService, serializer);
+        return controller.getContext(
             name,
             providerPersonId,
             backendId,
@@ -232,5 +245,4 @@ private:
     EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController_;
     VdrChannelMoveController* vdrChannelMoveController_;
     VdrRecordingFolderController* vdrRecordingFolderController_;
-    PersonContextController* personContextController_ = nullptr;
 };
