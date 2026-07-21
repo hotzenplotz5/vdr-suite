@@ -110,9 +110,11 @@ vm.runInContext(focusSource, context, {filename: 'epg-detail-desktop-focus.js'})
 assert.ok(window.VdrSuiteEpgDetailDesktopFocus);
 assert.strictEqual(window.VdrSuiteEpgDetailDesktopFocus.installed(), true);
 assert.strictEqual(document.documentElement.dataset.epgDetailDesktopFocus, 'true');
+assert.ok(headChildren[0].textContent.includes('@media(min-width:1100px)'));
 assert.ok(headChildren[0].textContent.includes('.epg-metadata-tabs{width:max-content'));
+assert.ok(headChildren[0].textContent.includes('.epg-side-detail{right:0;left:auto;width:100%'));
 assert.ok(headChildren[0].textContent.includes('width:min(42rem,calc(100vw - 3rem))'));
-assert.ok(headChildren[0].textContent.includes('@media(max-width:1099px)'));
+assert.ok(!headChildren[0].textContent.includes('@media(max-width:1099px)'));
 
 const workbench = {
   classList: new ClassState(),
