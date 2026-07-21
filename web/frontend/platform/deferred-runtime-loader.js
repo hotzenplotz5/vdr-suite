@@ -151,7 +151,8 @@ function startVdrSuiteDeferredFrontendRuntimes() {
     () => Boolean(
       window.VdrSuiteEpgSearchTimerActions &&
       window.VdrSuiteEpgMetadataDetail &&
-      window.VdrSuiteEpgMetadataDetailHook
+      window.VdrSuiteEpgMetadataDetailHook &&
+      window.VdrSuiteEpgDetailDesktopFocus
     )
   ).catch(error => {
     console.error('VDR-Suite combined EPG detail runtime failed', error);
