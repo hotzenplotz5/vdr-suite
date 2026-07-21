@@ -111,7 +111,16 @@ assert.ok(window.VdrSuiteEpgDetailDesktopFocus);
 assert.strictEqual(window.VdrSuiteEpgDetailDesktopFocus.installed(), true);
 assert.strictEqual(document.documentElement.dataset.epgDetailDesktopFocus, 'true');
 assert.ok(headChildren[0].textContent.includes('@media(min-width:1100px)'));
-assert.ok(headChildren[0].textContent.includes('.epg-metadata-tabs{width:max-content'));
+assert.ok(headChildren[0].textContent.includes(
+  '.epg-metadata-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;max-width:100%'
+));
+assert.ok(headChildren[0].textContent.includes('overflow:visible'));
+assert.ok(headChildren[0].textContent.includes(
+  '@media(max-width:380px){.epg-metadata-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}'
+));
+assert.ok(headChildren[0].textContent.includes('.epg-metadata-tab{min-width:0;width:100%'));
+assert.ok(!headChildren[0].textContent.includes('width:max-content'));
+assert.ok(!headChildren[0].textContent.includes('overflow-x:auto'));
 assert.ok(headChildren[0].textContent.includes('.epg-side-detail{right:0;left:auto;width:100%'));
 assert.ok(headChildren[0].textContent.includes('width:min(42rem,calc(100vw - 3rem))'));
 assert.ok(!headChildren[0].textContent.includes('@media(max-width:1099px)'));
