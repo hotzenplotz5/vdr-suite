@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EpgEventRepository.h"
+#include "IEpgPersonEnrichmentService.h"
 #include "VdrEvent.h"
 #include "VdrEventQuery.h"
 #include "VdrService.h"
@@ -12,7 +13,6 @@
 #include <vector>
 
 class EpgArtworkEnrichmentService;
-class EpgPersonEnrichmentService;
 
 struct EpgCacheRefreshResult
 {
@@ -58,7 +58,7 @@ public:
         EpgEventRepository& repository,
         VdrService& vdrService,
         EpgArtworkEnrichmentService* artworkEnrichmentService = nullptr,
-        EpgPersonEnrichmentService* personEnrichmentService = nullptr);
+        IEpgPersonEnrichmentService* personEnrichmentService = nullptr);
 
     EpgCacheRefreshResult refreshBackendWindow(
         const std::string& backendId,
@@ -107,7 +107,7 @@ private:
     EpgEventRepository& repository_;
     VdrService& vdrService_;
     EpgArtworkEnrichmentService* artworkEnrichmentService_;
-    EpgPersonEnrichmentService* personEnrichmentService_;
+    IEpgPersonEnrichmentService* personEnrichmentService_;
     mutable std::mutex statusMutex_;
     std::unordered_map<std::string, RefreshMetadata> refreshMetadataByBackend_;
 
