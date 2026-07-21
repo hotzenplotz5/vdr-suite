@@ -202,6 +202,7 @@ restrictions and authentication remain deployment responsibilities.
 - [Plugin Roadmap](docs/ROADMAP.md)
 - [Read-only SVDRP contract](docs/SB-6-read-only-svdrp.md)
 - [Shared VDR-Suite Handoff](docs/VDR-SUITE-HANDOFF.md)
+- [Native Recording Metadata Handoff](docs/RECORDING-METADATA-HANDOFF.md)
 
 ## Build and tests
 
