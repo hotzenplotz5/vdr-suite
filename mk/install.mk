@@ -46,6 +46,7 @@ install-runtime: daemon
 		web/frontend/epg-metadata-detail.js \
 		web/frontend/epg-searchtimer-actions.js \
 		web/frontend/epg-metadata-detail-hook.js \
+		web/frontend/epg-detail-desktop-focus.js \
 		> $(DESTDIR)$(DATADIR)/web/frontend/.epg-searchtimer-actions.js.tmp
 	chmod 0644 $(DESTDIR)$(DATADIR)/web/frontend/.epg-searchtimer-actions.js.tmp
 	mv -f \
@@ -124,6 +125,7 @@ test-install-staging:
 	grep -F '/frontend/epg-searchtimer-actions.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	! grep -F '/frontend/epg-metadata-detail.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	! grep -F '/frontend/epg-metadata-detail-hook.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
+	! grep -F '/frontend/epg-detail-desktop-focus.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	grep -F '/frontend/recording-trash-ux.js' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program-compat.js
@@ -132,6 +134,7 @@ test-install-staging:
 	grep -F 'global.VdrSuiteEpgMetadataDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
 	grep -F 'global.VdrSuiteEpgSearchTimerActions = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
 	grep -F 'global.VdrSuiteEpgMetadataDetailHook = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
+	grep -F 'global.VdrSuiteEpgDetailDesktopFocus = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-trash-ux.js
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules
 	test -d /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform
