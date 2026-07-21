@@ -3,6 +3,7 @@
 test-suite-bridge-epg-artwork-resolver:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/SuiteBridgeEpgArtworkResolver.cpp \
+		core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp \
 		core/vdr/tests/test_suite_bridge_epg_artwork_resolver.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_suite_bridge_epg_artwork_resolver
@@ -20,6 +21,7 @@ test-epg-artwork-repository:
 test-epg-artwork-enrichment-service:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		$(SQLITE_SRC) \
+		$(EPG_PERSON_INDEX_SRC) \
 		core/vdr/src/EpgArtworkRepository.cpp \
 		core/vdr/src/EpgArtworkEnrichmentService.cpp \
 		core/vdr/tests/test_epg_artwork_enrichment_service.cpp \
@@ -48,6 +50,7 @@ test-epg-artwork-public-json-serializer:
 test-epg-cache-artwork-json:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(EPG_PERSON_INDEX_SRC) \
 		core/vdr/src/VdrChangeState.cpp \
 		core/vdr/src/EpgEventRepository.cpp \
 		core/vdr/src/EpgArtworkRepository.cpp \
