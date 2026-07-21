@@ -36,6 +36,7 @@ def main() -> int:
     assert "window.VdrSuiteEpgMetadataDetail" in loader
     assert "window.VdrSuiteEpgSearchTimerActions" in loader
     assert "window.VdrSuiteEpgMetadataDetailHook" in loader
+    assert "window.VdrSuiteEpgDetailDesktopFocus" in loader
     assert "'/frontend/epg-metadata-detail.js'" not in loader
     assert "'/frontend/epg-metadata-detail-hook.js'" not in loader
     assert "'/frontend/epg-detail-desktop-focus.js'" not in loader
