@@ -121,8 +121,12 @@ assert.ok(headChildren[0].textContent.includes(
 assert.ok(headChildren[0].textContent.includes('.epg-metadata-tab{min-width:0;width:100%'));
 assert.ok(!headChildren[0].textContent.includes('width:max-content'));
 assert.ok(!headChildren[0].textContent.includes('overflow-x:auto'));
-assert.ok(headChildren[0].textContent.includes('.epg-side-detail{right:0;left:auto;width:100%'));
+assert.ok(headChildren[0].textContent.includes('.epg-detail-sidebar{position:relative;z-index:3;min-width:0}'));
+assert.ok(headChildren[0].textContent.includes(
+  '.epg-workbench.epg-detail-expanded .epg-side-detail{position:absolute!important;right:0!important;left:auto!important;top:0!important;'
+));
 assert.ok(headChildren[0].textContent.includes('width:min(42rem,calc(100vw - 3rem))'));
+assert.ok(!headChildren[0].textContent.includes('position:fixed'));
 assert.ok(!headChildren[0].textContent.includes('@media(max-width:1099px)'));
 
 const workbench = {
