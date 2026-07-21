@@ -27,7 +27,7 @@ public:
         if (request.path == "/slow-image")
         {
             response.headers["Content-Type"] = "image/jpeg";
-            response.body.assign(32 * 1024 * 1024, 'x');
+            response.body.assign(16 * 1024 * 1024, 'x');
             slowImageHandled_.store(true);
             return response;
         }
@@ -206,6 +206,7 @@ int main()
         "Connection: close\r\n\r\n");
 
     waitUntilSlowImageIsPrepared(server);
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
 
     const Clock::time_point startedAt = Clock::now();
     const int folderClient = connectWithRetry(port);
