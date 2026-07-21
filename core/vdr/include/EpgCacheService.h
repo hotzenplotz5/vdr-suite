@@ -12,6 +12,7 @@
 #include <vector>
 
 class EpgArtworkEnrichmentService;
+class EpgPersonEnrichmentService;
 
 struct EpgCacheRefreshResult
 {
@@ -25,6 +26,12 @@ struct EpgCacheRefreshResult
     std::size_t artworkDeduplicated = 0;
     std::size_t artworkSuppressed = 0;
     std::size_t artworkDropped = 0;
+    bool personEnrichmentAvailable = false;
+    bool personQueueAvailable = true;
+    std::size_t personQueued = 0;
+    std::size_t personDeduplicated = 0;
+    std::size_t personSuppressed = 0;
+    std::size_t personDropped = 0;
 };
 
 struct EpgCacheStatus
@@ -50,7 +57,8 @@ public:
     EpgCacheService(
         EpgEventRepository& repository,
         VdrService& vdrService,
-        EpgArtworkEnrichmentService* artworkEnrichmentService = nullptr);
+        EpgArtworkEnrichmentService* artworkEnrichmentService = nullptr,
+        EpgPersonEnrichmentService* personEnrichmentService = nullptr);
 
     EpgCacheRefreshResult refreshBackendWindow(
         const std::string& backendId,
@@ -99,6 +107,7 @@ private:
     EpgEventRepository& repository_;
     VdrService& vdrService_;
     EpgArtworkEnrichmentService* artworkEnrichmentService_;
+    EpgPersonEnrichmentService* personEnrichmentService_;
     mutable std::mutex statusMutex_;
     std::unordered_map<std::string, RefreshMetadata> refreshMetadataByBackend_;
 
