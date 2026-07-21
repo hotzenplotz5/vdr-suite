@@ -3,6 +3,7 @@ include mk/agent-sources.mk
 
 include mk/recording-sources.mk
 include mk/metadata-sources.mk
+include mk/person-context-sources.mk
 include mk/action-job-sources.mk
 include mk/rest-sources.mk
 include mk/vdr-sources.mk
