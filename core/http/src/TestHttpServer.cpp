@@ -2,8 +2,8 @@
 
 #include "ApiRouter.h"
 
-#include <cstdlib>
 #include <cctype>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -422,6 +422,7 @@ bool isFrontendPath(
         path == "/frontend/channel-logos.js" ||
         path == "/frontend/channel-day-program.js" ||
         path == "/frontend/channel-day-program-compat.js" ||
+        path == "/frontend/recordings2.js" ||
         path == "/frontend/recording-trash-ux.js" ||
         path == "/frontend/epg-searchtimer-actions.js" ||
         path == "/frontend/channel-browser.js" ||
@@ -526,6 +527,13 @@ HttpServerResponse serveFrontendPath(
     {
         return makeFrontendAssetResponse(
             "channel-day-program-compat.js",
+            "application/javascript; charset=utf-8");
+    }
+
+    if (path == "/frontend/recordings2.js")
+    {
+        return makeFrontendAssetResponse(
+            "recordings2.js",
             "application/javascript; charset=utf-8");
     }
 
