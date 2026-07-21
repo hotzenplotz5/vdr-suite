@@ -87,6 +87,9 @@ class MockElement {
   }
 
   replaceChildren(...children) {
+    this.children.forEach(child => {
+      if (child && typeof child === 'object') child.parentNode = null;
+    });
     this.children = [];
     children.forEach(child => this.appendChild(child));
   }
@@ -96,11 +99,26 @@ class MockElement {
   }
 }
 
+let metadataEnhancements = [];
+let deferredLoads = 0;
 const window = {
   VdrSuitePlatform: {
     getSelectedBackendId() { return 'living-room'; },
     getClientApi() { return null; },
     getMountTarget() { return null; }
+  },
+  VdrSuiteEpgMetadataDetail: {
+    enhance(detail, event, channel) {
+      metadataEnhancements.push({detail, event, channel});
+      detail.dataset.epgMetadataDetail = 'true';
+      return detail;
+    }
+  },
+  VdrSuiteDeferredFrontendRuntimes: {
+    loadEpgDetail() {
+      deferredLoads += 1;
+      return Promise.resolve();
+    }
   },
   setTimeout,
   clearTimeout
@@ -130,92 +148,157 @@ vm.runInNewContext(instrumentedSource, {
   window
 }, {filename: sourcePath});
 
-const moduleApi = window.VdrSuiteChannels2;
-assert.ok(moduleApi);
-assert.strictEqual(typeof moduleApi.activate, 'function');
-assert.strictEqual(typeof moduleApi.renderList, 'function');
-assert.strictEqual(typeof moduleApi.deactivate, 'function');
-assert.strictEqual(typeof moduleApi.refresh, 'function');
-assert.doesNotThrow(() => moduleApi.activate());
-assert.doesNotThrow(() => moduleApi.refresh());
-assert.doesNotThrow(() => moduleApi.deactivate());
+async function run() {
+  const moduleApi = window.VdrSuiteChannels2;
+  assert.ok(moduleApi);
+  assert.strictEqual(typeof moduleApi.activate, 'function');
+  assert.strictEqual(typeof moduleApi.renderList, 'function');
+  assert.strictEqual(typeof moduleApi.deactivate, 'function');
+  assert.strictEqual(typeof moduleApi.refresh, 'function');
+  assert.doesNotThrow(() => moduleApi.activate());
+  assert.doesNotThrow(() => moduleApi.refresh());
+  assert.doesNotThrow(() => moduleApi.deactivate());
 
-const testApi = window.__VdrSuiteChannelDayProgramTest;
-assert.ok(testApi);
+  const testApi = window.__VdrSuiteChannelDayProgramTest;
+  assert.ok(testApi);
 
-const publicArtworkUrl = '/api/epg/cache/artwork?backend=default&channelId=C-1-1079-10351&eventId=13483';
-assert.strictEqual(testApi.eventArtwork({artwork: {available: true, url: publicArtworkUrl}, imageUrl: '/legacy.jpg'}), publicArtworkUrl);
-assert.strictEqual(testApi.eventArtwork({artwork: {available: false, url: '/unavailable.jpg'}, imageUrl: '/fallback.jpg'}), '/fallback.jpg');
-assert.strictEqual(testApi.eventArtwork({artwork: {available: true, url: '   '}, posterUrl: '/empty-fallback.jpg'}), '/empty-fallback.jpg');
+  const publicArtworkUrl = '/api/epg/cache/artwork?backend=default&channelId=C-1-1079-10351&eventId=13483';
+  assert.strictEqual(testApi.eventArtwork({artwork: {available: true, url: publicArtworkUrl}, imageUrl: '/legacy.jpg'}), publicArtworkUrl);
+  assert.strictEqual(testApi.eventArtwork({artwork: {available: false, url: '/unavailable.jpg'}, imageUrl: '/fallback.jpg'}), '/fallback.jpg');
+  assert.strictEqual(testApi.eventArtwork({artwork: {available: true, url: '   '}, posterUrl: '/empty-fallback.jpg'}), '/empty-fallback.jpg');
 
-const event = {
-  title: 'Testsendung',
-  description: 'Beschreibung',
-  channelId: 'C-1-1079-10351',
-  startTime: 1760000000,
-  endTime: 1760003600,
-  artwork: {available: true, url: publicArtworkUrl}
-};
-const channel = {id: 'C-1-1079-10351', name: 'Testsender'};
-const detail = testApi.renderEventDetail(event, channel);
-assert.ok(detail.classList.contains('has-artwork'));
-assert.strictEqual(detail.querySelector('.channels2-artwork').style.backgroundImage, `url("${publicArtworkUrl}")`);
+  const event = {
+    id: '13483',
+    title: 'Testsendung',
+    description: 'Beschreibung',
+    channelId: 'C-1-1079-10351',
+    startTime: 1760000000,
+    endTime: 1760003600,
+    artwork: {available: true, url: publicArtworkUrl}
+  };
+  const channel = {id: 'C-1-1079-10351', name: 'Testsender'};
+  const detail = testApi.renderEventDetail(event, channel);
+  assert.ok(detail.classList.contains('has-artwork'));
+  assert.strictEqual(detail.querySelector('.channels2-artwork').style.backgroundImage, `url("${publicArtworkUrl}")`);
+  assert.ok(detail.querySelector('.channels2-artwork').classList.contains('epg-detail-artwork'));
+  assert.strictEqual(detail.querySelector('.channels2-artwork').parentNode, detail);
+  assert.ok(detail.querySelector('.channels2-detail-copy').classList.contains('epg-detail-hero'));
+  assert.strictEqual(detail.querySelector('.channels2-detail-copy').parentNode, detail);
+  assert.ok(detail.querySelector('.channels2-description').classList.contains('epg-detail-description'));
+  assert.ok(detail.querySelector('.channels2-actions').classList.contains('epg-detail-actions'));
+  assert.strictEqual(detail.querySelector('.channels2-actions').parentNode, detail);
+  assert.strictEqual(detail.querySelector('.channels2-feedback').parentNode, detail);
+  assert.strictEqual(metadataEnhancements.length, 1);
+  assert.strictEqual(metadataEnhancements[0].detail, detail);
+  assert.strictEqual(metadataEnhancements[0].event, event);
+  assert.strictEqual(metadataEnhancements[0].channel, channel);
+  assert.strictEqual(deferredLoads, 0);
 
-const detailWithoutArtwork = testApi.renderEventDetail(Object.assign({}, event, {artwork: {available: false, url: publicArtworkUrl}}), channel);
-assert.ok(!detailWithoutArtwork.classList.contains('has-artwork'));
-assert.strictEqual(detailWithoutArtwork.querySelector('.channels2-artwork').style.backgroundImage, undefined);
+  const detailWithoutArtwork = testApi.renderEventDetail(Object.assign({}, event, {artwork: {available: false, url: publicArtworkUrl}}), channel);
+  assert.ok(!detailWithoutArtwork.classList.contains('has-artwork'));
+  assert.strictEqual(detailWithoutArtwork.querySelector('.channels2-artwork'), null);
+  assert.strictEqual(metadataEnhancements.length, 2);
 
-assert.strictEqual(testApi.booleanValue('false', true), false);
-assert.strictEqual(testApi.booleanValue('true', false), true);
-assert.strictEqual(testApi.channelIsRadio({radio: true}), true);
-assert.strictEqual(testApi.channelIsRadio({radio: 'false'}), false);
-assert.strictEqual(testApi.channelIsEncrypted({encrypted: true}), true);
-assert.strictEqual(testApi.channelIsEncrypted({caids: ['1702']}), true);
-assert.strictEqual(testApi.channelIsEnabled({active: false}), false);
+  let resolveDeferred;
+  window.VdrSuiteEpgMetadataDetail = null;
+  window.VdrSuiteDeferredFrontendRuntimes = {
+    loadEpgDetail() {
+      deferredLoads += 1;
+      return new Promise(resolve => { resolveDeferred = resolve; });
+    }
+  };
+  const deferredDetail = testApi.renderEventDetail(Object.assign({}, event, {id: '13484'}), channel);
+  const parent = new MockElement('div');
+  parent.appendChild(deferredDetail);
+  let deferredEnhancement = null;
+  window.VdrSuiteEpgMetadataDetail = {
+    enhance(currentDetail, currentEvent, currentChannel) {
+      deferredEnhancement = {currentDetail, currentEvent, currentChannel};
+      currentDetail.dataset.epgMetadataDetail = 'true';
+    }
+  };
+  resolveDeferred();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.ok(deferredEnhancement);
+  assert.strictEqual(deferredEnhancement.currentDetail, deferredDetail);
+  assert.strictEqual(deferredEnhancement.currentEvent.id, '13484');
+  assert.strictEqual(deferredLoads, 1);
 
-const channels = [
-  {id: 'tv-free', name: 'Das Erste HD', number: 1, group: 'Öffentlich', radio: false, encrypted: false, enabled: true},
-  {id: 'tv-pay', name: 'Pay TV', number: 2, group: 'Pay', radio: false, encrypted: true, enabled: true},
-  {id: 'radio', name: 'Radio Eins', number: 3, group: 'Radio', radio: true, encrypted: false, enabled: true},
-  {id: 'disabled', name: 'Alt TV', number: 4, group: 'Weitere', radio: false, encrypted: false, enabled: false}
-];
+  window.VdrSuiteEpgMetadataDetail = null;
+  window.VdrSuiteDeferredFrontendRuntimes = {
+    loadEpgDetail() {
+      return Promise.reject(new Error('Bundle fehlt'));
+    }
+  };
+  const failedDetail = testApi.renderEventDetail(Object.assign({}, event, {id: '13485'}), channel);
+  parent.appendChild(failedDetail);
+  await Promise.resolve();
+  await Promise.resolve();
+  const failedFeedback = failedDetail.querySelector('.channels2-feedback');
+  assert.ok(failedFeedback.classList.contains('error'));
+  assert.ok(failedFeedback.textContent.includes('Bundle fehlt'));
 
-testApi.state.channels = channels;
-testApi.state.encryptionAvailable = true;
-testApi.state.query = '';
-testApi.state.typeFilter = 'tv';
-testApi.state.accessFilter = 'free';
-testApi.state.statusFilter = 'enabled';
-testApi.filterChannels();
-assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['tv-free']);
+  assert.strictEqual(testApi.booleanValue('false', true), false);
+  assert.strictEqual(testApi.booleanValue('true', false), true);
+  assert.strictEqual(testApi.channelIsRadio({radio: true}), true);
+  assert.strictEqual(testApi.channelIsRadio({radio: 'false'}), false);
+  assert.strictEqual(testApi.channelIsEncrypted({encrypted: true}), true);
+  assert.strictEqual(testApi.channelIsEncrypted({caids: ['1702']}), true);
+  assert.strictEqual(testApi.channelIsEnabled({active: false}), false);
 
-testApi.state.typeFilter = 'radio';
-testApi.state.accessFilter = 'all';
-testApi.filterChannels();
-assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['radio']);
+  const channels = [
+    {id: 'tv-free', name: 'Das Erste HD', number: 1, group: 'Öffentlich', radio: false, encrypted: false, enabled: true},
+    {id: 'tv-pay', name: 'Pay TV', number: 2, group: 'Pay', radio: false, encrypted: true, enabled: true},
+    {id: 'radio', name: 'Radio Eins', number: 3, group: 'Radio', radio: true, encrypted: false, enabled: true},
+    {id: 'disabled', name: 'Alt TV', number: 4, group: 'Weitere', radio: false, encrypted: false, enabled: false}
+  ];
 
-testApi.state.typeFilter = 'all';
-testApi.state.statusFilter = 'disabled';
-testApi.filterChannels();
-assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['disabled']);
+  testApi.state.channels = channels;
+  testApi.state.encryptionAvailable = true;
+  testApi.state.query = '';
+  testApi.state.typeFilter = 'tv';
+  testApi.state.accessFilter = 'free';
+  testApi.state.statusFilter = 'enabled';
+  testApi.filterChannels();
+  assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['tv-free']);
 
-testApi.state.statusFilter = 'all';
-testApi.state.query = 'pay';
-testApi.filterChannels();
-assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['tv-pay']);
+  testApi.state.typeFilter = 'radio';
+  testApi.state.accessFilter = 'all';
+  testApi.filterChannels();
+  assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['radio']);
 
-assert.ok(!source.includes('fetch('));
-assert.ok(source.includes('fetchClientChannels'));
-assert.ok(source.includes('fetchClientEpgCacheWindow'));
-assert.ok(source.includes('fetchClientEpgChannelWindow'));
-assert.ok(source.includes('fetchClientTimerCreateAction'));
-assert.ok(source.includes("[['all', 'Alle'], ['tv', 'TV'], ['radio', 'Radio']]"));
-assert.ok(source.includes("[['all', 'Alle'], ['free', 'Frei'], ['encrypted', 'Verschlüsselt']]"));
-assert.ok(source.includes("[['all', 'Alle'], ['enabled', 'Aktiv'], ['disabled', 'Deaktiviert']]"));
-assert.ok(source.includes("intro.append(addText(document.createElement('h3'), 'Kanäle')"));
-assert.ok(source.includes('adoptCanonicalChannelNavigation'));
-assert.ok(source.includes('artwork.available === true'));
-assert.ok(source.includes('@media(max-width:720px)'));
-assert.ok(source.includes('.channels2-detail.has-artwork{grid-template-columns:1fr}'));
+  testApi.state.typeFilter = 'all';
+  testApi.state.statusFilter = 'disabled';
+  testApi.filterChannels();
+  assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['disabled']);
 
-console.log('test_channel_day_program_runtime passed');
+  testApi.state.statusFilter = 'all';
+  testApi.state.query = 'pay';
+  testApi.filterChannels();
+  assert.deepStrictEqual(Array.from(testApi.state.visible, item => item.id), ['tv-pay']);
+
+  assert.ok(!source.includes('fetch('));
+  assert.ok(source.includes('fetchClientChannels'));
+  assert.ok(source.includes('fetchClientEpgCacheWindow'));
+  assert.ok(source.includes('fetchClientEpgChannelWindow'));
+  assert.ok(source.includes('fetchClientTimerCreateAction'));
+  assert.ok(source.includes("[['all', 'Alle'], ['tv', 'TV'], ['radio', 'Radio']]"));
+  assert.ok(source.includes("[['all', 'Alle'], ['free', 'Frei'], ['encrypted', 'Verschlüsselt']]"));
+  assert.ok(source.includes("[['all', 'Alle'], ['enabled', 'Aktiv'], ['disabled', 'Deaktiviert']]"));
+  assert.ok(source.includes("intro.append(addText(document.createElement('h3'), 'Kanäle')"));
+  assert.ok(source.includes('adoptCanonicalChannelNavigation'));
+  assert.ok(source.includes('artwork.available === true'));
+  assert.ok(source.includes('VdrSuiteEpgMetadataDetail'));
+  assert.ok(source.includes('loadEpgDetail'));
+  assert.ok(source.includes('epg-detail-actions'));
+  assert.ok(source.includes('@media(max-width:720px)'));
+  assert.ok(source.includes('.channels2-detail.has-artwork,.channels2-detail.epg-has-artwork{grid-template-columns:1fr}'));
+
+  console.log('test_channel_day_program_runtime passed');
+}
+
+run().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

@@ -24,6 +24,24 @@ VdrRecording makeRecording(
     recording.durationSeconds = 8000;
     recording.sizeMb = 7000;
 
+    recording.metadata.provider.source =
+        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    recording.metadata.provider.contentKind =
+        VdrRecordingContentKind::Movie;
+    recording.metadata.provider.title = "Forrest Gump";
+    recording.metadata.provider.tagline = "Das Leben ist wie eine Schachtel Pralinen.";
+    recording.metadata.provider.overview = "Eine vorhandene Aufnahme mit vollständigen Metadaten.";
+
+    VdrRecordingArtworkRef artwork;
+    artwork.kind = VdrRecordingArtworkKind::Poster;
+    artwork.source =
+        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+    artwork.reference = "/var/cache/vdr/poster.jpg";
+    artwork.width = 500;
+    artwork.height = 750;
+    artwork.temporary = false;
+    recording.metadata.artwork.push_back(artwork);
+
     return recording;
 }
 
@@ -105,6 +123,15 @@ int main()
     assert(json.find("\"backendId\":\"house-a\"") != std::string::npos);
     assert(json.find("\"title\":\"Movies/Forrest Gump\"") != std::string::npos);
     assert(json.find("\"path\":\"/srv/vdr/video/Movies/Forrest_Gump.rec\"") != std::string::npos);
+    assert(json.find("\"backendNativeId\":\"/srv/vdr/video/Movies/Forrest_Gump.rec\"") != std::string::npos);
+    assert(json.find("\"startTime\":\"1780000000\"") != std::string::npos);
+    assert(json.find("\"durationSeconds\":8000") != std::string::npos);
+    assert(json.find("\"sizeMb\":7000") != std::string::npos);
+    assert(json.find("\"metadata\":{") != std::string::npos);
+    assert(json.find("\"presentation\":{") != std::string::npos);
+    assert(json.find("\"title\":\"Forrest Gump\"") != std::string::npos);
+    assert(json.find("\"summary\":\"Eine vorhandene Aufnahme mit vollständigen Metadaten.\"") != std::string::npos);
+    assert(json.find("\"posterUrl\":\"/recording-artwork/house-a/") != std::string::npos);
 
     assert(json.find("\"person\":{") != std::string::npos);
     assert(json.find("\"source\":\"tvscraper\"") != std::string::npos);

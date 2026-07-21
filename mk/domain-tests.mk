@@ -226,6 +226,7 @@ test-recording-person-search-service:
 
 test-recording-person-search-result-json-serializer:
 	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrRecordingArtworkIdentity.cpp \
 		core/vdr/src/RecordingPersonSearchResultJsonSerializer.cpp \
 		core/vdr/tests/test_recording_person_search_result_json_serializer.cpp \
 		-o $(BUILD_DIR)/test_recording_person_search_result_json_serializer
@@ -235,6 +236,7 @@ test-recording-person-search-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/vdr/src/PersonQueryMatcher.cpp \
 		core/vdr/src/RecordingPersonSearchService.cpp \
+		core/vdr/src/VdrRecordingArtworkIdentity.cpp \
 		core/vdr/src/RecordingPersonSearchResultJsonSerializer.cpp \
 		api/rest/src/RecordingPersonSearchController.cpp \
 		api/rest/tests/test_recording_person_search_controller.cpp \
@@ -252,4 +254,3 @@ test-epg-search-result:
 		core/vdr/tests/test_epg_search_result.cpp \
 		-o $(BUILD_DIR)/test_epg_search_result
 	$(BUILD_DIR)/test_epg_search_result
-

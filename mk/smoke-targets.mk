@@ -89,6 +89,7 @@ searchtimer-real-vdr-smoke-helper:
 vdr-timer-real-lifecycle-smoke-helper:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/http/src/BasicHttpClient.cpp \
+		core/vdr/src/RestfulApiTimerMapper.cpp \
 		core/vdr/src/RestfulApiVdrTimerActionExecutor.cpp \
 		apps/tools/vdr_timer_real_lifecycle_smoke.cpp \
 		-o $(BUILD_DIR)/vdr_suite_timer_lifecycle_smoke

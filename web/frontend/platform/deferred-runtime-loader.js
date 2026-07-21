@@ -118,9 +118,17 @@ function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
         resolve();
         return;
       }
+      if (existing.dataset.failed === 'true') {
+        reject(new Error('Frontend-Runtime konnte nicht geladen werden: ' + existing.src));
+        return;
+      }
 
       existing.addEventListener('load', resolve, {once: true});
-      existing.addEventListener('error', reject, {once: true});
+      existing.addEventListener(
+        'error',
+        () => reject(new Error('Frontend-Runtime konnte nicht geladen werden: ' + src)),
+        {once: true}
+      );
     });
   }
 
@@ -139,13 +147,20 @@ function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
       {once: true}
     );
 
-    script.addEventListener('error', reject, {once: true});
+    script.addEventListener(
+      'error',
+      () => {
+        script.dataset.failed = 'true';
+        reject(new Error('Frontend-Runtime konnte nicht geladen werden: ' + src));
+      },
+      {once: true}
+    );
     document.head.appendChild(script);
   });
 }
 
-function startVdrSuiteDeferredFrontendRuntimes() {
-  loadVdrSuiteDeferredRuntime(
+function loadVdrSuiteEpgDetailRuntime() {
+  return loadVdrSuiteDeferredRuntime(
     'vdr-suite-epg-searchtimer-actions-runtime',
     '/frontend/epg-searchtimer-actions.js',
     () => Boolean(
@@ -154,7 +169,11 @@ function startVdrSuiteDeferredFrontendRuntimes() {
       window.VdrSuiteEpgMetadataDetailHook &&
       window.VdrSuiteEpgDetailDesktopFocus
     )
-  ).catch(error => {
+  );
+}
+
+function startVdrSuiteDeferredFrontendRuntimes() {
+  loadVdrSuiteEpgDetailRuntime().catch(error => {
     console.error('VDR-Suite combined EPG detail runtime failed', error);
   });
 
@@ -179,7 +198,8 @@ if (typeof window !== 'undefined') {
   installSearchTimerPreviewCacheWarmup();
 
   window.VdrSuiteDeferredFrontendRuntimes = Object.freeze({
-    start: startVdrSuiteDeferredFrontendRuntimes
+    start: startVdrSuiteDeferredFrontendRuntimes,
+    loadEpgDetail: loadVdrSuiteEpgDetailRuntime
   });
 
   if (document.readyState === 'loading') {

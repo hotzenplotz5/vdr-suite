@@ -30,6 +30,7 @@ test-vdr-timer-action-executor-adapter-registry:
 test-restful-api-vdr-timer-action-executor-adapter:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/http/src/MockHttpClient.cpp \
+		core/vdr/src/RestfulApiTimerMapper.cpp \
 		core/vdr/src/RestfulApiVdrTimerActionExecutor.cpp \
 		core/vdr/src/RestfulApiVdrTimerActionExecutorAdapter.cpp \
 		core/vdr/tests/test_restful_api_vdr_timer_action_executor_adapter.cpp \
@@ -74,10 +75,17 @@ test-restful-api-vdr-timer-action-request-builder:
 test-restful-api-vdr-timer-action-executor:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		core/http/src/MockHttpClient.cpp \
+		core/vdr/src/RestfulApiTimerMapper.cpp \
 		core/vdr/src/RestfulApiVdrTimerActionExecutor.cpp \
 		core/vdr/tests/test_restful_api_vdr_timer_action_executor.cpp \
 		-o $(BUILD_DIR)/test_restful_api_vdr_timer_action_executor
 	$(BUILD_DIR)/test_restful_api_vdr_timer_action_executor
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/RestfulApiTimerMapper.cpp \
+		core/vdr/src/RestfulApiVdrTimerActionExecutor.cpp \
+		core/vdr/tests/test_restful_api_vdr_timer_action_create_confirmation.cpp \
+		-o $(BUILD_DIR)/test_restful_api_vdr_timer_action_create_confirmation
+	$(BUILD_DIR)/test_restful_api_vdr_timer_action_create_confirmation
 
 test-restful-api-vdr-adapter:
 	$(BUILD_CXX) $(CXXFLAGS) \

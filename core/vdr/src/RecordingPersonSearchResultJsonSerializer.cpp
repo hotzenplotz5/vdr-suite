@@ -1,5 +1,7 @@
 #include "RecordingPersonSearchResultJsonSerializer.h"
 
+#include "VdrRecordingMetadataJsonSerializer.h"
+
 #include <sstream>
 #include <string>
 #include <vector>
@@ -160,6 +162,26 @@ void appendRecording(
 
     appendKey(json, "path");
     appendQuoted(json, recording.path);
+    json << ',';
+
+    appendKey(json, "backendNativeId");
+    appendQuoted(json, recording.backendNativeId);
+    json << ',';
+
+    appendKey(json, "startTime");
+    appendQuoted(json, recording.startTime);
+    json << ',';
+
+    appendKey(json, "durationSeconds");
+    json << recording.durationSeconds;
+    json << ',';
+
+    appendKey(json, "sizeMb");
+    json << recording.sizeMb;
+    json << ',';
+
+    appendKey(json, "metadata");
+    json << VdrRecordingMetadataJsonSerializer::serialize(recording);
 
     json << '}';
 }
