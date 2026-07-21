@@ -19,6 +19,7 @@ test-epg-scraper-metadata-public-json:
 test-epg-scraper-metadata-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(EPG_PERSON_INDEX_SRC) \
 		core/vdr/src/EpgEventRepository.cpp \
 		core/vdr/src/EpgArtworkRepository.cpp \
 		core/vdr/src/EpgArtworkPublicJsonSerializer.cpp \
