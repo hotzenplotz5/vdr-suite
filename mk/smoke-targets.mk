@@ -7,7 +7,7 @@ audit-doc-sync-tests:
 
 
 searchtimer-yavdr-api-smoke-harness-helper:
-	$(BUILD_CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
@@ -20,7 +20,7 @@ searchtimer-yavdr-api-smoke-harness-helper:
 		api/rest/src/SearchTimerController.cpp \
 		core/http/src/SimpleHttpListener.cpp \
 		apps/tools/searchtimer_yavdr_api_smoke_harness.cpp \
-		$(LDFLAGS) \
+		$(LDFLAGS) -pthread \
 		-o $(BUILD_DIR)/vdr_suite_searchtimer_yavdr_api_smoke_harness
 	$(BUILD_DIR)/vdr_suite_searchtimer_yavdr_api_smoke_harness --help
 
@@ -153,4 +153,3 @@ test-metadata-service: prepare-test-db
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_metadata_service
 	$(BUILD_DIR)/test_metadata_service
-
