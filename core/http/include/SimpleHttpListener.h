@@ -46,7 +46,10 @@ private:
     std::chrono::milliseconds clientIoTimeout_;
 
     int createListeningSocket() const;
-    void handleClient(int clientSocket) const;
+    bool prepareClientResponse(
+        int clientSocket,
+        std::string& rawResponse,
+        bool& imageResponse) const;
 };
 
 #endif
