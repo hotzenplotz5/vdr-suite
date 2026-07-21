@@ -2,6 +2,7 @@
 
 #include "DashboardController.h"
 #include "EpgCacheController.h"
+#include "PersonContextController.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
 #include "VdrSnapshotReadService.h"
@@ -18,7 +19,6 @@ class JobsController;
 class LiveTransportController;
 class MetadataController;
 class PersonController;
-class PersonContextController;
 class RecordingsController;
 class RecordingActionExecutionController;
 class RecordingActionPreviewController;
@@ -81,10 +81,7 @@ public:
 
         const SearchTimerPreviewEpgCacheStatus status =
             searchTimerPreviewEpgCache_->statusForBackend(backendId);
-
-        SearchTimerPreviewEpgInputContext::setCacheStatus(
-            status,
-            backendId);
+        SearchTimerPreviewEpgInputContext::setCacheStatus(status, backendId);
 
         const std::vector<VdrEvent>* cachedEvents =
             searchTimerPreviewEpgCache_->eventsForBackend(backendId);
@@ -134,14 +131,49 @@ public:
         SearchTimerPreviewEpgCacheRefreshController* searchTimerPreviewEpgCacheRefreshController = nullptr,
         IEpgCacheController* epgCacheController = nullptr,
         VdrChannelMoveController* vdrChannelMoveController = nullptr,
-        VdrRecordingFolderController* vdrRecordingFolderController = nullptr,
-        PersonContextController* personContextController = nullptr);
+        VdrRecordingFolderController* vdrRecordingFolderController = nullptr);
 
     void setSearchTimerPreviewEpgCache(
         SearchTimerPreviewEpgCache* searchTimerPreviewEpgCache)
     {
         vdrSnapshotReadService_.setSearchTimerPreviewEpgCache(
             searchTimerPreviewEpgCache);
+    }
+
+    void setPersonContextController(
+        PersonContextController* personContextController)
+    {
+        personContextController_ = personContextController;
+    }
+
+    ApiResponse getPersonContext(
+        const std::string& name,
+        const std::string& providerPersonId,
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId,
+        const std::string& fromTime,
+        int limit,
+        int offset) const
+    {
+        if (personContextController_ == nullptr)
+        {
+            ApiResponse response;
+            response.statusCode = 503;
+            response.contentType = "application/json";
+            response.body = "{\"error\":\"person context unavailable\"}";
+            return response;
+        }
+
+        return personContextController_->getContext(
+            name,
+            providerPersonId,
+            backendId,
+            channelId,
+            eventId,
+            fromTime,
+            limit,
+            offset);
     }
 
     ApiResponse getEpgArtwork(
@@ -200,5 +232,5 @@ private:
     EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController_;
     VdrChannelMoveController* vdrChannelMoveController_;
     VdrRecordingFolderController* vdrRecordingFolderController_;
-    PersonContextController* personContextController_;
+    PersonContextController* personContextController_ = nullptr;
 };
