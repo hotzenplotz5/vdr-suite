@@ -13,6 +13,7 @@ include mk/install.mk
 include mk/test-inventory-exceptions.mk
 include mk/local-test-groups.mk
 include mk/object-cache.mk
+include mk/recordings2.mk
 
 
 

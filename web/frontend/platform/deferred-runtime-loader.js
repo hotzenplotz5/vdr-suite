@@ -165,6 +165,14 @@ function startVdrSuiteDeferredFrontendRuntimes() {
   ).catch(error => {
     console.error('VDR-Suite deferred frontend runtime failed', error);
   });
+
+  loadVdrSuiteDeferredRuntime(
+    'vdr-suite-recordings2-runtime',
+    '/frontend/recordings2.js',
+    () => Boolean(window.VdrSuiteRecordings2)
+  ).catch(error => {
+    console.error('VDR-Suite Recordings 2 runtime failed', error);
+  });
 }
 
 if (typeof window !== 'undefined') {
