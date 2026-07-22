@@ -53,6 +53,8 @@ const context = vm.createContext({
   Number,
   Math,
   Promise,
+  Set,
+  Array,
   parseInt
 });
 
@@ -98,7 +100,16 @@ const recording = {
   }
 };
 
-assert.strictEqual(test.recordingTitle(recording), 'Die Serie');
+assert.strictEqual(test.recordingNativeTitle(recording), 'Technischer Titel');
+assert.strictEqual(test.recordingMetadataTitle(recording), 'Die Serie');
+assert.strictEqual(test.recordingTitle(recording), 'Technischer Titel');
+assert.strictEqual(test.recordingTitle(Object.assign({}, recording, {
+  title: 'Drama/Neuer_Name'
+})), 'Neuer Name');
+assert.strictEqual(test.recordingTitle({
+  title: '',
+  metadata: recording.metadata
+}), 'Die Serie');
 assert.strictEqual(test.recordingSubtitle(recording), 'S02E04 · Der Fall');
 assert.strictEqual(test.recordingSummary(recording), 'Darstellungstext');
 assert.strictEqual(test.recordingPosterUrl(recording), '/api/recordings/artwork?id=poster');
