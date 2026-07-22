@@ -76,6 +76,11 @@ DAEMON_SRC := \
         core/http/src/TestHttpServer.cpp \
         core/daemon/src/RecordingArtworkHttpServer.cpp \
         core/daemon/src/RestfulApiEventStreamClient.cpp \
+        core/daemon/src/DaemonRuntimeBackendContext.cpp \
+        core/daemon/src/DaemonRuntimeInitialization.cpp \
+        core/daemon/src/DaemonRuntimePolling.cpp \
+        core/daemon/src/DaemonRuntimeEpgCache.cpp \
+        core/daemon/src/DaemonRuntimeRecordingCache.cpp \
         core/daemon/src/DaemonRuntime.cpp \
         core/daemon/src/DaemonApp.cpp \
         api/rest/src/SearchTimerCreateRequestParser.cpp \
