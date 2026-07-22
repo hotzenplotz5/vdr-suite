@@ -3,6 +3,7 @@
   'use strict';
 
   const shared = global.VdrSuiteRecordings2Shared;
+  const folderArtwork = global.VdrSuiteRecordings2FolderArtwork;
   const browserView = global.VdrSuiteRecordings2BrowserView;
   if (!shared || !browserView || typeof browserView.create !== 'function') {
     console.error('VDR-Suite Recordings 2 runtime dependencies are unavailable');
@@ -15,7 +16,10 @@
     path: '',
     parentPath: '',
     data: null,
+    serverRecordings: [],
+    promotedRecordings: [],
     recordings: [],
+    serverRecordingCount: 0,
     selectedRecording: null,
     loading: false,
     loadingMore: false,
@@ -51,16 +55,55 @@
     });
   }
 
+  function updatePresentedFolderState() {
+    const folders = shared.folderList(state.data);
+    state.recordings = state.serverRecordings.concat(state.promotedRecordings);
+    state.data = Object.assign({}, state.data || {}, {
+      folders: folders,
+      folderCount: folders.length,
+      recordingCount: state.serverRecordingCount + state.promotedRecordings.length,
+      returnedCount: state.serverRecordings.length + state.promotedRecordings.length
+    });
+  }
+
   function applyFolderData(data, append) {
     if (!data || data.recordingFolder !== true) {
       throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
     }
-    state.data = append ? Object.assign({}, state.data || {}, data) : data;
+    const previousFolders = append && state.data
+      ? shared.folderList(state.data).slice()
+      : shared.folderList(data).slice();
+    state.data = append
+      ? Object.assign({}, state.data || {}, data, {folders: previousFolders})
+      : Object.assign({}, data, {folders: previousFolders});
     state.path = shared.normalizePath(shared.first(data, ['path'], state.path));
     state.parentPath = shared.normalizePath(shared.first(data, ['parentPath'], ''));
-    state.recordings = append
-      ? state.recordings.concat(shared.recordingList(data))
+    state.serverRecordingCount = shared.number(
+      data.recordingCount,
+      shared.recordingList(data).length
+    );
+    state.serverRecordings = append
+      ? state.serverRecordings.concat(shared.recordingList(data))
       : shared.recordingList(data).slice();
+    if (!append) state.promotedRecordings = [];
+    updatePresentedFolderState();
+  }
+
+  function resolveSingleRecordingLeaves(data) {
+    if (!folderArtwork || typeof folderArtwork.resolveLeaves !== 'function') {
+      return Promise.resolve();
+    }
+    return folderArtwork.resolveLeaves(data, requestFolder).then(function (result) {
+      state.promotedRecordings = result && Array.isArray(result.recordings)
+        ? result.recordings.slice()
+        : [];
+      state.data = Object.assign({}, state.data || {}, {
+        folders: result && Array.isArray(result.folders)
+          ? result.folders.slice()
+          : shared.folderList(state.data).slice()
+      });
+      updatePresentedFolderState();
+    });
   }
 
   function loadFolder(path) {
@@ -76,8 +119,12 @@
     render();
     requestFolder(state.path, 0)
       .then(function (data) {
-        if (!state.active || sequence !== state.requestSequence) return;
+        if (!state.active || sequence !== state.requestSequence) return null;
         applyFolderData(data, false);
+        return resolveSingleRecordingLeaves(data);
+      })
+      .then(function () {
+        if (!state.active || sequence !== state.requestSequence) return;
         state.loading = false;
         render();
       })
@@ -94,7 +141,7 @@
     state.loadingMore = true;
     const sequence = ++state.requestSequence;
     render();
-    requestFolder(state.path, state.recordings.length)
+    requestFolder(state.path, state.serverRecordings.length)
       .then(function (data) {
         if (!state.active || sequence !== state.requestSequence) return;
         applyFolderData(data, true);
@@ -164,13 +211,16 @@
     __test: Object.freeze({
       normalizePath: shared.normalizePath,
       decodeDisplayText: shared.decodeDisplayText,
+      recordingNativeTitle: shared.recordingNativeTitle,
+      recordingMetadataTitle: shared.recordingMetadataTitle,
       recordingTitle: shared.recordingTitle,
       recordingSubtitle: shared.recordingSubtitle,
       recordingSummary: shared.recordingSummary,
       recordingPosterUrl: shared.recordingPosterUrl,
       formatDuration: shared.formatDuration,
       formatSize: shared.formatSize,
-      applyFolderData: applyFolderData
+      applyFolderData: applyFolderData,
+      resolveSingleRecordingLeaves: resolveSingleRecordingLeaves
     })
   });
 
