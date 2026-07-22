@@ -13,6 +13,9 @@ RUNTIME_SOURCES = (
     "DaemonRuntimeRecordingCache.cpp",
     "DaemonRuntime.cpp",
 )
+BACKEND_RUNTIME = RUNTIME_SOURCE_ROOT / "DaemonRuntimeBackendContext.cpp"
+INITIALIZATION_RUNTIME = RUNTIME_SOURCE_ROOT / "DaemonRuntimeInitialization.cpp"
+RECORDING_RUNTIME = RUNTIME_SOURCE_ROOT / "DaemonRuntimeRecordingCache.cpp"
 TEST_MAKE = ROOT / "mk/recording-native-metadata-tests.mk"
 AGENT_SOURCES = ROOT / "mk/agent-sources.mk"
 AGENT_TESTS = ROOT / "mk/agent-tests.mk"
@@ -40,6 +43,9 @@ def read_runtime_sources() -> str:
 def main() -> int:
     context = CONTEXT.read_text(encoding="utf-8")
     runtime = read_runtime_sources()
+    backend_runtime = BACKEND_RUNTIME.read_text(encoding="utf-8")
+    initialization_runtime = INITIALIZATION_RUNTIME.read_text(encoding="utf-8")
+    recording_runtime = RECORDING_RUNTIME.read_text(encoding="utf-8")
     test_make = TEST_MAKE.read_text(encoding="utf-8")
     agent_sources = AGENT_SOURCES.read_text(encoding="utf-8")
     agent_tests = AGENT_TESTS.read_text(encoding="utf-8")
@@ -106,41 +112,44 @@ def main() -> int:
         "backend context must own the bounded recording metadata enrichment service",
     )
 
-    transport_index = runtime.index("context->suiteBridgeTransport =")
-    epg_resolver_index = runtime.index("context->epgArtworkResolver =")
-    recording_resolver_index = runtime.index("context->recordingMetadataResolver =")
+    transport_index = backend_runtime.index("context->suiteBridgeTransport =")
+    epg_resolver_index = backend_runtime.index("context->epgArtworkResolver =")
+    recording_resolver_index = backend_runtime.index("context->recordingMetadataResolver =")
     require(
         transport_index < epg_resolver_index and transport_index < recording_resolver_index,
         "EPG and recording metadata must share the already bounded SuiteBridge transport",
     )
 
     require(
-        "capabilityAvailable(" in runtime and "recording-metadata" in runtime,
+        "capabilityAvailable(" in recording_runtime
+        and "recording-metadata" in recording_runtime,
         "RMETA processing must be gated by SuiteBridge discovery capability",
     )
     require(
-        "reconcileInventory(" in runtime and "recordings," in runtime,
+        "reconcileInventory(" in recording_runtime
+        and "recordings," in recording_runtime,
         "recording refresh must reconcile the persistent native metadata inventory",
     )
     require(
-        "processBatch(now)" in runtime,
+        "processBatch(now)" in recording_runtime,
         "recording refresh must process only the bounded enrichment batch",
     )
     require(
-        "findAllForBackend(" in runtime and "backendRuntimeContext->backendId" in runtime,
+        "findAllForBackend(" in recording_runtime
+        and "backendRuntimeContext->backendId" in recording_runtime,
         "periodic metadata retry must read the persistent recording cache",
     )
     require(
-        "metadataRefreshSeconds = 60" in runtime,
+        "metadataRefreshSeconds = 60" in recording_runtime,
         "recording metadata retry cadence must remain explicit and bounded",
     )
     require(
-        "VdrRecordingNativePersonSearchService" in runtime,
-        "daemon must wire the persistent recording person search service",
+        "VdrRecordingNativePersonSearchService" in initialization_runtime,
+        "daemon initialization must wire the persistent recording person search service",
     )
     require(
-        "native-persistent-index" in runtime,
-        "daemon must report the persistent recording person search source",
+        "native-persistent-index" in initialization_runtime,
+        "daemon initialization must report the persistent recording person search source",
     )
     require(
         "persistentSearch_" in recording_person_controller,
@@ -152,10 +161,10 @@ def main() -> int:
         "router must avoid snapshot loading when persistent search is wired",
     )
 
-    refresh_finished_index = runtime.index(
+    refresh_finished_index = recording_runtime.index(
         "vdrRecordingCacheRepository_->markRefreshFinished("
     )
-    enrichment_index = runtime.index(
+    enrichment_index = recording_runtime.index(
         "runRecordingMetadataEnrichment(", refresh_finished_index
     )
     require(
@@ -174,6 +183,10 @@ def main() -> int:
     require(
         "check-vdr-recording-native-metadata-runtime-wiring" in test_make,
         "recording metadata contract target must include the runtime wiring check",
+    )
+    require(
+        "runRecordingMetadataEnrichment(" in runtime,
+        "modular daemon source aggregation must retain recording enrichment wiring",
     )
 
     print("check_recording_native_metadata_runtime_wiring passed")
