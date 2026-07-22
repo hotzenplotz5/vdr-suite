@@ -96,8 +96,7 @@
   function isSingleRecordingLeaf(data) {
     const recordings = shared.recordingList(data);
     return Boolean(data && data.recordingFolder === true) &&
-      shared.folderList(data).length === 0 && recordings.length === 1 &&
-      shared.number(data.recordingCount, recordings.length) === 1;
+      shared.folderList(data).length === 0 && recordings.length === 1;
   }
 
   function resolveLeaves(data, loader) {
@@ -117,8 +116,12 @@
       const folder = candidates[index];
       const path = shared.normalizePath(shared.first(folder, ['path'], ''));
       return Promise.resolve(loader(path, 0)).then(function (page) {
-        if (isSingleRecordingLeaf(page)) resolved[index] = {path: path, recording: shared.recordingList(page)[0]};
-      }).catch(function () {}).then(worker);
+        if (isSingleRecordingLeaf(page)) {
+          resolved[index] = {path: path, recording: shared.recordingList(page)[0]};
+        }
+      }).catch(function (error) {
+        console.warn('Recordings 2 leaf could not be resolved:', path, error);
+      }).then(worker);
     }
     const workers = Array.from({length: Math.min(LEAF_CONCURRENCY, candidates.length)}, worker);
     return Promise.all(workers).then(function () {
