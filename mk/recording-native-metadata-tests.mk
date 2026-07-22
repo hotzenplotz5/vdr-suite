@@ -15,7 +15,7 @@ VDR_RECORDING_NATIVE_METADATA_SRC := \
 
 DAEMON_SRC += $(VDR_RECORDING_NATIVE_METADATA_SRC)
 
-.PHONY: test-vdr-recording-native-identity test-vdr-recording-metadata-type-coexistence test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-vdr-recording-native-metadata-repository test-vdr-recording-native-metadata-enrichment-service test-vdr-recording-native-person-search-service check-vdr-recording-native-metadata-runtime-wiring test-recording-native-metadata-contracts
+.PHONY: test-vdr-recording-native-identity test-vdr-recording-metadata-type-coexistence test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-vdr-recording-native-metadata-repository test-vdr-recording-native-metadata-enrichment-service test-vdr-recording-native-person-search-service test-recording-person-persistent-search-controller check-vdr-recording-native-metadata-runtime-wiring test-recording-native-metadata-contracts
 
 test-vdr-recording-native-identity:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -97,6 +97,17 @@ test-vdr-recording-native-person-search-service:
 		-o $(BUILD_DIR)/test_vdr_recording_native_person_search_service
 	$(BUILD_DIR)/test_vdr_recording_native_person_search_service
 
+test-recording-person-persistent-search-controller:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/PersonQueryMatcher.cpp \
+		core/vdr/src/RecordingPersonSearchService.cpp \
+		core/vdr/src/VdrRecordingArtworkIdentity.cpp \
+		core/vdr/src/RecordingPersonSearchResultJsonSerializer.cpp \
+		api/rest/src/RecordingPersonSearchController.cpp \
+		api/rest/tests/test_recording_person_persistent_search_controller.cpp \
+		-o $(BUILD_DIR)/test_recording_person_persistent_search_controller
+	$(BUILD_DIR)/test_recording_person_persistent_search_controller
+
 check-vdr-recording-native-metadata-runtime-wiring:
 	python3 tools/check_recording_native_metadata_runtime_wiring.py
 
@@ -108,4 +119,5 @@ test-recording-native-metadata-contracts: \
 	test-vdr-recording-native-metadata-repository \
 	test-vdr-recording-native-metadata-enrichment-service \
 	test-vdr-recording-native-person-search-service \
+	test-recording-person-persistent-search-controller \
 	check-vdr-recording-native-metadata-runtime-wiring
