@@ -554,6 +554,11 @@
     details.appendChild(detailField('Metadatenquelle', first(providerData, ['source'], 'VDR')));
     root.appendChild(details);
     target.appendChild(root);
+
+    const metadataDetail = global.VdrSuiteRecordings2MetadataDetail;
+    if (metadataDetail && typeof metadataDetail.enhance === 'function') {
+      metadataDetail.enhance(root, recording, state.backendId);
+    }
   }
 
   function render() {

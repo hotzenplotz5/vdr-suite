@@ -472,8 +472,39 @@ bool DaemonRuntime::initialize()
     vdrRecordingQueryController_ = std::make_unique<VdrRecordingQueryController>(
         *vdrRecordingQueryService_,
         *vdrRecordingQueryResultJsonSerializer_);
-    vdrRecordingFolderController_ = std::make_unique<VdrRecordingFolderController>(
-        *vdrRecordingCacheRepository_);
+    vdrRecordingFolderController_ =
+        std::make_unique<VdrRecordingFolderController>(
+            *vdrRecordingCacheRepository_,
+            [this](
+                const std::string& backendId,
+                const std::string& backendNativeId)
+            {
+                const std::string normalizedBackendId =
+                    backendId.empty()
+                        ? "default"
+                        : backendId;
+
+                for (const auto& backendRuntimeContext :
+                     backendRuntimeContexts_)
+                {
+                    if (!backendRuntimeContext ||
+                        backendRuntimeContext->backendId !=
+                            normalizedBackendId ||
+                        !backendRuntimeContext
+                             ->recordingMetadataRepository)
+                    {
+                        continue;
+                    }
+
+                    return backendRuntimeContext
+                        ->recordingMetadataRepository
+                        ->findByBackendNativeId(
+                            normalizedBackendId,
+                            backendNativeId);
+                }
+
+                return VdrRecordingNativeMetadataRecord{};
+            });
 
     capabilityResolver_ =
         std::make_unique<BackendRegistryCapabilityResolver>(

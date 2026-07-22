@@ -172,6 +172,18 @@ function loadVdrSuiteEpgDetailRuntime() {
   );
 }
 
+function loadVdrSuiteRecordings2Runtime() {
+  return loadVdrSuiteDeferredRuntime(
+    'vdr-suite-recordings2-metadata-detail-runtime',
+    '/frontend/recordings2-metadata-detail.js',
+    () => Boolean(window.VdrSuiteRecordings2MetadataDetail)
+  ).then(() => loadVdrSuiteDeferredRuntime(
+    'vdr-suite-recordings2-runtime',
+    '/frontend/recordings2.js',
+    () => Boolean(window.VdrSuiteRecordings2)
+  ));
+}
+
 function startVdrSuiteDeferredFrontendRuntimes() {
   loadVdrSuiteEpgDetailRuntime().catch(error => {
     console.error('VDR-Suite combined EPG detail runtime failed', error);
@@ -185,11 +197,7 @@ function startVdrSuiteDeferredFrontendRuntimes() {
     console.error('VDR-Suite deferred frontend runtime failed', error);
   });
 
-  loadVdrSuiteDeferredRuntime(
-    'vdr-suite-recordings2-runtime',
-    '/frontend/recordings2.js',
-    () => Boolean(window.VdrSuiteRecordings2)
-  ).catch(error => {
+  loadVdrSuiteRecordings2Runtime().catch(error => {
     console.error('VDR-Suite Recordings 2 runtime failed', error);
   });
 }
@@ -199,7 +207,8 @@ if (typeof window !== 'undefined') {
 
   window.VdrSuiteDeferredFrontendRuntimes = Object.freeze({
     start: startVdrSuiteDeferredFrontendRuntimes,
-    loadEpgDetail: loadVdrSuiteEpgDetailRuntime
+    loadEpgDetail: loadVdrSuiteEpgDetailRuntime,
+    loadRecordings2: loadVdrSuiteRecordings2Runtime
   });
 
   if (document.readyState === 'loading') {

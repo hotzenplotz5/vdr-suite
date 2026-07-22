@@ -89,6 +89,10 @@ public:
         const std::string& backendId,
         const std::string& recordingKey) const;
 
+    VdrRecordingNativeMetadataRecord findByBackendNativeId(
+        const std::string& backendId,
+        const std::string& backendNativeId) const;
+
     VdrRecordingNativePersonSearchResult searchPeople(
         const std::string& backendId,
         const VdrRecordingNativePersonSearchQuery& query) const;
