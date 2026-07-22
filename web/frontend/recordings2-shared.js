@@ -117,12 +117,38 @@
   function nativeMetadata(recording) { return nestedMetadata(recording, 'native'); }
   function artwork(recording) { return nestedMetadata(recording, 'artwork'); }
 
-  function recordingTitle(recording) {
+  function recordingPathTitle(recording) {
+    const raw = text(first(
+      recording,
+      ['path', 'backendNativeId', 'nativePath', 'fileName', 'directory'],
+      ''
+    )).replace(/\\/g, '/').replace(/~+/g, '/').replace(/\/+$/g, '');
+    const parts = raw.split('/').map(function (part) { return part.trim(); }).filter(Boolean);
+    if (parts.length && /\.rec$/i.test(parts[parts.length - 1])) parts.pop();
+    return parts.length ? decodeDisplayText(parts[parts.length - 1]) : '';
+  }
+
+  function recordingNativeTitle(recording) {
+    const raw = text(first(recording, ['title', 'name', 'displayName'], ''))
+      .replace(/\\/g, '/')
+      .replace(/~/g, '/');
+    const parts = raw.split('/').map(function (part) { return part.trim(); }).filter(Boolean);
+    return parts.length ? decodeDisplayText(parts[parts.length - 1]) : '';
+  }
+
+  function recordingMetadataTitle(recording) {
     return decodeDisplayText(first(
       presentation(recording),
       ['title'],
-      first(provider(recording), ['seriesTitle', 'title'], first(recording, ['title', 'name'], 'Aufnahme'))
+      first(provider(recording), ['seriesTitle', 'title'], '')
     ));
+  }
+
+  function recordingTitle(recording) {
+    return recordingPathTitle(recording) ||
+      recordingNativeTitle(recording) ||
+      recordingMetadataTitle(recording) ||
+      'Aufnahme';
   }
 
   function recordingSubtitle(recording) {
@@ -247,6 +273,9 @@
     provider,
     nativeMetadata,
     artwork,
+    recordingPathTitle,
+    recordingNativeTitle,
+    recordingMetadataTitle,
     recordingTitle,
     recordingSubtitle,
     recordingSummary,

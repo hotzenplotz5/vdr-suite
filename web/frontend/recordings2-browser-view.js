@@ -3,6 +3,8 @@
   'use strict';
 
   const shared = global.VdrSuiteRecordings2Shared;
+  const folderArtwork = global.VdrSuiteRecordings2FolderArtwork;
+  const actions = global.VdrSuiteRecordings2Actions;
   if (!shared) {
     console.error('VDR-Suite Recordings 2 shared runtime is unavailable');
     return;
@@ -10,6 +12,13 @@
 
   function create(options) {
     const getState = options.getState;
+    const actionView = actions && typeof actions.create === 'function'
+      ? actions.create({
+          getState: getState,
+          closeDetail: options.closeDetail,
+          reload: options.reload
+        })
+      : null;
 
     function state() {
       return getState();
@@ -164,7 +173,11 @@
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'recordings2-folder';
-      const icon = shared.node('span', 'recordings2-folder-icon', '📁');
+      const artwork = folderArtwork && typeof folderArtwork.create === 'function'
+        ? folderArtwork.create(folder)
+        : null;
+      const icon = artwork || shared.node('span', 'recordings2-folder-icon', '📁');
+      if (artwork) button.classList.add('has-genre-artwork');
       const copy = document.createElement('span');
       copy.className = 'recordings2-folder-copy';
       copy.appendChild(shared.node(
@@ -175,7 +188,7 @@
       copy.appendChild(shared.node(
         'span',
         'recordings2-folder-meta',
-        String(shared.number(folder.recordingCount, 0)) + ' Aufnahme(n)'
+        String(shared.number(folder.recordingCount, 0)) + ' Aufnahme(n) · antippen zum Öffnen'
       ));
       button.append(icon, copy, shared.node('span', 'recordings2-chevron', '›'));
       button.addEventListener('click', function () {
@@ -336,6 +349,11 @@
       ));
       details.appendChild(detailField('Metadatenquelle', shared.first(provider, ['source'], 'VDR')));
       root.appendChild(details);
+
+      if (actionView && typeof actionView.createPanel === 'function') {
+        root.appendChild(actionView.createPanel(recording));
+      }
+
       target.appendChild(root);
 
       const metadataDetail = global.VdrSuiteRecordings2MetadataDetail;

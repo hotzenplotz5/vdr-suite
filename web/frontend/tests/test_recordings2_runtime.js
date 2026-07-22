@@ -53,11 +53,15 @@ const context = vm.createContext({
   Number,
   Math,
   Promise,
+  Set,
+  Array,
   parseInt
 });
 
 [
   'web/frontend/recordings2-shared.js',
+  'web/frontend/recordings2-folder-artwork.js',
+  'web/frontend/recordings2-actions.js',
   'web/frontend/recordings2-browser-view.js',
   'web/frontend/recordings2.js'
 ].forEach(path => {
@@ -65,6 +69,8 @@ const context = vm.createContext({
 });
 
 assert.ok(window.VdrSuiteRecordings2Shared);
+assert.ok(window.VdrSuiteRecordings2FolderArtwork);
+assert.ok(window.VdrSuiteRecordings2Actions);
 assert.ok(window.VdrSuiteRecordings2BrowserView);
 assert.ok(window.VdrSuiteRecordings2);
 assert.strictEqual(modules.get('recordings2'), window.VdrSuiteRecordings2);
@@ -78,6 +84,8 @@ assert.strictEqual(test.formatSize(1536), '1.5 GB');
 
 const recording = {
   title: 'Technischer_Titel',
+  path: '/Serien/Tigeren_Club_gggg/2026-07-19.05.55.1-0.rec',
+  backendNativeId: '/srv/vdr/video/Serien/Tigeren_Club_gggg/2026-07-19.05.55.1-0.rec',
   metadata: {
     provider: {
       seriesTitle: 'Die Serie',
@@ -94,16 +102,32 @@ const recording = {
   }
 };
 
-assert.strictEqual(test.recordingTitle(recording), 'Die Serie');
+assert.strictEqual(test.recordingPathTitle(recording), 'Tigeren Club gggg');
+assert.strictEqual(test.recordingNativeTitle(recording), 'Technischer Titel');
+assert.strictEqual(test.recordingMetadataTitle(recording), 'Die Serie');
+assert.strictEqual(test.recordingTitle(recording), 'Tigeren Club gggg');
+assert.strictEqual(test.recordingTitle({
+  title: 'Drama/Neuer_Name',
+  path: ''
+}), 'Neuer Name');
+assert.strictEqual(test.recordingTitle({
+  title: '',
+  path: '',
+  metadata: recording.metadata
+}), 'Die Serie');
 assert.strictEqual(test.recordingSubtitle(recording), 'S02E04 · Der Fall');
 assert.strictEqual(test.recordingSummary(recording), 'Darstellungstext');
 assert.strictEqual(test.recordingPosterUrl(recording), '/api/recordings/artwork?id=poster');
 
+const normalized = test.normalizeRecording(recording);
+assert.strictEqual(normalized.title, 'Tigeren Club gggg');
+assert.strictEqual(recording.title, 'Technischer_Titel');
+
 assert.throws(() => test.applyFolderData({recordingFolder: false}, false), /gültigen Aufnahmeordner/);
 test.applyFolderData({
   recordingFolder: true,
-  path: 'Serien/Tatort',
-  parentPath: 'Serien',
+  path: 'Serien',
+  parentPath: '',
   folders: [],
   recordings: [recording],
   recordingCount: 1,

@@ -337,17 +337,15 @@
   }
 
   function fetchClientRecordingActionValidation(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/recordings/actions/validate',
-      '/api/recordings/actions/validate',
       jsonPostOptions(options)
     );
   }
 
   function fetchClientRecordingActionExecution(options) {
-    return requestJsonWithFallback(
+    return requestJson(
       '/api/vdr/recordings/actions/execute',
-      '/api/recordings/actions/execute',
       jsonPostOptions(options)
     );
   }
