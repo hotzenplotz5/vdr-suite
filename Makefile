@@ -19,6 +19,7 @@ include mk/recordings2.mk
 
 include mk/smoke-targets.mk
 include mk/agent-tests.mk
+include mk/recording-native-metadata-tests.mk
 include mk/recording-action-tests.mk
 include mk/recording-metadata-tests.mk
 include mk/metadata-tests.mk
