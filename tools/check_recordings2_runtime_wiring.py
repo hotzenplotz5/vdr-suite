@@ -153,6 +153,27 @@ for token in (
     if token not in client_api:
         raise SystemExit(f'missing Web Client API recording contract: {token}')
 
+recording_action_start = client_api.index(
+    'function fetchClientRecordingActionValidation(options)'
+)
+recording_action_end = client_api.index(
+    'function fetchClientSearchTimers(options)',
+    recording_action_start,
+)
+recording_action_client = client_api[recording_action_start:recording_action_end]
+if 'requestJsonWithFallback' in recording_action_client:
+    raise SystemExit(
+        'Recording action mutations must not use speculative route fallback'
+    )
+for canonical_path in (
+    "'/api/vdr/recordings/actions/validate'",
+    "'/api/vdr/recordings/actions/execute'",
+):
+    if canonical_path not in recording_action_client:
+        raise SystemExit(
+            f'missing canonical Recording action client route: {canonical_path}'
+        )
+
 for token in ('findByBackendNativeId(', 'recordingMetadataRepository'):
     if token not in daemon:
         raise SystemExit(f'missing recording metadata daemon wiring: {token}')
