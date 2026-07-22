@@ -182,6 +182,30 @@ int main()
     assert(!repository.find("default", forrestKey).exists());
     service.clearQueue();
 
+    // Reconciliation removes stale queued identities before they reach SuiteBridge.
+    const std::string staleNative =
+        "/srv/vdr/video/Stale/2026-07-21.00.30.1-0.rec";
+    const std::string replacementNative =
+        "/srv/vdr/video/Replaced/2026-07-21.00.30.1-0.rec";
+    const std::string staleKey =
+        VdrRecordingNativeIdentity::keyForNativeId(staleNative);
+    const std::string replacementKey =
+        VdrRecordingNativeIdentity::keyForNativeId(replacementNative);
+    resolver.replies[staleKey].push_back(notFound(staleKey));
+    resolver.replies[replacementKey].push_back(
+        found(replacementKey, "Replacement"));
+
+    assert(service.reconcileInventory(
+        {recording(staleNative, "Stale")}, 1100) == 1);
+    assert(service.reconcileInventory(
+        {recording(replacementNative, "Replacement")}, 1101) == 1);
+    assert(service.processBatch(1101) == 1);
+    assert(resolver.calls[staleKey] == 0);
+    assert(resolver.calls[replacementKey] == 1);
+    assert(!repository.find("default", staleKey).exists());
+    assert(repository.find("default", replacementKey).metadata.title ==
+        "Replacement");
+
     // Retry is exponential, bounded and stops after the configured attempt count.
     const std::string retryNative =
         "/srv/vdr/video/Retry/2026-07-21.01.15.1-0.rec";

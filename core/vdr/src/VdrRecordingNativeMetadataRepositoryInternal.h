@@ -1,6 +1,6 @@
 #pragma once
 
-#include "VdrRecordingNativeMetadata.h"
+#include "VdrRecordingNativeMetadataRepository.h"
 
 #include <cstdint>
 #include <string>
@@ -12,6 +12,18 @@ struct sqlite3_stmt;
 
 namespace vdr_recording_native_repository_detail
 {
+
+// Source-local compatibility names keep the existing repository translation
+// units stable without reintroducing the legacy global VdrRecordingNativeMetadata
+// collision from VdrRecordingMetadata.h.
+using VdrRecordingNativeMetadataAvailability = ::VdrRecordingNativeMetadataAvailability;
+using VdrRecordingNativeArtwork = ::VdrRecordingNativeArtwork;
+using VdrRecordingNativePerson = ::VdrRecordingNativePerson;
+using VdrRecordingNativeMetadata = ::VdrRecordingNativeMetadata;
+using VdrRecordingNativeMetadataRecord = ::VdrRecordingNativeMetadataRecord;
+using VdrRecordingNativePersonSearchQuery = ::VdrRecordingNativePersonSearchQuery;
+using VdrRecordingNativePersonIndexEntry = ::VdrRecordingNativePersonIndexEntry;
+using VdrRecordingNativePersonSearchResult = ::VdrRecordingNativePersonSearchResult;
 
 class Statement final
 {

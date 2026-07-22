@@ -83,11 +83,33 @@ std::size_t VdrRecordingNativeMetadataEnrichmentService::reconcileInventory(
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
-    for (const std::string& key : ambiguousKeys)
+
+    std::deque<QueueEntry> retainedQueue;
+    queuedKeys_.clear();
+    while (!queue_.empty())
     {
-        ++status_.invalidRecordings;
+        QueueEntry queued = std::move(queue_.front());
+        queue_.pop_front();
+
+        const auto active = nativeIdByKey.find(queued.recordingKey);
+        if (active == nativeIdByKey.end() ||
+            ambiguousKeys.find(queued.recordingKey) != ambiguousKeys.end())
+        {
+            continue;
+        }
+
+        queued.backendNativeId = active->second;
+        if (queuedKeys_.insert(queued.recordingKey).second)
+        {
+            retainedQueue.push_back(std::move(queued));
+        }
+    }
+    queue_.swap(retainedQueue);
+
+    if (!ambiguousKeys.empty())
+    {
+        status_.invalidRecordings += ambiguousKeys.size();
         status_.lastError = "ambiguous recording identity key";
-        queuedKeys_.erase(key);
     }
 
     for (const auto& entry : nativeIdByKey)
