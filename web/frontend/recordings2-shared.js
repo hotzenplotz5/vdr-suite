@@ -117,12 +117,24 @@
   function nativeMetadata(recording) { return nestedMetadata(recording, 'native'); }
   function artwork(recording) { return nestedMetadata(recording, 'artwork'); }
 
-  function recordingTitle(recording) {
+  function recordingNativeTitle(recording) {
+    const raw = text(first(recording, ['title', 'name', 'displayName'], ''))
+      .replace(/\\/g, '/')
+      .replace(/~/g, '/');
+    const parts = raw.split('/').map(function (part) { return part.trim(); }).filter(Boolean);
+    return parts.length ? decodeDisplayText(parts[parts.length - 1]) : '';
+  }
+
+  function recordingMetadataTitle(recording) {
     return decodeDisplayText(first(
       presentation(recording),
       ['title'],
-      first(provider(recording), ['seriesTitle', 'title'], first(recording, ['title', 'name'], 'Aufnahme'))
+      first(provider(recording), ['seriesTitle', 'title'], '')
     ));
+  }
+
+  function recordingTitle(recording) {
+    return recordingNativeTitle(recording) || recordingMetadataTitle(recording) || 'Aufnahme';
   }
 
   function recordingSubtitle(recording) {
@@ -247,6 +259,8 @@
     provider,
     nativeMetadata,
     artwork,
+    recordingNativeTitle,
+    recordingMetadataTitle,
     recordingTitle,
     recordingSubtitle,
     recordingSummary,
