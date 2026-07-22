@@ -17,7 +17,13 @@ runtimes = {
 }
 loader = (ROOT / 'web/frontend/platform/deferred-runtime-loader.js').read_text(encoding='utf-8')
 router = (ROOT / 'api/rest/src/ApiRouter.cpp').read_text(encoding='utf-8')
-daemon = (ROOT / 'core/daemon/src/DaemonRuntime.cpp').read_text(encoding='utf-8')
+daemon_sources = sorted(
+    (ROOT / 'core/daemon/src').glob('DaemonRuntime*.cpp')
+)
+daemon = '\n'.join(
+    path.read_text(encoding='utf-8')
+    for path in daemon_sources
+)
 server_sources = [ROOT / 'core/http/src/TestHttpServer.cpp'] + sorted(
     (ROOT / 'core/http/src').glob('TestHttpServer*.inc')
 )
