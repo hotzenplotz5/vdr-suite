@@ -16,12 +16,17 @@ const document = {
       className: '',
       dataset: {},
       style: {},
-      classList: { add() {}, remove() {}, contains() { return false; } },
+      hidden: false,
+      children: [],
+      classList: { add() {}, remove() {}, contains() { return false; }, toggle() {} },
       setAttribute() {},
-      appendChild() {},
-      append() {},
+      appendChild(child) { this.children.push(child); return child; },
+      append() { this.children.push(...arguments); },
+      replaceChildren() { this.children = Array.from(arguments); },
       addEventListener() {},
-      remove() {}
+      remove() {},
+      querySelector() { return null; },
+      insertBefore(child) { this.children.push(child); return child; }
     };
   }
 };
@@ -37,10 +42,30 @@ const window = {
   }
 };
 
-const context = vm.createContext({ window, document, console, Date, Map, Object, String, Number, Math, Promise, parseInt });
-const source = fs.readFileSync('web/frontend/recordings2.js', 'utf8');
-vm.runInContext(source, context, { filename: 'recordings2.js' });
+const context = vm.createContext({
+  window,
+  document,
+  console,
+  Date,
+  Map,
+  Object,
+  String,
+  Number,
+  Math,
+  Promise,
+  parseInt
+});
 
+[
+  'web/frontend/recordings2-shared.js',
+  'web/frontend/recordings2-browser-view.js',
+  'web/frontend/recordings2.js'
+].forEach(path => {
+  vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
+});
+
+assert.ok(window.VdrSuiteRecordings2Shared);
+assert.ok(window.VdrSuiteRecordings2BrowserView);
 assert.ok(window.VdrSuiteRecordings2);
 assert.strictEqual(modules.get('recordings2'), window.VdrSuiteRecordings2);
 assert.strictEqual(window.VdrSuiteRecordingBrowser, undefined);
@@ -74,7 +99,7 @@ assert.strictEqual(test.recordingSubtitle(recording), 'S02E04 · Der Fall');
 assert.strictEqual(test.recordingSummary(recording), 'Darstellungstext');
 assert.strictEqual(test.recordingPosterUrl(recording), '/api/recordings/artwork?id=poster');
 
-assert.throws(() => test.applyFolderData({ recordingFolder: false }, false), /gültigen Aufnahmeordner/);
+assert.throws(() => test.applyFolderData({recordingFolder: false}, false), /gültigen Aufnahmeordner/);
 test.applyFolderData({
   recordingFolder: true,
   path: 'Serien/Tatort',
@@ -85,4 +110,4 @@ test.applyFolderData({
   returnedCount: 1
 }, false);
 
-console.log('recordings2 runtime ok');
+console.log('recordings2 modular runtime ok');

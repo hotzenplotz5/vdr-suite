@@ -173,20 +173,44 @@ function loadVdrSuiteEpgDetailRuntime() {
 }
 
 function loadVdrSuiteRecordings2Runtime() {
-  const recordings2Runtime = loadVdrSuiteDeferredRuntime(
+  const sharedRuntime = loadVdrSuiteDeferredRuntime(
+    'vdr-suite-recordings2-shared-runtime',
+    '/frontend/recordings2-shared.js',
+    () => Boolean(window.VdrSuiteRecordings2Shared)
+  );
+
+  const browserViewRuntime = sharedRuntime.then(() => loadVdrSuiteDeferredRuntime(
+    'vdr-suite-recordings2-browser-view-runtime',
+    '/frontend/recordings2-browser-view.js',
+    () => Boolean(window.VdrSuiteRecordings2BrowserView)
+  ));
+
+  const recordings2Runtime = browserViewRuntime.then(() => loadVdrSuiteDeferredRuntime(
     'vdr-suite-recordings2-runtime',
     '/frontend/recordings2.js',
     () => Boolean(window.VdrSuiteRecordings2)
-  );
+  ));
 
-  const metadataDetailRuntime = loadVdrSuiteDeferredRuntime(
-    'vdr-suite-recordings2-metadata-detail-runtime',
-    '/frontend/recordings2-metadata-detail.js',
-    () => Boolean(window.VdrSuiteRecordings2MetadataDetail)
-  ).catch(error => {
-    console.error('VDR-Suite Recordings 2 metadata detail runtime failed', error);
-    return null;
-  });
+  const metadataDetailRuntime = sharedRuntime
+    .then(() => loadVdrSuiteDeferredRuntime(
+      'vdr-suite-recordings2-person-search-view-runtime',
+      '/frontend/recordings2-person-search-view.js',
+      () => Boolean(window.VdrSuiteRecordings2PersonSearchView)
+    ))
+    .then(() => loadVdrSuiteDeferredRuntime(
+      'vdr-suite-recordings2-metadata-view-runtime',
+      '/frontend/recordings2-metadata-view.js',
+      () => Boolean(window.VdrSuiteRecordings2MetadataView)
+    ))
+    .then(() => loadVdrSuiteDeferredRuntime(
+      'vdr-suite-recordings2-metadata-detail-runtime',
+      '/frontend/recordings2-metadata-detail.js',
+      () => Boolean(window.VdrSuiteRecordings2MetadataDetail)
+    ))
+    .catch(error => {
+      console.error('VDR-Suite Recordings 2 metadata detail runtime failed', error);
+      return null;
+    });
 
   return Promise.all([
     recordings2Runtime,

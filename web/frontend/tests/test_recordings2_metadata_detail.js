@@ -1,10 +1,13 @@
- 'use strict';
+'use strict';
 
 const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 
+let requestedPath = '';
+let requestedOptions = null;
 const document = {
+  querySelector() { return null; },
   getElementById() { return null; },
   head: { appendChild() {} },
   createElement() {
@@ -17,14 +20,24 @@ const document = {
       setAttribute() {},
       addEventListener() {},
       appendChild(child) { this.children.push(child); return child; },
+      append() { this.children.push(...arguments); },
       replaceChildren() { this.children = Array.from(arguments); },
       remove() {},
-      querySelector() { return null; }
+      querySelector() { return null; },
+      insertBefore(child) { this.children.push(child); return child; }
     };
   }
 };
 
-const window = {};
+const window = {
+  VdrSuiteClientApi: {
+    requestJson(path, options) {
+      requestedPath = path;
+      requestedOptions = options;
+      return Promise.resolve({available: false});
+    }
+  }
+};
 const context = vm.createContext({
   window,
   document,
@@ -34,18 +47,23 @@ const context = vm.createContext({
   String,
   Object,
   Array,
-  Promise
+  Promise,
+  Math,
+  parseInt
 });
 
-const source = fs.readFileSync(
-  'web/frontend/recordings2-metadata-detail.js',
-  'utf8'
-);
-vm.runInContext(source, context, {
-  filename: 'recordings2-metadata-detail.js'
+[
+  'web/frontend/recordings2-shared.js',
+  'web/frontend/recordings2-person-search-view.js',
+  'web/frontend/recordings2-metadata-view.js',
+  'web/frontend/recordings2-metadata-detail.js'
+].forEach(path => {
+  vm.runInContext(fs.readFileSync(path, 'utf8'), context, {filename: path});
 });
 
 const api = window.VdrSuiteRecordings2MetadataDetail;
+assert.ok(window.VdrSuiteRecordings2PersonSearchView);
+assert.ok(window.VdrSuiteRecordings2MetadataView);
 assert.ok(api);
 assert.strictEqual(api.roleLabel('actor'), 'Schauspiel');
 assert.strictEqual(api.roleLabel('director'), 'Regie');
@@ -54,16 +72,17 @@ assert.strictEqual(api.mediaTypeLabel('series'), 'Serie');
 assert.strictEqual(api.orientationLabel('portrait'), 'Hochformat');
 assert.strictEqual(api.formatDate('2026-07-22'), '22.07.2026');
 assert.strictEqual(
-  api.isPublicMetadataImageUrl(
-    '/api/vdr/recordings/metadata/image?backend=default'
-  ),
+  api.isPublicMetadataImageUrl('/api/vdr/recordings/metadata/image?backend=default'),
   true
 );
-assert.strictEqual(
-  api.isPublicMetadataImageUrl(
-    'https://image.tmdb.org/example.jpg'
-  ),
-  false
-);
+assert.strictEqual(api.isPublicMetadataImageUrl('https://image.tmdb.org/example.jpg'), false);
 
-console.log('recordings2 metadata detail ok');
+api.fetchMetadata({backendNativeId: '/srv/vdr/video/Inferno.rec'}, 'remote').then(() => {
+  assert.strictEqual(requestedPath, '/api/vdr/recordings/metadata');
+  assert.strictEqual(requestedOptions.query.backend, 'remote');
+  assert.strictEqual(requestedOptions.query.backendNativeId, '/srv/vdr/video/Inferno.rec');
+  console.log('recordings2 modular metadata detail ok');
+}).catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
