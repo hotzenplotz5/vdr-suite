@@ -12,7 +12,8 @@ required_files = (
     ROOT / "suitebridge_capability_discovery.cpp",
     ROOT / "suitebridge_status_snapshot.h",
     ROOT / "suitebridge_local_contract.h",
-    ROOT / "suitebridge.cpp",
+    ROOT / "suitebridge_plugin_identity.h",
+    ROOT / "suitebridge_svdrp.cpp",
     ROOT / "tests/test_suitebridge_capability_discovery.cpp",
     ROOT / "docs/SB-9-capability-discovery.md",
 )
@@ -46,7 +47,7 @@ capability_implementation = "\n".join(
     for path in capability_implementation_files
 )
 
-plugin_source = (ROOT / "suitebridge.cpp").read_text(encoding="utf-8")
+plugin_source = (ROOT / "suitebridge_svdrp.cpp").read_text(encoding="utf-8")
 discovery_source = (
     ROOT / "suitebridge_capability_discovery.cpp"
 ).read_text(encoding="utf-8")
@@ -77,8 +78,8 @@ required_content = (
     "return 451;",
     "strcasecmp(command, CommandName())",
     "ParseRequestedSchema(option)",
-    'static const char *PLUGIN_NAME = "suitebridge";',
-    'static const char *VERSION = "0.11.0";',
+    'inline constexpr const char *Name = "suitebridge";',
+    'inline constexpr const char *Version = "0.12.0";',
     "SuiteBridgeCapabilityDiscoveryReply capabilityReply(",
     "svdrp command=CAPS result=served reply=%d bytes=%zu schema=%u",
     "svdrp command=CAPS result=rejected reply=%d",
@@ -93,6 +94,7 @@ for capability_id, state in (
     ("status-events", "available"),
     ("snapshots", "available"),
     ("local-contract", "available"),
+    ("recording-metadata", "available"),
     ("mutations", "disabled"),
 ):
     source_fragment = (

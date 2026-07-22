@@ -9,17 +9,19 @@ int main()
   const auto &capabilities = SuiteBridgeCapabilities::All();
 
   assert(SuiteBridgeCapabilities::SchemaVersion() == 1);
-  assert(capabilities.size() == 5);
+  assert(capabilities.size() == 6);
 
-  const std::array<const char *, 5> expectedIds = {{
+  const std::array<const char *, 6> expectedIds = {{
       "lifecycle",
       "status-events",
       "snapshots",
       "local-contract",
+      "recording-metadata",
       "mutations",
   }};
 
-  const std::array<SuiteBridgeCapabilityState, 5> expectedStates = {{
+  const std::array<SuiteBridgeCapabilityState, 6> expectedStates = {{
+      SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Available,
       SuiteBridgeCapabilityState::Available,
@@ -51,6 +53,7 @@ int main()
   assert(SuiteBridgeCapabilities::IsAvailable("status-events"));
   assert(SuiteBridgeCapabilities::IsAvailable("snapshots"));
   assert(SuiteBridgeCapabilities::IsAvailable("local-contract"));
+  assert(SuiteBridgeCapabilities::IsAvailable("recording-metadata"));
   assert(!SuiteBridgeCapabilities::IsAvailable("mutations"));
   assert(!SuiteBridgeCapabilities::IsAvailable("unknown"));
   assert(SuiteBridgeCapabilities::Find(nullptr) == nullptr);

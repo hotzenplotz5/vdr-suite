@@ -37,6 +37,7 @@ required_content = (
     '{"status-events", SuiteBridgeCapabilityState::Available}',
     '{"snapshots", SuiteBridgeCapabilityState::Available}',
     '{"local-contract", SuiteBridgeCapabilityState::Available}',
+    '{"recording-metadata", SuiteBridgeCapabilityState::Available}',
     '{"mutations", SuiteBridgeCapabilityState::Disabled}',
     "SuiteBridgeCapabilities::Find(",
     "SuiteBridgeCapabilities::IsAvailable(",

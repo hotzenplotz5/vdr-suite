@@ -4,17 +4,18 @@
 
 namespace {
 
-constexpr std::array<SuiteBridgeCapabilityDescriptor, 5> CAPABILITIES = {{
+constexpr std::array<SuiteBridgeCapabilityDescriptor, 6> CAPABILITIES = {{
     {"lifecycle", SuiteBridgeCapabilityState::Available},
     {"status-events", SuiteBridgeCapabilityState::Available},
     {"snapshots", SuiteBridgeCapabilityState::Available},
     {"local-contract", SuiteBridgeCapabilityState::Available},
+    {"recording-metadata", SuiteBridgeCapabilityState::Available},
     {"mutations", SuiteBridgeCapabilityState::Disabled},
 }};
 
 }
 
-const std::array<SuiteBridgeCapabilityDescriptor, 5> &
+const std::array<SuiteBridgeCapabilityDescriptor, 6> &
 SuiteBridgeCapabilities::All() noexcept
 {
   return CAPABILITIES;
