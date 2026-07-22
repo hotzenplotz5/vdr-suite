@@ -43,6 +43,7 @@ struct VdrRecordingNativePersonSearchQuery
 struct VdrRecordingNativePersonIndexEntry
 {
     std::string backendId;
+    std::string backendNativeId;
     std::string recordingKey;
     int ordinal = 0;
     std::string role;

@@ -5,6 +5,8 @@
 #include "RecordingPersonSearchResultJsonSerializer.h"
 #include "RecordingPersonSearchService.h"
 
+#include <utility>
+
 namespace {
 
 ApiResponse makeJsonResponse(
@@ -152,14 +154,76 @@ bool parseSource(
 
 RecordingPersonSearchController::RecordingPersonSearchController(
     RecordingPersonSearchService& searchService,
-    RecordingPersonSearchResultJsonSerializer& jsonSerializer)
+    RecordingPersonSearchResultJsonSerializer& jsonSerializer,
+    PersistentSearch persistentSearch)
     : searchService_(searchService),
-      jsonSerializer_(jsonSerializer)
+      jsonSerializer_(jsonSerializer),
+      persistentSearch_(std::move(persistentSearch))
 {
+}
+
+bool RecordingPersonSearchController::usesPersistentSearch() const noexcept
+{
+    return static_cast<bool>(persistentSearch_);
 }
 
 ApiResponse RecordingPersonSearchController::searchRecordingPersons(
     const std::vector<VdrRecording>& recordings,
+    const std::string& name,
+    const std::string& normalizedName,
+    const std::string& characterName,
+    const std::string& role,
+    const std::string& source,
+    const std::string& providerReference,
+    int limit,
+    int offset)
+{
+    const std::string backendId =
+        recordings.empty() || recordings.front().backendId.empty()
+            ? "default"
+            : recordings.front().backendId;
+
+    return searchRecordingPersonsInternal(
+        backendId,
+        recordings,
+        name,
+        normalizedName,
+        characterName,
+        role,
+        source,
+        providerReference,
+        limit,
+        offset);
+}
+
+ApiResponse RecordingPersonSearchController::searchRecordingPersons(
+    const std::string& backendId,
+    const std::vector<VdrRecording>& fallbackRecordings,
+    const std::string& name,
+    const std::string& normalizedName,
+    const std::string& characterName,
+    const std::string& role,
+    const std::string& source,
+    const std::string& providerReference,
+    int limit,
+    int offset)
+{
+    return searchRecordingPersonsInternal(
+        backendId,
+        fallbackRecordings,
+        name,
+        normalizedName,
+        characterName,
+        role,
+        source,
+        providerReference,
+        limit,
+        offset);
+}
+
+ApiResponse RecordingPersonSearchController::searchRecordingPersonsInternal(
+    const std::string& backendId,
+    const std::vector<VdrRecording>& fallbackRecordings,
     const std::string& name,
     const std::string& normalizedName,
     const std::string& characterName,
@@ -222,11 +286,17 @@ ApiResponse RecordingPersonSearchController::searchRecordingPersons(
     }
 
     const RecordingPersonSearchResult result =
-        searchService_.search(
-            recordings,
-            query,
-            limit,
-            offset);
+        persistentSearch_
+            ? persistentSearch_(
+                backendId,
+                query,
+                limit,
+                offset)
+            : searchService_.search(
+                fallbackRecordings,
+                query,
+                limit,
+                offset);
 
     return makeJsonResponse(
         jsonSerializer_.serialize(result));

@@ -45,7 +45,7 @@ VdrRecordingNativeMetadataRepository::searchPeople(
     result.totalCount = sqlite3_column_int(countStatement.get(), 0);
 
     std::string selectSql = std::string(
-        "SELECT p.recording_key, p.ordinal, p.role, p.name, p.normalized_name, p.character_name, "
+        "SELECT m.backend_native_id, p.recording_key, p.ordinal, p.role, p.name, p.normalized_name, p.character_name, "
         "p.image_provider, p.image_path, p.image_width, p.image_height") + where +
         "ORDER BY p.name_folded ASC, p.recording_key ASC, p.ordinal ASC ";
     selectSql += result.limit > 0 ? "LIMIT ? OFFSET ?;" : "LIMIT -1 OFFSET ?;";
@@ -66,16 +66,17 @@ VdrRecordingNativeMetadataRepository::searchPeople(
     {
         VdrRecordingNativePersonIndexEntry entry;
         entry.backendId = normalizedBackendId;
-        entry.recordingKey = columnText(selectStatement.get(), 0);
-        entry.ordinal = sqlite3_column_int(selectStatement.get(), 1);
-        entry.role = columnText(selectStatement.get(), 2);
-        entry.name = columnText(selectStatement.get(), 3);
-        entry.normalizedName = columnText(selectStatement.get(), 4);
-        entry.characterName = columnText(selectStatement.get(), 5);
-        entry.image.provider = columnText(selectStatement.get(), 6);
-        entry.image.path = columnText(selectStatement.get(), 7);
-        entry.image.width = sqlite3_column_int(selectStatement.get(), 8);
-        entry.image.height = sqlite3_column_int(selectStatement.get(), 9);
+        entry.backendNativeId = columnText(selectStatement.get(), 0);
+        entry.recordingKey = columnText(selectStatement.get(), 1);
+        entry.ordinal = sqlite3_column_int(selectStatement.get(), 2);
+        entry.role = columnText(selectStatement.get(), 3);
+        entry.name = columnText(selectStatement.get(), 4);
+        entry.normalizedName = columnText(selectStatement.get(), 5);
+        entry.characterName = columnText(selectStatement.get(), 6);
+        entry.image.provider = columnText(selectStatement.get(), 7);
+        entry.image.path = columnText(selectStatement.get(), 8);
+        entry.image.width = sqlite3_column_int(selectStatement.get(), 9);
+        entry.image.height = sqlite3_column_int(selectStatement.get(), 10);
         entry.image.available = !entry.image.path.empty();
         result.entries.push_back(std::move(entry));
     }

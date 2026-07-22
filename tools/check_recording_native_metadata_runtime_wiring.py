@@ -10,6 +10,10 @@ AGENT_SOURCES = ROOT / "mk/agent-sources.mk"
 AGENT_TESTS = ROOT / "mk/agent-tests.mk"
 RUNTIME_TESTS = ROOT / "mk/runtime-api-tests.mk"
 DAEMON_HEADER = ROOT / "core/daemon/include/DaemonRuntime.h"
+RECORDING_PERSON_CONTROLLER = (
+    ROOT / "api/rest/src/RecordingPersonSearchController.cpp"
+)
+API_ROUTER = ROOT / "api/rest/src/ApiRouter.cpp"
 
 
 def require(condition: bool, message: str) -> None:
@@ -26,6 +30,10 @@ def main() -> int:
     agent_tests = AGENT_TESTS.read_text(encoding="utf-8")
     runtime_tests = RUNTIME_TESTS.read_text(encoding="utf-8")
     daemon_header = DAEMON_HEADER.read_text(encoding="utf-8")
+    recording_person_controller = (
+        RECORDING_PERSON_CONTROLLER.read_text(encoding="utf-8")
+    )
+    api_router = API_ROUTER.read_text(encoding="utf-8")
 
     require(
         "VDR_RECORDING_NATIVE_METADATA_SRC :=" in test_make,
@@ -34,6 +42,16 @@ def main() -> int:
     require(
         "DAEMON_SRC += $(VDR_RECORDING_NATIVE_METADATA_SRC)" in test_make,
         "daemon must link the complete native recording metadata module",
+    )
+    require(
+        "core/vdr/src/VdrRecordingNativePersonSearchService.cpp"
+        in test_make,
+        "native recording person search service must be linked",
+    )
+    require(
+        "test-vdr-recording-native-person-search-service"
+        in test_make,
+        "native recording person search must have a focused test target",
     )
     require(
         "AGENT_SVDRP_TRANSPORT_STANDALONE_SRC =" in agent_sources,
@@ -100,6 +118,23 @@ def main() -> int:
     require(
         "metadataRefreshSeconds = 60" in runtime,
         "recording metadata retry cadence must remain explicit and bounded",
+    )
+    require(
+        "VdrRecordingNativePersonSearchService" in runtime,
+        "daemon must wire the persistent recording person search service",
+    )
+    require(
+        "native-persistent-index" in runtime,
+        "daemon must report the persistent recording person search source",
+    )
+    require(
+        "persistentSearch_" in recording_person_controller,
+        "recording person controller must prefer persistent search when wired",
+    )
+    require(
+        "usesPersistentSearch()" in api_router
+        and "fallbackRecordings" in api_router,
+        "router must avoid snapshot loading when persistent search is wired",
     )
 
     refresh_finished_index = runtime.index(
