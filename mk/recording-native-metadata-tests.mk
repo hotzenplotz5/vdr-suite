@@ -1,8 +1,14 @@
 DAEMON_SRC += \
 	core/vdr/src/VdrRecordingNativeIdentity.cpp \
-	core/vdr/src/SuiteBridgeRecordingMetadataResolver.cpp
+	core/vdr/src/SuiteBridgeRecordingMetadataResolver.cpp \
+	core/vdr/src/VdrRecordingNativeMetadataRepositoryInternal.cpp \
+	core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp \
+	core/vdr/src/VdrRecordingNativeMetadataRepositoryStorage.cpp \
+	core/vdr/src/VdrRecordingNativeMetadataRepositoryRead.cpp \
+	core/vdr/src/VdrRecordingNativeMetadataRepositorySearch.cpp \
+	core/vdr/src/VdrRecordingNativeMetadataRepositoryMaintenance.cpp
 
-.PHONY: test-vdr-recording-native-identity test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-recording-native-metadata-contracts
+.PHONY: test-vdr-recording-native-identity test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-vdr-recording-native-metadata-repository test-recording-native-metadata-contracts
 
 test-vdr-recording-native-identity:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -31,7 +37,22 @@ test-suite-bridge-recording-metadata-resolver:
 		-o $(BUILD_DIR)/test_suite_bridge_recording_metadata_resolver
 	$(BUILD_DIR)/test_suite_bridge_recording_metadata_resolver
 
+test-vdr-recording-native-metadata-repository:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/VdrRecordingNativeMetadataRepositoryInternal.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositoryStorage.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositoryRead.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositorySearch.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositoryMaintenance.cpp \
+		core/vdr/tests/test_vdr_recording_native_metadata_repository.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_vdr_recording_native_metadata_repository
+	$(BUILD_DIR)/test_vdr_recording_native_metadata_repository
+
 test-recording-native-metadata-contracts: \
 	test-vdr-recording-native-identity \
 	test-suite-bridge-svdrp-recording-metadata-transport \
-	test-suite-bridge-recording-metadata-resolver
+	test-suite-bridge-recording-metadata-resolver \
+	test-vdr-recording-native-metadata-repository
