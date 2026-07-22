@@ -31,11 +31,11 @@ The implementation provides:
 - recording-person search service
 - recording-person search JSON contract
 - REST-facing recording-person search controller
-- snapshot-backed recording-person search routing
+- persistent native recording-person search routing
 
 The routed person query endpoints expose the query contract and return a valid paged person result shape.
 
-The routed recording-person search endpoints search recording-attached person metadata from the current VDR snapshot.
+The routed recording-person search endpoints query the persistent native SuiteBridge RMETA person index and join matches to the persistent recording cache.
 
 EPG, full TVScraper character export, scraper2vdr, TMDB and IMDb person metadata sources are not fully connected yet.
 
@@ -63,7 +63,7 @@ Implemented:
 - RecordingPersonSearchService
 - RecordingPersonSearchResultJsonSerializer
 - RecordingPersonSearchController
-- snapshot-backed recording-person search routing
+- persistent native recording-person search routing
 
 Implemented routed endpoints:
 
@@ -80,9 +80,7 @@ Not implemented yet:
 - scraper2vdr integration
 - TMDB integration
 - IMDb integration
-- persistent person index
 - EPG person search
-- real VDR metadata validation
 
 ---
 
@@ -229,7 +227,7 @@ An empty query matches all supplied person facts.
 
 For the standalone person endpoints, the router still supplies an empty person collection.
 
-For recording-person search endpoints, the router supplies snapshot-backed recordings from VdrSnapshotReadService.
+For recording-person search endpoints, the router passes the normalized backend scope to the persistent native search callback. Snapshot recordings are loaded only when that callback is not wired.
 
 ---
 
@@ -329,20 +327,20 @@ The standalone person API path is:
 
 The router still supplies an empty PersonCollection for the standalone person API.
 
-The recording-person search API path is:
+The production recording-person search API path is:
 
     ApiRouter
-    -> VdrSnapshotReadService
     -> RecordingPersonSearchController
-    -> RecordingPersonSearchService
-    -> PersonQueryMatcher
+    -> VdrRecordingNativePersonSearchService
+    -> VdrRecordingNativeMetadataRepository
+    -> VdrRecordingCacheRepository
     -> RecordingPersonSearchResultJsonSerializer
 
-For recording-person search, the router supplies snapshot-backed recordings from the current VDR snapshot.
+The native metadata repository performs backend-scoped person filtering and pagination.
 
-If the backend parameter is empty, all default snapshot recordings are used.
+Matching recordings are resolved from the persistent recording cache through backend-native recording identities.
 
-If the backend parameter is set, recordings are read from the matching backend snapshot.
+The previous structured snapshot search remains available only when the persistent search callback is not wired.
 
 ---
 
@@ -353,7 +351,7 @@ Recording-person search is routed through:
     GET /api/recordings/persons/search
     GET /api/vdr/recordings/persons/search
 
-These endpoints search person metadata attached to recordings in the current VDR snapshot.
+These endpoints search native person rows persisted from SuiteBridge RMETA and return matching recordings from the persistent recording cache.
 
 Supported parameters:
 
@@ -363,8 +361,8 @@ Supported parameters:
 | normalizedName | string | empty | Exact match against normalizedName. |
 | role | string | empty | Optional role filter. |
 | source | string | empty | Optional source filter. |
-| providerReference | string | empty | Exact provider reference filter. |
-| backend | string | empty | Optional backend filter. Empty uses default snapshot recordings. |
+| providerReference | string | empty | Native RMETA person rows currently expose no stable person-provider identifier; a non-empty value returns no native matches. |
+| backend | string | empty | Optional backend scope. Empty is normalized to default. |
 | limit | integer | 0 | Maximum number of returned matches. Zero means no explicit limit. |
 | offset | integer | 0 | Number of matching entries to skip. |
 
@@ -398,7 +396,7 @@ Successful response shape:
 
 The recording-person search does not inspect recording titles, paths or descriptions as fallback person sources.
 
-It only searches structured Person entries attached to VdrRecording.persons.
+The production path searches structured native person rows persisted from SuiteBridge RMETA. The structured VdrRecording.persons search remains only as an unwired fallback.
 
 ---
 
@@ -487,7 +485,7 @@ Validation result:
 
 Implication:
 
-The current VDR-Suite recording-person search pipeline is validated for actor metadata from real recordings.
+The native SuiteBridge RMETA pipeline is validated for actor and character metadata from real recordings.
 
 The current limitation for director, writer and producer lookup is upstream metadata availability in the exported RESTfulAPI payload, not the VDR-Suite search model.
 
@@ -500,11 +498,9 @@ The following are intentionally out of scope for the current person query API:
 - full crew metadata extraction from real VDR payloads
 - additional recording person metadata extraction
 - EPG person metadata extraction
-- persistent person index
 - external provider lookup
 - TMDB identity resolution
 - IMDb identity resolution
-- TVScraper integration
 - scraper2vdr integration
 - SearchTimer integration
 
@@ -522,7 +518,6 @@ Future phases may add:
 - TMDB and IMDb provider references
 - additional actor and director search validation over real recordings
 - cast and crew filters
-- persistent person index
 - multi-backend person search
 - person search result entries that reference recordings and EPG events
 

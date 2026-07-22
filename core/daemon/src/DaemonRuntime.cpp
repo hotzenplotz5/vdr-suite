@@ -14,6 +14,7 @@
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "VdrEventQuery.h"
 #include "VdrRecordingCacheRepository.h"
+#include "VdrRecordingNativePersonSearchService.h"
 
 #include <chrono>
 #include <cstdint>
@@ -632,13 +633,109 @@ bool DaemonRuntime::initialize()
 
     std::cout << "person controller runtime initialized" << std::endl;
 
-    recordingPersonSearchService_ = std::make_unique<RecordingPersonSearchService>();
-    recordingPersonSearchResultJsonSerializer_ = std::make_unique<RecordingPersonSearchResultJsonSerializer>();
-    recordingPersonSearchController_ = std::make_unique<RecordingPersonSearchController>(
-        *recordingPersonSearchService_,
-        *recordingPersonSearchResultJsonSerializer_);
+    recordingPersonSearchService_ =
+        std::make_unique<RecordingPersonSearchService>();
 
-    std::cout << "recording person search controller runtime initialized" << std::endl;
+    recordingPersonSearchResultJsonSerializer_ =
+        std::make_unique<
+            RecordingPersonSearchResultJsonSerializer>();
+
+    std::vector<std::pair<
+        std::string,
+        VdrRecordingNativeMetadataRepository*>>
+        recordingPersonMetadataRepositories;
+
+    for (const auto& backendRuntimeContext :
+         backendRuntimeContexts_)
+    {
+        if (!backendRuntimeContext ||
+            !backendRuntimeContext
+                 ->recordingMetadataRepository)
+        {
+            continue;
+        }
+
+        recordingPersonMetadataRepositories.emplace_back(
+            backendRuntimeContext->backendId,
+            backendRuntimeContext
+                ->recordingMetadataRepository
+                .get());
+    }
+
+    RecordingPersonSearchController::PersistentSearch
+        persistentRecordingPersonSearch;
+
+    if (!recordingPersonMetadataRepositories.empty())
+    {
+        VdrRecordingCacheRepository*
+            recordingCacheRepository =
+                vdrRecordingCacheRepository_.get();
+
+        persistentRecordingPersonSearch =
+            [
+                recordingPersonMetadataRepositories =
+                    std::move(
+                        recordingPersonMetadataRepositories),
+                recordingCacheRepository
+            ](
+                const std::string& backendId,
+                const PersonQuery& query,
+                int limit,
+                int offset)
+            {
+                const std::string normalizedBackendId =
+                    backendId.empty()
+                        ? "default"
+                        : backendId;
+
+                for (const auto& repositoryEntry :
+                     recordingPersonMetadataRepositories)
+                {
+                    if (repositoryEntry.first !=
+                        normalizedBackendId)
+                    {
+                        continue;
+                    }
+
+                    VdrRecordingNativePersonSearchService
+                        nativeSearchService(
+                            *repositoryEntry.second,
+                            *recordingCacheRepository);
+
+                    return nativeSearchService.search(
+                        normalizedBackendId,
+                        query,
+                        limit,
+                        offset);
+                }
+
+                return RecordingPersonSearchResult::empty(
+                    limit,
+                    offset);
+            };
+    }
+
+    const bool usesPersistentRecordingPersonSearch =
+        static_cast<bool>(
+            persistentRecordingPersonSearch);
+
+    recordingPersonSearchController_ =
+        std::make_unique<
+            RecordingPersonSearchController>(
+                *recordingPersonSearchService_,
+                *recordingPersonSearchResultJsonSerializer_,
+                std::move(
+                    persistentRecordingPersonSearch));
+
+    std::cout
+        << "recording person search controller runtime initialized: "
+        << "source="
+        << (
+            usesPersistentRecordingPersonSearch
+                ? "native-persistent-index"
+                : "snapshot-fallback"
+        )
+        << std::endl;
 
     recordingActionValidationService_ = std::make_unique<RecordingActionValidationService>();
     recordingActionValidationResultJsonSerializer_ = std::make_unique<RecordingActionValidationResultJsonSerializer>();

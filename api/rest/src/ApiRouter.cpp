@@ -36,6 +36,7 @@
 #include "VdrTimerActionExecutorAdapterRegistry.h"
 
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -759,23 +760,34 @@ ApiResponse ApiRouter::handleGet(
         }
 
         const std::string backendId =
-            queryParameters.get("backend");
+            normalizeBackendId(
+                queryParameters.get("backend"));
 
-        const std::vector<VdrRecording> recordings =
-            backendId.empty()
-                ? vdrSnapshotReadService_.getRecordings()
-                : vdrSnapshotReadService_.getRecordingsForBackend(backendId);
+        std::vector<VdrRecording> fallbackRecordings;
 
-        return recordingPersonSearchController_->searchRecordingPersons(
-            recordings,
-            queryParameters.get("name"),
-            queryParameters.get("normalizedName"),
-            queryParameters.get("characterName"),
-            queryParameters.get("role"),
-            queryParameters.get("source"),
-            queryParameters.get("providerReference"),
-            queryParameters.getInt("limit", 0),
-            queryParameters.getInt("offset", 0));
+        if (!recordingPersonSearchController_
+                 ->usesPersistentSearch())
+        {
+            fallbackRecordings =
+                backendId == "default"
+                    ? vdrSnapshotReadService_.getRecordings()
+                    : vdrSnapshotReadService_
+                          .getRecordingsForBackend(
+                              backendId);
+        }
+
+        return recordingPersonSearchController_
+            ->searchRecordingPersons(
+                backendId,
+                fallbackRecordings,
+                queryParameters.get("name"),
+                queryParameters.get("normalizedName"),
+                queryParameters.get("characterName"),
+                queryParameters.get("role"),
+                queryParameters.get("source"),
+                queryParameters.get("providerReference"),
+                queryParameters.getInt("limit", 0),
+                queryParameters.getInt("offset", 0));
     }
 
     if (path == "/api/vdr/timers/live")
