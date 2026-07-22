@@ -173,15 +173,25 @@ function loadVdrSuiteEpgDetailRuntime() {
 }
 
 function loadVdrSuiteRecordings2Runtime() {
-  return loadVdrSuiteDeferredRuntime(
-    'vdr-suite-recordings2-metadata-detail-runtime',
-    '/frontend/recordings2-metadata-detail.js',
-    () => Boolean(window.VdrSuiteRecordings2MetadataDetail)
-  ).then(() => loadVdrSuiteDeferredRuntime(
+  const recordings2Runtime = loadVdrSuiteDeferredRuntime(
     'vdr-suite-recordings2-runtime',
     '/frontend/recordings2.js',
     () => Boolean(window.VdrSuiteRecordings2)
-  ));
+  );
+
+  const metadataDetailRuntime = loadVdrSuiteDeferredRuntime(
+    'vdr-suite-recordings2-metadata-detail-runtime',
+    '/frontend/recordings2-metadata-detail.js',
+    () => Boolean(window.VdrSuiteRecordings2MetadataDetail)
+  ).catch(error => {
+    console.error('VDR-Suite Recordings 2 metadata detail runtime failed', error);
+    return null;
+  });
+
+  return Promise.all([
+    recordings2Runtime,
+    metadataDetailRuntime
+  ]).then(() => undefined);
 }
 
 function startVdrSuiteDeferredFrontendRuntimes() {
