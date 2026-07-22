@@ -716,6 +716,44 @@ ApiResponse ApiRouter::handleGet(
             queryParameters.getInt("offset", 0));
     }
 
+    if (path == "/api/recordings/metadata/image" ||
+        path == "/api/vdr/recordings/metadata/image")
+    {
+        if (vdrRecordingFolderController_ == nullptr)
+        {
+            ApiResponse response;
+            response.statusCode = 503;
+            response.contentType = "application/json";
+            response.body =
+                "{\"error\":\"recording metadata unavailable\"}";
+            return response;
+        }
+
+        return vdrRecordingFolderController_->getMetadataImage(
+            normalizeBackendId(queryParameters.get("backend")),
+            queryParameters.get("backendNativeId"),
+            queryParameters.get("kind"),
+            queryParameters.getInt("index", 0));
+    }
+
+    if (path == "/api/recordings/metadata" ||
+        path == "/api/vdr/recordings/metadata")
+    {
+        if (vdrRecordingFolderController_ == nullptr)
+        {
+            ApiResponse response;
+            response.statusCode = 503;
+            response.contentType = "application/json";
+            response.body =
+                "{\"error\":\"recording metadata unavailable\"}";
+            return response;
+        }
+
+        return vdrRecordingFolderController_->getMetadata(
+            normalizeBackendId(queryParameters.get("backend")),
+            queryParameters.get("backendNativeId"));
+    }
+
     if (path == "/api/vdr/recordings/query")
     {
         return vdrRecordingQueryController_.getRecordings(

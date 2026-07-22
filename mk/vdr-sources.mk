@@ -23,6 +23,7 @@ VDR_SRC := \
         core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
         core/vdr/src/VdrRecordingArtworkIdentity.cpp \
         core/vdr/src/VdrRecordingMetadataJsonSerializer.cpp \
+        core/vdr/src/VdrRecordingNativeMetadataPublicJsonSerializer.cpp \
         core/vdr/src/EpgArtworkRepository.cpp \
         core/vdr/src/EpgArtworkPublicJsonSerializer.cpp \
         core/vdr/src/EpgArtworkEnrichmentService.cpp \

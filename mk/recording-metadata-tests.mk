@@ -48,6 +48,13 @@ test-vdr-recording-metadata-json-serializer:
 		-o $(BUILD_DIR)/test_vdr_recording_metadata_json_serializer
 	$(BUILD_DIR)/test_vdr_recording_metadata_json_serializer
 
+test-vdr-recording-native-metadata-public-json-serializer:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/VdrRecordingNativeMetadataPublicJsonSerializer.cpp \
+		core/vdr/tests/test_vdr_recording_native_metadata_public_json_serializer.cpp \
+		-o $(BUILD_DIR)/test_vdr_recording_native_metadata_public_json_serializer
+	$(BUILD_DIR)/test_vdr_recording_native_metadata_public_json_serializer
+
 test-vdr-recording-artwork-service:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -80,6 +87,7 @@ test-recording-metadata-foundation: \
 	test-vdr-recording-metadata-cache-codec \
 	test-vdr-recording-cache-metadata-persistence \
 	test-vdr-recording-metadata-json-serializer \
+	test-vdr-recording-native-metadata-public-json-serializer \
 	test-vdr-recording-artwork-service \
 	test-recording-artwork-http-server
 
@@ -95,7 +103,10 @@ test-vdr-recording-cache-repository \
 
 test-vdr-recording-folder-controller: CXXFLAGS += \
 	core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
-	core/vdr/src/VdrRecordingArtworkIdentity.cpp
+	core/vdr/src/VdrRecordingArtworkIdentity.cpp \
+	core/vdr/src/VdrRecordingNativeMetadataPublicJsonSerializer.cpp \
+	core/vdr/src/EpgArtworkRepository.cpp \
+	api/rest/src/EpgArtworkController.cpp
 
 test-vdr-recording-query-controller \
  test-vdr-recording-query-result-json-serializer: CXXFLAGS += \

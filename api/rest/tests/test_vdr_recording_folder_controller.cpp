@@ -60,7 +60,36 @@ int main()
 
     assert(repository.markRefreshFinished("default", 3));
 
-    VdrRecordingFolderController controller(repository);
+    VdrRecordingFolderController controller(
+        repository,
+        [](
+            const std::string& backendId,
+            const std::string& backendNativeId)
+        {
+            VdrRecordingNativeMetadataRecord record;
+            if (backendId != "default" ||
+                backendNativeId.find("Movie") == std::string::npos)
+            {
+                return record;
+            }
+
+            record.backendId = backendId;
+            record.backendNativeId = backendNativeId;
+            record.recordingKey = "movie-key";
+            record.contentState = "found";
+            record.metadata.found = true;
+            record.metadata.provider = "tvscraper";
+            record.metadata.mediaType = "movie";
+            record.metadata.title = "Movie";
+
+            VdrRecordingNativePerson person;
+            person.role = "actor";
+            person.name = "Tom Hanks";
+            person.characterName = "Robert Langdon";
+            record.metadata.people.push_back(person);
+
+            return record;
+        });
 
     const ApiResponse status =
         controller.getStatus("default");
@@ -89,6 +118,21 @@ int main()
     assert(contains(series.body, "\"Show\""));
     assert(contains(series.body, "\"parentPath\":\"\""));
     assert(contains(series.body, "\"metadata\":{"));
+
+    const ApiResponse nativeMetadata = controller.getMetadata(
+        "default",
+        "/srv/vdr/video/Movies/Movie/2026-07-02.20.15.1-0.rec");
+    assert(nativeMetadata.statusCode == 200);
+    assert(contains(nativeMetadata.body, "\"available\":true"));
+    assert(contains(nativeMetadata.body, "\"provider\":\"tvscraper\""));
+    assert(contains(nativeMetadata.body, "\"name\":\"Tom Hanks\""));
+    assert(contains(nativeMetadata.body, "\"characterName\":\"Robert Langdon\""));
+
+    const ApiResponse missingMetadata = controller.getMetadata(
+        "default",
+        "/srv/vdr/video/Movies/Missing.rec");
+    assert(missingMetadata.statusCode == 200);
+    assert(contains(missingMetadata.body, "\"available\":false"));
 
     std::cout
         << "test_vdr_recording_folder_controller passed"
