@@ -1,4 +1,4 @@
-// Genre artwork owner for Recordings 2 folder cards.
+// Genre artwork and single-recording leaf owner for Recordings 2 folder cards.
 (function (global) {
   'use strict';
 
@@ -10,6 +10,7 @@
 
   const STYLE_ID = 'vdr-suite-recordings2-folder-artwork-styles';
   const SPRITE = '/channel-logos/vdr-suite-brand/recording-genre-sprite.svg';
+  const LEAF_CONCURRENCY = 4;
   const GENRES = Object.freeze({
     horror: {slug: 'horror', sprite: '0% 0%'},
     grusel: {slug: 'horror', sprite: '0% 0%'},
@@ -92,10 +93,52 @@
     return artwork;
   }
 
+  function isSingleRecordingLeaf(data) {
+    const recordings = shared.recordingList(data);
+    return Boolean(data && data.recordingFolder === true) &&
+      shared.folderList(data).length === 0 && recordings.length === 1 &&
+      shared.number(data.recordingCount, recordings.length) === 1;
+  }
+
+  function resolveLeaves(data, loader) {
+    const folders = shared.folderList(data).slice();
+    const candidates = folders.filter(function (folder) {
+      return shared.number(folder.recordingCount, 0) === 1 &&
+        shared.normalizePath(shared.first(folder, ['path'], ''));
+    });
+    if (!candidates.length || typeof loader !== 'function') {
+      return Promise.resolve({folders: folders, recordings: []});
+    }
+    const resolved = new Array(candidates.length);
+    let cursor = 0;
+    function worker() {
+      const index = cursor++;
+      if (index >= candidates.length) return Promise.resolve();
+      const folder = candidates[index];
+      const path = shared.normalizePath(shared.first(folder, ['path'], ''));
+      return Promise.resolve(loader(path, 0)).then(function (page) {
+        if (isSingleRecordingLeaf(page)) resolved[index] = {path: path, recording: shared.recordingList(page)[0]};
+      }).catch(function () {}).then(worker);
+    }
+    const workers = Array.from({length: Math.min(LEAF_CONCURRENCY, candidates.length)}, worker);
+    return Promise.all(workers).then(function () {
+      const matches = resolved.filter(Boolean);
+      const paths = new Set(matches.map(function (entry) { return entry.path; }));
+      return {
+        folders: folders.filter(function (folder) {
+          return !paths.has(shared.normalizePath(shared.first(folder, ['path'], '')));
+        }),
+        recordings: matches.map(function (entry) { return entry.recording; })
+      };
+    });
+  }
+
   global.VdrSuiteRecordings2FolderArtwork = Object.freeze({
     normalizeName,
     forFolderName,
     installStyles,
-    create
+    create,
+    isSingleRecordingLeaf,
+    resolveLeaves
   });
 }(window));
