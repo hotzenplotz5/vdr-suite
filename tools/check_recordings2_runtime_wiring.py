@@ -5,6 +5,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 runtime_paths = {
     'shared': ROOT / 'web/frontend/recordings2-shared.js',
+    'folder_artwork': ROOT / 'web/frontend/recordings2-folder-artwork.js',
+    'actions': ROOT / 'web/frontend/recordings2-actions.js',
     'browser_view': ROOT / 'web/frontend/recordings2-browser-view.js',
     'person_view': ROOT / 'web/frontend/recordings2-person-search-view.js',
     'metadata_view': ROOT / 'web/frontend/recordings2-metadata-view.js',
@@ -16,6 +18,7 @@ runtimes = {
     for name, path in runtime_paths.items()
 }
 loader = (ROOT / 'web/frontend/platform/deferred-runtime-loader.js').read_text(encoding='utf-8')
+client_api = (ROOT / 'web/frontend/api/client-api.js').read_text(encoding='utf-8')
 router = (ROOT / 'api/rest/src/ApiRouter.cpp').read_text(encoding='utf-8')
 daemon_sources = sorted(
     (ROOT / 'core/daemon/src').glob('DaemonRuntime*.cpp')
@@ -39,10 +42,29 @@ required_tokens = {
         'normalizePath',
         'installStyles',
     ),
+    'folder_artwork': (
+        'global.VdrSuiteRecordings2FolderArtwork',
+        'forFolderName',
+        'recording-genre-action.svg',
+        'recording-genre-sprite.svg',
+    ),
+    'actions': (
+        'global.VdrSuiteRecordings2Actions',
+        'fetchClientRecordingActionValidation',
+        'fetchClientRecordingActionExecution',
+        'fetchClientRecordingFolder',
+        "action: String(action || '').toUpperCase()",
+        'isDryRunReady',
+        'READBACK_ATTEMPTS',
+    ),
     'browser_view': (
         'global.VdrSuiteRecordings2BrowserView',
         'renderFolder',
         'renderDetail',
+        'VdrSuiteRecordings2FolderArtwork',
+        'VdrSuiteRecordings2Actions',
+        'folderArtwork.create',
+        'actionView.createPanel',
         'VdrSuiteRecordings2MetadataDetail',
         'metadataDetail.enhance',
     ),
@@ -84,6 +106,8 @@ line_limits = {
     'runtime': 300,
     'metadata_detail': 120,
     'shared': 320,
+    'folder_artwork': 140,
+    'actions': 620,
     'browser_view': 400,
     'person_view': 240,
     'metadata_view': 340,
@@ -104,14 +128,30 @@ for forbidden in (
         if forbidden in source:
             raise SystemExit(f'Recordings 2 {owner} depends on legacy recording browser: {forbidden}')
 
+for owner in ('folder_artwork', 'actions', 'browser_view', 'runtime'):
+    if 'fetch(' in runtimes[owner]:
+        raise SystemExit(
+            f'Recordings 2 {owner} must use the Client API and not call fetch() directly'
+        )
+
 required_backend_tokens = (
     'path == "/api/vdr/recordings/metadata"',
     'path == "/api/vdr/recordings/metadata/image"',
+    'path == "/api/vdr/recordings/actions/validate"',
+    'path == "/api/vdr/recordings/actions/execute"',
     'getMetadataImage(',
 )
 for token in required_backend_tokens:
     if token not in router:
-        raise SystemExit(f'missing recording metadata route contract: {token}')
+        raise SystemExit(f'missing recording route contract: {token}')
+
+for token in (
+    'fetchClientRecordingFolder',
+    'fetchClientRecordingActionValidation',
+    'fetchClientRecordingActionExecution',
+):
+    if token not in client_api:
+        raise SystemExit(f'missing Web Client API recording contract: {token}')
 
 for token in ('findByBackendNativeId(', 'recordingMetadataRepository'):
     if token not in daemon:
@@ -119,6 +159,8 @@ for token in ('findByBackendNativeId(', 'recordingMetadataRepository'):
 
 runtime_assets = (
     ('recordings2-shared.js', 'VdrSuiteRecordings2Shared'),
+    ('recordings2-folder-artwork.js', 'VdrSuiteRecordings2FolderArtwork'),
+    ('recordings2-actions.js', 'VdrSuiteRecordings2Actions'),
     ('recordings2-browser-view.js', 'VdrSuiteRecordings2BrowserView'),
     ('recordings2-person-search-view.js', 'VdrSuiteRecordings2PersonSearchView'),
     ('recordings2-metadata-view.js', 'VdrSuiteRecordings2MetadataView'),
@@ -138,10 +180,18 @@ for filename, global_name in runtime_assets:
     if f'web/frontend/{filename}' not in module_makefile:
         raise SystemExit(f'Recordings 2 install rule is missing {filename}')
 
+folder_artwork_runtime = loader.index('const folderArtworkRuntime =')
+actions_runtime = loader.index('const actionsRuntime =')
+browser_runtime = loader.index('const browserViewRuntime =')
 core_runtime = loader.index('const recordings2Runtime =')
 metadata_runtime = loader.index('const metadataDetailRuntime =')
-if core_runtime > metadata_runtime:
-    raise SystemExit('Recordings 2 core runtime must start independently before optional metadata detail')
+if not (
+    folder_artwork_runtime < browser_runtime < core_runtime < metadata_runtime
+    and actions_runtime < browser_runtime
+):
+    raise SystemExit(
+        'Recordings 2 folder artwork and actions must load before the browser view and core runtime'
+    )
 
 metadata_catch = loader.find('.catch(error => {', metadata_runtime)
 promise_join = loader.find('return Promise.all([', metadata_runtime)
