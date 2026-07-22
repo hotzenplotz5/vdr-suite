@@ -57,8 +57,7 @@ test-epg-cache-controller:
 		core/vdr/src/EpgArtworkEnrichmentService.cpp \
 		core/vdr/src/EpgCacheService.cpp \
 		core/vdr/src/VdrService.cpp \
-		core/vdr/src/EpgScraperMetadataResolverRegistry.cpp \
-		core/vdr/src/EpgScraperMetadataPublicJsonSerializer.cpp \
+		$(EPG_SCRAPER_METADATA_CONTROLLER_SRC) \
 		api/rest/src/EpgArtworkController.cpp \
 		api/rest/src/EpgCacheController.cpp \
 		api/rest/tests/test_epg_cache_controller.cpp \

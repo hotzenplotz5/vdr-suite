@@ -8,7 +8,10 @@ FILES = [
     Path("mk/common.mk"),
     Path("mk/vdr-tests.mk"),
     Path("mk/epg-metadata-tests.mk"),
+    Path("mk/epg-artwork-tests.mk"),
     Path("mk/local-test-groups.mk"),
+    Path("mk/recording-native-metadata-tests.mk"),
+    Path("mk/runtime-api-tests.mk"),
 ]
 
 TARGET_PATTERN = re.compile(r"(?m)^([A-Za-z0-9_.-]+):[^\n]*\n")
@@ -33,6 +36,13 @@ def provides_cache_repository(block):
     ])
 
 
+def provides_epg_scraper_metadata_controller(block):
+    return has_any(block, [
+        "$(VDR_SRC)",
+        "$(EPG_SCRAPER_METADATA_CONTROLLER_SRC)",
+    ])
+
+
 def main():
     errors = []
     checked_targets = 0
@@ -45,7 +55,10 @@ def main():
         text = path.read_text(encoding="utf-8")
 
         for target, block in target_blocks(text):
-            if "$(CXX)" not in block and "g++" not in block:
+            if not has_any(
+                block,
+                ["$(BUILD_CXX)", "$(CXX)", "g++"],
+            ):
                 continue
 
             checked_targets += 1
@@ -61,6 +74,9 @@ def main():
                 "$(REST_ROUTER_SRC)",
                 "api/rest/src/ApiRouter.cpp",
             ])
+            uses_epg_cache_controller = (
+                "api/rest/src/EpgCacheController.cpp" in block
+            )
 
             if uses_vdr_src:
                 if not provides_cache_repository(block):
@@ -90,6 +106,20 @@ def main():
                         f"{path}:{target}: links ApiRouter/REST_ROUTER_SRC but misses "
                         "api/rest/src/VdrRecordingFolderController.cpp"
                     )
+
+            if (
+                uses_epg_cache_controller
+                and not provides_epg_scraper_metadata_controller(block)
+            ):
+                errors.append(
+                    f"{path}:{target}: links EpgCacheController but misses "
+                    "$(EPG_SCRAPER_METADATA_CONTROLLER_SRC)"
+                )
+
+    if checked_targets == 0:
+        errors.append(
+            "no C++ build targets were checked"
+        )
 
     print(f"checked C++ build targets: {checked_targets}")
 

@@ -1,3 +1,11 @@
+EPG_SCRAPER_METADATA_CONTROLLER_SRC := \
+        core/vdr/src/EpgScraperMetadataResolverRegistry.cpp \
+        core/vdr/src/EpgScraperMetadataPublicJsonSerializer.cpp
+
+EPG_SCRAPER_METADATA_RUNTIME_SRC := \
+        $(EPG_SCRAPER_METADATA_CONTROLLER_SRC) \
+        core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp
+
 VDR_SRC := \
         core/vdr/src/VdrConfig.cpp \
         core/vdr/src/BackendRegistry.cpp \
@@ -19,9 +27,7 @@ VDR_SRC := \
         core/vdr/src/EpgArtworkPublicJsonSerializer.cpp \
         core/vdr/src/EpgArtworkEnrichmentService.cpp \
         core/vdr/src/SuiteBridgeEpgArtworkResolver.cpp \
-        core/vdr/src/EpgScraperMetadataResolverRegistry.cpp \
-        core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp \
-        core/vdr/src/EpgScraperMetadataPublicJsonSerializer.cpp \
+        $(EPG_SCRAPER_METADATA_RUNTIME_SRC) \
         core/vdr/src/EpgQueryService.cpp \
         core/vdr/src/EpgSearchMatcher.cpp \
         core/vdr/src/EpgSearchResultJsonSerializer.cpp \

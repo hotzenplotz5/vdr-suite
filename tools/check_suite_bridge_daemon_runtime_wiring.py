@@ -82,7 +82,7 @@ def main() -> int:
     )
 
     metadata_transport_index = runtime.index(
-        "context->epgArtworkTransport ="
+        "context->suiteBridgeTransport ="
     )
     metadata_resolver_index = runtime.index(
         "context->epgScraperMetadataResolver ="

@@ -1,5 +1,8 @@
-DAEMON_SRC += \
-	core/vdr/src/VdrRecordingNativeIdentity.cpp \
+VDR_RECORDING_NATIVE_IDENTITY_SRC := \
+	core/vdr/src/VdrRecordingNativeIdentity.cpp
+
+VDR_RECORDING_NATIVE_METADATA_SRC := \
+	$(VDR_RECORDING_NATIVE_IDENTITY_SRC) \
 	core/vdr/src/SuiteBridgeRecordingMetadataResolver.cpp \
 	core/vdr/src/VdrRecordingNativeMetadataRepositoryInternal.cpp \
 	core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp \
@@ -9,7 +12,9 @@ DAEMON_SRC += \
 	core/vdr/src/VdrRecordingNativeMetadataRepositoryMaintenance.cpp \
 	core/vdr/src/VdrRecordingNativeMetadataEnrichmentService.cpp
 
-.PHONY: test-vdr-recording-native-identity test-vdr-recording-metadata-type-coexistence test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-vdr-recording-native-metadata-repository test-vdr-recording-native-metadata-enrichment-service test-recording-native-metadata-contracts
+DAEMON_SRC += $(VDR_RECORDING_NATIVE_METADATA_SRC)
+
+.PHONY: test-vdr-recording-native-identity test-vdr-recording-metadata-type-coexistence test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-vdr-recording-native-metadata-repository test-vdr-recording-native-metadata-enrichment-service check-vdr-recording-native-metadata-runtime-wiring test-recording-native-metadata-contracts
 
 test-vdr-recording-native-identity:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -30,8 +35,7 @@ test-suite-bridge-svdrp-recording-metadata-transport:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		-Icore/agent/include \
 		-Icore/vdr/include \
-		$(AGENT_SVDRP_TRANSPORT_SRC) \
-		core/vdr/src/VdrRecordingNativeIdentity.cpp \
+		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
 		core/agent/tests/test_suite_bridge_svdrp_recording_metadata_transport.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_recording_metadata_transport
 	$(BUILD_DIR)/test_suite_bridge_svdrp_recording_metadata_transport
@@ -75,10 +79,14 @@ test-vdr-recording-native-metadata-enrichment-service:
 		-o $(BUILD_DIR)/test_vdr_recording_native_metadata_enrichment_service
 	$(BUILD_DIR)/test_vdr_recording_native_metadata_enrichment_service
 
+check-vdr-recording-native-metadata-runtime-wiring:
+	python3 tools/check_recording_native_metadata_runtime_wiring.py
+
 test-recording-native-metadata-contracts: \
 	test-vdr-recording-native-identity \
 	test-vdr-recording-metadata-type-coexistence \
 	test-suite-bridge-svdrp-recording-metadata-transport \
 	test-suite-bridge-recording-metadata-resolver \
 	test-vdr-recording-native-metadata-repository \
-	test-vdr-recording-native-metadata-enrichment-service
+	test-vdr-recording-native-metadata-enrichment-service \
+	check-vdr-recording-native-metadata-runtime-wiring

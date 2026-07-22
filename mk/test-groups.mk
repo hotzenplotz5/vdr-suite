@@ -20,6 +20,7 @@ CI_FAST_TESTS := \
 	test-suite-bridge-embedded-runtime-boundary \
 	test-suite-bridge-embedded-runtime \
 	test-suite-bridge-daemon-runtime-wiring \
+	test-recording-native-metadata-contracts \
 	test-sb10d-live-acceptance-contract \
 	test-fast \
 	test-api-router \
@@ -76,6 +77,7 @@ VDR_TESTS := \
 	test-suite-bridge-embedded-runtime-boundary \
 	test-suite-bridge-embedded-runtime \
 	test-suite-bridge-daemon-runtime-wiring \
+	test-recording-native-metadata-contracts \
 	test-sb10d-live-acceptance-contract \
 	test-backend-node \
 	test-backend-registry \
@@ -237,6 +239,7 @@ EXTENDED_LOCAL_TESTS := \
 	test-architecture \
 	test-backend-registry-capability-resolver \
 	test-backend-runtime-context \
+	test-recordings2-install-staging \
 	test-content-rating \
 	test-content-rating-controller \
 	test-content-rating-resolution-json-serializer \

@@ -23,21 +23,21 @@ test-suite-bridge-svdrp-transport-boundary:
 
 test-suite-bridge-svdrp-transport:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include -Icore/vdr/include \
-		$(AGENT_SVDRP_TRANSPORT_SRC) \
+		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
 		core/agent/tests/test_suite_bridge_svdrp_transport.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_transport
 	$(BUILD_DIR)/test_suite_bridge_svdrp_transport
 
 test-suite-bridge-svdrp-artwork-transport:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include -Icore/vdr/include \
-		$(AGENT_SVDRP_TRANSPORT_SRC) \
+		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
 		core/agent/tests/test_suite_bridge_svdrp_artwork_transport.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_artwork_transport
 	$(BUILD_DIR)/test_suite_bridge_svdrp_artwork_transport
 
 test-suite-bridge-svdrp-metadata-transport:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include -Icore/vdr/include \
-		$(AGENT_SVDRP_TRANSPORT_SRC) \
+		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
 		core/agent/tests/test_suite_bridge_svdrp_metadata_transport.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_metadata_transport
 	$(BUILD_DIR)/test_suite_bridge_svdrp_metadata_transport
@@ -67,7 +67,7 @@ test-suite-bridge-embedded-runtime-boundary:
 
 test-suite-bridge-embedded-runtime:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include -Icore/vdr/include \
-		$(AGENT_SRC) \
+		$(AGENT_STANDALONE_SRC) \
 		core/agent/tests/test_suite_bridge_embedded_agent_runtime.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_embedded_agent_runtime
 	$(BUILD_DIR)/test_suite_bridge_embedded_agent_runtime
@@ -80,7 +80,7 @@ test-sb10d-live-acceptance-contract:
 
 $(BUILD_DIR)/test_suite_bridge_embedded_agent_runtime_live:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include -Icore/vdr/include \
-		$(AGENT_SRC) \
+		$(AGENT_STANDALONE_SRC) \
 		core/agent/tests/test_suite_bridge_embedded_agent_runtime_live.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_embedded_agent_runtime_live
 
@@ -91,14 +91,14 @@ test-real-suite-bridge-embedded-runtime-live: build-suite-bridge-embedded-runtim
 
 test-suite-bridge-svdrp-transport-live:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include -Icore/vdr/include \
-		$(AGENT_SRC) \
+		$(AGENT_STANDALONE_SRC) \
 		core/agent/tests/test_suite_bridge_svdrp_transport_live.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_transport_live
 	$(BUILD_DIR)/test_suite_bridge_svdrp_transport_live
 
 test-real-suite-bridge-observation-live:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include -Icore/vdr/include \
-		$(AGENT_SRC) \
+		$(AGENT_STANDALONE_SRC) \
 		core/agent/tests/test_suite_bridge_observation_live.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_observation_live
 	$(BUILD_DIR)/test_suite_bridge_observation_live

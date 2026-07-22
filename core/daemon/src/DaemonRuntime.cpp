@@ -16,12 +16,95 @@
 #include "VdrRecordingCacheRepository.h"
 
 #include <chrono>
+#include <cstdint>
 #include <exception>
 #include <csignal>
 #include <iostream>
 #include <thread>
 #include <utility>
 #include <vector>
+
+namespace
+{
+std::int64_t recordingMetadataEpochSeconds()
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+bool recordingMetadataCapabilityAvailable(
+    const BackendRuntimeContext& context)
+{
+    if (!context.suiteBridgeAgentRuntime) {
+        return false;
+    }
+
+    const vdrsuite::agent::SuiteBridgeEmbeddedAgentHealth health =
+        context.suiteBridgeAgentRuntime->health();
+
+    return health.running &&
+        health.observation.hasDiscovery &&
+        health.observation.discovery.capabilityAvailable(
+            "recording-metadata");
+}
+
+void runRecordingMetadataEnrichment(
+    BackendRuntimeContext& context,
+    const std::vector<VdrRecording>& recordings,
+    std::atomic<bool>& stopRequested,
+    const std::string& reason)
+{
+    if (!context.recordingMetadataEnrichmentService) {
+        return;
+    }
+
+    const std::int64_t now = recordingMetadataEpochSeconds();
+
+    const std::size_t queued =
+        context.recordingMetadataEnrichmentService->reconcileInventory(
+            recordings,
+            now);
+
+    if (stopRequested.load() || queued == 0) {
+        return;
+    }
+
+    if (!recordingMetadataCapabilityAvailable(context)) {
+        if (reason != "periodic") {
+            std::cout
+                << "Recording metadata enrichment deferred: reason="
+                << reason
+                << ", backend="
+                << context.backendId
+                << ", queued="
+                << queued
+                << ", capability=unavailable"
+                << std::endl;
+        }
+
+        return;
+    }
+
+    const int processed =
+        context.recordingMetadataEnrichmentService->processBatch(now);
+
+    const VdrRecordingNativeMetadataEnrichmentStatus status =
+        context.recordingMetadataEnrichmentService->status();
+
+    std::cout
+        << "Recording metadata enrichment finished: reason="
+        << reason
+        << ", backend="
+        << context.backendId
+        << ", queued="
+        << queued
+        << ", processed="
+        << processed
+        << ", remaining="
+        << status.queuedCount
+        << std::endl;
+}
+}
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
 
@@ -105,30 +188,60 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
 
     if (suiteBridgeConfig.enabled &&
         context->backendId == suiteBridgeConfig.backendId) {
-        if (epgArtworkRepository_) {
-            vdrsuite::agent::SuiteBridgeSvdrpTransportConfig artworkTransportConfig;
-            artworkTransportConfig.host = suiteBridgeConfig.host;
-            artworkTransportConfig.port = suiteBridgeConfig.port;
-            artworkTransportConfig.connectTimeout =
-                std::chrono::milliseconds(suiteBridgeConfig.connectTimeoutMs);
-            artworkTransportConfig.ioTimeout =
-                std::chrono::milliseconds(suiteBridgeConfig.ioTimeoutMs);
-            artworkTransportConfig.operationTimeout =
-                std::chrono::milliseconds(suiteBridgeConfig.operationTimeoutMs);
+        vdrsuite::agent::SuiteBridgeSvdrpTransportConfig transportConfig;
+        transportConfig.host = suiteBridgeConfig.host;
+        transportConfig.port = suiteBridgeConfig.port;
+        transportConfig.connectTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.connectTimeoutMs);
+        transportConfig.ioTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.ioTimeoutMs);
+        transportConfig.operationTimeout =
+            std::chrono::milliseconds(suiteBridgeConfig.operationTimeoutMs);
 
-            context->epgArtworkTransport =
-                std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(
-                    std::move(artworkTransportConfig));
+        context->suiteBridgeTransport =
+            std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(
+                std::move(transportConfig));
+
+        if (epgArtworkRepository_) {
             context->epgArtworkResolver =
                 std::make_unique<SuiteBridgeEpgArtworkResolver>(
-                    *context->epgArtworkTransport);
+                    *context->suiteBridgeTransport);
             context->epgScraperMetadataResolver =
                 std::make_unique<SuiteBridgeEpgMetadataResolver>(
-                    *context->epgArtworkTransport);
+                    *context->suiteBridgeTransport);
             context->epgArtworkEnrichmentService =
                 std::make_unique<EpgArtworkEnrichmentService>(
                     *epgArtworkRepository_,
                     *context->epgArtworkResolver);
+        }
+
+        context->recordingMetadataRepository =
+            std::make_unique<VdrRecordingNativeMetadataRepository>(
+                database_);
+
+        if (!context->recordingMetadataRepository->ensureSchema()) {
+            std::cerr
+                << "failed to initialize native recording metadata schema: backend="
+                << context->backendId
+                << std::endl;
+
+            context->recordingMetadataRepository.reset();
+        }
+        else {
+            context->recordingMetadataResolver =
+                std::make_unique<SuiteBridgeRecordingMetadataResolver>(
+                    *context->suiteBridgeTransport);
+
+            VdrRecordingNativeMetadataEnrichmentConfig enrichmentConfig;
+            enrichmentConfig.maximumQueuedRecordings = 64;
+            enrichmentConfig.maximumBatchSize = 8;
+
+            context->recordingMetadataEnrichmentService =
+                std::make_unique<VdrRecordingNativeMetadataEnrichmentService>(
+                    context->backendId,
+                    *context->recordingMetadataRepository,
+                    *context->recordingMetadataResolver,
+                    enrichmentConfig);
         }
 
         vdrsuite::agent::SuiteBridgeEmbeddedAgentConfig embeddedConfig;
@@ -838,6 +951,7 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
     try {
         const int initialDelaySeconds = 1;
         const int dirtyDebounceSeconds = 30;
+        const int metadataRefreshSeconds = 60;
 
         std::cout
             << "Recording cache warmup worker scheduled after "
@@ -864,10 +978,45 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
         refreshRecordingCacheForAllBackends("startup");
 
         auto lastRefresh = std::chrono::steady_clock::now();
+        auto lastMetadataRefresh = lastRefresh;
 
         while (!recordingCacheWarmupStopRequested_.load()) {
             if (waitForStop(1)) {
                 return;
+            }
+
+            const auto metadataNow = std::chrono::steady_clock::now();
+
+            const auto secondsSinceMetadataRefresh =
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    metadataNow - lastMetadataRefresh).count();
+
+            if (secondsSinceMetadataRefresh >= metadataRefreshSeconds &&
+                vdrRecordingCacheRepository_) {
+                for (const auto& backendRuntimeContext :
+                     backendRuntimeContexts_) {
+                    if (recordingCacheWarmupStopRequested_.load()) {
+                        return;
+                    }
+
+                    if (!backendRuntimeContext ||
+                        !backendRuntimeContext
+                             ->recordingMetadataEnrichmentService) {
+                        continue;
+                    }
+
+                    const std::vector<VdrRecording> recordings =
+                        vdrRecordingCacheRepository_->findAllForBackend(
+                            backendRuntimeContext->backendId);
+
+                    runRecordingMetadataEnrichment(
+                        *backendRuntimeContext,
+                        recordings,
+                        recordingCacheWarmupStopRequested_,
+                        "periodic");
+                }
+
+                lastMetadataRefresh = metadataNow;
             }
 
             int remainingActionRefreshAttempts =
@@ -969,6 +1118,12 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                 vdrRecordingCacheRepository_->markRefreshFinished(
                     backendRuntimeContext->backendId,
                     static_cast<int>(recordings.size()));
+
+                runRecordingMetadataEnrichment(
+                    *backendRuntimeContext,
+                    recordings,
+                    recordingCacheWarmupStopRequested_,
+                    reason);
             }
             else {
                 vdrRecordingCacheRepository_->markRefreshFailed(

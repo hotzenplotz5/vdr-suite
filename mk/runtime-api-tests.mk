@@ -155,6 +155,7 @@ test-backend-runtime-context:
 		$(SQLITE_SRC) \
 		$(VDR_SRC) \
 		$(AGENT_SRC) \
+		$(VDR_RECORDING_NATIVE_METADATA_SRC) \
 		core/daemon/src/RestfulApiEventStreamClient.cpp \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		core/vdr/tests/test_backend_runtime_context.cpp \
