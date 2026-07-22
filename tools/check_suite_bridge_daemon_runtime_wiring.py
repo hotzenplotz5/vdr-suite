@@ -7,7 +7,15 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG_HEADER = ROOT / "core/daemon/include/RuntimeConfig.h"
 CONFIG_SOURCE = ROOT / "core/daemon/src/RuntimeConfig.cpp"
 CONTEXT = ROOT / "core/daemon/include/BackendRuntimeContext.h"
-RUNTIME = ROOT / "core/daemon/src/DaemonRuntime.cpp"
+RUNTIME_SOURCE_ROOT = ROOT / "core/daemon/src"
+RUNTIME_SOURCES = (
+    "DaemonRuntimeBackendContext.cpp",
+    "DaemonRuntimeInitialization.cpp",
+    "DaemonRuntimePolling.cpp",
+    "DaemonRuntimeEpgCache.cpp",
+    "DaemonRuntimeRecordingCache.cpp",
+    "DaemonRuntime.cpp",
+)
 RUNTIME_TESTS = ROOT / "mk/runtime-api-tests.mk"
 ARCHITECTURE = ROOT / "docs/architecture/suite-bridge-embedded-agent-runtime.md"
 
@@ -18,11 +26,18 @@ def require(condition: bool, message: str) -> None:
         raise SystemExit(1)
 
 
+def read_runtime_sources() -> str:
+    return "\n".join(
+        (RUNTIME_SOURCE_ROOT / filename).read_text(encoding="utf-8")
+        for filename in RUNTIME_SOURCES
+    )
+
+
 def main() -> int:
     config_header = CONFIG_HEADER.read_text(encoding="utf-8")
     config_source = CONFIG_SOURCE.read_text(encoding="utf-8")
     context = CONTEXT.read_text(encoding="utf-8")
-    runtime = RUNTIME.read_text(encoding="utf-8")
+    runtime = read_runtime_sources()
     runtime_tests = RUNTIME_TESTS.read_text(encoding="utf-8")
 
     require(ARCHITECTURE.exists(), "SB.10d architecture contract must exist")
