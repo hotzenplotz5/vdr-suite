@@ -64,10 +64,28 @@ required_loader_tokens = (
     "'/frontend/recordings2.js'",
     'window.VdrSuiteRecordings2',
     "'vdr-suite-recordings2-runtime'",
+    'const recordings2Runtime =',
+    'const metadataDetailRuntime =',
+    'Promise.all([',
+    "VDR-Suite Recordings 2 metadata detail runtime failed",
 )
 for token in required_loader_tokens:
     if token not in loader:
         raise SystemExit(f'missing deferred runtime wiring: {token}')
+
+core_runtime = loader.index('const recordings2Runtime =')
+metadata_runtime = loader.index('const metadataDetailRuntime =')
+if core_runtime > metadata_runtime:
+    raise SystemExit('Recordings 2 core runtime must be started before optional metadata detail')
+
+metadata_catch = loader.find('.catch(error => {', metadata_runtime)
+promise_join = loader.find('return Promise.all([', metadata_runtime)
+if metadata_catch < 0 or promise_join < 0 or metadata_catch > promise_join:
+    raise SystemExit('optional Recordings 2 metadata runtime failure is not isolated')
+
+legacy_dependency = ").then(() => loadVdrSuiteDeferredRuntime(\n    'vdr-suite-recordings2-runtime'"
+if legacy_dependency in loader:
+    raise SystemExit('Recordings 2 core runtime still depends on metadata detail loading')
 
 if 'path == "/frontend/recordings2.js"' not in server:
     raise SystemExit('HTTP server does not allow /frontend/recordings2.js')
