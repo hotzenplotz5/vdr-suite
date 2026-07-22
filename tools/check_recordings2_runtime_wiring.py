@@ -37,6 +37,8 @@ module_makefile = (ROOT / 'mk/recordings2.mk').read_text(encoding='utf-8')
 required_tokens = {
     'shared': (
         'global.VdrSuiteRecordings2Shared',
+        'recordingNativeTitle',
+        'recordingMetadataTitle',
         'recordingTitle',
         'recordingPosterUrl',
         'normalizePath',
@@ -45,6 +47,9 @@ required_tokens = {
     'folder_artwork': (
         'global.VdrSuiteRecordings2FolderArtwork',
         'forFolderName',
+        'isSingleRecordingLeaf',
+        'resolveLeaves',
+        'LEAF_CONCURRENCY',
         'recording-genre-action.svg',
         'recording-genre-sprite.svg',
     ),
@@ -54,6 +59,8 @@ required_tokens = {
         'fetchClientRecordingActionExecution',
         'fetchClientRecordingFolder',
         "action: String(action || '').toUpperCase()",
+        'findMatchingRecording',
+        'requestBrowsableFolder',
         'isDryRunReady',
         'READBACK_ATTEMPTS',
     ),
@@ -92,6 +99,9 @@ required_tokens = {
         'global.VdrSuiteRecordings2 = moduleApi;',
         'fetchClientRecordingFolder',
         'recordingFolder !== true',
+        'serverRecordings',
+        'promotedRecordings',
+        'resolveSingleRecordingLeaves',
         'data-module="recordings2"',
         'browserView.create',
         'refreshDetailAddon',
@@ -103,10 +113,10 @@ for owner, tokens in required_tokens.items():
             raise SystemExit(f'missing Recordings 2 {owner} contract: {token}')
 
 line_limits = {
-    'runtime': 300,
+    'runtime': 330,
     'metadata_detail': 120,
     'shared': 320,
-    'folder_artwork': 140,
+    'folder_artwork': 220,
     'actions': 620,
     'browser_view': 400,
     'person_view': 240,
