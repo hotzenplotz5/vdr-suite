@@ -155,6 +155,7 @@ function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
       },
       {once: true}
     );
+
     document.head.appendChild(script);
   });
 }
@@ -179,7 +180,22 @@ function loadVdrSuiteRecordings2Runtime() {
     () => Boolean(window.VdrSuiteRecordings2Shared)
   );
 
-  const browserViewRuntime = sharedRuntime.then(() => loadVdrSuiteDeferredRuntime(
+  const folderArtworkRuntime = sharedRuntime.then(() => loadVdrSuiteDeferredRuntime(
+    'vdr-suite-recordings2-folder-artwork-runtime',
+    '/frontend/recordings2-folder-artwork.js',
+    () => Boolean(window.VdrSuiteRecordings2FolderArtwork)
+  ));
+
+  const actionsRuntime = sharedRuntime.then(() => loadVdrSuiteDeferredRuntime(
+    'vdr-suite-recordings2-actions-runtime',
+    '/frontend/recordings2-actions.js',
+    () => Boolean(window.VdrSuiteRecordings2Actions)
+  ));
+
+  const browserViewRuntime = Promise.all([
+    folderArtworkRuntime,
+    actionsRuntime
+  ]).then(() => loadVdrSuiteDeferredRuntime(
     'vdr-suite-recordings2-browser-view-runtime',
     '/frontend/recordings2-browser-view.js',
     () => Boolean(window.VdrSuiteRecordings2BrowserView)
