@@ -1,10 +1,13 @@
 #include "VdrRecordingFolderController.h"
 
+#include "EpgArtworkController.h"
 #include "VdrRecordingCacheRepository.h"
 #include "VdrRecordingMetadataJsonSerializer.h"
+#include "VdrRecordingNativeMetadataPublicJsonSerializer.h"
 
 #include <sstream>
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -95,12 +98,71 @@ ApiResponse jsonResponse(
     return response;
 }
 
+ApiResponse jsonError(
+    int statusCode,
+    const std::string& message)
+{
+    ApiResponse response;
+    response.statusCode = statusCode;
+    response.contentType = "application/json";
+    std::ostringstream json;
+    json << "{\"error\":";
+    appendJsonString(json, message);
+    json << "}";
+    response.body = json.str();
+    return response;
+}
+
+const VdrRecordingNativeArtwork* selectMetadataArtwork(
+    const VdrRecordingNativeMetadata& metadata,
+    const std::string& kind,
+    int index)
+{
+    if (kind == "preferred")
+    {
+        return index == 0 ? &metadata.preferredArtwork : nullptr;
+    }
+
+    if (kind == "person")
+    {
+        if (index < 0 ||
+            static_cast<std::size_t>(index) >= metadata.people.size())
+        {
+            return nullptr;
+        }
+
+        return &metadata.people[static_cast<std::size_t>(index)].image;
+    }
+
+    if (kind == "gallery")
+    {
+        if (index < 0 ||
+            static_cast<std::size_t>(index) >= metadata.images.size())
+        {
+            return nullptr;
+        }
+
+        return &metadata.images[static_cast<std::size_t>(index)];
+    }
+
+    return nullptr;
+}
+
 }
 
 VdrRecordingFolderController::VdrRecordingFolderController(
-    VdrRecordingCacheRepository& repository)
-    : repository_(repository)
+    VdrRecordingCacheRepository& repository,
+    NativeMetadataLookup nativeMetadataLookup,
+    std::vector<std::string> metadataImageAllowedRoots)
+    : repository_(repository),
+      nativeMetadataLookup_(std::move(nativeMetadataLookup)),
+      metadataImageAllowedRoots_(std::move(metadataImageAllowedRoots))
 {
+    if (metadataImageAllowedRoots_.empty())
+    {
+        metadataImageAllowedRoots_ =
+            EpgArtworkController::defaultAllowedRoots();
+    }
 }
 
 ApiResponse VdrRecordingFolderController::getStatus(
@@ -199,4 +261,70 @@ ApiResponse VdrRecordingFolderController::getFolder(
     json << "}";
 
     return jsonResponse(json.str());
+}
+
+ApiResponse VdrRecordingFolderController::getMetadata(
+    const std::string& backendId,
+    const std::string& backendNativeId) const
+{
+    if (backendNativeId.empty() || backendNativeId.size() > 4096)
+    {
+        return jsonError(400, "backendNativeId is required");
+    }
+
+    if (!nativeMetadataLookup_)
+    {
+        return jsonError(503, "recording metadata unavailable");
+    }
+
+    const VdrRecordingNativeMetadataRecord record =
+        nativeMetadataLookup_(backendId, backendNativeId);
+
+    return jsonResponse(
+        VdrRecordingNativeMetadataPublicJsonSerializer().serialize(record));
+}
+
+ApiResponse VdrRecordingFolderController::getMetadataImage(
+    const std::string& backendId,
+    const std::string& backendNativeId,
+    const std::string& kind,
+    int index) const
+{
+    if (backendNativeId.empty() || backendNativeId.size() > 4096 ||
+        kind.empty() || index < 0)
+    {
+        return jsonError(
+            400,
+            "backendNativeId, kind and non-negative index are required");
+    }
+
+    if (kind != "preferred" && kind != "person" && kind != "gallery")
+    {
+        return jsonError(400, "unsupported recording metadata image kind");
+    }
+
+    if (!nativeMetadataLookup_)
+    {
+        return jsonError(503, "recording metadata unavailable");
+    }
+
+    const VdrRecordingNativeMetadataRecord record =
+        nativeMetadataLookup_(backendId, backendNativeId);
+
+    if (!record.exists() || !record.metadata.found)
+    {
+        return jsonError(404, "recording metadata not found");
+    }
+
+    const VdrRecordingNativeArtwork* artwork =
+        selectMetadataArtwork(record.metadata, kind, index);
+
+    if (artwork == nullptr || !artwork->available || artwork->path.empty())
+    {
+        return jsonError(404, "recording metadata image not found");
+    }
+
+    return EpgArtworkController::serveValidatedPath(
+        artwork->path,
+        metadataImageAllowedRoots_);
 }
