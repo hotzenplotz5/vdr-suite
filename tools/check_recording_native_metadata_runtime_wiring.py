@@ -4,7 +4,15 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTEXT = ROOT / "core/daemon/include/BackendRuntimeContext.h"
-RUNTIME = ROOT / "core/daemon/src/DaemonRuntime.cpp"
+RUNTIME_SOURCE_ROOT = ROOT / "core/daemon/src"
+RUNTIME_SOURCES = (
+    "DaemonRuntimeBackendContext.cpp",
+    "DaemonRuntimeInitialization.cpp",
+    "DaemonRuntimePolling.cpp",
+    "DaemonRuntimeEpgCache.cpp",
+    "DaemonRuntimeRecordingCache.cpp",
+    "DaemonRuntime.cpp",
+)
 TEST_MAKE = ROOT / "mk/recording-native-metadata-tests.mk"
 AGENT_SOURCES = ROOT / "mk/agent-sources.mk"
 AGENT_TESTS = ROOT / "mk/agent-tests.mk"
@@ -22,9 +30,16 @@ def require(condition: bool, message: str) -> None:
         raise SystemExit(1)
 
 
+def read_runtime_sources() -> str:
+    return "\n".join(
+        (RUNTIME_SOURCE_ROOT / filename).read_text(encoding="utf-8")
+        for filename in RUNTIME_SOURCES
+    )
+
+
 def main() -> int:
     context = CONTEXT.read_text(encoding="utf-8")
-    runtime = RUNTIME.read_text(encoding="utf-8")
+    runtime = read_runtime_sources()
     test_make = TEST_MAKE.read_text(encoding="utf-8")
     agent_sources = AGENT_SOURCES.read_text(encoding="utf-8")
     agent_tests = AGENT_TESTS.read_text(encoding="utf-8")
