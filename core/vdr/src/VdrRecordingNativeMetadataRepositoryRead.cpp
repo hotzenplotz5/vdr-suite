@@ -81,3 +81,36 @@ VdrRecordingNativeMetadataRecord VdrRecordingNativeMetadataRepository::find(
     metadata.images = loadImages(database_.handle(), normalizedBackendId, recordingKey);
     return record;
 }
+
+VdrRecordingNativeMetadataRecord
+VdrRecordingNativeMetadataRepository::findByBackendNativeId(
+    const std::string& backendId,
+    const std::string& backendNativeId) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    VdrRecordingNativeMetadataRecord record;
+
+    if (backendNativeId.empty() || backendNativeId.size() > 4096 ||
+        !ensureSchemaLocked())
+    {
+        return record;
+    }
+
+    const std::string normalizedBackendId = normalizeBackendId(backendId);
+    Statement statement(
+        database_.handle(),
+        "SELECT recording_key FROM vdr_recording_native_metadata "
+        "WHERE backend_id = ? AND backend_native_id = ?;");
+
+    if (!statement.valid() ||
+        !bindText(statement.get(), 1, normalizedBackendId) ||
+        !bindText(statement.get(), 2, backendNativeId) ||
+        sqlite3_step(statement.get()) != SQLITE_ROW)
+    {
+        return record;
+    }
+
+    return find(
+        normalizedBackendId,
+        columnText(statement.get(), 0));
+}
