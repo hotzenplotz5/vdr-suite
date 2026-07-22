@@ -1,16 +1,26 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "VdrRecordingNativeMetadataRepository.h"
 
+#include <functional>
 #include <string>
+#include <vector>
 
 class VdrRecordingCacheRepository;
 
 class VdrRecordingFolderController
 {
 public:
+    using NativeMetadataLookup = std::function<
+        VdrRecordingNativeMetadataRecord(
+            const std::string& backendId,
+            const std::string& backendNativeId)>;
+
     explicit VdrRecordingFolderController(
-        VdrRecordingCacheRepository& repository);
+        VdrRecordingCacheRepository& repository,
+        NativeMetadataLookup nativeMetadataLookup = {},
+        std::vector<std::string> metadataImageAllowedRoots = {});
 
     ApiResponse getStatus(
         const std::string& backendId);
@@ -21,6 +31,18 @@ public:
         int limit,
         int offset);
 
+    ApiResponse getMetadata(
+        const std::string& backendId,
+        const std::string& backendNativeId) const;
+
+    ApiResponse getMetadataImage(
+        const std::string& backendId,
+        const std::string& backendNativeId,
+        const std::string& kind,
+        int index) const;
+
 private:
     VdrRecordingCacheRepository& repository_;
+    NativeMetadataLookup nativeMetadataLookup_;
+    std::vector<std::string> metadataImageAllowedRoots_;
 };
