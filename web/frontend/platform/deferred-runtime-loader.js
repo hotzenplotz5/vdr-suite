@@ -239,14 +239,6 @@ function startVdrSuiteDeferredFrontendRuntimes() {
     console.error('VDR-Suite combined EPG detail runtime failed', error);
   });
 
-  loadVdrSuiteDeferredRuntime(
-    'vdr-suite-recording-trash-ux-runtime',
-    '/frontend/recording-trash-ux.js',
-    () => Boolean(window.VdrSuiteRecordingTrashUx)
-  ).catch(error => {
-    console.error('VDR-Suite deferred frontend runtime failed', error);
-  });
-
   loadVdrSuiteRecordings2Runtime().catch(error => {
     console.error('VDR-Suite Recordings 2 runtime failed', error);
   });
