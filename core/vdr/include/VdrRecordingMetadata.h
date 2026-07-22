@@ -70,7 +70,7 @@ inline const char* vdrRecordingArtworkKindName(
     }
 }
 
-struct VdrRecordingNativeMetadata
+struct VdrRecordingEventMetadata
 {
     std::string eventTitle;
     std::string shortText;
@@ -139,7 +139,7 @@ struct VdrRecordingArtworkRef
 
 struct VdrRecordingMetadata
 {
-    VdrRecordingNativeMetadata native;
+    VdrRecordingEventMetadata native;
     VdrRecordingProviderMetadata provider;
     std::vector<VdrRecordingArtworkRef> artwork;
 

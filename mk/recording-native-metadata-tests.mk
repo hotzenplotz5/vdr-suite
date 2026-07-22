@@ -9,7 +9,7 @@ DAEMON_SRC += \
 	core/vdr/src/VdrRecordingNativeMetadataRepositoryMaintenance.cpp \
 	core/vdr/src/VdrRecordingNativeMetadataEnrichmentService.cpp
 
-.PHONY: test-vdr-recording-native-identity test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-vdr-recording-native-metadata-repository test-vdr-recording-native-metadata-enrichment-service test-recording-native-metadata-contracts
+.PHONY: test-vdr-recording-native-identity test-vdr-recording-metadata-type-coexistence test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-vdr-recording-native-metadata-repository test-vdr-recording-native-metadata-enrichment-service test-recording-native-metadata-contracts
 
 test-vdr-recording-native-identity:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -18,6 +18,13 @@ test-vdr-recording-native-identity:
 		core/vdr/tests/test_vdr_recording_native_identity.cpp \
 		-o $(BUILD_DIR)/test_vdr_recording_native_identity
 	$(BUILD_DIR)/test_vdr_recording_native_identity
+
+test-vdr-recording-metadata-type-coexistence:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		-Icore/vdr/include \
+		core/vdr/tests/test_vdr_recording_metadata_type_coexistence.cpp \
+		-o $(BUILD_DIR)/test_vdr_recording_metadata_type_coexistence
+	$(BUILD_DIR)/test_vdr_recording_metadata_type_coexistence
 
 test-suite-bridge-svdrp-recording-metadata-transport:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
@@ -70,6 +77,7 @@ test-vdr-recording-native-metadata-enrichment-service:
 
 test-recording-native-metadata-contracts: \
 	test-vdr-recording-native-identity \
+	test-vdr-recording-metadata-type-coexistence \
 	test-suite-bridge-svdrp-recording-metadata-transport \
 	test-suite-bridge-recording-metadata-resolver \
 	test-vdr-recording-native-metadata-repository \
