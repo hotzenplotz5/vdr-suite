@@ -4,7 +4,15 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNTIME_CPP = ROOT / "core" / "daemon" / "src" / "DaemonRuntime.cpp"
+RUNTIME_SOURCE_ROOT = ROOT / "core" / "daemon" / "src"
+RUNTIME_SOURCES = (
+    "DaemonRuntimeBackendContext.cpp",
+    "DaemonRuntimeInitialization.cpp",
+    "DaemonRuntimePolling.cpp",
+    "DaemonRuntimeEpgCache.cpp",
+    "DaemonRuntimeRecordingCache.cpp",
+    "DaemonRuntime.cpp",
+)
 RUNTIME_HEADER = ROOT / "core" / "daemon" / "include" / "DaemonRuntime.h"
 DAEMON_SOURCES = ROOT / "mk" / "daemon-sources.mk"
 VDR_SOURCES = ROOT / "mk" / "vdr-sources.mk"
@@ -17,15 +25,22 @@ def require(condition: bool, message: str) -> None:
         sys.exit(1)
 
 
+def read_runtime_sources() -> str:
+    return "\n".join(
+        (RUNTIME_SOURCE_ROOT / filename).read_text(encoding="utf-8")
+        for filename in RUNTIME_SOURCES
+    )
+
+
 def main() -> int:
-    runtime_cpp = RUNTIME_CPP.read_text(encoding="utf-8")
+    runtime_cpp = read_runtime_sources()
     runtime_header = RUNTIME_HEADER.read_text(encoding="utf-8")
     daemon_sources = DAEMON_SOURCES.read_text(encoding="utf-8")
     vdr_sources = VDR_SOURCES.read_text(encoding="utf-8")
 
     require(
         "#include \"RestfulApiSearchTimerDiscoveryProvider.h\"" in runtime_cpp,
-        "DaemonRuntime.cpp must include RestfulApiSearchTimerDiscoveryProvider.h",
+        "daemon runtime sources must include RestfulApiSearchTimerDiscoveryProvider.h",
     )
     require(
         "std::unique_ptr<ISearchTimerDiscoveryProvider> searchTimerDiscoveryProvider_;" in runtime_header,
