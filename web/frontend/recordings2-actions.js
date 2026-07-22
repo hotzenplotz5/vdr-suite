@@ -3,6 +3,7 @@
   'use strict';
 
   const shared = global.VdrSuiteRecordings2Shared;
+  const folderArtwork = global.VdrSuiteRecordings2FolderArtwork;
   if (!shared) {
     console.error('VDR-Suite Recordings 2 shared runtime is unavailable');
     return;
@@ -148,6 +149,39 @@
       });
     }
 
+    function requestBrowsableFolder(path) {
+      return requestFolder(path).then(function (data) {
+        if (!folderArtwork || typeof folderArtwork.resolveLeaves !== 'function') return data;
+        return folderArtwork.resolveLeaves(data, requestFolder).then(function (result) {
+          return Object.assign({}, data, {
+            folders: result.folders,
+            folderCount: result.folders.length
+          });
+        });
+      });
+    }
+
+    function findMatchingRecording(data, expected, leafName) {
+      const direct = shared.recordingList(data).find(function (candidate) {
+        return candidateMatches(candidate, expected);
+      });
+      if (direct) return Promise.resolve(direct);
+
+      const normalizedLeaf = String(leafName || '').trim().toLocaleLowerCase('de-DE');
+      if (!normalizedLeaf) return Promise.resolve(null);
+      const folder = shared.folderList(data).find(function (entry) {
+        const name = shared.decodeDisplayText(shared.first(entry, ['name'], ''))
+          .toLocaleLowerCase('de-DE');
+        return shared.number(entry.recordingCount, 0) === 1 && name === normalizedLeaf;
+      });
+      if (!folder) return Promise.resolve(null);
+      return requestFolder(shared.first(folder, ['path'], '')).then(function (child) {
+        return shared.recordingList(child).find(function (candidate) {
+          return candidateMatches(candidate, expected);
+        }) || null;
+      });
+    }
+
     function run(mode, recording, action, extra) {
       const api = clientApi();
       const payload = actionPayload(
@@ -222,10 +256,10 @@
       const normalizedName = shared.decodeDisplayText(newName).toLocaleLowerCase('de-DE');
       return function () {
         return requestFolder(state().path || '').then(function (data) {
-          return shared.recordingList(data).some(function (candidate) {
-            return candidateMatches(candidate, expected) &&
-              localTitle(candidate).toLocaleLowerCase('de-DE') === normalizedName;
-          });
+          return findMatchingRecording(data, expected, normalizedName);
+        }).then(function (candidate) {
+          return Boolean(candidate) &&
+            localTitle(candidate).toLocaleLowerCase('de-DE') === normalizedName;
         });
       };
     }
@@ -234,9 +268,9 @@
       const expected = identity(recording);
       return function () {
         return requestFolder(state().path || '').then(function (data) {
-          return !shared.recordingList(data).some(function (candidate) {
-            return candidateMatches(candidate, expected);
-          });
+          return findMatchingRecording(data, expected, expected.title);
+        }).then(function (candidate) {
+          return !candidate;
         });
       };
     }
@@ -245,21 +279,9 @@
       const expected = identity(recording);
       return function () {
         return requestFolder(targetPath).then(function (data) {
-          if (shared.recordingList(data).some(function (candidate) {
-            return candidateMatches(candidate, expected);
-          })) return true;
-          const title = expected.title;
-          const candidateFolder = shared.folderList(data).find(function (folder) {
-            const name = shared.decodeDisplayText(shared.first(folder, ['name'], ''))
-              .toLocaleLowerCase('de-DE');
-            return title && name === title;
-          });
-          if (!candidateFolder) return false;
-          return requestFolder(shared.first(candidateFolder, ['path'], '')).then(function (child) {
-            return shared.recordingList(child).some(function (candidate) {
-              return candidateMatches(candidate, expected);
-            });
-          });
+          return findMatchingRecording(data, expected, expected.title);
+        }).then(function (candidate) {
+          return Boolean(candidate);
         });
       };
     }
@@ -369,7 +391,7 @@
 
     function renderFolderBrowser(holder, input, status, path) {
       setStatus(status, 'pending', 'Zielordner werden geladen …');
-      requestFolder(path).then(function (data) {
+      requestBrowsableFolder(path).then(function (data) {
         const currentPath = targetFolderPath(shared.first(data, ['path'], path));
         holder.replaceChildren();
         holder.appendChild(shared.node('strong', '', currentPath
