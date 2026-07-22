@@ -10,11 +10,12 @@ VDR_RECORDING_NATIVE_METADATA_SRC := \
 	core/vdr/src/VdrRecordingNativeMetadataRepositoryRead.cpp \
 	core/vdr/src/VdrRecordingNativeMetadataRepositorySearch.cpp \
 	core/vdr/src/VdrRecordingNativeMetadataRepositoryMaintenance.cpp \
-	core/vdr/src/VdrRecordingNativeMetadataEnrichmentService.cpp
+	core/vdr/src/VdrRecordingNativeMetadataEnrichmentService.cpp \
+	core/vdr/src/VdrRecordingNativePersonSearchService.cpp
 
 DAEMON_SRC += $(VDR_RECORDING_NATIVE_METADATA_SRC)
 
-.PHONY: test-vdr-recording-native-identity test-vdr-recording-metadata-type-coexistence test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-vdr-recording-native-metadata-repository test-vdr-recording-native-metadata-enrichment-service check-vdr-recording-native-metadata-runtime-wiring test-recording-native-metadata-contracts
+.PHONY: test-vdr-recording-native-identity test-vdr-recording-metadata-type-coexistence test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-vdr-recording-native-metadata-repository test-vdr-recording-native-metadata-enrichment-service test-vdr-recording-native-person-search-service check-vdr-recording-native-metadata-runtime-wiring test-recording-native-metadata-contracts
 
 test-vdr-recording-native-identity:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -79,6 +80,23 @@ test-vdr-recording-native-metadata-enrichment-service:
 		-o $(BUILD_DIR)/test_vdr_recording_native_metadata_enrichment_service
 	$(BUILD_DIR)/test_vdr_recording_native_metadata_enrichment_service
 
+test-vdr-recording-native-person-search-service:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
+		core/vdr/src/VdrRecordingCacheRepository.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositoryInternal.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositoryStorage.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositoryRead.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositorySearch.cpp \
+		core/vdr/src/VdrRecordingNativeMetadataRepositoryMaintenance.cpp \
+		core/vdr/src/VdrRecordingNativePersonSearchService.cpp \
+		core/vdr/tests/test_vdr_recording_native_person_search_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_vdr_recording_native_person_search_service
+	$(BUILD_DIR)/test_vdr_recording_native_person_search_service
+
 check-vdr-recording-native-metadata-runtime-wiring:
 	python3 tools/check_recording_native_metadata_runtime_wiring.py
 
@@ -89,4 +107,5 @@ test-recording-native-metadata-contracts: \
 	test-suite-bridge-recording-metadata-resolver \
 	test-vdr-recording-native-metadata-repository \
 	test-vdr-recording-native-metadata-enrichment-service \
+	test-vdr-recording-native-person-search-service \
 	check-vdr-recording-native-metadata-runtime-wiring
