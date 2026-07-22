@@ -29,6 +29,18 @@
 
   let view;
 
+  function normalizeRecording(recording) {
+    if (!recording || typeof recording !== 'object') return recording;
+    const title = typeof shared.recordingPathTitle === 'function'
+      ? shared.recordingPathTitle(recording)
+      : '';
+    return title ? Object.assign({}, recording, {title: title}) : recording;
+  }
+
+  function normalizeRecordings(recordings) {
+    return (Array.isArray(recordings) ? recordings : []).map(normalizeRecording);
+  }
+
   function render() {
     if (!state.active || !view) return;
     if (state.loading) return view.renderLoading();
@@ -73,6 +85,7 @@
     const previousFolders = append && state.data
       ? shared.folderList(state.data).slice()
       : shared.folderList(data).slice();
+    const incomingRecordings = normalizeRecordings(shared.recordingList(data));
     state.data = append
       ? Object.assign({}, state.data || {}, data, {folders: previousFolders})
       : Object.assign({}, data, {folders: previousFolders});
@@ -80,11 +93,11 @@
     state.parentPath = shared.normalizePath(shared.first(data, ['parentPath'], ''));
     state.serverRecordingCount = shared.number(
       data.recordingCount,
-      shared.recordingList(data).length
+      incomingRecordings.length
     );
     state.serverRecordings = append
-      ? state.serverRecordings.concat(shared.recordingList(data))
-      : shared.recordingList(data).slice();
+      ? state.serverRecordings.concat(incomingRecordings)
+      : incomingRecordings;
     if (!append) state.promotedRecordings = [];
     updatePresentedFolderState();
   }
@@ -95,7 +108,7 @@
     }
     return folderArtwork.resolveLeaves(data, requestFolder).then(function (result) {
       state.promotedRecordings = result && Array.isArray(result.recordings)
-        ? result.recordings.slice()
+        ? normalizeRecordings(result.recordings)
         : [];
       state.data = Object.assign({}, state.data || {}, {
         folders: result && Array.isArray(result.folders)
@@ -157,7 +170,7 @@
   }
 
   function selectRecording(recording) {
-    state.selectedRecording = recording;
+    state.selectedRecording = normalizeRecording(recording);
     render();
   }
 
@@ -211,6 +224,7 @@
     __test: Object.freeze({
       normalizePath: shared.normalizePath,
       decodeDisplayText: shared.decodeDisplayText,
+      recordingPathTitle: shared.recordingPathTitle,
       recordingNativeTitle: shared.recordingNativeTitle,
       recordingMetadataTitle: shared.recordingMetadataTitle,
       recordingTitle: shared.recordingTitle,
@@ -219,6 +233,7 @@
       recordingPosterUrl: shared.recordingPosterUrl,
       formatDuration: shared.formatDuration,
       formatSize: shared.formatSize,
+      normalizeRecording: normalizeRecording,
       applyFolderData: applyFolderData,
       resolveSingleRecordingLeaves: resolveSingleRecordingLeaves
     })
