@@ -58,6 +58,8 @@ int main()
     assert(registry.classify("Doku").id == "documentary");
     assert(registry.classify("Serien").id == "series");
     assert(registry.classify("Historienfilm").id == "history");
+    assert(registry.classify("Talk Show").id == "talk-show");
+    assert(registry.classify("Reality-TV").id == "reality");
     assert(registry.classify("Ärger & Spaß").id == "unknown-aerger-spass");
     assert(registry.classify("").id == "unclassified");
 
