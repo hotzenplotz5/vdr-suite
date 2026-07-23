@@ -12,6 +12,8 @@ install-runtime: install-live-remote-frontend
 
 install-live-remote-frontend:
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/modules
+	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/api
+	$(INSTALL) -m 0644 web/frontend/api/live-remote-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/live-remote-client-api.js
 	$(INSTALL) -m 0644 web/frontend/modules/remote.js $(DESTDIR)$(DATADIR)/web/frontend/modules/remote.js
 
 test-live-remote: \
@@ -122,6 +124,7 @@ test-live-remote-api-runtime:
 	$(BUILD_DIR)/test_live_remote_api_runtime
 
 test-live-remote-frontend:
+	node --check web/frontend/api/live-remote-client-api.js
 	node --check web/frontend/modules/remote.js
 	node web/frontend/tests/test_remote_runtime.js
 
