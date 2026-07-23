@@ -99,6 +99,20 @@ struct GenreEpgPage
     std::vector<GenreEpgItem> events;
 };
 
+struct GenreEpgRefreshCandidate
+{
+    std::string backendId;
+    std::string channelId;
+    std::string eventId;
+    std::string title;
+    std::string subtitle;
+    std::string description;
+    std::string startTime;
+    std::string endTime;
+    int durationSeconds = 0;
+    std::vector<std::string> contentDescriptors;
+};
+
 class GenreIndexRepository
 {
 public:
@@ -148,6 +162,14 @@ public:
         std::int64_t untilTime,
         int limit,
         int offset) const;
+
+    std::vector<GenreEpgRefreshCandidate> epgRefreshCandidates(
+        const std::string& backendId,
+        std::int64_t fromTime,
+        std::int64_t untilTime,
+        const std::string& providerId,
+        std::int64_t freshAfterEpoch,
+        int limit) const;
 
     bool genreExists(const std::string& genreId) const;
 
