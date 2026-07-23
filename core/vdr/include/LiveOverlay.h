@@ -8,6 +8,8 @@
 #include <memory>
 #include <string>
 
+class EpgEventRepository;
+
 struct LiveChannelState
 {
     bool available = false;
@@ -89,7 +91,8 @@ public:
         BackendRegistryService& backendRegistryService,
         VdrSnapshotReadService& snapshotReadService,
         SnapshotCacheService& snapshotCacheService,
-        const LiveChannelStateProviderRegistry& providerRegistry);
+        const LiveChannelStateProviderRegistry& providerRegistry,
+        const EpgEventRepository* epgEventRepository = nullptr);
 
     LiveOverlaySnapshot getSnapshot(
         const std::string& backendId,
@@ -100,4 +103,5 @@ private:
     VdrSnapshotReadService& snapshotReadService_;
     SnapshotCacheService& snapshotCacheService_;
     const LiveChannelStateProviderRegistry& providerRegistry_;
+    const EpgEventRepository* epgEventRepository_;
 };
