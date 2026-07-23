@@ -83,8 +83,10 @@ bool GenreIndexRepository::replaceEvidenceLocked(const GenreEvidenceInput& rawIn
         bindText(stale, 2, targetId);
         bindText(stale, 3, input.providerId);
         const bool staleOk = stepDone(stale);
+        const int changedRows = sqlite3_changes(database_.handle());
         sqlite3_finalize(stale);
-        return staleOk;
+        if (!staleOk) return false;
+        if (changedRows > 0) return true;
     }
 
     sqlite3_stmt* remove = nullptr;
