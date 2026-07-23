@@ -13,16 +13,7 @@ GENRE_BROWSER_TEST_SUPPORT_SRC := \
 	core/vdr/src/BackendRegistry.cpp \
 	core/vdr/src/BackendRegistryService.cpp
 
-.PHONY: install-genre-frontend test-genre-browser-controller test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-genre-browser
-
-install-runtime: install-genre-frontend
-
-install-genre-frontend:
-	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/api
-	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/modules
-	$(INSTALL) -m 0644 web/frontend/api/genre-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/genre-client-api.js
-	$(INSTALL) -m 0644 web/frontend/epg-detail-owner.js $(DESTDIR)$(DATADIR)/web/frontend/epg-detail-owner.js
-	$(INSTALL) -m 0644 web/frontend/modules/genres.js $(DESTDIR)$(DATADIR)/web/frontend/modules/genres.js
+.PHONY: test-genre-browser-controller test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-genre-browser
 
 test-genre-browser-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
