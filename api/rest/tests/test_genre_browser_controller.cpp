@@ -28,7 +28,8 @@ void createSourceSchemas(Database& database)
         "CREATE TABLE vdr_recording_native_metadata(backend_id TEXT,recording_key TEXT,backend_native_id TEXT,content_state TEXT,last_attempt_state TEXT,provider TEXT,PRIMARY KEY(backend_id,recording_key));"
         "CREATE TABLE vdr_recording_native_text_list(backend_id TEXT,recording_key TEXT,kind TEXT,ordinal INTEGER,value TEXT,PRIMARY KEY(backend_id,recording_key,kind,ordinal));"
         "CREATE TABLE epg_events(backend_id TEXT,channel_id TEXT,event_id TEXT,title TEXT,subtitle TEXT,description TEXT,start_time TEXT,end_time TEXT,duration_seconds INTEGER,content_descriptors TEXT,PRIMARY KEY(backend_id,channel_id,event_id));"
-        "CREATE TABLE epg_event_artwork(backend_id TEXT,channel_id TEXT,event_id TEXT,provider TEXT,path TEXT,width INTEGER,height INTEGER,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"));
+        "CREATE TABLE epg_event_artwork(backend_id TEXT,channel_id TEXT,event_id TEXT,provider TEXT,path TEXT,width INTEGER,height INTEGER,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
+        "CREATE TABLE vdr_channel_cache(backend_id TEXT NOT NULL,channel_id TEXT NOT NULL,channel_number INTEGER NOT NULL DEFAULT 0,name TEXT NOT NULL DEFAULT '',provider TEXT NOT NULL DEFAULT '',group_name TEXT NOT NULL DEFAULT '',radio INTEGER NOT NULL DEFAULT 0,encrypted INTEGER NOT NULL DEFAULT 0,enabled INTEGER NOT NULL DEFAULT 1,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(backend_id,channel_id));"));
 }
 
 void seed(
@@ -52,7 +53,10 @@ void seed(
         "',3600,'Action');"
         "INSERT INTO epg_event_artwork VALUES"
         "('default','C-1','100','tvscraper','/tmp/event.jpg',1280,720," +
-        std::to_string(now) + ");";
+        std::to_string(now) + ");"
+        "INSERT INTO vdr_channel_cache(backend_id,channel_id,channel_number,name,provider,group_name,radio,encrypted,enabled) VALUES"
+        "('default','C-1',1,'Das Erste HD','ARD','Öffentlich-rechtlich',0,0,1),"
+        "('remote','C-2',2,'Remote Channel','Remote','Remote',0,0,1);";
     assert(database.execute(sql));
 }
 
@@ -179,9 +183,11 @@ int main()
         "default", "mystery", now, now + 172800, 1, 0);
     assert(epg.statusCode == 200);
     assert(contains(epg, "\"eventId\":\"100\""));
+    assert(contains(epg, "\"channelName\":\"Das Erste HD\""));
     assert(contains(epg, "\"available\":true"));
     assert(contains(epg, "/api/epg/cache/artwork?backend=default"));
     assert(!contains(epg, "Remote Action"));
+    assert(!contains(epg, "Remote Channel"));
 
     assert(controller.getOverview(
         "missing", "recordings", "de", -1, -1).statusCode == 404);
