@@ -5,7 +5,7 @@ GENRE_BROWSER_REST_SRC := \
 	api/rest/src/GenreBrowserController.cpp \
 	api/rest/src/GenreBrowserApiRuntime.cpp
 
-.PHONY: install-genre-frontend test-genre-browser-controller test-genre-browser-frontend test-genre-browser
+.PHONY: install-genre-frontend test-genre-browser-controller test-genre-browser-architecture test-genre-browser-frontend test-genre-browser
 
 install-runtime: install-genre-frontend
 
@@ -28,6 +28,9 @@ test-genre-browser-controller:
 		-o $(BUILD_DIR)/test_genre_browser_controller
 	$(BUILD_DIR)/test_genre_browser_controller
 
+test-genre-browser-architecture:
+	python3 tools/check_genre_browser_architecture_contracts.py
+
 test-genre-browser-frontend:
 	node --check web/frontend/api/genre-client-api.js
 	node --check web/frontend/epg-detail-owner.js
@@ -37,6 +40,6 @@ test-genre-browser-frontend:
 	node --check web/frontend/platform/deferred-runtime-loader.js
 	python3 tools/check_genre_browser_frontend_contracts.py
 
-test-genre-browser: test-metadata-genres test-genre-browser-controller test-genre-browser-frontend
+test-genre-browser: test-metadata-genres test-genre-browser-controller test-genre-browser-architecture test-genre-browser-frontend
 
 test-fast: test-genre-browser
