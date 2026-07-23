@@ -27,7 +27,7 @@ The SSE live transport is not a media stream. It carries sequenced state-change 
 | Capability reporting | `VdrCapabilitySet`, `CapabilityResolver`, `CapabilityReportBuilder` | Adds `remote.control`, `live.overlay.read`, future `osd.view`, future `osd.control`. |
 | Backend adapter pattern | Timer and recording action executor registries | Remote actions use a backend-keyed executor registry and service. |
 | Backend transport | `IHttpClient` and `BasicHttpClient` | RESTfulAPI remains private behind the executor/provider boundary. |
-| Suite read models | `VdrSnapshotReadService`, `SnapshotCacheService`, `EpgEventRepository` | Channel, timer and revision come from the Suite snapshot; present/following use the persistent Suite EPG cache with the snapshot as fallback. |
+| Suite read models | `VdrSnapshotReadService`, `SnapshotCacheService`, `EpgEventRepository` | Channel, timer and revision come from the Suite snapshot; present/following use an injected bounded lookup backed by the persistent Suite EPG cache, with snapshot fallback. |
 | Change notification | `SnapshotChangeFeedService`, `LiveTransportService`, `SseLiveTransport` | `liveOverlay` is a changed domain; no second SSE stack is introduced. |
 | Browser boundary | `VdrSuiteClientApi` | Browser code knows only `/api/vdr/...` Suite routes. |
 
@@ -82,7 +82,7 @@ The first snapshot contains only values backed by an implemented source:
 - current-event timer and recording state from the Suite timer snapshot;
 - audio explicitly unavailable with `muted` and `volume` set to `null`.
 
-The startup snapshot intentionally excludes the large EPG event domain. The overlay therefore resolves only the current channel's now/next events from `EpgEventRepository` instead of forcing a full event snapshot refresh. The browser remains isolated from RESTfulAPI and from the EPG cache implementation.
+The startup snapshot intentionally excludes the large EPG event domain. The overlay therefore resolves only the current channel's now/next events through a backend-neutral lookup contract instead of forcing a full event snapshot refresh. `LiveOverlayService` does not link against SQLite or `EpgEventRepository`; the daemon wiring supplies the repository-backed implementation. The browser remains isolated from RESTfulAPI and from the EPG cache implementation.
 
 There is no fictitious MediaSession field and no claim that media streaming is available.
 
