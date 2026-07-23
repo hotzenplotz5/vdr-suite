@@ -1,10 +1,13 @@
 #include "GenreBrowserApiRuntime.h"
 
+#include "Database.h"
 #include "GenreBrowserController.h"
 #include "GenreIndexRepository.h"
 #include "IEpgScraperMetadataResolver.h"
 #include "RestQueryParameters.h"
 #include "VdrEvent.h"
+
+#include <sqlite3.h>
 
 #include <algorithm>
 #include <chrono>
@@ -58,6 +61,15 @@ std::int64_t nowEpochSeconds()
         std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
+void normalizeEpgWindow(
+    std::int64_t& fromTime,
+    std::int64_t& untilTime)
+{
+    const std::int64_t now = nowEpochSeconds();
+    if (fromTime <= 0) fromTime = now;
+    if (untilTime <= fromTime) untilTime = fromTime + DefaultEpgWindowSeconds;
+}
+
 ApiResponse unavailableResponse()
 {
     ApiResponse response;
@@ -79,83 +91,20 @@ std::string genreFrom(const RestQueryParameters& query)
     const std::string genre = query.get("genre");
     return genre.empty() ? query.get("genreId") : genre;
 }
-}
 
-GenreBrowserApiRuntime& GenreBrowserApiRuntime::instance()
-{
-    static GenreBrowserApiRuntime runtime;
-    return runtime;
-}
-
-bool GenreBrowserApiRuntime::configure(
-    Database& database,
-    BackendRegistryService& backendRegistryService)
-{
-    auto repository = std::make_unique<GenreIndexRepository>(database);
-    if (!repository->ensureSchema()) return false;
-    auto controller = std::make_unique<GenreBrowserController>(
-        *repository,
-        backendRegistryService);
-
-    std::lock_guard<std::mutex> lock(mutex_);
-    repository_ = std::move(repository);
-    controller_ = std::move(controller);
-    epgResolvers_.clear();
-    return true;
-}
-
-void GenreBrowserApiRuntime::registerEpgScraperMetadataResolver(
-    const std::string& backendId,
-    IEpgScraperMetadataResolver& resolver)
-{
-    std::lock_guard<std::mutex> lock(mutex_);
-    epgResolvers_[GenreIndexRepository::normalizeBackendId(backendId)] = &resolver;
-}
-
-bool GenreBrowserApiRuntime::refreshRecordingIndex(
-    const std::string& backendId)
-{
-    GenreIndexRepository* repository = nullptr;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        repository = repository_.get();
-    }
-    return repository != nullptr &&
-        repository->synchronizeRecordingCache(backendId);
-}
-
-bool GenreBrowserApiRuntime::refreshEpgIndex(
-    const std::string& backendId,
+bool enrichEpgIndex(
+    GenreIndexRepository& repository,
+    IEpgScraperMetadataResolver* resolver,
+    const std::string& normalizedBackendId,
     std::int64_t fromTime,
     std::int64_t untilTime,
     int enrichmentLimit)
 {
-    GenreIndexRepository* repository = nullptr;
-    IEpgScraperMetadataResolver* resolver = nullptr;
-    const std::string normalizedBackendId =
-        GenreIndexRepository::normalizeBackendId(backendId);
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        repository = repository_.get();
-        const auto resolverEntry = epgResolvers_.find(normalizedBackendId);
-        if (resolverEntry != epgResolvers_.end()) resolver = resolverEntry->second;
-    }
-    if (repository == nullptr) return false;
-
-    const std::int64_t now = nowEpochSeconds();
-    if (fromTime <= 0) fromTime = now;
-    if (untilTime <= fromTime) untilTime = fromTime + DefaultEpgWindowSeconds;
-    if (!repository->synchronizeEpgCache(
-            normalizedBackendId,
-            fromTime,
-            untilTime))
-    {
-        return false;
-    }
     if (resolver == nullptr) return true;
 
+    const std::int64_t now = nowEpochSeconds();
     const std::vector<GenreEpgRefreshCandidate> candidates =
-        repository->epgRefreshCandidates(
+        repository.epgRefreshCandidates(
             normalizedBackendId,
             fromTime,
             untilTime,
@@ -217,9 +166,152 @@ bool GenreBrowserApiRuntime::refreshEpgIndex(
             evidence.confidence = 0.0;
         }
 
-        if (!repository->replaceEvidence(evidence)) success = false;
+        if (!repository.replaceEvidence(evidence)) success = false;
     }
     return success;
+}
+}
+
+GenreBrowserApiRuntime& GenreBrowserApiRuntime::instance()
+{
+    static GenreBrowserApiRuntime runtime;
+    return runtime;
+}
+
+bool GenreBrowserApiRuntime::configure(
+    Database& database,
+    BackendRegistryService& backendRegistryService)
+{
+    database.execute("PRAGMA journal_mode=WAL;");
+    database.execute("PRAGMA synchronous=NORMAL;");
+    database.execute("PRAGMA busy_timeout=5000;");
+
+    auto writerRepository = std::make_unique<GenreIndexRepository>(database);
+    if (!writerRepository->ensureSchema()) return false;
+
+    std::unique_ptr<Database> readDatabase;
+    std::unique_ptr<GenreIndexRepository> readRepository;
+    GenreIndexRepository* controllerRepository = writerRepository.get();
+
+    const char* databaseFilename = sqlite3_db_filename(database.handle(), "main");
+    if (databaseFilename != nullptr && databaseFilename[0] != '\0')
+    {
+        auto candidateDatabase = std::make_unique<Database>();
+        if (candidateDatabase->open(databaseFilename))
+        {
+            candidateDatabase->execute("PRAGMA busy_timeout=5000;");
+            auto candidateRepository =
+                std::make_unique<GenreIndexRepository>(*candidateDatabase);
+            if (candidateRepository->ensureSchema())
+            {
+                candidateDatabase->execute("PRAGMA query_only=ON;");
+                controllerRepository = candidateRepository.get();
+                readRepository = std::move(candidateRepository);
+                readDatabase = std::move(candidateDatabase);
+            }
+        }
+    }
+
+    auto controller = std::make_unique<GenreBrowserController>(
+        *controllerRepository,
+        backendRegistryService);
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    controller_.reset();
+    readRepository_.reset();
+    readDatabase_.reset();
+    writerRepository_.reset();
+
+    writerRepository_ = std::move(writerRepository);
+    readDatabase_ = std::move(readDatabase);
+    readRepository_ = std::move(readRepository);
+    controller_ = std::move(controller);
+    epgResolvers_.clear();
+    return true;
+}
+
+void GenreBrowserApiRuntime::registerEpgScraperMetadataResolver(
+    const std::string& backendId,
+    IEpgScraperMetadataResolver& resolver)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    epgResolvers_[GenreIndexRepository::normalizeBackendId(backendId)] = &resolver;
+}
+
+bool GenreBrowserApiRuntime::refreshRecordingIndex(
+    const std::string& backendId)
+{
+    GenreIndexRepository* repository = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        repository = writerRepository_.get();
+    }
+    return repository != nullptr &&
+        repository->synchronizeRecordingCache(backendId);
+}
+
+bool GenreBrowserApiRuntime::refreshEpgIndex(
+    const std::string& backendId,
+    std::int64_t fromTime,
+    std::int64_t untilTime,
+    int enrichmentLimit)
+{
+    GenreIndexRepository* repository = nullptr;
+    IEpgScraperMetadataResolver* resolver = nullptr;
+    const std::string normalizedBackendId =
+        GenreIndexRepository::normalizeBackendId(backendId);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        repository = writerRepository_.get();
+        const auto resolverEntry = epgResolvers_.find(normalizedBackendId);
+        if (resolverEntry != epgResolvers_.end()) resolver = resolverEntry->second;
+    }
+    if (repository == nullptr) return false;
+
+    normalizeEpgWindow(fromTime, untilTime);
+    if (!repository->synchronizeEpgCache(
+            normalizedBackendId,
+            fromTime,
+            untilTime))
+    {
+        return false;
+    }
+
+    return enrichEpgIndex(
+        *repository,
+        resolver,
+        normalizedBackendId,
+        fromTime,
+        untilTime,
+        enrichmentLimit);
+}
+
+bool GenreBrowserApiRuntime::continueEpgEnrichment(
+    const std::string& backendId,
+    std::int64_t fromTime,
+    std::int64_t untilTime,
+    int enrichmentLimit)
+{
+    GenreIndexRepository* repository = nullptr;
+    IEpgScraperMetadataResolver* resolver = nullptr;
+    const std::string normalizedBackendId =
+        GenreIndexRepository::normalizeBackendId(backendId);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        repository = writerRepository_.get();
+        const auto resolverEntry = epgResolvers_.find(normalizedBackendId);
+        if (resolverEntry != epgResolvers_.end()) resolver = resolverEntry->second;
+    }
+    if (repository == nullptr) return false;
+
+    normalizeEpgWindow(fromTime, untilTime);
+    return enrichEpgIndex(
+        *repository,
+        resolver,
+        normalizedBackendId,
+        fromTime,
+        untilTime,
+        enrichmentLimit);
 }
 
 bool GenreBrowserApiRuntime::tryHandleGet(
@@ -285,7 +377,7 @@ bool GenreBrowserApiRuntime::tryHandleGet(
 bool GenreBrowserApiRuntime::configured() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    return repository_ != nullptr && controller_ != nullptr;
+    return writerRepository_ != nullptr && controller_ != nullptr;
 }
 
 void GenreBrowserApiRuntime::reset()
@@ -293,5 +385,7 @@ void GenreBrowserApiRuntime::reset()
     std::lock_guard<std::mutex> lock(mutex_);
     epgResolvers_.clear();
     controller_.reset();
-    repository_.reset();
+    readRepository_.reset();
+    readDatabase_.reset();
+    writerRepository_.reset();
 }
