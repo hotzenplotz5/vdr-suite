@@ -19,7 +19,7 @@ class GenreBrowserApiRuntime
 public:
     static GenreBrowserApiRuntime& instance();
 
-    void configure(
+    bool configure(
         Database& database,
         BackendRegistryService& backendRegistryService);
 
