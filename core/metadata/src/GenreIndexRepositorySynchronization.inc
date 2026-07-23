@@ -114,20 +114,28 @@ bool GenreIndexRepository::synchronizeEpgCache(
         const std::size_t end = std::min(
             rows.size(),
             begin + EpgSynchronizationBatchSize);
-        std::lock_guard<std::recursive_mutex> lock(mutex_);
-        if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
-        for (std::size_t index = begin; index < end; ++index)
+
         {
-            if (!replaceEvidenceLocked(rows[index]))
+            std::lock_guard<std::recursive_mutex> lock(mutex_);
+            if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
+            for (std::size_t index = begin; index < end; ++index)
+            {
+                if (!replaceEvidenceLocked(rows[index]))
+                {
+                    database_.execute("ROLLBACK;");
+                    return false;
+                }
+            }
+            if (!database_.execute("COMMIT;"))
             {
                 database_.execute("ROLLBACK;");
                 return false;
             }
         }
-        if (!database_.execute("COMMIT;"))
+
+        if (end < rows.size())
         {
-            database_.execute("ROLLBACK;");
-            return false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
 
