@@ -13,6 +13,13 @@ import frontend_ownership_contracts_core as core
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "web" / "frontend"
 
+_RETIRED_RECORDING_ACTION_ALIAS_ASSERTIONS = frozenset(
+    {
+        "fetchClientRecordingActionValidation() must own recording action validation route access",
+        "fetchClientRecordingActionExecution() must own recording action execution route access",
+    }
+)
+
 
 def read(path: Path) -> str:
     if not path.exists():
@@ -74,6 +81,86 @@ def check_index_contract(index_html: str) -> None:
         not re.search(r"createElement\s*\(\s*['\"]script['\"]\s*\)", index_html),
         "index.html must not create dynamic script loaders",
     )
+
+
+def client_function_body(
+    client_api: str,
+    function_name: str,
+    next_function_name: str,
+) -> str:
+    start_marker = f"function {function_name}(options)"
+    end_marker = f"function {next_function_name}(options)"
+    start = client_api.find(start_marker)
+    end = client_api.find(end_marker, start)
+    core.require(start >= 0, f"client-api.js must define {function_name}(options)")
+    core.require(
+        end > start,
+        f"client-api.js {function_name} boundary must end before {next_function_name}",
+    )
+    return client_api[start:end]
+
+
+def check_canonical_recording_action_client_contract(client_api: str) -> None:
+    contracts = (
+        (
+            "fetchClientRecordingActionValidation",
+            "fetchClientRecordingActionExecution",
+            "/api/vdr/recordings/actions/validate",
+            "/api/recordings/actions/validate",
+        ),
+        (
+            "fetchClientRecordingActionExecution",
+            "fetchClientSearchTimers",
+            "/api/vdr/recordings/actions/execute",
+            "/api/recordings/actions/execute",
+        ),
+    )
+
+    for function_name, next_function_name, canonical_route, retired_alias in contracts:
+        body = client_function_body(client_api, function_name, next_function_name)
+        core.require(
+            canonical_route in body,
+            f"{function_name}() must own canonical route {canonical_route}",
+        )
+        core.require(
+            "return requestJson(" in body,
+            f"{function_name}() must use one canonical requestJson() mutation",
+        )
+        core.require(
+            "jsonPostOptions(options)" in body,
+            f"{function_name}() must preserve JSON POST request options",
+        )
+        core.require(
+            "requestJsonWithFallback" not in body,
+            f"{function_name}() must not use speculative mutation fallback",
+        )
+        core.require(
+            retired_alias not in client_api,
+            f"client-api.js must not retain retired Recording action alias {retired_alias}",
+        )
+
+
+def run_baseline_client_api_contract() -> None:
+    """Run the pre-retirement baseline with superseded mutation aliases replaced.
+
+    The extracted baseline predates the canonical-only Recording mutation contract
+    introduced before this retirement. Every other baseline assertion remains
+    active; the two obsolete alias assertions are replaced immediately afterwards
+    by check_canonical_recording_action_client_contract().
+    """
+
+    baseline_require = core.require
+
+    def require_current_contract(condition: bool, message: str) -> None:
+        if message in _RETIRED_RECORDING_ACTION_ALIAS_ASSERTIONS:
+            return
+        baseline_require(condition, message)
+
+    core.require = require_current_contract
+    try:
+        core.check_client_api_contract()
+    finally:
+        core.require = baseline_require
 
 
 def check_recordings2_sole_owner_contract(
@@ -198,6 +285,7 @@ def main() -> int:
     try:
         index_html = read(FRONTEND / "index.html")
         app_js = read(FRONTEND / "app.js")
+        client_api = read(FRONTEND / "api/client-api.js")
         channel_logos_js = read(FRONTEND / "channel-logos.js")
         channel_browser_js = read(FRONTEND / "modules/channels.js")
         style_css = read(FRONTEND / "style.css")
@@ -219,7 +307,8 @@ def main() -> int:
         core.check_timer_loading_client_api_contract(app_js)
         core.check_searchtimer_loading_client_api_contract(app_js)
         core.check_timer_conflict_loading_client_api_contract(app_js)
-        core.check_client_api_contract()
+        run_baseline_client_api_contract()
+        check_canonical_recording_action_client_contract(client_api)
         core.check_channel_browser_module_path_serving_contract(server_source, install_mk)
         core.check_frontend_static_serving_contract(index_html, server_source, install_mk)
         check_install_contract(install_mk)
