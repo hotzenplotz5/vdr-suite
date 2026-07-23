@@ -13,7 +13,16 @@ GENRE_BROWSER_TEST_SUPPORT_SRC := \
 	core/vdr/src/BackendRegistry.cpp \
 	core/vdr/src/BackendRegistryService.cpp
 
-.PHONY: test-genre-browser-controller test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-genre-browser
+.PHONY: test-vdr-channel-cache-repository test-genre-browser-controller test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-genre-browser
+
+test-vdr-channel-cache-repository:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/vdr/src/VdrChannelCacheRepository.cpp \
+		core/vdr/tests/test_vdr_channel_cache_repository.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_vdr_channel_cache_repository
+	$(BUILD_DIR)/test_vdr_channel_cache_repository
 
 test-genre-browser-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -44,6 +53,6 @@ test-genre-browser-frontend:
 	node web/frontend/tests/test_genres_runtime.js
 	python3 tools/check_genre_browser_frontend_contracts.py
 
-test-genre-browser: test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend
+test-genre-browser: test-vdr-channel-cache-repository test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend
 
 test-fast: test-genre-browser
