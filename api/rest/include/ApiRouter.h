@@ -2,6 +2,7 @@
 
 #include "DashboardController.h"
 #include "EpgCacheController.h"
+#include "LiveRemoteApiRuntime.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
 #include "VdrSnapshotReadService.h"
@@ -169,6 +170,38 @@ public:
     ApiResponse handlePost(
         const std::string& path,
         const std::string& body);
+
+    ApiResponse handleClientGet(
+        const std::string& requestTarget)
+    {
+        ApiResponse response;
+
+        if (LiveRemoteApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
+        return handleGet(requestTarget);
+    }
+
+    ApiResponse handleClientPost(
+        const std::string& requestTarget,
+        const std::string& body)
+    {
+        ApiResponse response;
+
+        if (LiveRemoteApiRuntime::instance().tryHandlePost(
+                requestTarget,
+                body,
+                response))
+        {
+            return response;
+        }
+
+        return handlePost(requestTarget, body);
+    }
 
 private:
     DashboardController& dashboardController_;

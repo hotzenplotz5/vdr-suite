@@ -42,6 +42,10 @@ int main()
     assert(!emptyResolver.supports("events.read.selective"));
     assert(!emptyResolver.supports("epg.search.fuzzy.fallback"));
     assert(!emptyResolver.supports("epg.search.fuzzy.native"));
+    assert(!emptyResolver.supports("remote.control"));
+    assert(!emptyResolver.supports("live.overlay.read"));
+    assert(!emptyResolver.supports("osd.view"));
+    assert(!emptyResolver.supports("osd.control"));
     assert(!emptyResolver.supports("recordings.delete"));
     assert(!emptyResolver.supports("timers.create"));
     assert(!emptyResolver.supports("unknown.capability"));
@@ -49,6 +53,10 @@ int main()
     assertUnsupportedState(
         emptyResolver.state("recordings.read"),
         "recordings.read",
+        "capability unsupported by backend");
+    assertUnsupportedState(
+        emptyResolver.state("remote.control"),
+        "remote.control",
         "capability unsupported by backend");
     assertUnsupportedState(
         emptyResolver.state("unknown.capability"),
@@ -70,19 +78,29 @@ int main()
     assert(readOnlyResolver.supports("events.read.selective"));
     assert(readOnlyResolver.supports("epg.search.fuzzy.fallback"));
     assert(!readOnlyResolver.supports("epg.search.fuzzy.native"));
+    assert(!readOnlyResolver.supports("remote.control"));
+    assert(!readOnlyResolver.supports("live.overlay.read"));
+    assert(!readOnlyResolver.supports("osd.view"));
+    assert(!readOnlyResolver.supports("osd.control"));
+
+    readOnlyCapabilities.remoteControl = true;
+    readOnlyCapabilities.liveOverlayRead = true;
+    readOnlyCapabilities.osdView = true;
+    readOnlyCapabilities.osdControl = false;
+    CapabilityResolver liveResolver(readOnlyCapabilities);
 
     assertAvailableState(
-        readOnlyResolver.state("recordings.read"),
-        "recordings.read");
+        liveResolver.state("remote.control"),
+        "remote.control");
     assertAvailableState(
-        readOnlyResolver.state("events.read.selective"),
-        "events.read.selective");
+        liveResolver.state("live.overlay.read"),
+        "live.overlay.read");
     assertAvailableState(
-        readOnlyResolver.state("epg.search.fuzzy.fallback"),
-        "epg.search.fuzzy.fallback");
+        liveResolver.state("osd.view"),
+        "osd.view");
     assertUnsupportedState(
-        readOnlyResolver.state("epg.search.fuzzy.native"),
-        "epg.search.fuzzy.native",
+        liveResolver.state("osd.control"),
+        "osd.control",
         "capability unsupported by backend");
 
     assert(!readOnlyResolver.supports("recordings.delete"));

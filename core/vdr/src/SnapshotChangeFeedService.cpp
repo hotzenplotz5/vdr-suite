@@ -2,6 +2,8 @@
 
 #include "SearchTimerPreviewEpgCacheChangeInvalidator.h"
 
+#include <algorithm>
+
 static std::string domainNameForChangeType(VdrChangeType type)
 {
     switch (type) {
@@ -17,6 +19,8 @@ static std::string domainNameForChangeType(VdrChangeType type)
         return "searchtimers";
     case VdrChangeType::EventsChanged:
         return "events";
+    case VdrChangeType::LiveOverlayChanged:
+        return "liveOverlay";
     }
 
     return "";
@@ -31,7 +35,20 @@ SnapshotChangeFeedEntry SnapshotChangeFeedService::createEntry(
     std::vector<std::string> changedDomains;
 
     for (const auto& event : changeEvents) {
-        changedDomains.push_back(domainNameForChangeType(event.type()));
+        const std::string domain = domainNameForChangeType(event.type());
+
+        if (!domain.empty() &&
+            std::find(changedDomains.begin(), changedDomains.end(), domain) == changedDomains.end()) {
+            changedDomains.push_back(domain);
+        }
+
+        if ((event.type() == VdrChangeType::StatusChanged ||
+             event.type() == VdrChangeType::ChannelsChanged ||
+             event.type() == VdrChangeType::TimersChanged ||
+             event.type() == VdrChangeType::EventsChanged) &&
+            std::find(changedDomains.begin(), changedDomains.end(), "liveOverlay") == changedDomains.end()) {
+            changedDomains.push_back("liveOverlay");
+        }
     }
 
     return SnapshotChangeFeedEntry(

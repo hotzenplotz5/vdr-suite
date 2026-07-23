@@ -1,6 +1,7 @@
 #include "DaemonRuntime.h"
 
 #include "BasicHttpClient.h"
+#include "LiveRemoteApiRuntime.h"
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
 #include "RestfulApiVdrAdapter.h"
@@ -38,6 +39,54 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
                 "",
                 *context->httpClient));
     }
+
+    if (backendRegistryService_ &&
+        vdrSnapshotReadService_ &&
+        snapshotCacheService_) {
+        VdrCapabilitySet capabilities = backend.capabilities;
+        capabilities.remoteControl = true;
+        capabilities.liveOverlayRead = true;
+        capabilities.osdView = false;
+        capabilities.osdControl = false;
+        backendRegistryService_->updateBackendCapabilities(
+            context->backendId,
+            capabilities);
+
+        LiveRemoteApiRuntime::instance().configure(
+            *backendRegistryService_,
+            *vdrSnapshotReadService_,
+            *snapshotCacheService_,
+            [this](const std::string& changedBackendId) {
+                externalVdrChangeHint_.store(true);
+
+                if (!snapshotChangeFeed_ ||
+                    !snapshotChangeFeedService_ ||
+                    !liveTransportService_ ||
+                    !snapshotCacheService_) {
+                    return;
+                }
+
+                const int previousLatestSequenceNumber =
+                    snapshotChangeFeed_->latestSequenceNumber();
+
+                snapshotChangeFeedService_->appendChanges(
+                    *snapshotChangeFeed_,
+                    snapshotCacheService_->generation(),
+                    {VdrChangeEvent(VdrChangeType::LiveOverlayChanged)},
+                    changedBackendId);
+
+                for (const auto& entry : snapshotChangeFeed_->entries()) {
+                    if (entry.sequenceNumber() > previousLatestSequenceNumber) {
+                        liveTransportService_->publishChangeFeedEntry(entry);
+                    }
+                }
+            });
+
+        LiveRemoteApiRuntime::instance().registerRestfulApiBackend(
+            context->backendId,
+            *context->httpClient);
+    }
+
     context->service = std::make_unique<VdrService>(
         *context->adapter,
         &runtimeLogger_);

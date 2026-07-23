@@ -13,6 +13,10 @@ int main()
 {
     VdrCapabilitySet capabilities =
         VdrCapabilitySet::snapshotReadOnly();
+    capabilities.remoteControl = true;
+    capabilities.liveOverlayRead = true;
+    capabilities.osdView = false;
+    capabilities.osdControl = false;
 
     CapabilityResolver resolver(capabilities);
     CapabilityReportBuilder builder;
@@ -37,6 +41,10 @@ int main()
     assert(response.body.find("\"availableNow\":true") != std::string::npos);
     assert(response.body.find("\"capability\":\"epg.search.fuzzy.fallback\"") != std::string::npos);
     assert(response.body.find("\"capability\":\"epg.search.fuzzy.native\"") != std::string::npos);
+    assert(response.body.find("\"capability\":\"remote.control\"") != std::string::npos);
+    assert(response.body.find("\"capability\":\"live.overlay.read\"") != std::string::npos);
+    assert(response.body.find("\"capability\":\"osd.view\"") != std::string::npos);
+    assert(response.body.find("\"capability\":\"osd.control\"") != std::string::npos);
 
     std::cout
         << "test_capability_controller passed"

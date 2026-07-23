@@ -44,6 +44,7 @@ Most `docs/development/phase-*` files are historical records, not the best start
 - [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Build System State](development/build-system-state.md)
 - [Current Architecture State](development/current-architecture-state.md)
+- [Live Remote, Overlay and Legacy OSD Compatibility Contract](architecture/live-remote-osd-contract.md)
 
 ---
 

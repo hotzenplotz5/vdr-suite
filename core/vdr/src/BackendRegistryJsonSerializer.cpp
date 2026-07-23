@@ -14,6 +14,8 @@ std::string BackendRegistryJsonSerializer::serializeBackend(
     std::ostringstream json;
 
     const bool canWrite = !backend.readOnly();
+    const bool canRemoteControl =
+        canWrite && backend.capabilities.remoteControl;
 
     json
         << "{"
@@ -26,6 +28,13 @@ std::string BackendRegistryJsonSerializer::serializeBackend(
         << "\"canWriteRecordings\":" << backendBoolToJson(canWrite) << ","
         << "\"canWriteTimers\":" << backendBoolToJson(canWrite) << ","
         << "\"canWriteSearchTimers\":" << backendBoolToJson(canWrite) << ","
+        << "\"canRemoteControl\":" << backendBoolToJson(canRemoteControl) << ","
+        << "\"capabilities\":{"
+        << "\"remoteControl\":" << backendBoolToJson(backend.capabilities.remoteControl) << ","
+        << "\"liveOverlayRead\":" << backendBoolToJson(backend.capabilities.liveOverlayRead) << ","
+        << "\"osdView\":" << backendBoolToJson(backend.capabilities.osdView) << ","
+        << "\"osdControl\":" << backendBoolToJson(backend.capabilities.osdControl)
+        << "},"
         << "\"frontendSelector\":{"
         << "\"id\":\"" << backend.backendId << "\","
         << "\"label\":\"" << backend.backendName << "\","
@@ -34,7 +43,8 @@ std::string BackendRegistryJsonSerializer::serializeBackend(
         << "\"canWrite\":" << backendBoolToJson(canWrite) << ","
         << "\"canWriteRecordings\":" << backendBoolToJson(canWrite) << ","
         << "\"canWriteTimers\":" << backendBoolToJson(canWrite) << ","
-        << "\"canWriteSearchTimers\":" << backendBoolToJson(canWrite)
+        << "\"canWriteSearchTimers\":" << backendBoolToJson(canWrite) << ","
+        << "\"canRemoteControl\":" << backendBoolToJson(canRemoteControl)
         << "},"
         << "\"enabled\":" << backendBoolToJson(backend.enabled) << ","
         << "\"online\":" << backendBoolToJson(backend.online)

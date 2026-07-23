@@ -1,5 +1,6 @@
 #include "DaemonRuntime.h"
 
+#include "LiveRemoteApiRuntime.h"
 #include "SimpleHttpListener.h"
 
 #include <csignal>
@@ -57,6 +58,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    LiveRemoteApiRuntime::instance().reset();
 
     std::cout << "HTTP server runtime stopped" << std::endl;
 

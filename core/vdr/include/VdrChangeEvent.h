@@ -9,7 +9,8 @@ enum class VdrChangeType {
     RecordingsChanged,
     TimersChanged,
     SearchTimersChanged,
-    EventsChanged
+    EventsChanged,
+    LiveOverlayChanged
 };
 
 class VdrChangeEvent {
