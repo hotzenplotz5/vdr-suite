@@ -214,6 +214,54 @@ GenreEpgPage GenreIndexRepository::epgByGenre(
     return page;
 }
 
+std::vector<GenreEpgRefreshCandidate> GenreIndexRepository::epgRefreshCandidates(
+    const std::string& backendId,
+    std::int64_t fromTime,
+    std::int64_t untilTime,
+    const std::string& providerId,
+    std::int64_t freshAfterEpoch,
+    int limit) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    std::vector<GenreEpgRefreshCandidate> candidates;
+    if (!ensureSchemaLocked() || untilTime <= fromTime) return candidates;
+
+    const int boundedCandidateLimit = std::max(1, std::min(limit, 64));
+    const char* sql =
+        "SELECT e.backend_id,e.channel_id,e.event_id,e.title,e.subtitle,e.description,e.start_time,e.end_time,e.duration_seconds,e.content_descriptors "
+        "FROM epg_events e WHERE e.backend_id=? AND CAST(e.end_time AS INTEGER)>? AND CAST(e.start_time AS INTEGER)<? "
+        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_target_bindings b "
+        "JOIN suite_metadata_genre_assignments a ON a.metadata_target_id=b.metadata_target_id "
+        "WHERE b.backend_id=e.backend_id AND b.target_type='program-event' "
+        "AND b.resource_key=(e.channel_id || char(10) || e.event_id) AND a.provider_id=? AND a.observed_at>=?) "
+        "ORDER BY CAST(e.start_time AS INTEGER),e.channel_id,e.event_id LIMIT ?;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return candidates;
+    bindText(statement, 1, normalizeBackendId(backendId));
+    sqlite3_bind_int64(statement, 2, fromTime);
+    sqlite3_bind_int64(statement, 3, untilTime);
+    bindText(statement, 4, providerIdFor(providerId, "vdr-epg"));
+    sqlite3_bind_int64(statement, 5, freshAfterEpoch);
+    sqlite3_bind_int(statement, 6, boundedCandidateLimit);
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        GenreEpgRefreshCandidate candidate;
+        candidate.backendId = columnText(statement, 0);
+        candidate.channelId = columnText(statement, 1);
+        candidate.eventId = columnText(statement, 2);
+        candidate.title = columnText(statement, 3);
+        candidate.subtitle = columnText(statement, 4);
+        candidate.description = columnText(statement, 5);
+        candidate.startTime = columnText(statement, 6);
+        candidate.endTime = columnText(statement, 7);
+        candidate.durationSeconds = sqlite3_column_int(statement, 8);
+        candidate.contentDescriptors = splitLines(columnText(statement, 9));
+        candidates.push_back(std::move(candidate));
+    }
+    sqlite3_finalize(statement);
+    return candidates;
+}
+
 bool GenreIndexRepository::genreExists(const std::string& genreId) const
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
