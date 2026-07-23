@@ -257,3 +257,11 @@ unchanged EPG timeline and PR #99 live remote/overlay behavior
 Do not merge until the real-system verification is explicitly approved.
 
 After acceptance, continue the remaining Phase 61 provider, artwork, migration, backup and operational-hardening slices.
+
+---
+
+## Back
+
+- [Back to README](../README.md)
+- [Back to Documentation Index](index.md)
+- [Back to Current State](CURRENT.md)
