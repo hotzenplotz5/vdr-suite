@@ -86,7 +86,7 @@ bool GenreIndexRepository::replaceEvidenceLocked(const GenreEvidenceInput& rawIn
         const int changedRows = sqlite3_changes(database_.handle());
         sqlite3_finalize(stale);
         if (!staleOk) return false;
-        if (changedRows > 0) return true;
+        if (changedRows > 0) return reconcileGenreConflicts(database_.handle(), targetId);
     }
 
     sqlite3_stmt* remove = nullptr;
@@ -145,7 +145,7 @@ bool GenreIndexRepository::replaceEvidenceLocked(const GenreEvidenceInput& rawIn
         }
     }
     sqlite3_finalize(insert);
-    return true;
+    return reconcileGenreConflicts(database_.handle(), targetId);
 }
 
 bool GenreIndexRepository::markProviderEvidenceStale(
@@ -156,17 +156,21 @@ bool GenreIndexRepository::markProviderEvidenceStale(
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (!ensureSchemaLocked()) return false;
+    const std::string targetId = stableTargetId(
+        targetType,
+        normalizeBackendId(backendId),
+        resourceKey);
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "UPDATE suite_metadata_genre_assignments SET assignment_state='stale',observed_at=?,updated_at=CURRENT_TIMESTAMP "
         "WHERE metadata_target_id=? AND provider_id=?;";
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return false;
     sqlite3_bind_int64(statement, 1, nowEpochSeconds());
-    bindText(statement, 2, stableTargetId(targetType, normalizeBackendId(backendId), resourceKey));
+    bindText(statement, 2, targetId);
     bindText(statement, 3, providerIdFor(providerId, "vdr-epg"));
     const bool ok = stepDone(statement);
     sqlite3_finalize(statement);
-    return ok;
+    return ok && reconcileGenreConflicts(database_.handle(), targetId);
 }
 
 bool GenreIndexRepository::providerEvidenceNeedsRefresh(
