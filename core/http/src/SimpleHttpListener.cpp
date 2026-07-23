@@ -6,20 +6,27 @@
 #include <cerrno>
 #include <cctype>
 #include <chrono>
+#include <condition_variable>
+#include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <iostream>
+#include <mutex>
 #include <netdb.h>
 #include <sstream>
 #include <string>
-#include <cstdlib>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <thread>
 #include <unistd.h>
 #include <utility>
+#include <vector>
 
 namespace {
 
 constexpr auto DEFAULT_CLIENT_IO_TIMEOUT = std::chrono::seconds(5);
+constexpr std::size_t IMAGE_WRITER_THREAD_COUNT = 4;
+constexpr std::size_t IMAGE_WRITER_MAX_PENDING = 16;
 
 timeval socketTimeoutValue(std::chrono::milliseconds timeout)
 {
@@ -104,6 +111,29 @@ bool hasHeader(
     }
 
     return false;
+}
+
+std::string responseHeaderValue(
+    const HttpServerResponse& response,
+    const std::string& headerName)
+{
+    const std::string wanted = lowerAscii(headerName);
+
+    for (const auto& header : response.headers) {
+        if (lowerAscii(header.first) == wanted) {
+            return header.second;
+        }
+    }
+
+    return {};
+}
+
+bool isImageResponse(const HttpServerResponse& response)
+{
+    const std::string contentType =
+        lowerAscii(responseHeaderValue(response, "Content-Type"));
+
+    return contentType.compare(0, 6, "image/") == 0;
 }
 
 std::string serializedHeaderValue(
@@ -294,6 +324,125 @@ void writeAll(int socketFd, const std::string& data)
     }
 }
 
+std::string imageQueueBusyResponse()
+{
+    HttpServerResponse response;
+    response.statusCode = 503;
+    response.headers["Content-Type"] = "text/plain";
+    response.headers["Cache-Control"] = "no-store";
+    response.body = "image response queue is busy";
+    return serializeResponse(response);
+}
+
+class ImageResponseWriterPool
+{
+public:
+    ImageResponseWriterPool(
+        std::size_t workerCount,
+        std::size_t maximumPending)
+        : maximumPending_(maximumPending)
+    {
+        workers_.reserve(workerCount);
+
+        for (std::size_t index = 0; index < workerCount; ++index) {
+            workers_.emplace_back([this]() {
+                runWorker();
+            });
+        }
+    }
+
+    ~ImageResponseWriterPool()
+    {
+        shutdown();
+    }
+
+    ImageResponseWriterPool(const ImageResponseWriterPool&) = delete;
+    ImageResponseWriterPool& operator=(const ImageResponseWriterPool&) = delete;
+
+    bool enqueue(int socketFd, std::string response)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (stopping_ || jobs_.size() >= maximumPending_) {
+            return false;
+        }
+
+        jobs_.push_back(Job{socketFd, std::move(response)});
+        condition_.notify_one();
+        return true;
+    }
+
+    void shutdown()
+    {
+        std::deque<Job> pending;
+
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+
+            if (stopping_) {
+                return;
+            }
+
+            stopping_ = true;
+            pending.swap(jobs_);
+        }
+
+        for (const Job& job : pending) {
+            if (job.socketFd >= 0) {
+                close(job.socketFd);
+            }
+        }
+
+        condition_.notify_all();
+
+        for (std::thread& worker : workers_) {
+            if (worker.joinable()) {
+                worker.join();
+            }
+        }
+
+        workers_.clear();
+    }
+
+private:
+    struct Job
+    {
+        int socketFd = -1;
+        std::string response;
+    };
+
+    void runWorker()
+    {
+        while (true) {
+            Job job;
+
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                condition_.wait(lock, [this]() {
+                    return stopping_ || !jobs_.empty();
+                });
+
+                if (stopping_ && jobs_.empty()) {
+                    return;
+                }
+
+                job = std::move(jobs_.front());
+                jobs_.pop_front();
+            }
+
+            writeAll(job.socketFd, job.response);
+            close(job.socketFd);
+        }
+    }
+
+    const std::size_t maximumPending_;
+    std::mutex mutex_;
+    std::condition_variable condition_;
+    std::deque<Job> jobs_;
+    std::vector<std::thread> workers_;
+    bool stopping_ = false;
+};
+
 } // namespace
 
 SimpleHttpListener::SimpleHttpListener(
@@ -363,6 +512,10 @@ int SimpleHttpListener::runUntilStopped()
         return 1;
     }
 
+    ImageResponseWriterPool imageWriters(
+        IMAGE_WRITER_THREAD_COUNT,
+        IMAGE_WRITER_MAX_PENDING);
+
     std::cout
         << "simple HTTP listener running on "
         << host_
@@ -428,10 +581,35 @@ int SimpleHttpListener::runUntilStopped()
         configureClientSocketTimeouts(
             clientSocket,
             clientIoTimeout_);
-        handleClient(clientSocket);
+
+        std::string rawResponse;
+        bool imageResponse = false;
+
+        if (!prepareClientResponse(
+                clientSocket,
+                rawResponse,
+                imageResponse)) {
+            close(clientSocket);
+            continue;
+        }
+
+        if (imageResponse) {
+            if (imageWriters.enqueue(
+                    clientSocket,
+                    std::move(rawResponse))) {
+                continue;
+            }
+
+            writeAll(clientSocket, imageQueueBusyResponse());
+            close(clientSocket);
+            continue;
+        }
+
+        writeAll(clientSocket, rawResponse);
         close(clientSocket);
     }
 
+    imageWriters.shutdown();
     close(listenSocket);
 
     return 0;
@@ -513,7 +691,10 @@ int SimpleHttpListener::createListeningSocket() const
     return listenSocket;
 }
 
-void SimpleHttpListener::handleClient(int clientSocket) const
+bool SimpleHttpListener::prepareClientResponse(
+    int clientSocket,
+    std::string& rawResponse,
+    bool& imageResponse) const
 {
     std::string rawRequest;
     char buffer[4096];
@@ -526,7 +707,7 @@ void SimpleHttpListener::handleClient(int clientSocket) const
             0);
 
         if (received <= 0) {
-            return;
+            return false;
         }
 
         rawRequest.append(buffer, static_cast<std::size_t>(received));
@@ -544,7 +725,7 @@ void SimpleHttpListener::handleClient(int clientSocket) const
             0);
 
         if (received <= 0) {
-            return;
+            return false;
         }
 
         rawRequest.append(buffer, static_cast<std::size_t>(received));
@@ -552,7 +733,7 @@ void SimpleHttpListener::handleClient(int clientSocket) const
     }
 
     const HttpServerResponse response = server_.handleRequest(request);
-    const std::string rawResponse = serializeResponse(response);
-
-    writeAll(clientSocket, rawResponse);
+    imageResponse = isImageResponse(response);
+    rawResponse = serializeResponse(response);
+    return true;
 }
