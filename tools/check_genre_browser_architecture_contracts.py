@@ -21,6 +21,7 @@ recording_worker = read("core/daemon/src/DaemonRuntimeRecordingCache.cpp")
 backend_context = read("core/daemon/src/DaemonRuntimeBackendContext.cpp")
 shutdown = read("core/daemon/src/DaemonRuntime.cpp")
 repository = read("core/metadata/src/GenreIndexRepositoryQueries.inc")
+synchronization = read("core/metadata/src/GenreIndexRepositorySynchronization.inc")
 
 live_position = router.find("LiveRemoteApiRuntime::instance().tryHandleGet")
 genre_position = router.find("GenreBrowserApiRuntime::instance().tryHandleGet")
@@ -63,5 +64,14 @@ require("COUNT(DISTINCT b.metadata_target_id)" in repository, "genre counts must
 require("LIMIT ? OFFSET ?" in repository, "genre result pages must be SQL paginated")
 require("boundedCandidateLimit" in repository, "EPG resolver candidate queries must have a hard bound")
 require("b.backend_id=?" in repository, "genre queries must remain backend scoped")
+require(
+    "EpgSynchronizationBatchSize" in synchronization
+    and "begin += EpgSynchronizationBatchSize" in synchronization,
+    "EPG genre synchronization must commit in bounded batches",
+)
+require(
+    synchronization.count('BEGIN IMMEDIATE TRANSACTION;') >= 3,
+    "EPG batching and retirement must use explicit transaction boundaries",
+)
 
 print("genre browser architecture contracts ok")
