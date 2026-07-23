@@ -1,7 +1,6 @@
 // Independent mobile-first recording browser runtime and state owner.
 (function (global) {
   'use strict';
-
   const shared = global.VdrSuiteRecordings2Shared;
   const folderArtwork = global.VdrSuiteRecordings2FolderArtwork;
   const browserView = global.VdrSuiteRecordings2BrowserView;
@@ -9,7 +8,6 @@
     console.error('VDR-Suite Recordings 2 runtime dependencies are unavailable');
     return;
   }
-
   const state = {
     active: false,
     backendId: '',
@@ -28,9 +26,7 @@
     error: null,
     requestSequence: 0
   };
-
   let view;
-
   function normalizeRecording(recording) {
     if (!recording || typeof recording !== 'object') return recording;
     const title = typeof shared.recordingPathTitle === 'function'
@@ -38,11 +34,9 @@
       : '';
     return title ? Object.assign({}, recording, {title: title}) : recording;
   }
-
   function normalizeRecordings(recordings) {
     return (Array.isArray(recordings) ? recordings : []).map(normalizeRecording);
   }
-
   function render() {
     if (!state.active || !view) return;
     if (state.loading) return view.renderLoading();
@@ -50,7 +44,6 @@
     if (state.selectedRecording) return view.renderDetail();
     view.renderFolder();
   }
-
   function requestFolder(path, offset) {
     const api = shared.clientApi();
     if (!api || typeof api.fetchClientRecordingFolder !== 'function') {
@@ -68,7 +61,6 @@
       credentials: 'same-origin'
     });
   }
-
   function updatePresentedFolderState() {
     const folders = shared.folderList(state.data);
     state.recordings = state.serverRecordings.concat(state.promotedRecordings);
@@ -79,7 +71,6 @@
       returnedCount: state.serverRecordings.length + state.promotedRecordings.length
     });
   }
-
   function applyFolderData(data, append) {
     if (!data || data.recordingFolder !== true) {
       throw new Error('Der Server hat keinen gültigen Aufnahmeordner geliefert.');
@@ -93,17 +84,13 @@
       : Object.assign({}, data, {folders: previousFolders});
     state.path = shared.normalizePath(shared.first(data, ['path'], state.path));
     state.parentPath = shared.normalizePath(shared.first(data, ['parentPath'], ''));
-    state.serverRecordingCount = shared.number(
-      data.recordingCount,
-      incomingRecordings.length
-    );
+    state.serverRecordingCount = shared.number(data.recordingCount, incomingRecordings.length);
     state.serverRecordings = append
       ? state.serverRecordings.concat(incomingRecordings)
       : incomingRecordings;
     if (!append) state.promotedRecordings = [];
     updatePresentedFolderState();
   }
-
   function resolveSingleRecordingLeaves(data) {
     if (!folderArtwork || typeof folderArtwork.resolveLeaves !== 'function') {
       return Promise.resolve();
@@ -120,12 +107,10 @@
       updatePresentedFolderState();
     });
   }
-
   function clearExternalDetailReturn() {
     state.detailReturn = null;
     state.detailReturnLabel = '';
   }
-
   function loadFolder(path) {
     state.active = true;
     state.backendId = shared.selectedBackendId();
@@ -156,7 +141,6 @@
         render();
       });
   }
-
   function loadMore() {
     if (state.loadingMore || state.loading) return;
     state.loadingMore = true;
@@ -176,13 +160,11 @@
         render();
       });
   }
-
   function selectRecording(recording) {
     clearExternalDetailReturn();
     state.selectedRecording = normalizeRecording(recording);
     render();
   }
-
   function closeDetail() {
     const detailReturn = state.detailReturn;
     state.selectedRecording = null;
@@ -194,7 +176,6 @@
     }
     render();
   }
-
   function reload() {
     if (state.selectedRecording && state.detailReturn) {
       render();
@@ -203,7 +184,6 @@
     if (state.selectedRecording) state.selectedRecording = null;
     loadFolder(state.path || '');
   }
-
   view = browserView.create({
     getState: function () { return state; },
     openFolder: loadFolder,
@@ -212,7 +192,6 @@
     closeDetail: closeDetail,
     reload: reload
   });
-
   const moduleApi = Object.freeze({
     activate: function () {
       const backend = shared.selectedBackendId();
@@ -244,9 +223,7 @@
       state.requestSequence += 1;
       state.active = true;
       state.backendId = String(
-        (recording && recording.backendId) ||
-        config.backendId ||
-        shared.selectedBackendId()
+        (recording && recording.backendId) || config.backendId || shared.selectedBackendId()
       );
       state.loading = false;
       state.loadingMore = false;
@@ -276,7 +253,6 @@
       resolveSingleRecordingLeaves: resolveSingleRecordingLeaves
     })
   });
-
   function ensureNavigationTab() {
     let tab = document.querySelector('[data-module="recordings2"]');
     if (tab) return tab;
@@ -293,7 +269,6 @@
     else navigation.appendChild(tab);
     return tab;
   }
-
   function installShellEntry() {
     const tab = ensureNavigationTab();
     if (!tab) return;
@@ -325,7 +300,6 @@
       if (backend) moduleApi.deactivate();
     }, true);
   }
-
   global.VdrSuiteRecordings2 = moduleApi;
   const boundary = shared.platform();
   if (boundary && typeof boundary.registerModule === 'function' &&
