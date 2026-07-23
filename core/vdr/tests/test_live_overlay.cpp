@@ -1,13 +1,11 @@
 #include "BackendRegistry.h"
-#include "Database.h"
-#include "EpgEventRepository.h"
 #include "LiveOverlay.h"
 #include "SnapshotAccessService.h"
 #include "SnapshotCache.h"
 
 #include <cassert>
-#include <cstdio>
 #include <memory>
+#include <string>
 #include <vector>
 
 class StaticLiveChannelProvider : public ILiveChannelStateProvider
@@ -121,14 +119,6 @@ int main()
     assert(!result.following.available);
     assert(result.backendId == "secondary");
 
-    const char* databasePath = "/tmp/vdr-suite-live-overlay-test.db";
-    std::remove(databasePath);
-
-    Database database;
-    assert(database.open(databasePath));
-    EpgEventRepository epgRepository(database);
-    assert(epgRepository.ensureSchema());
-
     VdrEvent cachedPresent;
     cachedPresent.id = "90001";
     cachedPresent.channelId = "C-2";
@@ -143,25 +133,30 @@ int main()
     cachedFollowing.startTime = "200";
     cachedFollowing.endTime = "300";
 
-    assert(epgRepository.upsertEventsForBackend(
-        "secondary",
-        std::vector<VdrEvent>{cachedPresent, cachedFollowing}));
-
+    bool lookupCalled = false;
     LiveOverlayService cachedService(
         registryService,
         readService,
         cacheService,
         providers,
-        &epgRepository);
+        [&](const std::string& backendId,
+            const std::string& channelId,
+            long long fromEpoch,
+            int eventLimit) {
+            lookupCalled = true;
+            assert(backendId == "secondary");
+            assert(channelId == "C-2");
+            assert(fromEpoch == 150);
+            assert(eventLimit == 2);
+            return std::vector<VdrEvent>{cachedPresent, cachedFollowing};
+        });
 
     result = cachedService.getSnapshot("secondary", 150);
+    assert(lookupCalled);
     assert(result.success);
     assert(result.present.available);
     assert(result.present.eventId == "90001");
     assert(result.following.available);
     assert(result.following.eventId == "90002");
-
-    database.close();
-    std::remove(databasePath);
     return 0;
 }
