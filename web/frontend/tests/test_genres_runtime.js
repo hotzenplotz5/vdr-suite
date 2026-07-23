@@ -219,7 +219,7 @@ function flush() {
   assert.strictEqual(channelRequests, 0,
     'Genre browser must never issue a supplementary VDR channel request');
 
-  console.log('genres runtime database-only navigation ok');
+  console.log('genres runtime database-only EPG Genre navigation ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
