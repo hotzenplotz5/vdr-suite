@@ -149,6 +149,7 @@ test-frontend-i18n:
 	node web/frontend/tests/test_timer_workflows_runtime.js
 	node web/frontend/tests/test_searchtimer_workflows_runtime.js
 	node web/frontend/tests/test_channel_day_program_runtime.js
+	node web/frontend/tests/test_channel_day_navigation_runtime.js
 	node web/frontend/tests/test_channel_day_program_compat_runtime.js
 	node web/frontend/tests/test_deferred_frontend_runtime_loader.js
 	node web/frontend/tests/test_epg_timeline_enhancements.js
