@@ -166,6 +166,8 @@ bool executeGenreSchema(Database& database)
     return database.execute(
         "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
         "(2,'Backend-scoped normalized genre bindings and read model');"
+        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
+        "(3,'Backend-scoped VDR channel snapshot cache for metadata read models');"
         "CREATE TABLE IF NOT EXISTS suite_metadata_target_bindings("
         "metadata_target_id TEXT NOT NULL,target_type TEXT NOT NULL,backend_id TEXT NOT NULL,resource_key TEXT NOT NULL,native_id TEXT NOT NULL DEFAULT '',"
         "channel_id TEXT NOT NULL DEFAULT '',start_time INTEGER NOT NULL DEFAULT 0,end_time INTEGER NOT NULL DEFAULT 0,"
@@ -195,7 +197,14 @@ bool executeGenreSchema(Database& database)
         "ON suite_metadata_genre_assignments(backend_id,target_type,genre_id,assignment_state,metadata_target_id);"
         "CREATE INDEX IF NOT EXISTS idx_suite_metadata_genre_assignments_target "
         "ON suite_metadata_genre_assignments(metadata_target_id,assignment_state,ordinal);"
+        "CREATE TABLE IF NOT EXISTS vdr_channel_cache("
+        "backend_id TEXT NOT NULL,channel_id TEXT NOT NULL,channel_number INTEGER NOT NULL DEFAULT 0,"
+        "name TEXT NOT NULL DEFAULT '',provider TEXT NOT NULL DEFAULT '',group_name TEXT NOT NULL DEFAULT '',"
+        "radio INTEGER NOT NULL DEFAULT 0,encrypted INTEGER NOT NULL DEFAULT 0,enabled INTEGER NOT NULL DEFAULT 1,"
+        "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(backend_id,channel_id),"
+        "CHECK(radio IN(0,1)),CHECK(encrypted IN(0,1)),CHECK(enabled IN(0,1)));"
+        "CREATE INDEX IF NOT EXISTS idx_vdr_channel_cache_backend_number "
+        "ON vdr_channel_cache(backend_id,channel_number,channel_id);"
     );
 }
 }
-
