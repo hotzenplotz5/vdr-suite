@@ -1,6 +1,6 @@
 include mk/test-groups.mk
 
-.PHONY: test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-modularity test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-http-listener-partial-request-timeout test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy test-frontend-contracts test-frontend-i18n
+.PHONY: test-backend-node test-backend-registry test-backend-registry-service test-backend-registry-json-serializer test-search-timer-preview-epg-cache test-vdr-snapshot-read-service test-vdr-snapshot-read-service-searchtimer-preview-epg-cache test-api-router-searchtimer-preview-epg-cache test-json-string-decoder test-searchtimer-discovery-runtime-wiring test-daemon-runtime-modularity test-daemon-runtime-shutdown-resets test-http-listener-bind-failure-handling test-http-listener-partial-request-timeout test-http-listener-image-write-isolation test-real-vdr-acceptance-manifest test-phase-map-coverage test-github-update-safety-handoff test-recording-mutation-safety-policy test-frontend-contracts test-frontend-i18n
 
 
 test-json-string-decoder:
@@ -32,6 +32,14 @@ test-http-listener-partial-request-timeout:
 		core/http/tests/test_simple_http_listener_partial_request_timeout.cpp \
 		-o $(BUILD_DIR)/test_simple_http_listener_partial_request_timeout
 	$(BUILD_DIR)/test_simple_http_listener_partial_request_timeout
+
+
+test-http-listener-image-write-isolation:
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
+		core/http/src/SimpleHttpListener.cpp \
+		core/http/tests/test_simple_http_listener_image_write_isolation.cpp \
+		-o $(BUILD_DIR)/test_simple_http_listener_image_write_isolation
+	$(BUILD_DIR)/test_simple_http_listener_image_write_isolation
 
 
 test-real-vdr-acceptance-manifest:
@@ -118,44 +126,3 @@ test-vdr-snapshot-read-service-searchtimer-preview-epg-cache:
 		core/vdr/tests/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache.cpp \
 		-o $(BUILD_DIR)/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache
 	$(BUILD_DIR)/test_vdr_snapshot_read_service_searchtimer_preview_epg_cache
-
-
-test-api-router-searchtimer-preview-epg-cache:
-	$(BUILD_CXX) $(CXXFLAGS) \
-		$(SQLITE_SRC) \
-		$(VDR_SRC) \
-		core/vdr/src/VdrRecordingCacheRepository.cpp \
-		core/vdr/src/SearchTimerResultJsonSerializer.cpp \
-		core/vdr/src/SearchTimerService.cpp \
-		api/rest/src/SearchTimerCreateRequestParser.cpp \
-		api/rest/src/SearchTimerUpdateRequestParser.cpp \
-		api/rest/src/SearchTimerDeleteRequestParser.cpp \
-		api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
-		api/rest/src/SearchTimerController.cpp \
-		api/rest/tests/test_api_router_searchtimer_preview_epg_cache.cpp \
-		$(LDFLAGS) \
-		-o $(BUILD_DIR)/test_api_router_searchtimer_preview_epg_cache
-	$(BUILD_DIR)/test_api_router_searchtimer_preview_epg_cache
-
-.PHONY: test-frontend-contracts
-test-frontend-contracts: test-frontend-i18n
-	python3 tools/check_frontend_ownership_contracts.py
-	python3 tools/check_frontend_platform_runtime_context.py
-
-
-test-frontend-i18n:
-	python3 tools/check_frontend_i18n_contracts.py
-	node web/frontend/tests/test_i18n_runtime.js
-	node web/frontend/tests/test_timer_workflows_runtime.js
-	node web/frontend/tests/test_searchtimer_workflows_runtime.js
-	node web/frontend/tests/test_channel_day_program_runtime.js
-	node web/frontend/tests/test_channel_day_navigation_runtime.js
-	node web/frontend/tests/test_channel_day_program_compat_runtime.js
-	node web/frontend/tests/test_deferred_frontend_runtime_loader.js
-	node web/frontend/tests/test_epg_timeline_enhancements.js
-	node web/frontend/tests/test_epg_timeline_deferred_install.js
-	node web/frontend/tests/test_epg_metadata_detail.js
-	node web/frontend/tests/test_epg_metadata_mobile_navigation.js
-	node web/frontend/tests/test_epg_metadata_detail_hook.js
-	python3 web/frontend/tests/test_epg_runtime_bundle_builder.py
-	python3 web/frontend/tests/test_epg_metadata_runtime_bundle.py
