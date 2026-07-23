@@ -1,10 +1,13 @@
 #include "LiveOverlay.h"
 
+#include "EpgEventRepository.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
 #include <limits>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -69,11 +72,13 @@ LiveOverlayService::LiveOverlayService(
     BackendRegistryService& backendRegistryService,
     VdrSnapshotReadService& snapshotReadService,
     SnapshotCacheService& snapshotCacheService,
-    const LiveChannelStateProviderRegistry& providerRegistry)
+    const LiveChannelStateProviderRegistry& providerRegistry,
+    const EpgEventRepository* epgEventRepository)
     : backendRegistryService_(backendRegistryService),
       snapshotReadService_(snapshotReadService),
       snapshotCacheService_(snapshotCacheService),
-      providerRegistry_(providerRegistry)
+      providerRegistry_(providerRegistry),
+      epgEventRepository_(epgEventRepository)
 {
 }
 
@@ -167,8 +172,23 @@ LiveOverlaySnapshot LiveOverlayService::getSnapshot(
     snapshot.channel.number = channel->number;
     snapshot.channel.name = channel->name;
 
-    const std::vector<VdrEvent> events =
+    std::vector<VdrEvent> events;
+
+    if (epgEventRepository_ != nullptr)
+    {
+        events = epgEventRepository_->findNowNextForBackend(
+            backendId,
+            state.channelId,
+            std::to_string(snapshot.generatedAt),
+            2);
+    }
+
+    const std::vector<VdrEvent> snapshotEvents =
         snapshotReadService_.getEventsForBackend(backendId);
+    events.insert(
+        events.end(),
+        snapshotEvents.begin(),
+        snapshotEvents.end());
 
     const VdrEvent* present = nullptr;
     const VdrEvent* following = nullptr;
