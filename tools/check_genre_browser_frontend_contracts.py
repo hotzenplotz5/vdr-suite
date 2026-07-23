@@ -33,35 +33,20 @@ require("/api/metadata/genres" not in genres, "route literals belong to the Clie
 require("/api/metadata/genres" in client, "genre Client API route is missing")
 require("document." not in client, "genre Client API extension must remain DOM-free")
 require(
-    "Promise.all([client.fetchClientGenres" not in genres,
-    "EPG genre overview must not wait for supplementary channel metadata",
-)
-
-overview_start = genres.find("function loadOverview()")
-overview_end = genres.find("function requestItems(", overview_start)
-require(overview_start >= 0 and overview_end > overview_start, "genre overview boundary is missing")
-overview_body = genres[overview_start:overview_end]
-require("client.fetchClientGenres(options)" in overview_body, "genre overview request is missing")
-require("loadChannels();" not in overview_body, "EPG overview must not start channel loading before it renders")
-
-selection_start = genres.find("function selectGenre(")
-selection_end = genres.find("function loadMore(", selection_start)
-require(selection_start >= 0 and selection_end > selection_start, "genre selection boundary is missing")
-selection_body = genres[selection_start:selection_end]
-require("requestItems(0)" in selection_body, "genre selection must request its result page")
-require(
-    "scheduleSupplementaryChannels(sequence)" in selection_body,
-    "supplementary channel metadata must start only after EPG result rendering",
+    "fetchClientChannels" not in genres
+    and "loadChannels" not in genres
+    and "scheduleSupplementaryChannels" not in genres,
+    "Genre browser must never issue supplementary VDR channel requests",
 )
 require(
-    selection_body.find("requestItems(0)") < selection_body.find("scheduleSupplementaryChannels(sequence)"),
-    "EPG result request must precede supplementary channel metadata",
+    "event.channelName" in genres,
+    "EPG Genre cards must consume channel names from the persisted read response",
 )
 require(
-    "return new Promise(() => {});" in runtime_test
-    and "EPG overview must not start supplementary channels before the genre response" in runtime_test
-    and "EPG result request must complete before supplementary channels start" in runtime_test,
-    "genre runtime test must cover serial HTTP request ordering with a pending channel request",
+    "channelRequests, 0" in runtime_test
+    and "database-only EPG Genre navigation" in runtime_test
+    and "for (let index = 0; index < 12; index += 1)" in runtime_test,
+    "genre runtime test must cover repeated database-only EPG navigation",
 )
 
 require("createRecordingCard" in recording_view, "Recordings 2 card owner is not exported")
