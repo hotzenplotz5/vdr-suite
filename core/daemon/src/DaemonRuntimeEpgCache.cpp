@@ -1,6 +1,7 @@
 #include "DaemonRuntime.h"
 
 #include "GenreBrowserApiRuntime.h"
+#include "VdrChannelCacheRepository.h"
 #include "VdrEventQuery.h"
 
 #include <chrono>
@@ -24,6 +25,46 @@ void DaemonRuntime::startEpgCacheWarmupWorker()
 {
     if (epgCacheWarmupThread_.joinable()) {
         return;
+    }
+
+    if (snapshotCacheService_) {
+        VdrChannelCacheRepository channelCache(database_);
+        if (!channelCache.ensureSchema()) {
+            std::cerr
+                << "failed to initialize persistent VDR channel cache"
+                << std::endl;
+        }
+        else {
+            for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+                if (!backendRuntimeContext) {
+                    continue;
+                }
+
+                const VdrSnapshot* snapshot =
+                    snapshotCacheService_->cache().snapshotForBackend(
+                        backendRuntimeContext->backendId);
+                if (snapshot == nullptr) {
+                    continue;
+                }
+
+                if (!channelCache.replaceChannelsForBackend(
+                        backendRuntimeContext->backendId,
+                        snapshot->channels)) {
+                    std::cerr
+                        << "failed to persist VDR channel snapshot: backend="
+                        << backendRuntimeContext->backendId
+                        << std::endl;
+                }
+                else {
+                    std::cout
+                        << "VDR channel snapshot persisted: backend="
+                        << backendRuntimeContext->backendId
+                        << ", channels="
+                        << snapshot->channels.size()
+                        << std::endl;
+                }
+            }
+        }
     }
 
     epgCacheWarmupStopRequested_.store(false);
@@ -153,6 +194,9 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
     query.timespan = static_cast<int>(GenreWindowSeconds);
     query.channelEventLimit = 160;
 
+    VdrChannelCacheRepository channelCache(database_);
+    const bool channelCacheReady = channelCache.ensureSchema();
+
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
         if (epgCacheWarmupStopRequested_.load()) {
             return;
@@ -160,6 +204,20 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
 
         if (!backendRuntimeContext || !backendRuntimeContext->epgCacheService) {
             continue;
+        }
+
+        bool channelsStored = false;
+        std::size_t channelCount = 0;
+        if (channelCacheReady && snapshotCacheService_) {
+            const VdrSnapshot* snapshot =
+                snapshotCacheService_->cache().snapshotForBackend(
+                    backendRuntimeContext->backendId);
+            if (snapshot != nullptr) {
+                channelCount = snapshot->channels.size();
+                channelsStored = channelCache.replaceChannelsForBackend(
+                    backendRuntimeContext->backendId,
+                    snapshot->channels);
+            }
         }
 
         std::cout
@@ -171,6 +229,10 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
             << query.timespan
             << ", channelEventLimit="
             << query.channelEventLimit
+            << ", channelsStored="
+            << (channelsStored ? "true" : "false")
+            << ", channels="
+            << channelCount
             << std::endl;
 
         const EpgCacheRefreshResult result =
