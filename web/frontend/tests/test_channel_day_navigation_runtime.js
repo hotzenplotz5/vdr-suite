@@ -167,6 +167,11 @@ assert.strictEqual(
 
 assert.ok(source.includes("input.className = 'channels2-date-current';"));
 assert.ok(source.includes("controls.append(prev, input, next);"));
+assert.ok(source.includes('.channels2-date-current{grid-column:2;'));
+assert.ok(source.includes('box-sizing:border-box'));
+assert.ok(source.includes('max-width:100%'));
+assert.ok(source.includes('.channels2-date-today{grid-column:1/-1;'));
+assert.ok(!source.includes('.channels2-date input,.channels2-date-today{grid-column:1/-1'));
 assert.ok(source.includes("'Programm heute'"));
 assert.ok(!source.includes("const current = addText(document.createElement('span')"));
 assert.ok(!source.includes("const today = addText(document.createElement('button'), 'Heute');"));
