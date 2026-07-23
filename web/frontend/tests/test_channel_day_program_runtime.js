@@ -11,7 +11,7 @@ const testHookMarker = 'global.VdrSuiteChannels2 = moduleApi;';
 const instrumentedSource = source.replace(
   testHookMarker,
   'global.__VdrSuiteChannelDayProgramTest=Object.freeze({' +
-    'eventArtwork,renderEventDetail,booleanValue,channelIsRadio,' +
+    'eventArtwork,renderEventDetail,visibleEventsForDay,booleanValue,channelIsRadio,' +
     'channelIsEncrypted,channelIsEnabled,channelMatchesFilters,' +
     'filterChannels,state});' + testHookMarker
 );
@@ -162,6 +162,87 @@ async function run() {
   const testApi = window.__VdrSuiteChannelDayProgramTest;
   assert.ok(testApi);
 
+  const localEpoch = (year, month, day, hour, minute) => Math.floor(
+    new Date(year, month - 1, day, hour, minute).getTime() / 1000
+  );
+  const selectedToday = new Date(2026, 6, 23);
+  const now = localEpoch(2026, 7, 23, 8, 13);
+  const todayEvents = [
+    {
+      id: 'future',
+      startTime: localEpoch(2026, 7, 23, 9, 0),
+      endTime: localEpoch(2026, 7, 23, 10, 0)
+    },
+    {
+      id: 'past',
+      startTime: localEpoch(2026, 7, 23, 7, 0),
+      endTime: localEpoch(2026, 7, 23, 8, 0)
+    },
+    {
+      id: 'current',
+      startTime: localEpoch(2026, 7, 23, 8, 0),
+      endTime: localEpoch(2026, 7, 23, 9, 0)
+    }
+  ];
+  assert.deepStrictEqual(
+    Array.from(testApi.visibleEventsForDay(todayEvents, selectedToday, now), item => item.id),
+    ['current', 'future']
+  );
+
+  const gapEvents = [
+    {
+      id: 'ended-before-gap',
+      startTime: localEpoch(2026, 7, 23, 7, 0),
+      endTime: localEpoch(2026, 7, 23, 8, 0)
+    },
+    {
+      id: 'next-after-gap',
+      startTime: localEpoch(2026, 7, 23, 8, 30),
+      endTime: localEpoch(2026, 7, 23, 9, 0)
+    }
+  ];
+  assert.deepStrictEqual(
+    Array.from(testApi.visibleEventsForDay(gapEvents, selectedToday, now), item => item.id),
+    ['next-after-gap']
+  );
+
+  const midnightNow = localEpoch(2026, 7, 23, 0, 5);
+  const midnightEvents = [
+    {
+      id: 'ended-yesterday',
+      startTime: localEpoch(2026, 7, 22, 23, 0),
+      endTime: localEpoch(2026, 7, 22, 23, 55)
+    },
+    {
+      id: 'crosses-midnight',
+      startTime: localEpoch(2026, 7, 22, 23, 50),
+      endTime: localEpoch(2026, 7, 23, 0, 20)
+    },
+    {
+      id: 'after-midnight',
+      startTime: localEpoch(2026, 7, 23, 0, 20),
+      endTime: localEpoch(2026, 7, 23, 1, 0)
+    }
+  ];
+  assert.deepStrictEqual(
+    Array.from(
+      testApi.visibleEventsForDay(midnightEvents, selectedToday, midnightNow),
+      item => item.id
+    ),
+    ['crosses-midnight', 'after-midnight']
+  );
+
+  const pastDay = new Date(2026, 6, 22);
+  assert.deepStrictEqual(
+    Array.from(testApi.visibleEventsForDay(todayEvents, pastDay, now), item => item.id),
+    ['past', 'current', 'future']
+  );
+  const futureDay = new Date(2026, 6, 24);
+  assert.deepStrictEqual(
+    Array.from(testApi.visibleEventsForDay(todayEvents, futureDay, now), item => item.id),
+    ['past', 'current', 'future']
+  );
+
   const publicArtworkUrl = '/api/epg/cache/artwork?backend=default&channelId=C-1-1079-10351&eventId=13483';
   assert.strictEqual(testApi.eventArtwork({artwork: {available: true, url: publicArtworkUrl}, imageUrl: '/legacy.jpg'}), publicArtworkUrl);
   assert.strictEqual(testApi.eventArtwork({artwork: {available: false, url: '/unavailable.jpg'}, imageUrl: '/fallback.jpg'}), '/fallback.jpg');
@@ -283,6 +364,7 @@ async function run() {
   assert.ok(source.includes('fetchClientEpgCacheWindow'));
   assert.ok(source.includes('fetchClientEpgChannelWindow'));
   assert.ok(source.includes('fetchClientTimerCreateAction'));
+  assert.ok(source.includes('visibleEventsForDay'));
   assert.ok(source.includes("[['all', 'Alle'], ['tv', 'TV'], ['radio', 'Radio']]"));
   assert.ok(source.includes("[['all', 'Alle'], ['free', 'Frei'], ['encrypted', 'Verschlüsselt']]"));
   assert.ok(source.includes("[['all', 'Alle'], ['enabled', 'Aktiv'], ['disabled', 'Deaktiviert']]"));
