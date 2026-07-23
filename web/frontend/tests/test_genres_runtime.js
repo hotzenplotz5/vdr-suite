@@ -68,10 +68,15 @@ class FakeElement {
   }
 }
 
-function findByText(root, expected) {
-  if (root.tagName === 'BUTTON' && root.textContent === expected) return root;
+function findButton(root, expected, contains) {
+  if (root.tagName === 'BUTTON') {
+    const matches = contains
+      ? root.textContent.includes(expected)
+      : root.textContent === expected;
+    if (matches) return root;
+  }
   for (const child of root.children) {
-    const found = findByText(child, expected);
+    const found = findButton(child, expected, contains);
     if (found) return found;
   }
   return null;
@@ -102,28 +107,41 @@ function flush() {
 
   let registeredModule = null;
   let channelRequests = 0;
+  let epgItemRequests = 0;
+  const requestOrder = [];
   const client = {
-    fetchClientGenres: options => Promise.resolve(
-      options.scope === 'epg'
-        ? {
-            backendId: 'default',
-            scope: 'epg',
-            totalItems: 1,
-            genres: [{id: 'drama', label: 'Drama', count: 1, known: true}]
-          }
-        : {
-            backendId: 'default',
-            scope: 'recordings',
-            totalItems: 2,
-            genres: [{id: 'action', label: 'Action', count: 2, known: true}]
-          }
-    ),
+    fetchClientGenres: options => {
+      requestOrder.push('genres:' + options.scope);
+      if (options.scope === 'epg' && channelRequests > 0) {
+        return new Promise(() => {});
+      }
+      return Promise.resolve(
+        options.scope === 'epg'
+          ? {
+              backendId: 'default',
+              scope: 'epg',
+              totalItems: 1,
+              genres: [{id: 'drama', label: 'Drama', count: 1, known: true}]
+            }
+          : {
+              backendId: 'default',
+              scope: 'recordings',
+              totalItems: 2,
+              genres: [{id: 'action', label: 'Action', count: 2, known: true}]
+            }
+      );
+    },
     fetchClientChannels: () => {
+      requestOrder.push('channels');
       channelRequests += 1;
       return new Promise(() => {});
     },
     fetchClientGenreRecordings: () => Promise.resolve({items: [], total: 0}),
-    fetchClientGenreEpg: () => Promise.resolve({items: [], total: 0})
+    fetchClientGenreEpg: () => {
+      requestOrder.push('epg-items');
+      epgItemRequests += 1;
+      return Promise.resolve({items: [], total: 0});
+    }
   };
 
   const platform = {
@@ -164,19 +182,37 @@ function flush() {
   await flush();
   await flush();
 
-  const epgButton = findByText(mount, 'EPG');
+  const epgButton = findButton(mount, 'EPG', false);
   assert(epgButton, 'EPG scope button was not rendered');
   epgButton.dispatch('click');
   await flush();
   await flush();
 
-  assert.strictEqual(channelRequests, 1, 'EPG channel metadata should load asynchronously once');
+  assert.strictEqual(channelRequests, 0,
+    'EPG overview must not start supplementary channels before the genre response');
   assert(!mount.textContent.includes('Genres werden aus dem persistenten Index geladen'),
-    'EPG overview must not wait for an unresolved channel request');
+    'EPG overview must render before supplementary channel metadata');
   assert(mount.textContent.includes('1 Einträge'), 'EPG overview result was not rendered');
   assert(mount.textContent.includes('Drama'), 'EPG genre card was not rendered');
 
-  console.log('genres runtime independence ok');
+  const dramaButton = findButton(mount, 'Drama', true);
+  assert(dramaButton, 'EPG genre card button was not rendered');
+  dramaButton.dispatch('click');
+  await flush();
+  await flush();
+  await new Promise(resolve => setTimeout(resolve, 10));
+
+  assert.strictEqual(epgItemRequests, 1, 'EPG result page should load once');
+  assert.strictEqual(channelRequests, 1,
+    'supplementary channels should start only after EPG results render');
+  assert(requestOrder.indexOf('genres:epg') < requestOrder.indexOf('channels'),
+    'EPG genre request must be scheduled before supplementary channels');
+  assert(requestOrder.indexOf('epg-items') < requestOrder.indexOf('channels'),
+    'EPG result request must complete before supplementary channels start');
+  assert(!mount.textContent.includes('Genres werden aus dem persistenten Index geladen'),
+    'pending supplementary channels must not restore the loading state');
+
+  console.log('genres runtime request ordering ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
