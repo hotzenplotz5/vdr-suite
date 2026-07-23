@@ -21,7 +21,9 @@ recording_worker = read("core/daemon/src/DaemonRuntimeRecordingCache.cpp")
 backend_context = read("core/daemon/src/DaemonRuntimeBackendContext.cpp")
 shutdown = read("core/daemon/src/DaemonRuntime.cpp")
 repository = read("core/metadata/src/GenreIndexRepositoryQueries.inc")
+schema = read("core/metadata/src/GenreIndexRepositorySchema.inc")
 synchronization = read("core/metadata/src/GenreIndexRepositorySynchronization.inc")
+channel_repository = read("core/vdr/src/VdrChannelCacheRepository.cpp")
 
 live_position = router.find("LiveRemoteApiRuntime::instance().tryHandleGet")
 genre_position = router.find("GenreBrowserApiRuntime::instance().tryHandleGet")
@@ -59,6 +61,14 @@ require(
     shutdown.find("GenreBrowserApiRuntime::instance().reset()") < shutdown.find("backendRuntimeContexts_.clear()"),
     "genre runtime must reset before backend resolver ownership is destroyed",
 )
+
+require("CREATE TABLE IF NOT EXISTS vdr_channel_cache" in schema, "persistent channel cache schema is missing")
+require("BEGIN IMMEDIATE TRANSACTION" in channel_repository, "channel snapshots must replace atomically")
+require("DELETE FROM vdr_channel_cache WHERE backend_id=?" in channel_repository, "channel snapshot replacement must be backend scoped")
+require("VdrChannelCacheRepository channelCache(database_)" in epg_worker, "EPG worker must persist the existing channel snapshot")
+require("replaceChannelsForBackend" in epg_worker, "EPG worker does not persist channel snapshots")
+require("LEFT JOIN vdr_channel_cache" in repository, "EPG Genre query must join persisted channel metadata")
+require("event.channelName" in controller, "EPG Genre API must serialize the persisted channel name")
 
 require("COUNT(DISTINCT b.metadata_target_id)" in repository, "genre counts must be SQL distinct counts")
 require("LIMIT ? OFFSET ?" in repository, "genre result pages must be SQL paginated")
