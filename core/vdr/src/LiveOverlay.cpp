@@ -1,7 +1,5 @@
 #include "LiveOverlay.h"
 
-#include "EpgEventRepository.h"
-
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
@@ -73,12 +71,12 @@ LiveOverlayService::LiveOverlayService(
     VdrSnapshotReadService& snapshotReadService,
     SnapshotCacheService& snapshotCacheService,
     const LiveChannelStateProviderRegistry& providerRegistry,
-    const EpgEventRepository* epgEventRepository)
+    EventLookup eventLookup)
     : backendRegistryService_(backendRegistryService),
       snapshotReadService_(snapshotReadService),
       snapshotCacheService_(snapshotCacheService),
       providerRegistry_(providerRegistry),
-      epgEventRepository_(epgEventRepository)
+      eventLookup_(std::move(eventLookup))
 {
 }
 
@@ -174,12 +172,12 @@ LiveOverlaySnapshot LiveOverlayService::getSnapshot(
 
     std::vector<VdrEvent> events;
 
-    if (epgEventRepository_ != nullptr)
+    if (eventLookup_)
     {
-        events = epgEventRepository_->findNowNextForBackend(
+        events = eventLookup_(
             backendId,
             state.channelId,
-            std::to_string(snapshot.generatedAt),
+            snapshot.generatedAt,
             2);
     }
 
