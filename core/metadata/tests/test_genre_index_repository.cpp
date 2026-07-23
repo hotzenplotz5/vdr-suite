@@ -15,7 +15,8 @@ void createSourceSchemas(Database& database)
         "CREATE TABLE vdr_recording_cache(backend_id TEXT,cache_key TEXT,recording_id TEXT,backend_native_id TEXT,title TEXT,path TEXT,start_time TEXT,duration_seconds INTEGER,size_mb INTEGER,metadata_payload TEXT,PRIMARY KEY(backend_id,cache_key));"
         "CREATE TABLE vdr_recording_native_metadata(backend_id TEXT,recording_key TEXT,backend_native_id TEXT,content_state TEXT,last_attempt_state TEXT,provider TEXT,PRIMARY KEY(backend_id,recording_key));"
         "CREATE TABLE vdr_recording_native_text_list(backend_id TEXT,recording_key TEXT,kind TEXT,ordinal INTEGER,value TEXT,PRIMARY KEY(backend_id,recording_key,kind,ordinal));"
-        "CREATE TABLE epg_events(backend_id TEXT,channel_id TEXT,event_id TEXT,title TEXT,subtitle TEXT,description TEXT,start_time TEXT,end_time TEXT,duration_seconds INTEGER,content_descriptors TEXT,PRIMARY KEY(backend_id,channel_id,event_id));"));
+        "CREATE TABLE epg_events(backend_id TEXT,channel_id TEXT,event_id TEXT,title TEXT,subtitle TEXT,description TEXT,start_time TEXT,end_time TEXT,duration_seconds INTEGER,content_descriptors TEXT,PRIMARY KEY(backend_id,channel_id,event_id));"
+        "CREATE TABLE epg_event_artwork(backend_id TEXT,channel_id TEXT,event_id TEXT,provider TEXT,path TEXT,width INTEGER,height INTEGER,resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"));
 }
 
 void seed(Database& database)
@@ -39,7 +40,9 @@ void seed(Database& database)
         "INSERT INTO epg_events VALUES"
         "('a','C1','10','Doku','Heute','Text','1000','2000',1000,'Doku'),"
         "('a','C2','20','Mystery','Später','Text','1500','2500',1000,'Mystery\nDrama'),"
-        "('b','C1','10','Other','Other','Text','1000','2000',1000,'Action');"));
+        "('b','C1','10','Other','Other','Text','1000','2000',1000,'Action');"
+        "INSERT INTO epg_event_artwork VALUES"
+        "('a','C2','20','tvscraper','/tmp/epg.jpg',1280,720,1700);"));
 }
 }
 
@@ -98,6 +101,16 @@ int main()
         GenreEpgPage drama = repository.epgByGenre("a", "drama", 900, 3000, 50, 0);
         assert(drama.totalCount == 1);
         assert(drama.events.front().eventId == "20");
+        assert(drama.events.front().artworkAvailable);
+        assert(drama.events.front().artworkWidth == 1280);
+        assert(drama.events.front().artworkHeight == 720);
+
+        const std::vector<GenreEpgRefreshCandidate> initialCandidates =
+            repository.epgRefreshCandidates(
+                "a", 900, 3000, "tvscraper", 2500, 64);
+        assert(initialCandidates.size() == 2);
+        assert(repository.epgRefreshCandidates(
+            "b", 900, 3000, "tvscraper", 2500, 64).size() == 1);
 
         GenreEvidenceInput scraperEvidence;
         scraperEvidence.backendId = "a";
@@ -115,6 +128,8 @@ int main()
         assert(repository.replaceEvidence(scraperEvidence));
         assert(!repository.providerEvidenceNeedsRefresh(
             "a", "program-event", "C2\n20", "tvscraper", 2500));
+        assert(repository.epgRefreshCandidates(
+            "a", 900, 3000, "tvscraper", 2500, 64).size() == 1);
 
         scraperEvidence.state = "stale";
         scraperEvidence.originalValues.clear();
@@ -122,6 +137,8 @@ int main()
         assert(repository.replaceEvidence(scraperEvidence));
         assert(repository.providerEvidenceNeedsRefresh(
             "a", "program-event", "C2\n20", "tvscraper", 2500));
+        assert(repository.epgRefreshCandidates(
+            "a", 900, 3000, "tvscraper", 3500, 64).size() == 1);
 
         GenreOverview staleOverview = repository.overview(
             "a", "program-event", 900, 3000);
@@ -134,6 +151,22 @@ int main()
             }
         }
         assert(sawStaleDrama);
+
+        GenreEvidenceInput failedFirstAttempt;
+        failedFirstAttempt.backendId = "a";
+        failedFirstAttempt.targetType = "program-event";
+        failedFirstAttempt.resourceKey = "C1\n10";
+        failedFirstAttempt.nativeId = "10";
+        failedFirstAttempt.channelId = "C1";
+        failedFirstAttempt.startTime = 1000;
+        failedFirstAttempt.endTime = 2000;
+        failedFirstAttempt.providerId = "tvscraper";
+        failedFirstAttempt.sourceKind = "scraper-metadata";
+        failedFirstAttempt.state = "stale";
+        failedFirstAttempt.observedAt = 5000;
+        assert(repository.replaceEvidence(failedFirstAttempt));
+        assert(repository.epgRefreshCandidates(
+            "a", 900, 3000, "tvscraper", 4500, 64).empty());
 
         assert(repository.genreExists("science-fiction"));
         assert(!repository.genreExists("does-not-exist"));
