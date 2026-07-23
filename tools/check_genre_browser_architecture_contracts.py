@@ -14,6 +14,7 @@ def require(condition: bool, message: str) -> None:
 
 
 router = read("api/rest/include/ApiRouter.h")
+runtime_header = read("api/rest/include/GenreBrowserApiRuntime.h")
 runtime = read("api/rest/src/GenreBrowserApiRuntime.cpp")
 controller = read("api/rest/src/GenreBrowserController.cpp")
 epg_worker = read("core/daemon/src/DaemonRuntimeEpgCache.cpp")
@@ -48,11 +49,36 @@ require("epgRefreshCandidates" in runtime, "EPG enrichment must use SQL-bounded 
 require("ResolverFreshnessSeconds" in runtime, "EPG enrichment freshness throttling is missing")
 require("enrichmentLimit" in runtime, "EPG enrichment hard limit is missing")
 
+continue_start = runtime.find("bool GenreBrowserApiRuntime::continueEpgEnrichment")
+continue_end = runtime.find("bool GenreBrowserApiRuntime::tryHandleGet", continue_start)
+require(continue_start >= 0 and continue_end > continue_start, "continuation enrichment boundary is missing")
+continue_body = runtime[continue_start:continue_end]
+require(
+    "synchronizeEpgCache" not in continue_body,
+    "periodic enrichment must never rematerialize the complete EPG Genre index",
+)
+require(
+    "readDatabase_" in runtime_header
+    and "readRepository_" in runtime_header
+    and "writerRepository_" in runtime_header,
+    "Genre runtime must own separate read and write repositories",
+)
+require("sqlite3_db_filename" in runtime, "Genre runtime must open a dedicated SQLite read connection")
+require("PRAGMA journal_mode=WAL" in runtime, "Genre runtime must enable WAL read/write isolation")
+require("PRAGMA query_only=ON" in runtime, "dedicated Genre read connection must remain query-only")
+
 for forbidden in ("IEpgScraperMetadataResolver", "SuiteBridge", "TMDB", "IMDb"):
     require(forbidden not in controller, f"public controller depends on a provider/runtime: {forbidden}")
 
 require("refreshEpgIndex" in epg_worker, "EPG worker does not materialize the genre index")
 require("result.stored" in epg_worker, "EPG genre materialization must follow a stored cache refresh")
+require("continueEpgEnrichment" in epg_worker, "periodic EPG enrichment continuation is missing")
+periodic_start = epg_worker.find("if (secondsSinceGenreRefresh >= genreRefreshSeconds)")
+periodic_end = epg_worker.find("if (!epgCacheDirtyHint_.load())", periodic_start)
+require(periodic_start >= 0 and periodic_end > periodic_start, "periodic EPG enrichment block is missing")
+periodic_body = epg_worker[periodic_start:periodic_end]
+require("continueEpgEnrichment" in periodic_body, "periodic EPG work must use continuation enrichment")
+require("refreshEpgIndex" not in periodic_body, "periodic EPG work must not rematerialize the complete index")
 require("refreshRecordingIndex" in recording_worker, "recording worker does not materialize the genre index")
 require("replaceRecordingsForBackend" in recording_worker, "recording genre materialization must follow cache persistence")
 require("registerEpgScraperMetadataResolver" in backend_context, "backend-scoped EPG resolver registration is missing")
@@ -75,9 +101,21 @@ require("LIMIT ? OFFSET ?" in repository, "genre result pages must be SQL pagina
 require("boundedCandidateLimit" in repository, "EPG resolver candidate queries must have a hard bound")
 require("b.backend_id=?" in repository, "genre queries must remain backend scoped")
 require(
+    "e.channel_id=b.channel_id AND e.event_id=b.native_id" in repository,
+    "EPG Genre reads must use indexed native channel/event joins",
+)
+require(
+    "idx_suite_metadata_target_bindings_epg_native" in schema,
+    "EPG native binding lookup index is missing",
+)
+require(
     "EpgSynchronizationBatchSize" in synchronization
     and "begin += EpgSynchronizationBatchSize" in synchronization,
     "EPG genre synchronization must commit in bounded batches",
+)
+require(
+    "std::this_thread::sleep_for(std::chrono::milliseconds(1))" in synchronization,
+    "EPG synchronization must yield between write batches for waiting reads",
 )
 require(
     synchronization.count('BEGIN IMMEDIATE TRANSACTION;') >= 3,
