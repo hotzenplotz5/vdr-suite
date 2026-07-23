@@ -19,8 +19,14 @@ public:
         const std::string&,
         const VdrEvent& event) override
     {
-        ++calls;
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        const int callNumber = ++calls;
+        if (callNumber == 1)
+        {
+            std::unique_lock<std::mutex> lock(mutex_);
+            firstCallEntered_ = true;
+            changed_.notify_all();
+            changed_.wait(lock, [this]() { return firstCallReleased_; });
+        }
 
         EpgArtworkResolution result;
         if (event.id == "unavailable")
@@ -42,6 +48,29 @@ public:
         result.artwork.resolvedAt = 1234;
         return result;
     }
+
+    bool waitUntilFirstCallEntered(std::chrono::milliseconds timeout)
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        return changed_.wait_for(lock, timeout, [this]() {
+            return firstCallEntered_;
+        });
+    }
+
+    void releaseFirstCall()
+    {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            firstCallReleased_ = true;
+        }
+        changed_.notify_all();
+    }
+
+private:
+    std::mutex mutex_;
+    std::condition_variable changed_;
+    bool firstCallEntered_ = false;
+    bool firstCallReleased_ = false;
 };
 
 class BlockingResolver final : public IEpgArtworkResolver
@@ -128,20 +157,21 @@ int main()
     const EpgArtworkEnrichmentResult scheduled = service.enrich(
         "home",
         {event("found"), event("missing"), event("unavailable")});
-
     assert(scheduled.queueAvailable);
     assert(scheduled.queued == 3);
     assert(scheduled.deduplicated == 0);
     assert(scheduled.suppressed == 0);
     assert(scheduled.dropped == 0);
 
+    assert(resolver.waitUntilFirstCallEntered(std::chrono::seconds(5)));
     const EpgArtworkEnrichmentResult duplicate = service.enrich(
         "home",
         {event("found")});
     assert(duplicate.queued == 0);
     assert(duplicate.deduplicated == 1);
+    resolver.releaseFirstCall();
 
-    assert(service.waitUntilIdle(std::chrono::seconds(2)));
+    assert(service.waitUntilIdle(std::chrono::seconds(10)));
     assert(resolver.calls == 3);
 
     const EpgArtworkReference found = repository.find(
@@ -166,7 +196,7 @@ int main()
         {event("missing"), event("unavailable")});
     assert(retried.queued == 2);
     assert(retried.suppressed == 0);
-    assert(service.waitUntilIdle(std::chrono::seconds(2)));
+    assert(service.waitUntilIdle(std::chrono::seconds(10)));
     assert(resolver.calls == 5);
 
     EpgArtworkEnrichmentService boundedService(
@@ -179,7 +209,7 @@ int main()
         {event("one"), event("two")});
     assert(bounded.queued == 1);
     assert(bounded.dropped == 1);
-    assert(boundedService.waitUntilIdle(std::chrono::seconds(2)));
+    assert(boundedService.waitUntilIdle(std::chrono::seconds(10)));
 
     BlockingResolver blockingResolver;
     auto shutdownService = std::make_unique<EpgArtworkEnrichmentService>(
@@ -191,7 +221,7 @@ int main()
         "home",
         {event("shutdown-one"), event("shutdown-two"), event("shutdown-three")});
     assert(shutdownQueued.queued == 3);
-    assert(blockingResolver.waitUntilEntered(std::chrono::seconds(1)));
+    assert(blockingResolver.waitUntilEntered(std::chrono::seconds(5)));
 
     std::thread shutdown([&shutdownService]() {
         shutdownService.reset();
