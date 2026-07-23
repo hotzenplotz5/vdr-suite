@@ -75,11 +75,9 @@ test-remote-action-controller:
 
 test-live-overlay:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		$(SQLITE_SRC) \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryService.cpp \
-		core/vdr/src/EpgEventRepository.cpp \
 		core/vdr/src/SearchTimerPreviewEpgCache.cpp \
 		core/vdr/src/SnapshotCache.cpp \
 		core/vdr/src/SnapshotCacheService.cpp \
@@ -87,7 +85,6 @@ test-live-overlay:
 		core/vdr/src/VdrSnapshotReadService.cpp \
 		core/vdr/src/LiveOverlay.cpp \
 		core/vdr/tests/test_live_overlay.cpp \
-		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_live_overlay
 	$(BUILD_DIR)/test_live_overlay
 
@@ -104,12 +101,10 @@ test-live-overlay-change-feed:
 
 test-live-remote-api-runtime:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		$(SQLITE_SRC) \
 		core/http/src/MockHttpClient.cpp \
 		core/vdr/src/VdrConfig.cpp \
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryService.cpp \
-		core/vdr/src/EpgEventRepository.cpp \
 		core/vdr/src/RemoteActionDomain.cpp \
 		core/vdr/src/RemoteActionService.cpp \
 		core/vdr/src/RestfulApiRemoteActionExecutor.cpp \
@@ -125,7 +120,6 @@ test-live-remote-api-runtime:
 		api/rest/src/LiveOverlayController.cpp \
 		api/rest/src/LiveRemoteApiRuntime.cpp \
 		api/rest/tests/test_live_remote_api_runtime.cpp \
-		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_live_remote_api_runtime
 	$(BUILD_DIR)/test_live_remote_api_runtime
 
