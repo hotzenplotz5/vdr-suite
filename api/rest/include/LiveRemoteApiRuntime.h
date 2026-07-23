@@ -8,7 +8,6 @@
 #include <functional>
 #include <string>
 
-class EpgEventRepository;
 class IHttpClient;
 class SnapshotCacheService;
 class VdrSnapshotReadService;
@@ -25,7 +24,7 @@ public:
         VdrSnapshotReadService& snapshotReadService,
         SnapshotCacheService& snapshotCacheService,
         ChangePublisher changePublisher,
-        const EpgEventRepository* epgEventRepository = nullptr);
+        LiveOverlayService::EventLookup eventLookup = {});
 
     void registerRestfulApiBackend(
         const std::string& backendId,
@@ -55,8 +54,8 @@ private:
     BackendRegistryService* backendRegistryService_ = nullptr;
     VdrSnapshotReadService* snapshotReadService_ = nullptr;
     SnapshotCacheService* snapshotCacheService_ = nullptr;
-    const EpgEventRepository* epgEventRepository_ = nullptr;
     ChangePublisher changePublisher_;
+    LiveOverlayService::EventLookup eventLookup_;
     BackendAccessPolicy backendAccessPolicy_;
     RemoteActionExecutorRegistry remoteActionExecutorRegistry_;
     LiveChannelStateProviderRegistry liveChannelStateProviderRegistry_;
