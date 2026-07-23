@@ -1,0 +1,228 @@
+GenreOverview GenreIndexRepository::overview(
+    const std::string& backendId,
+    const std::string& targetType,
+    std::int64_t fromTime,
+    std::int64_t untilTime,
+    const std::string& locale) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    GenreOverview result;
+    result.backendId = normalizeBackendId(backendId);
+    result.targetType = targetType;
+    result.fromTime = fromTime;
+    result.untilTime = untilTime;
+    if (!ensureSchemaLocked() || !isValidTargetType(targetType)) return result;
+
+    std::string timePredicate;
+    if (targetType == "program-event")
+    {
+        timePredicate = " AND b.end_time>? AND b.start_time<? ";
+    }
+
+    const std::string totalsSql =
+        "SELECT COUNT(DISTINCT b.metadata_target_id),COUNT(a.genre_id) "
+        "FROM suite_metadata_target_bindings b LEFT JOIN suite_metadata_genre_assignments a "
+        "ON a.metadata_target_id=b.metadata_target_id "
+        "WHERE b.backend_id=? AND b.target_type=? AND b.lifecycle_state='active'" + timePredicate + ";";
+    sqlite3_stmt* totals = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), totalsSql.c_str(), -1, &totals, nullptr) == SQLITE_OK)
+    {
+        bindText(totals, 1, result.backendId);
+        bindText(totals, 2, targetType);
+        if (targetType == "program-event")
+        {
+            sqlite3_bind_int64(totals, 3, fromTime);
+            sqlite3_bind_int64(totals, 4, untilTime);
+        }
+        if (sqlite3_step(totals) == SQLITE_ROW)
+        {
+            result.distinctItemCount = sqlite3_column_int(totals, 0);
+            result.assignmentCount = sqlite3_column_int(totals, 1);
+        }
+    }
+    sqlite3_finalize(totals);
+
+    const std::string sql =
+        "SELECT g.genre_id,g.label_de,g.label_en,g.known,COUNT(DISTINCT b.metadata_target_id),"
+        "COUNT(DISTINCT CASE WHEN a.assignment_state IN('active','unknown','missing') THEN b.metadata_target_id END),"
+        "COUNT(DISTINCT CASE WHEN a.assignment_state='stale' THEN b.metadata_target_id END),"
+        "COUNT(DISTINCT CASE WHEN a.assignment_state='conflict' THEN b.metadata_target_id END),"
+        "GROUP_CONCAT(DISTINCT a.source_kind) "
+        "FROM suite_metadata_genre_assignments a "
+        "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
+        "JOIN suite_metadata_genres g ON g.genre_id=a.genre_id "
+        "WHERE b.backend_id=? AND b.target_type=? AND b.lifecycle_state='active'" + timePredicate +
+        "GROUP BY g.genre_id,g.label_de,g.label_en,g.known "
+        "ORDER BY CASE WHEN g.genre_id='unclassified' THEN 1 ELSE 0 END,g.label_de,g.genre_id;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK) return result;
+    bindText(statement, 1, result.backendId);
+    bindText(statement, 2, targetType);
+    if (targetType == "program-event")
+    {
+        sqlite3_bind_int64(statement, 3, fromTime);
+        sqlite3_bind_int64(statement, 4, untilTime);
+    }
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        GenreOverviewEntry entry;
+        entry.genreId = columnText(statement, 0);
+        entry.labelDe = columnText(statement, 1);
+        entry.labelEn = columnText(statement, 2);
+        entry.label = locale.rfind("en", 0) == 0 ? entry.labelEn : entry.labelDe;
+        entry.known = sqlite3_column_int(statement, 3) != 0;
+        entry.itemCount = sqlite3_column_int(statement, 4);
+        entry.activeCount = sqlite3_column_int(statement, 5);
+        entry.staleCount = sqlite3_column_int(statement, 6);
+        entry.conflictCount = sqlite3_column_int(statement, 7);
+        entry.sources = splitCommaList(columnText(statement, 8));
+        result.genres.push_back(std::move(entry));
+    }
+    sqlite3_finalize(statement);
+    return result;
+}
+
+GenreRecordingPage GenreIndexRepository::recordingsByGenre(
+    const std::string& backendId,
+    const std::string& genreId,
+    int limit,
+    int offset) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    GenreRecordingPage page;
+    page.backendId = normalizeBackendId(backendId);
+    page.genreId = genreId;
+    page.limit = boundedLimit(limit);
+    page.offset = boundedOffset(offset);
+    if (!ensureSchemaLocked()) return page;
+
+    const char* countSql =
+        "SELECT COUNT(DISTINCT b.metadata_target_id) FROM suite_metadata_genre_assignments a "
+        "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
+        "JOIN vdr_recording_cache c ON c.backend_id=b.backend_id AND c.cache_key=b.resource_key "
+        "WHERE b.backend_id=? AND b.target_type='recording' AND b.lifecycle_state='active' AND a.genre_id=?;";
+    sqlite3_stmt* count = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), countSql, -1, &count, nullptr) == SQLITE_OK)
+    {
+        bindText(count, 1, page.backendId);
+        bindText(count, 2, genreId);
+        if (sqlite3_step(count) == SQLITE_ROW) page.totalCount = sqlite3_column_int(count, 0);
+    }
+    sqlite3_finalize(count);
+
+    const char* sql =
+        "SELECT c.recording_id,c.backend_id,c.backend_native_id,c.title,c.path,c.start_time,c.duration_seconds,c.size_mb,c.metadata_payload,"
+        "(SELECT GROUP_CONCAT(DISTINCT a2.genre_id) FROM suite_metadata_genre_assignments a2 WHERE a2.metadata_target_id=b.metadata_target_id) "
+        "FROM suite_metadata_genre_assignments a "
+        "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
+        "JOIN vdr_recording_cache c ON c.backend_id=b.backend_id AND c.cache_key=b.resource_key "
+        "WHERE b.backend_id=? AND b.target_type='recording' AND b.lifecycle_state='active' AND a.genre_id=? "
+        "GROUP BY b.metadata_target_id ORDER BY CAST(c.start_time AS INTEGER) DESC,c.title LIMIT ? OFFSET ?;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return page;
+    bindText(statement, 1, page.backendId);
+    bindText(statement, 2, genreId);
+    sqlite3_bind_int(statement, 3, page.limit);
+    sqlite3_bind_int(statement, 4, page.offset);
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        GenreRecordingItem item;
+        item.id = columnText(statement, 0);
+        item.backendId = columnText(statement, 1);
+        item.backendNativeId = columnText(statement, 2);
+        item.title = columnText(statement, 3);
+        item.path = columnText(statement, 4);
+        item.startTime = columnText(statement, 5);
+        item.durationSeconds = sqlite3_column_int(statement, 6);
+        item.sizeMb = sqlite3_column_int64(statement, 7);
+        item.metadataPayload = columnText(statement, 8);
+        item.genreIds = splitCommaList(columnText(statement, 9));
+        page.recordings.push_back(std::move(item));
+    }
+    sqlite3_finalize(statement);
+    return page;
+}
+
+GenreEpgPage GenreIndexRepository::epgByGenre(
+    const std::string& backendId,
+    const std::string& genreId,
+    std::int64_t fromTime,
+    std::int64_t untilTime,
+    int limit,
+    int offset) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    GenreEpgPage page;
+    page.backendId = normalizeBackendId(backendId);
+    page.genreId = genreId;
+    page.fromTime = fromTime;
+    page.untilTime = untilTime;
+    page.limit = boundedLimit(limit);
+    page.offset = boundedOffset(offset);
+    if (!ensureSchemaLocked() || untilTime <= fromTime) return page;
+
+    const char* countSql =
+        "SELECT COUNT(DISTINCT b.metadata_target_id) FROM suite_metadata_genre_assignments a "
+        "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
+        "JOIN epg_events e ON e.backend_id=b.backend_id AND (e.channel_id || char(10) || e.event_id)=b.resource_key "
+        "WHERE b.backend_id=? AND b.target_type='program-event' AND b.lifecycle_state='active' AND a.genre_id=? "
+        "AND b.end_time>? AND b.start_time<?;";
+    sqlite3_stmt* count = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), countSql, -1, &count, nullptr) == SQLITE_OK)
+    {
+        bindText(count, 1, page.backendId);
+        bindText(count, 2, genreId);
+        sqlite3_bind_int64(count, 3, fromTime);
+        sqlite3_bind_int64(count, 4, untilTime);
+        if (sqlite3_step(count) == SQLITE_ROW) page.totalCount = sqlite3_column_int(count, 0);
+    }
+    sqlite3_finalize(count);
+
+    const char* sql =
+        "SELECT e.backend_id,e.channel_id,e.event_id,e.title,e.subtitle,e.description,e.start_time,e.end_time,e.duration_seconds,"
+        "(SELECT GROUP_CONCAT(DISTINCT a2.genre_id) FROM suite_metadata_genre_assignments a2 WHERE a2.metadata_target_id=b.metadata_target_id) "
+        "FROM suite_metadata_genre_assignments a "
+        "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
+        "JOIN epg_events e ON e.backend_id=b.backend_id AND (e.channel_id || char(10) || e.event_id)=b.resource_key "
+        "WHERE b.backend_id=? AND b.target_type='program-event' AND b.lifecycle_state='active' AND a.genre_id=? "
+        "AND b.end_time>? AND b.start_time<? GROUP BY b.metadata_target_id "
+        "ORDER BY b.start_time,e.channel_id,e.event_id LIMIT ? OFFSET ?;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return page;
+    bindText(statement, 1, page.backendId);
+    bindText(statement, 2, genreId);
+    sqlite3_bind_int64(statement, 3, fromTime);
+    sqlite3_bind_int64(statement, 4, untilTime);
+    sqlite3_bind_int(statement, 5, page.limit);
+    sqlite3_bind_int(statement, 6, page.offset);
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        GenreEpgItem item;
+        item.backendId = columnText(statement, 0);
+        item.channelId = columnText(statement, 1);
+        item.eventId = columnText(statement, 2);
+        item.title = columnText(statement, 3);
+        item.subtitle = columnText(statement, 4);
+        item.description = columnText(statement, 5);
+        item.startTime = std::stoll(columnText(statement, 6).empty() ? "0" : columnText(statement, 6));
+        item.endTime = std::stoll(columnText(statement, 7).empty() ? "0" : columnText(statement, 7));
+        item.durationSeconds = sqlite3_column_int(statement, 8);
+        item.genreIds = splitCommaList(columnText(statement, 9));
+        page.events.push_back(std::move(item));
+    }
+    sqlite3_finalize(statement);
+    return page;
+}
+
+bool GenreIndexRepository::genreExists(const std::string& genreId) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (!ensureSchemaLocked()) return false;
+    sqlite3_stmt* statement = nullptr;
+    const char* sql = "SELECT 1 FROM suite_metadata_genres WHERE genre_id=? LIMIT 1;";
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return false;
+    bindText(statement, 1, genreId);
+    const bool exists = sqlite3_step(statement) == SQLITE_ROW;
+    sqlite3_finalize(statement);
+    return exists;
+}
