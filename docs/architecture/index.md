@@ -59,6 +59,7 @@ The identity foundation defines the Phase 61.1 Suite-owned Entity, Assignment an
 - [VDR Backends](vdr-backends.md)
 - [VDR Domain Model](vdr-domain-model.md)
 - [RESTfulAPI Integration](restfulapi-integration.md)
+- [Live Remote, Overlay and Legacy OSD Compatibility Contract](live-remote-osd-contract.md)
 - [Suite Bridge Backend Agent Handshake](suite-bridge-agent-handshake.md)
 - [Suite Bridge Local SVDRP Transport](suite-bridge-svdrp-transport.md)
 - [Suite Bridge Read-Only Observation Lifecycle](suite-bridge-observation-lifecycle.md)
