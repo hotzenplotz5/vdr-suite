@@ -2,6 +2,7 @@
 
 #include "BasicHttpClient.h"
 #include "EpgEventRepository.h"
+#include "GenreBrowserApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
@@ -18,6 +19,16 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
     const BackendNode& backend)
 {
     VdrConfig backendConfig = backend.connection;
+
+    if (backendRegistryService_ &&
+        !GenreBrowserApiRuntime::instance().configured() &&
+        !GenreBrowserApiRuntime::instance().configure(
+            database_,
+            *backendRegistryService_))
+    {
+        std::cerr << "failed to initialize genre browser metadata runtime"
+                  << std::endl;
+    }
 
     auto context = std::make_unique<BackendRuntimeContext>();
 
@@ -158,7 +169,6 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         context->suiteBridgeTransport =
             std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(
                 std::move(transportConfig));
-
         if (epgArtworkRepository_) {
             context->epgArtworkResolver =
                 std::make_unique<SuiteBridgeEpgArtworkResolver>(
@@ -166,6 +176,10 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             context->epgScraperMetadataResolver =
                 std::make_unique<SuiteBridgeEpgMetadataResolver>(
                     *context->suiteBridgeTransport);
+            GenreBrowserApiRuntime::instance()
+                .registerEpgScraperMetadataResolver(
+                    context->backendId,
+                    *context->epgScraperMetadataResolver);
             context->epgArtworkEnrichmentService =
                 std::make_unique<EpgArtworkEnrichmentService>(
                     *epgArtworkRepository_,
