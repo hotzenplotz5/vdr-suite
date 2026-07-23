@@ -56,13 +56,12 @@
       copy.appendChild(shared.node(
         'h3',
         '',
-        currentState.selectedRecording ? 'Aufnahmedetails' : 'Recordings 2'
+        currentState.selectedRecording ? 'Aufnahmedetails' : 'Aufnahmen'
       ));
       copy.appendChild(shared.node(
         'p',
         '',
-        'Eigenständiger Aufnahmebrowser · Backend ' +
-          (currentState.backendId || shared.selectedBackendId())
+        'Backend ' + (currentState.backendId || shared.selectedBackendId())
       ));
       heading.appendChild(copy);
       header.appendChild(heading);
