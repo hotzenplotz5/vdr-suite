@@ -108,39 +108,44 @@ function flush() {
   let registeredModule = null;
   let channelRequests = 0;
   let epgItemRequests = 0;
-  const requestOrder = [];
   const client = {
-    fetchClientGenres: options => {
-      requestOrder.push('genres:' + options.scope);
-      if (options.scope === 'epg' && channelRequests > 0) {
-        return new Promise(() => {});
-      }
-      return Promise.resolve(
-        options.scope === 'epg'
-          ? {
-              backendId: 'default',
-              scope: 'epg',
-              totalItems: 1,
-              genres: [{id: 'drama', label: 'Drama', count: 1, known: true}]
-            }
-          : {
-              backendId: 'default',
-              scope: 'recordings',
-              totalItems: 2,
-              genres: [{id: 'action', label: 'Action', count: 2, known: true}]
-            }
-      );
-    },
+    fetchClientGenres: options => Promise.resolve(
+      options.scope === 'epg'
+        ? {
+            backendId: 'default',
+            scope: 'epg',
+            totalItems: 2,
+            genres: [
+              {id: 'drama', label: 'Drama', count: 1, known: true},
+              {id: 'news', label: 'Nachrichten', count: 1, known: true}
+            ]
+          }
+        : {
+            backendId: 'default',
+            scope: 'recordings',
+            totalItems: 1,
+            genres: [{id: 'action', label: 'Action', count: 1, known: true}]
+          }
+    ),
     fetchClientChannels: () => {
-      requestOrder.push('channels');
       channelRequests += 1;
       return new Promise(() => {});
     },
     fetchClientGenreRecordings: () => Promise.resolve({items: [], total: 0}),
-    fetchClientGenreEpg: () => {
-      requestOrder.push('epg-items');
+    fetchClientGenreEpg: options => {
       epgItemRequests += 1;
-      return Promise.resolve({items: [], total: 0});
+      return Promise.resolve({
+        items: [{
+          eventId: '100',
+          channelId: 'C-1',
+          channelName: 'Das Erste HD',
+          title: options.genreId === 'news' ? 'Tagesschau' : 'Testdrama',
+          startTime: 1784839299,
+          artwork: {available: false, url: ''}
+        }],
+        total: 1,
+        hasMore: false
+      });
     }
   };
 
@@ -188,31 +193,33 @@ function flush() {
   await flush();
   await flush();
 
+  assert(mount.textContent.includes('2 Einträge'), 'EPG overview result was not rendered');
+  assert(mount.textContent.includes('Drama'), 'EPG Drama genre card was not rendered');
+  assert(mount.textContent.includes('Nachrichten'), 'EPG news genre card was not rendered');
+
+  for (let index = 0; index < 12; index += 1) {
+    const label = index % 2 === 0 ? 'Drama' : 'Nachrichten';
+    const genreButton = findButton(mount, label, true);
+    assert(genreButton, 'EPG genre card disappeared during repeated navigation');
+    genreButton.dispatch('click');
+    await flush();
+    await flush();
+
+    assert(!mount.textContent.includes('Genres werden aus dem persistenten Index geladen'),
+      'EPG result remained in loading state during repeated navigation');
+    assert(mount.textContent.includes('Das Erste HD'),
+      'persisted channel name was not rendered from the EPG Genre response');
+
+    const backButton = findButton(mount, '← Alle Genres', false);
+    assert(backButton, 'EPG Genre back button was not rendered');
+    backButton.dispatch('click');
+  }
+
+  assert.strictEqual(epgItemRequests, 12, 'each EPG Genre click should load one database page');
   assert.strictEqual(channelRequests, 0,
-    'EPG overview must not start supplementary channels before the genre response');
-  assert(!mount.textContent.includes('Genres werden aus dem persistenten Index geladen'),
-    'EPG overview must render before supplementary channel metadata');
-  assert(mount.textContent.includes('1 Einträge'), 'EPG overview result was not rendered');
-  assert(mount.textContent.includes('Drama'), 'EPG genre card was not rendered');
+    'Genre browser must never issue a supplementary VDR channel request');
 
-  const dramaButton = findButton(mount, 'Drama', true);
-  assert(dramaButton, 'EPG genre card button was not rendered');
-  dramaButton.dispatch('click');
-  await flush();
-  await flush();
-  await new Promise(resolve => setTimeout(resolve, 10));
-
-  assert.strictEqual(epgItemRequests, 1, 'EPG result page should load once');
-  assert.strictEqual(channelRequests, 1,
-    'supplementary channels should start only after EPG results render');
-  assert(requestOrder.indexOf('genres:epg') < requestOrder.indexOf('channels'),
-    'EPG genre request must be scheduled before supplementary channels');
-  assert(requestOrder.indexOf('epg-items') < requestOrder.indexOf('channels'),
-    'EPG result request must complete before supplementary channels start');
-  assert(!mount.textContent.includes('Genres werden aus dem persistenten Index geladen'),
-    'pending supplementary channels must not restore the loading state');
-
-  console.log('genres runtime request ordering ok');
+  console.log('genres runtime database-only navigation ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
