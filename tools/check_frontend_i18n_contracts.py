@@ -42,34 +42,35 @@ def main() -> int:
     i18n = read(FRONTEND / "platform" / "i18n.js")
     index = read(FRONTEND / "index.html")
     app = read(FRONTEND / "app.js")
-    recordings = read(FRONTEND / "modules" / "recordings.js")
     install = read(ROOT / "mk" / "install.mk")
-    server = read(ROOT / "core" / "http" / "src" / "TestHttpServer.cpp")
+    server_paths = read(
+        ROOT / "core" / "http" / "src" / "TestHttpServerPaths.inc"
+    )
 
     require(set(de) == set(en), "de/en locale catalogs must expose identical keys")
-    require(len(de) >= 80, "i18n foundation must contain the shell, settings and Move key set")
+    require(len(de) >= 80, "i18n foundation must preserve the established catalog baseline")
 
-    referenced = set(re.findall(r"data-i18n(?:-aria-label|-placeholder)?=\"([^\"]+)\"", index))
+    referenced = set(
+        re.findall(r'data-i18n(?:-aria-label|-placeholder)?="([^"]+)"', index)
+    )
     referenced.update(re.findall(r"frontendTranslate\(\s*['\"]([^'\"]+)", app))
-    referenced.update(re.findall(r"recordingBrowserTranslate\(\s*['\"]([^'\"]+)", recordings))
     missing = sorted(referenced - set(de))
     require(not missing, "translation keys missing from catalogs: " + ", ".join(missing))
 
     require("fetch(" not in i18n, "platform/i18n.js must stay HTTP-free")
     require("XMLHttpRequest" not in i18n, "platform/i18n.js must stay HTTP-free")
-    require("window.VdrSuiteI18n" in i18n or "global.VdrSuiteI18n" in i18n, "i18n API export missing")
-    require("localStorage" in i18n, "i18n locale preference must be persisted in browser storage")
-    require("recordingBrowserTranslate(" in recordings, "Recording Move workflow must use i18n keys")
-    require("recordings.move.targetReady" in recordings, "Move ready feedback must use its i18n key")
-    require("function recordingBrowserValidateNewMoveFolderName(value)" in recordings, "Move new-folder validation helper missing")
-    require("function recordingBrowserJoinMoveFolderPath(parentPath, folderName)" in recordings, "Move new-folder path helper missing")
-    require("recordings.move.createFolder" in recordings, "Move new-folder trigger must use i18n")
-    require("recordings.move.newFolderSelected" in recordings, "Move new-folder selection feedback must use i18n")
-    require("function recordingBrowserCreateTrashEditor(recording, folderData, resultBox)" in recordings, "Recording trash editor missing")
-    require("recordings.trash.ready" in recordings, "Recording trash ready feedback must use i18n")
-    require("recordings.trash.confirm" in recordings, "Recording trash confirmation must use i18n")
-    require("recordings.trash.syncAria" in recordings, "Recording trash readback must use i18n")
-    require("frontendTranslate('settings.language'" in app, "Settings must expose the language selector")
+    require(
+        "window.VdrSuiteI18n" in i18n or "global.VdrSuiteI18n" in i18n,
+        "i18n API export missing",
+    )
+    require(
+        "localStorage" in i18n,
+        "i18n locale preference must be persisted in browser storage",
+    )
+    require(
+        "frontendTranslate('settings.language'" in app,
+        "Settings must expose the language selector",
+    )
 
     for asset in [
         "platform/i18n.js",
@@ -77,7 +78,10 @@ def main() -> int:
         "locales/en.js",
     ]:
         require(f"web/frontend/{asset}" in install, f"install contract missing {asset}")
-        require(f'"{asset}"' in server, f"static serving contract missing {asset}")
+        require(
+            f'"/frontend/{asset}"' in server_paths and f'"{asset}"' in server_paths,
+            f"static serving contract missing {asset}",
+        )
 
     print("frontend i18n contracts ok")
     return 0

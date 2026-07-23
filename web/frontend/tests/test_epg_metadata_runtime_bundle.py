@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 INSTALL_MK = ROOT / "mk" / "install.mk"
 LOADER = ROOT / "web" / "frontend" / "platform" / "deferred-runtime-loader.js"
-HTTP_SERVER = ROOT / "core" / "http" / "src" / "TestHttpServer.cpp"
+HTTP_SERVER_PATHS = ROOT / "core" / "http" / "src" / "TestHttpServerPaths.inc"
 SOURCES = (
     ROOT / "web" / "frontend" / "epg-metadata-detail.js",
     ROOT / "web" / "frontend" / "epg-searchtimer-actions.js",
@@ -22,7 +22,7 @@ SOURCES = (
 def main() -> int:
     install = INSTALL_MK.read_text(encoding="utf-8")
     loader = LOADER.read_text(encoding="utf-8")
-    http_server = HTTP_SERVER.read_text(encoding="utf-8")
+    http_server_paths = HTTP_SERVER_PATHS.read_text(encoding="utf-8")
 
     source_markers = tuple(str(path.relative_to(ROOT)) for path in SOURCES)
     positions = tuple(install.index(marker) for marker in source_markers)
@@ -41,10 +41,19 @@ def main() -> int:
     assert "'/frontend/epg-metadata-detail-hook.js'" not in loader
     assert "'/frontend/epg-detail-desktop-focus.js'" not in loader
 
-    assert 'path == "/frontend/epg-searchtimer-actions.js"' in http_server
-    assert 'path == "/frontend/epg-metadata-detail.js"' not in http_server
-    assert 'path == "/frontend/epg-metadata-detail-hook.js"' not in http_server
-    assert 'path == "/frontend/epg-detail-desktop-focus.js"' not in http_server
+    assert (
+        '{"/frontend/epg-searchtimer-actions.js", '
+        '"epg-searchtimer-actions.js", '
+        '"application/javascript; charset=utf-8", nullptr}'
+        in http_server_paths
+    )
+    for private_asset in (
+        "epg-metadata-detail.js",
+        "epg-metadata-detail-hook.js",
+        "epg-detail-desktop-focus.js",
+    ):
+        assert f'"/frontend/{private_asset}"' not in http_server_paths
+        assert f'"{private_asset}"' not in http_server_paths
 
     with tempfile.TemporaryDirectory(prefix="vdr-suite-epg-metadata-bundle-") as directory:
         bundle = Path(directory) / "epg-searchtimer-actions.js"
