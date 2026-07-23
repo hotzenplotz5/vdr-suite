@@ -79,8 +79,9 @@ bool GenreIndexRepository::replaceEvidenceLocked(const GenreEvidenceInput& rawIn
         sqlite3_stmt* stale = nullptr;
         const char* staleSql = "UPDATE suite_metadata_genre_assignments SET assignment_state='stale',observed_at=?,updated_at=CURRENT_TIMESTAMP WHERE metadata_target_id=? AND provider_id=?;";
         if (sqlite3_prepare_v2(database_.handle(), staleSql, -1, &stale, nullptr) != SQLITE_OK) return false;
-        bindText(stale, 1, targetId);
-        bindText(stale, 2, input.providerId);
+        sqlite3_bind_int64(stale, 1, input.observedAt);
+        bindText(stale, 2, targetId);
+        bindText(stale, 3, input.providerId);
         const bool staleOk = stepDone(stale);
         sqlite3_finalize(stale);
         return staleOk;
@@ -228,4 +229,3 @@ bool GenreIndexRepository::retireExpiredEpgTargets(
     sqlite3_finalize(statement);
     return ok;
 }
-
