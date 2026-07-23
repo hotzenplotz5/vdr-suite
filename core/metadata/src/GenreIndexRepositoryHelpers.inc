@@ -177,3 +177,75 @@ bool upsertTarget(
     return bindingOk;
 }
 
+bool reconcileGenreConflicts(
+    sqlite3* database,
+    const std::string& targetId)
+{
+    sqlite3_stmt* restore = nullptr;
+    const char* restoreSql =
+        "UPDATE suite_metadata_genre_assignments SET assignment_state="
+        "CASE WHEN original_value='' THEN 'missing' "
+        "WHEN genre_id LIKE 'unknown-%' THEN 'unknown' ELSE 'active' END "
+        "WHERE metadata_target_id=? AND assignment_state='conflict';";
+    if (sqlite3_prepare_v2(database, restoreSql, -1, &restore, nullptr) != SQLITE_OK) return false;
+    bindText(restore, 1, targetId);
+    const bool restored = stepDone(restore);
+    sqlite3_finalize(restore);
+    if (!restored) return false;
+
+    std::map<std::string, std::set<std::string>> providerGenres;
+    sqlite3_stmt* read = nullptr;
+    const char* readSql =
+        "SELECT provider_id,genre_id FROM suite_metadata_genre_assignments "
+        "WHERE metadata_target_id=? AND assignment_state IN('active','unknown') "
+        "AND genre_id<>'unclassified' ORDER BY provider_id,genre_id;";
+    if (sqlite3_prepare_v2(database, readSql, -1, &read, nullptr) != SQLITE_OK) return false;
+    bindText(read, 1, targetId);
+    while (sqlite3_step(read) == SQLITE_ROW)
+    {
+        providerGenres[columnText(read, 0)].insert(columnText(read, 1));
+    }
+    sqlite3_finalize(read);
+    if (providerGenres.size() < 2) return true;
+
+    std::set<std::string> conflictingProviders;
+    for (const auto& provider : providerGenres)
+    {
+        bool sharesGenre = false;
+        for (const auto& other : providerGenres)
+        {
+            if (provider.first == other.first) continue;
+            for (const std::string& genreId : provider.second)
+            {
+                if (other.second.count(genreId) > 0)
+                {
+                    sharesGenre = true;
+                    break;
+                }
+            }
+            if (sharesGenre) break;
+        }
+        if (!sharesGenre) conflictingProviders.insert(provider.first);
+    }
+
+    if (conflictingProviders.empty()) return true;
+    sqlite3_stmt* mark = nullptr;
+    const char* markSql =
+        "UPDATE suite_metadata_genre_assignments SET assignment_state='conflict',updated_at=CURRENT_TIMESTAMP "
+        "WHERE metadata_target_id=? AND provider_id=? AND assignment_state IN('active','unknown');";
+    if (sqlite3_prepare_v2(database, markSql, -1, &mark, nullptr) != SQLITE_OK) return false;
+    for (const std::string& providerId : conflictingProviders)
+    {
+        sqlite3_reset(mark);
+        sqlite3_clear_bindings(mark);
+        bindText(mark, 1, targetId);
+        bindText(mark, 2, providerId);
+        if (!stepDone(mark))
+        {
+            sqlite3_finalize(mark);
+            return false;
+        }
+    }
+    sqlite3_finalize(mark);
+    return true;
+}
