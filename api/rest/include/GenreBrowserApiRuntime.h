@@ -35,6 +35,12 @@ public:
         std::int64_t untilTime,
         int enrichmentLimit = 32);
 
+    bool continueEpgEnrichment(
+        const std::string& backendId,
+        std::int64_t fromTime,
+        std::int64_t untilTime,
+        int enrichmentLimit = 8);
+
     bool tryHandleGet(
         const std::string& requestTarget,
         ApiResponse& response) const;
@@ -46,7 +52,9 @@ private:
     GenreBrowserApiRuntime() = default;
 
     mutable std::mutex mutex_;
-    std::unique_ptr<GenreIndexRepository> repository_;
+    std::unique_ptr<GenreIndexRepository> writerRepository_;
+    std::unique_ptr<Database> readDatabase_;
+    std::unique_ptr<GenreIndexRepository> readRepository_;
     std::unique_ptr<GenreBrowserController> controller_;
     std::map<std::string, IEpgScraperMetadataResolver*> epgResolvers_;
 };
