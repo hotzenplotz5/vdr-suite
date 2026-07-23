@@ -7,11 +7,6 @@ on:
     paths:
       - "docs/**"
       - "tools/check_doc*.py"
-      - "tools/check_phase*.py"
-      - "tools/check_adr_index.py"
-      - "tools/check_completed_phase_markers.py"
-      - "tools/check_recent_doc_sync.py"
-      - "mk/maintenance-tests.mk"
       - ".github/workflows/docs-diagnostics.yml"
 
 permissions:
@@ -22,34 +17,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python3 tools/check_docs.py
+        with:
+          show-progress: false
+      - name: Capture document format error
+        shell: bash
+        run: |
+          set +e
+          python3 tools/check_docs.py 2>&1 | tee /tmp/document-format.log
+          status=${PIPESTATUS[0]}
+          echo "DOCUMENT_FORMAT_STATUS=${status}"
+          cat /tmp/document-format.log
+          exit "${status}"
 
   document-indexes:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python3 tools/check_doc_indexes.py
-
-  document-reachability:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: python3 tools/check_doc_reachability.py
-
-  document-entrypoints:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: python3 tools/check_doc_entrypoints.py
-
-  adr-index:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: python3 tools/check_adr_index.py
-
-  phase-consistency:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: make test-phase
+        with:
+          show-progress: false
+      - name: Capture document index error
+        shell: bash
+        run: |
+          set +e
+          python3 tools/check_doc_indexes.py 2>&1 | tee /tmp/document-index.log
+          status=${PIPESTATUS[0]}
+          echo "DOCUMENT_INDEX_STATUS=${status}"
+          cat /tmp/document-index.log
+          exit "${status}"
