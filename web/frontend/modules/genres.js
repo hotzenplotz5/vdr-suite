@@ -10,8 +10,8 @@
   const PAGE_SIZE = 48;
   const state = {
     active:false,backendId:'',scope:'recordings',overview:null,selectedGenre:null,
-    items:[],total:0,hasMore:false,channels:Object.create(null),loading:false,
-    loadingMore:false,error:null,requestSequence:0,channelRequestSequence:0
+    items:[],total:0,hasMore:false,loading:false,loadingMore:false,error:null,
+    requestSequence:0
   };
 
   const text = (value, fallback) => String(value === undefined || value === null ? (fallback || '') : value).trim();
@@ -79,24 +79,16 @@
       : '/channel-logos/vdr-suite-brand/recording-genre-sprite.svg';
   }
 
-  function channelList(data) {
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray(data.channels)) return data.channels;
-    if (data && Array.isArray(data.items)) return data.items;
-    return [];
-  }
-
-  function indexChannels(data) {
-    state.channels = Object.create(null);
-    channelList(data).forEach(channel => {
-      const id = text(channel.id || channel.channelId || channel.nativeId);
-      if (id) state.channels[id] = channel;
-    });
-  }
-
   function channelFor(event) {
     const id = text(event && event.channelId);
-    return state.channels[id] || {id:id,channelId:id,name:id || 'Unbekannter Kanal'};
+    return {
+      id:id,
+      channelId:id,
+      name:text(
+        event && (event.channelName || event.channelTitle || event.channel),
+        id || 'Unbekannter Kanal'
+      )
+    };
   }
 
   function formatTime(epoch) {
@@ -120,8 +112,6 @@
         state.scope = entry[0];
         state.selectedGenre = null;
         state.items = [];
-        state.channels = Object.create(null);
-        state.channelRequestSequence += 1;
         loadOverview();
       });
       scope.appendChild(item);
@@ -218,7 +208,7 @@
         const copy = node('span', 'genres-epg-copy');
         copy.append(
           node('span', 'genres-epg-title', event.title || 'Ohne Titel'),
-          node('span', 'genres-epg-meta', text(channel.name || channel.title || channel.id, 'Unbekannter Kanal') + ' · ' + formatTime(event.startTime))
+          node('span', 'genres-epg-meta', text(channel.name, channel.id || 'Unbekannter Kanal') + ' · ' + formatTime(event.startTime))
         );
         if (event.subtitle) copy.appendChild(node('span', 'genres-epg-meta', event.subtitle));
         if (event.description) copy.appendChild(node('span', 'genres-epg-description', event.description));
@@ -248,30 +238,6 @@
     else if (state.selectedGenre) renderResults(root);
     else renderOverview(root);
     mount.appendChild(root);
-  }
-
-  function loadChannels() {
-    const client = api();
-    const requestedBackend = state.backendId;
-    const sequence = ++state.channelRequestSequence;
-    if (!client || typeof client.fetchClientChannels !== 'function') return;
-    client.fetchClientChannels({backendId:requestedBackend,cache:'no-store',credentials:'same-origin'})
-      .then(data => {
-        if (!state.active || sequence !== state.channelRequestSequence || state.backendId !== requestedBackend || state.scope !== 'epg') return;
-        indexChannels(data);
-        if (state.selectedGenre && !state.loading) render();
-      })
-      .catch(() => {
-        if (!state.active || sequence !== state.channelRequestSequence || state.backendId !== requestedBackend || state.scope !== 'epg') return;
-        state.channels = Object.create(null);
-      });
-  }
-
-  function scheduleSupplementaryChannels(sequence) {
-    global.setTimeout(() => {
-      if (!state.active || sequence !== state.requestSequence || state.scope !== 'epg' || !state.selectedGenre || state.loading) return;
-      loadChannels();
-    }, 0);
   }
 
   function loadOverview() {
@@ -333,7 +299,6 @@
       applyItems(data, false);
       state.loading = false;
       render();
-      if (requestedScope === 'epg') scheduleSupplementaryChannels(sequence);
     }).catch(error => {
       if (!state.active || sequence !== state.requestSequence || state.scope !== requestedScope) return;
       state.loading = false;
@@ -368,19 +333,18 @@
       state.active = true;
       state.backendId = nextBackend;
       installStyles();
-      if (changed) {state.overview=null;state.selectedGenre=null;state.items=[];state.channels=Object.create(null);state.channelRequestSequence+=1;}
+      if (changed) {state.overview=null;state.selectedGenre=null;state.items=[];}
       if (!state.overview || changed) loadOverview(); else render();
     },
     deactivate: function () {
       state.active = false;
       state.requestSequence += 1;
-      state.channelRequestSequence += 1;
     },
     refresh: function () {
       state.active = true;
       if (state.selectedGenre) selectGenre(state.selectedGenre); else loadOverview();
     },
-    __test: Object.freeze({genreArtworkUrl:genreArtworkUrl,applyItems:applyItems,channelList:channelList})
+    __test: Object.freeze({genreArtworkUrl:genreArtworkUrl,applyItems:applyItems,channelFor:channelFor})
   });
 
   const tab = document.querySelector('[data-module="genres"]');
