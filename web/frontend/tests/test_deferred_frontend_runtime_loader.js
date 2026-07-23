@@ -3,7 +3,6 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-
 const vm = require('vm');
 
 class MockScript {
@@ -69,6 +68,7 @@ async function verifyRuntimeApi() {
 
   assert.ok(window.VdrSuiteDeferredFrontendRuntimes);
   assert.strictEqual(typeof window.VdrSuiteDeferredFrontendRuntimes.loadEpgDetail, 'function');
+  assert.strictEqual(typeof window.VdrSuiteDeferredFrontendRuntimes.loadRecordings2, 'function');
   assert.strictEqual(scripts.length, 0);
 
   const first = window.VdrSuiteDeferredFrontendRuntimes.loadEpgDetail();
@@ -109,18 +109,23 @@ const sourcePath = path.resolve(
 const source = fs.readFileSync(sourcePath, 'utf8');
 
 assert.ok(source.includes("'/frontend/epg-searchtimer-actions.js'"));
-assert.ok(source.includes("'/frontend/recording-trash-ux.js'"));
+assert.ok(source.includes("'/frontend/recordings2-shared.js'"));
+assert.ok(source.includes("'/frontend/recordings2-actions.js'"));
+assert.ok(source.includes("'/frontend/recordings2.js'"));
+assert.ok(!source.includes("'/frontend/recording-trash-ux.js'"));
 assert.ok(source.includes('script.src = src;'));
 assert.ok(!source.includes("script.src = src + '?runtime='"));
 assert.ok(source.includes('window.VdrSuiteEpgSearchTimerActions'));
 assert.ok(source.includes('window.VdrSuiteEpgMetadataDetail'));
 assert.ok(source.includes('window.VdrSuiteEpgMetadataDetailHook'));
 assert.ok(source.includes('window.VdrSuiteEpgDetailDesktopFocus'));
-assert.ok(source.includes('window.VdrSuiteRecordingTrashUx'));
+assert.ok(source.includes('window.VdrSuiteRecordings2'));
 assert.ok(source.includes('window.VdrSuiteDeferredFrontendRuntimes'));
 assert.ok(source.includes('function loadVdrSuiteEpgDetailRuntime()'));
+assert.ok(source.includes('function loadVdrSuiteRecordings2Runtime()'));
 assert.ok(source.includes('start: startVdrSuiteDeferredFrontendRuntimes'));
 assert.ok(source.includes('loadEpgDetail: loadVdrSuiteEpgDetailRuntime'));
+assert.ok(source.includes('loadRecordings2: loadVdrSuiteRecordings2Runtime'));
 assert.ok(source.includes("document.addEventListener(\n      'DOMContentLoaded',"));
 assert.ok(source.includes('startVdrSuiteDeferredFrontendRuntimes,\n      {once: true}'));
 assert.ok(source.includes('} else {\n    startVdrSuiteDeferredFrontendRuntimes();'));

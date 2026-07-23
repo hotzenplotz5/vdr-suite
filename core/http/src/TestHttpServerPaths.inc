@@ -26,14 +26,11 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/recordings2-metadata-view.js", "recordings2-metadata-view.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2.js", "recordings2.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-metadata-detail.js", "recordings2-metadata-detail.js", "application/javascript; charset=utf-8", nullptr},
-    {"/frontend/recording-trash-ux.js", "recording-trash-ux.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/epg-searchtimer-actions.js", "epg-searchtimer-actions.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/channel-browser.js", "channel-browser.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/modules/channels.js", "modules/channels.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/modules/timers.js", "modules/timers.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/modules/searchtimers.js", "modules/searchtimers.js", "application/javascript; charset=utf-8", nullptr},
-    {"/frontend/recording-browser.js", "modules/recordings.js", "application/javascript; charset=utf-8", "recording-artwork.js"},
-    {"/frontend/modules/recordings.js", "modules/recordings.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/style.css", "style.css", "text/css; charset=utf-8", nullptr}
 };
 

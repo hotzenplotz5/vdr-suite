@@ -146,11 +146,6 @@ test-frontend-contracts: test-frontend-i18n
 test-frontend-i18n:
 	python3 tools/check_frontend_i18n_contracts.py
 	node web/frontend/tests/test_i18n_runtime.js
-	node web/frontend/tests/test_recording_move_new_folder.js
-	node web/frontend/tests/test_recording_trash_workflow.js
-	node web/frontend/tests/test_recording_poster_placeholder_contract.js
-	node web/frontend/tests/test_recording_artwork_runtime.js
-	node web/frontend/tests/test_recording_genre_artwork_runtime.js
 	node web/frontend/tests/test_timer_workflows_runtime.js
 	node web/frontend/tests/test_searchtimer_workflows_runtime.js
 	node web/frontend/tests/test_channel_day_program_runtime.js
@@ -161,6 +156,5 @@ test-frontend-i18n:
 	node web/frontend/tests/test_epg_metadata_detail.js
 	node web/frontend/tests/test_epg_metadata_mobile_navigation.js
 	node web/frontend/tests/test_epg_metadata_detail_hook.js
-	node web/frontend/tests/test_recording_trash_ux_runtime.js
 	python3 web/frontend/tests/test_epg_runtime_bundle_builder.py
 	python3 web/frontend/tests/test_epg_metadata_runtime_bundle.py
