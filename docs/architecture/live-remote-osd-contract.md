@@ -27,7 +27,7 @@ The SSE live transport is not a media stream. It carries sequenced state-change 
 | Capability reporting | `VdrCapabilitySet`, `CapabilityResolver`, `CapabilityReportBuilder` | Adds `remote.control`, `live.overlay.read`, future `osd.view`, future `osd.control`. |
 | Backend adapter pattern | Timer and recording action executor registries | Remote actions use a backend-keyed executor registry and service. |
 | Backend transport | `IHttpClient` and `BasicHttpClient` | RESTfulAPI remains private behind the executor/provider boundary. |
-| State snapshots | `VdrSnapshotReadService` and `SnapshotCacheService` | Channel, present/following EPG, timer and revision come from Suite-owned snapshots. |
+| Suite read models | `VdrSnapshotReadService`, `SnapshotCacheService`, `EpgEventRepository` | Channel, timer and revision come from the Suite snapshot; present/following use the persistent Suite EPG cache with the snapshot as fallback. |
 | Change notification | `SnapshotChangeFeedService`, `LiveTransportService`, `SseLiveTransport` | `liveOverlay` is a changed domain; no second SSE stack is introduced. |
 | Browser boundary | `VdrSuiteClientApi` | Browser code knows only `/api/vdr/...` Suite routes. |
 
@@ -78,9 +78,11 @@ The first snapshot contains only values backed by an implemented source:
 - backend and snapshot revision;
 - current channel identity from RESTfulAPI `/info.json`;
 - channel number and name from the Suite channel snapshot;
-- present and following events from the Suite EPG snapshot;
+- present and following events from the persistent, backend-scoped Suite EPG cache, with the Suite snapshot as a fallback;
 - current-event timer and recording state from the Suite timer snapshot;
 - audio explicitly unavailable with `muted` and `volume` set to `null`.
+
+The startup snapshot intentionally excludes the large EPG event domain. The overlay therefore resolves only the current channel's now/next events from `EpgEventRepository` instead of forcing a full event snapshot refresh. The browser remains isolated from RESTfulAPI and from the EPG cache implementation.
 
 There is no fictitious MediaSession field and no claim that media streaming is available.
 
