@@ -21,6 +21,8 @@
     recordings: [],
     serverRecordingCount: 0,
     selectedRecording: null,
+    detailReturn: null,
+    detailReturnLabel: '',
     loading: false,
     loadingMore: false,
     error: null,
@@ -119,12 +121,18 @@
     });
   }
 
+  function clearExternalDetailReturn() {
+    state.detailReturn = null;
+    state.detailReturnLabel = '';
+  }
+
   function loadFolder(path) {
     state.active = true;
     state.backendId = shared.selectedBackendId();
     state.path = shared.normalizePath(path);
     state.parentPath = state.path.split('/').slice(0, -1).join('/');
     state.selectedRecording = null;
+    clearExternalDetailReturn();
     state.loading = true;
     state.loadingMore = false;
     state.error = null;
@@ -170,16 +178,28 @@
   }
 
   function selectRecording(recording) {
+    clearExternalDetailReturn();
     state.selectedRecording = normalizeRecording(recording);
     render();
   }
 
   function closeDetail() {
+    const detailReturn = state.detailReturn;
     state.selectedRecording = null;
+    clearExternalDetailReturn();
+    if (typeof detailReturn === 'function') {
+      state.active = false;
+      detailReturn();
+      return;
+    }
     render();
   }
 
   function reload() {
+    if (state.selectedRecording && state.detailReturn) {
+      render();
+      return;
+    }
     if (state.selectedRecording) state.selectedRecording = null;
     loadFolder(state.path || '');
   }
@@ -208,6 +228,7 @@
       state.active = false;
       state.requestSequence += 1;
       state.selectedRecording = null;
+      clearExternalDetailReturn();
       const target = shared.mountTarget();
       if (target) target.classList.remove('recordings2-mount');
     },
@@ -217,6 +238,23 @@
     },
     openFolder: function (path) {
       loadFolder(path || '');
+    },
+    openRecording: function (recording, options) {
+      const config = options && typeof options === 'object' ? options : {};
+      state.requestSequence += 1;
+      state.active = true;
+      state.backendId = String(
+        (recording && recording.backendId) ||
+        config.backendId ||
+        shared.selectedBackendId()
+      );
+      state.loading = false;
+      state.loadingMore = false;
+      state.error = null;
+      state.selectedRecording = normalizeRecording(recording);
+      state.detailReturn = typeof config.onClose === 'function' ? config.onClose : null;
+      state.detailReturnLabel = config.backLabel || '← Zurück zum Genre';
+      render();
     },
     refreshDetailAddon: function () {
       if (state.active && state.selectedRecording) render();
