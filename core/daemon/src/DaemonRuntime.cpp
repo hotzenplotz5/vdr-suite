@@ -1,5 +1,6 @@
 #include "DaemonRuntime.h"
 
+#include "GenreBrowserApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "SimpleHttpListener.h"
 
@@ -58,6 +59,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    GenreBrowserApiRuntime::instance().reset();
     LiveRemoteApiRuntime::instance().reset();
 
     std::cout << "HTTP server runtime stopped" << std::endl;
