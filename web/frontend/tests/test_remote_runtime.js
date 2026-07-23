@@ -24,7 +24,7 @@ assert(!source.includes('/api/vdr/live'));
 assert(clientSource.includes("'/api/vdr/remote/actions'"));
 assert(clientSource.includes("'/api/vdr/live/overlay'"));
 assert(clientSource.includes("'/api/vdr/live'"));
-assert(source.includes("['overview','channels2','recordings2','epg','channelsort','timers','searchtimers']"));
+assert(source.includes("['overview','channels2','recordings2','genres','epg','channelsort','timers','searchtimers']"));
 assert(source.includes('100dvh'));
 assert(source.includes('position:sticky'));
 assert(source.includes('grid-template-areas:"menu up info" "left ok right" "back down empty"'));
