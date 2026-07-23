@@ -1,11 +1,22 @@
 #include "DaemonRuntime.h"
 
+#include "GenreBrowserApiRuntime.h"
 #include "VdrEventQuery.h"
 
 #include <chrono>
+#include <cstdint>
 #include <exception>
 #include <iostream>
 #include <thread>
+
+namespace
+{
+std::int64_t epgGenreEpochSeconds()
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+}
 
 void DaemonRuntime::startEpgCacheWarmupWorker()
 {
@@ -140,6 +151,16 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
                 backendRuntimeContext->backendId,
                 query);
 
+        bool genreIndexed = false;
+        if (result.stored && !epgCacheWarmupStopRequested_.load()) {
+            const std::int64_t fromTime = epgGenreEpochSeconds();
+            genreIndexed = GenreBrowserApiRuntime::instance().refreshEpgIndex(
+                backendRuntimeContext->backendId,
+                fromTime,
+                fromTime + query.timespan,
+                32);
+        }
+
         std::cout
             << "EPG cache warmup finished: backend="
             << backendRuntimeContext->backendId
@@ -151,6 +172,8 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
             << (result.stored ? "true" : "false")
             << ", events="
             << result.eventCount
+            << ", genreIndexed="
+            << (genreIndexed ? "true" : "false")
             << std::endl;
     }
 }
