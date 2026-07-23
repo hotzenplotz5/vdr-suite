@@ -80,7 +80,8 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
                         liveTransportService_->publishChangeFeedEntry(entry);
                     }
                 }
-            });
+            },
+            epgEventRepository_.get());
 
         LiveRemoteApiRuntime::instance().registerRestfulApiBackend(
             context->backendId,
