@@ -41,6 +41,8 @@ public:
         add("science-fiction", "Science-Fiction", "Science Fiction", {"science fiction", "sci fi", "sci-fi", "scifi", "sf"});
         add("series", "Serie", "Series", {"serien", "tv series", "television series"});
         add("sports", "Sport", "Sports", {"sporting event"});
+        add("talk-show", "Talkshow", "Talk Show", {"talk show", "talkshow", "gesprächssendung", "gespraechssendung"});
+        add("reality", "Reality", "Reality", {"reality tv", "reality-tv", "realityshow", "reality show"});
         add("thriller", "Thriller", "Thriller", {"suspense"});
         add("war", "Krieg", "War", {"kriegsfilm", "war film"});
         add("western", "Western", "Western", {});
