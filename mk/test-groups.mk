@@ -50,6 +50,7 @@ CI_FAST_TESTS := \
 	test-snapshot-change-feed-preview-epg-cache-invalidation \
 	test-api-router-searchtimer-preview-epg-cache-refresh-route \
 	test-api-router-searchtimer-preview-refresh-then-preview \
+	test-daemon-runtime-modularity \
 	test-daemon-runtime-shutdown-resets \
 	test-http-listener-bind-failure-handling \
 	test-http-listener-partial-request-timeout \
@@ -172,6 +173,7 @@ VDR_TESTS := \
 	test-search-timer-discovery-static-provider \
 	test-restfulapi-search-timer-discovery-provider-contract \
 	test-searchtimer-discovery-runtime-wiring \
+	test-daemon-runtime-modularity \
 	test-daemon-runtime-shutdown-resets \
 	test-http-listener-bind-failure-handling \
 	test-http-listener-partial-request-timeout \
