@@ -53,6 +53,6 @@ test-genre-browser-frontend:
 	node web/frontend/tests/test_genres_runtime.js
 	python3 tools/check_genre_browser_frontend_contracts.py
 
-test-genre-browser: test-vdr-channel-cache-repository test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend
+test-genre-browser: test-vdr-channel-cache-repository test-http-listener-image-write-isolation test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend
 
 test-fast: test-genre-browser
