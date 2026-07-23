@@ -1,5 +1,16 @@
 # Live Remote, Overlay and Legacy OSD Compatibility Contract
 
+## Navigation
+
+- [Architecture Index](index.md)
+- [Current State](../CURRENT.md)
+- [RESTfulAPI Integration](restfulapi-integration.md)
+- [ADR-0030](../adr/ADR-0030-domain-first-ui-over-osd-proxy.md)
+- [ADR-0046](../adr/ADR-0046-streaming-gateway-media-session-boundary.md)
+- [ADR-0047](../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
+
+---
+
 ## Status
 
 This document records the implementation audit and the first production contract for backend-neutral remote control and the live-TV overlay. It does not introduce a new ADR. The binding decisions remain:
@@ -176,3 +187,11 @@ No SuiteBridge OSD extension is implemented by this work package.
 - OSD epoch and resynchronization runtime;
 - browser, Windows or TV native-OSD renderer;
 - speculative SuiteBridge OSD commands.
+
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Current State](../CURRENT.md)
+- [Back to README](../../README.md)
