@@ -2,13 +2,14 @@
 
 #include "BackendRegistryService.h"
 #include "SnapshotCacheService.h"
+#include "VdrEvent.h"
 #include "VdrSnapshotReadService.h"
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
-
-class EpgEventRepository;
+#include <vector>
 
 struct LiveChannelState
 {
@@ -87,12 +88,18 @@ struct LiveOverlaySnapshot
 class LiveOverlayService
 {
 public:
+    using EventLookup = std::function<std::vector<VdrEvent>(
+        const std::string& backendId,
+        const std::string& channelId,
+        long long fromEpoch,
+        int eventLimit)>;
+
     LiveOverlayService(
         BackendRegistryService& backendRegistryService,
         VdrSnapshotReadService& snapshotReadService,
         SnapshotCacheService& snapshotCacheService,
         const LiveChannelStateProviderRegistry& providerRegistry,
-        const EpgEventRepository* epgEventRepository = nullptr);
+        EventLookup eventLookup = {});
 
     LiveOverlaySnapshot getSnapshot(
         const std::string& backendId,
@@ -103,5 +110,5 @@ private:
     VdrSnapshotReadService& snapshotReadService_;
     SnapshotCacheService& snapshotCacheService_;
     const LiveChannelStateProviderRegistry& providerRegistry_;
-    const EpgEventRepository* epgEventRepository_;
+    EventLookup eventLookup_;
 };
