@@ -1,6 +1,7 @@
 #include "DaemonRuntime.h"
 
 #include "BasicHttpClient.h"
+#include "EpgEventRepository.h"
 #include "LiveRemoteApiRuntime.h"
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
@@ -9,7 +10,9 @@
 
 #include <chrono>
 #include <iostream>
+#include <string>
 #include <utility>
+#include <vector>
 
 std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContext(
     const BackendNode& backend)
@@ -81,7 +84,21 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
                     }
                 }
             },
-            epgEventRepository_.get());
+            [this](
+                const std::string& backendId,
+                const std::string& channelId,
+                long long fromEpoch,
+                int eventLimit) -> std::vector<VdrEvent> {
+                if (!epgEventRepository_) {
+                    return {};
+                }
+
+                return epgEventRepository_->findNowNextForBackend(
+                    backendId,
+                    channelId,
+                    std::to_string(fromEpoch),
+                    eventLimit);
+            });
 
         LiveRemoteApiRuntime::instance().registerRestfulApiBackend(
             context->backendId,
