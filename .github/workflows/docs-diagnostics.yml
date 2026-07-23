@@ -8,6 +8,7 @@ on:
       - "docs/**"
       - "tools/check_doc*.py"
       - "tools/check_phase*.py"
+      - "tools/check_adr_index.py"
       - "tools/check_completed_phase_markers.py"
       - "tools/check_recent_doc_sync.py"
       - "mk/maintenance-tests.mk"
@@ -17,16 +18,38 @@ permissions:
   contents: read
 
 jobs:
-  documentation-structure:
+  document-format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run documentation structure checks
-        run: make test-docs
+      - run: python3 tools/check_docs.py
+
+  document-indexes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/check_doc_indexes.py
+
+  document-reachability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/check_doc_reachability.py
+
+  document-entrypoints:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/check_doc_entrypoints.py
+
+  adr-index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/check_adr_index.py
 
   phase-consistency:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run phase consistency checks
-        run: make test-phase
+      - run: make test-phase
