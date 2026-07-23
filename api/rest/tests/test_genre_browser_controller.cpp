@@ -200,6 +200,21 @@ int main()
 
     GenreBrowserApiRuntime& runtime = GenreBrowserApiRuntime::instance();
     assert(runtime.configure(database, backendRegistryService));
+
+    assert(database.execute(
+        "BEGIN IMMEDIATE TRANSACTION;"
+        "DELETE FROM suite_metadata_genre_assignments "
+        "WHERE backend_id='default' AND target_type='program-event';"));
+
+    ApiResponse isolatedRead;
+    assert(runtime.tryHandleGet(
+        "/api/metadata/genres?backend=default&scope=epg&from=" +
+            std::to_string(now) + "&until=" + std::to_string(now + 172800),
+        isolatedRead));
+    assert(isolatedRead.statusCode == 200);
+    assert(contains(isolatedRead, "\"id\":\"mystery\""));
+    assert(database.execute("ROLLBACK;"));
+
     FakeEpgResolver resolver;
     runtime.registerEpgScraperMetadataResolver("default", resolver);
 
@@ -211,6 +226,10 @@ int main()
     assert(routed.statusCode == 200);
     assert(resolver.calls == 0);
     assert(!runtime.tryHandleGet("/api/vdr/live/overlay", routed));
+
+    assert(runtime.continueEpgEnrichment(
+        "default", now, now + 172800, 8));
+    assert(resolver.calls == 1);
 
     assert(runtime.refreshEpgIndex(
         "default", now, now + 172800, 8));
@@ -228,6 +247,8 @@ int main()
     runtime.reset();
     database.close();
     std::remove(filename.c_str());
+    std::remove((filename + "-wal").c_str());
+    std::remove((filename + "-shm").c_str());
     std::cout << "genre browser controller ok\n";
     return 0;
 }
