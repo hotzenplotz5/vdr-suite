@@ -25,6 +25,8 @@ assert(clientSource.includes("'/api/vdr/remote/actions'"));
 assert(clientSource.includes("'/api/vdr/live/overlay'"));
 assert(clientSource.includes("'/api/vdr/live'"));
 assert(source.includes("['overview','channels2','recordings2','epg','channelsort','timers','searchtimers']"));
+assert(source.includes('100dvh'));
+assert(source.includes('position:sticky'));
 
 const serverPaths = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'core', 'http', 'src', 'TestHttpServerPaths.inc'),
