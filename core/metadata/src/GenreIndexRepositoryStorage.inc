@@ -11,12 +11,19 @@ bool GenreIndexRepository::ensureSchema()
 
 bool GenreIndexRepository::ensureSchemaLocked() const
 {
+    if (schemaReady_)
+    {
+        return true;
+    }
+
     if (!executeFoundationalSchema(database_) || !executeGenreSchema(database_)) return false;
     CanonicalGenreRegistry registry;
     for (const CanonicalGenre& genre : registry.allKnown())
     {
         if (!upsertGenre(database_.handle(), genre)) return false;
     }
+
+    schemaReady_ = true;
     return true;
 }
 
