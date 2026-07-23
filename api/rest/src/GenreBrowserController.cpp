@@ -398,6 +398,8 @@ ApiResponse GenreBrowserController::getEpg(
         appendJsonString(json, event.backendId);
         json << ",\"channelId\":";
         appendJsonString(json, event.channelId);
+        json << ",\"channelName\":";
+        appendJsonString(json, event.channelName);
         json << ",\"title\":";
         appendJsonString(json, event.title);
         json << ",\"subtitle\":";
