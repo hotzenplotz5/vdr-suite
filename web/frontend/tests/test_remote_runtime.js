@@ -31,6 +31,11 @@ assert(source.includes('grid-template-areas:"menu up info" "left ok right" "back
 assert(source.includes("['menu','up','info','left','ok','right','back','down']"));
 assert(source.includes("['red','green','yellow','blue'].forEach"));
 assert(!source.includes("group(p,'Farbtasten'"));
+assert(source.includes('.r-color-grid .red{background:#dc2626'));
+assert(source.includes('.r-color-grid .green{background:#16a34a'));
+assert(source.includes('.r-color-grid .yellow{background:#facc15'));
+assert(source.includes('.r-color-grid .blue{background:#2563eb'));
+assert(source.includes('.r-color-grid .yellow{background:#facc15;border-color:#fde047;color:#111827}'));
 
 const serverPaths = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'core', 'http', 'src', 'TestHttpServerPaths.inc'),
