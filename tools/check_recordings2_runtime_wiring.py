@@ -33,6 +33,7 @@ server_sources = [ROOT / 'core/http/src/TestHttpServer.cpp'] + sorted(
 server = '\n'.join(path.read_text(encoding='utf-8') for path in server_sources)
 makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
 module_makefile = (ROOT / 'mk/recordings2.mk').read_text(encoding='utf-8')
+install_makefile = (ROOT / 'mk/install.mk').read_text(encoding='utf-8')
 
 required_tokens = {
     'shared': (
@@ -50,7 +51,9 @@ required_tokens = {
         'isSingleRecordingLeaf',
         'resolveLeaves',
         'LEAF_CONCURRENCY',
-        'recording-genre-action.svg',
+        "action: {slug: 'action'}",
+        'recording-genre-',
+        "genre.slug + '.svg'",
         'recording-genre-sprite.svg',
     ),
     'actions': (
@@ -111,6 +114,21 @@ for owner, tokens in required_tokens.items():
     for token in tokens:
         if token not in runtimes[owner]:
             raise SystemExit(f'missing Recordings 2 {owner} contract: {token}')
+
+for external_scheme in ('http://', 'https://'):
+    if external_scheme in runtimes['folder_artwork']:
+        raise SystemExit(
+            'Recordings 2 folder artwork must use only locally served suite assets'
+        )
+
+for token in (
+    'web/frontend/assets/recording-genre-action.svg',
+    'channel-logos/vdr-suite-brand/recording-genre-action.svg',
+):
+    if token not in install_makefile:
+        raise SystemExit(
+            f'Recordings 2 Action genre artwork installation contract missing: {token}'
+        )
 
 line_limits = {
     'runtime': 330,
