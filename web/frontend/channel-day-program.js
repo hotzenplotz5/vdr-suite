@@ -107,6 +107,14 @@
   const clock = value => new Date(Number(value) * 1000).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
   const hhmm = value => { const date = new Date(Number(value) * 1000); return date.getHours() * 100 + date.getMinutes(); };
 
+  function visibleEventsForDay(events, selectedDay, nowSeconds) {
+    const ordered = events.slice().sort((left, right) => eventStart(left) - eventStart(right));
+    const parsedNow = Number(nowSeconds);
+    const now = Number.isFinite(parsedNow) ? Math.floor(parsedNow) : Math.floor(Date.now() / 1000);
+    if (dateValue(selectedDay) !== dateValue(new Date(now * 1000))) return ordered;
+    return ordered.filter(event => eventEnd(event) > now);
+  }
+
   function adoptCanonicalChannelNavigation() {
     const canonicalTab = document.querySelector('[data-module="channels"]');
     const replacementTab = document.querySelector('[data-module="channels2"]');
@@ -556,10 +564,11 @@
     const cached = typeof client.fetchClientEpgCacheWindow === 'function' ? client.fetchClientEpgCacheWindow({query: {backend: backendId(), channelId: channelId(state.channel), fromTime: String(range.start), untilTime: String(range.end), limit: '0', _: String(Date.now())}, cache: 'no-store', credentials: 'same-origin'}).catch(() => ({events: []})) : Promise.resolve({events: []});
     cached.then(data => list(data, 'events').length || typeof client.fetchClientEpgChannelWindow !== 'function' ? data : client.fetchClientEpgChannelWindow({query: {channelId: channelId(state.channel), from: String(range.start), timespan: String(range.end - range.start), limit: '192', _: String(Date.now())}, cache: 'no-store', credentials: 'same-origin'})).then(data => {
       if (!state.active || sequence !== state.sequence) return;
-      state.events = list(data, 'events').filter(event => {
+      const dayEvents = list(data, 'events').filter(event => {
         const id = eventChannelId(event);
         return (!id || id === channelId(state.channel)) && eventStart(event) < range.end && eventEnd(event) > range.start;
-      }).sort((left, right) => eventStart(left) - eventStart(right));
+      });
+      state.events = visibleEventsForDay(dayEvents, state.day);
       state.event = null;
       render();
     }).catch(error => {
