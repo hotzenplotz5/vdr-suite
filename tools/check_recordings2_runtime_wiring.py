@@ -53,7 +53,6 @@ required_tokens = {
         'LEAF_CONCURRENCY',
         "action: {slug: 'action'}",
         'recording-genre-',
-        "genre.slug + '.svg'",
         'recording-genre-sprite.svg',
     ),
     'actions': (
