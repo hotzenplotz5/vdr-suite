@@ -49,6 +49,11 @@ SnapshotUpdatePlan SnapshotRefreshPlanner::createPlan(
                 plan.markSelectiveEventRefresh(query);
             }
             break;
+        case VdrChangeType::LiveOverlayChanged:
+            // The live overlay is a separately resolved read model. Its change
+            // event tells SSE clients to reload /api/vdr/live/overlay and must
+            // not trigger work against the cached VDR snapshot domains.
+            break;
         }
     }
 
