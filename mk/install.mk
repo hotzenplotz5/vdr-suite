@@ -164,7 +164,7 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-thriller.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-musik.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-drama.svg
-	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite-brand/recording-genre-mystery.svg
+	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-mystery.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-scifi.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-serien.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/recording-genre-western.svg
