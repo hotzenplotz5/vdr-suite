@@ -36,14 +36,32 @@ require(
     "Promise.all([client.fetchClientGenres" not in genres,
     "EPG genre overview must not wait for supplementary channel metadata",
 )
+
+overview_start = genres.find("function loadOverview()")
+overview_end = genres.find("function requestItems(", overview_start)
+require(overview_start >= 0 and overview_end > overview_start, "genre overview boundary is missing")
+overview_body = genres[overview_start:overview_end]
+require("client.fetchClientGenres(options)" in overview_body, "genre overview request is missing")
+require("loadChannels();" not in overview_body, "EPG overview must not start channel loading before it renders")
+
+selection_start = genres.find("function selectGenre(")
+selection_end = genres.find("function loadMore(", selection_start)
+require(selection_start >= 0 and selection_end > selection_start, "genre selection boundary is missing")
+selection_body = genres[selection_start:selection_end]
+require("requestItems(0)" in selection_body, "genre selection must request its result page")
 require(
-    "client.fetchClientGenres(options)" in genres and "loadChannels();" in genres,
-    "EPG genre and channel loading must remain independently scheduled",
+    "scheduleSupplementaryChannels(sequence)" in selection_body,
+    "supplementary channel metadata must start only after EPG result rendering",
+)
+require(
+    selection_body.find("requestItems(0)") < selection_body.find("scheduleSupplementaryChannels(sequence)"),
+    "EPG result request must precede supplementary channel metadata",
 )
 require(
     "return new Promise(() => {});" in runtime_test
-    and "EPG overview must not wait for an unresolved channel request" in runtime_test,
-    "genre runtime test must cover an indefinitely pending channel request",
+    and "EPG overview must not start supplementary channels before the genre response" in runtime_test
+    and "EPG result request must complete before supplementary channels start" in runtime_test,
+    "genre runtime test must cover serial HTTP request ordering with a pending channel request",
 )
 
 require("createRecordingCard" in recording_view, "Recordings 2 card owner is not exported")
