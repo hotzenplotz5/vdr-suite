@@ -33,7 +33,11 @@ require("/api/metadata/genres" in client, "genre Client API route is missing")
 require("document." not in client, "genre Client API extension must remain DOM-free")
 
 require("createRecordingCard" in recording_view, "Recordings 2 card owner is not exported")
-require("owner.createRecordingCard" in genres, "genres must reuse the Recordings 2 card owner")
+require(
+    "VdrSuiteRecordings2BrowserView" in genres
+    and ".createRecordingCard(recording, openRecording)" in genres,
+    "genres must reuse the Recordings 2 card owner",
+)
 require("openRecording" in recordings, "Recordings 2 external detail handoff is missing")
 require("owner.openRecording" in genres, "genre recording clicks must use Recordings 2 detail ownership")
 require("createEpgEventDetailCard" in epg_owner, "EPG owner bridge must use the existing detail renderer")
