@@ -145,6 +145,11 @@ assert.strictEqual(datePicker.attributes['aria-label'], 'Datum auswählen, aktue
 assert.strictEqual(controls.children.filter(child => child.tagName === 'INPUT').length, 1);
 assert.strictEqual(typeof datePicker.onchange, 'function');
 
+datePicker.value = '2035-07-29';
+datePicker.onchange();
+assert.strictEqual(testApi.dateValue(testApi.state.day), '2035-07-29');
+
+testApi.state.day = selectedDay;
 const todayButton = controls.querySelector('.channels2-date-today');
 assert.ok(todayButton);
 assert.strictEqual(todayButton.tagName, 'BUTTON');
