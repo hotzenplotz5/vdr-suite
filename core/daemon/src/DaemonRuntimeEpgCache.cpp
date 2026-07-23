@@ -11,6 +11,8 @@
 
 namespace
 {
+constexpr std::int64_t GenreWindowSeconds = 48 * 60 * 60;
+
 std::int64_t epgGenreEpochSeconds()
 {
     return std::chrono::duration_cast<std::chrono::seconds>(
@@ -46,6 +48,7 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
     try {
         const int initialDelaySeconds = 20;
         const int dirtyDebounceSeconds = 120;
+        const int genreRefreshSeconds = 60;
 
         std::cout
             << "EPG cache warmup worker scheduled after "
@@ -72,17 +75,40 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
         refreshEpgCacheForAllBackends("startup");
 
         auto lastRefresh = std::chrono::steady_clock::now();
+        auto lastGenreRefresh = lastRefresh;
 
         while (!epgCacheWarmupStopRequested_.load()) {
             if (waitForStop(5)) {
                 return;
             }
 
+            const auto now = std::chrono::steady_clock::now();
+            const auto secondsSinceGenreRefresh =
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    now - lastGenreRefresh).count();
+
+            if (secondsSinceGenreRefresh >= genreRefreshSeconds) {
+                const std::int64_t fromTime = epgGenreEpochSeconds();
+                for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
+                    if (epgCacheWarmupStopRequested_.load()) {
+                        return;
+                    }
+                    if (!backendRuntimeContext) {
+                        continue;
+                    }
+                    GenreBrowserApiRuntime::instance().refreshEpgIndex(
+                        backendRuntimeContext->backendId,
+                        fromTime,
+                        fromTime + GenreWindowSeconds,
+                        8);
+                }
+                lastGenreRefresh = std::chrono::steady_clock::now();
+            }
+
             if (!epgCacheDirtyHint_.load()) {
                 continue;
             }
 
-            const auto now = std::chrono::steady_clock::now();
             const auto secondsSinceLastRefresh =
                 std::chrono::duration_cast<std::chrono::seconds>(
                     now - lastRefresh).count();
@@ -97,6 +123,7 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
 
             refreshEpgCacheForAllBackends("event-stream-dirty-hint");
             lastRefresh = std::chrono::steady_clock::now();
+            lastGenreRefresh = lastRefresh;
         }
     }
     catch (const std::exception& error) {
@@ -123,7 +150,7 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
 
     VdrEventQuery query;
     query.from = -1;
-    query.timespan = 172800;
+    query.timespan = static_cast<int>(GenreWindowSeconds);
     query.channelEventLimit = 160;
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
@@ -157,7 +184,7 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
             genreIndexed = GenreBrowserApiRuntime::instance().refreshEpgIndex(
                 backendRuntimeContext->backendId,
                 fromTime,
-                fromTime + query.timespan,
+                fromTime + GenreWindowSeconds,
                 32);
         }
 
