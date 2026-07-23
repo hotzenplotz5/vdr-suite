@@ -190,6 +190,7 @@ Repository targets:
 make test-metadata-genres
 make test-metadata-genre-conflicts
 make test-genre-browser-controller
+make test-genre-browser-pagination
 make test-genre-browser-architecture
 make test-genre-browser-frontend
 make test-genre-browser
@@ -232,3 +233,11 @@ This slice does not implement:
 - public `/api/v1` migration;
 - recommendation or knowledge-graph behavior;
 - completion of all Phase 61 artwork, backup and operational hardening work.
+
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Current State](../CURRENT.md)
+- [Back to README](../../README.md)
