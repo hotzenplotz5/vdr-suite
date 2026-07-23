@@ -1,0 +1,32 @@
+name: Documentation diagnostics
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - "tools/check_doc*.py"
+      - "tools/check_phase*.py"
+      - "tools/check_completed_phase_markers.py"
+      - "tools/check_recent_doc_sync.py"
+      - "mk/maintenance-tests.mk"
+      - ".github/workflows/docs-diagnostics.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  documentation-structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run documentation structure checks
+        run: make test-docs
+
+  phase-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run phase consistency checks
+        run: make test-phase
