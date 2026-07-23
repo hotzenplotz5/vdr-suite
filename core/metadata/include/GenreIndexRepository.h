@@ -84,6 +84,9 @@ struct GenreEpgItem
     std::int64_t startTime = 0;
     std::int64_t endTime = 0;
     int durationSeconds = 0;
+    bool artworkAvailable = false;
+    int artworkWidth = 0;
+    int artworkHeight = 0;
     std::vector<std::string> genreIds;
 };
 
