@@ -164,7 +164,7 @@ GenreEpgPage GenreIndexRepository::epgByGenre(
     const char* countSql =
         "SELECT COUNT(DISTINCT b.metadata_target_id) FROM suite_metadata_genre_assignments a "
         "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
-        "JOIN epg_events e ON e.backend_id=b.backend_id AND (e.channel_id || char(10) || e.event_id)=b.resource_key "
+        "JOIN epg_events e ON e.backend_id=b.backend_id AND e.channel_id=b.channel_id AND e.event_id=b.native_id "
         "WHERE b.backend_id=? AND b.target_type='program-event' AND b.lifecycle_state='active' AND a.genre_id=? "
         "AND b.end_time>? AND b.start_time<?;";
     sqlite3_stmt* count = nullptr;
@@ -185,7 +185,7 @@ GenreEpgPage GenreIndexRepository::epgByGenre(
         "(SELECT GROUP_CONCAT(DISTINCT a2.genre_id) FROM suite_metadata_genre_assignments a2 WHERE a2.metadata_target_id=b.metadata_target_id) "
         "FROM suite_metadata_genre_assignments a "
         "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
-        "JOIN epg_events e ON e.backend_id=b.backend_id AND (e.channel_id || char(10) || e.event_id)=b.resource_key "
+        "JOIN epg_events e ON e.backend_id=b.backend_id AND e.channel_id=b.channel_id AND e.event_id=b.native_id "
         "LEFT JOIN vdr_channel_cache ch ON ch.backend_id=e.backend_id AND ch.channel_id=e.channel_id "
         "LEFT JOIN epg_event_artwork aw ON aw.backend_id=e.backend_id AND aw.channel_id=e.channel_id AND aw.event_id=e.event_id "
         "WHERE b.backend_id=? AND b.target_type='program-event' AND b.lifecycle_state='active' AND a.genre_id=? "
@@ -241,7 +241,7 @@ std::vector<GenreEpgRefreshCandidate> GenreIndexRepository::epgRefreshCandidates
         "AND NOT EXISTS(SELECT 1 FROM suite_metadata_target_bindings b "
         "JOIN suite_metadata_genre_assignments a ON a.metadata_target_id=b.metadata_target_id "
         "WHERE b.backend_id=e.backend_id AND b.target_type='program-event' "
-        "AND b.resource_key=(e.channel_id || char(10) || e.event_id) AND a.provider_id=? AND a.observed_at>=?) "
+        "AND b.channel_id=e.channel_id AND b.native_id=e.event_id AND a.provider_id=? AND a.observed_at>=?) "
         "ORDER BY CAST(e.start_time AS INTEGER),e.channel_id,e.event_id LIMIT ?;";
     sqlite3_stmt* statement = nullptr;
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return candidates;
