@@ -27,6 +27,10 @@ assert(clientSource.includes("'/api/vdr/live'"));
 assert(source.includes("['overview','channels2','recordings2','epg','channelsort','timers','searchtimers']"));
 assert(source.includes('100dvh'));
 assert(source.includes('position:sticky'));
+assert(source.includes('grid-template-areas:"menu up info" "left ok right" "back down empty"'));
+assert(source.includes("['menu','up','info','left','ok','right','back','down']"));
+assert(source.includes("['red','green','yellow','blue'].forEach"));
+assert(!source.includes("group(p,'Farbtasten'"));
 
 const serverPaths = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'core', 'http', 'src', 'TestHttpServerPaths.inc'),
