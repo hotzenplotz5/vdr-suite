@@ -137,7 +137,7 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
                     if (!backendRuntimeContext) {
                         continue;
                     }
-                    GenreBrowserApiRuntime::instance().refreshEpgIndex(
+                    GenreBrowserApiRuntime::instance().continueEpgEnrichment(
                         backendRuntimeContext->backendId,
                         fromTime,
                         fromTime + GenreWindowSeconds,
