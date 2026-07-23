@@ -22,11 +22,13 @@ void LiveRemoteApiRuntime::configure(
     BackendRegistryService& backendRegistryService,
     VdrSnapshotReadService& snapshotReadService,
     SnapshotCacheService& snapshotCacheService,
-    ChangePublisher changePublisher)
+    ChangePublisher changePublisher,
+    const EpgEventRepository* epgEventRepository)
 {
     backendRegistryService_ = &backendRegistryService;
     snapshotReadService_ = &snapshotReadService;
     snapshotCacheService_ = &snapshotCacheService;
+    epgEventRepository_ = epgEventRepository;
     changePublisher_ = std::move(changePublisher);
 }
 
@@ -51,6 +53,7 @@ void LiveRemoteApiRuntime::reset()
     backendRegistryService_ = nullptr;
     snapshotReadService_ = nullptr;
     snapshotCacheService_ = nullptr;
+    epgEventRepository_ = nullptr;
     changePublisher_ = {};
     remoteActionExecutorRegistry_.clear();
     liveChannelStateProviderRegistry_.clear();
@@ -220,7 +223,8 @@ bool LiveRemoteApiRuntime::tryHandleGet(
         *backendRegistryService_,
         *snapshotReadService_,
         *snapshotCacheService_,
-        liveChannelStateProviderRegistry_);
+        liveChannelStateProviderRegistry_,
+        epgEventRepository_);
     const LiveOverlaySnapshotJsonSerializer serializer;
     const LiveOverlayController controller(service, serializer);
     response = controller.getSnapshot(backendId);
