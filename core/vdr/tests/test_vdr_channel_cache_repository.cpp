@@ -20,6 +20,8 @@ VdrChannel channel(
     value.name = name;
     value.provider = "provider";
     value.group = "group";
+    value.radio = false;
+    value.encrypted = false;
     value.enabled = true;
     return value;
 }
