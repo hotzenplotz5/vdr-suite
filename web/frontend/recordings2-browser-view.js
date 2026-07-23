@@ -10,6 +10,32 @@
     return;
   }
 
+  function createRecordingCard(recording, onSelect) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'recordings2-recording';
+    button.appendChild(shared.createPoster(recording));
+    const copy = document.createElement('span');
+    copy.className = 'recordings2-recording-copy';
+    copy.appendChild(shared.node('span', 'recordings2-title', shared.recordingTitle(recording)));
+    const subtitle = shared.recordingSubtitle(recording);
+    if (subtitle) copy.appendChild(shared.node('span', 'recordings2-subtitle', subtitle));
+    copy.appendChild(shared.node(
+      'span',
+      'recordings2-meta',
+      shared.formatStart(shared.first(recording, ['startTime', 'start'], '')) + ' · ' +
+        shared.formatDuration(shared.first(recording, ['durationSeconds', 'duration'], 0)) + ' · ' +
+        shared.formatSize(shared.first(recording, ['sizeMb'], 0))
+    ));
+    const summary = shared.recordingSummary(recording);
+    if (summary) copy.appendChild(shared.node('span', 'recordings2-summary-text', summary));
+    button.appendChild(copy);
+    button.addEventListener('click', function () {
+      if (typeof onSelect === 'function') onSelect(recording);
+    });
+    return button;
+  }
+
   function create(options) {
     const getState = options.getState;
     const actionView = actions && typeof actions.create === 'function'
@@ -70,7 +96,7 @@
       toolbar.className = 'recordings2-toolbar';
       if (currentState.selectedRecording) {
         toolbar.appendChild(shared.createButton(
-          '← Zum Ordner',
+          currentState.detailReturnLabel || '← Zum Ordner',
           options.closeDetail,
           'recordings2-primary'
         ));
@@ -196,30 +222,6 @@
       return button;
     }
 
-    function createRecordingCard(recording) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'recordings2-recording';
-      button.appendChild(shared.createPoster(recording));
-      const copy = document.createElement('span');
-      copy.className = 'recordings2-recording-copy';
-      copy.appendChild(shared.node('span', 'recordings2-title', shared.recordingTitle(recording)));
-      const subtitle = shared.recordingSubtitle(recording);
-      if (subtitle) copy.appendChild(shared.node('span', 'recordings2-subtitle', subtitle));
-      copy.appendChild(shared.node(
-        'span',
-        'recordings2-meta',
-        shared.formatStart(shared.first(recording, ['startTime', 'start'], '')) + ' · ' +
-          shared.formatDuration(shared.first(recording, ['durationSeconds', 'duration'], 0)) + ' · ' +
-          shared.formatSize(shared.first(recording, ['sizeMb'], 0))
-      ));
-      const summary = shared.recordingSummary(recording);
-      if (summary) copy.appendChild(shared.node('span', 'recordings2-summary-text', summary));
-      button.appendChild(copy);
-      button.addEventListener('click', function () { options.selectRecording(recording); });
-      return button;
-    }
-
     function createSection(title, count, className) {
       const section = document.createElement('section');
       section.className = 'recordings2-section';
@@ -276,7 +278,7 @@
           'recordings2-recording-list'
         );
         recordings.forEach(function (recording) {
-          recordingSection.list.appendChild(createRecordingCard(recording));
+          recordingSection.list.appendChild(createRecordingCard(recording, options.selectRecording));
         });
         root.appendChild(recordingSection.section);
       }
@@ -362,12 +364,15 @@
     }
 
     return Object.freeze({
-      renderLoading,
-      renderError,
-      renderFolder,
-      renderDetail
+      renderLoading: renderLoading,
+      renderError: renderError,
+      renderFolder: renderFolder,
+      renderDetail: renderDetail
     });
   }
 
-  global.VdrSuiteRecordings2BrowserView = Object.freeze({create: create});
+  global.VdrSuiteRecordings2BrowserView = Object.freeze({
+    create: create,
+    createRecordingCard: createRecordingCard
+  });
 }(window));
