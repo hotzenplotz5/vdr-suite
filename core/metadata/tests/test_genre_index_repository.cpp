@@ -166,7 +166,7 @@ int main()
         failedFirstAttempt.observedAt = 5000;
         assert(repository.replaceEvidence(failedFirstAttempt));
         assert(repository.epgRefreshCandidates(
-            "a", 900, 3000, "tvscraper", 4500, 64).empty());
+            "a", 900, 3000, "tvscraper", 3500, 64).empty());
 
         assert(repository.genreExists("science-fiction"));
         assert(!repository.genreExists("does-not-exist"));
