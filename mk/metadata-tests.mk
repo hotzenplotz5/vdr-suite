@@ -3,6 +3,7 @@
 	test-metadata-identity \
 	test-metadata-schema-contract \
 	test-metadata-genres \
+	test-metadata-genre-conflicts \
 	test-metadata-foundation
 
 test-metadata-make-boundary:
@@ -34,11 +35,22 @@ test-metadata-genres:
 		-o $(BUILD_DIR)/test_genre_index_repository
 	$(BUILD_DIR)/test_genre_index_repository
 
+test-metadata-genre-conflicts: CXXFLAGS += -Icore/metadata/include -Icore/vdr/include
+test-metadata-genre-conflicts:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(METADATA_GENRE_SRC) \
+		core/metadata/tests/test_genre_conflict_repository.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_genre_conflict_repository
+	$(BUILD_DIR)/test_genre_conflict_repository
+
 test-metadata-foundation: \
 	test-metadata-make-boundary \
 	test-metadata-service \
 	test-metadata-identity \
 	test-metadata-schema-contract \
-	test-metadata-genres
+	test-metadata-genres \
+	test-metadata-genre-conflicts
 
 test-fast: test-metadata-foundation
