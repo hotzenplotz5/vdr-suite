@@ -93,7 +93,7 @@ install-manpages:
 	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-daemon.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-daemon.8
 	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man5
-	$(INSTALL) -m 0644 docs/man/man5/vdr-suite.conf.5 $(DESTDIR)$(MANDIR)/man5/vdr-suite-conf.5
+	$(INSTALL) -m 0644 docs/man/man5/vdr-suite.conf.5 $(DESTDIR)$(MANDIR)/man5/vdr-suite.conf.5
 	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man1
 	$(INSTALL) -m 0644 docs/man/man1/vdr-suite-dashboard.1 $(DESTDIR)$(MANDIR)/man1/vdr-suite-dashboard.1
 
