@@ -5,7 +5,16 @@ GENRE_BROWSER_REST_SRC := \
 	api/rest/src/GenreBrowserController.cpp \
 	api/rest/src/GenreBrowserApiRuntime.cpp
 
-.PHONY: test-genre-browser-controller test-genre-browser
+.PHONY: install-genre-frontend test-genre-browser-controller test-genre-browser-frontend test-genre-browser
+
+install-runtime: install-genre-frontend
+
+install-genre-frontend:
+	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/api
+	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/modules
+	$(INSTALL) -m 0644 web/frontend/api/genre-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/genre-client-api.js
+	$(INSTALL) -m 0644 web/frontend/epg-detail-owner.js $(DESTDIR)$(DATADIR)/web/frontend/epg-detail-owner.js
+	$(INSTALL) -m 0644 web/frontend/modules/genres.js $(DESTDIR)$(DATADIR)/web/frontend/modules/genres.js
 
 test-genre-browser-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -19,6 +28,15 @@ test-genre-browser-controller:
 		-o $(BUILD_DIR)/test_genre_browser_controller
 	$(BUILD_DIR)/test_genre_browser_controller
 
-test-genre-browser: test-metadata-genres test-genre-browser-controller
+test-genre-browser-frontend:
+	node --check web/frontend/api/genre-client-api.js
+	node --check web/frontend/epg-detail-owner.js
+	node --check web/frontend/modules/genres.js
+	node --check web/frontend/recordings2-browser-view.js
+	node --check web/frontend/recordings2.js
+	node --check web/frontend/platform/deferred-runtime-loader.js
+	python3 tools/check_genre_browser_frontend_contracts.py
+
+test-genre-browser: test-metadata-genres test-genre-browser-controller test-genre-browser-frontend
 
 test-fast: test-genre-browser
