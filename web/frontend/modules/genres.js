@@ -9,20 +9,9 @@
 
   const PAGE_SIZE = 48;
   const state = {
-    active: false,
-    backendId: '',
-    scope: 'recordings',
-    overview: null,
-    selectedGenre: null,
-    items: [],
-    total: 0,
-    hasMore: false,
-    channels: Object.create(null),
-    loading: false,
-    loadingMore: false,
-    error: null,
-    requestSequence: 0,
-    channelRequestSequence: 0
+    active:false,backendId:'',scope:'recordings',overview:null,selectedGenre:null,
+    items:[],total:0,hasMore:false,channels:Object.create(null),loading:false,
+    loadingMore:false,error:null,requestSequence:0,channelRequestSequence:0
   };
 
   const text = (value, fallback) => String(value === undefined || value === null ? (fallback || '') : value).trim();
@@ -51,17 +40,12 @@
   }
 
   function backendId() {
-    return text(
-      platform.getSelectedBackendId && platform.getSelectedBackendId(),
-      state.backendId || 'default'
-    );
+    return text(platform.getSelectedBackendId && platform.getSelectedBackendId(), state.backendId || 'default');
   }
 
   function installStyles() {
     const recordingsShared = global.VdrSuiteRecordings2Shared;
-    if (recordingsShared && typeof recordingsShared.installStyles === 'function') {
-      recordingsShared.installStyles();
-    }
+    if (recordingsShared && typeof recordingsShared.installStyles === 'function') recordingsShared.installStyles();
     if (document.getElementById('vdr-suite-genres-style')) return;
     const style = node('style');
     style.id = 'vdr-suite-genres-style';
@@ -136,6 +120,8 @@
         state.scope = entry[0];
         state.selectedGenre = null;
         state.items = [];
+        state.channels = Object.create(null);
+        state.channelRequestSequence += 1;
         loadOverview();
       });
       scope.appendChild(item);
@@ -208,7 +194,6 @@
       root.appendChild(node('section', 'genres-status', 'Für dieses Genre liegen keine Treffer im aktuellen Fenster vor.'));
       return;
     }
-
     if (state.scope === 'recordings') {
       const cardOwner = global.VdrSuiteRecordings2BrowserView;
       const list = node('section', 'genres-recordings recordings2-recording-list');
@@ -242,7 +227,6 @@
       });
       root.appendChild(list);
     }
-
     if (state.hasMore) {
       const more = button(state.loadingMore ? 'Weitere Treffer werden geladen …' : 'Weitere Treffer laden', 'genres-more', loadMore);
       more.disabled = state.loadingMore;
@@ -283,6 +267,13 @@
       });
   }
 
+  function scheduleSupplementaryChannels(sequence) {
+    global.setTimeout(() => {
+      if (!state.active || sequence !== state.requestSequence || state.scope !== 'epg' || !state.selectedGenre || state.loading) return;
+      loadChannels();
+    }, 0);
+  }
+
   function loadOverview() {
     const client = api();
     if (!client || typeof client.fetchClientGenres !== 'function') {
@@ -292,23 +283,20 @@
     state.loading = true;
     state.error = null;
     const sequence = ++state.requestSequence;
+    const requestedScope = state.scope;
     render();
     const now = Math.floor(Date.now() / 1000);
-    const options = {backendId:state.backendId,scope:state.scope,locale:'de',cache:'no-store',credentials:'same-origin'};
-    if (state.scope === 'epg') {
-      options.from = now;
-      options.until = now + 172800;
-      loadChannels();
-    }
+    const options = {backendId:state.backendId,scope:requestedScope,locale:'de',cache:'no-store',credentials:'same-origin'};
+    if (requestedScope === 'epg') {options.from=now;options.until=now+172800;}
     client.fetchClientGenres(options)
       .then(result => {
-        if (!state.active || sequence !== state.requestSequence) return;
+        if (!state.active || sequence !== state.requestSequence || state.scope !== requestedScope) return;
         state.overview = result || {genres:[]};
         state.loading = false;
         render();
       })
       .catch(error => {
-        if (!state.active || sequence !== state.requestSequence) return;
+        if (!state.active || sequence !== state.requestSequence || state.scope !== requestedScope) return;
         state.loading = false;
         state.error = error;
         render();
@@ -338,14 +326,16 @@
     state.loading = true;
     state.error = null;
     const sequence = ++state.requestSequence;
+    const requestedScope = state.scope;
     render();
     requestItems(0).then(data => {
-      if (!state.active || sequence !== state.requestSequence) return;
+      if (!state.active || sequence !== state.requestSequence || state.scope !== requestedScope) return;
       applyItems(data, false);
       state.loading = false;
       render();
+      if (requestedScope === 'epg') scheduleSupplementaryChannels(sequence);
     }).catch(error => {
-      if (!state.active || sequence !== state.requestSequence) return;
+      if (!state.active || sequence !== state.requestSequence || state.scope !== requestedScope) return;
       state.loading = false;
       state.error = error;
       render();
@@ -356,14 +346,15 @@
     if (state.loadingMore || !state.selectedGenre) return;
     state.loadingMore = true;
     const sequence = ++state.requestSequence;
+    const requestedScope = state.scope;
     render();
     requestItems(state.items.length).then(data => {
-      if (!state.active || sequence !== state.requestSequence) return;
+      if (!state.active || sequence !== state.requestSequence || state.scope !== requestedScope) return;
       applyItems(data, true);
       state.loadingMore = false;
       render();
     }).catch(error => {
-      if (!state.active || sequence !== state.requestSequence) return;
+      if (!state.active || sequence !== state.requestSequence || state.scope !== requestedScope) return;
       state.loadingMore = false;
       state.error = error;
       render();
@@ -377,13 +368,7 @@
       state.active = true;
       state.backendId = nextBackend;
       installStyles();
-      if (changed) {
-        state.overview = null;
-        state.selectedGenre = null;
-        state.items = [];
-        state.channels = Object.create(null);
-        state.channelRequestSequence += 1;
-      }
+      if (changed) {state.overview=null;state.selectedGenre=null;state.items=[];state.channels=Object.create(null);state.channelRequestSequence+=1;}
       if (!state.overview || changed) loadOverview(); else render();
     },
     deactivate: function () {
