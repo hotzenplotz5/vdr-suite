@@ -180,10 +180,13 @@ GenreEpgPage GenreIndexRepository::epgByGenre(
 
     const char* sql =
         "SELECT e.backend_id,e.channel_id,e.event_id,e.title,e.subtitle,e.description,e.start_time,e.end_time,e.duration_seconds,"
+        "CASE WHEN aw.path IS NOT NULL AND aw.path<>'' AND aw.width>0 AND aw.height>0 THEN 1 ELSE 0 END,"
+        "COALESCE(aw.width,0),COALESCE(aw.height,0),"
         "(SELECT GROUP_CONCAT(DISTINCT a2.genre_id) FROM suite_metadata_genre_assignments a2 WHERE a2.metadata_target_id=b.metadata_target_id) "
         "FROM suite_metadata_genre_assignments a "
         "JOIN suite_metadata_target_bindings b ON b.metadata_target_id=a.metadata_target_id "
         "JOIN epg_events e ON e.backend_id=b.backend_id AND (e.channel_id || char(10) || e.event_id)=b.resource_key "
+        "LEFT JOIN epg_event_artwork aw ON aw.backend_id=e.backend_id AND aw.channel_id=e.channel_id AND aw.event_id=e.event_id "
         "WHERE b.backend_id=? AND b.target_type='program-event' AND b.lifecycle_state='active' AND a.genre_id=? "
         "AND b.end_time>? AND b.start_time<? GROUP BY b.metadata_target_id "
         "ORDER BY b.start_time,e.channel_id,e.event_id LIMIT ? OFFSET ?;";
@@ -207,7 +210,10 @@ GenreEpgPage GenreIndexRepository::epgByGenre(
         item.startTime = std::stoll(columnText(statement, 6).empty() ? "0" : columnText(statement, 6));
         item.endTime = std::stoll(columnText(statement, 7).empty() ? "0" : columnText(statement, 7));
         item.durationSeconds = sqlite3_column_int(statement, 8);
-        item.genreIds = splitCommaList(columnText(statement, 9));
+        item.artworkAvailable = sqlite3_column_int(statement, 9) != 0;
+        item.artworkWidth = sqlite3_column_int(statement, 10);
+        item.artworkHeight = sqlite3_column_int(statement, 11);
+        item.genreIds = splitCommaList(columnText(statement, 12));
         page.events.push_back(std::move(item));
     }
     sqlite3_finalize(statement);
