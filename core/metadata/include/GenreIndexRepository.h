@@ -77,6 +77,7 @@ struct GenreEpgItem
 {
     std::string backendId;
     std::string channelId;
+    std::string channelName;
     std::string eventId;
     std::string title;
     std::string subtitle;
