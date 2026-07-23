@@ -99,6 +99,42 @@ int main()
         assert(drama.totalCount == 1);
         assert(drama.events.front().eventId == "20");
 
+        GenreEvidenceInput scraperEvidence;
+        scraperEvidence.backendId = "a";
+        scraperEvidence.targetType = "program-event";
+        scraperEvidence.resourceKey = "C2\n20";
+        scraperEvidence.nativeId = "20";
+        scraperEvidence.channelId = "C2";
+        scraperEvidence.startTime = 1500;
+        scraperEvidence.endTime = 2500;
+        scraperEvidence.providerId = "tvscraper";
+        scraperEvidence.sourceKind = "scraper-metadata";
+        scraperEvidence.originalValues = {"Mystery", "Drama"};
+        scraperEvidence.confidence = 0.95;
+        scraperEvidence.observedAt = 3000;
+        assert(repository.replaceEvidence(scraperEvidence));
+        assert(!repository.providerEvidenceNeedsRefresh(
+            "a", "program-event", "C2\n20", "tvscraper", 2500));
+
+        scraperEvidence.state = "stale";
+        scraperEvidence.originalValues.clear();
+        scraperEvidence.observedAt = 4000;
+        assert(repository.replaceEvidence(scraperEvidence));
+        assert(repository.providerEvidenceNeedsRefresh(
+            "a", "program-event", "C2\n20", "tvscraper", 2500));
+
+        GenreOverview staleOverview = repository.overview(
+            "a", "program-event", 900, 3000);
+        bool sawStaleDrama = false;
+        for (const GenreOverviewEntry& entry : staleOverview.genres)
+        {
+            if (entry.genreId == "drama")
+            {
+                sawStaleDrama = entry.staleCount == 1;
+            }
+        }
+        assert(sawStaleDrama);
+
         assert(repository.genreExists("science-fiction"));
         assert(!repository.genreExists("does-not-exist"));
     }
