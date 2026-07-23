@@ -187,6 +187,7 @@ public:
 private:
     Database& database_;
     mutable std::recursive_mutex mutex_;
+    mutable bool schemaReady_ = false;
 
     bool ensureSchemaLocked() const;
     bool replaceEvidenceLocked(const GenreEvidenceInput& input);
