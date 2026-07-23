@@ -39,7 +39,11 @@ private:
             "events.read.selective",
             "epg.search.fuzzy.fallback",
             "epg.search.fuzzy.native",
-            "searchtimer.preview.native"
+            "searchtimer.preview.native",
+            "remote.control",
+            "live.overlay.read",
+            "osd.view",
+            "osd.control"
         };
 
         return capabilities;

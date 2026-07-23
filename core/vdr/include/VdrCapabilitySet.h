@@ -14,6 +14,10 @@ public:
     bool epgSearchFuzzyFallback = false;
     bool epgSearchFuzzyNative = false;
     bool searchTimerPreviewNative = false;
+    bool remoteControl = false;
+    bool liveOverlayRead = false;
+    bool osdView = false;
+    bool osdControl = false;
 
     static VdrCapabilitySet snapshotReadOnly()
     {

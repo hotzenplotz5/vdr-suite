@@ -4,6 +4,21 @@
 
 #include <cassert>
 #include <iostream>
+#include <string>
+
+namespace
+{
+bool expectedReadOnlyCapability(
+    const std::string& capability)
+{
+    return capability != "epg.search.fuzzy.native" &&
+        capability != "searchtimer.preview.native" &&
+        capability != "remote.control" &&
+        capability != "live.overlay.read" &&
+        capability != "osd.view" &&
+        capability != "osd.control";
+}
+}
 
 int main()
 {
@@ -18,7 +33,7 @@ int main()
 
     assert(emptyReport.backendId() == "empty-backend");
     assert(!emptyReport.empty());
-    assert(emptyReport.size() == 11);
+    assert(emptyReport.size() == 15);
 
     for (const auto& state : emptyReport.capabilities())
     {
@@ -39,24 +54,21 @@ int main()
 
     assert(readOnlyReport.backendId() == "mock-backend");
     assert(!readOnlyReport.empty());
-    assert(readOnlyReport.size() == 11);
+    assert(readOnlyReport.size() == 15);
 
-    for (std::size_t index = 0; index < readOnlyReport.capabilities().size(); ++index)
+    for (const auto& state : readOnlyReport.capabilities())
     {
-        const auto& state = readOnlyReport.capabilities().at(index);
-
-        if (state.capabilityName() == "epg.search.fuzzy.native" ||
-            state.capabilityName() == "searchtimer.preview.native")
-        {
-            assert(!state.supported());
-            assert(!state.availableNow());
-            assert(state.availability() == CapabilityAvailability::Unsupported);
-        }
-        else
+        if (expectedReadOnlyCapability(state.capabilityName()))
         {
             assert(state.supported());
             assert(state.availableNow());
             assert(state.availability() == CapabilityAvailability::Available);
+        }
+        else
+        {
+            assert(!state.supported());
+            assert(!state.availableNow());
+            assert(state.availability() == CapabilityAvailability::Unsupported);
         }
     }
 
@@ -66,6 +78,10 @@ int main()
     assert(readOnlyReport.capabilities().at(8).capabilityName() == "epg.search.fuzzy.fallback");
     assert(readOnlyReport.capabilities().at(9).capabilityName() == "epg.search.fuzzy.native");
     assert(readOnlyReport.capabilities().at(10).capabilityName() == "searchtimer.preview.native");
+    assert(readOnlyReport.capabilities().at(11).capabilityName() == "remote.control");
+    assert(readOnlyReport.capabilities().at(12).capabilityName() == "live.overlay.read");
+    assert(readOnlyReport.capabilities().at(13).capabilityName() == "osd.view");
+    assert(readOnlyReport.capabilities().at(14).capabilityName() == "osd.control");
 
     std::cout
         << "test_capability_report_builder passed"

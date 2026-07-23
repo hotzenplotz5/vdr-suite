@@ -10,6 +10,7 @@ include mk/http-sources.mk
 include mk/runtime-sources.mk
 include mk/daemon-sources.mk
 include mk/install.mk
+include mk/live-remote.mk
 include mk/test-inventory-exceptions.mk
 include mk/local-test-groups.mk
 include mk/object-cache.mk

@@ -28,7 +28,14 @@ REST_LIVE_TRANSPORT_SRC := \
 VDR_TIMER_ACTION_REST_PARSER_SRC := \
         api/rest/src/VdrTimerActionRequestParser.cpp
 
+REST_LIVE_REMOTE_SRC := \
+        api/rest/src/RemoteActionRequestParser.cpp \
+        api/rest/src/RemoteActionController.cpp \
+        api/rest/src/LiveOverlayController.cpp \
+        api/rest/src/LiveRemoteApiRuntime.cpp
+
 REST_ROUTER_SRC := \
+        $(REST_LIVE_REMOTE_SRC) \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \

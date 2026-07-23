@@ -46,15 +46,13 @@ HttpServerResponse TestHttpServer::handleRequest(
 
     if (request.method == "GET")
     {
-        apiResponse =
-            apiRouter_.handleGet(request.path);
+        apiResponse = apiRouter_.handleClientGet(request.path);
     }
     else if (request.method == "POST")
     {
-        apiResponse =
-            apiRouter_.handlePost(
-                request.path,
-                request.body);
+        apiResponse = apiRouter_.handleClientPost(
+            request.path,
+            request.body);
     }
     else
     {

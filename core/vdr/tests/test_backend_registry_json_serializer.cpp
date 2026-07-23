@@ -13,26 +13,23 @@ static BackendNode makeBackend(
     const std::string& accessMode = "read-write")
 {
     BackendNode backend;
-
     backend.backendId = backendId;
     backend.backendName = backendName;
     backend.backendType = "vdr";
     backend.accessMode = accessMode;
     backend.enabled = enabled;
     backend.online = online;
-
     return backend;
 }
 
 static void test_serializer_serializes_single_backend()
 {
-    BackendNode backend =
-        makeBackend("default", "Default VDR", true, false);
+    BackendNode backend = makeBackend("default", "Default VDR", true, false);
+    backend.capabilities.remoteControl = true;
+    backend.capabilities.liveOverlayRead = true;
 
     BackendRegistryJsonSerializer serializer;
-
-    const std::string json =
-        serializer.serializeBackend(backend);
+    const std::string json = serializer.serializeBackend(backend);
 
     assert(json.find("\"backendId\":\"default\"") != std::string::npos);
     assert(json.find("\"backendName\":\"Default VDR\"") != std::string::npos);
@@ -43,19 +40,23 @@ static void test_serializer_serializes_single_backend()
     assert(json.find("\"canWriteRecordings\":true") != std::string::npos);
     assert(json.find("\"canWriteTimers\":true") != std::string::npos);
     assert(json.find("\"canWriteSearchTimers\":true") != std::string::npos);
+    assert(json.find("\"canRemoteControl\":true") != std::string::npos);
+    assert(json.find("\"capabilities\":{") != std::string::npos);
+    assert(json.find("\"remoteControl\":true") != std::string::npos);
+    assert(json.find("\"liveOverlayRead\":true") != std::string::npos);
+    assert(json.find("\"osdView\":false") != std::string::npos);
+    assert(json.find("\"osdControl\":false") != std::string::npos);
     assert(json.find("\"enabled\":true") != std::string::npos);
     assert(json.find("\"online\":false") != std::string::npos);
 }
 
 static void test_serializer_serializes_frontend_selector_contract()
 {
-    BackendNode backend =
-        makeBackend("house-a", "Haus A", true, true);
+    BackendNode backend = makeBackend("house-a", "Haus A", true, true);
+    backend.capabilities.remoteControl = true;
 
     BackendRegistryJsonSerializer serializer;
-
-    const std::string json =
-        serializer.serializeBackend(backend);
+    const std::string json = serializer.serializeBackend(backend);
 
     assert(json.find("\"frontendSelector\":{") != std::string::npos);
     assert(json.find("\"id\":\"house-a\"") != std::string::npos);
@@ -66,17 +67,22 @@ static void test_serializer_serializes_frontend_selector_contract()
     assert(json.find("\"canWriteRecordings\":true") != std::string::npos);
     assert(json.find("\"canWriteTimers\":true") != std::string::npos);
     assert(json.find("\"canWriteSearchTimers\":true") != std::string::npos);
+    assert(json.find("\"canRemoteControl\":true") != std::string::npos);
 }
 
 static void test_serializer_serializes_read_only_backend()
 {
-    BackendNode backend =
-        makeBackend("remote-house", "Remote House VDR", true, true, "read-only");
+    BackendNode backend = makeBackend(
+        "remote-house",
+        "Remote House VDR",
+        true,
+        true,
+        "read-only");
+    backend.capabilities.remoteControl = true;
+    backend.capabilities.liveOverlayRead = true;
 
     BackendRegistryJsonSerializer serializer;
-
-    const std::string json =
-        serializer.serializeBackend(backend);
+    const std::string json = serializer.serializeBackend(backend);
 
     assert(json.find("\"backendId\":\"remote-house\"") != std::string::npos);
     assert(json.find("\"accessMode\":\"read-only\"") != std::string::npos);
@@ -85,6 +91,9 @@ static void test_serializer_serializes_read_only_backend()
     assert(json.find("\"canWriteRecordings\":false") != std::string::npos);
     assert(json.find("\"canWriteTimers\":false") != std::string::npos);
     assert(json.find("\"canWriteSearchTimers\":false") != std::string::npos);
+    assert(json.find("\"canRemoteControl\":false") != std::string::npos);
+    assert(json.find("\"remoteControl\":true") != std::string::npos);
+    assert(json.find("\"liveOverlayRead\":true") != std::string::npos);
     assert(json.find("\"frontendSelector\":{") != std::string::npos);
     assert(json.find("\"id\":\"remote-house\"") != std::string::npos);
     assert(json.find("\"label\":\"Remote House VDR\"") != std::string::npos);
@@ -93,15 +102,11 @@ static void test_serializer_serializes_read_only_backend()
 static void test_serializer_serializes_backend_list()
 {
     std::vector<BackendNode> backends;
-    backends.push_back(
-        makeBackend("default", "Default VDR", true, false));
-    backends.push_back(
-        makeBackend("ferienhaus", "Ferienhaus VDR", true, true, "read-only"));
+    backends.push_back(makeBackend("default", "Default VDR", true, false));
+    backends.push_back(makeBackend("ferienhaus", "Ferienhaus VDR", true, true, "read-only"));
 
     BackendRegistryJsonSerializer serializer;
-
-    const std::string json =
-        serializer.serializeBackends(backends);
+    const std::string json = serializer.serializeBackends(backends);
 
     assert(json.find("\"backends\":[") != std::string::npos);
     assert(json.find("\"backendId\":\"default\"") != std::string::npos);
@@ -116,7 +121,6 @@ static void test_serializer_serializes_backend_list()
 static void test_serializer_serializes_empty_backend_list()
 {
     BackendRegistryJsonSerializer serializer;
-
     assert(serializer.serializeBackends({}) == "{\"backends\":[]}");
 }
 
@@ -128,9 +132,6 @@ int main()
     test_serializer_serializes_backend_list();
     test_serializer_serializes_empty_backend_list();
 
-    std::cout
-        << "test_backend_registry_json_serializer passed"
-        << std::endl;
-
+    std::cout << "test_backend_registry_json_serializer passed" << std::endl;
     return 0;
 }

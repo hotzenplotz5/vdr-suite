@@ -7,6 +7,11 @@ EPG_SCRAPER_METADATA_RUNTIME_SRC := \
         core/vdr/src/SuiteBridgeEpgMetadataResolver.cpp
 
 VDR_SRC := \
+        core/vdr/src/RemoteActionDomain.cpp \
+        core/vdr/src/RemoteActionService.cpp \
+        core/vdr/src/RestfulApiRemoteActionExecutor.cpp \
+        core/vdr/src/LiveOverlay.cpp \
+        core/vdr/src/RestfulApiLiveChannelStateProvider.cpp \
         core/vdr/src/VdrConfig.cpp \
         core/vdr/src/BackendRegistry.cpp \
         core/vdr/src/BackendRegistryService.cpp \

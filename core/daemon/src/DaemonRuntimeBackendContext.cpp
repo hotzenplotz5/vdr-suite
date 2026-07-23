@@ -1,6 +1,8 @@
 #include "DaemonRuntime.h"
 
 #include "BasicHttpClient.h"
+#include "EpgEventRepository.h"
+#include "LiveRemoteApiRuntime.h"
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
 #include "RestfulApiVdrAdapter.h"
@@ -8,7 +10,9 @@
 
 #include <chrono>
 #include <iostream>
+#include <string>
 #include <utility>
+#include <vector>
 
 std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContext(
     const BackendNode& backend)
@@ -38,6 +42,69 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
                 "",
                 *context->httpClient));
     }
+
+    if (backendRegistryService_ &&
+        vdrSnapshotReadService_ &&
+        snapshotCacheService_) {
+        VdrCapabilitySet capabilities = backend.capabilities;
+        capabilities.remoteControl = true;
+        capabilities.liveOverlayRead = true;
+        capabilities.osdView = false;
+        capabilities.osdControl = false;
+        backendRegistryService_->updateBackendCapabilities(
+            context->backendId,
+            capabilities);
+
+        LiveRemoteApiRuntime::instance().configure(
+            *backendRegistryService_,
+            *vdrSnapshotReadService_,
+            *snapshotCacheService_,
+            [this](const std::string& changedBackendId) {
+                externalVdrChangeHint_.store(true);
+
+                if (!snapshotChangeFeed_ ||
+                    !snapshotChangeFeedService_ ||
+                    !liveTransportService_ ||
+                    !snapshotCacheService_) {
+                    return;
+                }
+
+                const int previousLatestSequenceNumber =
+                    snapshotChangeFeed_->latestSequenceNumber();
+
+                snapshotChangeFeedService_->appendChanges(
+                    *snapshotChangeFeed_,
+                    snapshotCacheService_->generation(),
+                    {VdrChangeEvent(VdrChangeType::LiveOverlayChanged)},
+                    changedBackendId);
+
+                for (const auto& entry : snapshotChangeFeed_->entries()) {
+                    if (entry.sequenceNumber() > previousLatestSequenceNumber) {
+                        liveTransportService_->publishChangeFeedEntry(entry);
+                    }
+                }
+            },
+            [this](
+                const std::string& backendId,
+                const std::string& channelId,
+                long long fromEpoch,
+                int eventLimit) -> std::vector<VdrEvent> {
+                if (!epgEventRepository_) {
+                    return {};
+                }
+
+                return epgEventRepository_->findNowNextForBackend(
+                    backendId,
+                    channelId,
+                    std::to_string(fromEpoch),
+                    eventLimit);
+            });
+
+        LiveRemoteApiRuntime::instance().registerRestfulApiBackend(
+            context->backendId,
+            *context->httpClient);
+    }
+
     context->service = std::make_unique<VdrService>(
         *context->adapter,
         &runtimeLogger_);

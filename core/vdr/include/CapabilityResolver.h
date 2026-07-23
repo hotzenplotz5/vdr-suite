@@ -79,6 +79,26 @@ public:
             return fromSupportedFlag(capability, capabilities_.searchTimerPreviewNative);
         }
 
+        if (capability == "remote.control")
+        {
+            return fromSupportedFlag(capability, capabilities_.remoteControl);
+        }
+
+        if (capability == "live.overlay.read")
+        {
+            return fromSupportedFlag(capability, capabilities_.liveOverlayRead);
+        }
+
+        if (capability == "osd.view")
+        {
+            return fromSupportedFlag(capability, capabilities_.osdView);
+        }
+
+        if (capability == "osd.control")
+        {
+            return fromSupportedFlag(capability, capabilities_.osdControl);
+        }
+
         return CapabilityState::unsupported(
             capability,
             "unknown capability");

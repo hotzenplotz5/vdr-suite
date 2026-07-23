@@ -21,6 +21,10 @@ int main()
     VdrChangeEvent events(VdrChangeType::EventsChanged);
     assert(events.typeName() == "EventsChanged");
 
+    VdrChangeEvent liveOverlay(VdrChangeType::LiveOverlayChanged);
+    assert(liveOverlay.type() == VdrChangeType::LiveOverlayChanged);
+    assert(liveOverlay.typeName() == "LiveOverlayChanged");
+
     std::cout << "test_vdr_change_event passed" << std::endl;
     return 0;
 }

@@ -118,6 +118,24 @@ static void test_status_event_creates_status_refresh()
     assert(plan.shouldRefreshEvents() == false);
 }
 
+static void test_live_overlay_event_does_not_refresh_snapshot_domains()
+{
+    SnapshotRefreshPlanner planner;
+
+    const auto plan = planner.createPlan({
+        VdrChangeEvent(VdrChangeType::LiveOverlayChanged)
+    });
+
+    assert(plan.hasRefreshWork() == false);
+    assert(plan.requiresFullSnapshot() == false);
+    assert(plan.shouldRefreshStatus() == false);
+    assert(plan.shouldRefreshChannels() == false);
+    assert(plan.shouldRefreshRecordings() == false);
+    assert(plan.shouldRefreshTimers() == false);
+    assert(plan.shouldRefreshEvents() == false);
+    assert(plan.hasSelectiveEventRefresh() == false);
+}
+
 int main()
 {
     test_empty_events_create_empty_plan();
@@ -127,6 +145,7 @@ int main()
     test_events_changed_falls_back_to_full_refresh_when_selective_refresh_is_disabled();
     test_mixed_events_change_keeps_lightweight_refreshes_only();
     test_status_event_creates_status_refresh();
+    test_live_overlay_event_does_not_refresh_snapshot_domains();
 
     std::cout
         << "test_snapshot_refresh_planner passed"

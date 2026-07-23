@@ -25,6 +25,8 @@ std::string VdrChangeEvent::typeName() const
         return "SearchTimersChanged";
     case VdrChangeType::EventsChanged:
         return "EventsChanged";
+    case VdrChangeType::LiveOverlayChanged:
+        return "LiveOverlayChanged";
     }
 
     return "Unknown";
