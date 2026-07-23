@@ -1,5 +1,6 @@
 #include "DaemonRuntime.h"
 
+#include "GenreBrowserApiRuntime.h"
 #include "VdrRecordingCacheRepository.h"
 
 #include <chrono>
@@ -183,6 +184,10 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
                         recordings,
                         recordingCacheWarmupStopRequested_,
                         "periodic");
+
+                    GenreBrowserApiRuntime::instance()
+                        .refreshRecordingIndex(
+                            backendRuntimeContext->backendId);
                 }
 
                 lastMetadataRefresh = metadataNow;
@@ -283,6 +288,7 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                     backendRuntimeContext->backendId,
                     recordings);
 
+            bool genreIndexed = false;
             if (stored) {
                 vdrRecordingCacheRepository_->markRefreshFinished(
                     backendRuntimeContext->backendId,
@@ -293,6 +299,10 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                     recordings,
                     recordingCacheWarmupStopRequested_,
                     reason);
+
+                genreIndexed = GenreBrowserApiRuntime::instance()
+                    .refreshRecordingIndex(
+                        backendRuntimeContext->backendId);
             }
             else {
                 vdrRecordingCacheRepository_->markRefreshFailed(
@@ -307,6 +317,8 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                 << (stored ? "true" : "false")
                 << ", recordings="
                 << recordings.size()
+                << ", genreIndexed="
+                << (genreIndexed ? "true" : "false")
                 << std::endl;
         }
         catch (const std::exception& error) {
