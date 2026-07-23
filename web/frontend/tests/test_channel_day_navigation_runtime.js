@@ -11,7 +11,7 @@ const marker = 'global.VdrSuiteChannels2 = moduleApi;';
 const instrumentedSource = source.replace(
   marker,
   'global.__VdrSuiteChannelDayNavigationTest=Object.freeze({' +
-    'dateNavigationLabel,sameDay,renderInlineProgram,state});' + marker
+    'dateValue,sameDay,renderInlineProgram,state});' + marker
 );
 
 assert.notStrictEqual(instrumentedSource, source);
@@ -24,6 +24,7 @@ class MockElement {
     this.className = '';
     this.dataset = {};
     this.onclick = null;
+    this.onchange = null;
     this.style = {};
     this.textContent = '';
     this.type = '';
@@ -115,7 +116,7 @@ const testApi = window.__VdrSuiteChannelDayNavigationTest;
 assert.ok(testApi);
 
 const selectedDay = new Date(2035, 6, 27);
-assert.strictEqual(testApi.dateNavigationLabel(selectedDay), '27.07.2035');
+assert.strictEqual(testApi.dateValue(selectedDay), '2035-07-27');
 assert.strictEqual(testApi.sameDay(selectedDay, new Date(2035, 6, 27, 23, 59)), true);
 assert.strictEqual(testApi.sameDay(selectedDay, new Date(2035, 6, 28)), false);
 
@@ -135,11 +136,14 @@ const channel = {
 const futureSection = testApi.renderInlineProgram(channel);
 const controls = futureSection.querySelector('.channels2-date');
 assert.ok(controls);
-const currentLabel = controls.querySelector('.channels2-date-current');
-assert.ok(currentLabel);
-assert.strictEqual(currentLabel.tagName, 'SPAN');
-assert.strictEqual(currentLabel.textContent, '27.07.2035');
-assert.strictEqual(currentLabel.attributes['aria-label'], 'Ausgewählter Tag: 27.07.2035');
+const datePicker = controls.querySelector('.channels2-date-current');
+assert.ok(datePicker);
+assert.strictEqual(datePicker.tagName, 'INPUT');
+assert.strictEqual(datePicker.type, 'date');
+assert.strictEqual(datePicker.value, '2035-07-27');
+assert.strictEqual(datePicker.attributes['aria-label'], 'Datum auswählen, aktuell 27.07.2035');
+assert.strictEqual(controls.children.filter(child => child.tagName === 'INPUT').length, 1);
+assert.strictEqual(typeof datePicker.onchange, 'function');
 
 const todayButton = controls.querySelector('.channels2-date-today');
 assert.ok(todayButton);
@@ -152,12 +156,14 @@ assert.strictEqual(testApi.sameDay(testApi.state.day, new Date()), true);
 const todaySection = testApi.renderInlineProgram(channel);
 assert.strictEqual(todaySection.querySelector('.channels2-date-today'), null);
 assert.strictEqual(
-  todaySection.querySelector('.channels2-date-current').textContent,
-  testApi.dateNavigationLabel(new Date())
+  todaySection.querySelector('.channels2-date-current').value,
+  testApi.dateValue(new Date())
 );
 
-assert.ok(source.includes("const current = addText(document.createElement('span'), dateNavigationLabel(selectedDay));"));
+assert.ok(source.includes("input.className = 'channels2-date-current';"));
+assert.ok(source.includes("controls.append(prev, input, next);"));
 assert.ok(source.includes("'Programm heute'"));
+assert.ok(!source.includes("const current = addText(document.createElement('span')"));
 assert.ok(!source.includes("const today = addText(document.createElement('button'), 'Heute');"));
 
 console.log('test_channel_day_navigation_runtime passed');
