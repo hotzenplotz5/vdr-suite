@@ -21,7 +21,8 @@
     loading: false,
     loadingMore: false,
     error: null,
-    requestSequence: 0
+    requestSequence: 0,
+    channelRequestSequence: 0
   };
 
   const text = (value, fallback) => String(value === undefined || value === null ? (fallback || '') : value).trim();
@@ -267,10 +268,19 @@
 
   function loadChannels() {
     const client = api();
-    if (!client || typeof client.fetchClientChannels !== 'function') return Promise.resolve();
-    return client.fetchClientChannels({backendId:state.backendId,cache:'no-store',credentials:'same-origin'})
-      .then(indexChannels)
-      .catch(() => {state.channels=Object.create(null);});
+    const requestedBackend = state.backendId;
+    const sequence = ++state.channelRequestSequence;
+    if (!client || typeof client.fetchClientChannels !== 'function') return;
+    client.fetchClientChannels({backendId:requestedBackend,cache:'no-store',credentials:'same-origin'})
+      .then(data => {
+        if (!state.active || sequence !== state.channelRequestSequence || state.backendId !== requestedBackend || state.scope !== 'epg') return;
+        indexChannels(data);
+        if (state.selectedGenre && !state.loading) render();
+      })
+      .catch(() => {
+        if (!state.active || sequence !== state.channelRequestSequence || state.backendId !== requestedBackend || state.scope !== 'epg') return;
+        state.channels = Object.create(null);
+      });
   }
 
   function loadOverview() {
@@ -285,11 +295,15 @@
     render();
     const now = Math.floor(Date.now() / 1000);
     const options = {backendId:state.backendId,scope:state.scope,locale:'de',cache:'no-store',credentials:'same-origin'};
-    if (state.scope === 'epg') {options.from=now;options.until=now+172800;}
-    Promise.all([client.fetchClientGenres(options),state.scope === 'epg' ? loadChannels() : Promise.resolve()])
-      .then(results => {
+    if (state.scope === 'epg') {
+      options.from = now;
+      options.until = now + 172800;
+      loadChannels();
+    }
+    client.fetchClientGenres(options)
+      .then(result => {
         if (!state.active || sequence !== state.requestSequence) return;
-        state.overview = results[0] || {genres:[]};
+        state.overview = result || {genres:[]};
         state.loading = false;
         render();
       })
@@ -363,12 +377,19 @@
       state.active = true;
       state.backendId = nextBackend;
       installStyles();
-      if (changed) {state.overview=null;state.selectedGenre=null;state.items=[];}
+      if (changed) {
+        state.overview = null;
+        state.selectedGenre = null;
+        state.items = [];
+        state.channels = Object.create(null);
+        state.channelRequestSequence += 1;
+      }
       if (!state.overview || changed) loadOverview(); else render();
     },
     deactivate: function () {
       state.active = false;
       state.requestSequence += 1;
+      state.channelRequestSequence += 1;
     },
     refresh: function () {
       state.active = true;
