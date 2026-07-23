@@ -21,6 +21,7 @@ epg_owner = read("web/frontend/epg-detail-owner.js")
 loader = read("web/frontend/platform/deferred-runtime-loader.js")
 index = read("web/frontend/index.html")
 remote = read("web/frontend/modules/remote.js")
+runtime_test = read("web/frontend/tests/test_genres_runtime.js")
 
 for forbidden in ("fetch(", "tvscraper", "tmdb", "imdb", "restfulapi", "SuiteBridge"):
     require(forbidden not in genres, f"genres module violates provider/HTTP ownership: {forbidden}")
@@ -31,6 +32,19 @@ require("fetchClientGenreEpg" in genres, "EPG genre query must use the Client AP
 require("/api/metadata/genres" not in genres, "route literals belong to the Client API")
 require("/api/metadata/genres" in client, "genre Client API route is missing")
 require("document." not in client, "genre Client API extension must remain DOM-free")
+require(
+    "Promise.all([client.fetchClientGenres" not in genres,
+    "EPG genre overview must not wait for supplementary channel metadata",
+)
+require(
+    "client.fetchClientGenres(options)" in genres and "loadChannels();" in genres,
+    "EPG genre and channel loading must remain independently scheduled",
+)
+require(
+    "return new Promise(() => {});" in runtime_test
+    and "EPG overview must not wait for an unresolved channel request" in runtime_test,
+    "genre runtime test must cover an indefinitely pending channel request",
+)
 
 require("createRecordingCard" in recording_view, "Recordings 2 card owner is not exported")
 require(
