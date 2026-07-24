@@ -161,5 +161,28 @@ int main()
         assert(!page.payloadValid);
     }
 
+    {
+        Server server("250 1|1|1|1|C-1,9,300,400,S\r\n");
+        SuiteBridgeSvdrpTransport transport(configFor(server));
+        const SuiteBridgeEpgTypeSnapshotTransportPage page =
+            transport.requestEpgTypeSnapshot(100, 300, 0, 64);
+        server.wait();
+        assert(page.transportSucceeded);
+        assert(!page.payloadValid);
+        assert(page.items.empty());
+    }
+
+    {
+        Server server("500 Command unrecognized\r\n");
+        SuiteBridgeSvdrpTransport transport(configFor(server));
+        const SuiteBridgeEpgTypeSnapshotTransportPage page =
+            transport.requestEpgTypeSnapshot(100, 300, 0, 64);
+        server.wait();
+        assert(!page.transportSucceeded);
+        assert(!page.payloadValid);
+        assert(page.replyCode == 500);
+        assert(page.items.empty());
+    }
+
     return 0;
 }
