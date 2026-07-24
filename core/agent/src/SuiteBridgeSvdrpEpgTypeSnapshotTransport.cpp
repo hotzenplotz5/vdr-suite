@@ -69,6 +69,8 @@ bool safeChannelId(const std::string& value)
 
 bool parsePayload(
     const std::string& payload,
+    std::int64_t requestedFromTime,
+    std::int64_t requestedUntilTime,
     std::uint64_t requestedOffset,
     std::size_t requestedLimit,
     SuiteBridgeEpgTypeSnapshotTransportPage& page)
@@ -85,6 +87,7 @@ bool parsePayload(
         !parseUnsigned(sections[2], scanned) ||
         (sections[3] != "0" && sections[3] != "1") ||
         scanned > requestedLimit ||
+        (scanned == 0 && sections[3] == "0") ||
         nextOffset != requestedOffset + scanned)
     {
         return false;
@@ -107,6 +110,11 @@ bool parsePayload(
         return false;
     }
 
+    const unsigned long long requestedFrom =
+        static_cast<unsigned long long>(requestedFromTime);
+    const unsigned long long requestedUntil =
+        static_cast<unsigned long long>(requestedUntilTime);
+
     for (const std::string& encoded : encodedItems)
     {
         const std::vector<std::string> fields =
@@ -120,13 +128,15 @@ bool parsePayload(
         unsigned long long startTime = 0;
         unsigned long long endTime = 0;
         if (!parseUnsigned(fields[1], eventId) || eventId == 0 ||
-            !parseUnsigned(fields[2], startTime) ||
+            !parseUnsigned(fields[2], startTime) || startTime == 0 ||
             !parseUnsigned(fields[3], endTime) ||
             startTime > static_cast<unsigned long long>(
                 std::numeric_limits<std::int64_t>::max()) ||
             endTime > static_cast<unsigned long long>(
                 std::numeric_limits<std::int64_t>::max()) ||
             endTime <= startTime ||
+            endTime <= requestedFrom ||
+            startTime >= requestedUntil ||
             (fields[4] != "S" && fields[4] != "M"))
         {
             return false;
@@ -176,7 +186,13 @@ SuiteBridgeSvdrpTransport::requestEpgTypeSnapshot(
         return page;
     }
 
-    page.payloadValid = parsePayload(reply.payload, offset, limit, page);
+    page.payloadValid = parsePayload(
+        reply.payload,
+        fromTime,
+        untilTime,
+        offset,
+        limit,
+        page);
     if (!page.payloadValid)
     {
         page.items.clear();
@@ -184,4 +200,4 @@ SuiteBridgeSvdrpTransport::requestEpgTypeSnapshot(
     return page;
 }
 
-}
+} // namespace vdrsuite::agent
