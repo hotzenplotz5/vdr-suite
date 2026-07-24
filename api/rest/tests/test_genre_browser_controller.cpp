@@ -80,10 +80,13 @@ void seed(Database& database, std::int64_t now)
         "',3600,'Sport'),"
         "('default','C-1','105','Sportschau','Magazin','Description','" +
         std::to_string(now + 1850) + "','" + std::to_string(now + 5450) +
-        "',3600,'Sport'),"
-        "('default','C-1','106','Tagesschau','Nachrichten','Description','" +
+        "',3600,''),"
+        "('default','C-1','106','Tagesschau','','Description','" +
         std::to_string(now + 1900) + "','" + std::to_string(now + 5500) +
-        "',3600,'News'),"
+        "',3600,''),"
+        "('default','C-1','107','Tagesthemen','','Description','" +
+        std::to_string(now + 1950) + "','" + std::to_string(now + 5550) +
+        "',3600,''),"
         "('remote','C-2','200','Remote Action','Film','Description','" +
         std::to_string(now + 900) + "','" + std::to_string(now + 4500) +
         "',3600,'Film/Action');"
@@ -98,7 +101,7 @@ void seed(Database& database, std::int64_t now)
         "('remote','C-2',2,'Remote Channel','Remote','Remote',0,0,1);";
     assert(database.execute(sql));
 
-    for (int index = 0; index < 63; ++index)
+    for (int index = 0; index < 62; ++index)
     {
         const std::string eventId = std::to_string(1000 + index);
         const std::string startTime = std::to_string(now + 2100 + index);
@@ -166,7 +169,7 @@ public:
             resolution.metadata.mediaType = EpgScraperMediaType::Movie;
             resolution.metadata.genres = {"Documentary"};
         }
-        else if (event.id == "105" || event.id == "106")
+        else if (event.id == "105" || event.id == "106" || event.id == "107")
         {
             resolution.metadata.mediaType = EpgScraperMediaType::Series;
             resolution.metadata.genres = {"News"};
@@ -275,6 +278,7 @@ int main()
     assert(contains(series, "\"title\":\"Hartz Rot Gold\""));
     assert(!contains(series, "Sportschau"));
     assert(!contains(series, "Tagesschau"));
+    assert(!contains(series, "Tagesthemen"));
 
     ApiResponse sports;
     assert(runtime.tryHandleGet(
@@ -285,6 +289,7 @@ int main()
     assert(sports.statusCode == 200);
     assert(contains(sports, "Sportschau"));
     assert(!contains(sports, "Tagesschau"));
+    assert(!contains(sports, "Tagesthemen"));
 
     ApiResponse movies;
     assert(runtime.tryHandleGet(
