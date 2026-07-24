@@ -121,6 +121,20 @@ int main()
         assert(science.totalCount == 1);
         assert(science.recordings.front().title == "Space");
 
+        GenreEpgBrowseOverview dvbBrowse = repository.epgBrowseOverview(
+            "a", 900, 3000);
+        assert(dvbBrowse.categories.size() == 4);
+        assert(category(dvbBrowse, "movie").itemCount == 1);
+        assert(category(dvbBrowse, "series").itemCount == 0);
+        assert(category(dvbBrowse, "documentary").itemCount == 1);
+        assert(category(dvbBrowse, "sports").itemCount == 1);
+
+        GenreEpgPage dvbMovies = repository.epgByBrowse(
+            "a", "movie", "", 900, 3000, 50, 0);
+        assert(dvbMovies.totalCount == 1);
+        assert(dvbMovies.events.front().eventId == "20");
+        assert(dvbMovies.events.front().title != "Lifestyle series");
+
         assert(repository.replaceEvidence(scraperEvidence(
             "C2\n20", "20", "C2", 1500, 2500,
             "tvscraper", "scraper-metadata", {"Thriller", "Drama"})));
