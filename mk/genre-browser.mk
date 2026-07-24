@@ -51,6 +51,7 @@ test-genre-browser-pagination:
 
 test-genre-browser-architecture:
 	python3 tools/check_genre_browser_architecture_contracts.py
+	python3 tools/check_epg_type_snapshot_architecture_contracts.py
 
 test-genre-browser-frontend:
 	node --check web/frontend/api/genre-client-api.js
