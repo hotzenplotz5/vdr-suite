@@ -39,6 +39,8 @@ void DaemonRuntime::shutdown()
         return;
     }
 
+    recordingCacheWarmupStopRequested_.store(true);
+    epgCacheWarmupStopRequested_.store(true);
     stopRecordingCacheWarmupWorker();
     stopEpgCacheWarmupWorker();
 
