@@ -68,7 +68,8 @@ bool liveParityStrongNewsTitle(
     };
     if (normalized == "heute" || normalized.rfind("heute ", 0) == 0)
     {
-        return normalized.rfind("heute-show", 0) != 0;
+        return normalized.rfind("heute-show", 0) != 0 &&
+            normalized.rfind("heute show", 0) != 0;
     }
     for (const std::string& brand : brands)
     {
@@ -297,29 +298,61 @@ bool reconcileEpgBrowseClassificationLocked(
         contentClass = "documentary";
         confidence = 0.95;
     }
-    else if (activeScraperSports || activeScraperDocumentary)
-    {
-        if (activeScraperSports == activeScraperDocumentary) return true;
-        contentClass = activeScraperSports ? "sports" : "documentary";
-        confidence = 0.90;
-    }
     else if (activeMediaMovie || activeMediaSeries)
     {
         if (activeMediaMovie == activeMediaSeries) return true;
-        contentClass = activeMediaSeries ? "series" : "movie";
-        confidence = 0.99;
-    }
-    else if (lastKnownScraperSports || lastKnownScraperDocumentary)
-    {
-        if (lastKnownScraperSports == lastKnownScraperDocumentary) return true;
-        contentClass = lastKnownScraperSports ? "sports" : "documentary";
-        confidence = 0.90;
+        if (activeMediaSeries)
+        {
+            contentClass = "series";
+            confidence = 0.99;
+        }
+        else if (activeScraperSports || activeScraperDocumentary)
+        {
+            if (activeScraperSports == activeScraperDocumentary) return true;
+            contentClass = activeScraperSports ? "sports" : "documentary";
+            confidence = 0.95;
+        }
+        else
+        {
+            contentClass = "movie";
+            confidence = 0.99;
+        }
     }
     else if (lastKnownMediaMovie || lastKnownMediaSeries)
     {
         if (lastKnownMediaMovie == lastKnownMediaSeries) return true;
-        contentClass = lastKnownMediaSeries ? "series" : "movie";
-        confidence = 0.99;
+        if (lastKnownMediaSeries)
+        {
+            contentClass = "series";
+            confidence = 0.99;
+        }
+        else
+        {
+            const bool scraperSports = activeScraperSports || lastKnownScraperSports;
+            const bool scraperDocumentary =
+                activeScraperDocumentary || lastKnownScraperDocumentary;
+            if (scraperSports || scraperDocumentary)
+            {
+                if (scraperSports == scraperDocumentary) return true;
+                contentClass = scraperSports ? "sports" : "documentary";
+                confidence = 0.90;
+            }
+            else
+            {
+                contentClass = "movie";
+                confidence = 0.99;
+            }
+        }
+    }
+    else if (activeScraperSports || activeScraperDocumentary ||
+             lastKnownScraperSports || lastKnownScraperDocumentary)
+    {
+        const bool scraperSports = activeScraperSports || lastKnownScraperSports;
+        const bool scraperDocumentary =
+            activeScraperDocumentary || lastKnownScraperDocumentary;
+        if (scraperSports == scraperDocumentary) return true;
+        contentClass = scraperSports ? "sports" : "documentary";
+        confidence = 0.85;
     }
     else if (dvbSeries)
     {
