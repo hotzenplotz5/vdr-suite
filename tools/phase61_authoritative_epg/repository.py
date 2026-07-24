@@ -490,6 +490,11 @@ EpgEventRepository::replaceAuthoritativeWindowForBackend(
         }
     }
 
+    if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+    {
+        return result;
+    }
+
     std::string selectSql =
         "SELECT channel_id,event_id FROM epg_events "
         "WHERE backend_id=? "
@@ -507,6 +512,7 @@ EpgEventRepository::replaceAuthoritativeWindowForBackend(
             &selectStatement,
             nullptr) != SQLITE_OK)
     {
+        database_.execute("ROLLBACK;");
         return result;
     }
 
@@ -527,16 +533,10 @@ EpgEventRepository::replaceAuthoritativeWindowForBackend(
         if (incoming.find(eventCacheKey(key.channelId, key.eventId)) ==
             incoming.end())
         {
-            result.removedEvents.push_back(std::move(key));
+            result.removedEvents.push_back(key);
         }
     }
     sqlite3_finalize(selectStatement);
-
-    if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
-    {
-        result.removedEvents.clear();
-        return result;
-    }
 
     if (!upsertEvents(database_.handle(), normalizedBackendId, events))
     {
