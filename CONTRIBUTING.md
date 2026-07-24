@@ -18,6 +18,9 @@ These rules are non-negotiable and must be checked before every implementation c
 12. If the diagnosis is uncertain, stop and ask instead of guessing.
 13. For interactive terminal blocks, do not use `set -e` or `exit 1`.
 14. Do not combine cleanup, patching, checks, commit and push in one large block.
+15. Never require a patch file to be downloaded to a mobile device or manually transferred to the VDR server.
+16. Deliver server-side changes through a direct repository commit or a repository-hosted Python patch script that runs after `git pull --ff-only`.
+17. Do not use here-documents to transfer patches or complete source files. Prefer committed files or a checked Python patch generator.
 
 
 ## Navigation
