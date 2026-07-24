@@ -3,7 +3,8 @@ CXXFLAGS += -Icore/metadata/include
 GENRE_BROWSER_REST_SRC := \
 	$(METADATA_GENRE_SRC) \
 	api/rest/src/GenreBrowserController.cpp \
-	api/rest/src/GenreBrowserApiRuntime.cpp
+	api/rest/src/GenreBrowserApiRuntime.cpp \
+	api/rest/src/GenreBrowserApiRuntimeEpgTypeSnapshot.cpp
 
 GENRE_BROWSER_TEST_SUPPORT_SRC := \
 	$(SQLITE_SRC) \
