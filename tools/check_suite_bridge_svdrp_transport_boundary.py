@@ -7,16 +7,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 HEADER = ROOT / "core/agent/include/SuiteBridgeSvdrpTransport.h"
 SOURCE = ROOT / "core/agent/src/SuiteBridgeSvdrpTransport.cpp"
+TYPE_SNAPSHOT_SOURCE = (
+    ROOT / "core/agent/src/SuiteBridgeSvdrpEpgTypeSnapshotTransport.cpp"
+)
 METADATA_SOURCE = ROOT / "core/agent/src/SuiteBridgeSvdrpMetadataTransport.cpp"
 TEST = ROOT / "core/agent/tests/test_suite_bridge_svdrp_transport.cpp"
+TYPE_SNAPSHOT_TEST = (
+    ROOT / "core/agent/tests/test_suite_bridge_svdrp_epg_type_snapshot_transport.cpp"
+)
 METADATA_TEST = ROOT / "core/agent/tests/test_suite_bridge_svdrp_metadata_transport.cpp"
 LIVE_TEST = ROOT / "core/agent/tests/test_suite_bridge_svdrp_transport_live.cpp"
 
 REQUIRED = [
     HEADER,
     SOURCE,
+    TYPE_SNAPSHOT_SOURCE,
     METADATA_SOURCE,
     TEST,
+    TYPE_SNAPSHOT_TEST,
     METADATA_TEST,
     LIVE_TEST,
 ]
@@ -45,12 +53,14 @@ REQUIRED_HEADER_FRAGMENTS = [
     "class SuiteBridgeSvdrpTransport final :",
     "public ISuiteBridgeLocalTransport",
     "public ::ISuiteBridgeArtworkTransport",
+    "public ::ISuiteBridgeEpgTypeSnapshotTransport",
     "public ::ISuiteBridgeMetadataTransport",
     "MaximumGreetingBytes = 1024",
     "MaximumReplyBytes = 8192",
     "MaximumReplyLines = 64",
     "SuiteBridgeCommandReply execute(",
     "requestArtwork(",
+    "requestEpgTypeSnapshot(",
     "requestMetadata(",
 ]
 
@@ -72,6 +82,14 @@ REQUIRED_SOURCE_FRAGMENTS = [
     "inconsistent SVDRP multiline reply code",
 ]
 
+REQUIRED_TYPE_SNAPSHOT_SOURCE_FRAGMENTS = [
+    '"PLUG suitebridge ETYPES " + std::to_string(fromTime)',
+    "limit == 0 || limit > 64",
+    "nextOffset != requestedOffset + scanned",
+    'fields[4] != "S" && fields[4] != "M"',
+    "page.payloadValid = parsePayload",
+]
+
 REQUIRED_METADATA_SOURCE_FRAGMENTS = [
     '"PLUG suitebridge META " + channelId + " " + eventId + "\\r\\n"',
     "safeMetadataToken(channelId)",
@@ -89,6 +107,14 @@ REQUIRED_TEST_FRAGMENTS = [
     "testGreetingTimeout();",
     "testOversizedReply();",
     "testConnectionFailure();",
+]
+
+REQUIRED_TYPE_SNAPSHOT_TEST_FRAGMENTS = [
+    '"PLUG suitebridge ETYPES 100 300 0 64\\r\\n"',
+    "page.payloadValid",
+    "page.items[0].mediaType == EpgScraperMediaType::Series",
+    "page.items[1].mediaType == EpgScraperMediaType::Movie",
+    "!page.payloadValid",
 ]
 
 REQUIRED_METADATA_TEST_FRAGMENTS = [
@@ -112,12 +138,22 @@ for path in REQUIRED:
 
 header_text = HEADER.read_text(encoding="utf-8") if HEADER.is_file() else ""
 source_text = SOURCE.read_text(encoding="utf-8") if SOURCE.is_file() else ""
+type_snapshot_source_text = (
+    TYPE_SNAPSHOT_SOURCE.read_text(encoding="utf-8")
+    if TYPE_SNAPSHOT_SOURCE.is_file()
+    else ""
+)
 metadata_source_text = (
     METADATA_SOURCE.read_text(encoding="utf-8")
     if METADATA_SOURCE.is_file()
     else ""
 )
 test_text = TEST.read_text(encoding="utf-8") if TEST.is_file() else ""
+type_snapshot_test_text = (
+    TYPE_SNAPSHOT_TEST.read_text(encoding="utf-8")
+    if TYPE_SNAPSHOT_TEST.is_file()
+    else ""
+)
 metadata_test_text = (
     METADATA_TEST.read_text(encoding="utf-8")
     if METADATA_TEST.is_file()
@@ -125,7 +161,12 @@ metadata_test_text = (
 )
 
 for token in FORBIDDEN_SOURCE_TOKENS:
-    if token in header_text or token in source_text or token in metadata_source_text:
+    if (
+        token in header_text
+        or token in source_text
+        or token in type_snapshot_source_text
+        or token in metadata_source_text
+    ):
         errors.append(
             f"forbidden SB.10b transport token {token!r}"
         )
@@ -142,6 +183,12 @@ for fragment in REQUIRED_SOURCE_FRAGMENTS:
             f"missing bounded SB.10b source contract: {fragment}"
         )
 
+for fragment in REQUIRED_TYPE_SNAPSHOT_SOURCE_FRAGMENTS:
+    if fragment not in type_snapshot_source_text:
+        errors.append(
+            f"missing bounded EPG type snapshot transport contract: {fragment}"
+        )
+
 for fragment in REQUIRED_METADATA_SOURCE_FRAGMENTS:
     if fragment not in metadata_source_text:
         errors.append(
@@ -152,6 +199,12 @@ for fragment in REQUIRED_TEST_FRAGMENTS:
     if fragment not in test_text:
         errors.append(
             f"missing SB.10b transport test contract: {fragment}"
+        )
+
+for fragment in REQUIRED_TYPE_SNAPSHOT_TEST_FRAGMENTS:
+    if fragment not in type_snapshot_test_text:
+        errors.append(
+            f"missing EPG type snapshot transport test contract: {fragment}"
         )
 
 for fragment in REQUIRED_METADATA_TEST_FRAGMENTS:
@@ -185,6 +238,11 @@ if observed_fixed_requests != expected_fixed_requests:
 if source_text.count('"PLUG suitebridge ARTW "') != 1:
     errors.append(
         "SB.10b source must contain exactly one bounded artwork request prefix"
+    )
+
+if type_snapshot_source_text.count('"PLUG suitebridge ETYPES "') != 1:
+    errors.append(
+        "EPG type snapshot transport must contain exactly one bounded ETYPES request prefix"
     )
 
 if metadata_source_text.count('"PLUG suitebridge META "') != 1:
