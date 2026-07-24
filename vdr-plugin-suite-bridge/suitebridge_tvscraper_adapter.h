@@ -10,6 +10,9 @@ class SuiteBridgeTvScraperAdapter final {
 public:
   static bool Available() noexcept;
 
+  SuiteBridgeEpgMediaType ResolveMediaType(
+      const cEvent &event) const;
+
   SuiteBridgeArtworkReference ResolvePreferredArtwork(
       const cEvent &event) const;
 
