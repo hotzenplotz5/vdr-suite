@@ -174,7 +174,7 @@ int main()
         assert(category(dvbBrowse, "movie").itemCount == 2);
         assert(category(dvbBrowse, "series").itemCount == 0);
         assert(category(dvbBrowse, "documentary").itemCount == 1);
-        assert(category(dvbBrowse, "sports").itemCount == 1);
+        assert(category(dvbBrowse, "sports").itemCount == 2);
 
         GenreEpgPage dvbMovies = repository.epgByBrowse(
             "a", "movie", "", 900, 8000, 50, 0);
