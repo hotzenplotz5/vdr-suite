@@ -5,6 +5,7 @@
 #include "EpgArtworkRepository.h"
 #include "EpgCacheService.h"
 #include "EpgCacheServiceRegistry.h"
+#include "EpgMetadataMaterializationQueue.h"
 
 #include <iomanip>
 #include <sstream>
@@ -207,12 +208,6 @@ EpgCacheController::EpgCacheController(
 {
 }
 
-void EpgCacheController::setScraperMetadataMaterializationRequest(
-    ScraperMetadataMaterializationRequest request)
-{
-    scraperMetadataMaterializationRequest_ = std::move(request);
-}
-
 void EpgCacheController::setScraperMetadataAllowedRoots(
     std::vector<std::string> allowedRoots)
 {
@@ -339,13 +334,10 @@ ApiResponse EpgCacheController::getMetadata(
         return jsonResponse(200, cached);
     }
 
-    if (scraperMetadataMaterializationRequest_)
-    {
-        scraperMetadataMaterializationRequest_(
-            normalizedBackendId,
-            channelId,
-            eventId);
-    }
+    EpgMetadataMaterializationQueue::instance().request(
+        normalizedBackendId,
+        channelId,
+        eventId);
 
     return jsonResponse(
         200,
