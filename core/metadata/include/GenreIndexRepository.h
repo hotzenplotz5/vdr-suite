@@ -49,6 +49,26 @@ struct GenreOverview
     std::vector<GenreOverviewEntry> genres;
 };
 
+struct GenreBrowseCategory
+{
+    std::string id;
+    std::string label;
+    std::string labelDe;
+    std::string labelEn;
+    int itemCount = 0;
+    std::vector<GenreBrowseCategory> children;
+};
+
+struct GenreEpgBrowseOverview
+{
+    std::string backendId;
+    std::int64_t fromTime = 0;
+    std::int64_t untilTime = 0;
+    int distinctItemCount = 0;
+    int assignmentCount = 0;
+    std::vector<GenreBrowseCategory> categories;
+};
+
 struct GenreRecordingItem
 {
     std::string id;
@@ -82,6 +102,7 @@ struct GenreEpgItem
     std::string title;
     std::string subtitle;
     std::string description;
+    std::string contentClass;
     std::int64_t startTime = 0;
     std::int64_t endTime = 0;
     int durationSeconds = 0;
@@ -94,6 +115,7 @@ struct GenreEpgItem
 struct GenreEpgPage
 {
     std::string backendId;
+    std::string contentClass;
     std::string genreId;
     std::int64_t fromTime = 0;
     std::int64_t untilTime = 0;
@@ -124,6 +146,9 @@ public:
 
     bool ensureSchema();
     bool replaceEvidence(const GenreEvidenceInput& input);
+    bool reconcileEpgBrowseClassification(
+        const std::string& backendId,
+        const std::string& resourceKey);
     bool markProviderEvidenceStale(
         const std::string& backendId,
         const std::string& targetType,
@@ -153,6 +178,12 @@ public:
         std::int64_t untilTime,
         const std::string& locale = "de") const;
 
+    GenreEpgBrowseOverview epgBrowseOverview(
+        const std::string& backendId,
+        std::int64_t fromTime,
+        std::int64_t untilTime,
+        const std::string& locale = "de") const;
+
     GenreRecordingPage recordingsByGenre(
         const std::string& backendId,
         const std::string& genreId,
@@ -161,6 +192,15 @@ public:
 
     GenreEpgPage epgByGenre(
         const std::string& backendId,
+        const std::string& genreId,
+        std::int64_t fromTime,
+        std::int64_t untilTime,
+        int limit,
+        int offset) const;
+
+    GenreEpgPage epgByBrowse(
+        const std::string& backendId,
+        const std::string& contentClass,
         const std::string& genreId,
         std::int64_t fromTime,
         std::int64_t untilTime,
@@ -183,6 +223,8 @@ public:
         const std::string& backendId,
         const std::string& resourceKey);
     static bool isValidTargetType(const std::string& targetType);
+    static bool isEpgBrowseContentClass(const std::string& value);
+    static bool isFilmGenre(const std::string& value);
 
 private:
     Database& database_;
