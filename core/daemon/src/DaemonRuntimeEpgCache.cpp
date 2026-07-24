@@ -120,8 +120,25 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
         auto lastGenreRefresh = lastRefresh;
 
         while (!epgCacheWarmupStopRequested_.load()) {
-            if (waitForStop(5)) {
+            if (waitForStop(1)) {
                 return;
+            }
+
+            {
+                auto refreshLease =
+                    DaemonCacheRefreshExecutionGate::acquire();
+                if (epgCacheWarmupStopRequested_.load()) {
+                    return;
+                }
+
+                const int processed = GenreBrowserApiRuntime::instance()
+                    .processRequestedEpgMetadata(4);
+                if (processed > 0) {
+                    std::cout
+                        << "EPG metadata demand materialization finished: requests="
+                        << processed
+                        << std::endl;
+                }
             }
 
             const auto now = std::chrono::steady_clock::now();
