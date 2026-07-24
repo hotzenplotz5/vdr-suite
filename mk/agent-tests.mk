@@ -35,19 +35,19 @@ test-suite-bridge-svdrp-artwork-transport:
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_artwork_transport
 	$(BUILD_DIR)/test_suite_bridge_svdrp_artwork_transport
 
-test-suite-bridge-svdrp-metadata-transport:
-	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include -Icore/vdr/include \
-		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
-		core/agent/tests/test_suite_bridge_svdrp_metadata_transport.cpp \
-		-o $(BUILD_DIR)/test_suite_bridge_svdrp_metadata_transport
-	$(BUILD_DIR)/test_suite_bridge_svdrp_metadata_transport
-
 test-suite-bridge-svdrp-epg-type-snapshot-transport:
 	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include -Icore/vdr/include \
 		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
 		core/agent/tests/test_suite_bridge_svdrp_epg_type_snapshot_transport.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_svdrp_epg_type_snapshot_transport
 	$(BUILD_DIR)/test_suite_bridge_svdrp_epg_type_snapshot_transport
+
+test-suite-bridge-svdrp-metadata-transport: test-suite-bridge-svdrp-epg-type-snapshot-transport
+	$(BUILD_CXX) $(CXXFLAGS) -pthread -Icore/agent/include -Icore/vdr/include \
+		$(AGENT_SVDRP_TRANSPORT_STANDALONE_SRC) \
+		core/agent/tests/test_suite_bridge_svdrp_metadata_transport.cpp \
+		-o $(BUILD_DIR)/test_suite_bridge_svdrp_metadata_transport
+	$(BUILD_DIR)/test_suite_bridge_svdrp_metadata_transport
 
 test-suite-bridge-observation-boundary:
 	python3 tools/check_suite_bridge_observation_boundary.py
