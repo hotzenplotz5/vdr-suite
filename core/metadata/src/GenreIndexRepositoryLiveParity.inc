@@ -2,11 +2,13 @@ bool executeGenreSchema(Database& database)
 {
     if (!executeGenreSchemaV2(database)) return false;
     return database.execute(
+        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
+        "(7,'Live-aligned fused DVB and TVScraper EPG browse classification');"
         "DELETE FROM suite_metadata_genre_assignments "
         "WHERE source_kind='epg-browse-content-class' "
         "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=8);"
         "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(8,'Live-aligned title guards and stale TVScraper fallback for EPG browse classification');");
+        "(8,'Live-aligned title guards and last-known-good TVScraper EPG types');");
 }
 
 std::string liveParityAsciiLower(const std::string& value)
@@ -41,9 +43,15 @@ bool liveParityStrongNewsTitle(
     const std::string& title,
     const std::string& subtitle)
 {
-    const std::string normalized = liveParityAsciiLower(title + " " + subtitle);
+    std::string normalized = liveParityAsciiLower(title + " " + subtitle);
+    const std::size_t first = normalized.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return false;
+    const std::size_t last = normalized.find_last_not_of(" \t\r\n");
+    normalized = normalized.substr(first, last - first + 1);
+
     static const std::vector<std::string> brands = {
         "tagesschau",
+        "tagesschau24",
         "tagesthemen",
         "heute journal",
         "heute-journal",
@@ -65,6 +73,7 @@ bool liveParityStrongNewsTitle(
     for (const std::string& brand : brands)
     {
         if (liveParityStartsWithBrand(normalized, brand)) return true;
+        if (liveParityStartsWithBrand(normalized, "die " + brand)) return true;
     }
     return false;
 }
@@ -179,12 +188,12 @@ bool reconcileEpgBrowseClassificationLocked(
 
     bool activeMediaMovie = false;
     bool activeMediaSeries = false;
-    bool staleMediaMovie = false;
-    bool staleMediaSeries = false;
+    bool lastKnownMediaMovie = false;
+    bool lastKnownMediaSeries = false;
     bool activeScraperDocumentary = false;
     bool activeScraperSports = false;
-    bool staleScraperDocumentary = false;
-    bool staleScraperSports = false;
+    bool lastKnownScraperDocumentary = false;
+    bool lastKnownScraperSports = false;
     bool dvbMovie = false;
     bool dvbSeries = false;
     bool dvbDocumentary = false;
@@ -220,8 +229,8 @@ bool reconcileEpgBrowseClassificationLocked(
         {
             if (state == "stale")
             {
-                staleMediaMovie = staleMediaMovie || genreId == "movie";
-                staleMediaSeries = staleMediaSeries || genreId == "series";
+                lastKnownMediaMovie = lastKnownMediaMovie || genreId == "movie";
+                lastKnownMediaSeries = lastKnownMediaSeries || genreId == "series";
             }
             else if (isUsableBrowseEvidenceState(state))
             {
@@ -236,9 +245,10 @@ bool reconcileEpgBrowseClassificationLocked(
         {
             if (state == "stale")
             {
-                staleScraperDocumentary =
-                    staleScraperDocumentary || genreId == "documentary";
-                staleScraperSports = staleScraperSports || genreId == "sports";
+                lastKnownScraperDocumentary =
+                    lastKnownScraperDocumentary || genreId == "documentary";
+                lastKnownScraperSports =
+                    lastKnownScraperSports || genreId == "sports";
             }
             else if (isUsableBrowseEvidenceState(state))
             {
@@ -299,17 +309,17 @@ bool reconcileEpgBrowseClassificationLocked(
         contentClass = activeMediaSeries ? "series" : "movie";
         confidence = 0.99;
     }
-    else if (staleScraperSports || staleScraperDocumentary)
+    else if (lastKnownScraperSports || lastKnownScraperDocumentary)
     {
-        if (staleScraperSports == staleScraperDocumentary) return true;
-        contentClass = staleScraperSports ? "sports" : "documentary";
-        confidence = 0.78;
+        if (lastKnownScraperSports == lastKnownScraperDocumentary) return true;
+        contentClass = lastKnownScraperSports ? "sports" : "documentary";
+        confidence = 0.90;
     }
-    else if (staleMediaMovie || staleMediaSeries)
+    else if (lastKnownMediaMovie || lastKnownMediaSeries)
     {
-        if (staleMediaMovie == staleMediaSeries) return true;
-        contentClass = staleMediaSeries ? "series" : "movie";
-        confidence = 0.80;
+        if (lastKnownMediaMovie == lastKnownMediaSeries) return true;
+        contentClass = lastKnownMediaSeries ? "series" : "movie";
+        confidence = 0.99;
     }
     else if (dvbSeries)
     {
