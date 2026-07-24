@@ -37,11 +37,11 @@ int main()
       SuiteBridgeCapabilityDiscoveryReply::PayloadUnavailableReplyCode() == 451);
 
   const char *expected =
-      "{\"discovery_schema\":1,\"plugin_name\":\"suitebridge\",\"plugin_version\":\"0.12.0\",\"capability_schema\":1,\"snapshot_schema\":2,\"local_contract_schema\":2,\"capabilities\":[{\"id\":\"lifecycle\",\"state\":\"available\"},{\"id\":\"status-events\",\"state\":\"available\"},{\"id\":\"snapshots\",\"state\":\"available\"},{\"id\":\"local-contract\",\"state\":\"available\"},{\"id\":\"recording-metadata\",\"state\":\"available\"},{\"id\":\"mutations\",\"state\":\"disabled\"}]}";
+      "{\"discovery_schema\":1,\"plugin_name\":\"suitebridge\",\"plugin_version\":\"0.13.0\",\"capability_schema\":1,\"snapshot_schema\":2,\"local_contract_schema\":2,\"capabilities\":[{\"id\":\"lifecycle\",\"state\":\"available\"},{\"id\":\"status-events\",\"state\":\"available\"},{\"id\":\"snapshots\",\"state\":\"available\"},{\"id\":\"local-contract\",\"state\":\"available\"},{\"id\":\"recording-metadata\",\"state\":\"available\"},{\"id\":\"epg-type-snapshot\",\"state\":\"available\"},{\"id\":\"mutations\",\"state\":\"disabled\"}]}";
 
   const SuiteBridgeCapabilityDiscoveryPayload payload(
       "suitebridge",
-      "0.12.0");
+      "0.13.0");
 
   assert(payload.Complete());
   assert(payload.Size() == std::strlen(expected));
@@ -51,17 +51,17 @@ int main()
       "CAPS",
       "",
       "suitebridge",
-      "0.12.0");
+      "0.13.0");
   const SuiteBridgeCapabilityDiscoveryReply explicitCurrent(
       "CAPS",
       "1",
       "suitebridge",
-      "0.12.0");
+      "0.13.0");
   const SuiteBridgeCapabilityDiscoveryReply paddedCurrent(
       "caps",
       " 01 ",
       "suitebridge",
-      "0.12.0");
+      "0.13.0");
 
   for (const auto *reply : {&current, &explicitCurrent, &paddedCurrent}) {
     assert(reply->Handled());
@@ -75,12 +75,12 @@ int main()
       "CAPS",
       "2",
       "suitebridge",
-      "0.12.0");
+      "0.13.0");
   const SuiteBridgeCapabilityDiscoveryReply oversized(
       "CAPS",
       "999999999999999999999999999999999999999999",
       "suitebridge",
-      "0.12.0");
+      "0.13.0");
 
   for (const auto *reply : {&unsupported, &oversized}) {
     assert(reply->Handled());
@@ -95,12 +95,12 @@ int main()
       "CAPS",
       "abc",
       "suitebridge",
-      "0.12.0");
+      "0.13.0");
   const SuiteBridgeCapabilityDiscoveryReply malformedSuffix(
       "CAPS",
       "1 extra",
       "suitebridge",
-      "0.12.0");
+      "0.13.0");
 
   for (const auto *reply : {&malformedText, &malformedSuffix}) {
     assert(reply->Handled());
@@ -131,12 +131,12 @@ int main()
       "UNKNOWN",
       "",
       "suitebridge",
-      "0.12.0");
+      "0.13.0");
   const SuiteBridgeCapabilityDiscoveryReply nullCommand(
       nullptr,
       nullptr,
       "suitebridge",
-      "0.12.0");
+      "0.13.0");
 
   for (const auto *reply : {&unknown, &nullCommand}) {
     assert(!reply->Handled());
