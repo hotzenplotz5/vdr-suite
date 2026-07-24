@@ -1,4 +1,5 @@
 EPG_SCRAPER_METADATA_CONTROLLER_SRC := \
+        core/vdr/src/EpgArtworkPathPolicy.cpp \
         core/vdr/src/EpgScraperMetadataResolverRegistry.cpp \
         core/vdr/src/EpgScraperMetadataPublicJsonSerializer.cpp \
         core/vdr/src/PersistentEpgScraperMetadataResolver.cpp
