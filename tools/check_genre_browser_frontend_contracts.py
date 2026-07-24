@@ -23,8 +23,18 @@ index = read("web/frontend/index.html")
 remote = read("web/frontend/modules/remote.js")
 runtime_test = read("web/frontend/tests/test_genres_runtime.js")
 
-for forbidden in ("fetch(", "tvscraper", "tmdb", "imdb", "restfulapi", "SuiteBridge"):
-    require(forbidden not in genres, f"genres module violates provider/HTTP ownership: {forbidden}")
+for forbidden in (
+    "fetch(",
+    "tvscraper",
+    "tmdb",
+    "imdb",
+    "restfulapi",
+    "SuiteBridge",
+):
+    require(
+        forbidden not in genres,
+        f"genres module violates provider/HTTP ownership: {forbidden}",
+    )
 
 require("fetchClientGenres" in genres, "genres module must use the genre Client API")
 require("fetchClientGenreRecordings" in genres, "recording genre query must use the Client API")
@@ -32,6 +42,30 @@ require("fetchClientGenreEpg" in genres, "EPG genre query must use the Client AP
 require("/api/metadata/genres" not in genres, "route literals belong to the Client API")
 require("/api/metadata/genres" in client, "genre Client API route is missing")
 require("document." not in client, "genre Client API extension must remain DOM-free")
+require(
+    "contentClass: normalized.contentClass" in client,
+    "genre Client API must carry the EPG content class",
+)
+require(
+    "contentClass:text(" in genres,
+    "EPG result requests must use the selected main class",
+)
+require(
+    "state.view = 'movie-genres'" in genres
+    and "Filmgenres" in genres
+    and "Alle Filme" in genres,
+    "two-level Film navigation is missing",
+)
+require(
+    "← EPG-Hauptkategorien" in genres
+    and "← Filmgenres" in genres,
+    "hierarchical EPG back navigation is incomplete",
+)
+for hidden in ("Nachrichten", "Talkshow", "Reality"):
+    require(
+        hidden not in genres,
+        f"frontend must not implement a title/category special case for {hidden}",
+    )
 require(
     "fetchClientChannels" not in genres
     and "loadChannels" not in genres
@@ -44,9 +78,15 @@ require(
 )
 require(
     "channelRequests, 0" in runtime_test
-    and "database-only EPG Genre navigation" in runtime_test
+    and "database-only EPG Genre navigation hierarchy" in runtime_test
     and "for (let index = 0; index < 12; index += 1)" in runtime_test,
-    "genre runtime test must cover repeated database-only EPG navigation",
+    "genre runtime test must cover repeated database-only EPG hierarchy navigation",
+)
+require(
+    "contentClass" in runtime_test
+    and "genreId" in runtime_test
+    and "Nachrichten" in runtime_test,
+    "genre runtime test must verify server-provided hierarchy and filtering",
 )
 
 require("createRecordingCard" in recording_view, "Recordings 2 card owner is not exported")
@@ -89,7 +129,8 @@ positions = [index.find(token) for token in order]
 require(all(position >= 0 for position in positions), "genre navigation entry is incomplete")
 require(positions == sorted(positions), "static navigation order is incorrect")
 require(
-    "['overview','channels2','recordings2','genres','epg','channelsort','timers','searchtimers']" in remote,
+    "['overview','channels2','recordings2','genres','epg','channelsort','timers','searchtimers']"
+    in remote,
     "remote runtime navigation order must include genres after recordings2",
 )
 
