@@ -1,12 +1,14 @@
 #pragma once
 
 #include "DashboardController.h"
+#include "ISuiteBridgeEpgTypeSnapshotTransport.h"
 
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 class BackendRegistryService;
 class Database;
@@ -36,6 +38,10 @@ public:
         std::int64_t fromTime,
         std::int64_t untilTime,
         int enrichmentLimit = 32);
+
+    bool applyEpgTypeSnapshot(
+        const std::string& backendId,
+        const std::vector<SuiteBridgeEpgTypeSnapshotTransportItem>& items);
 
     bool continueEpgEnrichment(
         const std::string& backendId,
