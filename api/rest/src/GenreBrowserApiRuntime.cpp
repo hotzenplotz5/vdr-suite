@@ -1,6 +1,7 @@
 #include "GenreBrowserApiRuntime.h"
 
 #include "Database.h"
+#include "EpgMetadataMaterializationQueue.h"
 #include "GenreBrowserController.h"
 #include "GenreIndexRepository.h"
 #include "IEpgScraperMetadataResolver.h"
@@ -22,9 +23,6 @@ namespace
 {
 constexpr std::int64_t DefaultEpgWindowSeconds = 48 * 60 * 60;
 constexpr std::int64_t ResolverFreshnessSeconds = 6 * 60 * 60;
-constexpr std::size_t MaximumPendingMetadataRequests = 128;
-constexpr auto MetadataNotFoundBackoff = std::chrono::minutes(5);
-constexpr auto MetadataTransportBackoff = std::chrono::seconds(30);
 
 std::string requestPath(const std::string& requestTarget)
 {
@@ -93,14 +91,6 @@ std::string genreFrom(const RestQueryParameters& query)
 {
     const std::string genre = query.get("genre");
     return genre.empty() ? query.get("genreId") : genre;
-}
-
-std::string metadataRequestKey(
-    const std::string& backendId,
-    const std::string& channelId,
-    const std::string& eventId)
-{
-    return backendId + '\x1f' + channelId + '\x1f' + eventId;
 }
 
 bool enrichEpgIndex(
@@ -238,9 +228,7 @@ bool GenreBrowserApiRuntime::configure(
     readRepository_ = std::move(readRepository);
     controller_ = std::move(controller);
     epgResolvers_.clear();
-    epgMetadataRequests_.clear();
-    epgMetadataRequestKeys_.clear();
-    epgMetadataSuppressedUntil_.clear();
+    EpgMetadataMaterializationQueue::instance().reset();
     return true;
 }
 
@@ -252,66 +240,17 @@ void GenreBrowserApiRuntime::registerEpgScraperMetadataResolver(
     epgResolvers_[GenreIndexRepository::normalizeBackendId(backendId)] = &resolver;
 }
 
-void GenreBrowserApiRuntime::requestEpgMetadataMaterialization(
-    const std::string& backendId,
-    const std::string& channelId,
-    const std::string& eventId)
-{
-    if (channelId.empty() || eventId.empty()) return;
-
-    const std::string normalizedBackendId =
-        GenreIndexRepository::normalizeBackendId(backendId);
-    const std::string key = metadataRequestKey(
-        normalizedBackendId,
-        channelId,
-        eventId);
-    const auto now = std::chrono::steady_clock::now();
-
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    const auto suppressed = epgMetadataSuppressedUntil_.find(key);
-    if (suppressed != epgMetadataSuppressedUntil_.end())
-    {
-        if (suppressed->second > now) return;
-        epgMetadataSuppressedUntil_.erase(suppressed);
-    }
-
-    if (epgMetadataRequestKeys_.find(key) != epgMetadataRequestKeys_.end())
-    {
-        return;
-    }
-
-    if (epgMetadataRequests_.size() >= MaximumPendingMetadataRequests)
-    {
-        return;
-    }
-
-    EpgMetadataMaterializationRequest request;
-    request.backendId = normalizedBackendId;
-    request.channelId = channelId;
-    request.eventId = eventId;
-    request.key = key;
-    epgMetadataRequestKeys_.insert(key);
-    epgMetadataRequests_.push_back(std::move(request));
-}
-
 int GenreBrowserApiRuntime::processRequestedEpgMetadata(int maximumRequests)
 {
-    const int boundedMaximum = std::max(1, std::min(maximumRequests, 16));
+    const std::vector<EpgMetadataMaterializationRequest> requests =
+        EpgMetadataMaterializationQueue::instance().take(maximumRequests);
     int processed = 0;
 
-    while (processed < boundedMaximum)
+    for (const EpgMetadataMaterializationRequest& request : requests)
     {
-        EpgMetadataMaterializationRequest request;
         IEpgScraperMetadataResolver* resolver = nullptr;
-
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            if (epgMetadataRequests_.empty()) break;
-
-            request = std::move(epgMetadataRequests_.front());
-            epgMetadataRequests_.pop_front();
-
             const auto resolverEntry = epgResolvers_.find(request.backendId);
             if (resolverEntry != epgResolvers_.end())
             {
@@ -336,26 +275,18 @@ int GenreBrowserApiRuntime::processRequestedEpgMetadata(int maximumRequests)
             }
         }
 
+        EpgMetadataMaterializationOutcome outcome =
+            EpgMetadataMaterializationOutcome::TransportFailure;
+        if (resolution.attempted)
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            epgMetadataRequestKeys_.erase(request.key);
-
-            if (!resolution.attempted)
-            {
-                epgMetadataSuppressedUntil_[request.key] =
-                    std::chrono::steady_clock::now() + MetadataTransportBackoff;
-            }
-            else if (!resolution.found || !resolution.metadata.valid())
-            {
-                epgMetadataSuppressedUntil_[request.key] =
-                    std::chrono::steady_clock::now() + MetadataNotFoundBackoff;
-            }
-            else
-            {
-                epgMetadataSuppressedUntil_.erase(request.key);
-            }
+            outcome = resolution.found && resolution.metadata.valid()
+                ? EpgMetadataMaterializationOutcome::Success
+                : EpgMetadataMaterializationOutcome::NotFound;
         }
 
+        EpgMetadataMaterializationQueue::instance().complete(
+            request.key,
+            outcome);
         ++processed;
     }
 
@@ -507,10 +438,8 @@ bool GenreBrowserApiRuntime::configured() const
 void GenreBrowserApiRuntime::reset()
 {
     std::lock_guard<std::mutex> lock(mutex_);
+    EpgMetadataMaterializationQueue::instance().reset();
     epgResolvers_.clear();
-    epgMetadataRequests_.clear();
-    epgMetadataRequestKeys_.clear();
-    epgMetadataSuppressedUntil_.clear();
     controller_.reset();
     readRepository_.reset();
     readDatabase_.reset();
