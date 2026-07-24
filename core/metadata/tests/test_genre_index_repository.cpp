@@ -27,6 +27,7 @@ void seed(Database& database)
         "('a','r1','id1','native1','Space','Movies/Space','100',5400,1000,'{}'),"
         "('a','r2','id2','native2','Comedy','Movies/Comedy','200',3600,500,'{}'),"
         "('a','r3','id3','native3','No genre','Movies/Unknown','300',3600,500,'{}'),"
+        "('a','r4','id5','native5','Late metadata','Movies/Late','350',3600,500,'{}'),"
         "('b','r1','id4','native4','Other backend','Movies/Space','400',3600,500,'{}');"
         "INSERT INTO vdr_recording_native_metadata VALUES"
         "('a','m1','native1','found','success','tvscraper'),"
@@ -114,12 +115,33 @@ int main()
         assert(repository.synchronizeEpgCache("b", 900, 3000));
 
         GenreOverview recordings = repository.overview("a", "recording", 0, 0);
-        assert(recordings.distinctItemCount == 3);
+        assert(recordings.distinctItemCount == 4);
         assert(recordings.genres.size() == 4);
 
         GenreRecordingPage science = repository.recordingsByGenre("a", "science-fiction", 1, 0);
         assert(science.totalCount == 1);
         assert(science.recordings.front().title == "Space");
+
+        GenreRecordingPage unclassifiedBefore = repository.recordingsByGenre(
+            "a", "unclassified", 10, 0);
+        assert(unclassifiedBefore.totalCount == 2);
+
+        assert(database.execute(
+            "INSERT INTO vdr_recording_native_metadata VALUES"
+            "('a','m5','native5','found','success','tvscraper');"
+            "INSERT INTO vdr_recording_native_text_list VALUES"
+            "('a','m5','genre',0,'Thriller');"));
+        assert(repository.synchronizeRecordingCache("a"));
+
+        GenreRecordingPage unclassifiedAfter = repository.recordingsByGenre(
+            "a", "unclassified", 10, 0);
+        assert(unclassifiedAfter.totalCount == 1);
+        assert(unclassifiedAfter.recordings.front().title == "No genre");
+
+        GenreRecordingPage lateThriller = repository.recordingsByGenre(
+            "a", "thriller", 10, 0);
+        assert(lateThriller.totalCount == 1);
+        assert(lateThriller.recordings.front().title == "Late metadata");
 
         GenreEpgBrowseOverview dvbBrowse = repository.epgBrowseOverview(
             "a", 900, 3000);
