@@ -19,6 +19,7 @@
 #include "VdrService.h"
 #include "VdrSnapshotBuilder.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -44,4 +45,10 @@ struct BackendRuntimeContext
     std::unique_ptr<PollingService> pollingService;
     std::unique_ptr<RestfulApiEventStreamClient> eventStreamClient;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime> suiteBridgeAgentRuntime;
+
+    std::int64_t epgTypeSnapshotFrom = 0;
+    std::int64_t epgTypeSnapshotUntil = 0;
+    std::uint64_t epgTypeSnapshotOffset = 0;
+    bool epgTypeSnapshotComplete = true;
+    bool epgTypeSnapshotSupported = true;
 };
