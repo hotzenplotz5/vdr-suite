@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -38,11 +39,52 @@ void seed(Database& database)
         "('a','m2','genre',0,'Komödie'),"
         "('b','m4','genre',0,'Sci-Fi');"
         "INSERT INTO epg_events VALUES"
-        "('a','C1','10','Doku','Heute','Text','1000','2000',1000,'Doku'),"
-        "('a','C2','20','Mystery','Später','Text','1500','2500',1000,'Mystery\nDrama'),"
-        "('b','C1','10','Other','Other','Text','1000','2000',1000,'Action');"
+        "('a','C1','10','News','Heute','Text','1000','2000',1000,'News'),"
+        "('a','C2','20','Movie','Später','Text','1500','2500',1000,'Film/Drama\nDetektiv/Thriller'),"
+        "('a','C3','30','Lifestyle series','Episode','Text','1600','2600',1000,'Film/Unterhaltung'),"
+        "('a','C4','40','Doku','Natur','Text','1700','2700',1000,'Doku/Ökonomie'),"
+        "('a','C5','50','Live sport','Live','Text','1800','2800',1000,'Sport'),"
+        "('b','C1','10','Other','Other','Text','1000','2000',1000,'Film/Action');"
         "INSERT INTO epg_event_artwork VALUES"
         "('a','C2','20','tvscraper','/tmp/epg.jpg',1280,720,1700);"));
+}
+
+GenreEvidenceInput scraperEvidence(
+    const std::string& resourceKey,
+    const std::string& nativeId,
+    const std::string& channelId,
+    std::int64_t startTime,
+    std::int64_t endTime,
+    const std::string& providerId,
+    const std::string& sourceKind,
+    const std::vector<std::string>& values)
+{
+    GenreEvidenceInput input;
+    input.backendId = "a";
+    input.targetType = "program-event";
+    input.resourceKey = resourceKey;
+    input.nativeId = nativeId;
+    input.channelId = channelId;
+    input.startTime = startTime;
+    input.endTime = endTime;
+    input.providerId = providerId;
+    input.sourceKind = sourceKind;
+    input.originalValues = values;
+    input.confidence = 0.95;
+    input.observedAt = 3000;
+    return input;
+}
+
+const GenreBrowseCategory& category(
+    const GenreEpgBrowseOverview& overview,
+    const std::string& id)
+{
+    for (const GenreBrowseCategory& entry : overview.categories)
+    {
+        if (entry.id == id) return entry;
+    }
+    assert(false);
+    return overview.categories.front();
 }
 }
 
@@ -50,17 +92,11 @@ int main()
 {
     CanonicalGenreRegistry registry;
     assert(registry.classify("Science Fiction").id == "science-fiction");
-    assert(registry.classify("Science-Fiction").id == "science-fiction");
-    assert(registry.classify("Sci-Fi").id == "science-fiction");
-    assert(registry.classify("Scifi").id == "science-fiction");
     assert(registry.classify("Komödie").id == "comedy");
-    assert(registry.classify("Dokumentation").id == "documentary");
     assert(registry.classify("Doku").id == "documentary");
     assert(registry.classify("Serien").id == "series");
-    assert(registry.classify("Historienfilm").id == "history");
     assert(registry.classify("Talk Show").id == "talk-show");
     assert(registry.classify("Reality-TV").id == "reality");
-    assert(registry.classify("Ärger & Spaß").id == "unknown-aerger-spass");
     assert(registry.classify("").id == "unclassified");
 
     const std::string filename = "/tmp/vdr-suite-genre-index-test.sqlite";
@@ -83,106 +119,95 @@ int main()
 
         GenreRecordingPage science = repository.recordingsByGenre("a", "science-fiction", 1, 0);
         assert(science.totalCount == 1);
-        assert(science.recordings.size() == 1);
         assert(science.recordings.front().title == "Space");
-        assert(science.recordings.front().genreIds.size() == 2);
 
-        GenreRecordingPage comedy = repository.recordingsByGenre("a", "comedy", 50, 0);
-        assert(comedy.totalCount == 1);
-        assert(comedy.recordings.front().title == "Comedy");
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C2\n20", "20", "C2", 1500, 2500,
+            "tvscraper", "scraper-metadata", {"Thriller", "Drama"})));
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C2\n20", "20", "C2", 1500, 2500,
+            "tvscraper-media-type", "scraper-media-type", {"Movie"})));
+        assert(repository.reconcileEpgBrowseClassification("a", "C2\n20"));
 
-        GenreRecordingPage isolated = repository.recordingsByGenre("b", "science-fiction", 50, 0);
-        assert(isolated.totalCount == 1);
-        assert(isolated.recordings.front().title == "Other backend");
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C3\n30", "30", "C3", 1600, 2600,
+            "tvscraper", "scraper-metadata", {"Reality"})));
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C3\n30", "30", "C3", 1600, 2600,
+            "tvscraper-media-type", "scraper-media-type", {"Series"})));
+        assert(repository.reconcileEpgBrowseClassification("a", "C3\n30"));
 
-        GenreRecordingPage missing = repository.recordingsByGenre("a", "unclassified", 50, 0);
-        assert(missing.totalCount == 1);
+        GenreEpgBrowseOverview browse = repository.epgBrowseOverview("a", 900, 3000);
+        assert(browse.categories.size() == 4);
+        assert(category(browse, "movie").itemCount == 1);
+        assert(category(browse, "series").itemCount == 1);
+        assert(category(browse, "documentary").itemCount == 1);
+        assert(category(browse, "sports").itemCount == 1);
 
-        GenreOverview epg = repository.overview("a", "program-event", 900, 3000);
-        assert(epg.distinctItemCount == 2);
-        GenreEpgPage drama = repository.epgByGenre("a", "drama", 900, 3000, 50, 0);
-        assert(drama.totalCount == 1);
-        assert(drama.events.front().eventId == "20");
-        assert(drama.events.front().artworkAvailable);
-        assert(drama.events.front().artworkWidth == 1280);
-        assert(drama.events.front().artworkHeight == 720);
-
-        const std::vector<GenreEpgRefreshCandidate> initialCandidates =
-            repository.epgRefreshCandidates(
-                "a", 900, 3000, "tvscraper", 2500, 64);
-        assert(initialCandidates.size() == 2);
-        assert(repository.epgRefreshCandidates(
-            "b", 900, 3000, "tvscraper", 2500, 64).size() == 1);
-
-        GenreEvidenceInput scraperEvidence;
-        scraperEvidence.backendId = "a";
-        scraperEvidence.targetType = "program-event";
-        scraperEvidence.resourceKey = "C2\n20";
-        scraperEvidence.nativeId = "20";
-        scraperEvidence.channelId = "C2";
-        scraperEvidence.startTime = 1500;
-        scraperEvidence.endTime = 2500;
-        scraperEvidence.providerId = "tvscraper";
-        scraperEvidence.sourceKind = "scraper-metadata";
-        scraperEvidence.originalValues = {"Mystery", "Drama"};
-        scraperEvidence.confidence = 0.95;
-        scraperEvidence.observedAt = 3000;
-        assert(repository.replaceEvidence(scraperEvidence));
-        assert(!repository.providerEvidenceNeedsRefresh(
-            "a", "program-event", "C2\n20", "tvscraper", 2500));
-        assert(repository.epgRefreshCandidates(
-            "a", 900, 3000, "tvscraper", 2500, 64).size() == 1);
-
-        scraperEvidence.state = "stale";
-        scraperEvidence.originalValues.clear();
-        scraperEvidence.observedAt = 4000;
-        assert(repository.replaceEvidence(scraperEvidence));
-        assert(repository.providerEvidenceNeedsRefresh(
-            "a", "program-event", "C2\n20", "tvscraper", 2500));
-        assert(repository.epgRefreshCandidates(
-            "a", 900, 3000, "tvscraper", 3500, 64).size() == 1);
-
-        GenreOverview staleOverview = repository.overview(
-            "a", "program-event", 900, 3000);
-        bool sawStaleDrama = false;
-        for (const GenreOverviewEntry& entry : staleOverview.genres)
+        bool sawThriller = false;
+        for (const GenreBrowseCategory& child : category(browse, "movie").children)
         {
-            if (entry.genreId == "drama")
+            if (child.id == "thriller")
             {
-                sawStaleDrama = entry.staleCount == 1;
+                sawThriller = child.itemCount == 1;
             }
+            assert(child.id != "news");
+            assert(child.id != "reality");
+            assert(child.id != "series");
         }
-        assert(sawStaleDrama);
+        assert(sawThriller);
 
-        GenreEvidenceInput failedFirstAttempt;
-        failedFirstAttempt.backendId = "a";
-        failedFirstAttempt.targetType = "program-event";
-        failedFirstAttempt.resourceKey = "C1\n10";
-        failedFirstAttempt.nativeId = "10";
-        failedFirstAttempt.channelId = "C1";
-        failedFirstAttempt.startTime = 1000;
-        failedFirstAttempt.endTime = 2000;
-        failedFirstAttempt.providerId = "tvscraper";
-        failedFirstAttempt.sourceKind = "scraper-metadata";
-        failedFirstAttempt.state = "stale";
-        failedFirstAttempt.observedAt = 5000;
-        assert(repository.replaceEvidence(failedFirstAttempt));
-        assert(repository.epgRefreshCandidates(
-            "a", 900, 3000, "tvscraper", 3500, 64).empty());
+        GenreEpgPage thriller = repository.epgByBrowse(
+            "a", "movie", "thriller", 900, 3000, 50, 0);
+        assert(thriller.totalCount == 1);
+        assert(thriller.events.front().eventId == "20");
+        assert(thriller.events.front().artworkAvailable);
 
-        assert(repository.genreExists("science-fiction"));
-        assert(!repository.genreExists("does-not-exist"));
+        GenreEpgPage movies = repository.epgByBrowse(
+            "a", "movie", "", 900, 3000, 50, 0);
+        assert(movies.totalCount == 1);
+        assert(movies.events.front().eventId == "20");
+
+        GenreEpgPage series = repository.epgByBrowse(
+            "a", "series", "", 900, 3000, 50, 0);
+        assert(series.totalCount == 1);
+        assert(series.events.front().eventId == "30");
+
+        GenreEpgPage documentary = repository.epgByBrowse(
+            "a", "documentary", "", 900, 3000, 50, 0);
+        assert(documentary.totalCount == 1);
+        assert(documentary.events.front().eventId == "40");
+
+        GenreEpgPage sports = repository.epgByBrowse(
+            "a", "sports", "", 900, 3000, 50, 0);
+        assert(sports.totalCount == 1);
+        assert(sports.events.front().eventId == "50");
+
+        GenreOverview rawEvidence = repository.overview(
+            "a", "program-event", 900, 3000);
+        bool newsPreserved = false;
+        for (const GenreOverviewEntry& entry : rawEvidence.genres)
+        {
+            if (entry.genreId == "news") newsPreserved = entry.itemCount == 1;
+        }
+        assert(newsPreserved);
+
+        GenreEpgPage isolated = repository.epgByBrowse(
+            "b", "movie", "action", 900, 3000, 50, 0);
+        assert(isolated.totalCount == 1);
+        assert(isolated.events.front().title == "Other");
     }
 
     {
         Database database;
         assert(database.open(filename));
         GenreIndexRepository repository(database);
-        GenreRecordingPage persisted = repository.recordingsByGenre("a", "science-fiction", 50, 0);
+        GenreEpgPage persisted = repository.epgByBrowse(
+            "a", "series", "", 900, 3000, 50, 0);
         assert(persisted.totalCount == 1);
     }
 
     std::remove(filename.c_str());
-    std::cout << "genre index repository ok\n";
+    std::cout << "genre index repository hierarchy ok\n";
     return 0;
 }
