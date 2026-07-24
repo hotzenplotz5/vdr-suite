@@ -188,15 +188,10 @@ void EpgArtworkEnrichmentService::process(const WorkItem& item)
 
     if (!resolution.found)
     {
-        if (!repository_.removeForEvent(
-                item.backendId,
-                item.event.channelId,
-                item.event.id))
-        {
-            suppressUntil(item.key, retryBackoff_);
-            return;
-        }
-
+        // A transient provider miss must never destroy a previously resolved
+        // Suite-owned artwork reference. Keep the last known good row and
+        // merely throttle the next retry. Events without cached artwork remain
+        // unresolved until a later successful enrichment.
         suppressUntil(item.key, notFoundTtl_);
         return;
     }
