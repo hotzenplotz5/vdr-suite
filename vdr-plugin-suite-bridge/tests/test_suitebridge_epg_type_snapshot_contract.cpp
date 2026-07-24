@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
+#include <string>
 
 int main()
 {
@@ -67,6 +68,22 @@ int main()
   SuiteBridgeEpgTypeSnapshotPayload empty(done);
   assert(empty.Complete());
   assert(std::strcmp(empty.Data(), "1|12|0|1|") == 0);
+
+  SuiteBridgeEpgTypeSnapshotPage oversized;
+  oversized.nextOffset = 64;
+  oversized.scanned = 64;
+  oversized.done = false;
+  for (unsigned int index = 0; index < 64; ++index) {
+    SuiteBridgeEpgTypeSnapshotItem item;
+    item.channelId = std::string(250, 'C') + std::to_string(index % 10);
+    item.eventId = 1000 + index;
+    item.startTime = 100 + index;
+    item.endTime = 200 + index;
+    item.mediaType = SuiteBridgeEpgMediaType::Series;
+    oversized.items.push_back(item);
+  }
+  SuiteBridgeEpgTypeSnapshotPayload oversizedPayload(oversized);
+  assert(!oversizedPayload.Complete());
 
   std::cout << "suitebridge epg type snapshot contract ok\n";
   return 0;
