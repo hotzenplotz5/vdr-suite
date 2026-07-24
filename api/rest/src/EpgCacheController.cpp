@@ -207,13 +207,6 @@ EpgCacheController::EpgCacheController(
 {
 }
 
-void EpgCacheController::registerScraperMetadataResolver(
-    const std::string& backendId,
-    IEpgScraperMetadataResolver& resolver)
-{
-    scraperMetadataResolverRegistry_.registerResolver(backendId, resolver);
-}
-
 void EpgCacheController::setScraperMetadataAllowedRoots(
     std::vector<std::string> allowedRoots)
 {
