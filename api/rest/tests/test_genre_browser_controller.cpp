@@ -93,6 +93,18 @@ void seed(Database& database, std::int64_t now)
         "'Öffentlich-rechtlich',0,0,1),"
         "('remote','C-2',2,'Remote Channel','Remote','Remote',0,0,1);";
     assert(database.execute(sql));
+
+    for (int index = 0; index < 65; ++index)
+    {
+        const std::string eventId = std::to_string(1000 + index);
+        const std::string startTime = std::to_string(now + 2100 + index);
+        const std::string endTime = std::to_string(now + 5700 + index);
+        assert(database.execute(
+            "INSERT INTO epg_events VALUES('default','C-1','" + eventId +
+            "','Synthetic Movie " + eventId +
+            "','Film','Description','" + startTime + "','" + endTime +
+            "',3600,'News');"));
+    }
 }
 
 GenreEvidenceInput recordingEvidence(
@@ -282,8 +294,12 @@ int main()
     assert(!runtime.tryHandleGet("/api/vdr/live/overlay", routed));
 
     assert(runtime.continueEpgEnrichment(
-        "default", now, now + 172800, 8));
-    assert(resolver.calls == 5);
+        "default", now, now + 172800, 70));
+    assert(resolver.calls == 70);
+
+    assert(runtime.continueEpgEnrichment(
+        "default", now, now + 172800, 70));
+    assert(resolver.calls == 70);
 
     ApiResponse enriched;
     assert(runtime.tryHandleGet(
