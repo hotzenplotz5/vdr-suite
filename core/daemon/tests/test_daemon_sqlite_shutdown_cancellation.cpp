@@ -2,8 +2,11 @@
 
 #include <sqlite3.h>
 
+#include <atomic>
 #include <cassert>
+#include <chrono>
 #include <iostream>
+#include <thread>
 
 namespace
 {
@@ -26,30 +29,73 @@ int main()
     sqlite3* database = nullptr;
     assert(sqlite3_open(":memory:", &database) == SQLITE_OK);
     assert(database != nullptr);
-    assert(execute(database, "BEGIN IMMEDIATE TRANSACTION;"));
+    assert(execute(
+        database,
+        "CREATE TABLE events(value INTEGER NOT NULL);"));
 
-    {
-        DaemonSqliteShutdownCancellation cancellation(database);
+    std::atomic<bool> workerStarted(false);
+    std::atomic<int> workerStepResult(SQLITE_OK);
+    std::atomic<bool> workerFinishedInAutocommit(false);
+
+    std::thread worker([&]() {
+        assert(execute(database, "BEGIN IMMEDIATE TRANSACTION;"));
 
         sqlite3_stmt* statement = nullptr;
-        const char* sql =
-            "WITH RECURSIVE counter(value) AS ("
-            "VALUES(0) UNION ALL SELECT value + 1 FROM counter "
-            "WHERE value < 100000000"
-            ") SELECT sum(value) FROM counter;";
         assert(sqlite3_prepare_v2(
                    database,
-                   sql,
+                   "INSERT INTO events(value) VALUES(?);",
                    -1,
                    &statement,
                    nullptr) == SQLITE_OK);
 
-        assert(sqlite3_step(statement) == SQLITE_INTERRUPT);
-        assert(cancellation.cancellationDelivered());
+        workerStarted.store(true);
+
+        for (int value = 0; value < 100000000; ++value)
+        {
+            sqlite3_reset(statement);
+            sqlite3_clear_bindings(statement);
+            sqlite3_bind_int(statement, 1, value);
+
+            const int result = sqlite3_step(statement);
+            if (result != SQLITE_DONE)
+            {
+                workerStepResult.store(result);
+                break;
+            }
+        }
+
         assert(sqlite3_finalize(statement) == SQLITE_INTERRUPT);
 
-        assert(execute(database, "ROLLBACK;"));
+        if (sqlite3_get_autocommit(database) == 0)
+        {
+            assert(execute(database, "ROLLBACK;"));
+        }
+
+        workerFinishedInAutocommit.store(
+            sqlite3_get_autocommit(database) != 0);
+    });
+
+    while (!workerStarted.load())
+    {
+        std::this_thread::yield();
     }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    const auto cancellationStarted = std::chrono::steady_clock::now();
+
+    {
+        DaemonSqliteShutdownCancellation cancellation(database);
+        worker.join();
+        assert(cancellation.cancellationDelivered());
+    }
+
+    const auto cancellationDuration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - cancellationStarted);
+
+    assert(workerStepResult.load() == SQLITE_INTERRUPT);
+    assert(workerFinishedInAutocommit.load());
+    assert(cancellationDuration < std::chrono::seconds(2));
 
     assert(execute(database, "BEGIN; COMMIT;"));
     assert(sqlite3_close(database) == SQLITE_OK);
