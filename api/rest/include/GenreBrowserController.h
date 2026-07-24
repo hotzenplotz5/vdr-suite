@@ -30,6 +30,7 @@ public:
 
     ApiResponse getEpg(
         const std::string& backendId,
+        const std::string& contentClass,
         const std::string& genreId,
         std::int64_t fromTime,
         std::int64_t untilTime,
