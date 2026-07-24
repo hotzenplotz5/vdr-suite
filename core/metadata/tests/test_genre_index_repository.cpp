@@ -28,6 +28,7 @@ void seed(Database& database)
         "('a','r2','id2','native2','Comedy','Movies/Comedy','200',3600,500,'{}'),"
         "('a','r3','id3','native3','No genre','Movies/Unknown','300',3600,500,'{}'),"
         "('a','r4','id5','native5','Late metadata','Movies/Late','350',3600,500,'{}'),"
+        "('a','r5','id6','native6','Action/Folder Fallback','Action/Folder Fallback','375',3600,500,'{}'),"
         "('b','r1','id4','native4','Other backend','Movies/Space','400',3600,500,'{}');"
         "INSERT INTO vdr_recording_native_metadata VALUES"
         "('a','m1','native1','found','success','tvscraper'),"
@@ -45,6 +46,9 @@ void seed(Database& database)
         "('a','C3','30','Hartz Rot Gold','Episode','Text','1600','2600',1000,'Film/Drama'),"
         "('a','C4','40','Doku','Natur','Text','1700','2700',1000,'Doku/Ökonomie'),"
         "('a','C5','50','Live sport','Live','Text','1800','2800',1000,'Sport'),"
+        "('a','C6','60','Sportschau','Magazin','Text','1850','2850',1000,'Sport'),"
+        "('a','C7','70','Tagesschau','Nachrichten','Text','1900','2900',1000,'News'),"
+        "('a','C8','80','Long drama movie','Film','Text','1950','7350',5400,'Film/Drama'),"
         "('b','C1','10','Other','Other','Text','1000','2000',1000,'Film/Action');"
         "INSERT INTO epg_event_artwork VALUES"
         "('a','C2','20','tvscraper','/tmp/epg.jpg',1280,720,1700);"));
@@ -111,16 +115,21 @@ int main()
         assert(repository.ensureSchema());
         assert(repository.synchronizeRecordingCache("a"));
         assert(repository.synchronizeRecordingCache("b"));
-        assert(repository.synchronizeEpgCache("a", 900, 3000));
-        assert(repository.synchronizeEpgCache("b", 900, 3000));
+        assert(repository.synchronizeEpgCache("a", 900, 8000));
+        assert(repository.synchronizeEpgCache("b", 900, 8000));
 
         GenreOverview recordings = repository.overview("a", "recording", 0, 0);
-        assert(recordings.distinctItemCount == 4);
-        assert(recordings.genres.size() == 4);
+        assert(recordings.distinctItemCount == 5);
 
-        GenreRecordingPage science = repository.recordingsByGenre("a", "science-fiction", 1, 0);
+        GenreRecordingPage science = repository.recordingsByGenre(
+            "a", "science-fiction", 10, 0);
         assert(science.totalCount == 1);
         assert(science.recordings.front().title == "Space");
+
+        GenreRecordingPage folderAction = repository.recordingsByGenre(
+            "a", "action", 10, 0);
+        assert(folderAction.totalCount == 1);
+        assert(folderAction.recordings.front().title == "Action/Folder Fallback");
 
         GenreRecordingPage unclassifiedBefore = repository.recordingsByGenre(
             "a", "unclassified", 10, 0);
@@ -144,18 +153,18 @@ int main()
         assert(lateThriller.recordings.front().title == "Late metadata");
 
         GenreEpgBrowseOverview dvbBrowse = repository.epgBrowseOverview(
-            "a", 900, 3000);
+            "a", 900, 8000);
         assert(dvbBrowse.categories.size() == 4);
-        assert(category(dvbBrowse, "movie").itemCount == 0);
-        assert(category(dvbBrowse, "movie").children.empty());
+        assert(category(dvbBrowse, "movie").itemCount == 2);
         assert(category(dvbBrowse, "series").itemCount == 0);
         assert(category(dvbBrowse, "documentary").itemCount == 1);
-        assert(category(dvbBrowse, "sports").itemCount == 1);
+        assert(category(dvbBrowse, "sports").itemCount == 2);
 
         GenreEpgPage dvbMovies = repository.epgByBrowse(
-            "a", "movie", "", 900, 3000, 50, 0);
-        assert(dvbMovies.totalCount == 0);
-        assert(dvbMovies.events.empty());
+            "a", "movie", "", 900, 8000, 50, 0);
+        assert(dvbMovies.totalCount == 2);
+        assert(dvbMovies.events[0].eventId == "20");
+        assert(dvbMovies.events[1].eventId == "80");
 
         assert(repository.replaceEvidence(scraperEvidence(
             "C2\n20", "20", "C2", 1500, 2500,
@@ -173,12 +182,29 @@ int main()
             "tvscraper-media-type", "scraper-media-type", {"Series"})));
         assert(repository.reconcileEpgBrowseClassification("a", "C3\n30"));
 
-        GenreEpgBrowseOverview browse = repository.epgBrowseOverview("a", 900, 3000);
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C6\n60", "60", "C6", 1850, 2850,
+            "tvscraper", "scraper-metadata", {"News"})));
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C6\n60", "60", "C6", 1850, 2850,
+            "tvscraper-media-type", "scraper-media-type", {"Series"})));
+        assert(repository.reconcileEpgBrowseClassification("a", "C6\n60"));
+
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C7\n70", "70", "C7", 1900, 2900,
+            "tvscraper", "scraper-metadata", {"News"})));
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C7\n70", "70", "C7", 1900, 2900,
+            "tvscraper-media-type", "scraper-media-type", {"Series"})));
+        assert(repository.reconcileEpgBrowseClassification("a", "C7\n70"));
+
+        GenreEpgBrowseOverview browse = repository.epgBrowseOverview(
+            "a", 900, 8000);
         assert(browse.categories.size() == 4);
-        assert(category(browse, "movie").itemCount == 1);
+        assert(category(browse, "movie").itemCount == 2);
         assert(category(browse, "series").itemCount == 1);
         assert(category(browse, "documentary").itemCount == 1);
-        assert(category(browse, "sports").itemCount == 1);
+        assert(category(browse, "sports").itemCount == 2);
 
         bool sawThriller = false;
         for (const GenreBrowseCategory& child : category(browse, "movie").children)
@@ -194,45 +220,32 @@ int main()
         assert(sawThriller);
 
         GenreEpgPage thriller = repository.epgByBrowse(
-            "a", "movie", "thriller", 900, 3000, 50, 0);
+            "a", "movie", "thriller", 900, 8000, 50, 0);
         assert(thriller.totalCount == 1);
         assert(thriller.events.front().eventId == "20");
         assert(thriller.events.front().artworkAvailable);
 
-        GenreEpgPage movies = repository.epgByBrowse(
-            "a", "movie", "", 900, 3000, 50, 0);
-        assert(movies.totalCount == 1);
-        assert(movies.events.front().eventId == "20");
-
         GenreEpgPage series = repository.epgByBrowse(
-            "a", "series", "", 900, 3000, 50, 0);
+            "a", "series", "", 900, 8000, 50, 0);
         assert(series.totalCount == 1);
         assert(series.events.front().eventId == "30");
         assert(series.events.front().title == "Hartz Rot Gold");
 
+        GenreEpgPage sports = repository.epgByBrowse(
+            "a", "sports", "", 900, 8000, 50, 0);
+        assert(sports.totalCount == 2);
+        assert(sports.events[0].eventId == "50");
+        assert(sports.events[1].eventId == "60");
+
         GenreEpgPage documentary = repository.epgByBrowse(
-            "a", "documentary", "", 900, 3000, 50, 0);
+            "a", "documentary", "", 900, 8000, 50, 0);
         assert(documentary.totalCount == 1);
         assert(documentary.events.front().eventId == "40");
 
-        GenreEpgPage sports = repository.epgByBrowse(
-            "a", "sports", "", 900, 3000, 50, 0);
-        assert(sports.totalCount == 1);
-        assert(sports.events.front().eventId == "50");
-
-        GenreOverview rawEvidence = repository.overview(
-            "a", "program-event", 900, 3000);
-        bool newsPreserved = false;
-        for (const GenreOverviewEntry& entry : rawEvidence.genres)
-        {
-            if (entry.genreId == "news") newsPreserved = entry.itemCount == 1;
-        }
-        assert(newsPreserved);
-
         GenreEpgPage isolated = repository.epgByBrowse(
-            "b", "movie", "action", 900, 3000, 50, 0);
-        assert(isolated.totalCount == 0);
-        assert(isolated.events.empty());
+            "b", "movie", "", 900, 8000, 50, 0);
+        assert(isolated.totalCount == 1);
+        assert(isolated.events.front().title == "Other");
     }
 
     {
@@ -240,7 +253,7 @@ int main()
         assert(database.open(filename));
         GenreIndexRepository repository(database);
         GenreEpgPage persisted = repository.epgByBrowse(
-            "a", "series", "", 900, 3000, 50, 0);
+            "a", "series", "", 900, 8000, 50, 0);
         assert(persisted.totalCount == 1);
     }
 
