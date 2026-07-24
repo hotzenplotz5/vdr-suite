@@ -36,11 +36,14 @@ class FakeElement {
   }
 
   set textContent(value) {
-    this._textContent = String(value === undefined || value === null ? '' : value);
+    this._textContent = String(
+      value === undefined || value === null ? '' : value
+    );
   }
 
   get textContent() {
-    return this._textContent + this.children.map(child => child.textContent || '').join('');
+    return this._textContent +
+      this.children.map(child => child.textContent || '').join('');
   }
 
   append() {
@@ -108,38 +111,66 @@ function flush() {
   let registeredModule = null;
   let channelRequests = 0;
   let epgItemRequests = 0;
+  const epgQueries = [];
   const client = {
     fetchClientGenres: options => Promise.resolve(
       options.scope === 'epg'
         ? {
             backendId: 'default',
             scope: 'epg',
-            totalItems: 2,
-            genres: [
-              {id: 'drama', label: 'Drama', count: 1, known: true},
-              {id: 'news', label: 'Nachrichten', count: 1, known: true}
+            totalItems: 5,
+            categories: [
+              {
+                id: 'movie',
+                label: 'Film',
+                count: 2,
+                children: [
+                  {id: 'thriller', label: 'Thriller', count: 1},
+                  {id: 'drama', label: 'Drama', count: 1}
+                ]
+              },
+              {id: 'series', label: 'Serie', count: 1, children: []},
+              {
+                id: 'documentary',
+                label: 'Dokumentation',
+                count: 1,
+                children: []
+              },
+              {id: 'sports', label: 'Sport', count: 1, children: []}
             ]
           }
         : {
             backendId: 'default',
             scope: 'recordings',
             totalItems: 1,
-            genres: [{id: 'action', label: 'Action', count: 1, known: true}]
+            genres: [
+              {id: 'action', label: 'Action', count: 1, known: true}
+            ]
           }
     ),
     fetchClientChannels: () => {
       channelRequests += 1;
       return new Promise(() => {});
     },
-    fetchClientGenreRecordings: () => Promise.resolve({items: [], total: 0}),
+    fetchClientGenreRecordings: () => Promise.resolve({
+      items: [],
+      total: 0
+    }),
     fetchClientGenreEpg: options => {
       epgItemRequests += 1;
+      epgQueries.push({
+        contentClass: options.contentClass,
+        genreId: options.genreId
+      });
+      const title = options.contentClass === 'series'
+        ? 'Lifestyle-Serie'
+        : 'Testfilm';
       return Promise.resolve({
         items: [{
           eventId: '100',
           channelId: 'C-1',
           channelName: 'Das Erste HD',
-          title: options.genreId === 'news' ? 'Tagesschau' : 'Testdrama',
+          title: title,
           startTime: 1784839299,
           artwork: {available: false, url: ''}
         }],
@@ -193,33 +224,69 @@ function flush() {
   await flush();
   await flush();
 
-  assert(mount.textContent.includes('2 Einträge'), 'EPG overview result was not rendered');
-  assert(mount.textContent.includes('Drama'), 'EPG Drama genre card was not rendered');
-  assert(mount.textContent.includes('Nachrichten'), 'EPG news genre card was not rendered');
-
-  for (let index = 0; index < 12; index += 1) {
-    const label = index % 2 === 0 ? 'Drama' : 'Nachrichten';
-    const genreButton = findButton(mount, label, true);
-    assert(genreButton, 'EPG genre card disappeared during repeated navigation');
-    genreButton.dispatch('click');
-    await flush();
-    await flush();
-
-    assert(!mount.textContent.includes('Genres werden aus dem persistenten Index geladen'),
-      'EPG result remained in loading state during repeated navigation');
-    assert(mount.textContent.includes('Das Erste HD'),
-      'persisted channel name was not rendered from the EPG Genre response');
-
-    const backButton = findButton(mount, '← Alle Genres', false);
-    assert(backButton, 'EPG Genre back button was not rendered');
-    backButton.dispatch('click');
+  assert(mount.textContent.includes('5 Einträge'));
+  assert(mount.textContent.includes('4 Hauptkategorien'));
+  for (const label of ['Film', 'Serie', 'Dokumentation', 'Sport']) {
+    assert(mount.textContent.includes(label), label + ' was not rendered');
+  }
+  for (const hidden of ['Nachrichten', 'Talkshow', 'Reality']) {
+    assert(!mount.textContent.includes(hidden), hidden + ' must stay hidden');
   }
 
-  assert.strictEqual(epgItemRequests, 12, 'each EPG Genre click should load one database page');
-  assert.strictEqual(channelRequests, 0,
-    'Genre browser must never issue a supplementary VDR channel request');
+  for (let index = 0; index < 12; index += 1) {
+    const filmButton = findButton(mount, 'Film', true);
+    assert(filmButton, 'Film category disappeared');
+    filmButton.dispatch('click');
 
-  console.log('genres runtime database-only EPG Genre navigation ok');
+    assert(mount.textContent.includes('Filmgenres'));
+    assert(mount.textContent.includes('Alle Filme'));
+    assert(mount.textContent.includes('Thriller'));
+    assert(!mount.textContent.includes('Nachrichten'));
+
+    const thrillerButton = findButton(mount, 'Thriller', true);
+    assert(thrillerButton, 'Thriller child disappeared');
+    thrillerButton.dispatch('click');
+    await flush();
+    await flush();
+
+    assert(mount.textContent.includes('Das Erste HD'));
+    assert.strictEqual(
+      epgQueries[epgQueries.length - 1].contentClass,
+      'movie'
+    );
+    assert.strictEqual(
+      epgQueries[epgQueries.length - 1].genreId,
+      'thriller'
+    );
+
+    const filmBack = findButton(mount, '← Filmgenres', false);
+    assert(filmBack, 'Film result back button was not rendered');
+    filmBack.dispatch('click');
+
+    const mainBack = findButton(mount, '← EPG-Hauptkategorien', false);
+    assert(mainBack, 'Film hierarchy back button was not rendered');
+    mainBack.dispatch('click');
+  }
+
+  const seriesButton = findButton(mount, 'Serie', true);
+  assert(seriesButton, 'Series category was not rendered');
+  seriesButton.dispatch('click');
+  await flush();
+  await flush();
+
+  assert.strictEqual(epgQueries[epgQueries.length - 1].contentClass, 'series');
+  assert.strictEqual(epgQueries[epgQueries.length - 1].genreId, '');
+  assert(mount.textContent.includes('Lifestyle-Serie'));
+
+  assert.strictEqual(epgItemRequests, 13);
+  assert.strictEqual(
+    channelRequests, 0,
+    'Genre browser must never issue a supplementary VDR channel request'
+  );
+
+  console.log(
+    'genres runtime database-only EPG Genre navigation hierarchy ok'
+  );
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;
