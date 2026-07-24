@@ -11,6 +11,7 @@ class EpgArtworkPublicJsonSerializer;
 class EpgArtworkRepository;
 class EpgCacheService;
 class EpgCacheServiceRegistry;
+class IEpgScraperMetadataResolver;
 
 class IEpgCacheController
 {
@@ -89,6 +90,15 @@ public:
         EpgCacheServiceRegistry& registry,
         EpgArtworkRepository& artworkRepository,
         EpgArtworkPublicJsonSerializer& artworkJsonSerializer);
+
+    // Compatibility boundary for existing runtime wiring. Metadata GETs do
+    // not retain or call this resolver; provider resolution remains owned by
+    // the asynchronous backend materializer.
+    void registerScraperMetadataResolver(
+        const std::string&,
+        IEpgScraperMetadataResolver&)
+    {
+    }
 
     void setScraperMetadataAllowedRoots(
         std::vector<std::string> allowedRoots);
