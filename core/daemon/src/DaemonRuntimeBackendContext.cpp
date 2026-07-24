@@ -37,7 +37,10 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         backendConfig.host,
         backendConfig.port,
         &runtimeLogger_,
-        &runtimeDiagnosticsService_);
+        &runtimeDiagnosticsService_,
+        [this]() {
+            return shutdownRequested_.load();
+        });
     context->adapter = std::make_unique<RestfulApiVdrAdapter>(
         backendConfig,
         *context->httpClient);
