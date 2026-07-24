@@ -225,13 +225,20 @@ int main()
     assert(!contains(initialOverview, "\"id\":\"reality\""));
 
     const ApiResponse initialMovie = controller.getEpg(
-        "default", "movie", "mystery",
+        "default", "movie", "thriller",
         now, now + 172800, 10, 0);
     assert(initialMovie.statusCode == 200);
     assert(contains(initialMovie, "\"eventId\":\"100\""));
     assert(contains(initialMovie, "\"channelName\":\"Das Erste HD\""));
     assert(contains(initialMovie, "\"available\":true"));
     assert(!contains(initialMovie, "Remote Action"));
+
+    const ApiResponse initialMovies = controller.getEpg(
+        "default", "movie", "",
+        now, now + 172800, 10, 0);
+    assert(initialMovies.statusCode == 200);
+    assert(contains(initialMovies, "\"eventId\":\"100\""));
+    assert(!contains(initialMovies, "\"eventId\":\"101\""));
 
     assert(controller.getOverview(
         "missing", "recordings", "de", -1, -1).statusCode == 404);
