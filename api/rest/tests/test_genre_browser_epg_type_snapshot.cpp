@@ -103,6 +103,9 @@ int main()
     };
     assert(runtime.applyEpgTypeSnapshot("default", items));
 
+    const std::vector<SuiteBridgeEpgTypeSnapshotTransportItem> emptyPage;
+    assert(runtime.applyEpgTypeSnapshot("default", emptyPage));
+
     ApiResponse series;
     assert(runtime.tryHandleGet(
         "/api/metadata/genres/epg?backend=default&contentClass=series"
