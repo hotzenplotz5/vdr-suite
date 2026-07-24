@@ -20,7 +20,7 @@ test-daemon-runtime-modularity:
 
 test-daemon-runtime-shutdown-resets:
 	python3 tools/check_daemon_runtime_shutdown_resets.py
-	$(BUILD_CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		core/daemon/tests/test_daemon_sqlite_shutdown_cancellation.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_daemon_sqlite_shutdown_cancellation
