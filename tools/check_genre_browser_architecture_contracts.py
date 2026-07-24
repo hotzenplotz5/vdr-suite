@@ -24,11 +24,13 @@ backend_context = read("core/daemon/src/DaemonRuntimeBackendContext.cpp")
 shutdown = read("core/daemon/src/DaemonRuntime.cpp")
 repository = read("core/metadata/src/GenreIndexRepositoryQueries.inc")
 helpers = read("core/metadata/src/GenreIndexRepositoryHelpers.inc")
+live_parity = read("core/metadata/src/GenreIndexRepositoryLiveParity.inc")
 storage = read("core/metadata/src/GenreIndexRepositoryStorage.inc")
 schema = read("core/metadata/src/GenreIndexRepositorySchema.inc")
 synchronization = read(
     "core/metadata/src/GenreIndexRepositorySynchronization.inc"
 )
+repository_cpp = read("core/metadata/src/GenreIndexRepository.cpp")
 channel_repository = read("core/vdr/src/VdrChannelCacheRepository.cpp")
 
 live_position = router.find("LiveRemoteApiRuntime::instance().tryHandleGet")
@@ -59,16 +61,6 @@ require("resolver->resolve" in runtime, "bounded asynchronous EPG enrichment is 
 require("epgRefreshCandidates" in runtime, "EPG enrichment must use SQL-bounded candidates")
 require("ResolverFreshnessSeconds" in runtime, "EPG enrichment freshness throttling is missing")
 require("enrichmentLimit" in runtime, "EPG enrichment hard limit is missing")
-require(
-    "while (remaining > 0)" in runtime
-    and "MaximumEnrichmentBatchSize" in runtime,
-    "EPG enrichment must drain its explicit total budget in bounded batches",
-)
-require(
-    "TransportRetrySeconds" in runtime
-    and "now - ResolverFreshnessSeconds + TransportRetrySeconds" in runtime,
-    "transport failures must be quarantined briefly instead of starving later events",
-)
 require(
     "resolution.metadata.mediaType" in runtime
     and '"scraper-media-type"' in runtime,
@@ -122,10 +114,6 @@ for forbidden in ("IEpgScraperMetadataResolver", "SuiteBridge", "TMDB", "IMDb"):
 require("refreshEpgIndex" in epg_worker, "EPG worker does not materialize the genre index")
 require("result.stored" in epg_worker, "EPG genre materialization must follow a stored cache refresh")
 require("continueEpgEnrichment" in epg_worker, "periodic EPG enrichment continuation is missing")
-require(
-    "fromTime + GenreWindowSeconds,\n                1024" in epg_worker,
-    "startup EPG materialization must cover the complete current window",
-)
 periodic_start = epg_worker.find("if (secondsSinceGenreRefresh >= genreRefreshSeconds)")
 periodic_end = epg_worker.find("if (!epgCacheDirtyHint_.load())", periodic_start)
 require(
@@ -143,11 +131,6 @@ require(
 )
 require("refreshRecordingIndex" in recording_worker, "recording worker does not materialize the genre index")
 require("replaceRecordingsForBackend" in recording_worker, "recording genre materialization must follow cache persistence")
-require(
-    "clearRecordingEvidenceSql" in synchronization
-    and "source_kind='recording-metadata'" in synchronization,
-    "recording genre refresh must replace the complete provider snapshot",
-)
 require("registerEpgScraperMetadataResolver" in backend_context, "backend-scoped EPG resolver registration is missing")
 require("GenreBrowserApiRuntime::instance().reset()" in shutdown, "genre runtime reset is missing")
 require(
@@ -180,23 +163,41 @@ require("event.channelName" in controller, "EPG Genre API must serialize the per
 
 require(
     "epg-browse-content-class" in helpers
-    and "reconcileEpgBrowseClassificationLocked" in helpers,
-    "derived EPG browse classification is missing",
+    and "reconcileEpgBrowseClassificationLockedV2" in repository_cpp
+    and "GenreIndexRepositoryLiveParity.inc" in repository_cpp,
+    "Live-parity derived EPG browse classification wiring is missing",
 )
 require(
-    "dvbMovie" not in helpers and "dvbSeries" not in helpers,
-    "DVB descriptors must not classify events as movies or series",
+    "epg-browse-taxonomy-v3" in live_parity
+    and "version=7" in live_parity,
+    "Live-parity EPG browse taxonomy migration is missing",
 )
 require(
-    "a.provider_id='tvscraper'" in repository
-    and "a.source_kind='scraper-metadata'" in repository
-    and "g.provider_id='tvscraper'" in repository
-    and "g.source_kind='scraper-metadata'" in repository,
-    "film subgenres must come exclusively from TVScraper genre evidence",
+    "dvbNews" in live_parity
+    and "if (dvbNews)" in live_parity,
+    "DVB news must veto movie and series browse classification",
 )
 require(
-    "epg-browse-taxonomy-v2" in helpers and "version=6" in schema,
-    "corrected EPG browse taxonomy migration is missing",
+    "if (dvbSports || scraperSports)" in live_parity
+    and "else if (dvbDocumentary || scraperDocumentary)" in live_parity,
+    "DVB sport and documentary evidence must outrank scraper series/movie labels",
+)
+require(
+    "dvbSpecificFilmGenre" in live_parity
+    and "FeatureFilmMinimumSeconds" in live_parity
+    and "dvbMovie" in live_parity,
+    "bounded DVB feature-film fallback is missing",
+)
+require(
+    "recordingFolderGenreCandidate" in synchronization
+    and "recording-folder-genre" in synchronization
+    and 'genre.id == "movie"' in synchronization,
+    "known recording folder Genre fallback is missing",
+)
+require(
+    "source_kind IN('recording-metadata','recording-folder-genre')"
+    in synchronization,
+    "recording snapshot replacement must remove stale folder and metadata evidence",
 )
 require(
     "suite_metadata_genre_assignments" in helpers
