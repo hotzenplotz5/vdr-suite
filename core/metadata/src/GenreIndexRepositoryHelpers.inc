@@ -344,7 +344,7 @@ bool insertEpgBrowseClassification(
         "INSERT INTO suite_metadata_genre_assignments "
         "(metadata_target_id,backend_id,target_type,genre_id,provider_id,original_value,"
         "normalization_rule,source_kind,assignment_state,confidence,ordinal,observed_at,updated_at) "
-        "VALUES (?,?, 'program-event',?,?,?,'epg-browse-taxonomy-v1',"
+        "VALUES (?,?, 'program-event',?,?,?,'epg-browse-taxonomy-v2',"
         "'epg-browse-content-class','active',?,0,?,CURRENT_TIMESTAMP);";
     if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK) return false;
     bindText(statement, 1, targetId);
@@ -382,11 +382,8 @@ bool reconcileEpgBrowseClassificationLocked(
     bool staleMediaType = false;
     bool scraperDocumentary = false;
     bool scraperSports = false;
-    bool dvbMovie = false;
-    bool dvbSeries = false;
     bool dvbDocumentary = false;
     bool dvbSports = false;
-    bool dvbFilmGenre = false;
     std::int64_t observedAt = 0;
 
     sqlite3_stmt* evidence = nullptr;
@@ -429,11 +426,8 @@ bool reconcileEpgBrowseClassificationLocked(
         }
         else if (providerId == "vdr-epg" && sourceKind == "dvb-content-descriptor")
         {
-            dvbMovie = dvbMovie || genreId == "movie";
-            dvbSeries = dvbSeries || genreId == "series";
             dvbDocumentary = dvbDocumentary || genreId == "documentary";
             dvbSports = dvbSports || genreId == "sports";
-            dvbFilmGenre = dvbFilmGenre || filmGenreIds().count(genreId) > 0;
         }
     }
     sqlite3_finalize(evidence);
@@ -448,10 +442,14 @@ bool reconcileEpgBrowseClassificationLocked(
             contentClass = "series";
             confidence = 0.99;
         }
-        else if (scraperDocumentary)
+        else if (scraperDocumentary != scraperSports)
         {
-            contentClass = "documentary";
+            contentClass = scraperDocumentary ? "documentary" : "sports";
             confidence = 0.98;
+        }
+        else if (scraperDocumentary && scraperSports)
+        {
+            return true;
         }
         else
         {
@@ -478,25 +476,9 @@ bool reconcileEpgBrowseClassificationLocked(
     }
     else
     {
-        if (dvbDocumentary && !dvbSeries && !dvbSports)
+        if (dvbDocumentary != dvbSports)
         {
-            contentClass = "documentary";
-        }
-        else if (dvbSports && !dvbSeries && !dvbDocumentary)
-        {
-            contentClass = "sports";
-        }
-        else if (dvbSeries && !dvbDocumentary && !dvbSports)
-        {
-            contentClass = "series";
-        }
-        else if (dvbMovie &&
-                 dvbFilmGenre &&
-                 !dvbSeries &&
-                 !dvbDocumentary &&
-                 !dvbSports)
-        {
-            contentClass = "movie";
+            contentClass = dvbDocumentary ? "documentary" : "sports";
         }
         else
         {

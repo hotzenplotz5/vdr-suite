@@ -41,7 +41,7 @@ void seed(Database& database)
         "INSERT INTO epg_events VALUES"
         "('a','C1','10','News','Heute','Text','1000','2000',1000,'News'),"
         "('a','C2','20','Movie','Später','Text','1500','2500',1000,'Film/Drama\nDetektiv/Thriller'),"
-        "('a','C3','30','Lifestyle series','Episode','Text','1600','2600',1000,'Film/Unterhaltung'),"
+        "('a','C3','30','Hartz Rot Gold','Episode','Text','1600','2600',1000,'Film/Drama'),"
         "('a','C4','40','Doku','Natur','Text','1700','2700',1000,'Doku/Ökonomie'),"
         "('a','C5','50','Live sport','Live','Text','1800','2800',1000,'Sport'),"
         "('b','C1','10','Other','Other','Text','1000','2000',1000,'Film/Action');"
@@ -124,16 +124,16 @@ int main()
         GenreEpgBrowseOverview dvbBrowse = repository.epgBrowseOverview(
             "a", 900, 3000);
         assert(dvbBrowse.categories.size() == 4);
-        assert(category(dvbBrowse, "movie").itemCount == 1);
+        assert(category(dvbBrowse, "movie").itemCount == 0);
+        assert(category(dvbBrowse, "movie").children.empty());
         assert(category(dvbBrowse, "series").itemCount == 0);
         assert(category(dvbBrowse, "documentary").itemCount == 1);
         assert(category(dvbBrowse, "sports").itemCount == 1);
 
         GenreEpgPage dvbMovies = repository.epgByBrowse(
             "a", "movie", "", 900, 3000, 50, 0);
-        assert(dvbMovies.totalCount == 1);
-        assert(dvbMovies.events.front().eventId == "20");
-        assert(dvbMovies.events.front().title != "Lifestyle series");
+        assert(dvbMovies.totalCount == 0);
+        assert(dvbMovies.events.empty());
 
         assert(repository.replaceEvidence(scraperEvidence(
             "C2\n20", "20", "C2", 1500, 2500,
@@ -186,6 +186,7 @@ int main()
             "a", "series", "", 900, 3000, 50, 0);
         assert(series.totalCount == 1);
         assert(series.events.front().eventId == "30");
+        assert(series.events.front().title == "Hartz Rot Gold");
 
         GenreEpgPage documentary = repository.epgByBrowse(
             "a", "documentary", "", 900, 3000, 50, 0);
@@ -208,8 +209,8 @@ int main()
 
         GenreEpgPage isolated = repository.epgByBrowse(
             "b", "movie", "action", 900, 3000, 50, 0);
-        assert(isolated.totalCount == 1);
-        assert(isolated.events.front().title == "Other");
+        assert(isolated.totalCount == 0);
+        assert(isolated.events.empty());
     }
 
     {

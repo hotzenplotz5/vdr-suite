@@ -68,9 +68,9 @@ void seed(Database& database, std::int64_t now)
         "('default','C-1','100','Future Thriller','Film','Description','" +
         std::to_string(now + 600) + "','" + std::to_string(now + 4200) +
         "',3600,'Film/Drama\nDetektiv/Thriller'),"
-        "('default','C-1','101','Lifestyle Format','Episode','Description','" +
+        "('default','C-1','101','Hartz Rot Gold','Episode','Description','" +
         std::to_string(now + 900) + "','" + std::to_string(now + 4500) +
-        "',3600,'Film/Unterhaltung'),"
+        "',3600,'Film/Drama'),"
         "('default','C-1','102','News','Heute','Description','" +
         std::to_string(now + 1200) + "','" + std::to_string(now + 4800) +
         "',3600,'News'),"
@@ -228,16 +228,15 @@ int main()
         "default", "movie", "thriller",
         now, now + 172800, 10, 0);
     assert(initialMovie.statusCode == 200);
-    assert(contains(initialMovie, "\"eventId\":\"100\""));
-    assert(contains(initialMovie, "\"channelName\":\"Das Erste HD\""));
-    assert(contains(initialMovie, "\"available\":true"));
+    assert(!contains(initialMovie, "\"eventId\":\"100\""));
+    assert(!contains(initialMovie, "Hartz Rot Gold"));
     assert(!contains(initialMovie, "Remote Action"));
 
     const ApiResponse initialMovies = controller.getEpg(
         "default", "movie", "",
         now, now + 172800, 10, 0);
     assert(initialMovies.statusCode == 200);
-    assert(contains(initialMovies, "\"eventId\":\"100\""));
+    assert(!contains(initialMovies, "\"eventId\":\"100\""));
     assert(!contains(initialMovies, "\"eventId\":\"101\""));
 
     assert(controller.getOverview(
@@ -306,7 +305,7 @@ int main()
         series));
     assert(series.statusCode == 200);
     assert(contains(series, "\"eventId\":\"101\""));
-    assert(contains(series, "\"title\":\"Lifestyle Format\""));
+    assert(contains(series, "\"title\":\"Hartz Rot Gold\""));
 
     ApiResponse movies;
     assert(runtime.tryHandleGet(
@@ -317,6 +316,8 @@ int main()
     assert(movies.statusCode == 200);
     assert(contains(movies, "\"eventId\":\"100\""));
     assert(!contains(movies, "\"eventId\":\"101\""));
+    assert(contains(movies, "\"channelName\":\"Das Erste HD\""));
+    assert(contains(movies, "\"available\":true"));
 
     ApiResponse thriller;
     assert(runtime.tryHandleGet(

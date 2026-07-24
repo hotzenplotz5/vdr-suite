@@ -90,7 +90,7 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
     try {
         const int initialDelaySeconds = 20;
         const int dirtyDebounceSeconds = 120;
-        const int genreRefreshSeconds = 60;
+        const int genreRefreshSeconds = 10;
 
         std::cout
             << "EPG cache warmup worker scheduled after "
@@ -165,7 +165,7 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
                         backendRuntimeContext->backendId,
                         fromTime,
                         fromTime + GenreWindowSeconds,
-                        8);
+                        64);
                 }
                 lastGenreRefresh = std::chrono::steady_clock::now();
             }
@@ -280,7 +280,7 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
                 backendRuntimeContext->backendId,
                 fromTime,
                 fromTime + GenreWindowSeconds,
-                32);
+                64);
         }
 
         std::cout

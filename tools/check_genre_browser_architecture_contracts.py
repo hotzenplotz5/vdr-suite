@@ -165,6 +165,21 @@ require(
     "derived EPG browse classification is missing",
 )
 require(
+    "dvbMovie" not in helpers and "dvbSeries" not in helpers,
+    "DVB descriptors must not classify events as movies or series",
+)
+require(
+    "a.provider_id='tvscraper'" in repository
+    and "a.source_kind='scraper-metadata'" in repository
+    and "g.provider_id='tvscraper'" in repository
+    and "g.source_kind='scraper-metadata'" in repository,
+    "film subgenres must come exclusively from TVScraper genre evidence",
+)
+require(
+    "epg-browse-taxonomy-v2" in helpers and "version=6" in schema,
+    "corrected EPG browse taxonomy migration is missing",
+)
+require(
     "suite_metadata_genre_assignments" in helpers
     and "suite_metadata_genre_assignments" in repository,
     "EPG browse taxonomy must reuse the persistent metadata genre index",

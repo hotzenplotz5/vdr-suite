@@ -165,9 +165,9 @@ GenreEpgBrowseOverview GenreIndexRepository::epgBrowseOverview(
         "AND b.lifecycle_state='active' "
         "AND c.source_kind='epg-browse-content-class' "
         "AND c.assignment_state='active' AND c.genre_id='movie' "
-        "AND a.source_kind NOT IN("
-        "'scraper-media-type','epg-browse-content-class') "
-        "AND a.assignment_state IN('active','unknown') "
+        "AND a.provider_id='tvscraper' "
+        "AND a.source_kind='scraper-metadata' "
+        "AND a.assignment_state IN('active','unknown','conflict') "
         "AND a.genre_id IN("
         "'action','adventure','animation','drama','family','fantasy',"
         "'history','horror','disaster','comedy','war','crime','musical',"
@@ -336,9 +336,9 @@ GenreEpgPage GenreIndexRepository::epgByBrowse(
           "SELECT 1 FROM suite_metadata_genre_assignments g "
           "WHERE g.metadata_target_id=b.metadata_target_id "
           "AND g.genre_id=? "
-          "AND g.source_kind NOT IN("
-          "'scraper-media-type','epg-browse-content-class') "
-          "AND g.assignment_state IN('active','unknown')) ";
+          "AND g.provider_id='tvscraper' "
+          "AND g.source_kind='scraper-metadata' "
+          "AND g.assignment_state IN('active','unknown','conflict')) ";
 
     const std::string countSql =
         "SELECT COUNT(DISTINCT b.metadata_target_id) "

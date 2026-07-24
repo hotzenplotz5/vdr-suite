@@ -213,6 +213,11 @@ bool executeGenreSchema(Database& database)
         "CHECK(radio IN(0,1)),CHECK(encrypted IN(0,1)),CHECK(enabled IN(0,1)));"
         "CREATE INDEX IF NOT EXISTS idx_vdr_channel_cache_backend_number "
         "ON vdr_channel_cache(backend_id,channel_number,channel_id);"
+        "DELETE FROM suite_metadata_genre_assignments "
+        "WHERE source_kind='epg-browse-content-class' "
+        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=6);"
+        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
+        "(6,'TVScraper-owned movie and series browse classification with DVB documentary and sports fallback');"
     );
 }
 }
