@@ -175,6 +175,7 @@ require(
 require(
     "liveParityStrongNewsTitle" in live_parity
     and '"tagesschau"' in live_parity
+    and '"tagesschau24"' in live_parity
     and '"tagesthemen"' in live_parity,
     "ARD news title guards must veto series classification without DVB labels",
 )
@@ -184,15 +185,21 @@ require(
     "sports title guards must outrank scraper series labels",
 )
 require(
-    "staleMediaSeries" in live_parity
-    and "staleMediaMovie" in live_parity
-    and "contentClass = staleMediaSeries ? \"series\" : \"movie\"" in live_parity,
-    "stale TVScraper movie and series types must remain usable browse evidence",
+    "lastKnownMediaSeries" in live_parity
+    and "lastKnownMediaMovie" in live_parity
+    and "contentClass = \"series\"" in live_parity
+    and "if (lastKnownMediaSeries)" in live_parity,
+    "last-known-good TVScraper movie and series types must remain usable browse evidence",
 )
 require(
     "if (dvbSports || strongSportsTitle)" in live_parity
     and "else if (dvbDocumentary)" in live_parity,
-    "DVB sport/documentary and strong sports titles must outrank scraper series/movie labels",
+    "DVB sport/documentary and strong sports titles must outrank scraper labels",
+)
+require(
+    "if (activeMediaSeries)" in live_parity
+    and "if (lastKnownMediaSeries)" in live_parity,
+    "TVScraper series classification must remain authoritative like Live",
 )
 require(
     "dvbSpecificFilmGenre" in live_parity
