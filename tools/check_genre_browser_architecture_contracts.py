@@ -168,19 +168,31 @@ require(
     "Live-parity derived EPG browse classification wiring is missing",
 )
 require(
-    "epg-browse-taxonomy-v3" in live_parity
-    and "version=7" in live_parity,
-    "Live-parity EPG browse taxonomy migration is missing",
+    "epg-browse-taxonomy-v4" in live_parity
+    and "version=8" in live_parity,
+    "Live-parity EPG browse taxonomy v4 migration is missing",
 )
 require(
-    "dvbNews" in live_parity
-    and "if (dvbNews)" in live_parity,
-    "DVB news must veto movie and series browse classification",
+    "liveParityStrongNewsTitle" in live_parity
+    and '"tagesschau"' in live_parity
+    and '"tagesthemen"' in live_parity,
+    "ARD news title guards must veto series classification without DVB labels",
 )
 require(
-    "if (dvbSports || scraperSports)" in live_parity
-    and "else if (dvbDocumentary || scraperDocumentary)" in live_parity,
-    "DVB sport and documentary evidence must outrank scraper series/movie labels",
+    "liveParityStrongSportsTitle" in live_parity
+    and '"sportschau"' in live_parity,
+    "sports title guards must outrank scraper series labels",
+)
+require(
+    "staleMediaSeries" in live_parity
+    and "staleMediaMovie" in live_parity
+    and "contentClass = staleMediaSeries ? \"series\" : \"movie\"" in live_parity,
+    "stale TVScraper movie and series types must remain usable browse evidence",
+)
+require(
+    "if (dvbSports || strongSportsTitle)" in live_parity
+    and "else if (dvbDocumentary)" in live_parity,
+    "DVB sport/documentary and strong sports titles must outrank scraper series/movie labels",
 )
 require(
     "dvbSpecificFilmGenre" in live_parity
