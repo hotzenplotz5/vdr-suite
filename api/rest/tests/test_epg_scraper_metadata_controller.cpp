@@ -104,6 +104,15 @@ void writeFile(const std::filesystem::path& path, const std::string& data)
     file.write(data.data(), static_cast<std::streamsize>(data.size()));
     assert(file.good());
 }
+
+VdrEvent event(const std::string& eventId)
+{
+    VdrEvent value;
+    value.channelId = "channel-1";
+    value.id = eventId;
+    value.title = "Bares für Rares";
+    return value;
+}
 }
 
 int main()
@@ -135,7 +144,8 @@ int main()
         gallery.string());
     PersistentEpgScraperMetadataResolver resolver(
         delegate,
-        artworkRepository);
+        artworkRepository,
+        {root.string()});
 
     EpgCacheController controller(
         cacheRegistry,
@@ -143,6 +153,21 @@ int main()
         artworkJsonSerializer);
     controller.setScraperMetadataAllowedRoots({root.string()});
     controller.registerScraperMetadataResolver("default", resolver);
+
+    const ApiResponse pending = controller.getMetadata(
+        "default",
+        "channel-1",
+        "event-1");
+    assert(pending.statusCode == 200);
+    assert(contains(pending.body, "\"status\":\"pending\""));
+    assert(delegate.calls == 0);
+
+    const EpgScraperMetadataResolution materialized = resolver.resolve(
+        "default",
+        event("event-1"));
+    assert(materialized.attempted);
+    assert(materialized.found);
+    assert(delegate.calls == 1);
 
     const ApiResponse first = controller.getMetadata(
         "",
@@ -209,7 +234,6 @@ int main()
         artworkRepository,
         artworkJsonSerializer);
     restartedController.setScraperMetadataAllowedRoots({root.string()});
-    restartedController.registerScraperMetadataResolver("default", resolver);
 
     const ApiResponse afterRestart = restartedController.getMetadata(
         "default", "channel-1", "event-1");
@@ -223,21 +247,52 @@ int main()
     assert(imageAfterRestart.body == "preferred-image");
     assert(delegate.calls == 1);
 
-    delegate.resolution.attempted = true;
-    delegate.resolution.found = false;
     const ApiResponse unknownEvent = restartedController.getMetadata(
         "default", "channel-1", "event-2");
     assert(unknownEvent.statusCode == 200);
-    assert(contains(unknownEvent.body, "\"status\":\"not-found\""));
-    assert(delegate.calls == 2);
+    assert(contains(unknownEvent.body, "\"status\":\"pending\""));
+    assert(delegate.calls == 1);
+    assert(restartedController.getMetadataImage(
+        "default", "channel-1", "event-2", "preferred", 0).statusCode == 404);
 
     delegate.resolution = readyResolution(
         "/etc/passwd.jpg",
         person.string(),
         gallery.string());
-    const ApiResponse forbidden = restartedController.getMetadataImage(
-        "default", "channel-1", "event-3", "preferred", 0);
-    assert(forbidden.statusCode == 403);
+    const EpgScraperMetadataResolution rejectedReplacement = resolver.resolve(
+        "default",
+        event("event-1"));
+    assert(rejectedReplacement.found);
+    assert(rejectedReplacement.metadata.preferredArtwork.valid());
+    assert(rejectedReplacement.metadata.preferredArtwork.path == preferred.string());
+    assert(delegate.calls == 2);
+
+    const EpgArtworkReference retained = artworkRepository.find(
+        "default",
+        "channel-1",
+        "event-1");
+    assert(retained.valid());
+    assert(retained.path == preferred.string());
+
+    const ApiResponse retainedMetadata = restartedController.getMetadata(
+        "default", "channel-1", "event-1");
+    assert(retainedMetadata.statusCode == 200);
+    assert(contains(retainedMetadata.body, "\"preferredArtwork\":{\"available\":true"));
+    assert(delegate.calls == 2);
+
+    delegate.resolution = readyResolution(
+        "/etc/passwd.jpg",
+        "/etc/passwd.png",
+        "/etc/passwd.jpg");
+    const EpgScraperMetadataResolution unsafeOnly = resolver.resolve(
+        "default",
+        event("event-3"));
+    assert(unsafeOnly.found);
+    assert(!unsafeOnly.metadata.preferredArtwork.valid());
+    assert(!unsafeOnly.metadata.people.front().image.valid());
+    assert(!unsafeOnly.metadata.images.front().artwork.valid());
+    assert(restartedController.getMetadataImage(
+        "default", "channel-1", "event-3", "preferred", 0).statusCode == 404);
 
     database.close();
     std::filesystem::remove_all(root);
