@@ -386,6 +386,7 @@ bool reconcileEpgBrowseClassificationLocked(
     bool dvbSeries = false;
     bool dvbDocumentary = false;
     bool dvbSports = false;
+    bool dvbFilmGenre = false;
     std::int64_t observedAt = 0;
 
     sqlite3_stmt* evidence = nullptr;
@@ -432,6 +433,7 @@ bool reconcileEpgBrowseClassificationLocked(
             dvbSeries = dvbSeries || genreId == "series";
             dvbDocumentary = dvbDocumentary || genreId == "documentary";
             dvbSports = dvbSports || genreId == "sports";
+            dvbFilmGenre = dvbFilmGenre || filmGenreIds().count(genreId) > 0;
         }
     }
     sqlite3_finalize(evidence);
@@ -489,6 +491,7 @@ bool reconcileEpgBrowseClassificationLocked(
             contentClass = "series";
         }
         else if (dvbMovie &&
+                 dvbFilmGenre &&
                  !dvbSeries &&
                  !dvbDocumentary &&
                  !dvbSports)
