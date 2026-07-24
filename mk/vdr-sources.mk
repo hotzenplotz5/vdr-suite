@@ -1,6 +1,7 @@
 EPG_SCRAPER_METADATA_CONTROLLER_SRC := \
         core/vdr/src/EpgScraperMetadataResolverRegistry.cpp \
-        core/vdr/src/EpgScraperMetadataPublicJsonSerializer.cpp
+        core/vdr/src/EpgScraperMetadataPublicJsonSerializer.cpp \
+        core/vdr/src/PersistentEpgScraperMetadataResolver.cpp
 
 EPG_SCRAPER_METADATA_RUNTIME_SRC := \
         $(EPG_SCRAPER_METADATA_CONTROLLER_SRC) \
