@@ -43,6 +43,7 @@
     const normalized = normalizeOptions(options);
     return base.requestJson('/api/metadata/genres/epg', withQuery(normalized, {
       backend: normalized.backendId,
+      contentClass: normalized.contentClass,
       genre: normalized.genreId,
       from: normalized.from,
       until: normalized.until,
