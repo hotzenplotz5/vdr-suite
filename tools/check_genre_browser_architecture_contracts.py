@@ -60,6 +60,16 @@ require("epgRefreshCandidates" in runtime, "EPG enrichment must use SQL-bounded 
 require("ResolverFreshnessSeconds" in runtime, "EPG enrichment freshness throttling is missing")
 require("enrichmentLimit" in runtime, "EPG enrichment hard limit is missing")
 require(
+    "while (remaining > 0)" in runtime
+    and "MaximumEnrichmentBatchSize" in runtime,
+    "EPG enrichment must drain its explicit total budget in bounded batches",
+)
+require(
+    "TransportRetrySeconds" in runtime
+    and "now - ResolverFreshnessSeconds + TransportRetrySeconds" in runtime,
+    "transport failures must be quarantined briefly instead of starving later events",
+)
+require(
     "resolution.metadata.mediaType" in runtime
     and '"scraper-media-type"' in runtime,
     "TVScraper media type must be persisted as classification evidence",
@@ -112,6 +122,10 @@ for forbidden in ("IEpgScraperMetadataResolver", "SuiteBridge", "TMDB", "IMDb"):
 require("refreshEpgIndex" in epg_worker, "EPG worker does not materialize the genre index")
 require("result.stored" in epg_worker, "EPG genre materialization must follow a stored cache refresh")
 require("continueEpgEnrichment" in epg_worker, "periodic EPG enrichment continuation is missing")
+require(
+    "fromTime + GenreWindowSeconds,\n                1024" in epg_worker,
+    "startup EPG materialization must cover the complete current window",
+)
 periodic_start = epg_worker.find("if (secondsSinceGenreRefresh >= genreRefreshSeconds)")
 periodic_end = epg_worker.find("if (!epgCacheDirtyHint_.load())", periodic_start)
 require(
@@ -129,6 +143,11 @@ require(
 )
 require("refreshRecordingIndex" in recording_worker, "recording worker does not materialize the genre index")
 require("replaceRecordingsForBackend" in recording_worker, "recording genre materialization must follow cache persistence")
+require(
+    "clearRecordingEvidenceSql" in synchronization
+    and "source_kind='recording-metadata'" in synchronization,
+    "recording genre refresh must replace the complete provider snapshot",
+)
 require("registerEpgScraperMetadataResolver" in backend_context, "backend-scoped EPG resolver registration is missing")
 require("GenreBrowserApiRuntime::instance().reset()" in shutdown, "genre runtime reset is missing")
 require(
