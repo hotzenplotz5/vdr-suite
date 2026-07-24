@@ -1,4 +1,4 @@
-from .common import replace_once, write
+from .common import replace_once
 
 # ---------------------------------------------------------------------------
 # Frontend: a pending response is never a permanent cache hit.
@@ -127,60 +127,3 @@ replace_once(
     query.channelEventLimit = 160;
 '''
 )
-
-# ---------------------------------------------------------------------------
-# Explicit one-process gate definition.
-# ---------------------------------------------------------------------------
-
-write(
-    "core/daemon/include/DaemonCacheRefreshExecutionGate.h",
-    '''#pragma once
-
-#include <mutex>
-
-class DaemonCacheRefreshExecutionGate
-{
-public:
-    using Lease = std::unique_lock<std::mutex>;
-
-    static Lease acquire();
-
-private:
-    static std::mutex& mutex();
-};
-'''
-)
-
-write(
-    "core/daemon/src/DaemonCacheRefreshExecutionGate.cpp",
-    '''#include "DaemonCacheRefreshExecutionGate.h"
-
-namespace
-{
-std::mutex CacheRefreshExecutionMutex;
-}
-
-DaemonCacheRefreshExecutionGate::Lease
-DaemonCacheRefreshExecutionGate::acquire()
-{
-    return Lease(mutex());
-}
-
-std::mutex& DaemonCacheRefreshExecutionGate::mutex()
-{
-    return CacheRefreshExecutionMutex;
-}
-'''
-)
-
-replace_once(
-    "mk/daemon-sources.mk",
-    '''        core/daemon/src/RecordingArtworkHttpServer.cpp \\
-        core/daemon/src/RestfulApiEventStreamClient.cpp \\
-''',
-    '''        core/daemon/src/RecordingArtworkHttpServer.cpp \\
-        core/daemon/src/RestfulApiEventStreamClient.cpp \\
-        core/daemon/src/DaemonCacheRefreshExecutionGate.cpp \\
-'''
-)
-

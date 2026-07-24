@@ -55,8 +55,8 @@ The current patch:
 - retires old Genre bindings without copying identity-bound public JSON;
 - rejects metadata materialization for IDs no longer present in `epg_events`;
 - retries frontend `pending` responses without permanently caching them;
-- defines the cache-refresh execution gate out of line for one process-wide
-  instance.
+- serializes explicit EPG and recording-cache transactions on the shared
+  SQLite connection.
 
 Do not restore the former +/-5-second title matcher or copy metadata JSON from
 an old native event ID to a new one.
@@ -91,4 +91,3 @@ backend scope, does not create a canonical identity from title/time matching,
 and leaves the EPG timeline and PR #99 routing untouched.
 '''
 )
-
