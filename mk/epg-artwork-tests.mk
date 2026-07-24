@@ -30,6 +30,7 @@ test-epg-artwork-enrichment-service:
 test-epg-artwork-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		core/vdr/src/EpgArtworkPathPolicy.cpp \
 		core/vdr/src/EpgArtworkRepository.cpp \
 		api/rest/src/EpgArtworkController.cpp \
 		api/rest/tests/test_epg_artwork_controller.cpp \
