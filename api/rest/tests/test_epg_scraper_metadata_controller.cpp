@@ -1,6 +1,10 @@
+#include "Database.h"
+#include "EpgArtworkPublicJsonSerializer.h"
+#include "EpgArtworkRepository.h"
 #include "EpgCacheController.h"
 #include "EpgCacheServiceRegistry.h"
 #include "IEpgScraperMetadataResolver.h"
+#include "PersistentEpgScraperMetadataResolver.h"
 
 #include <cassert>
 #include <filesystem>
@@ -114,12 +118,22 @@ int main()
     const std::filesystem::path preferred = root / "preferred.jpg";
     const std::filesystem::path person = root / "person.png";
     const std::filesystem::path gallery = root / "gallery.jpg";
+    const std::filesystem::path databasePath = root / "metadata.db";
     writeFile(preferred, "preferred-image");
     writeFile(person, "person-image");
     writeFile(gallery, "gallery-image");
 
+    Database database;
+    assert(database.open(databasePath.string()));
+    EpgArtworkRepository artworkRepository(database);
+    assert(artworkRepository.ensureSchema());
+    EpgArtworkPublicJsonSerializer artworkJsonSerializer;
+
     EpgCacheServiceRegistry cacheRegistry;
-    EpgCacheController controller(cacheRegistry);
+    EpgCacheController controller(
+        cacheRegistry,
+        artworkRepository,
+        artworkJsonSerializer);
     controller.setScraperMetadataAllowedRoots({root.string()});
 
     {
@@ -131,11 +145,14 @@ int main()
         assert(contains(response.body, "backend unavailable"));
     }
 
-    FakeResolver resolver;
-    resolver.resolution = readyResolution(
+    FakeResolver delegate;
+    delegate.resolution = readyResolution(
         preferred.string(),
         person.string(),
         gallery.string());
+    PersistentEpgScraperMetadataResolver resolver(
+        delegate,
+        artworkRepository);
     controller.registerScraperMetadataResolver("default", resolver);
 
     {
@@ -151,9 +168,19 @@ int main()
         assert(contains(response.body, "kind=person&index=0"));
         assert(!contains(response.body, root.string()));
         assert(!contains(response.body, "preferred.jpg"));
-        assert(resolver.lastBackendId == "default");
-        assert(resolver.lastChannelId == "channel-1");
-        assert(resolver.lastEventId == "event-1");
+        assert(delegate.lastBackendId == "default");
+        assert(delegate.lastChannelId == "channel-1");
+        assert(delegate.lastEventId == "event-1");
+
+        const EpgArtworkReference persisted = artworkRepository.find(
+            "default",
+            "channel-1",
+            "event-1");
+        assert(persisted.valid());
+        assert(persisted.path == preferred.string());
+        assert(persisted.width == 1280);
+        assert(persisted.height == 720);
+        assert(persisted.resolvedAt > 0);
     }
 
     {
@@ -213,7 +240,7 @@ int main()
     }
 
     {
-        resolver.resolution = readyResolution(
+        delegate.resolution = readyResolution(
             "/etc/passwd.jpg",
             person.string(),
             gallery.string());
@@ -227,26 +254,41 @@ int main()
     }
 
     {
-        resolver.resolution = EpgScraperMetadataResolution{};
+        delegate.resolution = EpgScraperMetadataResolution{};
         const ApiResponse response = controller.getMetadata(
             "default",
             "channel-1",
             "event-1");
         assert(response.statusCode == 502);
         assert(contains(response.body, "lookup failed"));
+
+        const EpgArtworkReference retained = artworkRepository.find(
+            "default",
+            "channel-1",
+            "event-1");
+        assert(retained.valid());
+        assert(retained.path == preferred.string());
     }
 
     {
-        resolver.resolution.attempted = true;
-        resolver.resolution.found = false;
+        delegate.resolution.attempted = true;
+        delegate.resolution.found = false;
         const ApiResponse response = controller.getMetadata(
             "default",
             "channel-1",
             "event-1");
         assert(response.statusCode == 200);
         assert(contains(response.body, "\"status\":\"not-found\""));
+
+        const EpgArtworkReference retained = artworkRepository.find(
+            "default",
+            "channel-1",
+            "event-1");
+        assert(retained.valid());
+        assert(retained.path == preferred.string());
     }
 
+    database.close();
     std::filesystem::remove_all(root);
     return 0;
 }
