@@ -4,6 +4,7 @@
 #include "EpgArtworkController.h"
 #include "VdrEventQuery.h"
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -80,6 +81,11 @@ public:
 class EpgCacheController : public IEpgCacheController
 {
 public:
+    using ScraperMetadataMaterializationRequest = std::function<void(
+        const std::string&,
+        const std::string&,
+        const std::string&)>;
+
     explicit EpgCacheController(EpgCacheService& service);
     explicit EpgCacheController(EpgCacheServiceRegistry& registry);
     EpgCacheController(
@@ -99,6 +105,9 @@ public:
         IEpgScraperMetadataResolver&)
     {
     }
+
+    void setScraperMetadataMaterializationRequest(
+        ScraperMetadataMaterializationRequest request);
 
     void setScraperMetadataAllowedRoots(
         std::vector<std::string> allowedRoots);
@@ -160,6 +169,7 @@ private:
     EpgCacheServiceRegistry* registry_;
     EpgArtworkRepository* artworkRepository_;
     EpgArtworkPublicJsonSerializer* artworkJsonSerializer_;
+    ScraperMetadataMaterializationRequest scraperMetadataMaterializationRequest_;
     std::vector<std::string> scraperMetadataAllowedRoots_;
 
     EpgCacheService* findService(
