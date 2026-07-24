@@ -19,8 +19,16 @@
 
 namespace
 {
+#define reconcileEpgBrowseClassificationLocked \
+    reconcileEpgBrowseClassificationLockedV2
 #include "GenreIndexRepositoryHelpers.inc"
+#undef reconcileEpgBrowseClassificationLocked
+
+#define executeGenreSchema executeGenreSchemaV2
 #include "GenreIndexRepositorySchema.inc"
+#undef executeGenreSchema
+
+#include "GenreIndexRepositoryLiveParity.inc"
 
 #include "GenreIndexRepositoryStorage.inc"
 #include "GenreIndexRepositorySynchronization.inc"
