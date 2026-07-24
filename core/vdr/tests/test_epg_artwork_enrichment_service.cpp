@@ -181,7 +181,13 @@ int main()
 
     const EpgArtworkReference missing = repository.find(
         "home", "S19.2E-1-1011-11100", "missing");
-    assert(!missing.valid());
+    assert(missing.valid());
+    assert(missing.path == "/cache/stale.jpg");
+    assert(missing.resolvedAt == 1);
+
+    const EpgArtworkReference unavailable = repository.find(
+        "home", "S19.2E-1-1011-11100", "unavailable");
+    assert(!unavailable.valid());
 
     const EpgArtworkEnrichmentResult cooledDown = service.enrich(
         "home",
@@ -198,6 +204,11 @@ int main()
     assert(retried.suppressed == 0);
     assert(service.waitUntilIdle(std::chrono::seconds(10)));
     assert(resolver.calls == 5);
+
+    const EpgArtworkReference retainedAfterRetry = repository.find(
+        "home", "S19.2E-1-1011-11100", "missing");
+    assert(retainedAfterRetry.valid());
+    assert(retainedAfterRetry.path == "/cache/stale.jpg");
 
     EpgArtworkEnrichmentService boundedService(
         repository,
