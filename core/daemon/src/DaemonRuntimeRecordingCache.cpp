@@ -1,5 +1,6 @@
 #include "DaemonRuntime.h"
 
+#include "DaemonCacheRefreshExecutionGate.h"
 #include "GenreBrowserApiRuntime.h"
 #include "VdrRecordingCacheRepository.h"
 
@@ -163,6 +164,12 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
 
             if (secondsSinceMetadataRefresh >= metadataRefreshSeconds &&
                 vdrRecordingCacheRepository_) {
+                auto refreshLease =
+                    DaemonCacheRefreshExecutionGate::acquire();
+                if (recordingCacheWarmupStopRequested_.load()) {
+                    return;
+                }
+
                 for (const auto& backendRuntimeContext :
                      backendRuntimeContexts_) {
                     if (recordingCacheWarmupStopRequested_.load()) {
@@ -246,6 +253,11 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
 void DaemonRuntime::refreshRecordingCacheForAllBackends(
     const std::string& reason)
 {
+    auto refreshLease = DaemonCacheRefreshExecutionGate::acquire();
+    if (recordingCacheWarmupStopRequested_.load()) {
+        return;
+    }
+
     if (!vdrRecordingCacheRepository_) {
         std::cout
             << "Recording cache warmup skipped: repository unavailable"
