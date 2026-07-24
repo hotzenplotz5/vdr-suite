@@ -39,17 +39,34 @@ require(
     "SuiteBridge must expose the bounded read-only ETYPES command",
 )
 require(
-    "LOCK_CHANNELS_READ;" in plugin_command
-    and "LOCK_SCHEDULES_READ;" in plugin_command
-    and "schedule->Events()->First()" in plugin_command
-    and "adapter.ResolveMediaType(event)" in plugin_command,
-    "ETYPES must scan real locked VDR events and resolve their TVScraper type",
+    "StableTypeWindowCache" in plugin_command
+    and "BuildStableWindowSnapshot" in plugin_command
+    and "window.fromTime == request.FromTime()" in plugin_command
+    and "window.untilTime == request.UntilTime()" in plugin_command,
+    "ETYPES offsets must address a retained immutable backend window snapshot",
 )
 require(
-    "captured.push_back" in plugin_command
-    and plugin_command.find("LOCK_SCHEDULES_READ;")
-    < plugin_command.find("adapter.ResolveMediaType(event)"),
-    "TVScraper calls must run on detached event snapshots after VDR locks are released",
+    "LOCK_CHANNELS_READ;" in plugin_command
+    and "LOCK_SCHEDULES_READ;" in plugin_command
+    and "GetEventById(identity.eventId)" in plugin_command
+    and "adapter.ResolveMediaType(*event)" in plugin_command,
+    "ETYPES must re-resolve and classify the real locked VDR schedule event",
+)
+for forbidden in (
+    "new cEvent(",
+    "cSchedule schedule_",
+    "SetTitle(source.Title())",
+    "SuiteBridgeTypeSnapshotEvent",
+):
+    require(
+        forbidden not in plugin_command,
+        "ETYPES must not manufacture detached cEvent copies",
+    )
+require(
+    "SuiteBridgeEpgTypeSnapshotPayload bounded(candidate)" in plugin_command
+    and "if (!bounded.Complete())" in plugin_command
+    and "MaximumSnapshotEvents = 1000000" in plugin_command,
+    "ETYPES pagination must stay within event-count and SVDRP payload bounds",
 )
 require(
     "cGetScraperVideo request(&event, nullptr)" in plugin_type_adapter
@@ -72,14 +89,16 @@ require(
 require(
     '"PLUG suitebridge ETYPES "' in transport
     and "nextOffset != requestedOffset + scanned" in transport
+    and "endTime <= requestedFrom" in transport
+    and "startTime >= requestedUntil" in transport
     and "page.payloadValid = parsePayload" in transport,
-    "agent transport must validate bounded ETYPES pages",
+    "agent transport must validate cursor and requested-window isolation",
 )
 require(
     "applyEpgTypeSnapshot(" in runtime_header
-    and "providerId = \"tvscraper-media-type\"" in runtime
-    and "sourceKind = \"scraper-media-type\"" in runtime
-    and "state = \"active\"" in runtime
+    and 'providerId = "tvscraper-media-type"' in runtime
+    and 'sourceKind = "scraper-media-type"' in runtime
+    and 'state = "active"' in runtime
     and "reconcileEpgBrowseClassification" in runtime,
     "daemon runtime must persist snapshot types as authoritative TVScraper evidence",
 )
@@ -100,6 +119,13 @@ require(
     worker.find("if (initializeSnapshot)")
     < worker.find("processEpgTypeSnapshotPages(", worker.find("if (initializeSnapshot)")),
     "dirty refreshes must continue an incomplete snapshot instead of resetting it",
+)
+apply_failure = worker.find("if (!applied)")
+apply_return = worker.find("return false;", apply_failure)
+offset_advance = worker.find("context.epgTypeSnapshotOffset = page.nextOffset")
+require(
+    0 <= apply_failure < apply_return < offset_advance,
+    "failed ETYPES persistence must not advance the backend cursor",
 )
 require(
     "tryHandleGet" not in runtime,
