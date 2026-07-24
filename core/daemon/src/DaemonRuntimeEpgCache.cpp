@@ -270,6 +270,24 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
                         continue;
                     }
 
+                    if (backendRuntimeContext->suiteBridgeTransport &&
+                        backendRuntimeContext->epgTypeSnapshotSupported)
+                    {
+                        const bool initializePeriodicSnapshot =
+                            backendRuntimeContext->epgTypeSnapshotComplete ||
+                            backendRuntimeContext->epgTypeSnapshotFrom <= 0 ||
+                            backendRuntimeContext->epgTypeSnapshotUntil <=
+                                backendRuntimeContext->epgTypeSnapshotFrom;
+                        if (initializePeriodicSnapshot)
+                        {
+                            backendRuntimeContext->epgTypeSnapshotFrom = fromTime;
+                            backendRuntimeContext->epgTypeSnapshotUntil =
+                                fromTime + GenreWindowSeconds;
+                            backendRuntimeContext->epgTypeSnapshotOffset = 0;
+                            backendRuntimeContext->epgTypeSnapshotComplete = false;
+                        }
+                    }
+
                     processEpgTypeSnapshotPages(
                         *backendRuntimeContext,
                         PeriodicEpgTypeSnapshotPages);
