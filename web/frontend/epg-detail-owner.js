@@ -1,11 +1,89 @@
 (function (global) {
   'use strict';
 
+  function firstValue(object, keys, fallback) {
+    for (const key of keys) {
+      if (object && object[key] !== undefined && object[key] !== null && object[key] !== '') {
+        return object[key];
+      }
+    }
+    return fallback;
+  }
+
+  function selectedBackendId(event) {
+    const explicit = String(firstValue(event, ['backendId', 'backend'], '')).trim();
+    if (explicit) return explicit;
+    const platform = global.VdrSuitePlatform;
+    if (platform && typeof platform.getSelectedBackendId === 'function') {
+      const selected = String(platform.getSelectedBackendId() || '').trim();
+      if (selected) return selected;
+    }
+    return 'default';
+  }
+
+  function eventChannelId(event, channel) {
+    return String(firstValue(
+      event,
+      ['channelId', 'channel', 'channel_id'],
+      firstValue(channel, ['id', 'channelId', 'nativeId'], '')
+    )).trim();
+  }
+
+  function eventId(event) {
+    return String(firstValue(event, ['eventId', 'id', 'nativeId'], '')).trim();
+  }
+
+  function isPersistentArtworkUrl(value) {
+    return String(value || '').trim().startsWith('/api/epg/cache/artwork?');
+  }
+
+  function persistentArtworkUrl(event, channel) {
+    const artwork = event && event.artwork && typeof event.artwork === 'object'
+      ? event.artwork
+      : {};
+    const explicit = String(artwork.url || '').trim();
+    if (artwork.available === true && isPersistentArtworkUrl(explicit)) return explicit;
+
+    const channelId = eventChannelId(event, channel);
+    const nativeEventId = eventId(event);
+    if (!channelId || !nativeEventId) return '';
+
+    return '/api/epg/cache/artwork?' + new URLSearchParams({
+      backend: selectedBackendId(event),
+      channelId: channelId,
+      eventId: nativeEventId,
+      probe: String(Date.now())
+    }).toString();
+  }
+
+  function attachPersistentArtwork(detail, event, channel) {
+    if (!detail || detail.querySelector('.epg-detail-artwork')) return;
+    const url = persistentArtworkUrl(event, channel);
+    if (!url || typeof global.Image !== 'function') return;
+
+    const probe = new global.Image();
+    probe.onload = function () {
+      if (detail.querySelector('.epg-detail-artwork')) return;
+      const hero = detail.querySelector('.epg-detail-hero');
+      if (!hero) return;
+      const image = document.createElement('div');
+      image.className = 'epg-detail-artwork';
+      image.setAttribute('role', 'img');
+      image.setAttribute('aria-label', 'Gespeichertes Bild zu ' + String(firstValue(event, ['title'], 'Sendung')));
+      image.style.backgroundImage = 'url("' + url.replace(/["\\\r\n]/g, '') + '")';
+      detail.classList.add('epg-has-artwork');
+      detail.insertBefore(image, hero);
+    };
+    probe.src = url;
+  }
+
   function createCard(event, channel) {
     if (typeof createEpgEventDetailCard !== 'function') {
       throw new Error('Der bestehende EPG-Detail-Renderer ist nicht verfügbar.');
     }
-    return createEpgEventDetailCard(event, channel);
+    const detail = createEpgEventDetailCard(event, channel);
+    attachPersistentArtwork(detail, event, channel);
+    return detail;
   }
 
   function mountTarget() {
@@ -41,6 +119,7 @@
 
   global.VdrSuiteEpgDetailOwner = Object.freeze({
     createCard: createCard,
-    open: open
+    open: open,
+    persistentArtworkUrl: persistentArtworkUrl
   });
 }(window));
