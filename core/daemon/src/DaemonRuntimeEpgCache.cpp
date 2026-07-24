@@ -14,11 +14,112 @@
 namespace
 {
 constexpr std::int64_t GenreWindowSeconds = 48 * 60 * 60;
+constexpr std::size_t EpgTypeSnapshotPageSize = 64;
+constexpr int InitialEpgTypeSnapshotPages = 32;
+constexpr int PeriodicEpgTypeSnapshotPages = 8;
 
 std::int64_t epgGenreEpochSeconds()
 {
     return std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+bool processEpgTypeSnapshotPages(
+    BackendRuntimeContext& context,
+    int maximumPages)
+{
+    if (!context.suiteBridgeTransport ||
+        !context.epgTypeSnapshotSupported ||
+        context.epgTypeSnapshotComplete ||
+        context.epgTypeSnapshotUntil <= context.epgTypeSnapshotFrom ||
+        maximumPages <= 0)
+    {
+        return true;
+    }
+
+    bool success = true;
+    for (int pageIndex = 0; pageIndex < maximumPages; ++pageIndex)
+    {
+        const SuiteBridgeEpgTypeSnapshotTransportPage page =
+            context.suiteBridgeTransport->requestEpgTypeSnapshot(
+                context.epgTypeSnapshotFrom,
+                context.epgTypeSnapshotUntil,
+                context.epgTypeSnapshotOffset,
+                EpgTypeSnapshotPageSize);
+
+        if (!page.transportSucceeded)
+        {
+            if (page.replyCode == 500 ||
+                page.replyCode == 501 ||
+                page.replyCode == 502)
+            {
+                context.epgTypeSnapshotSupported = false;
+                std::cout
+                    << "EPG type snapshot unavailable: backend="
+                    << context.backendId
+                    << ", reply="
+                    << page.replyCode
+                    << std::endl;
+            }
+            else
+            {
+                std::cerr
+                    << "EPG type snapshot transport failed: backend="
+                    << context.backendId
+                    << ", offset="
+                    << context.epgTypeSnapshotOffset
+                    << ", reply="
+                    << page.replyCode
+                    << std::endl;
+            }
+            return false;
+        }
+
+        if (!page.payloadValid ||
+            (page.scanned == 0 && !page.done) ||
+            page.nextOffset < context.epgTypeSnapshotOffset)
+        {
+            std::cerr
+                << "EPG type snapshot payload invalid: backend="
+                << context.backendId
+                << ", offset="
+                << context.epgTypeSnapshotOffset
+                << std::endl;
+            return false;
+        }
+
+        const bool applied = GenreBrowserApiRuntime::instance()
+            .applyEpgTypeSnapshot(context.backendId, page.items);
+        if (!applied)
+        {
+            success = false;
+        }
+
+        context.epgTypeSnapshotOffset = page.nextOffset;
+        context.epgTypeSnapshotComplete = page.done;
+
+        std::cout
+            << "EPG type snapshot page finished: backend="
+            << context.backendId
+            << ", scanned="
+            << page.scanned
+            << ", classified="
+            << page.items.size()
+            << ", nextOffset="
+            << page.nextOffset
+            << ", done="
+            << (page.done ? "true" : "false")
+            << ", applied="
+            << (applied ? "true" : "false")
+            << std::endl;
+
+        if (page.done)
+        {
+            break;
+        }
+    }
+
+    return success;
 }
 }
 
@@ -161,6 +262,11 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
                     if (!backendRuntimeContext) {
                         continue;
                     }
+
+                    processEpgTypeSnapshotPages(
+                        *backendRuntimeContext,
+                        PeriodicEpgTypeSnapshotPages);
+
                     GenreBrowserApiRuntime::instance().continueEpgEnrichment(
                         backendRuntimeContext->backendId,
                         fromTime,
@@ -281,6 +387,19 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
                 fromTime,
                 fromTime + GenreWindowSeconds,
                 1024);
+
+            if (backendRuntimeContext->suiteBridgeTransport &&
+                backendRuntimeContext->epgTypeSnapshotSupported)
+            {
+                backendRuntimeContext->epgTypeSnapshotFrom = fromTime;
+                backendRuntimeContext->epgTypeSnapshotUntil =
+                    fromTime + GenreWindowSeconds;
+                backendRuntimeContext->epgTypeSnapshotOffset = 0;
+                backendRuntimeContext->epgTypeSnapshotComplete = false;
+                processEpgTypeSnapshotPages(
+                    *backendRuntimeContext,
+                    InitialEpgTypeSnapshotPages);
+            }
         }
 
         std::cout
