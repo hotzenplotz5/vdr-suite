@@ -37,7 +37,6 @@ bool processEpgTypeSnapshotPages(
         return true;
     }
 
-    bool success = true;
     for (int pageIndex = 0; pageIndex < maximumPages; ++pageIndex)
     {
         const SuiteBridgeEpgTypeSnapshotTransportPage page =
@@ -92,7 +91,15 @@ bool processEpgTypeSnapshotPages(
             .applyEpgTypeSnapshot(context.backendId, page.items);
         if (!applied)
         {
-            success = false;
+            std::cerr
+                << "EPG type snapshot persistence failed: backend="
+                << context.backendId
+                << ", offset="
+                << context.epgTypeSnapshotOffset
+                << ", scanned="
+                << page.scanned
+                << std::endl;
+            return false;
         }
 
         context.epgTypeSnapshotOffset = page.nextOffset;
@@ -119,7 +126,7 @@ bool processEpgTypeSnapshotPages(
         }
     }
 
-    return success;
+    return true;
 }
 }
 
