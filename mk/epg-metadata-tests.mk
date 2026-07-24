@@ -21,6 +21,7 @@ test-epg-scraper-metadata-controller:
 		$(SQLITE_SRC) \
 		core/vdr/src/EpgEventRepository.cpp \
 		core/vdr/src/EpgArtworkRepository.cpp \
+		core/vdr/src/EpgArtworkPathPolicy.cpp \
 		core/vdr/src/EpgArtworkPublicJsonSerializer.cpp \
 		core/vdr/src/EpgArtworkEnrichmentService.cpp \
 		core/vdr/src/EpgCacheService.cpp \
