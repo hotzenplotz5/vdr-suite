@@ -93,6 +93,26 @@ std::string genreFrom(const RestQueryParameters& query)
     return genre.empty() ? query.get("genreId") : genre;
 }
 
+std::string contentClassFrom(const RestQueryParameters& query)
+{
+    const std::string contentClass = query.get("contentClass");
+    return contentClass.empty() ? query.get("class") : contentClass;
+}
+
+std::string mediaTypeValue(EpgScraperMediaType mediaType)
+{
+    switch (mediaType)
+    {
+    case EpgScraperMediaType::Movie:
+        return "movie";
+    case EpgScraperMediaType::Series:
+        return "series";
+    case EpgScraperMediaType::None:
+        break;
+    }
+    return {};
+}
+
 bool enrichEpgIndex(
     GenreIndexRepository& repository,
     IEpgScraperMetadataResolver* resolver,
@@ -109,7 +129,7 @@ bool enrichEpgIndex(
             normalizedBackendId,
             fromTime,
             untilTime,
-            "tvscraper",
+            "tvscraper-media-type",
             now - ResolverFreshnessSeconds,
             enrichmentLimit);
 
@@ -140,34 +160,69 @@ bool enrichEpgIndex(
 
         if (!resolution.attempted) continue;
 
-        GenreEvidenceInput evidence;
-        evidence.backendId = normalizedBackendId;
-        evidence.targetType = "program-event";
-        evidence.resourceKey = candidate.channelId + "\n" + candidate.eventId;
-        evidence.nativeId = candidate.eventId;
-        evidence.channelId = candidate.channelId;
-        evidence.startTime = parseInt64(candidate.startTime, 0);
-        evidence.endTime = parseInt64(candidate.endTime, 0);
-        evidence.providerId = "tvscraper";
-        evidence.sourceKind = "scraper-metadata";
-        evidence.observedAt = now;
+        GenreEvidenceInput genreEvidence;
+        genreEvidence.backendId = normalizedBackendId;
+        genreEvidence.targetType = "program-event";
+        genreEvidence.resourceKey =
+            candidate.channelId + "\n" + candidate.eventId;
+        genreEvidence.nativeId = candidate.eventId;
+        genreEvidence.channelId = candidate.channelId;
+        genreEvidence.startTime = parseInt64(candidate.startTime, 0);
+        genreEvidence.endTime = parseInt64(candidate.endTime, 0);
+        genreEvidence.providerId = "tvscraper";
+        genreEvidence.sourceKind = "scraper-metadata";
+        genreEvidence.observedAt = now;
+
+        GenreEvidenceInput mediaTypeEvidence = genreEvidence;
+        mediaTypeEvidence.providerId = "tvscraper-media-type";
+        mediaTypeEvidence.sourceKind = "scraper-media-type";
 
         if (resolution.found && resolution.metadata.valid())
         {
-            evidence.providerId = resolution.metadata.provider;
-            evidence.originalValues = resolution.metadata.genres;
-            evidence.state = evidence.originalValues.empty()
+            genreEvidence.providerId = resolution.metadata.provider;
+            genreEvidence.originalValues = resolution.metadata.genres;
+            genreEvidence.state = genreEvidence.originalValues.empty()
                 ? "missing"
                 : "active";
-            evidence.confidence = evidence.originalValues.empty() ? 0.0 : 0.95;
+            genreEvidence.confidence =
+                genreEvidence.originalValues.empty() ? 0.0 : 0.95;
+
+            const std::string mediaType =
+                mediaTypeValue(resolution.metadata.mediaType);
+            if (!mediaType.empty())
+            {
+                mediaTypeEvidence.originalValues = {mediaType};
+                mediaTypeEvidence.state = "active";
+                mediaTypeEvidence.confidence = 0.99;
+            }
+            else
+            {
+                mediaTypeEvidence.state = "stale";
+                mediaTypeEvidence.confidence = 0.0;
+            }
         }
         else
         {
-            evidence.state = "stale";
-            evidence.confidence = 0.0;
+            genreEvidence.state = "stale";
+            genreEvidence.confidence = 0.0;
+            mediaTypeEvidence.state = "stale";
+            mediaTypeEvidence.confidence = 0.0;
         }
 
-        if (!repository.replaceEvidence(evidence)) success = false;
+        const bool genresStored =
+            repository.replaceEvidence(genreEvidence);
+        const bool mediaTypeStored =
+            repository.replaceEvidence(mediaTypeEvidence);
+        const bool browseReconciled =
+            genresStored &&
+            mediaTypeStored &&
+            repository.reconcileEpgBrowseClassification(
+                normalizedBackendId,
+                genreEvidence.resourceKey);
+        if (!genresStored || !mediaTypeStored || !browseReconciled)
+        {
+            success = false;
+        }
     }
     return success;
 }
@@ -421,6 +476,7 @@ bool GenreBrowserApiRuntime::tryHandleGet(
 
     response = controller->getEpg(
         backendId,
+        contentClassFrom(query),
         genreFrom(query),
         fromTime,
         untilTime,
