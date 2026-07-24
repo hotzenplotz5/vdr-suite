@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 using namespace vdrsuite::agent;
 
