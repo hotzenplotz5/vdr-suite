@@ -26,6 +26,21 @@ public:
 
 replace_once(
     "core/sqlite/include/Database.h",
+    '''    Database();
+    ~Database();
+''',
+    '''    Database();
+    ~Database();
+
+    Database(const Database&) = delete;
+    Database& operator=(const Database&) = delete;
+    Database(Database&& other) noexcept;
+    Database& operator=(Database&& other) noexcept;
+'''
+)
+
+replace_once(
+    "core/sqlite/include/Database.h",
     '''    bool execute(const std::string& sql);
     bool tableExists(const std::string& tableName);
 ''',
@@ -46,6 +61,47 @@ replace_once(
     sqlite3* db_;
     mutable std::recursive_mutex transactionMutex_;
 };
+'''
+)
+
+replace_once(
+    "core/sqlite/src/Database.cpp",
+    '''Database::~Database()
+{
+    close();
+}
+''',
+    '''Database::~Database()
+{
+    close();
+}
+
+Database::Database(Database&& other) noexcept
+    : db_(nullptr)
+{
+    std::lock_guard<std::recursive_mutex> lock(other.transactionMutex_);
+    db_ = other.db_;
+    other.db_ = nullptr;
+}
+
+Database& Database::operator=(Database&& other) noexcept
+{
+    if (this == &other)
+    {
+        return *this;
+    }
+
+    std::scoped_lock lock(transactionMutex_, other.transactionMutex_);
+
+    if (db_)
+    {
+        sqlite3_close(db_);
+    }
+
+    db_ = other.db_;
+    other.db_ = nullptr;
+    return *this;
+}
 '''
 )
 
@@ -139,4 +195,3 @@ replace_once(
     std::string selectSql =
 '''
 )
-
