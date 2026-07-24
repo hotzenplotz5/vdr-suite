@@ -1,3 +1,35 @@
+namespace
+{
+std::string recordingFolderGenreCandidate(
+    const std::string& title,
+    const std::string& path)
+{
+    const auto firstFolder = [](const std::string& value) -> std::string
+    {
+        const std::size_t separator = value.find_first_of("/~");
+        if (separator == std::string::npos || separator == 0) return {};
+        return value.substr(0, separator);
+    };
+
+    std::string candidate = firstFolder(title);
+    if (candidate.empty() && !path.empty() && path.front() != '/')
+    {
+        candidate = firstFolder(path);
+    }
+    if (candidate.empty()) return {};
+
+    CanonicalGenreRegistry registry;
+    const CanonicalGenre genre = registry.classify(candidate);
+    if (!genre.known ||
+        genre.id == "unclassified" ||
+        genre.id == "movie")
+    {
+        return {};
+    }
+    return candidate;
+}
+}
+
 bool GenreIndexRepository::synchronizeRecordingCache(const std::string& backendId)
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -7,29 +39,40 @@ bool GenreIndexRepository::synchronizeRecordingCache(const std::string& backendI
         database_.tableExists("vdr_recording_native_metadata") &&
         database_.tableExists("vdr_recording_native_text_list");
     const char* sql = nativeMetadataAvailable
-        ? "SELECT c.cache_key,c.backend_native_id,COALESCE(m.content_state,''),COALESCE(m.last_attempt_state,''),"
+        ? "SELECT c.cache_key,c.backend_native_id,c.title,c.path,COALESCE(m.content_state,''),COALESCE(m.last_attempt_state,''),"
           "COALESCE(m.provider,''),COALESCE(l.value,'') "
           "FROM vdr_recording_cache c "
           "LEFT JOIN vdr_recording_native_metadata m ON m.backend_id=c.backend_id AND m.backend_native_id=c.backend_native_id "
           "LEFT JOIN vdr_recording_native_text_list l ON l.backend_id=m.backend_id AND l.recording_key=m.recording_key AND l.kind='genre' "
           "WHERE c.backend_id=? ORDER BY c.cache_key,l.ordinal;"
-        : "SELECT c.cache_key,c.backend_native_id,'','','','' FROM vdr_recording_cache c "
+        : "SELECT c.cache_key,c.backend_native_id,c.title,c.path,'','','','' FROM vdr_recording_cache c "
           "WHERE c.backend_id=? ORDER BY c.cache_key;";
     sqlite3_stmt* statement = nullptr;
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return false;
     bindText(statement, 1, normalizedBackend);
 
-    struct Aggregate { std::string nativeId; std::string contentState; std::string attemptState; std::string provider; std::vector<std::string> genres; };
+    struct Aggregate
+    {
+        std::string nativeId;
+        std::string title;
+        std::string path;
+        std::string contentState;
+        std::string attemptState;
+        std::string provider;
+        std::vector<std::string> genres;
+    };
     std::map<std::string, Aggregate> rows;
     while (sqlite3_step(statement) == SQLITE_ROW)
     {
         const std::string key = columnText(statement, 0);
         Aggregate& row = rows[key];
         row.nativeId = columnText(statement, 1);
-        row.contentState = columnText(statement, 2);
-        row.attemptState = columnText(statement, 3);
-        row.provider = columnText(statement, 4);
-        const std::string genre = columnText(statement, 5);
+        row.title = columnText(statement, 2);
+        row.path = columnText(statement, 3);
+        row.contentState = columnText(statement, 4);
+        row.attemptState = columnText(statement, 5);
+        row.provider = columnText(statement, 6);
+        const std::string genre = columnText(statement, 7);
         if (!genre.empty()) row.genres.push_back(genre);
     }
     sqlite3_finalize(statement);
@@ -39,7 +82,8 @@ bool GenreIndexRepository::synchronizeRecordingCache(const std::string& backendI
     sqlite3_stmt* clearRecordingEvidence = nullptr;
     const char* clearRecordingEvidenceSql =
         "DELETE FROM suite_metadata_genre_assignments "
-        "WHERE metadata_target_id=? AND source_kind='recording-metadata';";
+        "WHERE metadata_target_id=? "
+        "AND source_kind IN('recording-metadata','recording-folder-genre');";
     if (sqlite3_prepare_v2(
             database_.handle(),
             clearRecordingEvidenceSql,
@@ -67,17 +111,39 @@ bool GenreIndexRepository::synchronizeRecordingCache(const std::string& backendI
             return false;
         }
 
+        const std::string folderGenre = recordingFolderGenreCandidate(
+            entry.second.title,
+            entry.second.path);
+        const bool useFolderGenre =
+            entry.second.genres.empty() && !folderGenre.empty();
+
         GenreEvidenceInput input;
         input.backendId = normalizedBackend;
         input.targetType = "recording";
         input.resourceKey = entry.first;
         input.nativeId = entry.second.nativeId;
-        input.providerId = providerIdFor(entry.second.provider, "recording-native");
-        input.sourceKind = "recording-metadata";
-        input.originalValues = entry.second.genres;
-        input.confidence = entry.second.contentState == "found" ? 0.9 : 0.0;
-        if (entry.second.attemptState == "failure" && !entry.second.genres.empty()) input.state = "stale";
-        else input.state = entry.second.genres.empty() ? "missing" : "active";
+        input.providerId = useFolderGenre
+            ? "recording-folder"
+            : providerIdFor(entry.second.provider, "recording-native");
+        input.sourceKind = useFolderGenre
+            ? "recording-folder-genre"
+            : "recording-metadata";
+        input.originalValues = useFolderGenre
+            ? std::vector<std::string>{folderGenre}
+            : entry.second.genres;
+        input.confidence = useFolderGenre
+            ? 0.70
+            : (entry.second.contentState == "found" ? 0.9 : 0.0);
+        if (!useFolderGenre &&
+            entry.second.attemptState == "failure" &&
+            !entry.second.genres.empty())
+        {
+            input.state = "stale";
+        }
+        else
+        {
+            input.state = input.originalValues.empty() ? "missing" : "active";
+        }
         if (!replaceEvidenceLocked(input))
         {
             sqlite3_finalize(clearRecordingEvidence);
