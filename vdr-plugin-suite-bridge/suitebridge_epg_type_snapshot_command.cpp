@@ -18,8 +18,8 @@
 
 namespace {
 
-constexpr std::size_t MaximumRetainedWindows = 8;
-constexpr std::size_t MaximumSnapshotEvents = 1000000;
+constexpr std::size_t MaximumRetainedWindows = 4;
+constexpr std::size_t MaximumSnapshotEvents = 100000;
 
 struct StableTypeEventIdentity final {
   tChannelID channelId;
