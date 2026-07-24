@@ -59,6 +59,16 @@ require("openRecording" in recordings, "Recordings 2 external detail handoff is 
 require("owner.openRecording" in genres, "genre recording clicks must use Recordings 2 detail ownership")
 require("createEpgEventDetailCard" in epg_owner, "EPG owner bridge must use the existing detail renderer")
 require("owner.open(event" in genres, "genre EPG clicks must use the EPG detail owner")
+require(
+    "attachPersistentArtwork" in epg_owner
+    and "'/api/epg/cache/artwork?'" in epg_owner
+    and "persistentArtworkUrl" in epg_owner,
+    "genre EPG details must prefer the Suite-owned persistent artwork route",
+)
+require(
+    "/api/epg/cache/metadata/image" not in epg_owner,
+    "genre EPG detail ownership must not depend on transient provider image routes",
+)
 
 require("/frontend/modules/genres.js" in loader, "deferred genre runtime is missing")
 require("/frontend/epg-detail-owner.js" in loader, "EPG detail owner runtime is missing")
