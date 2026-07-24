@@ -20,7 +20,7 @@
 namespace
 {
 #define reconcileEpgBrowseClassificationLocked \
-    reconcileEpgBrowseClassificationLockedV2
+    reconcileEpgBrowseClassificationLockedV2 [[maybe_unused]]
 #include "GenreIndexRepositoryHelpers.inc"
 #undef reconcileEpgBrowseClassificationLocked
 
