@@ -63,7 +63,7 @@ for fragment in required_controller:
 required_source = (
     "findMetadataJson(",
     "findMetadataImage(",
-    '"status\\\":\\\"pending"',
+    r'\"available\":false,\"status\":\"pending\"',
 )
 for fragment in required_source:
     if fragment not in controller_source:
