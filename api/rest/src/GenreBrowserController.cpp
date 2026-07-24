@@ -133,6 +133,48 @@ void appendStringArray(
     json << ']';
 }
 
+void appendBrowseCategory(
+    std::ostringstream& json,
+    const GenreBrowseCategory& category)
+{
+    json << "{\"id\":";
+    appendJsonString(json, category.id);
+    json << ",\"label\":";
+    appendJsonString(json, category.label);
+    json << ",\"labelDe\":";
+    appendJsonString(json, category.labelDe);
+    json << ",\"labelEn\":";
+    appendJsonString(json, category.labelEn);
+    json << ",\"known\":true";
+    json << ",\"count\":" << category.itemCount;
+    json << ",\"activeCount\":" << category.itemCount;
+    json << ",\"staleCount\":0";
+    json << ",\"conflictCount\":0";
+    json << ",\"sources\":[\"epg-browse-content-class\"]";
+    json << ",\"children\":[";
+    for (std::size_t index = 0;
+         index < category.children.size();
+         ++index)
+    {
+        if (index > 0) json << ',';
+        appendBrowseCategory(json, category.children[index]);
+    }
+    json << "]}";
+}
+
+void appendBrowseCategories(
+    std::ostringstream& json,
+    const std::vector<GenreBrowseCategory>& categories)
+{
+    json << '[';
+    for (std::size_t index = 0; index < categories.size(); ++index)
+    {
+        if (index > 0) json << ',';
+        appendBrowseCategory(json, categories[index]);
+    }
+    json << ']';
+}
+
 int placeholderVariant(const std::string& value)
 {
     std::uint32_t hash = 2166136261U;
@@ -194,41 +236,59 @@ ApiResponse GenreBrowserController::getOverview(
         return jsonError(503, "genre index unavailable");
     }
 
-    std::string targetType;
-    std::string normalizedScope = scope.empty() ? "recordings" : scope;
-    if (normalizedScope == "recordings")
+    const std::string normalizedScope =
+        scope.empty() ? "recordings" : scope;
+    const std::string responseLocale = normalizedLocale(locale);
+
+    if (normalizedScope == "epg")
     {
-        targetType = "recording";
-        fromTime = 0;
-        untilTime = 0;
-    }
-    else if (normalizedScope == "epg")
-    {
-        targetType = "program-event";
         normalizeEpgWindow(fromTime, untilTime);
+        const GenreEpgBrowseOverview overview =
+            repository_.epgBrowseOverview(
+                normalizedBackendId,
+                fromTime,
+                untilTime,
+                responseLocale);
+
+        std::ostringstream json;
+        json << "{\"backendId\":";
+        appendJsonString(json, overview.backendId);
+        json << ",\"scope\":\"epg\"";
+        json << ",\"locale\":";
+        appendJsonString(json, responseLocale);
+        json << ",\"taxonomy\":\"epg-browse-v1\"";
+        json << ",\"from\":" << overview.fromTime;
+        json << ",\"until\":" << overview.untilTime;
+        json << ",\"totalItems\":" << overview.distinctItemCount;
+        json << ",\"assignmentCount\":" << overview.assignmentCount;
+        json << ",\"categories\":";
+        appendBrowseCategories(json, overview.categories);
+        json << ",\"genres\":";
+        appendBrowseCategories(json, overview.categories);
+        json << "}";
+        return jsonResponse(200, json.str());
     }
-    else
+
+    if (normalizedScope != "recordings")
     {
         return jsonError(400, "scope must be recordings or epg");
     }
 
-    const std::string responseLocale = normalizedLocale(locale);
     const GenreOverview overview = repository_.overview(
         normalizedBackendId,
-        targetType,
-        fromTime,
-        untilTime,
+        "recording",
+        0,
+        0,
         responseLocale);
 
     std::ostringstream json;
     json << "{\"backendId\":";
     appendJsonString(json, overview.backendId);
-    json << ",\"scope\":";
-    appendJsonString(json, normalizedScope);
+    json << ",\"scope\":\"recordings\"";
     json << ",\"locale\":";
     appendJsonString(json, responseLocale);
-    json << ",\"from\":" << overview.fromTime;
-    json << ",\"until\":" << overview.untilTime;
+    json << ",\"from\":0";
+    json << ",\"until\":0";
     json << ",\"totalItems\":" << overview.distinctItemCount;
     json << ",\"assignmentCount\":" << overview.assignmentCount;
     json << ",\"genres\":[";
@@ -297,8 +357,10 @@ ApiResponse GenreBrowserController::getRecordings(
     json << ",\"limit\":" << page.limit;
     json << ",\"offset\":" << page.offset;
     json << ",\"hasMore\":"
-         << (page.offset + static_cast<int>(page.recordings.size()) < page.totalCount
-                 ? "true" : "false");
+         << (page.offset + static_cast<int>(page.recordings.size()) <
+                    page.totalCount
+                 ? "true"
+                 : "false");
     json << ",\"items\":[";
     for (std::size_t index = 0; index < page.recordings.size(); ++index)
     {
@@ -326,7 +388,9 @@ ApiResponse GenreBrowserController::getRecordings(
         json << ",\"subtitle\":\"\",\"summary\":\"\",\"posterUrl\":";
         appendJsonString(json, posterUrl);
         json << ",\"placeholderVariant\":"
-             << placeholderVariant(recording.backendId + "\n" + recording.backendNativeId);
+             << placeholderVariant(
+                    recording.backendId + "\n" +
+                    recording.backendNativeId);
         json << "},\"provider\":{},\"native\":{},\"artwork\":{\"preferredUrl\":";
         appendJsonString(json, posterUrl);
         json << "}}}";
@@ -337,7 +401,8 @@ ApiResponse GenreBrowserController::getRecordings(
 
 ApiResponse GenreBrowserController::getEpg(
     const std::string& backendId,
-    const std::string& genreId,
+    const std::string& requestedContentClass,
+    const std::string& requestedGenreId,
     std::int64_t fromTime,
     std::int64_t untilTime,
     int limit,
@@ -349,22 +414,48 @@ ApiResponse GenreBrowserController::getEpg(
     {
         return jsonError(404, "backend not found");
     }
-    if (genreId.empty())
-    {
-        return jsonError(400, "genre is required");
-    }
     if (!repository_.ensureSchema())
     {
         return jsonError(503, "genre index unavailable");
     }
-    if (!repository_.genreExists(genreId))
+
+    std::string contentClass = requestedContentClass;
+    std::string genreId = requestedGenreId;
+    if (contentClass.empty() &&
+        GenreIndexRepository::isEpgBrowseContentClass(genreId))
+    {
+        contentClass = genreId;
+        genreId.clear();
+    }
+    else if (contentClass.empty() &&
+             GenreIndexRepository::isFilmGenre(genreId))
+    {
+        contentClass = "movie";
+    }
+
+    if (!GenreIndexRepository::isEpgBrowseContentClass(contentClass))
+    {
+        return jsonError(
+            400,
+            "contentClass must be movie, series, documentary or sports");
+    }
+    if (!genreId.empty() &&
+        (contentClass != "movie" ||
+         !GenreIndexRepository::isFilmGenre(genreId)))
+    {
+        return jsonError(
+            400,
+            "genre is only supported for canonical film genres");
+    }
+    if (!genreId.empty() && !repository_.genreExists(genreId))
     {
         return jsonError(404, "genre not found");
     }
 
     normalizeEpgWindow(fromTime, untilTime);
-    const GenreEpgPage page = repository_.epgByGenre(
+    const GenreEpgPage page = repository_.epgByBrowse(
         normalizedBackendId,
+        contentClass,
         genreId,
         fromTime,
         untilTime,
@@ -374,6 +465,8 @@ ApiResponse GenreBrowserController::getEpg(
     std::ostringstream json;
     json << "{\"backendId\":";
     appendJsonString(json, page.backendId);
+    json << ",\"contentClass\":";
+    appendJsonString(json, page.contentClass);
     json << ",\"genreId\":";
     appendJsonString(json, page.genreId);
     json << ",\"from\":" << page.fromTime;
@@ -382,8 +475,10 @@ ApiResponse GenreBrowserController::getEpg(
     json << ",\"limit\":" << page.limit;
     json << ",\"offset\":" << page.offset;
     json << ",\"hasMore\":"
-         << (page.offset + static_cast<int>(page.events.size()) < page.totalCount
-                 ? "true" : "false");
+         << (page.offset + static_cast<int>(page.events.size()) <
+                    page.totalCount
+                 ? "true"
+                 : "false");
     json << ",\"items\":[";
     for (std::size_t index = 0; index < page.events.size(); ++index)
     {
@@ -406,6 +501,8 @@ ApiResponse GenreBrowserController::getEpg(
         appendJsonString(json, event.subtitle);
         json << ",\"description\":";
         appendJsonString(json, event.description);
+        json << ",\"contentClass\":";
+        appendJsonString(json, event.contentClass);
         json << ",\"startTime\":" << event.startTime;
         json << ",\"endTime\":" << event.endTime;
         json << ",\"durationSeconds\":" << event.durationSeconds;
