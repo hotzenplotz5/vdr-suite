@@ -68,8 +68,12 @@ def main() -> int:
         "backend context must own backend-scoped Suite Bridge health runtime",
     )
     require(
-        "SuiteBridgeEpgMetadataResolver> epgScraperMetadataResolver" in context,
-        "backend context must own its typed EPG scraper metadata resolver",
+        "SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate" in context,
+        "backend context must own its typed EPG scraper metadata delegate",
+    )
+    require(
+        "PersistentEpgScraperMetadataResolver> epgScraperMetadataResolver" in context,
+        "backend context must own its persistent EPG scraper metadata resolver",
     )
     require(
         "context->backendId == suiteBridgeConfig.backendId" in runtime,
@@ -81,7 +85,11 @@ def main() -> int:
     )
     require(
         "std::make_unique<SuiteBridgeEpgMetadataResolver>" in runtime,
-        "DaemonRuntime must construct the backend EPG scraper metadata resolver",
+        "DaemonRuntime must construct the backend EPG scraper metadata delegate",
+    )
+    require(
+        "std::make_unique<PersistentEpgScraperMetadataResolver>" in runtime,
+        "DaemonRuntime must wrap EPG scraper metadata with persistent artwork retention",
     )
     require(
         "registerScraperMetadataResolver(" in runtime,
@@ -99,12 +107,15 @@ def main() -> int:
     metadata_transport_index = runtime.index(
         "context->suiteBridgeTransport ="
     )
+    metadata_delegate_index = runtime.index(
+        "context->epgScraperMetadataDelegate ="
+    )
     metadata_resolver_index = runtime.index(
         "context->epgScraperMetadataResolver ="
     )
     require(
-        metadata_transport_index < metadata_resolver_index,
-        "EPG metadata resolver must reuse the constructed bounded Suite Bridge transport",
+        metadata_transport_index < metadata_delegate_index < metadata_resolver_index,
+        "persistent EPG metadata resolver must wrap the bounded Suite Bridge delegate",
     )
 
     start_index = runtime.index("suiteBridgeAgentRuntime->start()")
