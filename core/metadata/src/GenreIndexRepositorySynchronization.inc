@@ -120,7 +120,13 @@ bool GenreIndexRepository::synchronizeEpgCache(
             if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
             for (std::size_t index = begin; index < end; ++index)
             {
-                if (!replaceEvidenceLocked(rows[index]))
+                if (!replaceEvidenceLocked(rows[index]) ||
+                    !reconcileEpgBrowseClassificationLocked(
+                        database_.handle(),
+                        stableTargetId(
+                            rows[index].targetType,
+                            rows[index].backendId,
+                            rows[index].resourceKey)))
                 {
                     database_.execute("ROLLBACK;");
                     return false;
