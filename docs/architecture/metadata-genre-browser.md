@@ -241,3 +241,28 @@ This slice does not implement:
 - [Back to Architecture Index](index.md)
 - [Back to Current State](../CURRENT.md)
 - [Back to README](../../README.md)
+
+## Phase 61 EPG Cache Reconciliation
+
+The real-system diagnosis on 2026-07-24 proved that RESTfulAPI may replace
+backend-native event IDs for the same schedule occurrence while the warm cache
+still retains the previous rows. The cache now reconciles only an explicitly
+bounded, authoritative refresh window:
+
+- native event IDs remain backend-scoped cache identities;
+- title, subtitle and schedule similarity are never promoted to canonical
+  identity;
+- channels that hit `channelEventLimit` are treated as potentially truncated
+  and are not destructively reconciled;
+- missing native IDs are removed only inside the proven backend/channel/time
+  scope;
+- dependent artwork and scraper-cache rows are removed, while Genre target
+  evidence is retired/staled instead of silently rebound;
+- current native IDs are enriched normally through the existing asynchronous
+  SuiteBridge path;
+- metadata GETs for retired cache IDs return `stale-event` and never enqueue a
+  provider request;
+- pending frontend metadata responses are retried with a bounded backoff and
+  are not cached permanently.
+
+The EPG timeline and PR #99 LiveRemote/overlay route ownership remain unchanged.

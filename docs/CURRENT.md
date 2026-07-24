@@ -273,3 +273,11 @@ Before proposing frontend, Live-parity, RESTfulAPI, epgsearch, metadata, multi-s
 
 - [Back to README](../README.md)
 - [Back to Documentation Index](index.md)
+
+## Phase 61 EPG Cache Consistency
+
+The real default-backend diagnosis on 2026-07-24 proved that backend-native EPG
+IDs can be replaced while previous warm-cache rows remain visible. Phase 61 now
+contains a bounded authoritative reconciliation path and a bounded frontend
+metadata retry path. Real-system build, restart and browser acceptance remain
+required before this slice is marked completed history.

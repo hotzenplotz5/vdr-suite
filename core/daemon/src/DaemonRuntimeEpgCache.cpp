@@ -218,9 +218,13 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
         return;
     }
 
+    constexpr std::int64_t PastOverlapSeconds = 3 * 60 * 60;
+    const std::int64_t currentEpoch = epgGenreEpochSeconds();
+
     VdrEventQuery query;
-    query.from = -1;
-    query.timespan = static_cast<int>(GenreWindowSeconds);
+    query.from = currentEpoch - PastOverlapSeconds;
+    query.timespan = static_cast<int>(
+        GenreWindowSeconds + PastOverlapSeconds);
     query.channelEventLimit = 160;
 
     VdrChannelCacheRepository channelCache(database_);

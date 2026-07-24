@@ -18,7 +18,9 @@ struct EpgCacheRefreshResult
     bool accepted = false;
     bool fetched = false;
     bool stored = false;
+    bool authoritative = false;
     std::size_t eventCount = 0;
+    std::size_t removedEventCount = 0;
     bool artworkEnrichmentAvailable = false;
     bool artworkQueueAvailable = true;
     std::size_t artworkQueued = 0;
@@ -79,7 +81,15 @@ public:
     int countForBackend(
         const std::string& backendId) const;
 
+    bool containsEventForBackend(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const;
+
     static bool isBoundedRefreshQuery(
+        const VdrEventQuery& query);
+
+    static bool isAuthoritativeRefreshQuery(
         const VdrEventQuery& query);
 
 private:

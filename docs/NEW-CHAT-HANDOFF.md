@@ -265,3 +265,25 @@ After acceptance, continue the remaining Phase 61 provider, artwork, migration, 
 - [Back to README](../README.md)
 - [Back to Documentation Index](index.md)
 - [Back to Current State](CURRENT.md)
+
+## Phase 61 EPG Identity Diagnosis and Fix
+
+Real-system evidence from 2026-07-24 confirmed stale backend-native EPG IDs in
+`epg_events` after RESTfulAPI had already published replacement IDs. Examples
+included `38843 -> 39566`, `38844 -> 39567` and `38845 -> 39568` on the default
+backend. The implementation direction is authoritative window reconciliation,
+not title/time deduplication.
+
+The current patch:
+
+- uses an explicit epoch-based warmup window;
+- reconciles only channels proven complete below the per-channel cap;
+- removes stale cache rows and dependent scraper/artwork rows atomically;
+- retires old Genre bindings without copying identity-bound public JSON;
+- rejects metadata materialization for IDs no longer present in `epg_events`;
+- retries frontend `pending` responses without permanently caching them;
+- serializes explicit EPG and recording-cache transactions on the shared
+  SQLite connection.
+
+Do not restore the former +/-5-second title matcher or copy metadata JSON from
+an old native event ID to a new one.

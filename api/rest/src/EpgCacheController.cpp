@@ -137,7 +137,9 @@ std::string serializeRefreshResult(
          << "\"accepted\":" << boolJson(result.accepted) << ','
          << "\"fetched\":" << boolJson(result.fetched) << ','
          << "\"stored\":" << boolJson(result.stored) << ','
-         << "\"eventCount\":" << result.eventCount << '}';
+         << "\"authoritative\":" << boolJson(result.authoritative) << ','
+         << "\"eventCount\":" << result.eventCount << ','
+         << "\"removedEventCount\":" << result.removedEventCount << '}';
     return json.str();
 }
 
@@ -325,6 +327,18 @@ ApiResponse EpgCacheController::getMetadata(
     }
 
     const std::string normalizedBackendId = normalizeBackendId(backendId);
+    EpgCacheService* service = findService(normalizedBackendId);
+    if (service != nullptr &&
+        !service->containsEventForBackend(
+            normalizedBackendId,
+            channelId,
+            eventId))
+    {
+        return jsonResponse(
+            200,
+            "{\"available\":false,\"status\":\"stale-event\"}");
+    }
+
     const std::string cached = artworkRepository_->findMetadataJson(
         normalizedBackendId,
         channelId,
