@@ -280,7 +280,7 @@ void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
                 backendRuntimeContext->backendId,
                 fromTime,
                 fromTime + GenreWindowSeconds,
-                64);
+                1024);
         }
 
         std::cout
