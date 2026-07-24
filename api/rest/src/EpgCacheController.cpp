@@ -207,6 +207,12 @@ EpgCacheController::EpgCacheController(
 {
 }
 
+void EpgCacheController::setScraperMetadataMaterializationRequest(
+    ScraperMetadataMaterializationRequest request)
+{
+    scraperMetadataMaterializationRequest_ = std::move(request);
+}
+
 void EpgCacheController::setScraperMetadataAllowedRoots(
     std::vector<std::string> allowedRoots)
 {
@@ -323,13 +329,22 @@ ApiResponse EpgCacheController::getMetadata(
         return jsonError(503, "epg scraper metadata cache unavailable");
     }
 
+    const std::string normalizedBackendId = normalizeBackendId(backendId);
     const std::string cached = artworkRepository_->findMetadataJson(
-        normalizeBackendId(backendId),
+        normalizedBackendId,
         channelId,
         eventId);
     if (!cached.empty())
     {
         return jsonResponse(200, cached);
+    }
+
+    if (scraperMetadataMaterializationRequest_)
+    {
+        scraperMetadataMaterializationRequest_(
+            normalizedBackendId,
+            channelId,
+            eventId);
     }
 
     return jsonResponse(
