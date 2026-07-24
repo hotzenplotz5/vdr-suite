@@ -1,5 +1,6 @@
 #include "DaemonRuntime.h"
 
+#include "DaemonSqliteShutdownCancellation.h"
 #include "GenreBrowserApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "SimpleHttpListener.h"
@@ -41,8 +42,12 @@ void DaemonRuntime::shutdown()
 
     recordingCacheWarmupStopRequested_.store(true);
     epgCacheWarmupStopRequested_.store(true);
-    stopRecordingCacheWarmupWorker();
-    stopEpgCacheWarmupWorker();
+    {
+        DaemonSqliteShutdownCancellation sqliteCancellation(
+            database_.handle());
+        stopRecordingCacheWarmupWorker();
+        stopEpgCacheWarmupWorker();
+    }
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
         if (!backendRuntimeContext) {
