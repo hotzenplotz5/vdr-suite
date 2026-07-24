@@ -2,13 +2,10 @@
 
 #include "DashboardController.h"
 
-#include <chrono>
 #include <cstdint>
-#include <deque>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <set>
 #include <string>
 
 class BackendRegistryService;
@@ -29,11 +26,6 @@ public:
     void registerEpgScraperMetadataResolver(
         const std::string& backendId,
         IEpgScraperMetadataResolver& resolver);
-
-    void requestEpgMetadataMaterialization(
-        const std::string& backendId,
-        const std::string& channelId,
-        const std::string& eventId);
 
     int processRequestedEpgMetadata(int maximumRequests = 4);
 
@@ -59,14 +51,6 @@ public:
     void reset();
 
 private:
-    struct EpgMetadataMaterializationRequest
-    {
-        std::string backendId;
-        std::string channelId;
-        std::string eventId;
-        std::string key;
-    };
-
     GenreBrowserApiRuntime() = default;
 
     mutable std::mutex mutex_;
@@ -75,8 +59,4 @@ private:
     std::unique_ptr<GenreIndexRepository> readRepository_;
     std::unique_ptr<GenreBrowserController> controller_;
     std::map<std::string, IEpgScraperMetadataResolver*> epgResolvers_;
-    std::deque<EpgMetadataMaterializationRequest> epgMetadataRequests_;
-    std::set<std::string> epgMetadataRequestKeys_;
-    std::map<std::string, std::chrono::steady_clock::time_point>
-        epgMetadataSuppressedUntil_;
 };
