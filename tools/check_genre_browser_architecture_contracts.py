@@ -160,7 +160,7 @@ require("LEFT JOIN vdr_channel_cache" in repository, "EPG Genre query must join 
 require("event.channelName" in controller, "EPG Genre API must serialize the persisted channel name")
 
 require(
-    '"epg-browse-content-class"' in helpers
+    "epg-browse-content-class" in helpers
     and "reconcileEpgBrowseClassificationLocked" in helpers,
     "derived EPG browse classification is missing",
 )
