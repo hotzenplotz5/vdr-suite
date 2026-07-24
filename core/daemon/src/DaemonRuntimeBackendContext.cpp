@@ -169,13 +169,18 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         context->suiteBridgeTransport =
             std::make_unique<vdrsuite::agent::SuiteBridgeSvdrpTransport>(
                 std::move(transportConfig));
+
         if (epgArtworkRepository_) {
             context->epgArtworkResolver =
                 std::make_unique<SuiteBridgeEpgArtworkResolver>(
                     *context->suiteBridgeTransport);
-            context->epgScraperMetadataResolver =
+            context->epgScraperMetadataDelegate =
                 std::make_unique<SuiteBridgeEpgMetadataResolver>(
                     *context->suiteBridgeTransport);
+            context->epgScraperMetadataResolver =
+                std::make_unique<PersistentEpgScraperMetadataResolver>(
+                    *context->epgScraperMetadataDelegate,
+                    *epgArtworkRepository_);
             GenreBrowserApiRuntime::instance()
                 .registerEpgScraperMetadataResolver(
                     context->backendId,
