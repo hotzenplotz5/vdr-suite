@@ -8,9 +8,12 @@
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 namespace {
+
+constexpr long SOCKET_POLL_INTERVAL_MICROSECONDS = 250000;
 
 std::string buildHttpRequest(const std::string& host, int port, const HttpRequest& request)
 {
@@ -86,18 +89,72 @@ HttpResponse parseHttpResponse(const std::string& raw)
     return response;
 }
 
+void configureSocketPollingTimeouts(int socketFd)
+{
+    timeval timeout{};
+    timeout.tv_sec = 0;
+    timeout.tv_usec = SOCKET_POLL_INTERVAL_MICROSECONDS;
+
+    if (setsockopt(
+            socketFd,
+            SOL_SOCKET,
+            SO_RCVTIMEO,
+            &timeout,
+            sizeof(timeout)) != 0) {
+        close(socketFd);
+        throw std::runtime_error(
+            "failed to configure receive timeout: " +
+            std::string(std::strerror(errno)));
+    }
+
+    if (setsockopt(
+            socketFd,
+            SOL_SOCKET,
+            SO_SNDTIMEO,
+            &timeout,
+            sizeof(timeout)) != 0) {
+        close(socketFd);
+        throw std::runtime_error(
+            "failed to configure send timeout: " +
+            std::string(std::strerror(errno)));
+    }
+}
+
+bool retryableSocketError(int errorNumber)
+{
+    return errorNumber == EINTR ||
+        errorNumber == EAGAIN ||
+        errorNumber == EWOULDBLOCK;
+}
+
+int noSignalSendFlags()
+{
+#ifdef MSG_NOSIGNAL
+    return MSG_NOSIGNAL;
+#else
+    return 0;
+#endif
+}
+
 } // namespace
 
 BasicHttpClient::BasicHttpClient(
     std::string host,
     int port,
     IRuntimeLogger* logger,
-    IRuntimeMeasurementSink* measurementSink)
+    IRuntimeMeasurementSink* measurementSink,
+    CancellationCheck cancellationCheck)
     : host_(std::move(host)),
       port_(port),
       logger_(logger),
-      measurementSink_(measurementSink)
+      measurementSink_(measurementSink),
+      cancellationCheck_(std::move(cancellationCheck))
 {
+}
+
+bool BasicHttpClient::cancellationRequested() const
+{
+    return cancellationCheck_ && cancellationCheck_();
 }
 
 void BasicHttpClient::log(RuntimeLogLevel level, const std::string& message) const
@@ -121,6 +178,11 @@ void BasicHttpClient::recordMeasurement(const RuntimeMeasurement& measurement) c
 HttpResponse BasicHttpClient::execute(const HttpRequest& request) const
 {
     const auto started = std::chrono::steady_clock::now();
+
+    if (cancellationRequested()) {
+        throw std::runtime_error("HTTP request cancelled");
+    }
+
     addrinfo hints{};
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -136,6 +198,11 @@ HttpResponse BasicHttpClient::execute(const HttpRequest& request) const
     int socketFd = -1;
 
     for (addrinfo* current = result; current != nullptr; current = current->ai_next) {
+        if (cancellationRequested()) {
+            freeaddrinfo(result);
+            throw std::runtime_error("HTTP request cancelled");
+        }
+
         socketFd = socket(current->ai_family, current->ai_socktype, current->ai_protocol);
         if (socketFd == -1) {
             continue;
@@ -155,19 +222,37 @@ HttpResponse BasicHttpClient::execute(const HttpRequest& request) const
         throw std::runtime_error("connect failed to " + host_ + ":" + port);
     }
 
+    configureSocketPollingTimeouts(socketFd);
+
     const std::string rawRequest = buildHttpRequest(host_, port_, request);
     std::size_t bytesSent = 0;
 
     while (bytesSent < rawRequest.size()) {
+        if (cancellationRequested()) {
+            close(socketFd);
+            throw std::runtime_error("HTTP request cancelled");
+        }
+
         const ssize_t written = send(
             socketFd,
             rawRequest.data() + bytesSent,
             rawRequest.size() - bytesSent,
-            0);
+            noSignalSendFlags());
 
-        if (written <= 0) {
+        if (written < 0) {
+            const int errorNumber = errno;
+            if (retryableSocketError(errorNumber)) {
+                continue;
+            }
+
             close(socketFd);
-            throw std::runtime_error("send failed: " + std::string(std::strerror(errno)));
+            throw std::runtime_error(
+                "send failed: " + std::string(std::strerror(errorNumber)));
+        }
+
+        if (written == 0) {
+            close(socketFd);
+            throw std::runtime_error("send failed: connection closed");
         }
 
         bytesSent += static_cast<std::size_t>(written);
@@ -177,11 +262,22 @@ HttpResponse BasicHttpClient::execute(const HttpRequest& request) const
     char buffer[4096];
 
     while (true) {
+        if (cancellationRequested()) {
+            close(socketFd);
+            throw std::runtime_error("HTTP request cancelled");
+        }
+
         const ssize_t received = recv(socketFd, buffer, sizeof(buffer), 0);
 
         if (received < 0) {
+            const int errorNumber = errno;
+            if (retryableSocketError(errorNumber)) {
+                continue;
+            }
+
             close(socketFd);
-            throw std::runtime_error("recv failed: " + std::string(std::strerror(errno)));
+            throw std::runtime_error(
+                "recv failed: " + std::string(std::strerror(errorNumber)));
         }
 
         if (received == 0) {
