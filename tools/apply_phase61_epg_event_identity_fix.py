@@ -6,19 +6,22 @@ repository_source = (
     ROOT / "core/vdr/src/EpgEventRepository.cpp"
 ).read_text(encoding="utf-8")
 
-# repository.py must run before database_transaction.py on a pristine tree.
-# On a previously transformed tree, running it again would search for the
-# pre-transaction replacement block and fail before the incremental database
-# move-semantics update can be applied.
-if "replaceAuthoritativeWindowForBackend" not in repository_source:
-    from phase61_authoritative_epg import repository
+already_transformed = "replaceAuthoritativeWindowForBackend" in repository_source
 
-from phase61_authoritative_epg import database_transaction
-from phase61_authoritative_epg import artwork_guard
-from phase61_authoritative_epg import service_controller
-from phase61_authoritative_epg import frontend_daemon
-from phase61_authoritative_epg import tests
-from phase61_authoritative_epg import artwork_guard_tests
-from phase61_authoritative_epg import docs
+if already_transformed:
+    # Incremental follow-up for a tree on which the full Phase 61 transform
+    # already completed. Re-running the original transformation modules would
+    # search for pre-transform source blocks and fail before later fixes run.
+    from phase61_authoritative_epg import database_transaction
+else:
+    # Pristine tree: preserve the required transformation order.
+    from phase61_authoritative_epg import repository
+    from phase61_authoritative_epg import database_transaction
+    from phase61_authoritative_epg import artwork_guard
+    from phase61_authoritative_epg import service_controller
+    from phase61_authoritative_epg import frontend_daemon
+    from phase61_authoritative_epg import tests
+    from phase61_authoritative_epg import artwork_guard_tests
+    from phase61_authoritative_epg import docs
 
 print("Phase 61 authoritative EPG cache reconciliation applied.")
