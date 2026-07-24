@@ -37,6 +37,19 @@ bool GenreIndexRepository::isValidTargetType(const std::string& targetType)
     return targetType == "recording" || targetType == "program-event";
 }
 
+bool GenreIndexRepository::isEpgBrowseContentClass(const std::string& value)
+{
+    return value == "movie" ||
+        value == "series" ||
+        value == "documentary" ||
+        value == "sports";
+}
+
+bool GenreIndexRepository::isFilmGenre(const std::string& value)
+{
+    return filmGenreIds().count(value) > 0;
+}
+
 std::string GenreIndexRepository::stableTargetId(
     const std::string& targetType,
     const std::string& backendId,
@@ -57,6 +70,30 @@ bool GenreIndexRepository::replaceEvidence(const GenreEvidenceInput& input)
     if (!ensureSchemaLocked()) return false;
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
     if (!replaceEvidenceLocked(input))
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+    if (!database_.execute("COMMIT;"))
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+    return true;
+}
+
+bool GenreIndexRepository::reconcileEpgBrowseClassification(
+    const std::string& backendId,
+    const std::string& resourceKey)
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (!ensureSchemaLocked() || resourceKey.empty()) return false;
+    if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
+    const std::string targetId = stableTargetId(
+        "program-event",
+        normalizeBackendId(backendId),
+        resourceKey);
+    if (!reconcileEpgBrowseClassificationLocked(database_.handle(), targetId))
     {
         database_.execute("ROLLBACK;");
         return false;
@@ -115,40 +152,55 @@ bool GenreIndexRepository::replaceEvidenceLocked(const GenreEvidenceInput& rawIn
     const char* insertSql =
         "INSERT INTO suite_metadata_genre_assignments "
         "(metadata_target_id,backend_id,target_type,genre_id,provider_id,original_value,normalization_rule,source_kind,assignment_state,confidence,ordinal,observed_at,updated_at) "
-        "VALUES (?,?,?,?,?,?,'canonical-alias-v1',?,?,?,?,?,CURRENT_TIMESTAMP);";
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP);";
     if (sqlite3_prepare_v2(database_.handle(), insertSql, -1, &insert, nullptr) != SQLITE_OK) return false;
 
     int ordinal = 0;
     for (const std::string& originalValue : values)
     {
-        const CanonicalGenre genre = registry.classify(originalValue);
-        const bool missing = CanonicalGenreRegistry::normalizeAlias(originalValue).empty();
-        const std::string state = normalizeState(input.state, genre.known, missing);
-        const std::pair<std::string, std::string> key(genre.id, originalValue);
-        if (!seen.insert(key).second) continue;
-        if (!upsertGenre(database_.handle(), genre))
+        const std::vector<std::string> components =
+            genreEvidenceComponents(input.sourceKind, originalValue);
+        for (const std::string& component : components)
         {
-            sqlite3_finalize(insert);
-            return false;
-        }
+            const CanonicalGenre genre = registry.classify(component);
+            const bool missing =
+                CanonicalGenreRegistry::normalizeAlias(component).empty();
+            const std::string state =
+                normalizeState(input.state, genre.known, missing);
+            const std::pair<std::string, std::string> key(
+                genre.id,
+                originalValue);
+            if (!seen.insert(key).second) continue;
+            if (!upsertGenre(database_.handle(), genre))
+            {
+                sqlite3_finalize(insert);
+                return false;
+            }
 
-        sqlite3_reset(insert);
-        sqlite3_clear_bindings(insert);
-        bindText(insert, 1, targetId);
-        bindText(insert, 2, input.backendId);
-        bindText(insert, 3, input.targetType);
-        bindText(insert, 4, genre.id);
-        bindText(insert, 5, input.providerId);
-        bindText(insert, 6, originalValue);
-        bindText(insert, 7, input.sourceKind);
-        bindText(insert, 8, state);
-        sqlite3_bind_double(insert, 9, input.confidence);
-        sqlite3_bind_int(insert, 10, ordinal++);
-        sqlite3_bind_int64(insert, 11, input.observedAt);
-        if (!stepDone(insert))
-        {
-            sqlite3_finalize(insert);
-            return false;
+            sqlite3_reset(insert);
+            sqlite3_clear_bindings(insert);
+            bindText(insert, 1, targetId);
+            bindText(insert, 2, input.backendId);
+            bindText(insert, 3, input.targetType);
+            bindText(insert, 4, genre.id);
+            bindText(insert, 5, input.providerId);
+            bindText(insert, 6, originalValue);
+            bindText(
+                insert,
+                7,
+                input.sourceKind == "dvb-content-descriptor"
+                    ? "dvb-content-components-v1"
+                    : "canonical-alias-v1");
+            bindText(insert, 8, input.sourceKind);
+            bindText(insert, 9, state);
+            sqlite3_bind_double(insert, 10, input.confidence);
+            sqlite3_bind_int(insert, 11, ordinal++);
+            sqlite3_bind_int64(insert, 12, input.observedAt);
+            if (!stepDone(insert))
+            {
+                sqlite3_finalize(insert);
+                return false;
+            }
         }
     }
     sqlite3_finalize(insert);
