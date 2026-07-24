@@ -12,6 +12,9 @@ required_files = (
     ROOT / "suitebridge_svdrp.cpp",
     ROOT / "suitebridge_epg_command_handler.h",
     ROOT / "suitebridge_epg_command_handler.cpp",
+    ROOT / "suitebridge_epg_type_snapshot_command.cpp",
+    ROOT / "suitebridge_epg_type_snapshot_contract.h",
+    ROOT / "suitebridge_epg_type_snapshot_contract.cpp",
     ROOT / "suitebridge_recording_metadata_command.h",
     ROOT / "suitebridge_recording_metadata_command.cpp",
     ROOT / "suitebridge_capability_discovery.h",
@@ -23,6 +26,7 @@ required_files = (
     ROOT / "suitebridge_svdrp_contract.h",
     ROOT / "suitebridge_svdrp_contract.cpp",
     ROOT / "tests" / "test_suitebridge_capability_discovery.cpp",
+    ROOT / "tests" / "test_suitebridge_epg_type_snapshot_contract.cpp",
     ROOT / "tests" / "test_suitebridge_svdrp_contract.cpp",
     ROOT / "docs" / "SB-6-read-only-svdrp.md",
     ROOT / "docs" / "SB-8-counter-continuity.md",
@@ -34,6 +38,8 @@ implementation_files = (
     ROOT / "suitebridge.cpp",
     ROOT / "suitebridge_svdrp.cpp",
     ROOT / "suitebridge_epg_command_handler.cpp",
+    ROOT / "suitebridge_epg_type_snapshot_command.cpp",
+    ROOT / "suitebridge_epg_type_snapshot_contract.cpp",
     ROOT / "suitebridge_recording_metadata_command.cpp",
     ROOT / "suitebridge_capability_discovery.cpp",
     ROOT / "suitebridge_status_snapshot.cpp",
@@ -88,15 +94,20 @@ required_content = (
     '"META <channel-id> <event-id>\\n"',
     "Resolve bounded TVScraper metadata for one EPG event.",
 
+    '"ETYPES <from-epoch> <until-epoch> <offset> <limit>\\n"',
+    "Return a bounded page of TVScraper movie/series types for real VDR EPG events.",
+
     '"RMETA <recording-key>\\n"',
     "Resolve bounded TVScraper metadata for one current VDR recording.",
 
     "SuiteBridgeEpgCommandHandler::HandleArtwork(",
     "SuiteBridgeEpgCommandHandler::HandleMetadata(",
+    "SuiteBridgeEpgCommandHandler::HandleTypeSnapshot(",
     "SuiteBridgeRecordingMetadataCommand::Handle(",
 
     "SuiteBridgeEpgArtworkRequest",
     "SuiteBridgeEpgMetadataRequest",
+    "SuiteBridgeEpgTypeSnapshotRequest",
     "SuiteBridgeRecordingMetadataRequest",
 
     "SuiteBridgeCapabilityDiscoveryReply",
@@ -108,6 +119,7 @@ required_content = (
     "svdrp command=SNAP result=rejected",
     "svdrp command=ARTW result=served",
     "svdrp command=META result=served",
+    "svdrp command=ETYPES result=served",
     "svdrp command=RMETA result=served",
 )
 
