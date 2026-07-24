@@ -19,6 +19,7 @@ runtime = read("api/rest/src/GenreBrowserApiRuntime.cpp")
 controller = read("api/rest/src/GenreBrowserController.cpp")
 epg_worker = read("core/daemon/src/DaemonRuntimeEpgCache.cpp")
 recording_worker = read("core/daemon/src/DaemonRuntimeRecordingCache.cpp")
+refresh_gate = read("core/daemon/include/DaemonCacheRefreshExecutionGate.h")
 backend_context = read("core/daemon/src/DaemonRuntimeBackendContext.cpp")
 shutdown = read("core/daemon/src/DaemonRuntime.cpp")
 repository = read("core/metadata/src/GenreIndexRepositoryQueries.inc")
@@ -86,6 +87,20 @@ require("GenreBrowserApiRuntime::instance().reset()" in shutdown, "genre runtime
 require(
     shutdown.find("GenreBrowserApiRuntime::instance().reset()") < shutdown.find("backendRuntimeContexts_.clear()"),
     "genre runtime must reset before backend resolver ownership is destroyed",
+)
+
+require(
+    "class DaemonCacheRefreshExecutionGate" in refresh_gate
+    and "std::unique_lock<std::mutex>" in refresh_gate,
+    "daemon cache refresh execution gate is missing",
+)
+require(
+    epg_worker.count("DaemonCacheRefreshExecutionGate::acquire()") >= 2,
+    "EPG cache and periodic Genre writes must use the shared execution gate",
+)
+require(
+    recording_worker.count("DaemonCacheRefreshExecutionGate::acquire()") >= 2,
+    "recording cache and periodic metadata writes must use the shared execution gate",
 )
 
 require("CREATE TABLE IF NOT EXISTS vdr_channel_cache" in schema, "persistent channel cache schema is missing")
