@@ -4,9 +4,93 @@ bool executeGenreSchema(Database& database)
     return database.execute(
         "DELETE FROM suite_metadata_genre_assignments "
         "WHERE source_kind='epg-browse-content-class' "
-        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=7);"
+        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=8);"
         "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(7,'Live-aligned fused DVB and TVScraper EPG browse classification');");
+        "(8,'Live-aligned title guards and stale TVScraper fallback for EPG browse classification');");
+}
+
+std::string liveParityAsciiLower(const std::string& value)
+{
+    std::string normalized = value;
+    for (char& character : normalized)
+    {
+        if (character >= 'A' && character <= 'Z')
+        {
+            character = static_cast<char>(character - 'A' + 'a');
+        }
+    }
+    return normalized;
+}
+
+bool liveParityAsciiAlphaNumeric(char character)
+{
+    return (character >= 'a' && character <= 'z') ||
+        (character >= '0' && character <= '9');
+}
+
+bool liveParityStartsWithBrand(
+    const std::string& normalizedValue,
+    const std::string& normalizedBrand)
+{
+    if (normalizedValue.rfind(normalizedBrand, 0) != 0) return false;
+    return normalizedValue.size() == normalizedBrand.size() ||
+        !liveParityAsciiAlphaNumeric(normalizedValue[normalizedBrand.size()]);
+}
+
+bool liveParityStrongNewsTitle(
+    const std::string& title,
+    const std::string& subtitle)
+{
+    const std::string normalized = liveParityAsciiLower(title + " " + subtitle);
+    static const std::vector<std::string> brands = {
+        "tagesschau",
+        "tagesthemen",
+        "heute journal",
+        "heute-journal",
+        "heute xpress",
+        "zdf heute",
+        "rtl aktuell",
+        "sat.1 nachrichten",
+        "newstime",
+        "n-tv nachrichten",
+        "ntv nachrichten",
+        "welt nachrichten",
+        "ard-brennpunkt",
+        "brennpunkt"
+    };
+    if (normalized == "heute" || normalized.rfind("heute ", 0) == 0)
+    {
+        return normalized.rfind("heute-show", 0) != 0;
+    }
+    for (const std::string& brand : brands)
+    {
+        if (liveParityStartsWithBrand(normalized, brand)) return true;
+    }
+    return false;
+}
+
+bool liveParityStrongSportsTitle(
+    const std::string& title,
+    const std::string& subtitle)
+{
+    const std::string normalized = liveParityAsciiLower(title + " " + subtitle);
+    static const std::vector<std::string> brands = {
+        "sportschau",
+        "das aktuelle sportstudio",
+        "sportstudio",
+        "ran bundesliga",
+        "ran nfl",
+        "ran racing",
+        "bundesliga pur",
+        "sport im osten",
+        "sportclub",
+        "sportarena"
+    };
+    for (const std::string& brand : brands)
+    {
+        if (liveParityStartsWithBrand(normalized, brand)) return true;
+    }
+    return false;
 }
 
 bool insertLiveParityEpgBrowseClassification(
@@ -32,7 +116,7 @@ bool insertLiveParityEpgBrowseClassification(
         "INSERT INTO suite_metadata_genre_assignments "
         "(metadata_target_id,backend_id,target_type,genre_id,provider_id,original_value,"
         "normalization_rule,source_kind,assignment_state,confidence,ordinal,observed_at,updated_at) "
-        "VALUES (?,?, 'program-event',?,?,?,'epg-browse-taxonomy-v3',"
+        "VALUES (?,?, 'program-event',?,?,?,'epg-browse-taxonomy-v4',"
         "'epg-browse-content-class','active',?,0,?,CURRENT_TIMESTAMP);";
     if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK)
     {
@@ -59,10 +143,13 @@ bool reconcileEpgBrowseClassificationLocked(
 {
     sqlite3_stmt* binding = nullptr;
     const char* bindingSql =
-        "SELECT backend_id,start_time,end_time "
-        "FROM suite_metadata_target_bindings "
-        "WHERE metadata_target_id=? AND target_type='program-event' "
-        "AND lifecycle_state='active' LIMIT 1;";
+        "SELECT b.backend_id,b.start_time,b.end_time,"
+        "COALESCE(e.title,''),COALESCE(e.subtitle,'') "
+        "FROM suite_metadata_target_bindings b "
+        "LEFT JOIN epg_events e ON e.backend_id=b.backend_id "
+        "AND e.channel_id=b.channel_id AND e.event_id=b.native_id "
+        "WHERE b.metadata_target_id=? AND b.target_type='program-event' "
+        "AND b.lifecycle_state='active' LIMIT 1;";
     if (sqlite3_prepare_v2(database, bindingSql, -1, &binding, nullptr) !=
         SQLITE_OK)
     {
@@ -79,15 +166,25 @@ bool reconcileEpgBrowseClassificationLocked(
     const std::int64_t endTime = activeTarget
         ? sqlite3_column_int64(binding, 2)
         : 0;
+    const std::string title = activeTarget
+        ? columnText(binding, 3)
+        : std::string();
+    const std::string subtitle = activeTarget
+        ? columnText(binding, 4)
+        : std::string();
     sqlite3_finalize(binding);
 
     if (!removeEpgBrowseClassification(database, targetId)) return false;
     if (!activeTarget) return true;
 
-    bool mediaMovie = false;
-    bool mediaSeries = false;
-    bool scraperDocumentary = false;
-    bool scraperSports = false;
+    bool activeMediaMovie = false;
+    bool activeMediaSeries = false;
+    bool staleMediaMovie = false;
+    bool staleMediaSeries = false;
+    bool activeScraperDocumentary = false;
+    bool activeScraperSports = false;
+    bool staleScraperDocumentary = false;
+    bool staleScraperSports = false;
     bool dvbMovie = false;
     bool dvbSeries = false;
     bool dvbDocumentary = false;
@@ -119,25 +216,42 @@ bool reconcileEpgBrowseClassificationLocked(
             observedAt,
             static_cast<std::int64_t>(sqlite3_column_int64(evidence, 4)));
 
-        if (!isUsableBrowseEvidenceState(state)) continue;
-
         if (sourceKind == "scraper-media-type")
         {
-            mediaMovie = mediaMovie || genreId == "movie";
-            mediaSeries = mediaSeries || genreId == "series";
+            if (state == "stale")
+            {
+                staleMediaMovie = staleMediaMovie || genreId == "movie";
+                staleMediaSeries = staleMediaSeries || genreId == "series";
+            }
+            else if (isUsableBrowseEvidenceState(state))
+            {
+                activeMediaMovie = activeMediaMovie || genreId == "movie";
+                activeMediaSeries = activeMediaSeries || genreId == "series";
+            }
             continue;
         }
 
         if (providerId == "tvscraper" &&
             sourceKind == "scraper-metadata")
         {
-            scraperDocumentary =
-                scraperDocumentary || genreId == "documentary";
-            scraperSports = scraperSports || genreId == "sports";
+            if (state == "stale")
+            {
+                staleScraperDocumentary =
+                    staleScraperDocumentary || genreId == "documentary";
+                staleScraperSports = staleScraperSports || genreId == "sports";
+            }
+            else if (isUsableBrowseEvidenceState(state))
+            {
+                activeScraperDocumentary =
+                    activeScraperDocumentary || genreId == "documentary";
+                activeScraperSports =
+                    activeScraperSports || genreId == "sports";
+            }
             continue;
         }
 
-        if (providerId != "vdr-epg" ||
+        if (!isUsableBrowseEvidenceState(state) ||
+            providerId != "vdr-epg" ||
             sourceKind != "dvb-content-descriptor")
         {
             continue;
@@ -153,7 +267,9 @@ bool reconcileEpgBrowseClassificationLocked(
     }
     sqlite3_finalize(evidence);
 
-    if (dvbNews)
+    const bool strongNewsTitle = liveParityStrongNewsTitle(title, subtitle);
+    const bool strongSportsTitle = liveParityStrongSportsTitle(title, subtitle);
+    if (dvbNews || strongNewsTitle)
     {
         return true;
     }
@@ -161,29 +277,39 @@ bool reconcileEpgBrowseClassificationLocked(
     std::string contentClass;
     double confidence = 0.0;
 
-    if (dvbSports || scraperSports)
+    if (dvbSports || strongSportsTitle)
     {
         contentClass = "sports";
         confidence = dvbSports ? 0.95 : 0.90;
     }
-    else if (dvbDocumentary || scraperDocumentary)
+    else if (dvbDocumentary)
     {
         contentClass = "documentary";
-        confidence = dvbDocumentary ? 0.95 : 0.90;
+        confidence = 0.95;
     }
-    else if (mediaMovie && mediaSeries)
+    else if (activeScraperSports || activeScraperDocumentary)
     {
-        return true;
+        if (activeScraperSports == activeScraperDocumentary) return true;
+        contentClass = activeScraperSports ? "sports" : "documentary";
+        confidence = 0.90;
     }
-    else if (mediaSeries)
+    else if (activeMediaMovie || activeMediaSeries)
     {
-        contentClass = "series";
+        if (activeMediaMovie == activeMediaSeries) return true;
+        contentClass = activeMediaSeries ? "series" : "movie";
         confidence = 0.99;
     }
-    else if (mediaMovie)
+    else if (staleScraperSports || staleScraperDocumentary)
     {
-        contentClass = "movie";
-        confidence = 0.99;
+        if (staleScraperSports == staleScraperDocumentary) return true;
+        contentClass = staleScraperSports ? "sports" : "documentary";
+        confidence = 0.78;
+    }
+    else if (staleMediaMovie || staleMediaSeries)
+    {
+        if (staleMediaMovie == staleMediaSeries) return true;
+        contentClass = staleMediaSeries ? "series" : "movie";
+        confidence = 0.80;
     }
     else if (dvbSeries)
     {
