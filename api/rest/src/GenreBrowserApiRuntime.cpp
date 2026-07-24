@@ -23,6 +23,8 @@ namespace
 {
 constexpr std::int64_t DefaultEpgWindowSeconds = 48 * 60 * 60;
 constexpr std::int64_t ResolverFreshnessSeconds = 6 * 60 * 60;
+constexpr std::int64_t TransportRetrySeconds = 60;
+constexpr int MaximumEnrichmentBatchSize = 64;
 
 std::string requestPath(const std::string& requestTarget)
 {
@@ -121,109 +123,122 @@ bool enrichEpgIndex(
     std::int64_t untilTime,
     int enrichmentLimit)
 {
-    if (resolver == nullptr) return true;
-
-    const std::int64_t now = nowEpochSeconds();
-    const std::vector<GenreEpgRefreshCandidate> candidates =
-        repository.epgRefreshCandidates(
-            normalizedBackendId,
-            fromTime,
-            untilTime,
-            "tvscraper-media-type",
-            now - ResolverFreshnessSeconds,
-            enrichmentLimit);
+    if (resolver == nullptr || enrichmentLimit <= 0) return true;
 
     bool success = true;
-    for (const GenreEpgRefreshCandidate& candidate : candidates)
+    int remaining = enrichmentLimit;
+
+    while (remaining > 0)
     {
-        VdrEvent event;
-        event.id = candidate.eventId;
-        event.channelId = candidate.channelId;
-        event.title = candidate.title;
-        event.subtitle = candidate.subtitle;
-        event.description = candidate.description;
-        event.startTime = candidate.startTime;
-        event.endTime = candidate.endTime;
-        event.durationSeconds = candidate.durationSeconds;
-        event.contentDescriptors = candidate.contentDescriptors;
+        const int batchLimit = std::min(
+            remaining,
+            MaximumEnrichmentBatchSize);
+        const std::int64_t now = nowEpochSeconds();
+        const std::vector<GenreEpgRefreshCandidate> candidates =
+            repository.epgRefreshCandidates(
+                normalizedBackendId,
+                fromTime,
+                untilTime,
+                "tvscraper-media-type",
+                now - ResolverFreshnessSeconds,
+                batchLimit);
 
-        EpgScraperMetadataResolution resolution;
-        try
+        if (candidates.empty()) break;
+
+        for (const GenreEpgRefreshCandidate& candidate : candidates)
         {
-            resolution = resolver->resolve(normalizedBackendId, event);
-        }
-        catch (...)
-        {
-            resolution.attempted = true;
-            resolution.found = false;
-        }
+            VdrEvent event;
+            event.id = candidate.eventId;
+            event.channelId = candidate.channelId;
+            event.title = candidate.title;
+            event.subtitle = candidate.subtitle;
+            event.description = candidate.description;
+            event.startTime = candidate.startTime;
+            event.endTime = candidate.endTime;
+            event.durationSeconds = candidate.durationSeconds;
+            event.contentDescriptors = candidate.contentDescriptors;
 
-        if (!resolution.attempted) continue;
-
-        GenreEvidenceInput genreEvidence;
-        genreEvidence.backendId = normalizedBackendId;
-        genreEvidence.targetType = "program-event";
-        genreEvidence.resourceKey =
-            candidate.channelId + "\n" + candidate.eventId;
-        genreEvidence.nativeId = candidate.eventId;
-        genreEvidence.channelId = candidate.channelId;
-        genreEvidence.startTime = parseInt64(candidate.startTime, 0);
-        genreEvidence.endTime = parseInt64(candidate.endTime, 0);
-        genreEvidence.providerId = "tvscraper";
-        genreEvidence.sourceKind = "scraper-metadata";
-        genreEvidence.observedAt = now;
-
-        GenreEvidenceInput mediaTypeEvidence = genreEvidence;
-        mediaTypeEvidence.providerId = "tvscraper-media-type";
-        mediaTypeEvidence.sourceKind = "scraper-media-type";
-
-        if (resolution.found && resolution.metadata.valid())
-        {
-            genreEvidence.providerId = resolution.metadata.provider;
-            genreEvidence.originalValues = resolution.metadata.genres;
-            genreEvidence.state = genreEvidence.originalValues.empty()
-                ? "missing"
-                : "active";
-            genreEvidence.confidence =
-                genreEvidence.originalValues.empty() ? 0.0 : 0.95;
-
-            const std::string mediaType =
-                mediaTypeValue(resolution.metadata.mediaType);
-            if (!mediaType.empty())
+            EpgScraperMetadataResolution resolution;
+            try
             {
-                mediaTypeEvidence.originalValues = {mediaType};
-                mediaTypeEvidence.state = "active";
-                mediaTypeEvidence.confidence = 0.99;
+                resolution = resolver->resolve(normalizedBackendId, event);
+            }
+            catch (...)
+            {
+                resolution = EpgScraperMetadataResolution{};
+            }
+
+            GenreEvidenceInput genreEvidence;
+            genreEvidence.backendId = normalizedBackendId;
+            genreEvidence.targetType = "program-event";
+            genreEvidence.resourceKey =
+                candidate.channelId + "\n" + candidate.eventId;
+            genreEvidence.nativeId = candidate.eventId;
+            genreEvidence.channelId = candidate.channelId;
+            genreEvidence.startTime = parseInt64(candidate.startTime, 0);
+            genreEvidence.endTime = parseInt64(candidate.endTime, 0);
+            genreEvidence.providerId = "tvscraper";
+            genreEvidence.sourceKind = "scraper-metadata";
+            genreEvidence.observedAt = resolution.attempted
+                ? now
+                : now - ResolverFreshnessSeconds + TransportRetrySeconds;
+
+            GenreEvidenceInput mediaTypeEvidence = genreEvidence;
+            mediaTypeEvidence.providerId = "tvscraper-media-type";
+            mediaTypeEvidence.sourceKind = "scraper-media-type";
+
+            if (resolution.found && resolution.metadata.valid())
+            {
+                genreEvidence.providerId = resolution.metadata.provider;
+                genreEvidence.originalValues = resolution.metadata.genres;
+                genreEvidence.state = genreEvidence.originalValues.empty()
+                    ? "missing"
+                    : "active";
+                genreEvidence.confidence =
+                    genreEvidence.originalValues.empty() ? 0.0 : 0.95;
+
+                const std::string mediaType =
+                    mediaTypeValue(resolution.metadata.mediaType);
+                if (!mediaType.empty())
+                {
+                    mediaTypeEvidence.originalValues = {mediaType};
+                    mediaTypeEvidence.state = "active";
+                    mediaTypeEvidence.confidence = 0.99;
+                }
+                else
+                {
+                    mediaTypeEvidence.state = "stale";
+                    mediaTypeEvidence.confidence = 0.0;
+                }
             }
             else
             {
+                genreEvidence.state = "stale";
+                genreEvidence.confidence = 0.0;
                 mediaTypeEvidence.state = "stale";
                 mediaTypeEvidence.confidence = 0.0;
             }
-        }
-        else
-        {
-            genreEvidence.state = "stale";
-            genreEvidence.confidence = 0.0;
-            mediaTypeEvidence.state = "stale";
-            mediaTypeEvidence.confidence = 0.0;
+
+            const bool genresStored =
+                repository.replaceEvidence(genreEvidence);
+            const bool mediaTypeStored =
+                repository.replaceEvidence(mediaTypeEvidence);
+            const bool browseReconciled =
+                genresStored &&
+                mediaTypeStored &&
+                repository.reconcileEpgBrowseClassification(
+                    normalizedBackendId,
+                    genreEvidence.resourceKey);
+            if (!genresStored || !mediaTypeStored || !browseReconciled)
+            {
+                success = false;
+            }
         }
 
-        const bool genresStored =
-            repository.replaceEvidence(genreEvidence);
-        const bool mediaTypeStored =
-            repository.replaceEvidence(mediaTypeEvidence);
-        const bool browseReconciled =
-            genresStored &&
-            mediaTypeStored &&
-            repository.reconcileEpgBrowseClassification(
-                normalizedBackendId,
-                genreEvidence.resourceKey);
-        if (!genresStored || !mediaTypeStored || !browseReconciled)
-        {
-            success = false;
-        }
+        remaining -= static_cast<int>(candidates.size());
+        if (static_cast<int>(candidates.size()) < batchLimit) break;
     }
+
     return success;
 }
 }
