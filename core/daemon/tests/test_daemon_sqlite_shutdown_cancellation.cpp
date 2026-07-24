@@ -46,7 +46,7 @@ int main()
 
         assert(sqlite3_step(statement) == SQLITE_INTERRUPT);
         assert(cancellation.cancellationDelivered());
-        assert(sqlite3_finalize(statement) == SQLITE_OK);
+        assert(sqlite3_finalize(statement) == SQLITE_INTERRUPT);
 
         assert(execute(database, "ROLLBACK;"));
     }
