@@ -46,9 +46,12 @@ void seed(Database& database)
         "('a','C3','30','Hartz Rot Gold','Episode','Text','1600','2600',1000,'Film/Drama'),"
         "('a','C4','40','Doku','Natur','Text','1700','2700',1000,'Doku/Ökonomie'),"
         "('a','C5','50','Live sport','Live','Text','1800','2800',1000,'Sport'),"
-        "('a','C6','60','Sportschau','Magazin','Text','1850','2850',1000,'Sport'),"
-        "('a','C7','70','Tagesschau','Nachrichten','Text','1900','2900',1000,'News'),"
+        "('a','C6','60','Sportschau','Magazin','Text','1850','2850',1000,''),"
+        "('a','C7','70','Tagesschau','','Text','1900','2900',1000,''),"
         "('a','C8','80','Long drama movie','Film','Text','1950','7350',5400,'Film/Drama'),"
+        "('a','C9','90','Tagesthemen','','Text','2000','3000',1000,''),"
+        "('a','C10','100','Death in Paradise','Episode','Text','2050','5650',3600,''),"
+        "('a','C11','110','The Big Bang Theory','Episode','Text','2100','3900',1800,''),"
         "('b','C1','10','Other','Other','Text','1000','2000',1000,'Film/Action');"
         "INSERT INTO epg_event_artwork VALUES"
         "('a','C2','20','tvscraper','/tmp/epg.jpg',1280,720,1700);"));
@@ -62,7 +65,8 @@ GenreEvidenceInput scraperEvidence(
     std::int64_t endTime,
     const std::string& providerId,
     const std::string& sourceKind,
-    const std::vector<std::string>& values)
+    const std::vector<std::string>& values,
+    const std::string& state = "active")
 {
     GenreEvidenceInput input;
     input.backendId = "a";
@@ -75,7 +79,8 @@ GenreEvidenceInput scraperEvidence(
     input.providerId = providerId;
     input.sourceKind = sourceKind;
     input.originalValues = values;
-    input.confidence = 0.95;
+    input.state = state;
+    input.confidence = state == "stale" ? 0.80 : 0.95;
     input.observedAt = 3000;
     return input;
 }
@@ -90,6 +95,17 @@ const GenreBrowseCategory& category(
     }
     assert(false);
     return overview.categories.front();
+}
+
+bool pageContainsTitle(
+    const GenreEpgPage& page,
+    const std::string& title)
+{
+    for (const GenreEpgItem& item : page.events)
+    {
+        if (item.title == title) return true;
+    }
+    return false;
 }
 }
 
@@ -158,7 +174,7 @@ int main()
         assert(category(dvbBrowse, "movie").itemCount == 2);
         assert(category(dvbBrowse, "series").itemCount == 0);
         assert(category(dvbBrowse, "documentary").itemCount == 1);
-        assert(category(dvbBrowse, "sports").itemCount == 2);
+        assert(category(dvbBrowse, "sports").itemCount == 1);
 
         GenreEpgPage dvbMovies = repository.epgByBrowse(
             "a", "movie", "", 900, 8000, 50, 0);
@@ -184,25 +200,34 @@ int main()
 
         assert(repository.replaceEvidence(scraperEvidence(
             "C6\n60", "60", "C6", 1850, 2850,
-            "tvscraper", "scraper-metadata", {"News"})));
-        assert(repository.replaceEvidence(scraperEvidence(
-            "C6\n60", "60", "C6", 1850, 2850,
             "tvscraper-media-type", "scraper-media-type", {"Series"})));
         assert(repository.reconcileEpgBrowseClassification("a", "C6\n60"));
 
         assert(repository.replaceEvidence(scraperEvidence(
             "C7\n70", "70", "C7", 1900, 2900,
-            "tvscraper", "scraper-metadata", {"News"})));
-        assert(repository.replaceEvidence(scraperEvidence(
-            "C7\n70", "70", "C7", 1900, 2900,
             "tvscraper-media-type", "scraper-media-type", {"Series"})));
         assert(repository.reconcileEpgBrowseClassification("a", "C7\n70"));
+
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C9\n90", "90", "C9", 2000, 3000,
+            "tvscraper-media-type", "scraper-media-type", {"Series"}, "stale")));
+        assert(repository.reconcileEpgBrowseClassification("a", "C9\n90"));
+
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C10\n100", "100", "C10", 2050, 5650,
+            "tvscraper-media-type", "scraper-media-type", {"Series"}, "stale")));
+        assert(repository.reconcileEpgBrowseClassification("a", "C10\n100"));
+
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C11\n110", "110", "C11", 2100, 3900,
+            "tvscraper-media-type", "scraper-media-type", {"Series"}, "stale")));
+        assert(repository.reconcileEpgBrowseClassification("a", "C11\n110"));
 
         GenreEpgBrowseOverview browse = repository.epgBrowseOverview(
             "a", 900, 8000);
         assert(browse.categories.size() == 4);
         assert(category(browse, "movie").itemCount == 2);
-        assert(category(browse, "series").itemCount == 1);
+        assert(category(browse, "series").itemCount == 3);
         assert(category(browse, "documentary").itemCount == 1);
         assert(category(browse, "sports").itemCount == 2);
 
@@ -227,15 +252,19 @@ int main()
 
         GenreEpgPage series = repository.epgByBrowse(
             "a", "series", "", 900, 8000, 50, 0);
-        assert(series.totalCount == 1);
-        assert(series.events.front().eventId == "30");
-        assert(series.events.front().title == "Hartz Rot Gold");
+        assert(series.totalCount == 3);
+        assert(pageContainsTitle(series, "Hartz Rot Gold"));
+        assert(pageContainsTitle(series, "Death in Paradise"));
+        assert(pageContainsTitle(series, "The Big Bang Theory"));
+        assert(!pageContainsTitle(series, "Tagesschau"));
+        assert(!pageContainsTitle(series, "Tagesthemen"));
+        assert(!pageContainsTitle(series, "Sportschau"));
 
         GenreEpgPage sports = repository.epgByBrowse(
             "a", "sports", "", 900, 8000, 50, 0);
         assert(sports.totalCount == 2);
-        assert(sports.events[0].eventId == "50");
-        assert(sports.events[1].eventId == "60");
+        assert(pageContainsTitle(sports, "Live sport"));
+        assert(pageContainsTitle(sports, "Sportschau"));
 
         GenreEpgPage documentary = repository.epgByBrowse(
             "a", "documentary", "", 900, 8000, 50, 0);
@@ -254,7 +283,11 @@ int main()
         GenreIndexRepository repository(database);
         GenreEpgPage persisted = repository.epgByBrowse(
             "a", "series", "", 900, 8000, 50, 0);
-        assert(persisted.totalCount == 1);
+        assert(persisted.totalCount == 3);
+        assert(pageContainsTitle(persisted, "Death in Paradise"));
+        assert(pageContainsTitle(persisted, "The Big Bang Theory"));
+        assert(!pageContainsTitle(persisted, "Tagesschau"));
+        assert(!pageContainsTitle(persisted, "Tagesthemen"));
     }
 
     std::remove(filename.c_str());
