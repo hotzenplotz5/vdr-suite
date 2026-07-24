@@ -65,8 +65,9 @@ for forbidden in (
 require(
     "SuiteBridgeEpgTypeSnapshotPayload bounded(candidate)" in plugin_command
     and "if (!bounded.Complete())" in plugin_command
-    and "MaximumSnapshotEvents = 1000000" in plugin_command,
-    "ETYPES pagination must stay within event-count and SVDRP payload bounds",
+    and "MaximumRetainedWindows = 4" in plugin_command
+    and "MaximumSnapshotEvents = 100000" in plugin_command,
+    "ETYPES pagination must stay within memory, event-count and SVDRP bounds",
 )
 require(
     "cGetScraperVideo request(&event, nullptr)" in plugin_type_adapter
