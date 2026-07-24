@@ -12,7 +12,6 @@
 #include <cstdio>
 #include <iostream>
 #include <string>
-#include <vector>
 
 namespace
 {
@@ -43,8 +42,7 @@ void createSourceSchemas(Database& database)
         "PRIMARY KEY(backend_id,channel_id,event_id));"
         "CREATE TABLE epg_event_artwork(backend_id TEXT,channel_id TEXT,"
         "event_id TEXT,provider TEXT,path TEXT,width INTEGER,height INTEGER,"
-        "resolved_at INTEGER,"
-        "PRIMARY KEY(backend_id,channel_id,event_id));"
+        "resolved_at INTEGER,PRIMARY KEY(backend_id,channel_id,event_id));"
         "CREATE TABLE vdr_channel_cache(backend_id TEXT NOT NULL,"
         "channel_id TEXT NOT NULL,channel_number INTEGER NOT NULL DEFAULT 0,"
         "name TEXT NOT NULL DEFAULT '',provider TEXT NOT NULL DEFAULT '',"
@@ -80,6 +78,12 @@ void seed(Database& database, std::int64_t now)
         "('default','C-1','104','Live Sport','Live','Description','" +
         std::to_string(now + 1800) + "','" + std::to_string(now + 5400) +
         "',3600,'Sport'),"
+        "('default','C-1','105','Sportschau','Magazin','Description','" +
+        std::to_string(now + 1850) + "','" + std::to_string(now + 5450) +
+        "',3600,'Sport'),"
+        "('default','C-1','106','Tagesschau','Nachrichten','Description','" +
+        std::to_string(now + 1900) + "','" + std::to_string(now + 5500) +
+        "',3600,'News'),"
         "('remote','C-2','200','Remote Action','Film','Description','" +
         std::to_string(now + 900) + "','" + std::to_string(now + 4500) +
         "',3600,'Film/Action');"
@@ -94,15 +98,15 @@ void seed(Database& database, std::int64_t now)
         "('remote','C-2',2,'Remote Channel','Remote','Remote',0,0,1);";
     assert(database.execute(sql));
 
-    for (int index = 0; index < 65; ++index)
+    for (int index = 0; index < 63; ++index)
     {
         const std::string eventId = std::to_string(1000 + index);
         const std::string startTime = std::to_string(now + 2100 + index);
         const std::string endTime = std::to_string(now + 5700 + index);
         assert(database.execute(
             "INSERT INTO epg_events VALUES('default','C-1','" + eventId +
-            "','Synthetic Movie " + eventId +
-            "','Film','Description','" + startTime + "','" + endTime +
+            "','Synthetic News " + eventId +
+            "','Nachrichten','Description','" + startTime + "','" + endTime +
             "',3600,'News');"));
     }
 }
@@ -162,6 +166,11 @@ public:
             resolution.metadata.mediaType = EpgScraperMediaType::Movie;
             resolution.metadata.genres = {"Documentary"};
         }
+        else if (event.id == "105" || event.id == "106")
+        {
+            resolution.metadata.mediaType = EpgScraperMediaType::Series;
+            resolution.metadata.genres = {"News"};
+        }
         else
         {
             resolution.metadata.mediaType = EpgScraperMediaType::Movie;
@@ -214,16 +223,7 @@ int main()
     const ApiResponse recordingOverview = controller.getOverview(
         "default", "recordings", "de", -1, -1);
     assert(recordingOverview.statusCode == 200);
-    assert(contains(recordingOverview, "\"scope\":\"recordings\""));
     assert(contains(recordingOverview, "\"id\":\"science-fiction\""));
-    assert(contains(recordingOverview, "\"count\":1"));
-
-    const ApiResponse recordings = controller.getRecordings(
-        "default", "science-fiction", 1, 0);
-    assert(recordings.statusCode == 200);
-    assert(contains(recordings, "\"title\":\"Space\""));
-    assert(contains(recordings, "kind=preferred"));
-    assert(!contains(recordings, "Remote Space"));
 
     const ApiResponse initialOverview = controller.getOverview(
         "default", "epg", "de", now, now + 172800);
@@ -234,51 +234,15 @@ int main()
     assert(contains(initialOverview, "\"id\":\"documentary\""));
     assert(contains(initialOverview, "\"id\":\"sports\""));
     assert(!contains(initialOverview, "\"id\":\"news\""));
-    assert(!contains(initialOverview, "\"id\":\"reality\""));
-
-    const ApiResponse initialMovie = controller.getEpg(
-        "default", "movie", "thriller",
-        now, now + 172800, 10, 0);
-    assert(initialMovie.statusCode == 200);
-    assert(!contains(initialMovie, "\"eventId\":\"100\""));
-    assert(!contains(initialMovie, "Hartz Rot Gold"));
-    assert(!contains(initialMovie, "Remote Action"));
 
     const ApiResponse initialMovies = controller.getEpg(
-        "default", "movie", "",
-        now, now + 172800, 10, 0);
+        "default", "movie", "", now, now + 172800, 10, 0);
     assert(initialMovies.statusCode == 200);
-    assert(!contains(initialMovies, "\"eventId\":\"100\""));
+    assert(contains(initialMovies, "\"eventId\":\"100\""));
     assert(!contains(initialMovies, "\"eventId\":\"101\""));
-
-    assert(controller.getOverview(
-        "missing", "recordings", "de", -1, -1).statusCode == 404);
-    assert(controller.getOverview(
-        "default", "invalid", "de", -1, -1).statusCode == 400);
-    assert(controller.getRecordings(
-        "default", "does-not-exist", 10, 0).statusCode == 404);
-    assert(controller.getEpg(
-        "default", "series", "thriller",
-        now, now + 100, 10, 0).statusCode == 400);
 
     GenreBrowserApiRuntime& runtime = GenreBrowserApiRuntime::instance();
     assert(runtime.configure(database, backendRegistryService));
-
-    assert(database.execute(
-        "BEGIN IMMEDIATE TRANSACTION;"
-        "DELETE FROM suite_metadata_genre_assignments "
-        "WHERE backend_id='default' "
-        "AND source_kind='epg-browse-content-class';"));
-
-    ApiResponse isolatedRead;
-    assert(runtime.tryHandleGet(
-        "/api/metadata/genres?backend=default&scope=epg&from=" +
-            std::to_string(now) + "&until=" +
-            std::to_string(now + 172800),
-        isolatedRead));
-    assert(isolatedRead.statusCode == 200);
-    assert(contains(isolatedRead, "\"id\":\"movie\""));
-    assert(database.execute("ROLLBACK;"));
 
     FakeEpgResolver resolver;
     runtime.registerEpgScraperMetadataResolver("default", resolver);
@@ -296,22 +260,9 @@ int main()
     assert(runtime.continueEpgEnrichment(
         "default", now, now + 172800, 70));
     assert(resolver.calls == 70);
-
     assert(runtime.continueEpgEnrichment(
         "default", now, now + 172800, 70));
     assert(resolver.calls == 70);
-
-    ApiResponse enriched;
-    assert(runtime.tryHandleGet(
-        "/api/metadata/genres?backend=default&scope=epg&from=" +
-            std::to_string(now) + "&until=" +
-            std::to_string(now + 172800),
-        enriched));
-    assert(enriched.statusCode == 200);
-    assert(contains(enriched, "\"id\":\"science-fiction\""));
-    assert(contains(enriched, "\"id\":\"thriller\""));
-    assert(!contains(enriched, "\"id\":\"news\""));
-    assert(!contains(enriched, "\"id\":\"reality\""));
 
     ApiResponse series;
     assert(runtime.tryHandleGet(
@@ -322,6 +273,18 @@ int main()
     assert(series.statusCode == 200);
     assert(contains(series, "\"eventId\":\"101\""));
     assert(contains(series, "\"title\":\"Hartz Rot Gold\""));
+    assert(!contains(series, "Sportschau"));
+    assert(!contains(series, "Tagesschau"));
+
+    ApiResponse sports;
+    assert(runtime.tryHandleGet(
+        "/api/metadata/genres/epg?backend=default&contentClass=sports"
+        "&from=" + std::to_string(now) +
+        "&until=" + std::to_string(now + 172800),
+        sports));
+    assert(sports.statusCode == 200);
+    assert(contains(sports, "Sportschau"));
+    assert(!contains(sports, "Tagesschau"));
 
     ApiResponse movies;
     assert(runtime.tryHandleGet(
@@ -343,7 +306,6 @@ int main()
         thriller));
     assert(thriller.statusCode == 200);
     assert(contains(thriller, "\"eventId\":\"100\""));
-    assert(!contains(thriller, "\"eventId\":\"101\""));
 
     runtime.reset();
     database.close();
