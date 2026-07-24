@@ -35,8 +35,38 @@ bool GenreIndexRepository::synchronizeRecordingCache(const std::string& backendI
     sqlite3_finalize(statement);
 
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
+
+    sqlite3_stmt* clearRecordingEvidence = nullptr;
+    const char* clearRecordingEvidenceSql =
+        "DELETE FROM suite_metadata_genre_assignments "
+        "WHERE metadata_target_id=? AND source_kind='recording-metadata';";
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            clearRecordingEvidenceSql,
+            -1,
+            &clearRecordingEvidence,
+            nullptr) != SQLITE_OK)
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+
     for (const auto& entry : rows)
     {
+        const std::string targetId = stableTargetId(
+            "recording",
+            normalizedBackend,
+            entry.first);
+        sqlite3_reset(clearRecordingEvidence);
+        sqlite3_clear_bindings(clearRecordingEvidence);
+        bindText(clearRecordingEvidence, 1, targetId);
+        if (!stepDone(clearRecordingEvidence))
+        {
+            sqlite3_finalize(clearRecordingEvidence);
+            database_.execute("ROLLBACK;");
+            return false;
+        }
+
         GenreEvidenceInput input;
         input.backendId = normalizedBackend;
         input.targetType = "recording";
@@ -50,10 +80,13 @@ bool GenreIndexRepository::synchronizeRecordingCache(const std::string& backendI
         else input.state = entry.second.genres.empty() ? "missing" : "active";
         if (!replaceEvidenceLocked(input))
         {
+            sqlite3_finalize(clearRecordingEvidence);
             database_.execute("ROLLBACK;");
             return false;
         }
     }
+    sqlite3_finalize(clearRecordingEvidence);
+
     if (!retireMissingRecordingTargets(normalizedBackend))
     {
         database_.execute("ROLLBACK;");
