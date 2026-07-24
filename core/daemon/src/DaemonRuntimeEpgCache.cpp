@@ -1,5 +1,6 @@
 #include "DaemonRuntime.h"
 
+#include "DaemonCacheRefreshExecutionGate.h"
 #include "GenreBrowserApiRuntime.h"
 #include "VdrChannelCacheRepository.h"
 #include "VdrEventQuery.h"
@@ -129,6 +130,12 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
                     now - lastGenreRefresh).count();
 
             if (secondsSinceGenreRefresh >= genreRefreshSeconds) {
+                auto refreshLease =
+                    DaemonCacheRefreshExecutionGate::acquire();
+                if (epgCacheWarmupStopRequested_.load()) {
+                    return;
+                }
+
                 const std::int64_t fromTime = epgGenreEpochSeconds();
                 for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
                     if (epgCacheWarmupStopRequested_.load()) {
@@ -182,6 +189,11 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
 
 void DaemonRuntime::refreshEpgCacheForAllBackends(const std::string& reason)
 {
+    auto refreshLease = DaemonCacheRefreshExecutionGate::acquire();
+    if (epgCacheWarmupStopRequested_.load()) {
+        return;
+    }
+
     if (backendRuntimeContexts_.empty()) {
         std::cout
             << "EPG cache warmup skipped: no VDR backend configured"
