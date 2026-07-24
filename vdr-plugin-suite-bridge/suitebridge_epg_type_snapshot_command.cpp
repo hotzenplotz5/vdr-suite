@@ -17,7 +17,6 @@
 namespace {
 
 class SuiteBridgeTypeSnapshotEvent final {
-{
 public:
   SuiteBridgeTypeSnapshotEvent(
       const tChannelID &channelId,
