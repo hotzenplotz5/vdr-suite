@@ -4,6 +4,7 @@
 #include "EpgCacheService.h"
 #include "IHttpClient.h"
 #include "IVdrAdapter.h"
+#include "PersistentEpgScraperMetadataResolver.h"
 #include "PollingService.h"
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
@@ -33,7 +34,8 @@ struct BackendRuntimeContext
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> suiteBridgeTransport;
     std::unique_ptr<SuiteBridgeEpgArtworkResolver> epgArtworkResolver;
-    std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataResolver;
+    std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate;
+    std::unique_ptr<PersistentEpgScraperMetadataResolver> epgScraperMetadataResolver;
     std::unique_ptr<EpgArtworkEnrichmentService> epgArtworkEnrichmentService;
     std::unique_ptr<VdrRecordingNativeMetadataRepository> recordingMetadataRepository;
     std::unique_ptr<SuiteBridgeRecordingMetadataResolver> recordingMetadataResolver;
