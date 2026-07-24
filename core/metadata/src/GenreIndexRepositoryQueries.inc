@@ -167,7 +167,7 @@ GenreEpgBrowseOverview GenreIndexRepository::epgBrowseOverview(
         "AND c.assignment_state='active' AND c.genre_id='movie' "
         "AND a.source_kind NOT IN("
         "'scraper-media-type','epg-browse-content-class') "
-        "AND a.assignment_state IN('active','unknown','conflict') "
+        "AND a.assignment_state IN('active','unknown') "
         "AND a.genre_id IN("
         "'action','adventure','animation','drama','family','fantasy',"
         "'history','horror','disaster','comedy','war','crime','musical',"
@@ -338,7 +338,7 @@ GenreEpgPage GenreIndexRepository::epgByBrowse(
           "AND g.genre_id=? "
           "AND g.source_kind NOT IN("
           "'scraper-media-type','epg-browse-content-class') "
-          "AND g.assignment_state IN('active','unknown','conflict')) ";
+          "AND g.assignment_state IN('active','unknown')) ";
 
     const std::string countSql =
         "SELECT COUNT(DISTINCT b.metadata_target_id) "
