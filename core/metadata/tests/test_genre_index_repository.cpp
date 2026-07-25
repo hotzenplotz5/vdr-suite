@@ -107,6 +107,17 @@ bool pageContainsTitle(
     }
     return false;
 }
+
+bool candidatesContainEvent(
+    const std::vector<GenreEpgRefreshCandidate>& candidates,
+    const std::string& eventId)
+{
+    for (const GenreEpgRefreshCandidate& candidate : candidates)
+    {
+        if (candidate.eventId == eventId) return true;
+    }
+    return false;
+}
 }
 
 int main()
@@ -184,11 +195,31 @@ int main()
 
         assert(repository.replaceEvidence(scraperEvidence(
             "C2\n20", "20", "C2", 1500, 2500,
+            "tvscraper-media-type", "scraper-media-type", {"Movie"})));
+        assert(repository.reconcileEpgBrowseClassification("a", "C2\n20"));
+
+        const std::vector<GenreEpgRefreshCandidate> mediaTypeCandidates =
+            repository.epgRefreshCandidates(
+                "a", 900, 8000, "tvscraper-media-type", 2500, 64);
+        assert(!candidatesContainEvent(mediaTypeCandidates, "20"));
+
+        const std::vector<GenreEpgRefreshCandidate> metadataCandidates =
+            repository.epgRefreshCandidates(
+                "a", 900, 8000, "tvscraper", 2500, 64);
+        assert(candidatesContainEvent(metadataCandidates, "20"));
+
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C2\n20", "20", "C2", 1500, 2500,
             "tvscraper", "scraper-metadata", {"Thriller", "Drama"})));
         assert(repository.replaceEvidence(scraperEvidence(
             "C2\n20", "20", "C2", 1500, 2500,
             "tvscraper-media-type", "scraper-media-type", {"Movie"})));
         assert(repository.reconcileEpgBrowseClassification("a", "C2\n20"));
+
+        const std::vector<GenreEpgRefreshCandidate> refreshedMetadataCandidates =
+            repository.epgRefreshCandidates(
+                "a", 900, 8000, "tvscraper", 2500, 64);
+        assert(!candidatesContainEvent(refreshedMetadataCandidates, "20"));
 
         assert(repository.replaceEvidence(scraperEvidence(
             "C3\n30", "30", "C3", 1600, 2600,
