@@ -33,6 +33,8 @@ const char **cPluginSuiteBridge::SVDRPHelpPages(void)
       "    Resolve preferred TVScraper artwork for one EPG event.",
       "META <channel-id> <event-id>\n"
       "    Resolve bounded TVScraper metadata for one EPG event.",
+      "MCOMPARE <channel-id> <event-id>\n"
+      "    Compare Live-equivalent real-event TVScraper metadata with the detached META event snapshot.",
       "ETYPES <from-epoch> <until-epoch> <offset> <limit>\n"
       "    Return a bounded page of TVScraper movie/series types for real VDR EPG events.",
       "RMETA <recording-key>\n"
@@ -80,6 +82,12 @@ cString cPluginSuiteBridge::SVDRPCommand(
       SuiteBridgeEpgCommandHandler::HandleMetadata(Command, Option);
   if (metadata.handled) {
     return ReturnResult(metadata, ReplyCode);
+  }
+
+  const SuiteBridgeCommandResult metadataComparison =
+      SuiteBridgeEpgCommandHandler::HandleMetadataComparison(Command, Option);
+  if (metadataComparison.handled) {
+    return ReturnResult(metadataComparison, ReplyCode);
   }
 
   const SuiteBridgeCommandResult typeSnapshot =
