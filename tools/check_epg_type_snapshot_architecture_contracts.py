@@ -28,7 +28,10 @@ transport = read(
     "core/agent/src/SuiteBridgeSvdrpEpgTypeSnapshotTransport.cpp"
 )
 runtime_header = read("api/rest/include/GenreBrowserApiRuntime.h")
-runtime = read("api/rest/src/GenreBrowserApiRuntimeEpgTypeSnapshot.cpp")
+runtime = read("api/rest/src/GenreBrowserApiRuntime.cpp")
+runtime_type_snapshot = read(
+    "api/rest/src/GenreBrowserApiRuntimeEpgTypeSnapshot.cpp"
+)
 worker = read("core/daemon/src/DaemonRuntimeEpgCache.cpp")
 context = read("core/daemon/include/BackendRuntimeContext.h")
 
@@ -97,11 +100,21 @@ require(
 )
 require(
     "applyEpgTypeSnapshot(" in runtime_header
-    and 'providerId = "tvscraper-media-type"' in runtime
-    and 'sourceKind = "scraper-media-type"' in runtime
-    and 'state = "active"' in runtime
-    and "reconcileEpgBrowseClassification" in runtime,
+    and 'providerId = "tvscraper-media-type"' in runtime_type_snapshot
+    and 'sourceKind = "scraper-media-type"' in runtime_type_snapshot
+    and 'state = "active"' in runtime_type_snapshot
+    and "reconcileEpgBrowseClassification" in runtime_type_snapshot,
     "daemon runtime must persist snapshot types as authoritative TVScraper evidence",
+)
+candidate_start = runtime.find("repository.epgRefreshCandidates(")
+candidate_end = runtime.find(");", candidate_start)
+candidate_call = runtime[candidate_start:candidate_end]
+require(
+    candidate_start >= 0
+    and candidate_end > candidate_start
+    and '"tvscraper"' in candidate_call
+    and '"tvscraper-media-type"' not in candidate_call,
+    "full META enrichment must use full TVScraper metadata freshness, not ETYPES media-type freshness",
 )
 require(
     "EpgTypeSnapshotPageSize = 64" in worker
@@ -142,7 +155,7 @@ require(
     "failed ETYPES persistence must not advance the backend cursor",
 )
 require(
-    "tryHandleGet" not in runtime,
+    "tryHandleGet" not in runtime_type_snapshot,
     "ETYPES materialization must not add a public HTTP/provider route",
 )
 
