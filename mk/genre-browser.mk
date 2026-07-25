@@ -14,7 +14,7 @@ GENRE_BROWSER_TEST_SUPPORT_SRC := \
 	core/vdr/src/BackendRegistry.cpp \
 	core/vdr/src/BackendRegistryService.cpp
 
-.PHONY: test-vdr-channel-cache-repository test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool test-genre-browser
+.PHONY: test-vdr-channel-cache-repository test-genre-epg-enrichment-priority test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool test-genre-browser
 
 test-vdr-channel-cache-repository:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -24,6 +24,16 @@ test-vdr-channel-cache-repository:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_vdr_channel_cache_repository
 	$(BUILD_DIR)/test_vdr_channel_cache_repository
+
+test-genre-epg-enrichment-priority: CXXFLAGS += -Icore/vdr/include
+test-genre-epg-enrichment-priority:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(METADATA_GENRE_SRC) \
+		core/metadata/tests/test_genre_epg_enrichment_priority.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_genre_epg_enrichment_priority
+	$(BUILD_DIR)/test_genre_epg_enrichment_priority
 
 test-genre-browser-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -70,6 +80,6 @@ test-phase61-live-genre-tool:
 	python3 -m py_compile tools/compare_phase61_live_tvscraper.py
 	python3 tools/compare_phase61_live_tvscraper.py --self-test
 
-test-genre-browser: test-vdr-channel-cache-repository test-http-listener-image-write-isolation test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool
+test-genre-browser: test-vdr-channel-cache-repository test-genre-epg-enrichment-priority test-http-listener-image-write-isolation test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool
 
 test-fast: test-genre-browser
