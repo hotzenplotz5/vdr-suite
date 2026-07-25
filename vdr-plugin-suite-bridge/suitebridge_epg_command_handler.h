@@ -11,6 +11,9 @@ public:
   static SuiteBridgeCommandResult HandleMetadata(
       const char *command,
       const char *option);
+  static SuiteBridgeCommandResult HandleMetadataComparison(
+      const char *command,
+      const char *option);
   static SuiteBridgeCommandResult HandleTypeSnapshot(
       const char *command,
       const char *option);
