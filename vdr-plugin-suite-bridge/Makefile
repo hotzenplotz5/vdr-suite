@@ -86,7 +86,7 @@ check-recording-metadata-contract:
 	python3 tests/check_recording_metadata_contract.py
 
 check-version:
-	test "$(VERSION)" = "0.13.0"
+	test "$(VERSION)" = "0.13.1"
 
 test-lifecycle:
 	$(CXX) -std=c++17 -Wall -Wextra -pedantic -I. \
