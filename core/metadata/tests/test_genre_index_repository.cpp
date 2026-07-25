@@ -48,7 +48,7 @@ void seed(Database& database)
         "('a','C5','50','Live sport','Live','Text','1800','2800',1000,'Sport'),"
         "('a','C6','60','Sportschau','Magazin','Text','1850','2850',1000,''),"
         "('a','C7','70','Tagesschau','','Text','1900','2900',1000,''),"
-        "('a','C8','80','Long drama movie','Film','Text','1950','7350',5400,'Film/Drama'),"
+        "('a','C8','80','Long drama programme','Film','Text','1950','7350',5400,'Film/Drama'),"
         "('a','C9','90','Tagesthemen','','Text','2000','3000',1000,''),"
         "('a','C10','100','Death in Paradise','Episode','Text','2050','5650',3600,''),"
         "('a','C11','110','The Big Bang Theory','Episode','Text','2100','3900',1800,''),"
@@ -182,16 +182,16 @@ int main()
         GenreEpgBrowseOverview dvbBrowse = repository.epgBrowseOverview(
             "a", 900, 8000);
         assert(dvbBrowse.categories.size() == 4);
-        assert(category(dvbBrowse, "movie").itemCount == 2);
+        assert(category(dvbBrowse, "movie").itemCount == 1);
         assert(category(dvbBrowse, "series").itemCount == 0);
         assert(category(dvbBrowse, "documentary").itemCount == 1);
         assert(category(dvbBrowse, "sports").itemCount == 2);
 
         GenreEpgPage dvbMovies = repository.epgByBrowse(
             "a", "movie", "", 900, 8000, 50, 0);
-        assert(dvbMovies.totalCount == 2);
-        assert(dvbMovies.events[0].eventId == "20");
-        assert(dvbMovies.events[1].eventId == "80");
+        assert(dvbMovies.totalCount == 1);
+        assert(dvbMovies.events.front().eventId == "20");
+        assert(!pageContainsTitle(dvbMovies, "Long drama programme"));
 
         assert(repository.replaceEvidence(scraperEvidence(
             "C2\n20", "20", "C2", 1500, 2500,
@@ -257,7 +257,7 @@ int main()
         GenreEpgBrowseOverview browse = repository.epgBrowseOverview(
             "a", 900, 8000);
         assert(browse.categories.size() == 4);
-        assert(category(browse, "movie").itemCount == 2);
+        assert(category(browse, "movie").itemCount == 1);
         assert(category(browse, "series").itemCount == 3);
         assert(category(browse, "documentary").itemCount == 1);
         assert(category(browse, "sports").itemCount == 2);
