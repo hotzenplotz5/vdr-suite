@@ -57,8 +57,9 @@ struct SuiteBridgeRecordingMetadata final {
   static constexpr std::size_t kMaxGenres = 12;
   static constexpr std::size_t kMaxCountries = 8;
   static constexpr std::size_t kMaxNetworks = 8;
-  static constexpr std::size_t kMaxPeople = 12;
+  static constexpr std::size_t kMaxPeople = 128;
   static constexpr std::size_t kMaxImages = 8;
+  static constexpr std::size_t kMaximumPayloadBytes = 65535;
 
   bool found = false;
   SuiteBridgeRecordingMetadataReason reason =

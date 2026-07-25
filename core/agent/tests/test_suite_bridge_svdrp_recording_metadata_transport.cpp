@@ -119,6 +119,10 @@ SuiteBridgeSvdrpTransportConfig configFor(const Server& server)
 
 int main()
 {
+    static_assert(
+        SuiteBridgeSvdrpTransport::MaximumReplyBytes >= 65536,
+        "recording metadata replies must permit the expanded bounded payload");
+
     const std::string key = "c94d0eb9958a85079f81f059a436003c";
 
     {
@@ -138,6 +142,23 @@ int main()
         assert(reply.payload.find("\"found\":true") != std::string::npos);
         assert(server.request() ==
             "PLUG suitebridge RMETA " + key + "\r\n");
+    }
+
+    {
+        const std::string largePayload =
+            "{\"schema\":1,\"padding\":\"" +
+            std::string(12000, 'x') + "\"}";
+        assert(largePayload.size() > 8192);
+
+        Server server("250 " + largePayload + "\r\n");
+        SuiteBridgeSvdrpTransport transport(configFor(server));
+        const SuiteBridgeRecordingMetadataCommandReply reply =
+            transport.requestRecordingMetadata(key);
+
+        server.wait();
+        assert(reply.transportSucceeded);
+        assert(reply.replyCode == 250);
+        assert(reply.payload == largePayload);
     }
 
     {

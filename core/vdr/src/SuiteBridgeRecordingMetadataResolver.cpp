@@ -164,7 +164,11 @@ std::vector<VdrRecordingNativeArtwork> images(Parser& p) {
 }
 
 VdrRecordingNativeMetadata payload(const std::string& key, const std::string& json) {
-    if (json.empty() || json.size() > 8192) throw Error("payload size is invalid");
+    if (json.empty() ||
+        json.size() > VdrRecordingNativeMetadata::MaximumPayloadBytes)
+    {
+        throw Error("payload size is invalid");
+    }
     Parser p(json); VdrRecordingNativeMetadata m; p.need('{');
 #define I(name) p.field(#name); m.name = p.integer()
 #define S(name) p.field(#name); m.name = p.string()
