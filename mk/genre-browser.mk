@@ -14,7 +14,7 @@ GENRE_BROWSER_TEST_SUPPORT_SRC := \
 	core/vdr/src/BackendRegistry.cpp \
 	core/vdr/src/BackendRegistryService.cpp
 
-.PHONY: test-vdr-channel-cache-repository test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-genre-browser
+.PHONY: test-vdr-channel-cache-repository test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool test-genre-browser
 
 test-vdr-channel-cache-repository:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -63,6 +63,10 @@ test-genre-browser-frontend:
 	node web/frontend/tests/test_genres_runtime.js
 	python3 tools/check_genre_browser_frontend_contracts.py
 
-test-genre-browser: test-vdr-channel-cache-repository test-http-listener-image-write-isolation test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend
+test-phase61-live-genre-tool:
+	python3 -m py_compile tools/check_phase61_live_genres.py
+	python3 tools/check_phase61_live_genres.py --self-test
+
+test-genre-browser: test-vdr-channel-cache-repository test-http-listener-image-write-isolation test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool
 
 test-fast: test-genre-browser
