@@ -139,7 +139,7 @@ bool enrichEpgIndex(
                 normalizedBackendId,
                 fromTime,
                 untilTime,
-                "tvscraper-media-type",
+                "tvscraper",
                 now - ResolverFreshnessSeconds,
                 batchLimit);
 
