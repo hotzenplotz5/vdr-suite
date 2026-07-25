@@ -56,14 +56,14 @@ if not errors:
         "test-epg-type-snapshot-contract:",
         "test-recording-identity:",
         "test-recording-metadata-contract:",
-        'test "$(VERSION)" = "0.13.1"',
+        'test "$(VERSION)" = "0.13.2"',
     )
     for fragment in make_fragments:
         if fragment not in makefile:
             errors.append(f"missing Makefile contract: {fragment}")
 
     source_fragments = (
-        'inline constexpr const char *Version = "0.13.1";',
+        'inline constexpr const char *Version = "0.13.2";',
         "bool cPluginSuiteBridge::Initialize(void)",
         "bool cPluginSuiteBridge::Start(void)",
         "void cPluginSuiteBridge::Stop(void)",
@@ -80,6 +80,7 @@ if not errors:
         "LOCK_SCHEDULES_READ;",
         "adapter.ResolveMediaType(*event)",
         "cGetScraperVideo request(&event, nullptr)",
+        "SuiteBridgeEpgMediaTypeIsResolved(metadata.mediaType)",
         "cGetScraperVideo request(nullptr, &recording)",
         "SuiteBridgeRecordingIdentity::KeyForNativeId(nativeId)",
         "VDRPLUGINCREATOR(cPluginSuiteBridge);",
