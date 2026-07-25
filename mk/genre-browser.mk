@@ -52,6 +52,7 @@ test-genre-browser-pagination:
 test-genre-browser-architecture:
 	python3 tools/check_genre_browser_architecture_contracts.py
 	python3 tools/check_epg_type_snapshot_architecture_contracts.py
+	python3 tools/check_phase61_live_tvscraper_comparison_contracts.py
 
 test-genre-browser-frontend:
 	node --check web/frontend/api/genre-client-api.js
@@ -66,6 +67,8 @@ test-genre-browser-frontend:
 test-phase61-live-genre-tool:
 	python3 -m py_compile tools/check_phase61_live_genres.py
 	python3 tools/check_phase61_live_genres.py --self-test
+	python3 -m py_compile tools/compare_phase61_live_tvscraper.py
+	python3 tools/compare_phase61_live_tvscraper.py --self-test
 
 test-genre-browser: test-vdr-channel-cache-repository test-http-listener-image-write-isolation test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool
 
