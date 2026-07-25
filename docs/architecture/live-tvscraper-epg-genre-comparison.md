@@ -1,5 +1,15 @@
 # Live 3.5.5 / TVScraper 1.2.15 – EPG-Genrevergleich
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [Architecture Index](index.md)
+- [Metadata-Backed Genre Browser](metadata-genre-browser.md)
+- [Current State](../CURRENT.md)
+
+---
+
 Status: Phase-61-Diagnosevertrag auf `feature/phase61-metadata-genre-browser`
 
 ## Zweck
@@ -468,3 +478,11 @@ Unverändert bleiben:
 - PR-99-LiveRemote-/Overlay-Ownership bleibt unverändert.
 - Backend-Isolation und persistente Evidenz bleiben erhalten.
 - `MCOMPARE` ist keine öffentliche Browser-API.
+
+---
+
+## Back
+
+- [Back to Architecture Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to README](../../README.md)
