@@ -8,7 +8,12 @@ bool executeGenreSchema(Database& database)
         "WHERE source_kind='epg-browse-content-class' "
         "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=8);"
         "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(8,'Live-aligned title guards and last-known-good TVScraper EPG types');");
+        "(8,'Live-aligned title guards and last-known-good TVScraper EPG types');"
+        "DELETE FROM suite_metadata_genre_assignments "
+        "WHERE source_kind='epg-browse-content-class' "
+        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=9);"
+        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
+        "(9,'Strict specific-genre DVB movie fallback reconciliation');");
 }
 
 std::string liveParityAsciiLower(const std::string& value)
@@ -153,8 +158,7 @@ bool reconcileEpgBrowseClassificationLocked(
 {
     sqlite3_stmt* binding = nullptr;
     const char* bindingSql =
-        "SELECT b.backend_id,b.start_time,b.end_time,"
-        "COALESCE(e.title,''),COALESCE(e.subtitle,'') "
+        "SELECT b.backend_id,COALESCE(e.title,''),COALESCE(e.subtitle,'') "
         "FROM suite_metadata_target_bindings b "
         "LEFT JOIN epg_events e ON e.backend_id=b.backend_id "
         "AND e.channel_id=b.channel_id AND e.event_id=b.native_id "
@@ -170,17 +174,11 @@ bool reconcileEpgBrowseClassificationLocked(
     const std::string backendId = activeTarget
         ? columnText(binding, 0)
         : std::string();
-    const std::int64_t startTime = activeTarget
-        ? sqlite3_column_int64(binding, 1)
-        : 0;
-    const std::int64_t endTime = activeTarget
-        ? sqlite3_column_int64(binding, 2)
-        : 0;
     const std::string title = activeTarget
-        ? columnText(binding, 3)
+        ? columnText(binding, 1)
         : std::string();
     const std::string subtitle = activeTarget
-        ? columnText(binding, 4)
+        ? columnText(binding, 2)
         : std::string();
     sqlite3_finalize(binding);
 
@@ -361,18 +359,12 @@ bool reconcileEpgBrowseClassificationLocked(
     }
     else
     {
-        constexpr std::int64_t FeatureFilmMinimumSeconds = 70 * 60;
-        const std::int64_t durationSeconds = std::max<std::int64_t>(
-            0,
-            endTime - startTime);
-        if (!dvbMovie ||
-            (!dvbSpecificFilmGenre &&
-             durationSeconds < FeatureFilmMinimumSeconds))
+        if (!dvbMovie || !dvbSpecificFilmGenre)
         {
             return true;
         }
         contentClass = "movie";
-        confidence = dvbSpecificFilmGenre ? 0.85 : 0.75;
+        confidence = 0.85;
     }
 
     return insertLiveParityEpgBrowseClassification(
