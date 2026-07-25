@@ -79,6 +79,10 @@ test-phase61-live-genre-tool:
 	python3 tools/check_phase61_live_genres.py --self-test
 	python3 -m py_compile tools/compare_phase61_live_tvscraper.py
 	python3 tools/compare_phase61_live_tvscraper.py --self-test
+	python3 -m py_compile tools/run_phase61_live_tvscraper_comparison.py
+	python3 tools/run_phase61_live_tvscraper_comparison.py --self-test
+	python3 -m py_compile tools/analyze_phase61_live_tvscraper_report.py
+	python3 tools/analyze_phase61_live_tvscraper_report.py --self-test
 
 test-genre-browser: test-vdr-channel-cache-repository test-genre-epg-enrichment-priority test-http-listener-image-write-isolation test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool
 
