@@ -176,6 +176,12 @@ unsigned int SuiteBridgeEpgMetadataRequest::EventId() const noexcept
 SuiteBridgeEpgMetadataPayload::SuiteBridgeEpgMetadataPayload(
     const SuiteBridgeEpgMetadata &metadata)
 {
+  const bool resolved = SuiteBridgeEpgMediaTypeIsResolved(metadata.mediaType);
+  if (metadata.found != resolved) {
+    *this = SuiteBridgeEpgMetadataPayload(SuiteBridgeEpgMetadata{});
+    return;
+  }
+
   std::ostringstream stream;
   stream << "{\"schema\":1,\"found\":"
          << (metadata.found ? "true" : "false")
