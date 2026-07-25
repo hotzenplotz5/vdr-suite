@@ -4,6 +4,21 @@
 #include <cassert>
 #include <string>
 
+namespace {
+
+SuiteBridgeRecordingPerson actor(
+    const std::string &name,
+    const std::string &characterName)
+{
+  SuiteBridgeRecordingPerson person;
+  person.role = SuiteBridgeRecordingPersonRole::Actor;
+  person.name = name;
+  person.characterName = characterName;
+  return person;
+}
+
+}
+
 int main()
 {
   const std::string key =
@@ -59,10 +74,8 @@ int main()
   metadata.preferredArtwork.width = 780;
   metadata.preferredArtwork.height = 1170;
 
-  SuiteBridgeRecordingPerson person;
-  person.role = SuiteBridgeRecordingPersonRole::Actor;
-  person.name = "Tom Hanks";
-  person.characterName = "Forrest Gump";
+  const SuiteBridgeRecordingPerson person =
+      actor("Tom Hanks", "Forrest Gump");
   metadata.people.push_back(person);
 
   SuiteBridgeRecordingMetadataPayload payload(metadata);
@@ -74,6 +87,28 @@ int main()
   assert(json.find("/srv/vdr/video") == std::string::npos);
   assert(json.back() == '}');
 
+  SuiteBridgeRecordingMetadata pulpFiction = metadata;
+  pulpFiction.providerId = 680;
+  pulpFiction.title = "Pulp Fiction";
+  pulpFiction.people.clear();
+  for (int index = 0; index < 52; ++index) {
+    pulpFiction.people.push_back(actor(
+        "Supporting Actor " + std::to_string(index),
+        "Supporting Character " + std::to_string(index)));
+  }
+  pulpFiction.people[40] = actor("John Travolta", "Vincent Vega");
+
+  SuiteBridgeRecordingMetadataPayload pulpFictionPayload(pulpFiction);
+  assert(pulpFictionPayload.Complete());
+  assert(pulpFictionPayload.Size() > 7680);
+  const std::string pulpFictionJson(
+      pulpFictionPayload.Data(),
+      pulpFictionPayload.Size());
+  assert(pulpFictionJson.find("\"name\":\"John Travolta\"") !=
+      std::string::npos);
+  assert(pulpFictionJson.find("\"characterName\":\"Vincent Vega\"") !=
+      std::string::npos);
+
   SuiteBridgeRecordingMetadata tooManyPeople = metadata;
   tooManyPeople.people.assign(
       SuiteBridgeRecordingMetadata::kMaxPeople + 1, person);
@@ -82,10 +117,13 @@ int main()
   assert(tooManyPeoplePayload.Size() == 0);
 
   SuiteBridgeRecordingMetadata oversized = metadata;
-  oversized.overview.assign(9000, 'x');
+  oversized.overview.assign(
+      SuiteBridgeRecordingMetadata::kMaximumPayloadBytes + 1024, 'x');
   SuiteBridgeRecordingMetadataPayload oversizedPayload(oversized);
   assert(!oversizedPayload.Complete());
-  assert(oversizedPayload.Size() == 7679);
+  assert(
+      oversizedPayload.Size() ==
+      SuiteBridgeRecordingMetadata::kMaximumPayloadBytes);
 
   return 0;
 }

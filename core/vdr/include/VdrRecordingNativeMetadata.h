@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -37,8 +38,9 @@ struct VdrRecordingNativeMetadata
     static constexpr std::size_t MaximumGenres = 12;
     static constexpr std::size_t MaximumCountries = 8;
     static constexpr std::size_t MaximumNetworks = 8;
-    static constexpr std::size_t MaximumPeople = 12;
+    static constexpr std::size_t MaximumPeople = 128;
     static constexpr std::size_t MaximumImages = 8;
+    static constexpr std::size_t MaximumPayloadBytes = 65535;
 
     VdrRecordingNativeMetadataAvailability availability =
         VdrRecordingNativeMetadataAvailability::InvalidPayload;

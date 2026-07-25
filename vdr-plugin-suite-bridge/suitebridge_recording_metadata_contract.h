@@ -33,7 +33,8 @@ public:
   bool Complete() const noexcept;
 
 private:
-  static constexpr std::size_t kCapacity = 7680;
+  static constexpr std::size_t kCapacity =
+      SuiteBridgeRecordingMetadata::kMaximumPayloadBytes + 1;
 
   std::array<char, kCapacity> data_{};
   std::size_t size_ = 0;

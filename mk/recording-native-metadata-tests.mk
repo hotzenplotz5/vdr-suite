@@ -15,7 +15,7 @@ VDR_RECORDING_NATIVE_METADATA_SRC := \
 
 DAEMON_SRC += $(VDR_RECORDING_NATIVE_METADATA_SRC)
 
-.PHONY: test-vdr-recording-native-identity test-vdr-recording-metadata-type-coexistence test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-vdr-recording-native-metadata-repository test-vdr-recording-native-metadata-enrichment-service test-vdr-recording-native-person-search-service test-recording-person-persistent-search-controller check-vdr-recording-native-metadata-runtime-wiring test-recording-native-metadata-contracts
+.PHONY: test-vdr-recording-native-identity test-vdr-recording-metadata-type-coexistence test-suite-bridge-svdrp-recording-metadata-transport test-suite-bridge-recording-metadata-resolver test-suite-bridge-recording-metadata-cast-completeness test-vdr-recording-native-metadata-repository test-vdr-recording-native-metadata-enrichment-service test-vdr-recording-native-person-search-service test-recording-person-persistent-search-controller check-vdr-recording-native-metadata-runtime-wiring test-recording-native-metadata-contracts
 
 test-vdr-recording-native-identity:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -49,6 +49,15 @@ test-suite-bridge-recording-metadata-resolver:
 		core/vdr/tests/test_suite_bridge_recording_metadata_resolver.cpp \
 		-o $(BUILD_DIR)/test_suite_bridge_recording_metadata_resolver
 	$(BUILD_DIR)/test_suite_bridge_recording_metadata_resolver
+
+test-suite-bridge-recording-metadata-cast-completeness:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		-Icore/vdr/include \
+		core/vdr/src/VdrRecordingNativeIdentity.cpp \
+		core/vdr/src/SuiteBridgeRecordingMetadataResolver.cpp \
+		core/vdr/tests/test_suite_bridge_recording_metadata_cast_completeness.cpp \
+		-o $(BUILD_DIR)/test_suite_bridge_recording_metadata_cast_completeness
+	$(BUILD_DIR)/test_suite_bridge_recording_metadata_cast_completeness
 
 test-vdr-recording-native-metadata-repository:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -116,6 +125,7 @@ test-recording-native-metadata-contracts: \
 	test-vdr-recording-metadata-type-coexistence \
 	test-suite-bridge-svdrp-recording-metadata-transport \
 	test-suite-bridge-recording-metadata-resolver \
+	test-suite-bridge-recording-metadata-cast-completeness \
 	test-vdr-recording-native-metadata-repository \
 	test-vdr-recording-native-metadata-enrichment-service \
 	test-vdr-recording-native-person-search-service \
