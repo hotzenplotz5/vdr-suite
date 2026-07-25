@@ -474,7 +474,15 @@ std::vector<GenreEpgRefreshCandidate> GenreIndexRepository::epgRefreshCandidates
         "JOIN suite_metadata_genre_assignments a ON a.metadata_target_id=b.metadata_target_id "
         "WHERE b.backend_id=e.backend_id AND b.target_type='program-event' "
         "AND b.channel_id=e.channel_id AND b.native_id=e.event_id AND a.provider_id=? AND a.observed_at>=?) "
-        "ORDER BY CAST(e.start_time AS INTEGER),e.channel_id,e.event_id LIMIT ?;";
+        "ORDER BY CASE WHEN EXISTS("
+        "SELECT 1 FROM suite_metadata_target_bindings pb "
+        "JOIN suite_metadata_genre_assignments pa ON pa.metadata_target_id=pb.metadata_target_id "
+        "WHERE pb.backend_id=e.backend_id AND pb.target_type='program-event' "
+        "AND pb.channel_id=e.channel_id AND pb.native_id=e.event_id "
+        "AND pa.provider_id='tvscraper-media-type' "
+        "AND pa.source_kind='scraper-media-type' "
+        "AND pa.assignment_state IN('active','unknown','conflict')) "
+        "THEN 0 ELSE 1 END,CAST(e.start_time AS INTEGER),e.channel_id,e.event_id LIMIT ?;";
     sqlite3_stmt* statement = nullptr;
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return candidates;
     bindText(statement, 1, normalizeBackendId(backendId));
