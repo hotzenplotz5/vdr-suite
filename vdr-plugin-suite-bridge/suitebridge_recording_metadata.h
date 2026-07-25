@@ -57,7 +57,9 @@ struct SuiteBridgeRecordingMetadata final {
   static constexpr std::size_t kMaxGenres = 12;
   static constexpr std::size_t kMaxCountries = 8;
   static constexpr std::size_t kMaxNetworks = 8;
-  static constexpr std::size_t kMaxPeople = 12;
+  // Transport safety bound only. Search persistence must not use a UI-sized cast
+  // limit, otherwise prominent actors can disappear when provider order differs.
+  static constexpr std::size_t kMaxPeople = 256;
   static constexpr std::size_t kMaxImages = 8;
 
   bool found = false;

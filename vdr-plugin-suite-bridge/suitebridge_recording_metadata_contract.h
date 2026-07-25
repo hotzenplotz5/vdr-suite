@@ -33,7 +33,10 @@ public:
   bool Complete() const noexcept;
 
 private:
-  static constexpr std::size_t kCapacity = 7680;
+  // Keep the RMETA response bounded while allowing the complete provider cast
+  // (including character names and optional portrait references) to cross the
+  // bridge instead of being reduced to a UI-sized subset.
+  static constexpr std::size_t kCapacity = 262144;
 
   std::array<char, kCapacity> data_{};
   std::size_t size_ = 0;

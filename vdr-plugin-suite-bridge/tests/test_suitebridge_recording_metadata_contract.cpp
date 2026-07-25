@@ -74,6 +74,30 @@ int main()
   assert(json.find("/srv/vdr/video") == std::string::npos);
   assert(json.back() == '}');
 
+  // Regression: a prominent actor beyond the former twelve-person cutoff must
+  // survive the bounded bridge payload and remain available to persistence and
+  // person search.
+  SuiteBridgeRecordingMetadata largeCast = metadata;
+  largeCast.people.clear();
+  for (int index = 0; index < 52; ++index) {
+    SuiteBridgeRecordingPerson castMember;
+    castMember.role = SuiteBridgeRecordingPersonRole::Actor;
+    castMember.name = "Cast Member " + std::to_string(index);
+    castMember.characterName = "Character " + std::to_string(index);
+    largeCast.people.push_back(castMember);
+  }
+  largeCast.people[40].name = "John Travolta";
+  largeCast.people[40].characterName = "Vincent Vega";
+
+  SuiteBridgeRecordingMetadataPayload largeCastPayload(largeCast);
+  assert(largeCastPayload.Complete());
+  const std::string largeCastJson(
+      largeCastPayload.Data(), largeCastPayload.Size());
+  assert(largeCastJson.find("\"name\":\"John Travolta\"") !=
+      std::string::npos);
+  assert(largeCastJson.find("\"characterName\":\"Vincent Vega\"") !=
+      std::string::npos);
+
   SuiteBridgeRecordingMetadata tooManyPeople = metadata;
   tooManyPeople.people.assign(
       SuiteBridgeRecordingMetadata::kMaxPeople + 1, person);
@@ -82,10 +106,10 @@ int main()
   assert(tooManyPeoplePayload.Size() == 0);
 
   SuiteBridgeRecordingMetadata oversized = metadata;
-  oversized.overview.assign(9000, 'x');
+  oversized.overview.assign(300000, 'x');
   SuiteBridgeRecordingMetadataPayload oversizedPayload(oversized);
   assert(!oversizedPayload.Complete());
-  assert(oversizedPayload.Size() == 7679);
+  assert(oversizedPayload.Size() == 262143);
 
   return 0;
 }
