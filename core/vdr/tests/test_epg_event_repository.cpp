@@ -139,6 +139,70 @@ static int scalar_int(Database& database, const std::string& sql)
     return value;
 }
 
+static bool query_plan_contains(
+    Database& database,
+    const std::string& sql,
+    const std::string& expected)
+{
+    const std::string explainSql =
+        "EXPLAIN QUERY PLAN " + sql;
+
+    sqlite3_stmt* statement = nullptr;
+    assert(sqlite3_prepare_v2(
+        database.handle(),
+        explainSql.c_str(),
+        -1,
+        &statement,
+        nullptr) == SQLITE_OK);
+
+    bool found = false;
+    int result = SQLITE_ROW;
+
+    while ((result = sqlite3_step(statement)) == SQLITE_ROW)
+    {
+        const unsigned char* detail =
+            sqlite3_column_text(statement, 3);
+
+        if (detail != nullptr &&
+            std::string(
+                reinterpret_cast<const char*>(detail))
+                .find(expected) != std::string::npos)
+        {
+            found = true;
+        }
+    }
+
+    assert(result == SQLITE_DONE);
+    assert(sqlite3_finalize(statement) == SQLITE_OK);
+    return found;
+}
+
+static void test_integer_window_uses_end_epoch_index()
+{
+    const std::string filename =
+        "/tmp/vdr-suite-epg-event-epoch-index-test.db";
+
+    std::remove(filename.c_str());
+
+    Database database;
+    assert(database.open(filename));
+
+    EpgEventRepository repository(database);
+    assert(repository.ensureSchema());
+
+    assert(query_plan_contains(
+        database,
+        "SELECT channel_id,event_id,start_time,end_time,"
+        "content_descriptors "
+        "FROM epg_events "
+        "WHERE backend_id='default' "
+        "AND CAST(end_time AS INTEGER)>1000 "
+        "AND CAST(start_time AS INTEGER)<2000 "
+        "ORDER BY CAST(start_time AS INTEGER),"
+        "channel_id,event_id;",
+        "idx_epg_events_backend_end_epoch"));
+}
+
 static void test_authoritative_window_removes_only_missing_native_ids()
 {
     std::remove("/tmp/vdr-suite-epg-authoritative-window-test.db");
@@ -287,6 +351,7 @@ static void test_window_and_cleanup_are_backend_scoped()
 
 int main()
 {
+    test_integer_window_uses_end_epoch_index();
     test_repository_is_backend_scoped();
     test_upsert_updates_only_matching_backend();
     test_authoritative_window_removes_only_missing_native_ids();

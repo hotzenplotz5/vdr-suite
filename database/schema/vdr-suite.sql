@@ -96,6 +96,14 @@ CREATE INDEX IF NOT EXISTS idx_epg_events_backend_time
     ON epg_events (backend_id, start_time, end_time);
 CREATE INDEX IF NOT EXISTS idx_epg_events_backend_channel_time
     ON epg_events (backend_id, channel_id, start_time, end_time);
+CREATE INDEX IF NOT EXISTS idx_epg_events_backend_end_epoch
+    ON epg_events (
+        backend_id,
+        CAST(end_time AS INTEGER),
+        CAST(start_time AS INTEGER),
+        channel_id,
+        event_id
+    );
 CREATE INDEX IF NOT EXISTS idx_epg_events_backend_title
     ON epg_events (backend_id, title);
 
