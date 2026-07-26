@@ -421,6 +421,7 @@
     const title = element('h2', '', 'VDR - Fernbedienung');
     const close = element('button', 'r-key r-close', '×');
 
+    popup.setAttribute('aria-label', 'VDR - Fernbedienung');
     close.type = 'button';
     close.setAttribute('aria-label', 'Fernbedienung schließen');
     close.title = 'Schließen';
@@ -463,9 +464,13 @@
           setStatus(error.message, 'error');
         })
         .finally(function () {
-          selectedBackend().then(function (backend) {
-            lockControls(!controlState(backend)[0]);
-          });
+          selectedBackend()
+            .then(function (backend) {
+              lockControls(!controlState(backend)[0]);
+            })
+            .catch(function () {
+              lockControls(true);
+            });
         });
     };
 
@@ -935,6 +940,7 @@
       const description = launcher.querySelector('.brand-feature-text');
       launcher.tabIndex = 0;
       launcher.setAttribute('role', 'button');
+      launcher.setAttribute('aria-label', 'VDR - Fernbedienung öffnen');
       launcher.classList.add('brand-feature-remote');
 
       if (title) {
