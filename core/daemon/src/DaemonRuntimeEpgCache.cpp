@@ -10,6 +10,7 @@
 #include <exception>
 #include <iostream>
 #include <thread>
+#include <unordered_map>
 
 namespace
 {
@@ -17,6 +18,7 @@ constexpr std::int64_t GenreWindowSeconds = 48 * 60 * 60;
 constexpr std::size_t EpgTypeSnapshotPageSize = 64;
 constexpr int InitialEpgTypeSnapshotPages = 32;
 constexpr int PeriodicEpgTypeSnapshotPages = 8;
+constexpr int EpgTypeSnapshotRefreshSeconds = 15 * 60;
 
 std::int64_t epgGenreEpochSeconds()
 {
@@ -227,6 +229,23 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
         auto lastRefresh = std::chrono::steady_clock::now();
         auto lastGenreRefresh = lastRefresh;
 
+        using SnapshotCompletionTime =
+            std::chrono::steady_clock::time_point;
+        std::unordered_map<std::string, SnapshotCompletionTime>
+            epgTypeSnapshotCompletedAt;
+
+        for (const auto& backendRuntimeContext :
+             backendRuntimeContexts_)
+        {
+            if (backendRuntimeContext &&
+                backendRuntimeContext->epgTypeSnapshotComplete)
+            {
+                epgTypeSnapshotCompletedAt[
+                    backendRuntimeContext->backendId] =
+                        lastRefresh;
+            }
+        }
+
         while (!epgCacheWarmupStopRequested_.load()) {
             if (waitForStop(1)) {
                 return;
@@ -273,24 +292,59 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
                     if (backendRuntimeContext->suiteBridgeTransport &&
                         backendRuntimeContext->epgTypeSnapshotSupported)
                     {
-                        const bool initializePeriodicSnapshot =
-                            backendRuntimeContext->epgTypeSnapshotComplete ||
+                        const bool snapshotStateInvalid =
                             backendRuntimeContext->epgTypeSnapshotFrom <= 0 ||
                             backendRuntimeContext->epgTypeSnapshotUntil <=
                                 backendRuntimeContext->epgTypeSnapshotFrom;
+
+                        const auto completedAt =
+                            epgTypeSnapshotCompletedAt.find(
+                                backendRuntimeContext->backendId);
+
+                        const bool completedSnapshotRefreshDue =
+                            backendRuntimeContext->epgTypeSnapshotComplete &&
+                            (completedAt ==
+                                 epgTypeSnapshotCompletedAt.end() ||
+                             std::chrono::duration_cast<
+                                 std::chrono::seconds>(
+                                     now - completedAt->second).count() >=
+                                 EpgTypeSnapshotRefreshSeconds);
+
+                        const bool initializePeriodicSnapshot =
+                            snapshotStateInvalid ||
+                            completedSnapshotRefreshDue;
+
                         if (initializePeriodicSnapshot)
                         {
-                            backendRuntimeContext->epgTypeSnapshotFrom = fromTime;
+                            backendRuntimeContext->epgTypeSnapshotFrom =
+                                fromTime;
                             backendRuntimeContext->epgTypeSnapshotUntil =
                                 fromTime + GenreWindowSeconds;
                             backendRuntimeContext->epgTypeSnapshotOffset = 0;
-                            backendRuntimeContext->epgTypeSnapshotComplete = false;
+                            backendRuntimeContext->epgTypeSnapshotComplete =
+                                false;
+
+                            epgTypeSnapshotCompletedAt.erase(
+                                backendRuntimeContext->backendId);
+                        }
+
+                        const bool snapshotWasComplete =
+                            backendRuntimeContext
+                                ->epgTypeSnapshotComplete;
+
+                        processEpgTypeSnapshotPages(
+                            *backendRuntimeContext,
+                            PeriodicEpgTypeSnapshotPages);
+
+                        if (!snapshotWasComplete &&
+                            backendRuntimeContext
+                                ->epgTypeSnapshotComplete)
+                        {
+                            epgTypeSnapshotCompletedAt[
+                                backendRuntimeContext->backendId] =
+                                    std::chrono::steady_clock::now();
                         }
                     }
-
-                    processEpgTypeSnapshotPages(
-                        *backendRuntimeContext,
-                        PeriodicEpgTypeSnapshotPages);
 
                     GenreBrowserApiRuntime::instance().continueEpgEnrichment(
                         backendRuntimeContext->backendId,
@@ -318,7 +372,32 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
             }
 
             refreshEpgCacheForAllBackends("event-stream-dirty-hint");
-            lastRefresh = std::chrono::steady_clock::now();
+
+            const auto refreshCompletedAt =
+                std::chrono::steady_clock::now();
+
+            for (const auto& backendRuntimeContext :
+                 backendRuntimeContexts_)
+            {
+                if (!backendRuntimeContext)
+                {
+                    continue;
+                }
+
+                if (backendRuntimeContext->epgTypeSnapshotComplete)
+                {
+                    epgTypeSnapshotCompletedAt[
+                        backendRuntimeContext->backendId] =
+                            refreshCompletedAt;
+                }
+                else
+                {
+                    epgTypeSnapshotCompletedAt.erase(
+                        backendRuntimeContext->backendId);
+                }
+            }
+
+            lastRefresh = refreshCompletedAt;
             lastGenreRefresh = lastRefresh;
         }
     }
