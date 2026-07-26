@@ -45,8 +45,10 @@ assert(source.includes('.r-color-grid .blue'));
 assert(source.includes('linear-gradient(145deg, #fde047, #ca8a04)'));
 
 assert(source.includes("launcher.classList.add('brand-feature-remote')"));
+assert(source.includes("launcher.setAttribute('aria-label', 'VDR - Fernbedienung öffnen')"));
 assert(source.includes('.brand-feature-remote:hover'));
 assert(source.includes("element('h2', '', 'VDR - Fernbedienung')"));
+assert(source.includes("popup.setAttribute('aria-label', 'VDR - Fernbedienung')"));
 assert(source.includes("title.textContent = 'VDR - Fernbedienung'"));
 assert(!source.includes("title.textContent = 'Fernsteuerung'"));
 
