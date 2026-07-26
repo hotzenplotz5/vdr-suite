@@ -5,26 +5,21 @@
 - [README](../README.md)
 - [Documentation Index](index.md)
 - [Current State](CURRENT.md)
-- [Target Platform Architecture](architecture/target-platform-architecture.md)
-- [Metadata-Backed Genre Browser](architecture/metadata-genre-browser.md)
-- [Domain Dependency Map](planning/domain-dependency-map.md)
-- [Implementation Dependency Map](planning/implementation-dependency-map.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [Target Platform Architecture](architecture/target-platform-architecture.md)
+- [Domain Dependency Map](planning/domain-dependency-map.md)
+- [Implementation Dependency Map](planning/implementation-dependency-map.md)
+- [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
+- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
-- [Completed Architecture Source Audit](development/architecture-source-audit-2026-07-15.md)
-- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
-- [ADR Index](adr/index.md)
 - [Completed Phases](development/completed-phases.md)
-- [GitHub Actions Status Handoff](development/github-actions-status-handoff.md)
 
 ---
 
 ## Purpose
 
-This is the compact project handoff that a new chat should read first.
-
-It does not replace specialized implementation, acceptance or CI handoffs.
+This is the compact project handoff that a new chat should read first. It records current repository truth and prevents old feature-branch or pending-acceptance assumptions from being repeated.
 
 ---
 
@@ -34,160 +29,71 @@ Read these files in this order:
 
 1. [Current State](CURRENT.md)
 2. [Strict Roadmap](planning/roadmap.md)
-3. [Implementation Dependency Map](planning/implementation-dependency-map.md)
-4. [Phase Map](planning/phase-map.md)
+3. [Phase Map](planning/phase-map.md)
+4. [Implementation Dependency Map](planning/implementation-dependency-map.md)
 5. [Target Platform Architecture](architecture/target-platform-architecture.md)
-6. [Metadata-Backed Genre Browser](architecture/metadata-genre-browser.md)
-7. [Domain Dependency Map](planning/domain-dependency-map.md)
-8. [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
-9. [Completed Architecture Source Audit](development/architecture-source-audit-2026-07-15.md)
-10. [Current Project Status](development/current-status.md)
-11. [ADR Index](adr/index.md)
-12. [Current Architecture State](development/current-architecture-state.md)
-13. [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
-14. [Completed Phases](development/completed-phases.md) when historical detail is required
-15. [GitHub Actions Status Handoff](development/github-actions-status-handoff.md) when CI state matters
+6. [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
+7. [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
+8. [Domain Dependency Map](planning/domain-dependency-map.md)
+9. [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+10. [Completed Phases](development/completed-phases.md)
 
 ---
 
 ## Current Repository Truth
 
-Latest completed major project block:
-
 ```text
-Phase 57 - Multi-Site Backend Administration and Permissions
-```
+Latest completed runtime phase:
+Phase 61 - Suite Metadata and Genre Platform
 
-Previous completed major project block:
-
-```text
-Phase 56 - Library Boundary, Packaging and Developer Documentation
-```
+Latest completed operational hardening block:
+Post-Phase 61 Performance Hardening (B1-B4)
 
 Historical umbrella implementation track:
-
-```text
 Phase 58 - Frontend and Live Parity
+
+Next runtime implementation phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-Latest completed implementation slice:
+Phase 61 is merged and accepted. Do not describe it as a feature branch, implementation under review or pending real-system acceptance.
 
-```text
-Phase 60.15 - Recording Metadata and Poster Preparation
-```
-
-Current feature-branch implementation slice:
-
-```text
-Phase 61 - persistent normalized Genre index and metadata-backed Genre browser
-Branch: feature/phase61-metadata-genre-browser
-Status: implementation under review; repository-local build and real-system acceptance pending
-```
-
-Completed architecture prerequisite:
-
-```text
-ADR-0042 through ADR-0049
-Target Platform Architecture
-Domain Dependency Map
-Implementation Dependency Map
-```
-
-Current runtime implementation phase:
-
-```text
-Phase 61 - Suite Metadata Database and External Provider Integration
-```
-
-The Phase 58 umbrella label is historical. Future execution follows the strict numbered sequence from Phase 61 onward.
+PR #100 merged the metadata-backed Genre runtime. PRs #102 through #108 completed the production-measured EPG and metadata performance hardening.
 
 ---
 
-## Phase 61 Genre Slice Truth
+## Phase 61 Completed Scope
 
-The feature branch currently implements:
+The accepted Phase 61 vertical slice includes:
 
-- backend-scoped persistent Genre target bindings and assignments;
-- canonical aliases, stable unknown identities and explicit unclassified state;
-- multiple Genres per Recording or EPG event;
-- active, missing, unknown, stale and derived conflict states;
-- SQL distinct counts and limit/offset result pages;
-- asynchronous bounded EPG provider enrichment through the existing EPG worker;
-- Recording Genre materialization through the existing Recording cache worker;
-- provider-neutral Suite REST and DOM-free Client API routes;
-- a `genres` frontend module;
-- reuse of the existing Recordings 2 card/detail owner;
-- reuse of the existing EPG detail card;
-- unchanged EPG timeline and preserved PR #99 LiveRemote routing precedence.
+- persistent backend-scoped Recording and EPG Genre bindings and assignments;
+- canonical aliases, unknown identities and unclassified state;
+- multiple Genres per target and explicit active/missing/unknown/stale/conflict states;
+- provider evidence and derived EPG browse-class persistence;
+- indexed distinct counts and paged backend-scoped queries;
+- provider-neutral Suite REST and DOM-free Web Client API routes;
+- Genre frontend navigation for Recordings and EPG;
+- bounded asynchronous EPG enrichment through the daemon worker;
+- Recording Genre materialization through the Recording cache worker;
+- restart persistence and real-system acceptance;
+- preserved Recording, EPG timeline and LiveRemote owners.
 
-Do not describe this slice as completed history until focused tests, daemon build and real-system browser acceptance have passed.
-
----
-
-## Completed Architecture Audit
-
-The completed 2026-07-15 source audit covered:
-
-- VDR Core;
-- epgsearch;
-- Live;
-- RESTfulAPI;
-- Streamdev;
-- TVScraper;
-- scraper2vdr;
-- osd2web;
-- epg2vdr;
-- epgd.
-
-Use:
-
-- [Architecture Source Audit](development/architecture-source-audit-2026-07-15.md) for completed evidence and conclusions;
-- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md) for current implementation gaps and target phases;
-- [Target Platform Architecture](architecture/target-platform-architecture.md) for accepted ownership and communication diagrams;
-- [Domain Dependency Map](planning/domain-dependency-map.md) for stable conceptual prerequisites;
-- [Implementation Dependency Map](planning/implementation-dependency-map.md) for runtime slice order.
-
-Broad plugin auditing is complete. Additional audits require a concrete feature, adapter, migration or risk question.
+The closeout does not claim every future provider adapter, recommendation feature or long-term diagnostics capability.
 
 ---
 
-## Accepted Architecture Package
+## Performance Closeout Truth
 
-```text
-ADR-0038 - Suite Metadata Database and External Provider Strategy
-ADR-0039 - Backend Agent and Control Plane Boundary
-ADR-0040 - Backend Lifecycle, Generation, Lease and Health
-ADR-0041 - Authentication, Agent Trust and Multi-Site Transport
-ADR-0042 - Safe Mutation, Revision and Idempotency Contract
-ADR-0043 - Job Claim, Retry and Saga Execution Model
-ADR-0044 - Timer Intent, Assignment and Native Timer Model
-ADR-0045 - Canonical EPG Event Identity and Provenance
-ADR-0046 - Streaming Gateway and Media Session Boundary
-ADR-0047 - Legacy OSD Compatibility Bridge
-ADR-0048 - Public API Versioning, Error and Compatibility Contract
-ADR-0049 - Audit and Security Event Model
-```
+The B1-B4 hardening block established:
 
-Core conclusions:
+- 3.24x faster measured EPG refresh-candidate selection;
+- one atomic Genre write transaction per enriched EPG candidate;
+- no writer transaction for unchanged Recording Genre synchronization;
+- approximately 19.6x faster measured integer EPG window query;
+- zero SQLite updates for identical EPG event upserts;
+- a 15-minute pause between completed ETYPES cycles, with ten-second continuation for incomplete cursors.
 
-- VDR remains the native runtime authority.
-- VDR-Suite remains the external domain, orchestration and platform layer.
-- The Control Plane owns global identity, policy, orchestration and public contracts.
-- Backend Agents are enrolled, generation-bound site representatives.
-- RESTfulAPI, SVDRP, Streamdev, osd2web and plugin contracts remain internal to the Agent/site boundary.
-- Agents and plugins do not access the central database directly.
-- Remote sites do not expose VDR plugin ports as public platform APIs.
-- Stable Suite identity is separate from backend-native identity.
-- Backend generation, lease, health, resource revision and event sequence are distinct.
-- Read-only and RBAC decisions are enforced server-side.
-- Mutations require authorization, revision, idempotency, durable dispatch evidence, verification and accountability.
-- Unknown outcomes reconcile before retry.
-- Metadata and artwork are Suite-owned while acquisition remains provider based.
-- TimerIntent and TimerAssignment are separate from native Timers.
-- ProgramEvent is separate from BackendEventRef and MetadataEntity.
-- Media and Legacy OSD use isolated short-lived session boundaries.
-- Public `/api/v1`, Agent, media, OSD and plugin contracts are separately versioned.
-- Accountability history is structured and append-only, not parsed from logs.
+Use the exact measurements and qualifications in [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md); do not turn a single startup timing comparison into a general benchmark claim.
 
 ---
 
@@ -198,92 +104,73 @@ Do not describe these areas as wholly missing:
 - daemon and REST runtime;
 - RESTfulAPI adapter boundary;
 - BackendNode and BackendRegistry;
-- backend-aware snapshots and reads;
-- snapshot change feed and SSE foundation;
-- runtime diagnostics;
-- Recording request, preview, validation, planning and execution boundaries;
-- guarded real-backend Recording probes;
-- native Timer action boundaries;
-- backend-neutral SearchTimer workflows;
-- backend-scoped EPG cache and queries;
-- lazy SQLite-backed Recording cache;
-- Web Client API wrapper;
-- frontend module ownership and registry;
 - server-enforced read-only backend access mode;
-- Suite Bridge SB.1 through SB.7 read-only/lifecycle foundations;
-- Phase 61 metadata identity/schema foundation;
-- feature-branch persistent Genre read-model runtime.
+- backend-aware snapshots, EPG cache and Recording cache;
+- snapshot change feed and SSE foundation;
+- guarded Recording actions;
+- native Timer action boundaries;
+- SearchTimer list, preview, validation and controlled mutation foundations;
+- metadata, people and artwork read paths;
+- persistent Genre read model;
+- remote-control and live-overlay foundations;
+- Web Client API wrapper and modular frontend ownership;
+- packaging, staging and real-system acceptance workflows.
 
 ---
 
 ## Main Incomplete Areas
 
-The detailed list remains in the [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md).
+The next major runtime gaps are:
 
-Major runtime gaps include:
-
-- broader MetadataEntity resolution, provider evidence operations and artwork asset lifecycle beyond the Genre slice;
-- real user, service and Agent identity with scoped RBAC;
-- append-only accountability persistence and outbox;
-- Backend Agent enrollment and secure remote transport;
-- backend generation, heartbeat, lease and health runtime;
-- universal revision and idempotency for mutations;
-- production job claim, retry, verification and compensation;
-- TimerIntent, TimerAssignment, scheduler and reconciler;
-- canonical ProgramEvent persistence and resolver;
-- Streaming Gateway;
-- hardened Legacy OSD bridge;
-- versioned `/api/v1` migration and compatibility runtime.
-
-Accepted ADRs and target diagrams do not close these gaps.
+- actor identities, scoped RBAC and centralized authorization;
+- append-only accountability persistence and transactional outbox;
+- secure Backend Agent enrollment, generation, lease and reconnect runtime;
+- universal revision and durable idempotency for privileged mutations;
+- production job claim/retry/reconciliation infrastructure;
+- TimerIntent, TimerAssignment and scheduler/reconciler;
+- Streaming Gateway and media sessions;
+- legacy OSD viewing/control bridge;
+- versioned `/api/v1` and client compatibility hardening;
+- recommendation and knowledge-graph behavior.
 
 ---
 
-## Immediate Repository Work
+## Immediate Work
 
-Validate the Phase 61 Genre vertical slice on `/home/yavdr/vdr-suite`:
+The strict next runtime phase is:
 
 ```text
-focused metadata, controller, architecture and frontend tests
-full fast regression and daemon build
-service restart and SQLite restart persistence
-Recording and EPG Genre API counts
-large desktop/mobile Genre cards
-Recordings 2 and EPG detail return navigation
-read-only backend isolation
-unchanged EPG timeline and PR #99 live remote/overlay behavior
+Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-Do not merge until the real-system verification is explicitly approved.
-
-After acceptance, continue the remaining Phase 61 provider, artwork, migration, backup and operational-hardening slices.
+Begin with actor identity and authorization contracts before migrating privileged operations. Append-only accountability and pre-dispatch evidence must precede later Agent-backed remote writes.
 
 ---
 
-## Back
+## Ecosystem Comparison Rule
 
-- [Back to README](../README.md)
-- [Back to Documentation Index](index.md)
-- [Back to Current State](CURRENT.md)
+The canonical comparison targets are:
 
-## Phase 61 EPG Identity Diagnosis and Fix
+```text
+VDR Core
+Live
+VDR-Suite
+epgsearch
+RESTfulAPI
+```
 
-Real-system evidence from 2026-07-24 confirmed stale backend-native EPG IDs in
-`epg_events` after RESTfulAPI had already published replacement IDs. Examples
-included `38843 -> 39566`, `38844 -> 39567` and `38845 -> 39568` on the default
-backend. The implementation direction is authoritative window reconciliation,
-not title/time deduplication.
+There is no VDR-Suite component named `Wikipedia Search`. When that phrase appears in conversation, verify whether `epgsearch` was intended rather than creating a fictitious comparison target.
 
-The current patch:
+Use [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md) for current status and open gaps.
 
-- uses an explicit epoch-based warmup window;
-- reconciles only channels proven complete below the per-channel cap;
-- removes stale cache rows and dependent scraper/artwork rows atomically;
-- retires old Genre bindings without copying identity-bound public JSON;
-- rejects metadata materialization for IDs no longer present in `epg_events`;
-- retries frontend `pending` responses without permanently caching them;
-- serializes explicit EPG and recording-cache transactions on the shared
-  SQLite connection.
+---
 
-Do not restore the former +/-5-second title matcher or copy metadata JSON from
-an old native event ID to a new one.
+## Boundary Rules
+
+- VDR remains native runtime authority.
+- VDR-Suite remains the external domain, policy and orchestration layer.
+- Browsers do not call RESTfulAPI, SVDRP, Streamdev, TVScraper or SuiteBridge directly.
+- Provider data is evidence, not hidden Suite authority.
+- Frontend code does not own authorization decisions.
+- Completed phases are not reopened by optional extensions.
+- Claims about parity require source, test or live evidence.
