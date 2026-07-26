@@ -46,10 +46,12 @@ The Core Platform Model is an earlier conceptual foundation. Where its older fut
 
 - [Metadata Identity Foundation](metadata-identity-foundation.md)
 - [Suite Metadata Platform Schema v1](metadata-platform-schema-v1.md)
+- [Metadata-Backed Genre Browser](metadata-genre-browser.md)
+- [Live 3.5.5 / TVScraper 1.2.15 EPG Genre Comparison](live-tvscraper-epg-genre-comparison.md)
 - [ADR-0038: Suite Metadata Database and External Provider Strategy](../adr/ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
 - [Recording Metadata Roadmap](../planning/tvscraper-recording-metadata-roadmap.md)
 
-The identity foundation defines the Phase 61.1 Suite-owned Entity, Assignment and Target identity boundary. Schema v1 defines the Phase 61.2 entity, target, provider, immutable evidence and assignment persistence contract. Runtime migration, repositories, resolver behavior and artwork storage remain later Phase 61 slices.
+The identity foundation defines the Phase 61.1 Suite-owned Entity, Assignment and Target identity boundary. Schema v1 defines the Phase 61.2 entity, target, provider, immutable evidence and assignment persistence contract. The Genre Browser document defines the first backend-scoped runtime/read-model vertical slice while keeping provider acquisition asynchronous and public reads provider neutral. The Live/TVScraper comparison documents the authoritative upstream resolution paths and the read-only production diagnostic for proving EPG genre parity. Remaining artwork, provider, migration, backup and operational hardening work stays in later Phase 61 slices.
 
 ---
 
@@ -58,6 +60,7 @@ The identity foundation defines the Phase 61.1 Suite-owned Entity, Assignment an
 - [VDR Backends](vdr-backends.md)
 - [VDR Domain Model](vdr-domain-model.md)
 - [RESTfulAPI Integration](restfulapi-integration.md)
+- [Live Remote, Overlay and Legacy OSD Compatibility Contract](live-remote-osd-contract.md)
 - [Suite Bridge Backend Agent Handshake](suite-bridge-agent-handshake.md)
 - [Suite Bridge Local SVDRP Transport](suite-bridge-svdrp-transport.md)
 - [Suite Bridge Read-Only Observation Lifecycle](suite-bridge-observation-lifecycle.md)

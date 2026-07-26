@@ -5,8 +5,7 @@
 #include "EpgArtworkRepository.h"
 #include "EpgCacheService.h"
 #include "EpgCacheServiceRegistry.h"
-#include "IEpgScraperMetadataResolver.h"
-#include "VdrEvent.h"
+#include "EpgMetadataMaterializationQueue.h"
 
 #include <iomanip>
 #include <sstream>
@@ -18,48 +17,27 @@ namespace
 {
 std::string normalizeBackendId(const std::string& backendId)
 {
-    if (backendId.empty())
-    {
-        return "default";
-    }
-
-    return backendId;
+    return backendId.empty() ? "default" : backendId;
 }
 
 std::string escapeJsonString(const std::string& value)
 {
     std::ostringstream escaped;
-
     for (unsigned char character : value)
     {
         switch (character)
         {
-        case '"':
-            escaped << "\\\"";
-            break;
-        case '\\':
-            escaped << "\\\\";
-            break;
-        case '\n':
-            escaped << "\\n";
-            break;
-        case '\r':
-            escaped << "\\r";
-            break;
-        case '\t':
-            escaped << "\\t";
-            break;
+        case '"': escaped << "\\\""; break;
+        case '\\': escaped << "\\\\"; break;
+        case '\n': escaped << "\\n"; break;
+        case '\r': escaped << "\\r"; break;
+        case '\t': escaped << "\\t"; break;
         default:
             if (character < 0x20)
             {
-                escaped
-                    << "\\u"
-                    << std::hex
-                    << std::setw(4)
-                    << std::setfill('0')
-                    << static_cast<int>(character)
-                    << std::dec
-                    << std::setfill(' ');
+                escaped << "\\u" << std::hex << std::setw(4)
+                        << std::setfill('0') << static_cast<int>(character)
+                        << std::dec << std::setfill(' ');
             }
             else
             {
@@ -68,153 +46,12 @@ std::string escapeJsonString(const std::string& value)
             break;
         }
     }
-
     return escaped.str();
 }
 
 const char* boolJson(bool value)
 {
     return value ? "true" : "false";
-}
-
-std::string serializeArtwork(
-    const std::string& backendId,
-    const VdrEvent& event,
-    EpgArtworkRepository* artworkRepository,
-    EpgArtworkPublicJsonSerializer* artworkJsonSerializer)
-{
-    if (artworkRepository == nullptr || artworkJsonSerializer == nullptr)
-    {
-        return "{\"available\":false}";
-    }
-
-    const EpgArtworkReference artwork = artworkRepository->find(
-        backendId,
-        event.channelId,
-        event.id);
-
-    return artworkJsonSerializer->serialize(artwork);
-}
-
-std::string serializeEvent(
-    const std::string& backendId,
-    const VdrEvent& event,
-    EpgArtworkRepository* artworkRepository,
-    EpgArtworkPublicJsonSerializer* artworkJsonSerializer)
-{
-    std::ostringstream json;
-
-    json
-        << "{"
-        << "\"id\":\"" << escapeJsonString(event.id) << "\","
-        << "\"channelId\":\"" << escapeJsonString(event.channelId) << "\","
-        << "\"title\":\"" << escapeJsonString(event.title) << "\","
-        << "\"subtitle\":\"" << escapeJsonString(event.subtitle) << "\","
-        << "\"description\":\"" << escapeJsonString(event.description) << "\","
-        << "\"startTime\":\"" << escapeJsonString(event.startTime) << "\","
-        << "\"endTime\":\"" << escapeJsonString(event.endTime) << "\","
-        << "\"durationSeconds\":" << event.durationSeconds << ","
-        << "\"parentalRating\":" << event.parentalRating << ","
-        << "\"artwork\":"
-        << serializeArtwork(
-            backendId,
-            event,
-            artworkRepository,
-            artworkJsonSerializer)
-        << "}";
-
-    return json.str();
-}
-
-std::string serializeEvents(
-    const std::string& backendId,
-    const std::vector<VdrEvent>& events,
-    EpgArtworkRepository* artworkRepository,
-    EpgArtworkPublicJsonSerializer* artworkJsonSerializer)
-{
-    std::ostringstream json;
-
-    json
-        << "{"
-        << "\"backendId\":\"" << escapeJsonString(backendId) << "\","
-        << "\"eventCount\":" << events.size() << ","
-        << "\"events\":[";
-
-    for (std::size_t index = 0; index < events.size(); ++index)
-    {
-        if (index > 0)
-        {
-            json << ",";
-        }
-
-        json << serializeEvent(
-            backendId,
-            events.at(index),
-            artworkRepository,
-            artworkJsonSerializer);
-    }
-
-    json << "]}";
-
-    return json.str();
-}
-
-std::string serializeRefreshResult(
-    const std::string& backendId,
-    const EpgCacheRefreshResult& result)
-{
-    std::ostringstream json;
-
-    json
-        << "{"
-        << "\"backendId\":\"" << escapeJsonString(backendId) << "\","
-        << "\"accepted\":" << boolJson(result.accepted) << ","
-        << "\"fetched\":" << boolJson(result.fetched) << ","
-        << "\"stored\":" << boolJson(result.stored) << ","
-        << "\"eventCount\":" << result.eventCount
-        << "}";
-
-    return json.str();
-}
-
-std::string serializeStatus(
-    const EpgCacheStatus& status)
-{
-    std::ostringstream json;
-
-    json
-        << "{"
-        << "\"backendId\":\"" << escapeJsonString(status.backendId) << "\","
-        << "\"ready\":" << boolJson(status.ready) << ","
-        << "\"eventCount\":" << status.eventCount << ","
-        << "\"lastRefreshKnown\":" << boolJson(status.lastRefreshKnown) << ","
-        << "\"lastRefreshAccepted\":" << boolJson(status.lastRefreshAccepted) << ","
-        << "\"lastRefreshFetched\":" << boolJson(status.lastRefreshFetched) << ","
-        << "\"lastRefreshStored\":" << boolJson(status.lastRefreshStored) << ","
-        << "\"lastRefreshEventCount\":" << status.lastRefreshEventCount << ","
-        << "\"lastRefreshStartedAt\":" << status.lastRefreshStartedAt << ","
-        << "\"lastRefreshFinishedAt\":" << status.lastRefreshFinishedAt << ","
-        << "\"lastRefreshDurationMs\":" << status.lastRefreshDurationMs << ","
-        << "\"lastError\":\"" << escapeJsonString(status.lastError) << "\""
-        << "}";
-
-    return json.str();
-}
-
-std::string serializeBackendNotFound(
-    const std::string& backendId)
-{
-    std::ostringstream json;
-
-    json
-        << "{"
-        << "\"backendId\":\"" << escapeJsonString(backendId) << "\","
-        << "\"status\":\"backend-not-found\","
-        << "\"eventCount\":0,"
-        << "\"events\":[]"
-        << "}";
-
-    return json.str();
 }
 
 ApiResponse jsonResponse(int statusCode, const std::string& body)
@@ -233,45 +70,101 @@ ApiResponse jsonError(int statusCode, const std::string& message)
         "{\"error\":\"" + escapeJsonString(message) + "\"}");
 }
 
-VdrEvent metadataEvent(
-    const std::string& channelId,
-    const std::string& eventId)
+std::string serializeArtwork(
+    const std::string& backendId,
+    const VdrEvent& event,
+    EpgArtworkRepository* repository,
+    EpgArtworkPublicJsonSerializer* serializer)
 {
-    VdrEvent event;
-    event.channelId = channelId;
-    event.id = eventId;
-    return event;
+    if (repository == nullptr || serializer == nullptr)
+    {
+        return "{\"available\":false}";
+    }
+
+    return serializer->serialize(repository->find(
+        backendId,
+        event.channelId,
+        event.id));
 }
 
-const EpgScraperArtwork* selectedMetadataArtwork(
-    const EpgScraperMetadata& metadata,
-    const std::string& kind,
-    int index)
+std::string serializeEvent(
+    const std::string& backendId,
+    const VdrEvent& event,
+    EpgArtworkRepository* repository,
+    EpgArtworkPublicJsonSerializer* serializer)
 {
-    if (kind == "preferred")
-    {
-        return index == 0 ? &metadata.preferredArtwork : nullptr;
-    }
+    std::ostringstream json;
+    json << "{"
+         << "\"id\":\"" << escapeJsonString(event.id) << "\","
+         << "\"channelId\":\"" << escapeJsonString(event.channelId) << "\","
+         << "\"title\":\"" << escapeJsonString(event.title) << "\","
+         << "\"subtitle\":\"" << escapeJsonString(event.subtitle) << "\","
+         << "\"description\":\"" << escapeJsonString(event.description) << "\","
+         << "\"startTime\":\"" << escapeJsonString(event.startTime) << "\","
+         << "\"endTime\":\"" << escapeJsonString(event.endTime) << "\","
+         << "\"durationSeconds\":" << event.durationSeconds << ','
+         << "\"parentalRating\":" << event.parentalRating << ','
+         << "\"artwork\":"
+         << serializeArtwork(backendId, event, repository, serializer)
+         << '}';
+    return json.str();
+}
 
-    if (kind == "person")
+std::string serializeEvents(
+    const std::string& backendId,
+    const std::vector<VdrEvent>& events,
+    EpgArtworkRepository* repository,
+    EpgArtworkPublicJsonSerializer* serializer)
+{
+    std::ostringstream json;
+    json << "{\"backendId\":\"" << escapeJsonString(backendId)
+         << "\",\"eventCount\":" << events.size() << ",\"events\":[";
+    for (std::size_t index = 0; index < events.size(); ++index)
     {
-        if (index < 0 || static_cast<std::size_t>(index) >= metadata.people.size())
-        {
-            return nullptr;
-        }
-        return &metadata.people[static_cast<std::size_t>(index)].image;
+        if (index > 0) json << ',';
+        json << serializeEvent(backendId, events[index], repository, serializer);
     }
+    json << "]}";
+    return json.str();
+}
 
-    if (kind == "gallery")
-    {
-        if (index < 0 || static_cast<std::size_t>(index) >= metadata.images.size())
-        {
-            return nullptr;
-        }
-        return &metadata.images[static_cast<std::size_t>(index)].artwork;
-    }
+std::string serializeRefreshResult(
+    const std::string& backendId,
+    const EpgCacheRefreshResult& result)
+{
+    std::ostringstream json;
+    json << "{\"backendId\":\"" << escapeJsonString(backendId) << "\","
+         << "\"accepted\":" << boolJson(result.accepted) << ','
+         << "\"fetched\":" << boolJson(result.fetched) << ','
+         << "\"stored\":" << boolJson(result.stored) << ','
+         << "\"authoritative\":" << boolJson(result.authoritative) << ','
+         << "\"eventCount\":" << result.eventCount << ','
+         << "\"removedEventCount\":" << result.removedEventCount << '}';
+    return json.str();
+}
 
-    return nullptr;
+std::string serializeStatus(const EpgCacheStatus& status)
+{
+    std::ostringstream json;
+    json << "{\"backendId\":\"" << escapeJsonString(status.backendId) << "\","
+         << "\"ready\":" << boolJson(status.ready) << ','
+         << "\"eventCount\":" << status.eventCount << ','
+         << "\"lastRefreshKnown\":" << boolJson(status.lastRefreshKnown) << ','
+         << "\"lastRefreshAccepted\":" << boolJson(status.lastRefreshAccepted) << ','
+         << "\"lastRefreshFetched\":" << boolJson(status.lastRefreshFetched) << ','
+         << "\"lastRefreshStored\":" << boolJson(status.lastRefreshStored) << ','
+         << "\"lastRefreshEventCount\":" << status.lastRefreshEventCount << ','
+         << "\"lastRefreshStartedAt\":" << status.lastRefreshStartedAt << ','
+         << "\"lastRefreshFinishedAt\":" << status.lastRefreshFinishedAt << ','
+         << "\"lastRefreshDurationMs\":" << status.lastRefreshDurationMs << ','
+         << "\"lastError\":\"" << escapeJsonString(status.lastError) << "\"}";
+    return json.str();
+}
+
+std::string serializeBackendNotFound(const std::string& backendId)
+{
+    return "{\"backendId\":\"" + escapeJsonString(backendId) +
+        "\",\"status\":\"backend-not-found\",\"eventCount\":0,\"events\":[]}";
 }
 }
 
@@ -317,13 +210,6 @@ EpgCacheController::EpgCacheController(
 {
 }
 
-void EpgCacheController::registerScraperMetadataResolver(
-    const std::string& backendId,
-    IEpgScraperMetadataResolver& resolver)
-{
-    scraperMetadataResolverRegistry_.registerResolver(backendId, resolver);
-}
-
 void EpgCacheController::setScraperMetadataAllowedRoots(
     std::vector<std::string> allowedRoots)
 {
@@ -333,12 +219,7 @@ void EpgCacheController::setScraperMetadataAllowedRoots(
 EpgCacheService* EpgCacheController::findService(
     const std::string& backendId) const
 {
-    if (registry_ != nullptr)
-    {
-        return registry_->findService(backendId);
-    }
-
-    return directService_;
+    return registry_ != nullptr ? registry_->findService(backendId) : directService_;
 }
 
 ApiResponse EpgCacheController::refreshBackendWindow(
@@ -347,49 +228,32 @@ ApiResponse EpgCacheController::refreshBackendWindow(
 {
     const std::string normalizedBackendId = normalizeBackendId(backendId);
     EpgCacheService* service = findService(normalizedBackendId);
-
     if (service == nullptr)
     {
-        return jsonResponse(
-            404,
-            serializeBackendNotFound(normalizedBackendId));
+        return jsonResponse(404, serializeBackendNotFound(normalizedBackendId));
     }
 
     const EpgCacheRefreshResult result =
         service->refreshBackendWindow(normalizedBackendId, query);
-
     if (!result.accepted)
     {
-        return jsonResponse(
-            400,
-            serializeRefreshResult(normalizedBackendId, result));
+        return jsonResponse(400, serializeRefreshResult(normalizedBackendId, result));
     }
-
     if (!result.stored)
     {
-        return jsonResponse(
-            503,
-            serializeRefreshResult(normalizedBackendId, result));
+        return jsonResponse(503, serializeRefreshResult(normalizedBackendId, result));
     }
-
-    return jsonResponse(
-        200,
-        serializeRefreshResult(normalizedBackendId, result));
+    return jsonResponse(200, serializeRefreshResult(normalizedBackendId, result));
 }
 
-ApiResponse EpgCacheController::getStatus(
-    const std::string& backendId) const
+ApiResponse EpgCacheController::getStatus(const std::string& backendId) const
 {
     const std::string normalizedBackendId = normalizeBackendId(backendId);
     EpgCacheService* service = findService(normalizedBackendId);
-
     if (service == nullptr)
     {
-        return jsonResponse(
-            404,
-            serializeBackendNotFound(normalizedBackendId));
+        return jsonResponse(404, serializeBackendNotFound(normalizedBackendId));
     }
-
     return jsonResponse(
         200,
         serializeStatus(service->getStatusForBackend(normalizedBackendId)));
@@ -403,14 +267,10 @@ ApiResponse EpgCacheController::getNowNext(
 {
     const std::string normalizedBackendId = normalizeBackendId(backendId);
     EpgCacheService* service = findService(normalizedBackendId);
-
     if (service == nullptr)
     {
-        return jsonResponse(
-            404,
-            serializeBackendNotFound(normalizedBackendId));
+        return jsonResponse(404, serializeBackendNotFound(normalizedBackendId));
     }
-
     return jsonResponse(
         200,
         serializeEvents(
@@ -433,14 +293,10 @@ ApiResponse EpgCacheController::getWindow(
 {
     const std::string normalizedBackendId = normalizeBackendId(backendId);
     EpgCacheService* service = findService(normalizedBackendId);
-
     if (service == nullptr)
     {
-        return jsonResponse(
-            404,
-            serializeBackendNotFound(normalizedBackendId));
+        return jsonResponse(404, serializeBackendNotFound(normalizedBackendId));
     }
-
     return jsonResponse(
         200,
         serializeEvents(
@@ -465,25 +321,41 @@ ApiResponse EpgCacheController::getMetadata(
         return jsonError(400, "channelId and eventId are required");
     }
 
-    const std::string normalizedBackendId = normalizeBackendId(backendId);
-    IEpgScraperMetadataResolver* resolver =
-        scraperMetadataResolverRegistry_.findResolver(normalizedBackendId);
-    if (resolver == nullptr)
+    if (artworkRepository_ == nullptr)
     {
-        return jsonError(503, "epg scraper metadata backend unavailable");
+        return jsonError(503, "epg scraper metadata cache unavailable");
     }
 
-    const EpgScraperMetadataResolution resolution = resolver->resolve(
-        normalizedBackendId,
-        metadataEvent(channelId, eventId));
-    if (!resolution.attempted)
+    const std::string normalizedBackendId = normalizeBackendId(backendId);
+    EpgCacheService* service = findService(normalizedBackendId);
+    if (service != nullptr &&
+        !service->containsEventForBackend(
+            normalizedBackendId,
+            channelId,
+            eventId))
     {
-        return jsonError(502, "epg scraper metadata lookup failed");
+        return jsonResponse(
+            200,
+            "{\"available\":false,\"status\":\"stale-event\"}");
     }
+
+    const std::string cached = artworkRepository_->findMetadataJson(
+        normalizedBackendId,
+        channelId,
+        eventId);
+    if (!cached.empty())
+    {
+        return jsonResponse(200, cached);
+    }
+
+    EpgMetadataMaterializationQueue::instance().request(
+        normalizedBackendId,
+        channelId,
+        eventId);
 
     return jsonResponse(
         200,
-        scraperMetadataJsonSerializer_.serialize(resolution));
+        "{\"available\":false,\"status\":\"pending\"}");
 }
 
 ApiResponse EpgCacheController::getMetadataImage(
@@ -503,37 +375,31 @@ ApiResponse EpgCacheController::getMetadataImage(
     {
         return jsonError(400, "unsupported epg scraper metadata image kind");
     }
+    if (artworkRepository_ == nullptr)
+    {
+        return jsonError(503, "epg scraper metadata cache unavailable");
+    }
 
     const std::string normalizedBackendId = normalizeBackendId(backendId);
-    IEpgScraperMetadataResolver* resolver =
-        scraperMetadataResolverRegistry_.findResolver(normalizedBackendId);
-    if (resolver == nullptr)
-    {
-        return jsonError(503, "epg scraper metadata backend unavailable");
-    }
-
-    const EpgScraperMetadataResolution resolution = resolver->resolve(
+    EpgArtworkReference cached = artworkRepository_->findMetadataImage(
         normalizedBackendId,
-        metadataEvent(channelId, eventId));
-    if (!resolution.attempted)
-    {
-        return jsonError(502, "epg scraper metadata lookup failed");
-    }
-    if (!resolution.found)
-    {
-        return jsonError(404, "epg scraper metadata not found");
-    }
-
-    const EpgScraperArtwork* artwork = selectedMetadataArtwork(
-        resolution.metadata,
+        channelId,
+        eventId,
         kind,
         index);
-    if (artwork == nullptr || !artwork->valid())
+    if (!cached.valid() && kind == "preferred" && index == 0)
+    {
+        cached = artworkRepository_->find(
+            normalizedBackendId,
+            channelId,
+            eventId);
+    }
+    if (!cached.valid())
     {
         return jsonError(404, "epg scraper metadata image not found");
     }
 
     return EpgArtworkController::serveValidatedPath(
-        artwork->path,
+        cached.path,
         scraperMetadataAllowedRoots_);
 }

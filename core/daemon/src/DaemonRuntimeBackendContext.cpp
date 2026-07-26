@@ -2,6 +2,7 @@
 
 #include "BasicHttpClient.h"
 #include "EpgEventRepository.h"
+#include "GenreBrowserApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
@@ -19,6 +20,16 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
 {
     VdrConfig backendConfig = backend.connection;
 
+    if (backendRegistryService_ &&
+        !GenreBrowserApiRuntime::instance().configured() &&
+        !GenreBrowserApiRuntime::instance().configure(
+            database_,
+            *backendRegistryService_))
+    {
+        std::cerr << "failed to initialize genre browser metadata runtime"
+                  << std::endl;
+    }
+
     auto context = std::make_unique<BackendRuntimeContext>();
 
     context->backendId = backend.backendId;
@@ -26,7 +37,10 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         backendConfig.host,
         backendConfig.port,
         &runtimeLogger_,
-        &runtimeDiagnosticsService_);
+        &runtimeDiagnosticsService_,
+        [this]() {
+            return shutdownRequested_.load();
+        });
     context->adapter = std::make_unique<RestfulApiVdrAdapter>(
         backendConfig,
         *context->httpClient);
@@ -163,9 +177,17 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             context->epgArtworkResolver =
                 std::make_unique<SuiteBridgeEpgArtworkResolver>(
                     *context->suiteBridgeTransport);
-            context->epgScraperMetadataResolver =
+            context->epgScraperMetadataDelegate =
                 std::make_unique<SuiteBridgeEpgMetadataResolver>(
                     *context->suiteBridgeTransport);
+            context->epgScraperMetadataResolver =
+                std::make_unique<PersistentEpgScraperMetadataResolver>(
+                    *context->epgScraperMetadataDelegate,
+                    *epgArtworkRepository_);
+            GenreBrowserApiRuntime::instance()
+                .registerEpgScraperMetadataResolver(
+                    context->backendId,
+                    *context->epgScraperMetadataResolver);
             context->epgArtworkEnrichmentService =
                 std::make_unique<EpgArtworkEnrichmentService>(
                     *epgArtworkRepository_,

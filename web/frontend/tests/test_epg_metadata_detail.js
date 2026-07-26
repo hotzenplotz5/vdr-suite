@@ -124,6 +124,8 @@ const document = {
 };
 
 let metadataRequest = null;
+let metadataRequestCount = 0;
+const scheduledTimeouts = [];
 let recordingSearch = null;
 const metadata = {
   available: true,
@@ -183,6 +185,10 @@ const metadata = {
 };
 
 const window = {
+  setTimeout(callback) {
+    scheduledTimeouts.push(callback);
+    return scheduledTimeouts.length;
+  },
   VdrSuitePlatform: {
     getSelectedBackendId() {
       return 'default';
@@ -191,7 +197,10 @@ const window = {
   VdrSuiteClientApi: {
     requestJson(pathName, options) {
       metadataRequest = {pathName, options};
-      return Promise.resolve(metadata);
+      metadataRequestCount += 1;
+      return Promise.resolve(metadataRequestCount < 3
+        ? {available: false, status: 'pending'}
+        : metadata);
     },
     fetchClientRecordingPersons(options) {
       recordingSearch = options;
@@ -257,10 +266,18 @@ async function run() {
     {id: 'C-61441-10014-10355'}
   );
 
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let attempt = 0;
+       attempt < 20 && detail.dataset.epgMetadataAvailable !== 'true';
+       attempt += 1) {
+    while (scheduledTimeouts.length) {
+      scheduledTimeouts.shift()();
+    }
+    await Promise.resolve();
+    await Promise.resolve();
+  }
 
   assert.ok(metadataRequest);
+  assert.strictEqual(metadataRequestCount, 3);
   assert.strictEqual(metadataRequest.pathName, '/api/epg/cache/metadata');
   assert.strictEqual(metadataRequest.options.query.backend, 'default');
   assert.strictEqual(metadataRequest.options.query.eventId, '18829');

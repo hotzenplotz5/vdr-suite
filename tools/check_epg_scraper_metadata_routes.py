@@ -6,9 +6,10 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 ROUTER = ROOT / "api/rest/src/ApiRouter.cpp"
 CONTROLLER = ROOT / "api/rest/include/EpgCacheController.h"
+CONTROLLER_SOURCE = ROOT / "api/rest/src/EpgCacheController.cpp"
 
 errors = []
-for path in (ROUTER, CONTROLLER):
+for path in (ROUTER, CONTROLLER, CONTROLLER_SOURCE):
     if not path.is_file():
         errors.append(f"missing file: {path.relative_to(ROOT)}")
 
@@ -19,6 +20,7 @@ if errors:
 
 router = ROUTER.read_text(encoding="utf-8")
 controller = CONTROLLER.read_text(encoding="utf-8")
+controller_source = CONTROLLER_SOURCE.read_text(encoding="utf-8")
 
 required_router = (
     'path == "/api/epg/cache/metadata"',
@@ -51,20 +53,31 @@ required_controller = (
     "virtual ApiResponse getMetadata(",
     "virtual ApiResponse getMetadataImage(",
     "void registerScraperMetadataResolver(",
-    "EpgScraperMetadataResolverRegistry scraperMetadataResolverRegistry_;",
-    "EpgScraperMetadataPublicJsonSerializer scraperMetadataJsonSerializer_;",
+    "EpgArtworkRepository* artworkRepository_;",
 )
 
 for fragment in required_controller:
     if fragment not in controller:
         errors.append(f"missing controller contract: {fragment}")
 
+required_source = (
+    "findMetadataJson(",
+    "findMetadataImage(",
+    r'\"available\":false,\"status\":\"pending\"',
+)
+for fragment in required_source:
+    if fragment not in controller_source:
+        errors.append(f"missing SQLite metadata read contract: {fragment}")
+
 for forbidden in (
+    "EpgScraperMetadataResolverRegistry scraperMetadataResolverRegistry_;",
+    "EpgScraperMetadataPublicJsonSerializer scraperMetadataJsonSerializer_;",
+    "resolver->resolve(",
     "tvscraper.db",
     "sqlite3_open",
     "GetScraperVideo",
 ):
-    if forbidden in router or forbidden in controller:
+    if forbidden in router or forbidden in controller or forbidden in controller_source:
         errors.append(f"forbidden public route coupling: {forbidden}")
 
 if errors:

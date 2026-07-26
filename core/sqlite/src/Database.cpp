@@ -13,6 +13,33 @@ Database::~Database()
     close();
 }
 
+Database::Database(Database&& other) noexcept
+    : db_(nullptr)
+{
+    std::lock_guard<std::recursive_mutex> lock(other.transactionMutex_);
+    db_ = other.db_;
+    other.db_ = nullptr;
+}
+
+Database& Database::operator=(Database&& other) noexcept
+{
+    if (this == &other)
+    {
+        return *this;
+    }
+
+    std::scoped_lock lock(transactionMutex_, other.transactionMutex_);
+
+    if (db_)
+    {
+        sqlite3_close(db_);
+    }
+
+    db_ = other.db_;
+    other.db_ = nullptr;
+    return *this;
+}
+
 bool Database::open(const std::string& filename)
 {
     if (db_) {
@@ -108,6 +135,11 @@ bool Database::tableExists(const std::string& tableName)
     }
 
     return found;
+}
+
+Database::TransactionLease Database::acquireTransactionLease()
+{
+    return TransactionLease(transactionMutex_);
 }
 
 sqlite3* Database::handle() const

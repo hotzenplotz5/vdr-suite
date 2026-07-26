@@ -105,6 +105,7 @@ test-vdr-recording-folder-controller: CXXFLAGS += \
 	core/vdr/src/VdrRecordingMetadataCacheCodec.cpp \
 	core/vdr/src/VdrRecordingArtworkIdentity.cpp \
 	core/vdr/src/VdrRecordingNativeMetadataPublicJsonSerializer.cpp \
+	core/vdr/src/EpgArtworkPathPolicy.cpp \
 	core/vdr/src/EpgArtworkRepository.cpp \
 	api/rest/src/EpgArtworkController.cpp
 
@@ -115,4 +116,5 @@ test-vdr-recording-query-controller \
 # Keep the metadata contract in the focused Recording path and the established
 # fast regression graph without creating a second central test-list owner.
 test-restful-api-recording-mapper: test-recording-metadata-foundation
+
 test-fast: test-recording-metadata-foundation

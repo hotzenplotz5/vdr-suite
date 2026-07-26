@@ -128,6 +128,4 @@ test-live-remote-frontend:
 	node --check web/frontend/modules/remote.js
 	node web/frontend/tests/test_remote_runtime.js
 
-# Keep the new contract in the established aggregate validation paths.
-test-ci-fast test-vdr test-all: test-live-remote
 test-frontend-contracts: test-live-remote-frontend

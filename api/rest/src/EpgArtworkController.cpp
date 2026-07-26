@@ -1,5 +1,6 @@
 #include "EpgArtworkController.h"
 
+#include "EpgArtworkPathPolicy.h"
 #include "EpgArtworkReference.h"
 #include "EpgArtworkRepository.h"
 
@@ -49,57 +50,6 @@ std::string contentTypeForPath(const std::filesystem::path& path)
     return "";
 }
 
-bool isPathWithinRoot(
-    const std::filesystem::path& path,
-    const std::filesystem::path& root)
-{
-    auto pathIterator = path.begin();
-    auto rootIterator = root.begin();
-
-    for (; rootIterator != root.end(); ++rootIterator, ++pathIterator)
-    {
-        if (pathIterator == path.end() || *pathIterator != *rootIterator)
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool resolveAllowedPath(
-    const std::string& candidate,
-    const std::vector<std::string>& allowedRoots,
-    std::filesystem::path& resolvedPath)
-{
-    std::error_code error;
-    const std::filesystem::path canonicalCandidate =
-        std::filesystem::weakly_canonical(candidate, error);
-
-    if (error || canonicalCandidate.empty() || !canonicalCandidate.is_absolute())
-    {
-        return false;
-    }
-
-    for (const std::string& configuredRoot : allowedRoots)
-    {
-        error.clear();
-        const std::filesystem::path canonicalRoot =
-            std::filesystem::weakly_canonical(configuredRoot, error);
-
-        if (!error &&
-            !canonicalRoot.empty() &&
-            canonicalRoot.is_absolute() &&
-            isPathWithinRoot(canonicalCandidate, canonicalRoot))
-        {
-            resolvedPath = canonicalCandidate;
-            return true;
-        }
-    }
-
-    return false;
-}
-
 ApiResponse jsonError(int statusCode, const std::string& message)
 {
     ApiResponse response;
@@ -112,10 +62,7 @@ ApiResponse jsonError(int statusCode, const std::string& message)
 
 std::vector<std::string> EpgArtworkController::defaultAllowedRoots()
 {
-    return {
-        "/var/cache/vdr/plugins/tvscraper",
-        "/var/cache/vdr-suite/epg-artwork"
-    };
+    return EpgArtworkPathPolicy::defaultAllowedRoots();
 }
 
 EpgArtworkController::EpgArtworkController(EpgArtworkRepository& repository)
@@ -135,12 +82,16 @@ ApiResponse EpgArtworkController::serveValidatedPath(
     const std::string& candidate,
     const std::vector<std::string>& allowedRoots)
 {
-    std::filesystem::path resolvedPath;
-    if (!resolveAllowedPath(candidate, allowedRoots, resolvedPath))
+    std::string canonicalPath;
+    if (!EpgArtworkPathPolicy::resolveAllowedPath(
+            candidate,
+            allowedRoots,
+            canonicalPath))
     {
         return jsonError(403, "epg artwork path is not allowed");
     }
 
+    const std::filesystem::path resolvedPath(canonicalPath);
     const std::string contentType = contentTypeForPath(resolvedPath);
     if (contentType.empty())
     {

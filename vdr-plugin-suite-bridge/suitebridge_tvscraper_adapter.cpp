@@ -258,8 +258,18 @@ SuiteBridgeTvScraperAdapter::ResolveMetadata(
 
   cScraperVideo &video = *request.m_scraperVideo;
   SuiteBridgeEpgMetadata metadata;
-  metadata.found = true;
   metadata.mediaType = ToMediaType(video.getVideoType());
+  if (!SuiteBridgeEpgMediaTypeIsResolved(metadata.mediaType)) {
+    isyslog(
+        "suitebridge: tvscraper metadata result=no-resolved-video event=%u type=%s provider_id=%d title=%s",
+        event.EventID(),
+        SuiteBridgeEpgMediaTypeName(metadata.mediaType),
+        video.getDbId(),
+        event.Title() ? event.Title() : "");
+    return {};
+  }
+
+  metadata.found = true;
   metadata.providerId = video.getDbId();
   metadata.seasonNumber = video.getSeasonNumber();
   metadata.episodeNumber = video.getEpisodeNumber();

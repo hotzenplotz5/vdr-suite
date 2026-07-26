@@ -2,8 +2,6 @@
 
 #include "DashboardController.h"
 #include "EpgArtworkController.h"
-#include "EpgScraperMetadataPublicJsonSerializer.h"
-#include "EpgScraperMetadataResolverRegistry.h"
 #include "VdrEventQuery.h"
 
 #include <string>
@@ -13,6 +11,7 @@ class EpgArtworkPublicJsonSerializer;
 class EpgArtworkRepository;
 class EpgCacheService;
 class EpgCacheServiceRegistry;
+class IEpgScraperMetadataResolver;
 
 class IEpgCacheController
 {
@@ -92,9 +91,14 @@ public:
         EpgArtworkRepository& artworkRepository,
         EpgArtworkPublicJsonSerializer& artworkJsonSerializer);
 
+    // Compatibility boundary for existing runtime wiring. Metadata GETs do
+    // not retain or call this resolver; provider resolution remains owned by
+    // the asynchronous backend materializer.
     void registerScraperMetadataResolver(
-        const std::string& backendId,
-        IEpgScraperMetadataResolver& resolver);
+        const std::string&,
+        IEpgScraperMetadataResolver&)
+    {
+    }
 
     void setScraperMetadataAllowedRoots(
         std::vector<std::string> allowedRoots);
@@ -156,8 +160,6 @@ private:
     EpgCacheServiceRegistry* registry_;
     EpgArtworkRepository* artworkRepository_;
     EpgArtworkPublicJsonSerializer* artworkJsonSerializer_;
-    EpgScraperMetadataResolverRegistry scraperMetadataResolverRegistry_;
-    EpgScraperMetadataPublicJsonSerializer scraperMetadataJsonSerializer_;
     std::vector<std::string> scraperMetadataAllowedRoots_;
 
     EpgCacheService* findService(

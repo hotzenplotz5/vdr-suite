@@ -6,6 +6,7 @@
 - [Documentation Index](index.md)
 - [Current State](CURRENT.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
+- [Metadata-Backed Genre Browser](architecture/metadata-genre-browser.md)
 - [Domain Dependency Map](planning/domain-dependency-map.md)
 - [Implementation Dependency Map](planning/implementation-dependency-map.md)
 - [Strict Roadmap](planning/roadmap.md)
@@ -36,15 +37,16 @@ Read these files in this order:
 3. [Implementation Dependency Map](planning/implementation-dependency-map.md)
 4. [Phase Map](planning/phase-map.md)
 5. [Target Platform Architecture](architecture/target-platform-architecture.md)
-6. [Domain Dependency Map](planning/domain-dependency-map.md)
-7. [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
-8. [Completed Architecture Source Audit](development/architecture-source-audit-2026-07-15.md)
-9. [Current Project Status](development/current-status.md)
-10. [ADR Index](adr/index.md)
-11. [Current Architecture State](development/current-architecture-state.md)
-12. [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
-13. [Completed Phases](development/completed-phases.md) when historical detail is required
-14. [GitHub Actions Status Handoff](development/github-actions-status-handoff.md) when CI state matters
+6. [Metadata-Backed Genre Browser](architecture/metadata-genre-browser.md)
+7. [Domain Dependency Map](planning/domain-dependency-map.md)
+8. [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+9. [Completed Architecture Source Audit](development/architecture-source-audit-2026-07-15.md)
+10. [Current Project Status](development/current-status.md)
+11. [ADR Index](adr/index.md)
+12. [Current Architecture State](development/current-architecture-state.md)
+13. [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+14. [Completed Phases](development/completed-phases.md) when historical detail is required
+15. [GitHub Actions Status Handoff](development/github-actions-status-handoff.md) when CI state matters
 
 ---
 
@@ -74,6 +76,14 @@ Latest completed implementation slice:
 Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
+Current feature-branch implementation slice:
+
+```text
+Phase 61 - persistent normalized Genre index and metadata-backed Genre browser
+Branch: feature/phase61-metadata-genre-browser
+Status: implementation under review; repository-local build and real-system acceptance pending
+```
+
 Completed architecture prerequisite:
 
 ```text
@@ -83,13 +93,34 @@ Domain Dependency Map
 Implementation Dependency Map
 ```
 
-Next runtime implementation phase:
+Current runtime implementation phase:
 
 ```text
 Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
 The Phase 58 umbrella label is historical. Future execution follows the strict numbered sequence from Phase 61 onward.
+
+---
+
+## Phase 61 Genre Slice Truth
+
+The feature branch currently implements:
+
+- backend-scoped persistent Genre target bindings and assignments;
+- canonical aliases, stable unknown identities and explicit unclassified state;
+- multiple Genres per Recording or EPG event;
+- active, missing, unknown, stale and derived conflict states;
+- SQL distinct counts and limit/offset result pages;
+- asynchronous bounded EPG provider enrichment through the existing EPG worker;
+- Recording Genre materialization through the existing Recording cache worker;
+- provider-neutral Suite REST and DOM-free Client API routes;
+- a `genres` frontend module;
+- reuse of the existing Recordings 2 card/detail owner;
+- reuse of the existing EPG detail card;
+- unchanged EPG timeline and preserved PR #99 LiveRemote routing precedence.
+
+Do not describe this slice as completed history until focused tests, daemon build and real-system browser acceptance have passed.
 
 ---
 
@@ -179,7 +210,9 @@ Do not describe these areas as wholly missing:
 - Web Client API wrapper;
 - frontend module ownership and registry;
 - server-enforced read-only backend access mode;
-- Suite Bridge SB.1 through SB.7 read-only/lifecycle foundations.
+- Suite Bridge SB.1 through SB.7 read-only/lifecycle foundations;
+- Phase 61 metadata identity/schema foundation;
+- feature-branch persistent Genre read-model runtime.
 
 ---
 
@@ -189,7 +222,7 @@ The detailed list remains in the [Architecture Audit Gap Matrix](planning/archit
 
 Major runtime gaps include:
 
-- Suite-owned metadata entities, assignments, artwork and provenance;
+- broader MetadataEntity resolution, provider evidence operations and artwork asset lifecycle beyond the Genre slice;
 - real user, service and Agent identity with scoped RBAC;
 - append-only accountability persistence and outbox;
 - Backend Agent enrollment and secure remote transport;
@@ -208,79 +241,22 @@ Accepted ADRs and target diagrams do not close these gaps.
 
 ## Immediate Repository Work
 
-Start Phase 60.15 with an evidence-first audit of:
+Validate the Phase 61 Genre vertical slice on `/home/yavdr/vdr-suite`:
 
 ```text
-Recording domain objects
-Recording serializers and REST representations
-Web Client API Recording contracts
-lazy Recording loading and cache ownership
-current poster and artwork placeholders
-metadata/provider coupling risks
+focused metadata, controller, architecture and frontend tests
+full fast regression and daemon build
+service restart and SQLite restart persistence
+Recording and EPG Genre API counts
+large desktop/mobile Genre cards
+Recordings 2 and EPG detail return navigation
+read-only backend isolation
+unchanged EPG timeline and PR #99 live remote/overlay behavior
 ```
 
-The first slice must define technical, normalized and provider-derived field ownership before adding provider integration.
+Do not merge until the real-system verification is explicitly approved.
 
-Preserve:
-
-- Recording browsing without providers;
-- lazy folder loading;
-- backend scope;
-- frontend module ownership;
-- provider-neutral architecture;
-- existing Recording regression tests.
-
-Do not begin Phase 60.15 by wiring the frontend directly to TVScraper, scraper2vdr or another provider database.
-
----
-
-## Strict Future Sequence
-
-```text
-1. Phase 60.15 - Recording Metadata Preparation
-2. Phase 61 - Suite Metadata Platform
-3. Phase 62 - Identity, RBAC and Audit
-4. Phase 63 - Backend Agent and Multi-Site Runtime
-5. Phase 64 - Timer Intent and Orchestration
-6. Phase 65 - Streaming Gateway
-7. Phase 66 - Legacy OSD Bridge
-8. Phase 67 - Public API and Client Hardening
-9. Phase 68 - Recommendation and Knowledge Graph
-```
-
-Do not begin a later phase merely because it can be developed independently. The dependency order is authoritative.
-
----
-
-## Project Workflow Rules
-
-- Architecture and cause analysis come before code changes.
-- Inspect current repository state instead of relying on old chat summaries.
-- Use the next free canonical ADR number only for a genuinely new long-term decision.
-- Do not create duplicate or lowercase ADR sequences.
-- Keep RESTfulAPI and all plugins behind adapter boundaries.
-- Keep frontend modules free of direct backend/provider fetch ownership.
-- Preserve backend identity in all multi-backend reads and actions.
-- Enforce read-only and RBAC decisions in backend services, not only in the UI.
-- Recording and Timer writes remain guarded and explicit.
-- Real destructive probes remain closed by default.
-- Update Completed Phases only for finished runtime implementation.
-- Update the Gap Matrix only when repository implementation evidence changes.
-- Target architecture is not current runtime truth.
-
----
-
-## Documentation Verification
-
-For broad architecture and planning documentation changes, run at least:
-
-```bash
-make test-docs
-make test-phase-map-coverage
-make test-phase
-```
-
-Also run the full fast regression, daemon build and packaging staging before merge.
+After acceptance, continue the remaining Phase 61 provider, artwork, migration, backup and operational-hardening slices.
 
 ---
 
@@ -289,3 +265,25 @@ Also run the full fast regression, daemon build and packaging staging before mer
 - [Back to README](../README.md)
 - [Back to Documentation Index](index.md)
 - [Back to Current State](CURRENT.md)
+
+## Phase 61 EPG Identity Diagnosis and Fix
+
+Real-system evidence from 2026-07-24 confirmed stale backend-native EPG IDs in
+`epg_events` after RESTfulAPI had already published replacement IDs. Examples
+included `38843 -> 39566`, `38844 -> 39567` and `38845 -> 39568` on the default
+backend. The implementation direction is authoritative window reconciliation,
+not title/time deduplication.
+
+The current patch:
+
+- uses an explicit epoch-based warmup window;
+- reconciles only channels proven complete below the per-channel cap;
+- removes stale cache rows and dependent scraper/artwork rows atomically;
+- retires old Genre bindings without copying identity-bound public JSON;
+- rejects metadata materialization for IDs no longer present in `epg_events`;
+- retries frontend `pending` responses without permanently caching them;
+- serializes explicit EPG and recording-cache transactions on the shared
+  SQLite connection.
+
+Do not restore the former +/-5-second title matcher or copy metadata JSON from
+an old native event ID to a new one.

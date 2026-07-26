@@ -214,11 +214,92 @@ static void test_only_count_refresh_is_rejected()
     assert(!EpgCacheService::isBoundedRefreshQuery(query));
 }
 
+
+static void test_authoritative_refresh_reconciles_replaced_native_ids()
+{
+    std::remove("/tmp/vdr-suite-epg-cache-service-authoritative-test.db");
+
+    Database database;
+    assert(database.open(
+        "/tmp/vdr-suite-epg-cache-service-authoritative-test.db"));
+
+    EpgEventRepository repository(database);
+    assert(repository.ensureSchema());
+    assert(repository.upsertEventsForBackend(
+        "default",
+        {make_event("old-id", "channel-1", "Old", "1000", "2000")}));
+
+    VdrEvent current = make_event(
+        "current-id", "channel-1", "Current", "1000", "2000");
+    MockEventAdapter adapter;
+    adapter.events = {current};
+    VdrService vdrService(adapter);
+    EpgCacheService service(repository, vdrService);
+
+    VdrEventQuery query;
+    query.from = 900;
+    query.timespan = 1200;
+    query.channelEventLimit = 10;
+
+    const EpgCacheRefreshResult result =
+        service.refreshBackendWindow("default", query);
+
+    assert(result.accepted);
+    assert(result.authoritative);
+    assert(result.stored);
+    assert(result.removedEventCount == 1);
+    assert(!service.containsEventForBackend(
+        "default", "channel-1", "old-id"));
+    assert(service.containsEventForBackend(
+        "default", "channel-1", "current-id"));
+}
+
+static void test_truncated_channel_is_not_reconciled()
+{
+    std::remove("/tmp/vdr-suite-epg-cache-service-truncated-test.db");
+
+    Database database;
+    assert(database.open(
+        "/tmp/vdr-suite-epg-cache-service-truncated-test.db"));
+
+    EpgEventRepository repository(database);
+    assert(repository.ensureSchema());
+    assert(repository.upsertEventsForBackend(
+        "default",
+        {make_event("old-id", "channel-1", "Old", "1000", "2000")}));
+
+    VdrEvent current = make_event(
+        "current-id", "channel-1", "Current", "1000", "2000");
+    MockEventAdapter adapter;
+    adapter.events = {current};
+    VdrService vdrService(adapter);
+    EpgCacheService service(repository, vdrService);
+
+    VdrEventQuery query;
+    query.from = 900;
+    query.timespan = 1200;
+    query.channelEventLimit = 1;
+
+    const EpgCacheRefreshResult result =
+        service.refreshBackendWindow("default", query);
+
+    assert(result.accepted);
+    assert(result.authoritative);
+    assert(result.stored);
+    assert(result.removedEventCount == 0);
+    assert(service.containsEventForBackend(
+        "default", "channel-1", "old-id"));
+    assert(service.containsEventForBackend(
+        "default", "channel-1", "current-id"));
+}
+
 int main()
 {
     test_unbounded_refresh_is_rejected_without_fetching_events();
     test_bounded_refresh_fetches_and_stores_backend_scoped_events();
     test_cache_reads_do_not_fetch_adapter_events();
+    test_authoritative_refresh_reconciles_replaced_native_ids();
+    test_truncated_channel_is_not_reconciled();
     test_only_count_refresh_is_rejected();
 
     return 0;

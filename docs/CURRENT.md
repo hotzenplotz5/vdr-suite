@@ -6,6 +6,7 @@
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
+- [Metadata-Backed Genre Browser](architecture/metadata-genre-browser.md)
 - [Domain Dependency Map](planning/domain-dependency-map.md)
 - [Implementation Dependency Map](planning/implementation-dependency-map.md)
 - [Strict Roadmap](planning/roadmap.md)
@@ -45,6 +46,14 @@ Latest completed implementation slice:
 Phase 60.15 - Recording Metadata and Poster Preparation
 ```
 
+Current feature-branch implementation slice:
+
+```text
+Phase 61 - persistent normalized Genre index and metadata-backed Genre browser
+Branch: feature/phase61-metadata-genre-browser
+Status: implementation under review; repository-local build and real-system acceptance pending
+```
+
 Completed architecture contract package:
 
 ```text
@@ -54,13 +63,45 @@ Domain Dependency Map
 Implementation Dependency Map
 ```
 
-Next runtime implementation phase:
+Current runtime implementation phase:
 
 ```text
 Phase 61 - Suite Metadata Database and External Provider Integration
 ```
 
 The Phase 58 umbrella label remains product-history grouping. It does not control the strict future sequence.
+
+---
+
+## Phase 61 Genre Vertical Slice
+
+The feature branch now contains the first complete metadata runtime/read-model path for Genre browsing:
+
+```text
+persistent Recording and EPG sources
+  -> canonical backend-scoped Genre assignments
+  -> indexed SQL counts and pagination
+  -> provider-neutral Suite REST
+  -> DOM-free Client API
+  -> genres frontend module
+  -> existing Recordings 2 and EPG detail owners
+```
+
+Implemented contracts include:
+
+- canonical aliases plus stable `unknown-*` and `unclassified` identities;
+- multiple Genres per Recording or EPG event;
+- explicit `active`, `missing`, `unknown`, `stale` and derived `conflict` states;
+- restart-persistent backend-scoped target bindings and assignments;
+- bounded asynchronous EPG provider enrichment owned by the existing cache worker;
+- no provider lookup from Genre HTTP GET or frontend rendering;
+- distinct SQL counts, limit/offset result pages and a 48-hour EPG browser window;
+- read-only remote-backend browsing without weakening mutation policy;
+- PR #99 LiveRemote routing precedence preserved;
+- reuse of the existing Recordings 2 card/detail owner and existing EPG detail card;
+- unchanged EPG timeline ownership.
+
+This slice is not accepted as completed history until the branch is built and verified on the real VDR-Suite checkout. See [Metadata-Backed Genre Browser](architecture/metadata-genre-browser.md).
 
 ---
 
@@ -128,31 +169,41 @@ The accepted contracts do not mark the following as implemented:
 - production worker claims, retries and sagas;
 - actor identity, RBAC and append-only accountability persistence;
 - Backend Agent enrollment, transport, generation, lease and reconnect runtime;
-- canonical ProgramEvent and metadata persistence;
+- complete canonical ProgramEvent/entity resolution beyond the Genre read-model slice;
+- complete metadata artwork storage, derivative, backup and recovery runtime;
 - TimerIntent persistence, scheduler, reconciler and failover;
 - Streaming Gateway, media routes and access grants;
 - Legacy OSD capture, sequencing, viewer fan-out or remote control;
 - `/api/v1` route migration, ETags, common errors or cursor collections;
 - Agent evidence buffering, audit outbox, retention, protected queries or exports.
 
-Current native Timer actions, SearchTimer proposals, `VdrEvent` read models, warm EPG cache, historical Stream Provider direction, existing OSD/remote adapter references, unversioned `ApiRouter`, DOM-free Web Client API, runtime logs and diagnostics remain strong foundations rather than the completed future platform.
+Current native Timer actions, SearchTimer proposals, `VdrEvent` read models, warm EPG cache, persistent Genre read model, historical Stream Provider direction, existing OSD/remote adapter references, unversioned `ApiRouter`, DOM-free Web Client API, runtime logs and diagnostics remain strong foundations rather than the completed future platform.
 
 ---
 
 ## Immediate Repository Work
 
-Begin Phase 61 with an evidence-first design of:
+Validate the Phase 61 Genre vertical slice on the real checkout:
 
 ```text
-MetadataEntity and MetadataAssignment identity
-provider, provenance, evidence and confidence contracts
-normalized metadata schema and migrations
-artwork asset storage and derivative policy
-backend-aware provider registry
-asynchronous refresh, invalidation and recovery
+repository-local focused and fast tests
+daemon build and restart
+SQLite persistence and restart behavior
+Recording and EPG Genre counts on the default backend
+read-only remote-backend isolation
+Recordings 2 and EPG detail return navigation
+unchanged EPG timeline and PR #99 live remote/overlay behavior
 ```
 
-Phase 60.15 is complete. Its provider-scoped source evidence remains internal, while clients consume Suite-owned metadata fields, opaque artwork identities and authenticated artwork URLs.
+After explicit live acceptance, continue Phase 61 with:
+
+```text
+broader MetadataEntity and MetadataAssignment resolution
+provider, provenance, evidence and confidence operations
+artwork asset storage and derivative policy
+backend-aware provider registry
+migration, backup, observability and recovery hardening
+```
 
 Phase 61 must preserve:
 
@@ -190,6 +241,7 @@ Before proposing frontend, Live-parity, RESTfulAPI, epgsearch, metadata, multi-s
 - `docs/planning/roadmap.md`
 - `docs/planning/phase-map.md`
 - `docs/architecture/target-platform-architecture.md`
+- `docs/architecture/metadata-genre-browser.md`
 - `docs/planning/domain-dependency-map.md`
 - `docs/planning/implementation-dependency-map.md`
 - `docs/planning/architecture-audit-gap-matrix.md`
@@ -206,6 +258,7 @@ Before proposing frontend, Live-parity, RESTfulAPI, epgsearch, metadata, multi-s
 ## Boundary Rules
 
 - Completed Phases records finished implementation only.
+- Feature-branch status is not completed history until repository-local and live acceptance gates pass.
 - The completed source audit records evidence and conclusions only.
 - The Architecture Audit Gap Matrix records open, partial and implemented gaps.
 - The target diagrams define accepted ownership, not current runtime completion.
@@ -220,3 +273,11 @@ Before proposing frontend, Live-parity, RESTfulAPI, epgsearch, metadata, multi-s
 
 - [Back to README](../README.md)
 - [Back to Documentation Index](index.md)
+
+## Phase 61 EPG Cache Consistency
+
+The real default-backend diagnosis on 2026-07-24 proved that backend-native EPG
+IDs can be replaced while previous warm-cache rows remain visible. Phase 61 now
+contains a bounded authoritative reconciliation path and a bounded frontend
+metadata retry path. Real-system build, restart and browser acceptance remain
+required before this slice is marked completed history.

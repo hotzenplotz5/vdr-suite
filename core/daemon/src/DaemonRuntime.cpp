@@ -1,5 +1,7 @@
 #include "DaemonRuntime.h"
 
+#include "DaemonSqliteShutdownCancellation.h"
+#include "GenreBrowserApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "SimpleHttpListener.h"
 
@@ -38,8 +40,14 @@ void DaemonRuntime::shutdown()
         return;
     }
 
-    stopRecordingCacheWarmupWorker();
-    stopEpgCacheWarmupWorker();
+    recordingCacheWarmupStopRequested_.store(true);
+    epgCacheWarmupStopRequested_.store(true);
+    {
+        DaemonSqliteShutdownCancellation sqliteCancellation(
+            database_.handle());
+        stopRecordingCacheWarmupWorker();
+        stopEpgCacheWarmupWorker();
+    }
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
         if (!backendRuntimeContext) {
@@ -58,6 +66,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    GenreBrowserApiRuntime::instance().reset();
     LiveRemoteApiRuntime::instance().reset();
 
     std::cout << "HTTP server runtime stopped" << std::endl;

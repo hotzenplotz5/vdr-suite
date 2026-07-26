@@ -3,6 +3,9 @@
 #include "EpgArtworkEnrichmentService.h"
 
 #include <chrono>
+#include <map>
+#include <set>
+#include <sstream>
 
 namespace
 {
@@ -18,6 +21,58 @@ long long elapsedMilliseconds(
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - startedAt).count();
 }
+
+std::vector<std::string> splitChannelIds(const std::string& value)
+{
+    std::vector<std::string> result;
+    std::istringstream input(value);
+    std::string channelId;
+    while (std::getline(input, channelId, ','))
+    {
+        if (!channelId.empty())
+        {
+            result.push_back(channelId);
+        }
+    }
+    return result;
+}
+
+std::vector<std::string> authoritativeChannelsFor(
+    const VdrEventQuery& query,
+    const std::vector<VdrEvent>& events)
+{
+    std::map<std::string, int> counts;
+    for (const VdrEvent& event : events)
+    {
+        if (!event.channelId.empty())
+        {
+            ++counts[event.channelId];
+        }
+    }
+
+    std::set<std::string> candidates;
+    for (const auto& entry : counts)
+    {
+        candidates.insert(entry.first);
+    }
+    for (const std::string& channelId : splitChannelIds(query.channelId))
+    {
+        candidates.insert(channelId);
+    }
+
+    std::vector<std::string> authoritative;
+    for (const std::string& channelId : candidates)
+    {
+        const int count = counts[channelId];
+        if (query.channelEventLimit <= 0 ||
+            count < query.channelEventLimit)
+        {
+            authoritative.push_back(channelId);
+        }
+    }
+    return authoritative;
+}
+
 }
 
 EpgCacheService::EpgCacheService(
@@ -59,9 +114,39 @@ EpgCacheRefreshResult EpgCacheService::refreshBackendWindow(
 
     result.fetched = true;
     result.eventCount = events.size();
-    result.stored = repository_.upsertEventsForBackend(
-        normalizedBackendId,
-        events);
+    result.authoritative = isAuthoritativeRefreshQuery(query);
+
+    if (result.authoritative)
+    {
+        const std::vector<std::string> authoritativeChannels =
+            authoritativeChannelsFor(query, events);
+        if (!authoritativeChannels.empty())
+        {
+            const long long from = query.from;
+            const long long until = from + query.timespan;
+            const EpgAuthoritativeWindowResult stored =
+                repository_.replaceAuthoritativeWindowForBackend(
+                    normalizedBackendId,
+                    std::to_string(from),
+                    std::to_string(until),
+                    authoritativeChannels,
+                    events);
+            result.stored = stored.stored;
+            result.removedEventCount = stored.removedEvents.size();
+        }
+        else
+        {
+            result.stored = repository_.upsertEventsForBackend(
+                normalizedBackendId,
+                events);
+        }
+    }
+    else
+    {
+        result.stored = repository_.upsertEventsForBackend(
+            normalizedBackendId,
+            events);
+    }
 
     if (result.stored && artworkEnrichmentService_ != nullptr)
     {
@@ -159,6 +244,28 @@ int EpgCacheService::countForBackend(
     const std::string& backendId) const
 {
     return repository_.countForBackend(backendId);
+}
+
+bool EpgCacheService::containsEventForBackend(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& eventId) const
+{
+    return repository_.containsEventForBackend(
+        backendId,
+        channelId,
+        eventId);
+}
+
+bool EpgCacheService::isAuthoritativeRefreshQuery(
+    const VdrEventQuery& query)
+{
+    return !query.onlyCount &&
+        query.eventId.empty() &&
+        query.from >= 0 &&
+        query.timespan > 0 &&
+        query.start < 0 &&
+        query.limit <= 0;
 }
 
 bool EpgCacheService::isBoundedRefreshQuery(

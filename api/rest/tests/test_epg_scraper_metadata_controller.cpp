@@ -1,6 +1,10 @@
+#include "Database.h"
+#include "EpgArtworkPublicJsonSerializer.h"
+#include "EpgArtworkRepository.h"
 #include "EpgCacheController.h"
 #include "EpgCacheServiceRegistry.h"
 #include "IEpgScraperMetadataResolver.h"
+#include "PersistentEpgScraperMetadataResolver.h"
 
 #include <cassert>
 #include <filesystem>
@@ -10,7 +14,6 @@
 
 namespace
 {
-
 bool contains(const std::string& text, const std::string& value)
 {
     return text.find(value) != std::string::npos;
@@ -102,6 +105,14 @@ void writeFile(const std::filesystem::path& path, const std::string& data)
     assert(file.good());
 }
 
+VdrEvent event(const std::string& eventId)
+{
+    VdrEvent value;
+    value.channelId = "channel-1";
+    value.id = eventId;
+    value.title = "Bares für Rares";
+    return value;
+}
 }
 
 int main()
@@ -114,139 +125,176 @@ int main()
     const std::filesystem::path preferred = root / "preferred.jpg";
     const std::filesystem::path person = root / "person.png";
     const std::filesystem::path gallery = root / "gallery.jpg";
+    const std::filesystem::path databasePath = root / "metadata.db";
     writeFile(preferred, "preferred-image");
     writeFile(person, "person-image");
     writeFile(gallery, "gallery-image");
 
+    Database database;
+    assert(database.open(databasePath.string()));
+    EpgArtworkRepository artworkRepository(database);
+    assert(artworkRepository.ensureSchema());
+    EpgArtworkPublicJsonSerializer artworkJsonSerializer;
     EpgCacheServiceRegistry cacheRegistry;
-    EpgCacheController controller(cacheRegistry);
-    controller.setScraperMetadataAllowedRoots({root.string()});
 
-    {
-        const ApiResponse response = controller.getMetadata(
-            "default",
-            "channel-1",
-            "event-1");
-        assert(response.statusCode == 503);
-        assert(contains(response.body, "backend unavailable"));
-    }
-
-    FakeResolver resolver;
-    resolver.resolution = readyResolution(
+    FakeResolver delegate;
+    delegate.resolution = readyResolution(
         preferred.string(),
         person.string(),
         gallery.string());
+    PersistentEpgScraperMetadataResolver resolver(
+        delegate,
+        artworkRepository,
+        {root.string()});
+
+    EpgCacheController controller(
+        cacheRegistry,
+        artworkRepository,
+        artworkJsonSerializer);
+    controller.setScraperMetadataAllowedRoots({root.string()});
     controller.registerScraperMetadataResolver("default", resolver);
 
-    {
-        const ApiResponse response = controller.getMetadata(
-            "",
-            "channel-1",
-            "event-1");
-        assert(response.statusCode == 200);
-        assert(response.contentType == "application/json");
-        assert(contains(response.body, "\"available\":true"));
-        assert(contains(response.body, "Bares für Rares"));
-        assert(contains(response.body, "Horst Lichter"));
-        assert(contains(response.body, "kind=person&index=0"));
-        assert(!contains(response.body, root.string()));
-        assert(!contains(response.body, "preferred.jpg"));
-        assert(resolver.lastBackendId == "default");
-        assert(resolver.lastChannelId == "channel-1");
-        assert(resolver.lastEventId == "event-1");
-    }
+    const ApiResponse pending = controller.getMetadata(
+        "default",
+        "channel-1",
+        "event-1");
+    assert(pending.statusCode == 200);
+    assert(contains(pending.body, "\"status\":\"pending\""));
+    assert(delegate.calls == 0);
 
-    {
-        const ApiResponse response = controller.getMetadataImage(
-            "default",
-            "channel-1",
-            "event-1",
-            "preferred",
-            0);
-        assert(response.statusCode == 200);
-        assert(response.contentType == "image/jpeg");
-        assert(response.body == "preferred-image");
-    }
+    const EpgScraperMetadataResolution materialized = resolver.resolve(
+        "default",
+        event("event-1"));
+    assert(materialized.attempted);
+    assert(materialized.found);
+    assert(delegate.calls == 1);
 
-    {
-        const ApiResponse response = controller.getMetadataImage(
-            "default",
-            "channel-1",
-            "event-1",
-            "person",
-            0);
-        assert(response.statusCode == 200);
-        assert(response.contentType == "image/png");
-        assert(response.body == "person-image");
-    }
+    const ApiResponse first = controller.getMetadata(
+        "",
+        "channel-1",
+        "event-1");
+    assert(first.statusCode == 200);
+    assert(first.contentType == "application/json");
+    assert(contains(first.body, "\"available\":true"));
+    assert(contains(first.body, "Bares für Rares"));
+    assert(contains(first.body, "Horst Lichter"));
+    assert(contains(first.body, "kind=person&index=0"));
+    assert(!contains(first.body, root.string()));
+    assert(delegate.calls == 1);
 
-    {
-        const ApiResponse response = controller.getMetadataImage(
-            "default",
-            "channel-1",
-            "event-1",
-            "gallery",
-            0);
-        assert(response.statusCode == 200);
-        assert(response.contentType == "image/jpeg");
-        assert(response.body == "gallery-image");
-    }
+    const EpgArtworkReference persisted = artworkRepository.find(
+        "default",
+        "channel-1",
+        "event-1");
+    assert(persisted.valid());
+    assert(persisted.path == preferred.string());
+    assert(!artworkRepository.findMetadataJson(
+        "default", "channel-1", "event-1").empty());
+    assert(artworkRepository.findMetadataImage(
+        "default", "channel-1", "event-1", "person", 0).valid());
+    assert(artworkRepository.findMetadataImage(
+        "default", "channel-1", "event-1", "gallery", 0).valid());
 
-    {
-        const ApiResponse response = controller.getMetadataImage(
-            "default",
-            "channel-1",
-            "event-1",
-            "unsupported",
-            0);
-        assert(response.statusCode == 400);
-    }
+    delegate.resolution = EpgScraperMetadataResolution{};
 
-    {
-        const ApiResponse response = controller.getMetadataImage(
-            "default",
-            "channel-1",
-            "event-1",
-            "gallery",
-            7);
-        assert(response.statusCode == 404);
-    }
+    const ApiResponse cachedMetadata = controller.getMetadata(
+        "default",
+        "channel-1",
+        "event-1");
+    assert(cachedMetadata.statusCode == 200);
+    assert(cachedMetadata.body == first.body);
+    assert(delegate.calls == 1);
 
-    {
-        resolver.resolution = readyResolution(
-            "/etc/passwd.jpg",
-            person.string(),
-            gallery.string());
-        const ApiResponse response = controller.getMetadataImage(
-            "default",
-            "channel-1",
-            "event-1",
-            "preferred",
-            0);
-        assert(response.statusCode == 403);
-    }
+    const ApiResponse preferredImage = controller.getMetadataImage(
+        "default", "channel-1", "event-1", "preferred", 0);
+    assert(preferredImage.statusCode == 200);
+    assert(preferredImage.contentType == "image/jpeg");
+    assert(preferredImage.body == "preferred-image");
+    assert(delegate.calls == 1);
 
-    {
-        resolver.resolution = EpgScraperMetadataResolution{};
-        const ApiResponse response = controller.getMetadata(
-            "default",
-            "channel-1",
-            "event-1");
-        assert(response.statusCode == 502);
-        assert(contains(response.body, "lookup failed"));
-    }
+    const ApiResponse personImage = controller.getMetadataImage(
+        "default", "channel-1", "event-1", "person", 0);
+    assert(personImage.statusCode == 200);
+    assert(personImage.contentType == "image/png");
+    assert(personImage.body == "person-image");
+    assert(delegate.calls == 1);
 
-    {
-        resolver.resolution.attempted = true;
-        resolver.resolution.found = false;
-        const ApiResponse response = controller.getMetadata(
-            "default",
-            "channel-1",
-            "event-1");
-        assert(response.statusCode == 200);
-        assert(contains(response.body, "\"status\":\"not-found\""));
-    }
+    const ApiResponse galleryImage = controller.getMetadataImage(
+        "default", "channel-1", "event-1", "gallery", 0);
+    assert(galleryImage.statusCode == 200);
+    assert(galleryImage.contentType == "image/jpeg");
+    assert(galleryImage.body == "gallery-image");
+    assert(delegate.calls == 1);
 
+    assert(controller.getMetadataImage(
+        "default", "channel-1", "event-1", "unsupported", 0).statusCode == 400);
+
+    EpgCacheController restartedController(
+        cacheRegistry,
+        artworkRepository,
+        artworkJsonSerializer);
+    restartedController.setScraperMetadataAllowedRoots({root.string()});
+
+    const ApiResponse afterRestart = restartedController.getMetadata(
+        "default", "channel-1", "event-1");
+    assert(afterRestart.statusCode == 200);
+    assert(afterRestart.body == first.body);
+    assert(delegate.calls == 1);
+
+    const ApiResponse imageAfterRestart = restartedController.getMetadataImage(
+        "default", "channel-1", "event-1", "preferred", 0);
+    assert(imageAfterRestart.statusCode == 200);
+    assert(imageAfterRestart.body == "preferred-image");
+    assert(delegate.calls == 1);
+
+    const ApiResponse unknownEvent = restartedController.getMetadata(
+        "default", "channel-1", "event-2");
+    assert(unknownEvent.statusCode == 200);
+    assert(contains(unknownEvent.body, "\"status\":\"pending\""));
+    assert(delegate.calls == 1);
+    assert(restartedController.getMetadataImage(
+        "default", "channel-1", "event-2", "preferred", 0).statusCode == 404);
+
+    delegate.resolution = readyResolution(
+        "/etc/passwd.jpg",
+        person.string(),
+        gallery.string());
+    const EpgScraperMetadataResolution rejectedReplacement = resolver.resolve(
+        "default",
+        event("event-1"));
+    assert(rejectedReplacement.found);
+    assert(rejectedReplacement.metadata.preferredArtwork.valid());
+    assert(rejectedReplacement.metadata.preferredArtwork.path == preferred.string());
+    assert(delegate.calls == 2);
+
+    const EpgArtworkReference retained = artworkRepository.find(
+        "default",
+        "channel-1",
+        "event-1");
+    assert(retained.valid());
+    assert(retained.path == preferred.string());
+
+    const ApiResponse retainedMetadata = restartedController.getMetadata(
+        "default", "channel-1", "event-1");
+    assert(retainedMetadata.statusCode == 200);
+    assert(contains(retainedMetadata.body, "\"preferredArtwork\":{\"available\":true"));
+    assert(delegate.calls == 2);
+
+    delegate.resolution = readyResolution(
+        "/etc/passwd.jpg",
+        "/etc/passwd.png",
+        "/etc/passwd.jpg");
+    const EpgScraperMetadataResolution unsafeOnly = resolver.resolve(
+        "default",
+        event("event-3"));
+    assert(unsafeOnly.found);
+    assert(!unsafeOnly.metadata.preferredArtwork.valid());
+    assert(!unsafeOnly.metadata.people.front().image.valid());
+    assert(!unsafeOnly.metadata.images.front().artwork.valid());
+    assert(restartedController.getMetadataImage(
+        "default", "channel-1", "event-3", "preferred", 0).statusCode == 404);
+
+    database.close();
     std::filesystem::remove_all(root);
     return 0;
 }

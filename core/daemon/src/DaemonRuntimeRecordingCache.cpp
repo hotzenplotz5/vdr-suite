@@ -1,5 +1,7 @@
 #include "DaemonRuntime.h"
 
+#include "DaemonCacheRefreshExecutionGate.h"
+#include "GenreBrowserApiRuntime.h"
 #include "VdrRecordingCacheRepository.h"
 
 #include <chrono>
@@ -162,6 +164,12 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
 
             if (secondsSinceMetadataRefresh >= metadataRefreshSeconds &&
                 vdrRecordingCacheRepository_) {
+                auto refreshLease =
+                    DaemonCacheRefreshExecutionGate::acquire();
+                if (recordingCacheWarmupStopRequested_.load()) {
+                    return;
+                }
+
                 for (const auto& backendRuntimeContext :
                      backendRuntimeContexts_) {
                     if (recordingCacheWarmupStopRequested_.load()) {
@@ -183,6 +191,10 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
                         recordings,
                         recordingCacheWarmupStopRequested_,
                         "periodic");
+
+                    GenreBrowserApiRuntime::instance()
+                        .refreshRecordingIndex(
+                            backendRuntimeContext->backendId);
                 }
 
                 lastMetadataRefresh = metadataNow;
@@ -241,6 +253,11 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
 void DaemonRuntime::refreshRecordingCacheForAllBackends(
     const std::string& reason)
 {
+    auto refreshLease = DaemonCacheRefreshExecutionGate::acquire();
+    if (recordingCacheWarmupStopRequested_.load()) {
+        return;
+    }
+
     if (!vdrRecordingCacheRepository_) {
         std::cout
             << "Recording cache warmup skipped: repository unavailable"
@@ -283,6 +300,7 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                     backendRuntimeContext->backendId,
                     recordings);
 
+            bool genreIndexed = false;
             if (stored) {
                 vdrRecordingCacheRepository_->markRefreshFinished(
                     backendRuntimeContext->backendId,
@@ -293,6 +311,10 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                     recordings,
                     recordingCacheWarmupStopRequested_,
                     reason);
+
+                genreIndexed = GenreBrowserApiRuntime::instance()
+                    .refreshRecordingIndex(
+                        backendRuntimeContext->backendId);
             }
             else {
                 vdrRecordingCacheRepository_->markRefreshFailed(
@@ -307,6 +329,8 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                 << (stored ? "true" : "false")
                 << ", recordings="
                 << recordings.size()
+                << ", genreIndexed="
+                << (genreIndexed ? "true" : "false")
                 << std::endl;
         }
         catch (const std::exception& error) {

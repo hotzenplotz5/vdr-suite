@@ -1,6 +1,8 @@
 #include "Database.h"
 #include "EpgEventRepository.h"
 
+#include <sqlite3.h>
+
 #include <cassert>
 #include <cstdio>
 #include <string>
@@ -121,6 +123,120 @@ static void test_upsert_updates_only_matching_backend()
     assert(remoteEvents.at(0).title == "Remote Original");
 }
 
+
+static int scalar_int(Database& database, const std::string& sql)
+{
+    sqlite3_stmt* statement = nullptr;
+    assert(sqlite3_prepare_v2(
+        database.handle(),
+        sql.c_str(),
+        -1,
+        &statement,
+        nullptr) == SQLITE_OK);
+    assert(sqlite3_step(statement) == SQLITE_ROW);
+    const int value = sqlite3_column_int(statement, 0);
+    sqlite3_finalize(statement);
+    return value;
+}
+
+static void test_authoritative_window_removes_only_missing_native_ids()
+{
+    std::remove("/tmp/vdr-suite-epg-authoritative-window-test.db");
+
+    Database database;
+    assert(database.open(
+        "/tmp/vdr-suite-epg-authoritative-window-test.db"));
+
+    EpgEventRepository repository(database);
+    assert(repository.ensureSchema());
+    assert(database.execute(
+        "CREATE TABLE epg_event_artwork("
+        "backend_id TEXT,channel_id TEXT,event_id TEXT,provider TEXT,path TEXT,"
+        "width INTEGER,height INTEGER,resolved_at INTEGER,updated_at TEXT,"
+        "PRIMARY KEY(backend_id,channel_id,event_id));"
+        "CREATE TABLE epg_scraper_metadata_cache("
+        "backend_id TEXT,channel_id TEXT,event_id TEXT,public_json TEXT,"
+        "resolved_at INTEGER,updated_at TEXT,"
+        "PRIMARY KEY(backend_id,channel_id,event_id));"
+        "CREATE TABLE epg_scraper_metadata_images("
+        "backend_id TEXT,channel_id TEXT,event_id TEXT,kind TEXT,image_index INTEGER,"
+        "provider TEXT,path TEXT,width INTEGER,height INTEGER,resolved_at INTEGER,"
+        "updated_at TEXT,"
+        "PRIMARY KEY(backend_id,channel_id,event_id,kind,image_index));"
+        "CREATE TABLE suite_metadata_targets("
+        "metadata_target_id TEXT PRIMARY KEY,lifecycle_state TEXT,updated_at TEXT);"
+        "CREATE TABLE suite_metadata_target_bindings("
+        "metadata_target_id TEXT PRIMARY KEY,target_type TEXT,backend_id TEXT,"
+        "resource_key TEXT,native_id TEXT,channel_id TEXT,start_time INTEGER,"
+        "end_time INTEGER,lifecycle_state TEXT,updated_at TEXT);"
+        "CREATE TABLE suite_metadata_genre_assignments("
+        "metadata_target_id TEXT,assignment_state TEXT,updated_at TEXT);"));
+
+    const VdrEvent oldEvent = make_event(
+        "38845", "channel-1", "The Great Wall", "1000", "2000");
+    const VdrEvent currentEvent = make_event(
+        "39568", "channel-1", "The Great Wall", "1000", "2000");
+    const VdrEvent outsideWindow = make_event(
+        "outside", "channel-1", "Later", "3000", "4000");
+    const VdrEvent otherChannel = make_event(
+        "other", "channel-2", "Other", "1000", "2000");
+
+    assert(repository.upsertEventsForBackend(
+        "default",
+        {oldEvent, outsideWindow, otherChannel}));
+    assert(database.execute(
+        "INSERT INTO epg_event_artwork VALUES("
+        "'default','channel-1','38845','tvscraper','/tmp/old.jpg',1280,720,1,'old');"
+        "INSERT INTO epg_scraper_metadata_cache VALUES("
+        "'default','channel-1','38845','{}',1,'old');"
+        "INSERT INTO epg_scraper_metadata_images VALUES("
+        "'default','channel-1','38845','preferred',0,'tvscraper','/tmp/old.jpg',"
+        "1280,720,1,'old');"
+        "INSERT INTO suite_metadata_targets VALUES('target-old','active','old');"
+        "INSERT INTO suite_metadata_target_bindings VALUES("
+        "'target-old','program-event','default','channel-1\\n38845','38845',"
+        "'channel-1',1000,2000,'active','old');"
+        "INSERT INTO suite_metadata_genre_assignments VALUES("
+        "'target-old','missing','old');"));
+
+    const EpgAuthoritativeWindowResult result =
+        repository.replaceAuthoritativeWindowForBackend(
+            "default",
+            "900",
+            "2100",
+            {"channel-1"},
+            {currentEvent});
+
+    assert(result.stored);
+    assert(result.removedEvents.size() == 1);
+    assert(result.removedEvents.front().eventId == "38845");
+    assert(repository.containsEventForBackend(
+        "default", "channel-1", "39568"));
+    assert(!repository.containsEventForBackend(
+        "default", "channel-1", "38845"));
+    assert(repository.containsEventForBackend(
+        "default", "channel-1", "outside"));
+    assert(repository.containsEventForBackend(
+        "default", "channel-2", "other"));
+    assert(scalar_int(
+        database,
+        "SELECT COUNT(*) FROM epg_event_artwork WHERE event_id='38845';") == 0);
+    assert(scalar_int(
+        database,
+        "SELECT COUNT(*) FROM epg_scraper_metadata_cache WHERE event_id='38845';") == 0);
+    assert(scalar_int(
+        database,
+        "SELECT COUNT(*) FROM epg_scraper_metadata_images WHERE event_id='38845';") == 0);
+    assert(scalar_int(
+        database,
+        "SELECT COUNT(*) FROM suite_metadata_target_bindings "
+        "WHERE metadata_target_id='target-old' AND lifecycle_state='retired';") == 1);
+    assert(scalar_int(
+        database,
+        "SELECT COUNT(*) FROM suite_metadata_genre_assignments "
+        "WHERE metadata_target_id='target-old' AND assignment_state='stale';") == 1);
+}
+
 static void test_window_and_cleanup_are_backend_scoped()
 {
     std::remove("/tmp/vdr-suite-epg-event-repository-window-test.db");
@@ -173,6 +289,7 @@ int main()
 {
     test_repository_is_backend_scoped();
     test_upsert_updates_only_matching_backend();
+    test_authoritative_window_removes_only_missing_native_ids();
     test_window_and_cleanup_are_backend_scoped();
 
     return 0;

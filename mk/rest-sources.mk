@@ -35,6 +35,7 @@ REST_LIVE_REMOTE_SRC := \
         api/rest/src/LiveRemoteApiRuntime.cpp
 
 REST_ROUTER_SRC := \
+        $(GENRE_BROWSER_REST_SRC) \
         $(REST_LIVE_REMOTE_SRC) \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \

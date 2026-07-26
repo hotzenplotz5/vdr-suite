@@ -234,6 +234,23 @@ function loadVdrSuiteRecordings2Runtime() {
   ]).then(() => undefined);
 }
 
+function loadVdrSuiteGenresRuntime() {
+  return Promise.all([
+    loadVdrSuiteEpgDetailRuntime(),
+    loadVdrSuiteRecordings2Runtime()
+  ])
+    .then(() => loadVdrSuiteDeferredRuntime(
+      'vdr-suite-epg-detail-owner-runtime',
+      '/frontend/epg-detail-owner.js',
+      () => Boolean(window.VdrSuiteEpgDetailOwner)
+    ))
+    .then(() => loadVdrSuiteDeferredRuntime(
+      'vdr-suite-genres-runtime',
+      '/frontend/modules/genres.js',
+      () => Boolean(window.VdrSuiteGenres)
+    ));
+}
+
 function startVdrSuiteDeferredFrontendRuntimes() {
   loadVdrSuiteEpgDetailRuntime().catch(error => {
     console.error('VDR-Suite combined EPG detail runtime failed', error);
@@ -241,6 +258,10 @@ function startVdrSuiteDeferredFrontendRuntimes() {
 
   loadVdrSuiteRecordings2Runtime().catch(error => {
     console.error('VDR-Suite Recordings 2 runtime failed', error);
+  });
+
+  loadVdrSuiteGenresRuntime().catch(error => {
+    console.error('VDR-Suite genres runtime failed', error);
   });
 }
 
@@ -250,7 +271,8 @@ if (typeof window !== 'undefined') {
   window.VdrSuiteDeferredFrontendRuntimes = Object.freeze({
     start: startVdrSuiteDeferredFrontendRuntimes,
     loadEpgDetail: loadVdrSuiteEpgDetailRuntime,
-    loadRecordings2: loadVdrSuiteRecordings2Runtime
+    loadRecordings2: loadVdrSuiteRecordings2Runtime,
+    loadGenres: loadVdrSuiteGenresRuntime
   });
 
   if (document.readyState === 'loading') {

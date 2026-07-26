@@ -9,6 +9,7 @@ struct FrontendAsset
 const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/app.js", "app.js", "application/javascript; charset=utf-8", "modules/remote.js"},
     {"/frontend/api/client-api.js", "api/client-api.js", "application/javascript; charset=utf-8", "api/live-remote-client-api.js"},
+    {"/frontend/api/genre-client-api.js", "api/genre-client-api.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/bootstrap.js", "platform/bootstrap.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/i18n.js", "platform/i18n.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/helpers.js", "platform/helpers.js", "application/javascript; charset=utf-8", nullptr},
@@ -27,10 +28,12 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/recordings2.js", "recordings2.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/recordings2-metadata-detail.js", "recordings2-metadata-detail.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/epg-searchtimer-actions.js", "epg-searchtimer-actions.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/epg-detail-owner.js", "epg-detail-owner.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/channel-browser.js", "channel-browser.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/modules/channels.js", "modules/channels.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/modules/timers.js", "modules/timers.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/modules/searchtimers.js", "modules/searchtimers.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/modules/genres.js", "modules/genres.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/style.css", "style.css", "text/css; charset=utf-8", nullptr}
 };
 

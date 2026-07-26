@@ -1,5 +1,15 @@
 # Recording Person Cast Completeness Fix
 
+## Navigation
+
+- [README](../../README.md)
+- [Documentation Index](../index.md)
+- [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Development Index](index.md)
+- [Current Project Status](current-status.md)
+
+---
+
 ## Status
 
 - Date: 2026-07-25
@@ -7,7 +17,7 @@
 - Baseline before the fix: `630635f903c251c1e175683eeca7847802dbb063`
 - Related handoff:
   [`vdr-plugin-suite-bridge/docs/RECORDING-METADATA-HANDOFF.md`](../../vdr-plugin-suite-bridge/docs/RECORDING-METADATA-HANDOFF.md)
-- Live VDR acceptance: pending rebuild, installation and metadata refresh
+- Live VDR acceptance: completed on the yaVDR production host
 
 ## Problem
 
@@ -98,11 +108,14 @@ g++ -std=c++17 -Wall -Wextra -pedantic -Iinclude \
 
 Both focused binaries completed successfully.
 
-The complete repository build and the transport integration test still need to
-run on the VDR-Suite checkout because this execution environment has no GitHub
-checkout and no installed VDR development headers.
+The focused repository tests, SuiteBridge build and installation, daemon
+installation and restart, metadata refresh, persistent SQLite verification and
+real frontend search acceptance completed successfully on the yaVDR host.
 
-## Required real-VDR acceptance
+The live `Pulp Fiction` result contains 55 people. John Travolta is persisted as
+the actor for `Vincent Vega` and is returned by recording-person search.
+
+## Real-VDR acceptance procedure
 
 After updating the checkout on the VDR host:
 
@@ -131,3 +144,12 @@ Acceptance requires:
 - the result survives a daemon restart;
 - an oversized or malformed payload remains rejected;
 - EPG metadata, recordings, timers and remote-control behavior remain unchanged.
+
+---
+
+## Back
+
+- [Back to New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Back to Development Index](index.md)
+- [Back to Documentation Index](../index.md)
+- [Back to README](../../README.md)

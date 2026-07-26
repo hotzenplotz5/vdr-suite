@@ -31,6 +31,7 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerDiscoveryController.cpp \
         api/rest/src/SearchTimerAutomationPreviewController.cpp \
         api/rest/src/SearchTimerPreviewEpgCacheRefreshController.cpp \
+        $(GENRE_BROWSER_REST_SRC) \
         $(REST_LIVE_REMOTE_SRC) \
         core/vdr/src/EpgEventRepository.cpp \
         core/vdr/src/VdrRecordingCacheRepository.cpp \
@@ -87,4 +88,4 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerCreateRequestParser.cpp \
         api/rest/src/SearchTimerUpdateRequestParser.cpp \
         api/rest/src/SearchTimerDeleteRequestParser.cpp \
-        api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp \
+        api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp

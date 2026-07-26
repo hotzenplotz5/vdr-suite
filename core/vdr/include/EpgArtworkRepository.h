@@ -23,6 +23,31 @@ public:
         const std::string& channelId,
         const std::string& eventId);
 
+    bool upsertMetadataJson(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId,
+        const std::string& publicJson,
+        long long resolvedAt);
+    std::string findMetadataJson(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId) const;
+
+    bool upsertMetadataImage(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId,
+        const std::string& kind,
+        int imageIndex,
+        const EpgArtworkReference& artwork);
+    EpgArtworkReference findMetadataImage(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId,
+        const std::string& kind,
+        int imageIndex) const;
+
 private:
     Database& database_;
     mutable std::mutex mutex_;

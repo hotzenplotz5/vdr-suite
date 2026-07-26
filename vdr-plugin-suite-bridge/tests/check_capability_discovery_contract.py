@@ -79,7 +79,7 @@ required_content = (
     "strcasecmp(command, CommandName())",
     "ParseRequestedSchema(option)",
     'inline constexpr const char *Name = "suitebridge";',
-    'inline constexpr const char *Version = "0.12.0";',
+    'inline constexpr const char *Version = "0.13.2";',
     "SuiteBridgeCapabilityDiscoveryReply capabilityReply(",
     "svdrp command=CAPS result=served reply=%d bytes=%zu schema=%u",
     "svdrp command=CAPS result=rejected reply=%d",
@@ -95,6 +95,7 @@ for capability_id, state in (
     ("snapshots", "available"),
     ("local-contract", "available"),
     ("recording-metadata", "available"),
+    ("epg-type-snapshot", "available"),
     ("mutations", "disabled"),
 ):
     source_fragment = (

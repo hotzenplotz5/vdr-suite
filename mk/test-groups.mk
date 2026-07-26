@@ -22,6 +22,7 @@ CI_FAST_TESTS := \
 	test-suite-bridge-daemon-runtime-wiring \
 	test-recording-native-metadata-contracts \
 	test-sb10d-live-acceptance-contract \
+	test-live-remote \
 	test-fast \
 	test-api-router \
 	test-restful-api-vdr-timer-action-executor \
@@ -49,6 +50,7 @@ CI_FAST_TESTS := \
 	test-snapshot-change-feed-preview-epg-cache-invalidation \
 	test-api-router-searchtimer-preview-epg-cache-refresh-route \
 	test-api-router-searchtimer-preview-refresh-then-preview \
+	test-daemon-runtime-modularity \
 	test-daemon-runtime-shutdown-resets \
 	test-http-listener-bind-failure-handling \
 	test-http-listener-partial-request-timeout \
@@ -79,6 +81,7 @@ VDR_TESTS := \
 	test-suite-bridge-daemon-runtime-wiring \
 	test-recording-native-metadata-contracts \
 	test-sb10d-live-acceptance-contract \
+	test-live-remote \
 	test-backend-node \
 	test-backend-registry \
 	test-backend-registry-service \
@@ -170,6 +173,7 @@ VDR_TESTS := \
 	test-search-timer-discovery-static-provider \
 	test-restfulapi-search-timer-discovery-provider-contract \
 	test-searchtimer-discovery-runtime-wiring \
+	test-daemon-runtime-modularity \
 	test-daemon-runtime-shutdown-resets \
 	test-http-listener-bind-failure-handling \
 	test-http-listener-partial-request-timeout \

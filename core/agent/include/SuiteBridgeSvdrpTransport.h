@@ -2,6 +2,7 @@
 
 #include "ISuiteBridgeLocalTransport.h"
 #include "ISuiteBridgeArtworkTransport.h"
+#include "ISuiteBridgeEpgTypeSnapshotTransport.h"
 #include "ISuiteBridgeMetadataTransport.h"
 #include "ISuiteBridgeRecordingMetadataTransport.h"
 
@@ -25,6 +26,7 @@ struct SuiteBridgeSvdrpTransportConfig
 class SuiteBridgeSvdrpTransport final :
     public ISuiteBridgeLocalTransport,
     public ::ISuiteBridgeArtworkTransport,
+    public ::ISuiteBridgeEpgTypeSnapshotTransport,
     public ::ISuiteBridgeMetadataTransport,
     public ::ISuiteBridgeRecordingMetadataTransport
 {
@@ -42,6 +44,12 @@ public:
     ::SuiteBridgeArtworkCommandReply requestArtwork(
         const std::string& channelId,
         const std::string& eventId) override;
+
+    ::SuiteBridgeEpgTypeSnapshotTransportPage requestEpgTypeSnapshot(
+        std::int64_t fromTime,
+        std::int64_t untilTime,
+        std::uint64_t offset,
+        std::size_t limit) override;
 
     ::SuiteBridgeMetadataCommandReply requestMetadata(
         const std::string& channelId,

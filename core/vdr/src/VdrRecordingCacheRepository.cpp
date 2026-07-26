@@ -375,6 +375,7 @@ bool VdrRecordingCacheRepository::upsertRecordingsForBackend(
         return true;
     }
 
+    auto transactionLease = database_.acquireTransactionLease();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
     {
         return false;
@@ -414,6 +415,7 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
     const std::string normalizedBackendId =
         normalizeBackendId(backendId);
 
+    auto transactionLease = database_.acquireTransactionLease();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
     {
         return false;

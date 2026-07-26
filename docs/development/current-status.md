@@ -394,3 +394,12 @@ Progress source: ../planning/project-progress.md
 - [Back to Development Index](index.md)
 
 - Phase 59.03 batches EPG cache window loading for visible channels.
+
+## Phase 61 EPG Cache Consistency Work
+
+Real-system diagnosis on 2026-07-24 established the concrete cache failure:
+RESTfulAPI delivered current IDs `39566`, `39567` and `39568`, while SQLite
+still exposed old IDs `38843`, `38844` and `38845` for the same backend/channel
+windows. The fix uses authoritative refresh-window reconciliation, preserves
+backend scope, does not create a canonical identity from title/time matching,
+and leaves the EPG timeline and PR #99 routing untouched.

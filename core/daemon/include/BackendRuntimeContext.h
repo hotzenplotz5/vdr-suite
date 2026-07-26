@@ -4,6 +4,7 @@
 #include "EpgCacheService.h"
 #include "IHttpClient.h"
 #include "IVdrAdapter.h"
+#include "PersistentEpgScraperMetadataResolver.h"
 #include "PollingService.h"
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
@@ -18,6 +19,7 @@
 #include "VdrService.h"
 #include "VdrSnapshotBuilder.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -33,7 +35,8 @@ struct BackendRuntimeContext
     std::unique_ptr<SearchTimerPreviewEpgCacheRefreshService> searchTimerPreviewEpgCacheRefreshService;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeSvdrpTransport> suiteBridgeTransport;
     std::unique_ptr<SuiteBridgeEpgArtworkResolver> epgArtworkResolver;
-    std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataResolver;
+    std::unique_ptr<SuiteBridgeEpgMetadataResolver> epgScraperMetadataDelegate;
+    std::unique_ptr<PersistentEpgScraperMetadataResolver> epgScraperMetadataResolver;
     std::unique_ptr<EpgArtworkEnrichmentService> epgArtworkEnrichmentService;
     std::unique_ptr<VdrRecordingNativeMetadataRepository> recordingMetadataRepository;
     std::unique_ptr<SuiteBridgeRecordingMetadataResolver> recordingMetadataResolver;
@@ -42,4 +45,10 @@ struct BackendRuntimeContext
     std::unique_ptr<PollingService> pollingService;
     std::unique_ptr<RestfulApiEventStreamClient> eventStreamClient;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeEmbeddedAgentRuntime> suiteBridgeAgentRuntime;
+
+    std::int64_t epgTypeSnapshotFrom = 0;
+    std::int64_t epgTypeSnapshotUntil = 0;
+    std::uint64_t epgTypeSnapshotOffset = 0;
+    bool epgTypeSnapshotComplete = true;
+    bool epgTypeSnapshotSupported = true;
 };

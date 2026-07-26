@@ -89,6 +89,13 @@ struct SuiteBridgeEpgMetadata final {
   std::vector<SuiteBridgeEpgImage> images;
 };
 
+inline bool SuiteBridgeEpgMediaTypeIsResolved(
+    SuiteBridgeEpgMediaType type) noexcept
+{
+  return type == SuiteBridgeEpgMediaType::Series ||
+      type == SuiteBridgeEpgMediaType::Movie;
+}
+
 inline const char *SuiteBridgeEpgMediaTypeName(
     SuiteBridgeEpgMediaType type) noexcept
 {

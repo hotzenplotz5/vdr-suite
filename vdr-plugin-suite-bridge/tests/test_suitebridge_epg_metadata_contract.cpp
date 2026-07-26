@@ -22,6 +22,10 @@ SuiteBridgeArtworkReference artwork(
 
 int main()
 {
+  assert(!SuiteBridgeEpgMediaTypeIsResolved(SuiteBridgeEpgMediaType::None));
+  assert(SuiteBridgeEpgMediaTypeIsResolved(SuiteBridgeEpgMediaType::Movie));
+  assert(SuiteBridgeEpgMediaTypeIsResolved(SuiteBridgeEpgMediaType::Series));
+
   {
     SuiteBridgeEpgMetadataRequest request(
         "META",
@@ -138,8 +142,29 @@ int main()
   }
 
   {
+    SuiteBridgeEpgMetadata inconsistent;
+    inconsistent.found = true;
+    inconsistent.mediaType = SuiteBridgeEpgMediaType::None;
+    inconsistent.providerId = 999;
+    inconsistent.title = "Sentinel ohne aufgelösten Typ";
+    inconsistent.genres = {"Drama"};
+
+    SuiteBridgeEpgMetadataPayload payload(inconsistent);
+    assert(payload.Complete());
+    const std::string json(payload.Data(), payload.Size());
+    assert(json.find("\"found\":false") != std::string::npos);
+    assert(json.find("\"provider\":\"none\"") != std::string::npos);
+    assert(json.find("\"mediaType\":\"none\"") != std::string::npos);
+    assert(json.find("\"providerId\":0") != std::string::npos);
+    assert(json.find("\"genres\":[]") != std::string::npos);
+    assert(json.find("Sentinel") == std::string::npos);
+    assert(json.find("Drama") == std::string::npos);
+  }
+
+  {
     SuiteBridgeEpgMetadata metadata;
     metadata.found = true;
+    metadata.mediaType = SuiteBridgeEpgMediaType::Movie;
     metadata.overview.assign(9000, 'x');
     SuiteBridgeEpgMetadataPayload payload(metadata);
     assert(!payload.Complete());
