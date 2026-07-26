@@ -13,6 +13,10 @@ const source = fs.readFileSync(
   path.join(__dirname, '..', 'modules', 'remote.js'),
   'utf8'
 );
+const svg = fs.readFileSync(
+  path.join(__dirname, '..', 'assets', 'vdr-remote-photorealistic.svg'),
+  'utf8'
+);
 
 assert(!source.includes('/remote/seq'));
 assert(!source.includes('/remote/kbd'));
@@ -26,39 +30,104 @@ assert(clientSource.includes("'/api/vdr/live/overlay'"));
 assert(clientSource.includes("'/api/vdr/live'"));
 
 assert(source.includes(
-  "P='/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.svg'"
+  "'/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.svg'"
 ));
-assert(source.includes("el('section','rst')"));
-assert(source.includes("el('img','rpi')"));
-assert(source.includes("el('button','rpk')"));
-assert(source.includes("s.setAttribute('aria-label','Fotorealistische VDR-Fernbedienung')"));
-assert(source.includes("z.textContent='Fotorealistisch · mobil'"));
+assert(source.includes("createElement('section', 'remote-stage')"));
+assert(source.includes("createElement('img', 'remote-image')"));
+assert(source.includes("createElement('button', 'remote-key')"));
+assert(source.includes(
+  "'Fotorealistische VDR-Fernbedienung'"
+));
+assert(source.includes(
+  "'Groß · scrollbar · vollständig bedienbar'"
+));
 
-assert(source.includes('let d=null,n=0,e=null,q=0,busy=false'));
-assert(source.includes("x.classList.add('down')"));
-assert(source.includes("x.classList.remove('down')"));
-assert(source.includes("x.classList.add('send')"));
-assert(source.includes("x.classList.remove('send')"));
-assert(source.includes("x.getAttribute('aria-disabled')==='true'||busy"));
+assert(source.includes('let actionInFlight = false'));
+assert(source.includes("classList.add('is-pressed')"));
+assert(source.includes("classList.remove('is-pressed')"));
+assert(source.includes("classList.add('is-sending')"));
+assert(source.includes("classList.remove('is-sending')"));
+assert(source.includes('actionInFlight)'));
 assert(!source.includes('lockControls(true)'));
 assert(!source.includes('button.disabled = locked'));
-assert(source.includes('.rpk.down::before'));
-assert(source.includes('.rpk:not(.off):active::before'));
-assert(source.includes('transform:translateY(2px) scale(.985)'));
-assert(source.includes('inset 0 .38rem .65rem rgba(0,0,0,.9)'));
-assert(source.includes('width:min(20.25rem,46vw)'));
-assert(!source.includes('calc(100vw - 4.5rem)'));
 
-assert(source.includes("x.classList.add('brand-feature-remote')"));
-assert(source.includes("x.setAttribute('aria-label','VDR - Fernbedienung öffnen')"));
-assert(source.includes('.brand-feature-remote:hover'));
-assert(source.includes("el('h2','','VDR - Fernbedienung')"));
-assert(source.includes("v.setAttribute('aria-label','VDR - Fernbedienung')"));
-assert(source.includes("t.textContent='VDR - Fernbedienung'"));
-assert(!source.includes("t.textContent='Fernsteuerung'"));
+assert(source.includes('.remote-key.is-pressed::before'));
+assert(source.includes(
+  '.remote-key:not(.is-disabled):active::before'
+));
+assert(source.includes(
+  'transform: translateY(2px) scale(.985)'
+));
+assert(!source.includes('.remote-key:hover'));
+assert(!source.includes('@media (hover: hover)'));
+assert(!source.includes('element.title ='));
+
+assert(source.includes(
+  'width: min(27rem, calc(100vw - 1rem))'
+));
+assert(source.includes(
+  'width: min(25rem, calc(100vw - .7rem))'
+));
+assert(source.includes('overflow-y: auto'));
+assert(source.includes('scrollbar-gutter: stable'));
+assert(!source.includes('max-height: 760px'));
+
+assert(source.includes(
+  "feature.classList.add('brand-feature-remote')"
+));
+assert(source.includes(
+  "'VDR - Fernbedienung öffnen'"
+));
+assert(source.includes(
+  "createElement('h2', '', 'VDR - Fernbedienung')"
+));
+assert(source.includes(
+  "modal.setAttribute('aria-label', 'VDR - Fernbedienung')"
+));
+assert(source.includes(
+  "title.textContent = 'VDR - Fernbedienung'"
+));
+
+[
+  'INPUT',
+  'SETUP',
+  '>TV<',
+  '>VCR<',
+  '>DVD<',
+  '>SAT<',
+  '>AMP<',
+  '>HI-FI<',
+  '>MP3<',
+  '>DVB-T<',
+  '>AV<',
+  '>GUIDE<'
+].forEach(function (unsupportedLabel) {
+  assert(
+    !svg.includes(unsupportedLabel),
+    'unsupported decorative key remains in SVG: ' + unsupportedLabel
+  );
+});
+assert(svg.includes('>MENU<'));
+assert(svg.includes('>INFO<'));
+assert(svg.includes('>BACK<'));
+assert(svg.includes('>MUTE<'));
+assert(svg.includes('>PREV<'));
+assert(svg.includes('>NEXT<'));
+assert(svg.includes('>PLAY<'));
+assert(svg.includes('>PAUSE<'));
+assert(svg.includes('>REMOTE CONTROL<'));
 
 const serverPaths = fs.readFileSync(
-  path.join(__dirname, '..', '..', '..', 'core', 'http', 'src', 'TestHttpServerPaths.inc'),
+  path.join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    'core',
+    'http',
+    'src',
+    'TestHttpServerPaths.inc'
+  ),
   'utf8'
 );
 const liveRemoteMake = fs.readFileSync(
@@ -72,12 +141,19 @@ assert(serverPaths.includes(
   '{"/frontend/api/client-api.js", "api/client-api.js", "application/javascript; charset=utf-8", "api/live-remote-client-api.js"}'
 ));
 assert(liveRemoteMake.includes('web/frontend/modules/remote.js'));
-assert(liveRemoteMake.includes('web/frontend/api/live-remote-client-api.js'));
-assert(liveRemoteMake.includes('web/frontend/assets/vdr-remote-photorealistic.svg'));
-assert(liveRemoteMake.includes('channel-logos/vdr-suite-brand/vdr-remote-photorealistic.svg'));
+assert(liveRemoteMake.includes(
+  'web/frontend/api/live-remote-client-api.js'
+));
+assert(liveRemoteMake.includes(
+  'web/frontend/assets/vdr-remote-photorealistic.svg'
+));
+assert(liveRemoteMake.includes(
+  'channel-logos/vdr-suite-brand/vdr-remote-photorealistic.svg'
+));
 
 const document = {
   head: {appendChild: function () {}},
+  body: {append: function () {}},
   createElement: function (tag) {
     return {
       tagName: tag.toUpperCase(),
@@ -93,6 +169,7 @@ const document = {
       removeAttribute: function () {},
       appendChild: function () {},
       append: function () {},
+      replaceChildren: function () {},
       addEventListener: function () {},
       querySelector: function () { return null; },
       querySelectorAll: function () { return []; }
@@ -139,19 +216,41 @@ assert.strictEqual(
   context.VdrSuiteRemote.remoteImagePath,
   '/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.svg'
 );
+
+const expectedActions = [
+  'up', 'down', 'left', 'right', 'ok', 'back', 'menu', 'info',
+  'red', 'green', 'yellow', 'blue',
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
+  'eight', 'nine',
+  'channelUp', 'channelDown', 'volumeUp', 'volumeDown', 'mute',
+  'play', 'pause', 'stop', 'record', 'fastForward', 'rewind',
+  'next', 'previous', 'switchChannel'
+];
 assert.deepStrictEqual(
   Array.from(context.VdrSuiteRemote.actions),
-  [
-    'up', 'down', 'left', 'right', 'ok', 'back', 'menu', 'info',
-    'red', 'green', 'yellow', 'blue',
-    'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
-    'channelUp', 'channelDown', 'volumeUp', 'volumeDown', 'mute',
-    'play', 'pause', 'stop', 'record', 'fastForward', 'rewind', 'next', 'previous',
-    'switchChannel'
-  ]
+  expectedActions
 );
-assert.strictEqual(typeof context.VdrSuiteClientApi.fetchClientRemoteAction, 'function');
-assert.strictEqual(typeof context.VdrSuiteClientApi.fetchClientLiveOverlay, 'function');
+
+const hotspotActions = Array.from(
+  context.VdrSuiteRemote.hotspotActions
+);
+assert.strictEqual(hotspotActions.length, 35);
+assert.strictEqual(new Set(hotspotActions).size, 35);
+assert.deepStrictEqual(
+  hotspotActions.slice().sort(),
+  expectedActions
+    .filter(function (action) { return action !== 'switchChannel'; })
+    .sort()
+);
+
+assert.strictEqual(
+  typeof context.VdrSuiteClientApi.fetchClientRemoteAction,
+  'function'
+);
+assert.strictEqual(
+  typeof context.VdrSuiteClientApi.fetchClientLiveOverlay,
+  'function'
+);
 assert.strictEqual(
   context.VdrSuiteRemote.canControlBackend({
     enabled: true,
@@ -172,9 +271,15 @@ assert.strictEqual(
 );
 
 context.VdrSuiteClientApi.fetchClientRemoteAction({
-  payload: {backendId: 'default', operationId: 'remote-1', action: 'ok'}
+  payload: {
+    backendId: 'default',
+    operationId: 'remote-1',
+    action: 'ok'
+  }
 });
-context.VdrSuiteClientApi.fetchClientLiveOverlay({backendId: 'default'});
+context.VdrSuiteClientApi.fetchClientLiveOverlay({
+  backendId: 'default'
+});
 
 assert.strictEqual(requests[0].url, '/api/vdr/remote/actions');
 assert.strictEqual(requests[0].options.method, 'POST');
