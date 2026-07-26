@@ -36,6 +36,11 @@ assert(source.includes('.r-color-grid .green{background:#16a34a'));
 assert(source.includes('.r-color-grid .yellow{background:#facc15'));
 assert(source.includes('.r-color-grid .blue{background:#2563eb'));
 assert(source.includes('.r-color-grid .yellow{background:#facc15;border-color:#fde047;color:#111827}'));
+assert(source.includes("x.classList.add('brand-feature-remote')"));
+assert(source.includes('.brand-feature-remote:hover,.brand-feature-remote:focus'));
+assert(source.includes("el('h2','','VDR - Fernbedienung')"));
+assert(source.includes("t.textContent='VDR - Fernbedienung'"));
+assert(!source.includes("t.textContent='Fernsteuerung'"));
 
 const serverPaths = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'core', 'http', 'src', 'TestHttpServerPaths.inc'),
