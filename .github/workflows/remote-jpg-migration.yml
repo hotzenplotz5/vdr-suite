@@ -1,0 +1,137 @@
+name: Finalize photorealistic JPG remote
+
+on:
+  push:
+    branches:
+      - agent/photorealistic-jpg-remote
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace SVG wrapper with the real JPEG asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64
+          import re
+
+          svg_path = Path('web/frontend/assets/vdr-remote-photorealistic.svg')
+          jpg_path = Path('web/frontend/assets/vdr-remote-photorealistic.jpg')
+          remote_path = Path('web/frontend/modules/remote.js')
+          make_path = Path('mk/live-remote.mk')
+          test_path = Path('web/frontend/tests/test_remote_runtime.js')
+
+          svg = svg_path.read_text(encoding='utf-8')
+          match = re.search(r'<image\s+href="data:image/jpeg;base64,([^"]+)"', svg)
+          if not match:
+              raise SystemExit('embedded JPEG not found in existing SVG wrapper')
+          jpeg = base64.b64decode(re.sub(r'\s+', '', match.group(1)), validate=True)
+          if not (jpeg.startswith(b'\xff\xd8') and jpeg.endswith(b'\xff\xd9')):
+              raise SystemExit('decoded asset is not a complete JPEG')
+
+          def jpeg_dimensions(data: bytes) -> tuple[int, int]:
+              sof_markers = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF}
+              pos = 2
+              while pos + 9 <= len(data):
+                  if data[pos] != 0xFF:
+                      pos += 1
+                      continue
+                  while pos < len(data) and data[pos] == 0xFF:
+                      pos += 1
+                  if pos >= len(data):
+                      break
+                  marker = data[pos]
+                  pos += 1
+                  if marker in {0x01, 0xD8, 0xD9} or 0xD0 <= marker <= 0xD7:
+                      continue
+                  if pos + 2 > len(data):
+                      break
+                  length = int.from_bytes(data[pos:pos + 2], 'big')
+                  if length < 2 or pos + length > len(data):
+                      break
+                  if marker in sof_markers:
+                      height = int.from_bytes(data[pos + 3:pos + 5], 'big')
+                      width = int.from_bytes(data[pos + 5:pos + 7], 'big')
+                      return width, height
+                  pos += length
+              raise ValueError('JPEG dimensions not found')
+
+          dimensions = jpeg_dimensions(jpeg)
+          if dimensions != (360, 1220):
+              raise SystemExit(f'unexpected JPEG dimensions: {dimensions!r}')
+          jpg_path.write_bytes(jpeg)
+          svg_path.unlink()
+
+          remote = remote_path.read_text(encoding='utf-8')
+          remote = remote.replace(
+              "P='/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.svg'",
+              "P='/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.jpg'",
+              1,
+          )
+          remote = remote.replace('width:min(23rem,88vw)', 'width:min(19rem,72vw)', 1)
+          if 'vdr-remote-photorealistic.svg' in remote:
+              raise SystemExit('remote.js still references the SVG asset')
+          if "P='/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.jpg'" not in remote:
+              raise SystemExit('remote.js JPEG path was not installed')
+          if 'width:min(19rem,72vw)' not in remote:
+              raise SystemExit('narrow remote width was not installed')
+          remote_path.write_text(remote, encoding='utf-8')
+
+          make_source = make_path.read_text(encoding='utf-8').replace(
+              'vdr-remote-photorealistic.svg',
+              'vdr-remote-photorealistic.jpg',
+          )
+          if 'vdr-remote-photorealistic.svg' in make_source:
+              raise SystemExit('make install still references the SVG asset')
+          make_path.write_text(make_source, encoding='utf-8')
+
+          test = test_path.read_text(encoding='utf-8')
+          test = test.replace('vdr-remote-photorealistic.svg', 'vdr-remote-photorealistic.jpg')
+          test = test.replace(
+              "assert(source.includes('width:min(23rem,88vw)'));",
+              "assert(source.includes('width:min(19rem,72vw)'));",
+              1,
+          )
+          source_line = "const source=fs.readFileSync(path.join(__dirname,'..','modules','remote.js'),'utf8');\n"
+          asset_contract = """const remoteAssetPath=path.join(__dirname,'..','assets','vdr-remote-photorealistic.jpg'),remoteAsset=fs.readFileSync(remoteAssetPath),remoteAssetText=remoteAsset.toString('latin1');\nfunction jpegDimensions(data){const sof=new Set([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf]);let p=2;while(p+9<=data.length){if(data[p]!==0xff){p++;continue}while(p<data.length&&data[p]===0xff)p++;if(p>=data.length)break;const marker=data[p++];if(marker===0x01||marker===0xd8||marker===0xd9||(marker>=0xd0&&marker<=0xd7))continue;if(p+2>data.length)break;const length=data.readUInt16BE(p);if(length<2||p+length>data.length)break;if(sof.has(marker))return{width:data.readUInt16BE(p+5),height:data.readUInt16BE(p+3)};p+=length}throw new Error('JPEG dimensions not found')}\nassert.strictEqual(remoteAsset[0],0xff);assert.strictEqual(remoteAsset[1],0xd8);assert.strictEqual(remoteAsset[remoteAsset.length-2],0xff);assert.strictEqual(remoteAsset[remoteAsset.length-1],0xd9);assert.deepStrictEqual(jpegDimensions(remoteAsset),{width:360,height:1220});assert(!remoteAssetText.includes('<image'));assert(!remoteAssetText.includes('data:image/'));assert(!fs.existsSync(path.join(__dirname,'..','assets','vdr-remote-photorealistic.svg')));\n"""
+          if asset_contract not in test:
+              if source_line not in test:
+                  raise SystemExit('could not locate source declaration in frontend test')
+              test = test.replace(source_line, source_line + asset_contract, 1)
+          marker = "assert(source.includes(\"z.textContent='Fotorealistisch · scrollbar'\"));"
+          replacement = marker + "assert(!source.includes('data:image/'));assert(!source.includes('<image'));"
+          if replacement not in test:
+              if marker not in test:
+                  raise SystemExit('could not locate remote asset assertions in frontend test')
+              test = test.replace(marker, replacement, 1)
+          if 'vdr-remote-photorealistic.svg' in test:
+              raise SystemExit('frontend test still expects the SVG asset')
+          if "width:min(19rem,72vw)" not in test:
+              raise SystemExit('frontend test does not enforce the narrow width')
+          test_path.write_text(test, encoding='utf-8')
+          PY
+
+          node --check web/frontend/modules/remote.js
+          node web/frontend/tests/test_remote_runtime.js
+          git diff --check
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/remote-jpg-migration.yml
+          git add web/frontend/assets/vdr-remote-photorealistic.jpg \
+                  web/frontend/assets/vdr-remote-photorealistic.svg \
+                  web/frontend/modules/remote.js \
+                  web/frontend/tests/test_remote_runtime.js \
+                  mk/live-remote.mk
+          git commit --amend -m "fix(frontend): use raster remote asset"
+          git push --force-with-lease origin HEAD:"${GITHUB_REF_NAME}"
