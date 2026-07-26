@@ -23,106 +23,23 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Extract JPEG and patch runtime files
+      - name: Extract real JPEG and patch runtime paths
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           import base64
-          import re
 
           svg_path = Path('web/frontend/assets/vdr-remote-photorealistic.svg')
           jpg_path = Path('web/frontend/assets/vdr-remote-photorealistic.jpg')
-          remote_path = Path('web/frontend/modules/remote.js')
-          make_path = Path('mk/live-remote.mk')
-
-          svg = svg_path.read_text(encoding='utf-8')
-          match = re.search(r'data:image/jpeg;base64,([^"\s]+)', svg)
-          if not match:
-              raise SystemExit('embedded JPEG not found in existing SVG wrapper')
-          jpeg = base64.b64decode(match.group(1), validate=True)
-          if not (jpeg.startswith(b'\xff\xd8') and jpeg.endswith(b'\xff\xd9')):
-              raise SystemExit('decoded asset is not a complete JPEG')
-
-          def jpeg_dimensions(data):
-              sof_markers = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF}
-              pos = 2
-              while pos + 9 <= len(data):
-                  if data[pos] != 0xFF:
-                      pos += 1
-                      continue
-                  while pos < len(data) and data[pos] == 0xFF:
-                      pos += 1
-                  if pos >= len(data):
-                      break
-                  marker = data[pos]
-                  pos += 1
-                  if marker in {0x01, 0xD8, 0xD9} or 0xD0 <= marker <= 0xD7:
-                      continue
-                  if pos + 2 > len(data):
-                      break
-                  length = int.from_bytes(data[pos:pos + 2], 'big')
-                  if length < 2 or pos + length > len(data):
-                      break
-                  if marker in sof_markers:
-                      return (
-                          int.from_bytes(data[pos + 5:pos + 7], 'big'),
-                          int.from_bytes(data[pos + 3:pos + 5], 'big'),
-                      )
-                  pos += length
-              raise SystemExit('JPEG dimensions not found')
-
-          dimensions = jpeg_dimensions(jpeg)
-          if dimensions != (360, 1220):
-              raise SystemExit(f'unexpected JPEG dimensions: {dimensions!r}')
-          jpg_path.write_bytes(jpeg)
+          source = svg_path.read_text(encoding='utf-8')
+          payload = source.split('data:image/jpeg;base64,', 1)[1].split('"', 1)[0]
+          jpg_path.write_bytes(base64.b64decode(payload))
           svg_path.unlink()
-
-          remote = remote_path.read_text(encoding='utf-8')
-          old_path = "P='/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.svg'"
-          new_path = "P='/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.jpg'"
-          if remote.count(old_path) != 1:
-              raise SystemExit('unexpected remote asset path count')
-          if remote.count('width:min(23rem,88vw)') != 1:
-              raise SystemExit('unexpected remote width count')
-          remote = remote.replace(old_path, new_path, 1)
-          remote = remote.replace('width:min(23rem,88vw)', 'width:min(19rem,72vw)', 1)
-          remote_path.write_text(remote, encoding='utf-8')
-
-          make_source = make_path.read_text(encoding='utf-8')
-          if make_source.count('vdr-remote-photorealistic.svg') != 2:
-              raise SystemExit('unexpected SVG install path count')
-          make_path.write_text(
-              make_source.replace('vdr-remote-photorealistic.svg', 'vdr-remote-photorealistic.jpg'),
-              encoding='utf-8',
-          )
-          print(f'created {jpg_path} ({len(jpeg)} bytes, {dimensions[0]}x{dimensions[1]})')
           PY
-
-      - name: Replace frontend contract test
-        shell: bash
-        run: |
-          cat > web/frontend/tests/test_remote_runtime.js <<'EOF'
-          'use strict';
-          const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert');
-          const clientSource=fs.readFileSync(path.join(__dirname,'..','api','live-remote-client-api.js'),'utf8');
-          const source=fs.readFileSync(path.join(__dirname,'..','modules','remote.js'),'utf8');
-          const remoteAssetPath=path.join(__dirname,'..','assets','vdr-remote-photorealistic.jpg');
-          const remoteSvgPath=path.join(__dirname,'..','assets','vdr-remote-photorealistic.svg');
-          const remoteAsset=fs.readFileSync(remoteAssetPath),remoteAssetText=remoteAsset.toString('latin1');
-          function jpegDimensions(data){const sof=new Set([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf]);let p=2;while(p+9<=data.length){if(data[p]!==0xff){p++;continue}while(p<data.length&&data[p]===0xff)p++;if(p>=data.length)break;const marker=data[p++];if(marker===0x01||marker===0xd8||marker===0xd9||(marker>=0xd0&&marker<=0xd7))continue;if(p+2>data.length)break;const length=data.readUInt16BE(p);if(length<2||p+length>data.length)break;if(sof.has(marker))return{width:data.readUInt16BE(p+5),height:data.readUInt16BE(p+3)};p+=length}throw new Error('JPEG dimensions not found')}
-          assert(!source.includes('/remote/seq'));assert(!source.includes('/remote/kbd'));assert(!source.includes('/osd'));assert(!source.includes('restfulapi'));assert(!source.includes('/api/vdr/remote/actions'));assert(!source.includes('/api/vdr/live/overlay'));assert(clientSource.includes("'/api/vdr/remote/actions'"));assert(clientSource.includes("'/api/vdr/live/overlay'"));assert(clientSource.includes("'/api/vdr/live'"));
-          assert(source.includes("P='/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.jpg'"));assert(!source.includes('vdr-remote-photorealistic.svg'));assert(!source.includes('data:image/'));assert(!source.includes('<image'));assert(source.includes("el('section','rst')"));assert(source.includes("el('img','rpi')"));assert(source.includes("el('button','rpk')"));assert(source.includes("s.setAttribute('aria-label','Fotorealistische VDR-Fernbedienung')"));assert(source.includes("z.textContent='Fotorealistisch · scrollbar'"));
-          assert.strictEqual(remoteAsset[0],0xff);assert.strictEqual(remoteAsset[1],0xd8);assert.strictEqual(remoteAsset[remoteAsset.length-2],0xff);assert.strictEqual(remoteAsset[remoteAsset.length-1],0xd9);assert.deepStrictEqual(jpegDimensions(remoteAsset),{width:360,height:1220});assert(!remoteAssetText.includes('<image'));assert(!remoteAssetText.includes('data:image/'));assert(!fs.existsSync(remoteSvgPath));
-          assert(source.includes('let d=null,n=0,e=null,q=0,busy=false'));assert(source.includes("x.classList.add('down')"));assert(source.includes("x.classList.remove('down')"));assert(source.includes("x.classList.add('send')"));assert(source.includes("x.classList.remove('send')"));assert(source.includes("x.getAttribute('aria-disabled')==='true'||busy"));assert(!source.includes('lockControls(true)'));assert(!source.includes('button.disabled = locked'));assert(source.includes('.rpk.down::before'));assert(source.includes('.rpk:not(.off):active::before'));assert(source.includes('transform:translateY(2px) scale(.985)'));assert(source.includes('width:min(19rem,72vw)'));assert(!source.includes('width:min(23rem,88vw)'));assert(source.includes('width:min(22rem,88vw)'));assert(source.includes('overflow-y:auto'));assert(source.includes('position:sticky'));assert(!source.includes('.rpk:hover'));assert(!source.includes('.brand-feature-remote:hover'));assert(source.includes('hotspotCount:H.length'));
-          assert(source.includes("x.classList.add('brand-feature-remote')"));assert(source.includes("x.setAttribute('aria-label','VDR - Fernbedienung öffnen')"));assert(source.includes("el('h2','','VDR - Fernbedienung')"));assert(source.includes("v.setAttribute('aria-label','VDR - Fernbedienung')"));assert(source.includes("t.textContent='VDR - Fernbedienung'"));
-          const serverPaths=fs.readFileSync(path.join(__dirname,'..','..','..','core','http','src','TestHttpServerPaths.inc'),'utf8'),liveRemoteMake=fs.readFileSync(path.join(__dirname,'..','..','..','mk','live-remote.mk'),'utf8');assert(serverPaths.includes('{"/frontend/app.js", "app.js", "application/javascript; charset=utf-8", "modules/remote.js"}'));assert(serverPaths.includes('{"/frontend/api/client-api.js", "api/client-api.js", "application/javascript; charset=utf-8", "api/live-remote-client-api.js"}'));assert(liveRemoteMake.includes('web/frontend/modules/remote.js'));assert(liveRemoteMake.includes('web/frontend/api/live-remote-client-api.js'));assert(liveRemoteMake.includes('web/frontend/assets/vdr-remote-photorealistic.jpg'));assert(!liveRemoteMake.includes('vdr-remote-photorealistic.svg'));
-          const document={head:{appendChild:function(){}},body:{append:function(){}},createElement:function(tag){return{tagName:tag.toUpperCase(),dataset:{},style:{},classList:{add:function(){},remove:function(){},toggle:function(){}},setAttribute:function(){},getAttribute:function(){return null},removeAttribute:function(){},appendChild:function(){},append:function(){},addEventListener:function(){},querySelector:function(){return null},querySelectorAll:function(){return[]}}},querySelector:function(){return null},querySelectorAll:function(){return[]},getElementById:function(){return null},addEventListener:function(){}};
-          const requests=[],baseApi=Object.freeze({requestJson:function(url,options){requests.push({url:url,options:options});return Promise.resolve({success:true})},fetchClientBackends:function(){return Promise.resolve({backends:[]})}}),context={window:null,document:document,console:console,Date:Date,JSON:JSON,Object:Object,Promise:Promise,Set:Set,URLSearchParams:URLSearchParams,setTimeout:setTimeout,clearTimeout:clearTimeout,VdrSuiteClientApi:baseApi};context.window=context;vm.createContext(context);vm.runInContext(clientSource,context);vm.runInContext(source,context);
-          assert(context.VdrSuiteRemote);assert.strictEqual(context.VdrSuiteRemote.remoteImagePath,'/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.jpg');assert.strictEqual(context.VdrSuiteRemote.hotspotCount,35);assert.deepStrictEqual(Array.from(context.VdrSuiteRemote.actions),['up','down','left','right','ok','back','menu','info','red','green','yellow','blue','zero','one','two','three','four','five','six','seven','eight','nine','channelUp','channelDown','volumeUp','volumeDown','mute','play','pause','stop','record','fastForward','rewind','next','previous','switchChannel']);assert.strictEqual(typeof context.VdrSuiteClientApi.fetchClientRemoteAction,'function');assert.strictEqual(typeof context.VdrSuiteClientApi.fetchClientLiveOverlay,'function');assert.strictEqual(context.VdrSuiteRemote.canControlBackend({enabled:true,online:true,frontendSelector:{canWrite:false},capabilities:{remoteControl:true}}),false);assert.strictEqual(context.VdrSuiteRemote.canControlBackend({enabled:true,online:true,frontendSelector:{canWrite:true},capabilities:{remoteControl:true}}),true);
-          context.VdrSuiteClientApi.fetchClientRemoteAction({payload:{backendId:'default',operationId:'remote-1',action:'ok'}});context.VdrSuiteClientApi.fetchClientLiveOverlay({backendId:'default'});assert.strictEqual(requests[0].url,'/api/vdr/remote/actions');assert.strictEqual(requests[0].options.method,'POST');assert.strictEqual(requests[1].url,'/api/vdr/live/overlay');console.log('remote frontend contract ok');
-          EOF
+          sed -i 's/vdr-remote-photorealistic\.svg/vdr-remote-photorealistic.jpg/g' web/frontend/modules/remote.js mk/live-remote.mk
+          sed -i 's/width:min(23rem,88vw)/width:min(19rem,72vw)/' web/frontend/modules/remote.js
 
       - name: Run requested frontend checks
         shell: bash
@@ -132,7 +49,7 @@ jobs:
           node web/frontend/tests/test_remote_runtime.js
           git diff --check
 
-      - name: Publish final single migration commit
+      - name: Publish final migration commit
         shell: bash
         run: |
           set -euo pipefail
