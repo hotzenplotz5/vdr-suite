@@ -92,6 +92,7 @@ Do not move global latest-completed markers to Phase 58 until the full Phase 58 
 - [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](../adr/ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
 - [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](../adr/ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
 - [ADR-0036: TVScraper Recording Metadata Integration Strategy](../adr/ADR-0036-tvscraper-recording-metadata-integration.md)
+- [Recording Person Cast Completeness Fix](recording-person-cast-completeness-fix.md)
 - [ADR-0037: Packaging, Install Layout and API Boundary](../adr/ADR-0037-packaging-install-api-boundary.md)
 - [Startup Snapshot Runtime Rule](startup-snapshot-runtime.md)
 - [SearchTimer Preview EPG Cache Strategy](searchtimer-preview-epg-cache-strategy.md)
