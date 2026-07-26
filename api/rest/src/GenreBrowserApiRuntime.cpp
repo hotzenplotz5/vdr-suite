@@ -219,17 +219,11 @@ bool enrichEpgIndex(
                 mediaTypeEvidence.confidence = 0.0;
             }
 
-            const bool genresStored =
-                repository.replaceEvidence(genreEvidence);
-            const bool mediaTypeStored =
-                repository.replaceEvidence(mediaTypeEvidence);
-            const bool browseReconciled =
-                genresStored &&
-                mediaTypeStored &&
-                repository.reconcileEpgBrowseClassification(
-                    normalizedBackendId,
-                    genreEvidence.resourceKey);
-            if (!genresStored || !mediaTypeStored || !browseReconciled)
+            const bool evidenceStored =
+                repository.replaceEpgEvidenceAndReconcile(
+                    genreEvidence,
+                    mediaTypeEvidence);
+            if (!evidenceStored)
             {
                 success = false;
             }
