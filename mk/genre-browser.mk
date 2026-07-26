@@ -14,7 +14,7 @@ GENRE_BROWSER_TEST_SUPPORT_SRC := \
 	core/vdr/src/BackendRegistry.cpp \
 	core/vdr/src/BackendRegistryService.cpp
 
-.PHONY: test-vdr-channel-cache-repository test-genre-epg-enrichment-priority test-genre-epg-refresh-fast-path test-genre-write-batching test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool test-genre-browser
+.PHONY: test-vdr-channel-cache-repository test-genre-epg-enrichment-priority test-genre-epg-refresh-fast-path test-genre-write-batching test-genre-recording-sync-noop test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool test-genre-browser
 
 test-vdr-channel-cache-repository:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -54,6 +54,16 @@ test-genre-write-batching:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_genre_write_batching
 	$(BUILD_DIR)/test_genre_write_batching
+
+test-genre-recording-sync-noop: CXXFLAGS += -Icore/vdr/include
+test-genre-recording-sync-noop:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(METADATA_GENRE_SRC) \
+		core/metadata/tests/test_genre_recording_sync_noop.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_genre_recording_sync_noop
+	$(BUILD_DIR)/test_genre_recording_sync_noop
 
 test-genre-browser-controller:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -104,6 +114,6 @@ test-phase61-live-genre-tool:
 	python3 -m py_compile tools/analyze_phase61_live_tvscraper_report.py
 	python3 tools/analyze_phase61_live_tvscraper_report.py --self-test
 
-test-genre-browser: test-vdr-channel-cache-repository test-genre-epg-enrichment-priority test-genre-epg-refresh-fast-path test-genre-write-batching test-http-listener-image-write-isolation test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool
+test-genre-browser: test-vdr-channel-cache-repository test-genre-epg-enrichment-priority test-genre-epg-refresh-fast-path test-genre-write-batching test-genre-recording-sync-noop test-http-listener-image-write-isolation test-metadata-genres test-metadata-genre-conflicts test-genre-browser-controller test-genre-browser-epg-type-snapshot test-genre-browser-pagination test-genre-browser-architecture test-genre-browser-frontend test-phase61-live-genre-tool
 
 test-fast: test-genre-browser

@@ -133,6 +133,12 @@ require(
 )
 require("refreshRecordingIndex" in recording_worker, "recording worker does not materialize the genre index")
 require("replaceRecordingsForBackend" in recording_worker, "recording genre materialization must follow cache persistence")
+require(
+    "readRecordingEvidenceSignatures" in synchronization
+    and "changedRecordingKeys.empty() && !needsRetirement"
+    in synchronization,
+    "unchanged recording Genre synchronization must avoid write transactions",
+)
 require("registerEpgScraperMetadataResolver" in backend_context, "backend-scoped EPG resolver registration is missing")
 require("GenreBrowserApiRuntime::instance().reset()" in shutdown, "genre runtime reset is missing")
 require(
@@ -217,9 +223,13 @@ require(
     "known recording folder Genre fallback is missing",
 )
 require(
-    "source_kind IN('recording-metadata','recording-folder-genre')"
-    in synchronization,
-    "recording snapshot replacement must remove stale folder and metadata evidence",
+    "for (const std::string& key : changedRecordingKeys)"
+    in synchronization
+    and "DELETE FROM suite_metadata_genre_assignments"
+    in synchronization
+    and "'recording-metadata'," in synchronization
+    and "'recording-folder-genre');" in synchronization,
+    "changed recording snapshots must remove stale folder and metadata evidence",
 )
 require(
     "suite_metadata_genre_assignments" in helpers
