@@ -46,6 +46,8 @@ assert(source.includes('.rpk.down::before'));
 assert(source.includes('.rpk:not(.off):active::before'));
 assert(source.includes('transform:translateY(2px) scale(.985)'));
 assert(source.includes('inset 0 .38rem .65rem rgba(0,0,0,.9)'));
+assert(source.includes('width:min(20.25rem,46vw)'));
+assert(!source.includes('calc(100vw - 4.5rem)'));
 
 assert(source.includes("x.classList.add('brand-feature-remote')"));
 assert(source.includes("x.setAttribute('aria-label','VDR - Fernbedienung öffnen')"));
