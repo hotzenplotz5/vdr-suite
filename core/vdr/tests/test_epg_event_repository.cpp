@@ -139,6 +139,110 @@ static int scalar_int(Database& database, const std::string& sql)
     return value;
 }
 
+static std::string scalar_text(
+    Database& database,
+    const std::string& sql)
+{
+    sqlite3_stmt* statement = nullptr;
+    assert(sqlite3_prepare_v2(
+        database.handle(),
+        sql.c_str(),
+        -1,
+        &statement,
+        nullptr) == SQLITE_OK);
+    assert(sqlite3_step(statement) == SQLITE_ROW);
+
+    const unsigned char* value =
+        sqlite3_column_text(statement, 0);
+
+    const std::string result =
+        value == nullptr
+            ? std::string()
+            : std::string(
+                reinterpret_cast<const char*>(value));
+
+    sqlite3_finalize(statement);
+    return result;
+}
+
+static void test_unchanged_upsert_does_not_rewrite_row()
+{
+    const std::string filename =
+        "/tmp/vdr-suite-epg-event-noop-upsert-test.db";
+
+    std::remove(filename.c_str());
+
+    Database database;
+    assert(database.open(filename));
+
+    EpgEventRepository repository(database);
+    assert(repository.ensureSchema());
+
+    const VdrEvent original = make_event(
+        "event-1",
+        "channel-1",
+        "Original",
+        "1000",
+        "2000");
+
+    assert(repository.upsertEventsForBackend(
+        "default",
+        {original}));
+
+    assert(database.execute(
+        "UPDATE epg_events "
+        "SET updated_at='sentinel' "
+        "WHERE backend_id='default' "
+        "AND channel_id='channel-1' "
+        "AND event_id='event-1';"));
+
+    const int unchangedChangesBefore =
+        sqlite3_total_changes(database.handle());
+
+    assert(repository.upsertEventsForBackend(
+        "default",
+        {original}));
+
+    assert(
+        sqlite3_total_changes(database.handle()) ==
+        unchangedChangesBefore);
+
+    assert(scalar_text(
+        database,
+        "SELECT updated_at FROM epg_events "
+        "WHERE backend_id='default' "
+        "AND channel_id='channel-1' "
+        "AND event_id='event-1';") == "sentinel");
+
+    VdrEvent changed = original;
+    changed.title = "Changed";
+
+    const int changedChangesBefore =
+        sqlite3_total_changes(database.handle());
+
+    assert(repository.upsertEventsForBackend(
+        "default",
+        {changed}));
+
+    assert(
+        sqlite3_total_changes(database.handle()) ==
+        changedChangesBefore + 1);
+
+    assert(scalar_text(
+        database,
+        "SELECT title FROM epg_events "
+        "WHERE backend_id='default' "
+        "AND channel_id='channel-1' "
+        "AND event_id='event-1';") == "Changed");
+
+    assert(scalar_text(
+        database,
+        "SELECT updated_at FROM epg_events "
+        "WHERE backend_id='default' "
+        "AND channel_id='channel-1' "
+        "AND event_id='event-1';") != "sentinel");
+}
+
 static bool query_plan_contains(
     Database& database,
     const std::string& sql,
@@ -352,6 +456,7 @@ static void test_window_and_cleanup_are_backend_scoped()
 int main()
 {
     test_integer_window_uses_end_epoch_index();
+    test_unchanged_upsert_does_not_rewrite_row();
     test_repository_is_backend_scoped();
     test_upsert_updates_only_matching_backend();
     test_authoritative_window_removes_only_missing_native_ids();
