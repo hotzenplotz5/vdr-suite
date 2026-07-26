@@ -15,6 +15,10 @@ Primary current-state entry points:
 
 - [Current State](CURRENT.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
+- [Strict Roadmap](planning/roadmap.md)
+- [Phase Map](planning/phase-map.md)
+- [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
+- [VDR Ecosystem Parity and Product Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 
 Project overview:
 
@@ -30,18 +34,22 @@ Use [Current State](CURRENT.md) to answer what is true now.
 
 Use [New Chat Handoff](NEW-CHAT-HANDOFF.md) when starting a new session.
 
-Use historical phase files only when you need implementation traceability.
+Use [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md) for the accepted metadata/Genre scope, performance measurements and live validation through PR #108.
 
-Most `docs/development/phase-*` files are historical records, not the best starting point for current project status.
+Use historical phase files only when implementation traceability is required. Most `docs/development/phase-*` files are historical records, not the best starting point for current status.
 
 ---
 
 ## Current Project Links
 
 - [Current Project Status](development/current-status.md)
+- [Completed Phases Latest Marker](development/completed-phases-latest.md)
+- [Completed Phases](development/completed-phases.md)
 - [Project Status Dashboard](project-status-dashboard.md)
 - [Roadmap](planning/roadmap.md)
-- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Implementation Dependency Map](planning/implementation-dependency-map.md)
+- [VDR Ecosystem Parity and Product Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Build System State](development/build-system-state.md)
 - [Current Architecture State](development/current-architecture-state.md)
 - [Live Remote, Overlay and Legacy OSD Compatibility Contract](architecture/live-remote-osd-contract.md)
@@ -55,23 +63,19 @@ Most `docs/development/phase-*` files are historical records, not the best start
 - [Architecture Map](development/architecture-map.md)
 - [Architecture Documentation](architecture/index.md)
 - [Architecture Decision Records](adr/index.md)
-
----
-
-## Phase 56 Packaging Boundary
-
-- [Phase 56 Completion Audit](development/phase-56.57-completion-audit.md)
-- [Install Manifest / Package File Contract](development/phase-56.55-install-manifest-package-file-contract.md)
-- [Package Prerequisite Audit](development/phase-56.56-package-prerequisite-audit.md)
-- [ADR-0037: Packaging, Install Layout and API Boundary](adr/ADR-0037-packaging-install-api-boundary.md)
+- [Target Platform Architecture](architecture/target-platform-architecture.md)
 
 ---
 
 ## Planning
 
 - [Planning Documentation](planning/index.md)
+- [Strict Roadmap](planning/roadmap.md)
+- [Phase Map](planning/phase-map.md)
+- [Domain Dependency Map](planning/domain-dependency-map.md)
+- [Implementation Dependency Map](planning/implementation-dependency-map.md)
+- [VDR Ecosystem Parity and Product Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Planning Milestones](planning/milestones.md)
-- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Lazy Recording Loading](planning/lazy-recording-loading.md)
 
 ---
