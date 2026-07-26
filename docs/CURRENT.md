@@ -20,7 +20,7 @@
 ## Current Verified Position
 
 ```text
-Latest completed runtime phase:
+Latest completed implementation phase:
 Phase 61 - Suite Metadata and Genre Platform
 
 Latest completed operational hardening block:
@@ -29,7 +29,7 @@ Post-Phase 61 Performance Hardening (B1-B4)
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
 
-Next runtime implementation phase:
+Next implementation focus:
 Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
@@ -186,3 +186,10 @@ Before planning new work, read in this order:
 - Provider data must not become hidden Suite authority.
 - Frontend code must not own authorization or provider transport decisions.
 - Completed phases are not silently reopened; deferred extensions require an explicit later phase or backlog assignment.
+
+---
+
+## Back
+
+- [Back to Documentation Index](index.md)
+- [Back to README](../README.md)
