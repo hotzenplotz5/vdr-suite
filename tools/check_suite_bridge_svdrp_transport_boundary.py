@@ -56,7 +56,7 @@ REQUIRED_HEADER_FRAGMENTS = [
     "public ::ISuiteBridgeEpgTypeSnapshotTransport",
     "public ::ISuiteBridgeMetadataTransport",
     "MaximumGreetingBytes = 1024",
-    "MaximumReplyBytes = 8192",
+    "MaximumReplyBytes = 131072",
     "MaximumReplyLines = 64",
     "SuiteBridgeCommandReply execute(",
     "requestArtwork(",
