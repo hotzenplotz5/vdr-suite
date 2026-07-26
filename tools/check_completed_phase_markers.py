@@ -3,14 +3,15 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-LATEST_MAJOR = "Phase 57 - Multi-Site Backend Administration and Permissions"
+LATEST_MAJOR = "Phase 61 - Suite Metadata and Genre Platform"
 HISTORICAL_UMBRELLA = "Phase 58 - Frontend and Live Parity"
-LATEST_SLICE = "Phase 60.15 - Recording Metadata and Poster Preparation"
-NEXT_RUNTIME = "Phase 61 - Suite Metadata Database and External Provider Integration"
+LATEST_HARDENING = "Post-Phase 61 Performance Hardening (B1-B4)"
+NEXT_RUNTIME = "Phase 62 - Identity, RBAC and Accountability Foundation"
 ARCHITECTURE_FIRST = "ADR-0042"
 ARCHITECTURE_LAST = "ADR-0049"
 PARITY_DOC = "parity-audit-and-frontend-gap-roadmap.md"
 GAP_MATRIX = "architecture-audit-gap-matrix.md"
+CLOSEOUT_DOC = "phase-61-metadata-genre-performance-closeout.md"
 
 REQUIRED_LATEST_MAJOR = [
     "README.md",
@@ -18,16 +19,18 @@ REQUIRED_LATEST_MAJOR = [
     "docs/NEW-CHAT-HANDOFF.md",
     "docs/planning/roadmap.md",
     "docs/planning/phase-map.md",
+    "docs/development/current-status.md",
     "docs/development/completed-phases-latest.md",
     "docs/development/completed-phases.md",
 ]
 
-REQUIRED_LATEST_SLICE = [
+REQUIRED_LATEST_HARDENING = [
     "README.md",
     "docs/CURRENT.md",
     "docs/NEW-CHAT-HANDOFF.md",
     "docs/planning/roadmap.md",
     "docs/planning/phase-map.md",
+    "docs/development/current-status.md",
     "docs/development/completed-phases-latest.md",
     "docs/development/completed-phases.md",
 ]
@@ -38,6 +41,7 @@ REQUIRED_NEXT_RUNTIME = [
     "docs/NEW-CHAT-HANDOFF.md",
     "docs/planning/roadmap.md",
     "docs/planning/phase-map.md",
+    "docs/development/current-status.md",
     "docs/development/completed-phases-latest.md",
     "docs/development/completed-phases.md",
 ]
@@ -51,6 +55,7 @@ REQUIRED_ARCHITECTURE_PACKAGE = [
 ]
 
 REQUIRED_HISTORICAL_UMBRELLA = [
+    "README.md",
     "docs/CURRENT.md",
     "docs/NEW-CHAT-HANDOFF.md",
     "docs/planning/roadmap.md",
@@ -76,10 +81,10 @@ def main():
     errors = []
 
     for rel in REQUIRED_LATEST_MAJOR:
-        require_marker(errors, rel, LATEST_MAJOR, "latest completed major marker")
+        require_marker(errors, rel, LATEST_MAJOR, "latest completed phase marker")
 
-    for rel in REQUIRED_LATEST_SLICE:
-        require_marker(errors, rel, LATEST_SLICE, "latest completed slice marker")
+    for rel in REQUIRED_LATEST_HARDENING:
+        require_marker(errors, rel, LATEST_HARDENING, "latest hardening marker")
 
     for rel in REQUIRED_NEXT_RUNTIME:
         require_marker(errors, rel, NEXT_RUNTIME, "next runtime implementation marker")
@@ -96,14 +101,47 @@ def main():
         errors.append("parity audit planning document is missing")
     else:
         parity_text = parity_path.read_text(encoding="utf-8")
-        for marker in ["RESTfulAPI", "Live", "epgsearch", "VDR Core", "Phase 57", "Phase 58"]:
+        for marker in [
+            "RESTfulAPI",
+            "Live",
+            "epgsearch",
+            "VDR Core",
+            "VDR-Suite",
+            "Phase 62",
+        ]:
             if marker not in parity_text:
                 errors.append("parity audit document misses marker: " + marker)
 
-    for rel in ["docs/NEW-CHAT-HANDOFF.md", "docs/planning/roadmap.md", "docs/planning/index.md"]:
+    closeout_path = ROOT / "docs" / "development" / CLOSEOUT_DOC
+    if not closeout_path.exists():
+        errors.append("Phase 61 closeout document is missing")
+
+    for rel in [
+        "README.md",
+        "docs/CURRENT.md",
+        "docs/NEW-CHAT-HANDOFF.md",
+        "docs/planning/roadmap.md",
+        "docs/planning/index.md",
+    ]:
         require_marker(errors, rel, PARITY_DOC, "parity audit link")
 
-    for rel in ["docs/CURRENT.md", "docs/NEW-CHAT-HANDOFF.md", "docs/planning/index.md"]:
+    for rel in [
+        "README.md",
+        "docs/CURRENT.md",
+        "docs/NEW-CHAT-HANDOFF.md",
+        "docs/planning/roadmap.md",
+        "docs/planning/phase-map.md",
+        "docs/development/current-status.md",
+        "docs/development/completed-phases-latest.md",
+        "docs/development/completed-phases.md",
+    ]:
+        require_marker(errors, rel, CLOSEOUT_DOC, "Phase 61 closeout link")
+
+    for rel in [
+        "docs/CURRENT.md",
+        "docs/NEW-CHAT-HANDOFF.md",
+        "docs/planning/index.md",
+    ]:
         require_marker(errors, rel, GAP_MATRIX, "architecture audit gap matrix link")
 
     if errors:
@@ -113,9 +151,9 @@ def main():
         return 1
 
     print("Completed phase marker check passed.")
-    print("Latest completed major block: " + LATEST_MAJOR)
-    print("Latest completed slice: " + LATEST_SLICE)
-    print("Immediate architecture package: " + ARCHITECTURE_FIRST + " through " + ARCHITECTURE_LAST)
+    print("Latest completed runtime phase: " + LATEST_MAJOR)
+    print("Latest completed hardening block: " + LATEST_HARDENING)
+    print("Architecture package: " + ARCHITECTURE_FIRST + " through " + ARCHITECTURE_LAST)
     print("Next runtime implementation focus: " + NEXT_RUNTIME)
     print("Historical umbrella marker: " + HISTORICAL_UMBRELLA)
     return 0
