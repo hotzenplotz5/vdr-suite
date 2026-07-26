@@ -57,6 +57,7 @@ assert(source.includes('.r-key:not(:disabled):hover'));
 assert(source.includes('.r-key:not(:disabled):active'));
 assert(source.includes('translateY(3px) scale(.98)'));
 assert(source.includes('inset 0 .24rem .42rem rgba(0, 0, 0, .74)'));
+assert(source.includes('@media (max-height: 760px)'));
 assert(source.includes("description.textContent = 'Tastenlayout · mobil'"));
 
 const serverPaths = fs.readFileSync(
