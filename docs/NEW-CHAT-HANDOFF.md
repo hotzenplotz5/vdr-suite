@@ -118,6 +118,23 @@ Do not describe these areas as wholly missing:
 
 ---
 
+## Accepted Architecture Package
+
+```text
+ADR-0042 - Safe Mutation, Revision and Idempotency Contract
+ADR-0043 - Job Claim, Retry and Saga Execution Model
+ADR-0044 - Timer Intent, Assignment and Native Timer Model
+ADR-0045 - Canonical EPG Event Identity and Provenance
+ADR-0046 - Streaming Gateway and Media Session Boundary
+ADR-0047 - Legacy OSD Compatibility Bridge
+ADR-0048 - Public API Versioning, Error and Compatibility Contract
+ADR-0049 - Audit and Security Event Model
+```
+
+The accepted contracts and diagrams define later ownership and safety requirements. They do not mean the later Agent, streaming, OSD or `/api/v1` runtime phases are already implemented.
+
+---
+
 ## Main Incomplete Areas
 
 The next major runtime gaps are:
