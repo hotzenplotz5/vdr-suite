@@ -169,8 +169,9 @@ require(
 )
 require(
     "epg-browse-taxonomy-v4" in live_parity
-    and "version=8" in live_parity,
-    "Live-parity EPG browse taxonomy v4 migration is missing",
+    and "version=8" in live_parity
+    and "version=9" in live_parity,
+    "Live-parity EPG browse taxonomy v4 migrations are missing",
 )
 require(
     "liveParityStrongNewsTitle" in live_parity
@@ -203,9 +204,9 @@ require(
 )
 require(
     "dvbSpecificFilmGenre" in live_parity
-    and "FeatureFilmMinimumSeconds" in live_parity
-    and "dvbMovie" in live_parity,
-    "bounded DVB feature-film fallback is missing",
+    and "if (!dvbMovie || !dvbSpecificFilmGenre)" in live_parity
+    and "FeatureFilmMinimumSeconds" not in live_parity,
+    "strict specific-genre DVB movie fallback is missing",
 )
 require(
     "recordingFolderGenreCandidate" in synchronization
