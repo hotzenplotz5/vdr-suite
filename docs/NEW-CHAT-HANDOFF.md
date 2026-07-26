@@ -191,3 +191,11 @@ Use [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md) fo
 - Frontend code does not own authorization decisions.
 - Completed phases are not reopened by optional extensions.
 - Claims about parity require source, test or live evidence.
+
+---
+
+## Back
+
+- [Back to Current State](CURRENT.md)
+- [Back to Documentation Index](index.md)
+- [Back to README](../README.md)
