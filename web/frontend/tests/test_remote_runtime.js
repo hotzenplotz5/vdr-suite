@@ -29,10 +29,12 @@ assert(source.includes("'overview', 'channels2', 'recordings2', 'genres', 'epg'"
 assert(source.includes("'channelsort', 'timers', 'searchtimers'"));
 assert(source.includes('100dvh'));
 assert(source.includes('position: sticky'));
-assert(source.includes('.r-remote-body'));
+assert(source.includes('.r-remote-body::before'));
+assert(source.includes('.r-remote-body::after'));
+assert(source.includes('repeating-radial-gradient'));
 assert(source.includes('.r-dpad'));
 assert(source.includes('grid-template-areas:'));
-assert(source.includes('"left ok right"'));
+assert(source.includes("'left ok right'"));
 assert(source.includes('.r-rocker-grid'));
 assert(source.includes('.r-color-grid'));
 assert(source.includes('.r-number-grid'));
@@ -42,23 +44,28 @@ assert(source.includes('.r-color-grid .red'));
 assert(source.includes('.r-color-grid .green'));
 assert(source.includes('.r-color-grid .yellow'));
 assert(source.includes('.r-color-grid .blue'));
-assert(source.includes('linear-gradient(145deg, #fde047, #ca8a04)'));
 
 assert(source.includes("launcher.classList.add('brand-feature-remote')"));
 assert(source.includes("launcher.setAttribute('aria-label', 'VDR - Fernbedienung öffnen')"));
 assert(source.includes('.brand-feature-remote:hover'));
-assert(source.includes("element('h2', '', 'VDR - Fernbedienung')"));
 assert(source.includes("popup.setAttribute('aria-label', 'VDR - Fernbedienung')"));
+assert(source.includes("brandMark = element('span', 'r-brand-mark', 'VDR')"));
 assert(source.includes("title.textContent = 'VDR - Fernbedienung'"));
 assert(!source.includes("title.textContent = 'Fernsteuerung'"));
 
+assert(source.includes('function installPressFeedback(button)'));
+assert(source.includes("button.classList.add('is-pressed')"));
+assert(source.includes("button.classList.remove('is-pressed')"));
+assert(source.includes('.r-key.is-pressed'));
+assert(source.includes('translate3d(0, .28rem, 0) scale(.985)'));
+assert(source.includes('let actionInFlight = false'));
+assert(source.includes('if (!button || button.disabled || actionInFlight)'));
+assert(source.includes("button.classList.add('is-sending')"));
+assert(!source.includes("lockControls(true);\n      setStatus('Sende "));
 assert(source.includes('@media (hover: hover)'));
 assert(source.includes('.r-key:not(:disabled):hover'));
-assert(source.includes('.r-key:not(:disabled):active'));
-assert(source.includes('translateY(3px) scale(.98)'));
-assert(source.includes('inset 0 .24rem .42rem rgba(0, 0, 0, .74)'));
 assert(source.includes('@media (max-height: 760px)'));
-assert(source.includes("description.textContent = 'Tastenlayout · mobil'"));
+assert(source.includes("description.textContent = 'Fotorealistisch · mobil'"));
 
 const serverPaths = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'core', 'http', 'src', 'TestHttpServerPaths.inc'),
