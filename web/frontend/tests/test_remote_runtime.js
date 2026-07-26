@@ -24,23 +24,38 @@ assert(!source.includes('/api/vdr/live'));
 assert(clientSource.includes("'/api/vdr/remote/actions'"));
 assert(clientSource.includes("'/api/vdr/live/overlay'"));
 assert(clientSource.includes("'/api/vdr/live'"));
-assert(source.includes("['overview','channels2','recordings2','genres','epg','channelsort','timers','searchtimers']"));
+
+assert(source.includes("'overview', 'channels2', 'recordings2', 'genres', 'epg'"));
+assert(source.includes("'channelsort', 'timers', 'searchtimers'"));
 assert(source.includes('100dvh'));
-assert(source.includes('position:sticky'));
-assert(source.includes('grid-template-areas:"menu up info" "left ok right" "back down empty"'));
-assert(source.includes("['menu','up','info','left','ok','right','back','down']"));
-assert(source.includes("['red','green','yellow','blue'].forEach"));
+assert(source.includes('position: sticky'));
+assert(source.includes('.r-remote-body'));
+assert(source.includes('.r-dpad'));
+assert(source.includes('grid-template-areas:'));
+assert(source.includes('"left ok right"'));
+assert(source.includes('.r-rocker-grid'));
+assert(source.includes('.r-color-grid'));
+assert(source.includes('.r-number-grid'));
+assert(source.includes("appendKeys(section, ['red', 'green', 'yellow', 'blue']"));
 assert(!source.includes("group(p,'Farbtasten'"));
-assert(source.includes('.r-color-grid .red{background:#dc2626'));
-assert(source.includes('.r-color-grid .green{background:#16a34a'));
-assert(source.includes('.r-color-grid .yellow{background:#facc15'));
-assert(source.includes('.r-color-grid .blue{background:#2563eb'));
-assert(source.includes('.r-color-grid .yellow{background:#facc15;border-color:#fde047;color:#111827}'));
-assert(source.includes("x.classList.add('brand-feature-remote')"));
-assert(source.includes('.brand-feature-remote:hover,.brand-feature-remote:focus'));
-assert(source.includes("el('h2','','VDR - Fernbedienung')"));
-assert(source.includes("t.textContent='VDR - Fernbedienung'"));
-assert(!source.includes("t.textContent='Fernsteuerung'"));
+assert(source.includes('.r-color-grid .red'));
+assert(source.includes('.r-color-grid .green'));
+assert(source.includes('.r-color-grid .yellow'));
+assert(source.includes('.r-color-grid .blue'));
+assert(source.includes('linear-gradient(145deg, #fde047, #ca8a04)'));
+
+assert(source.includes("launcher.classList.add('brand-feature-remote')"));
+assert(source.includes('.brand-feature-remote:hover'));
+assert(source.includes("element('h2', '', 'VDR - Fernbedienung')"));
+assert(source.includes("title.textContent = 'VDR - Fernbedienung'"));
+assert(!source.includes("title.textContent = 'Fernsteuerung'"));
+
+assert(source.includes('@media (hover: hover)'));
+assert(source.includes('.r-key:not(:disabled):hover'));
+assert(source.includes('.r-key:not(:disabled):active'));
+assert(source.includes('translateY(3px) scale(.98)'));
+assert(source.includes('inset 0 .24rem .42rem rgba(0, 0, 0, .74)'));
+assert(source.includes("description.textContent = 'Tastenlayout · mobil'"));
 
 const serverPaths = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'core', 'http', 'src', 'TestHttpServerPaths.inc'),
