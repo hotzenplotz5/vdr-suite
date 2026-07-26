@@ -205,7 +205,16 @@ bool upsertEvents(
         "duration_seconds = excluded.duration_seconds, "
         "parental_rating = excluded.parental_rating, "
         "content_descriptors = excluded.content_descriptors, "
-        "updated_at = CURRENT_TIMESTAMP;";
+        "updated_at = CURRENT_TIMESTAMP "
+        "WHERE epg_events.title IS NOT excluded.title "
+        "OR epg_events.subtitle IS NOT excluded.subtitle "
+        "OR epg_events.description IS NOT excluded.description "
+        "OR epg_events.start_time IS NOT excluded.start_time "
+        "OR epg_events.end_time IS NOT excluded.end_time "
+        "OR epg_events.duration_seconds IS NOT excluded.duration_seconds "
+        "OR epg_events.parental_rating IS NOT excluded.parental_rating "
+        "OR epg_events.content_descriptors "
+        "IS NOT excluded.content_descriptors;";
 
     if (sqlite3_prepare_v2(
             database,
