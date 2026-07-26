@@ -908,6 +908,36 @@
           padding-inline: 2.2rem;
         }
       }
+      @media (max-height: 760px) {
+        .r-remote-body {
+          gap: .48rem;
+          padding-top: .55rem;
+          padding-bottom: .75rem;
+        }
+        .r-overlay {
+          display: none;
+        }
+        .r-status {
+          padding-block: .32rem;
+        }
+        .r-dpad {
+          grid-template-rows: repeat(3, 3rem);
+          width: min(11.75rem, 74%);
+        }
+        .r-dpad .ok {
+          min-height: 3rem;
+        }
+        .r-key-rocker {
+          min-height: 2.85rem;
+        }
+        .r-number-grid {
+          gap: .35rem .85rem;
+          padding-inline: 2.65rem;
+        }
+        .r-key-number {
+          font-size: 1rem;
+        }
+      }
     `;
     document.head.appendChild(style);
   }
