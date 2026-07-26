@@ -1,9 +1,13 @@
 name: Finalize photorealistic JPG remote
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/photorealistic-jpg-remote
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: write
@@ -11,10 +15,13 @@ permissions:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    env:
+      BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Replace SVG wrapper with the real JPEG asset
         shell: bash
@@ -128,10 +135,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm .github/workflows/remote-jpg-migration.yml
-          git add web/frontend/assets/vdr-remote-photorealistic.jpg \
-                  web/frontend/assets/vdr-remote-photorealistic.svg \
-                  web/frontend/modules/remote.js \
-                  web/frontend/tests/test_remote_runtime.js \
-                  mk/live-remote.mk
+          git add -A
           git commit --amend -m "fix(frontend): use raster remote asset"
-          git push --force-with-lease origin HEAD:"${GITHUB_REF_NAME}"
+          git push --force-with-lease origin HEAD:"${BRANCH_NAME}"
