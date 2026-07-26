@@ -9,6 +9,7 @@
 - [Current Project Status](current-status.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
 - [Completed Phases Archive](completed-phases/README.md)
+- [Phase 61 and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
 - [Strict Roadmap](../planning/roadmap.md)
 - [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 
@@ -16,38 +17,35 @@
 
 ## Purpose
 
-This file is the compact authoritative entry point for completed implementation history.
-
-It records:
-
-- the latest completed implementation slice;
-- the latest completed major project block;
-- compact completed range summaries;
-- links to detailed phase archive files.
-
-Detailed chronological records belong in the archive and individual phase documents. Future work belongs in the roadmap.
+This file is the compact authoritative entry point for completed implementation history. Detailed chronological records belong in archive and closeout documents; future work belongs in the roadmap.
 
 ---
 
-## Latest Completed Implementation Slice
+## Latest Completed Runtime Phase
 
 ```text
-Phase 60.15 - Recording Metadata and Poster Preparation
+Phase 61 - Suite Metadata and Genre Platform
 ```
 
-## Latest Completed Major Project Block
+## Latest Completed Operational Hardening Block
 
 ```text
-Phase 57 - Multi-Site Backend Administration and Permissions
+Post-Phase 61 Performance Hardening (B1-B4)
 ```
 
-The Phase 58 umbrella label is retained for historical product grouping. Concrete completed frontend implementation continued through Phase 59 and Phase 60 slices.
+## Historical Umbrella Implementation Track
+
+```text
+Phase 58 - Frontend and Live Parity
+```
+
+The Phase 58 label is retained for historical product grouping. Concrete completed implementation continued through Phases 59, 60 and 61.
 
 ---
 
 ## Completed Range Overview
 
-| Range | Status | Result | Archive |
+| Range | Status | Result | Archive or closeout |
 | --- | --- | --- | --- |
 | Phase 1.x-45.x | Completed | Core platform, VDR backend, multi-backend runtime, Recording actions, runtime hardening and EPG search. | Historical repository phase documents |
 | Phase 46 | Completed | Metadata and people foundations. | [Phase 46](completed-phases/phase-46.md) |
@@ -62,44 +60,46 @@ The Phase 58 umbrella label is retained for historical product grouping. Concret
 | Phase 55 | Completed | Adapter, acceptance, documentation and Recording operations audit. | [Phase 55](completed-phases/phase-55.md) |
 | Phase 56 | Completed | Library boundaries, packaging and developer documentation. | [Phase 56](completed-phases/phase-56.md) |
 | Phase 57 | Completed | Multi-site backend administration and read-only permission foundation. | [Phase 57](completed-phases/phase-57.md) |
-| Phase 58 | Completed slices | Frontend and Live-parity foundation slices; umbrella label retained historically. | [Phase 58](completed-phases/phase-58.md) |
+| Phase 58 | Completed slices | Frontend and Live-parity foundation slices; umbrella retained historically. | [Phase 58](completed-phases/phase-58.md) |
 | Phase 59.00-59.15e | Completed | Frontend Client API and module boundaries. | [Phase 59](completed-phases/phase-59.md) |
-| Phase 60.1-60.15 | Completed | Frontend platform, lazy Recording cache, Recording detail UX, provider-neutral metadata and authenticated local artwork preparation. | [Phase 60](completed-phases/phase-60.md) |
+| Phase 60.1-60.15 | Completed | Frontend platform, lazy Recording cache, Recording UX, provider-neutral metadata and authenticated artwork preparation. | [Phase 60](completed-phases/phase-60.md) |
+| Phase 61 | Completed | Persistent metadata-backed Genre runtime for Recordings and EPG, provider evidence, indexed browse queries and frontend integration. | [Phase 61 closeout](phase-61-metadata-genre-performance-closeout.md) |
+| B1-B4 | Completed non-numbered hardening | EPG and metadata query, transaction, no-op update and snapshot-cadence optimization. | [Performance closeout](phase-61-metadata-genre-performance-closeout.md#post-phase-61-performance-hardening) |
 
 ---
 
 ## Completed Audit Evidence
 
-The architecture source audit completed on 2026-07-15 is not an implementation phase. It is recorded separately as completed evidence:
+The architecture source audit completed on 2026-07-15 is not an implementation phase. It remains separate completed evidence:
 
 - [Architecture Source Audit - 2026-07-15](architecture-source-audit-2026-07-15.md)
 
-Its remaining implementation gaps are tracked in:
+Remaining implementation gaps are tracked in:
 
 - [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
+- [VDR Ecosystem Parity](../planning/parity-audit-and-frontend-gap-roadmap.md)
 
 ---
 
 ## Next Work Boundary
 
-The architecture contract package and Phase 60.15 runtime preparation are complete.
-
 The next runtime implementation phase is:
 
 ```text
-Phase 61 - Suite Metadata Database and External Provider Integration
+Phase 62 - Identity, RBAC and Accountability Foundation
 ```
+
+Phase 61 is not kept open by optional future provider adapters, recommendation work or broader diagnostics. Such extensions must be assigned explicitly to later phases or backlog.
 
 ---
 
 ## Maintenance Rules
 
-- Update the latest completed slice after every completed implementation slice.
-- Update the appropriate archive file when a phase or slice completes.
-- Keep the latest major block separate from later completed slices under an umbrella track.
-- Do not place planned work or open gaps in this file.
-- Link completed non-phase audits as evidence, but do not pretend they are runtime implementation.
-- Update the Phase Map and Architecture Audit Gap Matrix with every relevant completion.
+- Update the latest completed runtime phase after every accepted phase closeout.
+- Keep non-numbered hardening and evidence separate from numbered phases.
+- Update the appropriate archive or closeout file when a phase completes.
+- Do not place planned work or unresolved gaps in the completed-history table.
+- Update the Phase Map and relevant gap/parity documents with every completion.
 
 Verification:
 
