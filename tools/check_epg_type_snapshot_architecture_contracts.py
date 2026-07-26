@@ -134,18 +134,47 @@ require(
     < worker.find("processEpgTypeSnapshotPages(", worker.find("if (initializeSnapshot)")),
     "dirty refreshes must continue an incomplete snapshot instead of resetting it",
 )
-periodic_initialize = worker.find("if (initializePeriodicSnapshot)")
+periodic_due = worker.find(
+    "const bool completedSnapshotRefreshDue"
+)
+periodic_initialize = worker.find(
+    "if (initializePeriodicSnapshot)",
+    periodic_due,
+)
 periodic_process = worker.find(
     "processEpgTypeSnapshotPages(",
     periodic_initialize,
 )
+periodic_block = worker[periodic_due:periodic_process]
 require(
-    0 <= periodic_initialize < periodic_process
-    and "backendRuntimeContext->epgTypeSnapshotComplete ||" in worker[
-        worker.rfind("const bool initializePeriodicSnapshot", 0, periodic_initialize):
+    0 <= periodic_due < periodic_initialize < periodic_process
+    and "EpgTypeSnapshotRefreshSeconds = 15 * 60" in worker
+    and "epgTypeSnapshotCompletedAt" in worker
+    and "backendRuntimeContext->epgTypeSnapshotComplete &&"
+    in periodic_block
+    and "EpgTypeSnapshotRefreshSeconds" in periodic_block
+    and "snapshotStateInvalid ||"
+    in worker[
+        worker.rfind(
+            "const bool initializePeriodicSnapshot",
+            0,
+            periodic_initialize,
+        ):
         periodic_initialize
-    ],
-    "completed ETYPES windows must restart without resetting incomplete cursors",
+    ]
+    and "completedSnapshotRefreshDue"
+    in worker[
+        worker.rfind(
+            "const bool initializePeriodicSnapshot",
+            0,
+            periodic_initialize,
+        ):
+        periodic_initialize
+    ]
+    and "epgTypeSnapshotCompletedAt.erase("
+    in worker[periodic_initialize:periodic_process],
+    "completed ETYPES windows must be throttled while "
+    "incomplete cursors continue",
 )
 apply_failure = worker.find("if (!applied)")
 apply_return = worker.find("return false;", apply_failure)
