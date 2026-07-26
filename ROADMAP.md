@@ -2,135 +2,81 @@
 
 ## Navigation
 
-* [README](README.md)
-* [Documentation Index](docs/index.md)
-* [Project Overview](docs/project-overview.md)
-* [Planning Index](docs/planning/index.md)
-* [Active Roadmap](docs/planning/roadmap.md)
+- [README](README.md)
+- [Documentation Index](docs/index.md)
+- [Current State](docs/CURRENT.md)
+- [Strict Roadmap](docs/planning/roadmap.md)
+- [Phase Map](docs/planning/phase-map.md)
+- [Implementation Dependency Map](docs/planning/implementation-dependency-map.md)
+- [Phase 61 and Performance Closeout](docs/development/phase-61-metadata-genre-performance-closeout.md)
+- [VDR Ecosystem Parity](docs/planning/parity-audit-and-frontend-gap-roadmap.md)
 
 ---
 
 ## Purpose
 
-This root roadmap is a repository entry point.
-
-The canonical and detailed roadmap is maintained in:
-
-* [docs/planning/roadmap.md](docs/planning/roadmap.md)
+This root roadmap is the compact repository entry point. The authoritative execution order and exit criteria live in [docs/planning/roadmap.md](docs/planning/roadmap.md).
 
 Completed implementation history is maintained in:
 
-* [docs/development/completed-phases.md](docs/development/completed-phases.md)
-
-Current status is maintained in:
-
-* [docs/development/current-status.md](docs/development/current-status.md)
-* [docs/project-status-dashboard.md](docs/project-status-dashboard.md)
+- [Completed Phases](docs/development/completed-phases.md)
+- [Completed Phases Latest Marker](docs/development/completed-phases-latest.md)
+- [Phase 61 and Performance Closeout](docs/development/phase-61-metadata-genre-performance-closeout.md)
 
 ---
 
 ## Current Roadmap Position
 
 ```text
-Latest completed phase:
-Phase 46.0 - Content Classification Architecture ADR
+Latest completed runtime phase:
+Phase 61 - Suite Metadata and Genre Platform
 
-Next implementation focus:
-Phase 46.1 - Genre Domain Foundation
+Latest completed operational hardening block:
+Post-Phase 61 Performance Hardening (B1-B4)
+
+Historical umbrella implementation track:
+Phase 58 - Frontend and Live Parity
+
+Next runtime implementation phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-The Phase 45 EPG search block is complete:
-
-```text
-45.1 EPG Search Request
-45.2 EPG Search Matcher
-45.3 EPG Search Result
-45.4 EPG Search JSON Contract
-45.5 EPG Search Service
-45.6 EPG Search Controller
-45.7 EPG Search REST Validation
-45.8 EPG Search API Documentation
-```
-
-Phase 46.0 added [ADR-0028: Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md).
+Phase 61 is no longer a feature branch or pending acceptance item. PR #100 is merged and the metadata-backed Genre runtime was verified on the real VDR-Suite installation. PRs #102 through #108 completed the associated EPG and metadata performance hardening.
 
 ---
 
-## Strategic Roadmap Pillars
-
-VDR-Suite now tracks its forward direction around three pillars:
+## Strict Forward Sequence
 
 ```text
-1. Multi-Backend VDR Federation
-2. Content Intelligence
-3. Client Platform
+Phase 62 - Identity, RBAC and Accountability Foundation
+Phase 63 - Backend Agent and Secure Multi-Site Runtime
+Phase 64 - Timer Intent and Multi-Backend Orchestration
+Phase 65 - Streaming Gateway and Media Sessions
+Phase 66 - Legacy OSD Compatibility Bridge
+Phase 67 - Public API and Client Compatibility Hardening
+Phase 68 - Recommendation and Content Knowledge Graph
 ```
+
+The accepted target architecture, domain dependency map and implementation dependency map remain mandatory prerequisites. Later phases may not bypass authorization, accountability, generation fencing or stable identity by moving policy into the frontend, a plugin or an external provider.
+
+---
+
+## Strategic Pillars
 
 ### Multi-Backend VDR Federation
 
-One API layer should eventually expose several VDR systems while preserving backend identity, backend capabilities and backend permissions.
-
-Target scenarios include:
-
-* multiple VDR servers
-* read-only and read-write backends
-* backend-aware recordings, timers, EPG and streams
-* household or partner installations with several TVs
+One Suite API layer should expose several VDR systems while preserving backend identity, capabilities, health, permissions and native ownership.
 
 ### Content Intelligence
 
-Content classification, metadata and search should build on source-aware evidence instead of single flat strings.
-
-Target scenarios include:
-
-* DVB / EPG genres
-* tvscraper genres
-* TMDb / TVDb / IMDb enrichment
-* user-defined genres and tags
-* folder/path-derived classifications
-* content ratings such as FSK
-* future profile and policy decisions
+Metadata, Genres, people, artwork and later recommendations must remain provider neutral and provenance aware. Phase 61 established the first accepted persistent vertical slice.
 
 ### Client Platform
 
-Future clients should consume stable VDR-Suite APIs and must not depend on VDR filesystem paths, RESTfulAPI-specific URLs or backend plugin details.
-
-Target clients include:
-
-* Web frontend
-* Windows frontend
-* Android / iOS frontends
-* TV frontend
-* possible Hisense / VIDAA evaluation
-
----
-
-## Planned Major Direction
-
-The active detailed roadmap currently points toward:
-
-```text
-Phase 46.x - Content Classification and Genre Foundation
-Phase 47.x - SearchTimer Foundation
-Phase 48.x - Multi-Backend Unified Search
-Phase 49.x - User Profiles, Policy and Content Rating
-Phase 50.x - Streaming API Foundation
-Phase 51.x - TV Frontend Strategy
-Phase 52.x - Rectools Integration Layer
-```
+Web, desktop, mobile and TV clients should consume stable Suite-owned contracts without learning VDR filesystem paths or private RESTfulAPI, SVDRP, Streamdev, TVScraper or SuiteBridge details.
 
 ---
 
 ## Roadmap Rule
 
-This file is intentionally short.
-
-The detailed roadmap belongs in [docs/planning/roadmap.md](docs/planning/roadmap.md).
-
-This root file should only summarize the current direction and link to the canonical roadmap documents.
-
----
-
-## Back
-
-* [Back to README](README.md)
+Work is read from top to bottom in the strict roadmap. Completed phases are not reopened merely because optional extensions remain possible; deferred extensions must be assigned explicitly to a later phase or backlog.
