@@ -8,33 +8,44 @@
 - [Development Index](index.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Archive](completed-phases/README.md)
+- [Phase 61 and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
 - [Strict Roadmap](../planning/roadmap.md)
 
 ---
 
 ## Purpose
 
-This file provides the explicit latest-completed markers used by readers and phase-consistency checks.
-
-Detailed implementation history remains in [Completed Phases](completed-phases.md) and the archive.
+This file provides the explicit latest-completed markers used by readers and phase-consistency checks. Detailed implementation history remains in [Completed Phases](completed-phases.md), the archive and the dedicated Phase 61 closeout.
 
 ---
 
-## Latest Completed Implementation Slice
+## Latest Completed Runtime Phase
 
 ```text
-Phase 60.15 - Recording Metadata and Poster Preparation
+Phase 61 - Suite Metadata and Genre Platform
 ```
+
+The accepted runtime scope includes persistent Recording and EPG Genre assignments, provider and derived evidence, indexed browse queries, provider-neutral REST and frontend navigation, restart persistence and real-system acceptance.
 
 ---
 
-## Latest Completed Major Project Block
+## Latest Completed Operational Hardening Block
 
 ```text
-Phase 57 - Multi-Site Backend Administration and Permissions
+Post-Phase 61 Performance Hardening (B1-B4)
 ```
 
-The Phase 58 umbrella label remains a historical grouping and does not replace the concrete completed Phase 59 and Phase 60 slice markers.
+This non-numbered closeout block covers PRs #102 through #108 and is documented in [Phase 61 and Performance Closeout](phase-61-metadata-genre-performance-closeout.md).
+
+---
+
+## Historical Umbrella Implementation Track
+
+```text
+Phase 58 - Frontend and Live Parity
+```
+
+The Phase 58 label remains a historical product grouping. Concrete implementation continued through Phases 59, 60 and 61.
 
 ---
 
@@ -42,14 +53,18 @@ The Phase 58 umbrella label remains a historical grouping and does not replace t
 
 ```text
 ADR-0042 through ADR-0049
-Architecture diagrams
+Target Platform Architecture
 Domain and implementation dependency maps
 ```
+
+Accepted architecture does not substitute for runtime implementation, but the required package is complete.
+
+---
 
 ## Next Runtime Implementation Phase
 
 ```text
-Phase 61 - Suite Metadata Database and External Provider Integration
+Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
 ---
@@ -58,19 +73,19 @@ Phase 61 - Suite Metadata Database and External Provider Integration
 
 ```text
 Architecture Source Audit - 2026-07-15
+Post-Phase 61 Performance Hardening (B1-B4)
 ```
 
-The audit is complete as an evidence and decision activity. Its runtime gaps remain open until the mapped roadmap phases are implemented.
+The source audit is completed evidence and the B1-B4 block is completed operational hardening. Neither creates a new numbered phase.
 
 ---
 
 ## Maintenance Rules
 
-- Update this marker whenever the latest completed implementation slice changes.
-- Keep the latest completed major project block aligned with `docs/CURRENT.md`, the roadmap and the phase map.
-- Keep immediate architecture work separate from the next runtime implementation slice.
-- Do not treat an accepted ADR or completed audit as completed runtime implementation.
-- Update the matching archive file and Architecture Audit Gap Matrix when a phase closes a tracked gap.
+- Update this marker whenever the latest completed runtime phase changes.
+- Keep the next runtime phase aligned with `docs/CURRENT.md`, the roadmap and the phase map.
+- Keep architecture evidence, operational hardening and numbered runtime phases distinguishable.
+- Update the matching closeout/archive document when a phase closes.
 
 ---
 
