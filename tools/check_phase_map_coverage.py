@@ -3,10 +3,10 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-LATEST_MAJOR = "Phase 57 - Multi-Site Backend Administration and Permissions"
+LATEST_MAJOR = "Phase 61 - Suite Metadata and Genre Platform"
 UMBRELLA_TRACK = "Phase 58 - Frontend and Live Parity"
-LATEST_SLICE = "Phase 60.15 - Recording Metadata and Poster Preparation"
-NEXT_SLICE = "Phase 61 - Suite Metadata Database and External Provider Integration"
+LATEST_HARDENING = "Post-Phase 61 Performance Hardening (B1-B4)"
+NEXT_SLICE = "Phase 62 - Identity, RBAC and Accountability Foundation"
 
 REQUIRED_COMPLETED_RANGES = [
     "Phase 1.x-7.x",
@@ -31,10 +31,10 @@ REQUIRED_COMPLETED_RANGES = [
     "Phase 58.0-58.90b",
     "Phase 59.00-59.15e",
     "Phase 60.1-60.15",
+    "Phase 61",
 ]
 
 REQUIRED_CURRENT_AND_PLANNED = [
-    "Phase 60.15",
     "Phase 61",
     "Phase 62",
     "Phase 63",
@@ -47,7 +47,7 @@ REQUIRED_CURRENT_AND_PLANNED = [
 
 REQUIRED_ROADMAP_ORDER = [
     "Step 1 - Phase 60.15: Recording Metadata and Poster Preparation",
-    "Step 2 - Phase 61: Suite Metadata Database and External Providers",
+    "Step 2 - Phase 61: Suite Metadata and Genre Platform",
     "Step 3 - Phase 62: Identity, RBAC and Accountability Foundation",
     "Step 4 - Phase 63: Backend Agent and Secure Multi-Site Runtime",
     "Step 5 - Phase 64: Timer Intent and Multi-Backend Orchestration",
@@ -61,28 +61,40 @@ REQUIRED_CLOSEOUT_FILES = [
     "docs/architecture/target-platform-architecture.md",
     "docs/planning/domain-dependency-map.md",
     "docs/planning/implementation-dependency-map.md",
+    "docs/development/phase-61-metadata-genre-performance-closeout.md",
 ]
 
 REQUIRED_CLOSEOUT_LINKS = {
+    "README.md": [
+        "docs/development/phase-61-metadata-genre-performance-closeout.md",
+        "docs/planning/parity-audit-and-frontend-gap-roadmap.md",
+    ],
     "docs/CURRENT.md": [
         "architecture/target-platform-architecture.md",
         "planning/domain-dependency-map.md",
         "planning/implementation-dependency-map.md",
+        "development/phase-61-metadata-genre-performance-closeout.md",
+        "planning/parity-audit-and-frontend-gap-roadmap.md",
     ],
     "docs/NEW-CHAT-HANDOFF.md": [
         "architecture/target-platform-architecture.md",
         "planning/domain-dependency-map.md",
         "planning/implementation-dependency-map.md",
+        "development/phase-61-metadata-genre-performance-closeout.md",
+        "planning/parity-audit-and-frontend-gap-roadmap.md",
     ],
     "docs/planning/roadmap.md": [
         "../architecture/target-platform-architecture.md",
         "domain-dependency-map.md",
         "implementation-dependency-map.md",
+        "../development/phase-61-metadata-genre-performance-closeout.md",
+        "parity-audit-and-frontend-gap-roadmap.md",
     ],
     "docs/planning/phase-map.md": [
         "../architecture/target-platform-architecture.md",
         "domain-dependency-map.md",
         "implementation-dependency-map.md",
+        "../development/phase-61-metadata-genre-performance-closeout.md",
     ],
 }
 
@@ -96,6 +108,9 @@ STALE_ROADMAP_MARKERS = [
     "### Phase 60 - Recommendation",
     "Phase 62 - Recommendation and Content Knowledge Graph",
     "runtime milestone number not yet assigned",
+    "Status: **Next runtime implementation phase.**",
+    "Status: implementation under review",
+    "real-system acceptance pending",
 ]
 
 
@@ -134,7 +149,7 @@ def require_order(text, rel, markers):
 def check_closeout_files():
     for rel in REQUIRED_CLOSEOUT_FILES:
         if not p(rel).is_file():
-            error("architecture package closeout file is missing: " + rel)
+            error("closeout file is missing: " + rel)
 
     for rel, links in REQUIRED_CLOSEOUT_LINKS.items():
         text = read(rel)
@@ -158,7 +173,7 @@ def check():
         [
             LATEST_MAJOR,
             UMBRELLA_TRACK,
-            LATEST_SLICE,
+            LATEST_HARDENING,
             NEXT_SLICE,
             "Completed Architecture Contract Package",
         ],
@@ -173,7 +188,7 @@ def check():
         [
             LATEST_MAJOR,
             UMBRELLA_TRACK,
-            LATEST_SLICE,
+            LATEST_HARDENING,
             NEXT_SLICE,
             "Completed Architecture Contract Baseline",
         ]
@@ -190,13 +205,33 @@ def check():
         if item in roadmap:
             error("roadmap.md still contains stale block: " + item)
 
-    for rel in ["README.md", "docs/CURRENT.md", "docs/NEW-CHAT-HANDOFF.md"]:
+    for rel in [
+        "README.md",
+        "docs/CURRENT.md",
+        "docs/NEW-CHAT-HANDOFF.md",
+        "docs/development/current-status.md",
+        "docs/development/completed-phases-latest.md",
+    ]:
         text = read(rel)
         require_markers(
             text,
             rel,
-            [LATEST_MAJOR, UMBRELLA_TRACK, LATEST_SLICE, NEXT_SLICE],
+            [LATEST_MAJOR, UMBRELLA_TRACK, LATEST_HARDENING, NEXT_SLICE],
         )
+
+    parity = read("docs/planning/parity-audit-and-frontend-gap-roadmap.md")
+    require_markers(
+        parity,
+        "docs/planning/parity-audit-and-frontend-gap-roadmap.md",
+        [
+            "VDR Core",
+            "Live",
+            "epgsearch",
+            "RESTfulAPI",
+            "VDR-Suite",
+            "Phase 62",
+        ],
+    )
 
     check_closeout_files()
 
