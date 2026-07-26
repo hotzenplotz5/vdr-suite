@@ -247,3 +247,10 @@ Phase 62 - Identity, RBAC and Accountability Foundation
 Phase 62 should begin with actor identity and centralized authorization contracts before migrating privileged operations. Append-only accountability evidence and a protected outbox must exist before later Agent-backed or remote privileged dispatch.
 
 The current comparison with VDR Core, Live, epgsearch and RESTfulAPI is maintained in [VDR Ecosystem Parity](../planning/parity-audit-and-frontend-gap-roadmap.md).
+---
+
+## Back
+
+- [Back to Completed Phases](completed-phases.md)
+- [Back to Current State](../CURRENT.md)
+- [Back to Development Index](index.md)

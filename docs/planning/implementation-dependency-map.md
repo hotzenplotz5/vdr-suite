@@ -442,3 +442,11 @@ value-object tests
 ## Maintenance Rule
 
 Completed phases stay marked complete. New optional work must be assigned to a later phase or backlog rather than reopening old status text.
+---
+
+## Back
+
+- [Back to Strict Roadmap](roadmap.md)
+- [Back to Phase Map](phase-map.md)
+- [Back to Planning Index](index.md)
+- [Back to Current State](../CURRENT.md)

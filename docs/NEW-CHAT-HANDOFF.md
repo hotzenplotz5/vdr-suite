@@ -14,6 +14,8 @@
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Completed Phases](development/completed-phases.md)
+- [Architecture Decision Records](adr/index.md)
+- [GitHub Actions Status Handoff](development/github-actions-status-handoff.md)
 
 ---
 
@@ -59,6 +61,19 @@ Phase 62 - Identity, RBAC and Accountability Foundation
 Phase 61 is merged and accepted. Do not describe it as a feature branch, implementation under review or pending real-system acceptance.
 
 PR #100 merged the metadata-backed Genre runtime. PRs #102 through #108 completed the production-measured EPG and metadata performance hardening.
+
+---
+
+## Completed Foundation Continuity
+
+Do not describe these completed foundations as missing:
+
+- Phase 56 - Library Boundary, Packaging and Developer Documentation
+- Phase 57 - Multi-Site Backend Administration and Permissions
+
+Phase 56 owns the established source, install, packaging and developer
+boundaries. Phase 57 owns the backend administration and server-enforced
+read-only permission foundation reused by subsequent phases.
 
 ---
 

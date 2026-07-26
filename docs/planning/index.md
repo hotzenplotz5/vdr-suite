@@ -15,7 +15,7 @@
 
 This section describes future VDR-Suite work, dependency order and open product or architecture gaps.
 
-Completed implementation belongs in [Completed Phases](../development/completed-phases.md) and dedicated closeout documents. Stable architecture belongs in the architecture section.
+Completed implementation belongs in [Completed Phases](../development/completed-phases.md). Completed audit evidence belongs in the development section. Stable architecture belongs in the architecture section.
 
 ---
 
@@ -27,7 +27,7 @@ Completed implementation belongs in [Completed Phases](../development/completed-
 - [Phase Map](phase-map.md)
 - [Implementation Dependency Map](implementation-dependency-map.md)
 
-The roadmap is read from top to bottom. The Phase Map owns compact numbering and status. The Implementation Dependency Map expands prerequisites, bounded slices and exit gates.
+The roadmap is read from top to bottom. The Phase Map owns compact phase numbering. The Implementation Dependency Map expands each planned phase into prerequisite, slice and exit-gate order.
 
 ### Domain and Target Architecture
 
@@ -35,35 +35,36 @@ The roadmap is read from top to bottom. The Phase Map owns compact numbering and
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
 - [Architecture Decision Records](../adr/index.md)
 
-The Domain Dependency Map defines cross-domain prerequisites. The Target Platform Architecture defines the accepted Control Plane, Agent, provider, media, OSD and public API boundaries.
+The Domain Dependency Map defines which Suite-owned concepts depend on which stable identities and policies. The Target Platform Architecture defines the canonical Control Plane, Agent, plugin, media, OSD and public API boundaries accepted through ADR-0049.
 
 ### Architecture Gaps
 
 - [Architecture Audit Gap Matrix](architecture-audit-gap-matrix.md)
 - [Completed Architecture Source Audit](../development/architecture-source-audit-2026-07-15.md)
 
-The gap matrix is the living architecture status register. The source audit is completed evidence. Accepted ADRs do not automatically close runtime gaps.
+The gap matrix is the living status register for the architecture audit. The source-audit document is the immutable evidence snapshot. Accepted ADRs and dependency maps do not automatically close runtime gaps.
 
 ### Product and Ecosystem Parity
 
-- [VDR Ecosystem Parity and Product Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md)
+- [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md)
+- [Phase 61 Metadata, Genre and Performance Closeout](../development/phase-61-metadata-genre-performance-closeout.md)
 - [Recording Metadata, External Scrapers and Suite Metadata Database Roadmap](tvscraper-recording-metadata-roadmap.md)
 - [Lazy Recording Loading](lazy-recording-loading.md)
 
-The parity document compares VDR-Suite with VDR Core, Live, epgsearch and RESTfulAPI. It does not replace the strict roadmap.
+The parity document focuses on RESTfulAPI, Live, epgsearch, VDR-Core and frontend product coverage. It does not define future architecture phase order.
 
-### Completion Evidence
+### Supporting Planning
 
-- [Phase 61 and Performance Closeout](../development/phase-61-metadata-genre-performance-closeout.md)
-- [Completed Phases](../development/completed-phases.md)
-- [Completed Phases Latest Marker](../development/completed-phases-latest.md)
+- [Phase 57 Local Server Permission Model](phase-57-local-server-permission-model.md)
+- [Project State Snapshot](project-progress.md)
+- [Milestones](milestones.md)
 
 ---
 
 ## Current Verified Position
 
 ```text
-Latest completed runtime phase
+Latest completed implementation phase
 Phase 61 - Suite Metadata and Genre Platform
 
 Latest completed operational hardening block
@@ -75,7 +76,7 @@ Phase 58 - Frontend and Live Parity
 Architecture contract package
 ADR-0042 through ADR-0049, target diagrams and dependency maps completed
 
-Next runtime implementation phase
+Next implementation focus
 Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
@@ -93,7 +94,8 @@ Phase 62 - Identity, RBAC and Accountability Foundation
 7. Phase 68 - Recommendation and Content Knowledge Graph
 ```
 
-Phase 61 is completed and is not kept open by optional later provider adapters or broader diagnostics.
+Phase 61 is completed. Optional provider adapters or broader diagnostics
+do not silently reopen the phase.
 
 ---
 
@@ -110,14 +112,15 @@ Phase 61 is completed and is not kept open by optional later provider adapters o
 
 ## Documentation Rules
 
-- The roadmap defines one strict forward order.
+- The roadmap defines one strict future execution order.
 - The Phase Map owns phase numbers and compact status.
-- The Implementation Dependency Map owns detailed implementation/test order.
-- The Domain Dependency Map owns cross-domain prerequisites.
-- The Architecture Audit Gap Matrix owns living implementation gaps.
-- The parity document owns VDR Core, Live, epgsearch and RESTfulAPI comparison.
-- Completed Phases and closeout documents own finished runtime implementation.
-- Completed phases are not silently reopened by optional extensions.
+- The Implementation Dependency Map expands the required implementation and test order.
+- The Domain Dependency Map owns cross-domain prerequisite direction.
+- The Architecture Audit Gap Matrix owns living implementation-gap status.
+- The older parity matrix owns product and ecosystem parity questions only.
+- Completed Phases owns finished runtime implementation.
+- The completed source audit owns the 2026-07-15 evidence baseline.
+- Accepted ADRs and diagrams do not imply completed runtime behavior.
 - Avoid duplicate or conflicting phase sequencing across documents.
 
 ---

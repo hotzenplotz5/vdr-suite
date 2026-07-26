@@ -13,6 +13,7 @@
 - [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Completed Phases](development/completed-phases.md)
+- [Architecture Decision Records](adr/index.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 
 ---
@@ -58,6 +59,19 @@ The repository and installed runtime currently include:
 - backend-neutral remote-control actions and live-overlay snapshots;
 - modular frontend ownership and deferred runtime loading;
 - packaging, staging, manpages and real-system acceptance workflows.
+
+---
+
+## Completed Foundation Continuity
+
+The current runtime builds on these completed major foundations:
+
+- Phase 56 - Library Boundary, Packaging and Developer Documentation
+- Phase 57 - Multi-Site Backend Administration and Permissions
+
+Phase 56 established source, package, install and developer boundaries.
+Phase 57 established backend administration and server-enforced
+read-only access foundations used by the later runtime phases.
 
 ---
 
