@@ -467,9 +467,30 @@ std::vector<GenreEpgRefreshCandidate> GenreIndexRepository::epgRefreshCandidates
     if (!ensureSchemaLocked() || untilTime <= fromTime) return candidates;
 
     const int boundedCandidateLimit = std::max(1, std::min(limit, 64));
-    const char* sql =
+
+    // Current epoch seconds are stored as ten decimal digits. Keep the CAST
+    // fallback for synthetic or legacy windows that use another width.
+    const bool useTenDigitEpochFastPath =
+        fromTime >= 1000000000LL &&
+        fromTime <= 9999999999LL &&
+        untilTime >= 1000000000LL &&
+        untilTime <= 9999999999LL;
+
+    const char* timePredicate = useTenDigitEpochFastPath
+        ? "AND length(e.end_time)=10 AND length(e.start_time)=10 "
+          "AND e.end_time NOT GLOB '*[^0-9]*' "
+          "AND e.start_time NOT GLOB '*[^0-9]*' "
+          "AND e.end_time>? AND e.start_time<? "
+        : "AND CAST(e.end_time AS INTEGER)>? AND CAST(e.start_time AS INTEGER)<? ";
+    const char* startOrder = useTenDigitEpochFastPath
+        ? "e.start_time"
+        : "CAST(e.start_time AS INTEGER)";
+
+    std::string sql =
         "SELECT e.backend_id,e.channel_id,e.event_id,e.title,e.subtitle,e.description,e.start_time,e.end_time,e.duration_seconds,e.content_descriptors "
-        "FROM epg_events e WHERE e.backend_id=? AND CAST(e.end_time AS INTEGER)>? AND CAST(e.start_time AS INTEGER)<? "
+        "FROM epg_events e WHERE e.backend_id=? ";
+    sql += timePredicate;
+    sql +=
         "AND NOT EXISTS(SELECT 1 FROM suite_metadata_target_bindings b "
         "JOIN suite_metadata_genre_assignments a ON a.metadata_target_id=b.metadata_target_id "
         "WHERE b.backend_id=e.backend_id AND b.target_type='program-event' "
@@ -482,9 +503,20 @@ std::vector<GenreEpgRefreshCandidate> GenreIndexRepository::epgRefreshCandidates
         "AND pa.provider_id='tvscraper-media-type' "
         "AND pa.source_kind='scraper-media-type' "
         "AND pa.assignment_state IN('active','unknown','conflict')) "
-        "THEN 0 ELSE 1 END,CAST(e.start_time AS INTEGER),e.channel_id,e.event_id LIMIT ?;";
+        "THEN 0 ELSE 1 END,";
+    sql += startOrder;
+    sql += ",e.channel_id,e.event_id LIMIT ?;";
+
     sqlite3_stmt* statement = nullptr;
-    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return candidates;
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql.c_str(),
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return candidates;
+    }
     bindText(statement, 1, normalizeBackendId(backendId));
     sqlite3_bind_int64(statement, 2, fromTime);
     sqlite3_bind_int64(statement, 3, untilTime);
