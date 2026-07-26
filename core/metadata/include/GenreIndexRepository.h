@@ -146,6 +146,9 @@ public:
 
     bool ensureSchema();
     bool replaceEvidence(const GenreEvidenceInput& input);
+    bool replaceEpgEvidenceAndReconcile(
+        const GenreEvidenceInput& genreEvidence,
+        const GenreEvidenceInput& mediaTypeEvidence);
     bool reconcileEpgBrowseClassification(
         const std::string& backendId,
         const std::string& resourceKey);

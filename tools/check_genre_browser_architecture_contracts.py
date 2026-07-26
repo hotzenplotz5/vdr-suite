@@ -67,8 +67,10 @@ require(
     "TVScraper media type must be persisted as classification evidence",
 )
 require(
-    "reconcileEpgBrowseClassification" in runtime,
-    "TVScraper evidence must reconcile the derived EPG browse class",
+    "replaceEpgEvidenceAndReconcile" in runtime
+    and "replaceEpgEvidenceAndReconcile" in storage
+    and "acquireTransactionLease" in storage,
+    "TVScraper evidence must be stored and reconciled atomically",
 )
 require(
     "contentClassFrom" in runtime,

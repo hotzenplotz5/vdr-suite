@@ -68,6 +68,8 @@ bool GenreIndexRepository::replaceEvidence(const GenreEvidenceInput& input)
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (!ensureSchemaLocked()) return false;
+
+    auto transactionLease = database_.acquireTransactionLease();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
     if (!replaceEvidenceLocked(input))
     {
@@ -82,12 +84,63 @@ bool GenreIndexRepository::replaceEvidence(const GenreEvidenceInput& input)
     return true;
 }
 
+bool GenreIndexRepository::replaceEpgEvidenceAndReconcile(
+    const GenreEvidenceInput& genreEvidence,
+    const GenreEvidenceInput& mediaTypeEvidence)
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (!ensureSchemaLocked()) return false;
+
+    const std::string normalizedBackend =
+        normalizeBackendId(genreEvidence.backendId);
+    if (genreEvidence.targetType != "program-event" ||
+        mediaTypeEvidence.targetType != "program-event" ||
+        genreEvidence.resourceKey.empty() ||
+        genreEvidence.resourceKey != mediaTypeEvidence.resourceKey ||
+        normalizedBackend != normalizeBackendId(mediaTypeEvidence.backendId) ||
+        genreEvidence.channelId != mediaTypeEvidence.channelId ||
+        genreEvidence.nativeId != mediaTypeEvidence.nativeId ||
+        genreEvidence.startTime != mediaTypeEvidence.startTime ||
+        genreEvidence.endTime != mediaTypeEvidence.endTime)
+    {
+        return false;
+    }
+
+    auto transactionLease = database_.acquireTransactionLease();
+    if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
+
+    const std::string targetId = stableTargetId(
+        "program-event",
+        normalizedBackend,
+        genreEvidence.resourceKey);
+
+    if (!replaceEvidenceLocked(genreEvidence) ||
+        !replaceEvidenceLocked(mediaTypeEvidence) ||
+        !reconcileEpgBrowseClassificationLocked(
+            database_.handle(),
+            targetId))
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+
+    if (!database_.execute("COMMIT;"))
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+
+    return true;
+}
+
 bool GenreIndexRepository::reconcileEpgBrowseClassification(
     const std::string& backendId,
     const std::string& resourceKey)
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (!ensureSchemaLocked() || resourceKey.empty()) return false;
+
+    auto transactionLease = database_.acquireTransactionLease();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
     const std::string targetId = stableTargetId(
         "program-event",

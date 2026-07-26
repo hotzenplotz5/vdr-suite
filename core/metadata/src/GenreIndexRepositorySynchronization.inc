@@ -77,6 +77,7 @@ bool GenreIndexRepository::synchronizeRecordingCache(const std::string& backendI
     }
     sqlite3_finalize(statement);
 
+    auto transactionLease = database_.acquireTransactionLease();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
 
     sqlite3_stmt* clearRecordingEvidence = nullptr;
@@ -216,6 +217,7 @@ bool GenreIndexRepository::synchronizeEpgCache(
 
         {
             std::lock_guard<std::recursive_mutex> lock(mutex_);
+            auto transactionLease = database_.acquireTransactionLease();
             if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
             for (std::size_t index = begin; index < end; ++index)
             {
@@ -246,6 +248,7 @@ bool GenreIndexRepository::synchronizeEpgCache(
 
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
+        auto transactionLease = database_.acquireTransactionLease();
         if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
         if (!retireExpiredEpgTargets(normalizedBackend, fromTime - 86400))
         {
