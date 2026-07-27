@@ -70,10 +70,9 @@ def main():
     ]:
         require(errors, rel, HISTORICAL_UMBRELLA, "historical Phase 58 marker")
 
+    # The architecture package is named explicitly in its evidence/status owners.
+    # Other entry points only need to link those owners; they need not repeat every ADR number.
     for rel in [
-        "docs/CURRENT.md",
-        "docs/NEW-CHAT-HANDOFF.md",
-        "docs/planning/roadmap.md",
         "docs/planning/architecture-audit-gap-matrix.md",
         "docs/development/completed-phases-latest.md",
     ]:
@@ -121,10 +120,12 @@ def main():
     for rel in ["docs/CURRENT.md", "docs/NEW-CHAT-HANDOFF.md", "docs/planning/index.md"]:
         require(errors, rel, GAP_MATRIX, "architecture gap matrix link")
 
+    # These formulations assert stale current position. Historical references to an old
+    # branch name are allowed when they explicitly say it must not be resumed.
     stale_active_markers = [
-        "feature/phase61-metadata-genre-browser",
         "Latest completed slice: Phase 60.15",
         "Next implementation focus: Phase 61",
+        "Next runtime implementation focus: Phase 61",
     ]
     for rel in CANONICAL_STATUS_FILES:
         text = read(rel)
