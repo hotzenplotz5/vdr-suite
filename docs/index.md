@@ -1,95 +1,75 @@
 # VDR-Suite Documentation
 
-## Navigation
+## Start here
 
-- [README](../README.md)
-- [Current State](CURRENT.md)
-- [New Chat Handoff](NEW-CHAT-HANDOFF.md)
-- [Project Overview](project-overview.md)
+- [Current State](CURRENT.md) — verified implementation truth.
+- [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory entry point for new work.
+- [Project Overview](project-overview.md) — compact product and architecture summary.
+- [Project Status Dashboard](project-status-dashboard.md) — capability/status table.
 
----
+## Planning and implementation status
 
-## Start Here
-
-Primary current-state entry points:
-
-- [Current State](CURRENT.md)
-- [New Chat Handoff](NEW-CHAT-HANDOFF.md)
-
-Project overview:
-
-- [Project Overview](project-overview.md)
-- [Projektübersicht Deutsch](project-overview.de.md)
-- [Project Overview English](project-overview.en.md)
-
----
-
-## Current State vs. History
-
-Use [Current State](CURRENT.md) to answer what is true now.
-
-Use [New Chat Handoff](NEW-CHAT-HANDOFF.md) when starting a new session.
-
-Use historical phase files only when you need implementation traceability.
-
-Most `docs/development/phase-*` files are historical records, not the best starting point for current project status.
-
----
-
-## Current Project Links
-
+- [Strict Roadmap](planning/roadmap.md)
+- [Phase Map](planning/phase-map.md)
+- [Implementation Dependency Map](planning/implementation-dependency-map.md)
+- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Current Project Status](development/current-status.md)
-- [Project Status Dashboard](project-status-dashboard.md)
-- [Roadmap](planning/roadmap.md)
-- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
-- [Build System State](development/build-system-state.md)
 - [Current Architecture State](development/current-architecture-state.md)
-- [Live Remote, Overlay and Legacy OSD Compatibility Contract](architecture/live-remote-osd-contract.md)
 
----
+## Completed history
 
-## Development and Architecture
+- [Completed Phases](development/completed-phases.md)
+- [Completed Phases Latest Marker](development/completed-phases-latest.md)
+- [Completed Phase Archive](development/completed-phases/README.md)
+- [Phase 61 Metadata, Genre and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
+- [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
+
+The latest completed numbered runtime phase is **Phase 61 - Suite Metadata and Genre Platform**. Post-Phase-61 Performance Hardening (B1-B4), Remote/Live Overlay hardening (#110) and backend-scoped Global Search (#111) are completed implementation blocks. Phase 62 is the next strict runtime phase.
+
+## Architecture
+
+- [Architecture Documentation](architecture/index.md)
+- [Target Platform Architecture](architecture/target-platform-architecture.md)
+- [Metadata-Backed Genre Browser](architecture/metadata-genre-browser.md)
+- [Backend-Scoped Global Search](architecture/global-search.md)
+- [Live Remote, Overlay and Legacy OSD Contract](architecture/live-remote-osd-contract.md)
+- [RESTfulAPI Integration](architecture/restfulapi-integration.md)
+- [Architecture Decision Records](adr/index.md)
+
+## Development references
 
 - [Development Documentation](development/index.md)
 - [Developer Onboarding](development/developer-onboarding.md)
-- [Architecture Map](development/architecture-map.md)
-- [Architecture Documentation](architecture/index.md)
-- [Architecture Decision Records](adr/index.md)
+- [Build System State](development/build-system-state.md)
+- [GitHub Actions Status Handoff](development/github-actions-status-handoff.md)
+- [Person API](development/person-api.md)
+- [Web Client API Contract Snapshot](development/web-client-api-contract-snapshot.md)
 
----
-
-## Phase 56 Packaging Boundary
-
-- [Phase 56 Completion Audit](development/phase-56.57-completion-audit.md)
-- [Install Manifest / Package File Contract](development/phase-56.55-install-manifest-package-file-contract.md)
-- [Package Prerequisite Audit](development/phase-56.56-package-prerequisite-audit.md)
-- [ADR-0037: Packaging, Install Layout and API Boundary](adr/ADR-0037-packaging-install-api-boundary.md)
-
----
-
-## Planning
+## Planning references
 
 - [Planning Documentation](planning/index.md)
-- [Planning Milestones](planning/milestones.md)
-- [Parity Audit and Frontend Gap Roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Domain Dependency Map](planning/domain-dependency-map.md)
+- [TVScraper / Provider Strategy](planning/tvscraper-recording-metadata-roadmap.md)
 - [Lazy Recording Loading](planning/lazy-recording-loading.md)
 
----
+## Status model
 
-## Supporting Documents
+- **CURRENT**: verified current main-code truth.
+- **PLANNED**: genuinely open work with an explicit target owner.
+- **COMPLETED**: merged implementation with test/acceptance evidence.
+- **HISTORICAL**: retained traceability that is not a current entry point.
+- **SUPERSEDED**: replaced content with a named current successor.
+- **DEFERRED**: intentionally postponed work with prerequisites.
 
+Accepted ADRs remain architecture decisions. Their runtime implementation status is tracked separately.
+
+## Supporting documents
+
+- [Project Principles](project-principles.md)
+- [Project Glossary](project-glossary.md)
+- [Database Design](database-design.md)
 - [Build Requirements](build-requirements.md)
 - [Dependencies](dependencies.md)
-- [Database Design](database-design.md)
-- [Project Glossary](project-glossary.md)
-- [Project Principles](project-principles.md)
 - [Community Documentation](community/index.md)
-- [Introduction](introduction/index.md)
-- [Phase 0 Archive](phase-0/index.md)
 - [Legacy Roadmap Archive](roadmap/README.md)
-
----
-
-## Back
-
-- [Back to README](../README.md)
