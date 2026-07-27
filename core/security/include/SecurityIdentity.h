@@ -36,6 +36,15 @@ inline std::string actorTypeName(ActorType type)
     }
 }
 
+inline ActorType actorTypeFromName(const std::string& type)
+{
+    if (type == "user") return ActorType::User;
+    if (type == "service") return ActorType::Service;
+    if (type == "agent") return ActorType::Agent;
+    if (type == "system") return ActorType::System;
+    return ActorType::Anonymous;
+}
+
 inline std::string authenticationStateName(AuthenticationState state)
 {
     switch (state)
@@ -78,6 +87,14 @@ struct SessionIdentity
     bool revoked = false;
 };
 
+struct CredentialIdentity
+{
+    std::string credentialId;
+    bool active = true;
+    bool expired = false;
+    bool revoked = false;
+};
+
 struct RequestSecurityContext
 {
     std::string requestId;
@@ -86,6 +103,7 @@ struct RequestSecurityContext
     ActorIdentity actor;
     std::optional<DeviceIdentity> device;
     std::optional<SessionIdentity> session;
+    std::optional<CredentialIdentity> credential;
     std::vector<PermissionGrant> grants;
 
     bool authenticated() const
@@ -95,6 +113,10 @@ struct RequestSecurityContext
             !actor.actorId.empty() &&
             (!device.has_value() || device->active) &&
             (!session.has_value() ||
-                (session->active && !session->expired && !session->revoked));
+                (session->active && !session->expired && !session->revoked)) &&
+            (!credential.has_value() ||
+                (credential->active &&
+                 !credential->expired &&
+                 !credential->revoked));
     }
 };
