@@ -1,6 +1,6 @@
 CXXFLAGS += -Icore/security/include
 
-.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-http-gate
+.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-http-gate
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
@@ -26,6 +26,14 @@ test-security-accountability-event-repository:
 		-o $(BUILD_DIR)/test_accountability_event_repository
 	$(BUILD_DIR)/test_accountability_event_repository
 
+test-security-identity-repository:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/security/tests/test_security_identity_repository.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_security_identity_repository
+	$(BUILD_DIR)/test_security_identity_repository
+
 test-security-http-gate:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -39,6 +47,7 @@ test-security: \
 	test-security-authorization \
 	test-security-configuration \
 	test-security-accountability-event-repository \
+	test-security-identity-repository \
 	test-security-http-gate
 
 test: test-security
