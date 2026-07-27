@@ -10,6 +10,7 @@
 - [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
 - [Current Architecture State](development/current-architecture-state.md)
 - [Phase 62 Slice 1](development/phase-62-security-identity-foundation-slice-1.md)
+- [Phase 62 Slice 2](development/phase-62-security-identity-foundation-slice-2.md)
 - [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
 - [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
@@ -50,12 +51,12 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
-Active; Slice 1 implements the first security and identity runtime boundary.
+Active; Slice 1 is real-runtime validated and the persistent lifecycle foundation of Slice 2 is implemented on Draft PR #117.
 ```
 
-Phase 61 remains completed. Phase 62 is not complete. The first Phase 62 slice does not advance Phase 63-67 runtime.
+Phase 61 remains completed. Phase 62 is not complete. The active work does not advance Phase 63-67 runtime.
 
-## Implemented runtime truth
+## Implemented runtime truth on `main`
 
 Current `main` contains:
 
@@ -72,22 +73,24 @@ Current `main` contains:
 - the merged 360×1220 transparent PNG remote, 35 existing hotspots, overview/EPG/help integration and guarded REC start/stop workflow from PR #115;
 - packaging, install staging, daemon builds and real-system acceptance workflows.
 
-## Phase 62 Slice 1 runtime truth
+## Active Phase 62 branch truth
 
-The active Phase 62 branch adds the first repository-owned security boundary:
+The active Phase 62 branch owns this request path:
 
 ```text
 HttpServerRequest
   -> SecurityHttpGate
        -> transitional LegacyBasicAuthenticator
        -> RequestSecurityContext
+       -> PersistentIdentityResolver
+            -> SecurityIdentityRepository
        -> AuthorizationService
        -> append-only AccountabilityEventRepository
   -> ApiRouter
   -> existing controller/service/domain safety checks
 ```
 
-Implemented in this slice:
+### Slice 1 — implemented and real-runtime validated
 
 - canonical actor, device, session and request security context values;
 - explicit anonymous, authenticated, invalid, expired and revoked states;
@@ -96,18 +99,29 @@ Implemented in this slice:
 - pre-dispatch authorization for `POST /api/vdr/remote/actions` using `remote.control@<backend>`;
 - append-only SQLite accountability rows for allow and deny decisions;
 - request and correlation ID propagation;
-- an explicit `legacy-basic` compatibility mode;
-- an `enforced` mode that permits anonymous GETs and rejects every not-yet-migrated POST before router dispatch;
-- focused negative, repository and architecture tests.
+- explicit `legacy-basic` and fail-closed `enforced` rollout modes;
+- real yaVDR evidence for anonymous denial, invalid-credential denial and authenticated Browser Remote actions.
 
-The transitional Basic adapter is not production authentication. In `enforced` mode no embedded default credential or permission grant is active; credentials and grants must be configured explicitly.
+### Slice 2 — persistence and revocation foundation implemented
+
+- additive `security_actors`, `security_devices`, `security_sessions` and `security_credentials` tables;
+- compatibility identity bootstrap without storing the Basic Authorization value;
+- persisted actor/device/session/credential ownership bindings;
+- request-time lifecycle resolution before authorization;
+- persisted expiry and revocation enforcement;
+- restart-safe bootstrap that does not overwrite revoked records;
+- explicit `credential_expired` and `credential_revoked` decisions;
+- repository, resolver, HTTP-gate and architecture tests.
+
+The transitional Basic adapter is not production authentication. The new credential table stores an identifier and lifecycle metadata, not the submitted secret, a password hash or a bearer token.
 
 ## Open Phase 62 work
 
 Phase 62 still requires:
 
-- persistent user, device, session, credential, role and grant repositories;
-- production authentication, session lifecycle, logout, expiry and revocation;
+- secure per-user/service credential issuance and verification;
+- browser cookie/CSRF, native token, refresh, logout, recovery, rotation and protected lifecycle management;
+- persisted roles, permissions, grants and backend scopes;
 - complete permission mapping and server-side authorization for all mutations and sensitive reads;
 - universal revision and `If-Match` rules where resource state is mutable;
 - durable idempotency-key replay semantics and operation records;
@@ -118,7 +132,7 @@ Phase 62 still requires:
 
 ## Compatibility boundary
 
-The local browser remains compatible by default through the named `legacy-basic` mode. That mode maps the existing credential to an explicit actor/device/session context and retains the previous broad grant only as a transitional local compatibility default.
+The local browser remains compatible by default through the named `legacy-basic` mode. That mode maps the existing credential to explicit persisted actor/device/session/credential metadata and retains the previous broad grant only as a transitional local compatibility default.
 
 The compatibility mode is not a permanent architecture exemption. Frontend state and disabled buttons are never authorization evidence. The server remains the enforcement owner.
 
@@ -131,6 +145,7 @@ The compatibility mode is not a permanent architecture exemption. Frontend state
 | #114 | Merged documentation truth refresh. |
 | #115 | Merged configurable photorealistic PNG Remote and extended Remote functions; current `main` head. |
 | #116 | Open Draft, mergeable; Android/client API feasibility and proposed ADR-0051. ADR-0051 is not accepted runtime truth on `main`. |
+| #117 | Open Draft, mergeable Phase 62 implementation branch; Slice 1 validated and Slice 2 persistence foundation active. Must not be auto-merged. |
 
 Open PR content remains lower-trust than merged code and accepted ADRs.
 
@@ -155,8 +170,8 @@ The current unversioned `/api/...` routes are compatibility routes, not a stable
 - VDR remains native runtime authority.
 - VDR-Suite owns external domain, policy, orchestration, persistent read models and client contracts.
 - Browsers do not call RESTfulAPI, SVDRP, Streamdev, TVScraper or SuiteBridge directly.
-- Authentication and authorization are separate decisions.
+- Authentication, persistent identity resolution and authorization are separate decisions.
 - Backend read-only and capability checks remain independent of actor permissions.
 - Frontends do not own authorization decisions.
-- Credentials and tokens do not belong in URLs, logs, error bodies, request IDs or accountability payloads.
+- Credentials and tokens do not belong in URLs, logs, error bodies, request IDs, identity rows or accountability payloads.
 - Completed phases are not silently reopened by optional extensions.
