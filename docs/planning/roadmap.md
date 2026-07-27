@@ -248,3 +248,4 @@ No recommendation work may hide provider authority or use unstable identities.
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
 - [Completed Phases](../development/completed-phases.md)
+- [Post-Phase-61 Platform Runtime Closeout](../development/post-phase-61-platform-runtime-closeout.md)
