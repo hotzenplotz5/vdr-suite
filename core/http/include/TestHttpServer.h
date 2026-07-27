@@ -6,7 +6,9 @@
 #include "Database.h"
 #include "IEpgArtworkHttpProvider.h"
 #include "IHttpServer.h"
+#include "PersistentIdentityResolver.h"
 #include "SecurityHttpGate.h"
+#include "SecurityIdentityRepository.h"
 
 #include <memory>
 
@@ -44,6 +46,10 @@ private:
     std::unique_ptr<Database> securityDatabase_;
     std::unique_ptr<AccountabilityEventRepository>
         accountabilityEventRepository_;
+    std::unique_ptr<SecurityIdentityRepository>
+        securityIdentityRepository_;
+    std::unique_ptr<PersistentIdentityResolver>
+        persistentIdentityResolver_;
     std::unique_ptr<SecurityHttpGate> securityHttpGate_;
     bool securityReady_ = false;
 
