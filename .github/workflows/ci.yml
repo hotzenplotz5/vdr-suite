@@ -9,6 +9,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  change-scope:
+    runs-on: ubuntu-latest
+    outputs:
+      full_ci: ${{ steps.scope.outputs.full_ci }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify pull request changes
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "${EVENT_NAME}" != "pull_request" ]; then
+            echo "full_ci=true" >> "${GITHUB_OUTPUT}"
+            echo "Push event: full CI required."
+            exit 0
+          fi
+
+          git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" > changed-files.txt
+          echo "Changed files:"
+          cat changed-files.txt
+
+          if grep -Ev '^(web/frontend/)' changed-files.txt | grep -q .; then
+            echo "full_ci=true" >> "${GITHUB_OUTPUT}"
+            echo "Non-frontend changes detected: full CI required."
+          else
+            echo "full_ci=false" >> "${GITHUB_OUTPUT}"
+            echo "Frontend-only pull request: backend and packaging jobs may be skipped."
+          fi
+
   docs-check:
     runs-on: ubuntu-latest
 
@@ -46,7 +82,9 @@ jobs:
   make-test-audit:
     runs-on: ubuntu-latest
     needs:
+      - change-scope
       - docs-check
+    if: needs.change-scope.outputs.full_ci == 'true'
 
     steps:
       - name: Checkout repository
@@ -86,10 +124,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install frontend test dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y nodejs
+      - name: Verify frontend runtime
+        run: node --version
 
       - name: Run frontend contract tests
         shell: bash
@@ -109,8 +145,10 @@ jobs:
   fast-regression-test:
     runs-on: ubuntu-latest
     needs:
+      - change-scope
       - docs-check
       - make-test-audit
+    if: needs.change-scope.outputs.full_ci == 'true'
 
     steps:
       - name: Checkout repository
@@ -147,8 +185,14 @@ jobs:
   packaging-regression-test:
     runs-on: ubuntu-latest
     needs:
+      - change-scope
       - frontend-regression-test
       - fast-regression-test
+    if: >-
+      always() &&
+      needs.change-scope.outputs.full_ci == 'true' &&
+      needs.frontend-regression-test.result == 'success' &&
+      needs.fast-regression-test.result == 'success'
 
     steps:
       - name: Checkout repository
