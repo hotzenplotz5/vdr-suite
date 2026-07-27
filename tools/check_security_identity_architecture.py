@@ -24,11 +24,14 @@ def main() -> int:
         "core/security/include/AuthorizationService.h",
         "core/security/include/SecurityConfiguration.h",
         "core/security/include/LegacyBasicAuthenticator.h",
+        "core/security/include/SecurityIdentityRepository.h",
+        "core/security/include/PersistentIdentityResolver.h",
         "core/security/include/AccountabilityEvent.h",
         "core/security/include/AccountabilityEventRepository.h",
         "core/security/include/SecurityHttpGate.h",
         "core/security/tests/test_authorization_service.cpp",
         "core/security/tests/test_security_configuration.cpp",
+        "core/security/tests/test_security_identity_repository.cpp",
         "core/security/tests/test_accountability_event_repository.cpp",
         "core/security/tests/test_security_http_gate.cpp",
         "docs/planning/phase-62-security-identity-gap-matrix.md",
@@ -44,11 +47,32 @@ def main() -> int:
         "core/http/src/TestHttpServer.cpp",
         "securityHttpGate_->evaluate(request)")
     require(
+        "core/http/src/TestHttpServer.cpp",
+        "ensureCompatibilityIdentity")
+    require(
+        "core/http/src/TestHttpServer.cpp",
+        "persistentIdentityResolver_.get()")
+    require(
         "core/security/include/SecurityHttpGate.h",
         '"/api/vdr/remote/actions"')
     require(
         "core/security/include/SecurityHttpGate.h",
         '"remote.control"')
+    require(
+        "core/security/include/SecurityIdentityRepository.h",
+        "security_actors")
+    require(
+        "core/security/include/SecurityIdentityRepository.h",
+        "security_devices")
+    require(
+        "core/security/include/SecurityIdentityRepository.h",
+        "security_sessions")
+    require(
+        "core/security/include/SecurityIdentityRepository.h",
+        "security_credentials")
+    require(
+        "core/security/include/PersistentIdentityResolver.h",
+        "findCredential")
     require(
         "core/security/include/AccountabilityEventRepository.h",
         "accountability_events_no_update")
@@ -62,8 +86,14 @@ def main() -> int:
         "core/security/include/SecurityConfiguration.h",
         'VDR_SUITE_SECURITY_MODE')
     require(
+        "core/security/include/SecurityConfiguration.h",
+        'VDR_SUITE_LEGACY_BASIC_CREDENTIAL_ID')
+    require(
         "core/security/include/SecurityHttpGate.h",
         "security_policy_not_migrated")
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        "credential_revoked")
     forbid(
         "core/http/src/TestHttpServer.cpp",
         "isAuthorized(request)")
@@ -73,6 +103,9 @@ def main() -> int:
     forbid(
         "core/http/src/TestHttpServerAssets.inc",
         "isAuthorized")
+    forbid(
+        "core/security/include/SecurityIdentityRepository.h",
+        "Authorization: Basic")
 
     print("security identity architecture contracts passed")
     return 0
