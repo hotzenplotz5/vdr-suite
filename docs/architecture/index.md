@@ -75,6 +75,7 @@ Older conceptual documents remain useful context. Where they conflict with curre
 
 ## Historical notes
 
+- [Architecture History](history/README.md)
 - [Phase 8.94 Snapshot Cache Integration Plan](phase-8.94-snapshot-cache-integration-plan.md)
 - [Phase 8.94 Runtime Wiring Notes](phase-8.94-runtime-wiring-notes.md)
 
