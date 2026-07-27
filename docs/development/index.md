@@ -35,9 +35,8 @@ Next strict runtime phase: Phase 62 - Identity, RBAC and Accountability Foundati
 
 ## Runtime and acceptance references
 
-- [Real VDR Acceptance Plan](real-vdr-acceptance-plan.md)
 - [Recording Action Readiness Audit](recording-action-readiness-audit.md)
-- [Live Acceptance Evidence](live-acceptance-evidence.md)
+- [Phase 55 completed acceptance history](completed-phases/phase-55.md)
 - [Phase and documentation guardrails](../../tools/)
 
 ## Documentation placement rules
