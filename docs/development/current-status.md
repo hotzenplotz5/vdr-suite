@@ -23,7 +23,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 status:
-Active; first coherent security/identity slice implemented on its phase branch.
+Active; Slice 1 is real-runtime validated and the persistent lifecycle foundation of Slice 2 is implemented on its Draft branch.
 ```
 
 ## Stable implemented scope
@@ -43,7 +43,7 @@ Active; first coherent security/identity slice implemented on its phase branch.
 
 ## Phase 62 Slice 1
 
-Implemented:
+Implemented and real-runtime validated:
 
 - `RequestSecurityContext` with actor, device, session, grants, request ID and correlation ID;
 - centralized `AuthorizationService` with exact/wildcard permission and backend scope decisions;
@@ -51,13 +51,38 @@ Implemented:
 - server-side protection of `POST /api/vdr/remote/actions` with `remote.control`;
 - append-only accountability persistence before dispatch;
 - stable 400/401/403/503 security errors without credential reflection;
-- focused authorization, configuration, repository, HTTP-gate and architecture tests.
+- focused authorization, configuration, repository, HTTP-gate and architecture tests;
+- real yaVDR evidence for anonymous denial, invalid-credential denial and authenticated Browser Remote dispatch.
 
 The existing `BackendAccessPolicy` remains a separate backend-state guard. It does not replace actor authorization.
 
+## Phase 62 Slice 2 persistence foundation
+
+Implemented on the Draft branch:
+
+- additive `security_actors`, `security_devices`, `security_sessions` and `security_credentials` tables;
+- server-owned compatibility identity bootstrap without storing the Authorization secret;
+- persisted actor/device/session/credential bindings;
+- request-time `PersistentIdentityResolver` before authorization;
+- persisted session and credential expiry/revocation enforcement;
+- restart-safe `INSERT OR IGNORE` bootstrap that does not reactivate revoked records;
+- `credential_expired` and `credential_revoked` error decisions;
+- repository, resolver and HTTP-gate lifecycle tests.
+
+The current persisted credential row is metadata for the transitional Basic credential. It is not a password hash, bearer token, production session or final authentication mechanism.
+
 ## Open Phase 62 limitations
 
-The platform still lacks persistent user/device/session/role/grant lifecycle, production authentication, complete mutation migration, universal revision/idempotency, mutation outcome/outbox delivery, protected audit query/retention and repository-wide security acceptance.
+The platform still lacks:
+
+- secure per-user/service credential issuance and verification;
+- browser cookie/CSRF, native token, refresh, logout, recovery and protected lifecycle-management contracts;
+- persisted roles, grants and backend scopes;
+- complete mutation and sensitive-read permission migration;
+- universal revision and idempotency contracts;
+- mutation outcome and transactional-outbox delivery;
+- complete authentication/security event catalogue and protected audit query/retention;
+- full failure injection and real-runtime closeout across all migrated routes.
 
 Phase 62 remains active and incomplete.
 
@@ -67,6 +92,7 @@ Phase 62 remains active and incomplete.
 - PR #113 is closed as superseded by #115.
 - PR #112 remains an open old-base Draft and is not current runtime truth.
 - PR #116 remains an open, mergeable Draft. Its proposed ADR-0051 is not on `main` and is consumer context only.
+- PR #117 is the active Phase 62 Draft and must not be merged or auto-merged by the implementation workflow.
 
 ## Immediate implementation focus
 
@@ -74,7 +100,7 @@ Phase 62 remains active and incomplete.
 Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-Continue route-by-route authorization, identity/session persistence, mutation preconditions, idempotency, complete accountability and outbox work without advancing Phase 63-67 runtime.
+Complete the remaining secure issuance and lifecycle-management part of Slice 2, then continue persisted roles/grants and route-by-route authorization without advancing Phase 63-67 runtime.
 
 ### Preferred edit path for new chats
 
@@ -96,6 +122,7 @@ Never replace a complete existing file from a truncated fetch. Fetch missing ran
 - [Phase Map](../planning/phase-map.md)
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Phase 62 Slice 1](phase-62-security-identity-foundation-slice-1.md)
+- [Phase 62 Slice 2](phase-62-security-identity-foundation-slice-2.md)
 - [Phase 61 and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
 - [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
 - [Current Architecture State](current-architecture-state.md)
