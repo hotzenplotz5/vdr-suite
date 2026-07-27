@@ -2,6 +2,9 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert');
 const clientSource=fs.readFileSync(path.join(__dirname,'..','api','live-remote-client-api.js'),'utf8');
 const source=fs.readFileSync(path.join(__dirname,'..','modules','remote.js'),'utf8');
+const appSource=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+const deSource=fs.readFileSync(path.join(__dirname,'..','locales','de.js'),'utf8');
+const enSource=fs.readFileSync(path.join(__dirname,'..','locales','en.js'),'utf8');
 const remotePng=fs.readFileSync(path.join(__dirname,"..","assets","vdr-remote-photorealistic.png"));assert.deepStrictEqual(Array.from(remotePng.subarray(0,8)),[137,80,78,71,13,10,26,10]);assert.strictEqual(remotePng.readUInt32BE(16),360);assert.strictEqual(remotePng.readUInt32BE(20),1220);assert.strictEqual(remotePng[24],8);assert.strictEqual(remotePng[25],6);
 assert(!source.includes('/remote/seq'));assert(!source.includes('/remote/kbd'));assert(!source.includes('/osd'));assert(!source.includes('restfulapi'));assert(!source.includes('/api/vdr/remote/actions'));assert(!source.includes('/api/vdr/live/overlay'));assert(clientSource.includes("'/api/vdr/remote/actions'"));assert(clientSource.includes("'/api/vdr/live/overlay'"));assert(clientSource.includes("'/api/vdr/live'"));
 assert(source.includes("P='/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png'"));assert(source.includes("el('section','rst')"));assert(source.includes("el('img','rpi')"));assert(source.includes("el('button','rpk')"));assert(source.includes("s.setAttribute('aria-label','Fotorealistische VDR-Fernbedienung')"));assert(source.includes("z.textContent='Fotorealistisch · scrollbar'"));
@@ -14,6 +17,21 @@ assert(source.includes("Mehrere laufende Aufnahmen auf diesem Kanal gefunden."))
 assert(source.includes("Aufnahme gestoppt und Timer gelöscht."));
 assert(source.includes("x.dataset.action==='record'"));
 assert(!source.includes("/api/vdr/timers/actions/delete"));
+assert(source.includes("function buildHelp()"));
+assert(source.includes("function openHelp(fromRemote)"));
+assert(source.includes("b=el('button','rhc','?')"));
+assert(source.includes("b.onclick=()=>openHelp(true)"));
+assert(source.includes("h.append(t,b,c)"));
+assert(source.includes("UNASSIGNED_HELP_KEYS"));
+assert(source.includes("document.documentElement.style.overflow='hidden'"));
+assert(source.includes("data-help-image"));
+assert(source.includes("Aktuell belegte Tasten"));
+assert(source.includes("Noch nicht belegte sichtbare Tasten"));
+assert(appSource.includes("settings-remote-card"));
+assert(appSource.includes("settings.remoteHelpOpen"));
+assert(appSource.includes("remote.openHelp(false)"));
+assert(deSource.includes('"settings.remoteControl": "Fernbedienung"'));
+assert(enSource.includes('"settings.remoteControl": "Remote control"'));
 const serverPaths=fs.readFileSync(path.join(__dirname,'..','..','..','core','http','src','TestHttpServerPaths.inc'),'utf8'),liveRemoteMake=fs.readFileSync(path.join(__dirname,'..','..','..','mk','live-remote.mk'),'utf8');assert(serverPaths.includes('{"/frontend/app.js", "app.js", "application/javascript; charset=utf-8", "modules/remote.js"}'));assert(serverPaths.includes('{"/frontend/api/client-api.js", "api/client-api.js", "application/javascript; charset=utf-8", "api/live-remote-client-api.js"}'));assert(liveRemoteMake.includes('web/frontend/modules/remote.js'));assert(liveRemoteMake.includes('web/frontend/api/live-remote-client-api.js'));assert(liveRemoteMake.includes('web/frontend/assets/vdr-remote-photorealistic.png'));
 assert(liveRemoteMake.includes("$(RM) $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.svg"));assert(!source.includes("vdr-remote-photorealistic.svg"));assert(source.includes("[\"volumeUp\",68.889,36.311,16.111,4.754,\"50%\"]"));assert(source.includes("[\"volumeDown\",15.278,36.311,15.833,4.754,\"50%\"]"));assert(source.includes("[\"menu\",43.611,36.311,12.778,4.754,\"50%\"]"));assert(source.includes("[\"channelUp\",67.5,69.59,18.333,5.738,\"34%\"]"));assert(source.includes("[\"channelDown\",67.5,75.246,18.333,5.574,\"34%\"]"));
 const document={head:{appendChild:function(){}},body:{append:function(){}},createElement:function(tag){return{tagName:tag.toUpperCase(),dataset:{},style:{},classList:{add:function(){},remove:function(){},toggle:function(){}},setAttribute:function(){},getAttribute:function(){return null},removeAttribute:function(){},appendChild:function(){},append:function(){},addEventListener:function(){},querySelector:function(){return null},querySelectorAll:function(){return[]}}},querySelector:function(){return null},querySelectorAll:function(){return[]},getElementById:function(){return null},addEventListener:function(){}};
@@ -26,5 +44,5 @@ const runningTimers=Array.from(context.VdrSuiteRemote.runningTimersForChannel({t
 ]},'C-1'));
 assert.strictEqual(runningTimers.length,1);
 assert.strictEqual(runningTimers[0].timerId,'17');
-assert.strictEqual(runningTimers[0].title,'Direktaufnahme');assert.strictEqual(context.VdrSuiteRemote.remoteImagePath,'/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png');assert.strictEqual(context.VdrSuiteRemote.hotspotCount,36);assert.deepStrictEqual(Array.from(context.VdrSuiteRemote.actions),['up','down','left','right','ok','back','menu','info','red','green','yellow','blue','zero','one','two','three','four','five','six','seven','eight','nine','channelUp','channelDown','volumeUp','volumeDown','mute','play','pause','stop','record','fastForward','rewind','next','previous','switchChannel']);assert.strictEqual(typeof context.VdrSuiteClientApi.fetchClientRemoteAction,'function');assert.strictEqual(typeof context.VdrSuiteClientApi.fetchClientLiveOverlay,'function');assert.strictEqual(context.VdrSuiteRemote.canControlBackend({enabled:true,online:true,frontendSelector:{canWrite:false},capabilities:{remoteControl:true}}),false);assert.strictEqual(context.VdrSuiteRemote.canControlBackend({enabled:true,online:true,frontendSelector:{canWrite:true},capabilities:{remoteControl:true}}),true);
+assert.strictEqual(runningTimers[0].title,'Direktaufnahme');assert.strictEqual(context.VdrSuiteRemote.remoteImagePath,'/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png');assert.strictEqual(context.VdrSuiteRemote.hotspotCount,36);assert.strictEqual(context.VdrSuiteRemote.helpKeyCount,55);assert.strictEqual(typeof context.VdrSuiteRemote.openHelp,'function');assert.deepStrictEqual(Array.from(context.VdrSuiteRemote.actions),['up','down','left','right','ok','back','menu','info','red','green','yellow','blue','zero','one','two','three','four','five','six','seven','eight','nine','channelUp','channelDown','volumeUp','volumeDown','mute','play','pause','stop','record','fastForward','rewind','next','previous','switchChannel']);assert.strictEqual(typeof context.VdrSuiteClientApi.fetchClientRemoteAction,'function');assert.strictEqual(typeof context.VdrSuiteClientApi.fetchClientLiveOverlay,'function');assert.strictEqual(context.VdrSuiteRemote.canControlBackend({enabled:true,online:true,frontendSelector:{canWrite:false},capabilities:{remoteControl:true}}),false);assert.strictEqual(context.VdrSuiteRemote.canControlBackend({enabled:true,online:true,frontendSelector:{canWrite:true},capabilities:{remoteControl:true}}),true);
 context.VdrSuiteClientApi.fetchClientRemoteAction({payload:{backendId:'default',operationId:'remote-1',action:'ok'}});context.VdrSuiteClientApi.fetchClientLiveOverlay({backendId:'default'});assert.strictEqual(requests[0].url,'/api/vdr/remote/actions');assert.strictEqual(requests[0].options.method,'POST');assert.strictEqual(requests[1].url,'/api/vdr/live/overlay');console.log('remote frontend contract ok');
