@@ -9,12 +9,17 @@ A target diagram or accepted ADR is not evidence that its runtime is complete.
 ## Canonical target architecture
 
 - [Target Platform Architecture](target-platform-architecture.md)
+- [Android, Android TV and Client API Feasibility Study](android-client-api-feasibility-study.md)
+- [ADR-0051: Client Platform and Native Android Architecture](../adr/ADR-0051-client-platform-and-native-android-architecture.md)
+- [Client Capability, API Candidate and Gap Matrix](../planning/client-capability-api-gap-matrix.md)
 - [Domain Dependency Map](../planning/domain-dependency-map.md)
 - [Implementation Dependency Map](../planning/implementation-dependency-map.md)
 - [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 - [ADR Index](../adr/index.md)
 
 The accepted target package defines the Control Plane, Agent, lifecycle, trust, mutation, jobs, TimerIntent, provenance, streaming, OSD, API and audit boundaries. Runtime status remains tracked separately.
+
+The Android/client study is cross-cutting planning evidence for Phases 62 through 67. Proposed ADR-0051 records the recommended durable client-platform decision. Neither document creates a new runtime phase or declares `/api/v1`, MediaSession or a native application implemented.
 
 ## Implemented metadata and discovery architecture
 

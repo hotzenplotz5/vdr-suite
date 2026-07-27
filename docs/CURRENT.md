@@ -8,6 +8,8 @@
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
 - [Current Architecture State](development/current-architecture-state.md)
+- [Android, Android TV and Client API Feasibility Study](architecture/android-client-api-feasibility-study.md)
+- [Client Capability, API Candidate and Gap Matrix](planning/client-capability-api-gap-matrix.md)
 - [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
 - [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -21,11 +23,11 @@ This document was reconciled on 2026-07-27 against:
 
 ```text
 origin/main
-44ae3102ab202ee0dfc974ee0bc9624b9219ad2d
-feat(search): add backend-scoped global search (#111)
+cb77ff66e11dca7db2eafa36525762dcde35102d
+Merge pull request #115 from hotzenplotz5/agent/configurable-remote-mapping
 ```
 
-The SHA is a time-bound evidence point. Every new task must fetch `origin/main`, determine the current head and branch from that actual commit.
+PR #114 is merged at `729ff190c532b9cd59c6b7054cd52062409af26c`. The SHA above is a time-bound evidence point. Every new task must fetch `origin/main`, determine the current head and branch from that actual commit.
 
 ## Current verified position
 
@@ -39,6 +41,7 @@ Post-Phase 61 Performance Hardening (B1-B4)
 Completed post-phase platform features:
 VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
+Configurable photorealistic VDR remote (#115)
 
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
@@ -48,6 +51,8 @@ Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
 Phase 61 is merged and closed for its accepted metadata/Genre scope. It is not an active feature branch and no Phase 61 repository or real-system acceptance remains pending.
+
+The Android/client feasibility study is cross-cutting planning evidence for Phases 62 through 67. It does not create a new runtime phase and does not change Phase 62 as the next strict step.
 
 ## Implemented runtime truth
 
@@ -63,7 +68,10 @@ Current `main` contains:
 - asynchronous provider acquisition with provider-failure isolation and no provider resolution from normal Genre or search GET requests;
 - backend-neutral remote actions and live-overlay snapshots through Suite-owned API and Client API boundaries;
 - backend-scoped global search over persisted Recording and EPG titles, subtitles and people;
+- the merged 360×1220 transparent PNG remote with 35 hotspots, help/assignment view and current mobile mappings;
 - packaging, install staging, daemon builds and real-system acceptance workflows.
+
+Current `main` does **not** contain a Suite video player, Streaming Gateway or MediaSession runtime. The browser LiveOverlay is structured channel/programme state, not a video stream or legacy OSD frame plane.
 
 ## Phase 61 closeout
 
@@ -99,15 +107,32 @@ The recorded production measurements and their limits are maintained in the Phas
 
 ## Remote and live overlay
 
-PR #99 established the backend-neutral RemoteAction and LiveOverlay contracts. PR #110 completed the current mobile interaction behaviour:
+PR #99 established the backend-neutral RemoteAction and LiveOverlay contracts. PR #110 completed the pressed-state/busy-guard mobile behaviour. PR #115 then merged the current configurable photorealistic remote:
 
-- only the pressed key receives the pressed visual state;
-- other keys remain visually available;
-- the internal `actionInFlight`/busy guard rejects duplicate dispatch while one action is in flight;
+- transparent 360×1220 PNG asset;
+- unchanged 35-hotspot geometry;
+- narrow centred mobile presentation;
+- image preload;
+- HOME mapped to the VDR menu;
+- VDR-Suite logo mapped to overview;
+- EPG mapped to the timeline;
+- contextual REC start/stop workflow;
+- help and assignment dialog with German/English text;
 - browser traffic remains inside `VdrSuiteClientApi`;
 - RESTfulAPI, SVDRP and other backend protocols remain private.
 
-Current `main` still serves `vdr-remote-photorealistic.svg`, which wraps an embedded JPEG. Draft PR #112 proposes a pure SVG replacement; Draft PR #113 proposes a real 360×1220 JPEG. They are competing, old-base asset fixes and must be rebased and accepted on a real mobile browser before one is selected. Documentation work must not merge both or alter the 35-hotspot behaviour without separate evidence.
+The current overlay path is:
+
+```text
+GET /api/vdr/live/overlay
+  -> LiveRemoteApiRuntime
+  -> structured channel / present / following / timer state
+
+GET /api/vdr/live
+  -> sequenced SSE changed-domain notifications
+```
+
+Neither endpoint carries video bytes. No browser `<video>` element or Suite media route is implemented. Draft PR #112 is an obsolete old-base pure-SVG alternative and must not replace the merged PNG runtime without separate new evidence.
 
 ## Backend-scoped global search
 
@@ -143,12 +168,15 @@ Draft PR #101 raises only plugin-side limits to 256 people and 256 KiB. It confl
 
 | PR | Status in repository truth |
 | ---: | --- |
+| #69 | Old CI optimisation draft; re-evaluate against current workflow before reuse. |
+| #78 | Old stacked channel/day frontend draft; do not treat as current UI truth. |
 | #88 | Old, conflicting metadata-image responsiveness draft; re-evaluate against current listener/runtime before any reuse. |
 | #101 | Conflicting partial person-limit increase; do not merge as-is. |
-| #109 | Closed unmerged as superseded by PR #114 after the replacement branch passed its complete CI chain. |
-| #112 | Competing pure-SVG remote asset proposal from an old main base. |
-| #113 | Competing direct-JPEG remote asset proposal from an old main base. |
-| #114 | Current repository-truth documentation PR; open, CI-green and ready for review. |
+| #109 | Closed unmerged as superseded by merged PR #114. |
+| #112 | Obsolete competing pure-SVG remote proposal from an old main base. |
+| #113 | Superseded by merged PR #115. |
+| #114 | Merged documentation repository-truth refresh at `729ff190...`. |
+| #115 | Merged configurable photorealistic remote; current main head at this baseline. |
 
 Open PR content remains lower-trust than current `main` and merged evidence.
 
@@ -184,8 +212,9 @@ Phase 62 begins with actor identity, scoped authorization, request/correlation c
 
 - VDR remains native runtime authority.
 - VDR-Suite owns external domain, policy, orchestration, persistent read models and client contracts.
-- Browsers do not call RESTfulAPI, SVDRP, Streamdev, TVScraper or SuiteBridge directly.
+- Browsers, Android clients and third-party clients do not call RESTfulAPI, SVDRP, Streamdev, TVScraper or SuiteBridge directly.
 - Provider data is evidence, not hidden Suite authority.
 - Normal GET/read rendering does not trigger provider resolution.
 - Frontends do not own authorization decisions.
 - Completed phases are not silently reopened by optional extensions.
+- The JavaScript wrapper, public HTTP API, Android SDK, Agent protocol and Media Plane are separate contracts.

@@ -14,6 +14,7 @@
 - [Implementation Dependency Map](planning/implementation-dependency-map.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Android/Client Capability and API Gap Matrix](planning/client-capability-api-gap-matrix.md)
 - [Current Project Status](development/current-status.md)
 - [Current Architecture State](development/current-architecture-state.md)
 
@@ -25,12 +26,13 @@
 - [Phase 61 Metadata, Genre and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
 - [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
 
-The latest completed numbered runtime phase is **Phase 61 - Suite Metadata and Genre Platform**. Post-Phase-61 Performance Hardening (B1-B4), Remote/Live Overlay hardening (#110) and backend-scoped Global Search (#111) are completed implementation blocks. Phase 62 is the next strict runtime phase.
+The latest completed numbered runtime phase is **Phase 61 - Suite Metadata and Genre Platform**. Post-Phase-61 Performance Hardening (B1-B4), Remote/Live Overlay hardening, backend-scoped Global Search and the merged configurable photorealistic remote update (#115) are completed implementation blocks. Phase 62 is the next strict runtime phase.
 
 ## Architecture
 
 - [Architecture Documentation](architecture/index.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
+- [Android, Android TV and Client API Feasibility Study](architecture/android-client-api-feasibility-study.md)
 - [Metadata-Backed Genre Browser](architecture/metadata-genre-browser.md)
 - [Backend-Scoped Global Search](architecture/global-search.md)
 - [Live Remote, Overlay and Legacy OSD Contract](architecture/live-remote-osd-contract.md)

@@ -30,17 +30,17 @@ Current implementation progress belongs in:
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0050
+ADR-0051
 ```
 
-Current active `ADR-0050`:
+Latest canonical ADR:
 
-- [ADR-0050: Domain Repository SQLite Boundary](ADR-0050-domain-repository-sqlite-boundary.md)
+- [ADR-0051: Client Platform and Native Android Architecture](ADR-0051-client-platform-and-native-android-architecture.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0051
+ADR-0052
 ```
 
 Rules:
@@ -119,6 +119,10 @@ Rules:
 - [ADR-0047: Legacy OSD Compatibility Bridge](ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
+
+### Client Platform Architecture
+
+- [ADR-0051: Client Platform and Native Android Architecture](ADR-0051-client-platform-and-native-android-architecture.md)
 
 ---
 
