@@ -24,6 +24,7 @@ struct SecurityConfiguration
     std::string actorDisplayName = "Legacy local web client";
     std::string deviceId = "legacy-browser";
     std::string sessionId = "legacy-basic-session";
+    std::string credentialId = "legacy-basic-credential";
     std::vector<PermissionGrant> grants = {
         PermissionGrant{"*", "*"}
     };
@@ -74,6 +75,10 @@ struct SecurityConfiguration
             environmentValue(
                 "VDR_SUITE_LEGACY_BASIC_SESSION_ID",
                 configuration.sessionId);
+        configuration.credentialId =
+            environmentValue(
+                "VDR_SUITE_LEGACY_BASIC_CREDENTIAL_ID",
+                configuration.credentialId);
 
         const char* configuredGrants =
             std::getenv("VDR_SUITE_LEGACY_BASIC_PERMISSIONS");
