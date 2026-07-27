@@ -60,10 +60,39 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         return;
     }
 
+    securityIdentityRepository_ =
+        std::make_unique<SecurityIdentityRepository>(
+            *securityDatabase_);
+
+    if (!securityIdentityRepository_->ensureSchema())
+    {
+        return;
+    }
+
+    const SecurityConfiguration configuration =
+        SecurityConfiguration::fromEnvironment();
+
+    if (!configuration.expectedAuthorizationHeader.empty() &&
+        !securityIdentityRepository_->ensureCompatibilityIdentity(
+            configuration.actorId,
+            ActorType::User,
+            configuration.actorDisplayName,
+            configuration.deviceId,
+            configuration.sessionId,
+            configuration.credentialId))
+    {
+        return;
+    }
+
+    persistentIdentityResolver_ =
+        std::make_unique<PersistentIdentityResolver>(
+            *securityIdentityRepository_);
+
     securityHttpGate_ =
         std::make_unique<SecurityHttpGate>(
-            SecurityConfiguration::fromEnvironment(),
-            *accountabilityEventRepository_);
+            configuration,
+            *accountabilityEventRepository_,
+            persistentIdentityResolver_.get());
     securityReady_ = true;
 }
 
