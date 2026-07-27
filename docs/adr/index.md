@@ -30,17 +30,17 @@ Current implementation progress belongs in:
 Canonical ADR sequence currently runs through:
 
 ```text
-ADR-0050
+ADR-0051
 ```
 
-Current active `ADR-0050`:
+Latest canonical ADR:
 
-- [ADR-0050: Domain Repository SQLite Boundary](ADR-0050-domain-repository-sqlite-boundary.md)
+- [ADR-0051: Client Platform and Native Android Architecture](ADR-0051-client-platform-and-native-android-architecture.md)
 
 Next available canonical ADR:
 
 ```text
-ADR-0051
+ADR-0052
 ```
 
 Rules:
@@ -98,7 +98,7 @@ Rules:
 - [ADR-0032: EPGSearch Regex Mode Safety](ADR-0032-epgsearch-regex-mode-safety.md)
 - [ADR-0033: EPGSearch Fuzzy Mode Decision](ADR-0033-epgsearch-fuzzy-mode-decision.md)
 - [ADR-0034: SearchTimer Warm EPG Cache and Change Invalidation](ADR-0034-searchtimer-warm-epg-cache-and-change-invalidation.md)
-- [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](ADR-0035-lazy-recording-loading-and-backend-scoped-refresh.md)
+- [ADR-0035: Lazy Recording Loading and Backend-Scoped Refresh](ADR-0035-lazy-recording-loading.md)
 - [ADR-0036: TVScraper Recording Metadata Integration Strategy](ADR-0036-tvscraper-recording-metadata-integration.md)
 - [ADR-0038: Suite Metadata Database and External Provider Strategy](ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
 
@@ -119,6 +119,10 @@ Rules:
 - [ADR-0047: Legacy OSD Compatibility Bridge](ADR-0047-legacy-osd-compatibility-bridge.md)
 - [ADR-0048: Public API Versioning, Error and Compatibility Contract](ADR-0048-public-api-versioning-error-compatibility-contract.md)
 - [ADR-0049: Audit and Security Event Model](ADR-0049-audit-security-event-model.md)
+
+### Client Platform Architecture
+
+- [ADR-0051: Client Platform and Native Android Architecture](ADR-0051-client-platform-and-native-android-architecture.md)
 
 ---
 
