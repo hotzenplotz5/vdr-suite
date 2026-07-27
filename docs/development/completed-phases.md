@@ -1,107 +1,61 @@
 # VDR-Suite Completed Phases
 
-## Navigation
-
-- [README](../../README.md)
-- [Documentation Index](../index.md)
-- [Development Index](index.md)
-- [Current State](../CURRENT.md)
-- [Current Project Status](current-status.md)
-- [Completed Phases Latest Marker](completed-phases-latest.md)
-- [Completed Phases Archive](completed-phases/README.md)
-- [Strict Roadmap](../planning/roadmap.md)
-- [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
-
----
-
 ## Purpose
 
-This file is the compact authoritative entry point for completed implementation history.
+This is the compact authoritative entry point for completed implementation. Detailed historical records remain in [the completed-phase archive](completed-phases/README.md); future work belongs in the strict roadmap.
 
-It records:
-
-- the latest completed implementation slice;
-- the latest completed major project block;
-- compact completed range summaries;
-- links to detailed phase archive files.
-
-Detailed chronological records belong in the archive and individual phase documents. Future work belongs in the roadmap.
-
----
-
-## Latest Completed Implementation Slice
+## Latest completed markers
 
 ```text
-Phase 60.15 - Recording Metadata and Poster Preparation
+Latest completed numbered runtime phase:
+Phase 61 - Suite Metadata and Genre Platform
+
+Completed operational hardening:
+Post-Phase 61 Performance Hardening (B1-B4)
+
+Completed post-phase platform features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
+
+Historical umbrella implementation track:
+Phase 58 - Frontend and Live Parity
+
+Next strict runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-## Latest Completed Major Project Block
+## Completed range overview
 
-```text
-Phase 57 - Multi-Site Backend Administration and Permissions
-```
-
-The Phase 58 umbrella label is retained for historical product grouping. Concrete completed frontend implementation continued through Phase 59 and Phase 60 slices.
-
----
-
-## Completed Range Overview
-
-| Range | Status | Result | Archive |
+| Range / block | Status | Result | Archive / closeout |
 | --- | --- | --- | --- |
-| Phase 1.x-45.x | Completed | Core platform, VDR backend, multi-backend runtime, Recording actions, runtime hardening and EPG search. | Historical repository phase documents |
+| Phase 1.x-45.x | Completed | Core platform, database, daemon, VDR adapter, multi-backend reads, Recording actions, runtime hardening and EPG search. | Historical phase records |
 | Phase 46 | Completed | Metadata and people foundations. | [Phase 46](completed-phases/phase-46.md) |
-| Phase 47 | Completed | SearchTimer backend foundation. | [Phase 47](completed-phases/phase-47.md) |
-| Phase 48 | Completed | SearchTimer adapter and REST contracts. | [Phase 48](completed-phases/phase-48.md) |
-| Phase 49 | Completed | Real VDR SearchTimer validation. | [Phase 49](completed-phases/phase-49.md) |
-| Phase 50 | Completed | SearchTimer workflow, validation and controlled execution. | [Phase 50](completed-phases/phase-50.md) |
-| Phase 51 | Completed | Live parity discovery foundation. | [Phase 51](completed-phases/phase-51.md) |
-| Phase 52 | Completed | SearchTimer automation planning. | [Phase 52](completed-phases/phase-52.md) |
-| Phase 53 | Completed | SearchTimer completion audit. | [Phase 53](completed-phases/phase-53.md) |
-| Phase 54 | Completed | SearchTimer preview runtime. | [Phase 54](completed-phases/phase-54.md) |
-| Phase 55 | Completed | Adapter, acceptance, documentation and Recording operations audit. | [Phase 55](completed-phases/phase-55.md) |
+| Phase 47-50 | Completed | SearchTimer backend, REST/native validation and controlled workflow. | [Archive](completed-phases/README.md) |
+| Phase 51-55 | Completed | Live parity discovery, SearchTimer preview, adapter/runtime hardening and acceptance. | [Archive](completed-phases/README.md) |
 | Phase 56 | Completed | Library boundaries, packaging and developer documentation. | [Phase 56](completed-phases/phase-56.md) |
-| Phase 57 | Completed | Multi-site backend administration and read-only permission foundation. | [Phase 57](completed-phases/phase-57.md) |
-| Phase 58 | Completed slices | Frontend and Live-parity foundation slices; umbrella label retained historically. | [Phase 58](completed-phases/phase-58.md) |
-| Phase 59.00-59.15e | Completed | Frontend Client API and module boundaries. | [Phase 59](completed-phases/phase-59.md) |
-| Phase 60.1-60.15 | Completed | Frontend platform, lazy Recording cache, Recording detail UX, provider-neutral metadata and authenticated local artwork preparation. | [Phase 60](completed-phases/phase-60.md) |
+| Phase 57 | Completed | Multi-site backend administration and server-enforced read-only foundation. | [Phase 57](completed-phases/phase-57.md) |
+| Phase 58 | Completed slices; historical umbrella retained | Frontend and Live-parity foundation slices. | [Phase 58](completed-phases/phase-58.md) |
+| Phase 59.00-59.15e | Completed | Frontend Client API and module ownership. | [Phase 59](completed-phases/phase-59.md) |
+| Phase 60.1-60.15 | Completed | Frontend platform, lazy Recording cache, Recordings 2, metadata and authenticated artwork preparation. | [Phase 60](completed-phases/phase-60.md) |
+| Phase 61 | Completed | Persistent Recording/EPG metadata, people and Genre platform, query-only browse paths and frontend integration. | [Phase 61 archive](completed-phases/phase-61.md) / [closeout](phase-61-metadata-genre-performance-closeout.md) |
+| B1-B4 | Completed, non-numbered | EPG/metadata query, transaction, no-op and snapshot-cadence hardening. | [Performance closeout](phase-61-metadata-genre-performance-closeout.md#post-phase-61-performance-hardening) |
+| PR #110 | Completed cross-cutting feature | Current mobile Remote pressed-state and duplicate-dispatch behaviour. | [Platform closeout](post-phase-61-platform-runtime-closeout.md) |
+| PR #111 | Completed cross-cutting feature | Backend-scoped global search over persisted Recording/EPG titles, subtitles and people. | [Platform closeout](post-phase-61-platform-runtime-closeout.md) |
 
----
+## Completion boundaries
 
-## Completed Audit Evidence
+- Phase 61 is not reopened by optional provider adapters, diagnostics or recommendation work.
+- PR #110 interaction behaviour is complete; the competing asset drafts #112/#113 remain separate open work.
+- Global search is a completed cross-cutting platform slice, not a newly invented numbered phase.
+- ADR acceptance remains separate from runtime completion.
 
-The architecture source audit completed on 2026-07-15 is not an implementation phase. It is recorded separately as completed evidence:
-
-- [Architecture Source Audit - 2026-07-15](architecture-source-audit-2026-07-15.md)
-
-Its remaining implementation gaps are tracked in:
-
-- [Architecture Audit Gap Matrix](../planning/architecture-audit-gap-matrix.md)
-
----
-
-## Next Work Boundary
-
-The architecture contract package and Phase 60.15 runtime preparation are complete.
-
-The next runtime implementation phase is:
+## Next work
 
 ```text
-Phase 61 - Suite Metadata Database and External Provider Integration
+Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
----
-
-## Maintenance Rules
-
-- Update the latest completed slice after every completed implementation slice.
-- Update the appropriate archive file when a phase or slice completes.
-- Keep the latest major block separate from later completed slices under an umbrella track.
-- Do not place planned work or open gaps in this file.
-- Link completed non-phase audits as evidence, but do not pretend they are runtime implementation.
-- Update the Phase Map and Architecture Audit Gap Matrix with every relevant completion.
-
-Verification:
+## Verification
 
 ```bash
 make test-docs
@@ -109,10 +63,9 @@ make test-phase
 make test-phase-map-coverage
 ```
 
----
+## Related documents
 
-## Back
-
-- [Back to Development Index](index.md)
-- [Back to Current State](../CURRENT.md)
-- [Back to README](../../README.md)
+- [Current State](../CURRENT.md)
+- [Latest Completed Marker](completed-phases-latest.md)
+- [Strict Roadmap](../planning/roadmap.md)
+- [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
