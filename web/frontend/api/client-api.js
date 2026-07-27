@@ -103,7 +103,8 @@
       headers: Object.assign({}, DEFAULT_HEADERS, normalized.headers || {}),
       body: normalized.body,
       cache: normalized.cache,
-      credentials: normalized.credentials
+      credentials: normalized.credentials,
+      signal: normalized.signal
     };
   }
 
@@ -270,6 +271,10 @@
 
   function fetchClientEpgWindow(options) {
     return requestJson('/api/vdr/events/live', options);
+  }
+
+  function fetchClientGlobalSearch(options) {
+    return requestJson('/api/search', backendQueryOptions(options));
   }
 
   function fetchClientEpgSearch(options) {
@@ -452,6 +457,7 @@
     fetchClientDefaultBackend: fetchClientDefaultBackend,
     fetchClientBackendSnapshot: fetchClientBackendSnapshot,
     fetchClientEpgWindow: fetchClientEpgWindow,
+    fetchClientGlobalSearch: fetchClientGlobalSearch,
     fetchClientEpgSearch: fetchClientEpgSearch,
     fetchClientEpgCacheStatus: fetchClientEpgCacheStatus,
     fetchClientEpgCacheWindow: fetchClientEpgCacheWindow,

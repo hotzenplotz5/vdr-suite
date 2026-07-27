@@ -326,7 +326,8 @@ bool removeDependentRows(
     for (const char* table : {
              "epg_event_artwork",
              "epg_scraper_metadata_cache",
-             "epg_scraper_metadata_images"})
+             "epg_scraper_metadata_images",
+             "epg_scraper_metadata_people"})
     {
         if (!database.tableExists(table))
         {

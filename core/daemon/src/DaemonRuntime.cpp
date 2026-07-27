@@ -2,6 +2,7 @@
 
 #include "DaemonSqliteShutdownCancellation.h"
 #include "GenreBrowserApiRuntime.h"
+#include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "SimpleHttpListener.h"
 
@@ -66,6 +67,7 @@ void DaemonRuntime::shutdown()
     httpListener_.reset();
     httpServer_.reset();
     apiRouter_.reset();
+    GlobalSearchApiRuntime::instance().reset();
     GenreBrowserApiRuntime::instance().reset();
     LiveRemoteApiRuntime::instance().reset();
 

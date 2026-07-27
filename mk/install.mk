@@ -64,6 +64,7 @@ install-runtime: daemon
 	$(INSTALL) -m 0644 web/frontend/modules/timers.js $(DESTDIR)$(DATADIR)/web/frontend/modules/timers.js
 	$(INSTALL) -m 0644 web/frontend/modules/searchtimers.js $(DESTDIR)$(DATADIR)/web/frontend/modules/searchtimers.js
 	$(INSTALL) -m 0644 web/frontend/modules/genres.js $(DESTDIR)$(DATADIR)/web/frontend/modules/genres.js
+	$(INSTALL) -m 0644 web/frontend/modules/global-search.js $(DESTDIR)$(DATADIR)/web/frontend/modules/global-search.js
 	$(INSTALL) -m 0644 web/frontend/epg-cache.js $(DESTDIR)$(DATADIR)/web/frontend/epg-cache.js
 	$(INSTALL) -m 0644 web/frontend/style.css $(DESTDIR)$(DATADIR)/web/frontend/style.css
 	$(INSTALL) -m 0644 web/frontend/logo-vdr-suite.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
@@ -139,9 +140,11 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-detail-owner.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/genres.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/global-search.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-detail-owner.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/genres.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/global-search.js
 	grep -F 'global.VdrSuiteEpgMetadataDetail = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
 	grep -F 'global.VdrSuiteEpgSearchTimerActions = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null
 	grep -F 'global.VdrSuiteEpgMetadataDetailHook = Object.freeze' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js >/dev/null

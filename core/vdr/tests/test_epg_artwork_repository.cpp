@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstdio>
+#include <sqlite3.h>
 
 namespace
 {
@@ -22,6 +23,59 @@ EpgArtworkReference makeArtwork(
     artwork.height = 720;
     artwork.resolvedAt = 123456789;
     return artwork;
+}
+
+
+int countRows(Database& database, const char* sql)
+{
+    sqlite3_stmt* statement = nullptr;
+    assert(sqlite3_prepare_v2(database.handle(), sql, -1, &statement, nullptr) == SQLITE_OK);
+    int count = 0;
+    if (sqlite3_step(statement) == SQLITE_ROW) count = sqlite3_column_int(statement, 0);
+    sqlite3_finalize(statement);
+    return count;
+}
+
+void testMetadataPeopleAreNormalizedReplacedAndEventGuarded()
+{
+    const char* databasePath = "/tmp/vdr-suite-epg-artwork-people-test.db";
+    std::remove(databasePath);
+
+    Database database;
+    assert(database.open(databasePath));
+    assert(database.execute(
+        "CREATE TABLE epg_events("
+        "backend_id TEXT NOT NULL,channel_id TEXT NOT NULL,event_id TEXT NOT NULL,"
+        "PRIMARY KEY(backend_id,channel_id,event_id));"
+        "INSERT INTO epg_events VALUES('default','channel-1','event-1');"));
+
+    EpgArtworkRepository repository(database);
+    assert(repository.ensureSchema());
+
+    EpgScraperPerson actor;
+    actor.role = EpgScraperPersonRole::Actor;
+    actor.name = "JÖHN TrAVÖLTA";
+    actor.characterName = "Vincent Vega";
+    EpgScraperPerson director;
+    director.role = EpgScraperPersonRole::Director;
+    director.name = "Quentin Tarantino";
+
+    assert(repository.replaceMetadataPeople(
+        "default", "channel-1", "event-1", {actor, director}));
+    assert(countRows(database,
+        "SELECT COUNT(*) FROM epg_scraper_metadata_people "
+        "WHERE backend_id='default' AND channel_id='channel-1' AND event_id='event-1';") == 2);
+    assert(countRows(database,
+        "SELECT COUNT(*) FROM epg_scraper_metadata_people "
+        "WHERE name_folded='joehn travoelta' AND role='actor';") == 1);
+
+    assert(repository.replaceMetadataPeople(
+        "default", "channel-1", "event-1", {director}));
+    assert(countRows(database,
+        "SELECT COUNT(*) FROM epg_scraper_metadata_people "
+        "WHERE backend_id='default' AND channel_id='channel-1' AND event_id='event-1';") == 1);
+    assert(!repository.replaceMetadataPeople(
+        "default", "channel-1", "retired-event", {actor}));
 }
 
 void testArtworkIsPersistedAndBackendScoped()
@@ -150,5 +204,6 @@ int main()
     testArtworkIsPersistedAndBackendScoped();
     testArtworkUpsertAndRemoval();
     testArtworkRejectsRetiredEventWhenEventCacheExists();
+    testMetadataPeopleAreNormalizedReplacedAndEventGuarded();
     return 0;
 }

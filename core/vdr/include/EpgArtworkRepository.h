@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EpgArtworkReference.h"
+#include "EpgScraperMetadata.h"
 
 #include <mutex>
 #include <string>
@@ -29,6 +30,11 @@ public:
         const std::string& eventId,
         const std::string& publicJson,
         long long resolvedAt);
+    bool replaceMetadataPeople(
+        const std::string& backendId,
+        const std::string& channelId,
+        const std::string& eventId,
+        const std::vector<EpgScraperPerson>& people);
     std::string findMetadataJson(
         const std::string& backendId,
         const std::string& channelId,

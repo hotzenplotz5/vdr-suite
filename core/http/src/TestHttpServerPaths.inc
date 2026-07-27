@@ -34,6 +34,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/modules/timers.js", "modules/timers.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/modules/searchtimers.js", "modules/searchtimers.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/modules/genres.js", "modules/genres.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/modules/global-search.js", "modules/global-search.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/style.css", "style.css", "text/css; charset=utf-8", nullptr}
 };
 

@@ -331,6 +331,10 @@ static void test_authoritative_window_removes_only_missing_native_ids()
         "provider TEXT,path TEXT,width INTEGER,height INTEGER,resolved_at INTEGER,"
         "updated_at TEXT,"
         "PRIMARY KEY(backend_id,channel_id,event_id,kind,image_index));"
+        "CREATE TABLE epg_scraper_metadata_people("
+        "backend_id TEXT,channel_id TEXT,event_id TEXT,ordinal INTEGER,role TEXT,"
+        "name TEXT,name_folded TEXT,character_name TEXT,character_name_folded TEXT,"
+        "PRIMARY KEY(backend_id,channel_id,event_id,ordinal));"
         "CREATE TABLE suite_metadata_targets("
         "metadata_target_id TEXT PRIMARY KEY,lifecycle_state TEXT,updated_at TEXT);"
         "CREATE TABLE suite_metadata_target_bindings("
@@ -360,6 +364,9 @@ static void test_authoritative_window_removes_only_missing_native_ids()
         "INSERT INTO epg_scraper_metadata_images VALUES("
         "'default','channel-1','38845','preferred',0,'tvscraper','/tmp/old.jpg',"
         "1280,720,1,'old');"
+        "INSERT INTO epg_scraper_metadata_people VALUES("
+        "'default','channel-1','38845',0,'actor','John Travolta','john travolta',"
+        "'Vincent Vega','vincent vega');"
         "INSERT INTO suite_metadata_targets VALUES('target-old','active','old');"
         "INSERT INTO suite_metadata_target_bindings VALUES("
         "'target-old','program-event','default','channel-1\\n38845','38845',"
@@ -395,6 +402,9 @@ static void test_authoritative_window_removes_only_missing_native_ids()
     assert(scalar_int(
         database,
         "SELECT COUNT(*) FROM epg_scraper_metadata_images WHERE event_id='38845';") == 0);
+    assert(scalar_int(
+        database,
+        "SELECT COUNT(*) FROM epg_scraper_metadata_people WHERE event_id='38845';") == 0);
     assert(scalar_int(
         database,
         "SELECT COUNT(*) FROM suite_metadata_target_bindings "

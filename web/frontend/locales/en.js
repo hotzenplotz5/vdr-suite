@@ -146,7 +146,10 @@
   "shell.noBackendSelected": "No backend selected yet.",
   "shell.openEpg": "Open EPG timeline",
   "shell.openSettings": "Open settings",
+  "shell.openSearch": "Open VDR-Suite search",
   "shell.refresh": "Refresh",
+  "shell.search": "Search",
+  "shell.searchDescription": "Recordings, EPG & people",
   "shell.settings": "Settings",
   "shell.settingsDescription": "Backend & system",
   "shell.webFrontend": "VDR web frontend"
