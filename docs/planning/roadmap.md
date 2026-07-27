@@ -8,7 +8,7 @@ This file owns the strict forward execution order. Completed history belongs in 
 
 ## Current verified position
 
-Baseline reconciled on 2026-07-27 against `origin/main` commit `44ae3102ab202ee0dfc974ee0bc9624b9219ad2d`.
+Baseline reconciled on 2026-07-27 against `origin/main` commit `cb77ff66e11dca7db2eafa36525762dcde35102d`.
 
 ```text
 Latest completed numbered runtime phase:
@@ -20,6 +20,7 @@ Post-Phase 61 Performance Hardening (B1-B4)
 Completed post-phase platform features:
 VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
+Configurable photorealistic VDR remote (#115)
 
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
@@ -63,8 +64,9 @@ Status: **Completed, non-numbered.**
 
 - PR #110: current mobile VDR Remote pressed-state and duplicate-dispatch behaviour.
 - PR #111: backend-scoped global search over persisted Recording/EPG titles, subtitles and people.
+- PR #115: current configurable photorealistic 360×1220 PNG remote, retained 35 hotspots, help/assignment view and mobile mappings.
 
-These are documented in [Post-Phase-61 Platform Runtime Closeout](../development/post-phase-61-platform-runtime-closeout.md). No new phase number is invented for them.
+These are documented in [Post-Phase-61 Platform Runtime Closeout](../development/post-phase-61-platform-runtime-closeout.md) and the current state documents. No new phase number is invented for them.
 
 # Strict execution order
 
@@ -205,6 +207,32 @@ Scope direction:
 
 No recommendation work may hide provider authority or use unstable identities.
 
+# Cross-cutting Android and client feasibility work
+
+Status: **Architecture and planning study; not a numbered runtime phase.**
+
+The [Android, Android TV and Client API Feasibility Study](../architecture/android-client-api-feasibility-study.md) and [Client Capability, API Candidate and Gap Matrix](client-capability-api-gap-matrix.md) map independent clients onto the strict phases above.
+
+Permitted before Phase 67 without changing execution order:
+
+- maintain architecture, capability and API-candidate matrices;
+- extract design tokens, stable icons and client-neutral test fixtures;
+- prototype Kotlin/Compose phone, tablet and TV navigation against fakes;
+- test Android Media3 with non-production test media;
+- build a strictly read-only compatibility-adapter PoC for current Suite routes;
+- improve the browser toward an intentional PWA under a separate cache/security design.
+
+Binding gates:
+
+- production login, permissions and privileged client actions depend on Phase 62;
+- secure remote-site access depends on Phase 63;
+- product Timer automation depends on Phase 64;
+- product Live TV and Recording playback depend on Phase 65;
+- Legacy OSD depends on Phase 66;
+- a stable independent-client API and publishable Android SDK depend on Phase 67.
+
+The current `LiveOverlay` and SSE update path are structured state, not video. A PoC must not publish direct Streamdev, VDR, Agent or filesystem URLs and must not freeze unversioned aliases as the public contract.
+
 # Cross-cutting completion gates
 
 - **Identity gate:** stable Suite identity and explicit backend-native binding where applicable.
@@ -221,4 +249,6 @@ No recommendation work may hide provider authority or use unstable identities.
 - [Implementation Dependency Map](implementation-dependency-map.md)
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
+- [Android, Android TV and Client API Feasibility Study](../architecture/android-client-api-feasibility-study.md)
+- [Client Capability, API Candidate and Gap Matrix](client-capability-api-gap-matrix.md)
 - [Completed Phases](../development/completed-phases.md)
