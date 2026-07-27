@@ -13,6 +13,7 @@
 - [Phase Map](planning/phase-map.md)
 - [Phase 62 Security and Identity Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
 - [Phase 62 Slice 1](development/phase-62-security-identity-foundation-slice-1.md)
+- [Phase 62 Slice 2](development/phase-62-security-identity-foundation-slice-2.md)
 - [Implementation Dependency Map](planning/implementation-dependency-map.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -27,7 +28,7 @@
 - [Phase 61 Metadata, Genre and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
 - [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
 
-The latest completed numbered runtime phase is **Phase 61 - Suite Metadata and Genre Platform**. Phase 62 - Identity, RBAC and Accountability Foundation is the next strict runtime phase and is active but incomplete.
+The latest completed numbered runtime phase is **Phase 61 - Suite Metadata and Genre Platform**. Phase 62 - Identity, RBAC and Accountability Foundation is active but incomplete. Slice 1 is real-runtime validated; Slice 2 currently contains an implemented persistence and revocation foundation, not a completed production-authentication lifecycle.
 
 ## Architecture
 
