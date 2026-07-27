@@ -1,311 +1,244 @@
-# Parity Audit and Frontend Gap Roadmap
-
-## Navigation
-
-- [README](../../README.md)
-- [Documentation Index](../index.md)
-- [Current State](../CURRENT.md)
-- [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
-- [Roadmap](roadmap.md)
-- [Phase Map](phase-map.md)
-
----
+# VDR Ecosystem Parity and Product Gap Roadmap
 
 ## Purpose
 
-This document records the current parity view between VDR-Suite and the main VDR ecosystem reference points.
+This document compares current VDR-Suite behaviour with the relevant ecosystem reference points:
 
-It is not a claim that all parity is complete.
+- VDR Core;
+- Live;
+- epgsearch;
+- RESTfulAPI;
+- VDR-Suite.
 
-It is a planning matrix for deciding what should be proven, implemented, deferred or intentionally left out before a 1.0 product boundary.
+TVScraper and SuiteBridge appear only where they are real private metadata/plugin/Agent sources or adapters. They are not substitute public application architectures.
 
-Reference targets:
+There is no VDR-Suite component named `Wikipedia Search`. The canonical comparison for SearchTimer and EPG-search semantics is `epgsearch`.
 
-- VDR RESTfulAPI plugin
-- VDR Live plugin
-- epgsearch plugin service interface
-- VDR core timer and recording semantics
+## Status legend
 
----
+- **STRONG** — implemented and well covered for the stated Suite scope.
+- **PARTIAL** — useful implementation exists, but exact parity or full semantics remain incomplete.
+- **MISSING** — no complete Suite runtime surface exists.
+- **DEFERRED** — assigned intentionally to a later phase.
+- **DIFFERENT** — Suite intentionally uses a different architecture.
+- **BETTER** — Suite provides a stronger boundary or safety model for the stated scope.
 
-## Legend
+## Current position
+
+Baseline reconciled on 2026-07-27 against `44ae3102ab202ee0dfc974ee0bc9624b9219ad2d`.
 
 ```text
-OK      present or likely close to parity
-PARTIAL partly present or parity not fully proven
-MISSING not seen or likely absent
-CHECK   unclear and should be audited
-BETTER  VDR-Suite is stronger than the comparison target
+Latest completed numbered runtime phase: Phase 61
+Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
+Completed platform features: Remote/Live Overlay (#110), Global Search (#111)
+Next strict runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
----
+## Executive comparison
 
-## Current High-Level Assessment
-
-Phase 59.07a refresh note: this document is being reconciled with the newer VDR-Suite source state after the Phase 59 frontend hardening chain.
-
-VDR-Suite is no longer only a backend prototype.
-
-The project already has strong foundations for:
-
-- RESTfulAPI integration
-- recording actions
-- recording action safety
-- SearchTimer CRUD and preview
-- SearchTimer dry-run and validation flows
-- real VDR acceptance checks
-- backend-neutral service boundaries
-- multi-backend architecture
-- packaging and install staging
-
-The main remaining work is now less about basic feasibility and more about proof and product completeness:
-
-- prove exact parity where it matters
-- identify gaps with tests and real VDR acceptance evidence
-- decide what belongs to version 1.0
-- expose existing backend capability through a usable frontend
-
----
-
-## RESTfulAPI Parity View
-
-| Area | VDR-Suite status | Notes |
-| --- | --- | --- |
-| VDR status and info | OK | Core read parity likely. |
-| Channels read | OK | Core read parity likely. |
-| Events and EPG read | OK | Core read parity likely. |
-| EPG search | OK | Own EPG search block exists from Phase 45. |
-| Recordings read | OK | Core read parity likely. |
-| Recording query | OK | VDR-Suite likely stronger because of query/domain work. |
-| Recording move, rename and write operations | OK | Strong but policy guarded. |
-| Recording action preview | BETTER | Preview and safety model are VDR-Suite strengths. |
-| Recording mutation safety | BETTER | Safety gates and dry-run policy are central. |
-| Timers read | OK | Present, but detail parity still needs audit. |
-| Timer write operations | PARTIAL | Present or planned, exact completeness should be checked. |
-| SearchTimer create/update/delete | OK | Strong SearchTimer backend work exists. |
-| SearchTimer search and preview | PARTIAL | Present, but exact epgsearch semantics should be proven. |
-| SearchTimer discovery catalogs | PARTIAL | Provider and wiring are present, catalog completeness needs audit. |
-| Blacklists | PARTIAL | Support likely exists, exact list parity should be proven. |
-| Channel groups | PARTIAL | Discovery likely exists, exact list parity should be proven. |
-| Extended EPG info | PARTIAL | Support likely exists, exact list parity should be proven. |
-| Recording directories | CHECK | Targeted audit required. |
-| Timer conflicts | PARTIAL | Backend/domain/adapter and frontend client wrapper are present; exact Live/epgsearch advice semantics and UI parity still need audit. |
-| OSD | CHECK | Not confirmed as current VDR-Suite scope. |
-| Remote control | CHECK | Not confirmed as current VDR-Suite scope. |
-| Femon / signal values | CHECK | Not confirmed as current VDR-Suite scope. |
-| Scraper images | PARTIAL | Metadata and TVScraper context exists, image parity unclear. |
-| Wirbelscan | MISSING | Probably not a core VDR-Suite goal. |
-| Multi-backend | BETTER | VDR-Suite is stronger here. |
-| Backend-specific policy | BETTER | VDR-Suite has a stronger target model. |
-
----
-
-## Live Plugin Parity View
-
-Live is strong because it has a complete web user interface.
-
-VDR-Suite is stronger architecturally, but not yet a Live replacement for end users.
-
-| Live area | VDR-Suite status | Notes |
-| --- | --- | --- |
-| Recording browser backend | OK | Backend foundation present. |
-| Recording actions | OK | Strong backend and safety model. |
-| Timer backend | PARTIAL | Present, detail audit required. |
-| EPG backend | OK | Present. |
-| SearchTimer backend | OK | Strong backend work exists. |
-| SearchTimer preview | OK | Present. |
-| Live parity discovery | OK | Phase 51 exists for discovery. |
-| Web UI | PARTIAL | Current web frontend exists, but Live-level workflow parity is incomplete. |
-| Recording web UI | PARTIAL | Browser, folder tree, paging and detail view exist; action workflow parity remains incomplete. |
-| Timer web UI | PARTIAL | Timer loading and conflict client paths exist; Live-style detail/action UI remains incomplete. |
-| SearchTimer web UI | PARTIAL | SearchTimer backend and frontend loading exist; Live-style edit/preview workflow remains incomplete. |
-| EPG day view / What's On | PARTIAL | API may support it, UI does not. |
-| Multischedule | CHECK | Needs audit. |
-| Remote page | CHECK | Needs scope decision. |
-| OSD page | CHECK | Needs scope decision. |
-| Setup page | CHECK | Needs scope decision. |
-| Timer conflicts page | PARTIAL | Backend and client API paths exist; Live-style page and advice semantics still need audit. |
-| recstream / streaming | CHECK | Needs concept and scope decision. |
-| SSE / live transport | OK | Present, but not identical to Live streaming. |
-| Multi-backend | BETTER | VDR-Suite target is stronger. |
-| Read-only backend policy | BETTER | VDR-Suite target is stronger. |
-
----
-
-## epgsearch Parity View
-
-SearchTimer is no longer a missing foundation.
-
-The remaining question is exact semantic compatibility with epgsearch behavior.
-
-| epgsearch area | VDR-Suite status | Notes |
-| --- | --- | --- |
-| SearchTimer domain | OK | Present. |
-| SearchTimer create/update/delete | OK | Present. |
-| RESTfulAPI command executor | OK | Present. |
-| Payload body enrichment | OK | Strong work exists. |
-| Channel, time, duration, repeat, series, validity and action body | OK | Present or strongly indicated by phase work. |
-| Blacklist support | PARTIAL | Completeness should be proven. |
-| Extended EPG support | PARTIAL | Completeness should be proven. |
-| SearchTimer preview | OK | Present. |
-| Preview cache and invalidation | OK | Present. |
-| Typo/fallback preview | OK | Present. |
-| Native preview capability | OK | Present. |
-| Real VDR validation | OK | Present. |
-| Readback verification | OK | Present. |
-| SearchTimer discovery catalogs | PARTIAL | Backend-neutral discovery and RESTfulAPI provider exist; real data completeness and UI usage still need audit. |
-| SearchTimerList | CHECK | Needs exact mapping proof. |
-| QuerySearchTimer | CHECK | Preview exists, exact semantics need proof. |
-| QuerySearch | CHECK | Needs proof against epgsearch behavior. |
-| ExtEPGInfoList | CHECK | Needs proof. |
-| ChanGrpList | CHECK | Needs proof. |
-| BlackList | CHECK | Needs proof. |
-| DirectoryList / ShortDirectoryList | PARTIAL | Recording-directory discovery exists; exact epgsearch parity and UI usage still need audit. |
-| TimerConflictList | PARTIAL | Timer conflict report exists through RESTfulAPI; exact epgsearch fields and Live-style UI still need audit. |
-| IsConflictCheckAdvised | CHECK | Important target gap. |
-| Evaluate expression against event | CHECK | Not confirmed. |
-| Automatic timer creation from automation | PARTIAL | Dry-run and proposal flows exist; execute path must be proven. |
-| Duplicate detection | PARTIAL | Model exists, real behavior should be proven. |
-| AvoidRepeats semantics | CHECK | Needs exact semantic proof. |
-
----
-
-## VDR Core Timer Parity View
-
-VDR-Suite abstracts VDR already.
-
-The open question is whether all relevant core timer details are represented losslessly.
-
-| VDR core area | VDR-Suite status | Notes |
-| --- | --- | --- |
-| Status, channels, events, recordings | OK | Present. |
-| Timers read | OK | Present. |
-| Timer parser / request builder | OK | Timer parser source split exists in Phase 56 history. |
-| Timer write operations | PARTIAL | Needs exact detail audit. |
-| Timer flags | CHECK | Needs field-level audit. |
-| Priority and lifetime | PARTIAL | Present in related contexts, exact parity should be proven. |
-| VPS | CHECK | Needs field-level audit. |
-| Aux | CHECK | Needs field-level audit. |
-| Remote/local timer semantics | CHECK | Needs field-level audit. |
-| Pattern/spawned timers | CHECK | Needs field-level audit. |
-| Event matching | PARTIAL | EPG and preview exist, exact VDR-core behavior should be proven. |
-| Conflict/overlap behavior | CHECK | Needs audit. |
-| Multi-backend beyond VDR core | BETTER | VDR-Suite is stronger here. |
-
----
-
-## Web Client API Parity View
-
-Phase 59.07a adds the Web Client API as an explicit parity dimension.
-
-The web frontend currently uses a DOM-free wrapper at `web/frontend/api/client-api.js`.
-This wrapper still calls existing `/api/vdr` and `/api/epg` routes.
-It is an incremental seam, not the final stable multi-client `/api/client` layer.
-
-| Capability | Source capability | Backend/domain status | Web Client API status | UI status | Next action |
+| Dimension | VDR Core | Live | epgsearch | RESTfulAPI | VDR-Suite |
 | --- | --- | --- | --- | --- | --- |
-| Timer list and actions | VDR timers and timer action workflows | Present | Wrapped through fetchClientTimers, fetchClientTimerCreateAction, fetchClientTimerUpdateAction and fetchClientTimerDeleteAction | Partial | Add Live-style detail/action UI only after safety semantics are proven. |
-| Timer conflicts | epgsearch TimerConflictList | Present through RESTfulAPI adapter | Wrapped through fetchClientTimerConflicts | Partial | Build Live-style conflict view and audit IsConflictCheckAdvised. |
-| Channel list | VDR channels | Present | Wrapped through fetchClientChannels | Partial | Keep channel UI behind wrapper and preserve sorter rules. |
-| EPG window and auxiliary reads | VDR events, EPG cache and EPG read views | Present | Wrapped through fetchClientEpgWindow, fetchClientEpgCacheWindow, fetchClientEpgNowNext, fetchClientEpgTimeWindow and fetchClientEpgChannelWindow | Partial | Keep visible-window loading and keep true event-detail/media gaps explicit. |
-| Recordings | VDR recordings, query endpoint and guarded action endpoints | Present | Wrapped through fetchClientRecordings, fetchClientRecordingActionValidation and fetchClientRecordingActionExecution | Partial | Add action UI only after explicit safety and permission checks. |
-| SearchTimer list and workflows | epgsearch SearchTimerList and SearchTimer workflows | Present | Wrapped through fetchClientSearchTimers, fetchClientSearchTimerDiscovery, fetchClientSearchTimerPreview and SearchTimer workflow/action wrappers | Partial | Add Live-style SearchTimer UI only after safety and parity semantics are proven. |
-| Discovery catalogs | ExtEPGInfoList, ChanGrpList, BlackList, DirectoryList | Backend-neutral discovery present | Wrapped through fetchClientSearchTimerDiscovery | Missing in UI | Use catalogs in SearchTimer UI after wrapper tests. |
-| Native EPGSearch query | QuerySearchTimer and QuerySearch | Partial | Wrapped through fetchClientEpgSearch, fetchClientSearchTimerPreview and SearchTimer workflow wrappers | Missing or indirect | Add real parity tests before UI expansion. |
-| Metadata and person catalog | Metadata, persons and recording-person search routes | Present for metadata and person search; event-detail/media route contracts remain gaps | Wrapped through fetchClientMetadata, fetchClientPersons and fetchClientRecordingPersons | Missing or indirect | Use only after UI semantics and media/artwork contracts are explicit. |
-| Client capabilities and runtime state | backend capability report, backend registry and VDR runtime state routes | Capability, backend state and runtime state routes present; generic permission route gap remains | Wrapped through fetchClientCapabilities, fetchClientVdrOverview, fetchClientVdrStatus, fetchClientVdrHealth, fetchClientVdrSnapshotSummary, fetchClientVdrSnapshots, fetchClientBackends, fetchClientDefaultBackend and fetchClientBackendSnapshot | Partial | Add permission report only when backend exposes a route. |
-| Missing backend route gaps | permission report, event detail/media, recording marks/resume/cut/playback | Dedicated route contracts not yet proven | Guarded against fake Client API wrappers | Not applicable | Add backend contracts first, then wrappers, then UI. |
-| Stable `/api/client` layer | VDR-Suite client contract | Planned | Not implemented | Not applicable | Introduce after current wrapper coverage stabilizes. |
+| Native VDR authority | STRONG | Uses VDR | Uses VDR | Uses VDR | DIFFERENT: delegates native authority to VDR |
+| Web UI | None in core | STRONG mature single-VDR UI | Mostly OSD/plugin | API only | STRONG in current browser domains, incomplete full replacement |
+| Channels and EPG | Native | STRONG | Search focused | STRONG API | STRONG: timeline, day views, details, cache and Genres |
+| Recordings | Native | STRONG UI | Limited relevance | STRONG API | STRONG: Recordings 2, metadata, people, Genres and guarded actions |
+| SearchTimer | None | Mature integration | STRONG authority | Service exposure | STRONG foundation; edge parity PARTIAL |
+| Metadata / people / artwork | Plugin dependent | Plugin integrated | Not primary | Provider-shaped | BETTER provider-neutral persisted read models |
+| Genre browsing | Skin/plugin dependent | Limited/general | Search categories | Raw/provider dependent | STRONG persistent Recording/EPG Genre platform |
+| Global search | Native/plugin-specific pieces | Multiple page searches | EPG/SearchTimer search | Endpoint-specific | STRONG first backend-scoped cross-domain search |
+| Remote control | Native input | STRONG UI | Not primary | API support | STRONG backend-neutral foundation; #110 mobile behaviour complete |
+| Live streaming | Native providers/devices | STRONG | Not primary | Provider endpoints | MISSING public Gateway; Phase 65 |
+| Legacy OSD in browser | Native OSD | STRONG compatibility surface | Native menus | OSD surfaces | MISSING isolated bridge; Phase 66 |
+| Multi-backend scope | Single native instance | Single-instance oriented | Single-instance oriented | Per plugin instance | BETTER architecture/read-only foundation |
+| User RBAC/accountability | Native config/limited | Limited | Limited | Limited | DEFERRED to Phase 62 |
+| Secure remote sites | External setup | Not central | Not central | Not central | DEFERRED to Phase 63 |
+| Stable public versioned API | Plugin/ABI boundaries | UI routes | Service commands | Plugin API | PARTIAL; `/api/v1` Phase 67 |
 
-Rule for future Live-parity work:
+# VDR Core comparison
 
-- A capability is not frontend-ready until it has a backend/domain status, a Web Client API status and a UI status.
-- New frontend HTTP access must first go through `web/frontend/api/client-api.js`.
-- Every defined `fetchClient...` helper must be exported through `window.VdrSuiteClientApi`, and every exported helper must be defined.
-- `web/frontend/app.js` must not add new direct `/api...` fetch routes; `web/frontend/app.js` no longer owns direct `fetch()` calls; EPG timer live-sync, create-timer access, backend list loading, backend snapshot loading, channel sorter list loading and channel move actions are already migrated, and the Web Client API export snapshot is now documented, and the Recording browser static asset is prepared for module extraction, the first Recording browser runtime block is extracted from `index.html`, its temporary dependency boundary is guarded, a UI-only Recording browser module API surface is exposed, the rich renderer migration boundary is prepared, and the rich Recording renderer is migrated into `recording-browser.js`, VDR encoded Recording title markers are cleaned in the UI, and the Recording browser is handed an explicit mount target, migrated Recording display helpers are removed from `app.js`, response, formatting, DOM text and display-parts helpers are local to the Recording browser, and Channel browser EPG cache refresh now goes through `fetchClientEpgCacheRefresh()`, the selected-channel EPG event helper is restored, and the selected-channel programme list supports drag-scroll.
-- `web/frontend/api/client-api.js` must remain DOM-free.
-- Final multi-client contracts should later move behind stable `/api/client` routes.
+VDR Core remains authoritative for tuners, schedules, native timers, recordings, replay, OSD and plugin execution. VDR-Suite is not a VDR fork and must not duplicate those internals in its control plane.
 
----
+| VDR Core area | VDR-Suite status | Current assessment |
+| --- | --- | --- |
+| Runtime status | STRONG | Backend-aware status and health foundations exist. |
+| Channels | STRONG | Read, current programme, day navigation and movement/sorting foundations exist. |
+| EPG | STRONG | Persistent cache, windows, search, details and Genre paths exist. |
+| Recordings | STRONG | Recordings 2 owns lazy folders, cards, details, metadata, people, artwork and actions. |
+| Timers read | STRONG foundation | Backend-aware read paths and Client API wrappers exist. |
+| Timer mutation | PARTIAL | Controlled native paths/readback exist; universal revision/idempotency and field parity do not. |
+| Recording rename/move/trash | STRONG | Validation, preview, policy, execution and readback boundaries. |
+| Remote input | STRONG foundation | Backend-neutral allowlisted actions and live acceptance. |
+| Native OSD | MISSING as Suite bridge | Phase 66; not implied by live overlay. |
+| Live/replay media | MISSING as Suite Gateway | Phase 65. |
+| Multi-instance federation | BETTER target | Backend scope/read-only exist; secure Agents remain Phase 63. |
 
-## Most Important Real Gaps
+Largest VDR-Core parity risks are lossless Timer representation, uncertain native mutation outcomes, cross-site lifecycle semantics, streaming and OSD compatibility.
 
-| Priority | Gap | Why it matters |
-| ---: | --- | --- |
-| 1 | Timer conflict list and conflict checking | Central for Live and epgsearch parity. |
-| 2 | QuerySearchTimer semantic proof | Preview exists, but parity needs evidence. |
-| 3 | DirectoryList and ShortDirectoryList | Important for SearchTimer and recording targets. |
-| 4 | ExtEPGInfo, channel groups and blacklists | Likely partly present, but matrix proof is missing. |
-| 5 | Real timer creation from SearchTimer automation | Dry-run is not full parity. |
-| 6 | VDR core timer details | Needed for lossless timer handling. |
-| 7 | Live-like web UI | Largest end-user parity gap. |
-| 8 | Streaming / recstream | Important for Live parity if in scope. |
-| 9 | OSD, remote control and signal values | RESTfulAPI and Live parity areas, but may be optional. |
-| 10 | Hard parity matrix with tests and real VDR evidence | Prevents guessing and stale claims. |
+# Live comparison
 
----
+## Where Live remains stronger
 
-## Roadmap Consequence
+- mature integrated Live TV/recording streaming;
+- legacy OSD/plugin compatibility pages;
+- polished long-established Timer/SearchTimer editing;
+- broad single-server operational familiarity;
+- specialist plugin-specific pages.
 
-Do not skip Phase 57.
+## Where VDR-Suite is competitive or stronger
 
-Phase 57 is the backend and policy foundation that the frontend needs:
+| Live area | VDR-Suite status | Assessment |
+| --- | --- | --- |
+| Dashboard/backend status | STRONG | Backend-aware and designed for federation. |
+| Channel browser/day guide | STRONG | Modern modular browser flows. |
+| EPG timeline/details | STRONG | Persistent cache, rich details and Genre navigation. |
+| Recording browser | STRONG | Recordings 2, lazy loading, metadata/people/artwork and guarded actions. |
+| Recording action safety | BETTER | Explicit validation, preview, policy and readback. |
+| Metadata details | BETTER boundary | Provider-neutral Suite routes; no browser/provider coupling. |
+| Genre browsing | BETTER | Persistent canonical backend-scoped Recording/EPG read model. |
+| Global search | STRONG first slice | One selected backend across persisted Recording/EPG titles, subtitles and people. |
+| SearchTimer | STRONG foundation | Exact edge semantics and full polish remain partial. |
+| Remote control | STRONG foundation | Backend-neutral; #110 isolates pressed state and dispatch guard. |
+| Live streaming | MISSING | Phase 65. |
+| Legacy OSD | MISSING | Phase 66. |
+| Multi-backend policy | BETTER | Explicit backend identity and server-enforced read-only mode. |
+| Per-user RBAC/audit | DEFERRED | Phase 62. |
 
-- backend identity
-- backend selection
-- backend-specific permissions
-- read-only secondary-site mode
-- visible capability and policy state
+VDR-Suite is already a credible modern browser for channels, EPG, Recordings, metadata, Genres, global search and several control workflows. It is not yet a complete Live replacement because streaming, legacy OSD and some mature Timer/SearchTimer UX remain missing.
 
-After Phase 57, Phase 58 should become the frontend and Live-parity validation block.
+# epgsearch comparison
 
-The frontend should be a thin usability and parity layer first, not a large UI rewrite.
+Implemented foundations:
 
-Recommended Phase 58 MVP:
+- SearchTimer domain values and backend-neutral list;
+- create/update/delete command paths;
+- RESTfulAPI service adapter;
+- validation, dry-run and controlled execution;
+- preview cache/invalidation and native preview capability;
+- channel-group, extended-info, blacklist, directory and conflict discovery foundations;
+- real VDR validation/readback;
+- Client API wrappers;
+- backend-scoped EPG title search and the separate global-search read model.
 
-- dashboard
-- backend selector
-- backend status
-- channels
-- EPG/events
-- recordings
-- recording action preview
-- recording action execution with safety gate
-- SearchTimer list and discovery
-- SearchTimer preview
-- SearchTimer dry-run and automation preview
+| epgsearch area | VDR-Suite status | Remaining work/proof |
+| --- | --- | --- |
+| SearchTimer list | STRONG | Keep exact edge-field mapping regression covered. |
+| Create/update/delete | STRONG foundation | Universal revision/idempotency and failure semantics remain. |
+| QuerySearchTimer preview | STRONG foundation | Permanent exact-result parity matrix still needed. |
+| QuerySearch | PARTIAL | Suite EPG/global search exists; service-command equivalence is not universal. |
+| Channel groups | PARTIAL | Discovery exists; completeness/UI coverage needs proof. |
+| Extended EPG info | PARTIAL | Contracts exist; exact semantics need proof. |
+| Blacklists | PARTIAL | Discovery/mapping exists; full behaviour needs proof. |
+| Directory lists | PARTIAL | Discovery exists; exact short/full semantics need proof. |
+| Timer conflicts | PARTIAL | Report paths exist; advice semantics/UI remain incomplete. |
+| IsConflictCheckAdvised | MISSING or unproven | Needs explicit contract/acceptance. |
+| AvoidRepeats | PARTIAL | Model support exists; exact native semantics need proof. |
+| Duplicate detection | PARTIAL | Central orchestration-grade semantics belong to Phase 64. |
+| Automatic native Timer creation | PARTIAL | Controlled paths exist; TimerIntent/assignment remains Phase 64. |
+| Native OSD configuration | DIFFERENT/MISSING | Compatibility bridge is Phase 66, not primary Suite UI. |
 
----
+SearchTimer is not a missing foundation. Full epgsearch replacement must not be claimed until repeat/duplicate/conflict/discovery edge semantics and real automation outcomes have strict test/live evidence.
 
-## Audit Method
+# RESTfulAPI comparison
 
-For each external feature, record:
+RESTfulAPI is a private backend adapter, not VDR-Suite's final public API. Browsers consume Suite routes and `VdrSuiteClientApi`; provider URLs, credentials and response shapes remain private.
+
+| RESTfulAPI area | VDR-Suite status | Assessment |
+| --- | --- | --- |
+| Status/info | STRONG | Normalized through Suite services. |
+| Channels | STRONG | Read and movement/sorting paths exist. |
+| Events/EPG | STRONG | Suite cache/query/detail models are richer than passthrough. |
+| Recordings read | STRONG | Lazy cache and Recordings 2. |
+| Recording operations | STRONG | Adapter-backed with Suite safety/policy gates. |
+| Timers | PARTIAL to STRONG | Core paths exist; universal parity/revision semantics incomplete. |
+| SearchTimer commands | STRONG foundation | Adapter/workflow boundaries exist. |
+| Remote control | STRONG foundation | Backend-neutral Suite action contract. |
+| OSD endpoints | MISSING as public Suite feature | Phase 66 isolated bridge. |
+| Streaming/provider URLs | DIFFERENT | Must remain private; Phase 65 adds Suite media sessions. |
+| Signal/Femon/specialist data | MISSING or unproven | Needs explicit product decision. |
+| Scraper/provider data | BETTER boundary | Normalized/persisted/proxied without provider path exposure. |
+| Multi-backend identity/policy | BETTER | Explicit backend scope/read-only enforcement. |
+| Public versioned API | PARTIAL/DEFERRED | Current transition routes; Phase 67 `/api/v1`. |
+
+Exact parity with every RESTfulAPI endpoint is neither proven nor always desirable.
+
+# TVScraper and SuiteBridge role
+
+TVScraper provides private metadata evidence. SuiteBridge provides bounded plugin-local capability, metadata and transport functions. Neither is a browser API or Suite authority.
+
+Current rules:
+
+- provider calls run in bounded asynchronous worker/adapter paths;
+- persisted Suite identities/evidence/read models own public behaviour;
+- provider outages do not erase cached browse/search capability;
+- normal Genre/global-search GETs perform no provider resolution;
+- SuiteBridge/SVDRP limits are end-to-end contracts, not plugin-only constants;
+- current RMETA bounds are 128 people and 65,535 bytes.
+
+# VDR-Suite product assessment
+
+## Strong today
+
+- backend-aware status, channels and EPG navigation;
+- EPG timeline and channel-day guide;
+- Recordings 2 and guarded Recording actions;
+- SearchTimer list/preview/controlled workflows;
+- persistent metadata, people, artwork and Genres;
+- backend-scoped global search;
+- backend-neutral Remote and LiveOverlay;
+- provider-neutral API/service boundaries;
+- backend isolation and server-enforced read-only policy;
+- query-only read paths for Genre/search;
+- modular frontend ownership and packaging/real-system testing.
+
+## Architecturally stronger separation
+
+- Suite-owned identities and backend scope;
+- provider evidence/provenance instead of provider authority;
+- private adapter protocols;
+- server-side read-only/safety gates;
+- repository/service/controller boundaries;
+- dedicated query-only SQLite reads;
+- frontend reuse of single detail owners.
+
+## Not a complete replacement yet
+
+- Streaming Gateway;
+- legacy OSD compatibility;
+- production identity/RBAC/accountability;
+- secure Backend Agents;
+- universal revision/idempotency and durable jobs;
+- TimerIntent orchestration;
+- exact full epgsearch edge parity;
+- stable `/api/v1` and complete audit/accountability path;
+- every specialist RESTfulAPI or Live page.
+
+## Practical readiness
+
+| Use case | Readiness |
+| --- | --- |
+| Modern Recording browser for one VDR | STRONG |
+| EPG timeline/day guide/rich details | STRONG |
+| Metadata/people/artwork/Genre browsing | STRONG |
+| Backend-scoped Recording/EPG search | STRONG first slice |
+| Safe Recording maintenance | STRONG |
+| SearchTimer management | STRONG foundation; edge parity PARTIAL |
+| Browser remote control | STRONG foundation |
+| Complete Live replacement with streaming/OSD | NOT YET |
+| Secure multi-user household | NOT YET; Phase 62 |
+| Secure multi-site federation | NOT YET; Phase 63 |
+| Central Timer failover | NOT YET; Phase 64 |
+| Stable third-party API platform | NOT YET; Phase 67 |
+
+## Roadmap consequence
 
 ```text
-External feature
-  -> VDR-Suite domain class or service
-  -> REST route or command surface
-  -> unit or integration test
-  -> real VDR acceptance evidence
-  -> UI status
-  -> status: done / partial / missing / deferred / intentionally out of scope
+Phase 62 identity/RBAC/accountability
+  -> Phase 63 secure Agents
+  -> Phase 64 Timer orchestration
+  -> Phase 65 streaming
+  -> Phase 66 legacy OSD
+  -> Phase 67 public API hardening
+  -> Phase 68 recommendations
 ```
 
-This is the basis for deciding the 1.0 feature boundary.
-
----
-
-## Status
-
-This is a planning document.
-
-It should be converted into a stricter parity matrix during the Phase 57 to Phase 58 transition.
-
----
-
-## Back
-
-- [Back to Roadmap](roadmap.md)
-- [Back to Phase Map](phase-map.md)
-- [Back to Current State](../CURRENT.md)
-- [Back to Documentation Index](../index.md)
+This document replaces older Phase 57/58 transition assumptions and includes the completed Phase 61, B1-B4, Remote and Global Search state.

@@ -11,12 +11,15 @@ FILES = {
 PHASE = re.compile(r"Phase\s+(\d+(?:\.\d+)?[a-z]?)(?:\s*-\s*[^\n\r|]+)?", re.I)
 
 COMPLETED_MARKERS = [
+    "Latest completed numbered runtime phase",
     "Latest completed implementation phase",
     "Current completed project block",
     "Current completed phase",
 ]
 
 NEXT_MARKERS = [
+    "Next strict runtime phase",
+    "Next runtime phase",
     "Next major implementation milestone",
     "After that",
     "Next implementation focus",
@@ -89,8 +92,13 @@ def main():
         if not finding or finding["value"] != completed_value:
             errors.append(name + " completed phase differs")
     for name, finding in planned.items():
-        if planned_value and finding and finding["value"] != planned_value:
+        if not finding or finding["value"] != planned_value:
             errors.append(name + " next phase differs")
+
+    if completed_value != "61":
+        errors.append("latest completed phase is not Phase 61")
+    if planned_value != "62":
+        errors.append("next runtime phase is not Phase 62")
 
     if errors:
         print("Phase consistency check failed:")
@@ -109,10 +117,9 @@ def main():
     print("Latest completed phase: " + label(completed_value))
     for name in sorted(completed):
         print("- " + describe(name, completed[name]))
-    if planned_value:
-        print("Next implementation focus: " + label(planned_value))
-        for name in sorted(planned):
-            print("- " + describe(name, planned[name]))
+    print("Next implementation focus: " + label(planned_value))
+    for name in sorted(planned):
+        print("- " + describe(name, planned[name]))
     return 0
 
 

@@ -2,135 +2,51 @@
 
 ## Navigation
 
-* [README](README.md)
-* [Documentation Index](docs/index.md)
-* [Project Overview](docs/project-overview.md)
-* [Planning Index](docs/planning/index.md)
-* [Active Roadmap](docs/planning/roadmap.md)
-
----
+- [README](README.md)
+- [Current State](docs/CURRENT.md)
+- [Strict Roadmap](docs/planning/roadmap.md)
+- [Phase Map](docs/planning/phase-map.md)
+- [Implementation Dependency Map](docs/planning/implementation-dependency-map.md)
+- [Completed History](docs/development/completed-phases.md)
+- [Architecture Gap Matrix](docs/planning/architecture-audit-gap-matrix.md)
 
 ## Purpose
 
-This root roadmap is a repository entry point.
+This root file is only a compact roadmap entry point. The authoritative execution order, prerequisites and exit criteria live in [docs/planning/roadmap.md](docs/planning/roadmap.md). Historical implementation detail belongs in [Completed History](docs/development/completed-phases.md).
 
-The canonical and detailed roadmap is maintained in:
-
-* [docs/planning/roadmap.md](docs/planning/roadmap.md)
-
-Completed implementation history is maintained in:
-
-* [docs/development/completed-phases.md](docs/development/completed-phases.md)
-
-Current status is maintained in:
-
-* [docs/development/current-status.md](docs/development/current-status.md)
-* [docs/project-status-dashboard.md](docs/project-status-dashboard.md)
-
----
-
-## Current Roadmap Position
+## Current position
 
 ```text
-Latest completed phase:
-Phase 46.0 - Content Classification Architecture ADR
+Latest completed numbered runtime phase:
+Phase 61 - Suite Metadata and Genre Platform
 
-Next implementation focus:
-Phase 46.1 - Genre Domain Foundation
+Completed operational hardening:
+Post-Phase 61 Performance Hardening (B1-B4)
+
+Completed post-phase platform features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
+
+Next strict runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-The Phase 45 EPG search block is complete:
+Phase 61 was merged through PR #100. PRs #102 through #108 completed the measured metadata and EPG hardening. PR #110 completed the current remote-control pressed-state and dispatch behaviour. PR #111 added the backend-scoped global search. These are completed implementation, not open Phase 61 work.
+
+## Strict forward sequence
 
 ```text
-45.1 EPG Search Request
-45.2 EPG Search Matcher
-45.3 EPG Search Result
-45.4 EPG Search JSON Contract
-45.5 EPG Search Service
-45.6 EPG Search Controller
-45.7 EPG Search REST Validation
-45.8 EPG Search API Documentation
+Phase 62 - Identity, RBAC and Accountability Foundation
+Phase 63 - Backend Agent and Secure Multi-Site Runtime
+Phase 64 - Timer Intent and Multi-Backend Orchestration
+Phase 65 - Streaming Gateway and Media Sessions
+Phase 66 - Legacy OSD Compatibility Bridge
+Phase 67 - Public API and Client Compatibility Hardening
+Phase 68 - Recommendation and Content Knowledge Graph
 ```
 
-Phase 46.0 added [ADR-0028: Content Classification Architecture](docs/adr/ADR-0028-content-classification-architecture.md).
+Later phases may not bypass identity, authorization, accountability, generation fencing, stable Suite identity or provider-neutral boundaries by moving policy into a frontend, plugin or external provider.
 
----
+## Roadmap rule
 
-## Strategic Roadmap Pillars
-
-VDR-Suite now tracks its forward direction around three pillars:
-
-```text
-1. Multi-Backend VDR Federation
-2. Content Intelligence
-3. Client Platform
-```
-
-### Multi-Backend VDR Federation
-
-One API layer should eventually expose several VDR systems while preserving backend identity, backend capabilities and backend permissions.
-
-Target scenarios include:
-
-* multiple VDR servers
-* read-only and read-write backends
-* backend-aware recordings, timers, EPG and streams
-* household or partner installations with several TVs
-
-### Content Intelligence
-
-Content classification, metadata and search should build on source-aware evidence instead of single flat strings.
-
-Target scenarios include:
-
-* DVB / EPG genres
-* tvscraper genres
-* TMDb / TVDb / IMDb enrichment
-* user-defined genres and tags
-* folder/path-derived classifications
-* content ratings such as FSK
-* future profile and policy decisions
-
-### Client Platform
-
-Future clients should consume stable VDR-Suite APIs and must not depend on VDR filesystem paths, RESTfulAPI-specific URLs or backend plugin details.
-
-Target clients include:
-
-* Web frontend
-* Windows frontend
-* Android / iOS frontends
-* TV frontend
-* possible Hisense / VIDAA evaluation
-
----
-
-## Planned Major Direction
-
-The active detailed roadmap currently points toward:
-
-```text
-Phase 46.x - Content Classification and Genre Foundation
-Phase 47.x - SearchTimer Foundation
-Phase 48.x - Multi-Backend Unified Search
-Phase 49.x - User Profiles, Policy and Content Rating
-Phase 50.x - Streaming API Foundation
-Phase 51.x - TV Frontend Strategy
-Phase 52.x - Rectools Integration Layer
-```
-
----
-
-## Roadmap Rule
-
-This file is intentionally short.
-
-The detailed roadmap belongs in [docs/planning/roadmap.md](docs/planning/roadmap.md).
-
-This root file should only summarize the current direction and link to the canonical roadmap documents.
-
----
-
-## Back
-
-* [Back to README](README.md)
+Completed phases are not reopened merely because optional extensions remain possible. Provider additions, broader diagnostics and competing frontend asset proposals must be classified explicitly as backlog, deferred work or a later bounded slice.

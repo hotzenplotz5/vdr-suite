@@ -1,126 +1,83 @@
 # Metadata-Backed Genre Browser
 
-## Navigation
-
-- [Architecture Index](index.md)
-- [Current State](../CURRENT.md)
-- [Metadata Identity Foundation](metadata-identity-foundation.md)
-- [Suite Metadata Platform Schema v1](metadata-platform-schema-v1.md)
-- [ADR-0038](../adr/ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
-
----
-
 ## Status
 
-This document describes the Phase 61 Genre runtime slice implemented on `feature/phase61-metadata-genre-browser`.
+```text
+Phase 61 - Suite Metadata and Genre Platform
+Status: Completed, merged through PR #100 and accepted on the real yaVDR system
+```
 
-The branch now contains the persistent Recording Genre browser plus the hierarchical EPG browse taxonomy described below. Focused reconstructed-checkout tests pass, but the complete repository-local build, fast regression suite and real-system browser verification on `/home/yavdr/vdr-suite` remain acceptance gates.
+This document describes implemented `main` behaviour. Historical references to `feature/phase61-metadata-genre-browser`, reconstructed-checkout-only tests or pending repository/live acceptance are superseded by the [Phase 61 closeout](../development/phase-61-metadata-genre-performance-closeout.md).
 
-It does not mark all of Phase 61 complete.
+## Goal and ownership
 
----
-
-## Goal
-
-Expose one backend-scoped Genre browser for:
-
-- persisted VDR Recordings;
-- persisted EPG events in a bounded time window;
-- canonical and unknown genres;
-- multiple genres per target;
-- missing, stale and conflicting provider evidence;
-- an everyday EPG browse hierarchy with exactly four main classes.
-
-The browser must remain usable without TVScraper and must never call TVScraper, TMDB, IMDb or another provider directly.
-
----
-
-## Ownership
+Expose one backend-scoped persistent Genre browser for Recordings and EPG events without making TVScraper or another provider the Suite authority.
 
 ```text
 Recording cache worker
-  -> VDR Recording cache
-  -> native Recording metadata persistence
+  -> Recording cache/native metadata/people
   -> GenreIndexRepository
 
 EPG cache worker
-  -> EPG event cache
-  -> DVB content descriptors
-  -> bounded SuiteBridge metadata resolution
-  -> TVScraper Genre and media-type evidence
-  -> derived persistent EPG browse class
+  -> EPG cache and DVB descriptors
+  -> bounded SuiteBridge/TVScraper acquisition
+  -> Genre/media-type/browse-class evidence
   -> GenreIndexRepository
 
-Genre HTTP GET
+Genre GET
   -> GenreBrowserApiRuntime
-  -> GenreBrowserController
+  -> controller/service
   -> query-only GenreIndexRepository
-  -> SQLite read model
+  -> Suite-owned SQLite read model
 
-Web genres module
-  -> DOM-free Client API
-  -> Suite genre HTTP routes
+Frontend genres module
+  -> VdrSuiteClientApi
+  -> Suite Genre routes
   -> existing Recordings 2 card/detail owner
-  -> existing EPG detail-card owner
+  -> existing EPG detail owner
 ```
 
-Provider calls are allowed only in the asynchronous EPG worker path. A Genre GET never resolves or refreshes provider data synchronously.
+Provider calls are allowed only in bounded asynchronous worker/adapter paths. A normal Genre GET never resolves or refreshes provider data.
 
----
+## Persistence model
 
-## Persistence
+The implemented backend-scoped read model uses:
 
-The implementation keeps the Phase 61.2 foundation tables authoritative for Suite metadata identities, targets and providers. It uses the backend-scoped normalized Genre read model:
+- `suite_metadata_target_bindings` for Recording/EPG target bindings;
+- `suite_metadata_genres` for canonical and stable unknown Genre identities;
+- `suite_metadata_genre_assignments` for provider evidence, original values, normalized identities, derived browse classes and state;
+- persistent native/public metadata and people relations used by existing details and later Global Search.
 
-- `suite_metadata_target_bindings` maps Suite metadata targets to backend-native Recording or EPG resource keys;
-- `suite_metadata_genres` stores canonical and stable unknown Genre identities;
-- `suite_metadata_genre_assignments` stores provider evidence, original values, normalized Genre identities, derived EPG browse classes and assignment state.
+The EPG browse class is derived evidence in the same assignment model, not a competing taxonomy. TVScraper media type remains separate from flat provider Genre evidence so provenance and conflict handling remain explicit.
 
-No second Genre registry or competing taxonomy table is introduced. The EPG hierarchy is a derived read model in the same assignment table:
+## Canonicalization and state
+
+`CanonicalGenreRegistry` remains the normalization contract. Examples:
 
 ```text
-provider_id = suite-epg-browse
-source_kind = epg-browse-content-class
-normalization_rule = epg-browse-taxonomy-v1
+Science Fiction / Science-Fiction / Sci-Fi -> science-fiction
+Komödie / Comedy                           -> comedy
+Doku / Dokumentation                      -> documentary
+Serien / TV Series                        -> series
+empty value                               -> unclassified
+unknown provider value                    -> stable unknown-* identity
 ```
 
-TVScraper media type is retained separately from TVScraper Genre evidence:
+Original provider values remain persisted.
 
-```text
-provider_id = tvscraper-media-type
-source_kind = scraper-media-type
-```
+Supported assignment states:
 
-This separation preserves provenance while preventing media type from participating in flat provider-Genre conflicts.
+- `active` — usable current evidence;
+- `missing` — source supplied no Genre;
+- `unknown` — value exists but has no canonical alias;
+- `stale` — previous evidence retained after failed/outdated refresh;
+- `conflict` — active providers have disjoint canonical sets.
 
-All public counts and result pages are generated by indexed SQL queries. The frontend does not download all Recordings or EPG events to group them locally.
+Conflict is reconciled deterministically. A failed refresh does not silently delete prior usable evidence.
 
----
+## EPG browse hierarchy
 
-## Canonicalization
-
-The existing `CanonicalGenreRegistry` remains the single normalization contract.
-
-Examples:
-
-```text
-Science Fiction / Science-Fiction / Sci-Fi / Scifi -> science-fiction
-Komödie / Comedy                              -> comedy
-Doku / Dokumentation                         -> documentary
-Serien / TV Series                           -> series
-Talk Show / Talkshow                         -> talk-show
-Reality-TV / Reality Show                    -> reality
-empty value                                  -> unclassified
-unknown provider value                       -> stable unknown-* identity
-```
-
-Original provider values remain persisted beside canonical identities. Values such as `news`, `talk-show`, `reality` and `unclassified` therefore remain available as evidence even though they are not EPG main navigation cards.
-
----
-
-## EPG Browse Hierarchy
-
-The public EPG overview exposes exactly these ordered main classes:
+The public EPG overview exposes exactly:
 
 ```text
 Film
@@ -129,113 +86,37 @@ Dokumentation
 Sport
 ```
 
-The Film card opens a second level consisting of:
-
-```text
-Alle Filme
-Action
-Abenteuer
-Animation
-Drama
-Familie
-Fantasy
-Historie
-Horror
-Katastrophe
-Komödie
-Krieg
-Krimi
-Musical
-Mystery
-Romanze
-Science-Fiction
-Thriller
-Western
-```
-
-Only canonical film genres with at least one classified Film in the selected backend and time window are returned as children. A film-genre result query requires both:
+Film opens result-backed canonical children such as Action, Drama, Komödie, Krimi, Science-Fiction or Thriller. A film-genre result requires both:
 
 ```text
 contentClass=movie
-genre=<canonical film genre>
+AND genre=<canonical-film-genre>
 ```
 
-This server-side intersection prevents a Lifestyle series, Reality format or unrelated programme from appearing in Film merely because it carries a broad entertainment descriptor.
+This prevents unrelated series/reality/lifestyle events from appearing as Films merely because they carry broad entertainment evidence.
 
-The hierarchy does not expose additional main cards for Nachrichten, Talkshow, Reality, Lifestyle, Magazine or unknown evidence.
+Classification precedence:
 
----
+1. usable TVScraper media type decides Series/Movie;
+2. Movie plus current documentary Genre becomes Dokumentation;
+3. without media type, current TVScraper documentary/sports evidence may decide;
+4. otherwise strict unambiguous DVB evidence may decide movie/series/documentary/sports;
+5. ambiguous/contradictory evidence yields no guessed class;
+6. stale stronger evidence blocks weaker fallback until refresh resolves the state.
 
-## EPG Classification Rules
+## Backend scope and read isolation
 
-Classification is deterministic and persisted before HTTP reads:
+Every target, assignment, count and page includes `backend_id`. Identical native IDs or paths on different backends remain independent.
 
-1. A valid TVScraper media type `Series` classifies the event as `series`.
-2. A valid TVScraper media type `Movie` classifies the event as `movie`, except that a current TVScraper `documentary` Genre classifies a documentary film as `documentary`.
-3. Without a usable media type, current TVScraper `documentary` or `sports` Genre evidence may classify the event.
-4. If TVScraper does not decide, DVB descriptors may classify unambiguous `movie`, `series`, `documentary` or `sports` evidence.
-5. Contradictory or ambiguous evidence produces no EPG browse class instead of a guessed category.
-6. Stale TVScraper media-type evidence blocks a weaker fallback until the asynchronous refresh has resolved the state.
+Public counts/pages are generated by indexed SQL. Production Genre reads use a dedicated SQLite connection with `PRAGMA query_only=ON`. The frontend does not download an entire catalogue to group locally and performs no supplementary channel lookup during Genre navigation.
 
-Examples:
+## Refresh budget
 
-```text
-TVScraper Series + Reality        -> Serie
-TVScraper Movie + Thriller        -> Film / Thriller
-TVScraper Movie + Documentary     -> Dokumentation
-DVB Doku/Natur                    -> Dokumentation
-DVB Sport                         -> Sport
-DVB Film/Unterhaltung only        -> no guessed Film class
-```
+The EPG cache worker owns provider enrichment under hard candidate/page bounds and freshness windows. Periodic continuation reads the existing Suite EPG cache; it does not trigger a second full VDR EPG fetch. PRs #102-#108 subsequently hardened candidate selection, transactions, no-op updates, integer time-window reads and completed-snapshot cadence.
 
-The derived browse assignment is excluded from flat provider conflict reconciliation. Raw DVB and TVScraper Genre conflicts remain visible in the underlying evidence model.
+Exact performance evidence is in the Phase 61 closeout.
 
----
-
-## Assignment States
-
-The read model supports:
-
-- `active`: usable current evidence;
-- `missing`: the provider or native source supplied no Genre value;
-- `unknown`: a value exists but has no canonical alias;
-- `stale`: previous evidence is retained after a failed or outdated refresh;
-- `conflict`: active providers have disjoint canonical Genre sets for the same target.
-
-Conflict is derived deterministically. If providers later agree, or one conflicting provider becomes stale, the conflict state is reconciled automatically.
-
-A failed refresh never deletes previously usable Genre evidence. Existing assignments become stale; a first failed attempt is persisted as stale/unclassified so retry throttling still has durable evidence.
-
----
-
-## Backend Scope
-
-Every binding, assignment, overview and result query includes `backend_id`.
-
-The same Recording path, EPG channel ID or event ID on two backends therefore remains two independent metadata targets. Read-only backend mode does not hide Genre browsing because the feature is read-only; it does not weaken mutation policy elsewhere.
-
-EPG cards obtain channel names through the persistent backend-scoped `vdr_channel_cache`. The frontend issues no supplementary channel request while navigating Genre pages.
-
----
-
-## EPG Refresh Budget
-
-The EPG cache worker owns provider enrichment:
-
-- startup cache refresh: at most 32 provider candidates;
-- periodic Genre-only continuation: at most 8 candidates every 60 seconds;
-- repository hard bound: at most 64 candidates per query;
-- provider evidence freshness: six hours;
-- normal browser window: 48 hours;
-- public hard maximum window: seven days.
-
-The periodic continuation reads the existing SQLite EPG cache and does not trigger a second VDR EPG full fetch.
-
-The repository commits EPG synchronization in bounded batches and yields between batches so the dedicated query-only SQLite connection can continue serving reads.
-
----
-
-## Public Read Routes
+## Public routes
 
 ```text
 GET /api/metadata/genres
@@ -243,163 +124,62 @@ GET /api/metadata/genres/recordings
 GET /api/metadata/genres/epg
 ```
 
-EPG overview example:
-
-```text
-GET /api/metadata/genres?backend=default&scope=epg
-```
-
-EPG main-class result example:
-
-```text
-GET /api/metadata/genres/epg?backend=default&contentClass=series
-```
-
-Film-genre result example:
-
-```text
-GET /api/metadata/genres/epg?backend=default&contentClass=movie&genre=thriller
-```
-
 Common properties:
 
 - backend validation through `BackendRegistryService`;
-- provider-neutral response fields;
-- explicit limit/offset pagination;
-- `COUNT(DISTINCT ...)` result counts;
+- provider-neutral fields;
+- explicit limit/offset pagination and distinct counts;
 - Suite-owned same-origin artwork URLs;
 - persisted channel names;
-- no provider database paths or provider API URLs;
-- no mutation behavior.
+- no provider database/API paths;
+- no mutation behaviour.
 
-`ApiRouter::handleClientGet()` preserves the PR #99 order:
+Current client-GET runtime precedence after PR #111 is:
 
 ```text
 LiveRemoteApiRuntime
+  -> GlobalSearchApiRuntime
   -> GenreBrowserApiRuntime
   -> legacy ApiRouter routes
 ```
 
-The live remote and overlay routes therefore retain precedence.
+Remote/overlay precedence, global-search routing and Genre routing therefore remain isolated.
 
----
+## Frontend ownership
 
-## Frontend Ownership
+The `genres` module owns overview/result navigation only. It reuses:
 
-The `genres` module owns only the Genre overview and Genre result navigation.
+- `VdrSuiteRecordings2BrowserView.createRecordingCard()`;
+- `VdrSuiteRecordings2.openRecording()`;
+- `VdrSuiteEpgDetailOwner` for EPG details.
 
-EPG navigation is two-level:
+The EPG timeline is unchanged. Genre route literals remain in the DOM-free Client API extension; the module has no direct `fetch()` or provider dependency.
 
-```text
-EPG-Hauptkategorien
-  -> Film
-     -> Filmgenres
-        -> Ergebnis
-  -> Serie
-     -> Ergebnis
-  -> Dokumentation
-     -> Ergebnis
-  -> Sport
-     -> Ergebnis
-```
+## Verification and acceptance
 
-It reuses:
+Focused and aggregate tests cover:
 
-- `VdrSuiteRecordings2BrowserView.createRecordingCard()` for Recording cards;
-- `VdrSuiteRecordings2.openRecording()` for Recording details;
-- `createEpgEventDetailCard()` through `VdrSuiteEpgDetailOwner` for EPG details.
+- aliases, unknowns, unclassified and multiple Genres;
+- backend isolation and restart persistence;
+- SQL pagination/distinct counts/query-only reads;
+- artwork and persisted channel names;
+- stale retention, retry throttling and conflict reconciliation;
+- TVScraper media type/Genre classification and strict DVB fallback;
+- exactly four EPG main classes and Film-only subgenres;
+- no resolver call from Genre GET;
+- existing Recordings 2 / EPG detail owners;
+- repeated navigation/back behaviour;
+- LiveRemote and later GlobalSearch route ownership.
 
-The EPG timeline is unchanged.
+Real-system acceptance completed before PR #100 merged: daemon build/install/restart, SQLite persistence, real Recording/EPG counts, desktop/mobile hierarchy navigation and unchanged EPG timeline/Remote behaviour.
 
-All Genre HTTP route literals remain in the DOM-free Client API extension. The module contains no direct `fetch()` call and no TVScraper, TMDB, IMDb, RESTfulAPI or SuiteBridge dependency.
+## Non-goals and later work
 
----
+The completed slice does not claim every provider/import adapter, universal programme identity, derivative artwork processing, user-specific RBAC, stable `/api/v1` or recommendations. Those remain explicit backlog or later phases and do not keep Phase 61 open.
 
-## Verification Gates
+## Related documents
 
-Repository targets:
-
-```text
-make test-metadata-genres
-make test-metadata-genre-conflicts
-make test-genre-browser-controller
-make test-genre-browser-pagination
-make test-genre-browser-architecture
-make test-genre-browser-frontend
-make test-genre-browser
-```
-
-The focused tests cover:
-
-- alias normalization;
-- multi-Genre targets;
-- backend isolation;
-- restart persistence;
-- SQL pagination and distinct counts;
-- EPG artwork availability;
-- persistent channel names;
-- stale retention and retry throttling;
-- automatic conflict reconciliation;
-- TVScraper media-type and Genre classification;
-- Movie plus Documentary classification;
-- Series plus Reality/Lifestyle separation;
-- DVB fallback and ambiguous-evidence exclusion;
-- exactly four EPG main categories;
-- Film-only canonical child genres;
-- read-only remote backend reads;
-- the rule that Genre GET does not invoke a resolver;
-- twelve repeated Film -> Thriller -> back navigation cycles;
-- zero supplementary VDR channel requests from Genre navigation;
-- frontend Client API and detail-owner boundaries;
-- PR #99 route precedence.
-
-Real-system acceptance remains required before merge:
-
-- complete repository-local focused and fast tests;
-- daemon build and restart;
-- SQLite persistence after restart;
-- Recording and EPG Genre counts on the real backend;
-- exactly four EPG main cards on desktop and mobile;
-- Film child navigation and return behavior;
-- Recording detail return to the selected Genre;
-- EPG detail return to the selected Genre;
-- unchanged EPG timeline and live remote/overlay behavior.
-
----
-
-## Non-Goals
-
-This slice does not implement:
-
-- a provider database as Suite authority;
-- synchronous provider lookup from HTTP or rendering;
-- title-keyword classification in the browser;
-- user-specific RBAC from Phase 62;
-- public `/api/v1` migration;
-- recommendation or knowledge-graph behavior;
-- completion of all Phase 61 artwork, backup and operational hardening work.
-
----
-
-## Phase 61 EPG Cache Reconciliation
-
-The real-system diagnosis on 2026-07-24 proved that RESTfulAPI may replace backend-native event IDs for the same schedule occurrence while the warm cache still retains the previous rows. The cache reconciles only an explicitly bounded, authoritative refresh window:
-
-- native event IDs remain backend-scoped cache identities;
-- title, subtitle and schedule similarity are never promoted to canonical identity;
-- channels that hit `channelEventLimit` are treated as potentially truncated and are not destructively reconciled;
-- missing native IDs are removed only inside the proven backend/channel/time scope;
-- dependent artwork and scraper-cache rows are removed, while Genre target evidence is retired/staled instead of silently rebound;
-- current native IDs are enriched normally through the existing asynchronous SuiteBridge path;
-- metadata GETs for retired cache IDs return `stale-event` and never enqueue a provider request;
-- pending frontend metadata responses are retried with a bounded backoff and are not cached permanently.
-
-The EPG timeline and PR #99 LiveRemote/overlay route ownership remain unchanged.
-
----
-
-## Back
-
-- [Back to Architecture Index](index.md)
-- [Back to Current State](../CURRENT.md)
-- [Back to README](../../README.md)
+- [Current State](../CURRENT.md)
+- [Phase 61 Closeout](../development/phase-61-metadata-genre-performance-closeout.md)
+- [Backend-Scoped Global Search](global-search.md)
+- [Post-Phase-61 Provider Strategy](../planning/tvscraper-recording-metadata-roadmap.md)

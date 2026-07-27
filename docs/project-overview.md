@@ -1,101 +1,93 @@
 # VDR-Suite Project Overview
 
-## Navigation
-
-- [README](../README.md)
-- [Documentation Index](index.md)
-- [Planning Documentation](planning/index.md)
-- [Development Documentation](development/index.md)
-- [Architecture Documentation](architecture/index.md)
-- [Architecture Decision Records](adr/index.md)
-
----
-
 ## Purpose
 
-This page is the primary landing page for the VDR-Suite project.
-
-It provides a high-level overview of project status, architecture direction and future development.
-
----
-
-## Project Status
+VDR-Suite is a VDR-centred, domain-first platform for modern Web, mobile, desktop and TV clients. It complements rather than forks or replaces VDR internals.
 
 ```text
-Current Completed Phase
-Phase 49.30 - EPGSearch native fuzzy validation consolidation
+VDR
+  remains native authority for devices, schedules, timers, recordings, replay and plugins
 
-Current Implementation Focus
-Phase 50.0 - SearchTimer user workflow foundation
+VDR-Suite
+  owns external domain models, backend scope, policy, orchestration,
+  persistent read models and client-facing contracts
 ```
 
-Current activity:
+## Current project position
+
+Baseline reconciled on 2026-07-27 against `origin/main` commit `44ae3102ab202ee0dfc974ee0bc9624b9219ad2d`.
 
 ```text
-Turn the validated SearchTimer backend and native fuzzy capability foundation into a coherent user workflow foundation.
+Latest completed numbered runtime phase:
+Phase 61 - Suite Metadata and Genre Platform
+
+Completed operational hardening:
+Post-Phase 61 Performance Hardening (B1-B4)
+
+Completed post-phase platform features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
+
+Next strict runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-Authoritative status documents:
+## Implemented product surface
 
-- [Current Project Status](development/current-status.md)
+VDR-Suite currently provides:
+
+- backend-aware status, channels, EPG, recordings and timers;
+- EPG timeline and channel-day programme navigation;
+- Recordings 2 as the sole delivered Recording browser, including guarded actions;
+- SearchTimer list, preview, validation and controlled mutation foundations;
+- persistent provider-neutral metadata, people, artwork and Genres;
+- Recording and EPG Genre browsing with backend isolation;
+- TVScraper-backed details behind Suite-owned routes;
+- backend-scoped global search over persisted Recording/EPG titles, subtitles and people;
+- VDR remote actions and live-overlay status;
+- server-enforced read-only backend mode;
+- modular frontend ownership through `VdrSuiteClientApi`;
+- packaging, staging and real-system acceptance workflows.
+
+## Architecture strengths
+
+- provider data is evidence with provenance, not hidden Suite authority;
+- RESTfulAPI, SVDRP, Streamdev, TVScraper and SuiteBridge remain private adapters/providers;
+- browsers consume Suite-owned contracts rather than backend-specific URLs;
+- normal Genre and search GET paths use query-only SQLite reads and perform no provider resolution;
+- stable backend scope and read-only policy are enforced server-side;
+- mutation safety and readback foundations are stronger than direct plugin passthrough;
+- target ADRs are kept separate from current runtime completion status.
+
+## What is not complete
+
+VDR-Suite is not yet a full replacement for every Live, epgsearch or RESTfulAPI surface. Major remaining work includes:
+
+- production user identity, scoped RBAC and accountability;
+- secure Backend Agents and multi-site command fencing;
+- central TimerIntent orchestration and reconciliation;
+- Streaming Gateway and media sessions;
+- legacy OSD compatibility bridge;
+- stable versioned `/api/v1`, common errors and ETags;
+- exact remaining epgsearch edge semantics;
+- later recommendation and knowledge-graph behaviour.
+
+## Strict next step
+
+```text
+Phase 62 - Identity, RBAC and Accountability Foundation
+```
+
+Phase 62 introduces actor identities, server-side authorization, request/correlation context, append-only accountability evidence and a transactional outbox before later remote privileged operations.
+
+## Authoritative navigation
+
+- [Current State](CURRENT.md)
+- [New Chat Handoff](NEW-CHAT-HANDOFF.md)
+- [Project Status](development/current-status.md)
 - [Current Architecture State](development/current-architecture-state.md)
-- [Completed Phases](development/completed-phases.md)
-- [Roadmap](planning/roadmap.md)
-
----
-
-## Phase Ladder
-
-```text
-Phase 0-7     Core backend, database, jobs, REST and daemon foundations
-Phase 8       VDR backend architecture foundation
-Phase 9-13    Snapshot runtime, diagnostics, read APIs and change feed
-Phase 14-29   Backend registry, multi-backend reads, selective EPG and recording query foundations
-Phase 30-36   Recording action validation and execution foundation
-Phase 45      EPG search foundation
-Phase 46      Content classification and person metadata foundations
-Phase 47      SearchTimer backend foundation and domain expansion
-Phase 49      EPGSearch native fuzzy capability validation
-Phase 50      SearchTimer user workflow foundation
-```
-
-Current implementation state:
-
-```text
-Phase 49.30 complete
-Phase 50.0 next
-```
-
----
-
-## Current Architecture Direction
-
-VDR remains the primary backend domain and source of truth.
-
-VDR-Suite complements VDR with daemon-owned runtime state, backend-neutral service boundaries, REST APIs, capability-aware runtime behavior and future client-facing contracts.
-
-The current architecture has working foundations for snapshot-backed VDR reads, backend registry, backend-aware snapshots, selective EPG reads, recording query, recording actions, SearchTimer backend access and native fuzzy capability reporting.
-
-The next useful step is to turn SearchTimer backend capability and contract work into a practical user workflow foundation.
-
----
-
-## Documentation Navigation
-
-Primary navigation targets:
-
-- [README](../README.md)
-- [Documentation Index](index.md)
-- [Planning Documentation](planning/index.md)
-- [Development Documentation](development/index.md)
+- [Strict Roadmap](planning/roadmap.md)
+- [Phase Map](planning/phase-map.md)
+- [Completed History](development/completed-phases.md)
 - [Architecture Documentation](architecture/index.md)
-- [Architecture Decision Records](adr/index.md)
-
----
-
-## Back
-
-- [Back to README](../README.md)
-- [Back to Documentation Index](index.md)
-- [Back to Planning Documentation](planning/index.md)
-- [Back to Development Documentation](development/index.md)
+- [ADR Index](adr/index.md)

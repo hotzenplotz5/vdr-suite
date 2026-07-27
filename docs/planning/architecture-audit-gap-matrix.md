@@ -1,199 +1,128 @@
 # Architecture Audit Gap Matrix
 
-## Navigation
-
-- [README](../../README.md)
-- [Documentation Index](../index.md)
-- [Planning Index](index.md)
-- [Current State](../CURRENT.md)
-- [Strict Roadmap](roadmap.md)
-- [Phase Map](phase-map.md)
-- [Completed Architecture Source Audit](../development/architecture-source-audit-2026-07-15.md)
-- [ADR Index](../adr/index.md)
-
----
-
 ## Purpose
 
-This is the living implementation-gap register produced from the completed 2026-07-15 architecture source audit.
+This living register compares accepted target contracts with implemented `main` behaviour. It was refreshed on 2026-07-27 against `44ae3102ab202ee0dfc974ee0bc9624b9219ad2d` after Phase 61, PRs #102-#108, PR #110 and PR #111.
 
-It answers:
+An ADR changes the target contract. A gap closes only through implementation, tests and required acceptance.
 
-```text
-What is already implemented?
-What exists only as a foundation?
-What is missing?
-Which ADR defines the target?
-In which roadmap phase is the gap closed?
-```
-
-It does not replace:
-
-- [Completed Phases](../development/completed-phases.md), which records finished implementation;
-- [Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md), which focuses on product and ecosystem parity;
-- [Roadmap](roadmap.md), which defines strict execution order.
-
----
-
-## Status Legend
+## Status legend
 
 | Status | Meaning |
 | --- | --- |
-| Implemented | The required foundation exists in the current repository and is covered by implementation or tests. |
-| Strong foundation | Most core mechanics exist, but the final cross-domain contract is incomplete. |
-| Partial | Some domain or runtime behavior exists, but important required semantics are missing. |
-| Missing | No complete implementation boundary exists yet. |
-| Decision accepted | Architecture is decided, but runtime implementation has not started or is incomplete. |
-| Deferred | Intentionally postponed until prerequisite phases are complete. |
+| Implemented | The bounded capability exists in current main and has implementation/test evidence. |
+| Strong foundation | Core mechanics exist; a broader cross-domain contract remains incomplete. |
+| Partial | Useful behaviour exists, but important target semantics remain missing. |
+| Missing | No complete runtime boundary exists. |
+| Decision accepted | Target is decided but runtime is absent/incomplete. |
+| Deferred | Intentionally postponed with named prerequisites. |
 
----
-
-## Executive Gap Summary
+## Executive summary
 
 Current strengths:
 
-- stable backend IDs and backend registry;
-- backend-scoped access mode and server-enforced read-only behavior;
-- backend-scoped snapshots and change-feed sequencing;
-- guarded Recording preview, validation and execution foundations;
-- native timer action foundation;
-- SearchTimer domain, preview and real-backend validation;
-- lazy Recording loading and frontend module boundaries;
-- metadata, person and provider foundations;
-- strong documentation and regression guardrails.
+- stable backend IDs, registry and server-enforced read-only mode;
+- backend-scoped snapshots, caches and change feed;
+- Recordings 2, guarded Recording actions and SearchTimer foundations;
+- persistent Recording/EPG metadata, people, artwork and Genre read models;
+- provider-neutral query-only Genre and global-search GET paths;
+- backend-neutral RemoteAction and LiveOverlay foundations;
+- global search over persisted Recording/EPG titles, subtitles and people;
+- packaging, architecture and regression guardrails.
 
-Largest remaining production gaps:
+Largest remaining gaps:
 
-- user, service and Agent identity with real scoped RBAC;
-- Backend Agent runtime, generation, heartbeat, lease and health;
-- universal revisions, idempotency and stale-state protection;
-- durable job claim, retry, cancellation and compensation semantics;
-- TimerIntent, assignment, scheduler and reconciler;
-- canonical programme-event identity and provenance;
-- suite-owned metadata and artwork services;
+- production actor identity, scoped RBAC and append-only accountability;
+- secure Backend Agent lifecycle, generation, lease and command fencing;
+- universal revision/idempotency and durable operation semantics;
+- production job claim/retry/reconciliation;
+- TimerIntent/assignment/scheduler/reconciler;
+- canonical cross-provider ProgramEvent identity where required;
 - authenticated streaming sessions;
-- isolated Legacy OSD bridge;
-- versioned public API and audit/security event model.
+- isolated legacy OSD bridge;
+- stable `/api/v1` and universal compatibility/error contracts.
 
----
+## Detailed gap register
 
-## Detailed Gap Register
-
-| ID | Architecture capability | Current status | Current evidence or limitation | Target decision | Roadmap destination |
+| ID | Architecture capability | Current status | Current evidence / remaining limitation | Target decision | Roadmap destination |
 | --- | --- | --- | --- | --- | --- |
-| G-01 | Control Plane and Backend Agent boundary | Decision accepted | VDR-Suite currently has direct backend adapters and a backend registry, but no separate remote Agent runtime protocol. | ADR-0039 | Phase 63 |
-| G-02 | Stable BackendId, native identities, generation and lease | Partial | Stable `backendId` exists. Native identity mapping, runtime generation, heartbeat, lease expiry and fencing are missing. | ADR-0040 | Phase 63 |
-| G-03 | Concrete capability contract and degradation model | Strong foundation | Capability sets and reports exist, but capability revision, origin, temporary unavailability and channel-scoped capability semantics remain incomplete. | ADR-0012 plus ADR-0048 | Phase 63 and Phase 67 |
-| G-04 | Backend-scoped RBAC and read-only policy | Partial | Server-enforced read-only access mode exists. Per-user roles, grants, scopes and service or Agent actors do not. | ADR-0013, ADR-0041, ADR-0049 | Phase 62 |
-| G-05 | Immutable backend snapshots | Implemented | Backend-scoped snapshot objects and cache services exist. Additional generation and revision metadata is still required. | ADR-0016 and ADR-0018 | Phase 63 hardening |
-| G-06 | Snapshot revision, event sequence and full resync vocabulary | Partial | Change-feed sequence and snapshot generation exist. Backend generation, resource revision and cursor semantics are not yet consistently separated. | ADR-0016, ADR-0018, ADR-0048 | Step 1 contracts, Phase 63 and Phase 67 |
-| G-07 | Common mutation preview, validation, execution and verification contract | Strong foundation | Recording actions already have preview, validation, policy and execution. The same contract is not universal across all mutation domains. | ADR-0042 | Step 1, then domain implementation slices |
-| G-08 | Idempotency and optimistic concurrency | Missing | Current action requests do not consistently carry `expectedRevision`, `backendGeneration` or an idempotency key. | ADR-0042 | Required before new real mutation paths and Phase 63 writes |
-| G-09 | Native lock and pointer isolation | Partial | Adapter boundaries exist, but this remains a mandatory review rule for plugin integrations and native mutation paths. | ADR-0007 plus architecture invariant | Continuous; enforced in every adapter phase |
-| G-10 | Stable suite RecordingId and native Recording binding | Partial | Backend ID, native recording data and fingerprints exist, but a durable suite-owned Recording identity and revisioned native binding are incomplete. | ADR-0014 and ADR-0042 | Phase 60.15 and Phase 61, mutation hardening before Phase 63 |
-| G-11 | Trash, restore and purge lifecycle | Partial | Guarded recording actions exist. A single canonical trash/restore/purge lifecycle with idempotent state transitions is not complete. | ADR-0024 and ADR-0042 | Domain hardening before remote writes |
-| G-12 | Durable job, retry and saga model | Partial | A local job record and Recording action payload exist. Claim lease, attempts, retry schedule, verification, cancellation and compensation are missing. | ADR-0043 | Step 1; used by Phase 61 and Phase 63 |
-| G-13 | TimerIntent, TimerAssignment and NativeTimer separation | Missing | Native timer actions and SearchTimer workflows exist, but user intent and backend assignment are not independent durable objects. | ADR-0044 | Phase 64 |
-| G-14 | Capability-aware scheduler and reconciler | Missing | No central assignment, ownership, re-evaluation or reconciliation runtime exists across backends. | ADR-0044 | Phase 64 |
-| G-15 | BackendEventRef and canonical ProgramEvent | Partial | Backend event data exists, but canonical programme identity is not separated consistently from backend event identity. | ADR-0045 | Step 1, Phase 61 and Phase 64 |
-| G-16 | EPG provenance and merge policy | Partial | EPG and metadata foundations exist. Provider-event provenance, merge rules and field-level evidence are not a complete shared model. | ADR-0045 and ADR-0038 | Phase 61 |
-| G-17 | Suite-owned metadata entities and artwork assets | Partial | Metadata, people and provider foundations exist. Normalized entity assignment, provenance and suite-owned artwork delivery are incomplete. | ADR-0038 | Phase 60.15 and Phase 61 |
-| G-18 | Unified automation-provider boundary | Partial | SearchTimer and epgsearch integration foundations exist. Providers still need to produce central TimerIntents rather than independently own native timer mutation. | ADR-0029 and ADR-0044 | Phase 64 |
-| G-19 | Streaming Gateway and authenticated media sessions | Missing | Live transport and Streamdev integration concepts exist, but no public session gateway isolates internal media endpoints. | ADR-0046 | Phase 65 |
-| G-20 | Legacy OSD bridge and controller lease | Missing | OSD is intentionally not the primary UI. No hardened bridge with viewer/controller roles, sequencing and resync exists. | ADR-0047 | Phase 66 |
-| G-21 | Central database is not a client or Agent protocol | Decision accepted | Existing architecture uses service and adapter boundaries. The new metadata and Agent designs must preserve this invariant. | ADR-0038 and ADR-0039 | Phase 61 and Phase 63 |
-| G-22 | Agent authentication, protected transport and credential rotation | Missing | Backend access mode exists, but no Agent enrollment, certificate or credential lifecycle and protected site transport runtime exists. | ADR-0041 | Phase 62 and Phase 63 |
-| G-23 | Explicit multi-site trust boundary | Partial | Multi-backend and read-only policy foundations exist. Remote sites still need authenticated Agent sessions and deterministic trust and revocation. | ADR-0039 through ADR-0041 | Phase 62 and Phase 63 |
-| G-24 | Audit and security event model | Missing | Diagnostics and logs exist, but mutations do not yet have a universal actor, request, decision and outcome audit record. | ADR-0049 | Phase 62 |
-| G-25 | Public API version, error and compatibility contract | Partial | REST controllers and a frontend client wrapper exist. A stable `/api/v1`, common errors, ETags, deprecation and compatibility policy do not. | ADR-0048 | Phase 67 |
-| G-26 | Plugin adapter capability degradation | Partial | Adapter and capability foundations exist. Per-plugin-version degradation, unsafe-operation disablement and temporary capability state need a common contract. | ADR-0007, ADR-0012, ADR-0048 | Phase 63 and Phase 67 |
-| G-27 | epgd and epg2vdr migration or provider strategy | Deferred | Concepts are audited, but no direct shared-database integration is approved. Migration and provider adapters require Phase 61 identities and provenance first. | ADR-0038 and ADR-0045 | Phase 61 after core schema foundation |
-| G-28 | Shared and remote storage semantics | Partial | Recording paths and backend ownership exist. Shared filesystems, remote storage identity, move semantics and ownership across sites remain undefined. | ADR-0014, ADR-0042 and future targeted storage decision | After Phase 63; before cross-site storage mutations |
-| G-29 | Offline Agent synchronization and reconciliation | Partial | Snapshot resync foundations exist. Durable offline Agent queues, reconnect reconciliation and generation-aware command outcomes do not. | ADR-0040 and ADR-0043 | Phase 63 |
-| G-30 | Timer failover and redundant recording policy | Missing | Multi-backend timers exist only as backend-native operations. Failover, reassignment and deliberate redundancy require TimerIntent and scheduler semantics. | ADR-0044 | Phase 64 |
+| G-01 | Control Plane / Backend Agent boundary | Decision accepted | Direct/local adapters and SuiteBridge foundations exist; no production remote Agent protocol/runtime. | ADR-0039 | Phase 63 |
+| G-02 | Backend generation, heartbeat, lease and fencing | Partial | Stable `backendId` exists; generation/lease/reconnect fencing is not production runtime. | ADR-0040 | Phase 63 |
+| G-03 | Capability contract and degradation model | Strong foundation | Capability sets and backend reports exist; revision/origin/temporary/channel-scoped degradation is incomplete. | ADR-0012, ADR-0048 | Phase 63/67 |
+| G-04 | Backend-scoped RBAC and read-only policy | Partial | Server-enforced read-only mode is implemented; per-actor roles, grants and scopes are missing. | ADR-0013, ADR-0041, ADR-0049 | Phase 62 |
+| G-05 | Backend-scoped immutable snapshots | Implemented foundation | Snapshot/cache/change-feed objects exist; Agent generation/revision metadata remains later hardening. | ADR-0016, ADR-0018 | Phase 63 hardening |
+| G-06 | Revision, event sequence and resync vocabulary | Partial | Snapshot/change sequence exists; backend generation, resource revision and public cursor vocabulary are not universally separated. | ADR-0016, ADR-0018, ADR-0048 | Phase 63/67 |
+| G-07 | Common mutation preview/validation/execution/verification | Strong foundation | Recording actions provide the full bounded pattern; Timer/SearchTimer paths provide partial equivalents; not universal. | ADR-0042 | Phase 62/63 gates and domain slices |
+| G-08 | Idempotency and optimistic concurrency | Partial | Operation IDs exist in bounded paths, but durable idempotency, expected revision and generation fencing are not universal. | ADR-0042 | Before new remote writes; Phase 62/63 |
+| G-09 | Native lock and pointer isolation | Strong foundation | Adapter/worker boundaries and tests exist; remains a continuous review invariant for VDR/plugin work. | ADR-0007 and native-boundary invariant | Continuous |
+| G-10 | Stable Suite Recording identity and native binding | Partial | Backend-scoped cache/native identity, fingerprints and metadata target bindings exist; universal revisioned durable Recording identity across lifecycle/storage is incomplete. | ADR-0014, ADR-0042 | Mutation/storage hardening after Phase 62/63 prerequisites |
+| G-11 | Trash, restore and purge lifecycle | Partial | Guarded rename/move/VDR-trash exists; one canonical idempotent restore/purge lifecycle is incomplete. | ADR-0024, ADR-0042 | Domain hardening before remote writes |
+| G-12 | Durable job claim, retry and saga model | Partial | Local job/action records exist; claim lease, attempts, retry schedule, cancellation, compensation and reconciliation remain incomplete. | ADR-0043 | Phase 62/63 foundation |
+| G-13 | TimerIntent, TimerAssignment and NativeTimer separation | Missing | Native Timer and SearchTimer paths exist; durable user intent and backend assignment are not independent objects. | ADR-0044 | Phase 64 |
+| G-14 | Capability-aware Timer scheduler and reconciler | Missing | No central assignment/re-evaluation/reconciliation runtime exists. | ADR-0044 | Phase 64 |
+| G-15 | BackendEventRef and canonical ProgramEvent | Partial | Backend-scoped EPG identity/cache and authoritative bounded reconciliation are implemented; cross-provider canonical ProgramEvent identity is not. | ADR-0045 | Phase 64 prerequisite/domain slice |
+| G-16 | EPG provenance and merge policy | Strong foundation | Phase 61 persists DVB, TVScraper and derived Genre/media-type evidence with state; universal field-level cross-provider provenance/merge remains incomplete. | ADR-0045, ADR-0038 | Later ProgramEvent/provider hardening |
+| G-17 | Suite-owned metadata entities and artwork assets | Implemented for accepted Phase 61 scope | Target bindings, people, Genre evidence/assignments, provider-neutral artwork references and authenticated delivery exist. Derivative processing and every future media entity/provider are outside the closed scope. | ADR-0038 | Completed Phase 60.15/61; extensions explicit backlog |
+| G-18 | Unified automation-provider boundary | Partial | SearchTimer/epgsearch foundations exist; providers do not yet produce central TimerIntents. | ADR-0029, ADR-0044 | Phase 64 |
+| G-19 | Streaming Gateway and authenticated media sessions | Missing | Live transport concepts/providers exist; no Suite session gateway protects private media endpoints. | ADR-0046 | Phase 65 |
+| G-20 | Legacy OSD bridge and controller lease | Missing | RemoteAction/LiveOverlay exists but is not a frame/delta/viewer/controller OSD bridge. | ADR-0047 | Phase 66 |
+| G-21 | Central database is not a client/Agent protocol | Implemented invariant for current paths | Genre/global-search reads and frontend wrappers preserve repository/service boundaries; future Agents must continue to obey it. | ADR-0038, ADR-0039, ADR-0050 | Continuous; Phase 63 Agent enforcement |
+| G-22 | Agent authentication, protected transport and credential rotation | Missing | Backend access mode exists; no production Agent enrollment/credential/transport lifecycle. | ADR-0041 | Phase 62 identity model, Phase 63 runtime |
+| G-23 | Explicit multi-site trust boundary | Partial | Multi-backend IDs/read-only policy exist; authenticated remote site sessions and deterministic revocation do not. | ADR-0039-0041 | Phase 62/63 |
+| G-24 | Audit and security event model | Missing | Diagnostics/logs exist; no universal actor/request/decision/outcome accountability repository. | ADR-0049 | Phase 62 |
+| G-25 | Public API version/error/compatibility contract | Partial | Suite controllers and `VdrSuiteClientApi` exist; stable `/api/v1`, common errors, ETags and deprecation policy do not. | ADR-0048 | Phase 67 |
+| G-26 | Plugin adapter capability degradation | Partial | Adapter capability foundations exist; common per-version degradation and unsafe-operation disablement contract is incomplete. | ADR-0007, ADR-0012, ADR-0048 | Phase 63/67 |
+| G-27 | epgd/epg2vdr migration or provider strategy | Deferred | Phase 61 identity/provenance prerequisite is now complete, but no direct shared-database integration is approved. Any adapter must use Suite-owned provider boundaries. | ADR-0038, ADR-0045 | Post-Phase-61 provider backlog after explicit decision |
+| G-28 | Shared/remote storage semantics | Partial | Backend ownership and Recording paths/actions exist; shared-filesystem identity and cross-site move ownership remain undefined. | ADR-0014, ADR-0042, future storage ADR | After Phase 63; before cross-site storage mutation |
+| G-29 | Offline Agent synchronization and reconciliation | Partial foundation | Snapshot resync/change-feed concepts exist; durable offline Agent queues and generation-aware command outcomes do not. | ADR-0040, ADR-0043 | Phase 63 |
+| G-30 | Timer failover and deliberate redundancy | Missing | Backend-native Timer operations exist; failover/reassignment/replica policy requires TimerIntent. | ADR-0044 | Phase 64 |
+| G-31 | Backend-scoped global search | Implemented first slice | PR #111 searches one selected backend over persisted Recording/EPG titles, subtitles and people with query-only/provider-free reads. Authorized multi-backend aggregation is not implemented. | ADR-0021, ADR-0038, ADR-0050 | Completed current slice; aggregator deferred |
+| G-32 | Backend-neutral remote actions and live overlay | Strong foundation | PRs #99/#110 implement allowlisted actions, capability/read-only checks, overlay snapshots and isolated UI dispatch state. Streaming and legacy OSD remain separate gaps. | ADR-0023, ADR-0030, ADR-0047 | Current scope implemented; OSD Phase 66 |
+| G-33 | Recording-person payload completeness | Implemented bounded contract | Current end-to-end bound is 128 people / 65,535 bytes; 52 modelled Pulp Fiction people are retained. Universal completeness beyond 128 is not promised. | Existing RMETA contract | Future versioned change only if justified |
 
----
+## Priority view
 
-## Priority View
+### P0 — before production remote writes
 
-### P0 - Required before production remote writes
+G-01, G-02, G-04, G-07, G-08, G-12, G-22, G-23, G-24 and G-29.
 
-- G-01 Control Plane and Backend Agent boundary
-- G-02 generation, lease and fencing
-- G-04 real RBAC
-- G-07 common mutation contract
-- G-08 idempotency and optimistic concurrency
-- G-12 durable jobs and sagas
-- G-22 Agent authentication and transport
-- G-23 multi-site trust
-- G-24 audit and security events
-- G-29 offline reconciliation
+### P1 — next product platform
 
-### P1 - Required for the next product platform
+G-10, G-13-G-18, G-19, G-25 and G-26.
 
-- G-10 stable Recording identity
-- G-13 and G-14 timer intent and orchestration
-- G-15 and G-16 event identity and provenance
-- G-17 metadata and artwork platform
-- G-18 automation-provider unification
-- G-19 streaming gateway
-- G-25 public API contract
-- G-26 capability degradation
+### P2 — compatibility and later expansion
 
-### P2 - Compatibility and later platform expansion
+G-20, G-27, G-28 and G-30, plus authorized multi-backend search aggregation beyond G-31.
 
-- G-20 Legacy OSD bridge
-- G-27 epgd and epg2vdr migration adapters
-- G-28 shared and remote storage
-- G-30 timer failover and deliberate redundancy
-
----
-
-## Relationship to the Strict Roadmap
-
-The authoritative order is:
+## Relationship to strict roadmap
 
 ```text
-Step 1  ADR-0042 through ADR-0049 and diagrams
-Step 2  Phase 60.15 Recording metadata preparation
-Step 3  Phase 61 Suite metadata platform
-Step 4  Phase 62 Identity, RBAC and audit
-Step 5  Phase 63 Backend Agent and multi-site runtime
-Step 6  Phase 64 Timer intent and orchestration
-Step 7  Phase 65 Streaming Gateway
-Step 8  Phase 66 Legacy OSD bridge
-Step 9  Phase 67 Public API and client hardening
-Step 10 Phase 68 Recommendation and knowledge graph
+Completed: Phase 60.15
+Completed: Phase 61
+Completed: Post-Phase 61 Performance Hardening (B1-B4)
+Completed: Remote/Live Overlay hardening (#110)
+Completed: Backend-scoped Global Search (#111)
+Next:      Phase 62 Identity/RBAC/accountability
+Then:      Phase 63 Agent runtime
+           Phase 64 Timer orchestration
+           Phase 65 streaming
+           Phase 66 legacy OSD
+           Phase 67 public API
+           Phase 68 recommendations
 ```
 
-A gap is not considered closed merely because an ADR is accepted. Closure requires implementation, tests, documentation and the relevant phase exit criteria.
+## Maintenance rules
 
----
+- Update a row only when repository evidence or accepted target ownership changes.
+- Do not mark a row implemented from an ADR alone.
+- Do not keep a completed phase as a future destination.
+- Preserve closed rows for traceability rather than deleting them.
+- Every new gap needs an ID, evidence, target owner and roadmap destination.
 
-## Relationship to the Older Parity Matrix
+## Related documents
 
-[Parity Audit and Frontend Gap Roadmap](parity-audit-and-frontend-gap-roadmap.md) remains useful for RESTfulAPI, Live, epgsearch, VDR-Core and frontend product parity.
-
-Its older Phase 57 and Phase 58 sequencing notes are historical. The strict roadmap and this architecture gap matrix are authoritative for future execution order.
-
-The parity matrix should be refreshed during the relevant domain phase rather than used as the architecture source of truth.
-
----
-
-## Maintenance Rules
-
-- Update a row only when repository evidence changes.
-- An accepted ADR changes the target-decision column, not automatically the implementation status.
-- A phase completion must update this matrix, the phase map and Completed Phases together.
-- New gaps require an ID, evidence, an owner ADR or explicit decision need, and a roadmap destination.
-- Do not remove a closed gap; mark it Implemented and preserve the history through Git.
-- Additional source audits should link their evidence document from the affected row.
-
----
-
-## Back
-
-- [Back to Planning Index](index.md)
-- [Back to Strict Roadmap](roadmap.md)
-- [Back to Current State](../CURRENT.md)
-- [Back to Documentation Index](../index.md)
+- [Current State](../CURRENT.md)
+- [Strict Roadmap](roadmap.md)
+- [Phase Map](phase-map.md)
+- [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
+- [Completed Architecture Source Audit](../development/architecture-source-audit-2026-07-15.md)

@@ -1,72 +1,48 @@
 # Completed Phases Archive
 
-## Navigation
-
-- [Development Index](../index.md)
-- [Completed Phases](../completed-phases.md)
-- [Completed Phases Latest Marker](../completed-phases-latest.md)
-- [Current State](../../CURRENT.md)
-
----
-
 ## Purpose
 
-This directory contains compact historical completed-phase archive files split out of `docs/development/completed-phases.md`.
+This directory preserves compact historical summaries of completed numbered phases. It is not the current project-status entry point.
 
-The top-level `completed-phases.md` remains the authoritative compact entry point. This directory owns phase-range detail summaries.
+For current truth use:
 
----
+- [Current State](../../CURRENT.md)
+- [New Chat Handoff](../../NEW-CHAT-HANDOFF.md)
+- [Completed Phases](../completed-phases.md)
+- [Latest Completed Marker](../completed-phases-latest.md)
 
-## Archived Phase Ranges
+## Archive
 
-- [Phase 46](phase-46.md)
-- [Phase 47](phase-47.md)
-- [Phase 48](phase-48.md)
-- [Phase 49](phase-49.md)
-- [Phase 50](phase-50.md)
-- [Phase 51](phase-51.md)
-- [Phase 52](phase-52.md)
-- [Phase 53](phase-53.md)
-- [Phase 54](phase-54.md)
-- [Phase 55](phase-55.md)
-- [Phase 56](phase-56.md)
-- [Phase 57](phase-57.md)
-- [Phase 58 completed slices](phase-58.md)
-- [Phase 59](phase-59.md)
-- [Phase 60 completed slices](phase-60.md)
+- [Phase 46](phase-46.md) — metadata and people foundations
+- [Phase 47](phase-47.md) — SearchTimer backend foundation
+- [Phase 48](phase-48.md) — SearchTimer adapter and REST contracts
+- [Phase 49](phase-49.md) — real VDR SearchTimer validation
+- [Phase 50](phase-50.md) — SearchTimer workflow and controlled execution
+- [Phase 51](phase-51.md) — Live parity discovery
+- [Phase 52](phase-52.md) — SearchTimer automation planning
+- [Phase 53](phase-53.md) — SearchTimer completion audit
+- [Phase 54](phase-54.md) — SearchTimer preview runtime
+- [Phase 55](phase-55.md) — adapter/runtime hardening and acceptance
+- [Phase 56](phase-56.md) — library boundaries, packaging and developer documentation
+- [Phase 57](phase-57.md) — backend administration and read-only permission foundation
+- [Phase 58](phase-58.md) — historical Frontend and Live Parity umbrella slices
+- [Phase 59](phase-59.md) — Frontend Client API and module ownership
+- [Phase 60](phase-60.md) — frontend platform, Recordings 2 and metadata preparation
+- [Phase 61](phase-61.md) — persistent metadata and Genre platform
 
----
+## Latest completed position
 
-## Archive Semantics
-
-- Phase 46 through Phase 57 are completed phase or major-block archives.
-- Phase 58 records completed slices under the historical Frontend and Live Parity umbrella label.
-- Phase 59 records the completed frontend Client API and module-boundary range.
-- Phase 60 records completed frontend platform, Recording UX, metadata preparation and authenticated local artwork delivery through Phase 60.15.
-- Phase 61 normalized metadata platform work remains planned and does not belong here until it is completed.
-- Non-phase evidence such as the 2026-07-15 architecture audit belongs in `docs/development/`, not in this phase archive.
-
----
-
-## Maintenance Rules
-
-- Add or update the matching phase archive when a phase or slice range completes.
-- Keep planned work out of archive files except for a short next-boundary pointer.
-- Preserve the distinction between a completed major block and completed slices under a continuing umbrella track.
-- Link all archive files from `completed-phases.md` and this README.
-- Keep the latest marker in `completed-phases-latest.md` synchronized.
-
-Verification:
-
-```bash
-make test-docs
-make test-phase
-make test-phase-map-coverage
+```text
+Phase 61 - Suite Metadata and Genre Platform
 ```
 
----
+Detailed evidence:
 
-## Back
+- [Phase 61 Metadata, Genre and Performance Closeout](../phase-61-metadata-genre-performance-closeout.md)
+- [Post-Phase-61 Platform Runtime Closeout](../post-phase-61-platform-runtime-closeout.md)
 
-- [Back to Completed Phases](../completed-phases.md)
-- [Back to Development Index](../index.md)
+Post-Phase 61 Performance Hardening (B1-B4), Remote/Live Overlay hardening (#110) and Global Search (#111) are completed non-numbered blocks. They remain in the closeouts rather than being assigned invented phase numbers.
+
+## Historical-use rule
+
+Archive files may retain the terminology and context of their time. They must not override current main-code truth, later accepted ADRs, CURRENT, the Handoff, the strict Roadmap or the Phase Map.

@@ -1,464 +1,168 @@
 # RESTfulAPI Integration Architecture
 
-## Navigation
+## Status and purpose
 
-- [README](../../README.md)
-- [Documentation Index](../index.md)
-- [Project Overview](../project-overview.md)
-- [Architecture Index](index.md)
+This document describes the current role of `vdr-plugin-restfulapi` in VDR-Suite. RESTfulAPI is a **private backend adapter/provider**, not the public browser API and not the owner of Suite domain models.
 
----
+The former endpoint inventory is retained as [historical evidence](history/restfulapi-integration-before-refresh.md).
 
-## Purpose
-
-This document defines how VDR-Suite integrates with `vdr-plugin-restfulapi`.
-
-The goal is to use existing VDR functionality instead of reimplementing it inside VDR-Suite. RESTfulAPI is one possible VDR backend behind the existing `IVdrAdapter` abstraction.
-
-RESTfulAPI details must stay behind the adapter boundary.
-
----
-
-## Current Backend Architecture
+## Core boundary
 
 ```text
-RuntimeConfig
-↓
-VdrConfig
-↓
-VdrAdapterFactory
-↓
-IVdrAdapter
-├── ExternalVdrAdapter
-├── MockVdrAdapter
-├── RestfulApiVdrAdapter
-└── future adapters
-↓
-VDR domain objects
+VDR-Suite service/domain runtime
+  -> backend-neutral adapter or executor/provider interface
+  -> IHttpClient / BasicHttpClient
+  -> vdr-plugin-restfulapi
+  -> VDR Core / installed plugins
 ```
 
-The daemon and service layers must not know whether VDR data comes from RESTfulAPI, SVDRP, a mock backend, a plugin bridge, or another future backend.
+Higher layers receive normalized Suite/VDR domain values, never RESTfulAPI JSON or private route details. Browser code communicates only through Suite routes and `VdrSuiteClientApi`.
 
----
+RESTfulAPI remains one possible local/backend implementation alongside SVDRP, SuiteBridge and future Agent-local providers. VDR-Suite may choose a different private source per capability.
 
-## RESTfulAPI Role
+## Implemented infrastructure
 
-RESTfulAPI is one backend implementation of `IVdrAdapter`.
+Current main contains:
+
+- `IHttpClient`, `HttpRequest` and `HttpResponse` abstractions;
+- `BasicHttpClient` production transport and mock/test transports;
+- RESTfulAPI-backed status, channel, EPG, Recording and Timer mappings;
+- SearchTimer discovery, preview/validation/workflow and conflict integrations;
+- Recording action executors with Suite validation/policy/readback boundaries;
+- backend-neutral RemoteAction and LiveOverlay executors/providers;
+- Suite-owned cache/persistence layers that avoid repeated passthrough reads;
+- server-side backend access-mode/capability enforcement.
+
+Transport timeout/error handling is therefore not wholly future work. Broader retry, Agent lifecycle and durable operation semantics remain later cross-cutting work.
+
+## Current use by domain
+
+| Domain | Current RESTfulAPI role | Suite-owned boundary |
+| --- | --- | --- |
+| Status / overview | private status/current-channel/device/plugin source | normalized status/snapshot services |
+| Channels | private channel list/movement source | backend-scoped channel domain and Client API |
+| EPG | authoritative native event source where configured | persistent Suite EPG cache, search/details/Genres |
+| Recordings | native Recording list/action source where configured | lazy cache, Recordings 2, metadata and guarded actions |
+| Timers | native Timer read/mutation source where configured | Timer services, validation/readback and Client API |
+| SearchTimer / epgsearch | private command/catalog/conflict source | backend-neutral SearchTimer domain/workflow |
+| Remote control | private normalized-action executor | Suite allowlist, permission/capability gate and operation ID |
+| Live overlay | private current-live-state input | Suite overlay read model using snapshots and persistent EPG |
+| OSD | audited possible structured source only | no current LegacyOsdSession runtime; Phase 66 |
+| Streaming | possible private provider input | no public provider URL; Phase 65 Gateway |
+| Artwork/scraper data | optional private evidence/delivery source | Suite persistence, provider-neutral refs and authenticated routes |
+
+## Read-path policy
+
+RESTfulAPI passthrough is not the default architecture for all browser reads.
+
+Current persistent paths include:
 
 ```text
-IVdrAdapter
-├── ExternalVdrAdapter
-├── MockVdrAdapter
-├── RestfulApiVdrAdapter
-├── SvdrpVdrAdapter
-└── PluginBridgeVdrAdapter
+RESTfulAPI/native refresh
+  -> bounded adapter mapping
+  -> Suite-owned backend-scoped cache/repository
+  -> service/controller
+  -> VdrSuiteClientApi
+  -> frontend
 ```
 
-The daemon, REST API controllers, dashboard services and recording services must never call RESTfulAPI directly.
+Phase 61 Genre GETs and PR #111 Global Search GETs use query-only Suite SQLite connections and perform no RESTfulAPI, TVScraper, SuiteBridge or other provider lookup during the request.
 
-All communication must pass through the adapter boundary.
+## Mutation policy
 
----
-
-## RESTfulAPI Adapter Boundary
+RESTfulAPI may execute a private native mutation only after Suite-owned gates have run. Current bounded examples include Recording actions, Timer/SearchTimer paths and RemoteAction.
 
 ```text
-RestfulApiVdrAdapter
-↓
-IHttpClient
-↓
-vdr-plugin-restfulapi
+Suite request
+  -> validation and backend scope
+  -> read-only and capability policy
+  -> normalized operation/action
+  -> private RESTfulAPI executor
+  -> normalized result
+  -> authoritative readback where supported
 ```
 
-`RestfulApiVdrAdapter` is responsible for:
+RESTfulAPI success alone is not the future universal durable-operation contract. Phase 62/63 must add actor authorization, accountability, revision/idempotency, dispatch evidence, generation fencing and reconciliation before new remote privileged operations.
 
-* choosing RESTfulAPI endpoints
-* requesting JSON through `IHttpClient`
-* validating HTTP status codes
-* mapping RESTfulAPI JSON into backend-neutral VDR domain objects
+## Remote and overlay mapping
 
-`IHttpClient` is responsible for the transport layer.
-
-Higher layers must never receive RESTfulAPI JSON directly.
-
----
-
-## Implemented Infrastructure
-
-Implemented:
+The public Suite routes are:
 
 ```text
-IHttpClient
-HttpRequest
-HttpResponse
-MockHttpClient
-RestfulApiVdrAdapter
+POST /api/vdr/remote/actions
+GET  /api/vdr/live/overlay
+GET  /api/vdr/live          (SSE change notifications)
 ```
 
-Future:
+The private executor maps fixed Suite action names to fixed RESTfulAPI remote operations. Raw key names, arbitrary sequences, unchecked path fragments, SVDRP commands and shell commands are not accepted from the browser.
 
-```text
-RealHttpClient
-real network communication
-timeout handling
-connection retry logic
-```
+PR #110 changed frontend interaction state only; the private adapter boundary remains unchanged.
 
----
+## EPG and metadata interaction
 
-## Implemented RESTfulAPI Mappings
+RESTfulAPI supplies native EPG observations where configured. Suite-owned workers persist backend/channel/event-scoped cache rows and authoritative bounded retirement.
 
-Phase 59.07a refresh note: the original Phase 8 mapping list below is no longer the complete RESTfulAPI integration surface. Later phases added SearchTimer discovery, timer conflict and frontend client API paths while keeping RESTfulAPI below backend-neutral boundaries.
+TVScraper/SuiteBridge may add asynchronous metadata/person/Genre evidence. RESTfulAPI is not used as a hidden provider resolver during normal Genre or Global Search GET requests.
 
-Implemented as of Phase 8.18:
+Backend-native event identity remains backend scoped. Similar titles/times are evidence and do not silently create a canonical cross-provider event identity.
 
-```text
-/info.json       -> VdrStatus
-/events.json     -> VdrEvent
-/channels.json   -> VdrChannel
-/recordings.json -> VdrRecording
-/timers.json     -> VdrTimer
-```
+## Recordings 2 interaction
 
-Implemented mapper classes:
+RESTfulAPI may supply native Recording lists and execute native actions. The delivered browser owner is Recordings 2, backed by Suite caches/services and metadata read models.
 
-```text
-RestfulApiStatusMapper
-RestfulApiEventMapper
-RestfulApiChannelMapper
-RestfulApiRecordingMapper
-RestfulApiTimerMapper
-```
+The browser does not render RESTfulAPI response shapes. Rename/move/trash requests use Suite validation, safety, policy and readback boundaries rather than direct plugin URLs.
 
----
+## SearchTimer and epgsearch interaction
 
-## Relevant RESTfulAPI Endpoints
+RESTfulAPI-backed paths provide native SearchTimer commands and helper catalogues such as channel groups, directories, blacklists, extended EPG information and conflicts where available.
 
-### Status and Capabilities
+These remain adapter concerns. The Suite domain owns request/response normalization, preview, validation and controlled execution. Exact remaining epgsearch edge semantics are tracked in the parity document. Future cross-backend TimerIntent orchestration belongs to Phase 64.
 
-```text
-/info.json
-```
+## OSD and streaming boundaries
 
-Implemented mapping:
+RESTfulAPI may expose structured current OSD state and private media/provider endpoints, but those are not sufficient public Suite contracts.
 
-```text
-/info.json
-↓
-RestfulApiStatusMapper
-↓
-VdrStatus
-```
+- Streaming requires authenticated `MediaSession`, short-lived grants, route epoch and Gateway ownership in Phase 65.
+- Legacy OSD requires sessions, ordered frames/deltas, resynchronization, viewer policy and one fenced controller lease in Phase 66.
+- Current RemoteAction/LiveOverlay does not imply either runtime is complete.
 
-Primary endpoint for VDR availability, current channel, disk usage, available services, plugins, devices and signal information.
+## Capability and degradation rules
 
----
+A configured RESTfulAPI endpoint does not automatically make a Suite capability available. Availability depends on:
 
-### Channels
+- known/enabled backend;
+- adapter/executor registration;
+- compatible plugin endpoint/version behaviour;
+- server-side backend access mode;
+- current health and required capability evidence;
+- domain preconditions.
 
-```text
-/channels.json
-/channels/groups.json
-/channels/image/<channelid>
-```
+Unknown, incompatible or unavailable private features degrade explicitly. Frontend visibility/disabled state is informational and never the authoritative permission gate.
 
-Implemented mapping:
+## Security and privacy rules
 
-```text
-/channels.json
-↓
-RestfulApiChannelMapper
-↓
-VdrChannel
-```
+- credentials and private backend URLs remain server-side;
+- browser input does not become unchecked private paths;
+- provider/plugin response fields are validated and normalized;
+- private adapters are not user authorization boundaries;
+- logs must not expose credentials or unbounded provider payloads;
+- public API evolution does not reveal adapter versions as domain identity.
 
-Channel groups and channel images remain future work.
+## Future work
 
-Channel data must not be stored in `VdrStatus`.
+RESTfulAPI-related open work is bounded to explicit gaps, not a general “integrate RESTfulAPI” phase:
 
----
+- capability/version degradation hardening through Phase 63/67;
+- remaining exact Timer/SearchTimer semantics where product value justifies them;
+- specialist diagnostics such as femon/wirbelscan only after explicit product decisions;
+- private media/OSD provider use behind Phase 65/66 Suite contracts;
+- migration of transition routes to stable `/api/v1` in Phase 67.
 
-### Events / EPG
+## Related documents
 
-```text
-/events.json
-/events/<channelid>.json
-/events/<channelid>/<eventid>.json
-/events/search.json
-/events/contentdescriptors.json
-/events/image/<eventid>/<imagenumber>
-```
-
-Implemented mapping:
-
-```text
-/events.json
-↓
-RestfulApiEventMapper
-↓
-VdrEvent
-```
-
-The original Phase 8 event mapper did not include EPGSearch. Later phases added backend-neutral EPGSearch query, matcher, serializer and REST routing; exact native epgsearch query parity remains a separate audit area.
-
----
-
-### Recordings
-
-```text
-/recordings.json
-/recordings/cut
-/recordings/marks
-/recordings/play
-```
-
-Implemented mapping:
-
-```text
-/recordings.json
-↓
-RestfulApiRecordingMapper
-↓
-VdrRecording
-```
-
-Recording list mapping is implemented.
-
-Playback control and recording operations remain future work.
-
----
-
-### Timers
-
-```text
-/timers.json
-/searchtimers.json
-```
-
-Implemented mapping:
-
-```text
-/timers.json
-↓
-RestfulApiTimerMapper
-↓
-VdrTimer
-```
-
-The original Phase 8 timer mapper did not include SearchTimers. Later phases added backend-neutral SearchTimer domain, workflow, discovery and timer-conflict read paths. Core timer mutation remains governed by policy and safety gates.
-
----
-
-### SearchTimer Discovery and Timer Conflicts
-
-Later phases added RESTfulAPI-backed read paths for epgsearch helper catalogs and timer conflicts.
-
-Current later-phase integration:
-
-- `/searchtimers/channelgroups.json` maps to SearchTimerDiscoveryCatalog channel groups.
-- `/searchtimers/recordingdirs.json` maps to SearchTimerDiscoveryCatalog recording directories.
-- `/searchtimers/blacklists.json` maps to SearchTimerDiscoveryCatalog blacklists.
-- `/searchtimers/extepginfo.json` maps to SearchTimerDiscoveryCatalog extended EPG info.
-- `/searchtimers/conflicts.json` maps to VdrTimerConflictReport.
-
-These endpoints are adapter/provider concerns and must remain below backend-neutral service and controller boundaries.
-
----
-
-### Remote and OSD
-
-```text
-/remote/<key>
-/remote/switch/<channelid>
-/osd.json
-```
-
-Future work.
-
-These endpoints may later be used for frontend control, remote key handling and OSD mirroring.
-
----
-
-### Scraper Images
-
-```text
-/scraper/image/...
-```
-
-Future work.
-
-These endpoints may later be used for metadata artwork integration.
-
-They must not be mixed into `VdrStatus`.
-
----
-
-### Wirbelscan and Femon
-
-```text
-/wirbelscan/...
-/femon
-```
-
-Future work.
-
-These endpoints belong to diagnostics and setup services, not to dashboard status.
-
----
-
-## VdrStatus Boundary
-
-`VdrStatus` should remain small.
-
-Current fields:
-
-```text
-enabled
-mode
-host
-port
-state
-```
-
-Allowed future fields:
-
-```text
-reachable
-backendName
-backendVersion
-lastError
-currentChannelId
-currentChannelName
-currentVideoFile
-diskFreeMb
-diskUsedPercent
-deviceCount
-pluginCount
-servicesAvailable
-```
-
-The following data must not be added to `VdrStatus`:
-
-```text
-full channel list
-full EPG data
-recording list
-timer list
-search timer list
-scraper metadata
-OSD content
-wirbelscan setup data
-femon diagnostics
-```
-
-These belong into separate domain objects and adapter methods.
-
----
-
-## Adapter Method Boundary
-
-Implemented adapter methods:
-
-```text
-IVdrAdapter::getStatus()
-IVdrAdapter::getEvents()
-IVdrAdapter::getChannels()
-IVdrAdapter::getRecordings()
-IVdrAdapter::getTimers()
-```
-
-Current RESTfulAPI request mapping:
-
-```text
-getStatus()     -> /info.json
-getEvents()     -> /events.json
-getChannels()   -> /channels.json
-getRecordings() -> /recordings.json
-getTimers()     -> /timers.json
-```
-
-The adapter boundary must remain backend-neutral.
-
-No service, controller, frontend or daemon component may depend on RESTfulAPI endpoint names.
-
----
-
-## Mapper Boundary
-
-Mapper classes convert RESTfulAPI JSON into VDR-Suite domain objects.
-
-```text
-RESTfulAPI JSON
-↓
-RestfulApi*Mapper
-↓
-VDR domain object
-```
-
-Mapper classes must:
-
-* stay below the adapter boundary
-* avoid leaking RESTfulAPI field names upward
-* tolerate invalid JSON by returning empty results where appropriate
-* avoid introducing a shared parser framework until repetition becomes a real maintenance problem
-* avoid introducing an external JSON library before the architecture requires it
-
-Current mapper style:
-
-* small hand-written parsing helpers
-* endpoint-specific mapper classes
-* deterministic unit tests
-* no real network communication
-
----
-
-## Out of Scope
-
-Historical Phase 8.18 out-of-scope list:
-
-```text
-real network communication
-RealHttpClient
-timer creation
-timer modification
-timer deletion
-search timers
-EPGSearch integration
-OSD mirroring
-remote control
-recording control operations
-diagnostic endpoints
-shared parser framework
-external JSON library
-```
-
----
-
-## Current Architecture Summary
-
-```text
-RESTfulAPI endpoint
-↓
-IHttpClient
-↓
-RestfulApiVdrAdapter
-↓
-RestfulApi*Mapper
-↓
-VDR domain object
-↓
-IVdrAdapter
-↓
-future services/frontends
-```
-
-This keeps VDR-Suite backend-independent and allows future SVDRP, plugin bridge or mock backends to provide the same domain objects without changing higher layers.
-
----
-
-## Back
-
-- [Back to Architecture Index](index.md)
-- [Back to Documentation Index](../index.md)
-- [Back to Project Overview](../project-overview.md)
-- [Back to README](../../README.md)
+- [Current Architecture State](../development/current-architecture-state.md)
+- [Live Remote, Overlay and Legacy OSD Contract](live-remote-osd-contract.md)
+- [Metadata-Backed Genre Browser](metadata-genre-browser.md)
+- [Backend-Scoped Global Search](global-search.md)
+- [VDR Ecosystem Parity](../planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
