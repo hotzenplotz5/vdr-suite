@@ -160,6 +160,8 @@ bool isSupportedLogoPath(const std::string& path)
     const std::string lowered = toLowerAscii(path);
 
     return endsWith(lowered, ".png") ||
+        endsWith(lowered, ".jpg") ||
+        endsWith(lowered, ".jpeg") ||
         endsWith(lowered, ".svg");
 }
 
@@ -170,6 +172,12 @@ std::string logoContentType(const std::string& path)
     if (endsWith(lowered, ".svg"))
     {
         return "image/svg+xml";
+    }
+
+    if (endsWith(lowered, ".jpg") ||
+        endsWith(lowered, ".jpeg"))
+    {
+        return "image/jpeg";
     }
 
     return "image/png";
