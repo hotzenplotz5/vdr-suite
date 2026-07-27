@@ -29,9 +29,19 @@ jobs:
           test -f docs/planning/milestones.md
 
       - name: Run documentation checks
+        shell: bash
         run: |
-          make test-docs
-          make test-phase
+          set -o pipefail
+          { make test-docs && make test-phase; } 2>&1 | tee docs-check.log
+
+      - name: Upload documentation check log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-check-log
+          path: docs-check.log
+          if-no-files-found: warn
+          retention-days: 14
 
   make-test-audit:
     runs-on: ubuntu-latest
