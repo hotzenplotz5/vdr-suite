@@ -5,6 +5,7 @@
 #include "HttpServerRequest.h"
 #include "HttpServerResponse.h"
 #include "LegacyBasicAuthenticator.h"
+#include "PersistentIdentityResolver.h"
 #include "SecurityConfiguration.h"
 
 #include <algorithm>
@@ -30,10 +31,12 @@ class SecurityHttpGate
 public:
     SecurityHttpGate(
         SecurityConfiguration configuration,
-        AccountabilityEventRepository& accountabilityRepository)
+        AccountabilityEventRepository& accountabilityRepository,
+        const PersistentIdentityResolver* persistentIdentityResolver = nullptr)
         : configuration_(std::move(configuration)),
           authenticator_(configuration_),
-          accountabilityRepository_(accountabilityRepository)
+          accountabilityRepository_(accountabilityRepository),
+          persistentIdentityResolver_(persistentIdentityResolver)
     {
     }
 
@@ -46,10 +49,7 @@ public:
             !gate.context.authenticated())
         {
             AuthorizationDecision decision;
-            decision.reasonCode =
-                gate.context.authenticationState == AuthenticationState::Invalid
-                    ? "invalid_credentials"
-                    : "authentication_required";
+            decision.reasonCode = authenticationReason(gate.context);
             decision.action = "http.access";
             decision.permission = "legacy.compatibility.access";
             decision.backendId = "*";
@@ -268,12 +268,66 @@ private:
             });
     }
 
+    static std::string authenticationReason(
+        const RequestSecurityContext& context)
+    {
+        if (context.authenticationState == AuthenticationState::Anonymous)
+        {
+            return "authentication_required";
+        }
+        if (context.authenticationState == AuthenticationState::Invalid)
+        {
+            return "invalid_credentials";
+        }
+        if (!context.actor.active || context.actor.actorId.empty())
+        {
+            return "actor_revoked";
+        }
+        if (context.device.has_value() && !context.device->active)
+        {
+            return "device_revoked";
+        }
+        if (context.credential.has_value())
+        {
+            if (context.credential->revoked || !context.credential->active)
+            {
+                return "credential_revoked";
+            }
+            if (context.credential->expired)
+            {
+                return "credential_expired";
+            }
+        }
+        if (context.session.has_value())
+        {
+            if (context.session->revoked || !context.session->active)
+            {
+                return "session_revoked";
+            }
+            if (context.session->expired)
+            {
+                return "session_expired";
+            }
+        }
+        if (context.authenticationState == AuthenticationState::Expired)
+        {
+            return "session_expired";
+        }
+        if (context.authenticationState == AuthenticationState::Revoked)
+        {
+            return "session_revoked";
+        }
+        return "invalid_credentials";
+    }
+
     static bool authenticationFailure(const AuthorizationDecision& decision)
     {
         return decision.reasonCode == "authentication_required" ||
             decision.reasonCode == "invalid_credentials" ||
             decision.reasonCode == "session_expired" ||
             decision.reasonCode == "session_revoked" ||
+            decision.reasonCode == "credential_expired" ||
+            decision.reasonCode == "credential_revoked" ||
             decision.reasonCode == "actor_revoked" ||
             decision.reasonCode == "device_revoked";
     }
@@ -283,8 +337,9 @@ private:
         if (reasonCode == "authentication_required") return "Authentication is required";
         if (reasonCode == "invalid_credentials") return "The supplied credentials are invalid";
         if (reasonCode == "session_expired") return "The authenticated session has expired";
-        if (reasonCode == "session_revoked" || reasonCode == "actor_revoked" ||
-            reasonCode == "device_revoked")
+        if (reasonCode == "credential_expired") return "The authenticated credential has expired";
+        if (reasonCode == "session_revoked" || reasonCode == "credential_revoked" ||
+            reasonCode == "actor_revoked" || reasonCode == "device_revoked")
         {
             return "The authenticated identity is no longer active";
         }
@@ -340,8 +395,17 @@ private:
         {
             correlationId.clear();
         }
-        return authenticator_.authenticate(
-            request.headers, requestId, correlationId);
+
+        RequestSecurityContext context = authenticator_.authenticate(
+            request.headers,
+            requestId,
+            correlationId);
+        if (persistentIdentityResolver_ != nullptr)
+        {
+            context = persistentIdentityResolver_->resolve(
+                std::move(context));
+        }
+        return context;
     }
 
     bool appendDecisionEvent(
@@ -430,5 +494,6 @@ private:
     LegacyBasicAuthenticator authenticator_;
     AuthorizationService authorizationService_;
     AccountabilityEventRepository& accountabilityRepository_;
+    const PersistentIdentityResolver* persistentIdentityResolver_;
     mutable std::atomic<unsigned long long> idCounter_{0};
 };
