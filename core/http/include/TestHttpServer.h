@@ -1,11 +1,17 @@
 #ifndef TEST_HTTP_SERVER_H
 #define TEST_HTTP_SERVER_H
 
+#include "AccountabilityEventRepository.h"
 #include "ApiRouter.h"
+#include "Database.h"
 #include "IEpgArtworkHttpProvider.h"
 #include "IHttpServer.h"
+#include "SecurityHttpGate.h"
 
-class TestHttpServer : public IHttpServer, public IEpgArtworkHttpProvider {
+#include <memory>
+
+class TestHttpServer : public IHttpServer, public IEpgArtworkHttpProvider
+{
 public:
     explicit TestHttpServer(ApiRouter& apiRouter);
 
@@ -28,13 +34,27 @@ public:
             response.body);
     }
 
+    bool securityReady() const
+    {
+        return securityReady_;
+    }
+
 private:
     ApiRouter& apiRouter_;
+    std::unique_ptr<Database> securityDatabase_;
+    std::unique_ptr<AccountabilityEventRepository>
+        accountabilityEventRepository_;
+    std::unique_ptr<SecurityHttpGate> securityHttpGate_;
+    bool securityReady_ = false;
 
     HttpServerResponse mapApiResponse(
         int statusCode,
         const std::string& contentType,
         const std::string& body) const;
+
+    HttpServerResponse finalizeResponse(
+        const RequestSecurityContext& context,
+        HttpServerResponse response) const;
 };
 
 #endif

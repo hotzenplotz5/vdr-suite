@@ -1,53 +1,3 @@
-std::string headerValue(
-    const HttpServerRequest& request,
-    const std::string& headerName)
-{
-    const std::string wanted =
-        toLowerAscii(headerName);
-
-    for (const auto& header : request.headers)
-    {
-        if (toLowerAscii(header.first) == wanted)
-        {
-            return header.second;
-        }
-    }
-
-    return "";
-}
-
-std::string expectedAuthorizationHeader()
-{
-    const char* configured =
-        std::getenv("VDR_SUITE_BASIC_AUTH");
-
-    if (configured != nullptr && configured[0] != '\0')
-    {
-        return configured;
-    }
-
-    return "Basic YWRtaW46dmRyLXN1aXRl";
-}
-
-bool isAuthorized(const HttpServerRequest& request)
-{
-    return headerValue(request, "Authorization") ==
-        expectedAuthorizationHeader();
-}
-
-HttpServerResponse makeUnauthorizedResponse()
-{
-    HttpServerResponse response;
-
-    response.statusCode = 401;
-    response.headers["Content-Type"] = "application/json";
-    response.headers["WWW-Authenticate"] =
-        "Basic realm=\"VDR-Suite\", charset=\"UTF-8\"";
-    response.body = "{\"error\":\"authentication required\"}";
-
-    return response;
-}
-
 HttpServerResponse makeStaticNotFoundResponse()
 {
     HttpServerResponse response;
@@ -253,4 +203,3 @@ HttpServerResponse makeChannelLogoResponse(
 
     return response;
 }
-

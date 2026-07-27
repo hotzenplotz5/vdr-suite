@@ -1,4 +1,5 @@
 include mk/common.mk
+include mk/security-sources.mk
 include mk/agent-sources.mk
 
 include mk/recording-sources.mk
