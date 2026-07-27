@@ -71,7 +71,7 @@ Phase 68 - Recommendation and Content Knowledge Graph
 
 ## Current planning cautions
 
-- Draft PR #109 is an old-base documentation proposal and is superseded by the current truth-refresh replacement.
+- PR #109 was closed on 2026-07-27 as superseded by PR #114; it remains historical source material only.
 - Draft PR #101 is not an end-to-end compatible person-limit change.
 - Draft PRs #112 and #113 are competing old-base remote asset proposals; select at most one after rebase and mobile acceptance.
 - Provider additions are post-Phase-61 strategy/backlog, not unfinished Phase 61 slices.
