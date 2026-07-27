@@ -1,134 +1,80 @@
 # VDR-Suite Phase Map
 
-## Navigation
-
-- [README](../../README.md)
-- [Documentation Index](../index.md)
-- [Current State](../CURRENT.md)
-- [Planning Index](index.md)
-- [Roadmap](roadmap.md)
-- [Target Platform Architecture](../architecture/target-platform-architecture.md)
-- [Domain Dependency Map](domain-dependency-map.md)
-- [Implementation Dependency Map](implementation-dependency-map.md)
-- [Current Project Status](../development/current-status.md)
-- [Completed Phases](../development/completed-phases.md)
-
----
-
 ## Purpose
 
-This file is the canonical compact phase-number map for VDR-Suite.
+This file is the canonical compact phase-number map. Detailed history belongs in [Completed Phases](../development/completed-phases.md); strict future order belongs in [Roadmap](roadmap.md).
 
-The detailed chronological history remains in [Completed Phases](../development/completed-phases.md). The strict future execution order is defined in [Roadmap](roadmap.md), and its prerequisite expansion is defined in the [Implementation Dependency Map](implementation-dependency-map.md).
-
----
-
-## Completed Phase Ranges
+## Completed phase ranges
 
 | Range | Status | Track | Result |
 | --- | --- | --- | --- |
-| Phase 1.x-7.x | Completed | Core Platform | Database, repositories, services, REST boundaries and daemon foundation. |
-| Phase 8.x | Completed | VDR Backend | VDR domain objects, adapter boundaries and RESTfulAPI integration foundation. |
-| Phase 9.x-29.x | Completed | Multi-Backend Runtime | Backend registry, snapshots, change feed and live transport foundation. |
-| Phase 30.x-36.x | Completed | Recording Actions | Recording action validation and guarded execution foundation. |
-| Phase 37.x-44.x | Completed | Recording Runtime Hardening | Runtime completion, real-backend validation, regression coverage and safety transition. |
-| Phase 45.x | Completed | EPG Search | Selective EPG query/search foundation and EPG REST API surface. |
-| Phase 46.x | Completed | Metadata and People | Classification, metadata foundations, people and character search. |
-| Phase 47.x-49.x | Completed | SearchTimer Backend | Backend foundation, RESTfulAPI compatibility and native capability validation. |
-| Phase 50.0-50.50 | Completed | SearchTimer Workflow | Dry-run, safety gates, readback verification and controlled execution. |
-| Phase 51.x | Completed | Live Parity Discovery | Live plugin parity discovery and gap visibility foundation. |
-| Phase 52.x | Completed | SearchTimer Automation Planning | Read-only planning, preview, scheduling plan and automation safety review. |
-| Phase 53.x | Completed | SearchTimer Completion Audit | Completion audit and workflow preservation. |
-| Phase 54.x | Completed | SearchTimer Preview Runtime | Preview runtime, mutation policy and warm EPG cache architecture. |
-| Phase 55.0-55.4e | Completed | Adapter and Runtime Hardening | Adapter audit, contract fixes, discovery wiring and daemon lifecycle guardrails. |
-| Phase 55.5a-55.5n | Completed | Acceptance and Documentation | Acceptance, native preview capability, lifecycle hardening and documentation coverage. |
-| Phase 55.5o | Completed | Phase Map and Roadmap | Canonical phase map and coverage guardrail. |
-| Phase 55.6 | Completed | Recording Operations Audit | Recording mutation safety policy and guarded real-write probes. |
-| Phase 56 | Completed | Library Boundary and Packaging | Source boundaries, packaging, staging, manpages and prerequisite audit. |
-| Phase 57 | Completed | Multi-Site Backend Administration and Permissions | Backend access modes and server-enforced read-only foundation. |
-| Phase 58.0-58.90b | Completed slices; umbrella label retained | Frontend and Live Parity | Frontend foundations, EPG input, event hints, channel move API and sorting. |
-| Phase 59.00-59.15e | Completed | Frontend Client API and Modules | Client API consolidation, module extraction and ownership guards. |
-| Phase 60.1-60.15 | Completed | Frontend Platform, Recording UX and Metadata Preparation | Platform bootstrap, lazy Recording cache, detail UX, provider-neutral metadata, persistent artwork preparation and authenticated local artwork delivery. |
+| Phase 1.x-7.x | Completed | Core Platform | Database, repositories, services, REST and daemon foundation. |
+| Phase 8.x | Completed | VDR Backend | VDR domain and RESTfulAPI adapter foundations. |
+| Phase 9.x-29.x | Completed | Multi-Backend Runtime | Registry, snapshots, selective reads, change feed and live transport foundation. |
+| Phase 30.x-44.x | Completed | Recording Actions and Hardening | Validation, guarded execution, real-backend regression and safety transition. |
+| Phase 45.x | Completed | EPG Search | Selective EPG query/search foundation. |
+| Phase 46.x | Completed | Metadata and People | Classification, metadata and people foundations. |
+| Phase 47.x-50.50 | Completed | SearchTimer | Backend, compatibility, preview, safety gates, readback and controlled workflow. |
+| Phase 51.x-55.6 | Completed | Live/Adapter/Acceptance | Parity discovery, preview runtime, adapter hardening, acceptance and documentation. |
+| Phase 56 | Completed | Library Boundary and Packaging | Source boundaries, packaging, staging and developer documentation. |
+| Phase 57 | Completed | Backend Administration and Permissions | Backend access modes and server-enforced read-only foundation. |
+| Phase 58.0-58.90b | Completed slices; umbrella historical | Frontend and Live Parity | Frontend foundations, EPG input, channel movement and sorting. |
+| Phase 59.00-59.15e | Completed | Frontend Client API and Modules | Client API consolidation and ownership guards. |
+| Phase 60.1-60.15 | Completed | Frontend Platform and Metadata Preparation | Recordings 2, lazy cache, metadata and authenticated artwork preparation. |
+| Phase 61 | Completed | Suite Metadata and Genre Platform | Persistent Recording/EPG metadata, people and Genre assignments, query-only browse paths and frontend integration. |
 
----
+## Completed non-numbered blocks
 
-## Completed Architecture Contract Package
+| Block | Status | Result |
+| --- | --- | --- |
+| Post-Phase 61 Performance Hardening (B1-B4) | Completed | PRs #102-#108: query, transaction, no-op and snapshot-cadence hardening. |
+| VDR Remote and Live Overlay hardening (#110) | Completed | Isolated pressed-state and duplicate-dispatch guard while preserving backend-neutral routing. |
+| Backend-scoped Global Search (#111) | Completed | Persisted Recording/EPG title, subtitle and people search with query-only reads. |
 
-```text
-ADR-0042 through ADR-0049
-Target Platform Architecture
-Domain Dependency Map
-Implementation Dependency Map
-```
+These blocks do not consume or invent a phase number.
 
-Status:
+## Current position
 
 ```text
-Completed architecture and planning prerequisite
-Not a completed runtime phase
-```
+Latest completed numbered runtime phase:
+Phase 61 - Suite Metadata and Genre Platform
 
-The package defines the accepted ownership, trust, identity, mutation, orchestration, media, OSD, public API and accountability contracts for the future sequence.
+Latest completed operational hardening:
+Post-Phase 61 Performance Hardening (B1-B4)
 
----
+Latest completed cross-cutting features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
 
-## Current Position
-
-```text
-Latest completed major project block
-Phase 57 - Multi-Site Backend Administration and Permissions
-
-Current umbrella implementation track
+Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
 
-Latest completed implementation slice
-Phase 60.15 - Recording Metadata and Poster Preparation
-
-Next runtime implementation phase
-Phase 61 - Suite Metadata Database and External Provider Integration
+Next strict runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-The Phase 58 umbrella label is retained for historical product grouping. It does not override the numbered execution sequence below.
+## Planned phase sequence
 
----
-
-## Planned Phase Sequence
-
-| Order | Range | Status | Track | Goal |
+| Order | Phase | Status | Track | Goal |
 | ---: | --- | --- | --- | --- |
-| 1 | Phase 61 | Planned next runtime phase | Suite Metadata Platform | Build normalized suite-owned metadata, provider, provenance and artwork services. |
-| 2 | Phase 62 | Planned | Identity, RBAC and Audit | Add user, service and Agent identities, scoped authorization and mutation accountability foundation. |
-| 3 | Phase 63 | Planned | Backend Agent and Multi-Site Runtime | Implement Agent enrollment, secure transport, generation, lease, health and fenced commands. |
-| 4 | Phase 64 | Planned | Timer Intent and Orchestration | Separate intent, assignment and native timers; add scheduler and reconciler. |
-| 5 | Phase 65 | Planned | Streaming Gateway | Add authenticated short-lived media sessions over internal providers. |
-| 6 | Phase 66 | Planned | Legacy OSD Bridge | Add isolated compatibility sessions with viewer and controller permissions. |
-| 7 | Phase 67 | Planned | Public API and Client Hardening | Stabilize `/api/v1`, errors, revisions, compatibility and client contracts. |
-| 8 | Phase 68 | Vision | Recommendation and Knowledge Graph | Add explainable recommendations after metadata and platform foundations mature. |
+| 1 | Phase 62 | Next | Identity, RBAC and Accountability | Actor identities, scoped authorization and append-only accountability. |
+| 2 | Phase 63 | Planned | Backend Agent and Multi-Site Runtime | Enrollment, protected transport, generation, lease, health and fenced commands. |
+| 3 | Phase 64 | Planned | Timer Intent and Orchestration | Separate intent, assignment and native timers; add scheduler/reconciler. |
+| 4 | Phase 65 | Planned | Streaming Gateway | Authenticated short-lived media sessions over private providers. |
+| 5 | Phase 66 | Planned | Legacy OSD Bridge | Isolated view/control compatibility with sequencing and controller lease. |
+| 6 | Phase 67 | Planned | Public API and Client Hardening | Stabilize `/api/v1`, errors, revisions and compatibility. |
+| 7 | Phase 68 | Vision | Recommendation and Knowledge Graph | Explainable recommendations after platform foundations mature. |
 
-This table is authoritative for phase numbering. The [Roadmap](roadmap.md) owns strict order and exit criteria. The [Implementation Dependency Map](implementation-dependency-map.md) owns detailed prerequisite and slice order.
+## Numbering rules
 
----
-
-## Numbering Rules
-
-- Completed phase history is never renumbered.
+- Completed history is never renumbered.
 - Phase 58 remains a historical umbrella label only.
-- Phase 59 and Phase 60 are already-used implementation ranges and are not reused for new major milestones.
-- Future milestones continue sequentially with Phase 61 through Phase 68.
-- The completed architecture package is a contract prerequisite, not a runtime phase number.
+- Phase 61 is closed for its accepted metadata/Genre runtime scope.
+- Optional providers and diagnostics do not silently reopen Phase 61.
+- Cross-cutting completed PRs may be recorded without inventing a phase.
+- The next available runtime phase in this sequence is Phase 62.
 
----
-
-## Maintenance Rules
-
-- This file owns phase numbers and compact status.
-- [Roadmap](roadmap.md) owns strict execution order and phase exit criteria.
-- [Implementation Dependency Map](implementation-dependency-map.md) expands phase prerequisites and slice order.
-- [Completed Phases](../development/completed-phases.md) owns chronological implementation history.
-- When a runtime phase completes, update this file and run the phase-map coverage check.
-- Accepted ADRs and target diagrams do not by themselves mark runtime phases complete.
-
-Verification:
+## Verification
 
 ```bash
 make test-phase-map-coverage
@@ -136,10 +82,10 @@ make test-docs
 make test-phase
 ```
 
----
+## Related documents
 
-## Back
-
-- [Back to README](../../README.md)
-- [Back to Documentation Index](../index.md)
-- [Back to Planning Index](index.md)
+- [Current State](../CURRENT.md)
+- [Roadmap](roadmap.md)
+- [Completed Phases](../development/completed-phases.md)
+- [Phase 61 Closeout](../development/phase-61-metadata-genre-performance-closeout.md)
+- [Post-Phase-61 Platform Closeout](../development/post-phase-61-platform-runtime-closeout.md)
