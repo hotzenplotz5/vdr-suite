@@ -36,6 +36,7 @@ def main() -> int:
         "core/security/tests/test_security_http_gate.cpp",
         "docs/planning/phase-62-security-identity-gap-matrix.md",
         "docs/development/phase-62-security-identity-foundation-slice-1.md",
+        "docs/development/phase-62-security-identity-foundation-slice-2.md",
         "docs/architecture/security-identity-foundation.md",
     ]
 
@@ -71,6 +72,9 @@ def main() -> int:
         "core/security/include/SecurityIdentityRepository.h",
         "security_credentials")
     require(
+        "core/security/include/SecurityIdentityRepository.h",
+        "INSERT OR IGNORE")
+    require(
         "core/security/include/PersistentIdentityResolver.h",
         "findCredential")
     require(
@@ -94,6 +98,9 @@ def main() -> int:
     require(
         "core/security/include/SecurityHttpGate.h",
         "credential_revoked")
+    require(
+        "docs/development/phase-62-security-identity-foundation-slice-2.md",
+        "Real-VDR acceptance for this slice")
     forbid(
         "core/http/src/TestHttpServer.cpp",
         "isAuthorized(request)")
@@ -106,6 +113,9 @@ def main() -> int:
     forbid(
         "core/security/include/SecurityIdentityRepository.h",
         "Authorization: Basic")
+    forbid(
+        "core/security/include/SecurityIdentityRepository.h",
+        "YWRtaW46")
 
     print("security identity architecture contracts passed")
     return 0
