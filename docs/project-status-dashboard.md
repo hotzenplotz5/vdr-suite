@@ -35,7 +35,7 @@ Next strict runtime phase: Phase 62 - Identity, RBAC and Accountability Foundati
 ## Current cautions
 
 - The main recording-person contract is 128 people / 65,535 bytes; Draft PR #101 is not compatible as-is.
-- Draft PR #109 is an old-base documentation proposal and is superseded by the current truth-refresh work.
+- PR #109 was closed on 2026-07-27 as superseded by PR #114 and is historical source material only.
 - Draft PRs #112 and #113 are competing remote asset proposals; select at most one after rebase and mobile acceptance.
 - Accepted ADRs define target contracts but do not automatically mark runtime gaps implemented.
 
