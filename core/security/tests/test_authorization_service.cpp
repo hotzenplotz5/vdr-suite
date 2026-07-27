@@ -13,6 +13,11 @@ RequestSecurityContext authenticatedContext()
     context.actor.active = true;
     context.device = DeviceIdentity{"device-1", true};
     context.session = SessionIdentity{"session-1", true, false, false};
+    context.credential = CredentialIdentity{
+        "credential-1",
+        true,
+        false,
+        false};
     return context;
 }
 
@@ -63,6 +68,18 @@ int main()
     revokedSession.session->revoked = true;
     assert(service.authorize(revokedSession, requestFor("default")).reasonCode ==
         "session_revoked");
+
+    RequestSecurityContext expiredCredential = allowed;
+    expiredCredential.credential->expired = true;
+    assert(service.authorize(
+        expiredCredential,
+        requestFor("default")).reasonCode == "credential_expired");
+
+    RequestSecurityContext revokedCredential = allowed;
+    revokedCredential.credential->revoked = true;
+    assert(service.authorize(
+        revokedCredential,
+        requestFor("default")).reasonCode == "credential_revoked");
 
     RequestSecurityContext revokedActor = allowed;
     revokedActor.actor.active = false;
