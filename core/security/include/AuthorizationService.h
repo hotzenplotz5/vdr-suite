@@ -44,18 +44,6 @@ public:
             return decision;
         }
 
-        if (context.authenticationState == AuthenticationState::Expired)
-        {
-            decision.reasonCode = "session_expired";
-            return decision;
-        }
-
-        if (context.authenticationState == AuthenticationState::Revoked)
-        {
-            decision.reasonCode = "session_revoked";
-            return decision;
-        }
-
         if (!context.actor.active || context.actor.actorId.empty())
         {
             decision.reasonCode = "actor_revoked";
@@ -66,6 +54,22 @@ public:
         {
             decision.reasonCode = "device_revoked";
             return decision;
+        }
+
+        if (context.credential.has_value())
+        {
+            if (context.credential->revoked ||
+                !context.credential->active)
+            {
+                decision.reasonCode = "credential_revoked";
+                return decision;
+            }
+
+            if (context.credential->expired)
+            {
+                decision.reasonCode = "credential_expired";
+                return decision;
+            }
         }
 
         if (context.session.has_value())
@@ -81,6 +85,18 @@ public:
                 decision.reasonCode = "session_expired";
                 return decision;
             }
+        }
+
+        if (context.authenticationState == AuthenticationState::Expired)
+        {
+            decision.reasonCode = "session_expired";
+            return decision;
+        }
+
+        if (context.authenticationState == AuthenticationState::Revoked)
+        {
+            decision.reasonCode = "session_revoked";
+            return decision;
         }
 
         if (request.permission.empty())
