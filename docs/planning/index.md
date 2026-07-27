@@ -83,6 +83,12 @@ Phase 68 - Recommendation and Content Knowledge Graph
 - [Completed Architecture Source Audit](../development/architecture-source-audit-2026-07-15.md)
 - [Completed Phases](../development/completed-phases.md)
 
+## Historical and superseded planning evidence
+
+- [Repository-truth refresh archive](history/repository-truth-refresh-2026-07/README.md)
+
+Historical snapshots are retained for traceability but are not active execution order.
+
 ## Related current documents
 
 - [Current State](../CURRENT.md)
