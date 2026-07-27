@@ -1,31 +1,43 @@
 # Web Client API Contract Snapshot
 
+## Navigation
+
+- [Development Index](index.md)
+- [Client API and Frontend Module Boundary Plan](client-api-frontend-module-boundary-plan.md)
+- [Current Project Status](current-status.md)
+- [Parity Audit and Frontend Gap Roadmap](../planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Backend-Scoped Global Search](../architecture/global-search.md)
+- [Live Remote, Overlay and Legacy OSD Contract](../architecture/live-remote-osd-contract.md)
+
+---
+
 ## Status
 
-Phase 59.09f established and guarded the base Web Client API ownership seam before UI module extraction. This is the current implementation snapshot of that same owner, refreshed after Phase 61, PR #110 and PR #111; it is not a design wishlist.
+Phase 59.09f documents and guards the base Web Client API seam before UI module extraction.
 
-Browser HTTP ownership is split across DOM-free Client API files:
-
-- `web/frontend/api/client-api.js` — base API and common domain wrappers;
-- `web/frontend/api/genre-client-api.js` — Genre browse wrappers;
-- `web/frontend/api/live-remote-client-api.js` — RemoteAction, LiveOverlay and live-update wrappers.
-
-Each extension immutably augments `window.VdrSuiteClientApi`. Feature modules and `app.js` must not introduce direct backend `fetch()` calls.
+This document remains the current contract snapshot, refreshed after completed Phase 61, PR #110 and PR #111. It is intentionally a snapshot, not a design wishlist. Every exported base helper listed here must exist in `web/frontend/api/client-api.js` and must be exported through `window.VdrSuiteClientApi`; documented extension helpers must exist in their DOM-free Client API extension.
 
 No direct `fetch()` calls in `web/frontend/app.js`.
 
-## Ownership rules
+---
 
-- route literals belong in Client API files, not feature modules;
-- Client API files remain DOM-free;
-- feature modules own rendering/navigation only;
-- private RESTfulAPI, SVDRP, TVScraper and SuiteBridge details never enter browser contracts;
-- new wrappers require a real verified backend route and contract tests;
-- Recordings 2 and the existing EPG detail owner remain the single detail destinations.
+## Contract Owner
 
-## Base Client API functions
+Runtime API ownership:
 
-### Timers
+- `web/frontend/api/client-api.js` owns base HTTP access from the web frontend.
+- `web/frontend/api/genre-client-api.js` owns Genre route access.
+- `web/frontend/api/live-remote-client-api.js` owns RemoteAction, LiveOverlay and live-update access.
+- all Client API extensions immutably augment `window.VdrSuiteClientApi`.
+- `web/frontend/app.js` owns UI orchestration and must use `window.VdrSuiteClientApi`.
+- feature modules must not introduce direct backend fetches.
+- private RESTfulAPI, SVDRP, TVScraper and SuiteBridge details must not enter browser contracts.
+
+---
+
+## Exported Client API Functions
+
+Timer:
 
 - `fetchClientTimers`
 - `fetchClientTimerConflicts`
@@ -33,10 +45,13 @@ No direct `fetch()` calls in `web/frontend/app.js`.
 - `fetchClientTimerUpdateAction`
 - `fetchClientTimerDeleteAction`
 
-### Channels and runtime state
+Channels:
 
 - `fetchClientChannels`
 - `fetchClientChannelMoveAction`
+
+Capabilities and runtime state:
+
 - `fetchClientCapabilities`
 - `fetchClientVdrOverview`
 - `fetchClientVdrStatus`
@@ -44,17 +59,16 @@ No direct `fetch()` calls in `web/frontend/app.js`.
 - `fetchClientVdrSnapshotSummary`
 - `fetchClientVdrSnapshots`
 
-### Backends
+Backend selection:
 
 - `fetchClientBackends`
 - `fetchClientDefaultBackend`
 - `fetchClientBackendSnapshot`
 
-### EPG and search
+EPG:
 
 - `fetchClientEpgWindow`
 - `fetchClientEpgSearch`
-- `fetchClientGlobalSearch`
 - `fetchClientEpgCacheStatus`
 - `fetchClientEpgCacheWindow`
 - `fetchClientEpgCacheRefresh`
@@ -62,17 +76,17 @@ No direct `fetch()` calls in `web/frontend/app.js`.
 - `fetchClientEpgTimeWindow`
 - `fetchClientEpgChannelWindow`
 
-`fetchClientGlobalSearch` calls the canonical `/api/search` route and maps the selected `backendId` to the route's `backend` query parameter. It accepts abort signals used by the search module's stale-response protection and mobile timeout.
-
-### Metadata and people
+Metadata and persons:
 
 - `fetchClientMetadata`
 - `fetchClientPersons`
 - `fetchClientRecordingPersons`
 
-Persisted EPG people are searched through `fetchClientGlobalSearch`; a second provider-calling browser route is not introduced.
+Global search:
 
-### Recordings
+- `fetchClientGlobalSearch`
+
+Recordings:
 
 - `fetchClientRecordings`
 - `fetchClientRecordingCacheStatus`
@@ -80,7 +94,7 @@ Persisted EPG people are searched through `fetchClientGlobalSearch`; a second pr
 - `fetchClientRecordingActionValidation`
 - `fetchClientRecordingActionExecution`
 
-### SearchTimer
+SearchTimer:
 
 - `fetchClientSearchTimers`
 - `fetchClientSearchTimerDiscovery`
@@ -93,50 +107,77 @@ Persisted EPG people are searched through `fetchClientGlobalSearch`; a second pr
 - `fetchClientSearchTimerUpdateAction`
 - `fetchClientSearchTimerDeleteAction`
 
-## Genre Client API extension
+Genre Client API extension:
 
-`genre-client-api.js` owns all `/api/metadata/genres...` route literals and exposes the wrappers consumed by the `genres` module for:
+- the Genre extension owns the `/api/metadata/genres...` route family used by the `genres` module;
+- it exposes backend-scoped overview and paged Recording/EPG Genre queries;
+- the `genres` module contains no direct `fetch()` and reuses Recordings 2 and the existing EPG detail owner.
 
-- Recording/EPG overview counts;
-- paged Recording Genre results;
-- EPG main-class and Film-subgenre results;
-- backend/time-window/filter parameters.
-
-The `genres` module contains no direct `fetch()` and no provider dependency.
-
-## Live Remote Client API extension
-
-`live-remote-client-api.js` exposes:
+Live Remote Client API extension:
 
 - `fetchClientRemoteAction`
 - `fetchClientLiveOverlay`
 - `createClientLiveUpdateSource`
 
-Remote actions POST to the Suite-owned `/api/vdr/remote/actions` route. Overlay reads use `/api/vdr/live/overlay`; live updates use the Suite SSE route. The remote module does not learn the private backend protocol.
+Remote actions use the Suite-owned `/api/vdr/remote/actions` route; overlay reads use `/api/vdr/live/overlay`; live updates use the Suite SSE route. PR #110's in-flight guard remains frontend dispatch state and does not move transport or authorization into the module.
 
-PR #110's in-flight guard is UI dispatch state, not a reason to globally disable other button elements.
+Global Search contract:
 
-## Direct-fetch inventory
+- `fetchClientGlobalSearch` uses the canonical `/api/search` route;
+- selected `backendId` is mapped to the route's `backend` parameter;
+- abort signals support stale-response protection and the mobile timeout;
+- persisted EPG people are searched through this provider-free read path rather than a second browser/provider route.
 
-Known direct API fetch inventory in `web/frontend/app.js`:
+---
 
-```text
-none
-```
+## Current Direct Fetch Inventory
 
-Architecture guards must fail if `app.js` or extracted feature modules bypass the Client API boundary.
+Remaining known direct API fetch inventory in `web/frontend/app.js`:
 
-## Known future route areas
+- none
 
-Do not add speculative wrappers before matching backend contracts exist and are verified. Major future route areas include:
+The ownership guard must fail if `web/frontend/app.js` calls `fetch()` directly.
 
-- production actor/session/permission/accountability APIs (Phase 62);
-- Agent lifecycle and command APIs (Phase 63);
-- TimerIntent/orchestration APIs (Phase 64);
-- Recording marks/resume/cut/playback and media sessions (Phase 65);
-- legacy OSD frames/viewer/controller sessions (Phase 66);
-- stable `/api/v1`, ETags and common error contracts (Phase 67).
+---
 
-## Maintenance rule
+## Missing Backend Route Gaps
 
-Update this snapshot whenever a verified `fetchClient*` wrapper or Client API extension is added, removed or changes canonical route ownership. Do not use it to predeclare planned functions.
+The following helpers must not be added until matching backend routes exist and are verified:
+
+- `fetchClientPermissionReport`
+- `fetchClientEventDetail`
+- `fetchClientEventArtwork`
+- `fetchClientEventMedia`
+- `fetchClientRecordingMarks`
+- `fetchClientRecordingResume`
+- `fetchClientRecordingCut`
+- `fetchClientRecordingPlayback`
+
+Known missing route areas:
+
+- production actor/session/permission/accountability APIs (Phase 62)
+- Agent lifecycle and command APIs (Phase 63)
+- TimerIntent/orchestration APIs (Phase 64)
+- event media and Recording playback/session routes (Phase 65)
+- Recording marks, resume and cut operations
+- legacy OSD viewer/controller/session routes (Phase 66)
+- stable `/api/v1`, ETags and common error contracts (Phase 67)
+
+---
+
+## Next Use
+
+This snapshot remains the handoff point for frontend work:
+
+- extract or extend UI modules without moving HTTP ownership back into `app.js`
+- keep all Client API files DOM-free
+- keep new backend route wrappers explicit and guarded
+- preserve Recordings 2 and the existing EPG detail owner as single destination owners
+- update this snapshot whenever a real new `fetchClient*` wrapper or Client API extension is added
+
+---
+
+## Back
+
+- [Development Index](index.md)
+- [Documentation Index](../index.md)
