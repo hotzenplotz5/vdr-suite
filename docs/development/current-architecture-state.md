@@ -4,7 +4,7 @@
 
 This document describes implemented architecture. Target contracts that are accepted but not implemented remain in ADRs and planning documents.
 
-Baseline: `cb77ff66e11dca7db2eafa36525762dcde35102d` on 2026-07-27, plus the active Phase 62 Slice 1 branch changes described below.
+Baseline: `cb77ff66e11dca7db2eafa36525762dcde35102d` on 2026-07-27, plus the active Phase 62 Slice 1 and Slice 2 foundation changes described below.
 
 ## Ownership model
 
@@ -14,7 +14,8 @@ VDR
 
 VDR-Suite
   -> backend identity and scope
-  -> actor/session/request security context
+  -> actor/device/credential/session/request security context
+  -> persistent identity lifecycle state
   -> server-side policy and authorization
   -> domain services and persistent read models
   -> guarded operations and accountability
@@ -24,7 +25,7 @@ Private adapters/providers
   -> RESTfulAPI, SVDRP, Streamdev, TVScraper, SuiteBridge
 ```
 
-Frontend modules do not call private backend protocols or provider databases directly and do not own authorization decisions.
+Frontend modules do not call private backend protocols or provider databases directly and do not own authentication, lifecycle or authorization decisions.
 
 ## Backend and snapshot foundation
 
@@ -47,6 +48,8 @@ HttpServerRequest
   -> SecurityHttpGate
        -> LegacyBasicAuthenticator (transitional)
        -> RequestSecurityContext
+       -> PersistentIdentityResolver
+            -> SecurityIdentityRepository
        -> AuthorizationService
        -> AccountabilityEventRepository
   -> ApiRouter
@@ -55,7 +58,9 @@ HttpServerRequest
 
 The first migrated mutation is `POST /api/vdr/remote/actions`. It requires `remote.control` scoped to the request backend and a durable pre-dispatch accountability decision.
 
-Implemented identity values are actor, device, session, authentication state, grants, request ID and correlation ID. Persistent identity issuance, production authentication and lifecycle are not yet implemented.
+Implemented identity values are actor, device, credential, session, authentication state, grants, request ID and correlation ID. Actor/device/session/credential metadata is stored in additive SQLite tables and resolved on each authenticated request. Persisted inactive, expired, revoked, missing or mismatched state fails closed before router dispatch.
+
+The persistence foundation does not yet issue or verify production passwords, bearer tokens or cookie sessions. The current authenticator remains a transitional compatibility adapter.
 
 `legacy-basic` preserves the existing local browser contract by default. `enforced` permits anonymous GETs and rejects every not-yet-migrated POST before router dispatch. In `enforced`, the embedded compatibility credential and grants are disabled unless explicitly configured.
 
@@ -64,11 +69,12 @@ Implemented identity values are actor, device, session, authentication state, gr
 The following remain separate and cumulative:
 
 1. authentication: who or what presented credentials;
-2. actor authorization: permission and backend scope;
-3. backend policy: backend exists, enabled and accepts writes;
-4. capability policy: backend supports the action;
-5. mutation safety: validation, revision, idempotency, operation and readback rules;
-6. accountability: durable decision and outcome evidence.
+2. persistent identity lifecycle resolution: whether actor, device, credential and session remain valid;
+3. actor authorization: permission and backend scope;
+4. backend policy: backend exists, enabled and accepts writes;
+5. capability policy: backend supports the action;
+6. mutation safety: validation, revision, idempotency, operation and readback rules;
+7. accountability: durable decision and outcome evidence.
 
 No frontend state replaces these server-side decisions.
 
@@ -101,6 +107,7 @@ The first slice searches one selected backend across persisted Recording and EPG
 Frontend remote module
   -> VdrSuiteClientApi
   -> SecurityHttpGate for POST mutation
+       -> persistent identity lifecycle resolution
   -> LiveRemoteApiRuntime
   -> backend-neutral RemoteAction / LiveOverlay services
   -> BackendAccessPolicy and capability checks
@@ -119,6 +126,9 @@ Phase 64 introduces durable `TimerIntent`, `TimerAssignment`, `NativeTimerBindin
 
 - SQLite remains the central Suite-owned metadata/read-model database.
 - Domain repositories own SQL; controllers and frontend modules do not.
+- `SecurityIdentityRepository` owns actor, device, credential and session lifecycle tables.
+- Compatibility bootstrap uses `INSERT OR IGNORE` so restart cannot overwrite revocation state.
+- The identity repository stores credential identifiers and lifecycle metadata, not submitted secrets.
 - The Phase 62 accountability repository owns its SQLite schema and append operations.
 - Database triggers reject accountability-row updates and deletes.
 - Dedicated query-only connections serve documented read paths.
@@ -132,9 +142,11 @@ Phase 64 introduces durable `TimerIntent`, `TimerAssignment`, `NativeTimerBindin
 - guarded Recording validation/preview/execution/readback;
 - allowlisted remote actions and operation IDs;
 - centralized actor authorization for the first remote mutation;
+- persisted actor/device/credential/session state resolved before authorization;
+- fail-closed credential/session expiry and revocation;
 - fail-closed rejection of unmigrated POST routes in enforced mode;
 - append-only pre-dispatch allow/deny accountability;
-- credential-safe security errors;
+- credential-safe security errors and identity persistence;
 - no frontend-owned authorization;
 - no provider lookup during documented query-only reads.
 
@@ -142,9 +154,10 @@ Phase 64 introduces durable `TimerIntent`, `TimerAssignment`, `NativeTimerBindin
 
 | Area | Current state | Roadmap owner |
 | --- | --- | --- |
-| Actor/request security model | First runtime boundary implemented; only compatibility actor issued | Phase 62 |
-| Persistent users/devices/sessions/roles/grants | Missing | Phase 62 |
-| Complete server authorization | Remote action migrated; remaining mutations open | Phase 62 |
+| Actor/request security model | First runtime boundary implemented and real-runtime validated; only compatibility actor authenticated | Phase 62 |
+| Persistent actor/device/session/credential lifecycle | Repository and request-time enforcement foundation implemented; secure issuance and protected management missing | Phase 62 |
+| Roles, grants and backend scopes | Missing persisted assignment model | Phase 62 |
+| Complete server authorization | Remote action migrated; remaining mutations and sensitive reads open | Phase 62 |
 | Append-only accountability | First pre-dispatch repository implemented; full catalogue/outbox/query lifecycle open | Phase 62 |
 | Universal revision/idempotency | Partial per-domain mechanisms only | Phase 62 |
 | Secure Backend Agent lifecycle | Contract/foundation only | Phase 63 |
@@ -162,6 +175,7 @@ Phase 64 introduces durable `TimerIntent`, `TimerAssignment`, `NativeTimerBindin
 - [Security and Identity Foundation](../architecture/security-identity-foundation.md)
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Phase 62 Slice 1](phase-62-security-identity-foundation-slice-1.md)
+- [Phase 62 Slice 2](phase-62-security-identity-foundation-slice-2.md)
 - [Metadata-Backed Genre Browser](../architecture/metadata-genre-browser.md)
 - [Backend-Scoped Global Search](../architecture/global-search.md)
 - [Live Remote and OSD Contract](../architecture/live-remote-osd-contract.md)
