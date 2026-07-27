@@ -42,7 +42,6 @@ test-security: \
 	test-security-http-gate
 
 test: test-security
-test-ci-fast: test-security
-test-all: test-security
+test-fast: test-security
 
 test-architecture: test-security-architecture
