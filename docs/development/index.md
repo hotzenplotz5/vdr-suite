@@ -5,6 +5,7 @@
 - [Current Project Status](current-status.md)
 - [Current Architecture State](current-architecture-state.md)
 - [Phase 62 Security Identity Foundation — Slice 1](phase-62-security-identity-foundation-slice-1.md)
+- [Phase 62 Persistent Identity Lifecycle — Slice 2](phase-62-security-identity-foundation-slice-2.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
 - [Completed Phase Archive](completed-phases/README.md)
@@ -22,7 +23,7 @@ Latest completed numbered runtime phase: Phase 61 - Suite Metadata and Genre Pla
 Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
 Completed platform features: Remote/Live Overlay (#110), Global Search (#111), configurable PNG Remote (#115)
 Next strict runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
-Current Phase 62 state: active and incomplete; Slice 1 implemented on the phase branch
+Current Phase 62 state: active and incomplete; Slice 1 is real-runtime validated and the persistence/revocation foundation of Slice 2 is implemented on Draft PR #117
 ```
 
 ## Developer references
