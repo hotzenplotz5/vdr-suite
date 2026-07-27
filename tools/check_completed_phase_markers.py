@@ -70,8 +70,6 @@ def main():
     ]:
         require(errors, rel, HISTORICAL_UMBRELLA, "historical Phase 58 marker")
 
-    # The architecture package is named explicitly in its evidence/status owners.
-    # Other entry points only need to link those owners; they need not repeat every ADR number.
     for rel in [
         "docs/planning/architecture-audit-gap-matrix.md",
         "docs/development/completed-phases-latest.md",
@@ -104,24 +102,23 @@ def main():
     if not parity.is_file():
         errors.append("parity audit document is missing")
     else:
-        text = parity.read_text(encoding="utf-8")
-        for marker in [
-            "VDR Core",
-            "Live",
+        text = parity.read_text(encoding="utf-8").lower()
+        required_markers = [
+            "vdr core",
+            "live",
             "epgsearch",
-            "RESTfulAPI",
-            "VDR-Suite",
-            "Backend-scoped Global Search",
-            "VDR Remote",
-        ]:
+            "restfulapi",
+            "vdr-suite",
+            "global search",
+            "remote control",
+        ]
+        for marker in required_markers:
             if marker not in text:
                 errors.append(f"parity audit document misses marker: {marker}")
 
     for rel in ["docs/CURRENT.md", "docs/NEW-CHAT-HANDOFF.md", "docs/planning/index.md"]:
         require(errors, rel, GAP_MATRIX, "architecture gap matrix link")
 
-    # These formulations assert stale current position. Historical references to an old
-    # branch name are allowed when they explicitly say it must not be resumed.
     stale_active_markers = [
         "Latest completed slice: Phase 60.15",
         "Next implementation focus: Phase 61",
