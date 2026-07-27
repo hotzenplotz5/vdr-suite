@@ -11,6 +11,8 @@
 
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [Phase 62 Security and Identity Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
+- [Phase 62 Slice 1](development/phase-62-security-identity-foundation-slice-1.md)
 - [Implementation Dependency Map](planning/implementation-dependency-map.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -25,12 +27,13 @@
 - [Phase 61 Metadata, Genre and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
 - [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
 
-The latest completed numbered runtime phase is **Phase 61 - Suite Metadata and Genre Platform**. Post-Phase-61 Performance Hardening (B1-B4), Remote/Live Overlay hardening (#110) and backend-scoped Global Search (#111) are completed implementation blocks. Phase 62 is the next strict runtime phase.
+The latest completed numbered runtime phase is **Phase 61 - Suite Metadata and Genre Platform**. Phase 62 - Identity, RBAC and Accountability Foundation is the next strict runtime phase and is active but incomplete.
 
 ## Architecture
 
 - [Architecture Documentation](architecture/index.md)
 - [Target Platform Architecture](architecture/target-platform-architecture.md)
+- [Security and Identity Foundation](architecture/security-identity-foundation.md)
 - [Metadata-Backed Genre Browser](architecture/metadata-genre-browser.md)
 - [Backend-Scoped Global Search](architecture/global-search.md)
 - [Live Remote, Overlay and Legacy OSD Contract](architecture/live-remote-osd-contract.md)
@@ -55,7 +58,7 @@ The latest completed numbered runtime phase is **Phase 61 - Suite Metadata and G
 
 ## Status model
 
-- **CURRENT**: verified current main-code truth.
+- **CURRENT**: verified current merged-code truth plus explicitly identified active branch work.
 - **PLANNED**: genuinely open work with an explicit target owner.
 - **COMPLETED**: merged implementation with test/acceptance evidence.
 - **HISTORICAL**: retained traceability that is not a current entry point.

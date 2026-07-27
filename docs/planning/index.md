@@ -12,6 +12,12 @@ This section contains genuinely open work, strict dependency order and living ga
 - [Phase Map](phase-map.md)
 - [Implementation Dependency Map](implementation-dependency-map.md)
 
+### Active Phase 62 planning
+
+- [Phase 62 Security and Identity Gap Matrix](phase-62-security-identity-gap-matrix.md)
+- [Phase 62 Slice 1](../development/phase-62-security-identity-foundation-slice-1.md)
+- [Security and Identity Architecture](../architecture/security-identity-foundation.md)
+
 ### Architecture and domain dependencies
 
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
@@ -37,15 +43,17 @@ Post-Phase 61 Performance Hardening (B1-B4)
 Completed post-phase platform features:
 VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
 
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
 
 Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
-```
 
-Phase 61, B1-B4, PR #110 and PR #111 are completed implementation and therefore must not remain in active planning sections except as prerequisites or completion context.
+Current Phase 62 state:
+Active; Slice 1 implemented, remaining slices open.
+```
 
 ## Strict future sequence
 
@@ -59,9 +67,11 @@ Phase 67 - Public API and Client Compatibility Hardening
 Phase 68 - Recommendation and Content Knowledge Graph
 ```
 
+No numbered intermediate phase is introduced for Phase 62 slices.
+
 ## Status rules
 
-- **CURRENT** is based on main code, merged PRs, tests and real-system evidence.
+- **CURRENT** is based on merged code, tests and real-system evidence, with active branch work identified separately.
 - **PLANNED** contains only work that is not implemented.
 - **COMPLETED** moves to development history/closeouts.
 - **HISTORICAL** material remains traceable but is not a current entry point.
@@ -71,9 +81,11 @@ Phase 68 - Recommendation and Content Knowledge Graph
 
 ## Current planning cautions
 
-- PR #109 was closed on 2026-07-27 as superseded by PR #114; it remains historical source material only.
-- Draft PR #101 is not an end-to-end compatible person-limit change.
-- Draft PRs #112 and #113 are competing old-base remote asset proposals; select at most one after rebase and mobile acceptance.
+- Phase 62 remains incomplete after Slice 1.
+- PR #115 is merged current Remote truth; PR #113 is closed as superseded.
+- PR #112 is an open old-base Draft and is not current runtime truth.
+- PR #116 is an open Draft; proposed ADR-0051 is not on `main`.
+- Android and client architecture are consumers of Phase 62 contracts, not Phase 62 implementation scope.
 - Provider additions are post-Phase-61 strategy/backlog, not unfinished Phase 61 slices.
 
 ## Completed evidence used as planning prerequisites
@@ -86,8 +98,6 @@ Phase 68 - Recommendation and Content Knowledge Graph
 ## Historical and superseded planning evidence
 
 - [Repository-truth refresh archive](history/repository-truth-refresh-2026-07/README.md)
-
-Historical snapshots are retained for traceability but are not active execution order.
 
 ## Related current documents
 

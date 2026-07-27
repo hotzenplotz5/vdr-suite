@@ -4,6 +4,7 @@
 
 - [Current Project Status](current-status.md)
 - [Current Architecture State](current-architecture-state.md)
+- [Phase 62 Security Identity Foundation — Slice 1](phase-62-security-identity-foundation-slice-1.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
 - [Completed Phase Archive](completed-phases/README.md)
@@ -19,8 +20,9 @@ Current markers:
 ```text
 Latest completed numbered runtime phase: Phase 61 - Suite Metadata and Genre Platform
 Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
-Completed platform features: Remote/Live Overlay (#110), Global Search (#111)
+Completed platform features: Remote/Live Overlay (#110), Global Search (#111), configurable PNG Remote (#115)
 Next strict runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
+Current Phase 62 state: active and incomplete; Slice 1 implemented on the phase branch
 ```
 
 ## Developer references
@@ -35,6 +37,8 @@ Next strict runtime phase: Phase 62 - Identity, RBAC and Accountability Foundati
 
 ## Runtime and acceptance references
 
+- [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
+- [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 - [Recording Action Readiness Audit](recording-action-readiness-audit.md)
 - [Phase 55 completed acceptance history](completed-phases/phase-55.md)
 - [Phase and documentation guardrails](../../tools/)
@@ -46,6 +50,7 @@ Next strict runtime phase: Phase 62 - Identity, RBAC and Accountability Foundati
 - Stable architecture belongs in `docs/architecture/`.
 - Future dependency order and open gaps belong in `docs/planning/`.
 - Accepted ADRs remain in `docs/adr/` and do not move into completed phases.
+- Phase 62 slices are not separate numbered phases.
 - Historical phase files remain traceability records and must not be linked as equal current entry points.
 
 ## Related navigation

@@ -7,11 +7,10 @@
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
 - [Current Architecture State](development/current-architecture-state.md)
-- [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
+- [Phase 62 Slice 1](development/phase-62-security-identity-foundation-slice-1.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
-- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Completed Phases](development/completed-phases.md)
 - [ADR Index](adr/index.md)
 
@@ -21,11 +20,11 @@ This document was reconciled on 2026-07-27 against:
 
 ```text
 origin/main
-44ae3102ab202ee0dfc974ee0bc9624b9219ad2d
-feat(search): add backend-scoped global search (#111)
+cb77ff66e11dca7db2eafa36525762dcde35102d
+Merge pull request #115 from hotzenplotz5/agent/configurable-remote-mapping
 ```
 
-The SHA is a time-bound evidence point. Every new task must fetch `origin/main`, determine the current head and branch from that actual commit.
+The SHA is a time-bound evidence point. Every new task must fetch `origin/main`, determine the current head and inspect the local worktree before changing files.
 
 ## Current verified position
 
@@ -39,15 +38,19 @@ Post-Phase 61 Performance Hardening (B1-B4)
 Completed post-phase platform features:
 VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
 
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
 
 Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
+
+Current Phase 62 state:
+Active; Slice 1 implements the first security and identity runtime boundary.
 ```
 
-Phase 61 is merged and closed for its accepted metadata/Genre scope. It is not an active feature branch and no Phase 61 repository or real-system acceptance remains pending.
+Phase 61 remains completed. Phase 62 is not complete. The first Phase 62 slice does not advance Phase 63-67 runtime.
 
 ## Implemented runtime truth
 
@@ -55,7 +58,7 @@ Current `main` contains:
 
 - daemon-owned SQLite persistence, migrations and domain repository boundaries;
 - BackendNode/BackendRegistry, backend-scoped snapshots, change feed, SSE foundations and server-enforced read-only backend policy;
-- channels, current-programme and channel-day views, persistent EPG cache and the existing EPG timeline;
+- channels, current-programme and channel-day views, persistent EPG cache and the EPG timeline;
 - Recordings 2 as the sole delivered recording browser, including folders, cards, detail view, metadata, people, artwork, Genre integration and guarded rename/move/trash actions;
 - SearchTimer list, discovery, preview, validation, native capability handling and controlled mutation foundations;
 - persistent backend-scoped Recording and EPG metadata identities, people relations, Genre evidence, assignment states and query-only browse paths;
@@ -63,129 +66,94 @@ Current `main` contains:
 - asynchronous provider acquisition with provider-failure isolation and no provider resolution from normal Genre or search GET requests;
 - backend-neutral remote actions and live-overlay snapshots through Suite-owned API and Client API boundaries;
 - backend-scoped global search over persisted Recording and EPG titles, subtitles and people;
+- the merged 360×1220 transparent PNG remote, 35 existing hotspots, overview/EPG/help integration and guarded REC start/stop workflow from PR #115;
 - packaging, install staging, daemon builds and real-system acceptance workflows.
 
-## Phase 61 closeout
+## Phase 62 Slice 1 runtime truth
 
-PR #100 delivered the completed metadata-backed Genre vertical slice. The public read path is:
-
-```text
-persistent Recording/EPG sources
-  -> backend-scoped bindings and people relations
-  -> provider and derived evidence
-  -> canonical Genre assignments and states
-  -> query-only indexed SQLite reads
-  -> Suite REST
-  -> VdrSuiteClientApi
-  -> Genre navigation
-  -> existing Recordings 2 and EPG detail owners
-```
-
-The EPG timeline remained unchanged. Provider acquisition stays asynchronous and private. See [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md).
-
-## Post-Phase-61 performance hardening
-
-PRs #102 through #108 completed:
-
-- a ten-digit epoch fast path for EPG enrichment candidates;
-- architecture-contract alignment with the accepted strict DVB fallback;
-- one atomic write transaction per EPG Genre candidate;
-- no writer transaction for unchanged Recording Genre synchronization;
-- the selected integer-epoch EPG window index;
-- no-op suppression for unchanged EPG event upserts;
-- a 15-minute pause between completed ETYPES cycles while incomplete cursors continue on the ten-second cadence.
-
-The recorded production measurements and their limits are maintained in the Phase 61 closeout; isolated timings must not be generalized beyond those fixtures.
-
-## Remote and live overlay
-
-PR #99 established the backend-neutral RemoteAction and LiveOverlay contracts. PR #110 completed the current mobile interaction behaviour:
-
-- only the pressed key receives the pressed visual state;
-- other keys remain visually available;
-- the internal `actionInFlight`/busy guard rejects duplicate dispatch while one action is in flight;
-- browser traffic remains inside `VdrSuiteClientApi`;
-- RESTfulAPI, SVDRP and other backend protocols remain private.
-
-Current `main` still serves `vdr-remote-photorealistic.svg`, which wraps an embedded JPEG. Draft PR #112 proposes a pure SVG replacement; Draft PR #113 proposes a real 360×1220 JPEG. They are competing, old-base asset fixes and must be rebased and accepted on a real mobile browser before one is selected. Documentation work must not merge both or alter the 35-hotspot behaviour without separate evidence.
-
-## Backend-scoped global search
-
-PR #111 added:
+The active Phase 62 branch adds the first repository-owned security boundary:
 
 ```text
-Frontend
-  -> VdrSuiteClientApi
-  -> GET /api/search
-  -> GlobalSearchApiRuntime
-  -> GlobalSearchController
-  -> GlobalSearchService
-  -> GlobalSearchRepository
-  -> existing VDR-Suite SQLite database
+HttpServerRequest
+  -> SecurityHttpGate
+       -> transitional LegacyBasicAuthenticator
+       -> RequestSecurityContext
+       -> AuthorizationService
+       -> append-only AccountabilityEventRepository
+  -> ApiRouter
+  -> existing controller/service/domain safety checks
 ```
 
-The search supports persisted Recording and EPG titles, subtitles and people, backend isolation, German folding, pagination, deterministic ordering, Recordings 2 and existing EPG detail navigation, retained query/result/scroll state, debounce, stale-response protection, visible loading/error/no-result states and a 12-second mobile timeout. A production-shaped regression uses 174,164 EPG events. Normal search GETs use a query-only connection and perform no provider lookup. See [Backend-Scoped Global Search](architecture/global-search.md).
+Implemented in this slice:
 
-## Recording-person contract
+- canonical actor, device, session and request security context values;
+- explicit anonymous, authenticated, invalid, expired and revoked states;
+- backend-scoped permission grants and centralized authorization decisions;
+- stable security error codes without credential reflection;
+- pre-dispatch authorization for `POST /api/vdr/remote/actions` using `remote.control@<backend>`;
+- append-only SQLite accountability rows for allow and deny decisions;
+- request and correlation ID propagation;
+- an explicit `legacy-basic` compatibility mode;
+- an `enforced` mode that permits anonymous GETs and rejects every not-yet-migrated POST before router dispatch;
+- focused negative, repository and architecture tests.
 
-Current `main` has one consistent bounded contract:
+The transitional Basic adapter is not production authentication. In `enforced` mode no embedded default credential or permission grant is active; credentials and grants must be configured explicitly.
 
-```text
-maximum people: 128
-maximum RMETA payload: 65,535 bytes
-```
+## Open Phase 62 work
 
-The regression model retains all 52 modelled `Pulp Fiction` people, including John Travolta beyond the former twelve-person cutoff. This proves that modelled 52-person completeness, not universal completeness for every possible provider payload.
+Phase 62 still requires:
 
-Draft PR #101 raises only plugin-side limits to 256 people and 256 KiB. It conflicts with the current transport/parser contract and must not be merged without one coordinated versioned change across plugin, SVDRP transport, backend parser and tests. In its current form it should be treated as superseded or closed obsolete.
+- persistent user, device, session, credential, role and grant repositories;
+- production authentication, session lifecycle, logout, expiry and revocation;
+- complete permission mapping and server-side authorization for all mutations and sensitive reads;
+- universal revision and `If-Match` rules where resource state is mutable;
+- durable idempotency-key replay semantics and operation records;
+- mutation completion/outcome evidence and transactional outbox delivery;
+- full authentication, authorization, mutation and security event catalogue;
+- protected audit reads, redaction, retention and audit-of-audit;
+- failure-injection and real-runtime acceptance across all migrated routes.
+
+## Compatibility boundary
+
+The local browser remains compatible by default through the named `legacy-basic` mode. That mode maps the existing credential to an explicit actor/device/session context and retains the previous broad grant only as a transitional local compatibility default.
+
+The compatibility mode is not a permanent architecture exemption. Frontend state and disabled buttons are never authorization evidence. The server remains the enforcement owner.
 
 ## Pull request classification at this baseline
 
-| PR | Status in repository truth |
+| PR | Repository truth |
 | ---: | --- |
-| #88 | Old, conflicting metadata-image responsiveness draft; re-evaluate against current listener/runtime before any reuse. |
-| #101 | Conflicting partial person-limit increase; do not merge as-is. |
-| #109 | Closed unmerged as superseded by PR #114 after the replacement branch passed its complete CI chain. |
-| #112 | Competing pure-SVG remote asset proposal from an old main base. |
-| #113 | Competing direct-JPEG remote asset proposal from an old main base. |
-| #114 | Current repository-truth documentation PR; open, CI-green and ready for review. |
+| #112 | Open Draft from an old base; competing pure-SVG asset proposal and not current runtime truth. |
+| #113 | Closed unmerged; explicitly superseded by merged PR #115. |
+| #114 | Merged documentation truth refresh. |
+| #115 | Merged configurable photorealistic PNG Remote and extended Remote functions; current `main` head. |
+| #116 | Open Draft, mergeable; Android/client API feasibility and proposed ADR-0051. ADR-0051 is not accepted runtime truth on `main`. |
 
-Open PR content remains lower-trust than current `main` and merged evidence.
+Open PR content remains lower-trust than merged code and accepted ADRs.
 
 ## Accepted target contracts versus implementation
 
-Active ADRs run through ADR-0050. ADR-0038 defines metadata/provider ownership. ADR-0039 through ADR-0049 define later Agent, lifecycle, trust, mutation, jobs, TimerIntent, provenance, streaming, OSD, API and audit contracts. ADR-0050 reinforces the domain-repository SQLite boundary.
+Accepted ADRs through ADR-0050 are on `main`. ADR-0013, ADR-0041, ADR-0042, ADR-0048 and ADR-0049 define the relevant Phase 62 direction. Their acceptance does not mean their complete runtime exists.
 
-Accepted target contracts do not mean the corresponding runtime is complete.
+ADR-0051 is proposed only in Draft PR #116 at this baseline. It may consume Phase 62 contracts later but does not change Phase 62 scope and does not authorize Android implementation in this phase.
 
-## Main remaining gaps
+## Later phase boundaries
 
-- actor identities, sessions, scoped RBAC and centralized authorization;
-- append-only accountability and a transactional outbox;
-- secure Backend Agent enrollment, generation, lease, reconnect and fenced commands;
-- universal revisions, durable idempotency and mutation verification;
-- production job claim/retry/reconciliation semantics;
-- TimerIntent, TimerAssignment, scheduler and reconciler;
-- authenticated Streaming Gateway and media sessions;
-- isolated legacy OSD view/control bridge;
-- stable `/api/v1`, common errors, ETags and compatibility metadata;
-- exact remaining epgsearch edge semantics and broader Live workflow parity;
-- later recommendation and knowledge-graph work.
+- Phase 63 owns production remote-site and Backend Agent runtime.
+- Phase 64 owns complete TimerIntent and multi-backend orchestration.
+- Phase 65 owns Streaming Gateway and media sessions.
+- Phase 66 owns legacy OSD compatibility runtime.
+- Phase 67 owns stable public `/api/v1`, SDK and compatibility release.
 
-## Immediate work
-
-```text
-Phase 62 - Identity, RBAC and Accountability Foundation
-```
-
-Phase 62 begins with actor identity, scoped authorization, request/correlation context and append-only accountability. No later Agent-backed privileged dispatch may bypass those gates.
+The current unversioned `/api/...` routes are compatibility routes, not a stable public API.
 
 ## Boundary rules
 
 - VDR remains native runtime authority.
 - VDR-Suite owns external domain, policy, orchestration, persistent read models and client contracts.
 - Browsers do not call RESTfulAPI, SVDRP, Streamdev, TVScraper or SuiteBridge directly.
-- Provider data is evidence, not hidden Suite authority.
-- Normal GET/read rendering does not trigger provider resolution.
+- Authentication and authorization are separate decisions.
+- Backend read-only and capability checks remain independent of actor permissions.
 - Frontends do not own authorization decisions.
+- Credentials and tokens do not belong in URLs, logs, error bodies, request IDs or accountability payloads.
 - Completed phases are not silently reopened by optional extensions.

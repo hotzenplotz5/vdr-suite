@@ -8,7 +8,7 @@ This file owns the strict forward execution order. Completed history belongs in 
 
 ## Current verified position
 
-Baseline reconciled on 2026-07-27 against `origin/main` commit `44ae3102ab202ee0dfc974ee0bc9624b9219ad2d`.
+Baseline reconciled on 2026-07-27 against `origin/main` commit `cb77ff66e11dca7db2eafa36525762dcde35102d`, the merge of PR #115.
 
 ```text
 Latest completed numbered runtime phase:
@@ -20,12 +20,16 @@ Post-Phase 61 Performance Hardening (B1-B4)
 Completed post-phase platform features:
 VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
 
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
 
 Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
+
+Current Phase 62 state:
+Active; Slice 1 is implemented on the phase branch, and Phase 62 remains incomplete.
 ```
 
 ## Completed prerequisites and runtime
@@ -63,45 +67,66 @@ Status: **Completed, non-numbered.**
 
 - PR #110: current mobile VDR Remote pressed-state and duplicate-dispatch behaviour.
 - PR #111: backend-scoped global search over persisted Recording/EPG titles, subtitles and people.
+- PR #115: current 360×1220 PNG Remote, help/navigation integration and guarded REC workflow.
 
-These are documented in [Post-Phase-61 Platform Runtime Closeout](../development/post-phase-61-platform-runtime-closeout.md). No new phase number is invented for them.
+These are completed prerequisites. No new phase number is invented for them.
 
 # Strict execution order
 
 ## Phase 62 — Identity, RBAC and Accountability Foundation
 
-Status: **Next.**
+Status: **Active; incomplete.**
 
 Goal: replace broad backend access hints with production-grade actor identity, scoped server-side authorization and append-only accountability.
 
-Required order:
+### Implemented Slice 1
 
-1. `ActorIdentity` and actor types for user, service, Agent and system actors;
-2. actor/session/credential-reference persistence;
-3. role, permission and backend/resource scope models;
-4. centralized `AuthorizationDecision` service;
-5. server-side policy enforcement preserving current read-only behaviour;
-6. actor, request and correlation context propagation;
-7. append-only `AccountabilityEvent` schema and repository;
-8. transactional outbox for protected operations;
-9. authentication, authorization, mutation and security event catalogue;
-10. protected audit queries, redaction, retention and audit-of-audit;
-11. deny-path, outage and failure-injection acceptance.
+- canonical actor, device, session and request security context values;
+- centralized exact/wildcard permission and backend-scope decisions;
+- explicit legacy local-browser compatibility mode;
+- enforced mode with anonymous GET and fail-closed unmigrated POST handling;
+- server-side authorization for `POST /api/vdr/remote/actions` using `remote.control@backend`;
+- append-only pre-dispatch allow/deny accountability;
+- stable credential-safe security errors and request/correlation IDs;
+- focused unit, repository, HTTP-gate and architecture tests.
+
+Evidence:
+
+- [Phase 62 Gap Matrix](phase-62-security-identity-gap-matrix.md)
+- [Phase 62 Slice 1](../development/phase-62-security-identity-foundation-slice-1.md)
+- [Security and Identity Architecture](../architecture/security-identity-foundation.md)
+
+### Remaining required order
+
+1. persistent user, service, device, session and credential-reference lifecycle;
+2. persisted roles, permissions and backend/resource scopes;
+3. migrate all mutations and sensitive reads to centralized authorization;
+4. preserve and prove backend read-only behaviour under actor permissions;
+5. complete actor, request, correlation and operation context propagation;
+6. extend append-only accountability to authentication, mutation completion and security lifecycle events;
+7. add transactional outbox delivery for protected operations;
+8. complete revision and `If-Match` rules per mutable resource;
+9. add durable idempotency-key and operation replay records;
+10. add protected audit queries, redaction, retention and audit-of-audit;
+11. complete deny-path, outage, failure-injection, full-suite and real-runtime acceptance.
 
 Exit criteria:
 
 - different actors can hold different rights on the same backend;
-- denial is enforced server-side;
+- denial is enforced server-side for every protected route;
 - the second-house/read-only scenario remains proven;
 - every privileged mutation has actor, decision and outcome evidence;
 - required pre-dispatch accountability failure prevents dispatch;
+- revision and idempotency contracts are enforced where required;
 - Agent identities can be represented for Phase 63.
 
 Forbidden shortcuts:
 
 - no frontend-owned role decision;
 - no ordinary log parsing as the accountability database;
-- no new remote privileged dispatch before authorization/accountability gates exist.
+- no compatibility-mode claim as final authentication;
+- no new remote privileged dispatch before authorization/accountability gates exist;
+- no Phase 63-67 runtime declared through Phase 62 interface preparation.
 
 ## Phase 63 — Backend Agent and Secure Multi-Site Runtime
 
@@ -219,6 +244,7 @@ No recommendation work may hide provider authority or use unstable identities.
 - [Current State](../CURRENT.md)
 - [Phase Map](phase-map.md)
 - [Implementation Dependency Map](implementation-dependency-map.md)
+- [Phase 62 Gap Matrix](phase-62-security-identity-gap-matrix.md)
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
 - [Completed Phases](../development/completed-phases.md)
