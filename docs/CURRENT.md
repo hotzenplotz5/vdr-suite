@@ -139,17 +139,18 @@ The regression model retains all 52 modelled `Pulp Fiction` people, including Jo
 
 Draft PR #101 raises only plugin-side limits to 256 people and 256 KiB. It conflicts with the current transport/parser contract and must not be merged without one coordinated versioned change across plugin, SVDRP transport, backend parser and tests. In its current form it should be treated as superseded or closed obsolete.
 
-## Open PR classification at this baseline
+## Pull request classification at this baseline
 
 | PR | Status in repository truth |
 | ---: | --- |
 | #88 | Old, conflicting metadata-image responsiveness draft; re-evaluate against current listener/runtime before any reuse. |
 | #101 | Conflicting partial person-limit increase; do not merge as-is. |
-| #109 | Valuable but old-base documentation draft; superseded by the current truth-refresh branch once the replacement PR is accepted. |
+| #109 | Closed unmerged as superseded by PR #114 after the replacement branch passed its complete CI chain. |
 | #112 | Competing pure-SVG remote asset proposal from an old main base. |
 | #113 | Competing direct-JPEG remote asset proposal from an old main base. |
+| #114 | Current repository-truth documentation PR; open, CI-green and ready for review. |
 
-Open PR content is lower-trust than current `main` and merged evidence.
+Open PR content remains lower-trust than current `main` and merged evidence.
 
 ## Accepted target contracts versus implementation
 
