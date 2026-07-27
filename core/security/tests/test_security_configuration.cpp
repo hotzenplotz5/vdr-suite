@@ -10,6 +10,7 @@ void clearEnvironment()
 {
     unsetenv("VDR_SUITE_SECURITY_MODE");
     unsetenv("VDR_SUITE_BASIC_AUTH");
+    unsetenv("VDR_SUITE_LEGACY_BASIC_CREDENTIAL_ID");
     unsetenv("VDR_SUITE_LEGACY_BASIC_PERMISSIONS");
 }
 }
@@ -23,6 +24,8 @@ int main()
     assert(compatibility.mode ==
         SecurityMode::LegacyBasicCompatibility);
     assert(!compatibility.expectedAuthorizationHeader.empty());
+    assert(compatibility.credentialId ==
+        "legacy-basic-credential");
     assert(compatibility.grants.size() == 1);
     assert(compatibility.grants.front().permission == "*");
 
@@ -35,6 +38,10 @@ int main()
 
     setenv("VDR_SUITE_BASIC_AUTH", "Basic configured", 1);
     setenv(
+        "VDR_SUITE_LEGACY_BASIC_CREDENTIAL_ID",
+        "credential-configured",
+        1);
+    setenv(
         "VDR_SUITE_LEGACY_BASIC_PERMISSIONS",
         "remote.control@default, recordings.view@*",
         1);
@@ -42,6 +49,8 @@ int main()
         SecurityConfiguration::fromEnvironment();
     assert(configured.expectedAuthorizationHeader ==
         "Basic configured");
+    assert(configured.credentialId ==
+        "credential-configured");
     assert(configured.grants.size() == 2);
     assert(configured.grants[0].permission == "remote.control");
     assert(configured.grants[0].backendId == "default");
