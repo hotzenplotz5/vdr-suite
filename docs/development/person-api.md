@@ -1,531 +1,134 @@
-# Person API
-
-## Navigation
-
-- [README](../../README.md)
-- [Documentation Index](../index.md)
-- [Development Index](index.md)
-- [Current Project Status](current-status.md)
-- [Roadmap](../planning/roadmap.md)
+# Person API and Persistent Person Search
 
----
+## Status
 
-## Purpose
+This document describes the current person model, legacy/general person endpoints and the persistent Recording/EPG person paths used by current `main`.
 
-This document describes the current person metadata and person query API.
+Phase 61 and PR #111 changed the previous assessment: persisted EPG people are now implemented for EPG metadata and backend-scoped Global Search. They must no longer be listed as wholly missing.
 
-The implementation provides:
+## Implemented person foundations
 
-- person domain model
-- person role model
-- person collection model
-- deterministic person resolver
-- person resolution JSON contract
-- person query model
-- person query matcher
-- person search service
-- person query result JSON contract
-- REST-facing person controller
-- ApiRouter wiring for routed person search endpoints
-- recording-person search result model
-- recording-person search service
-- recording-person search JSON contract
-- REST-facing recording-person search controller
-- persistent native recording-person search routing
+- `Person`, `PersonRole` and `PersonCollection` domain values;
+- deterministic person resolution/evidence model;
+- standalone person query matcher/service/controller foundations;
+- persistent native Recording-person relations and search;
+- persistent EPG person relations derived from stored public metadata;
+- backend-scoped Global Search over Recording and EPG people;
+- provider/source/role/name/character fields used by current read models.
 
-The routed person query endpoints expose the query contract and return a valid paged person result shape.
+Supported roles:
 
-The routed recording-person search endpoints query the persistent native SuiteBridge RMETA person index and join matches to the persistent recording cache.
+```text
+unknown, actor, director, writer, producer,
+moderator, guest, composer, other
+```
 
-EPG, full TVScraper character export, scraper2vdr, TMDB and IMDb person metadata sources are not fully connected yet.
+## Current routes
 
----
+### Standalone/general person query foundation
 
-## Current Scope
+```text
+GET /api/persons
+GET /api/vdr/persons
+```
 
-Implemented:
+These endpoints expose the general person query contract. They remain a foundation rather than a complete provider-wide person catalogue.
 
-- Person
-- PersonRole
-- PersonCollection
-- PersonResolver
-- PersonResolutionResult
-- PersonResolutionJsonSerializer
-- PersonQuery
-- PersonQueryMatcher
-- PersonSearchService
-- PersonQueryResult
-- PersonQueryResultJsonSerializer
-- PersonController
-- ApiRouter wiring
-- DaemonRuntime wiring
-- RecordingPersonSearchResult
-- RecordingPersonSearchService
-- RecordingPersonSearchResultJsonSerializer
-- RecordingPersonSearchController
-- persistent native recording-person search routing
+### Recording-person search
 
-Implemented routed endpoints:
+```text
+GET /api/recordings/persons/search
+GET /api/vdr/recordings/persons/search
+```
 
-- GET /api/persons
-- GET /api/vdr/persons
-- GET /api/recordings/persons/search
-- GET /api/vdr/recordings/persons/search
+These routes query the persistent backend-scoped native Recording-person index and join matches to the persistent Recording cache.
 
-Not implemented yet:
+### Backend-scoped Global Search
 
-- full TVScraper character and crew metadata export
-- real EPG person metadata extraction
-- full TVScraper cast and crew export integration
-- scraper2vdr integration
-- TMDB integration
-- IMDb integration
-- EPG person search
-
----
-
-## Person Object
+```text
+GET /api/search?backend=<id>&query=<text>&...
+GET /api/vdr/search?backend=<id>&query=<text>&...
+```
 
-A person object contains:
+Global Search searches:
 
-- source
-- role
-- originalName
-- normalizedName
-- characterName
-- confidence
-- providerReference
+- persisted Recording people in `vdr_recording_native_person`;
+- persisted EPG people in `epg_scraper_metadata_people`;
+- corresponding persisted Recording/EPG titles and subtitles.
 
-The original name preserves the provider supplied spelling.
+It returns person summaries inside grouped Recording/EPG results and navigates to the existing Recordings 2 or EPG detail owner.
 
-The normalized name is intended for deterministic matching and future search.
+## EPG person persistence
 
-The character name is optional and mainly useful for cast data.
+EPG people are not fetched live from a provider during search. The persistent EPG metadata resolver replaces normalized person rows when it stores public metadata. Schema preparation backfills rows from existing persisted public metadata where required, and authoritative event retirement removes dependent person rows.
 
-The provider reference is optional and can later hold stable provider identifiers such as TMDB, TVDB or IMDb references.
+Normal Global Search GET requests:
 
----
+- use a dedicated query-only SQLite connection in production configuration;
+- do not parse provider JSON for every event;
+- do not call TVScraper, SuiteBridge, RESTfulAPI, TMDB or IMDb;
+- do not update person or metadata state.
 
-## Supported Roles
+## Person object fields
 
-The current domain supports:
+Current person/evidence models use fields such as:
 
-- unknown
-- actor
-- director
-- writer
-- producer
-- moderator
-- guest
-- composer
-- other
+- source;
+- role;
+- original name;
+- normalized name;
+- character name;
+- confidence where applicable;
+- provider reference where applicable;
+- optional artwork/provider image reference in persisted metadata contracts.
 
-The query API accepts the same lowercase role values.
+The original name preserves provider spelling. Normalized values support deterministic matching. Provider references remain evidence and do not automatically establish a universal cross-provider person identity.
 
----
+## Recording metadata payload boundary
 
-## Supported Sources
+Current main uses one consistent bounded RMETA contract:
 
-The current query API accepts:
+```text
+maximum people: 128
+maximum payload: 65,535 bytes
+```
 
-- epg
-- dvb
-- tvscraper
-- scraper2vdr
-- tmdb
-- tvdb
-- imdb
-- user
-- folder
-- derived
+The regression model preserves all 52 modelled `Pulp Fiction` people, including John Travolta beyond the former twelve-person cutoff.
 
-The source field is designed to preserve where a person fact came from.
+This proves completeness for the modelled 52-person payload. It does not promise that every provider payload can never exceed 128 people.
 
----
+Draft PR #101 raises only plugin-side limits to 256 people / 256 KiB. It is not compatible with the current SVDRP transport/backend parser contract and must not be merged piecemeal.
 
-## Person Resolution JSON Contract
+## General person-query parameters
 
-The serialized person resolution contains:
+The standalone person query foundation supports fields including:
 
-- resolved
-- primaryPerson
-- evidence
-
-The primary person is the currently selected person representation.
-
-The evidence list preserves all known person facts.
-
-Example response shape:
-
-    {
-      "resolved": true,
-      "primaryPerson": {
-        "source": "tmdb",
-        "role": "actor",
-        "originalName": "Tom Hanks",
-        "normalizedName": "tom-hanks",
-        "characterName": "Forrest Gump",
-        "confidence": 90,
-        "providerReference": "tmdb:31"
-      },
-      "evidence": [
-        {
-          "source": "epg",
-          "role": "actor",
-          "originalName": "Tom Hanks",
-          "normalizedName": "tom-hanks",
-          "characterName": "",
-          "confidence": 0,
-          "providerReference": ""
-        }
-      ]
-    }
-
----
-
-## Resolution Rules
-
-The current resolver uses deterministic rules:
-
-- manual user entries override provider entries
-- explicit confidence is preferred
-- higher confidence wins
-- provider references are preferred over anonymous entries
-- source priority is used as final tie-breaker
-
-The resolver does not yet perform external identity lookup.
-
----
-
-## Person Query Endpoints
-
-The routed query endpoints are:
-
-    GET /api/persons
-    GET /api/vdr/persons
-
-Both endpoints currently use the same controller and JSON contract.
-
-The /api/vdr/persons alias exists to keep person search close to the VDR-facing API namespace.
-
----
-
-## Query Parameters
-
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| name | string | empty | Case-insensitive partial match against originalName. |
-| normalizedName | string | empty | Exact match against normalizedName. |
-| characterName | string | empty | Case-insensitive partial match against characterName. |
-| role | string | empty | Optional role filter. |
-| source | string | empty | Optional source filter. |
-| providerReference | string | empty | Exact provider reference filter. |
-| limit | integer | 0 | Maximum number of returned persons. Zero means no explicit limit. |
-| offset | integer | 0 | Number of matching persons to skip. |
-
-An empty query matches all supplied person facts.
-
-For the standalone person endpoints, the router still supplies an empty person collection.
-
-For recording-person search endpoints, the router passes the normalized backend scope to the persistent native search callback. Snapshot recordings are loaded only when that callback is not wired.
-
----
-
-## Validation
-
-Invalid requests return HTTP 400 with a JSON error response.
-
-Validation rules:
-
-- limit must not be negative
-- offset must not be negative
-- role must be empty or one of the supported role values
-- source must be empty or one of the supported source values
-
-Example validation responses:
-
-    {"error":"invalid person role"}
-
-    {"error":"invalid person source"}
-
-    {"error":"limit must not be negative"}
-
-    {"error":"offset must not be negative"}
-
----
-
-## Successful Person Query Response
-
-Successful requests return HTTP 200 and application/json.
-
-Response shape:
-
-    {
-      "totalCount": 0,
-      "returnedCount": 0,
-      "limit": 10,
-      "offset": 0,
-      "persons": []
-    }
-
-When person data is available in later phases, the persons array will contain entries shaped like:
-
-    {
-      "source": "tmdb",
-      "role": "actor",
-      "originalName": "Tom Hanks",
-      "normalizedName": "tom-hanks",
-      "characterName": "Forrest Gump",
-      "confidence": 95,
-      "providerReference": "tmdb:31"
-    }
-
----
-
-## Matching
-
-The current query matcher supports:
-
-- name partial match against originalName, case-insensitive
-- normalizedName exact match
-- role exact match
-- source exact match
-- providerReference exact match
-
-All configured filters must match.
-
-An empty query matches every person in the supplied collection.
-
----
-
-## Pagination
-
-The person query result contains:
-
-- totalCount
-- returnedCount
-- limit
-- offset
-
-totalCount is the number of matches before pagination.
-
-returnedCount is the number of returned persons after offset and limit are applied.
-
-A limit of zero means no explicit limit.
-
----
-
-## Current Source of Truth
-
-The standalone person API path is:
-
-    ApiRouter
-    -> PersonController
-    -> PersonSearchService
-    -> PersonQueryMatcher
-    -> PersonQueryResultJsonSerializer
-
-The router still supplies an empty PersonCollection for the standalone person API.
-
-The production recording-person search API path is:
-
-    ApiRouter
-    -> RecordingPersonSearchController
-    -> VdrRecordingNativePersonSearchService
-    -> VdrRecordingNativeMetadataRepository
-    -> VdrRecordingCacheRepository
-    -> RecordingPersonSearchResultJsonSerializer
-
-The native metadata repository performs backend-scoped person filtering and pagination.
-
-Matching recordings are resolved from the persistent recording cache through backend-native recording identities.
-
-The previous structured snapshot search remains available only when the persistent search callback is not wired.
-
----
-
-## Recording Person Search Endpoints
-
-Recording-person search is routed through:
-
-    GET /api/recordings/persons/search
-    GET /api/vdr/recordings/persons/search
-
-These endpoints search native person rows persisted from SuiteBridge RMETA and return matching recordings from the persistent recording cache.
-
-Supported parameters:
-
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| name | string | empty | Case-insensitive partial match against originalName. |
-| normalizedName | string | empty | Exact match against normalizedName. |
-| role | string | empty | Optional role filter. |
-| source | string | empty | Optional source filter. |
-| providerReference | string | empty | Native RMETA person rows currently expose no stable person-provider identifier; a non-empty value returns no native matches. |
-| backend | string | empty | Optional backend scope. Empty is normalized to default. |
-| limit | integer | 0 | Maximum number of returned matches. Zero means no explicit limit. |
-| offset | integer | 0 | Number of matching entries to skip. |
-
-Successful response shape:
-
-    {
-      "totalCount": 1,
-      "returnedCount": 1,
-      "limit": 10,
-      "offset": 0,
-      "matches": [
-        {
-          "recording": {
-            "id": "router-recording-1",
-            "backendId": "default",
-            "title": "Router Recording",
-            "path": "/srv/vdr/video/Router_Recording/2026-06-04.20.00.1-0.rec"
-          },
-          "person": {
-            "source": "tvscraper",
-            "role": "actor",
-            "originalName": "Router Actor",
-            "normalizedName": "router-actor",
-            "characterName": "Router Character",
-            "confidence": 95,
-            "providerReference": "tvscraper:router-actor"
-          }
-        }
-      ]
-    }
-
-The recording-person search does not inspect recording titles, paths or descriptions as fallback person sources.
-
-The production path searches structured native person rows persisted from SuiteBridge RMETA. The structured VdrRecording.persons search remains only as an unwired fallback.
-
----
-
-## Recording Character Search
-
-Recording character search uses the same recording-person endpoint.
-
-The characterName parameter searches the character name stored in matched actor metadata.
-
-This differs from name:
-
-| Parameter | Meaning | Example |
-| --- | --- | --- |
-| name | Actor or person name | Jim Carrey |
-| characterName | Played character or role name | Ace Ventura |
-
-Example requests:
-
-    GET /api/recordings/persons/search?name=Jim%20Carrey
-
-    GET /api/recordings/persons/search?characterName=Ace
-
-    GET /api/recordings/persons/search?characterName=Ventura
-
-    GET /api/recordings/persons/search?characterName=Forrest
-
-    GET /api/vdr/recordings/persons/search?characterName=Jenny&backend=default
-
-Matching semantics:
-
-- characterName is optional.
-- characterName uses case-insensitive partial matching.
-- characterName can be combined with role=actor.
-- characterName can be combined with backend filtering.
-- characterName does not search recording titles, recording paths or EPG descriptions.
-
-Real VDR implication:
-
-The inspected yaVDR RESTfulAPI payload exposes TVScraper actor entries with a role field that represents the played character.
-
-VDR-Suite maps that role field to Person.characterName.
-
-This makes character lookup immediately useful for real recording metadata, even though director, writer and producer metadata were not present in the inspected RESTfulAPI payload.
-
----
-
-## Real VDR Recording Metadata Validation
-
-A real yaVDR / RESTfulAPI recording metadata snapshot was inspected during Phase 46.34.
-
-Observed dataset:
-
-| Metric | Observed value |
+| Parameter | Meaning |
 | --- | --- |
-| Total recordings | 978 |
-| JSON occurrences of actors | 457 |
-| JSON occurrences of director | 0 |
-| JSON occurrences of writer | 0 |
-| JSON occurrences of producer | 0 |
+| `name` | case-insensitive partial original-name match |
+| `normalizedName` | exact normalized-name match |
+| `characterName` | case-insensitive partial character match |
+| `role` | supported role filter |
+| `source` | source/provenance filter |
+| `providerReference` | exact provider-reference filter |
+| `limit`, `offset` | bounded paging values |
 
-Observed recording metadata shape:
+Negative limit/offset and unknown role/source values are rejected.
 
-    "additional_media": {
-      "type": "movie",
-      "movie_id": 9273,
-      "title": "Ace Ventura - Jetzt wird's wild",
-      "original_title": "Ace Ventura: When Nature Calls",
-      "actors": [
-        {
-          "name": "Jim Carrey",
-          "role": "Ace Ventura",
-          "thumb": "var/cache/vdr/plugins/tvscraper/movies/actors/actor_206.jpg"
-        }
-      ]
-    }
+## Current limitations
 
-Validation result:
+The following are not claimed as complete:
 
-- RESTfulAPI currently exposes TVScraper movie cast data through additional_media.actors.
-- Actor entries contain a person name.
-- Actor entries contain a character or role name.
-- Actor entries may contain a thumbnail path.
-- Director, writer and producer fields were not present in the inspected recordings.json payload.
-- Recording-person search is therefore immediately useful for actor and character lookup.
-- Crew search requires additional RESTfulAPI / TVScraper character export work before VDR-Suite can consume those roles from real recordings.
+- one universal cross-provider person identity graph;
+- a complete standalone EPG-person catalogue endpoint independent of Global Search/details;
+- every TVScraper cast/crew field exposed through a general person API;
+- direct scraper2vdr/TMDB/IMDb provider integrations;
+- user corrections/merges with actor identity and accountability;
+- universal completeness beyond the current 128-person bounded transport.
 
-Implication:
+## Related documents
 
-The native SuiteBridge RMETA pipeline is validated for actor and character metadata from real recordings.
-
-The current limitation for director, writer and producer lookup is upstream metadata availability in the exported RESTfulAPI payload, not the VDR-Suite search model.
-
----
-
-## Out of Scope
-
-The following are intentionally out of scope for the current person query API:
-
-- full crew metadata extraction from real VDR payloads
-- additional recording person metadata extraction
-- EPG person metadata extraction
-- external provider lookup
-- TMDB identity resolution
-- IMDb identity resolution
-- scraper2vdr integration
-- SearchTimer integration
-
----
-
-## Future Direction
-
-Future phases may add:
-
-- real VDR person metadata validation
-- recording person metadata extraction
-- EPG person metadata extraction
-- TVScraper person import
-- scraper2vdr person import
-- TMDB and IMDb provider references
-- additional actor and director search validation over real recordings
-- cast and crew filters
-- multi-backend person search
-- person search result entries that reference recordings and EPG events
-
----
-
-## Back
-
-- [Back to README](../../README.md)
-- [Back to Documentation Index](../index.md)
-- [Back to Development Index](index.md)
-- [Back to Current Project Status](current-status.md)
+- [Backend-Scoped Global Search](../architecture/global-search.md)
+- [Recording Person Cast Completeness Fix](recording-person-cast-completeness-fix.md)
+- [Phase 61 Closeout](phase-61-metadata-genre-performance-closeout.md)
+- [Current State](../CURRENT.md)
