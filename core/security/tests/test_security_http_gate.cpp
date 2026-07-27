@@ -1,6 +1,8 @@
 #include "AccountabilityEventRepository.h"
 #include "Database.h"
+#include "PersistentIdentityResolver.h"
 #include "SecurityHttpGate.h"
+#include "SecurityIdentityRepository.h"
 
 #include <cassert>
 #include <string>
@@ -73,9 +75,23 @@ int main()
     AccountabilityEventRepository repository(database);
     assert(repository.ensureSchema());
 
+    SecurityIdentityRepository identityRepository(database);
+    assert(identityRepository.ensureSchema());
+    const SecurityConfiguration compatibilityConfiguration =
+        compatibility();
+    assert(identityRepository.ensureCompatibilityIdentity(
+        compatibilityConfiguration.actorId,
+        ActorType::User,
+        compatibilityConfiguration.actorDisplayName,
+        compatibilityConfiguration.deviceId,
+        compatibilityConfiguration.sessionId,
+        compatibilityConfiguration.credentialId));
+    PersistentIdentityResolver identityResolver(identityRepository);
+
     SecurityHttpGate compatibilityGate(
-        compatibility(),
-        repository);
+        compatibilityConfiguration,
+        repository,
+        &identityResolver);
 
     const SecurityGateDecision anonymousCompatibility =
         compatibilityGate.evaluate(getRequest(false));
@@ -91,6 +107,9 @@ int main()
     assert(authenticatedCompatibility.allowed);
     assert(authenticatedCompatibility.context.actor.actorId ==
         "legacy-local-web");
+    assert(authenticatedCompatibility.context.credential.has_value());
+    assert(authenticatedCompatibility.context.credential->credentialId ==
+        "legacy-basic-credential");
 
     const SecurityGateDecision compatibilityRemote =
         compatibilityGate.evaluate(remoteRequest("default", true));
@@ -100,7 +119,8 @@ int main()
 
     SecurityHttpGate enforcedGate(
         enforced({PermissionGrant{"remote.control", "default"}}),
-        repository);
+        repository,
+        &identityResolver);
 
     assert(enforcedGate.evaluate(getRequest(false)).allowed);
 
@@ -124,7 +144,8 @@ int main()
 
     SecurityHttpGate noPermissionGate(
         enforced({PermissionGrant{"recordings.view", "*"}}),
-        repository);
+        repository,
+        &identityResolver);
     const SecurityGateDecision missingPermission =
         noPermissionGate.evaluate(remoteRequest("default", true));
     assert(!missingPermission.allowed);
@@ -194,6 +215,15 @@ int main()
     assert(sawAllowed);
     assert(sawDenied);
     assert(sawUnmigratedDenial);
+
+    assert(identityRepository.revokeCredential(
+        "legacy-basic-credential"));
+    const SecurityGateDecision revokedCredential =
+        compatibilityGate.evaluate(remoteRequest("default", true));
+    assert(!revokedCredential.allowed);
+    assert(revokedCredential.rejection.statusCode == 401);
+    assert(revokedCredential.rejection.body.find(
+        "credential_revoked") != std::string::npos);
 
     Database closedDatabase;
     AccountabilityEventRepository unavailableRepository(
