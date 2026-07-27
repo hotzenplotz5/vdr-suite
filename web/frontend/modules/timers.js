@@ -750,6 +750,17 @@
     parent.appendChild(item);
   }
 
+  function timerDeleteLabel(timer) {
+    return timer && timer.recording ? 'Aufnahme stoppen' : 'Timer löschen';
+  }
+
+  function timerDeletePrompt(timer) {
+    const title = timer && timer.title ? timer.title : 'Timer';
+    return timer && timer.recording
+      ? 'Laufende Aufnahme „' + title + '“ wirklich stoppen und den zugehörigen Timer löschen?'
+      : 'Timer „' + title + '“ wirklich löschen?';
+  }
+
   function timerStatus(timer) {
     if (timer.recording) return 'nimmt auf';
     if (timer.pending) return 'wartend';
@@ -845,13 +856,14 @@
     });
     actions.appendChild(toggle);
 
-    const remove = addText(document.createElement('button'), 'Timer löschen');
+    const remove = addText(document.createElement('button'), timerDeleteLabel(timer));
     remove.type = 'button';
     remove.className = 'danger';
-    remove.disabled = timer.recording;
-    remove.title = timer.recording ? 'Laufende Aufnahmen werden nicht über diese Oberfläche gelöscht.' : '';
+    remove.title = timer.recording
+      ? 'Laufende Aufnahme beenden und den zugehörigen Timer löschen.'
+      : '';
     remove.addEventListener('click', () => {
-      if (!global.confirm('Timer „' + timer.title + '“ wirklich löschen?')) return;
+      if (!global.confirm(timerDeletePrompt(timer))) return;
       executeAction('delete', {backendId: selectedBackendId(), timerId: timer.timerId}, remove, feedback);
     });
     actions.appendChild(remove);
@@ -982,6 +994,8 @@
     directoryOptionLabel: directoryOptionLabel,
     directoryOptions: directoryOptions,
     timerActionPayload: timerActionPayload,
+    timerDeleteLabel: timerDeleteLabel,
+    timerDeletePrompt: timerDeletePrompt,
     validateTimerPayload: validateTimerPayload,
     inputTimeToHhmm: inputTimeToHhmm,
     timeToInput: timeToInput,

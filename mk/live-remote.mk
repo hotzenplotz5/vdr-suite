@@ -16,7 +16,8 @@ install-live-remote-frontend:
 	$(INSTALL) -d $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand
 	$(INSTALL) -m 0644 web/frontend/api/live-remote-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/live-remote-client-api.js
 	$(INSTALL) -m 0644 web/frontend/modules/remote.js $(DESTDIR)$(DATADIR)/web/frontend/modules/remote.js
-	$(INSTALL) -m 0644 web/frontend/assets/vdr-remote-photorealistic.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.svg
+	$(RM) $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.svg
+	$(INSTALL) -m 0644 web/frontend/assets/vdr-remote-photorealistic.png $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png
 
 test-live-remote: \
 	test-vdr-capability-set \

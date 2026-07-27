@@ -3449,6 +3449,51 @@ function renderSettingsView(data) {
 
   appendSettingsLanguageCard(panel);
 
+  const remoteCard = document.createElement('article');
+  remoteCard.className = 'module-placeholder settings-card settings-remote-card';
+  remoteCard.appendChild(addText(
+    document.createElement('h3'),
+    frontendTranslate('settings.remoteControl', 'Fernbedienung')
+  ));
+  remoteCard.appendChild(addText(
+    document.createElement('p'),
+    frontendTranslate(
+      'settings.remoteHelpDescription',
+      'Tastenbelegung, Bedienung und derzeit noch nicht belegte Tasten der Web-Fernbedienung.'
+    )
+  ));
+
+  const remoteHelpButton = document.createElement('button');
+  remoteHelpButton.type = 'button';
+  remoteHelpButton.className = 'settings-remote-help';
+  remoteHelpButton.textContent = frontendTranslate(
+    'settings.remoteHelpOpen',
+    'Hilfe und Tastenbelegung öffnen'
+  );
+
+  const remoteHelpStatus = document.createElement('p');
+  remoteHelpStatus.className = 'settings-language-status';
+  remoteHelpStatus.setAttribute('role', 'status');
+  remoteHelpStatus.setAttribute('aria-live', 'polite');
+
+  remoteHelpButton.addEventListener('click', () => {
+    const remote = window.VdrSuiteRemote;
+    if (!remote || typeof remote.openHelp !== 'function') {
+      remoteHelpStatus.textContent = frontendTranslate(
+        'settings.remoteHelpUnavailable',
+        'Die Fernbedienungshilfe ist derzeit nicht verfügbar.'
+      );
+      return;
+    }
+
+    remoteHelpStatus.textContent = '';
+    remote.openHelp(false);
+  });
+
+  remoteCard.appendChild(remoteHelpButton);
+  remoteCard.appendChild(remoteHelpStatus);
+  panel.appendChild(remoteCard);
+
   const backend = selectedBackend || {};
   const selector = backend.frontendSelector || backend;
   const backendId = selectedEpgBackendId();

@@ -91,6 +91,19 @@ assert.strictEqual(payload.active, false);
 assert.strictEqual(payload.vps, true);
 assert.deepStrictEqual(Array.from(api.validateTimerPayload(payload, true)), []);
 
+const recordingTimer = api.normalizeTimer({
+  id: '77',
+  channelId: 'C-1-2-3',
+  title: 'Laufende Sofortaufnahme',
+  flags: 9,
+  recording: true
+}, 0);
+assert.strictEqual(recordingTimer.recording, true);
+assert.strictEqual(api.timerDeleteLabel(recordingTimer), 'Aufnahme stoppen');
+assert.ok(api.timerDeletePrompt(recordingTimer).includes('wirklich stoppen'));
+assert.ok(api.timerDeletePrompt(recordingTimer).includes('Timer löschen'));
+assert.strictEqual(api.timerDeleteLabel(timer), 'Timer löschen');
+
 const invalid = api.timerActionPayload(timer, {
   timerId: '',
   channelId: '',
@@ -164,5 +177,10 @@ assert.ok(source.includes("createField('Aufnahmeverzeichnis auswählen', directo
 assert.ok(source.includes('Expertenoption: Verzeichnis manuell eingeben'));
 assert.ok(source.includes('fetchClientRecordingFolder'));
 assert.ok(source.includes('Stammverzeichnis'));
+
+assert.ok(source.includes("timer.recording ? 'Aufnahme stoppen' : 'Timer löschen'"));
+assert.ok(source.includes('Laufende Aufnahme beenden und den zugehörigen Timer löschen.'));
+assert.ok(!source.includes('remove.disabled = timer.recording'));
+assert.ok(!source.includes('Laufende Aufnahmen werden nicht über diese Oberfläche gelöscht.'));
 
 console.log('test_timer_workflows_runtime passed');
