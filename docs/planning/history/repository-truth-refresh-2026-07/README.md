@@ -6,12 +6,12 @@ This directory preserves the exact pre-refresh versions of long planning and aud
 
 These files are retained for traceability only:
 
-- `roadmap-before-refresh.md`
-- `phase-map-before-refresh.md`
-- `implementation-dependency-map-before-refresh.md`
-- `parity-audit-before-refresh.md`
-- `tvscraper-roadmap-before-refresh.md`
-- `architecture-gap-matrix-before-refresh.md`
+- [Roadmap before refresh](roadmap-before-refresh.md)
+- [Phase Map before refresh](phase-map-before-refresh.md)
+- [Implementation Dependency Map before refresh](implementation-dependency-map-before-refresh.md)
+- [Parity Audit before refresh](parity-audit-before-refresh.md)
+- [TVScraper Roadmap before refresh](tvscraper-roadmap-before-refresh.md)
+- [Architecture Gap Matrix before refresh](architecture-gap-matrix-before-refresh.md)
 
 They must not be used as current status or execution order. Use:
 
