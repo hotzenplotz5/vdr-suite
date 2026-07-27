@@ -29,7 +29,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
-Active; Slice 1 is implemented on the phase branch, and Phase 62 remains incomplete.
+Active; Slice 1 is real-runtime validated and the persistence/revocation foundation of Slice 2 is implemented on Draft PR #117. Phase 62 remains incomplete.
 ```
 
 ## Completed prerequisites and runtime
@@ -88,21 +88,35 @@ Goal: replace broad backend access hints with production-grade actor identity, s
 - server-side authorization for `POST /api/vdr/remote/actions` using `remote.control@backend`;
 - append-only pre-dispatch allow/deny accountability;
 - stable credential-safe security errors and request/correlation IDs;
-- focused unit, repository, HTTP-gate and architecture tests.
+- focused unit, repository, HTTP-gate and architecture tests;
+- real yaVDR validation for anonymous denial, invalid-credential denial and authenticated Browser Remote dispatch.
+
+### Implemented Slice 2 persistence and revocation foundation
+
+- additive actor, device, session and credential metadata repositories;
+- actor/device/session/credential ownership bindings;
+- request-time persistent identity resolution before authorization;
+- persisted expiry and revocation enforcement;
+- restart-safe compatibility bootstrap that does not reactivate revoked records;
+- credential identifiers and lifecycle metadata without secret persistence;
+- explicit credential expiry/revocation errors and focused repository/HTTP tests.
+
+This foundation does not complete Slice 2: secure per-user/service issuance and verification, browser cookie/CSRF, native-token lifecycle, logout/recovery/rotation and protected lifecycle administration remain open.
 
 Evidence:
 
 - [Phase 62 Gap Matrix](phase-62-security-identity-gap-matrix.md)
 - [Phase 62 Slice 1](../development/phase-62-security-identity-foundation-slice-1.md)
+- [Phase 62 Slice 2](../development/phase-62-security-identity-foundation-slice-2.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 
 ### Remaining required order
 
-1. persistent user, service, device, session and credential-reference lifecycle;
-2. persisted roles, permissions and backend/resource scopes;
+1. complete secure user/service credential issuance and verification, browser/native session lifecycle and protected lifecycle administration;
+2. persist roles, permissions and backend/resource scopes;
 3. migrate all mutations and sensitive reads to centralized authorization;
 4. preserve and prove backend read-only behaviour under actor permissions;
-5. complete actor, request, correlation and operation context propagation;
+5. complete actor, device, credential, session, request, correlation and operation context propagation;
 6. extend append-only accountability to authentication, mutation completion and security lifecycle events;
 7. add transactional outbox delivery for protected operations;
 8. complete revision and `If-Match` rules per mutable resource;
@@ -125,6 +139,7 @@ Forbidden shortcuts:
 - no frontend-owned role decision;
 - no ordinary log parsing as the accountability database;
 - no compatibility-mode claim as final authentication;
+- no plaintext, reversible or submitted credential persistence in identity tables;
 - no new remote privileged dispatch before authorization/accountability gates exist;
 - no Phase 63-67 runtime declared through Phase 62 interface preparation.
 
