@@ -15,6 +15,8 @@ This section contains genuinely open work, strict dependency order and living ga
 ### Architecture and domain dependencies
 
 - [Target Platform Architecture](../architecture/target-platform-architecture.md)
+- [Android, Android TV and Client API Feasibility Study](../architecture/android-client-api-feasibility-study.md)
+- [Client Capability, API Candidate and Gap Matrix](client-capability-api-gap-matrix.md)
 - [Domain Dependency Map](domain-dependency-map.md)
 - [Architecture Audit Gap Matrix](architecture-audit-gap-matrix.md)
 - [ADR Index](../adr/index.md)
@@ -37,6 +39,7 @@ Post-Phase 61 Performance Hardening (B1-B4)
 Completed post-phase platform features:
 VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
+Configurable photorealistic VDR remote (#115)
 
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
@@ -45,7 +48,9 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-Phase 61, B1-B4, PR #110 and PR #111 are completed implementation and therefore must not remain in active planning sections except as prerequisites or completion context.
+Phase 61, B1-B4 and the listed post-phase platform features are completed implementation and therefore must not remain in active planning sections except as prerequisites or completion context.
+
+The Android/client feasibility work is a cross-cutting study and gap register. It does not insert a phase before Phase 62.
 
 ## Strict future sequence
 
@@ -71,10 +76,11 @@ Phase 68 - Recommendation and Content Knowledge Graph
 
 ## Current planning cautions
 
-- PR #109 was closed on 2026-07-27 as superseded by PR #114; it remains historical source material only.
+- PR #109 was closed on 2026-07-27 as superseded by merged PR #114; it remains historical source material only.
 - Draft PR #101 is not an end-to-end compatible person-limit change.
-- Draft PRs #112 and #113 are competing old-base remote asset proposals; select at most one after rebase and mobile acceptance.
+- PR #115 is merged and supersedes the earlier direct-JPEG proposal #113. Draft PR #112 remains an obsolete competing old-base pure-SVG proposal and must not replace the merged PNG runtime without new evidence.
 - Provider additions are post-Phase-61 strategy/backlog, not unfinished Phase 61 slices.
+- Current unversioned browser routes and JavaScript wrappers are not automatically the future public API.
 
 ## Completed evidence used as planning prerequisites
 
