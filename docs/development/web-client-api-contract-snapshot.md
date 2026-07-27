@@ -2,7 +2,7 @@
 
 ## Status
 
-This is a current implementation snapshot, refreshed after Phase 61, PR #110 and PR #111. It is not a design wishlist.
+Phase 59.09f established and guarded the base Web Client API ownership seam before UI module extraction. This is the current implementation snapshot of that same owner, refreshed after Phase 61, PR #110 and PR #111; it is not a design wishlist.
 
 Browser HTTP ownership is split across DOM-free Client API files:
 
