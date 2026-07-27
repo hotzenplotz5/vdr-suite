@@ -3,11 +3,11 @@
 ## Status
 
 ```text
-Historical coordination snapshot
-Not the current repository-status entry point
+SUPERSEDED as a live status handoff
+Historical coordination detail preserved separately
 ```
 
-The previous contents of this file tracked the early `feature/vdr-plugin-suite-bridge-foundation` SB.10 coordination sequence and specific old commit/build values. Those values are retained in Git history but are superseded as current project status.
+The former SB.10 coordination handoff is preserved unchanged at [Historical SB.10 Handoff](history/VDR-SUITE-HANDOFF-SB10.md). Its old branch, commit, binary and “next active slice” values remain useful evidence but are not current repository truth.
 
 Use these current entry points before any coordinated SuiteBridge work:
 
@@ -49,12 +49,8 @@ SuiteBridge may provide bounded TVScraper/VDR evidence to asynchronous Suite wor
 ## Before starting a new SuiteBridge slice
 
 1. fetch and compare current `origin/main`;
-2. verify current plugin branch/tag/version rather than using the historical SB.10 values;
-3. classify the work against current Phase 62/63 prerequisites and active ADRs;
-4. record capability/schema/payload changes across plugin, transport, backend and tests;
+2. verify the current plugin branch/tag/version instead of reusing historical SB.10 values;
+3. classify work against Phase 62/63 prerequisites and active ADRs;
+4. coordinate capability/schema/payload changes across plugin, transport, backend and tests;
 5. require shared-object build, staged installation and real VDR acceptance where native behaviour changes;
-6. update the central Current/Handoff/Gap documents if implementation truth changes.
-
-## Historical note
-
-The old SB.10a/SB.10b/SB.10c/SB.10d sequence remains available through Git history for implementation traceability. It must not be used as evidence that the old feature branch, plugin version, shared-object hash or “next active slice” is still current.
+6. update central Current/Handoff/Gap documents when implementation truth changes.
