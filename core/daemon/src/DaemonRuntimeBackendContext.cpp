@@ -3,6 +3,7 @@
 #include "BasicHttpClient.h"
 #include "EpgEventRepository.h"
 #include "GenreBrowserApiRuntime.h"
+#include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "RestfulApiEventStreamClient.h"
 #include "RestfulApiSearchTimerAdapter.h"
@@ -27,6 +28,16 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
             *backendRegistryService_))
     {
         std::cerr << "failed to initialize genre browser metadata runtime"
+                  << std::endl;
+    }
+
+    if (backendRegistryService_ &&
+        !GlobalSearchApiRuntime::instance().configured() &&
+        !GlobalSearchApiRuntime::instance().configure(
+            database_,
+            *backendRegistryService_))
+    {
+        std::cerr << "failed to initialize global search runtime"
                   << std::endl;
     }
 

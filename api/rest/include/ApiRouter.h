@@ -3,6 +3,7 @@
 #include "DashboardController.h"
 #include "EpgCacheController.h"
 #include "GenreBrowserApiRuntime.h"
+#include "GlobalSearchApiRuntime.h"
 #include "LiveRemoteApiRuntime.h"
 #include "SearchTimerPreviewEpgCache.h"
 #include "SearchTimerPreviewEpgInputContext.h"
@@ -178,6 +179,13 @@ public:
         ApiResponse response;
 
         if (LiveRemoteApiRuntime::instance().tryHandleGet(
+                requestTarget,
+                response))
+        {
+            return response;
+        }
+
+        if (GlobalSearchApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 response))
         {

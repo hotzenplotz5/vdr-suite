@@ -4,6 +4,9 @@
 
 #include <sqlite3.h>
 
+#include <cctype>
+#include <vector>
+
 namespace
 {
 bool bindText(sqlite3_stmt* statement, int index, const std::string& value)
@@ -56,6 +59,56 @@ bool eventCacheAllowsWrite(
     const bool found = bound && sqlite3_step(statement) == SQLITE_ROW;
     sqlite3_finalize(statement);
     return found;
+}
+
+
+std::string foldPersonText(const std::string& value)
+{
+    std::string folded;
+    folded.reserve(value.size());
+    for (std::size_t index = 0; index < value.size(); ++index)
+    {
+        const unsigned char byte = static_cast<unsigned char>(value[index]);
+        if (byte >= 'A' && byte <= 'Z')
+        {
+            folded.push_back(static_cast<char>(byte - 'A' + 'a'));
+            continue;
+        }
+        if (byte == 0xc3 && index + 1 < value.size())
+        {
+            const unsigned char next = static_cast<unsigned char>(value[index + 1]);
+            if (next == 0x84 || next == 0xa4) { folded += "ae"; ++index; continue; }
+            if (next == 0x96 || next == 0xb6) { folded += "oe"; ++index; continue; }
+            if (next == 0x9c || next == 0xbc) { folded += "ue"; ++index; continue; }
+            if (next == 0x9f) { folded += "ss"; ++index; continue; }
+            if ((next >= 0x80 && next <= 0x96) || (next >= 0x98 && next <= 0x9e))
+            {
+                folded.push_back(static_cast<char>(0xc3));
+                folded.push_back(static_cast<char>(next + 0x20));
+                ++index;
+                continue;
+            }
+        }
+        folded.push_back(static_cast<char>(byte));
+    }
+    return folded;
+}
+
+const char* personRoleName(EpgScraperPersonRole role)
+{
+    switch (role)
+    {
+    case EpgScraperPersonRole::Actor: return "actor";
+    case EpgScraperPersonRole::Director: return "director";
+    case EpgScraperPersonRole::Writer: return "writer";
+    case EpgScraperPersonRole::Producer: return "producer";
+    case EpgScraperPersonRole::Moderator: return "moderator";
+    case EpgScraperPersonRole::Guest: return "guest";
+    case EpgScraperPersonRole::Composer: return "composer";
+    case EpgScraperPersonRole::Other: return "other";
+    case EpgScraperPersonRole::Unknown: break;
+    }
+    return "unknown";
 }
 
 }
@@ -114,6 +167,16 @@ bool EpgArtworkRepository::ensureSchemaLocked() const
         ");"
         "CREATE INDEX IF NOT EXISTS idx_epg_scraper_metadata_images_event "
         "ON epg_scraper_metadata_images (backend_id, channel_id, event_id);"
+        "CREATE TABLE IF NOT EXISTS epg_scraper_metadata_people("
+        "backend_id TEXT NOT NULL,channel_id TEXT NOT NULL,event_id TEXT NOT NULL,"
+        "ordinal INTEGER NOT NULL,role TEXT NOT NULL DEFAULT 'unknown',"
+        "name TEXT NOT NULL,name_folded TEXT NOT NULL,"
+        "character_name TEXT NOT NULL DEFAULT '',character_name_folded TEXT NOT NULL DEFAULT '',"
+        "PRIMARY KEY(backend_id,channel_id,event_id,ordinal));"
+        "CREATE INDEX IF NOT EXISTS idx_epg_scraper_metadata_people_name "
+        "ON epg_scraper_metadata_people(backend_id,name_folded,channel_id,event_id);"
+        "CREATE INDEX IF NOT EXISTS idx_epg_scraper_metadata_people_event "
+        "ON epg_scraper_metadata_people(backend_id,channel_id,event_id);"
     );
 }
 
@@ -296,6 +359,84 @@ bool EpgArtworkRepository::upsertMetadataJson(
     const bool ok = bound && sqlite3_step(statement) == SQLITE_DONE;
     sqlite3_finalize(statement);
     return ok;
+}
+
+bool EpgArtworkRepository::replaceMetadataPeople(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& eventId,
+    const std::vector<EpgScraperPerson>& people)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (channelId.empty() || eventId.empty() || !ensureSchemaLocked() ||
+        !eventCacheAllowsWrite(database_, backendId, channelId, eventId))
+    {
+        return false;
+    }
+
+    auto transactionLease = database_.acquireTransactionLease();
+    if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
+
+    sqlite3_stmt* remove = nullptr;
+    const char* removeSql =
+        "DELETE FROM epg_scraper_metadata_people "
+        "WHERE backend_id=? AND channel_id=? AND event_id=?;";
+    if (sqlite3_prepare_v2(database_.handle(), removeSql, -1, &remove, nullptr) != SQLITE_OK)
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+    const std::string normalizedBackend = normalizeBackendId(backendId);
+    const bool removeBound =
+        bindText(remove, 1, normalizedBackend) &&
+        bindText(remove, 2, channelId) &&
+        bindText(remove, 3, eventId);
+    const bool removed = removeBound && sqlite3_step(remove) == SQLITE_DONE;
+    sqlite3_finalize(remove);
+    if (!removed)
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+
+    sqlite3_stmt* insert = nullptr;
+    const char* insertSql =
+        "INSERT INTO epg_scraper_metadata_people("
+        "backend_id,channel_id,event_id,ordinal,role,name,name_folded,character_name,character_name_folded) "
+        "VALUES(?,?,?,?,?,?,?,?,?);";
+    if (sqlite3_prepare_v2(database_.handle(), insertSql, -1, &insert, nullptr) != SQLITE_OK)
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+
+    bool stored = true;
+    for (std::size_t index = 0; index < people.size(); ++index)
+    {
+        const EpgScraperPerson& person = people[index];
+        if (!person.valid()) continue;
+        sqlite3_reset(insert);
+        sqlite3_clear_bindings(insert);
+        stored =
+            bindText(insert, 1, normalizedBackend) &&
+            bindText(insert, 2, channelId) &&
+            bindText(insert, 3, eventId) &&
+            sqlite3_bind_int(insert, 4, static_cast<int>(index)) == SQLITE_OK &&
+            bindText(insert, 5, personRoleName(person.role)) &&
+            bindText(insert, 6, person.name) &&
+            bindText(insert, 7, foldPersonText(person.name)) &&
+            bindText(insert, 8, person.characterName) &&
+            bindText(insert, 9, foldPersonText(person.characterName)) &&
+            sqlite3_step(insert) == SQLITE_DONE;
+        if (!stored) break;
+    }
+    sqlite3_finalize(insert);
+    if (!stored || !database_.execute("COMMIT;"))
+    {
+        database_.execute("ROLLBACK;");
+        return false;
+    }
+    return true;
 }
 
 std::string EpgArtworkRepository::findMetadataJson(

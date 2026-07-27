@@ -169,12 +169,19 @@ EpgScraperMetadataResolution PersistentEpgScraperMetadataResolver::resolve(
     }
 
     const std::string publicJson = serializer_.serialize(persisted);
-    artworkRepository_.upsertMetadataJson(
-        normalizedBackend,
-        channelId,
-        eventId,
-        publicJson,
-        resolvedAt);
+    if (artworkRepository_.upsertMetadataJson(
+            normalizedBackend,
+            channelId,
+            eventId,
+            publicJson,
+            resolvedAt))
+    {
+        artworkRepository_.replaceMetadataPeople(
+            normalizedBackend,
+            channelId,
+            eventId,
+            persisted.metadata.people);
+    }
 
     return persisted;
 }

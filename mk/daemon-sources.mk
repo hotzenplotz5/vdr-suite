@@ -32,6 +32,7 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerAutomationPreviewController.cpp \
         api/rest/src/SearchTimerPreviewEpgCacheRefreshController.cpp \
         $(GENRE_BROWSER_REST_SRC) \
+        $(GLOBAL_SEARCH_SRC) \
         $(REST_LIVE_REMOTE_SRC) \
         core/vdr/src/EpgEventRepository.cpp \
         core/vdr/src/VdrRecordingCacheRepository.cpp \

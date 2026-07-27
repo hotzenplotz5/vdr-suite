@@ -76,6 +76,10 @@ Metadata and persons:
 - `fetchClientPersons`
 - `fetchClientRecordingPersons`
 
+Global search:
+
+- `fetchClientGlobalSearch`
+
 Recordings:
 
 - `fetchClientRecordings`

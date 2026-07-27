@@ -151,7 +151,7 @@
       }
 
       .brand-feature-strip {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 0.72rem;
         padding: 0.86rem 1.05rem 1rem;
       }
@@ -292,6 +292,14 @@
             </svg>
             <div><div class="brand-feature-title" data-i18n="shell.modularSuite">Modular Suite</div><div class="brand-feature-text" data-i18n="shell.modularSuiteDescription">Erweiterbar & anpassbar</div></div>
           </article>
+          <article class="brand-feature brand-feature-search" data-brand-module="search" tabindex="0" role="button" aria-label="VDR-Suite Suche öffnen" data-i18n-aria-label="shell.openSearch">
+            <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="21" cy="21" r="11"/>
+              <path d="M29 29 L40 40"/>
+              <path d="M16 21 H26"/>
+            </svg>
+            <div><div class="brand-feature-title" data-i18n="shell.search">Suche</div><div class="brand-feature-text" data-i18n="shell.searchDescription">Aufnahmen, EPG & Personen</div></div>
+          </article>
           <article class="brand-feature" data-brand-module="settings" tabindex="0" role="button" aria-label="Einstellungen öffnen" data-i18n-aria-label="shell.openSettings">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="24" cy="24" r="6"/>
@@ -337,6 +345,7 @@
   <script src="/frontend/platform/deferred-runtime-loader.js"></script>
   <script src="/frontend/api/client-api.js"></script>
   <script src="/frontend/api/genre-client-api.js"></script>
+  <script src="/frontend/modules/global-search.js"></script>
   <script src="/frontend/channel-logos.js"></script>
   <script src="/frontend/channel-browser.js"></script>
   <script src="/frontend/modules/timers.js"></script>

@@ -47,6 +47,7 @@ The Core Platform Model is an earlier conceptual foundation. Where its older fut
 - [Metadata Identity Foundation](metadata-identity-foundation.md)
 - [Suite Metadata Platform Schema v1](metadata-platform-schema-v1.md)
 - [Metadata-Backed Genre Browser](metadata-genre-browser.md)
+- [Backend-Scoped Global Search](global-search.md)
 - [Live 3.5.5 / TVScraper 1.2.15 EPG Genre Comparison](live-tvscraper-epg-genre-comparison.md)
 - [ADR-0038: Suite Metadata Database and External Provider Strategy](../adr/ADR-0038-suite-metadata-database-and-external-provider-strategy.md)
 - [Recording Metadata Roadmap](../planning/tvscraper-recording-metadata-roadmap.md)
