@@ -1,52 +1,54 @@
 # Live Remote, Overlay and Legacy OSD Compatibility Contract
 
-## Navigation
-
-- [Architecture Index](index.md)
-- [Current State](../CURRENT.md)
-- [RESTfulAPI Integration](restfulapi-integration.md)
-- [ADR-0030](../adr/ADR-0030-domain-first-ui-over-osd-proxy.md)
-- [ADR-0046](../adr/ADR-0046-streaming-gateway-media-session-boundary.md)
-- [ADR-0047](../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
-
----
-
 ## Status
 
-This document records the implementation audit and the first production contract for backend-neutral remote control and the live-TV overlay. It does not introduce a new ADR. The binding decisions remain:
+The backend-neutral RemoteAction and LiveOverlay runtime is implemented. PR #99 established the production contract; PR #110 completed the current mobile pressed-state and duplicate-dispatch behaviour.
+
+Streaming and legacy OSD compatibility remain separate future domains:
 
 - [ADR-0030: Domain-First UI over OSD Proxy](../adr/ADR-0030-domain-first-ui-over-osd-proxy.md)
 - [ADR-0046: Streaming Gateway and MediaSession Boundary](../adr/ADR-0046-streaming-gateway-media-session-boundary.md)
 - [ADR-0047: Legacy OSD Compatibility Bridge](../adr/ADR-0047-legacy-osd-compatibility-bridge.md)
 
-## Three separate responsibilities
+## Separate responsibilities
 
-The runtime keeps three concerns separate:
+1. Media bytes belong to the future Phase 65 Streaming Gateway.
+2. The current live-TV overlay is a Suite-owned structured read model.
+3. Native VDR OSD compatibility belongs to the future Phase 66 isolated bridge.
 
-1. Media bytes belong to the future MediaSession and streaming-gateway runtime from ADR-0046.
-2. The modern live-TV overlay is a Suite-owned structured read model.
-3. The native VDR OSD remains a future compatibility surface for functionality without a Suite domain.
+The existing SSE transport carries sequenced state-change notifications, not media bytes or OSD frames.
 
-The SSE live transport is not a media stream. It carries sequenced state-change notifications only.
+## Implemented ownership chain
 
-## Existing reusable path
+```text
+BackendRegistryService / BackendAccessPolicy
+  -> capability and read-only validation
+  -> backend-keyed RemoteAction executor or LiveOverlay provider
+  -> Suite-owned API runtime
+  -> live-remote-client-api.js
+  -> remote frontend module
+```
 
-| Concern | Existing owner | Reuse in this slice |
-|---|---|---|
-| Backend selection | `BackendRegistryService` | Every request carries and validates `backendId`. |
-| Read-only enforcement | `BackendAccessPolicy` | Remote control is rejected before executor lookup. |
-| Capability reporting | `VdrCapabilitySet`, `CapabilityResolver`, `CapabilityReportBuilder` | Adds `remote.control`, `live.overlay.read`, future `osd.view`, future `osd.control`. |
-| Backend adapter pattern | Timer and recording action executor registries | Remote actions use a backend-keyed executor registry and service. |
-| Backend transport | `IHttpClient` and `BasicHttpClient` | RESTfulAPI remains private behind the executor/provider boundary. |
-| Suite read models | `VdrSnapshotReadService`, `SnapshotCacheService`, `EpgEventRepository` | Channel, timer and revision come from the Suite snapshot; present/following use an injected bounded lookup backed by the persistent Suite EPG cache, with snapshot fallback. |
-| Change notification | `SnapshotChangeFeedService`, `LiveTransportService`, `SseLiveTransport` | `liveOverlay` is a changed domain; no second SSE stack is introduced. |
-| Browser boundary | `VdrSuiteClientApi` | Browser code knows only `/api/vdr/...` Suite routes. |
+Reused boundaries include:
+
+- backend selection and stable `backendId`;
+- server-enforced read-only policy;
+- capability reporting (`remote.control`, `live.overlay.read`);
+- adapter/executor registry pattern;
+- private RESTfulAPI transport behind the executor;
+- Suite snapshot/EPG cache for overlay state;
+- existing change feed and SSE transport;
+- `VdrSuiteClientApi` as the browser boundary.
 
 ## Public Suite API
 
-### Execute a remote action
+### Remote action
 
-`POST /api/vdr/remote/actions`
+```http
+POST /api/vdr/remote/actions
+```
+
+Example:
 
 ```json
 {
@@ -56,55 +58,58 @@ The SSE live transport is not a media stream. It carries sequenced state-change 
 }
 ```
 
-For a direct channel switch only:
+Direct channel switch adds an allowlisted `switchChannel` action and a validated `channelId`.
 
-```json
-{
-  "backendId": "default",
-  "operationId": "remote-4712",
-  "action": "switchChannel",
-  "channelId": "C-1-1039-10376"
-}
+Public actions use a fixed Suite allowlist. Raw RESTfulAPI paths/key names, `/remote/kbd`, `/remote/seq`, arbitrary SVDRP/shell/plugin commands and unchecked URL fragments are not accepted.
+
+Deterministic failure classes cover validation, backend lookup, permission, capability, executor availability, transport and backend rejection/failure.
+
+### Live overlay
+
+```http
+GET /api/vdr/live/overlay?backend=default
 ```
 
-The public action names are a fixed Suite allowlist. Raw RESTfulAPI key names, `/remote/kbd`, `/remote/seq`, SVDRP commands, shell commands and plugin service names are not accepted.
-
-Failure classes are deterministic:
-
-- `validation`
-- `backendNotFound`
-- `permission`
-- `capability`
-- `executorUnavailable`
-- `transport`
-- `backendRejected`
-- `backendFailure`
-
-### Read the live overlay
-
-`GET /api/vdr/live/overlay?backend=default`
-
-The first snapshot contains only values backed by an implemented source:
+The current snapshot exposes only implemented sources:
 
 - backend and snapshot revision;
-- current channel identity from RESTfulAPI `/info.json`;
-- channel number and name from the Suite channel snapshot;
-- present and following events from the persistent, backend-scoped Suite EPG cache, with the Suite snapshot as a fallback;
-- current-event timer and recording state from the Suite timer snapshot;
-- audio explicitly unavailable with `muted` and `volume` set to `null`.
+- current live channel identity from the private backend adapter;
+- channel number/name from Suite snapshot state;
+- present/following events from the persistent backend-scoped EPG cache, with bounded fallback;
+- current-event Timer/Recording state from Suite snapshot data;
+- audio explicitly unavailable where no implemented source exists.
 
-The startup snapshot intentionally excludes the large EPG event domain. The overlay therefore resolves only the current channel's now/next events through a backend-neutral lookup contract instead of forcing a full event snapshot refresh. `LiveOverlayService` does not link against SQLite or `EpgEventRepository`; the daemon wiring supplies the repository-backed implementation. The browser remains isolated from RESTfulAPI and from the EPG cache implementation.
+It does not invent a `MediaSession` or claim streaming availability. During Recording playback, if the backend does not identify a live channel, the overlay reports it unavailable rather than guessing.
 
-There is no fictitious MediaSession field and no claim that media streaming is available.
+## PR #110 mobile interaction contract
 
-RESTfulAPI `/info.json` emits the live channel only while the status monitor is in live-TV mode. During recording playback it emits a `video` object instead, so this first overlay contract reports the current channel as unavailable rather than guessing a channel or inventing playback state.
+The current frontend remote preserves all 35 hotspot actions and establishes:
 
-## RESTfulAPI adapter mapping
+- only the pressed key receives the `down`/pressed visual state;
+- other keys remain visually raised and are not disabled during dispatch;
+- one internal `actionInFlight`/busy guard rejects duplicate dispatch while a request is pending;
+- pointer, keyboard, cancel, leave and blur release state is isolated per key;
+- a completed/failed request clears only the originating key state;
+- browser calls use `VdrSuiteClientApi` extension functions;
+- scrolling remains possible around the full vertical Remote layout.
 
-The upstream `vdr-plugin-restfulapi` implementation was checked directly. The Suite adapter maps normalized actions to the plugin's fixed key names, including:
+The in-flight guard is not authorization and does not replace server-side read-only/capability checks.
 
-| Suite action | Internal RESTfulAPI request |
-|---|---|
+## Current remote asset caveat
+
+Current `main` serves `vdr-remote-photorealistic.svg`; the SVG contains an embedded JPEG. Draft PRs #112 and #113 are competing old-base proposals:
+
+- #112: pure self-contained SVG;
+- #113: direct 360×1220 JPEG.
+
+Neither draft changes the implemented action contract above. Select at most one after rebase, install-runtime validation and real-device mobile acceptance. Preserve the 35 hotspots, pressed-state, in-flight guard, Client API boundary and scroll behaviour.
+
+## Private RESTfulAPI mapping
+
+The adapter maps normalized Suite actions to private plugin requests such as:
+
+| Suite action | Private adapter request |
+| --- | --- |
 | `up` | `POST /remote/up` |
 | `ok` | `POST /remote/ok` |
 | `channelUp` | `POST /remote/chanup` |
@@ -114,84 +119,65 @@ The upstream `vdr-plugin-restfulapi` implementation was checked directly. The Su
 | `fastForward` | `POST /remote/fastfwd` |
 | `rewind` | `POST /remote/fastrew` |
 | `previous` | `POST /remote/prev` |
-| `switchChannel` | `POST /remote/switch/<encoded-channel-id>` |
+| `switchChannel` | encoded private switch route |
 
-Channel IDs are encoded as one path segment. Browser data never becomes an unchecked URL fragment.
+This table documents adapter evidence; browser code never sees or constructs these paths.
 
 ## Live change flow
 
-The existing sequence and resynchronization contract remains authoritative:
-
-1. A backend snapshot change or successful remote action creates a change-feed entry.
-2. The entry retains `sequenceNumber`, `snapshotGeneration`, `backendId` and `changedDomains`.
-3. Relevant status, channel, event and timer changes also mark `liveOverlay` dirty.
-4. `LiveTransportService` publishes the entry through the existing SSE transport.
-5. The remote frontend ignores duplicate sequence numbers and reloads the current overlay only for its selected backend and the `liveOverlay` domain.
+1. Snapshot change or successful remote action creates a change-feed entry.
+2. The entry retains sequence, snapshot generation, backend ID and changed domains.
+3. relevant status/channel/event/Timer changes mark `liveOverlay` dirty.
+4. existing SSE transport publishes the entry.
+5. the frontend ignores duplicate/out-of-order sequence numbers and reloads only for its selected backend and `liveOverlay` domain.
 
 No full overlay object is pushed through SSE.
 
-## Permission and multi-backend behavior
+## Permission and multi-backend behaviour
 
-Remote control requires all of the following on the server:
+Remote control requires on the server:
 
-- a known and enabled backend;
-- non-read-only backend access;
+- known/enabled backend;
+- non-read-only access;
 - `remote.control` capability;
-- a registered executor for the same backend ID.
+- executor registered for the same backend ID.
 
-A read-only backend may still expose `live.overlay.read`; it can display Suite state but cannot be controlled. Frontend disabling is informational only. The server gate remains authoritative.
+A read-only backend may expose `live.overlay.read` while denying control. Frontend disabled state is informational; the server remains authoritative.
 
-## Legacy OSD audit and compatibility preparation
+## Legacy OSD audit
 
-### RESTfulAPI capabilities found
+RESTfulAPI can expose current structured Text/Channel/Programme OSD state, but does not provide the complete Phase 66 contract:
 
-The current `/osd.json` implementation can return the current structured object for:
-
-- `TextOsd` with title, message, menu items, selected item and color-key labels;
-- `ChannelOsd` with channel and present event information;
-- `ProgrammeOsd` with present and following event information.
-
-The existing normalized remote-action domain can later carry the allowlisted navigation commands for an OSD controller. It does not expose raw key names, sequences or keyboard input and therefore does not prevent a future `LegacyOsdSession` boundary.
-
-### Required properties not supplied by RESTfulAPI
-
-The audited RESTfulAPI OSD endpoint does not provide:
-
-- a reliable OSD epoch;
-- monotonic OSD frame or state sequence numbers;
-- push change notifications for OSD state;
-- controller ownership or lease fencing;
-- backend-generation fencing;
+- reliable OSD epoch;
+- monotonic frame/state sequencing;
+- push change notifications;
 - viewer/controller policy;
-- resynchronization tokens or delta continuity guarantees.
+- controller lease and fencing;
+- backend-generation fencing;
+- resynchronization/delta continuity guarantees.
 
-For that reason `osd.view` and `osd.control` are separate future capabilities and remain unavailable in this implementation slice.
+Therefore `osd.view` and `osd.control` remain future capabilities. The intended order is:
 
-### Adapter boundary
+1. view-only OSD snapshots/frames;
+2. ordered deltas and resynchronization;
+3. authorized viewer sessions;
+4. one fenced controller lease;
+5. allowlisted/rate-limited input through the existing RemoteAction domain;
+6. SuiteBridge extensions only for demonstrated missing native properties.
 
-The future adapter order is:
+## Explicitly not implemented by the current Remote/Overlay runtime
 
-1. Use RESTfulAPI for current structured OSD reads where it is sufficient.
-2. Use the existing remote-action service for allowlisted controller input after an OSD session and lease gate authorizes it.
-3. Add SuiteBridge functionality only for a demonstrated missing property such as epoch, sequencing, VDR-internal change observation or local controller fencing.
-
-No SuiteBridge OSD extension is implemented by this work package.
-
-## Explicitly out of scope
-
-- media streaming gateway production runtime;
-- MediaSession creation or playback lifecycle;
+- Streaming Gateway or MediaSession lifecycle;
 - LegacyOsdSession runtime;
-- OsdControllerLease runtime;
 - OSD frame/delta transport;
-- OSD epoch and resynchronization runtime;
-- browser, Windows or TV native-OSD renderer;
-- speculative SuiteBridge OSD commands.
+- OSD epoch/resynchronization runtime;
+- controller lease;
+- arbitrary command tunnel;
+- browser/TV native OSD renderer.
 
----
+## Related documents
 
-## Back
-
-- [Back to Architecture Index](index.md)
-- [Back to Current State](../CURRENT.md)
-- [Back to README](../../README.md)
+- [Current State](../CURRENT.md)
+- [Post-Phase-61 Platform Runtime Closeout](../development/post-phase-61-platform-runtime-closeout.md)
+- [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
+- [Strict Roadmap](../planning/roadmap.md)
