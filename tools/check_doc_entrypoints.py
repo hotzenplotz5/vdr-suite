@@ -31,7 +31,6 @@ REQUIRED_LINKS = {
         "planning/parity-audit-and-frontend-gap-roadmap.md",
         "adr/index.md",
         "development/completed-phases.md",
-        "development/github-actions-status-handoff.md",
     ],
     "docs/development/github-actions-status-handoff.md": [
         "../NEW-CHAT-HANDOFF.md",
@@ -51,13 +50,22 @@ REQUIRED_LINKS = {
 }
 
 REQUIRED_TEXT = {
+    "README.md": [
+        "Phase 61 - Suite Metadata and Genre Platform",
+        "Post-Phase 61 Performance Hardening (B1-B4)",
+        "Phase 62 - Identity, RBAC and Accountability Foundation",
+    ],
     "docs/NEW-CHAT-HANDOFF.md": [
-        "Phase 56 - Library Boundary, Packaging and Developer Documentation",
-        "Phase 57 - Multi-Site Backend Administration and Permissions",
+        "Phase 61 - Suite Metadata and Genre Platform",
+        "VDR Remote and Live Overlay hardening (#110)",
+        "Backend-scoped Global Search (#111)",
+        "Phase 62 - Identity, RBAC and Accountability Foundation",
     ],
     "docs/CURRENT.md": [
-        "Phase 56 - Library Boundary, Packaging and Developer Documentation",
-        "Phase 57 - Multi-Site Backend Administration and Permissions",
+        "Phase 61 - Suite Metadata and Genre Platform",
+        "VDR Remote and Live Overlay hardening (#110)",
+        "Backend-scoped Global Search (#111)",
+        "Phase 62 - Identity, RBAC and Accountability Foundation",
     ],
 }
 
