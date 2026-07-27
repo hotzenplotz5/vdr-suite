@@ -84,6 +84,8 @@ Continue route-by-route authorization, identity/session persistence, mutation pr
 - [Phase Map](../planning/phase-map.md)
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Phase 62 Slice 1](phase-62-security-identity-foundation-slice-1.md)
+- [Phase 61 and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
+- [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
 - [Current Architecture State](current-architecture-state.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 - [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
