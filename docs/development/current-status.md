@@ -76,6 +76,18 @@ Phase 62 - Identity, RBAC and Accountability Foundation
 
 Continue route-by-route authorization, identity/session persistence, mutation preconditions, idempotency, complete accountability and outbox work without advancing Phase 63-67 runtime.
 
+### Preferred edit path for new chats
+
+Prefer direct GitHub repository updates for existing files when the complete current file has been fetched and the edit can be reviewed as a bounded diff.
+
+Use local edits first only when the change requires:
+
+- broad generated-file or binary work;
+- local compilation, formatting or repository-wide transformations that cannot be expressed safely as bounded connector edits;
+- a workaround because the GitHub connector blocks a file operation.
+
+Never replace a complete existing file from a truncated fetch. Fetch missing ranges first, preserve historical detail through explicit archives when appropriate, and inspect the resulting commit diff before treating an update as correct.
+
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
