@@ -57,6 +57,11 @@ public:
             true,
             false,
             false};
+        context.credential = CredentialIdentity{
+            configuration_.credentialId,
+            true,
+            false,
+            false};
         context.grants = configuration_.grants;
         return context;
     }
