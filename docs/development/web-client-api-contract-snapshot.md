@@ -12,6 +12,8 @@ Browser HTTP ownership is split across DOM-free Client API files:
 
 Each extension immutably augments `window.VdrSuiteClientApi`. Feature modules and `app.js` must not introduce direct backend `fetch()` calls.
 
+No direct `fetch()` calls in `web/frontend/app.js`.
+
 ## Ownership rules
 
 - route literals belong in Client API files, not feature modules;
