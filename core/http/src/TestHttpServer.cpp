@@ -69,6 +69,19 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         return;
     }
 
+    securityIdentityProvisioningRepository_ =
+        std::make_unique<SecurityIdentityProvisioningRepository>(
+            *securityDatabase_);
+
+    credentialVerifierRepository_ =
+        std::make_unique<CredentialVerifierRepository>(
+            *securityDatabase_);
+
+    if (!credentialVerifierRepository_->ensureSchema())
+    {
+        return;
+    }
+
     const SecurityConfiguration configuration =
         SecurityConfiguration::fromEnvironment();
 
@@ -84,6 +97,42 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         return;
     }
 
+    if (configuration.managedBasic.hasAnyConfiguration())
+    {
+        if (!configuration.managedBasic.complete() ||
+            !ManagedBasicAuthenticator::supportsPasswordHash(
+                configuration.managedBasic.passwordHash))
+        {
+            return;
+        }
+
+        if (!securityIdentityProvisioningRepository_->ensureIdentity(
+                configuration.managedBasic.actorId,
+                ActorType::User,
+                configuration.managedBasic.actorDisplayName,
+                configuration.managedBasic.deviceId,
+                "Managed Basic client",
+                configuration.managedBasic.sessionId,
+                configuration.managedBasic.credentialId,
+                "managed-basic"))
+        {
+            return;
+        }
+
+        if (!credentialVerifierRepository_->ensureVerifier(
+                configuration.managedBasic.credentialId,
+                configuration.managedBasic.username,
+                configuration.managedBasic.passwordHash))
+        {
+            return;
+        }
+
+        managedBasicAuthenticator_ =
+            std::make_unique<ManagedBasicAuthenticator>(
+                configuration.managedBasic,
+                *credentialVerifierRepository_);
+    }
+
     persistentIdentityResolver_ =
         std::make_unique<PersistentIdentityResolver>(
             *securityIdentityRepository_);
@@ -92,7 +141,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         std::make_unique<SecurityHttpGate>(
             configuration,
             *accountabilityEventRepository_,
-            persistentIdentityResolver_.get());
+            persistentIdentityResolver_.get(),
+            managedBasicAuthenticator_.get());
     securityReady_ = true;
 }
 
