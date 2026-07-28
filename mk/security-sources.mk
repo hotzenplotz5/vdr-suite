@@ -1,6 +1,13 @@
 CXXFLAGS += -Icore/security/include
 LDFLAGS += -lcrypt
 
+SECURITY_REPOSITORY_SRC := \
+	core/security/src/AccountabilityEventRepository.cpp \
+	core/security/src/BrowserSessionCredentialRepository.cpp \
+	core/security/src/CredentialVerifierRepository.cpp \
+	core/security/src/SecurityIdentityProvisioningRepository.cpp \
+	core/security/src/SecurityIdentityRepository.cpp
+
 .PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-http-gate
 
 test-security-architecture:
@@ -24,6 +31,7 @@ test-security-configuration:
 test-security-accountability-event-repository:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(SECURITY_REPOSITORY_SRC) \
 		core/security/tests/test_accountability_event_repository.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_accountability_event_repository
@@ -33,6 +41,7 @@ test-security-accountability-event-repository:
 test-security-identity-repository:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(SECURITY_REPOSITORY_SRC) \
 		core/security/tests/test_security_identity_repository.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_security_identity_repository
@@ -42,6 +51,7 @@ test-security-identity-repository:
 test-security-managed-basic-authenticator:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(SECURITY_REPOSITORY_SRC) \
 		core/security/tests/test_managed_basic_authenticator.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_managed_basic_authenticator
@@ -51,6 +61,7 @@ test-security-managed-basic-authenticator:
 test-security-browser-session-authenticator:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(SECURITY_REPOSITORY_SRC) \
 		core/security/tests/test_browser_session_authenticator.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_browser_session_authenticator
@@ -60,6 +71,7 @@ test-security-browser-session-authenticator:
 test-security-http-gate:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(SECURITY_REPOSITORY_SRC) \
 		core/security/tests/test_security_http_gate.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_security_http_gate
