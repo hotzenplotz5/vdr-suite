@@ -68,6 +68,17 @@ bool Database::isOpen() const
     return db_ != nullptr;
 }
 
+std::string Database::filename() const
+{
+    if (!db_)
+    {
+        return {};
+    }
+
+    const char* value = sqlite3_db_filename(db_, "main");
+    return value == nullptr ? std::string() : std::string(value);
+}
+
 bool Database::execute(const std::string& sql)
 {
     if (!db_) {
@@ -109,7 +120,7 @@ bool Database::tableExists(const std::string& tableName)
 
     bool found = false;
 
-        auto callback = [](void* data, int, char**, char**) -> int {
+    auto callback = [](void* data, int, char**, char**) -> int {
         bool* foundPtr = static_cast<bool*>(data);
         *foundPtr = true;
         return 0;
