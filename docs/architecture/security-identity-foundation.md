@@ -1,6 +1,6 @@
 # Security and Identity Foundation
 
-Status: Phase 62 Slice 1 and persistent lifecycle foundation from Slice 2; incomplete Phase 62
+Status: Phase 62 Slice 1 plus persistent lifecycle and first managed verifier increments from Slice 2; incomplete Phase 62
 
 ## Boundary
 
@@ -10,6 +10,8 @@ The Phase 62 security boundary is server-side and precedes API dispatch.
 HttpServerRequest
   -> SecurityHttpGate
        -> LegacyBasicAuthenticator (transitional adapter)
+       -> optional ManagedBasicAuthenticator
+            -> CredentialVerifierRepository
        -> RequestSecurityContext
        -> PersistentIdentityResolver
             -> SecurityIdentityRepository
@@ -19,7 +21,7 @@ HttpServerRequest
   -> existing controller/service/domain safety checks
 ```
 
-Authentication answers who or what presented credentials. Persistent identity resolution answers whether that actor, device, credential, and session still exist and remain active. Authorization answers whether that actor may perform an action on a backend. Backend access policy independently answers whether the backend itself accepts writes. Capability checks independently answer whether the backend can perform the action. None of these decisions replaces another.
+Authentication answers who or what presented credentials. Persistent identity resolution answers whether that actor, device, credential, and session still exist and remain active. Authorization answers whether that actor may perform an action on a backend. Backend access policy independently answers whether the backend accepts writes. Capability checks independently answer whether the backend can perform the action. None of these decisions replaces another.
 
 ## Identity model
 
@@ -34,7 +36,7 @@ Authentication answers who or what presented credentials. Persistent identity re
 - request ID;
 - optional correlation ID.
 
-Actor types can represent users, services, agents, and system work. The current authenticator still emits only the configured legacy local web actor. That actor is transitional and is not the final user or native-client authentication architecture.
+Actor types can represent users, services, agents, and system work. Runtime can now authenticate the legacy local actor and one optional separately configured managed Basic actor. This remains an incremental authentication foundation, not the final browser/native/public authentication contract.
 
 ## Persistent lifecycle model
 
@@ -45,16 +47,42 @@ Actor types can represent users, services, agents, and system work. The current 
 - `security_sessions`;
 - `security_credentials`.
 
-An authenticated compatibility request is first represented transiently by `LegacyBasicAuthenticator`. `PersistentIdentityResolver` then reads repository state and verifies:
+`SecurityIdentityProvisioningRepository` owns idempotent creation and binding validation for separately provisioned identities. It uses `INSERT OR IGNORE` and verifies the resulting metadata, so startup neither overwrites an existing identity nor silently reactivates lifecycle state.
+
+`PersistentIdentityResolver` verifies on each authenticated request that:
 
 - the actor exists and remains active;
 - the device belongs to the actor and remains active;
 - the credential belongs to the actor and is neither expired nor revoked;
 - the session belongs to the actor and device and is neither expired nor revoked.
 
-Missing or mismatched records fail closed as invalid credentials. Lifecycle state is resolved for each authenticated request rather than trusted from the submitted request.
+Missing or mismatched records fail closed as invalid credentials. Lifecycle state is never trusted solely from request input.
 
-The compatibility identity is bootstrapped with `INSERT OR IGNORE`. This prevents a daemon restart from silently reactivating an existing revoked record.
+## Credential verifier model
+
+`CredentialVerifierRepository` owns the `security_basic_credential_verifiers` table. Each row binds:
+
+- one unique login name;
+- one credential ID;
+- one modular one-way password hash.
+
+`ManagedBasicAuthenticator`:
+
+1. parses the Basic scheme and Base64 payload strictly;
+2. applies bounded username and password lengths;
+3. rejects malformed input and unsupported hash formats;
+4. retrieves the verifier by login name;
+5. verifies the submitted password using thread-safe `crypt_r`;
+6. compares the modular crypt result in constant time;
+7. emits the configured managed actor/device/session/credential context;
+8. passes that context through persistent lifecycle resolution.
+
+Accepted verifier formats are:
+
+- yescrypt (`$y$`), preferred for managed deployments;
+- SHA-512 crypt (`$6$`), accepted as a transitional interoperable format.
+
+The server does not generate passwords or hashes in this increment. It also does not silently replace an existing login/hash binding at daemon restart; protected credential rotation remains later Slice 2 work.
 
 ## Authorization model
 
@@ -71,7 +99,7 @@ remote.control@<backend-id>
 
 Authorization is fail-closed for:
 
-- anonymous or invalid authentication;
+- anonymous or invalid authentication where authentication is required;
 - expired or revoked credential/session state;
 - inactive or revoked actor or device;
 - missing permission;
@@ -86,37 +114,47 @@ The remote mutation is evaluated before `ApiRouter::handleClientPost`. The exist
 
 This is the default migration mode.
 
-- It preserves the pre-Phase-62 behavior that every HTTP request requires the configured Basic credential.
-- The credential maps to an explicit actor/device/session/credential context.
-- The mapped lifecycle records are stored server-side and resolved on every authenticated request.
-- The default grant remains `*@*` only to prevent an unannounced local browser outage.
-- Authorization decisions for the migrated remote route are still evaluated and audited.
+- Every request still requires authentication.
+- The configured legacy credential maps to the legacy actor/device/session/credential context.
+- The legacy credential alone retains the old compatibility bypass for not-yet-migrated POST routes.
+- The default legacy grant remains `*@*` only to prevent an unannounced local browser outage.
+- Authorization decisions for migrated routes are still evaluated and audited.
+- An optional managed Basic identity may authenticate alongside the legacy browser.
+- Managed identities do not inherit the compatibility bypass.
 
-This mode is a named compatibility mechanism, not a final security claim.
+A managed identity using an unmigrated POST route receives `security_policy_not_migrated` before router dispatch. This lets Phase 62 test separate users safely while preserving the existing browser until route migration is complete.
 
 ### `enforced`
 
 - Anonymous GET requests can reach existing read routes.
+- A request that presents invalid, expired, or revoked credentials is rejected rather than downgraded to anonymous.
 - The migrated remote mutation requires authentication, active persisted identity state, permission, and backend scope.
 - Other POST routes return `security_policy_not_migrated` before router dispatch.
-- This deliberately prevents an accidental unauthenticated mutation while route-by-route Phase 62 migration is incomplete.
-- No embedded default credential or grant is active unless it is explicitly configured for the enforced rollout.
+- No embedded legacy credential or grant is active unless explicitly configured for the enforced rollout.
+
+## Managed configuration
+
+No managed Basic identity exists by default. Configuration is enabled only when both are present:
+
+- `VDR_SUITE_MANAGED_BASIC_USERNAME`;
+- `VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH`.
+
+Optional identity configuration:
+
+- `VDR_SUITE_MANAGED_BASIC_ACTOR_ID`;
+- `VDR_SUITE_MANAGED_BASIC_ACTOR_DISPLAY_NAME`;
+- `VDR_SUITE_MANAGED_BASIC_DEVICE_ID`;
+- `VDR_SUITE_MANAGED_BASIC_SESSION_ID`;
+- `VDR_SUITE_MANAGED_BASIC_CREDENTIAL_ID`;
+- `VDR_SUITE_MANAGED_BASIC_PERMISSIONS`.
+
+Managed permissions default to empty. Partial configuration or an unsupported hash format prevents the security runtime from becoming ready.
 
 ## Security errors
 
-Phase 62 security errors use:
+Phase 62 security errors use a nested machine-readable error with request ID and `Cache-Control: no-store`.
 
-```json
-{
-  "error": {
-    "code": "permission_denied",
-    "message": "The actor lacks the required permission",
-    "requestId": "req-..."
-  }
-}
-```
-
-Current codes introduced by the Phase 62 boundary:
+Current codes include:
 
 - `authentication_required`;
 - `invalid_credentials`;
@@ -133,25 +171,19 @@ Current codes introduced by the Phase 62 boundary:
 - `security_policy_not_migrated`;
 - `security_runtime_unavailable`.
 
-Security errors are non-cacheable. They never include the submitted credential. The unversioned API still contains older ad-hoc error shapes outside this migrated boundary; convergence remains Phase 62 work and stable public error compatibility remains Phase 67.
+Security errors never include the submitted credential. Stable public error compatibility remains Phase 67.
 
 ## Accountability
 
-`AccountabilityEventRepository` owns the SQLite boundary. It creates an append-only `accountability_events` table and rejects update/delete statements with database triggers.
+`AccountabilityEventRepository` creates an append-only `accountability_events` table and rejects update/delete statements with database triggers.
 
-For the first protected mutation it stores the pre-dispatch authorization decision with:
+For the first protected mutation it stores the pre-dispatch decision with actor, device, session, authentication state, permission, backend, operation, request, correlation, reason, and dispatch-authorization outcome.
 
-- event ID, schema version, class, type, severity, and timestamp;
-- actor, actor type, device, session, and authentication state;
-- permission, backend, operation ID, action;
-- request and correlation IDs;
-- allow/deny decision, reason code, and dispatch authorization outcome.
-
-An allowed remote mutation is not dispatched when the required decision row cannot be appended. Enforced-mode denial of an unmigrated POST is also recorded before the request is rejected.
+An allowed remote mutation is not dispatched when the required decision row cannot be appended. Denials for invalid managed credentials and unmigrated managed POST requests are also recorded before rejection.
 
 This is not yet ADR-0049 completion. Authentication lifecycle events, mutation completion events, transactional outbox semantics, protected audit reads, retention, export, integrity chaining, and the full event catalogue remain open.
 
-## Storage and credential handling
+## Storage and secret handling
 
 The security database path is resolved in this order:
 
@@ -159,19 +191,20 @@ The security database path is resolved in this order:
 2. `VDR_SUITE_DATABASE_PATH`;
 3. `/tmp/vdr-suite-test.db`.
 
-The HTTP server owns a dedicated SQLite connection and explicit repository, resolver, and gate lifetimes. There is no global security singleton. The connection may point to the same database file as the rest of the daemon while repository ownership remains explicit.
+The HTTP server owns a dedicated SQLite connection and explicit repository, authenticator, resolver, and gate lifetimes. There is no global security singleton.
 
-The persistence layer stores a credential identifier and lifecycle metadata, not the complete Authorization header, decoded password, reversible secret, or token material. Authorization header values are not placed in identity tables, domain objects, audit rows, error responses, request IDs, correlation IDs, or operation IDs.
+Stored credential information is limited to credential identity/lifecycle metadata and a one-way modular password hash for configured managed Basic identities. The complete Authorization header, decoded password, plaintext password, reversible secret, and generated password are not persisted or reflected in errors or accountability events.
 
 ## Remaining authentication boundary
 
-The repository and resolver provide durable lifecycle state but do not implement production credential issuance or verification. Still open within Phase 62 are:
+Still open within Phase 62 are:
 
-- per-user credential issuance and secure password hashing or token verification;
-- browser cookie and CSRF contracts;
-- native-client enrollment, token rotation, refresh, logout, and recovery;
-- administrative lifecycle APIs protected by explicit permissions;
-- persisted roles, grants, and backend scopes.
+- secure password-hash generation and protected credential issuance;
+- browser cookie sessions, secure cookie attributes, CSRF, logout, and expiry cleanup;
+- service/native credential enrollment, rotation, refresh, recovery, and device trust;
+- protected lifecycle administration;
+- persisted roles, grants, and backend/resource scopes;
+- migration of all protected routes away from the legacy bypass.
 
 These capabilities must consume the current repository-owned boundary rather than create a second authentication stack.
 
