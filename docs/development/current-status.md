@@ -23,8 +23,10 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 status:
-Active; Slice 1 is real-runtime validated. Slice 2 lifecycle persistence and managed Basic increments are real-runtime accepted. A browser-session credential/cookie/CSRF verifier foundation is implemented and CI validated on the Draft branch but is not yet connected to TestHttpServer or SecurityHttpGate.
+Active. Slice 1 is real-runtime validated. Slice 2 lifecycle persistence and managed Basic are real-runtime accepted. Browser-session verifier and atomic server-side issuance foundations are implemented and CI validated, but no HTTP login/logout, Set-Cookie, cookie authentication, or real CSRF enforcement is active.
 ```
+
+Phase 61 remains completed. Phase 62 remains active and incomplete. Phase 63-67 runtime has not been advanced.
 
 ## Stable implemented scope
 
@@ -50,83 +52,87 @@ Implemented and real-runtime validated:
 - explicit legacy compatibility and fail-closed enforced modes;
 - server-side protection of `POST /api/vdr/remote/actions` with `remote.control`;
 - append-only accountability persistence before dispatch;
-- stable 400/401/403/503 security errors without credential reflection;
-- focused authorization, configuration, repository, HTTP-gate and architecture tests;
+- stable security errors without credential reflection;
 - real yaVDR evidence for anonymous denial, invalid-credential denial and authenticated Browser Remote dispatch.
 
-The existing `BackendAccessPolicy` remains a separate backend-state guard. It does not replace actor authorization.
+`BackendAccessPolicy` remains an independent backend-state guard and never replaces actor authorization.
 
 ## Phase 62 Slice 2
 
 ### Lifecycle persistence — implemented and real-runtime accepted
 
 - additive `security_actors`, `security_devices`, `security_sessions` and `security_credentials` tables;
-- server-owned compatibility identity bootstrap without storing the Authorization secret;
-- persisted actor/device/session/credential bindings;
+- compatibility bootstrap without storing Authorization secrets;
+- persisted actor/device/session/credential ownership bindings;
 - request-time `PersistentIdentityResolver` before authorization;
-- persisted session and credential expiry/revocation enforcement;
-- restart-safe `INSERT OR IGNORE` bootstrap that does not reactivate revoked records;
-- `credential_expired` and `credential_revoked` decisions;
+- persisted expiry and revocation enforcement;
+- restart-safe bootstrap that never reactivates revoked records;
 - real yaVDR revoke/restore evidence without daemon restart.
 
-### First managed credential verifier — implemented and real-runtime accepted
+### Managed Basic verifier — implemented and real-runtime accepted
 
 - optional separate managed actor/device/session/credential provisioning;
 - `security_basic_credential_verifiers` login-to-credential binding;
-- persisted yescrypt or SHA-512 crypt one-way password hash;
-- strict and bounded Basic parsing;
-- thread-safe `crypt_r` verification and constant-time result comparison;
+- yescrypt or SHA-512 crypt one-way password hashes;
+- strict bounded Basic parsing and thread-safe `crypt_r` verification;
 - no managed identity or permission enabled by default;
-- startup failure for partial configuration, unsupported hashes, or conflicting persisted provisioning;
-- managed identity access to authenticated reads and explicitly migrated Remote only;
-- fail-closed `security_policy_not_migrated` for managed access to old POST routes;
-- rejection of invalid presented credentials on enforced-mode GET routes;
-- provisioning, verifier, authentication, revocation and route-boundary tests;
-- real yaVDR positive GET authentication, wrong-password 401, unmigrated Timer 503, migrated Remote 200 and actor/device/session accountability evidence.
+- startup failure for partial, unsupported or conflicting configuration;
+- no legacy bypass for managed identities;
+- real yaVDR positive GET, wrong-password 401, unmigrated Timer 503, migrated Remote 200 and accountability evidence.
 
-### Browser-session credential and verifier foundation — implemented and CI validated, not runtime wired
+### Browser-session verifier — implemented and CI validated, not HTTP-wired
 
 - additive `security_browser_session_credentials` table;
 - actor/device/session/browser-credential/issuing-credential bindings;
-- non-secret lookup token ID plus one-way modular hashes of the session and CSRF secrets;
-- bounded `vdr_suite_session` cookie parsing;
-- duplicate target-cookie rejection;
+- non-secret lookup token plus separate one-way session and CSRF hashes;
+- bounded `vdr_suite_session` parsing and duplicate rejection;
 - independent `X-CSRF-Token` verification;
-- active, expiry and revocation semantics;
-- tests for valid, wrong, unknown, malformed, duplicate, expired, revoked and CSRF-negative paths;
-- architecture guards against raw cookie/session/CSRF storage.
+- active, expiry and revocation outcomes;
+- positive and negative cookie/CSRF tests;
+- architecture guards against raw browser-secret persistence.
 
-The runtime still uses legacy or managed Basic authentication. No cookie is issued, no browser login/logout route exists, and mutation requests are not yet CSRF-gated. The staged verifier therefore changes no installed request behavior.
+### Atomic browser-session issuance — implemented and CI validated, not HTTP-exposed
 
-The runtime never persists or reflects submitted Authorization headers, decoded passwords, plaintext passwords, complete cookie values, raw session secrets, raw CSRF values or reversible secrets. Only one-way verifier hashes belong in the dedicated verifier repositories.
+- Linux `getrandom(2)` as production CSPRNG with full-read and `EINTR` handling;
+- independent 128-bit token/session/credential IDs;
+- independent 256-bit Base64url session and CSRF secrets;
+- independent SHA-512 crypt salts and `rounds=10000` verifier hashes;
+- bounded lifetime: 5 minutes minimum, 8 hours default, 24 hours maximum;
+- actor/device/issuing-credential revalidation inside `BEGIN IMMEDIATE`;
+- atomic creation of session, browser credential and verifier rows;
+- rollback on validation, collision, repository or commit failure;
+- forced-collision test proving no intermediate lifecycle rows survive;
+- move-only issuance result whose cookie and CSRF buffers are explicitly wiped;
+- issued material successfully consumed by the staged authenticator and CSRF verifier.
+
+The active daemon still authenticates requests only through legacy or managed Basic. The issuance service is linked but not invoked by `TestHttpServer` or `SecurityHttpGate`, so installed request behaviour is unchanged.
 
 ## Open Phase 62 limitations
 
 The platform still lacks:
 
-- atomic browser-session issuance with server-generated high-entropy values;
-- browser login/logout HTTP routes and documented `Set-Cookie` attributes;
+- HTTP browser-login request parsing and response contract;
+- logout and atomic coupled session/credential revocation;
+- documented secure `Set-Cookie` attributes and HTTP/HTTPS deployment behaviour;
 - browser-cookie authentication precedence and `PersistentIdentityResolver`/`SecurityHttpGate` integration;
-- actual CSRF rejection before mutation dispatch, refresh, idle expiry and cleanup;
-- protected per-user/service credential issuance and server-side managed-password hash-generation/change workflows;
-- native/service token enrollment, rotation and recovery;
-- protected lifecycle-management routes;
+- actual CSRF rejection before mutation dispatch;
+- browser issuance/login/logout/CSRF accountability events;
+- refresh, idle expiry, cleanup, concurrent-session policy and recovery;
+- protected managed/native/service credential lifecycle administration;
 - persisted roles, grants and backend/resource scopes;
 - complete mutation and sensitive-read permission migration;
 - universal revision and idempotency contracts;
 - mutation outcome and transactional-outbox delivery;
-- complete authentication/security event catalogue and protected audit query/retention;
+- complete security event catalogue and protected audit query/retention;
 - full failure injection and real-runtime closeout across all migrated routes.
-
-Phase 62 remains active and incomplete.
 
 ## Pull request truth
 
 - PR #115 is merged and defines current Remote runtime truth.
 - PR #113 is closed as superseded by #115.
-- PR #112 remains an open old-base Draft and is not current runtime truth.
-- PR #116 remains an open, mergeable Draft. Its proposed ADR-0051 is not on `main` and is consumer context only.
-- PR #117 is the active Phase 62 Draft and must not be merged or auto-merged by the implementation workflow.
+- PR #112 remains an old-base Draft and is not current runtime truth.
+- PR #116 remains an open Draft; proposed ADR-0051 is consumer context only.
+- PR #117 is the active Phase 62 Draft and must not be merged or auto-merged by this workflow.
 
 ## Immediate implementation focus
 
@@ -134,19 +140,7 @@ Phase 62 remains active and incomplete.
 Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-Implement atomic browser-session issuance and HTTP login/logout, then connect cookie authentication and CSRF enforcement to `PersistentIdentityResolver` and `SecurityHttpGate` before moving to persisted roles/grants and route-by-route authorization.
-
-### Preferred edit path for new chats
-
-Prefer direct GitHub repository updates for existing files when the complete current file has been fetched and the edit can be reviewed as a bounded diff.
-
-Use local edits first only when the change requires:
-
-- broad generated-file or binary work;
-- local compilation, formatting or repository-wide transformations that cannot be expressed safely as bounded connector edits;
-- a workaround because the GitHub connector blocks a file operation.
-
-Never replace a complete existing file from a truncated fetch. Fetch missing ranges first, preserve historical detail through explicit archives when appropriate, and inspect the resulting commit diff before treating an update as correct.
+Implement HTTP login/logout and secure cookie response construction. Then connect browser authentication to `PersistentIdentityResolver` and `SecurityHttpGate`, enforce CSRF before router dispatch, and add accountability before moving to persisted roles/grants and complete route migration.
 
 ## Authoritative links
 
@@ -157,9 +151,5 @@ Never replace a complete existing file from a truncated fetch. Fetch missing ran
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Phase 62 Slice 1](phase-62-security-identity-foundation-slice-1.md)
 - [Phase 62 Slice 2](phase-62-security-identity-foundation-slice-2.md)
-- [Phase 61 and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
 - [Current Architecture State](current-architecture-state.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)
-- [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
-- [VDR Ecosystem Parity](../planning/parity-audit-and-frontend-gap-roadmap.md)
