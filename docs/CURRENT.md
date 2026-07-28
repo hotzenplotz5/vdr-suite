@@ -11,24 +11,14 @@
 - [Current Architecture State](development/current-architecture-state.md)
 - [Phase 62 Slice 1](development/phase-62-security-identity-foundation-slice-1.md)
 - [Phase 62 Slice 2](development/phase-62-security-identity-foundation-slice-2.md)
-- [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
-- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
-- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Completed Phases](development/completed-phases.md)
 - [ADR Index](adr/index.md)
 
 ## Repository baseline
 
-This document was reconciled on 2026-07-27 against:
+This document was reconciled from `origin/main` commit `cb77ff66e11dca7db2eafa36525762dcde35102d`, the merge of PR #115, plus the active Draft PR #117 branch.
 
-```text
-origin/main
-cb77ff66e11dca7db2eafa36525762dcde35102d
-Merge pull request #115 from hotzenplotz5/agent/configurable-remote-mapping
-```
-
-The SHA is a time-bound evidence point. Every new task must fetch `origin/main`, determine the current head and inspect the local worktree before changing files.
+The SHA is a time-bound evidence point. Every task must fetch the relevant branch and inspect the worktree before editing.
 
 ## Current verified position
 
@@ -51,166 +41,161 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
-Active; Slice 1 is real-runtime validated. Slice 2 lifecycle persistence and managed Basic increments are implemented, CI validated, and real-runtime accepted. A browser-session credential/cookie/CSRF verifier foundation is implemented and CI validated on Draft PR #117 but is not yet connected to the HTTP runtime.
+Active. Slice 1 is real-runtime validated. Slice 2 lifecycle and managed Basic are real-runtime accepted. Browser-session verification and atomic issuance are implemented and CI validated, but HTTP login/logout, Set-Cookie, cookie authentication and real CSRF enforcement remain open.
 ```
 
-Phase 61 remains completed. Phase 62 is not complete. The active work does not advance Phase 63-67 runtime.
+Phase 61 remains completed. Phase 62 is not complete. Phase 63-67 runtime has not been advanced.
 
 ## Implemented runtime truth on `main`
 
 Current `main` contains:
 
 - daemon-owned SQLite persistence, migrations and domain repository boundaries;
-- BackendNode/BackendRegistry, backend-scoped snapshots, change feed, SSE foundations and server-enforced read-only backend policy;
-- channels, current-programme and channel-day views, persistent EPG cache and the EPG timeline;
-- Recordings 2 as the sole delivered recording browser, including folders, cards, detail view, metadata, people, artwork, Genre integration and guarded rename/move/trash actions;
-- SearchTimer list, discovery, preview, validation, native capability handling and controlled mutation foundations;
-- persistent backend-scoped Recording and EPG metadata identities, people relations, Genre evidence, assignment states and query-only browse paths;
-- the accepted EPG hierarchy Film, Serie, Dokumentation and Sport, plus result-backed Film subgenres;
-- asynchronous provider acquisition with provider-failure isolation and no provider resolution from normal Genre or search GET requests;
-- backend-neutral remote actions and live-overlay snapshots through Suite-owned API and Client API boundaries;
-- backend-scoped global search over persisted Recording and EPG titles, subtitles and people;
-- the merged 360×1220 transparent PNG remote, 35 existing hotspots, overview/EPG/help integration and guarded REC start/stop workflow from PR #115;
+- BackendRegistry, backend-scoped snapshots, change feed and read-only policy;
+- channels, EPG, Recordings 2 and Timer/SearchTimer foundations;
+- persistent metadata, people, Genre evidence and query-only browse paths;
+- backend-neutral RemoteAction and LiveOverlay APIs;
+- backend-scoped global search;
+- the merged configurable 360×1220 PNG Remote with 35 hotspots;
 - packaging, install staging, daemon builds and real-system acceptance workflows.
 
-## Active Phase 62 branch truth
-
-The active Phase 62 branch currently owns this runtime request path:
+## Active Phase 62 runtime request path
 
 ```text
 HttpServerRequest
   -> SecurityHttpGate
-       -> transitional LegacyBasicAuthenticator
+       -> LegacyBasicAuthenticator
        -> optional ManagedBasicAuthenticator
             -> CredentialVerifierRepository
        -> RequestSecurityContext
        -> PersistentIdentityResolver
             -> SecurityIdentityRepository
        -> AuthorizationService
-       -> append-only AccountabilityEventRepository
+       -> AccountabilityEventRepository
   -> ApiRouter
-  -> existing controller/service/domain safety checks
 ```
 
-The branch additionally contains this staged foundation, which is not yet called by `TestHttpServer` or `SecurityHttpGate`:
+Only this Basic path is active on installed systems.
+
+## Staged browser-session foundations
 
 ```text
+future authenticated login request
+  -> BrowserSessionIssuanceService
+       -> getrandom CSPRNG
+       -> independent IDs, session secret, CSRF secret and salts
+       -> one-way hashes
+       -> atomic session/credential/verifier transaction
+       -> move-only one-time result
+
 future Cookie request
   -> BrowserSessionAuthenticator
        -> strict vdr_suite_session parsing
        -> BrowserSessionCredentialRepository
-            -> security_browser_session_credentials
-       -> one-way session-secret verification
+       -> session-secret verification
        -> independent X-CSRF-Token verification
-  -> future PersistentIdentityResolver / SecurityHttpGate integration
+  -> future PersistentIdentityResolver
+  -> future SecurityHttpGate integration
 ```
 
-### Slice 1 — implemented and real-runtime validated
+Neither component is called by `TestHttpServer` or `SecurityHttpGate`. The branch therefore does not claim an active login route, cookie response, cookie-authenticated request, logout route or real CSRF denial.
 
-- canonical actor, device, session and request security context values;
-- explicit anonymous, authenticated, invalid, expired and revoked states;
-- backend-scoped permission grants and centralized authorization decisions;
-- stable security error codes without credential reflection;
-- pre-dispatch authorization for `POST /api/vdr/remote/actions` using `remote.control@<backend>`;
-- append-only SQLite accountability rows for allow and deny decisions;
-- request and correlation ID propagation;
-- explicit `legacy-basic` and fail-closed `enforced` rollout modes;
-- real yaVDR evidence for anonymous denial, invalid-credential denial and authenticated Browser Remote actions.
+## Phase 62 Slice 1 — implemented and real-runtime validated
 
-### Slice 2 — lifecycle and managed Basic increments implemented and real-runtime accepted
+- canonical actor, device, session, credential and request context;
+- anonymous, authenticated, invalid, expired and revoked states;
+- backend-scoped permissions and centralized authorization;
+- stable credential-safe errors;
+- protected `POST /api/vdr/remote/actions` using `remote.control@backend`;
+- append-only pre-dispatch accountability;
+- request/correlation ID propagation;
+- explicit `legacy-basic` and `enforced` rollout modes;
+- real yaVDR anonymous, invalid and authenticated Remote evidence.
+
+## Phase 62 Slice 2 — lifecycle and managed Basic real-runtime accepted
 
 - additive actor, device, session, credential and Basic-verifier tables;
-- compatibility lifecycle bootstrap without storing the Basic Authorization value;
-- persisted actor/device/session/credential ownership bindings;
-- request-time lifecycle resolution before authorization;
-- persisted expiry and revocation enforcement;
-- restart-safe bootstrap that does not overwrite revoked records;
-- optional separate managed actor/device/session/credential provisioning;
-- strict Basic parsing and `crypt_r` verification against yescrypt or SHA-512 crypt hashes;
-- no default managed identity and no default managed permission;
-- partial/unsupported managed configuration fails security-runtime startup;
-- managed identities cannot use the legacy bypass for unmigrated POST routes;
-- invalid credentials in `enforced` mode are rejected rather than treated as anonymous;
-- repository, provisioning, verifier, resolver, HTTP-gate and architecture tests;
-- real yaVDR evidence for successful managed GET authentication, wrong-password 401, unmigrated Timer 503, migrated Remote 200, and correct actor/device/session accountability.
+- restart-safe lifecycle bootstrap;
+- request-time persistent lifecycle resolution;
+- expiry/revocation enforcement;
+- optional separate managed identity;
+- strict Basic parsing and `crypt_r` verification;
+- no managed defaults;
+- no legacy bypass for managed identities;
+- real yaVDR positive GET, wrong-password 401, unmigrated Timer 503, migrated Remote 200 and accountability evidence.
 
-### Slice 2 — browser-session credential/verifier foundation implemented, runtime integration open
+## Phase 62 Slice 2 — browser verifier and atomic issuance CI validated
 
-- additive `security_browser_session_credentials` table;
-- exact actor, device, session, browser credential, and issuing-credential bindings;
-- non-secret token ID plus one-way modular hashes for the session and CSRF secrets;
-- strict bounded `vdr_suite_session` cookie parsing with duplicate rejection;
-- independent `X-CSRF-Token` verification;
-- expiry and persistent revocation decisions;
-- tests for valid, wrong, unknown, malformed, duplicate, expired, revoked, and CSRF-negative cases;
-- architecture guards forbidding raw cookie/session/CSRF storage fields.
+- `security_browser_session_credentials` with exact identity and issuing-credential bindings;
+- non-secret token ID and independent one-way session/CSRF hashes;
+- strict bounded cookie parser and duplicate rejection;
+- independent CSRF verifier;
+- expiry and revocation outcomes;
+- Linux `getrandom(2)` production entropy;
+- 128-bit token/session/credential IDs;
+- independent 256-bit session and CSRF secrets;
+- bounded 5-minute to 24-hour lifetime, 8-hour default;
+- actor/device/issuing-credential validation inside `BEGIN IMMEDIATE`;
+- atomic session, browser credential and verifier persistence;
+- rollback proof through a forced token collision;
+- move-only result with explicit secret-buffer wiping;
+- successful consumption of issued material by the staged authenticator.
 
-No login route, `Set-Cookie`, logout, gate authentication precedence, or actual mutation CSRF rejection is claimed yet. The existing browser still uses the transitional legacy Basic path.
+Complete cookie values, raw session secrets, raw CSRF values, plaintext passwords and submitted Authorization/Cookie headers are not persisted or reflected.
 
 ## Open Phase 62 work
 
 Phase 62 still requires:
 
-- atomic browser-session issuance with server-generated high-entropy values;
-- HTTP login/logout, documented secure cookie attributes, authentication precedence, and `PersistentIdentityResolver`/`SecurityHttpGate` integration;
-- actual CSRF enforcement before mutation dispatch, refresh/idle expiry cleanup, and protected lifecycle management;
-- protected per-user/service credential issuance, managed-password hash generation/change, and recovery;
-- native/service token enrollment and rotation;
-- persisted roles, permissions, grants and backend/resource scopes;
-- complete permission mapping and server-side authorization for all mutations and sensitive reads;
-- universal revision and `If-Match` rules where resource state is mutable;
-- durable idempotency-key replay semantics and operation records;
-- mutation completion/outcome evidence and transactional outbox delivery;
-- full authentication, authorization, mutation and security event catalogue;
-- protected audit reads, redaction, retention and audit-of-audit;
-- failure-injection and real-runtime acceptance across all migrated routes.
+- browser login request parsing and response contract;
+- logout and coupled session/credential revocation;
+- secure `Set-Cookie` attributes and HTTP/HTTPS deployment policy;
+- browser authentication precedence and resolver/Gate integration;
+- actual CSRF enforcement before mutation dispatch;
+- browser issuance/login/logout/CSRF accountability;
+- refresh, idle expiry, cleanup, concurrency and recovery policy;
+- protected managed/native/service credential administration;
+- persisted roles, permissions, grants and scopes;
+- complete route authorization migration;
+- universal revision, idempotency and operation lifecycle;
+- mutation outcomes, transactional outbox and protected audit reads;
+- failure injection and real-runtime closeout.
 
 ## Compatibility boundary
 
-The local browser remains compatible by default through `legacy-basic`. That actor alone retains the temporary compatibility bypass for not-yet-migrated POST routes.
+The local browser remains compatible through `legacy-basic`. Only the exact legacy actor/credential receives the temporary unmigrated-POST bypass.
 
-An optional managed Basic identity can coexist for isolated identity, permission and revocation tests. It may use authenticated reads and explicitly migrated routes, but receives `security_policy_not_migrated` for an unmigrated POST.
+Managed Basic identities can use authenticated reads and explicitly migrated routes, but unmigrated POSTs fail with `security_policy_not_migrated`.
 
-The staged browser-session verifier changes no runtime request behavior until explicit HTTP/Gate integration is implemented and accepted.
+The staged browser issuer and verifier change no installed request behaviour until HTTP/Gate integration is implemented and accepted.
 
-The compatibility mode is not a permanent architecture exemption. Frontend state and disabled buttons are never authorization evidence. The server remains the enforcement owner.
-
-## Pull request classification at this baseline
+## Pull request classification
 
 | PR | Repository truth |
 | ---: | --- |
-| #112 | Open Draft from an old base; competing pure-SVG asset proposal and not current runtime truth. |
-| #113 | Closed unmerged; explicitly superseded by merged PR #115. |
+| #112 | Open old-base Draft; not current runtime truth. |
+| #113 | Closed unmerged; superseded by PR #115. |
 | #114 | Merged documentation truth refresh. |
-| #115 | Merged configurable photorealistic PNG Remote and extended Remote functions; current `main` head. |
-| #116 | Open Draft, mergeable; Android/client API feasibility and proposed ADR-0051. ADR-0051 is not accepted runtime truth on `main`. |
-| #117 | Open Draft Phase 62 implementation branch; Slice 1 and managed/lifecycle Slice 2 increments are real-runtime accepted, while the browser-session verifier is staged and CI validated. Must not be auto-merged. |
-
-Open PR content remains lower-trust than merged code and accepted ADRs.
-
-## Accepted target contracts versus implementation
-
-Accepted ADRs through ADR-0050 are on `main`. ADR-0013, ADR-0041, ADR-0042, ADR-0048 and ADR-0049 define the relevant Phase 62 direction. Their acceptance does not mean their complete runtime exists.
-
-ADR-0051 is proposed only in Draft PR #116 at this baseline. It may consume Phase 62 contracts later but does not change Phase 62 scope and does not authorize Android implementation in this phase.
+| #115 | Merged configurable photorealistic Remote; current `main` baseline. |
+| #116 | Open Draft Android/client feasibility; proposed ADR-0051 is not accepted runtime truth. |
+| #117 | Open Draft Phase 62 implementation; Basic lifecycle is real-runtime accepted, browser verifier/issuer are staged and CI validated. Must not be auto-merged. |
 
 ## Later phase boundaries
 
-- Phase 63 owns production remote-site and Backend Agent runtime.
-- Phase 64 owns complete TimerIntent and multi-backend orchestration.
-- Phase 65 owns Streaming Gateway and media sessions.
-- Phase 66 owns legacy OSD compatibility runtime.
-- Phase 67 owns stable public `/api/v1`, SDK and compatibility release.
+- Phase 63: Backend Agent and remote-site runtime.
+- Phase 64: TimerIntent and multi-backend orchestration.
+- Phase 65: Streaming Gateway and media sessions.
+- Phase 66: legacy OSD compatibility runtime.
+- Phase 67: stable public `/api/v1`, SDK and compatibility release.
 
-The current unversioned `/api/...` routes are compatibility routes, not a stable public API.
+The current `/api/...` routes are compatibility routes, not a stable public API.
 
 ## Boundary rules
 
 - VDR remains native runtime authority.
-- VDR-Suite owns external domain, policy, orchestration, persistent read models and client contracts.
-- Browsers do not call RESTfulAPI, SVDRP, Streamdev, TVScraper or SuiteBridge directly.
-- Authentication, credential verification, persistent identity resolution and authorization are separate decisions.
+- VDR-Suite owns external identity, policy, orchestration, persistence and client contracts.
+- Browsers never call private backend protocols directly.
+- Credential verification, authentication, lifecycle resolution, CSRF and authorization are separate server decisions.
 - Backend read-only and capability checks remain independent of actor permissions.
-- Frontends do not own authorization decisions.
-- Submitted passwords, Authorization headers, complete cookie values, raw session secrets, and raw CSRF values do not belong in URLs, logs, error bodies, request IDs, identity lifecycle rows, or accountability payloads; only one-way verifier hashes may be persisted in their dedicated repositories.
-- Completed phases are not silently reopened by optional extensions.
+- Frontends never own authorization.
+- Secrets do not belong in URLs, logs, errors, request IDs, lifecycle rows or accountability payloads.
