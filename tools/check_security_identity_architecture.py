@@ -34,6 +34,11 @@ def main() -> int:
         "core/security/include/AccountabilityEvent.h",
         "core/security/include/AccountabilityEventRepository.h",
         "core/security/include/SecurityHttpGate.h",
+        "core/security/src/AccountabilityEventRepository.cpp",
+        "core/security/src/BrowserSessionCredentialRepository.cpp",
+        "core/security/src/CredentialVerifierRepository.cpp",
+        "core/security/src/SecurityIdentityProvisioningRepository.cpp",
+        "core/security/src/SecurityIdentityRepository.cpp",
         "core/security/tests/test_authorization_service.cpp",
         "core/security/tests/test_security_configuration.cpp",
         "core/security/tests/test_security_identity_repository.cpp",
@@ -79,26 +84,38 @@ def main() -> int:
         "core/security/include/SecurityHttpGate.h",
         "usesLegacyCompatibilityCredential")
     require(
-        "core/security/include/SecurityIdentityRepository.h",
+        "core/security/src/SecurityIdentityRepository.cpp",
         "security_actors")
     require(
-        "core/security/include/SecurityIdentityRepository.h",
+        "core/security/src/SecurityIdentityRepository.cpp",
         "security_devices")
     require(
-        "core/security/include/SecurityIdentityRepository.h",
+        "core/security/src/SecurityIdentityRepository.cpp",
         "security_sessions")
     require(
-        "core/security/include/SecurityIdentityRepository.h",
+        "core/security/src/SecurityIdentityRepository.cpp",
         "security_credentials")
     require(
-        "core/security/include/SecurityIdentityRepository.h",
+        "core/security/src/SecurityIdentityRepository.cpp",
         "INSERT OR IGNORE")
     require(
-        "core/security/include/SecurityIdentityProvisioningRepository.h",
+        "core/security/src/SecurityIdentityProvisioningRepository.cpp",
         "INSERT OR IGNORE INTO security_actors")
     require(
-        "core/security/include/CredentialVerifierRepository.h",
+        "core/security/src/CredentialVerifierRepository.cpp",
         "security_basic_credential_verifiers")
+    require(
+        "core/security/src/BrowserSessionCredentialRepository.cpp",
+        "security_browser_session_credentials")
+    require(
+        "core/security/src/BrowserSessionCredentialRepository.cpp",
+        "session_secret_hash")
+    require(
+        "core/security/src/BrowserSessionCredentialRepository.cpp",
+        "csrf_secret_hash")
+    require(
+        "core/security/src/BrowserSessionCredentialRepository.cpp",
+        "issued_from_credential_id")
     require(
         "core/security/include/ManagedBasicAuthenticator.h",
         "crypt_r")
@@ -108,18 +125,6 @@ def main() -> int:
     require(
         "core/security/include/ManagedBasicAuthenticator.h",
         'passwordHash.rfind("$6$", 0)')
-    require(
-        "core/security/include/BrowserSessionCredentialRepository.h",
-        "security_browser_session_credentials")
-    require(
-        "core/security/include/BrowserSessionCredentialRepository.h",
-        "session_secret_hash")
-    require(
-        "core/security/include/BrowserSessionCredentialRepository.h",
-        "csrf_secret_hash")
-    require(
-        "core/security/include/BrowserSessionCredentialRepository.h",
-        "issued_from_credential_id")
     require(
         "core/security/include/BrowserSessionAuthenticator.h",
         '"vdr_suite_session"')
@@ -136,10 +141,10 @@ def main() -> int:
         "core/security/include/PersistentIdentityResolver.h",
         "findCredential")
     require(
-        "core/security/include/AccountabilityEventRepository.h",
+        "core/security/src/AccountabilityEventRepository.cpp",
         "accountability_events_no_update")
     require(
-        "core/security/include/AccountabilityEventRepository.h",
+        "core/security/src/AccountabilityEventRepository.cpp",
         "accountability_events_no_delete")
     require(
         "core/security/include/SecurityConfiguration.h",
@@ -165,6 +170,7 @@ def main() -> int:
     require(
         "docs/development/phase-62-security-identity-foundation-slice-2.md",
         "Real-VDR acceptance of the persistence/revocation foundation")
+
     forbid(
         "core/http/src/TestHttpServer.cpp",
         "isAuthorized(request)")
@@ -175,26 +181,37 @@ def main() -> int:
         "core/http/src/TestHttpServerAssets.inc",
         "isAuthorized")
     forbid(
-        "core/security/include/SecurityIdentityRepository.h",
+        "core/security/src/SecurityIdentityRepository.cpp",
         "Authorization: Basic")
     forbid(
-        "core/security/include/SecurityIdentityRepository.h",
+        "core/security/src/SecurityIdentityRepository.cpp",
         "YWRtaW46")
     forbid(
         "core/security/include/SecurityConfiguration.h",
         "VDR_SUITE_MANAGED_BASIC_PASSWORD\"")
     forbid(
-        "core/security/include/CredentialVerifierRepository.h",
+        "core/security/src/CredentialVerifierRepository.cpp",
         "decoded_password")
     forbid(
-        "core/security/include/BrowserSessionCredentialRepository.h",
+        "core/security/src/BrowserSessionCredentialRepository.cpp",
         "session_secret TEXT")
     forbid(
-        "core/security/include/BrowserSessionCredentialRepository.h",
+        "core/security/src/BrowserSessionCredentialRepository.cpp",
         "csrf_secret TEXT")
     forbid(
-        "core/security/include/BrowserSessionCredentialRepository.h",
+        "core/security/src/BrowserSessionCredentialRepository.cpp",
         "cookie_value")
+
+    repository_headers = [
+        "core/security/include/AccountabilityEventRepository.h",
+        "core/security/include/BrowserSessionCredentialRepository.h",
+        "core/security/include/CredentialVerifierRepository.h",
+        "core/security/include/SecurityIdentityProvisioningRepository.h",
+        "core/security/include/SecurityIdentityRepository.h",
+    ]
+    for header in repository_headers:
+        forbid(header, "sqlite3.h")
+        forbid(header, "sqlite3_")
 
     print("security identity architecture contracts passed")
     return 0
