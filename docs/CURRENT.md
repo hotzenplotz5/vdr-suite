@@ -51,7 +51,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
-Active; Slice 1 is real-runtime validated. Slice 2 has real-runtime-accepted lifecycle persistence plus an implemented first managed credential verifier on Draft PR #117.
+Active; Slice 1 is real-runtime validated. Slice 2 lifecycle persistence and first managed credential verifier increments are implemented, CI validated, and real-runtime accepted on Draft PR #117.
 ```
 
 Phase 61 remains completed. Phase 62 is not complete. The active work does not advance Phase 63-67 runtime.
@@ -104,7 +104,7 @@ HttpServerRequest
 - explicit `legacy-basic` and fail-closed `enforced` rollout modes;
 - real yaVDR evidence for anonymous denial, invalid-credential denial and authenticated Browser Remote actions.
 
-### Slice 2 — lifecycle foundation and first managed verifier implemented
+### Slice 2 — lifecycle foundation and first managed verifier implemented and real-runtime accepted
 
 - additive actor, device, session, credential and Basic-verifier tables;
 - compatibility lifecycle bootstrap without storing the Basic Authorization value;
@@ -118,7 +118,8 @@ HttpServerRequest
 - partial/unsupported managed configuration fails security-runtime startup;
 - managed identities cannot use the legacy bypass for unmigrated POST routes;
 - invalid credentials in `enforced` mode are rejected rather than treated as anonymous;
-- repository, provisioning, verifier, resolver, HTTP-gate and architecture tests.
+- repository, provisioning, verifier, resolver, HTTP-gate and architecture tests;
+- real yaVDR evidence for successful managed GET authentication, wrong-password 401, unmigrated Timer 503, migrated Remote 200, and correct actor/device/session accountability.
 
 The existing legacy browser credential remains transitional and broadly privileged only for compatibility. The optional managed verifier stores a unique login binding and one-way modular password hash, never the submitted header, decoded password, plaintext password or reversible secret.
 
@@ -155,7 +156,7 @@ The compatibility mode is not a permanent architecture exemption. Frontend state
 | #114 | Merged documentation truth refresh. |
 | #115 | Merged configurable photorealistic PNG Remote and extended Remote functions; current `main` head. |
 | #116 | Open Draft, mergeable; Android/client API feasibility and proposed ADR-0051. ADR-0051 is not accepted runtime truth on `main`. |
-| #117 | Open Draft, mergeable Phase 62 implementation branch; Slice 1 validated and Slice 2 lifecycle plus first managed verifier active. Must not be auto-merged. |
+| #117 | Open Draft, mergeable Phase 62 implementation branch; Slice 1 and current Slice 2 increments are real-runtime accepted. Must not be auto-merged. |
 
 Open PR content remains lower-trust than merged code and accepted ADRs.
 
