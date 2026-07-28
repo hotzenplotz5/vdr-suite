@@ -1,7 +1,7 @@
 CXXFLAGS += -Icore/security/include
 LDFLAGS += -lcrypt
 
-.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-managed-basic-authenticator test-security-http-gate
+.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-http-gate
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
@@ -48,6 +48,15 @@ test-security-managed-basic-authenticator:
 	$(BUILD_DIR)/test_managed_basic_authenticator
 
 
+test-security-browser-session-authenticator:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/security/tests/test_browser_session_authenticator.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_browser_session_authenticator
+	$(BUILD_DIR)/test_browser_session_authenticator
+
+
 test-security-http-gate:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -64,6 +73,7 @@ test-security: \
 	test-security-accountability-event-repository \
 	test-security-identity-repository \
 	test-security-managed-basic-authenticator \
+	test-security-browser-session-authenticator \
 	test-security-http-gate
 
 test: test-security
