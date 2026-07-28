@@ -7,8 +7,6 @@
 #include "GlobalSearchService.h"
 #include "RestQueryParameters.h"
 
-#include <sqlite3.h>
-
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -66,8 +64,8 @@ bool GlobalSearchApiRuntime::configure(
     std::unique_ptr<GlobalSearchRepository> readRepository;
     GlobalSearchRepository* controllerRepository = writerRepository.get();
 
-    const char* filename = sqlite3_db_filename(database.handle(), "main");
-    if (filename != nullptr && filename[0] != '\0')
+    const std::string filename = database.filename();
+    if (!filename.empty())
     {
         auto candidateDatabase = std::make_unique<Database>();
         if (candidateDatabase->open(filename))
