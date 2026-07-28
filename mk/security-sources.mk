@@ -10,13 +10,18 @@ SECURITY_REPOSITORY_SRC := \
 	core/security/src/SecurityIdentityRepository.cpp
 
 SECURITY_SERVICE_SRC := \
-	core/security/src/BrowserSessionIssuanceService.cpp
+	core/security/src/BrowserSessionHttpGate.cpp \
+	core/security/src/BrowserSessionIssuanceService.cpp \
+	core/security/src/BrowserSessionLifecycleService.cpp
 
 SECURITY_SRC := \
 	$(SECURITY_REPOSITORY_SRC) \
 	$(SECURITY_SERVICE_SRC)
 
-.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-browser-session-issuance-service test-security-http-gate
+BROWSER_SESSION_HTTP_SRC := \
+	core/http/src/BrowserSessionHttpService.cpp
+
+.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-browser-session-issuance-service test-security-browser-session-http-service test-security-http-gate
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
@@ -87,10 +92,21 @@ test-security-browser-session-issuance-service:
 	$(BUILD_DIR)/test_browser_session_issuance_service
 
 
+test-security-browser-session-http-service:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		$(BROWSER_SESSION_HTTP_SRC) \
+		core/http/tests/test_browser_session_http_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_browser_session_http_service
+	$(BUILD_DIR)/test_browser_session_http_service
+
+
 test-security-http-gate:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
-		$(SECURITY_REPOSITORY_SRC) \
+		$(SECURITY_SRC) \
 		core/security/tests/test_security_http_gate.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_security_http_gate
@@ -106,6 +122,7 @@ test-security: \
 	test-security-managed-basic-authenticator \
 	test-security-browser-session-authenticator \
 	test-security-browser-session-issuance-service \
+	test-security-browser-session-http-service \
 	test-security-http-gate
 
 test: test-security
