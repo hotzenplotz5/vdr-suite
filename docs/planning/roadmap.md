@@ -324,3 +324,4 @@ No recommendation work may hide provider authority or use unstable identities.
 - [Implementation Dependency Map](implementation-dependency-map.md)
 - [Phase 62 Gap Matrix](phase-62-security-identity-gap-matrix.md)
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
+- [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
