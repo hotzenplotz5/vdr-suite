@@ -138,7 +138,7 @@ int main()
         []
         {
             return std::chrono::system_clock::time_point(
-                std::chrono::seconds(1785240000));
+                std::chrono::seconds(4070908800));
         });
 
     BrowserSessionIssuanceRequest request;
@@ -152,7 +152,7 @@ int main()
     assert(issued->tokenId == prefixedHex("bst_", firstToken));
     assert(issued->sessionId == prefixedHex("bss_", firstSession));
     assert(issued->credentialId == prefixedHex("bsc_", firstCredential));
-    assert(issued->expiresAt == "2026-07-28 13:00:00");
+    assert(issued->expiresAt == "2099-01-01 01:00:00");
     assert(issued->sessionCookieValue.rfind(
         issued->tokenId + ".",
         0) == 0);
