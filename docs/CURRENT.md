@@ -45,7 +45,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
-Active. Slice 1 is real-runtime validated. Slice 2 lifecycle and managed Basic are real-runtime accepted. Browser-session verification and atomic issuance are implemented and CI validated, but HTTP login/logout, Set-Cookie, cookie authentication and real CSRF enforcement remain open.
+Active. Slice 1 is real-runtime validated. Slice 2 lifecycle and managed Basic are real-runtime accepted. Browser-session verification, atomic issuance and two isolated HTTP lifecycle routes are implemented and CI validated. Ordinary application-route cookie authentication, business-mutation CSRF enforcement and real-yaVDR acceptance of the HTTP lifecycle remain open.
 ```
 
 Phase 61 remains completed. Phase 62 is not complete. Phase 63-67 runtime has not been advanced.
@@ -63,10 +63,29 @@ Current `main` contains:
 - the merged configurable 360×1220 PNG Remote with 35 hotspots;
 - packaging, install staging, daemon builds and real-system acceptance workflows.
 
-## Active Phase 62 runtime request path
+## Active Phase 62 runtime request paths
 
 ```text
-HttpServerRequest
+POST /api/security/browser-sessions
+  -> BrowserSessionHttpGate
+       -> legacy or managed Basic authentication
+       -> PersistentIdentityResolver
+       -> session.issue.self accountability
+  -> BrowserSessionHttpService
+       -> atomic BrowserSessionIssuanceService
+       -> hardened Set-Cookie plus one-time CSRF JSON
+
+POST /api/security/browser-sessions/logout
+  -> BrowserSessionHttpGate
+       -> BrowserSessionAuthenticator
+       -> PersistentIdentityResolver
+       -> X-CSRF-Token verification
+       -> session.revoke.self accountability
+  -> BrowserSessionHttpService
+       -> atomic verifier/session/credential revocation
+       -> expired hardened cookie
+
+Every other request
   -> SecurityHttpGate
        -> LegacyBasicAuthenticator
        -> optional ManagedBasicAuthenticator
@@ -79,30 +98,7 @@ HttpServerRequest
   -> ApiRouter
 ```
 
-Only this Basic path is active on installed systems.
-
-## Staged browser-session foundations
-
-```text
-future authenticated login request
-  -> BrowserSessionIssuanceService
-       -> getrandom CSPRNG
-       -> independent IDs, session secret, CSRF secret and salts
-       -> one-way hashes
-       -> atomic session/credential/verifier transaction
-       -> move-only one-time result
-
-future Cookie request
-  -> BrowserSessionAuthenticator
-       -> strict vdr_suite_session parsing
-       -> BrowserSessionCredentialRepository
-       -> session-secret verification
-       -> independent X-CSRF-Token verification
-  -> future PersistentIdentityResolver
-  -> future SecurityHttpGate integration
-```
-
-Neither component is called by `TestHttpServer` or `SecurityHttpGate`. The branch therefore does not claim an active login route, cookie response, cookie-authenticated request, logout route or real CSRF denial.
+The browser lifecycle gate recognizes only the two exact POST routes above. Browser cookies do not authenticate ordinary GET routes, Remote, Timer, Recording or other application APIs.
 
 ## Phase 62 Slice 1 — implemented and real-runtime validated
 
@@ -142,8 +138,31 @@ Neither component is called by `TestHttpServer` or `SecurityHttpGate`. The branc
 - actor/device/issuing-credential validation inside `BEGIN IMMEDIATE`;
 - atomic session, browser credential and verifier persistence;
 - rollback proof through a forced token collision;
-- move-only result with explicit secret-buffer wiping;
-- successful consumption of issued material by the staged authenticator.
+- move-only result with explicit secret-buffer wiping.
+
+## Phase 62 Slice 2 — isolated HTTP lifecycle CI validated
+
+### Login exchange
+
+`POST /api/security/browser-sessions`:
+
+- accepts an already authenticated legacy or managed Basic identity;
+- does not accept a plaintext-password JSON body;
+- returns `200` with only `csrfToken`, `expiresAt` and `requestId`;
+- emits the session secret only through `Set-Cookie`;
+- uses `Path=/`, `Max-Age=28800`, `HttpOnly`, `Secure` and `SameSite=Strict`;
+- emits no `Domain` attribute;
+- uses `Cache-Control: no-store` and `Pragma: no-cache`.
+
+### Logout
+
+`POST /api/security/browser-sessions/logout`:
+
+- requires the browser cookie and matching `X-CSRF-Token`;
+- does not accept Basic as a substitute;
+- rejects missing/wrong CSRF with `403 csrf_validation_failed`;
+- revokes verifier, canonical session and browser credential atomically;
+- returns `204` and an expired hardened cookie.
 
 Complete cookie values, raw session secrets, raw CSRF values, plaintext passwords and submitted Authorization/Cookie headers are not persisted or reflected.
 
@@ -151,18 +170,19 @@ Complete cookie values, raw session secrets, raw CSRF values, plaintext password
 
 Phase 62 still requires:
 
-- browser login request parsing and response contract;
-- logout and coupled session/credential revocation;
-- secure `Set-Cookie` attributes and HTTP/HTTPS deployment policy;
-- browser authentication precedence and resolver/Gate integration;
-- actual CSRF enforcement before mutation dispatch;
-- browser issuance/login/logout/CSRF accountability;
+- install and real-yaVDR acceptance of the new login/logout routes and HTTPS proxy behaviour;
+- browser authentication precedence for ordinary application routes;
+- controlled cookie-context integration with persistent lifecycle and centralized authorization;
+- browser grant loading;
+- actual CSRF enforcement before Remote, Timer, Recording and other applicable business mutations;
+- frontend login/logout and in-memory CSRF handling;
+- complete issuance/revocation outcome accountability and transactional coupling/outbox;
 - refresh, idle expiry, cleanup, concurrency and recovery policy;
 - protected managed/native/service credential administration;
 - persisted roles, permissions, grants and scopes;
 - complete route authorization migration;
 - universal revision, idempotency and operation lifecycle;
-- mutation outcomes, transactional outbox and protected audit reads;
+- protected audit reads, redaction and retention;
 - failure injection and real-runtime closeout.
 
 ## Compatibility boundary
@@ -171,7 +191,7 @@ The local browser remains compatible through `legacy-basic`. Only the exact lega
 
 Managed Basic identities can use authenticated reads and explicitly migrated routes, but unmigrated POSTs fail with `security_policy_not_migrated`.
 
-The staged browser issuer and verifier change no installed request behaviour until HTTP/Gate integration is implemented and accepted.
+After installation, the two browser lifecycle routes add session issue/revoke behaviour without changing ordinary application-route authentication. General application requests remain on the existing Basic path until the next controlled integration increment.
 
 ## Pull request classification
 
@@ -182,7 +202,7 @@ The staged browser issuer and verifier change no installed request behaviour unt
 | #114 | Merged documentation truth refresh. |
 | #115 | Merged configurable photorealistic Remote; current `main` baseline. |
 | #116 | Open Draft Android/client feasibility; proposed ADR-0051 is not accepted runtime truth. |
-| #117 | Open Draft Phase 62 implementation; Basic lifecycle is real-runtime accepted, browser verifier/issuer are staged and CI validated. Must not be auto-merged. |
+| #117 | Open Draft Phase 62 implementation; Basic lifecycle is real-runtime accepted, browser verifier/issuer and isolated HTTP lifecycle are CI validated. Must not be auto-merged. |
 
 ## Later phase boundaries
 
@@ -200,6 +220,7 @@ The current `/api/...` routes are compatibility routes, not a stable public API.
 - VDR-Suite owns external identity, policy, orchestration, persistence and client contracts.
 - Browsers never call private backend protocols directly.
 - Credential verification, authentication, lifecycle resolution, CSRF and authorization are separate server decisions.
+- The isolated lifecycle gate may not become a shortcut around general application authorization.
 - Backend read-only and capability checks remain independent of actor permissions.
-- Frontends never own authorization.
+- Frontends never own authorization or CSRF policy.
 - Secrets do not belong in URLs, logs, errors, request IDs, lifecycle rows or accountability payloads.
