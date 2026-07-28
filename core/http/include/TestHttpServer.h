@@ -3,6 +3,11 @@
 
 #include "AccountabilityEventRepository.h"
 #include "ApiRouter.h"
+#include "BrowserSessionCredentialRepository.h"
+#include "BrowserSessionHttpGate.h"
+#include "BrowserSessionHttpService.h"
+#include "BrowserSessionIssuanceService.h"
+#include "BrowserSessionLifecycleService.h"
 #include "CredentialVerifierRepository.h"
 #include "Database.h"
 #include "IEpgArtworkHttpProvider.h"
@@ -55,10 +60,20 @@ private:
         securityIdentityProvisioningRepository_;
     std::unique_ptr<CredentialVerifierRepository>
         credentialVerifierRepository_;
+    std::unique_ptr<BrowserSessionCredentialRepository>
+        browserSessionCredentialRepository_;
     std::unique_ptr<ManagedBasicAuthenticator>
         managedBasicAuthenticator_;
     std::unique_ptr<PersistentIdentityResolver>
         persistentIdentityResolver_;
+    std::unique_ptr<BrowserSessionIssuanceService>
+        browserSessionIssuanceService_;
+    std::unique_ptr<BrowserSessionLifecycleService>
+        browserSessionLifecycleService_;
+    std::unique_ptr<BrowserSessionHttpService>
+        browserSessionHttpService_;
+    std::unique_ptr<BrowserSessionHttpGate>
+        browserSessionHttpGate_;
     std::unique_ptr<SecurityHttpGate> securityHttpGate_;
     bool securityReady_ = false;
 
