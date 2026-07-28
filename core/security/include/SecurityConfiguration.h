@@ -15,6 +15,34 @@ enum class SecurityMode
     Enforced
 };
 
+struct ManagedBasicConfiguration
+{
+    std::string username;
+    std::string passwordHash;
+    std::string actorId = "phase62-managed-admin";
+    std::string actorDisplayName = "Phase 62 managed administrator";
+    std::string deviceId = "phase62-managed-admin-client";
+    std::string sessionId = "phase62-managed-admin-basic-session";
+    std::string credentialId = "phase62-managed-admin-credential";
+    std::vector<PermissionGrant> grants;
+
+    bool hasAnyConfiguration() const
+    {
+        return !username.empty() || !passwordHash.empty();
+    }
+
+    bool complete() const
+    {
+        return !username.empty() &&
+            !passwordHash.empty() &&
+            !actorId.empty() &&
+            !actorDisplayName.empty() &&
+            !deviceId.empty() &&
+            !sessionId.empty() &&
+            !credentialId.empty();
+    }
+};
+
 struct SecurityConfiguration
 {
     SecurityMode mode = SecurityMode::LegacyBasicCompatibility;
@@ -28,6 +56,7 @@ struct SecurityConfiguration
     std::vector<PermissionGrant> grants = {
         PermissionGrant{"*", "*"}
     };
+    ManagedBasicConfiguration managedBasic;
 
     static SecurityConfiguration fromEnvironment()
     {
@@ -82,68 +111,109 @@ struct SecurityConfiguration
 
         const char* configuredGrants =
             std::getenv("VDR_SUITE_LEGACY_BASIC_PERMISSIONS");
-
         if (configuredGrants != nullptr)
         {
-            configuration.grants.clear();
-            std::stringstream stream(configuredGrants);
-            std::string item;
+            configuration.grants = parseGrants(configuredGrants);
+        }
 
-            const auto trim = [](std::string value)
-            {
-                const auto notSpace = [](unsigned char character)
-                {
-                    return !std::isspace(character);
-                };
+        configuration.managedBasic.username =
+            environmentValue(
+                "VDR_SUITE_MANAGED_BASIC_USERNAME",
+                "");
+        configuration.managedBasic.passwordHash =
+            environmentValue(
+                "VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH",
+                "");
+        configuration.managedBasic.actorId =
+            environmentValue(
+                "VDR_SUITE_MANAGED_BASIC_ACTOR_ID",
+                configuration.managedBasic.actorId);
+        configuration.managedBasic.actorDisplayName =
+            environmentValue(
+                "VDR_SUITE_MANAGED_BASIC_ACTOR_DISPLAY_NAME",
+                configuration.managedBasic.actorDisplayName);
+        configuration.managedBasic.deviceId =
+            environmentValue(
+                "VDR_SUITE_MANAGED_BASIC_DEVICE_ID",
+                configuration.managedBasic.deviceId);
+        configuration.managedBasic.sessionId =
+            environmentValue(
+                "VDR_SUITE_MANAGED_BASIC_SESSION_ID",
+                configuration.managedBasic.sessionId);
+        configuration.managedBasic.credentialId =
+            environmentValue(
+                "VDR_SUITE_MANAGED_BASIC_CREDENTIAL_ID",
+                configuration.managedBasic.credentialId);
 
-                value.erase(
-                    value.begin(),
-                    std::find_if(
-                        value.begin(),
-                        value.end(),
-                        notSpace));
-                value.erase(
-                    std::find_if(
-                        value.rbegin(),
-                        value.rend(),
-                        notSpace).base(),
-                    value.end());
-                return value;
-            };
-
-            while (std::getline(stream, item, ','))
-            {
-                item = trim(item);
-
-                if (item.empty())
-                {
-                    continue;
-                }
-
-                PermissionGrant grant;
-                const std::size_t separator = item.find('@');
-
-                if (separator == std::string::npos)
-                {
-                    grant.permission = item;
-                    grant.backendId = "*";
-                }
-                else
-                {
-                    grant.permission =
-                        trim(item.substr(0, separator));
-                    grant.backendId =
-                        trim(item.substr(separator + 1));
-                }
-
-                if (!grant.permission.empty() &&
-                    !grant.backendId.empty())
-                {
-                    configuration.grants.push_back(grant);
-                }
-            }
+        const char* managedGrants =
+            std::getenv("VDR_SUITE_MANAGED_BASIC_PERMISSIONS");
+        if (managedGrants != nullptr)
+        {
+            configuration.managedBasic.grants =
+                parseGrants(managedGrants);
         }
 
         return configuration;
+    }
+
+private:
+    static std::string trim(std::string value)
+    {
+        const auto notSpace = [](unsigned char character)
+        {
+            return !std::isspace(character);
+        };
+
+        value.erase(
+            value.begin(),
+            std::find_if(
+                value.begin(),
+                value.end(),
+                notSpace));
+        value.erase(
+            std::find_if(
+                value.rbegin(),
+                value.rend(),
+                notSpace).base(),
+            value.end());
+        return value;
+    }
+
+    static std::vector<PermissionGrant> parseGrants(
+        const std::string& configuredGrants)
+    {
+        std::vector<PermissionGrant> grants;
+        std::stringstream stream(configuredGrants);
+        std::string item;
+
+        while (std::getline(stream, item, ','))
+        {
+            item = trim(item);
+            if (item.empty())
+            {
+                continue;
+            }
+
+            PermissionGrant grant;
+            const std::size_t separator = item.find('@');
+            if (separator == std::string::npos)
+            {
+                grant.permission = item;
+                grant.backendId = "*";
+            }
+            else
+            {
+                grant.permission = trim(item.substr(0, separator));
+                grant.backendId = trim(item.substr(separator + 1));
+            }
+
+            if (!grant.permission.empty() &&
+                !grant.backendId.empty())
+            {
+                grants.push_back(grant);
+            }
+        }
+
+        return grants;
     }
 };
