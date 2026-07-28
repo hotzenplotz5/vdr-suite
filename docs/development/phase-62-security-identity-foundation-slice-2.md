@@ -1,6 +1,6 @@
 # Phase 62 Persistent Identity Lifecycle — Slice 2
 
-Status: persistence/revocation foundation real-VDR accepted; first managed credential verifier implemented; Phase 62 remains open
+Status: persistence/revocation foundation real-VDR accepted; first managed credential verifier implemented and CI validated; Phase 62 remains open
 
 ## Purpose
 
@@ -158,7 +158,20 @@ Observed on 2026-07-28:
 - restoring `active=1` and clearing expiry/revocation restored browser access without restarting the daemon;
 - the following Remote request was authorized with `remote.control@default` and recorded as `permission_granted` / `dispatch_authorized`.
 
-This proves durable lifecycle enforcement and recovery. The new managed verifier increment still requires controlled real-VDR provisioning and positive/negative tests with a separate identity before that increment receives runtime acceptance.
+This proves durable lifecycle enforcement and recovery. The managed verifier increment still requires controlled real-VDR provisioning and positive/negative tests with a separate identity before that increment receives runtime acceptance.
+
+## CI evidence for the managed verifier increment
+
+GitHub Actions VDR-Suite CI run 6247 completed successfully on head `8c8cd524b8b3a2463d7c9195ac745c06083c0d2d`.
+
+Passed:
+
+- documentation and phase-contract checks;
+- strict Make/test inventory and complete test-graph dry-run;
+- frontend contract regression;
+- fast C++/runtime regression, including managed provisioning, correct and wrong password verification, malformed credentials, revocation, enforced-mode invalid-credential behavior, and legacy-bypass separation;
+- daemon build and `libcrypt` linkage;
+- packaging and install staging.
 
 ## Explicitly not included
 
@@ -186,6 +199,7 @@ This proves durable lifecycle enforcement and recovery. The new managed verifier
 | Invalid credentials on an enforced-mode GET are rejected rather than downgraded to anonymous | enforced-mode HTTP-gate negative test |
 | Expired/revoked persisted state is rejected | repository/resolver/HTTP-gate negatives and real-VDR revocation evidence |
 | Existing legacy browser and migrated Remote path remain supported | compatibility tests and real-VDR recovery evidence |
+| Daemon and packaging link the verifier dependency | CI run 6247 daemon build and install staging |
 | Architecture remains server-owned | `tools/check_security_identity_architecture.py` |
 
 Canonical checks:
