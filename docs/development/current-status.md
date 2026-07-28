@@ -23,7 +23,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 status:
-Active; Slice 1 is real-runtime validated and the persistent lifecycle foundation of Slice 2 is implemented on its Draft branch.
+Active; Slice 1 is real-runtime validated. Slice 2 has real-runtime-accepted lifecycle persistence plus an implemented first managed credential verifier on its Draft branch.
 ```
 
 ## Stable implemented scope
@@ -45,7 +45,7 @@ Active; Slice 1 is real-runtime validated and the persistent lifecycle foundatio
 
 Implemented and real-runtime validated:
 
-- `RequestSecurityContext` with actor, device, session, grants, request ID and correlation ID;
+- `RequestSecurityContext` with actor, device, session, credential, grants, request ID and correlation ID;
 - centralized `AuthorizationService` with exact/wildcard permission and backend scope decisions;
 - explicit legacy compatibility and fail-closed enforced modes;
 - server-side protection of `POST /api/vdr/remote/actions` with `remote.control`;
@@ -56,9 +56,9 @@ Implemented and real-runtime validated:
 
 The existing `BackendAccessPolicy` remains a separate backend-state guard. It does not replace actor authorization.
 
-## Phase 62 Slice 2 persistence foundation
+## Phase 62 Slice 2
 
-Implemented on the Draft branch:
+### Lifecycle persistence — implemented and real-runtime accepted
 
 - additive `security_actors`, `security_devices`, `security_sessions` and `security_credentials` tables;
 - server-owned compatibility identity bootstrap without storing the Authorization secret;
@@ -66,18 +66,34 @@ Implemented on the Draft branch:
 - request-time `PersistentIdentityResolver` before authorization;
 - persisted session and credential expiry/revocation enforcement;
 - restart-safe `INSERT OR IGNORE` bootstrap that does not reactivate revoked records;
-- `credential_expired` and `credential_revoked` error decisions;
-- repository, resolver and HTTP-gate lifecycle tests.
+- `credential_expired` and `credential_revoked` decisions;
+- real yaVDR revoke/restore evidence without daemon restart.
 
-The current persisted credential row is metadata for the transitional Basic credential. It is not a password hash, bearer token, production session or final authentication mechanism.
+### First managed credential verifier — implemented on the Draft branch
+
+- optional separate managed actor/device/session/credential provisioning;
+- `security_basic_credential_verifiers` login-to-credential binding;
+- persisted yescrypt or SHA-512 crypt one-way password hash;
+- strict and bounded Basic parsing;
+- thread-safe `crypt_r` verification and constant-time result comparison;
+- no managed identity or permission enabled by default;
+- startup failure for partial configuration, unsupported hashes, or conflicting persisted provisioning;
+- managed identity access to authenticated reads and explicitly migrated Remote only;
+- fail-closed `security_policy_not_migrated` for managed access to old POST routes;
+- rejection of invalid presented credentials on enforced-mode GET routes;
+- provisioning, verifier, authentication, revocation and route-boundary tests.
+
+The runtime never persists or reflects the submitted Authorization header, decoded password, plaintext password or reversible secret. The one-way verifier hash is stored in its dedicated repository and is not a replacement for protected issuance, password-change or recovery workflows.
 
 ## Open Phase 62 limitations
 
 The platform still lacks:
 
-- secure per-user/service credential issuance and verification;
-- browser cookie/CSRF, native token, refresh, logout, recovery and protected lifecycle-management contracts;
-- persisted roles, grants and backend scopes;
+- protected per-user/service credential issuance and server-side hash-generation/password-change workflows;
+- browser cookie sessions, secure cookie attributes, CSRF, refresh, logout and expiry cleanup;
+- native/service token enrollment, rotation and recovery;
+- protected lifecycle-management routes;
+- persisted roles, grants and backend/resource scopes;
 - complete mutation and sensitive-read permission migration;
 - universal revision and idempotency contracts;
 - mutation outcome and transactional-outbox delivery;
@@ -100,7 +116,7 @@ Phase 62 remains active and incomplete.
 Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-Complete the remaining secure issuance and lifecycle-management part of Slice 2, then continue persisted roles/grants and route-by-route authorization without advancing Phase 63-67 runtime.
+Validate the separately managed credential on the real VDR, then complete browser cookie/session and CSRF behavior plus protected lifecycle administration before moving to persisted roles/grants and route-by-route authorization.
 
 ### Preferred edit path for new chats
 
