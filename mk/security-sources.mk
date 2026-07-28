@@ -5,10 +5,18 @@ SECURITY_REPOSITORY_SRC := \
 	core/security/src/AccountabilityEventRepository.cpp \
 	core/security/src/BrowserSessionCredentialRepository.cpp \
 	core/security/src/CredentialVerifierRepository.cpp \
+	core/security/src/SecurityIdentityIssuanceRepository.cpp \
 	core/security/src/SecurityIdentityProvisioningRepository.cpp \
 	core/security/src/SecurityIdentityRepository.cpp
 
-.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-http-gate
+SECURITY_SERVICE_SRC := \
+	core/security/src/BrowserSessionIssuanceService.cpp
+
+SECURITY_SRC := \
+	$(SECURITY_REPOSITORY_SRC) \
+	$(SECURITY_SERVICE_SRC)
+
+.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-browser-session-issuance-service test-security-http-gate
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
@@ -68,6 +76,16 @@ test-security-browser-session-authenticator:
 	$(BUILD_DIR)/test_browser_session_authenticator
 
 
+test-security-browser-session-issuance-service:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_browser_session_issuance_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_browser_session_issuance_service
+	$(BUILD_DIR)/test_browser_session_issuance_service
+
+
 test-security-http-gate:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -86,6 +104,7 @@ test-security: \
 	test-security-identity-repository \
 	test-security-managed-basic-authenticator \
 	test-security-browser-session-authenticator \
+	test-security-browser-session-issuance-service \
 	test-security-http-gate
 
 test: test-security
