@@ -170,7 +170,6 @@ Complete cookie values, raw session secrets, raw CSRF values, plaintext password
 
 Phase 62 still requires:
 
-- install and real-yaVDR acceptance of the new login/logout routes and HTTPS proxy behaviour;
 - browser authentication precedence for ordinary application routes;
 - controlled cookie-context integration with persistent lifecycle and centralized authorization;
 - browser grant loading;

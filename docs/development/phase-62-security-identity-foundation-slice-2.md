@@ -1,6 +1,6 @@
 # Phase 62 Persistent Identity Lifecycle — Slice 2
 
-Status: lifecycle and managed Basic increments are real-VDR accepted; browser-session verifier, atomic issuance and isolated HTTP login/logout lifecycle are implemented and CI validated; ordinary API cookie authentication and business-mutation CSRF enforcement remain open; Phase 62 remains active
+Status: lifecycle, managed Basic, browser-session verifier, atomic issuance and isolated HTTPS login/logout lifecycle are real-VDR accepted; ordinary API cookie authentication and business-mutation CSRF enforcement remain open; Phase 62 remains active
 
 ## Purpose
 
@@ -220,7 +220,24 @@ Observed on 2026-07-28:
 - Remote operation `phase62-managed-1785212278` succeeded with `remote.control@default`;
 - accountability recorded invalid, denied/unmapped and allowed/dispatch-authorized decisions with expected identity attribution.
 
-The new HTTP lifecycle increment still requires installation and real-yaVDR acceptance. Until that acceptance is complete, its runtime claims are based on daemon build, focused tests and packaging/install staging rather than observed production requests.
+## Real-VDR acceptance of the isolated HTTPS lifecycle
+
+Observed on 2026-07-28 through the installed daemon and the local HTTPS reverse proxy:
+
+- anonymous session issuance returned `401 authentication_required`;
+- managed-Basic session issuance returned `200`;
+- the response contained one-time CSRF, expiry and request ID values;
+- the cookie carried `Path=/`, `HttpOnly`, `Secure` and `SameSite=Strict`;
+- logout without CSRF returned `403 csrf_validation_failed`;
+- valid cookie-plus-CSRF logout returned `204`;
+- replay of the revoked browser credential returned `401 credential_revoked`;
+- verifier, canonical session and canonical browser credential were all inactive with populated revocation timestamps;
+- SQLite integrity returned `ok`;
+- the foreign-key check returned no violations;
+- the lifecycle consistency query returned zero inconsistent rows;
+- accountability recorded issue allow, CSRF deny, revoke allow and revoked-credential replay deny decisions.
+
+The HTTPS proxy rule is a deliberately local runtime integration. No yaVDR-Ansible playbook was run, and the acceptance did not modify the yaVDR-Ansible repository.
 
 ## Automated validation
 
@@ -272,6 +289,7 @@ Focused tests cover secure cookie attributes, no cookie reflection in JSON, one-
 | Browser cookies cannot authenticate ordinary routes | gate isolation tests |
 | Lifecycle allow/deny and CSRF decisions are append-only | dedicated gate accountability tests |
 | Daemon and packaging link the HTTP lifecycle | CI run 6429 |
+| Installed HTTPS lifecycle behaves fail-closed | real-yaVDR `401 -> 200 -> 403 -> 204 -> 401 credential_revoked` acceptance |
 
 Canonical checks:
 

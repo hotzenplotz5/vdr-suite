@@ -139,7 +139,7 @@ Goal: replace broad backend access hints with production-grade actor identity, s
 - rollback on validation, collision, repository or commit failure;
 - move-only one-time result and explicit secret-buffer wiping.
 
-### Implemented Slice 2 isolated HTTP lifecycle
+### Real-runtime-accepted Slice 2 isolated HTTPS lifecycle
 
 - exact `POST /api/security/browser-sessions` Basic-to-browser credential exchange;
 - no plaintext-password JSON endpoint;
@@ -153,7 +153,7 @@ Goal: replace broad backend access hints with production-grade actor identity, s
 - append-only pre-dispatch issue/revoke/authentication/CSRF decisions;
 - tests prove browser cookies cannot authenticate ordinary application GET or POST routes.
 
-This HTTP lifecycle increment is CI validated but still requires installation and real-yaVDR/HTTPS acceptance. It intentionally does not enable cookie authentication for Remote, Timer, Recording or other application routes.
+This isolated HTTPS lifecycle increment is installed and real-yaVDR accepted. The observed sequence was anonymous `401 authentication_required`, authenticated issuance `200` with a hardened cookie, missing-CSRF logout `403 csrf_validation_failed`, valid logout `204` and revoked-cookie replay `401 credential_revoked`. The reverse-proxy route is a local runtime integration; no yaVDR-Ansible playbook was run. The increment intentionally does not enable cookie authentication for Remote, Timer, Recording or other application routes.
 
 Evidence:
 
@@ -164,23 +164,22 @@ Evidence:
 
 ### Remaining required order
 
-1. install and real-runtime validate browser-session issue/logout plus HTTPS proxy cookie behaviour;
-2. define ordinary application-route authentication precedence and connect browser contexts through `PersistentIdentityResolver` and centralized authorization;
-3. load browser permissions/backend scopes without inheriting legacy compatibility grants;
-4. classify every POST and enforce/audit browser CSRF before each applicable business mutation dispatch;
-5. add frontend login/logout and memory-only CSRF handling without durable client secret storage;
-6. complete issuance/revocation outcome accountability and transactional coupling/outbox;
-7. complete managed password generation/change, native/service credential lifecycle, refresh/idle expiry/cleanup/recovery and protected lifecycle administration;
-8. persist roles, permissions and backend/resource scopes;
-9. migrate all mutations and sensitive reads to centralized authorization and explicit CSRF classification;
-10. preserve and prove backend read-only behaviour under actor permissions;
-11. complete actor, device, credential, session, request, correlation and operation context propagation;
-12. extend append-only accountability to authentication, session, CSRF, mutation completion and security lifecycle events;
-13. add transactional outbox delivery for protected operations;
-14. complete revision and `If-Match` rules per mutable resource;
-15. add durable idempotency-key and operation replay records;
-16. add protected audit queries, redaction, retention and audit-of-audit;
-17. complete deny-path, outage, failure-injection, full-suite and real-runtime acceptance.
+1. define ordinary application-route authentication precedence and connect browser contexts through `PersistentIdentityResolver` and centralized authorization;
+2. load browser permissions/backend scopes without inheriting legacy compatibility grants;
+3. classify every POST and enforce/audit browser CSRF before each applicable business mutation dispatch;
+4. add frontend login/logout and memory-only CSRF handling without durable client secret storage;
+5. complete issuance/revocation outcome accountability and transactional coupling/outbox;
+6. complete managed password generation/change, native/service credential lifecycle, refresh/idle expiry/cleanup/recovery and protected lifecycle administration;
+7. persist roles, permissions and backend/resource scopes;
+8. migrate all mutations and sensitive reads to centralized authorization and explicit CSRF classification;
+9. preserve and prove backend read-only behaviour under actor permissions;
+10. complete actor, device, credential, session, request, correlation and operation context propagation;
+11. extend append-only accountability to authentication, session, CSRF, mutation completion and security lifecycle events;
+12. add transactional outbox delivery for protected operations;
+13. complete revision and `If-Match` rules per mutable resource;
+14. add durable idempotency-key and operation replay records;
+15. add protected audit queries, redaction, retention and audit-of-audit;
+16. complete deny-path, outage, failure-injection, full-suite and later-increment real-runtime acceptance.
 
 Exit criteria:
 

@@ -1,6 +1,6 @@
 # Security and Identity Foundation
 
-Status: Phase 62 Slice 1 plus real-runtime-accepted lifecycle/managed-Basic increments and CI-validated browser-session verifier, issuance and isolated HTTP lifecycle routes; general cookie-authenticated application routing remains incomplete
+Status: Phase 62 Slice 1 plus real-runtime-accepted lifecycle, managed-Basic, browser-session verifier, issuance and isolated HTTPS lifecycle routes; general cookie-authenticated application routing remains incomplete
 
 ## Active runtime boundary
 
@@ -197,6 +197,22 @@ This is a credential exchange from an already authenticated Basic context. It is
 
 This isolation keeps login/logout deployable without prematurely choosing general authentication precedence or exposing business mutations to cookie authentication before their CSRF classification is complete.
 
+### Installed HTTPS acceptance
+
+The isolated lifecycle was accepted on the real yaVDR installation on 2026-07-28:
+
+- anonymous issuance: `401 authentication_required`;
+- authenticated issuance: `200` with one-time CSRF, expiry and request ID;
+- hardened cookie: `Path=/`, `HttpOnly`, `Secure`, `SameSite=Strict`;
+- logout without CSRF: `403 csrf_validation_failed`;
+- valid logout: `204`;
+- revoked-cookie replay: `401 credential_revoked`;
+- verifier, session and browser credential revocation remained internally consistent;
+- SQLite integrity and foreign-key checks passed;
+- append-only accountability recorded the allow and deny chain.
+
+The reverse-proxy route is a local runtime integration. This acceptance did not run yaVDR-Ansible or alter its repository.
+
 ## SQLite ownership
 
 Direct SQLite calls remain limited to infrastructure, approved repository implementation units, the registered split repository family and registered SQLite/schema contract tests.
@@ -304,13 +320,12 @@ The HTTP service and dedicated gate tests cover:
 - ordinary-route cookie isolation;
 - append-only lifecycle authorization decisions.
 
-Passing tests and packaging do not replace installed yaVDR acceptance or complete general cookie-authenticated application routing.
+Passing tests and packaging do not replace installed acceptance for later increments or complete general cookie-authenticated application routing. The isolated HTTPS login/logout lifecycle itself is installed and real-runtime accepted.
 
 ## Remaining authentication boundary
 
 Still open within Phase 62:
 
-- real-yaVDR acceptance of the new login/logout routes and HTTPS proxy behaviour;
 - general browser authentication precedence;
 - controlled browser-cookie integration for ordinary application routes;
 - grant loading and centralized authorization for browser contexts;
