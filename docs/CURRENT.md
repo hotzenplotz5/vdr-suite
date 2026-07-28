@@ -51,7 +51,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
-Active; Slice 1 is real-runtime validated and the persistent lifecycle foundation of Slice 2 is implemented on Draft PR #117.
+Active; Slice 1 is real-runtime validated. Slice 2 has real-runtime-accepted lifecycle persistence plus an implemented first managed credential verifier on Draft PR #117.
 ```
 
 Phase 61 remains completed. Phase 62 is not complete. The active work does not advance Phase 63-67 runtime.
@@ -81,6 +81,8 @@ The active Phase 62 branch owns this request path:
 HttpServerRequest
   -> SecurityHttpGate
        -> transitional LegacyBasicAuthenticator
+       -> optional ManagedBasicAuthenticator
+            -> CredentialVerifierRepository
        -> RequestSecurityContext
        -> PersistentIdentityResolver
             -> SecurityIdentityRepository
@@ -102,26 +104,32 @@ HttpServerRequest
 - explicit `legacy-basic` and fail-closed `enforced` rollout modes;
 - real yaVDR evidence for anonymous denial, invalid-credential denial and authenticated Browser Remote actions.
 
-### Slice 2 — persistence and revocation foundation implemented
+### Slice 2 — lifecycle foundation and first managed verifier implemented
 
-- additive `security_actors`, `security_devices`, `security_sessions` and `security_credentials` tables;
-- compatibility identity bootstrap without storing the Basic Authorization value;
+- additive actor, device, session, credential and Basic-verifier tables;
+- compatibility lifecycle bootstrap without storing the Basic Authorization value;
 - persisted actor/device/session/credential ownership bindings;
 - request-time lifecycle resolution before authorization;
 - persisted expiry and revocation enforcement;
 - restart-safe bootstrap that does not overwrite revoked records;
-- explicit `credential_expired` and `credential_revoked` decisions;
-- repository, resolver, HTTP-gate and architecture tests.
+- optional separate managed actor/device/session/credential provisioning;
+- strict Basic parsing and `crypt_r` verification against yescrypt or SHA-512 crypt hashes;
+- no default managed identity and no default managed permission;
+- partial/unsupported managed configuration fails security-runtime startup;
+- managed identities cannot use the legacy bypass for unmigrated POST routes;
+- invalid credentials in `enforced` mode are rejected rather than treated as anonymous;
+- repository, provisioning, verifier, resolver, HTTP-gate and architecture tests.
 
-The transitional Basic adapter is not production authentication. The new credential table stores an identifier and lifecycle metadata, not the submitted secret, a password hash or a bearer token.
+The existing legacy browser credential remains transitional and broadly privileged only for compatibility. The optional managed verifier stores a unique login binding and one-way modular password hash, never the submitted header, decoded password, plaintext password or reversible secret.
 
 ## Open Phase 62 work
 
 Phase 62 still requires:
 
-- secure per-user/service credential issuance and verification;
-- browser cookie/CSRF, native token, refresh, logout, recovery, rotation and protected lifecycle management;
-- persisted roles, permissions, grants and backend scopes;
+- protected per-user/service credential issuance, server-side hash generation/password change and recovery;
+- browser cookie sessions, secure cookie policy, CSRF, refresh, logout, expiry cleanup and protected lifecycle management;
+- native/service token enrollment and rotation;
+- persisted roles, permissions, grants and backend/resource scopes;
 - complete permission mapping and server-side authorization for all mutations and sensitive reads;
 - universal revision and `If-Match` rules where resource state is mutable;
 - durable idempotency-key replay semantics and operation records;
@@ -132,7 +140,9 @@ Phase 62 still requires:
 
 ## Compatibility boundary
 
-The local browser remains compatible by default through the named `legacy-basic` mode. That mode maps the existing credential to explicit persisted actor/device/session/credential metadata and retains the previous broad grant only as a transitional local compatibility default.
+The local browser remains compatible by default through `legacy-basic`. That actor alone retains the temporary compatibility bypass for not-yet-migrated POST routes.
+
+An optional managed Basic identity can coexist for isolated identity, permission and revocation tests. It may use authenticated reads and explicitly migrated routes, but receives `security_policy_not_migrated` for an unmigrated POST.
 
 The compatibility mode is not a permanent architecture exemption. Frontend state and disabled buttons are never authorization evidence. The server remains the enforcement owner.
 
@@ -145,7 +155,7 @@ The compatibility mode is not a permanent architecture exemption. Frontend state
 | #114 | Merged documentation truth refresh. |
 | #115 | Merged configurable photorealistic PNG Remote and extended Remote functions; current `main` head. |
 | #116 | Open Draft, mergeable; Android/client API feasibility and proposed ADR-0051. ADR-0051 is not accepted runtime truth on `main`. |
-| #117 | Open Draft, mergeable Phase 62 implementation branch; Slice 1 validated and Slice 2 persistence foundation active. Must not be auto-merged. |
+| #117 | Open Draft, mergeable Phase 62 implementation branch; Slice 1 validated and Slice 2 lifecycle plus first managed verifier active. Must not be auto-merged. |
 
 Open PR content remains lower-trust than merged code and accepted ADRs.
 
@@ -170,8 +180,8 @@ The current unversioned `/api/...` routes are compatibility routes, not a stable
 - VDR remains native runtime authority.
 - VDR-Suite owns external domain, policy, orchestration, persistent read models and client contracts.
 - Browsers do not call RESTfulAPI, SVDRP, Streamdev, TVScraper or SuiteBridge directly.
-- Authentication, persistent identity resolution and authorization are separate decisions.
+- Authentication, credential verification, persistent identity resolution and authorization are separate decisions.
 - Backend read-only and capability checks remain independent of actor permissions.
 - Frontends do not own authorization decisions.
-- Credentials and tokens do not belong in URLs, logs, error bodies, request IDs, identity rows or accountability payloads.
+- Submitted credentials do not belong in URLs, logs, error bodies, request IDs, identity lifecycle rows or accountability payloads; only a one-way verifier hash may be persisted in its dedicated repository.
 - Completed phases are not silently reopened by optional extensions.
