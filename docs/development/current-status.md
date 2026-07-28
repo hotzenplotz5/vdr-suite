@@ -23,7 +23,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 status:
-Active; Slice 1 is real-runtime validated. Slice 2 has real-runtime-accepted lifecycle persistence plus an implemented first managed credential verifier on its Draft branch.
+Active; Slice 1 is real-runtime validated. Slice 2 has real-runtime-accepted lifecycle persistence and first managed credential verifier increments on its Draft branch.
 ```
 
 ## Stable implemented scope
@@ -69,7 +69,7 @@ The existing `BackendAccessPolicy` remains a separate backend-state guard. It do
 - `credential_expired` and `credential_revoked` decisions;
 - real yaVDR revoke/restore evidence without daemon restart.
 
-### First managed credential verifier — implemented on the Draft branch
+### First managed credential verifier — implemented and real-runtime accepted
 
 - optional separate managed actor/device/session/credential provisioning;
 - `security_basic_credential_verifiers` login-to-credential binding;
@@ -81,7 +81,8 @@ The existing `BackendAccessPolicy` remains a separate backend-state guard. It do
 - managed identity access to authenticated reads and explicitly migrated Remote only;
 - fail-closed `security_policy_not_migrated` for managed access to old POST routes;
 - rejection of invalid presented credentials on enforced-mode GET routes;
-- provisioning, verifier, authentication, revocation and route-boundary tests.
+- provisioning, verifier, authentication, revocation and route-boundary tests;
+- real yaVDR positive GET authentication, wrong-password 401, unmigrated Timer 503, migrated Remote 200 and actor/device/session accountability evidence.
 
 The runtime never persists or reflects the submitted Authorization header, decoded password, plaintext password or reversible secret. The one-way verifier hash is stored in its dedicated repository and is not a replacement for protected issuance, password-change or recovery workflows.
 
@@ -116,7 +117,7 @@ Phase 62 remains active and incomplete.
 Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-Validate the separately managed credential on the real VDR, then complete browser cookie/session and CSRF behavior plus protected lifecycle administration before moving to persisted roles/grants and route-by-route authorization.
+Complete browser cookie/session and CSRF behavior plus protected lifecycle administration before moving to persisted roles/grants and route-by-route authorization.
 
 ### Preferred edit path for new chats
 
