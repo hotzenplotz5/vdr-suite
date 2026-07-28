@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -82,9 +83,17 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         return;
     }
 
+    browserSessionCredentialRepository_ =
+        std::make_unique<BrowserSessionCredentialRepository>(
+            *securityDatabase_);
+
+    if (!browserSessionCredentialRepository_->ensureSchema())
+    {
+        return;
+    }
+
     const SecurityConfiguration configuration =
         SecurityConfiguration::fromEnvironment();
-
     if (!configuration.expectedAuthorizationHeader.empty() &&
         !securityIdentityRepository_->ensureCompatibilityIdentity(
             configuration.actorId,
@@ -137,6 +146,31 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         std::make_unique<PersistentIdentityResolver>(
             *securityIdentityRepository_);
 
+    browserSessionIssuanceService_ =
+        std::make_unique<BrowserSessionIssuanceService>(
+            *securityDatabase_,
+            *securityIdentityRepository_,
+            *browserSessionCredentialRepository_);
+
+    browserSessionLifecycleService_ =
+        std::make_unique<BrowserSessionLifecycleService>(
+            *securityDatabase_,
+            *securityIdentityRepository_,
+            *browserSessionCredentialRepository_);
+
+    browserSessionHttpService_ =
+        std::make_unique<BrowserSessionHttpService>(
+            *browserSessionIssuanceService_,
+            *browserSessionLifecycleService_);
+
+    browserSessionHttpGate_ =
+        std::make_unique<BrowserSessionHttpGate>(
+            configuration,
+            *accountabilityEventRepository_,
+            *browserSessionCredentialRepository_,
+            persistentIdentityResolver_.get(),
+            managedBasicAuthenticator_.get());
+
     securityHttpGate_ =
         std::make_unique<SecurityHttpGate>(
             configuration,
@@ -163,7 +197,10 @@ HttpServerResponse TestHttpServer::finalizeResponse(
 HttpServerResponse TestHttpServer::handleRequest(
     const HttpServerRequest& request) const
 {
-    if (!securityReady_ || !securityHttpGate_)
+    if (!securityReady_ ||
+        !securityHttpGate_ ||
+        !browserSessionHttpGate_ ||
+        !browserSessionHttpService_)
     {
         HttpServerResponse response;
         response.statusCode = 503;
@@ -175,6 +212,23 @@ HttpServerResponse TestHttpServer::handleRequest(
             "{\"error\":{\"code\":\"security_runtime_unavailable\","
             "\"message\":\"The security runtime is unavailable\"}}";
         return response;
+    }
+
+    if (browserSessionHttpGate_->handles(request))
+    {
+        const BrowserSessionGateDecision browserGate =
+            browserSessionHttpGate_->evaluate(request);
+        if (!browserGate.allowed)
+        {
+            return browserGate.rejection;
+        }
+
+        HttpServerResponse response = browserGate.login
+            ? browserSessionHttpService_->login(browserGate.context)
+            : browserSessionHttpService_->logout(browserGate.context);
+        return finalizeResponse(
+            browserGate.context,
+            std::move(response));
     }
 
     const SecurityGateDecision gate =
