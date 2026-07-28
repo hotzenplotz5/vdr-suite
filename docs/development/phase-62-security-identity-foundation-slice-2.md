@@ -1,69 +1,60 @@
 # Phase 62 Persistent Identity Lifecycle — Slice 2
 
-Status: lifecycle and managed Basic increments are real-VDR accepted; browser-session verifier and atomic issuance foundations are implemented and CI validated but are not yet connected to HTTP login, cookie authentication, or CSRF enforcement; Phase 62 remains open
+Status: lifecycle and managed Basic increments are real-VDR accepted; browser-session verifier, atomic issuance and isolated HTTP login/logout lifecycle are implemented and CI validated; ordinary API cookie authentication and business-mutation CSRF enforcement remain open; Phase 62 remains active
 
 ## Purpose
 
-Phase 62 Slice 1 established explicit request identity, centralized authorization, the first protected mutation, and append-only pre-dispatch accountability. Slice 2 removes transient-only identity assumptions and builds the browser/native credential lifecycle in small fail-closed increments.
+Phase 62 Slice 1 established explicit request identity, centralized authorization, the first protected mutation and append-only pre-dispatch accountability. Slice 2 removes transient-only identity assumptions and builds a deployable browser/native credential lifecycle in small fail-closed increments.
 
-The slice now contains four cumulative increments:
+The slice now contains five cumulative increments:
 
-1. persistent actor, device, session, and credential lifecycle state;
+1. persistent actor, device, session and credential lifecycle state;
 2. an optional separately provisioned managed Basic verifier;
 3. a persistent browser-session credential repository and cookie/CSRF verifier;
-4. atomic server-side browser-session material generation and persistence.
+4. atomic server-side browser-session material generation and persistence;
+5. two isolated HTTP lifecycle routes for Basic-to-session exchange and cookie-plus-CSRF logout.
 
-The active daemon request path still authenticates only the transitional legacy Basic credential and the optional managed Basic credential. The browser-session issuer and authenticator are linked and tested foundations, not active HTTP behavior.
+The general application request path still authenticates only the transitional legacy Basic credential and the optional managed Basic credential. Browser cookies are intentionally accepted only by the dedicated logout route and do not authenticate ordinary GET routes, Remote, Timer, Recording or other application APIs.
 
-## Current runtime boundary
+## Active runtime boundary
 
 ```text
 HttpServerRequest
-  -> LegacyBasicAuthenticator (transitional browser compatibility)
-  -> optional ManagedBasicAuthenticator
-       -> CredentialVerifierRepository
-  -> PersistentIdentityResolver
-       -> SecurityIdentityRepository
-  -> SecurityHttpGate
-       -> AuthorizationService
-       -> AccountabilityEventRepository
-  -> ApiRouter
+  -> exact POST /api/security/browser-sessions?
+       -> BrowserSessionHttpGate
+            -> LegacyBasicAuthenticator or optional ManagedBasicAuthenticator
+            -> PersistentIdentityResolver
+            -> pre-dispatch accountability: session.issue.self
+       -> BrowserSessionHttpService
+            -> BrowserSessionIssuanceService
+            -> Set-Cookie plus one-time CSRF JSON
+
+  -> exact POST /api/security/browser-sessions/logout?
+       -> BrowserSessionHttpGate
+            -> BrowserSessionAuthenticator
+            -> PersistentIdentityResolver
+            -> independent X-CSRF-Token verification
+            -> pre-dispatch accountability: session.revoke.self
+       -> BrowserSessionHttpService
+            -> BrowserSessionLifecycleService
+            -> atomic verifier/session/credential revocation
+            -> expired Set-Cookie
+
+  -> every other request
+       -> SecurityHttpGate
+            -> LegacyBasicAuthenticator or optional ManagedBasicAuthenticator
+            -> PersistentIdentityResolver
+            -> AuthorizationService
+            -> AccountabilityEventRepository
+       -> ApiRouter
 ```
 
-A successful Basic verifier result is always followed by persistent actor, device, credential, and session lifecycle resolution before authorization.
-
-## Staged browser-session boundary
-
-```text
-future authenticated login request
-  -> BrowserSessionIssuanceService
-       -> Linux getrandom CSPRNG
-       -> independent identifiers, session secret, CSRF secret, and salts
-       -> SHA-512 crypt verifier hashes
-       -> BEGIN IMMEDIATE
-            -> validate actor/device/issuing credential
-            -> create security_sessions row
-            -> create security_credentials row
-            -> create security_browser_session_credentials row
-          COMMIT or ROLLBACK
-       -> one-time move-only issuance result
-
-future Cookie request
-  -> BrowserSessionAuthenticator
-       -> strict vdr_suite_session parsing
-       -> token-id lookup
-       -> session-secret verification
-       -> independent X-CSRF-Token verification
-  -> future PersistentIdentityResolver
-  -> future SecurityHttpGate integration
-```
-
-Neither `TestHttpServer` nor `SecurityHttpGate` invokes these browser-session components yet. No login/logout route, `Set-Cookie`, authentication precedence, real mutation CSRF denial, or browser-session accountability is claimed.
+The dedicated browser lifecycle gate runs before the general gate but handles only the two exact POST paths. It does not create a second application-authorization path.
 
 ## Implemented lifecycle and managed Basic scope
 
-- additive `security_actors`, `security_devices`, `security_sessions`, and `security_credentials` tables;
-- active, expiry, and revocation state evaluated for every authenticated Basic request;
+- additive `security_actors`, `security_devices`, `security_sessions` and `security_credentials` tables;
+- active, expiry and revocation state evaluated for every authenticated Basic request;
 - restart-safe compatibility bootstrap with `INSERT OR IGNORE`;
 - optional separately provisioned managed actor/device/session/credential;
 - dedicated `security_basic_credential_verifiers` table;
@@ -78,19 +69,19 @@ Neither `TestHttpServer` nor `SecurityHttpGate` invokes these browser-session co
 `BrowserSessionCredentialRepository` owns `security_browser_session_credentials`. Each row stores:
 
 - non-secret token ID;
-- actor, device, session, browser credential, and issuing credential bindings;
+- actor, device, session, browser credential and issuing credential bindings;
 - separate one-way modular hashes for the session and CSRF secrets;
-- active, expiry, revocation, creation, and update state.
+- active, expiry, revocation, creation and update state.
 
-The conceptual cookie value is:
+The cookie value is:
 
 ```text
 <token-id>.<high-entropy-session-secret>
 ```
 
-The complete cookie value, raw session secret, raw CSRF token, submitted Cookie header, Authorization header, plaintext password, and reversible secret are not persisted.
+The complete cookie value, raw session secret, raw CSRF token, submitted Cookie header, Authorization header, plaintext password and reversible secret are not persisted.
 
-`BrowserSessionAuthenticator` provides bounded parsing, duplicate rejection, invalid/expired/revoked/authenticated outcomes, context construction, and independent CSRF verification only for a valid active session.
+`BrowserSessionAuthenticator` provides bounded parsing, duplicate rejection, invalid/expired/revoked/authenticated outcomes, context construction and independent CSRF verification only for a valid active session.
 
 ## Atomic browser-session issuance contract
 
@@ -99,7 +90,7 @@ The complete cookie value, raw session secret, raw CSRF token, submitted Cookie 
 ### Entropy and identifiers
 
 - entropy is read from Linux `getrandom(2)` with complete-read and `EINTR` handling;
-- token ID, session ID, and credential ID each contain 128 random bits with distinct prefixes;
+- token ID, session ID and credential ID each contain 128 random bits with distinct prefixes;
 - session secret and CSRF secret each contain independent 256 random bits encoded as unpadded Base64url;
 - the two secrets use independent random crypt salts;
 - both hashes use SHA-512 crypt with `rounds=10000`;
@@ -110,7 +101,7 @@ The complete cookie value, raw session secret, raw CSRF token, submitted Cookie 
 - default: 28,800 seconds (8 hours);
 - minimum: 300 seconds (5 minutes);
 - maximum: 86,400 seconds (24 hours);
-- one UTC expiry is written to session, credential, and verifier records.
+- one UTC expiry is written to session, credential and verifier records.
 
 ### Issuing identity validation
 
@@ -130,27 +121,81 @@ The service acquires the transaction lease and starts `BEGIN IMMEDIATE`. It crea
 2. one `security_credentials` row of type `browser-session`, with the issuing credential recorded as rotation predecessor;
 3. one `security_browser_session_credentials` row containing lookup identity and one-way hashes.
 
-All three rows commit together. Any validation failure, identifier conflict, repository failure, or commit failure rolls back. The collision test deliberately lets the first two inserts succeed and forces the verifier insert to fail; neither intermediate identity row survives.
+All three rows commit together. Any validation failure, identifier conflict, repository failure or commit failure rolls back. The collision test deliberately lets the first two inserts succeed and forces the verifier insert to fail; neither intermediate identity row survives.
 
 ### One-time result handling
 
-A successful issuance returns IDs, sensitive cookie value, sensitive CSRF token, and expiry. `IssuedBrowserSession` is move-only; copy construction and assignment are disabled. Its destructor and `clearSecrets()` overwrite the sensitive buffers. The result is not exposed by an API and must not be logged.
+A successful issuance returns IDs, sensitive cookie value, sensitive CSRF token and expiry to the HTTP service. `IssuedBrowserSession` is move-only; copy construction and assignment are disabled. Its destructor and `clearSecrets()` overwrite the sensitive buffers. The result must not be logged.
+
+## HTTP login contract
+
+`POST /api/security/browser-sessions` is a credential exchange, not a plaintext-password JSON endpoint.
+
+- authentication source: existing legacy Basic or optional managed Basic;
+- persistent actor/device/session/credential lifecycle is resolved before issuance;
+- anonymous or invalid credentials return `401` and a Basic challenge;
+- successful response status is `200`;
+- response body contains only `csrfToken`, `expiresAt` and `requestId`;
+- response uses `Cache-Control: no-store` and `Pragma: no-cache`;
+- the cookie value is delivered only through `Set-Cookie`;
+- cookie attributes are `Path=/`, `Max-Age=28800`, `HttpOnly`, `Secure` and `SameSite=Strict`;
+- no `Domain` attribute is emitted;
+- cookie value, session ID and credential ID are not included in JSON.
+
+The CSRF value is deliberately readable by the authenticated client and must be retained only in client memory by future frontend integration. The `HttpOnly` session secret remains inaccessible to browser JavaScript.
+
+## HTTP logout contract
+
+`POST /api/security/browser-sessions/logout` accepts only:
+
+- one valid `vdr_suite_session` cookie;
+- one matching `X-CSRF-Token` header;
+- active persistent actor/device/session/credential state.
+
+Basic credentials do not substitute for the browser cookie on logout. A missing or wrong CSRF token returns `403 csrf_validation_failed` before lifecycle mutation.
+
+`BrowserSessionLifecycleService` starts `BEGIN IMMEDIATE` and atomically revokes:
+
+1. the browser verifier row;
+2. the canonical session row;
+3. the canonical browser credential row.
+
+A successful logout returns `204`, `no-store`/`no-cache` and an expired cookie using `Max-Age=0`, a 1970 `Expires` date, `HttpOnly`, `Secure` and `SameSite=Strict`.
+
+## Isolation and route-safety rule
+
+The lifecycle gate recognizes exactly two POST paths. Tests prove that a browser cookie is ignored by:
+
+- ordinary GET routes such as `/api/backends`;
+- `POST /api/vdr/remote/actions`;
+- every other route handled by the existing `SecurityHttpGate`.
+
+The legacy compatibility bypass still belongs only to the configured legacy actor and credential. Managed Basic identities use migrated application routes only with explicit permission and scope; unmigrated POSTs fail before dispatch.
+
+Ordinary browser-cookie authentication precedence, grant loading and business-route CSRF classification remain future work.
+
+## Accountability boundary
+
+The dedicated lifecycle gate writes append-only pre-dispatch decisions for:
+
+- `session.issue.self`;
+- `session.revoke.self`;
+- authentication failure;
+- `csrf_validation_failed`;
+- successful self-service lifecycle authorization.
+
+These records prove the security decision before the lifecycle service runs. A complete issuance/revocation outcome event, transactional coupling between lifecycle change and outcome evidence, protected audit queries and retention remain open.
 
 ## SQLite ownership boundary
 
 Phase 62 SQL remains in approved repository implementation units under `core/security/src/`.
 
 - public repository headers contain declarations and domain values only;
-- `BrowserSessionIssuanceService` uses `Database` and repository abstractions and has no direct `sqlite3_*` call;
+- issuance and lifecycle services use `Database` and repository abstractions and contain no direct `sqlite3_*` call;
 - `SecurityIdentityIssuanceRepository.cpp` owns session/credential inserts;
+- identity and browser repositories own revocation updates;
 - the daemon and affected tests link the complete `SECURITY_SRC` graph;
-- arbitrary services, headers, REST controllers, helpers, and unregistered tests remain outside the direct SQLite boundary.
-
-## Route-safety rule
-
-The legacy compatibility bypass belongs only to the configured legacy actor and credential. Managed Basic identities use migrated routes only with explicit permission and scope; unmigrated POSTs fail before dispatch.
-
-The staged browser-session issuer and authenticator do not alter runtime behavior until HTTP and Gate integration is added.
+- arbitrary services, headers, REST controllers, helpers and unregistered tests remain outside the direct SQLite boundary.
 
 ## Real-VDR acceptance of the persistence/revocation foundation
 
@@ -168,37 +213,46 @@ Observed on 2026-07-28:
 
 Observed on 2026-07-28:
 
-- separate managed actor `user-phase62-admin`, device, session, credential, and `$6$` verifier were provisioned;
+- separate managed actor `user-phase62-admin`, device, session, credential and `$6$` verifier were provisioned;
 - correct credentials returned `200` for `GET /api/backends`;
 - wrong password returned `401 invalid_credentials` with `no-store` and no reflection;
 - unmigrated Timer POST returned `503 security_policy_not_migrated` before dispatch;
 - Remote operation `phase62-managed-1785212278` succeeded with `remote.control@default`;
-- accountability recorded invalid, denied/unmapped, and allowed/dispatch-authorized decisions with expected identity attribution.
+- accountability recorded invalid, denied/unmapped and allowed/dispatch-authorized decisions with expected identity attribution.
 
-The browser-session foundations have not been installed for real-runtime acceptance because no daemon request path invokes them.
+The new HTTP lifecycle increment still requires installation and real-yaVDR acceptance. Until that acceptance is complete, its runtime claims are based on daemon build, focused tests and packaging/install staging rather than observed production requests.
 
 ## Automated validation
 
 GitHub Actions VDR-Suite CI run 6367 completed successfully on atomic issuance code head `b79e3fdc597dd8eb245641ba2c7363dd9542e631`.
 
-It passed documentation/structure, Make/test inventory, frontend regression, complete fast regression, issuance architecture and service tests, full daemon build, and packaging/install staging.
+GitHub Actions VDR-Suite CI run 6429 completed successfully on HTTP lifecycle code head `f69a2dd87929b38a5561d1259901a72d4e78093c`.
 
-The issuance test covers deterministic IDs/expiry, secret formats, one-way persistence, lifecycle creation, successful authenticator/CSRF consumption, forced-collision rollback, lifetime limits, entropy failure, revoked issuing credential, move-only semantics, and secret clearing.
+The HTTP lifecycle run passed:
+
+- documentation and repository structure;
+- strict Make/test inventory and complete test-graph dry-run;
+- frontend regression;
+- complete fast C++/runtime regression;
+- issuance, HTTP response, dedicated gate, lifecycle revocation and existing Security gate tests;
+- full daemon link;
+- packaging and install staging.
+
+Focused tests cover secure cookie attributes, no cookie reflection in JSON, one-time CSRF response, successful verifier consumption, atomic logout revocation, revoked post-logout authentication, anonymous/wrong-password login denial, missing-CSRF denial, exact route isolation and lifecycle accountability decisions.
 
 ## Explicitly not included
 
-- HTTP login/logout;
-- request parsing or login response;
-- `Set-Cookie` construction or deployment policy;
-- browser authentication precedence;
-- resolver/Gate browser integration;
-- real CSRF rejection before dispatch;
-- browser lifecycle accountability;
-- refresh, idle timeout, cleanup, concurrent-session policy, recovery, or enrollment;
-- managed/native/service credential administration;
-- persisted roles, grants, or scopes;
+- browser-cookie authentication for ordinary application GET or POST routes;
+- browser authentication precedence across general routes;
+- browser grant loading into general `SecurityHttpGate`;
+- actual browser CSRF enforcement for Remote, Timer, Recording or other business mutations;
+- frontend login/logout user interface or client-memory CSRF handling;
+- refresh, idle timeout, cleanup, concurrent-session policy, recovery or enrollment;
+- complete issuance/revocation outcome accountability and transactional outbox;
+- protected managed/native/service credential administration;
+- persisted roles, grants or scopes;
 - complete route migration;
-- universal revision, idempotency, operation lifecycle, or outbox completion;
+- universal revision, idempotency, operation lifecycle or outbox completion;
 - Phase 63-67 runtime or clients.
 
 ## Acceptance evidence
@@ -209,13 +263,15 @@ The issuance test covers deterministic IDs/expiry, secret formats, one-way persi
 | Managed Basic is independent from legacy compatibility | tests and real-VDR acceptance |
 | Browser secrets persist only as independent one-way hashes | repository/authenticator/issuance/architecture tests |
 | Entropy is server-generated | `getrandom(2)` and architecture guard |
-| Lifetime is bounded | constants and negative tests |
-| Issuing identity is revalidated inside transaction | implementation and revoked-source test |
-| Session, credential, and verifier are atomic | forced-collision rollback test |
-| Issued secrets are move-only and wiped | static assertions and clearing test |
-| Issued material works with staged verifier | positive authentication and CSRF test |
-| Browser runtime is not overstated | explicit no-HTTP/Gate wiring guard |
-| Daemon and packaging link the service | CI run 6367 |
+| Session, credential and verifier issuance is atomic | forced-collision rollback test |
+| Login uses existing authenticated credentials without a plaintext JSON password | dedicated gate and HTTP tests |
+| Cookie is secret-only and hardened | `Set-Cookie` attribute and no-reflection tests |
+| CSRF is delivered separately and not persisted raw | HTTP response and repository tests |
+| Logout requires cookie plus matching CSRF | dedicated gate tests |
+| Logout revokes verifier, session and credential atomically | lifecycle and post-logout verifier tests |
+| Browser cookies cannot authenticate ordinary routes | gate isolation tests |
+| Lifecycle allow/deny and CSRF decisions are append-only | dedicated gate accountability tests |
+| Daemon and packaging link the HTTP lifecycle | CI run 6429 |
 
 Canonical checks:
 
@@ -226,4 +282,4 @@ make test-docs
 make test
 ```
 
-Phase 62 remains open. The next strict Slice 2 increment is HTTP login/logout and secure cookie response construction, followed by authentication precedence, resolver/Gate integration, accountability, and real CSRF enforcement.
+Phase 62 remains open. The next strict Slice 2 increment is ordinary-route browser authentication precedence and controlled `PersistentIdentityResolver`/authorization integration, followed by real business-mutation CSRF enforcement, completion accountability, cleanup/recovery and protected lifecycle administration.
