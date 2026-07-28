@@ -1,7 +1,10 @@
 #include "AccountabilityEventRepository.h"
+#include "CredentialVerifierRepository.h"
 #include "Database.h"
+#include "ManagedBasicAuthenticator.h"
 #include "PersistentIdentityResolver.h"
 #include "SecurityHttpGate.h"
+#include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
 
 #include <cassert>
@@ -9,26 +12,30 @@
 
 namespace
 {
-const std::string kCredential =
+const std::string kLegacyCredential =
     "Basic YWRtaW46dmRyLXN1aXRl";
+const std::string kManagedCredential =
+    "Basic cGhhc2U2Mi1hZG1pbjp0ZXN0LXBhc3N3b3Jk";
+const std::string kManagedWrongCredential =
+    "Basic cGhhc2U2Mi1hZG1pbjp3cm9uZy1wYXNzd29yZA==";
+const std::string kManagedPasswordHash =
+    "$6$testsalt$qzmynZ3SU0S5D.QBAsFplf6HVa.jpeEdx88KlHvhGfddFSPHoEWMArwiVQ1PLzZDrJJ9Vs/zKBgHPMSwmFddx.";
 
-HttpServerRequest getRequest(bool authenticated)
+HttpServerRequest getRequest(const std::string& authorization = "")
 {
     HttpServerRequest request;
     request.method = "GET";
     request.path = "/api/backends";
-
-    if (authenticated)
+    if (!authorization.empty())
     {
-        request.headers["Authorization"] = kCredential;
+        request.headers["Authorization"] = authorization;
     }
-
     return request;
 }
 
 HttpServerRequest remoteRequest(
     const std::string& backendId,
-    bool authenticated)
+    const std::string& authorization = "")
 {
     HttpServerRequest request;
     request.method = "POST";
@@ -36,14 +43,22 @@ HttpServerRequest remoteRequest(
     request.body =
         "{\"backendId\":\"" + backendId +
         "\",\"operationId\":\"op-1\",\"action\":\"ok\"}";
-
-    if (authenticated)
+    if (!authorization.empty())
     {
-        request.headers["Authorization"] = kCredential;
+        request.headers["Authorization"] = authorization;
     }
-
     request.headers["X-Request-ID"] = "request-1";
     request.headers["X-Correlation-ID"] = "correlation-1";
+    return request;
+}
+
+HttpServerRequest unmigratedRequest(
+    const std::string& authorization)
+{
+    HttpServerRequest request;
+    request.method = "POST";
+    request.path = "/api/vdr/timers/actions/create";
+    request.headers["Authorization"] = authorization;
     return request;
 }
 
@@ -52,7 +67,7 @@ SecurityConfiguration compatibility()
     SecurityConfiguration configuration;
     configuration.mode =
         SecurityMode::LegacyBasicCompatibility;
-    configuration.expectedAuthorizationHeader = kCredential;
+    configuration.expectedAuthorizationHeader = kLegacyCredential;
     configuration.grants = {PermissionGrant{"*", "*"}};
     return configuration;
 }
@@ -62,8 +77,23 @@ SecurityConfiguration enforced(
 {
     SecurityConfiguration configuration;
     configuration.mode = SecurityMode::Enforced;
-    configuration.expectedAuthorizationHeader = kCredential;
+    configuration.expectedAuthorizationHeader = kLegacyCredential;
     configuration.grants = grants;
+    return configuration;
+}
+
+ManagedBasicConfiguration managedConfiguration()
+{
+    ManagedBasicConfiguration configuration;
+    configuration.username = "phase62-admin";
+    configuration.actorId = "user-phase62-admin";
+    configuration.actorDisplayName = "Phase 62 administrator";
+    configuration.deviceId = "device-phase62-admin";
+    configuration.sessionId = "session-phase62-admin";
+    configuration.credentialId = "credential-phase62-admin";
+    configuration.grants = {
+        PermissionGrant{"remote.control", "default"}
+    };
     return configuration;
 }
 }
@@ -72,11 +102,13 @@ int main()
 {
     Database database;
     assert(database.open(":memory:"));
-    AccountabilityEventRepository repository(database);
-    assert(repository.ensureSchema());
+
+    AccountabilityEventRepository accountabilityRepository(database);
+    assert(accountabilityRepository.ensureSchema());
 
     SecurityIdentityRepository identityRepository(database);
     assert(identityRepository.ensureSchema());
+
     const SecurityConfiguration compatibilityConfiguration =
         compatibility();
     assert(identityRepository.ensureCompatibilityIdentity(
@@ -86,24 +118,49 @@ int main()
         compatibilityConfiguration.deviceId,
         compatibilityConfiguration.sessionId,
         compatibilityConfiguration.credentialId));
+
+    const ManagedBasicConfiguration managed =
+        managedConfiguration();
+    SecurityIdentityProvisioningRepository provisioningRepository(database);
+    assert(provisioningRepository.ensureIdentity(
+        managed.actorId,
+        ActorType::User,
+        managed.actorDisplayName,
+        managed.deviceId,
+        "Managed Basic client",
+        managed.sessionId,
+        managed.credentialId,
+        "managed-basic"));
+
+    CredentialVerifierRepository verifierRepository(database);
+    assert(verifierRepository.ensureSchema());
+    assert(verifierRepository.ensureVerifier(
+        managed.credentialId,
+        managed.username,
+        kManagedPasswordHash));
+    ManagedBasicAuthenticator managedAuthenticator(
+        managed,
+        verifierRepository);
+
     PersistentIdentityResolver identityResolver(identityRepository);
 
     SecurityHttpGate compatibilityGate(
         compatibilityConfiguration,
-        repository,
-        &identityResolver);
+        accountabilityRepository,
+        &identityResolver,
+        &managedAuthenticator);
 
     const SecurityGateDecision anonymousCompatibility =
-        compatibilityGate.evaluate(getRequest(false));
+        compatibilityGate.evaluate(getRequest());
     assert(!anonymousCompatibility.allowed);
     assert(anonymousCompatibility.rejection.statusCode == 401);
     assert(anonymousCompatibility.rejection.body.find(
         "authentication_required") != std::string::npos);
     assert(anonymousCompatibility.rejection.body.find(
-        kCredential) == std::string::npos);
+        kLegacyCredential) == std::string::npos);
 
     const SecurityGateDecision authenticatedCompatibility =
-        compatibilityGate.evaluate(getRequest(true));
+        compatibilityGate.evaluate(getRequest(kLegacyCredential));
     assert(authenticatedCompatibility.allowed);
     assert(authenticatedCompatibility.context.actor.actorId ==
         "legacy-local-web");
@@ -112,31 +169,84 @@ int main()
         "legacy-basic-credential");
 
     const SecurityGateDecision compatibilityRemote =
-        compatibilityGate.evaluate(remoteRequest("default", true));
+        compatibilityGate.evaluate(
+            remoteRequest("default", kLegacyCredential));
     assert(compatibilityRemote.allowed);
     assert(compatibilityRemote.protectedMutation);
     assert(compatibilityRemote.context.requestId == "request-1");
 
+    const SecurityGateDecision legacyUnmigrated =
+        compatibilityGate.evaluate(
+            unmigratedRequest(kLegacyCredential));
+    assert(legacyUnmigrated.allowed);
+
+    const SecurityGateDecision managedGet =
+        compatibilityGate.evaluate(getRequest(kManagedCredential));
+    assert(managedGet.allowed);
+    assert(managedGet.context.actor.actorId == managed.actorId);
+    assert(managedGet.context.credential.has_value());
+    assert(managedGet.context.credential->credentialId ==
+        managed.credentialId);
+
+    const SecurityGateDecision managedRemote =
+        compatibilityGate.evaluate(
+            remoteRequest("default", kManagedCredential));
+    assert(managedRemote.allowed);
+    assert(managedRemote.context.actor.actorId == managed.actorId);
+
+    const SecurityGateDecision managedUnmigrated =
+        compatibilityGate.evaluate(
+            unmigratedRequest(kManagedCredential));
+    assert(!managedUnmigrated.allowed);
+    assert(managedUnmigrated.rejection.statusCode == 503);
+    assert(managedUnmigrated.rejection.body.find(
+        "security_policy_not_migrated") != std::string::npos);
+
+    const SecurityGateDecision managedWrongPassword =
+        compatibilityGate.evaluate(
+            getRequest(kManagedWrongCredential));
+    assert(!managedWrongPassword.allowed);
+    assert(managedWrongPassword.rejection.statusCode == 401);
+    assert(managedWrongPassword.rejection.body.find(
+        "invalid_credentials") != std::string::npos);
+    assert(managedWrongPassword.rejection.body.find(
+        "wrong-password") == std::string::npos);
+
     SecurityHttpGate enforcedGate(
         enforced({PermissionGrant{"remote.control", "default"}}),
-        repository,
-        &identityResolver);
+        accountabilityRepository,
+        &identityResolver,
+        &managedAuthenticator);
 
-    assert(enforcedGate.evaluate(getRequest(false)).allowed);
+    assert(enforcedGate.evaluate(getRequest()).allowed);
+
+    const SecurityGateDecision invalidEnforcedGet =
+        enforcedGate.evaluate(getRequest(kManagedWrongCredential));
+    assert(!invalidEnforcedGet.allowed);
+    assert(invalidEnforcedGet.rejection.statusCode == 401);
+    assert(invalidEnforcedGet.rejection.body.find(
+        "invalid_credentials") != std::string::npos);
 
     const SecurityGateDecision anonymousRemote =
-        enforcedGate.evaluate(remoteRequest("default", false));
+        enforcedGate.evaluate(remoteRequest("default"));
     assert(!anonymousRemote.allowed);
     assert(anonymousRemote.rejection.statusCode == 401);
     assert(anonymousRemote.rejection.body.find(
         "authentication_required") != std::string::npos);
 
     const SecurityGateDecision permittedRemote =
-        enforcedGate.evaluate(remoteRequest("default", true));
+        enforcedGate.evaluate(
+            remoteRequest("default", kLegacyCredential));
     assert(permittedRemote.allowed);
 
+    const SecurityGateDecision managedEnforcedRemote =
+        enforcedGate.evaluate(
+            remoteRequest("default", kManagedCredential));
+    assert(managedEnforcedRemote.allowed);
+
     const SecurityGateDecision wrongScope =
-        enforcedGate.evaluate(remoteRequest("house-b", true));
+        enforcedGate.evaluate(
+            remoteRequest("house-b", kLegacyCredential));
     assert(!wrongScope.allowed);
     assert(wrongScope.rejection.statusCode == 403);
     assert(wrongScope.rejection.body.find(
@@ -144,17 +254,17 @@ int main()
 
     SecurityHttpGate noPermissionGate(
         enforced({PermissionGrant{"recordings.view", "*"}}),
-        repository,
+        accountabilityRepository,
         &identityResolver);
     const SecurityGateDecision missingPermission =
-        noPermissionGate.evaluate(remoteRequest("default", true));
+        noPermissionGate.evaluate(
+            remoteRequest("default", kLegacyCredential));
     assert(!missingPermission.allowed);
     assert(missingPermission.rejection.statusCode == 403);
     assert(missingPermission.rejection.body.find(
         "permission_denied") != std::string::npos);
 
-    HttpServerRequest invalidCredential =
-        remoteRequest("default", false);
+    HttpServerRequest invalidCredential = remoteRequest("default");
     invalidCredential.headers["Authorization"] =
         "Basic definitely-not-valid";
     const SecurityGateDecision invalid =
@@ -167,18 +277,14 @@ int main()
         "definitely-not-valid") == std::string::npos);
 
     const SecurityGateDecision missingBackend =
-        enforcedGate.evaluate(remoteRequest("", true));
+        enforcedGate.evaluate(remoteRequest("", kLegacyCredential));
     assert(!missingBackend.allowed);
     assert(missingBackend.rejection.statusCode == 400);
     assert(missingBackend.rejection.body.find(
         "invalid_backend_scope") != std::string::npos);
 
-    HttpServerRequest unmigrated;
-    unmigrated.method = "POST";
-    unmigrated.path = "/api/vdr/timers/actions/create";
-    unmigrated.headers["Authorization"] = kCredential;
     const SecurityGateDecision failClosed =
-        enforcedGate.evaluate(unmigrated);
+        enforcedGate.evaluate(unmigratedRequest(kLegacyCredential));
     assert(!failClosed.allowed);
     assert(failClosed.rejection.statusCode == 503);
     assert(failClosed.rejection.body.find(
@@ -188,12 +294,11 @@ int main()
     enforcedGate.decorateResponse(
         permittedRemote.context,
         response);
-    assert(response.headers.at("X-Request-ID") ==
-        "request-1");
+    assert(response.headers.at("X-Request-ID") == "request-1");
     assert(response.headers.at("X-Correlation-ID") ==
         "correlation-1");
 
-    const auto events = repository.listAll();
+    const auto events = accountabilityRepository.listAll();
     bool sawAllowed = false;
     bool sawDenied = false;
     bool sawUnmigratedDenial = false;
@@ -206,9 +311,9 @@ int main()
             event.eventType == "authorization.denied";
         sawUnmigratedDenial = sawUnmigratedDenial ||
             event.reasonCode == "security_policy_not_migrated";
-        assert(event.permission.find("Basic ") ==
-            std::string::npos);
-        assert(event.reasonCode.find("Basic ") ==
+        assert(event.permission.find("Basic ") == std::string::npos);
+        assert(event.reasonCode.find("Basic ") == std::string::npos);
+        assert(event.reasonCode.find("test-password") ==
             std::string::npos);
     }
 
@@ -216,13 +321,23 @@ int main()
     assert(sawDenied);
     assert(sawUnmigratedDenial);
 
+    assert(identityRepository.revokeCredential(managed.credentialId));
+    const SecurityGateDecision revokedManagedCredential =
+        compatibilityGate.evaluate(
+            remoteRequest("default", kManagedCredential));
+    assert(!revokedManagedCredential.allowed);
+    assert(revokedManagedCredential.rejection.statusCode == 401);
+    assert(revokedManagedCredential.rejection.body.find(
+        "credential_revoked") != std::string::npos);
+
     assert(identityRepository.revokeCredential(
         "legacy-basic-credential"));
-    const SecurityGateDecision revokedCredential =
-        compatibilityGate.evaluate(remoteRequest("default", true));
-    assert(!revokedCredential.allowed);
-    assert(revokedCredential.rejection.statusCode == 401);
-    assert(revokedCredential.rejection.body.find(
+    const SecurityGateDecision revokedLegacyCredential =
+        compatibilityGate.evaluate(
+            remoteRequest("default", kLegacyCredential));
+    assert(!revokedLegacyCredential.allowed);
+    assert(revokedLegacyCredential.rejection.statusCode == 401);
+    assert(revokedLegacyCredential.rejection.body.find(
         "credential_revoked") != std::string::npos);
 
     Database closedDatabase;
@@ -232,7 +347,8 @@ int main()
         enforced({PermissionGrant{"remote.control", "default"}}),
         unavailableRepository);
     const SecurityGateDecision auditFailure =
-        unavailableGate.evaluate(remoteRequest("default", true));
+        unavailableGate.evaluate(
+            remoteRequest("default", kLegacyCredential));
     assert(!auditFailure.allowed);
     assert(auditFailure.rejection.statusCode == 503);
     assert(auditFailure.rejection.body.find(
