@@ -3,11 +3,14 @@
 
 #include "AccountabilityEventRepository.h"
 #include "ApiRouter.h"
+#include "CredentialVerifierRepository.h"
 #include "Database.h"
 #include "IEpgArtworkHttpProvider.h"
 #include "IHttpServer.h"
+#include "ManagedBasicAuthenticator.h"
 #include "PersistentIdentityResolver.h"
 #include "SecurityHttpGate.h"
+#include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
 
 #include <memory>
@@ -48,6 +51,12 @@ private:
         accountabilityEventRepository_;
     std::unique_ptr<SecurityIdentityRepository>
         securityIdentityRepository_;
+    std::unique_ptr<SecurityIdentityProvisioningRepository>
+        securityIdentityProvisioningRepository_;
+    std::unique_ptr<CredentialVerifierRepository>
+        credentialVerifierRepository_;
+    std::unique_ptr<ManagedBasicAuthenticator>
+        managedBasicAuthenticator_;
     std::unique_ptr<PersistentIdentityResolver>
         persistentIdentityResolver_;
     std::unique_ptr<SecurityHttpGate> securityHttpGate_;
