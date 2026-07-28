@@ -51,7 +51,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
-Active; Slice 1 is real-runtime validated. Slice 2 lifecycle persistence and first managed credential verifier increments are implemented, CI validated, and real-runtime accepted on Draft PR #117.
+Active; Slice 1 is real-runtime validated. Slice 2 lifecycle persistence and managed Basic increments are implemented, CI validated, and real-runtime accepted. A browser-session credential/cookie/CSRF verifier foundation is implemented and CI validated on Draft PR #117 but is not yet connected to the HTTP runtime.
 ```
 
 Phase 61 remains completed. Phase 62 is not complete. The active work does not advance Phase 63-67 runtime.
@@ -75,7 +75,7 @@ Current `main` contains:
 
 ## Active Phase 62 branch truth
 
-The active Phase 62 branch owns this request path:
+The active Phase 62 branch currently owns this runtime request path:
 
 ```text
 HttpServerRequest
@@ -92,6 +92,19 @@ HttpServerRequest
   -> existing controller/service/domain safety checks
 ```
 
+The branch additionally contains this staged foundation, which is not yet called by `TestHttpServer` or `SecurityHttpGate`:
+
+```text
+future Cookie request
+  -> BrowserSessionAuthenticator
+       -> strict vdr_suite_session parsing
+       -> BrowserSessionCredentialRepository
+            -> security_browser_session_credentials
+       -> one-way session-secret verification
+       -> independent X-CSRF-Token verification
+  -> future PersistentIdentityResolver / SecurityHttpGate integration
+```
+
 ### Slice 1 — implemented and real-runtime validated
 
 - canonical actor, device, session and request security context values;
@@ -104,7 +117,7 @@ HttpServerRequest
 - explicit `legacy-basic` and fail-closed `enforced` rollout modes;
 - real yaVDR evidence for anonymous denial, invalid-credential denial and authenticated Browser Remote actions.
 
-### Slice 2 — lifecycle foundation and first managed verifier implemented and real-runtime accepted
+### Slice 2 — lifecycle and managed Basic increments implemented and real-runtime accepted
 
 - additive actor, device, session, credential and Basic-verifier tables;
 - compatibility lifecycle bootstrap without storing the Basic Authorization value;
@@ -121,14 +134,27 @@ HttpServerRequest
 - repository, provisioning, verifier, resolver, HTTP-gate and architecture tests;
 - real yaVDR evidence for successful managed GET authentication, wrong-password 401, unmigrated Timer 503, migrated Remote 200, and correct actor/device/session accountability.
 
-The existing legacy browser credential remains transitional and broadly privileged only for compatibility. The optional managed verifier stores a unique login binding and one-way modular password hash, never the submitted header, decoded password, plaintext password or reversible secret.
+### Slice 2 — browser-session credential/verifier foundation implemented, runtime integration open
+
+- additive `security_browser_session_credentials` table;
+- exact actor, device, session, browser credential, and issuing-credential bindings;
+- non-secret token ID plus one-way modular hashes for the session and CSRF secrets;
+- strict bounded `vdr_suite_session` cookie parsing with duplicate rejection;
+- independent `X-CSRF-Token` verification;
+- expiry and persistent revocation decisions;
+- tests for valid, wrong, unknown, malformed, duplicate, expired, revoked, and CSRF-negative cases;
+- architecture guards forbidding raw cookie/session/CSRF storage fields.
+
+No login route, `Set-Cookie`, logout, gate authentication precedence, or actual mutation CSRF rejection is claimed yet. The existing browser still uses the transitional legacy Basic path.
 
 ## Open Phase 62 work
 
 Phase 62 still requires:
 
-- protected per-user/service credential issuance, server-side hash generation/password change and recovery;
-- browser cookie sessions, secure cookie policy, CSRF, refresh, logout, expiry cleanup and protected lifecycle management;
+- atomic browser-session issuance with server-generated high-entropy values;
+- HTTP login/logout, documented secure cookie attributes, authentication precedence, and `PersistentIdentityResolver`/`SecurityHttpGate` integration;
+- actual CSRF enforcement before mutation dispatch, refresh/idle expiry cleanup, and protected lifecycle management;
+- protected per-user/service credential issuance, managed-password hash generation/change, and recovery;
 - native/service token enrollment and rotation;
 - persisted roles, permissions, grants and backend/resource scopes;
 - complete permission mapping and server-side authorization for all mutations and sensitive reads;
@@ -145,6 +171,8 @@ The local browser remains compatible by default through `legacy-basic`. That act
 
 An optional managed Basic identity can coexist for isolated identity, permission and revocation tests. It may use authenticated reads and explicitly migrated routes, but receives `security_policy_not_migrated` for an unmigrated POST.
 
+The staged browser-session verifier changes no runtime request behavior until explicit HTTP/Gate integration is implemented and accepted.
+
 The compatibility mode is not a permanent architecture exemption. Frontend state and disabled buttons are never authorization evidence. The server remains the enforcement owner.
 
 ## Pull request classification at this baseline
@@ -156,7 +184,7 @@ The compatibility mode is not a permanent architecture exemption. Frontend state
 | #114 | Merged documentation truth refresh. |
 | #115 | Merged configurable photorealistic PNG Remote and extended Remote functions; current `main` head. |
 | #116 | Open Draft, mergeable; Android/client API feasibility and proposed ADR-0051. ADR-0051 is not accepted runtime truth on `main`. |
-| #117 | Open Draft, mergeable Phase 62 implementation branch; Slice 1 and current Slice 2 increments are real-runtime accepted. Must not be auto-merged. |
+| #117 | Open Draft Phase 62 implementation branch; Slice 1 and managed/lifecycle Slice 2 increments are real-runtime accepted, while the browser-session verifier is staged and CI validated. Must not be auto-merged. |
 
 Open PR content remains lower-trust than merged code and accepted ADRs.
 
@@ -184,5 +212,5 @@ The current unversioned `/api/...` routes are compatibility routes, not a stable
 - Authentication, credential verification, persistent identity resolution and authorization are separate decisions.
 - Backend read-only and capability checks remain independent of actor permissions.
 - Frontends do not own authorization decisions.
-- Submitted credentials do not belong in URLs, logs, error bodies, request IDs, identity lifecycle rows or accountability payloads; only a one-way verifier hash may be persisted in its dedicated repository.
+- Submitted passwords, Authorization headers, complete cookie values, raw session secrets, and raw CSRF values do not belong in URLs, logs, error bodies, request IDs, identity lifecycle rows, or accountability payloads; only one-way verifier hashes may be persisted in their dedicated repositories.
 - Completed phases are not silently reopened by optional extensions.
