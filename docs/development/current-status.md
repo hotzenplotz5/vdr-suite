@@ -23,7 +23,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 status:
-Active; Slice 1 is real-runtime validated. Slice 2 has real-runtime-accepted lifecycle persistence and first managed credential verifier increments on its Draft branch.
+Active; Slice 1 is real-runtime validated. Slice 2 lifecycle persistence and managed Basic increments are real-runtime accepted. A browser-session credential/cookie/CSRF verifier foundation is implemented and CI validated on the Draft branch but is not yet connected to TestHttpServer or SecurityHttpGate.
 ```
 
 ## Stable implemented scope
@@ -84,14 +84,31 @@ The existing `BackendAccessPolicy` remains a separate backend-state guard. It do
 - provisioning, verifier, authentication, revocation and route-boundary tests;
 - real yaVDR positive GET authentication, wrong-password 401, unmigrated Timer 503, migrated Remote 200 and actor/device/session accountability evidence.
 
-The runtime never persists or reflects the submitted Authorization header, decoded password, plaintext password or reversible secret. The one-way verifier hash is stored in its dedicated repository and is not a replacement for protected issuance, password-change or recovery workflows.
+### Browser-session credential and verifier foundation — implemented and CI validated, not runtime wired
+
+- additive `security_browser_session_credentials` table;
+- actor/device/session/browser-credential/issuing-credential bindings;
+- non-secret lookup token ID plus one-way modular hashes of the session and CSRF secrets;
+- bounded `vdr_suite_session` cookie parsing;
+- duplicate target-cookie rejection;
+- independent `X-CSRF-Token` verification;
+- active, expiry and revocation semantics;
+- tests for valid, wrong, unknown, malformed, duplicate, expired, revoked and CSRF-negative paths;
+- architecture guards against raw cookie/session/CSRF storage.
+
+The runtime still uses legacy or managed Basic authentication. No cookie is issued, no browser login/logout route exists, and mutation requests are not yet CSRF-gated. The staged verifier therefore changes no installed request behavior.
+
+The runtime never persists or reflects submitted Authorization headers, decoded passwords, plaintext passwords, complete cookie values, raw session secrets, raw CSRF values or reversible secrets. Only one-way verifier hashes belong in the dedicated verifier repositories.
 
 ## Open Phase 62 limitations
 
 The platform still lacks:
 
-- protected per-user/service credential issuance and server-side hash-generation/password-change workflows;
-- browser cookie sessions, secure cookie attributes, CSRF, refresh, logout and expiry cleanup;
+- atomic browser-session issuance with server-generated high-entropy values;
+- browser login/logout HTTP routes and documented `Set-Cookie` attributes;
+- browser-cookie authentication precedence and `PersistentIdentityResolver`/`SecurityHttpGate` integration;
+- actual CSRF rejection before mutation dispatch, refresh, idle expiry and cleanup;
+- protected per-user/service credential issuance and server-side managed-password hash-generation/change workflows;
 - native/service token enrollment, rotation and recovery;
 - protected lifecycle-management routes;
 - persisted roles, grants and backend/resource scopes;
@@ -117,7 +134,7 @@ Phase 62 remains active and incomplete.
 Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-Complete browser cookie/session and CSRF behavior plus protected lifecycle administration before moving to persisted roles/grants and route-by-route authorization.
+Implement atomic browser-session issuance and HTTP login/logout, then connect cookie authentication and CSRF enforcement to `PersistentIdentityResolver` and `SecurityHttpGate` before moving to persisted roles/grants and route-by-route authorization.
 
 ### Preferred edit path for new chats
 
