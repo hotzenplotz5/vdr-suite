@@ -239,7 +239,7 @@ This proves real-runtime password verification, independent managed identity att
 
 GitHub Actions VDR-Suite CI run 6247 completed successfully on managed-verifier code head `8c8cd524b8b3a2463d7c9195ac745c06083c0d2d`. Documentation head `d6bc1e0c8f6904afbf41412f07d6adc25549264b` was subsequently validated by CI run 6249.
 
-For the browser-session foundation, the fast regression of CI run 6267 passed on head `9be3467f6a5148972fdcfbed1b9d26e458c59d8b`, including compilation and execution of `test_browser_session_authenticator.cpp`. The final workflow conclusion is recorded after the documentation head completes.
+For the browser-session foundation, CI run 6267 reached a successful fast regression on head `9be3467f6a5148972fdcfbed1b9d26e458c59d8b`, including compilation and execution of `test_browser_session_authenticator.cpp`, before the workflow was superseded and cancelled by subsequent documentation commits. The final complete workflow conclusion is taken only from the latest documentation head.
 
 Browser-session tests cover:
 
