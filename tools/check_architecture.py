@@ -26,10 +26,29 @@ SQLITE_DOMAIN_REPOSITORY_PREFIXES = [
     "core/recordings/src/",
     "core/vdr/src/",
     "core/metadata/src/",
+    "core/security/src/",
 ]
 
+SQLITE_SPLIT_REPOSITORY_FAMILIES = [
+    (
+        "core/vdr/src/",
+        "VdrRecordingNativeMetadataRepository",
+    ),
+]
+
+SQLITE_ALLOWED_RUNTIME_ADAPTERS = {
+    "api/rest/src/GenreBrowserApiRuntime.cpp",
+}
+
 SQLITE_ALLOWED_CONTRACT_TESTS = {
+    "core/daemon/tests/test_daemon_sqlite_shutdown_cancellation.cpp",
+    "core/metadata/tests/test_genre_epg_refresh_fast_path.cpp",
+    "core/metadata/tests/test_genre_recording_sync_noop.cpp",
+    "core/metadata/tests/test_genre_write_batching.cpp",
     "core/metadata/tests/test_metadata_schema_contract.cpp",
+    "core/vdr/tests/test_epg_artwork_repository.cpp",
+    "core/vdr/tests/test_epg_event_repository.cpp",
+    "core/vdr/tests/test_global_search_repository.cpp",
 }
 
 
@@ -61,6 +80,20 @@ def is_domain_repository_implementation(path: Path) -> bool:
     return path.name.endswith("Repository.cpp")
 
 
+def is_split_repository_implementation(path: Path) -> bool:
+    rel = repo_path(path)
+    return any(
+        rel.startswith(directory_prefix) and
+        path.name.startswith(repository_prefix)
+        for directory_prefix, repository_prefix
+        in SQLITE_SPLIT_REPOSITORY_FAMILIES
+    )
+
+
+def is_registered_runtime_adapter(path: Path) -> bool:
+    return repo_path(path) in SQLITE_ALLOWED_RUNTIME_ADAPTERS
+
+
 def is_registered_sqlite_contract_test(path: Path) -> bool:
     return repo_path(path) in SQLITE_ALLOWED_CONTRACT_TESTS
 
@@ -69,6 +102,8 @@ def is_allowed_sqlite_file(path: Path) -> bool:
     return (
         is_sqlite_infrastructure_file(path)
         or is_domain_repository_implementation(path)
+        or is_split_repository_implementation(path)
+        or is_registered_runtime_adapter(path)
         or is_registered_sqlite_contract_test(path)
     )
 
@@ -98,8 +133,9 @@ def check_sqlite_boundary(path: Path, text: str) -> list[str]:
 
     errors.append(
         f"{repo_path(path)}: direct SQLite usage is only allowed in "
-        "core/sqlite/, approved domain *Repository.cpp implementations, "
-        "and explicitly registered SQLite/schema contract tests"
+        "core/sqlite/, approved domain repository implementation units, "
+        "explicitly registered runtime adapters, and explicitly registered "
+        "SQLite/schema contract tests"
     )
 
     return errors
@@ -115,8 +151,13 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/vdr/src/EpgEventRepository.cpp",
         "core/vdr/src/EpgSearchNativeFuzzyCapabilityRepository.cpp",
         "core/vdr/src/VdrRecordingCacheRepository.cpp",
+        "core/vdr/src/VdrRecordingNativeMetadataRepositoryStorage.cpp",
+        "core/vdr/src/VdrRecordingNativeMetadataRepositoryInternal.h",
         "core/metadata/src/MetadataEntityRepository.cpp",
+        "core/security/src/SecurityIdentityRepository.cpp",
+        "api/rest/src/GenreBrowserApiRuntime.cpp",
         "core/metadata/tests/test_metadata_schema_contract.cpp",
+        "core/vdr/tests/test_epg_event_repository.cpp",
     ]
 
     rejected_paths = [
@@ -124,6 +165,8 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/vdr/src/VdrService.cpp",
         "core/vdr/src/RepositoryHelper.cpp",
         "core/metadata/src/MetadataResolver.cpp",
+        "core/security/include/SecurityIdentityRepository.h",
+        "core/security/src/RepositoryHelper.cpp",
         "core/metadata/tests/test_metadata_identity.cpp",
         "api/rest/src/FakeRepository.cpp",
         "apps/example/src/FakeRepository.cpp",
