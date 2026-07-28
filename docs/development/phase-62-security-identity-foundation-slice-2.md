@@ -1,6 +1,6 @@
 # Phase 62 Persistent Identity Lifecycle — Slice 2
 
-Status: persistence and revocation foundation implemented; Phase 62 remains open
+Status: persistence and revocation foundation implemented and real-VDR accepted; Phase 62 remains open
 
 ## Purpose
 
@@ -86,6 +86,22 @@ The request path resolves persisted state on every authenticated request. The fo
 
 Backend permission, backend scope, backend read-only state, capability, operation validation, and domain execution remain separate cumulative decisions.
 
+## Real-VDR acceptance
+
+The Slice 2 head was installed on the yaVDR system and used the production Suite database at `/var/lib/vdr-suite/vdr-suite.db`.
+
+Observed on 2026-07-28:
+
+- daemon startup created one active compatibility actor, device, session, and credential with the expected ownership bindings;
+- the stored records contained identity and lifecycle metadata only; no Basic Authorization value, password, token, or reversible secret was present;
+- setting `legacy-basic-credential.active=0` and assigning `revoked_at` immediately blocked browser authentication without restarting the daemon;
+- accountability recorded the persisted actor as `legacy-local-web`, authentication state `revoked`, reason `credential_revoked`, decision `denied`, and outcome `dispatch_denied`;
+- several denial rows in the same second represented parallel browser document, asset, and API requests while the sole browser credential was revoked; they were independent access denials, not repeated VDR action dispatches;
+- restoring `active=1` and clearing expiry/revocation values restored browser access without restarting the daemon;
+- the following Remote request was attributed to `legacy-local-web`, authorized with `remote.control@default`, and recorded as `permission_granted` / `dispatch_authorized`.
+
+This proves automatic bootstrap, durable revocation, request-time lifecycle resolution, fail-before-dispatch behavior, and recovery on the real runtime. The test also confirms that revoking the sole compatibility credential blocks the complete legacy browser, not only the Remote route; future lifecycle tests should use a separate test identity once production issuance exists.
+
 ## Explicitly not included
 
 - user enrollment or user-management HTTP routes;
@@ -104,14 +120,15 @@ Those omissions keep this slice coherent: it establishes the durable lifecycle b
 
 | Criterion | Evidence |
 |---|---|
-| Compatibility identity is created without storing its secret | repository schema and bootstrap test; architecture secret guard |
-| Actor/device/session/credential bindings are persisted | `test_security_identity_repository.cpp` |
+| Compatibility identity is created without storing its secret | repository schema and bootstrap test; architecture secret guard; real-VDR table inspection |
+| Actor/device/session/credential bindings are persisted | `test_security_identity_repository.cpp`; real-VDR bootstrap rows |
 | Persisted display name replaces transient request value | resolver assertion |
 | Expired session is rejected | repository expiry plus resolver negative |
-| Revoked credential is rejected before HTTP dispatch | HTTP-gate integration negative with `credential_revoked` |
+| Revoked credential is rejected before HTTP dispatch | HTTP-gate integration negative and real-VDR `credential_revoked` audit evidence |
 | Missing repository records fail closed | resolver behavior and repository optional lookups |
 | Repeated startup does not overwrite lifecycle state | `INSERT OR IGNORE` bootstrap contract |
-| Existing browser and protected Remote path remain supported | compatibility and allowed Remote HTTP-gate cases |
+| Existing browser and protected Remote path remain supported | compatibility tests plus real-VDR recovery and subsequent `remote.control@default` allow event |
+| Persisted lifecycle state is re-read without daemon restart | real-VDR revoke and restore exercise |
 | Architecture remains server-owned | `tools/check_security_identity_architecture.py` |
 
 Canonical checks:
@@ -123,4 +140,4 @@ make test-docs
 make test
 ```
 
-Real-VDR acceptance for this slice must confirm automatic table bootstrap, unchanged browser behavior, and a controlled revocation/recovery exercise. Until that evidence exists, Slice 2 is implemented but not runtime-closeout complete.
+Slice 2 is implementation-, CI-, and real-runtime accepted. Phase 62 remains open because secure credential issuance and verification, production browser/native session lifecycle, protected administration, persisted roles/grants, complete route migration, mutation contracts, and complete accountability are still outstanding.
