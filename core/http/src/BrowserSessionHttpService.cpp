@@ -114,7 +114,7 @@ HttpServerResponse BrowserSessionHttpService::login(
     }
 
     HttpServerResponse response;
-    response.statusCode = 201;
+    response.statusCode = 200;
     response.headers["Content-Type"] = "application/json";
     response.headers["Cache-Control"] = "no-store";
     response.headers["Pragma"] = "no-cache";
