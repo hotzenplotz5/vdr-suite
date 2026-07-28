@@ -26,6 +26,8 @@ def main() -> int:
         "core/security/include/LegacyBasicAuthenticator.h",
         "core/security/include/ManagedBasicAuthenticator.h",
         "core/security/include/CredentialVerifierRepository.h",
+        "core/security/include/BrowserSessionCredentialRepository.h",
+        "core/security/include/BrowserSessionAuthenticator.h",
         "core/security/include/SecurityIdentityRepository.h",
         "core/security/include/SecurityIdentityProvisioningRepository.h",
         "core/security/include/PersistentIdentityResolver.h",
@@ -36,6 +38,7 @@ def main() -> int:
         "core/security/tests/test_security_configuration.cpp",
         "core/security/tests/test_security_identity_repository.cpp",
         "core/security/tests/test_managed_basic_authenticator.cpp",
+        "core/security/tests/test_browser_session_authenticator.cpp",
         "core/security/tests/test_accountability_event_repository.cpp",
         "core/security/tests/test_security_http_gate.cpp",
         "docs/planning/phase-62-security-identity-gap-matrix.md",
@@ -106,6 +109,30 @@ def main() -> int:
         "core/security/include/ManagedBasicAuthenticator.h",
         'passwordHash.rfind("$6$", 0)')
     require(
+        "core/security/include/BrowserSessionCredentialRepository.h",
+        "security_browser_session_credentials")
+    require(
+        "core/security/include/BrowserSessionCredentialRepository.h",
+        "session_secret_hash")
+    require(
+        "core/security/include/BrowserSessionCredentialRepository.h",
+        "csrf_secret_hash")
+    require(
+        "core/security/include/BrowserSessionCredentialRepository.h",
+        "issued_from_credential_id")
+    require(
+        "core/security/include/BrowserSessionAuthenticator.h",
+        '"vdr_suite_session"')
+    require(
+        "core/security/include/BrowserSessionAuthenticator.h",
+        '"X-CSRF-Token"')
+    require(
+        "core/security/include/BrowserSessionAuthenticator.h",
+        "crypt_r")
+    require(
+        "core/security/include/BrowserSessionAuthenticator.h",
+        "verifyCsrf")
+    require(
         "core/security/include/PersistentIdentityResolver.h",
         "findCredential")
     require(
@@ -159,6 +186,15 @@ def main() -> int:
     forbid(
         "core/security/include/CredentialVerifierRepository.h",
         "decoded_password")
+    forbid(
+        "core/security/include/BrowserSessionCredentialRepository.h",
+        "session_secret TEXT")
+    forbid(
+        "core/security/include/BrowserSessionCredentialRepository.h",
+        "csrf_secret TEXT")
+    forbid(
+        "core/security/include/BrowserSessionCredentialRepository.h",
+        "cookie_value")
 
     print("security identity architecture contracts passed")
     return 0
