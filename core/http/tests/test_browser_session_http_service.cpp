@@ -149,6 +149,7 @@ int main()
     basicContext.actor = ActorIdentity{
         "user-phase62-admin",
         ActorType::User,
+        "Phase 62 administrator",
         true};
     basicContext.device = DeviceIdentity{
         "device-phase62-browser",
