@@ -3,6 +3,7 @@
 
 #include "AccountabilityEventRepository.h"
 #include "ApiRouter.h"
+#include "BrowserSessionAuthenticator.h"
 #include "BrowserSessionCredentialRepository.h"
 #include "BrowserSessionHttpGate.h"
 #include "BrowserSessionHttpService.h"
@@ -62,6 +63,8 @@ private:
         credentialVerifierRepository_;
     std::unique_ptr<BrowserSessionCredentialRepository>
         browserSessionCredentialRepository_;
+    std::unique_ptr<BrowserSessionAuthenticator>
+        browserSessionAuthenticator_;
     std::unique_ptr<ManagedBasicAuthenticator>
         managedBasicAuthenticator_;
     std::unique_ptr<PersistentIdentityResolver>

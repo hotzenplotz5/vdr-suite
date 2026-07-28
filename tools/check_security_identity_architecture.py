@@ -131,10 +131,22 @@ def main() -> int:
     forbid("core/http/src/TestHttpServer.cpp", "isAuthorized(request)")
     forbid("core/http/src/TestHttpServerAssets.inc", "expectedAuthorizationHeader")
     forbid("core/http/src/TestHttpServerAssets.inc", "isAuthorized")
-    forbid("core/http/src/TestHttpServer.cpp", "BrowserSessionAuthenticator")
+    require("core/http/src/TestHttpServer.cpp", "BrowserSessionAuthenticator")
     forbid("core/http/src/TestHttpServer.cpp", "vdr_suite_session=")
     forbid("core/security/include/SecurityHttpGate.h", "BrowserSessionIssuanceService")
-    forbid("core/security/include/SecurityHttpGate.h", "BrowserSessionAuthenticator")
+    require("core/security/include/SecurityHttpGate.h", "BrowserSessionAuthenticator")
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        "browserSessionAuthenticator_->hasSessionCookie(")
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        "browserSessionAuthenticator_->authenticate(")
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"http.browser.mutation"')
+    forbid(
+        "core/security/include/SecurityHttpGate.h",
+        "browserSessionAuthenticator_->verifyCsrf(")
     forbid("core/security/include/SecurityHttpGate.h", "vdr_suite_session")
     forbid("core/security/src/SecurityIdentityRepository.cpp", "Authorization: Basic")
     forbid("core/security/src/SecurityIdentityRepository.cpp", "YWRtaW46")

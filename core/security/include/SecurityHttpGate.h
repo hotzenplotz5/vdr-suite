@@ -2,6 +2,7 @@
 
 #include "AccountabilityEventRepository.h"
 #include "AuthorizationService.h"
+#include "BrowserSessionAuthenticator.h"
 #include "HttpServerRequest.h"
 #include "HttpServerResponse.h"
 #include "LegacyBasicAuthenticator.h"
@@ -23,30 +24,48 @@ struct SecurityGateDecision
 {
     bool allowed = false;
     bool protectedMutation = false;
+    bool browserSessionPresented = false;
+    bool browserAuthenticated = false;
     RequestSecurityContext context;
     HttpServerResponse rejection;
 };
 
 class SecurityHttpGate
 {
+private:
+    struct AuthenticationResult
+    {
+        RequestSecurityContext context;
+        bool browserSessionPresented = false;
+        bool browserAuthenticated = false;
+    };
+
 public:
     SecurityHttpGate(
         SecurityConfiguration configuration,
         AccountabilityEventRepository& accountabilityRepository,
         const PersistentIdentityResolver* persistentIdentityResolver = nullptr,
-        const ManagedBasicAuthenticator* managedBasicAuthenticator = nullptr)
+        const ManagedBasicAuthenticator* managedBasicAuthenticator = nullptr,
+        const BrowserSessionAuthenticator* browserSessionAuthenticator =
+            nullptr)
         : configuration_(std::move(configuration)),
           legacyAuthenticator_(configuration_),
           accountabilityRepository_(accountabilityRepository),
           persistentIdentityResolver_(persistentIdentityResolver),
-          managedBasicAuthenticator_(managedBasicAuthenticator)
+          managedBasicAuthenticator_(managedBasicAuthenticator),
+          browserSessionAuthenticator_(browserSessionAuthenticator)
     {
     }
 
     SecurityGateDecision evaluate(const HttpServerRequest& request) const
     {
         SecurityGateDecision gate;
-        gate.context = authenticate(request);
+        AuthenticationResult authentication = authenticate(request);
+        gate.browserSessionPresented =
+            authentication.browserSessionPresented;
+        gate.browserAuthenticated =
+            authentication.browserAuthenticated;
+        gate.context = std::move(authentication.context);
 
         if (configuration_.mode == SecurityMode::LegacyBasicCompatibility &&
             !gate.context.authenticated())
@@ -62,6 +81,24 @@ public:
         }
 
         const bool isPost = request.method == "POST";
+
+        if (isPost && gate.browserAuthenticated)
+        {
+            AuthorizationDecision decision;
+            decision.reasonCode = "security_policy_not_migrated";
+            decision.permission = "unmapped.browser.mutation";
+            decision.backendId = "*";
+            decision.action = "http.browser.mutation";
+
+            return rejectWithAudit(
+                gate,
+                decision,
+                503,
+                "Browser-session mutations have not yet been migrated "
+                "to the Phase 62 CSRF contract",
+                "");
+        }
+
         const bool isRemoteAction =
             isPost && requestPath(request.path) == "/api/vdr/remote/actions";
 
@@ -450,9 +487,11 @@ private:
         return context;
     }
 
-    RequestSecurityContext authenticate(
+    AuthenticationResult authenticate(
         const HttpServerRequest& request) const
     {
+        AuthenticationResult result;
+
         std::string requestId = headerValue(request, "X-Request-ID");
         if (!safeContextToken(requestId))
         {
@@ -467,14 +506,38 @@ private:
             correlationId.clear();
         }
 
-        RequestSecurityContext context =
-            legacyAuthenticator_.authenticate(
-                request.headers,
-                requestId,
-                correlationId);
-        if (context.authenticated())
+        if (browserSessionAuthenticator_ != nullptr &&
+            browserSessionAuthenticator_->hasSessionCookie(
+                request.headers))
         {
-            return resolvePersistentIdentity(std::move(context));
+            result.browserSessionPresented = true;
+            result.context =
+                browserSessionAuthenticator_->authenticate(
+                    request.headers,
+                    requestId,
+                    correlationId);
+
+            if (result.context.authenticated())
+            {
+                result.context = resolvePersistentIdentity(
+                    std::move(result.context));
+                result.browserAuthenticated =
+                    result.context.authenticated();
+            }
+
+            return result;
+        }
+
+        result.context = legacyAuthenticator_.authenticate(
+            request.headers,
+            requestId,
+            correlationId);
+
+        if (result.context.authenticated())
+        {
+            result.context = resolvePersistentIdentity(
+                std::move(result.context));
+            return result;
         }
 
         if (managedBasicAuthenticator_ != nullptr)
@@ -484,14 +547,16 @@ private:
                     request.headers,
                     requestId,
                     correlationId);
+
             if (managedContext.authenticated())
             {
-                return resolvePersistentIdentity(
+                result.context = resolvePersistentIdentity(
                     std::move(managedContext));
+                return result;
             }
         }
 
-        return context;
+        return result;
     }
 
     SecurityGateDecision rejectAuthentication(
@@ -508,7 +573,7 @@ private:
             401,
             messageForReason(decision.reasonCode),
             "",
-            true);
+            !gate.browserSessionPresented);
     }
 
     bool appendDecisionEvent(
@@ -617,5 +682,6 @@ private:
     AccountabilityEventRepository& accountabilityRepository_;
     const PersistentIdentityResolver* persistentIdentityResolver_;
     const ManagedBasicAuthenticator* managedBasicAuthenticator_;
+    const BrowserSessionAuthenticator* browserSessionAuthenticator_;
     mutable std::atomic<unsigned long long> idCounter_{0};
 };

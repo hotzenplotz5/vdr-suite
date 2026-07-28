@@ -1,4 +1,6 @@
 #include "AccountabilityEventRepository.h"
+#include "BrowserSessionAuthenticator.h"
+#include "BrowserSessionCredentialRepository.h"
 #include "CredentialVerifierRepository.h"
 #include "Database.h"
 #include "ManagedBasicAuthenticator.h"
@@ -20,6 +22,12 @@ const std::string kManagedWrongCredential =
     "Basic cGhhc2U2Mi1hZG1pbjp3cm9uZy1wYXNzd29yZA==";
 const std::string kManagedPasswordHash =
     "$6$testsalt$qzmynZ3SU0S5D.QBAsFplf6HVa.jpeEdx88KlHvhGfddFSPHoEWMArwiVQ1PLzZDrJJ9Vs/zKBgHPMSwmFddx.";
+const std::string kBrowserSessionSecret =
+    "session-secret-0123456789abcdef0123456789";
+const std::string kBrowserSessionSecretHash =
+    "$6$sessionsalt$8tf7lGjGVFN700ih.GaNBFsDQaVkLgsffOM/4VS9ODoyxeEikzL9jMMbsfS2Lu2/A7U.ypuQ1g38ub5YckfEe/";
+const std::string kBrowserCsrfSecretHash =
+    "$6$csrfsalt$Zht7CPii63YntnxlS0UUgPTs6wcCD7WfThN91jWT8Ub0CzhKDP8nhTYAC13VefMKEyYMpUPZUG7AzYtSuFKSM1";
 
 HttpServerRequest getRequest(const std::string& authorization = "")
 {
@@ -30,6 +38,15 @@ HttpServerRequest getRequest(const std::string& authorization = "")
     {
         request.headers["Authorization"] = authorization;
     }
+    return request;
+}
+
+HttpServerRequest browserGetRequest(
+    const std::string& cookie,
+    const std::string& authorization = "")
+{
+    HttpServerRequest request = getRequest(authorization);
+    request.headers["Cookie"] = cookie;
     return request;
 }
 
@@ -144,11 +161,43 @@ int main()
 
     PersistentIdentityResolver identityResolver(identityRepository);
 
+    assert(provisioningRepository.ensureIdentity(
+        managed.actorId,
+        ActorType::User,
+        managed.actorDisplayName,
+        managed.deviceId,
+        "Managed Basic client",
+        "session-browser-active",
+        "credential-browser-active",
+        "browser-session"));
+
+    BrowserSessionCredentialRepository browserRepository(database);
+    assert(browserRepository.ensureSchema());
+
+    BrowserSessionCredentialRegistration browserRegistration;
+    browserRegistration.tokenId = "sessiontoken001";
+    browserRegistration.actorId = managed.actorId;
+    browserRegistration.deviceId = managed.deviceId;
+    browserRegistration.sessionId = "session-browser-active";
+    browserRegistration.credentialId = "credential-browser-active";
+    browserRegistration.issuedFromCredentialId = managed.credentialId;
+    browserRegistration.sessionSecretHash =
+        kBrowserSessionSecretHash;
+    browserRegistration.csrfSecretHash =
+        kBrowserCsrfSecretHash;
+    browserRegistration.expiresAt = "2099-01-01 00:00:00";
+    assert(browserRepository.insert(browserRegistration));
+
+    BrowserSessionAuthenticator browserAuthenticator(
+        browserRepository,
+        std::vector<PermissionGrant>{});
+
     SecurityHttpGate compatibilityGate(
         compatibilityConfiguration,
         accountabilityRepository,
         &identityResolver,
-        &managedAuthenticator);
+        &managedAuthenticator,
+        &browserAuthenticator);
 
     const SecurityGateDecision anonymousCompatibility =
         compatibilityGate.evaluate(getRequest());
@@ -188,6 +237,53 @@ int main()
     assert(managedGet.context.credential->credentialId ==
         managed.credentialId);
 
+    const std::string validBrowserCookie =
+        "vdr_suite_session=sessiontoken001." +
+        kBrowserSessionSecret;
+
+    const SecurityGateDecision browserPreferred =
+        compatibilityGate.evaluate(
+            browserGetRequest(
+                validBrowserCookie,
+                kManagedWrongCredential));
+    assert(browserPreferred.allowed);
+    assert(browserPreferred.browserSessionPresented);
+    assert(browserPreferred.browserAuthenticated);
+    assert(browserPreferred.context.actor.actorId == managed.actorId);
+    assert(browserPreferred.context.credential.has_value());
+    assert(browserPreferred.context.credential->credentialId ==
+        "credential-browser-active");
+    assert(browserPreferred.context.grants.empty());
+
+    const SecurityGateDecision invalidBrowserNoFallback =
+        compatibilityGate.evaluate(
+            browserGetRequest(
+                "vdr_suite_session=sessiontoken001."
+                "wrong-session-0123456789abcdef0123456789",
+                kLegacyCredential));
+    assert(!invalidBrowserNoFallback.allowed);
+    assert(invalidBrowserNoFallback.browserSessionPresented);
+    assert(!invalidBrowserNoFallback.browserAuthenticated);
+    assert(invalidBrowserNoFallback.rejection.statusCode == 401);
+    assert(invalidBrowserNoFallback.rejection.body.find(
+        "invalid_credentials") != std::string::npos);
+    assert(invalidBrowserNoFallback.rejection.headers.find(
+        "WWW-Authenticate") ==
+        invalidBrowserNoFallback.rejection.headers.end());
+
+    HttpServerRequest browserRemoteRequest =
+        remoteRequest("default", kLegacyCredential);
+    browserRemoteRequest.headers["Cookie"] = validBrowserCookie;
+
+    const SecurityGateDecision browserRemoteBlocked =
+        compatibilityGate.evaluate(browserRemoteRequest);
+    assert(!browserRemoteBlocked.allowed);
+    assert(browserRemoteBlocked.browserSessionPresented);
+    assert(browserRemoteBlocked.browserAuthenticated);
+    assert(browserRemoteBlocked.rejection.statusCode == 503);
+    assert(browserRemoteBlocked.rejection.body.find(
+        "security_policy_not_migrated") != std::string::npos);
+
     const SecurityGateDecision managedRemote =
         compatibilityGate.evaluate(
             remoteRequest("default", kManagedCredential));
@@ -216,7 +312,8 @@ int main()
         enforced({PermissionGrant{"remote.control", "default"}}),
         accountabilityRepository,
         &identityResolver,
-        &managedAuthenticator);
+        &managedAuthenticator,
+        &browserAuthenticator);
 
     assert(enforcedGate.evaluate(getRequest()).allowed);
 
@@ -320,6 +417,24 @@ int main()
     assert(sawAllowed);
     assert(sawDenied);
     assert(sawUnmigratedDenial);
+
+    assert(browserRepository.revokeBySessionId(
+        "session-browser-active"));
+
+    const SecurityGateDecision revokedBrowserNoFallback =
+        compatibilityGate.evaluate(
+            browserGetRequest(
+                validBrowserCookie,
+                kLegacyCredential));
+    assert(!revokedBrowserNoFallback.allowed);
+    assert(revokedBrowserNoFallback.browserSessionPresented);
+    assert(!revokedBrowserNoFallback.browserAuthenticated);
+    assert(revokedBrowserNoFallback.rejection.statusCode == 401);
+    assert(revokedBrowserNoFallback.rejection.body.find(
+        "credential_revoked") != std::string::npos);
+    assert(revokedBrowserNoFallback.rejection.headers.find(
+        "WWW-Authenticate") ==
+        revokedBrowserNoFallback.rejection.headers.end());
 
     assert(identityRepository.revokeCredential(managed.credentialId));
     const SecurityGateDecision revokedManagedCredential =

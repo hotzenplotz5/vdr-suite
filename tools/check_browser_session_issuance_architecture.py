@@ -186,7 +186,7 @@ def main() -> int:
     require(
         "core/http/src/TestHttpServer.cpp",
         "browserSessionHttpService_->logout(browserGate.context)")
-    forbid(
+    require(
         "core/http/src/TestHttpServer.cpp",
         "BrowserSessionAuthenticator")
     forbid(
@@ -252,9 +252,21 @@ def main() -> int:
     forbid(
         "core/security/include/SecurityHttpGate.h",
         "BrowserSessionIssuanceService")
-    forbid(
+    require(
         "core/security/include/SecurityHttpGate.h",
         "BrowserSessionAuthenticator")
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        "browserSessionAuthenticator_->hasSessionCookie(")
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        "browserSessionAuthenticator_->authenticate(")
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"http.browser.mutation"')
+    forbid(
+        "core/security/include/SecurityHttpGate.h",
+        "browserSessionAuthenticator_->verifyCsrf(")
     forbid(
         "core/security/include/SecurityHttpGate.h",
         "vdr_suite_session")

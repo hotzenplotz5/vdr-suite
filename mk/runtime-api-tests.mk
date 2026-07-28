@@ -104,6 +104,8 @@ test-http-server-contract:
 test-test-http-server: prepare-test-db
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		$(BROWSER_SESSION_HTTP_SRC) \
 		$(VDR_SRC) \
 		core/vdr/src/VdrRecordingCacheRepository.cpp \
 		$(RUNTIME_SRC) \

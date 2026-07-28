@@ -146,6 +146,11 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         std::make_unique<PersistentIdentityResolver>(
             *securityIdentityRepository_);
 
+    browserSessionAuthenticator_ =
+        std::make_unique<BrowserSessionAuthenticator>(
+            *browserSessionCredentialRepository_,
+            std::vector<PermissionGrant>{});
+
     browserSessionIssuanceService_ =
         std::make_unique<BrowserSessionIssuanceService>(
             *securityDatabase_,
@@ -176,7 +181,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             configuration,
             *accountabilityEventRepository_,
             persistentIdentityResolver_.get(),
-            managedBasicAuthenticator_.get());
+            managedBasicAuthenticator_.get(),
+            browserSessionAuthenticator_.get());
     securityReady_ = true;
 }
 
