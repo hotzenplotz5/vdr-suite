@@ -6,6 +6,8 @@ Implemented branch slices: Slice 1; real-runtime-accepted lifecycle and managed 
 
 This matrix separates repository truth from accepted targets. A component is not accepted installed runtime until it is connected, tested through the daemon and validated on the real yaVDR system.
 
+Validation rule: code-head evidence alone is insufficient for handoff or installation. The cumulative branch head, including reconciled status and architecture documentation, must pass the complete documentation, test-inventory, regression, daemon-build and packaging graph.
+
 ## Gap matrix
 
 | Security area | Current state | Owner/component | Remaining gap | Risk | Next Phase 62 work | Evidence |
