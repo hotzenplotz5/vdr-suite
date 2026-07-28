@@ -1,19 +1,28 @@
 # Phase 62 Persistent Identity Lifecycle — Slice 2
 
-Status: persistence and revocation foundation implemented and real-VDR accepted; Phase 62 remains open
+Status: persistence/revocation foundation real-VDR accepted; first managed credential verifier implemented; Phase 62 remains open
 
 ## Purpose
 
 Phase 62 Slice 1 established an explicit request identity, centralized authorization, the first protected mutation, and append-only pre-dispatch accountability. Slice 2 removes the next critical limitation: authenticated identity state is no longer only transient configuration assembled independently for every request.
 
-This slice adds repository-owned persistence and request-time resolution for the compatibility actor, device, session, and credential identity. It does not claim that the transitional Basic credential is production authentication.
+The slice now contains two cumulative increments:
+
+1. persistent lifecycle state for actors, devices, sessions, and credential metadata;
+2. an optional separately provisioned managed Basic identity whose submitted password is verified against a persisted one-way password hash.
+
+The managed Basic mechanism is an intermediate verifier for safe multi-identity testing. It is not the final browser cookie/session, native token, enrollment, recovery, or public authentication contract.
 
 ## Runtime boundary
 
 ```text
 HttpServerRequest
-  -> LegacyBasicAuthenticator
-       -> transient RequestSecurityContext
+  -> LegacyBasicAuthenticator (transitional browser compatibility)
+  -> optional ManagedBasicAuthenticator
+       -> strict Basic decoding
+       -> CredentialVerifierRepository
+            -> security_basic_credential_verifiers
+            -> crypt_r verification of yescrypt or SHA-512 crypt hash
   -> PersistentIdentityResolver
        -> SecurityIdentityRepository
             -> security_actors
@@ -26,7 +35,7 @@ HttpServerRequest
   -> ApiRouter
 ```
 
-The authenticator verifies the presented compatibility credential. The resolver then replaces transient lifecycle assumptions with persisted server-side state before authorization is evaluated.
+A successful credential check establishes a transient request context. The persistent resolver then replaces all lifecycle assumptions with database state before authorization is evaluated.
 
 ## Implemented scope
 
@@ -40,7 +49,14 @@ The authenticator verifies the presented compatibility credential. The resolver 
 - fail-closed rejection when a persisted identity is missing, belongs to another actor/device, is inactive, expired, or revoked;
 - explicit `credential_expired` and `credential_revoked` authorization errors;
 - configurable compatibility credential identifier through `VDR_SUITE_LEGACY_BASIC_CREDENTIAL_ID`;
-- repository, resolver, authorization, configuration, HTTP-gate, and architecture tests.
+- optional managed actor/device/session/credential provisioning without reactivating existing records;
+- strict Basic Authorization parsing with bounded username/password sizes and malformed-input rejection;
+- password verification through thread-safe `crypt_r`;
+- accepted password-hash formats limited to yescrypt (`$y$`) and SHA-512 crypt (`$6$`), with yescrypt preferred for real deployments;
+- persisted verifier binding from login name to credential ID and one-way password hash;
+- constant-time comparison of the verifier result;
+- rejection of partial managed configuration and unsupported hash formats at security-runtime startup;
+- repository, provisioning, verifier, resolver, authorization, configuration, HTTP-gate, and architecture tests.
 
 ## Storage contract
 
@@ -49,17 +65,25 @@ The security database connection creates these tables when absent:
 - `security_actors`;
 - `security_devices`;
 - `security_sessions`;
-- `security_credentials`.
+- `security_credentials`;
+- `security_basic_credential_verifiers`.
 
-The tables are additive and use the existing security database path resolution:
+The first four tables contain identity and lifecycle metadata. The verifier table contains only:
+
+- credential ID;
+- unique login name;
+- one-way modular password hash;
+- creation and update timestamps.
+
+The runtime does not persist the submitted Basic Authorization value, decoded password, plaintext password, reversible secret, request header, or generated password. Changing an already provisioned login/hash pair is intentionally not performed silently by daemon restart; later protected lifecycle administration owns rotation.
+
+The existing security database path resolution remains:
 
 1. `VDR_SUITE_SECURITY_DATABASE_PATH`;
 2. `VDR_SUITE_DATABASE_PATH`;
 3. `/tmp/vdr-suite-test.db`.
 
-The compatibility bootstrap inserts only stable identity metadata. It does not persist the Basic Authorization value, a decoded password, a reversible secret, or request headers.
-
-## Compatibility behavior
+## Compatibility identity
 
 The default local browser remains mapped to:
 
@@ -70,7 +94,41 @@ session:    legacy-basic-session
 credential: legacy-basic-credential
 ```
 
-The IDs remain configurable. Existing deployments receive the four records automatically on startup while the compatibility credential is configured. `INSERT OR IGNORE` is intentional: restarting the daemon must not reactivate a record that was already expired, disabled, or revoked in SQLite.
+`INSERT OR IGNORE` remains intentional: restarting the daemon must not reactivate a record already expired, disabled, or revoked in SQLite.
+
+## Optional managed Basic identity
+
+No managed identity exists by default. It is enabled only when both of these are configured:
+
+- `VDR_SUITE_MANAGED_BASIC_USERNAME`;
+- `VDR_SUITE_MANAGED_BASIC_PASSWORD_HASH`.
+
+Optional identity and permission configuration:
+
+- `VDR_SUITE_MANAGED_BASIC_ACTOR_ID`;
+- `VDR_SUITE_MANAGED_BASIC_ACTOR_DISPLAY_NAME`;
+- `VDR_SUITE_MANAGED_BASIC_DEVICE_ID`;
+- `VDR_SUITE_MANAGED_BASIC_SESSION_ID`;
+- `VDR_SUITE_MANAGED_BASIC_CREDENTIAL_ID`;
+- `VDR_SUITE_MANAGED_BASIC_PERMISSIONS`.
+
+Managed permissions default to empty. They use the existing comma-separated `permission@backend` syntax.
+
+The configured hash is a modular crypt value, not a plaintext password. A yescrypt hash is preferred. SHA-512 crypt is accepted as a transitional interoperable verifier format.
+
+## Route-safety rule
+
+The legacy compatibility bypass belongs only to the configured legacy actor and legacy credential.
+
+A managed identity may:
+
+- access authenticated GET routes in `legacy-basic` mode;
+- use `POST /api/vdr/remote/actions` only with `remote.control` for the requested backend;
+- use migrated routes added later only with their explicit permission.
+
+A managed identity may not use the legacy bypass for an unmigrated POST route. Such a request returns `503 security_policy_not_migrated` before router dispatch, even while the existing legacy browser remains compatible.
+
+In `enforced` mode anonymous GET remains possible, but a request that presents invalid, expired, or revoked credentials is rejected with 401 instead of being treated as anonymous.
 
 ## Revocation semantics
 
@@ -86,49 +144,48 @@ The request path resolves persisted state on every authenticated request. The fo
 
 Backend permission, backend scope, backend read-only state, capability, operation validation, and domain execution remain separate cumulative decisions.
 
-## Real-VDR acceptance
+## Real-VDR acceptance of the persistence/revocation foundation
 
-The Slice 2 head was installed on the yaVDR system and used the production Suite database at `/var/lib/vdr-suite/vdr-suite.db`.
+The earlier Slice 2 lifecycle head was installed on the yaVDR system and used the production Suite database at `/var/lib/vdr-suite/vdr-suite.db`.
 
 Observed on 2026-07-28:
 
 - daemon startup created one active compatibility actor, device, session, and credential with the expected ownership bindings;
-- the stored records contained identity and lifecycle metadata only; no Basic Authorization value, password, token, or reversible secret was present;
+- the stored lifecycle records contained no Basic Authorization value, password, token, or reversible secret;
 - setting `legacy-basic-credential.active=0` and assigning `revoked_at` immediately blocked browser authentication without restarting the daemon;
-- accountability recorded the persisted actor as `legacy-local-web`, authentication state `revoked`, reason `credential_revoked`, decision `denied`, and outcome `dispatch_denied`;
-- several denial rows in the same second represented parallel browser document, asset, and API requests while the sole browser credential was revoked; they were independent access denials, not repeated VDR action dispatches;
-- restoring `active=1` and clearing expiry/revocation values restored browser access without restarting the daemon;
-- the following Remote request was attributed to `legacy-local-web`, authorized with `remote.control@default`, and recorded as `permission_granted` / `dispatch_authorized`.
+- accountability recorded `actor_id=legacy-local-web`, authentication state `revoked`, reason `credential_revoked`, decision `denied`, and outcome `dispatch_denied`;
+- parallel denial rows represented browser document, asset, and API requests, not repeated VDR action dispatches;
+- restoring `active=1` and clearing expiry/revocation restored browser access without restarting the daemon;
+- the following Remote request was authorized with `remote.control@default` and recorded as `permission_granted` / `dispatch_authorized`.
 
-This proves automatic bootstrap, durable revocation, request-time lifecycle resolution, fail-before-dispatch behavior, and recovery on the real runtime. The test also confirms that revoking the sole compatibility credential blocks the complete legacy browser, not only the Remote route; future lifecycle tests should use a separate test identity once production issuance exists.
+This proves durable lifecycle enforcement and recovery. The new managed verifier increment still requires controlled real-VDR provisioning and positive/negative tests with a separate identity before that increment receives runtime acceptance.
 
 ## Explicitly not included
 
 - user enrollment or user-management HTTP routes;
-- password hashing or password verification against the new repository;
-- cookie session issuance, CSRF protection, refresh tokens, native bearer tokens, MFA, recovery, or device enrollment;
-- credential secret storage;
-- administrative revoke/reactivate APIs;
-- persisted roles, permissions, grant assignments, or backend scopes;
+- server-side password-hash generation or password-change workflow;
+- browser cookie session issuance and CSRF protection;
+- refresh tokens, native bearer tokens, MFA, recovery, or device enrollment;
+- protected administrative revoke/reactivate or credential-rotation APIs;
+- persisted roles, role assignments, permission grants, or backend scopes;
 - migration of additional mutation routes;
 - revision, `If-Match`, idempotency-key, operation-lifecycle, or transactional-outbox work;
 - Phase 63-67 runtime or client implementation.
-
-Those omissions keep this slice coherent: it establishes the durable lifecycle boundary that later authentication and administration flows can use without prematurely publishing an insecure management API.
 
 ## Acceptance evidence
 
 | Criterion | Evidence |
 |---|---|
-| Compatibility identity is created without storing its secret | repository schema and bootstrap test; architecture secret guard; real-VDR table inspection |
-| Actor/device/session/credential bindings are persisted | `test_security_identity_repository.cpp`; real-VDR bootstrap rows |
-| Persisted display name replaces transient request value | resolver assertion |
-| Expired session is rejected | repository expiry plus resolver negative |
-| Revoked credential is rejected before HTTP dispatch | HTTP-gate integration negative and real-VDR `credential_revoked` audit evidence |
-| Missing repository records fail closed | resolver behavior and repository optional lookups |
-| Repeated startup does not overwrite lifecycle state | `INSERT OR IGNORE` bootstrap contract |
-| Existing browser and protected Remote path remain supported | compatibility tests plus real-VDR recovery and subsequent `remote.control@default` allow event |
-| Persisted lifecycle state is re-read without daemon restart | real-VDR revoke and restore exercise |
+| Compatibility identity is created without storing its credential secret | repository schema/bootstrap tests, architecture guards, real-VDR table inspection |
+| Actor/device/session/credential bindings are persisted | identity repository and real-VDR bootstrap evidence |
+| Managed identity provisioning preserves existing records and rejects metadata conflicts | `test_managed_basic_authenticator.cpp` |
+| Managed verifier stores a one-way hash binding, not a submitted password/header | verifier repository contract and architecture guards |
+| Correct managed password authenticates the configured actor/device/session/credential | managed authenticator positive test |
+| Wrong, malformed, unsupported, or unknown managed credentials fail closed | managed authenticator and HTTP-gate negative tests |
+| Managed identity cannot use the legacy unmigrated-POST bypass | compatibility-mode HTTP-gate negative test |
+| Invalid credentials on an enforced-mode GET are rejected rather than downgraded to anonymous | enforced-mode HTTP-gate negative test |
+| Expired/revoked persisted state is rejected | repository/resolver/HTTP-gate negatives and real-VDR revocation evidence |
+| Existing legacy browser and migrated Remote path remain supported | compatibility tests and real-VDR recovery evidence |
 | Architecture remains server-owned | `tools/check_security_identity_architecture.py` |
 
 Canonical checks:
@@ -140,4 +197,4 @@ make test-docs
 make test
 ```
 
-Slice 2 is implementation-, CI-, and real-runtime accepted. Phase 62 remains open because secure credential issuance and verification, production browser/native session lifecycle, protected administration, persisted roles/grants, complete route migration, mutation contracts, and complete accountability are still outstanding.
+Phase 62 remains open. Slice 2 still requires production browser session/cookie and CSRF behavior, native/service credential issuance, logout/rotation/recovery, and protected lifecycle administration before it is complete.
