@@ -29,7 +29,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
-Active; Slice 1 is real-runtime validated and the persistence/revocation foundation of Slice 2 is implemented on Draft PR #117. Phase 62 remains incomplete.
+Active; Slice 1 is real-runtime validated. Slice 2 has real-runtime-accepted lifecycle persistence plus an implemented first managed credential verifier on Draft PR #117. Phase 62 remains incomplete.
 ```
 
 ## Completed prerequisites and runtime
@@ -81,7 +81,7 @@ Goal: replace broad backend access hints with production-grade actor identity, s
 
 ### Implemented Slice 1
 
-- canonical actor, device, session and request security context values;
+- canonical actor, device, session, credential and request security context values;
 - centralized exact/wildcard permission and backend-scope decisions;
 - explicit legacy local-browser compatibility mode;
 - enforced mode with anonymous GET and fail-closed unmigrated POST handling;
@@ -91,17 +91,30 @@ Goal: replace broad backend access hints with production-grade actor identity, s
 - focused unit, repository, HTTP-gate and architecture tests;
 - real yaVDR validation for anonymous denial, invalid-credential denial and authenticated Browser Remote dispatch.
 
-### Implemented Slice 2 persistence and revocation foundation
+### Implemented Slice 2 lifecycle foundation
 
 - additive actor, device, session and credential metadata repositories;
 - actor/device/session/credential ownership bindings;
 - request-time persistent identity resolution before authorization;
 - persisted expiry and revocation enforcement;
 - restart-safe compatibility bootstrap that does not reactivate revoked records;
-- credential identifiers and lifecycle metadata without secret persistence;
-- explicit credential expiry/revocation errors and focused repository/HTTP tests.
+- explicit credential expiry/revocation errors;
+- real yaVDR revoke/restore acceptance without daemon restart.
 
-This foundation does not complete Slice 2: secure per-user/service issuance and verification, browser cookie/CSRF, native-token lifecycle, logout/recovery/rotation and protected lifecycle administration remain open.
+### Implemented Slice 2 managed verifier increment
+
+- optional separate managed actor/device/session/credential provisioning;
+- dedicated login-to-credential verifier repository;
+- one-way yescrypt or SHA-512 crypt hash persistence;
+- strict bounded Basic parsing and thread-safe `crypt_r` verification;
+- constant-time verifier comparison;
+- no managed identity or permission enabled by default;
+- startup rejection for partial configuration, unsupported hash or conflicting persisted metadata;
+- managed access only to authenticated reads and explicitly migrated routes;
+- fail-closed denial of managed access to legacy unmigrated POST routes;
+- focused provisioning, verifier, wrong-password, revocation and route-boundary tests.
+
+This does not complete Slice 2. Still open are protected credential issuance and hash generation/change, browser cookie sessions and CSRF, native/service credentials, logout/recovery/rotation, expiry cleanup and protected lifecycle administration.
 
 Evidence:
 
@@ -112,17 +125,18 @@ Evidence:
 
 ### Remaining required order
 
-1. complete secure user/service credential issuance and verification, browser/native session lifecycle and protected lifecycle administration;
-2. persist roles, permissions and backend/resource scopes;
-3. migrate all mutations and sensitive reads to centralized authorization;
-4. preserve and prove backend read-only behaviour under actor permissions;
-5. complete actor, device, credential, session, request, correlation and operation context propagation;
-6. extend append-only accountability to authentication, mutation completion and security lifecycle events;
-7. add transactional outbox delivery for protected operations;
-8. complete revision and `If-Match` rules per mutable resource;
-9. add durable idempotency-key and operation replay records;
-10. add protected audit queries, redaction, retention and audit-of-audit;
-11. complete deny-path, outage, failure-injection, full-suite and real-runtime acceptance.
+1. real-VDR validate the separately managed identity and verifier;
+2. complete protected credential issuance/hash generation, browser cookie/CSRF sessions, native/service credential lifecycle and protected lifecycle administration;
+3. persist roles, permissions and backend/resource scopes;
+4. migrate all mutations and sensitive reads to centralized authorization;
+5. preserve and prove backend read-only behaviour under actor permissions;
+6. complete actor, device, credential, session, request, correlation and operation context propagation;
+7. extend append-only accountability to authentication, mutation completion and security lifecycle events;
+8. add transactional outbox delivery for protected operations;
+9. complete revision and `If-Match` rules per mutable resource;
+10. add durable idempotency-key and operation replay records;
+11. add protected audit queries, redaction, retention and audit-of-audit;
+12. complete deny-path, outage, failure-injection, full-suite and real-runtime acceptance.
 
 Exit criteria:
 
@@ -139,7 +153,9 @@ Forbidden shortcuts:
 - no frontend-owned role decision;
 - no ordinary log parsing as the accountability database;
 - no compatibility-mode claim as final authentication;
-- no plaintext, reversible or submitted credential persistence in identity tables;
+- no plaintext, reversible or submitted credential persistence;
+- a one-way verifier hash belongs only in the dedicated credential-verifier repository;
+- no managed identity may inherit the legacy unmigrated-POST bypass;
 - no new remote privileged dispatch before authorization/accountability gates exist;
 - no Phase 63-67 runtime declared through Phase 62 interface preparation.
 
