@@ -119,7 +119,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev
 
       - name: Run fast CI regression test
         shell: bash
@@ -157,7 +157,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev
+          sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev
 
       - name: Run packaging and install staging tests
         run: make test-ci-packaging
