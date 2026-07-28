@@ -130,7 +130,7 @@ def main() -> int:
         'response.headers["Pragma"] = "no-cache"')
     require(
         "core/http/src/BrowserSessionHttpService.cpp",
-        '"csrfToken"')
+        "csrfToken")
     require(
         "core/http/src/BrowserSessionHttpService.cpp",
         "issued->clearSecrets()")
