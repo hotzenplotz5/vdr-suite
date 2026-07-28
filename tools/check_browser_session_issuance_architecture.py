@@ -112,8 +112,17 @@ def main() -> int:
         "core/http/src/TestHttpServer.cpp",
         "BrowserSessionIssuanceService")
     forbid(
+        "core/http/src/TestHttpServer.cpp",
+        "BrowserSessionAuthenticator")
+    forbid(
+        "core/http/src/TestHttpServer.cpp",
+        "vdr_suite_session=")
+    forbid(
         "core/security/include/SecurityHttpGate.h",
         "BrowserSessionIssuanceService")
+    forbid(
+        "core/security/include/SecurityHttpGate.h",
+        "BrowserSessionAuthenticator")
     forbid(
         "core/security/src/BrowserSessionCredentialRepository.cpp",
         "session_secret TEXT")
