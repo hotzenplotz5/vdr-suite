@@ -68,6 +68,7 @@ Status: **Completed, non-numbered.**
 - PR #110: current mobile VDR Remote pressed-state and duplicate-dispatch behaviour.
 - PR #111: backend-scoped global search over persisted Recording/EPG titles, subtitles and people.
 - PR #115: current 360×1220 PNG Remote, help/navigation integration and guarded REC workflow.
+- [Post-Phase-61 Platform Runtime Closeout](../development/post-phase-61-platform-runtime-closeout.md).
 
 These are completed prerequisites. No new phase number is invented for them.
 
