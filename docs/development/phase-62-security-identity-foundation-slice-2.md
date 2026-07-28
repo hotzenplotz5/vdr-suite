@@ -1,6 +1,6 @@
 # Phase 62 Persistent Identity Lifecycle — Slice 2
 
-Status: persistence/revocation foundation real-VDR accepted; first managed credential verifier implemented and CI validated; Phase 62 remains open
+Status: persistence/revocation foundation and first managed credential verifier implemented, CI validated, and real-VDR accepted; Phase 62 remains open
 
 ## Purpose
 
@@ -158,7 +158,25 @@ Observed on 2026-07-28:
 - restoring `active=1` and clearing expiry/revocation restored browser access without restarting the daemon;
 - the following Remote request was authorized with `remote.control@default` and recorded as `permission_granted` / `dispatch_authorized`.
 
-This proves durable lifecycle enforcement and recovery. The managed verifier increment still requires controlled real-VDR provisioning and positive/negative tests with a separate identity before that increment receives runtime acceptance.
+This proves durable lifecycle enforcement and recovery.
+
+## Real-VDR acceptance of the managed verifier increment
+
+The managed verifier increment was installed on the same yaVDR runtime and provisioned as a separate identity without replacing or revoking the legacy browser credential.
+
+Observed on 2026-07-28:
+
+- startup provisioned active actor `user-phase62-admin`, device `device-phase62-admin`, session `session-phase62-admin`, and credential `credential-phase62-admin` with correct ownership bindings;
+- `security_basic_credential_verifiers` contained login `phase62-admin`, credential binding `credential-phase62-admin`, SHA-512 crypt marker `$6$`, and a 106-character one-way hash; no plaintext password or Authorization header was stored;
+- correct credentials returned `200` for `GET /api/backends` and propagated request ID `req-1b802f959d39-1`;
+- a wrong password returned `401 invalid_credentials`, `Cache-Control: no-store`, and request ID `req-1b9482d06e6b-2` without reflecting the submitted password;
+- accountability attributed that invalid attempt to anonymous/invalid state and recorded `dispatch_denied`;
+- correct managed credentials sent to `POST /api/vdr/timers/actions/create` returned `503 security_policy_not_migrated` with request ID `req-1bb054a1d030-4` before router dispatch;
+- accountability attributed the blocked Timer mutation to `user-phase62-admin` / `device-phase62-admin` / `session-phase62-admin`, permission `unmapped.mutation`, reason `security_policy_not_migrated`, decision `denied`, and outcome `dispatch_denied`;
+- the same managed identity successfully invoked the migrated `POST /api/vdr/remote/actions` operation `phase62-managed-1785212278` with action `up` and received `200` / `Remote action executed`;
+- accountability attributed that request to the managed actor/device/session, permission `remote.control`, backend `default`, reason `permission_granted`, decision `allowed`, and outcome `dispatch_authorized`.
+
+This proves real-runtime password verification, independent managed identity attribution, secret-safe failure behavior, separation from the legacy compatibility bypass, backend-scoped authorization, and successful dispatch through the migrated Remote path.
 
 ## CI evidence for the managed verifier increment
 
@@ -172,6 +190,8 @@ Passed:
 - fast C++/runtime regression, including managed provisioning, correct and wrong password verification, malformed credentials, revocation, enforced-mode invalid-credential behavior, and legacy-bypass separation;
 - daemon build and `libcrypt` linkage;
 - packaging and install staging.
+
+The documentation-only head `d6bc1e0c8f6904afbf41412f07d6adc25549264b` was subsequently validated by CI run 6249.
 
 ## Explicitly not included
 
@@ -191,14 +211,15 @@ Passed:
 |---|---|
 | Compatibility identity is created without storing its credential secret | repository schema/bootstrap tests, architecture guards, real-VDR table inspection |
 | Actor/device/session/credential bindings are persisted | identity repository and real-VDR bootstrap evidence |
-| Managed identity provisioning preserves existing records and rejects metadata conflicts | `test_managed_basic_authenticator.cpp` |
-| Managed verifier stores a one-way hash binding, not a submitted password/header | verifier repository contract and architecture guards |
-| Correct managed password authenticates the configured actor/device/session/credential | managed authenticator positive test |
-| Wrong, malformed, unsupported, or unknown managed credentials fail closed | managed authenticator and HTTP-gate negative tests |
-| Managed identity cannot use the legacy unmigrated-POST bypass | compatibility-mode HTTP-gate negative test |
+| Managed identity provisioning preserves existing records and rejects metadata conflicts | `test_managed_basic_authenticator.cpp`; real-VDR managed identity rows |
+| Managed verifier stores a one-way hash binding, not a submitted password/header | verifier repository contract, architecture guards, and real-VDR verifier-table inspection |
+| Correct managed password authenticates the configured actor/device/session/credential | managed authenticator positive test and real-VDR `GET /api/backends` 200 |
+| Wrong, malformed, unsupported, or unknown managed credentials fail closed | managed authenticator/HTTP-gate negatives and real-VDR 401 `invalid_credentials` |
+| Managed identity cannot use the legacy unmigrated-POST bypass | compatibility-mode HTTP-gate negative and real-VDR Timer 503 `security_policy_not_migrated` |
+| Managed identity can use its backend-scoped migrated permission | real-VDR `remote.control@default` allow and operation `phase62-managed-1785212278` |
 | Invalid credentials on an enforced-mode GET are rejected rather than downgraded to anonymous | enforced-mode HTTP-gate negative test |
-| Expired/revoked persisted state is rejected | repository/resolver/HTTP-gate negatives and real-VDR revocation evidence |
-| Existing legacy browser and migrated Remote path remain supported | compatibility tests and real-VDR recovery evidence |
+| Expired/revoked persisted state is rejected | repository/resolver/HTTP-gate negatives and real-VDR legacy revocation evidence |
+| Existing legacy browser and migrated Remote path remain supported | compatibility tests and real-VDR legacy plus managed Remote evidence |
 | Daemon and packaging link the verifier dependency | CI run 6247 daemon build and install staging |
 | Architecture remains server-owned | `tools/check_security_identity_architecture.py` |
 
