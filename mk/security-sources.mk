@@ -20,6 +20,7 @@ SECURITY_SRC := \
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
+	python3 tools/check_browser_session_issuance_architecture.py
 
 
 test-security-authorization:
