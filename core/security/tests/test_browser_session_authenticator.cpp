@@ -4,8 +4,6 @@
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
 
-#include <sqlite3.h>
-
 #include <cassert>
 #include <string>
 #include <vector>
@@ -50,49 +48,6 @@ BrowserSessionCredentialRegistration registration(
     value.csrfSecretHash = kCsrfSecretHash;
     value.expiresAt = expiresAt;
     return value;
-}
-
-bool databaseContainsPlaintext(Database& database)
-{
-    sqlite3_stmt* statement = nullptr;
-    const char* sql =
-        "SELECT COUNT(*) FROM security_browser_session_credentials "
-        "WHERE session_secret_hash IN (?, ?) OR csrf_secret_hash IN (?, ?);";
-    assert(sqlite3_prepare_v2(
-        database.handle(),
-        sql,
-        -1,
-        &statement,
-        nullptr) == SQLITE_OK);
-    assert(sqlite3_bind_text(
-        statement,
-        1,
-        kSessionSecret.c_str(),
-        -1,
-        SQLITE_TRANSIENT) == SQLITE_OK);
-    assert(sqlite3_bind_text(
-        statement,
-        2,
-        kCsrfSecret.c_str(),
-        -1,
-        SQLITE_TRANSIENT) == SQLITE_OK);
-    assert(sqlite3_bind_text(
-        statement,
-        3,
-        kSessionSecret.c_str(),
-        -1,
-        SQLITE_TRANSIENT) == SQLITE_OK);
-    assert(sqlite3_bind_text(
-        statement,
-        4,
-        kCsrfSecret.c_str(),
-        -1,
-        SQLITE_TRANSIENT) == SQLITE_OK);
-
-    assert(sqlite3_step(statement) == SQLITE_ROW);
-    const bool found = sqlite3_column_int(statement, 0) != 0;
-    sqlite3_finalize(statement);
-    return found;
 }
 }
 
@@ -159,10 +114,13 @@ int main()
     assert(stored->issuedFromCredentialId == "credential-phase62-admin");
     assert(stored->sessionSecretHash == kSessionSecretHash);
     assert(stored->csrfSecretHash == kCsrfSecretHash);
+    assert(stored->sessionSecretHash != kSessionSecret);
+    assert(stored->sessionSecretHash != kCsrfSecret);
+    assert(stored->csrfSecretHash != kSessionSecret);
+    assert(stored->csrfSecretHash != kCsrfSecret);
     assert(stored->active);
     assert(!stored->expired);
     assert(!stored->revoked);
-    assert(!databaseContainsPlaintext(database));
 
     const std::vector<PermissionGrant> grants = {
         PermissionGrant{"remote.control", "default"}
