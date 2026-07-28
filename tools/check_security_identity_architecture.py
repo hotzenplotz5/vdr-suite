@@ -29,6 +29,8 @@ def main() -> int:
         "core/security/include/BrowserSessionCredentialRepository.h",
         "core/security/include/BrowserSessionAuthenticator.h",
         "core/security/include/BrowserSessionIssuanceService.h",
+        "core/security/include/BrowserSessionLifecycleService.h",
+        "core/security/include/BrowserSessionHttpGate.h",
         "core/security/include/SecurityIdentityRepository.h",
         "core/security/include/SecurityIdentityProvisioningRepository.h",
         "core/security/include/PersistentIdentityResolver.h",
@@ -37,17 +39,23 @@ def main() -> int:
         "core/security/include/SecurityHttpGate.h",
         "core/security/src/AccountabilityEventRepository.cpp",
         "core/security/src/BrowserSessionCredentialRepository.cpp",
+        "core/security/src/BrowserSessionHttpGate.cpp",
         "core/security/src/BrowserSessionIssuanceService.cpp",
+        "core/security/src/BrowserSessionLifecycleService.cpp",
         "core/security/src/CredentialVerifierRepository.cpp",
         "core/security/src/SecurityIdentityIssuanceRepository.cpp",
         "core/security/src/SecurityIdentityProvisioningRepository.cpp",
         "core/security/src/SecurityIdentityRepository.cpp",
+        "core/http/include/BrowserSessionHttpService.h",
+        "core/http/src/BrowserSessionHttpService.cpp",
         "core/security/tests/test_authorization_service.cpp",
         "core/security/tests/test_security_configuration.cpp",
         "core/security/tests/test_security_identity_repository.cpp",
         "core/security/tests/test_managed_basic_authenticator.cpp",
         "core/security/tests/test_browser_session_authenticator.cpp",
         "core/security/tests/test_browser_session_issuance_service.cpp",
+        "core/security/tests/test_browser_session_http_gate.cpp",
+        "core/http/tests/test_browser_session_http_service.cpp",
         "core/security/tests/test_accountability_event_repository.cpp",
         "core/security/tests/test_security_http_gate.cpp",
         "docs/planning/phase-62-security-identity-gap-matrix.md",
@@ -61,6 +69,9 @@ def main() -> int:
             raise AssertionError(f"missing Phase 62 contract file: {relative}")
 
     require("core/http/src/TestHttpServer.cpp", "securityHttpGate_->evaluate(request)")
+    require("core/http/src/TestHttpServer.cpp", "browserSessionHttpGate_->handles(request)")
+    require("core/http/src/TestHttpServer.cpp", "browserSessionHttpService_->login(browserGate.context)")
+    require("core/http/src/TestHttpServer.cpp", "browserSessionHttpService_->logout(browserGate.context)")
     require("core/http/src/TestHttpServer.cpp", "ensureCompatibilityIdentity")
     require("core/http/src/TestHttpServer.cpp", "securityIdentityProvisioningRepository_->ensureIdentity")
     require("core/http/src/TestHttpServer.cpp", "credentialVerifierRepository_->ensureVerifier")
@@ -69,6 +80,13 @@ def main() -> int:
     require("core/security/include/SecurityHttpGate.h", '"/api/vdr/remote/actions"')
     require("core/security/include/SecurityHttpGate.h", '"remote.control"')
     require("core/security/include/SecurityHttpGate.h", "usesLegacyCompatibilityCredential")
+    require("core/security/src/BrowserSessionHttpGate.cpp", '"/api/security/browser-sessions"')
+    require("core/security/src/BrowserSessionHttpGate.cpp", '"/api/security/browser-sessions/logout"')
+    require("core/security/src/BrowserSessionHttpGate.cpp", "authenticateBasic(request)")
+    require("core/security/src/BrowserSessionHttpGate.cpp", "authenticateBrowser(request)")
+    require("core/security/src/BrowserSessionHttpGate.cpp", "browserAuthenticator_->verifyCsrf")
+    require("core/security/src/BrowserSessionHttpGate.cpp", '"session.issue.self"')
+    require("core/security/src/BrowserSessionHttpGate.cpp", '"session.revoke.self"')
     require("core/security/src/SecurityIdentityRepository.cpp", "security_actors")
     require("core/security/src/SecurityIdentityRepository.cpp", "security_devices")
     require("core/security/src/SecurityIdentityRepository.cpp", "security_sessions")
@@ -90,6 +108,10 @@ def main() -> int:
     require("core/security/src/BrowserSessionIssuanceService.cpp", "getrandom(")
     require("core/security/src/BrowserSessionIssuanceService.cpp", 'database_.execute("BEGIN IMMEDIATE;")')
     require("core/security/src/BrowserSessionIssuanceService.cpp", "clearSecrets()")
+    require("core/security/src/BrowserSessionLifecycleService.cpp", 'database_.execute("BEGIN IMMEDIATE;")')
+    require("core/security/src/BrowserSessionLifecycleService.cpp", "revokeBySessionId")
+    require("core/http/src/BrowserSessionHttpService.cpp", 'response.headers["Set-Cookie"]')
+    require("core/http/src/BrowserSessionHttpService.cpp", "HttpOnly; Secure; SameSite=Strict")
     require("core/security/src/SecurityIdentityIssuanceRepository.cpp", "INSERT INTO security_sessions")
     require("core/security/src/SecurityIdentityIssuanceRepository.cpp", "INSERT INTO security_credentials")
     require("core/security/include/PersistentIdentityResolver.h", "findCredential")
@@ -109,8 +131,11 @@ def main() -> int:
     forbid("core/http/src/TestHttpServer.cpp", "isAuthorized(request)")
     forbid("core/http/src/TestHttpServerAssets.inc", "expectedAuthorizationHeader")
     forbid("core/http/src/TestHttpServerAssets.inc", "isAuthorized")
-    forbid("core/http/src/TestHttpServer.cpp", "BrowserSessionIssuanceService")
+    forbid("core/http/src/TestHttpServer.cpp", "BrowserSessionAuthenticator")
+    forbid("core/http/src/TestHttpServer.cpp", "vdr_suite_session=")
     forbid("core/security/include/SecurityHttpGate.h", "BrowserSessionIssuanceService")
+    forbid("core/security/include/SecurityHttpGate.h", "BrowserSessionAuthenticator")
+    forbid("core/security/include/SecurityHttpGate.h", "vdr_suite_session")
     forbid("core/security/src/SecurityIdentityRepository.cpp", "Authorization: Basic")
     forbid("core/security/src/SecurityIdentityRepository.cpp", "YWRtaW46")
     forbid("core/security/include/SecurityConfiguration.h", "VDR_SUITE_MANAGED_BASIC_PASSWORD\"")
