@@ -59,6 +59,15 @@ public:
         const std::string& sessionId,
         const std::string& credentialId);
 
+    bool createSessionCredential(
+        const std::string& sessionId,
+        const std::string& actorId,
+        const std::string& deviceId,
+        const std::string& credentialId,
+        const std::string& credentialType,
+        const std::string& expiresAt,
+        const std::string& issuedFromCredentialId);
+
     std::optional<StoredActorIdentity> findActor(
         const std::string& actorId) const;
     std::optional<StoredDeviceIdentity> findDevice(
