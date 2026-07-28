@@ -137,7 +137,7 @@ def main() -> int:
         "credential_revoked")
     require(
         "docs/development/phase-62-security-identity-foundation-slice-2.md",
-        "Real-VDR acceptance for this slice")
+        "Real-VDR acceptance of the persistence/revocation foundation")
     forbid(
         "core/http/src/TestHttpServer.cpp",
         "isAuthorized(request)")
