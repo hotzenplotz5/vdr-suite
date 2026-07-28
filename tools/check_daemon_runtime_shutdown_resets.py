@@ -7,8 +7,10 @@ SOURCE = Path("core/daemon/src/DaemonRuntime.cpp")
 BACKEND_CONTEXT_SOURCE = Path("core/daemon/src/DaemonRuntimeBackendContext.cpp")
 HTTP_CLIENT_HEADER = Path("core/http/include/BasicHttpClient.h")
 HTTP_CLIENT_SOURCE = Path("core/http/src/BasicHttpClient.cpp")
-SQLITE_SHUTDOWN_CANCELLATION_HEADER = Path(
+DAEMON_SQLITE_SHUTDOWN_CANCELLATION_HEADER = Path(
     "core/daemon/include/DaemonSqliteShutdownCancellation.h")
+SQLITE_SHUTDOWN_CANCELLATION_HEADER = Path(
+    "core/sqlite/include/SqliteShutdownCancellation.h")
 
 REQUIRED_RESETS = [
     "epgController_",
@@ -53,6 +55,8 @@ def main() -> int:
     backend_context = BACKEND_CONTEXT_SOURCE.read_text(encoding="utf-8")
     http_client_header = HTTP_CLIENT_HEADER.read_text(encoding="utf-8")
     http_client_source = HTTP_CLIENT_SOURCE.read_text(encoding="utf-8")
+    daemon_sqlite_cancellation_header = (
+        DAEMON_SQLITE_SHUTDOWN_CANCELLATION_HEADER.read_text(encoding="utf-8"))
     sqlite_cancellation_header = (
         SQLITE_SHUTDOWN_CANCELLATION_HEADER.read_text(encoding="utf-8"))
     shutdown_body = extract_shutdown_body(source)
@@ -92,6 +96,12 @@ def main() -> int:
 
     if '#include "DaemonSqliteShutdownCancellation.h"' not in source:
         missing.append("DaemonRuntime SQLite shutdown cancellation include")
+    if '#include "SqliteShutdownCancellation.h"' not in (
+            daemon_sqlite_cancellation_header):
+        missing.append("daemon compatibility alias to SQLite cancellation owner")
+    if "using DaemonSqliteShutdownCancellation = " not in (
+            daemon_sqlite_cancellation_header):
+        missing.append("daemon SQLite cancellation compatibility alias")
     if "sqlite3_progress_handler(" not in sqlite_cancellation_header:
         missing.append("SQLite native progress cancellation")
     if "compare_exchange_strong(" not in sqlite_cancellation_header:
