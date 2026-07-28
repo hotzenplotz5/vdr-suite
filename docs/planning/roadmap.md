@@ -29,7 +29,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
-Active; Slice 1 is real-runtime validated. Slice 2 lifecycle persistence and managed Basic increments are real-runtime accepted. A browser-session credential/cookie/CSRF verifier foundation is implemented and CI validated on Draft PR #117 but is not yet connected to the HTTP runtime. Phase 62 remains incomplete.
+Active; Slice 1 is real-runtime validated. Slice 2 lifecycle persistence and managed Basic increments are real-runtime accepted. Browser-session verification, atomic issuance and isolated HTTP issue/logout routes are implemented and CI validated on Draft PR #117. Ordinary application-route cookie authentication and business-mutation CSRF remain open. Phase 62 is incomplete.
 ```
 
 ## Completed prerequisites and runtime
@@ -126,9 +126,33 @@ Goal: replace broad backend access hints with production-grade actor identity, s
 - positive, wrong-secret, unknown-token, malformed-token, duplicate-cookie, expired, revoked and CSRF-negative tests;
 - architecture guards forbidding raw cookie/session/CSRF persistence.
 
-This browser-session increment is staged, not an active HTTP authentication path. It does not yet issue a cookie, expose login/logout, set cookie attributes, choose authentication precedence, call `PersistentIdentityResolver`/`SecurityHttpGate`, enforce CSRF on real mutations or append browser lifecycle accountability.
+### Implemented Slice 2 atomic browser-session issuance
 
-This does not complete Slice 2. Still open are atomic browser-session issuance, secure cookie deployment, HTTP integration, native/service credentials, managed password generation/change, logout/recovery/rotation, expiry cleanup and protected lifecycle administration.
+- Linux `getrandom(2)` with full-read and `EINTR` handling;
+- independent 128-bit token/session/credential IDs;
+- independent 256-bit session and CSRF secrets;
+- separate SHA-512 crypt `rounds=10000` verifier hashes;
+- bounded 5-minute to 24-hour lifetime with 8-hour default;
+- actor/device/issuing-credential revalidation inside `BEGIN IMMEDIATE`;
+- atomic session, browser credential and verifier creation;
+- rollback on validation, collision, repository or commit failure;
+- move-only one-time result and explicit secret-buffer wiping.
+
+### Implemented Slice 2 isolated HTTP lifecycle
+
+- exact `POST /api/security/browser-sessions` Basic-to-browser credential exchange;
+- no plaintext-password JSON endpoint;
+- successful response contains only CSRF token, expiry and request ID;
+- hardened host-only cookie with `Path=/`, `Max-Age=28800`, `HttpOnly`, `Secure` and `SameSite=Strict`;
+- exact `POST /api/security/browser-sessions/logout` cookie-plus-CSRF route;
+- Basic does not substitute for browser-cookie logout;
+- missing/wrong CSRF fails before lifecycle mutation;
+- verifier, canonical session and browser credential revoke atomically;
+- expired hardened cookie on success;
+- append-only pre-dispatch issue/revoke/authentication/CSRF decisions;
+- tests prove browser cookies cannot authenticate ordinary application GET or POST routes.
+
+This HTTP lifecycle increment is CI validated but still requires installation and real-yaVDR/HTTPS acceptance. It intentionally does not enable cookie authentication for Remote, Timer, Recording or other application routes.
 
 Evidence:
 
@@ -139,21 +163,23 @@ Evidence:
 
 ### Remaining required order
 
-1. implement atomic browser-session issuance with server-generated high-entropy session and CSRF secrets;
-2. add HTTP login/logout, documented `Set-Cookie` attributes and coupled session/credential revocation;
-3. define authentication precedence and connect browser-cookie contexts through `PersistentIdentityResolver` and `SecurityHttpGate`;
-4. enforce and audit browser CSRF before every applicable mutation dispatch;
-5. complete managed password hash generation/change, native/service credential lifecycle, refresh/cleanup/recovery and protected lifecycle administration;
-6. persist roles, permissions and backend/resource scopes;
-7. migrate all mutations and sensitive reads to centralized authorization and explicit CSRF classification;
-8. preserve and prove backend read-only behaviour under actor permissions;
-9. complete actor, device, credential, session, request, correlation and operation context propagation;
-10. extend append-only accountability to authentication, session, CSRF, mutation completion and security lifecycle events;
-11. add transactional outbox delivery for protected operations;
-12. complete revision and `If-Match` rules per mutable resource;
-13. add durable idempotency-key and operation replay records;
-14. add protected audit queries, redaction, retention and audit-of-audit;
-15. complete deny-path, outage, failure-injection, full-suite and real-runtime acceptance.
+1. install and real-runtime validate browser-session issue/logout plus HTTPS proxy cookie behaviour;
+2. define ordinary application-route authentication precedence and connect browser contexts through `PersistentIdentityResolver` and centralized authorization;
+3. load browser permissions/backend scopes without inheriting legacy compatibility grants;
+4. classify every POST and enforce/audit browser CSRF before each applicable business mutation dispatch;
+5. add frontend login/logout and memory-only CSRF handling without durable client secret storage;
+6. complete issuance/revocation outcome accountability and transactional coupling/outbox;
+7. complete managed password generation/change, native/service credential lifecycle, refresh/idle expiry/cleanup/recovery and protected lifecycle administration;
+8. persist roles, permissions and backend/resource scopes;
+9. migrate all mutations and sensitive reads to centralized authorization and explicit CSRF classification;
+10. preserve and prove backend read-only behaviour under actor permissions;
+11. complete actor, device, credential, session, request, correlation and operation context propagation;
+12. extend append-only accountability to authentication, session, CSRF, mutation completion and security lifecycle events;
+13. add transactional outbox delivery for protected operations;
+14. complete revision and `If-Match` rules per mutable resource;
+15. add durable idempotency-key and operation replay records;
+16. add protected audit queries, redaction, retention and audit-of-audit;
+17. complete deny-path, outage, failure-injection, full-suite and real-runtime acceptance.
 
 Exit criteria:
 
@@ -174,9 +200,9 @@ Forbidden shortcuts:
 - no plaintext, reversible or submitted credential persistence;
 - no complete cookie, raw session secret or raw CSRF persistence;
 - one-way verifier hashes belong only in dedicated verifier repositories;
-- no staged verifier may be described as active runtime before HTTP/Gate integration;
+- no lifecycle-only browser gate may authenticate ordinary application routes;
 - no managed identity may inherit the legacy unmigrated-POST bypass;
-- no browser-cookie mutation dispatch without server-side CSRF verification;
+- no browser-cookie business mutation dispatch without server-side CSRF verification;
 - no new remote privileged dispatch before authorization/accountability gates exist;
 - no Phase 63-67 runtime declared through Phase 62 interface preparation.
 
@@ -298,6 +324,3 @@ No recommendation work may hide provider authority or use unstable identities.
 - [Implementation Dependency Map](implementation-dependency-map.md)
 - [Phase 62 Gap Matrix](phase-62-security-identity-gap-matrix.md)
 - [Architecture Gap Matrix](architecture-audit-gap-matrix.md)
-- [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
-- [Completed Phases](../development/completed-phases.md)
-- [Post-Phase-61 Platform Runtime Closeout](../development/post-phase-61-platform-runtime-closeout.md)
