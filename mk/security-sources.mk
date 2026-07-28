@@ -21,7 +21,7 @@ SECURITY_SRC := \
 BROWSER_SESSION_HTTP_SRC := \
 	core/http/src/BrowserSessionHttpService.cpp
 
-.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-browser-session-issuance-service test-security-browser-session-http-service test-security-http-gate
+.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-browser-session-issuance-service test-security-browser-session-http-service test-security-browser-session-http-gate test-security-http-gate
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
@@ -103,6 +103,16 @@ test-security-browser-session-http-service:
 	$(BUILD_DIR)/test_browser_session_http_service
 
 
+test-security-browser-session-http-gate:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_browser_session_http_gate.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_browser_session_http_gate
+	$(BUILD_DIR)/test_browser_session_http_gate
+
+
 test-security-http-gate:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -123,6 +133,7 @@ test-security: \
 	test-security-browser-session-authenticator \
 	test-security-browser-session-issuance-service \
 	test-security-browser-session-http-service \
+	test-security-browser-session-http-gate \
 	test-security-http-gate
 
 test: test-security
