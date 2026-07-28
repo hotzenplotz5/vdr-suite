@@ -5,6 +5,7 @@
 #include "HttpServerRequest.h"
 #include "HttpServerResponse.h"
 #include "LegacyBasicAuthenticator.h"
+#include "ManagedBasicAuthenticator.h"
 #include "PersistentIdentityResolver.h"
 #include "SecurityConfiguration.h"
 
@@ -32,11 +33,13 @@ public:
     SecurityHttpGate(
         SecurityConfiguration configuration,
         AccountabilityEventRepository& accountabilityRepository,
-        const PersistentIdentityResolver* persistentIdentityResolver = nullptr)
+        const PersistentIdentityResolver* persistentIdentityResolver = nullptr,
+        const ManagedBasicAuthenticator* managedBasicAuthenticator = nullptr)
         : configuration_(std::move(configuration)),
-          authenticator_(configuration_),
+          legacyAuthenticator_(configuration_),
           accountabilityRepository_(accountabilityRepository),
-          persistentIdentityResolver_(persistentIdentityResolver)
+          persistentIdentityResolver_(persistentIdentityResolver),
+          managedBasicAuthenticator_(managedBasicAuthenticator)
     {
     }
 
@@ -48,18 +51,14 @@ public:
         if (configuration_.mode == SecurityMode::LegacyBasicCompatibility &&
             !gate.context.authenticated())
         {
-            AuthorizationDecision decision;
-            decision.reasonCode = authenticationReason(gate.context);
-            decision.action = "http.access";
-            decision.permission = "legacy.compatibility.access";
-            decision.backendId = "*";
-            return rejectWithAudit(
-                gate,
-                decision,
-                401,
-                messageForReason(decision.reasonCode),
-                "",
-                true);
+            return rejectAuthentication(gate);
+        }
+
+        if (configuration_.mode == SecurityMode::Enforced &&
+            gate.context.authenticationState != AuthenticationState::Anonymous &&
+            !gate.context.authenticated())
+        {
+            return rejectAuthentication(gate);
         }
 
         const bool isPost = request.method == "POST";
@@ -68,7 +67,12 @@ public:
 
         if (!isRemoteAction)
         {
-            if (configuration_.mode == SecurityMode::Enforced && isPost)
+            const bool explicitPolicyRequired =
+                isPost &&
+                (configuration_.mode == SecurityMode::Enforced ||
+                 !usesLegacyCompatibilityCredential(gate.context));
+
+            if (explicitPolicyRequired)
             {
                 AuthorizationDecision decision;
                 decision.reasonCode = "security_policy_not_migrated";
@@ -90,11 +94,14 @@ public:
         gate.protectedMutation = true;
         AuthorizationRequest requestToAuthorize;
         requestToAuthorize.permission = "remote.control";
-        requestToAuthorize.backendId = jsonStringValue(request.body, "backendId");
+        requestToAuthorize.backendId =
+            jsonStringValue(request.body, "backendId");
         requestToAuthorize.action = "remote.control";
 
         const AuthorizationDecision decision =
-            authorizationService_.authorize(gate.context, requestToAuthorize);
+            authorizationService_.authorize(
+                gate.context,
+                requestToAuthorize);
         const std::string operationId =
             jsonStringValue(request.body, "operationId");
 
@@ -110,9 +117,10 @@ public:
 
         if (!decision.allowed)
         {
-            const int statusCode = decision.reasonCode == "invalid_backend_scope"
-                ? 400
-                : (authenticationFailure(decision) ? 401 : 403);
+            const int statusCode =
+                decision.reasonCode == "invalid_backend_scope"
+                    ? 400
+                    : (authenticationFailure(decision) ? 401 : 403);
             gate.rejection = errorResponse(
                 statusCode,
                 decision.reasonCode,
@@ -133,7 +141,8 @@ public:
         response.headers["X-Request-ID"] = context.requestId;
         if (!context.correlationId.empty())
         {
-            response.headers["X-Correlation-ID"] = context.correlationId;
+            response.headers["X-Correlation-ID"] =
+                context.correlationId;
         }
     }
 
@@ -141,15 +150,22 @@ private:
     static std::string lowerAscii(std::string value)
     {
         std::transform(
-            value.begin(), value.end(), value.begin(),
-            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            value.begin(),
+            value.end(),
+            value.begin(),
+            [](unsigned char character)
+            {
+                return static_cast<char>(std::tolower(character));
+            });
         return value;
     }
 
     static std::string requestPath(const std::string& target)
     {
         const std::size_t query = target.find('?');
-        return query == std::string::npos ? target : target.substr(0, query);
+        return query == std::string::npos
+            ? target
+            : target.substr(0, query);
     }
 
     static std::string headerValue(
@@ -177,17 +193,21 @@ private:
         {
             return "";
         }
+
         position = body.find(':', position + needle.size());
         if (position == std::string::npos)
         {
             return "";
         }
+
         do
         {
             ++position;
         }
         while (position < body.size() &&
-               std::isspace(static_cast<unsigned char>(body[position])));
+               std::isspace(
+                   static_cast<unsigned char>(body[position])));
+
         if (position >= body.size() || body[position] != '"')
         {
             return "";
@@ -211,6 +231,7 @@ private:
             {
                 return "";
             }
+
             switch (body[position++])
             {
                 case '"': value.push_back('"'); break;
@@ -224,6 +245,7 @@ private:
                 default: return "";
             }
         }
+
         return "";
     }
 
@@ -259,12 +281,17 @@ private:
         {
             return false;
         }
+
         return std::all_of(
-            value.begin(), value.end(),
+            value.begin(),
+            value.end(),
             [](unsigned char character)
             {
-                return std::isalnum(character) || character == '-' ||
-                    character == '_' || character == '.' || character == ':';
+                return std::isalnum(character) ||
+                    character == '-' ||
+                    character == '_' ||
+                    character == '.' ||
+                    character == ':';
             });
     }
 
@@ -289,7 +316,8 @@ private:
         }
         if (context.credential.has_value())
         {
-            if (context.credential->revoked || !context.credential->active)
+            if (context.credential->revoked ||
+                !context.credential->active)
             {
                 return "credential_revoked";
             }
@@ -320,7 +348,8 @@ private:
         return "invalid_credentials";
     }
 
-    static bool authenticationFailure(const AuthorizationDecision& decision)
+    static bool authenticationFailure(
+        const AuthorizationDecision& decision)
     {
         return decision.reasonCode == "authentication_required" ||
             decision.reasonCode == "invalid_credentials" ||
@@ -332,14 +361,29 @@ private:
             decision.reasonCode == "device_revoked";
     }
 
-    static std::string messageForReason(const std::string& reasonCode)
+    static std::string messageForReason(
+        const std::string& reasonCode)
     {
-        if (reasonCode == "authentication_required") return "Authentication is required";
-        if (reasonCode == "invalid_credentials") return "The supplied credentials are invalid";
-        if (reasonCode == "session_expired") return "The authenticated session has expired";
-        if (reasonCode == "credential_expired") return "The authenticated credential has expired";
-        if (reasonCode == "session_revoked" || reasonCode == "credential_revoked" ||
-            reasonCode == "actor_revoked" || reasonCode == "device_revoked")
+        if (reasonCode == "authentication_required")
+        {
+            return "Authentication is required";
+        }
+        if (reasonCode == "invalid_credentials")
+        {
+            return "The supplied credentials are invalid";
+        }
+        if (reasonCode == "session_expired")
+        {
+            return "The authenticated session has expired";
+        }
+        if (reasonCode == "credential_expired")
+        {
+            return "The authenticated credential has expired";
+        }
+        if (reasonCode == "session_revoked" ||
+            reasonCode == "credential_revoked" ||
+            reasonCode == "actor_revoked" ||
+            reasonCode == "device_revoked")
         {
             return "The authenticated identity is no longer active";
         }
@@ -376,36 +420,95 @@ private:
     {
         const auto ticks =
             std::chrono::steady_clock::now().time_since_epoch().count();
-        const unsigned long long sequence = idCounter_.fetch_add(1) + 1;
+        const unsigned long long sequence =
+            idCounter_.fetch_add(1) + 1;
         std::ostringstream output;
         output << prefix << '-' << std::hex
-               << static_cast<unsigned long long>(ticks) << '-' << sequence;
+               << static_cast<unsigned long long>(ticks)
+               << '-' << sequence;
         return output.str();
     }
 
-    RequestSecurityContext authenticate(const HttpServerRequest& request) const
+    bool usesLegacyCompatibilityCredential(
+        const RequestSecurityContext& context) const
     {
-        std::string requestId = headerValue(request, "X-Request-ID");
-        if (!safeContextToken(requestId))
-        {
-            requestId = opaqueId("req");
-        }
-        std::string correlationId = headerValue(request, "X-Correlation-ID");
-        if (!correlationId.empty() && !safeContextToken(correlationId))
-        {
-            correlationId.clear();
-        }
+        return context.authenticated() &&
+            context.actor.actorId == configuration_.actorId &&
+            context.credential.has_value() &&
+            context.credential->credentialId ==
+                configuration_.credentialId;
+    }
 
-        RequestSecurityContext context = authenticator_.authenticate(
-            request.headers,
-            requestId,
-            correlationId);
+    RequestSecurityContext resolvePersistentIdentity(
+        RequestSecurityContext context) const
+    {
         if (persistentIdentityResolver_ != nullptr)
         {
             context = persistentIdentityResolver_->resolve(
                 std::move(context));
         }
         return context;
+    }
+
+    RequestSecurityContext authenticate(
+        const HttpServerRequest& request) const
+    {
+        std::string requestId = headerValue(request, "X-Request-ID");
+        if (!safeContextToken(requestId))
+        {
+            requestId = opaqueId("req");
+        }
+
+        std::string correlationId =
+            headerValue(request, "X-Correlation-ID");
+        if (!correlationId.empty() &&
+            !safeContextToken(correlationId))
+        {
+            correlationId.clear();
+        }
+
+        RequestSecurityContext context =
+            legacyAuthenticator_.authenticate(
+                request.headers,
+                requestId,
+                correlationId);
+        if (context.authenticated())
+        {
+            return resolvePersistentIdentity(std::move(context));
+        }
+
+        if (managedBasicAuthenticator_ != nullptr)
+        {
+            RequestSecurityContext managedContext =
+                managedBasicAuthenticator_->authenticate(
+                    request.headers,
+                    requestId,
+                    correlationId);
+            if (managedContext.authenticated())
+            {
+                return resolvePersistentIdentity(
+                    std::move(managedContext));
+            }
+        }
+
+        return context;
+    }
+
+    SecurityGateDecision rejectAuthentication(
+        SecurityGateDecision gate) const
+    {
+        AuthorizationDecision decision;
+        decision.reasonCode = authenticationReason(gate.context);
+        decision.action = "http.access";
+        decision.permission = "legacy.compatibility.access";
+        decision.backendId = "*";
+        return rejectWithAudit(
+            gate,
+            decision,
+            401,
+            messageForReason(decision.reasonCode),
+            "",
+            true);
     }
 
     bool appendDecisionEvent(
@@ -415,16 +518,26 @@ private:
     {
         AccountabilityEvent event;
         event.eventId = opaqueId("audit");
-        event.classes = decision.allowed ? "audit" : "audit,security";
+        event.classes = decision.allowed
+            ? "audit"
+            : "audit,security";
         event.eventType = decision.allowed
-            ? "authorization.allowed" : "authorization.denied";
-        event.severity = decision.allowed ? "info" : "warning";
+            ? "authorization.allowed"
+            : "authorization.denied";
+        event.severity = decision.allowed
+            ? "info"
+            : "warning";
         event.occurredAt = nowUtc();
         event.actorId = context.actor.actorId.empty()
-            ? "anonymous" : context.actor.actorId;
+            ? "anonymous"
+            : context.actor.actorId;
         event.actorType = actorTypeName(context.actor.type);
-        event.deviceId = context.device ? context.device->deviceId : "";
-        event.sessionId = context.session ? context.session->sessionId : "";
+        event.deviceId = context.device
+            ? context.device->deviceId
+            : "";
+        event.sessionId = context.session
+            ? context.session->sessionId
+            : "";
         event.authenticationState =
             authenticationStateName(context.authenticationState);
         event.permission = decision.permission;
@@ -433,10 +546,13 @@ private:
         event.requestId = context.requestId;
         event.correlationId = context.correlationId;
         event.action = decision.action;
-        event.decision = decision.allowed ? "allowed" : "denied";
+        event.decision = decision.allowed
+            ? "allowed"
+            : "denied";
         event.reasonCode = decision.reasonCode;
         event.outcome = decision.allowed
-            ? "dispatch_authorized" : "dispatch_denied";
+            ? "dispatch_authorized"
+            : "dispatch_denied";
         return accountabilityRepository_.append(event);
     }
 
@@ -448,7 +564,10 @@ private:
         const std::string& operationId,
         bool advertiseBasic = false) const
     {
-        if (!appendDecisionEvent(gate.context, decision, operationId))
+        if (!appendDecisionEvent(
+                gate.context,
+                decision,
+                operationId))
         {
             gate.rejection = errorResponse(
                 503,
@@ -457,6 +576,7 @@ private:
                 gate.context);
             return gate;
         }
+
         gate.rejection = errorResponse(
             statusCode,
             decision.reasonCode,
@@ -485,15 +605,17 @@ private:
         response.body =
             "{\"error\":{\"code\":\"" + jsonEscape(code) +
             "\",\"message\":\"" + jsonEscape(message) +
-            "\",\"requestId\":\"" + jsonEscape(context.requestId) + "\"}}";
+            "\",\"requestId\":\"" +
+            jsonEscape(context.requestId) + "\"}}";
         decorateResponse(context, response);
         return response;
     }
 
     SecurityConfiguration configuration_;
-    LegacyBasicAuthenticator authenticator_;
+    LegacyBasicAuthenticator legacyAuthenticator_;
     AuthorizationService authorizationService_;
     AccountabilityEventRepository& accountabilityRepository_;
     const PersistentIdentityResolver* persistentIdentityResolver_;
+    const ManagedBasicAuthenticator* managedBasicAuthenticator_;
     mutable std::atomic<unsigned long long> idCounter_{0};
 };
