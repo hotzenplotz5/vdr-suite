@@ -11,6 +11,7 @@
 - [Current Architecture State](development/current-architecture-state.md)
 - [Phase 62 Slice 1](development/phase-62-security-identity-foundation-slice-1.md)
 - [Phase 62 Slice 2](development/phase-62-security-identity-foundation-slice-2.md)
+- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Completed Phases](development/completed-phases.md)
 - [ADR Index](adr/index.md)
 
