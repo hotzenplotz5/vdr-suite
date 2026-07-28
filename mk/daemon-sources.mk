@@ -91,4 +91,4 @@ DAEMON_SRC := \
         api/rest/src/SearchTimerDeleteRequestParser.cpp \
         api/rest/src/SearchTimerWorkflowValidationRequestParser.cpp
 
-DAEMON_SRC += $(SECURITY_REPOSITORY_SRC)
+DAEMON_SRC += $(SECURITY_SRC)
