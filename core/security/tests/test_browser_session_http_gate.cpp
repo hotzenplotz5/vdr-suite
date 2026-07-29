@@ -8,6 +8,7 @@
 #include "PersistentIdentityResolver.h"
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 
 #include <algorithm>
 #include <cassert>
@@ -165,12 +166,17 @@ int main()
 
     BrowserSessionCredentialRepository browserRepository(database);
     assert(browserRepository.ensureSchema());
+
+    SecurityPermissionGrantRepository permissionGrantRepository(database);
+    assert(permissionGrantRepository.ensureSchema());
+
     PersistentIdentityResolver identityResolver(identityRepository);
 
     BrowserSessionHttpGate gate(
         configuration,
         accountabilityRepository,
         browserRepository,
+        permissionGrantRepository,
         &identityResolver,
         &managedAuthenticator);
 

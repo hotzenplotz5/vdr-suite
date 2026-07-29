@@ -99,6 +99,13 @@ public:
             return decision;
         }
 
+        if (context.permissionGrantResolution ==
+            PermissionGrantResolutionState::Unavailable)
+        {
+            decision.reasonCode = "permission_grants_unavailable";
+            return decision;
+        }
+
         if (request.permission.empty())
         {
             decision.reasonCode = "invalid_permission";

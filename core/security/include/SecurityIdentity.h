@@ -22,6 +22,13 @@ enum class AuthenticationState
     Revoked
 };
 
+enum class PermissionGrantResolutionState
+{
+    NotRequired,
+    Resolved,
+    Unavailable
+};
+
 inline std::string actorTypeName(ActorType type)
 {
     switch (type)
@@ -105,6 +112,8 @@ struct RequestSecurityContext
     std::optional<SessionIdentity> session;
     std::optional<CredentialIdentity> credential;
     std::vector<PermissionGrant> grants;
+    PermissionGrantResolutionState permissionGrantResolution =
+        PermissionGrantResolutionState::NotRequired;
 
     bool authenticated() const
     {

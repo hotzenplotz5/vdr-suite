@@ -4,6 +4,7 @@
 #include "AccountabilityEventRepository.h"
 #include "BrowserSessionAuthenticator.h"
 #include "BrowserSessionCredentialRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 #include "LegacyBasicAuthenticator.h"
 #include "ManagedBasicAuthenticator.h"
 #include "PersistentIdentityResolver.h"
@@ -190,6 +191,7 @@ BrowserSessionHttpGate::BrowserSessionHttpGate(
     SecurityConfiguration configuration,
     AccountabilityEventRepository& accountabilityRepository,
     const BrowserSessionCredentialRepository& credentialRepository,
+    const SecurityPermissionGrantRepository& grantRepository,
     const PersistentIdentityResolver* persistentIdentityResolver,
     const ManagedBasicAuthenticator* managedBasicAuthenticator)
     : configuration_(std::move(configuration)),
@@ -201,7 +203,7 @@ BrowserSessionHttpGate::BrowserSessionHttpGate(
       browserAuthenticator_(
           std::make_unique<BrowserSessionAuthenticator>(
               credentialRepository,
-              std::vector<PermissionGrant>{}))
+              grantRepository))
 {
 }
 

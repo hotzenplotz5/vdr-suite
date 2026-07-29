@@ -1,6 +1,6 @@
 # Security and Identity Foundation
 
-Status: Phase 62 Slice 1 plus real-runtime-accepted lifecycle, managed-Basic, browser-session verifier, issuance and isolated HTTPS lifecycle routes; general cookie-authenticated application routing remains incomplete
+Status: Phase 62 Slice 1 plus real-runtime-accepted lifecycle, managed Basic, browser-session issuance/logout and ordinary-route browser authentication; persisted actor-grant loading is repository-validated and awaiting separate installed-runtime acceptance
 
 ## Active runtime boundary
 
@@ -15,8 +15,11 @@ HttpServerRequest
        -> BrowserSessionHttpService
 
   -> SecurityHttpGate for every other request
-       -> LegacyBasicAuthenticator (transitional)
-       -> optional ManagedBasicAuthenticator
+       -> BrowserSessionAuthenticator when a session cookie is presented
+            -> BrowserSessionCredentialRepository
+            -> SecurityPermissionGrantRepository
+       -> otherwise LegacyBasicAuthenticator (transitional)
+       -> otherwise optional ManagedBasicAuthenticator
             -> CredentialVerifierRepository
        -> RequestSecurityContext
        -> PersistentIdentityResolver
@@ -27,7 +30,7 @@ HttpServerRequest
   -> controller/service/domain safety checks
 ```
 
-The dedicated lifecycle gate is intentionally narrow. It does not authenticate browser cookies for ordinary application routes.
+The dedicated lifecycle gate remains intentionally narrow and owns only issue/logout. Ordinary application requests use the general gate, where a presented browser credential has strict precedence over Basic and invalid, expired or revoked cookies never fall back to another authentication mechanism.
 
 ## Identity model
 
@@ -114,7 +117,47 @@ Only the token ID is stored directly. `BrowserSessionAuthenticator`:
 5. verifies the session secret with `crypt_r`;
 6. distinguishes invalid, expired, revoked and authenticated states;
 7. constructs actor/device/session/credential context values;
-8. verifies `X-CSRF-Token` independently only for an active valid session.
+8. resolves active actor grants through `SecurityPermissionGrantRepository`;
+9. records whether grant resolution succeeded or was unavailable;
+10. verifies `X-CSRF-Token` independently only for an active valid session.
+
+## Persisted browser permission grants
+
+`SecurityPermissionGrantRepository` owns the additive table
+`security_actor_permission_grants`.
+
+Each grant is keyed by:
+
+```text
+actor_id + permission + backend_id
+```
+
+Rows carry active, revocation, creation and update state. Browser authentication
+loads only active, unrevoked grants for the authenticated actor.
+
+The repository distinguishes two valid outcomes:
+
+```text
+Resolved with zero grants
+  -> authentication remains valid;
+  -> the actor has no browser permissions.
+
+Unavailable
+  -> authentication identity remains attributable;
+  -> ordinary access fails closed with
+     503 permission_grants_unavailable.
+```
+
+Browser sessions do not copy:
+
+- legacy compatibility grants;
+- managed-Basic configuration grants;
+- rights from the credential that issued the browser session;
+- implicit wildcard grants.
+
+Legacy and managed Basic retain their existing explicitly configured grants.
+No role model, protected grant-administration API or automatic default grant is
+introduced by this increment.
 
 ## Browser-session issuance
 
@@ -191,11 +234,20 @@ This is a credential exchange from an already authenticated Basic context. It is
 - `BrowserSessionLifecycleService` revokes verifier, canonical session and canonical browser credential in one `BEGIN IMMEDIATE` transaction;
 - success returns `204` and an expired hardened cookie.
 
-### Route isolation
+### Route ownership and mutation boundary
 
-`BrowserSessionHttpGate` handles exactly these two POST paths. The general `SecurityHttpGate` contains no browser authenticator or cookie parser. Tests prove that cookies do not authenticate `/api/backends`, `/api/vdr/remote/actions` or any other ordinary application route.
+`BrowserSessionHttpGate` still handles exactly the two lifecycle POST paths.
 
-This isolation keeps login/logout deployable without prematurely choosing general authentication precedence or exposing business mutations to cookie authentication before their CSRF classification is complete.
+`SecurityHttpGate` owns browser authentication for every ordinary application
+request. A valid browser session can access ordinary read routes. A presented
+browser cookie always takes precedence; malformed, duplicate, unknown, expired
+or revoked browser credentials do not fall back to legacy or managed Basic.
+
+Every browser-authenticated POST remains fail-closed with
+`503 security_policy_not_migrated`. Persisted grants therefore do not yet enable
+Remote, Timer, Recording, SearchTimer or administrative mutation. Route
+permission mapping and applicable CSRF verification must be implemented
+explicitly before dispatch.
 
 ### Installed HTTPS acceptance
 
@@ -221,7 +273,8 @@ Direct SQLite calls remain limited to infrastructure, approved repository implem
 - issuance and lifecycle services use `Database` and repository abstractions only;
 - `SecurityIdentityIssuanceRepository.cpp` owns issuance-specific session/credential SQL;
 - `BrowserSessionCredentialRepository.cpp` owns browser-verifier SQL;
-- identity and browser repositories own lifecycle revocation updates;
+- `SecurityPermissionGrantRepository.cpp` owns actor permission-grant SQL;
+- identity, browser and grant repositories own their lifecycle updates;
 - `Database::filename()` owns database-path discovery for Global Search;
 - SQLite progress-handler shutdown cancellation is owned by `core/sqlite`.
 
@@ -244,10 +297,19 @@ remote.control@<backend-id>
 ### `enforced`
 
 - anonymous GET can reach existing read routes;
-- presented invalid/expired/revoked Basic credentials are rejected rather than downgraded;
+- presented invalid/expired/revoked credentials are rejected rather than downgraded;
 - migrated Remote requires active identity, permission and backend scope;
 - other application POST routes return `security_policy_not_migrated` before dispatch;
 - the isolated browser lifecycle routes retain their own exact Basic or Cookie+CSRF requirements.
+
+### Browser sessions
+
+- a presented cookie has precedence over Basic;
+- active actor grants are loaded from `security_actor_permission_grants`;
+- a successfully resolved empty grant set is valid and grants no permission;
+- unavailable grant persistence returns `503 permission_grants_unavailable`;
+- browser sessions inherit no compatibility or managed-Basic grant;
+- browser-authenticated business POSTs remain blocked until route CSRF migration.
 
 ## Security errors
 
@@ -262,6 +324,7 @@ Runtime errors include:
 - `actor_revoked`;
 - `device_revoked`;
 - `permission_denied`;
+- `permission_grants_unavailable`;
 - `backend_scope_denied`;
 - `invalid_backend_scope`;
 - `accountability_unavailable`;
@@ -302,9 +365,17 @@ The HTTP login response delivers the cookie through `Set-Cookie` and the CSRF va
 
 ## Test boundary
 
-The browser verifier test covers parsing, verification, CSRF, expiry and revocation.
+The browser verifier test covers parsing, verification, CSRF, expiry,
+revocation, persisted grant loading, a successfully resolved empty grant set and
+grant-store unavailability.
 
-The issuance test covers entropy, identifiers, hashes, lifecycle rows, rollback, lifetime bounds, revoked source credentials and secret wipe.
+The permission-grant repository test covers additive/idempotent schema creation,
+actor separation, backend scopes, revocation, reactivation, empty results and
+unavailable persistence.
+
+The issuance test covers entropy, identifiers, hashes, lifecycle rows, rollback,
+lifetime bounds, revoked source credentials, persisted grant consumption and
+secret wipe.
 
 The HTTP service and dedicated gate tests cover:
 
@@ -326,9 +397,8 @@ Passing tests and packaging do not replace installed acceptance for later increm
 
 Still open within Phase 62:
 
-- general browser authentication precedence;
-- controlled browser-cookie integration for ordinary application routes;
-- grant loading and centralized authorization for browser contexts;
+- separately approved installed-runtime acceptance of persisted browser grants;
+- permission mapping and safe/mutating classification for every business POST;
 - actual CSRF rejection before every applicable business mutation;
 - frontend login/logout and in-memory CSRF handling;
 - completion/outcome accountability and transactional outbox;

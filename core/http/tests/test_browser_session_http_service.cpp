@@ -6,6 +6,7 @@
 #include "Database.h"
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 
 #include <algorithm>
 #include <cassert>
@@ -115,6 +116,9 @@ int main()
     BrowserSessionCredentialRepository credentialRepository(database);
     assert(credentialRepository.ensureSchema());
 
+    SecurityPermissionGrantRepository permissionGrantRepository(database);
+    assert(permissionGrantRepository.ensureSchema());
+
     const auto tokenBytes = bytes(0x10, 16);
     const auto sessionBytes = bytes(0x20, 16);
     const auto credentialBytes = bytes(0x30, 16);
@@ -209,7 +213,7 @@ int main()
 
     BrowserSessionAuthenticator authenticator(
         credentialRepository,
-        {});
+        permissionGrantRepository);
     const std::map<std::string, std::string> logoutHeaders = {
         {"Cookie", cookie},
         {"X-CSRF-Token", csrfToken},
@@ -219,6 +223,9 @@ int main()
         "request-browser-logout",
         "");
     assert(browserContext.authenticated());
+    assert(browserContext.permissionGrantResolution ==
+        PermissionGrantResolutionState::Resolved);
+    assert(browserContext.grants.empty());
     assert(authenticator.verifyCsrf(logoutHeaders));
 
     const HttpServerResponse logout = httpService.logout(browserContext);

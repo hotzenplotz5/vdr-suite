@@ -27,6 +27,7 @@ def main() -> int:
         "core/security/include/ManagedBasicAuthenticator.h",
         "core/security/include/CredentialVerifierRepository.h",
         "core/security/include/BrowserSessionCredentialRepository.h",
+        "core/security/include/SecurityPermissionGrantRepository.h",
         "core/security/include/BrowserSessionAuthenticator.h",
         "core/security/include/BrowserSessionIssuanceService.h",
         "core/security/include/BrowserSessionLifecycleService.h",
@@ -39,6 +40,7 @@ def main() -> int:
         "core/security/include/SecurityHttpGate.h",
         "core/security/src/AccountabilityEventRepository.cpp",
         "core/security/src/BrowserSessionCredentialRepository.cpp",
+        "core/security/src/SecurityPermissionGrantRepository.cpp",
         "core/security/src/BrowserSessionHttpGate.cpp",
         "core/security/src/BrowserSessionIssuanceService.cpp",
         "core/security/src/BrowserSessionLifecycleService.cpp",
@@ -51,6 +53,7 @@ def main() -> int:
         "core/security/tests/test_authorization_service.cpp",
         "core/security/tests/test_security_configuration.cpp",
         "core/security/tests/test_security_identity_repository.cpp",
+        "core/security/tests/test_security_permission_grant_repository.cpp",
         "core/security/tests/test_managed_basic_authenticator.cpp",
         "core/security/tests/test_browser_session_authenticator.cpp",
         "core/security/tests/test_browser_session_issuance_service.cpp",
@@ -98,6 +101,19 @@ def main() -> int:
     require("core/security/src/BrowserSessionCredentialRepository.cpp", "session_secret_hash")
     require("core/security/src/BrowserSessionCredentialRepository.cpp", "csrf_secret_hash")
     require("core/security/src/BrowserSessionCredentialRepository.cpp", "issued_from_credential_id")
+    require(
+        "core/security/src/SecurityPermissionGrantRepository.cpp",
+        "security_actor_permission_grants",
+    )
+    require(
+        "core/security/include/BrowserSessionAuthenticator.h",
+        "findActiveGrantsForActor",
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        "permission_grants_unavailable",
+    )
+    require("core/http/src/TestHttpServer.cpp", "securityPermissionGrantRepository_")
     require("core/security/include/ManagedBasicAuthenticator.h", "crypt_r")
     require("core/security/include/ManagedBasicAuthenticator.h", 'passwordHash.rfind("$y$", 0)')
     require("core/security/include/ManagedBasicAuthenticator.h", 'passwordHash.rfind("$6$", 0)')
@@ -159,6 +175,7 @@ def main() -> int:
     repository_headers = [
         "core/security/include/AccountabilityEventRepository.h",
         "core/security/include/BrowserSessionCredentialRepository.h",
+        "core/security/include/SecurityPermissionGrantRepository.h",
         "core/security/include/CredentialVerifierRepository.h",
         "core/security/include/SecurityIdentityProvisioningRepository.h",
         "core/security/include/SecurityIdentityRepository.h",

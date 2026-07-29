@@ -1,20 +1,25 @@
 # Phase 62 Persistent Identity Lifecycle — Slice 2
 
-Status: lifecycle, managed Basic, browser-session verifier, atomic issuance and isolated HTTPS login/logout lifecycle are real-VDR accepted; ordinary API cookie authentication and business-mutation CSRF enforcement remain open; Phase 62 remains active
+Status: lifecycle, managed Basic, browser-session issuance/logout and ordinary-route browser authentication are real-VDR accepted; persisted browser actor grants are repository-validated but not installed-runtime accepted; business-mutation CSRF enforcement remains open; Phase 62 remains active
 
 ## Purpose
 
 Phase 62 Slice 1 established explicit request identity, centralized authorization, the first protected mutation and append-only pre-dispatch accountability. Slice 2 removes transient-only identity assumptions and builds a deployable browser/native credential lifecycle in small fail-closed increments.
 
-The slice now contains five cumulative increments:
+The slice now contains seven cumulative increments:
 
 1. persistent actor, device, session and credential lifecycle state;
 2. an optional separately provisioned managed Basic verifier;
 3. a persistent browser-session credential repository and cookie/CSRF verifier;
 4. atomic server-side browser-session material generation and persistence;
-5. two isolated HTTP lifecycle routes for Basic-to-session exchange and cookie-plus-CSRF logout.
+5. two isolated HTTP lifecycle routes for Basic-to-session exchange and cookie-plus-CSRF logout;
+6. strict-precedence browser authentication for ordinary application read routes;
+7. additive persisted actor grants and backend scopes for browser contexts.
 
-The general application request path still authenticates only the transitional legacy Basic credential and the optional managed Basic credential. Browser cookies are intentionally accepted only by the dedicated logout route and do not authenticate ordinary GET routes, Remote, Timer, Recording or other application APIs.
+A valid browser cookie now authenticates ordinary application read requests.
+Presented browser credentials have strict precedence and never fall back to Basic.
+Every browser-authenticated POST remains fail-closed until that route has an
+explicit permission, safe/mutating classification and applicable CSRF contract.
 
 ## Active runtime boundary
 
@@ -42,7 +47,11 @@ HttpServerRequest
 
   -> every other request
        -> SecurityHttpGate
-            -> LegacyBasicAuthenticator or optional ManagedBasicAuthenticator
+            -> BrowserSessionAuthenticator when a cookie is presented
+                 -> BrowserSessionCredentialRepository
+                 -> SecurityPermissionGrantRepository
+            -> otherwise LegacyBasicAuthenticator
+            -> otherwise optional ManagedBasicAuthenticator
             -> PersistentIdentityResolver
             -> AuthorizationService
             -> AccountabilityEventRepository
@@ -162,17 +171,49 @@ Basic credentials do not substitute for the browser cookie on logout. A missing 
 
 A successful logout returns `204`, `no-store`/`no-cache` and an expired cookie using `Max-Age=0`, a 1970 `Expires` date, `HttpOnly`, `Secure` and `SameSite=Strict`.
 
-## Isolation and route-safety rule
+## Ordinary-route authentication and route-safety rule
 
-The lifecycle gate recognizes exactly two POST paths. Tests prove that a browser cookie is ignored by:
+The lifecycle gate still recognizes exactly two POST paths. The general gate now
+authenticates browser cookies for ordinary application requests.
 
-- ordinary GET routes such as `/api/backends`;
-- `POST /api/vdr/remote/actions`;
-- every other route handled by the existing `SecurityHttpGate`.
+- valid browser sessions can access ordinary read routes;
+- a presented browser cookie takes precedence over Basic;
+- invalid, expired, revoked, duplicate or unknown cookies never fall back;
+- browser-cookie failures do not emit a misleading Basic challenge;
+- every browser-authenticated POST returns
+  `503 security_policy_not_migrated` before business dispatch.
 
-The legacy compatibility bypass still belongs only to the configured legacy actor and credential. Managed Basic identities use migrated application routes only with explicit permission and scope; unmigrated POSTs fail before dispatch.
+The legacy compatibility bypass still belongs only to the configured legacy
+actor and credential. Managed Basic identities use migrated routes only with
+explicit permission and scope.
 
-Ordinary browser-cookie authentication precedence, grant loading and business-route CSRF classification remain future work.
+## Persisted browser permission-grant contract
+
+`SecurityPermissionGrantRepository` owns
+`security_actor_permission_grants`.
+
+The additive key is:
+
+```text
+actor_id + permission + backend_id
+```
+
+`BrowserSessionAuthenticator` loads only active, unrevoked rows for the
+authenticated actor. A successful empty result is valid and supplies no rights.
+
+Grant-store failure is distinct from an empty result. The authenticated context
+is marked unavailable and `SecurityHttpGate` returns
+`503 permission_grants_unavailable`.
+
+Browser sessions never inherit:
+
+- legacy compatibility grants;
+- managed-Basic grants;
+- issuing-credential grants;
+- implicit defaults or wildcards.
+
+This increment does not add roles, protected grant administration or business
+mutation authorization.
 
 ## Accountability boundary
 
@@ -194,6 +235,7 @@ Phase 62 SQL remains in approved repository implementation units under `core/sec
 - issuance and lifecycle services use `Database` and repository abstractions and contain no direct `sqlite3_*` call;
 - `SecurityIdentityIssuanceRepository.cpp` owns session/credential inserts;
 - identity and browser repositories own revocation updates;
+- `SecurityPermissionGrantRepository.cpp` owns actor permission-grant SQL;
 - the daemon and affected tests link the complete `SECURITY_SRC` graph;
 - arbitrary services, headers, REST controllers, helpers and unregistered tests remain outside the direct SQLite boundary.
 
@@ -255,14 +297,22 @@ The HTTP lifecycle run passed:
 - full daemon link;
 - packaging and install staging.
 
-Focused tests cover secure cookie attributes, no cookie reflection in JSON, one-time CSRF response, successful verifier consumption, atomic logout revocation, revoked post-logout authentication, anonymous/wrong-password login denial, missing-CSRF denial, exact route isolation and lifecycle accountability decisions.
+Focused tests cover secure cookie attributes, no cookie reflection in JSON,
+one-time CSRF response, successful verifier consumption, atomic logout revocation,
+revoked post-logout authentication, anonymous/wrong-password login denial,
+missing-CSRF denial, ordinary-route precedence, persisted actor grants,
+backend-scope separation, empty grant resolution, unavailable grant persistence
+and lifecycle accountability decisions.
+
+The Slice 2C local validation passed `make test-security`,
+`make test-ci-fast`, focused grant/authenticator/gate tests and the daemon build.
+Installed-runtime acceptance remains a separate approval boundary.
 
 ## Explicitly not included
 
-- browser-cookie authentication for ordinary application GET or POST routes;
-- browser authentication precedence across general routes;
-- browser grant loading into general `SecurityHttpGate`;
+- enabling browser-authenticated business POST routes;
 - actual browser CSRF enforcement for Remote, Timer, Recording or other business mutations;
+- protected role, assignment or grant-administration APIs;
 - frontend login/logout user interface or client-memory CSRF handling;
 - refresh, idle timeout, cleanup, concurrent-session policy, recovery or enrollment;
 - complete issuance/revocation outcome accountability and transactional outbox;
@@ -286,7 +336,10 @@ Focused tests cover secure cookie attributes, no cookie reflection in JSON, one-
 | CSRF is delivered separately and not persisted raw | HTTP response and repository tests |
 | Logout requires cookie plus matching CSRF | dedicated gate tests |
 | Logout revokes verifier, session and credential atomically | lifecycle and post-logout verifier tests |
-| Browser cookies cannot authenticate ordinary routes | gate isolation tests |
+| Browser cookies authenticate ordinary reads with strict no-fallback precedence | general-gate and real-runtime acceptance |
+| Browser grants come only from active actor rows | grant-repository, authenticator and gate tests |
+| Empty grant resolution differs from persistence failure | repository and `permission_grants_unavailable` tests |
+| Browser sessions inherit no Basic grants | negative grant-isolation tests |
 | Lifecycle allow/deny and CSRF decisions are append-only | dedicated gate accountability tests |
 | Daemon and packaging link the HTTP lifecycle | CI run 6429 |
 | Installed HTTPS lifecycle behaves fail-closed | real-yaVDR `401 -> 200 -> 403 -> 204 -> 401 credential_revoked` acceptance |

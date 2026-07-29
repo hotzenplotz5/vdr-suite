@@ -48,6 +48,15 @@ int main()
     assert(!wrongScope.allowed);
     assert(wrongScope.reasonCode == "backend_scope_denied");
 
+    RequestSecurityContext unavailableGrants = authenticatedContext();
+    unavailableGrants.permissionGrantResolution =
+        PermissionGrantResolutionState::Unavailable;
+    const AuthorizationDecision unavailable =
+        service.authorize(unavailableGrants, requestFor("default"));
+    assert(!unavailable.allowed);
+    assert(unavailable.reasonCode ==
+        "permission_grants_unavailable");
+
     RequestSecurityContext missingPermission = authenticatedContext();
     missingPermission.grants.push_back(PermissionGrant{"recordings.view", "*"});
     const AuthorizationDecision forbidden =

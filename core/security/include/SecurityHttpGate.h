@@ -80,6 +80,24 @@ public:
             return rejectAuthentication(gate);
         }
 
+        if (gate.browserAuthenticated &&
+            gate.context.permissionGrantResolution ==
+                PermissionGrantResolutionState::Unavailable)
+        {
+            AuthorizationDecision decision;
+            decision.reasonCode = "permission_grants_unavailable";
+            decision.permission = "security.permissions.resolve";
+            decision.backendId = "*";
+            decision.action = "http.browser.access";
+
+            return rejectWithAudit(
+                gate,
+                decision,
+                503,
+                "Browser permission persistence is unavailable",
+                "");
+        }
+
         const bool isPost = request.method == "POST";
 
         if (isPost && gate.browserAuthenticated)
@@ -431,6 +449,10 @@ private:
         if (reasonCode == "permission_denied")
         {
             return "The actor lacks the required permission";
+        }
+        if (reasonCode == "permission_grants_unavailable")
+        {
+            return "Browser permission persistence is unavailable";
         }
         if (reasonCode == "invalid_backend_scope")
         {

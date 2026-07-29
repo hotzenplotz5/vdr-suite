@@ -2,6 +2,7 @@
 
 #include "BrowserSessionCredentialRepository.h"
 #include "SecurityIdentity.h"
+#include "SecurityPermissionGrantRepository.h"
 
 #include <crypt.h>
 
@@ -19,11 +20,11 @@ class BrowserSessionAuthenticator
 public:
     BrowserSessionAuthenticator(
         const BrowserSessionCredentialRepository& repository,
-        std::vector<PermissionGrant> grants,
+        const SecurityPermissionGrantRepository& grantRepository,
         std::string cookieName = "vdr_suite_session",
         std::string csrfHeaderName = "X-CSRF-Token")
         : repository_(repository),
-          grants_(std::move(grants)),
+          grantRepository_(grantRepository),
           cookieName_(std::move(cookieName)),
           csrfHeaderName_(std::move(csrfHeaderName))
     {
@@ -92,7 +93,19 @@ public:
         }
 
         context.authenticationState = AuthenticationState::Authenticated;
-        context.grants = grants_;
+
+        auto grantResolution =
+            grantRepository_.findActiveGrantsForActor(record->actorId);
+        if (!grantResolution.available)
+        {
+            context.permissionGrantResolution =
+                PermissionGrantResolutionState::Unavailable;
+            return context;
+        }
+
+        context.permissionGrantResolution =
+            PermissionGrantResolutionState::Resolved;
+        context.grants = std::move(grantResolution.grants);
         return context;
     }
 
@@ -388,7 +401,7 @@ private:
     }
 
     const BrowserSessionCredentialRepository& repository_;
-    std::vector<PermissionGrant> grants_;
+    const SecurityPermissionGrantRepository& grantRepository_;
     std::string cookieName_;
     std::string csrfHeaderName_;
 };

@@ -4,6 +4,7 @@
 #include "Database.h"
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 
 #include <algorithm>
 #include <cassert>
@@ -109,6 +110,13 @@ int main()
     BrowserSessionCredentialRepository credentialRepository(database);
     assert(credentialRepository.ensureSchema());
 
+    SecurityPermissionGrantRepository permissionGrantRepository(database);
+    assert(permissionGrantRepository.ensureSchema());
+    assert(permissionGrantRepository.ensureGrant(
+        "user-phase62-admin",
+        "remote.control",
+        "default"));
+
     const auto firstToken = bytes(0x10, 16);
     const auto firstSession = bytes(0x20, 16);
     const auto firstCredential = bytes(0x30, 16);
@@ -187,15 +195,24 @@ int main()
 
     BrowserSessionAuthenticator authenticator(
         credentialRepository,
-        {PermissionGrant{"remote.control", "default"}});
+        permissionGrantRepository);
     const std::map<std::string, std::string> headers = {
         {"Cookie", "vdr_suite_session=" + issued->sessionCookieValue},
         {"X-CSRF-Token", issued->csrfToken},
     };
-    assert(authenticator.authenticate(
-        headers,
-        "request-issued-session",
-        "correlation-issued-session").authenticated());
+    const RequestSecurityContext authenticated =
+        authenticator.authenticate(
+            headers,
+            "request-issued-session",
+            "correlation-issued-session");
+    assert(authenticated.authenticated());
+    assert(authenticated.permissionGrantResolution ==
+        PermissionGrantResolutionState::Resolved);
+    assert(authenticated.grants.size() == 1);
+    assert(authenticated.grants.front().permission ==
+        "remote.control");
+    assert(authenticated.grants.front().backendId ==
+        "default");
     assert(authenticator.verifyCsrf(headers));
 
     const std::string rolledBackSessionId =

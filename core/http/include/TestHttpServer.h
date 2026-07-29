@@ -18,6 +18,7 @@
 #include "SecurityHttpGate.h"
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 
 #include <memory>
 
@@ -63,6 +64,8 @@ private:
         credentialVerifierRepository_;
     std::unique_ptr<BrowserSessionCredentialRepository>
         browserSessionCredentialRepository_;
+    std::unique_ptr<SecurityPermissionGrantRepository>
+        securityPermissionGrantRepository_;
     std::unique_ptr<BrowserSessionAuthenticator>
         browserSessionAuthenticator_;
     std::unique_ptr<ManagedBasicAuthenticator>

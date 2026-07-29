@@ -92,6 +92,15 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         return;
     }
 
+    securityPermissionGrantRepository_ =
+        std::make_unique<SecurityPermissionGrantRepository>(
+            *securityDatabase_);
+
+    if (!securityPermissionGrantRepository_->ensureSchema())
+    {
+        return;
+    }
+
     const SecurityConfiguration configuration =
         SecurityConfiguration::fromEnvironment();
     if (!configuration.expectedAuthorizationHeader.empty() &&
@@ -149,7 +158,7 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
     browserSessionAuthenticator_ =
         std::make_unique<BrowserSessionAuthenticator>(
             *browserSessionCredentialRepository_,
-            std::vector<PermissionGrant>{});
+            *securityPermissionGrantRepository_);
 
     browserSessionIssuanceService_ =
         std::make_unique<BrowserSessionIssuanceService>(
@@ -173,6 +182,7 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
             configuration,
             *accountabilityEventRepository_,
             *browserSessionCredentialRepository_,
+            *securityPermissionGrantRepository_,
             persistentIdentityResolver_.get(),
             managedBasicAuthenticator_.get());
 

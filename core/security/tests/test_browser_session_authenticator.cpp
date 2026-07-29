@@ -3,6 +3,7 @@
 #include "Database.h"
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 
 #include <cassert>
 #include <string>
@@ -122,10 +123,16 @@ int main()
     assert(!stored->expired);
     assert(!stored->revoked);
 
-    const std::vector<PermissionGrant> grants = {
-        PermissionGrant{"remote.control", "default"}
-    };
-    BrowserSessionAuthenticator authenticator(repository, grants);
+    SecurityPermissionGrantRepository grantRepository(database);
+    assert(grantRepository.ensureSchema());
+    assert(grantRepository.ensureGrant(
+        "user-phase62-admin",
+        "remote.control",
+        "default"));
+
+    BrowserSessionAuthenticator authenticator(
+        repository,
+        grantRepository);
 
     const RequestSecurityContext anonymous =
         authenticator.authenticate({}, "request-anonymous", "");
@@ -147,8 +154,11 @@ int main()
     assert(authenticated.credential.has_value());
     assert(authenticated.credential->credentialId ==
         "credential-browser-active");
+    assert(authenticated.permissionGrantResolution ==
+        PermissionGrantResolutionState::Resolved);
     assert(authenticated.grants.size() == 1);
     assert(authenticated.grants.front().permission == "remote.control");
+    assert(authenticated.grants.front().backendId == "default");
     assert(authenticated.requestId == "request-authenticated");
     assert(authenticated.correlationId == "correlation-authenticated");
 
@@ -160,6 +170,41 @@ int main()
     assert(!authenticator.verifyCsrf(csrfHeaders));
     csrfHeaders.erase("X-CSRF-Token");
     assert(!authenticator.verifyCsrf(csrfHeaders));
+
+    assert(grantRepository.revokeGrant(
+        "user-phase62-admin",
+        "remote.control",
+        "default"));
+    const RequestSecurityContext authenticatedWithoutGrants =
+        authenticator.authenticate(
+            validHeaders,
+            "request-without-grants",
+            "");
+    assert(authenticatedWithoutGrants.authenticated());
+    assert(authenticatedWithoutGrants.permissionGrantResolution ==
+        PermissionGrantResolutionState::Resolved);
+    assert(authenticatedWithoutGrants.grants.empty());
+
+    assert(grantRepository.ensureGrant(
+        "user-phase62-admin",
+        "remote.control",
+        "default"));
+
+    Database closedGrantDatabase;
+    SecurityPermissionGrantRepository unavailableGrantRepository(
+        closedGrantDatabase);
+    BrowserSessionAuthenticator unavailableGrantAuthenticator(
+        repository,
+        unavailableGrantRepository);
+    const RequestSecurityContext unavailableGrantContext =
+        unavailableGrantAuthenticator.authenticate(
+            validHeaders,
+            "request-unavailable-grants",
+            "");
+    assert(unavailableGrantContext.authenticated());
+    assert(unavailableGrantContext.permissionGrantResolution ==
+        PermissionGrantResolutionState::Unavailable);
+    assert(unavailableGrantContext.grants.empty());
 
     const RequestSecurityContext wrongSecret =
         authenticator.authenticate(

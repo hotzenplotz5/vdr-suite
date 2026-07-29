@@ -12,6 +12,7 @@
 class AccountabilityEventRepository;
 class BrowserSessionAuthenticator;
 class BrowserSessionCredentialRepository;
+class SecurityPermissionGrantRepository;
 class LegacyBasicAuthenticator;
 class ManagedBasicAuthenticator;
 class PersistentIdentityResolver;
@@ -32,6 +33,7 @@ public:
         SecurityConfiguration configuration,
         AccountabilityEventRepository& accountabilityRepository,
         const BrowserSessionCredentialRepository& credentialRepository,
+        const SecurityPermissionGrantRepository& grantRepository,
         const PersistentIdentityResolver* persistentIdentityResolver,
         const ManagedBasicAuthenticator* managedBasicAuthenticator);
     ~BrowserSessionHttpGate();

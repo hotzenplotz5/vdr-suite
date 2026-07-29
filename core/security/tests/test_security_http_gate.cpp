@@ -8,6 +8,7 @@
 #include "SecurityHttpGate.h"
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 
 #include <cassert>
 #include <string>
@@ -174,6 +175,9 @@ int main()
     BrowserSessionCredentialRepository browserRepository(database);
     assert(browserRepository.ensureSchema());
 
+    SecurityPermissionGrantRepository permissionGrantRepository(database);
+    assert(permissionGrantRepository.ensureSchema());
+
     BrowserSessionCredentialRegistration browserRegistration;
     browserRegistration.tokenId = "sessiontoken001";
     browserRegistration.actorId = managed.actorId;
@@ -190,7 +194,7 @@ int main()
 
     BrowserSessionAuthenticator browserAuthenticator(
         browserRepository,
-        std::vector<PermissionGrant>{});
+        permissionGrantRepository);
 
     SecurityHttpGate compatibilityGate(
         compatibilityConfiguration,
@@ -253,7 +257,55 @@ int main()
     assert(browserPreferred.context.credential.has_value());
     assert(browserPreferred.context.credential->credentialId ==
         "credential-browser-active");
+    assert(browserPreferred.context.permissionGrantResolution ==
+        PermissionGrantResolutionState::Resolved);
     assert(browserPreferred.context.grants.empty());
+
+    assert(permissionGrantRepository.ensureGrant(
+        managed.actorId,
+        "recordings.view",
+        "default"));
+
+    const SecurityGateDecision browserWithPersistedGrant =
+        compatibilityGate.evaluate(
+            browserGetRequest(validBrowserCookie));
+    assert(browserWithPersistedGrant.allowed);
+    assert(browserWithPersistedGrant.browserAuthenticated);
+    assert(browserWithPersistedGrant.context.grants.size() == 1);
+    assert(browserWithPersistedGrant.context.grants.front().permission ==
+        "recordings.view");
+    assert(browserWithPersistedGrant.context.grants.front().backendId ==
+        "default");
+
+    for (const PermissionGrant& grant :
+         browserWithPersistedGrant.context.grants)
+    {
+        assert(grant.permission != "remote.control");
+        assert(grant.permission != "*");
+        assert(grant.backendId != "*");
+    }
+
+    Database closedGrantDatabase;
+    SecurityPermissionGrantRepository unavailableGrantRepository(
+        closedGrantDatabase);
+    BrowserSessionAuthenticator unavailableBrowserAuthenticator(
+        browserRepository,
+        unavailableGrantRepository);
+    SecurityHttpGate unavailableGrantGate(
+        compatibilityConfiguration,
+        accountabilityRepository,
+        &identityResolver,
+        &managedAuthenticator,
+        &unavailableBrowserAuthenticator);
+
+    const SecurityGateDecision unavailableBrowserGrants =
+        unavailableGrantGate.evaluate(
+            browserGetRequest(validBrowserCookie));
+    assert(!unavailableBrowserGrants.allowed);
+    assert(unavailableBrowserGrants.browserAuthenticated);
+    assert(unavailableBrowserGrants.rejection.statusCode == 503);
+    assert(unavailableBrowserGrants.rejection.body.find(
+        "permission_grants_unavailable") != std::string::npos);
 
     const SecurityGateDecision invalidBrowserNoFallback =
         compatibilityGate.evaluate(
