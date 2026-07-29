@@ -8,6 +8,7 @@ index document presented to the legacy ownership checks; the dedicated public-
 origin architecture check validates the real relative paths.
 """
 
+import frontend_ownership_contracts_core as core
 import frontend_ownership_contracts_current as current
 
 
@@ -26,6 +27,7 @@ def read_with_direct_daemon_paths(path):
 
 
 current.read = read_with_direct_daemon_paths
+core.read = read_with_direct_daemon_paths
 
 
 def combined_install_source_with_public_origin():
