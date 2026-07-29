@@ -29,20 +29,16 @@ Repository: hotzenplotz5/vdr-suite
 Pull request: #117
 PR title: feat(security): establish Phase 62 identity and authorization foundation
 Head branch: phase-62-security-identity-foundation
-Accepted code baseline: d0500da0aa43b11b57eca23d5d757d070b2beb98
+Accepted code/runtime head: 47adb6577511209bfe7288ce8ce0fbe03b53a94c
 Base branch: main
 Recorded base SHA: cb77ff66e11dca7db2eafa36525762dcde35102d
-Recorded divergence before this documentation update: 167 ahead, 0 behind
 PR state: open, Draft, not merged
-Recorded CI workflow run: 6469, completed successfully
+Persisted browser-grant CI: run 6507, completed successfully
 ```
 
-The documentation commits that add this evidence and refresh the handoff are
-expected descendants of the accepted code baseline. They do not change product
-code or runtime behaviour.
-
-The PR description still contains **STALE** wording that ordinary-route
-installed-runtime browser-session acceptance is outstanding.
+The PR description contains stale grant-runtime, CI and open-work wording.
+The canonical handoff and runtime checkpoint supersede that wording until PR
+metadata is explicitly approved for update.
 
 ## Real yaVDR baseline
 
@@ -51,11 +47,12 @@ installed-runtime browser-session acceptance is outstanding.
 ```text
 Checkout: /home/yavdr/vdr-suite-phase62
 Local branch: phase62-pr117
-Accepted code baseline: d0500da0aa43b11b57eca23d5d757d070b2beb98
+Accepted code/runtime head: 47adb6577511209bfe7288ce8ce0fbe03b53a94c
 
 Daemon unit: vdr-suite-daemon.service
 Installed executable: /usr/sbin/vdr-suite-daemon
-Recorded backup: /usr/sbin/vdr-suite-daemon.pre-d0500da0-20260729-062203
+Installed SHA-256: 652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1
+Slice 2C backup: /var/backups/vdr-suite-phase62-slice2c-20260729-171704
 Daemon configuration: /etc/default/vdr-suite-daemon
 Database: /var/lib/vdr-suite/vdr-suite.db
 Listener: 0.0.0.0:18080
@@ -63,13 +60,16 @@ Listener: 0.0.0.0:18080
 
 At the acceptance point:
 
-- the daemon service was active;
-- the installed binary matched the branch build;
-- the database remained structurally consistent;
-- temporary acceptance lifecycle data was cleaned up.
+- the daemon service was active/running with zero restarts;
+- the running and installed binary matched the branch build;
+- the additive browser-grant schema and index existed;
+- no default grant rows existed;
+- SQLite integrity and foreign-key checks passed;
+- the controlled browser acceptance session was revoked;
+- temporary acceptance grants were removed;
+- Nginx, frontend and credential configuration were unchanged.
 
-Process IDs, service timestamps, active file hashes, working-tree state, and
-active Nginx fingerprints are **VOLATILE**.
+Process IDs, service timestamps and working-tree state remain **VOLATILE**.
 
 ## Completed security acceptance
 
@@ -125,6 +125,24 @@ Logout requires a valid browser cookie and matching CSRF token.
 
 This acceptance is complete for the recorded code, binary, configuration, and
 database fingerprints. Do not repeat it solely because a chat changed.
+
+### Persisted browser actor grants
+
+**VERIFIED on the real installed yaVDR runtime:**
+
+- browser authentication resolves an empty grant set successfully;
+- an empty grant set permits authenticated ordinary reads but grants no
+  business-mutation permission;
+- active actor grants are loaded from
+  `security_actor_permission_grants`;
+- grants for separate backend scopes remain independently revocable;
+- browser grants are not copied from legacy Basic, managed Basic or the issuing
+  credential;
+- active grants do not bypass `security_policy_not_migrated`;
+- unavailable grant persistence returns
+  `503 permission_grants_unavailable`;
+- restoring persistence restores ordinary access for the same session;
+- acceptance grant rows were removed after the pass.
 
 ### Accountability
 
@@ -185,82 +203,46 @@ yaVDR `/api` namespace.
 
 **VERIFIED:**
 
-- public `/api/*` belongs to the yaVDR Uvicorn backend;
-- the active upstream uses `/run/yavdr-backend/uvicorn.sock`;
-- yaVDR already exposes `/api/vdr/*`;
-- VDR-Suite internal daemon routes also use `/api/vdr/*`.
+- public root `/api/*` remains owned by the yaVDR backend;
+- VDR-Suite does not take over that namespace;
+- VDR-Suite is published below `/vdr-suite/`;
+- the daemon retains its unchanged internal `/api/...` paths.
 
-Therefore VDR-Suite must never take over public root `/api/`.
+### Current Suite public origin
 
-### Temporary Suite lifecycle exposure
-
-**VERIFIED recorded owner:**
+**VERIFIED installed contract:**
 
 ```text
-/etc/nginx/snippets/vdr-suite-browser-sessions.conf
+/vdr-suite          -> 308 /vdr-suite/frontend/
+/vdr-suite/         -> 308 /vdr-suite/frontend/
+/vdr-suite/frontend -> 308 /vdr-suite/frontend/
+
+Public Suite status:
+  /vdr-suite/api/vdr/status
+
+Internal daemon status:
+  /api/vdr/status
 ```
 
-This manual unmanaged snippet exposes only the two exact lifecycle POST routes.
-It is temporary acceptance plumbing, not the final public contract.
-
-### Frontend ownership and collision
-
-**VERIFIED:**
+The active repository-managed Nginx snippet is:
 
 ```text
-Installed Suite frontend: /usr/share/vdr-suite/web/frontend
+/etc/nginx/snippets/vdr-suite.conf
 ```
 
-- the daemon serves the installed Suite frontend through explicit routes and
-  asset tables;
-- `/var/www/html/frontend/index.html` is not the Suite installation owner;
-- `/var/www/html/frontend/api/client-api.js` is not the Suite installation
-  owner;
-- public yaVDR `/frontend/*` resolves through the yaVDR web application or SPA
-  fallback rather than publishing the Suite installation.
+The public prefix is stripped before proxying to `127.0.0.1:18080`. Cookie
+paths are rewritten from `/` to `/vdr-suite/`. Public root `/api/*` remains
+untouched.
 
-A dedicated Suite public prefix is required.
-
-## Slice 3A design target
-
-**APPROVED DESIGN TARGET, NOT YET IMPLEMENTED:**
+The installed frontend owner remains:
 
 ```text
-/vdr-suite/
-/vdr-suite/frontend/...
-/vdr-suite/api/...
-/vdr-suite/channel-logos/...
-/vdr-suite/recording-artwork/...
+/usr/share/vdr-suite/web/frontend
 ```
 
-Internal daemon paths remain unchanged:
-
-```text
-/frontend/...
-/api/...
-/channel-logos/...
-/recording-artwork/...
-```
-
-Planned Nginx behaviour:
-
-- canonical redirect to `/vdr-suite/frontend/`;
-- trailing-slash `proxy_pass` that strips `/vdr-suite`;
-- proxy only to `127.0.0.1:18080`;
-- forwarded public-prefix context;
-- SSE-safe proxy behaviour;
-- cookie path rewrite to `/vdr-suite/`;
-- no public root `/api` location;
-- no Uvicorn socket reference;
-- no response `sub_filter`.
-
-Planned frontend bootstrap:
-
-- relative initial CSS, script, favicon, and logo references;
-- first-loaded immutable `web/frontend/platform/public-url.js`;
-- `window.VdrSuitePublicUrl.basePath`;
-- `window.VdrSuitePublicUrl.resolvePath(path)`;
-- no silent double-prefixing or acceptance of external/protocol-relative URLs.
+Slice 3A public-origin activation and authenticated lifecycle acceptance are
+complete. They must not be repeated unless a directly relevant routing,
+frontend, daemon or configuration fingerprint changes.
 
 ## Established frontend URL owners
 
@@ -320,33 +302,30 @@ architecture checks do not enforce the public-origin contract.
 
 ## Remaining work
 
-### Repository Slice 3A
+The persisted browser-grant increment is complete.
 
-- add the public URL resolver;
-- update all URL owners;
-- add daemon asset and installation ownership;
-- add a repository-managed Nginx snippet;
-- add architecture, Node, ownership, and staging tests;
-- update focused documentation.
+Still open in Phase 62:
 
-### Separate runtime activation
+- permission and safe/mutating classification for every business POST;
+- server-side browser CSRF enforcement before applicable business dispatch;
+- frontend login/logout and memory-only CSRF handling;
+- completion/outcome accountability and transactional coupling/outbox;
+- refresh, idle timeout, cleanup, concurrent-session policy and recovery;
+- protected role, assignment, grant and credential administration;
+- migration of all protected routes away from compatibility;
+- compatibility retirement closeout.
 
-Requires separate explicit approval for:
+The next bounded implementation candidate is
+`POST /api/vdr/remote/actions`. It must preserve legacy behaviour while
+requiring valid browser CSRF before a browser-authenticated request reaches
+Remote authorization or dispatch.
 
-- daemon/frontend installation;
-- Nginx snippet installation and active include change;
-- removal of the temporary exact lifecycle include;
-- `nginx -t` and service reload;
-- route-provenance and prefix checks;
-- cookie-path verification;
-- authenticated end-to-end public-origin acceptance through an approved
-  credential path;
-- rollback if needed.
+### Credential boundary
 
-### Credential blocker
-
-The managed Basic plaintext password used for earlier acceptance is no longer
-available. Do not rotate or reprovision credentials implicitly.
+The managed Basic plaintext password used for earlier acceptance is not
+available. Do not rotate or reprovision credentials implicitly. Existing
+accepted credential configuration must remain unchanged unless separately
+approved.
 
 ## Volatile recheck matrix
 
@@ -359,7 +338,7 @@ available. Do not rotate or reprovision credentials implicitly.
 | Active Nginx fingerprints | For routing context | Yes | Only routing checks if changed |
 | Database lifecycle state | No for Slice 3A code | Before lifecycle mutation | Only if contract changed |
 | Browser-session acceptance | No | No | Only after relevant fingerprint change |
-| Public-origin acceptance | Not yet available | Required after activation | Yes, first time |
+| Public-origin acceptance | No | Only after directly relevant routing or frontend mutation | No, unless its fingerprint changed |
 
 ## Maintenance rule
 

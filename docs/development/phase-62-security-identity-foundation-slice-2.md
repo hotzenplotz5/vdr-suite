@@ -1,6 +1,6 @@
 # Phase 62 Persistent Identity Lifecycle — Slice 2
 
-Status: lifecycle, managed Basic, browser-session issuance/logout and ordinary-route browser authentication are real-VDR accepted; persisted browser actor grants are repository-validated but not installed-runtime accepted; business-mutation CSRF enforcement remains open; Phase 62 remains active
+Status: lifecycle, managed Basic, browser-session issuance/logout, ordinary-route browser authentication and persisted browser actor grants are real-VDR accepted; business-mutation classification and CSRF enforcement remain open; Phase 62 remains active
 
 ## Purpose
 
@@ -281,6 +281,34 @@ Observed on 2026-07-28 through the installed daemon and the local HTTPS reverse 
 
 The HTTPS proxy rule is a deliberately local runtime integration. No yaVDR-Ansible playbook was run, and the acceptance did not modify the yaVDR-Ansible repository.
 
+## Real-VDR acceptance of persisted browser grants
+
+Observed on 2026-07-29 through the installed daemon and the Suite public origin
+at repository head `47adb6577511209bfe7288ce8ce0fbe03b53a94c`:
+
+- daemon-only installation produced installed SHA-256 `652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1`;
+- `security_actor_permission_grants` and its active-grant index were created
+  additively with zero default rows;
+- an issued browser session authenticated ordinary reads with an empty
+  successfully resolved grant set;
+- two `remote.control` grants for separate backend scopes were loaded for the
+  authenticated actor;
+- revoking the `default` scope preserved the alternate scope;
+- browser POSTs remained blocked by `503 security_policy_not_migrated` both
+  before and after grant persistence;
+- temporary grant-table unavailability returned
+  `503 permission_grants_unavailable`;
+- restoring the table restored ordinary read access for the same session;
+- cookie-plus-CSRF logout returned `204`;
+- replay returned `401 credential_revoked`;
+- verifier, canonical session and browser credential were revoked consistently;
+- acceptance grant rows were removed;
+- `PRAGMA quick_check` returned `ok`, foreign-key violations remained zero and
+  no accountability append failure was observed.
+
+The daemon backup is `/var/backups/vdr-suite-phase62-slice2c-20260729-171704`. No frontend, Nginx or credential configuration
+was changed.
+
 ## Automated validation
 
 GitHub Actions VDR-Suite CI run 6367 completed successfully on atomic issuance code head `b79e3fdc597dd8eb245641ba2c7363dd9542e631`.
@@ -306,7 +334,7 @@ and lifecycle accountability decisions.
 
 The Slice 2C local validation passed `make test-security`,
 `make test-ci-fast`, focused grant/authenticator/gate tests and the daemon build.
-Installed-runtime acceptance remains a separate approval boundary.
+Installed-runtime acceptance of persisted browser grants completed on 2026-07-29. The next approval boundary is business-route classification and browser CSRF enforcement.
 
 ## Explicitly not included
 
@@ -317,7 +345,7 @@ Installed-runtime acceptance remains a separate approval boundary.
 - refresh, idle timeout, cleanup, concurrent-session policy, recovery or enrollment;
 - complete issuance/revocation outcome accountability and transactional outbox;
 - protected managed/native/service credential administration;
-- persisted roles, grants or scopes;
+- persisted roles and role assignments or protected grant-administration APIs;
 - complete route migration;
 - universal revision, idempotency, operation lifecycle or outbox completion;
 - Phase 63-67 runtime or clients.
@@ -337,8 +365,8 @@ Installed-runtime acceptance remains a separate approval boundary.
 | Logout requires cookie plus matching CSRF | dedicated gate tests |
 | Logout revokes verifier, session and credential atomically | lifecycle and post-logout verifier tests |
 | Browser cookies authenticate ordinary reads with strict no-fallback precedence | general-gate and real-runtime acceptance |
-| Browser grants come only from active actor rows | grant-repository, authenticator and gate tests |
-| Empty grant resolution differs from persistence failure | repository and `permission_grants_unavailable` tests |
+| Browser grants come only from active actor rows | grant-repository, authenticator and gate tests plus real-yaVDR actor/scope acceptance |
+| Empty grant resolution differs from persistence failure | repository tests plus real-yaVDR empty/unavailable/recovery acceptance |
 | Browser sessions inherit no Basic grants | negative grant-isolation tests |
 | Lifecycle allow/deny and CSRF decisions are append-only | dedicated gate accountability tests |
 | Daemon and packaging link the HTTP lifecycle | CI run 6429 |
@@ -353,4 +381,4 @@ make test-docs
 make test
 ```
 
-Phase 62 remains open. The next strict Slice 2 increment is ordinary-route browser authentication precedence and controlled `PersistentIdentityResolver`/authorization integration, followed by real business-mutation CSRF enforcement, completion accountability, cleanup/recovery and protected lifecycle administration.
+Phase 62 remains open. The next strict increment is explicit business-route classification and server-side browser CSRF enforcement, beginning with one bounded route family before dispatch. Completion accountability, maintenance/recovery and protected lifecycle administration remain later work.

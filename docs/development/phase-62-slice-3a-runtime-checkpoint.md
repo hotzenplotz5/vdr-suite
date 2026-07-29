@@ -34,10 +34,11 @@ Base: main @ cb77ff66e11dca7db2eafa36525762dcde35102d
 Branch: phase-62-security-identity-foundation
 Local branch: phase62-pr117
 Checkout: /home/yavdr/vdr-suite-phase62
-Runtime-accepted source head: efafac6a6f06ae207371fa537955a3b613510ed4
+Runtime-accepted source head: 47adb6577511209bfe7288ce8ce0fbe03b53a94c
 Accountability fix code head: e3a8b7815c5df06093656f4724e6001d22c5755a
 Fix validation CI: run 6497, successful
-Final pre-runtime documentation CI: run 6501, successful
+Persisted browser-grant code/runtime head: 47adb6577511209bfe7288ce8ce0fbe03b53a94c
+Persisted browser-grant CI: run 6507, successful
 ```
 
 The branch remains Draft. Do not mark it ready, merge it, enable auto-merge, or
@@ -55,9 +56,12 @@ Pre-fix daemon backup:
 /var/backups/vdr-suite-phase62-accountability-fix-20260729-162026
 SHA-256: 85b12e38a9f23fde7ae84c9773914b39874ca81edec5ea4ccecd997d77b3dc02
 
-Installed fixed daemon:
+Installed current daemon:
 /usr/sbin/vdr-suite-daemon
-SHA-256: 1dcc23439685240407faa7113dd2c2c0754b6d03c3fb61ec4f1026adf7e01832
+SHA-256: 652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1
+
+Slice 2C pre-install daemon/database backup:
+/var/backups/vdr-suite-phase62-slice2c-20260729-171704
 
 Installed frontend index:
 /usr/share/vdr-suite/web/frontend/index.html
@@ -76,12 +80,13 @@ Installed Nginx snippet:
 SHA-256: b9f7114d35fcd79a49604da195f1f2c340c4d7f1f66bed24a448b349791acb01
 ```
 
-The fixed daemon is installed. `vdr-suite-daemon.service` restarted cleanly,
-remained active with zero recorded restarts at the acceptance point, listened on
-port `18080`, and the database `PRAGMA quick_check` returned `ok`.
+The current daemon is installed. `vdr-suite-daemon.service` completed the
+bounded readiness check, remained active with zero recorded restarts, listened
+on port `18080`, and the database `PRAGMA quick_check` returned `ok`.
 
-No Nginx, frontend, credential, or planned database configuration mutation was
-part of the daemon-only fix installation.
+No Nginx, frontend or credential configuration mutation was part of the
+Slice 2C daemon-only installation. The grant table and index were created
+additively with zero default grant rows.
 
 ## Active Nginx and public-origin state
 
@@ -242,6 +247,55 @@ The fixed accountability append therefore permits issuance under the real
 concurrent daemon runtime and remains fail-closed without generating an
 accountability persistence error.
 
+## Persisted browser-grant runtime acceptance
+
+Exactly one controlled browser-session pass was executed after installing the
+Slice 2C daemon.
+
+**RUNTIME VERIFIED on 2026-07-29 at `47adb6577511209bfe7288ce8ce0fbe03b53a94c`:**
+
+```text
+Installed daemon SHA-256:
+652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1
+
+Grant schema:
+  additive table present
+  active-grant index present
+  actor_id,permission,backend_id primary key
+  zero startup/default rows
+
+Browser-session issuance: 200
+Empty-grant ordinary GET: 200
+Empty-grant business POST:
+  503 security_policy_not_migrated
+
+Persisted backend scopes:
+  remote.control@default
+  remote.control@phase62-acceptance-other
+
+Independent default-scope revocation: verified
+Alternate scope preservation: verified
+All active acceptance grants revoked: verified
+
+Grant table unavailable:
+  503 permission_grants_unavailable
+Same session after recovery:
+  200
+
+Cookie-plus-CSRF logout: 204
+Revoked-cookie replay:
+  401 credential_revoked
+Verifier/session/credential revocation: verified
+
+Acceptance grant cleanup: zero rows
+PRAGMA quick_check: ok
+Foreign-key violations: zero
+Accountability append failures: zero
+```
+
+The test did not dispatch a Remote operation. Active browser grants remain
+intentionally unable to bypass the unmigrated browser-POST and CSRF boundary.
+
 ### Static asset clarification
 
 `/frontend/app.js` is intentionally not byte-identical to the installed
@@ -280,29 +334,29 @@ fingerprint changes:
 6. Legacy-Basic or Managed-Basic credential rotation or recovery attempts;
 7. accountability append/transaction-lease root-cause analysis;
 8. daemon-only installation of the accepted fix;
-9. another browser-session issuance or lifecycle acceptance for this fix;
-10. direct byte comparison of `/frontend/app.js` with only the installed
+9. another browser-session issuance or lifecycle acceptance for the accountability fix;
+10. persisted browser-grant schema, empty-result, backend-scope, unavailable-store, recovery, logout or cleanup acceptance;
+11. direct byte comparison of `/frontend/app.js` with only the installed
     `app.js` source file;
-11. reuse of the rejected ad-hoc cookie-jar parser.
+12. reuse of the rejected ad-hoc cookie-jar parser.
 
 ## Exact next action
 
-The Slice 3A public-origin and accountability runtime block is complete.
+The Slice 3A public-origin, accountability and persisted browser-grant runtime
+blocks are complete.
 
-The next bounded Phase 62 work is repository planning, not another runtime
-acceptance loop:
+The next bounded Phase 62 work is repository planning:
 
-1. keep PR #117 open and Draft until explicitly changed;
-2. allow the documentation-only descendant CI to complete;
-3. define the local-account authority and instance-login decision as the future
-   `ADR-0052`, because open Draft PR #116 already reserves `ADR-0051` for the
-   client-platform architecture;
-4. do not add canonical `ADR-0052` to this branch until the ADR-0051 numbering
-   state from PR #116 is resolved or the branch is deliberately rebased;
-5. plan the next implementation slice for persisted browser permissions and
-   backend scopes without inherited legacy grants;
-6. only after that decision boundary, classify browser mutations and extend
-   server-side CSRF enforcement route by route.
+1. keep PR #117 open and Draft;
+2. close out the runtime evidence in repository documentation;
+3. update PR metadata only after explicit approval;
+4. classify `POST /api/vdr/remote/actions` as the first bounded
+   browser-authenticated business mutation;
+5. require browser CSRF before Remote permission/scope authorization and
+   dispatch;
+6. leave every other browser-authenticated business POST fail-closed;
+7. do not introduce roles, grant administration, frontend login, ADR-0052 or
+   later-phase runtime into that slice.
 
 No new runtime mutation, browser-session issuance, credential rotation, Nginx
 change, PR-ready transition, or merge is implied by this next action.

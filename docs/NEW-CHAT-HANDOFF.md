@@ -24,9 +24,9 @@ binary, configuration, database, routing, or behaviour fingerprint changed.
 - [Slice 3A contract](development/phase-62-public-origin-base-path.md)
 - [Slice 3A real-runtime checkpoint](development/phase-62-slice-3a-runtime-checkpoint.md)
 
-The Slice 3A runtime checkpoint is the newest authority for installation,
-routing, credentials, authenticated lifecycle, accountability-fix acceptance,
-and anti-loop truth.
+The Slice 3A runtime checkpoint and this handoff are the newest authorities for
+installation, routing, credentials, authenticated lifecycle, accountability-fix
+acceptance, persisted browser-grant acceptance and anti-loop truth.
 
 ## Stable project position
 
@@ -58,11 +58,14 @@ Local branch: phase62-pr117
 Remote branch: phase-62-security-identity-foundation
 Pull request: #117
 Base: main @ cb77ff66e11dca7db2eafa36525762dcde35102d
-Runtime-accepted source head: efafac6a6f06ae207371fa537955a3b613510ed4
+Runtime-accepted source head: 47adb6577511209bfe7288ce8ce0fbe03b53a94c
 Accountability-fix code head: e3a8b7815c5df06093656f4724e6001d22c5755a
 Accountability-fix CI: run 6497, successful
-Final pre-runtime documentation CI: run 6501, successful
-Runtime-closeout documentation commit:
+Persisted browser-grant code/runtime head: 47adb6577511209bfe7288ce8ce0fbe03b53a94c
+Persisted browser-grant CI: run 6507, successful
+Installed daemon SHA-256: 652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1
+Slice 2C daemon/database backup: /var/backups/vdr-suite-phase62-slice2c-20260729-171704
+Earlier runtime-closeout documentation commit:
 4b46f97d582f93dc00f35dd4d0347d2f1e32b7d8
 ```
 
@@ -70,8 +73,9 @@ PR #117 must remain open and Draft. Do not mark it ready, merge it, enable
 auto-merge, rewrite its branch, or mutate review state without explicit
 approval.
 
-The PR description contains stale runtime and CI wording. This handoff and the
-runtime checkpoint are newer. Do not edit PR metadata without explicit approval.
+The PR description contains stale grant-runtime, open-work and CI wording. This
+handoff and the runtime checkpoint are newer. Do not edit PR metadata without
+explicit approval.
 
 ## Resume rule
 
@@ -103,6 +107,8 @@ acceptance merely because a chat changed.
 - ordinary-route browser-cookie authentication and precedence;
 - malformed, duplicate, expired, unknown, and revoked-cookie denial;
 - empty browser grant set without inherited compatibility grants;
+- active actor grants loaded from additive backend-scoped persistence;
+- fail-closed `permission_grants_unavailable` distinction and recovery;
 - fail-closed browser business mutations until route policy and CSRF migration;
 - append-only accountability and atomic revocation/replay denial;
 - Suite-owned public namespace `/vdr-suite/` with unchanged daemon paths;
@@ -123,10 +129,13 @@ Pre-fix daemon backup:
 SHA-256:
 85b12e38a9f23fde7ae84c9773914b39874ca81edec5ea4ccecd997d77b3dc02
 
-Installed fixed daemon:
+Installed current daemon:
 /usr/sbin/vdr-suite-daemon
 SHA-256:
-1dcc23439685240407faa7113dd2c2c0754b6d03c3fb61ec4f1026adf7e01832
+652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1
+
+Slice 2C pre-install daemon/database backup:
+/var/backups/vdr-suite-phase62-slice2c-20260729-171704
 
 Installed index SHA-256:
 d5dc42df979b61115c3cf49e5682971cee9acfd1b11d8511fc751c86d30a75a8
@@ -141,13 +150,62 @@ Installed Nginx snippet SHA-256:
 b9f7114d35fcd79a49604da195f1f2c340c4d7f1f66bed24a448b349791acb01
 ```
 
-The daemon-only replacement completed successfully. The service restarted
-cleanly, remained active/running with the listener on port `18080`, the public
-unauthenticated frontend remained `401`, and `PRAGMA quick_check` returned `ok`.
-Rollback was not required.
+The current daemon-only replacement completed successfully after a bounded
+readiness wait. The service remained active/running with zero restarts, the
+listener was present on port `18080`, unauthenticated access remained `401`,
+and `PRAGMA quick_check` returned `ok`.
 
-Nginx, frontend files, credentials, and planned database configuration were not
-changed by the accountability-fix installation.
+The first installation attempt rolled back safely because an immediate listener
+probe ran before listener readiness. No product or schema fault was observed.
+
+Nginx, frontend files and credential configuration were not changed. The only
+planned database change was the additive browser-grant table and index.
+
+## Completed persisted browser-grant acceptance
+
+**VERIFIED on 2026-07-29 at `47adb6577511209bfe7288ce8ce0fbe03b53a94c`:**
+
+```text
+Installed daemon SHA-256:
+652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1
+
+Grant table after startup: present
+Grant rows after startup: 0
+Primary key: actor_id,permission,backend_id
+Active-grant index: present
+
+Browser-session issuance: 200
+Empty-grant ordinary GET: 200
+Browser business POST with empty grants:
+  503 security_policy_not_migrated
+
+Persisted grants:
+  remote.control@default
+  remote.control@phase62-acceptance-other
+
+Default scope revoked independently: verified
+Alternate scope preserved: verified
+All active acceptance grants revoked: verified
+
+Grant table unavailable:
+  503 permission_grants_unavailable
+Same session after table recovery:
+  200
+
+Logout: 204
+Revoked-cookie replay:
+  401 credential_revoked
+
+Verifier/session/credential revocation: verified
+Acceptance grant rows after cleanup: 0
+PRAGMA quick_check: ok
+Foreign-key violations: 0
+Accountability append failures: 0
+```
+
+Persisted grants did not enable a browser mutation prematurely. Every
+browser-authenticated business POST remains blocked until explicit route
+classification and server-side CSRF enforcement are implemented.
 
 ## Completed public-origin acceptance
 
@@ -266,34 +324,35 @@ changed:
 4. unauthenticated frontend/resolver probes or body byte comparisons;
 5. Legacy-Basic or Managed-Basic credential rotation or password recovery;
 6. accountability transaction-lease root-cause analysis;
-7. daemon-only installation of the accepted fix;
-8. browser-session issue/CSRF/logout/replay acceptance for this fix;
-9. direct response-to-single-file comparison for `/frontend/app.js`;
-10. the rejected ad-hoc cookie-jar parser.
+7. daemon-only installation of the accepted accountability fix;
+8. browser-session issue/CSRF/logout/replay acceptance for that fix;
+9. persisted browser-grant schema, empty-result, backend-scope, unavailable-store, recovery, logout and cleanup acceptance;
+10. direct response-to-single-file comparison for `/frontend/app.js`;
+11. the rejected ad-hoc cookie-jar parser.
 
 ## Exact next action
 
-The Slice 3A public-origin and accountability runtime block is complete.
+The persisted browser-grant repository, daemon installation and real-runtime
+acceptance are complete.
 
 The next bounded work is repository planning:
 
 1. keep PR #117 open and Draft;
-2. verify the documentation-only descendant CI and synchronize the local checkout
-   after the remote documentation commits;
-3. preserve the architecture decision title
-   `Client Login, Local Account Authority and Instance Access Model` for the
-   future canonical `ADR-0052`;
-4. do not add canonical ADR-0052 until open Draft PR #116's ADR-0051 numbering
-   state is resolved or this branch is deliberately rebased;
-5. plan the next Phase 62 implementation slice for persisted browser permissions
-   and backend scopes without inherited legacy grants;
-6. then classify browser mutations and extend server-side CSRF enforcement
-   route by route;
-7. frontend login/logout and memory-only CSRF handling follow after those server
-   decisions are stable.
+2. commit and push this documentation closeout only after explicit approval;
+3. update the PR description only after separate explicit metadata approval;
+4. define one bounded business-route classification and browser-CSRF slice,
+   beginning with `POST /api/vdr/remote/actions`;
+5. preserve the existing legacy-Basic route behaviour while requiring a valid
+   browser CSRF token before a browser-authenticated Remote mutation can reach
+   authorization or dispatch;
+6. keep every other browser-authenticated business POST fail-closed;
+7. preserve the future ADR title
+   `Client Login, Local Account Authority and Instance Access Model`;
+8. do not add canonical ADR-0052 until open Draft PR #116's ADR-0051 numbering
+   state is resolved or the branch is deliberately rebased.
 
-No runtime mutation, credential rotation, Nginx change, PR-ready transition,
-merge, or auto-merge is implied.
+No additional runtime mutation, credential rotation, Nginx change, PR-ready
+transition, merge or auto-merge is implied.
 
 ## Secret restrictions
 

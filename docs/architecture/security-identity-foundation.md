@@ -1,6 +1,6 @@
 # Security and Identity Foundation
 
-Status: Phase 62 Slice 1 plus real-runtime-accepted lifecycle, managed Basic, browser-session issuance/logout and ordinary-route browser authentication; persisted actor-grant loading is repository-validated and awaiting separate installed-runtime acceptance
+Status: Phase 62 Slice 1 plus real-runtime-accepted lifecycle, managed Basic, browser-session issuance/logout, ordinary-route browser authentication and persisted actor-grant loading; business-route classification and browser CSRF migration remain open
 
 ## Active runtime boundary
 
@@ -265,6 +265,33 @@ The isolated lifecycle was accepted on the real yaVDR installation on 2026-07-28
 
 The reverse-proxy route is a local runtime integration. This acceptance did not run yaVDR-Ansible or alter its repository.
 
+### Installed persisted-grant acceptance
+
+The persisted browser-grant increment was accepted on the real yaVDR runtime
+on 2026-07-29 at repository head `47adb6577511209bfe7288ce8ce0fbe03b53a94c` with installed daemon SHA-256
+`652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1`.
+
+Observed behaviour:
+
+- daemon-only installation created the additive grant table and active-grant
+  index without creating default rows;
+- an authenticated browser session with zero grants retained ordinary read
+  access;
+- actor grants for `remote.control@default` and a separate backend scope were
+  loaded independently;
+- revoking one backend scope did not revoke the other;
+- active grants did not bypass the intentional
+  `security_policy_not_migrated` browser-POST boundary;
+- temporary grant-table unavailability returned
+  `503 permission_grants_unavailable`;
+- restoring the table restored access for the same browser session;
+- logout revoked verifier, canonical session and browser credential;
+- revoked-cookie replay returned `401 credential_revoked`;
+- acceptance grants were deleted and SQLite integrity and foreign-key checks
+  remained clean.
+
+No frontend, Nginx or credential configuration changed during this acceptance.
+
 ## SQLite ownership
 
 Direct SQLite calls remain limited to infrastructure, approved repository implementation units, the registered split repository family and registered SQLite/schema contract tests.
@@ -391,13 +418,12 @@ The HTTP service and dedicated gate tests cover:
 - ordinary-route cookie isolation;
 - append-only lifecycle authorization decisions.
 
-Passing tests and packaging do not replace installed acceptance for later increments or complete general cookie-authenticated application routing. The isolated HTTPS login/logout lifecycle itself is installed and real-runtime accepted.
+Passing tests and packaging do not replace installed acceptance for later increments. The isolated HTTPS lifecycle, ordinary-route browser authentication and persisted actor-grant resolution are installed and real-runtime accepted. Business POST classification and CSRF enforcement remain separate future increments.
 
 ## Remaining authentication boundary
 
 Still open within Phase 62:
 
-- separately approved installed-runtime acceptance of persisted browser grants;
 - permission mapping and safe/mutating classification for every business POST;
 - actual CSRF rejection before every applicable business mutation;
 - frontend login/logout and in-memory CSRF handling;
