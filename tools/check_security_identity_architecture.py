@@ -83,6 +83,14 @@ def main() -> int:
     require("core/security/include/SecurityHttpGate.h", '"/api/vdr/remote/actions"')
     require("core/security/include/SecurityHttpGate.h", '"remote.control"')
     require("core/security/include/SecurityHttpGate.h", "usesLegacyCompatibilityCredential")
+    require("core/security/include/SecurityHttpGate.h", "browserSessionAuthenticator_->verifyCsrf(request.headers)")
+    require("core/security/include/SecurityHttpGate.h", '"csrf_validation_failed"')
+    require("core/security/include/SecurityHttpGate.h", "isPost && gate.browserAuthenticated && !isRemoteAction")
+    require("core/security/include/SecurityHttpGate.h", '"unmapped.browser.mutation"')
+    require("core/security/tests/test_security_http_gate.cpp", '"csrf_validation_failed"')
+    require("core/security/tests/test_security_http_gate.cpp", '"security_policy_not_migrated"')
+    require("core/security/tests/test_security_http_gate.cpp", '"permission_denied"')
+    require("core/security/tests/test_security_http_gate.cpp", '"backend_scope_denied"')
     require("core/security/src/BrowserSessionHttpGate.cpp", '"/api/security/browser-sessions"')
     require("core/security/src/BrowserSessionHttpGate.cpp", '"/api/security/browser-sessions/logout"')
     require("core/security/src/BrowserSessionHttpGate.cpp", "authenticateBasic(request)")
@@ -153,20 +161,20 @@ def main() -> int:
     require("core/security/include/SecurityHttpGate.h", "BrowserSessionAuthenticator")
     require(
         "core/security/include/SecurityHttpGate.h",
-        "browserSessionAuthenticator_->hasSessionCookie(")
+        "browserSessionAuthenticator_->hasSessionCookie(",
+    )
     require(
         "core/security/include/SecurityHttpGate.h",
-        "browserSessionAuthenticator_->authenticate(")
+        "browserSessionAuthenticator_->authenticate(",
+    )
     require(
         "core/security/include/SecurityHttpGate.h",
-        '"http.browser.mutation"')
-    forbid(
-        "core/security/include/SecurityHttpGate.h",
-        "browserSessionAuthenticator_->verifyCsrf(")
+        '"http.browser.mutation"',
+    )
     forbid("core/security/include/SecurityHttpGate.h", "vdr_suite_session")
     forbid("core/security/src/SecurityIdentityRepository.cpp", "Authorization: Basic")
     forbid("core/security/src/SecurityIdentityRepository.cpp", "YWRtaW46")
-    forbid("core/security/include/SecurityConfiguration.h", "VDR_SUITE_MANAGED_BASIC_PASSWORD\"")
+    forbid("core/security/include/SecurityConfiguration.h", 'VDR_SUITE_MANAGED_BASIC_PASSWORD"')
     forbid("core/security/src/CredentialVerifierRepository.cpp", "decoded_password")
     forbid("core/security/src/BrowserSessionCredentialRepository.cpp", "session_secret TEXT")
     forbid("core/security/src/BrowserSessionCredentialRepository.cpp", "csrf_secret TEXT")
