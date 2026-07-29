@@ -264,9 +264,12 @@ def main() -> int:
     require(
         "core/security/include/SecurityHttpGate.h",
         '"http.browser.mutation"')
-    forbid(
+    require(
         "core/security/include/SecurityHttpGate.h",
         "browserSessionAuthenticator_->verifyCsrf(")
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"csrf_validation_failed"')
     forbid(
         "core/security/include/SecurityHttpGate.h",
         "vdr_suite_session")
