@@ -106,6 +106,10 @@ async function testPublicPrefix() {
     api.resolvePath('/recording-artwork/poster.jpg?size=large#image'),
     '/vdr-suite/recording-artwork/poster.jpg?size=large#image'
   );
+  assert.strictEqual(
+    api.resolvePath('/api/search?q=ARD%2FZDF#result%2F1'),
+    '/vdr-suite/api/search?q=ARD%2FZDF#result%2F1'
+  );
   assert(Object.isFrozen(api));
   assert.strictEqual(Object.getOwnPropertyDescriptor(fixture.context, 'VdrSuitePublicUrl').writable, false);
 
@@ -118,8 +122,11 @@ async function testPublicPrefix() {
   await fixture.context.fetch('/api/vdr/status?backend=default');
   assert.strictEqual(fixture.calls.fetch[0].input, '/vdr-suite/api/vdr/status?backend=default');
 
+  await fixture.context.fetch('/api/search?q=ARD%2FZDF');
+  assert.strictEqual(fixture.calls.fetch[1].input, '/vdr-suite/api/search?q=ARD%2FZDF');
+
   await fixture.context.fetch('https://example.invalid/api/vdr/status');
-  assert.strictEqual(fixture.calls.fetch[1].input, 'https://example.invalid/api/vdr/status');
+  assert.strictEqual(fixture.calls.fetch[2].input, 'https://example.invalid/api/vdr/status');
 
   const source = new fixture.context.EventSource('/api/vdr/live', {withCredentials: true});
   assert.strictEqual(source.url, '/vdr-suite/api/vdr/live');
