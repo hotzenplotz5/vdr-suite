@@ -2,6 +2,8 @@
 #include "Database.h"
 
 #include <cassert>
+#include <chrono>
+#include <future>
 
 namespace
 {
@@ -63,6 +65,36 @@ int main()
     AccountabilityEvent invalid = event();
     invalid.eventId.clear();
     assert(!repository.append(invalid));
+
+    AccountabilityEvent concurrent = event();
+    concurrent.eventId = "audit-2";
+    concurrent.requestId = "req-2";
+
+    std::promise<void> appendStartedPromise;
+    std::future<void> appendStarted = appendStartedPromise.get_future();
+    std::future<bool> appendResult;
+
+    {
+        auto transactionLease = database.acquireTransactionLease();
+        appendResult = std::async(
+            std::launch::async,
+            [&repository, &concurrent, &appendStartedPromise]()
+            {
+                appendStartedPromise.set_value();
+                return repository.append(concurrent);
+            });
+
+        appendStarted.wait();
+        assert(
+            appendResult.wait_for(std::chrono::milliseconds(100)) ==
+            std::future_status::timeout);
+    }
+
+    assert(appendResult.get());
+
+    const auto serialized = repository.listAll();
+    assert(serialized.size() == 2);
+    assert(serialized.back().eventId == "audit-2");
 
     return 0;
 }
