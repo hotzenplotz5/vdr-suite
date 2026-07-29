@@ -99,8 +99,10 @@ public:
         }
 
         const bool isPost = request.method == "POST";
+        const bool isRemoteAction =
+            isPost && requestPath(request.path) == "/api/vdr/remote/actions";
 
-        if (isPost && gate.browserAuthenticated)
+        if (isPost && gate.browserAuthenticated && !isRemoteAction)
         {
             AuthorizationDecision decision;
             decision.reasonCode = "security_policy_not_migrated";
@@ -116,9 +118,6 @@ public:
                 "to the Phase 62 CSRF contract",
                 "");
         }
-
-        const bool isRemoteAction =
-            isPost && requestPath(request.path) == "/api/vdr/remote/actions";
 
         if (!isRemoteAction)
         {
@@ -153,12 +152,31 @@ public:
             jsonStringValue(request.body, "backendId");
         requestToAuthorize.action = "remote.control";
 
+        const std::string operationId =
+            jsonStringValue(request.body, "operationId");
+
+        if (gate.browserAuthenticated &&
+            (browserSessionAuthenticator_ == nullptr ||
+             !browserSessionAuthenticator_->verifyCsrf(request.headers)))
+        {
+            AuthorizationDecision decision;
+            decision.reasonCode = "csrf_validation_failed";
+            decision.permission = requestToAuthorize.permission;
+            decision.backendId = requestToAuthorize.backendId;
+            decision.action = requestToAuthorize.action;
+
+            return rejectWithAudit(
+                gate,
+                decision,
+                403,
+                "A valid CSRF token is required",
+                operationId);
+        }
+
         const AuthorizationDecision decision =
             authorizationService_.authorize(
                 gate.context,
                 requestToAuthorize);
-        const std::string operationId =
-            jsonStringValue(request.body, "operationId");
 
         if (!appendDecisionEvent(gate.context, decision, operationId))
         {
@@ -457,6 +475,10 @@ private:
         if (reasonCode == "invalid_backend_scope")
         {
             return "A valid backend scope is required";
+        }
+        if (reasonCode == "csrf_validation_failed")
+        {
+            return "A valid CSRF token is required";
         }
         return "The request is not authorized";
     }
