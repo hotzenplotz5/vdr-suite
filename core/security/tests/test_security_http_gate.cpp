@@ -28,6 +28,8 @@ const std::string kBrowserSessionSecret =
     "session-secret-0123456789abcdef0123456789";
 const std::string kBrowserCsrfSecret =
     "csrf-secret-0123456789abcdef012345678901";
+const std::string kWrongBrowserCsrfSecret =
+    "wrong-csrf-0123456789abcdef012345678901";
 const std::string kBrowserSessionSecretHash =
     "$6$sessionsalt$8tf7lGjGVFN700ih.GaNBFsDQaVkLgsffOM/4VS9ODoyxeEikzL9jMMbsfS2Lu2/A7U.ypuQ1g38ub5YckfEe/";
 const std::string kBrowserCsrfSecretHash =
@@ -277,6 +279,16 @@ int main()
     assert(unavailableBrowserGrants.rejection.body.find(
         "permission_grants_unavailable") != std::string::npos);
 
+    HttpServerRequest unavailableBrowserRemote = remoteRequest("default");
+    unavailableBrowserRemote.headers["Cookie"] = validBrowserCookie;
+    unavailableBrowserRemote.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
+    const SecurityGateDecision unavailableBrowserRemoteDecision =
+        unavailableGrantGate.evaluate(unavailableBrowserRemote);
+    assert(!unavailableBrowserRemoteDecision.allowed);
+    assert(unavailableBrowserRemoteDecision.rejection.statusCode == 503);
+    assert(unavailableBrowserRemoteDecision.rejection.body.find(
+        "permission_grants_unavailable") != std::string::npos);
+
     const SecurityGateDecision invalidBrowserNoFallback =
         compatibilityGate.evaluate(
             browserGetRequest(
@@ -299,6 +311,23 @@ int main()
     assert(missingCsrf.rejection.statusCode == 403);
     assert(missingCsrf.rejection.body.find(
         "csrf_validation_failed") != std::string::npos);
+    assert(missingCsrf.rejection.headers.find("WWW-Authenticate") ==
+        missingCsrf.rejection.headers.end());
+
+    HttpServerRequest browserRemoteWrongCsrf =
+        remoteRequest("default", kLegacyCredential);
+    browserRemoteWrongCsrf.headers["Cookie"] = validBrowserCookie;
+    browserRemoteWrongCsrf.headers["X-CSRF-Token"] =
+        kWrongBrowserCsrfSecret;
+    const SecurityGateDecision wrongCsrf =
+        compatibilityGate.evaluate(browserRemoteWrongCsrf);
+    assert(!wrongCsrf.allowed);
+    assert(wrongCsrf.protectedMutation);
+    assert(wrongCsrf.rejection.statusCode == 403);
+    assert(wrongCsrf.rejection.body.find(
+        "csrf_validation_failed") != std::string::npos);
+    assert(wrongCsrf.rejection.headers.find("WWW-Authenticate") ==
+        wrongCsrf.rejection.headers.end());
 
     HttpServerRequest browserRemoteNoPermission = remoteRequest("default");
     browserRemoteNoPermission.headers["Cookie"] = validBrowserCookie;
@@ -320,6 +349,26 @@ int main()
     assert(browserRemoteAllowed.protectedMutation);
     assert(browserRemoteAllowed.browserAuthenticated);
 
+    HttpServerRequest browserRemoteWrongScope = remoteRequest("house-b");
+    browserRemoteWrongScope.headers["Cookie"] = validBrowserCookie;
+    browserRemoteWrongScope.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
+    const SecurityGateDecision browserWrongScope =
+        compatibilityGate.evaluate(browserRemoteWrongScope);
+    assert(!browserWrongScope.allowed);
+    assert(browserWrongScope.rejection.statusCode == 403);
+    assert(browserWrongScope.rejection.body.find(
+        "backend_scope_denied") != std::string::npos);
+
+    HttpServerRequest browserRemoteMissingBackend = remoteRequest("");
+    browserRemoteMissingBackend.headers["Cookie"] = validBrowserCookie;
+    browserRemoteMissingBackend.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
+    const SecurityGateDecision browserMissingBackend =
+        compatibilityGate.evaluate(browserRemoteMissingBackend);
+    assert(!browserMissingBackend.allowed);
+    assert(browserMissingBackend.rejection.statusCode == 400);
+    assert(browserMissingBackend.rejection.body.find(
+        "invalid_backend_scope") != std::string::npos);
+
     HttpServerRequest browserRemoteQuery = remoteRequest(
         "default",
         "",
@@ -327,6 +376,19 @@ int main()
     browserRemoteQuery.headers["Cookie"] = validBrowserCookie;
     browserRemoteQuery.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
     assert(compatibilityGate.evaluate(browserRemoteQuery).allowed);
+
+    HttpServerRequest browserRemoteTrailingSlash = remoteRequest(
+        "default",
+        "",
+        "/api/vdr/remote/actions/");
+    browserRemoteTrailingSlash.headers["Cookie"] = validBrowserCookie;
+    browserRemoteTrailingSlash.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
+    const SecurityGateDecision trailingSlashDecision =
+        compatibilityGate.evaluate(browserRemoteTrailingSlash);
+    assert(!trailingSlashDecision.allowed);
+    assert(trailingSlashDecision.rejection.statusCode == 503);
+    assert(trailingSlashDecision.rejection.body.find(
+        "security_policy_not_migrated") != std::string::npos);
 
     HttpServerRequest browserUnmigrated = unmigratedRequest();
     browserUnmigrated.headers["Cookie"] = validBrowserCookie;
@@ -456,6 +518,8 @@ int main()
         assert(event.reasonCode.find("test-password") ==
             std::string::npos);
         assert(event.reasonCode.find(kBrowserCsrfSecret) ==
+            std::string::npos);
+        assert(event.reasonCode.find(kWrongBrowserCsrfSecret) ==
             std::string::npos);
         assert(event.reasonCode.find(kBrowserSessionSecret) ==
             std::string::npos);
