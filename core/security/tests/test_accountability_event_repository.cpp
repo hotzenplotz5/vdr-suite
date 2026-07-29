@@ -4,6 +4,9 @@
 #include <cassert>
 #include <chrono>
 #include <future>
+#include <iostream>
+#include <sstream>
+#include <string>
 
 namespace
 {
@@ -41,6 +44,23 @@ int main()
     AccountabilityEventRepository repository(database);
     assert(repository.ensureSchema());
     assert(repository.append(event()));
+
+    std::ostringstream diagnostics;
+    std::streambuf* previousErrorBuffer =
+        std::cerr.rdbuf(diagnostics.rdbuf());
+    assert(!repository.append(event()));
+    std::cerr.rdbuf(previousErrorBuffer);
+
+    const std::string diagnosticText = diagnostics.str();
+    assert(
+        diagnosticText.find(
+            "accountability append step failed: sqlite_rc=") !=
+        std::string::npos);
+    assert(
+        diagnosticText.find("sqlite_extended_rc=") !=
+        std::string::npos);
+    assert(diagnosticText.find("audit-1") == std::string::npos);
+    assert(diagnosticText.find("user-1") == std::string::npos);
 
     const auto events = repository.listAll();
     assert(events.size() == 1);
