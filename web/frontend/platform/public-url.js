@@ -25,7 +25,8 @@
   }
 
   function unsafeEncodedPath(value) {
-    return /%(?:0[0-9a-f]|1[0-9a-f]|7f|2f|5c)/i.test(value);
+    const pathname = value.split(/[?#]/, 1)[0];
+    return /%(?:0[0-9a-f]|1[0-9a-f]|7f|2f|5c)/i.test(pathname);
   }
 
   function containsDotSegment(path) {
