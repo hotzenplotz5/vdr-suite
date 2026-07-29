@@ -214,7 +214,14 @@
       return Promise.resolve(response);
     }
 
-    return parseResponse(response.clone()).then(function (payload) {
+    let inspectionResponse;
+    try {
+      inspectionResponse = response.clone();
+    } catch (error) {
+      return Promise.resolve(response);
+    }
+
+    return parseResponse(inspectionResponse).then(function (payload) {
       const reason = securityReason(payload);
       if (reason) {
         clear(reason);
@@ -580,8 +587,7 @@
 
   if (typeof global.addEventListener === 'function') {
     global.addEventListener('pagehide', function () {
-      cancelExpiryTimer();
-      csrfToken = '';
+      clear('authentication_required');
     });
   }
 
