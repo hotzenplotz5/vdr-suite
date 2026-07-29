@@ -4,6 +4,7 @@
 
 #include <sqlite3.h>
 
+#include <iostream>
 #include <string>
 
 namespace
@@ -28,6 +29,25 @@ std::string columnText(sqlite3_stmt* statement, int column)
         ? std::string()
         : std::string(reinterpret_cast<const char*>(text));
 }
+
+void reportAppendFailure(
+    const char* operation,
+    sqlite3* database,
+    int result)
+{
+    const int extendedResult = database == nullptr
+        ? result
+        : sqlite3_extended_errcode(database);
+
+    std::cerr
+        << "accountability append "
+        << operation
+        << " failed: sqlite_rc="
+        << result
+        << ", sqlite_extended_rc="
+        << extendedResult
+        << std::endl;
+}
 }
 
 AccountabilityEventRepository::AccountabilityEventRepository(Database& database)
@@ -37,70 +57,54 @@ AccountabilityEventRepository::AccountabilityEventRepository(Database& database)
 
 bool AccountabilityEventRepository::ensureSchema()
 {
-    if (!database_.execute(
-            "CREATE TABLE IF NOT EXISTS accountability_events ("
-            "event_id TEXT PRIMARY KEY,"
-            "schema_version INTEGER NOT NULL,"
-            "classes TEXT NOT NULL,"
-            "event_type TEXT NOT NULL,"
-            "severity TEXT NOT NULL,"
-            "occurred_at TEXT NOT NULL,"
-            "recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-            "actor_id TEXT NOT NULL,"
-            "actor_type TEXT NOT NULL,"
-            "device_id TEXT NOT NULL,"
-            "session_id TEXT NOT NULL,"
-            "authentication_state TEXT NOT NULL,"
-            "permission TEXT NOT NULL,"
-            "backend_id TEXT NOT NULL,"
-            "operation_id TEXT NOT NULL,"
-            "request_id TEXT NOT NULL,"
-            "correlation_id TEXT NOT NULL,"
-            "action TEXT NOT NULL,"
-            "decision TEXT NOT NULL,"
-            "reason_code TEXT NOT NULL,"
-            "outcome TEXT NOT NULL"
-            ");"))
-    {
-        return false;
-    }
-
-    if (!database_.execute(
-            "CREATE INDEX IF NOT EXISTS "
-            "idx_accountability_events_request "
-            "ON accountability_events(request_id, event_id);"))
-    {
-        return false;
-    }
-
-    if (!database_.execute(
-            "CREATE INDEX IF NOT EXISTS "
-            "idx_accountability_events_actor "
-            "ON accountability_events(actor_id, event_id);"))
-    {
-        return false;
-    }
-
-    if (!database_.execute(
-            "CREATE TRIGGER IF NOT EXISTS "
-            "accountability_events_no_update "
-            "BEFORE UPDATE ON accountability_events "
-            "BEGIN "
-            "SELECT RAISE(ABORT, "
-            "'accountability events are append-only'); "
-            "END;"))
-    {
-        return false;
-    }
-
     return database_.execute(
-        "CREATE TRIGGER IF NOT EXISTS "
-        "accountability_events_no_delete "
-        "BEFORE DELETE ON accountability_events "
-        "BEGIN "
-        "SELECT RAISE(ABORT, "
-        "'accountability events are append-only'); "
-        "END;");
+               "CREATE TABLE IF NOT EXISTS accountability_events ("
+               "event_id TEXT PRIMARY KEY,"
+               "schema_version INTEGER NOT NULL,"
+               "classes TEXT NOT NULL,"
+               "event_type TEXT NOT NULL,"
+               "severity TEXT NOT NULL,"
+               "occurred_at TEXT NOT NULL,"
+               "recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+               "actor_id TEXT NOT NULL,"
+               "actor_type TEXT NOT NULL,"
+               "device_id TEXT NOT NULL,"
+               "session_id TEXT NOT NULL,"
+               "authentication_state TEXT NOT NULL,"
+               "permission TEXT NOT NULL,"
+               "backend_id TEXT NOT NULL,"
+               "operation_id TEXT NOT NULL,"
+               "request_id TEXT NOT NULL,"
+               "correlation_id TEXT NOT NULL,"
+               "action TEXT NOT NULL,"
+               "decision TEXT NOT NULL,"
+               "reason_code TEXT NOT NULL,"
+               "outcome TEXT NOT NULL"
+               ");") &&
+        database_.execute(
+               "CREATE INDEX IF NOT EXISTS "
+               "idx_accountability_events_request "
+               "ON accountability_events(request_id, event_id);") &&
+        database_.execute(
+               "CREATE INDEX IF NOT EXISTS "
+               "idx_accountability_events_actor "
+               "ON accountability_events(actor_id, event_id);") &&
+        database_.execute(
+               "CREATE TRIGGER IF NOT EXISTS "
+               "accountability_events_no_update "
+               "BEFORE UPDATE ON accountability_events "
+               "BEGIN "
+               "SELECT RAISE(ABORT, "
+               "'accountability events are append-only'); "
+               "END;") &&
+        database_.execute(
+               "CREATE TRIGGER IF NOT EXISTS "
+               "accountability_events_no_delete "
+               "BEFORE DELETE ON accountability_events "
+               "BEGIN "
+               "SELECT RAISE(ABORT, "
+               "'accountability events are append-only'); "
+               "END;");
 }
 
 bool AccountabilityEventRepository::append(
@@ -113,6 +117,14 @@ bool AccountabilityEventRepository::append(
         return false;
     }
 
+    auto transactionLease = database_.acquireTransactionLease();
+    sqlite3* database = database_.handle();
+    if (database == nullptr)
+    {
+        reportAppendFailure("database", nullptr, SQLITE_MISUSE);
+        return false;
+    }
+
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "INSERT INTO accountability_events ("
@@ -122,13 +134,15 @@ bool AccountabilityEventRepository::append(
         "request_id, correlation_id, action, decision, reason_code, outcome"
         ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
-    if (sqlite3_prepare_v2(
-            database_.handle(),
-            sql,
-            -1,
-            &statement,
-            nullptr) != SQLITE_OK)
+    const int prepareResult = sqlite3_prepare_v2(
+        database,
+        sql,
+        -1,
+        &statement,
+        nullptr);
+    if (prepareResult != SQLITE_OK)
     {
+        reportAppendFailure("prepare", database, prepareResult);
         return false;
     }
 
@@ -157,11 +171,32 @@ bool AccountabilityEventRepository::append(
     bound = bindText(statement, 19, event.reasonCode) && bound;
     bound = bindText(statement, 20, event.outcome) && bound;
 
-    const int result = bound
-        ? sqlite3_step(statement)
-        : SQLITE_ERROR;
-    sqlite3_finalize(statement);
-    return result == SQLITE_DONE;
+    if (!bound)
+    {
+        reportAppendFailure(
+            "bind",
+            database,
+            sqlite3_errcode(database));
+        sqlite3_finalize(statement);
+        return false;
+    }
+
+    const int stepResult = sqlite3_step(statement);
+    if (stepResult != SQLITE_DONE)
+    {
+        reportAppendFailure("step", database, stepResult);
+        sqlite3_finalize(statement);
+        return false;
+    }
+
+    const int finalizeResult = sqlite3_finalize(statement);
+    if (finalizeResult != SQLITE_OK)
+    {
+        reportAppendFailure("finalize", database, finalizeResult);
+        return false;
+    }
+
+    return true;
 }
 
 std::vector<AccountabilityEvent> AccountabilityEventRepository::listAll() const
