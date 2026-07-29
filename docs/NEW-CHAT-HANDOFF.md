@@ -2,211 +2,124 @@
 
 ## Purpose
 
-This is the canonical entry point for every new VDR-Suite chat.
+This is the canonical entry point for every new VDR-Suite chat. Read it before
+repeating repository-wide analysis or real-runtime acceptance. A new chat alone
+is not a reason to start over.
 
-Read this file before repeating repository-wide analysis or real-runtime
-acceptance. A changed chat alone is not a reason to start over. Trust completed
-items marked **VERIFIED** unless a relevant repository, binary, configuration,
-database, routing, or behaviour fingerprint changed.
+Trust completed items marked **VERIFIED** unless a relevant repository, binary,
+configuration, database, routing, or behaviour fingerprint changed.
 
-Detailed non-secret runtime evidence is preserved in
-[Phase 62 Runtime Evidence](development/phase-62-runtime-evidence.md). The
-repository implementation contract for the current slice is preserved in
-[Phase 62 Slice 3A Public Origin and Base Path](development/phase-62-public-origin-base-path.md).
-
-## Canonical project entry points
+## Canonical reading
 
 - [Current project truth](CURRENT.md)
 - [Strict roadmap](planning/roadmap.md)
 - [Phase map](planning/phase-map.md)
 - [Parity and frontend gap roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Architecture audit gap matrix](planning/architecture-audit-gap-matrix.md)
 - [ADR index](adr/index.md)
 - [Completed phases](development/completed-phases.md)
+- [Phase 61 closeout](development/phase-61-metadata-genre-performance-closeout.md)
+- [Post-Phase-61 runtime closeout](development/post-phase-61-platform-runtime-closeout.md)
+- [Phase 62 runtime evidence](development/phase-62-runtime-evidence.md)
+- [Slice 3A contract](development/phase-62-public-origin-base-path.md)
 
 ## Stable project position
 
 ```text
-Latest completed numbered runtime phase:
+Latest completed runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
 
-Completed operational hardening:
+Completed hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
 
-Completed post-phase platform features:
+Historical umbrella track:
+Phase 58 - Frontend and Live Parity
+
+Completed platform features:
 VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
 
-Current active runtime phase:
+Current active phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 ```
 
-Do not resurrect Phase 61, PR #110, or PR #111 as current implementation work.
-
-## Mandatory resume rule
+## Resume rule
 
 Recheck only volatile state:
 
 1. local branch, HEAD, upstream, and clean/dirty state;
-2. remote branch head and divergence;
-3. PR Draft/head/base/CI state;
-4. installed daemon fingerprint when runtime work is planned;
-5. active Nginx fingerprints when routing work is planned;
-6. files changed since this handoff in the active slice.
+2. remote head/divergence and PR Draft/base/CI state;
+3. installed daemon fingerprint before runtime work;
+4. active Nginx fingerprints before routing work;
+5. files changed since this handoff in the active slice.
 
-Do not repeat completed browser-session acceptance unless the code, installed
-binary, configuration, database contract, active routing, or tested behaviour
-changed. Avoid HTTP probes during a read-only check when they would create
-security or accountability records.
+Do not repeat completed browser-session acceptance unless a relevant
+fingerprint changed. Avoid HTTP probes during read-only verification when they
+would create security or accountability records.
 
-## Current active workstream
+## Active workstream
 
 ```text
-Repository:
-hotzenplotz5/vdr-suite
-
-Real yaVDR checkout:
-/home/yavdr/vdr-suite-phase62
-
-Local branch:
-phase62-pr117
-
-Remote branch:
-phase-62-security-identity-foundation
-
-Pull request:
-#117
-feat(security): establish Phase 62 identity and authorization foundation
-
-Accepted real-runtime security baseline:
-d0500da0aa43b11b57eca23d5d757d070b2beb98
-
-Slice 3A repository implementation commit:
-8007b77afe55a750096e75baeb8772f2f28227dd
-
-Base branch and recorded base SHA:
-main
-cb77ff66e11dca7db2eafa36525762dcde35102d
+Repository: hotzenplotz5/vdr-suite
+Checkout: /home/yavdr/vdr-suite-phase62
+Local branch: phase62-pr117
+Remote branch: phase-62-security-identity-foundation
+Pull request: #117
+Base: main @ cb77ff66e11dca7db2eafa36525762dcde35102d
+Accepted security runtime baseline: d0500da0aa43b11b57eca23d5d757d070b2beb98
+Slice 3A implementation commit: 8007b77afe55a750096e75baeb8772f2f28227dd
 ```
-
-The current branch head is a descendant of the Slice 3A implementation commit
-because this handoff itself may receive follow-up documentation repairs.
-
-## Pull request rules
 
 PR #117 must remain open and Draft. Do not mark it ready, merge it, enable
 auto-merge, rewrite its branch, or mutate review state without explicit
 approval.
 
-The PR description still contains **STALE** wording saying ordinary-route
-installed-runtime browser-session acceptance is outstanding. Runtime evidence
-in this handoff and the dedicated evidence document is newer.
+The PR description contains stale wording that ordinary-route installed-runtime
+browser-session acceptance is still pending. The runtime evidence is newer.
 
 ## Real yaVDR security baseline
 
-**VERIFIED on 2026-07-29 for the accepted security baseline:**
+**VERIFIED on 2026-07-29:**
 
 ```text
-Daemon unit:
-vdr-suite-daemon.service
-
-Installed executable:
-/usr/sbin/vdr-suite-daemon
-
-Recorded pre-acceptance backup:
-/usr/sbin/vdr-suite-daemon.pre-d0500da0-20260729-062203
-
-Daemon configuration:
-/etc/default/vdr-suite-daemon
-
-Database:
-/var/lib/vdr-suite/vdr-suite.db
-
-Listener:
-0.0.0.0:18080
+Unit: vdr-suite-daemon.service
+Executable: /usr/sbin/vdr-suite-daemon
+Backup: /usr/sbin/vdr-suite-daemon.pre-d0500da0-20260729-062203
+Configuration: /etc/default/vdr-suite-daemon
+Database: /var/lib/vdr-suite/vdr-suite.db
+Listener: 0.0.0.0:18080
 ```
 
-At the acceptance point:
+Completed real-runtime acceptance includes persistent identity lifecycle,
+managed Basic verification, browser-session issuance/logout, ordinary-route
+cookie authentication and precedence, malformed/duplicate/revoked-cookie
+denial, fail-closed browser mutations, accountability, atomic revocation,
+revoked-cookie replay denial, database checks, and cleanup.
 
-- the daemon was active;
-- the installed binary matched the accepted security branch build;
-- ordinary browser-session authentication was accepted on real yaVDR;
-- the database remained structurally consistent;
-- temporary acceptance lifecycle data was cleaned up.
-
-PIDs, service timestamps, working-tree state, active hashes, and active Nginx
-fingerprints are volatile. Recheck them before mutation, but do not repeat the
-whole security acceptance suite when they are unchanged.
-
-## Completed Phase 62 security work
-
-**VERIFIED and real-runtime accepted:**
-
-- persistent actors, devices, sessions, and credentials;
-- managed Basic verifier;
-- browser-session credential persistence;
-- atomic browser-session issuance;
-- exact browser-session issue and logout lifecycle routes;
-- ordinary-route browser-cookie authentication;
-- cookie authentication precedence;
-- malformed and duplicate cookie rejection;
-- revoked-cookie rejection;
-- fail-closed browser mutation behaviour;
-- accepted and denied accountability evidence;
-- logout and atomic lifecycle revocation;
-- replay rejection after revocation;
-- database verification and test-data cleanup.
-
-Do not relabel these points as pending merely because a new chat starts.
+Do not relabel this acceptance as pending because a chat changed.
 
 ## Secret restrictions
 
-The managed Basic plaintext password used during earlier acceptance is no
-longer available.
-
-Therefore:
-
-- never print Authorization headers;
-- never print browser cookies or CSRF tokens;
-- never expose password hashes or production verifier material;
-- never inspect `/proc/.../environ`;
-- do not rotate or reprovision credentials without explicit approval;
-- do not claim authenticated public-origin acceptance can be repeated until an
-  approved credential path exists.
+The earlier managed Basic plaintext password is unavailable. Never print
+Authorization headers, cookies, CSRF tokens, password hashes, production
+verifier material, or `/proc/.../environ`. Do not rotate or reprovision
+credentials without explicit approval.
 
 ## Public routing truth
 
-### yaVDR ownership
+**VERIFIED:** public `/api/*` belongs to yaVDR Uvicorn through
+`/run/yavdr-backend/uvicorn.sock`. yaVDR already owns `/api/vdr/*`; VDR-Suite
+internal routes also use `/api/vdr/*`. VDR-Suite must never claim public root
+`/api/`.
 
-**VERIFIED:**
-
-- public `/api/*` belongs to the yaVDR Uvicorn backend through
-  `/run/yavdr-backend/uvicorn.sock`;
-- yaVDR already exposes `/api/vdr/*`;
-- VDR-Suite internal daemon routes also use `/api/vdr/*`;
-- VDR-Suite must never take over public root `/api/`.
-
-### Temporary Suite lifecycle exposure
-
-The recorded temporary manual snippet is:
+The temporary manual lifecycle snippet is:
 
 ```text
 /etc/nginx/snippets/vdr-suite-browser-sessions.conf
 ```
 
-It exposes only the two exact browser-session lifecycle POST routes. It is
-acceptance plumbing, not the target public contract.
-
-### Frontend publication
-
-The Suite frontend installation owner is:
-
-```text
-/usr/share/vdr-suite/web/frontend
-```
-
-The daemon serves it through its own route and asset tables. Public yaVDR
-`/frontend/*` resolves through the yaVDR application or SPA fallback;
-`/var/www/html/frontend` is not the installed Suite owner.
+The Suite frontend owner is `/usr/share/vdr-suite/web/frontend`. Public yaVDR
+`/frontend/*` is the yaVDR application/SPA fallback, not the Suite frontend.
 
 ## Phase 62 Slice 3A repository state
 
@@ -215,54 +128,23 @@ Phase 62 Slice 3A
 Public Origin and Base-Path Integration
 ```
 
-**IMPLEMENTED IN THE REPOSITORY at commit `8007b77a`:**
+**IMPLEMENTED IN THE REPOSITORY at `8007b77a`:**
 
-- repository-managed Nginx server-context snippet;
-- canonical `/vdr-suite` redirects;
+- public namespace `/vdr-suite/` with frontend, API, logo, and artwork paths;
+- internal daemon paths remain unchanged;
+- canonical redirects to `/vdr-suite/frontend/`;
 - prefix-stripping proxy to `127.0.0.1:18080`;
-- forwarding headers and SSE-safe proxy settings;
-- cookie path rewrite from `/` to `/vdr-suite/`;
-- immutable frontend public-URL resolver;
-- relative initial HTML bootstrap assets;
-- URL adaptation for canonical Suite API, SSE, script, logo, artwork, Remote,
-  DOM, and CSS URL sinks;
-- direct-daemon compatibility;
-- daemon asset-table and runtime-install integration;
-- separate inactive Nginx snippet installation;
-- Node, architecture, ownership, and install-staging tests;
-- focused implementation documentation.
+- forwarded prefix, SSE-safe settings, and cookie path `/vdr-suite/`;
+- no root `/api` location, Uvicorn socket, or `sub_filter`;
+- immutable `VdrSuitePublicUrl` resolver loaded first;
+- relative initial HTML assets and direct-daemon compatibility;
+- canonical Suite URL adaptation for fetch, SSE, scripts, DOM, CSS, logos,
+  artwork, and Remote assets;
+- daemon asset-table/runtime-install integration;
+- separately installed inactive Nginx snippet;
+- Node, architecture, ownership, and install-staging tests.
 
-### Implemented public contract
-
-```text
-/vdr-suite/
-/vdr-suite/frontend/...
-/vdr-suite/api/...
-/vdr-suite/channel-logos/...
-/vdr-suite/recording-artwork/...
-```
-
-Internal daemon paths remain unchanged:
-
-```text
-/frontend/...
-/api/...
-/channel-logos/...
-/recording-artwork/...
-```
-
-Canonical redirects are:
-
-```text
-/vdr-suite          -> /vdr-suite/frontend/
-/vdr-suite/         -> /vdr-suite/frontend/
-/vdr-suite/frontend -> /vdr-suite/frontend/
-```
-
-The Nginx snippet contains no root `/api` location, no Uvicorn socket reference,
-and no `sub_filter` response rewriting.
-
-### Slice 3A files
+Files:
 
 ```text
 Makefile
@@ -277,81 +159,48 @@ web/frontend/platform/public-url.js
 web/frontend/tests/test_public_url_runtime.js
 ```
 
-### Repository validation
+Isolated pre-push syntax, Node runtime, architecture, Python, and install-staging
+checks passed.
 
-The isolated pre-push checks passed:
-
-- JavaScript syntax validation;
-- public-URL Node runtime tests;
-- public-origin architecture contracts;
-- Python syntax validation;
-- isolated frontend and Nginx install staging with mode `0644`.
-
-GitHub Actions run 6475 reached the documentation gate and failed because the
-previous handoff replacement omitted mandatory canonical links and historical
-status markers. The Slice 3A product diff itself was not reported as failing;
-downstream jobs were skipped after the documentation gate. The current handoff
-restores those required entrypoints and markers. Verify the newest CI run before
-continuing.
+CI run 6475 failed at the documentation gate because the first handoff rewrite
+omitted required canonical markers. Run 6477 passed the entrypoint check but
+identified four additional completed-phase markers. This handoff restores all
+of them. Verify the newest CI run before continuing.
 
 ## Runtime activation boundary
 
-The repository implementation has **not** been installed or activated on the
-real yaVDR runtime.
+Slice 3A has **not** been installed or activated on real yaVDR. No active Nginx
+site, service, package, database, credential, or production file was changed.
 
-No active Nginx site, service, package, database, credential, or production file
-was changed by the repository implementation.
+`install-runtime` installs the frontend resolver but does not install or activate
+Nginx. Full `install` or explicit `install-nginx` installs an inactive snippet;
+the active site must include it separately.
 
-The repository target `install-runtime` installs the frontend resolver but does
-not install or activate Nginx. The full `install` target or explicit
-`install-nginx` target installs the snippet as an inactive file; the active site
-must include it separately.
+Runtime activation requires separate explicit approval and an exact procedure
+for backups/hashes, frontend installation, snippet installation, active-site
+include replacement, removal of the temporary lifecycle include, `nginx -t`,
+approved reloads, route-provenance checks, authenticated acceptance through an
+approved credential path, and rollback.
 
-A later runtime activation requires a separate explicit approval and an exact
-reviewed procedure covering:
-
-- backups and hashes;
-- daemon/frontend installation;
-- Nginx snippet installation;
-- active-site include change;
-- removal of the temporary exact lifecycle include;
-- `nginx -t`;
-- explicitly approved service reloads;
-- unauthenticated route-provenance checks;
-- authenticated public-origin acceptance through an approved credential path;
-- rollback.
-
-## Still open after Slice 3A repository implementation
+## Still open
 
 - green CI for the final Slice 3A branch head;
-- synchronization of the real local checkout to the remote branch;
-- separate real-runtime installation and public-origin acceptance;
-- frontend login/logout UI;
-- frontend memory-only CSRF handling;
+- synchronization of the real checkout;
+- separately approved runtime installation and public-origin acceptance;
+- frontend login/logout and memory-only CSRF handling;
 - business-mutation CSRF integration;
-- persisted roles and grants;
-- broader permission migration;
-- refresh, idle expiry, cleanup, and concurrent-session policy;
-- protected user and credential administration;
-- completion accountability and transactional outbox.
+- roles, grants, broader permission migration, lifecycle policy, protected
+  administration, completion accountability, and transactional outbox.
 
 ## Exact next action
 
-1. verify the CI run for the handoff repair descendant of `8007b77a`;
-2. if CI is green, fast-forward `/home/yavdr/vdr-suite-phase62` only after
-   checking its working tree;
+1. verify CI for this handoff repair descendant of `8007b77a`;
+2. if green, verify and fast-forward the real checkout;
 3. present the exact runtime installation and rollback procedure;
-4. obtain explicit approval before any real yaVDR or active Nginx mutation.
+4. obtain explicit approval before real yaVDR or active Nginx mutation.
 
 ## Maintenance rule
 
-Before ending any Phase 62 session:
-
-1. update this file when repository, PR, runtime, routing, or next-action truth
-   changed;
-2. append durable non-secret evidence to the runtime-evidence document;
-3. mark stale statements explicitly;
-4. record the exact next permitted action and approval boundary;
-5. keep secrets and production verifier material out of both documents.
-
-A future chat should need minutes, not half its context window, to resume.
+Update this file whenever repository, PR, runtime, routing, or next-action truth
+changes. Preserve durable non-secret evidence, mark stale statements, record the
+next approval boundary, and keep all secrets out of the repository.
