@@ -68,6 +68,8 @@ Pull request: #117
 Base: main @ cb77ff66e11dca7db2eafa36525762dcde35102d
 Accepted security runtime baseline: d0500da0aa43b11b57eca23d5d757d070b2beb98
 Slice 3A implementation commit: 8007b77afe55a750096e75baeb8772f2f28227dd
+Final green Slice 3A repository head: 50bc66ba12dc663b77ebd141a85e167666218b09
+CI: run 6485, completed successfully
 ```
 
 PR #117 must remain open and Draft. Do not mark it ready, merge it, enable
@@ -75,7 +77,8 @@ auto-merge, rewrite its branch, or mutate review state without explicit
 approval.
 
 The PR description contains stale wording that ordinary-route installed-runtime
-browser-session acceptance is still pending. The runtime evidence is newer.
+browser-session acceptance is still pending and still names older CI. The
+runtime evidence and this handoff are newer.
 
 ## Real yaVDR security baseline
 
@@ -128,7 +131,7 @@ Phase 62 Slice 3A
 Public Origin and Base-Path Integration
 ```
 
-**IMPLEMENTED IN THE REPOSITORY at `8007b77a`:**
+**IMPLEMENTED AND CI-VALIDATED in the repository:**
 
 - public namespace `/vdr-suite/` with frontend, API, logo, and artwork paths;
 - internal daemon paths remain unchanged;
@@ -140,9 +143,10 @@ Public Origin and Base-Path Integration
 - relative initial HTML assets and direct-daemon compatibility;
 - canonical Suite URL adaptation for fetch, SSE, scripts, DOM, CSS, logos,
   artwork, and Remote assets;
+- query and fragment preservation, including encoded slash values in queries;
 - daemon asset-table/runtime-install integration;
 - separately installed inactive Nginx snippet;
-- Node, architecture, ownership, and install-staging tests.
+- Node, architecture, ownership, daemon-build, and install-staging tests.
 
 Files:
 
@@ -159,13 +163,23 @@ web/frontend/platform/public-url.js
 web/frontend/tests/test_public_url_runtime.js
 ```
 
-Isolated pre-push syntax, Node runtime, architecture, Python, and install-staging
-checks passed.
+Follow-up validation fixes after `8007b77a`:
 
-CI run 6475 failed at the documentation gate because the first handoff rewrite
-omitted required canonical markers. Run 6477 passed the entrypoint check but
-identified four additional completed-phase markers. This handoff restores all
-of them. Verify the newest CI run before continuing.
+- restored mandatory canonical handoff markers;
+- normalized the relative bootstrap paths for legacy core ownership contracts;
+- limited unsafe encoded-path validation to the pathname so encoded query values
+  such as `ARD%2FZDF` remain valid;
+- added the corresponding public-prefix regression test.
+
+GitHub Actions run 6485 passed:
+
+- documentation checks;
+- strict Make and test inventory;
+- frontend regression and ownership contracts;
+- public URL runtime tests;
+- fast regression tests;
+- daemon build;
+- packaging and install staging.
 
 ## Runtime activation boundary
 
@@ -184,8 +198,7 @@ approved credential path, and rollback.
 
 ## Still open
 
-- green CI for the final Slice 3A branch head;
-- synchronization of the real checkout;
+- synchronization of the real checkout to the final green repository head;
 - separately approved runtime installation and public-origin acceptance;
 - frontend login/logout and memory-only CSRF handling;
 - business-mutation CSRF integration;
@@ -194,8 +207,9 @@ approved credential path, and rollback.
 
 ## Exact next action
 
-1. verify CI for this handoff repair descendant of `8007b77a`;
-2. if green, verify and fast-forward the real checkout;
+1. verify the real checkout is clean and fast-forward it to
+   `50bc66ba12dc663b77ebd141a85e167666218b09`;
+2. verify the resulting local HEAD and branch tracking only;
 3. present the exact runtime installation and rollback procedure;
 4. obtain explicit approval before real yaVDR or active Nginx mutation.
 
