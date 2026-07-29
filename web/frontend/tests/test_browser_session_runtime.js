@@ -19,6 +19,10 @@ assert(!source.includes('localStorage'));
 assert(!source.includes('sessionStorage'));
 assert(!source.includes('indexedDB'));
 assert(!source.includes('document.cookie'));
+assert(source.includes("global.addEventListener('pagehide'"));
+assert(source.includes("clear('authentication_required')"));
+assert(source.includes("button.id = 'vdr-suite-session-button'"));
+assert(source.includes("password.type = 'password'"));
 
 function response(status, payload) {
   const text = payload === null || payload === undefined
