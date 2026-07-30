@@ -16,6 +16,10 @@ const source = fs.readFileSync(
 const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 const deSource = fs.readFileSync(path.join(__dirname, '..', 'locales', 'de.js'), 'utf8');
 const enSource = fs.readFileSync(path.join(__dirname, '..', 'locales', 'en.js'), 'utf8');
+const deferredSource = fs.readFileSync(
+  path.join(__dirname, '..', 'platform', 'deferred-runtime-loader.js'),
+  'utf8'
+);
 
 const remotePng = fs.readFileSync(
   path.join(__dirname, '..', 'assets', 'vdr-remote-photorealistic.png')
@@ -39,6 +43,10 @@ assert(clientSource.includes("'/api/vdr/remote/actions'"));
 assert(clientSource.includes("'/api/vdr/live/overlay'"));
 assert(clientSource.includes("'/api/vdr/live'"));
 assert(clientSource.includes('if (!sessionApi.isAuthenticated())'));
+assert(deferredSource.includes("String(payload.error.code || '') !== 'role_read_only'"));
+assert(deferredSource.includes('Dieses Konto hat für dieses Backend nur Lesezugriff.'));
+assert(deferredSource.includes('This account has read-only access to this backend.'));
+assert(deferredSource.includes('installSecurityRoleErrorMessages();'));
 
 assert(source.includes("P='/channel-logos/vdr-suite-brand/vdr-remote-photorealistic.png'"));
 assert(source.includes("el('section','rst')"));
