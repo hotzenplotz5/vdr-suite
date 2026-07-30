@@ -50,6 +50,14 @@ int main()
         "actor-b",
         "remote.control",
         "house-b"));
+    assert(repository.ensureGrant(
+        "actor-b",
+        "role.admin",
+        "house-b"));
+    assert(repository.ensureGrant(
+        "actor-b",
+        "role.read-only",
+        "house-c"));
 
     assert(repository.ensureGrant(
         "actor-a",
@@ -71,9 +79,13 @@ int main()
     const auto actorBGrants =
         repository.findActiveGrantsForActor("actor-b");
     assert(actorBGrants.available);
-    assert(actorBGrants.grants.size() == 1);
-    assert(actorBGrants.grants.front().backendId ==
-        "house-b");
+    assert(actorBGrants.grants.size() == 3);
+    assert(actorBGrants.grants[0].permission == "remote.control");
+    assert(actorBGrants.grants[0].backendId == "house-b");
+    assert(actorBGrants.grants[1].permission == "role.admin");
+    assert(actorBGrants.grants[1].backendId == "house-b");
+    assert(actorBGrants.grants[2].permission == "role.read-only");
+    assert(actorBGrants.grants[2].backendId == "house-c");
 
     assert(repository.revokeGrant(
         "actor-a",

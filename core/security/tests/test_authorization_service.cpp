@@ -29,6 +29,15 @@ AuthorizationRequest requestFor(const std::string& backendId)
     request.action = "remote.control";
     return request;
 }
+
+AuthorizationRequest recordingsViewRequest(const std::string& backendId)
+{
+    AuthorizationRequest request;
+    request.permission = "recordings.view";
+    request.backendId = backendId;
+    request.action = "recordings.view";
+    return request;
+}
 }
 
 int main()
@@ -42,6 +51,52 @@ int main()
     RequestSecurityContext allowed = authenticatedContext();
     allowed.grants.push_back(PermissionGrant{"remote.control", "default"});
     assert(service.authorize(allowed, requestFor("default")).allowed);
+
+    RequestSecurityContext adminRole = authenticatedContext();
+    adminRole.grants.push_back(PermissionGrant{"role.admin", "default"});
+    const AuthorizationDecision adminAllowed =
+        service.authorize(adminRole, requestFor("default"));
+    assert(adminAllowed.allowed);
+    assert(adminAllowed.reasonCode == "role_permission_granted");
+
+    const AuthorizationDecision adminWrongScope =
+        service.authorize(adminRole, requestFor("house-b"));
+    assert(!adminWrongScope.allowed);
+    assert(adminWrongScope.reasonCode == "backend_scope_denied");
+
+    RequestSecurityContext wildcardAdminRole = authenticatedContext();
+    wildcardAdminRole.grants.push_back(PermissionGrant{"role.admin", "*"});
+    const AuthorizationDecision wildcardAdminDenied =
+        service.authorize(wildcardAdminRole, requestFor("default"));
+    assert(!wildcardAdminDenied.allowed);
+    assert(wildcardAdminDenied.reasonCode == "backend_scope_denied");
+
+    RequestSecurityContext readOnlyRole = allowed;
+    readOnlyRole.grants.push_back(PermissionGrant{"role.read-only", "default"});
+    const AuthorizationDecision readOnlyDenied =
+        service.authorize(readOnlyRole, requestFor("default"));
+    assert(!readOnlyDenied.allowed);
+    assert(readOnlyDenied.reasonCode == "role_read_only");
+
+    RequestSecurityContext scopedReadOnlyRole = allowed;
+    scopedReadOnlyRole.grants.push_back(
+        PermissionGrant{"role.read-only", "house-b"});
+    assert(service.authorize(
+        scopedReadOnlyRole,
+        requestFor("default")).allowed);
+
+    RequestSecurityContext conflictingRoles = adminRole;
+    conflictingRoles.grants.push_back(
+        PermissionGrant{"role.read-only", "default"});
+    const AuthorizationDecision conflictDenied =
+        service.authorize(conflictingRoles, requestFor("default"));
+    assert(!conflictDenied.allowed);
+    assert(conflictDenied.reasonCode == "role_read_only");
+
+    const AuthorizationDecision adminCannotInventPermissions =
+        service.authorize(adminRole, recordingsViewRequest("default"));
+    assert(!adminCannotInventPermissions.allowed);
+    assert(adminCannotInventPermissions.reasonCode == "permission_denied");
 
     const AuthorizationDecision wrongScope =
         service.authorize(allowed, requestFor("house-b"));

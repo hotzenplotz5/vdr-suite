@@ -118,7 +118,30 @@ public:
             return decision;
         }
 
+        if (isReadOnlyMutation(context, request))
+        {
+            decision.reasonCode = "role_read_only";
+            return decision;
+        }
+
         bool permissionPresent = false;
+
+        for (const PermissionGrant& grant : context.grants)
+        {
+            if (grant.permission != "role.admin" ||
+                !adminRoleGrants(request.permission))
+            {
+                continue;
+            }
+
+            permissionPresent = true;
+            if (grant.backendId == request.backendId)
+            {
+                decision.allowed = true;
+                decision.reasonCode = "role_permission_granted";
+                return decision;
+            }
+        }
 
         for (const PermissionGrant& grant : context.grants)
         {
@@ -149,5 +172,37 @@ public:
             ? "backend_scope_denied"
             : "permission_denied";
         return decision;
+    }
+
+private:
+    static bool adminRoleGrants(const std::string& permission)
+    {
+        return permission == "remote.control";
+    }
+
+    static bool mutatingPermission(const std::string& permission)
+    {
+        return permission == "remote.control";
+    }
+
+    static bool isReadOnlyMutation(
+        const RequestSecurityContext& context,
+        const AuthorizationRequest& request)
+    {
+        if (!mutatingPermission(request.permission))
+        {
+            return false;
+        }
+
+        for (const PermissionGrant& grant : context.grants)
+        {
+            if (grant.permission == "role.read-only" &&
+                grant.backendId == request.backendId)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 };
