@@ -320,6 +320,41 @@ int main()
 
     TestHttpServer server(router);
 
+    HttpServerRequest anonymousFrontendRequest;
+    anonymousFrontendRequest.method = "GET";
+    anonymousFrontendRequest.path = "/";
+    const HttpServerResponse anonymousFrontendResponse =
+        server.handleRequest(anonymousFrontendRequest);
+    assert(anonymousFrontendResponse.statusCode == 200);
+    assert(anonymousFrontendResponse.headers.at("Content-Type") ==
+        "text/html; charset=utf-8");
+    assert(anonymousFrontendResponse.headers.find("WWW-Authenticate") ==
+        anonymousFrontendResponse.headers.end());
+    assert(anonymousFrontendResponse.body.find("<!doctype html>") !=
+        std::string::npos);
+
+    HttpServerRequest anonymousFrontendAssetRequest;
+    anonymousFrontendAssetRequest.method = "GET";
+    anonymousFrontendAssetRequest.path = "/frontend/style.css";
+    const HttpServerResponse anonymousFrontendAssetResponse =
+        server.handleRequest(anonymousFrontendAssetRequest);
+    assert(anonymousFrontendAssetResponse.statusCode == 200);
+    assert(anonymousFrontendAssetResponse.headers.at("Content-Type") ==
+        "text/css; charset=utf-8");
+    assert(anonymousFrontendAssetResponse.headers.find("WWW-Authenticate") ==
+        anonymousFrontendAssetResponse.headers.end());
+
+    HttpServerRequest anonymousApiRequest;
+    anonymousApiRequest.method = "GET";
+    anonymousApiRequest.path = "/api/backends";
+    const HttpServerResponse anonymousApiResponse =
+        server.handleRequest(anonymousApiRequest);
+    assertJsonResponse(anonymousApiResponse, 401);
+    assert(anonymousApiResponse.body.find(
+        "authentication_required") != std::string::npos);
+    assert(anonymousApiResponse.headers.find("WWW-Authenticate") ==
+        anonymousApiResponse.headers.end());
+
     HttpServerRequest dashboardRequest;
     dashboardRequest.method = "GET";
     dashboardRequest.path = "/api/dashboard";
@@ -430,11 +465,12 @@ int main()
     HttpServerRequest missingLogoRequest;
     missingLogoRequest.method = "GET";
     missingLogoRequest.path = "/channel-logos/definitely-missing-logo.png";
-    authorize(missingLogoRequest);
     HttpServerResponse missingLogoResponse =
         server.handleRequest(missingLogoRequest);
     assert(missingLogoResponse.statusCode == 204);
     assert(missingLogoResponse.headers.at("Content-Type") == "image/png");
+    assert(missingLogoResponse.headers.find("WWW-Authenticate") ==
+        missingLogoResponse.headers.end());
     assert(missingLogoResponse.body.empty());
 
     HttpServerRequest postRequest;

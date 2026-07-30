@@ -230,6 +230,18 @@ HttpServerResponse TestHttpServer::handleRequest(
         return response;
     }
 
+    if (request.method == "GET" &&
+        isFrontendPath(request.path))
+    {
+        return serveFrontendPath(request.path);
+    }
+
+    if (request.method == "GET" &&
+        isChannelLogoPath(request.path))
+    {
+        return makeChannelLogoResponse(request.path);
+    }
+
     if (browserSessionHttpGate_->handles(request))
     {
         const BrowserSessionGateDecision browserGate =
@@ -253,22 +265,6 @@ HttpServerResponse TestHttpServer::handleRequest(
     if (!gate.allowed)
     {
         return gate.rejection;
-    }
-
-    if (request.method == "GET" &&
-        isFrontendPath(request.path))
-    {
-        return finalizeResponse(
-            gate.context,
-            serveFrontendPath(request.path));
-    }
-
-    if (request.method == "GET" &&
-        isChannelLogoPath(request.path))
-    {
-        return finalizeResponse(
-            gate.context,
-            makeChannelLogoResponse(request.path));
     }
 
     ApiResponse apiResponse;

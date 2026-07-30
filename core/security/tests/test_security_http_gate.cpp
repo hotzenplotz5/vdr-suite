@@ -210,6 +210,9 @@ int main()
         "authentication_required") != std::string::npos);
     assert(anonymousCompatibility.rejection.body.find(
         kLegacyCredential) == std::string::npos);
+    assert(anonymousCompatibility.rejection.headers.find(
+        "WWW-Authenticate") ==
+        anonymousCompatibility.rejection.headers.end());
 
     const SecurityGateDecision authenticatedCompatibility =
         compatibilityGate.evaluate(getRequest(kLegacyCredential));

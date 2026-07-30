@@ -616,8 +616,7 @@ private:
             decision,
             401,
             messageForReason(decision.reasonCode),
-            "",
-            !gate.browserSessionPresented);
+            "");
     }
 
     bool appendDecisionEvent(

@@ -129,7 +129,17 @@
   function errorMessage(path, status, payload) {
     if (payload && typeof payload === 'object') {
       if (payload.error) {
-        return String(payload.error);
+        if (typeof payload.error === 'object') {
+          if (payload.error.message) {
+            return String(payload.error.message);
+          }
+
+          if (payload.error.code) {
+            return String(payload.error.code);
+          }
+        } else {
+          return String(payload.error);
+        }
       }
 
       if (payload.message) {

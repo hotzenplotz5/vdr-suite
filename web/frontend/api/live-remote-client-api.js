@@ -603,6 +603,16 @@
   function fetchClientRemoteAction(options) {
     const value = normalizeOptions(options);
     const payload = value.payload !== undefined ? value.payload : value.body;
+
+    if (!sessionApi.isAuthenticated()) {
+      return Promise.reject(new Error(
+        sessionApi.lastSecurityMessage() || translated(
+          'Bitte anmelden, um die Fernbedienung zu verwenden.',
+          'Please sign in to use the remote control.'
+        )
+      ));
+    }
+
     const headers = Object.assign(
       {'Content-Type': 'application/json'},
       value.headers || {},

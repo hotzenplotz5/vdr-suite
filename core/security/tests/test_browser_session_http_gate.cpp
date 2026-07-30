@@ -201,7 +201,7 @@ int main()
         gate.evaluate(loginRequest());
     assert(!anonymousLogin.allowed);
     assert(anonymousLogin.rejection.statusCode == 401);
-    assert(anonymousLogin.rejection.headers.count("WWW-Authenticate") == 1);
+    assert(anonymousLogin.rejection.headers.count("WWW-Authenticate") == 0);
     assert(anonymousLogin.rejection.body.find(
         "authentication_required") != std::string::npos);
 
@@ -213,6 +213,10 @@ int main()
         "invalid_credentials") != std::string::npos);
     assert(wrongPassword.rejection.body.find(
         "wrong-password") == std::string::npos);
+    assert(wrongPassword.rejection.headers.count(
+        "WWW-Authenticate") == 0);
+    assert(wrongPassword.rejection.headers.count(
+        "Set-Cookie") == 0);
 
     const BrowserSessionGateDecision managedLogin =
         gate.evaluate(loginRequest(kManagedCredential));

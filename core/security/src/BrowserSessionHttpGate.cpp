@@ -277,7 +277,7 @@ BrowserSessionGateDecision BrowserSessionHttpGate::evaluate(
             reasonCode,
             authenticationMessage(reasonCode),
             gate.context,
-            gate.login);
+            false);
         return gate;
     }
 

@@ -10,6 +10,10 @@ const source = fs.readFileSync(
   path.join(__dirname, '..', 'api', 'live-remote-client-api.js'),
   'utf8'
 );
+const baseClientSource = fs.readFileSync(
+  path.join(__dirname, '..', 'api', 'client-api.js'),
+  'utf8'
+);
 
 assert(source.includes("const LOGIN_PATH = '/api/security/browser-sessions'"));
 assert(source.includes("const LOGOUT_PATH = '/api/security/browser-sessions/logout'"));
@@ -48,6 +52,7 @@ function response(status, payload) {
 const fetchQueue = [];
 const fetchRequests = [];
 const apiRequests = [];
+const globalListeners = {};
 
 const document = {
   readyState: 'complete',
@@ -99,6 +104,9 @@ const context = {
   btoa(value) {
     return Buffer.from(value, 'binary').toString('base64');
   },
+  addEventListener(type, listener) {
+    globalListeners[type] = listener;
+  },
   fetch(input, init) {
     fetchRequests.push({input, init});
     if (!fetchQueue.length) {
@@ -125,6 +133,20 @@ assert.deepStrictEqual(
 );
 
 (async function () {
+  await assert.rejects(
+    context.VdrSuiteClientApi.fetchClientRemoteAction({
+      payload: {
+        backendId: 'default',
+        operationId: 'slice-2e-anonymous-remote',
+        action: 'ok'
+      }
+    }),
+    function (error) {
+      return error.message.includes('Bitte anmelden');
+    }
+  );
+  assert.strictEqual(apiRequests.length, 0);
+
   const firstToken = 'c'.repeat(48);
   fetchQueue.push(response(200, {
     csrfToken: firstToken,
@@ -186,6 +208,43 @@ assert.deepStrictEqual(
     {}
   );
 
+  await assert.rejects(
+    context.VdrSuiteClientApi.fetchClientRemoteAction({
+      payload: {
+        backendId: 'default',
+        operationId: 'slice-2e-logged-out-remote',
+        action: 'ok'
+      }
+    }),
+    function (error) {
+      return error.message.includes('Bitte anmelden');
+    }
+  );
+  assert.strictEqual(apiRequests.length, 1);
+
+  const structuredErrorContext = {
+    window: null,
+    URLSearchParams,
+    fetch() {
+      return Promise.resolve(response(403, {
+        error: {
+          code: 'permission_denied',
+          message: 'Remote permission denied'
+        }
+      }));
+    }
+  };
+  structuredErrorContext.window = structuredErrorContext;
+  vm.createContext(structuredErrorContext);
+  vm.runInContext(baseClientSource, structuredErrorContext);
+
+  await assert.rejects(
+    structuredErrorContext.VdrSuiteClientApi.requestJson('/api/test'),
+    function (error) {
+      return error.message === 'Remote permission denied';
+    }
+  );
+
   const secondToken = 'd'.repeat(48);
   fetchQueue.push(response(200, {
     csrfToken: secondToken,
@@ -212,6 +271,40 @@ assert.deepStrictEqual(
   assert(
     context.VdrSuiteBrowserSession.lastSecurityMessage().includes('widerrufen')
   );
+
+  const thirdToken = 'e'.repeat(48);
+  fetchQueue.push(response(200, {
+    csrfToken: thirdToken,
+    expiresAt: '2099-01-01T00:00:00Z'
+  }));
+  await context.VdrSuiteBrowserSession.login(
+    'vdr-suite',
+    'pagehide-password'
+  );
+  assert.strictEqual(context.VdrSuiteBrowserSession.isAuthenticated(), true);
+  assert.strictEqual(typeof globalListeners.pagehide, 'function');
+
+  globalListeners.pagehide();
+
+  assert.strictEqual(context.VdrSuiteBrowserSession.isAuthenticated(), false);
+  assert.strictEqual(
+    context.VdrSuiteBrowserSession.snapshot().reason,
+    'authentication_required'
+  );
+
+  await assert.rejects(
+    context.VdrSuiteClientApi.fetchClientRemoteAction({
+      payload: {
+        backendId: 'default',
+        operationId: 'slice-2e-pagehide-remote',
+        action: 'ok'
+      }
+    }),
+    function (error) {
+      return error.message.includes('Bitte anmelden');
+    }
+  );
+  assert.strictEqual(apiRequests.length, 1);
 
   console.log('browser session frontend runtime ok');
 }()).catch(function (error) {
