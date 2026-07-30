@@ -3,6 +3,11 @@
 #include <sqlite3.h>
 #include <iostream>
 
+namespace
+{
+constexpr int kBusyTimeoutMilliseconds = 5000;
+}
+
 Database::Database()
     : db_(nullptr)
 {
@@ -49,6 +54,14 @@ bool Database::open(const std::string& filename)
     if (sqlite3_open(filename.c_str(), &db_) != SQLITE_OK) {
         std::cerr << "Failed to open database: "
                   << sqlite3_errmsg(db_) << std::endl;
+        return false;
+    }
+
+    if (sqlite3_busy_timeout(db_, kBusyTimeoutMilliseconds) != SQLITE_OK)
+    {
+        std::cerr << "Failed to configure SQLite busy timeout: "
+                  << sqlite3_errmsg(db_) << std::endl;
+        close();
         return false;
     }
 
