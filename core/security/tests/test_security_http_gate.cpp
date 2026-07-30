@@ -35,6 +35,18 @@ const std::string kBrowserSessionSecretHash =
 const std::string kBrowserCsrfSecretHash =
     "$6$csrfsalt$Zht7CPii63YntnxlS0UUgPTs6wcCD7WfThN91jWT8Ub0CzhKDP8nhTYAC13VefMKEyYMpUPZUG7AzYtSuFKSM1";
 
+struct TimerRoute
+{
+    std::string path;
+    std::string permission;
+};
+
+const std::vector<TimerRoute> kTimerRoutes = {
+    {"/api/vdr/timers/actions/create", "timers.create"},
+    {"/api/vdr/timers/actions/update", "timers.modify"},
+    {"/api/vdr/timers/actions/delete", "timers.delete"}
+};
+
 HttpServerRequest getRequest(const std::string& authorization = "")
 {
     HttpServerRequest request;
@@ -56,17 +68,17 @@ HttpServerRequest browserGetRequest(
     return request;
 }
 
-HttpServerRequest remoteRequest(
+HttpServerRequest mutationRequest(
+    const std::string& path,
     const std::string& backendId,
-    const std::string& authorization = "",
-    const std::string& path = "/api/vdr/remote/actions")
+    const std::string& authorization = "")
 {
     HttpServerRequest request;
     request.method = "POST";
     request.path = path;
     request.body =
         "{\"backendId\":\"" + backendId +
-        "\",\"operationId\":\"op-1\",\"action\":\"ok\"}";
+        "\",\"operationId\":\"op-1\"}";
     if (!authorization.empty())
     {
         request.headers["Authorization"] = authorization;
@@ -76,16 +88,39 @@ HttpServerRequest remoteRequest(
     return request;
 }
 
+HttpServerRequest remoteRequest(
+    const std::string& backendId,
+    const std::string& authorization = "",
+    const std::string& path = "/api/vdr/remote/actions")
+{
+    HttpServerRequest request = mutationRequest(
+        path,
+        backendId,
+        authorization);
+    request.body =
+        "{\"backendId\":\"" + backendId +
+        "\",\"operationId\":\"op-1\",\"action\":\"ok\"}";
+    return request;
+}
+
+HttpServerRequest timerRequest(
+    const TimerRoute& route,
+    const std::string& backendId,
+    const std::string& authorization = "",
+    const std::string& pathOverride = "")
+{
+    return mutationRequest(
+        pathOverride.empty() ? route.path : pathOverride,
+        backendId,
+        authorization);
+}
+
 HttpServerRequest unmigratedRequest(const std::string& authorization = "")
 {
-    HttpServerRequest request;
-    request.method = "POST";
-    request.path = "/api/vdr/timers/actions/create";
-    if (!authorization.empty())
-    {
-        request.headers["Authorization"] = authorization;
-    }
-    return request;
+    return mutationRequest(
+        "/api/vdr/channels/actions/move",
+        "default",
+        authorization);
 }
 
 SecurityConfiguration compatibility()
@@ -226,6 +261,15 @@ int main()
     assert(compatibilityRemote.allowed);
     assert(compatibilityRemote.protectedMutation);
     assert(compatibilityRemote.context.requestId == "request-1");
+
+    for (const TimerRoute& route : kTimerRoutes)
+    {
+        const SecurityGateDecision compatibilityTimer =
+            compatibilityGate.evaluate(
+                timerRequest(route, "default", kLegacyCredential));
+        assert(compatibilityTimer.allowed);
+        assert(compatibilityTimer.protectedMutation);
+    }
 
     assert(compatibilityGate.evaluate(
         unmigratedRequest(kLegacyCredential)).allowed);
@@ -393,6 +437,137 @@ int main()
     assert(trailingSlashDecision.rejection.body.find(
         "security_policy_not_migrated") != std::string::npos);
 
+    for (const TimerRoute& route : kTimerRoutes)
+    {
+        HttpServerRequest missingTimerCsrf =
+            timerRequest(route, "default");
+        missingTimerCsrf.headers["Cookie"] = validBrowserCookie;
+        const SecurityGateDecision missingTimerCsrfDecision =
+            compatibilityGate.evaluate(missingTimerCsrf);
+        assert(!missingTimerCsrfDecision.allowed);
+        assert(missingTimerCsrfDecision.protectedMutation);
+        assert(missingTimerCsrfDecision.rejection.statusCode == 403);
+        assert(missingTimerCsrfDecision.rejection.body.find(
+            "csrf_validation_failed") != std::string::npos);
+
+        HttpServerRequest timerNoPermission =
+            timerRequest(route, "default");
+        timerNoPermission.headers["Cookie"] = validBrowserCookie;
+        timerNoPermission.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
+        const SecurityGateDecision timerNoPermissionDecision =
+            compatibilityGate.evaluate(timerNoPermission);
+        assert(!timerNoPermissionDecision.allowed);
+        assert(timerNoPermissionDecision.rejection.statusCode == 403);
+        assert(timerNoPermissionDecision.rejection.body.find(
+            "permission_denied") != std::string::npos);
+
+        assert(permissionGrantRepository.ensureGrant(
+            managed.actorId,
+            route.permission,
+            "default"));
+        const SecurityGateDecision directTimerAllowed =
+            compatibilityGate.evaluate(timerNoPermission);
+        assert(directTimerAllowed.allowed);
+        assert(directTimerAllowed.protectedMutation);
+
+        HttpServerRequest timerWrongScope =
+            timerRequest(route, "house-b");
+        timerWrongScope.headers["Cookie"] = validBrowserCookie;
+        timerWrongScope.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
+        const SecurityGateDecision timerWrongScopeDecision =
+            compatibilityGate.evaluate(timerWrongScope);
+        assert(!timerWrongScopeDecision.allowed);
+        assert(timerWrongScopeDecision.rejection.statusCode == 403);
+        assert(timerWrongScopeDecision.rejection.body.find(
+            "backend_scope_denied") != std::string::npos);
+
+        assert(permissionGrantRepository.revokeGrant(
+            managed.actorId,
+            route.permission,
+            "default"));
+    }
+
+    HttpServerRequest timerMissingBackend =
+        timerRequest(kTimerRoutes.front(), "");
+    timerMissingBackend.headers["Cookie"] = validBrowserCookie;
+    timerMissingBackend.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
+    const SecurityGateDecision timerMissingBackendDecision =
+        compatibilityGate.evaluate(timerMissingBackend);
+    assert(!timerMissingBackendDecision.allowed);
+    assert(timerMissingBackendDecision.rejection.statusCode == 400);
+    assert(timerMissingBackendDecision.rejection.body.find(
+        "invalid_backend_scope") != std::string::npos);
+
+    assert(permissionGrantRepository.ensureGrant(
+        managed.actorId,
+        "role.admin",
+        "default"));
+    for (const TimerRoute& route : kTimerRoutes)
+    {
+        HttpServerRequest adminTimer = timerRequest(route, "default");
+        adminTimer.headers["Cookie"] = validBrowserCookie;
+        adminTimer.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
+        const SecurityGateDecision adminTimerDecision =
+            compatibilityGate.evaluate(adminTimer);
+        assert(adminTimerDecision.allowed);
+    }
+
+    assert(permissionGrantRepository.ensureGrant(
+        managed.actorId,
+        "role.read-only",
+        "default"));
+    for (const TimerRoute& route : kTimerRoutes)
+    {
+        HttpServerRequest readOnlyTimer = timerRequest(route, "default");
+        readOnlyTimer.headers["Cookie"] = validBrowserCookie;
+        readOnlyTimer.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
+        const SecurityGateDecision readOnlyTimerDecision =
+            compatibilityGate.evaluate(readOnlyTimer);
+        assert(!readOnlyTimerDecision.allowed);
+        assert(readOnlyTimerDecision.rejection.statusCode == 403);
+        assert(readOnlyTimerDecision.rejection.body.find(
+            "role_read_only") != std::string::npos);
+    }
+    assert(permissionGrantRepository.revokeGrant(
+        managed.actorId,
+        "role.read-only",
+        "default"));
+    assert(permissionGrantRepository.revokeGrant(
+        managed.actorId,
+        "role.admin",
+        "default"));
+
+    HttpServerRequest browserTimerQuery = timerRequest(
+        kTimerRoutes[1],
+        "default",
+        "",
+        "/api/vdr/timers/actions/update?source=browser");
+    browserTimerQuery.headers["Cookie"] = validBrowserCookie;
+    browserTimerQuery.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
+    assert(permissionGrantRepository.ensureGrant(
+        managed.actorId,
+        "timers.modify",
+        "default"));
+    assert(compatibilityGate.evaluate(browserTimerQuery).allowed);
+    assert(permissionGrantRepository.revokeGrant(
+        managed.actorId,
+        "timers.modify",
+        "default"));
+
+    HttpServerRequest browserTimerTrailingSlash = timerRequest(
+        kTimerRoutes[1],
+        "default",
+        "",
+        "/api/vdr/timers/actions/update/");
+    browserTimerTrailingSlash.headers["Cookie"] = validBrowserCookie;
+    browserTimerTrailingSlash.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
+    const SecurityGateDecision timerTrailingSlashDecision =
+        compatibilityGate.evaluate(browserTimerTrailingSlash);
+    assert(!timerTrailingSlashDecision.allowed);
+    assert(timerTrailingSlashDecision.rejection.statusCode == 503);
+    assert(timerTrailingSlashDecision.rejection.body.find(
+        "security_policy_not_migrated") != std::string::npos);
+
     HttpServerRequest browserUnmigrated = unmigratedRequest();
     browserUnmigrated.headers["Cookie"] = validBrowserCookie;
     browserUnmigrated.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
@@ -407,6 +582,20 @@ int main()
         compatibilityGate.evaluate(
             remoteRequest("default", kManagedCredential));
     assert(managedRemote.allowed);
+
+    for (const TimerRoute& route : kTimerRoutes)
+    {
+        const SecurityGateDecision managedTimerDenied =
+            compatibilityGate.evaluate(
+                timerRequest(route, "default", kManagedCredential));
+        assert(!managedTimerDenied.allowed);
+        assert(managedTimerDenied.protectedMutation);
+        assert(managedTimerDenied.rejection.statusCode == 403);
+        assert(managedTimerDenied.rejection.body.find(
+            "permission_denied") != std::string::npos);
+        assert(managedTimerDenied.rejection.body.find(
+            "security_policy_not_migrated") == std::string::npos);
+    }
 
     const SecurityGateDecision managedUnmigrated =
         compatibilityGate.evaluate(
@@ -458,6 +647,30 @@ int main()
     assert(wrongScope.rejection.body.find(
         "backend_scope_denied") != std::string::npos);
 
+    SecurityHttpGate timerEnforcedGate(
+        enforced({
+            PermissionGrant{"timers.create", "default"},
+            PermissionGrant{"timers.modify", "default"},
+            PermissionGrant{"timers.delete", "default"}
+        }),
+        accountabilityRepository,
+        &identityResolver);
+    for (const TimerRoute& route : kTimerRoutes)
+    {
+        const SecurityGateDecision enforcedTimerAllowed =
+            timerEnforcedGate.evaluate(
+                timerRequest(route, "default", kLegacyCredential));
+        assert(enforcedTimerAllowed.allowed);
+
+        const SecurityGateDecision enforcedTimerWrongScope =
+            timerEnforcedGate.evaluate(
+                timerRequest(route, "house-b", kLegacyCredential));
+        assert(!enforcedTimerWrongScope.allowed);
+        assert(enforcedTimerWrongScope.rejection.statusCode == 403);
+        assert(enforcedTimerWrongScope.rejection.body.find(
+            "backend_scope_denied") != std::string::npos);
+    }
+
     SecurityHttpGate noPermissionGate(
         enforced({PermissionGrant{"recordings.view", "*"}}),
         accountabilityRepository,
@@ -469,6 +682,16 @@ int main()
     assert(missingPermission.rejection.statusCode == 403);
     assert(missingPermission.rejection.body.find(
         "permission_denied") != std::string::npos);
+    for (const TimerRoute& route : kTimerRoutes)
+    {
+        const SecurityGateDecision missingTimerPermission =
+            noPermissionGate.evaluate(
+                timerRequest(route, "default", kLegacyCredential));
+        assert(!missingTimerPermission.allowed);
+        assert(missingTimerPermission.rejection.statusCode == 403);
+        assert(missingTimerPermission.rejection.body.find(
+            "permission_denied") != std::string::npos);
+    }
 
     HttpServerRequest invalidCredential = remoteRequest("default");
     invalidCredential.headers["Authorization"] =
@@ -505,6 +728,8 @@ int main()
     bool sawDenied = false;
     bool sawUnmigratedDenial = false;
     bool sawCsrfDenial = false;
+    bool sawTimerCsrfDenial = false;
+    bool sawTimerAllowed = false;
     for (const AccountabilityEvent& event : accountabilityRepository.listAll())
     {
         sawAllowed = sawAllowed ||
@@ -517,6 +742,15 @@ int main()
             (event.permission == "remote.control" &&
              event.reasonCode == "csrf_validation_failed" &&
              event.outcome == "dispatch_denied");
+        sawTimerCsrfDenial = sawTimerCsrfDenial ||
+            (event.permission == "timers.create" &&
+             event.reasonCode == "csrf_validation_failed" &&
+             event.outcome == "dispatch_denied");
+        sawTimerAllowed = sawTimerAllowed ||
+            ((event.permission == "timers.create" ||
+              event.permission == "timers.modify" ||
+              event.permission == "timers.delete") &&
+             event.outcome == "dispatch_authorized");
         assert(event.permission.find("Basic ") == std::string::npos);
         assert(event.reasonCode.find("test-password") ==
             std::string::npos);
@@ -531,6 +765,8 @@ int main()
     assert(sawDenied);
     assert(sawUnmigratedDenial);
     assert(sawCsrfDenial);
+    assert(sawTimerCsrfDenial);
+    assert(sawTimerAllowed);
 
     assert(browserRepository.revokeBySessionId(
         "session-browser-active"));
