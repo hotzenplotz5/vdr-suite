@@ -102,6 +102,65 @@ function installSearchTimerPreviewCacheWarmup() {
   window.__vdrSuiteSearchTimerPreviewFetchWrapped = true;
 }
 
+function installSecurityRoleErrorMessages() {
+  if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+  if (window.__vdrSuiteSecurityRoleErrorMessagesWrapped === true) return;
+
+  const originalFetch = window.fetch.bind(window);
+
+  function readOnlyMessage() {
+    const language = document && document.documentElement
+      ? String(document.documentElement.lang || '').toLowerCase()
+      : '';
+    return language.startsWith('en')
+      ? 'This account has read-only access to this backend.'
+      : 'Dieses Konto hat für dieses Backend nur Lesezugriff.';
+  }
+
+  window.fetch = function (input, init) {
+    return originalFetch(input, init).then(response => {
+      if (!response || response.status !== 403 ||
+          typeof response.clone !== 'function' ||
+          typeof window.Response !== 'function') {
+        return response;
+      }
+
+      let inspectionResponse;
+      try {
+        inspectionResponse = response.clone();
+      } catch (error) {
+        return response;
+      }
+
+      return inspectionResponse.text().then(text => {
+        let payload;
+        try {
+          payload = JSON.parse(text);
+        } catch (error) {
+          return response;
+        }
+
+        if (!payload || !payload.error || typeof payload.error !== 'object' ||
+            String(payload.error.code || '') !== 'role_read_only') {
+          return response;
+        }
+
+        payload.error.message = readOnlyMessage();
+        const headers = typeof window.Headers === 'function'
+          ? new window.Headers(response.headers)
+          : response.headers;
+        return new window.Response(JSON.stringify(payload), {
+          status: response.status,
+          statusText: response.statusText,
+          headers: headers
+        });
+      }).catch(() => response);
+    });
+  };
+
+  window.__vdrSuiteSecurityRoleErrorMessagesWrapped = true;
+}
+
 function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
   if (typeof readyCheck === 'function' && readyCheck()) {
     return Promise.resolve();
@@ -266,6 +325,7 @@ function startVdrSuiteDeferredFrontendRuntimes() {
 }
 
 if (typeof window !== 'undefined') {
+  installSecurityRoleErrorMessages();
   installSearchTimerPreviewCacheWarmup();
 
   window.VdrSuiteDeferredFrontendRuntimes = Object.freeze({
