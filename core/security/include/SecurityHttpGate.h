@@ -99,10 +99,25 @@ public:
         }
 
         const bool isPost = request.method == "POST";
+        const std::string path = requestPath(request.path);
         const bool isRemoteAction =
-            isPost && requestPath(request.path) == "/api/vdr/remote/actions";
+            isPost && path == "/api/vdr/remote/actions";
+        const bool isTimerCreateAction =
+            isPost && path == "/api/vdr/timers/actions/create";
+        const bool isTimerUpdateAction =
+            isPost && path == "/api/vdr/timers/actions/update";
+        const bool isTimerDeleteAction =
+            isPost && path == "/api/vdr/timers/actions/delete";
+        const bool isProtectedMutation =
+            isRemoteAction ||
+            isTimerCreateAction ||
+            isTimerUpdateAction ||
+            isTimerDeleteAction;
 
-        if (isPost && gate.browserAuthenticated && !isRemoteAction)
+        if (isPost && gate.browserAuthenticated && !isRemoteAction &&
+            !isTimerCreateAction &&
+            !isTimerUpdateAction &&
+            !isTimerDeleteAction)
         {
             AuthorizationDecision decision;
             decision.reasonCode = "security_policy_not_migrated";
@@ -119,7 +134,7 @@ public:
                 "");
         }
 
-        if (!isRemoteAction)
+        if (!isProtectedMutation)
         {
             const bool explicitPolicyRequired =
                 isPost &&
@@ -147,10 +162,29 @@ public:
 
         gate.protectedMutation = true;
         AuthorizationRequest requestToAuthorize;
-        requestToAuthorize.permission = "remote.control";
         requestToAuthorize.backendId =
             jsonStringValue(request.body, "backendId");
-        requestToAuthorize.action = "remote.control";
+
+        if (isRemoteAction)
+        {
+            requestToAuthorize.permission = "remote.control";
+            requestToAuthorize.action = "remote.control";
+        }
+        else if (isTimerCreateAction)
+        {
+            requestToAuthorize.permission = "timers.create";
+            requestToAuthorize.action = "timers.create";
+        }
+        else if (isTimerUpdateAction)
+        {
+            requestToAuthorize.permission = "timers.modify";
+            requestToAuthorize.action = "timers.modify";
+        }
+        else
+        {
+            requestToAuthorize.permission = "timers.delete";
+            requestToAuthorize.action = "timers.delete";
+        }
 
         const std::string operationId =
             jsonStringValue(request.body, "operationId");
