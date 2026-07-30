@@ -175,14 +175,23 @@ public:
     }
 
 private:
+    static bool protectedMutationPermission(
+        const std::string& permission)
+    {
+        return permission == "remote.control" ||
+            permission == "timers.create" ||
+            permission == "timers.modify" ||
+            permission == "timers.delete";
+    }
+
     static bool adminRoleGrants(const std::string& permission)
     {
-        return permission == "remote.control";
+        return protectedMutationPermission(permission);
     }
 
     static bool mutatingPermission(const std::string& permission)
     {
-        return permission == "remote.control";
+        return protectedMutationPermission(permission);
     }
 
     static bool isReadOnlyMutation(
