@@ -128,8 +128,10 @@ test-live-remote-api-runtime:
 
 test-live-remote-frontend:
 	node --check web/frontend/api/live-remote-client-api.js
+	node --check web/frontend/platform/deferred-runtime-loader.js
 	node --check web/frontend/modules/remote.js
 	node web/frontend/tests/test_remote_runtime.js
 	node web/frontend/tests/test_browser_session_runtime.js
+	node web/frontend/tests/test_timer_security_runtime.js
 
 test-frontend-contracts: test-live-remote-frontend
