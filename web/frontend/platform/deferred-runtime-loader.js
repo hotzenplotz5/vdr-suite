@@ -161,6 +161,91 @@ function installSecurityRoleErrorMessages() {
   window.__vdrSuiteSecurityRoleErrorMessagesWrapped = true;
 }
 
+function installTimerMutationCsrf() {
+  if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+  if (window.__vdrSuiteTimerMutationCsrfWrapped === true) return;
+
+  const originalFetch = window.fetch.bind(window);
+  const timerMutationPaths = Object.freeze([
+    '/api/vdr/timers/actions/create',
+    '/api/vdr/timers/actions/update',
+    '/api/vdr/timers/actions/delete'
+  ]);
+
+  function requestUrl(input) {
+    if (typeof input === 'string') return input;
+    if (input && typeof input.url === 'string') return input.url;
+    return '';
+  }
+
+  function requestMethod(input, init) {
+    if (init && init.method) return String(init.method).toUpperCase();
+    if (input && typeof input.method === 'string') return String(input.method).toUpperCase();
+    return 'GET';
+  }
+
+  function requestPath(url) {
+    try {
+      return new URL(url, window.location.href).pathname;
+    } catch (error) {
+      const query = url.indexOf('?');
+      return query === -1 ? url : url.slice(0, query);
+    }
+  }
+
+  function isTimerMutation(input, init) {
+    return requestMethod(input, init) === 'POST' &&
+      timerMutationPaths.includes(requestPath(requestUrl(input)));
+  }
+
+  function csrfHeaders() {
+    const session = window.VdrSuiteBrowserSession;
+    if (!session || typeof session.csrfHeaders !== 'function') return {};
+    const headers = session.csrfHeaders();
+    return headers && typeof headers === 'object' ? headers : {};
+  }
+
+  function mergedInit(input, init) {
+    const securityHeaders = csrfHeaders();
+    if (!Object.prototype.hasOwnProperty.call(securityHeaders, 'X-CSRF-Token')) {
+      return init;
+    }
+
+    const next = Object.assign({}, init || {});
+    const requestHeaders = input && typeof input !== 'string' && input.headers
+      ? input.headers
+      : {};
+
+    if (typeof window.Headers === 'function') {
+      const headers = new window.Headers(requestHeaders);
+      new window.Headers(next.headers || {}).forEach((value, name) => {
+        headers.set(name, value);
+      });
+      Object.keys(securityHeaders).forEach(name => {
+        headers.set(name, securityHeaders[name]);
+      });
+      next.headers = headers;
+      return next;
+    }
+
+    next.headers = Object.assign(
+      {},
+      requestHeaders,
+      next.headers || {},
+      securityHeaders
+    );
+    return next;
+  }
+
+  window.fetch = function (input, init) {
+    return isTimerMutation(input, init)
+      ? originalFetch(input, mergedInit(input, init))
+      : originalFetch(input, init);
+  };
+
+  window.__vdrSuiteTimerMutationCsrfWrapped = true;
+}
+
 function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
   if (typeof readyCheck === 'function' && readyCheck()) {
     return Promise.resolve();
@@ -326,6 +411,7 @@ function startVdrSuiteDeferredFrontendRuntimes() {
 
 if (typeof window !== 'undefined') {
   installSecurityRoleErrorMessages();
+  installTimerMutationCsrf();
   installSearchTimerPreviewCacheWarmup();
 
   window.VdrSuiteDeferredFrontendRuntimes = Object.freeze({
