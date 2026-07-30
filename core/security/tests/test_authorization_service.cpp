@@ -1,6 +1,8 @@
 #include "AuthorizationService.h"
 
 #include <cassert>
+#include <string>
+#include <vector>
 
 namespace
 {
@@ -21,23 +23,32 @@ RequestSecurityContext authenticatedContext()
     return context;
 }
 
-AuthorizationRequest requestFor(const std::string& backendId)
+AuthorizationRequest permissionRequest(
+    const std::string& permission,
+    const std::string& backendId)
 {
     AuthorizationRequest request;
-    request.permission = "remote.control";
+    request.permission = permission;
     request.backendId = backendId;
-    request.action = "remote.control";
+    request.action = permission;
     return request;
+}
+
+AuthorizationRequest requestFor(const std::string& backendId)
+{
+    return permissionRequest("remote.control", backendId);
 }
 
 AuthorizationRequest recordingsViewRequest(const std::string& backendId)
 {
-    AuthorizationRequest request;
-    request.permission = "recordings.view";
-    request.backendId = backendId;
-    request.action = "recordings.view";
-    return request;
+    return permissionRequest("recordings.view", backendId);
 }
+
+const std::vector<std::string> kTimerMutationPermissions = {
+    "timers.create",
+    "timers.modify",
+    "timers.delete"
+};
 }
 
 int main()
@@ -52,12 +63,49 @@ int main()
     allowed.grants.push_back(PermissionGrant{"remote.control", "default"});
     assert(service.authorize(allowed, requestFor("default")).allowed);
 
+    for (const std::string& permission : kTimerMutationPermissions)
+    {
+        RequestSecurityContext directTimerGrant = authenticatedContext();
+        directTimerGrant.grants.push_back(
+            PermissionGrant{permission, "default"});
+        const AuthorizationDecision directTimerAllowed =
+            service.authorize(
+                directTimerGrant,
+                permissionRequest(permission, "default"));
+        assert(directTimerAllowed.allowed);
+        assert(directTimerAllowed.reasonCode == "permission_granted");
+
+        const AuthorizationDecision directTimerWrongScope =
+            service.authorize(
+                directTimerGrant,
+                permissionRequest(permission, "house-b"));
+        assert(!directTimerWrongScope.allowed);
+        assert(directTimerWrongScope.reasonCode == "backend_scope_denied");
+    }
+
     RequestSecurityContext adminRole = authenticatedContext();
     adminRole.grants.push_back(PermissionGrant{"role.admin", "default"});
     const AuthorizationDecision adminAllowed =
         service.authorize(adminRole, requestFor("default"));
     assert(adminAllowed.allowed);
     assert(adminAllowed.reasonCode == "role_permission_granted");
+
+    for (const std::string& permission : kTimerMutationPermissions)
+    {
+        const AuthorizationDecision adminTimerAllowed =
+            service.authorize(
+                adminRole,
+                permissionRequest(permission, "default"));
+        assert(adminTimerAllowed.allowed);
+        assert(adminTimerAllowed.reasonCode == "role_permission_granted");
+
+        const AuthorizationDecision adminTimerWrongScope =
+            service.authorize(
+                adminRole,
+                permissionRequest(permission, "house-b"));
+        assert(!adminTimerWrongScope.allowed);
+        assert(adminTimerWrongScope.reasonCode == "backend_scope_denied");
+    }
 
     const AuthorizationDecision adminWrongScope =
         service.authorize(adminRole, requestFor("house-b"));
@@ -70,6 +118,16 @@ int main()
         service.authorize(wildcardAdminRole, requestFor("default"));
     assert(!wildcardAdminDenied.allowed);
     assert(wildcardAdminDenied.reasonCode == "backend_scope_denied");
+    for (const std::string& permission : kTimerMutationPermissions)
+    {
+        const AuthorizationDecision wildcardAdminTimerDenied =
+            service.authorize(
+                wildcardAdminRole,
+                permissionRequest(permission, "default"));
+        assert(!wildcardAdminTimerDenied.allowed);
+        assert(wildcardAdminTimerDenied.reasonCode ==
+            "backend_scope_denied");
+    }
 
     RequestSecurityContext readOnlyRole = allowed;
     readOnlyRole.grants.push_back(PermissionGrant{"role.read-only", "default"});
@@ -78,12 +136,36 @@ int main()
     assert(!readOnlyDenied.allowed);
     assert(readOnlyDenied.reasonCode == "role_read_only");
 
+    for (const std::string& permission : kTimerMutationPermissions)
+    {
+        RequestSecurityContext readOnlyTimer = adminRole;
+        readOnlyTimer.grants.push_back(
+            PermissionGrant{permission, "default"});
+        readOnlyTimer.grants.push_back(
+            PermissionGrant{"role.read-only", "default"});
+        const AuthorizationDecision readOnlyTimerDenied =
+            service.authorize(
+                readOnlyTimer,
+                permissionRequest(permission, "default"));
+        assert(!readOnlyTimerDenied.allowed);
+        assert(readOnlyTimerDenied.reasonCode == "role_read_only");
+    }
+
     RequestSecurityContext scopedReadOnlyRole = allowed;
     scopedReadOnlyRole.grants.push_back(
         PermissionGrant{"role.read-only", "house-b"});
     assert(service.authorize(
         scopedReadOnlyRole,
         requestFor("default")).allowed);
+
+    RequestSecurityContext scopedReadOnlyTimer = authenticatedContext();
+    scopedReadOnlyTimer.grants.push_back(
+        PermissionGrant{"timers.modify", "default"});
+    scopedReadOnlyTimer.grants.push_back(
+        PermissionGrant{"role.read-only", "house-b"});
+    assert(service.authorize(
+        scopedReadOnlyTimer,
+        permissionRequest("timers.modify", "default")).allowed);
 
     RequestSecurityContext conflictingRoles = adminRole;
     conflictingRoles.grants.push_back(
@@ -122,6 +204,12 @@ int main()
     RequestSecurityContext wildcard = authenticatedContext();
     wildcard.grants.push_back(PermissionGrant{"*", "*"});
     assert(service.authorize(wildcard, requestFor("house-b")).allowed);
+    for (const std::string& permission : kTimerMutationPermissions)
+    {
+        assert(service.authorize(
+            wildcard,
+            permissionRequest(permission, "house-b")).allowed);
+    }
 
     RequestSecurityContext expired = allowed;
     expired.session->expired = true;
