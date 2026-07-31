@@ -48,15 +48,23 @@ HttpServerRequest
   -> controller/service/domain safety checks
 ```
 
-The first migrated mutation is `POST /api/vdr/remote/actions`, requiring `remote.control@backend` and a durable pre-dispatch decision.
+The migrated mutation catalogue currently includes Remote, Timer
+create/update/delete and both Channel Move aliases. Each requires its canonical
+permission at the exact requested backend plus a durable pre-dispatch decision.
 
 Actor, device, credential, session, authentication state, grants, request ID and correlation ID are represented explicitly. Persistent inactive, expired, revoked, missing or mismatched state fails closed before router dispatch.
 
-The installed browser still uses the transitional legacy Basic credential. An optional managed Basic identity can coexist with its own lifecycle rows, grants and one-way password verifier. Only the exact legacy credential retains the temporary unmigrated-POST bypass.
+The installed Webfrontend exchanges Basic credentials for a browser session
+and then uses browser-cookie authentication with memory-only CSRF state.
+Legacy Basic remains a transitional compatibility path. Managed Basic and
+browser identities have their own lifecycle and grants and do not inherit the
+Legacy Basic unmigrated-POST bypass.
 
-## Active isolated browser-session HTTP lifecycle
+## Active browser-session and ordinary-route security boundary
 
-The installed daemon exposes two exact browser lifecycle POST routes through a dedicated gate that runs before the general application gate:
+The installed daemon exposes two exact browser lifecycle POST routes through
+a dedicated lifecycle gate. Valid browser cookies also authenticate ordinary
+application routes through the general security gate:
 
 ```text
 POST /api/security/browser-sessions
@@ -95,7 +103,10 @@ POST /api/security/browser-sessions/logout
        -> expired hardened Set-Cookie
 ```
 
-This boundary is intentionally isolated. Browser cookies do not yet authenticate ordinary application GET routes or business mutations handled by `SecurityHttpGate`.
+The lifecycle routes remain separately handled, but their issued cookie is now
+accepted by `SecurityHttpGate` for ordinary application requests. Browser
+credentials take precedence when presented and never fall back to Basic after
+an invalid cookie.
 
 ### Issuance material
 
@@ -124,7 +135,11 @@ The browser verifier stores only a non-secret lookup token and separate one-way 
 
 Strict parsing rejects malformed and duplicate target cookies. Authentication distinguishes anonymous, invalid, expired, revoked and authenticated states. CSRF verification is independent and succeeds only for an active valid session.
 
-The isolated lifecycle boundary issues hardened HTTP responses, enforces cookie-bound CSRF on logout and writes lifecycle authorization accountability. General-route browser authentication precedence and business-mutation CSRF remain open.
+The lifecycle boundary issues hardened HTTP responses, enforces cookie-bound
+CSRF on logout and writes lifecycle authorization accountability. The general
+gate now enforces browser CSRF and exact backend authorization for Remote,
+Timer create/update/delete and Channel Move. Every other browser business POST
+remains fail-closed.
 
 ## Independent safety decisions
 
@@ -151,6 +166,7 @@ No frontend state replaces these server decisions.
 - `SecurityIdentityIssuanceRepository.cpp` owns issuance-specific session/credential inserts.
 - `CredentialVerifierRepository` owns managed Basic verifiers.
 - `BrowserSessionCredentialRepository` owns browser token binding, one-way hashes, expiry and revocation.
+- `SecurityPermissionGrantRepository` owns active backend-scoped actor grants used by browser contexts and fixed roles.
 - `BrowserSessionIssuanceService` owns entropy, hashing and transaction orchestration without direct SQLite calls.
 - `AccountabilityEventRepository` owns append-only authorization evidence.
 - Database triggers reject accountability updates and deletes.
@@ -162,8 +178,10 @@ No frontend state replaces these server decisions.
 - backend-scoped reads and read-only policy;
 - guarded Recording and Timer-related domain operations;
 - allowlisted Remote actions and operation IDs;
-- centralized authorization for Remote;
-- persisted lifecycle resolution before authorization;
+- centralized authorization for Remote, Timer create/update/delete and both
+  Channel Move aliases;
+- fixed exact-backend Admin expansion and Read-only precedence;
+- persisted lifecycle and browser-grant resolution before authorization;
 - managed Basic verification and legacy-bypass separation;
 - fail-closed expiry/revocation and unmigrated-route handling;
 - append-only pre-dispatch accountability;
@@ -188,11 +206,11 @@ No frontend state replaces these server decisions.
 | Actor/request model | Basic and isolated browser lifecycle boundaries are real-runtime accepted and share the canonical identity model | Phase 62 |
 | Credential verification | Managed Basic and isolated browser verifier accepted; native/service and protected password lifecycle missing | Phase 62 |
 | Browser session issuance | Exact Basic-to-session endpoint, hardened cookie and atomic three-row persistence real-runtime accepted | Phase 62 |
-| Browser authentication and CSRF | Cookie plus CSRF active for the exact logout route; ordinary-route precedence and business-mutation enforcement remain open | Phase 62 |
+| Browser authentication and CSRF | Browser-cookie precedence is active; logout, Remote, Timer create/update/delete and Channel Move enforce matching CSRF; remaining browser POSTs fail closed | Phase 62 |
 | Logout/session management | Atomic verifier/session/credential logout accepted; refresh, idle timeout, cleanup and recovery remain open | Phase 62 |
-| Roles/grants/scopes | No persisted assignment model | Phase 62 |
-| Complete server authorization | Remote migrated; all other protected routes remain to classify/migrate | Phase 62 |
-| Accountability | General and browser-lifecycle pre-dispatch decisions are real-runtime accepted; completion, outbox and queries remain open | Phase 62 |
+| Roles/grants/scopes | Backend-scoped actor grants and fixed exact-scope Admin/Read-only roles accepted; generic definitions and protected administration missing | Phase 62 |
+| Complete server authorization | Remote, Timer create/update/delete and Channel Move migrated; remaining route families still require classification and migration | Phase 62 |
+| Accountability | Lifecycle and migrated-mutation pre-dispatch decisions are real-runtime accepted; completion, outbox and queries remain open | Phase 62 |
 | Revision/idempotency | Partial domain mechanisms only | Phase 62 |
 | Backend Agent | Contract/foundation only | Phase 63 |
 | TimerIntent orchestration | Missing | Phase 64 |

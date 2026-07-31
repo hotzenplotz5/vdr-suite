@@ -11,6 +11,8 @@
 - [Current Architecture State](development/current-architecture-state.md)
 - [Phase 62 Slice 1](development/phase-62-security-identity-foundation-slice-1.md)
 - [Phase 62 Slice 2](development/phase-62-security-identity-foundation-slice-2.md)
+- [Phase 62 Runtime Evidence](development/phase-62-runtime-evidence.md)
+- [Phase 62 Slice 2H Channel Move](development/phase-62-slice-2h-channel-move-security-migration.md)
 - [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
 - [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
 - [Architecture Gap Matrix](planning/architecture-audit-gap-matrix.md)
@@ -41,14 +43,35 @@ Configurable photorealistic VDR Remote (#115)
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
 
-Next strict runtime phase:
+Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
-Active. Slice 1 is real-runtime validated. Slice 2 lifecycle and managed Basic are real-runtime accepted. Browser-session verification, atomic issuance and two isolated HTTP lifecycle routes are implemented and CI validated. Ordinary application-route cookie authentication, business-mutation CSRF enforcement and real-yaVDR acceptance of the HTTP lifecycle remain open.
+Active and incomplete, but repository-, CI- and real-runtime accepted through
+Slice 2H.
+
+Accepted source/runtime head:
+2e0b31f671edf18393d7d48ea6e15697fc3a044d
+
+Successful GitHub Actions run:
+#6559
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30627974107
+
+Installed daemon SHA-256:
+ff7582b6fdb6a2faa7d0e29f6795ad634ea76d95a42280a6140e005e249cbf52
+
+Installed deferred runtime loader SHA-256:
+e4860a2b7c613919f3a084fc625f398bd5f339191ae48133cfc76431c0189ca9
 ```
 
-Phase 61 remains completed. Phase 62 is not complete. Phase 63-67 runtime has not been advanced.
+Accepted cumulative Phase 62 scope now includes persistent lifecycle and
+credentials, browser-session issue/logout, ordinary-route browser
+authentication, persisted actor grants, fixed exact-backend Admin/Read-only
+roles, Webfrontend memory-only CSRF handling, Remote mutation migration, Timer
+create/update/delete migration and both Channel Move aliases.
+
+Phase 61 remains completed. Phase 62 is not complete. Phase 63-67 runtime has
+not been advanced.
 
 ## Implemented runtime truth on `main`
 
@@ -67,38 +90,53 @@ Current `main` contains:
 
 ```text
 POST /api/security/browser-sessions
-  -> BrowserSessionHttpGate
-       -> legacy or managed Basic authentication
-       -> PersistentIdentityResolver
-       -> session.issue.self accountability
-  -> BrowserSessionHttpService
-       -> atomic BrowserSessionIssuanceService
-       -> hardened Set-Cookie plus one-time CSRF JSON
+  -> Basic authentication and persistent identity resolution
+  -> session.issue.self accountability
+  -> atomic browser-session issuance
+  -> hardened HttpOnly cookie plus one-time in-memory CSRF token
 
 POST /api/security/browser-sessions/logout
-  -> BrowserSessionHttpGate
-       -> BrowserSessionAuthenticator
-       -> PersistentIdentityResolver
-       -> X-CSRF-Token verification
-       -> session.revoke.self accountability
-  -> BrowserSessionHttpService
-       -> atomic verifier/session/credential revocation
-       -> expired hardened cookie
+  -> browser-cookie authentication
+  -> persistent lifecycle and grant resolution
+  -> cookie-bound CSRF verification
+  -> session.revoke.self accountability
+  -> atomic verifier/session/credential revocation
 
-Every other request
-  -> SecurityHttpGate
-       -> LegacyBasicAuthenticator
-       -> optional ManagedBasicAuthenticator
-            -> CredentialVerifierRepository
-       -> RequestSecurityContext
-       -> PersistentIdentityResolver
-            -> SecurityIdentityRepository
-       -> AuthorizationService
-       -> AccountabilityEventRepository
+Ordinary application request
+  -> browser cookie has strict precedence when presented
+  -> otherwise Legacy Basic or optional Managed Basic
+  -> PersistentIdentityResolver
+  -> persisted actor-grant resolution for browser contexts
+  -> exact route classification
+  -> browser CSRF before authorization for migrated mutations
+  -> AuthorizationService
+  -> append-only pre-dispatch accountability
   -> ApiRouter
+  -> independent backend and domain safety checks
 ```
 
-The browser lifecycle gate recognizes only the two exact POST routes above. Browser cookies do not authenticate ordinary GET routes, Remote, Timer, Recording or other application APIs.
+The currently migrated browser-authenticated business mutations are:
+
+```text
+POST /api/vdr/remote/actions
+  permission: remote.control@<backend-id>
+
+POST /api/vdr/timers/actions/create
+  permission: timers.create@<backend-id>
+
+POST /api/vdr/timers/actions/update
+  permission: timers.modify@<backend-id>
+
+POST /api/vdr/timers/actions/delete
+  permission: timers.delete@<backend-id>
+
+POST /api/vdr/channels/move
+POST /api/vdr/channels/actions/move
+  permission: channels.move@<backend-id>
+```
+
+Query strings are stripped for exact-route classification. Trailing-slash and
+unrelated browser POST variants remain fail-closed.
 
 ## Phase 62 Slice 1 — implemented and real-runtime validated
 
@@ -166,31 +204,59 @@ The browser lifecycle gate recognizes only the two exact POST routes above. Brow
 
 Complete cookie values, raw session secrets, raw CSRF values, plaintext passwords and submitted Authorization/Cookie headers are not persisted or reflected.
 
+## Cumulative acceptance through Slice 2H
+
+Repository regression, daemon build, packaging and GitHub Actions CI #6559 all
+passed at the accepted source head.
+
+The guarded installed-runtime pass verified:
+
+- exact installed daemon and deferred-loader fingerprints;
+- direct and public frontend loader delivery;
+- Legacy Basic compatibility for both Channel Move aliases;
+- browser login and hardened cookie issuance;
+- missing and invalid CSRF denial before authorization;
+- direct permission and exact backend-scope enforcement;
+- fixed Admin allowance and Read-only precedence;
+- cross-backend Read-only isolation;
+- wildcard role rows remaining ineffective as concrete roles;
+- backend-policy rejection after successful actor authorization;
+- secret-free `channels.move` accountability;
+- logout and revoked-cookie replay denial;
+- restoration of all temporary grant rows;
+- `PRAGMA quick_check = ok`;
+- active daemon after acceptance;
+- zero real Channel Move operations.
+
 ## Open Phase 62 work
 
 Phase 62 still requires:
 
-- browser authentication precedence for ordinary application routes;
-- controlled cookie-context integration with persistent lifecycle and centralized authorization;
-- browser grant loading;
-- actual CSRF enforcement before Remote, Timer, Recording and other applicable business mutations;
-- frontend login/logout and in-memory CSRF handling;
-- complete issuance/revocation outcome accountability and transactional coupling/outbox;
+- migration of the remaining mutating route families, one bounded family per
+  slice;
+- explicit classification of non-mutating stateful POST routes;
+- completion/outcome accountability and stronger transactional coupling;
 - refresh, idle expiry, cleanup, concurrency and recovery policy;
-- protected managed/native/service credential administration;
-- persisted roles, permissions, grants and scopes;
-- complete route authorization migration;
-- universal revision, idempotency and operation lifecycle;
-- protected audit reads, redaction and retention;
-- failure injection and real-runtime closeout.
+- protected identity, credential, grant and role administration;
+- native and service credential enrollment, rotation and revocation;
+- generic role definitions and assignments beyond the fixed catalogue;
+- common revision, idempotency and operation lifecycle contracts;
+- protected audit queries, export, redaction and retention;
+- final compatibility-retirement readiness and full Phase 62 closeout.
 
 ## Compatibility boundary
 
-The local browser remains compatible through `legacy-basic`. Only the exact legacy actor/credential receives the temporary unmigrated-POST bypass.
+The local browser remains transitionally compatible through Legacy Basic.
+Browser sessions now drive ordinary application authentication and all
+explicitly migrated frontend mutations.
 
-Managed Basic identities can use authenticated reads and explicitly migrated routes, but unmigrated POSTs fail with `security_policy_not_migrated`.
+Managed Basic and browser actors do not inherit the Legacy Basic compatibility
+bypass. Unmigrated POST routes fail closed with
+`security_policy_not_migrated`.
 
-After installation, the two browser lifecycle routes add session issue/revoke behaviour without changing ordinary application-route authentication. General application requests remain on the existing Basic path until the next controlled integration increment.
+Fixed `role.admin` and `role.read-only` assignments are exact-backend grants,
+not wildcard enterprise roles. Backend read-only and capability policy remain
+independent of actor authorization.
 
 ## Pull request classification
 
@@ -201,7 +267,7 @@ After installation, the two browser lifecycle routes add session issue/revoke be
 | #114 | Merged documentation truth refresh. |
 | #115 | Merged configurable photorealistic Remote; current `main` baseline. |
 | #116 | Open Draft Android/client feasibility; proposed ADR-0051 is not accepted runtime truth. |
-| #117 | Open Draft Phase 62 implementation; Basic lifecycle is real-runtime accepted, browser verifier/issuer and isolated HTTP lifecycle are CI validated. Must not be auto-merged. |
+| #117 | Open Draft Phase 62 implementation; repository, CI and real-runtime accepted through Slice 2H. Must remain Draft and must not be auto-merged. |
 
 ## Later phase boundaries
 

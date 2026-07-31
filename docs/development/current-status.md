@@ -2,7 +2,9 @@
 
 ## Current verified position
 
-Baseline reconciled on 2026-07-27 against `origin/main` commit `cb77ff66e11dca7db2eafa36525762dcde35102d`, the merge of PR #115.
+Baseline remains `origin/main`
+`cb77ff66e11dca7db2eafa36525762dcde35102d`, with active work in Draft
+PR #117.
 
 ```text
 Latest completed numbered runtime phase:
@@ -11,22 +13,28 @@ Phase 61 - Suite Metadata and Genre Platform
 Completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
 
-Completed post-phase platform features:
-VDR Remote and Live Overlay hardening (#110)
-Backend-scoped Global Search (#111)
-Configurable photorealistic VDR Remote (#115)
-
-Historical umbrella implementation track:
-Phase 58 - Frontend and Live Parity
-
-Next strict runtime phase:
+Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
-Current Phase 62 status:
-Active. Slice 1 is real-runtime validated. Slice 2 lifecycle persistence and managed Basic are real-runtime accepted. Browser-session verification, atomic issuance and isolated HTTP login/logout lifecycle are implemented and CI validated. General cookie-authenticated application routing and business-mutation CSRF remain open.
+Repository and runtime accepted through:
+Slice 2H - Channel Move security migration
+
+Accepted source/runtime head:
+2e0b31f671edf18393d7d48ea6e15697fc3a044d
+
+GitHub Actions:
+VDR-Suite CI #6559, successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30627974107
+
+Installed daemon SHA-256:
+ff7582b6fdb6a2faa7d0e29f6795ad634ea76d95a42280a6140e005e249cbf52
+
+Installed deferred runtime loader SHA-256:
+e4860a2b7c613919f3a084fc625f398bd5f339191ae48133cfc76431c0189ca9
 ```
 
-Phase 61 remains completed. Phase 62 remains active and incomplete. Phase 63-67 runtime has not been advanced.
+Phase 61 remains completed. Phase 62 remains active and incomplete. Phase 63-67
+runtime has not been advanced.
 
 ## Stable implemented scope
 
@@ -118,27 +126,44 @@ Implemented and real-runtime validated:
 - dedicated pre-dispatch accountability records `session.issue.self`, `session.revoke.self`, authentication denial and CSRF denial;
 - exact-route tests prove browser cookies do not authenticate ordinary GETs or Remote/application POSTs.
 
-The HTTP lifecycle increment is not yet installed and real-runtime accepted on yaVDR. Ordinary application requests still authenticate through legacy or managed Basic; only the two exact lifecycle POST routes consume the browser-session verifier.
+The browser-session lifecycle and ordinary-route browser authentication are
+installed and real-runtime accepted. Browser cookies have strict precedence
+when presented, persisted actor grants are resolved for browser contexts and
+unmigrated browser POST routes remain fail-closed.
+
+## Cumulative Slice 2C-2H acceptance
+
+The accepted installed runtime now includes:
+
+- persisted browser actor grants and unavailable-store recovery;
+- ordinary-route browser-cookie authentication with no Basic fallback;
+- Webfrontend login/logout and memory-only CSRF state;
+- fixed exact-backend `role.admin` and `role.read-only`;
+- browser-CSRF migration for Remote;
+- browser-CSRF migration for Timer create/update/delete;
+- browser-CSRF migration for both Channel Move aliases;
+- exact permission, backend scope and fixed-role accountability;
+- fail-closed query/trailing-slash and unrelated-route boundaries;
+- mutation-free Channel Move runtime acceptance.
+
+Slice 2H completed with 22 controlled Channel Move security requests,
+`real_channel_moves=0`, the acceptance browser session revoked, grants restored,
+SQLite healthy and the daemon active.
 
 ## Open Phase 62 limitations
 
 The platform still lacks:
 
-- real-yaVDR acceptance of login/logout and HTTPS reverse-proxy cookie behaviour;
-- general browser-cookie authentication precedence;
-- controlled cookie-context integration for ordinary application routes;
-- browser permission/grant loading into centralized authorization;
-- actual CSRF rejection before Remote, Timer, Recording and other applicable business mutations;
-- frontend login/logout and in-memory CSRF handling;
-- complete issuance/revocation outcome accountability and transactional coupling/outbox;
-- refresh, idle expiry, cleanup, concurrent-session policy and recovery;
-- protected managed/native/service credential lifecycle administration;
-- persisted roles, grants and backend/resource scopes;
-- complete mutation and sensitive-read permission migration;
-- universal revision and idempotency contracts;
-- mutation outcome and transactional-outbox delivery;
-- complete security event catalogue and protected audit query/retention;
-- full failure injection and real-runtime closeout across all migrated routes.
+- remaining Recording, SearchTimer and administrative mutation migration;
+- explicit safe classification for validation, preview and planning POSTs;
+- completion/outcome accountability and transactional coupling/outbox;
+- refresh, idle expiry, cleanup and concurrent-session policy;
+- protected identity, credential, role and grant administration;
+- native/service credential lifecycle;
+- generic persisted role definitions beyond the fixed catalogue;
+- common revision, idempotency and operation contracts;
+- protected audit query/export/retention;
+- final compatibility-retirement and Phase 62 closeout evidence.
 
 ## Pull request truth
 
@@ -146,15 +171,17 @@ The platform still lacks:
 - PR #113 is closed as superseded by #115.
 - PR #112 remains an old-base Draft and is not current runtime truth.
 - PR #116 remains an open Draft; proposed ADR-0051 is consumer context only.
-- PR #117 is the active Phase 62 Draft and must not be merged or auto-merged by this workflow.
+- PR #117 is the active Phase 62 Draft, accepted through Slice 2H, and must not be merged, marked ready or auto-merged by this workflow.
 
 ## Immediate implementation focus
 
-```text
-Phase 62 - Identity, RBAC and Accountability Foundation
-```
+First complete and validate the Slice 2H documentation closeout. Then inspect
+the remaining mutating/stateful POST inventory and plan exactly one next Phase
+62 route family.
 
-Install and real-runtime validate the isolated browser-session issue/logout routes. Then define ordinary-route browser authentication precedence, connect cookie contexts to persistent lifecycle and centralized authorization, load browser grants and enforce CSRF before applicable business-mutation dispatch. Frontend integration, completion accountability, cleanup/recovery and protected lifecycle administration follow before roles/grants and complete route migration.
+Do not combine the next route-family implementation with generic
+administration, native/service credentials, idempotency, later runtime phases
+or a PR-ready transition.
 
 ### Preferred edit path for new chats
 

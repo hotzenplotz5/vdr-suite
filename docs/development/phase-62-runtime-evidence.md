@@ -22,54 +22,58 @@ raw session secrets, production hashes, or process environments here.
 
 ## Repository and GitHub baseline
 
-**VERIFIED on 2026-07-29:**
+**VERIFIED on 2026-07-31:**
 
 ```text
 Repository: hotzenplotz5/vdr-suite
 Pull request: #117
 PR title: feat(security): establish Phase 62 identity and authorization foundation
 Head branch: phase-62-security-identity-foundation
-Accepted code/runtime head: 47adb6577511209bfe7288ce8ce0fbe03b53a94c
+Accepted source/runtime head: 2e0b31f671edf18393d7d48ea6e15697fc3a044d
 Base branch: main
 Recorded base SHA: cb77ff66e11dca7db2eafa36525762dcde35102d
 PR state: open, Draft, not merged
-Persisted browser-grant CI: run 6507, completed successfully
+Slice 2H CI: run 6559, completed successfully
+CI URL: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30627974107
 ```
 
-The PR description contains stale grant-runtime, CI and open-work wording.
-The canonical handoff and runtime checkpoint supersede that wording until PR
-metadata is explicitly approved for update.
+The PR description is stale through Slice 2E.1. This runtime evidence and the
+canonical handoff supersede its implementation, CI and remaining-work wording
+until PR metadata is explicitly approved for update.
 
 ## Real yaVDR baseline
 
-**VERIFIED from completed runtime acceptance on 2026-07-29:**
+**VERIFIED from completed Slice 2H runtime acceptance on 2026-07-31:**
 
 ```text
 Checkout: /home/yavdr/vdr-suite-phase62
 Local branch: phase62-pr117
-Accepted code/runtime head: 47adb6577511209bfe7288ce8ce0fbe03b53a94c
+Accepted source/runtime head: 2e0b31f671edf18393d7d48ea6e15697fc3a044d
 
 Daemon unit: vdr-suite-daemon.service
 Installed executable: /usr/sbin/vdr-suite-daemon
-Installed SHA-256: 652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1
-Slice 2C backup: /var/backups/vdr-suite-phase62-slice2c-20260729-171704
-Daemon configuration: /etc/default/vdr-suite-daemon
+Installed daemon SHA-256: ff7582b6fdb6a2faa7d0e29f6795ad634ea76d95a42280a6140e005e249cbf52
+Installed deferred-runtime-loader.js SHA-256: e4860a2b7c613919f3a084fc625f398bd5f339191ae48133cfc76431c0189ca9
+Guarded installation backup:
+/var/backups/vdr-suite-phase62-slice2h-install-20260731-140438
+Runtime-acceptance database backup:
+/var/backups/vdr-suite-phase62-slice2h-runtime-20260731-142540
 Database: /var/lib/vdr-suite/vdr-suite.db
 Listener: 0.0.0.0:18080
 ```
 
 At the acceptance point:
 
-- the daemon service was active/running with zero restarts;
-- the running and installed binary matched the branch build;
-- the additive browser-grant schema and index existed;
-- no default grant rows existed;
-- SQLite integrity and foreign-key checks passed;
-- the controlled browser acceptance session was revoked;
-- temporary acceptance grants were removed;
-- Nginx, frontend and credential configuration were unchanged.
+- the daemon service was active;
+- installed files matched the fully tested repository artifacts;
+- direct and public loader responses matched the accepted loader fingerprint;
+- the controlled browser session was logged out and revoked;
+- all temporary grant rows were restored exactly;
+- SQLite `PRAGMA quick_check` returned `ok`;
+- no real channel order was changed.
 
-Process IDs, service timestamps and working-tree state remain **VOLATILE**.
+Process IDs, service timestamps and future working-tree state remain
+**VOLATILE**.
 
 ## Completed security acceptance
 
@@ -174,6 +178,39 @@ database fingerprints. Do not repeat it solely because a chat changed.
 - revocation remained persistent;
 - database verification found no recorded structural damage;
 - temporary acceptance records were cleaned up.
+
+## Fixed-role, Timer and Channel Move acceptance
+
+**VERIFIED on the installed real runtime through Slice 2H:**
+
+- `role.admin@<backend-id>` expands only to the explicit protected mutation
+  catalogue;
+- exact-scope `role.read-only@<backend-id>` denies protected mutations before
+  direct or Admin grants;
+- wildcard role rows do not become concrete backend-role assignments;
+- Timer create/update/delete routes use their canonical permissions and
+  browser-CSRF contract;
+- both Channel Move aliases use `channels.move@<backend-id>`;
+- query-string variants are classified with their exact base route;
+- trailing-slash variants remain fail-closed;
+- missing and invalid CSRF are rejected before permission evaluation;
+- direct permission, wrong-scope, Admin, Read-only and cross-backend cases are
+  enforced;
+- authorized unknown-backend requests stop at backend policy;
+- accountability uses canonical non-secret `channels.move` fields;
+- logout revokes the acceptance browser session and replay is denied.
+
+The Channel Move pass issued 22 controlled security requests. Every successful
+controller request used `dryRun:true`.
+
+```text
+channel_move_requests=22
+real_channel_moves=0
+browser_session_active=0
+grants_restored=yes
+sqlite_quick_check=ok
+service_state=active
+```
 
 ## Cookie contract
 
@@ -302,23 +339,24 @@ architecture checks do not enforce the public-origin contract.
 
 ## Remaining work
 
-The persisted browser-grant increment is complete.
+Repository and installed-runtime acceptance are complete through Slice 2H.
 
 Still open in Phase 62:
 
-- permission and safe/mutating classification for every business POST;
-- server-side browser CSRF enforcement before applicable business dispatch;
-- frontend login/logout and memory-only CSRF handling;
+- remaining Recording, SearchTimer and administrative mutation migration;
+- explicit safe classification for validation, preview and planning POSTs;
 - completion/outcome accountability and transactional coupling/outbox;
 - refresh, idle timeout, cleanup, concurrent-session policy and recovery;
-- protected role, assignment, grant and credential administration;
-- migration of all protected routes away from compatibility;
-- compatibility retirement closeout.
+- protected identity, credential, grant and role administration;
+- native/service credential enrollment, rotation and revocation;
+- generic role definitions and assignments beyond the fixed catalogue;
+- common revision, idempotency and operation lifecycle;
+- protected audit reads, export, redaction and retention;
+- compatibility-retirement readiness and final Phase 62 closeout.
 
-The next bounded implementation candidate is
-`POST /api/vdr/remote/actions`. It must preserve legacy behaviour while
-requiring valid browser CSRF before a browser-authenticated request reaches
-Remote authorization or dispatch.
+The next route family has not been selected by this documentation closeout.
+Inspect the remaining POST inventory and plan exactly one bounded family before
+implementation.
 
 ### Credential boundary
 

@@ -21,12 +21,14 @@ binary, configuration, database, routing, or behaviour fingerprint changed.
 - [Phase 61 closeout](development/phase-61-metadata-genre-performance-closeout.md)
 - [Post-Phase-61 runtime closeout](development/post-phase-61-platform-runtime-closeout.md)
 - [Phase 62 runtime evidence](development/phase-62-runtime-evidence.md)
+- [Slice 2H Channel Move security migration](development/phase-62-slice-2h-channel-move-security-migration.md)
 - [Slice 3A contract](development/phase-62-public-origin-base-path.md)
 - [Slice 3A real-runtime checkpoint](development/phase-62-slice-3a-runtime-checkpoint.md)
 
-The Slice 3A runtime checkpoint and this handoff are the newest authorities for
-installation, routing, credentials, authenticated lifecycle, accountability-fix
-acceptance, persisted browser-grant acceptance and anti-loop truth.
+This handoff, the Phase 62 runtime evidence and the Slice 2H document are the
+newest authorities for identity, role, browser-session, mutation-CSRF,
+installation and real-runtime truth. The Slice 3A checkpoint remains the
+authority for public-origin and Nginx routing history.
 
 ## Stable project position
 
@@ -58,24 +60,26 @@ Local branch: phase62-pr117
 Remote branch: phase-62-security-identity-foundation
 Pull request: #117
 Base: main @ cb77ff66e11dca7db2eafa36525762dcde35102d
-Runtime-accepted source head: 47adb6577511209bfe7288ce8ce0fbe03b53a94c
-Accountability-fix code head: e3a8b7815c5df06093656f4724e6001d22c5755a
-Accountability-fix CI: run 6497, successful
-Persisted browser-grant code/runtime head: 47adb6577511209bfe7288ce8ce0fbe03b53a94c
-Persisted browser-grant CI: run 6507, successful
-Installed daemon SHA-256: 652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1
-Slice 2C daemon/database backup: /var/backups/vdr-suite-phase62-slice2c-20260729-171704
-Earlier runtime-closeout documentation commit:
-4b46f97d582f93dc00f35dd4d0347d2f1e32b7d8
+Repository and runtime accepted through Slice 2H:
+2e0b31f671edf18393d7d48ea6e15697fc3a044d
+Slice 2H CI: run 6559, successful
+CI URL: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30627974107
+Installed daemon: /usr/sbin/vdr-suite-daemon
+Installed daemon SHA-256: ff7582b6fdb6a2faa7d0e29f6795ad634ea76d95a42280a6140e005e249cbf52
+Installed deferred runtime loader SHA-256: e4860a2b7c613919f3a084fc625f398bd5f339191ae48133cfc76431c0189ca9
+Slice 2H guarded installation backup:
+/var/backups/vdr-suite-phase62-slice2h-install-20260731-140438
+Slice 2H runtime-acceptance database backup:
+/var/backups/vdr-suite-phase62-slice2h-runtime-20260731-142540
 ```
 
 PR #117 must remain open and Draft. Do not mark it ready, merge it, enable
 auto-merge, rewrite its branch, or mutate review state without explicit
 approval.
 
-The PR description contains stale grant-runtime, open-work and CI wording. This
-handoff and the runtime checkpoint are newer. Do not edit PR metadata without
-explicit approval.
+The PR description is stale through Slice 2E.1 and does not yet record the
+accepted fixed-role, Timer and Channel Move slices. This handoff and the runtime
+evidence are newer. Do not edit PR metadata without explicit approval.
 
 ## Resume rule
 
@@ -109,7 +113,12 @@ acceptance merely because a chat changed.
 - empty browser grant set without inherited compatibility grants;
 - active actor grants loaded from additive backend-scoped persistence;
 - fail-closed `permission_grants_unavailable` distinction and recovery;
-- fail-closed browser business mutations until route policy and CSRF migration;
+- fail-closed browser business mutations except explicitly migrated route
+  families;
+- fixed exact-backend `role.admin` and `role.read-only` semantics;
+- browser-cookie plus CSRF enforcement for Remote, Timer create/update/delete
+  and both Channel Move aliases;
+- memory-only frontend CSRF injection for the exact migrated routes;
 - append-only accountability and atomic revocation/replay denial;
 - Suite-owned public namespace `/vdr-suite/` with unchanged daemon paths;
 - canonical redirects, prefix-stripping proxy, forwarded prefix, and cookie path
@@ -203,9 +212,65 @@ Foreign-key violations: 0
 Accountability append failures: 0
 ```
 
-Persisted grants did not enable a browser mutation prematurely. Every
-browser-authenticated business POST remains blocked until explicit route
-classification and server-side CSRF enforcement are implemented.
+Persisted grants alone do not enable an unmigrated browser mutation. Every
+remaining browser-authenticated business POST stays fail-closed until its exact
+route family receives explicit permission and server-side CSRF classification.
+
+## Cumulative Phase 62 acceptance through Slice 2H
+
+**VERIFIED on 2026-07-31 at `2e0b31f671edf18393d7d48ea6e15697fc3a044d`:**
+
+```text
+GitHub Actions CI: #6559, successful
+CI URL: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30627974107
+
+Installed daemon SHA-256:
+ff7582b6fdb6a2faa7d0e29f6795ad634ea76d95a42280a6140e005e249cbf52
+
+Installed deferred-runtime-loader.js SHA-256:
+e4860a2b7c613919f3a084fc625f398bd5f339191ae48133cfc76431c0189ca9
+
+Guarded installation backup:
+/var/backups/vdr-suite-phase62-slice2h-install-20260731-140438
+
+Runtime-acceptance database backup:
+/var/backups/vdr-suite-phase62-slice2h-runtime-20260731-142540
+```
+
+The installed runtime now accepts browser-session authentication on ordinary
+routes and enforces cookie-bound CSRF plus exact backend authorization for:
+
+```text
+POST /api/vdr/remote/actions
+POST /api/vdr/timers/actions/create
+POST /api/vdr/timers/actions/update
+POST /api/vdr/timers/actions/delete
+POST /api/vdr/channels/move
+POST /api/vdr/channels/actions/move
+```
+
+Fixed `role.admin@<backend-id>` expands only to the explicit protected-mutation
+catalogue. Exact-scope `role.read-only@<backend-id>` denies those mutations
+before direct or Admin grants. Wildcard role rows do not become concrete
+backend-role assignments.
+
+Slice 2H acceptance proved both Channel Move aliases, query-string
+normalization, fail-closed trailing slashes, missing and invalid CSRF,
+permission and backend-scope denial, Admin allowance, Read-only precedence,
+cross-backend isolation, wildcard-role non-effectiveness, backend-policy
+rejection, secret-free accountability, logout and revoked-cookie replay.
+
+All successful Channel Move acceptance calls used `dryRun:true`. The accepted
+evidence records:
+
+```text
+channel_move_requests=22
+real_channel_moves=0
+browser_session_active=0
+grants_restored=yes
+sqlite_quick_check=ok
+service_state=active
+```
 
 ## Completed public-origin acceptance
 
@@ -326,33 +391,33 @@ changed:
 6. accountability transaction-lease root-cause analysis;
 7. daemon-only installation of the accepted accountability fix;
 8. browser-session issue/CSRF/logout/replay acceptance for that fix;
-9. persisted browser-grant schema, empty-result, backend-scope, unavailable-store, recovery, logout and cleanup acceptance;
+9. persisted browser-grant schema, empty-result, backend-scope,
+   unavailable-store, recovery, logout and cleanup acceptance;
 10. direct response-to-single-file comparison for `/frontend/app.js`;
-11. the rejected ad-hoc cookie-jar parser.
+11. the rejected ad-hoc cookie-jar parser;
+12. fixed-role repository and installed-runtime acceptance;
+13. Timer create/update/delete browser-CSRF runtime acceptance;
+14. Channel Move alias, role, scope, accountability and mutation-free runtime
+    acceptance.
 
 ## Exact next action
 
-The persisted browser-grant repository, daemon installation and real-runtime
-acceptance are complete.
+Repository implementation, CI and installed-runtime acceptance are complete
+through Slice 2H.
 
-The next bounded work is repository planning:
+The next permitted sequence is:
 
-1. keep PR #117 open and Draft;
-2. commit and push this documentation closeout only after explicit approval;
-3. update the PR description only after separate explicit metadata approval;
-4. define one bounded business-route classification and browser-CSRF slice,
-   beginning with `POST /api/vdr/remote/actions`;
-5. preserve the existing legacy-Basic route behaviour while requiring a valid
-   browser CSRF token before a browser-authenticated Remote mutation can reach
-   authorization or dispatch;
-6. keep every other browser-authenticated business POST fail-closed;
-7. preserve the future ADR title
-   `Client Login, Local Account Authority and Instance Access Model`;
-8. do not add canonical ADR-0052 until open Draft PR #116's ADR-0051 numbering
-   state is resolved or the branch is deliberately rebased.
+1. review this seven-file documentation closeout;
+2. commit and push it only after its exact scope and tests pass;
+3. wait for the documentation commit's CI to complete successfully;
+4. update the PR description only after separate explicit metadata approval;
+5. inspect the remaining POST inventory and plan exactly one next Phase 62
+   route family before implementing it;
+6. keep all still-unmigrated browser POST routes fail-closed;
+7. keep PR #117 open and Draft.
 
-No additional runtime mutation, credential rotation, Nginx change, PR-ready
-transition, merge or auto-merge is implied.
+No additional runtime mutation, credential rotation, Nginx change, real Channel
+Move, PR-ready transition, merge or auto-merge is implied.
 
 ## Secret restrictions
 
