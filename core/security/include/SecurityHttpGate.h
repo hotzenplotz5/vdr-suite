@@ -108,16 +108,22 @@ public:
             isPost && path == "/api/vdr/timers/actions/update";
         const bool isTimerDeleteAction =
             isPost && path == "/api/vdr/timers/actions/delete";
+        const bool isChannelMoveAction =
+            isPost &&
+            (path == "/api/vdr/channels/move" ||
+             path == "/api/vdr/channels/actions/move");
         const bool isProtectedMutation =
             isRemoteAction ||
             isTimerCreateAction ||
             isTimerUpdateAction ||
-            isTimerDeleteAction;
+            isTimerDeleteAction ||
+            isChannelMoveAction;
 
         if (isPost && gate.browserAuthenticated && !isRemoteAction &&
             !isTimerCreateAction &&
             !isTimerUpdateAction &&
-            !isTimerDeleteAction)
+            !isTimerDeleteAction &&
+            !isChannelMoveAction)
         {
             AuthorizationDecision decision;
             decision.reasonCode = "security_policy_not_migrated";
@@ -180,10 +186,15 @@ public:
             requestToAuthorize.permission = "timers.modify";
             requestToAuthorize.action = "timers.modify";
         }
-        else
+        else if (isTimerDeleteAction)
         {
             requestToAuthorize.permission = "timers.delete";
             requestToAuthorize.action = "timers.delete";
+        }
+        else
+        {
+            requestToAuthorize.permission = "channels.move";
+            requestToAuthorize.action = "channels.move";
         }
 
         const std::string operationId =

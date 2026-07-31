@@ -44,10 +44,11 @@ AuthorizationRequest recordingsViewRequest(const std::string& backendId)
     return permissionRequest("recordings.view", backendId);
 }
 
-const std::vector<std::string> kTimerMutationPermissions = {
+const std::vector<std::string> kProtectedMutationPermissions = {
     "timers.create",
     "timers.modify",
-    "timers.delete"
+    "timers.delete",
+    "channels.move"
 };
 }
 
@@ -63,7 +64,7 @@ int main()
     allowed.grants.push_back(PermissionGrant{"remote.control", "default"});
     assert(service.authorize(allowed, requestFor("default")).allowed);
 
-    for (const std::string& permission : kTimerMutationPermissions)
+    for (const std::string& permission : kProtectedMutationPermissions)
     {
         RequestSecurityContext directTimerGrant = authenticatedContext();
         directTimerGrant.grants.push_back(
@@ -90,7 +91,7 @@ int main()
     assert(adminAllowed.allowed);
     assert(adminAllowed.reasonCode == "role_permission_granted");
 
-    for (const std::string& permission : kTimerMutationPermissions)
+    for (const std::string& permission : kProtectedMutationPermissions)
     {
         const AuthorizationDecision adminTimerAllowed =
             service.authorize(
@@ -118,7 +119,7 @@ int main()
         service.authorize(wildcardAdminRole, requestFor("default"));
     assert(!wildcardAdminDenied.allowed);
     assert(wildcardAdminDenied.reasonCode == "backend_scope_denied");
-    for (const std::string& permission : kTimerMutationPermissions)
+    for (const std::string& permission : kProtectedMutationPermissions)
     {
         const AuthorizationDecision wildcardAdminTimerDenied =
             service.authorize(
@@ -136,7 +137,7 @@ int main()
     assert(!readOnlyDenied.allowed);
     assert(readOnlyDenied.reasonCode == "role_read_only");
 
-    for (const std::string& permission : kTimerMutationPermissions)
+    for (const std::string& permission : kProtectedMutationPermissions)
     {
         RequestSecurityContext readOnlyTimer = adminRole;
         readOnlyTimer.grants.push_back(
@@ -204,7 +205,7 @@ int main()
     RequestSecurityContext wildcard = authenticatedContext();
     wildcard.grants.push_back(PermissionGrant{"*", "*"});
     assert(service.authorize(wildcard, requestFor("house-b")).allowed);
-    for (const std::string& permission : kTimerMutationPermissions)
+    for (const std::string& permission : kProtectedMutationPermissions)
     {
         assert(service.authorize(
             wildcard,

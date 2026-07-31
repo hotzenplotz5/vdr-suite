@@ -63,6 +63,15 @@ int main()
     readOnlyBackend.accessMode = "read-only";
     backendRegistry.addBackend(readOnlyBackend);
 
+    BackendNode noAdapterBackend;
+    noAdapterBackend.backendId = "no-adapter";
+    noAdapterBackend.backendName = "Writable without Channel Move adapter";
+    noAdapterBackend.backendType = "restfulapi";
+    noAdapterBackend.enabled = true;
+    noAdapterBackend.online = true;
+    noAdapterBackend.accessMode = "read-write";
+    backendRegistry.addBackend(noAdapterBackend);
+
     BackendRegistryService backendRegistryService(backendRegistry);
     BackendAccessPolicy backendAccessPolicy;
 
@@ -110,6 +119,16 @@ int main()
     assert(dryRun.body.find("\"command\":\"MOVC 8 4\"") != std::string::npos);
     assert(executor->callCount == 1);
 
+    ApiResponse noAdapterDryRun =
+        controller.moveBody(
+            "{\"backendId\":\"no-adapter\",\"sourceNumber\":9,\"targetNumber\":2,\"dryRun\":true}");
+
+    assert(noAdapterDryRun.statusCode == 200);
+    assert(noAdapterDryRun.body.find("\"success\":true") != std::string::npos);
+    assert(noAdapterDryRun.body.find("\"dryRun\":true") != std::string::npos);
+    assert(noAdapterDryRun.body.find("\"command\":\"MOVC 9 2\"") != std::string::npos);
+    assert(executor->callCount == 1);
+
     ApiResponse invalidSamePosition =
         controller.moveBody(
             "{\"backendId\":\"default\",\"sourceNumber\":5,\"targetNumber\":5}");
@@ -126,6 +145,28 @@ int main()
     assert(readOnly.statusCode == 200);
     assert(readOnly.body.find("\"success\":false") != std::string::npos);
     assert(readOnly.body.find("backend is read-only") != std::string::npos);
+    assert(executor->callCount == 1);
+
+    ApiResponse missingAdapter =
+        controller.moveBody(
+            "{\"backendId\":\"no-adapter\",\"sourceNumber\":6,\"targetNumber\":2}");
+
+    assert(missingAdapter.statusCode == 200);
+    assert(missingAdapter.body.find("\"success\":false") != std::string::npos);
+    assert(missingAdapter.body.find(
+        "no channel move executor registered for backend") !=
+        std::string::npos);
+    assert(executor->callCount == 1);
+
+    ApiResponse unknownBackend =
+        controller.moveBody(
+            "{\"backendId\":\"unknown\",\"sourceNumber\":6,\"targetNumber\":2}");
+
+    assert(unknownBackend.statusCode == 200);
+    assert(unknownBackend.body.find("\"success\":false") != std::string::npos);
+    assert(unknownBackend.body.find("backend not found") != std::string::npos);
+    assert(unknownBackend.body.find(
+        "no channel move executor registered") == std::string::npos);
     assert(executor->callCount == 1);
 
     return 0;

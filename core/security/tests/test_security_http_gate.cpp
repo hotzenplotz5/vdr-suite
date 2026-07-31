@@ -47,6 +47,11 @@ const std::vector<TimerRoute> kTimerRoutes = {
     {"/api/vdr/timers/actions/delete", "timers.delete"}
 };
 
+const std::vector<std::string> kChannelMoveRoutes = {
+    "/api/vdr/channels/move",
+    "/api/vdr/channels/actions/move"
+};
+
 HttpServerRequest getRequest(const std::string& authorization = "")
 {
     HttpServerRequest request;
@@ -115,10 +120,18 @@ HttpServerRequest timerRequest(
         authorization);
 }
 
+HttpServerRequest channelMoveRequest(
+    const std::string& path,
+    const std::string& backendId,
+    const std::string& authorization = "")
+{
+    return mutationRequest(path, backendId, authorization);
+}
+
 HttpServerRequest unmigratedRequest(const std::string& authorization = "")
 {
     return mutationRequest(
-        "/api/vdr/channels/actions/move",
+        "/api/vdr/recordings/actions/execute",
         "default",
         authorization);
 }
@@ -269,6 +282,18 @@ int main()
                 timerRequest(route, "default", kLegacyCredential));
         assert(compatibilityTimer.allowed);
         assert(compatibilityTimer.protectedMutation);
+    }
+
+    for (const std::string& path : kChannelMoveRoutes)
+    {
+        const SecurityGateDecision compatibilityChannelMove =
+            compatibilityGate.evaluate(
+                channelMoveRequest(
+                    path,
+                    "default",
+                    kLegacyCredential));
+        assert(compatibilityChannelMove.allowed);
+        assert(compatibilityChannelMove.protectedMutation);
     }
 
     assert(compatibilityGate.evaluate(
@@ -487,6 +512,73 @@ int main()
             "default"));
     }
 
+    HttpServerRequest browserChannelWrongCsrf =
+        channelMoveRequest(
+            kChannelMoveRoutes.back(),
+            "default");
+    browserChannelWrongCsrf.headers["Cookie"] = validBrowserCookie;
+    browserChannelWrongCsrf.headers["X-CSRF-Token"] =
+        kWrongBrowserCsrfSecret;
+    const SecurityGateDecision browserChannelWrongCsrfDecision =
+        compatibilityGate.evaluate(browserChannelWrongCsrf);
+    assert(!browserChannelWrongCsrfDecision.allowed);
+    assert(browserChannelWrongCsrfDecision.protectedMutation);
+    assert(browserChannelWrongCsrfDecision.rejection.statusCode == 403);
+    assert(browserChannelWrongCsrfDecision.rejection.body.find(
+        "csrf_validation_failed") != std::string::npos);
+
+    for (const std::string& path : kChannelMoveRoutes)
+    {
+        HttpServerRequest missingChannelCsrf =
+            channelMoveRequest(path, "default");
+        missingChannelCsrf.headers["Cookie"] = validBrowserCookie;
+        const SecurityGateDecision missingChannelCsrfDecision =
+            compatibilityGate.evaluate(missingChannelCsrf);
+        assert(!missingChannelCsrfDecision.allowed);
+        assert(missingChannelCsrfDecision.protectedMutation);
+        assert(missingChannelCsrfDecision.rejection.statusCode == 403);
+        assert(missingChannelCsrfDecision.rejection.body.find(
+            "csrf_validation_failed") != std::string::npos);
+
+        HttpServerRequest channelNoPermission =
+            channelMoveRequest(path, "default");
+        channelNoPermission.headers["Cookie"] = validBrowserCookie;
+        channelNoPermission.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+        const SecurityGateDecision channelNoPermissionDecision =
+            compatibilityGate.evaluate(channelNoPermission);
+        assert(!channelNoPermissionDecision.allowed);
+        assert(channelNoPermissionDecision.rejection.statusCode == 403);
+        assert(channelNoPermissionDecision.rejection.body.find(
+            "permission_denied") != std::string::npos);
+
+        assert(permissionGrantRepository.ensureGrant(
+            managed.actorId,
+            "channels.move",
+            "default"));
+        const SecurityGateDecision directChannelAllowed =
+            compatibilityGate.evaluate(channelNoPermission);
+        assert(directChannelAllowed.allowed);
+        assert(directChannelAllowed.protectedMutation);
+
+        HttpServerRequest channelWrongScope =
+            channelMoveRequest(path, "house-b");
+        channelWrongScope.headers["Cookie"] = validBrowserCookie;
+        channelWrongScope.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+        const SecurityGateDecision channelWrongScopeDecision =
+            compatibilityGate.evaluate(channelWrongScope);
+        assert(!channelWrongScopeDecision.allowed);
+        assert(channelWrongScopeDecision.rejection.statusCode == 403);
+        assert(channelWrongScopeDecision.rejection.body.find(
+            "backend_scope_denied") != std::string::npos);
+
+        assert(permissionGrantRepository.revokeGrant(
+            managed.actorId,
+            "channels.move",
+            "default"));
+    }
+
     HttpServerRequest timerMissingBackend =
         timerRequest(kTimerRoutes.front(), "");
     timerMissingBackend.headers["Cookie"] = validBrowserCookie;
@@ -496,6 +588,20 @@ int main()
     assert(!timerMissingBackendDecision.allowed);
     assert(timerMissingBackendDecision.rejection.statusCode == 400);
     assert(timerMissingBackendDecision.rejection.body.find(
+        "invalid_backend_scope") != std::string::npos);
+
+    HttpServerRequest channelMissingBackend =
+        channelMoveRequest(
+            kChannelMoveRoutes.front(),
+            "");
+    channelMissingBackend.headers["Cookie"] = validBrowserCookie;
+    channelMissingBackend.headers["X-CSRF-Token"] =
+        kBrowserCsrfSecret;
+    const SecurityGateDecision channelMissingBackendDecision =
+        compatibilityGate.evaluate(channelMissingBackend);
+    assert(!channelMissingBackendDecision.allowed);
+    assert(channelMissingBackendDecision.rejection.statusCode == 400);
+    assert(channelMissingBackendDecision.rejection.body.find(
         "invalid_backend_scope") != std::string::npos);
 
     assert(permissionGrantRepository.ensureGrant(
@@ -510,6 +616,18 @@ int main()
         const SecurityGateDecision adminTimerDecision =
             compatibilityGate.evaluate(adminTimer);
         assert(adminTimerDecision.allowed);
+    }
+
+    for (const std::string& path : kChannelMoveRoutes)
+    {
+        HttpServerRequest adminChannelMove =
+            channelMoveRequest(path, "default");
+        adminChannelMove.headers["Cookie"] = validBrowserCookie;
+        adminChannelMove.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+        const SecurityGateDecision adminChannelMoveDecision =
+            compatibilityGate.evaluate(adminChannelMove);
+        assert(adminChannelMoveDecision.allowed);
     }
 
     assert(permissionGrantRepository.ensureGrant(
@@ -528,6 +646,21 @@ int main()
         assert(readOnlyTimerDecision.rejection.body.find(
             "role_read_only") != std::string::npos);
     }
+    for (const std::string& path : kChannelMoveRoutes)
+    {
+        HttpServerRequest readOnlyChannelMove =
+            channelMoveRequest(path, "default");
+        readOnlyChannelMove.headers["Cookie"] = validBrowserCookie;
+        readOnlyChannelMove.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+        const SecurityGateDecision readOnlyChannelMoveDecision =
+            compatibilityGate.evaluate(readOnlyChannelMove);
+        assert(!readOnlyChannelMoveDecision.allowed);
+        assert(readOnlyChannelMoveDecision.rejection.statusCode == 403);
+        assert(readOnlyChannelMoveDecision.rejection.body.find(
+            "role_read_only") != std::string::npos);
+    }
+
     assert(permissionGrantRepository.revokeGrant(
         managed.actorId,
         "role.read-only",
@@ -568,6 +701,41 @@ int main()
     assert(timerTrailingSlashDecision.rejection.body.find(
         "security_policy_not_migrated") != std::string::npos);
 
+    for (const std::string& path : kChannelMoveRoutes)
+    {
+        HttpServerRequest browserChannelQuery =
+            channelMoveRequest(
+                path + "?source=browser",
+                "default");
+        browserChannelQuery.headers["Cookie"] = validBrowserCookie;
+        browserChannelQuery.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+        assert(permissionGrantRepository.ensureGrant(
+            managed.actorId,
+            "channels.move",
+            "default"));
+        assert(compatibilityGate.evaluate(browserChannelQuery).allowed);
+        assert(permissionGrantRepository.revokeGrant(
+            managed.actorId,
+            "channels.move",
+            "default"));
+
+        HttpServerRequest browserChannelTrailingSlash =
+            channelMoveRequest(
+                path + "/",
+                "default");
+        browserChannelTrailingSlash.headers["Cookie"] =
+            validBrowserCookie;
+        browserChannelTrailingSlash.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+        const SecurityGateDecision channelTrailingSlashDecision =
+            compatibilityGate.evaluate(browserChannelTrailingSlash);
+        assert(!channelTrailingSlashDecision.allowed);
+        assert(channelTrailingSlashDecision.rejection.statusCode == 503);
+        assert(channelTrailingSlashDecision.rejection.body.find(
+            "security_policy_not_migrated") != std::string::npos);
+    }
+
     HttpServerRequest browserUnmigrated = unmigratedRequest();
     browserUnmigrated.headers["Cookie"] = validBrowserCookie;
     browserUnmigrated.headers["X-CSRF-Token"] = kBrowserCsrfSecret;
@@ -594,6 +762,23 @@ int main()
         assert(managedTimerDenied.rejection.body.find(
             "permission_denied") != std::string::npos);
         assert(managedTimerDenied.rejection.body.find(
+            "security_policy_not_migrated") == std::string::npos);
+    }
+
+    for (const std::string& path : kChannelMoveRoutes)
+    {
+        const SecurityGateDecision managedChannelDenied =
+            compatibilityGate.evaluate(
+                channelMoveRequest(
+                    path,
+                    "default",
+                    kManagedCredential));
+        assert(!managedChannelDenied.allowed);
+        assert(managedChannelDenied.protectedMutation);
+        assert(managedChannelDenied.rejection.statusCode == 403);
+        assert(managedChannelDenied.rejection.body.find(
+            "permission_denied") != std::string::npos);
+        assert(managedChannelDenied.rejection.body.find(
             "security_policy_not_migrated") == std::string::npos);
     }
 
@@ -671,6 +856,32 @@ int main()
             "backend_scope_denied") != std::string::npos);
     }
 
+    SecurityHttpGate channelEnforcedGate(
+        enforced({PermissionGrant{"channels.move", "default"}}),
+        accountabilityRepository,
+        &identityResolver);
+    for (const std::string& path : kChannelMoveRoutes)
+    {
+        const SecurityGateDecision enforcedChannelAllowed =
+            channelEnforcedGate.evaluate(
+                channelMoveRequest(
+                    path,
+                    "default",
+                    kLegacyCredential));
+        assert(enforcedChannelAllowed.allowed);
+
+        const SecurityGateDecision enforcedChannelWrongScope =
+            channelEnforcedGate.evaluate(
+                channelMoveRequest(
+                    path,
+                    "house-b",
+                    kLegacyCredential));
+        assert(!enforcedChannelWrongScope.allowed);
+        assert(enforcedChannelWrongScope.rejection.statusCode == 403);
+        assert(enforcedChannelWrongScope.rejection.body.find(
+            "backend_scope_denied") != std::string::npos);
+    }
+
     SecurityHttpGate noPermissionGate(
         enforced({PermissionGrant{"recordings.view", "*"}}),
         accountabilityRepository,
@@ -690,6 +901,20 @@ int main()
         assert(!missingTimerPermission.allowed);
         assert(missingTimerPermission.rejection.statusCode == 403);
         assert(missingTimerPermission.rejection.body.find(
+            "permission_denied") != std::string::npos);
+    }
+
+    for (const std::string& path : kChannelMoveRoutes)
+    {
+        const SecurityGateDecision missingChannelPermission =
+            noPermissionGate.evaluate(
+                channelMoveRequest(
+                    path,
+                    "default",
+                    kLegacyCredential));
+        assert(!missingChannelPermission.allowed);
+        assert(missingChannelPermission.rejection.statusCode == 403);
+        assert(missingChannelPermission.rejection.body.find(
             "permission_denied") != std::string::npos);
     }
 
@@ -730,6 +955,8 @@ int main()
     bool sawCsrfDenial = false;
     bool sawTimerCsrfDenial = false;
     bool sawTimerAllowed = false;
+    bool sawChannelCsrfDenial = false;
+    bool sawChannelAllowed = false;
     for (const AccountabilityEvent& event : accountabilityRepository.listAll())
     {
         sawAllowed = sawAllowed ||
@@ -751,6 +978,13 @@ int main()
               event.permission == "timers.modify" ||
               event.permission == "timers.delete") &&
              event.outcome == "dispatch_authorized");
+        sawChannelCsrfDenial = sawChannelCsrfDenial ||
+            (event.permission == "channels.move" &&
+             event.reasonCode == "csrf_validation_failed" &&
+             event.outcome == "dispatch_denied");
+        sawChannelAllowed = sawChannelAllowed ||
+            (event.permission == "channels.move" &&
+             event.outcome == "dispatch_authorized");
         assert(event.permission.find("Basic ") == std::string::npos);
         assert(event.reasonCode.find("test-password") ==
             std::string::npos);
@@ -767,6 +1001,8 @@ int main()
     assert(sawCsrfDenial);
     assert(sawTimerCsrfDenial);
     assert(sawTimerAllowed);
+    assert(sawChannelCsrfDenial);
+    assert(sawChannelAllowed);
 
     assert(browserRepository.revokeBySessionId(
         "session-browser-active"));

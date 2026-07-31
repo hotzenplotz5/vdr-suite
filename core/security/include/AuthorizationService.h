@@ -181,7 +181,8 @@ private:
         return permission == "remote.control" ||
             permission == "timers.create" ||
             permission == "timers.modify" ||
-            permission == "timers.delete";
+            permission == "timers.delete" ||
+            permission == "channels.move";
     }
 
     static bool adminRoleGrants(const std::string& permission)

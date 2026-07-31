@@ -161,16 +161,12 @@ function installSecurityRoleErrorMessages() {
   window.__vdrSuiteSecurityRoleErrorMessagesWrapped = true;
 }
 
-function installTimerMutationCsrf() {
+function installMutationCsrfForPaths(wrapperMarker, mutationPaths) {
   if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
-  if (window.__vdrSuiteTimerMutationCsrfWrapped === true) return;
+  if (window[wrapperMarker] === true) return;
 
   const originalFetch = window.fetch.bind(window);
-  const timerMutationPaths = Object.freeze([
-    '/api/vdr/timers/actions/create',
-    '/api/vdr/timers/actions/update',
-    '/api/vdr/timers/actions/delete'
-  ]);
+  const protectedMutationPaths = Object.freeze(mutationPaths.slice());
 
   function requestUrl(input) {
     if (typeof input === 'string') return input;
@@ -193,9 +189,9 @@ function installTimerMutationCsrf() {
     }
   }
 
-  function isTimerMutation(input, init) {
+  function isProtectedMutation(input, init) {
     return requestMethod(input, init) === 'POST' &&
-      timerMutationPaths.includes(requestPath(requestUrl(input)));
+      protectedMutationPaths.includes(requestPath(requestUrl(input)));
   }
 
   function csrfHeaders() {
@@ -238,12 +234,33 @@ function installTimerMutationCsrf() {
   }
 
   window.fetch = function (input, init) {
-    return isTimerMutation(input, init)
+    return isProtectedMutation(input, init)
       ? originalFetch(input, mergedInit(input, init))
       : originalFetch(input, init);
   };
 
-  window.__vdrSuiteTimerMutationCsrfWrapped = true;
+  window[wrapperMarker] = true;
+}
+
+function installTimerMutationCsrf() {
+  installMutationCsrfForPaths(
+    '__vdrSuiteTimerMutationCsrfWrapped',
+    [
+      '/api/vdr/timers/actions/create',
+      '/api/vdr/timers/actions/update',
+      '/api/vdr/timers/actions/delete'
+    ]
+  );
+}
+
+function installChannelMoveMutationCsrf() {
+  installMutationCsrfForPaths(
+    '__vdrSuiteChannelMoveMutationCsrfWrapped',
+    [
+      '/api/vdr/channels/move',
+      '/api/vdr/channels/actions/move'
+    ]
+  );
 }
 
 function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
@@ -412,6 +429,7 @@ function startVdrSuiteDeferredFrontendRuntimes() {
 if (typeof window !== 'undefined') {
   installSecurityRoleErrorMessages();
   installTimerMutationCsrf();
+  installChannelMoveMutationCsrf();
   installSearchTimerPreviewCacheWarmup();
 
   window.VdrSuiteDeferredFrontendRuntimes = Object.freeze({

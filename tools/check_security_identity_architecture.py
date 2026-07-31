@@ -61,6 +61,8 @@ def main() -> int:
         "core/http/tests/test_browser_session_http_service.cpp",
         "core/security/tests/test_accountability_event_repository.cpp",
         "core/security/tests/test_security_http_gate.cpp",
+        "web/frontend/platform/deferred-runtime-loader.js",
+        "web/frontend/tests/test_channel_move_security_runtime.js",
         "docs/planning/phase-62-security-identity-gap-matrix.md",
         "docs/development/phase-62-security-identity-foundation-slice-1.md",
         "docs/development/phase-62-security-identity-foundation-slice-2.md",
@@ -81,12 +83,32 @@ def main() -> int:
     require("core/http/src/TestHttpServer.cpp", "persistentIdentityResolver_.get()")
     require("core/http/src/TestHttpServer.cpp", "managedBasicAuthenticator_.get()")
     require("core/security/include/SecurityHttpGate.h", '"/api/vdr/remote/actions"')
+    require("core/security/include/AuthorizationService.h", '"channels.move"')
+    require("core/security/include/SecurityHttpGate.h", '"/api/vdr/channels/move"')
+    require("core/security/include/SecurityHttpGate.h", '"/api/vdr/channels/actions/move"')
+    require("core/security/include/SecurityHttpGate.h", '"channels.move"')
     require("core/security/include/SecurityHttpGate.h", '"remote.control"')
     require("core/security/include/SecurityHttpGate.h", "usesLegacyCompatibilityCredential")
     require("core/security/include/SecurityHttpGate.h", "browserSessionAuthenticator_->verifyCsrf(request.headers)")
     require("core/security/include/SecurityHttpGate.h", '"csrf_validation_failed"')
     require("core/security/include/SecurityHttpGate.h", "isPost && gate.browserAuthenticated && !isRemoteAction")
     require("core/security/include/SecurityHttpGate.h", '"unmapped.browser.mutation"')
+    require(
+        "web/frontend/platform/deferred-runtime-loader.js",
+        "__vdrSuiteChannelMoveMutationCsrfWrapped",
+    )
+    require(
+        "web/frontend/platform/deferred-runtime-loader.js",
+        "'/api/vdr/channels/move'",
+    )
+    require(
+        "web/frontend/platform/deferred-runtime-loader.js",
+        "'/api/vdr/channels/actions/move'",
+    )
+    require(
+        "web/frontend/tests/test_channel_move_security_runtime.js",
+        "caller-must-not-override",
+    )
     require("core/security/tests/test_security_http_gate.cpp", '"csrf_validation_failed"')
     require("core/security/tests/test_security_http_gate.cpp", '"security_policy_not_migrated"')
     require("core/security/tests/test_security_http_gate.cpp", '"permission_denied"')
