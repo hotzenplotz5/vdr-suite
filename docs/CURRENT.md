@@ -43,7 +43,7 @@ Configurable photorealistic VDR Remote (#115)
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
 
-Current active runtime phase:
+Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
