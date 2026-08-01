@@ -128,6 +128,14 @@ public:
             isPost &&
             (path == "/api/searchtimers/delete" ||
              path == "/api/vdr/searchtimers/delete");
+        const bool isSearchTimerExecuteAction =
+            isPost &&
+            (path == "/api/searchtimers/execute" ||
+             path == "/api/vdr/searchtimers/execute");
+        const bool isSearchTimerRealTestAction =
+            isPost &&
+            (path == "/api/searchtimers/real-test" ||
+             path == "/api/vdr/searchtimers/real-test");
         const bool isSafePost =
             isPost &&
             (path == "/api/recordings/actions/validate" ||
@@ -147,7 +155,9 @@ public:
             isRecordingExecutionAction ||
             isSearchTimerCreateAction ||
             isSearchTimerUpdateAction ||
-            isSearchTimerDeleteAction;
+            isSearchTimerDeleteAction ||
+            isSearchTimerExecuteAction ||
+            isSearchTimerRealTestAction;
 
         if (isSafePost)
         {
@@ -168,7 +178,9 @@ public:
             !isRecordingExecutionAction &&
             !isSearchTimerCreateAction &&
             !isSearchTimerUpdateAction &&
-            !isSearchTimerDeleteAction)
+            !isSearchTimerDeleteAction &&
+            !isSearchTimerExecuteAction &&
+            !isSearchTimerRealTestAction)
         {
             AuthorizationDecision decision;
             decision.reasonCode = "security_policy_not_migrated";
@@ -264,6 +276,16 @@ public:
         {
             requestToAuthorize.permission = "searchtimers.delete";
             requestToAuthorize.action = "searchtimers.delete";
+            if (requestToAuthorize.backendId.empty())
+            {
+                requestToAuthorize.backendId = "default";
+            }
+        }
+        else if (isSearchTimerExecuteAction ||
+                 isSearchTimerRealTestAction)
+        {
+            requestToAuthorize.permission = "searchtimers.execute";
+            requestToAuthorize.action = "searchtimers.execute";
             if (requestToAuthorize.backendId.empty())
             {
                 requestToAuthorize.backendId = "default";
