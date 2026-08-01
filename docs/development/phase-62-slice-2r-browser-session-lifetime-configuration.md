@@ -93,8 +93,8 @@ browser_session_lifetime_configuration_invalid
 ```
 
 No `Set-Cookie` header is emitted and no session, credential or browser-token
-row is created. Other API and already-issued session behaviour is not changed
-by this bounded slice.
+row is created. The failure path therefore has no `Set-Cookie` header. Other
+API and already-issued session behaviour is not changed by this bounded slice.
 
 ---
 
