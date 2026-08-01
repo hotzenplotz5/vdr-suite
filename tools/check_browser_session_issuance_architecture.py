@@ -15,6 +15,14 @@ def require(path: str, needle: str) -> None:
         raise AssertionError(f"{path}: missing required contract: {needle}")
 
 
+def require_any(path: str, alternatives: tuple[str, ...]) -> None:
+    text = read(path)
+    if not any(alternative in text for alternative in alternatives):
+        joined = " or ".join(repr(value) for value in alternatives)
+        raise AssertionError(
+            f"{path}: missing required alternative contract: {joined}")
+
+
 def forbid(path: str, needle: str) -> None:
     if needle in read(path):
         raise AssertionError(f"{path}: forbidden contract remains active: {needle}")
@@ -161,9 +169,18 @@ def main() -> int:
         configuration_test,
         '"999999999999999999999999999999999999"')
 
-    require(
+    require_any(
         service,
-        "SecurityConfiguration::fromEnvironment().browserSessionLifetime")
+        (
+            "SecurityConfiguration::fromEnvironment().browserSessionLifetime",
+            "const SecurityConfiguration configuration =\n"
+            "        SecurityConfiguration::fromEnvironment();",
+        ))
+    if "SecurityConfiguration::fromEnvironment().browserSessionLifetime" not in read(service):
+        require(service, "lifetimeConfiguration_ = configuration.browserSessionLifetime")
+        require(
+            service,
+            "concurrencyConfiguration_ = configuration.browserSessionConcurrency")
     require(service, "lifetimeConfiguration_.valid()")
     require(
         service,
