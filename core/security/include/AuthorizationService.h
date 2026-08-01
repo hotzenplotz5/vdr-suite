@@ -190,6 +190,8 @@ private:
             permission == "searchtimers.modify" ||
             permission == "searchtimers.delete" ||
             permission == "searchtimers.execute" ||
+            permission == "searchtimers.preview-cache.refresh" ||
+            permission == "epg.cache.refresh" ||
             permission == "epgsearch.native-fuzzy.refresh";
     }
 
