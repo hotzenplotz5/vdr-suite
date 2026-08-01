@@ -80,6 +80,7 @@ def main() -> int:
     makefile = "mk/security-sources.mk"
     local_tests = "mk/local-test-groups.mk"
     harness_makefile = "mk/phase62-runtime-acceptance.mk"
+    development_index = "docs/development/index.md"
 
     for route in (
         '"/api/searchtimers/update"',
@@ -128,6 +129,10 @@ def main() -> int:
     require(
         harness_makefile,
         "slice-2l-searchtimer-delete.json",
+    )
+    require(
+        development_index,
+        "phase-62-slice-2l-searchtimer-maintenance-security-migration.md",
     )
 
     forbid(gate, "isSearchTimerExecuteAction")
