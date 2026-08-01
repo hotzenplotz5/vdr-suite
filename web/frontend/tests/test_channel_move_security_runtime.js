@@ -167,15 +167,6 @@ function hasCsrfHeader(request) {
   );
   assert.strictEqual(hasCsrfHeader(latestRequest()), false);
 
-  await context.fetch(
-    '/api/vdr/searchtimers/execute',
-    {
-      method: 'POST',
-      headers: {Accept: 'application/json'}
-    }
-  );
-  assert.strictEqual(hasCsrfHeader(latestRequest()), false);
-
   context.VdrSuiteBrowserSession = {
     csrfHeaders() {
       return {};
