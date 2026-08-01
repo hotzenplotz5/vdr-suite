@@ -2,10 +2,14 @@
 
 ## Status
 
-Repository implementation is active on Draft PR #117.
+Slice 2L is complete on Draft PR #117.
 
-No real yaVDR installation or runtime acceptance has been performed for this
-slice yet.
+Repository implementation, CI, guarded yaVDR installation and mutation-safe
+runtime acceptance passed on 2026-08-01 at:
+
+```text
+43b516c7e2adb96bfde415abc8c665f77a541643
+```
 
 ---
 
@@ -134,6 +138,69 @@ They cover:
 
 ---
 
+## Real yaVDR Acceptance
+
+The combined Slice 2L/2M batch used one guarded installation and one verified
+backup:
+
+```text
+Repository head:
+43b516c7e2adb96bfde415abc8c665f77a541643
+
+GitHub Actions:
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30703009976
+
+Verified backup:
+/var/backups/vdr-suite-phase62-slice2lm-20260801T141451Z-43b516c7e2ad
+
+Installed/running daemon SHA-256:
+02a701c3bc8279808b3303c23d19080dc7ccc9c522d2ca28c90b996618456a03
+
+Installed deferred loader SHA-256:
+c32999adc0aca8ee815ceebde8982ad50f4c206d93d4864ac949146dc8190bd7
+```
+
+Each maintenance profile passed independently:
+
+```text
+slice-2l-searchtimer-update:
+  tests_passed=29
+  runtime_http_requests=27
+  accountability_authorized=8
+  accountability_csrf=2
+  accountability_permission=2
+  accountability_read_only=2
+  accountability_scope=4
+
+slice-2l-searchtimer-delete:
+  tests_passed=29
+  runtime_http_requests=27
+  accountability_authorized=8
+  accountability_csrf=2
+  accountability_permission=2
+  accountability_read_only=2
+  accountability_scope=4
+```
+
+The runtime evidence is checksum-protected at:
+
+```text
+/var/backups/vdr-suite-phase62-slice2lm-20260801T141451Z-43b516c7e2ad/runtime-acceptance-batch
+```
+
+Both profiles preserved SearchTimer resource state, restored all targeted
+grants, left unrelated grants untouched, revoked their browser sessions,
+denied revoked-cookie replay and kept the daemon PID unchanged.
+
+```text
+real_searchtimer_updates=0
+real_searchtimer_deletes=0
+database_quick_check=ok
+database_foreign_key_violations=0
+```
+
+---
+
 ## Explicitly Deferred
 
 This slice does not migrate:
@@ -143,17 +210,13 @@ POST /api/searchtimers/execute
 POST /api/vdr/searchtimers/execute
 POST /api/searchtimers/real-test
 POST /api/vdr/searchtimers/real-test
-POST /api/searchtimers/validate
-POST /api/vdr/searchtimers/validate
-POST /api/searchtimers/plan
-POST /api/vdr/searchtimers/plan
 ```
 
 Execution has separate operator-confirmation, executor-opt-in and backend-write
 policy and therefore remains a separate security class.
 
-Validation and planning are non-mutating POSTs and require a later explicit
-safe-POST classification rather than mutation permission.
+Validation and planning were classified separately as non-mutating POSTs in
+Slice 2M.
 
 No generic role administration, native/service credential lifecycle,
 idempotency platform, Phase 63+ runtime, PR-ready transition or merge is part of
@@ -161,14 +224,9 @@ Slice 2L.
 
 ---
 
-## Efficient Acceptance Plan
+## Completion
 
-The repository batch is completed and CI-validated before the user is asked to
-run anything on yaVDR.
-
-After one tested installation, the two profiles run consecutively against the
-same verified backup and installed fingerprints. Cleanup, grant restoration,
-session revocation, resource snapshots and database integrity are verified
-after each profile.
+Repository implementation, focused tests, full CI, guarded installation,
+mutation-safe runtime acceptance, cleanup and durable evidence all passed.
 
 PR #117 remains open, Draft and unmerged.
