@@ -311,6 +311,86 @@ BrowserSessionCredentialRepository::findBySessionId(
         sessionId);
 }
 
+std::optional<std::size_t>
+BrowserSessionCredentialRepository::countEffectiveActiveByActorId(
+    const std::string& actorId) const
+{
+    if (!safeIdentifier(actorId))
+    {
+        return std::nullopt;
+    }
+
+    const char* sql =
+        "SELECT COUNT(*) "
+        "FROM security_browser_session_credentials AS browser "
+        "JOIN security_actors AS actor "
+        "ON actor.actor_id = browser.actor_id "
+        "JOIN security_devices AS device "
+        "ON device.device_id = browser.device_id "
+        "AND device.actor_id = browser.actor_id "
+        "JOIN security_sessions AS session "
+        "ON session.session_id = browser.session_id "
+        "AND session.actor_id = browser.actor_id "
+        "AND session.device_id = browser.device_id "
+        "JOIN security_credentials AS browser_credential "
+        "ON browser_credential.credential_id = browser.credential_id "
+        "AND browser_credential.actor_id = browser.actor_id "
+        "JOIN security_credentials AS issuing_credential "
+        "ON issuing_credential.credential_id = "
+        "browser.issued_from_credential_id "
+        "AND issuing_credential.actor_id = browser.actor_id "
+        "WHERE browser.actor_id = ? "
+        "AND browser.active <> 0 "
+        "AND browser.revoked_at = '' "
+        "AND browser.expires_at > CURRENT_TIMESTAMP "
+        "AND actor.active <> 0 "
+        "AND actor.revoked_at = '' "
+        "AND device.active <> 0 "
+        "AND device.revoked_at = '' "
+        "AND session.active <> 0 "
+        "AND session.revoked_at = '' "
+        "AND (session.expires_at = '' OR "
+        "session.expires_at > CURRENT_TIMESTAMP) "
+        "AND browser_credential.active <> 0 "
+        "AND browser_credential.revoked_at = '' "
+        "AND (browser_credential.expires_at = '' OR "
+        "browser_credential.expires_at > CURRENT_TIMESTAMP) "
+        "AND issuing_credential.active <> 0 "
+        "AND issuing_credential.revoked_at = '' "
+        "AND (issuing_credential.expires_at = '' OR "
+        "issuing_credential.expires_at > CURRENT_TIMESTAMP);";
+
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return std::nullopt;
+    }
+
+    if (!bindText(statement, 1, actorId))
+    {
+        sqlite3_finalize(statement);
+        return std::nullopt;
+    }
+
+    std::optional<std::size_t> result;
+    if (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        const sqlite3_int64 count = sqlite3_column_int64(statement, 0);
+        if (count >= 0)
+        {
+            result = static_cast<std::size_t>(count);
+        }
+    }
+
+    sqlite3_finalize(statement);
+    return result;
+}
+
 bool BrowserSessionCredentialRepository::revokeBySessionId(
     const std::string& sessionId)
 {
