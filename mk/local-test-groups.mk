@@ -170,6 +170,7 @@ test-frontend-i18n:
 	node web/frontend/tests/test_timer_workflows_runtime.js
 	node web/frontend/tests/test_searchtimer_workflows_runtime.js
 	node web/frontend/tests/test_searchtimer_maintenance_security_runtime.js
+	node web/frontend/tests/test_searchtimer_execution_security_runtime.js
 	node web/frontend/tests/test_channel_day_program_runtime.js
 	node web/frontend/tests/test_channel_day_navigation_runtime.js
 	node web/frontend/tests/test_channel_day_program_compat_runtime.js
