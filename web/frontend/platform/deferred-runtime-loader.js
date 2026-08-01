@@ -295,6 +295,18 @@ function installSearchTimerMaintenanceMutationCsrf() {
   );
 }
 
+function installSearchTimerExecutionMutationCsrf() {
+  installMutationCsrfForPaths(
+    '__vdrSuiteSearchTimerExecutionMutationCsrfWrapped',
+    [
+      '/api/searchtimers/execute',
+      '/api/vdr/searchtimers/execute',
+      '/api/searchtimers/real-test',
+      '/api/vdr/searchtimers/real-test'
+    ]
+  );
+}
+
 function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
   if (typeof readyCheck === 'function' && readyCheck()) {
     return Promise.resolve();
@@ -465,6 +477,7 @@ if (typeof window !== 'undefined') {
   installRecordingExecutionMutationCsrf();
   installSearchTimerCreateMutationCsrf();
   installSearchTimerMaintenanceMutationCsrf();
+  installSearchTimerExecutionMutationCsrf();
   installSearchTimerPreviewCacheWarmup();
 
   window.VdrSuiteDeferredFrontendRuntimes = Object.freeze({
