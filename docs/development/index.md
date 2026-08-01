@@ -12,6 +12,7 @@
 - [Phase 62 Slice 2K — Runtime Acceptance Harness](phase-62-slice-2k-runtime-acceptance-harness.md)
 - [Phase 62 Slice 2L — SearchTimer Maintenance Security Migration](phase-62-slice-2l-searchtimer-maintenance-security-migration.md)
 - [Phase 62 Slice 2M — Explicit Safe POST Classification](phase-62-slice-2m-safe-post-classification.md)
+- [Phase 62 Slice 2N — SearchTimer Execution Security Migration](phase-62-slice-2n-searchtimer-execution-security-migration.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
 - [Completed Phase Archive](completed-phases/README.md)
