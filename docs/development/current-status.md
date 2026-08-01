@@ -133,6 +133,22 @@ The PR description is materially stale. Current repository truth is this file,
 [Current State](../CURRENT.md) and the
 [Slice 2P closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md).
 
+### Preferred edit path for new chats
+
+Prefer direct GitHub repository updates for existing files when the connector
+can perform the requested edit safely and the complete current file content is
+available.
+
+Use local edits first only when the change requires:
+
+- compilation, generated artifacts or focused local runtime tests;
+- coordinated tooling that is not available through the connector;
+- a workaround because the GitHub connector blocks a file operation.
+
+Never replace a complete file from a truncated fetch. Recheck the branch head
+before every write, keep updates fast-forward-only and inspect the resulting
+diff before treating a GitHub change as complete.
+
 ## Exact next action
 
 First let the Slice-2P documentation closeout pass all five CI jobs. Then inspect
