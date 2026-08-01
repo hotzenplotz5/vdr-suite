@@ -32,6 +32,15 @@ def main() -> int:
         "SecurityHttpGateBrowserTestFixture.h"
     )
     makefile = "mk/security-sources.mk"
+    acceptance_makefile = "mk/phase62-runtime-acceptance.mk"
+    safe_runner = (
+        "tools/phase62-runtime-acceptance/"
+        "safe-post-runner.py"
+    )
+    safe_manifest = (
+        "tools/phase62-runtime-acceptance/"
+        "slice-2m-safe-post.json"
+    )
     recording_frontend_test = (
         "web/frontend/tests/"
         "test_recording_execution_security_runtime.js"
@@ -49,6 +58,8 @@ def main() -> int:
     for relative in (
         test,
         fixture,
+        safe_runner,
+        safe_manifest,
         recording_frontend_test,
         searchtimer_frontend_test,
         document,
@@ -72,6 +83,7 @@ def main() -> int:
     ):
         require(gate, route)
         require(test, route)
+        require(safe_manifest, route)
 
     require(gate, "if (isSafePost)")
     require(gate, "!gate.context.authenticated()")
@@ -80,6 +92,18 @@ def main() -> int:
     require(test, "security_policy_not_migrated")
     require(makefile, "test-security-safe-post:")
     require(makefile, "test_safe_post_security.cpp")
+    require(safe_runner, "BASE.RuntimeAcceptance")
+    require(safe_runner, "safe_post_browser")
+    require(safe_runner, "resource_state_changed")
+    require(safe_runner, "phase62_safe_post_acceptance=passed")
+    require(
+        acceptance_makefile,
+        "phase62-runtime-acceptance-batch:",
+    )
+    require(
+        acceptance_makefile,
+        "slice-2m-safe-post.json",
+    )
     require(
         recording_frontend_test,
         "/api/vdr/recordings/actions/validate",
@@ -97,6 +121,14 @@ def main() -> int:
         "phase-62-slice-2m-safe-post-classification.md",
     )
 
+    safe_section = read(gate).split(
+        "const bool isSafePost =",
+        1,
+    )[1].split(
+        "const bool isProtectedMutation =",
+        1,
+    )[0]
+
     for forbidden_route in (
         'path == "/api/searchtimers/execute"',
         'path == "/api/vdr/searchtimers/execute"',
@@ -105,13 +137,6 @@ def main() -> int:
         'path == "/api/epg/cache/refresh"',
         'path == "/api/epgsearch/native-fuzzy/refresh"',
     ):
-        safe_section = read(gate).split(
-            "const bool isSafePost =",
-            1,
-        )[1].split(
-            "const bool isProtectedMutation =",
-            1,
-        )[0]
         if forbidden_route in safe_section:
             raise AssertionError(
                 "unsafe route entered safe POST classification: "
