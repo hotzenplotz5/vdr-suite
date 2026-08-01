@@ -29,11 +29,8 @@
     "/api/vdr/searchtimers/validate/"
   ],
   "excludedRoutes": [
-    "/api/vdr/searchtimers/execute",
-    "/api/vdr/searchtimers/real-test",
     "/api/vdr/searchtimers/preview/cache/refresh",
-    "/api/epg/cache/refresh",
-    "/api/vdr/epgsearch/native-fuzzy/refresh"
+    "/api/epg/cache/refresh"
   ],
   "safeBody": {},
   "expectedStatus": 200,
