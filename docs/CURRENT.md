@@ -5,6 +5,7 @@
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
+- [Phase 62 Slice 2Q Active Contract](development/phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Phase 62 Slice 2P Closeout](development/phase-62-slice-2p-query-cache-refresh-security-migration.md)
 - [Phase 62 Runtime Evidence](development/phase-62-runtime-evidence.md)
 - [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
@@ -54,6 +55,10 @@ VDR-Suite CI #6649
 Run ID 30711237050
 All five jobs successful
 
+Active repository implementation:
+Slice 2Q - Global Native Fuzzy Stale-Probe Deletion Security Migration
+CI and real-runtime acceptance pending
+
 Installed daemon SHA-256:
 c0e74602334e2b9d21f53329182bc5e35c99676f3dcdf2ae0639f996151a432a
 
@@ -72,10 +77,10 @@ HTTP request
   -> otherwise Legacy Basic or optional Managed Basic
   -> persistent lifecycle and actor-grant resolution
   -> exact route classification
-  -> backend-scope extraction from the route contract
+  -> route-specific backend or global scope extraction
   -> cookie-bound CSRF for migrated browser mutations
-  -> exact permission and backend-scope authorization
-  -> fixed exact-backend Admin/Read-only evaluation
+  -> exact permission and scope authorization
+  -> fixed exact-scope Admin/Read-only evaluation
   -> append-only pre-dispatch accountability
   -> existing router, backend and domain safety policy
 ```
@@ -97,7 +102,7 @@ The cumulative accepted catalogue includes:
 - SearchTimer preview cache refresh aliases;
 - EPG cache refresh.
 
-The current Slice 2P contracts are:
+The accepted Slice 2P contracts are:
 
 ```text
 POST /api/searchtimers/preview/cache/refresh
@@ -140,6 +145,26 @@ Durable evidence:
 /var/backups/vdr-suite-phase62-slice2p-20260801T180617Z-173c929964db/runtime-acceptance-slice2p
 ```
 
+## Active Slice 2Q repository contract
+
+```text
+POST /api/epgsearch/native-fuzzy/stale-probes/delete
+POST /api/vdr/epgsearch/native-fuzzy/stale-probes/delete
+  permission: epgsearch.native-fuzzy.stale-probes.delete@*
+```
+
+The canonical scope is global `*` and is independent of body or query values.
+Direct concrete-scope grants and concrete Admin assignments do not authorize
+the route. `role.admin@*` is the exact global assignment, while
+`role.read-only@*` denies before direct permission or Admin.
+
+There is no Webfrontend owner. The guarded runtime runner must verify an empty
+authenticated stale-probe GET snapshot before its first POST, otherwise it
+aborts without dispatch. Every accepted POST must return zero deleted rows.
+
+This contract remains repository-only until full CI and real yaVDR acceptance
+succeed.
+
 ## Compatibility and fail-closed boundary
 
 Legacy Basic remains a transitional compatibility path. Managed Basic and
@@ -147,13 +172,13 @@ browser actors do not inherit a legacy bypass. Browser mutations not explicitly
 classified remain fail-closed with `security_policy_not_migrated`.
 
 Query strings are removed only for exact route matching. Trailing-slash and
-unrelated path variants remain fail-closed. The Native Fuzzy stale-probe delete
-aliases were intentionally excluded from Slice 2P.
+unrelated path variants remain fail-closed. Slice 2Q does not classify the
+global deletion route as Safe POST.
 
 ## Remaining Phase 62 work
 
-- classify or migrate the remaining POST route families one bounded family at a
-  time;
+- complete all five CI jobs and guarded real-runtime acceptance for Slice 2Q;
+- re-audit the POST inventory after Slice 2Q acceptance;
 - add completion/outcome accountability and stronger transactional coupling;
 - define refresh, idle expiry, cleanup and concurrent-session policy;
 - add protected credential, identity, role and grant administration;
@@ -169,11 +194,12 @@ aliases were intentionally excluded from Slice 2P.
 - Do not mark it Ready, merge, auto-merge, force-push or rewrite branch history.
 - Recheck volatile GitHub and local state immediately before mutation.
 - Do not repeat completed runtime acceptance solely because the chat changed.
-- The next implementation must be exactly one bounded Phase 62 route family.
+- The current implementation is exactly one bounded Phase 62 route family.
 - Do not pull Android or Phase 63-67 runtime into Phase 62 route migration.
 
 ## Exact next action
 
-Let the documentation-closeout commit pass the complete five-job CI. Then plan
-one next bounded route family with explicit routes, permission, scope source,
-frontend owner, runtime-safe test boundary and rollback design before coding.
+Publish the bounded Slice 2Q repository implementation as one fast-forward
+commit and require all five CI jobs to pass. Only after full green CI may the
+guarded yaVDR install and zero-delete runtime acceptance run. The runtime pass
+must abort before any POST when the stale-probe preflight list is nonempty.

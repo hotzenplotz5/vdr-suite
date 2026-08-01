@@ -92,7 +92,9 @@ int main()
         "/api/vdr/epgsearch/native-fuzzy/refresh",
         "/api/searchtimers/preview/cache/refresh",
         "/api/vdr/searchtimers/preview/cache/refresh",
-        "/api/epg/cache/refresh"
+        "/api/epg/cache/refresh",
+        "/api/epgsearch/native-fuzzy/stale-probes/delete",
+        "/api/vdr/epgsearch/native-fuzzy/stale-probes/delete"
     };
 
     for (const std::string& route : protectedMutations)
@@ -115,8 +117,8 @@ int main()
     }
 
     const std::vector<std::string> stillUnmigrated = {
-        "/api/epgsearch/native-fuzzy/stale-probes/delete",
-        "/api/vdr/epgsearch/native-fuzzy/stale-probes/delete"
+        "/api/phase62/unmapped-mutation",
+        "/api/vdr/phase62/unmapped-mutation"
     };
 
     for (const std::string& route : stillUnmigrated)

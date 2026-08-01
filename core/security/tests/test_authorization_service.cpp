@@ -50,6 +50,9 @@ const std::vector<std::string> kProtectedMutationPermissions = {
     "timers.delete",
     "channels.move"
 };
+
+const std::string kGlobalStaleProbeDeletePermission =
+    "epgsearch.native-fuzzy.stale-probes.delete";
 }
 
 int main()
@@ -129,6 +132,74 @@ int main()
         assert(wildcardAdminTimerDenied.reasonCode ==
             "backend_scope_denied");
     }
+
+    RequestSecurityContext globalDirect = authenticatedContext();
+    globalDirect.grants.push_back(PermissionGrant{
+        kGlobalStaleProbeDeletePermission,
+        "*"});
+    const AuthorizationDecision globalDirectAllowed =
+        service.authorize(
+            globalDirect,
+            permissionRequest(
+                kGlobalStaleProbeDeletePermission,
+                "*"));
+    assert(globalDirectAllowed.allowed);
+    assert(globalDirectAllowed.reasonCode == "permission_granted");
+
+    RequestSecurityContext concreteGlobalPermission = authenticatedContext();
+    concreteGlobalPermission.grants.push_back(PermissionGrant{
+        kGlobalStaleProbeDeletePermission,
+        "default"});
+    const AuthorizationDecision concreteGlobalPermissionDenied =
+        service.authorize(
+            concreteGlobalPermission,
+            permissionRequest(
+                kGlobalStaleProbeDeletePermission,
+                "*"));
+    assert(!concreteGlobalPermissionDenied.allowed);
+    assert(concreteGlobalPermissionDenied.reasonCode ==
+        "backend_scope_denied");
+
+    const AuthorizationDecision globalAdminAllowed =
+        service.authorize(
+            wildcardAdminRole,
+            permissionRequest(
+                kGlobalStaleProbeDeletePermission,
+                "*"));
+    assert(globalAdminAllowed.allowed);
+    assert(globalAdminAllowed.reasonCode ==
+        "role_permission_granted");
+
+    const AuthorizationDecision concreteAdminGlobalDenied =
+        service.authorize(
+            adminRole,
+            permissionRequest(
+                kGlobalStaleProbeDeletePermission,
+                "*"));
+    assert(!concreteAdminGlobalDenied.allowed);
+    assert(concreteAdminGlobalDenied.reasonCode ==
+        "backend_scope_denied");
+
+    RequestSecurityContext globalReadOnly = globalDirect;
+    globalReadOnly.grants.push_back(
+        PermissionGrant{"role.read-only", "*"});
+    const AuthorizationDecision globalReadOnlyDenied =
+        service.authorize(
+            globalReadOnly,
+            permissionRequest(
+                kGlobalStaleProbeDeletePermission,
+                "*"));
+    assert(!globalReadOnlyDenied.allowed);
+    assert(globalReadOnlyDenied.reasonCode == "role_read_only");
+
+    RequestSecurityContext concreteReadOnlyGlobal = globalDirect;
+    concreteReadOnlyGlobal.grants.push_back(
+        PermissionGrant{"role.read-only", "default"});
+    assert(service.authorize(
+        concreteReadOnlyGlobal,
+        permissionRequest(
+            kGlobalStaleProbeDeletePermission,
+            "*")).allowed);
 
     RequestSecurityContext readOnlyRole = allowed;
     readOnlyRole.grants.push_back(PermissionGrant{"role.read-only", "default"});
@@ -211,6 +282,11 @@ int main()
             wildcard,
             permissionRequest(permission, "house-b")).allowed);
     }
+    assert(service.authorize(
+        wildcard,
+        permissionRequest(
+            kGlobalStaleProbeDeletePermission,
+            "*")).allowed);
 
     RequestSecurityContext expired = allowed;
     expired.session->expired = true;

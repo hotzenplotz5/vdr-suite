@@ -136,6 +136,8 @@ def main() -> int:
         'path == "/api/vdr/searchtimers/real-test"',
         'path == "/api/epg/cache/refresh"',
         'path == "/api/epgsearch/native-fuzzy/refresh"',
+        '"/api/epgsearch/native-fuzzy/stale-probes/delete"',
+        '"/api/vdr/epgsearch/native-fuzzy/stale-probes/delete"',
     ):
         if forbidden_route in safe_section:
             raise AssertionError(

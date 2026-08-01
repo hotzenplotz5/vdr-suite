@@ -142,6 +142,12 @@ public:
             isPost &&
             (path == "/api/epgsearch/native-fuzzy/refresh" ||
              path == "/api/vdr/epgsearch/native-fuzzy/refresh");
+        const bool isNativeFuzzyStaleProbeDeleteAction =
+            isPost &&
+            (path ==
+                 "/api/epgsearch/native-fuzzy/stale-probes/delete" ||
+             path ==
+                 "/api/vdr/epgsearch/native-fuzzy/stale-probes/delete");
         const bool isSafePost =
             isPost &&
             (path == "/api/recordings/actions/validate" ||
@@ -166,7 +172,8 @@ public:
             isSearchTimerRealTestAction ||
             isSearchTimerPreviewCacheRefreshAction ||
             isEpgCacheRefreshAction ||
-            isNativeFuzzyRefreshAction;
+            isNativeFuzzyRefreshAction ||
+            isNativeFuzzyStaleProbeDeleteAction;
 
         if (isSafePost)
         {
@@ -290,6 +297,14 @@ public:
             requestToAuthorize.backendId =
                 queryStringValue(request.path, "backend");
             defaultBackend(requestToAuthorize);
+        }
+        else if (isNativeFuzzyStaleProbeDeleteAction)
+        {
+            requestToAuthorize.permission =
+                "epgsearch.native-fuzzy.stale-probes.delete";
+            requestToAuthorize.action =
+                "epgsearch.native-fuzzy.stale-probes.delete";
+            requestToAuthorize.backendId = "*";
         }
         else if (isNativeFuzzyRefreshAction)
         {

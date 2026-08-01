@@ -147,7 +147,7 @@ int main()
 
     HttpServerRequest unmigrated =
         fixture.mutationRequest(
-            "/api/epgsearch/native-fuzzy/stale-probes/delete",
+            "/api/phase62/unmapped-mutation",
             "default");
     fixture.addBrowserAuthentication(
         unmigrated,
@@ -163,7 +163,7 @@ int main()
 
     HttpServerRequest legacyUnmigrated =
         fixture.mutationRequest(
-            "/api/epgsearch/native-fuzzy/stale-probes/delete",
+            "/api/phase62/unmapped-mutation",
             "default");
     fixture.addLegacyAuthentication(legacyUnmigrated);
     assert(fixture.gate.evaluate(

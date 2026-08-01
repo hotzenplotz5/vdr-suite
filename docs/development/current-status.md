@@ -30,6 +30,10 @@ VDR-Suite CI #6649
 Run ID: 30711237050
 All five jobs successful
 
+Active repository implementation:
+Slice 2Q - Global Native Fuzzy Stale-Probe Deletion Security Migration
+CI and real-runtime acceptance pending
+
 Installed daemon SHA-256:
 c0e74602334e2b9d21f53329182bc5e35c99676f3dcdf2ae0639f996151a432a
 
@@ -42,7 +46,7 @@ Phase 61 remains completed. Phase 62 remains active and incomplete. Phase
 
 ## Cumulative accepted Phase 62 scope
 
-The branch and installed runtime now include:
+The accepted branch and installed runtime include:
 
 - canonical actor, device, session, credential, request and correlation context;
 - persistent identity, lifecycle, managed Basic and browser-session verifiers;
@@ -106,11 +110,33 @@ The first guarded installation attempt stopped on an incorrect wrapper-side
 build-path assertion and automatically restored the accepted Slice-2O runtime.
 The corrected pass derived `.build` from Make and completed successfully.
 
+## Active Slice 2Q repository implementation
+
+Slice 2Q protects exactly:
+
+```text
+POST /api/epgsearch/native-fuzzy/stale-probes/delete
+POST /api/vdr/epgsearch/native-fuzzy/stale-probes/delete
+  -> epgsearch.native-fuzzy.stale-probes.delete@*
+```
+
+The canonical scope is global `*`. Request body and query values cannot alter
+it. Direct concrete-scope grants and concrete Admin assignments are denied;
+`role.admin@*` is the exact global assignment, and `role.read-only@*` wins.
+
+There is no Webfrontend owner. The real-runtime runner must abort before its
+first POST unless the authenticated stale-probe GET snapshot is exactly empty.
+Every authorized acceptance POST must report zero deletions.
+
+This repository implementation is not accepted runtime until all five CI jobs
+and the guarded real yaVDR pass succeed.
+
 ## Remaining Phase 62 work
 
 Phase 62 still lacks:
 
-- migration or explicit classification of the remaining POST families;
+- Slice 2Q CI and real-runtime acceptance;
+- a fresh POST inventory audit after Slice 2Q;
 - completion/outcome accountability and stronger transactional coupling;
 - browser-session refresh, idle expiry, cleanup and concurrency policy;
 - protected identity, credential, role and grant administration;
@@ -120,9 +146,6 @@ Phase 62 still lacks:
 - protected audit query/export/retention;
 - compatibility-retirement readiness and final Phase 62 closeout.
 
-The Native Fuzzy stale-probe deletion aliases remain explicitly excluded from
-Slice 2P and fail closed pending a separate bounded contract.
-
 ## Pull request truth
 
 PR #117 must remain open, Draft and unmerged. Do not mark it Ready for review,
@@ -130,8 +153,10 @@ merge it, enable auto-merge, force-push, rewrite branch history or change PR
 metadata without explicit approval.
 
 The PR description is materially stale. Current repository truth is this file,
-[Current State](../CURRENT.md) and the
-[Slice 2P closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md).
+[Current State](../CURRENT.md), the
+[Slice 2P closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md)
+and the active
+[Slice 2Q contract](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md).
 
 ### Preferred edit path for new chats
 
@@ -151,15 +176,16 @@ diff before treating a GitHub change as complete.
 
 ## Exact next action
 
-First let the Slice-2P documentation closeout pass all five CI jobs. Then inspect
-the remaining POST inventory and plan exactly one next Phase 62 route family.
-No next implementation begins until its route set, permission, scope source,
-frontend ownership, runtime-safe boundary and rollback contract are explicit.
+Publish the bounded Slice 2Q repository implementation in one fast-forward
+commit and require all five CI jobs to pass. Only after full green CI may the
+guarded yaVDR installation and zero-delete runtime acceptance run. The runtime
+runner must stop before any POST if the stale-probe preflight list is nonempty.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Slice 2Q Active Contract](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Slice 2P Closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md)
 - [Slice 2O Closeout](phase-62-slice-2o-native-fuzzy-refresh-security-migration.md)
 - [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)
