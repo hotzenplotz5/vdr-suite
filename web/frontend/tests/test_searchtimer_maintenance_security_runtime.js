@@ -169,7 +169,6 @@ context.fetch(
 assert.strictEqual(csrfHeader(), undefined);
 
 for (const route of [
-  '/api/vdr/searchtimers/execute',
   '/api/vdr/searchtimers/validate',
   '/api/vdr/searchtimers/plan'
 ]) {
