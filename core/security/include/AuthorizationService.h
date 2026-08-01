@@ -186,7 +186,9 @@ private:
             permission == "recordings.rename" ||
             permission == "recordings.move" ||
             permission == "recordings.delete" ||
-            permission == "searchtimers.create";
+            permission == "searchtimers.create" ||
+            permission == "searchtimers.modify" ||
+            permission == "searchtimers.delete";
     }
 
     static bool adminRoleGrants(const std::string& permission)
