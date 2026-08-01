@@ -14,25 +14,33 @@
 - [Phase 62 Slice 2M — Explicit Safe POST Classification](phase-62-slice-2m-safe-post-classification.md)
 - [Phase 62 Slice 2N — SearchTimer Execution Security Migration](phase-62-slice-2n-searchtimer-execution-security-migration.md)
 - [Phase 62 Slice 2O — Native Fuzzy Operator Refresh Security Migration](phase-62-slice-2o-native-fuzzy-refresh-security-migration.md)
+- [Phase 62 Slice 2P — Query-Scoped Cache Refresh Security Migration](phase-62-slice-2p-query-cache-refresh-security-migration.md)
+- [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
 - [Completed Phase Archive](completed-phases/README.md)
 
-## Latest closeouts
-
-- [Phase 61 Metadata, Genre and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
-- [Architecture Source Audit — 2026-07-15](architecture-source-audit-2026-07-15.md)
-
-Current markers:
+## Current markers
 
 ```text
 Latest completed numbered runtime phase: Phase 61 - Suite Metadata and Genre Platform
 Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
-Completed platform features: Remote/Live Overlay (#110), Global Search (#111), configurable PNG Remote (#115)
-Next strict runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
-Current Phase 62 state: active and incomplete; Slice 1 is real-runtime validated and the persistence/revocation foundation of Slice 2 is implemented on Draft PR #117
+Current runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
+Current accepted Phase 62 state: repository, CI and real yaVDR runtime accepted through Slice 2P
+Accepted code/runtime head: 173c929964dbb7aabd30c5e482c2e250b5785d92
+CI: #6649 / run 30711237050 / all five jobs successful
 ```
+
+Phase 62 remains active and incomplete. Phase 63-67 runtime has not been
+advanced. PR #117 remains open, Draft and unmerged.
+
+## Latest closeouts
+
+- [Phase 62 Slice 2P Closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md)
+- [Phase 62 Slice 2O Closeout](phase-62-slice-2o-native-fuzzy-refresh-security-migration.md)
+- [Phase 61 Metadata, Genre and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
+- [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
+- [Architecture Source Audit — 2026-07-15](architecture-source-audit-2026-07-15.md)
 
 ## Developer references
 
