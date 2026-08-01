@@ -2,8 +2,22 @@
 
 ## Status
 
-Repository implementation is prepared. Full CI and guarded real yaVDR runtime
-acceptance remain pending.
+Repository implementation, full source/runtime CI and guarded real yaVDR
+runtime acceptance are complete.
+
+Accepted implementation/runtime head:
+
+```text
+c128867bfbf4ce10bcf7dc23d14652e5f5324c83
+```
+
+Accepted source/runtime CI:
+
+```text
+VDR-Suite CI #6663
+Run ID 30717721595
+All five jobs successful
+```
 
 PR #117 remains open, Draft and unmerged.
 
@@ -20,9 +34,9 @@ A browser-session idle timeout is not a small follow-up because it requires a
 Expired-session cleanup is a destructive retention policy. Concurrent-session
 limits require race-safe issuance semantics and richer failure reporting.
 
-The smallest independent gap is narrower: the existing browser lifecycle gate
-already records pre-dispatch accountability, but the actual issue/revoke result
-is not recorded after the HTTP service runs.
+The smallest independent gap was narrower: the existing browser lifecycle gate
+already recorded pre-dispatch accountability, but the actual issue/revoke result
+was not recorded after the HTTP service ran.
 
 ---
 
@@ -55,12 +69,12 @@ operation.failed
 Canonical fields:
 
 ```text
-issue permission: session.issue.self
-issue action:     browser.session.issue
+issue permission:  session.issue.self
+issue action:      browser.session.issue
 revoke permission: session.revoke.self
 revoke action:     browser.session.revoke
-backend scope:      *
-decision:           allowed
+backend scope:     *
+decision:          allowed
 ```
 
 Outcome reason codes:
@@ -167,31 +181,81 @@ The focused HTTP-service test covers:
 A dedicated static checker enforces the service, server wiring, tests,
 documentation and Make integration.
 
+All five jobs in CI #6663 passed, including the complete architecture/C++
+regression graph, packaging, frontend contracts and full daemon build.
+
 ---
 
-## Planned Real-Runtime Acceptance
+## Accepted Real-Runtime Acceptance
 
-Real-runtime acceptance may run only after all five PR CI jobs are green.
+The guarded yaVDR pass installed the CI-accepted daemon and performed one
+complete browser lifecycle without contacting or mutating VDR domain state.
 
-The guarded pass will:
+It verified:
 
-1. verify exact branch/head, clean worktree and installed fingerprints;
-2. back up the installed runtime and SQLite database;
-3. install the CI-accepted daemon;
-4. issue one bounded browser session;
-5. prove the existing pre-dispatch event and new `operation.succeeded` issue
-   event use the same request context;
-6. deny a missing-CSRF logout before service dispatch and prove no duplicate
-   operation event was created;
-7. perform valid logout and prove the new successful revoke outcome;
-8. deny revoked-cookie replay;
-9. prove all acceptance events are secret-free;
-10. prove the test session and credential remain revoked, database integrity is
-    valid and the service remains active.
+1. exact repository head, clean worktree and matching build/installed/running
+   daemon fingerprints;
+2. one successful browser-session issue;
+3. exactly one gate-owned `authorization.allowed` event and one
+   `operation.succeeded` issue event with matching actor, device, request and
+   correlation context;
+4. ordinary browser-authenticated GET access;
+5. missing-CSRF logout denial with exactly one gate denial event and zero
+   operation events;
+6. one valid logout with exactly one gate allow event and one
+   `operation.succeeded` revoke event;
+7. atomic lifecycle revocation and revoked-cookie replay denial;
+8. secret-free acceptance accountability;
+9. SQLite quick/foreign-key integrity and an active unchanged daemon PID.
 
-The routine runtime pass will not force an accountability storage failure on the
-production database. Append-failure compensation is covered by the focused
-in-memory SQLite test.
+Accepted runtime summary:
+
+```text
+service_pid_after_install=69610
+service_pid_after_acceptance=69610
+runtime_http_requests=5
+login_accountability_events=2
+missing_csrf_accountability_events=1
+logout_accountability_events=2
+lifecycle_accountability_events=5
+operation_succeeded_events=2
+missing_csrf_operation_events=0
+login_dispatch_authorized=yes
+login_outcome_succeeded=yes
+ordinary_browser_get=yes
+missing_csrf_denied=yes
+logout_dispatch_authorized=yes
+logout_outcome_succeeded=yes
+logout_succeeded=yes
+session_revoked=yes
+credential_revoked=yes
+revoked_cookie_replay_denied=yes
+accountability_secret_free=yes
+database_integrity=yes
+service_state=active
+automatic_rollback=not-required
+```
+
+Installed fingerprints:
+
+```text
+daemon_sha256=682cfc76738454f57daff0831fe7a01786f57abf42cf16c2fa9c2ac16309a07a
+loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+runtime_report_sha256=9ca22c30db9e22decb8e4f74d0204b82d53bb58c344cebdd95d4bae0893a5421
+database_before_sha256=12356c390c4c852bf59b1a9636e27738332ab71f836dcb01ef46984a39dc7e0f
+database_after_sha256=2153b347d97ce1148a1efdbc3628c4f9652346e82b27d0baeae50c38172e5378
+```
+
+The before/after database snapshots intentionally differ because the test
+browser-session lifecycle rows and acceptance accountability events remain as
+revoked, durable evidence. The session and credential are inactive, have
+revocation timestamps and cannot be replayed.
+
+Durable evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2s-20260801T210333Z-c128867bfbf4/runtime-acceptance-slice2s
+```
 
 ---
 
@@ -215,10 +279,13 @@ Slice 2S does not implement:
 
 ## Acceptance Gate
 
-Slice 2S is not complete until:
+All Slice-2S gates are complete:
 
-1. the atomic repository diff remains within this lifecycle-outcome boundary;
-2. the focused and architecture tests pass;
-3. all five PR CI jobs pass;
-4. guarded real yaVDR issue/logout outcome acceptance succeeds;
-5. the runtime test session is revoked and durable evidence is documented.
+1. the atomic repository diff remained within the lifecycle-outcome boundary;
+2. focused, architecture and complete regression tests passed;
+3. all five source/runtime CI jobs passed;
+4. guarded real yaVDR issue/logout outcome acceptance succeeded;
+5. the runtime test session and credential are revoked and durable evidence is
+   preserved.
+
+No next Phase-62 implementation slice is selected by this closeout.

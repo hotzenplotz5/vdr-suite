@@ -5,7 +5,7 @@
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
-- [Phase 62 Slice 2S Active Contract](development/phase-62-slice-2s-browser-session-outcome-accountability.md)
+- [Phase 62 Slice 2S Closeout](development/phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Phase 62 Slice 2R Closeout](development/phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Phase 62 Slice 2Q Closeout](development/phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Phase 62 Runtime Evidence](development/phase-62-runtime-evidence.md)
@@ -45,23 +45,22 @@ Configurable photorealistic VDR Remote (#115)
 Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
-Repository, CI and real-runtime accepted through:
-Slice 2R - Configurable Absolute Browser-Session Lifetime
+Repository, source CI and real-runtime accepted through:
+Slice 2S - Browser-Session Lifecycle Outcome Accountability
 
 Accepted code/runtime head:
-d65af5a24688fe4dbf090030226fd45825260060
+c128867bfbf4ce10bcf7dc23d14652e5f5324c83
 
-Accepted closeout CI:
-VDR-Suite CI #6662
-Run ID 30717164017
+Accepted source/runtime CI:
+VDR-Suite CI #6663
+Run ID 30717721595
 All five jobs successful
 
 Active repository implementation:
-Slice 2S - Browser-Session Lifecycle Outcome Accountability
-CI and real-runtime acceptance pending
+None selected after Slice 2S closeout
 
 Installed daemon SHA-256:
-12953babb3a2ce3aebeb99a377f66a94375bf55cf1e839cf8163bf574f4d7660
+682cfc76738454f57daff0831fe7a01786f57abf42cf16c2fa9c2ac16309a07a
 
 Installed deferred-runtime-loader.js SHA-256:
 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
@@ -83,11 +82,21 @@ HTTP request
   -> exact permission and scope authorization
   -> fixed exact-scope Admin/Read-only evaluation
   -> append-only pre-dispatch accountability
+  -> browser lifecycle post-operation accountability for issue/revoke
   -> existing router, backend and domain safety policy
 ```
 
 Backend read-only, capability and domain policy remain independent from actor
 authorization. Frontends do not own authorization decisions.
+
+## Completed post-Slice-2Q POST inventory
+
+The fresh inventory confirms:
+
+- browser-session issue/logout are owned by the dedicated lifecycle gate;
+- every central-router POST is a protected mutation or explicit Safe POST;
+- no unmigrated product POST family remains after Slice 2Q;
+- unknown browser and enforced-mode POST routes continue to fail closed.
 
 ## Accepted Slice 2R contract
 
@@ -109,7 +118,7 @@ Durable accepted evidence:
 /var/backups/vdr-suite-phase62-slice2r-20260801T202314Z-d65af5a24688/runtime-acceptance-slice2r
 ```
 
-## Active Slice 2S repository contract
+## Accepted Slice 2S contract
 
 The dedicated browser lifecycle gate continues to own authentication,
 permission and CSRF pre-dispatch accountability.
@@ -121,25 +130,16 @@ session issue  -> operation.succeeded / operation.failed
 session revoke -> operation.succeeded / operation.failed
 ```
 
-Canonical issue fields remain:
+Canonical fields remain:
 
 ```text
-permission=session.issue.self
-action=browser.session.issue
-backend=*
-```
-
-Canonical revoke fields remain:
-
-```text
-permission=session.revoke.self
-action=browser.session.revoke
-backend=*
+issue:  session.issue.self / browser.session.issue / *
+revoke: session.revoke.self / browser.session.revoke / *
 ```
 
 A successful login is not delivered until its outcome event is persisted. If
 the append fails, the newly created session is compensatingly revoked, secrets
-are wiped and HTTP 503 is returned without `Set-Cookie`.
+are wiped and HTTP 503 is returned without a session cookie.
 
 A successful logout remains revoked even when its outcome append fails. The
 503 response still expires the client cookie. Authentication and CSRF denials
@@ -151,20 +151,43 @@ timeout, cleanup, session limits, audit-query APIs or security administration.
 ## Latest accepted real-runtime acceptance
 
 ```text
-Slice: Slice 2R configurable absolute browser-session lifetime
-Custom lifetime: 900 seconds
+Slice: Slice 2S browser-session lifecycle outcome accountability
+Service PID after install/acceptance: 69610 / 69610
 HTTP requests: 5
-Persisted remaining lifetime: 900 seconds
-Cookie Max-Age: 900
+Login accountability events: 2
+Missing-CSRF accountability events: 1
+Logout accountability events: 2
+Lifecycle accountability events: 5
+Operation-succeeded events: 2
+Missing-CSRF operation events: 0
+Login dispatch/outcome: passed
 Ordinary browser GET: passed
-Missing-CSRF logout: denied
-Logout and lifecycle revocation: passed
+Missing-CSRF logout: denied before operation
+Logout dispatch/outcome: passed
+Session and credential revocation: passed
 Revoked-cookie replay: denied
-Lifecycle accountability: secret-free
-Original runtime configuration and environment: restored
+Accountability: secret-free
 Database integrity: yes
 Service active: yes
+Rollback: not required
 ```
+
+Durable evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2s-20260801T210333Z-c128867bfbf4/runtime-acceptance-slice2s
+```
+
+Evidence fingerprints:
+
+```text
+runtime_report_sha256=9ca22c30db9e22decb8e4f74d0204b82d53bb58c344cebdd95d4bae0893a5421
+database_before_sha256=12356c390c4c852bf59b1a9636e27738332ab71f836dcb01ef46984a39dc7e0f
+database_after_sha256=2153b347d97ce1148a1efdbc3628c4f9652346e82b27d0baeae50c38172e5378
+```
+
+The database snapshots differ because the revoked test lifecycle rows and
+acceptance accountability events remain as durable evidence.
 
 ## Compatibility and fail-closed boundary
 
@@ -178,7 +201,6 @@ permission, frontend owner, schema or packaging contract.
 
 ## Remaining Phase 62 work
 
-- complete all five CI jobs and guarded real-runtime acceptance for Slice 2S;
 - define browser-session idle expiry, cleanup and concurrency policy;
 - extend outcome accountability beyond the bounded lifecycle pair only through
   separately designed slices;
@@ -188,6 +210,8 @@ permission, frontend owner, schema or packaging contract.
 - standardize revisions, idempotency and operation lifecycle;
 - add protected audit query/export/retention;
 - complete compatibility-retirement and final Phase 62 acceptance.
+
+No next implementation slice is selected by this closeout.
 
 ## Operating rules
 
@@ -200,7 +224,7 @@ permission, frontend owner, schema or packaging contract.
 
 ## Exact next action
 
-Publish Slice 2S as one bounded fast-forward commit and require all five CI jobs
-to pass. Only after full green CI may a guarded yaVDR pass verify issue/revoke
-outcome pairs, CSRF non-duplication, revocation, replay denial and secret-free
-evidence.
+Let this Slice-2S documentation closeout complete its full five-job CI. Then
+perform a fresh bounded Phase-62 gap review and select exactly one next slice
+only after its security, persistence and real-runtime-safety contract is
+explicit.

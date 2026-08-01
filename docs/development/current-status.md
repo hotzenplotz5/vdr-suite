@@ -19,23 +19,22 @@ Post-Phase 61 Performance Hardening (B1-B4)
 Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
-Repository, CI and real-runtime accepted through:
-Slice 2R - Configurable Absolute Browser-Session Lifetime
+Repository, source CI and real-runtime accepted through:
+Slice 2S - Browser-Session Lifecycle Outcome Accountability
 
 Accepted code/runtime head:
-d65af5a24688fe4dbf090030226fd45825260060
+c128867bfbf4ce10bcf7dc23d14652e5f5324c83
 
-Accepted closeout GitHub Actions:
-VDR-Suite CI #6662
-Run ID: 30717164017
+Accepted source/runtime GitHub Actions:
+VDR-Suite CI #6663
+Run ID: 30717721595
 All five jobs successful
 
 Active repository implementation:
-Slice 2S - Browser-Session Lifecycle Outcome Accountability
-CI and real-runtime acceptance pending
+None selected after Slice 2S closeout
 
 Installed daemon SHA-256:
-12953babb3a2ce3aebeb99a377f66a94375bf55cf1e839cf8163bf574f4d7660
+682cfc76738454f57daff0831fe7a01786f57abf42cf16c2fa9c2ac16309a07a
 
 Installed deferred-runtime-loader.js SHA-256:
 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
@@ -63,6 +62,8 @@ The accepted branch and installed runtime include:
 - configurable bounded absolute browser-session lifetime shared by persistence
   and cookie construction;
 - append-only pre-dispatch accountability and secret-free denial evidence;
+- browser-session issue/revoke success/failure outcome accountability with
+  fail-closed login compensation and logout cookie cleanup;
 - mutation-safe real-runtime acceptance profiles and guarded rollback.
 
 ## Completed post-Slice-2Q POST inventory
@@ -102,7 +103,7 @@ Durable evidence:
 /var/backups/vdr-suite-phase62-slice2r-20260801T202314Z-d65af5a24688/runtime-acceptance-slice2r
 ```
 
-## Active Slice 2S repository contract
+## Accepted Slice 2S contract
 
 Slice 2S adds post-operation accountability only for the existing
 browser-session issue and revoke lifecycle pair.
@@ -146,14 +147,57 @@ Explicitly excluded from Slice 2S:
 - protected audit query/export/retention;
 - general security administration.
 
-This repository implementation is not accepted runtime until all five CI jobs
-and the guarded browser lifecycle outcome yaVDR pass succeed.
+## Accepted Slice 2S runtime evidence
+
+```text
+service_pid_after_install=69610
+service_pid_after_acceptance=69610
+runtime_http_requests=5
+login_accountability_events=2
+missing_csrf_accountability_events=1
+logout_accountability_events=2
+lifecycle_accountability_events=5
+operation_succeeded_events=2
+missing_csrf_operation_events=0
+login_dispatch_authorized=yes
+login_outcome_succeeded=yes
+ordinary_browser_get=yes
+missing_csrf_denied=yes
+logout_dispatch_authorized=yes
+logout_outcome_succeeded=yes
+logout_succeeded=yes
+session_revoked=yes
+credential_revoked=yes
+revoked_cookie_replay_denied=yes
+accountability_secret_free=yes
+database_integrity=yes
+service_state=active
+automatic_rollback=not-required
+```
+
+Durable evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2s-20260801T210333Z-c128867bfbf4/runtime-acceptance-slice2s
+```
+
+Evidence fingerprints:
+
+```text
+runtime_report_sha256=9ca22c30db9e22decb8e4f74d0204b82d53bb58c344cebdd95d4bae0893a5421
+database_before_sha256=12356c390c4c852bf59b1a9636e27738332ab71f836dcb01ef46984a39dc7e0f
+database_after_sha256=2153b347d97ce1148a1efdbc3628c4f9652346e82b27d0baeae50c38172e5378
+```
+
+The database snapshots differ because the revoked test browser-session rows and
+acceptance accountability events remain as durable evidence. All relevant
+browser-session, canonical session and credential rows are inactive with
+revocation timestamps, and revoked-cookie replay is denied.
 
 ## Remaining Phase 62 work
 
 Phase 62 still lacks:
 
-- Slice 2S CI and guarded real-runtime acceptance;
 - browser-session idle expiry, cleanup and concurrency policy;
 - outcome accountability for other operation families;
 - stronger transactional coupling or outbox semantics;
@@ -164,6 +208,8 @@ Phase 62 still lacks:
 - protected audit query/export/retention;
 - compatibility-retirement readiness and final Phase 62 closeout.
 
+No next implementation slice is selected by this closeout.
+
 ## Pull request truth
 
 PR #117 must remain open, Draft and unmerged. Do not mark it Ready for review,
@@ -171,8 +217,8 @@ merge it, enable auto-merge, force-push, rewrite branch history or change PR
 metadata without explicit approval.
 
 The PR description is materially stale. Current repository truth is this file,
-[Current State](../CURRENT.md), the active
-[Slice 2S contract](phase-62-slice-2s-browser-session-outcome-accountability.md),
+[Current State](../CURRENT.md), the
+[Slice 2S closeout](phase-62-slice-2s-browser-session-outcome-accountability.md),
 the [Slice 2R closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md),
 the [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 and the
@@ -196,14 +242,15 @@ diff before treating a GitHub change as complete.
 
 ## Exact next action
 
-Publish Slice 2S as one bounded fast-forward commit and require all five CI jobs
-to pass. Only then run a guarded yaVDR issue/logout lifecycle outcome acceptance.
+Let this Slice-2S documentation closeout complete all five CI jobs. Then perform
+a fresh bounded Phase-62 gap review and select exactly one next slice only after
+its security, persistence and real-runtime-safety boundary is explicit.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
-- [Slice 2S Active Contract](phase-62-slice-2s-browser-session-outcome-accountability.md)
+- [Slice 2S Closeout](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)

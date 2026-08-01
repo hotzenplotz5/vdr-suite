@@ -29,12 +29,11 @@
 Latest completed numbered runtime phase: Phase 61 - Suite Metadata and Genre Platform
 Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
 Current runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
-Current accepted Phase 62 state: repository, CI and real yaVDR runtime accepted through Slice 2R
-Accepted code/runtime head: d65af5a24688fe4dbf090030226fd45825260060
-Accepted closeout CI: #6662 / run 30717164017 / all five jobs successful
-Active repository implementation: Slice 2S browser-session lifecycle outcome accountability
-Slice 2S CI and real-runtime acceptance: pending
-Installed daemon SHA-256: 12953babb3a2ce3aebeb99a377f66a94375bf55cf1e839cf8163bf574f4d7660
+Current accepted Phase 62 state: repository, source CI and real yaVDR runtime accepted through Slice 2S
+Accepted code/runtime head: c128867bfbf4ce10bcf7dc23d14652e5f5324c83
+Accepted source/runtime CI: #6663 / run 30717721595 / all five jobs successful
+Active repository implementation: none selected after Slice 2S closeout
+Installed daemon SHA-256: 682cfc76738454f57daff0831fe7a01786f57abf42cf16c2fa9c2ac16309a07a
 Installed loader SHA-256: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 ```
 
@@ -43,6 +42,7 @@ advanced. PR #117 remains open, Draft and unmerged.
 
 ## Latest accepted closeouts
 
+- [Phase 62 Slice 2S Closeout](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Phase 62 Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Phase 62 Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Phase 62 Slice 2P Closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md)
@@ -51,31 +51,44 @@ advanced. PR #117 remains open, Draft and unmerged.
 - [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
 - [Architecture Source Audit — 2026-07-15](architecture-source-audit-2026-07-15.md)
 
-## Latest accepted Slice 2R evidence
+## Latest accepted Slice 2S evidence
 
 ```text
-Custom lifetime: 900 seconds
+Service PID after install/acceptance: 69610 / 69610
 HTTP requests: 5
-Persisted remaining lifetime: 900 seconds
-Cookie Max-Age: 900
-Cookie attributes: HttpOnly, Secure, SameSite=Strict
+Login accountability events: 2
+Missing-CSRF accountability events: 1
+Logout accountability events: 2
+Lifecycle accountability events: 5
+Operation-succeeded events: 2
+Missing-CSRF operation events: 0
+Login dispatch/outcome: passed
 Ordinary browser GET: passed
-Missing-CSRF logout: denied
-Logout and lifecycle revocation: passed
+Missing-CSRF logout: denied before operation
+Logout dispatch/outcome: passed
+Session and credential revocation: passed
 Revoked-cookie replay: denied
-Lifecycle accountability: complete and secret-free
-Original runtime configuration and environment: restored
+Accountability: secret-free
 Database integrity: yes
 Service active: yes
+Rollback: not required
 ```
 
 Evidence directory:
 
 ```text
-/var/backups/vdr-suite-phase62-slice2r-20260801T202314Z-d65af5a24688/runtime-acceptance-slice2r
+/var/backups/vdr-suite-phase62-slice2s-20260801T210333Z-c128867bfbf4/runtime-acceptance-slice2s
 ```
 
-## Active Slice 2S contract
+Evidence fingerprints:
+
+```text
+runtime_report_sha256=9ca22c30db9e22decb8e4f74d0204b82d53bb58c344cebdd95d4bae0893a5421
+database_before_sha256=12356c390c4c852bf59b1a9636e27738332ab71f836dcb01ef46984a39dc7e0f
+database_after_sha256=2153b347d97ce1148a1efdbc3628c4f9652346e82b27d0baeae50c38172e5378
+```
+
+## Accepted Slice 2S contract
 
 ```text
 issue outcome:  operation.succeeded / operation.failed
@@ -121,9 +134,9 @@ transactional outbox, idle timeout, cleanup and concurrency remain deferred.
 
 ## Exact next action
 
-Publish the bounded Slice-2S repository implementation as one fast-forward
-commit. Require all five CI jobs before guarded lifecycle-outcome runtime
-acceptance on yaVDR.
+Let the Slice-2S documentation closeout complete its five-job CI. Then perform a
+fresh bounded Phase-62 gap review and select exactly one next slice only after
+its security, persistence and real-runtime-safety contract is explicit.
 
 ## Related navigation
 
