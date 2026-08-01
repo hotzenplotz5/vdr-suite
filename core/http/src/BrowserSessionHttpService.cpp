@@ -114,12 +114,14 @@ BrowserSessionHttpService::BrowserSessionHttpService(
     BrowserSessionIssuanceService& issuanceService,
     BrowserSessionLifecycleService& lifecycleService,
     AccountabilityEventRepository& accountabilityRepository)
-    : BrowserSessionHttpService(
-          issuanceService,
-          lifecycleService,
-          accountabilityRepository,
-          SecurityConfiguration::fromEnvironment().browserSessionLifetime)
+    : issuanceService_(issuanceService),
+      lifecycleService_(lifecycleService),
+      accountabilityRepository_(accountabilityRepository)
 {
+    const SecurityConfiguration configuration =
+        SecurityConfiguration::fromEnvironment();
+    lifetimeConfiguration_ = configuration.browserSessionLifetime;
+    concurrencyConfiguration_ = configuration.browserSessionConcurrency;
 }
 
 BrowserSessionHttpService::BrowserSessionHttpService(
@@ -127,10 +129,26 @@ BrowserSessionHttpService::BrowserSessionHttpService(
     BrowserSessionLifecycleService& lifecycleService,
     AccountabilityEventRepository& accountabilityRepository,
     BrowserSessionLifetimeConfiguration lifetimeConfiguration)
+    : BrowserSessionHttpService(
+          issuanceService,
+          lifecycleService,
+          accountabilityRepository,
+          std::move(lifetimeConfiguration),
+          BrowserSessionConcurrencyConfiguration{})
+{
+}
+
+BrowserSessionHttpService::BrowserSessionHttpService(
+    BrowserSessionIssuanceService& issuanceService,
+    BrowserSessionLifecycleService& lifecycleService,
+    AccountabilityEventRepository& accountabilityRepository,
+    BrowserSessionLifetimeConfiguration lifetimeConfiguration,
+    BrowserSessionConcurrencyConfiguration concurrencyConfiguration)
     : issuanceService_(issuanceService),
       lifecycleService_(lifecycleService),
       accountabilityRepository_(accountabilityRepository),
-      lifetimeConfiguration_(std::move(lifetimeConfiguration))
+      lifetimeConfiguration_(std::move(lifetimeConfiguration)),
+      concurrencyConfiguration_(std::move(concurrencyConfiguration))
 {
 }
 
@@ -169,14 +187,55 @@ HttpServerResponse BrowserSessionHttpService::login(
             context);
     }
 
+    if (!concurrencyConfiguration_.valid())
+    {
+        if (!appendOutcome(
+                context,
+                false,
+                IssuePermission,
+                IssueAction,
+                "browser_session_limit_configuration_invalid"))
+        {
+            return accountabilityUnavailableResponse(context, false);
+        }
+        return errorResponse(
+            503,
+            "browser_session_limit_configuration_invalid",
+            "The browser session concurrency configuration is invalid",
+            context);
+    }
+
     BrowserSessionIssuanceRequest request;
     request.actorId = context.actor.actorId;
     request.deviceId = context.device->deviceId;
     request.issuedFromCredentialId = context.credential->credentialId;
     request.lifetimeSeconds = lifetimeConfiguration_.seconds;
+    request.maximumActivePerActor =
+        concurrencyConfiguration_.maximumActivePerActor;
 
-    auto issued = issuanceService_.issue(request);
-    if (!issued.has_value())
+    BrowserSessionIssuanceResult issuance =
+        issuanceService_.issueWithPolicy(request);
+
+    if (issuance.status == BrowserSessionIssuanceStatus::LimitReached)
+    {
+        if (!appendOutcome(
+                context,
+                false,
+                IssuePermission,
+                IssueAction,
+                "browser_session_limit_reached"))
+        {
+            return accountabilityUnavailableResponse(context, false);
+        }
+        return errorResponse(
+            409,
+            "browser_session_limit_reached",
+            "The active browser session limit has been reached",
+            context);
+    }
+
+    if (issuance.status != BrowserSessionIssuanceStatus::Issued ||
+        !issuance.session.has_value())
     {
         if (!appendOutcome(
                 context,
@@ -193,6 +252,9 @@ HttpServerResponse BrowserSessionHttpService::login(
             "The browser session could not be issued",
             context);
     }
+
+    std::optional<IssuedBrowserSession> issued =
+        std::move(issuance.session);
 
     if (!appendOutcome(
             context,
