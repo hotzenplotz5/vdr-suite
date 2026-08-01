@@ -19,6 +19,7 @@
 - [Phase 62 Slice 2R — Configurable Absolute Browser-Session Lifetime](phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Phase 62 Slice 2S — Browser-Session Lifecycle Outcome Accountability](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Phase 62 Slice 2T — Browser-Session Issuing-Credential Lifecycle Binding](phase-62-slice-2t-browser-session-issuer-binding.md)
+- [Phase 62 Slice 2U — Concurrent Browser-Session Limit](phase-62-slice-2u-browser-session-concurrency-limit.md)
 - [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
@@ -32,16 +33,36 @@ Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
 Current runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
 Current accepted Phase 62 state: repository, source CI and real yaVDR runtime accepted through Slice 2T
 Accepted implementation/runtime head: 55876356e84b3e47e52911529b3f9bfa0e17f191
-Accepted source CI: #6666 / run 30719552024 / all five jobs successful
-Documentation-only Slice-2T closeout: this commit; closeout CI pending
-Active repository implementation: none selected after Slice 2T runtime acceptance
+Accepted Slice-2T source CI: #6666 / run 30719552024 / all five jobs successful
+Accepted Slice-2T closeout head: e79e0eb67da75044c4a9afa162c9dab188b026fd
+Accepted Slice-2T closeout CI: #6667 / run 30721936576 / all five jobs successful
+Active repository implementation: Slice 2U concurrent browser-session limit
+Slice-2U final-head source CI and real-runtime acceptance: pending
 Installed daemon SHA-256: 34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
 Installed loader SHA-256: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 ```
 
-
 Phase 62 remains active and incomplete. Phase 63-67 runtime has not been
 advanced. PR #117 remains open, Draft and unmerged.
+
+## Active Slice 2U contract
+
+```text
+Configuration: VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR
+Compatibility default: 0 (unlimited)
+Configured range: 0..64
+Count semantics: effective actor/device/session/browser credential/issuer lifecycle
+Transaction: count before insert inside serialized BEGIN IMMEDIATE
+Reached limit: HTTP 409 browser_session_limit_reached
+Invalid configuration: HTTP 503 browser_session_limit_configuration_invalid
+Eviction: never
+Schema migration: none
+Frontend or route change: none
+```
+
+Slice 2U changes only new browser-session issuance. It does not add idle expiry,
+`last_seen`, refresh, cleanup, retention, session listing, automatic eviction or
+security administration.
 
 ## Latest accepted closeouts
 
@@ -85,6 +106,8 @@ Evidence directory:
 ```text
 Runtime head: 55876356e84b3e47e52911529b3f9bfa0e17f191
 Source CI: #6666 / run 30719552024 / all five jobs successful
+Closeout head: e79e0eb67da75044c4a9afa162c9dab188b026fd
+Closeout CI: #6667 / run 30721936576 / all five jobs successful
 Installed/running daemon: 34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
 Runtime report SHA-256: 2ca7fcaefe21c1198e5d8ff88b3e17237b2e72a545780cc14f0200e7dd0ca983
 Ordinary GET before issuer invalidation: HTTP 200
@@ -108,7 +131,7 @@ Evidence directory:
 ```
 
 No schema migration, cascade, cleanup, route, frontend, permission,
-configuration or packaging change was included.
+configuration or packaging change was included in Slice 2T.
 
 ## Developer references
 
@@ -122,6 +145,7 @@ configuration or packaging change was included.
 
 ## Runtime and acceptance references
 
+- [Agent Workflow Rules](../../AGENTS.md)
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 - [Recording Action Readiness Audit](recording-action-readiness-audit.md)
@@ -140,10 +164,9 @@ configuration or packaging change was included.
 
 ## Exact next action
 
-Require all five CI jobs for this documentation-only Slice-2T closeout.
-
-No next implementation slice is selected by this closeout. Perform a fresh
-post-2T gap analysis only after full closeout CI.
+Complete the bounded Slice-2U source stabilization and require all five GitHub
+Actions jobs on the final current head. Only after full green final-head CI may
+guarded real-yaVDR runtime acceptance begin.
 
 ## Related navigation
 
