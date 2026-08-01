@@ -177,9 +177,11 @@ Prefer direct GitHub repository updates for existing files when the connector
 can perform the requested edit safely and the complete current file content is
 available.
 
-Use local edits first only when the change requires compilation, generated
-artifacts, focused runtime tests or coordinated tooling unavailable through the
-connector.
+Use local edits first only when the change requires:
+
+- compilation, generated artifacts or focused local runtime tests;
+- coordinated tooling that is not available through the connector;
+- a workaround because the GitHub connector blocks a file operation.
 
 Never replace a complete file from a truncated fetch. Recheck the branch head
 before every write, keep updates fast-forward-only and inspect the resulting
