@@ -11,7 +11,10 @@
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Architecture Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Security and Identity Architecture](architecture/security-identity-foundation.md)
+- [Phase 61 and Performance Closeout](development/phase-61-metadata-genre-performance-closeout.md)
+- [Post-Phase-61 Platform Runtime Closeout](development/post-phase-61-platform-runtime-closeout.md)
 - [Completed Phases](development/completed-phases.md)
 - [ADR Index](adr/index.md)
 
@@ -25,6 +28,12 @@ PR state: open, Draft, unmerged, mergeable
 
 Latest completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
+
+Completed operational hardening:
+Post-Phase 61 Performance Hardening (B1-B4)
+
+Historical umbrella implementation track:
+Phase 58 - Frontend and Live Parity
 
 Completed post-phase platform features:
 VDR Remote and Live Overlay hardening (#110)

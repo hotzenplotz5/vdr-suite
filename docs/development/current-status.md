@@ -13,6 +13,9 @@ Local yaVDR branch: phase62-pr117
 Latest completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
 
+Completed operational hardening:
+Post-Phase 61 Performance Hardening (B1-B4)
+
 Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
@@ -147,3 +150,5 @@ frontend ownership, runtime-safe boundary and rollback contract are explicit.
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 - [Strict Roadmap](../planning/roadmap.md)
+- [Phase 61 and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
+- [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
