@@ -2,9 +2,14 @@
 
 ## Status
 
-Repository implementation is active on Draft PR #117.
+Slice 2N is complete on Draft PR #117.
 
-No yaVDR installation or runtime acceptance has been performed for this slice.
+Repository implementation, full CI, guarded yaVDR installation and
+mutation-free runtime acceptance passed on 2026-08-01 at:
+
+```text
+0c4893a1afa5059af016b6c7336f6dc9a9801c82
+```
 
 ---
 
@@ -90,9 +95,6 @@ Profile:
 tools/phase62-runtime-acceptance/slice-2n-searchtimer-execution.json
 ```
 
-Routine acceptance must prove SearchTimer resource state unchanged and zero
-executor invocation.
-
 ---
 
 ## Focused Tests
@@ -118,6 +120,71 @@ They cover:
 - frontend token overwrite protection;
 - continued exclusion from the safe-POST allowlist.
 
+The previously monolithic generic gate test was reduced to compact smoke
+coverage. Route-specific behavior remains in the focused owner tests.
+
+---
+
+## Real yaVDR Acceptance
+
+The guarded installation and acceptance used:
+
+```text
+Repository head:
+0c4893a1afa5059af016b6c7336f6dc9a9801c82
+
+GitHub Actions:
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30704777834
+
+Verified backup:
+/var/backups/vdr-suite-phase62-slice2n-20260801T150252Z-0c4893a1afa5
+
+Installed/running daemon SHA-256:
+3ecb47b33013ea0bdb1eb066ef0b1be7d89c80ebe1f5e9d0f47f7ed4fd798aa7
+
+Installed deferred loader SHA-256:
+47c78c871c7caefed8eee2e11e14b8fda5edd3bf85a07f3f099ff24b0a88ce51
+```
+
+The runtime profile passed:
+
+```text
+tests_passed=51
+tests_failed=0
+runtime_http_requests=49
+accountability_authorized=16
+accountability_csrf=4
+accountability_permission=4
+accountability_read_only=4
+accountability_scope=8
+```
+
+The checksum-protected evidence is stored at:
+
+```text
+/var/backups/vdr-suite-phase62-slice2n-20260801T150252Z-0c4893a1afa5/runtime-acceptance-slice2n
+```
+
+Acceptance proved:
+
+```text
+resource_state_unchanged=yes
+target_grants_restored=yes
+unrelated_grants_untouched=yes
+browser_session_revoked=yes
+revoked_cookie_replay_denied=yes
+accountability_secret_free=yes
+database_integrity=yes
+service_pid_unchanged=yes
+execution_dispatch_stage=validation-blocked
+real_searchtimer_mutations=0
+real_searchtimer_executor_dispatches=0
+```
+
+The service restarted once for the guarded installation, then retained PID
+`64164` throughout acceptance. Database quick-check, foreign-key validation,
+installed fingerprints, backup checksums and evidence checksums all passed.
+
 ---
 
 ## Explicitly Deferred
@@ -140,5 +207,12 @@ readback verification and kill-switch rules remain unchanged.
 
 No generic administration, credential lifecycle, Phase 63+ runtime, PR-ready
 transition or merge is included.
+
+---
+
+## Completion
+
+Repository implementation, focused tests, full CI, guarded installation,
+mutation-free real-runtime acceptance, cleanup and durable evidence all passed.
 
 PR #117 remains open, Draft and unmerged.
