@@ -83,14 +83,16 @@ int main()
             std::string::npos);
     }
 
-    const std::vector<std::string> protectedExecution = {
+    const std::vector<std::string> protectedMutations = {
         "/api/searchtimers/execute",
         "/api/vdr/searchtimers/execute",
         "/api/searchtimers/real-test",
-        "/api/vdr/searchtimers/real-test"
+        "/api/vdr/searchtimers/real-test",
+        "/api/epgsearch/native-fuzzy/refresh",
+        "/api/vdr/epgsearch/native-fuzzy/refresh"
     };
 
-    for (const std::string& route : protectedExecution)
+    for (const std::string& route : protectedMutations)
     {
         HttpServerRequest request =
             fixture.mutationRequest(
@@ -112,9 +114,7 @@ int main()
     const std::vector<std::string> stillUnmigrated = {
         "/api/searchtimers/preview/cache/refresh",
         "/api/vdr/searchtimers/preview/cache/refresh",
-        "/api/epg/cache/refresh",
-        "/api/epgsearch/native-fuzzy/refresh",
-        "/api/vdr/epgsearch/native-fuzzy/refresh"
+        "/api/epg/cache/refresh"
     };
 
     for (const std::string& route : stillUnmigrated)
