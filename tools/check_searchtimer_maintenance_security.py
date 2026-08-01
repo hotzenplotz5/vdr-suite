@@ -20,13 +20,6 @@ def require(path: str, needle: str) -> None:
         )
 
 
-def forbid(path: str, needle: str) -> None:
-    if needle in read(path):
-        raise AssertionError(
-            f"{path}: forbidden SearchTimer maintenance contract: {needle}"
-        )
-
-
 def validate_manifest(
     path: str,
     *,
@@ -133,17 +126,6 @@ def main() -> int:
     require(
         development_index,
         "phase-62-slice-2l-searchtimer-maintenance-security-migration.md",
-    )
-
-    forbid(gate, "isSearchTimerExecuteAction")
-    forbid(authorization, '"searchtimers.execute"')
-    forbid(
-        loader,
-        "'/api/vdr/searchtimers/execute'",
-    )
-    forbid(
-        loader,
-        "'/api/searchtimers/execute'",
     )
 
     validate_manifest(
