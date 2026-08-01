@@ -83,11 +83,33 @@ int main()
             std::string::npos);
     }
 
-    const std::vector<std::string> stillProtected = {
+    const std::vector<std::string> protectedExecution = {
         "/api/searchtimers/execute",
         "/api/vdr/searchtimers/execute",
         "/api/searchtimers/real-test",
-        "/api/vdr/searchtimers/real-test",
+        "/api/vdr/searchtimers/real-test"
+    };
+
+    for (const std::string& route : protectedExecution)
+    {
+        HttpServerRequest request =
+            fixture.mutationRequest(
+                route,
+                "default");
+        fixture.addBrowserAuthentication(request);
+
+        const SecurityGateDecision decision =
+            fixture.gate.evaluate(request);
+        assert(!decision.allowed);
+        assert(decision.protectedMutation);
+        assert(
+            decision.rejection.statusCode == 403);
+        assert(decision.rejection.body.find(
+            "csrf_validation_failed") !=
+            std::string::npos);
+    }
+
+    const std::vector<std::string> stillUnmigrated = {
         "/api/searchtimers/preview/cache/refresh",
         "/api/vdr/searchtimers/preview/cache/refresh",
         "/api/epg/cache/refresh",
@@ -95,7 +117,7 @@ int main()
         "/api/vdr/epgsearch/native-fuzzy/refresh"
     };
 
-    for (const std::string& route : stillProtected)
+    for (const std::string& route : stillUnmigrated)
     {
         HttpServerRequest request =
             fixture.mutationRequest(
