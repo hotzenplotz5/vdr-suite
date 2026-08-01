@@ -16,6 +16,7 @@
 - [Phase 62 Slice 2O — Native Fuzzy Operator Refresh Security Migration](phase-62-slice-2o-native-fuzzy-refresh-security-migration.md)
 - [Phase 62 Slice 2P — Query-Scoped Cache Refresh Security Migration](phase-62-slice-2p-query-cache-refresh-security-migration.md)
 - [Phase 62 Slice 2Q — Global Native Fuzzy Stale-Probe Deletion Security Migration](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
+- [Phase 62 Slice 2R — Configurable Absolute Browser-Session Lifetime](phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
@@ -29,7 +30,9 @@ Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
 Current runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
 Current accepted Phase 62 state: repository, CI and real yaVDR runtime accepted through Slice 2Q
 Accepted code/runtime head: 88ec36076d7e5114df0a3a186cc6fbd52bb2baac
-CI: #6655 / run 30713953331 / all five jobs successful
+Accepted closeout CI: #6658 / run 30714506053 / all five jobs successful
+Active repository implementation: Slice 2R configurable absolute browser-session lifetime
+Slice 2R CI and real-runtime acceptance: pending
 Installed daemon SHA-256: 9f60daaf7d772abe7c6ad55388cb9bb7e8afe8f6679fbf749aa9103143a41d07
 Installed loader SHA-256: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 ```
@@ -37,7 +40,7 @@ Installed loader SHA-256: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7
 Phase 62 remains active and incomplete. Phase 63-67 runtime has not been
 advanced. PR #117 remains open, Draft and unmerged.
 
-## Latest closeouts
+## Latest accepted closeouts
 
 - [Phase 62 Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Phase 62 Slice 2P Closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md)
@@ -46,7 +49,7 @@ advanced. PR #117 remains open, Draft and unmerged.
 - [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
 - [Architecture Source Audit — 2026-07-15](architecture-source-audit-2026-07-15.md)
 
-## Latest Slice 2Q evidence
+## Latest accepted Slice 2Q evidence
 
 ```text
 Tests: 32 passed, 0 failed
@@ -66,6 +69,19 @@ Evidence directory:
 ```text
 /var/backups/vdr-suite-phase62-slice2q-20260801T191156Z-88ec36076d7e/runtime-acceptance-slice2q
 ```
+
+## Active Slice 2R contract
+
+```text
+VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS
+Default: 28800
+Allowed: strict decimal 300..86400
+```
+
+The same server-owned value controls persisted absolute expiry and cookie
+`Max-Age`. Invalid configuration blocks browser-session issuance with HTTP 503
+and no `Set-Cookie`. Idle timeout, refresh, cleanup and concurrency remain
+explicitly deferred.
 
 ## Developer references
 
@@ -97,8 +113,9 @@ Evidence directory:
 
 ## Exact next action
 
-Let the Slice-2Q documentation closeout complete its five-job CI, then perform a
-fresh bounded POST inventory audit before selecting one next Phase 62 slice.
+Publish the bounded Slice-2R repository implementation as one fast-forward
+commit. Require all five CI jobs to pass before any guarded custom-lifetime
+runtime acceptance on yaVDR.
 
 ## Related navigation
 

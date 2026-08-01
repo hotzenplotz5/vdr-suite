@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HttpServerResponse.h"
+#include "SecurityConfiguration.h"
 #include "SecurityIdentity.h"
 
 class BrowserSessionIssuanceService;
@@ -13,6 +14,11 @@ public:
         BrowserSessionIssuanceService& issuanceService,
         BrowserSessionLifecycleService& lifecycleService);
 
+    BrowserSessionHttpService(
+        BrowserSessionIssuanceService& issuanceService,
+        BrowserSessionLifecycleService& lifecycleService,
+        BrowserSessionLifetimeConfiguration lifetimeConfiguration);
+
     HttpServerResponse login(
         const RequestSecurityContext& context);
     HttpServerResponse logout(
@@ -21,4 +27,5 @@ public:
 private:
     BrowserSessionIssuanceService& issuanceService_;
     BrowserSessionLifecycleService& lifecycleService_;
+    BrowserSessionLifetimeConfiguration lifetimeConfiguration_;
 };

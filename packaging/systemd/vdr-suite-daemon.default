@@ -17,3 +17,8 @@ VDR_SUITE_SUITE_BRIDGE_STALE_AFTER_MS=15000
 VDR_SUITE_SUITE_BRIDGE_OFFLINE_AFTER_MS=60000
 VDR_SUITE_SUITE_BRIDGE_RECONNECT_INITIAL_MS=1000
 VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS=30000
+
+# Absolute browser-session lifetime in seconds. Values must be strict decimal
+# integers from 300 through 86400. This is not an idle timeout or refresh
+# interval. The same value controls the persisted expiry and cookie Max-Age.
+VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS=28800

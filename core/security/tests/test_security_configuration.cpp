@@ -20,6 +20,7 @@ void clearEnvironment()
     unsetenv("VDR_SUITE_MANAGED_BASIC_SESSION_ID");
     unsetenv("VDR_SUITE_MANAGED_BASIC_CREDENTIAL_ID");
     unsetenv("VDR_SUITE_MANAGED_BASIC_PERMISSIONS");
+    unsetenv("VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS");
 }
 }
 
@@ -39,6 +40,8 @@ int main()
     assert(!compatibility.managedBasic.hasAnyConfiguration());
     assert(!compatibility.managedBasic.complete());
     assert(compatibility.managedBasic.grants.empty());
+    assert(compatibility.browserSessionLifetime.valid());
+    assert(compatibility.browserSessionLifetime.seconds == 28800);
 
     setenv("VDR_SUITE_SECURITY_MODE", "enforced", 1);
     const SecurityConfiguration failClosed =
@@ -120,6 +123,53 @@ int main()
     assert(managed.managedBasic.grants[0].backendId == "default");
     assert(managed.managedBasic.grants[1].permission == "audit.view");
     assert(managed.managedBasic.grants[1].backendId == "*");
+
+    clearEnvironment();
+    setenv(
+        "VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS",
+        "900",
+        1);
+    const SecurityConfiguration customLifetime =
+        SecurityConfiguration::fromEnvironment();
+    assert(customLifetime.browserSessionLifetime.valid());
+    assert(customLifetime.browserSessionLifetime.seconds == 900);
+
+    for (const std::string invalidValue : {
+             "",
+             "299",
+             "86401",
+             "+3600",
+             " 3600",
+             "3600 ",
+             "3600x",
+             "999999999999999999999999999999999999"})
+    {
+        clearEnvironment();
+        setenv(
+            "VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS",
+            invalidValue.c_str(),
+            1);
+        const SecurityConfiguration invalidLifetime =
+            SecurityConfiguration::fromEnvironment();
+        assert(!invalidLifetime.browserSessionLifetime.valid());
+        assert(invalidLifetime.browserSessionLifetime.seconds == 28800);
+    }
+
+    clearEnvironment();
+    setenv(
+        "VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS",
+        "300",
+        1);
+    assert(SecurityConfiguration::fromEnvironment()
+        .browserSessionLifetime.valid());
+
+    clearEnvironment();
+    setenv(
+        "VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS",
+        "86400",
+        1);
+    assert(SecurityConfiguration::fromEnvironment()
+        .browserSessionLifetime.valid());
 
     clearEnvironment();
     return 0;

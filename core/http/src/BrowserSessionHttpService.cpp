@@ -4,6 +4,7 @@
 #include "BrowserSessionLifecycleService.h"
 
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -54,11 +55,12 @@ HttpServerResponse errorResponse(
     return response;
 }
 
-std::string sessionCookie(const std::string& cookieValue)
+std::string sessionCookie(
+    const std::string& cookieValue,
+    int lifetimeSeconds)
 {
     return std::string(CookieName) + "=" + cookieValue +
-        "; Path=/; Max-Age=" +
-        std::to_string(BrowserSessionIssuanceService::DefaultLifetimeSeconds) +
+        "; Path=/; Max-Age=" + std::to_string(lifetimeSeconds) +
         "; HttpOnly; Secure; SameSite=Strict";
 }
 
@@ -74,8 +76,20 @@ std::string expiredSessionCookie()
 BrowserSessionHttpService::BrowserSessionHttpService(
     BrowserSessionIssuanceService& issuanceService,
     BrowserSessionLifecycleService& lifecycleService)
+    : BrowserSessionHttpService(
+          issuanceService,
+          lifecycleService,
+          SecurityConfiguration::fromEnvironment().browserSessionLifetime)
+{
+}
+
+BrowserSessionHttpService::BrowserSessionHttpService(
+    BrowserSessionIssuanceService& issuanceService,
+    BrowserSessionLifecycleService& lifecycleService,
+    BrowserSessionLifetimeConfiguration lifetimeConfiguration)
     : issuanceService_(issuanceService),
-      lifecycleService_(lifecycleService)
+      lifecycleService_(lifecycleService),
+      lifetimeConfiguration_(std::move(lifetimeConfiguration))
 {
 }
 
@@ -96,12 +110,20 @@ HttpServerResponse BrowserSessionHttpService::login(
             context);
     }
 
+    if (!lifetimeConfiguration_.valid())
+    {
+        return errorResponse(
+            503,
+            "browser_session_lifetime_configuration_invalid",
+            "The browser session lifetime configuration is invalid",
+            context);
+    }
+
     BrowserSessionIssuanceRequest request;
     request.actorId = context.actor.actorId;
     request.deviceId = context.device->deviceId;
     request.issuedFromCredentialId = context.credential->credentialId;
-    request.lifetimeSeconds =
-        BrowserSessionIssuanceService::DefaultLifetimeSeconds;
+    request.lifetimeSeconds = lifetimeConfiguration_.seconds;
 
     auto issued = issuanceService_.issue(request);
     if (!issued.has_value())
@@ -119,7 +141,9 @@ HttpServerResponse BrowserSessionHttpService::login(
     response.headers["Cache-Control"] = "no-store";
     response.headers["Pragma"] = "no-cache";
     response.headers["Set-Cookie"] =
-        sessionCookie(issued->sessionCookieValue);
+        sessionCookie(
+            issued->sessionCookieValue,
+            lifetimeConfiguration_.seconds);
     response.body =
         "{\"csrfToken\":\"" + jsonEscape(issued->csrfToken) +
         "\",\"expiresAt\":\"" + jsonEscape(issued->expiresAt) +

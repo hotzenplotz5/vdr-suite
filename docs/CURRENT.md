@@ -5,6 +5,7 @@
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
+- [Phase 62 Slice 2R Active Contract](development/phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Phase 62 Slice 2Q Closeout](development/phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Phase 62 Slice 2P Closeout](development/phase-62-slice-2p-query-cache-refresh-security-migration.md)
 - [Phase 62 Runtime Evidence](development/phase-62-runtime-evidence.md)
@@ -50,10 +51,14 @@ Slice 2Q - Global Native Fuzzy Stale-Probe Deletion Security Migration
 Accepted code/runtime head:
 88ec36076d7e5114df0a3a186cc6fbd52bb2baac
 
-Accepted CI:
-VDR-Suite CI #6655
-Run ID 30713953331
+Accepted closeout CI:
+VDR-Suite CI #6658
+Run ID 30714506053
 All five jobs successful
+
+Active repository implementation:
+Slice 2R - Configurable Absolute Browser-Session Lifetime
+CI and real-runtime acceptance pending
 
 Installed daemon SHA-256:
 9f60daaf7d772abe7c6ad55388cb9bb7e8afe8f6679fbf749aa9103143a41d07
@@ -84,47 +89,47 @@ HTTP request
 Backend read-only, capability and domain policy remain independent from actor
 authorization. Frontends do not own authorization decisions.
 
-## Accepted protected route families
+## Completed post-Slice-2Q POST inventory
 
-The cumulative accepted catalogue includes:
+The fresh inventory confirms:
 
-- Remote actions;
-- Timer create, update and delete;
-- Channel Move aliases;
-- Recording execution aliases;
-- SearchTimer create, update, delete and execution aliases;
-- accepted explicit Safe POST routes;
-- Native Fuzzy operator refresh aliases;
-- SearchTimer preview cache refresh aliases;
-- EPG cache refresh;
-- global Native Fuzzy stale-probe deletion aliases.
+- browser-session issue/logout are owned by the dedicated lifecycle gate;
+- every central-router POST is a protected mutation or explicit Safe POST;
+- no unmigrated product POST family remains after Slice 2Q;
+- unknown browser and enforced-mode POST routes continue to fail closed.
 
-## Latest accepted Slice 2Q contract
+## Active Slice 2R repository contract
 
 ```text
-POST /api/epgsearch/native-fuzzy/stale-probes/delete
-POST /api/vdr/epgsearch/native-fuzzy/stale-probes/delete
-  permission: epgsearch.native-fuzzy.stale-probes.delete@*
+VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS
+Default: 28800 seconds
+Inclusive range: 300..86400 seconds
+Syntax: unsigned decimal digits only
 ```
 
-The canonical scope is global `*` and is independent of body or query values.
-Direct concrete-scope grants and concrete Admin assignments do not authorize
-the route. `role.admin@*` is the exact global assignment, while
-`role.read-only@*` denies before direct permission or Admin.
+One immutable server-side value controls both:
 
-The aliases have no Webfrontend owner and remain excluded from Safe POST.
-Query-string variants use the exact base route; trailing-slash variants remain
-fail-closed.
+```text
+persisted browser-session expires_at
+vdr_suite_session cookie Max-Age
+```
 
-## Latest real-runtime acceptance
+Absent configuration retains the accepted eight-hour behaviour. Invalid
+configuration blocks only new browser-session issuance with HTTP 503,
+`browser_session_lifetime_configuration_invalid`, no `Set-Cookie`, and no new
+session or credential rows.
 
-The guarded yaVDR pass used a direct read-only SQLite stale/future snapshot with
-the production seven-day freshness boundary. The snapshot was empty before
-installation, before the POST matrix and after the matrix.
+The parser uses the existing issuance-service bounds and rejects long input
+before integer multiplication can overflow.
 
-A temporary cross-connection `BEFORE DELETE` trigger blocked every possible
-real deletion during the acceptance pass. Cleanup removed the trigger and final
-verification proved it absent.
+Slice 2R does not add idle timeout, `last_seen`, sliding expiry, refresh,
+cleanup, concurrent-session limits, request-selected lifetimes or security
+administration.
+
+## Latest accepted real-runtime acceptance
+
+The accepted Slice-2Q yaVDR pass used a direct read-only SQLite stale/future
+snapshot and a temporary cross-connection `BEFORE DELETE` trigger.
 
 ```text
 Slice: slice-2q-native-fuzzy-stale-probe-delete
@@ -146,21 +151,11 @@ Service PID unchanged: yes
 Service active: yes
 ```
 
-All three normalized snapshot files share this SHA-256:
-
-```text
-2b1d1af321fd9497f99ac742c694c70ecfde94b41bcb6d74ee3a70187e5d1e7a
-```
-
 Durable evidence:
 
 ```text
 /var/backups/vdr-suite-phase62-slice2q-20260801T191156Z-88ec36076d7e/runtime-acceptance-slice2q
 ```
-
-The earlier guarded attempt stopped safely on an unregistered historical GET
-route before every Delete POST and automatically restored Slice 2P. It remains
-rollback evidence, not the accepted Slice-2Q pass.
 
 ## Compatibility and fail-closed boundary
 
@@ -169,22 +164,20 @@ browser actors do not inherit a legacy bypass. Browser mutations not explicitly
 classified remain fail-closed with `security_policy_not_migrated`.
 
 Query strings are removed only for exact route matching. Trailing-slash and
-unrelated path variants remain fail-closed. Slice 2Q does not classify the
-global deletion route as Safe POST.
+unrelated path variants remain fail-closed. Slice 2R changes neither route
+classification nor authorization.
 
 ## Remaining Phase 62 work
 
-- perform a fresh POST inventory audit after Slice 2Q;
+- complete all five CI jobs and guarded real-runtime acceptance for Slice 2R;
+- define browser-session idle expiry, cleanup and concurrency policy;
 - add completion/outcome accountability and stronger transactional coupling;
-- define refresh, idle expiry, cleanup and concurrent-session policy;
 - add protected credential, identity, role and grant administration;
 - add native/service credential lifecycle;
-- add generic roles only after route migration is sufficiently complete;
+- add generic roles only after the fixed catalogue is stable;
 - standardize revisions, idempotency and operation lifecycle;
 - add protected audit query/export/retention;
 - complete compatibility-retirement and final Phase 62 acceptance.
-
-No next implementation slice has been selected by this closeout.
 
 ## Operating rules
 
@@ -197,7 +190,7 @@ No next implementation slice has been selected by this closeout.
 
 ## Exact next action
 
-Let the Slice-2Q documentation closeout complete its full five-job CI. Then
-perform a fresh bounded POST inventory audit and select exactly one next Phase
-62 slice only after its security, persistence and runtime-safety contract is
-explicit.
+Publish the bounded Slice-2R implementation and require all five CI jobs to
+pass. Only after full green CI may a guarded yaVDR pass temporarily set a
+non-default lifetime, issue and revoke one browser session, restore the original
+environment file and verify the installed runtime.

@@ -145,9 +145,13 @@ int main()
         database,
         identityRepository,
         credentialRepository);
+
+    BrowserSessionLifetimeConfiguration lifetimeConfiguration;
+    lifetimeConfiguration.seconds = 900;
     BrowserSessionHttpService httpService(
         issuanceService,
-        lifecycleService);
+        lifecycleService,
+        lifetimeConfiguration);
 
     RequestSecurityContext basicContext;
     basicContext.actor = ActorIdentity{
@@ -181,7 +185,8 @@ int main()
     const std::string setCookie = login.headers.at("Set-Cookie");
     assert(setCookie.rfind("vdr_suite_session=", 0) == 0);
     assert(setCookie.find("; Path=/") != std::string::npos);
-    assert(setCookie.find("; Max-Age=28800") != std::string::npos);
+    assert(setCookie.find("; Max-Age=900") != std::string::npos);
+    assert(setCookie.find("; Max-Age=28800") == std::string::npos);
     assert(setCookie.find("; HttpOnly") != std::string::npos);
     assert(setCookie.find("; Secure") != std::string::npos);
     assert(setCookie.find("; SameSite=Strict") != std::string::npos);
@@ -196,7 +201,7 @@ int main()
     assert(!csrfToken.empty());
     assert(login.body.find(cookieValue) == std::string::npos);
     assert(login.body.find("vdr_suite_session") == std::string::npos);
-    assert(login.body.find("2099-01-01 08:00:00") != std::string::npos);
+    assert(login.body.find("2099-01-01 00:15:00") != std::string::npos);
     assert(login.body.find("request-browser-login") != std::string::npos);
 
     const std::string tokenId = prefixedHex("bst_", tokenBytes);
@@ -208,6 +213,7 @@ int main()
     assert(stored.has_value());
     assert(stored->sessionId == sessionId);
     assert(stored->credentialId == credentialId);
+    assert(stored->expiresAt == "2099-01-01 00:15:00");
     assert(stored->sessionSecretHash != cookieValue);
     assert(stored->csrfSecretHash != csrfToken);
 
@@ -267,6 +273,37 @@ int main()
         invalidLogin.headers.end());
     assert(invalidLogin.body.find("invalid_session_issuance_context") !=
         std::string::npos);
+
+    BrowserSessionLifetimeConfiguration invalidLifetimeConfiguration;
+    invalidLifetimeConfiguration.configuredValueValid = false;
+    BrowserSessionHttpService invalidLifetimeService(
+        issuanceService,
+        lifecycleService,
+        invalidLifetimeConfiguration);
+    basicContext.requestId = "request-invalid-lifetime";
+    const HttpServerResponse invalidLifetimeLogin =
+        invalidLifetimeService.login(basicContext);
+    assert(invalidLifetimeLogin.statusCode == 503);
+    assert(invalidLifetimeLogin.headers.find("Set-Cookie") ==
+        invalidLifetimeLogin.headers.end());
+    assert(invalidLifetimeLogin.headers.at("Cache-Control") == "no-store");
+    assert(invalidLifetimeLogin.body.find(
+        "browser_session_lifetime_configuration_invalid") !=
+        std::string::npos);
+    assert(invalidLifetimeLogin.body.find("request-invalid-lifetime") !=
+        std::string::npos);
+
+    BrowserSessionLifetimeConfiguration belowMinimumConfiguration;
+    belowMinimumConfiguration.seconds = 299;
+    BrowserSessionHttpService belowMinimumService(
+        issuanceService,
+        lifecycleService,
+        belowMinimumConfiguration);
+    const HttpServerResponse belowMinimumLogin =
+        belowMinimumService.login(basicContext);
+    assert(belowMinimumLogin.statusCode == 503);
+    assert(belowMinimumLogin.headers.find("Set-Cookie") ==
+        belowMinimumLogin.headers.end());
 
     return 0;
 }

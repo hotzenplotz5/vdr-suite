@@ -25,10 +25,14 @@ Slice 2Q - Global Native Fuzzy Stale-Probe Deletion Security Migration
 Accepted code/runtime head:
 88ec36076d7e5114df0a3a186cc6fbd52bb2baac
 
-Accepted GitHub Actions:
-VDR-Suite CI #6655
-Run ID: 30713953331
+Accepted closeout GitHub Actions:
+VDR-Suite CI #6658
+Run ID: 30714506053
 All five jobs successful
+
+Active repository implementation:
+Slice 2R - Configurable Absolute Browser-Session Lifetime
+CI and real-runtime acceptance pending
 
 Installed daemon SHA-256:
 9f60daaf7d772abe7c6ad55388cb9bb7e8afe8f6679fbf749aa9103143a41d07
@@ -60,46 +64,65 @@ The accepted branch and installed runtime include:
 - append-only pre-dispatch accountability and secret-free denial evidence;
 - mutation-safe real-runtime acceptance profiles and guarded rollback.
 
-## Slice 2Q accepted routes
+## Completed post-Slice-2Q POST inventory
+
+The fresh HTTP inventory found no remaining unmigrated product POST family:
+
+- browser-session issue/logout are handled by the dedicated lifecycle gate;
+- every POST registered by the central API router is either a protected mutation
+  or an explicitly classified Safe POST;
+- unknown browser and enforced-mode POST paths remain fail-closed.
+
+A further route-migration slice would therefore be artificial.
+
+## Active Slice 2R repository contract
+
+Slice 2R adds one optional server-side setting:
 
 ```text
-POST /api/epgsearch/native-fuzzy/stale-probes/delete
-POST /api/vdr/epgsearch/native-fuzzy/stale-probes/delete
-  -> epgsearch.native-fuzzy.stale-probes.delete@*
+VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS
 ```
 
-The canonical authorization scope is global `*`. Request body and query values
-cannot alter it. Direct concrete-scope grants and concrete Admin assignments are
-denied. `role.admin@*` is the exact global assignment, while
-`role.read-only@*` denies before direct permission or Admin.
-
-There is no Webfrontend owner. The aliases remain excluded from Safe POST
-because the existing controller can perform a real SQLite deletion.
-
-## Slice 2Q real yaVDR evidence
-
-The accepted pass used a direct read-only SQLite preflight with the production
-freshness policy:
+Contract:
 
 ```text
-maxAgeSeconds=604800
-future timestamp -> stale
-age greater than 604800 seconds -> stale
+default=28800
+minimum=300
+maximum=86400
+format=strict unsigned decimal
 ```
 
-A temporary cross-connection `BEFORE DELETE` trigger blocked every possible
-real deletion during the POST matrix. The trigger was removed in cleanup and
-verified absent.
+The same immutable value controls the persisted absolute browser-session expiry
+and cookie `Max-Age`. Missing configuration preserves the existing eight-hour
+behaviour.
+
+Invalid configuration does not fall back silently. Browser-session issuance
+returns HTTP 503 with
+`browser_session_lifetime_configuration_invalid`, emits no `Set-Cookie`, and
+creates no session or credential. Other API routes and already-issued sessions
+remain outside this bounded change.
+
+The parser reuses the issuance service's existing minimum/default/maximum
+constants and rejects long decimal input before multiplication can overflow.
+
+Explicitly excluded from Slice 2R:
+
+- idle timeout and `last_seen` persistence;
+- sliding expiry or refresh;
+- expired-session cleanup;
+- concurrent-session limits;
+- user-selectable request values;
+- generic security administration.
+
+This repository implementation is not accepted runtime until all five CI jobs
+and the guarded custom-lifetime yaVDR pass succeed.
+
+## Latest accepted Slice 2Q evidence
 
 ```text
 service_pid_after_acceptance=67393
 tests_passed=32/32
 runtime_http_requests=25
-accountability_authorized=8
-accountability_csrf=2
-accountability_permission=2
-accountability_read_only=2
-accountability_scope=4
 snapshot_source=direct-sqlite
 stale_probe_snapshot_unchanged=yes
 real_stale_probe_deletes=0
@@ -113,53 +136,25 @@ service_pid_unchanged=yes
 service_state=active
 ```
 
-The preinstall, pre-POST and postflight snapshots have the same SHA-256:
-
-```text
-2b1d1af321fd9497f99ac742c694c70ecfde94b41bcb6d74ee3a70187e5d1e7a
-```
-
-Runtime report:
-
-```text
-602148a61a69dadcf7a38fb566b4e4486a7e550f0dda193fffa8f42ba3a1c197
-```
-
 Durable evidence:
 
 ```text
 /var/backups/vdr-suite-phase62-slice2q-20260801T191156Z-88ec36076d7e/runtime-acceptance-slice2q
 ```
 
-## Safe rejected first attempt
-
-The first Slice-2Q runtime attempt used a historically documented stale-probe
-GET alias that is not registered in `ApiRouter::handleGet`. The runtime returned
-HTTP 404 before every Delete POST. Automatic rollback restored the accepted
-Slice-2P runtime, and the temporary guard was absent after rollback.
-
-```text
-/var/backups/vdr-suite-phase62-slice2q-20260801T185634Z-1119c94e5184/install-before
-```
-
-That attempt is rejection and rollback evidence only. The corrected accepted
-runtime pass is the direct-SQLite pass at head `88ec36076d7e5114df0a3a186cc6fbd52bb2baac`.
-
 ## Remaining Phase 62 work
 
 Phase 62 still lacks:
 
-- a fresh POST inventory audit after Slice 2Q;
+- Slice 2R CI and guarded real-runtime acceptance;
+- browser-session idle expiry, cleanup and concurrency policy;
 - completion/outcome accountability and stronger transactional coupling;
-- browser-session refresh, idle expiry, cleanup and concurrency policy;
 - protected identity, credential, role and grant administration;
 - native/service credential enrollment, rotation and revocation;
 - generic persisted role definitions beyond the fixed catalogue;
 - common revision, idempotency and durable operation contracts;
 - protected audit query/export/retention;
 - compatibility-retirement readiness and final Phase 62 closeout.
-
-No next implementation slice has been selected by this closeout.
 
 ## Pull request truth
 
@@ -170,6 +165,8 @@ metadata without explicit approval.
 The PR description is materially stale. Current repository truth is this file,
 [Current State](../CURRENT.md), the
 [Slice 2Q closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md),
+the active
+[Slice 2R contract](phase-62-slice-2r-browser-session-lifetime-configuration.md),
 the [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 and the
 [Security and Identity Architecture](../architecture/security-identity-foundation.md).
@@ -192,18 +189,17 @@ diff before treating a GitHub change as complete.
 
 ## Exact next action
 
-Let the Slice-2Q documentation closeout complete its full five-job CI. Then
-perform a fresh bounded POST inventory audit. Select exactly one next Phase 62
-slice only after its scope, persistence effects, permission, authorization
-scope, accountability and runtime-safety boundary are explicit.
+Publish Slice 2R as one bounded fast-forward commit and require all five CI jobs
+to pass. Only then run a guarded yaVDR acceptance with a temporary non-default
+lifetime, revoke the test session and restore the original environment file.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Slice 2R Active Contract](phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Slice 2P Closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md)
-- [Slice 2O Closeout](phase-62-slice-2o-native-fuzzy-refresh-security-migration.md)
 - [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)

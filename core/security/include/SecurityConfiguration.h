@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BrowserSessionIssuanceService.h"
 #include "SecurityIdentity.h"
 
 #include <algorithm>
@@ -13,6 +14,19 @@ enum class SecurityMode
 {
     LegacyBasicCompatibility,
     Enforced
+};
+
+struct BrowserSessionLifetimeConfiguration
+{
+    int seconds = BrowserSessionIssuanceService::DefaultLifetimeSeconds;
+    bool configuredValueValid = true;
+
+    bool valid() const
+    {
+        return configuredValueValid &&
+            seconds >= BrowserSessionIssuanceService::MinimumLifetimeSeconds &&
+            seconds <= BrowserSessionIssuanceService::MaximumLifetimeSeconds;
+    }
 };
 
 struct ManagedBasicConfiguration
@@ -57,6 +71,7 @@ struct SecurityConfiguration
         PermissionGrant{"*", "*"}
     };
     ManagedBasicConfiguration managedBasic;
+    BrowserSessionLifetimeConfiguration browserSessionLifetime;
 
     static SecurityConfiguration fromEnvironment()
     {
@@ -153,6 +168,17 @@ struct SecurityConfiguration
                 parseGrants(managedGrants);
         }
 
+        const char* browserSessionLifetime =
+            std::getenv(
+                "VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS");
+        if (browserSessionLifetime != nullptr)
+        {
+            configuration.browserSessionLifetime.configuredValueValid =
+                parseBrowserSessionLifetime(
+                    browserSessionLifetime,
+                    configuration.browserSessionLifetime.seconds);
+        }
+
         return configuration;
     }
 
@@ -177,6 +203,44 @@ private:
                 notSpace).base(),
             value.end());
         return value;
+    }
+
+    static bool parseBrowserSessionLifetime(
+        const std::string& configuredValue,
+        int& result)
+    {
+        if (configuredValue.empty())
+        {
+            return false;
+        }
+
+        constexpr int maximum =
+            BrowserSessionIssuanceService::MaximumLifetimeSeconds;
+        int parsed = 0;
+
+        for (const unsigned char character : configuredValue)
+        {
+            if (!std::isdigit(character))
+            {
+                return false;
+            }
+
+            const int digit = character - '0';
+            if (parsed > (maximum - digit) / 10)
+            {
+                return false;
+            }
+            parsed = parsed * 10 + digit;
+        }
+
+        if (parsed <
+            BrowserSessionIssuanceService::MinimumLifetimeSeconds)
+        {
+            return false;
+        }
+
+        result = parsed;
+        return true;
     }
 
     static std::vector<PermissionGrant> parseGrants(

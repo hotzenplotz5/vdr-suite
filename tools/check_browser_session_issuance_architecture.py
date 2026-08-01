@@ -28,10 +28,15 @@ def require_count(path: str, needle: str, count: int) -> None:
 
 
 def main() -> int:
+    lifetime_document = (
+        "docs/development/"
+        "phase-62-slice-2r-browser-session-lifetime-configuration.md"
+    )
     required_files = [
         "core/security/include/BrowserSessionIssuanceService.h",
         "core/security/include/BrowserSessionLifecycleService.h",
         "core/security/include/BrowserSessionHttpGate.h",
+        "core/security/include/SecurityConfiguration.h",
         "core/security/src/BrowserSessionIssuanceService.cpp",
         "core/security/src/BrowserSessionLifecycleService.cpp",
         "core/security/src/BrowserSessionHttpGate.cpp",
@@ -40,7 +45,10 @@ def main() -> int:
         "core/http/src/BrowserSessionHttpService.cpp",
         "core/security/tests/test_browser_session_issuance_service.cpp",
         "core/security/tests/test_browser_session_http_gate.cpp",
+        "core/security/tests/test_security_configuration.cpp",
         "core/http/tests/test_browser_session_http_service.cpp",
+        "packaging/systemd/vdr-suite-daemon.default",
+        lifetime_document,
     ]
     for relative in required_files:
         if not (ROOT / relative).is_file():
@@ -82,6 +90,12 @@ def main() -> int:
         "IssuedBrowserSession(const IssuedBrowserSession&) = delete")
     require(
         "core/security/include/BrowserSessionIssuanceService.h",
+        "MinimumLifetimeSeconds = 300")
+    require(
+        "core/security/include/BrowserSessionIssuanceService.h",
+        "DefaultLifetimeSeconds = 28800")
+    require(
+        "core/security/include/BrowserSessionIssuanceService.h",
         "MaximumLifetimeSeconds = 86400")
 
     require(
@@ -113,30 +127,89 @@ def main() -> int:
         "core/security/src/SecurityIdentityIssuanceRepository.cpp",
         "rotated_from_credential_id")
 
+    configuration = "core/security/include/SecurityConfiguration.h"
+    configuration_test = "core/security/tests/test_security_configuration.cpp"
+    service = "core/http/src/BrowserSessionHttpService.cpp"
+    service_test = "core/http/tests/test_browser_session_http_service.cpp"
+    runtime_default = "packaging/systemd/vdr-suite-daemon.default"
+    lifetime_variable = "VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS"
+
+    require(configuration, "BrowserSessionLifetimeConfiguration")
+    require(configuration, "configuredValueValid")
+    require(configuration, "parseBrowserSessionLifetime")
+    require_count(configuration, lifetime_variable, 1)
     require(
-        "core/http/src/BrowserSessionHttpService.cpp",
+        configuration,
+        "BrowserSessionIssuanceService::MinimumLifetimeSeconds")
+    require(
+        configuration,
+        "BrowserSessionIssuanceService::DefaultLifetimeSeconds")
+    require(
+        configuration,
+        "BrowserSessionIssuanceService::MaximumLifetimeSeconds")
+    require(configuration, "parsed > (maximum - digit) / 10")
+
+    require(configuration_test, '"900"')
+    require(configuration_test, '"300"')
+    require(configuration_test, '"86400"')
+    require(configuration_test, '"299"')
+    require(configuration_test, '"86401"')
+    require(configuration_test, '"+3600"')
+    require(configuration_test, '" 3600"')
+    require(configuration_test, '"3600x"')
+    require(
+        configuration_test,
+        '"999999999999999999999999999999999999"')
+
+    require(
+        service,
+        "SecurityConfiguration::fromEnvironment().browserSessionLifetime")
+    require(service, "lifetimeConfiguration_.valid()")
+    require(
+        service,
+        "request.lifetimeSeconds = lifetimeConfiguration_.seconds")
+    require(service, "lifetimeConfiguration_.seconds);")
+    require(
+        service,
+        '"browser_session_lifetime_configuration_invalid"')
+    require(
+        service,
         'response.headers["Set-Cookie"]')
+    require(service, '"; Path=/; Max-Age="')
+    require(service, '"; HttpOnly; Secure; SameSite=Strict"')
+    require(service, 'response.headers["Cache-Control"] = "no-store"')
+    require(service, 'response.headers["Pragma"] = "no-cache"')
+    require(service, "csrfToken")
+    require(service, "issued->clearSecrets()")
+    forbid(service, lifetime_variable)
+    forbid(service, "DefaultLifetimeSeconds")
+    forbid(service, "Domain=")
+
+    require(service_test, '"; Max-Age=900"')
+    require(service_test, '"2099-01-01 00:15:00"')
     require(
-        "core/http/src/BrowserSessionHttpService.cpp",
-        '"; Path=/; Max-Age="')
+        service_test,
+        '"browser_session_lifetime_configuration_invalid"')
+    require(service_test, "configuredValueValid = false")
+    require(service_test, "belowMinimumConfiguration.seconds = 299")
+
+    require_count(runtime_default, lifetime_variable, 1)
+    require(runtime_default, f"{lifetime_variable}=28800")
+    require(runtime_default, "strict decimal")
+    require(runtime_default, "300 through 86400")
+    require(runtime_default, "not an idle timeout")
+
     require(
-        "core/http/src/BrowserSessionHttpService.cpp",
-        '"; HttpOnly; Secure; SameSite=Strict"')
+        lifetime_document,
+        f"`{lifetime_variable}`")
+    require(lifetime_document, "default: 28800 seconds")
+    require(lifetime_document, "minimum:   300 seconds")
+    require(lifetime_document, "maximum: 86400 seconds")
+    require(lifetime_document, "no `Set-Cookie` header")
+    require(lifetime_document, "idle timeout")
     require(
-        "core/http/src/BrowserSessionHttpService.cpp",
-        'response.headers["Cache-Control"] = "no-store"')
-    require(
-        "core/http/src/BrowserSessionHttpService.cpp",
-        'response.headers["Pragma"] = "no-cache"')
-    require(
-        "core/http/src/BrowserSessionHttpService.cpp",
-        "csrfToken")
-    require(
-        "core/http/src/BrowserSessionHttpService.cpp",
-        "issued->clearSecrets()")
-    forbid(
-        "core/http/src/BrowserSessionHttpService.cpp",
-        "Domain=")
+        "docs/development/index.md",
+        "phase-62-slice-2r-browser-session-lifetime-configuration.md")
 
     require(
         "core/security/src/BrowserSessionHttpGate.cpp",
@@ -211,15 +284,11 @@ def main() -> int:
     require(
         "core/security/tests/test_browser_session_http_gate.cpp",
         "csrf_validation_failed")
+    require(service_test, "SameSite=Strict")
     require(
-        "core/http/tests/test_browser_session_http_service.cpp",
-        "SameSite=Strict")
-    require(
-        "core/http/tests/test_browser_session_http_service.cpp",
+        service_test,
         "login.body.find(cookieValue) == std::string::npos")
-    require(
-        "core/http/tests/test_browser_session_http_service.cpp",
-        "revokedBrowser->active")
+    require(service_test, "revokedBrowser->active")
 
     require(
         "mk/security-sources.mk",
