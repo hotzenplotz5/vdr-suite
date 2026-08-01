@@ -5,7 +5,7 @@
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
-- [Phase 62 Slice 2R Active Contract](development/phase-62-slice-2r-browser-session-lifetime-configuration.md)
+- [Phase 62 Slice 2R Closeout](development/phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Phase 62 Slice 2Q Closeout](development/phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Phase 62 Slice 2P Closeout](development/phase-62-slice-2p-query-cache-refresh-security-migration.md)
 - [Phase 62 Runtime Evidence](development/phase-62-runtime-evidence.md)
@@ -46,22 +46,21 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Repository, CI and real-runtime accepted through:
-Slice 2Q - Global Native Fuzzy Stale-Probe Deletion Security Migration
+Slice 2R - Configurable Absolute Browser-Session Lifetime
 
 Accepted code/runtime head:
-88ec36076d7e5114df0a3a186cc6fbd52bb2baac
+d65af5a24688fe4dbf090030226fd45825260060
 
-Accepted closeout CI:
-VDR-Suite CI #6658
-Run ID 30714506053
+Accepted source/runtime CI:
+VDR-Suite CI #6661
+Run ID 30715365583
 All five jobs successful
 
 Active repository implementation:
-Slice 2R - Configurable Absolute Browser-Session Lifetime
-CI and real-runtime acceptance pending
+None selected after Slice 2R closeout
 
 Installed daemon SHA-256:
-9f60daaf7d772abe7c6ad55388cb9bb7e8afe8f6679fbf749aa9103143a41d07
+12953babb3a2ce3aebeb99a377f66a94375bf55cf1e839cf8163bf574f4d7660
 
 Installed deferred-runtime-loader.js SHA-256:
 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
@@ -98,7 +97,7 @@ The fresh inventory confirms:
 - no unmigrated product POST family remains after Slice 2Q;
 - unknown browser and enforced-mode POST routes continue to fail closed.
 
-## Active Slice 2R repository contract
+## Accepted Slice 2R contract
 
 ```text
 VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS
@@ -128,34 +127,43 @@ administration.
 
 ## Latest accepted real-runtime acceptance
 
-The accepted Slice-2Q yaVDR pass used a direct read-only SQLite stale/future
-snapshot and a temporary cross-connection `BEFORE DELETE` trigger.
+The guarded yaVDR pass temporarily configured `900` seconds and verified the
+same canonical value in the response cookie and all persisted expiry rows.
 
 ```text
-Slice: slice-2q-native-fuzzy-stale-probe-delete
-Tests: 32 passed, 0 failed
-HTTP requests: 25
-Daemon PID after acceptance: 67393
-Authorization scope: *
-Snapshot source: direct-sqlite
-Freshness maximum age: 604800 seconds
-Real stale-probe deletions: 0
-Snapshot unchanged: yes
-Delete guard removed: yes
-Target grants restored: yes
-Browser session revoked: yes
-Revoked-cookie replay denied: yes
-Accountability secret-free: yes
-SQLite integrity: yes
-Service PID unchanged: yes
-Service active: yes
+service_pid_custom_lifetime=68813
+service_pid_after_restore=68893
+runtime_http_requests=5
+persisted_remaining_seconds=900
+cookie_max_age=900
+cookie_http_only=yes
+cookie_secure=yes
+cookie_same_site=strict
+ordinary_browser_get=yes
+missing_csrf_denied=yes
+logout_succeeded=yes
+session_revoked=yes
+credential_revoked=yes
+revoked_cookie_replay_denied=yes
+accountability_issue_allowed=yes
+accountability_csrf_denied=yes
+accountability_logout_allowed=yes
+accountability_secret_free=yes
+original_runtime_config_restored=yes
+original_runtime_environment_restored=yes
+database_integrity=yes
+service_state=active
 ```
 
 Durable evidence:
 
 ```text
-/var/backups/vdr-suite-phase62-slice2q-20260801T191156Z-88ec36076d7e/runtime-acceptance-slice2q
+/var/backups/vdr-suite-phase62-slice2r-20260801T202314Z-d65af5a24688/runtime-acceptance-slice2r
 ```
+
+The earlier `20260801T201619Z` attempt failed only in an outer accountability
+field assertion and automatically restored the pre-test runtime. It is rollback
+evidence, not accepted Slice-2R evidence.
 
 ## Compatibility and fail-closed boundary
 
@@ -169,7 +177,6 @@ classification nor authorization.
 
 ## Remaining Phase 62 work
 
-- complete all five CI jobs and guarded real-runtime acceptance for Slice 2R;
 - define browser-session idle expiry, cleanup and concurrency policy;
 - add completion/outcome accountability and stronger transactional coupling;
 - add protected credential, identity, role and grant administration;
@@ -178,6 +185,8 @@ classification nor authorization.
 - standardize revisions, idempotency and operation lifecycle;
 - add protected audit query/export/retention;
 - complete compatibility-retirement and final Phase 62 acceptance.
+
+No next implementation slice is selected by this closeout.
 
 ## Operating rules
 
@@ -190,7 +199,7 @@ classification nor authorization.
 
 ## Exact next action
 
-Publish the bounded Slice-2R implementation and require all five CI jobs to
-pass. Only after full green CI may a guarded yaVDR pass temporarily set a
-non-default lifetime, issue and revoke one browser session, restore the original
-environment file and verify the installed runtime.
+Let the Slice-2R documentation closeout complete its full five-job CI. Then
+perform a fresh bounded Phase-62 gap review and select exactly one next slice
+only after its security, persistence and real-runtime-safety contract is
+explicit.

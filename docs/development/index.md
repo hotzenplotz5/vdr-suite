@@ -28,12 +28,11 @@
 Latest completed numbered runtime phase: Phase 61 - Suite Metadata and Genre Platform
 Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
 Current runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
-Current accepted Phase 62 state: repository, CI and real yaVDR runtime accepted through Slice 2Q
-Accepted code/runtime head: 88ec36076d7e5114df0a3a186cc6fbd52bb2baac
-Accepted closeout CI: #6658 / run 30714506053 / all five jobs successful
-Active repository implementation: Slice 2R configurable absolute browser-session lifetime
-Slice 2R CI and real-runtime acceptance: pending
-Installed daemon SHA-256: 9f60daaf7d772abe7c6ad55388cb9bb7e8afe8f6679fbf749aa9103143a41d07
+Current accepted Phase 62 state: repository, CI and real yaVDR runtime accepted through Slice 2R
+Accepted code/runtime head: d65af5a24688fe4dbf090030226fd45825260060
+Accepted source/runtime CI: #6661 / run 30715365583 / all five jobs successful
+Active repository implementation: none selected after Slice 2R closeout
+Installed daemon SHA-256: 12953babb3a2ce3aebeb99a377f66a94375bf55cf1e839cf8163bf574f4d7660
 Installed loader SHA-256: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 ```
 
@@ -42,6 +41,7 @@ advanced. PR #117 remains open, Draft and unmerged.
 
 ## Latest accepted closeouts
 
+- [Phase 62 Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Phase 62 Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Phase 62 Slice 2P Closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md)
 - [Phase 62 Slice 2O Closeout](phase-62-slice-2o-native-fuzzy-refresh-security-migration.md)
@@ -49,17 +49,20 @@ advanced. PR #117 remains open, Draft and unmerged.
 - [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
 - [Architecture Source Audit — 2026-07-15](architecture-source-audit-2026-07-15.md)
 
-## Latest accepted Slice 2Q evidence
+## Latest accepted Slice 2R evidence
 
 ```text
-Tests: 32 passed, 0 failed
-HTTP requests: 25
-Authorization scope: *
-Snapshot source: direct SQLite
-Freshness boundary: 604800 seconds
-Real stale-probe deletions: 0
-Delete guard removed: yes
-Snapshot unchanged: yes
+Custom lifetime: 900 seconds
+HTTP requests: 5
+Persisted remaining lifetime: 900 seconds
+Cookie Max-Age: 900
+Cookie attributes: HttpOnly, Secure, SameSite=Strict
+Ordinary browser GET: passed
+Missing-CSRF logout: denied
+Logout and lifecycle revocation: passed
+Revoked-cookie replay: denied
+Lifecycle accountability: complete and secret-free
+Original runtime configuration and environment: restored
 Database integrity: yes
 Service active: yes
 ```
@@ -67,10 +70,10 @@ Service active: yes
 Evidence directory:
 
 ```text
-/var/backups/vdr-suite-phase62-slice2q-20260801T191156Z-88ec36076d7e/runtime-acceptance-slice2q
+/var/backups/vdr-suite-phase62-slice2r-20260801T202314Z-d65af5a24688/runtime-acceptance-slice2r
 ```
 
-## Active Slice 2R contract
+## Accepted Slice 2R contract
 
 ```text
 VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS
@@ -113,9 +116,9 @@ explicitly deferred.
 
 ## Exact next action
 
-Publish the bounded Slice-2R repository implementation as one fast-forward
-commit. Require all five CI jobs to pass before any guarded custom-lifetime
-runtime acceptance on yaVDR.
+Let the Slice-2R documentation closeout complete all five CI jobs. Then select
+exactly one next bounded Phase-62 slice only after a fresh gap and runtime-safety
+review.
 
 ## Related navigation
 

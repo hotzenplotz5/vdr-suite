@@ -2,8 +2,22 @@
 
 ## Status
 
-Repository implementation is prepared. Full CI and guarded real yaVDR runtime
-acceptance remain pending.
+Repository implementation, all five CI jobs and guarded real yaVDR runtime
+acceptance are complete.
+
+Accepted source/runtime head:
+
+```text
+d65af5a24688fe4dbf090030226fd45825260060
+```
+
+Accepted implementation CI:
+
+```text
+VDR-Suite CI #6661
+Run ID 30715365583
+All five jobs successful
+```
 
 PR #117 remains open, Draft and unmerged.
 
@@ -19,11 +33,11 @@ POST family:
   or an explicitly classified Safe POST.
 
 A further route-migration slice would therefore be artificial. The next smallest
-real Phase-62 gap is the duplicated fixed browser-session lifetime.
+real Phase-62 gap was the duplicated fixed browser-session lifetime.
 
 Before Slice 2R, browser-session issuance and the response cookie both used
 `28800` seconds through separate call sites. The persistence layer already
-supports bounded absolute expiry but no runtime setting selected that value.
+supported bounded absolute expiry but no runtime setting selected that value.
 
 ---
 
@@ -145,7 +159,7 @@ makes the option visible to new installations.
 
 ---
 
-## Focused Verification
+## Repository Verification
 
 Repository tests cover:
 
@@ -174,30 +188,102 @@ The static architecture checker enforces:
 - strict Packaging documentation;
 - continued cookie secrecy and lifecycle contracts.
 
+GitHub Actions **VDR-Suite CI #6661**, run `30715365583`, completed with all
+five jobs successful:
+
+- `docs-check`;
+- `make-test-audit`;
+- `frontend-regression-test`;
+- `fast-regression-test`;
+- `packaging-regression-test`.
+
 ---
 
-## Planned Real-Runtime Acceptance
+## Completed Real-Runtime Acceptance
 
-Real-runtime acceptance must run only after all five PR CI jobs are green.
+The accepted guarded yaVDR pass temporarily set the lifetime to `900`, restarted
+the daemon, issued one browser session through Legacy Basic, exercised ordinary
+browser authentication and CSRF enforcement, revoked the session and restored
+the original environment file.
 
-The guarded pass will:
+Accepted runtime evidence:
 
-1. verify exact branch/head and a clean worktree;
-2. back up the installed runtime, database and current
-   `/etc/default/vdr-suite-daemon`;
-3. install only the runtime from the CI-accepted head;
-4. temporarily set the lifetime to a bounded non-default value such as `900`;
-5. restart the daemon and issue one browser session through Legacy Basic;
-6. prove `Max-Age=900` and a persisted expiry approximately 900 seconds after
-   issuance;
-7. prove ordinary authenticated access and CSRF behaviour remain functional;
-8. logout, verify revocation and deny revoked-cookie replay;
-9. prove no raw cookie or CSRF secret entered accountability;
-10. restore the original environment file and restart the service;
-11. verify database integrity, installed fingerprints and active service state;
-12. automatically restore the complete pre-test state on every failure.
+```text
+service_pid_custom_lifetime=68813
+service_pid_after_restore=68893
+custom_lifetime_seconds=900
+runtime_http_requests=5
+persisted_remaining_seconds=900
+cookie_max_age=900
+cookie_http_only=yes
+cookie_secure=yes
+cookie_same_site=strict
+ordinary_browser_get=yes
+missing_csrf_denied=yes
+logout_succeeded=yes
+session_revoked=yes
+credential_revoked=yes
+revoked_cookie_replay_denied=yes
+accountability_issue_allowed=yes
+accountability_csrf_denied=yes
+accountability_logout_allowed=yes
+accountability_secret_free=yes
+original_runtime_config_restored=yes
+original_runtime_environment_restored=yes
+database_integrity=yes
+service_state=active
+```
 
-The acceptance must not change grants, business data or any Phase-63+ runtime.
+Installed fingerprints:
+
+```text
+daemon: 12953babb3a2ce3aebeb99a377f66a94375bf55cf1e839cf8163bf574f4d7660
+loader: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+```
+
+Evidence fingerprints:
+
+```text
+runtime report:
+5fc0540f68d377c2dbce8351758fdf187527c3cb8e8538820041b224e3d9b478
+
+database before:
+35e84aa1e0b181dd425262ceeea6a65b297bfe68fd5ffe717a63d39a911de861
+
+database after:
+f6d5a57271658bca45aa0a9b30a39ee904dfa12f31c26d651206216ecdbab52f
+```
+
+Durable evidence directory:
+
+```text
+/var/backups/vdr-suite-phase62-slice2r-20260801T202314Z-d65af5a24688/runtime-acceptance-slice2r
+```
+
+The database snapshots intentionally differ because the acceptance session and
+its canonical credential rows remain as revoked lifecycle evidence. The pass
+proved all three rows inactive with revocation timestamps; replay was denied.
+Database quick and foreign-key checks passed before and after the test.
+
+### Earlier guarded attempt
+
+The earlier attempt at
+`/var/backups/vdr-suite-phase62-slice2r-20260801T201619Z-d65af5a24688`
+completed the product operations but used a wrapper assertion that compared the
+accountability `action` column with the permission name. The runtime correctly
+records:
+
+```text
+permission=session.issue.self
+action=browser.session.issue
+
+permission=session.revoke.self
+action=browser.session.revoke
+```
+
+That attempt failed only in the wrapper-side assertion. Automatic rollback
+passed, restored the previous daemon and original environment file, and left no
+accepted evidence. It is rollback evidence, not the Slice-2R acceptance pass.
 
 ---
 
@@ -219,11 +305,13 @@ Slice 2R does not implement:
 
 ## Acceptance Gate
 
-Slice 2R is not complete until:
+Slice 2R is complete because:
 
-1. the atomic repository diff contains only this bounded contract;
-2. all focused and architecture tests pass;
+1. the repository diff contains only this bounded contract;
+2. focused and architecture tests pass;
 3. all five PR CI jobs pass;
-4. the guarded custom-lifetime yaVDR test succeeds;
-5. the temporary session is revoked and the original environment is restored;
-6. durable evidence and closeout documentation are committed.
+4. the guarded custom-lifetime yaVDR test succeeded;
+5. the temporary session was revoked and the original environment restored;
+6. durable non-secret evidence is recorded here.
+
+No next Phase-62 implementation slice is selected by this closeout.

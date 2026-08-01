@@ -20,22 +20,21 @@ Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Repository, CI and real-runtime accepted through:
-Slice 2Q - Global Native Fuzzy Stale-Probe Deletion Security Migration
+Slice 2R - Configurable Absolute Browser-Session Lifetime
 
 Accepted code/runtime head:
-88ec36076d7e5114df0a3a186cc6fbd52bb2baac
+d65af5a24688fe4dbf090030226fd45825260060
 
-Accepted closeout GitHub Actions:
-VDR-Suite CI #6658
-Run ID: 30714506053
+Accepted source/runtime GitHub Actions:
+VDR-Suite CI #6661
+Run ID: 30715365583
 All five jobs successful
 
 Active repository implementation:
-Slice 2R - Configurable Absolute Browser-Session Lifetime
-CI and real-runtime acceptance pending
+None selected after Slice 2R closeout
 
 Installed daemon SHA-256:
-9f60daaf7d772abe7c6ad55388cb9bb7e8afe8f6679fbf749aa9103143a41d07
+12953babb3a2ce3aebeb99a377f66a94375bf55cf1e839cf8163bf574f4d7660
 
 Installed deferred-runtime-loader.js SHA-256:
 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
@@ -61,6 +60,8 @@ The accepted branch and installed runtime include:
 - protected Native Fuzzy operator refresh;
 - protected query-scoped SearchTimer preview and EPG cache refresh;
 - protected global Native Fuzzy stale-probe deletion;
+- configurable bounded absolute browser-session lifetime shared by persistence
+  and cookie construction;
 - append-only pre-dispatch accountability and secret-free denial evidence;
 - mutation-safe real-runtime acceptance profiles and guarded rollback.
 
@@ -75,7 +76,7 @@ The fresh HTTP inventory found no remaining unmigrated product POST family:
 
 A further route-migration slice would therefore be artificial.
 
-## Active Slice 2R repository contract
+## Accepted Slice 2R contract
 
 Slice 2R adds one optional server-side setting:
 
@@ -114,39 +115,61 @@ Explicitly excluded from Slice 2R:
 - user-selectable request values;
 - generic security administration.
 
-This repository implementation is not accepted runtime until all five CI jobs
-and the guarded custom-lifetime yaVDR pass succeed.
-
-## Latest accepted Slice 2Q evidence
+## Latest accepted Slice 2R evidence
 
 ```text
-service_pid_after_acceptance=67393
-tests_passed=32/32
-runtime_http_requests=25
-snapshot_source=direct-sqlite
-stale_probe_snapshot_unchanged=yes
-real_stale_probe_deletes=0
-delete_guard_removed=yes
-target_grants_restored=yes
-browser_session_revoked=yes
+service_pid_custom_lifetime=68813
+service_pid_after_restore=68893
+custom_lifetime_seconds=900
+runtime_http_requests=5
+persisted_remaining_seconds=900
+cookie_max_age=900
+cookie_http_only=yes
+cookie_secure=yes
+cookie_same_site=strict
+ordinary_browser_get=yes
+missing_csrf_denied=yes
+logout_succeeded=yes
+session_revoked=yes
+credential_revoked=yes
 revoked_cookie_replay_denied=yes
+accountability_issue_allowed=yes
+accountability_csrf_denied=yes
+accountability_logout_allowed=yes
 accountability_secret_free=yes
+original_runtime_config_restored=yes
+original_runtime_environment_restored=yes
 database_integrity=yes
-service_pid_unchanged=yes
 service_state=active
 ```
 
 Durable evidence:
 
 ```text
-/var/backups/vdr-suite-phase62-slice2q-20260801T191156Z-88ec36076d7e/runtime-acceptance-slice2q
+/var/backups/vdr-suite-phase62-slice2r-20260801T202314Z-d65af5a24688/runtime-acceptance-slice2r
 ```
+
+Evidence fingerprints:
+
+```text
+runtime_report_sha256=5fc0540f68d377c2dbce8351758fdf187527c3cb8e8538820041b224e3d9b478
+database_before_sha256=35e84aa1e0b181dd425262ceeea6a65b297bfe68fd5ffe717a63d39a911de861
+database_after_sha256=f6d5a57271658bca45aa0a9b30a39ee904dfa12f31c26d651206216ecdbab52f
+```
+
+The database snapshots differ because the acceptance lifecycle rows remain as
+revoked evidence. All relevant browser-session, session and credential rows are
+inactive with revocation timestamps, and revoked-cookie replay is denied.
+
+The earlier `20260801T201619Z` attempt failed only in a wrapper-side comparison
+between the accountability action and permission columns. Automatic rollback
+passed and restored the prior runtime. That directory is rollback evidence, not
+the accepted Slice-2R pass.
 
 ## Remaining Phase 62 work
 
 Phase 62 still lacks:
 
-- Slice 2R CI and guarded real-runtime acceptance;
 - browser-session idle expiry, cleanup and concurrency policy;
 - completion/outcome accountability and stronger transactional coupling;
 - protected identity, credential, role and grant administration;
@@ -156,6 +179,8 @@ Phase 62 still lacks:
 - protected audit query/export/retention;
 - compatibility-retirement readiness and final Phase 62 closeout.
 
+No next implementation slice is selected by this closeout.
+
 ## Pull request truth
 
 PR #117 must remain open, Draft and unmerged. Do not mark it Ready for review,
@@ -164,9 +189,7 @@ metadata without explicit approval.
 
 The PR description is materially stale. Current repository truth is this file,
 [Current State](../CURRENT.md), the
-[Slice 2Q closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md),
-the active
-[Slice 2R contract](phase-62-slice-2r-browser-session-lifetime-configuration.md),
+[Slice 2R closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md),
 the [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 and the
 [Security and Identity Architecture](../architecture/security-identity-foundation.md).
@@ -189,15 +212,15 @@ diff before treating a GitHub change as complete.
 
 ## Exact next action
 
-Publish Slice 2R as one bounded fast-forward commit and require all five CI jobs
-to pass. Only then run a guarded yaVDR acceptance with a temporary non-default
-lifetime, revoke the test session and restore the original environment file.
+Let the Slice-2R documentation closeout complete all five CI jobs. Then perform
+a fresh bounded Phase-62 gap review and select exactly one next slice only after
+its security, persistence and real-runtime-safety boundary is explicit.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
-- [Slice 2R Active Contract](phase-62-slice-2r-browser-session-lifetime-configuration.md)
+- [Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Slice 2P Closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md)
 - [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)
