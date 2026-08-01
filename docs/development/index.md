@@ -17,6 +17,7 @@
 - [Phase 62 Slice 2P — Query-Scoped Cache Refresh Security Migration](phase-62-slice-2p-query-cache-refresh-security-migration.md)
 - [Phase 62 Slice 2Q — Global Native Fuzzy Stale-Probe Deletion Security Migration](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Phase 62 Slice 2R — Configurable Absolute Browser-Session Lifetime](phase-62-slice-2r-browser-session-lifetime-configuration.md)
+- [Phase 62 Slice 2S — Browser-Session Lifecycle Outcome Accountability](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
@@ -30,8 +31,9 @@ Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
 Current runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
 Current accepted Phase 62 state: repository, CI and real yaVDR runtime accepted through Slice 2R
 Accepted code/runtime head: d65af5a24688fe4dbf090030226fd45825260060
-Accepted source/runtime CI: #6661 / run 30715365583 / all five jobs successful
-Active repository implementation: none selected after Slice 2R closeout
+Accepted closeout CI: #6662 / run 30717164017 / all five jobs successful
+Active repository implementation: Slice 2S browser-session lifecycle outcome accountability
+Slice 2S CI and real-runtime acceptance: pending
 Installed daemon SHA-256: 12953babb3a2ce3aebeb99a377f66a94375bf55cf1e839cf8163bf574f4d7660
 Installed loader SHA-256: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 ```
@@ -73,18 +75,21 @@ Evidence directory:
 /var/backups/vdr-suite-phase62-slice2r-20260801T202314Z-d65af5a24688/runtime-acceptance-slice2r
 ```
 
-## Accepted Slice 2R contract
+## Active Slice 2S contract
 
 ```text
-VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS
-Default: 28800
-Allowed: strict decimal 300..86400
+issue outcome:  operation.succeeded / operation.failed
+revoke outcome: operation.succeeded / operation.failed
+scope: *
 ```
 
-The same server-owned value controls persisted absolute expiry and cookie
-`Max-Age`. Invalid configuration blocks browser-session issuance with HTTP 503
-and no `Set-Cookie`. Idle timeout, refresh, cleanup and concurrency remain
-explicitly deferred.
+The existing gate remains the pre-dispatch authorization and CSRF owner. The
+HTTP lifecycle service records only actual issue/revoke outcomes.
+
+A blocked successful issue outcome triggers compensating revocation and returns
+503 without a session cookie. A blocked successful revoke outcome leaves the
+session revoked and returns 503 with an expired cookie. Business outcomes,
+transactional outbox, idle timeout, cleanup and concurrency remain deferred.
 
 ## Developer references
 
@@ -116,9 +121,9 @@ explicitly deferred.
 
 ## Exact next action
 
-Let the Slice-2R documentation closeout complete all five CI jobs. Then select
-exactly one next bounded Phase-62 slice only after a fresh gap and runtime-safety
-review.
+Publish the bounded Slice-2S repository implementation as one fast-forward
+commit. Require all five CI jobs before guarded lifecycle-outcome runtime
+acceptance on yaVDR.
 
 ## Related navigation
 

@@ -175,7 +175,8 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
     browserSessionHttpService_ =
         std::make_unique<BrowserSessionHttpService>(
             *browserSessionIssuanceService_,
-            *browserSessionLifecycleService_);
+            *browserSessionLifecycleService_,
+            *accountabilityEventRepository_);
 
     browserSessionHttpGate_ =
         std::make_unique<BrowserSessionHttpGate>(

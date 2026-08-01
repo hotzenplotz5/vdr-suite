@@ -1,14 +1,25 @@
 #include "BrowserSessionHttpService.h"
 
+#include "AccountabilityEvent.h"
+#include "AccountabilityEventRepository.h"
 #include "BrowserSessionIssuanceService.h"
 #include "BrowserSessionLifecycleService.h"
 
+#include <chrono>
+#include <cctype>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 #include <string>
 #include <utility>
 
 namespace
 {
 constexpr const char* CookieName = "vdr_suite_session";
+constexpr const char* IssuePermission = "session.issue.self";
+constexpr const char* IssueAction = "browser.session.issue";
+constexpr const char* RevokePermission = "session.revoke.self";
+constexpr const char* RevokeAction = "browser.session.revoke";
 
 std::string jsonEscape(const std::string& value)
 {
@@ -34,6 +45,16 @@ std::string jsonEscape(const std::string& value)
         }
     }
     return escaped;
+}
+
+std::string nowUtc()
+{
+    const std::time_t now = std::time(nullptr);
+    std::tm utc{};
+    gmtime_r(&now, &utc);
+    std::ostringstream output;
+    output << std::put_time(&utc, "%Y-%m-%dT%H:%M:%SZ");
+    return output.str();
 }
 
 HttpServerResponse errorResponse(
@@ -71,14 +92,32 @@ std::string expiredSessionCookie()
         "Expires=Thu, 01 Jan 1970 00:00:00 GMT; "
         "HttpOnly; Secure; SameSite=Strict";
 }
+
+HttpServerResponse accountabilityUnavailableResponse(
+    const RequestSecurityContext& context,
+    bool expireCookie)
+{
+    HttpServerResponse response = errorResponse(
+        503,
+        "accountability_unavailable",
+        "Security outcome accountability persistence is unavailable",
+        context);
+    if (expireCookie)
+    {
+        response.headers["Set-Cookie"] = expiredSessionCookie();
+    }
+    return response;
+}
 }
 
 BrowserSessionHttpService::BrowserSessionHttpService(
     BrowserSessionIssuanceService& issuanceService,
-    BrowserSessionLifecycleService& lifecycleService)
+    BrowserSessionLifecycleService& lifecycleService,
+    AccountabilityEventRepository& accountabilityRepository)
     : BrowserSessionHttpService(
           issuanceService,
           lifecycleService,
+          accountabilityRepository,
           SecurityConfiguration::fromEnvironment().browserSessionLifetime)
 {
 }
@@ -86,9 +125,11 @@ BrowserSessionHttpService::BrowserSessionHttpService(
 BrowserSessionHttpService::BrowserSessionHttpService(
     BrowserSessionIssuanceService& issuanceService,
     BrowserSessionLifecycleService& lifecycleService,
+    AccountabilityEventRepository& accountabilityRepository,
     BrowserSessionLifetimeConfiguration lifetimeConfiguration)
     : issuanceService_(issuanceService),
       lifecycleService_(lifecycleService),
+      accountabilityRepository_(accountabilityRepository),
       lifetimeConfiguration_(std::move(lifetimeConfiguration))
 {
 }
@@ -112,6 +153,15 @@ HttpServerResponse BrowserSessionHttpService::login(
 
     if (!lifetimeConfiguration_.valid())
     {
+        if (!appendOutcome(
+                context,
+                false,
+                IssuePermission,
+                IssueAction,
+                "browser_session_lifetime_configuration_invalid"))
+        {
+            return accountabilityUnavailableResponse(context, false);
+        }
         return errorResponse(
             503,
             "browser_session_lifetime_configuration_invalid",
@@ -128,11 +178,35 @@ HttpServerResponse BrowserSessionHttpService::login(
     auto issued = issuanceService_.issue(request);
     if (!issued.has_value())
     {
+        if (!appendOutcome(
+                context,
+                false,
+                IssuePermission,
+                IssueAction,
+                "browser_session_issuance_failed"))
+        {
+            return accountabilityUnavailableResponse(context, false);
+        }
         return errorResponse(
             503,
             "browser_session_issuance_failed",
             "The browser session could not be issued",
             context);
+    }
+
+    if (!appendOutcome(
+            context,
+            true,
+            IssuePermission,
+            IssueAction,
+            "browser_session_issued",
+            issued->sessionId))
+    {
+        lifecycleService_.revoke(
+            issued->sessionId,
+            issued->credentialId);
+        issued->clearSecrets();
+        return accountabilityUnavailableResponse(context, false);
     }
 
     HttpServerResponse response;
@@ -173,11 +247,30 @@ HttpServerResponse BrowserSessionHttpService::logout(
             context.session->sessionId,
             context.credential->credentialId))
     {
+        if (!appendOutcome(
+                context,
+                false,
+                RevokePermission,
+                RevokeAction,
+                "browser_session_revocation_failed"))
+        {
+            return accountabilityUnavailableResponse(context, false);
+        }
         return errorResponse(
             503,
             "browser_session_revocation_failed",
             "The browser session could not be revoked",
             context);
+    }
+
+    if (!appendOutcome(
+            context,
+            true,
+            RevokePermission,
+            RevokeAction,
+            "browser_session_revoked"))
+    {
+        return accountabilityUnavailableResponse(context, true);
     }
 
     HttpServerResponse response;
@@ -186,4 +279,57 @@ HttpServerResponse BrowserSessionHttpService::logout(
     response.headers["Pragma"] = "no-cache";
     response.headers["Set-Cookie"] = expiredSessionCookie();
     return response;
+}
+
+bool BrowserSessionHttpService::appendOutcome(
+    const RequestSecurityContext& context,
+    bool succeeded,
+    const std::string& permission,
+    const std::string& action,
+    const std::string& reasonCode,
+    const std::string& sessionId) const
+{
+    AccountabilityEvent event;
+    event.eventId = opaqueId("audit");
+    event.classes = succeeded ? "audit" : "audit,security";
+    event.eventType = succeeded
+        ? "operation.succeeded"
+        : "operation.failed";
+    event.severity = succeeded ? "info" : "error";
+    event.occurredAt = nowUtc();
+    event.actorId = context.actor.actorId.empty()
+        ? "anonymous"
+        : context.actor.actorId;
+    event.actorType = actorTypeName(context.actor.type);
+    event.deviceId = context.device
+        ? context.device->deviceId
+        : "";
+    event.sessionId = !sessionId.empty()
+        ? sessionId
+        : (context.session ? context.session->sessionId : "");
+    event.authenticationState =
+        authenticationStateName(context.authenticationState);
+    event.permission = permission;
+    event.backendId = "*";
+    event.requestId = context.requestId;
+    event.correlationId = context.correlationId;
+    event.action = action;
+    event.decision = "allowed";
+    event.reasonCode = reasonCode;
+    event.outcome = succeeded ? "succeeded" : "failed";
+    return accountabilityRepository_.append(event);
+}
+
+std::string BrowserSessionHttpService::opaqueId(
+    const std::string& prefix) const
+{
+    const auto ticks =
+        std::chrono::steady_clock::now().time_since_epoch().count();
+    const unsigned long long sequence =
+        idCounter_.fetch_add(1) + 1;
+    std::ostringstream output;
+    output << prefix << '-' << std::hex
+           << static_cast<unsigned long long>(ticks)
+           << '-' << sequence;
+    return output.str();
 }

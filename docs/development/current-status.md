@@ -25,13 +25,14 @@ Slice 2R - Configurable Absolute Browser-Session Lifetime
 Accepted code/runtime head:
 d65af5a24688fe4dbf090030226fd45825260060
 
-Accepted source/runtime GitHub Actions:
-VDR-Suite CI #6661
-Run ID: 30715365583
+Accepted closeout GitHub Actions:
+VDR-Suite CI #6662
+Run ID: 30717164017
 All five jobs successful
 
 Active repository implementation:
-None selected after Slice 2R closeout
+Slice 2S - Browser-Session Lifecycle Outcome Accountability
+CI and real-runtime acceptance pending
 
 Installed daemon SHA-256:
 12953babb3a2ce3aebeb99a377f66a94375bf55cf1e839cf8163bf574f4d7660
@@ -56,10 +57,9 @@ The accepted branch and installed runtime include:
 - memory-only Webfrontend CSRF state and exact request-owner injection;
 - protected Remote, Timer, Channel Move, Recording execution and SearchTimer
   create/maintenance/execution mutations;
-- explicit Safe POST classification for the accepted validation/preview family;
-- protected Native Fuzzy operator refresh;
+- explicit Safe POST classification for accepted validation/preview routes;
+- protected Native Fuzzy refresh and global stale-probe deletion;
 - protected query-scoped SearchTimer preview and EPG cache refresh;
-- protected global Native Fuzzy stale-probe deletion;
 - configurable bounded absolute browser-session lifetime shared by persistence
   and cookie construction;
 - append-only pre-dispatch accountability and secret-free denial evidence;
@@ -76,66 +76,19 @@ The fresh HTTP inventory found no remaining unmigrated product POST family:
 
 A further route-migration slice would therefore be artificial.
 
-## Accepted Slice 2R contract
-
-Slice 2R adds one optional server-side setting:
+## Accepted Slice 2R evidence
 
 ```text
-VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS
-```
-
-Contract:
-
-```text
-default=28800
-minimum=300
-maximum=86400
-format=strict unsigned decimal
-```
-
-The same immutable value controls the persisted absolute browser-session expiry
-and cookie `Max-Age`. Missing configuration preserves the existing eight-hour
-behaviour.
-
-Invalid configuration does not fall back silently. Browser-session issuance
-returns HTTP 503 with
-`browser_session_lifetime_configuration_invalid`, emits no `Set-Cookie`, and
-creates no session or credential. Other API routes and already-issued sessions
-remain outside this bounded change.
-
-The parser reuses the issuance service's existing minimum/default/maximum
-constants and rejects long decimal input before multiplication can overflow.
-
-Explicitly excluded from Slice 2R:
-
-- idle timeout and `last_seen` persistence;
-- sliding expiry or refresh;
-- expired-session cleanup;
-- concurrent-session limits;
-- user-selectable request values;
-- generic security administration.
-
-## Latest accepted Slice 2R evidence
-
-```text
-service_pid_custom_lifetime=68813
-service_pid_after_restore=68893
 custom_lifetime_seconds=900
 runtime_http_requests=5
 persisted_remaining_seconds=900
 cookie_max_age=900
-cookie_http_only=yes
-cookie_secure=yes
-cookie_same_site=strict
 ordinary_browser_get=yes
 missing_csrf_denied=yes
 logout_succeeded=yes
 session_revoked=yes
 credential_revoked=yes
 revoked_cookie_replay_denied=yes
-accountability_issue_allowed=yes
-accountability_csrf_denied=yes
-accountability_logout_allowed=yes
 accountability_secret_free=yes
 original_runtime_config_restored=yes
 original_runtime_environment_restored=yes
@@ -149,37 +102,67 @@ Durable evidence:
 /var/backups/vdr-suite-phase62-slice2r-20260801T202314Z-d65af5a24688/runtime-acceptance-slice2r
 ```
 
-Evidence fingerprints:
+## Active Slice 2S repository contract
+
+Slice 2S adds post-operation accountability only for the existing
+browser-session issue and revoke lifecycle pair.
+
+Existing gate-owned pre-dispatch events remain unchanged. The HTTP service adds:
 
 ```text
-runtime_report_sha256=5fc0540f68d377c2dbce8351758fdf187527c3cb8e8538820041b224e3d9b478
-database_before_sha256=35e84aa1e0b181dd425262ceeea6a65b297bfe68fd5ffe717a63d39a911de861
-database_after_sha256=f6d5a57271658bca45aa0a9b30a39ee904dfa12f31c26d651206216ecdbab52f
+operation.succeeded
+operation.failed
 ```
 
-The database snapshots differ because the acceptance lifecycle rows remain as
-revoked evidence. All relevant browser-session, session and credential rows are
-inactive with revocation timestamps, and revoked-cookie replay is denied.
+with canonical fields:
 
-The earlier `20260801T201619Z` attempt failed only in a wrapper-side comparison
-between the accountability action and permission columns. Automatic rollback
-passed and restored the prior runtime. That directory is rollback evidence, not
-the accepted Slice-2R pass.
+```text
+session.issue.self / browser.session.issue / *
+session.revoke.self / browser.session.revoke / *
+```
+
+Success and failure reason codes remain operation-specific. All events use the
+existing actor, device, session, request and correlation context and remain
+secret-free.
+
+Fail-closed behaviour:
+
+- login success is delivered only after the issue outcome is persisted;
+- failed issue-outcome persistence triggers compensating revocation, secret
+  wiping, HTTP 503 and no session cookie;
+- successful logout remains revoked when its outcome append fails;
+- that logout failure response still expires the client cookie;
+- authentication and CSRF denials remain gate-owned and do not create duplicate
+  operation outcomes.
+
+Explicitly excluded from Slice 2S:
+
+- outcomes for unrelated business mutations;
+- transactional outbox or retry infrastructure;
+- idle timeout and `last_seen` persistence;
+- sliding expiry or refresh;
+- expired-session cleanup;
+- concurrent-session limits;
+- protected audit query/export/retention;
+- general security administration.
+
+This repository implementation is not accepted runtime until all five CI jobs
+and the guarded browser lifecycle outcome yaVDR pass succeed.
 
 ## Remaining Phase 62 work
 
 Phase 62 still lacks:
 
+- Slice 2S CI and guarded real-runtime acceptance;
 - browser-session idle expiry, cleanup and concurrency policy;
-- completion/outcome accountability and stronger transactional coupling;
+- outcome accountability for other operation families;
+- stronger transactional coupling or outbox semantics;
 - protected identity, credential, role and grant administration;
 - native/service credential enrollment, rotation and revocation;
 - generic persisted role definitions beyond the fixed catalogue;
 - common revision, idempotency and durable operation contracts;
 - protected audit query/export/retention;
 - compatibility-retirement readiness and final Phase 62 closeout.
-
-No next implementation slice is selected by this closeout.
 
 ## Pull request truth
 
@@ -188,8 +171,9 @@ merge it, enable auto-merge, force-push, rewrite branch history or change PR
 metadata without explicit approval.
 
 The PR description is materially stale. Current repository truth is this file,
-[Current State](../CURRENT.md), the
-[Slice 2R closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md),
+[Current State](../CURRENT.md), the active
+[Slice 2S contract](phase-62-slice-2s-browser-session-outcome-accountability.md),
+the [Slice 2R closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md),
 the [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 and the
 [Security and Identity Architecture](../architecture/security-identity-foundation.md).
@@ -212,17 +196,16 @@ diff before treating a GitHub change as complete.
 
 ## Exact next action
 
-Let the Slice-2R documentation closeout complete all five CI jobs. Then perform
-a fresh bounded Phase-62 gap review and select exactly one next slice only after
-its security, persistence and real-runtime-safety boundary is explicit.
+Publish Slice 2S as one bounded fast-forward commit and require all five CI jobs
+to pass. Only then run a guarded yaVDR issue/logout lifecycle outcome acceptance.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Slice 2S Active Contract](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
-- [Slice 2P Closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md)
 - [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)

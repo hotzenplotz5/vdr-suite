@@ -1,3 +1,4 @@
+#include "AccountabilityEventRepository.h"
 #include "BrowserSessionAuthenticator.h"
 #include "BrowserSessionCredentialRepository.h"
 #include "BrowserSessionHttpService.h"
@@ -68,6 +69,15 @@ BrowserSessionIssuanceService::EntropySource sequenceEntropy(
     };
 }
 
+BrowserSessionIssuanceService::Clock fixedClock()
+{
+    return []
+    {
+        return std::chrono::system_clock::time_point(
+            std::chrono::seconds(4070908800));
+    };
+}
+
 std::string jsonStringValue(
     const std::string& body,
     const std::string& field)
@@ -92,12 +102,96 @@ std::string cookiePair(const std::string& setCookie)
         ? setCookie
         : setCookie.substr(0, separator);
 }
+
+bool hasOutcome(
+    const std::vector<AccountabilityEvent>& events,
+    const std::string& eventType,
+    const std::string& permission,
+    const std::string& action,
+    const std::string& reasonCode,
+    const std::string& outcome,
+    const std::string& requestId,
+    const std::string& sessionId = {})
+{
+    return std::any_of(
+        events.begin(),
+        events.end(),
+        [&](const AccountabilityEvent& event)
+        {
+            return event.eventType == eventType &&
+                event.permission == permission &&
+                event.action == action &&
+                event.decision == "allowed" &&
+                event.reasonCode == reasonCode &&
+                event.outcome == outcome &&
+                event.backendId == "*" &&
+                event.requestId == requestId &&
+                (sessionId.empty() || event.sessionId == sessionId);
+        });
+}
+
+bool eventContains(
+    const AccountabilityEvent& event,
+    const std::string& value)
+{
+    if (value.empty())
+    {
+        return false;
+    }
+
+    const std::vector<std::string> fields = {
+        event.eventId,
+        event.classes,
+        event.eventType,
+        event.severity,
+        event.occurredAt,
+        event.actorId,
+        event.actorType,
+        event.deviceId,
+        event.sessionId,
+        event.authenticationState,
+        event.permission,
+        event.backendId,
+        event.operationId,
+        event.requestId,
+        event.correlationId,
+        event.action,
+        event.decision,
+        event.reasonCode,
+        event.outcome,
+    };
+
+    return std::any_of(
+        fields.begin(),
+        fields.end(),
+        [&](const std::string& field)
+        {
+            return field.find(value) != std::string::npos;
+        });
+}
+
+void createAccountabilityBlock(Database& database)
+{
+    assert(database.execute(
+        "CREATE TRIGGER phase62_test_accountability_block "
+        "BEFORE INSERT ON accountability_events "
+        "BEGIN SELECT RAISE(ABORT, 'phase62 test block'); END;"));
+}
+
+void dropAccountabilityBlock(Database& database)
+{
+    assert(database.execute(
+        "DROP TRIGGER phase62_test_accountability_block;"));
+}
 }
 
 int main()
 {
     Database database;
     assert(database.open(":memory:"));
+
+    AccountabilityEventRepository accountabilityRepository(database);
+    assert(accountabilityRepository.ensureSchema());
 
     SecurityIdentityRepository identityRepository(database);
     assert(identityRepository.ensureSchema());
@@ -136,11 +230,7 @@ int main()
             bytes(0x80, 16),
             bytes(0xa0, 16),
         }),
-        []
-        {
-            return std::chrono::system_clock::time_point(
-                std::chrono::seconds(4070908800));
-        });
+        fixedClock());
     BrowserSessionLifecycleService lifecycleService(
         database,
         identityRepository,
@@ -151,6 +241,7 @@ int main()
     BrowserSessionHttpService httpService(
         issuanceService,
         lifecycleService,
+        accountabilityRepository,
         lifetimeConfiguration);
 
     RequestSecurityContext basicContext;
@@ -217,6 +308,16 @@ int main()
     assert(stored->sessionSecretHash != cookieValue);
     assert(stored->csrfSecretHash != csrfToken);
 
+    assert(hasOutcome(
+        accountabilityRepository.listAll(),
+        "operation.succeeded",
+        "session.issue.self",
+        "browser.session.issue",
+        "browser_session_issued",
+        "succeeded",
+        "request-browser-login",
+        sessionId));
+
     BrowserSessionAuthenticator authenticator(
         credentialRepository,
         permissionGrantRepository);
@@ -227,7 +328,7 @@ int main()
     RequestSecurityContext browserContext = authenticator.authenticate(
         logoutHeaders,
         "request-browser-logout",
-        "");
+        "correlation-browser-lifecycle");
     assert(browserContext.authenticated());
     assert(browserContext.permissionGrantResolution ==
         PermissionGrantResolutionState::Resolved);
@@ -264,6 +365,16 @@ int main()
         "request-after-logout",
         "").authenticationState == AuthenticationState::Revoked);
 
+    assert(hasOutcome(
+        accountabilityRepository.listAll(),
+        "operation.succeeded",
+        "session.revoke.self",
+        "browser.session.revoke",
+        "browser_session_revoked",
+        "succeeded",
+        "request-browser-logout",
+        sessionId));
+
     RequestSecurityContext invalidContext;
     invalidContext.requestId = "request-invalid-login";
     const HttpServerResponse invalidLogin =
@@ -279,6 +390,7 @@ int main()
     BrowserSessionHttpService invalidLifetimeService(
         issuanceService,
         lifecycleService,
+        accountabilityRepository,
         invalidLifetimeConfiguration);
     basicContext.requestId = "request-invalid-lifetime";
     const HttpServerResponse invalidLifetimeLogin =
@@ -292,18 +404,225 @@ int main()
         std::string::npos);
     assert(invalidLifetimeLogin.body.find("request-invalid-lifetime") !=
         std::string::npos);
+    assert(hasOutcome(
+        accountabilityRepository.listAll(),
+        "operation.failed",
+        "session.issue.self",
+        "browser.session.issue",
+        "browser_session_lifetime_configuration_invalid",
+        "failed",
+        "request-invalid-lifetime"));
 
     BrowserSessionLifetimeConfiguration belowMinimumConfiguration;
     belowMinimumConfiguration.seconds = 299;
     BrowserSessionHttpService belowMinimumService(
         issuanceService,
         lifecycleService,
+        accountabilityRepository,
         belowMinimumConfiguration);
+    basicContext.requestId = "request-below-minimum";
     const HttpServerResponse belowMinimumLogin =
         belowMinimumService.login(basicContext);
     assert(belowMinimumLogin.statusCode == 503);
     assert(belowMinimumLogin.headers.find("Set-Cookie") ==
         belowMinimumLogin.headers.end());
+    assert(hasOutcome(
+        accountabilityRepository.listAll(),
+        "operation.failed",
+        "session.issue.self",
+        "browser.session.issue",
+        "browser_session_lifetime_configuration_invalid",
+        "failed",
+        "request-below-minimum"));
+
+    BrowserSessionIssuanceService failingIssuanceService(
+        database,
+        identityRepository,
+        credentialRepository,
+        [](unsigned char*, std::size_t)
+        {
+            return false;
+        },
+        fixedClock());
+    BrowserSessionHttpService failingIssueHttpService(
+        failingIssuanceService,
+        lifecycleService,
+        accountabilityRepository,
+        lifetimeConfiguration);
+    basicContext.requestId = "request-issuance-failure";
+    const HttpServerResponse issuanceFailure =
+        failingIssueHttpService.login(basicContext);
+    assert(issuanceFailure.statusCode == 503);
+    assert(issuanceFailure.headers.find("Set-Cookie") ==
+        issuanceFailure.headers.end());
+    assert(issuanceFailure.body.find("browser_session_issuance_failed") !=
+        std::string::npos);
+    assert(hasOutcome(
+        accountabilityRepository.listAll(),
+        "operation.failed",
+        "session.issue.self",
+        "browser.session.issue",
+        "browser_session_issuance_failed",
+        "failed",
+        "request-issuance-failure"));
+
+    browserContext.requestId = "request-revocation-failure";
+    const HttpServerResponse revocationFailure =
+        httpService.logout(browserContext);
+    assert(revocationFailure.statusCode == 503);
+    assert(revocationFailure.headers.find("Set-Cookie") ==
+        revocationFailure.headers.end());
+    assert(revocationFailure.body.find(
+        "browser_session_revocation_failed") != std::string::npos);
+    assert(hasOutcome(
+        accountabilityRepository.listAll(),
+        "operation.failed",
+        "session.revoke.self",
+        "browser.session.revoke",
+        "browser_session_revocation_failed",
+        "failed",
+        "request-revocation-failure",
+        sessionId));
+
+    const auto compensatedTokenBytes = bytes(0xb0, 16);
+    const auto compensatedSessionBytes = bytes(0xc0, 16);
+    const auto compensatedCredentialBytes = bytes(0xd0, 16);
+    BrowserSessionIssuanceService compensatedIssuanceService(
+        database,
+        identityRepository,
+        credentialRepository,
+        sequenceEntropy({
+            compensatedTokenBytes,
+            compensatedSessionBytes,
+            compensatedCredentialBytes,
+            bytes(0x11, 32),
+            bytes(0x31, 32),
+            bytes(0x51, 16),
+            bytes(0x71, 16),
+        }),
+        fixedClock());
+    BrowserSessionHttpService compensatedHttpService(
+        compensatedIssuanceService,
+        lifecycleService,
+        accountabilityRepository,
+        lifetimeConfiguration);
+
+    createAccountabilityBlock(database);
+    basicContext.requestId = "request-outcome-blocked-login";
+    const HttpServerResponse blockedLogin =
+        compensatedHttpService.login(basicContext);
+    assert(blockedLogin.statusCode == 503);
+    assert(blockedLogin.headers.find("Set-Cookie") ==
+        blockedLogin.headers.end());
+    assert(blockedLogin.body.find("accountability_unavailable") !=
+        std::string::npos);
+    dropAccountabilityBlock(database);
+
+    const std::string compensatedTokenId = prefixedHex(
+        "bst_",
+        compensatedTokenBytes);
+    const std::string compensatedSessionId = prefixedHex(
+        "bss_",
+        compensatedSessionBytes);
+    const std::string compensatedCredentialId = prefixedHex(
+        "bsc_",
+        compensatedCredentialBytes);
+    const auto compensatedBrowser =
+        credentialRepository.findByTokenId(compensatedTokenId);
+    const auto compensatedSession =
+        identityRepository.findSession(compensatedSessionId);
+    const auto compensatedCredential =
+        identityRepository.findCredential(compensatedCredentialId);
+    assert(compensatedBrowser.has_value());
+    assert(!compensatedBrowser->active && compensatedBrowser->revoked);
+    assert(compensatedSession.has_value());
+    assert(!compensatedSession->active && compensatedSession->revoked);
+    assert(compensatedCredential.has_value());
+    assert(!compensatedCredential->active && compensatedCredential->revoked);
+
+    const auto blockedLogoutTokenBytes = bytes(0xe0, 16);
+    const auto blockedLogoutSessionBytes = bytes(0xf0, 16);
+    const auto blockedLogoutCredentialBytes = bytes(0x01, 16);
+    BrowserSessionIssuanceService blockedLogoutIssuanceService(
+        database,
+        identityRepository,
+        credentialRepository,
+        sequenceEntropy({
+            blockedLogoutTokenBytes,
+            blockedLogoutSessionBytes,
+            blockedLogoutCredentialBytes,
+            bytes(0x21, 32),
+            bytes(0x41, 32),
+            bytes(0x61, 16),
+            bytes(0x81, 16),
+        }),
+        fixedClock());
+    BrowserSessionHttpService blockedLogoutHttpService(
+        blockedLogoutIssuanceService,
+        lifecycleService,
+        accountabilityRepository,
+        lifetimeConfiguration);
+
+    basicContext.requestId = "request-before-blocked-logout";
+    const HttpServerResponse beforeBlockedLogout =
+        blockedLogoutHttpService.login(basicContext);
+    assert(beforeBlockedLogout.statusCode == 200);
+    const std::string blockedLogoutCookie = cookiePair(
+        beforeBlockedLogout.headers.at("Set-Cookie"));
+    const std::string blockedLogoutCsrf = jsonStringValue(
+        beforeBlockedLogout.body,
+        "csrfToken");
+    const std::map<std::string, std::string> blockedLogoutHeaders = {
+        {"Cookie", blockedLogoutCookie},
+        {"X-CSRF-Token", blockedLogoutCsrf},
+    };
+    RequestSecurityContext blockedLogoutContext =
+        authenticator.authenticate(
+            blockedLogoutHeaders,
+            "request-outcome-blocked-logout",
+            "");
+    assert(blockedLogoutContext.authenticated());
+
+    createAccountabilityBlock(database);
+    const HttpServerResponse blockedLogout =
+        blockedLogoutHttpService.logout(blockedLogoutContext);
+    assert(blockedLogout.statusCode == 503);
+    assert(blockedLogout.body.find("accountability_unavailable") !=
+        std::string::npos);
+    assert(blockedLogout.headers.at("Set-Cookie").find("Max-Age=0") !=
+        std::string::npos);
+    dropAccountabilityBlock(database);
+
+    const std::string blockedLogoutSessionId = prefixedHex(
+        "bss_",
+        blockedLogoutSessionBytes);
+    const std::string blockedLogoutCredentialId = prefixedHex(
+        "bsc_",
+        blockedLogoutCredentialBytes);
+    const auto blockedLogoutBrowser =
+        credentialRepository.findBySessionId(blockedLogoutSessionId);
+    const auto blockedLogoutSession =
+        identityRepository.findSession(blockedLogoutSessionId);
+    const auto blockedLogoutCredential =
+        identityRepository.findCredential(blockedLogoutCredentialId);
+    assert(blockedLogoutBrowser.has_value());
+    assert(!blockedLogoutBrowser->active && blockedLogoutBrowser->revoked);
+    assert(blockedLogoutSession.has_value());
+    assert(!blockedLogoutSession->active && blockedLogoutSession->revoked);
+    assert(blockedLogoutCredential.has_value());
+    assert(!blockedLogoutCredential->active && blockedLogoutCredential->revoked);
+    assert(authenticator.authenticate(
+        blockedLogoutHeaders,
+        "request-blocked-logout-replay",
+        "").authenticationState == AuthenticationState::Revoked);
+
+    for (const AccountabilityEvent& event : accountabilityRepository.listAll())
+    {
+        assert(!eventContains(event, cookieValue));
+        assert(!eventContains(event, csrfToken));
+        assert(!eventContains(event, blockedLogoutCookie));
+        assert(!eventContains(event, blockedLogoutCsrf));
+    }
 
     return 0;
 }
