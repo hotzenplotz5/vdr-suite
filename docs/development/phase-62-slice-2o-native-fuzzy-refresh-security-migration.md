@@ -2,9 +2,23 @@
 
 ## Status
 
-Repository implementation is active on Draft PR #117.
+Repository implementation, CI and real yaVDR runtime acceptance are complete.
 
-No yaVDR installation or runtime acceptance has been performed for this slice.
+Accepted code/runtime head:
+
+```text
+a4f69e57de3cf8c29e915c7c5f6eb74a0c3fb9bc
+```
+
+GitHub Actions:
+
+```text
+VDR-Suite CI #6638
+Run ID: 30706360256
+Result: all five jobs successful
+```
+
+PR #117 remains open, Draft and unmerged.
 
 ---
 
@@ -140,6 +154,75 @@ They cover:
 - canonical, secret-free accountability;
 - exclusion from the safe-POST allowlist;
 - static-body manifest scope equality and size limits.
+
+---
+
+## Real yaVDR Runtime Acceptance
+
+Accepted on 2026-08-01 against the installed yaVDR runtime.
+
+```text
+repository_head=a4f69e57de3cf8c29e915c7c5f6eb74a0c3fb9bc
+service_pid_before_install=64164
+service_pid_after_install=65101
+service_pid_after_acceptance=65101
+installed_daemon_sha256=d0d7457b82ad55e19263efe255949856f28679ef95cde4bb86b755abd95c1a41
+installed_loader_sha256=47c78c871c7caefed8eee2e11e14b8fda5edd3bf85a07f3f099ff24b0a88ce51
+runtime_report_sha256=951598cbfac66ac86b658097bc9ee3fe05d6d5a72c3b753e37f42c3e74525aa9
+```
+
+Acceptance results:
+
+```text
+slice=slice-2o-native-fuzzy-refresh
+tests_passed=29
+tests_failed=0
+runtime_http_requests=27
+accountability_authorized=8
+accountability_csrf=2
+accountability_permission=2
+accountability_read_only=2
+accountability_scope=4
+resource_state_unchanged=yes
+target_grants_restored=yes
+unrelated_grants_untouched=yes
+browser_session_revoked=yes
+revoked_cookie_replay_denied=yes
+accountability_secret_free=yes
+database_integrity=yes
+service_pid_unchanged=yes
+```
+
+The acceptance confirmed:
+
+- the deliberately absent backend remained unknown;
+- the Native Fuzzy service stopped before probe creation;
+- no SearchTimer mutation occurred;
+- no backend capability update occurred;
+- no Native Fuzzy persistence write occurred;
+- the daemon PID did not change during acceptance;
+- temporary grants were restored exactly;
+- the acceptance browser session was revoked;
+- revoked-cookie replay was denied;
+- SQLite quick and foreign-key checks passed;
+- backup and evidence checksums passed;
+- the repository worktree remained clean.
+
+```text
+native_fuzzy_backend_known=false
+native_fuzzy_create_attempted=false
+real_native_fuzzy_probe_creates=0
+real_searchtimer_mutations=0
+backend_capability_updates=0
+native_fuzzy_persistence_writes=0
+```
+
+Runtime backup and durable evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2o-20260801T163607Z-a4f69e57de3c
+/var/backups/vdr-suite-phase62-slice2o-20260801T163607Z-a4f69e57de3c/runtime-acceptance-slice2o
+```
 
 ---
 
