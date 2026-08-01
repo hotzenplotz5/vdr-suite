@@ -9,7 +9,11 @@
 - [Phase 62 Runtime Evidence](development/phase-62-runtime-evidence.md)
 - [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
 - [Strict Roadmap](planning/roadmap.md)
+- [Phase Map](planning/phase-map.md)
+- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Security and Identity Architecture](architecture/security-identity-foundation.md)
+- [Completed Phases](development/completed-phases.md)
+- [ADR Index](adr/index.md)
 
 ## Current verified position
 
@@ -22,7 +26,12 @@ PR state: open, Draft, unmerged, mergeable
 Latest completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
 
-Current active phase:
+Completed post-phase platform features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
+
+Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Repository, CI and real-runtime accepted through:
