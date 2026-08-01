@@ -242,4 +242,182 @@ assert.ok(source.includes('Nur frei empfangbare Kanäle (FTA)'));
 assert.ok(source.includes('function clearManualChannelFilter()'));
 assert.ok(source.includes("channelGroupSelect.addEventListener('change', clearManualChannelFilter)"));
 
+
+// PHASE62_SLICE2J_SEARCHTIMER_CREATE_CSRF_TESTS
+const securityLoaderPath = path.resolve(
+  __dirname,
+  '..',
+  'platform',
+  'deferred-runtime-loader.js'
+);
+const securityLoaderSource = fs.readFileSync(
+  securityLoaderPath,
+  'utf8'
+);
+const securityRequests = [];
+const securityListeners = {};
+const searchTimerCsrfToken =
+  'searchtimer-create-csrf-runtime-test';
+
+const securityDocument = {
+  readyState: 'loading',
+  documentElement: {lang: 'de'},
+  head: {appendChild() {}},
+  getElementById() {
+    return null;
+  },
+  createElement() {
+    return {
+      dataset: {},
+      addEventListener() {}
+    };
+  },
+  addEventListener(type, listener) {
+    securityListeners[type] = listener;
+  }
+};
+
+const securityContext = {
+  window: null,
+  document: securityDocument,
+  console,
+  Date,
+  Error,
+  JSON,
+  Math,
+  Number,
+  Object,
+  Promise,
+  String,
+  Array,
+  URL,
+  URLSearchParams,
+  location: {
+    href: 'https://vdr-suite.test/'
+  },
+  VdrSuiteBrowserSession: {
+    csrfHeaders() {
+      return {
+        'X-CSRF-Token': searchTimerCsrfToken
+      };
+    }
+  },
+  fetch(input, init) {
+    securityRequests.push({input, init});
+    return Promise.resolve({
+      status: 200,
+      ok: true,
+      clone() {
+        return this;
+      },
+      text() {
+        return Promise.resolve('{}');
+      }
+    });
+  }
+};
+
+securityContext.window = securityContext;
+
+vm.createContext(securityContext);
+vm.runInContext(
+  securityLoaderSource,
+  securityContext,
+  {filename: securityLoaderPath}
+);
+
+assert.strictEqual(
+  securityContext
+    .__vdrSuiteSearchTimerCreateMutationCsrfWrapped,
+  true
+);
+assert.strictEqual(
+  typeof securityListeners.DOMContentLoaded,
+  'function'
+);
+
+function latestSecurityRequest() {
+  return securityRequests[
+    securityRequests.length - 1
+  ];
+}
+
+function csrfHeader() {
+  const request = latestSecurityRequest();
+
+  return request &&
+    request.init &&
+    request.init.headers &&
+    request.init.headers['X-CSRF-Token'];
+}
+
+for (const route of [
+  '/api/searchtimers',
+  '/api/vdr/searchtimers'
+]) {
+  securityContext.fetch(route, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'X-CSRF-Token': 'caller-must-not-override'
+    }
+  });
+
+  assert.strictEqual(
+    csrfHeader(),
+    searchTimerCsrfToken
+  );
+}
+
+securityContext.fetch(
+  '/api/vdr/searchtimers?source=browser',
+  {
+    method: 'POST',
+    headers: {Accept: 'application/json'}
+  }
+);
+assert.strictEqual(
+  csrfHeader(),
+  searchTimerCsrfToken
+);
+
+securityContext.fetch(
+  'https://vdr-suite.test/api/searchtimers?absolute=1',
+  {
+    method: 'POST',
+    headers: {Accept: 'application/json'}
+  }
+);
+assert.strictEqual(
+  csrfHeader(),
+  searchTimerCsrfToken
+);
+
+securityContext.fetch(
+  '/api/vdr/searchtimers/',
+  {
+    method: 'POST',
+    headers: {Accept: 'application/json'}
+  }
+);
+assert.strictEqual(csrfHeader(), undefined);
+
+securityContext.fetch(
+  '/api/vdr/searchtimers',
+  {
+    method: 'GET',
+    headers: {Accept: 'application/json'}
+  }
+);
+assert.strictEqual(csrfHeader(), undefined);
+
+securityContext.fetch(
+  '/api/vdr/searchtimers/update',
+  {
+    method: 'POST',
+    headers: {Accept: 'application/json'}
+  }
+);
+assert.strictEqual(csrfHeader(), undefined);
+
 console.log('test_searchtimer_workflows_runtime passed');

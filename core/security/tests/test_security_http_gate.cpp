@@ -1176,6 +1176,234 @@ int main()
         "security_policy_not_migrated") != std::string::npos);
 
 
+    // PHASE62_SLICE2J_SEARCHTIMER_CREATE_TESTS
+    const std::vector<std::string> searchTimerCreateRoutes = {
+        "/api/searchtimers",
+        "/api/vdr/searchtimers"
+    };
+
+    const auto searchTimerCreateRequest =
+        [](const std::string& path,
+           const std::string& backendId,
+           const std::string& authorization,
+           bool includeBackendId)
+        {
+            HttpServerRequest request =
+                mutationRequest(path, backendId, authorization);
+
+            request.body = includeBackendId
+                ? "{\"backendId\":\"" + backendId +
+                      "\",\"operationId\":\"searchtimer-create-op-1\""
+                      ",\"name\":\"Phase 62 Slice 2J\""
+                      ",\"query\":\"phase62-slice2j\"}"
+                : "{\"operationId\":\"searchtimer-create-op-1\""
+                      ",\"name\":\"Phase 62 Slice 2J\""
+                      ",\"query\":\"phase62-slice2j\"}";
+
+            return request;
+        };
+
+    for (const std::string& route : searchTimerCreateRoutes)
+    {
+        const SecurityGateDecision legacyCreate =
+            compatibilityGate.evaluate(
+                searchTimerCreateRequest(
+                    route,
+                    "default",
+                    kLegacyCredential,
+                    true));
+        assert(legacyCreate.allowed);
+        assert(legacyCreate.protectedMutation);
+
+        HttpServerRequest missingCsrf =
+            searchTimerCreateRequest(
+                route,
+                "default",
+                "",
+                true);
+        missingCsrf.headers["Cookie"] =
+            validBrowserCookie;
+
+        const SecurityGateDecision missingCsrfDecision =
+            compatibilityGate.evaluate(missingCsrf);
+        assert(!missingCsrfDecision.allowed);
+        assert(missingCsrfDecision.protectedMutation);
+        assert(missingCsrfDecision.rejection.statusCode == 403);
+        assert(missingCsrfDecision.rejection.body.find(
+            "csrf_validation_failed") != std::string::npos);
+
+        HttpServerRequest noPermission =
+            searchTimerCreateRequest(
+                route,
+                "default",
+                "",
+                true);
+        noPermission.headers["Cookie"] =
+            validBrowserCookie;
+        noPermission.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+
+        const SecurityGateDecision noPermissionDecision =
+            compatibilityGate.evaluate(noPermission);
+        assert(!noPermissionDecision.allowed);
+        assert(noPermissionDecision.rejection.statusCode == 403);
+        assert(noPermissionDecision.rejection.body.find(
+            "permission_denied") != std::string::npos);
+
+        assert(permissionGrantRepository.ensureGrant(
+            managed.actorId,
+            "searchtimers.create",
+            "default"));
+
+        const SecurityGateDecision allowed =
+            compatibilityGate.evaluate(noPermission);
+        assert(allowed.allowed);
+        assert(allowed.protectedMutation);
+
+        HttpServerRequest missingBackend =
+            searchTimerCreateRequest(
+                route,
+                "",
+                "",
+                false);
+        missingBackend.headers["Cookie"] =
+            validBrowserCookie;
+        missingBackend.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+
+        const SecurityGateDecision missingBackendDecision =
+            compatibilityGate.evaluate(missingBackend);
+        assert(missingBackendDecision.allowed);
+        assert(missingBackendDecision.protectedMutation);
+
+        HttpServerRequest wrongScope =
+            searchTimerCreateRequest(
+                route,
+                "house-b",
+                "",
+                true);
+        wrongScope.headers["Cookie"] =
+            validBrowserCookie;
+        wrongScope.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+
+        const SecurityGateDecision wrongScopeDecision =
+            compatibilityGate.evaluate(wrongScope);
+        assert(!wrongScopeDecision.allowed);
+        assert(wrongScopeDecision.rejection.statusCode == 403);
+        assert(wrongScopeDecision.rejection.body.find(
+            "backend_scope_denied") != std::string::npos);
+
+        HttpServerRequest queryRoute =
+            searchTimerCreateRequest(
+                route + "?source=browser",
+                "default",
+                "",
+                true);
+        queryRoute.headers["Cookie"] =
+            validBrowserCookie;
+        queryRoute.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+
+        assert(compatibilityGate.evaluate(queryRoute).allowed);
+
+        assert(permissionGrantRepository.revokeGrant(
+            managed.actorId,
+            "searchtimers.create",
+            "default"));
+
+        HttpServerRequest trailingSlash =
+            searchTimerCreateRequest(
+                route + "/",
+                "default",
+                "",
+                true);
+        trailingSlash.headers["Cookie"] =
+            validBrowserCookie;
+        trailingSlash.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+
+        const SecurityGateDecision trailingSlashDecision =
+            compatibilityGate.evaluate(trailingSlash);
+        assert(!trailingSlashDecision.allowed);
+        assert(trailingSlashDecision.rejection.statusCode == 503);
+        assert(trailingSlashDecision.rejection.body.find(
+            "security_policy_not_migrated") !=
+            std::string::npos);
+    }
+
+    assert(permissionGrantRepository.ensureGrant(
+        managed.actorId,
+        "role.admin",
+        "default"));
+
+    HttpServerRequest adminCreate =
+        searchTimerCreateRequest(
+            searchTimerCreateRoutes.back(),
+            "default",
+            "",
+            true);
+    adminCreate.headers["Cookie"] =
+        validBrowserCookie;
+    adminCreate.headers["X-CSRF-Token"] =
+        kBrowserCsrfSecret;
+
+    assert(compatibilityGate.evaluate(adminCreate).allowed);
+
+    assert(permissionGrantRepository.ensureGrant(
+        managed.actorId,
+        "role.read-only",
+        "default"));
+
+    const SecurityGateDecision readOnlyCreate =
+        compatibilityGate.evaluate(adminCreate);
+    assert(!readOnlyCreate.allowed);
+    assert(readOnlyCreate.rejection.statusCode == 403);
+    assert(readOnlyCreate.rejection.body.find(
+        "role_read_only") != std::string::npos);
+
+    assert(permissionGrantRepository.revokeGrant(
+        managed.actorId,
+        "role.read-only",
+        "default"));
+    assert(permissionGrantRepository.revokeGrant(
+        managed.actorId,
+        "role.admin",
+        "default"));
+
+    SecurityHttpGate searchTimerCreateEnforcedGate(
+        enforced({
+            PermissionGrant{
+                "searchtimers.create",
+                "default"}
+        }),
+        accountabilityRepository,
+        &identityResolver);
+
+    const SecurityGateDecision enforcedCreateAllowed =
+        searchTimerCreateEnforcedGate.evaluate(
+            searchTimerCreateRequest(
+                searchTimerCreateRoutes.front(),
+                "default",
+                kLegacyCredential,
+                true));
+    assert(enforcedCreateAllowed.allowed);
+    assert(enforcedCreateAllowed.protectedMutation);
+
+    const SecurityGateDecision enforcedCreateWrongScope =
+        searchTimerCreateEnforcedGate.evaluate(
+            searchTimerCreateRequest(
+                searchTimerCreateRoutes.front(),
+                "house-b",
+                kLegacyCredential,
+                true));
+    assert(!enforcedCreateWrongScope.allowed);
+    assert(
+        enforcedCreateWrongScope.rejection.statusCode == 403);
+    assert(enforcedCreateWrongScope.rejection.body.find(
+        "backend_scope_denied") != std::string::npos);
+
+
     bool sawAllowed = false;
     bool sawDenied = false;
     bool sawUnmigratedDenial = false;
@@ -1184,6 +1412,8 @@ int main()
     bool sawTimerAllowed = false;
     bool sawChannelCsrfDenial = false;
     bool sawChannelAllowed = false;
+    bool sawSearchTimerCreateCsrfDenial = false;
+    bool sawSearchTimerCreateAllowed = false;
     for (const AccountabilityEvent& event : accountabilityRepository.listAll())
     {
         sawAllowed = sawAllowed ||
@@ -1212,6 +1442,15 @@ int main()
         sawChannelAllowed = sawChannelAllowed ||
             (event.permission == "channels.move" &&
              event.outcome == "dispatch_authorized");
+        sawSearchTimerCreateCsrfDenial =
+            sawSearchTimerCreateCsrfDenial ||
+            (event.permission == "searchtimers.create" &&
+             event.reasonCode == "csrf_validation_failed" &&
+             event.outcome == "dispatch_denied");
+        sawSearchTimerCreateAllowed =
+            sawSearchTimerCreateAllowed ||
+            (event.permission == "searchtimers.create" &&
+             event.outcome == "dispatch_authorized");
         assert(event.permission.find("Basic ") == std::string::npos);
         assert(event.reasonCode.find("test-password") ==
             std::string::npos);
@@ -1230,6 +1469,8 @@ int main()
     assert(sawTimerAllowed);
     assert(sawChannelCsrfDenial);
     assert(sawChannelAllowed);
+    assert(sawSearchTimerCreateCsrfDenial);
+    assert(sawSearchTimerCreateAllowed);
 
     assert(browserRepository.revokeBySessionId(
         "session-browser-active"));

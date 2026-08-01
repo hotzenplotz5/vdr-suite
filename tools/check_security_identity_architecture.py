@@ -66,6 +66,7 @@ def main() -> int:
         "web/frontend/tests/test_recording_execution_security_runtime.js",
         "docs/planning/phase-62-security-identity-gap-matrix.md",
         "docs/development/phase-62-slice-2i-recording-execution-security-migration.md",
+        "docs/development/phase-62-slice-2j-searchtimer-create-security-migration.md",
         "docs/development/phase-62-security-identity-foundation-slice-1.md",
         "docs/development/phase-62-security-identity-foundation-slice-2.md",
         "docs/architecture/security-identity-foundation.md",
@@ -155,6 +156,42 @@ def main() -> int:
         "caller-must-not-override",
     )
     require(
+        "core/security/include/SecurityHttpGate.h",
+        '"/api/searchtimers"',
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"/api/vdr/searchtimers"',
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"searchtimers.create"',
+    )
+    require(
+        "core/security/include/AuthorizationService.h",
+        '"searchtimers.create"',
+    )
+    require(
+        "web/frontend/platform/deferred-runtime-loader.js",
+        "__vdrSuiteSearchTimerCreateMutationCsrfWrapped",
+    )
+    require(
+        "web/frontend/platform/deferred-runtime-loader.js",
+        "'/api/searchtimers'",
+    )
+    require(
+        "web/frontend/platform/deferred-runtime-loader.js",
+        "'/api/vdr/searchtimers'",
+    )
+    require(
+        "web/frontend/tests/test_searchtimer_workflows_runtime.js",
+        "PHASE62_SLICE2J_SEARCHTIMER_CREATE_CSRF_TESTS",
+    )
+    require(
+        "web/frontend/tests/test_searchtimer_workflows_runtime.js",
+        "caller-must-not-override",
+    )
+    require(
         "docs/development/index.md",
         "phase-62-slice-2i-recording-execution-security-migration.md",
     )
@@ -169,6 +206,30 @@ def main() -> int:
     require(
         "docs/development/phase-62-slice-2i-recording-execution-security-migration.md",
         "recordings.delete",
+    )
+    require(
+        "docs/development/index.md",
+        "phase-62-slice-2j-searchtimer-create-security-migration.md",
+    )
+    require(
+        "docs/development/phase-62-slice-2j-searchtimer-create-security-migration.md",
+        "searchtimers.create",
+    )
+    require(
+        "docs/development/phase-62-slice-2j-searchtimer-create-security-migration.md",
+        "POST /api/searchtimers",
+    )
+    require(
+        "docs/development/phase-62-slice-2j-searchtimer-create-security-migration.md",
+        "POST /api/vdr/searchtimers",
+    )
+    require(
+        "docs/development/phase-62-slice-2j-searchtimer-create-security-migration.md",
+        "Runtime acceptance remains pending",
+    )
+    require(
+        "docs/development/phase-62-slice-2j-searchtimer-create-security-migration.md",
+        "Runtime acceptance must not create a real SearchTimer",
     )
     require("core/security/tests/test_security_http_gate.cpp", '"csrf_validation_failed"')
     require("core/security/tests/test_security_http_gate.cpp", '"security_policy_not_migrated"')

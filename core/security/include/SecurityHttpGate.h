@@ -116,20 +116,26 @@ public:
             isPost &&
             (path == "/api/recordings/actions/execute" ||
              path == "/api/vdr/recordings/actions/execute");
+        const bool isSearchTimerCreateAction =
+            isPost &&
+            (path == "/api/searchtimers" ||
+             path == "/api/vdr/searchtimers");
         const bool isProtectedMutation =
             isRemoteAction ||
             isTimerCreateAction ||
             isTimerUpdateAction ||
             isTimerDeleteAction ||
             isChannelMoveAction ||
-            isRecordingExecutionAction;
+            isRecordingExecutionAction ||
+            isSearchTimerCreateAction;
 
         if (isPost && gate.browserAuthenticated && !isRemoteAction &&
             !isTimerCreateAction &&
             !isTimerUpdateAction &&
             !isTimerDeleteAction &&
             !isChannelMoveAction &&
-            !isRecordingExecutionAction)
+            !isRecordingExecutionAction &&
+            !isSearchTimerCreateAction)
         {
             AuthorizationDecision decision;
             decision.reasonCode = "security_policy_not_migrated";
@@ -202,6 +208,15 @@ public:
         {
             requestToAuthorize.permission = "channels.move";
             requestToAuthorize.action = "channels.move";
+        }
+        else if (isSearchTimerCreateAction)
+        {
+            requestToAuthorize.permission = "searchtimers.create";
+            requestToAuthorize.action = "searchtimers.create";
+            if (requestToAuthorize.backendId.empty())
+            {
+                requestToAuthorize.backendId = "default";
+            }
         }
         else
         {

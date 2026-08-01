@@ -8,6 +8,7 @@
 - [Phase 62 Persistent Identity Lifecycle — Slice 2](phase-62-security-identity-foundation-slice-2.md)
 - [Phase 62 Slice 2H — Channel Move Security Migration](phase-62-slice-2h-channel-move-security-migration.md)
 - [Phase 62 Slice 2I — Recording Execution Security Migration](phase-62-slice-2i-recording-execution-security-migration.md)
+- [Phase 62 Slice 2J — SearchTimer Create Security Migration](phase-62-slice-2j-searchtimer-create-security-migration.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
 - [Completed Phase Archive](completed-phases/README.md)
