@@ -164,6 +164,8 @@ test-frontend-contracts: test-frontend-i18n
 	python3 tools/check_frontend_platform_runtime_context.py
 
 
+# Transitive runtime test source loaded by test_deferred_frontend_runtime_loader.js:
+# web/frontend/tests/test_query_cache_refresh_security_runtime.js
 test-frontend-i18n:
 	python3 tools/check_frontend_i18n_contracts.py
 	node web/frontend/tests/test_i18n_runtime.js
