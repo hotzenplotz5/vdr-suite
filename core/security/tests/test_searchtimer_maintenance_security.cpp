@@ -1,12 +1,4 @@
-#include "AccountabilityEventRepository.h"
-#include "BrowserSessionAuthenticator.h"
-#include "BrowserSessionCredentialRepository.h"
-#include "Database.h"
-#include "PersistentIdentityResolver.h"
-#include "SecurityHttpGate.h"
-#include "SecurityIdentityProvisioningRepository.h"
-#include "SecurityIdentityRepository.h"
-#include "SecurityPermissionGrantRepository.h"
+#include "SecurityHttpGateBrowserTestFixture.h"
 
 #include <cassert>
 #include <string>
@@ -14,17 +6,6 @@
 
 namespace
 {
-const std::string kLegacyCredential =
-    "Basic YWRtaW46dmRyLXN1aXRl";
-const std::string kSessionSecret =
-    "session-secret-0123456789abcdef0123456789";
-const std::string kCsrfSecret =
-    "csrf-secret-0123456789abcdef012345678901";
-const std::string kSessionSecretHash =
-    "$6$sessionsalt$8tf7lGjGVFN700ih.GaNBFsDQaVkLgsffOM/4VS9ODoyxeEikzL9jMMbsfS2Lu2/A7U.ypuQ1g38ub5YckfEe/";
-const std::string kCsrfSecretHash =
-    "$6$csrfsalt$Zht7CPii63YntnxlS0UUgPTs6wcCD7WfThN91jWT8Ub0CzhKDP8nhTYAC13VefMKEyYMpUPZUG7AzYtSuFKSM1";
-
 struct Route
 {
     std::string path;
@@ -37,157 +18,34 @@ const std::vector<Route> kRoutes = {
     {"/api/searchtimers/delete", "searchtimers.delete"},
     {"/api/vdr/searchtimers/delete", "searchtimers.delete"}
 };
-
-SecurityConfiguration compatibility()
-{
-    SecurityConfiguration configuration;
-    configuration.mode =
-        SecurityMode::LegacyBasicCompatibility;
-    configuration.expectedAuthorizationHeader =
-        kLegacyCredential;
-    configuration.grants = {
-        PermissionGrant{"*", "*"}
-    };
-    return configuration;
-}
-
-HttpServerRequest mutationRequest(
-    const std::string& path,
-    const std::string& backendId,
-    bool includeBackendId = true)
-{
-    HttpServerRequest request;
-    request.method = "POST";
-    request.path = path;
-    request.body = includeBackendId
-        ? "{\"backendId\":\"" + backendId +
-              "\",\"operationId\":\"searchtimer-maintenance-op\"}"
-        : "{\"operationId\":\"searchtimer-maintenance-op\"}";
-    request.headers["X-Request-ID"] =
-        "searchtimer-maintenance-request";
-    request.headers["X-Correlation-ID"] =
-        "searchtimer-maintenance-correlation";
-    return request;
-}
-
-void addBrowserCredentials(
-    HttpServerRequest& request,
-    const std::string& cookie,
-    bool csrf)
-{
-    request.headers["Cookie"] = cookie;
-    if (csrf)
-    {
-        request.headers["X-CSRF-Token"] =
-            kCsrfSecret;
-    }
-}
 }
 
 int main()
 {
-    Database database;
-    assert(database.open(":memory:"));
-
-    AccountabilityEventRepository accountabilityRepository(
-        database);
-    assert(accountabilityRepository.ensureSchema());
-
-    SecurityIdentityRepository identityRepository(database);
-    assert(identityRepository.ensureSchema());
-
-    const SecurityConfiguration configuration =
-        compatibility();
-    assert(identityRepository.ensureCompatibilityIdentity(
-        configuration.actorId,
-        ActorType::User,
-        configuration.actorDisplayName,
-        configuration.deviceId,
-        configuration.sessionId,
-        configuration.credentialId));
-
-    const std::string actorId =
-        "phase62-searchtimer-maintenance-actor";
-    const std::string deviceId =
-        "phase62-searchtimer-maintenance-device";
-    const std::string sessionId =
-        "phase62-searchtimer-maintenance-session";
-    const std::string credentialId =
-        "phase62-searchtimer-maintenance-credential";
-
-    SecurityIdentityProvisioningRepository provisioningRepository(
-        database);
-    assert(provisioningRepository.ensureIdentity(
-        actorId,
-        ActorType::User,
-        "Phase 62 SearchTimer maintenance actor",
-        deviceId,
-        "Browser test device",
-        sessionId,
-        credentialId,
-        "browser-session"));
-
-    BrowserSessionCredentialRepository browserRepository(
-        database);
-    assert(browserRepository.ensureSchema());
-
-    SecurityPermissionGrantRepository grantRepository(
-        database);
-    assert(grantRepository.ensureSchema());
-
-    BrowserSessionCredentialRegistration registration;
-    registration.tokenId =
-        "searchtimermaintenancetoken";
-    registration.actorId = actorId;
-    registration.deviceId = deviceId;
-    registration.sessionId = sessionId;
-    registration.credentialId = credentialId;
-    registration.issuedFromCredentialId = credentialId;
-    registration.sessionSecretHash =
-        kSessionSecretHash;
-    registration.csrfSecretHash =
-        kCsrfSecretHash;
-    registration.expiresAt =
-        "2099-01-01 00:00:00";
-    assert(browserRepository.insert(registration));
-
-    BrowserSessionAuthenticator browserAuthenticator(
-        browserRepository,
-        grantRepository);
-    PersistentIdentityResolver identityResolver(
-        identityRepository);
-    SecurityHttpGate gate(
-        configuration,
-        accountabilityRepository,
-        &identityResolver,
-        nullptr,
-        &browserAuthenticator);
-
-    const std::string cookie =
-        "vdr_suite_session=" + registration.tokenId +
-        "." + kSessionSecret;
+    SecurityHttpGateBrowserTestFixture fixture;
 
     for (const Route& route : kRoutes)
     {
         HttpServerRequest legacy =
-            mutationRequest(route.path, "default");
-        legacy.headers["Authorization"] =
-            kLegacyCredential;
+            fixture.mutationRequest(
+                route.path,
+                "default");
+        fixture.addLegacyAuthentication(legacy);
 
         const SecurityGateDecision legacyDecision =
-            gate.evaluate(legacy);
+            fixture.gate.evaluate(legacy);
         assert(legacyDecision.allowed);
         assert(legacyDecision.protectedMutation);
 
         HttpServerRequest missingCsrf =
-            mutationRequest(route.path, "default");
-        addBrowserCredentials(
-            missingCsrf,
-            cookie,
-            false);
+            fixture.mutationRequest(
+                route.path,
+                "default");
+        fixture.addBrowserAuthentication(
+            missingCsrf);
 
         const SecurityGateDecision missingCsrfDecision =
-            gate.evaluate(missingCsrf);
+            fixture.gate.evaluate(missingCsrf);
         assert(!missingCsrfDecision.allowed);
         assert(missingCsrfDecision.protectedMutation);
         assert(
@@ -198,14 +56,15 @@ int main()
             std::string::npos);
 
         HttpServerRequest noPermission =
-            mutationRequest(route.path, "default");
-        addBrowserCredentials(
+            fixture.mutationRequest(
+                route.path,
+                "default");
+        fixture.addBrowserAuthentication(
             noPermission,
-            cookie,
             true);
 
         const SecurityGateDecision noPermissionDecision =
-            gate.evaluate(noPermission);
+            fixture.gate.evaluate(noPermission);
         assert(!noPermissionDecision.allowed);
         assert(
             noPermissionDecision.rejection.statusCode ==
@@ -214,43 +73,46 @@ int main()
             "permission_denied") !=
             std::string::npos);
 
-        assert(grantRepository.ensureGrant(
-            actorId,
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId,
             route.permission,
             "default"));
 
         const SecurityGateDecision directAllowed =
-            gate.evaluate(noPermission);
+            fixture.gate.evaluate(noPermission);
         assert(directAllowed.allowed);
         assert(directAllowed.protectedMutation);
 
         HttpServerRequest defaultBackend =
-            mutationRequest(
+            fixture.mutationRequest(
                 route.path,
                 "",
                 false);
-        addBrowserCredentials(
+        fixture.addBrowserAuthentication(
             defaultBackend,
-            cookie,
             true);
-        assert(gate.evaluate(defaultBackend).allowed);
+        assert(fixture.gate.evaluate(
+            defaultBackend).allowed);
 
         HttpServerRequest query =
-            mutationRequest(
+            fixture.mutationRequest(
                 route.path + "?source=browser",
                 "default");
-        addBrowserCredentials(query, cookie, true);
-        assert(gate.evaluate(query).allowed);
+        fixture.addBrowserAuthentication(
+            query,
+            true);
+        assert(fixture.gate.evaluate(query).allowed);
 
         HttpServerRequest wrongScope =
-            mutationRequest(route.path, "house-b");
-        addBrowserCredentials(
+            fixture.mutationRequest(
+                route.path,
+                "house-b");
+        fixture.addBrowserAuthentication(
             wrongScope,
-            cookie,
             true);
 
         const SecurityGateDecision wrongScopeDecision =
-            gate.evaluate(wrongScope);
+            fixture.gate.evaluate(wrongScope);
         assert(!wrongScopeDecision.allowed);
         assert(
             wrongScopeDecision.rejection.statusCode ==
@@ -259,22 +121,21 @@ int main()
             "backend_scope_denied") !=
             std::string::npos);
 
-        assert(grantRepository.revokeGrant(
-            actorId,
+        assert(fixture.grantRepository.revokeGrant(
+            fixture.actorId,
             route.permission,
             "default"));
 
         HttpServerRequest trailingSlash =
-            mutationRequest(
+            fixture.mutationRequest(
                 route.path + "/",
                 "default");
-        addBrowserCredentials(
+        fixture.addBrowserAuthentication(
             trailingSlash,
-            cookie,
             true);
 
         const SecurityGateDecision trailingSlashDecision =
-            gate.evaluate(trailingSlash);
+            fixture.gate.evaluate(trailingSlash);
         assert(!trailingSlashDecision.allowed);
         assert(
             trailingSlashDecision.rejection.statusCode ==
@@ -284,61 +145,67 @@ int main()
             std::string::npos);
     }
 
-    assert(grantRepository.ensureGrant(
-        actorId,
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId,
         "role.admin",
         "*"));
 
     for (const Route& route : kRoutes)
     {
         HttpServerRequest wildcardAdmin =
-            mutationRequest(route.path, "default");
-        addBrowserCredentials(
+            fixture.mutationRequest(
+                route.path,
+                "default");
+        fixture.addBrowserAuthentication(
             wildcardAdmin,
-            cookie,
             true);
 
         const SecurityGateDecision decision =
-            gate.evaluate(wildcardAdmin);
+            fixture.gate.evaluate(wildcardAdmin);
         assert(!decision.allowed);
         assert(decision.rejection.body.find(
             "backend_scope_denied") !=
             std::string::npos);
     }
 
-    assert(grantRepository.revokeGrant(
-        actorId,
+    assert(fixture.grantRepository.revokeGrant(
+        fixture.actorId,
         "role.admin",
         "*"));
-    assert(grantRepository.ensureGrant(
-        actorId,
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId,
         "role.admin",
         "default"));
 
     for (const Route& route : kRoutes)
     {
         HttpServerRequest admin =
-            mutationRequest(route.path, "default");
-        addBrowserCredentials(admin, cookie, true);
-        assert(gate.evaluate(admin).allowed);
+            fixture.mutationRequest(
+                route.path,
+                "default");
+        fixture.addBrowserAuthentication(
+            admin,
+            true);
+        assert(fixture.gate.evaluate(admin).allowed);
     }
 
-    assert(grantRepository.ensureGrant(
-        actorId,
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId,
         "role.read-only",
         "default"));
 
     for (const Route& route : kRoutes)
     {
         HttpServerRequest readOnly =
-            mutationRequest(route.path, "default");
-        addBrowserCredentials(
+            fixture.mutationRequest(
+                route.path,
+                "default");
+        fixture.addBrowserAuthentication(
             readOnly,
-            cookie,
             true);
 
         const SecurityGateDecision decision =
-            gate.evaluate(readOnly);
+            fixture.gate.evaluate(readOnly);
         assert(!decision.allowed);
         assert(
             decision.rejection.statusCode == 403);
@@ -353,7 +220,7 @@ int main()
     bool sawDeleteAllowed = false;
 
     for (const AccountabilityEvent& event :
-         accountabilityRepository.listAll())
+         fixture.accountabilityRepository.listAll())
     {
         sawModifyCsrf = sawModifyCsrf ||
             (event.permission ==
@@ -382,9 +249,13 @@ int main()
 
         assert(event.permission.find("Basic ") ==
             std::string::npos);
-        assert(event.reasonCode.find(kSessionSecret) ==
+        assert(event.reasonCode.find(
+            SecurityHttpGateBrowserTestFixture::
+                sessionSecret) ==
             std::string::npos);
-        assert(event.reasonCode.find(kCsrfSecret) ==
+        assert(event.reasonCode.find(
+            SecurityHttpGateBrowserTestFixture::
+                csrfSecret) ==
             std::string::npos);
     }
 
