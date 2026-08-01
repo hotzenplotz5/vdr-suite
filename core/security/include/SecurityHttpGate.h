@@ -120,6 +120,14 @@ public:
             isPost &&
             (path == "/api/searchtimers" ||
              path == "/api/vdr/searchtimers");
+        const bool isSearchTimerUpdateAction =
+            isPost &&
+            (path == "/api/searchtimers/update" ||
+             path == "/api/vdr/searchtimers/update");
+        const bool isSearchTimerDeleteAction =
+            isPost &&
+            (path == "/api/searchtimers/delete" ||
+             path == "/api/vdr/searchtimers/delete");
         const bool isProtectedMutation =
             isRemoteAction ||
             isTimerCreateAction ||
@@ -127,7 +135,9 @@ public:
             isTimerDeleteAction ||
             isChannelMoveAction ||
             isRecordingExecutionAction ||
-            isSearchTimerCreateAction;
+            isSearchTimerCreateAction ||
+            isSearchTimerUpdateAction ||
+            isSearchTimerDeleteAction;
 
         if (isPost && gate.browserAuthenticated && !isRemoteAction &&
             !isTimerCreateAction &&
@@ -135,7 +145,9 @@ public:
             !isTimerDeleteAction &&
             !isChannelMoveAction &&
             !isRecordingExecutionAction &&
-            !isSearchTimerCreateAction)
+            !isSearchTimerCreateAction &&
+            !isSearchTimerUpdateAction &&
+            !isSearchTimerDeleteAction)
         {
             AuthorizationDecision decision;
             decision.reasonCode = "security_policy_not_migrated";
@@ -213,6 +225,24 @@ public:
         {
             requestToAuthorize.permission = "searchtimers.create";
             requestToAuthorize.action = "searchtimers.create";
+            if (requestToAuthorize.backendId.empty())
+            {
+                requestToAuthorize.backendId = "default";
+            }
+        }
+        else if (isSearchTimerUpdateAction)
+        {
+            requestToAuthorize.permission = "searchtimers.modify";
+            requestToAuthorize.action = "searchtimers.modify";
+            if (requestToAuthorize.backendId.empty())
+            {
+                requestToAuthorize.backendId = "default";
+            }
+        }
+        else if (isSearchTimerDeleteAction)
+        {
+            requestToAuthorize.permission = "searchtimers.delete";
+            requestToAuthorize.action = "searchtimers.delete";
             if (requestToAuthorize.backendId.empty())
             {
                 requestToAuthorize.backendId = "default";
