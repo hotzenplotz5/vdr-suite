@@ -35,6 +35,9 @@ Slice 2R adds exactly one optional runtime setting:
 VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS
 ```
 
+The sole environment-variable name is
+`VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS`.
+
 Contract:
 
 ```text
