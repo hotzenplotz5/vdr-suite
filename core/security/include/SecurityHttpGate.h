@@ -128,6 +128,16 @@ public:
             isPost &&
             (path == "/api/searchtimers/delete" ||
              path == "/api/vdr/searchtimers/delete");
+        const bool isSafePost =
+            isPost &&
+            (path == "/api/recordings/actions/validate" ||
+             path == "/api/vdr/recordings/actions/validate" ||
+             path == "/api/recordings/actions/preview" ||
+             path == "/api/vdr/recordings/actions/preview" ||
+             path == "/api/searchtimers/validate" ||
+             path == "/api/vdr/searchtimers/validate" ||
+             path == "/api/searchtimers/plan" ||
+             path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
             isRemoteAction ||
             isTimerCreateAction ||
@@ -138,6 +148,17 @@ public:
             isSearchTimerCreateAction ||
             isSearchTimerUpdateAction ||
             isSearchTimerDeleteAction;
+
+        if (isSafePost)
+        {
+            if (!gate.context.authenticated())
+            {
+                return rejectAuthentication(gate);
+            }
+
+            gate.allowed = true;
+            return gate;
+        }
 
         if (isPost && gate.browserAuthenticated && !isRemoteAction &&
             !isTimerCreateAction &&
