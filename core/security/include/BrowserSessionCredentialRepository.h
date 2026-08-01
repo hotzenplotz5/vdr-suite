@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <string>
 
@@ -47,6 +48,8 @@ public:
         const std::string& tokenId) const;
     std::optional<StoredBrowserSessionCredential> findBySessionId(
         const std::string& sessionId) const;
+    std::optional<std::size_t> countEffectiveActiveByActorId(
+        const std::string& actorId) const;
     bool revokeBySessionId(const std::string& sessionId);
     bool setExpiry(
         const std::string& sessionId,
