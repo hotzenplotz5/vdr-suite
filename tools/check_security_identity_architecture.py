@@ -67,6 +67,10 @@ def main() -> int:
         "docs/planning/phase-62-security-identity-gap-matrix.md",
         "docs/development/phase-62-slice-2i-recording-execution-security-migration.md",
         "docs/development/phase-62-slice-2j-searchtimer-create-security-migration.md",
+        "docs/development/phase-62-slice-2k-runtime-acceptance-harness.md",
+        "mk/phase62-runtime-acceptance.mk",
+        "tools/phase62-runtime-acceptance/runner.py",
+        "tools/phase62-runtime-acceptance/slice-2j.json",
         "docs/development/phase-62-security-identity-foundation-slice-1.md",
         "docs/development/phase-62-security-identity-foundation-slice-2.md",
         "docs/architecture/security-identity-foundation.md",
@@ -225,11 +229,99 @@ def main() -> int:
     )
     require(
         "docs/development/phase-62-slice-2j-searchtimer-create-security-migration.md",
-        "Runtime acceptance remains pending",
+        "Runtime acceptance created no real SearchTimer.",
     )
     require(
         "docs/development/phase-62-slice-2j-searchtimer-create-security-migration.md",
-        "Runtime acceptance must not create a real SearchTimer",
+        "real_searchtimer_creates",
+    )
+    require(
+        "docs/development/phase-62-slice-2j-searchtimer-create-security-migration.md",
+        "7a3c8a1a3e0e6902b6ec0fea8a48bd69428c93e4",
+    )
+    forbid(
+        "docs/development/phase-62-slice-2j-searchtimer-create-security-migration.md",
+        "Runtime acceptance remains pending",
+    )
+    require(
+        "docs/development/index.md",
+        "phase-62-slice-2k-runtime-acceptance-harness.md",
+    )
+    require(
+        "docs/development/phase-62-slice-2k-runtime-acceptance-harness.md",
+        "make test-phase62-runtime-acceptance-harness",
+    )
+    require(
+        "docs/development/phase-62-slice-2k-runtime-acceptance-harness.md",
+        "make phase62-runtime-acceptance",
+    )
+    require(
+        "docs/development/phase-62-slice-2k-runtime-acceptance-harness.md",
+        "PR #117 remains open, Draft and unmerged.",
+    )
+    require(
+        "mk/phase62-runtime-acceptance.mk",
+        "test-phase62-runtime-acceptance-harness:",
+    )
+    require(
+        "mk/phase62-runtime-acceptance.mk",
+        "phase62-runtime-acceptance:",
+    )
+    require(
+        "mk/phase62-runtime-acceptance.mk",
+        "--validate-only",
+    )
+    require(
+        "mk/phase62-runtime-acceptance.mk",
+        "--self-test",
+    )
+    require(
+        "mk/phase62-runtime-acceptance.mk",
+        "--run",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/runner.py",
+        "def summarize_accountability(",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/runner.py",
+        "target_grant_restore_mismatch",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/runner.py",
+        "resource_state_changed",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/runner.py",
+        "revoked_cookie_replay_not_denied",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/runner.py",
+        "cwd=REPOSITORY_ROOT",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/runner.py",
+        "accountability_count_mismatch_not_detected",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/runner.py",
+        "accountability_contract_mismatch_not_detected",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/slice-2j.json",
+        "\"safeBody\": {}",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/slice-2j.json",
+        "\"/api/searchtimers\"",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/slice-2j.json",
+        "\"/api/vdr/searchtimers\"",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/slice-2j.json",
+        "searchtimer name is required",
     )
     require("core/security/tests/test_security_http_gate.cpp", '"csrf_validation_failed"')
     require("core/security/tests/test_security_http_gate.cpp", '"security_policy_not_migrated"')

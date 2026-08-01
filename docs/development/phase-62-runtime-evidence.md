@@ -388,3 +388,39 @@ At the end of every Phase 62 work session:
 3. record exact fingerprints when they decide whether acceptance must repeat;
 4. mark stale statements explicitly;
 5. record the next permitted action and approval boundary.
+
+## Slice 2J SearchTimer Create Runtime Acceptance
+
+**VERIFIED on 2026-08-01 at
+`7a3c8a1a3e0e6902b6ec0fea8a48bd69428c93e4`:**
+
+```text
+Installed daemon SHA-256:
+ccfc7c3c81300562da07b29a42b71e778439e805995abe7718dc702363a91a4c
+
+Installed deferred loader SHA-256:
+a43f04673bb85a4dac21b2918744ae0bca554367c4942a125886c301e3ff51e7
+
+Verified backup:
+/var/backups/vdr-suite-phase62-slice2j-20260801T105140Z-7a3c8a1a3e0e
+```
+
+The accepted protected aliases are:
+
+```text
+POST /api/searchtimers
+POST /api/vdr/searchtimers
+```
+
+All authorized runtime requests used `{}` and stopped before the SearchTimer
+command executor with `searchtimer name is required`.
+
+The accepted evidence recorded 17 SearchTimer authorization events, including
+two CSRF denials, two permission denials, four backend-scope denials, two
+read-only denials and seven authorized dispatches. Both trailing-slash variants
+failed closed.
+
+No SearchTimer was created. The browser session was revoked, replay was denied,
+target grants matched the backup state, the service process remained unchanged,
+the database passed quick and foreign-key checks and accountability contained no
+credential, cookie or CSRF secret.

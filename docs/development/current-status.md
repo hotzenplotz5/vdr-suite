@@ -210,3 +210,18 @@ Never replace a complete existing file from a truncated fetch. Fetch missing ran
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 - [Architecture Gap Matrix](../planning/architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](../planning/parity-audit-and-frontend-gap-roadmap.md)
+
+## Phase 62 Slice 2J and Slice 2K
+
+Slice 2J SearchTimer-create security migration is complete through real yaVDR
+runtime acceptance at commit
+`7a3c8a1a3e0e6902b6ec0fea8a48bd69428c93e4`.
+
+The acceptance used only `{}`, created no SearchTimer, restored all targeted
+grants, revoked the acceptance session and verified append-only accountability.
+
+Slice 2K is now the active bounded tooling slice. It introduces a reusable,
+manifest-driven Phase 62 runtime-acceptance runner, a Slice 2J reference profile
+and Make targets for offline validation and explicit runtime execution.
+
+No Slice 2K commit, push or runtime execution has occurred yet.

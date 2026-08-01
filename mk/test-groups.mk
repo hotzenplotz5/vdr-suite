@@ -55,6 +55,7 @@ CI_FAST_TESTS := \
 	test-http-listener-bind-failure-handling \
 	test-http-listener-partial-request-timeout \
 	test-real-vdr-acceptance-manifest \
+	test-phase62-runtime-acceptance-harness \
 	test-phase-map-coverage \
 	test-github-update-safety-handoff \
 	test-recording-mutation-safety-policy \

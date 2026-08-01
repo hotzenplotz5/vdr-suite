@@ -431,3 +431,41 @@ Update this file whenever repository, PR, runtime, routing, blocker, or
 next-action truth changes. Preserve durable non-secret evidence, mark stale
 statements, record the next approval boundary, and keep all secrets out of the
 repository.
+
+## Newest authority — Slice 2J and Slice 2K
+
+**Slice 2J VERIFIED on the real yaVDR runtime on 2026-08-01:**
+
+```text
+Repository/runtime commit:
+7a3c8a1a3e0e6902b6ec0fea8a48bd69428c93e4
+
+Installed daemon SHA-256:
+ccfc7c3c81300562da07b29a42b71e778439e805995abe7718dc702363a91a4c
+
+Installed deferred loader SHA-256:
+a43f04673bb85a4dac21b2918744ae0bca554367c4942a125886c301e3ff51e7
+```
+
+Both SearchTimer-create aliases passed browser-session CSRF, permission,
+backend-scope, administrator, read-only, wildcard-role, query-string and
+trailing-slash acceptance. All authorized requests used `{}` and stopped before
+the command executor. No SearchTimer was created.
+
+Do not repeat Slice 2J runtime acceptance merely because a chat changes.
+
+**Active bounded work: Slice 2K Runtime Acceptance Harness.**
+
+The local uncommitted Slice 2K foundation consists of:
+
+```text
+tools/phase62-runtime-acceptance/runner.py
+tools/phase62-runtime-acceptance/slice-2j.json
+mk/phase62-runtime-acceptance.mk
+```
+
+The runner is manifest-driven, mutation-safe, grant-restoring and
+accountability-aware. Offline validation is part of the fast CI group.
+
+The next action is to review and test the complete Slice 2K diff. Do not commit,
+push or execute the real-runtime target until that review is successful.

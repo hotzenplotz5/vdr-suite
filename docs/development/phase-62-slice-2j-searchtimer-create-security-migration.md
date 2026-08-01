@@ -12,11 +12,16 @@
 
 ## Status
 
-Implementation and targeted local tests are complete but uncommitted.
+Implementation, local regression tests, commit, push, CI and real-runtime
+acceptance are complete.
 
-Runtime acceptance remains pending.
+The accepted repository and runtime commit is:
 
-Runtime acceptance must not create a real SearchTimer.
+```text
+7a3c8a1a3e0e6902b6ec0fea8a48bd69428c93e4
+```
+
+Runtime acceptance created no real SearchTimer.
 
 ---
 
@@ -169,27 +174,46 @@ make test-security-http-gate
 
 ---
 
-## Runtime Acceptance Plan
+## Runtime Acceptance
 
-Runtime acceptance is deferred until:
+Real yaVDR runtime acceptance completed successfully on 2026-08-01.
 
-1. the complete local regression suite passes;
-2. the changes are reviewed, committed, and pushed;
-3. CI is green;
-4. the new runtime is installed after a verified backup.
+All authorized SearchTimer-create requests used exactly:
 
-No authorized successful SearchTimer create request may be used during routine
-acceptance.
+```json
+{}
+```
 
-Safe evidence includes:
+The parser resolved `backendId` to `default`. The request then stopped at the
+existing name validation before the command executor. The accepted response was:
 
-- missing-CSRF rejection;
-- valid-CSRF permission denial;
-- backend-scope denial;
-- another request proven to stop before the command executor.
+```text
+HTTP 200
+success = false
+message = searchtimer name is required
+errors = ["name is required"]
+```
 
-A successful mutation requires a separately approved disposable and reversible
-test contract.
+The append-only evidence verified:
+
+```text
+searchtimer_accountability_events = 17
+csrf_denied                      = 2
+permission_denied                = 2
+backend_scope_denied             = 4
+read_only_denied                 = 2
+dispatch_authorized              = 7
+trailing_slash_fail_closed       = 2
+unauthenticated_denials          = 2
+real_searchtimer_creates         = 0
+```
+
+Both exact aliases, query-string variants, exact administrator scope, read-only
+precedence and wildcard-role non-effectiveness passed.
+
+The acceptance browser session was revoked, revoked-cookie replay was denied,
+target grants matched the verified backup state, SQLite integrity passed and no
+authorization, cookie or CSRF secret appeared in accountability fields.
 
 ---
 
@@ -211,8 +235,8 @@ Slice 2J does not migrate:
 
 ## Completion Boundary
 
-Slice 2J is complete only after implementation, tests, documentation, commit,
-push, green CI, verified runtime installation, mutation-safe runtime acceptance,
-and final cleanup verification.
+Slice 2J completed implementation, tests, documentation, commit, push, green
+CI, verified runtime installation, mutation-safe runtime acceptance and final
+cleanup verification.
 
-PR #117 must remain open, Draft, and unmerged.
+PR #117 remains open, Draft and unmerged.
