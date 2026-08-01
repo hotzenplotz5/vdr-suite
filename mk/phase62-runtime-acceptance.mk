@@ -15,7 +15,8 @@ PHASE62_ACCEPTANCE_MANIFEST ?= \
 PHASE62_ACCEPTANCE_MANIFESTS := \
 	tools/phase62-runtime-acceptance/slice-2j.json \
 	tools/phase62-runtime-acceptance/slice-2l-searchtimer-update.json \
-	tools/phase62-runtime-acceptance/slice-2l-searchtimer-delete.json
+	tools/phase62-runtime-acceptance/slice-2l-searchtimer-delete.json \
+	tools/phase62-runtime-acceptance/slice-2n-searchtimer-execution.json
 
 PHASE62_ACCEPTANCE_BATCH_MANIFESTS := \
 	tools/phase62-runtime-acceptance/slice-2l-searchtimer-update.json \
