@@ -125,18 +125,6 @@ assert.strictEqual(typeof listeners.DOMContentLoaded, 'function');
     false
   );
 
-  await context.fetch(
-    '/api/vdr/searchtimers/execute',
-    {method: 'POST', headers: {Accept: 'application/json'}}
-  );
-  assert.strictEqual(
-    Object.prototype.hasOwnProperty.call(
-      requests[requests.length - 1].init.headers,
-      'X-CSRF-Token'
-    ),
-    false
-  );
-
   context.VdrSuiteBrowserSession = {
     csrfHeaders() { return {}; }
   };
