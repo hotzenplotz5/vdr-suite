@@ -5,6 +5,7 @@
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
+- [Phase 62 Slice 2U Active Contract](development/phase-62-slice-2u-browser-session-concurrency-limit.md)
 - [Phase 62 Slice 2T Closeout](development/phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Phase 62 Slice 2S Closeout](development/phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Phase 62 Slice 2R Closeout](development/phase-62-slice-2r-browser-session-lifetime-configuration.md)
@@ -43,7 +44,7 @@ VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
 Configurable photorealistic VDR Remote (#115)
 
-Next strict runtime phase:
+Current strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Repository, source CI and real-runtime accepted through:
@@ -52,16 +53,22 @@ Slice 2T - Browser-Session Issuing-Credential Lifecycle Binding
 Accepted implementation/runtime head:
 55876356e84b3e47e52911529b3f9bfa0e17f191
 
-Accepted source GitHub Actions:
+Accepted Slice-2T source GitHub Actions:
 VDR-Suite CI #6666
 Run ID 30719552024
 All five jobs successful
 
-Documentation-only Slice-2T closeout:
-This commit; closeout CI pending
+Accepted Slice-2T closeout head:
+e79e0eb67da75044c4a9afa162c9dab188b026fd
+
+Accepted Slice-2T closeout GitHub Actions:
+VDR-Suite CI #6667
+Run ID 30721936576
+All five jobs successful
 
 Active repository implementation:
-None selected after Slice 2T runtime acceptance
+Slice 2U - Concurrent Browser-Session Limit
+Source stabilization and final-head CI pending
 
 Installed daemon SHA-256:
 34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
@@ -181,6 +188,12 @@ Runtime head:
 Source CI:
 #6666 / run 30719552024 / all five jobs successful
 
+Closeout head:
+e79e0eb67da75044c4a9afa162c9dab188b026fd
+
+Closeout CI:
+#6667 / run 30721936576 / all five jobs successful
+
 Installed/running daemon SHA-256:
 34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
 
@@ -197,19 +210,52 @@ Durable evidence:
 /var/backups/vdr-suite-phase62-slice2t-20260801T223353Z-55876356e84b/runtime-acceptance-slice2t
 ```
 
+## Active Slice 2U contract
+
+Slice 2U adds an optional per-actor upper bound for effective active browser
+sessions:
+
+```text
+VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR
+Default: 0 (unlimited compatibility behaviour)
+Inclusive configured range: 0..64
+Syntax: unsigned decimal digits only
+```
+
+Only effective sessions count. The repository joins the browser verifier to the
+canonical actor, device, session, browser credential and issuing credential and
+requires every lifecycle component to remain active, unrevoked and unexpired.
+A raw active browser row whose issuer is revoked therefore does not consume a
+slot.
+
+The effective count and inserts remain inside the existing serialized
+`BEGIN IMMEDIATE` issuance transaction. Reaching the configured limit creates
+no row, revokes no existing session and maps to:
+
+```text
+HTTP 409
+browser_session_limit_reached
+```
+
+Invalid limit configuration fails closed with HTTP 503. Idle timeout,
+`last_seen`, refresh, cleanup, retention, automatic eviction and session
+administration remain explicitly deferred.
+
 ## Compatibility and fail-closed boundary
 
 Legacy Basic remains a transitional compatibility path. Managed Basic and
 browser actors do not inherit a legacy bypass. Browser mutations not explicitly
 classified remain fail-closed with `security_policy_not_migrated`.
 
-A presented browser cookie never falls back to Basic. Slice 2T strengthens only
-the effective browser-cookie and CSRF lifecycle resolution.
+A presented browser cookie never falls back to Basic. Slice 2T strengthens the
+effective browser-cookie and CSRF lifecycle resolution. Slice 2U affects only
+new browser-session issuance; it does not mutate existing sessions.
 
 ## Remaining Phase 62 work
 
-- complete all five CI jobs for this documentation-only Slice-2T closeout;
-- define browser-session idle expiry, cleanup and concurrency policy;
+- complete Slice-2U source stabilization, all five final-head CI jobs and
+  guarded real-yaVDR acceptance;
+- define browser-session idle expiry and cleanup/retention separately;
 - extend outcome accountability beyond the bounded lifecycle pair only
   through separately designed slices;
 - define stronger transactional coupling or outbox semantics separately;
@@ -221,6 +267,13 @@ the effective browser-cookie and CSRF lifecycle resolution.
 
 ## Operating rules
 
+- Root-level `AGENTS.md` is binding for agent-driven repository work.
+- Prefer GitHub-first edits, commits and pushes when the connector can perform
+  the complete operation safely.
+- Continue through already-approved work without artificial pauses.
+- Push coherent commits consecutively; do not wait for CI after every commit.
+- Evaluate required CI on the final stabilization head before runtime,
+  Ready-for-review or merge gates.
 - PR #117 remains open, Draft and unmerged.
 - Do not mark it Ready, merge, auto-merge, force-push or rewrite branch history.
 - Recheck volatile GitHub and local state immediately before mutation.
@@ -230,9 +283,6 @@ the effective browser-cookie and CSRF lifecycle resolution.
 
 ## Exact next action
 
-Require all five CI jobs for this documentation-only Slice-2T closeout.
-
-No next Phase-62 implementation slice is selected by this closeout. After
-full closeout CI, perform a fresh post-2T gap analysis and select exactly
-one bounded Phase-62 slice. Do not combine that selection with the
-closeout.
+Complete the bounded Slice-2U source stabilization and require all five GitHub
+Actions jobs on the final current head. Only after full green final-head CI may
+the guarded real-yaVDR concurrency-limit acceptance begin.
