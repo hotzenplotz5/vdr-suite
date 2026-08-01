@@ -5,7 +5,10 @@ Repository baseline: `cb77ff66e11dca7db2eafa36525762dcde35102d` (`main`, merge o
 Accepted branch slices: Slice 1 through Slice 2P  
 Active repository implementation: Slice 2Q global Native Fuzzy stale-probe deletion  
 Accepted code/runtime head: `173c929964dbb7aabd30c5e482c2e250b5785d92`  
-Authoritative accepted CI: #6649 / run `30711237050` / all five jobs successful
+Authoritative accepted CI: #6649 / run `30711237050` / all five jobs successful  
+Initial Slice 2Q CI: #6654 / run `30713278771` / all five jobs successful  
+First Slice 2Q runtime attempt: safe preflight abort and successful rollback  
+Corrected direct-SQLite preflight follow-up CI: pending
 
 A component is not accepted installed runtime until it is connected, covered by
 the complete CI graph and validated on the real yaVDR system. Code-head evidence
@@ -19,11 +22,11 @@ alone is insufficient.
 | Authentication | Legacy Basic, optional Managed Basic and browser sessions authenticate ordinary routes; browser cookie has strict precedence | Native/service credential mechanisms and compatibility retirement | Complete Slice 2Q acceptance first |
 | Browser sessions | Atomic issue/logout, independent cookie and CSRF secrets, persistence, expiry/revocation checks and replay denial | Refresh, idle timeout, cleanup, concurrency and recovery policy | Dedicated lifecycle policy slice |
 | Grants and scopes | Active exact actor grants load from persistence; unavailable store fails closed | Protected grant administration and broader resource scopes | After route catalogue is sufficiently complete |
-| Fixed roles | Exact-scope Admin and Read-only catalogue accepted for concrete backends; wildcard roles do not become concrete assignments | Validate the exact global `*` role scope in Slice 2Q; generic roles remain open | Complete Slice 2Q CI/runtime acceptance |
-| CSRF | Enforced for all accepted browser mutation families; frontend tokens remain memory-only and owner-injected | Slice 2Q repository implementation requires CI/runtime acceptance | Complete Slice 2Q acceptance |
-| Central authorization | Accepted through Remote, Timer, Channel Move, Recording execution, SearchTimer create/maintenance/execution, Native Fuzzy refresh and query-scoped cache refresh | Global stale-probe deletion is implemented in Slice 2Q but not yet accepted | Complete Slice 2Q CI/runtime acceptance |
+| Fixed roles | Exact-scope Admin and Read-only catalogue accepted for concrete backends; wildcard roles do not become concrete assignments | Validate the exact global `*` role scope in Slice 2Q; generic roles remain open | Complete Slice 2Q follow-up CI/runtime acceptance |
+| CSRF | Enforced for all accepted browser mutation families; frontend tokens remain memory-only and owner-injected | Slice 2Q repository implementation requires corrected follow-up CI/runtime acceptance | Complete Slice 2Q acceptance |
+| Central authorization | Accepted through Remote, Timer, Channel Move, Recording execution, SearchTimer create/maintenance/execution, Native Fuzzy refresh and query-scoped cache refresh | Global stale-probe deletion is implemented in Slice 2Q but not yet accepted | Complete Slice 2Q follow-up CI/runtime acceptance |
 | Query-scoped cache refresh | SearchTimer preview and EPG cache refresh use distinct permissions and query-derived backend scope | Completion/outcome evidence only | No further route work in Slice 2P |
-| Global stale-probe administration | GET is read-only; Slice 2Q protects the two global Delete aliases with `...delete@*` in repository code | Full CI and zero-delete yaVDR acceptance remain pending | Run the complete Slice 2Q acceptance gate |
+| Global stale-probe administration | Slice 2Q protects the two global Delete aliases with `...delete@*` in repository code | Corrected direct-SQLite zero-delete acceptance remains pending; no public stale-probe GET route exists | Run the corrected Slice 2Q acceptance gate |
 | Safe POST classification | Accepted bounded validation/preview family explicitly classified | Remaining non-mutating stateful POST routes | Separate explicit classification slices |
 | Backend policy | Backend read-only/capability/domain checks remain independent from actor authorization | Preserve this separation for every migration | Every route slice |
 | Accountability | Append-only pre-dispatch allow/deny evidence accepted and secret-free | Completion/outcome events, transactional coupling/outbox, protected query/export/retention | Later accountability slices |
@@ -46,7 +49,7 @@ alone is insufficient.
 | Native Fuzzy operator refresh aliases | Protected backend-scoped administrative mutation |
 | SearchTimer preview cache refresh aliases | Protected query-scoped mutation using `searchtimers.preview-cache.refresh` |
 | EPG cache refresh | Protected query-scoped mutation using `epg.cache.refresh` |
-| Native Fuzzy stale-probe delete aliases | Slice 2Q repository implementation: protected global mutation using `epgsearch.native-fuzzy.stale-probes.delete@*`; CI/runtime pending |
+| Native Fuzzy stale-probe delete aliases | Slice 2Q repository implementation: protected global mutation using `epgsearch.native-fuzzy.stale-probes.delete@*`; corrected runtime acceptance pending |
 
 ## Slice 2P accepted contract
 
@@ -79,7 +82,7 @@ POST /api/vdr/epgsearch/native-fuzzy/stale-probes/delete
   -> epgsearch.native-fuzzy.stale-probes.delete@*
 ```
 
-Repository contract pending CI/runtime acceptance:
+Repository contract pending corrected follow-up CI/runtime acceptance:
 
 - canonical scope is global `*` and cannot be changed by body or query;
 - direct permission requires the global scope;
@@ -92,8 +95,26 @@ Repository contract pending CI/runtime acceptance:
 - trailing slashes remain fail-closed;
 - the routes remain excluded from Safe POST;
 - no Webfrontend owner exists;
-- runtime dispatch is allowed only after an empty stale-probe GET preflight;
+- runtime dispatch is allowed only after a direct SQLite snapshot proves that no row is stale or future-dated;
+- the snapshot uses the production `604800`-second freshness boundary;
+- a temporary cross-connection `BEFORE DELETE` trigger blocks deletion races;
 - every acceptance POST must report zero deleted rows.
+
+## First Slice 2Q runtime attempt
+
+The initial repository head passed CI #6654. The guarded real-runtime attempt
+then used the historically documented but unregistered stale-probe GET alias.
+The installed router returned HTTP 404 before every Delete POST.
+
+Automatic rollback passed and restored the accepted Slice-2P daemon and loader.
+The temporary delete guard was absent after rollback.
+
+```text
+rollback backup:
+/var/backups/vdr-suite-phase62-slice2q-20260801T185634Z-1119c94e5184/install-before
+```
+
+This attempt is rejection evidence only and does not advance accepted runtime.
 
 ## Latest accepted runtime evidence
 
@@ -122,7 +143,7 @@ Evidence directory:
 2. **Persistent lifecycle, browser sessions, exact grants, fixed roles and
    bounded route migration — active and accepted through Slice 2P.**
 3. **Global stale-probe deletion — Slice 2Q repository implementation active;
-   CI and real-runtime acceptance pending.**
+   corrected follow-up CI and real-runtime acceptance pending.**
 4. **Complete remaining route classification and migration — re-audit after
    Slice 2Q acceptance.**
 5. **Common revisions, idempotency and durable operation lifecycle — open.**
@@ -131,8 +152,9 @@ Evidence directory:
 
 ## Exact next action
 
-Commit the bounded Slice 2Q repository implementation atomically, require all
-five CI jobs to pass, and only then run the guarded real yaVDR acceptance. The
-runtime pass must abort before any POST unless the stale-probe GET snapshot is
-empty. Do not combine this work with generic administration, Android,
-native/service credential lifecycle or Phase 63-67 runtime.
+Commit the direct-SQLite Slice-2Q preflight correction atomically, require all
+five follow-up CI jobs to pass, and only then run the guarded real yaVDR
+acceptance again. The runtime pass must abort before any POST unless the direct
+SQLite stale/future snapshot is empty. Do not combine this work with generic
+administration, Android, native/service credential lifecycle or Phase 63-67
+runtime.

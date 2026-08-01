@@ -50,14 +50,17 @@ Slice 2P - Query-Scoped Cache Refresh Security Migration
 Accepted code/runtime head:
 173c929964dbb7aabd30c5e482c2e250b5785d92
 
-CI:
+Accepted CI:
 VDR-Suite CI #6649
 Run ID 30711237050
 All five jobs successful
 
 Active repository implementation:
 Slice 2Q - Global Native Fuzzy Stale-Probe Deletion Security Migration
-CI and real-runtime acceptance pending
+Initial CI #6654 / run 30713278771: all five jobs successful
+First runtime attempt: safe preflight abort on HTTP 404
+Automatic rollback to accepted Slice-2P runtime: passed
+Corrected direct-SQLite preflight follow-up CI: pending
 
 Installed daemon SHA-256:
 c0e74602334e2b9d21f53329182bc5e35c99676f3dcdf2ae0639f996151a432a
@@ -158,12 +161,37 @@ Direct concrete-scope grants and concrete Admin assignments do not authorize
 the route. `role.admin@*` is the exact global assignment, while
 `role.read-only@*` denies before direct permission or Admin.
 
-There is no Webfrontend owner. The guarded runtime runner must verify an empty
-authenticated stale-probe GET snapshot before its first POST, otherwise it
-aborts without dispatch. Every accepted POST must return zero deleted rows.
+There is no Webfrontend owner. The corrected guarded runner obtains a direct
+read-only SQLite snapshot using the product freshness rules: seven days is the
+maximum accepted age and future timestamps are stale. The runner aborts before
+its first POST unless that snapshot is exactly empty.
 
-This contract remains repository-only until full CI and real yaVDR acceptance
-succeed.
+After the empty snapshot, a temporary `BEFORE DELETE` trigger blocks every
+cross-connection deletion race. Every accepted POST must return zero deleted
+rows, cleanup must remove the trigger, and the postflight SQLite snapshot must
+remain empty and unchanged.
+
+The initial repository CI for head `1119c94e5184245f5d161283270c51b604153e0b`
+passed all five jobs. The first real-runtime attempt stopped before any Delete
+POST because the historically documented stale-probe GET route is not
+registered in `ApiRouter::handleGet` and returned HTTP 404.
+
+Automatic rollback passed and restored:
+
+```text
+daemon: c0e74602334e2b9d21f53329182bc5e35c99676f3dcdf2ae0639f996151a432a
+loader: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+delete guard absent: yes
+```
+
+Rollback backup:
+
+```text
+/var/backups/vdr-suite-phase62-slice2q-20260801T185634Z-1119c94e5184/install-before
+```
+
+This contract remains repository-only until corrected follow-up CI and real
+yaVDR acceptance succeed.
 
 ## Compatibility and fail-closed boundary
 
@@ -177,7 +205,7 @@ global deletion route as Safe POST.
 
 ## Remaining Phase 62 work
 
-- complete all five CI jobs and guarded real-runtime acceptance for Slice 2Q;
+- pass corrected follow-up CI and guarded real-runtime acceptance for Slice 2Q;
 - re-audit the POST inventory after Slice 2Q acceptance;
 - add completion/outcome accountability and stronger transactional coupling;
 - define refresh, idle expiry, cleanup and concurrent-session policy;
@@ -199,7 +227,8 @@ global deletion route as Safe POST.
 
 ## Exact next action
 
-Publish the bounded Slice 2Q repository implementation as one fast-forward
-commit and require all five CI jobs to pass. Only after full green CI may the
-guarded yaVDR install and zero-delete runtime acceptance run. The runtime pass
-must abort before any POST when the stale-probe preflight list is nonempty.
+Publish the corrected direct-SQLite Slice-2Q preflight as one fast-forward
+commit and require all five follow-up CI jobs to pass. Only after full green CI
+may guarded installation and zero-delete runtime acceptance run again. The
+runtime pass must abort before any POST when the SQLite stale/future snapshot is
+nonempty.

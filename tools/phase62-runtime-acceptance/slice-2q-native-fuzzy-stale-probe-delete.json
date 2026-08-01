@@ -24,7 +24,8 @@
     }
   },
   "snapshot": {
-    "method": "GET",
-    "path": "/api/epgsearch/native-fuzzy/stale-probes"
+    "mode": "sqlite",
+    "table": "epgsearch_native_fuzzy_capability_probes",
+    "maxAgeSeconds": 604800
   }
 }

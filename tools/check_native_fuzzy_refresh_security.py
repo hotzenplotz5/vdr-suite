@@ -115,10 +115,9 @@ def validate_stale_delete_manifest(path: str) -> None:
             },
         },
         "snapshot": {
-            "method": "GET",
-            "path": (
-                "/api/epgsearch/native-fuzzy/stale-probes"
-            ),
+            "mode": "sqlite",
+            "table": "epgsearch_native_fuzzy_capability_probes",
+            "maxAgeSeconds": 604800,
         },
     }
 
@@ -242,6 +241,10 @@ def main() -> int:
     )
     require(harness, "slice-2q-native-fuzzy-stale-probe-delete.json")
     require(harness, "global-stale-probe-delete-runner.py")
+    require(stale_runner, "sqlite_stale_probe_snapshot")
+    require(stale_runner, "DEFAULT_MAX_AGE_SECONDS")
+    require(stale_runner, "strftime('%s', 'now')")
+    require(stale_runner, "sqlite_snapshot_freshness_self_test_failed")
     require(stale_runner, "stale_probe_snapshot_not_empty")
     require(stale_runner, 'payload.get("staleProbes") == []')
     require(stale_runner, '"deletedResults": 0')
@@ -259,6 +262,8 @@ def main() -> int:
     require(stale_document, f"{permission}@*")
     require(stale_document, '"staleProbes":[]')
     require(stale_document, "deletedResults=0")
+    require(stale_document, "direct read-only SQLite snapshot")
+    require(stale_document, "HTTP 404")
     require(stale_document, "BEFORE DELETE")
     require(stale_document, "no Webfrontend request owner")
 

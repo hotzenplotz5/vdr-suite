@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sqlite3
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -15,6 +16,7 @@ DELETE_GUARD_TRIGGER = (
 DELETE_GUARD_TABLE = (
     "epgsearch_native_fuzzy_capability_probes"
 )
+DEFAULT_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 
 
 def load_runner() -> ModuleType:
@@ -33,12 +35,18 @@ def load_runner() -> ModuleType:
 
 runner = load_runner()
 base_validate_manifest = runner.validate_manifest
+base_self_test = runner.self_test
 
 
 def validate_global_manifest(
     manifest: dict[str, Any],
 ) -> list[str]:
-    errors = base_validate_manifest(manifest)
+    adapted = dict(manifest)
+    adapted["snapshot"] = {
+        "method": "GET",
+        "path": "/api/phase62/sqlite-snapshot-contract",
+    }
+    errors = base_validate_manifest(adapted)
 
     if manifest.get("scopeMode") != "global":
         errors.append("scopeMode must be global")
@@ -56,12 +64,14 @@ def validate_global_manifest(
         errors.append("requireEmptyStaleSnapshot must be true")
 
     snapshot = manifest.get("snapshot")
-    if not isinstance(snapshot, dict) or snapshot.get("path") not in (
-        "/api/epgsearch/native-fuzzy/stale-probes",
-        "/api/vdr/epgsearch/native-fuzzy/stale-probes",
-    ):
+    expected_snapshot = {
+        "mode": "sqlite",
+        "table": DELETE_GUARD_TABLE,
+        "maxAgeSeconds": DEFAULT_MAX_AGE_SECONDS,
+    }
+    if snapshot != expected_snapshot:
         errors.append(
-            "snapshot.path must be a Native Fuzzy stale-probe GET alias"
+            "snapshot must be the exact SQLite stale-probe contract"
         )
 
     expected = manifest.get("expectedValidation", {}).get("json")
@@ -98,6 +108,130 @@ def target_global_grants(
     )
 
 
+def sqlite_stale_probe_snapshot(
+    database: sqlite3.Connection,
+    max_age_seconds: int,
+) -> dict[str, Any]:
+    table = database.execute(
+        """
+        SELECT 1
+        FROM sqlite_master
+        WHERE type = 'table'
+          AND name = ?
+        """,
+        (DELETE_GUARD_TABLE,),
+    ).fetchone()
+    runner.require(
+        table is not None,
+        "stale_probe_table_missing",
+    )
+
+    rows = list(
+        database.execute(
+            f"""
+            WITH persisted AS (
+                SELECT
+                    backend_id,
+                    updated_at,
+                    COALESCE(
+                        CAST(
+                            strftime('%s', 'now') -
+                            strftime('%s', updated_at)
+                            AS INTEGER
+                        ),
+                        0
+                    ) AS age_seconds
+                FROM {DELETE_GUARD_TABLE}
+            )
+            SELECT
+                backend_id,
+                updated_at,
+                age_seconds
+            FROM persisted
+            WHERE age_seconds < 0
+               OR age_seconds > ?
+            ORDER BY backend_id
+            """,
+            (max_age_seconds,),
+        )
+    )
+
+    stale_probes = []
+    for backend_id, updated_at, age_seconds in rows:
+        future = int(age_seconds) < 0
+        stale_probes.append(
+            {
+                "backendId": str(backend_id),
+                "updatedAt": "" if updated_at is None else str(updated_at),
+                "ageSeconds": int(age_seconds),
+                "maxAgeSeconds": max_age_seconds,
+                "status": "future-timestamp" if future else "stale",
+                "reason": (
+                    "persisted probe timestamp is in the future"
+                    if future
+                    else (
+                        "persisted probe result is older than the "
+                        "freshness policy allows"
+                    )
+                ),
+            }
+        )
+
+    return {"staleProbes": stale_probes}
+
+
+def global_self_test(manifest: dict[str, Any]) -> None:
+    base_self_test(manifest)
+
+    database = sqlite3.connect(":memory:", isolation_level=None)
+    database.execute(
+        f"""
+        CREATE TABLE {DELETE_GUARD_TABLE} (
+            backend_id TEXT PRIMARY KEY,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    empty = sqlite_stale_probe_snapshot(
+        database,
+        DEFAULT_MAX_AGE_SECONDS,
+    )
+    runner.require(
+        empty == {"staleProbes": []},
+        "sqlite_snapshot_empty_self_test_failed",
+    )
+
+    database.execute(
+        f"""
+        INSERT INTO {DELETE_GUARD_TABLE} (
+            backend_id,
+            updated_at
+        ) VALUES
+            ('fresh', datetime('now', '-1 day')),
+            ('stale', datetime('now', '-8 days')),
+            ('future', datetime('now', '+1 day'))
+        """
+    )
+
+    payload = sqlite_stale_probe_snapshot(
+        database,
+        DEFAULT_MAX_AGE_SECONDS,
+    )
+    statuses = {
+        item["backendId"]: item["status"]
+        for item in payload["staleProbes"]
+    }
+    runner.require(
+        statuses == {
+            "future": "future-timestamp",
+            "stale": "stale",
+        },
+        "sqlite_snapshot_freshness_self_test_failed",
+    )
+    database.close()
+
+
 class GlobalStaleProbeDeleteAcceptance(runner.RuntimeAcceptance):
     def __init__(
         self,
@@ -106,6 +240,18 @@ class GlobalStaleProbeDeleteAcceptance(runner.RuntimeAcceptance):
     ) -> None:
         super().__init__(arguments, manifest)
         self.delete_guard_installed = False
+
+    def resource_snapshot(self) -> str:
+        snapshot = sqlite_stale_probe_snapshot(
+            self.database,
+            self.manifest["snapshot"]["maxAgeSeconds"],
+        )
+        self.tests_passed += 1
+        return json.dumps(
+            snapshot,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
 
     def require_empty_stale_snapshot(self, snapshot: str) -> None:
         try:
@@ -429,6 +575,7 @@ class GlobalStaleProbeDeleteAcceptance(runner.RuntimeAcceptance):
 def main() -> int:
     runner.validate_manifest = validate_global_manifest
     runner.target_grants = target_global_grants
+    runner.self_test = global_self_test
     runner.RuntimeAcceptance = GlobalStaleProbeDeleteAcceptance
     return runner.main()
 
