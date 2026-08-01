@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "slice-2l-searchtimer-delete",
+  "title": "Phase 62 Slice 2L SearchTimer Delete",
+  "permission": "searchtimers.delete",
+  "action": "searchtimers.delete",
+  "backendId": "default",
+  "alternateBackendId": "phase62-slice2l-delete-other",
+  "routes": [
+    "/api/searchtimers/delete",
+    "/api/vdr/searchtimers/delete"
+  ],
+  "querySuffix": "?source=browser",
+  "safeBody": {},
+  "expectedValidation": {
+    "status": 200,
+    "json": {
+      "success": false,
+      "message": "searchtimer backend native id is required",
+      "errors": [
+        "backendNativeId is required"
+      ]
+    }
+  },
+  "snapshot": {
+    "method": "GET",
+    "path": "/api/searchtimers?backend=default&limit=1000&offset=0"
+  }
+}
