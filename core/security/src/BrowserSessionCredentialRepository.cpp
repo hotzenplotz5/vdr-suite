@@ -268,6 +268,36 @@ BrowserSessionCredentialRepository::findByTokenId(
 }
 
 std::optional<StoredBrowserSessionCredential>
+BrowserSessionCredentialRepository::findResolvedByTokenId(
+    const std::string& tokenId) const
+{
+    return findOne(
+        database_,
+        "SELECT browser.token_id, browser.session_id, browser.actor_id, "
+        "browser.device_id, browser.credential_id, "
+        "browser.issued_from_credential_id, browser.session_secret_hash, "
+        "browser.csrf_secret_hash, browser.expires_at, "
+        "(browser.active <> 0 AND "
+        " issuing.credential_id IS NOT NULL AND "
+        " issuing.actor_id = browser.actor_id AND "
+        " issuing.active <> 0 AND issuing.revoked_at = ''), "
+        "((browser.expires_at <= CURRENT_TIMESTAMP) OR "
+        " (issuing.credential_id IS NOT NULL AND "
+        "  issuing.actor_id = browser.actor_id AND "
+        "  issuing.expires_at <> '' AND "
+        "  issuing.expires_at <= CURRENT_TIMESTAMP)), "
+        "((browser.revoked_at <> '') OR "
+        " issuing.credential_id IS NULL OR "
+        " issuing.actor_id <> browser.actor_id OR "
+        " issuing.active = 0 OR issuing.revoked_at <> '') "
+        "FROM security_browser_session_credentials AS browser "
+        "LEFT JOIN security_credentials AS issuing "
+        "ON issuing.credential_id = browser.issued_from_credential_id "
+        "WHERE browser.token_id = ?;",
+        tokenId);
+}
+
+std::optional<StoredBrowserSessionCredential>
 BrowserSessionCredentialRepository::findBySessionId(
     const std::string& sessionId) const
 {

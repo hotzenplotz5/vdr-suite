@@ -62,7 +62,7 @@ public:
         }
         wipe(cookieValue);
 
-        const auto record = repository_.findByTokenId(tokenId);
+        const auto record = repository_.findResolvedByTokenId(tokenId);
         const bool secretAccepted =
             record.has_value() &&
             verifySecret(sessionSecret, record->sessionSecretHash);
@@ -128,7 +128,7 @@ public:
         }
         wipe(cookieValue);
 
-        const auto record = repository_.findByTokenId(tokenId);
+        const auto record = repository_.findResolvedByTokenId(tokenId);
         const bool sessionAccepted =
             record.has_value() &&
             record->active &&

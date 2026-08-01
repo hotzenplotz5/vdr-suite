@@ -43,6 +43,8 @@ public:
     bool insert(const BrowserSessionCredentialRegistration& registration);
     std::optional<StoredBrowserSessionCredential> findByTokenId(
         const std::string& tokenId) const;
+    std::optional<StoredBrowserSessionCredential> findResolvedByTokenId(
+        const std::string& tokenId) const;
     std::optional<StoredBrowserSessionCredential> findBySessionId(
         const std::string& sessionId) const;
     bool revokeBySessionId(const std::string& sessionId);

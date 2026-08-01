@@ -25,13 +25,17 @@ Slice 2S - Browser-Session Lifecycle Outcome Accountability
 Accepted code/runtime head:
 c128867bfbf4ce10bcf7dc23d14652e5f5324c83
 
-Accepted source/runtime GitHub Actions:
-VDR-Suite CI #6663
-Run ID: 30717721595
+Accepted closeout head:
+064744f73905b6fcc53d737ab9088554ae2af4b6
+
+Accepted closeout GitHub Actions:
+VDR-Suite CI #6664
+Run ID: 30718491649
 All five jobs successful
 
 Active repository implementation:
-None selected after Slice 2S closeout
+Slice 2T - Browser-Session Issuing-Credential Lifecycle Binding
+CI and real-runtime acceptance pending
 
 Installed daemon SHA-256:
 682cfc76738454f57daff0831fe7a01786f57abf42cf16c2fa9c2ac16309a07a
@@ -59,95 +63,20 @@ The accepted branch and installed runtime include:
 - explicit Safe POST classification for accepted validation/preview routes;
 - protected Native Fuzzy refresh and global stale-probe deletion;
 - protected query-scoped SearchTimer preview and EPG cache refresh;
-- configurable bounded absolute browser-session lifetime shared by persistence
-  and cookie construction;
-- append-only pre-dispatch accountability and secret-free denial evidence;
-- browser-session issue/revoke success/failure outcome accountability with
-  fail-closed login compensation and logout cookie cleanup;
+- configurable bounded absolute browser-session lifetime;
+- append-only pre-dispatch accountability;
+- browser-session issue/revoke outcome accountability with fail-closed
+  compensation;
 - mutation-safe real-runtime acceptance profiles and guarded rollback.
 
 ## Completed post-Slice-2Q POST inventory
 
-The fresh HTTP inventory found no remaining unmigrated product POST family:
+Every central-router POST family is now either a protected mutation or an
+explicitly classified Safe POST. Browser-session issue/logout remain owned by
+the dedicated lifecycle gate. Unknown browser and enforced-mode POST paths fail
+closed. A further route-migration slice would be artificial.
 
-- browser-session issue/logout are handled by the dedicated lifecycle gate;
-- every POST registered by the central API router is either a protected mutation
-  or an explicitly classified Safe POST;
-- unknown browser and enforced-mode POST paths remain fail-closed.
-
-A further route-migration slice would therefore be artificial.
-
-## Accepted Slice 2R evidence
-
-```text
-custom_lifetime_seconds=900
-runtime_http_requests=5
-persisted_remaining_seconds=900
-cookie_max_age=900
-ordinary_browser_get=yes
-missing_csrf_denied=yes
-logout_succeeded=yes
-session_revoked=yes
-credential_revoked=yes
-revoked_cookie_replay_denied=yes
-accountability_secret_free=yes
-original_runtime_config_restored=yes
-original_runtime_environment_restored=yes
-database_integrity=yes
-service_state=active
-```
-
-Durable evidence:
-
-```text
-/var/backups/vdr-suite-phase62-slice2r-20260801T202314Z-d65af5a24688/runtime-acceptance-slice2r
-```
-
-## Accepted Slice 2S contract
-
-Slice 2S adds post-operation accountability only for the existing
-browser-session issue and revoke lifecycle pair.
-
-Existing gate-owned pre-dispatch events remain unchanged. The HTTP service adds:
-
-```text
-operation.succeeded
-operation.failed
-```
-
-with canonical fields:
-
-```text
-session.issue.self / browser.session.issue / *
-session.revoke.self / browser.session.revoke / *
-```
-
-Success and failure reason codes remain operation-specific. All events use the
-existing actor, device, session, request and correlation context and remain
-secret-free.
-
-Fail-closed behaviour:
-
-- login success is delivered only after the issue outcome is persisted;
-- failed issue-outcome persistence triggers compensating revocation, secret
-  wiping, HTTP 503 and no session cookie;
-- successful logout remains revoked when its outcome append fails;
-- that logout failure response still expires the client cookie;
-- authentication and CSRF denials remain gate-owned and do not create duplicate
-  operation outcomes.
-
-Explicitly excluded from Slice 2S:
-
-- outcomes for unrelated business mutations;
-- transactional outbox or retry infrastructure;
-- idle timeout and `last_seen` persistence;
-- sliding expiry or refresh;
-- expired-session cleanup;
-- concurrent-session limits;
-- protected audit query/export/retention;
-- general security administration.
-
-## Accepted Slice 2S runtime evidence
+## Accepted Slice 2S evidence
 
 ```text
 service_pid_after_install=69610
@@ -159,13 +88,6 @@ logout_accountability_events=2
 lifecycle_accountability_events=5
 operation_succeeded_events=2
 missing_csrf_operation_events=0
-login_dispatch_authorized=yes
-login_outcome_succeeded=yes
-ordinary_browser_get=yes
-missing_csrf_denied=yes
-logout_dispatch_authorized=yes
-logout_outcome_succeeded=yes
-logout_succeeded=yes
 session_revoked=yes
 credential_revoked=yes
 revoked_cookie_replay_denied=yes
@@ -181,23 +103,50 @@ Durable evidence:
 /var/backups/vdr-suite-phase62-slice2s-20260801T210333Z-c128867bfbf4/runtime-acceptance-slice2s
 ```
 
-Evidence fingerprints:
+## Active Slice 2T repository contract
+
+The fresh lifecycle audit confirmed that `PersistentIdentityResolver` already
+rechecks the browser actor, device, canonical session and browser credential.
+The remaining gap is the lineage credential stored in
+`issued_from_credential_id`.
+
+Slice 2T adds an effective token lookup that joins the browser row to its issuing
+credential. Both ordinary cookie authentication and CSRF verification require
+the issuer to exist, belong to the same actor, remain active, remain unrevoked
+and remain unexpired.
+
+Fail-closed mapping:
 
 ```text
-runtime_report_sha256=9ca22c30db9e22decb8e4f74d0204b82d53bb58c344cebdd95d4bae0893a5421
-database_before_sha256=12356c390c4c852bf59b1a9636e27738332ab71f836dcb01ef46984a39dc7e0f
-database_after_sha256=2153b347d97ce1148a1efdbc3628c4f9652346e82b27d0baeae50c38172e5378
+issuer expired
+  -> credential_expired
+
+issuer missing, actor-mismatched, inactive or revoked
+  -> credential_revoked
 ```
 
-The database snapshots differ because the revoked test browser-session rows and
-acceptance accountability events remain as durable evidence. All relevant
-browser-session, canonical session and credential rows are inactive with
-revocation timestamps, and revoked-cookie replay is denied.
+The raw browser row remains unchanged. No cascading mutation, cleanup policy or
+schema migration is introduced.
+
+Explicitly excluded from Slice 2T:
+
+- idle timeout and `last_seen` persistence;
+- sliding expiry or refresh;
+- expired-session cleanup;
+- concurrent-session limits;
+- security administration APIs;
+- issuer enrollment or rotation;
+- broader operation outcomes or transactional outbox;
+- route, frontend, permission, configuration or packaging changes.
+
+This repository implementation is not accepted runtime until all five CI jobs
+and the guarded yaVDR issuing-credential revocation pass succeed.
 
 ## Remaining Phase 62 work
 
 Phase 62 still lacks:
 
+- Slice 2T CI and guarded real-runtime acceptance;
 - browser-session idle expiry, cleanup and concurrency policy;
 - outcome accountability for other operation families;
 - stronger transactional coupling or outbox semantics;
@@ -208,8 +157,6 @@ Phase 62 still lacks:
 - protected audit query/export/retention;
 - compatibility-retirement readiness and final Phase 62 closeout.
 
-No next implementation slice is selected by this closeout.
-
 ## Pull request truth
 
 PR #117 must remain open, Draft and unmerged. Do not mark it Ready for review,
@@ -217,9 +164,9 @@ merge it, enable auto-merge, force-push, rewrite branch history or change PR
 metadata without explicit approval.
 
 The PR description is materially stale. Current repository truth is this file,
-[Current State](../CURRENT.md), the
+[Current State](../CURRENT.md), the active
+[Slice 2T contract](phase-62-slice-2t-browser-session-issuer-binding.md), the
 [Slice 2S closeout](phase-62-slice-2s-browser-session-outcome-accountability.md),
-the [Slice 2R closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md),
 the [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 and the
 [Security and Identity Architecture](../architecture/security-identity-foundation.md).
@@ -230,11 +177,9 @@ Prefer direct GitHub repository updates for existing files when the connector
 can perform the requested edit safely and the complete current file content is
 available.
 
-Use local edits first only when the change requires:
-
-- compilation, generated artifacts or focused local runtime tests;
-- coordinated tooling that is not available through the connector;
-- a workaround because the GitHub connector blocks a file operation.
+Use local edits first only when the change requires compilation, generated
+artifacts, focused runtime tests or coordinated tooling unavailable through the
+connector.
 
 Never replace a complete file from a truncated fetch. Recheck the branch head
 before every write, keep updates fast-forward-only and inspect the resulting
@@ -242,14 +187,15 @@ diff before treating a GitHub change as complete.
 
 ## Exact next action
 
-Let this Slice-2S documentation closeout complete all five CI jobs. Then perform
-a fresh bounded Phase-62 gap review and select exactly one next slice only after
-its security, persistence and real-runtime-safety boundary is explicit.
+Publish the bounded Slice-2T implementation as one fast-forward commit and
+require all five CI jobs. Only then run guarded yaVDR acceptance using a
+disposable revoked issuer credential bound solely to the test browser session.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Slice 2T Active Contract](phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Slice 2S Closeout](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
