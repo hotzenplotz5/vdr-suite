@@ -112,6 +112,39 @@ int main()
         "permission_grants_unavailable") !=
         std::string::npos);
 
+    HttpServerRequest missingCsrf =
+        fixture.mutationRequest(
+            "/api/vdr/remote/actions",
+            "default");
+    fixture.addBrowserAuthentication(missingCsrf);
+
+    const SecurityGateDecision missingCsrfDecision =
+        fixture.gate.evaluate(missingCsrf);
+    assert(!missingCsrfDecision.allowed);
+    assert(missingCsrfDecision.protectedMutation);
+    assert(missingCsrfDecision.rejection.statusCode == 403);
+    assert(missingCsrfDecision.rejection.body.find(
+        "csrf_validation_failed") !=
+        std::string::npos);
+
+    HttpServerRequest missingPermission =
+        fixture.mutationRequest(
+            "/api/vdr/remote/actions",
+            "default");
+    fixture.addBrowserAuthentication(
+        missingPermission,
+        true);
+
+    const SecurityGateDecision missingPermissionDecision =
+        fixture.gate.evaluate(missingPermission);
+    assert(!missingPermissionDecision.allowed);
+    assert(
+        missingPermissionDecision.rejection.statusCode ==
+        403);
+    assert(missingPermissionDecision.rejection.body.find(
+        "permission_denied") !=
+        std::string::npos);
+
     HttpServerRequest unmigrated =
         fixture.mutationRequest(
             "/api/epg/cache/refresh",
