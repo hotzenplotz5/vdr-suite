@@ -16,6 +16,7 @@ struct BrowserSessionIssuanceRequest
     std::string deviceId;
     std::string issuedFromCredentialId;
     int lifetimeSeconds = 28800;
+    std::size_t maximumActivePerActor = 0;
 };
 
 struct IssuedBrowserSession
@@ -38,6 +39,20 @@ struct IssuedBrowserSession
     void clearSecrets() noexcept;
 };
 
+enum class BrowserSessionIssuanceStatus
+{
+    Issued,
+    LimitReached,
+    Failed
+};
+
+struct BrowserSessionIssuanceResult
+{
+    BrowserSessionIssuanceStatus status =
+        BrowserSessionIssuanceStatus::Failed;
+    std::optional<IssuedBrowserSession> session;
+};
+
 class BrowserSessionIssuanceService
 {
 public:
@@ -49,6 +64,7 @@ public:
     static constexpr int MinimumLifetimeSeconds = 300;
     static constexpr int DefaultLifetimeSeconds = 28800;
     static constexpr int MaximumLifetimeSeconds = 86400;
+    static constexpr std::size_t MaximumActiveSessionsPerActor = 64;
 
     BrowserSessionIssuanceService(
         Database& database,
@@ -57,6 +73,8 @@ public:
         EntropySource entropySource = {},
         Clock clock = {});
 
+    BrowserSessionIssuanceResult issueWithPolicy(
+        const BrowserSessionIssuanceRequest& request);
     std::optional<IssuedBrowserSession> issue(
         const BrowserSessionIssuanceRequest& request);
 
