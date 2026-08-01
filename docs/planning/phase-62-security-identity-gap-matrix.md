@@ -2,11 +2,11 @@
 
 Status: active Phase 62 planning and implementation matrix
 Repository baseline: `cb77ff66e11dca7db2eafa36525762dcde35102d` (`main`, merge of PR #115)
-Accepted branch slices: Slice 1 through Slice 2T
-Active repository implementation: none selected after Slice 2T runtime acceptance
-Accepted implementation/runtime head: `55876356e84b3e47e52911529b3f9bfa0e17f191`
-Authoritative accepted source CI: #6666 / run `30719552024` / all five jobs successful
-Documentation-only Slice-2T closeout: this commit; closeout CI pending
+Accepted runtime slices: Slice 1 through Slice 2T
+Accepted Slice-2T closeout: `e79e0eb67da75044c4a9afa162c9dab188b026fd`
+Accepted Slice-2T closeout CI: #6667 / run `30721936576` / all five jobs successful
+Active repository implementation: Slice 2U — Concurrent Browser-Session Limit
+Slice-2U source stabilization and final-head CI: pending
 
 A component is not accepted installed runtime until it is connected, covered by
 the complete CI graph and validated on the real yaVDR system. Code-head evidence
@@ -17,8 +17,9 @@ alone is insufficient.
 | Security area | Current accepted state | Remaining gap | Next bounded work |
 |---|---|---|---|
 | Actor/device model | Canonical persistent actor, device, session and credential context | Protected enrollment and administration | Later lifecycle administration slice |
-| Authentication | Legacy Basic, optional Managed Basic and browser sessions authenticate ordinary routes; browser cookie has strict precedence; issuing-credential request-time binding is runtime accepted | Native/service mechanisms and compatibility retirement remain open | Select only after fresh post-2T analysis |
-| Browser sessions | Atomic issue/logout, independent cookie and CSRF secrets, persistence, configurable absolute expiry, revocation checks, replay denial, lifecycle outcomes and issuer-lineage enforcement are runtime accepted | Idle timeout, cleanup and concurrency remain open | Separate future policy slice |
+| Authentication | Legacy Basic, optional Managed Basic and browser sessions authenticate ordinary routes; browser cookie has strict precedence; issuing-credential request-time binding is runtime accepted | Native/service mechanisms and compatibility retirement remain open | Preserve while Slice 2U changes issuance policy only |
+| Browser sessions | Atomic issue/logout, independent cookie and CSRF secrets, persistence, configurable absolute expiry, revocation checks, replay denial, lifecycle outcomes and issuer-lineage enforcement are runtime accepted | Concurrent-session limit is source-active; idle timeout and cleanup remain open | Complete Slice 2U only |
+| Concurrent browser sessions | No accepted installed limit yet; compatibility behaviour is unlimited | Strict optional per-actor effective-session limit with atomic deny-new semantics | Slice 2U active |
 | Issuing credential lineage | Issuance records `issued_from_credential_id`; later cookie and CSRF requests fail when the issuer is missing, mismatched, inactive, revoked or expired | No cascading descendant cleanup or issuer-management surface | Slice 2T is runtime accepted |
 | Grants and scopes | Active exact actor grants load from persistence; unavailable store fails closed; concrete and global exact scopes are runtime accepted | Protected grant administration and broader resource scopes | After bounded security-management design |
 | Fixed roles | Exact-scope Admin and Read-only semantics are accepted for concrete backends and global `*`; no inherited wildcard semantics | Generic persisted roles remain open | Defer until the fixed catalogue is stable |
@@ -26,11 +27,11 @@ alone is insufficient.
 | Central authorization | Accepted through all registered business and administrative POST families | No unmigrated product POST remains in the fresh post-2Q inventory | Do not invent another route-migration slice |
 | Query-scoped cache refresh | SearchTimer preview and EPG cache refresh use distinct permissions and query-derived backend scope | Completion/outcome evidence only | No further route work in Slice 2P |
 | Global stale-probe administration | Delete aliases use `epgsearch.native-fuzzy.stale-probes.delete@*`; zero-delete runtime accepted | No protected read/list API or frontend owner | Any future UI requires a separate slice |
-| Browser-session lifetime | Strict configurable absolute `300..86400` alignment for persistence and cookie is runtime accepted | Idle expiry, cleanup, concurrency and refresh policy are separate gaps | Slice 2R is closed |
+| Browser-session lifetime | Strict configurable absolute `300..86400` alignment for persistence and cookie is runtime accepted | Idle expiry, cleanup and refresh policy are separate gaps | Slice 2R is closed |
 | Browser lifecycle outcomes | Gate-owned pre-dispatch evidence plus issue/revoke outcomes are accepted; failed issue-outcome persistence compensates and failed revoke-outcome persistence expires the cookie | Other operation families and stronger coupling remain open | Slice 2S is closed |
 | Safe POST classification | All registered non-mutating stateful POSTs are explicitly classified | Re-audit only when new routes are added | No open route gap now |
 | Backend policy | Backend read-only/capability/domain checks remain independent from actor authorization | Preserve this separation for every future migration | Every future operation slice |
-| Accountability | Pre-dispatch evidence and browser lifecycle outcomes are accepted and secret-free | Other outcomes, stronger coupling/outbox, protected query/export/retention remain open | Select one bounded contract only |
+| Accountability | Pre-dispatch evidence and browser lifecycle outcomes are accepted and secret-free | Other outcomes, stronger coupling/outbox, protected query/export/retention remain open | Slice 2U adds only issue-policy outcomes |
 | Revisions/idempotency | Domain-specific partial mechanisms only | Common preconditions, idempotency and durable operation lifecycle | Later Phase 62 slice |
 | Administration | No general security-management API | Protected identity, credential, grant and role operations | Separate design and implementation slices |
 | Native/service clients | Core model is transport-neutral | Enrollment, rotation, refresh and revocation contracts | Later Phase 62 slice |
@@ -80,6 +81,8 @@ in source CI and on the real yaVDR runtime.
 ```text
 Head: 55876356e84b3e47e52911529b3f9bfa0e17f191
 Source CI: #6666 / run 30719552024 / all five jobs successful
+Closeout: e79e0eb67da75044c4a9afa162c9dab188b026fd
+Closeout CI: #6667 / run 30721936576 / all five jobs successful
 Installed/running daemon:
 34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
 Runtime report SHA-256:
@@ -103,15 +106,40 @@ Evidence directory:
 /var/backups/vdr-suite-phase62-slice2t-20260801T223353Z-55876356e84b/runtime-acceptance-slice2t
 ```
 
-Boundaries remain unchanged:
+## Active Slice 2U contract
 
-- raw `findByTokenId` and `findBySessionId` retain stored-row semantics;
-- no descendant browser row is automatically mutated;
-- no schema migration was introduced;
-- no route, permission, frontend, configuration or packaging change was
-  added;
-- idle timeout, cleanup, refresh, concurrency and security administration
-  remain separate gaps.
+Slice 2U introduces:
+
+```text
+VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR
+0     unlimited compatibility default
+1..64 maximum effective active browser sessions per actor
+```
+
+The effective count must join the browser row to the canonical actor, device,
+session, browser credential and issuing credential. Every component must remain
+active, unrevoked and unexpired. A raw active browser row whose issuer is
+revoked does not consume a slot.
+
+Count and insert remain in the existing serialized `BEGIN IMMEDIATE`
+transaction. At the configured bound, issuance returns `LimitReached`, creates
+nothing and maps to HTTP 409 `browser_session_limit_reached`. It never evicts,
+revokes or rewrites an existing session.
+
+Invalid configuration maps to HTTP 503
+`browser_session_limit_configuration_invalid`. Zero remains the compatibility
+default.
+
+Boundaries:
+
+- no schema migration;
+- no idle timeout or `last_seen`;
+- no sliding refresh;
+- no cleanup or retention;
+- no automatic eviction or oldest-session selection;
+- no session listing or administration API;
+- no route, permission or frontend change;
+- no Android or Phase 63-67 work.
 
 ## Phase 62 dependency order
 
@@ -120,29 +148,21 @@ Boundaries remain unchanged:
    accepted for the current catalogue.**
 3. **Business and administrative POST migration — accepted through
    Slice 2Q; no remaining product POST gap.**
-4. **Absolute browser-session lifetime configuration — Slice 2R
-   accepted.**
-5. **Browser-session issue/revoke outcome accountability — Slice 2S
-   accepted.**
-6. **Browser-session issuing-credential lifecycle binding — Slice 2T
-   source CI and real yaVDR runtime accepted.**
-7. **Documentation-only Slice-2T closeout and closeout CI — pending.**
-8. **Idle expiry, cleanup and concurrent-session policy — open and
-   separate.**
-9. **Common revisions, idempotency and durable operation lifecycle —
-   open.**
-10. **Broader outcomes, coupling/outbox and protected audit reads —
+4. **Absolute browser-session lifetime configuration — Slice 2R accepted.**
+5. **Browser-session issue/revoke outcome accountability — Slice 2S accepted.**
+6. **Browser-session issuing-credential lifecycle binding — Slice 2T accepted.**
+7. **Documentation-only Slice-2T closeout — accepted with CI #6667.**
+8. **Concurrent effective browser-session limit — Slice 2U active.**
+9. **Idle expiry and cleanup/retention policy — open and separate.**
+10. **Common revisions, idempotency and durable operation lifecycle — open.**
+11. **Broader outcomes, coupling/outbox and protected audit reads — open.**
+12. **Protected identity, credential, grant and generic-role administration —
     open.**
-11. **Protected identity, credential, grant and generic-role
-    administration — open.**
-12. **Compatibility retirement readiness and final Phase 62 closeout —
-    open.**
+13. **Compatibility retirement readiness and final Phase 62 closeout — open.**
 
 ## Exact next action
 
-Require all five CI jobs for this documentation-only Slice-2T closeout.
-
-No next Phase-62 implementation slice is selected by this closeout. After
-full closeout CI, perform a fresh post-2T gap analysis. Do not combine the
-closeout with idle timeout, cleanup, concurrency, security administration,
-Android or Phase 63-67 work.
+Complete only the bounded Slice-2U source stabilization and require all five CI
+jobs on the final current head. Do not install or accept runtime until final-head
+CI is fully green. Do not combine Slice 2U with idle timeout, cleanup,
+security administration, Android or Phase 63-67 work.
