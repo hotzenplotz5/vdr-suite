@@ -21,6 +21,7 @@ void clearEnvironment()
     unsetenv("VDR_SUITE_MANAGED_BASIC_CREDENTIAL_ID");
     unsetenv("VDR_SUITE_MANAGED_BASIC_PERMISSIONS");
     unsetenv("VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS");
+    unsetenv("VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR");
 }
 }
 
@@ -42,6 +43,8 @@ int main()
     assert(compatibility.managedBasic.grants.empty());
     assert(compatibility.browserSessionLifetime.valid());
     assert(compatibility.browserSessionLifetime.seconds == 28800);
+    assert(compatibility.browserSessionConcurrency.valid());
+    assert(compatibility.browserSessionConcurrency.maximumActivePerActor == 0);
 
     setenv("VDR_SUITE_SECURITY_MODE", "enforced", 1);
     const SecurityConfiguration failClosed =
@@ -170,6 +173,43 @@ int main()
         1);
     assert(SecurityConfiguration::fromEnvironment()
         .browserSessionLifetime.valid());
+
+    for (const std::string validValue : {"0", "1", "64"})
+    {
+        clearEnvironment();
+        setenv(
+            "VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR",
+            validValue.c_str(),
+            1);
+        const SecurityConfiguration concurrency =
+            SecurityConfiguration::fromEnvironment();
+        assert(concurrency.browserSessionConcurrency.valid());
+        assert(
+            concurrency.browserSessionConcurrency.maximumActivePerActor ==
+            static_cast<std::size_t>(std::stoul(validValue)));
+    }
+
+    for (const std::string invalidValue : {
+             "",
+             "65",
+             "+1",
+             "-1",
+             " 1",
+             "1 ",
+             "1x",
+             "999999999999999999999999999999999999"})
+    {
+        clearEnvironment();
+        setenv(
+            "VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR",
+            invalidValue.c_str(),
+            1);
+        const SecurityConfiguration concurrency =
+            SecurityConfiguration::fromEnvironment();
+        assert(!concurrency.browserSessionConcurrency.valid());
+        assert(
+            concurrency.browserSessionConcurrency.maximumActivePerActor == 0);
+    }
 
     clearEnvironment();
     return 0;
