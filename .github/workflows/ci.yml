@@ -13,6 +13,7 @@ concurrency:
 jobs:
   docs-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -34,7 +35,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          { make test-docs && make test-phase; } 2>&1 | tee docs-check.log
+          make -j2 --output-sync=target test-docs test-phase 2>&1 | tee docs-check.log
 
       - name: Upload documentation check log
         if: failure()
@@ -47,6 +48,7 @@ jobs:
 
   make-test-audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -79,6 +81,7 @@ jobs:
 
   frontend-regression-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -106,6 +109,7 @@ jobs:
 
   fast-regression-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -120,7 +124,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          make test-ci-fast 2>&1 | tee fast-regression-test.log
+          make -j2 --output-sync=target test-ci-fast 2>&1 | tee fast-regression-test.log
 
       - name: Build daemon
         shell: bash
@@ -141,6 +145,7 @@ jobs:
 
   packaging-regression-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -152,4 +157,4 @@ jobs:
           sudo apt-get install -y build-essential make g++ sqlite3 libsqlite3-dev libcrypt-dev
 
       - name: Run packaging and install staging tests
-        run: make test-ci-packaging
+        run: make -j2 --output-sync=target test-ci-packaging
