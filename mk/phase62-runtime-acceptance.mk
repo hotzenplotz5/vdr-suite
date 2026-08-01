@@ -1,10 +1,14 @@
 .PHONY: \
 	test-phase62-runtime-acceptance-harness \
 	phase62-runtime-acceptance \
+	phase62-runtime-acceptance-static-body \
 	phase62-runtime-acceptance-batch
 
 PHASE62_ACCEPTANCE_RUNNER := \
 	tools/phase62-runtime-acceptance/runner.py
+
+PHASE62_STATIC_BODY_RUNNER := \
+	tools/phase62-runtime-acceptance/static-body-runner.py
 
 PHASE62_SAFE_POST_RUNNER := \
 	tools/phase62-runtime-acceptance/safe-post-runner.py
@@ -17,6 +21,12 @@ PHASE62_ACCEPTANCE_MANIFESTS := \
 	tools/phase62-runtime-acceptance/slice-2l-searchtimer-update.json \
 	tools/phase62-runtime-acceptance/slice-2l-searchtimer-delete.json \
 	tools/phase62-runtime-acceptance/slice-2n-searchtimer-execution.json
+
+PHASE62_STATIC_BODY_MANIFEST ?= \
+	tools/phase62-runtime-acceptance/slice-2o-native-fuzzy-refresh.json
+
+PHASE62_STATIC_BODY_MANIFESTS := \
+	tools/phase62-runtime-acceptance/slice-2o-native-fuzzy-refresh.json
 
 PHASE62_ACCEPTANCE_BATCH_MANIFESTS := \
 	tools/phase62-runtime-acceptance/slice-2l-searchtimer-update.json \
@@ -52,6 +62,7 @@ test-phase62-runtime-acceptance-harness:
 	PYTHONPYCACHEPREFIX="$(BUILD_DIR)/python-cache" \
 		python3 -m py_compile \
 		"$(PHASE62_ACCEPTANCE_RUNNER)" \
+		"$(PHASE62_STATIC_BODY_RUNNER)" \
 		"$(PHASE62_SAFE_POST_RUNNER)"
 	@set -e; \
 	for manifest in $(PHASE62_ACCEPTANCE_MANIFESTS); do \
@@ -59,6 +70,15 @@ test-phase62-runtime-acceptance-harness:
 			--manifest "$$manifest" \
 			--validate-only; \
 		python3 "$(PHASE62_ACCEPTANCE_RUNNER)" \
+			--manifest "$$manifest" \
+			--self-test; \
+	done
+	@set -e; \
+	for manifest in $(PHASE62_STATIC_BODY_MANIFESTS); do \
+		python3 "$(PHASE62_STATIC_BODY_RUNNER)" \
+			--manifest "$$manifest" \
+			--validate-only; \
+		python3 "$(PHASE62_STATIC_BODY_RUNNER)" \
 			--manifest "$$manifest" \
 			--self-test; \
 	done
@@ -85,6 +105,37 @@ phase62-runtime-acceptance: \
 	mkdir -p "$(BUILD_DIR)"
 	python3 "$(PHASE62_ACCEPTANCE_RUNNER)" \
 		--manifest "$(PHASE62_ACCEPTANCE_MANIFEST)" \
+		--run \
+		--base-url "$(PHASE62_ACCEPTANCE_BASE_URL)" \
+		--database "$(PHASE62_ACCEPTANCE_DATABASE)" \
+		--service "$(PHASE62_ACCEPTANCE_SERVICE)" \
+		--daemon "$(PHASE62_ACCEPTANCE_DAEMON)" \
+		--loader "$(PHASE62_ACCEPTANCE_LOADER)" \
+		--backup-dir "$(PHASE62_ACCEPTANCE_BACKUP_DIR)" \
+		--expected-branch "$(PHASE62_EXPECTED_BRANCH)" \
+		--expected-head "$(PHASE62_EXPECTED_HEAD)" \
+		--expected-daemon-sha256 \
+			"$(PHASE62_EXPECTED_DAEMON_SHA256)" \
+		--expected-loader-sha256 \
+			"$(PHASE62_EXPECTED_LOADER_SHA256)" \
+		--report-json "$(PHASE62_ACCEPTANCE_REPORT)"
+
+
+phase62-runtime-acceptance-static-body: \
+	test-phase62-runtime-acceptance-harness
+	@test -n "$(PHASE62_ACCEPTANCE_BACKUP_DIR)" || \
+		{ echo "PHASE62_ACCEPTANCE_BACKUP_DIR is required"; exit 2; }
+	@test -n "$(PHASE62_EXPECTED_BRANCH)" || \
+		{ echo "PHASE62_EXPECTED_BRANCH is required"; exit 2; }
+	@test -n "$(PHASE62_EXPECTED_HEAD)" || \
+		{ echo "PHASE62_EXPECTED_HEAD is required"; exit 2; }
+	@test -n "$(PHASE62_EXPECTED_DAEMON_SHA256)" || \
+		{ echo "PHASE62_EXPECTED_DAEMON_SHA256 is required"; exit 2; }
+	@test -n "$(PHASE62_EXPECTED_LOADER_SHA256)" || \
+		{ echo "PHASE62_EXPECTED_LOADER_SHA256 is required"; exit 2; }
+	mkdir -p "$(BUILD_DIR)"
+	python3 "$(PHASE62_STATIC_BODY_RUNNER)" \
+		--manifest "$(PHASE62_STATIC_BODY_MANIFEST)" \
 		--run \
 		--base-url "$(PHASE62_ACCEPTANCE_BASE_URL)" \
 		--database "$(PHASE62_ACCEPTANCE_DATABASE)" \
