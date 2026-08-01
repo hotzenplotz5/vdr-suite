@@ -25,16 +25,22 @@ Slice 2T - Browser-Session Issuing-Credential Lifecycle Binding
 Accepted implementation/runtime head:
 55876356e84b3e47e52911529b3f9bfa0e17f191
 
-Accepted source GitHub Actions:
+Accepted Slice-2T source GitHub Actions:
 VDR-Suite CI #6666
 Run ID: 30719552024
 All five jobs successful
 
-Documentation-only Slice-2T closeout:
-This commit; closeout CI pending
+Accepted Slice-2T closeout head:
+e79e0eb67da75044c4a9afa162c9dab188b026fd
+
+Accepted Slice-2T closeout GitHub Actions:
+VDR-Suite CI #6667
+Run ID: 30721936576
+All five jobs successful
 
 Active repository implementation:
-None selected after Slice 2T runtime acceptance
+Slice 2U - Concurrent Browser-Session Limit
+Source stabilization and final-head CI pending
 
 Installed daemon SHA-256:
 34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
@@ -66,6 +72,7 @@ The accepted branch and installed runtime include:
 - append-only pre-dispatch accountability;
 - browser-session issue/revoke outcome accountability with fail-closed
   compensation;
+- issuing-credential request-time lifecycle binding;
 - mutation-safe real-runtime acceptance profiles and guarded rollback.
 
 ## Completed post-Slice-2Q POST inventory
@@ -163,12 +170,46 @@ Runtime report SHA-256:
 The raw browser row remained unchanged by issuer invalidation. No
 cascading mutation, cleanup policy or schema migration was introduced.
 
+## Active Slice 2U repository contract
+
+Slice 2U adds a strict optional limit for effective active browser sessions per
+actor:
+
+```text
+VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR
+0     unlimited compatibility default
+1..64 maximum effective active browser sessions per actor
+```
+
+The effective count joins the browser verifier to the canonical actor, device,
+session, browser credential and issuing credential. Every component must remain
+active, unrevoked and unexpired. A raw active row whose issuer is revoked does
+not consume a slot.
+
+The count and all inserts remain inside the existing serialized
+`BEGIN IMMEDIATE` issuance transaction. Reaching the limit returns the bounded
+`LimitReached` result, creates no lifecycle row and never evicts or revokes an
+existing session.
+
+HTTP mapping:
+
+```text
+invalid configuration -> 503 browser_session_limit_configuration_invalid
+limit reached         -> 409 browser_session_limit_reached
+other issue failure   -> 503 browser_session_issuance_failed
+```
+
+The default remains unlimited. Idle timeout, `last_seen`, sliding refresh,
+cleanup, retention, automatic eviction and session-administration APIs are not
+part of Slice 2U.
+
 ## Remaining Phase 62 work
 
 Phase 62 still lacks:
 
-- full CI for this documentation-only Slice-2T closeout;
-- browser-session idle expiry, cleanup and concurrency policy;
+- Slice-2U final source stabilization, all five final-head CI jobs and guarded
+  real-yaVDR acceptance;
+- browser-session idle expiry and cleanup/retention policy;
 - outcome accountability for other operation families;
 - stronger transactional coupling or outbox semantics;
 - protected identity, credential, role and grant administration;
@@ -186,6 +227,7 @@ metadata without explicit approval.
 
 The PR description is materially stale. Current repository truth is this file,
 [Current State](../CURRENT.md), the active
+[Slice 2U contract](phase-62-slice-2u-browser-session-concurrency-limit.md), the
 [Slice 2T closeout](phase-62-slice-2t-browser-session-issuer-binding.md), the
 [Slice 2S closeout](phase-62-slice-2s-browser-session-outcome-accountability.md),
 the [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
@@ -194,13 +236,22 @@ and the
 
 ### Preferred edit path for new chats
 
+Root-level [Agent Workflow Rules](../../AGENTS.md) are binding.
+
 Prefer direct GitHub repository updates for existing files when the connector
 can perform the requested edit safely and the complete current file content is
-available.
+available. Continue through already-approved bounded work without artificial
+confirmation pauses.
+
+Create small coherent commits and push them consecutively with fast-forward-only
+semantics. Do not wait for GitHub Actions after every commit. Evaluate required
+CI on the final stabilization head or immediately before a gated runtime,
+Ready-for-review or merge operation.
 
 Use local edits first only when the change requires:
 
 - compilation, generated artifacts or focused local runtime tests;
+- access to the installed real yaVDR runtime;
 - coordinated tooling that is not available through the connector;
 - a workaround because the GitHub connector blocks a file operation.
 
@@ -210,15 +261,16 @@ diff before treating a GitHub change as complete.
 
 ## Exact next action
 
-Require all five CI jobs for this documentation-only Slice-2T closeout.
-
-No next Phase-62 implementation slice is selected by this closeout. Perform
-a fresh post-2T gap analysis only after full closeout CI.
+Complete the bounded Slice-2U source stabilization and require all five GitHub
+Actions jobs on the final current head. Only after full green final-head CI may
+the guarded real-yaVDR concurrency-limit acceptance begin.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
+- [Agent Workflow Rules](../../AGENTS.md)
+- [Slice 2U Active Contract](phase-62-slice-2u-browser-session-concurrency-limit.md)
 - [Slice 2T Closeout](phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Slice 2S Closeout](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
