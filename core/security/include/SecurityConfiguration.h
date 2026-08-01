@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <cstdlib>
 #include <sstream>
 #include <string>
@@ -26,6 +27,19 @@ struct BrowserSessionLifetimeConfiguration
         return configuredValueValid &&
             seconds >= BrowserSessionIssuanceService::MinimumLifetimeSeconds &&
             seconds <= BrowserSessionIssuanceService::MaximumLifetimeSeconds;
+    }
+};
+
+struct BrowserSessionConcurrencyConfiguration
+{
+    std::size_t maximumActivePerActor = 0;
+    bool configuredValueValid = true;
+
+    bool valid() const
+    {
+        return configuredValueValid &&
+            maximumActivePerActor <=
+                BrowserSessionIssuanceService::MaximumActiveSessionsPerActor;
     }
 };
 
@@ -72,6 +86,7 @@ struct SecurityConfiguration
     };
     ManagedBasicConfiguration managedBasic;
     BrowserSessionLifetimeConfiguration browserSessionLifetime;
+    BrowserSessionConcurrencyConfiguration browserSessionConcurrency;
 
     static SecurityConfiguration fromEnvironment()
     {
@@ -179,6 +194,18 @@ struct SecurityConfiguration
                     configuration.browserSessionLifetime.seconds);
         }
 
+        const char* browserSessionMaximum =
+            std::getenv(
+                "VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR");
+        if (browserSessionMaximum != nullptr)
+        {
+            configuration.browserSessionConcurrency.configuredValueValid =
+                parseBrowserSessionMaximum(
+                    browserSessionMaximum,
+                    configuration.browserSessionConcurrency
+                        .maximumActivePerActor);
+        }
+
         return configuration;
     }
 
@@ -237,6 +264,39 @@ private:
             BrowserSessionIssuanceService::MinimumLifetimeSeconds)
         {
             return false;
+        }
+
+        result = parsed;
+        return true;
+    }
+
+    static bool parseBrowserSessionMaximum(
+        const std::string& configuredValue,
+        std::size_t& result)
+    {
+        if (configuredValue.empty())
+        {
+            return false;
+        }
+
+        constexpr std::size_t maximum =
+            BrowserSessionIssuanceService::MaximumActiveSessionsPerActor;
+        std::size_t parsed = 0;
+
+        for (const unsigned char character : configuredValue)
+        {
+            if (!std::isdigit(character))
+            {
+                return false;
+            }
+
+            const std::size_t digit =
+                static_cast<std::size_t>(character - '0');
+            if (parsed > (maximum - digit) / 10)
+            {
+                return false;
+            }
+            parsed = parsed * 10 + digit;
         }
 
         result = parsed;
