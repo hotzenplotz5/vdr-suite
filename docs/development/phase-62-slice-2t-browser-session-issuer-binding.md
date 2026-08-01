@@ -2,8 +2,25 @@
 
 ## Status
 
-Repository implementation is prepared. Full CI and guarded real yaVDR runtime
-acceptance remain pending.
+Repository implementation, focused verification, all five source CI jobs
+and guarded real yaVDR runtime acceptance are complete.
+
+Accepted implementation/runtime head:
+
+```text
+55876356e84b3e47e52911529b3f9bfa0e17f191
+```
+
+Accepted source CI:
+
+```text
+VDR-Suite CI #6666
+Run ID: 30719552024
+All five jobs successful
+```
+
+This documentation-only closeout commit and its CI are the remaining
+closeout gate.
 
 PR #117 remains open, Draft and unmerged.
 
@@ -126,30 +143,90 @@ test, Make and documentation ownership.
 
 ---
 
-## Planned Real-Runtime Acceptance
+## Accepted Real-Runtime Acceptance
 
-Real-runtime acceptance may run only after all five PR CI jobs are green.
+The guarded pass ran against the real yaVDR installation after all five
+source CI jobs were green.
 
-The guarded pass will:
+It:
 
-1. verify the exact accepted branch head and installed fingerprints;
-2. back up the runtime and SQLite database;
-3. install and start the accepted daemon;
-4. issue one bounded test browser session;
-5. create one disposable same-actor issuer credential in revoked state;
-6. redirect only the test browser row's `issued_from_credential_id` to that
-   disposable credential;
-7. prove the raw browser row itself remains active and unrevoked;
-8. prove ordinary browser GET and logout are denied with
-   `credential_revoked` before CSRF dispatch;
-9. prove denial accountability is secret-free;
-10. revoke the test browser lifecycle rows, deny replay, verify database
-    integrity and leave the service active.
+1. verified the exact local and remote runtime head;
+2. backed up the installed runtime and SQLite database;
+3. installed and started the accepted daemon;
+4. issued one isolated browser test session;
+5. proved ordinary-route browser authentication before issuer invalidation;
+6. created one disposable same-actor issuer credential in revoked state;
+7. redirected only the test browser row's
+   `issued_from_credential_id`;
+8. proved the raw browser row, canonical session and browser credential
+   remained active and unrevoked before cleanup;
+9. proved ordinary GET and logout failed with `credential_revoked`;
+10. proved logout failed before CSRF verification;
+11. fully revoked the test browser lifecycle and denied replay;
+12. verified append-only accountability, database integrity and active
+    service state;
+13. left the original compatibility issuer unchanged;
+14. performed zero VDR domain mutations.
 
-The pass will not revoke a production or compatibility issuer and will not
-contact or mutate VDR domain state.
+Accepted results:
+
+```text
+service_pid_before=69610
+service_pid_after_install=73034
+service_pid_after_acceptance=73034
+runtime_http_requests=5
+login_http_status=200
+active_get_http_status=200
+revoked_issuer_get_http_status=401
+revoked_issuer_logout_http_status=401
+revoked_cookie_replay_http_status=401
+login_authorized_events=1
+login_succeeded_events=1
+revoked_get_denials=1
+revoked_logout_denials=1
+revoked_logout_csrf_events=0
+revoked_logout_operation_events=0
+replay_denials=1
+issuer_revocation_effective_without_cascade=yes
+original_issuer_unchanged=yes
+test_browser_session_revoked=yes
+test_browser_credential_revoked=yes
+accountability_secret_free=yes
+vdr_domain_mutations=0
+database_quick_check=ok
+database_foreign_key_check=empty
+service_state=active
+automatic_rollback=not-required
+```
+
+Installed fingerprints:
+
+```text
+daemon:
+34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
+
+deferred-runtime-loader.js:
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+```
+
+Durable evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2t-20260801T223353Z-55876356e84b/runtime-acceptance-slice2t
+```
+
+Runtime report SHA-256:
+
+```text
+2ca7fcaefe21c1198e5d8ff88b3e17237b2e72a545780cc14f0200e7dd0ca983
+```
+
+The pass did not revoke or alter the original compatibility issuer and did
+not contact or mutate VDR domain state.
 
 ---
+
+## Explicitly Deferred
 
 ## Explicitly Deferred
 
@@ -170,10 +247,23 @@ Slice 2T does not implement:
 
 ## Acceptance Gate
 
-Slice 2T is not complete until:
+All Slice-2T implementation and runtime gates passed:
 
-1. the repository diff remains within the issuing-credential binding boundary;
-2. focused and architecture tests pass;
-3. all five PR CI jobs pass;
-4. guarded real yaVDR issuer-revocation acceptance succeeds;
-5. the runtime test session is revoked and durable evidence is documented.
+1. the repository diff remained within the issuing-credential binding
+   boundary;
+2. focused and architecture tests passed;
+3. all five PR source CI jobs passed;
+4. guarded real yaVDR issuer-revocation acceptance succeeded;
+5. the runtime test session and browser credential were revoked;
+6. durable evidence is secret-free and hash-addressed;
+7. database integrity and active service state were preserved;
+8. no VDR domain mutation occurred.
+
+The remaining closeout gate is documentation-only:
+
+1. publish this bounded documentation closeout;
+2. require all five closeout CI jobs;
+3. keep PR #117 open, Draft and unmerged.
+
+No next Phase-62 implementation slice is selected by this closeout. A fresh
+post-2T gap analysis must occur only after full closeout CI.

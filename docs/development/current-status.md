@@ -20,25 +20,24 @@ Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Repository, source CI and real-runtime accepted through:
-Slice 2S - Browser-Session Lifecycle Outcome Accountability
+Slice 2T - Browser-Session Issuing-Credential Lifecycle Binding
 
-Accepted code/runtime head:
-c128867bfbf4ce10bcf7dc23d14652e5f5324c83
+Accepted implementation/runtime head:
+55876356e84b3e47e52911529b3f9bfa0e17f191
 
-Accepted closeout head:
-064744f73905b6fcc53d737ab9088554ae2af4b6
-
-Accepted closeout GitHub Actions:
-VDR-Suite CI #6664
-Run ID: 30718491649
+Accepted source GitHub Actions:
+VDR-Suite CI #6666
+Run ID: 30719552024
 All five jobs successful
 
+Documentation-only Slice-2T closeout:
+This commit; closeout CI pending
+
 Active repository implementation:
-Slice 2T - Browser-Session Issuing-Credential Lifecycle Binding
-CI and real-runtime acceptance pending
+None selected after Slice 2T runtime acceptance
 
 Installed daemon SHA-256:
-682cfc76738454f57daff0831fe7a01786f57abf42cf16c2fa9c2ac16309a07a
+34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
 
 Installed deferred-runtime-loader.js SHA-256:
 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
@@ -103,17 +102,12 @@ Durable evidence:
 /var/backups/vdr-suite-phase62-slice2s-20260801T210333Z-c128867bfbf4/runtime-acceptance-slice2s
 ```
 
-## Active Slice 2T repository contract
+## Accepted Slice 2T evidence
 
-The fresh lifecycle audit confirmed that `PersistentIdentityResolver` already
-rechecks the browser actor, device, canonical session and browser credential.
-The remaining gap is the lineage credential stored in
-`issued_from_credential_id`.
-
-Slice 2T adds an effective token lookup that joins the browser row to its issuing
-credential. Both ordinary cookie authentication and CSRF verification require
-the issuer to exist, belong to the same actor, remain active, remain unrevoked
-and remain unexpired.
+Slice 2T closes the request-time lineage gap for
+`issued_from_credential_id`. Both ordinary browser-cookie authentication
+and CSRF verification require the issuing credential to exist, belong to
+the same actor, remain active, remain unrevoked and remain unexpired.
 
 Fail-closed mapping:
 
@@ -125,28 +119,55 @@ issuer missing, actor-mismatched, inactive or revoked
   -> credential_revoked
 ```
 
-The raw browser row remains unchanged. No cascading mutation, cleanup policy or
-schema migration is introduced.
+The guarded yaVDR pass proved:
 
-Explicitly excluded from Slice 2T:
+```text
+service_pid_before=69610
+service_pid_after_install=73034
+service_pid_after_acceptance=73034
+runtime_http_requests=5
+login_http_status=200
+active_get_http_status=200
+revoked_issuer_get_http_status=401
+revoked_issuer_logout_http_status=401
+revoked_cookie_replay_http_status=401
+raw_browser_active_before_cleanup=yes
+raw_browser_unrevoked_before_cleanup=yes
+canonical_session_active_before_cleanup=yes
+browser_credential_active_before_cleanup=yes
+issuer_revocation_effective_without_cascade=yes
+logout_denied_before_csrf=yes
+original_issuer_unchanged=yes
+test_browser_session_revoked=yes
+test_browser_credential_revoked=yes
+accountability_secret_free=yes
+vdr_domain_mutations=0
+database_quick_check=ok
+database_foreign_key_check=empty
+service_state=active
+automatic_rollback=not-required
+```
 
-- idle timeout and `last_seen` persistence;
-- sliding expiry or refresh;
-- expired-session cleanup;
-- concurrent-session limits;
-- security administration APIs;
-- issuer enrollment or rotation;
-- broader operation outcomes or transactional outbox;
-- route, frontend, permission, configuration or packaging changes.
+Durable evidence:
 
-This repository implementation is not accepted runtime until all five CI jobs
-and the guarded yaVDR issuing-credential revocation pass succeed.
+```text
+/var/backups/vdr-suite-phase62-slice2t-20260801T223353Z-55876356e84b/runtime-acceptance-slice2t
+```
+
+Runtime report SHA-256:
+
+```text
+2ca7fcaefe21c1198e5d8ff88b3e17237b2e72a545780cc14f0200e7dd0ca983
+```
+
+The raw browser row remained unchanged by issuer invalidation. No
+cascading mutation, cleanup policy or schema migration was introduced.
 
 ## Remaining Phase 62 work
 
 Phase 62 still lacks:
 
-- Slice 2T CI and guarded real-runtime acceptance;
+- full CI for this documentation-only Slice-2T closeout;
 - browser-session idle expiry, cleanup and concurrency policy;
 - outcome accountability for other operation families;
 - stronger transactional coupling or outbox semantics;
@@ -165,7 +186,7 @@ metadata without explicit approval.
 
 The PR description is materially stale. Current repository truth is this file,
 [Current State](../CURRENT.md), the active
-[Slice 2T contract](phase-62-slice-2t-browser-session-issuer-binding.md), the
+[Slice 2T closeout](phase-62-slice-2t-browser-session-issuer-binding.md), the
 [Slice 2S closeout](phase-62-slice-2s-browser-session-outcome-accountability.md),
 the [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 and the
@@ -189,15 +210,16 @@ diff before treating a GitHub change as complete.
 
 ## Exact next action
 
-Publish the bounded Slice-2T implementation as one fast-forward commit and
-require all five CI jobs. Only then run guarded yaVDR acceptance using a
-disposable revoked issuer credential bound solely to the test browser session.
+Require all five CI jobs for this documentation-only Slice-2T closeout.
+
+No next Phase-62 implementation slice is selected by this closeout. Perform
+a fresh post-2T gap analysis only after full closeout CI.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
-- [Slice 2T Active Contract](phase-62-slice-2t-browser-session-issuer-binding.md)
+- [Slice 2T Closeout](phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Slice 2S Closeout](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)

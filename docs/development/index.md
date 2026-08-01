@@ -30,21 +30,22 @@
 Latest completed numbered runtime phase: Phase 61 - Suite Metadata and Genre Platform
 Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
 Current runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
-Current accepted Phase 62 state: repository, source CI and real yaVDR runtime accepted through Slice 2S
-Accepted code/runtime head: c128867bfbf4ce10bcf7dc23d14652e5f5324c83
-Accepted closeout head: 064744f73905b6fcc53d737ab9088554ae2af4b6
-Accepted closeout CI: #6664 / run 30718491649 / all five jobs successful
-Active repository implementation: Slice 2T browser-session issuing-credential lifecycle binding
-Slice 2T CI and real-runtime acceptance: pending
-Installed daemon SHA-256: 682cfc76738454f57daff0831fe7a01786f57abf42cf16c2fa9c2ac16309a07a
+Current accepted Phase 62 state: repository, source CI and real yaVDR runtime accepted through Slice 2T
+Accepted implementation/runtime head: 55876356e84b3e47e52911529b3f9bfa0e17f191
+Accepted source CI: #6666 / run 30719552024 / all five jobs successful
+Documentation-only Slice-2T closeout: this commit; closeout CI pending
+Active repository implementation: none selected after Slice 2T runtime acceptance
+Installed daemon SHA-256: 34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
 Installed loader SHA-256: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 ```
+
 
 Phase 62 remains active and incomplete. Phase 63-67 runtime has not been
 advanced. PR #117 remains open, Draft and unmerged.
 
 ## Latest accepted closeouts
 
+- [Phase 62 Slice 2T Closeout](phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Phase 62 Slice 2S Closeout](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Phase 62 Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Phase 62 Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
@@ -79,22 +80,35 @@ Evidence directory:
 /var/backups/vdr-suite-phase62-slice2s-20260801T210333Z-c128867bfbf4/runtime-acceptance-slice2s
 ```
 
-## Active Slice 2T contract
+## Accepted Slice 2T runtime evidence
 
 ```text
-lineage source: issued_from_credential_id
-active lookup: findResolvedByTokenId
-cookie authentication: issuer-bound
-CSRF verification: issuer-bound
+Runtime head: 55876356e84b3e47e52911529b3f9bfa0e17f191
+Source CI: #6666 / run 30719552024 / all five jobs successful
+Installed/running daemon: 34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
+Runtime report SHA-256: 2ca7fcaefe21c1198e5d8ff88b3e17237b2e72a545780cc14f0200e7dd0ca983
+Ordinary GET before issuer invalidation: HTTP 200
+Ordinary GET after issuer invalidation: HTTP 401 credential_revoked
+Logout after issuer invalidation: HTTP 401 credential_revoked
+Logout denied before CSRF: yes
+Raw browser lifecycle unchanged before cleanup: yes
+Original issuer unchanged: yes
+Test browser lifecycle revoked: yes
+Revoked-cookie replay denied: yes
+VDR domain mutations: 0
+Database integrity: yes
+Service active: yes
+Rollback: not required
 ```
 
-The effective browser-session lookup requires the issuing credential to exist,
-belong to the same actor, remain active, remain unrevoked and remain unexpired.
-Issuer expiry maps to `credential_expired`; missing, mismatched, inactive or
-revoked issuers map to `credential_revoked`.
+Evidence directory:
 
-Raw browser-row methods remain unchanged. No schema migration, cascade, cleanup,
-route, frontend, permission or packaging change is included.
+```text
+/var/backups/vdr-suite-phase62-slice2t-20260801T223353Z-55876356e84b/runtime-acceptance-slice2t
+```
+
+No schema migration, cascade, cleanup, route, frontend, permission,
+configuration or packaging change was included.
 
 ## Developer references
 
@@ -126,9 +140,10 @@ route, frontend, permission or packaging change is included.
 
 ## Exact next action
 
-Publish the bounded Slice-2T repository implementation as one fast-forward
-commit. Require all five CI jobs before guarded issuing-credential lifecycle
-acceptance on yaVDR.
+Require all five CI jobs for this documentation-only Slice-2T closeout.
+
+No next implementation slice is selected by this closeout. Perform a fresh
+post-2T gap analysis only after full closeout CI.
 
 ## Related navigation
 

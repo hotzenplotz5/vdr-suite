@@ -5,7 +5,7 @@
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
-- [Phase 62 Slice 2T Active Contract](development/phase-62-slice-2t-browser-session-issuer-binding.md)
+- [Phase 62 Slice 2T Closeout](development/phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Phase 62 Slice 2S Closeout](development/phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Phase 62 Slice 2R Closeout](development/phase-62-slice-2r-browser-session-lifetime-configuration.md)
 - [Phase 62 Slice 2Q Closeout](development/phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
@@ -47,32 +47,31 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Repository, source CI and real-runtime accepted through:
-Slice 2S - Browser-Session Lifecycle Outcome Accountability
+Slice 2T - Browser-Session Issuing-Credential Lifecycle Binding
 
-Accepted code/runtime head:
-c128867bfbf4ce10bcf7dc23d14652e5f5324c83
+Accepted implementation/runtime head:
+55876356e84b3e47e52911529b3f9bfa0e17f191
 
-Accepted closeout head:
-064744f73905b6fcc53d737ab9088554ae2af4b6
-
-Accepted closeout CI:
-VDR-Suite CI #6664
-Run ID 30718491649
+Accepted source GitHub Actions:
+VDR-Suite CI #6666
+Run ID 30719552024
 All five jobs successful
 
+Documentation-only Slice-2T closeout:
+This commit; closeout CI pending
+
 Active repository implementation:
-Slice 2T - Browser-Session Issuing-Credential Lifecycle Binding
-CI and real-runtime acceptance pending
+None selected after Slice 2T runtime acceptance
 
 Installed daemon SHA-256:
-682cfc76738454f57daff0831fe7a01786f57abf42cf16c2fa9c2ac16309a07a
+34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
 
 Installed deferred-runtime-loader.js SHA-256:
 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 ```
 
-Phase 61 is complete. Phase 62 is active and incomplete. Phase 63-67 runtime
-has not been advanced.
+Phase 61 is complete. Phase 62 is active and incomplete. Phase 63-67
+runtime has not been advanced.
 
 ## Accepted security request path
 
@@ -149,31 +148,54 @@ database_before_sha256=12356c390c4c852bf59b1a9636e27738332ab71f836dcb01ef46984a3
 database_after_sha256=2153b347d97ce1148a1efdbc3628c4f9652346e82b27d0baeae50c38172e5378
 ```
 
-## Active Slice 2T repository contract
+## Accepted Slice 2T contract and runtime evidence
 
-Browser-session issuance already records `issued_from_credential_id` and checks
-the source credential at issue time. Slice 2T closes the remaining request-time
-lineage gap.
+Browser-session issuance records `issued_from_credential_id`. Slice 2T
+revalidates that issuing credential during every ordinary browser-cookie
+authentication and CSRF verification.
 
-The effective cookie lookup joins the browser-session row to the issuing
-credential. Cookie authentication and CSRF verification fail closed when the
-issuer is:
+The issuing credential must:
 
-- missing;
-- owned by a different actor;
-- inactive;
-- revoked;
-- expired.
+- exist;
+- belong to the same actor as the browser row;
+- remain active;
+- remain unrevoked;
+- remain unexpired.
 
-Issuer expiry maps to the established `credential_expired` path. Missing,
-mismatched, inactive or revoked issuers map to `credential_revoked`.
+Issuer expiry maps to `credential_expired`. A missing, actor-mismatched,
+inactive or revoked issuer maps to `credential_revoked`.
 
-Raw browser-row lookups remain unchanged and no descendant row is mutated. The
-existing `PersistentIdentityResolver` continues to own actor, device, canonical
-session and browser-credential checks.
+The guarded real-yaVDR pass redirected only one isolated test browser row
+to a disposable same-actor revoked issuer. Ordinary GET and logout were
+immediately denied while the raw browser row, canonical session and browser
+credential remained active until controlled cleanup. This proves that the
+request-time binding is effective without a cascading persistence mutation.
 
-Slice 2T adds no route, permission, frontend owner, schema migration,
-configuration or packaging change.
+The original compatibility issuer remained active and unchanged. The test
+browser lifecycle was subsequently fully revoked and replay was denied.
+
+```text
+Runtime head:
+55876356e84b3e47e52911529b3f9bfa0e17f191
+
+Source CI:
+#6666 / run 30719552024 / all five jobs successful
+
+Installed/running daemon SHA-256:
+34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
+
+Loader SHA-256:
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+
+Runtime report SHA-256:
+2ca7fcaefe21c1198e5d8ff88b3e17237b2e72a545780cc14f0200e7dd0ca983
+```
+
+Durable evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2t-20260801T223353Z-55876356e84b/runtime-acceptance-slice2t
+```
 
 ## Compatibility and fail-closed boundary
 
@@ -186,10 +208,10 @@ the effective browser-cookie and CSRF lifecycle resolution.
 
 ## Remaining Phase 62 work
 
-- complete all five CI jobs and guarded real-runtime acceptance for Slice 2T;
+- complete all five CI jobs for this documentation-only Slice-2T closeout;
 - define browser-session idle expiry, cleanup and concurrency policy;
-- extend outcome accountability beyond the bounded lifecycle pair only through
-  separately designed slices;
+- extend outcome accountability beyond the bounded lifecycle pair only
+  through separately designed slices;
 - define stronger transactional coupling or outbox semantics separately;
 - add protected credential, identity, role and grant administration;
 - add native/service credential lifecycle;
@@ -208,7 +230,9 @@ the effective browser-cookie and CSRF lifecycle resolution.
 
 ## Exact next action
 
-Publish Slice 2T as one bounded fast-forward commit and require all five CI jobs
-to pass. Only after full green CI may a guarded yaVDR pass verify that a revoked
-disposable issuing credential invalidates its test browser cookie before grants,
-CSRF and route dispatch.
+Require all five CI jobs for this documentation-only Slice-2T closeout.
+
+No next Phase-62 implementation slice is selected by this closeout. After
+full closeout CI, perform a fresh post-2T gap analysis and select exactly
+one bounded Phase-62 slice. Do not combine that selection with the
+closeout.

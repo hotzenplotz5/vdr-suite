@@ -1,13 +1,12 @@
 # Phase 62 Security and Identity Gap Matrix
 
-Status: active Phase 62 planning and implementation matrix  
-Repository baseline: `cb77ff66e11dca7db2eafa36525762dcde35102d` (`main`, merge of PR #115)  
-Accepted branch slices: Slice 1 through Slice 2S  
-Active repository implementation: Slice 2T browser-session issuing-credential lifecycle binding  
-Accepted code/runtime head: `c128867bfbf4ce10bcf7dc23d14652e5f5324c83`  
-Accepted closeout head: `064744f73905b6fcc53d737ab9088554ae2af4b6`  
-Authoritative accepted closeout CI: #6664 / run `30718491649` / all five jobs successful  
-Slice 2T CI and real yaVDR acceptance: pending
+Status: active Phase 62 planning and implementation matrix
+Repository baseline: `cb77ff66e11dca7db2eafa36525762dcde35102d` (`main`, merge of PR #115)
+Accepted branch slices: Slice 1 through Slice 2T
+Active repository implementation: none selected after Slice 2T runtime acceptance
+Accepted implementation/runtime head: `55876356e84b3e47e52911529b3f9bfa0e17f191`
+Authoritative accepted source CI: #6666 / run `30719552024` / all five jobs successful
+Documentation-only Slice-2T closeout: this commit; closeout CI pending
 
 A component is not accepted installed runtime until it is connected, covered by
 the complete CI graph and validated on the real yaVDR system. Code-head evidence
@@ -18,12 +17,12 @@ alone is insufficient.
 | Security area | Current accepted state | Remaining gap | Next bounded work |
 |---|---|---|---|
 | Actor/device model | Canonical persistent actor, device, session and credential context | Protected enrollment and administration | Later lifecycle administration slice |
-| Authentication | Legacy Basic, optional Managed Basic and browser sessions authenticate ordinary routes; browser cookie has strict precedence | Issuing-credential request-time binding is active in Slice 2T; native/service mechanisms and compatibility retirement remain open | Complete Slice 2T only |
-| Browser sessions | Atomic issue/logout, independent cookie and CSRF secrets, persistence, configurable absolute expiry, revocation checks, replay denial and lifecycle outcomes | Issuer lineage is repository-active in Slice 2T; idle timeout, cleanup and concurrency remain open | Complete Slice 2T only |
-| Issuing credential lineage | Issuance records `issued_from_credential_id` and validates the issuer at creation | Later cookie and CSRF requests must fail when that issuer is missing, mismatched, inactive, revoked or expired | Slice 2T |
+| Authentication | Legacy Basic, optional Managed Basic and browser sessions authenticate ordinary routes; browser cookie has strict precedence; issuing-credential request-time binding is runtime accepted | Native/service mechanisms and compatibility retirement remain open | Select only after fresh post-2T analysis |
+| Browser sessions | Atomic issue/logout, independent cookie and CSRF secrets, persistence, configurable absolute expiry, revocation checks, replay denial, lifecycle outcomes and issuer-lineage enforcement are runtime accepted | Idle timeout, cleanup and concurrency remain open | Separate future policy slice |
+| Issuing credential lineage | Issuance records `issued_from_credential_id`; later cookie and CSRF requests fail when the issuer is missing, mismatched, inactive, revoked or expired | No cascading descendant cleanup or issuer-management surface | Slice 2T is runtime accepted |
 | Grants and scopes | Active exact actor grants load from persistence; unavailable store fails closed; concrete and global exact scopes are runtime accepted | Protected grant administration and broader resource scopes | After bounded security-management design |
 | Fixed roles | Exact-scope Admin and Read-only semantics are accepted for concrete backends and global `*`; no inherited wildcard semantics | Generic persisted roles remain open | Defer until the fixed catalogue is stable |
-| CSRF | Enforced for all accepted browser mutation families; frontend tokens remain memory-only and owner-injected | Slice 2T binds CSRF verification to issuer lifecycle; future frontend owners still require explicit contracts | Complete Slice 2T only |
+| CSRF | Enforced for all accepted browser mutation families; frontend tokens remain memory-only and owner-injected; issuer lifecycle binding is runtime accepted | Future frontend owners still require explicit contracts | Preserve explicit ownership |
 | Central authorization | Accepted through all registered business and administrative POST families | No unmigrated product POST remains in the fresh post-2Q inventory | Do not invent another route-migration slice |
 | Query-scoped cache refresh | SearchTimer preview and EPG cache refresh use distinct permissions and query-derived backend scope | Completion/outcome evidence only | No further route work in Slice 2P |
 | Global stale-probe administration | Delete aliases use `epgsearch.native-fuzzy.stale-probes.delete@*`; zero-delete runtime accepted | No protected read/list API or frontend owner | Any future UI requires a separate slice |
@@ -73,61 +72,77 @@ Evidence directory:
 /var/backups/vdr-suite-phase62-slice2s-20260801T210333Z-c128867bfbf4/runtime-acceptance-slice2s
 ```
 
-## Active Slice 2T contract
+## Accepted Slice 2T evidence
 
-The fresh post-2S lifecycle audit separated already-covered canonical identity
-checks from the remaining issuer-lineage gap.
-
-`PersistentIdentityResolver` already validates:
-
-- actor lifecycle;
-- device ownership and lifecycle;
-- canonical browser session lifecycle;
-- canonical browser credential lifecycle.
-
-Slice 2T adds request-time resolution of the stored
-`issued_from_credential_id`:
+Slice 2T request-time resolution of `issued_from_credential_id` is accepted
+in source CI and on the real yaVDR runtime.
 
 ```text
-issuer exists
-issuer.actor_id == browser.actor_id
-issuer.active == true
-issuer.revoked_at == ''
-issuer.expires_at is empty or in the future
+Head: 55876356e84b3e47e52911529b3f9bfa0e17f191
+Source CI: #6666 / run 30719552024 / all five jobs successful
+Installed/running daemon:
+34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
+Runtime report SHA-256:
+2ca7fcaefe21c1198e5d8ff88b3e17237b2e72a545780cc14f0200e7dd0ca983
+Active ordinary GET before issuer invalidation: HTTP 200
+Revoked-issuer ordinary GET: HTTP 401 credential_revoked
+Revoked-issuer logout: HTTP 401 credential_revoked
+Logout denied before CSRF: yes
+Raw browser row unchanged before cleanup: yes
+Original issuer unchanged: yes
+Test browser lifecycle revoked: yes
+Replay denied: yes
+VDR domain mutations: 0
+Database integrity: yes
+Service active: yes
 ```
 
-Both cookie authentication and CSRF verification use the resolved record.
-Issuer expiry maps to `credential_expired`. Missing, mismatched, inactive or
-revoked issuers map to `credential_revoked`.
+Evidence directory:
 
-Boundaries:
+```text
+/var/backups/vdr-suite-phase62-slice2t-20260801T223353Z-55876356e84b/runtime-acceptance-slice2t
+```
 
-- raw `findByTokenId` and `findBySessionId` semantics remain unchanged;
+Boundaries remain unchanged:
+
+- raw `findByTokenId` and `findBySessionId` retain stored-row semantics;
 - no descendant browser row is automatically mutated;
-- no schema migration is introduced;
-- no route, permission, frontend, configuration or packaging change is included;
-- no idle timeout, cleanup, refresh, concurrency or administration is included.
+- no schema migration was introduced;
+- no route, permission, frontend, configuration or packaging change was
+  added;
+- idle timeout, cleanup, refresh, concurrency and security administration
+  remain separate gaps.
 
 ## Phase 62 dependency order
 
 1. **Identity and authorization foundation — accepted.**
 2. **Persistent lifecycle, browser sessions, exact grants and fixed roles —
    accepted for the current catalogue.**
-3. **Business and administrative POST migration — accepted through Slice 2Q;
-   no remaining product POST gap.**
-4. **Absolute browser-session lifetime configuration — Slice 2R accepted.**
-5. **Browser-session issue/revoke outcome accountability — Slice 2S accepted.**
-6. **Browser-session issuing-credential lifecycle binding — Slice 2T repository
-   implementation active; CI/runtime pending.**
-7. **Idle expiry, cleanup and concurrent-session policy — open and separate.**
-8. **Common revisions, idempotency and durable operation lifecycle — open.**
-9. **Broader outcomes, coupling/outbox and protected audit reads — open.**
-10. **Protected identity, credential, grant and generic-role administration — open.**
-11. **Compatibility retirement readiness and final Phase 62 closeout — open.**
+3. **Business and administrative POST migration — accepted through
+   Slice 2Q; no remaining product POST gap.**
+4. **Absolute browser-session lifetime configuration — Slice 2R
+   accepted.**
+5. **Browser-session issue/revoke outcome accountability — Slice 2S
+   accepted.**
+6. **Browser-session issuing-credential lifecycle binding — Slice 2T
+   source CI and real yaVDR runtime accepted.**
+7. **Documentation-only Slice-2T closeout and closeout CI — pending.**
+8. **Idle expiry, cleanup and concurrent-session policy — open and
+   separate.**
+9. **Common revisions, idempotency and durable operation lifecycle —
+   open.**
+10. **Broader outcomes, coupling/outbox and protected audit reads —
+    open.**
+11. **Protected identity, credential, grant and generic-role
+    administration — open.**
+12. **Compatibility retirement readiness and final Phase 62 closeout —
+    open.**
 
 ## Exact next action
 
-Publish the bounded Slice-2T repository implementation as one fast-forward
-commit and require all five CI jobs. Only after full green CI may the guarded
-issuer-revocation yaVDR acceptance run. Do not combine Slice 2T with idle
-timeout, cleanup, concurrency, security administration, Android or Phase 63-67.
+Require all five CI jobs for this documentation-only Slice-2T closeout.
+
+No next Phase-62 implementation slice is selected by this closeout. After
+full closeout CI, perform a fresh post-2T gap analysis. Do not combine the
+closeout with idle timeout, cleanup, concurrency, security administration,
+Android or Phase 63-67 work.
