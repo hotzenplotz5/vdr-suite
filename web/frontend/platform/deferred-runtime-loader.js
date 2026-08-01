@@ -9,10 +9,6 @@ function installSearchTimerPreviewCacheWarmup() {
     '/api/vdr/searchtimers/preview',
     '/api/searchtimers/preview'
   ];
-  const refreshPaths = [
-    '/api/vdr/searchtimers/preview/cache/refresh',
-    '/api/searchtimers/preview/cache/refresh'
-  ];
 
   function requestUrl(input) {
     if (typeof input === 'string') return input;
@@ -43,49 +39,35 @@ function installSearchTimerPreviewCacheWarmup() {
     }
   }
 
-  function refreshUrl(path, backendId) {
-    const params = new URLSearchParams({
-      backend: backendId,
-      from: '-1',
-      timespan: String(14 * 24 * 60 * 60),
-      limit: '0',
-      channelEventLimit: '96',
-      _: String(Date.now())
-    });
-    return path + '?' + params.toString();
-  }
-
   function refreshCache(backendId) {
-    function attempt(index) {
-      if (index >= refreshPaths.length) {
-        return Promise.reject(new Error('SearchTimer-Preview-Cache konnte nicht aktualisiert werden.'));
-      }
-
-      return originalFetch(refreshUrl(refreshPaths[index], backendId), {
-        method: 'POST',
-        cache: 'no-store',
-        credentials: 'same-origin',
-        headers: {Accept: 'application/json'}
-      }).then(response => {
-        if (!response.ok) {
-          return attempt(index + 1);
-        }
-        return response.json().then(result => {
-          const ready = result && String(result.status || '') === 'ready';
-          const available = result && result.available === true;
-          const eventCount = Number(result && result.eventCount || 0);
-          if (!ready || !available || eventCount <= 0) {
-            throw new Error('SearchTimer-Preview-Cache ist nicht bereit oder leer.');
-          }
-          return result;
-        });
-      }).catch(error => {
-        if (index + 1 < refreshPaths.length) return attempt(index + 1);
-        throw error;
-      });
+    const client = window.VdrSuiteClientApi;
+    if (!client ||
+        typeof client.fetchClientSearchTimerPreviewCacheRefresh !== 'function') {
+      return Promise.reject(new Error(
+        'SearchTimer-Preview-Cache konnte nicht aktualisiert werden: Client API fehlt.'
+      ));
     }
 
-    return attempt(0);
+    return client.fetchClientSearchTimerPreviewCacheRefresh({
+      backendId: backendId,
+      query: {
+        from: -1,
+        timespan: 14 * 24 * 60 * 60,
+        limit: 0,
+        channelEventLimit: 96,
+        _: Date.now()
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(result => {
+      const ready = result && String(result.status || '') === 'ready';
+      const available = result && result.available === true;
+      const eventCount = Number(result && result.eventCount || 0);
+      if (!ready || !available || eventCount <= 0) {
+        throw new Error('SearchTimer-Preview-Cache ist nicht bereit oder leer.');
+      }
+      return result;
+    });
   }
 
   window.fetch = function (input, init) {

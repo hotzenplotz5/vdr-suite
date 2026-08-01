@@ -50,14 +50,13 @@
 
   function refreshPreviewCache() {
     const client = global.VdrSuiteClientApi;
-    if (!client || typeof client.requestJson !== 'function') {
+    if (!client || typeof client.fetchClientSearchTimerPreviewCacheRefresh !== 'function') {
       return Promise.reject(new Error('Preview-EPG-Cache kann nicht aktualisiert werden: Client API fehlt.'));
     }
 
-    const options = {
-      method: 'POST',
+    return client.fetchClientSearchTimerPreviewCacheRefresh({
+      backendId: selectedBackendId(),
       query: {
-        backend: selectedBackendId(),
         from: -1,
         timespan: PREVIEW_REFRESH_WINDOW_SECONDS,
         limit: 0,
@@ -66,21 +65,15 @@
       },
       cache: 'no-store',
       credentials: 'same-origin'
-    };
-
-    return client.requestJson('/api/vdr/searchtimers/preview/cache/refresh', options)
-      .catch(function () {
-        return client.requestJson('/api/searchtimers/preview/cache/refresh', options);
-      })
-      .then(function (result) {
-        const available = result && result.available === true;
-        const ready = result && String(result.status || '') === 'ready';
-        const eventCount = Number(result && result.eventCount || 0);
-        if (!available || !ready || eventCount <= 0) {
-          throw new Error('Der Preview-EPG-Cache ist nicht bereit oder enthält keine Sendungen.');
-        }
-        return result;
-      });
+    }).then(function (result) {
+      const available = result && result.available === true;
+      const ready = result && String(result.status || '') === 'ready';
+      const eventCount = Number(result && result.eventCount || 0);
+      if (!available || !ready || eventCount <= 0) {
+        throw new Error('Der Preview-EPG-Cache ist nicht bereit oder enthält keine Sendungen.');
+      }
+      return result;
+    });
   }
 
   function previewFeedback(button) {

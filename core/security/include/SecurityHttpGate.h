@@ -46,8 +46,7 @@ public:
         AccountabilityEventRepository& accountabilityRepository,
         const PersistentIdentityResolver* persistentIdentityResolver = nullptr,
         const ManagedBasicAuthenticator* managedBasicAuthenticator = nullptr,
-        const BrowserSessionAuthenticator* browserSessionAuthenticator =
-            nullptr)
+        const BrowserSessionAuthenticator* browserSessionAuthenticator = nullptr)
         : configuration_(std::move(configuration)),
           legacyAuthenticator_(configuration_),
           accountabilityRepository_(accountabilityRepository),
@@ -61,10 +60,8 @@ public:
     {
         SecurityGateDecision gate;
         AuthenticationResult authentication = authenticate(request);
-        gate.browserSessionPresented =
-            authentication.browserSessionPresented;
-        gate.browserAuthenticated =
-            authentication.browserAuthenticated;
+        gate.browserSessionPresented = authentication.browserSessionPresented;
+        gate.browserAuthenticated = authentication.browserAuthenticated;
         gate.context = std::move(authentication.context);
 
         if (configuration_.mode == SecurityMode::LegacyBasicCompatibility &&
@@ -89,7 +86,6 @@ public:
             decision.permission = "security.permissions.resolve";
             decision.backendId = "*";
             decision.action = "http.browser.access";
-
             return rejectWithAudit(
                 gate,
                 decision,
@@ -136,6 +132,12 @@ public:
             isPost &&
             (path == "/api/searchtimers/real-test" ||
              path == "/api/vdr/searchtimers/real-test");
+        const bool isSearchTimerPreviewCacheRefreshAction =
+            isPost &&
+            (path == "/api/searchtimers/preview/cache/refresh" ||
+             path == "/api/vdr/searchtimers/preview/cache/refresh");
+        const bool isEpgCacheRefreshAction =
+            isPost && path == "/api/epg/cache/refresh";
         const bool isNativeFuzzyRefreshAction =
             isPost &&
             (path == "/api/epgsearch/native-fuzzy/refresh" ||
@@ -162,6 +164,8 @@ public:
             isSearchTimerDeleteAction ||
             isSearchTimerExecuteAction ||
             isSearchTimerRealTestAction ||
+            isSearchTimerPreviewCacheRefreshAction ||
+            isEpgCacheRefreshAction ||
             isNativeFuzzyRefreshAction;
 
         if (isSafePost)
@@ -170,30 +174,17 @@ public:
             {
                 return rejectAuthentication(gate);
             }
-
             gate.allowed = true;
             return gate;
         }
 
-        if (isPost && gate.browserAuthenticated && !isRemoteAction &&
-            !isTimerCreateAction &&
-            !isTimerUpdateAction &&
-            !isTimerDeleteAction &&
-            !isChannelMoveAction &&
-            !isRecordingExecutionAction &&
-            !isSearchTimerCreateAction &&
-            !isSearchTimerUpdateAction &&
-            !isSearchTimerDeleteAction &&
-            !isSearchTimerExecuteAction &&
-            !isSearchTimerRealTestAction &&
-            !isNativeFuzzyRefreshAction)
+        if (isPost && gate.browserAuthenticated && !isProtectedMutation)
         {
             AuthorizationDecision decision;
             decision.reasonCode = "security_policy_not_migrated";
             decision.permission = "unmapped.browser.mutation";
             decision.backendId = "*";
             decision.action = "http.browser.mutation";
-
             return rejectWithAudit(
                 gate,
                 decision,
@@ -209,7 +200,6 @@ public:
                 isPost &&
                 (configuration_.mode == SecurityMode::Enforced ||
                  !usesLegacyCompatibilityCredential(gate.context));
-
             if (explicitPolicyRequired)
             {
                 AuthorizationDecision decision;
@@ -224,7 +214,6 @@ public:
                     "This mutation route has not yet been migrated to the Phase 62 security contract",
                     "");
             }
-
             gate.allowed = true;
             return gate;
         }
@@ -264,38 +253,43 @@ public:
         {
             requestToAuthorize.permission = "searchtimers.create";
             requestToAuthorize.action = "searchtimers.create";
-            if (requestToAuthorize.backendId.empty())
-            {
-                requestToAuthorize.backendId = "default";
-            }
+            defaultBackend(requestToAuthorize);
         }
         else if (isSearchTimerUpdateAction)
         {
             requestToAuthorize.permission = "searchtimers.modify";
             requestToAuthorize.action = "searchtimers.modify";
-            if (requestToAuthorize.backendId.empty())
-            {
-                requestToAuthorize.backendId = "default";
-            }
+            defaultBackend(requestToAuthorize);
         }
         else if (isSearchTimerDeleteAction)
         {
             requestToAuthorize.permission = "searchtimers.delete";
             requestToAuthorize.action = "searchtimers.delete";
-            if (requestToAuthorize.backendId.empty())
-            {
-                requestToAuthorize.backendId = "default";
-            }
+            defaultBackend(requestToAuthorize);
         }
-        else if (isSearchTimerExecuteAction ||
-                 isSearchTimerRealTestAction)
+        else if (isSearchTimerExecuteAction || isSearchTimerRealTestAction)
         {
             requestToAuthorize.permission = "searchtimers.execute";
             requestToAuthorize.action = "searchtimers.execute";
-            if (requestToAuthorize.backendId.empty())
-            {
-                requestToAuthorize.backendId = "default";
-            }
+            defaultBackend(requestToAuthorize);
+        }
+        else if (isSearchTimerPreviewCacheRefreshAction)
+        {
+            requestToAuthorize.permission =
+                "searchtimers.preview-cache.refresh";
+            requestToAuthorize.action =
+                "searchtimers.preview-cache.refresh";
+            requestToAuthorize.backendId =
+                queryStringValue(request.path, "backend");
+            defaultBackend(requestToAuthorize);
+        }
+        else if (isEpgCacheRefreshAction)
+        {
+            requestToAuthorize.permission = "epg.cache.refresh";
+            requestToAuthorize.action = "epg.cache.refresh";
+            requestToAuthorize.backendId =
+                queryStringValue(request.path, "backend");
+            defaultBackend(requestToAuthorize);
         }
         else if (isNativeFuzzyRefreshAction)
         {
@@ -303,16 +297,12 @@ public:
                 "epgsearch.native-fuzzy.refresh";
             requestToAuthorize.action =
                 "epgsearch.native-fuzzy.refresh";
-            if (requestToAuthorize.backendId.empty())
-            {
-                requestToAuthorize.backendId = "default";
-            }
+            defaultBackend(requestToAuthorize);
         }
         else
         {
             const std::string recordingAction =
                 jsonStringValue(request.body, "action");
-
             if (recordingAction == "RENAME")
             {
                 requestToAuthorize.permission = "recordings.rename";
@@ -348,7 +338,6 @@ public:
             decision.permission = requestToAuthorize.permission;
             decision.backendId = requestToAuthorize.backendId;
             decision.action = requestToAuthorize.action;
-
             return rejectWithAudit(
                 gate,
                 decision,
@@ -357,15 +346,13 @@ public:
                 operationId);
         }
 
-        if (isRecordingExecutionAction &&
-            !recordingActionSupported)
+        if (isRecordingExecutionAction && !recordingActionSupported)
         {
             AuthorizationDecision decision;
             decision.reasonCode = "invalid_recording_action";
             decision.permission = requestToAuthorize.permission;
             decision.backendId = requestToAuthorize.backendId;
             decision.action = requestToAuthorize.action;
-
             return rejectWithAudit(
                 gate,
                 decision,
@@ -375,9 +362,7 @@ public:
         }
 
         const AuthorizationDecision decision =
-            authorizationService_.authorize(
-                gate.context,
-                requestToAuthorize);
+            authorizationService_.authorize(gate.context, requestToAuthorize);
 
         if (!appendDecisionEvent(gate.context, decision, operationId))
         {
@@ -415,12 +400,19 @@ public:
         response.headers["X-Request-ID"] = context.requestId;
         if (!context.correlationId.empty())
         {
-            response.headers["X-Correlation-ID"] =
-                context.correlationId;
+            response.headers["X-Correlation-ID"] = context.correlationId;
         }
     }
 
 private:
+    static void defaultBackend(AuthorizationRequest& request)
+    {
+        if (request.backendId.empty())
+        {
+            request.backendId = "default";
+        }
+    }
+
     static std::string lowerAscii(std::string value)
     {
         std::transform(
@@ -437,9 +429,82 @@ private:
     static std::string requestPath(const std::string& target)
     {
         const std::size_t query = target.find('?');
-        return query == std::string::npos
-            ? target
-            : target.substr(0, query);
+        return query == std::string::npos ? target : target.substr(0, query);
+    }
+
+    static int hexValue(char value)
+    {
+        if (value >= '0' && value <= '9') return value - '0';
+        if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+        if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+        return -1;
+    }
+
+    static std::string urlDecode(const std::string& value)
+    {
+        std::string decoded;
+        decoded.reserve(value.size());
+        for (std::size_t index = 0; index < value.size(); ++index)
+        {
+            const char current = value[index];
+            if (current == '+')
+            {
+                decoded.push_back(' ');
+                continue;
+            }
+            if (current == '%' && index + 2 < value.size())
+            {
+                const int high = hexValue(value[index + 1]);
+                const int low = hexValue(value[index + 2]);
+                if (high >= 0 && low >= 0)
+                {
+                    decoded.push_back(
+                        static_cast<char>((high << 4) | low));
+                    index += 2;
+                    continue;
+                }
+            }
+            decoded.push_back(current);
+        }
+        return decoded;
+    }
+
+    static std::string queryStringValue(
+        const std::string& target,
+        const std::string& key)
+    {
+        const std::size_t queryStart = target.find('?');
+        if (queryStart == std::string::npos || queryStart + 1 >= target.size())
+        {
+            return "";
+        }
+
+        std::string result;
+        std::size_t position = queryStart + 1;
+        while (position <= target.size())
+        {
+            const std::size_t separator = target.find('&', position);
+            const std::string item = target.substr(
+                position,
+                separator == std::string::npos
+                    ? std::string::npos
+                    : separator - position);
+            const std::size_t equals = item.find('=');
+            const std::string itemKey = urlDecode(
+                equals == std::string::npos ? item : item.substr(0, equals));
+            if (itemKey == key)
+            {
+                result = equals == std::string::npos
+                    ? ""
+                    : urlDecode(item.substr(equals + 1));
+            }
+            if (separator == std::string::npos)
+            {
+                break;
+            }
+            position = separator + 1;
+        }
+        return result;
     }
 
     static std::string headerValue(
@@ -463,49 +528,29 @@ private:
     {
         const std::string needle = "\"" + field + "\"";
         std::size_t position = body.find(needle);
-        if (position == std::string::npos)
-        {
-            return "";
-        }
-
+        if (position == std::string::npos) return "";
         position = body.find(':', position + needle.size());
-        if (position == std::string::npos)
-        {
-            return "";
-        }
-
+        if (position == std::string::npos) return "";
         do
         {
             ++position;
         }
         while (position < body.size() &&
-               std::isspace(
-                   static_cast<unsigned char>(body[position])));
-
-        if (position >= body.size() || body[position] != '"')
-        {
-            return "";
-        }
+               std::isspace(static_cast<unsigned char>(body[position])));
+        if (position >= body.size() || body[position] != '"') return "";
 
         ++position;
         std::string value;
         while (position < body.size())
         {
             const char character = body[position++];
-            if (character == '"')
-            {
-                return value;
-            }
+            if (character == '"') return value;
             if (character != '\\')
             {
                 value.push_back(character);
                 continue;
             }
-            if (position >= body.size())
-            {
-                return "";
-            }
-
+            if (position >= body.size()) return "";
             switch (body[position++])
             {
                 case '"': value.push_back('"'); break;
@@ -519,7 +564,6 @@ private:
                 default: return "";
             }
         }
-
         return "";
     }
 
@@ -551,11 +595,7 @@ private:
 
     static bool safeContextToken(const std::string& value)
     {
-        if (value.empty() || value.size() > 128)
-        {
-            return false;
-        }
-
+        if (value.empty() || value.size() > 128) return false;
         return std::all_of(
             value.begin(),
             value.end(),
@@ -573,57 +613,33 @@ private:
         const RequestSecurityContext& context)
     {
         if (context.authenticationState == AuthenticationState::Anonymous)
-        {
             return "authentication_required";
-        }
         if (context.authenticationState == AuthenticationState::Invalid)
-        {
             return "invalid_credentials";
-        }
         if (!context.actor.active || context.actor.actorId.empty())
-        {
             return "actor_revoked";
-        }
         if (context.device.has_value() && !context.device->active)
-        {
             return "device_revoked";
-        }
         if (context.credential.has_value())
         {
-            if (context.credential->revoked ||
-                !context.credential->active)
-            {
+            if (context.credential->revoked || !context.credential->active)
                 return "credential_revoked";
-            }
-            if (context.credential->expired)
-            {
-                return "credential_expired";
-            }
+            if (context.credential->expired) return "credential_expired";
         }
         if (context.session.has_value())
         {
             if (context.session->revoked || !context.session->active)
-            {
                 return "session_revoked";
-            }
-            if (context.session->expired)
-            {
-                return "session_expired";
-            }
+            if (context.session->expired) return "session_expired";
         }
         if (context.authenticationState == AuthenticationState::Expired)
-        {
             return "session_expired";
-        }
         if (context.authenticationState == AuthenticationState::Revoked)
-        {
             return "session_revoked";
-        }
         return "invalid_credentials";
     }
 
-    static bool authenticationFailure(
-        const AuthorizationDecision& decision)
+    static bool authenticationFailure(const AuthorizationDecision& decision)
     {
         return decision.reasonCode == "authentication_required" ||
             decision.reasonCode == "invalid_credentials" ||
@@ -635,52 +651,31 @@ private:
             decision.reasonCode == "device_revoked";
     }
 
-    static std::string messageForReason(
-        const std::string& reasonCode)
+    static std::string messageForReason(const std::string& reasonCode)
     {
         if (reasonCode == "authentication_required")
-        {
             return "Authentication is required";
-        }
         if (reasonCode == "invalid_credentials")
-        {
             return "The supplied credentials are invalid";
-        }
         if (reasonCode == "session_expired")
-        {
             return "The authenticated session has expired";
-        }
         if (reasonCode == "credential_expired")
-        {
             return "The authenticated credential has expired";
-        }
         if (reasonCode == "session_revoked" ||
             reasonCode == "credential_revoked" ||
             reasonCode == "actor_revoked" ||
             reasonCode == "device_revoked")
-        {
             return "The authenticated identity is no longer active";
-        }
         if (reasonCode == "backend_scope_denied")
-        {
             return "The actor is not permitted to mutate this backend";
-        }
         if (reasonCode == "permission_denied")
-        {
             return "The actor lacks the required permission";
-        }
         if (reasonCode == "permission_grants_unavailable")
-        {
             return "Browser permission persistence is unavailable";
-        }
         if (reasonCode == "invalid_backend_scope")
-        {
             return "A valid backend scope is required";
-        }
         if (reasonCode == "csrf_validation_failed")
-        {
             return "A valid CSRF token is required";
-        }
         return "The request is not authorized";
     }
 
@@ -702,8 +697,7 @@ private:
     {
         const auto ticks =
             std::chrono::steady_clock::now().time_since_epoch().count();
-        const unsigned long long sequence =
-            idCounter_.fetch_add(1) + 1;
+        const unsigned long long sequence = idCounter_.fetch_add(1) + 1;
         std::ostringstream output;
         output << prefix << '-' << std::hex
                << static_cast<unsigned long long>(ticks)
@@ -717,8 +711,7 @@ private:
         return context.authenticated() &&
             context.actor.actorId == configuration_.actorId &&
             context.credential.has_value() &&
-            context.credential->credentialId ==
-                configuration_.credentialId;
+            context.credential->credentialId == configuration_.credentialId;
     }
 
     RequestSecurityContext resolvePersistentIdentity(
@@ -726,50 +719,36 @@ private:
     {
         if (persistentIdentityResolver_ != nullptr)
         {
-            context = persistentIdentityResolver_->resolve(
-                std::move(context));
+            context = persistentIdentityResolver_->resolve(std::move(context));
         }
         return context;
     }
 
-    AuthenticationResult authenticate(
-        const HttpServerRequest& request) const
+    AuthenticationResult authenticate(const HttpServerRequest& request) const
     {
         AuthenticationResult result;
-
         std::string requestId = headerValue(request, "X-Request-ID");
-        if (!safeContextToken(requestId))
-        {
-            requestId = opaqueId("req");
-        }
+        if (!safeContextToken(requestId)) requestId = opaqueId("req");
 
         std::string correlationId =
             headerValue(request, "X-Correlation-ID");
-        if (!correlationId.empty() &&
-            !safeContextToken(correlationId))
-        {
+        if (!correlationId.empty() && !safeContextToken(correlationId))
             correlationId.clear();
-        }
 
         if (browserSessionAuthenticator_ != nullptr &&
-            browserSessionAuthenticator_->hasSessionCookie(
-                request.headers))
+            browserSessionAuthenticator_->hasSessionCookie(request.headers))
         {
             result.browserSessionPresented = true;
-            result.context =
-                browserSessionAuthenticator_->authenticate(
-                    request.headers,
-                    requestId,
-                    correlationId);
-
+            result.context = browserSessionAuthenticator_->authenticate(
+                request.headers,
+                requestId,
+                correlationId);
             if (result.context.authenticated())
             {
-                result.context = resolvePersistentIdentity(
-                    std::move(result.context));
-                result.browserAuthenticated =
-                    result.context.authenticated();
+                result.context =
+                    resolvePersistentIdentity(std::move(result.context));
+                result.browserAuthenticated = result.context.authenticated();
             }
-
             return result;
         }
 
@@ -777,11 +756,9 @@ private:
             request.headers,
             requestId,
             correlationId);
-
         if (result.context.authenticated())
         {
-            result.context = resolvePersistentIdentity(
-                std::move(result.context));
+            result.context = resolvePersistentIdentity(std::move(result.context));
             return result;
         }
 
@@ -792,20 +769,17 @@ private:
                     request.headers,
                     requestId,
                     correlationId);
-
             if (managedContext.authenticated())
             {
-                result.context = resolvePersistentIdentity(
-                    std::move(managedContext));
+                result.context =
+                    resolvePersistentIdentity(std::move(managedContext));
                 return result;
             }
         }
-
         return result;
     }
 
-    SecurityGateDecision rejectAuthentication(
-        SecurityGateDecision gate) const
+    SecurityGateDecision rejectAuthentication(SecurityGateDecision gate) const
     {
         AuthorizationDecision decision;
         decision.reasonCode = authenticationReason(gate.context);
@@ -827,26 +801,18 @@ private:
     {
         AccountabilityEvent event;
         event.eventId = opaqueId("audit");
-        event.classes = decision.allowed
-            ? "audit"
-            : "audit,security";
+        event.classes = decision.allowed ? "audit" : "audit,security";
         event.eventType = decision.allowed
             ? "authorization.allowed"
             : "authorization.denied";
-        event.severity = decision.allowed
-            ? "info"
-            : "warning";
+        event.severity = decision.allowed ? "info" : "warning";
         event.occurredAt = nowUtc();
         event.actorId = context.actor.actorId.empty()
             ? "anonymous"
             : context.actor.actorId;
         event.actorType = actorTypeName(context.actor.type);
-        event.deviceId = context.device
-            ? context.device->deviceId
-            : "";
-        event.sessionId = context.session
-            ? context.session->sessionId
-            : "";
+        event.deviceId = context.device ? context.device->deviceId : "";
+        event.sessionId = context.session ? context.session->sessionId : "";
         event.authenticationState =
             authenticationStateName(context.authenticationState);
         event.permission = decision.permission;
@@ -855,9 +821,7 @@ private:
         event.requestId = context.requestId;
         event.correlationId = context.correlationId;
         event.action = decision.action;
-        event.decision = decision.allowed
-            ? "allowed"
-            : "denied";
+        event.decision = decision.allowed ? "allowed" : "denied";
         event.reasonCode = decision.reasonCode;
         event.outcome = decision.allowed
             ? "dispatch_authorized"
@@ -873,10 +837,7 @@ private:
         const std::string& operationId,
         bool advertiseBasic = false) const
     {
-        if (!appendDecisionEvent(
-                gate.context,
-                decision,
-                operationId))
+        if (!appendDecisionEvent(gate.context, decision, operationId))
         {
             gate.rejection = errorResponse(
                 503,
@@ -885,7 +846,6 @@ private:
                 gate.context);
             return gate;
         }
-
         gate.rejection = errorResponse(
             statusCode,
             decision.reasonCode,
@@ -914,8 +874,8 @@ private:
         response.body =
             "{\"error\":{\"code\":\"" + jsonEscape(code) +
             "\",\"message\":\"" + jsonEscape(message) +
-            "\",\"requestId\":\"" +
-            jsonEscape(context.requestId) + "\"}}";
+            "\",\"requestId\":\"" + jsonEscape(context.requestId) +
+            "\"}}";
         decorateResponse(context, response);
         return response;
     }

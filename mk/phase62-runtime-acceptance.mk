@@ -2,6 +2,7 @@
 	test-phase62-runtime-acceptance-harness \
 	phase62-runtime-acceptance \
 	phase62-runtime-acceptance-static-body \
+	phase62-runtime-acceptance-query-cache-batch \
 	phase62-runtime-acceptance-batch
 
 PHASE62_ACCEPTANCE_RUNNER := \
@@ -25,8 +26,13 @@ PHASE62_ACCEPTANCE_MANIFESTS := \
 PHASE62_STATIC_BODY_MANIFEST ?= \
 	tools/phase62-runtime-acceptance/slice-2o-native-fuzzy-refresh.json
 
+PHASE62_QUERY_CACHE_MANIFESTS := \
+	tools/phase62-runtime-acceptance/slice-2p-searchtimer-preview-cache-refresh.json \
+	tools/phase62-runtime-acceptance/slice-2p-epg-cache-refresh.json
+
 PHASE62_STATIC_BODY_MANIFESTS := \
-	tools/phase62-runtime-acceptance/slice-2o-native-fuzzy-refresh.json
+	tools/phase62-runtime-acceptance/slice-2o-native-fuzzy-refresh.json \
+	$(PHASE62_QUERY_CACHE_MANIFESTS)
 
 PHASE62_ACCEPTANCE_BATCH_MANIFESTS := \
 	tools/phase62-runtime-acceptance/slice-2l-searchtimer-update.json \
@@ -55,6 +61,9 @@ PHASE62_ACCEPTANCE_REPORT ?= \
 
 PHASE62_ACCEPTANCE_BATCH_REPORT_DIR ?= \
 	$(BUILD_DIR)/phase62-runtime-acceptance-batch
+
+PHASE62_QUERY_CACHE_REPORT_DIR ?= \
+	$(BUILD_DIR)/phase62-runtime-acceptance-slice2p
 
 
 test-phase62-runtime-acceptance-harness:
@@ -150,6 +159,43 @@ phase62-runtime-acceptance-static-body: \
 		--expected-loader-sha256 \
 			"$(PHASE62_EXPECTED_LOADER_SHA256)" \
 		--report-json "$(PHASE62_ACCEPTANCE_REPORT)"
+
+
+phase62-runtime-acceptance-query-cache-batch: \
+	test-phase62-runtime-acceptance-harness
+	@test -n "$(PHASE62_ACCEPTANCE_BACKUP_DIR)" || \
+		{ echo "PHASE62_ACCEPTANCE_BACKUP_DIR is required"; exit 2; }
+	@test -n "$(PHASE62_EXPECTED_BRANCH)" || \
+		{ echo "PHASE62_EXPECTED_BRANCH is required"; exit 2; }
+	@test -n "$(PHASE62_EXPECTED_HEAD)" || \
+		{ echo "PHASE62_EXPECTED_HEAD is required"; exit 2; }
+	@test -n "$(PHASE62_EXPECTED_DAEMON_SHA256)" || \
+		{ echo "PHASE62_EXPECTED_DAEMON_SHA256 is required"; exit 2; }
+	@test -n "$(PHASE62_EXPECTED_LOADER_SHA256)" || \
+		{ echo "PHASE62_EXPECTED_LOADER_SHA256 is required"; exit 2; }
+	mkdir -p "$(PHASE62_QUERY_CACHE_REPORT_DIR)"
+	@set -e; \
+	for manifest in $(PHASE62_QUERY_CACHE_MANIFESTS); do \
+		name="$${manifest##*/}"; \
+		name="$${name%.json}"; \
+		python3 "$(PHASE62_STATIC_BODY_RUNNER)" \
+			--manifest "$$manifest" \
+			--run \
+			--base-url "$(PHASE62_ACCEPTANCE_BASE_URL)" \
+			--database "$(PHASE62_ACCEPTANCE_DATABASE)" \
+			--service "$(PHASE62_ACCEPTANCE_SERVICE)" \
+			--daemon "$(PHASE62_ACCEPTANCE_DAEMON)" \
+			--loader "$(PHASE62_ACCEPTANCE_LOADER)" \
+			--backup-dir "$(PHASE62_ACCEPTANCE_BACKUP_DIR)" \
+			--expected-branch "$(PHASE62_EXPECTED_BRANCH)" \
+			--expected-head "$(PHASE62_EXPECTED_HEAD)" \
+			--expected-daemon-sha256 \
+				"$(PHASE62_EXPECTED_DAEMON_SHA256)" \
+			--expected-loader-sha256 \
+				"$(PHASE62_EXPECTED_LOADER_SHA256)" \
+			--report-json \
+				"$(PHASE62_QUERY_CACHE_REPORT_DIR)/$$name.json"; \
+	done
 
 
 phase62-runtime-acceptance-batch: \

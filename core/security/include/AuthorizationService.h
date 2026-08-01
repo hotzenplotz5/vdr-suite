@@ -37,41 +37,34 @@ public:
             decision.reasonCode = "authentication_required";
             return decision;
         }
-
         if (context.authenticationState == AuthenticationState::Invalid)
         {
             decision.reasonCode = "invalid_credentials";
             return decision;
         }
-
         if (!context.actor.active || context.actor.actorId.empty())
         {
             decision.reasonCode = "actor_revoked";
             return decision;
         }
-
         if (context.device.has_value() && !context.device->active)
         {
             decision.reasonCode = "device_revoked";
             return decision;
         }
-
         if (context.credential.has_value())
         {
-            if (context.credential->revoked ||
-                !context.credential->active)
+            if (context.credential->revoked || !context.credential->active)
             {
                 decision.reasonCode = "credential_revoked";
                 return decision;
             }
-
             if (context.credential->expired)
             {
                 decision.reasonCode = "credential_expired";
                 return decision;
             }
         }
-
         if (context.session.has_value())
         {
             if (context.session->revoked || !context.session->active)
@@ -79,45 +72,38 @@ public:
                 decision.reasonCode = "session_revoked";
                 return decision;
             }
-
             if (context.session->expired)
             {
                 decision.reasonCode = "session_expired";
                 return decision;
             }
         }
-
         if (context.authenticationState == AuthenticationState::Expired)
         {
             decision.reasonCode = "session_expired";
             return decision;
         }
-
         if (context.authenticationState == AuthenticationState::Revoked)
         {
             decision.reasonCode = "session_revoked";
             return decision;
         }
-
         if (context.permissionGrantResolution ==
             PermissionGrantResolutionState::Unavailable)
         {
             decision.reasonCode = "permission_grants_unavailable";
             return decision;
         }
-
         if (request.permission.empty())
         {
             decision.reasonCode = "invalid_permission";
             return decision;
         }
-
         if (request.backendId.empty())
         {
             decision.reasonCode = "invalid_backend_scope";
             return decision;
         }
-
         if (isReadOnlyMutation(context, request))
         {
             decision.reasonCode = "role_read_only";
@@ -125,7 +111,6 @@ public:
         }
 
         bool permissionPresent = false;
-
         for (const PermissionGrant& grant : context.grants)
         {
             if (grant.permission != "role.admin" ||
@@ -133,7 +118,6 @@ public:
             {
                 continue;
             }
-
             permissionPresent = true;
             if (grant.backendId == request.backendId)
             {
@@ -148,18 +132,15 @@ public:
             const bool permissionMatches =
                 grant.permission == "*" ||
                 grant.permission == request.permission;
-
             if (!permissionMatches)
             {
                 continue;
             }
-
             permissionPresent = true;
             const bool backendMatches =
                 grant.backendId.empty() ||
                 grant.backendId == "*" ||
                 grant.backendId == request.backendId;
-
             if (backendMatches)
             {
                 decision.allowed = true;
@@ -190,6 +171,8 @@ private:
             permission == "searchtimers.modify" ||
             permission == "searchtimers.delete" ||
             permission == "searchtimers.execute" ||
+            permission == "searchtimers.preview-cache.refresh" ||
+            permission == "epg.cache.refresh" ||
             permission == "epgsearch.native-fuzzy.refresh";
     }
 
@@ -211,7 +194,6 @@ private:
         {
             return false;
         }
-
         for (const PermissionGrant& grant : context.grants)
         {
             if (grant.permission == "role.read-only" &&
@@ -220,7 +202,6 @@ private:
                 return true;
             }
         }
-
         return false;
     }
 };

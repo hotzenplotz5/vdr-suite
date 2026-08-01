@@ -27,6 +27,7 @@ def load_runner() -> ModuleType:
 
 runner = load_runner()
 base_validate_manifest = runner.validate_manifest
+base_request = runner.RuntimeAcceptance.request
 
 
 def validate_static_body_manifest(
@@ -69,11 +70,46 @@ def validate_static_body_manifest(
             "safeBody must not contain operationId"
         )
 
+    query_scoped = manifest.get("queryScopedRoutes", False)
+    if not isinstance(query_scoped, bool):
+        errors.append("queryScopedRoutes must be a boolean")
+    elif query_scoped:
+        query_suffix = manifest.get("querySuffix", "")
+        if "backend=" not in query_suffix:
+            errors.append(
+                "query-scoped routes require backend in querySuffix"
+            )
+
     return errors
+
+
+def request_with_query_scope(
+    self: Any,
+    method: str,
+    path: str,
+    **kwargs: Any,
+) -> tuple[int, dict[str, str], str]:
+    if method == "POST" and self.manifest.get(
+        "queryScopedRoutes",
+        False,
+    ):
+        routes = self.manifest.get("routes", [])
+        exact_targets = set(routes)
+        exact_targets.update(route + "/" for route in routes)
+        if path in exact_targets:
+            path += self.manifest["querySuffix"]
+
+    return base_request(
+        self,
+        method,
+        path,
+        **kwargs,
+    )
 
 
 def main() -> int:
     runner.validate_manifest = validate_static_body_manifest
+    runner.RuntimeAcceptance.request = request_with_query_scope
     return runner.main()
 
 
