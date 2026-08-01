@@ -346,8 +346,7 @@
   }
 
   function fetchClientEpgCacheRefresh(options) {
-    return requestJson(
-      '/api/epg/cache/refresh',
+    return requestJson('/api/epg/cache/refresh',
       backendQueryOptions(queryMutationOptions(options))
     );
   }
