@@ -8,6 +8,11 @@ PHASE62_ACCEPTANCE_RUNNER := \
 PHASE62_ACCEPTANCE_MANIFEST ?= \
 	tools/phase62-runtime-acceptance/slice-2j.json
 
+PHASE62_ACCEPTANCE_MANIFESTS := \
+	tools/phase62-runtime-acceptance/slice-2j.json \
+	tools/phase62-runtime-acceptance/slice-2l-searchtimer-update.json \
+	tools/phase62-runtime-acceptance/slice-2l-searchtimer-delete.json
+
 PHASE62_ACCEPTANCE_BASE_URL ?= \
 	http://127.0.0.1:18080
 
@@ -32,12 +37,15 @@ test-phase62-runtime-acceptance-harness:
 	PYTHONPYCACHEPREFIX="$(BUILD_DIR)/python-cache" \
 		python3 -m py_compile \
 		"$(PHASE62_ACCEPTANCE_RUNNER)"
-	python3 "$(PHASE62_ACCEPTANCE_RUNNER)" \
-		--manifest "$(PHASE62_ACCEPTANCE_MANIFEST)" \
-		--validate-only
-	python3 "$(PHASE62_ACCEPTANCE_RUNNER)" \
-		--manifest "$(PHASE62_ACCEPTANCE_MANIFEST)" \
-		--self-test
+	@set -e; \
+	for manifest in $(PHASE62_ACCEPTANCE_MANIFESTS); do \
+		python3 "$(PHASE62_ACCEPTANCE_RUNNER)" \
+			--manifest "$$manifest" \
+			--validate-only; \
+		python3 "$(PHASE62_ACCEPTANCE_RUNNER)" \
+			--manifest "$$manifest" \
+			--self-test; \
+	done
 
 
 phase62-runtime-acceptance: \
