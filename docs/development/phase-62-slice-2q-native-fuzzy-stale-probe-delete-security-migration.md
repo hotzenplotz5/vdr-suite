@@ -2,16 +2,25 @@
 
 ## Status
 
-Repository implementation and the initial five-job CI run are complete.
-The first real yaVDR acceptance attempt stopped safely before every Delete POST
-because the historical stale-probe GET aliases are not registered in
-`ApiRouter::handleGet`. The guarded wrapper then restored the accepted Slice-2P
-runtime successfully.
+Repository implementation, focused verification, both five-job CI runs and the
+real yaVDR zero-delete runtime acceptance are complete.
 
-The corrected direct-SQLite preflight implementation and its follow-up CI remain
-pending. Real yaVDR runtime acceptance therefore remains incomplete.
+Accepted code/runtime head:
 
-PR #117 remains open, Draft and unmerged.
+```text
+88ec36076d7e5114df0a3a186cc6fbd52bb2baac
+```
+
+Accepted GitHub Actions:
+
+```text
+VDR-Suite CI #6655
+Run ID: 30713953331
+Result: all five jobs successful
+```
+
+PR #117 remains open, Draft, unmerged and mergeable. This documentation
+closeout does not change review state, merge state or PR metadata.
 
 ---
 
@@ -48,19 +57,18 @@ For browser-session requests the server performs:
 7. existing stale-probe administration controller handling.
 
 Legacy and Managed Basic compatibility remain supported without browser CSRF.
-
 Exact route paths remain migrated when unrelated query parameters are present.
-Trailing-slash variants remain fail-closed.
+Trailing-slash variants remain fail-closed. Request body and query values cannot
+alter the global authorization scope.
 
-A request body field cannot alter the global scope.
+The aliases remain excluded from the Safe POST allowlist because the controller
+can perform a real SQLite deletion.
 
 ---
 
 ## Global Role Semantics
 
-The existing fixed role model remains exact-scope rather than inherited
-wildcard scope.
-
+The fixed role model remains exact-scope rather than inherited wildcard scope.
 For this global route:
 
 ```text
@@ -74,24 +82,20 @@ role.read-only@<concrete backend>    no effect on the global route
 
 `role.admin@*` is an exact assignment to the route's canonical global scope. It
 does not make wildcard Admin rows effective for concrete backend mutations.
-
-The permission is added explicitly to the fixed protected-mutation catalogue.
-No generic role definition or wildcard inheritance mechanism is introduced.
+The permission is part of the fixed protected-mutation catalogue; no generic
+role definition or wildcard inheritance mechanism was introduced.
 
 ---
 
-## Mutation Boundary
+## Mutation-Safe Runtime Boundary
 
-The existing service operates only on
-`epgsearch_native_fuzzy_capability_probes` rows whose persisted timestamp is
-stale or in the future. It does not contact VDR and does not create, modify or
-delete SearchTimer objects.
+The existing service deletes only persisted rows from
+`epgsearch_native_fuzzy_capability_probes` whose timestamp is stale or lies in
+the future. It does not contact VDR and does not create, modify or delete
+SearchTimer objects.
 
-It is nevertheless a real SQLite deletion and must not be classified as a Safe
-POST.
-
-The real-runtime runner now obtains a direct read-only SQLite snapshot before
-any Delete POST. It applies the same production freshness rules:
+The runtime runner obtains a direct read-only SQLite snapshot before any Delete
+POST. It applies the production freshness rules:
 
 ```text
 maxAgeSeconds = 604800
@@ -106,62 +110,60 @@ The normalized snapshot must be exactly:
 {"staleProbes":[]}
 ```
 
-If any stale or future-timestamp row is present, the runner aborts before the
-first POST. It does not manufacture, age or alter a production probe row.
+If any stale or future-timestamp row exists, the runner aborts before the first
+Delete POST. It does not manufacture, age or alter a production probe row.
 
-After the empty SQLite preflight and before the first POST, the runner creates a
+After the empty snapshot and before the first Delete POST, the runner creates a
 bounded temporary main-schema SQLite `BEFORE DELETE` trigger on
-`epgsearch_native_fuzzy_capability_probes`. The trigger raises an error for any
-DELETE attempted by any database connection during the acceptance pass.
+`epgsearch_native_fuzzy_capability_probes`. The trigger blocks every deletion
+attempt from every database connection during acceptance.
 
-This closes the preflight-to-POST race:
+This closes the snapshot-to-POST race:
 
-- while the list remains empty, every authorized request returns the expected
-  zero-delete success;
-- if a row becomes stale after preflight, the database blocks the deletion, the
-  endpoint cannot return the expected success and the acceptance fails safely;
+- an empty table state permits the expected zero-delete responses;
+- a row becoming stale after preflight causes a safe test failure rather than a
+  deletion;
 - no production capability row can be deleted by the acceptance pass.
 
-The trigger is removed in unconditional runner cleanup. Final verification
-requires that it no longer exists. The outer guarded-install wrapper retains a
-complete database backup and rollback path if cleanup itself fails.
+Cleanup removes the trigger unconditionally. Final verification requires the
+trigger to be absent, the preflight and postflight snapshots to be identical,
+the database to pass quick and foreign-key checks and the service PID to remain
+unchanged during the acceptance run.
 
-Every successful authorized response must report:
+Every successful authorized response reports:
 
 ```text
+schemaReady=true
 staleResultsFound=0
 deletedResults=0
 deleteFailures=0
 ```
 
-The direct SQLite snapshot is repeated after the pass and must remain
-byte-for-byte equivalent after normalized JSON serialization.
-
 ---
 
-## First Runtime Attempt — Safe Preflight Abort
+## First Runtime Attempt — Safe Rejection Evidence
 
-The first guarded attempt used the historically documented route:
+The first guarded attempt at repository head
+`1119c94e5184245f5d161283270c51b604153e0b` used the historically documented
+route:
 
 ```text
 GET /api/epgsearch/native-fuzzy/stale-probes
 ```
 
-The real installed router returned:
+The installed router returned:
 
 ```text
 HTTP 404
 {"error":"not found"}
 ```
 
-Repository inspection confirmed:
+Repository inspection confirmed that both Delete POST aliases are registered in
+`ApiRouter::handlePost`, while neither stale-probe GET alias is registered in
+`ApiRouter::handleGet`.
 
-- both Delete POST aliases are registered in `ApiRouter::handlePost`;
-- neither stale-probe GET alias is registered in `ApiRouter::handleGet`;
-- the controller has a read method, but there is no public router path to it.
-
-No Delete POST had been sent when the failure occurred. The outer wrapper then
-reported:
+No Delete POST had been sent. The outer guarded wrapper restored the previously
+accepted Slice-2P runtime:
 
 ```text
 automatic_rollback=passed
@@ -176,64 +178,41 @@ Rollback backup:
 /var/backups/vdr-suite-phase62-slice2q-20260801T185634Z-1119c94e5184/install-before
 ```
 
-This is a safe rejected acceptance attempt, not Slice-2Q runtime acceptance.
-The accepted runtime remains Slice 2P.
+This remains useful safe-rejection evidence but is not the accepted Slice-2Q
+runtime pass.
 
 ---
 
-## Runtime Harness
+## Corrected Repository Verification
 
-Profile and runner:
+The direct-SQLite correction was committed at:
 
 ```text
-tools/phase62-runtime-acceptance/slice-2q-native-fuzzy-stale-probe-delete.json
-tools/phase62-runtime-acceptance/global-stale-probe-delete-runner.py
+88ec36076d7e5114df0a3a186cc6fbd52bb2baac
 ```
 
-Target:
+The correction changed only the runtime profile, runner, static contract and
+status documentation. It did not change the HTTP gate, authorization catalogue,
+router, controller, service, database schema or frontend.
+
+The runner self-test covers empty, fresh, stale and future-timestamp fixtures.
+The complete CI run succeeded:
 
 ```text
-make phase62-runtime-acceptance-global-stale-probe-delete
+docs-check                    success
+make-test-audit               success
+frontend-regression-test      success
+fast-regression-test          success
+packaging-regression-test     success
 ```
 
-The runner reuses the accepted Phase 62 browser-session harness and adds:
+The focused contracts include:
 
-- exact global-scope grants;
-- a direct SQLite stale/future snapshot before any POST;
-- self-tests for empty, fresh, stale and future-timestamp rows;
-- a cross-connection SQLite delete guard for the complete POST phase;
-- zero-delete response validation;
-- concrete-scope denial for direct permission and Admin;
-- global Admin allowance and global Read-only precedence;
-- pre/post SQLite snapshot equality;
-- unconditional delete-guard removal and final absence verification;
-- grant restoration, logout, revoked-cookie replay denial;
-- secret-free accountability;
-- daemon fingerprint/PID, backup and SQLite integrity checks.
-
-The corrected runtime profile keeps 32 assertions. Removing the two nonexistent
-GET calls reduces the expected HTTP request count from 27 to 25.
-
----
-
-## Frontend Ownership
-
-There is currently no Webfrontend request owner for either Delete alias.
-Therefore Slice 2Q adds no global fetch wrapper and no JavaScript mutation
-owner. Static architecture checks must fail if either route is introduced into
-the frontend without an explicit CSRF-aware owner contract.
-
----
-
-## Focused Repository Verification
-
-The focused security tests must cover:
-
-- both exact aliases;
+- both exact Delete aliases;
 - Legacy Basic compatibility;
 - browser CSRF enforcement;
 - exact global permission scope;
-- body fields being unable to change global scope;
+- body and query values unable to change scope;
 - direct concrete-scope denial;
 - exact global Admin allowance;
 - concrete Admin denial;
@@ -242,11 +221,94 @@ The focused security tests must cover:
 - query-string normalization;
 - trailing-slash fail-closed behavior;
 - canonical global accountability fields;
-- exclusion from the Safe POST allowlist;
+- exclusion from Safe POST;
 - absence of a Webfrontend owner;
-- manifest validation and runner self-test;
-- exact SQLite freshness-policy self-tests;
-- delete-guard installation, cleanup and final absence contracts.
+- direct SQLite freshness-policy self-tests;
+- delete-guard installation, cleanup and final absence.
+
+---
+
+## Real yaVDR Runtime Acceptance
+
+Accepted on 2026-08-01 against the installed yaVDR runtime.
+
+Installed and runtime fingerprints:
+
+```text
+repository_head=88ec36076d7e5114df0a3a186cc6fbd52bb2baac
+ci_run_id=30713953331
+service_pid_after_acceptance=67393
+installed_daemon_sha256=9f60daaf7d772abe7c6ad55388cb9bb7e8afe8f6679fbf749aa9103143a41d07
+installed_loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+```
+
+Acceptance result:
+
+```text
+slice=slice-2q-native-fuzzy-stale-probe-delete
+tests_passed=32
+tests_failed=0
+runtime_http_requests=25
+accountability_authorized=8
+accountability_csrf=2
+accountability_permission=2
+accountability_read_only=2
+accountability_scope=4
+resource_state_unchanged=yes
+target_grants_restored=yes
+unrelated_grants_untouched=yes
+browser_session_revoked=yes
+revoked_cookie_replay_denied=yes
+accountability_secret_free=yes
+database_integrity=yes
+service_pid_unchanged=yes
+phase62_runtime_acceptance=passed
+```
+
+Zero-delete and guard evidence:
+
+```text
+authorization_scope=*
+snapshot_source=direct-sqlite
+freshness_max_age_seconds=604800
+stale_probe_postflight=empty
+stale_probe_snapshot_unchanged=yes
+real_stale_probe_deletes=0
+delete_guard_removed=yes
+service_state=active
+```
+
+Artifact hashes:
+
+```text
+runtime_report_sha256=602148a61a69dadcf7a38fb566b4e4486a7e550f0dda193fffa8f42ba3a1c197
+snapshot_preinstall_sha256=2b1d1af321fd9497f99ac742c694c70ecfde94b41bcb6d74ee3a70187e5d1e7a
+snapshot_before_sha256=2b1d1af321fd9497f99ac742c694c70ecfde94b41bcb6d74ee3a70187e5d1e7a
+snapshot_after_sha256=2b1d1af321fd9497f99ac742c694c70ecfde94b41bcb6d74ee3a70187e5d1e7a
+```
+
+Guarded installation backup and durable runtime evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2q-20260801T191156Z-88ec36076d7e/install-before
+/var/backups/vdr-suite-phase62-slice2q-20260801T191156Z-88ec36076d7e/runtime-acceptance-slice2q
+```
+
+The three stale-probe snapshot hashes are identical. No stale or future-dated
+probe row existed before installation, before the POST matrix or after the
+matrix. The temporary trigger was removed, no real stale-probe deletion
+occurred, all temporary grants were restored, the browser session was revoked,
+revoked-cookie replay was denied, accountability remained secret-free and the
+service remained active.
+
+---
+
+## Frontend Ownership
+
+There is no Webfrontend request owner for either Delete alias. Slice 2Q adds no
+global fetch wrapper and no JavaScript mutation owner. Static architecture
+checks fail if either route appears in the frontend without a future explicit
+CSRF-aware ownership contract.
 
 ---
 
@@ -254,25 +316,21 @@ The focused security tests must cover:
 
 Slice 2Q does not add:
 
-- protected GET administration or a frontend administration page;
+- protected stale-probe GET administration or a frontend administration page;
 - creation of synthetic stale rows on the real runtime;
 - deletion of any existing production capability row;
 - completion/outcome accountability;
 - generic identity, credential, grant or role administration;
-- session refresh/idle/concurrency policy;
+- browser-session refresh, idle, cleanup or concurrency policy;
 - Phase 63-67 runtime;
 - PR Ready transition or merge.
 
-## Acceptance Gate
+## Exact Next Action
 
-The slice is not complete until:
-
-1. the corrected focused repository checks pass;
-2. all five follow-up PR CI jobs pass;
-3. guarded installation succeeds on the real yaVDR system;
-4. the direct SQLite stale/future snapshot is empty;
-5. the SQLite delete guard is installed before the first POST;
-6. both aliases complete with zero deletions;
-7. the delete guard is removed and verified absent;
-8. the database, grants, session and service state are verified clean;
-9. durable runtime evidence and final documentation are committed.
+1. let this documentation-closeout commit complete its full five-job CI;
+2. keep PR #117 open, Draft and unmerged;
+3. perform a fresh bounded POST inventory audit after Slice 2Q;
+4. select exactly one next Phase 62 slice only after its scope, persistence,
+   authorization, accountability and runtime-safety boundary are explicit;
+5. do not combine the next slice with Android, generic administration or Phase
+   63-67 runtime.

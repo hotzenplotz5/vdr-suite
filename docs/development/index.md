@@ -27,9 +27,11 @@
 Latest completed numbered runtime phase: Phase 61 - Suite Metadata and Genre Platform
 Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
 Current runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
-Current accepted Phase 62 state: repository, CI and real yaVDR runtime accepted through Slice 2P
-Accepted code/runtime head: 173c929964dbb7aabd30c5e482c2e250b5785d92
-CI: #6649 / run 30711237050 / all five jobs successful
+Current accepted Phase 62 state: repository, CI and real yaVDR runtime accepted through Slice 2Q
+Accepted code/runtime head: 88ec36076d7e5114df0a3a186cc6fbd52bb2baac
+CI: #6655 / run 30713953331 / all five jobs successful
+Installed daemon SHA-256: 9f60daaf7d772abe7c6ad55388cb9bb7e8afe8f6679fbf749aa9103143a41d07
+Installed loader SHA-256: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 ```
 
 Phase 62 remains active and incomplete. Phase 63-67 runtime has not been
@@ -37,11 +39,33 @@ advanced. PR #117 remains open, Draft and unmerged.
 
 ## Latest closeouts
 
+- [Phase 62 Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Phase 62 Slice 2P Closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md)
 - [Phase 62 Slice 2O Closeout](phase-62-slice-2o-native-fuzzy-refresh-security-migration.md)
 - [Phase 61 Metadata, Genre and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
 - [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
 - [Architecture Source Audit — 2026-07-15](architecture-source-audit-2026-07-15.md)
+
+## Latest Slice 2Q evidence
+
+```text
+Tests: 32 passed, 0 failed
+HTTP requests: 25
+Authorization scope: *
+Snapshot source: direct SQLite
+Freshness boundary: 604800 seconds
+Real stale-probe deletions: 0
+Delete guard removed: yes
+Snapshot unchanged: yes
+Database integrity: yes
+Service active: yes
+```
+
+Evidence directory:
+
+```text
+/var/backups/vdr-suite-phase62-slice2q-20260801T191156Z-88ec36076d7e/runtime-acceptance-slice2q
+```
 
 ## Developer references
 
@@ -70,6 +94,11 @@ advanced. PR #117 remains open, Draft and unmerged.
 - Accepted ADRs remain in `docs/adr/` and do not move into completed phases.
 - Phase 62 slices are not separate numbered phases.
 - Historical phase files remain traceability records and must not be linked as equal current entry points.
+
+## Exact next action
+
+Let the Slice-2Q documentation closeout complete its five-job CI, then perform a
+fresh bounded POST inventory audit before selecting one next Phase 62 slice.
 
 ## Related navigation
 

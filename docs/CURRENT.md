@@ -5,7 +5,7 @@
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
-- [Phase 62 Slice 2Q Active Contract](development/phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
+- [Phase 62 Slice 2Q Closeout](development/phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
 - [Phase 62 Slice 2P Closeout](development/phase-62-slice-2p-query-cache-refresh-security-migration.md)
 - [Phase 62 Runtime Evidence](development/phase-62-runtime-evidence.md)
 - [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
@@ -45,25 +45,18 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Repository, CI and real-runtime accepted through:
-Slice 2P - Query-Scoped Cache Refresh Security Migration
+Slice 2Q - Global Native Fuzzy Stale-Probe Deletion Security Migration
 
 Accepted code/runtime head:
-173c929964dbb7aabd30c5e482c2e250b5785d92
+88ec36076d7e5114df0a3a186cc6fbd52bb2baac
 
 Accepted CI:
-VDR-Suite CI #6649
-Run ID 30711237050
+VDR-Suite CI #6655
+Run ID 30713953331
 All five jobs successful
 
-Active repository implementation:
-Slice 2Q - Global Native Fuzzy Stale-Probe Deletion Security Migration
-Initial CI #6654 / run 30713278771: all five jobs successful
-First runtime attempt: safe preflight abort on HTTP 404
-Automatic rollback to accepted Slice-2P runtime: passed
-Corrected direct-SQLite preflight follow-up CI: pending
-
 Installed daemon SHA-256:
-c0e74602334e2b9d21f53329182bc5e35c99676f3dcdf2ae0639f996151a432a
+9f60daaf7d772abe7c6ad55388cb9bb7e8afe8f6679fbf749aa9103143a41d07
 
 Installed deferred-runtime-loader.js SHA-256:
 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
@@ -100,55 +93,13 @@ The cumulative accepted catalogue includes:
 - Channel Move aliases;
 - Recording execution aliases;
 - SearchTimer create, update, delete and execution aliases;
-- accepted explicit safe POST routes;
+- accepted explicit Safe POST routes;
 - Native Fuzzy operator refresh aliases;
 - SearchTimer preview cache refresh aliases;
-- EPG cache refresh.
+- EPG cache refresh;
+- global Native Fuzzy stale-probe deletion aliases.
 
-The accepted Slice 2P contracts are:
-
-```text
-POST /api/searchtimers/preview/cache/refresh
-POST /api/vdr/searchtimers/preview/cache/refresh
-  permission: searchtimers.preview-cache.refresh@<backend-id>
-
-POST /api/epg/cache/refresh
-  permission: epg.cache.refresh@<backend-id>
-```
-
-For these routes `<backend-id>` comes only from query parameter `backend`.
-Missing or empty values normalize to `default`; URL decoding and duplicate
-last-value behavior match the router. Request-body backend fields cannot change
-the authorization scope.
-
-## Latest real-runtime acceptance
-
-The yaVDR pass used the non-registered backend
-`phase62-slice2p-missing-backend`, reached the existing service boundary and
-stopped with `backend-not-found` before any cache refresh.
-
-```text
-SearchTimer preview cache refresh: 29 tests, 27 HTTP requests
-EPG cache refresh: 18 tests, 16 HTTP requests
-Total: 47 tests, 43 HTTP requests
-Daemon PID remained 66229
-Cache mutation: none
-Backend snapshot: unchanged
-Target grants: restored
-Browser session: revoked
-Revoked-cookie replay: denied
-Accountability: secret-free
-SQLite quick/foreign-key checks: passed
-Service: active
-```
-
-Durable evidence:
-
-```text
-/var/backups/vdr-suite-phase62-slice2p-20260801T180617Z-173c929964db/runtime-acceptance-slice2p
-```
-
-## Active Slice 2Q repository contract
+## Latest accepted Slice 2Q contract
 
 ```text
 POST /api/epgsearch/native-fuzzy/stale-probes/delete
@@ -161,37 +112,55 @@ Direct concrete-scope grants and concrete Admin assignments do not authorize
 the route. `role.admin@*` is the exact global assignment, while
 `role.read-only@*` denies before direct permission or Admin.
 
-There is no Webfrontend owner. The corrected guarded runner obtains a direct
-read-only SQLite snapshot using the product freshness rules: seven days is the
-maximum accepted age and future timestamps are stale. The runner aborts before
-its first POST unless that snapshot is exactly empty.
+The aliases have no Webfrontend owner and remain excluded from Safe POST.
+Query-string variants use the exact base route; trailing-slash variants remain
+fail-closed.
 
-After the empty snapshot, a temporary `BEFORE DELETE` trigger blocks every
-cross-connection deletion race. Every accepted POST must return zero deleted
-rows, cleanup must remove the trigger, and the postflight SQLite snapshot must
-remain empty and unchanged.
+## Latest real-runtime acceptance
 
-The initial repository CI for head `1119c94e5184245f5d161283270c51b604153e0b`
-passed all five jobs. The first real-runtime attempt stopped before any Delete
-POST because the historically documented stale-probe GET route is not
-registered in `ApiRouter::handleGet` and returned HTTP 404.
+The guarded yaVDR pass used a direct read-only SQLite stale/future snapshot with
+the production seven-day freshness boundary. The snapshot was empty before
+installation, before the POST matrix and after the matrix.
 
-Automatic rollback passed and restored:
+A temporary cross-connection `BEFORE DELETE` trigger blocked every possible
+real deletion during the acceptance pass. Cleanup removed the trigger and final
+verification proved it absent.
 
 ```text
-daemon: c0e74602334e2b9d21f53329182bc5e35c99676f3dcdf2ae0639f996151a432a
-loader: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
-delete guard absent: yes
+Slice: slice-2q-native-fuzzy-stale-probe-delete
+Tests: 32 passed, 0 failed
+HTTP requests: 25
+Daemon PID after acceptance: 67393
+Authorization scope: *
+Snapshot source: direct-sqlite
+Freshness maximum age: 604800 seconds
+Real stale-probe deletions: 0
+Snapshot unchanged: yes
+Delete guard removed: yes
+Target grants restored: yes
+Browser session revoked: yes
+Revoked-cookie replay denied: yes
+Accountability secret-free: yes
+SQLite integrity: yes
+Service PID unchanged: yes
+Service active: yes
 ```
 
-Rollback backup:
+All three normalized snapshot files share this SHA-256:
 
 ```text
-/var/backups/vdr-suite-phase62-slice2q-20260801T185634Z-1119c94e5184/install-before
+2b1d1af321fd9497f99ac742c694c70ecfde94b41bcb6d74ee3a70187e5d1e7a
 ```
 
-This contract remains repository-only until corrected follow-up CI and real
-yaVDR acceptance succeed.
+Durable evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2q-20260801T191156Z-88ec36076d7e/runtime-acceptance-slice2q
+```
+
+The earlier guarded attempt stopped safely on an unregistered historical GET
+route before every Delete POST and automatically restored Slice 2P. It remains
+rollback evidence, not the accepted Slice-2Q pass.
 
 ## Compatibility and fail-closed boundary
 
@@ -205,8 +174,7 @@ global deletion route as Safe POST.
 
 ## Remaining Phase 62 work
 
-- pass corrected follow-up CI and guarded real-runtime acceptance for Slice 2Q;
-- re-audit the POST inventory after Slice 2Q acceptance;
+- perform a fresh POST inventory audit after Slice 2Q;
 - add completion/outcome accountability and stronger transactional coupling;
 - define refresh, idle expiry, cleanup and concurrent-session policy;
 - add protected credential, identity, role and grant administration;
@@ -216,19 +184,20 @@ global deletion route as Safe POST.
 - add protected audit query/export/retention;
 - complete compatibility-retirement and final Phase 62 acceptance.
 
+No next implementation slice has been selected by this closeout.
+
 ## Operating rules
 
 - PR #117 remains open, Draft and unmerged.
 - Do not mark it Ready, merge, auto-merge, force-push or rewrite branch history.
 - Recheck volatile GitHub and local state immediately before mutation.
 - Do not repeat completed runtime acceptance solely because the chat changed.
-- The current implementation is exactly one bounded Phase 62 route family.
-- Do not pull Android or Phase 63-67 runtime into Phase 62 route migration.
+- Select exactly one bounded Phase 62 slice at a time.
+- Do not pull Android or Phase 63-67 runtime into Phase 62 work.
 
 ## Exact next action
 
-Publish the corrected direct-SQLite Slice-2Q preflight as one fast-forward
-commit and require all five follow-up CI jobs to pass. Only after full green CI
-may guarded installation and zero-delete runtime acceptance run again. The
-runtime pass must abort before any POST when the SQLite stale/future snapshot is
-nonempty.
+Let the Slice-2Q documentation closeout complete its full five-job CI. Then
+perform a fresh bounded POST inventory audit and select exactly one next Phase
+62 slice only after its security, persistence and runtime-safety contract is
+explicit.
