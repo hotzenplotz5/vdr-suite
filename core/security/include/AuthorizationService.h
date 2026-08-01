@@ -189,7 +189,8 @@ private:
             permission == "searchtimers.create" ||
             permission == "searchtimers.modify" ||
             permission == "searchtimers.delete" ||
-            permission == "searchtimers.execute";
+            permission == "searchtimers.execute" ||
+            permission == "epgsearch.native-fuzzy.refresh";
     }
 
     static bool adminRoleGrants(const std::string& permission)
