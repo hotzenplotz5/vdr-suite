@@ -13,13 +13,20 @@
 
 ## Status
 
-The harness foundation is implemented locally.
+Slice 2K is complete in repository, CI and on the real yaVDR runtime.
 
-Offline manifest validation, self-tests, Make inventory and documentation checks
-must pass before commit.
+The accepted tooling commit is:
 
-The real-runtime harness run remains deferred until the tooling commit is
-reviewed, committed, pushed and green in CI.
+```text
+dab9a4f7849258debf7a926ec549b34a67a7be92
+```
+
+GitHub Actions run `30700027075` completed successfully with all five jobs
+green.
+
+The committed harness then completed one real-runtime self-validation without a
+daemon replacement, service restart, SearchTimer creation or persistent grant
+change.
 
 ---
 
@@ -137,9 +144,71 @@ The runner does not install, restart or reconfigure the daemon.
 
 ---
 
-## Completion Boundary
+## Real-Runtime Self-Validation
 
-Slice 2K is complete only after:
+**VERIFIED on 2026-08-01 at commit
+`dab9a4f7849258debf7a926ec549b34a67a7be92`:**
+
+```text
+manifestId                    = slice-2j-searchtimer-create
+testsPassed                   = 29
+httpRequests                  = 27
+accountability.authorized     = 8
+accountability.csrf           = 2
+accountability.permission     = 2
+accountability.read_only      = 2
+accountability.scope          = 4
+real_searchtimer_creates      = 0
+```
+
+The generated report was:
+
+```text
+.build/phase62-runtime-acceptance-slice2k-self-validation.json
+```
+
+Its SHA-256 was:
+
+```text
+a099bd16a1ac7e49f7608c1bd79d69b27eb0f3cea8222f93295650c25c174eb4
+```
+
+The self-validation additionally proved:
+
+- resource state unchanged;
+- all targeted grants restored exactly;
+- unrelated grants untouched;
+- browser session revoked;
+- revoked-cookie replay denied;
+- accountability free of Authorization, cookie and CSRF secrets;
+- SQLite quick and foreign-key checks successful;
+- service PID unchanged at `57877` during the pass;
+- installed and running daemon unchanged;
+- installed deferred loader unchanged;
+- verified backup checksums unchanged;
+- worktree clean after the pass.
+
+The accepted installed fingerprints remained:
+
+```text
+daemon:
+ccfc7c3c81300562da07b29a42b71e778439e805995abe7718dc702363a91a4c
+
+loader:
+a43f04673bb85a4dac21b2918744ae0bca554367c4942a125886c301e3ff51e7
+```
+
+The verified backup remained:
+
+```text
+/var/backups/vdr-suite-phase62-slice2j-20260801T105140Z-7a3c8a1a3e0e
+```
+
+---
+
+## Completion
+
+Slice 2K completed:
 
 1. focused local review and offline tests;
 2. commit and push;
@@ -147,5 +216,9 @@ Slice 2K is complete only after:
 4. one real-runtime self-validation of the committed harness;
 5. verified cleanup and JSON report;
 6. documentation closeout.
+
+The harness is now the default acceptance mechanism for compatible future
+Phase 62 protected-mutation slices. It should be extended through manifests and
+small reusable capabilities instead of recreating large ad-hoc shell matrices.
 
 PR #117 remains open, Draft and unmerged.
