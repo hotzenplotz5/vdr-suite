@@ -22,3 +22,9 @@ VDR_SUITE_SUITE_BRIDGE_RECONNECT_MAXIMUM_MS=30000
 # integers from 300 through 86400. This is not an idle timeout or refresh
 # interval. The same value controls the persisted expiry and cookie Max-Age.
 VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS=28800
+
+# Maximum effective active browser sessions per actor. Values must be strict
+# decimal integers from 0 through 64. Zero preserves unlimited compatibility
+# behaviour. Reaching a non-zero limit rejects a new session and never evicts an
+# existing one.
+VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR=0
