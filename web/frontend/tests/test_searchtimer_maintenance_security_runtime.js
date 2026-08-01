@@ -18,7 +18,7 @@ const loaderSource = fs.readFileSync(
 const requests = [];
 const listeners = {};
 const csrfToken =
-  'searchtimer-maintenance-csrf-runtime-test';
+  'searchtimer-mutation-csrf-runtime-test';
 
 const document = {
   readyState: 'loading',
@@ -88,6 +88,10 @@ vm.runInContext(
 );
 
 assert.strictEqual(
+  context.__vdrSuiteSearchTimerCreateMutationCsrfWrapped,
+  true
+);
+assert.strictEqual(
   context.__vdrSuiteSearchTimerMaintenanceMutationCsrfWrapped,
   true
 );
@@ -109,6 +113,8 @@ function csrfHeader() {
 }
 
 const exactRoutes = [
+  '/api/searchtimers',
+  '/api/vdr/searchtimers',
   '/api/searchtimers/update',
   '/api/vdr/searchtimers/update',
   '/api/searchtimers/delete',
@@ -127,25 +133,21 @@ for (const route of exactRoutes) {
   assert.strictEqual(csrfHeader(), csrfToken);
 }
 
-context.fetch(
+for (const route of [
+  '/api/vdr/searchtimers?source=browser',
   '/api/vdr/searchtimers/update?source=browser',
-  {
+  'https://vdr-suite.test/api/searchtimers/delete?absolute=1'
+]) {
+  context.fetch(route, {
     method: 'POST',
     headers: {Accept: 'application/json'}
-  }
-);
-assert.strictEqual(csrfHeader(), csrfToken);
+  });
 
-context.fetch(
-  'https://vdr-suite.test/api/searchtimers/delete?absolute=1',
-  {
-    method: 'POST',
-    headers: {Accept: 'application/json'}
-  }
-);
-assert.strictEqual(csrfHeader(), csrfToken);
+  assert.strictEqual(csrfHeader(), csrfToken);
+}
 
 for (const route of [
+  '/api/vdr/searchtimers/',
   '/api/vdr/searchtimers/update/',
   '/api/vdr/searchtimers/delete/'
 ]) {
@@ -166,23 +168,18 @@ context.fetch(
 );
 assert.strictEqual(csrfHeader(), undefined);
 
-context.fetch(
+for (const route of [
   '/api/vdr/searchtimers/execute',
-  {
-    method: 'POST',
-    headers: {Accept: 'application/json'}
-  }
-);
-assert.strictEqual(csrfHeader(), undefined);
-
-context.fetch(
   '/api/vdr/searchtimers/validate',
-  {
+  '/api/vdr/searchtimers/plan'
+]) {
+  context.fetch(route, {
     method: 'POST',
     headers: {Accept: 'application/json'}
-  }
-);
-assert.strictEqual(csrfHeader(), undefined);
+  });
+
+  assert.strictEqual(csrfHeader(), undefined);
+}
 
 console.log(
   'test_searchtimer_maintenance_security_runtime passed'
