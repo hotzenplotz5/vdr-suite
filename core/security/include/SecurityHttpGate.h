@@ -136,6 +136,10 @@ public:
             isPost &&
             (path == "/api/searchtimers/real-test" ||
              path == "/api/vdr/searchtimers/real-test");
+        const bool isNativeFuzzyRefreshAction =
+            isPost &&
+            (path == "/api/epgsearch/native-fuzzy/refresh" ||
+             path == "/api/vdr/epgsearch/native-fuzzy/refresh");
         const bool isSafePost =
             isPost &&
             (path == "/api/recordings/actions/validate" ||
@@ -157,7 +161,8 @@ public:
             isSearchTimerUpdateAction ||
             isSearchTimerDeleteAction ||
             isSearchTimerExecuteAction ||
-            isSearchTimerRealTestAction;
+            isSearchTimerRealTestAction ||
+            isNativeFuzzyRefreshAction;
 
         if (isSafePost)
         {
@@ -180,7 +185,8 @@ public:
             !isSearchTimerUpdateAction &&
             !isSearchTimerDeleteAction &&
             !isSearchTimerExecuteAction &&
-            !isSearchTimerRealTestAction)
+            !isSearchTimerRealTestAction &&
+            !isNativeFuzzyRefreshAction)
         {
             AuthorizationDecision decision;
             decision.reasonCode = "security_policy_not_migrated";
@@ -286,6 +292,17 @@ public:
         {
             requestToAuthorize.permission = "searchtimers.execute";
             requestToAuthorize.action = "searchtimers.execute";
+            if (requestToAuthorize.backendId.empty())
+            {
+                requestToAuthorize.backendId = "default";
+            }
+        }
+        else if (isNativeFuzzyRefreshAction)
+        {
+            requestToAuthorize.permission =
+                "epgsearch.native-fuzzy.refresh";
+            requestToAuthorize.action =
+                "epgsearch.native-fuzzy.refresh";
             if (requestToAuthorize.backendId.empty())
             {
                 requestToAuthorize.backendId = "default";
