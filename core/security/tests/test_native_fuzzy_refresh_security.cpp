@@ -281,6 +281,10 @@ void testQueryCacheRefreshRoute(const QueryCacheRoute& contract)
         fixture.actorId,
         contract.permission,
         "house-a"));
+    assert(fixture.grantRepository.revokeGrant(
+        fixture.actorId,
+        contract.permission,
+        "default"));
     assert(fixture.grantRepository.ensureGrant(
         fixture.actorId,
         contract.otherPermission,
