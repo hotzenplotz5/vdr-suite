@@ -384,10 +384,12 @@ def self_test(manifest: dict[str, Any]) -> None:
     )
     require(
         all(
-            route.rstrip("/") not in exact
+            route.endswith("/")
+            and route not in exact
+            and route.rstrip("/") in exact
             for route in manifest["trailingSlashRoutes"]
         ),
-        "trailing_slash_fixture_must_not_be_safe",
+        "trailing_slash_fixture_must_target_safe_route",
     )
     require(
         not exact.intersection(
