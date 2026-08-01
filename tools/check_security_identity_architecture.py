@@ -61,8 +61,12 @@ def main() -> int:
         "core/http/tests/test_browser_session_http_service.cpp",
         "core/security/tests/test_accountability_event_repository.cpp",
         "core/security/tests/test_security_http_gate.cpp",
+        "core/security/tests/test_native_fuzzy_refresh_security.cpp",
+        "web/frontend/api/client-api.js",
+        "web/frontend/epg-searchtimer-actions.js",
         "web/frontend/platform/deferred-runtime-loader.js",
         "web/frontend/tests/test_channel_move_security_runtime.js",
+        "web/frontend/tests/test_query_cache_refresh_security_runtime.js",
         "web/frontend/tests/test_recording_execution_security_runtime.js",
         "docs/planning/phase-62-security-identity-gap-matrix.md",
         "docs/development/phase-62-slice-2i-recording-execution-security-migration.md",
@@ -70,7 +74,10 @@ def main() -> int:
         "docs/development/phase-62-slice-2k-runtime-acceptance-harness.md",
         "mk/phase62-runtime-acceptance.mk",
         "tools/phase62-runtime-acceptance/runner.py",
+        "tools/phase62-runtime-acceptance/static-body-runner.py",
         "tools/phase62-runtime-acceptance/slice-2j.json",
+        "tools/phase62-runtime-acceptance/slice-2p-searchtimer-preview-cache-refresh.json",
+        "tools/phase62-runtime-acceptance/slice-2p-epg-cache-refresh.json",
         "docs/development/phase-62-security-identity-foundation-slice-1.md",
         "docs/development/phase-62-security-identity-foundation-slice-2.md",
         "docs/architecture/security-identity-foundation.md",
@@ -125,8 +132,91 @@ def main() -> int:
     require("core/security/include/SecurityHttpGate.h", "usesLegacyCompatibilityCredential")
     require("core/security/include/SecurityHttpGate.h", "browserSessionAuthenticator_->verifyCsrf(request.headers)")
     require("core/security/include/SecurityHttpGate.h", '"csrf_validation_failed"')
-    require("core/security/include/SecurityHttpGate.h", "isPost && gate.browserAuthenticated && !isRemoteAction")
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        "isPost && gate.browserAuthenticated && !isProtectedMutation",
+    )
     require("core/security/include/SecurityHttpGate.h", '"unmapped.browser.mutation"')
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"/api/searchtimers/preview/cache/refresh"',
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"/api/vdr/searchtimers/preview/cache/refresh"',
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"/api/epg/cache/refresh"',
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"searchtimers.preview-cache.refresh"',
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"epg.cache.refresh"',
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        'queryStringValue(request.path, "backend")',
+    )
+    require(
+        "core/security/include/AuthorizationService.h",
+        '"searchtimers.preview-cache.refresh"',
+    )
+    require(
+        "core/security/include/AuthorizationService.h",
+        '"epg.cache.refresh"',
+    )
+    require(
+        "core/security/tests/test_native_fuzzy_refresh_security.cpp",
+        '"/api/searchtimers/preview/cache/refresh"',
+    )
+    require(
+        "core/security/tests/test_native_fuzzy_refresh_security.cpp",
+        '"/api/vdr/searchtimers/preview/cache/refresh"',
+    )
+    require(
+        "core/security/tests/test_native_fuzzy_refresh_security.cpp",
+        '"/api/epg/cache/refresh"',
+    )
+    require(
+        "core/security/tests/test_native_fuzzy_refresh_security.cpp",
+        '"/api/epgsearch/native-fuzzy/stale-probes/delete"',
+    )
+    require(
+        "web/frontend/api/client-api.js",
+        "fetchClientSearchTimerPreviewCacheRefresh",
+    )
+    require(
+        "web/frontend/api/client-api.js",
+        "activeSessionCsrfHeaders",
+    )
+    require(
+        "web/frontend/api/client-api.js",
+        "queryMutationOptions",
+    )
+    require(
+        "web/frontend/epg-searchtimer-actions.js",
+        "fetchClientSearchTimerPreviewCacheRefresh",
+    )
+    require(
+        "web/frontend/platform/deferred-runtime-loader.js",
+        "fetchClientSearchTimerPreviewCacheRefresh",
+    )
+    require(
+        "web/frontend/tests/test_query_cache_refresh_security_runtime.js",
+        "caller-must-not-override",
+    )
+    require(
+        "web/frontend/tests/test_query_cache_refresh_security_runtime.js",
+        "fetchClientEpgCacheRefresh",
+    )
+    require(
+        "web/frontend/tests/test_query_cache_refresh_security_runtime.js",
+        "fetchClientSearchTimerPreviewCacheRefresh",
+    )
     require(
         "web/frontend/platform/deferred-runtime-loader.js",
         "__vdrSuiteChannelMoveMutationCsrfWrapped",
@@ -308,16 +398,52 @@ def main() -> int:
         "accountability_contract_mismatch_not_detected",
     )
     require(
-        "tools/phase62-runtime-acceptance/slice-2j.json",
-        "\"safeBody\": {}",
+        "tools/phase62-runtime-acceptance/static-body-runner.py",
+        "queryScopedRoutes",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/static-body-runner.py",
+        "querySuffix",
+    )
+    require(
+        "mk/phase62-runtime-acceptance.mk",
+        "phase62-runtime-acceptance-query-cache-batch:",
+    )
+    require(
+        "tools/phase62-runtime-acceptance/slice-2p-searchtimer-preview-cache-refresh.json",
+        '"queryScopedRoutes": true',
+    )
+    require(
+        "tools/phase62-runtime-acceptance/slice-2p-searchtimer-preview-cache-refresh.json",
+        '"searchtimers.preview-cache.refresh"',
+    )
+    require(
+        "tools/phase62-runtime-acceptance/slice-2p-searchtimer-preview-cache-refresh.json",
+        '"status": "backend-not-found"',
+    )
+    require(
+        "tools/phase62-runtime-acceptance/slice-2p-epg-cache-refresh.json",
+        '"queryScopedRoutes": true',
+    )
+    require(
+        "tools/phase62-runtime-acceptance/slice-2p-epg-cache-refresh.json",
+        '"epg.cache.refresh"',
+    )
+    require(
+        "tools/phase62-runtime-acceptance/slice-2p-epg-cache-refresh.json",
+        '"status": "backend-not-found"',
     )
     require(
         "tools/phase62-runtime-acceptance/slice-2j.json",
-        "\"/api/searchtimers\"",
+        '"safeBody": {}',
     )
     require(
         "tools/phase62-runtime-acceptance/slice-2j.json",
-        "\"/api/vdr/searchtimers\"",
+        '"/api/searchtimers"',
+    )
+    require(
+        "tools/phase62-runtime-acceptance/slice-2j.json",
+        '"/api/vdr/searchtimers"',
     )
     require(
         "tools/phase62-runtime-acceptance/slice-2j.json",
