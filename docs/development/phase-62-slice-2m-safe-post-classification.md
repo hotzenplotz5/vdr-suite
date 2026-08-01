@@ -2,10 +2,14 @@
 
 ## Status
 
-Repository implementation is active on Draft PR #117.
+Slice 2M is complete on Draft PR #117.
 
-No real yaVDR installation or runtime acceptance has been performed for this
-slice yet.
+Repository implementation, CI, guarded yaVDR installation and real-runtime
+acceptance passed on 2026-08-01 at:
+
+```text
+43b516c7e2adb96bfde415abc8c665f77a541643
+```
 
 ---
 
@@ -131,16 +135,68 @@ Together they prove:
 
 ---
 
-## Efficient Acceptance Boundary
+## Real yaVDR Acceptance
 
-Slice 2M is installed together with Slice 2L after the combined GitHub batch is
-fully CI-green.
+Slice 2M ran in the same guarded installation window as Slice 2L:
 
-The real yaVDR pass will use one guarded installation and one browser session.
-It will exercise all eight exact safe routes without CSRF, verify the excluded
-routes remain fail-closed and confirm resource snapshots, service state and
-SQLite integrity remain unchanged.
+```text
+Repository head:
+43b516c7e2adb96bfde415abc8c665f77a541643
 
-No real Recording or SearchTimer mutation is part of this acceptance.
+GitHub Actions:
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30703009976
+
+Verified backup:
+/var/backups/vdr-suite-phase62-slice2lm-20260801T141451Z-43b516c7e2ad
+
+Installed/running daemon SHA-256:
+02a701c3bc8279808b3303c23d19080dc7ccc9c522d2ca28c90b996618456a03
+
+Installed deferred loader SHA-256:
+c32999adc0aca8ee815ceebde8982ad50f4c206d93d4864ac949146dc8190bd7
+```
+
+The safe-POST profile passed:
+
+```text
+tests_passed=27
+tests_failed=0
+runtime_http_requests=26
+safe_routes=8
+```
+
+The full combined 2L/2M batch passed:
+
+```text
+runtime_acceptance_total_tests=85
+runtime_acceptance_total_http_requests=80
+```
+
+The checksum-protected evidence is stored at:
+
+```text
+/var/backups/vdr-suite-phase62-slice2lm-20260801T141451Z-43b516c7e2ad/runtime-acceptance-batch
+```
+
+The pass verified unauthenticated denial, Legacy Basic and browser-session
+allowance, query-string variants, trailing-slash fail-closed behavior and
+continued denial of excluded execute, real-test and refresh routes.
+
+Resource state, daemon PID, installed fingerprints, SQLite integrity and backup
+checksums remained unchanged. Acceptance browser sessions were revoked and
+revoked-cookie replay was denied.
+
+```text
+real_recording_mutations=0
+real_searchtimer_updates=0
+real_searchtimer_deletes=0
+```
+
+---
+
+## Completion
+
+Repository implementation, focused tests, full CI, guarded installation,
+real-runtime acceptance, cleanup and durable evidence all passed.
 
 PR #117 remains open, Draft and unmerged.
