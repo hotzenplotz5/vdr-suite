@@ -89,7 +89,10 @@ int main()
         "/api/searchtimers/real-test",
         "/api/vdr/searchtimers/real-test",
         "/api/epgsearch/native-fuzzy/refresh",
-        "/api/vdr/epgsearch/native-fuzzy/refresh"
+        "/api/vdr/epgsearch/native-fuzzy/refresh",
+        "/api/searchtimers/preview/cache/refresh",
+        "/api/vdr/searchtimers/preview/cache/refresh",
+        "/api/epg/cache/refresh"
     };
 
     for (const std::string& route : protectedMutations)
@@ -112,9 +115,8 @@ int main()
     }
 
     const std::vector<std::string> stillUnmigrated = {
-        "/api/searchtimers/preview/cache/refresh",
-        "/api/vdr/searchtimers/preview/cache/refresh",
-        "/api/epg/cache/refresh"
+        "/api/epgsearch/native-fuzzy/stale-probes/delete",
+        "/api/vdr/epgsearch/native-fuzzy/stale-probes/delete"
     };
 
     for (const std::string& route : stillUnmigrated)
