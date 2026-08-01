@@ -263,6 +263,16 @@ function installChannelMoveMutationCsrf() {
   );
 }
 
+function installRecordingExecutionMutationCsrf() {
+  installMutationCsrfForPaths(
+    '__vdrSuiteRecordingExecutionMutationCsrfWrapped',
+    [
+      '/api/recordings/actions/execute',
+      '/api/vdr/recordings/actions/execute'
+    ]
+  );
+}
+
 function loadVdrSuiteDeferredRuntime(id, src, readyCheck) {
   if (typeof readyCheck === 'function' && readyCheck()) {
     return Promise.resolve();
@@ -430,6 +440,7 @@ if (typeof window !== 'undefined') {
   installSecurityRoleErrorMessages();
   installTimerMutationCsrf();
   installChannelMoveMutationCsrf();
+  installRecordingExecutionMutationCsrf();
   installSearchTimerPreviewCacheWarmup();
 
   window.VdrSuiteDeferredFrontendRuntimes = Object.freeze({

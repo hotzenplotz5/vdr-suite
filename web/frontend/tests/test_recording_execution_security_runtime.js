@@ -12,7 +12,7 @@ const source = fs.readFileSync(
 
 const requests = [];
 const listeners = {};
-const csrfToken = 'channel-move-csrf-token-for-runtime-test';
+const csrfToken = 'recording-execution-csrf-runtime-test';
 
 const document = {
   readyState: 'loading',
@@ -68,11 +68,7 @@ vm.createContext(context);
 vm.runInContext(source, context);
 
 assert.strictEqual(
-  context.__vdrSuiteChannelMoveMutationCsrfWrapped,
-  true
-);
-assert.strictEqual(
-  context.__vdrSuiteTimerMutationCsrfWrapped,
+  context.__vdrSuiteRecordingExecutionMutationCsrfWrapped,
   true
 );
 assert.strictEqual(typeof listeners.DOMContentLoaded, 'function');
@@ -81,21 +77,21 @@ function latestRequest() {
   return requests[requests.length - 1];
 }
 
-function hasCsrfHeader(request) {
-  return Object.prototype.hasOwnProperty.call(
-    request.init.headers,
-    'X-CSRF-Token'
-  );
+function csrfHeader(request) {
+  return request &&
+    request.init &&
+    request.init.headers &&
+    request.init.headers['X-CSRF-Token'];
 }
 
 (async function () {
-  const channelMovePaths = [
-    '/api/vdr/channels/move',
-    '/api/vdr/channels/actions/move'
+  const paths = [
+    '/api/recordings/actions/execute',
+    '/api/vdr/recordings/actions/execute'
   ];
 
-  for (const channelMovePath of channelMovePaths) {
-    await context.fetch(channelMovePath, {
+  for (const route of paths) {
+    await context.fetch(route, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -103,78 +99,53 @@ function hasCsrfHeader(request) {
       }
     });
 
-    const request = latestRequest();
-    assert.strictEqual(request.input, channelMovePath);
-    assert.strictEqual(request.init.method, 'POST');
-    assert.strictEqual(
-      request.init.headers.Accept,
-      'application/json'
-    );
-    assert.strictEqual(
-      request.init.headers['X-CSRF-Token'],
-      csrfToken
-    );
+    assert.strictEqual(csrfHeader(latestRequest()), csrfToken);
   }
 
   await context.fetch(
-    '/api/vdr/channels/actions/move?source=browser',
+    '/api/vdr/recordings/actions/execute?source=browser',
     {
       method: 'POST',
       headers: {Accept: 'application/json'}
     }
   );
-  assert.strictEqual(
-    latestRequest().init.headers['X-CSRF-Token'],
-    csrfToken
-  );
+  assert.strictEqual(csrfHeader(latestRequest()), csrfToken);
 
   await context.fetch(
-    'https://vdr-suite.test/api/vdr/channels/move?source=absolute',
+    'https://vdr-suite.test/api/recordings/actions/execute?absolute=1',
     {
       method: 'POST',
       headers: {Accept: 'application/json'}
     }
   );
-  assert.strictEqual(
-    latestRequest().init.headers['X-CSRF-Token'],
-    csrfToken
-  );
+  assert.strictEqual(csrfHeader(latestRequest()), csrfToken);
 
   await context.fetch(
-    '/api/vdr/channels/move/',
+    '/api/vdr/recordings/actions/execute/',
     {
       method: 'POST',
       headers: {Accept: 'application/json'}
     }
   );
-  assert.strictEqual(hasCsrfHeader(latestRequest()), false);
+  assert.strictEqual(csrfHeader(latestRequest()), undefined);
 
   await context.fetch(
-    '/api/vdr/channels/actions/move/',
-    {
-      method: 'POST',
-      headers: {Accept: 'application/json'}
-    }
-  );
-  assert.strictEqual(hasCsrfHeader(latestRequest()), false);
-
-  await context.fetch(
-    '/api/vdr/channels/move',
+    '/api/vdr/recordings/actions/execute',
     {
       method: 'GET',
       headers: {Accept: 'application/json'}
     }
   );
-  assert.strictEqual(hasCsrfHeader(latestRequest()), false);
+  assert.strictEqual(csrfHeader(latestRequest()), undefined);
 
   await context.fetch(
-    '/api/vdr/searchtimers/execute',
+    '/api/vdr/recordings/actions/validate',
     {
       method: 'POST',
       headers: {Accept: 'application/json'}
     }
   );
-  assert.strictEqual(hasCsrfHeader(latestRequest()), false);
+  assert.strictEqual(csrfHeader(latestRequest()), undefined);
 
   context.VdrSuiteBrowserSession = {
     csrfHeaders() {
@@ -183,15 +154,15 @@ function hasCsrfHeader(request) {
   };
 
   await context.fetch(
-    '/api/vdr/channels/actions/move',
+    '/api/vdr/recordings/actions/execute',
     {
       method: 'POST',
       headers: {Accept: 'application/json'}
     }
   );
-  assert.strictEqual(hasCsrfHeader(latestRequest()), false);
+  assert.strictEqual(csrfHeader(latestRequest()), undefined);
 
-  console.log('channel move security frontend runtime ok');
+  console.log('recording execution security frontend runtime ok');
 }()).catch(function (error) {
   console.error(error);
   process.exitCode = 1;

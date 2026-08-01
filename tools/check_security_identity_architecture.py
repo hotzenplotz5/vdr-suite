@@ -63,7 +63,9 @@ def main() -> int:
         "core/security/tests/test_security_http_gate.cpp",
         "web/frontend/platform/deferred-runtime-loader.js",
         "web/frontend/tests/test_channel_move_security_runtime.js",
+        "web/frontend/tests/test_recording_execution_security_runtime.js",
         "docs/planning/phase-62-security-identity-gap-matrix.md",
+        "docs/development/phase-62-slice-2i-recording-execution-security-migration.md",
         "docs/development/phase-62-security-identity-foundation-slice-1.md",
         "docs/development/phase-62-security-identity-foundation-slice-2.md",
         "docs/architecture/security-identity-foundation.md",
@@ -87,6 +89,33 @@ def main() -> int:
     require("core/security/include/SecurityHttpGate.h", '"/api/vdr/channels/move"')
     require("core/security/include/SecurityHttpGate.h", '"/api/vdr/channels/actions/move"')
     require("core/security/include/SecurityHttpGate.h", '"channels.move"')
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"/api/recordings/actions/execute"',
+    )
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"/api/vdr/recordings/actions/execute"',
+    )
+    require("core/security/include/SecurityHttpGate.h", '"recordings.rename"')
+    require("core/security/include/SecurityHttpGate.h", '"recordings.move"')
+    require("core/security/include/SecurityHttpGate.h", '"recordings.delete"')
+    require(
+        "core/security/include/SecurityHttpGate.h",
+        '"invalid_recording_action"',
+    )
+    require(
+        "core/security/include/AuthorizationService.h",
+        '"recordings.rename"',
+    )
+    require(
+        "core/security/include/AuthorizationService.h",
+        '"recordings.move"',
+    )
+    require(
+        "core/security/include/AuthorizationService.h",
+        '"recordings.delete"',
+    )
     require("core/security/include/SecurityHttpGate.h", '"remote.control"')
     require("core/security/include/SecurityHttpGate.h", "usesLegacyCompatibilityCredential")
     require("core/security/include/SecurityHttpGate.h", "browserSessionAuthenticator_->verifyCsrf(request.headers)")
@@ -108,6 +137,38 @@ def main() -> int:
     require(
         "web/frontend/tests/test_channel_move_security_runtime.js",
         "caller-must-not-override",
+    )
+    require(
+        "web/frontend/platform/deferred-runtime-loader.js",
+        "__vdrSuiteRecordingExecutionMutationCsrfWrapped",
+    )
+    require(
+        "web/frontend/platform/deferred-runtime-loader.js",
+        "'/api/recordings/actions/execute'",
+    )
+    require(
+        "web/frontend/platform/deferred-runtime-loader.js",
+        "'/api/vdr/recordings/actions/execute'",
+    )
+    require(
+        "web/frontend/tests/test_recording_execution_security_runtime.js",
+        "caller-must-not-override",
+    )
+    require(
+        "docs/development/index.md",
+        "phase-62-slice-2i-recording-execution-security-migration.md",
+    )
+    require(
+        "docs/development/phase-62-slice-2i-recording-execution-security-migration.md",
+        "recordings.rename",
+    )
+    require(
+        "docs/development/phase-62-slice-2i-recording-execution-security-migration.md",
+        "recordings.move",
+    )
+    require(
+        "docs/development/phase-62-slice-2i-recording-execution-security-migration.md",
+        "recordings.delete",
     )
     require("core/security/tests/test_security_http_gate.cpp", '"csrf_validation_failed"')
     require("core/security/tests/test_security_http_gate.cpp", '"security_policy_not_migrated"')

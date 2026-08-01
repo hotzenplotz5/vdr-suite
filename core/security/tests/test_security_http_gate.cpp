@@ -131,7 +131,7 @@ HttpServerRequest channelMoveRequest(
 HttpServerRequest unmigratedRequest(const std::string& authorization = "")
 {
     return mutationRequest(
-        "/api/vdr/recordings/actions/execute",
+        "/api/vdr/searchtimers/execute",
         "default",
         authorization);
 }
@@ -949,6 +949,233 @@ int main()
     assert(response.headers.at("X-Correlation-ID") ==
         "correlation-1");
 
+    // PHASE62_SLICE2I_RECORDING_EXECUTION_TESTS
+    const std::vector<std::string> recordingExecutionRoutes = {
+        "/api/recordings/actions/execute",
+        "/api/vdr/recordings/actions/execute"
+    };
+
+    const std::vector<std::pair<std::string, std::string>>
+        recordingExecutionActions = {
+            {"RENAME", "recordings.rename"},
+            {"MOVE", "recordings.move"},
+            {"DELETE", "recordings.delete"}
+        };
+
+    const auto recordingExecutionRequest =
+        [](const std::string& path,
+           const std::string& backendId,
+           const std::string& action,
+           const std::string& authorization)
+        {
+            HttpServerRequest request =
+                mutationRequest(path, backendId, authorization);
+            request.body =
+                "{\"backendId\":\"" + backendId +
+                "\",\"operationId\":\"recording-op-1\""
+                ",\"action\":\"" + action +
+                "\",\"dryRun\":true}";
+            return request;
+        };
+
+    for (const std::string& path : recordingExecutionRoutes)
+    {
+        for (const auto& action : recordingExecutionActions)
+        {
+            const SecurityGateDecision legacyRecording =
+                compatibilityGate.evaluate(
+                    recordingExecutionRequest(
+                        path,
+                        "default",
+                        action.first,
+                        kLegacyCredential));
+            assert(legacyRecording.allowed);
+            assert(legacyRecording.protectedMutation);
+
+            HttpServerRequest missingCsrfRecording =
+                recordingExecutionRequest(
+                    path,
+                    "default",
+                    action.first,
+                    "");
+            missingCsrfRecording.headers["Cookie"] =
+                validBrowserCookie;
+
+            const SecurityGateDecision missingCsrfRecordingDecision =
+                compatibilityGate.evaluate(missingCsrfRecording);
+            assert(!missingCsrfRecordingDecision.allowed);
+            assert(missingCsrfRecordingDecision.protectedMutation);
+            assert(missingCsrfRecordingDecision.rejection.statusCode == 403);
+            assert(missingCsrfRecordingDecision.rejection.body.find(
+                "csrf_validation_failed") != std::string::npos);
+
+            HttpServerRequest recordingNoPermission =
+                recordingExecutionRequest(
+                    path,
+                    "default",
+                    action.first,
+                    "");
+            recordingNoPermission.headers["Cookie"] =
+                validBrowserCookie;
+            recordingNoPermission.headers["X-CSRF-Token"] =
+                kBrowserCsrfSecret;
+
+            const SecurityGateDecision recordingNoPermissionDecision =
+                compatibilityGate.evaluate(recordingNoPermission);
+            assert(!recordingNoPermissionDecision.allowed);
+            assert(recordingNoPermissionDecision.rejection.statusCode == 403);
+            assert(recordingNoPermissionDecision.rejection.body.find(
+                "permission_denied") != std::string::npos);
+
+            assert(permissionGrantRepository.ensureGrant(
+                managed.actorId,
+                action.second,
+                "default"));
+
+            const SecurityGateDecision recordingAllowed =
+                compatibilityGate.evaluate(recordingNoPermission);
+            assert(recordingAllowed.allowed);
+            assert(recordingAllowed.protectedMutation);
+
+            HttpServerRequest recordingWrongScope =
+                recordingExecutionRequest(
+                    path,
+                    "house-b",
+                    action.first,
+                    "");
+            recordingWrongScope.headers["Cookie"] =
+                validBrowserCookie;
+            recordingWrongScope.headers["X-CSRF-Token"] =
+                kBrowserCsrfSecret;
+
+            const SecurityGateDecision recordingWrongScopeDecision =
+                compatibilityGate.evaluate(recordingWrongScope);
+            assert(!recordingWrongScopeDecision.allowed);
+            assert(recordingWrongScopeDecision.rejection.statusCode == 403);
+            assert(recordingWrongScopeDecision.rejection.body.find(
+                "backend_scope_denied") != std::string::npos);
+
+            assert(permissionGrantRepository.revokeGrant(
+                managed.actorId,
+                action.second,
+                "default"));
+        }
+    }
+
+    assert(permissionGrantRepository.ensureGrant(
+        managed.actorId,
+        "role.admin",
+        "default"));
+
+    for (const auto& action : recordingExecutionActions)
+    {
+        HttpServerRequest adminRecording =
+            recordingExecutionRequest(
+                recordingExecutionRoutes.back(),
+                "default",
+                action.first,
+                "");
+        adminRecording.headers["Cookie"] =
+            validBrowserCookie;
+        adminRecording.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+
+        assert(compatibilityGate.evaluate(adminRecording).allowed);
+    }
+
+    assert(permissionGrantRepository.ensureGrant(
+        managed.actorId,
+        "role.read-only",
+        "default"));
+
+    for (const auto& action : recordingExecutionActions)
+    {
+        HttpServerRequest readOnlyRecording =
+            recordingExecutionRequest(
+                recordingExecutionRoutes.back(),
+                "default",
+                action.first,
+                "");
+        readOnlyRecording.headers["Cookie"] =
+            validBrowserCookie;
+        readOnlyRecording.headers["X-CSRF-Token"] =
+            kBrowserCsrfSecret;
+
+        const SecurityGateDecision readOnlyRecordingDecision =
+            compatibilityGate.evaluate(readOnlyRecording);
+        assert(!readOnlyRecordingDecision.allowed);
+        assert(readOnlyRecordingDecision.rejection.statusCode == 403);
+        assert(readOnlyRecordingDecision.rejection.body.find(
+            "role_read_only") != std::string::npos);
+    }
+
+    assert(permissionGrantRepository.revokeGrant(
+        managed.actorId,
+        "role.read-only",
+        "default"));
+    assert(permissionGrantRepository.revokeGrant(
+        managed.actorId,
+        "role.admin",
+        "default"));
+
+    HttpServerRequest unsupportedRecording =
+        recordingExecutionRequest(
+            recordingExecutionRoutes.back(),
+            "default",
+            "METADATA_REFRESH",
+            "");
+    unsupportedRecording.headers["Cookie"] =
+        validBrowserCookie;
+    unsupportedRecording.headers["X-CSRF-Token"] =
+        kBrowserCsrfSecret;
+
+    const SecurityGateDecision unsupportedRecordingDecision =
+        compatibilityGate.evaluate(unsupportedRecording);
+    assert(!unsupportedRecordingDecision.allowed);
+    assert(unsupportedRecordingDecision.rejection.statusCode == 400);
+    assert(unsupportedRecordingDecision.rejection.body.find(
+        "invalid_recording_action") != std::string::npos);
+
+    HttpServerRequest recordingQuery =
+        recordingExecutionRequest(
+            recordingExecutionRoutes.back() + "?source=browser",
+            "default",
+            "MOVE",
+            "");
+    recordingQuery.headers["Cookie"] =
+        validBrowserCookie;
+    recordingQuery.headers["X-CSRF-Token"] =
+        kBrowserCsrfSecret;
+
+    assert(permissionGrantRepository.ensureGrant(
+        managed.actorId,
+        "recordings.move",
+        "default"));
+    assert(compatibilityGate.evaluate(recordingQuery).allowed);
+    assert(permissionGrantRepository.revokeGrant(
+        managed.actorId,
+        "recordings.move",
+        "default"));
+
+    HttpServerRequest recordingTrailingSlash =
+        recordingExecutionRequest(
+            recordingExecutionRoutes.back() + "/",
+            "default",
+            "MOVE",
+            "");
+    recordingTrailingSlash.headers["Cookie"] =
+        validBrowserCookie;
+    recordingTrailingSlash.headers["X-CSRF-Token"] =
+        kBrowserCsrfSecret;
+
+    const SecurityGateDecision recordingTrailingSlashDecision =
+        compatibilityGate.evaluate(recordingTrailingSlash);
+    assert(!recordingTrailingSlashDecision.allowed);
+    assert(recordingTrailingSlashDecision.rejection.statusCode == 503);
+    assert(recordingTrailingSlashDecision.rejection.body.find(
+        "security_policy_not_migrated") != std::string::npos);
+
+
     bool sawAllowed = false;
     bool sawDenied = false;
     bool sawUnmigratedDenial = false;
@@ -1044,6 +1271,7 @@ int main()
     assert(auditFailure.rejection.statusCode == 503);
     assert(auditFailure.rejection.body.find(
         "accountability_unavailable") != std::string::npos);
+
 
     return 0;
 }

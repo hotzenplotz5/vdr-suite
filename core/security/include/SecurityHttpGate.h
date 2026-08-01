@@ -112,18 +112,24 @@ public:
             isPost &&
             (path == "/api/vdr/channels/move" ||
              path == "/api/vdr/channels/actions/move");
+        const bool isRecordingExecutionAction =
+            isPost &&
+            (path == "/api/recordings/actions/execute" ||
+             path == "/api/vdr/recordings/actions/execute");
         const bool isProtectedMutation =
             isRemoteAction ||
             isTimerCreateAction ||
             isTimerUpdateAction ||
             isTimerDeleteAction ||
-            isChannelMoveAction;
+            isChannelMoveAction ||
+            isRecordingExecutionAction;
 
         if (isPost && gate.browserAuthenticated && !isRemoteAction &&
             !isTimerCreateAction &&
             !isTimerUpdateAction &&
             !isTimerDeleteAction &&
-            !isChannelMoveAction)
+            !isChannelMoveAction &&
+            !isRecordingExecutionAction)
         {
             AuthorizationDecision decision;
             decision.reasonCode = "security_policy_not_migrated";
@@ -170,6 +176,7 @@ public:
         AuthorizationRequest requestToAuthorize;
         requestToAuthorize.backendId =
             jsonStringValue(request.body, "backendId");
+        bool recordingActionSupported = true;
 
         if (isRemoteAction)
         {
@@ -191,10 +198,37 @@ public:
             requestToAuthorize.permission = "timers.delete";
             requestToAuthorize.action = "timers.delete";
         }
-        else
+        else if (isChannelMoveAction)
         {
             requestToAuthorize.permission = "channels.move";
             requestToAuthorize.action = "channels.move";
+        }
+        else
+        {
+            const std::string recordingAction =
+                jsonStringValue(request.body, "action");
+
+            if (recordingAction == "RENAME")
+            {
+                requestToAuthorize.permission = "recordings.rename";
+                requestToAuthorize.action = "recordings.rename";
+            }
+            else if (recordingAction == "MOVE")
+            {
+                requestToAuthorize.permission = "recordings.move";
+                requestToAuthorize.action = "recordings.move";
+            }
+            else if (recordingAction == "DELETE")
+            {
+                requestToAuthorize.permission = "recordings.delete";
+                requestToAuthorize.action = "recordings.delete";
+            }
+            else
+            {
+                recordingActionSupported = false;
+                requestToAuthorize.permission = "recordings.execute";
+                requestToAuthorize.action = "recordings.execute";
+            }
         }
 
         const std::string operationId =
@@ -215,6 +249,23 @@ public:
                 decision,
                 403,
                 "A valid CSRF token is required",
+                operationId);
+        }
+
+        if (isRecordingExecutionAction &&
+            !recordingActionSupported)
+        {
+            AuthorizationDecision decision;
+            decision.reasonCode = "invalid_recording_action";
+            decision.permission = requestToAuthorize.permission;
+            decision.backendId = requestToAuthorize.backendId;
+            decision.action = requestToAuthorize.action;
+
+            return rejectWithAudit(
+                gate,
+                decision,
+                400,
+                "Unsupported recording execution action",
                 operationId);
         }
 

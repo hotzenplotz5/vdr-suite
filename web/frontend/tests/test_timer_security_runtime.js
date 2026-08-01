@@ -126,7 +126,7 @@ assert.strictEqual(typeof listeners.DOMContentLoaded, 'function');
   );
 
   await context.fetch(
-    '/api/vdr/recordings/actions/execute',
+    '/api/vdr/searchtimers/execute',
     {method: 'POST', headers: {Accept: 'application/json'}}
   );
   assert.strictEqual(
