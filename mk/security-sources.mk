@@ -27,6 +27,7 @@ BROWSER_SESSION_HTTP_SRC := \
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
 	python3 tools/check_browser_session_issuance_architecture.py
+	python3 tools/check_searchtimer_maintenance_security.py
 
 
 test-security-authorization:
