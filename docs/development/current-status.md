@@ -199,6 +199,27 @@ PR #117 must remain open, Draft and unmerged. Do not mark it Ready, merge it,
 enable auto-merge, rebase, force-push or rewrite branch history without explicit
 approval.
 
+### Preferred edit path for new chats
+
+Prefer direct GitHub repository updates for existing files when the connector can
+perform the requested edit safely and the complete current file content is
+available.
+
+Continue through already-approved bounded work without artificial confirmation
+pauses. Create small coherent commits and push them consecutively with
+fast-forward-only semantics. Evaluate required CI on the final stabilization
+head rather than stopping after each intermediate commit.
+
+Use local edits first only when the change requires:
+
+- compilation, generated artifacts or focused local runtime tests;
+- access to the installed real yaVDR runtime;
+- coordinated tooling unavailable through the connector;
+- a workaround because the GitHub connector blocks a file operation.
+
+Never replace a complete file from a truncated fetch. Recheck branch and PR state
+before every write.
+
 ## Exact next action
 
 Require all five GitHub Actions jobs for the documentation-only Slice-2W
