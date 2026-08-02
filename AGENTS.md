@@ -103,3 +103,11 @@ Report completed commits, the current remote head, relevant validation and the
 next actual gate. Do not present every pushed commit as a reason to pause. When
 CI is intentionally batched, state that the final current head is the one whose
 CI result matters.
+
+Whenever a GitHub Actions run exists for the relevant head, every CI status
+report must include a directly clickable link to that exact run. Also state the
+workflow or run number, run ID and head commit so the user never has to search
+for the run manually. This applies while the run is queued, running, failed,
+retried or completed. Do not provide only a textual CI status. When no run has
+been assigned yet, state that explicitly and provide the link as soon as the run
+exists.
