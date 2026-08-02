@@ -55,8 +55,8 @@ Accepted terminal sources:
 - absolute expiry via `expires_at`;
 - idle expiry via `last_seen_at` when the Slice-2V idle policy is enabled.
 
-Candidates are ordered by oldest terminal time and then `token_id`. At most 256
-candidates are processed per startup pass.
+Candidates are ordered by oldest terminal time first and then by `token_id`.
+At most 256 candidates are processed per startup pass.
 
 Issuer revocation alone is not a cleanup trigger. Slice-2T request-time issuer
 binding remains unchanged.
