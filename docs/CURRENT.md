@@ -9,6 +9,8 @@
 - [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
 - [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
+- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Architecture Decision Records](adr/index.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
 - [Completed Phases](development/completed-phases.md)
@@ -27,8 +29,16 @@ Local checkout: /home/yavdr/vdr-suite-phase62
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
+Previous completed numbered runtime phase:
+Phase 61 - Suite Metadata and Genre Platform
+
 Completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
+
+Completed post-phase platform features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
 
 Historical umbrella implementation track:
 Phase 58 - Frontend and Live Parity
