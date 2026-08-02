@@ -10,11 +10,17 @@ Trust completed items marked **VERIFIED** unless a directly relevant repository,
 binary, configuration, database, systemd execution, routing or behaviour
 fingerprint changed.
 
+No implementation is selected merely because it appears useful. Every new
+Phase-62 implementation must first prove a binding requirement, a concrete gap
+in accepted code, a real failure/security consequence and the smallest closing
+change.
+
 ## Canonical reading
 
 - [Ready-to-copy post-Slice-2W prompt](development/phase-62-post-slice-2w-new-chat-prompt.md)
 - [Current project truth](CURRENT.md)
 - [Current project status](development/current-status.md)
+- [Slice 2X — Protected Mutation Response Outcomes](development/phase-62-slice-2x-protected-mutation-response-outcomes.md)
 - [Slice 2W runtime closeout](development/phase-62-slice-2w-runtime-closeout.md)
 - [Slice 2W accepted contract](development/phase-62-slice-2w-browser-session-retention-cleanup.md)
 - [Phase 62 runtime evidence through Slice 2V](development/phase-62-runtime-evidence.md)
@@ -30,10 +36,9 @@ fingerprint changed.
 - [ADR index](adr/index.md)
 - [Agent workflow rules](../AGENTS.md)
 
-The post-Slice-2W prompt is the explicit continuation entry point. The Slice-2W
-closeout, Current State and Current Status are the newest Phase-62 runtime
-authorities. The cumulative runtime-evidence document remains authoritative for
-older accepted slices through Slice 2V.
+Current State, Current Status, this Handoff, the Gap Matrix and the Slice-2X
+contract are the active selection authorities. Slice-2W runtime evidence remains
+accepted and must not be repeated without a relevant changed fingerprint.
 
 ## Stable project position
 
@@ -64,6 +69,12 @@ active and incomplete
 Repository, source CI and real-runtime acceptance complete through:
 Slice 2W - Browser-Session Terminal Retention Cleanup
 
+Selected next bounded implementation slice:
+Slice 2X - Protected Mutation Response Outcomes
+
+Slice 2X state:
+contract/documentation only; no production implementation
+
 Phase 63-67 runtime:
 not advanced
 ```
@@ -90,9 +101,6 @@ https://github.com/hotzenplotz5/vdr-suite/actions/runs/30745952119
 
 Runtime acceptance:
 PHASE_62_SLICE_2W_RUNTIME_ACCEPTANCE=PASS
-
-Next bounded implementation slice:
-not yet selected
 
 Continuation prompt:
 docs/development/phase-62-post-slice-2w-new-chat-prompt.md
@@ -138,7 +146,7 @@ Final service PID at acceptance:
 The PID and service timestamps are volatile. The accepted head, binary, loader,
 configuration, report and evidence fingerprints are durable repetition gates.
 
-The accepted new daemon remains installed and active. The production database,
+The accepted daemon remains installed and active. The production database,
 daemon configuration and deferred loader were unchanged by the isolated
 acceptance. The runtime-only systemd drop-in was removed from the final unit.
 
@@ -168,43 +176,76 @@ credential. Actor, device, issuing credential, grants, roles and accountability
 history are preserved. Any enabled-policy failure rolls back the complete batch
 and leaves the Security Runtime fail closed.
 
-The real-runtime pass proved:
-
-- fresh security-schema initialization;
-- disabled-policy no-op;
-- fail-closed HTTP 503 and full rollback after forced accountability failure;
-- active and within-retention lifecycle preservation;
-- old revoked, absolute-expired and idle-expired lifecycle deletion;
-- no issuer-only cascade;
-- non-browser credential preservation;
-- preservation of a canonical session/credential re-referenced inside the
-  cleanup transaction;
-- exact secret-free cleanup accountability;
-- 258 eligible lifecycles with exactly 256 deterministic deletions;
-- SQLite quick and foreign-key checks;
-- unchanged production database, configuration and loader;
-- removed runtime override;
-- final active accepted daemon;
-- zero VDR domain mutations.
+The real-runtime pass proved fresh schema creation, disabled no-op, full rollback
+on forced accountability failure, every preservation/deletion boundary, exact
+secret-free events, the fixed 256-item limit, SQLite integrity, unchanged
+production database/configuration/loader, removed runtime override, active final
+daemon and zero VDR domain mutations.
 
 Do not repeat Slice-2W runtime acceptance merely because a chat changes. Repeat
 only after a directly relevant daemon, cleanup implementation, schema,
 configuration, systemd execution or acceptance-harness fingerprint changes.
 
-## Harness stabilization truth
+## Selected Slice 2X — proof and boundary
 
-Two failed attempts are diagnostic history, not accepted runtime evidence:
+The selected work is not an audit product. It closes one explicit accountability
+requirement:
 
-1. A fixture attempted to violate the real verifier table's unique session and
-   credential constraints. The fixture was corrected to reproduce the intended
-   re-reference condition using an `AFTER DELETE` trigger.
-2. The systemd watcher observed the short pre-`execve()` `Type=simple` start
-   window. It was hardened to wait for `MainPID=0` after stop and for a stable
-   PID executing the actual ExecStart path after start.
+```text
+every privileged mutation has actor, decision and outcome evidence
+```
 
-Both failures rolled back automatically, removed the runtime override, restored
-the old daemon/configuration and restarted the service. Only the final PASS on
-head `bb860915...` and CI #6834 is accepted.
+Current accepted code proves the gap:
+
+- `SecurityHttpGate::appendDecisionEvent()` persists only
+  `dispatch_authorized` or `dispatch_denied` before dispatch;
+- an allowed protected POST is then sent to `ApiRouter::handleClientPost()`;
+- the returned success or failure has no business-mutation outcome event;
+- browser-session issue/logout outcomes exist separately and explicitly exclude
+  ordinary business mutations.
+
+Therefore an authorized success and an authorized returned error are currently
+indistinguishable in accountability persistence.
+
+Slice 2X adds exactly one post-router event for existing protected mutations:
+
+```text
+HTTP 200..299  -> operation.succeeded / succeeded
+all other HTTP -> operation.failed    / failed
+reason_code    -> http_status_<decimal status>
+```
+
+It reuses the existing actor, device, session, permission, backend, action,
+operation, request and correlation context.
+
+It adds no route, permission, role, schema, repository, index, configuration,
+frontend or packaging component.
+
+If the post-dispatch append fails, the original response is replaced by HTTP 503
+`accountability_unavailable`. The slice does not claim rollback of an already
+executed external/domain side effect or safe automatic replay.
+
+Binding details, tests, guard and exclusions are in:
+
+- [Slice 2X — Protected Mutation Response Outcomes](development/phase-62-slice-2x-protected-mutation-response-outcomes.md)
+
+## Rejected and unproven work
+
+The earlier protected audit-read proposal was removed. No Phase-62 exit criterion
+requires an HTTP audit reader and no concrete failure was demonstrated from its
+absence.
+
+Do not implement any of the following without a new requirement-to-code failure
+proof:
+
+- protected audit read/export/filter/redaction/retention;
+- generic identity, credential, grant or role administration;
+- native/service credential lifecycle before a real consumer exists;
+- universal revision, idempotency or durable operation infrastructure;
+- transactional Outbox or generic cross-system coupling.
+
+After Slice 2X acceptance, evaluate only compatibility-retirement readiness and
+final Phase-62 closeout. Do not assume another implementation slice is needed.
 
 ## Credential and secret restrictions
 
@@ -224,39 +265,30 @@ Never print, store or commit:
 ## Anti-loop boundary
 
 Do not repeat completed repository analysis, public-origin work, route migration,
-Slice-2R lifetime, Slice-2S outcomes, Slice-2T issuer binding, Slice-2U
-concurrency, Slice-2V idle expiry or Slice-2W terminal retention unless a
-directly relevant accepted fingerprint or contract changes.
+Slice-2R lifetime, Slice-2S browser lifecycle outcomes, Slice-2T issuer binding,
+Slice-2U concurrency, Slice-2V idle expiry or Slice-2W terminal retention unless
+a directly relevant accepted fingerprint or contract changes.
 
-## Remaining Phase 62 gaps
-
-Still open after Slice 2W:
-
-- broader operation outcomes and stronger transaction coupling;
-- common revisions, idempotency and durable operation lifecycle;
-- protected actor, identity, credential, grant and role administration;
-- native/service credential enrollment, rotation and revocation;
-- protected audit reads, export, redaction and retention;
-- compatibility retirement and final Phase 62 closeout.
-
-No next implementation slice is selected yet.
+Do not rerun the rejected audit-read selection analysis unless a new concrete
+requirement or failure case exists.
 
 ## Exact next action
 
-1. Verify the current remote head and latest completed CI.
-2. Perform one fresh, bounded post-Slice-2W gap analysis using the current gap
-   matrix, architecture and roadmap.
-3. Compare only concrete smallest coherent candidates and their owners,
-   dependencies, tests and runtime boundaries.
-4. Select exactly one next Phase-62 slice.
-5. Document its configuration/contract, tests, architecture guard, runtime
-   acceptance and explicit exclusions.
-6. Update Current State, Current Status, Handoff and Gap Matrix.
-7. Require all five CI jobs on the final selection/handoff head.
-8. Implement only after that selection CI is fully green.
+1. Complete consistency of Current State, Current Status, Handoff, Gap Matrix and
+   the Slice-2X contract.
+2. Require all five GitHub Actions jobs on the final selection head:
+   `docs-check`, `make-test-audit`, `frontend-regression-test`,
+   `fast-regression-test`, `packaging-regression-test`.
+3. If any required job fails, fix only the demonstrated cause.
+4. After all five jobs are green, implement only Slice 2X.
+5. Do not perform a real-runtime acceptance for documentation-only selection
+   changes.
+6. After implementation and green source CI, use a bounded rollback-safe yaVDR
+   acceptance for one successful and one deterministic failed already-protected
+   mutation.
 
-Do not combine multiple remaining security themes. Do not advance Android,
-Android TV or Phase 63-67 runtime.
+Do not add an audit reader, administration API, Outbox, generic operation
+framework, native/service lifecycle, Android, Android TV or Phase 63-67 runtime.
 
 ## Maintenance rule
 
