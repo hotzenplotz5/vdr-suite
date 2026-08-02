@@ -97,7 +97,7 @@ REQUIRED = {
     ],
     "contract": [
         "Browser-Session Terminal Retention Cleanup",
-        "oldest-terminal-first",
+        "oldest terminal time first",
         "256",
         "BEGIN IMMEDIATE",
         "browser.session.cleanup",
