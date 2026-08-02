@@ -1,7 +1,18 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from retention_cleanup_runtime_runner import AcceptanceError, main
+import retention_cleanup_runtime_execution as runtime_execution
+from retention_cleanup_runtime_process import (
+    stop_service,
+    verify_runtime_process,
+    wait_service,
+)
+
+runtime_execution.stop_service = stop_service
+runtime_execution.verify_runtime_process = verify_runtime_process
+runtime_execution.wait_service = wait_service
+
+from retention_cleanup_runtime_runner import AcceptanceError, main  # noqa: E402
 
 
 if __name__ == "__main__":
