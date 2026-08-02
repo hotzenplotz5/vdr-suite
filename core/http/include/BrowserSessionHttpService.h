@@ -32,6 +32,14 @@ public:
         BrowserSessionLifetimeConfiguration lifetimeConfiguration,
         BrowserSessionConcurrencyConfiguration concurrencyConfiguration);
 
+    BrowserSessionHttpService(
+        BrowserSessionIssuanceService& issuanceService,
+        BrowserSessionLifecycleService& lifecycleService,
+        AccountabilityEventRepository& accountabilityRepository,
+        BrowserSessionLifetimeConfiguration lifetimeConfiguration,
+        BrowserSessionConcurrencyConfiguration concurrencyConfiguration,
+        BrowserSessionIdleConfiguration idleConfiguration);
+
     HttpServerResponse login(
         const RequestSecurityContext& context);
     HttpServerResponse logout(
@@ -52,5 +60,6 @@ private:
     AccountabilityEventRepository& accountabilityRepository_;
     BrowserSessionLifetimeConfiguration lifetimeConfiguration_;
     BrowserSessionConcurrencyConfiguration concurrencyConfiguration_;
+    BrowserSessionIdleConfiguration idleConfiguration_;
     mutable std::atomic<unsigned long long> idCounter_{0};
 };
