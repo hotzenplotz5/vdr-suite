@@ -14,6 +14,9 @@ PHASE62_RETENTION_ACCEPTANCE_EXECUTION := \
 PHASE62_RETENTION_ACCEPTANCE_SUPPORT := \
 	tools/phase62-runtime-acceptance/retention_cleanup_runtime_support.py
 
+PHASE62_RETENTION_ACCEPTANCE_PROCESS := \
+	tools/phase62-runtime-acceptance/retention_cleanup_runtime_process.py
+
 PHASE62_RETENTION_ACCEPTANCE_SCENARIOS := \
 	tools/phase62-runtime-acceptance/retention_cleanup_runtime_scenarios.py
 
@@ -33,9 +36,12 @@ test-phase62-retention-runtime-acceptance-runner:
 		"$(PHASE62_RETENTION_ACCEPTANCE_IMPLEMENTATION)" \
 		"$(PHASE62_RETENTION_ACCEPTANCE_EXECUTION)" \
 		"$(PHASE62_RETENTION_ACCEPTANCE_SUPPORT)" \
+		"$(PHASE62_RETENTION_ACCEPTANCE_PROCESS)" \
 		"$(PHASE62_RETENTION_ACCEPTANCE_SCENARIOS)" \
 		"$(PHASE62_RETENTION_SYSTEMD_OVERRIDE)"
 	python3 "$(PHASE62_RETENTION_SYSTEMD_OVERRIDE)" --self-test
+	PYTHONPATH="tools/phase62-runtime-acceptance" \
+		python3 "$(PHASE62_RETENTION_ACCEPTANCE_PROCESS)" --self-test
 	PYTHONPATH="tools/phase62-runtime-acceptance" \
 		python3 "$(PHASE62_RETENTION_ACCEPTANCE_RUNNER)" --self-test
 
