@@ -323,11 +323,13 @@ int main()
         grantRepository,
         -1,
         60);
-    assert(invalidAuthenticator.authenticate(
-               browserHeaders(replacement),
-               "request-invalid",
-               "correlation-invalid")
-               .authenticationState == AuthenticationState::Invalid);
+    RequestSecurityContext invalidPolicy = invalidAuthenticator.authenticate(
+        browserHeaders(replacement),
+        "request-invalid",
+        "correlation-invalid");
+    assert(invalidPolicy.authenticated());
+    assert(invalidPolicy.permissionGrantResolution ==
+        PermissionGrantResolutionState::Unavailable);
 
     BrowserSessionIssuanceRequest invalidRequest = request;
     invalidRequest.idleTimeoutSeconds = 299;
@@ -366,6 +368,24 @@ int main()
     assert(mutationDecision.rejection.statusCode == 401);
     assert(mutationDecision.rejection.body.find("session_expired") !=
         std::string::npos);
+
+    SecurityHttpGate invalidPolicyGate(
+        gateConfiguration,
+        accountabilityRepository,
+        nullptr,
+        nullptr,
+        &invalidAuthenticator);
+    HttpServerRequest invalidPolicyGet;
+    invalidPolicyGet.method = "GET";
+    invalidPolicyGet.path = "/api/backends";
+    invalidPolicyGet.headers = browserHeaders(replacement);
+    invalidPolicyGet.headers["X-Request-ID"] = "request-invalid-policy-get";
+    SecurityGateDecision invalidPolicyDecision =
+        invalidPolicyGate.evaluate(invalidPolicyGet);
+    assert(!invalidPolicyDecision.allowed);
+    assert(invalidPolicyDecision.rejection.statusCode == 503);
+    assert(invalidPolicyDecision.rejection.body.find(
+        "permission_grants_unavailable") != std::string::npos);
 
     SecurityConfiguration lifecycleConfiguration;
     lifecycleConfiguration.browserSessionIdle.timeoutSeconds = 300;
