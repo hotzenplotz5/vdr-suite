@@ -34,3 +34,9 @@ VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR=0
 # integers from 300 through 86400. Activity updates are server-owned and
 # throttled; they never extend the absolute browser-session lifetime.
 VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS=0
+
+# Optional terminal browser-session retention delay in seconds. Zero preserves
+# compatibility by disabling physical cleanup. Enabled values must be strict
+# decimal integers from 86400 through 31536000. Startup performs one deterministic
+# fixed startup batch of at most 256 terminal browser-session lifecycles.
+VDR_SUITE_BROWSER_SESSION_RETENTION_SECONDS=0
