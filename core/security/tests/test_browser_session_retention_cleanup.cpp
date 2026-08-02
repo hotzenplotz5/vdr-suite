@@ -28,7 +28,7 @@ struct Lifecycle
     std::string credentialId;
 };
 
-std::string quoted(const std::string& value)
+std::string sqlQuoted(const std::string& value)
 {
     return "'" + value + "'";
 }
@@ -120,7 +120,7 @@ struct Fixture
             "expires_at = " + expiresExpression + ", "
             "last_seen_at = " + lastSeenExpression + ", "
             "revoked_at = " + revokedExpression + " "
-            "WHERE token_id = " + quoted(lifecycle.tokenId) + ";"));
+            "WHERE token_id = " + sqlQuoted(lifecycle.tokenId) + ";"));
         return lifecycle;
     }
 };
@@ -406,7 +406,7 @@ void testBoundedDeterministicBatch()
     {
         lifecycles.push_back(fixture.createLifecycle(
             numbered("batch-", index),
-            quoted("2020-01-01 00:00:00"),
+            sqlQuoted("2020-01-01 00:00:00"),
             "CURRENT_TIMESTAMP",
             "''"));
     }
@@ -429,7 +429,7 @@ void testAuditFailureRollback()
     Fixture fixture;
     const Lifecycle candidate = fixture.createLifecycle(
         "audit-failure",
-        quoted("2020-01-01 00:00:00"),
+        sqlQuoted("2020-01-01 00:00:00"),
         "CURRENT_TIMESTAMP",
         "''");
     assert(fixture.database.execute(
@@ -450,12 +450,12 @@ void testSqlFailureRollsBackWholeBatch()
     Fixture fixture;
     const Lifecycle first = fixture.createLifecycle(
         "rollback-a",
-        quoted("2019-01-01 00:00:00"),
+        sqlQuoted("2019-01-01 00:00:00"),
         "CURRENT_TIMESTAMP",
         "''");
     const Lifecycle second = fixture.createLifecycle(
         "rollback-b",
-        quoted("2020-01-01 00:00:00"),
+        sqlQuoted("2020-01-01 00:00:00"),
         "CURRENT_TIMESTAMP",
         "''");
     assert(fixture.database.execute(
