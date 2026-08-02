@@ -319,6 +319,16 @@ HttpServerResponse TestHttpServer::handleRequest(
                 "{\"error\":\"method not allowed\"}"));
     }
 
+    if (gate.protectedMutation &&
+        !securityHttpGate_->appendProtectedMutationOutcome(
+            gate,
+            apiResponse.statusCode))
+    {
+        return securityHttpGate_->
+            outcomeAccountabilityUnavailableResponse(
+                gate.context);
+    }
+
     return finalizeResponse(
         gate.context,
         mapApiResponse(
