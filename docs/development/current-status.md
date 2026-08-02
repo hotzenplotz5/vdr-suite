@@ -79,6 +79,20 @@ PR #117 remains open, Draft and unmerged. Do not mark it Ready, merge it, enable
 
 PR #118 remains separate paused TVScraper work.
 
+### Preferred edit path for new chats
+
+Prefer direct GitHub repository updates for existing files when the connector can perform the edit safely and the complete current file content is available.
+
+Use local edits first only when the change requires:
+
+- compilation or generated artifacts;
+- focused local runtime tests;
+- access to the installed yaVDR runtime;
+- a capability not exposed by the GitHub connector;
+- a workaround because the GitHub connector blocks a file operation.
+
+Create small coherent commits with fast-forward-only semantics. Evaluate CI on the final stabilization head rather than stopping after every intermediate commit.
+
 ## Exact next action
 
 1. Require all five jobs green on the final Phase-62 closeout documentation head.
