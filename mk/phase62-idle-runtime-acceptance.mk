@@ -11,6 +11,9 @@ PHASE62_IDLE_ACCEPTANCE_IMPLEMENTATION := \
 PHASE62_IDLE_ACCOUNTABILITY_CONTRACT := \
 	tools/phase62-runtime-acceptance/idle_expiry_audit_contract.py
 
+PHASE62_IDLE_SYSTEMD_OVERRIDE := \
+	tools/phase62-runtime-acceptance/idle_expiry_systemd_override.py
+
 PHASE62_IDLE_CRYPT_COMPAT := \
 	tools/phase62-runtime-acceptance/crypt.py
 
@@ -26,7 +29,9 @@ test-phase62-idle-runtime-acceptance-runner:
 		"$(PHASE62_IDLE_ACCEPTANCE_RUNNER)" \
 		"$(PHASE62_IDLE_ACCEPTANCE_IMPLEMENTATION)" \
 		"$(PHASE62_IDLE_ACCOUNTABILITY_CONTRACT)" \
+		"$(PHASE62_IDLE_SYSTEMD_OVERRIDE)" \
 		"$(PHASE62_IDLE_CRYPT_COMPAT)"
+	python3 "$(PHASE62_IDLE_SYSTEMD_OVERRIDE)" --self-test
 	python3 "$(PHASE62_IDLE_ACCEPTANCE_RUNNER)" --self-test-loader
 	python3 "$(PHASE62_IDLE_ACCOUNTABILITY_CONTRACT)" --self-test
 	PYTHONPATH="tools/phase62-runtime-acceptance" \
