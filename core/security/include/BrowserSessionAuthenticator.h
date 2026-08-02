@@ -124,9 +124,15 @@ public:
 
         if (idleTimeoutSeconds_ > 0)
         {
-            repository_.touchLastSeenIfDue(
+            const auto activityResult = repository_.touchLastSeenIfDue(
                 tokenId,
                 lastSeenWriteIntervalSeconds_);
+            if (!activityResult.has_value())
+            {
+                context.permissionGrantResolution =
+                    PermissionGrantResolutionState::Unavailable;
+                return context;
+            }
         }
 
         auto grantResolution =
