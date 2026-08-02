@@ -310,7 +310,14 @@ bool reconcileEpgBrowseClassificationLocked(
     else if (activeMediaMovie || activeMediaSeries)
     {
         if (activeMediaMovie == activeMediaSeries) return true;
-        contentClass = activeMediaSeries ? "series" : "movie";
+        if (activeMediaSeries)
+        {
+            contentClass = "series";
+        }
+        else
+        {
+            contentClass = "movie";
+        }
         confidence = 0.99;
     }
     else if (lastKnownMediaMovie || lastKnownMediaSeries)
