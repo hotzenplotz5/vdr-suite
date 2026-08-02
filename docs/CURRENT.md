@@ -12,7 +12,9 @@
 - [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
+- [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Security and Identity Architecture](architecture/security-identity-foundation.md)
+- [ADR Index](adr/index.md)
 - [Completed Phases](development/completed-phases.md)
 
 ## Current verified position
@@ -27,6 +29,17 @@ Local yaVDR branch: phase62-pr117
 
 Latest completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
+
+Completed operational hardening:
+Post-Phase 61 Performance Hardening (B1-B4)
+
+Completed post-phase platform features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
+
+Next strict runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
@@ -61,7 +74,7 @@ e0fbe1689b2f48e75bb4ae6836b227d7da92e08d53b009ac1c2cb371a36c74ea
 Durable evidence:
 /var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
 
-Next implementation slice:
+Next bounded implementation slice:
 not yet selected
 ```
 
