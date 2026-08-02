@@ -103,7 +103,9 @@ int main()
         "('default','C-1','6','Panda, Gorilla & Co.','Zoogeschichten','',"
         "'1500','2500',1000,''),"
         "('default','C-1','7','NFL Highlights','Spieltag','',"
-        "'1600','2600',1000,'');"
+        "'1600','2600',1000,''),"
+        "('default','C-1','8','Nachrichten','','Aktuelle Meldungen',"
+        "'1700','2700',1000,'');"
         "INSERT INTO vdr_channel_cache(backend_id,channel_id,channel_number,name) "
         "VALUES('default','C-1',1,'Das Erste HD');"));
 
@@ -116,7 +118,7 @@ int main()
 
     GenreIndexRepository repository(database);
     assert(repository.ensureSchema());
-    assert(repository.synchronizeEpgCache("default", 900, 2700));
+    assert(repository.synchronizeEpgCache("default", 900, 2800));
 
     GenreBrowserApiRuntime& runtime = GenreBrowserApiRuntime::instance();
     assert(runtime.configure(database, backendRegistryService));
@@ -134,6 +136,7 @@ int main()
         item("5", 1400, 2400),
         item("6", 1500, 2500),
         item("7", 1600, 2600),
+        item("8", 1700, 2700),
     };
     assert(runtime.applyEpgTypeSnapshot("default", items));
 
@@ -143,7 +146,7 @@ int main()
     ApiResponse series;
     assert(runtime.tryHandleGet(
         "/api/metadata/genres/epg?backend=default&contentClass=series"
-        "&from=900&until=2700",
+        "&from=900&until=2800",
         series));
     assert(series.statusCode == 200);
     assert(contains(series, "Death in Paradise"));
@@ -153,24 +156,27 @@ int main()
     assert(!contains(series, "Sportschau"));
     assert(!contains(series, "Panda, Gorilla & Co."));
     assert(!contains(series, "NFL Highlights"));
+    assert(!contains(series, "Nachrichten"));
 
     ApiResponse documentary;
     assert(runtime.tryHandleGet(
         "/api/metadata/genres/epg?backend=default&contentClass=documentary"
-        "&from=900&until=2700",
+        "&from=900&until=2800",
         documentary));
     assert(documentary.statusCode == 200);
     assert(contains(documentary, "Panda, Gorilla & Co."));
+    assert(!contains(documentary, "Nachrichten"));
 
     ApiResponse sports;
     assert(runtime.tryHandleGet(
         "/api/metadata/genres/epg?backend=default&contentClass=sports"
-        "&from=900&until=2700",
+        "&from=900&until=2800",
         sports));
     assert(sports.statusCode == 200);
     assert(contains(sports, "Sportschau"));
     assert(contains(sports, "NFL Highlights"));
     assert(!contains(sports, "Tagesschau"));
+    assert(!contains(sports, "Nachrichten"));
 
     runtime.reset();
     database.close();
