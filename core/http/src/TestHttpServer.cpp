@@ -103,6 +103,31 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
 
     const SecurityConfiguration configuration =
         SecurityConfiguration::fromEnvironment();
+    if (!configuration.browserSessionLifetime.valid() ||
+        !configuration.browserSessionConcurrency.valid() ||
+        !configuration.browserSessionIdle.valid() ||
+        !configuration.browserSessionRetention.valid() ||
+        (configuration.managedBasic.hasAnyConfiguration() &&
+         (!configuration.managedBasic.complete() ||
+          !ManagedBasicAuthenticator::supportsPasswordHash(
+              configuration.managedBasic.passwordHash))))
+    {
+        return;
+    }
+
+    browserSessionRetentionService_ =
+        std::make_unique<BrowserSessionRetentionService>(
+            *securityDatabase_,
+            *browserSessionCredentialRepository_,
+            *securityIdentityRepository_,
+            *accountabilityEventRepository_);
+    if (!browserSessionRetentionService_->cleanup(
+            configuration.browserSessionRetention,
+            configuration.browserSessionIdle))
+    {
+        return;
+    }
+
     if (!configuration.expectedAuthorizationHeader.empty() &&
         !securityIdentityRepository_->ensureCompatibilityIdentity(
             configuration.actorId,
@@ -117,13 +142,6 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
 
     if (configuration.managedBasic.hasAnyConfiguration())
     {
-        if (!configuration.managedBasic.complete() ||
-            !ManagedBasicAuthenticator::supportsPasswordHash(
-                configuration.managedBasic.passwordHash))
-        {
-            return;
-        }
-
         if (!securityIdentityProvisioningRepository_->ensureIdentity(
                 configuration.managedBasic.actorId,
                 ActorType::User,
