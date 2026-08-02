@@ -6,6 +6,7 @@
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Post-Slice-2W New Chat Prompt](development/phase-62-post-slice-2w-new-chat-prompt.md)
 - [Current Project Status](development/current-status.md)
+- [Slice 2X — Protected Mutation Response Outcomes](development/phase-62-slice-2x-protected-mutation-response-outcomes.md)
 - [Slice 2W Runtime Closeout](development/phase-62-slice-2w-runtime-closeout.md)
 - [Slice 2W Contract](development/phase-62-slice-2w-browser-session-retention-cleanup.md)
 - [Phase 62 Runtime Evidence through Slice 2V](development/phase-62-runtime-evidence.md)
@@ -81,7 +82,10 @@ Durable evidence:
 /var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
 
 Next bounded implementation slice:
-not yet selected
+Slice 2X - Protected Mutation Response Outcomes
+
+Selection state:
+contract/documentation only; no production implementation
 ```
 
 Phase 61 remains complete. Phase 62 remains active and incomplete. Phase 63-67
@@ -175,19 +179,52 @@ Accepted through Slice 2W:
 - bounded terminal browser-session retention cleanup with atomic accountability;
 - guarded real-runtime acceptance and rollback tooling.
 
-## Remaining Phase 62 gaps
+## Selected Slice 2X — necessity proof
 
-Still open after Slice 2W:
+The next slice is selected because it is required by an explicit Phase-62 exit
+criterion and because the accepted code has a directly observable gap.
 
-- operation outcomes beyond browser lifecycle and cleanup operations;
-- stronger transaction coupling or Outbox semantics;
-- common revisions, idempotency and durable operation lifecycle;
-- protected actor, identity, credential, grant and role administration;
-- native/service credential enrollment, rotation and revocation;
-- protected audit reads, export, redaction and retention;
-- compatibility-retirement readiness and final Phase 62 closeout.
+Required result:
 
-No next implementation slice is selected yet.
+```text
+every privileged mutation has actor, decision and outcome evidence
+```
+
+Current behavior:
+
+- `SecurityHttpGate` persists actor and authorization decision before dispatch;
+- `TestHttpServer` then returns the router result without a business-mutation
+  outcome event;
+- therefore an authorized successful mutation and an authorized returned error
+  are indistinguishable in accountability persistence.
+
+Slice 2X adds exactly one post-router result event for already-protected
+mutations. It adds no route, permission, role, schema, repository, configuration
+or frontend.
+
+A protected audit read endpoint was rejected because no Phase-62 requirement or
+failure case proves it necessary.
+
+## Remaining Phase 62 decision boundary
+
+Proven mandatory before closeout:
+
+- Slice 2X protected mutation response outcomes.
+
+Not currently proven necessary:
+
+- protected audit reads, export, filters, redaction or retention;
+- generic security administration;
+- native/service credential lifecycle before a real client requires it;
+- universal revisions, idempotency or durable operation framework;
+- transactional Outbox or generic cross-system coupling.
+
+These items must not be implemented unless a binding requirement, concrete code
+gap and real failure case are documented first.
+
+After Slice 2X acceptance, perform only compatibility-retirement readiness and
+final Phase-62 closeout analysis. Do not assume additional implementation is
+needed.
 
 ## Operating rules
 
@@ -201,13 +238,16 @@ No next implementation slice is selected yet.
 - Do not mark it Ready, merge, auto-merge, rebase, force-push or rewrite history.
 - Do not repeat accepted runtime work merely because the chat changed.
 - Select and implement exactly one bounded Phase 62 slice at a time.
+- No feature is selected without a requirement-to-code failure proof.
 - Do not pull Android, Android TV or Phase 63-67 runtime into Phase 62.
 
 ## Exact next action
 
-Perform one fresh post-Slice-2W gap analysis against the accepted repository and
-runtime baseline. Select and document exactly one smallest coherent next Phase-62
-slice. Update the gap matrix and handoff, then require all five CI jobs on the
-final selection head before implementation.
+Complete the Slice-2X selection/handoff documentation and require all five CI
+jobs on the final selection head. After that CI is fully green, implement only
+[Slice 2X — Protected Mutation Response Outcomes](development/phase-62-slice-2x-protected-mutation-response-outcomes.md).
+
+Do not implement an audit reader, administration API, Outbox, generic operation
+framework or native/service lifecycle without a separate necessity proof.
 
 Do not reopen Slice 2W without a changed relevant acceptance fingerprint.
