@@ -4,8 +4,9 @@
 
 - [Current State](CURRENT.md) — verified implementation and runtime truth.
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md) — mandatory entry point for new work.
+- [Post-Slice-2W New Chat Prompt](development/phase-62-post-slice-2w-new-chat-prompt.md) — ready-to-copy continuation prompt.
 - [Current Project Status](development/current-status.md) — compact current branch and acceptance state.
-- [Phase 62 Slice 2P Closeout](development/phase-62-slice-2p-query-cache-refresh-security-migration.md) — newest accepted route-family evidence.
+- [Phase 62 Slice 2W Runtime Closeout](development/phase-62-slice-2w-runtime-closeout.md) — newest accepted runtime evidence.
 - [Project Overview](project-overview.md) — compact product and architecture summary.
 - [Project Status Dashboard](project-status-dashboard.md) — capability/status table.
 
@@ -14,11 +15,9 @@
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
 - [Phase 62 Security and Identity Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
-- [Phase 62 Runtime Evidence](development/phase-62-runtime-evidence.md)
-- [Phase 62 Slice 1](development/phase-62-security-identity-foundation-slice-1.md)
-- [Phase 62 Slice 2](development/phase-62-security-identity-foundation-slice-2.md)
-- [Phase 62 Slice 2O](development/phase-62-slice-2o-native-fuzzy-refresh-security-migration.md)
-- [Phase 62 Slice 2P](development/phase-62-slice-2p-query-cache-refresh-security-migration.md)
+- [Phase 62 Slice 2W Contract](development/phase-62-slice-2w-browser-session-retention-cleanup.md)
+- [Phase 62 Runtime Evidence through Slice 2V](development/phase-62-runtime-evidence.md)
+- [Development Documentation](development/index.md)
 - [Implementation Dependency Map](planning/implementation-dependency-map.md)
 - [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [VDR Ecosystem Parity](planning/parity-audit-and-frontend-gap-roadmap.md)
@@ -29,12 +28,31 @@
 The latest completed numbered runtime phase is **Phase 61 — Suite Metadata and
 Genre Platform**. Phase 62 — Identity, RBAC and Accountability Foundation is
 active and incomplete, but repository implementation, all five CI jobs and real
-yaVDR runtime acceptance are complete through **Slice 2P — Query-Scoped Cache
-Refresh Security Migration** at code/runtime head
-`173c929964dbb7aabd30c5e482c2e250b5785d92`.
+yaVDR runtime acceptance are complete through **Slice 2W — Browser-Session
+Terminal Retention Cleanup**.
 
-PR #117 remains open, Draft and unmerged. Phase 63-67 runtime has not been
-advanced.
+```text
+Accepted source/runtime head:
+bb8609151313c613d403b88b1b4c3f55453a93e2
+
+Source CI:
+VDR-Suite CI #6834
+Run ID 30745952119
+All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30745952119
+
+Runtime marker:
+PHASE_62_SLICE_2W_RUNTIME_ACCEPTANCE=PASS
+
+Installed/running daemon SHA-256:
+7775804306bf70eca6ef23474605467381162cfc9d5b874cdb187840ca8bc571
+
+Runtime report SHA-256:
+e0fbe1689b2f48e75bb4ae6836b227d7da92e08d53b009ac1c2cb371a36c74ea
+```
+
+PR #117 remains open, Draft and unmerged. No next Phase-62 implementation slice
+is selected yet. Phase 63-67 runtime has not been advanced.
 
 ## Completed history
 
@@ -57,7 +75,6 @@ advanced.
 
 ## Development references
 
-- [Development Documentation](development/index.md)
 - [Developer Onboarding](development/developer-onboarding.md)
 - [Build System State](development/build-system-state.md)
 - [GitHub Actions Status Handoff](development/github-actions-status-handoff.md)
