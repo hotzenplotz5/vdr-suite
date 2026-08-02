@@ -17,7 +17,9 @@ namespace
 constexpr std::int64_t GenreWindowSeconds = 48 * 60 * 60;
 constexpr std::size_t EpgTypeSnapshotPageSize = 64;
 constexpr int InitialEpgTypeSnapshotPages = 32;
-constexpr int PeriodicEpgTypeSnapshotPages = 8;
+constexpr int PeriodicEpgTypeSnapshotPages = 1;
+constexpr int PeriodicEpgContinuationSeconds = 1;
+constexpr int PeriodicGenreEnrichmentBatchSize = 8;
 constexpr int EpgTypeSnapshotRefreshSeconds = 15 * 60;
 
 std::int64_t epgGenreEpochSeconds()
@@ -200,7 +202,6 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
     try {
         const int initialDelaySeconds = 20;
         const int dirtyDebounceSeconds = 120;
-        const int genreRefreshSeconds = 10;
 
         std::cout
             << "EPG cache warmup worker scheduled after "
@@ -227,7 +228,7 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
         refreshEpgCacheForAllBackends("startup");
 
         auto lastRefresh = std::chrono::steady_clock::now();
-        auto lastGenreRefresh = lastRefresh;
+        auto lastEpgContinuation = lastRefresh;
 
         using SnapshotCompletionTime =
             std::chrono::steady_clock::time_point;
@@ -269,11 +270,11 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
             }
 
             const auto now = std::chrono::steady_clock::now();
-            const auto secondsSinceGenreRefresh =
+            const auto secondsSinceEpgContinuation =
                 std::chrono::duration_cast<std::chrono::seconds>(
-                    now - lastGenreRefresh).count();
+                    now - lastEpgContinuation).count();
 
-            if (secondsSinceGenreRefresh >= genreRefreshSeconds) {
+            if (secondsSinceEpgContinuation >= PeriodicEpgContinuationSeconds) {
                 auto refreshLease =
                     DaemonCacheRefreshExecutionGate::acquire();
                 if (epgCacheWarmupStopRequested_.load()) {
@@ -350,9 +351,9 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
                         backendRuntimeContext->backendId,
                         fromTime,
                         fromTime + GenreWindowSeconds,
-                        64);
+                        PeriodicGenreEnrichmentBatchSize);
                 }
-                lastGenreRefresh = std::chrono::steady_clock::now();
+                lastEpgContinuation = std::chrono::steady_clock::now();
             }
 
             if (!epgCacheDirtyHint_.load()) {
@@ -398,7 +399,7 @@ void DaemonRuntime::runEpgCacheWarmupWorker()
             }
 
             lastRefresh = refreshCompletedAt;
-            lastGenreRefresh = lastRefresh;
+            lastEpgContinuation = lastRefresh;
         }
     }
     catch (const std::exception& error) {

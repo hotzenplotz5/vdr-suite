@@ -119,9 +119,10 @@ require(
 require(
     "EpgTypeSnapshotPageSize = 64" in worker
     and "InitialEpgTypeSnapshotPages = 32" in worker
-    and "PeriodicEpgTypeSnapshotPages = 8" in worker
+    and "PeriodicEpgTypeSnapshotPages = 1" in worker
+    and "PeriodicEpgContinuationSeconds = 1" in worker
     and "processEpgTypeSnapshotPages" in worker,
-    "EPG worker must drain bounded startup and continuation pages",
+    "EPG worker must drain bounded startup and low-latency continuation pages",
 )
 require(
     "epgTypeSnapshotOffset" in context

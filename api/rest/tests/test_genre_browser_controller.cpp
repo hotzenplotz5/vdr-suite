@@ -66,7 +66,7 @@ void seed(Database& database, std::int64_t now)
         "('default','C-1','100','Future Thriller','Film','Description','" +
         std::to_string(now + 600) + "','" + std::to_string(now + 4200) +
         "',3600,'Film/Drama\nDetektiv/Thriller'),"
-        "('default','C-1','101','Hartz Rot Gold','Episode','Description','" +
+        "('default','C-1','101','Criminal Intent - Verbrechen im Visier','Episode','Description','" +
         std::to_string(now + 900) + "','" + std::to_string(now + 4500) +
         "',3600,'Film/Drama'),"
         "('default','C-1','102','News','Heute','Description','" +
@@ -162,7 +162,7 @@ public:
         if (event.id == "101")
         {
             resolution.metadata.mediaType = EpgScraperMediaType::Series;
-            resolution.metadata.genres = {"Reality"};
+            resolution.metadata.genres = {"Crime"};
         }
         else if (event.id == "103")
         {
@@ -275,7 +275,7 @@ int main()
         series));
     assert(series.statusCode == 200);
     assert(contains(series, "\"eventId\":\"101\""));
-    assert(contains(series, "\"title\":\"Hartz Rot Gold\""));
+    assert(contains(series, "\"title\":\"Criminal Intent - Verbrechen im Visier\""));
     assert(!contains(series, "Sportschau"));
     assert(!contains(series, "Tagesschau"));
     assert(!contains(series, "Tagesthemen"));

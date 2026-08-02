@@ -116,7 +116,9 @@ for forbidden in ("IEpgScraperMetadataResolver", "SuiteBridge", "TMDB", "IMDb"):
 require("refreshEpgIndex" in epg_worker, "EPG worker does not materialize the genre index")
 require("result.stored" in epg_worker, "EPG genre materialization must follow a stored cache refresh")
 require("continueEpgEnrichment" in epg_worker, "periodic EPG enrichment continuation is missing")
-periodic_start = epg_worker.find("if (secondsSinceGenreRefresh >= genreRefreshSeconds)")
+periodic_start = epg_worker.find(
+    "if (secondsSinceEpgContinuation >= PeriodicEpgContinuationSeconds)"
+)
 periodic_end = epg_worker.find("if (!epgCacheDirtyHint_.load())", periodic_start)
 require(
     periodic_start >= 0 and periodic_end > periodic_start,
@@ -176,10 +178,11 @@ require(
     "Live-parity derived EPG browse classification wiring is missing",
 )
 require(
-    "epg-browse-taxonomy-v4" in live_parity
-    and "version=8" in live_parity
-    and "version=9" in live_parity,
-    "Live-parity EPG browse taxonomy v4 migrations are missing",
+    "epg-browse-taxonomy-v7" in live_parity
+    and "version=10" in live_parity
+    and "version=11" in live_parity
+    and "version=12" in live_parity,
+    "fiction-confirmed EPG browse taxonomy v7 migrations are missing",
 )
 require(
     "liveParityStrongNewsTitle" in live_parity
@@ -196,9 +199,9 @@ require(
 require(
     "lastKnownMediaSeries" in live_parity
     and "lastKnownMediaMovie" in live_parity
-    and "contentClass = \"series\"" in live_parity
-    and "if (lastKnownMediaSeries)" in live_parity,
-    "last-known-good TVScraper movie and series types must remain usable browse evidence",
+    and "lastKnownScraperFiction" in live_parity
+    and "lastKnownScraperNonFiction" in live_parity,
+    "last-known TVScraper types must remain bounded by fiction evidence",
 )
 require(
     "if (dvbSports || strongSportsTitle)" in live_parity
@@ -206,9 +209,13 @@ require(
     "DVB sport/documentary and strong sports titles must outrank scraper labels",
 )
 require(
-    "if (activeMediaSeries)" in live_parity
-    and "if (lastKnownMediaSeries)" in live_parity,
-    "TVScraper series classification must remain authoritative like Live",
+    "liveParitySeriesFictionGenre" in live_parity
+    and "liveParitySeriesNonFictionGenre" in live_parity
+    and "activeScraperFiction" in live_parity
+    and "activeScraperNonFiction" in live_parity
+    and "if (!(activeScraperFiction || dvbFiction)) return true;" in live_parity
+    and "if (!scraperFiction || scraperNonFiction) return true;" in live_parity,
+    "TVScraper series candidates must require positive fictional evidence",
 )
 require(
     "dvbSpecificFilmGenre" in live_parity

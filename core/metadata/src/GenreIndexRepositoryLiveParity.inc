@@ -13,7 +13,22 @@ bool executeGenreSchema(Database& database)
         "WHERE source_kind='epg-browse-content-class' "
         "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=9);"
         "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(9,'Strict specific-genre DVB movie fallback reconciliation');");
+        "(9,'Strict specific-genre DVB movie fallback reconciliation');"
+        "DELETE FROM suite_metadata_genre_assignments "
+        "WHERE source_kind='epg-browse-content-class' "
+        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=10);"
+        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
+        "(10,'Migrate epg-browse-taxonomy-v4 classifications to documentary-first v5');"
+        "DELETE FROM suite_metadata_genre_assignments "
+        "WHERE source_kind='epg-browse-content-class' "
+        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=11);"
+        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
+        "(11,'Add generic Nachrichten title guard to epg-browse-taxonomy-v6');"
+        "DELETE FROM suite_metadata_genre_assignments "
+        "WHERE source_kind='epg-browse-content-class' "
+        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=12);"
+        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
+        "(12,'Migrate epg-browse-taxonomy-v6 to fiction-confirmed v7 series');");
 }
 
 std::string liveParityAsciiLower(const std::string& value)
@@ -55,6 +70,7 @@ bool liveParityStrongNewsTitle(
     normalized = normalized.substr(first, last - first + 1);
 
     static const std::vector<std::string> brands = {
+        "nachrichten",
         "tagesschau",
         "tagesschau24",
         "tagesthemen",
@@ -108,6 +124,39 @@ bool liveParityStrongSportsTitle(
     return false;
 }
 
+bool liveParitySeriesFictionGenre(const std::string& genreId)
+{
+    static const std::vector<std::string> genres = {
+        "action",
+        "adventure",
+        "animation",
+        "comedy",
+        "crime",
+        "drama",
+        "fantasy",
+        "horror",
+        "mystery",
+        "romance",
+        "science-fiction",
+        "thriller",
+        "war",
+        "western"
+    };
+    return std::find(genres.begin(), genres.end(), genreId) != genres.end();
+}
+
+bool liveParitySeriesNonFictionGenre(const std::string& genreId)
+{
+    static const std::vector<std::string> genres = {
+        "documentary",
+        "news",
+        "reality",
+        "sports",
+        "talk-show"
+    };
+    return std::find(genres.begin(), genres.end(), genreId) != genres.end();
+}
+
 bool insertLiveParityEpgBrowseClassification(
     sqlite3* database,
     const std::string& targetId,
@@ -131,7 +180,7 @@ bool insertLiveParityEpgBrowseClassification(
         "INSERT INTO suite_metadata_genre_assignments "
         "(metadata_target_id,backend_id,target_type,genre_id,provider_id,original_value,"
         "normalization_rule,source_kind,assignment_state,confidence,ordinal,observed_at,updated_at) "
-        "VALUES (?,?, 'program-event',?,?,?,'epg-browse-taxonomy-v4',"
+        "VALUES (?,?, 'program-event',?,?,?,'epg-browse-taxonomy-v7',"
         "'epg-browse-content-class','active',?,0,?,CURRENT_TIMESTAMP);";
     if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK)
     {
@@ -193,11 +242,17 @@ bool reconcileEpgBrowseClassificationLocked(
     bool activeScraperSports = false;
     bool lastKnownScraperDocumentary = false;
     bool lastKnownScraperSports = false;
+    bool activeScraperFiction = false;
+    bool lastKnownScraperFiction = false;
+    bool activeScraperNonFiction = false;
+    bool lastKnownScraperNonFiction = false;
     bool dvbMovie = false;
     bool dvbSeries = false;
     bool dvbDocumentary = false;
     bool dvbSports = false;
     bool dvbNews = false;
+    bool dvbFiction = false;
+    bool dvbNonFiction = false;
     bool dvbSpecificFilmGenre = false;
     std::int64_t observedAt = 0;
 
@@ -248,6 +303,12 @@ bool reconcileEpgBrowseClassificationLocked(
                     lastKnownScraperDocumentary || genreId == "documentary";
                 lastKnownScraperSports =
                     lastKnownScraperSports || genreId == "sports";
+                lastKnownScraperFiction =
+                    lastKnownScraperFiction ||
+                    liveParitySeriesFictionGenre(genreId);
+                lastKnownScraperNonFiction =
+                    lastKnownScraperNonFiction ||
+                    liveParitySeriesNonFictionGenre(genreId);
             }
             else if (isUsableBrowseEvidenceState(state))
             {
@@ -255,6 +316,12 @@ bool reconcileEpgBrowseClassificationLocked(
                     activeScraperDocumentary || genreId == "documentary";
                 activeScraperSports =
                     activeScraperSports || genreId == "sports";
+                activeScraperFiction =
+                    activeScraperFiction ||
+                    liveParitySeriesFictionGenre(genreId);
+                activeScraperNonFiction =
+                    activeScraperNonFiction ||
+                    liveParitySeriesNonFictionGenre(genreId);
             }
             continue;
         }
@@ -271,6 +338,9 @@ bool reconcileEpgBrowseClassificationLocked(
         dvbDocumentary = dvbDocumentary || genreId == "documentary";
         dvbSports = dvbSports || genreId == "sports";
         dvbNews = dvbNews || genreId == "news";
+        dvbFiction = dvbFiction || liveParitySeriesFictionGenre(genreId);
+        dvbNonFiction =
+            dvbNonFiction || liveParitySeriesNonFictionGenre(genreId);
         dvbSpecificFilmGenre = dvbSpecificFilmGenre ||
             (genreId != "drama" && filmGenreIds().count(genreId) > 0);
     }
@@ -296,33 +366,43 @@ bool reconcileEpgBrowseClassificationLocked(
         contentClass = "documentary";
         confidence = 0.95;
     }
+    else if (activeScraperSports || activeScraperDocumentary)
+    {
+        if (activeScraperSports == activeScraperDocumentary) return true;
+        contentClass = activeScraperSports ? "sports" : "documentary";
+        confidence = 0.95;
+    }
+    else if (activeScraperNonFiction || dvbNonFiction)
+    {
+        return true;
+    }
     else if (activeMediaMovie || activeMediaSeries)
     {
         if (activeMediaMovie == activeMediaSeries) return true;
         if (activeMediaSeries)
         {
+            if (!(activeScraperFiction || dvbFiction)) return true;
             contentClass = "series";
-            confidence = 0.99;
-        }
-        else if (activeScraperSports || activeScraperDocumentary)
-        {
-            if (activeScraperSports == activeScraperDocumentary) return true;
-            contentClass = activeScraperSports ? "sports" : "documentary";
-            confidence = 0.95;
         }
         else
         {
             contentClass = "movie";
-            confidence = 0.99;
         }
+        confidence = 0.99;
     }
     else if (lastKnownMediaMovie || lastKnownMediaSeries)
     {
         if (lastKnownMediaMovie == lastKnownMediaSeries) return true;
         if (lastKnownMediaSeries)
         {
+            const bool scraperFiction =
+                activeScraperFiction || lastKnownScraperFiction || dvbFiction;
+            const bool scraperNonFiction =
+                activeScraperNonFiction || lastKnownScraperNonFiction ||
+                dvbNonFiction;
+            if (!scraperFiction || scraperNonFiction) return true;
             contentClass = "series";
-            confidence = 0.99;
+            confidence = 0.90;
         }
         else
         {
@@ -354,6 +434,12 @@ bool reconcileEpgBrowseClassificationLocked(
     }
     else if (dvbSeries)
     {
+        const bool fiction =
+            activeScraperFiction || lastKnownScraperFiction || dvbFiction;
+        const bool nonFiction =
+            activeScraperNonFiction || lastKnownScraperNonFiction ||
+            dvbNonFiction;
+        if (!fiction || nonFiction) return true;
         contentClass = "series";
         confidence = 0.80;
     }
