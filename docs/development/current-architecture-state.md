@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This document describes implemented architecture. Accepted target contracts that are not yet connected to runtime remain in ADRs and planning documents.
+This document describes implemented architecture. Accepted target contracts that are not connected to runtime remain in ADRs and planning documents.
 
-Baseline: `cb77ff66e11dca7db2eafa36525762dcde35102d` on 2026-07-27, plus the active Phase 62 Draft branch.
+Baseline: `cb77ff66e11dca7db2eafa36525762dcde35102d` plus completed Phase 62 on PR #117.
 
 ## Ownership model
 
@@ -14,11 +14,11 @@ VDR
 
 VDR-Suite
   -> backend identity and scope
-  -> credential verification and session issuance
+  -> credential verification and browser-session issuance
   -> actor/device/credential/session/request context
   -> persistent identity lifecycle
   -> server-side authorization and CSRF policy
-  -> guarded operations and accountability
+  -> guarded operations and append-only accountability
   -> client-facing REST and Client API contracts
 
 Private adapters/providers
@@ -27,202 +27,122 @@ Private adapters/providers
 
 Frontend modules do not call private backend protocols directly and do not own authentication, lifecycle, CSRF or authorization decisions.
 
-## Backend and snapshot foundation
-
-BackendRegistry, backend-scoped reads, capability reporting, read-only policy, snapshots, change feed and live-update foundations are implemented. Secure remote Agent identity and command fencing remain Phase 63 work.
-
-## Active general Phase 62 runtime security boundary
+## Completed Phase 62 security boundary
 
 ```text
 HttpServerRequest
-  -> SecurityHttpGate
-       -> LegacyBasicAuthenticator
-       -> optional ManagedBasicAuthenticator
-            -> CredentialVerifierRepository
-       -> RequestSecurityContext
-       -> PersistentIdentityResolver
-            -> SecurityIdentityRepository
-       -> AuthorizationService
-       -> AccountabilityEventRepository
+  -> BrowserSessionHttpGate for exact issue/logout routes
+  -> SecurityHttpGate for ordinary requests and protected mutations
+       -> strict presented-browser-cookie precedence
+       -> otherwise Legacy Basic compatibility or optional Managed Basic
+       -> persistent actor/device/session/credential lifecycle resolution
+       -> browser-session absolute/idle/issuer/concurrency effectiveness
+       -> exact route and backend-scope extraction
+       -> cookie-bound CSRF for browser mutations
+       -> exact actor grant and fixed-role authorization
+       -> append-only pre-dispatch accountability
   -> ApiRouter
-  -> controller/service/domain safety checks
+  -> protected operation implementation
+  -> append-only operation.succeeded or operation.failed outcome
+  -> response
 ```
 
-The migrated mutation catalogue currently includes Remote, Timer
-create/update/delete and both Channel Move aliases. Each requires its canonical
-permission at the exact requested backend plus a durable pre-dispatch decision.
+Every registered central POST is either a protected mutation or an explicitly classified Safe POST. Unknown browser and enforced-mode mutation paths fail closed.
 
-Actor, device, credential, session, authentication state, grants, request ID and correlation ID are represented explicitly. Persistent inactive, expired, revoked, missing or mismatched state fails closed before router dispatch.
+## Implemented identity and authentication
 
-The installed Webfrontend exchanges Basic credentials for a browser session
-and then uses browser-cookie authentication with memory-only CSRF state.
-Legacy Basic remains a transitional compatibility path. Managed Basic and
-browser identities have their own lifecycle and grants and do not inherit the
-Legacy Basic unmigrated-POST bypass.
+- canonical persistent actor, device, session and credential identities;
+- explicit authentication state, request ID and optional correlation ID;
+- Legacy Basic compatibility using a separate transitional identity;
+- optional Managed Basic with one-way modular password verifier;
+- browser-session credentials with independent session and CSRF secrets;
+- strict cookie parsing and no fallback from a presented invalid browser credential;
+- persistent lifecycle checks for actor, device, session, credential and issuing credential;
+- service and agent actor types representable for Phase 63 without implementing Agent runtime.
 
-## Active browser-session and ordinary-route security boundary
+No Authorization header, plaintext password, complete cookie, raw session secret or raw CSRF token is persisted.
 
-The installed daemon exposes two exact browser lifecycle POST routes through
-a dedicated lifecycle gate. Valid browser cookies also authenticate ordinary
-application routes through the general security gate:
+## Browser-session lifecycle
+
+The runtime supports:
+
+- atomic Basic-to-browser-session issuance;
+- hardened `Secure`, `HttpOnly`, `SameSite=Strict` cookie;
+- independent one-time CSRF token delivered through no-store JSON;
+- atomic logout revoking verifier, canonical session and browser credential;
+- immutable absolute lifetime;
+- optional per-actor active-session limit with deny-new semantics;
+- optional idle expiry with throttled `last_seen_at` persistence;
+- request-time issuing-credential lifecycle binding;
+- bounded startup cleanup of terminal browser-session lifecycles.
+
+Browser lifecycle and retention accountability is append-only and secret-free.
+
+## Authorization model
+
+`PermissionGrant` combines an exact permission with an exact backend scope or wildcard where explicitly allowed. Fixed roles expand only to their defined exact permissions; Read-only precedence prevents mutation rights.
+
+Protected central mutation families include Remote, Timer, Channel Move, Recording, SearchTimer, Native Fuzzy and query-scoped cache refresh operations. Backend read-only, capability and domain validation remain independent cumulative safety decisions after actor authorization.
+
+## Accountability model
+
+Pre-dispatch events record actor, device, session, authentication state, permission, backend scope, action, operation ID, request ID, correlation ID, decision and reason. Required append failure prevents dispatch.
+
+For each already-protected authorized mutation reaching the router:
 
 ```text
-POST /api/security/browser-sessions
-  -> BrowserSessionHttpGate
-       -> LegacyBasicAuthenticator or ManagedBasicAuthenticator
-       -> PersistentIdentityResolver
-       -> session.issue.self accountability
-  -> BrowserSessionHttpService
-       -> BrowserSessionIssuanceService
-            -> getrandom CSPRNG
-            -> independent identifiers, secrets and salts
-            -> one-way verifier hashes
-            -> BEGIN IMMEDIATE transaction
-                 -> validate actor/device/issuing credential
-                 -> create session identity
-                 -> create browser credential identity
-                 -> create browser verifier
-               COMMIT or ROLLBACK
-            -> move-only one-time result
-       -> hardened Set-Cookie
-       -> one-time CSRF JSON
-
-POST /api/security/browser-sessions/logout
-  -> BrowserSessionHttpGate
-       -> BrowserSessionAuthenticator
-            -> strict vdr_suite_session parsing
-            -> token-id lookup
-            -> BrowserSessionCredentialRepository
-            -> session-secret verification
-            -> independent X-CSRF-Token verification
-       -> PersistentIdentityResolver
-       -> session.revoke.self accountability
-  -> BrowserSessionHttpService
-       -> BrowserSessionLifecycleService
-       -> atomic verifier/session/credential revocation
-       -> expired hardened Set-Cookie
+HTTP 200..299  -> operation.succeeded / succeeded
+all other HTTP -> operation.failed    / failed
+reason_code    -> http_status_<decimal status>
 ```
 
-The lifecycle routes remain separately handled, but their issued cookie is now
-accepted by `SecurityHttpGate` for ordinary application requests. Browser
-credentials take precedence when presented and never fall back to Basic after
-an invalid cookie.
+The post-router event reuses the successful authorization context. Outcome append failure changes the response to `503 accountability_unavailable`; it does not claim domain rollback, transactional Outbox coupling or safe automatic replay.
 
-### Issuance material
+## Persistence boundaries
 
-- token/session/credential IDs: independent 128-bit values with distinct prefixes;
-- session secret: independent 256-bit unpadded Base64url;
-- CSRF secret: independent 256-bit unpadded Base64url;
-- independent random crypt salts;
-- SHA-512 crypt hashes with `rounds=10000`;
-- lifetime bounded to 5 minutes minimum, 8 hours default and 24 hours maximum.
-
-Entropy comes from Linux `getrandom(2)` with complete-read and `EINTR` handling.
-
-### Atomicity
-
-The issuer re-reads actor, device and issuing credential inside `BEGIN IMMEDIATE`. It rejects inactive, expired, revoked, missing or cross-actor state. Session identity, browser credential identity and verifier row commit together.
-
-A forced token-collision test causes failure after the lifecycle inserts and proves that rollback removes both intermediate rows.
-
-### Result ownership
-
-`IssuedBrowserSession` is move-only. It returns IDs, cookie value, CSRF token and expiry to the dedicated HTTP lifecycle service. Its destructor and `clearSecrets()` overwrite the sensitive cookie and CSRF buffers. It must not be logged or persisted.
-
-### Verifier
-
-The browser verifier stores only a non-secret lookup token and separate one-way session/CSRF hashes bound to actor, device, session, browser credential and issuing credential.
-
-Strict parsing rejects malformed and duplicate target cookies. Authentication distinguishes anonymous, invalid, expired, revoked and authenticated states. CSRF verification is independent and succeeds only for an active valid session.
-
-The lifecycle boundary issues hardened HTTP responses, enforces cookie-bound
-CSRF on logout and writes lifecycle authorization accountability. The general
-gate now enforces browser CSRF and exact backend authorization for Remote,
-Timer create/update/delete and Channel Move. Every other browser business POST
-remains fail-closed.
-
-## Independent safety decisions
-
-The following remain separate and cumulative:
-
-1. credential verification;
-2. authentication context construction;
-3. persistent identity lifecycle resolution;
-4. browser CSRF verification;
-5. actor permission and backend scope authorization;
-6. backend availability/read-only policy;
-7. capability policy;
-8. mutation validation, revision, idempotency and operation policy;
-9. accountability decision and outcome evidence.
-
-No frontend state replaces these server decisions.
-
-## Current persistence boundaries
-
-- SQLite is the central Suite-owned metadata/read-model database.
+- Suite-owned SQLite remains the central metadata and security store.
 - Domain repositories own SQL; controllers and frontend modules do not.
-- `SecurityIdentityRepository` owns lifecycle reads and state changes.
-- `SecurityIdentityProvisioningRepository` owns idempotent configured bootstrap.
-- `SecurityIdentityIssuanceRepository.cpp` owns issuance-specific session/credential inserts.
-- `CredentialVerifierRepository` owns managed Basic verifiers.
-- `BrowserSessionCredentialRepository` owns browser token binding, one-way hashes, expiry and revocation.
-- `SecurityPermissionGrantRepository` owns active backend-scoped actor grants used by browser contexts and fixed roles.
-- `BrowserSessionIssuanceService` owns entropy, hashing and transaction orchestration without direct SQLite calls.
-- `AccountabilityEventRepository` owns append-only authorization evidence.
-- Database triggers reject accountability updates and deletes.
-- submitted Authorization/Cookie headers, plaintext passwords, complete cookie values, raw session secrets and raw CSRF values are not persisted.
-- ADR-0050 remains the domain-repository SQLite boundary.
+- security identity, verifier, grant, browser-session, retention and accountability repositories own their exact tables and transactions;
+- database triggers reject accountability update/delete;
+- browser issue/logout and retention cleanup use bounded explicit transactions;
+- runtime acceptance uses an isolated database copy and verifies production logical state remains unchanged.
 
-## Implemented safety boundaries
+## Final runtime evidence
 
-- backend-scoped reads and read-only policy;
-- guarded Recording and Timer-related domain operations;
-- allowlisted Remote actions and operation IDs;
-- centralized authorization for Remote, Timer create/update/delete and both
-  Channel Move aliases;
-- fixed exact-backend Admin expansion and Read-only precedence;
-- persisted lifecycle and browser-grant resolution before authorization;
-- managed Basic verification and legacy-bypass separation;
-- fail-closed expiry/revocation and unmigrated-route handling;
-- append-only pre-dispatch accountability;
-- strict isolated browser-cookie and independent CSRF verification;
-- CSPRNG-backed atomic browser-session issuance;
-- rollback proof and move-only secret handling;
-- architecture guards against raw secret persistence and premature ordinary-route cookie wiring;
-- no frontend-owned authorization or provider lookup on documented query-only paths.
+```text
+PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
+accepted_runtime_head=4762583d5b5170866838ed9f03b928adbf39f99e
+daemon_sha256=488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
+loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+configuration_sha256=8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5a98bdf
+evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
+```
 
-## Domain architecture retained
+## Compatibility boundary
 
-- Recordings 2 remains the sole delivered recording browser and owns folder/card/detail/action workflows.
-- Phase 61 metadata, people, Genre and EPG read models remain backend-scoped and provider-free on normal reads.
-- Global Search uses the Suite Client API and query-only SQLite connection.
-- Remote/LiveOverlay remain backend-neutral Suite APIs over private adapters.
-- SearchTimer and Timer foundations remain partial and are not central Phase 64 orchestration.
+Legacy Basic compatibility remains explicitly transitional. Immediate removal is not deployment-ready because `legacy-basic` remains the code default and packaged deployments do not yet mandate migration to `enforced`.
 
-## Important incomplete architecture
+This is the final Phase-62 retirement decision. A future removal requires a deployment-migration contract covering rollout, recovery and compatibility impact.
 
-| Area | Current state | Roadmap owner |
+## Later architecture owners
+
+| Area | Current state | Later owner |
 |---|---|---|
-| Actor/request model | Basic and isolated browser lifecycle boundaries are real-runtime accepted and share the canonical identity model | Phase 62 |
-| Credential verification | Managed Basic and isolated browser verifier accepted; native/service and protected password lifecycle missing | Phase 62 |
-| Browser session issuance | Exact Basic-to-session endpoint, hardened cookie and atomic three-row persistence real-runtime accepted | Phase 62 |
-| Browser authentication and CSRF | Browser-cookie precedence is active; logout, Remote, Timer create/update/delete and Channel Move enforce matching CSRF; remaining browser POSTs fail closed | Phase 62 |
-| Logout/session management | Atomic verifier/session/credential logout accepted; refresh, idle timeout, cleanup and recovery remain open | Phase 62 |
-| Roles/grants/scopes | Backend-scoped actor grants and fixed exact-scope Admin/Read-only roles accepted; generic definitions and protected administration missing | Phase 62 |
-| Complete server authorization | Remote, Timer create/update/delete and Channel Move migrated; remaining route families still require classification and migration | Phase 62 |
-| Accountability | Lifecycle and migrated-mutation pre-dispatch decisions are real-runtime accepted; completion, outbox and queries remain open | Phase 62 |
-| Revision/idempotency | Partial domain mechanisms only | Phase 62 |
-| Backend Agent | Contract/foundation only | Phase 63 |
-| TimerIntent orchestration | Missing | Phase 64 |
-| Streaming Gateway | Missing | Phase 65 |
-| Legacy OSD bridge | Missing | Phase 66 |
-| Stable `/api/v1` and SDK | Partial/unreleased | Phase 67 |
+| Backend Agent | actor representation only; no enrollment, transport, lease or command runtime | Phase 63 |
+| TimerIntent orchestration | not implemented | Phase 64 |
+| Streaming Gateway | not implemented | Phase 65 |
+| Legacy OSD bridge | not implemented | Phase 66 |
+| Stable public API/SDK hardening | partial internal contracts only | Phase 67 |
+| Audit product | append-only persistence exists; HTTP read/export product deferred | separate necessity proof |
+| Generic security administration | not required for Phase 62 | concrete operator workflow |
+| Universal revisions/idempotency/Outbox | not accepted as generic infrastructure | resource-specific proof |
 
 ## Related documents
 
 - [Current State](../CURRENT.md)
+- [Phase 62 Final Closeout](phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
 - [Security and Identity Foundation](../architecture/security-identity-foundation.md)
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
-- [Phase 62 Slice 1](phase-62-security-identity-foundation-slice-1.md)
-- [Phase 62 Slice 2](phase-62-security-identity-foundation-slice-2.md)
 - [Strict Roadmap](../planning/roadmap.md)
