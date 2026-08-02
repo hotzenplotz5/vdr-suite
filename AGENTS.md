@@ -54,6 +54,36 @@ A failed required check on the final stabilization head must be diagnosed and
 fixed before crossing that gate. Do not hide failures by adding unrelated
 commits or by bypassing required checks.
 
+## Minimal necessary validation
+
+Choose the shortest safe path and treat the user's time as a project resource.
+Run only checks that can still change the next decision.
+
+Do not repeat a test merely because another commit was created, documentation
+was edited, the chat changed, or an earlier accepted result is inconvenient to
+reuse. Accepted CI, runtime evidence and immutable fingerprints remain valid
+until a directly relevant input changes.
+
+Do not run broad local Make targets, full regression suites or local CI copies
+when GitHub Actions already covers the same unchanged product code. In
+particular, a documentation-only closeout must not trigger local product,
+architecture, packaging or full documentation suites unless that exact change
+cannot be validated by the final-head GitHub CI.
+
+Use the local yaVDR host only for facts GitHub cannot establish, such as the
+installed daemon, service state, real configuration, database integrity and
+controlled runtime acceptance. Once that runtime acceptance is recorded, do not
+repeat it for a documentation-only follow-up.
+
+When a check fails, run the smallest command that reproduces the failure and
+fix only the demonstrated cause. Do not add speculative validators, duplicate
+safety gates or large recovery scripts without a concrete risk they uniquely
+cover.
+
+Before a routine documentation commit, the normal local maximum is the minimal
+content edit plus `git diff --check`. Commit and push immediately, then let the
+single final-head GitHub CI run the repository's required test graph.
+
 ## Branch and pull-request safety
 
 Keep updates fast-forward-only. Never force-push, rebase or rewrite published
