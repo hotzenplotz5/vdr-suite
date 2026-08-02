@@ -122,6 +122,7 @@ BrowserSessionHttpService::BrowserSessionHttpService(
         SecurityConfiguration::fromEnvironment();
     lifetimeConfiguration_ = configuration.browserSessionLifetime;
     concurrencyConfiguration_ = configuration.browserSessionConcurrency;
+    idleConfiguration_ = configuration.browserSessionIdle;
 }
 
 BrowserSessionHttpService::BrowserSessionHttpService(
@@ -134,7 +135,8 @@ BrowserSessionHttpService::BrowserSessionHttpService(
           lifecycleService,
           accountabilityRepository,
           std::move(lifetimeConfiguration),
-          BrowserSessionConcurrencyConfiguration{})
+          BrowserSessionConcurrencyConfiguration{},
+          BrowserSessionIdleConfiguration{})
 {
 }
 
@@ -144,11 +146,29 @@ BrowserSessionHttpService::BrowserSessionHttpService(
     AccountabilityEventRepository& accountabilityRepository,
     BrowserSessionLifetimeConfiguration lifetimeConfiguration,
     BrowserSessionConcurrencyConfiguration concurrencyConfiguration)
+    : BrowserSessionHttpService(
+          issuanceService,
+          lifecycleService,
+          accountabilityRepository,
+          std::move(lifetimeConfiguration),
+          std::move(concurrencyConfiguration),
+          BrowserSessionIdleConfiguration{})
+{
+}
+
+BrowserSessionHttpService::BrowserSessionHttpService(
+    BrowserSessionIssuanceService& issuanceService,
+    BrowserSessionLifecycleService& lifecycleService,
+    AccountabilityEventRepository& accountabilityRepository,
+    BrowserSessionLifetimeConfiguration lifetimeConfiguration,
+    BrowserSessionConcurrencyConfiguration concurrencyConfiguration,
+    BrowserSessionIdleConfiguration idleConfiguration)
     : issuanceService_(issuanceService),
       lifecycleService_(lifecycleService),
       accountabilityRepository_(accountabilityRepository),
       lifetimeConfiguration_(std::move(lifetimeConfiguration)),
-      concurrencyConfiguration_(std::move(concurrencyConfiguration))
+      concurrencyConfiguration_(std::move(concurrencyConfiguration)),
+      idleConfiguration_(std::move(idleConfiguration))
 {
 }
 
@@ -205,6 +225,24 @@ HttpServerResponse BrowserSessionHttpService::login(
             context);
     }
 
+    if (!idleConfiguration_.valid())
+    {
+        if (!appendOutcome(
+                context,
+                false,
+                IssuePermission,
+                IssueAction,
+                "browser_session_idle_configuration_invalid"))
+        {
+            return accountabilityUnavailableResponse(context, false);
+        }
+        return errorResponse(
+            503,
+            "browser_session_idle_configuration_invalid",
+            "The browser session idle configuration is invalid",
+            context);
+    }
+
     BrowserSessionIssuanceRequest request;
     request.actorId = context.actor.actorId;
     request.deviceId = context.device->deviceId;
@@ -212,6 +250,7 @@ HttpServerResponse BrowserSessionHttpService::login(
     request.lifetimeSeconds = lifetimeConfiguration_.seconds;
     request.maximumActivePerActor =
         concurrencyConfiguration_.maximumActivePerActor;
+    request.idleTimeoutSeconds = idleConfiguration_.timeoutSeconds;
 
     BrowserSessionIssuanceResult issuance =
         issuanceService_.issueWithPolicy(request);
