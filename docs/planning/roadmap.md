@@ -50,19 +50,7 @@ Status: **Completed.**
 
 Goal achieved: production-grade actor identity, scoped server-side authorization, browser-session lifecycle security and append-only accountability.
 
-Accepted runtime includes:
-
-- canonical persistent actor, device, session and credential context;
-- Legacy Basic compatibility, optional Managed Basic and browser sessions;
-- strict cookie precedence and cookie-bound CSRF;
-- exact actor/backend grants and fixed Admin/Read-only roles;
-- complete central POST protection or explicit Safe POST classification;
-- protected Remote, Timer, Channel Move, Recording, SearchTimer, Native Fuzzy and cache-refresh mutations;
-- immutable browser-session lifetime, issuing-credential binding, optional concurrency and idle policy, bounded terminal cleanup;
-- append-only pre-dispatch authorization evidence;
-- browser lifecycle outcomes;
-- protected mutation success/failure outcomes with actor, decision, operation, request and correlation continuity;
-- guarded CI, real-yaVDR acceptance and rollback-safe evidence tooling.
+Accepted runtime includes persistent identity, exact grants and roles, protected central POSTs, browser-session lifecycle and CSRF policy, append-only pre-dispatch evidence, browser lifecycle outcomes and protected mutation success/failure outcomes.
 
 Final runtime evidence:
 
@@ -78,9 +66,11 @@ evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-47625
 
 Evidence:
 
+- [Current State](../CURRENT.md)
 - [Phase 62 Final Closeout](../development/phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](../development/phase-62-slice-2x-runtime-closeout.md)
 - [Phase 62 Gap Matrix](phase-62-security-identity-gap-matrix.md)
+- [VDR Ecosystem Parity](parity-audit-and-frontend-gap-roadmap.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 
 ### Compatibility-retirement decision
@@ -91,14 +81,7 @@ Removal requires a separate future migration contract. This explicit decision sa
 
 ### Deferred work
 
-The following are not required to close Phase 62 and need separate necessity proof:
-
-- audit HTTP reads/export/filter/redaction/retention;
-- generic security administration;
-- native/service credential lifecycle without a concrete consumer;
-- universal revision/idempotency/durable-operation infrastructure;
-- transactional Outbox;
-- Android or Android TV work.
+Audit HTTP products, generic security administration, native/service credential lifecycle without a concrete consumer, universal revision/idempotency infrastructure, transactional Outbox, Android and Android TV work are not required to close Phase 62.
 
 ## Phase 63 — Backend Agent and Secure Multi-Site Runtime
 
