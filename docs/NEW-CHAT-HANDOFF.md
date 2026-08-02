@@ -2,75 +2,31 @@
 
 ## Purpose
 
-This is the canonical entry point for every new VDR-Suite chat. Read it before
-repeating repository analysis, CI or real-runtime acceptance. A new chat alone
-is not a changed fingerprint.
-
-Trust completed items marked **VERIFIED** until a directly relevant repository,
-binary, configuration, database, systemd execution, routing or behavior
-fingerprint changes.
-
-No new Phase-62 implementation is selected merely because it appears useful.
-Every feature requires a binding requirement, a concrete accepted-code gap, a
-real failure/security consequence and the smallest closing change.
+This is the canonical entry point for every new VDR-Suite chat. A new chat alone is not a changed repository or runtime fingerprint. Do not repeat accepted Phase-62 analysis, CI or real-runtime acceptance without a directly relevant change.
 
 ## Canonical reading
 
-- [Current project truth](CURRENT.md)
-- [Current project status](development/current-status.md)
-- [Slice 2X contract](development/phase-62-slice-2x-protected-mutation-response-outcomes.md)
-- [Slice 2X yaVDR runbook](development/phase-62-slice-2x-runtime-acceptance-runbook.md)
-- [Post-Slice-2W continuation prompt](development/phase-62-post-slice-2w-new-chat-prompt.md)
-- [Slice 2W runtime closeout](development/phase-62-slice-2w-runtime-closeout.md)
-- [Phase 62 gap matrix](planning/phase-62-security-identity-gap-matrix.md)
-- [Security and identity architecture](architecture/security-identity-foundation.md)
-- [Strict roadmap](planning/roadmap.md)
-- [Phase map](planning/phase-map.md)
-- [Parity and frontend gap roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
-- [Architecture audit gap matrix](planning/architecture-audit-gap-matrix.md)
-- [Completed phases](development/completed-phases.md)
-- [Phase 61 closeout](development/phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 runtime closeout](development/post-phase-61-platform-runtime-closeout.md)
-- [ADR index](adr/index.md)
-- [Agent workflow rules](../AGENTS.md)
-
-Current State, Current Status, this Handoff, the Gap Matrix, Roadmap and Slice-2X
-contract own the active truth.
+- [Current State](CURRENT.md)
+- [Current Project Status](development/current-status.md)
+- [Phase 62 Final Closeout](development/phase-62-closeout.md)
+- [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
+- [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
+- [Strict Roadmap](planning/roadmap.md)
+- [Phase Map](planning/phase-map.md)
+- [Completed Phases](development/completed-phases.md)
+- [Agent Workflow Rules](../AGENTS.md)
 
 ## Stable project position
 
 ```text
 Latest completed numbered runtime phase:
-Phase 61 - Suite Metadata and Genre Platform
-
-Completed hardening:
-Post-Phase 61 Performance Hardening (B1-B4)
-
-Historical umbrella track:
-Phase 58 - Frontend and Live Parity
-
-Completed platform features:
-VDR Remote and Live Overlay hardening (#110)
-Backend-scoped Global Search (#111)
-Configurable photorealistic VDR Remote (#115)
-
-Current active phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
-Phase 62 state:
-active and incomplete
+Next strict runtime phase:
+Phase 63 - Backend Agent and Secure Multi-Site Runtime
 
-Repository, source CI and real-runtime acceptance complete through:
-Slice 2W - Browser-Session Terminal Retention Cleanup
-
-Current bounded slice:
-Slice 2X - Protected Mutation Response Outcomes
-
-Slice 2X state:
-production implementation complete;
-focused tests and architecture guard complete;
-isolated install/runtime harness complete;
-real yaVDR acceptance pending.
+Current active runtime phase:
+none; Phase 63 is planned but not started
 
 Phase 63-67 runtime:
 not advanced
@@ -88,175 +44,59 @@ Base: main @ cb77ff66e11dca7db2eafa36525762dcde35102d
 PR state: open, Draft, unmerged, mergeable
 ```
 
-PR #117 must remain open and Draft. Do not mark it Ready, merge it, enable
-auto-merge, rebase, force-push, rewrite history or mutate Base, title, body,
-reviewers or other review/merge metadata without explicit approval.
+PR #117 must not be marked Ready, merged, auto-merged, rebased, force-pushed or have Base, title, body, reviewers or other review/merge metadata changed without explicit repository-owner approval.
 
-PR #118 is the separate paused TVScraper workstream. Do not mix its code,
-binaries, fingerprints, planning or runtime evidence into Phase 62.
+PR #118 is the separate paused TVScraper workstream.
 
-## Installed runtime baseline
+## Final installed Phase 62 runtime
 
-**VERIFIED after Slice 2W acceptance on 2026-08-02:**
+**VERIFIED on 2026-08-02:**
 
 ```text
-Installed executable:
-/usr/sbin/vdr-suite-daemon
-
-Installed/running Slice-2W daemon SHA-256:
-7775804306bf70eca6ef23474605467381162cfc9d5b874cdb187840ca8bc571
-
-Installed deferred-runtime-loader.js SHA-256:
-3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
-
-Daemon configuration SHA-256:
-8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
-
-Slice-2W evidence:
-/var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
+PHASE_62_SLICE_2X_RUNTIME_ACCEPTANCE=PASS
+accepted_runtime_head=4762583d5b5170866838ed9f03b928adbf39f99e
+source_ci_run_number=6884
+source_ci_run_id=30752351218
+installed_daemon_sha256=488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
+loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+configuration_sha256=8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+runtime_report_sha256=bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5a98bdf
+evidence_directory=/var/backups/vdr-suite-phase62-slice2x-20260802T145043Z-4762583d5b51
 ```
 
-These remain the pre-Slice-2X installation baseline. The service PID is volatile.
-Do not claim that the Slice-2X candidate is installed until the runtime runbook
-passes.
+The temporary Slice-2X systemd override was removed and the normal service was active. Do not rerun this acceptance without a relevant daemon, outcome-accountability, routing-order, database-isolation, systemd-entrypoint or harness change.
 
-## Fully accepted Slice 2W
+## Completed Phase 62 result
 
-**VERIFIED:** bounded startup cleanup for terminal browser sessions, exact
-eligibility and deterministic 256-item processing, transaction rollback,
-canonical-row preservation, secret-free accountability, restored systemd state,
-SQLite integrity and zero VDR domain mutations.
+Phase 62 provides persistent identity, exact scoped authorization, fixed roles, browser-session lifecycle and CSRF policy, complete central POST classification, append-only allow/deny accountability, lifecycle outcomes and protected mutation success/failure outcomes.
 
-Do not repeat Slice-2W acceptance unless a directly relevant daemon, cleanup,
-schema, configuration, systemd execution or harness fingerprint changes.
+The runtime acceptance proves exact HTTP 200 `operation.succeeded` and HTTP 500 `operation.failed` event pairs with actor, decision, operation, request and correlation continuity and no secret persistence.
 
-## Implemented Slice 2X source contract
+## Compatibility-retirement decision
 
-The binding requirement is:
+Legacy Basic compatibility remains transitional and is intentionally retained. Immediate removal is not ready because `legacy-basic` remains the code default and packaged deployments do not yet require migration to `enforced`.
 
-```text
-every privileged mutation has actor, decision and outcome evidence
-```
+This is the explicit Phase-62 retirement decision. Removal requires a separate future deployment-migration contract and is not an unclosed Phase-62 slice.
 
-Before Slice 2X, protected business POSTs persisted only pre-dispatch
-`dispatch_authorized`/`dispatch_denied`; success and returned failure were
-indistinguishable.
+## Rejected and deferred work
 
-The implementation now records exactly one post-router event:
+Do not reopen Phase 62 merely to add:
 
-```text
-HTTP 200..299  -> operation.succeeded / succeeded
-all other HTTP -> operation.failed    / failed
-reason_code    -> http_status_<decimal status>
-```
+- audit read/export/filter/redaction/retention APIs or UI;
+- generic actor, credential, grant or role administration;
+- native/service credential lifecycle without a concrete consumer;
+- universal revision/idempotency or durable-operation infrastructure;
+- transactional Outbox;
+- Android, Android TV or Phase 63-67 runtime.
 
-It reuses actor, device, session, authentication, permission, backend, action,
-operation, request and correlation context. It adds no route, permission, role,
-schema, repository, configuration, frontend or packaging owner.
-
-If outcome persistence fails after dispatch, the server returns HTTP 503
-`accountability_unavailable`. No domain rollback or safe automatic replay is
-claimed.
-
-## Source and CI truth
-
-The earlier implementation/harness head
-`4b61583b604626cd49e213356241759c81e60d04` passed:
-
-```text
-VDR-Suite CI #6871
-Run ID 30750871845
-all five jobs successful
-```
-
-After that run, the runtime path was hardened with:
-
-- `protected-mutation-outcome-runtime-entry.py`;
-- automatic backup of old daemon, loader, configuration and production SQLite;
-- atomic candidate installation;
-- temporary systemd override for both Suite and Security database paths;
-- an isolated scenario copy;
-- rollback to the old daemon after failed acceptance or candidate restart;
-- final production-service restoration;
-- a dedicated yaVDR runbook.
-
-The final current head containing that fingerprint must pass all five jobs before
-runtime installation. Do not rely only on CI #6871 for the newer runtime-entry
-fingerprint.
-
-## Runtime acceptance boundary
-
-Use only:
-
-- [Slice 2X yaVDR Runtime Acceptance Runbook](development/phase-62-slice-2x-runtime-acceptance-runbook.md)
-
-The selected real protected owner is the existing Native Fuzzy stale-probe
-delete route. The isolated scenario must produce:
-
-```text
-no stale row                        -> HTTP 200 -> operation.succeeded
-one test stale row + DELETE guard  -> HTTP 500 -> operation.failed
-```
-
-Required proof includes exact event-pair continuity, secret-free persistence,
-scenario cleanup, restored grants, revoked test session, production database
-unchanged during the scenario, removed systemd override, unchanged loader and
-configuration, and an active final production service.
-
-A failed attempt is not partial acceptance. Fix only the demonstrated cause and
-repeat only after any changed relevant fingerprint has green CI.
-
-## Rejected and unproven work
-
-Do not implement without a new full necessity proof:
-
-- protected audit read/export/filter/redaction/retention;
-- generic identity, credential, grant or role administration;
-- native/service credential lifecycle before a real consumer exists;
-- universal revisions, idempotency or durable operation infrastructure;
-- transactional Outbox or generic cross-system coupling.
-
-After Slice-2X acceptance, evaluate only compatibility-retirement readiness and
-final Phase-62 closeout. Do not assume another implementation slice is required.
-
-## Credential and secret restrictions
-
-Never print, store or commit:
-
-- Authorization headers;
-- plaintext passwords or password hashes;
-- cookies or complete cookie values;
-- CSRF tokens;
-- raw session or verifier secrets;
-- login response bodies containing secrets;
-- process environments.
-
-## Anti-loop boundary
-
-Do not repeat completed public-origin work, route migration, Slice-2R lifetime,
-Slice-2S browser outcomes, Slice-2T issuer binding, Slice-2U concurrency,
-Slice-2V idle expiry or Slice-2W retention without a changed relevant
-fingerprint.
-
-Do not rerun the rejected audit-read analysis unless a new requirement or failure
-case exists.
+Each requires its own necessity proof.
 
 ## Exact next action
 
-1. Finish canonical documentation consistency for the implemented,
-   runtime-pending Slice 2X state.
-2. Require `docs-check`, `make-test-audit`, `frontend-regression-test`,
-   `fast-regression-test` and `packaging-regression-test` green on the final
-   current head.
-3. Run the bounded yaVDR acceptance from the Slice-2X runbook.
-4. Record accepted head, CI, daemon/loader/configuration/report hashes, evidence
-   directory and final service PID.
-5. Create the Slice-2X runtime closeout.
-6. Then evaluate compatibility-retirement readiness and final Phase-62 closeout
-   only.
+1. Verify all five jobs green on the final Phase-62 closeout documentation head.
+2. Ask for explicit approval before changing PR #117 metadata, marking Ready for Review or merging.
+3. Begin Phase 63 only with a new bounded contract after PR #117 disposition.
 
-## Maintenance rule
+## Credential and secret restrictions
 
-Update this file whenever repository, PR, runtime, routing or next-action truth
-changes. Preserve durable non-secret evidence and keep the next permitted action
-explicit.
+Never print, store or commit Authorization headers, plaintext passwords, password hashes, cookies, CSRF tokens, raw session/verifier secrets, secret-bearing login responses or process environments.
