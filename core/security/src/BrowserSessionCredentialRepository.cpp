@@ -98,12 +98,44 @@ std::string columnText(sqlite3_stmt* statement, int column)
         : std::string(reinterpret_cast<const char*>(text));
 }
 
+bool columnExists(
+    Database& database,
+    const std::string& tableName,
+    const std::string& columnName)
+{
+    sqlite3_stmt* statement = nullptr;
+    const std::string sql = "PRAGMA table_info(" + tableName + ");";
+    if (sqlite3_prepare_v2(
+            database.handle(),
+            sql.c_str(),
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return false;
+    }
+
+    bool found = false;
+    while (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        if (columnText(statement, 1) == columnName)
+        {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(statement);
+    return found;
+}
+
 std::optional<StoredBrowserSessionCredential> findOne(
     Database& database,
     const char* sql,
-    const std::string& key)
+    const std::string& key,
+    int idleTimeoutSeconds = 0,
+    bool bindIdleTimeout = false)
 {
-    if (!safeIdentifier(key))
+    if (!safeIdentifier(key) || idleTimeoutSeconds < 0)
     {
         return std::nullopt;
     }
@@ -119,7 +151,9 @@ std::optional<StoredBrowserSessionCredential> findOne(
         return std::nullopt;
     }
 
-    if (!bindText(statement, 1, key))
+    if (!bindText(statement, 1, key) ||
+        (bindIdleTimeout &&
+         sqlite3_bind_int(statement, 2, idleTimeoutSeconds) != SQLITE_OK))
     {
         sqlite3_finalize(statement);
         return std::nullopt;
@@ -138,9 +172,11 @@ std::optional<StoredBrowserSessionCredential> findOne(
         record.sessionSecretHash = columnText(statement, 6);
         record.csrfSecretHash = columnText(statement, 7);
         record.expiresAt = columnText(statement, 8);
-        record.active = sqlite3_column_int(statement, 9) != 0;
-        record.expired = sqlite3_column_int(statement, 10) != 0;
-        record.revoked = sqlite3_column_int(statement, 11) != 0;
+        record.lastSeenAt = columnText(statement, 9);
+        record.active = sqlite3_column_int(statement, 10) != 0;
+        record.expired = sqlite3_column_int(statement, 11) != 0;
+        record.idleExpired = sqlite3_column_int(statement, 12) != 0;
+        record.revoked = sqlite3_column_int(statement, 13) != 0;
         result = record;
     }
 
@@ -182,33 +218,55 @@ BrowserSessionCredentialRepository::BrowserSessionCredentialRepository(
 
 bool BrowserSessionCredentialRepository::ensureSchema()
 {
+    if (!database_.execute(
+            "CREATE TABLE IF NOT EXISTS security_browser_session_credentials ("
+            "token_id TEXT PRIMARY KEY,"
+            "session_id TEXT NOT NULL UNIQUE,"
+            "actor_id TEXT NOT NULL,"
+            "device_id TEXT NOT NULL,"
+            "credential_id TEXT NOT NULL UNIQUE,"
+            "issued_from_credential_id TEXT NOT NULL,"
+            "session_secret_hash TEXT NOT NULL,"
+            "csrf_secret_hash TEXT NOT NULL,"
+            "active INTEGER NOT NULL DEFAULT 1,"
+            "expires_at TEXT NOT NULL,"
+            "last_seen_at TEXT NOT NULL DEFAULT '',"
+            "revoked_at TEXT NOT NULL DEFAULT '',"
+            "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+            "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+            "FOREIGN KEY(actor_id) REFERENCES security_actors(actor_id),"
+            "FOREIGN KEY(device_id) REFERENCES security_devices(device_id),"
+            "FOREIGN KEY(session_id) REFERENCES security_sessions(session_id),"
+            "FOREIGN KEY(credential_id) REFERENCES security_credentials(credential_id),"
+            "FOREIGN KEY(issued_from_credential_id) REFERENCES security_credentials(credential_id)"
+            ");"))
+    {
+        return false;
+    }
+
+    if (!columnExists(
+            database_,
+            "security_browser_session_credentials",
+            "last_seen_at") &&
+        !database_.execute(
+            "ALTER TABLE security_browser_session_credentials "
+            "ADD COLUMN last_seen_at TEXT NOT NULL DEFAULT '';"))
+    {
+        return false;
+    }
+
     return database_.execute(
-               "CREATE TABLE IF NOT EXISTS security_browser_session_credentials ("
-               "token_id TEXT PRIMARY KEY,"
-               "session_id TEXT NOT NULL UNIQUE,"
-               "actor_id TEXT NOT NULL,"
-               "device_id TEXT NOT NULL,"
-               "credential_id TEXT NOT NULL UNIQUE,"
-               "issued_from_credential_id TEXT NOT NULL,"
-               "session_secret_hash TEXT NOT NULL,"
-               "csrf_secret_hash TEXT NOT NULL,"
-               "active INTEGER NOT NULL DEFAULT 1,"
-               "expires_at TEXT NOT NULL,"
-               "revoked_at TEXT NOT NULL DEFAULT '',"
-               "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-               "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-               "FOREIGN KEY(actor_id) REFERENCES security_actors(actor_id),"
-               "FOREIGN KEY(device_id) REFERENCES security_devices(device_id),"
-               "FOREIGN KEY(session_id) REFERENCES security_sessions(session_id),"
-               "FOREIGN KEY(credential_id) REFERENCES security_credentials(credential_id),"
-               "FOREIGN KEY(issued_from_credential_id) REFERENCES security_credentials(credential_id)"
-               ");") &&
+               "UPDATE security_browser_session_credentials "
+               "SET last_seen_at = created_at WHERE last_seen_at = '';") &&
         database_.execute(
                "CREATE INDEX IF NOT EXISTS idx_security_browser_sessions_actor "
                "ON security_browser_session_credentials(actor_id, session_id);") &&
         database_.execute(
                "CREATE INDEX IF NOT EXISTS idx_security_browser_sessions_expiry "
-               "ON security_browser_session_credentials(active, expires_at);");
+               "ON security_browser_session_credentials(active, expires_at);") &&
+        database_.execute(
+               "CREATE INDEX IF NOT EXISTS idx_security_browser_sessions_idle "
+               "ON security_browser_session_credentials(active, last_seen_at);");
 }
 
 bool BrowserSessionCredentialRepository::insert(
@@ -223,7 +281,8 @@ bool BrowserSessionCredentialRepository::insert(
         "INSERT INTO security_browser_session_credentials ("
         "token_id, session_id, actor_id, device_id, credential_id, "
         "issued_from_credential_id, session_secret_hash, csrf_secret_hash, "
-        "expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
+        "expires_at, last_seen_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);";
     sqlite3_stmt* statement = nullptr;
 
     if (sqlite3_prepare_v2(
@@ -261,15 +320,16 @@ BrowserSessionCredentialRepository::findByTokenId(
         database_,
         "SELECT token_id, session_id, actor_id, device_id, credential_id, "
         "issued_from_credential_id, session_secret_hash, csrf_secret_hash, "
-        "expires_at, active, "
-        "(expires_at <= CURRENT_TIMESTAMP), revoked_at <> '' "
+        "expires_at, last_seen_at, active, "
+        "(expires_at <= CURRENT_TIMESTAMP), 0, revoked_at <> '' "
         "FROM security_browser_session_credentials WHERE token_id = ?;",
         tokenId);
 }
 
 std::optional<StoredBrowserSessionCredential>
 BrowserSessionCredentialRepository::findResolvedByTokenId(
-    const std::string& tokenId) const
+    const std::string& tokenId,
+    int idleTimeoutSeconds) const
 {
     return findOne(
         database_,
@@ -277,6 +337,7 @@ BrowserSessionCredentialRepository::findResolvedByTokenId(
         "browser.device_id, browser.credential_id, "
         "browser.issued_from_credential_id, browser.session_secret_hash, "
         "browser.csrf_secret_hash, browser.expires_at, "
+        "browser.last_seen_at, "
         "(browser.active <> 0 AND "
         " issuing.credential_id IS NOT NULL AND "
         " issuing.actor_id = browser.actor_id AND "
@@ -286,6 +347,8 @@ BrowserSessionCredentialRepository::findResolvedByTokenId(
         "  issuing.actor_id = browser.actor_id AND "
         "  issuing.expires_at <> '' AND "
         "  issuing.expires_at <= CURRENT_TIMESTAMP)), "
+        "(?2 > 0 AND browser.last_seen_at <= "
+        " datetime(CURRENT_TIMESTAMP, '-' || ?2 || ' seconds')), "
         "((browser.revoked_at <> '') OR "
         " issuing.credential_id IS NULL OR "
         " issuing.actor_id <> browser.actor_id OR "
@@ -293,8 +356,10 @@ BrowserSessionCredentialRepository::findResolvedByTokenId(
         "FROM security_browser_session_credentials AS browser "
         "LEFT JOIN security_credentials AS issuing "
         "ON issuing.credential_id = browser.issued_from_credential_id "
-        "WHERE browser.token_id = ?;",
-        tokenId);
+        "WHERE browser.token_id = ?1;",
+        tokenId,
+        idleTimeoutSeconds,
+        true);
 }
 
 std::optional<StoredBrowserSessionCredential>
@@ -305,17 +370,18 @@ BrowserSessionCredentialRepository::findBySessionId(
         database_,
         "SELECT token_id, session_id, actor_id, device_id, credential_id, "
         "issued_from_credential_id, session_secret_hash, csrf_secret_hash, "
-        "expires_at, active, "
-        "(expires_at <= CURRENT_TIMESTAMP), revoked_at <> '' "
+        "expires_at, last_seen_at, active, "
+        "(expires_at <= CURRENT_TIMESTAMP), 0, revoked_at <> '' "
         "FROM security_browser_session_credentials WHERE session_id = ?;",
         sessionId);
 }
 
 std::optional<std::size_t>
 BrowserSessionCredentialRepository::countEffectiveActiveByActorId(
-    const std::string& actorId) const
+    const std::string& actorId,
+    int idleTimeoutSeconds) const
 {
-    if (!safeIdentifier(actorId))
+    if (!safeIdentifier(actorId) || idleTimeoutSeconds < 0)
     {
         return std::nullopt;
     }
@@ -339,10 +405,12 @@ BrowserSessionCredentialRepository::countEffectiveActiveByActorId(
         "ON issuing_credential.credential_id = "
         "browser.issued_from_credential_id "
         "AND issuing_credential.actor_id = browser.actor_id "
-        "WHERE browser.actor_id = ? "
+        "WHERE browser.actor_id = ?1 "
         "AND browser.active <> 0 "
         "AND browser.revoked_at = '' "
         "AND browser.expires_at > CURRENT_TIMESTAMP "
+        "AND (?2 = 0 OR browser.last_seen_at > "
+        "datetime(CURRENT_TIMESTAMP, '-' || ?2 || ' seconds')) "
         "AND actor.active <> 0 "
         "AND actor.revoked_at = '' "
         "AND device.active <> 0 "
@@ -371,7 +439,8 @@ BrowserSessionCredentialRepository::countEffectiveActiveByActorId(
         return std::nullopt;
     }
 
-    if (!bindText(statement, 1, actorId))
+    if (!bindText(statement, 1, actorId) ||
+        sqlite3_bind_int(statement, 2, idleTimeoutSeconds) != SQLITE_OK)
     {
         sqlite3_finalize(statement);
         return std::nullopt;
@@ -389,6 +458,53 @@ BrowserSessionCredentialRepository::countEffectiveActiveByActorId(
 
     sqlite3_finalize(statement);
     return result;
+}
+
+std::optional<bool>
+BrowserSessionCredentialRepository::touchLastSeenIfDue(
+    const std::string& tokenId,
+    int minimumIntervalSeconds) const
+{
+    if (!safeIdentifier(tokenId) || minimumIntervalSeconds <= 0)
+    {
+        return std::nullopt;
+    }
+
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "UPDATE security_browser_session_credentials "
+        "SET last_seen_at = CURRENT_TIMESTAMP, "
+        "updated_at = CURRENT_TIMESTAMP "
+        "WHERE token_id = ?1 AND last_seen_at <= "
+        "datetime(CURRENT_TIMESTAMP, '-' || ?2 || ' seconds');";
+
+    if (sqlite3_prepare_v2(
+            database_.handle(),
+            sql,
+            -1,
+            &statement,
+            nullptr) != SQLITE_OK)
+    {
+        return std::nullopt;
+    }
+
+    const bool bound =
+        bindText(statement, 1, tokenId) &&
+        sqlite3_bind_int(
+            statement,
+            2,
+            minimumIntervalSeconds) == SQLITE_OK;
+    const int step = bound
+        ? sqlite3_step(statement)
+        : SQLITE_ERROR;
+    const int changed = sqlite3_changes(database_.handle());
+    sqlite3_finalize(statement);
+
+    if (step != SQLITE_DONE)
+    {
+        return std::nullopt;
+    }
+    return changed == 1;
 }
 
 bool BrowserSessionCredentialRepository::revokeBySessionId(
