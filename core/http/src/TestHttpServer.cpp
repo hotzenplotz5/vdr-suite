@@ -155,10 +155,16 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         std::make_unique<PersistentIdentityResolver>(
             *securityIdentityRepository_);
 
+    const int browserIdleTimeout = configuration.browserSessionIdle.valid()
+        ? configuration.browserSessionIdle.timeoutSeconds
+        : -1;
+
     browserSessionAuthenticator_ =
         std::make_unique<BrowserSessionAuthenticator>(
             *browserSessionCredentialRepository_,
-            *securityPermissionGrantRepository_);
+            *securityPermissionGrantRepository_,
+            browserIdleTimeout,
+            BrowserSessionIdleConfiguration::LastSeenWriteIntervalSeconds);
 
     browserSessionIssuanceService_ =
         std::make_unique<BrowserSessionIssuanceService>(
@@ -176,7 +182,10 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter)
         std::make_unique<BrowserSessionHttpService>(
             *browserSessionIssuanceService_,
             *browserSessionLifecycleService_,
-            *accountabilityEventRepository_);
+            *accountabilityEventRepository_,
+            configuration.browserSessionLifetime,
+            configuration.browserSessionConcurrency,
+            configuration.browserSessionIdle);
 
     browserSessionHttpGate_ =
         std::make_unique<BrowserSessionHttpGate>(
