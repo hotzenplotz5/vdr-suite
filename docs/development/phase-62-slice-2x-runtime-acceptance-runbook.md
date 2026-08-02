@@ -99,7 +99,7 @@ git status --short --branch
 make daemon
 HEAD="$(git rev-parse HEAD)"
 SHORT_HEAD="$(git rev-parse --short=12 HEAD)"
-DAEMON_SHA256="$(sha256sum build/vdr-suite-daemon | awk '{print $1}')"
+DAEMON_SHA256="$(sha256sum .build/vdr-suite-daemon | awk '{print $1}')"
 LOADER_SHA256="$(sha256sum /usr/share/vdr-suite/web/frontend/platform/deferred-runtime-loader.js | awk '{print $1}')"
 EVIDENCE="/var/backups/vdr-suite-phase62-slice2x-$(date -u +%Y%m%dT%H%M%SZ)-${SHORT_HEAD}"
 make phase62-protected-mutation-outcome-runtime-acceptance \
