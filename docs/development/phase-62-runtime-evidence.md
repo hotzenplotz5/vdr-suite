@@ -30,12 +30,14 @@ Pull request: #117
 PR title: feat(security): establish Phase 62 identity and authorization foundation
 Head branch: phase-62-security-identity-foundation
 Accepted source/runtime head: e84415fadb2587ff744ff8927f1f0113920ece2f
+Canonical documentation closeout head: 45f1cc78d2c98f6db4d039a5ea7189f51bbcf8e9
 Base branch: main
 Recorded base SHA: cb77ff66e11dca7db2eafa36525762dcde35102d
 PR state: open, Draft, not merged
 Slice 2V source CI: VDR-Suite CI #6779, completed successfully
 Run ID: 30741293079
 CI URL: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
+Final closeout CI: pending on the current branch head
 ```
 
 The PR description is refreshed through Slice 2V by the canonical closeout. The
