@@ -106,11 +106,17 @@ public:
             context.credential->revoked = true;
             return context;
         }
-        if (record->expired || record->idleExpired)
+        if (record->expired)
         {
             context.authenticationState = AuthenticationState::Expired;
             context.session->expired = true;
             context.credential->expired = true;
+            return context;
+        }
+        if (record->idleExpired)
+        {
+            context.authenticationState = AuthenticationState::Expired;
+            context.session->expired = true;
             return context;
         }
 
