@@ -31,11 +31,11 @@ Run ID: 30741293079
 All five jobs successful
 https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
 
-Canonical Slice-2V documentation closeout series:
-starts at 45f1cc78d2c98f6db4d039a5ea7189f51bbcf8e9
+Final documentation closeout head:
+2b2222612720ed7c60d3cb9cac7e3e67ab0d3c2e
 
 Final closeout GitHub Actions:
-pending on the current branch head
+pending on head 2b2222612720ed7c60d3cb9cac7e3e67ab0d3c2e
 
 Active repository implementation:
 None selected after Slice 2V runtime acceptance
@@ -449,7 +449,7 @@ diff before treating a GitHub change as complete.
 ## Exact next action
 
 Require all five GitHub Actions jobs for the documentation-only Slice-2V
-closeout.
+closeout on head `2b2222612720ed7c60d3cb9cac7e3e67ab0d3c2e`.
 
 No next Phase-62 implementation slice is selected by this closeout. After full
 closeout CI, perform a fresh post-2V gap analysis and select exactly one bounded
