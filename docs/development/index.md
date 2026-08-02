@@ -20,6 +20,7 @@
 - [Phase 62 Slice 2S — Browser-Session Lifecycle Outcome Accountability](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Phase 62 Slice 2T — Browser-Session Issuing-Credential Lifecycle Binding](phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Phase 62 Slice 2U — Concurrent Browser-Session Limit](phase-62-slice-2u-browser-session-concurrency-limit.md)
+- [Phase 62 Slice 2V — Browser-Session Idle Expiry and Throttled last_seen](phase-62-slice-2v-browser-session-idle-expiry.md)
 - [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
@@ -34,8 +35,11 @@ Current runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
 Current accepted Phase 62 state: repository, source CI and real yaVDR runtime accepted through Slice 2U
 Accepted implementation/runtime head: 16ff04a4ba371aad32fc4a38bf82f9c0529c532d
 Accepted Slice-2U source CI: #6690 / run 30723297375 / all five jobs successful
-Documentation-only Slice-2U closeout: this commit; closeout CI pending
-Active repository implementation: none selected after Slice 2U runtime acceptance
+Slice-2U closeout commit: 4747d725664d4c382d17d3b19fa2776f48ba437b
+Final shared closeout head: d00fc5045a136d87323fbc13fb1bfc1030f7d3b5
+Final closeout CI: #6693 / run 30733265772 / all five jobs successful
+Final closeout link: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30733265772
+Active repository implementation: Slice 2V - Browser-Session Idle Expiry and throttled last_seen
 Installed/running daemon SHA-256: 0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
 Installed loader SHA-256: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 ```
@@ -69,6 +73,16 @@ Implementation/runtime head:
 
 Source CI:
 #6690 / run 30723297375 / all five jobs successful
+
+Closeout commit:
+4747d725664d4c382d17d3b19fa2776f48ba437b
+
+Final shared closeout head:
+d00fc5045a136d87323fbc13fb1bfc1030f7d3b5
+
+Final closeout CI:
+#6693 / run 30733265772 / all five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30733265772
 
 Installed/running daemon SHA-256:
 0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
@@ -145,9 +159,27 @@ Evidence directory:
 /var/backups/vdr-suite-phase62-slice2u-20260802T041910Z-16ff04a4ba37/runtime-acceptance-slice2u
 ```
 
+## Active Slice 2V source contract
+
+```text
+Configuration: VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS
+Compatibility default: 0 (disabled)
+Enabled range: 300..86400
+Activity column: security_browser_session_credentials.last_seen_at
+Existing-row backfill: created_at
+Write throttle: at most once per 60 seconds
+Absolute expiry: unchanged hard upper bound
+Idle-expired GET/mutation/logout: HTTP 401 session_expired
+Idle-expired rows in Slice-2U count: excluded
+Automatic cleanup, eviction or revocation: none
+```
+
+The bounded implementation, focused test and architecture guard are in the
+branch. Final source CI and guarded real-yaVDR acceptance remain pending.
+
 ## Latest runtime-accepted slices and closeouts
 
-- [Phase 62 Slice 2U Runtime-Accepted Closeout Candidate](phase-62-slice-2u-browser-session-concurrency-limit.md)
+- [Phase 62 Slice 2U Closeout](phase-62-slice-2u-browser-session-concurrency-limit.md)
 - [Phase 62 Slice 2T Closeout](phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Phase 62 Slice 2S Closeout](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Phase 62 Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
@@ -246,11 +278,12 @@ configuration or packaging change was included in Slice 2T.
 
 ## Exact next action
 
-Require all five GitHub Actions jobs for this documentation-only Slice-2U
-closeout.
+Evaluate all five GitHub Actions jobs on the final Slice-2V stabilization head.
+Only after source CI is fully green, perform one guarded real-yaVDR acceptance
+for the changed daemon and additive browser-session schema.
 
-No next implementation slice is selected by this closeout. Perform a fresh
-post-2U gap analysis only after full closeout CI.
+Do not begin cleanup, retention, eviction, session administration, broader
+security administration, Outbox, Android or Phase 63-67 work.
 
 ## Related navigation
 
