@@ -2,7 +2,8 @@
 
 ## Status
 
-Implementation, source CI and guarded real-yaVDR runtime accepted.
+Implementation, source CI, guarded real-yaVDR runtime and documentation closeout
+are fully accepted.
 
 Implementation/runtime head:
 
@@ -18,11 +19,25 @@ Run ID 30723297375
 All five jobs successful
 ```
 
-Documentation-only closeout:
+Documentation closeout commit:
 
 ```text
-This commit
-Closeout CI pending
+4747d725664d4c382d17d3b19fa2776f48ba437b
+```
+
+Final shared closeout and workflow head:
+
+```text
+d00fc5045a136d87323fbc13fb1bfc1030f7d3b5
+```
+
+Final closeout CI:
+
+```text
+VDR-Suite CI #6693
+Run ID 30733265772
+All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30733265772
 ```
 
 PR #117 remains open, Draft and unmerged.
@@ -320,9 +335,9 @@ Slice 2U does not add:
 
 ## Acceptance result
 
-The Slice-2U acceptance gate is satisfied through implementation, focused
-tests, architecture checks, final-head source CI and guarded real-yaVDR
-acceptance.
+The Slice-2U acceptance gate is fully satisfied through implementation, focused
+tests, architecture checks, final-head source CI, guarded real-yaVDR acceptance
+and successful documentation closeout CI.
 
 Verified:
 
@@ -335,7 +350,12 @@ Verified:
 7. original configuration was restored;
 8. accountability remained secret-free;
 9. SQLite integrity checks passed;
-10. zero VDR domain mutations occurred.
+10. zero VDR domain mutations occurred;
+11. closeout commit `4747d725664d4c382d17d3b19fa2776f48ba437b`
+    is covered by final shared CI head
+    `d00fc5045a136d87323fbc13fb1bfc1030f7d3b5`;
+12. VDR-Suite CI #6693, run `30733265772`, passed all five jobs.
 
-The only remaining Slice-2U gate is successful CI for this documentation-only
-closeout commit. No next Phase-62 implementation slice is selected here.
+Slice 2U is closed. Its installed daemon, loader and runtime-evidence
+fingerprints remain authoritative and unchanged. The separately selected next
+workstream is Slice 2V; it must not reopen or repeat Slice-2U runtime acceptance.
