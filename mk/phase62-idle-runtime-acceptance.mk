@@ -5,6 +5,9 @@
 PHASE62_IDLE_ACCEPTANCE_RUNNER := \
 	tools/phase62-runtime-acceptance/idle-expiry-runner.py
 
+PHASE62_IDLE_CRYPT_COMPAT := \
+	tools/phase62-runtime-acceptance/crypt.py
+
 
 test-phase62-runtime-acceptance-harness: \
 	test-phase62-idle-runtime-acceptance-runner
@@ -14,7 +17,10 @@ test-phase62-idle-runtime-acceptance-runner:
 	mkdir -p "$(BUILD_DIR)/python-cache"
 	PYTHONPYCACHEPREFIX="$(BUILD_DIR)/python-cache" \
 		python3 -m py_compile \
-		"$(PHASE62_IDLE_ACCEPTANCE_RUNNER)"
+		"$(PHASE62_IDLE_ACCEPTANCE_RUNNER)" \
+		"$(PHASE62_IDLE_CRYPT_COMPAT)"
+	PYTHONPATH="tools/phase62-runtime-acceptance" \
+		python3 -c 'import crypt; value = crypt.crypt("phase62-smoke", "$$6$$phase62smoke$$"); assert value and value.startswith("$$6$$")'
 
 
 phase62-runtime-acceptance-idle-expiry: \
