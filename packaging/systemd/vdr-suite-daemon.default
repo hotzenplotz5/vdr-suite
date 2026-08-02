@@ -28,3 +28,9 @@ VDR_SUITE_BROWSER_SESSION_LIFETIME_SECONDS=28800
 # behaviour. Reaching a non-zero limit rejects a new session and never evicts an
 # existing one.
 VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR=0
+
+# Optional server-side browser-session idle timeout in seconds. Zero preserves
+# compatibility by disabling idle expiry. Enabled values must be strict decimal
+# integers from 300 through 86400. Activity updates are server-owned and
+# throttled; they never extend the absolute browser-session lifetime.
+VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS=0
