@@ -22,55 +22,63 @@ raw session secrets, production hashes, or process environments here.
 
 ## Repository and GitHub baseline
 
-**VERIFIED on 2026-07-31:**
+**VERIFIED on 2026-08-02:**
 
 ```text
 Repository: hotzenplotz5/vdr-suite
 Pull request: #117
 PR title: feat(security): establish Phase 62 identity and authorization foundation
 Head branch: phase-62-security-identity-foundation
-Accepted source/runtime head: 2e0b31f671edf18393d7d48ea6e15697fc3a044d
+Accepted source/runtime head: e84415fadb2587ff744ff8927f1f0113920ece2f
 Base branch: main
 Recorded base SHA: cb77ff66e11dca7db2eafa36525762dcde35102d
 PR state: open, Draft, not merged
-Slice 2H CI: run 6559, completed successfully
-CI URL: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30627974107
+Slice 2V source CI: VDR-Suite CI #6779, completed successfully
+Run ID: 30741293079
+CI URL: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
 ```
 
-The PR description is stale through Slice 2E.1. This runtime evidence and the
-canonical handoff supersede its implementation, CI and remaining-work wording
-until PR metadata is explicitly approved for update.
+The PR description is refreshed through Slice 2V by the canonical closeout. The
+PR must remain open, Draft and unmerged.
 
 ## Real yaVDR baseline
 
-**VERIFIED from completed Slice 2H runtime acceptance on 2026-07-31:**
+**VERIFIED from completed Slice 2V runtime acceptance on 2026-08-02:**
 
 ```text
 Checkout: /home/yavdr/vdr-suite-phase62
 Local branch: phase62-pr117
-Accepted source/runtime head: 2e0b31f671edf18393d7d48ea6e15697fc3a044d
+Accepted source/runtime head: e84415fadb2587ff744ff8927f1f0113920ece2f
 
 Daemon unit: vdr-suite-daemon.service
 Installed executable: /usr/sbin/vdr-suite-daemon
-Installed daemon SHA-256: ff7582b6fdb6a2faa7d0e29f6795ad634ea76d95a42280a6140e005e249cbf52
-Installed deferred-runtime-loader.js SHA-256: e4860a2b7c613919f3a084fc625f398bd5f339191ae48133cfc76431c0189ca9
-Guarded installation backup:
-/var/backups/vdr-suite-phase62-slice2h-install-20260731-140438
-Runtime-acceptance database backup:
-/var/backups/vdr-suite-phase62-slice2h-runtime-20260731-142540
+Installed/running daemon SHA-256:
+e0b6f6de08527b6af49d526ca0118b14b6fb85ff3335fc607ca1b531cdee5f60
+Installed deferred-runtime-loader.js SHA-256:
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+Restored daemon configuration SHA-256:
+8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+Runtime evidence:
+/var/backups/vdr-suite-phase62-slice2v-20260802T092139Z-e84415fadb25
+Runtime report SHA-256:
+0a961fbc8b51158fd4a16aa24fc9afde7dafa9d5272e986a46ec73880c311f86
 Database: /var/lib/vdr-suite/vdr-suite.db
 Listener: 0.0.0.0:18080
+Final service PID: 86549
 ```
 
 At the acceptance point:
 
 - the daemon service was active;
-- installed files matched the fully tested repository artifacts;
-- direct and public loader responses matched the accepted loader fingerprint;
-- the controlled browser session was logged out and revoked;
-- all temporary grant rows were restored exactly;
+- the installed and running daemon matched the accepted Phase-62 artifact;
+- the deferred loader matched the accepted fingerprint;
+- the original daemon configuration was restored exactly;
+- the runtime-only systemd drop-in was removed;
+- the temporary idle environment was not present in the final unit;
+- the isolated acceptance lifecycle was revoked;
 - SQLite `PRAGMA quick_check` returned `ok`;
-- no real channel order was changed.
+- foreign-key verification returned no rows;
+- no VDR domain mutation occurred.
 
 Process IDs, service timestamps and future working-tree state remain
 **VOLATILE**.
@@ -340,13 +348,13 @@ architecture checks do not enforce the public-origin contract.
 ## Remaining work
 
 Repository, source CI and installed-runtime acceptance are complete through
-Slice 2U.
+Slice 2V.
 
 Still open in Phase 62:
 
-- documentation-only Slice-2U closeout CI;
-- fresh post-2U gap analysis and bounded next-slice selection;
-- browser-session idle timeout and cleanup/retention;
+- documentation-only Slice-2V closeout CI;
+- fresh post-2V gap analysis and bounded next-slice selection;
+- physical browser-session cleanup and retention;
 - outcome accountability beyond browser lifecycle operations;
 - stronger transactional coupling or outbox semantics;
 - protected identity, credential, grant and role administration;
@@ -356,7 +364,7 @@ Still open in Phase 62:
 - protected audit reads, export, redaction and retention;
 - compatibility-retirement readiness and final Phase 62 closeout.
 
-No next implementation slice is selected by the Slice-2U runtime acceptance.
+No next implementation slice is selected by the Slice-2V runtime acceptance.
 
 ### Credential boundary
 
@@ -503,3 +511,86 @@ Runtime report SHA-256:
 This acceptance closes only the concurrent effective browser-session limit.
 Idle expiry, cleanup, refresh, eviction and session administration remain
 separate gaps.
+
+## Slice 2V Browser-Session Idle Expiry Runtime Acceptance
+
+**VERIFIED on 2026-08-02 at
+`e84415fadb2587ff744ff8927f1f0113920ece2f`:**
+
+Acceptance marker:
+
+```text
+PHASE_62_SLICE_2V_RUNTIME_ACCEPTANCE=PASS
+```
+
+Source verification:
+
+```text
+VDR-Suite CI #6779
+Run ID 30741293079
+All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
+```
+
+Installed runtime:
+
+```text
+Daemon SHA-256:
+e0b6f6de08527b6af49d526ca0118b14b6fb85ff3335fc607ca1b531cdee5f60
+
+Deferred loader SHA-256:
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+
+Restored configuration SHA-256:
+8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+
+Final service PID:
+86549
+```
+
+The guarded isolated acceptance configured a temporary idle timeout of `300`
+seconds and proved:
+
+- an ordinary browser-authenticated GET returned HTTP 200 before idle expiry;
+- a due activity write advanced `last_seen_at`;
+- a second request inside the 60-second interval did not rewrite
+  `last_seen_at`;
+- absolute `expires_at` remained unchanged;
+- an idle-expired ordinary GET returned HTTP 401 `session_expired`;
+- an idle-expired protected mutation returned HTTP 401 `session_expired` before
+  domain dispatch;
+- idle denial accountability remained exact and secret-free;
+- logout of a replacement non-idle session returned HTTP 204;
+- replay of the revoked replacement cookie returned HTTP 401
+  `credential_revoked`;
+- the isolated lifecycle had zero active rows after cleanup;
+- the original daemon configuration was restored exactly;
+- the temporary runtime systemd drop-in was removed;
+- the temporary idle environment was not present in the final unit;
+- SQLite quick check returned `ok`;
+- foreign-key check returned no rows;
+- the accepted Phase-62 daemon remained installed and active;
+- zero VDR domain mutations occurred;
+- automatic rollback was not required.
+
+Durable secret-free evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2v-20260802T092139Z-e84415fadb25
+```
+
+Runtime report:
+
+```text
+/var/backups/vdr-suite-phase62-slice2v-20260802T092139Z-e84415fadb25/runtime-acceptance-report.txt
+```
+
+Runtime report SHA-256:
+
+```text
+0a961fbc8b51158fd4a16aa24fc9afde7dafa9d5272e986a46ec73880c311f86
+```
+
+This acceptance closes only request-time idle expiry and throttled
+`last_seen_at`. Physical cleanup, retention, eviction, refresh and session
+administration remain separate gaps.
