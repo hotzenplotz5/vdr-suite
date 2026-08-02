@@ -3,13 +3,14 @@
 ## Status
 
 Implementation, final-head source CI and guarded real-yaVDR runtime acceptance
-are fully accepted. The canonical documentation closeout head is:
+are fully accepted. The canonical documentation closeout series starts at:
 
 ```text
 45f1cc78d2c98f6db4d039a5ea7189f51bbcf8e9
 ```
 
-Final closeout CI is pending on the current branch head.
+The final documentation head is covered by the closeout CI reported in the PR
+and canonical status files.
 
 Implementation/runtime head:
 
@@ -352,8 +353,8 @@ Verified:
 13. zero VDR domain mutations occurred;
 14. the accepted Phase-62 daemon remains installed and active.
 
-Slice 2V is runtime-accepted. Its documentation closeout still requires all five
-GitHub Actions jobs on the final current head.
+Slice 2V is runtime-accepted. Its documentation closeout is complete when the
+final documentation head has all five GitHub Actions jobs green.
 
 ## Exact next action
 
