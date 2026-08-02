@@ -97,7 +97,7 @@ REQUIRED = {
         "automatic session eviction",
     ],
     "test": [
-        "test_browser_session_idle_expiry",
+        "BrowserSessionAuthenticator authenticator",
         "-301 seconds",
         "session_expired",
         "countEffectiveActiveByActorId(\"user-idle\", 300)",
