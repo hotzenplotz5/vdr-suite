@@ -9,6 +9,7 @@
 - [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md) — final real-yaVDR evidence.
 - [Project Overview](project-overview.md) — compact product and architecture summary.
 - [Project Status Dashboard](project-status-dashboard.md) — capability/status table.
+- [Project Principles](project-principles.md) — binding product and engineering principles.
 
 ## Planning and implementation status
 
@@ -75,6 +76,7 @@ PR #117 remains open, Draft and unmerged pending explicit approval for PR metada
 - [Developer Onboarding](development/developer-onboarding.md)
 - [Build System State](development/build-system-state.md)
 - [GitHub Actions Status Handoff](development/github-actions-status-handoff.md)
+- [Person API](development/person-api.md)
 - [Web Client API Contract Snapshot](development/web-client-api-contract-snapshot.md)
 
 ## Planning references
