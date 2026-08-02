@@ -116,7 +116,9 @@ for forbidden in ("IEpgScraperMetadataResolver", "SuiteBridge", "TMDB", "IMDb"):
 require("refreshEpgIndex" in epg_worker, "EPG worker does not materialize the genre index")
 require("result.stored" in epg_worker, "EPG genre materialization must follow a stored cache refresh")
 require("continueEpgEnrichment" in epg_worker, "periodic EPG enrichment continuation is missing")
-periodic_start = epg_worker.find("if (secondsSinceGenreRefresh >= genreRefreshSeconds)")
+periodic_start = epg_worker.find(
+    "if (secondsSinceEpgContinuation >= PeriodicEpgContinuationSeconds)"
+)
 periodic_end = epg_worker.find("if (!epgCacheDirtyHint_.load())", periodic_start)
 require(
     periodic_start >= 0 and periodic_end > periodic_start,
