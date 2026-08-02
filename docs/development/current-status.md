@@ -50,7 +50,10 @@ Durable evidence:
 /var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
 
 Next bounded implementation slice:
-not yet selected
+Slice 2X - Protected Mutation Response Outcomes
+
+Selection state:
+contract/documentation only; no production implementation
 ```
 
 Phase 61 remains completed. Phase 62 remains active and incomplete. Phase
@@ -143,19 +146,50 @@ Do not repeat this acceptance solely because a chat changes. Repeat only when a
 directly relevant daemon, cleanup, schema, configuration, systemd execution or
 acceptance-harness fingerprint changes.
 
-## Remaining Phase 62 gaps
+## Selected Slice 2X — proven requirement
 
-Still open after Slice 2W:
+The requirement is explicit: every privileged mutation must have actor,
+decision and outcome evidence.
 
-- operation outcomes beyond browser lifecycle and cleanup operations;
-- stronger transaction coupling or Outbox semantics;
-- common revisions, idempotency and durable operation lifecycle;
-- protected actor, identity, credential, grant and role administration;
-- native/service credential enrollment, rotation and revocation;
-- protected audit reads, export, redaction and retention;
-- compatibility retirement and final Phase 62 closeout.
+The accepted code records actor and authorization decision before dispatch, but
+ordinary protected business POSTs have no event for the router result. An
+allowed successful mutation and an allowed mutation returning an error are
+therefore indistinguishable in the accountability database.
 
-No next implementation slice is selected yet.
+Slice 2X closes only that exact gap:
+
+```text
+protected mutation returns 2xx     -> operation.succeeded
+protected mutation returns non-2xx -> operation.failed
+```
+
+The event uses the existing actor, scope, action, operation, request and
+correlation context. No new route, permission, role, schema, repository,
+configuration, frontend or packaging component is selected.
+
+The binding contract is:
+
+- [Slice 2X — Protected Mutation Response Outcomes](phase-62-slice-2x-protected-mutation-response-outcomes.md)
+
+## Necessity boundary
+
+The previously proposed protected audit read was removed. No Phase-62 exit
+criterion requires a production HTTP audit reader, and no concrete failure was
+shown to result from its absence.
+
+The following are not currently proven implementation requirements:
+
+- protected audit read/export/filter/redaction/retention;
+- generic identity, credential, grant or role administration;
+- native/service credential lifecycle before a real client requires it;
+- universal revision/idempotency/operation infrastructure;
+- transactional Outbox or generic cross-system coupling.
+
+They must not be implemented without a separate binding requirement, concrete
+accepted-code gap and real failure case.
+
+After Slice 2X acceptance, evaluate only compatibility-retirement readiness and
+final Phase-62 closeout. Do not assume more implementation is necessary.
 
 ## Pull request truth
 
@@ -185,19 +219,19 @@ commit.
 
 ## Exact next action
 
-Perform one fresh post-Slice-2W gap analysis. Compare the remaining bounded gaps,
-select exactly one smallest coherent next Phase-62 slice, document its contract,
-tests, architecture guard, runtime boundary and exclusions, update the handoff
-and require all five CI jobs before implementation.
+Complete the Slice-2X selection/handoff documentation and require all five CI
+jobs on the final selection head. Only after that CI is fully green, implement
+exactly the documented protected-mutation response outcome path.
 
-Do not combine multiple remaining security themes or advance Android, Android TV
-or Phase 63-67 runtime.
+Do not add an audit reader, administration API, Outbox, generic operation
+framework, native/service lifecycle, Android, Android TV or Phase 63-67 runtime.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Post-Slice-2W New Chat Prompt](phase-62-post-slice-2w-new-chat-prompt.md)
+- [Slice 2X — Protected Mutation Response Outcomes](phase-62-slice-2x-protected-mutation-response-outcomes.md)
 - [Slice 2W Runtime Closeout](phase-62-slice-2w-runtime-closeout.md)
 - [Slice 2W Contract](phase-62-slice-2w-browser-session-retention-cleanup.md)
 - [Phase 62 Runtime Evidence through Slice 2V](phase-62-runtime-evidence.md)
