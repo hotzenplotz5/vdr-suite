@@ -28,6 +28,9 @@ Phase 62 - Identity, RBAC and Accountability Foundation
 Previous completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
 
+Completed operational hardening:
+Post-Phase 61 Performance Hardening (B1-B4)
+
 Completed post-phase platform features:
 VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
