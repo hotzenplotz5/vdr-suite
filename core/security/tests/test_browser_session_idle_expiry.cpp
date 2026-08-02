@@ -280,7 +280,7 @@ int main()
         "correlation-idle-expired");
     assert(expired.authenticationState == AuthenticationState::Expired);
     assert(expired.session.has_value() && expired.session->expired);
-    assert(expired.credential.has_value() && expired.credential->expired);
+    assert(expired.credential.has_value() && !expired.credential->expired);
     assert(!authenticator.verifyCsrf(headers));
     assert(credentialRepository.findByTokenId(issued.tokenId)->lastSeenAt ==
         idleTimestamp);
@@ -426,6 +426,43 @@ int main()
     assert(invalidIssue.headers.count("Set-Cookie") == 0);
     assert(invalidIssue.body.find(
         "browser_session_idle_configuration_invalid") != std::string::npos);
+
+    setLastSeen(
+        database,
+        replacement.tokenId,
+        "datetime(CURRENT_TIMESTAMP, '-61 seconds')");
+    assert(database.execute(
+        "CREATE TRIGGER fail_browser_activity "
+        "BEFORE UPDATE OF last_seen_at "
+        "ON security_browser_session_credentials "
+        "BEGIN SELECT RAISE(FAIL, 'forced activity failure'); END;"));
+
+    HttpServerRequest activityGet;
+    activityGet.method = "GET";
+    activityGet.path = "/api/backends";
+    activityGet.headers = browserHeaders(replacement);
+    activityGet.headers["X-Request-ID"] = "request-activity-failure";
+    SecurityGateDecision activityGetDecision =
+        securityGate.evaluate(activityGet);
+    assert(!activityGetDecision.allowed);
+    assert(activityGetDecision.rejection.statusCode == 503);
+    assert(activityGetDecision.rejection.body.find(
+        "permission_grants_unavailable") != std::string::npos);
+
+    HttpServerRequest activityLogout;
+    activityLogout.method = "POST";
+    activityLogout.path = "/api/security/browser-sessions/logout";
+    activityLogout.headers = browserHeaders(replacement);
+    activityLogout.headers["X-Request-ID"] =
+        "request-activity-logout-failure";
+    BrowserSessionGateDecision activityLogoutDecision =
+        lifecycleGate.evaluate(activityLogout);
+    assert(!activityLogoutDecision.allowed);
+    assert(activityLogoutDecision.rejection.statusCode == 503);
+    assert(activityLogoutDecision.rejection.body.find(
+        "browser_session_activity_unavailable") != std::string::npos);
+
+    assert(database.execute("DROP TRIGGER fail_browser_activity;"));
 
     assert(lifecycleService.revoke(
         replacement.sessionId,
