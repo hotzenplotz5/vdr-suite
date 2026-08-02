@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <vector>
 
 class Database;
 
@@ -37,6 +38,16 @@ struct StoredBrowserSessionCredential
     bool revoked = false;
 };
 
+struct TerminalBrowserSessionCandidate
+{
+    std::string tokenId;
+    std::string sessionId;
+    std::string actorId;
+    std::string deviceId;
+    std::string credentialId;
+    std::string terminalAt;
+};
+
 class BrowserSessionCredentialRepository
 {
 public:
@@ -57,6 +68,17 @@ public:
     std::optional<bool> touchLastSeenIfDue(
         const std::string& tokenId,
         int minimumIntervalSeconds) const;
+    std::optional<std::vector<TerminalBrowserSessionCandidate>>
+    findTerminalRetentionCandidates(
+        int retentionSeconds,
+        int idleTimeoutSeconds,
+        std::size_t limit) const;
+    std::optional<bool> remainsTerminalRetentionCandidate(
+        const TerminalBrowserSessionCandidate& candidate,
+        int retentionSeconds,
+        int idleTimeoutSeconds) const;
+    bool deleteTerminalRetentionCandidate(
+        const TerminalBrowserSessionCandidate& candidate);
     bool revokeBySessionId(const std::string& sessionId);
     bool setExpiry(
         const std::string& sessionId,
