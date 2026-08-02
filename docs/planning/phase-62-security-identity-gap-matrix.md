@@ -30,8 +30,11 @@ e0fbe1689b2f48e75bb4ae6836b227d7da92e08d53b009ac1c2cb371a36c74ea
 Durable evidence:
 /var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
 
-Next bounded implementation slice:
-not yet selected
+Selected next bounded implementation slice:
+Slice 2X - Protected Mutation Response Outcomes
+
+Selection state:
+contract/documentation only; no Slice-2X production implementation
 
 PR #117:
 open, Draft, unmerged
@@ -41,27 +44,91 @@ A component is not accepted installed runtime until it is connected, covered by
 the complete CI graph and validated on the real yaVDR system. Code-head evidence
 alone is insufficient.
 
+## Necessity rule
+
+A remaining idea is not Phase-62 implementation work merely because it appears
+useful or was previously listed on a roadmap. It must pass all four gates:
+
+1. a binding Phase-62 requirement;
+2. a concrete gap in the accepted code;
+3. a real distinguishable failure or security consequence;
+4. the smallest implementation that closes exactly that gap.
+
+Work that fails this proof remains unselected. A later requirement may reopen it,
+but no implementation is justified in advance.
+
+## Fresh post-Slice-2W proof
+
+Exactly one remaining item passes the necessity rule:
+
+```text
+Phase 62 Slice 2X
+Protected Mutation Response Outcomes
+```
+
+Binding contract:
+
+- [Slice 2X — Protected Mutation Response Outcomes](../development/phase-62-slice-2x-protected-mutation-response-outcomes.md)
+
+### Requirement
+
+The Phase-62 exit criteria require every privileged mutation to have actor,
+decision and outcome evidence.
+
+### Accepted code gap
+
+`SecurityHttpGate::appendDecisionEvent()` records only
+`dispatch_authorized`/`dispatch_denied` before dispatch. After an allowed POST,
+`TestHttpServer::handleRequest()` calls `ApiRouter::handleClientPost()` and
+returns the result without a business-mutation outcome event.
+
+Slice 2S records outcomes only for browser-session issue/logout and explicitly
+excludes ordinary business mutations.
+
+### Concrete failure
+
+An authorized successful mutation and an authorized mutation that returns a
+router/backend/domain error currently leave the same pre-dispatch evidence. The
+accountability store cannot distinguish their observed results.
+
+### Minimal closing change
+
+Reuse the existing gate context and append exactly one `operation.succeeded` or
+`operation.failed` event after an already-protected mutation returns. No route,
+permission, role, schema, repository, configuration variable, frontend or audit
+read API is required.
+
+## Candidate proof table
+
+| Candidate | Binding requirement | Demonstrated current failure | Smallest justified result | Decision |
+|---|---|---|---|---|
+| Protected mutation response outcomes | Explicit exit criterion: actor, decision and outcome evidence | Allowed business POSTs record only pre-dispatch authorization; success and returned failure are indistinguishable | One post-router event using existing context and repository | **Selected as Slice 2X** |
+| Protected audit HTTP read | No Phase-62 exit criterion requires a production audit reader | No security or runtime failure caused by absence of an HTTP read route was demonstrated | None | **Not necessary** |
+| Audit export/filter/redaction/retention | No current Phase-62 consumer or acceptance requirement | No demonstrated failure | None | **Not necessary** |
+| Generic security administration | Current accepted identities/grants/roles are provisioned without a production administration API | No required current operation is blocked | None until a concrete operator workflow is required | **Not necessary now** |
+| Native/service credential lifecycle | Phase 62 requires representable Agent identity; the transport-neutral model already represents it | No Phase-62 native/service client currently needs enrollment or rotation | Defer to the phase/client that introduces the real consumer | **Not necessary now** |
+| Common revisions/idempotency/operation framework | Exit criterion says only where required | No specific accepted mutable resource was proven unsafe by this analysis | Prove per resource before selecting any common mechanism | **Not proven** |
+| Transactional Outbox/cross-system coupling | Would improve crash consistency but is not itself an exit criterion | No concrete current failure proves that a universal framework is the minimal fix | Do not build without a separately demonstrated crash/recovery requirement | **Not proven** |
+| Compatibility retirement | Legacy compatibility is transitional | Final retirement readiness has not yet been evaluated after mandatory outcomes | Reassess at closeout | Later closeout decision |
+
 ## Gap matrix
 
-| Security area | Current accepted state | Remaining gap | Candidate later work |
+| Security area | Current accepted state | Proven remaining requirement | Unproven or later work |
 |---|---|---|---|
-| Actor/device model | Canonical persistent actor, device, session and credential context | Protected enrollment and administration | Bounded lifecycle-administration slice |
-| Authentication | Legacy Basic, optional Managed Basic and browser sessions; strict cookie precedence; issuer binding, absolute expiry, idle expiry and terminal retention accepted | Native/service mechanisms and compatibility retirement | Native/service credential lifecycle or retirement slice |
-| Browser sessions | Atomic issue/logout, independent secrets, persistence, absolute expiry, replay denial, outcomes, issuer binding, concurrency limit, idle expiry and bounded terminal cleanup accepted | Listing, logout-all and protected administration remain absent | Later separate administration design |
-| Browser-session retention | One bounded startup pass deletes only old terminal verifiers and unreferenced canonical browser rows with exact accountability | No periodic scheduler or operator-facing administration | Closed for Slice 2W; scheduling/admin remain separate optional gaps |
-| Browser-session idle expiry | `last_seen_at`, strict optional idle policy, shared cookie/CSRF effectiveness and 60-second write throttle accepted | None for request-time idle effectiveness | Preserve accepted contract |
-| Concurrent browser sessions | Optional `0..64` effective-session limit with atomic deny-new semantics accepted | No automatic eviction | Preserve deny-new semantics unless a future slice explicitly selects eviction |
-| Issuing credential lineage | Issuer revalidated on every browser request; terminal cleanup does not cascade solely from issuer state | No descendant lifecycle administration | Later explicit lifecycle-administration design |
-| Grants and scopes | Exact actor grants and fixed scopes accepted | Protected grant administration | Later bounded administration design |
-| Fixed roles | Exact-scope Admin and Read-only accepted | Generic persisted roles and assignments | Later role-administration design |
-| CSRF | Enforced for accepted browser mutations with memory-only frontend token | Future owners require explicit contracts | Preserve in every future route slice |
-| Central authorization | All registered central business and administrative POST families classified | No remaining product POST migration gap | No further route-migration slice |
-| Browser lifecycle outcomes | Issue, revoke and cleanup outcomes accepted | Other operation outcomes and stronger coupling | Bounded broader-outcomes slice candidate |
-| Accountability | Pre-dispatch, lifecycle outcomes, concurrency/idle denials and cleanup writes accepted and secret-free | Protected reads, export, redaction and audit retention | Bounded audit-product slice candidate |
-| Revisions/idempotency | Domain-specific partial mechanisms only | Common preconditions, idempotency and durable operation lifecycle | Bounded operation-lifecycle slice candidate |
-| Administration | No general security-management API | Protected identity, credential, grant and role operations | One or more later bounded administration slices |
-| Native/service clients | Core model is transport-neutral | Enrollment, rotation and revocation contracts | Bounded native/service credential slice candidate |
-| Compatibility retirement | Legacy compatibility remains transitional | Retirement criteria, migration and operational tooling | Near final Phase 62 closeout |
+| Actor/device model | Canonical persistent actor, device, session and credential context | None demonstrated after Slice 2W | Production administration only after a real workflow is required |
+| Authentication | Legacy Basic, optional Managed Basic and browser sessions; strict cookie precedence; issuer binding, absolute expiry, idle expiry and terminal retention accepted | Compatibility-retirement readiness at final closeout | Native/service lifecycle only with a concrete client requirement |
+| Browser sessions | Atomic issue/logout, independent secrets, persistence, replay denial, outcomes, issuer binding, concurrency, idle expiry and bounded cleanup accepted | None demonstrated | Listing/logout-all/admin remain optional |
+| Grants and fixed roles | Exact actor grants and fixed exact-scope Admin/Read-only roles accepted | None demonstrated | Generic role/grant administration remains optional |
+| CSRF | Enforced for all accepted browser mutations with memory-only frontend token | Preserve existing behavior | No new CSRF feature selected |
+| Central authorization | Every registered central POST is protected or explicitly Safe POST | None demonstrated | No further route-migration slice |
+| Pre-dispatch accountability | Actor, authorization decision and dispatch allow/deny are append-only and fail closed | Preserve existing behavior | No audit read selected |
+| Browser lifecycle outcomes | Issue/revoke and cleanup outcomes accepted | None | No broader lifecycle work selected |
+| Business mutation outcomes | No post-router result event for already-protected business POSTs | **Slice 2X** | Cross-system crash atomicity remains unproven |
+| Revisions/idempotency | Domain-specific partial mechanisms | None proven by this analysis | Must be justified per resource |
+| Security administration | No general production management API | None proven | Select only for a concrete operator requirement |
+| Native/service clients | Core model is transport-neutral and represents service/agent actors | None proven for Phase 62 | Phase 63/client-owned lifecycle when needed |
+| Audit product | Append-only persistence and test/runtime inspection exist | None proven | HTTP read/export/redaction/retention not selected |
+| Compatibility retirement | Legacy compatibility remains transitional | Final readiness decision after mandatory Slice 2X | Near closeout |
 
 ## Closed Slice 2W contract
 
@@ -112,6 +179,47 @@ Accepted real-runtime proof:
 - SQLite integrity, unchanged production database/configuration/loader, removed
   runtime override, active final daemon and zero VDR domain mutations.
 
+## Selected Slice 2X contract
+
+For every authorized existing protected mutation that reaches
+`ApiRouter::handleClientPost()`:
+
+```text
+HTTP 200..299  -> operation.succeeded / succeeded
+all other HTTP -> operation.failed    / failed
+reason_code    -> http_status_<decimal status>
+```
+
+The event reuses the existing actor, device, session, authentication,
+permission, backend, action, operation, request and correlation context.
+
+No body, header, cookie, credential or secret is persisted.
+
+If the post-dispatch append fails, the original result is replaced by HTTP 503
+`accountability_unavailable`. The slice does not claim rollback of an already
+executed external/domain effect and does not claim replay safety.
+
+Exact owners:
+
+- `SecurityGateDecision`;
+- `SecurityHttpGate`;
+- `TestHttpServer`;
+- unchanged `AccountabilityEventRepository`.
+
+No new route, permission, role, schema, index, repository, service,
+configuration, frontend or packaging component.
+
+## Explicit Slice-2X exclusions
+
+- protected audit reads or audit frontend;
+- export, filters, pagination, redaction, deletion or retention;
+- security administration;
+- native/service credential lifecycle;
+- transactional Outbox or generic cross-system commit atomicity;
+- revisions, `If-Match`, idempotency keys or durable replay;
+- compatibility retirement;
+- Android, Android TV or Phase 63-67 runtime.
+
 ## Phase 62 dependency order
 
 1. Identity and authorization foundation — accepted.
@@ -123,33 +231,32 @@ Accepted real-runtime proof:
 7. Concurrent effective browser-session limit — Slice 2U accepted.
 8. Browser-session idle expiry and throttled activity — Slice 2V accepted.
 9. Browser-session terminal retention cleanup — Slice 2W accepted.
-10. Fresh post-Slice-2W gap analysis and one bounded selection — next action.
-11. Common revisions, idempotency and durable operation lifecycle — open.
-12. Broader outcomes, coupling/Outbox and protected audit reads — open.
-13. Protected identity, credential, grant and generic-role administration — open.
-14. Native/service credential lifecycle — open.
-15. Compatibility retirement readiness and final Phase 62 closeout — open.
+10. Necessity-based post-Slice-2W analysis — complete.
+11. Protected Mutation Response Outcomes — Slice 2X selected, not implemented.
+12. Compatibility-retirement readiness and final Phase-62 closeout — evaluate only after Slice 2X acceptance.
 
-## Selection constraints for the next slice
+No other implementation item is currently proven necessary.
 
-The next selection must:
+## Selection gate
 
-- close one concrete remaining repository gap;
-- have a small coherent owner set;
-- preserve all accepted browser lifecycle behavior;
-- define exact fail-closed and accountability semantics;
-- include focused source tests, an architecture guard and a bounded real-runtime
-  acceptance path;
-- avoid combining administration, operation lifecycle, audit product and
-  native/service credential work into one slice;
-- avoid Android, Android TV and Phase 63-67 runtime.
+Before production implementation, the Slice-2X contract, Current State, Current
+Status, Handoff and this matrix must be mutually consistent and all five CI jobs
+must pass on the final selection head:
+
+- `docs-check`;
+- `make-test-audit`;
+- `frontend-regression-test`;
+- `fast-regression-test`;
+- `packaging-regression-test`.
 
 ## Exact next action
 
-Perform one fresh post-Slice-2W gap analysis. Compare the concrete remaining
-candidates by dependency order, risk, owner set, source testability and safe
-runtime acceptance. Select and document exactly one smallest coherent next
-Phase-62 slice, update the canonical handoff and require all five CI jobs before
-implementation.
+Complete the canonical documentation update and final selection CI. After all
+five jobs are green, implement only Slice 2X as documented.
 
-Do not reopen Slice 2W without a changed relevant acceptance fingerprint.
+Do not implement an audit reader, administration API, Outbox, generic operation
+framework, native/service lifecycle or other feature unless a separate binding
+requirement, concrete code gap and failure case first prove it necessary.
+
+Do not reopen Slice 2W without a changed relevant acceptance fingerprint. PR
+#117 remains open, Draft and unmerged.
