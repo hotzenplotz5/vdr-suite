@@ -60,8 +60,11 @@ Run ID 30741293079
 All five jobs successful
 https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
 
-Documentation-only Slice-2V closeout:
-Canonical closeout updates in progress; final closeout CI pending
+Canonical documentation closeout head:
+45f1cc78d2c98f6db4d039a5ea7189f51bbcf8e9
+
+Final closeout GitHub Actions:
+pending on the current branch head
 
 Active repository implementation:
 None selected after Slice 2V runtime acceptance
