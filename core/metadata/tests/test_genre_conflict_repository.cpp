@@ -67,10 +67,16 @@ int main()
     GenreIndexRepository repository(database);
     assert(repository.ensureSchema());
 
-    assert(repository.replaceEvidence(
-        evidence("vdr-epg", "Drama", 1000)));
-    assert(repository.replaceEvidence(
-        evidence("tvscraper", "Action", 1100)));
+    assert(repository.replaceEvidence(evidence(
+        "vdr-epg",
+        "Drama",
+        1000,
+        "dvb-content-descriptor")));
+    assert(repository.replaceEvidence(evidence(
+        "tvscraper",
+        "Action",
+        1100,
+        "scraper-metadata")));
 
     GenreOverview conflicting = repository.overview(
         "default", "program-event", 900, 2100);
@@ -96,15 +102,21 @@ int main()
     assert(browse.categories[1].id == "series");
     assert(browse.categories[1].itemCount == 1);
 
-    assert(repository.replaceEvidence(
-        evidence("tvscraper", "Drama", 1200)));
+    assert(repository.replaceEvidence(evidence(
+        "tvscraper",
+        "Drama",
+        1200,
+        "scraper-metadata")));
     GenreOverview agreed = repository.overview(
         "default", "program-event", 900, 2100);
     assert(findGenre(agreed, "drama").conflictCount == 0);
     assert(findGenre(agreed, "drama").activeCount == 1);
 
     GenreEvidenceInput stale = evidence(
-        "tvscraper", "", 1300);
+        "tvscraper",
+        "",
+        1300,
+        "scraper-metadata");
     stale.originalValues.clear();
     stale.state = "stale";
     assert(repository.replaceEvidence(stale));
