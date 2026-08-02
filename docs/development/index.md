@@ -31,21 +31,19 @@
 Latest completed numbered runtime phase: Phase 61 - Suite Metadata and Genre Platform
 Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
 Current runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
-Current accepted Phase 62 state: repository, source CI and real yaVDR runtime accepted through Slice 2T
-Accepted implementation/runtime head: 55876356e84b3e47e52911529b3f9bfa0e17f191
-Accepted Slice-2T source CI: #6666 / run 30719552024 / all five jobs successful
-Accepted Slice-2T closeout head: e79e0eb67da75044c4a9afa162c9dab188b026fd
-Accepted Slice-2T closeout CI: #6667 / run 30721936576 / all five jobs successful
-Active repository implementation: Slice 2U concurrent browser-session limit
-Slice-2U final-head source CI and real-runtime acceptance: pending
-Installed daemon SHA-256: 34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
+Current accepted Phase 62 state: repository, source CI and real yaVDR runtime accepted through Slice 2U
+Accepted implementation/runtime head: 16ff04a4ba371aad32fc4a38bf82f9c0529c532d
+Accepted Slice-2U source CI: #6690 / run 30723297375 / all five jobs successful
+Documentation-only Slice-2U closeout: this commit; closeout CI pending
+Active repository implementation: none selected after Slice 2U runtime acceptance
+Installed/running daemon SHA-256: 0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
 Installed loader SHA-256: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 ```
 
 Phase 62 remains active and incomplete. Phase 63-67 runtime has not been
 advanced. PR #117 remains open, Draft and unmerged.
 
-## Active Slice 2U contract
+## Accepted Slice 2U contract and evidence
 
 ```text
 Configuration: VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR
@@ -60,12 +58,96 @@ Schema migration: none
 Frontend or route change: none
 ```
 
-Slice 2U changes only new browser-session issuance. It does not add idle expiry,
-`last_seen`, refresh, cleanup, retention, session listing, automatic eviction or
-security administration.
+The real yaVDR acceptance proved the first session succeeded, a second
+same-actor session was denied without writes, the first session remained usable,
+logout released the slot, a replacement session succeeded and revoked-cookie
+replay was denied.
 
-## Latest accepted closeouts
+```text
+Implementation/runtime head:
+16ff04a4ba371aad32fc4a38bf82f9c0529c532d
 
+Source CI:
+#6690 / run 30723297375 / all five jobs successful
+
+Installed/running daemon SHA-256:
+0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
+
+Loader SHA-256:
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+
+Final service PID:
+79316
+
+Runtime report SHA-256:
+7c33b06d07beff6b17bad82153ff4a0f1e7c1f5c8d8f972406f8b0b9160f4c89
+
+Configured limit:
+1
+
+First session issue:
+HTTP 200
+
+Second same-actor issue:
+HTTP 409 browser_session_limit_reached
+No second lifecycle row created
+
+Existing first session ordinary GET:
+HTTP 200
+
+First logout:
+HTTP 204
+Slot released
+
+Replacement session issue:
+HTTP 200
+
+Replacement logout:
+HTTP 204
+
+Revoked replacement-cookie replay:
+HTTP 401 credential_revoked
+
+Successful issue outcomes:
+2
+
+Limit-reached failed outcomes:
+1
+
+Successful revoke outcomes:
+2
+
+Acceptance lifecycle and source identity:
+revoked
+
+Original daemon configuration:
+restored
+
+SQLite quick check:
+ok
+
+SQLite foreign-key check:
+empty
+
+VDR domain mutations:
+0
+
+Service state:
+active
+
+Automatic rollback:
+not required
+```
+
+Evidence directory:
+
+```text
+/var/backups/vdr-suite-phase62-slice2u-20260802T041910Z-16ff04a4ba37/runtime-acceptance-slice2u
+```
+
+## Latest runtime-accepted slices and closeouts
+
+- [Phase 62 Slice 2U Runtime-Accepted Closeout Candidate](phase-62-slice-2u-browser-session-concurrency-limit.md)
 - [Phase 62 Slice 2T Closeout](phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Phase 62 Slice 2S Closeout](phase-62-slice-2s-browser-session-outcome-accountability.md)
 - [Phase 62 Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
@@ -164,9 +246,11 @@ configuration or packaging change was included in Slice 2T.
 
 ## Exact next action
 
-Complete the bounded Slice-2U source stabilization and require all five GitHub
-Actions jobs on the final current head. Only after full green final-head CI may
-guarded real-yaVDR runtime acceptance begin.
+Require all five GitHub Actions jobs for this documentation-only Slice-2U
+closeout.
+
+No next implementation slice is selected by this closeout. Perform a fresh
+post-2U gap analysis only after full closeout CI.
 
 ## Related navigation
 

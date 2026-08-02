@@ -2,12 +2,27 @@
 
 ## Status
 
-Active bounded Phase-62 implementation contract.
+Implementation, source CI and guarded real-yaVDR runtime accepted.
 
-Parent closeout head:
+Implementation/runtime head:
 
 ```text
-3cd36e6d99102638bc753ec3c01bce2e5cacd835
+16ff04a4ba371aad32fc4a38bf82f9c0529c532d
+```
+
+Source CI:
+
+```text
+VDR-Suite CI #6690
+Run ID 30723297375
+All five jobs successful
+```
+
+Documentation-only closeout:
+
+```text
+This commit
+Closeout CI pending
 ```
 
 PR #117 remains open, Draft and unmerged.
@@ -166,25 +181,123 @@ The architecture guard must reject:
 - a non-zero compatibility default;
 - values above the bounded maximum.
 
-## Planned real-yaVDR acceptance
+## Real yaVDR acceptance
 
-After full source CI, guarded runtime acceptance will:
+Guarded runtime acceptance completed successfully on 2026-08-02.
 
-1. back up runtime files, daemon configuration and SQLite state;
-2. install the exact accepted daemon;
-3. temporarily configure the per-actor maximum to `1`;
-4. issue one isolated test browser session successfully;
-5. deny a second session for the same actor with HTTP 409;
-6. prove no second browser/session/credential lifecycle was inserted;
-7. prove the first session can perform a harmless ordinary GET;
-8. revoke the first test lifecycle;
-9. issue a replacement session successfully;
-10. revoke all test lifecycle rows;
-11. restore the original daemon configuration;
-12. verify database integrity, service health, secret-free evidence and zero VDR
-    domain mutations.
+The acceptance:
 
-No production session or credential may be revoked to make room for the test.
+1. backed up runtime files, daemon configuration and SQLite state;
+2. installed the exact source-CI-approved daemon;
+3. configured an isolated acceptance actor with a temporary limit of `1`;
+4. issued the first browser session with HTTP 200;
+5. denied a second same-actor session with HTTP 409
+   `browser_session_limit_reached`;
+6. proved no second browser/session/credential lifecycle was inserted;
+7. proved the first session remained usable through an ordinary GET;
+8. logged out the first session and released its slot;
+9. issued and logged out a replacement session;
+10. denied replay of the revoked replacement cookie with HTTP 401;
+11. revoked all isolated acceptance lifecycle rows and the source identity;
+12. restored the original daemon configuration;
+13. verified database integrity, active service state, secret-free evidence and
+    zero VDR domain mutations.
+
+No production session or credential was evicted or revoked.
+
+```text
+Implementation/runtime head:
+16ff04a4ba371aad32fc4a38bf82f9c0529c532d
+
+Source CI:
+#6690 / run 30723297375 / all five jobs successful
+
+Installed/running daemon SHA-256:
+0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
+
+Loader SHA-256:
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+
+Final service PID:
+79316
+
+Runtime report SHA-256:
+7c33b06d07beff6b17bad82153ff4a0f1e7c1f5c8d8f972406f8b0b9160f4c89
+
+Configured limit:
+1
+
+First session issue:
+HTTP 200
+
+Second same-actor issue:
+HTTP 409 browser_session_limit_reached
+No second lifecycle row created
+
+Existing first session ordinary GET:
+HTTP 200
+
+First logout:
+HTTP 204
+Slot released
+
+Replacement session issue:
+HTTP 200
+
+Replacement logout:
+HTTP 204
+
+Revoked replacement-cookie replay:
+HTTP 401 credential_revoked
+
+Successful issue outcomes:
+2
+
+Limit-reached failed outcomes:
+1
+
+Successful revoke outcomes:
+2
+
+Acceptance lifecycle and source identity:
+revoked
+
+Original daemon configuration:
+restored
+
+SQLite quick check:
+ok
+
+SQLite foreign-key check:
+empty
+
+VDR domain mutations:
+0
+
+Service state:
+active
+
+Automatic rollback:
+not required
+```
+
+Durable evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2u-20260802T041910Z-16ff04a4ba37/runtime-acceptance-slice2u
+```
+
+Runtime report:
+
+```text
+/var/backups/vdr-suite-phase62-slice2u-20260802T041910Z-16ff04a4ba37/runtime-acceptance-slice2u/runtime-acceptance-report.txt
+```
+
+Runtime report SHA-256:
+
+```text
+7c33b06d07beff6b17bad82153ff4a0f1e7c1f5c8d8f972406f8b0b9160f4c89
+```
 
 ## Explicitly deferred
 
@@ -205,14 +318,24 @@ Slice 2U does not add:
 - Android or Android TV work;
 - Phase 63-67 runtime.
 
-## Acceptance gate
+## Acceptance result
 
-Slice 2U is not accepted runtime until:
+The Slice-2U acceptance gate is satisfied through implementation, focused
+tests, architecture checks, final-head source CI and guarded real-yaVDR
+acceptance.
 
-1. the implementation remains within this boundary;
-2. focused configuration, repository, issuance and HTTP tests pass;
-3. architecture and Make-test inventory checks pass;
-4. all five GitHub Actions jobs pass on the final stabilization head;
-5. guarded real-yaVDR acceptance succeeds;
-6. test lifecycle rows are revoked and configuration is restored;
-7. documentation-only closeout CI passes.
+Verified:
+
+1. implementation remained within the bounded Slice-2U contract;
+2. configuration, repository, issuance and HTTP tests passed;
+3. architecture and Make-test inventory checks passed;
+4. all five source GitHub Actions jobs passed on the final implementation head;
+5. guarded real-yaVDR acceptance passed;
+6. test lifecycle rows and the isolated source identity were revoked;
+7. original configuration was restored;
+8. accountability remained secret-free;
+9. SQLite integrity checks passed;
+10. zero VDR domain mutations occurred.
+
+The only remaining Slice-2U gate is successful CI for this documentation-only
+closeout commit. No next Phase-62 implementation slice is selected here.

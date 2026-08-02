@@ -339,14 +339,16 @@ architecture checks do not enforce the public-origin contract.
 
 ## Remaining work
 
-Repository and installed-runtime acceptance are complete through Slice 2H.
+Repository, source CI and installed-runtime acceptance are complete through
+Slice 2U.
 
 Still open in Phase 62:
 
-- remaining Recording, SearchTimer and administrative mutation migration;
-- explicit safe classification for validation, preview and planning POSTs;
-- completion/outcome accountability and transactional coupling/outbox;
-- refresh, idle timeout, cleanup, concurrent-session policy and recovery;
+- documentation-only Slice-2U closeout CI;
+- fresh post-2U gap analysis and bounded next-slice selection;
+- browser-session idle timeout and cleanup/retention;
+- outcome accountability beyond browser lifecycle operations;
+- stronger transactional coupling or outbox semantics;
 - protected identity, credential, grant and role administration;
 - native/service credential enrollment, rotation and revocation;
 - generic role definitions and assignments beyond the fixed catalogue;
@@ -354,9 +356,7 @@ Still open in Phase 62:
 - protected audit reads, export, redaction and retention;
 - compatibility-retirement readiness and final Phase 62 closeout.
 
-The next route family has not been selected by this documentation closeout.
-Inspect the remaining POST inventory and plan exactly one bounded family before
-implementation.
+No next implementation slice is selected by the Slice-2U runtime acceptance.
 
 ### Credential boundary
 
@@ -424,3 +424,82 @@ No SearchTimer was created. The browser session was revoked, replay was denied,
 target grants matched the backup state, the service process remained unchanged,
 the database passed quick and foreign-key checks and accountability contained no
 credential, cookie or CSRF secret.
+
+## Slice 2U Concurrent Browser-Session Limit Runtime Acceptance
+
+**VERIFIED on 2026-08-02 at
+`16ff04a4ba371aad32fc4a38bf82f9c0529c532d`:**
+
+Acceptance marker:
+
+```text
+PHASE_62_SLICE_2U_RUNTIME_ACCEPTANCE=PASS
+```
+
+Source verification:
+
+```text
+VDR-Suite CI #6690
+Run ID 30723297375
+All five jobs successful
+```
+
+Installed runtime:
+
+```text
+Daemon SHA-256:
+0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
+
+Deferred loader SHA-256:
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+
+Final service PID:
+79316
+```
+
+The guarded isolated acceptance configured a temporary per-actor limit of `1`
+and proved:
+
+- first browser-session issuance returned HTTP 200;
+- second same-actor issuance returned HTTP 409
+  `browser_session_limit_reached`;
+- the denied request created no lifecycle row and emitted no cookie;
+- the existing first session remained usable through an ordinary GET;
+- logout returned HTTP 204 and released the slot;
+- replacement issuance returned HTTP 200;
+- replacement logout returned HTTP 204;
+- replay of the revoked replacement cookie returned HTTP 401
+  `credential_revoked`;
+- two successful issue outcomes, one limit-reached failed outcome and two
+  successful revoke outcomes were persisted;
+- all isolated browser lifecycle rows and the source identity were revoked;
+- the original daemon environment was restored byte-for-byte;
+- SQLite quick check returned `ok`;
+- foreign-key check returned no rows;
+- accountability evidence contained no password, Authorization header, cookie
+  or CSRF secret;
+- the service remained active;
+- zero VDR domain mutations occurred;
+- automatic rollback was not required.
+
+Durable secret-free evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2u-20260802T041910Z-16ff04a4ba37/runtime-acceptance-slice2u
+```
+
+Runtime report:
+
+```text
+/var/backups/vdr-suite-phase62-slice2u-20260802T041910Z-16ff04a4ba37/runtime-acceptance-slice2u/runtime-acceptance-report.txt
+```
+
+Runtime report SHA-256:
+
+```text
+7c33b06d07beff6b17bad82153ff4a0f1e7c1f5c8d8f972406f8b0b9160f4c89
+```
+
+This acceptance closes only the concurrent effective browser-session limit.
+Idle expiry, cleanup, refresh, eviction and session administration remain
+separate gaps.
