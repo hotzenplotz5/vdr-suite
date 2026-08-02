@@ -6,7 +6,6 @@
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Post-Slice-2W New Chat Prompt](development/phase-62-post-slice-2w-new-chat-prompt.md)
 - [Current Project Status](development/current-status.md)
-- [Slice 2X Selection Contract](development/phase-62-slice-2x-protected-accountability-event-read.md)
 - [Slice 2W Runtime Closeout](development/phase-62-slice-2w-runtime-closeout.md)
 - [Slice 2W Contract](development/phase-62-slice-2w-browser-session-retention-cleanup.md)
 - [Phase 62 Runtime Evidence through Slice 2V](development/phase-62-runtime-evidence.md)
@@ -36,6 +35,17 @@ Phase 61 - Suite Metadata and Genre Platform
 
 Completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
+
+Historical umbrella implementation track:
+Phase 58 - Frontend and Live Parity
+
+Completed post-phase platform features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
+
+Next strict runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
@@ -70,11 +80,8 @@ e0fbe1689b2f48e75bb4ae6836b227d7da92e08d53b009ac1c2cb371a36c74ea
 Durable evidence:
 /var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
 
-Selected next bounded implementation slice:
-Slice 2X - Protected Accountability Event Read
-
-Slice-2X state:
-selection and contract only; implementation has not started
+Next bounded implementation slice:
+not yet selected
 ```
 
 Phase 61 remains complete. Phase 62 remains active and incomplete. Phase 63-67
@@ -126,11 +133,23 @@ credential. Actors, devices, issuing credentials, grants, roles and audit histor
 are preserved. Any enabled cleanup failure leaves the Security Runtime fail
 closed and rolls back the whole batch.
 
-The real yaVDR acceptance proved fresh schema initialization, disabled-policy
-no-op, full fail-closed rollback, all preservation/deletion boundaries, exact
-secret-free events, 258 candidates with exactly 256 deterministic deletions,
-SQLite integrity, unchanged production database/configuration/loader, removed
-runtime override, final active daemon and zero VDR domain mutations.
+The real yaVDR acceptance proved:
+
+- fresh schema initialization;
+- disabled-policy no-op;
+- fail-closed rollback after forced accountability failure;
+- preservation of active and within-retention lifecycles;
+- deletion of old revoked, absolute-expired and idle-expired lifecycles;
+- no issuer-only cascade;
+- preservation of non-browser credentials and still-referenced canonical rows;
+- exact secret-free accountability;
+- fixed bounded behavior: 258 candidates and exactly 256 deterministic
+  deletions;
+- SQLite quick and foreign-key checks;
+- unchanged production database, configuration and loader;
+- removed runtime systemd override;
+- final active accepted daemon;
+- zero VDR domain mutations.
 
 Do not repeat Slice-2W runtime acceptance unless a directly relevant daemon,
 cleanup, schema, configuration, systemd execution or harness fingerprint changes.
@@ -145,7 +164,8 @@ Accepted through Slice 2W:
 - strict cookie precedence and ordinary-route browser authentication;
 - exact actor grants and fixed exact-scope Admin/Read-only roles;
 - memory-only Webfrontend CSRF ownership;
-- protected Remote, Timer, Channel Move, Recording, SearchTimer and Native Fuzzy mutation families;
+- protected Remote, Timer, Channel Move, Recording, SearchTimer and Native Fuzzy
+  mutation families;
 - explicit Safe POST classification;
 - immutable absolute browser-session lifetime;
 - browser issue/revoke outcome accountability;
@@ -155,84 +175,19 @@ Accepted through Slice 2W:
 - bounded terminal browser-session retention cleanup with atomic accountability;
 - guarded real-runtime acceptance and rollback tooling.
 
-## Fresh post-Slice-2W selection
+## Remaining Phase 62 gaps
 
-Exactly one next slice is selected:
+Still open after Slice 2W:
 
-```text
-Phase 62 Slice 2X
-Protected Accountability Event Read
-```
-
-The existing append-only accountability database has no protected production
-read path. Slice 2X will add only one exact, authenticated and centrally
-authorized newest-event snapshot:
-
-```text
-GET /api/security/accountability/events
-GET /api/security/accountability/events?limit=<1..100>
-default limit 50
-order recorded_at DESC, event_id DESC
-```
-
-Exact authorization:
-
-```text
-security.audit.read@*
-```
-
-A direct exact grant or exact global `role.admin@*` may grant the read. Legacy
-Basic compatibility cannot bypass it. Non-global admin scope and
-`role.read-only` do not grant it.
-
-The fixed response projection contains only existing secret-free accountability
-fields and `recordedAt`, is marked `Cache-Control: no-store`, and is handled by
-the Security Runtime before the general `ApiRouter`.
-
-The existing pre-dispatch authorization append remains mandatory. The bounded
-SELECT and one exact read-success audit-of-audit event will commit together in a
-local `BEGIN IMMEDIATE` transaction. Any query, append or commit failure returns
-no event rows.
-
-This local read coupling does not implement generic mutation outcomes or an
-Outbox.
-
-## Slice 2X explicit exclusions
-
-- export, download, streaming, pagination, filters or arbitrary history traversal;
-- configurable redaction, retention, deletion, compaction or archival;
-- frontend audit viewer;
-- security administration;
-- generic mutation outcomes, Outbox or cross-domain coupling;
-- common revisions, idempotency or durable operation lifecycle;
-- native/service credential lifecycle;
-- compatibility retirement;
-- Android, Android TV or Phase 63-67 runtime.
-
-## Remaining Phase 62 gaps after selection
-
-Still open beyond Slice 2X:
-
-- operation outcomes beyond browser lifecycle, cleanup and the local audit-read outcome;
+- operation outcomes beyond browser lifecycle and cleanup operations;
 - stronger transaction coupling or Outbox semantics;
 - common revisions, idempotency and durable operation lifecycle;
 - protected actor, identity, credential, grant and role administration;
 - native/service credential enrollment, rotation and revocation;
-- audit export, configurable redaction and retention;
-- broader audit history traversal if later selected;
+- protected audit reads, export, redaction and retention;
 - compatibility-retirement readiness and final Phase 62 closeout.
 
-## Selection validation gate
-
-No production implementation has started. First, the Slice-2X contract and the
-canonical selection/status/gap/handoff documents must pass all five jobs on the
-final selection head:
-
-- `docs-check`;
-- `make-test-audit`;
-- `frontend-regression-test`;
-- `fast-regression-test`;
-- `packaging-regression-test`.
+No next implementation slice is selected yet.
 
 ## Operating rules
 
@@ -240,7 +195,8 @@ final selection head:
 - Prefer GitHub-first edits when the connector can safely complete them.
 - Continue through already-approved bounded work without artificial pauses.
 - Evaluate CI on the final stabilization head.
-- Every CI report includes direct link, run number, run ID, exact head, overall status and all five job statuses.
+- Every CI report includes direct link, run number, run ID, exact head, overall
+  status and all five job statuses.
 - PR #117 remains open, Draft and unmerged.
 - Do not mark it Ready, merge, auto-merge, rebase, force-push or rewrite history.
 - Do not repeat accepted runtime work merely because the chat changed.
@@ -249,9 +205,9 @@ final selection head:
 
 ## Exact next action
 
-Complete and validate the documentation-only Slice-2X selection. After and only
-after the full five-job selection CI is green, implement the exact bounded
-contract in
-[Phase 62 Slice 2X — Protected Accountability Event Read](development/phase-62-slice-2x-protected-accountability-event-read.md).
+Perform one fresh post-Slice-2W gap analysis against the accepted repository and
+runtime baseline. Select and document exactly one smallest coherent next Phase-62
+slice. Update the gap matrix and handoff, then require all five CI jobs on the
+final selection head before implementation.
 
 Do not reopen Slice 2W without a changed relevant acceptance fingerprint.
