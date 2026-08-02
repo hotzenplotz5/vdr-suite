@@ -65,7 +65,7 @@ public:
         {
             return context;
         }
-        if (lookup == CookieLookupResult::Invalid || !idlePolicyValid())
+        if (lookup == CookieLookupResult::Invalid)
         {
             context.authenticationState = AuthenticationState::Invalid;
             wipe(cookieValue);
@@ -82,9 +82,10 @@ public:
         }
         wipe(cookieValue);
 
+        const bool validIdlePolicy = idlePolicyValid();
         const auto record = repository_.findResolvedByTokenId(
             tokenId,
-            idleTimeoutSeconds_);
+            validIdlePolicy ? idleTimeoutSeconds_ : 0);
         const bool secretAccepted =
             record.has_value() &&
             verifySecret(sessionSecret, record->sessionSecretHash);
@@ -97,6 +98,13 @@ public:
         }
 
         populateIdentity(context, *record);
+        if (!validIdlePolicy)
+        {
+            context.authenticationState = AuthenticationState::Authenticated;
+            context.permissionGrantResolution =
+                PermissionGrantResolutionState::Unavailable;
+            return context;
+        }
         if (!record->active || record->revoked)
         {
             context.authenticationState = AuthenticationState::Revoked;
