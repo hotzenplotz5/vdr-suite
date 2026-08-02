@@ -191,8 +191,104 @@ def check_sqlite_boundary_contract() -> list[str]:
     return errors
 
 
+def check_protected_mutation_outcome_contract() -> list[str]:
+    errors = []
+    gate_path = ROOT / "core/security/include/SecurityHttpGate.h"
+    server_path = ROOT / "core/http/src/TestHttpServer.cpp"
+
+    gate_text = gate_path.read_text(encoding="utf-8")
+    server_text = server_path.read_text(encoding="utf-8")
+
+    required_gate_markers = [
+        "AuthorizationDecision authorizationDecision;",
+        "std::string operationId;",
+        "gate.authorizationDecision = decision;",
+        "gate.operationId = operationId;",
+        "bool appendProtectedMutationOutcome(",
+        "!gate.protectedMutation",
+        "!gate.authorizationDecision.allowed",
+        '"operation.succeeded"',
+        '"operation.failed"',
+        '"http_status_" + std::to_string(statusCode)',
+        'event.outcome = succeeded ? "succeeded" : "failed";',
+    ]
+    for marker in required_gate_markers:
+        if marker not in gate_text:
+            errors.append(
+                "protected mutation outcome gate missing marker: " + marker
+            )
+
+    required_server_markers = [
+        "apiRouter_.handleClientPost(",
+        "gate.protectedMutation &&",
+        "appendProtectedMutationOutcome(",
+        "outcomeAccountabilityUnavailableResponse(",
+    ]
+    for marker in required_server_markers:
+        if marker not in server_text:
+            errors.append(
+                "protected mutation outcome server missing marker: " + marker
+            )
+
+    dispatch_position = server_text.find("apiRouter_.handleClientPost(")
+    outcome_position = server_text.find(
+        "appendProtectedMutationOutcome(",
+        dispatch_position)
+    final_response_position = server_text.find(
+        "return finalizeResponse(",
+        outcome_position)
+    if not (
+        dispatch_position >= 0 and
+        outcome_position > dispatch_position and
+        final_response_position > outcome_position
+    ):
+        errors.append(
+            "protected mutation outcome must run after POST dispatch and before the final response"
+        )
+
+    outcome_start = gate_text.find(
+        "    bool appendProtectedMutationOutcome(")
+    outcome_end = gate_text.find(
+        "\n    HttpServerResponse outcomeAccountabilityUnavailableResponse(",
+        outcome_start)
+    if outcome_start < 0 or outcome_end < 0:
+        errors.append(
+            "protected mutation outcome method boundary is missing"
+        )
+    else:
+        outcome_text = gate_text[outcome_start:outcome_end]
+        forbidden_outcome_inputs = [
+            "request.headers",
+            "request.body",
+            "apiResponse.body",
+            "response.body",
+            "sqlite3_",
+            "ensureSchema",
+            "getenv",
+        ]
+        for token in forbidden_outcome_inputs:
+            if token in outcome_text:
+                errors.append(
+                    "protected mutation outcome uses forbidden input: " + token
+                )
+
+    combined_text = gate_text + "\n" + server_text
+    forbidden_scope_markers = [
+        "/api/security/accountability/events",
+        "security.audit.read",
+    ]
+    for marker in forbidden_scope_markers:
+        if marker in combined_text:
+            errors.append(
+                "protected mutation outcome introduced forbidden scope: " + marker
+            )
+
+    return errors
+
+
 def main() -> int:
     errors = check_sqlite_boundary_contract()
+    errors.extend(check_protected_mutation_outcome_contract())
 
     for path in collect_source_files():
         try:
