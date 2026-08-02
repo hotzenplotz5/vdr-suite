@@ -20,36 +20,31 @@ Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Repository, source CI and real-runtime accepted through:
-Slice 2U - Concurrent Browser-Session Limit
-
-Accepted implementation/runtime head:
-16ff04a4ba371aad32fc4a38bf82f9c0529c532d
-
-Accepted Slice-2U source GitHub Actions:
-VDR-Suite CI #6690
-Run ID: 30723297375
-All five jobs successful
-
-Slice-2U documentation closeout commit:
-4747d725664d4c382d17d3b19fa2776f48ba437b
-
-Final shared closeout and workflow head:
-d00fc5045a136d87323fbc13fb1bfc1030f7d3b5
-
-Final closeout GitHub Actions:
-VDR-Suite CI #6693
-Run ID: 30733265772
-All five jobs successful
-https://github.com/hotzenplotz5/vdr-suite/actions/runs/30733265772
-
-Active repository implementation:
 Slice 2V - Browser-Session Idle Expiry and throttled last_seen
 
+Accepted implementation/runtime head:
+e84415fadb2587ff744ff8927f1f0113920ece2f
+
+Accepted Slice-2V source GitHub Actions:
+VDR-Suite CI #6779
+Run ID: 30741293079
+All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
+
+Documentation-only Slice-2V closeout:
+Canonical closeout updates in progress; final closeout CI pending
+
+Active repository implementation:
+None selected after Slice 2V runtime acceptance
+
 Installed/running daemon SHA-256:
-0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
+e0b6f6de08527b6af49d526ca0118b14b6fb85ff3335fc607ca1b531cdee5f60
 
 Installed deferred-runtime-loader.js SHA-256:
 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+
+Restored daemon configuration SHA-256:
+8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
 ```
 
 Phase 61 remains completed. Phase 62 remains active and incomplete. Phase
@@ -77,6 +72,9 @@ The accepted branch and installed runtime include:
   compensation;
 - issuing-credential request-time lifecycle binding;
 - strict optional per-actor effective browser-session limits with deny-new semantics;
+- strict optional browser-session idle expiry with additive `last_seen_at` and
+  a fixed 60-second activity-write throttle;
+- idle-expired sessions excluded from the effective concurrency count;
 - mutation-safe real-runtime acceptance profiles and guarded rollback.
 
 ## Completed post-Slice-2Q POST inventory
@@ -281,17 +279,122 @@ Durable evidence:
 /var/backups/vdr-suite-phase62-slice2u-20260802T041910Z-16ff04a4ba37/runtime-acceptance-slice2u
 ```
 
-The default remains unlimited. Idle timeout, `last_seen`, sliding refresh,
-cleanup, retention, automatic eviction and session-administration APIs remain
-outside Slice 2U.
+Slice 2U is fully closed. Idle timeout, `last_seen`, cleanup, retention,
+automatic eviction and session-administration APIs remained outside Slice 2U.
 
-## Fresh post-2U gap analysis
+## Accepted Slice 2V runtime evidence
 
-The accepted POST inventory is complete; no new route-migration family remains.
-The open Phase 62 gaps are:
+Slice 2V adds an optional request-time idle policy and one explicit activity
+clock:
 
-- browser-session idle expiry with throttled activity persistence;
-- physical cleanup and retention as a later separate policy;
+```text
+VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS
+0          disabled compatibility default
+300..86400 enabled idle timeout in seconds
+
+security_browser_session_credentials.last_seen_at
+60-second minimum activity-write interval
+```
+
+The repository owns one idle calculation for ordinary cookie authentication and
+CSRF verification. Absolute `expires_at` remains the immutable hard upper bound.
+Idle-expired rows do not consume a Slice-2U concurrency slot and are not
+physically deleted, revoked or evicted by Slice 2V.
+
+The guarded yaVDR pass proved:
+
+```text
+PHASE_62_SLICE_2V_RUNTIME_ACCEPTANCE=PASS
+
+Implementation/runtime head:
+e84415fadb2587ff744ff8927f1f0113920ece2f
+
+Source CI:
+#6779 / run 30741293079 / all five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
+
+Installed/running daemon SHA-256:
+e0b6f6de08527b6af49d526ca0118b14b6fb85ff3335fc607ca1b531cdee5f60
+
+Loader SHA-256:
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+
+Restored configuration SHA-256:
+8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+
+Final service PID:
+86549
+
+Runtime report SHA-256:
+0a961fbc8b51158fd4a16aa24fc9afde7dafa9d5272e986a46ec73880c311f86
+
+Configured idle timeout:
+300 seconds
+
+Activity-write interval:
+60 seconds
+
+Ordinary GET before idle expiry:
+HTTP 200
+
+Ordinary GET after idle expiry:
+HTTP 401 session_expired
+
+Protected mutation after idle expiry:
+HTTP 401 session_expired
+
+last_seen writes inside accepted interval:
+1
+
+Absolute expiry unchanged:
+yes
+
+Replacement logout:
+HTTP 204
+
+Revoked replacement-cookie replay:
+HTTP 401 credential_revoked
+
+Acceptance lifecycle active rows after cleanup:
+0
+
+SQLite quick check:
+ok
+
+SQLite foreign-key check:
+empty
+
+Accountability secret-free:
+yes
+
+VDR domain mutations:
+0
+
+Final service state:
+active
+
+Runtime drop-in:
+removed
+
+Idle test environment:
+not set
+```
+
+Durable evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2v-20260802T092139Z-e84415fadb25
+```
+
+Slice 2V closes only request-time idle expiry and throttled activity
+persistence. Physical cleanup, retention, refresh, automatic eviction and
+session-administration APIs remain outside the slice.
+
+## Post-Slice-2V gap status
+
+The accepted POST inventory remains complete. The open Phase 62 gaps are:
+
+- physical browser-session cleanup and retention;
 - outcome accountability for other operation families;
 - stronger transactional coupling or outbox semantics;
 - common revision, idempotency and durable operation lifecycle;
@@ -300,30 +403,18 @@ The open Phase 62 gaps are:
 - protected audit reads, export, redaction and retention;
 - compatibility retirement and final Phase 62 closeout.
 
-The repository already has absolute `expires_at`, request-time browser-cookie and
-CSRF resolution and an additive browser-session table. It has no dedicated
-activity timestamp. Existing `updated_at` cannot be reused because revocation,
-expiry and other lifecycle writes also modify it.
-
-Therefore the next bounded slice is:
-
-```text
-Phase 62 Slice 2V - Browser-Session Idle Expiry and throttled last_seen
-```
-
-The required additive `last_seen_at` column is part of this browser-session-only
-slice; no separate general timestamp or schema precursor is required.
+No next implementation slice is selected by the Slice-2V runtime acceptance.
+Selection requires a fresh post-2V gap analysis after documentation closeout CI.
 
 ## Pull request truth
 
 PR #117 must remain open, Draft and unmerged. Do not mark it Ready for review,
-merge it, enable auto-merge, force-push, rewrite branch history or change PR
-metadata without explicit approval.
+merge it, enable auto-merge, force-push, rewrite branch history or change review
+state without explicit approval.
 
-The PR description is materially stale. Current repository truth is this file,
-[Current State](../CURRENT.md), the accepted
-[Slice 2U closeout](phase-62-slice-2u-browser-session-concurrency-limit.md), the
-[Phase 62 Runtime Evidence](phase-62-runtime-evidence.md), the
+Current repository truth is this file, [Current State](../CURRENT.md), the
+accepted [Slice 2V closeout](phase-62-slice-2v-browser-session-idle-expiry.md),
+the [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md), the
 [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md) and
 the [Security and Identity Architecture](../architecture/security-identity-foundation.md).
 
@@ -354,20 +445,23 @@ diff before treating a GitHub change as complete.
 
 ## Exact next action
 
-Document and implement only Slice 2V. Validate its focused configuration,
-repository, authenticator, HTTP and architecture contracts, then evaluate all
-five GitHub Actions jobs on the final stabilization head. Because Slice 2V
-changes the daemon and browser-session schema, a new guarded real-yaVDR runtime
-acceptance is required only after source CI is green.
+Require all five GitHub Actions jobs for the documentation-only Slice-2V
+closeout.
+
+No next Phase-62 implementation slice is selected by this closeout. After full
+closeout CI, perform a fresh post-2V gap analysis and select exactly one bounded
+slice.
 
 Do not begin cleanup, retention, eviction, session administration, broader
-security administration, Outbox, Android or Phase 63-67 work.
+security administration, Outbox, Android or Phase 63-67 work before Slice 2V is
+fully closed.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Agent Workflow Rules](../../AGENTS.md)
+- [Slice 2V Closeout](phase-62-slice-2v-browser-session-idle-expiry.md)
 - [Slice 2U Closeout](phase-62-slice-2u-browser-session-concurrency-limit.md)
 - [Slice 2T Closeout](phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Slice 2S Closeout](phase-62-slice-2s-browser-session-outcome-accountability.md)
