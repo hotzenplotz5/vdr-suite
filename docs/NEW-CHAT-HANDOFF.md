@@ -23,7 +23,10 @@ fingerprint changed.
 - [Strict roadmap](planning/roadmap.md)
 - [Phase map](planning/phase-map.md)
 - [Parity and frontend gap roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Architecture audit gap matrix](planning/architecture-audit-gap-matrix.md)
 - [Completed phases](development/completed-phases.md)
+- [Phase 61 closeout](development/phase-61-metadata-genre-performance-closeout.md)
+- [Post-Phase-61 runtime closeout](development/post-phase-61-platform-runtime-closeout.md)
 - [ADR index](adr/index.md)
 - [Agent workflow rules](../AGENTS.md)
 
@@ -40,6 +43,9 @@ Phase 61 - Suite Metadata and Genre Platform
 
 Completed hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
+
+Historical umbrella track:
+Phase 58 - Frontend and Live Parity
 
 Completed platform features:
 VDR Remote and Live Overlay hardening (#110)
