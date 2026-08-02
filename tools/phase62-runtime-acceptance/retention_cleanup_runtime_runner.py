@@ -99,10 +99,10 @@ def self_test() -> int:
                 );
                 CREATE TABLE security_browser_session_credentials (
                     token_id TEXT PRIMARY KEY,
-                    session_id TEXT NOT NULL,
+                    session_id TEXT NOT NULL UNIQUE,
                     actor_id TEXT NOT NULL,
                     device_id TEXT NOT NULL,
-                    credential_id TEXT NOT NULL,
+                    credential_id TEXT NOT NULL UNIQUE,
                     issued_from_credential_id TEXT NOT NULL,
                     session_secret_hash TEXT NOT NULL,
                     csrf_secret_hash TEXT NOT NULL,
@@ -161,6 +161,17 @@ def self_test() -> int:
                 database,
                 identity,
                 issuer_revoked=False,
+            )
+            verify_database(database)
+            enabled_state = prepare_enabled_database(path)
+            shared_active = enabled_state["shared_active"]
+            require(
+                isinstance(shared_active, dict)
+                and not verifier_exists(
+                    database,
+                    shared_active["token_id"],
+                ),
+                "self_test_replacement_inserted_before_cleanup",
             )
             verify_database(database)
         report = Path(directory) / "report.txt"
