@@ -6,12 +6,13 @@ ROOT = Path(__file__).resolve().parents[1]
 PHASE_MAP = ROOT / "docs/planning/phase-map.md"
 ROADMAP = ROOT / "docs/planning/roadmap.md"
 
-LATEST_PHASE = "Phase 61 - Suite Metadata and Genre Platform"
+LATEST_PHASE = "Phase 62 - Identity, RBAC and Accountability Foundation"
+PREVIOUS_PHASE = "Phase 61 - Suite Metadata and Genre Platform"
 HARDENING = "Post-Phase 61 Performance Hardening (B1-B4)"
 REMOTE = "VDR Remote and Live Overlay hardening (#110)"
 SEARCH = "Backend-scoped Global Search (#111)"
 HISTORICAL = "Phase 58 - Frontend and Live Parity"
-NEXT = "Phase 62 - Identity, RBAC and Accountability Foundation"
+NEXT = "Phase 63 - Backend Agent and Secure Multi-Site Runtime"
 
 COMPLETED_RANGES = [
     "Phase 1.x-7.x",
@@ -28,10 +29,10 @@ COMPLETED_RANGES = [
     "Phase 59.00-59.15e",
     "Phase 60.1-60.15",
     "Phase 61",
+    "Phase 62",
 ]
 
 PLANNED_PHASES = [
-    "Phase 62",
     "Phase 63",
     "Phase 64",
     "Phase 65",
@@ -41,7 +42,6 @@ PLANNED_PHASES = [
 ]
 
 ROADMAP_ORDER = [
-    "Phase 62 — Identity, RBAC and Accountability Foundation",
     "Phase 63 — Backend Agent and Secure Multi-Site Runtime",
     "Phase 64 — Timer Intent and Multi-Backend Orchestration",
     "Phase 65 — Streaming Gateway and Media Sessions",
@@ -57,6 +57,8 @@ REQUIRED_FILES = [
     "docs/development/phase-61-metadata-genre-performance-closeout.md",
     "docs/development/post-phase-61-platform-runtime-closeout.md",
     "docs/development/completed-phases/phase-61.md",
+    "docs/development/phase-62-closeout.md",
+    "docs/development/phase-62-slice-2x-runtime-closeout.md",
 ]
 
 STALE_ACTIVE_MARKERS = [
@@ -64,6 +66,8 @@ STALE_ACTIVE_MARKERS = [
     "runtime milestone number not yet assigned",
     "Next implementation focus:\nPhase 61",
     "Latest completed slice:\nPhase 60.15",
+    "Next strict runtime phase:\nPhase 62",
+    "Phase 62 state:\nactive and incomplete",
 ]
 
 
@@ -102,12 +106,13 @@ def main():
         "docs/planning/phase-map.md",
         COMPLETED_RANGES
         + PLANNED_PHASES
-        + [LATEST_PHASE, HARDENING, REMOTE, SEARCH, HISTORICAL, NEXT],
+        + [LATEST_PHASE, PREVIOUS_PHASE, HARDENING, REMOTE, SEARCH, HISTORICAL, NEXT],
     )
     require_markers(
         roadmap,
         "docs/planning/roadmap.md",
-        PLANNED_PHASES + [LATEST_PHASE, HARDENING, REMOTE, SEARCH, HISTORICAL, NEXT],
+        PLANNED_PHASES
+        + [LATEST_PHASE, PREVIOUS_PHASE, HARDENING, REMOTE, SEARCH, HISTORICAL, NEXT],
     )
     require_order(roadmap, "docs/planning/roadmap.md", ROADMAP_ORDER)
 
@@ -133,6 +138,7 @@ def main():
 
     print("Phase map coverage check passed.")
     print("Latest completed phase: " + LATEST_PHASE)
+    print("Previous completed phase: " + PREVIOUS_PHASE)
     print("Completed hardening: " + HARDENING)
     print("Completed platform features: " + REMOTE + ", " + SEARCH)
     print("Next phase: " + NEXT)
