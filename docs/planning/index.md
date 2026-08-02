@@ -101,6 +101,10 @@ No audit product, generic security administration, generic Outbox, universal ide
 - [Post-Phase-61 Platform Runtime Closeout](../development/post-phase-61-platform-runtime-closeout.md)
 - [Completed Phases](../development/completed-phases.md)
 
+## Historical and superseded planning evidence
+
+- [Repository-truth refresh archive](history/repository-truth-refresh-2026-07/README.md)
+
 ## Related current documents
 
 - [Current State](../CURRENT.md)
