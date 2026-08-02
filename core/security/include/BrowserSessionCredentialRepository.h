@@ -30,8 +30,10 @@ struct StoredBrowserSessionCredential
     std::string sessionSecretHash;
     std::string csrfSecretHash;
     std::string expiresAt;
+    std::string lastSeenAt;
     bool active = false;
     bool expired = false;
+    bool idleExpired = false;
     bool revoked = false;
 };
 
@@ -45,11 +47,16 @@ public:
     std::optional<StoredBrowserSessionCredential> findByTokenId(
         const std::string& tokenId) const;
     std::optional<StoredBrowserSessionCredential> findResolvedByTokenId(
-        const std::string& tokenId) const;
+        const std::string& tokenId,
+        int idleTimeoutSeconds = 0) const;
     std::optional<StoredBrowserSessionCredential> findBySessionId(
         const std::string& sessionId) const;
     std::optional<std::size_t> countEffectiveActiveByActorId(
-        const std::string& actorId) const;
+        const std::string& actorId,
+        int idleTimeoutSeconds = 0) const;
+    std::optional<bool> touchLastSeenIfDue(
+        const std::string& tokenId,
+        int minimumIntervalSeconds) const;
     bool revokeBySessionId(const std::string& sessionId);
     bool setExpiry(
         const std::string& sessionId,
