@@ -21,6 +21,7 @@
 - [Phase 62 Slice 2T — Browser-Session Issuing-Credential Lifecycle Binding](phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Phase 62 Slice 2U — Concurrent Browser-Session Limit](phase-62-slice-2u-browser-session-concurrency-limit.md)
 - [Phase 62 Slice 2V — Browser-Session Idle Expiry and Throttled last_seen](phase-62-slice-2v-browser-session-idle-expiry.md)
+- [Phase 62 Slice 2W — Browser-Session Terminal Retention Cleanup](phase-62-slice-2w-browser-session-retention-cleanup.md)
 - [Phase 62 Runtime Evidence](phase-62-runtime-evidence.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
@@ -31,221 +32,75 @@
 ```text
 Latest completed numbered runtime phase: Phase 61 - Suite Metadata and Genre Platform
 Completed hardening: Post-Phase 61 Performance Hardening (B1-B4)
+Next strict runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
 Current runtime phase: Phase 62 - Identity, RBAC and Accountability Foundation
-Current accepted Phase 62 state: repository, source CI and real yaVDR runtime accepted through Slice 2U
-Accepted implementation/runtime head: 16ff04a4ba371aad32fc4a38bf82f9c0529c532d
-Accepted Slice-2U source CI: #6690 / run 30723297375 / all five jobs successful
-Slice-2U closeout commit: 4747d725664d4c382d17d3b19fa2776f48ba437b
-Final shared closeout head: d00fc5045a136d87323fbc13fb1bfc1030f7d3b5
-Final closeout CI: #6693 / run 30733265772 / all five jobs successful
-Final closeout link: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30733265772
-Active repository implementation: Slice 2V - Browser-Session Idle Expiry and throttled last_seen
-Installed/running daemon SHA-256: 0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
+Current accepted Phase 62 state: repository, source CI and real yaVDR runtime accepted through Slice 2V
+Accepted implementation/runtime head: e84415fadb2587ff744ff8927f1f0113920ece2f
+Accepted Slice-2V source CI: #6779 / run 30741293079 / all five jobs successful
+Slice-2V closeout head: cf31b2b67f73f12718601ced5468a59a1183adcb
+Slice-2V closeout CI: #6799 / run 30742295881 / all five jobs successful
+Slice-2V closeout link: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30742295881
+Active repository implementation: Slice 2W selected; implementation not started
+Installed/running daemon SHA-256: e0b6f6de08527b6af49d526ca0118b14b6fb85ff3335fc607ca1b531cdee5f60
 Installed loader SHA-256: 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 ```
 
 Phase 62 remains active and incomplete. Phase 63-67 runtime has not been
 advanced. PR #117 remains open, Draft and unmerged.
 
-## Accepted Slice 2U contract and evidence
+## Fully accepted Slice 2V
+
+Slice 2V added:
 
 ```text
-Configuration: VDR_SUITE_BROWSER_SESSION_MAX_ACTIVE_PER_ACTOR
-Compatibility default: 0 (unlimited)
-Configured range: 0..64
-Count semantics: effective actor/device/session/browser credential/issuer lifecycle
-Transaction: count before insert inside serialized BEGIN IMMEDIATE
-Reached limit: HTTP 409 browser_session_limit_reached
-Invalid configuration: HTTP 503 browser_session_limit_configuration_invalid
-Eviction: never
-Schema migration: none
-Frontend or route change: none
+VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS
+0          disabled compatibility default
+300..86400 enabled timeout
+
+security_browser_session_credentials.last_seen_at
+60-second minimum activity-write interval
 ```
 
-The real yaVDR acceptance proved the first session succeeded, a second
-same-actor session was denied without writes, the first session remained usable,
-logout released the slot, a replacement session succeeded and revoked-cookie
-replay was denied.
+The guarded real-yaVDR acceptance proved ordinary access before idle expiry,
+throttled activity persistence, ordinary and mutation denial with HTTP 401
+`session_expired` after expiry, unchanged absolute expiry, replacement logout,
+revoked-cookie replay denial, secret-free accountability, lifecycle cleanup,
+SQLite integrity, restored configuration and zero VDR domain mutations.
 
 ```text
-Implementation/runtime head:
-16ff04a4ba371aad32fc4a38bf82f9c0529c532d
-
-Source CI:
-#6690 / run 30723297375 / all five jobs successful
-
-Closeout commit:
-4747d725664d4c382d17d3b19fa2776f48ba437b
-
-Final shared closeout head:
-d00fc5045a136d87323fbc13fb1bfc1030f7d3b5
-
-Final closeout CI:
-#6693 / run 30733265772 / all five jobs successful
-https://github.com/hotzenplotz5/vdr-suite/actions/runs/30733265772
-
-Installed/running daemon SHA-256:
-0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
-
-Loader SHA-256:
-3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
-
-Final service PID:
-79316
-
-Runtime report SHA-256:
-7c33b06d07beff6b17bad82153ff4a0f1e7c1f5c8d8f972406f8b0b9160f4c89
-
-Configured limit:
-1
-
-First session issue:
-HTTP 200
-
-Second same-actor issue:
-HTTP 409 browser_session_limit_reached
-No second lifecycle row created
-
-Existing first session ordinary GET:
-HTTP 200
-
-First logout:
-HTTP 204
-Slot released
-
-Replacement session issue:
-HTTP 200
-
-Replacement logout:
-HTTP 204
-
-Revoked replacement-cookie replay:
-HTTP 401 credential_revoked
-
-Successful issue outcomes:
-2
-
-Limit-reached failed outcomes:
-1
-
-Successful revoke outcomes:
-2
-
-Acceptance lifecycle and source identity:
-revoked
-
-Original daemon configuration:
-restored
-
-SQLite quick check:
-ok
-
-SQLite foreign-key check:
-empty
-
-VDR domain mutations:
-0
-
-Service state:
-active
-
-Automatic rollback:
-not required
+PHASE_62_SLICE_2V_RUNTIME_ACCEPTANCE=PASS
+Implementation/runtime head: e84415fadb2587ff744ff8927f1f0113920ece2f
+Source CI: #6779 / run 30741293079 / all five jobs successful
+Closeout head: cf31b2b67f73f12718601ced5468a59a1183adcb
+Closeout CI: #6799 / run 30742295881 / all five jobs successful
+Closeout link: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30742295881
+Runtime report SHA-256: 0a961fbc8b51158fd4a16aa24fc9afde7dafa9d5272e986a46ec73880c311f86
+Evidence: /var/backups/vdr-suite-phase62-slice2v-20260802T092139Z-e84415fadb25
 ```
 
-Evidence directory:
+## Selected Slice 2W
+
+Exactly one next slice is selected:
 
 ```text
-/var/backups/vdr-suite-phase62-slice2u-20260802T041910Z-16ff04a4ba37/runtime-acceptance-slice2u
+Phase 62 Slice 2W
+Browser-Session Terminal Retention Cleanup
 ```
 
-## Active Slice 2V source contract
+Selection scope:
 
-```text
-Configuration: VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS
-Compatibility default: 0 (disabled)
-Enabled range: 300..86400
-Activity column: security_browser_session_credentials.last_seen_at
-Existing-row backfill: created_at
-Write throttle: at most once per 60 seconds
-Absolute expiry: unchanged hard upper bound
-Idle-expired GET/mutation/logout: HTTP 401 session_expired
-Idle-expired rows in Slice-2U count: excluded
-Automatic cleanup, eviction or revocation: none
-```
+- strict optional retention configuration;
+- one bounded startup cleanup pass;
+- terminal browser verifier plus its own canonical browser session and
+  `browser-session` credential only;
+- fixed batch bound of 256;
+- atomic recheck, secret-free accountability and deletion;
+- fail-closed Security Runtime initialization on enabled-policy failure;
+- preservation of actor, device, issuer, grants and accountability history.
 
-The bounded implementation, focused test and architecture guard are in the
-branch. Final source CI and guarded real-yaVDR acceptance remain pending.
-
-## Latest runtime-accepted slices and closeouts
-
-- [Phase 62 Slice 2U Closeout](phase-62-slice-2u-browser-session-concurrency-limit.md)
-- [Phase 62 Slice 2T Closeout](phase-62-slice-2t-browser-session-issuer-binding.md)
-- [Phase 62 Slice 2S Closeout](phase-62-slice-2s-browser-session-outcome-accountability.md)
-- [Phase 62 Slice 2R Closeout](phase-62-slice-2r-browser-session-lifetime-configuration.md)
-- [Phase 62 Slice 2Q Closeout](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
-- [Phase 62 Slice 2P Closeout](phase-62-slice-2p-query-cache-refresh-security-migration.md)
-- [Phase 62 Slice 2O Closeout](phase-62-slice-2o-native-fuzzy-refresh-security-migration.md)
-- [Phase 61 Metadata, Genre and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
-- [Architecture Source Audit — 2026-07-15](architecture-source-audit-2026-07-15.md)
-
-## Latest accepted Slice 2S evidence
-
-```text
-Service PID after install/acceptance: 69610 / 69610
-HTTP requests: 5
-Login accountability events: 2
-Missing-CSRF accountability events: 1
-Logout accountability events: 2
-Lifecycle accountability events: 5
-Operation-succeeded events: 2
-Missing-CSRF operation events: 0
-Session and credential revocation: passed
-Revoked-cookie replay: denied
-Accountability: secret-free
-Database integrity: yes
-Service active: yes
-Rollback: not required
-```
-
-Evidence directory:
-
-```text
-/var/backups/vdr-suite-phase62-slice2s-20260801T210333Z-c128867bfbf4/runtime-acceptance-slice2s
-```
-
-## Accepted Slice 2T runtime evidence
-
-```text
-Runtime head: 55876356e84b3e47e52911529b3f9bfa0e17f191
-Source CI: #6666 / run 30719552024 / all five jobs successful
-Closeout head: e79e0eb67da75044c4a9afa162c9dab188b026fd
-Closeout CI: #6667 / run 30721936576 / all five jobs successful
-Installed/running daemon: 34b80de4fd8f55b763c4483f0dcb50ee09e5cdc49de7f6e7c25e01ba50d84269
-Runtime report SHA-256: 2ca7fcaefe21c1198e5d8ff88b3e17237b2e72a545780cc14f0200e7dd0ca983
-Ordinary GET before issuer invalidation: HTTP 200
-Ordinary GET after issuer invalidation: HTTP 401 credential_revoked
-Logout after issuer invalidation: HTTP 401 credential_revoked
-Logout denied before CSRF: yes
-Raw browser lifecycle unchanged before cleanup: yes
-Original issuer unchanged: yes
-Test browser lifecycle revoked: yes
-Revoked-cookie replay denied: yes
-VDR domain mutations: 0
-Database integrity: yes
-Service active: yes
-Rollback: not required
-```
-
-Evidence directory:
-
-```text
-/var/backups/vdr-suite-phase62-slice2t-20260801T223353Z-55876356e84b/runtime-acceptance-slice2t
-```
-
-No schema migration, cascade, cleanup, route, frontend, permission,
-configuration or packaging change was included in Slice 2T.
+Implementation has not started. No periodic scheduler, HTTP/API administration,
+issuer-cascade cleanup, automatic eviction, frontend, Android or Phase 63-67
+work is included.
 
 ## Developer references
 
@@ -278,12 +133,13 @@ configuration or packaging change was included in Slice 2T.
 
 ## Exact next action
 
-Evaluate all five GitHub Actions jobs on the final Slice-2V stabilization head.
-Only after source CI is fully green, perform one guarded real-yaVDR acceptance
-for the changed daemon and additive browser-session schema.
+Implement only the selected Slice-2W configuration, repository/service cleanup
+transaction, startup integration, focused tests, architecture guard and Make-test
+registration.
 
-Do not begin cleanup, retention, eviction, session administration, broader
-security administration, Outbox, Android or Phase 63-67 work.
+Do not combine Slice 2W with a periodic scheduler, session administration,
+issuer-cascade cleanup, automatic eviction, generic security administration,
+Outbox, Android or Phase 63-67 runtime.
 
 ## Related navigation
 
