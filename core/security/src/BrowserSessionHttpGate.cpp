@@ -284,6 +284,36 @@ BrowserSessionGateDecision BrowserSessionHttpGate::evaluate(
         ? authenticateBasic(request)
         : authenticateBrowser(request);
 
+    if (gate.logout &&
+        gate.context.authenticated() &&
+        gate.context.permissionGrantResolution ==
+            PermissionGrantResolutionState::Unavailable)
+    {
+        if (!appendDecisionEvent(
+                gate.context,
+                false,
+                permission,
+                action,
+                "browser_session_activity_unavailable"))
+        {
+            gate.rejection = errorResponse(
+                503,
+                "accountability_unavailable",
+                "Security accountability persistence is unavailable",
+                gate.context,
+                false);
+            return gate;
+        }
+
+        gate.rejection = errorResponse(
+            503,
+            "browser_session_activity_unavailable",
+            "Browser session activity persistence is unavailable",
+            gate.context,
+            false);
+        return gate;
+    }
+
     if (!gate.context.authenticated())
     {
         const std::string reasonCode =
