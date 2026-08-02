@@ -66,6 +66,29 @@ struct BrowserSessionIdleConfiguration
     }
 };
 
+struct BrowserSessionRetentionConfiguration
+{
+    static constexpr int MinimumRetentionSeconds = 86400;
+    static constexpr int MaximumRetentionSeconds = 31536000;
+    static constexpr std::size_t BatchSize = 256;
+
+    int seconds = 0;
+    bool configuredValueValid = true;
+
+    bool enabled() const
+    {
+        return seconds > 0;
+    }
+
+    bool valid() const
+    {
+        return configuredValueValid &&
+            (seconds == 0 ||
+             (seconds >= MinimumRetentionSeconds &&
+              seconds <= MaximumRetentionSeconds));
+    }
+};
+
 struct ManagedBasicConfiguration
 {
     std::string username;
@@ -111,6 +134,7 @@ struct SecurityConfiguration
     BrowserSessionLifetimeConfiguration browserSessionLifetime;
     BrowserSessionConcurrencyConfiguration browserSessionConcurrency;
     BrowserSessionIdleConfiguration browserSessionIdle;
+    BrowserSessionRetentionConfiguration browserSessionRetention;
 
     static SecurityConfiguration fromEnvironment()
     {
@@ -241,6 +265,17 @@ struct SecurityConfiguration
                     configuration.browserSessionIdle.timeoutSeconds);
         }
 
+        const char* browserSessionRetention =
+            std::getenv(
+                "VDR_SUITE_BROWSER_SESSION_RETENTION_SECONDS");
+        if (browserSessionRetention != nullptr)
+        {
+            configuration.browserSessionRetention.configuredValueValid =
+                parseBrowserSessionRetention(
+                    browserSessionRetention,
+                    configuration.browserSessionRetention.seconds);
+        }
+
         return configuration;
     }
 
@@ -341,6 +376,27 @@ private:
             (parsed != 0 &&
              parsed < static_cast<std::size_t>(
                  BrowserSessionIdleConfiguration::MinimumTimeoutSeconds)))
+        {
+            return false;
+        }
+
+        result = static_cast<int>(parsed);
+        return true;
+    }
+
+    static bool parseBrowserSessionRetention(
+        const std::string& configuredValue,
+        int& result)
+    {
+        std::size_t parsed = 0;
+        if (!parseBoundedUnsignedDecimal(
+                configuredValue,
+                static_cast<std::size_t>(
+                    BrowserSessionRetentionConfiguration::MaximumRetentionSeconds),
+                parsed) ||
+            (parsed != 0 &&
+             parsed < static_cast<std::size_t>(
+                 BrowserSessionRetentionConfiguration::MinimumRetentionSeconds)))
         {
             return false;
         }
