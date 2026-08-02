@@ -5,7 +5,7 @@
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
-- [Phase 62 Slice 2V Contract](development/phase-62-slice-2v-browser-session-idle-expiry.md)
+- [Phase 62 Slice 2V Closeout](development/phase-62-slice-2v-browser-session-idle-expiry.md)
 - [Phase 62 Slice 2U Closeout](development/phase-62-slice-2u-browser-session-concurrency-limit.md)
 - [Phase 62 Slice 2T Closeout](development/phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Phase 62 Slice 2S Closeout](development/phase-62-slice-2s-browser-session-outcome-accountability.md)
@@ -45,44 +45,39 @@ VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
 Configurable photorealistic VDR Remote (#115)
 
-Next strict runtime phase:
+Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Repository, source CI and real-runtime accepted through:
-Slice 2U - Concurrent Browser-Session Limit
-
-Accepted implementation/runtime head:
-16ff04a4ba371aad32fc4a38bf82f9c0529c532d
-
-Accepted Slice-2U source GitHub Actions:
-VDR-Suite CI #6690
-Run ID 30723297375
-All five jobs successful
-
-Slice-2U documentation closeout commit:
-4747d725664d4c382d17d3b19fa2776f48ba437b
-
-Final shared closeout and workflow head:
-d00fc5045a136d87323fbc13fb1bfc1030f7d3b5
-
-Final closeout GitHub Actions:
-VDR-Suite CI #6693
-Run ID 30733265772
-All five jobs successful
-https://github.com/hotzenplotz5/vdr-suite/actions/runs/30733265772
-
-Active repository implementation:
 Slice 2V - Browser-Session Idle Expiry and throttled last_seen
 
+Accepted implementation/runtime head:
+e84415fadb2587ff744ff8927f1f0113920ece2f
+
+Accepted Slice-2V source GitHub Actions:
+VDR-Suite CI #6779
+Run ID 30741293079
+All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
+
+Documentation-only Slice-2V closeout:
+Canonical closeout updates in progress; final closeout CI pending
+
+Active repository implementation:
+None selected after Slice 2V runtime acceptance
+
 Installed/running daemon SHA-256:
-0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
+e0b6f6de08527b6af49d526ca0118b14b6fb85ff3335fc607ca1b531cdee5f60
 
 Installed deferred-runtime-loader.js SHA-256:
 3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+
+Restored daemon configuration SHA-256:
+8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
 ```
 
-Phase 61 is complete. Phase 62 is active and incomplete. Phase 63-67
-runtime has not been advanced.
+Phase 61 is complete. Phase 62 is active and incomplete. Phase 63-67 runtime
+has not been advanced.
 
 ## Accepted security request path
 
@@ -91,6 +86,8 @@ HTTP request
   -> browser cookie has strict precedence when present
   -> otherwise Legacy Basic or optional Managed Basic
   -> browser credential and canonical persistent lifecycle resolution
+  -> issuing-credential request-time lifecycle binding
+  -> absolute lifetime and optional idle-expiry effectiveness
   -> exact route classification
   -> route-specific backend or global scope extraction
   -> cookie-bound CSRF for migrated browser mutations
@@ -243,7 +240,7 @@ browser_session_limit_reached
 
 Invalid limit configuration fails closed with HTTP 503. Idle timeout,
 `last_seen`, refresh, cleanup, retention, automatic eviction and session
-administration remain explicitly deferred.
+administration were explicitly deferred from Slice 2U.
 
 The guarded real-yaVDR acceptance used an isolated Managed-Basic actor with a
 temporary limit of `1`. It proved deny-new semantics without evicting the first
@@ -337,6 +334,121 @@ Slice 2U is fully closed. Its closeout commit
 `d00fc5045a136d87323fbc13fb1bfc1030f7d3b5` are covered by VDR-Suite CI
 #6693, run `30733265772`, with all five jobs successful.
 
+## Accepted Slice 2V contract and runtime evidence
+
+Slice 2V adds an optional server-side browser-session idle timeout and one
+explicit activity timestamp:
+
+```text
+VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS
+Default: 0 (disabled compatibility behaviour)
+Enabled range: 300..86400 seconds
+Syntax: unsigned decimal digits only
+
+security_browser_session_credentials.last_seen_at
+Minimum activity-write interval: 60 seconds
+```
+
+The additive schema migration backfills existing rows from immutable
+`created_at`. Cookie authentication and CSRF verification share one
+repository-owned idle calculation. Absolute `expires_at` remains the unchanged
+hard upper bound and is never extended by activity.
+
+Idle-expired sessions return HTTP 401 `session_expired` before ordinary or
+mutation dispatch, do not update `last_seen_at`, do not consume a Slice-2U
+concurrency slot and are not physically deleted, revoked or evicted by Slice 2V.
+
+The guarded real-yaVDR pass used an isolated identity and a temporary idle
+timeout of `300` seconds. It proved ordinary access before idle expiry,
+throttled activity persistence, ordinary and mutation denial after expiry,
+unchanged absolute expiry, replacement logout and revoked-cookie replay denial.
+
+```text
+PHASE_62_SLICE_2V_RUNTIME_ACCEPTANCE=PASS
+
+Implementation/runtime head:
+e84415fadb2587ff744ff8927f1f0113920ece2f
+
+Source CI:
+#6779 / run 30741293079 / all five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
+
+Installed/running daemon SHA-256:
+e0b6f6de08527b6af49d526ca0118b14b6fb85ff3335fc607ca1b531cdee5f60
+
+Loader SHA-256:
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+
+Restored configuration SHA-256:
+8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+
+Final service PID:
+86549
+
+Runtime report SHA-256:
+0a961fbc8b51158fd4a16aa24fc9afde7dafa9d5272e986a46ec73880c311f86
+
+Configured idle timeout:
+300 seconds
+
+Activity-write interval:
+60 seconds
+
+Ordinary GET before idle expiry:
+HTTP 200
+
+Ordinary GET after idle expiry:
+HTTP 401 session_expired
+
+Protected mutation after idle expiry:
+HTTP 401 session_expired
+
+last_seen writes inside accepted interval:
+1
+
+Absolute expiry unchanged:
+yes
+
+Replacement logout:
+HTTP 204
+
+Revoked replacement-cookie replay:
+HTTP 401 credential_revoked
+
+Acceptance lifecycle active rows after cleanup:
+0
+
+SQLite quick check:
+ok
+
+SQLite foreign-key check:
+empty
+
+Accountability secret-free:
+yes
+
+VDR domain mutations:
+0
+
+Final service state:
+active
+
+Runtime drop-in:
+removed
+
+Idle test environment:
+not set
+```
+
+Durable secret-free evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2v-20260802T092139Z-e84415fadb25
+```
+
+Slice 2V is runtime-accepted. Documentation closeout CI remains the only open
+Slice-2V gate.
+
 ## Compatibility and fail-closed boundary
 
 Legacy Basic remains a transitional compatibility path. Managed Basic and
@@ -344,15 +456,15 @@ browser actors do not inherit a legacy bypass. Browser mutations not explicitly
 classified remain fail-closed with `security_policy_not_migrated`.
 
 A presented browser cookie never falls back to Basic. Slice 2T strengthens the
-effective browser-cookie and CSRF lifecycle resolution. Slice 2U affects only
-new browser-session issuance; it does not mutate existing sessions.
+effective browser-cookie and CSRF lifecycle resolution. Slice 2U affects new
+browser-session issuance. Slice 2V adds request-time idle effectiveness and
+throttled activity persistence without changing absolute expiry.
 
-## Fresh post-2U gap analysis
+## Post-Slice-2V gap status
 
 No product POST route remains to migrate. The remaining Phase 62 work is:
 
-- browser-session idle expiry and throttled `last_seen` persistence;
-- cleanup and retention as a separate later slice;
+- physical browser-session cleanup and retention;
 - further operation outcomes;
 - stronger transaction coupling or Outbox;
 - shared revisions, idempotency and durable operation lifecycle;
@@ -361,11 +473,8 @@ No product POST route remains to migrate. The remaining Phase 62 work is:
 - protected audit reads, export and retention;
 - compatibility retirement and final Phase 62 closeout.
 
-The browser-session table has absolute `expires_at`, `created_at` and
-`updated_at`, but no activity timestamp. `updated_at` is not a valid idle clock
-because lifecycle writes such as revocation also modify it. The bounded next
-slice therefore adds one explicit browser-session `last_seen_at` field rather
-than introducing a generic timestamp model.
+No next implementation slice is selected by the Slice-2V runtime acceptance.
+A fresh post-2V gap analysis follows only after documentation closeout CI.
 
 ## Operating rules
 
@@ -376,6 +485,8 @@ than introducing a generic timestamp model.
 - Push coherent commits consecutively; do not wait for CI after every commit.
 - Evaluate required CI on the final stabilization head before runtime,
   Ready-for-review or merge gates.
+- Every CI status report must include the direct run link, run number, run ID
+  and head commit.
 - PR #117 remains open, Draft and unmerged.
 - Do not mark it Ready, merge, auto-merge, force-push or rewrite branch history.
 - Recheck volatile GitHub and local state immediately before mutation.
@@ -385,12 +496,13 @@ than introducing a generic timestamp model.
 
 ## Exact next action
 
-Implement only Phase 62 Slice 2V — Browser-Session Idle Expiry and throttled
-`last_seen`. Run focused source validation and then evaluate all five GitHub
-Actions jobs on the final stabilization head. A new guarded real-yaVDR runtime
-acceptance is required only because the daemon and browser-session schema will
-change.
+Require all five GitHub Actions jobs for the documentation-only Slice-2V
+closeout.
 
-Do not combine Slice 2V with cleanup, retention, automatic eviction, session
-listing or administration, general security administration, Outbox, Android or
-Phase 63-67 work.
+No next Phase-62 implementation slice is selected by this closeout. After full
+closeout CI, perform a fresh post-2V gap analysis and select exactly one bounded
+slice.
+
+Do not combine the closeout with cleanup, retention, automatic eviction,
+session listing or administration, general security administration, Outbox,
+Android or Phase 63-67 work.
