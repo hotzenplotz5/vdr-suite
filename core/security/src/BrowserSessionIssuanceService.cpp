@@ -447,7 +447,11 @@ BrowserSessionIssuanceService::issueWithPolicy(
         !safeIdentifier(request.issuedFromCredentialId) ||
         request.lifetimeSeconds < MinimumLifetimeSeconds ||
         request.lifetimeSeconds > MaximumLifetimeSeconds ||
-        request.maximumActivePerActor > MaximumActiveSessionsPerActor)
+        request.maximumActivePerActor > MaximumActiveSessionsPerActor ||
+        request.idleTimeoutSeconds < 0 ||
+        (request.idleTimeoutSeconds > 0 &&
+         (request.idleTimeoutSeconds < MinimumIdleTimeoutSeconds ||
+          request.idleTimeoutSeconds > MaximumIdleTimeoutSeconds)))
     {
         return outcome;
     }
@@ -509,7 +513,8 @@ BrowserSessionIssuanceService::issueWithPolicy(
     {
         const auto activeCount =
             credentialRepository_.countEffectiveActiveByActorId(
-                request.actorId);
+                request.actorId,
+                request.idleTimeoutSeconds);
         if (!activeCount.has_value())
         {
             return outcome;
