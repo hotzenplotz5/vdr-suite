@@ -67,7 +67,7 @@ def main() -> int:
     require(repository_source, "issuing.revoked_at <> ''")
     require_count(
         authenticator,
-        "repository_.findResolvedByTokenId(tokenId)",
+        "repository_.findResolvedByTokenId(",
         2,
     )
     forbid(authenticator, "repository_.findByTokenId(tokenId)")
