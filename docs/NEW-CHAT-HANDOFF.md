@@ -11,6 +11,7 @@ binary, configuration, database, routing or behaviour fingerprint changed.
 
 ## Canonical reading
 
+- [Ready-to-copy Phase 62 Slice 2W new-chat prompt](development/phase-62-slice-2w-new-chat-prompt.md)
 - [Current project truth](CURRENT.md)
 - [Current project status](development/current-status.md)
 - [Phase 62 Slice 2W selection](development/phase-62-slice-2w-browser-session-retention-cleanup.md)
@@ -28,8 +29,10 @@ binary, configuration, database, routing or behaviour fingerprint changed.
 - [ADR index](adr/index.md)
 - [Agent workflow rules](../AGENTS.md)
 
-The Slice-2W selection document, Slice-2V closeout, runtime evidence, current
-state and current-status files are the newest Phase 62 authorities.
+The ready-to-copy new-chat prompt is the explicit continuation entry point. The
+current chat stops before Slice-2W implementation. The Slice-2W selection
+document, Slice-2V closeout, runtime evidence, current state and current-status
+files remain the newest Phase 62 authorities.
 
 ## Stable project position
 
@@ -96,8 +99,18 @@ https://github.com/hotzenplotz5/vdr-suite/actions/runs/30742295881
 Selected next bounded slice:
 Slice 2W - Browser-Session Terminal Retention Cleanup
 
+Slice-2W selection CI:
+VDR-Suite CI #6807
+Run ID 30742936735
+Head 08b691630c30e1f2a7a74c42f7566ddc96d66b48
+All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30742936735
+
 Slice-2W state:
 selection and contract documented; implementation not started
+
+Continuation prompt:
+docs/development/phase-62-slice-2w-new-chat-prompt.md
 ```
 
 PR #117 must remain open and Draft. Do not mark it Ready, merge it, enable
@@ -275,15 +288,18 @@ Beyond the selected Slice 2W, still open are:
 
 ## Exact next action
 
-1. require all five GitHub Actions jobs on the documentation-only Slice-2W
-   selection head;
-2. keep PR #117 open and Draft;
-3. after green selection CI, implement only the selected Slice-2W configuration,
-   bounded cleanup transaction/service, startup integration, focused tests,
-   architecture guard and Make-test registration;
-4. do not combine implementation with scheduling, administration APIs, issuer
+1. Start a new chat with the complete prompt in
+   `docs/development/phase-62-slice-2w-new-chat-prompt.md`.
+2. Keep PR #117 open and Draft.
+3. In the new chat, verify the current remote head and latest documentation CI.
+4. Then implement only the selected Slice-2W configuration, bounded cleanup
+   transaction/service, startup integration, focused tests, architecture guard
+   and Make-test registration.
+5. Do not combine implementation with scheduling, administration APIs, issuer
    cascade, automatic eviction, broader security administration, Outbox,
    Android or Phase 63-67 runtime.
+
+The current chat intentionally ends before Slice-2W implementation.
 
 ## Maintenance rule
 
