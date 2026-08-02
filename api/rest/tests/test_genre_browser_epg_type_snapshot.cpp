@@ -30,6 +30,29 @@ SuiteBridgeEpgTypeSnapshotTransportItem item(
     value.mediaType = EpgScraperMediaType::Series;
     return value;
 }
+
+GenreEvidenceInput scraperGenreEvidence(
+    const std::string& eventId,
+    std::int64_t startTime,
+    std::int64_t endTime,
+    const std::string& genre)
+{
+    GenreEvidenceInput value;
+    value.backendId = "default";
+    value.targetType = "program-event";
+    value.resourceKey = "C-1\n" + eventId;
+    value.nativeId = eventId;
+    value.channelId = "C-1";
+    value.startTime = startTime;
+    value.endTime = endTime;
+    value.providerId = "tvscraper";
+    value.sourceKind = "scraper-metadata";
+    value.originalValues = {genre};
+    value.state = "active";
+    value.confidence = 0.95;
+    value.observedAt = 1500;
+    return value;
+}
 }
 
 int main()
@@ -76,7 +99,11 @@ int main()
         "('default','C-1','4','Tagesthemen','mit Wetter','',"
         "'1300','2300',1000,''),"
         "('default','C-1','5','Sportschau','Live','',"
-        "'1400','2400',1000,'');"
+        "'1400','2400',1000,''),"
+        "('default','C-1','6','Panda, Gorilla & Co.','Zoogeschichten','',"
+        "'1500','2500',1000,''),"
+        "('default','C-1','7','NFL Highlights','Spieltag','',"
+        "'1600','2600',1000,'');"
         "INSERT INTO vdr_channel_cache(backend_id,channel_id,channel_number,name) "
         "VALUES('default','C-1',1,'Das Erste HD');"));
 
@@ -89,10 +116,15 @@ int main()
 
     GenreIndexRepository repository(database);
     assert(repository.ensureSchema());
-    assert(repository.synchronizeEpgCache("default", 900, 2500));
+    assert(repository.synchronizeEpgCache("default", 900, 2700));
 
     GenreBrowserApiRuntime& runtime = GenreBrowserApiRuntime::instance();
     assert(runtime.configure(database, backendRegistryService));
+
+    assert(repository.replaceEvidence(scraperGenreEvidence(
+        "6", 1500, 2500, "Documentary")));
+    assert(repository.replaceEvidence(scraperGenreEvidence(
+        "7", 1600, 2600, "Sports")));
 
     const std::vector<SuiteBridgeEpgTypeSnapshotTransportItem> items = {
         item("1", 1000, 2000),
@@ -100,6 +132,8 @@ int main()
         item("3", 1200, 2200),
         item("4", 1300, 2300),
         item("5", 1400, 2400),
+        item("6", 1500, 2500),
+        item("7", 1600, 2600),
     };
     assert(runtime.applyEpgTypeSnapshot("default", items));
 
@@ -109,7 +143,7 @@ int main()
     ApiResponse series;
     assert(runtime.tryHandleGet(
         "/api/metadata/genres/epg?backend=default&contentClass=series"
-        "&from=900&until=2500",
+        "&from=900&until=2700",
         series));
     assert(series.statusCode == 200);
     assert(contains(series, "Death in Paradise"));
@@ -117,14 +151,25 @@ int main()
     assert(!contains(series, "Tagesschau"));
     assert(!contains(series, "Tagesthemen"));
     assert(!contains(series, "Sportschau"));
+    assert(!contains(series, "Panda, Gorilla & Co."));
+    assert(!contains(series, "NFL Highlights"));
+
+    ApiResponse documentary;
+    assert(runtime.tryHandleGet(
+        "/api/metadata/genres/epg?backend=default&contentClass=documentary"
+        "&from=900&until=2700",
+        documentary));
+    assert(documentary.statusCode == 200);
+    assert(contains(documentary, "Panda, Gorilla & Co."));
 
     ApiResponse sports;
     assert(runtime.tryHandleGet(
         "/api/metadata/genres/epg?backend=default&contentClass=sports"
-        "&from=900&until=2500",
+        "&from=900&until=2700",
         sports));
     assert(sports.statusCode == 200);
     assert(contains(sports, "Sportschau"));
+    assert(contains(sports, "NFL Highlights"));
     assert(!contains(sports, "Tagesschau"));
 
     runtime.reset();
