@@ -62,6 +62,11 @@ Restored daemon configuration SHA-256:
 Phase 61 remains completed. Phase 62 remains active and incomplete. Phase
 63-67 runtime has not been advanced.
 
+## Completed-phase references
+
+- [Phase 61 and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
+- [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
+
 ## Cumulative accepted Phase 62 scope
 
 The accepted branch and installed runtime include:
@@ -218,3 +223,5 @@ Phase 63-67 work.
 - [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 - [Strict Roadmap](../planning/roadmap.md)
+- [Phase 61 and Performance Closeout](phase-61-metadata-genre-performance-closeout.md)
+- [Post-Phase-61 Platform Runtime Closeout](post-phase-61-platform-runtime-closeout.md)
