@@ -14,6 +14,9 @@ Baseline: `main @ cb77ff66e11dca7db2eafa36525762dcde35102d`.
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
+Previous completed numbered runtime phase:
+Phase 61 - Suite Metadata and Genre Platform
+
 Completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
 
