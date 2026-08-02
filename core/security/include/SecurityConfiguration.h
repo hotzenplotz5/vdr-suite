@@ -43,6 +43,29 @@ struct BrowserSessionConcurrencyConfiguration
     }
 };
 
+struct BrowserSessionIdleConfiguration
+{
+    static constexpr int MinimumTimeoutSeconds = 300;
+    static constexpr int MaximumTimeoutSeconds = 86400;
+    static constexpr int LastSeenWriteIntervalSeconds = 60;
+
+    int timeoutSeconds = 0;
+    bool configuredValueValid = true;
+
+    bool enabled() const
+    {
+        return timeoutSeconds > 0;
+    }
+
+    bool valid() const
+    {
+        return configuredValueValid &&
+            (timeoutSeconds == 0 ||
+             (timeoutSeconds >= MinimumTimeoutSeconds &&
+              timeoutSeconds <= MaximumTimeoutSeconds));
+    }
+};
+
 struct ManagedBasicConfiguration
 {
     std::string username;
@@ -87,6 +110,7 @@ struct SecurityConfiguration
     ManagedBasicConfiguration managedBasic;
     BrowserSessionLifetimeConfiguration browserSessionLifetime;
     BrowserSessionConcurrencyConfiguration browserSessionConcurrency;
+    BrowserSessionIdleConfiguration browserSessionIdle;
 
     static SecurityConfiguration fromEnvironment()
     {
@@ -206,6 +230,17 @@ struct SecurityConfiguration
                         .maximumActivePerActor);
         }
 
+        const char* browserSessionIdleTimeout =
+            std::getenv(
+                "VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS");
+        if (browserSessionIdleTimeout != nullptr)
+        {
+            configuration.browserSessionIdle.configuredValueValid =
+                parseBrowserSessionIdleTimeout(
+                    browserSessionIdleTimeout,
+                    configuration.browserSessionIdle.timeoutSeconds);
+        }
+
         return configuration;
     }
 
@@ -232,46 +267,9 @@ private:
         return value;
     }
 
-    static bool parseBrowserSessionLifetime(
+    static bool parseBoundedUnsignedDecimal(
         const std::string& configuredValue,
-        int& result)
-    {
-        if (configuredValue.empty())
-        {
-            return false;
-        }
-
-        constexpr int maximum =
-            BrowserSessionIssuanceService::MaximumLifetimeSeconds;
-        int parsed = 0;
-
-        for (const unsigned char character : configuredValue)
-        {
-            if (!std::isdigit(character))
-            {
-                return false;
-            }
-
-            const int digit = character - '0';
-            if (parsed > (maximum - digit) / 10)
-            {
-                return false;
-            }
-            parsed = parsed * 10 + digit;
-        }
-
-        if (parsed <
-            BrowserSessionIssuanceService::MinimumLifetimeSeconds)
-        {
-            return false;
-        }
-
-        result = parsed;
-        return true;
-    }
-
-    static bool parseBrowserSessionMaximum(
-        const std::string& configuredValue,
+        std::size_t maximum,
         std::size_t& result)
     {
         if (configuredValue.empty())
@@ -279,10 +277,7 @@ private:
             return false;
         }
 
-        constexpr std::size_t maximum =
-            BrowserSessionIssuanceService::MaximumActiveSessionsPerActor;
         std::size_t parsed = 0;
-
         for (const unsigned char character : configuredValue)
         {
             if (!std::isdigit(character))
@@ -300,6 +295,57 @@ private:
         }
 
         result = parsed;
+        return true;
+    }
+
+    static bool parseBrowserSessionLifetime(
+        const std::string& configuredValue,
+        int& result)
+    {
+        std::size_t parsed = 0;
+        if (!parseBoundedUnsignedDecimal(
+                configuredValue,
+                static_cast<std::size_t>(
+                    BrowserSessionIssuanceService::MaximumLifetimeSeconds),
+                parsed) ||
+            parsed < static_cast<std::size_t>(
+                BrowserSessionIssuanceService::MinimumLifetimeSeconds))
+        {
+            return false;
+        }
+
+        result = static_cast<int>(parsed);
+        return true;
+    }
+
+    static bool parseBrowserSessionMaximum(
+        const std::string& configuredValue,
+        std::size_t& result)
+    {
+        return parseBoundedUnsignedDecimal(
+            configuredValue,
+            BrowserSessionIssuanceService::MaximumActiveSessionsPerActor,
+            result);
+    }
+
+    static bool parseBrowserSessionIdleTimeout(
+        const std::string& configuredValue,
+        int& result)
+    {
+        std::size_t parsed = 0;
+        if (!parseBoundedUnsignedDecimal(
+                configuredValue,
+                static_cast<std::size_t>(
+                    BrowserSessionIdleConfiguration::MaximumTimeoutSeconds),
+                parsed) ||
+            (parsed != 0 &&
+             parsed < static_cast<std::size_t>(
+                 BrowserSessionIdleConfiguration::MinimumTimeoutSeconds)))
+        {
+            return false;
+        }
+
+        result = static_cast<int>(parsed);
         return true;
     }
 
