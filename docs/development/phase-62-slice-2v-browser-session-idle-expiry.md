@@ -2,9 +2,24 @@
 
 ## Status
 
-Selected after the completed Slice-2U closeout and fresh post-2U gap analysis.
-The bounded implementation, focused source test and architecture guard are in
-the branch. Final source CI and guarded real-yaVDR acceptance are pending.
+Implementation, final-head source CI and guarded real-yaVDR runtime acceptance
+are fully accepted. Documentation closeout CI is pending on the canonical
+closeout head.
+
+Implementation/runtime head:
+
+```text
+e84415fadb2587ff744ff8927f1f0113920ece2f
+```
+
+Source CI:
+
+```text
+VDR-Suite CI #6779
+Run ID 30741293079
+All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
+```
 
 PR #117 remains open, Draft and unmerged.
 
@@ -172,26 +187,127 @@ The architecture guard rejects:
 - a non-zero compatibility default;
 - idle timeout values outside the bounded contract.
 
-## Real yaVDR acceptance gate
+## Real yaVDR acceptance
 
-A new guarded real-yaVDR acceptance is required because this slice changes the
-daemon and browser-session schema. It is permitted only after all five source CI
-jobs pass on the final stabilization head.
+Guarded runtime acceptance completed successfully on 2026-08-02.
 
-The runtime pass must use an isolated test identity and prove at minimum:
+The isolated acceptance:
 
-- configured idle timeout is applied;
-- ordinary GET succeeds before idle expiry;
-- ordinary GET and mutation fail closed after idle expiry;
-- no domain mutation occurs;
-- absolute expiry is unchanged;
-- throttled `last_seen_at` changes at most once in the accepted interval;
-- logout/replay behaviour remains valid for a non-idle replacement session;
-- original configuration is restored;
-- test lifecycle is revoked;
-- SQLite quick and foreign-key checks pass;
-- service remains active;
-- evidence is secret-free.
+1. backed up the installed daemon, daemon configuration, frontend loader and
+   SQLite state;
+2. installed the exact source-CI-approved daemon;
+3. applied a temporary idle timeout of `300` seconds through a runtime-only
+   systemd drop-in;
+4. proved one ordinary GET succeeds before idle expiry;
+5. proved one ordinary GET and one protected mutation return HTTP 401
+   `session_expired` after idle expiry;
+6. proved `last_seen_at` is updated once when due and not rewritten inside the
+   60-second throttle interval;
+7. proved absolute `expires_at` remains unchanged;
+8. proved logout succeeds for a replacement non-idle session and revoked-cookie
+   replay returns HTTP 401 `credential_revoked`;
+9. verified exact secret-free accountability for idle denials, logout and
+   replay;
+10. revoked the isolated test lifecycle;
+11. restored the original configuration exactly;
+12. removed the runtime-only systemd drop-in and idle test environment;
+13. verified SQLite quick and foreign-key checks;
+14. left the Phase-62 daemon installed and the service active;
+15. performed zero VDR domain mutations.
+
+```text
+PHASE_62_SLICE_2V_RUNTIME_ACCEPTANCE=PASS
+
+Implementation/runtime head:
+e84415fadb2587ff744ff8927f1f0113920ece2f
+
+Source CI:
+#6779 / run 30741293079 / all five jobs successful
+
+Installed/running daemon SHA-256:
+e0b6f6de08527b6af49d526ca0118b14b6fb85ff3335fc607ca1b531cdee5f60
+
+Loader SHA-256:
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+
+Restored configuration SHA-256:
+8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+
+Final service PID:
+86549
+
+Runtime report SHA-256:
+0a961fbc8b51158fd4a16aa24fc9afde7dafa9d5272e986a46ec73880c311f86
+
+Configured idle timeout:
+300 seconds
+
+Activity-write interval:
+60 seconds
+
+Ordinary GET before idle expiry:
+HTTP 200
+
+Ordinary GET after idle expiry:
+HTTP 401 session_expired
+
+Protected mutation after idle expiry:
+HTTP 401 session_expired
+
+last_seen writes inside accepted interval:
+1
+
+Absolute expiry unchanged:
+yes
+
+Replacement logout:
+HTTP 204
+
+Revoked replacement-cookie replay:
+HTTP 401 credential_revoked
+
+Acceptance lifecycle active rows after cleanup:
+0
+
+SQLite quick check:
+ok
+
+SQLite foreign-key check:
+empty
+
+Accountability secret-free:
+yes
+
+VDR domain mutations:
+0
+
+Final service state:
+active
+
+Runtime drop-in:
+removed
+
+Idle test environment:
+not set
+```
+
+Durable secret-free evidence:
+
+```text
+/var/backups/vdr-suite-phase62-slice2v-20260802T092139Z-e84415fadb25
+```
+
+Runtime report:
+
+```text
+/var/backups/vdr-suite-phase62-slice2v-20260802T092139Z-e84415fadb25/runtime-acceptance-report.txt
+```
+
+Runtime report SHA-256:
+
+```text
+0a961fbc8b51158fd4a16aa24fc9afde7dafa9d5272e986a46ec73880c311f86
+```
 
 ## Explicitly excluded
 
@@ -207,3 +323,38 @@ Slice 2V does not add:
 - protected audit reads or export;
 - Android or Android TV work;
 - Phase 63-67 runtime.
+
+## Acceptance result
+
+The Slice-2V runtime gate is fully satisfied through implementation, focused
+tests, architecture checks, final-head source CI and guarded real-yaVDR
+acceptance.
+
+Verified:
+
+1. implementation remained within the bounded Slice-2V contract;
+2. strict configuration, schema, repository, authenticator and HTTP tests passed;
+3. architecture and Make-test inventory checks passed;
+4. all five GitHub Actions jobs passed on the final implementation head;
+5. guarded real-yaVDR acceptance passed;
+6. idle expiry applied consistently to ordinary and mutation paths;
+7. throttled `last_seen_at` persistence behaved as specified;
+8. absolute expiry was never extended;
+9. test lifecycle rows were revoked;
+10. original configuration and systemd state were restored;
+11. accountability remained secret-free;
+12. SQLite integrity checks passed;
+13. zero VDR domain mutations occurred;
+14. the accepted Phase-62 daemon remains installed and active.
+
+Slice 2V is runtime-accepted. Its documentation closeout still requires all five
+GitHub Actions jobs on the final canonical closeout head.
+
+## Exact next action
+
+Require all five GitHub Actions jobs for the documentation-only Slice-2V
+closeout.
+
+No next Phase-62 implementation slice is selected by this runtime acceptance.
+After full closeout CI, perform a fresh post-2V gap analysis and select exactly
+one bounded slice. Do not combine that selection with this closeout.
