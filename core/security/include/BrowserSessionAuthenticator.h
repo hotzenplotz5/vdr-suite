@@ -23,8 +23,27 @@ public:
         const SecurityPermissionGrantRepository& grantRepository,
         std::string cookieName = "vdr_suite_session",
         std::string csrfHeaderName = "X-CSRF-Token")
+        : BrowserSessionAuthenticator(
+              repository,
+              grantRepository,
+              0,
+              60,
+              std::move(cookieName),
+              std::move(csrfHeaderName))
+    {
+    }
+
+    BrowserSessionAuthenticator(
+        const BrowserSessionCredentialRepository& repository,
+        const SecurityPermissionGrantRepository& grantRepository,
+        int idleTimeoutSeconds,
+        int lastSeenWriteIntervalSeconds,
+        std::string cookieName = "vdr_suite_session",
+        std::string csrfHeaderName = "X-CSRF-Token")
         : repository_(repository),
           grantRepository_(grantRepository),
+          idleTimeoutSeconds_(idleTimeoutSeconds),
+          lastSeenWriteIntervalSeconds_(lastSeenWriteIntervalSeconds),
           cookieName_(std::move(cookieName)),
           csrfHeaderName_(std::move(csrfHeaderName))
     {
@@ -46,9 +65,10 @@ public:
         {
             return context;
         }
-        if (lookup == CookieLookupResult::Invalid)
+        if (lookup == CookieLookupResult::Invalid || !idlePolicyValid())
         {
             context.authenticationState = AuthenticationState::Invalid;
+            wipe(cookieValue);
             return context;
         }
 
@@ -62,7 +82,9 @@ public:
         }
         wipe(cookieValue);
 
-        const auto record = repository_.findResolvedByTokenId(tokenId);
+        const auto record = repository_.findResolvedByTokenId(
+            tokenId,
+            idleTimeoutSeconds_);
         const bool secretAccepted =
             record.has_value() &&
             verifySecret(sessionSecret, record->sessionSecretHash);
@@ -84,7 +106,7 @@ public:
             context.credential->revoked = true;
             return context;
         }
-        if (record->expired)
+        if (record->expired || record->idleExpired)
         {
             context.authenticationState = AuthenticationState::Expired;
             context.session->expired = true;
@@ -93,6 +115,13 @@ public:
         }
 
         context.authenticationState = AuthenticationState::Authenticated;
+
+        if (idleTimeoutSeconds_ > 0)
+        {
+            repository_.touchLastSeenIfDue(
+                tokenId,
+                lastSeenWriteIntervalSeconds_);
+        }
 
         auto grantResolution =
             grantRepository_.findActiveGrantsForActor(record->actorId);
@@ -112,6 +141,11 @@ public:
     bool verifyCsrf(
         const std::map<std::string, std::string>& headers) const
     {
+        if (!idlePolicyValid())
+        {
+            return false;
+        }
+
         std::string cookieValue;
         if (findCookieValue(headers, cookieValue) !=
             CookieLookupResult::Found)
@@ -128,11 +162,14 @@ public:
         }
         wipe(cookieValue);
 
-        const auto record = repository_.findResolvedByTokenId(tokenId);
+        const auto record = repository_.findResolvedByTokenId(
+            tokenId,
+            idleTimeoutSeconds_);
         const bool sessionAccepted =
             record.has_value() &&
             record->active &&
             !record->expired &&
+            !record->idleExpired &&
             !record->revoked &&
             verifySecret(sessionSecret, record->sessionSecretHash);
         wipe(sessionSecret);
@@ -172,6 +209,14 @@ private:
         Found,
         Invalid
     };
+
+    bool idlePolicyValid() const
+    {
+        return lastSeenWriteIntervalSeconds_ > 0 &&
+            (idleTimeoutSeconds_ == 0 ||
+             (idleTimeoutSeconds_ >= 300 &&
+              idleTimeoutSeconds_ <= 86400));
+    }
 
     static std::string lowerAscii(std::string value)
     {
@@ -402,6 +447,8 @@ private:
 
     const BrowserSessionCredentialRepository& repository_;
     const SecurityPermissionGrantRepository& grantRepository_;
+    int idleTimeoutSeconds_ = 0;
+    int lastSeenWriteIntervalSeconds_ = 60;
     std::string cookieName_;
     std::string csrfHeaderName_;
 };
