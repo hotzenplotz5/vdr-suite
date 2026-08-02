@@ -7,7 +7,6 @@
 - [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
 - [Slice 2X Accepted Contract](phase-62-slice-2x-protected-mutation-response-outcomes.md)
 - [Slice 2X yaVDR Runbook](phase-62-slice-2x-runtime-acceptance-runbook.md)
-- [Slice 2W Runtime Closeout](phase-62-slice-2w-runtime-closeout.md)
 - [Completed Phases](completed-phases.md)
 - [Completed Phases Latest Marker](completed-phases-latest.md)
 - [Completed Phase Archive](completed-phases/README.md)
@@ -40,12 +39,6 @@ https://github.com/hotzenplotz5/vdr-suite/actions/runs/30752351218
 Installed/running daemon SHA-256:
 488edade196cedfb92d5393a8725b39c5f5cdfd3265e2b15bab6aadfbe7ef5f5
 
-Installed loader SHA-256:
-3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
-
-Daemon configuration SHA-256:
-8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
-
 Runtime report SHA-256:
 bf165416b5ad041f44b2514182dac582a7f1060bf1ae8cc584964f3fc5a98bdf
 
@@ -57,36 +50,38 @@ Phase 62 is completed. Phase 63-67 runtime has not been advanced. PR #117 remain
 
 ## Completed Phase 62 result
 
-Phase 62 delivered:
+Phase 62 delivered persistent identity, exact actor/backend authorization, fixed roles, protected central mutations, browser-session lifecycle and CSRF policy, append-only authorization evidence and protected mutation success/failure outcomes. The final isolated runtime pass proved exact protected HTTP 200 and HTTP 500 outcome pairs, production-database isolation, cleanup, removed systemd override and active final service.
 
-- persistent actor, device, session and credential identity;
-- Legacy Basic compatibility, optional Managed Basic and browser sessions;
-- strict credential precedence and persistent lifecycle resolution;
-- exact actor/backend grants and fixed Admin/Read-only roles;
-- complete central POST protection or explicit Safe POST classification;
-- browser-session issue/logout, CSRF, absolute/idle expiry, issuer binding, concurrency and terminal retention cleanup;
-- append-only pre-dispatch authorization evidence;
-- browser lifecycle outcomes;
-- protected mutation success/failure outcomes with continuous non-secret context;
-- rollback-safe real-yaVDR acceptance tooling.
+Legacy Basic remains explicitly transitional. Removal requires a separate future deployment-migration contract and does not reopen Phase 62.
 
-The final isolated runtime pass proved one protected HTTP 200 `operation.succeeded` event pair and one deterministic HTTP 500 `operation.failed` event pair. The production database remained unchanged during the scenario, the temporary systemd override was removed and the normal service remained active.
+## Historical Phase 62 contract index
 
-## Compatibility-retirement decision
+These completed contracts remain linked as architecture and test traceability anchors. They are not active implementation prompts.
 
-Legacy Basic remains explicitly transitional. It is retained because `legacy-basic` remains the code default and packaged deployments do not yet mandate migration to `enforced`.
-
-Removal requires a separate future deployment-migration contract and does not reopen Phase 62.
-
-## Historical Phase 62 contract references
-
-The completed contracts remain linked because architecture guards use them as traceability anchors:
-
+- [Slice 1 — Security Identity Foundation](phase-62-security-identity-foundation-slice-1.md)
+- [Slice 2 — Persistent Identity Foundation](phase-62-security-identity-foundation-slice-2.md)
+- [Slice 2F — Minimal Role Model](phase-62-slice-2f-minimal-role-model.md)
+- [Slice 2G — Timer CRUD Security Migration](phase-62-slice-2g-timer-crud-security-migration.md)
+- [Slice 2H — Channel Move Security Migration](phase-62-slice-2h-channel-move-security-migration.md)
 - [Slice 2I — Recording Execution Security Migration](phase-62-slice-2i-recording-execution-security-migration.md)
 - [Slice 2J — SearchTimer Create Security Migration](phase-62-slice-2j-searchtimer-create-security-migration.md)
 - [Slice 2K — Runtime Acceptance Harness](phase-62-slice-2k-runtime-acceptance-harness.md)
-
-The complete Slice 1 through Slice 2W records remain in this directory as historical evidence, not active implementation prompts.
+- [Slice 2L — SearchTimer Maintenance Security Migration](phase-62-slice-2l-searchtimer-maintenance-security-migration.md)
+- [Slice 2M — Safe POST Classification](phase-62-slice-2m-safe-post-classification.md)
+- [Slice 2N — SearchTimer Execution Security Migration](phase-62-slice-2n-searchtimer-execution-security-migration.md)
+- [Slice 2O — Native Fuzzy Refresh Security Migration](phase-62-slice-2o-native-fuzzy-refresh-security-migration.md)
+- [Slice 2P — Query Cache Refresh Security Migration](phase-62-slice-2p-query-cache-refresh-security-migration.md)
+- [Slice 2Q — Native Fuzzy Stale-Probe Delete Security Migration](phase-62-slice-2q-native-fuzzy-stale-probe-delete-security-migration.md)
+- [Slice 2R — Browser-Session Lifetime Configuration](phase-62-slice-2r-browser-session-lifetime-configuration.md)
+- [Slice 2S — Browser-Session Outcome Accountability](phase-62-slice-2s-browser-session-outcome-accountability.md)
+- [Slice 2T — Browser-Session Issuer Binding](phase-62-slice-2t-browser-session-issuer-binding.md)
+- [Slice 2U — Browser-Session Concurrency Limit](phase-62-slice-2u-browser-session-concurrency-limit.md)
+- [Slice 2V — Browser-Session Idle Expiry](phase-62-slice-2v-browser-session-idle-expiry.md)
+- [Slice 2W — Browser-Session Retention Cleanup](phase-62-slice-2w-browser-session-retention-cleanup.md)
+- [Slice 2W Runtime Closeout](phase-62-slice-2w-runtime-closeout.md)
+- [Slice 2X — Protected Mutation Response Outcomes](phase-62-slice-2x-protected-mutation-response-outcomes.md)
+- [Slice 2X Runtime Acceptance Runbook](phase-62-slice-2x-runtime-acceptance-runbook.md)
+- [Slice 2X Runtime Closeout](phase-62-slice-2x-runtime-closeout.md)
 
 ## Developer references
 
