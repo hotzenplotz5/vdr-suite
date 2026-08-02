@@ -21,7 +21,10 @@ fingerprint changed.
 - [Phase 62 gap matrix](planning/phase-62-security-identity-gap-matrix.md)
 - [Security and identity architecture](architecture/security-identity-foundation.md)
 - [Strict roadmap](planning/roadmap.md)
+- [Phase map](planning/phase-map.md)
+- [Parity and frontend gap roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
 - [Completed phases](development/completed-phases.md)
+- [ADR index](adr/index.md)
 - [Agent workflow rules](../AGENTS.md)
 
 The post-Slice-2W prompt is the explicit continuation entry point. The Slice-2W
@@ -37,6 +40,14 @@ Phase 61 - Suite Metadata and Genre Platform
 
 Completed hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
+
+Completed platform features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
+
+Next strict runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current active phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
