@@ -9,6 +9,7 @@
 #include "BrowserSessionHttpService.h"
 #include "BrowserSessionIssuanceService.h"
 #include "BrowserSessionLifecycleService.h"
+#include "BrowserSessionRetentionService.h"
 #include "CredentialVerifierRepository.h"
 #include "Database.h"
 #include "IEpgArtworkHttpProvider.h"
@@ -76,6 +77,8 @@ private:
         browserSessionIssuanceService_;
     std::unique_ptr<BrowserSessionLifecycleService>
         browserSessionLifecycleService_;
+    std::unique_ptr<BrowserSessionRetentionService>
+        browserSessionRetentionService_;
     std::unique_ptr<BrowserSessionHttpService>
         browserSessionHttpService_;
     std::unique_ptr<BrowserSessionHttpGate>
