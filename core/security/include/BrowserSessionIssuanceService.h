@@ -17,6 +17,7 @@ struct BrowserSessionIssuanceRequest
     std::string issuedFromCredentialId;
     int lifetimeSeconds = 28800;
     std::size_t maximumActivePerActor = 0;
+    int idleTimeoutSeconds = 0;
 };
 
 struct IssuedBrowserSession
@@ -64,6 +65,8 @@ public:
     static constexpr int MinimumLifetimeSeconds = 300;
     static constexpr int DefaultLifetimeSeconds = 28800;
     static constexpr int MaximumLifetimeSeconds = 86400;
+    static constexpr int MinimumIdleTimeoutSeconds = 300;
+    static constexpr int MaximumIdleTimeoutSeconds = 86400;
     static constexpr std::size_t MaximumActiveSessionsPerActor = 64;
 
     BrowserSessionIssuanceService(
