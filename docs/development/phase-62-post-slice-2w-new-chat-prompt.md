@@ -1,23 +1,13 @@
-# Neuer Chat-Prompt — VDR-Suite Phase 62 nach Slice-2X-Auswahl
+# Neuer Chat-Prompt — VDR-Suite Phase 62 am Slice-2X-Runtime-Gate
 
 Kopiere den vollständigen Inhalt des folgenden Blocks in einen neuen Chat.
 
 ```text
-Wir setzen die Arbeit an VDR-Suite Phase 62 nach der vollständig akzeptierten
-Slice-2W-Runtime-Abnahme und der dokumentierten Auswahl von Slice 2X fort.
+Wir setzen die Arbeit an VDR-Suite Phase 62 fort.
 
 Arbeite selbstständig und GitHub-first weiter. Wiederhole keine abgeschlossenen
 Analysen, Tests oder Runtime-Abnahmen ohne einen konkret geänderten relevanten
 Fingerprint.
-
-WICHTIG: Eine Funktion darf nicht implementiert werden, nur weil sie nützlich
-klingt oder irgendwann in einer Roadmap genannt wurde. Vor jeder neuen
-Implementierung müssen vier Punkte belegt sein:
-
-1. verbindliche Phase-62-Anforderung;
-2. konkrete Lücke im akzeptierten Code;
-3. reales unterscheidbares Fehler- oder Sicherheitsbild;
-4. kleinste Änderung, die exakt diese Lücke schließt.
 
 ============================================================
 PROJEKT UND GRENZEN
@@ -62,99 +52,56 @@ ZUERST VERBINDLICH LESEN
 3. docs/CURRENT.md
 4. docs/development/current-status.md
 5. docs/development/phase-62-slice-2x-protected-mutation-response-outcomes.md
-6. docs/development/phase-62-slice-2w-runtime-closeout.md
-7. docs/development/phase-62-slice-2w-browser-session-retention-cleanup.md
-8. docs/development/phase-62-runtime-evidence.md
-9. docs/planning/phase-62-security-identity-gap-matrix.md
-10. docs/architecture/security-identity-foundation.md
-11. docs/planning/roadmap.md
+6. docs/development/phase-62-slice-2x-runtime-acceptance-runbook.md
+7. docs/development/phase-62-slice-2w-runtime-closeout.md
+8. docs/planning/phase-62-security-identity-gap-matrix.md
+9. docs/architecture/security-identity-foundation.md
+10. docs/planning/roadmap.md
 
-Neuere Angaben in Handoff, Current State, Current Status, Gap Matrix und dem
-Slice-2X-Vertrag überschreiben ältere Slice- oder Chat-Zusammenfassungen.
+Neuere Angaben in Handoff, Current State, Current Status, Gap Matrix, Roadmap und
+dem Slice-2X-Vertrag überschreiben ältere Chat-Zusammenfassungen.
 
 ============================================================
-SLICE 2W IST VOLLSTÄNDIG AKZEPTIERT
+AKTUELLER PHASE-62-STAND
 ============================================================
 
-Slice:
+Vollständig real-runtime-akzeptiert durch:
+
 Phase 62 Slice 2W
 Browser-Session Terminal Retention Cleanup
 
-Akzeptierter Source-/Runtime-Head:
+Akzeptierter Slice-2W-Head:
 bb8609151313c613d403b88b1b4c3f55453a93e2
-
-Source-CI:
-VDR-Suite CI #6834
-Run-ID: 30745952119
-Direkter Link:
-https://github.com/hotzenplotz5/vdr-suite/actions/runs/30745952119
-Status: vollständig erfolgreich
-
-Alle fünf Jobs erfolgreich:
-- docs-check
-- make-test-audit
-- frontend-regression-test
-- fast-regression-test
-- packaging-regression-test
 
 Runtime-Marke:
 PHASE_62_SLICE_2W_RUNTIME_ACCEPTANCE=PASS
 
-Installierter/laufender Daemon SHA-256:
-7775804306bf70eca6ef23474605467381162cfc9d5b874cdb187840ca8bc571
-
-Installierter deferred-runtime-loader.js SHA-256:
-3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
-
-Daemon-Konfiguration SHA-256:
-8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
-
-Runtime-Report SHA-256:
-e0fbe1689b2f48e75bb4ae6836b227d7da92e08d53b009ac1c2cb371a36c74ea
-
 Durable Evidence:
 /var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
 
-Diese Abnahme nicht wiederholen, solange kein direkt relevanter Daemon-,
-Cleanup-, Schema-, Konfigurations-, systemd-Ausführungs- oder Harness-Fingerprint
-geändert wurde.
+Slice 2W nicht wiederholen, solange kein direkt relevanter Daemon-, Cleanup-,
+Schema-, Konfigurations-, systemd-Ausführungs- oder Harness-Fingerprint geändert
+wurde.
 
-============================================================
-WARUM SLICE 2X NOTWENDIG IST
-============================================================
-
-Verbindliches Phase-62-Exit-Kriterium:
-
-every privileged mutation has actor, decision and outcome evidence
-
-Akzeptierter Codezustand:
-
-- SecurityHttpGate::appendDecisionEvent() persistiert vor dem Dispatch nur
-  dispatch_authorized oder dispatch_denied;
-- ein erlaubter geschützter POST wird danach an
-  ApiRouter::handleClientPost() übergeben;
-- das zurückgegebene Erfolg-/Fehlerergebnis wird für normale Business-Mutationen
-  nicht als Outcome persistiert;
-- Slice 2S deckt nur Browser-Session-Issue/Logout ab und schließt Business-
-  Mutationen ausdrücklich aus.
-
-Reales Problem:
-
-Ein autorisierter erfolgreicher Request und ein autorisierter Request mit
-Router-/Backend-/Domain-Fehler hinterlassen derzeit dieselbe Pre-Dispatch-
-Accountability. Ihr tatsächliches beobachtetes Ergebnis ist nicht
-unterscheidbar.
-
-Darum ist exakt folgender Slice ausgewählt:
+Aktueller begrenzter Slice:
 
 Phase 62 Slice 2X
 Protected Mutation Response Outcomes
 
+Slice-2X-Status:
+- Production-Implementierung abgeschlossen;
+- Focused Tests abgeschlossen;
+- Architektur-Guard abgeschlossen;
+- isolierter Installations-/Runtime-Harness abgeschlossen;
+- reale yaVDR-Abnahme noch offen.
+
 ============================================================
-VERBINDLICHER SLICE-2X-VERTRAG
+IMPLEMENTIERTER SLICE-2X-VERTRAG
 ============================================================
 
-Keine neue Route und keine neue Berechtigung.
+Verbindliches Exit-Kriterium:
+
+every privileged mutation has actor, decision and outcome evidence
 
 Für jeden bereits geschützten, autorisierten POST, der
 ApiRouter::handleClientPost() erreicht, wird nach dem Router-Return exakt ein
@@ -165,101 +112,60 @@ alle anderen   -> event_type=operation.failed,    outcome=failed
 reason_code    -> http_status_<dezimaler Status>
 
 Wiederverwendeter Kontext:
-
 - Actor und Actor-Type;
 - Device und Session;
 - Authentication State;
 - Permission und Backend Scope;
 - Action und vorhandene Operation-ID;
-- Request-ID und Correlation-ID.
+- Request-ID und Correlation-ID;
+- decision=allowed.
 
-Keine Request-/Response-Bodies, Header, Cookies, Credentials oder Secrets in das
-Event übernehmen.
+Keine Request-/Response-Bodies, Header, Cookies, Credentials, CSRF-Tokens,
+Verifier-Hashes, Konfiguration oder Prozessumgebungen werden persistiert.
 
-Kleinster Owner-Satz:
-
-- SecurityGateDecision hält den bereits berechneten Outcome-Kontext;
-- SecurityHttpGate baut und schreibt das Event;
-- TestHttpServer ruft den Outcome-Pfad nach handleClientPost() auf;
-- AccountabilityEventRepository bleibt unverändert append-only.
-
-Keine neue Datenbanktabelle, kein Index, kein Repository, kein Service, keine
-Environment-Variable, kein Frontend und keine Packaging-Komponente.
+Owner:
+- SecurityGateDecision hält AuthorizationDecision und operationId;
+- SecurityHttpGate baut und schreibt das Outcome;
+- TestHttpServer ruft den Pfad nach handleClientPost() und vor finaler Response;
+- AccountabilityEventRepository bleibt append-only.
 
 Fehlergrenze:
-
-- Pre-Dispatch-Accountability-Fehler verhindert weiterhin den Dispatch;
-- schlägt der Outcome-Append nach dem Router fehl, wird das Originalresultat
-  nicht als erfolgreich accountable ausgeliefert;
-- stattdessen HTTP 503 accountability_unavailable mit vorhandenen Request-/
-  Correlation-Headern;
-- keine Behauptung, dass ein bereits ausgeführter externer/Domain-Side-Effect
-  zurückgerollt wurde;
+- Pre-Dispatch-Append-Fehler verhindert Dispatch;
+- Post-Dispatch-Outcome-Append-Fehler liefert HTTP 503
+  accountability_unavailable;
+- keine Behauptung eines Domain-Rollbacks;
 - keine Behauptung, dass automatischer Retry sicher ist.
 
-============================================================
-AUSDRÜCKLICH NICHT NOTWENDIG BELEGT
-============================================================
-
-Der frühere Vorschlag eines geschützten Audit-Read-Endpoints wurde entfernt.
-Kein Phase-62-Exit-Kriterium verlangt einen HTTP-Audit-Reader und kein konkreter
-Fehler durch dessen Fehlen wurde gezeigt.
-
-Nicht implementieren ohne neue vollständige Notwendigkeitskette:
-
-- GET /api/security/accountability/events;
-- security.audit.read oder neue Audit-Rollenlogik;
-- Audit-Frontend, Export, Filter, Pagination, Redaction oder Retention;
-- generische Security-Administration;
-- Native-/Service-Credential-Lifecycle vor einem realen Consumer;
-- universelle Revision-/Idempotency-/Operation-Infrastruktur;
-- transactional Outbox oder generische Cross-System-Coupling.
-
-Nach Slice-2X-Abnahme nur Compatibility-Retirement-Readiness und finalen
-Phase-62-Closeout prüfen. Nicht automatisch einen weiteren
-Implementierungsslice erfinden.
+Keine neue Route, Permission, Rolle, Tabelle, Index, Repository,
+Environment-Variable, Frontend- oder Packaging-Komponente.
 
 ============================================================
-TEST- UND ARCHITEKTURVERTRAG
+SOURCE-/HARNESS-VALIDIERUNG
 ============================================================
 
-Focused Tests müssen mindestens beweisen:
+Der frühere Implementierungs-/Harness-Head
+4b61583b604626cd49e213356241759c81e60d04
+bestand:
 
-1. genau ein operation.succeeded nach autorisiertem 2xx-POST;
-2. genau ein operation.failed nach autorisiertem Non-2xx-POST;
-3. exakte Kontextkontinuität zum Pre-Dispatch-Event;
-4. exakter http_status_<status>-Reason-Code;
-5. kein Outcome für Auth-/Authorization-/CSRF-Deny, Safe POST, GET oder
-   unsupported method;
-6. keine doppelten Outcomes;
-7. erzwungener Post-Dispatch-Append-Fehler liefert HTTP 503;
-8. Pre-Dispatch-Append-Fehler verhindert weiterhin Router-Dispatch;
-9. keine Secrets oder Bodies im Event.
+VDR-Suite CI #6871
+Run-ID 30750871845
+alle fünf Jobs grün
 
-Ein statischer Architektur-Guard muss beweisen:
+Danach wurde der Runtime-Weg weiter gehärtet:
 
-- keine neue Route oder Permission;
-- Outcome-Aufruf nach handleClientPost() und vor finaler Response;
-- nur gate.protectedMutation erreicht den Outcome-Pfad;
-- Repository bleibt append-only;
-- keine Schema-/Config-/Frontend-/Packaging-Erweiterung;
-- keine Header oder Bodies als Eventquelle.
+- protected-mutation-outcome-runtime-entry.py;
+- Backup des alten Daemons, Loaders, der Konfiguration und einer konsistenten
+  Produktions-DB-Kopie;
+- atomare Kandidateninstallation;
+- temporärer systemd-Drop-in für beide DB-Pfade;
+- isolierte Scenario-Datenbank;
+- automatischer Rollback auf den alten Daemon bei fehlgeschlagener Abnahme oder
+  fehlgeschlagenem Kandidaten-Restart;
+- Wiederherstellung des normalen Produktionsdienstes;
+- eigenes yaVDR-Runbook.
 
-============================================================
-AKTUELLER AUFTRAG
-============================================================
-
-1. Verifiziere aktuellen Remote-Head und PR-Zustand.
-2. Prüfe die fünf kanonischen Dokumente auf gegenseitige Konsistenz.
-3. Fordere vollständige GitHub-Actions-CI auf dem finalen Auswahl-Head.
-4. Berichte direkten Link, Run-Nummer, Run-ID, exakten Head, Gesamtstatus und
-   alle fünf Jobstatus.
-5. Falls ein Job fehlschlägt, behebe nur die nachgewiesene Ursache.
-6. Beginne die Slice-2X-Produktionimplementierung erst nach vollständig grüner
-   Auswahl-CI.
-7. Keine Runtime-Abnahme für reine Dokumentations-/Auswahländerungen.
-
-Erforderliche Jobs:
+Darum muss der exakte aktuelle Final-Head vor Runtime-Installation erneut alle
+fünf Jobs bestehen:
 
 - docs-check
 - make-test-audit
@@ -267,8 +173,84 @@ Erforderliche Jobs:
 - fast-regression-test
 - packaging-regression-test
 
-Keine Audit-Read-, Admin-, Outbox-, Generic-Operation-, Native-/Service-,
-Android-, Android-TV- oder Phase-63-67-Arbeit hineinziehen.
+CI-Bericht immer mit direktem Link, Run-Nummer, Run-ID, exaktem Head,
+Gesamtstatus und allen fünf Jobstatus.
+
+============================================================
+REALE YAVDR-ABNAHME
+============================================================
+
+Nur das folgende Runbook verwenden:
+
+docs/development/phase-62-slice-2x-runtime-acceptance-runbook.md
+
+Der Wrapper muss:
+
+1. exakten sauberen Branch/Head und Kandidatenhash prüfen;
+2. alten Runtime-Stand sichern;
+3. Kandidaten atomar installieren;
+4. beide DB-Pfade auf eine isolierte SQLite-Kopie setzen;
+5. denselben echten geschützten Owner für zwei Fälle verwenden:
+   - kein stale Probe -> HTTP 200 -> operation.succeeded;
+   - test-eigener stale Probe + DELETE-Guard -> HTTP 500 -> operation.failed;
+6. pro Request exakt Authorization- und Outcome-Event mit identischem Kontext
+   beweisen;
+7. Secrets ausschließen;
+8. Testzeile, Trigger und Grants wiederherstellen bzw. Testsession widerrufen;
+9. Produktionsdatenbank während des Scenarios unverändert lassen;
+10. systemd-Drop-in entfernen;
+11. Kandidaten nur nach vollständigem Pass behalten;
+12. bei Fehler den alten Daemon wiederherstellen;
+13. normalen Produktionsdienst aktiv hinterlassen.
+
+Eine fehlgeschlagene Abnahme ist kein Teilpass. Nur den nachgewiesenen Fehler
+beheben. Bei geändertem relevantem Fingerprint zuerst wieder vollständige CI.
+
+============================================================
+AUSDRÜCKLICH NICHT IMPLEMENTIEREN
+============================================================
+
+Ohne neue vollständige Notwendigkeitskette nicht implementieren:
+
+- GET /api/security/accountability/events;
+- security.audit.read oder Audit-Rollenlogik;
+- Audit-Frontend, Export, Filter, Pagination, Redaction oder Retention;
+- generische Security-Administration;
+- Native-/Service-Credential-Lifecycle vor einem realen Consumer;
+- universelle Revision-/Idempotency-/Operation-Infrastruktur;
+- transactional Outbox oder generische Cross-System-Coupling;
+- Android, Android TV oder Phase 63-67 Runtime.
+
+Nach erfolgreicher Slice-2X-Abnahme nur:
+
+1. Slice-2X-Runtime-Closeout dokumentieren;
+2. Dokumentations-CI auf dem Closeout-Head;
+3. Compatibility-Retirement-Readiness prüfen;
+4. finalen Phase-62-Closeout analysieren.
+
+Nicht automatisch einen weiteren Implementierungsslice erfinden.
+
+============================================================
+AKTUELLER AUFTRAG
+============================================================
+
+1. Verifiziere Remote-Head und PR-Zustand.
+2. Prüfe, ob der aktuelle Head alle fünf CI-Jobs grün hat.
+3. Falls nicht, behebe nur die nachgewiesene Ursache.
+4. Nach grüner Final-CI führe die reale yaVDR-Abnahme exakt nach dem Runbook aus,
+   sofern der lokale Checkout und die installierte Runtime erreichbar sind.
+5. Bei PASS erfasse:
+   - accepted_head;
+   - source_ci_run_number;
+   - source_ci_run_id;
+   - daemon_sha256;
+   - loader_sha256;
+   - configuration_sha256;
+   - runtime_report_sha256;
+   - evidence_directory;
+   - final_service_pid.
+6. Erstelle danach den Slice-2X-Runtime-Closeout.
+7. PR #117 offen, Draft und ungemergt lassen.
 
 ============================================================
 ARBEITSREGELN
@@ -283,25 +265,6 @@ GitHub-first:
 - CI auf dem finalen Stabilisierung-Head auswerten;
 - PR-Metadaten nicht verändern.
 
-CI-Bericht immer mit:
-- direktem Link;
-- Run-Nummer;
-- Run-ID;
-- exaktem Head;
-- Gesamtstatus;
-- allen fünf Jobstatus.
-
-Shell-Regeln für sichtbare Blöcke:
-- maximal ein Shell-Block pro Antwort;
-- erste Zeile exakt `cd /home/yavdr/vdr-suite-phase62`;
-- kein set -e, set -u oder pipefail;
-- kein sudo, su oder runuser;
-- Root-Kommandos als bereits geöffnete Root-Shell beschreiben;
-- Fehler in einer Subshell kapseln;
-- keine Secrets, Cookies, Authorization-Header, CSRF-Tokens, Verifier-Hashes
-  oder Prozessumgebungen ausgeben.
-
-Keine Runtime-Abnahme anfordern, bevor Implementierung committed/gepusht, alle
-fünf Source-CI-Jobs grün, der neue Binärfingerprint bekannt und ein begrenzter
-rollback-sicherer Runner vorhanden ist.
+Keine Secrets, Cookies, Authorization-Header, CSRF-Tokens, Verifier-Hashes oder
+Prozessumgebungen ausgeben.
 ```
