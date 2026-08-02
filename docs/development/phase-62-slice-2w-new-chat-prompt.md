@@ -34,8 +34,12 @@ feat(security): establish Phase 62 identity and authorization foundation
 Base:
 main @ cb77ff66e11dca7db2eafa36525762dcde35102d
 
-Aktueller übergebener Remote-Head:
+Letzter vollständig grüner Slice-2W-Auswahl-Head:
 08b691630c30e1f2a7a74c42f7566ddc96d66b48
+
+Der Branch enthält danach ausschließlich den Dokumentations-Handoff für diesen
+neuen Chat. Verifiziere beim Start den tatsächlichen aktuellen Remote-Head und
+dessen CI, statt einen selbstreferenzierten Head aus diesem Prompt zu erwarten.
 
 PR-Zustand beim Handoff:
 - offen
@@ -96,7 +100,7 @@ Status: vollständig grün, alle fünf Jobs erfolgreich
 Direkter Link:
 https://github.com/hotzenplotz5/vdr-suite/actions/runs/30742295881
 
-Slice 2W Auswahl/Handoff:
+Slice 2W Auswahl:
 Head:
 08b691630c30e1f2a7a74c42f7566ddc96d66b48
 
@@ -112,6 +116,9 @@ Erfolgreiche Jobs bei #6807:
 - frontend-regression-test
 - fast-regression-test
 - packaging-regression-test
+
+Der reine Dokumentations-Handoff nach diesem grünen Auswahl-Head muss beim Start
+des neuen Chats als aktueller Remote-Head samt CI verifiziert werden.
 
 Bei jeder späteren CI-Meldung immer angeben:
 - direkten Link;
@@ -361,7 +368,9 @@ ERSTER SCHRITT IM NEUEN CHAT
 
 1. Lies die verbindlichen Dateien vollständig.
 2. Verifiziere PR #117 weiterhin als offen, Draft und ungemergt.
-3. Verifiziere Remote-Head und CI #6807.
+3. Verifiziere den tatsächlichen aktuellen Remote-Head und dessen vollständig
+   abgeschlossenen CI-Lauf; `08b691...` ist der letzte grüne Auswahl-Baseline,
+   nicht zwangsläufig der aktuelle Dokumentations-Handoff-Head.
 4. Prüfe gezielt die genannten Code-Eigentümer und bestehenden Slice-Testmuster.
 5. Implementiere danach ausschließlich Slice 2W.
 6. Erstelle fokussierte Tests, Architektur-Guard und Make-Registrierung.
