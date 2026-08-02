@@ -11,6 +11,7 @@ This is the canonical entry point for every new VDR-Suite chat. A new chat alone
 - [Phase 62 Final Closeout](development/phase-62-closeout.md)
 - [Slice 2X Runtime Closeout](development/phase-62-slice-2x-runtime-closeout.md)
 - [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
+- [Architecture Audit Gap Matrix](planning/architecture-audit-gap-matrix.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
 - [Completed Phases](development/completed-phases.md)
@@ -21,6 +22,9 @@ This is the canonical entry point for every new VDR-Suite chat. A new chat alone
 ```text
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
+
+Historical umbrella implementation track:
+Phase 58 - Frontend and Live Parity
 
 Next strict runtime phase:
 Phase 63 - Backend Agent and Secure Multi-Site Runtime
