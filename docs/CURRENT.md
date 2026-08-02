@@ -4,12 +4,10 @@
 
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
-- [Post-Slice-2W New Chat Prompt](development/phase-62-post-slice-2w-new-chat-prompt.md)
 - [Current Project Status](development/current-status.md)
-- [Slice 2X — Protected Mutation Response Outcomes](development/phase-62-slice-2x-protected-mutation-response-outcomes.md)
+- [Slice 2X Contract](development/phase-62-slice-2x-protected-mutation-response-outcomes.md)
+- [Slice 2X yaVDR Runbook](development/phase-62-slice-2x-runtime-acceptance-runbook.md)
 - [Slice 2W Runtime Closeout](development/phase-62-slice-2w-runtime-closeout.md)
-- [Slice 2W Contract](development/phase-62-slice-2w-browser-session-retention-cleanup.md)
-- [Phase 62 Runtime Evidence through Slice 2V](development/phase-62-runtime-evidence.md)
 - [Phase 62 Gap Matrix](planning/phase-62-security-identity-gap-matrix.md)
 - [Strict Roadmap](planning/roadmap.md)
 - [Phase Map](planning/phase-map.md)
@@ -30,6 +28,7 @@ Active PR: #117
 PR state: open, Draft, unmerged, mergeable
 Remote branch: phase-62-security-identity-foundation
 Local yaVDR branch: phase62-pr117
+Local checkout: /home/yavdr/vdr-suite-phase62
 
 Latest completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
@@ -45,9 +44,6 @@ VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
 Configurable photorealistic VDR Remote (#115)
 
-Next strict runtime phase:
-Phase 62 - Identity, RBAC and Accountability Foundation
-
 Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
@@ -57,41 +53,29 @@ Slice 2W - Browser-Session Terminal Retention Cleanup
 Accepted Slice-2W source/runtime head:
 bb8609151313c613d403b88b1b4c3f55453a93e2
 
-Accepted Slice-2W source CI:
-VDR-Suite CI #6834
-Run ID 30745952119
-All five jobs successful
-https://github.com/hotzenplotz5/vdr-suite/actions/runs/30745952119
-
-Runtime acceptance:
+Accepted Slice-2W runtime marker:
 PHASE_62_SLICE_2W_RUNTIME_ACCEPTANCE=PASS
 
-Installed/running daemon SHA-256:
-7775804306bf70eca6ef23474605467381162cfc9d5b874cdb187840ca8bc571
-
-Installed deferred-runtime-loader.js SHA-256:
-3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
-
-Daemon configuration SHA-256:
-8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
-
-Runtime report SHA-256:
-e0fbe1689b2f48e75bb4ae6836b227d7da92e08d53b009ac1c2cb371a36c74ea
-
-Durable evidence:
+Accepted Slice-2W durable evidence:
 /var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
 
-Next bounded implementation slice:
+Current bounded slice:
 Slice 2X - Protected Mutation Response Outcomes
 
-Selection state:
-contract/documentation only; no production implementation
+Slice 2X state:
+production implementation complete;
+focused tests and architecture guard complete;
+isolated install/runtime harness complete;
+real yaVDR acceptance pending.
+
+Phase 63-67 runtime:
+not advanced
 ```
 
-Phase 61 remains complete. Phase 62 remains active and incomplete. Phase 63-67
-runtime has not been advanced.
+Phase 62 remains active and incomplete. No new implementation slice is selected
+beyond Slice 2X.
 
-## Accepted security request and lifecycle path
+## Accepted security request and lifecycle path through Slice 2W
 
 ```text
 HTTP request
@@ -113,7 +97,8 @@ authorization. Frontends do not own authorization decisions.
 
 ## Fully accepted Slice 2W
 
-Slice 2W introduced:
+Slice 2W added one bounded startup retention pass for terminal browser-session
+verifiers:
 
 ```text
 VDR_SUITE_BROWSER_SESSION_RETENTION_SECONDS
@@ -122,94 +107,79 @@ VDR_SUITE_BROWSER_SESSION_RETENTION_SECONDS
 fixed batch size  256
 ```
 
-Exactly one bounded cleanup pass runs during Security Runtime startup after all
-security schemas and configuration have been validated and before
-`securityReady`.
+Its guarded real-yaVDR pass proved exact eligibility, deterministic bounded
+processing, transaction rollback, canonical-row preservation, secret-free
+accountability, unchanged production runtime inputs and zero VDR domain
+mutations.
 
-Eligibility is limited to the verifier's own explicit revocation, absolute
-expiry or idle expiry beyond retention. Candidates are processed oldest terminal
-first and then by token ID.
+Do not repeat Slice-2W acceptance without a directly relevant daemon, cleanup,
+schema, configuration, systemd execution or harness fingerprint change.
 
-One `BEGIN IMMEDIATE` transaction rechecks eligibility, appends exact secret-free
-`browser.session.cleanup` accountability, deletes the verifier and deletes only
-its unreferenced canonical browser session and exact-type `browser-session`
-credential. Actors, devices, issuing credentials, grants, roles and audit history
-are preserved. Any enabled cleanup failure leaves the Security Runtime fail
-closed and rolls back the whole batch.
+## Slice 2X implemented source result
 
-The real yaVDR acceptance proved:
-
-- fresh schema initialization;
-- disabled-policy no-op;
-- fail-closed rollback after forced accountability failure;
-- preservation of active and within-retention lifecycles;
-- deletion of old revoked, absolute-expired and idle-expired lifecycles;
-- no issuer-only cascade;
-- preservation of non-browser credentials and still-referenced canonical rows;
-- exact secret-free accountability;
-- fixed bounded behavior: 258 candidates and exactly 256 deterministic
-  deletions;
-- SQLite quick and foreign-key checks;
-- unchanged production database, configuration and loader;
-- removed runtime systemd override;
-- final active accepted daemon;
-- zero VDR domain mutations.
-
-Do not repeat Slice-2W runtime acceptance unless a directly relevant daemon,
-cleanup, schema, configuration, systemd execution or harness fingerprint changes.
-
-## Cumulative accepted Phase 62 scope
-
-Accepted through Slice 2W:
-
-- canonical actor, device, session, credential, request and correlation context;
-- persistent identity, Managed Basic and browser-session verifiers;
-- atomic browser-session issue/logout with independent cookie and CSRF secrets;
-- strict cookie precedence and ordinary-route browser authentication;
-- exact actor grants and fixed exact-scope Admin/Read-only roles;
-- memory-only Webfrontend CSRF ownership;
-- protected Remote, Timer, Channel Move, Recording, SearchTimer and Native Fuzzy
-  mutation families;
-- explicit Safe POST classification;
-- immutable absolute browser-session lifetime;
-- browser issue/revoke outcome accountability;
-- request-time issuing-credential lifecycle binding;
-- optional per-actor effective browser-session concurrency limits;
-- optional browser-session idle expiry with throttled `last_seen_at` persistence;
-- bounded terminal browser-session retention cleanup with atomic accountability;
-- guarded real-runtime acceptance and rollback tooling.
-
-## Selected Slice 2X — necessity proof
-
-The next slice is selected because it is required by an explicit Phase-62 exit
-criterion and because the accepted code has a directly observable gap.
-
-Required result:
+The binding Phase-62 requirement is:
 
 ```text
 every privileged mutation has actor, decision and outcome evidence
 ```
 
-Current behavior:
+Slice 2X now appends one post-router event for every already-protected,
+authorized mutation:
 
-- `SecurityHttpGate` persists actor and authorization decision before dispatch;
-- `TestHttpServer` then returns the router result without a business-mutation
-  outcome event;
-- therefore an authorized successful mutation and an authorized returned error
-  are indistinguishable in accountability persistence.
+```text
+HTTP 200..299  -> operation.succeeded / succeeded
+all other HTTP -> operation.failed    / failed
+reason_code    -> http_status_<decimal status>
+```
 
-Slice 2X adds exactly one post-router result event for already-protected
-mutations. It adds no route, permission, role, schema, repository, configuration
-or frontend.
+The event reuses the already-authorized actor, device, session, authentication,
+permission, backend, action, operation, request and correlation context.
 
-A protected audit read endpoint was rejected because no Phase-62 requirement or
-failure case proves it necessary.
+`TestHttpServer` invokes the append only after `ApiRouter::handleClientPost()`
+returns and before the original response is delivered. If the outcome append
+fails, the client receives HTTP 503 `accountability_unavailable`; no rollback or
+safe-retry claim is made for a domain effect that already occurred.
+
+No route, permission, role, schema, repository, configuration, frontend or
+packaging owner was added.
+
+## Slice 2X validation state
+
+The source implementation, focused gate tests and architecture guard passed all
+five jobs on the earlier implementation/harness head
+`4b61583b604626cd49e213356241759c81e60d04`:
+
+```text
+VDR-Suite CI #6871
+Run ID 30750871845
+all five jobs successful
+```
+
+After that run, the runtime path was strengthened with an isolated installation
+entrypoint and a rollback-safe runbook. Therefore the current final
+stabilization head must have a fresh all-green five-job CI run before yaVDR
+installation.
+
+The entrypoint:
+
+- backs up the installed daemon, loader, configuration and production database;
+- installs the candidate atomically;
+- points both Suite and Security database paths to an isolated copy;
+- exercises one real protected HTTP 200 result and one deterministic HTTP 500
+  result;
+- verifies exact authorization/outcome pairs and secret-free continuity;
+- removes all scenario-owned test state and the systemd drop-in;
+- restores the old daemon after a failed acceptance or failed candidate restart;
+- leaves the normal production service active.
 
 ## Remaining Phase 62 decision boundary
 
-Proven mandatory before closeout:
+Mandatory next gate:
 
-- Slice 2X protected mutation response outcomes.
+1. all five CI jobs green on the final current head;
+2. one bounded real yaVDR Slice-2X acceptance using the linked runbook;
+3. Slice-2X runtime closeout documentation;
+4. compatibility-retirement readiness and final Phase-62 closeout analysis.
 
 Not currently proven necessary:
 
@@ -219,35 +189,28 @@ Not currently proven necessary:
 - universal revisions, idempotency or durable operation framework;
 - transactional Outbox or generic cross-system coupling.
 
-These items must not be implemented unless a binding requirement, concrete code
-gap and real failure case are documented first.
-
-After Slice 2X acceptance, perform only compatibility-retirement readiness and
-final Phase-62 closeout analysis. Do not assume additional implementation is
-needed.
+Do not invent another implementation slice after Slice 2X without a new binding
+requirement, concrete accepted-code gap and real failure case.
 
 ## Operating rules
 
 - Root-level `AGENTS.md` is binding.
 - Prefer GitHub-first edits when the connector can safely complete them.
-- Continue through already-approved bounded work without artificial pauses.
+- Continue through approved bounded work without artificial pauses.
 - Evaluate CI on the final stabilization head.
 - Every CI report includes direct link, run number, run ID, exact head, overall
   status and all five job statuses.
 - PR #117 remains open, Draft and unmerged.
 - Do not mark it Ready, merge, auto-merge, rebase, force-push or rewrite history.
+- Do not mutate PR Base, title, body, reviewers or review state without explicit
+  approval.
 - Do not repeat accepted runtime work merely because the chat changed.
-- Select and implement exactly one bounded Phase 62 slice at a time.
-- No feature is selected without a requirement-to-code failure proof.
 - Do not pull Android, Android TV or Phase 63-67 runtime into Phase 62.
 
 ## Exact next action
 
-Complete the Slice-2X selection/handoff documentation and require all five CI
-jobs on the final selection head. After that CI is fully green, implement only
-[Slice 2X — Protected Mutation Response Outcomes](development/phase-62-slice-2x-protected-mutation-response-outcomes.md).
+Require the final current head to pass all five GitHub Actions jobs. After that,
+run only [the Slice-2X yaVDR acceptance](development/phase-62-slice-2x-runtime-acceptance-runbook.md).
 
-Do not implement an audit reader, administration API, Outbox, generic operation
-framework or native/service lifecycle without a separate necessity proof.
-
-Do not reopen Slice 2W without a changed relevant acceptance fingerprint.
+Do not add an audit reader, administration API, Outbox, generic operation
+framework or native/service lifecycle while the runtime gate is pending.
