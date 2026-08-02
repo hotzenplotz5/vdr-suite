@@ -49,8 +49,11 @@ e0fbe1689b2f48e75bb4ae6836b227d7da92e08d53b009ac1c2cb371a36c74ea
 Durable evidence:
 /var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
 
-Next bounded implementation slice:
-not yet selected
+Selected next bounded implementation slice:
+Slice 2X - Protected Accountability Event Read
+
+Slice-2X state:
+selection and contract only; no production implementation
 ```
 
 Phase 61 remains completed. Phase 62 remains active and incomplete. Phase
@@ -74,23 +77,17 @@ The accepted branch and installed runtime include:
 - memory-only Webfrontend CSRF state and exact request-owner injection;
 - protected Remote, Timer, Channel Move, Recording and SearchTimer mutations;
 - explicit Safe POST classification for accepted validation and preview routes;
-- protected Native Fuzzy refresh, stale-probe deletion and query-scoped cache
-  refresh;
+- protected Native Fuzzy refresh, stale-probe deletion and query-scoped cache refresh;
 - configurable bounded absolute browser-session lifetime;
 - append-only pre-dispatch accountability;
 - browser-session issue/revoke outcome accountability with compensation;
 - issuing-credential request-time lifecycle binding;
-- strict optional per-actor effective browser-session limits with deny-new
-  semantics;
-- strict optional browser-session idle expiry with additive `last_seen_at` and
-  a fixed 60-second activity-write throttle;
-- bounded terminal browser-session retention cleanup with exact accountability,
-  atomic deletion and a fixed 256-lifecycle startup limit;
+- strict optional per-actor effective browser-session limits with deny-new semantics;
+- strict optional browser-session idle expiry with additive `last_seen_at` and a fixed 60-second activity-write throttle;
+- bounded terminal browser-session retention cleanup with exact accountability, atomic deletion and a fixed 256-lifecycle startup limit;
 - guarded real-runtime acceptance and rollback tooling.
 
 ## Fully accepted Slice 2W
-
-Configuration:
 
 ```text
 VDR_SUITE_BROWSER_SESSION_RETENTION_SECONDS
@@ -100,62 +97,138 @@ fixed batch size  256
 ```
 
 One cleanup pass runs during Security Runtime initialization after schema and
-configuration validation and before `securityReady`.
-
-Eligibility is limited to explicit revocation, absolute expiry and idle expiry
-beyond the retention delay. The deterministic order is oldest terminal time
-first, then token ID.
+configuration validation and before `securityReady`. Eligibility is limited to
+explicit revocation, absolute expiry and idle expiry beyond the retention delay.
+The deterministic order is oldest terminal time first, then token ID.
 
 Inside one `BEGIN IMMEDIATE` transaction, eligibility is rechecked, one exact
 secret-free `browser.session.cleanup` event is appended for each deleted
-verifier, the verifier is removed and only its unreferenced canonical session
-and exact-type `browser-session` credential are removed. Actor, device, issuer,
-grants, roles and accountability history are preserved. Any enabled cleanup
-failure rolls back the whole batch and leaves the Security Runtime fail closed.
+verifier, the verifier is removed and only its unreferenced canonical browser
+session and exact-type `browser-session` credential are removed. Actor, device,
+issuer, grants, roles and accountability history are preserved. Any enabled
+cleanup failure rolls back the whole batch and leaves the Security Runtime fail
+closed.
 
-The guarded real-yaVDR acceptance proved:
-
-```text
-PHASE_62_SLICE_2W_RUNTIME_ACCEPTANCE=PASS
-source_runtime_head=bb8609151313c613d403b88b1b4c3f55453a93e2
-source_ci_run=6834
-source_ci_run_id=30745952119
-daemon_sha256=7775804306bf70eca6ef23474605467381162cfc9d5b874cdb187840ca8bc571
-loader_sha256=3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
-configuration_sha256=8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
-runtime_report_sha256=e0fbe1689b2f48e75bb4ae6836b227d7da92e08d53b009ac1c2cb371a36c74ea
-```
-
-The pass used isolated SQLite scenario databases and proved fresh schema
-initialization, disabled no-op, fail-closed rollback after forced accountability
-failure, all enabled preservation/deletion boundaries, exact audit events, 258
-eligible lifecycles with exactly 256 deterministic deletions, SQLite integrity,
-unchanged production database/configuration/loader, removed systemd override,
-final active accepted daemon and zero VDR domain mutations.
-
-Durable evidence:
-
-```text
-/var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
-```
+The guarded real-yaVDR acceptance proved fresh schema initialization, disabled
+no-op, fail-closed rollback, all deletion/preservation boundaries, exact audit
+events, 258 eligible lifecycles with exactly 256 deterministic deletions, SQLite
+integrity, unchanged production database/configuration/loader, removed systemd
+override, final active accepted daemon and zero VDR domain mutations.
 
 Do not repeat this acceptance solely because a chat changes. Repeat only when a
 directly relevant daemon, cleanup, schema, configuration, systemd execution or
 acceptance-harness fingerprint changes.
 
-## Remaining Phase 62 gaps
+## Fresh post-Slice-2W gap analysis
 
-Still open after Slice 2W:
+Exactly one next slice was selected after comparing security value,
+dependencies, coherent owner set, source testability, runtime acceptance and
+scope-expansion risk:
 
-- operation outcomes beyond browser lifecycle and cleanup operations;
+```text
+Phase 62 Slice 2X
+Protected Accountability Event Read
+```
+
+Binding contract:
+
+- [Slice 2X — Protected Accountability Event Read](phase-62-slice-2x-protected-accountability-event-read.md)
+
+Why it was selected:
+
+- existing append-only evidence has no protected production read path;
+- one bounded read consumes the accepted identity, authorization and
+  accountability foundations without changing VDR domain state;
+- query and mandatory audit-of-audit can fail closed before any rows are
+  returned;
+- the owner set is limited to the accountability repository, one read service,
+  exact Security HTTP classification and one fixed serializer;
+- export, pagination, filters, configurable redaction, retention and frontend
+  work remain explicitly separate.
+
+Why the other gaps were not selected:
+
+- generic mutation outcomes are ambiguous after dispatch without stronger
+  coupling or Outbox semantics;
+- revisions, idempotency and durable operation lifecycle cross multiple mutable
+  resource owners;
+- security administration and native/service credentials require dangerous
+  mutation and enrollment contracts;
+- audit export/redaction/retention is a broader privacy and storage product;
+- compatibility retirement remains a near-final dependency.
+
+## Selected Slice 2X boundary
+
+Exact endpoint:
+
+```text
+GET /api/security/accountability/events
+GET /api/security/accountability/events?limit=<1..100>
+default limit 50
+newest first by recorded_at DESC, event_id DESC
+```
+
+Exact permission:
+
+```text
+security.audit.read@*
+```
+
+A direct exact grant or exact global `role.admin@*` may authorize the read.
+Legacy Basic compatibility does not bypass this sensitive GET. Non-global admin
+scope and `role.read-only` do not grant it.
+
+The route returns only a fixed allowlist of already secret-free accountability
+fields, uses `Cache-Control: no-store`, is handled before the general
+`ApiRouter`, and has no frontend owner.
+
+The existing pre-dispatch authorization event remains mandatory. The bounded
+SELECT and one exact `operation.succeeded` audit-of-audit event execute in one
+local `BEGIN IMMEDIATE` transaction. Query, append or commit failure returns no
+event rows.
+
+No configuration variable is added. The fixed default and maximum limits are
+compile-time contract constants.
+
+## Slice 2X explicit exclusions
+
+- export, download, streaming, cursor pagination, offset, filters or arbitrary history traversal;
+- configurable redaction, audit retention, deletion, compaction or archival;
+- frontend audit viewer;
+- actor, identity, session, credential, grant or role administration;
+- generic mutation outcomes, Outbox or cross-domain transaction coupling;
+- revisions, `If-Match`, idempotency or durable operation replay;
+- native/service credential enrollment, rotation or revocation;
+- compatibility retirement;
+- Android, Android TV or Phase 63-67 runtime.
+
+## Remaining Phase 62 gaps after Slice 2X selection
+
+Still open beyond the selected read foundation:
+
+- operation outcomes beyond browser lifecycle, cleanup and the local audit-read outcome;
 - stronger transaction coupling or Outbox semantics;
 - common revisions, idempotency and durable operation lifecycle;
 - protected actor, identity, credential, grant and role administration;
 - native/service credential enrollment, rotation and revocation;
-- protected audit reads, export, redaction and retention;
+- audit export, configurable redaction and retention;
+- broader audit pagination/search if selected separately;
 - compatibility retirement and final Phase 62 closeout.
 
-No next implementation slice is selected yet.
+## Selection validation gate
+
+No Slice-2X production implementation may begin until the contract and canonical
+status/gap/handoff documents are mutually consistent and all five jobs pass on
+the final selection head:
+
+- `docs-check`;
+- `make-test-audit`;
+- `frontend-regression-test`;
+- `fast-regression-test`;
+- `packaging-regression-test`.
+
+The current selection commits contain documentation only. They do not change the
+daemon, schema, route table, tests, packaging or runtime harness.
 
 ## Pull request truth
 
@@ -185,19 +258,17 @@ commit.
 
 ## Exact next action
 
-Perform one fresh post-Slice-2W gap analysis. Compare the remaining bounded gaps,
-select exactly one smallest coherent next Phase-62 slice, document its contract,
-tests, architecture guard, runtime boundary and exclusions, update the handoff
-and require all five CI jobs before implementation.
-
-Do not combine multiple remaining security themes or advance Android, Android TV
-or Phase 63-67 runtime.
+Complete the Slice-2X selection documentation and require all five CI jobs on the
+final selection head. After and only after that fully green gate, implement the
+bounded Slice-2X contract. Do not start any excluded Phase-62 theme or advance
+Android, Android TV or Phase 63-67 runtime.
 
 ## Authoritative links
 
 - [Current State](../CURRENT.md)
 - [New Chat Handoff](../NEW-CHAT-HANDOFF.md)
 - [Post-Slice-2W New Chat Prompt](phase-62-post-slice-2w-new-chat-prompt.md)
+- [Slice 2X Selection Contract](phase-62-slice-2x-protected-accountability-event-read.md)
 - [Slice 2W Runtime Closeout](phase-62-slice-2w-runtime-closeout.md)
 - [Slice 2W Contract](phase-62-slice-2w-browser-session-retention-cleanup.md)
 - [Phase 62 Runtime Evidence through Slice 2V](phase-62-runtime-evidence.md)
