@@ -78,9 +78,15 @@ Legacy Basic remains explicitly transitional. It is retained because `legacy-bas
 
 Removal requires a separate future deployment-migration contract and does not reopen Phase 62.
 
-## Historical Phase 62 slice references
+## Historical Phase 62 contract references
 
-The complete Slice 1 through Slice 2W contracts and acceptance records remain in this directory for traceability. They are historical evidence, not active implementation prompts.
+The completed contracts remain linked because architecture guards use them as traceability anchors:
+
+- [Slice 2I — Recording Execution Security Migration](phase-62-slice-2i-recording-execution-security-migration.md)
+- [Slice 2J — SearchTimer Create Security Migration](phase-62-slice-2j-searchtimer-create-security-migration.md)
+- [Slice 2K — Runtime Acceptance Harness](phase-62-slice-2k-runtime-acceptance-harness.md)
+
+The complete Slice 1 through Slice 2W records remain in this directory as historical evidence, not active implementation prompts.
 
 ## Developer references
 
