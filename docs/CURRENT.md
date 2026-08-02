@@ -5,6 +5,7 @@
 - [Documentation Index](index.md)
 - [New Chat Handoff](NEW-CHAT-HANDOFF.md)
 - [Current Project Status](development/current-status.md)
+- [Phase 62 Slice 2V Contract](development/phase-62-slice-2v-browser-session-idle-expiry.md)
 - [Phase 62 Slice 2U Closeout](development/phase-62-slice-2u-browser-session-concurrency-limit.md)
 - [Phase 62 Slice 2T Closeout](development/phase-62-slice-2t-browser-session-issuer-binding.md)
 - [Phase 62 Slice 2S Closeout](development/phase-62-slice-2s-browser-session-outcome-accountability.md)
@@ -44,7 +45,7 @@ VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
 Configurable photorealistic VDR Remote (#115)
 
-Next strict runtime phase:
+Current strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Repository, source CI and real-runtime accepted through:
@@ -58,11 +59,20 @@ VDR-Suite CI #6690
 Run ID 30723297375
 All five jobs successful
 
-Documentation-only Slice-2U closeout:
-This commit; closeout CI pending
+Slice-2U documentation closeout commit:
+4747d725664d4c382d17d3b19fa2776f48ba437b
+
+Final shared closeout and workflow head:
+d00fc5045a136d87323fbc13fb1bfc1030f7d3b5
+
+Final closeout GitHub Actions:
+VDR-Suite CI #6693
+Run ID 30733265772
+All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30733265772
 
 Active repository implementation:
-None selected after Slice 2U runtime acceptance
+Slice 2V - Browser-Session Idle Expiry and throttled last_seen
 
 Installed/running daemon SHA-256:
 0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
@@ -322,6 +332,11 @@ Durable secret-free evidence:
 /var/backups/vdr-suite-phase62-slice2u-20260802T041910Z-16ff04a4ba37/runtime-acceptance-slice2u
 ```
 
+Slice 2U is fully closed. Its closeout commit
+`4747d725664d4c382d17d3b19fa2776f48ba437b` and final shared head
+`d00fc5045a136d87323fbc13fb1bfc1030f7d3b5` are covered by VDR-Suite CI
+#6693, run `30733265772`, with all five jobs successful.
+
 ## Compatibility and fail-closed boundary
 
 Legacy Basic remains a transitional compatibility path. Managed Basic and
@@ -332,19 +347,25 @@ A presented browser cookie never falls back to Basic. Slice 2T strengthens the
 effective browser-cookie and CSRF lifecycle resolution. Slice 2U affects only
 new browser-session issuance; it does not mutate existing sessions.
 
-## Remaining Phase 62 work
+## Fresh post-2U gap analysis
 
-- complete all five CI jobs for this documentation-only Slice-2U closeout;
-- perform a fresh post-2U gap analysis before selecting another bounded slice;
-- define browser-session idle expiry and cleanup/retention separately;
-- extend outcome accountability beyond the bounded lifecycle pair only
-  through separately designed slices;
-- define stronger transactional coupling or outbox semantics separately;
-- add protected credential, identity, role and grant administration;
-- add native/service credential lifecycle;
-- standardize revisions, idempotency and operation lifecycle;
-- add protected audit query/export/retention;
-- complete compatibility-retirement and final Phase 62 acceptance.
+No product POST route remains to migrate. The remaining Phase 62 work is:
+
+- browser-session idle expiry and throttled `last_seen` persistence;
+- cleanup and retention as a separate later slice;
+- further operation outcomes;
+- stronger transaction coupling or Outbox;
+- shared revisions, idempotency and durable operation lifecycle;
+- protected actor, identity, credential, grant and role administration;
+- native/service credential lifecycle;
+- protected audit reads, export and retention;
+- compatibility retirement and final Phase 62 closeout.
+
+The browser-session table has absolute `expires_at`, `created_at` and
+`updated_at`, but no activity timestamp. `updated_at` is not a valid idle clock
+because lifecycle writes such as revocation also modify it. The bounded next
+slice therefore adds one explicit browser-session `last_seen_at` field rather
+than introducing a generic timestamp model.
 
 ## Operating rules
 
@@ -364,9 +385,12 @@ new browser-session issuance; it does not mutate existing sessions.
 
 ## Exact next action
 
-Require all five GitHub Actions jobs for this documentation-only Slice-2U
-closeout.
+Implement only Phase 62 Slice 2V — Browser-Session Idle Expiry and throttled
+`last_seen`. Run focused source validation and then evaluate all five GitHub
+Actions jobs on the final stabilization head. A new guarded real-yaVDR runtime
+acceptance is required only because the daemon and browser-session schema will
+change.
 
-No next Phase-62 implementation slice is selected by this closeout. After full
-closeout CI, perform a fresh post-2U gap analysis and select exactly one bounded
-slice. Do not combine that selection with this closeout.
+Do not combine Slice 2V with cleanup, retention, automatic eviction, session
+listing or administration, general security administration, Outbox, Android or
+Phase 63-67 work.
