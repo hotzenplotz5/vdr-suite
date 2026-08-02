@@ -13,7 +13,12 @@ bool executeGenreSchema(Database& database)
         "WHERE source_kind='epg-browse-content-class' "
         "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=9);"
         "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(9,'Strict specific-genre DVB movie fallback reconciliation');");
+        "(9,'Strict specific-genre DVB movie fallback reconciliation');"
+        "DELETE FROM suite_metadata_genre_assignments "
+        "WHERE source_kind='epg-browse-content-class' "
+        "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=10);"
+        "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
+        "(10,'Prefer active TVScraper documentary and sports evidence over media type');");
 }
 
 std::string liveParityAsciiLower(const std::string& value)
@@ -131,7 +136,7 @@ bool insertLiveParityEpgBrowseClassification(
         "INSERT INTO suite_metadata_genre_assignments "
         "(metadata_target_id,backend_id,target_type,genre_id,provider_id,original_value,"
         "normalization_rule,source_kind,assignment_state,confidence,ordinal,observed_at,updated_at) "
-        "VALUES (?,?, 'program-event',?,?,?,'epg-browse-taxonomy-v4',"
+        "VALUES (?,?, 'program-event',?,?,?,'epg-browse-taxonomy-v5',"
         "'epg-browse-content-class','active',?,0,?,CURRENT_TIMESTAMP);";
     if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK)
     {
@@ -296,25 +301,17 @@ bool reconcileEpgBrowseClassificationLocked(
         contentClass = "documentary";
         confidence = 0.95;
     }
+    else if (activeScraperSports || activeScraperDocumentary)
+    {
+        if (activeScraperSports == activeScraperDocumentary) return true;
+        contentClass = activeScraperSports ? "sports" : "documentary";
+        confidence = 0.95;
+    }
     else if (activeMediaMovie || activeMediaSeries)
     {
         if (activeMediaMovie == activeMediaSeries) return true;
-        if (activeMediaSeries)
-        {
-            contentClass = "series";
-            confidence = 0.99;
-        }
-        else if (activeScraperSports || activeScraperDocumentary)
-        {
-            if (activeScraperSports == activeScraperDocumentary) return true;
-            contentClass = activeScraperSports ? "sports" : "documentary";
-            confidence = 0.95;
-        }
-        else
-        {
-            contentClass = "movie";
-            confidence = 0.99;
-        }
+        contentClass = activeMediaSeries ? "series" : "movie";
+        confidence = 0.99;
     }
     else if (lastKnownMediaMovie || lastKnownMediaSeries)
     {
