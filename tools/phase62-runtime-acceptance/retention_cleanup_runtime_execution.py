@@ -300,7 +300,7 @@ def execute_acceptance(
         failure_reason = (
             str(error)
             if isinstance(error, AcceptanceError)
-            else error.__class__.__name__
+            else f"{error.__class__.__name__}:{error}"
         )
 
     finally:
