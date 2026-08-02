@@ -393,7 +393,9 @@ int main()
         lifecycleConfiguration,
         accountabilityRepository,
         credentialRepository,
-        grantRepository);
+        grantRepository,
+        nullptr,
+        nullptr);
 
     HttpServerRequest logoutRequest;
     logoutRequest.method = "POST";
@@ -414,7 +416,9 @@ int main()
         invalidLifecycleConfiguration,
         accountabilityRepository,
         credentialRepository,
-        grantRepository);
+        grantRepository,
+        nullptr,
+        nullptr);
 
     HttpServerRequest loginRequest;
     loginRequest.method = "POST";
