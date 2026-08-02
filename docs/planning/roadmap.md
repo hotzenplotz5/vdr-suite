@@ -5,6 +5,8 @@
 This file owns the strict forward execution order. Completed history belongs in [Completed Phases](../development/completed-phases.md); compact numbering belongs in the [Phase Map](phase-map.md); detailed prerequisites belong in the [Implementation Dependency Map](implementation-dependency-map.md).
 
 > Work is read from top to bottom. Later phases may not bypass identity, authorization, accountability, lifecycle fencing or stable-domain prerequisites by moving policy into a frontend, plugin or provider.
+>
+> A roadmap item is not automatically an implementation requirement. Before new runtime work is selected, a binding phase requirement, a concrete gap in accepted code, a real failure or security consequence and the smallest closing change must be demonstrated.
 
 ## Current verified position
 
@@ -29,7 +31,7 @@ Next strict runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
 Current Phase 62 state:
-Active; Slice 1 is real-runtime validated. Slice 2 lifecycle persistence and managed Basic increments are real-runtime accepted. Browser-session verification, atomic issuance and isolated HTTP issue/logout routes are implemented and CI validated on Draft PR #117. Ordinary application-route cookie authentication and business-mutation CSRF remain open. Phase 62 is incomplete.
+Active and real-runtime accepted through Slice 2W. A necessity-based post-Slice-2W analysis selected Slice 2X - Protected Mutation Response Outcomes as documentation/contract only. No Slice-2X production implementation exists. No other remaining implementation item is currently proven necessary before compatibility-retirement readiness and final closeout.
 ```
 
 ## Completed prerequisites and runtime
@@ -153,33 +155,53 @@ Goal: replace broad backend access hints with production-grade actor identity, s
 - append-only pre-dispatch issue/revoke/authentication/CSRF decisions;
 - tests prove browser cookies cannot authenticate ordinary application GET or POST routes.
 
-This isolated HTTPS lifecycle increment is installed and real-yaVDR accepted. The observed sequence was anonymous `401 authentication_required`, authenticated issuance `200` with a hardened cookie, missing-CSRF logout `403 csrf_validation_failed`, valid logout `204` and revoked-cookie replay `401 credential_revoked`. The reverse-proxy route is a local runtime integration; no yaVDR-Ansible playbook was run. The increment intentionally does not enable cookie authentication for Remote, Timer, Recording or other application routes.
+This isolated HTTPS lifecycle increment is installed and real-yaVDR accepted. The observed sequence was anonymous `401 authentication_required`, authenticated issuance `200` with a hardened cookie, missing-CSRF logout `403 csrf_validation_failed`, valid logout `204` and revoked-cookie replay `401 credential_revoked`. The reverse-proxy route is a local runtime integration; no yaVDR-Ansible playbook was run.
+
+### Cumulative accepted Phase 62 runtime through Slice 2W
+
+Later accepted slices completed:
+
+- ordinary application-route browser authentication with strict cookie precedence;
+- persisted exact actor grants and fixed exact-scope Admin/Read-only roles;
+- memory-only frontend CSRF handling;
+- classification of every registered central POST as a protected mutation or explicit Safe POST;
+- protected Remote, Timer, Channel Move, Recording, SearchTimer, Native Fuzzy and query-scoped refresh mutations;
+- immutable browser-session absolute lifetime;
+- browser issue/revoke outcome accountability;
+- request-time issuing-credential lifecycle binding;
+- optional per-actor browser-session concurrency limits;
+- optional idle expiry with throttled activity persistence;
+- bounded terminal browser-session retention cleanup with atomic secret-free accountability;
+- focused, architecture, full CI and guarded real-yaVDR acceptance through Slice 2W.
 
 Evidence:
 
 - [Phase 62 Gap Matrix](phase-62-security-identity-gap-matrix.md)
 - [Phase 62 Slice 1](../development/phase-62-security-identity-foundation-slice-1.md)
 - [Phase 62 Slice 2](../development/phase-62-security-identity-foundation-slice-2.md)
+- [Slice 2X — Protected Mutation Response Outcomes](../development/phase-62-slice-2x-protected-mutation-response-outcomes.md)
 - [Security and Identity Architecture](../architecture/security-identity-foundation.md)
 
-### Remaining required order
+### Remaining proven required order
 
-1. define ordinary application-route authentication precedence and connect browser contexts through `PersistentIdentityResolver` and centralized authorization;
-2. load browser permissions/backend scopes without inheriting legacy compatibility grants;
-3. classify every POST and enforce/audit browser CSRF before each applicable business mutation dispatch;
-4. add frontend login/logout and memory-only CSRF handling without durable client secret storage;
-5. complete issuance/revocation outcome accountability and transactional coupling/outbox;
-6. complete managed password generation/change, native/service credential lifecycle, refresh/idle expiry/cleanup/recovery and protected lifecycle administration;
-7. persist roles, permissions and backend/resource scopes;
-8. migrate all mutations and sensitive reads to centralized authorization and explicit CSRF classification;
-9. preserve and prove backend read-only behaviour under actor permissions;
-10. complete actor, device, credential, session, request, correlation and operation context propagation;
-11. extend append-only accountability to authentication, session, CSRF, mutation completion and security lifecycle events;
-12. add transactional outbox delivery for protected operations;
-13. complete revision and `If-Match` rules per mutable resource;
-14. add durable idempotency-key and operation replay records;
-15. add protected audit queries, redaction, retention and audit-of-audit;
-16. complete deny-path, outage, failure-injection, full-suite and later-increment real-runtime acceptance.
+1. **Protected Mutation Response Outcomes — Slice 2X selected, not implemented.**
+   The exit criteria require actor, decision and outcome evidence for every privileged mutation. Accepted business-mutation paths currently persist only pre-dispatch authorization evidence; successful and returned-failure router outcomes remain indistinguishable. The smallest closing change is one post-router `operation.succeeded` or `operation.failed` event using the already-authorized context and existing append-only repository.
+2. **Compatibility-retirement readiness and final Phase-62 closeout.**
+   Evaluate only after Slice 2X implementation and acceptance. This is a readiness/closeout decision, not advance authorization for another feature slice.
+
+No other implementation item is currently proven necessary.
+
+### Work requiring a separate necessity proof
+
+The following ideas are not Phase-62 requirements merely because they may be useful:
+
+- protected audit HTTP reads, audit frontend, export, filtering, pagination, redaction or retention;
+- generic actor, identity, credential, grant or role administration;
+- native/service credential enrollment, rotation or revocation before a real consumer requires it;
+- universal revision, `If-Match`, idempotency-key or durable operation infrastructure;
+- transactional Outbox or generic cross-system commit coupling.
+
+Any such work may be selected only after documenting a binding requirement, a concrete gap in accepted code, a real failure or security consequence and why the proposed change is the smallest solution. “Listed on the roadmap” is not sufficient proof.
 
 Exit criteria:
 
@@ -189,7 +211,7 @@ Exit criteria:
 - the second-house/read-only scenario remains proven;
 - every privileged mutation has actor, decision and outcome evidence;
 - required pre-dispatch accountability failure prevents dispatch;
-- revision and idempotency contracts are enforced where required;
+- revision and idempotency contracts are enforced where a concrete mutable-resource contract proves them required;
 - Agent identities can be represented for Phase 63.
 
 Forbidden shortcuts:
@@ -204,6 +226,7 @@ Forbidden shortcuts:
 - no managed identity may inherit the legacy unmigrated-POST bypass;
 - no browser-cookie business mutation dispatch without server-side CSRF verification;
 - no new remote privileged dispatch before authorization/accountability gates exist;
+- no feature implementation without a demonstrated requirement-to-code failure chain;
 - no Phase 63-67 runtime declared through Phase 62 interface preparation.
 
 ## Phase 63 — Backend Agent and Secure Multi-Site Runtime
@@ -312,7 +335,7 @@ No recommendation work may hide provider authority or use unstable identities.
 
 - **Identity gate:** stable Suite identity and explicit backend-native binding where applicable.
 - **Provider gate:** provider data carries provenance/state and never becomes hidden authority.
-- **Mutation gate:** authentication, browser CSRF where applicable, authorization, revision, idempotency, durable dispatch evidence, verification and accountability.
+- **Mutation gate:** authentication, browser CSRF where applicable, authorization, required resource preconditions, durable dispatch evidence, verification and accountability. Revision or idempotency mechanisms are required only where a concrete resource contract proves them necessary.
 - **Native boundary gate:** no raw VDR pointer or lock crosses into asynchronous/network/database work.
 - **Client gate:** clients consume Suite-owned contracts, never private plugin/provider details.
 - **Acceptance gate:** focused tests, regressions, build/package validation and real-system acceptance where native behaviour changes.
