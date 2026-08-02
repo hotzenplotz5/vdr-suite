@@ -3,7 +3,8 @@
 ## Status
 
 Selected after the completed Slice-2U closeout and fresh post-2U gap analysis.
-Implementation and acceptance are pending.
+The bounded implementation, focused source test and architecture guard are in
+the branch. Final source CI and guarded real-yaVDR acceptance are pending.
 
 PR #117 remains open, Draft and unmerged.
 
@@ -40,16 +41,18 @@ Parsing is strict:
 - no overflow;
 - values `1..299` and values above `86400` are invalid.
 
-An invalid configured value fails browser-session issuance and presented
-browser-cookie authentication closed:
+An invalid value fails browser-session issuance and presented browser-cookie
+requests closed before dispatch. Browser lifecycle routes return:
 
 ```text
 HTTP 503
 browser_session_idle_configuration_invalid
 ```
 
-Anonymous requests and Basic authentication without a presented browser cookie
-remain governed by their existing contracts.
+Ordinary routes with a valid presented browser credential use the existing
+HTTP-503 unavailable-security-persistence path. Anonymous requests and Basic
+authentication without a presented browser cookie remain governed by their
+existing contracts.
 
 ## Persistence contract
 
@@ -90,8 +93,8 @@ Idle expiry:
 - does not physically revoke, delete or clean up the row.
 
 Cookie authentication and CSRF verification use the same repository-owned idle
-calculation. Neither path may implement a separate client-side or gate-local
-idle clock.
+calculation. Neither path implements a separate client-side or gate-local idle
+clock.
 
 ## Throttled activity writes
 
@@ -107,7 +110,10 @@ Rules:
   CSRF, permission, backend or domain decision denies the request;
 - repeated requests inside the 60-second write interval perform no update;
 - a repository error while attempting an activity update fails the request
-  closed with HTTP 503 `browser_session_activity_unavailable`;
+  closed before dispatch;
+- ordinary routes use the existing HTTP-503 unavailable-persistence response;
+- browser logout returns HTTP 503
+  `browser_session_activity_unavailable`;
 - no session secret, CSRF token, cookie value or Authorization header is stored
   or emitted by the activity path.
 
@@ -122,15 +128,17 @@ No automatic eviction or revocation is introduced.
 ## Accountability
 
 Existing authentication-denial accountability records idle expiry through the
-secret-free `session_expired` reason. Invalid configuration and activity-store
-unavailability use their explicit reason codes.
+secret-free `session_expired` reason. Invalid lifecycle configuration records
+`browser_session_idle_configuration_invalid`. Logout activity-store failure
+records `browser_session_activity_unavailable`; ordinary routes retain the
+existing unavailable-persistence accountability contract.
 
 No new audit read API, export, retention policy, cleanup job or outcome family
 is included.
 
-## Required focused verification
+## Focused source verification
 
-Source tests must prove:
+The dedicated test and architecture guard cover:
 
 1. default `0` is valid and disables idle expiry and request-time activity writes;
 2. `300` and `86400` are valid;
@@ -139,20 +147,21 @@ Source tests must prove:
 4. schema upgrade adds and backfills `last_seen_at` idempotently;
 5. new browser rows initialize `last_seen_at`;
 6. a session inside the idle window authenticates;
-7. an idle-expired session returns `session_expired` for ordinary GET and
-   protected mutation paths;
+7. an idle-expired session returns `session_expired` for ordinary GET,
+   protected mutation and logout paths;
 8. CSRF verification rejects the same idle-expired row;
 9. absolute expiry remains authoritative and is never extended;
 10. a successful authenticated request updates `last_seen_at` only when at
     least 60 seconds have elapsed;
 11. repeated requests inside the throttle interval do not write;
-12. invalid, revoked and expired credentials do not write;
-13. an activity update repository failure maps to HTTP 503 and prevents dispatch;
-14. idle-expired rows do not consume a Slice-2U concurrency slot;
-15. logout and revoked-cookie replay semantics remain unchanged;
-16. accountability and all test evidence remain secret-free.
+12. disabled idle expiry performs no activity write;
+13. invalid configured policy fails presented browser requests closed;
+14. a forced activity-update SQL failure returns HTTP 503 before dispatch;
+15. idle-expired rows do not consume a Slice-2U concurrency slot;
+16. logout and revoked-cookie replay semantics remain unchanged;
+17. accountability and all test evidence remain secret-free.
 
-The architecture guard must reject:
+The architecture guard rejects:
 
 - use of `updated_at` as the idle clock;
 - per-request unthrottled writes;
