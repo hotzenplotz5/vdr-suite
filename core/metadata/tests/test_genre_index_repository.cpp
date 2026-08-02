@@ -246,9 +246,15 @@ int main()
 
         assert(repository.replaceEvidence(scraperEvidence(
             "C10\n100", "100", "C10", 2050, 5650,
+            "tvscraper", "scraper-metadata", {"Crime"}, "stale")));
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C10\n100", "100", "C10", 2050, 5650,
             "tvscraper-media-type", "scraper-media-type", {"Series"}, "stale")));
         assert(repository.reconcileEpgBrowseClassification("a", "C10\n100"));
 
+        assert(repository.replaceEvidence(scraperEvidence(
+            "C11\n110", "110", "C11", 2100, 3900,
+            "tvscraper", "scraper-metadata", {"Comedy"}, "stale")));
         assert(repository.replaceEvidence(scraperEvidence(
             "C11\n110", "110", "C11", 2100, 3900,
             "tvscraper-media-type", "scraper-media-type", {"Series"}, "stale")));
@@ -258,7 +264,7 @@ int main()
             "a", 900, 8000);
         assert(browse.categories.size() == 4);
         assert(category(browse, "movie").itemCount == 1);
-        assert(category(browse, "series").itemCount == 3);
+        assert(category(browse, "series").itemCount == 2);
         assert(category(browse, "documentary").itemCount == 1);
         assert(category(browse, "sports").itemCount == 2);
 
@@ -283,8 +289,8 @@ int main()
 
         GenreEpgPage series = repository.epgByBrowse(
             "a", "series", "", 900, 8000, 50, 0);
-        assert(series.totalCount == 3);
-        assert(pageContainsTitle(series, "Hartz Rot Gold"));
+        assert(series.totalCount == 2);
+        assert(!pageContainsTitle(series, "Hartz Rot Gold"));
         assert(pageContainsTitle(series, "Death in Paradise"));
         assert(pageContainsTitle(series, "The Big Bang Theory"));
         assert(!pageContainsTitle(series, "Tagesschau"));
@@ -314,7 +320,8 @@ int main()
         GenreIndexRepository repository(database);
         GenreEpgPage persisted = repository.epgByBrowse(
             "a", "series", "", 900, 8000, 50, 0);
-        assert(persisted.totalCount == 3);
+        assert(persisted.totalCount == 2);
+        assert(!pageContainsTitle(persisted, "Hartz Rot Gold"));
         assert(pageContainsTitle(persisted, "Death in Paradise"));
         assert(pageContainsTitle(persisted, "The Big Bang Theory"));
         assert(!pageContainsTitle(persisted, "Tagesschau"));
