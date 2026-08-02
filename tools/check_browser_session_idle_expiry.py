@@ -166,10 +166,16 @@ def main() -> int:
         fail("activity persistence must update only last_seen_at")
 
     authenticator = texts["authenticator"]
-    expiry_at = authenticator.find("record->expired || record->idleExpired")
+    absolute_expiry_at = authenticator.find("if (record->expired)")
+    idle_expiry_at = authenticator.find("if (record->idleExpired)")
     touch_at = authenticator.find("touchLastSeenIfDue")
     grants_at = authenticator.find("findActiveGrantsForActor")
-    if not (expiry_at >= 0 and touch_at > expiry_at and grants_at > touch_at):
+    if not (
+        absolute_expiry_at >= 0
+        and idle_expiry_at > absolute_expiry_at
+        and touch_at > idle_expiry_at
+        and grants_at > touch_at
+    ):
         fail("activity touch must occur only after effective authentication and before authorization")
     if "expiresAt" in authenticator or "expires_at" in authenticator:
         fail("authenticator must not implement sliding absolute expiry")
