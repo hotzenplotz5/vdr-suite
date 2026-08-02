@@ -167,12 +167,17 @@ metadata without explicit approval.
 PR #118 remains the separate paused TVScraper workstream and must not be mixed
 with Phase 62.
 
-## Preferred edit path
+### Preferred edit path for new chats
 
-Prefer direct GitHub repository updates when the connector can perform the edit
-safely and the complete current file content is available. Use local edits only
-for compilation, generated artifacts, focused local runtime tests or capabilities
-not exposed by the connector.
+Prefer direct GitHub repository updates for existing files when the connector can
+perform the edit safely and the complete current file content is available.
+
+Use local edits first only when the change requires:
+
+- compilation or generated artifacts;
+- focused local runtime tests;
+- a capability not exposed by the GitHub connector;
+- a workaround because the GitHub connector blocks a file operation.
 
 Create small coherent commits with fast-forward-only semantics. Evaluate CI on
 the final stabilization head rather than stopping after every intermediate
