@@ -7,48 +7,43 @@ repeating repository-wide analysis or real-runtime acceptance. A new chat alone
 is not a reason to start over.
 
 Trust completed items marked **VERIFIED** unless a directly relevant repository,
-binary, configuration, database, routing, or behaviour fingerprint changed.
+binary, configuration, database, routing or behaviour fingerprint changed.
 
 ## Canonical reading
 
 - [Current project truth](CURRENT.md)
+- [Current project status](development/current-status.md)
+- [Phase 62 Slice 2V closeout](development/phase-62-slice-2v-browser-session-idle-expiry.md)
+- [Phase 62 runtime evidence](development/phase-62-runtime-evidence.md)
+- [Phase 62 gap matrix](planning/phase-62-security-identity-gap-matrix.md)
+- [Security and identity architecture](architecture/security-identity-foundation.md)
 - [Strict roadmap](planning/roadmap.md)
 - [Phase map](planning/phase-map.md)
-- [Parity and frontend gap roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
-- [Architecture audit gap matrix](planning/architecture-audit-gap-matrix.md)
 - [ADR index](adr/index.md)
-- [Completed phases](development/completed-phases.md)
-- [Phase 61 closeout](development/phase-61-metadata-genre-performance-closeout.md)
-- [Post-Phase-61 runtime closeout](development/post-phase-61-platform-runtime-closeout.md)
-- [Phase 62 runtime evidence](development/phase-62-runtime-evidence.md)
-- [Slice 2H Channel Move security migration](development/phase-62-slice-2h-channel-move-security-migration.md)
-- [Slice 3A contract](development/phase-62-public-origin-base-path.md)
-- [Slice 3A real-runtime checkpoint](development/phase-62-slice-3a-runtime-checkpoint.md)
+- [Agent workflow rules](../AGENTS.md)
 
-This handoff, the Phase 62 runtime evidence and the Slice 2H document are the
-newest authorities for identity, role, browser-session, mutation-CSRF,
-installation and real-runtime truth. The Slice 3A checkpoint remains the
-authority for public-origin and Nginx routing history.
+The Slice-2V closeout, runtime evidence, current state and current-status files
+are the newest authorities for Phase 62 repository, CI and real-runtime truth.
+The historical Slice-3A checkpoint remains authoritative only for public-origin
+and Nginx routing history.
 
 ## Stable project position
 
 ```text
-Latest completed runtime phase:
+Latest completed numbered runtime phase:
 Phase 61 - Suite Metadata and Genre Platform
 
 Completed hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
 
-Historical umbrella track:
-Phase 58 - Frontend and Live Parity
-
-Completed platform features:
-VDR Remote and Live Overlay hardening (#110)
-Backend-scoped Global Search (#111)
-Configurable photorealistic VDR Remote (#115)
-
 Current active phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
+
+Phase 62 state:
+active and incomplete
+
+Phase 63-67 runtime:
+not advanced
 ```
 
 ## Active workstream
@@ -60,412 +55,271 @@ Local branch: phase62-pr117
 Remote branch: phase-62-security-identity-foundation
 Pull request: #117
 Base: main @ cb77ff66e11dca7db2eafa36525762dcde35102d
-Repository and runtime accepted through Slice 2H:
-2e0b31f671edf18393d7d48ea6e15697fc3a044d
-Slice 2H CI: run 6559, successful
-CI URL: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30627974107
-Installed daemon: /usr/sbin/vdr-suite-daemon
-Installed daemon SHA-256: ff7582b6fdb6a2faa7d0e29f6795ad634ea76d95a42280a6140e005e249cbf52
-Installed deferred runtime loader SHA-256: e4860a2b7c613919f3a084fc625f398bd5f339191ae48133cfc76431c0189ca9
-Slice 2H guarded installation backup:
-/var/backups/vdr-suite-phase62-slice2h-install-20260731-140438
-Slice 2H runtime-acceptance database backup:
-/var/backups/vdr-suite-phase62-slice2h-runtime-20260731-142540
+PR state: open, Draft, unmerged, mergeable
+
+Repository, source CI and real-runtime accepted through:
+Slice 2V - Browser-Session Idle Expiry and throttled last_seen
+
+Accepted implementation/runtime head:
+e84415fadb2587ff744ff8927f1f0113920ece2f
+
+Source CI:
+VDR-Suite CI #6779
+Run ID 30741293079
+All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
+
+Documentation closeout:
+canonical closeout updates in progress; final closeout CI pending
+
+Active implementation after Slice 2V:
+none selected
 ```
 
 PR #117 must remain open and Draft. Do not mark it ready, merge it, enable
-auto-merge, rewrite its branch, or mutate review state without explicit
-approval.
+auto-merge, force-push, rewrite branch history or mutate review state without
+explicit approval.
 
-The PR description is stale through Slice 2E.1 and does not yet record the
-accepted fixed-role, Timer and Channel Move slices. This handoff and the runtime
-evidence are newer. Do not edit PR metadata without explicit approval.
+PR #118 is the separate TVScraper bugfix workstream and is currently paused. Do
+not mix PR #118 or its daemon fingerprint into Phase 62 commits or evidence.
 
-## Resume rule
+## Installed real-runtime truth
 
-Recheck only volatile state directly needed for the next approved operation:
-
-1. local branch, HEAD, upstream, and clean/dirty state before local work;
-2. remote head and PR Draft/base/CI state;
-3. installed daemon hash only before a future daemon replacement;
-4. service/listener/database state only around a future approved runtime change.
-
-Do not repeat Slice 3A installation, Nginx activation, redirects, namespace
-provenance, unauthenticated probes, credential rotation, accountability root
-cause analysis, daemon-only fix installation, or browser-session lifecycle
-acceptance merely because a chat changed.
-
-## Completed Phase 62 foundation
-
-**VERIFIED in repository and, where stated, on the real yaVDR runtime:**
-
-- canonical actor, device, session, credential, authentication, request, and
-  correlation context;
-- centralized permission and backend-scope decisions;
-- explicit legacy compatibility mode and fail-closed enforced-mode boundaries;
-- persistent actor/device/session/credential lifecycle;
-- managed Basic verification without managed defaults;
-- browser-session verifier persistence;
-- atomic session issuance with independent session and CSRF secrets;
-- isolated HTTPS issue/logout lifecycle;
-- ordinary-route browser-cookie authentication and precedence;
-- malformed, duplicate, expired, unknown, and revoked-cookie denial;
-- empty browser grant set without inherited compatibility grants;
-- active actor grants loaded from additive backend-scoped persistence;
-- fail-closed `permission_grants_unavailable` distinction and recovery;
-- fail-closed browser business mutations except explicitly migrated route
-  families;
-- fixed exact-backend `role.admin` and `role.read-only` semantics;
-- browser-cookie plus CSRF enforcement for Remote, Timer create/update/delete
-  and both Channel Move aliases;
-- memory-only frontend CSRF injection for the exact migrated routes;
-- append-only accountability and atomic revocation/replay denial;
-- Suite-owned public namespace `/vdr-suite/` with unchanged daemon paths;
-- canonical redirects, prefix-stripping proxy, forwarded prefix, and cookie path
-  rewrite;
-- daemon-owned authenticated frontend and asset delivery.
-
-## Installed Slice 3A and accountability-fix runtime
-
-**VERIFIED on 2026-07-29:**
+**VERIFIED on 2026-08-02 after the successful Slice-2V acceptance:**
 
 ```text
-Original Slice 3A backup:
-/var/backups/vdr-suite-phase62-slice3a-20260729-122447
+Daemon unit:
+vdr-suite-daemon.service
 
-Pre-fix daemon backup:
-/var/backups/vdr-suite-phase62-accountability-fix-20260729-162026
-SHA-256:
-85b12e38a9f23fde7ae84c9773914b39874ca81edec5ea4ccecd997d77b3dc02
-
-Installed current daemon:
+Installed executable:
 /usr/sbin/vdr-suite-daemon
-SHA-256:
-652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1
 
-Slice 2C pre-install daemon/database backup:
-/var/backups/vdr-suite-phase62-slice2c-20260729-171704
-
-Installed index SHA-256:
-d5dc42df979b61115c3cf49e5682971cee9acfd1b11d8511fc751c86d30a75a8
-
-Installed app.js SHA-256:
-33c7c92a86747cfebea66e79f0d972723471aac90a986751e90b3aa8d9fbf93a
-
-Installed public-url.js SHA-256:
-7c9dbc35646e857cfd31b0ebf1f220fb94e1ef48e17c62909d745ee63e97a5c5
-
-Installed Nginx snippet SHA-256:
-b9f7114d35fcd79a49604da195f1f2c340c4d7f1f66bed24a448b349791acb01
-```
-
-The current daemon-only replacement completed successfully after a bounded
-readiness wait. The service remained active/running with zero restarts, the
-listener was present on port `18080`, unauthenticated access remained `401`,
-and `PRAGMA quick_check` returned `ok`.
-
-The first installation attempt rolled back safely because an immediate listener
-probe ran before listener readiness. No product or schema fault was observed.
-
-Nginx, frontend files and credential configuration were not changed. The only
-planned database change was the additive browser-grant table and index.
-
-## Completed persisted browser-grant acceptance
-
-**VERIFIED on 2026-07-29 at `47adb6577511209bfe7288ce8ce0fbe03b53a94c`:**
-
-```text
-Installed daemon SHA-256:
-652dfc6a29f466fca977d34587db8a39bbc631509b735e02f8dd1942c46088e1
-
-Grant table after startup: present
-Grant rows after startup: 0
-Primary key: actor_id,permission,backend_id
-Active-grant index: present
-
-Browser-session issuance: 200
-Empty-grant ordinary GET: 200
-Browser business POST with empty grants:
-  503 security_policy_not_migrated
-
-Persisted grants:
-  remote.control@default
-  remote.control@phase62-acceptance-other
-
-Default scope revoked independently: verified
-Alternate scope preserved: verified
-All active acceptance grants revoked: verified
-
-Grant table unavailable:
-  503 permission_grants_unavailable
-Same session after table recovery:
-  200
-
-Logout: 204
-Revoked-cookie replay:
-  401 credential_revoked
-
-Verifier/session/credential revocation: verified
-Acceptance grant rows after cleanup: 0
-PRAGMA quick_check: ok
-Foreign-key violations: 0
-Accountability append failures: 0
-```
-
-Persisted grants alone do not enable an unmigrated browser mutation. Every
-remaining browser-authenticated business POST stays fail-closed until its exact
-route family receives explicit permission and server-side CSRF classification.
-
-## Cumulative Phase 62 acceptance through Slice 2H
-
-**VERIFIED on 2026-07-31 at `2e0b31f671edf18393d7d48ea6e15697fc3a044d`:**
-
-```text
-GitHub Actions CI: #6559, successful
-CI URL: https://github.com/hotzenplotz5/vdr-suite/actions/runs/30627974107
-
-Installed daemon SHA-256:
-ff7582b6fdb6a2faa7d0e29f6795ad634ea76d95a42280a6140e005e249cbf52
+Installed/running daemon SHA-256:
+e0b6f6de08527b6af49d526ca0118b14b6fb85ff3335fc607ca1b531cdee5f60
 
 Installed deferred-runtime-loader.js SHA-256:
-e4860a2b7c613919f3a084fc625f398bd5f339191ae48133cfc76431c0189ca9
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
 
-Guarded installation backup:
-/var/backups/vdr-suite-phase62-slice2h-install-20260731-140438
+Restored daemon configuration SHA-256:
+8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
 
-Runtime-acceptance database backup:
-/var/backups/vdr-suite-phase62-slice2h-runtime-20260731-142540
+Final service PID observed by acceptance:
+86549
+
+Runtime evidence:
+/var/backups/vdr-suite-phase62-slice2v-20260802T092139Z-e84415fadb25
+
+Runtime report SHA-256:
+0a961fbc8b51158fd4a16aa24fc9afde7dafa9d5272e986a46ec73880c311f86
 ```
 
-The installed runtime now accepts browser-session authentication on ordinary
-routes and enforces cookie-bound CSRF plus exact backend authorization for:
+The service was active. The accepted Phase-62 daemon remained installed and
+running. The original configuration was restored exactly. The runtime-only
+systemd drop-in was removed and the idle test environment was absent from the
+final unit. Process IDs and service timestamps remain volatile.
+
+## Cumulative accepted Phase 62 foundation
+
+**VERIFIED in source CI and, where required, on the real yaVDR runtime:**
+
+- canonical actor, device, session, credential, authentication, request and
+  correlation context;
+- persistent actor/device/session/credential lifecycle;
+- optional Managed Basic authentication without managed defaults;
+- persistent browser-session verifiers with independent session and CSRF
+  secrets;
+- strict cookie parsing and browser-cookie precedence without Basic fallback;
+- exact actor permission and backend-scope grants;
+- fixed exact-scope Admin and Read-only role semantics;
+- memory-only Webfrontend CSRF ownership and exact route injection;
+- protected Remote, Timer, Channel Move, Recording and SearchTimer mutation
+  families;
+- explicit Safe POST classification for accepted validation and preview routes;
+- protected Native Fuzzy refresh, global stale-probe deletion and query-scoped
+  cache refresh;
+- configurable immutable absolute browser-session lifetime;
+- append-only pre-dispatch accountability;
+- browser-session issue and revoke outcome accountability with compensation;
+- request-time issuing-credential lifecycle binding;
+- optional per-actor effective browser-session concurrency limit with deny-new
+  semantics;
+- optional browser-session idle timeout with additive `last_seen_at`;
+- one repository-owned idle calculation for cookie and CSRF paths;
+- fixed 60-second activity-write throttle;
+- idle-expired sessions excluded from the effective concurrency count;
+- mutation-safe real-runtime acceptance harnesses with guarded rollback.
+
+## Slice 2V runtime acceptance
+
+**VERIFIED on 2026-08-02 at
+`e84415fadb2587ff744ff8927f1f0113920ece2f`:**
 
 ```text
-POST /api/vdr/remote/actions
-POST /api/vdr/timers/actions/create
-POST /api/vdr/timers/actions/update
-POST /api/vdr/timers/actions/delete
-POST /api/vdr/channels/move
-POST /api/vdr/channels/actions/move
+PHASE_62_SLICE_2V_RUNTIME_ACCEPTANCE=PASS
+
+Configured idle timeout:
+300 seconds
+
+Activity-write interval:
+60 seconds
+
+Ordinary GET before idle expiry:
+HTTP 200
+
+Ordinary GET after idle expiry:
+HTTP 401 session_expired
+
+Protected mutation after idle expiry:
+HTTP 401 session_expired
+
+last_seen writes inside accepted interval:
+1
+
+Absolute expiry unchanged:
+yes
+
+Replacement logout:
+HTTP 204
+
+Revoked replacement-cookie replay:
+HTTP 401 credential_revoked
+
+Acceptance lifecycle active rows after cleanup:
+0
+
+SQLite quick check:
+ok
+
+SQLite foreign-key check:
+empty
+
+Accountability secret-free:
+yes
+
+VDR domain mutations:
+0
+
+Final service state:
+active
+
+Runtime drop-in:
+removed
+
+Idle test environment:
+not set
 ```
 
-Fixed `role.admin@<backend-id>` expands only to the explicit protected-mutation
-catalogue. Exact-scope `role.read-only@<backend-id>` denies those mutations
-before direct or Admin grants. Wildcard role rows do not become concrete
-backend-role assignments.
+Do not repeat this runtime acceptance merely because a chat changes. Repeat only
+when a directly relevant daemon, configuration, schema or lifecycle contract
+changes.
 
-Slice 2H acceptance proved both Channel Move aliases, query-string
-normalization, fail-closed trailing slashes, missing and invalid CSRF,
-permission and backend-scope denial, Admin allowance, Read-only precedence,
-cross-backend isolation, wildcard-role non-effectiveness, backend-policy
-rejection, secret-free accountability, logout and revoked-cookie replay.
+## Public-origin truth
 
-All successful Channel Move acceptance calls used `dryRun:true`. The accepted
-evidence records:
-
-```text
-channel_move_requests=22
-real_channel_moves=0
-browser_session_active=0
-grants_restored=yes
-sqlite_quick_check=ok
-service_state=active
-```
-
-## Completed public-origin acceptance
-
-**VERIFIED:**
+**VERIFIED historical installed contract:**
 
 ```text
 /vdr-suite          -> 308 /vdr-suite/frontend/
 /vdr-suite/         -> 308 /vdr-suite/frontend/
 /vdr-suite/frontend -> 308 /vdr-suite/frontend/
 
-Public yaVDR /api/                       -> 307
-Public Suite /vdr-suite/api/vdr/status  -> 401 unauthenticated
-Direct daemon /api/vdr/status           -> 401 unauthenticated
+Public root /api/*:
+yaVDR-owned
+
+Public Suite API prefix:
+/vdr-suite/api/*
+
+Internal daemon API prefix:
+/api/*
 ```
 
-Public `/api/*` remains yaVDR-owned. Unauthenticated Suite HTML and assets return
-`401` by design because the security gate runs before static delivery.
+The active repository-managed Nginx snippet is
+`/etc/nginx/snippets/vdr-suite.conf`. The public prefix is stripped before
+proxying to the daemon and cookie paths are rewritten to `/vdr-suite/`.
 
-## Credential state
-
-**VERIFIED:**
-
-- managed-Basic username and password hash are configured;
-- the managed-Basic plaintext password is unavailable;
-- a non-default explicit `VDR_SUITE_BASIC_AUTH` is configured;
-- its value must never be printed or committed;
-- configuration rollback owner is
-  `/root/.vdr-suite-phase62-auth-backup`.
-
-Do not rotate Legacy Basic or Managed Basic again for this completed acceptance
-path.
-
-## Accountability blocker and accepted fix
-
-The pre-fix daemon produced one controlled
-`POST /vdr-suite/api/security/browser-sessions` response with
-`503 accountability_unavailable`. The database remained healthy, but the old
-daemon did not preserve the concrete SQLite result code.
-
-Repository analysis proved that the accountability append used the daemon's
-shared SQLite connection without acquiring the transaction lease used by other
-writers. The accepted fix:
-
-```text
-a2dd3f2689eedf08d6b0df46c587a637b977fd33
-fix(security): serialize accountability persistence
-
-c0497d45264b78936beabc17d022b98f568407cc
-test(security): cover accountability transaction serialization
-
-e3a8b7815c5df06093656f4724e6001d22c5755a
-test(security): verify non-secret accountability diagnostics
-```
-
-The append now acquires the shared transaction lease, checks SQLite stages
-independently, and reports only primary and extended result codes. Focused tests,
-daemon build, CI, real installation, and authenticated runtime acceptance all
-passed.
-
-## Authenticated public-origin acceptance
-
-Exactly one approved authenticated pass was run after installing the fixed
-daemon.
-
-**VERIFIED:**
-
-```text
-Browser-session issuance: 200
-Set-Cookie:
-  Path=/vdr-suite/
-  Max-Age=28800
-  HttpOnly
-  Secure
-  SameSite=Strict
-
-Authenticated frontend index: 200
-Authenticated public-url.js: 200
-Authenticated app.js runtime bundle: 200
-Authenticated Suite logo: 200
-Authenticated /api/vdr/status: 200
-
-Logout without CSRF: 403
-Session after CSRF denial: 200
-Valid cookie-plus-CSRF logout: 204
-Expired cookie with Path=/vdr-suite/: verified
-Revoked-cookie replay: 401
-PRAGMA quick_check: ok
-Accountability append failures: 0
-Temporary acceptance artifacts: removed
-```
-
-No further browser-session issuance is required for this fix.
-
-### Static app.js contract
-
-`/frontend/app.js` is intentionally a runtime bundle composed of installed
-`app.js`, two newline separators, and `modules/remote.js`. A direct byte
-comparison against only the installed `app.js` source file is invalid. The
-repository and installed `app.js` source files were independently proven
-byte-identical.
-
-### Rejected cookie-jar helper
-
-An ad-hoc cookie-jar parser reported a false failure although the actual
-`Set-Cookie` contract and all authenticated lifecycle behaviour passed. Do not
-reuse that helper or repeat issuance merely to debug it.
+Do not repeat public-origin installation or routing acceptance unless a directly
+relevant Nginx, frontend, daemon or configuration fingerprint changes.
 
 ## Anti-loop boundary
 
-Do **not** repeat any of the following unless its directly relevant fingerprint
-changed:
+Do not repeat any completed work unless its directly relevant fingerprint or
+contract changed:
 
-1. repository-wide Phase 62 or Slice 3A analysis;
-2. Slice 3A frontend/Nginx installation;
-3. Nginx include replacement, testing, reload, redirects, or provenance probes;
-4. unauthenticated frontend/resolver probes or body byte comparisons;
-5. Legacy-Basic or Managed-Basic credential rotation or password recovery;
-6. accountability transaction-lease root-cause analysis;
-7. daemon-only installation of the accepted accountability fix;
-8. browser-session issue/CSRF/logout/replay acceptance for that fix;
-9. persisted browser-grant schema, empty-result, backend-scope,
-   unavailable-store, recovery, logout and cleanup acceptance;
-10. direct response-to-single-file comparison for `/frontend/app.js`;
-11. the rejected ad-hoc cookie-jar parser;
-12. fixed-role repository and installed-runtime acceptance;
-13. Timer create/update/delete browser-CSRF runtime acceptance;
-14. Channel Move alias, role, scope, accountability and mutation-free runtime
-    acceptance.
+1. repository-wide Phase 62 analysis;
+2. public-origin and Nginx installation or acceptance;
+3. accountability transaction-serialization root-cause analysis;
+4. persistent browser-grant acceptance;
+5. fixed-role and accepted route-family runtime acceptance;
+6. Safe POST inventory and classification;
+7. absolute browser-session lifetime acceptance;
+8. browser issue/revoke outcome acceptance;
+9. issuing-credential lifecycle acceptance;
+10. concurrent browser-session limit acceptance;
+11. browser-session idle-expiry and throttled-activity acceptance;
+12. credential rotation or password recovery;
+13. TVScraper work from the separate paused PR #118.
+
+## Credential and secret restrictions
+
+The Managed-Basic plaintext password used for earlier acceptance is unavailable.
+Do not rotate or reprovision credentials implicitly.
+
+Never print, store or commit:
+
+- Authorization headers;
+- plaintext passwords or password hashes;
+- cookies or complete cookie values;
+- CSRF tokens;
+- raw session or verifier secrets;
+- login response bodies containing secrets;
+- process environments.
+
+Preserve only non-secret status, paths, request outcomes and approved artifact
+fingerprints.
+
+## Volatile recheck rule
+
+Recheck only state needed for the next approved operation:
+
+1. local branch, HEAD, upstream and clean status before local mutation;
+2. remote head and PR Draft/base/CI state before repository mutation;
+3. installed daemon, configuration and loader fingerprints before runtime
+   replacement;
+4. service, listener and database state only around an approved runtime change.
+
+A changed PID alone does not invalidate completed acceptance.
+
+## Remaining Phase 62 gaps
+
+After Slice 2V, the accepted POST inventory remains complete. Still open:
+
+- physical browser-session cleanup and retention;
+- operation outcomes beyond browser lifecycle operations;
+- stronger transaction coupling or Outbox semantics;
+- common revisions, idempotency and durable operation lifecycle;
+- protected actor, identity, credential, grant and role administration;
+- native/service credential enrollment, rotation and revocation;
+- protected audit reads, export, redaction and retention;
+- compatibility-retirement readiness and final Phase 62 closeout.
+
+No next implementation slice is selected by the Slice-2V runtime acceptance.
 
 ## Exact next action
 
-Repository implementation, CI and installed-runtime acceptance are complete
-through Slice 2H.
+1. complete the canonical documentation-only Slice-2V closeout;
+2. require all five GitHub Actions jobs on the final closeout head;
+3. update the PR #117 description with the accepted Slice-2V source and runtime
+   evidence while keeping the PR open and Draft;
+4. only after full green closeout CI, perform a fresh post-2V gap analysis;
+5. select exactly one bounded next Phase-62 slice;
+6. do not combine selection with implementation or runtime mutation.
 
-The next permitted sequence is:
-
-1. review this seven-file documentation closeout;
-2. commit and push it only after its exact scope and tests pass;
-3. wait for the documentation commit's CI to complete successfully;
-4. update the PR description only after separate explicit metadata approval;
-5. inspect the remaining POST inventory and plan exactly one next Phase 62
-   route family before implementing it;
-6. keep all still-unmigrated browser POST routes fail-closed;
-7. keep PR #117 open and Draft.
-
-No additional runtime mutation, credential rotation, Nginx change, real Channel
-Move, PR-ready transition, merge or auto-merge is implied.
-
-## Secret restrictions
-
-Never print or store Authorization headers, passwords, cookies, CSRF tokens,
-password hashes, verifier material, login response bodies containing secrets, or
-`/proc/.../environ`. Preserve only non-secret status and fingerprints.
+Do not begin cleanup, retention, eviction, session administration, broader
+security administration, Outbox, Android or Phase 63-67 runtime before Slice 2V
+is fully closed.
 
 ## Maintenance rule
 
-Update this file whenever repository, PR, runtime, routing, blocker, or
-next-action truth changes. Preserve durable non-secret evidence, mark stale
-statements, record the next approval boundary, and keep all secrets out of the
-repository.
-
-## Newest authority — Slice 2J and Slice 2K
-
-**Slice 2J VERIFIED on the real yaVDR runtime on 2026-08-01:**
-
-```text
-Repository/runtime commit:
-7a3c8a1a3e0e6902b6ec0fea8a48bd69428c93e4
-
-Installed daemon SHA-256:
-ccfc7c3c81300562da07b29a42b71e778439e805995abe7718dc702363a91a4c
-
-Installed deferred loader SHA-256:
-a43f04673bb85a4dac21b2918744ae0bca554367c4942a125886c301e3ff51e7
-```
-
-Both SearchTimer-create aliases passed browser-session CSRF, permission,
-backend-scope, administrator, read-only, wildcard-role, query-string and
-trailing-slash acceptance. All authorized requests used `{}` and stopped before
-the command executor. No SearchTimer was created.
-
-Do not repeat Slice 2J runtime acceptance merely because a chat changes.
-
-**Active bounded work: Slice 2K Runtime Acceptance Harness.**
-
-The local uncommitted Slice 2K foundation consists of:
-
-```text
-tools/phase62-runtime-acceptance/runner.py
-tools/phase62-runtime-acceptance/slice-2j.json
-mk/phase62-runtime-acceptance.mk
-```
-
-The runner is manifest-driven, mutation-safe, grant-restoring and
-accountability-aware. Offline validation is part of the fast CI group.
-
-The next action is to review and test the complete Slice 2K diff. Do not commit,
-push or execute the real-runtime target until that review is successful.
+Update this file whenever repository, PR, runtime, routing or next-action truth
+changes. Preserve durable non-secret evidence, record exact fingerprints when
+they decide whether acceptance must repeat, and keep the next permitted action
+explicit.
