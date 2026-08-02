@@ -41,6 +41,9 @@ These blocks do not consume or invent a phase number.
 Latest completed numbered runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
+Previous completed numbered runtime phase:
+Phase 61 - Suite Metadata and Genre Platform
+
 Latest completed operational hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
 
