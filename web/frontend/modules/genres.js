@@ -168,6 +168,31 @@
       : [];
   }
 
+  function epgWindow() {
+    const from = number(state.overview && state.overview.from, 0);
+    const until = number(state.overview && state.overview.until, 0);
+    if (from > 0 && until > from) {
+      return {from:from, until:until};
+    }
+    const now = Math.floor(Date.now() / 1000);
+    return {from:now, until:now + 172800};
+  }
+
+  function synchronizeSelectedCount(total) {
+    if (state.scope !== 'epg' || !state.overview) return;
+    const normalizedTotal = number(total, 0);
+    if (state.selectedGenre) {
+      state.selectedGenre.count = normalizedTotal;
+      return;
+    }
+    if (!state.selectedCategory) return;
+    state.selectedCategory.count = normalizedTotal;
+    state.overview.totalItems = epgCategories().reduce(
+      (sum, entry) => sum + number(entry && entry.count, 0),
+      0
+    );
+  }
+
   function overviewEntries() {
     return state.scope === 'epg'
       ? epgCategories()
@@ -546,13 +571,13 @@
     if (state.scope === 'recordings') {
       return client.fetchClientGenreRecordings(options);
     }
-    const now = Math.floor(Date.now() / 1000);
+    const window = epgWindow();
     return client.fetchClientGenreEpg(Object.assign({}, options, {
       contentClass:text(
         state.selectedCategory && state.selectedCategory.id
       ),
-      from:now,
-      until:now + 172800
+      from:window.from,
+      until:window.until
     }));
   }
 
@@ -561,6 +586,7 @@
     state.items = append ? state.items.concat(incoming) : incoming;
     state.total = number(data && data.total, state.items.length);
     state.hasMore = Boolean(data && data.hasMore);
+    synchronizeSelectedCount(state.total);
   }
 
   function beginResultLoad() {
@@ -661,7 +687,7 @@
         state.overview = null;
         resetNavigation();
       }
-      if (!state.overview || changed) loadOverview();
+      if (!state.overview || changed || state.scope === 'epg') loadOverview();
       else render();
     },
     deactivate: function () {
@@ -677,7 +703,8 @@
       genreArtworkUrl:genreArtworkUrl,
       applyItems:applyItems,
       channelFor:channelFor,
-      epgCategories:epgCategories
+      epgCategories:epgCategories,
+      epgWindow:epgWindow
     })
   });
 
