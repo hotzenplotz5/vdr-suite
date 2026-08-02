@@ -7,31 +7,31 @@ Repository baseline:
 cb77ff66e11dca7db2eafa36525762dcde35102d
 
 Accepted runtime slices:
-Slice 1 through Slice 2V
+Slice 1 through Slice 2W
 
-Accepted Slice-2V implementation/runtime head:
-e84415fadb2587ff744ff8927f1f0113920ece2f
+Accepted Slice-2W source/runtime head:
+bb8609151313c613d403b88b1b4c3f55453a93e2
 
-Accepted Slice-2V source CI:
-VDR-Suite CI #6779
-Run ID 30741293079
+Accepted Slice-2W source CI:
+VDR-Suite CI #6834
+Run ID 30745952119
 All five jobs successful
-https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30745952119
 
-Accepted Slice-2V closeout head:
-cf31b2b67f73f12718601ced5468a59a1183adcb
+Runtime acceptance:
+PHASE_62_SLICE_2W_RUNTIME_ACCEPTANCE=PASS
 
-Accepted Slice-2V closeout CI:
-VDR-Suite CI #6799
-Run ID 30742295881
-All five jobs successful
-https://github.com/hotzenplotz5/vdr-suite/actions/runs/30742295881
+Installed/running daemon SHA-256:
+7775804306bf70eca6ef23474605467381162cfc9d5b874cdb187840ca8bc571
 
-Selected next bounded slice:
-Slice 2W - Browser-Session Terminal Retention Cleanup
+Runtime report SHA-256:
+e0fbe1689b2f48e75bb4ae6836b227d7da92e08d53b009ac1c2cb371a36c74ea
 
-Slice-2W state:
-selection documented; implementation not started
+Durable evidence:
+/var/backups/vdr-suite-phase62-slice2w-20260802T114239Z-bb8609151313
+
+Next bounded implementation slice:
+not yet selected
 
 PR #117:
 open, Draft, unmerged
@@ -43,30 +43,27 @@ alone is insufficient.
 
 ## Gap matrix
 
-| Security area | Current accepted state | Remaining gap | Selected or later work |
+| Security area | Current accepted state | Remaining gap | Candidate later work |
 |---|---|---|---|
-| Actor/device model | Canonical persistent actor, device, session and credential context | Protected enrollment and administration | Later lifecycle-administration slice |
-| Authentication | Legacy Basic, optional Managed Basic and browser sessions; strict cookie precedence; issuer binding, absolute expiry and idle expiry accepted | Native/service mechanisms and compatibility retirement | Preserve during Slice 2W |
-| Browser sessions | Atomic issue/logout, independent secrets, persistence, absolute expiry, replay denial, outcomes, issuer binding, concurrency limit and idle expiry accepted | Terminal physical retention cleanup and administration | **Slice 2W selected for terminal retention cleanup only** |
-| Browser-session retention | No physical deletion API exists in the browser or canonical identity repositories | Bounded deletion of old terminal browser lifecycles | **Slice 2W selected** |
-| Browser-session idle expiry | `last_seen_at`, strict optional idle policy, shared cookie/CSRF effectiveness and 60-second write throttle accepted | Physical retention of terminal rows | Slice 2V closed; Slice 2W consumes its terminal state |
-| Concurrent browser sessions | Optional `0..64` effective-session limit with atomic deny-new semantics accepted | No automatic eviction; old terminal rows persist | Preserve deny-new semantics; Slice 2W is not eviction |
-| Issuing credential lineage | Issuer is revalidated on every browser request | No cascading descendant cleanup | Slice 2W must not delete solely because issuer is revoked |
+| Actor/device model | Canonical persistent actor, device, session and credential context | Protected enrollment and administration | Bounded lifecycle-administration slice |
+| Authentication | Legacy Basic, optional Managed Basic and browser sessions; strict cookie precedence; issuer binding, absolute expiry, idle expiry and terminal retention accepted | Native/service mechanisms and compatibility retirement | Native/service credential lifecycle or retirement slice |
+| Browser sessions | Atomic issue/logout, independent secrets, persistence, absolute expiry, replay denial, outcomes, issuer binding, concurrency limit, idle expiry and bounded terminal cleanup accepted | Listing, logout-all and protected administration remain absent | Later separate administration design |
+| Browser-session retention | One bounded startup pass deletes only old terminal verifiers and unreferenced canonical browser rows with exact accountability | No periodic scheduler or operator-facing administration | Closed for Slice 2W; scheduling/admin remain separate optional gaps |
+| Browser-session idle expiry | `last_seen_at`, strict optional idle policy, shared cookie/CSRF effectiveness and 60-second write throttle accepted | None for request-time idle effectiveness | Preserve accepted contract |
+| Concurrent browser sessions | Optional `0..64` effective-session limit with atomic deny-new semantics accepted | No automatic eviction | Preserve deny-new semantics unless a future slice explicitly selects eviction |
+| Issuing credential lineage | Issuer revalidated on every browser request; terminal cleanup does not cascade solely from issuer state | No descendant lifecycle administration | Later explicit lifecycle-administration design |
 | Grants and scopes | Exact actor grants and fixed scopes accepted | Protected grant administration | Later bounded administration design |
-| Fixed roles | Exact-scope Admin and Read-only accepted | Generic persisted roles | Later administration design |
-| CSRF | Enforced for accepted browser mutations with memory-only frontend token | Future owners require explicit contracts | No Slice-2W route/frontend change |
-| Central authorization | All registered business and administrative POST families classified | No remaining product POST migration gap | No further route-migration slice |
-| Browser lifecycle outcomes | Issue/revoke outcomes accepted | Other operation outcomes and stronger coupling | Later separate slice |
-| Accountability | Pre-dispatch, lifecycle outcomes, concurrency and idle denials accepted and secret-free | Cleanup evidence plus later protected reads/export/retention | Slice 2W adds only cleanup write evidence |
-| Revisions/idempotency | Domain-specific partial mechanisms only | Common preconditions and durable operation lifecycle | Later Phase 62 slice |
-| Administration | No general security-management API | Protected identity, credential, grant and role operations | Later separate slices |
-| Native/service clients | Core model is transport-neutral | Enrollment, rotation and revocation contracts | Later Phase 62 slice |
-| Audit reads and retention | Append-only writes exist | Protected reads, export, redaction and audit retention | Later audit-product slice |
-| Compatibility retirement | Legacy compatibility remains transitional | Retirement criteria and migration tooling | Near final Phase 62 closeout |
+| Fixed roles | Exact-scope Admin and Read-only accepted | Generic persisted roles and assignments | Later role-administration design |
+| CSRF | Enforced for accepted browser mutations with memory-only frontend token | Future owners require explicit contracts | Preserve in every future route slice |
+| Central authorization | All registered central business and administrative POST families classified | No remaining product POST migration gap | No further route-migration slice |
+| Browser lifecycle outcomes | Issue, revoke and cleanup outcomes accepted | Other operation outcomes and stronger coupling | Bounded broader-outcomes slice candidate |
+| Accountability | Pre-dispatch, lifecycle outcomes, concurrency/idle denials and cleanup writes accepted and secret-free | Protected reads, export, redaction and audit retention | Bounded audit-product slice candidate |
+| Revisions/idempotency | Domain-specific partial mechanisms only | Common preconditions, idempotency and durable operation lifecycle | Bounded operation-lifecycle slice candidate |
+| Administration | No general security-management API | Protected identity, credential, grant and role operations | One or more later bounded administration slices |
+| Native/service clients | Core model is transport-neutral | Enrollment, rotation and revocation contracts | Bounded native/service credential slice candidate |
+| Compatibility retirement | Legacy compatibility remains transitional | Retirement criteria, migration and operational tooling | Near final Phase 62 closeout |
 
-## Selected Slice 2W contract
-
-Configuration:
+## Closed Slice 2W contract
 
 ```text
 VDR_SUITE_BROWSER_SESSION_RETENTION_SECONDS
@@ -75,49 +72,45 @@ VDR_SUITE_BROWSER_SESSION_RETENTION_SECONDS
 fixed batch size  256
 ```
 
-Selected trigger:
+Accepted trigger:
 
 - one bounded pass during Security Runtime initialization;
-- after schema and configuration validation;
+- after all security schemas and complete configuration validation;
 - before `securityReady`;
 - no scheduler, background thread or request-path cleanup.
 
-Selected eligibility:
+Accepted eligibility:
 
 - explicit browser revocation older than retention;
 - absolute expiry older than retention;
 - idle expiry older than retention when idle policy is enabled;
-- deterministic oldest-terminal-first ordering;
+- deterministic oldest-terminal-first order and then token ID;
 - at most 256 browser lifecycles.
 
-Selected atomic ownership:
+Accepted atomic ownership:
 
 1. re-evaluate eligibility inside `BEGIN IMMEDIATE`;
 2. append secret-free `browser.session.cleanup` accountability;
 3. delete the browser verifier;
 4. delete its canonical session only when unreferenced;
-5. delete its credential only when it is type `browser-session` and unreferenced;
+5. delete its credential only when it is type `browser-session` and
+   unreferenced;
 6. preserve actor, device, issuer, grants, roles and accountability;
-7. rollback the entire batch on any failure.
+7. roll back the complete batch on any failure.
 
-Selected fail-closed behaviour:
+Accepted real-runtime proof:
 
-- disabled policy is a no-op;
-- invalid enabled configuration prevents Security Runtime readiness;
-- cleanup SQL, foreign-key or accountability failure prevents readiness;
-- no partial cleanup is accepted.
-
-## Explicit Slice-2W exclusions
-
-- periodic cleanup scheduling;
-- cleanup in an HTTP request path;
-- session listing, logout-all or administration API/UI;
-- automatic eviction to satisfy concurrency limits;
-- cleanup triggered solely by issuer revocation;
-- actor, device, issuer, grant, role or accountability deletion;
-- generic identity or credential cleanup;
-- generic outcomes, Outbox, revisions or idempotency;
-- Android, Android TV or Phase 63-67 runtime.
+- disabled policy no-op;
+- full rollback and HTTP 503 fail-closed behavior after forced accountability
+  failure;
+- active and within-retention preservation;
+- old revoked, absolute-expired and idle-expired deletion;
+- no issuer-only cleanup;
+- non-browser credential and re-referenced canonical-row preservation;
+- exact secret-free cleanup events;
+- 258 candidates with exactly 256 deterministic deletions;
+- SQLite integrity, unchanged production database/configuration/loader, removed
+  runtime override, active final daemon and zero VDR domain mutations.
 
 ## Phase 62 dependency order
 
@@ -128,23 +121,35 @@ Selected fail-closed behaviour:
 5. Browser issue/revoke outcome accountability — Slice 2S accepted.
 6. Issuing-credential lifecycle binding — Slice 2T accepted.
 7. Concurrent effective browser-session limit — Slice 2U accepted.
-8. Browser-session idle expiry and throttled activity — Slice 2V fully accepted.
-9. Browser-session terminal retention cleanup — **Slice 2W selected; not implemented**.
-10. Common revisions, idempotency and durable operation lifecycle — open.
-11. Broader outcomes, coupling/Outbox and protected audit reads — open.
-12. Protected identity, credential, grant and generic-role administration — open.
-13. Native/service credential lifecycle — open.
-14. Compatibility retirement readiness and final Phase 62 closeout — open.
+8. Browser-session idle expiry and throttled activity — Slice 2V accepted.
+9. Browser-session terminal retention cleanup — Slice 2W accepted.
+10. Fresh post-Slice-2W gap analysis and one bounded selection — next action.
+11. Common revisions, idempotency and durable operation lifecycle — open.
+12. Broader outcomes, coupling/Outbox and protected audit reads — open.
+13. Protected identity, credential, grant and generic-role administration — open.
+14. Native/service credential lifecycle — open.
+15. Compatibility retirement readiness and final Phase 62 closeout — open.
+
+## Selection constraints for the next slice
+
+The next selection must:
+
+- close one concrete remaining repository gap;
+- have a small coherent owner set;
+- preserve all accepted browser lifecycle behavior;
+- define exact fail-closed and accountability semantics;
+- include focused source tests, an architecture guard and a bounded real-runtime
+  acceptance path;
+- avoid combining administration, operation lifecycle, audit product and
+  native/service credential work into one slice;
+- avoid Android, Android TV and Phase 63-67 runtime.
 
 ## Exact next action
 
-Require all five GitHub Actions jobs for the documentation-only Slice-2W
-selection head.
+Perform one fresh post-Slice-2W gap analysis. Compare the concrete remaining
+candidates by dependency order, risk, owner set, source testability and safe
+runtime acceptance. Select and document exactly one smallest coherent next
+Phase-62 slice, update the canonical handoff and require all five CI jobs before
+implementation.
 
-After green selection CI, implement only the selected Slice-2W configuration,
-repository/service cleanup transaction, startup integration, focused tests,
-architecture guard and Make-test registration.
-
-Do not combine Slice 2W with scheduling, administration APIs, issuer cascade,
-automatic eviction, generic security administration, Outbox, Android or Phase
-63-67 work.
+Do not reopen Slice 2W without a changed relevant acceptance fingerprint.
