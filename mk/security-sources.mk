@@ -4,16 +4,19 @@ LDFLAGS += -lcrypt
 SECURITY_REPOSITORY_SRC := \
 	core/security/src/AccountabilityEventRepository.cpp \
 	core/security/src/BrowserSessionCredentialRepository.cpp \
+	core/security/src/BrowserSessionRetentionRepository.cpp \
 	core/security/src/SecurityPermissionGrantRepository.cpp \
 	core/security/src/CredentialVerifierRepository.cpp \
 	core/security/src/SecurityIdentityIssuanceRepository.cpp \
 	core/security/src/SecurityIdentityProvisioningRepository.cpp \
-	core/security/src/SecurityIdentityRepository.cpp
+	core/security/src/SecurityIdentityRepository.cpp \
+	core/security/src/SecurityIdentityRetentionRepository.cpp
 
 SECURITY_SERVICE_SRC := \
 	core/security/src/BrowserSessionHttpGate.cpp \
 	core/security/src/BrowserSessionIssuanceService.cpp \
-	core/security/src/BrowserSessionLifecycleService.cpp
+	core/security/src/BrowserSessionLifecycleService.cpp \
+	core/security/src/BrowserSessionRetentionService.cpp
 
 SECURITY_SRC := \
 	$(SECURITY_REPOSITORY_SRC) \
@@ -22,7 +25,7 @@ SECURITY_SRC := \
 BROWSER_SESSION_HTTP_SRC := \
 	core/http/src/BrowserSessionHttpService.cpp
 
-.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-permission-grant-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-browser-session-issuer-binding test-security-browser-session-issuance-service test-security-browser-session-concurrency-limit test-security-browser-session-idle-expiry test-security-browser-session-http-service test-security-browser-session-http-gate test-security-http-gate test-security-searchtimer-maintenance test-security-searchtimer-execution test-security-native-fuzzy-refresh test-security-safe-post
+.PHONY: test-security test-security-architecture test-security-authorization test-security-configuration test-security-accountability-event-repository test-security-identity-repository test-security-permission-grant-repository test-security-managed-basic-authenticator test-security-browser-session-authenticator test-security-browser-session-issuer-binding test-security-browser-session-issuance-service test-security-browser-session-concurrency-limit test-security-browser-session-idle-expiry test-security-browser-session-retention-cleanup test-security-browser-session-http-service test-security-browser-session-http-gate test-security-http-gate test-security-searchtimer-maintenance test-security-searchtimer-execution test-security-native-fuzzy-refresh test-security-safe-post
 
 test-security-architecture:
 	python3 tools/check_security_identity_architecture.py
@@ -30,6 +33,7 @@ test-security-architecture:
 	python3 tools/check_browser_session_issuer_binding.py
 	python3 tools/check_browser_session_concurrency_limit.py
 	python3 tools/check_browser_session_idle_expiry.py
+	python3 tools/check_browser_session_retention_cleanup.py
 	python3 tools/check_browser_session_outcome_accountability.py
 	python3 tools/check_searchtimer_maintenance_security.py
 	python3 tools/check_searchtimer_execution_security.py
@@ -143,6 +147,16 @@ test-security-browser-session-idle-expiry:
 	$(BUILD_DIR)/test_browser_session_idle_expiry
 
 
+test-security-browser-session-retention-cleanup:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_browser_session_retention_cleanup.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_browser_session_retention_cleanup
+	$(BUILD_DIR)/test_browser_session_retention_cleanup
+
+
 test-security-browser-session-http-service:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -227,6 +241,7 @@ test-security: \
 	test-security-browser-session-issuance-service \
 	test-security-browser-session-concurrency-limit \
 	test-security-browser-session-idle-expiry \
+	test-security-browser-session-retention-cleanup \
 	test-security-browser-session-http-service \
 	test-security-browser-session-http-gate \
 	test-security-http-gate \
