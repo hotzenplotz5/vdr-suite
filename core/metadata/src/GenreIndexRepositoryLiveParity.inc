@@ -18,7 +18,7 @@ bool executeGenreSchema(Database& database)
         "WHERE source_kind='epg-browse-content-class' "
         "AND NOT EXISTS(SELECT 1 FROM suite_metadata_schema_versions WHERE version=10);"
         "INSERT OR IGNORE INTO suite_metadata_schema_versions(version,description) VALUES"
-        "(10,'Prefer active TVScraper documentary and sports evidence over media type');");
+        "(10,'Migrate epg-browse-taxonomy-v4 classifications to documentary-first v5');");
 }
 
 std::string liveParityAsciiLower(const std::string& value)
