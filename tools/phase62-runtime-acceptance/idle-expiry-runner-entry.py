@@ -9,6 +9,10 @@ from types import ModuleType
 from idle_expiry_audit_contract import adapt_accountability_rows
 
 
+def implementation_path() -> Path:
+    return Path(__file__).with_name("idle-expiry-runner.py")
+
+
 def load_implementation(path: Path) -> ModuleType:
     specification = importlib.util.spec_from_file_location(
         "phase62_idle_expiry_runner_implementation",
@@ -23,9 +27,7 @@ def load_implementation(path: Path) -> ModuleType:
     return module
 
 
-def main() -> int:
-    implementation_path = Path(__file__).with_name("idle-expiry-runner.py")
-    implementation = load_implementation(implementation_path)
+def install_audit_contract(implementation: ModuleType) -> None:
     original_reader = implementation.accountability_rows
 
     def validated_reader(database, request_ids):
@@ -38,6 +40,30 @@ def main() -> int:
 
     implementation.accountability_rows = validated_reader
 
+
+def self_test_loader() -> int:
+    implementation = load_implementation(implementation_path())
+    for attribute in (
+        "AcceptanceError",
+        "accountability_rows",
+        "main",
+        "require",
+    ):
+        if not hasattr(implementation, attribute):
+            raise RuntimeError(
+                f"idle_expiry_runner_attribute_missing:{attribute}"
+            )
+    install_audit_contract(implementation)
+    if implementation.accountability_rows.__name__ != "validated_reader":
+        raise RuntimeError("idle_expiry_audit_contract_not_installed")
+    print("PHASE_62_IDLE_RUNNER_LOADER_SELF_TEST=PASS")
+    return 0
+
+
+def main() -> int:
+    implementation = load_implementation(implementation_path())
+    install_audit_contract(implementation)
+
     try:
         return int(implementation.main())
     except implementation.AcceptanceError as error:
@@ -47,4 +73,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--self-test-loader"]:
+        raise SystemExit(self_test_loader())
     raise SystemExit(main())
