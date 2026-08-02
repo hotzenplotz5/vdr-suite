@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import shlex
 import sys
 import tempfile
 from pathlib import Path
@@ -16,6 +17,8 @@ from idle_expiry_systemd_override import (
 
 DEFAULT_SERVICE = "vdr-suite-daemon.service"
 SYSTEMD_RUNTIME_ROOT = Path("/run/systemd/system")
+IDLE_ENVIRONMENT_KEY = "VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS"
+IDLE_ENVIRONMENT_VALUE = f"{IDLE_ENVIRONMENT_KEY}=300"
 
 
 def implementation_path() -> Path:
@@ -58,6 +61,59 @@ def install_audit_contract(implementation: ModuleType) -> None:
         )
 
     implementation.accountability_rows = validated_reader
+
+
+def systemd_unit_environment(
+    implementation: ModuleType,
+    service: str,
+) -> set[str]:
+    raw = implementation.run(
+        Path.cwd(),
+        "systemctl",
+        "show",
+        "--property=Environment",
+        "--value",
+        service,
+    )
+    try:
+        return set(shlex.split(raw))
+    except ValueError as error:
+        raise implementation.AcceptanceError(
+            "systemd_environment_parse_failed"
+        ) from error
+
+
+def install_environment_validation_contract(
+    implementation: ModuleType,
+    service: str,
+    *,
+    environment_reader=None,
+) -> None:
+    original_require = implementation.require
+
+    def read_environment() -> set[str]:
+        if environment_reader is not None:
+            return set(environment_reader())
+        return systemd_unit_environment(implementation, service)
+
+    def validated_require(condition: bool, message: str) -> None:
+        if message == "idle_configuration_not_applied":
+            original_require(
+                IDLE_ENVIRONMENT_VALUE in read_environment(),
+                "idle_runtime_override_not_loaded",
+            )
+            return
+
+        if message == "idle_configuration_not_restored":
+            original_require(
+                IDLE_ENVIRONMENT_VALUE not in read_environment(),
+                "idle_runtime_override_not_removed",
+            )
+            return
+
+        original_require(condition, message)
+
+    implementation.require = validated_require
 
 
 def install_systemd_override_contract(
@@ -150,6 +206,64 @@ def install_systemd_override_contract(
     return cleanup
 
 
+def make_fake_implementation() -> ModuleType:
+    fake = ModuleType("phase62_idle_override_self_test")
+    fake.AcceptanceError = RuntimeError
+
+    def fake_require(condition: bool, message: str) -> None:
+        if not condition:
+            raise RuntimeError(message)
+
+    fake.require = fake_require
+    fake.run = lambda *arguments, **keywords: ""
+    return fake
+
+
+def self_test_environment_validation_contract() -> None:
+    sequence = iter(
+        (
+            {IDLE_ENVIRONMENT_VALUE},
+            set(),
+        )
+    )
+    fake = make_fake_implementation()
+    install_environment_validation_contract(
+        fake,
+        DEFAULT_SERVICE,
+        environment_reader=lambda: next(sequence),
+    )
+    fake.require(False, "idle_configuration_not_applied")
+    fake.require(False, "idle_configuration_not_restored")
+
+    missing = make_fake_implementation()
+    install_environment_validation_contract(
+        missing,
+        DEFAULT_SERVICE,
+        environment_reader=set,
+    )
+    try:
+        missing.require(False, "idle_configuration_not_applied")
+    except RuntimeError as error:
+        if str(error) != "idle_runtime_override_not_loaded":
+            raise
+    else:
+        raise RuntimeError("loader_self_test_missing_override_accepted")
+
+    retained = make_fake_implementation()
+    install_environment_validation_contract(
+        retained,
+        DEFAULT_SERVICE,
+        environment_reader=lambda: {IDLE_ENVIRONMENT_VALUE},
+    )
+    try:
+        retained.require(False, "idle_configuration_not_restored")
+    except RuntimeError as error:
+        if str(error) != "idle_runtime_override_not_removed":
+            raise
+    else:
+        raise RuntimeError("loader_self_test_retained_override_accepted")
+
+
 def self_test_systemd_override_contract() -> None:
     with tempfile.TemporaryDirectory(prefix="phase62-idle-entry-") as directory:
         root = Path(directory)
@@ -159,17 +273,9 @@ def self_test_systemd_override_contract() -> None:
         reloads: list[bool] = []
         restores: list[tuple[Path, Path]] = []
 
-        fake = ModuleType("phase62_idle_override_self_test")
-        fake.AcceptanceError = RuntimeError
-
-        def fake_require(condition: bool, message: str) -> None:
-            if not condition:
-                raise RuntimeError(message)
-
-        fake.require = fake_require
+        fake = make_fake_implementation()
         fake.write_idle_config = lambda path, seconds: None
         fake.restore_exact = lambda old, new: restores.append((old, new))
-        fake.run = lambda *arguments, **keywords: ""
 
         cleanup = install_systemd_override_contract(
             fake,
@@ -210,6 +316,7 @@ def self_test_loader() -> int:
     install_audit_contract(implementation)
     if implementation.accountability_rows.__name__ != "validated_reader":
         raise RuntimeError("idle_expiry_audit_contract_not_installed")
+    self_test_environment_validation_contract()
     self_test_systemd_override_contract()
     print("PHASE_62_IDLE_RUNNER_LOADER_SELF_TEST=PASS")
     return 0
@@ -217,10 +324,12 @@ def self_test_loader() -> int:
 
 def main() -> int:
     implementation = load_implementation(implementation_path())
+    service = service_argument(sys.argv[1:])
     install_audit_contract(implementation)
+    install_environment_validation_contract(implementation, service)
     cleanup_override = install_systemd_override_contract(
         implementation,
-        service_argument(sys.argv[1:]),
+        service,
     )
 
     try:
