@@ -203,7 +203,11 @@ BrowserSessionHttpGate::BrowserSessionHttpGate(
       browserAuthenticator_(
           std::make_unique<BrowserSessionAuthenticator>(
               credentialRepository,
-              grantRepository))
+              grantRepository,
+              configuration_.browserSessionIdle.valid()
+                  ? configuration_.browserSessionIdle.timeoutSeconds
+                  : -1,
+              BrowserSessionIdleConfiguration::LastSeenWriteIntervalSeconds))
 {
 }
 
@@ -241,16 +245,44 @@ BrowserSessionGateDecision BrowserSessionHttpGate::evaluate(
         return gate;
     }
 
-    gate.context = gate.login
-        ? authenticateBasic(request)
-        : authenticateBrowser(request);
-
     const std::string permission = gate.login
         ? "session.issue.self"
         : "session.revoke.self";
     const std::string action = gate.login
         ? "browser.session.issue"
         : "browser.session.revoke";
+
+    if (!configuration_.browserSessionIdle.valid())
+    {
+        gate.context = requestContextSeed(request);
+        if (!appendDecisionEvent(
+                gate.context,
+                false,
+                permission,
+                action,
+                "browser_session_idle_configuration_invalid"))
+        {
+            gate.rejection = errorResponse(
+                503,
+                "accountability_unavailable",
+                "Security accountability persistence is unavailable",
+                gate.context,
+                false);
+            return gate;
+        }
+
+        gate.rejection = errorResponse(
+            503,
+            "browser_session_idle_configuration_invalid",
+            "The browser session idle configuration is invalid",
+            gate.context,
+            false);
+        return gate;
+    }
+
+    gate.context = gate.login
+        ? authenticateBasic(request)
+        : authenticateBrowser(request);
 
     if (!gate.context.authenticated())
     {
