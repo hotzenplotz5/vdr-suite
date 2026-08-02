@@ -19,6 +19,8 @@ binary, configuration, database, routing or behaviour fingerprint changed.
 - [Security and identity architecture](architecture/security-identity-foundation.md)
 - [Strict roadmap](planning/roadmap.md)
 - [Phase map](planning/phase-map.md)
+- [Parity and frontend gap roadmap](planning/parity-audit-and-frontend-gap-roadmap.md)
+- [Completed phases](development/completed-phases.md)
 - [ADR index](adr/index.md)
 - [Agent workflow rules](../AGENTS.md)
 
@@ -35,6 +37,11 @@ Phase 61 - Suite Metadata and Genre Platform
 
 Completed hardening:
 Post-Phase 61 Performance Hardening (B1-B4)
+
+Completed platform features:
+VDR Remote and Live Overlay hardening (#110)
+Backend-scoped Global Search (#111)
+Configurable photorealistic VDR Remote (#115)
 
 Current active phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
@@ -69,8 +76,8 @@ Run ID 30741293079
 All five jobs successful
 https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
 
-Canonical documentation closeout head:
-45f1cc78d2c98f6db4d039a5ea7189f51bbcf8e9
+Canonical documentation closeout series:
+starts at 45f1cc78d2c98f6db4d039a5ea7189f51bbcf8e9
 
 Final closeout CI:
 pending on the current branch head
@@ -309,8 +316,7 @@ No next implementation slice is selected by the Slice-2V runtime acceptance.
 ## Exact next action
 
 1. require all five GitHub Actions jobs on the final Slice-2V closeout head;
-2. update the PR #117 description with the accepted Slice-2V source and runtime
-   evidence while keeping the PR open and Draft;
+2. keep the refreshed PR #117 description while the PR remains open and Draft;
 3. only after full green closeout CI, perform a fresh post-2V gap analysis;
 4. select exactly one bounded next Phase-62 slice;
 5. do not combine selection with implementation or runtime mutation.
