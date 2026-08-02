@@ -45,12 +45,11 @@ def require(condition: bool, message: str) -> None:
 
 def run(
     *arguments: str,
-    cwd: Path = REPOSITORY_ROOT,
     check: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     completed = subprocess.run(
         arguments,
-        cwd=cwd,
+        cwd=REPOSITORY_ROOT,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -121,12 +120,12 @@ def backup_database(source: Path, destination: Path) -> None:
         uri=True,
         timeout=10,
     )
-    destination_database = sqlite3.connect(str(destination))
+    target_database = sqlite3.connect(str(destination))
     try:
         source_database.execute("PRAGMA busy_timeout=10000")
-        source_database.backup(destination_database)
+        source_database.backup(target_database)
     finally:
-        destination_database.close()
+        target_database.close()
         source_database.close()
     os.chmod(destination, 0o600)
 
@@ -187,10 +186,12 @@ def stop_service(service: str) -> None:
     )
 
 
-def wait_service(service: str) -> int:
+def wait_service(service: str, expected_executable: Path) -> int:
+    expected = expected_executable.resolve()
     deadline = time.monotonic() + 20.0
     last_state = "unknown"
     last_pid = 0
+    last_link = "missing"
     while time.monotonic() < deadline:
         last_state = run(
             "systemctl",
@@ -200,16 +201,23 @@ def wait_service(service: str) -> int:
         ).stdout.strip()
         last_pid = service_pid(service)
         if last_state == "active" and last_pid > 0:
-            return last_pid
+            try:
+                last_link = os.readlink(f"/proc/{last_pid}/exe")
+                running = Path(
+                    last_link.removesuffix(" (deleted)")
+                ).resolve()
+            except OSError:
+                running = Path()
+            if running == expected:
+                return last_pid
         time.sleep(0.1)
     raise AcceptanceError(
-        f"service_did_not_start:state={last_state}:pid={last_pid}"
+        "service_did_not_reach_exec_start:"
+        f"state={last_state}:pid={last_pid}:exe={last_link}"
     )
 
 
-def running_daemon_sha256(service: str) -> str:
-    pid = service_pid(service)
-    require(pid > 0, "service_pid_missing")
+def running_daemon_sha256(pid: int) -> str:
     return sha256(Path(f"/proc/{pid}/exe"))
 
 
@@ -289,18 +297,10 @@ def write_checksums(directory: Path) -> None:
         ),
         key=lambda item: item.name,
     )
-    lines = [f"{sha256(path)}  {path.name}" for path in files]
     (directory / "SHA256SUMS").write_text(
-        "\n".join(lines) + "\n",
+        "".join(f"{sha256(path)}  {path.name}\n" for path in files),
         encoding="utf-8",
     )
-
-
-def copy_optional(source: Path, destination: Path) -> bool:
-    if not source.is_file():
-        return False
-    shutil.copy2(source, destination)
-    return True
 
 
 def preflight(arguments: argparse.Namespace) -> None:
@@ -361,7 +361,7 @@ def preflight(arguments: argparse.Namespace) -> None:
 
 def create_evidence(
     arguments: argparse.Namespace,
-) -> tuple[Path, str, str, str]:
+) -> dict[str, Any]:
     arguments.evidence_dir.mkdir(mode=0o700, parents=True)
 
     daemon_backup = arguments.evidence_dir / "vdr-suite-daemon.before"
@@ -371,10 +371,14 @@ def create_evidence(
     shutil.copy2(arguments.loader, loader_backup)
 
     configuration_backup = arguments.evidence_dir / "vdr-suite-daemon.default.before"
-    copy_optional(arguments.configuration, configuration_backup)
+    if arguments.configuration.is_file():
+        shutil.copy2(arguments.configuration, configuration_backup)
 
-    database_backup = arguments.evidence_dir / "production-database.before.sqlite"
-    backup_database(arguments.production_database, database_backup)
+    production_backup = arguments.evidence_dir / "production-database.before.sqlite"
+    backup_database(arguments.production_database, production_backup)
+
+    scenario_database = arguments.evidence_dir / "slice2x-scenario.sqlite"
+    backup_database(arguments.production_database, scenario_database)
 
     candidate_backup = arguments.evidence_dir / "vdr-suite-daemon.candidate"
     shutil.copy2(arguments.candidate_daemon, candidate_backup)
@@ -382,31 +386,34 @@ def create_evidence(
     production_fingerprint = database_logical_sha256(
         arguments.production_database
     )
-    (arguments.evidence_dir / "production-database.logical-sha256.before").write_text(
+    fingerprint_path = (
+        arguments.evidence_dir
+        / "production-database.logical-sha256.before"
+    )
+    fingerprint_path.write_text(
         production_fingerprint + "\n",
         encoding="utf-8",
     )
 
-    loader_fingerprint = sha256(arguments.loader)
-    configuration_fingerprint = (
-        sha256(arguments.configuration)
-        if arguments.configuration.is_file()
-        else "missing"
-    )
     write_checksums(arguments.evidence_dir)
-    return (
-        daemon_backup,
-        production_fingerprint,
-        loader_fingerprint,
-        configuration_fingerprint,
-    )
+    return {
+        "daemonBackup": daemon_backup,
+        "scenarioDatabase": scenario_database,
+        "productionFingerprint": production_fingerprint,
+        "loaderFingerprint": sha256(arguments.loader),
+        "configurationFingerprint": (
+            sha256(arguments.configuration)
+            if arguments.configuration.is_file()
+            else "missing"
+        ),
+    }
 
 
 def run_inner(
     arguments: argparse.Namespace,
     scenario_database: Path,
 ) -> subprocess.CompletedProcess[str]:
-    command = [
+    return run(
         sys.executable,
         str(INNER_RUNNER),
         "--run",
@@ -432,70 +439,86 @@ def run_inner(
         arguments.expected_loader_sha256,
         "--report-json",
         str(arguments.report_json),
-    ]
-    return run(*command, check=False)
+        check=False,
+    )
 
 
-def verify_scenario_process(
+def start_scenario(
     arguments: argparse.Namespace,
     scenario_database: Path,
 ) -> int:
-    pid = wait_service(arguments.service)
+    write_override(
+        override_path(arguments.service),
+        scenario_database.resolve(),
+    )
+    run("systemctl", "daemon-reload")
+    run("systemctl", "start", arguments.service)
+    pid = wait_service(arguments.service, arguments.installed_daemon)
     require(
-        running_daemon_sha256(arguments.service)
-        == arguments.expected_daemon_sha256,
+        running_daemon_sha256(pid) == arguments.expected_daemon_sha256,
         "running_candidate_daemon_hash_mismatch",
     )
     environment = process_environment(pid)
     expected = {
-        f"VDR_SUITE_DATABASE_PATH={scenario_database}".encode(),
-        f"VDR_SUITE_SECURITY_DATABASE_PATH={scenario_database}".encode(),
+        f"VDR_SUITE_DATABASE_PATH={scenario_database.resolve()}".encode(),
+        f"VDR_SUITE_SECURITY_DATABASE_PATH={scenario_database.resolve()}".encode(),
     }
     require(expected.issubset(environment), "scenario_database_override_missing")
     return pid
 
 
-def restore_production_service(
+def rollback_old_runtime(
     arguments: argparse.Namespace,
     daemon_backup: Path,
-    keep_candidate: bool,
-) -> tuple[int, str]:
-    remove_override(override_path(arguments.service))
-    run("systemctl", "daemon-reload")
-
-    expected_hash = arguments.expected_daemon_sha256
-    if not keep_candidate:
-        restore_exact(daemon_backup, arguments.installed_daemon)
-        expected_hash = sha256(daemon_backup)
-
+) -> int:
     try:
-        run("systemctl", "start", arguments.service)
-        final_pid = wait_service(arguments.service)
-        require(
-            running_daemon_sha256(arguments.service) == expected_hash,
-            "production_running_daemon_hash_mismatch",
-        )
-        require(
-            sha256(arguments.installed_daemon) == expected_hash,
-            "production_installed_daemon_hash_mismatch",
-        )
-        return final_pid, expected_hash
+        stop_service(arguments.service)
     except Exception:
-        if keep_candidate:
-            try:
-                stop_service(arguments.service)
-            except Exception:
-                pass
-            restore_exact(daemon_backup, arguments.installed_daemon)
-            run("systemctl", "start", arguments.service)
-            final_pid = wait_service(arguments.service)
-            old_hash = sha256(daemon_backup)
-            require(
-                running_daemon_sha256(arguments.service) == old_hash,
-                "rollback_running_daemon_hash_mismatch",
-            )
-            raise AcceptanceError("candidate_production_restart_failed")
-        raise
+        pass
+    try:
+        remove_override(override_path(arguments.service))
+    except Exception:
+        pass
+    run("systemctl", "daemon-reload", check=False)
+    restore_exact(daemon_backup, arguments.installed_daemon)
+    run("systemctl", "start", arguments.service)
+    pid = wait_service(arguments.service, arguments.installed_daemon)
+    old_hash = sha256(daemon_backup)
+    require(
+        running_daemon_sha256(pid) == old_hash,
+        "rollback_running_daemon_hash_mismatch",
+    )
+    require(
+        sha256(arguments.installed_daemon) == old_hash,
+        "rollback_installed_daemon_hash_mismatch",
+    )
+    return pid
+
+
+def activate_candidate_runtime(
+    arguments: argparse.Namespace,
+    daemon_backup: Path,
+) -> int:
+    try:
+        remove_override(override_path(arguments.service))
+        run("systemctl", "daemon-reload")
+        run("systemctl", "start", arguments.service)
+        pid = wait_service(arguments.service, arguments.installed_daemon)
+        require(
+            running_daemon_sha256(pid) == arguments.expected_daemon_sha256,
+            "production_running_candidate_hash_mismatch",
+        )
+        require(
+            sha256(arguments.installed_daemon)
+            == arguments.expected_daemon_sha256,
+            "production_installed_candidate_hash_mismatch",
+        )
+        return pid
+    except Exception as error:
+        rollback_old_runtime(arguments, daemon_backup)
+        raise AcceptanceError(
+            f"candidate_production_restart_failed:{type(error).__name__}"
+        ) from error
 
 
 def execute(arguments: argparse.Namespace) -> dict[str, Any]:
@@ -503,39 +526,21 @@ def execute(arguments: argparse.Namespace) -> dict[str, Any]:
     original_pid = service_pid(arguments.service)
     stop_service(arguments.service)
 
-    daemon_backup: Path | None = None
-    production_before = ""
-    loader_before = ""
-    configuration_before = ""
+    evidence: dict[str, Any] = {}
     inner_result: subprocess.CompletedProcess[str] | None = None
     scenario_pid = 0
     final_pid = 0
-    final_daemon_sha256 = "missing"
+    production_unchanged = False
     failure = ""
-    candidate_accepted = False
+    passed = False
 
     try:
-        (
-            daemon_backup,
-            production_before,
-            loader_before,
-            configuration_before,
-        ) = create_evidence(arguments)
+        evidence = create_evidence(arguments)
+        daemon_backup = evidence["daemonBackup"]
+        scenario_database = evidence["scenarioDatabase"]
 
-        scenario_database = arguments.evidence_dir / "slice2x-scenario.sqlite"
-        backup_database(arguments.production_database, scenario_database)
         atomic_install(arguments.candidate_daemon, arguments.installed_daemon)
-        write_override(
-            override_path(arguments.service),
-            scenario_database.resolve(),
-        )
-        run("systemctl", "daemon-reload")
-        run("systemctl", "start", arguments.service)
-        scenario_pid = verify_scenario_process(
-            arguments,
-            scenario_database.resolve(),
-        )
-
+        scenario_pid = start_scenario(arguments, scenario_database)
         inner_result = run_inner(arguments, scenario_database.resolve())
         require(
             inner_result.returncode == 0,
@@ -543,63 +548,77 @@ def execute(arguments: argparse.Namespace) -> dict[str, Any]:
         )
 
         stop_service(arguments.service)
-        production_after_scenario = database_logical_sha256(
-            arguments.production_database
+        production_unchanged = (
+            database_logical_sha256(arguments.production_database)
+            == evidence["productionFingerprint"]
         )
         require(
-            production_after_scenario == production_before,
+            production_unchanged,
             "production_database_changed_during_scenario",
         )
-        candidate_accepted = True
+
+        final_pid = activate_candidate_runtime(arguments, daemon_backup)
+        verify_database_integrity(arguments.production_database)
+        require(
+            sha256(arguments.loader) == evidence["loaderFingerprint"],
+            "loader_changed",
+        )
+        current_configuration = (
+            sha256(arguments.configuration)
+            if arguments.configuration.is_file()
+            else "missing"
+        )
+        require(
+            current_configuration == evidence["configurationFingerprint"],
+            "configuration_changed",
+        )
+        require(
+            not override_path(arguments.service).exists(),
+            "runtime_override_remains",
+        )
+        passed = True
     except Exception as error:
         failure = f"{type(error).__name__}:{error}"
-        try:
-            stop_service(arguments.service)
-        except Exception:
-            pass
+        if evidence:
+            try:
+                final_pid = rollback_old_runtime(
+                    arguments,
+                    evidence["daemonBackup"],
+                )
+            except Exception as rollback_error:
+                failure += (
+                    ";rollback_failed:"
+                    f"{type(rollback_error).__name__}:{rollback_error}"
+                )
+        else:
+            try:
+                remove_override(override_path(arguments.service))
+                run("systemctl", "daemon-reload", check=False)
+                run("systemctl", "start", arguments.service, check=False)
+                final_pid = wait_service(
+                    arguments.service,
+                    arguments.installed_daemon,
+                )
+            except Exception as restore_error:
+                failure += (
+                    ";prebackup_restore_failed:"
+                    f"{type(restore_error).__name__}:{restore_error}"
+                )
 
-    if daemon_backup is not None:
-        try:
-            final_pid, final_daemon_sha256 = restore_production_service(
-                arguments,
-                daemon_backup,
-                candidate_accepted and not failure,
-            )
-        except Exception as error:
-            failure = failure or f"production_restore_failed:{type(error).__name__}:{error}"
-    else:
-        try:
-            remove_override(override_path(arguments.service))
-            run("systemctl", "daemon-reload")
-            run("systemctl", "start", arguments.service)
-            final_pid = wait_service(arguments.service)
-        except Exception as error:
-            failure = failure or f"prebackup_restore_failed:{type(error).__name__}:{error}"
-
-    final_loader_sha256 = (
+    final_daemon = (
+        sha256(arguments.installed_daemon)
+        if arguments.installed_daemon.is_file()
+        else "missing"
+    )
+    final_loader = (
         sha256(arguments.loader) if arguments.loader.is_file() else "missing"
     )
-    final_configuration_sha256 = (
+    final_configuration = (
         sha256(arguments.configuration)
         if arguments.configuration.is_file()
         else "missing"
     )
 
-    try:
-        verify_database_integrity(arguments.production_database)
-    except Exception as error:
-        failure = failure or f"production_integrity_failed:{type(error).__name__}:{error}"
-
-    if loader_before and final_loader_sha256 != loader_before:
-        failure = failure or "loader_changed"
-    if configuration_before and final_configuration_sha256 != configuration_before:
-        failure = failure or "configuration_changed"
-    if override_path(arguments.service).exists():
-        failure = failure or "runtime_override_remains"
-    if final_pid <= 0:
-        failure = failure or "final_service_not_running"
-
-    passed = candidate_accepted and not failure
     report = {
         "schemaVersion": 1,
         "passed": passed,
@@ -608,15 +627,13 @@ def execute(arguments: argparse.Namespace) -> dict[str, Any]:
         "scenarioServicePid": scenario_pid,
         "finalServicePid": final_pid,
         "candidateDaemonSha256": arguments.expected_daemon_sha256,
-        "finalDaemonSha256": final_daemon_sha256,
-        "loaderSha256": final_loader_sha256,
-        "configurationSha256": final_configuration_sha256,
-        "productionDatabaseLogicalSha256Before": production_before,
-        "productionDatabaseUnchangedDuringScenario": (
-            bool(production_before)
-            and database_logical_sha256(arguments.production_database)
-            == production_before
+        "finalDaemonSha256": final_daemon,
+        "loaderSha256": final_loader,
+        "configurationSha256": final_configuration,
+        "productionDatabaseLogicalSha256Before": (
+            evidence.get("productionFingerprint", "")
         ),
+        "productionDatabaseUnchangedDuringScenario": production_unchanged,
         "runtimeOverrideRemoved": (
             not override_path(arguments.service).exists()
         ),
@@ -632,12 +649,15 @@ def execute(arguments: argparse.Namespace) -> dict[str, Any]:
         "error": failure,
     }
 
-    outer_report = arguments.evidence_dir / "slice2x-runtime-acceptance.json"
-    outer_report.write_text(
-        json.dumps(report, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    write_checksums(arguments.evidence_dir)
+    if arguments.evidence_dir.exists():
+        outer_report = (
+            arguments.evidence_dir / "slice2x-runtime-acceptance.json"
+        )
+        outer_report.write_text(
+            json.dumps(report, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        write_checksums(arguments.evidence_dir)
     return report
 
 
