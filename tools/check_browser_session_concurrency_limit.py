@@ -129,10 +129,12 @@ def main() -> int:
 
     count_method = texts["repository_source"]
     count_start = count_method.find("countEffectiveActiveByActorId")
-    revoke_start = count_method.find("revokeBySessionId", count_start)
-    if count_start < 0 or revoke_start < 0:
+    count_end = count_method.find("touchLastSeenIfDue", count_start)
+    if count_end < 0:
+        count_end = count_method.find("revokeBySessionId", count_start)
+    if count_start < 0 or count_end < 0:
         fail("could not isolate effective-count implementation")
-    count_body = count_method[count_start:revoke_start]
+    count_body = count_method[count_start:count_end]
 
     for forbidden in ("UPDATE ", "DELETE ", "revoked_at = CURRENT_TIMESTAMP"):
         if forbidden in count_body:
