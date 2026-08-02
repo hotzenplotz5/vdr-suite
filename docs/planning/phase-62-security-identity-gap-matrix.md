@@ -7,30 +7,22 @@ Repository baseline:
 cb77ff66e11dca7db2eafa36525762dcde35102d (main, merge of PR #115)
 
 Accepted runtime slices:
-Slice 1 through Slice 2U
+Slice 1 through Slice 2V
 
-Accepted Slice-2U implementation/runtime head:
-16ff04a4ba371aad32fc4a38bf82f9c0529c532d
+Accepted Slice-2V implementation/runtime head:
+e84415fadb2587ff744ff8927f1f0113920ece2f
 
-Accepted Slice-2U source CI:
-VDR-Suite CI #6690
-Run ID 30723297375
+Accepted Slice-2V source CI:
+VDR-Suite CI #6779
+Run ID 30741293079
 All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
 
-Slice-2U documentation closeout commit:
-4747d725664d4c382d17d3b19fa2776f48ba437b
-
-Final shared closeout and workflow head:
-d00fc5045a136d87323fbc13fb1bfc1030f7d3b5
-
-Final closeout CI:
-VDR-Suite CI #6693
-Run ID 30733265772
-All five jobs successful
-https://github.com/hotzenplotz5/vdr-suite/actions/runs/30733265772
+Documentation-only Slice-2V closeout:
+Canonical closeout updates in progress; final closeout CI pending
 
 Active repository implementation:
-Slice 2V - Browser-Session Idle Expiry and throttled last_seen
+None selected after Slice 2V runtime acceptance
 
 PR #117:
 open, Draft, unmerged
@@ -45,22 +37,22 @@ alone is insufficient.
 | Security area | Current accepted state | Remaining gap | Next bounded work |
 |---|---|---|---|
 | Actor/device model | Canonical persistent actor, device, session and credential context | Protected enrollment and administration | Later lifecycle-administration slice |
-| Authentication | Legacy Basic, optional Managed Basic and browser sessions authenticate ordinary routes; browser cookie has strict precedence; issuing-credential request-time binding is runtime accepted | Native/service mechanisms and compatibility retirement remain open | Preserve while Slice 2V changes only browser-session effectiveness |
-| Browser sessions | Atomic issue/logout, independent cookie and CSRF secrets, persistence, configurable absolute expiry, replay denial, lifecycle outcomes, issuer-lineage enforcement and optional effective per-actor concurrency limit are runtime accepted | Idle expiry is implemented in Slice 2V source but still requires final source CI and real-runtime acceptance; physical cleanup and retention remain separate | Complete only Slice 2V |
-| Browser-session idle expiry | Additive `last_seen_at`, strict optional `0` or `300..86400` idle policy, shared cookie/CSRF effectiveness, 60-second activity-write throttle and idle-aware concurrency count are implemented in source | Final five-job CI and guarded real-yaVDR acceptance | Current Slice 2V acceptance gate |
-| Concurrent browser sessions | Strict optional `0..64` per-actor effective-session limit with atomic deny-new semantics is fully source-, runtime- and closeout-accepted | Cleanup and administration remain separate; Slice 2V adds idle-aware counting without reopening 2U | Slice 2U is closed |
+| Authentication | Legacy Basic, optional Managed Basic and browser sessions authenticate ordinary routes; browser cookie has strict precedence; issuing-credential request-time binding, absolute expiry and idle expiry are runtime accepted | Native/service mechanisms and compatibility retirement remain open | Preserve during the next bounded selection |
+| Browser sessions | Atomic issue/logout, independent cookie and CSRF secrets, persistence, configurable absolute expiry, replay denial, lifecycle outcomes, issuer-lineage enforcement, optional effective per-actor concurrency limit and optional idle expiry are runtime accepted | Physical cleanup, retention and administration remain separate | Fresh post-2V analysis after closeout CI |
+| Browser-session idle expiry | Additive `last_seen_at`, strict optional `0` or `300..86400` idle policy, shared cookie/CSRF effectiveness, 60-second activity-write throttle and idle-aware concurrency count are source- and runtime-accepted | Physical cleanup and retention remain separate | Slice 2V is closed after documentation CI |
+| Concurrent browser sessions | Strict optional `0..64` per-actor effective-session limit with atomic deny-new semantics is fully source-, runtime- and closeout-accepted | Cleanup and administration remain separate; idle-aware counting is accepted through Slice 2V | Slice 2U is closed |
 | Issuing credential lineage | Issuance records `issued_from_credential_id`; later cookie and CSRF requests fail when the issuer is missing, mismatched, inactive, revoked or expired | No cascading descendant cleanup or issuer-management surface | Slice 2T is closed |
 | Grants and scopes | Active exact actor grants load from persistence; unavailable store fails closed; concrete and global exact scopes are runtime accepted | Protected grant administration and broader resource scopes | Later bounded security-management design |
 | Fixed roles | Exact-scope Admin and Read-only semantics are accepted for concrete backends and global `*`; no inherited wildcard semantics | Generic persisted roles remain open | Defer until protected administration is designed |
-| CSRF | Enforced for all accepted browser mutation families; frontend tokens remain memory-only and owner-injected; issuer lifecycle binding is runtime accepted | Future frontend owners still require explicit contracts | Preserve explicit ownership |
-| Central authorization | Accepted through all registered business and administrative POST families | No unmigrated product POST remains in the post-2U inventory | Do not invent another route-migration slice |
+| CSRF | Enforced for all accepted browser mutation families; frontend tokens remain memory-only and owner-injected; issuer and idle lifecycle binding are runtime accepted | Future frontend owners still require explicit contracts | Preserve explicit ownership |
+| Central authorization | Accepted through all registered business and administrative POST families | No unmigrated product POST remains | Do not invent another route-migration slice |
 | Query-scoped cache refresh | SearchTimer preview and EPG cache refresh use distinct permissions and query-derived backend scope | Completion/outcome evidence only | No further route work |
 | Global stale-probe administration | Delete aliases use `epgsearch.native-fuzzy.stale-probes.delete@*`; zero-delete runtime accepted | No protected read/list API or frontend owner | Any future UI requires a separate slice |
-| Browser-session lifetime | Strict configurable absolute `300..86400` alignment for persistence and cookie is runtime accepted | Cleanup and any future refresh policy remain separate; Slice 2V must never extend absolute expiry | Preserve Slice-2R hard upper bound |
+| Browser-session lifetime | Strict configurable absolute `300..86400` alignment for persistence and cookie is runtime accepted | Cleanup and any future refresh policy remain separate; idle activity never extends absolute expiry | Preserve Slice-2R hard upper bound |
 | Browser lifecycle outcomes | Gate-owned pre-dispatch evidence plus issue/revoke outcomes are accepted; failed issue-outcome persistence compensates and failed revoke-outcome persistence expires the cookie | Other operation families and stronger coupling remain open | Later separate outcome/coupling slice |
 | Safe POST classification | All registered non-mutating stateful POSTs are explicitly classified | Re-audit only when new routes are added | No open route gap |
 | Backend policy | Backend read-only/capability/domain checks remain independent from actor authorization | Preserve this separation for every future change | Every future operation slice |
-| Accountability | Pre-dispatch evidence, browser lifecycle outcomes and Slice-2U limit-reached policy outcomes are accepted and secret-free | Other outcomes, stronger coupling/outbox, protected query/export/retention remain open | Separate future design |
+| Accountability | Pre-dispatch evidence, browser lifecycle outcomes, concurrency-limit policy outcomes and idle-expiry denial evidence are accepted and secret-free | Other outcomes, stronger coupling/outbox, protected query/export/retention remain open | Separate future design |
 | Revisions/idempotency | Domain-specific partial mechanisms only | Common preconditions, idempotency and durable operation lifecycle | Later Phase 62 slice |
 | Administration | No general security-management API | Protected identity, credential, grant and role operations | Separate design and implementation slices |
 | Native/service clients | Core model is transport-neutral | Enrollment, rotation, refresh and revocation contracts | Later Phase 62 slice |
@@ -248,14 +240,9 @@ Evidence directory:
 /var/backups/vdr-suite-phase62-slice2u-20260802T041910Z-16ff04a4ba37/runtime-acceptance-slice2u
 ```
 
-The accepted Slice-2U runtime deliberately contains no idle timeout,
-`last_seen`, cleanup, retention, automatic eviction, session-administration API,
-route, permission, frontend, Android or Phase 63-67 change. Slice 2V extends the
-source model without reopening the accepted Slice-2U evidence.
+## Runtime-accepted Slice 2V evidence
 
-## Active Slice 2V boundary
-
-Slice 2V adds only:
+Slice 2V introduced:
 
 ```text
 VDR_SUITE_BROWSER_SESSION_IDLE_TIMEOUT_SECONDS
@@ -266,19 +253,97 @@ security_browser_session_credentials.last_seen_at
 60-second minimum activity-write interval
 ```
 
-The source contract requires:
+The additive migration backfills existing rows from `created_at`. Cookie and
+CSRF verification share one repository-owned idle calculation. Absolute
+`expires_at` remains unchanged. Idle-expired rows do not consume a concurrency
+slot and are not physically deleted, revoked or evicted.
 
-- additive idempotent schema upgrade and `created_at` backfill;
-- one repository-owned idle calculation for cookie and CSRF paths;
-- absolute `expires_at` as an unchanged hard upper bound;
-- ordinary GET, mutation and logout denial with `session_expired` after idle
-  expiry;
-- fail-closed invalid configuration and activity-persistence errors;
-- idle-expired rows excluded from the Slice-2U effective count;
-- no cleanup, retention, eviction or automatic revocation.
+```text
+PHASE_62_SLICE_2V_RUNTIME_ACCEPTANCE=PASS
 
-Source CI and real-runtime acceptance remain required before Slice 2V becomes
-accepted installed runtime.
+Implementation/runtime head:
+e84415fadb2587ff744ff8927f1f0113920ece2f
+
+Source CI:
+#6779 / run 30741293079 / all five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
+
+Installed/running daemon SHA-256:
+e0b6f6de08527b6af49d526ca0118b14b6fb85ff3335fc607ca1b531cdee5f60
+
+Loader SHA-256:
+3758aba3c9f87c99751bb59408f69f852579581e2f8251c720b3b7845f75399a
+
+Restored configuration SHA-256:
+8faffe1a18f996681d6ca5f438df9e47626f8992e8cd8d1b67e0c25b1895ed6b
+
+Final service PID:
+86549
+
+Runtime report SHA-256:
+0a961fbc8b51158fd4a16aa24fc9afde7dafa9d5272e986a46ec73880c311f86
+
+Configured idle timeout:
+300 seconds
+
+Activity-write interval:
+60 seconds
+
+Ordinary GET before idle expiry:
+HTTP 200
+
+Ordinary GET after idle expiry:
+HTTP 401 session_expired
+
+Protected mutation after idle expiry:
+HTTP 401 session_expired
+
+last_seen writes inside accepted interval:
+1
+
+Absolute expiry unchanged:
+yes
+
+Replacement logout:
+HTTP 204
+
+Revoked replacement-cookie replay:
+HTTP 401 credential_revoked
+
+Acceptance lifecycle active rows after cleanup:
+0
+
+SQLite quick check:
+ok
+
+SQLite foreign-key check:
+empty
+
+Accountability secret-free:
+yes
+
+VDR domain mutations:
+0
+
+Final service state:
+active
+
+Runtime drop-in:
+removed
+
+Idle test environment:
+not set
+```
+
+Evidence directory:
+
+```text
+/var/backups/vdr-suite-phase62-slice2v-20260802T092139Z-e84415fadb25
+```
+
+The accepted Slice-2V runtime deliberately contains no cleanup, retention,
+automatic eviction, session-administration API, sliding absolute expiry, generic
+security administration, Android or Phase 63-67 change.
 
 ## Phase 62 dependency order
 
@@ -291,10 +356,10 @@ accepted installed runtime.
 5. **Browser-session issue/revoke outcome accountability — Slice 2S accepted.**
 6. **Browser-session issuing-credential lifecycle binding — Slice 2T accepted.**
 7. **Concurrent effective browser-session limit — Slice 2U fully closed.**
-8. **Fresh post-2U gap analysis — completed.**
-9. **Browser-session idle expiry and throttled `last_seen` — Slice 2V source
-   implementation complete; final CI and real-runtime acceptance pending.**
-10. **Physical cleanup and retention — open as a later separate slice.**
+8. **Browser-session idle expiry and throttled `last_seen` — Slice 2V runtime
+   accepted; documentation closeout CI pending.**
+9. **Fresh post-2V gap analysis — required after closeout CI.**
+10. **Physical cleanup and retention — open as a separate candidate.**
 11. **Common revisions, idempotency and durable operation lifecycle — open.**
 12. **Broader outcomes, coupling/outbox and protected audit reads — open.**
 13. **Protected identity, credential, grant and generic-role administration —
@@ -304,10 +369,13 @@ accepted installed runtime.
 
 ## Exact next action
 
-Evaluate all five GitHub Actions jobs on the final Slice-2V stabilization head.
-Only after source CI is fully green, perform one guarded real-yaVDR acceptance
-for the changed daemon and additive browser-session schema.
+Require all five GitHub Actions jobs for the documentation-only Slice-2V
+closeout.
+
+No next implementation slice is selected by this runtime acceptance. Perform a
+fresh post-2V gap analysis only after the closeout CI is fully green, then select
+exactly one bounded slice.
 
 Do not begin cleanup, retention, automatic eviction, session administration,
 general security administration, Outbox, Android or Phase 63-67 work before
-Slice 2V is fully accepted and closed.
+Slice 2V is fully closed.
