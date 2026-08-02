@@ -26,6 +26,8 @@ struct SecurityGateDecision
     bool protectedMutation = false;
     bool browserSessionPresented = false;
     bool browserAuthenticated = false;
+    AuthorizationDecision authorizationDecision;
+    std::string operationId;
     RequestSecurityContext context;
     HttpServerResponse rejection;
 };
@@ -404,6 +406,8 @@ public:
             return gate;
         }
 
+        gate.authorizationDecision = decision;
+        gate.operationId = operationId;
         gate.allowed = true;
         return gate;
     }
@@ -417,6 +421,63 @@ public:
         {
             response.headers["X-Correlation-ID"] = context.correlationId;
         }
+    }
+
+    bool appendProtectedMutationOutcome(
+        const SecurityGateDecision& gate,
+        int statusCode) const
+    {
+        if (!gate.allowed ||
+            !gate.protectedMutation ||
+            !gate.authorizationDecision.allowed)
+        {
+            return false;
+        }
+
+        const bool succeeded =
+            statusCode >= 200 && statusCode <= 299;
+
+        AccountabilityEvent event;
+        event.eventId = opaqueId("audit");
+        event.classes = succeeded ? "audit" : "audit,security";
+        event.eventType = succeeded
+            ? "operation.succeeded"
+            : "operation.failed";
+        event.severity = succeeded ? "info" : "error";
+        event.occurredAt = nowUtc();
+        event.actorId = gate.context.actor.actorId.empty()
+            ? "anonymous"
+            : gate.context.actor.actorId;
+        event.actorType = actorTypeName(gate.context.actor.type);
+        event.deviceId = gate.context.device
+            ? gate.context.device->deviceId
+            : "";
+        event.sessionId = gate.context.session
+            ? gate.context.session->sessionId
+            : "";
+        event.authenticationState =
+            authenticationStateName(gate.context.authenticationState);
+        event.permission = gate.authorizationDecision.permission;
+        event.backendId = gate.authorizationDecision.backendId;
+        event.operationId = gate.operationId;
+        event.requestId = gate.context.requestId;
+        event.correlationId = gate.context.correlationId;
+        event.action = gate.authorizationDecision.action;
+        event.decision = "allowed";
+        event.reasonCode =
+            "http_status_" + std::to_string(statusCode);
+        event.outcome = succeeded ? "succeeded" : "failed";
+        return accountabilityRepository_.append(event);
+    }
+
+    HttpServerResponse outcomeAccountabilityUnavailableResponse(
+        const RequestSecurityContext& context) const
+    {
+        return errorResponse(
+            503,
+            "accountability_unavailable",
+            "Security outcome accountability persistence is unavailable",
+            context);
     }
 
 private:
