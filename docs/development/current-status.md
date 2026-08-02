@@ -30,11 +30,20 @@ VDR-Suite CI #6690
 Run ID: 30723297375
 All five jobs successful
 
-Documentation-only Slice-2U closeout:
-This commit; closeout CI pending
+Slice-2U documentation closeout commit:
+4747d725664d4c382d17d3b19fa2776f48ba437b
+
+Final shared closeout and workflow head:
+d00fc5045a136d87323fbc13fb1bfc1030f7d3b5
+
+Final closeout GitHub Actions:
+VDR-Suite CI #6693
+Run ID: 30733265772
+All five jobs successful
+https://github.com/hotzenplotz5/vdr-suite/actions/runs/30733265772
 
 Active repository implementation:
-None selected after Slice 2U runtime acceptance
+Slice 2V - Browser-Session Idle Expiry and throttled last_seen
 
 Installed/running daemon SHA-256:
 0e3ec0d57f4471804824247f712c2457015cc22ac9576df60d8d77ed8ddb3134
@@ -109,7 +118,7 @@ Durable evidence:
 Slice 2T closes the request-time lineage gap for
 `issued_from_credential_id`. Both ordinary browser-cookie authentication
 and CSRF verification require the issuing credential to exist, belong to
-the same actor, remain active, remain unrevoked and remain unexpired.
+the same actor, remain active, unrevoked and unexpired.
 
 Fail-closed mapping:
 
@@ -276,21 +285,34 @@ The default remains unlimited. Idle timeout, `last_seen`, sliding refresh,
 cleanup, retention, automatic eviction and session-administration APIs remain
 outside Slice 2U.
 
-## Remaining Phase 62 work
+## Fresh post-2U gap analysis
 
-Phase 62 still lacks:
+The accepted POST inventory is complete; no new route-migration family remains.
+The open Phase 62 gaps are:
 
-- full CI for this documentation-only Slice-2U closeout;
-- a fresh post-2U gap analysis and bounded next-slice selection;
-- browser-session idle expiry and cleanup/retention policy;
+- browser-session idle expiry with throttled activity persistence;
+- physical cleanup and retention as a later separate policy;
 - outcome accountability for other operation families;
 - stronger transactional coupling or outbox semantics;
-- protected identity, credential, role and grant administration;
+- common revision, idempotency and durable operation lifecycle;
+- protected actor, identity, credential, grant and role administration;
 - native/service credential enrollment, rotation and revocation;
-- generic persisted role definitions beyond the fixed catalogue;
-- common revision, idempotency and durable operation contracts;
-- protected audit query/export/retention;
-- compatibility-retirement readiness and final Phase 62 closeout.
+- protected audit reads, export, redaction and retention;
+- compatibility retirement and final Phase 62 closeout.
+
+The repository already has absolute `expires_at`, request-time browser-cookie and
+CSRF resolution and an additive browser-session table. It has no dedicated
+activity timestamp. Existing `updated_at` cannot be reused because revocation,
+expiry and other lifecycle writes also modify it.
+
+Therefore the next bounded slice is:
+
+```text
+Phase 62 Slice 2V - Browser-Session Idle Expiry and throttled last_seen
+```
+
+The required additive `last_seen_at` column is part of this browser-session-only
+slice; no separate general timestamp or schema precursor is required.
 
 ## Pull request truth
 
@@ -299,13 +321,11 @@ merge it, enable auto-merge, force-push, rewrite branch history or change PR
 metadata without explicit approval.
 
 The PR description is materially stale. Current repository truth is this file,
-[Current State](../CURRENT.md), the active
+[Current State](../CURRENT.md), the accepted
 [Slice 2U closeout](phase-62-slice-2u-browser-session-concurrency-limit.md), the
-[Slice 2T closeout](phase-62-slice-2t-browser-session-issuer-binding.md), the
-[Slice 2S closeout](phase-62-slice-2s-browser-session-outcome-accountability.md),
-the [Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md)
-and the
-[Security and Identity Architecture](../architecture/security-identity-foundation.md).
+[Phase 62 Runtime Evidence](phase-62-runtime-evidence.md), the
+[Phase 62 Gap Matrix](../planning/phase-62-security-identity-gap-matrix.md) and
+the [Security and Identity Architecture](../architecture/security-identity-foundation.md).
 
 ### Preferred edit path for new chats
 
@@ -334,11 +354,14 @@ diff before treating a GitHub change as complete.
 
 ## Exact next action
 
-Require all five GitHub Actions jobs for this documentation-only Slice-2U
-closeout.
+Document and implement only Slice 2V. Validate its focused configuration,
+repository, authenticator, HTTP and architecture contracts, then evaluate all
+five GitHub Actions jobs on the final stabilization head. Because Slice 2V
+changes the daemon and browser-session schema, a new guarded real-yaVDR runtime
+acceptance is required only after source CI is green.
 
-No next implementation slice is selected by this closeout. Perform a fresh
-post-2U gap analysis only after full closeout CI.
+Do not begin cleanup, retention, eviction, session administration, broader
+security administration, Outbox, Android or Phase 63-67 work.
 
 ## Authoritative links
 
