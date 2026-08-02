@@ -69,8 +69,11 @@ Run ID 30741293079
 All five jobs successful
 https://github.com/hotzenplotz5/vdr-suite/actions/runs/30741293079
 
-Documentation closeout:
-canonical closeout updates in progress; final closeout CI pending
+Canonical documentation closeout head:
+45f1cc78d2c98f6db4d039a5ea7189f51bbcf8e9
+
+Final closeout CI:
+pending on the current branch head
 
 Active implementation after Slice 2V:
 none selected
@@ -305,13 +308,12 @@ No next implementation slice is selected by the Slice-2V runtime acceptance.
 
 ## Exact next action
 
-1. complete the canonical documentation-only Slice-2V closeout;
-2. require all five GitHub Actions jobs on the final closeout head;
-3. update the PR #117 description with the accepted Slice-2V source and runtime
+1. require all five GitHub Actions jobs on the final Slice-2V closeout head;
+2. update the PR #117 description with the accepted Slice-2V source and runtime
    evidence while keeping the PR open and Draft;
-4. only after full green closeout CI, perform a fresh post-2V gap analysis;
-5. select exactly one bounded next Phase-62 slice;
-6. do not combine selection with implementation or runtime mutation.
+3. only after full green closeout CI, perform a fresh post-2V gap analysis;
+4. select exactly one bounded next Phase-62 slice;
+5. do not combine selection with implementation or runtime mutation.
 
 Do not begin cleanup, retention, eviction, session administration, broader
 security administration, Outbox, Android or Phase 63-67 runtime before Slice 2V
