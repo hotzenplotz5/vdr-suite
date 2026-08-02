@@ -5,6 +5,7 @@ import importlib.util
 import shlex
 import sys
 import tempfile
+import time
 from pathlib import Path
 from types import ModuleType
 
@@ -39,14 +40,21 @@ def load_implementation(path: Path) -> ModuleType:
     return module
 
 
-def service_argument(arguments: list[str]) -> str:
+def argument_value(
+    arguments: list[str],
+    name: str,
+    default: str = "",
+) -> str:
     for index, argument in enumerate(arguments):
-        if argument.startswith("--service="):
-            value = argument.split("=", 1)[1]
-            return value or DEFAULT_SERVICE
-        if argument == "--service" and index + 1 < len(arguments):
+        if argument.startswith(name + "="):
+            return argument.split("=", 1)[1]
+        if argument == name and index + 1 < len(arguments):
             return arguments[index + 1]
-    return DEFAULT_SERVICE
+    return default
+
+
+def service_argument(arguments: list[str]) -> str:
+    return argument_value(arguments, "--service", DEFAULT_SERVICE) or DEFAULT_SERVICE
 
 
 def install_audit_contract(implementation: ModuleType) -> None:
@@ -111,6 +119,95 @@ def install_environment_validation_contract(
             )
             return
 
+        original_require(condition, message)
+
+    implementation.require = validated_require
+
+
+def running_daemon_observation(
+    implementation: ModuleType,
+    service: str,
+) -> tuple[str, int, str]:
+    state = implementation.run(
+        Path.cwd(),
+        "systemctl",
+        "is-active",
+        service,
+        check=False,
+    )
+    try:
+        pid = implementation.service_pid(Path.cwd(), service)
+    except Exception:
+        return state or "unknown", 0, "unreadable"
+
+    if pid <= 0:
+        return state or "unknown", pid, "missing"
+
+    try:
+        executable_hash = implementation.sha256(Path(f"/proc/{pid}/exe"))
+    except OSError:
+        executable_hash = "unreadable"
+    return state or "unknown", pid, executable_hash
+
+
+def install_running_daemon_validation_contract(
+    implementation: ModuleType,
+    service: str,
+    expected_sha256: str,
+    *,
+    observer=None,
+    sleep_callback=time.sleep,
+    max_attempts: int = 40,
+    required_stable_matches: int = 4,
+) -> None:
+    original_require = implementation.require
+    guarded_messages = {
+        "running_new_daemon_mismatch",
+        "final_running_daemon_mismatch",
+    }
+
+    def observe() -> tuple[str, int, str]:
+        if observer is not None:
+            return observer()
+        return running_daemon_observation(implementation, service)
+
+    def wait_for_expected_running_daemon(message: str) -> None:
+        stable_pid = 0
+        stable_matches = 0
+        last_state = "unknown"
+        last_pid = 0
+        last_hash = "unreadable"
+
+        for attempt in range(max_attempts):
+            last_state, last_pid, last_hash = observe()
+            if (
+                last_state == "active"
+                and last_pid > 0
+                and last_hash == expected_sha256
+            ):
+                if last_pid == stable_pid:
+                    stable_matches += 1
+                else:
+                    stable_pid = last_pid
+                    stable_matches = 1
+                if stable_matches >= required_stable_matches:
+                    return
+            else:
+                stable_pid = 0
+                stable_matches = 0
+
+            if attempt + 1 < max_attempts:
+                sleep_callback(0.25)
+
+        raise implementation.AcceptanceError(
+            f"{message}:state={last_state}:pid={last_pid}:"
+            f"sha256={last_hash}"
+        )
+
+    def validated_require(condition: bool, message: str) -> None:
+        if message in guarded_messages and not condition:
+            wait_for_expected_running_daemon(message)
+            return
         original_require(condition, message)
 
     implementation.require = validated_require
@@ -264,6 +361,51 @@ def self_test_environment_validation_contract() -> None:
         raise RuntimeError("loader_self_test_retained_override_accepted")
 
 
+def self_test_running_daemon_validation_contract() -> None:
+    expected = "phase62-daemon"
+    successful_observations = iter(
+        (
+            ("active", 101, "other-daemon"),
+            ("active", 202, expected),
+            ("active", 202, expected),
+            ("active", 202, expected),
+            ("active", 202, expected),
+        )
+    )
+    recovered = make_fake_implementation()
+    install_running_daemon_validation_contract(
+        recovered,
+        DEFAULT_SERVICE,
+        expected,
+        observer=lambda: next(successful_observations),
+        sleep_callback=lambda seconds: None,
+        max_attempts=5,
+        required_stable_matches=4,
+    )
+    recovered.require(False, "final_running_daemon_mismatch")
+
+    persistent = make_fake_implementation()
+    install_running_daemon_validation_contract(
+        persistent,
+        DEFAULT_SERVICE,
+        expected,
+        observer=lambda: ("active", 303, "wrong-daemon"),
+        sleep_callback=lambda seconds: None,
+        max_attempts=2,
+        required_stable_matches=2,
+    )
+    try:
+        persistent.require(False, "final_running_daemon_mismatch")
+    except RuntimeError as error:
+        if str(error) != (
+            "final_running_daemon_mismatch:state=active:pid=303:"
+            "sha256=wrong-daemon"
+        ):
+            raise
+    else:
+        raise RuntimeError("loader_self_test_persistent_mismatch_accepted")
+
+
 def self_test_systemd_override_contract() -> None:
     with tempfile.TemporaryDirectory(prefix="phase62-idle-entry-") as directory:
         root = Path(directory)
@@ -307,6 +449,8 @@ def self_test_loader() -> int:
         "require",
         "restore_exact",
         "run",
+        "service_pid",
+        "sha256",
         "write_idle_config",
     ):
         if not hasattr(implementation, attribute):
@@ -317,6 +461,7 @@ def self_test_loader() -> int:
     if implementation.accountability_rows.__name__ != "validated_reader":
         raise RuntimeError("idle_expiry_audit_contract_not_installed")
     self_test_environment_validation_contract()
+    self_test_running_daemon_validation_contract()
     self_test_systemd_override_contract()
     print("PHASE_62_IDLE_RUNNER_LOADER_SELF_TEST=PASS")
     return 0
@@ -325,8 +470,22 @@ def self_test_loader() -> int:
 def main() -> int:
     implementation = load_implementation(implementation_path())
     service = service_argument(sys.argv[1:])
+    expected_new_daemon_sha256 = argument_value(
+        sys.argv[1:],
+        "--expected-new-daemon-sha256",
+    )
+    if not expected_new_daemon_sha256:
+        print("PHASE_62_SLICE_2V_RUNTIME_ACCEPTANCE=FAIL")
+        print("FAILURE_REASON=expected_new_daemon_sha256_missing")
+        return 1
+
     install_audit_contract(implementation)
     install_environment_validation_contract(implementation, service)
+    install_running_daemon_validation_contract(
+        implementation,
+        service,
+        expected_new_daemon_sha256,
+    )
     cleanup_override = install_systemd_override_contract(
         implementation,
         service,
