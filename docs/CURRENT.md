@@ -45,6 +45,9 @@ VDR Remote and Live Overlay hardening (#110)
 Backend-scoped Global Search (#111)
 Configurable photorealistic VDR Remote (#115)
 
+Next strict runtime phase:
+Phase 62 - Identity, RBAC and Accountability Foundation
+
 Current active runtime phase:
 Phase 62 - Identity, RBAC and Accountability Foundation
 
